@@ -110,7 +110,7 @@ function Placeholder({ tone = 'muted', children }: { tone?: 'muted' | 'warn'; ch
 /**
  * One declared option of the object field a state machine runs on — DERIVED
  * from the spec's own `SelectOption` (`@objectstack/spec/data`), with the one
- * narrowing this projection needs named in the `Omit` below (objectui#6887).
+ * narrowing this projection needs named in the `Omit` below (`5c09cca27`).
  *
  * It was a hand-written `{ label?; value; color?; default? }` quadruple: four of
  * the spec's five keys, with the fifth dropped by SILENCE — no `Omit` naming it,

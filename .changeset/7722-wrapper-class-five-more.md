@@ -4,7 +4,7 @@
 
 Declare `wrapperClass` on `SwitchSchema`, `TextareaSchema`, `DatePickerSchema`,
 `SelectSchema` and `ListSchema`, on both faces (objectui#7722 — the read-driven
-residue outside objectui#6938's batch, one key over five more types).
+residue outside the batch `b74a8598d` landed, one key over five more types).
 
 Each of `renderers/form/switch.tsx`, `textarea.tsx`, `date-picker.tsx`,
 `select.tsx` and `renderers/data-display/list.tsx` reads `schema.wrapperClass`
@@ -13,11 +13,11 @@ onto its wrapper element, and neither the TypeScript interface (`form.ts`,
 `zod/data-display.zod.ts`) declared the key. The reads compiled through
 `BaseSchema`'s index signature (objectui#5155) and the values parsed through
 `.passthrough()`, admitted unexamined. The same key, on the same class of read,
-is declared on `CheckboxSchema` (objectui#6938), `FileUploadSchema` and
+is declared on `CheckboxSchema` (`b74a8598d`), `FileUploadSchema` and
 `FilterBuilderSchema` (objectui#6150); these five were left out only because
 their doc pages never listed it.
 
-**minor, not patch — the published face gains five members.** objectui#6938 and
+**minor, not patch — the published face gains five members.** `b74a8598d` and
 objectui#7295 graded a one- or two-key residue `patch` because "the accept set
 only widens toward what already renders"; that reasoning still describes the
 VALUE dimension here, but this change is the batch shape of objectui#6150

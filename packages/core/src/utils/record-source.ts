@@ -28,12 +28,12 @@ import type { ViewData } from '@object-ui/types';
  *     twin's reads *"objectName — the THIRD record source `getDataConfig`
  *     resolves, after `data` and `staticData`"*, naming `ObjectMap.tsx`'s local
  *     wrapper; the gantt twin names `resolveRecordSourceConfig` itself), ruled
- *     objectui#6939 (2026-09-02) and pinned by
+ *     2026-09-02 (landed as `77cb489b4`) and pinned by
  *     `objectql-record-source-refinement-6939.test.ts`. **That is this
  *     function.**
  *  2. **How does `objectName` get POPULATED when it is absent?** — the
  *     authoring-time gap-fill in `normalizeListViewSchema` (objectui#7477,
- *     ruling B of PR #7628), where an `objectName` already on the schema WINS
+ *     ruling B, landed as `00d2fa682`), where an `objectName` already on the schema WINS
  *     and the `data` block only fills a gap: *"it can never re-point a binding
  *     that already resolves."*
  *
@@ -116,7 +116,7 @@ export type RecordSourceDataArm = 'view-data' | 'array' | 'undeclared';
 /**
  * The authored `data` shape a block ON THAT ARM may declare — the DECLARATION
  * half of the same per-block ruling {@link authoredDataIsOnTheDeclaredArm}
- * decides at RUNTIME (objectui#9473).
+ * decides at RUNTIME (`ab856ed30`).
  *
  * ## The contradiction this closes
  *
@@ -182,7 +182,7 @@ function authoredDataIsOnTheDeclaredArm(authored: unknown, arm: RecordSourceData
 
 /**
  * The block's record source, resolved from the ruled three-rung ladder
- * (objectui#7632), with rung 1 judged against the block's own published `data`
+ * (`ce2aaefe1`), with rung 1 judged against the block's own published `data`
  * row (objectui#8348).
  *
  * ## The ruled contract this is the ONE implementation of
@@ -244,7 +244,7 @@ function authoredDataIsOnTheDeclaredArm(authored: unknown, arm: RecordSourceData
  *    the ruling reaches it, so it passes `'undeclared'` and nothing about it
  *    changes here.
  *
- * ## The DECLARATION follows the arm too (objectui#9473)
+ * ## The DECLARATION follows the arm too (`ab856ed30`)
  *
  * The `data` member below is {@link AuthoredRecordSourceData}`<Arm>`, not a flat
  * `ViewData`: the arm decides what a site may DECLARE exactly as it decides

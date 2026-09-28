@@ -213,7 +213,7 @@ export interface ManifestValidationResult {
    * array. So the subset relation that licenses a permissive READER runs the
    * other way here — a wider union accepts nothing extra, it obliges every
    * consumer to handle an arm this package cannot emit. That is why the
-   * retired `'field'` arm (objectui#6950 on the input boundary, objectui#8315
+   * retired `'field'` arm (`9e37d9b39` on the input boundary, objectui#8315
    * here) is gone from this end as well; the measurements are on
    * {@link ManifestInput.binding}.
    */

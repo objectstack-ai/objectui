@@ -2,7 +2,7 @@
 ---
 
 Docs only — the canonical `BaseSchema` "Common Properties" table in
-`content/docs/api/schema-reference.md` (objectui#7079). No package source, no
+`content/docs/api/schema-reference.md`. No package source, no
 published contract and no runtime behaviour is touched, hence the empty
 declaration; `apps/site` is `private: true` and sits in `.changeset/config.json`'s
 `ignore` list, so nothing under `content/` ships from this change.

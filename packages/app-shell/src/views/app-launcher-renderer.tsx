@@ -8,7 +8,7 @@
 
 /**
  * `app:launcher` — the app launcher grid, addressable from a page schema
- * (objectui#6661).
+ * (`969ba84f4`).
  *
  * ## Why this exists
  *
@@ -66,7 +66,7 @@
  * address, describe or disable.
  *
  * Registered in app-shell rather than `@object-ui/components` for the same
- * reason `global:search` is (objectui#6757): the providers are here.
+ * reason `global:search` is (`f99932a42`): the providers are here.
  * `@object-ui/components` depends on neither `@object-ui/layout` nor
  * `react-router-dom` (measured against its `package.json` on `592acafbe`), and
  * this block needs the router to open an app. The eager palette placeholder in
@@ -78,7 +78,7 @@
  * This does NOT put the block in the Studio page palette: `PALETTE_EXCLUSIONS`
  * still records `app:launcher` as a shell singleton, and that is a palette
  * decision about authoring ergonomics, independent of whether a declared type
- * renders — exactly as objectui#6757 left `global:notifications`.
+ * renders — exactly as `f99932a42` left `global:notifications`.
  */
 
 import * as React from 'react';

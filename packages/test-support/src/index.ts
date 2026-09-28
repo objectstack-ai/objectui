@@ -60,7 +60,7 @@ export { enumOptions, shapeEnumOptions } from './spec-enum-options';
 export { arrayElementSchema } from './spec-array-element';
 
 /**
- * The Zod wrapper-key vocabulary (objectui#6923). The DATA lives in
+ * The Zod wrapper-key vocabulary (`d3bf4fa6f`). The DATA lives in
  * `zod-wrapper-keys.json` so that `node scripts/check-*.mjs` can read the same
  * bytes through `@object-ui/test-support/zod-wrapper-keys` — the one thing this
  * package's `.` entry, being TypeScript source, cannot offer a bare-node

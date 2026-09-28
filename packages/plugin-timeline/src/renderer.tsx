@@ -7,7 +7,7 @@
  */
 
 import * as React from 'react';
-import { ComponentRegistry } from '@object-ui/core';
+import { ComponentRegistry, toDomProps } from '@object-ui/core';
 import type { TimelineRenderSchema } from './renderHandoff';
 import {
   Timeline,
@@ -443,7 +443,7 @@ function calculateDateRange(rows: readonly GanttRow[]): { minDate: string; maxDa
  * reached `Date.prototype[Symbol.toPrimitive]`, reached
  * `Date.prototype.toString` on a receiver with no slot, and took the render
  * down with it. That is a blank screen where a named diagnostic belongs, which
- * is the exact failure mode #6781 put the type gate here to remove and #6907
+ * is the exact failure mode #6781 put the type gate here to remove and `7fc5c3c12`
  * removed one function downstream.
  *
  * `instanceof` is not even total on its own terms: it walks
@@ -455,7 +455,7 @@ function calculateDateRange(rows: readonly GanttRow[]): { minDate: string; maxDa
  * - `Object.prototype.toString.call(value) === '[object Date]'` performs
  *   `Get(O, @@toStringTag)` UNCONDITIONALLY (ES2015 19.1.3.6 step 16), even
  *   once the builtin tag is decided. A `@@toStringTag` getter that throws is
- *   an authored value, and #6907 measured that exact input crashing the
+ *   an authored value, and `7fc5c3c12` measured that exact input crashing the
  *   speller. It trades an impostor crash for a getter crash.
  * - `Number.isFinite(value.getTime())` calls the AUTHOR'S `getTime`. A
  *   `class X extends Date` that overrides it is a REAL Date — `super()` gave
@@ -492,7 +492,7 @@ const isDate = (value: unknown): value is Date => {
 
 /**
  * How a gantt date value is SPELLED inside a diagnostic (objectui#6759,
- * ruled into a rule by objectui#6907).
+ * ruled into a rule by `7fc5c3c12`).
  *
  * ## THE RULE
  *
@@ -512,7 +512,7 @@ const isDate = (value: unknown): value is Date => {
  * ## Why the old `String` fallback had to go — three faults, all measured
  *
  * The fallback was written by #6759 when nothing but `[object Object]`-shaped
- * values could reach it. #6905 (the #6781 type rule) routes the whole
+ * values could reach it. `85f6a6097` (the #6781 type rule) routes the whole
  * non-date type space through it. Measured on this card's base b458300ca, one
  * row item and a throwaway probe (`startDate: '2024-01-01'`, `endDate` varied):
  *
@@ -539,7 +539,7 @@ const isDate = (value: unknown): value is Date => {
  *    no hint that the wrapper is the fault.
  * 3. It THROWS. The last three rows are live crashes on `main`, and they are
  *    the reason this is not a cosmetic card. #6759 declared this helper "total
- *    by construction" and #6905 made that property load-bearing by putting the
+ *    by construction" and `85f6a6097` made that property load-bearing by putting the
  *    type gate BEFORE `new Date`. But the gate only stopped `new Date` from
  *    throwing; `String(value)` still handed control to author code one line
  *    later, so the crash class did not go away — it moved from
@@ -581,7 +581,7 @@ const isDate = (value: unknown): value is Date => {
  * - `undefined` / `null` -> themselves (#6759 / #6770's pins; how an author
  *   reads a key they forgot to write versus one they wrote as empty).
  * - `symbol` -> `Symbol(desc)` via `Symbol.prototype.toString`, which no
- *   instance can override. `String(aSymbol)` THROWS; #6905's type-first
+ *   instance can override. `String(aSymbol)` THROWS; `85f6a6097`'s type-first
  *   ordering is what finally made this branch reachable.
  * - `bigint` -> the LITERAL, with its `n`. `String(0n)` is `"0"`, which is
  *   fault 2; `${value}n` is what the author typed and is unmistakable.
@@ -606,7 +606,7 @@ const isDate = (value: unknown): value is Date => {
  *   more informative spelling is the non-total one. `Array.isArray` reads no
  *   property and is STILL not total — on a revoked `Proxy` it throws. That is
  *   the one exclusion this docblock claims, and it is stated and exercised
- *   rather than repaired: see the objectui#7036 note below.
+ *   rather than repaired: see the `869b876c8` note below.
  *
  * All eight `typeof` results are covered and no branch falls through to author
  * code. The single reflective operation it performs is the Date test, which is
@@ -622,9 +622,9 @@ const isDate = (value: unknown): value is Date => {
  * operation adds no throw site because it HAS none — not because the gate
  * absorbed it first.
  *
- * ⚠️ objectui#7036 — READ THE TWO PARAGRAPHS ABOVE AS A SEQUENCE, NOT AS A
+ * ⚠️ `869b876c8` — READ THE TWO PARAGRAPHS ABOVE AS A SEQUENCE, NOT AS A
  * CONCLUSION. Each was written as the settled answer and the next card's
- * measurement moved it (#6759 -> #6905 -> #6907 -> #7027). This is the fifth
+ * measurement moved it (#6759 -> `85f6a6097` -> `7fc5c3c12` -> #7027). This is the fifth
  * entry and it is deliberately NOT a fifth claim of totality. The sentence it
  * falsifies is the one directly above the #7027 note: this function DOES add
  * a throw site the accept gate does not have, and it is `Array.isArray`.
@@ -938,7 +938,7 @@ type UnusableGanttDate = { path: string; value: unknown };
  * `timeline-gantt-date-brand-7027.test.tsx`.
  *
  * ⛔ That is the fourth totality claim in this code path and the third to be
- * falsified by the next card's measurement (#6759 -> #6905 -> #6907 -> this).
+ * falsified by the next card's measurement (#6759 -> `85f6a6097` -> `7fc5c3c12` -> this).
  * The pattern is the lesson: totality asserted in prose is a hypothesis, and
  * the only thing that has ever settled it here is an exercised input set. Do
  * not answer a future gap with a fifth sentence — add the row to that file.
@@ -957,12 +957,12 @@ const isGanttDateType = (value: unknown): value is string | number | Date =>
 
 /**
  * WHAT THE ROW WALK BELOW READS, AND WHERE THAT READING IS NOT TOTAL —
- * objectui#7153, the enumeration objectui#7036's docblock pointed at.
+ * objectui#7153, the enumeration `869b876c8`'s docblock pointed at.
  *
  * ## Read this as a BOUNDED READING, not as a totality claim
  *
  * Five cards before this one made a totality claim about this code path
- * (#6759 -> #6905 -> #6907 -> #7027 -> #7036) and FOUR were falsified by the
+ * (#6759 -> `85f6a6097` -> `7fc5c3c12` -> #7027 -> `869b876c8`) and FOUR were falsified by the
  * next card's measurement. #7153 is the fourth falsification: it measured that
  * `spellGanttDateValue`'s `Array.isArray` is not "the last non-total operation
  * on the gantt date path", only the last one inside that function.
@@ -991,7 +991,7 @@ const isGanttDateType = (value: unknown): value is string | number | Date =>
  *                                           the item has a throwing date getter
  *
  * SIX here, and THREE more in `calculateDateRange` (see that function). NINE
- * measured, where #7153's card said five and #7036's docblock repeated it. The
+ * measured, where #7153's card said five and `869b876c8`'s docblock repeated it. The
  * count was never the point, but it is the evidence that prose counting on
  * this path is a hypothesis: both numbers were written after a real
  * measurement, and both were short.
@@ -1034,9 +1034,9 @@ const isGanttDateType = (value: unknown): value is string | number | Date =>
  *    true of the six and was false of the three, and collapsing the two is how
  *    this docblock would start overclaiming again.
  *
- * ## WHY A `catch` IS NOT PUT HERE — re-tested, not inherited from #7036
+ * ## WHY A `catch` IS NOT PUT HERE — re-tested, not inherited from `869b876c8`
  *
- * #7036 refused a `catch` at the speller because it would SUBSTITUTE `an
+ * `869b876c8` refused a `catch` at the speller because it would SUBSTITUTE `an
  * object` for a failure rather than read anything, the opposite of `isDate`'s
  * `catch` (which IS the read, because the language exposes `[[DateValue]]`
  * only by throwing). #7153's dispatch required that argument to be re-tested
@@ -1055,18 +1055,18 @@ const isGanttDateType = (value: unknown): value is string | number | Date =>
  * in the `{value}` hole of `timeline.gantt.unusableRange.malformedDate`. There
  * is no true spelling for a value that cannot be touched, so a real repair
  * needs a value-less diagnostic, which is a new i18n key across ten locale
- * packs: the file surface #7036 deferred as a separate decision.
+ * packs: the file surface the card behind `869b876c8` deferred as a separate decision.
  *
- * And the coverage is the same shape of error #7036's triage caught. That
+ * And the coverage is the same shape of error the triage of the card behind `869b876c8` caught. That
  * `catch` converted THREE of the nine measured sites (U5, U6, and the
  * throwing-getter item) and left the other six throwing — U1 through U4 are
  * upstream of it, and `calculateDateRange`'s three are downstream. The PASSING
  * control held either way: an ordinary row drew 1 bar over a 3-cell axis
  * before and after. One `catch` here would buy 3 of 9 while a docblock went on
- * implying the walk was safe, which is exactly the "1 of 6" trade #7036 was
- * stopped from making.
+ * implying the walk was safe, which is exactly the "1 of 6" trade the card behind
+ * `869b876c8` was stopped from making.
  *
- * ## So this is STATED AND EXERCISED, on #7036's terms
+ * ## So this is STATED AND EXERCISED, on `869b876c8`'s terms
  *
  * The rows are in `./__tests__/timeline-gantt-date-brand-7027.test.tsx`, pin
  * 5, asserting each throw's own MESSAGE so the pin fails if a site MOVES as
@@ -1238,8 +1238,43 @@ function groupAdjacent<T extends { group?: string | null }>(items: T[]): Array<{
  * composed schema `ObjectTimeline` hands down, whose feed items carry the keys
  * objectui#6356 ruled renderer-internal (`color`, `group`, `meta`,
  * `startDate`, `endDate`, `_data`).
+ *
+ * ## The root's DOM channels (objectui#10841)
+ *
+ * Registered as `plugin-timeline:timeline`, this renderer is created by
+ * `SchemaRenderer`, which hands it, as React props, every node key its
+ * metadata strip leaves (`items`, `variant`, `dateFormat`, `scale`,
+ * `rowLabel`, `minDate`, `maxDate`, and so on) beside the attributes it mints
+ * for the DOM. The renderer reads the authored keys off `schema`, never off its
+ * props. Spread onto the root of every variant, that props copy serialized the
+ * schema into the DOM (`items="[object Object]"`, `variant="vertical"`,
+ * `dateformat="long"`) and set off React's unknown-prop warnings.
+ *
+ * The root now takes the converged route, the `container.tsx` /
+ * `header-bar.tsx` shape: `toDomProps(hostProps)` plus `style` by name.
+ * `toDomProps` executes the SDUI widget contract's DOM pass-through from
+ * `@object-ui/core` (`utils/dom-props.ts`, objectui#4425 phase 2), and that file
+ * owns the set and the reason for each member. It is what carries the
+ * `data-obj-id` / `data-obj-type` locator, the `data-testid` an authored
+ * `testId` promises (objectui#8268) and the resolved `aria-*` / `role`.
+ * `style` is the `BaseSchema` member an author writes for the DOM, forwarded
+ * by name as the converged renderers do. ⛔ No local list: a renderer-private
+ * allowlist is a second judge of the same contract, and it drifts from it.
+ *
+ * What the contract drops that used to land here:
+ *
+ * - every authored schema key;
+ * - `disabled`, the verdict `SchemaRenderer` forwards on a disabled node (the
+ *   rail has no disabled state to apply it to);
+ * - `name` / `label`, declared `BaseSchema` members with no effect on an
+ *   `ol` / `div`;
+ * - an authored `title`, which neither `BaseSchema` nor `TimelineSchema`
+ *   declares. It is a global HTML attribute, so it used to give the root a
+ *   native tooltip.
+ *
+ * `ObjectTimeline`, the other caller, passes `schema` alone.
  */
-export const TimelineRenderer = ({ schema, className, ...props }: { schema: TimelineRenderSchema; className?: string; [key: string]: any }) => {
+export const TimelineRenderer = ({ schema, className, style, ...hostProps }: { schema: TimelineRenderSchema; className?: string; [key: string]: any }) => {
     const {
       variant = 'vertical',
       items = [],
@@ -1341,14 +1376,14 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
 
       if (!hasGroups) {
         return (
-          <Timeline className={className} {...props}>
+          <Timeline {...toDomProps(hostProps)} className={className} style={style}>
             {(items as Array<any>).map((item, index) => renderItem(item, index))}
           </Timeline>
         );
       }
 
       return (
-        <div className={cn('px-4 sm:px-6 py-2', className)} {...props}>
+        <div {...toDomProps(hostProps)} className={cn('px-4 sm:px-6 py-2', className)} style={style}>
           {groups.map((g, gi) => (
             <section key={`${g.key}-${gi}`} className="mb-4">
               <header className="sticky top-0 z-10 -mx-4 sm:-mx-6 px-4 sm:px-6 py-1.5 backdrop-blur bg-background/90 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-b">
@@ -1369,7 +1404,7 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
     // Horizontal Timeline
     if (variant === 'horizontal') {
       return (
-        <TimelineHorizontal className={cn("overflow-x-auto [-webkit-overflow-scrolling:touch]", className)} {...props}>
+        <TimelineHorizontal {...toDomProps(hostProps)} className={cn("overflow-x-auto [-webkit-overflow-scrolling:touch]", className)} style={style}>
           {items.map((item: any, index: number) => (
             <TimelineHorizontalItem key={index} className={cn(item.className, onItemClick && 'cursor-pointer')} onClick={() => onItemClick?.(item)}>
               <div className="flex flex-col items-center">
@@ -1529,7 +1564,7 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
       );
 
       return (
-        <TimelineGantt className={cn("overflow-x-auto [-webkit-overflow-scrolling:touch]", className)} {...props}>
+        <TimelineGantt {...toDomProps(hostProps)} className={cn("overflow-x-auto [-webkit-overflow-scrolling:touch]", className)} style={style}>
           {/* Header */}
           <TimelineGanttHeader>
             <TimelineGanttRowLabels className="flex items-center px-2 sm:px-4 py-2 sm:py-3">

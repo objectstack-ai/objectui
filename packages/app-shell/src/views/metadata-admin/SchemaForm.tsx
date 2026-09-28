@@ -1172,7 +1172,7 @@ const SchemaFormNestingContext = React.createContext(false);
 
 /**
  * Defer validation DISPLAY until the author has touched the field
- * (objectui#5416).
+ * (`add10d8f9`).
  *
  * A CREATE form opens on an empty draft, so every required field already
  * fails `safeParse` before a single keystroke: `新建软件包` used to open with
@@ -1247,7 +1247,7 @@ export function SchemaForm(props: SchemaFormProps) {
   const nested = React.useContext(SchemaFormNestingContext);
   const inheritedDefer = React.useContext(DeferIssueDisplayContext);
   useDuplicateFieldHostIdCheck(!nested);
-  // objectui#5416 — a create form defers issue DISPLAY to first touch; a
+  // `add10d8f9` — a create form defers issue DISPLAY to first touch; a
   // nested form inherits whatever the form hosting it decided.
   const deferIssues = props.createMode === true || inheritedDefer;
   return (
@@ -1543,7 +1543,7 @@ function FieldRow({
   onChange: (v: unknown) => void;
 }) {
   const locale = useMetadataLocale();
-  // objectui#5416 — validation-display timing. `touched` flips on the first
+  // `add10d8f9` — validation-display timing. `touched` flips on the first
   // focusout anywhere in this row (React's onBlur IS focusout, so it bubbles
   // out of every widget, including the composite ones that never emit a DOM
   // change event) and on this field's own first edit. While a create form is

@@ -3527,7 +3527,7 @@ const es = {
       detailChangedKeys: 'También cambió:',
       confirmNote: 'Publicar libera atómicamente los {{count}} borradores pendientes de este paquete.',
       publishConfirm: 'Publicar todo',
-      // [objectui#5418] Pre-publish security-posture findings, shown next to
+      // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
       securityBlockTitle: 'La publicación será rechazada: {{count}} elemento(s) necesitan una decisión primero',

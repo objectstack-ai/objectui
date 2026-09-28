@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import type { ObjectAccessScope, ObjectPermission, FieldPermission } from '@objectstack/spec/security';
 import type { MetadataPreviewProps } from '../preview-registry.js';
+import { t as tr, tFormat } from '../i18n.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 
 /**
@@ -48,25 +49,30 @@ import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShe
  * cannot stay invisible here indefinitely — the hand-written copy this
  * replaced was missing `allowExport` outright, so a permission set granting
  * export rendered identically to one that did not (objectstack#4115).
+ *
+ * `short` is the column letter, the same in every locale (the legend spells
+ * the letters out); `long` is the catalogue row of the column's tooltip, read
+ * in the preview's locale (objectui#10862).
  */
 const CAPS: Array<{ key: keyof ObjectPermission; short: string; long: string; danger?: boolean }> = [
-  { key: 'allowCreate', short: 'C', long: 'Create' },
-  { key: 'allowRead', short: 'R', long: 'Read' },
-  { key: 'allowEdit', short: 'U', long: 'Edit' },
-  { key: 'allowDelete', short: 'D', long: 'Delete' },
-  { key: 'allowExport', short: 'E', long: 'Export' },
-  { key: 'allowTransfer', short: 'T', long: 'Transfer' },
+  { key: 'allowCreate', short: 'C', long: 'engine.permissionPreview.cap.create' },
+  { key: 'allowRead', short: 'R', long: 'engine.permissionPreview.cap.read' },
+  { key: 'allowEdit', short: 'U', long: 'engine.permissionPreview.cap.edit' },
+  { key: 'allowDelete', short: 'D', long: 'engine.permissionPreview.cap.delete' },
+  { key: 'allowExport', short: 'E', long: 'engine.permissionPreview.cap.export' },
+  { key: 'allowTransfer', short: 'T', long: 'engine.permissionPreview.cap.transfer' },
   // Restore / Purge were removed with their authoring columns (objectui#6595):
   // `@objectstack/spec` retired both keys, and the operations they claimed to
   // gate have never existed. The `keyof ObjectPermission` typing above is what
   // keeps this honest in the other direction — once the spec bump carrying the
   // retirement lands, re-adding either row stops compiling.
-  { key: 'viewAllRecords', short: 'V*', long: 'View All', danger: true },
-  { key: 'modifyAllRecords', short: 'M*', long: 'Modify All', danger: true },
+  { key: 'viewAllRecords', short: 'V*', long: 'engine.permissionPreview.cap.viewAll', danger: true },
+  { key: 'modifyAllRecords', short: 'M*', long: 'engine.permissionPreview.cap.modifyAll', danger: true },
 ];
 
 /** Access-depth axis (ADR-0057), narrowest first — also the widening order. */
 const SCOPE_ORDER: ObjectAccessScope[] = ['own', 'own_and_reports', 'unit', 'unit_and_below', 'org'];
+/** The access-scope enum values, compacted — identifiers, the same in every locale. */
 const SCOPE_LABEL: Record<ObjectAccessScope, string> = {
   own: 'own',
   own_and_reports: 'own+reports',
@@ -75,17 +81,24 @@ const SCOPE_LABEL: Record<ObjectAccessScope, string> = {
   org: 'org',
 };
 
+/**
+ * One failed sanity check: the catalogue row that words it and the values that
+ * row interpolates, read in the preview's locale at render (objectui#10862).
+ */
 interface Warning {
   object: string;
-  message: string;
+  messageKey: string;
+  vars?: Record<string, string>;
 }
 
 function findWarnings(objects: Record<string, ObjectPermission>): Warning[] {
   const out: Warning[] = [];
   for (const [obj, p] of Object.entries(objects)) {
-    if (p.allowEdit && !p.allowRead) out.push({ object: obj, message: 'Edit granted without Read (record updates will fail).' });
-    if (p.allowDelete && !p.allowRead) out.push({ object: obj, message: 'Delete granted without Read.' });
-    if (p.modifyAllRecords && !p.viewAllRecords) out.push({ object: obj, message: 'Modify All without View All — modifications may target invisible records.' });
+    if (p.allowEdit && !p.allowRead) out.push({ object: obj, messageKey: 'engine.permissionPreview.warn.editWithoutRead' });
+    if (p.allowDelete && !p.allowRead) out.push({ object: obj, messageKey: 'engine.permissionPreview.warn.deleteWithoutRead' });
+    if (p.modifyAllRecords && !p.viewAllRecords) {
+      out.push({ object: obj, messageKey: 'engine.permissionPreview.warn.modifyAllWithoutViewAll' });
+    }
     // No "Purge without Delete" lint: `allowPurge` is retired (objectui#6595),
     // so the combination it warned about can no longer be authored.
     // Same class as Modify-All-without-View-All, one axis down: a write scope
@@ -95,14 +108,15 @@ function findWarnings(objects: Record<string, ObjectPermission>): Warning[] {
     if (read >= 0 && write > read) {
       out.push({
         object: obj,
-        message: `Write scope (${SCOPE_LABEL[p.writeScope!]}) is wider than read scope (${SCOPE_LABEL[p.readScope!]}) — edits may target invisible records.`,
+        messageKey: 'engine.permissionPreview.warn.writeWiderThanRead',
+        vars: { write: SCOPE_LABEL[p.writeScope!], read: SCOPE_LABEL[p.readScope!] },
       });
     }
   }
   return out;
 }
 
-export function PermissionPreview({ name, draft }: MetadataPreviewProps) {
+export function PermissionPreview({ name, draft, locale }: MetadataPreviewProps) {
   const d = draft as Record<string, unknown>;
   const permName = String(d.name ?? name ?? '');
   const label = String(d.label ?? permName);
@@ -136,7 +150,7 @@ export function PermissionPreview({ name, draft }: MetadataPreviewProps) {
   if (objectNames.length === 0 && systemPerms.length === 0 && Object.keys(tabPerms).length === 0) {
     return (
       <PreviewShell hint="permission">
-        <PreviewMessage>Grant at least one object, system, or tab permission to see the matrix.</PreviewMessage>
+        <PreviewMessage>{tr('engine.permissionPreview.empty', locale)}</PreviewMessage>
       </PreviewShell>
     );
   }
@@ -158,14 +172,14 @@ export function PermissionPreview({ name, draft }: MetadataPreviewProps) {
                   <span className="text-sm font-medium truncate">{label}</span>
                   <span className="font-mono text-[10px] text-muted-foreground">{permName}</span>
                   <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    {isDefault ? 'Default Permission Set' : 'Permission Set'}
+                    {tr(isDefault ? 'engine.permissionPreview.kind.default' : 'engine.permissionPreview.kind.set', locale)}
                   </span>
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-                  <Pill icon={Layers} label={`${objectNames.length} objects`} />
-                  <Pill icon={Tag} label={`${systemPerms.length} system perms`} />
-                  <Pill icon={Eye} label={`${Object.keys(tabPerms).length} tabs`} />
-                  <Pill icon={Lock} label={`${rls.length} RLS rules`} />
+                  <Pill icon={Layers} label={tFormat('engine.permissionPreview.pill.objects', locale, { count: objectNames.length })} />
+                  <Pill icon={Tag} label={tFormat('engine.permissionPreview.pill.systemPerms', locale, { count: systemPerms.length })} />
+                  <Pill icon={Eye} label={tFormat('engine.permissionPreview.pill.tabs', locale, { count: Object.keys(tabPerms).length })} />
+                  <Pill icon={Lock} label={tFormat('engine.permissionPreview.pill.rls', locale, { count: rls.length })} />
                 </div>
               </div>
             </div>
@@ -173,19 +187,21 @@ export function PermissionPreview({ name, draft }: MetadataPreviewProps) {
 
           {/* Object × CRUD matrix */}
           {objectNames.length > 0 && (
-            <Section title="Object Permissions" count={objectNames.length}>
+            <Section title={tr('engine.permissionPreview.section.objects', locale)} count={objectNames.length}>
               <div className="rounded border bg-background overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="bg-muted/30 text-[10px] uppercase tracking-wider text-muted-foreground">
-                      <th className="px-2.5 py-1.5 text-left font-medium sticky left-0 bg-muted/30">Object</th>
+                      <th className="px-2.5 py-1.5 text-left font-medium sticky left-0 bg-muted/30">
+                        {tr('engine.permissionPreview.col.object', locale)}
+                      </th>
                       {CAPS.map((c) => (
-                        <th key={c.key} className="px-1.5 py-1.5 text-center font-medium" title={c.long}>
+                        <th key={c.key} className="px-1.5 py-1.5 text-center font-medium" title={tr(c.long, locale)}>
                           {c.short}
                         </th>
                       ))}
-                      <th className="px-2 py-1.5 text-left font-medium" title="Read / write access depth (ADR-0057)">
-                        Scope
+                      <th className="px-2 py-1.5 text-left font-medium" title={tr('engine.permissionPreview.col.scopeTitle', locale)}>
+                        {tr('engine.permissionPreview.col.scope', locale)}
                       </th>
                     </tr>
                   </thead>
@@ -199,19 +215,23 @@ export function PermissionPreview({ name, draft }: MetadataPreviewProps) {
                             const granted = !!p[c.key];
                             return (
                               <td key={c.key} className="px-1.5 py-1 text-center">
-                                <Cell granted={granted} danger={c.danger} />
+                                <Cell granted={granted} danger={c.danger} locale={locale} />
                               </td>
                             );
                           })}
                           <td className="px-2 py-1 whitespace-nowrap text-[10px] text-muted-foreground">
                             {p.readScope || p.writeScope ? (
                               <>
-                                <span title="Read scope">{p.readScope ? SCOPE_LABEL[p.readScope] : '—'}</span>
+                                <span title={tr('engine.permissionPreview.readScope', locale)}>
+                                  {p.readScope ? SCOPE_LABEL[p.readScope] : '—'}
+                                </span>
                                 <span className="mx-1 opacity-50">/</span>
-                                <span title="Write scope">{p.writeScope ? SCOPE_LABEL[p.writeScope] : '—'}</span>
+                                <span title={tr('engine.permissionPreview.writeScope', locale)}>
+                                  {p.writeScope ? SCOPE_LABEL[p.writeScope] : '—'}
+                                </span>
                               </>
                             ) : (
-                              <span className="opacity-40">default</span>
+                              <span className="opacity-40">{tr('engine.permissionPreview.scopeDefault', locale)}</span>
                             )}
                           </td>
                         </tr>
@@ -220,13 +240,16 @@ export function PermissionPreview({ name, draft }: MetadataPreviewProps) {
                   </tbody>
                 </table>
               </div>
-              <Legend />
+              <Legend locale={locale} />
             </Section>
           )}
 
           {/* Field-Level Security overrides */}
           {fieldsByObject.size > 0 && (
-            <Section title="Field-Level Overrides" count={Array.from(fieldsByObject.values()).reduce((a, v) => a + v.length, 0)}>
+            <Section
+              title={tr('engine.permissionPreview.section.fields', locale)}
+              count={Array.from(fieldsByObject.values()).reduce((a, v) => a + v.length, 0)}
+            >
               <div className="rounded border bg-background divide-y text-xs">
                 {Array.from(fieldsByObject.entries()).sort().map(([obj, entries]) => (
                   <div key={obj} className="px-2.5 py-2">
@@ -240,10 +263,14 @@ export function PermissionPreview({ name, draft }: MetadataPreviewProps) {
                         >
                           <span className="font-mono">{field}</span>
                           {perm.readable === false && (
-                            <span className="text-[9px] uppercase text-red-700">hidden</span>
+                            <span className="text-[9px] uppercase text-red-700">
+                              {tr('engine.permissionPreview.fls.hidden', locale)}
+                            </span>
                           )}
                           {perm.editable && (
-                            <span className="text-[9px] uppercase text-emerald-700">editable</span>
+                            <span className="text-[9px] uppercase text-emerald-700">
+                              {tr('engine.permissionPreview.fls.editable', locale)}
+                            </span>
                           )}
                         </li>
                       ))}
@@ -256,7 +283,7 @@ export function PermissionPreview({ name, draft }: MetadataPreviewProps) {
 
           {/* System permissions */}
           {systemPerms.length > 0 && (
-            <Section title="System Permissions" count={systemPerms.length}>
+            <Section title={tr('engine.permissionPreview.section.system', locale)} count={systemPerms.length}>
               <div className="flex flex-wrap gap-1">
                 {systemPerms.map((s) => (
                   <span key={s} className="inline-flex items-center gap-1 rounded border bg-background px-1.5 py-0.5 text-[11px] font-mono">
@@ -269,7 +296,7 @@ export function PermissionPreview({ name, draft }: MetadataPreviewProps) {
 
           {/* Tab visibility */}
           {Object.keys(tabPerms).length > 0 && (
-            <Section title="Tab Visibility" count={Object.keys(tabPerms).length}>
+            <Section title={tr('engine.permissionPreview.section.tabs', locale)} count={Object.keys(tabPerms).length}>
               <div className="flex flex-wrap gap-1">
                 {Object.entries(tabPerms).map(([tab, vis]) => (
                   <span
@@ -298,12 +325,18 @@ export function PermissionPreview({ name, draft }: MetadataPreviewProps) {
           {warnings.length > 0 && (
             <div className="rounded border border-amber-200 bg-amber-50 p-2.5 text-xs space-y-1">
               <div className="flex items-center gap-1.5 font-medium text-amber-800">
-                <AlertTriangle className="h-3.5 w-3.5" /> {warnings.length} sanity check{warnings.length === 1 ? '' : 's'} failed
+                <AlertTriangle className="h-3.5 w-3.5" />{' '}
+                {tFormat(
+                  warnings.length === 1 ? 'engine.permissionPreview.sanityOne' : 'engine.permissionPreview.sanityOther',
+                  locale,
+                  { count: warnings.length },
+                )}
               </div>
               <ul className="space-y-0.5">
                 {warnings.map((w, i) => (
                   <li key={i} className="text-amber-900">
-                    <code className="font-mono">{w.object}</code>: {w.message}
+                    <code className="font-mono">{w.object}</code>:{' '}
+                    {w.vars ? tFormat(w.messageKey, locale, w.vars) : tr(w.messageKey, locale)}
                   </li>
                 ))}
               </ul>
@@ -315,29 +348,32 @@ export function PermissionPreview({ name, draft }: MetadataPreviewProps) {
   );
 }
 
-function Cell({ granted, danger }: { granted: boolean; danger?: boolean }) {
+function Cell({ granted, danger, locale }: { granted: boolean; danger?: boolean; locale?: string }) {
   if (!granted) {
-    return <Circle className="inline-block h-3 w-3 text-muted-foreground/40" aria-label="not granted" />;
+    return (
+      <Circle
+        className="inline-block h-3 w-3 text-muted-foreground/40"
+        aria-label={tr('engine.permissionPreview.notGranted', locale)}
+      />
+    );
   }
   const cls = danger ? 'text-amber-600' : 'text-emerald-600';
-  return <CheckCircle2 className={`inline-block h-3.5 w-3.5 ${cls}`} aria-label="granted" />;
+  return <CheckCircle2 className={`inline-block h-3.5 w-3.5 ${cls}`} aria-label={tr('engine.permissionPreview.granted', locale)} />;
 }
 
-function Legend() {
+function Legend({ locale }: { locale?: string }) {
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
       <span className="inline-flex items-center gap-1">
-        <CheckCircle2 className="h-3 w-3 text-emerald-600" /> granted
+        <CheckCircle2 className="h-3 w-3 text-emerald-600" /> {tr('engine.permissionPreview.granted', locale)}
       </span>
       <span className="inline-flex items-center gap-1">
-        <CheckCircle2 className="h-3 w-3 text-amber-600" /> bypass (View/Modify All)
+        <CheckCircle2 className="h-3 w-3 text-amber-600" /> {tr('engine.permissionPreview.legend.bypass', locale)}
       </span>
       <span className="inline-flex items-center gap-1">
-        <Circle className="h-3 w-3 text-muted-foreground/40" /> not granted
+        <Circle className="h-3 w-3 text-muted-foreground/40" /> {tr('engine.permissionPreview.notGranted', locale)}
       </span>
-      <span className="ml-auto font-mono">
-        C R U D = CRUD · E T = Export/Transfer · V* M* = View/Modify All
-      </span>
+      <span className="ml-auto font-mono">{tr('engine.permissionPreview.legend.key', locale)}</span>
     </div>
   );
 }

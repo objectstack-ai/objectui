@@ -20,12 +20,12 @@ fails at `:123` (`expected true to be false`) and at `:153` (`expected <button>T
 to be null`), with the stored-column controls present in both blocks, reproducing the race.
 The new spelling passes under the same delay.
 
-Each block KEEPS its existing gate and ADDS the second one (the objectui#6959 precedent and
+Each block KEEPS its existing gate and ADDS the second one (the `c0c436db8` precedent and
 its trap): the first gate proves the view committed with rows at all, which is what keeps
 `queryBy…).toBeNull()` from passing vacuously; the second proves the schema the verdict is
 derived from has landed. Trading one for the other would have left the block blind on
 whichever side it dropped.
 
 The gate is not `expect(getObjectSchema).toHaveBeenCalled()` — a mock CALL is issued one
-resolution before its value reaches state, which is the trap #6959 recorded. It awaits the
+resolution before its value reaches state, which is the trap `c0c436db8` recorded. It awaits the
 promise the component itself awaited and flushes the commit through `act`.

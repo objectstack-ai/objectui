@@ -5,7 +5,7 @@
 `RichtextFieldMetadata` — the third registry key of `RichTextField` becomes declarable
 (objectui#7083, maintainer ruling 2026-09-07, director decision batch #71).
 
-`markdown`, `html` and `richtext` are one widget (objectui#5498). Two of the three
+`markdown`, `html` and `richtext` are one widget (`4bb940b6e`). Two of the three
 already had an exported metadata type; `richtext` had none, so the runtime served it by
 structure while an author could not write its metadata under an annotation at all. The
 only way to write one was `as unknown as MarkdownFieldMetadata`, and that deliberate

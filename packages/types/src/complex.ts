@@ -131,11 +131,11 @@ export interface KanbanColumn {
    *
    * Named `cards` because that is what the board reads and every authored
    * document writes: `KanbanImpl` and `bucketCardsIntoColumns` read
-   * `column.cards` (measured at objectui#6939: 12 lines in `KanbanImpl`, and 8
+   * `column.cards` (measured at `240b80f31`: 12 lines in `KanbanImpl`, and 8
    * in `KanbanEnhanced` until objectui#8932 deleted it), and the two catalog
    * entries, the plugin docs and `content/docs/api/schema-reference.md` all
    * author it. The retired declarative face spelled this `items` until
-   * objectui#6939 — a spelling with zero read sites, which made every authored
+   * `240b80f31` — a spelling with zero read sites, which made every authored
    * board fail `safeValidateSchema` while rendering correctly (objectui#6318's
    * bucket).
    */
@@ -539,7 +539,7 @@ export interface FilterBuilderCondition {
 }
 
 /**
- * Filter group — the shape `FilterBuilder` reads (objectui#6939, the
+ * Filter group — the shape `FilterBuilder` reads (`d4493fdbc`, the
  * `filter-builder` group; maintainer ruling 2026-09-02, director seat summon
  * #8, verbatim 「同意」).
  *
@@ -597,11 +597,26 @@ export interface FilterBuilderSchema extends BaseSchema {
    */
   fields: FilterField[];
   /**
-   * Default filter configuration
+   * REFUSED BY NAME (objectui#10825, ADR-0049) — never read.
+   *
+   * It was declared `defaultValue?: FilterGroup`, and nothing reads it: the
+   * `filter-builder` renderer hands `FilterBuilder` `schema.value || props.value`,
+   * and `FilterBuilder` has no `defaultValue` prop. Measured through the real
+   * `SchemaRenderer`, a group authored here drew the same empty builder as a
+   * node with no filter key at all. Author the group as {@link value} instead.
+   *
+   * @deprecated Not read by `filter-builder` — author the group as `value`.
    */
-  defaultValue?: FilterGroup;
+  defaultValue?: never;
   /**
-   * Controlled filter value
+   * Controlled filter value — a {@link FilterGroup}, the only shape
+   * `FilterBuilder` reads (its `isValidGroup` gate needs `logic` and
+   * `conditions`).
+   *
+   * The zod mirror follows this declaration (objectui#10825): a bare condition
+   * is refused by name, with the prescription to wrap it in
+   * `{ logic, conditions: [ … ] }`. It used to be accepted there, and the
+   * builder then drew it as an empty group.
    */
   value?: FilterGroup;
   /**
@@ -704,7 +719,7 @@ export interface FilterBuilderSchema extends BaseSchema {
 
 /**
  * Filter field definition — one entry of `FilterBuilderSchema.fields`
- * (objectui#6939, same ruling).
+ * (`d4493fdbc`, same ruling).
  *
  * Renamed from `name` to `value`: every read site matches on `value`
  * (`fields.find((f) => f.value === …)` in `getOperatorsForField`,
@@ -740,7 +755,7 @@ export interface FilterField {
    *
    * `string` is still absent and is the contrast that makes the rest read: it
    * is named nowhere in the renderer and reaches the text control only by the
-   * unrecognised-word fallthrough, so it is a phantom (objectui#6939). `text`
+   * unrecognised-word fallthrough, so it is a phantom (`d4493fdbc`). `text`
    * shares that fallthrough but IS named — line 408 is where an absent `type`
    * acquires it — which is why one is declared and the other is not.
    */
@@ -1507,7 +1522,7 @@ export interface ChatbotSchema extends BaseSchema {
    * (`GridField`, `MasterDetailForm`); the same pass over `floatingConfig`, a
    * key that IS read, returned 79 lines, so the instrument was not blind. The
    * control and the seed are removed in the same change; the restatement of
-   * that control is this tombstone plus the release note (objectui#7070: a
+   * that control is this tombstone plus the release note (`5f4514f7b`: a
    * control is restated, never deleted into a vacuum).
    *
    * ## Why a tombstone — discriminator prong 2 — and why it is loud-vs-silent here
@@ -1722,7 +1737,7 @@ export type ChatbotSharedKey =
  * {@link BaseSchema}: `SchemaRenderer` evaluates `disabled` / `disabledOn`
  * for every node type and hands the verdict to the registration as a prop, so
  * redeclaring `disabled` here as `boolean` would only narrow away the
- * expression-string half of an inherited field (objectui#6169, #7087).
+ * expression-string half of an inherited field (objectui#6169, `c93b4d5f3`).
  */
 export interface ChatbotEnhancedSchema
   extends BaseSchema,

@@ -138,13 +138,13 @@ export interface TextSchema extends BaseSchema {
    * `[key: string]: any` (objectui#5155) and no shipped type mentioned it —
    * the docs page was the only record of a capability that works. #6150
    * declared it next to a `value` fallback spelling and recorded that choosing
-   * between the two was an ADR-0049 question it did not decide; objectui#6951
-   * (maintainer ruling A1, 2026-09-04) decided it: `content` is the one
+   * between the two was an ADR-0049 question it did not decide; maintainer
+   * ruling A1 (2026-09-04, `5ad86ddee`) decided it: `content` is the one
    * spelling, and {@link TextSchema.value} is the tombstone below.
    */
   content?: string;
   /**
-   * RETIRED (objectui#6951 / objectui#7016, ADR-0049 enforce-or-remove) — the
+   * RETIRED (`5ad86ddee` / objectui#7016, ADR-0049 enforce-or-remove) — the
    * second spelling of the one content slot, read only as the fallback limb of
    * `schema.content || schema.value`. Maintainer ruling A1 (2026-09-04): retire
    * `value`, keep `content`, immediately and with no deprecation window
@@ -167,7 +167,7 @@ export interface TextSchema extends BaseSchema {
    * NO `@default`, deliberately (objectui#7735). `text.tsx` reads this as
    * `schema.variant ? VARIANT_CLASS[schema.variant] : undefined`, so a node
    * that omits the key gets NO typography class and no wrapping tag — absence
-   * is not `body`, which is the whole point of objectui#6942 and is spelled out
+   * is not `body`, which is the whole point of `57f9b077b` and is spelled out
    * at that read site. The retired `@default 'body'` described the zod mirror's
    * `.default('body')`, which substituted the value into a PARSED document and
    * which objectui#7735 removed; no renderer ever applied it.

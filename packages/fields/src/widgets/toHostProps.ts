@@ -12,7 +12,7 @@ import type { FieldWidgetComponentProps } from './types.js';
 
 /**
  * The RUNTIME EXECUTOR of the NON-DOM half of {@link FieldWidgetComponentProps}
- * (objectui#7008) — the sibling of `toDomProps`, and deliberately a SEPARATE
+ * (`f08bcd9af`) — the sibling of `toDomProps`, and deliberately a SEPARATE
  * function rather than more entries in that whitelist.
  *
  * ## The defect
@@ -174,7 +174,7 @@ void _everyDeclaredHostKeyIsForwarded;
  * Direction 3 of 3: the two executors are DISJOINT — nothing forwarded here is
  * also a DOM pass-through key.
  *
- * Catches the specific mistake objectui#7008's ruling fences off: "route the
+ * Catches the specific mistake the ruling on the card behind `f08bcd9af` fences off: "route the
  * host-plumbing keys through `toDomProps`". Add `error` or `dataSource` to
  * `DOM_PASS_THROUGH_KEYS` and that file's own two assertions stay green (the
  * keys ARE declared) — this one is what goes red, because the key would leave

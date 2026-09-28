@@ -5,7 +5,7 @@
 Retire `ThemeSwitcherSchema` (`type: 'theme-switcher'`) and
 `ThemePreviewSchema` (`type: 'theme-preview'`) — the two remaining theme
 component kinds, which no renderer implemented — together with
-`ThemeUnionSchema`, the union that after objectui#5489 held only these two
+`ThemeUnionSchema`, the union that after `78cbdb530` held only these two
 members (objectui#5647).
 
 `packages/types/src/theme.ts` declared a theme-switcher control (`variant`,

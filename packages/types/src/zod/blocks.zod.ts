@@ -31,7 +31,7 @@
  * 'block-library' })` returned success for a node no page can render.
  * `./index.zod.ts` no longer carries a block arm and now refuses all five
  * kinds; `__tests__/phase2-schemas.test.ts` pins those refusals next to the
- * theme refusals retired the same way (objectui#5489, objectui#5647).
+ * theme refusals retired the same way (`78cbdb530`, objectui#5647).
  *
  * Do NOT hand-write local mirrors of any retired schema here: re-declaring one
  * is a published-contract decision no ruling has taken, and the retirement pin

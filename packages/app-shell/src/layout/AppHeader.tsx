@@ -218,7 +218,7 @@ export function AppHeader({
    * The bell's inbox — rows, badge addends and the three mark-read paths — now
    * comes from `useInboxBell`, the ONE wiring of `sharedUserFeeds` onto an
    * `InboxPopover` (#4225 / #4316). The `global:notifications` page block
-   * (objectui#6757) mounts the SAME hook, so a bell in the header and a bell an
+   * (`f99932a42`) mounts the SAME hook, so a bell in the header and a bell an
    * author declared on a page cannot disagree about a row's read-state: there
    * is no second read and no second optimistic overlay left to drift.
    *

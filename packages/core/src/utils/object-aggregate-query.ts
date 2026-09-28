@@ -91,7 +91,7 @@ export interface ObjectAggregateSpecQuery {
  * ⚠️ An ARRAY answers `false`. It is an object, but it is not this union's
  * object arm — neither `ChartGroupBySchema` nor `ObjectMetricPropsSchema`'s
  * `aggregate` admits one at this position, and `data-objectstack`'s adapter
- * already refuses it at the wire (objectui#6864). Letting it through here would
+ * already refuses it at the wire (`503cd8b89`). Letting it through here would
  * wrap it into `groupBy: [[…]]` and turn a producer-side refusal into a
  * malformed query.
  */

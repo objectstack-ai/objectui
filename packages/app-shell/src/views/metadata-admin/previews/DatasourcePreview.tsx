@@ -61,6 +61,7 @@ import * as React from 'react';
 import { Activity, Database, HardDrive, Lock, Power, ShieldCheck } from 'lucide-react';
 import { EmptyDescription } from '@object-ui/components';
 import type { MetadataPreviewProps } from '../preview-registry.js';
+import { t as tr, tFormat } from '../i18n.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 import { ExternalDatasourcePanel } from '../external/ExternalDatasourcePanel.js';
 
@@ -75,16 +76,17 @@ function redactValue(v: unknown): string {
   return '••••••';
 }
 
-function renderValue(v: unknown): string {
+/** A config value as the preview shows it; a nested object's key count reads in `locale`. */
+function renderValue(v: unknown, locale: string | undefined): string {
   if (v == null) return '∅';
   if (typeof v === 'string') return v;
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   if (Array.isArray(v)) return `[${v.length}]`;
-  if (typeof v === 'object') return `{${Object.keys(v).length} keys}`;
+  if (typeof v === 'object') return tFormat('engine.datasourcePreview.keyCount', locale, { count: Object.keys(v).length });
   return String(v);
 }
 
-export function DatasourcePreview({ name, draft }: MetadataPreviewProps) {
+export function DatasourcePreview({ name, draft, locale }: MetadataPreviewProps) {
   const d = draft as Record<string, unknown>;
   const dsName = String(d.name ?? name ?? '');
   const label = String(d.label ?? dsName);
@@ -93,7 +95,7 @@ export function DatasourcePreview({ name, draft }: MetadataPreviewProps) {
   // outright (with a `type` → `driver` alias hint), so the old
   // `?? d.type` fallback rendered a driver pill for a draft that cannot
   // be saved — and, worse, made the wrong spelling look correct.
-  const driver = (d.driver as string | undefined) ?? 'unknown';
+  const driver = (d.driver as string | undefined) ?? tr('engine.datasourcePreview.unknownDriver', locale);
   const active = d.active !== false;
   const config = (d.config as Record<string, unknown> | undefined) ?? {};
   const pool = d.pool as Record<string, unknown> | undefined;
@@ -112,7 +114,7 @@ export function DatasourcePreview({ name, draft }: MetadataPreviewProps) {
   if (!dsName && configEntries.length === 0) {
     return (
       <PreviewShell hint="datasource">
-        <PreviewMessage>Set a name and at least a driver to see the datasource preview.</PreviewMessage>
+        <PreviewMessage>{tr('engine.datasourcePreview.empty', locale)}</PreviewMessage>
       </PreviewShell>
     );
   }
@@ -137,7 +139,11 @@ export function DatasourcePreview({ name, draft }: MetadataPreviewProps) {
                   <span className="inline-flex items-center gap-1 rounded border bg-background px-1.5 py-0.5 font-mono">
                     <HardDrive className="h-3 w-3 text-muted-foreground" /> {driver}
                   </span>
-                  <Pill icon={Power} label={active ? 'Active' : 'Disabled'} tone={active ? 'green' : 'gray'} />
+                  <Pill
+                    icon={Power}
+                    label={tr(active ? 'engine.datasourcePreview.active' : 'engine.datasourcePreview.disabled', locale)}
+                    tone={active ? 'green' : 'gray'}
+                  />
                 </div>
               </div>
             </div>
@@ -155,9 +161,9 @@ export function DatasourcePreview({ name, draft }: MetadataPreviewProps) {
           )}
 
           {/* Connection config */}
-          <Section title="Connection" icon={Lock}>
+          <Section title={tr('engine.datasourcePreview.connection', locale)} icon={Lock}>
             {configEntries.length === 0 ? (
-              <EmptyDescription className="text-xs italic">No config keys set.</EmptyDescription>
+              <EmptyDescription className="text-xs italic">{tr('engine.datasourcePreview.noConfig', locale)}</EmptyDescription>
             ) : (
               <div className="rounded border bg-background overflow-hidden">
                 <table className="w-full text-xs">
@@ -174,11 +180,11 @@ export function DatasourcePreview({ name, draft }: MetadataPreviewProps) {
                               <span className="inline-flex items-center gap-1.5">
                                 <span>{redactValue(v)}</span>
                                 <span className="rounded bg-amber-50 border border-amber-200 px-1 py-0.5 text-[9px] uppercase tracking-wider text-amber-800">
-                                  redacted
+                                  {tr('engine.datasourcePreview.redacted', locale)}
                                 </span>
                               </span>
                             ) : (
-                              renderValue(v)
+                              renderValue(v, locale)
                             )}
                           </td>
                         </tr>
@@ -192,11 +198,13 @@ export function DatasourcePreview({ name, draft }: MetadataPreviewProps) {
 
           {/* Side rail blocks */}
           <div className="grid gap-2 sm:grid-cols-2">
-            <SideBlock title="Pool" icon={Activity} value={pool} />
+            <SideBlock title={tr('engine.datasourcePreview.pool', locale)} icon={Activity} value={pool} locale={locale} />
+            {/* "SSL" is the protocol's name, the same in every locale. */}
             <SideBlock
               title="SSL"
               icon={ShieldCheck}
               value={typeof ssl === 'boolean' ? { enabled: ssl } : ssl}
+              locale={locale}
             />
           </div>
         </div>
@@ -209,10 +217,12 @@ function SideBlock({
   title,
   icon: Icon,
   value,
+  locale,
 }: {
   title: string;
   icon: React.ComponentType<{ className?: string }>;
   value: Record<string, unknown> | undefined;
+  locale?: string;
 }) {
   const present = value && typeof value === 'object' && Object.keys(value).length > 0;
   return (
@@ -229,14 +239,14 @@ function SideBlock({
           // 66 lines up. `text-[11px]`, not that site's `text-xs`: this body
           // renders at 11px and the shared base ships `text-sm/relaxed`, so
           // without a size the word would grow 11px → 14px (measured).
-          <EmptyDescription className="text-[11px] italic">not configured</EmptyDescription>
+          <EmptyDescription className="text-[11px] italic">{tr('engine.datasourcePreview.notConfigured', locale)}</EmptyDescription>
         ) : (
           <dl className="space-y-0.5">
             {Object.entries(value).slice(0, 6).map(([k, v]) => (
               <div key={k} className="flex items-baseline gap-2 truncate">
                 <dt className="text-muted-foreground font-mono shrink-0">{k}:</dt>
                 <dd className="font-mono truncate">
-                  {isSecretKey(k) ? redactValue(v) : renderValue(v)}
+                  {isSecretKey(k) ? redactValue(v) : renderValue(v, locale)}
                 </dd>
               </div>
             ))}

@@ -77,8 +77,8 @@ export const AlertSchema = BaseSchema.extend({
     'children',
     'this alert node',
     '`alert` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/data-display/alert.tsx`). '
-    + '`body` was this node\'s only child-list key until objectui#6771 retired the spelling; an authored `body` now parses green through '
-    + '`.passthrough()` and renders an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` was this node\'s only child-list key until objectui#6771 retired the spelling — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -124,8 +124,8 @@ export const BadgeSchema = BaseSchema.extend({
     'children',
     'this badge node',
     '`badge` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/data-display/badge.tsx`). '
-    + '`body` was this node\'s only child-list key until objectui#6771 retired the spelling; an authored `body` now parses green through '
-    + '`.passthrough()` and renders an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` was this node\'s only child-list key until objectui#6771 retired the spelling — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -219,7 +219,7 @@ export const TableColumnSchema = z.object({
   align: z.enum(['left', 'center', 'right']).optional().describe('Column alignment'),
   fixed: z.enum(['left', 'right']).optional().describe('Fixed column position'),
   // The canonical value set, built from the ONE declaration in
-  // `../data-display.ts` rather than restated here (objectui#5853, maintainer
+  // `../data-display.ts` rather than restated here (`fc62bb490`, maintainer
   // ruling 2026-08-25, Option B). This key was `z.string()`: every typo passed
   // — `type: 'money'` validated green, matched no renderer branch, and the
   // column silently fell through to plain text rendering. That is the lenient
@@ -320,7 +320,7 @@ export const TableColumnSchema = z.object({
  * The later arrivals below (`headerIcon` / `fitContent`, objectui#6424;
  * `format` / `options` / `currency`, objectui#6425; `wrap`, objectui#6650;
  * `masked`, objectui#10583) were outside #6105's reviewed scope; the first
- * five carried the bare spelling until objectui#6931 converted them here
+ * five carried the bare spelling until `8063bcbdc` converted them here
  * (`wrap` and `masked` were born converted). That
  * mattered because a half-converted shape teaches worse than a uniform one:
  * an author reading guidance on nine keys and zod's generic on five learns the
@@ -359,7 +359,7 @@ export const StaticTableColumnSchema = z.object({
  * reference-page teaching describing behaviour that did not exist. An
  * authored value now fails parse loudly rather than doing nothing silently,
  * and the refusal carries its own remediation text through
- * `retirementTombstone()` (objectui#6931) rather than zod's generic
+ * `retirementTombstone()` (`8063bcbdc`) rather than zod's generic
  * `expected never`.
  */
 export const TableSchema = BaseSchema.extend({
@@ -403,7 +403,7 @@ export const DataTableSchema = BaseSchema.extend({
   selectable: z.union([z.boolean(), z.enum(['single', 'multiple'])]).optional().describe('Enable row selection — `true`/`multiple` = multi-select, `single` = replace-on-select with no select-all'),
   sortable: z.boolean().optional().describe('Enable sorting'),
   exportable: z.boolean().optional().describe('Enable data export'),
-  rowActions: z.boolean().optional().describe('Show the row actions column (edit/delete) — mirrors the boolean the renderer truthiness-tests (objectui#6940)'),
+  rowActions: z.boolean().optional().describe('Show the row actions column (edit/delete) — mirrors the boolean the renderer truthiness-tests'),
   resizableColumns: z.boolean().optional().describe('Allow column resizing'),
   reorderableColumns: z.boolean().optional().describe('Allow column reordering'),
   onRowEdit: handlerKeyRefusal('onRowEdit', 'runtime-slot', 'Row edit handler'),
@@ -463,7 +463,7 @@ export const DataTableSchema = BaseSchema.extend({
   onRowActionDef: handlerKeyRefusal('onRowActionDef', 'runtime-slot', 'Row action handler'),
   onRowClick: handlerKeyRefusal('onRowClick', 'runtime-slot', 'Row click handler'),
   onRowSave: handlerKeyRefusal('onRowSave', 'runtime-slot', 'Row save handler'),
-  cellClassName: z.string().optional().describe('Extra classes folded into the utility body cells only — the selection, row-number and row-actions cells; data cells fold the per-column `cellClassName` instead, so row density has to be set on both (objectui#6882)'),
+  cellClassName: z.string().optional().describe('Extra classes folded into the utility body cells only — the selection, row-number and row-actions cells; data cells fold the per-column `cellClassName` instead, so row density has to be set on both'),
   // RUNTIME SLOT (objectui#7759 group E, the objectui#6124 shape): `data-table`
   // reads `schema.renderCellEditor` and calls it with the edit context; its
   // supplier is `ObjectGrid` (`@object-ui/plugin-grid`). The context's shape —
@@ -506,8 +506,9 @@ export const DataTableSchema = BaseSchema.extend({
  * and the key retired. `components` was a `Record<string, any>` of React
  * overrides nothing read — not a JSON-authorable value, and no host path
  * consumes such a map either, so there is no runtime slot to keep. Both
- * refuse BY NAME through `retirementTombstone()` (objectui#6931), with the
- * remedy in the message, rather than parsing green and doing nothing. The TS
+ * refuse BY NAME through `retirementTombstone()`, the spelling `8063bcbdc`
+ * made uniform, with the remedy in the message, rather than parsing green and
+ * doing nothing. The TS
  * twins are `?: never` in `../data-display.ts`; both published faces carry the
  * refusal (`@object-ui/types`, and `@object-ui/plugin-markdown`'s re-export of
  * the same authority — objectui#6172).
@@ -554,7 +555,7 @@ export const TreeNodeSchema: z.ZodType<TreeNode, TreeNode> = z.lazy(() =>
  */
 export const TreeViewSchema = BaseSchema.extend({
   type: z.literal('tree-view'),
-  // ADR-0049 RETIREMENT TOMBSTONE (objectui#6951, maintainer ruling B1 of
+  // ADR-0049 RETIREMENT TOMBSTONE (`16a725f96`, maintainer ruling B1 of
   // 2026-09-04). `data` was the second spelling of the one inline-nodes slot,
   // read only as the last limb of `boundData || schema.nodes || schema.data || []`;
   // the renderer now reads `bind` then `nodes`. A plain deletion here would NOT
@@ -565,14 +566,14 @@ export const TreeViewSchema = BaseSchema.extend({
   // `./tombstone.zod.ts`; the base-vs-extended contrast is pinned in
   // `../__tests__/tree-view-data-retired-6951.test.ts`.
   data: retirementTombstone(
-    'RETIRED (objectui#6951) — `data` is no longer part of TreeViewSchema; write `nodes` (or bind the tree with '
+    'RETIRED (ADR-0049) — `data` is no longer part of TreeViewSchema; write `nodes` (or bind the tree with '
     + '`bind`). It was the second spelling of the one inline-nodes slot, read only as the last limb of '
     + '`boundData || schema.nodes || schema.data || []`, and was retired under ADR-0049 enforce-or-remove with no '
     + 'deprecation window (maintainer ruling B1, 2026-09-04). The renderer reads `bind` then `nodes` now, so an '
     + 'authored `data` would render an empty tree. Rename the key; the array is unchanged.',
   ),
   nodes: z.array(TreeNodeSchema).optional()
-    .describe('Inline tree nodes — the one inline spelling, read as the second limb of `boundData || schema.nodes || []` (a `bind`-resolved value wins, so this stays optional and no presence rule exists — objectui#6951 B1). Declared by objectui#6150; a `nodes`-only document became LEGAL at objectui#6939; the `data` fallback spelling was retired by objectui#6951 (the registration\'s own `inputs` and `defaultProps` spell it `nodes`, and the four catalog entries ARE those `defaultProps`)'),
+    .describe('Inline tree nodes — the one inline spelling, read as the second limb of `boundData || schema.nodes || []` (a `bind`-resolved value wins, so this stays optional and no presence rule exists). Declared by objectui#6150; a `nodes`-only document became LEGAL; the `data` fallback spelling was retired (the registration\'s own `inputs` and `defaultProps` spell it `nodes`, and the four catalog entries ARE those `defaultProps`)'),
   title: z.string().optional()
     .describe('Heading above the tree — renders only when set (objectui#6150)'),
   defaultExpandedIds: z.array(z.string()).optional().describe('Default expanded node IDs'),
@@ -652,13 +653,13 @@ export const ChartTypeSchema = stripImportedDefaults(SpecChartTypeSchema);
  * consumer importing `ChartSeriesSchema` from `@object-ui/types` could not tell
  * which contract they had.
  *
- * ⚠️ Since objectui#6896 this twin carries no inline numbers either: `data` is a
+ * ⚠️ Since `b0d308da9` this twin carries no inline numbers either: `data` is a
  * retirement tombstone. The distinction the rename drew is now one of ROLE, not
  * of payload — this is the STATIC SDUI node's series, the spec's is the
  * dataset-bound one, and neither carries values.
  */
 export const ChartDataSeriesSchema = z.object({
-  // BOTH BINDING DIALECTS (objectui#6939, maintainer ruling 2026-09-02 — the
+  // BOTH BINDING DIALECTS (`5f789538d`, maintainer ruling 2026-09-02 — the
   // `chart` row, verbatim 「同意」). `normalizeSeries` reads
   // `str(raw.dataKey) ?? str(raw.name)` (`plugin-charts/src/normalizeChartSchema.ts:239`),
   // so the two spellings are interchangeable at the renderer. This mirror
@@ -672,13 +673,13 @@ export const ChartDataSeriesSchema = z.object({
   dataKey: z.string().optional().describe(
     'Column this series plots within each chart-level `data` row — the internal spelling of `name`, and the one the renderer takes when both are written',
   ),
-  // ADR-0049 RETIREMENT TOMBSTONE (objectui#6896). Deleting the member was the
+  // ADR-0049 RETIREMENT TOMBSTONE (`b0d308da9`). Deleting the member was the
   // option NOT taken: `ChartDataSeriesSchema` is a non-strict `z.object`, which
   // STRIPS an undeclared key in silence — the same silent no-op the retirement
   // exists to end. Kept declared and unwritable, so an authored value is a
   // NAMED refusal carrying its own remedy.
   data: retirementTombstone(
-    'RETIRED (objectui#6896) — `ChartDataSeries.data` was never read: '
+    'RETIRED (ADR-0049) — `ChartDataSeries.data` was never read: '
     + '`normalizeChartSchema` takes rows from the chart node\'s chart-level `data` and picks a '
     + 'column with the series\' `name`/`dataKey`, so an authored array was dropped in silence. '
     + 'Delete the key; put the rows on the chart-level `data` and the category axis on `xAxisKey`.',
@@ -936,7 +937,7 @@ export const ChartSchema = BaseSchema.extend({
   title: z.string().optional().describe('Chart title'),
   description: z.string().optional().describe('Chart description'),
   // NOT axis labels — `normalizeChartSchema` reads `categories` as an
-  // ALTERNATIVE SERIES LIST, used only when `series` is absent (objectui#6896).
+  // ALTERNATIVE SERIES LIST, used only when `series` is absent (`b0d308da9`).
   categories: z
     .array(z.string())
     .optional()
@@ -1270,7 +1271,7 @@ const timelineItemsFitVariant = (
  * `timeScale` is RETIRED (objectui#6355), and `events` / `orientation` /
  * `position` are RETIRED (objectui#6170, ADR-0049 stage 2 — no renderer ever
  * read any of the three). All four carry the `retirementTombstone()` spelling
- * below (objectui#6931), each message naming what to author instead — still
+ * below (`8063bcbdc`), each message naming what to author instead — still
  * mirrored, deliberately, because the parity ratchet compares key SETS and
  * because a tombstone must be present on both halves to be audible.
  *

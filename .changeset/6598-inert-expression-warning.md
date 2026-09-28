@@ -19,7 +19,7 @@ state.
 `validateTree` now emits a warning-severity `inert-expression` diagnostic when a
 declared input's value is the `$expr` marker, with the fix in the message: write
 the value as JSON (double-quoted strings and keys). Warning, not error, per the
-objectui#5709 posture for inert authored keys — pages keep compiling and
+`8d58f46b4` posture for inert authored keys — pages keep compiling and
 rendering exactly as before; the silence is what changed. Escalating the
 severity, widening the accepted literal grammar (e.g. materializing
 single-quoted strings), and covering base props like `style` are contract

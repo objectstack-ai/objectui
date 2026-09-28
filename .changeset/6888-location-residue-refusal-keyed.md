@@ -4,7 +4,7 @@
 ---
 
 Key `LocationField`'s THIRD refusal sentence — the residue arm — into the locale
-packs (objectui#6888).
+packs.
 
 Typing a half that is only PARTLY a number (`12abc, 34`) is refused by
 `LocationField` with its own sentence, added by objectui#6715. objectui#6755 had

@@ -9,7 +9,7 @@ declare `record` (objectui#8167).
 mount fell through to `celAuthoring`'s own default — spelled `hint.scope ?? 'flattened'`
 — and no caller could override it. A bare `status == 'done'` typed into an action's
 **Visible when** therefore linted CLEAN and then never matched: `usePredicateRecordContext`
-binds `record` and nothing else, and objectui#5741 Phase 2 retired the bare shorthand
+binds `record` and nothing else, and Phase 2 (`83fe6e741`) retired the bare shorthand
 on runtime record surfaces. This is objectui#7727's defect at a component
 objectui#7727 does not touch; PR #8164 turned the same defect at the
 conditional-formatting mount.

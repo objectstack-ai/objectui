@@ -49,7 +49,7 @@ per key on the PR's base (one `schema.KEY` read per registration body in
 - Neither face declares `ChatbotSchema`'s six legacy members (`loading`,
   `showAvatars`, `userAvatar`, `assistantAvatar`, `markdown`, `height`) — no
   registration reads them by name — and neither redeclares `disabled`, which
-  stays `BaseSchema`'s `boolean | string` (objectui#7087).
+  stays `BaseSchema`'s `boolean | string` (`c93b4d5f3`).
 
 **`ChatbotSchema` is unchanged.** It keeps `displayMode` and `floatingConfig`
 (declarations verbatim), and the floating face declares the same two, so

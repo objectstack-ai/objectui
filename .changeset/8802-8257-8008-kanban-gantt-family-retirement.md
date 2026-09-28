@@ -64,7 +64,7 @@ change.** That arm was the only schema face that ever declared `columns`,
 refused `allowCollapse` / `cardTemplates` / `columnWidths` / `titleField` /
 `draggable` / `onColumnAdd` / `onCardAdd` by name, and — through
 `columns: KanbanColumn[]` — the only one that judged a lane's `cards`
-(objectui#6939).
+(`240b80f31`).
 
 ⭐ **The sentence that stood here — «The surviving `ObjectKanbanSchema` face
 declares none of them» — is retired, and the two reasons it failed are DIFFERENT

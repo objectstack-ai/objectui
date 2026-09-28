@@ -6,8 +6,8 @@
 `ObjectTimeline` refuses an undeclared date axis instead of inventing one
 (objectui#7459).
 
-Steps ① and ② of the three-step sequence the maintainer ruled on objectui#7070
-(2026-09-01, 总监批 #28). House posture, on record with that ruling:
+Steps ① and ② of the three-step sequence the maintainer ruled on 2026-09-01
+(总监批 #28). House posture, on record with that ruling:
 日期轴永不虚构 — a date axis is never fabricated.
 
 `ObjectTimeline` resolved its date axis through five declared bindings and then
@@ -23,7 +23,7 @@ Two changes, shipped together because neither is observable alone:
   axis renders a diagnostic naming every binding it accepts —
   `timeline.startDateField`, `timeline.dateField`, `mapping.date`, and the two
   deprecated flat spellings — instead of a chart. The twin of `ObjectGantt`'s
-  "Gantt configuration required" screen, in the shape objectui#7070 settled.
+  "Gantt configuration required" screen, in the shape `5f4514f7b` settled.
 - **The invented sixth rung is gone**, which is the only thing that makes the
   refusal reachable. Added while the floor stood, it would have been dead code;
   retired without the refusal, it would have produced exactly the silent
@@ -49,4 +49,4 @@ named (`data-testid="timeline-canvas"`) so that distinction can be measured;
 every other terminal state of the component already named itself.
 
 Step ③ of the ruling — the `'created_at'` floors on the two plugin faces —
-stays on objectui#7070 and is deliberately NOT in this change.
+stays for a later change (it landed as `04a67b9dc`) and is deliberately NOT in this change.

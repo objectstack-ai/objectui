@@ -316,7 +316,7 @@ export function evalFieldPredicate(
  * explicitly undecided ("appeal 1").
  *
  * ⛔ These values are shipped behaviour. Changing one is not a refactor, it is
- * objectui#8069's decision — and objectui#6958 leans on the `visibleWhen` half
+ * objectui#8069's decision — and `6a449fc49` leans on the `visibleWhen` half
  * staying fail-open (a broken predicate must never silently null a stored
  * column).
  */

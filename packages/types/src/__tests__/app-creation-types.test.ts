@@ -14,7 +14,6 @@ import type {
   BrandingConfig,
   ObjectSelection,
   EditorMode,
-  AppComponentSchema,
 } from '../index';
 
 describe('App Creation Types', () => {
@@ -44,7 +43,7 @@ describe('App Creation Types', () => {
   });
 
   describe('wizardDraftToAppSchema', () => {
-    it('should convert draft to AppComponentSchema', () => {
+    it('should convert draft to the app document the Studio saves', () => {
       const draft: AppWizardDraft = {
         name: 'test_app',
         title: 'Test Application',
@@ -62,22 +61,23 @@ describe('App Creation Types', () => {
         },
       };
 
-      const schema: AppComponentSchema = wizardDraftToAppSchema(draft);
-      expect(schema.type).toBe('app');
+      const schema = wizardDraftToAppSchema(draft);
+      // Only keys the spec's `AppSchema` declares (objectui#10842): no `type`,
+      // `title`, top-level `favicon` or `layout`.
+      for (const key of ['type', 'title', 'favicon', 'layout']) {
+        expect(key in schema, key).toBe(false);
+      }
       expect(schema.name).toBe('test_app');
-      expect(schema.title).toBe('Test Application');
       expect(schema.label).toBe('Test Application');
       expect(schema.description).toBe('A test app');
       expect(schema.icon).toBe('LayoutDashboard');
       // The logo travels in `branding` only — no top-level copy (objectui#10827).
       expect('logo' in schema).toBe(false);
-      expect(schema.favicon).toBe('https://example.com/favicon.ico');
       expect(schema.branding).toEqual({
         logo: 'https://example.com/logo.svg',
         primaryColor: '#3b82f6',
         favicon: 'https://example.com/favicon.ico',
       });
-      expect(schema.layout).toBe('sidebar');
       expect(schema.navigation).toHaveLength(1);
       expect(schema.navigation![0].id).toBe('nav_1');
     });
@@ -94,7 +94,7 @@ describe('App Creation Types', () => {
 
       const schema = wizardDraftToAppSchema(draft);
       expect(schema.navigation).toEqual([]);
-      expect(schema.layout).toBe('header');
+      expect('layout' in schema).toBe(false);
       expect(schema.label).toBe('Empty');
     });
 

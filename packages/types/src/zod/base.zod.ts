@@ -213,8 +213,8 @@ export function defineNodeComponentUnion<T extends z.ZodType>(union: T): T {
  *
  * ## ⚠️ Why the arm is late-bound and not imported
  *
- * `AnyComponentSchema` is built in `index.zod.ts` out of all 13 category modules,
- * and 14 modules import THIS one — so naming it here is a module cycle, and
+ * `AnyComponentSchema` is built in `index.zod.ts` out of every category module, and
+ * each of those modules imports THIS one — so naming it here is a module cycle, and
  * `z.lazy` defers the EVALUATION, not the module graph. With that import in place,
  * entering the graph at `base.zod.js` evaluates `app.zod.ts`'s body while
  * `BaseSchema` is still in its temporal dead zone and the package throws on import.
@@ -272,7 +272,7 @@ export function defineNodeComponentUnion<T extends z.ZodType>(union: T): T {
  *
  * ⭐ What #7760 bought: `__tests__/zod-mirror-parity.test.ts` can now compare the
  * `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])` single-or-list slots that
- * objectui#7069 called this repo's systematic producer and had to EXCLUDE — its
+ * the card behind `2760075ff` called this repo's systematic producer and had to EXCLUDE — its
  * `Unconstrained` predicate was dropping every one of them. Three real widenings came
  * out of that region on the first run and are ledgered there.
  *

@@ -14,7 +14,7 @@
  * {@link ScreenView} — the same renderer the Studio design preview reuses, so
  * the two can never drift (cf. #1927).
  *
- * ## The resume RESULT has to reach the user (objectui#5417)
+ * ## The resume RESULT has to reach the user (`c40f3b8ca`)
  *
  * A dogfood walkthrough reported that a `400 FLOW_FAILED` and a successful run
  * "render identically: the dialog closes and the page is unchanged". Half of
@@ -349,7 +349,7 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
     // #31). See utils/flowResponse.
     const outcome = interpretFlowResponse<ScreenSpec>(res, json, 'Resume');
     if (outcome.kind === 'failed') {
-      // Two carriers on purpose (#5417): the toast is fixed to the viewport and
+      // Two carriers on purpose (`c40f3b8ca`): the toast is fixed to the viewport and
       // reaches a user scrolled to the bottom of a tall object-form step; the
       // inline Alert stays with the values that caused it.
       toast.error(outcome.error);

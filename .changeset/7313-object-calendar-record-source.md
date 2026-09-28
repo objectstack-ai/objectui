@@ -4,7 +4,7 @@
 
 `ObjectCalendarSchema` declares the record-source ladder its renderer already
 reads — `data`, `staticData`, `objectName` — on both faces, in the shape
-objectui#6939 landed on `object-map` and `object-gantt` (objectui#7313).
+`77cb489b4` landed on `object-map` and `object-gantt` (objectui#7313).
 
 `ObjectCalendar` resolves its records through the shared ladder
 (`resolveRecordSourceConfig` in `@object-ui/core`, called from

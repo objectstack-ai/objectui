@@ -1,13 +1,13 @@
 ---
 ---
 
-Internal test-only change, no user-visible behaviour (objectui#7025).
+Internal test-only change, no user-visible behaviour.
 
 The SIXTH spelling of the Zod-internals reader hazard objectui#5872 catalogues:
 9 spec-parity test files in 7 packages cast an enum node NON-optionally to an
 options-bearing shape and read `.options` straight off it. They converge onto
-`@object-ui/test-support`'s `enumOptions(node)` — the same walk objectui#6924
-converged the optional-cast family onto in PR #7024.
+`@object-ui/test-support`'s `enumOptions(node)` — the same walk PR #7024
+converged the optional-cast family onto.
 
 Unlike that family, these sites failed LOUDLY (spreading `undefined` throws), and
 the shared reader deliberately answers `[]` rather than raising. So every site

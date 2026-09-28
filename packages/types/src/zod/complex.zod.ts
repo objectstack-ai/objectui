@@ -426,7 +426,7 @@ export const FilterBuilderConditionSchema: z.ZodType<any> = z.lazy(() => FilterB
 
 /**
  * Filter Group Schema — the shape `FilterBuilder` actually reads
- * (objectui#6939, the `filter-builder` group; maintainer ruling 2026-09-02,
+ * (`d4493fdbc`, the `filter-builder` group; maintainer ruling 2026-09-02,
  * director seat summon #8, verbatim 「同意」).
  *
  * The gate is `isValidGroup` in `packages/components/src/custom/filter-builder.tsx`:
@@ -445,8 +445,8 @@ export const FilterBuilderConditionSchema: z.ZodType<any> = z.lazy(() => FilterB
  * never consults it and nothing else reads `filterGroup.id`; measured, deleting
  * `id` from an authored group renders BYTE-IDENTICALLY (76 elements, same text,
  * same SHA-256). Requiring it would refuse a document the renderer draws
- * perfectly — a fresh instance of the exact class objectui#6939 exists to
- * close. Declared rather than dropped because the component's exported
+ * perfectly — a fresh instance of the exact class that ruling's eight groups
+ * exist to close. Declared rather than dropped because the component's exported
  * `FilterGroup` carries it, `EMPTY_GROUP` emits it, every catalog entry authors
  * it, and it round-trips out through `onChange`; declaring it buys the type
  * check (`id: 42` now refuses) that an undeclared key would not get, since a
@@ -508,7 +508,7 @@ export const FilterGroupSchema: z.ZodType<any> = z.lazy(() => FilterGroupObject)
 
 /**
  * Filter Field Schema — one entry of `FilterBuilderSchema.fields`
- * (objectui#6939, same ruling).
+ * (`d4493fdbc`, same ruling).
  *
  * ## `value`, not `name`
  *
@@ -572,7 +572,7 @@ export const FilterGroupSchema: z.ZodType<any> = z.lazy(() => FilterGroupObject)
  *
  * `string` stays OUT, and that is the contrast the paragraph above turns on:
  * it is named NOWHERE in the renderer, so it reaches the text control only by
- * the fallthrough. A phantom, removed by objectui#6939 and not restored here;
+ * the fallthrough. A phantom, removed by `d4493fdbc` and not restored here;
  * the published doc does not offer it either, so the two faces agree.
  */
 export const FilterFieldSchema = z.object({
@@ -617,13 +617,72 @@ export const FilterFieldSchema = z.object({
 });
 
 /**
+ * `FilterBuilderSchema.value` — a filter GROUP, and nothing else (objectui#10825).
+ *
+ * This key used to take `union([condition, group])`, while the TypeScript face
+ * declares `value?: FilterGroup`, so the mirror was WIDER than the published
+ * type. A bare condition parsed green, and `FilterBuilder` then drew an EMPTY
+ * builder: its `isValidGroup` gate (`custom/filter-builder.tsx`) needs
+ * `conditions` and `logic`, a condition carries neither, and the component
+ * falls back to `EMPTY_GROUP` with no error. The condition was lost in silence.
+ *
+ * The contract follows the published type. The value is judged by
+ * {@link FilterGroupSchema} alone, and a value that is recognisably a bare
+ * condition is refused BY NAME first, in the shape `FilterGroupEntrySchema`
+ * above uses for a nested sub-group: ONE `custom` issue at `value`, carrying
+ * {@link BARE_CONDITION_VALUE_REFUSED}, after which the pipe does not go on to
+ * the group schema, so the author reads the prescription and not the missing
+ * `logic` and `conditions` it would otherwise report.
+ *
+ * "Recognisably a bare condition" is a plain object that carries a
+ * condition's own `field` or `operator` and no `conditions` of its own. Every
+ * other shape (a group missing `logic`, a query-style `{ field: value }` map,
+ * a string) is judged by the group schema exactly as a group is.
+ *
+ * The union also wrapped every refusal of a GROUP in an `invalid_union` at
+ * `value`. With the condition arm gone there is no union, so a group's own
+ * refusals are reported at their own path under `value`.
+ */
+const BARE_CONDITION_VALUE_REFUSED =
+  'A bare condition is REFUSED as a `filter-builder` `value` (objectui#10825): the value is a filter '
+  + 'group, the only shape `FilterBuilder` reads, and it drew a bare `{ id, field, operator, value }` '
+  + 'condition as an EMPTY builder, with no error. Wrap it in `{ logic, conditions: [ … ] }`: `logic` '
+  + 'is `and` or `or`, and the condition becomes the one row of `conditions`.';
+
+const FilterBuilderValueSchema = z
+  .any()
+  .superRefine((value, ctx) => {
+    if (
+      typeof value === 'object'
+      && value !== null
+      && !Array.isArray(value)
+      && !Object.prototype.hasOwnProperty.call(value, 'conditions')
+      && (Object.prototype.hasOwnProperty.call(value, 'field') || Object.prototype.hasOwnProperty.call(value, 'operator'))
+    ) {
+      ctx.addIssue({ code: 'custom', message: BARE_CONDITION_VALUE_REFUSED });
+    }
+  })
+  .pipe(FilterGroupSchema);
+
+/**
  * Filter Builder Schema - Filter builder component
  */
 export const FilterBuilderSchema = BaseSchema.extend({
   type: z.literal('filter-builder'),
   fields: z.array(FilterFieldSchema).describe('Available filter fields'),
-  defaultValue: z.union([FilterBuilderConditionSchema, FilterGroupSchema]).optional().describe('Default filter value'),
-  value: z.union([FilterBuilderConditionSchema, FilterGroupSchema]).optional().describe('Controlled filter value'),
+  // RETIRED (objectui#10825, ADR-0049): measured through the real
+  // `SchemaRenderer`, a group authored as `defaultValue` drew the same empty
+  // builder as a node with no filter key at all. The registration hands
+  // `FilterBuilder` `schema.value || props.value`, and `FilterBuilder` has no
+  // `defaultValue` prop. A tombstone rather than a deletion because this node
+  // is `.passthrough()`: an undeclared key would be KEPT in silence.
+  defaultValue: retirementTombstone(
+    'RETIRED (objectui#10825, ADR-0049) — never read: the `filter-builder` renderer hands `FilterBuilder` '
+    + 'only `value`, and `FilterBuilder` has no `defaultValue` prop, so an authored default drew the same '
+    + 'empty builder as no key at all. Author the filter group as `value` instead, the key the renderer '
+    + 'reads. Delete the key.',
+  ),
+  value: FilterBuilderValueSchema.optional().describe(`Controlled filter value — a filter group. ${BARE_CONDITION_VALUE_REFUSED}`),
   onChange: handlerKeyRefusal('onChange', 'runtime-slot', 'Change handler'),
   // Both RETIRED with the nesting they configured (objectui#9306, ADR-0049): no
   // renderer read either, and `FilterGroupSchema` above now refuses the nested
@@ -1362,7 +1421,7 @@ export const DashboardWidgetConfigSchema = z.object({
  *
  * Validates the unified dashboard configuration used by create/edit workflows.
  *
- * The `aria` member is an ADR-0049 retirement tombstone (objectui#5852),
+ * The `aria` member is an ADR-0049 retirement tombstone (`e7957ab87`),
  * following this package's convention (`data-display.zod.ts`
  * `StaticTableColumnSchema`, the set `crud.zod.ts` `confirm` established):
  * `z.never().optional()` REFUSES an authored value at parse time with the key
@@ -1402,7 +1461,7 @@ export const DashboardConfigSchema = z.object({
     icon: z.string().optional(),
     variant: z.string().optional(),
   })).optional().describe('Header action buttons'),
-  aria: z.never({ error: 'RETIRED (objectui#5852) — `aria` is no longer part of DashboardConfig; delete the key. The `{ label, description }` spellings matched no renderer vocabulary and nothing ever read them.' }).optional().describe('RETIRED (objectui#5852) — the `{ label, description }` spellings matched no renderer vocabulary and no read point ever consumed them; delete the key. For real ARIA use the spec vocabulary (`ariaLabel` / `ariaDescribedBy` / `role`) on a surface that reads it.'),
+  aria: z.never({ error: 'RETIRED (ADR-0049) — `aria` is no longer part of DashboardConfig; delete the key. The `{ label, description }` spellings matched no renderer vocabulary and nothing ever read them.' }).optional().describe('RETIRED (ADR-0049) — the `{ label, description }` spellings matched no renderer vocabulary and no read point ever consumed them; delete the key. For real ARIA use the spec vocabulary (`ariaLabel` / `ariaDescribedBy` / `role`) on a surface that reads it.'),
 });
 
 /**

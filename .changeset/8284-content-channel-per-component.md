@@ -15,8 +15,8 @@ fixed version group never ships `major` (see AGENTS.md 版本号策略).
 `.passthrough()` and both keys are optional, so a node carrying the wrong channel
 type-checked, parsed green, was preserved by the parse — and then rendered an EMPTY
 element. No error at authoring time, none at validation time, none at render time. Seven
-earlier cards repaired one page of that each (objectui#5027, #3900, #6773, #6806, #8197,
-#8234, #6939) before the declaration itself was named.
+earlier changes repaired one page of that each (objectui#5027, #3900, #6773, #6806, #8197,
+#8234, `bfaa1589c`) before the declaration itself was named.
 
 **What changes.** For each component below, the channel its renderer does not read is now
 `?: never` on the TypeScript face and refused BY NAME on the zod mirror, with a message
@@ -26,6 +26,19 @@ that names the channel to write instead:
 |---|---|---|
 | `children` | `box`, `span`, `container`, `flex`, `stack`, `grid`, `scroll-area`, `form`, `toggle` | `body` |
 | `body` (at the time of this change; objectui#6771 has since retired that spelling and these three read `children`) | `alert`, `badge`, `tooltip` (which reads `content` first, the child list as its fallback) | the other channel |
+
+⚠️ **Dated note, 2026-09-28 — `BaseSchema` declares one content channel, and the
+`alert` / `badge` / `tooltip` row is inverted at release — objectui#6771.** Later in this same
+release objectui#6771 retired `body` as a child-list spelling: `BaseSchema.body` is `never` on
+the TypeScript face and refused by name on the zod mirror, and `children` is the one
+child-list key. So the paragraph that opens "`BaseSchema` declares two optional content
+channels" no longer describes `BaseSchema`, and for all twelve components in the table the
+renderer reads `children` and the refused channel is `body`. That includes `alert`, `badge`
+and `tooltip`, which accept `children` and refuse `body`, not the other way round. For those
+three the Migration paragraph below does not hold as written: in the previous release their
+renderers drew an authored `body`, and this release refuses it. objectui#6771's entry states
+that migration: author `children`. The rest of this entry is kept as the reading of this
+change.
 
 Which channel each renderer reads was measured with the TypeScript type checker over
 every `ComponentRegistry.register(...)` call in `packages/components` — a read site is a

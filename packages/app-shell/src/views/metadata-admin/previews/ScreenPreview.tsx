@@ -22,7 +22,11 @@
  * `inlineEdit` relationships) so the preview renders those child grids too.
  *
  * Homes: the flow node inspector (live-updates as the config is edited) and the
- * Debug simulator's paused-at-screen state.
+ * Debug simulator's paused-at-screen state. Both pass the designer `locale`
+ * they already hold; the preview's own words (its header, the empty state, the
+ * Submit button, the no-backend and hidden-field notes) read it
+ * (objectui#10848). The title, description and field labels are author data
+ * and show as written.
  */
 
 import * as React from 'react';
@@ -31,6 +35,7 @@ import { useAdapter } from '../../../providers/AdapterProvider.js';
 import { useMetadata } from '../../../providers/MetadataProvider.js';
 import { ScreenView, isObjectFormScreen, initialScreenValues, screenFields, type ScreenSpec } from '../../ScreenView.js';
 import { buildScreenSpec, interpolate, hiddenFieldCount, type ScreenPreviewNode } from './screen-spec.js';
+import { t as tr, tFormat } from '../i18n.js';
 
 export type { ScreenPreviewNode } from './screen-spec.js';
 
@@ -47,9 +52,11 @@ export interface ScreenPreviewProps {
    */
   variables?: Record<string, unknown>;
   className?: string;
+  /** The designer locale for the preview's own words. Absent, they read the en rows. */
+  locale?: string;
 }
 
-export function ScreenPreview({ node, variables, className }: ScreenPreviewProps) {
+export function ScreenPreview({ node, variables, className, locale }: ScreenPreviewProps) {
   const adapter = useAdapter();
   const meta = useMetadata();
   const spec = React.useMemo(() => buildScreenSpec(node), [node]);
@@ -76,12 +83,12 @@ export function ScreenPreview({ node, variables, className }: ScreenPreviewProps
   return (
     <div className={cn('overflow-hidden rounded-md border bg-background', className)}>
       <div className="flex items-center gap-1.5 border-b bg-muted/30 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        Preview
+        {tr('engine.screenPreview.header', locale)}
       </div>
       <div className="max-h-[60vh] overflow-auto p-4">
         {empty ? (
           <EmptyDescription className="text-sm italic">
-            Add a title, description, fields, or an object form to preview this screen.
+            {tr('engine.screenPreview.empty', locale)}
           </EmptyDescription>
         ) : (
           <>
@@ -89,11 +96,11 @@ export function ScreenPreview({ node, variables, className }: ScreenPreviewProps
             {description && (
               <p className={cn('whitespace-pre-line text-sm text-muted-foreground', title && 'mt-1')}>{description}</p>
             )}
-            <ScreenFormPreview key={structKey} spec={spec} adapter={adapter} objects={objects} />
+            <ScreenFormPreview key={structKey} spec={spec} adapter={adapter} objects={objects} locale={locale} />
             {!isObjectForm && screenFields(spec).length > 0 && (
               <div className="mt-4 flex justify-end">
                 {/* Non-functional — the preview never resumes a real run. */}
-                <Button size="sm" disabled>Submit</Button>
+                <Button size="sm" disabled>{tr('engine.screenPreview.submit', locale)}</Button>
               </div>
             )}
           </>
@@ -110,7 +117,17 @@ export function ScreenPreview({ node, variables, className }: ScreenPreviewProps
  * the renderer's own verdict (`hiddenFieldCount` over `visibleScreenFields`),
  * so it follows every tick and keystroke the way the form does.
  */
-function ScreenFormPreview({ spec, adapter, objects }: { spec: ScreenSpec; adapter: unknown; objects?: unknown[] }) {
+function ScreenFormPreview({
+  spec,
+  adapter,
+  objects,
+  locale,
+}: {
+  spec: ScreenSpec;
+  adapter: unknown;
+  objects?: unknown[];
+  locale?: string;
+}) {
   const [values, setValues] = React.useState<Record<string, unknown>>(() => initialScreenValues(spec));
   const hidden = hiddenFieldCount(spec, values);
   return (
@@ -124,13 +141,14 @@ function ScreenFormPreview({ spec, adapter, objects }: { spec: ScreenSpec; adapt
         objectForm={{
           showSubmit: false,
           showCancel: false,
-          noDataSourceMessage: 'Connect to a backend to preview this object form.',
+          noDataSourceMessage: tr('engine.screenPreview.noDataSource', locale),
         }}
       />
       {hidden > 0 && (
         <p className="mt-3 text-[11px] italic text-muted-foreground">
-          {hidden} field{hidden === 1 ? '' : 's'} hidden by {hidden === 1 ? 'its' : 'their'} “visible when”
-          {' '}condition{hidden === 1 ? '' : 's'}.
+          {tFormat(hidden === 1 ? 'engine.screenPreview.hiddenOne' : 'engine.screenPreview.hiddenOther', locale, {
+            count: hidden,
+          })}
         </p>
       )}
     </>

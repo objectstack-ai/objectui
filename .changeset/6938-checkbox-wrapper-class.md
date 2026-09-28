@@ -2,8 +2,8 @@
 '@object-ui/types': patch
 ---
 
-Declare `wrapperClass` on `CheckboxSchema`, on both faces (objectui#6938 — the
-residue of that card; its `context-menu` half landed with objectui#6939 group 1).
+Declare `wrapperClass` on `CheckboxSchema`, on both faces (the residue of its
+card; that card's `context-menu` half landed with `bfaa1589c`).
 
 `packages/components/src/renderers/form/checkbox.tsx:36` reads
 `cn("flex items-center space-x-2", schema.wrapperClass)` — classes on the wrapper

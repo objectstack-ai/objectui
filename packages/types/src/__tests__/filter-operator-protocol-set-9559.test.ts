@@ -201,7 +201,11 @@ describe('objectui#9559 — the authored document round-trips to canonical (the 
     };
     const r = FilterBuilderSchema.safeParse(bad);
     expect(r.success).toBe(false);
-    expect(r.success ? [] : r.error.issues.map((i) => i.path.join('.'))).toContain('value');
+    // `value` was `union([condition, group])` until objectui#10825, so this
+    // refusal came back as one `invalid_union` at `value`. The union is gone
+    // (a bare condition is refused by name), and the refusal is now reported
+    // where it is: at the operator.
+    expect(r.success ? [] : r.error.issues.map((i) => i.path.join('.'))).toEqual(['value.conditions.0.operator']);
   });
 });
 

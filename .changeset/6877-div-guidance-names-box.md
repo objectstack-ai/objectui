@@ -15,3 +15,11 @@ exactly the conversions objectui#3965 measured and rejected.
 Both statements now name `box` first for the mechanical swap, keep the layout components for the
 cases where their layout is actually wanted, and state the `body` → `children` move that every
 option except `card` requires. `span`'s guidance is deliberately unchanged.
+
+⚠️ **Dated note, 2026-09-28 — every option, and `div` itself, reads `children` only —
+objectui#6771.** Later in this same release objectui#6771 retired `body` as a child-list
+spelling, and `card` and `div` dropped their `body` arms with it. So the `body` → `children`
+move is one every option requires, `card` included. A retype no longer drops `body` content
+either: `div` does not draw it, and validation refuses the key by name. The notice's `body`
+bullet now says that (objectui#8284); `deprecated.replacement` is unchanged. The rest of this
+entry is kept as the reading of this change.

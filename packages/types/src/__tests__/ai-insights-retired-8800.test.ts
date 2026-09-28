@@ -58,6 +58,17 @@
  *     ⚠️ `./blocks.ts` earned that leg because the block family had zod mirrors
  *     shipping as runtime values; this family has no zod mirror at all, which is
  *     asserted below rather than assumed.
+ *     ⚠️ AMENDED 2026-09-28 (objectui#10859): the AI family HAS a zod module now
+ *     — `../zod/ai.zod.ts` mirrors the three siblings that render, so the
+ *     premise leg below re-derives what the retirement actually rests on (that
+ *     face declares no `ai-insights` arm and exports no `AIInsightsSchema`)
+ *     instead of the module's absence. Its `'AIInsightsSchema' in ZodFace` probe
+ *     is NOT the fourth instrument ruled out above: that one would read the
+ *     type-only `../ai.ts` namespace, where the name never existed at runtime;
+ *     this one reads the zod barrel, where a mirror of the retired declaration
+ *     WOULD be a runtime value, and its `AIRecommendationsSchema` lit control
+ *     shows the probe can answer yes. The sentence above records the tree this
+ *     pin was written against and is left as it was.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -66,6 +77,7 @@ import { execFileSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AnyComponentSchema } from '../zod/index.zod.js';
+import * as ZodFace from '../zod/index.zod.js';
 
 /** Rooted at THIS file, never at `process.cwd()` — the two differ per invocation. */
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -217,21 +229,20 @@ describe('objectui#8800 — PREMISE: the zod face never accepted the spelling', 
     expect(AnyComponentSchema.safeParse({ type: 'button', label: 'Save' }).success).toBe(true);
   });
 
-  it('the AI family has no zod mirror at all — the retirement has ONE face, not two', () => {
-    // The card's sweep found no zod mirror for `ai.ts` and this re-derives it,
-    // because a mirror would give the retirement a second face and change its
-    // shape. Measured structurally: `zod/` mirrors a module as `<name>.zod.ts`.
-    const mirrored = (name: string): boolean => {
-      try {
-        readFileSync(resolve(HERE, '..', 'zod', `${name}.zod.ts`), 'utf8');
-        return true;
-      } catch {
-        return false;
-      }
-    };
-    expect(mirrored('ai')).toBe(false);
-    // ⭐ LIT CONTROL — the same probe finds a module that IS mirrored, so the
-    // false above is a reading and not a broken path join.
-    expect(mirrored('views')).toBe(true);
+  it('the AI zod mirror declares no `ai-insights` arm — the retirement still has ONE face, not two', () => {
+    // The card's sweep found no zod mirror for `ai.ts`, and a mirror of the
+    // RETIRED declaration would give the retirement a second face and change its
+    // shape. ⚠️ AMENDED (objectui#10859): `ai.zod.ts` now exists and mirrors the
+    // three siblings that render, so this leg no longer reads the module's
+    // absence — it reads that the mirror carries no arm for the retired literal
+    // and no schema under the retired name.
+    const source = readFileSync(resolve(HERE, '..', 'zod', 'ai.zod.ts'), 'utf8');
+    expect(source).not.toMatch(/ai-insights/);
+    expect(source).not.toMatch(/AIInsights/);
+    expect('AIInsightsSchema' in ZodFace).toBe(false);
+    // ⭐ LIT CONTROLS — the same probes find a sibling the mirror DOES carry, so
+    // the absences above are readings and not a broken path join or namespace.
+    expect(source).toMatch(/z\.literal\('ai-recommendations'\)/);
+    expect('AIRecommendationsSchema' in ZodFace).toBe(true);
   });
 });

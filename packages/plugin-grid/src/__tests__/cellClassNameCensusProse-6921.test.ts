@@ -177,7 +177,7 @@ describe('objectui#6921 — the ObjectGrid schema-slot census names the cells ce
   it('the entry records the hold as OVER and no longer carries the stale HELD-pending wording', () => {
     const entry = censusEntry('cellClassName')!;
     expect(entry).toMatch(/hold is over/i);
-    expect(entry).toMatch(/objectui#6882|#6882/);
+    expect(entry).toMatch(/bf97b98c8/);
     expect(entry).not.toMatch(/HELD\. Live/);
     expect(entry).not.toMatch(/pending ruling/i);
     expect(entry).not.toMatch(/folds (it|them|the key) into every body cell/i);
@@ -191,7 +191,7 @@ describe('objectui#6921 — the ObjectGrid schema-slot census names the cells ce
   it('the ObjectGridDataTableSchemaHolds member docblock agrees: redundant since #6882, three utility cells, never a data cell', () => {
     const doc = holdsMemberDoc('cellClassName')!;
     expect(doc).not.toBeNull();
-    expect(doc).toMatch(/REDUNDANT since objectui#6882/);
+    expect(doc).toMatch(/REDUNDANT since `bf97b98c8`/);
     for (const cell of MEASURED_UTILITY_CELLS) {
       expect(doc, `member docblock should name the ${cell} cell`).toMatch(new RegExp(cell, 'i'));
     }

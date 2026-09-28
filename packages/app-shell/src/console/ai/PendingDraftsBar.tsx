@@ -32,7 +32,7 @@
  * same sink, renderer and wording every other write door uses. A bare fetch
  * had nothing to report THROUGH, so every one of those findings was parsed by
  * nobody — while the probe findings a few lines below were already shouting.
- * objectui#6965 / PR objectui#10038 did this for the two sibling call sites;
+ * PR objectui#10038 did this for the two sibling call sites;
  * this is the same move, not a second mechanism.
  *
  * Count freshness: re-read when the package binding changes and whenever the

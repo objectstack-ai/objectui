@@ -51,6 +51,7 @@ import { Link, useInRouterContext, useParams } from 'react-router-dom';
 import { EmptyDescription } from '@object-ui/components';
 import type { MetadataPreviewProps } from '../preview-registry.js';
 import { componentRefToUrlSegments } from '../../../services/componentRegistry.js';
+import { t as tr, tFormat } from '../i18n.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 
 interface JsonSchemaProp {
@@ -136,13 +137,13 @@ const API_CONSOLE_REF = 'developer:api-console';
  * that names no `:appName`, there is no app to open the console in, so no link
  * is drawn rather than one that goes nowhere.
  */
-function ApiConsoleLink({ toolName }: { toolName: string }) {
+function ApiConsoleLink({ toolName, locale }: { toolName: string; locale?: string }) {
   // Rules-of-hooks safe: whether a router sits above is a fact about the
   // mount, and cannot change under it.
-  return useInRouterContext() ? <RoutedApiConsoleLink toolName={toolName} /> : null;
+  return useInRouterContext() ? <RoutedApiConsoleLink toolName={toolName} locale={locale} /> : null;
 }
 
-function RoutedApiConsoleLink({ toolName }: { toolName: string }) {
+function RoutedApiConsoleLink({ toolName, locale }: { toolName: string; locale?: string }) {
   const { appName } = useParams<{ appName?: string }>();
   if (!appName) return null;
   const preset = new URLSearchParams({
@@ -156,14 +157,14 @@ function RoutedApiConsoleLink({ toolName }: { toolName: string }) {
       target="_blank"
       rel="noreferrer"
       className="text-xs inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
-      title="Open API Console to test invocation"
+      title={tr('engine.toolPreview.openApiConsoleTitle', locale)}
     >
-      Open in API Console <ExternalLink className="h-3 w-3" />
+      {tr('engine.toolPreview.openApiConsole', locale)} <ExternalLink className="h-3 w-3" />
     </Link>
   );
 }
 
-export function ToolPreview({ name, draft }: MetadataPreviewProps) {
+export function ToolPreview({ name, draft, locale }: MetadataPreviewProps) {
   const d = draft as Record<string, unknown>;
   const toolName = String(d.name ?? name ?? '');
   const label = String(d.label ?? toolName);
@@ -192,7 +193,7 @@ export function ToolPreview({ name, draft }: MetadataPreviewProps) {
   if (!toolName && !description && Object.keys(props).length === 0) {
     return (
       <PreviewShell hint="tool">
-        <PreviewMessage>Set name, description, and parameters to see the tool preview.</PreviewMessage>
+        <PreviewMessage>{tr('engine.toolPreview.empty', locale)}</PreviewMessage>
       </PreviewShell>
     );
   }
@@ -200,7 +201,7 @@ export function ToolPreview({ name, draft }: MetadataPreviewProps) {
   return (
     <PreviewShell
       hint="tool"
-      toolbar={toolName && <ApiConsoleLink toolName={toolName} />}
+      toolbar={toolName && <ApiConsoleLink toolName={toolName} locale={locale} />}
     >
       <PreviewErrorBoundary>
         <div className="p-3 space-y-3">
@@ -226,17 +227,17 @@ export function ToolPreview({ name, draft }: MetadataPreviewProps) {
           </div>
 
           {/* Parameters */}
-          <Section title="Input Parameters" count={Object.keys(props).length}>
+          <Section title={tr('engine.toolPreview.inputParameters', locale)} count={Object.keys(props).length}>
             {Object.keys(props).length === 0 ? (
-              <EmptyDescription className="text-xs italic">This tool takes no input parameters.</EmptyDescription>
+              <EmptyDescription className="text-xs italic">{tr('engine.toolPreview.noParameters', locale)}</EmptyDescription>
             ) : (
-              <ParamTable props={props} required={required} />
+              <ParamTable props={props} required={required} locale={locale} />
             )}
           </Section>
 
           {/* Example invocation */}
           {Object.keys(props).length > 0 && (
-            <Section title="Example LLM Call" icon={FileJson}>
+            <Section title={tr('engine.toolPreview.exampleCall', locale)} icon={FileJson}>
               <pre className="m-0 rounded border bg-background p-2.5 text-xs font-mono overflow-auto max-h-[200px]">
 {`{
   "tool": "${toolName}",
@@ -248,10 +249,15 @@ export function ToolPreview({ name, draft }: MetadataPreviewProps) {
 
           {/* Output */}
           {isObjectSchema(outputSchema) && outputSchema.properties && Object.keys(outputSchema.properties).length > 0 && (
-            <Section title="Output Schema" count={Object.keys(outputSchema.properties).length} icon={Box}>
+            <Section
+              title={tr('engine.toolPreview.outputSchema', locale)}
+              count={Object.keys(outputSchema.properties).length}
+              icon={Box}
+            >
               <ParamTable
                 props={outputSchema.properties}
                 required={new Set(Array.isArray(outputSchema.required) ? outputSchema.required : [])}
+                locale={locale}
               />
             </Section>
           )}
@@ -261,16 +267,24 @@ export function ToolPreview({ name, draft }: MetadataPreviewProps) {
   );
 }
 
-function ParamTable({ props, required }: { props: Record<string, JsonSchemaProp>; required: Set<string> }) {
+function ParamTable({
+  props,
+  required,
+  locale,
+}: {
+  props: Record<string, JsonSchemaProp>;
+  required: Set<string>;
+  locale?: string;
+}) {
   const keys = Object.keys(props);
   return (
     <div className="rounded border bg-background overflow-hidden">
       <table className="w-full text-xs">
         <thead>
           <tr className="bg-muted/30 text-left text-[10px] uppercase tracking-wider text-muted-foreground">
-            <th className="px-2.5 py-1.5 font-medium">Name</th>
-            <th className="px-2.5 py-1.5 font-medium">Type</th>
-            <th className="px-2.5 py-1.5 font-medium">Description</th>
+            <th className="px-2.5 py-1.5 font-medium">{tr('engine.toolPreview.col.name', locale)}</th>
+            <th className="px-2.5 py-1.5 font-medium">{tr('engine.toolPreview.col.type', locale)}</th>
+            <th className="px-2.5 py-1.5 font-medium">{tr('engine.toolPreview.col.description', locale)}</th>
           </tr>
         </thead>
         <tbody className="divide-y">
@@ -287,7 +301,9 @@ function ParamTable({ props, required }: { props: Record<string, JsonSchemaProp>
                       <ChevronRight className="h-3 w-3 text-muted-foreground" />
                     )}
                     {k}
-                    {isReq && <span className="text-[9px] uppercase text-emerald-700 ml-1">req</span>}
+                    {isReq && (
+                      <span className="text-[9px] uppercase text-emerald-700 ml-1">{tr('engine.toolPreview.required', locale)}</span>
+                    )}
                   </div>
                 </td>
                 <td className="px-2.5 py-1.5 font-mono text-muted-foreground">{typeLabel(p)}</td>
@@ -295,16 +311,18 @@ function ParamTable({ props, required }: { props: Record<string, JsonSchemaProp>
                   {p.description && <div>{p.description}</div>}
                   {Array.isArray(p.enum) && p.enum.length > 0 && (
                     <div className="text-[10px] text-muted-foreground">
-                      enum: {p.enum.map((v) => JSON.stringify(v)).join(' | ')}
+                      {tFormat('engine.toolPreview.enum', locale, { values: p.enum.map((v) => JSON.stringify(v)).join(' | ') })}
                     </div>
                   )}
                   {p.default !== undefined && (
                     <div className="text-[10px] text-muted-foreground">
-                      default: <code className="font-mono">{JSON.stringify(p.default)}</code>
+                      {tr('engine.toolPreview.default', locale)} <code className="font-mono">{JSON.stringify(p.default)}</code>
                     </div>
                   )}
                   {p.format && (
-                    <div className="text-[10px] text-muted-foreground">format: {p.format}</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {tFormat('engine.toolPreview.format', locale, { format: p.format })}
+                    </div>
                   )}
                 </td>
               </tr>

@@ -359,7 +359,7 @@ export function DraftChangesPanel({
   const [error, setError] = useState<string | null>(null);
   /**
    * Author-time security findings that the publish door would REFUSE
-   * (objectui#5418). Surfaced here, next to the button, so the refusal is
+   * (`7a90afdf9`). Surfaced here, next to the button, so the refusal is
    * something the author reads before committing rather than a toast that
    * arrives after the batch has already rolled back.
    */
@@ -435,7 +435,7 @@ export function DraftChangesPanel({
   }, [open, load]);
 
   /**
-   * Clear the toast stack when this panel opens (objectui#5416).
+   * Clear the toast stack when this panel opens (`add10d8f9`).
    *
    * The console mounts its toaster bottom-right (`apps/console/src/App.tsx`)
    * and this sheet is `side="right"` with a `mt-auto` footer, so the stack

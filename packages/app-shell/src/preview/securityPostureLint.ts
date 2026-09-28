@@ -8,7 +8,7 @@
 
 /**
  * Pre-publish security-posture lint (ADR-0090 D7) — the "fail early, not at
- * publish" half of objectui#5418.
+ * publish" half of `7a90afdf9`.
  *
  * The publish door refuses an object whose record-sharing baseline was never
  * authored (`security-owd-unset`), and it is RIGHT to: the OWD must be a

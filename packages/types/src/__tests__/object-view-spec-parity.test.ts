@@ -244,14 +244,13 @@ const TS_ONLY_BACKLOG = new Set<string>([
   // the sibling `ViewSwitcherSchema` slots by reference, `defaultViewType` /
   // `defaultListView` / `showViewSwitcher` local literals after a reader census,
   // and `viewTabBar` is a tombstone on BOTH faces (declared, refused by name) —
-  // so none of the nine is TS-only any more. The one that stays:
+  // so none of the nine is TS-only any more.
   //
-  // `listViews` — its VALUE type is undecided (the declaration's `NamedListView`
-  // vs the spec's strict `ObjectListViewSchema`, which refuses the named views
-  // this package's docs teach); it stays in the parity ledger with that
-  // measurement (`zod-mirror-parity.test.ts`, `UnmirroredDeclared`) until the
-  // maintainer decides. ⛔ Not closed with `z.any()`.
-  'listViews',
+  // ⭐ `listViews`, the tenth, LEFT this backlog with objectui#7928. Its value
+  // type was the open question (the declaration's `NamedListView` vs the spec's
+  // strict `ObjectListViewSchema`); ruling A chose the spec's, and both faces
+  // now carry `ViewSchema.listViews` by reference. The set is empty, and a name
+  // appearing in it again is a key added to the interface only.
   // ⭐ `onNavigate` LEFT this backlog with objectui#7804's `objectql.ts` slice,
   // and the sentence it used to carry here was the thing that needed correcting
   // — not the entry. It read "a function, so it CANNOT be declared in a JSON
@@ -419,8 +418,13 @@ describe('ObjectViewSchema declared-surface consistency (#2890 scope B)', () => 
     // 21 non-envelope keys, 21 + 2 = 23 declared — and the TS figure below again
     // does not move, because the key was already declared there. That is the
     // whole shape of this slice: it closes gaps on the ZOD side only.
-    expect(ouiZodKeys.filter((k) => !ENVELOPE.has(k))).toHaveLength(21);
-    expect(ouiDeclaredKeys).toHaveLength(23);
+    //
+    // objectui#7928 added the TWENTY-SECOND: `listViews`, the spec's record by
+    // reference — the last TS-only key closed on the zod side. So 22
+    // non-envelope keys, 22 + 2 = 24 declared, and the TS figure again does not
+    // move.
+    expect(ouiZodKeys.filter((k) => !ENVELOPE.has(k))).toHaveLength(22);
+    expect(ouiDeclaredKeys).toHaveLength(24);
     // The interface's own surface beyond the envelope. The audit counted 25
     // declared fields including the 3 whose names the envelope also owns
     // (`type`, `description`, `className`); 22 is that figure with those three

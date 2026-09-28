@@ -3522,7 +3522,7 @@ const pt = {
       detailChangedKeys: 'Também alterado:',
       confirmNote: 'Publicar libera atomicamente todos os {{count}} rascunhos pendentes deste pacote.',
       publishConfirm: 'Publicar tudo',
-      // [objectui#5418] Pre-publish security-posture findings, shown next to
+      // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
       securityBlockTitle: 'A publicação será recusada — {{count}} item(ns) precisam de uma decisão primeiro',

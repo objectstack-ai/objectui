@@ -447,7 +447,13 @@ export function normalizeListViewSchema<T>(schema: T): T {
   const legacyFields = s.fields;
   const foldColumns = Array.isArray(legacyFields);
   const legacyDensity = s.densityMode;
-  const foldRowHeight = typeof legacyDensity === 'string' && legacyDensity in DENSITY_MODE_TO_ROW_HEIGHT;
+  // `hasOwnProperty`, not `in` — same trap as {@link rowHeightToDensityMode},
+  // in the fold direction: `in` walks the prototype chain, so `'toString'` used
+  // to fold into `rowHeight` as `Object.prototype.toString`, a FUNCTION, and
+  // drop the key (objectui#10868). An inherited key is an unrecognized density.
+  const foldRowHeight =
+    typeof legacyDensity === 'string' &&
+    Object.prototype.hasOwnProperty.call(DENSITY_MODE_TO_ROW_HEIGHT, legacyDensity);
   const legacyFilters = s.filters;
   const foldFilter = Array.isArray(legacyFilters);
   const legacyFlags = Object.keys(SHOW_FLAG_TO_USER_ACTION).filter((k) => typeof s[k] === 'boolean');

@@ -3,7 +3,7 @@
 ---
 
 Correct `BaseSchema.hidden`'s JSDoc: it hides by NOT RENDERING, exactly as
-`visible: false` does (objectui#7088, maintainer ruling 2026-09-01).
+`visible: false` does (maintainer ruling 2026-09-01).
 
 The declaration promised "Controls whether the component is hidden (but still
 rendered) … component is rendered but not visible (visibility: hidden)". The

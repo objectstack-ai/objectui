@@ -1852,7 +1852,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
           ? deriveRecordPageHref(resource, recordId)
           : null;
       // No derivable destination ⇒ do nothing, exactly as before. An invented
-      // URL would be the fabrication objectui#7070 spent this file's other
+      // URL would be the fabrication the invented-binding work (`5f4514f7b`) spent this file's other
       // branches removing.
       if (!href) return;
       if (action === 'new_window') {

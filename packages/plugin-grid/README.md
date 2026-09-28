@@ -194,7 +194,7 @@ const grid: ObjectGridSchema = {
 | `navigation` | `NavigationConfig` | What a row click does, `{ mode: 'page' \| 'drawer' \| 'modal' \| 'split' \| 'none', … }`. |
 | `operations` | `object` | Toggles the built-in CRUD/export/import affordances, e.g. `{ delete: false }`. |
 | `rowHeight`, `frozenColumns`, `resizable`, `reorderableColumns`, `showColumnTypeIcons`, `rowColor`, `conditionalFormatting`, `aggregations`, `exportOptions`, `className` | | The rest of the declared surface. |
-| `grouping` | `GroupingConfig` | Row grouping — **page-scoped**, see [Grouping is page-scoped](#grouping-is-page-scoped). |
+| `grouping` | `GroupingConfig` | Row grouping — **server-side**: group set, counts and aggregations come from the query, rows are paged per group; see [Grouping is server-side](#grouping-is-server-side). |
 
 **There is no `sortable`, `filterable`, `onRowClick`, `onSelectionChange`,
 `onCellChange`, `onRowSave`, `onBatchSave` or `object` on this schema.** The
@@ -453,37 +453,50 @@ const schema: ObjectGridSchema = {
 always carries a rows-per-page picker, and `pageSizeOptions` only replaces the
 choices it offers with your own.
 
-### Grouping is page-scoped
+### Grouping is server-side
 
-`grouping` groups **the records the browser has already fetched** — one page —
-not the whole result set. The grid buckets the rows in hand and computes every
-per-group count and aggregation from that same array, so both the set of groups
-and every number in a group header are properties of the page, not of the query.
+`grouping` is answered by the **server**, not by bucketing the records the
+browser happens to hold (objectui#7189, maintainer ruling A). The set of groups
+and every number in a group header — the count and any per-group aggregation —
+are properties of the query; the rows inside a group are paged.
 
-Two consequences, and the second is the one to decide against before you ship
-the view:
+A grouped grid that fetches its own rows asks its data source for the group
+headers — the query `@objectstack/spec/ui`'s `compileListViewGroupQuery`
+compiles, sent through `dataSource.queryGroupHeaders` (the ObjectStack adapter
+posts it to `POST /data/:object/query`) — and then pages each **open** group's
+rows with that group's own query (`compileListViewGroupRowsQuery`: the view's
+filter AND the group's key, `limit` / `offset` per group). So:
 
-- Every group count is a page slice, so it can be lower than the group's real
-  size.
-- **A group whose records all fall beyond the page does not appear at all.** On
-  a grid read as an org lens ("what is outstanding, per business unit"), a unit
-  that is silently absent is a wrong answer that looks like good news.
+- Every group appears, with its **true size**, whatever the page size and
+  whatever order the rows are stored in — a store of 186 records over five
+  units renders five headers reading 86/61/31/7/1.
+- A group larger than the page gets its **own pager**, and turning it asks the
+  server for that group's next page, so every record is reachable.
+- A collapsed group costs no row query at all.
+- `aggregations` are computed by the same header query, over the group's whole
+  row set.
+- Multi-level grouping asks one header query per level, so an outer header's
+  numbers are that level's own (an average is never an average of averages).
+- A `lookup` / `master_detail` / `user` grouping key is the referenced record's
+  id on the wire; the grid labels it from the referenced record.
 
-Since objectui#7189 the grid says so on screen rather than leaving it silent.
-When the result set is larger than the rows loaded, a short `Partial` marker
-appears beside **every group count** — where the authoritative-looking number
-is — and a line above the group list carries the whole sentence, e.g.
-*"Grouped over the first 100 of 186 records…"*. When no match total is
-reachable the wording weakens honestly to *"Grouped over the 100 records
-loaded. More may match this view…"*. A grouped grid whose result set fits in
-one page shows neither: the marker is conditional, which is what makes it worth
-reading.
+When a `ListView` hosts the grid (the console's list views), it hands a grouped
+grid its own fetch and the view's effective filter, rather than a window of
+rows.
 
-The disclosure is not a fix for the scoping — it makes it visible. If a view
-needs true totals per group today, the working options are to narrow the query
-until the result set fits one page (a `filter` that scopes the lens), to raise
-`pagination.pageSize` past the result set, or to compute the aggregation server
-side and render it from a dataset rather than from grid grouping.
+Two cases still group **in the browser**:
+
+- **Rows handed in whole** (`data: { provider: 'value', items }`, or a host's
+  whole result set): nothing was withheld, so grouping them there is exact.
+- **A data source that declares no `queryGroupHeaders`**: the grid can only
+  group the page it fetched. Every count is then a page slice and a group whose
+  records all fall past the page is absent, so the grid says so where the
+  numbers are — a short `Partial` marker beside every group count and a line
+  above the group list (*"Grouped over the first 100 of 186 records…"*). With
+  counts from the server the marker never appears.
+
+A toolbar **search** has no counterpart on the group header query, so a
+`ListView` keeps grouping its own window while a search term is active.
 
 ## Integration with Data Sources
 

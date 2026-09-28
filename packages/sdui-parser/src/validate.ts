@@ -47,7 +47,7 @@ export const CHILD_LIST_KEY = 'children';
  *
  * ⛔ `isContainer` is NOT consulted and is NOT a fallback. It used to decide
  * this branch and it lied both ways: a hand-kept flag drifted from the code
- * (objectui#3900 / #6740 / #6764 / #6779 found the same drift four times),
+ * (objectui#3900 / `7c9b044f4` / #6764 / #6779 found the same drift four times),
  * and after objectui#6771 converged a dozen registrations onto `children`
  * the flag put a FALSE `not-a-container` on the one key they read
  * (objectui#9910). The flag now means LAYOUT containment only — the
@@ -183,7 +183,7 @@ export function validateTree(tree: SchemaElement | null, manifest: Manifest): Ma
           // an author to edit working source. What is left on this side of the
           // boundary is a genuine expression, so that is what the message names.
           //
-          // Warning, not error, per the objectui#5709 precedent for inert
+          // Warning, not error, per the `8d58f46b4` precedent for inert
           // authored keys. ⛔ Escalation to error is objectui#6614 Q2 and is
           // deliberately NOT part of this change: it belongs at the SAVE GATE,
           // once the framework wires the registry manifest into
@@ -228,7 +228,7 @@ export function validateTree(tree: SchemaElement | null, manifest: Manifest): Ma
 
       // Dashboard widgets: an `options` key riding the spec's `.passthrough()`
       // that no renderer consumes is legal, silent and inert — warn, naming
-      // the consumed set (objectui#5709 ruling; census + scope in
+      // the consumed set (the 2026-08-23 ruling; census + scope in
       // `./dashboard-widget-options.ts`). Like `not-a-container`, this runs
       // only for a component the manifest knows: an unresolved tag already
       // drew `unknown-component`, and deep diagnostics on it would be noise.

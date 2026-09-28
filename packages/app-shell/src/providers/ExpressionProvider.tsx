@@ -118,7 +118,7 @@ export interface ExpressionScopeInput {
  * `app` and `data` came off the same list producing OPPOSITE failures, and the
  * `data` half is the nastier one.
  *
- * objectui#5741 (Phase 2 of the objectui#5330 canon) retired `data.*` on
+ * `83fe6e741` (Phase 2 of the objectui#5330 canon) retired `data.*` on
  * runtime record surfaces: the row is bound as `record.*` and nothing else, and
  * `@object-ui/core`'s `evaluator/rowPredicateCanon.ts` records the server's
  * verdict for the retired spelling — `data.status` is `❌ Unknown variable:

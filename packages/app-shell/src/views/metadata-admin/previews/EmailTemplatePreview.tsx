@@ -17,7 +17,9 @@ import * as React from 'react';
 import { Mail } from 'lucide-react';
 import { EmptyDescription } from '@object-ui/components';
 import type { MetadataPreviewProps } from '../preview-registry.js';
+import { t as tr, tFormat } from '../i18n.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
+import { withNodes } from './row-nodes.js';
 
 function detectVariables(text: string): string[] {
   const out = new Set<string>();
@@ -38,7 +40,7 @@ function substitute(text: string, scope: Record<string, string>): string {
     .replace(/\$\{\s*([a-zA-Z_][\w.]*)\s*\}/g, (_, p) => resolveVar(p, scope));
 }
 
-export function EmailTemplatePreview({ draft }: MetadataPreviewProps) {
+export function EmailTemplatePreview({ draft, locale }: MetadataPreviewProps) {
   const subject = String((draft as any).subject ?? '');
   const from = String((draft as any).from ?? (draft as any).fromAddress ?? '');
   const to = String((draft as any).to ?? '');
@@ -63,12 +65,12 @@ export function EmailTemplatePreview({ draft }: MetadataPreviewProps) {
   const srcDoc = `<!doctype html><html><head><meta charset="utf-8"><style>
     html,body{margin:0;padding:16px;font:14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111;background:#fff;}
     a{color:#2563eb;}
-  </style></head><body>${resolvedHtml || '<p style="color:#888">(empty body)</p>'}</body></html>`;
+  </style></head><body>${resolvedHtml || `<p style="color:#888">${tr('engine.emailTemplatePreview.emptyBody', locale)}</p>`}</body></html>`;
 
   if (!bodyHtml && !bodyText && !subject) {
     return (
       <PreviewShell hint="email_template">
-        <PreviewMessage>Fill in the subject / body in the Form tab to see a preview.</PreviewMessage>
+        <PreviewMessage>{tr('engine.emailTemplatePreview.empty', locale)}</PreviewMessage>
       </PreviewShell>
     );
   }
@@ -79,12 +81,12 @@ export function EmailTemplatePreview({ draft }: MetadataPreviewProps) {
         <div className="grid lg:grid-cols-[1fr_220px] gap-0">
           <div className="p-3 space-y-3 min-w-0">
             <div className="rounded border bg-muted/30 px-3 py-2 text-xs space-y-0.5">
-              <div className="flex gap-2"><span className="w-12 text-muted-foreground shrink-0">From</span><span className="font-mono truncate">{from || '—'}</span></div>
-              <div className="flex gap-2"><span className="w-12 text-muted-foreground shrink-0">To</span><span className="font-mono truncate">{to || '—'}</span></div>
-              <div className="flex gap-2"><span className="w-12 text-muted-foreground shrink-0">Subject</span><span className="font-medium truncate">{resolvedSubject || '—'}</span></div>
+              <div className="flex gap-2"><span className="w-12 text-muted-foreground shrink-0">{tr('engine.emailTemplatePreview.from', locale)}</span><span className="font-mono truncate">{from || '—'}</span></div>
+              <div className="flex gap-2"><span className="w-12 text-muted-foreground shrink-0">{tr('engine.emailTemplatePreview.to', locale)}</span><span className="font-mono truncate">{to || '—'}</span></div>
+              <div className="flex gap-2"><span className="w-12 text-muted-foreground shrink-0">{tr('engine.emailTemplatePreview.subject', locale)}</span><span className="font-medium truncate">{resolvedSubject || '—'}</span></div>
             </div>
             <iframe
-              title="Email preview"
+              title={tr('engine.emailTemplatePreview.frameTitle', locale)}
               srcDoc={srcDoc}
               sandbox="allow-same-origin"
               className="w-full min-h-[400px] max-h-[60vh] border rounded bg-white"
@@ -93,10 +95,12 @@ export function EmailTemplatePreview({ draft }: MetadataPreviewProps) {
 
           <div className="border-l bg-muted/20 p-3 text-xs space-y-2">
             <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
-              <Mail className="h-3 w-3" /> Variables
+              <Mail className="h-3 w-3" /> {tr('engine.emailTemplatePreview.variables', locale)}
             </div>
             {variables.length === 0 ? (
-              <EmptyDescription className="text-xs italic">No <code>{'{{var}}'}</code> placeholders found.</EmptyDescription>
+              <EmptyDescription className="text-xs italic">
+                {withNodes(tr('engine.emailTemplatePreview.noVariables', locale), { var: <code>{'{{var}}'}</code> })}
+              </EmptyDescription>
             ) : (
               <div className="space-y-2">
                 {variables.map((v) => (
@@ -106,7 +110,7 @@ export function EmailTemplatePreview({ draft }: MetadataPreviewProps) {
                       type="text"
                       value={scope[v] ?? ''}
                       onChange={(e) => setScope((s) => ({ ...s, [v]: e.target.value }))}
-                      placeholder={`sample for ${v}`}
+                      placeholder={tFormat('engine.emailTemplatePreview.samplePlaceholder', locale, { name: v })}
                       className="w-full text-xs px-2 py-1 border rounded bg-background"
                     />
                   </label>

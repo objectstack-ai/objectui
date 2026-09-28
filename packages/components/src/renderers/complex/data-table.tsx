@@ -75,7 +75,7 @@ import {
  */
 // Column types that should edit as a numeric `<Input type="number">`.
 //
-// `int` / `integer` / `float` / `double` USED to be members (objectui#5853).
+// `int` / `integer` / `float` / `double` USED to be members (`fc62bb490`).
 // They were never declared by `TableColumn.type` — they arrived because
 // column-inference producers forwarded an object schema's field type verbatim,
 // which is also why this key had to be read through an `as any` below. Those
@@ -1116,7 +1116,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   //
   // This used to justify itself with "the injected widgets (text, number, date,
   // lookup, …) have no such handler". That claim is no longer true and is no
-  // longer the reason (objectui#6859). `onBlur` is a DECLARED DOM pass-through
+  // longer the reason (`64d937c53`). `onBlur` is a DECLARED DOM pass-through
   // key — named in `FieldWidgetDomProps` (`@object-ui/fields`), named in
   // `SDUI_DOM_PASS_THROUGH_KEYS` (`@object-ui/core`), forwarded by
   // `toDomProps` — and every widget reachable as an inline editor spreads that
@@ -1143,7 +1143,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // EDIT MODE, not rescuing the value: injected widgets stage on every change
   // (the host wires the widget's `onChange` to `stageEdit` below), so a typed
   // value is already in `pendingChanges` before any exit event — measured in a
-  // real browser on the text, date and number editors for objectui#6859.
+  // real browser on the text, date and number editors for `64d937c53`.
   // Retiring this listener would strand cells in edit mode; it would not drop
   // edits.
   const injectedEditorElRef = useRef<HTMLDivElement | null>(null);
@@ -1922,7 +1922,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // Built-in `<input>` editors commit via their own onBlur (handleEditBlur). The
   // widgets injected through `renderCellEditor` (text, number, date, lookup, …)
   // never receive one — not because they cannot deliver it (they can, and do:
-  // see `injectedEditorElRef` above and objectui#6859) but because nothing on
+  // see `injectedEditorElRef` above and `64d937c53`) but because nothing on
   // this seam passes it to them — so without this they stay stuck in edit mode
   // when the user clicks away. A capture-phase document listener (capture so a cell's
   // own `stopPropagation` can't hide it) commits the staged value and exits edit
@@ -2255,7 +2255,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         that path entirely, so an authored `visibleWhen` on an
                         `emptyAction` was accepted by the spec and then never
                         evaluated — declared-not-enforced (objectui#5926 gap 1),
-                        the same class objectui#5401 / #5505 closed for
+                        the same class `c86185eb5` closed for
                         `record:alert`, one level down.
 
                         Routing to the ONE gate rather than adding a local
@@ -2553,7 +2553,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                 // Type-aware inline editor. `col.type` is forwarded
                                 // from a producer's column inference, folded onto the
                                 // DECLARED vocabulary at that producer's emit seam
-                                // (objectui#5853). This used to be
+                                // (`fc62bb490`). This used to be
                                 // `(col as any).type as string | undefined` — a cast that
                                 // existed only because the values arriving were not the
                                 // values `TableColumn` declares. They are now, so the read
@@ -2573,7 +2573,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                 // reason only: `DataTableSchema` did not declare the key
                                 // this renderer has always read, so the read had to
                                 // re-state the contract locally and the schema had to be
-                                // opened up to let it. objectui#6882 declared it (the
+                                // opened up to let it. `bf97b98c8` declared it (the
                                 // 2026-08-30 ruling), so the read is typed at its source
                                 // and the ctx shape below is checked against the
                                 // declaration instead of asserted against nothing.
@@ -2613,7 +2613,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                     //
                                     // Tab is deliberately NOT in that list, and
                                     // tabbing out therefore does not leave edit
-                                    // mode — measured, objectui#6859. It costs
+                                    // mode — measured, `64d937c53`. It costs
                                     // nothing: the widget has already staged
                                     // every keystroke into `pendingChanges`, so
                                     // the value is safe; the cell simply stays

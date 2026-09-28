@@ -7,7 +7,8 @@
  */
 
 import { ObjectStackClient, type QueryOptions as ObjectStackQueryOptions } from '@objectstack/client';
-import type { DroppedFieldsEvent } from '@objectstack/spec/data';
+import type { DroppedFieldsEvent, EngineAggregateOptions } from '@objectstack/spec/data';
+import type { ListViewGroupHeaderRow } from '@objectstack/spec/ui';
 // #4934 — a VALUE import, not a type one: the write-warning boundary parses the
 // wire's `reason` against the enum the spec itself declares, so the accept set
 // is read off the pin instead of hand-copied here (a hand copy is the drift
@@ -355,7 +356,7 @@ function specShapeSelectorReasons(params: any): string[] {
  * Analytics-branch params — `filter`, `field`, `function` — that reached
  * `aggregate()`'s SPEC-SHAPE branch, which reads none of them.
  *
- * WHY A REFUSAL AND NOT A DROP (objectui#6864). This applies the maintainer
+ * WHY A REFUSAL AND NOT A DROP (`503cd8b89`). This applies the maintainer
  * ruling of 2026-08-30 on objectui#6825 — option A, REFUSE at the producer — to
  * the rest of the same branch. That ruling's reason was that a shape the spec's
  * own gate would reject is off-contract at the PRODUCER, so the adapter says no
@@ -2005,7 +2006,7 @@ export type DroppedFieldsNotice = DroppedFieldsEvent | UnrecognizedDropReasonEve
  *
  * It used to be `Omit<DroppedFieldsEvent, 'reason'> & { reason?: unknown }`,
  * which was honest about `reason` and dishonest about the other two
- * (objectui#6889). `Omit` carried the spec's `fields: string[]` and its
+ * (`f75810e7c`). `Omit` carried the spec's `fields: string[]` and its
  * REQUIRED `object: string` through untouched, while the structural gate below
  * read neither: `fields: [42]` and an entry with no `object` at all both passed
  * and reached subscribers typed as if they had been checked. Required is what
@@ -2033,7 +2034,7 @@ function isRecognizedDropReason(reason: unknown): reason is DroppedFieldsEvent['
  * one string (so the parsed notice below names something). An array holding no
  * string at all — `fields: [42]`, `fields: []` — reports no field name, and an
  * entry that names no field has nothing truthful to tell the user; the
- * pre-objectui#6889 gate already dropped the empty case for exactly that
+ * pre-`f75810e7c` gate already dropped the empty case for exactly that
  * reason, and this is the same rule one level deeper.
  *
  * `object` and `reason` are deliberately NOT gated on. Nothing is dropped for
@@ -2051,7 +2052,7 @@ function isWireDroppedFieldsEntry(e: unknown): e is WireDroppedFieldsEntry {
 }
 
 /**
- * Parse ONE wire entry into a notice (objectui#4934, objectui#6889).
+ * Parse ONE wire entry into a notice (objectui#4934, `f75810e7c`).
  *
  * Three parses, one per field the gate above does not establish, and the
  * result is built rather than asserted — so the last cast in this seam is gone:
@@ -2118,7 +2119,7 @@ function asDroppedFieldsNotice(
  * cannot produce this entry; it takes one that omits (or non-strings) `object`
  * AND sends an index naming no operation, in the same entry. Nothing in this
  * repo emits that shape, and whether a deployed backend does is not answerable
- * from here. Unlike objectui#6889's exotic case this is not structurally
+ * from here. Unlike the exotic case on the card behind `f75810e7c`, this is not structurally
  * impossible — the payload arrives as parsed JSON, and a non-conformant server
  * can send it.
  *
@@ -2142,7 +2143,7 @@ function asDroppedFieldsNotice(
  *
  * So this is neither the skew arm's "tolerate" (objectui#4934 — a `reason` from
  * the future is the producer running AHEAD of us, expected version skew) nor
- * `fields`' "refuse" (objectui#6889 — an off-spec element that would otherwise
+ * `fields`' "refuse" (`f75810e7c` — an off-spec element that would otherwise
  * reach a consumer typed as a field name). There is no producer value to keep
  * or drop here: the question is only what WE write when the response supplied
  * nothing. The answer is a DECLARED placeholder rather than a bare literal that
@@ -3582,7 +3583,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * field); `object`, `fields` and `reason` are then PARSED — an unrecognized
    * reason routed to the skew arm, a non-string field element refused, a missing
    * `object` healed from `resource` — never asserted into the union, and the
-   * entry itself never dropped for them (objectui#4934, objectui#6889).
+   * entry itself never dropped for them (objectui#4934, `f75810e7c`).
    */
   private notifyDroppedFields(
     operation: 'create' | 'update',
@@ -3625,7 +3626,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     for (const entry of dropped) {
       // Same gate as the single-record path, so the two agree on what an entry
       // even is. The remaining cast adds only `index`, which this loop reads
-      // and the gate has no opinion about (objectui#4934, objectui#6889).
+      // and the gate has no opinion about (objectui#4934, `f75810e7c`).
       if (!isWireDroppedFieldsEntry(entry)) continue;
       const e = entry as WireDroppedFieldsEntry & { index?: number };
       const op = typeof e.index === 'number' ? operations[e.index] : undefined;
@@ -3654,7 +3655,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
           : undefined;
       // `object`, `fields` and `reason` are parsed here too — the batch path
       // used to re-assert all three into the union via the cast above
-      // (objectui#4934, objectui#6889). `index` is deliberately not carried onto
+      // (objectui#4934, `f75810e7c`). `index` is deliberately not carried onto
       // the notice: it addresses an operation in THIS response, not the strip,
       // which is why the entry is rebuilt rather than spread.
       const [live] = withoutNoOpDrops(
@@ -6027,7 +6028,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         assertSpecShapeWhereIsFilterAst(params.where, resource);
         queryAst.where = params.where;
       }
-      // The other half of the same ruling — objectui#6864. `where` above is the
+      // The other half of the same ruling — `503cd8b89`. `where` above is the
       // key this branch DOES read and refuses when unlowered; `filter`, `field`
       // and `function` are the analytics branch's keys, which this branch reads
       // not at all and used to drop without a word. Same disposition, applied to
@@ -6206,6 +6207,40 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       // so RLS still applies.
       return await this.aggregateViaFind(resource, params);
     }
+  }
+
+  /**
+   * Answer a grouped list view's GROUP HEADER query (objectui#7189) — see
+   * `DataSource.queryGroupHeaders` in `@object-ui/types` for the contract.
+   *
+   * The compiled query rides the platform's EXISTING data door verbatim:
+   * `client.data.query()` posts it to `POST /data/:object/query`, whose
+   * `findData` routes a body carrying `groupBy` / `aggregations` to
+   * `engine.aggregate` and answers the header rows as `records` (the door the
+   * spec half of objectstack#14556 names, pinned platform-side by
+   * objectstack#15330). No new route, no new wire shape.
+   *
+   * ⛔ No fallback, deliberately — unlike {@link aggregate}. A header query that
+   * degraded to bucketing a fetched page would answer page slices under a name
+   * that promises the query's own numbers, which is the defect this member
+   * exists to end. A failure is thrown to the caller, and a body without a
+   * `records` array is refused rather than read as "no groups".
+   */
+  async queryGroupHeaders(
+    resource: string,
+    query: EngineAggregateOptions,
+  ): Promise<ListViewGroupHeaderRow[]> {
+    await this.connect();
+    const result: unknown = await this.client.data.query(resource, query as any);
+    const records = (result as { records?: unknown } | null)?.records;
+    if (!Array.isArray(records)) {
+      throw new Error(
+        `queryGroupHeaders('${resource}'): POST /data/${resource}/query answered without a `
+        + '`records` array, so no group header can be read from it. The header query was '
+        + 'sent verbatim; nothing was approximated from a page of rows.',
+      );
+    }
+    return records as ListViewGroupHeaderRow[];
   }
 
   /**

@@ -8,7 +8,7 @@
 
 /**
  * ZOD WRAPPER KEYS — the one literal list both language sides read
- * (objectui#6923, ruled 2026-08-31; objectui#5872 class (3)).
+ * (`d3bf4fa6f`, ruled 2026-08-31; objectui#5872 class (3)).
  *
  * ## What the list is
  *
@@ -24,7 +24,7 @@
  * they now span a language boundary. `@object-ui/test-support` is `private:
  * true` and its `exports["."]` resolves to `./src/index.ts` — TypeScript
  * SOURCE — so a bare `node scripts/check-*.mjs` cannot import it and there is
- * no build artefact for it to reach. That is the wall objectui#6923 was filed
+ * no build artefact for it to reach. That is the wall the card behind `d3bf4fa6f` was filed
  * to get a ruling on, and the ruling's answer is this file's shape:
  *
  *   - the data lives in `zod-wrapper-keys.json`, which needs no build step and

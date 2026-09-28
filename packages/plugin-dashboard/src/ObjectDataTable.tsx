@@ -118,7 +118,7 @@ interface NormalizedColumn {
  * another road? — is part of the rule, not an aside: a key with no second road
  * is not inert, and retiring it would change behaviour.
  *
- * `type` is not adjudicated here. objectui#5853 already settled it at this
+ * `type` is not adjudicated here. `fc62bb490` already settled it at this
  * seam, and its fold (`normalizeTableColumnType`) stands unchanged.
  *
  * `name` is HELD, not retired, and not adjudicated here either: it is
@@ -336,7 +336,7 @@ export interface ObjectDataTableColumnHolds {}
  * The candidate keys this seam refuses — DERIVED from the override vocabulary,
  * never hand-listed, so a future `FieldMeta` member has to be adjudicated onto
  * {@link ObjectDataTableColumnHolds} to escape. Keys `TableColumn` declares
- * leave the pool by declaration: `type` (objectui#5853 owns its VALUE set,
+ * leave the pool by declaration: `type` (its VALUE set is `fc62bb490`'s,
  * folded below by `normalizeTableColumnType`) and, since objectui#6425's
  * ruling, `format` / `options` / `currency`.
  *
@@ -870,13 +870,13 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
     // This line used to carry a THIRD, inline spelling that split camelCase but
     // never turned `_` into a space, so one field key rendered under two
     // spellings on one dashboard — measured, as headers over the same
-    // `crm_opportunity` columns (objectui#5425):
+    // `crm_opportunity` columns (`56f4e34c0`):
     //
     //   auto-derived (here)                 Close_date · Needs_analysis
     //   declared `columns: ['close_date']`  Close Date · Needs Analysis
     //   static `data-table`, no columns     Close Date · Needs Analysis
     //
-    // That is the defect class objectui#5425 rules out — "a value cannot appear
+    // That is the defect class `56f4e34c0` rules out — "a value cannot appear
     // twice under two spellings" — so the odd one out adopts the convention
     // rather than the convention gaining a fourth dialect. The i18n wrapper is
     // unchanged: a bundle entry still wins, and this is only its fallback.
@@ -932,7 +932,7 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
       const inferredAlign = (col as any).align
         ?? (isNumericFieldMeta(fieldMeta) ? 'right' : undefined);
 
-      // ⭐ THE SECOND EMIT SEAM (objectui#5853). `buildFieldMeta` returns
+      // ⭐ THE SECOND EMIT SEAM (`fc62bb490`). `buildFieldMeta` returns
       // `type: overrides.type ?? meta?.type` — the OBJECT SCHEMA's field type —
       // which the `...fieldMeta` spread that used to stand here wrote straight
       // into the column's `type`, the same verbatim forwarding `ObjectGrid` does

@@ -12,10 +12,10 @@ all along (`form.ts`, docblock "Input wrapper CSS class"); the zod mirror never
 did, so the value rode through `.passthrough()` and
 `{ type: 'input', wrapperClass: 42 }` validated GREEN — while the identical
 document on any of the other eight `schema.wrapperClass` readers (`checkbox`,
-`file-upload`, `filter-builder` — objectui#6150 / #6938; `switch`, `textarea`,
+`file-upload`, `filter-builder` — objectui#6150 / `b74a8598d`; `switch`, `textarea`,
 `date-picker`, `select`, `list` — objectui#7722) was refused at the key.
 
-**patch, and one step below objectui#6938's patch on the surface dimension.**
+**patch, and one step below `b74a8598d`'s patch on the surface dimension.**
 objectui#7722 graded its batch `minor` because five schemas each gained a member
 of the shipped `.d.ts`. Nothing of the sort happens here: the published
 TypeScript face does not move by one byte — the key was already on it — and only

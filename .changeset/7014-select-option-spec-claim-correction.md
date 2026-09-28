@@ -15,7 +15,7 @@ Option-A ruling on objectui#6140 / objectui#6153 — and this repo's pin has mov
 Everything below was measured correctly against 17.2.0 and is kept as the dated record of
 why the comments were rewritten; ⛔ do not read it as the contract you are authoring
 against today. `rows` and `options[].description` are **authorable now**, and the doc
-comments were corrected again in objectui#7635, which releases alongside this entry.
+comments were corrected again in `544ecba84`, which releases alongside this entry.
 
 Three doc comments claimed the installed `@objectstack/spec` DECLARES a key that it in
 fact **refused by name**. Measured on `@objectstack/spec@17.2.0`, each paired with a

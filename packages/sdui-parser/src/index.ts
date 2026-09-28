@@ -108,7 +108,7 @@ export interface RegistryConfigLike {
     required?: boolean;
     enum?: Array<string | { value: unknown; label?: string }>;
     /**
-     * The binding marker — exactly `'object'` (objectui#6950).
+     * The binding marker — exactly `'object'` (`9e37d9b39`).
      *
      * `'field'` was declared beside it from the first draft of ADR-0080 §6.3
      * and never written: every `binding:` literal in `packages/`, `apps/`

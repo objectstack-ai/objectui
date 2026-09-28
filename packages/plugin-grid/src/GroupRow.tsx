@@ -16,7 +16,10 @@ export interface GroupRowProps {
   groupKey: string;
   /** Display label for the group (field value or "(empty)") */
   label: string;
-  /** Number of rows in this group */
+  /**
+   * The group's size. On a server-grouped grid this is the header query's
+   * `count` — the group's TOTAL, not the rows on screen (objectui#7189).
+   */
   count: number;
   /** Whether the group is collapsed */
   collapsed: boolean;
@@ -53,6 +56,9 @@ export interface GroupRowProps {
    *
    * `count` is then a page slice, not the group's size, and a group whose
    * records all fall beyond the loaded rows is absent from the list entirely.
+   * A server-grouped grid never sets it: its counts are the query's own. It
+   * remains for a grid grouping a page it fetched from a data source that
+   * cannot answer the group header query.
    * The marker lives here, next to the number, because that is the number a
    * reader treats as authoritative — the paging footer says nothing about
    * what was grouped, and demonstrably does not prevent the wrong reading.
@@ -133,7 +139,7 @@ export const GroupRow: React.FC<GroupRowProps> = ({
           <span className="ml-2 text-xs text-muted-foreground group-aggregations">
             {aggregations.map((agg) => (
               <span key={`${agg.field}-${agg.type}`} className="mr-2">
-                {agg.type}: {Number.isInteger(agg.value) ? agg.value : agg.value.toFixed(2)}
+                {agg.type}: {agg.value === null ? '\u2014' : Number.isInteger(agg.value) ? agg.value : agg.value.toFixed(2)}
               </span>
             ))}
           </span>

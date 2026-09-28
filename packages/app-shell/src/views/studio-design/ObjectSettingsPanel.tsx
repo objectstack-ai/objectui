@@ -24,7 +24,7 @@
  *     (`security-owd-unset`), because the baseline must be an authored
  *     decision rather than an accident. Runtime fallback and publishability
  *     are two different questions, and this comment used to answer only the
- *     first (objectui#5418).
+ *     first (`7a90afdf9`).
  *  3. Semantic roles (ADR-0085) — the cross-surface presentation roles:
  *     `nameField`, `stageField` (string | false | unset), `highlightFields`.
  *     These are the ONLY presentation knobs the protocol carries, so the
@@ -194,7 +194,7 @@ export function ObjectSettingsPanel({
           {/* An UNSET internal OWD is not a neutral state — the publish door
               refuses it (`security-owd-unset`). Styled as the problem it is,
               exactly the way the D11 external-wider violation next to it is
-              (objectui#5418); the two are the same class of "this authoring
+              (`7a90afdf9`); the two are the same class of "this authoring
               choice will be rejected at publish" and reading them differently
               is what let the unset case pass for a safe default. */}
           <p

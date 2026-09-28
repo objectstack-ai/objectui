@@ -10,6 +10,18 @@
  * objectui#7189 — a grouped grid says, WHERE THE GROUP COUNTS ARE, that it
  * grouped a page.
  *
+ * ## ⭐ SCOPE SINCE RULING A LANDED — this file now pins the FALLBACK
+ *
+ * Maintainer ruling A made grouping server-side: a grid whose data source
+ * answers the group header query (`DataSource.queryGroupHeaders`) groups on the
+ * server, its counts are the query's own, and the marker below is RETIRED there
+ * — `serverGrouping-7189.test.tsx` pins both, including the marker's absence.
+ * What still reaches this disclosure is the one shape whose counts ARE page
+ * slices: a grid grouping the window it fetched from a data source that
+ * declares no `queryGroupHeaders`. Every data source in this file is that
+ * shape (`find` only), which is why every pin below still holds unchanged; the
+ * history that follows is the page-scoped behaviour those sources still get.
+ *
  * ## The defect this discloses (measured on `main` at a6d8b8d44)
  *
  * `useGroupedData` buckets the rows the browser already holds and computes

@@ -26,6 +26,7 @@ import { t as tr } from '../i18n.js';
 // The spec's own `I18nLabel` resolver, aliased so it is never confused with
 // objectui's same-named translation-KEY resolver in `app-shell/src/utils`.
 import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
+import { setLocalized } from '@object-ui/i18n';
 import { AddWidgetPicker } from './AddWidgetPicker.js';
 import { WIDGET_TYPE_META } from './widget-types.js';
 
@@ -98,17 +99,29 @@ export function DashboardPreview({
     [canEdit, widgets, onPatch, onSelectionChange],
   );
 
+  // The inline rename edits the title in the designer `locale`, the same
+  // read/write pair the widget inspector uses: the strip shows
+  // `resolveInlineI18nLabel(title, locale)`, and the save goes through
+  // `setLocalized`, so a per-locale map gets only that locale's entry replaced
+  // (or added) and every other locale is kept (objectui#10847). A plain-string
+  // title stays a plain string. Writing `trimmed` straight over a map would
+  // drop every locale the author was not looking at.
   const handleRenameWidget = React.useCallback(
     (id: string, nextTitle: string) => {
       if (!canEdit) return;
       const trimmed = nextTitle.trim();
       const next = widgets.map((w) =>
-        w?.id === id ? ({ ...(w as object), title: trimmed } as DashboardWidgetSchema) : w,
+        w?.id === id
+          ? ({
+              ...(w as object),
+              title: setLocalized(w.title, locale, trimmed) as DashboardWidgetSchema['title'],
+            } as DashboardWidgetSchema)
+          : w,
       );
       onPatch!({ widgets: next });
       onSelectionChange?.({ kind: 'widget', id, label: trimmed || id });
     },
-    [canEdit, widgets, onPatch, onSelectionChange],
+    [canEdit, widgets, onPatch, onSelectionChange, locale],
   );
 
   const selectedWidget = selectedWidgetId
@@ -199,8 +212,13 @@ export function DashboardPreview({
  * is selected in design mode. Lets the author rename the widget
  * inline (Enter commits, Esc cancels) without diving into the right-
  * side inspector for a single text edit. Its own words read the designer
- * `locale` (objectui#10835); the widget's title is author data, shown as
- * written.
+ * `locale` (objectui#10835). The widget's title is author data, but it is the
+ * spec's `I18nLabel`, so it may be a per-locale map: it is shown, and the
+ * rename draft seeded, through `resolveInlineI18nLabel` in the same designer
+ * `locale` the selection label uses (objectui#10847). The map itself never
+ * reaches React as a child. The widget inspector's title field edits the same
+ * entry through the same read/write pair (`resolveInlineI18nLabel` and
+ * `setLocalized`); editing every locale from one surface is still an open question.
  */
 function SelectedWidgetStrip({
   widget,
@@ -213,7 +231,7 @@ function SelectedWidgetStrip({
   onRename: (nextTitle: string) => void;
   onClose: () => void;
 }) {
-  const currentTitle = (widget.title as string | undefined) ?? widget.id ?? '';
+  const currentTitle = resolveInlineI18nLabel(widget.title, locale) ?? widget.id ?? '';
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(currentTitle);
   const inputRef = React.useRef<HTMLInputElement | null>(null);

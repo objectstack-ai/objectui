@@ -391,9 +391,9 @@ ComponentRegistry.register('chatbot-floating',
   // spread after that prop, so the verdict overrode the raw value on every
   // render. Naming it changes no outcome; it keeps one carrier for one
   // question (AGENTS.md #0.1) and lets the published face inherit
-  // `BaseSchema.disabled` (`boolean | string`) unnarrowed (objectui#7087) —
+  // `BaseSchema.disabled` (`boolean | string`) unnarrowed (`c93b4d5f3`) —
   // a raw forward of that union into the panel's `boolean` prop would not
-  // type-check, and narrowing the face to make it fit is the shape #7087
+  // type-check, and narrowing the face to make it fit is the shape `c93b4d5f3`
   // retired.
   ({ schema, className, disabled: hostDisabled, ...props }: { schema: ChatbotFloatingSchema; className?: string; disabled?: boolean; [key: string]: any }) => {
     const {
@@ -481,7 +481,7 @@ ComponentRegistry.register('chatbot-floating',
     // selector of presentation, and `<FloatingChatbot>` below renders
     // unconditionally — while `defaultProps` wrote `'floating'` into every
     // designer-created node. The control is restated, not deleted into a
-    // vacuum (objectui#7070): the restatement is the `?: never` tombstone on
+    // vacuum (`5f4514f7b`): the restatement is the `?: never` tombstone on
     // `ChatbotSchema` / `ChatbotFloatingSchema` in `@object-ui/types` and the
     // release note. Stored documents carrying the key are unaffected — it has
     // no Zod arm and `BaseSchema` is `.passthrough()`, so they parse exactly

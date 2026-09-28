@@ -223,7 +223,7 @@ describe('DashboardConfig Zod Validation', () => {
     // `error` would refuse with zod's generic "expected never, received
     // object", which names the key only via the path and tells the author
     // nothing about what to do. The tombstone carries a real message.
-    expect(issue!.message).toMatch(/RETIRED \(objectui#5852\)/);
+    expect(issue!.message).toMatch(/^RETIRED \(ADR-0049\) — /);
     expect(issue!.message).toMatch(/delete the key/);
   });
 

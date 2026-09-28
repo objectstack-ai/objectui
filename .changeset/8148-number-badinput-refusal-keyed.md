@@ -7,7 +7,7 @@ Key the `type="number"` bad-input refusal — the FIFTH sentence of this class,
 and the only shared one — into the locale packs (objectui#8148).
 
 objectui#6755 ruled that a widget's OWN refusal sentence goes through
-`useFieldTranslation` + `FIELD_DEFAULTS`, and objectui#6888 applied that to
+`useFieldTranslation` + `FIELD_DEFAULTS`, and `320374d2a` applied that to
 `LocationField`'s residue arm as the fourth. The four already keyed are each one
 widget's. This one is not: a single literal in `widgets/numberBadInput.tsx`
 produced the sentence for `NumberField`, `CurrencyField`, `PercentField` and

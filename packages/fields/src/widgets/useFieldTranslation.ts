@@ -118,7 +118,7 @@ const FIELD_DEFAULTS: Record<string, string> = {
   'fields.location.refusedFormat':
     'Not saved: enter a latitude, longitude pair (example: 30.2741, 120.1551).',
   'fields.location.refusedRange': 'Not saved: {{detail}}',
-  // objectui#6888 — the THIRD refusal arm (`12abc, 34`), added by objectui#6715
+  // `320374d2a` — the THIRD refusal arm (`12abc, 34`), added by objectui#6715
   // after #6755's ruling was written and therefore outside the three sentences
   // it named. All three arms share one `<p>`, so a literal here made ONE line
   // bilingual rather than one screen.

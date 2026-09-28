@@ -127,7 +127,7 @@ export interface HandRolledTable {
  * value-compare over these tables (objectui#7567 Q2's B half). That gate is a
  * bare `node scripts/check-*.mjs`, so it cannot import this module at all —
  * `exports["./defaults-table-scan"]` resolves to TypeScript SOURCE with no build
- * artefact. The shape here is the one objectui#6923 already ruled for exactly
+ * artefact. The shape here is the one the 2026-08-31 ruling (`d3bf4fa6f`) already set for exactly
  * that wall, and `zod-wrapper-keys.json` is its first instance: the DATA moves
  * to build-free JSON with its own `exports` subpath
  * (`@object-ui/test-support/hand-rolled-tables`), `resolveJsonModule` types it

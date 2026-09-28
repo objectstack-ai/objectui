@@ -49,7 +49,7 @@
  *
  * The ruling's word is "diagnosed", not "refused", and every diagnostic in this
  * family is a warning: `unknown-prop` (what this replaces, so nothing hardens),
- * `inert-expression`, and `unconsumed-widget-option`, whose objectui#5709
+ * `inert-expression`, and `unconsumed-widget-option`, whose 2026-08-23
  * ruling states the constraint directly — "no gate weakening and no new red
  * gates were ruled". `validate.ts`'s `inert-expression` note records that
  * escalating an inert authored key to `error` is a SEPARATE question

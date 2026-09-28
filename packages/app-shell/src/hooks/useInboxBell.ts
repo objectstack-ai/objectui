@@ -12,7 +12,7 @@
  * The rows, the badge number and the three mark-read paths used to live inline
  * in `AppHeader`, which was fine while the header held the only bell. It no
  * longer does: `global:notifications` is a spec `PageComponentType` member an
- * author may declare on a page (objectui#6757), and its renderer has to reach
+ * author may declare on a page (`f99932a42`), and its renderer has to reach
  * the SAME inbox — the one ADR-0012/ADR-0030 defines and `sharedUserFeeds`
  * already serves to the header and to Home's action centre.
  *

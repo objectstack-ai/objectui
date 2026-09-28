@@ -2462,7 +2462,7 @@ export function ChatPane({
           // uses. A bare fetch had nothing to report THROUGH — so on the one
           // surface where the author never sees the metadata they are
           // publishing, the gate's findings were the thing that vanished.
-          // Same move objectui#6965 / PR objectui#10038 made for the two
+          // Same move PR objectui#10038 made for the two
           // sibling call sites.
           try {
             const payload = (await metadataClient.publishPackageDrafts(packageId)) as

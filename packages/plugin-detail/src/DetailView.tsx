@@ -1668,7 +1668,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
               {/* Recall belongs to the approval, not to the lock: an editable
                   pending approval is just as recallable as a locked one.
 
-                  It also belongs to the SUBMITTER (objectui#6464). The server
+                  It also belongs to the SUBMITTER (`830ed5803`). The server
                   authorizes recall on submitter identity and refuses everyone
                   else, so rendering the button for every reader of a pending
                   record offers a lever whose click must fail — the

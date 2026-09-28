@@ -7,7 +7,7 @@
 '@object-ui/plugin-tree': patch
 ---
 
-One shared record-source ladder, five plugins delegate (objectui#7632).
+One shared record-source ladder, five plugins delegate.
 
 `@object-ui/core` publishes `resolveRecordSourceConfig(schema)` — the ONE implementation
 of the ruled three-rung record source ladder: `data` first, then `staticData` wrapped as
@@ -16,7 +16,7 @@ of the ruled three-rung record source ladder: `data` first, then `staticData` wr
 `resolveRecordSourceObjectName` (`b041b9c0c`) consumes, and it now sits beside it in the same module.
 
 That ladder is published contract on both faces — `packages/types/src/objectql.ts` and its
-zod mirror both ship `.describe()` strings naming `getDataConfig`'s order (objectui#6939,
+zod mirror both ship `.describe()` strings naming `getDataConfig`'s order (`77cb489b4`,
 maintainer ruling 2026-09-02), pinned by `objectql-record-source-refinement-6939.test.ts` —
 and it was hand-copied into five plugin components with no gate holding them together. A
 change to the ruled order had five edit sites and nothing that noticed a missed one; that

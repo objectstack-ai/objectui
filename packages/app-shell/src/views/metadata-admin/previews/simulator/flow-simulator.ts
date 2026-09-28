@@ -128,7 +128,9 @@ export class FlowSimulator {
   /**
    * The designer locale: `validateFlowDraft`'s messages and every note and
    * error sentence a step records are written in it (objectui#10835), through
-   * {@link say}. Absent, they read the en rows — the English they always were.
+   * {@link say}; the evaluators in `flow-sim-validate` take it for the frame
+   * they put around a CEL failure (objectui#10848). Absent, they read the en
+   * rows — the English they always were.
    */
   private readonly locale?: string;
 
@@ -431,7 +433,7 @@ export class FlowSimulator {
     if (!Array.isArray(conditions) || conditions.length === 0) return {};
     for (const [k, entry] of conditions.entries()) {
       const cond = (entry && typeof entry === 'object' ? entry : {}) as { label?: unknown; expression?: unknown };
-      const g = evalBranchPredicate(cond.expression, this.state.variables);
+      const g = evalBranchPredicate(cond.expression, this.state.variables, this.locale);
       if (g.kind === 'fault') return { error: `config.conditions[${k}].expression: ${g.error}` };
       if (!g.result) continue;
       // An empty label is no branch at all (the runtime's `if (branchLabel)`).
@@ -495,7 +497,7 @@ export class FlowSimulator {
     for (const { key, value, slot } of pairs) {
       let resolved: unknown;
       if (slot && isExpressionEnvelopeShaped(value)) {
-        const evaluated = evalValueEnvelope(value, this.state.variables);
+        const evaluated = evalValueEnvelope(value, this.state.variables, this.locale);
         if (!evaluated.ok) {
           return this.record(node.id, 'assignment', node.label, 'error', {
             wrote: Object.keys(wrote).length ? wrote : undefined,
@@ -702,7 +704,7 @@ export class FlowSimulator {
       if (e.condition === undefined) continue;
       gated = true;
       const cond = conditionText(e.condition);
-      const g = evalGuard(e.condition, vars);
+      const g = evalGuard(e.condition, vars, this.locale);
       if (g.kind !== 'value') {
         const error = g.kind === 'fault' ? g.error : this.say('engine.flowSim.note.evaluationFailed');
         evals.push({ edgeId: edgeId(e, i), target: e.target, condition: cond, result: false, error, selected: false });

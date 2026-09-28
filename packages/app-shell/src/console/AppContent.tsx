@@ -700,7 +700,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     // predicate on the SAME modal's per-field rules (form.tsx, over the
     // provider's `data={{}}`) faulted, and the same predicate in CREATE mode
     // (`editingRecord` null) faulted too. One authored string, three answers,
-    // none of them the row's canonical `record.*` binding (objectui#5741).
+    // none of them the row's canonical `record.*` binding (`83fe6e741`).
     // The row reaches field predicates as `record`, from the form's own
     // `ruleRecord` — not from this bag, which is why nothing is lost here.
     () => createExpressionEvaluator({

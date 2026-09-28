@@ -3,8 +3,8 @@
 '@object-ui/components': minor
 ---
 
-**Breaking for authored metadata:** `TreeViewSchema.data` is RETIRED (objectui#6951,
-maintainer ruling B1 of 2026-09-04; ADR-0049 enforce-or-remove). A `tree-view`
+**Breaking for authored metadata:** `TreeViewSchema.data` is RETIRED
+(maintainer ruling B1 of 2026-09-04; ADR-0049 enforce-or-remove). A `tree-view`
 node that authors `data` no longer validates: the parse fails loudly on the
 `data` path with the explanation in the message, the TS member is a `?: never`
 tombstone so the same document is refused at compile time, and the renderer no
@@ -15,7 +15,7 @@ unchanged and still read first.
 spellings for its one inline-nodes slot — `nodes` (read second) and `data` (read
 third: `boundData || schema.nodes || schema.data || []` at
 `renderers/data-display/tree-view.tsx:105`), both declared by objectui#6150.
-`data` had been REQUIRED until objectui#6939 / PR #7533 made it optional, so
+`data` had been REQUIRED until `777e5c6f4` (PR #7533) made it optional, so
 this retirement starts from a declared-and-optional member on both faces. The
 in-repo corpus at the retirement: seven `tree-view` nodes under
 `examples/schema-catalog` and `packages/types/examples` plus one `content/docs`
@@ -32,7 +32,7 @@ authored either spelling.
 
 now fails validation with:
 
-> RETIRED (objectui#6951) — `data` is no longer part of TreeViewSchema; write
+> RETIRED (ADR-0049) — `data` is no longer part of TreeViewSchema; write
 > `nodes` (or bind the tree with `bind`). It was the second spelling of the one
 > inline-nodes slot, read only as the last limb of
 > `boundData || schema.nodes || schema.data || []`, and was retired under

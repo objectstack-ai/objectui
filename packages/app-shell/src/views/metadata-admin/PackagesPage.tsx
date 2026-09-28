@@ -281,7 +281,7 @@ export function PackageDetailSheet({
   onChanged: () => void;
 }) {
   const locale = useMetadataLocale();
-  // objectui#6965 — the console's metadata client, for the ONE action on this
+  // `ce986aafc` — the console's metadata client, for the ONE action on this
   // sheet that must report: "publish drafts" promotes metadata, and the runtime
   // authoring gate's findings for those promotions ride the response. This hook
   // is where the advisory sink is wired (`useMetadataClient` → the toast
@@ -370,7 +370,7 @@ export function PackageDetailSheet({
   // refresh the pending list (it should now be empty). Distinct from the
   // registry-based `publish` above; this hits `/publish-drafts`.
   //
-  // objectui#6965 — through `MetadataClient`, not `apiJson`. This promotes
+  // `ce986aafc` — through `MetadataClient`, not `apiJson`. This promotes
   // metadata, so the runtime authoring gate grades it and answers its findings
   // on each `published[]` element (objectstack#9343); the client is the seam
   // that reports them to the author. `apiJson` could not — and the response

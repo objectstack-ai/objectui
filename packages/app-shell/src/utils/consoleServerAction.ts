@@ -21,7 +21,7 @@
  * - the **`redirectUrl` convention**: a handler returning `{ redirectUrl }`
  *   asks the UI to open it — into the pre-opened tab when there is one, else a
  *   lazily opened one with a popup-blocked toast fallback. A handler may add
- *   `openIn: 'self'` to ask for the same-tab jump instead (objectui#5221);
+ *   `openIn: 'self'` to ask for the same-tab jump instead (`053fdc8f9`);
  *   WITHOUT it the shipped new-tab behavior stands, so nothing flips silently.
  * - **deferring to a declared `ActionSchema.onSuccess` block**: when the action
  *   itself declares the post-success hop, the runner performs it and this
@@ -235,7 +235,7 @@ export function createConsoleServerActionHandler(opts: ConsoleServerActionOption
       // all this branch owes is the pre-opened tab.
       //
       // ⚠️ The spec rules each surface's own default but does NOT rule this
-      // precedence — objectui#5221 escalates it. If the maintainer rules the
+      // precedence — the card behind `053fdc8f9` escalates it. If the maintainer rules the
       // other way, this is the line that changes.
       if (readOnSuccessNavigation(action.onSuccess)) {
         closeTab(preOpenedTab);

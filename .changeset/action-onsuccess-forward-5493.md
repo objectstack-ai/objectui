@@ -8,7 +8,7 @@ actually happens on those four surfaces (objectui#5493).
 
 `onSuccess` — spec's closed strict `{ navigate, openIn }` object — became authorable on
 `ActionSchema` with the `@objectstack/spec` 17.1.0 pin bump (objectui#5328), and the
-runner has read it off the **forwarded** def since objectui#5221:
+runner has read it off the **forwarded** def since `053fdc8f9`:
 `ActionRunner.handlePostExecution` → `readOnSuccessNavigation` → `navigateOnSuccess`,
 which hops through the app's own `navigationHandler` (a real SPA route change, immune to
 popup blocking). Between those two halves sat these four forward whitelists, which never

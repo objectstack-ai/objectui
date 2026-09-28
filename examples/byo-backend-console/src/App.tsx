@@ -133,6 +133,17 @@ function Home() {
   );
 }
 
+/**
+ * The grid columns of each object's named view. A named view on an
+ * `object-view` node is the protocol's `ObjectListViewSchema`, which requires
+ * `columns` (objectui#7928), so each object lists the fields it declares in
+ * `mockDataSource.ts`.
+ */
+const LIST_COLUMNS: Record<string, string[]> = {
+  contact: ['name', 'email', 'phone', 'notes'],
+  account: ['name', 'industry', 'website'],
+};
+
 function ObjectPage() {
   const { objectName } = useParams<{ objectName: string }>();
 
@@ -143,7 +154,7 @@ function ObjectPage() {
           type: 'object-view',
           objectName: objectName || '',
           listViews: {
-            default: { label: 'All', type: 'grid' },
+            default: { label: 'All', type: 'grid', columns: LIST_COLUMNS[objectName ?? ''] ?? ['name'] },
           },
         }}
         dataSource={mockDataSource}

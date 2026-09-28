@@ -2,7 +2,7 @@
 '@object-ui/components': patch
 ---
 
-`flex` declares the containment it renders (objectui#6740).
+`flex` declares the containment it renders.
 
 `flex` has always rendered `schema.children`, but its registration omitted
 `isContainer` while `grid`, `card`, `container` and `stack` — same directory,

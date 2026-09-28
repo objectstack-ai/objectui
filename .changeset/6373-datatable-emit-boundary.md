@@ -17,7 +17,7 @@ closure captures is what this widget's type-aware rendering has always read, and
 untouched. Authored spellings still pass through, so a column the author wrote as
 `{ format: '$0,0' }` keeps its `format` exactly as before.
 
-`type` is unchanged — objectui#5853's fold at this seam still applies. `name` is unchanged
+`type` is unchanged — the fold `fc62bb490` put at this seam still applies. `name` is unchanged
 and still written: `data-table` reads `col.accessorKey || col.name` and objectui#5120 holds
 that alias while two published skill guides still teach a `{ name, label }` column. The hold
 is now declared at the seam instead of arriving anonymously inside a spread.

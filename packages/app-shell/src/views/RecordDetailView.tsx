@@ -1135,7 +1135,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // whether their click closes the step. Server-computed; `first_response`
   // nodes carry none and the band then shows nothing extra.
   const approvalProgress = approvals.pendingRequest?.decision_progress;
-  // Who may RECALL the pending approval (objectui#6464). Recall is the
+  // Who may RECALL the pending approval (`830ed5803`). Recall is the
   // submitter's lever and the server refuses everyone else, so a non-submitter
   // reading a pending record was being offered a button whose click could only
   // fail. Same source order the approvals panel's Remind gate uses — one
@@ -1145,7 +1145,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // `undefined` when there is no pending request to consult: the band is then
   // running off the record's `approval_status` mirror alone (a backend with no
   // approvals API), the host has resolved no identity, and the DetailView keeps
-  // its pre-#6464 behaviour rather than hiding on absent information.
+  // its pre-`830ed5803` behaviour rather than hiding on absent information.
   //
   // This gates the AFFORDANCE only. `canEdit` / `approvalLocked` below are
   // untouched by it, and the recall endpoint authorizes the recall itself.

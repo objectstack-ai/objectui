@@ -2,8 +2,7 @@
 '@object-ui/cli': patch
 ---
 
-`objectui validate` now says when a validation issue sits at the document root
-(objectui#7004, mechanical half).
+`objectui validate` now says when a validation issue sits at the document root.
 
 The printer guarded its Path line with `issue.path.length > 0`, so an issue at
 `path: []` printed no Path line at all — silent in exactly the case a reader
@@ -24,5 +23,5 @@ Every reported issue now carries a Path line; a root-level one reads
 
 Scope: the printer still reads only top-level issues. Whether a failing union
 should also surface its per-arm diagnoses — and if so which arm's — is an
-author-facing diagnostic contract left open on objectui#7004 for a maintainer
+author-facing diagnostic contract left open for a maintainer
 ruling, and is deliberately not decided here.

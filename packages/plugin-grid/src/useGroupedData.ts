@@ -8,6 +8,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import type { GroupingConfig } from '@object-ui/types';
+import { deriveColumnSummary, type ListViewGroupHeaderRow } from '@objectstack/spec/ui';
 
 /** Supported aggregation function types. */
 export type AggregationType = 'sum' | 'count' | 'avg' | 'min' | 'max' | 'count_distinct';
@@ -26,8 +27,12 @@ export interface AggregationResult {
   field: string;
   /** The aggregation function used. */
   type: AggregationType;
-  /** The computed value. */
-  value: number;
+  /**
+   * The computed value. `null` only on a server-grouped grid, where it is what
+   * the aggregate itself answered (`avg` / `min` / `max` over no values) —
+   * shown as a dash rather than invented as `0`.
+   */
+  value: number | null;
 }
 
 export interface GroupEntry {
@@ -39,8 +44,25 @@ export interface GroupEntry {
   field: string;
   /** Nesting depth (0 = top-level) */
   depth: number;
-  /** Rows belonging to this group (flattened across subgroups) */
+  /**
+   * Rows belonging to this group (flattened across subgroups). Empty on a
+   * server-grouped grid: the rows there are PAGED per group by the grid,
+   * which holds each open group's current page — `count` is the group's size.
+   */
   rows: any[];
+  /**
+   * The group's size. On a server-grouped grid this is the header query's
+   * `count` — the group's TOTAL row count, a property of the query rather than
+   * of any page (objectui#7189). Grouping rows the grid holds whole, it is
+   * `rows.length`.
+   */
+  count: number;
+  /**
+   * The raw key of every level from the outermost down to this group, by
+   * field name — what the group's own row query is compiled from. `null` is
+   * the empty group's key.
+   */
+  keyValues: Record<string, unknown>;
   /** Whether the group section is collapsed */
   collapsed: boolean;
   /** Computed aggregations for this group (empty when no aggregations configured). */
@@ -266,24 +288,109 @@ export function usableGroupingFields(fields: unknown): UsableGroupingField[] {
 }
 
 /**
- * Hook that groups a flat data array by the fields specified in GroupingConfig.
+ * The server's answer for a grouped grid that owns its fetch (objectui#7189):
+ * the group set and every header number, as the group header query answered
+ * them. The rows inside each group are paged by the grid itself, per group,
+ * so they are not part of this tree.
+ */
+export interface ServerGroupSource {
+  /**
+   * Index `d` holds the header rows of the depth-`d + 1` query — one row per
+   * group at that level, every grouped field under its own name holding the
+   * RAW stored value (`null` for the empty group), and `count`.
+   */
+  headers: ReadonlyArray<ReadonlyArray<ListViewGroupHeaderRow>>;
+  /**
+   * Display labels for keys that are not their own label (a lookup key is the
+   * referenced record's id), per field, by the raw key.
+   */
+  keyLabels?: Readonly<Record<string, Readonly<Record<string, string>>>>;
+}
+
+/**
+ * The grid's own `aggregations` vocabulary → the spec's `ColumnSummary`
+ * members, so a per-group number rides the header query the spec compiles
+ * (`compileListViewGroupQuery`) and is read back through the spec's
+ * `deriveColumnSummary` — one mapping, both directions. `count` maps to the
+ * summary that RIDES the group count (`COUNT(*)`), which is what this key has
+ * always meant (a group's row count, whatever `field` names);
+ * `count_distinct` is the spec's `count_unique`.
+ */
+const SERVER_SUMMARY: Readonly<Record<AggregationType, 'sum' | 'count' | 'avg' | 'min' | 'max' | 'count_unique'>> = {
+  sum: 'sum',
+  count: 'count',
+  avg: 'avg',
+  min: 'min',
+  max: 'max',
+  count_distinct: 'count_unique',
+};
+
+/** The spec summary member one grid aggregation type reads back through. */
+export function serverSummaryOf(type: AggregationType): (typeof SERVER_SUMMARY)[AggregationType] | undefined {
+  return Object.prototype.hasOwnProperty.call(SERVER_SUMMARY, type) ? SERVER_SUMMARY[type] : undefined;
+}
+
+/**
+ * Read the grid's per-group aggregations off ONE header row. A configured
+ * aggregation the header query carried no column for is left out rather than
+ * reported as a number nobody computed.
+ */
+function readServerAggregations(
+  row: ListViewGroupHeaderRow,
+  configs: AggregationConfig[] | undefined,
+): AggregationResult[] {
+  if (!configs || configs.length === 0) return [];
+  const out: AggregationResult[] = [];
+  for (const { field, type } of configs) {
+    const summary = serverSummaryOf(type);
+    if (!summary || typeof field !== 'string' || field === '') continue;
+    const value = deriveColumnSummary(row, summary, field);
+    if (value === undefined) continue;
+    out.push({ field, type, value: value === null ? null : Number(value) });
+  }
+  return out;
+}
+
+/** Two raw group keys name the same group (a stored value, or both empty). */
+function sameGroupKey(a: unknown, b: unknown): boolean {
+  const aEmpty = a === null || a === undefined;
+  const bEmpty = b === null || b === undefined;
+  if (aEmpty || bEmpty) return aEmpty && bEmpty;
+  return a === b || String(a) === String(b);
+}
+
+/**
+ * Hook that groups a grid's rows by the fields specified in GroupingConfig.
  *
  * Supports multi-level grouping, per-field sort order, and per-field default
  * collapsed state.  Collapse state is managed internally so the consumer only
  * needs to wire `toggleGroup` to the UI.
  *
+ * Two sources, one tree (objectui#7189, maintainer ruling A):
+ *
+ *   - `server` given — the grid owns its fetch, and the group set, every
+ *     count and every aggregation come from the server's header query. `data`
+ *     is not read: grouping a fetched page is exactly the answer the ruling
+ *     retired, since a group whose rows all fall past the page would not
+ *     appear at all and every count would be a page slice.
+ *   - `server` absent — the rows in `data` are grouped here. That is exact
+ *     when the grid holds every row (inline rows, a host's whole result set);
+ *     over a fetched page it is page-scoped, and the grid says so on screen.
+ *
  * @param config        - GroupingConfig from the grid schema (optional)
- * @param data          - flat data rows
+ * @param data          - flat data rows (grouped only when `server` is absent)
  * @param aggregations  - optional aggregation definitions to compute per group
  * @param formatValue   - optional per-field formatter that maps raw values to
  *                        display labels (e.g. resolves select option codes
  *                        to their human-readable labels)
+ * @param server        - the server's header rows and per-group row pages
  */
 export function useGroupedData(
   config: GroupingConfig | undefined,
   data: any[],
   aggregations?: AggregationConfig[],
   formatValue?: GroupValueFormatter,
+  server?: ServerGroupSource,
 ): UseGroupedDataResult {
   // [objectui#7217] The SAME normalized list `ObjectGrid`'s formatter memo
   // reads. Memoized on the raw array rather than on `config`: hosts rebuild
@@ -299,6 +406,61 @@ export function useGroupedData(
   const groups: GroupEntry[] = useMemo(() => {
     if (!isGrouped) return [];
 
+    if (server) {
+      /**
+       * One level of the server tree: the depth-`depth` header rows whose
+       * outer keys are `prefix`, each becoming one group whose `count` and
+       * aggregations are the row's own — never recomputed from rows.
+       */
+      const buildServerLevel = (
+        depth: number,
+        parentKey: string,
+        prefix: Record<string, unknown>,
+      ): GroupEntry[] => {
+        if (depth >= fields.length) return [];
+        const f = fields[depth];
+        const outer = fields.slice(0, depth);
+        const rowsAtDepth = (server.headers[depth] ?? []).filter((row) =>
+          outer.every((pf) => sameGroupKey(row[pf.field], prefix[pf.field])),
+        );
+        const entries = rowsAtDepth.map((row) => {
+          const raw = row[f.field] ?? null;
+          const resolved = raw === null ? undefined : server.keyLabels?.[f.field]?.[String(raw)];
+          return {
+            row,
+            raw,
+            segment: extractValueKey(raw),
+            label: resolved ?? buildSegmentLabel(raw, f.field, formatValue),
+          };
+        });
+        const order = f.order ?? 'asc';
+        entries.sort((a, b) => compareGroups(a.label, b.label, order));
+
+        return entries.map(({ row, raw, segment, label }) => {
+          const compositeKey = parentKey ? `${parentKey}__${depth}:${segment}` : `${depth}:${segment}`;
+          const collapsedDefault = !!f.collapsed;
+          const collapsed =
+            compositeKey in toggledKeys ? toggledKeys[compositeKey] : collapsedDefault;
+          const keyValues = { ...prefix, [f.field]: raw };
+          const isLeaf = depth + 1 >= fields.length;
+          const count = Number(row.count);
+          return {
+            key: compositeKey,
+            label,
+            field: f.field,
+            depth,
+            rows: [],
+            count: Number.isFinite(count) ? count : 0,
+            keyValues,
+            collapsed,
+            aggregations: readServerAggregations(row, aggregations),
+            subgroups: isLeaf ? [] : buildServerLevel(depth + 1, compositeKey, keyValues),
+          };
+        });
+      };
+      return buildServerLevel(0, '', {});
+    }
+
     /**
      * Recursively build a tree of groups for the slice of rows at the current
      * nesting depth. Each level partitions rows by `fields[depth]` and then
@@ -309,6 +471,7 @@ export function useGroupedData(
       rowsAtLevel: any[],
       depth: number,
       parentKey: string,
+      prefix: Record<string, unknown>,
     ): GroupEntry[] => {
       if (depth >= fields.length) return [];
       const f = fields[depth];
@@ -344,8 +507,9 @@ export function useGroupedData(
         const agg = aggregations && aggregations.length > 0
           ? computeAggregations(entry.rows, aggregations)
           : [];
+        const keyValues = { ...prefix, [f.field]: entry.rows[0]?.[f.field] ?? null };
         const subgroups = depth + 1 < fields.length
-          ? buildLevel(entry.rows, depth + 1, compositeKey)
+          ? buildLevel(entry.rows, depth + 1, compositeKey, keyValues)
           : [];
         return {
           key: compositeKey,
@@ -353,6 +517,8 @@ export function useGroupedData(
           field: f.field,
           depth,
           rows: entry.rows,
+          count: entry.rows.length,
+          keyValues,
           collapsed,
           aggregations: agg,
           subgroups,
@@ -360,8 +526,8 @@ export function useGroupedData(
       });
     };
 
-    return buildLevel(data, 0, '');
-  }, [data, fields, isGrouped, toggledKeys, aggregations, formatValue]);
+    return buildLevel(data, 0, '', {});
+  }, [data, fields, isGrouped, toggledKeys, aggregations, formatValue, server]);
 
   const toggleGroup = useCallback((key: string) => {
     setToggledKeys((prev) => {

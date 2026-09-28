@@ -70,7 +70,7 @@ export interface CelSchemaHint {
   roots?: string[];
   /**
    * The authored KEY this source is the value of — `visibleWhen`,
-   * `readonlyWhen`, `requiredWhen` (objectui#9318). Naming it lets the
+   * `readonlyWhen`, `requiredWhen` (`e3cb47624`). Naming it lets the
    * wrong-layer advisory take its verdict from `@objectstack/lint`'s published
    * `fieldRuleRootIssue`, which judges per SLOT, instead of from a second copy
    * of that judgement maintained here.
@@ -94,12 +94,34 @@ export interface CelSchemaHint {
   role?: 'predicate' | 'value';
 }
 
-/** A single lint finding surfaced inline under the editor. */
-export interface CelLintIssue {
-  /** `error` blocks save (parse fault); `warning` is advisory (typo / blast-radius). */
-  severity: 'error' | 'warning';
-  message: string;
-}
+/**
+ * The two advisories {@link lintCelPredicate} words itself, as keys of the
+ * designer catalogue (objectui#10862): the wrong-layer root advisory's local
+ * sentence (see `rowCanonAdvisory`) and the non-pushdown-able read filter.
+ * They are handed back as keys plus their values, not text, and
+ * `CelPredicateField` reads them through the `t` its host binds to the
+ * designer locale — so this module stays free of any import at load, the same
+ * seam as {@link CelTestMessageKey}.
+ */
+export type CelLintMessageKey = 'engine.celLint.notTheRow' | 'engine.celLint.notPushdownable';
+
+/**
+ * A single lint finding surfaced inline under the editor. `error` blocks save
+ * (parse fault); `warning` is advisory (typo / blast-radius).
+ *
+ * Every error, and every advisory the engine or `@objectstack/lint` words,
+ * carries that producer's `message` as written. An advisory this module words
+ * itself carries a {@link CelLintMessageKey} and the values its `{token}`
+ * holes take instead; it is only ever a `warning`, so a caller that keeps the
+ * errors alone (`clientValidation`) never meets one.
+ */
+export type CelLintIssue =
+  | { severity: 'error'; message: string; messageKey?: never; messageVars?: never }
+  | { severity: 'warning'; message: string; messageKey?: never; messageVars?: never }
+  | { severity: 'warning'; messageKey: CelLintMessageKey; messageVars: Record<string, string>; message?: never };
+
+/** The advisory half of {@link CelLintIssue}: either wording, never blocking. */
+type CelLintWarning = Extract<CelLintIssue, { severity: 'warning' }>;
 
 /** The in-scope identifiers an author may reference — the autocomplete catalog. */
 export interface CelScopeInfo {
@@ -119,6 +141,16 @@ export interface CelSampleContext {
   currentUser: Record<string, unknown>;
 }
 
+/**
+ * The words a dry-run writes itself, as keys of the designer catalogue
+ * (objectui#10862). They are handed back as keys, not text, and the dialog
+ * reads them through the `t` its host binds to the designer locale — so this
+ * module stays free of any import at load (the catalogue module reaches
+ * `@object-ui/i18n` and `@object-ui/core`, which every caller of
+ * {@link lintCelPredicate} would then load too).
+ */
+export type CelTestMessageKey = 'engine.celTest.predicateEmpty' | 'engine.flowSim.note.evaluationFailed';
+
 /** The verdict of a dry-run — never throws; the UI branches on `status`. */
 export type CelTestOutcome =
   /** Predicate returned boolean `true` — the row is IN scope (allowed). */
@@ -128,7 +160,13 @@ export type CelTestOutcome =
   /** Predicate returned a non-boolean — an authoring smell (a filter must be bool). */
   | { status: 'value'; value: unknown }
   /** Parse / type / runtime fault — carries the engine's self-correcting message. */
-  | { status: 'error'; kind: string; message: string }
+  | { status: 'error'; kind: string; message: string; messageKey?: never }
+  /**
+   * A fault this module words itself — an empty predicate, or an engine
+   * failure that carries no message — as a {@link CelTestMessageKey} the
+   * renderer translates.
+   */
+  | { status: 'error'; kind: string; messageKey: CelTestMessageKey; message?: never }
   /** The CEL engine could not be loaded — the affordance is unavailable. */
   | { status: 'unavailable' };
 
@@ -207,7 +245,7 @@ interface RowCanonModule {
 
 let rowCanonCached: Promise<RowCanonModule | null> | null = null;
 
-/** `@objectstack/lint`'s published per-slot verdict (objectui#9318). */
+/** `@objectstack/lint`'s published per-slot verdict (`e3cb47624`). */
 type FieldRuleRootIssue = (slot: string, source: string) => { root: string; message: string } | null;
 
 let fieldRuleVerdictCached: Promise<FieldRuleRootIssue | null> | null = null;
@@ -237,7 +275,7 @@ function loadFieldRuleVerdict(): Promise<FieldRuleRootIssue | null> {
 
 /**
  * The authored slots whose bound-root set IS the platform's field-rule set, so
- * `fieldRuleRootIssue`'s verdict answers THIS surface's question (objectui#9318).
+ * `fieldRuleRootIssue`'s verdict answers THIS surface's question (`e3cb47624`).
  *
  * ⚠️ This is a list of objectui's own surfaces, not a copy of the platform's
  * judgement — the judgement itself is read from `@objectstack/lint` at call
@@ -279,8 +317,8 @@ function loadFieldRuleVerdict(): Promise<FieldRuleRootIssue | null> {
  *
  * So those keep the local instrument. ⛔ Do not extend this list to "tidy up"
  * the branch below without re-measuring the surface's bound roots first —
- * narrowing a consumer to fit the API it adopted is the drift objectui#9318
- * exists to stop, and `celAuthoring.fieldRuleVerdict-9318.test.ts` pins both
+ * narrowing a consumer to fit the API it adopted is the drift `e3cb47624`
+ * set out to stop, and `celAuthoring.fieldRuleVerdict-9318.test.ts` pins both
  * uncovered surfaces as live controls against exactly that edit.
  */
 const FIELD_RULE_VERDICT_SLOTS: readonly string[] = ['visibleWhen', 'readonlyWhen', 'requiredWhen'];
@@ -324,13 +362,13 @@ function loadRowCanon(): Promise<RowCanonModule | null> {
  *
  * `@objectstack/formula`'s `SCOPE_ROOTS` carries `data`, so at `scope: 'record'`
  * the engine lint ACCEPTS `data.status == 'x'` with zero findings (measured on
- * `@objectstack/formula@17.4.0`). objectui#5741 retired that spelling on runtime
+ * `@objectstack/formula@17.4.0`). `83fe6e741` retired that spelling on runtime
  * record surfaces and objectui#8166 stopped this tier binding an ambient `data`,
  * so the predicate now faults at runtime with `Unknown variable: data` — but the
  * author still gets a GREEN lint while typing it. That gap is the whole card:
  * the diagnostic arrives at misbehaviour time instead of at typing time.
  *
- * ## Why this is not a re-run of the warning objectui#5741 deleted
+ * ## Why this is not a re-run of the warning Phase 2 (`83fe6e741`) deleted
  *
  * That ruling removed the Phase-1 warning from the runtime hot path and kept
  * the export, in its own words, "as the offline instrument". `listConditional.ts`
@@ -374,7 +412,7 @@ function loadRowCanon(): Promise<RowCanonModule | null> {
  * `views/metadata-admin/predicate.ts` and never reaches this function — which is
  * why the gate below is `scope === 'record'` and not a source pattern.
  *
- * ## Where the VERDICT comes from since objectui#9318
+ * ## Where the VERDICT comes from since `e3cb47624`
  *
  * "Is this root bound on this surface?" is a judgement the platform publishes:
  * `@objectstack/lint` exports `fieldRuleRootIssue` / `FIELD_RULE_BOUND_ROOTS`,
@@ -439,7 +477,7 @@ function loadRowCanon(): Promise<RowCanonModule | null> {
  *
  * Severity is the one thing that stays objectui's: `warning`, never `error`.
  */
-async function rowCanonAdvisory(source: string, slot: string | undefined): Promise<CelLintIssue | null> {
+async function rowCanonAdvisory(source: string, slot: string | undefined): Promise<CelLintWarning | null> {
   if (slot !== undefined && FIELD_RULE_VERDICT_SLOTS.includes(slot)) {
     const fieldRuleRootIssue = await loadFieldRuleVerdict();
     if (fieldRuleRootIssue) {
@@ -455,14 +493,13 @@ async function rowCanonAdvisory(source: string, slot: string | undefined): Promi
   const canon = await loadRowCanon();
   const finding = canon?.detectNonCanonicalRowSpelling?.(source, null, true);
   if (!finding || finding.kind !== 'metadata-layer-root') return null;
+  // objectui's own sentence, as a catalogue key the editor reads in the
+  // designer locale (objectui#10862); `Unknown variable: …` inside it is the
+  // runtime's fault text and stays as written in every locale.
   return {
     severity: 'warning',
-    message:
-      `\`${finding.identifier}\` is not the row on this surface: a row predicate binds the ` +
-      `record as \`${finding.canonical}\` and nothing else (objectui#5741). The CEL scope ` +
-      `vocabulary still accepts \`${finding.identifier}\`, so nothing here blocks the save, but ` +
-      `at runtime the expression faults with \`Unknown variable: ${finding.identifier}\` and the ` +
-      `rule never fires. Re-root the reference on \`${finding.canonical}\`.`,
+    messageKey: 'engine.celLint.notTheRow',
+    messageVars: { identifier: finding.identifier, canonical: finding.canonical },
   };
 }
 
@@ -522,20 +559,19 @@ export async function lintCelPredicate(
           variableRoots: PUSHDOWN_VARIABLE_ROOTS,
         });
         if (pd && pd.ok === false && pd.reason !== 'parse-error') {
+          // objectui's own sentence, as a catalogue key (objectui#10862); the
+          // engine's `detail` fills its hole as written.
           issues.push({
             severity: 'warning',
-            message:
-              `This read filter isn't a simple field comparison (${pd.detail}), so the ` +
-              `server may be unable to push it down to the query — depending on the ` +
-              `evaluation path it can be dropped and WIDEN access. Prefer a ` +
-              `pushdown-able predicate (field vs. value or scope variable).`,
+            messageKey: 'engine.celLint.notPushdownable',
+            messageVars: { detail: pd.detail },
           });
         }
       } catch {
         /* advisory only — never let it break the lint */
       }
     }
-    // Wrong-layer root advisory (objectui#8972, verdict re-homed by objectui#9318)
+    // Wrong-layer root advisory (objectui#8972, verdict re-homed by `e3cb47624`)
     // — see `rowCanonAdvisory`. Only in `record` scope, only once the predicate
     // parses, only a WARNING.
     if (issues.every((i) => i.severity !== 'error') && hint.scope === 'record') {
@@ -742,13 +778,20 @@ export function filterCandidates(
  *
  * Never throws — the engine returns a discriminated result and any thrown
  * loader/eval fault collapses to `error` / `unavailable`.
+ *
+ * The two sentences this function writes itself come back as a `messageKey`
+ * (objectui#10862): the empty-predicate result
+ * (`engine.celTest.predicateEmpty`) and the fallback when the engine reports a
+ * failure without a message (`engine.flowSim.note.evaluationFailed`, the same
+ * "Evaluation failed." the flow debugger uses). The engine's own message
+ * passes through as written, as `message`.
  */
 export async function testRunCelPredicate(
   source: string,
   sample: CelSampleContext,
 ): Promise<CelTestOutcome> {
   if (!source || !source.trim()) {
-    return { status: 'error', kind: 'parse', message: 'The predicate is empty.' };
+    return { status: 'error', kind: 'parse', messageKey: 'engine.celTest.predicateEmpty' };
   }
   let mod: FormulaModule | null;
   try {
@@ -767,11 +810,10 @@ export async function testRunCelPredicate(
     const res = mod.ExpressionEngine.evaluate({ dialect: 'cel', source }, ctx);
     if (!res || res.ok !== true) {
       const err = res && res.ok === false ? res.error : undefined;
-      return {
-        status: 'error',
-        kind: err?.kind ?? 'runtime',
-        message: err?.message ?? 'Evaluation failed.',
-      };
+      const kind = err?.kind ?? 'runtime';
+      return err?.message != null
+        ? { status: 'error', kind, message: err.message }
+        : { status: 'error', kind, messageKey: 'engine.flowSim.note.evaluationFailed' };
     }
     if (res.value === true) return { status: 'allow' };
     if (res.value === false) return { status: 'deny' };

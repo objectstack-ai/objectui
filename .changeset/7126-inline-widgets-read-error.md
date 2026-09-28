@@ -6,7 +6,7 @@ The last five inline edit widgets read the delivered `error` slot, so a failed
 required `text` / `boolean` / `date` / `datetime` / `time` control finally
 reports `aria-invalid` (objectui#7126).
 
-objectui#7008 made `FieldEditWidget` DELIVER the declared `error` key to
+`f08bcd9af` made `FieldEditWidget` DELIVER the declared `error` key to
 whichever widget it resolves. Of the 27 distinct components in `EDIT_WIDGETS`,
 21 read it; five did not — `TextField`, `BooleanField` (serving both `boolean`
 and `toggle`), `DateField`, `DateTimeField` and `TimeField` — so for their field

@@ -15,7 +15,7 @@ Six view plugins each spelled that resolution locally — `ObjectCalendar` twice
 `ObjectGantt`, `ObjectTree` twice, `ObjectMap`, `ObjectGrid` — and had drifted: three
 wrote `?? schema.objectName`, one `|| ''`, one `: undefined`, one an `'object' in
 dataConfig` test. They now delegate to one function that states the published
-objectui#6939 record-source ladder (`data`, then `staticData`, then `objectName`) once.
+record-source ladder `77cb489b4` declared (`data`, then `staticData`, then `objectName`) once.
 
 **No behaviour changes.** Each site's pre-collapse expression is transcribed verbatim
 into `record-source.behaviourNeutrality-7627.test.ts` and asserted equal to its
@@ -24,7 +24,7 @@ present, data only, `objectName` only, empty `objectName`, empty `data.object`, 
 `api` / `value` / `staticData` / array-shorthand providers, and nothing bound.
 
 **Two questions stay two questions.** `normalizeListViewSchema`'s gap-fill (#7477,
-ruling B of PR #7628) is untouched and is NOT re-pointed at the new reader: it answers
+ruling B, landed as `00d2fa682`) is untouched and is NOT re-pointed at the new reader: it answers
 how `objectName` gets POPULATED when absent, where an already-present `objectName` wins.
 The new reader answers which object a block RESOLVES, where the `data` block wins — the
 order declared on both published faces in `@object-ui/types` and pinned by

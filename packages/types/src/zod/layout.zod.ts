@@ -82,8 +82,8 @@ export const BoxSchema = BaseSchema.extend({
     'children',
     'this box node',
     '`box` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/box.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -99,8 +99,8 @@ export const TextSpanSchema = BaseSchema.extend({
     'children',
     'this span node',
     '`span` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/basic/span.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -110,15 +110,15 @@ export const TextSpanSchema = BaseSchema.extend({
 export const TextSchema = BaseSchema.extend({
   type: z.literal('text'),
   content: z.string().optional()
-    .describe('Text content — the one content spelling `text` reads (declared by objectui#6150; its `value` fallback spelling was retired by objectui#6951)'),
-  // ADR-0049 RETIREMENT TOMBSTONE (objectui#6951 / objectui#7016, maintainer
+    .describe('Text content — the one content spelling `text` reads (declared by objectui#6150; its `value` fallback spelling was retired)'),
+  // ADR-0049 RETIREMENT TOMBSTONE (`5ad86ddee` / objectui#7016, maintainer
   // ruling A1 of 2026-09-04). `value` was the second spelling of the one
   // content slot; the renderer now reads `content` alone, so a plain deletion
   // here would let an authored `value` ride `BaseSchema.passthrough()` into a
   // silent blank. The tombstone refuses it BY NAME instead — one string, both
   // channels (parse-time message and `.describe()`), see `./tombstone.zod.ts`.
   value: retirementTombstone(
-    'RETIRED (objectui#6951) — `value` is no longer part of TextSchema; write `content`. It was a second '
+    'RETIRED (ADR-0049) — `value` is no longer part of TextSchema; write `content`. It was a second '
     + 'spelling of the one content slot, read only as the fallback limb of `schema.content || schema.value`, '
     + 'and was retired under ADR-0049 enforce-or-remove with no deprecation window (maintainer ruling A1, '
     + '2026-09-04). The renderer reads `content` alone now, so an authored `value` would render nothing. '
@@ -315,8 +315,8 @@ export const ContainerSchema = BaseSchema.extend({
     'children',
     'this container node',
     '`container` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/container.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -342,8 +342,8 @@ export const FlexSchema = BaseSchema.extend({
     'children',
     'this flex node',
     '`flex` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/flex.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -363,8 +363,8 @@ export const StackSchema = BaseSchema.extend({
     'children',
     'this stack node',
     '`stack` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/stack.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -399,8 +399,8 @@ export const GridSchema = BaseSchema.extend({
     'children',
     'this grid node',
     '`grid` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/grid.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -485,8 +485,8 @@ export const ScrollAreaSchema = BaseSchema.extend({
     'children',
     'this scroll-area node',
     '`scroll-area` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/complex/scroll-area.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 

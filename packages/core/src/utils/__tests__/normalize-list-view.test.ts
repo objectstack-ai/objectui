@@ -86,6 +86,35 @@ describe('normalizeListViewSchema (#2890)', () => {
       expect(out.densityMode).toBe('cozy');
     });
 
+    // objectui#10868 — the fold's membership test is an OWN-key test, the same
+    // trap `rowHeightToDensityMode` guards in the read direction: `in` walks the
+    // prototype chain, so `'toString'` used to fold to `Object.prototype.toString`
+    // (a FUNCTION in `rowHeight`) and the key was dropped. An inherited key is
+    // an unrecognized density like `'cozy'`, and gets exactly its treatment.
+    it.each(['toString', 'constructor', 'hasOwnProperty', 'valueOf', '__proto__'])(
+      'does not read the inherited Object.prototype key %j as a density',
+      (inherited) => {
+        const out = normalizeListViewSchema({ densityMode: inherited }) as Record<string, unknown>;
+        expect(out.rowHeight).toBeUndefined();
+        expect(out.densityMode).toBe(inherited);
+        // With a canonical `viewType` there is nothing else to fold, so the
+        // input comes back by reference: the density fold did not fire.
+        const canonical = { viewType: 'grid', densityMode: inherited };
+        expect(normalizeListViewSchema(canonical)).toBe(canonical);
+      },
+    );
+
+    it('keeps the unrecognized-density CONTROL and the recognized fold beside the inherited keys', () => {
+      // `'cozy'` was already unfolded before the own-key test; `'compact'` is an
+      // own key of the table and still folds. Both hold on either side of it.
+      const cozy = normalizeListViewSchema({ densityMode: 'cozy' }) as Record<string, unknown>;
+      expect(cozy.rowHeight).toBeUndefined();
+      expect(cozy.densityMode).toBe('cozy');
+      const compact = normalizeListViewSchema({ densityMode: 'compact' }) as Record<string, unknown>;
+      expect(compact.rowHeight).toBe('compact');
+      expect('densityMode' in compact).toBe(false);
+    });
+
     it('round-trips every density through the widening and back', () => {
       // The fold widens 3 values onto 5 and the renderer narrows them back, so
       // a folded view must render the density the author picked.

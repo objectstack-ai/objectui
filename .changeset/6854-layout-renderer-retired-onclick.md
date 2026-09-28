@@ -4,7 +4,7 @@
 ---
 
 The standalone runner renders `AppAction.items` from its declared type only, which
-makes `AppActionSchema.onClick`'s retirement message true again (objectui#6854,
+makes `AppActionSchema.onClick`'s retirement message true again (the
 maintainer ruling of 2026-09-05, option B2).
 
 `AppAction.items` is `AppMenuItem[]`, and the zod mirror parses it with the legacy

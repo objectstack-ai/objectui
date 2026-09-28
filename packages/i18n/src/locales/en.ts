@@ -201,7 +201,7 @@ const en = {
     uploadInFlight: 'Wait for the upload to finish before saving.',
     // The notice the record form raises when a field's own `visibleWhen` turns
     // it invisible and the form clears the value it held (objectui#8070 names
-    // the objectui#6958 clear). `{{fields}}` is the cleared fields' labels joined
+    // the `6a449fc49` clear). `{{fields}}` is the cleared fields' labels joined
     // with `validation.formInvalidJoiner`. A list after a colon, so no word has
     // to agree with how many fields were cleared.
     clearedOnHide: 'Cleared — no longer applicable given the current values: {{fields}}',
@@ -2979,7 +2979,7 @@ const en = {
       detailChangedKeys: 'Also changed:',
       confirmNote: 'Publishing releases all {{count}} pending drafts of this package atomically.',
       publishConfirm: 'Publish all',
-      // [objectui#5418] Pre-publish security-posture findings, shown next to
+      // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
       securityBlockTitle: 'Publishing will be refused — {{count}} item(s) need a decision first',

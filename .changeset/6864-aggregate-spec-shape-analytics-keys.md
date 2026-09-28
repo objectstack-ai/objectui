@@ -3,7 +3,7 @@
 ---
 
 `aggregate()`'s spec-shape branch now REFUSES the analytics branch's `filter` /
-`field` / `function` instead of dropping them (objectui#6864, extending the
+`field` / `function` instead of dropping them (extending the
 maintainer ruling of 2026-08-30 on objectui#6825 — option A, refuse at the
 producer).
 

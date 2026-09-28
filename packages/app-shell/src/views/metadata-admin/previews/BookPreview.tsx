@@ -33,7 +33,9 @@ import {
   Package,
 } from 'lucide-react';
 import type { MetadataPreviewProps } from '../preview-registry.js';
+import { t as tr, tFormat } from '../i18n.js';
 import { PreviewShell, PreviewErrorBoundary, PreviewEmptyState } from './PreviewShell.js';
+import { withNodes } from './row-nodes.js';
 
 type Audience = 'org' | 'public' | { permissionSet: string } | undefined;
 type Include = string | { tag: string } | undefined;
@@ -57,8 +59,12 @@ interface Group {
   pages?: PageNode[];
 }
 
-/** Normalise an untrusted `groups` array into a defensively-typed shape. */
-function normalizeGroups(raw: unknown): Group[] {
+/**
+ * Normalise an untrusted `groups` array into a defensively-typed shape.
+ * `noKey` is the designer's word for a group authored with a label and no key
+ * (`engine.bookPreview.noKey`, in the preview's locale — objectui#10862).
+ */
+function normalizeGroups(raw: unknown, noKey: string): Group[] {
   if (!Array.isArray(raw)) return [];
   const groups = raw
     .map((g: any, i: number): { g: Group; i: number } | null => {
@@ -68,7 +74,7 @@ function normalizeGroups(raw: unknown): Group[] {
       if (!key && !label) return null;
       return {
         g: {
-          key: key || '(no key)',
+          key: key || noKey,
           label: label || key || '(unnamed)',
           order: typeof g.order === 'number' ? g.order : undefined,
           include: normalizeInclude(g.include),
@@ -112,33 +118,49 @@ function normalizePages(raw: unknown): PageNode[] | undefined {
     .filter((x): x is PageNode => x !== null);
 }
 
-function audienceChip(audience: Audience): { icon: React.ReactNode; label: string; tone: string } {
+function audienceChip(
+  audience: Audience,
+  locale: string | undefined,
+): { icon: React.ReactNode; label: string; tone: string } {
   if (audience === 'public') {
-    return { icon: <Globe className="h-3 w-3" />, label: 'Public', tone: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
+    return {
+      icon: <Globe className="h-3 w-3" />,
+      label: tr('engine.bookPreview.audience.public', locale),
+      tone: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+    };
   }
   if (audience && typeof audience === 'object' && typeof audience.permissionSet === 'string') {
-    return { icon: <Lock className="h-3 w-3" />, label: `Permission set: ${audience.permissionSet}`, tone: 'text-amber-800 bg-amber-50 border-amber-200' };
+    return {
+      icon: <Lock className="h-3 w-3" />,
+      label: tFormat('engine.bookPreview.audience.permissionSet', locale, { name: audience.permissionSet }),
+      tone: 'text-amber-800 bg-amber-50 border-amber-200',
+    };
   }
   // 'org' (default) or absent — inherits the package grant.
-  return { icon: <Building2 className="h-3 w-3" />, label: 'Org', tone: 'text-muted-foreground bg-muted/40 border-muted' };
+  return {
+    icon: <Building2 className="h-3 w-3" />,
+    label: tr('engine.bookPreview.audience.org', locale),
+    tone: 'text-muted-foreground bg-muted/40 border-muted',
+  };
 }
 
-export function BookPreview({ name, draft }: MetadataPreviewProps) {
+export function BookPreview({ name, draft, locale }: MetadataPreviewProps) {
   const d = draft as any;
   const bookName = String(d.name ?? name ?? '').trim();
   const label = String(d.label ?? bookName);
   const description = typeof d.description === 'string' ? d.description : '';
   const slug = typeof d.slug === 'string' ? d.slug : '';
-  const groups = React.useMemo(() => normalizeGroups(d.groups), [d.groups]);
-  const aud = audienceChip(d.audience as Audience);
+  const noKey = tr('engine.bookPreview.noKey', locale);
+  const groups = React.useMemo(() => normalizeGroups(d.groups, noKey), [d.groups, noKey]);
+  const aud = audienceChip(d.audience as Audience, locale);
 
   if (!bookName) {
     return (
       <PreviewShell hint="book">
         <PreviewEmptyState
           icon={<BookOpen className="h-8 w-8 opacity-50" />}
-          title="Name your book"
-          description="Enter a name in the Form tab to start authoring the documentation spine."
+          title={tr('engine.bookPreview.nameTitle', locale)}
+          description={tr('engine.bookPreview.nameDescription', locale)}
         />
       </PreviewShell>
     );
@@ -157,9 +179,9 @@ export function BookPreview({ name, draft }: MetadataPreviewProps) {
           target="_blank"
           rel="noreferrer"
           className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-          title="Open the live-resolved navigation tree (actual docs per group)"
+          title={tr('engine.bookPreview.treeTitle', locale)}
         >
-          Resolved tree <ExternalLink className="h-3 w-3" />
+          {tr('engine.bookPreview.tree', locale)} <ExternalLink className="h-3 w-3" />
         </a>
       }
     >
@@ -180,7 +202,7 @@ export function BookPreview({ name, draft }: MetadataPreviewProps) {
             <div className="text-xs text-muted-foreground font-mono mt-0.5">{bookName}</div>
             {slug && (
               <div className="text-xs text-muted-foreground mt-1">
-                Slug: <code className="font-mono">{slug}</code>
+                {withNodes(tr('engine.bookPreview.slug', locale), { slug: <code className="font-mono">{slug}</code> })}
               </div>
             )}
             {description && <div className="text-xs text-muted-foreground mt-1.5">{description}</div>}
@@ -190,20 +212,19 @@ export function BookPreview({ name, draft }: MetadataPreviewProps) {
           {groups.length === 0 ? (
             <PreviewEmptyState
               icon={<FolderTree className="h-8 w-8 opacity-50" />}
-              title="No groups yet"
+              title={tr('engine.bookPreview.noGroups', locale)}
               tone="warn"
-              description={
-                <>
-                  A book needs at least one group in its <code>groups</code> spine. Each group
-                  derives its members from an <code>include</code> rule (a glob like{' '}
-                  <code>crm_guide_*</code> or a <code>{'{ tag }'}</code>).
-                </>
-              }
+              description={withNodes(tr('engine.bookPreview.noGroupsDescription', locale), {
+                groups: <code>groups</code>,
+                include: <code>include</code>,
+                glob: <code>crm_guide_*</code>,
+                tag: <code>{'{ tag }'}</code>,
+              })}
             />
           ) : (
             <div className="space-y-2">
               {groups.map((g, i) => (
-                <GroupCard key={`${g.key}-${i}`} group={g} />
+                <GroupCard key={`${g.key}-${i}`} group={g} locale={locale} />
               ))}
             </div>
           )}
@@ -213,7 +234,7 @@ export function BookPreview({ name, draft }: MetadataPreviewProps) {
   );
 }
 
-function GroupCard({ group }: { group: Group }) {
+function GroupCard({ group, locale }: { group: Group; locale?: string }) {
   return (
     <div className="rounded border bg-background">
       <div className="flex items-center gap-2 border-b bg-muted/20 px-3 py-2">
@@ -221,7 +242,7 @@ function GroupCard({ group }: { group: Group }) {
         <span className="text-xs font-medium text-foreground truncate">{group.label}</span>
         <span className="font-mono text-[10px] text-muted-foreground">{group.key}</span>
         {typeof group.order === 'number' && (
-          <span className="text-[10px] text-muted-foreground" title="Order within the book">
+          <span className="text-[10px] text-muted-foreground" title={tr('engine.bookPreview.orderTitle', locale)}>
             #{group.order}
           </span>
         )}
@@ -229,13 +250,13 @@ function GroupCard({ group }: { group: Group }) {
           {group.package && (
             <span
               className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground"
-              title="Membership rule is scoped to this package"
+              title={tr('engine.bookPreview.packageTitle', locale)}
             >
               <Package className="h-3 w-3" />
               {group.package}
             </span>
           )}
-          <IncludeChip include={group.include} hasOverride={!!group.pages?.length} />
+          <IncludeChip include={group.include} hasOverride={!!group.pages?.length} locale={locale} />
         </div>
       </div>
 
@@ -243,17 +264,18 @@ function GroupCard({ group }: { group: Group }) {
         {group.pages?.length ? (
           <ol className="space-y-1">
             {group.pages.map((node, i) => (
-              <PageRow key={i} node={node} />
+              <PageRow key={i} node={node} locale={locale} />
             ))}
           </ol>
         ) : group.include != null ? (
-          <div className="text-[11px] text-muted-foreground italic">
-            Members derived from the rule above — resolved against the live doc set.
-          </div>
+          <div className="text-[11px] text-muted-foreground italic">{tr('engine.bookPreview.derived', locale)}</div>
         ) : (
           <div className="text-[11px] text-amber-700 italic">
-            No <code>include</code> rule and no explicit <code>pages</code> — this group matches
-            nothing unless docs set <code>group: "{group.key}"</code>.
+            {withNodes(tr('engine.bookPreview.noRule', locale), {
+              include: <code>include</code>,
+              pages: <code>pages</code>,
+              group: <code>{`group: "${group.key}"`}</code>,
+            })}
           </div>
         )}
       </div>
@@ -261,11 +283,19 @@ function GroupCard({ group }: { group: Group }) {
   );
 }
 
-function IncludeChip({ include, hasOverride }: { include: Include; hasOverride: boolean }) {
+function IncludeChip({
+  include,
+  hasOverride,
+  locale,
+}: {
+  include: Include;
+  hasOverride: boolean;
+  locale?: string;
+}) {
   if (include == null) {
     return hasOverride ? (
-      <span className="text-[10px] text-muted-foreground" title="Curated order via explicit pages">
-        curated
+      <span className="text-[10px] text-muted-foreground" title={tr('engine.bookPreview.curatedTitle', locale)}>
+        {tr('engine.bookPreview.curated', locale)}
       </span>
     ) : null;
   }
@@ -273,7 +303,7 @@ function IncludeChip({ include, hasOverride }: { include: Include; hasOverride: 
     return (
       <span
         className="inline-flex items-center gap-1 rounded border border-primary/30 bg-primary/5 px-1.5 py-0.5 font-mono text-[10px] text-foreground"
-        title="Glob over doc names"
+        title={tr('engine.bookPreview.globTitle', locale)}
       >
         {include}
       </span>
@@ -282,7 +312,7 @@ function IncludeChip({ include, hasOverride }: { include: Include; hasOverride: 
   return (
     <span
       className="inline-flex items-center gap-1 rounded border border-primary/30 bg-primary/5 px-1.5 py-0.5 text-[10px] text-foreground"
-      title="Match by doc tag"
+      title={tr('engine.bookPreview.tagTitle', locale)}
     >
       <Tag className="h-3 w-3" />
       {include.tag}
@@ -290,13 +320,13 @@ function IncludeChip({ include, hasOverride }: { include: Include; hasOverride: 
   );
 }
 
-function PageRow({ node }: { node: PageNode }) {
+function PageRow({ node, locale }: { node: PageNode; locale?: string }) {
   // Separator (`---`).
   if (node.literal === '---') {
     return (
       <li className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground/60">
         <Minus className="h-3 w-3" />
-        separator
+        {tr('engine.bookPreview.separator', locale)}
       </li>
     );
   }
@@ -305,14 +335,14 @@ function PageRow({ node }: { node: PageNode }) {
     return (
       <li className="flex items-center gap-2 text-[11px] italic text-muted-foreground">
         <MoreHorizontal className="h-3.5 w-3.5" />
-        …rest (remaining matched docs, by order)
+        {tr('engine.bookPreview.rest', locale)}
       </li>
     );
   }
 
   const isExternal = !!node.href;
   const docName = node.literal ?? node.doc;
-  const display = node.label ?? docName ?? node.href ?? '(empty)';
+  const display = node.label ?? docName ?? node.href ?? tr('engine.bookPreview.emptyPage', locale);
 
   return (
     <li className="flex items-center gap-2 text-xs">

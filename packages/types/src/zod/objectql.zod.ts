@@ -1870,8 +1870,10 @@ export type ListViewInferred = z.input<typeof ListViewSchema>;
  *
  * The TypeScript twin `ObjectMapConfig` is a closed interface, so a misspelled
  * key (`latitudeFieId`) was a compile error for a typed author and nothing at
- * all for untyped metadata: this object stripped it, parsed clean, and the map
- * rendered empty with no diagnostic. Closing the block makes all three faces
+ * all for untyped metadata: this object stripped it and parsed clean, and
+ * nothing named it: the card's typo drew the generic "Map configuration
+ * required" refusal (objectui#8169), which names the key the author meant, not
+ * the one they wrote. Closing the block makes all three faces
  * one accept set, as ruled on objectui#5157 (letter A, carrying the earlier
  * "the `map` block only" ruling):
  *

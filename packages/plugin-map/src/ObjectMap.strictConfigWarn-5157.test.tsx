@@ -15,8 +15,8 @@
  * document the validator refuses still draws on a running page.
  *
  * Before the strict schema the same block parsed clean with the key stripped,
- * so this warning never fired: the card's symptom was an empty map and a quiet
- * console. The pin therefore reads the warning's ARGUMENTS, not its first line —
+ * so this warning never fired: the card's symptom was a quiet console: no
+ * warning named the key. The pin therefore reads the warning's ARGUMENTS, not its first line —
  * the key arrives in the formatted issue passed after the prefix string.
  */
 

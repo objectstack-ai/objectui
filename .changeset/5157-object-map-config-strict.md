@@ -6,8 +6,8 @@ feat(types): `ObjectMapConfigSchema` is `.strict()`, so `objectui validate` refu
 
 ⚠️ **The accept set narrows.** `ObjectMapSchema.map` is `ObjectMapConfigSchema`, which used
 to be a plain `z.object()`: a key it did not declare was stripped and the node parsed clean.
-The card's own typo, `latitudeFieId`, therefore validated clean and was never read, and no
-diagnostic anywhere named it. The block is now closed, as ruled on objectui#5157 (letter A, carrying the earlier
+The card's own typo, `latitudeFieId`, therefore validated clean and was never read, and neither
+`objectui validate` nor the runtime named it (only a TypeScript author's compiler did). The block is now closed, as ruled on objectui#5157 (letter A, carrying the earlier
 ruling that limits the change to the `map` block):
 
 - **`safeValidateSchema` / `objectui validate`** refuse a `map` block carrying an undeclared

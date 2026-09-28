@@ -190,6 +190,7 @@ export {
   ChartDataSeriesSchema,
   DrillDownConfigSchema,
   ChartSchema,
+  PivotTableSchema,
   TimelineEventSchema,
   TimelineFeedItemSchema,
   TimelineGanttItemSchema,
@@ -325,6 +326,11 @@ export {
   ObjectDataTableSchema,
   ListViewSchema,
   ObjectQLComponentSchema,
+  // objectui#10859 batch 2 — two ADR-0080 public blocks armed from their
+  // `ComponentPropsMap` rows, and the union they reach `AnyComponentSchema` by.
+  ObjectMetricBlockSchema,
+  ObjectMasterDetailFormBlockSchema,
+  ObjectQLPublicBlockComponentSchema,
 } from './objectql.zod.js';
 
 // ============================================================================
@@ -450,7 +456,7 @@ import { DisclosureSchema } from './disclosure.zod.js';
 import { OverlaySchema } from './overlay.zod.js';
 import { NavigationSchema } from './navigation.zod.js';
 import { ComplexSchema } from './complex.zod.js';
-import { ObjectQLComponentSchema } from './objectql.zod.js';
+import { ObjectQLComponentSchema, ObjectQLPublicBlockComponentSchema } from './objectql.zod.js';
 import { CRUDComponentSchema } from './crud.zod.js';
 import { ReportUnionSchema } from './reports.zod.js';
 import { ViewComponentSchema } from './views.zod.js';
@@ -518,6 +524,7 @@ export const AnyComponentSchema = defineNodeComponentUnion(z.discriminatedUnion(
   NavigationSchema,
   ComplexSchema,
   ObjectQLComponentSchema,
+  ObjectQLPublicBlockComponentSchema,
   CRUDComponentSchema,
   ReportUnionSchema,
   ViewComponentSchema,

@@ -384,12 +384,15 @@ const zh = {
     yes: '是',
     no: '否',
     systemFields: '系统字段',
-    // objectui#10881 — the grouped grid's refusal over a data source that
-    // cannot answer the group header query. `queryGroupHeaders` is the
-    // member's name and stays untranslated.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
       needsHeaderQuery:
         '此视图已分组，但其数据源未实现 queryGroupHeaders，因此无法统计分组。移除分组即可显示记录。',
+      needsWholeRows:
+        '分组需要全部记录，但此表格只收到其中一页，因此无法统计分组。请传入全部记录，或让表格从实现了 queryGroupHeaders 的数据源获取记录。',
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this

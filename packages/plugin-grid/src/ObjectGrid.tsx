@@ -447,6 +447,9 @@ const GRID_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // grid draws.
   'grid.grouping.needsHeaderQuery':
     'This view is grouped, but its data source does not implement queryGroupHeaders, so the groups cannot be counted. Remove the grouping to show the records.',
+  // …and over rows a host handed in while declaring them one page of more.
+  'grid.grouping.needsWholeRows':
+    'Grouping needs every record, but this grid was handed one page of them, so the groups cannot be counted. Hand in every record, or let the grid fetch them from a data source that implements queryGroupHeaders.',
   // Reused by the grouped-view pager (falls back here when no I18nProvider).
   'table.rowsPerPage': 'Rows per page',
   'table.pageInfo': 'Page {{current}} of {{total}}',
@@ -2128,6 +2131,25 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     && !!objectName
     && !!dataSource
     && typeof dataSource.queryGroupHeaders !== 'function'
+    && usableGroupingFields(groupingFieldsRaw).some((gf) => !groupingRefusedKnownMasked.includes(gf.field));
+  // [objectui#10881] The second refusal: rows a host handed in that the SAME
+  // host declares to be one page of more — the external-pagination props
+  // (`externalManualPagination`) with a `rowCount` above the rows it handed.
+  // Only rows handed in WHOLE group where they are; a declared window grouped
+  // here shows page-slice counts and drops every group whose rows fall past
+  // it (on 100 of 186 rows over five units, two groups: 86 and 14). The
+  // header-query sentence is the wrong one here: the host owns this fetch,
+  // and its data source may even declare `queryGroupHeaders`. So this names
+  // its own remedy — hand the rows in whole, or let the grid fetch them.
+  // Counted against the rows as HANDED (`dataConfig.items`), not the `data`
+  // state that mirrors them one render later, so whole rows never flash it.
+  // Same grouping entries as `groupingNeedsHeaderQuery`. A `rowCount` absent
+  // or not above the handed rows is whole rows, and groups as before.
+  const handedRows = hasInlineData ? (dataConfig as { items?: unknown } | undefined)?.items : undefined;
+  const groupingNeedsWholeRows =
+    externalManualPagination
+    && Array.isArray(handedRows)
+    && (hostRowCount as number) > handedRows.length
     && usableGroupingFields(groupingFieldsRaw).some((gf) => !groupingRefusedKnownMasked.includes(gf.field));
   // The grid's own row query — projection, expansion, order and the view's
   // filter — resolved by the load effect below exactly as the flat fetch
@@ -4042,18 +4064,19 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     );
   }
 
-  // [objectui#10881] A grouping the data source cannot count, refused in the
-  // load-error panel's own shape: nothing was fetched, and the sentence names
-  // the member the data source would need (`groupingNeedsHeaderQuery`).
-  if (groupingNeedsHeaderQuery) {
+  // [objectui#10881] A grouping of rows a host declared to be one page of
+  // more, refused in the load-error panel's own shape with its own sentence
+  // (`groupingNeedsWholeRows`). Nothing to wait for: the rows are the host's,
+  // so this comes before the spinner.
+  if (groupingNeedsWholeRows) {
     return (
       <div
         role="alert"
         className="p-3 sm:p-4 border border-red-300 bg-red-50 rounded-md"
-        data-testid="grid-grouping-needs-header-query"
+        data-testid="grid-grouping-needs-whole-rows"
       >
         <h3 className="text-red-800 font-semibold">{t('grid.errorLoading')}</h3>
-        <p className="text-red-600 text-sm mt-1">{t('grid.grouping.needsHeaderQuery')}</p>
+        <p className="text-red-600 text-sm mt-1">{t('grid.grouping.needsWholeRows')}</p>
       </div>
     );
   }
@@ -4095,6 +4118,26 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       <div className="p-4 sm:p-8 text-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
         <p className="mt-2 text-sm text-muted-foreground">{t('grid.loading')}</p>
+      </div>
+    );
+  }
+
+  // [objectui#10881] A grouping the data source cannot count, refused in the
+  // load-error panel's own shape: nothing was fetched, and the sentence names
+  // the member the data source would need (`groupingNeedsHeaderQuery`). AFTER
+  // the spinner, deliberately: the refusal is decided before the object's
+  // field types are known, and a grouping whose only key turns out to be a
+  // masked type is no grouping at all — so while that one read is in flight
+  // the grid shows it is loading, never an error it is about to withdraw.
+  if (groupingNeedsHeaderQuery) {
+    return (
+      <div
+        role="alert"
+        className="p-3 sm:p-4 border border-red-300 bg-red-50 rounded-md"
+        data-testid="grid-grouping-needs-header-query"
+      >
+        <h3 className="text-red-800 font-semibold">{t('grid.errorLoading')}</h3>
+        <p className="text-red-600 text-sm mt-1">{t('grid.grouping.needsHeaderQuery')}</p>
       </div>
     );
   }

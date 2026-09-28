@@ -131,6 +131,10 @@ describe('ListView refuses a grouped grid over a data source with no header quer
     await waitFor(() => expect(ds.find).toHaveBeenCalled());
     await waitFor(() => expect(Array.isArray(lastGridProps?.data) && lastGridProps.data.length > 0).toBe(true));
     expect(refusal()).toBeNull();
+    // Ungrouped, the window comes WITH host paging: the grid is told it holds
+    // one page of `rowCount`. The lit half of the searched-window pin below.
+    await waitFor(() => expect(lastGridProps.manualPagination).toBe(true));
+    expect(lastGridProps.rowCount).toBe(ROWS.length);
   });
 
   // CONTROL — rows handed in whole are grouped where they are, over the same source.
@@ -144,5 +148,26 @@ describe('ListView refuses a grouped grid over a data source with no header quer
     expect(lastGridProps.schema.grouping.fields.map((f: any) => f.field)).toEqual(['business_unit']);
     expect(refusal()).toBeNull();
     expect(ds.find).not.toHaveBeenCalled();
+  });
+
+  // Round 2 (the grid's second refusal, a host-DECLARED window): does ListView
+  // ever declare one? The one shape in which it hands a GROUPED grid a window
+  // is a source that answers the header query while a toolbar search is
+  // active (objectstack#20358). Measured there: no host paging, because
+  // `paginate` is off while grouped — the grid takes those rows as handed.
+  it('a grouped grid handed a searched window is handed no host paging', async () => {
+    const ds = { ...makeFindOnlyDataSource(), queryGroupHeaders: vi.fn(async () => []) };
+    render(
+      <SchemaRendererProvider dataSource={ds}>
+        <ListView schema={listSchema()} dataSource={ds} initialSearchTerm="Task" />
+      </SchemaRendererProvider>,
+    );
+
+    await waitFor(() => expect(ds.find).toHaveBeenCalled());
+    await waitFor(() => expect(Array.isArray(lastGridProps?.data) && lastGridProps.data.length > 0).toBe(true));
+    expect(lastGridProps.schema.grouping.fields.map((f: any) => f.field)).toEqual(['business_unit']);
+    expect(lastGridProps.manualPagination).toBeUndefined();
+    expect(lastGridProps.rowCount).toBeUndefined();
+    expect(refusal()).toBeNull();
   });
 });

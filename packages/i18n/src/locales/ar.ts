@@ -409,12 +409,15 @@ const ar = {
     yes: "نعم",
     no: "لا",
     systemFields: "النظام",
-    // objectui#10881 — the grouped grid's refusal over a data source that
-    // cannot answer the group header query. `queryGroupHeaders` is the
-    // member's name and stays untranslated.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
       needsHeaderQuery:
         "هذا العرض مُجمَّع، لكن مصدر بياناته لا يطبّق queryGroupHeaders، لذا لا يمكن عدّ المجموعات. أزِل التجميع لعرض السجلات.",
+      needsWholeRows:
+        "يتطلب التجميع جميع السجلات، لكن هذه الشبكة تلقّت صفحة واحدة منها فقط، لذا لا يمكن عدّ المجموعات. مرّر جميع السجلات، أو دع الشبكة تجلبها من مصدر بيانات يطبّق queryGroupHeaders.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this

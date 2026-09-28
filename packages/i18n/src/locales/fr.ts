@@ -398,12 +398,15 @@ const fr = {
     yes: "Oui",
     no: "Non",
     systemFields: "Système",
-    // objectui#10881 — the grouped grid's refusal over a data source that
-    // cannot answer the group header query. `queryGroupHeaders` is the
-    // member's name and stays untranslated.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
       needsHeaderQuery:
         "Cette vue est groupée, mais sa source de données n'implémente pas queryGroupHeaders : les groupes ne peuvent donc pas être comptés. Supprimez le regroupement pour afficher les enregistrements.",
+      needsWholeRows:
+        "Le regroupement a besoin de tous les enregistrements, mais cette grille n'en a reçu qu'une page : les groupes ne peuvent donc pas être comptés. Fournissez tous les enregistrements, ou laissez la grille les charger depuis une source de données qui implémente queryGroupHeaders.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this

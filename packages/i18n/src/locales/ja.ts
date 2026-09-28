@@ -398,12 +398,15 @@ const ja = {
     yes: "はい",
     no: "いいえ",
     systemFields: "システム",
-    // objectui#10881 — the grouped grid's refusal over a data source that
-    // cannot answer the group header query. `queryGroupHeaders` is the
-    // member's name and stays untranslated.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
       needsHeaderQuery:
         "このビューはグループ化されていますが、データソースが queryGroupHeaders を実装していないため、グループの件数を数えられません。レコードを表示するにはグループ化を解除してください。",
+      needsWholeRows:
+        "グループ化にはすべてのレコードが必要ですが、このグリッドにはその一部のページしか渡されていないため、グループの件数を数えられません。すべてのレコードを渡すか、queryGroupHeaders を実装したデータソースからグリッドに読み込ませてください。",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this

@@ -408,12 +408,15 @@ const ru = {
     yes: "Да",
     no: "Нет",
     systemFields: "Система",
-    // objectui#10881 — the grouped grid's refusal over a data source that
-    // cannot answer the group header query. `queryGroupHeaders` is the
-    // member's name and stays untranslated.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
       needsHeaderQuery:
         "Это представление сгруппировано, но его источник данных не реализует queryGroupHeaders, поэтому группы невозможно подсчитать. Уберите группировку, чтобы показать записи.",
+      needsWholeRows:
+        "Для группировки нужны все записи, но этой таблице передана только одна их страница, поэтому группы невозможно подсчитать. Передайте все записи или позвольте таблице загрузить их из источника данных, который реализует queryGroupHeaders.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this

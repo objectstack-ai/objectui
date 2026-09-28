@@ -510,12 +510,15 @@ const en = {
     yes: 'Yes',
     no: 'No',
     systemFields: 'System',
-    // objectui#10881 — the grouped grid's refusal over a data source that
-    // cannot answer the group header query. `queryGroupHeaders` is the
-    // member's name and stays untranslated.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
       needsHeaderQuery:
         'This view is grouped, but its data source does not implement queryGroupHeaders, so the groups cannot be counted. Remove the grouping to show the records.',
+      needsWholeRows:
+        'Grouping needs every record, but this grid was handed one page of them, so the groups cannot be counted. Hand in every record, or let the grid fetch them from a data source that implements queryGroupHeaders.',
     },
     // Column-footer aggregate prefixes, keyed by the spec's `ColumnSummary`
     // vocabulary (objectui#4024). The footer already formatted its NUMBER

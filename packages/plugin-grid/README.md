@@ -487,7 +487,10 @@ the view's effective filter, rather than a window of rows.
 **Rows handed in whole** (`data: { provider: 'value', items }`, or a host's
 whole result set) are grouped where they are, in the browser: nothing was
 withheld, so the grouping is exact. The grid takes rows a host hands it to be
-the whole set.
+the whole set — unless that host declares them one page of more
+(`manualPagination`, `onPageChange` and a `rowCount` above the rows it
+handed). A grouped grid refuses such a window with an error saying grouping
+needs every record; hand the rows in whole, or let the grid fetch them.
 
 **Everything else needs the group header query** (objectui#10881). Over a data
 source that declares no `queryGroupHeaders`, a grouped grid that fetches its

@@ -378,9 +378,11 @@ function sameGroupKey(a: unknown, b: unknown): boolean {
  *     it to be (inline rows, a host's whole result set). A grid that fetches
  *     its own rows never groups them here: over a data source with no header
  *     query it refuses grouping instead (objectui#10881, ruling F). A host
- *     that hands in a WINDOW gets that window grouped — `ListView` still does
- *     while a toolbar search is active, since the header query carries no
- *     search (objectstack#20358).
+ *     that DECLARES the rows one page of more (`manualPagination`,
+ *     `onPageChange` and a larger `rowCount`) is refused too; one that hands in a window without
+ *     saying so gets that window grouped — `ListView` does while a toolbar
+ *     search is active, since the header query carries no search
+ *     (objectstack#20358).
  *
  * @param config        - GroupingConfig from the grid schema (optional)
  * @param data          - flat data rows (grouped only when `server` is absent)

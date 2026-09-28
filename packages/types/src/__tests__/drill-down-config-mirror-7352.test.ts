@@ -24,9 +24,10 @@
  * ledger side (both `UnmirroredDeclared` rows gone, the new pair registered)
  * is pinned by the parity file's own ratchet.
  *
- * ⚠️ `PivotTableSchema.drillDown` is NOT covered here: that declaration has no
- * zod mirror at all, so it sits in no ledger. The mirror minted here is the home
- * that key will use whenever the pivot pair is mirrored (a separate card).
+ * ⚠️ `PivotTableSchema.drillDown` is NOT covered here. The pivot pair gained a
+ * zod mirror in objectui#10859 (batch 2), which judged that key by the mirror
+ * minted here, and objectui#10932 then retired it on the `pivot` node, which
+ * nothing drills: `pivot-drilldown-retired-10932.test.ts` pins the refusal.
  *
  * ⚠️ Not the spec's `ChartDrillDownSchema`, deliberately: `@objectstack/spec/ui`
  * models the CHART-ONLY subset (`enabled` / `filter` / `title` / `target` /

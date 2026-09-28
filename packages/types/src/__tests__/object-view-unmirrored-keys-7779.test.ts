@@ -162,7 +162,9 @@ const LEDGERED = 'listViews';
  * live in the docblocks' prose only; the READ is the fact.
  */
 const READ_TEXT: Record<Mirrored, ReadonlyArray<readonly [file: string, text: string]>> = {
-  navigation: [[READER, 'const navigationConfig: ViewNavigationConfig | undefined = schema.navigation;']],
+  // objectui#10885: the node's `navigation` is still read, now as the fallback
+  // behind the active named view's.
+  navigation: [[READER, 'const navigationConfig: ViewNavigationConfig | undefined = currentNamedViewConfig?.navigation ?? schema.navigation;']],
   searchableFields: [[READER, 'searchableFields: currentNamedViewConfig?.searchableFields ?? activeView?.searchableFields ?? (schema as any).searchableFields,']],
   filterableFields: [[READER, 'filterableFields: currentNamedViewConfig?.filterableFields ?? activeView?.filterableFields ?? (schema as any).filterableFields,']],
   allowCreateView: [

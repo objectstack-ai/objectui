@@ -26,7 +26,8 @@ import { fileURLToPath } from 'node:url';
  * report cell's date face. objectui#10866, its successor, added the calendar
  * and the gantt, whose pins also hold the written payload of a `date` field,
  * then the timeline, a chart's date axis and `@object-ui/i18n`'s published
- * date helpers; a later date-only read site registers here the same way.
+ * date helpers, then the timeline's gantt axis and core's formula date
+ * arithmetic; a later date-only read site registers here the same way.
  *
  * ## Why a driver, and why the forks pool
  *
@@ -91,6 +92,11 @@ const PINS = [
   'packages/plugin-timeline/src/__tests__/TimelineRenderer.dateOnlyZone-10866.test.tsx',
   'packages/plugin-charts/src/__tests__/AdvancedChartImpl.dateOnlyZone-10866.test.tsx',
   'packages/i18n/src/__tests__/formatting.dateOnlyZone-10866.test.ts',
+  // objectui#10866, slice 3: the timeline renderer's gantt variant (its axis
+  // headers, extent, bar geometry, validity gate, min-over-max guard and the
+  // empty plan's today) and core `FormulaFunctions`' day arithmetic.
+  'packages/plugin-timeline/src/__tests__/TimelineGantt.dateOnlyZone-10866.test.tsx',
+  'packages/core/src/evaluator/__tests__/FormulaFunctions.dateOnlyZone-10866.test.ts',
 ] as const;
 
 /** The vitest CLI entry, resolved rather than assumed at a `node_modules` path. */

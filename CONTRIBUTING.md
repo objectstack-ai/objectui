@@ -593,6 +593,20 @@ Write clear, user-facing descriptions:
 - Changes to validation
 ```
 
+**A count over the repository is a reading of one tree.** "N files", "N call sites" or "N
+occurrences" publishes verbatim, is never re-checked, and the next file added can falsify it —
+a sibling release note quoting the same token included. State it in the past tense, as a reading
+at a named commit, or leave it out ("this branch" means nothing once it is in the CHANGELOG).
+Commandment #9 of [AGENTS.md](./AGENTS.md) is the general rule.
+
+```markdown
+✅ Good:
+- Measured on this branch's base (`abc1234`): 14 call sites used the retired prop; all 14 are rewritten.
+
+❌ Bad:
+- 14 call sites in the repository use the retired prop.
+```
+
 ### Release Process
 
 The release process is automated:

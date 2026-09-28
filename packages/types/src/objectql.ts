@@ -37,6 +37,10 @@ import type { BulkActionOperation } from '@objectstack/spec/ui';
 // authoring face: the mirror strips every imported default). Type-only.
 import type { ObjectListViewSchema as SpecObjectListViewSchema } from '@objectstack/spec/ui';
 import type { z } from 'zod';
+// objectui#10946 — `BulkActionDef.visible` names the ONE objectui spelling of the
+// predicate wire instead of restating its union inline. Type-only, and
+// `./expression.ts` imports nothing, so this adds no cycle.
+import type { ExpressionWire } from './expression.js';
 import type { FormField } from './form.js';
 // ListView type is now derived from the zod schema (issue #2231) — see ListViewSchema below.
 import type { ListViewInferred, ObjectCalendarBlockConfig } from './zod/objectql.zod.js';
@@ -409,13 +413,47 @@ export interface ObjectUIConditionalFormattingRule {
 }
 
 /**
+ * One entry of a named view's `conditionalFormatting`, as the protocol declares
+ * it: `@objectstack/spec/ui`'s `ObjectListViewSchema`, read on its authoring
+ * (`z.input`) face BY REFERENCE, the same way `ObjectViewSchema.listViews`
+ * reads the whole named view (objectui#7928). Module-private: it exists so
+ * {@link SpecConditionalFormattingRule} can index the protocol's own slot type
+ * rather than restate it (objectui#10946).
+ */
+type SpecNamedViewConditionalFormattingRule = NonNullable<
+  z.input<typeof SpecObjectListViewSchema>['conditionalFormatting']
+>[number];
+
+/**
  * Spec-format ConditionalFormatting rule (from @objectstack/spec).
- * Uses a plain expression string with a style map.
- * Automatically evaluated at runtime via ExpressionEvaluator.
+ * Uses a predicate with a style map.
+ * Evaluated at runtime by `@object-ui/core`'s `resolveConditionalFormatting`.
  */
 export interface SpecConditionalFormattingRule {
-  /** Plain condition expression (e.g., "status == 'overdue'") or template expression (e.g., "${data.amount > 1000}") */
-  condition: string;
+  /**
+   * The predicate that gates the rule: a bare string (e.g. `"record.status == 'overdue'"`,
+   * or a template such as `"${data.amount > 1000}"`), or the expression envelope the
+   * protocol declares for this slot, `{ dialect, source }` (the form `objectstack build`
+   * emits for every authored predicate).
+   *
+   * objectui#10946: the member is the protocol's own slot type, indexed BY REFERENCE from
+   * {@link SpecNamedViewConditionalFormattingRule}, so it admits whatever the INSTALLED
+   * spec's `conditionalFormatting[].condition` admits and moves with it on a spec bump.
+   * Before this it was `string` alone, narrower than both the protocol and the evaluator
+   * (`resolveConditionalFormatting` hands the condition to `evalRowPredicate`, which reads
+   * the envelope), so every relay of a named view's rules into a grid needed an assertion.
+   * The explicit `string` arm is the pre-existing declaration, kept first so a string
+   * condition stays legal whatever a future spec does to its slot.
+   *
+   * ⚠️ The two spec lines differ on the envelope, and this member follows the installed one.
+   * The published `ExpressionInputSchema` slot makes `source` optional (the persistence
+   * contract: `source` OR `ast`); spec `main` narrows the slot to
+   * `EvaluatedExpressionInputSchema`, which requires a non-blank `source`. No engine evaluates
+   * `ast` today, so an `ast`-only envelope is answered as an evaluation fault: the rule does
+   * not match, and the fault is warned once. The zod twin is `SpecRuleConditionSchema` in
+   * `./zod/objectql.zod.ts`.
+   */
+  condition: string | SpecNamedViewConditionalFormattingRule['condition'];
   /** Style map to apply when condition matches (e.g., { backgroundColor: '#fee2e2', color: '#991b1b' }) */
   style: Record<string, string>;
 }
@@ -515,6 +553,18 @@ export interface BulkActionParam {
 export type { BulkActionOperation };
 
 /**
+ * One entry of a named view's `bulkActionDefs`, as the protocol declares it:
+ * `@objectstack/spec/ui`'s `ObjectListViewSchema`, read on its authoring
+ * (`z.input`) face BY REFERENCE, like
+ * {@link SpecNamedViewConditionalFormattingRule}. Module-private: it exists so
+ * {@link BulkActionDef.visible} can index the protocol's own slot type rather
+ * than restate it (objectui#10946).
+ */
+type SpecNamedViewBulkActionDef = NonNullable<
+  z.input<typeof SpecObjectListViewSchema>['bulkActionDefs']
+>[number];
+
+/**
  * Rich, schema-driven definition of a bulk action.
  *
  * The grid renders one button per def in the BulkActionBar. Clicking it opens
@@ -559,11 +609,23 @@ export interface BulkActionDef {
   confirmLabel?: string;
   /**
    * Permission / feature gate predicate — hides the button when it evaluates
-   * falsy. Accepts the spec's `ExpressionInput` shape (a bare CEL string, or
-   * the `{ dialect, source }` envelope `objectstack build` emits) so a def
-   * derived from an object action can forward `action.visible` untouched.
+   * falsy. Accepts a bare CEL string or the `{ dialect, source }` envelope
+   * `objectstack build` emits, so a def derived from an object action can
+   * forward `action.visible` untouched.
+   *
+   * Two arms, both read by reference rather than restated (objectui#10946):
+   * {@link ExpressionWire}, objectui's one spelling of the predicate wire (what
+   * this member declared before, then as an inline union), and the protocol's
+   * own `bulkActionDefs[].visible` slot type from
+   * {@link SpecNamedViewBulkActionDef}. The second arm is what the member
+   * lacked: on the installed spec that slot's envelope makes `source` optional
+   * and may carry `ast` and `meta`, so a named view's defs could not be relayed
+   * into a grid without an assertion. Spec `main` narrows the slot to require a
+   * non-blank `source`, and this arm follows the installed line. An `ast`-only
+   * envelope is evaluated as a fault, so no selected record qualifies (fail
+   * closed, warned).
    */
-  visible?: string | { dialect?: string; source: string };
+  visible?: ExpressionWire | SpecNamedViewBulkActionDef['visible'];
   /**
    * Capability gate — the UI half of ADR-0066 D4's `requiredPermissions`
    * contract, carried here so the selection bar reaches the SAME verdict as the

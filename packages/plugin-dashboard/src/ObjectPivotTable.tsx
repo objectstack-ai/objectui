@@ -38,8 +38,23 @@ import type { ObjectPivotDrillDownConfig, PivotTableSchema } from '@object-ui/ty
  */
 const EMPTY_ROWS = Object.freeze([]) as unknown as any[];
 
+/**
+ * `PivotTableSchema` minus `drillDown`, which is a retirement tombstone on the
+ * `pivot` node (objectui#10932). `object-pivot` declares its own `drillDown`
+ * below, and intersecting it with the tombstone would collapse that member to
+ * `never`: the one pivot that drills could not be authored with a drill.
+ *
+ * Key remapping, not `Omit`: `PivotTableSchema` extends `BaseSchema`, whose
+ * `[key: string]: any` widens `keyof` to all of `string`, so
+ * `Omit<PivotTableSchema, 'drillDown'>` would keep the index signature and drop
+ * every declared member.
+ */
+type PivotTableSchemaWithoutDrillDown = {
+  [K in keyof PivotTableSchema as K extends 'drillDown' ? never : K]: PivotTableSchema[K];
+};
+
 export interface ObjectPivotTableProps {
-  schema: PivotTableSchema & {
+  schema: PivotTableSchemaWithoutDrillDown & {
     objectName?: string;
     /**
      * RETIRED (objectui#7353, ADR-0049 remove arm, ruling 5809008870) — write
@@ -96,11 +111,12 @@ export interface ObjectPivotTableProps {
     // sink, so the drill is correct for both arms whatever this key is typed.
     filter?: any;
     /**
-     * This block's drill-down shape, not the shared `DrillDownConfig` that
-     * `PivotTableSchema` carries: `mode` is refused by name
-     * (`ObjectPivotDrillDownConfig`, objectui#10685, applying objectui#9002's
-     * ruling B). Every click point on a pivot is an aggregated bucket, so it
-     * always drills through; there is no row for `mode` to open as a record.
+     * This block's drill-down shape, `ObjectPivotDrillDownConfig`: `mode` is
+     * refused by name (objectui#10685, applying objectui#9002's ruling B).
+     * Every click point on a pivot is an aggregated bucket, so it always drills
+     * through; there is no row for `mode` to open as a record. `PivotTableSchema`
+     * carries no drill at all: on a plain `pivot` node the key is a retirement
+     * tombstone (objectui#10932), and this block is where a pivot drill lives.
      */
     drillDown?: ObjectPivotDrillDownConfig;
   };
@@ -354,9 +370,12 @@ export const ObjectPivotTable: React.FC<ObjectPivotTableProps> = ({ schema, data
     );
   }
 
-  // Delegate to PivotTable with resolved data
+  // Delegate to PivotTable with resolved data. `drillDown` is this block's and
+  // stays behind: `PivotTable` drills through `onDrillDown` below, and on the
+  // `pivot` node it renders the key is a retirement tombstone (objectui#10932).
+  const { drillDown: _objectPivotDrillDown, ...pivotSchema } = schema;
   const finalSchema: PivotTableSchema = {
-    ...schema,
+    ...pivotSchema,
     data: finalData,
   };
 

@@ -23,7 +23,7 @@
  *
  * A member is taken when the protocol declares it on a named view AND on
  * `object-grid`, under the same name, and `ObjectGrid` reads it. The first
- * describe below derives both declarations from the installed protocol. Two
+ * describe below derives both declarations from the installed protocol. Three
  * bucket-① members are handled apart from that rule:
  *
  *  - `hiddenFields` — declared on the named view, NOT on `object-grid`, and
@@ -31,11 +31,16 @@
  *    subtracted from the column projection route 2 hands the grid.
  *  - `navigation` — declared on both, but `ObjectView` hands `ObjectGrid` its own
  *    `onRowClick`, and the grid's navigation hook obeys that first. Relayed, the
- *    member would be read by nothing on this route, so it is not relayed.
+ *    member would be read by nothing on this route, so it is not relayed;
+ *    since member 4 the handler route 2 passes reads it
+ *    (`ObjectView.namedViewNavigation-10885.test.tsx`).
+ *  - `inlineEdit` — `object-grid` declares it as `editable`; since member 4
+ *    route 2 hands it over under that name
+ *    (`ObjectView.namedViewInlineEdit-10885.test.tsx`).
  *
  * The rest of bucket ① (`addRecord`, `allowPrinting`, `aria`, `compactToolbar`,
- * `description`, `emptyState`, `filterableFields`, `inlineEdit`, `sharing`,
- * `showRecordCount`, `userFilters`) is list chrome `ListView` draws. `object-grid`
+ * `description`, `emptyState`, `filterableFields`, `sharing`, `showRecordCount`,
+ * `userFilters`) is list chrome `ListView` draws. `object-grid`
  * does not declare it under the same name, so route 2 has no slot to read it
  * into.
  */

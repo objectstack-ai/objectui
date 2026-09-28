@@ -33,27 +33,47 @@
  * ── WHAT A "STRICT TWIN" IS HERE ───────────────────────────────────────────
  * A recursive rebuild of a zod schema in which every `ZodObject` gets
  * `catchall: z.never()` (i.e. `.strict()`), reached through unions,
- * discriminated unions, arrays, tuples, records, intersections, optionals,
- * nullables, defaults, pipes and `z.lazy` (memoised, so the self-referential
- * schemas terminate). Objects are cloned by patching `_zod.def` and calling
- * their own constructor, NOT rebuilt with `z.object(shape)`: the latter drops
- * `.refine()` checks, which several schemas here carry, and a twin that
- * quietly lost a refinement would under-report red.
+ * discriminated unions, arrays, tuples, records, sets, maps, intersections,
+ * optionals, nullables, defaults, prefaults, promises, BOTH sides of a pipe
+ * and `z.lazy` (memoised, so the self-referential schemas terminate). Objects
+ * are cloned by patching `_zod.def` and calling their own constructor, NOT
+ * rebuilt with `z.object(shape)`: the latter drops `.refine()` checks, which
+ * several schemas here carry, and a twin that quietly lost a refinement would
+ * under-report red.
+ *
+ * That arm table MIRRORS the shipped walker behind `deriveStrictAuthoringSchema`
+ * (`packages/types/src/strict-authoring-face.ts`), and a mirror that falls
+ * behind reads CLEANER than the face it measures — objectui#10076 was exactly
+ * that: this twin closed only the `in` side of a pipe, and `z.preprocess(f, X)`
+ * keeps `X` on the `out` side. A schema-bearing wrapper with no arm here is
+ * reported under `walkerLimits`, ⛔ never handed back in silence. The script
+ * keeps its own walker rather than calling the shipped one because the node
+ * boundary below, the `baseline` twin and the `keyProbe` have no counterpart
+ * there. The key probe and the node collector below walk both sides of a pipe
+ * too, and neither RUNS a preprocessor: a preprocessor that renames a key makes
+ * the probe name the old spelling as undeclared although both twins accept it.
  *
  * ── THE NODE BOUNDARY, AND WHY IT IS NOT OPTIONAL ──────────────────────────
  * Child slots (`children` / `body` / `content` / …) are typed
  * `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])`, and
- * `SchemaNodeSchema` is `z.lazy(() => z.union([BaseSchemaCore, string, number,
- * boolean, null, undefined]))` — the recursion point of the whole node tree is
- * BaseSchemaCore, which declares the ~21 base keys and NOTHING type-specific.
- * Strict-ifying that recursion point measures the recursion point, not the
- * components: every child node's own declared props become unrecognised. So
- * the per-component measurement replaces `SchemaNodeSchema` with `z.any()`
- * (the "node boundary") and instead walks each document into its constituent
- * nodes, judging every node against ITS OWN component schema. Both readings
- * are reported: the per-component tables use the boundary, and
- * `documentLevel.strictRefusedWholeTree` reports the un-boundaried
- * whole-document strict parse — what a naive `.strict()` flip would really do.
+ * `SchemaNodeSchema` is a `z.lazy` over ONE live union: a component arm in
+ * slot 0, then the primitives a slot admits. Since objectui#8344 that arm is
+ * the component union itself — `defineNodeComponentUnion` writes
+ * `AnyComponentSchema` into slot 0 when the `./zod` barrel evaluates, and this
+ * script reads the face through that barrel. So an un-boundaried walk does
+ * judge every child node against its own component schema, but a child slot is
+ * part of its parent's shape: a child's refusal fails every ancestor's parse
+ * too, and a per-node table built that way charges one undeclared key to each
+ * level above it. So the per-component measurement replaces `SchemaNodeSchema`
+ * with `z.any()` (the "node boundary") and instead walks each document into
+ * its constituent nodes, judging every node against ITS OWN component schema,
+ * children excluded. objectui#10076 measured that difference once, on the
+ * corpora of its day (a historical reading, ⛔ not re-derived here): strict
+ * per-component twins refused 168 nodes with the boundary and 185 without it.
+ * Both readings are reported: the per-component tables use the boundary, and
+ * `totals.documentsStrictRefusedWholeTree` (and the same field per corpus)
+ * reports the un-boundaried whole-document strict parse — what a naive
+ * `.strict()` flip would really do.
  *
  * ── THE THREE TWINS PER SCHEMA ─────────────────────────────────────────────
  *  1. `baseline` — the face as shipped, boundary applied, nothing else
@@ -254,6 +274,10 @@ const noteLimit = (kind, where) => {
   walkerLimits.get(kind).add(where);
 };
 
+/** The def members through which a node can hold another schema — the same list the shipped walker reads. */
+const SCHEMA_BEARING_MEMBERS = ['shape', 'options', 'items', 'element', 'rest', 'valueType', 'keyType', 'left', 'right', 'in', 'out', 'innerType'];
+const carriesSchema = (def) => SCHEMA_BEARING_MEMBERS.some((member) => def[member] != null);
+
 function makeTwin({ strict, boundary = true }) {
   const memo = new Map();
   const transform = (schema) => {
@@ -279,10 +303,12 @@ function makeTwin({ strict, boundary = true }) {
       case 'union': out = cloneWithDef(schema, { options: def.options.map(transform) }); break;
       case 'array': out = cloneWithDef(schema, { element: transform(def.element) }); break;
       case 'tuple': out = cloneWithDef(schema, { items: def.items.map(transform), ...(def.rest ? { rest: transform(def.rest) } : {}) }); break;
-      case 'record': out = cloneWithDef(schema, { valueType: transform(def.valueType) }); break;
+      case 'record': case 'set': out = cloneWithDef(schema, { valueType: transform(def.valueType) }); break;
+      case 'map': out = cloneWithDef(schema, { keyType: transform(def.keyType), valueType: transform(def.valueType) }); break;
       case 'intersection': out = cloneWithDef(schema, { left: transform(def.left), right: transform(def.right) }); break;
-      case 'pipe': out = cloneWithDef(schema, { in: transform(def.in) }); break;
-      case 'optional': case 'nullable': case 'default': case 'nonoptional': case 'readonly': case 'catch':
+      // BOTH sides: `X.transform(f)` keeps X in `in`, `z.preprocess(f, X)` keeps it in `out`.
+      case 'pipe': out = cloneWithDef(schema, { in: transform(def.in), ...(def.out ? { out: transform(def.out) } : {}) }); break;
+      case 'optional': case 'nullable': case 'default': case 'prefault': case 'nonoptional': case 'readonly': case 'catch': case 'promise':
         out = cloneWithDef(schema, { innerType: transform(def.innerType) }); break;
       case 'custom': case 'transform': case 'function':
         // An opaque validator: there is no shape to close. Recorded so the
@@ -290,7 +316,12 @@ function makeTwin({ strict, boundary = true }) {
         noteLimit(`opaque \`${def.type}\` node — strict cannot reach inside it`, exportNameOf.get(schema) ?? `(inline ${def.type})`);
         out = schema;
         break;
-      default: out = schema; // leaves: string, number, literal, enum, any, unknown, …
+      default:
+        // Leaves (string, number, literal, enum, any, unknown, …) have nothing
+        // to close. A wrapper with no arm above is not a leaf: its inner schema
+        // stays open, so it is reported rather than passed as clean.
+        if (carriesSchema(def)) noteLimit(`\`${def.type}\` wrapper — the walker has no arm for it, its inner schema stays open`, exportNameOf.get(schema) ?? `(inline ${def.type})`);
+        out = schema;
     }
     memo.set(schema, out);
     return out;
@@ -305,7 +336,7 @@ function unwrapToObject(schema, depth = 0) {
   if (def.type === 'object') return schema;
   if (def.innerType) return unwrapToObject(def.innerType, depth + 1);
   if (def.type === 'lazy') { try { return unwrapToObject(def.getter(), depth + 1); } catch { return null; } }
-  if (def.type === 'pipe') return unwrapToObject(def.in, depth + 1);
+  if (def.type === 'pipe') return unwrapToObject(def.in, depth + 1) ?? (def.out ? unwrapToObject(def.out, depth + 1) : null);
   return null;
 }
 
@@ -315,7 +346,9 @@ function unwrapToObject(schema, depth = 0) {
  * undeclared-key set. Union arms are merged key-wise: a key declared by ANY
  * arm counts as declared, which over-approximates "declared" and can therefore
  * only UNDER-report undeclared keys — the conservative direction for a
- * measurement whose headline is "how red".
+ * measurement whose headline is "how red". A pipe is probed on both sides, in
+ * order, without running its preprocessor — the one shape that can OVER-report
+ * (see `WHAT A "STRICT TWIN" IS HERE` at the top of this file).
  */
 function makeKeyProbe() {
   const memo = new Map();
@@ -369,8 +402,8 @@ function makeKeyProbe() {
         out = orAnything(z.object(shape));
         break;
       }
-      case 'pipe': out = probe(def.in, depth + 1); break;
-      case 'optional': case 'nullable': case 'default': case 'nonoptional': case 'readonly': case 'catch':
+      case 'pipe': out = def.out ? probe(def.in, depth + 1).pipe(probe(def.out, depth + 1)) : probe(def.in, depth + 1); break;
+      case 'optional': case 'nullable': case 'default': case 'prefault': case 'nonoptional': case 'readonly': case 'catch': case 'promise':
         out = probe(def.innerType, depth + 1); break;
       default: out = z.any();
     }
@@ -536,8 +569,9 @@ function collectNodes(value, schema, state, depth = 0) {
     case 'record': if (isPlainObject(value)) for (const v of Object.values(value)) collectNodes(v, def.valueType, state, depth + 1); return;
     case 'union': for (const o of def.options) collectNodes(value, o, state, depth + 1); return;
     case 'intersection': collectNodes(value, def.left, state, depth + 1); collectNodes(value, def.right, state, depth + 1); return;
-    case 'optional': case 'nullable': case 'default': case 'nonoptional': case 'readonly': case 'catch': case 'pipe':
-      collectNodes(value, def.innerType ?? def.in, state, depth + 1); return;
+    case 'pipe': collectNodes(value, def.in, state, depth + 1); if (def.out) collectNodes(value, def.out, state, depth + 1); return;
+    case 'optional': case 'nullable': case 'default': case 'prefault': case 'nonoptional': case 'readonly': case 'catch': case 'promise':
+      collectNodes(value, def.innerType, state, depth + 1); return;
     default:
   }
 }

@@ -9,7 +9,7 @@
 import React, { useMemo } from 'react';
 import type { PivotTableSchema, PivotAggregation } from '@object-ui/types';
 import { cn } from '@object-ui/components';
-import { isDrillEnabled, type DrillEvent } from '@object-ui/core';
+import type { DrillEvent } from '@object-ui/core';
 import { useSafeTranslate } from '@object-ui/i18n';
 import { WidgetEmptyState } from './WidgetEmptyState';
 
@@ -41,9 +41,17 @@ export interface PivotTableProps {
    */
   sourceLabel?: string;
   /**
-   * Drill-down click handler. When provided **and** `schema.drillDown` is
-   * enabled, cells / row & column headers / totals become interactive.
-   * Receives the click context which is forwarded to the drill-down engine.
+   * Drill-down click handler, and the ONLY drill switch. When provided, cells /
+   * row & column headers / totals become interactive and each click hands its
+   * context here; the host decides what a drill opens. `ObjectPivotTable`
+   * passes it exactly when its `object-pivot` `drillDown` is enabled.
+   *
+   * Nothing is read off `schema` for this: `drillDown` on a `pivot` node is a
+   * retirement tombstone (objectui#10932), since this component used to drill
+   * only for a host that passed this handler and the `pivot` registration
+   * passes none. Not a `drillDown` prop either: `SchemaRenderer` spreads a
+   * node's keys as props, so a prop of that name would hand an authored
+   * `drillDown` straight back to this component.
    */
   onDrillDown?: (event: DrillEvent) => void;
 }
@@ -179,11 +187,11 @@ export const PivotTable: React.FC<PivotTableProps> = ({ schema, className, rowLa
     showColumnTotals = false,
     format,
     columnColors,
-    drillDown,
   } = schema;
   const totalLabel = useTotalLabel();
 
-  const drillEnabled = isDrillEnabled(drillDown) && typeof onDrillDown === 'function';
+  // The host's handler is the switch (see `onDrillDown`); nothing on the node is.
+  const drillEnabled = typeof onDrillDown === 'function';
   const fireDrill = (ev: DrillEvent) => {
     if (!drillEnabled) return;
     onDrillDown!({

@@ -16,15 +16,28 @@
  * (`MePermissionsProvider`, an authenticated session: an object the payload
  * does not name is denied, #2926 ④):
  *
- *  - a named object: a field the loaded policy denies is not in the display
- *    column's title, and the declared `idField` is kept in the row the title
- *    reads even when the policy denies it (the `[idField]` this site hands the
- *    export), so the title still shows it and a row click still commits it;
- *  - an empty object name: the export passes the row through where the old
- *    copy judged every field against `''` (ruling 5861445694 on
- *    objectui#10594). The picker reads nothing without an object name, so
- *    there is no row to judge: no read is issued and no row is drawn, although
- *    the backend here answers for any object name.
+ *  - a named object (control): a field the loaded policy denies is not in the
+ *    display column's title, and the declared `idField` is kept in the row the
+ *    title reads even when the policy denies it (the `[idField]` this site
+ *    hands the export), so the title still shows it and a row click still
+ *    commits it;
+ *  - a picker OPENED with an empty object name issues no read and draws no
+ *    row, although the backend here answers for any object name. This leg
+ *    observes the query kernel's gate (`useRecordQuery` reads nothing without
+ *    an object name), not the field-read rule; it records why a host that
+ *    opens the picker with no name sees an empty table under either rule;
+ *  - the ruled pass-through on an empty object name (ruling 5861445694 on
+ *    objectui#10594): the deleted copy judged every field but `id`, `_id` and
+ *    `idField` against `''`, which this provider denies, and the export passes
+ *    the row through. The picker holds rows under an empty name only in the
+ *    commit after a host empties the name of an OPEN picker, before the kernel
+ *    clears the previous object's rows. With `idField` equal to the display
+ *    field, the column gate keeps that column by identity on `''`, so its title
+ *    is drawn there. The leg asserts the NEGATIVE: no title drawn under the
+ *    empty name is one stripped against `''`. It is red on the deleted copy and
+ *    on an export or dialog that fails closed on `''`, and it stays green if
+ *    the kernel ever clears the rows in the same commit (the snapshot then
+ *    holds no cell).
  *
  * `RecordPickerDialog.displayFls-10373.test.tsx` pins the column gates (which
  * columns are headed and drawn) against the role-based provider.
@@ -117,6 +130,38 @@ function cells(field: string): string[] {
   );
 }
 
+type Snapshot = { objectName: string; cells: string[] };
+
+/** One module-level payload, so a host rerender hands the provider the same object. */
+const SECRET_DENIED = policyDenying('secret');
+
+/**
+ * A host that keeps the picker OPEN while its object name changes, and records
+ * the drawn display cells after every commit of its own (a layout effect runs
+ * after the commit's DOM writes). `idField` is the display field, so the
+ * picker's column gate keeps the display column by identity even on `''`.
+ */
+function RenamingHost({ ds, objectName, log }: { ds: ReturnType<typeof makeBackend>; objectName: string; log: Snapshot[] }) {
+  React.useLayoutEffect(() => {
+    log.push({ objectName, cells: cells('name') });
+  });
+  return (
+    <SchemaRendererContext.Provider value={{ dataSource: ds } as any}>
+      <RecordPickerDialog
+        open
+        onOpenChange={() => {}}
+        dataSource={ds}
+        objectName={objectName}
+        idField="name"
+        onSelect={() => {}}
+        cellRenderer={getCellRenderer}
+        fieldsMeta={ACCOUNT_FIELDS}
+        objectSchema={{ name: 'account', fields: ACCOUNT_FIELDS, titleFormat: '{name} - {secret}' }}
+      />
+    </SchemaRendererContext.Provider>
+  );
+}
+
 afterEach(() => {
   cleanup();
 });
@@ -145,7 +190,7 @@ describe('RecordPickerDialog — the display title reads the shared field-read r
     expect(onSelect).toHaveBeenCalledWith('C-named-1');
   });
 
-  it('an empty object name under a loaded policy: no read is issued and no row is drawn', async () => {
+  it('a picker opened with an empty object name under a loaded policy: no read is issued and no row is drawn', async () => {
     const ds = makeBackend('empty');
     render(
       <MePermissionsProvider initialPermissions={policyDenying('secret')}>
@@ -159,5 +204,50 @@ describe('RecordPickerDialog — the display title reads the shared field-read r
     expect(document.querySelectorAll('[data-testid^="record-row-"]')).toHaveLength(0);
     expect(document.querySelectorAll('[data-lookup-cell]')).toHaveLength(0);
     expect(document.body.textContent).not.toContain('Account 0');
+  });
+
+  it('the ruled pass-through: after a host empties the name of an open picker, no drawn title is one stripped against the empty name', async () => {
+    const ds = makeBackend('renamed');
+    const log: Snapshot[] = [];
+    const { rerender } = render(
+      <MePermissionsProvider initialPermissions={SECRET_DENIED}>
+        <RenamingHost ds={ds} objectName="account" log={log} />
+      </MePermissionsProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId('record-row-Account 1')).toBeInTheDocument());
+    await settle();
+
+    // The snapshot is live: a host commit on the named object records the drawn
+    // titles, with the denied `secret` stripped and the id field kept.
+    await act(async () => {
+      rerender(
+        <MePermissionsProvider initialPermissions={SECRET_DENIED}>
+          <RenamingHost ds={ds} objectName="account" log={log} />
+        </MePermissionsProvider>,
+      );
+    });
+    expect(log[log.length - 1]).toEqual({
+      objectName: 'account',
+      cells: ['Account 0', 'Account 1', 'Account 2'],
+    });
+
+    await act(async () => {
+      rerender(
+        <MePermissionsProvider initialPermissions={SECRET_DENIED}>
+          <RenamingHost ds={ds} objectName="" log={log} />
+        </MePermissionsProvider>,
+      );
+    });
+    await settle();
+
+    const underEmptyName = log.filter((s) => s.objectName === '');
+    expect(underEmptyName.length).toBeGreaterThan(0);
+    // A title stripped against `''` is the bare name: this provider denies every
+    // field of an object it does not name, and only the id field is exempt.
+    for (const snapshot of underEmptyName) {
+      for (const cell of snapshot.cells) expect(cell).not.toMatch(/^Account \d$/);
+    }
+    expect(ds.find).toHaveBeenCalledTimes(1);
+    expect(document.querySelectorAll('[data-testid^="record-row-"]')).toHaveLength(0);
   });
 });

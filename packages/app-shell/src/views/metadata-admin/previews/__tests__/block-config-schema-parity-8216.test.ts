@@ -52,10 +52,21 @@
  *          `retirementTombstone()`, which is why the retired direction below
  *          cannot be measured without it.
  *
- * A block may resolve on both (`object-grid`, `object-form`, `object-kanban`),
- * on one (`grid` — node only; every `page:*` / `record:*` / `element:*` spec
- * type — spec only), or on neither. Neither is an EXPLICIT exemption with a
- * reason and a card, never a silent skip — the idiom is
+ *          ⚠️ An arm is judged at the LEVEL its block's props live on. Most
+ *          arms declare them at the node's top level; the ADR-0080 public-block
+ *          arms (objectui#10872) declare them the spec's way, as one
+ *          `properties` object member whose value is the block's
+ *          `ComponentPropsMap` row. The designer edits a block's `properties`
+ *          (`block-config.ts`'s header), so such an arm is judged against that
+ *          member's shape — {@link propsLevelOf} derives the level from the arm
+ *          itself, ⛔ never from a list of types.
+ *
+ * A block may resolve on both (`object-grid`, `object-form`, `object-kanban`,
+ * and, since objectui#10872, the `page:*` / `record:*` / `element:*` public
+ * blocks that carry a spec row — their node face judged at `properties`), on
+ * one (`grid` — node only; a spec type no arm declares yet, such as
+ * `element:number` — spec only), or on neither. Neither is an EXPLICIT exemption
+ * with a reason and a card, never a silent skip — the idiom is
  * `check-designer-field-key-parity.mjs`'s, copied rather than reinvented.
  *
  * ## Both directions, because "is it declared?" is not the question
@@ -119,9 +130,24 @@ function nodeOracles(): Record<string, unknown> {
       (typeMember?._def?.values as unknown[] | undefined)?.[0] ??
       typeMember?._def?.value ??
       typeMember?.value;
-    if (typeof literal === 'string' && !(literal in out)) out[literal] = exported;
+    if (typeof literal === 'string' && !(literal in out)) out[literal] = propsLevelOf(exported);
   }
   return out;
+}
+
+/**
+ * The schema a designer field of this arm is judged against: the arm's
+ * `properties` member when that member unwraps to an OBJECT shape — the
+ * ADR-0080 public-block arms (objectui#10872), whose props live in the spec's
+ * bag — and the arm itself otherwise. Read off the arm, so an arm that adopts
+ * the bag later is judged at the bag without an edit here, and an arm without
+ * one (or with a non-object `properties`) keeps its top-level reading.
+ */
+function propsLevelOf(arm: unknown): unknown {
+  const member = resolvePropsShape(arm)?.properties as { unwrap?: () => unknown } | undefined;
+  if (!member) return arm;
+  const inner = typeof member.unwrap === 'function' ? member.unwrap() : member;
+  return resolvePropsShape(inner) ? inner : arm;
 }
 
 const NODE_ORACLES = nodeOracles();
@@ -271,6 +297,21 @@ describe('BLOCK_CONFIG ↔ node-schema parity — the instruments (objectui#8216
     for (const t of ['object-kanban', 'object-form', 'object-grid', 'grid']) {
       expect(NODE_ORACLES[t], `no node arm resolved for '${t}'`).toBeTruthy();
     }
+  });
+
+  it('judges a bag-carrying arm AT its `properties` bag, and every other arm at its top level (objectui#10872)', () => {
+    // The descent is derived, so its non-vacuity is measured on both sides: a
+    // public-block arm resolves to its bag — the designer's `title` control is
+    // a declared member there, and the bag still carries the spec's tombstone
+    // for `icon` — while a top-level arm is untouched by it.
+    const header = NODE_ORACLES['page:header'];
+    expect(header, 'no node arm resolved for page:header').toBeTruthy();
+    expect(listedShapeKeys(header)).toContain('title');
+    expect(listedShapeKeys(header), 'judged at the node, not at its bag').not.toContain('properties');
+    expect(judge(header, 'title')).toBeUndefined();
+    expect(judge(header, 'icon')?.kind).toBe('RETIRED');
+    expect(listedShapeKeys(NODE_ORACLES['object-kanban'])).toContain('groupBy');
+    expect(listedShapeKeys(NODE_ORACLES['object-kanban'])).toContain('type');
   });
 
   it('the MISSING probe can say no — and yes', () => {

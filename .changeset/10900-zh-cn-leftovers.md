@@ -27,8 +27,9 @@ language (objectui#10900). English stays the default.
   buttons, and its documented default is corrected from "or" to "or continue with email",
   the text that divider has always shown. The console's login and sign-up pages and
   `@object-ui/app-shell`'s `DefaultLoginPage` / `DefaultRegisterPage` pass the new
-  `auth.login.*` and `auth.register.*` `socialButton` / `orText` keys. The provider's own
-  name is inserted as the server reports it.
+  `auth.login.*` and `auth.register.*` `socialButton` / `orText` keys. The provider's display
+  name is inserted as-is: the component's own label for the branded providers it knows,
+  otherwise the name the server reports.
 - **Build Doctor.** The build conversation's Build Doctor button (its accessible name and
   both tooltips) and the title of the drawer it opens read `console.ai.buildDoctor`,
   `console.ai.buildDoctorTitle` and `console.ai.buildDoctorDisabledTitle`.

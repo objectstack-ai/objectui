@@ -74,20 +74,23 @@ const HOT_VIEW = {
 const BINDING_FILTER = [{ field: 'owner', operator: 'equals', value: 'ada' }];
 const PROPS_FILTER = [{ field: 'region', operator: 'equals', value: 'emea' }];
 
-function makeAdapter({ canAggregate = true }: { canAggregate?: boolean } = {}) {
+/** An adapter that CAN aggregate — the primary path. */
+function makeAdapter() {
   const rows = [{ id: 'r1' }, { id: 'r2' }, { id: 'r3' }];
   return {
-    ...(canAggregate ? { aggregate: vi.fn(async () => [{ count: 7 }]) } : {}),
-    find: vi.fn(async () => ({ data: rows, total: rows.length })),
+    aggregate: vi.fn(async (..._args: unknown[]) => [{ count: 7 }]),
+    find: vi.fn(async (..._args: unknown[]) => ({ data: rows, total: rows.length })),
     getObjectSchema: vi.fn(async (name: string) => ({ name, fields: {}, listViews: { hot: HOT_VIEW } })),
-  } as {
-    aggregate?: ReturnType<typeof vi.fn>;
-    find: ReturnType<typeof vi.fn>;
-    getObjectSchema: ReturnType<typeof vi.fn>;
   };
 }
 
-function mount(schema: Record<string, unknown>, adapter: ReturnType<typeof makeAdapter>) {
+/** An adapter that cannot — `find()` is the only way to a number. */
+function makeFindOnlyAdapter() {
+  const { aggregate: _aggregate, ...rest } = makeAdapter();
+  return rest;
+}
+
+function mount(schema: Record<string, unknown>, adapter: object) {
   return render(
     <AdapterCtx.Provider value={adapter as never}>
       <SchemaRenderer schema={schema as never} />
@@ -142,7 +145,7 @@ describe('element:number reads its object from `dataSource.object` (objectui#109
   });
 
   it('the find() fallback reads the bound object when the adapter cannot aggregate', async () => {
-    const adapter = makeAdapter({ canAggregate: false });
+    const adapter = makeFindOnlyAdapter();
     mount(BOUND, adapter);
     await waitFor(() => expect(adapter.find).toHaveBeenCalledTimes(1));
     expect(adapter.find).toHaveBeenCalledWith('contact', undefined);
@@ -255,14 +258,14 @@ describe('element:number — the `dataSource` members it reads, and the ones it 
       adapter,
     );
     await waitFor(() => expect(adapter.aggregate).toHaveBeenCalledTimes(1));
-    const [object, bag] = adapter.aggregate.mock.calls[0];
+    const [object, bag] = adapter.aggregate.mock.calls[0] as [string, Record<string, unknown>];
     expect(object).toBe('contact');
     expect(Object.keys(bag).sort()).toEqual(['field', 'filter', 'function', 'groupBy']);
     expect(bag).toEqual(countBag(HOT_FILTER));
   });
 
   it('limit is not read on the find() fallback either: a count is never capped', async () => {
-    const adapter = makeAdapter({ canAggregate: false });
+    const adapter = makeFindOnlyAdapter();
     mount({ ...BOUND, dataSource: { object: 'contact', limit: 2 } }, adapter);
     await waitFor(() => expect(adapter.find).toHaveBeenCalledTimes(1));
     expect(adapter.find).toHaveBeenCalledWith('contact', undefined);

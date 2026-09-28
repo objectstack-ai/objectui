@@ -3766,6 +3766,11 @@ const ja = {
     actionsEmptyBody: "このデプロイには、アクションを宣言するインストール済みパッケージがありません。自分で作成したアクションは Studio にあります。",
     actionsLoadFailed: "パッケージアクションを読み込めませんでした。",
   },
+  element: {
+    number: {
+      noObject: "オブジェクトが指定されていません。object または dataSource.object を設定してください。",
+    },
+  },
 };
 
 export default ja;

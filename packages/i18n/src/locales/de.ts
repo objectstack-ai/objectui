@@ -3765,6 +3765,11 @@ const de = {
     actionsEmptyBody: "In dieser Installation deklariert kein installiertes Paket eine Aktion. Selbst erstellte Aktionen finden Sie im Studio.",
     actionsLoadFailed: "Paket-Aktionen konnten nicht geladen werden.",
   },
+  element: {
+    number: {
+      noObject: "Kein Objekt angegeben: Legen Sie object oder dataSource.object fest.",
+    },
+  },
 };
 
 export default de;

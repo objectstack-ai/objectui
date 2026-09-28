@@ -3767,6 +3767,11 @@ const fr = {
     actionsEmptyBody: "Aucun package installé ne déclare d'action sur ce déploiement. Les actions que vous créez vous-même se trouvent dans Studio.",
     actionsLoadFailed: "Impossible de charger les actions des packages.",
   },
+  element: {
+    number: {
+      noObject: "Aucun objet indiqué : définissez object ou dataSource.object.",
+    },
+  },
 };
 
 export default fr;

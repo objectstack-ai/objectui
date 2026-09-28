@@ -3769,6 +3769,11 @@ const es = {
     actionsEmptyBody: "Ningún paquete instalado declara una acción en esta implementación. Las acciones que creas tú están en Studio.",
     actionsLoadFailed: "No se pudieron cargar las acciones de paquete.",
   },
+  element: {
+    number: {
+      noObject: "No se ha indicado ningún objeto: define object o dataSource.object.",
+    },
+  },
 };
 
 export default es;

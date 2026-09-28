@@ -3795,6 +3795,11 @@ const ru = {
     actionsEmptyBody: "В этой установке ни один установленный пакет не объявляет действие. Действия, которые вы создаёте сами, находятся в Studio.",
     actionsLoadFailed: "Не удалось загрузить действия из пакетов.",
   },
+  element: {
+    number: {
+      noObject: "Объект не указан: задайте object или dataSource.object.",
+    },
+  },
 };
 
 export default ru;

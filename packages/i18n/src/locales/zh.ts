@@ -3835,6 +3835,11 @@ const zh = {
     actionsEmptyBody: '本部署中没有任何已安装软件包声明动作。你自己编写的动作在 Studio 中。',
     actionsLoadFailed: '无法加载打包动作。',
   },
+  element: {
+    number: {
+      noObject: '未指定对象：请设置 object 或 dataSource.object。',
+    },
+  },
 } as const;
 
 export default zh;

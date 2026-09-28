@@ -3801,6 +3801,11 @@ const ar = {
     actionsEmptyBody: "لا توجد حزمة مثبّتة تعلن عن إجراء في هذا النشر. الإجراءات التي تنشئها بنفسك موجودة في Studio.",
     actionsLoadFailed: "تعذّر تحميل إجراءات الحزم.",
   },
+  element: {
+    number: {
+      noObject: "لم يُحدَّد أي كائن: عيّن object أو dataSource.object.",
+    },
+  },
 };
 
 export default ar;

@@ -3763,6 +3763,11 @@ const ko = {
     actionsEmptyBody: "이 배포에는 액션을 선언하는 설치된 패키지가 없습니다. 직접 작성한 액션은 Studio에 있습니다.",
     actionsLoadFailed: "패키지 액션을 불러오지 못했습니다.",
   },
+  element: {
+    number: {
+      noObject: "개체가 지정되지 않았습니다. object 또는 dataSource.object를 설정하세요.",
+    },
+  },
 };
 
 export default ko;

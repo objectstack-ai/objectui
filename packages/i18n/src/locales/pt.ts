@@ -3764,6 +3764,11 @@ const pt = {
     actionsEmptyBody: "Nenhum pacote instalado declara uma ação nesta implantação. As ações que você mesmo cria ficam no Studio.",
     actionsLoadFailed: "Não foi possível carregar as ações de pacote.",
   },
+  element: {
+    number: {
+      noObject: "Nenhum objeto indicado: defina object ou dataSource.object.",
+    },
+  },
 };
 
 export default pt;

@@ -411,6 +411,7 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   // source the aggregate reads from.
   const dataBinding = useElementDataSource(schema, adapter);
   const composed = dataBinding.composed;
+  const { t } = useObjectTranslation();
   // The filter this metric aggregates over. With no binding it is the node's
   // own `filter` exactly as authored, so the `properties` form is unchanged.
   // With one, the node's own filter is AND-combined with the binding's (which
@@ -542,6 +543,24 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   }
   if (dataBinding.status === 'loading') {
     return <ElementDataSourceLoadingPanel testId="element-number" />;
+  }
+  // objectui#10951 — an aggregate that names no object at all, in either
+  // place. `object` stopped being `required` when the binding became a second
+  // way to supply it (objectui#10944), and the manifest cannot say "one of the
+  // two", so the html tier no longer reports this node: say it here rather
+  // than paint the dash. Only AUTHORED absence qualifies (`absent` = no
+  // binding naming an object); a binding whose view is still resolving or
+  // failed to resolve is answered by the two panels above.
+  if (props.aggregate && !props.object && dataBinding.status === 'absent') {
+    return (
+      <div
+        className={cn('text-xs text-muted-foreground', schema?.className)}
+        data-testid="element-number-no-object"
+        {...ariaAttrs(props.aria)}
+      >
+        {t('element.number.noObject', { defaultValue: 'No object named: set object or dataSource.object.' })}
+      </div>
+    );
   }
 
   return (

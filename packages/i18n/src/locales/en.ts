@@ -4317,6 +4317,14 @@ const en = {
       'No installed package declares an action on this deployment. Actions you author yourself live in Studio.',
     actionsLoadFailed: 'Could not load packaged actions.',
   },
+  element: {
+    // objectui#10951 — `element:number` authored with an aggregate and no
+    // object (neither `object` nor `dataSource.object`). Kept terse: this pack
+    // is eager, and the console closure budget weighs it.
+    number: {
+      noObject: 'No object named: set object or dataSource.object.',
+    },
+  },
 } as const;
 
 export default en;

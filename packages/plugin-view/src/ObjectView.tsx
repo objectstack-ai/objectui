@@ -245,6 +245,35 @@ function viewColumnFieldNames(columns: unknown): string[] | undefined {
 }
 
 /**
+ * objectui#10885 — a named view's `hiddenFields`, applied to the column
+ * projection route 2 hands `ObjectGrid`.
+ *
+ * The protocol composes three members of a named list view: `columns`
+ * projects, `hiddenFields` subtracts, `fieldOrder` orders what survives
+ * (objectstack#15184 ruling B). `ObjectGrid` has no `hiddenFields` read, and
+ * `object-grid` declares no such key, so relaying the member by name would put
+ * a key on the grid node that nothing reads. The subtraction is therefore made
+ * here, on the resolved projection, the way `ListView` makes it for the host
+ * delegation (its `effectiveFields`).
+ *
+ * - Only a DECLARED projection is narrowed. With no `columns` anywhere the grid
+ *   derives its own defaults, and this returns `undefined` unchanged, as
+ *   `ListView` does.
+ * - An entry is dropped only when `columnIdentity` names a hidden field. Every
+ *   other entry, and the entry's own shape, is kept.
+ * - A projection that every entry leaves is kept as the empty projection the
+ *   author wrote; it does not fall back to the grid's defaults.
+ */
+function withoutHiddenFields<T>(columns: T[] | undefined, hidden: readonly string[] | undefined): T[] | undefined {
+  if (!Array.isArray(columns) || !Array.isArray(hidden) || hidden.length === 0) return columns;
+  const drop = new Set(hidden);
+  return columns.filter((entry) => {
+    const name = columnIdentity(entry);
+    return !name || !drop.has(name);
+  });
+}
+
+/**
  * One entry of `ObjectViewSchema.listViews` — the protocol's
  * `ObjectListViewSchema`, by reference (objectui#7928). Derived from the member
  * rather than named on its own, so this component reads exactly the type the
@@ -2202,6 +2231,8 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // objectui#7928: see the non-grid fetch above. A retired string `sort` on a
     // named view reaches `ObjectGrid` unchanged, which refuses it out loud.
     const viewSort = (currentNamedViewConfig?.sort as ObjectGridSchema['sort']) || activeView?.sort;
+    // objectui#10885 — subtracted from whichever projection wins below.
+    const hiddenFields = currentNamedViewConfig?.hiddenFields;
 
     return {
       type: 'object-grid',
@@ -2214,8 +2245,16 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       // folded to identities, and `columns` is `string[] | ListColumn[]` so it
       // takes the authored value raw. One value, two slots, each given the
       // shape it declares.
-      fields: viewColumnFieldNames(currentNamedViewConfig?.columns) || activeView?.columns || schema.table?.fields,
-      columns: currentNamedViewConfig?.columns || activeView?.columns || schema.table?.columns,
+      // objectui#10885 — both slots lose the named view's `hiddenFields`
+      // (see `withoutHiddenFields`).
+      fields: withoutHiddenFields(
+        viewColumnFieldNames(currentNamedViewConfig?.columns) || activeView?.columns || schema.table?.fields,
+        hiddenFields,
+      ),
+      columns: withoutHiddenFields(
+        currentNamedViewConfig?.columns || activeView?.columns || schema.table?.columns,
+        hiddenFields,
+      ),
       operations: {
         ...operations,
         create: false, // Create is handled by the view's create button
@@ -2233,8 +2272,32 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       // express; what changes is only WHICH slot a view's sort arrives in, and
       // this is the one whose declared arity can hold it.
       sort: viewSort || schema.table?.sort,
-      pagination: schema.table?.pagination,
-      selection: schema.table?.selection,
+      // ⭐ objectui#10885 — the named view's own GRID MEMBERS, read here the
+      // way the host delegation below reads them since objectui#10758: the
+      // named view first, then the node only where this branch already read
+      // the node (`table.pagination`, `table.selection`). Each is a member the
+      // protocol declares on a named view AND on `object-grid`, under the same
+      // name, and `ObjectGrid` reads each one. The Studio's view preview renders
+      // a stored view through this branch, so before this a stored view's
+      // `rowHeight`, `pagination` and the rest were accepted and not shown.
+      //
+      // NAMED-VIEW SOURCED, like `grouping` / `rowColor` below: ⛔ no
+      // `activeView` rung (the host `views` path never fed these slots on this
+      // branch) and ⛔ no node read this branch did not already have. ⛔ No
+      // alias and no key `object-grid` does not declare: `hiddenFields` is
+      // applied to the projection above rather than relayed, and `navigation`
+      // is not relayed because this component passes `ObjectGrid` its own
+      // `onRowClick`, which the grid's navigation hook obeys first.
+      pagination: currentNamedViewConfig?.pagination ?? schema.table?.pagination,
+      selection: currentNamedViewConfig?.selection ?? schema.table?.selection,
+      rowHeight: currentNamedViewConfig?.rowHeight,
+      resizable: currentNamedViewConfig?.resizable,
+      searchableFields: currentNamedViewConfig?.searchableFields,
+      conditionalFormatting: currentNamedViewConfig?.conditionalFormatting,
+      rowActions: currentNamedViewConfig?.rowActions,
+      bulkActions: currentNamedViewConfig?.bulkActions,
+      bulkActionDefs: currentNamedViewConfig?.bulkActionDefs,
+      exportOptions: currentNamedViewConfig?.exportOptions,
       // ⭐ objectui#8980 — the AUTHOR-REACHABLE read point for two of the
       // seventeen. `ObjectGrid` already reads both (`schema.grouping` in its
       // group-field memo and its reference collector, `useRowColor(schema.rowColor)`),

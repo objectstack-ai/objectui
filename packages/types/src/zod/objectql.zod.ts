@@ -1528,6 +1528,33 @@ function checkListViewDatasetChartFilter(
   }
 }
 
+/**
+ * The `condition` of a spec-shape conditional-formatting rule, `{ condition, style }`:
+ * the zod twin of `SpecConditionalFormattingRule.condition` (`../objectql.ts`), read by
+ * both rule unions below (the list view's `conditionalFormatting` and
+ * `KanbanConditionalFormattingRuleSchema`), objectui#10946.
+ *
+ * Two arms, and their ORDER is the point:
+ *
+ *  - `z.string()` FIRST, the member's pre-existing declaration. A string condition
+ *    parses exactly as it always did. It is not canonicalized into an envelope, and
+ *    `''` is still accepted. The spec's own slot does both of those things to a string
+ *    (its string arm is a `min(1)` pipe into `{ dialect: 'cel', source }`), so reading
+ *    the slot alone would have narrowed this validator and rewritten its parse output.
+ *  - The protocol's own slot schema, `ListViewSchema.conditionalFormatting[].condition`,
+ *    BY REFERENCE, for everything that is not a string: the `{ dialect, source }`
+ *    envelope `objectstack build` emits, judged by the spec's rule for it. The installed
+ *    spec takes `source` or `ast`; spec `main` requires a non-blank `source`. Whichever
+ *    line is installed is what this arm enforces, with no local copy to drift.
+ *
+ * The union's `z.input` is the TS member's type, `string` plus the spec slot's input,
+ * so the two faces admit the same values by construction.
+ */
+const SpecRuleConditionSchema = z.union([
+  z.string(),
+  stripImportedDefaults(SpecListViewSchema).shape.conditionalFormatting.unwrap().element.shape.condition,
+]);
+
 export const ListViewSchema = BaseSchema
   // Spec-owned fields by reference. `specFieldsExcept` reads the spec object's
   // `.shape` rather than calling `.omit()`, which zod 4 refuses on a schema
@@ -1693,7 +1720,7 @@ export const ListViewSchema = BaseSchema
         expression: z.string().optional(),
       }),
       z.object({
-        condition: z.string(),
+        condition: SpecRuleConditionSchema,
         style: z.record(z.string(), z.string()),
       }),
     ])).optional().describe('Conditional formatting rules'),
@@ -2300,7 +2327,7 @@ export const KanbanConditionalFormattingRuleSchema = z.union([
     borderColor: z.string().optional().describe('Border color'),
   }),
   z.object({
-    condition: z.string().describe('CEL predicate evaluated against the card record'),
+    condition: SpecRuleConditionSchema.describe('CEL predicate evaluated against the card record'),
     style: z.record(z.string(), z.string()).describe('CSS styles applied when the condition is true'),
   }),
 ]);

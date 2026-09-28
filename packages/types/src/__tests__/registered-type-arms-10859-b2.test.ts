@@ -188,6 +188,9 @@ describe('the registered types armed in batch 2 validate (objectui#10859)', () =
   });
 
   it('accepts a fully populated `pivot` document on both faces', () => {
+    // Every member the arm still accepts. `drillDown` is not one of them since
+    // objectui#10932 retired it on this node; its refusal is pinned in
+    // `pivot-drilldown-retired-10932.test.ts`.
     const doc = {
       type: 'pivot',
       title: 'Revenue by region',
@@ -200,7 +203,6 @@ describe('the registered types armed in batch 2 validate (objectui#10859)', () =
       showColumnTotals: false,
       format: '$,.2f',
       columnColors: { Q1: 'text-emerald-600' },
-      drillDown: { enabled: true, target: 'drawer', title: 'Revenue records' },
     };
     expect(safeValidateSchema(doc).success).toBe(true);
     expect(StrictAnyComponentSchema.safeParse(doc).success).toBe(true);
@@ -262,9 +264,13 @@ describe('the batch-2 arms are closed where their declaration is (objectui#10859
     expect(issue.path).toEqual(['data']);
   });
 
-  it('pivot: `drillDown` is judged by the shared drill-down mirror', () => {
+  it('pivot: `drillDown` is refused whole, not judged member by member (objectui#10932)', () => {
+    // Until objectui#10932 this arm judged the key by the shared drill-down
+    // mirror, so the refusal landed at `['drillDown', 'enabled']`. The key is a
+    // retirement tombstone now; `pivot-drilldown-retired-10932.test.ts` pins it.
     const issue = firstIssue(safeValidateSchema({ ...MINIMAL[0], drillDown: { enabled: 'yes' } }));
-    expect(issue.path).toEqual(['drillDown', 'enabled']);
+    expect(issue.code).toBe('invalid_type');
+    expect(issue.path).toEqual(['drillDown']);
   });
 
   it.each(['body', 'children'] as const)('pivot refuses the `%s` content channel by name (objectui#9256)', (key) => {

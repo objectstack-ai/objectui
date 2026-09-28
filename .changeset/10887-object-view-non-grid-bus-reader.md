@@ -6,13 +6,15 @@ fix(plugin-view): an `object-view` in a non-grid view re-reads its rows on the d
 
 For the non-grid views (kanban, calendar, gallery, timeline, map, gantt),
 `ObjectView` fetches the rows itself and hands them to the inner view as
-`data`, which switches off that view's own bus reader. That fetch
-now names the `useDataInvalidation` nonce for `schema.objectName`, so a write
-declared on the bus (`notifyDataChanged`, as a page action over raw HTTP does),
-or an unscoped `'*'`, re-reads the rows in place: the inner view is not
-remounted. A change to another object does not re-read. Before, such a write
-reached these views only when their host remounted them, and `PageView` is
-about to stop doing that (objectui#10519).
+`data`, which switches off that view's own bus reader. A gantt handed zero rows
+is the one exception: it still queries for itself and keeps its own bus reader
+beside this one (objectui#7333), so both re-read, and both answers are correct.
+`ObjectView`'s fetch now names the `useDataInvalidation` nonce for
+`schema.objectName`, so a write declared on the bus (`notifyDataChanged`, as a
+page action over raw HTTP does), or an unscoped `'*'`, re-reads the rows in
+place: the inner view is not remounted. A change to another object does not
+re-read. Before, such a write reached these views only when their host
+remounted them, and `PageView` is about to stop doing that (objectui#10519).
 
 The subscription follows the rows the view draws: a host `renderListView` (its
 `ListView` reads the bus itself) and the grid (`ObjectGrid` does too) do not

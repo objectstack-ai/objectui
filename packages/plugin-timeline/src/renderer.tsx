@@ -74,6 +74,38 @@ export function resolveTimelineScale(schema: { scale?: unknown }): string {
 }
 
 /**
+ * THE ONE READ of a gantt date: every stop on the gantt branch takes it — the
+ * validity gate, the computed extent, the min-over-max guard, the axis headers
+ * and the bar geometry (objectui#10866, slice 3).
+ *
+ * A string goes through the shared step, `toDisplayDate` (`@object-ui/core`,
+ * the objectui#10183 convention), which the bar tooltip's `formatDate` already
+ * takes: a date-only `2026-10-05` is local midnight of the day it names, and a
+ * value with a time part keeps its instant. The engine's own parse read the
+ * date-only value as UTC midnight, and the headers walk and print with LOCAL
+ * setters and getters, so west of UTC the axis read the day before while the
+ * tooltip under it named the stored day. A day its month does not have
+ * (`2026-02-30`) is refused here as the shared step refuses it (objectui#10026),
+ * where the engine rolled it into March.
+ *
+ * A number (epoch milliseconds) or a `Date` is an instant and is read by
+ * `new Date(value)` exactly as before. For a `Date` that is a fresh copy built
+ * from its own time slot, so no method the authored object carries is called
+ * afterwards; `toDisplayDate` would hand the object itself back, and the
+ * gate's `getTime()` would then be the object's own (objectui#7027, `isDate`
+ * below).
+ *
+ * ⛔ The stops must all read through here. They are one invariant read from
+ * several ends: a date the gate lets through must be one the extent can
+ * reduce, and a range the guard calls ordered must be one the headers can
+ * walk. A stop that kept the engine parse would disagree with the others by
+ * the viewer's UTC offset.
+ */
+function readGanttDate(value: string | number | Date): Date {
+  return typeof value === 'string' ? toDisplayDate(value) : new Date(value);
+}
+
+/**
  * Gantt header labels for one scale across [minDate, maxDate]. Every spec
  * scale produces a non-empty header row — `hour` / `quarter` / `year` used to
  * fall through the month/week/day chain and return `[]`, blanking the axis
@@ -131,6 +163,14 @@ export function resolveTimelineScale(schema: { scale?: unknown }): string {
  * it is the reason the caller's guard is allowed to be the only one: an axis
  * that silently drew nothing is what let the row loop below it keep running, so
  * the two guards are one invariant read from both ends, not a duplicate.
+ *
+ * ## The two ends are read as days (objectui#10866, slice 3)
+ *
+ * Both ends are read by `readGanttDate`, so a date-only end is local midnight
+ * of the day it names and the walk below, which moves and prints with LOCAL
+ * setters and getters, starts on that day in every zone. A value with a time
+ * part keeps its instant, and the walk starts at that instant's local time, as
+ * it always did.
  */
 export function generateTimeScaleHeaders(
   scale: string,
@@ -140,8 +180,8 @@ export function generateTimeScaleHeaders(
   t: TimelineTranslate = translateTimelineDefault,
 ): string[] {
   const headers: string[] = [];
-  const start = new Date(minDate);
-  const end = new Date(maxDate);
+  const start = readGanttDate(minDate);
+  const end = readGanttDate(maxDate);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return headers;
   const current = new Date(start);
   switch (scale) {
@@ -225,6 +265,13 @@ export function generateTimeScaleHeaders(
  * on every scale, so the axis is valid and non-empty, and the grid below it has
  * zero rows.
  *
+ * "Today" is the VIEWER's calendar day, printed from local getters, because
+ * the axis reads this `YYYY-MM-DD` as local midnight of that day
+ * (`readGanttDate`). It used to be the UTC day, `toISOString()`'s date part,
+ * which is tomorrow for a viewer west of UTC in the evening and yesterday for
+ * one east of UTC after midnight (objectui#10866, slice 3). The object
+ * timeline's "Today" bucket is the same local day.
+ *
  * ## What this deliberately does NOT do
  *
  * It does not reach the caller when the author pinned a range. The gantt branch
@@ -234,7 +281,7 @@ export function generateTimeScaleHeaders(
  * `./__tests__/timeline-gantt-empty-items.test.tsx`.
  */
 function emptyGanttDateRange(): { minDate: string; maxDate: string } {
-  const today = new Date().toISOString().split('T')[0];
+  const today = toDateInputValue(new Date());
   return { minDate: today, maxDate: today };
 }
 
@@ -411,12 +458,19 @@ function calculateDateRange(rows: readonly GanttRow[]): { minDate: string; maxDa
   // sentinel substituted for a value the author got wrong is the consumer-side
   // tolerance both #6750 and #6759 rejected — see `findUnusableGanttDate`.
 
-  const minTimestamp = Math.min(...allDates.map((d: string) => new Date(d).getTime()));
-  const maxTimestamp = Math.max(...allDates.map((d: string) => new Date(d).getTime()));
+  // objectui#10866, slice 3 — each date is read by `readGanttDate`, the read
+  // the gate above already made, and each end is printed as the VIEWER's
+  // calendar day, from local getters (`toDateInputValue` of a `Date`), because
+  // the headers and the bar geometry read it back as local midnight of that
+  // day. `toISOString()`'s date part named the UTC day: of a date-only value
+  // read as local midnight, that is the day before east of UTC, and of an
+  // instant it can be a day the viewer's axis does not start on.
+  const minTimestamp = Math.min(...allDates.map((d) => readGanttDate(d).getTime()));
+  const maxTimestamp = Math.max(...allDates.map((d) => readGanttDate(d).getTime()));
 
   return {
-    minDate: new Date(minTimestamp).toISOString().split('T')[0],
-    maxDate: new Date(maxTimestamp).toISOString().split('T')[0],
+    minDate: toDateInputValue(new Date(minTimestamp)),
+    maxDate: toDateInputValue(new Date(maxTimestamp)),
   };
 }
 
@@ -1088,14 +1142,18 @@ function findUnusableGanttDate(
    *    `new Date` would otherwise coerce into a silent 1970 axis.
    * 2. It is the right TYPE but does not parse — #6759's original question,
    *    still asked, and still the only thing that separates `'2024-01-01'` from
-   *    `'not-a-date'` or a valid `Date` from `new Date(NaN)`.
+   *    `'not-a-date'` or a valid `Date` from `new Date(NaN)`. It is asked of
+   *    `readGanttDate`, the read every later stop makes, so a day its month
+   *    does not have (`'2026-02-30'`) is refused here too (objectui#10866,
+   *    slice 3): the shared step refuses it, where the engine rolled it into
+   *    March and drew the bar there.
    *
    * The type gate must come first: `new Date` THROWS on a `bigint` or a
    * `symbol`, so asking "does it parse?" of an unjudged value crashes the guard
    * (measured — see `isGanttDateType`).
    */
   const isUnusable = (value: unknown) =>
-    !isGanttDateType(value) || Number.isNaN(new Date(value).getTime());
+    !isGanttDateType(value) || Number.isNaN(readGanttDate(value).getTime());
 
   for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
     // `rows` is the normalized array `classifyGanttRows` built, so this loop
@@ -1123,17 +1181,28 @@ function findUnusableGanttDate(
   return undefined;
 }
 
-// Helper function to calculate bar position and width based on dates
+/**
+ * A bar's position and width, as percentages of the axis [minDate, maxDate].
+ *
+ * All four ends are read by `readGanttDate` (objectui#10866, slice 3), the
+ * read the headers above the bars make: a date-only day is local midnight of
+ * that day, so a bar starting on October 6th sits under the "Oct 6" header in
+ * every zone, and an instant keeps its instant, so it sits at its local hour
+ * in the viewer's day. Across a DST change two local midnights are 23 or 25
+ * hours apart, so a bar's edge can sit up to an hour's share of the axis off
+ * the header column's edge; the header columns are equal widths and were
+ * never an exact scale.
+ */
 function calculateBarDimensions(
   startDate: string,
   endDate: string,
   minDate: string,
   maxDate: string
 ): { start: number; width: number } {
-  const start = new Date(startDate).getTime();
-  const end = new Date(endDate).getTime();
-  const min = new Date(minDate).getTime();
-  const max = new Date(maxDate).getTime();
+  const start = readGanttDate(startDate).getTime();
+  const end = readGanttDate(endDate).getTime();
+  const min = readGanttDate(minDate).getTime();
+  const max = readGanttDate(maxDate).getTime();
 
   const totalDuration = max - min;
   const startOffset = start - min;
@@ -1554,8 +1623,13 @@ export const TimelineRenderer = ({ schema, className, style, ...hostProps }: { s
        *
        *     CASE-2 minDate 2030-01-01 / maxDate 2026-03-15
        *            -> axis: [] bars: ["left: 157.9250720461095%; width: -4.322766570605188%;"]
+       *
+       * Both ends are read by `readGanttDate`, as the headers read them
+       * (objectui#10866, slice 3), so the two tests stay one test: a pinned
+       * date-only start and a pinned instant end can be in order east of UTC
+       * and inverted west of it, and both readers must agree on which.
        */
-      if (new Date(minDate).getTime() > new Date(maxDate).getTime()) {
+      if (readGanttDate(minDate).getTime() > readGanttDate(maxDate).getTime()) {
         return (
           <div className="p-4 text-destructive" data-testid="timeline-unusable-date-range" role="alert">
             {t('timeline.gantt.unusableRange.inverted', {

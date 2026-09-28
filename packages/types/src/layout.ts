@@ -70,8 +70,9 @@ export interface BoxSchema extends BaseSchema {
    *
    * Before objectui#8284 tombstoned it here, `body` was inherited-and-optional
    * from {@link BaseSchema} — so authoring it here type-checked, parsed green
-   * through `.passthrough()`, and rendered an EMPTY element with no error and
-   * no warning. Per component, the channel a renderer does not read is now
+   * through `.passthrough()`, and rendered an EMPTY element with no render-time
+   * error or warning; only the parser tier's `unknown-prop` warning noticed it.
+   * Per component, the channel a renderer does not read is now
    * tombstoned on both published faces (maintainer ruling, summon #17 decision
    * batch #2, 2026-09-07), and objectui#6771 has since retired `body` on
    * `BaseSchema` itself.
@@ -109,8 +110,9 @@ export interface TextSpanSchema extends BaseSchema {
    *
    * Before objectui#8284 tombstoned it here, `body` was inherited-and-optional
    * from {@link BaseSchema} — so authoring it here type-checked, parsed green
-   * through `.passthrough()`, and rendered an EMPTY element with no error and
-   * no warning. Per component, the channel a renderer does not read is now
+   * through `.passthrough()`, and rendered an EMPTY element with no render-time
+   * error or warning; only the parser tier's `unknown-prop` warning noticed it.
+   * Per component, the channel a renderer does not read is now
    * tombstoned on both published faces (maintainer ruling, summon #17 decision
    * batch #2, 2026-09-07), and objectui#6771 has since retired `body` on
    * `BaseSchema` itself.
@@ -583,8 +585,9 @@ export interface ContainerSchema extends BaseSchema {
    *
    * Before objectui#8284 tombstoned it here, `body` was inherited-and-optional
    * from {@link BaseSchema} — so authoring it here type-checked, parsed green
-   * through `.passthrough()`, and rendered an EMPTY element with no error and
-   * no warning. Per component, the channel a renderer does not read is now
+   * through `.passthrough()`, and rendered an EMPTY element with no render-time
+   * error or warning; only the parser tier's `unknown-prop` warning noticed it.
+   * Per component, the channel a renderer does not read is now
    * tombstoned on both published faces (maintainer ruling, summon #17 decision
    * batch #2, 2026-09-07), and objectui#6771 has since retired `body` on
    * `BaseSchema` itself.
@@ -712,8 +715,9 @@ export interface FlexSchema extends BaseSchema, FlexLayoutProps {
    *
    * Before objectui#8284 tombstoned it here, `body` was inherited-and-optional
    * from {@link BaseSchema} — so authoring it here type-checked, parsed green
-   * through `.passthrough()`, and rendered an EMPTY element with no error and
-   * no warning. Per component, the channel a renderer does not read is now
+   * through `.passthrough()`, and rendered an EMPTY element with no render-time
+   * error or warning; only the parser tier's `unknown-prop` warning noticed it.
+   * Per component, the channel a renderer does not read is now
    * tombstoned on both published faces (maintainer ruling, summon #17 decision
    * batch #2, 2026-09-07), and objectui#6771 has since retired `body` on
    * `BaseSchema` itself.
@@ -747,8 +751,9 @@ export interface StackSchema extends BaseSchema, FlexLayoutProps {
    *
    * Before objectui#8284 tombstoned it here, `body` was inherited-and-optional
    * from {@link BaseSchema} — so authoring it here type-checked, parsed green
-   * through `.passthrough()`, and rendered an EMPTY element with no error and
-   * no warning. Per component, the channel a renderer does not read is now
+   * through `.passthrough()`, and rendered an EMPTY element with no render-time
+   * error or warning; only the parser tier's `unknown-prop` warning noticed it.
+   * Per component, the channel a renderer does not read is now
    * tombstoned on both published faces (maintainer ruling, summon #17 decision
    * batch #2, 2026-09-07), and objectui#6771 has since retired `body` on
    * `BaseSchema` itself.
@@ -799,8 +804,9 @@ export interface GridSchema extends BaseSchema {
    *
    * Before objectui#8284 tombstoned it here, `body` was inherited-and-optional
    * from {@link BaseSchema} — so authoring it here type-checked, parsed green
-   * through `.passthrough()`, and rendered an EMPTY element with no error and
-   * no warning. Per component, the channel a renderer does not read is now
+   * through `.passthrough()`, and rendered an EMPTY element with no render-time
+   * error or warning; only the parser tier's `unknown-prop` warning noticed it.
+   * Per component, the channel a renderer does not read is now
    * tombstoned on both published faces (maintainer ruling, summon #17 decision
    * batch #2, 2026-09-07), and objectui#6771 has since retired `body` on
    * `BaseSchema` itself.
@@ -1079,8 +1085,9 @@ export interface ScrollAreaSchema extends BaseSchema {
    *
    * Before objectui#8284 tombstoned it here, `body` was inherited-and-optional
    * from {@link BaseSchema} — so authoring it here type-checked, parsed green
-   * through `.passthrough()`, and rendered an EMPTY element with no error and
-   * no warning. Per component, the channel a renderer does not read is now
+   * through `.passthrough()`, and rendered an EMPTY element with no render-time
+   * error or warning; only the parser tier's `unknown-prop` warning noticed it.
+   * Per component, the channel a renderer does not read is now
    * tombstoned on both published faces (maintainer ruling, summon #17 decision
    * batch #2, 2026-09-07), and objectui#6771 has since retired `body` on
    * `BaseSchema` itself.

@@ -871,11 +871,11 @@ const CHART_Y_AXIS_IS_A_LIST_GUIDANCE =
  * (`../data-display.ts`), key for key (objectui#7352).
  *
  * Shared by the declarations that carry `drillDown`: `ChartSchema` below and
- * `ObjectDataTableSchema` (`objectql.zod.ts`) reference it, and so does
- * `PivotTableSchema` below since objectui#10859 (batch 2) mirrored the pivot
- * pair — the home this docblock had named for that key while the pair had no
- * mirror. Until this mirror existed neither declaring mirror had heard of the
- * key, so under
+ * `ObjectDataTableSchema` (`objectql.zod.ts`) reference it. `PivotTableSchema`
+ * below referenced it from objectui#10859 (batch 2) until objectui#10932
+ * retired the key on the `pivot` node, which nothing drills; `object-pivot`,
+ * the block that does drill, has no zod mirror. Until this mirror existed
+ * neither declaring mirror had heard of the key, so under
  * `BaseSchema`'s `.passthrough()` a `drillDown: { enabled: 'yes' }` parsed green
  * and reached a widget that reads `enabled` as truthy — `declared !== enforced`,
  * ledgered in `zod-mirror-parity.test.ts` (`UnmirroredDeclared`) by
@@ -1033,8 +1033,21 @@ const PIVOT_NEITHER_CHANNEL = neitherContentChannelGuidance(
   'pivot',
   'its registration hands the node to `PivotTable`, which reads it as `PivotTableSchema` and destructures only the members below',
   'a cross-tab of `data` — `rowField` down, `columnField` across, `valueField` aggregated by `aggregation` — '
-    + 'with `title`, `showRowTotals`, `showColumnTotals`, `format`, `columnColors` and `drillDown`',
+    + 'with `title`, `showRowTotals`, `showColumnTotals`, `format` and `columnColors`',
 );
+
+/**
+ * objectui#10932: the refusal for `drillDown` on a `pivot` node, one string
+ * feeding the parse-time message and `.describe()` (`retirementTombstone`).
+ * Nothing drills a `pivot` node: `PivotTable` fires a drill only when its host
+ * passes `onDrillDown`, and the one host that does renders `object-pivot`.
+ */
+const PIVOT_DRILL_DOWN_RETIRED =
+  'RETIRED (objectui#10932, ADR-0049) — nothing drills a `pivot` node: `PivotTable` fires a drill only when '
+  + 'its host passes an `onDrillDown` handler, and the `pivot` registration passes none, so an authored '
+  + '`drillDown` validated and did nothing. A pivot over inline `data` has no object to list records from. '
+  + 'For a pivot whose cells open the records behind a value, author an `object-pivot` (`objectName` + the '
+  + 'same `rowField` / `columnField` / `valueField`) and put `drillDown` there.';
 
 /**
  * Pivot Table Schema — mirrors `PivotTableSchema` in `../data-display.ts`,
@@ -1048,11 +1061,14 @@ const PIVOT_NEITHER_CHANNEL = neitherContentChannelGuidance(
  * `packages/cli/src/__tests__/registered-types-validate-ratchet-10859.test.ts`.
  *
  * Requiredness is the declaration's: `rowField`, `columnField`, `valueField`
- * and `data` are required there, so they are required here. `drillDown` is the
- * shared `DrillDownConfigSchema` above, the home its docblock names for this
- * pair. Both content channels are refused by name, as the declaration's
- * `?: never` members refuse them (objectui#9256). The pin is
- * `../__tests__/registered-type-arms-10859-b2.test.ts`.
+ * and `data` are required there, so they are required here. `drillDown` is a
+ * retirement tombstone, as the declaration's `?: never` member is
+ * (objectui#10932): it rode this arm as the shared `DrillDownConfigSchema` from
+ * objectui#10859 until then, accepted and read by nothing. Both content
+ * channels are refused by name, as the declaration's `?: never` members refuse
+ * them (objectui#9256). The pins are
+ * `../__tests__/registered-type-arms-10859-b2.test.ts` and, for `drillDown`,
+ * `../__tests__/pivot-drilldown-retired-10932.test.ts`.
  */
 export const PivotTableSchema = BaseSchema.extend({
   type: z.literal('pivot'),
@@ -1072,7 +1088,7 @@ export const PivotTableSchema = BaseSchema.extend({
     .record(z.string(), z.string())
     .optional()
     .describe('Mapping of column header values to Tailwind text-color classes'),
-  drillDown: DrillDownConfigSchema.optional().describe('Drill-down config (the shared `DrillDownConfig`). Inert on a `pivot` node: `PivotTable` drills only when its host passes `onDrillDown`, and the `pivot` registration passes none; `object-pivot` is the block whose clicks open the records behind a value'),
+  drillDown: retirementTombstone(PIVOT_DRILL_DOWN_RETIRED),
   body: retirementTombstone(PIVOT_NEITHER_CHANNEL),
   children: retirementTombstone(PIVOT_NEITHER_CHANNEL),
 });

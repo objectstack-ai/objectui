@@ -280,6 +280,26 @@ function withoutHiddenFields<C extends readonly unknown[]>(columns: C | undefine
 }
 
 /**
+ * objectui#10885 — a named view's `fieldOrder`, the third step of the same
+ * composition: it orders what `withoutHiddenFields` left. `ObjectGrid` has no
+ * `fieldOrder` read and `object-grid` declares no such key, so the order is
+ * applied here, to both projection slots.
+ *
+ * The application is `ListView`'s own (its `effectiveFields`), step for step,
+ * so both routes hand `ObjectGrid` the same order for the same view: a stable
+ * sort by each entry's position in `fieldOrder`. An entry `fieldOrder` does not
+ * name, or one with no field identity, sorts after the named ones and keeps its
+ * place among them; a name the projection does not carry orders nothing; with
+ * no projection nothing is invented.
+ */
+function inFieldOrder<C extends readonly unknown[]>(columns: C | undefined, order: readonly string[] | undefined): C | undefined {
+  if (!Array.isArray(columns) || !Array.isArray(order) || order.length === 0) return columns;
+  const rank = new Map<string, number>(order.map((name, i) => [name, i]));
+  const at = (entry: unknown): number => rank.get(columnIdentity(entry) as string) ?? Infinity;
+  return [...(columns as readonly unknown[])].sort((a, b) => at(a) - at(b)) as unknown as C;
+}
+
+/**
  * objectui#10885 — a named view's `exportOptions`, in the one shape the
  * `object-grid` slot holds.
  *
@@ -1141,8 +1161,14 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     return schema.defaultViewType || 'grid';
   }, [currentNamedViewConfig, activeView, schema.defaultViewType]);
 
-  // Navigation config
-  const navigationConfig: ViewNavigationConfig | undefined = schema.navigation;
+  // Navigation config — objectui#10885: the active named view's `navigation`
+  // first, then the node's. A WHOLE-OBJECT replacement, like every other member
+  // read off a named view: nothing is merged key by key, and ⛔ there is no
+  // `activeView` rung. Every consumer follows it: `handleRowClick` (the
+  // `onRowClick` route 2 hands `ObjectGrid` and the delegation hands
+  // `renderListView`, which both obey it first), `formLayout` and the
+  // drawer / overlay `width`.
+  const navigationConfig: ViewNavigationConfig | undefined = currentNamedViewConfig?.navigation ?? schema.navigation;
 
   // Permissions context, read here rather than inside the fetch effect below:
   // an effect's DEPENDENCY ARRAY is evaluated during render, so `perms` has to
@@ -1162,10 +1188,12 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // objectui#10853 way: the nonce moves when the bus reports a change to the
   // object this fetch QUERIES (or `'*'`), and the effect below names it, so
   // the rows are re-read in place. The inner view receives them as `data`,
-  // which switches off its own bus reader, and `refreshKey` moves only on this
-  // view's own write and `onMutation`; a page action over raw HTTP fires
-  // neither, so before this the rows were re-read only when `PageView`
-  // remounted the page (objectui#10519 removes that remount).
+  // which switches off its own bus reader (a gantt handed zero rows is the
+  // exception: it queries for itself and keeps its reader, objectui#7333),
+  // and `refreshKey` moves only on this view's own write and `onMutation`;
+  // a page action over raw HTTP fires neither, so before this the rows were
+  // re-read only when `PageView` remounted the page (objectui#10519 removes
+  // that remount).
   //
   // Subscribed exactly when these rows are what the view draws. A host
   // `renderListView` (its `ListView` reads the bus itself) and the grid
@@ -2259,8 +2287,10 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // objectui#7928: see the non-grid fetch above. A retired string `sort` on a
     // named view reaches `ObjectGrid` unchanged, which refuses it out loud.
     const viewSort = (currentNamedViewConfig?.sort as ObjectGridSchema['sort']) || activeView?.sort;
-    // objectui#10885 — subtracted from whichever projection wins below.
+    // objectui#10885 — subtracted from whichever projection wins below, and
+    // what survives is put in the named view's `fieldOrder`.
     const hiddenFields = currentNamedViewConfig?.hiddenFields;
+    const fieldOrder = currentNamedViewConfig?.fieldOrder;
 
     return {
       type: 'object-grid',
@@ -2274,15 +2304,16 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       // takes the authored value raw. One value, two slots, each given the
       // shape it declares.
       // objectui#10885 — both slots lose the named view's `hiddenFields`
-      // (see `withoutHiddenFields`).
-      fields: withoutHiddenFields(
+      // (see `withoutHiddenFields`), then take its `fieldOrder` (see
+      // `inFieldOrder`).
+      fields: inFieldOrder(withoutHiddenFields(
         viewColumnFieldNames(currentNamedViewConfig?.columns) || activeView?.columns || schema.table?.fields,
         hiddenFields,
-      ),
-      columns: withoutHiddenFields(
+      ), fieldOrder),
+      columns: inFieldOrder(withoutHiddenFields(
         currentNamedViewConfig?.columns || activeView?.columns || schema.table?.columns,
         hiddenFields,
-      ),
+      ), fieldOrder),
       operations: {
         ...operations,
         create: false, // Create is handled by the view's create button
@@ -2312,10 +2343,12 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       // NAMED-VIEW SOURCED, like `grouping` / `rowColor` below: ⛔ no
       // `activeView` rung (the host `views` path never fed these slots on this
       // branch) and ⛔ no node read this branch did not already have. ⛔ No
-      // alias and no key `object-grid` does not declare: `hiddenFields` is
-      // applied to the projection above rather than relayed, and `navigation`
-      // is not relayed because this component passes `ObjectGrid` its own
-      // `onRowClick`, which the grid's navigation hook obeys first.
+      // alias and no key `object-grid` does not declare: `hiddenFields` and
+      // `fieldOrder` are applied to the projection above rather than relayed.
+      // `navigation` is still not relayed to `ObjectGrid`: this component
+      // passes the grid its own `onRowClick`, which the grid's navigation hook
+      // obeys first, and that handler reads the named view's `navigation`
+      // (`navigationConfig`, objectui#10885).
       pagination: currentNamedViewConfig?.pagination ?? schema.table?.pagination,
       selection: currentNamedViewConfig?.selection ?? schema.table?.selection,
       rowHeight: currentNamedViewConfig?.rowHeight,
@@ -2323,18 +2356,25 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       searchableFields: currentNamedViewConfig?.searchableFields,
       // The protocol's rule `condition` is a string or the `{ dialect, source }`
       // expression wire; `ObjectGrid` hands every rule to the shared evaluator
-      // (`resolveConditionalFormatting`), which reads both. The grid's declared
-      // rule type spells the string form only, hence the assertion — the same
-      // one `viewSort` above makes for the named view's `sort`.
-      conditionalFormatting: currentNamedViewConfig?.conditionalFormatting as ObjectGridSchema['conditionalFormatting'],
+      // (`resolveConditionalFormatting`), which reads both. No assertion: the
+      // grid's declared rule type reads the named view's `condition` slot by
+      // reference (objectui#10946), so the relay type-checks as written.
+      conditionalFormatting: currentNamedViewConfig?.conditionalFormatting,
       rowActions: currentNamedViewConfig?.rowActions,
       bulkActions: currentNamedViewConfig?.bulkActions,
-      // Same reason as `conditionalFormatting`: the protocol's `visible`
-      // expression wire may carry `ast` without `source`, which the grid's
-      // declared `BulkActionDef` does not spell. It is the value the host
-      // delegation already hands `ObjectGrid` through `ListView`.
-      bulkActionDefs: currentNamedViewConfig?.bulkActionDefs as ObjectGridSchema['bulkActionDefs'],
+      // Same as `conditionalFormatting`: the protocol's `visible` expression
+      // wire may carry `ast` alongside (or, on the installed spec, instead of)
+      // `source`, and `BulkActionDef.visible` reads that slot by reference
+      // (objectui#10946). It is the value the host delegation already hands
+      // `ObjectGrid` through `ListView`.
+      bulkActionDefs: currentNamedViewConfig?.bulkActionDefs,
       exportOptions: gridExportOptions(currentNamedViewConfig?.exportOptions),
+      // objectui#10885 — the named view's `inlineEdit` is the grid's
+      // `editable`. Route 2 handed the grid no `editable` before, so there is
+      // no node rung. It cannot widen editing past a grant: `ObjectGrid` ANDs
+      // it with the object's inline-edit verdict and the principal's `update`
+      // grant (`inlineEditable`), as `ListView` does on the delegation.
+      editable: currentNamedViewConfig?.inlineEdit,
       // ⭐ objectui#8980 — the AUTHOR-REACHABLE read point for two of the
       // seventeen. `ObjectGrid` already reads both (`schema.grouping` in its
       // group-field memo and its reference collector, `useRowColor(schema.rowColor)`),
@@ -2513,15 +2553,18 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // The view's IDENTITY — switching object, view or type is a real remount,
     // and it is the ONLY thing in the key (objectui#10035; AGENTS.md #8's
     // corollary: refresh data, don't rebuild UI). A write no longer remounts
-    // any view: `kanban`, `calendar`, `gallery`, `timeline` and `map` draw
-    // `data={data}`, the rows the non-grid fetch effect re-reads when
-    // `refreshKey` moves, and `tree` re-queries when that array changes;
-    // `ObjectGrid`, `ObjectGantt` and `ObjectChart` query for themselves and
-    // refetch in place on the data-invalidation bus, which every site that
-    // moves `refreshKey` also notifies (`announceOwnWrite`, the `onMutation`
-    // subscription). ⛔ Do not put `refreshKey` back in a key: that is the
-    // remount the corollary forbids, and it throws away the view's scroll,
-    // selection, open drawers and in-progress edits on every save.
+    // any view. `kanban`, `calendar`, `gallery`, `timeline`, `map` and a
+    // `gantt` handed rows draw `data={data}`, the rows the non-grid fetch
+    // effect re-reads when `refreshKey` moves or when the data-invalidation
+    // bus reports a change to this object (objectui#10887). `tree` re-queries
+    // when that array changes and reads the bus itself (objectui#10778).
+    // `ObjectGrid`, `ObjectChart` and a gantt handed zero rows
+    // (objectui#7333) query for themselves and refetch in place on the bus,
+    // which every site that moves `refreshKey` also notifies
+    // (`announceOwnWrite`, the `onMutation` subscription). ⛔ Do not put
+    // `refreshKey` back in a key: that is the remount the corollary forbids,
+    // and it throws away the view's scroll, selection, open drawers and
+    // in-progress edits on every save.
     const identityKey = `${schema.objectName}-${activeNamedView || activeView?.id || 'default'}-${currentViewType}`;
 
     // If a custom renderListView is provided, use it

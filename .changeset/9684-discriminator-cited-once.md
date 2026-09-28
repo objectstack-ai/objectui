@@ -5,7 +5,7 @@ Comment-only change in `@object-ui/types`, plus one new pin test. **Nothing
 publishes.** The retire-vs-remove discriminator — a `?: never` tombstone is
 available only on a surviving carrier, and on such a carrier it is used when
 either prong holds — was written out in full at eight sites across `complex.ts`
-and `mobile.ts`, so objectui#7678's amendment had to be applied by hand at every
+and `mobile.ts`, so the amendment (`5f8190c8c`) had to be applied by hand at every
 one of them and a missed site went red nowhere.
 
 Two sites still carried the un-amended rule on this branch's base: the

@@ -324,9 +324,12 @@ describe('ObjectGantt', () => {
     });
     expect(update.mock.calls[0][0]).toBe('tasks');
     expect(update.mock.calls[0][1]).toBe('1');
+    // `start_date` / `end_date` are declared `date`: the write is the calendar
+    // day, never a UTC instant (objectui#10866). This case used to expect the
+    // `toISOString()` spelling, i.e. it pinned the defect.
     expect(update.mock.calls[0][2]).toMatchObject({
-      start_date: '2024-02-01T00:00:00.000Z',
-      end_date: '2024-02-05T00:00:00.000Z',
+      start_date: '2024-02-01',
+      end_date: '2024-02-05',
     });
   });
 
@@ -410,9 +413,13 @@ describe('ObjectGantt', () => {
       });
       const patchCall = fetchMock.mock.calls.find((c) => (c[1] as any)?.method === 'PATCH')!;
       expect(String(patchCall[0])).toContain('https://api.test/tasks/1');
+      // No object schema on the api provider: the stored `2024-01-01` shape
+      // says the field is date-only, so the write is the calendar day
+      // (objectui#10866). This case used to expect the `toISOString()`
+      // spelling, i.e. it pinned the defect.
       expect(JSON.parse((patchCall[1] as any).body)).toMatchObject({
-        start_date: '2024-02-01T00:00:00.000Z',
-        end_date: '2024-02-05T00:00:00.000Z',
+        start_date: '2024-02-01',
+        end_date: '2024-02-05',
       });
     } finally {
       vi.unstubAllGlobals();

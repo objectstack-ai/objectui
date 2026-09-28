@@ -4,18 +4,18 @@
 ---
 
 Publish `readEnvelopeFailureText` from `@object-ui/app-shell`, and read the agent-key
-generator's failures through it (objectui#7980, maintainer ruling relayed by the director
+generator's failures through it (maintainer ruling relayed by the director
 seat, decision batch #91 — option B).
 
 **New export, no new behaviour.** `readEnvelopeFailureText(payload)` is the single read of
 the ADR-0112 failure envelope: a producer-marked `error.userMessage` outranks the
 diagnostic `error.message` at any status, `error.code` is appended to whichever prose won,
 and a body carrying no prose answers `null` so each caller keeps its own fallback. The
-function is unchanged — it has been in this package since objectui#7959 and is pinned by
+function is unchanged — it has been in this package since `36fc74629` and is pinned by
 `utils/apiErrorEnvelope.test.ts`; this only publishes it. It returns `string | null`, so
 no type accompanies it, and its module imports nothing, so it adds no module side effect.
 
-objectui#7959 kept it off the public entry as **scope restraint** — that card's file
+The card behind `36fc74629` kept it off the public entry as **scope restraint** — that card's file
 surface was `packages/app-shell/**` — not as a ruling that it should stay private.
 
 **The console fix this unblocks.** The Integrations page's "Connect an AI agent" section

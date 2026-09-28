@@ -41,6 +41,16 @@
  * with the refused keys listed, which is where the next author finds out.
  * ⛔ Do not raise the constant to make it pass — arm the type, or take the
  * registration's authorability to the card.
+ *
+ * ## The namespaced half (objectui#10872)
+ *
+ * The same list carries the NAMESPACED keys (`view:grid`, `record:details`,
+ * `action:button`), and the same union refuses them the same way. They are
+ * counted separately, against `NAMESPACED_REFUSED_AT_TYPE`, because they are a
+ * separate family card with its own batches — objectui#10872 — and a single
+ * total would let a batch on one card mask a regression on the other. Same
+ * rule, same direction: the pin is the head's count, it falls with each batch,
+ * and ⛔ it never rises.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -60,8 +70,30 @@ import { validate } from '../commands/validate.js';
  */
 const REFUSED_AT_TYPE = 76;
 
+/**
+ * The head's refused count over the NAMESPACED keys (objectui#10872 batch 1:
+ * 418 on `main` before it, minus the twenty ADR-0080 public blocks armed from
+ * their `@objectstack/spec` `ComponentPropsMap` rows). LOWER it when a batch
+ * arms more keys; never raise it.
+ */
+const NAMESPACED_REFUSED_AT_TYPE = 398;
+
 /** The bare registry keys — the population the card measured. */
 const BARE_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => !key.includes(':'));
+
+/** The namespaced registry keys — objectui#10872's population. */
+const NAMESPACED_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => key.includes(':'));
+
+/**
+ * The public blocks objectui#10872 batch 1 armed — named, so the row below
+ * says WHICH keys left the refused set rather than only that the count fell.
+ */
+const ARMED_PUBLIC_BLOCKS_10872 = [
+  'page:header', 'page:tabs', 'page:card', 'page:accordion', 'page:section', 'page:footer', 'page:sidebar',
+  'record:details', 'record:highlights', 'record:related_list', 'record:path', 'record:activity',
+  'record:discussion', 'record:history', 'record:quick_actions', 'record:reference_rail', 'record:alert',
+  'element:text', 'element:button', 'element:divider',
+] as const;
 
 /** Is `type` unclaimed by every arm of the validator's root union? */
 function refusedAtType(type: string): boolean {
@@ -109,6 +141,39 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
   it('counts the three plugin-ai keys as armed (objectui#10859 batch 1)', () => {
     for (const key of ['ai-form-assist', 'ai-recommendations', 'nl-query']) {
       expect(BARE_KEYS, key).toContain(key);
+      expect(refusedAtType(key), key).toBe(false);
+    }
+  });
+});
+
+describe('registered NAMESPACED component types refused at `type` — a ratchet (objectui#10872)', () => {
+  it('the refused count equals the pin, and only ever falls', () => {
+    const refused = NAMESPACED_KEYS.filter(refusedAtType);
+    expect(
+      refused.length,
+      [
+        `\`objectui validate\` refuses ${refused.length} registered namespaced key(s) at \`type\`; the pin is ${NAMESPACED_REFUSED_AT_TYPE}.`,
+        refused.length < NAMESPACED_REFUSED_AT_TYPE
+          ? `Fewer than the pin — an arm landed. LOWER \`NAMESPACED_REFUSED_AT_TYPE\` to ${refused.length} in this same change (objectui#10872).`
+          : 'MORE than the pin — a registered key lost its arm or a registration landed without one. '
+            + 'Arm it in `@object-ui/types/zod` (or take its authorability to objectui#10872); ⛔ never raise the pin.',
+        `Refused: ${refused.join(', ')}`,
+      ].join('\n'),
+    ).toBe(NAMESPACED_REFUSED_AT_TYPE);
+  });
+
+  it('reads the whole generated namespaced population (non-vacuity)', () => {
+    expect(NAMESPACED_KEYS.length).toBeGreaterThan(400);
+    // Lit control: the one namespaced key armed before objectui#10872.
+    expect(NAMESPACED_KEYS).toContain('ui:calendar');
+    expect(refusedAtType('ui:calendar')).toBe(false);
+    // And a namespaced key no arm claims IS refused there.
+    expect(refusedAtType('no-such-namespace:component-10872')).toBe(true);
+  });
+
+  it('counts the public blocks objectui#10872 batch 1 armed', () => {
+    for (const key of ARMED_PUBLIC_BLOCKS_10872) {
+      expect(NAMESPACED_KEYS, key).toContain(key);
       expect(refusedAtType(key), key).toBe(false);
     }
   });
@@ -172,5 +237,52 @@ describe('objectui validate — the plugin-ai README document (objectui#10859)',
     expect(text).not.toContain('Schema validation failed');
     expect(text).toContain('Schema is valid');
     expect(exitCodes).toEqual([0]);
+  });
+});
+
+/* ── End to end: a page of public blocks through `objectui validate` ─────── */
+
+describe('objectui validate — a page built from ADR-0080 public blocks (objectui#10872)', () => {
+  it('validates a page of `page:header`, `record:details` and `element:text`', async () => {
+    // Each block in the spelling the platform's own producers write — the
+    // spec's `{ type, properties }` bag (`buildDefaultPageSchema`'s
+    // `componentNode`, the page designer) — with one bare node, which is the
+    // synthesizer's shape for a block it configures nothing on.
+    const page = {
+      type: 'page',
+      title: 'Account',
+      children: [
+        { type: 'page:header', properties: { title: 'Account', subtitle: 'Customer' } },
+        { type: 'record:details' },
+        { type: 'element:text', properties: { content: 'Recent activity' } },
+      ],
+    };
+    const file = join(dir, 'public-blocks-page.json');
+    writeFileSync(file, JSON.stringify(page, null, 2), 'utf-8');
+
+    await validate(file);
+
+    const text = out.join('\n').replace(ANSI, '');
+    expect(text).not.toContain('Schema validation failed');
+    expect(text).toContain('Schema is valid');
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it('still judges a public block\'s bag — an undeclared prop is refused and named', async () => {
+    // The control that keeps the row above from passing for the wrong reason:
+    // the same page with one invented prop on a nested block fails.
+    const page = {
+      type: 'page',
+      children: [{ type: 'page:header', properties: { title: 'Account', inventedProp10872: true } }],
+    };
+    const file = join(dir, 'public-blocks-page-refused.json');
+    writeFileSync(file, JSON.stringify(page, null, 2), 'utf-8');
+
+    await validate(file);
+
+    const text = out.join('\n').replace(ANSI, '');
+    expect(text).toContain('Schema validation failed');
+    expect(text).toContain('inventedProp10872');
+    expect(exitCodes).toEqual([1]);
   });
 });

@@ -429,7 +429,7 @@ export const DataTableSchema = BaseSchema.extend({
   }).optional().describe('Per-record CEL predicates for the built-in row Delete item (objectui#2614)'),
   onSelectionChange: handlerKeyRefusal('onSelectionChange', 'runtime-slot', 'Selection change handler'),
   onColumnsReorder: handlerKeyRefusal('onColumnsReorder', 'runtime-slot', 'Column reorder handler'),
-  // ⭐ objectui#7804 — seven keys the REGISTERED `data-table` renderer reads off
+  // ⭐ `75fca9669` — seven keys the REGISTERED `data-table` renderer reads off
   // the authored document while this arm declared none of them. `BaseSchema` is
   // `.passthrough()`, so an undeclared key is NOT refused: it stops being judged
   // and the value is KEPT. `{ "type": "data-table", "onRowClick": { "action":
@@ -593,7 +593,7 @@ export const TreeViewSchema = BaseSchema.extend({
   selectedIds: z.array(z.string()).optional().describe('Controlled selected node IDs'),
   multiSelect: z.boolean().optional().describe('Allow multiple selection'),
   showLines: z.boolean().optional().describe('Show connecting lines'),
-  // objectui#7804 — RUNTIME SLOT (objectui#6124), the ledger row this slice
+  // `604476d97` — RUNTIME SLOT (objectui#6124), the ledger row this slice
   // drains. `BaseSchema` is `.passthrough()`, so a key no arm declares is not
   // refused: it stops being judged and the value is KEPT. `onNodeClick` sat in
   // exactly that state while the registered renderer INVOKED it, so an authored
@@ -700,7 +700,7 @@ export const ChartDataSeriesSchema = z.object({
   // the TS declaration for the read this narrowness is taken from.
   type: z.enum(['bar', 'line', 'area']).optional().describe('Per-series chart family override (combo charts)'),
   // ALIAS REFUSAL (objectui#7694 — option A of the `domain:ui` PM ruling on
-  // objectui#7546 / the contract review of PR #7684). `chartType` is the
+  // objectui#7546 / the contract review of `8fe8e5c16`'s pull request). `chartType` is the
   // renderer's INTERNAL spelling of `type` above — the first limb of
   // `normalizeSeries`' `str(raw.chartType) ?? str(raw.type)`
   // (`normalizeChartSchema.ts:244`) — written by the internal-shape producers
@@ -748,7 +748,7 @@ export const ChartDataSeriesSchema = z.object({
     'Legend / tooltip name for this series — a plain string or an inline locale map; defaults to the column key',
   ),
   variant: z.enum(['primary', 'comparison']).optional().describe(
-    'Visual role — `comparison` draws the muted period-over-period overlay; `primary` (the default) is the normal treatment. The spec pair: the renderer-internal `current` spelling is not a member (objectui#7682)',
+    'Visual role — `comparison` draws the muted period-over-period overlay; `primary` (the default) is the normal treatment. The spec pair: the renderer-internal `current` spelling is not a member',
   ),
   opacity: z.number().optional().describe('Stroke and fill opacity override — any finite number, the read\'s own domain; the spec bounds it to 0–1'),
   dashArray: z.string().optional().describe('SVG stroke-dasharray override, e.g. "4 4" for a dashed line'),

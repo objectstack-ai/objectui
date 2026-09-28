@@ -408,6 +408,34 @@ export {
 } from './ai.zod.js';
 
 // ============================================================================
+// ADR-0080 Public Blocks - the spec-row `page:` / `record:` / `element:`
+// blocks (objectui#10872)
+// ============================================================================
+export {
+  PageHeaderBlockSchema,
+  PageTabsBlockSchema,
+  PageCardBlockSchema,
+  PageAccordionBlockSchema,
+  PageSectionBlockSchema,
+  PageFooterBlockSchema,
+  PageSidebarBlockSchema,
+  RecordDetailsBlockSchema,
+  RecordHighlightsBlockSchema,
+  RecordRelatedListBlockSchema,
+  RecordPathBlockSchema,
+  RecordActivityBlockSchema,
+  RecordDiscussionBlockSchema,
+  RecordHistoryBlockSchema,
+  RecordQuickActionsBlockSchema,
+  RecordReferenceRailBlockSchema,
+  RecordAlertBlockSchema,
+  ElementTextBlockSchema,
+  ElementButtonBlockSchema,
+  ElementDividerBlockSchema,
+  PublicBlockComponentSchema,
+} from './public-blocks.zod.js';
+
+// ============================================================================
 // Union Types - All Component Schemas
 // ============================================================================
 
@@ -427,6 +455,7 @@ import { CRUDComponentSchema } from './crud.zod.js';
 import { ReportUnionSchema } from './reports.zod.js';
 import { ViewComponentSchema } from './views.zod.js';
 import { AIComponentSchema } from './ai.zod.js';
+import { PublicBlockComponentSchema } from './public-blocks.zod.js';
 
 /**
  * Union of all component schemas.
@@ -493,6 +522,7 @@ export const AnyComponentSchema = defineNodeComponentUnion(z.discriminatedUnion(
   ReportUnionSchema,
   ViewComponentSchema,
   AIComponentSchema,
+  PublicBlockComponentSchema,
 ], {
   // Zod's default message for a missed discriminator spells out EVERY accepted
   // literal — measured, 1,462 chars naming all 107. That is the "print every

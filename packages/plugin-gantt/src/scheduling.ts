@@ -28,37 +28,59 @@ export type SchedLinkType = 'fs' | 'ss' | 'ff' | 'sf';
 /**
  * Working-calendar model. When supplied to the scheduling functions, durations
  * are measured in *working* days and rescheduled tasks never start on a
- * non-working day. Days are evaluated at UTC midnight granularity.
+ * non-working day. Days are the chart's LOCAL calendar days — the days
+ * `GanttView` draws its columns on (display space, which a business
+ * `timeZone` makes that zone's wall clock), and the days its own column fold
+ * (`isWorkingColumn`) keys weekends and holidays by.
+ *
+ * They were UTC days until objectui#10866. That agreed with a date-only value
+ * only while the value was READ as UTC midnight; it now reads as local
+ * midnight of its day, and a UTC floor put a rescheduled successor on the
+ * previous calendar day in every zone but UTC.
  */
 export interface WorkingCalendar {
   /** Treat Saturday/Sunday as non-working. */
   skipWeekends?: boolean;
-  /** ISO `yyyy-mm-dd` (UTC) keys to treat as non-working (holidays). */
+  /** ISO `yyyy-mm-dd` calendar-day keys to treat as non-working (holidays). */
   holidays?: Set<string>;
 }
 
-const dayKeyUTC = (d: Date) => d.toISOString().slice(0, 10);
+const pad2 = (n: number) => String(n).padStart(2, '0');
 
-/** Whether the calendar marks this day as workable (UTC day granularity). */
+/** The local calendar day's `yyyy-mm-dd` key — spelled as `isWorkingColumn` spells it. */
+const dayKey = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+/** Whether the calendar marks this day as workable (local day granularity). */
 function isWorkingDay(d: Date, cal: WorkingCalendar): boolean {
   if (cal.skipWeekends) {
-    const wd = d.getUTCDay();
+    const wd = d.getDay();
     if (wd === 0 || wd === 6) return false;
   }
-  return !(cal.holidays && cal.holidays.has(dayKeyUTC(d)));
+  return !(cal.holidays && cal.holidays.has(dayKey(d)));
 }
 
-/** Floor an instant to UTC midnight. */
-function floorDayUTC(ms: number): Date {
+/** Floor an instant to local midnight. */
+function floorDay(ms: number): Date {
   const d = new Date(ms);
-  d.setUTCHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
   return d;
 }
 
-/** First working day at or after `ms` (returns a UTC-midnight instant). */
+/**
+ * The local midnight `n` calendar days after `d`. Stepped on the calendar,
+ * not by `MS_PER_DAY`: a local day is 23 or 25 hours long across a DST change,
+ * and a fixed step would leave midnight there.
+ */
+function shiftDays(d: Date, n: number): Date {
+  const next = new Date(d);
+  next.setDate(next.getDate() + n);
+  return next;
+}
+
+/** First working day at or after `ms` (returns a local-midnight instant). */
 function nextWorkingDay(ms: number, cal: WorkingCalendar): number {
-  let d = floorDayUTC(ms);
-  while (!isWorkingDay(d, cal)) d = new Date(d.getTime() + MS_PER_DAY);
+  let d = floorDay(ms);
+  while (!isWorkingDay(d, cal)) d = shiftDays(d, 1);
   return d.getTime();
 }
 
@@ -66,11 +88,11 @@ function nextWorkingDay(ms: number, cal: WorkingCalendar): number {
 function workingDaysSpan(startMs: number, endMs: number, cal: WorkingCalendar): number {
   if (endMs <= startMs) return 0;
   let count = 0;
-  let d = floorDayUTC(startMs);
-  const end = floorDayUTC(endMs).getTime();
+  let d = floorDay(startMs);
+  const end = floorDay(endMs).getTime();
   while (d.getTime() < end) {
     if (isWorkingDay(d, cal)) count++;
-    d = new Date(d.getTime() + MS_PER_DAY);
+    d = shiftDays(d, 1);
   }
   return count;
 }
@@ -80,12 +102,12 @@ function workingDaysSpan(startMs: number, endMs: number, cal: WorkingCalendar): 
  * start — i.e. the day after the n-th consumed working day.
  */
 function addWorkingDays(startMs: number, n: number, cal: WorkingCalendar): number {
-  if (n <= 0) return floorDayUTC(startMs).getTime();
-  let d = floorDayUTC(startMs);
+  if (n <= 0) return floorDay(startMs).getTime();
+  let d = floorDay(startMs);
   let remaining = n;
   while (remaining > 0) {
     if (isWorkingDay(d, cal)) remaining--;
-    d = new Date(d.getTime() + MS_PER_DAY);
+    d = shiftDays(d, 1);
   }
   return d.getTime();
 }
@@ -96,11 +118,11 @@ function addWorkingDays(startMs: number, n: number, cal: WorkingCalendar): numbe
  * back-derive a successor's start from a finish-based (ff/sf) constraint.
  */
 function subWorkingDays(endMs: number, n: number, cal: WorkingCalendar): number {
-  if (n <= 0) return floorDayUTC(endMs).getTime();
-  let d = floorDayUTC(endMs);
+  if (n <= 0) return floorDay(endMs).getTime();
+  let d = floorDay(endMs);
   let remaining = n;
   while (remaining > 0) {
-    d = new Date(d.getTime() - MS_PER_DAY);
+    d = shiftDays(d, -1);
     if (isWorkingDay(d, cal)) remaining--;
   }
   return d.getTime();

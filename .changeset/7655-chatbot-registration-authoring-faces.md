@@ -42,8 +42,8 @@ per key on the PR's base (one `schema.KEY` read per registration body in
   trailing raw props spread still carried authored keys into the panel —
   `processVisibility`, `surface` and `showAvatars` were live there, measured
   through the real host — and this face neither declared nor promised that
-  accidental channel, which was tracked as objectui#7708. That card has since
-  fenced the spread the way the two sibling registrations do, so those three keys
+  accidental channel, which was tracked on a card of its own. That card has since
+  fenced the spread (`d3499b315`) the way the two sibling registrations do, so those three keys
   are dark on `chatbot-floating` now; no member this face declares depended on
   the channel.)
 - Neither face declares `ChatbotSchema`'s six legacy members (`loading`,
@@ -54,7 +54,7 @@ per key on the PR's base (one `schema.KEY` read per registration body in
 **`ChatbotSchema` is unchanged.** It keeps `displayMode` and `floatingConfig`
 (declarations verbatim), and the floating face declares the same two, so
 `ChatbotSchema['displayMode']` and `ChatbotSchema['floatingConfig']` stay the
-typed members they were — the objectui#7669 `triggerIcon` tombstone keeps its
+typed members they were — the `a3eb5d07a` `triggerIcon` tombstone keeps its
 reach on `chatbot` nodes, now pinned on the node. `floatingConfig`'s doc comment
 is rewritten on both faces: the old text said it was "only used when
 `displayMode` is `'floating'`", which was false — it is read by `chatbot-floating`

@@ -1379,7 +1379,7 @@ export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_
   type: 'page';
   /**
    * ⛔ REFUSED BY NAME — `actions` is not a member of this node and never was
-   * (objectui#7926, maintainer ruling 2026-09-09, decision batch #107 item 2).
+   * (`12b599219`, maintainer ruling 2026-09-09, decision batch #107 item 2).
    *
    * `PageRenderer` has no read point for it: a `page` node carrying
    * `actions: [{type:'button',label:'Add Product'}, …]` drew 0 buttons through
@@ -1403,7 +1403,7 @@ export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_
    * ⛔ REFUSED BY NAME — `breadcrumbs` is not a member of this node and never
    * was (objectui#8871, ADR-0049 enforce-or-remove).
    *
-   * objectui#7926 measured this key on this node and deliberately LEFT it
+   * `12b599219` measured this key on this node and deliberately LEFT it
    * parsing, so that retiring it would be a decision rather than an accident;
    * this is that decision. Its ruling is not borrowed — it covers `actions`
    * only — what reaches this key is the standing enforce-or-remove discipline,

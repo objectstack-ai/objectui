@@ -35,14 +35,18 @@
 //      a boolean), `pinned` (backs `useNavPins` + `FavoritesProvider`), and the
 //      legacy `defaultOpen` spelling. Binding deletes all three from the type
 //      while their implementations keep running.
-//   3. A separator carrying a `label`; the spec's separator branch declares none.
+//   3. CLOSED by objectui#10867: a separator carried a `label`, which the spec's
+//      separator branch does not declare. `NavigationItem` is now a union whose
+//      separator arm ({@link NavigationSeparatorItem}) admits exactly the
+//      spec separator's keys — `type`, `id` and `order`.
 //
 // So the symbol stays local and the KEYS come off the spec one by one — the
 // `badgeVariant` precedent (objectstack#4115), widened here to every key with a
 // precise spec counterpart. That is the part of the burn-down that is safe
 // today: a restated enum or payload shape can drift, and now cannot.
-// `spec-derived-unions.test.ts` pins the three blockers above, each written so
-// it fails the day the spec closes it.
+// `spec-derived-unions.test.ts` pins the blockers that remain, each written so
+// it fails the day the spec closes it, and asserts the separator agreement in
+// place of the blocker it replaced.
 import type {
   I18nLabel,
   NavigationArea as SpecNavigationArea,
@@ -78,21 +82,21 @@ import type { APP_SPEC_EXCLUDED, AppContextSelectorSchema } from './zod/app.zod.
 export type NavigationItemType = SpecNavigationItem['type'];
 
 /**
- * Unified Navigation Item
- * 
- * The single navigation primitive used across ObjectUI and @objectstack/spec.
- * Replaces the legacy `AppMenuItem` for application navigation trees.
- * 
+ * A navigation ENTRY — every {@link NavigationItem} except a separator.
+ *
  * Supports typed navigation targets (object, dashboard, page, report, url),
  * nested groups, visibility expressions, RBAC permissions, and UX enhancements
  * like badges, pinning, and sort ordering.
+ *
+ * `type` excludes `'separator'`, so a separator can only be written through
+ * {@link NavigationSeparatorItem} (objectui#10867).
  */
-export interface NavigationItem {
+export interface NavigationEntryItem {
   /** Unique identifier */
   id: string;
 
-  /** Navigation item type */
-  type: NavigationItemType;
+  /** Navigation item type — any spec nav type except `'separator'`. */
+  type: Exclude<NavigationItemType, 'separator'>;
 
   /** Display label (plain string per @objectstack/spec v4 protocol) */
   label: string;
@@ -313,6 +317,44 @@ export interface NavigationItem {
 }
 
 /**
+ * A navigation SEPARATOR — a rule between entries, not an entry
+ * (objectui#10867).
+ *
+ * It admits exactly the keys `@objectstack/spec`'s strict separator branch
+ * declares: `type`, `id` and `order`. Every other {@link NavigationEntryItem}
+ * key is `?: never` here, so writing one — a `label` above all — is a compile
+ * error rather than a document the platform's `AppSchema` refuses at save
+ * (`unrecognized_keys`). The `never` keys are DERIVED from
+ * `NavigationEntryItem`, so a key added there is refused here without an edit.
+ *
+ * Reading one of them off an unnarrowed {@link NavigationItem} still compiles
+ * and answers `undefined` on this arm, which is also what the object holds.
+ *
+ * `id` stays required, as on every objectui navigation item (the spec makes it
+ * optional); a required `id` is still spec-valid. The agreement with the spec's
+ * separator is asserted in `__tests__/spec-derived-unions.test.ts`.
+ */
+export type NavigationSeparatorItem = Pick<NavigationEntryItem, 'id' | 'order'> & {
+  /** The separator discriminant. */
+  type: 'separator';
+} & {
+  [K in Exclude<keyof NavigationEntryItem, 'id' | 'type' | 'order'>]?: never;
+};
+
+/**
+ * Unified Navigation Item
+ *
+ * The single navigation primitive used across ObjectUI and @objectstack/spec.
+ * Replaces the legacy `AppMenuItem` for application navigation trees.
+ *
+ * A union of two arms, discriminated by `type`: a {@link NavigationEntryItem}
+ * (every spec nav type but `'separator'`) and a {@link NavigationSeparatorItem}
+ * (objectui#10867). Narrow on `item.type === 'separator'` before relying on an
+ * entry's `label`.
+ */
+export type NavigationItem = NavigationEntryItem | NavigationSeparatorItem;
+
+/**
  * Navigation Area — a business-domain partition of navigation items.
  *
  * Inspired by Salesforce Lightning App → Area → Tab model and
@@ -349,9 +391,9 @@ export interface NavigationItem {
  *  - `navigation` — objectui's own {@link NavigationItem}, not the spec's.
  *    Spec 17.0.0-rc.1 gave the spec's item a real type, so this is no longer
  *    the `any` erasure objectstack#4171 was filed about — and it is still not
- *    bindable, for the three reasons the module header above records
- *    (`visible: boolean`, `pinned` / `defaultOpen`, a separator carrying a
- *    `label`). Precision is not equivalence: this is case 2c in the guard's
+ *    bindable, for the reasons the module header above records
+ *    (`visible: boolean`, `pinned` / `defaultOpen`; the separator `label` was
+ *    closed by objectui#10867). Precision is not equivalence: this is case 2c in the guard's
  *    header, and the umbrella verdict lives with the element type in
  *    `__tests__/spec-derived-unions.test.ts`, which is where the blockers are
  *    pinned one by one.
@@ -711,7 +753,8 @@ export interface AppMenuItem {
  * Mapping rules:
  * - `type: 'item'` → inferred from `href` (url) or `path` (page)
  * - `type: 'group'` → `type: 'group'`
- * - `type: 'separator'` → `type: 'separator'`
+ * - `type: 'separator'` → `type: 'separator'` (its `label` is dropped: the spec
+ *   separator declares none, objectui#10867)
  * - `hidden` → `visible` (inverted)
  * - `path` → `pageName` (last segment) or kept as-is for url
  * - `href` → `url` with `target: '_blank'`
@@ -723,11 +766,9 @@ export function menuItemToNavigationItem(
   const id = `migrated_${index}`;
 
   if (item.type === 'separator') {
-    return {
-      id,
-      type: 'separator',
-      label: item.label || '',
-    };
+    // The spec's separator declares no `label` (objectui#10867); a legacy
+    // separator's label has no place to go.
+    return { id, type: 'separator' };
   }
 
   if (item.type === 'group') {
@@ -857,8 +898,9 @@ export interface AppWizardDraft {
   /** Template to start from */
   template?: string;
 
-  /** Layout strategy */
-  layout: 'sidebar' | 'header' | 'empty';
+  // No `layout` (objectui#10867): `@objectstack/spec`'s `AppSchema` declares no
+  // app layout, no console surface reads one and nothing stores one, so the
+  // wizard's Layout control persisted nothing and was removed with this member.
 
   /** Selected business objects */
   objects: ObjectSelection[];
@@ -895,8 +937,10 @@ export function isValidAppName(name: string): boolean {
  *   - the logo and favicon travel in `branding` only (objectui#10827);
  *   - no `type`: that is the renderer-node discriminator of
  *     {@link AppComponentSchema}, not a key of the stored app;
- *   - no `layout`: the spec declares no app layout, so the draft's layout
- *     choice is not part of the saved document.
+ *   - no `layout`: the spec declares no app layout, and the draft carries
+ *     none either (objectui#10867 removed the wizard's Layout control);
+ *   - a separator in `navigation` carries only `type`, `id` and `order`, the
+ *     spec separator's keys ({@link NavigationSeparatorItem}, objectui#10867).
  * The pin is `__tests__/app-declared-keys-10842.test.ts`, which parses this
  * output with the spec's own `AppSchema`.
  */

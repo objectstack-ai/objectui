@@ -195,8 +195,10 @@ const _validationErrorShape: ValidationError = { field: 'name', message: 'requir
 //                            pinned in `report-chart-query-spec-parity.test.ts`.
 //  - `NavigationItem`      — upstream IS precise now (`IsAny` and `IsUnknown` both
 //                            `false`), so #4171 really did land. Binding is still
-//                            wrong: the three semantic blockers pinned below are
-//                            unaffected by it. `any` was never the only blocker —
+//                            wrong: the semantic blockers pinned below are
+//                            unaffected by it (three when this was written;
+//                            objectui#10867 lifted the separator `label`, by a
+//                            local change, not an upstream one). `any` was never the only blocker —
 //                            #3177 established that, and it still holds.
 //  - `NavigationItemSchema`— upstream IS precise now; pinned below. The live
 //                            blocker is SHAPE, and it is a RUNTIME one: see
@@ -256,7 +258,10 @@ type KeysOfUnion<T> = T extends unknown ? keyof T : never;
 type SpecNavDeclares<K extends string> =
   K extends KeysOfUnion<SpecNavigationItem> | KeysOfUnion<SpecNavigationItemInput> ? true : false;
 
-// ── NavigationItem: the three blockers, none of which `any` ever caused ──────
+// ── NavigationItem: the blockers, none of which `any` ever caused ────────────
+//
+// Three were pinned here; objectui#10867 lifted the third (the separator
+// `label`), which now stands as an agreement pin in its place.
 //
 // Umbrella verdict: still not bindable. The lines under it say why, and are the
 // ones to act on — this one stays `false` while ANY blocker remains.
@@ -284,13 +289,32 @@ const _specNavVisibleStillRejectsBoolean = false satisfies boolean extends SpecN
 const _specNavStillHasNoPinned = false satisfies SpecNavDeclares<'pinned'>;
 const _specNavStillHasNoDefaultOpen = false satisfies SpecNavDeclares<'defaultOpen'>;
 
-// 3. objectui's separator carries a `label`; the spec's separator branch
-//    declares only `type` / `id?` / `order?`. `menuItemToNavigationItem` emits
-//    one (measured: TS2353), so this is load-bearing, not decorative.
-const _specSeparatorStillHasNoLabel = false satisfies 'label' extends keyof Extract<
-  SpecNavigationItem,
-  { type: 'separator' }
->
+// 3. LIFTED by objectui#10867. objectui's separator used to carry a `label`,
+//    which the spec's separator branch (`type` / `id?` / `order?`) does not
+//    declare, and the Studio wizard saved one that the platform's `AppSchema`
+//    refused (`unrecognized_keys`). `NavigationItem` is now a union whose
+//    separator arm admits exactly the spec separator's keys, so what stood here
+//    as a blocker is asserted as an AGREEMENT instead. It fails the day either
+//    side moves: a key the spec adds to its separator, or one this arm admits
+//    that the spec does not declare.
+//
+//    "Admits" = a key whose type is not `never`. The arm carries every other
+//    entry key as `?: never`, refused by name at compile, so a plain `keyof`
+//    would count those too.
+type AdmittedKeys<T> = {
+  [K in keyof T]-?: [Exclude<T[K], undefined>] extends [never] ? never : K;
+}[keyof T];
+type LocalSeparator = Extract<NavigationItem, { type: 'separator' }>;
+type SpecSeparator = Extract<SpecNavigationItem, { type: 'separator' }>;
+type SpecSeparatorInput = Extract<SpecNavigationItemInput, { type: 'separator' }>;
+type SameKeys<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+const _separatorAdmitsTheSpecKeys = true satisfies SameKeys<AdmittedKeys<LocalSeparator>, keyof SpecSeparator>;
+const _separatorAdmitsTheSpecInputKeys = true satisfies SameKeys<
+  AdmittedKeys<LocalSeparator>,
+  keyof SpecSeparatorInput
+>;
+// ...and the value types of the keys this arm admits are ones the spec's separator accepts, at both tiers. `extends` ignores extra keys, so key agreement is the two pins above: this one alone passes a labelled arm, and it is vacuous on BASE.
+const _localSeparatorIsSpecValid = true satisfies [LocalSeparator] extends [SpecSeparator & SpecSeparatorInput]
   ? true
   : false;
 
@@ -369,7 +393,8 @@ void _breakpointCovers; void _importModeCovers; void _importStatusCovers;
 void _validationErrorShape;
 void _localNavIsNotYetTheSpecUnion; void _specNavVisibleStillRejectsBoolean;
 void _specNavStillHasNoPinned; void _specNavStillHasNoDefaultOpen;
-void _specSeparatorStillHasNoLabel; void _navTypeCoversSpec;
+void _separatorAdmitsTheSpecKeys; void _separatorAdmitsTheSpecInputKeys;
+void _localSeparatorIsSpecValid; void _navTypeCoversSpec;
 void _specNavSchemaIsNoLongerAny;
 void _specFormFieldIsNoLongerAny; void _specFormFieldStillHasNoName;
 void _specFormFieldInputStillHasNoName; void _specFieldSlotIsStillAName;

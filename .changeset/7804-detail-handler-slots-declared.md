@@ -2,7 +2,7 @@
 '@object-ui/types': minor
 ---
 
-Declare the two handler keys the `'detail'` renderer reads (objectui#7804, the
+Declare the two handler keys the `'detail'` renderer reads (the
 `plugin-detail` slice; director seat, decision batch #69, 2026-09-07).
 
 `DetailSchema` — the zod arm `type: 'detail'` selects — now declares

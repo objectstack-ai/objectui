@@ -3,7 +3,7 @@
 
 Corrects the `PALETTE_EXCLUSIONS` reason string for `app:launcher` in the Studio
 page-palette ledger. It read "shell singleton — the app shell renders it, not a page",
-and objectui#7091 registered a real `app:launcher` renderer, so a page can now render it
+and `969ba84f4` registered a real `app:launcher` renderer, so a page can now render it
 and the "not a page" clause became false. The reason now reads "shell singleton — lives
 in the app shell chrome", mirroring the neutral form its sibling `global:notifications`
 has carried since `f99932a42` shipped that type a renderer without its wording rotting:

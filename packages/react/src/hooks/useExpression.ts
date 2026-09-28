@@ -100,7 +100,7 @@ export { toPredicateInput } from '@object-ui/core';
  *
  * Until Phase 2 this bag also carried the row spread flat (bare `status`, the
  * row-action shorthand) and as `data` (legacy), and `useCondition` below warned
- * once per non-canonical spelling (Phase 1, PR #5737). Both bindings and the
+ * once per non-canonical spelling (Phase 1, `d1ab06f0f`). Both bindings and the
  * warning are gone. A bare-field or `data.*` predicate against this bag now
  * faults exactly as it always did on the server (`buildScope({ record })`
  * mounts exactly `['record']`: `Unknown variable: status` / `Unknown variable:

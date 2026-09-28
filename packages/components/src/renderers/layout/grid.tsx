@@ -47,7 +47,7 @@ const GRID_COLS_XL: Record<number, string> = {
 // and `BreakpointColumnMap` in `@object-ui/layout`, whose `ResponsiveGrid` already
 // emits `2xl:grid-cols-*`. This map stopped at `xl`, and so did the read arm below,
 // so an authored `columns: { '2xl': 6 }` validated, emitted nothing, and rendered at
-// the `xs` count on every screen (objectui#7097).
+// the `xs` count on every screen (`3cab5703b`).
 //
 // The map is not decoration: it is what makes these class names EXIST. Tailwind v4
 // finds utilities by scanning source text (`@source '../src/**/*.{ts,tsx}'` in

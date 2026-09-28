@@ -154,7 +154,21 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **49 entries** in `KnownDrift`, **89 keys** across them — 46 / 84 until
+ *   - **49 entries** in `KnownDrift`, **88 keys** across them — 48 / 87 until
+ *     objectui#9256 repaired the `Omit` erasure on `form.zod.ts#InputShorthandSchema`:
+ *     the face had declared nothing it inherited, so no key of it could drift, and it
+ *     now carries `InputSchema`'s members, `onChange` included. ONE entry is new with
+ *     one key, and it is `InputSchema`'s own runtime-slot drift inherited through the
+ *     repaired heritage — not drift the change introduced. It was 49 / 89 until
+ *     objectui#10874 settled the TypeScript face of the three `@object-ui/plugin-ai`
+ *     declarations per key: `onApplySuggestion` / `onRejectSuggestion` became `?: never`
+ *     (both faces now refuse them), so `ai.zod.ts#AIFormAssistSchema` measures clean and
+ *     its ONE entry LEFT with its two keys; `onSelect` / `onDismiss` / `onSubmit` became
+ *     the callables their components invoke, so `ai.zod.ts#AIRecommendationsSchema` and
+ *     `ai.zod.ts#NLQuerySchema` STAY, unchanged in content and now ordinary objectui#6124
+ *     rows. The entry count and the key total fell by one and by two together; the same
+ *     change retired `config` / `context` on BOTH faces, which leaves those pairs
+ *     agreeing and so adds no row. It was 46 / 84 until
  *     objectui#10859 armed the three `@object-ui/plugin-ai` node types in `ai.zod.ts`:
  *     THREE entries are NEW, one per armed node, and together they carry the five `on*`
  *     handler keys — `ai.zod.ts#AIFormAssistSchema` (`onApplySuggestion`,
@@ -695,6 +709,13 @@
  * this paragraph describes — the TypeScript twin of every one is `string`, not a
  * callable (objectui#10874 owns that face), and the `AIFormAssistSchema` pair is DEBT
  * rather than a runtime slot, because nothing reads its two keys at all.
+ *
+ * It is 48 since objectui#10874 settled that face per key: the `AIFormAssistSchema`
+ * pair's two keys are `?: never` on the TypeScript side now, so that pair LEFT the
+ * ledger, and the `AIRecommendationsSchema` / `NLQuerySchema` pairs JOINED the #6124
+ * class above — their TypeScript twins declare the callables their components invoke
+ * while the mirror refuses an authored value by name, exactly the shape that paragraph
+ * describes.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -1915,29 +1936,21 @@ export type DeclaredTypeOf< K extends MirrorKey, P extends keyof Declared[K] > =
  */
 interface KnownDrift {
   /**
-   * DEBT, ⛔ not the objectui#6124 shape (objectui#10859). Both mirror arms are
-   * `handlerKeyRefusal(…, 'retired')`: nothing in `@object-ui/plugin-ai` reads either
-   * key — `AIFormAssist` takes `onApply` / `onRefresh`, not these — so the zod face
-   * refuses an authored value by name. `../ai.ts` still types both `string`, the
-   * handler-expression dialect objectui#6182 withdrew on EITHER face, and that TS face
-   * is objectui#10874's to correct. When it lands them as `?: never`, both faces agree
-   * and this entry goes STALE — delete it then; ⛔ never keep it by re-widening a face.
-   */
-  'ai.zod.ts#AIFormAssistSchema': 'onApplySuggestion' | 'onRejectSuggestion';
-  /**
-   * RUNTIME SLOT (objectui#6124, objectui#10859): `ai-recommendations` registers the
-   * raw `AIRecommendations` component, `SchemaRenderer` spreads the node's keys onto
-   * it, and it CALLS both as function props (`onSelect?.(item)`, `onDismiss?.(item)`).
-   * ⚠️ Unlike every other RUNTIME SLOT row in this ledger, the TS twin is `string`,
-   * not a callable: `../ai.ts` still carries the objectui#6182 string dialect, so this
-   * drift is a named refusal against a `string`, and objectui#10874 owns the TS face.
+   * RUNTIME SLOT (objectui#6124 shape, settled by objectui#10874): `ai-recommendations`
+   * registers the raw `AIRecommendations` component, `SchemaRenderer` spreads the
+   * node's own keys onto its props, and it CALLS both (`onSelect?.(item)`,
+   * `onDismiss?.(item)`), so the TS side declares the callables and the mirror
+   * refuses them by name (`handlerKeyRefusal(…, 'runtime-slot')`). The pair was born
+   * ledgered by objectui#10859 against a TS twin that still read `string`; the entry
+   * is unchanged in content, and only its reason moved into this class.
    */
   'ai.zod.ts#AIRecommendationsSchema': 'onDismiss' | 'onSelect';
   /**
-   * RUNTIME SLOT (objectui#6124, objectui#10859): `nl-query` registers the raw
-   * `NLQueryInput` component, which calls `onSubmit` as a function prop
-   * (`onSubmitProp?.(queryText)`). ⚠️ As with `AIRecommendationsSchema` above, the TS
-   * twin is `string`, not a callable (objectui#10874).
+   * RUNTIME SLOT (objectui#6124 shape, settled by objectui#10874): `nl-query` registers
+   * the raw `NLQueryInput` component, which CALLS `onSubmit` off the spread props
+   * with the query text (`onSubmitProp?.(queryText)`), so the TS side declares the
+   * callable and the mirror refuses it by name — same history as
+   * `AIRecommendationsSchema` above.
    */
   'ai.zod.ts#NLQuerySchema': 'onSubmit';
   /**
@@ -2212,6 +2225,13 @@ interface KnownDrift {
   'form.zod.ts#InputOTPSchema': 'onChange';
   /** RUNTIME SLOT (objectui#6124): the `input` renderer calls `props.onChange(e.target.value)` after `SchemaRenderer`'s spread. */
   'form.zod.ts#InputSchema': 'onChange';
+  /**
+   * Inherited drift: `InputSchema`'s runtime slot above, reaching this face since
+   * objectui#9256 repaired its `Omit` heritage (it declared nothing it inherited
+   * before, so nothing could drift). Both registrations spread their props into the
+   * same `input` renderer, so the slot is the same slot.
+   */
+  'form.zod.ts#InputShorthandSchema': 'onChange';
   /** RUNTIME SLOT (objectui#6124): the `select` renderer calls `props.onChange(matchOptionValue(…))` after `SchemaRenderer`'s spread. (This pair LEFT the ledger with objectui#5927's widenings and re-enters on a different key for a different reason.) */
   'form.zod.ts#SelectSchema': 'onChange';
   /** RUNTIME SLOT (objectui#6124): the `textarea` renderer calls `props.onChange(e.target.value)` after `SchemaRenderer`'s spread. */
@@ -3643,7 +3663,7 @@ export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderL
  * Exact MIRRORED-BUT-UNDECLARED key set per pair — the seed of the direction
  * objectui#9711 opened, measured on the tree this ledger landed on.
  *
- * `this ledger seeds **4 entries** carrying **60 keys**` — and ⛔ read that off the
+ * `this ledger seeds **2 entries** carrying **2 keys**` — and ⛔ read that off the
  * census at the bottom of this file, not off this sentence: both figures are pinned
  * to this ledger's own AST by 'the fourth direction is enumerated and sized at test
  * time', so an entry or an arm added here moves them or the file reddens.
@@ -3660,6 +3680,16 @@ export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderL
  * exclusion arrays their mirrors read. That is not the "declare the keys one by
  * one" remedy the next section refuses: no key was hand-declared, the twin and the
  * mirror were put on one derivation, and the ruling named the mechanism.
+ *
+ * ⭐ Then by two entries and 58 keys, when objectui#9256 executed parameter 3 of the
+ * ruling on objectui#8284 (Q2 A): the `Omit` COLLAPSE rows — the `email` / `password`
+ * and `ui:calendar` twins — left because their heritage clauses stopped collapsing
+ * into `BaseSchema`'s index signature. ⚠️ That is NOT the "declare the keys" remedy
+ * the next section refuses, and the direction is the reason: a collapsed face
+ * accepted EVERY key at `any`, so restoring the named members NARROWED those faces
+ * (`label: 42` and `body` stopped type-checking on `email`) rather than enlarging an
+ * accept set. No key was hand-declared; the members are inherited from the very
+ * declarations the mirrors `.omit()` / `.extend()`.
  *
  * ## ⛔ What this ledger is NOT
  *
@@ -3691,17 +3721,17 @@ export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderL
  *     interface restates only the subset objectui's renderers read. The remedy axis
  *     is the same one objectstack#4115 opened when it made the keys flow in at all,
  *     and it is a spec-alignment decision, not a typo.
- *   - **`Omit` COLLAPSE.** The declaration is `Omit< Base, K >` over an interface
- *     that carries `BaseSchema`'s index signature, so `Exclude< keyof Base, K >`
- *     resolves through `string` and the `Pick` collapses EVERY member into the index
- *     signature. That face has never declared the keys its docblock describes —
- *     measured, not assumed, and pinned independently of this file for the calendar
- *     twin. The mirror propagates because zod `.extend()` carries the shape. ⭐ This
- *     class is why the operator must not be "fixed" to read fewer keys: it is
- *     reporting a real property of the published declaration, loudly, which is
- *     precisely what a degenerate `DeclaredKeys< D >` should do. A vacuous reading
- *     here over-reports and is caught; the naive `keyof D` spelling under-reports to
- *     `never` and would never be caught at all.
+ *   - **`Omit` COLLAPSE — EMPTIED by objectui#9256.** The declaration was
+ *     `Omit< Base, K >` over an interface that carries `BaseSchema`'s index
+ *     signature, so `Exclude< keyof Base, K >` resolved through `string` and the
+ *     `Pick` collapsed EVERY member into the index signature; the mirror propagated
+ *     because zod `.extend()` carries the shape. Both instances (the `email` /
+ *     `password` and `ui:calendar` twins) were repaired on the DECLARATION side and
+ *     their rows deleted. ⭐ The class is still why the operator must not be "fixed"
+ *     to read fewer keys: it reported a real property of the published declaration,
+ *     loudly, which is precisely what a degenerate `DeclaredKeys< D >` should do. A
+ *     vacuous reading here over-reports and is caught; the naive `keyof D` spelling
+ *     under-reports to `never` and would never be caught at all.
  */
 interface MirroredUndeclared {
   // `app.zod.ts#AppComponentSchema` HAD a row here — 20 keys of SPEC-OWNED INFLOW
@@ -3734,85 +3764,15 @@ interface MirroredUndeclared {
   "complex.zod.ts#DashboardConfigSchema":
     | "aria";
 
-  /**
-   * `Omit` COLLAPSE. The declaration is `Omit< InputSchema, 'type' | 'inputType' >`
-   * and `InputSchema` reaches `BaseSchema`'s index signature, so the `Omit` resolves
-   * through `Exclude< string, … >` = `string` and every member collapses into that
-   * signature. What survives as a DECLARED member is what this interface writes
-   * itself. Every other key the mirror states therefore reads as undeclared — which
-   * is a true statement about the published face, not an artefact: the checker
-   * answers `any` for each of them. ⛔ Do not "repair" this entry by editing the
-   * measurement; repairing the FACE is a declaration-side decision and a different
-   * card.
-   */
-  "form.zod.ts#InputShorthandSchema":
-    | "label"
-    | "error"
-    | "description"
-    | "id"
-    | "name"
-    | "pattern"
-    | "placeholder"
-    | "className"
-    | "style"
-    | "data"
-    | "bind"
-    | "body"
-    | "children"
-    | "visible"
-    | "visibleWhen"
-    | "visibleOn"
-    | "hidden"
-    | "hiddenOn"
-    | "disabled"
-    | "disabledOn"
-    | "testId"
-    | "defaultValue"
-    | "ariaLabel"
-    | "required"
-    | "value"
-    | "min"
-    | "max"
-    | "step"
-    | "onChange"
-    | "wrapperClass"
-    | "readOnly"
-    | "maxLength";
+  // `form.zod.ts#InputShorthandSchema` and `form.zod.ts#UiCalendarSchema` HAD rows
+  // here — the whole `Omit` COLLAPSE class (32 and 26 keys): both TypeScript twins
+  // were spelled `Omit< Base, K >` over an interface carrying `BaseSchema`'s index
+  // signature, so each face declared only what it wrote itself. objectui#9256 (the E3
+  // residual the ruling on objectui#8284 moved there) repaired the FACES, not this
+  // measurement: both heritage clauses are now `OmitDeclared`, a key-remapping `Omit`
+  // that keeps the named members, and both pairs measure `never`. Re-adding either row
+  // without re-adding the collapse reddens the reconciliation below.
 
-  /**
-   * `Omit` COLLAPSE, the second instance and the one measured independently of this
-   * file: the declaration is `Omit< CalendarSchema, 'type' >`, the collapse is
-   * described in that declaration's own docblock, and both halves are pinned by the
-   * content-channel family-D twin test. This entry is what that reading looks like
-   * when a general operator meets it instead of a per-key tripwire.
-   */
-  "form.zod.ts#UiCalendarSchema":
-    | "label"
-    | "description"
-    | "id"
-    | "name"
-    | "placeholder"
-    | "className"
-    | "style"
-    | "data"
-    | "bind"
-    | "body"
-    | "children"
-    | "visible"
-    | "visibleWhen"
-    | "visibleOn"
-    | "hidden"
-    | "hiddenOn"
-    | "disabled"
-    | "disabledOn"
-    | "testId"
-    | "defaultValue"
-    | "ariaLabel"
-    | "value"
-    | "onChange"
-    | "mode"
-    | "minDate"
-    | "maxDate";
 
   // `layout.zod.ts#PageNodeSchema` HAD a row here — 10 keys (the envelope, `source`,
   // `interfaceConfig`, `requires`) — deleted by objectui#9736 for the same reason:
@@ -4025,6 +3985,56 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     'a RETIRED node type refusal arm (objectui#8802), not a mirror — its only member is the `type` literal it refuses on, and the TS half of that retirement is the ABSENCE of an arm in `ComplexSchema`',
   'ai.zod.ts#AIComponentSchema':
     "a union OVER the mirrors, not an object of its own — its members are checked individually above",
+  // objectui#10872 — the ADR-0080 public-block arms. Each is `BaseSchema` plus a
+  // `type` literal plus ONE member, `properties`, which is the block's
+  // `@objectstack/spec` `ComponentPropsMap` row by reference (through the
+  // objectui#8317 boundary). No TS declaration in this package restates any of
+  // these nodes — the spec's row types are re-exported under `Spec…` names by
+  // `../index.ts`, which is the spec's declaration, not a second one — so there
+  // is no pair to register, and the arm-to-row agreement is measured against
+  // the installed spec by `./public-block-arms-10872.test.ts` instead.
+  'public-blocks.zod.ts#PageHeaderBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:header` literal + `properties`, which IS `ComponentPropsMap['page:header']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#PageTabsBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:tabs` literal + `properties`, which IS `ComponentPropsMap['page:tabs']`, + the `onTabChange` runtime-slot refusal (objectui#6124) its renderer's read requires; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#PageCardBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:card` literal + `properties`, which IS `ComponentPropsMap['page:card']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#PageAccordionBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:accordion` literal + `properties`, which IS `ComponentPropsMap['page:accordion']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#PageSectionBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:section` literal + `properties`, which IS `ComponentPropsMap['page:section']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#PageFooterBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:footer` literal + `properties`, which IS `ComponentPropsMap['page:footer']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#PageSidebarBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:sidebar` literal + `properties`, which IS `ComponentPropsMap['page:sidebar']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordDetailsBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:details` literal + `properties`, which IS `ComponentPropsMap['record:details']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordHighlightsBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:highlights` literal + `properties`, which IS `ComponentPropsMap['record:highlights']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordRelatedListBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:related_list` literal + `properties`, which IS `ComponentPropsMap['record:related_list']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordPathBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:path` literal + `properties`, which IS `ComponentPropsMap['record:path']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordActivityBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:activity` literal + `properties`, which IS `ComponentPropsMap['record:activity']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordDiscussionBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:discussion` literal + `properties`, which IS `ComponentPropsMap['record:discussion']` (the spec's shared `record:chatter` row); no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordHistoryBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:history` literal + `properties`, which IS `ComponentPropsMap['record:history']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordQuickActionsBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:quick_actions` literal + `properties`, which IS `ComponentPropsMap['record:quick_actions']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordReferenceRailBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:reference_rail` literal + `properties`, which IS `ComponentPropsMap['record:reference_rail']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordAlertBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:alert` literal + `properties`, which IS `ComponentPropsMap['record:alert']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#ElementTextBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `element:text` literal + `properties`, which IS `ComponentPropsMap['element:text']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#ElementButtonBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `element:button` literal + `properties`, which IS `ComponentPropsMap['element:button']`; no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#ElementDividerBlockSchema':
+    "spec-owned, RESTATED — `BaseSchema` + the `element:divider` literal + a member-less strict `properties`, because `@objectstack/spec/ui` exports `ComponentPropsMap['element:divider']` under no name to read by reference; its key set and accept set are pinned to the row's in `./public-block-arms-10872.test.ts`, and no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#PublicBlockComponentSchema':
+    "a union OVER the public-block arms, not an object of its own — its members are accounted for individually above",
   // Renamed from `StylePropsSchema` by objectui#5928. Under the old name the
   // like-named `StyleProps` (../base.ts) — the Tailwind-scale vocabulary, sharing
   // ZERO keys with this `{ className, style }` object — read as its declaration, and
@@ -5620,8 +5630,17 @@ outside the card that built this instrument.`)
     for (const [entry, keys] of read) {
       expect(keys.length, `MirroredUndeclared['${entry}'] read as having no keys`).toBeGreaterThan(0);
     }
-    expect(keyTotal(), 'MirroredUndeclared: no entry read as a union of more than one literal — the reader is not walking union arms')
-      .toBeGreaterThan(read.size);
+    // The union-arm leg needs an entry with more than one arm to be a fact about
+    // THIS ledger. objectui#9256 emptied the last multi-arm entries here (the two
+    // `Omit` COLLAPSE rows), leaving single-key entries only — so, while that holds,
+    // the leg is taken on `KnownDrift`, which this SAME reader sizes above and which
+    // does hold multi-arm entries. It re-arms on this ledger the moment a multi-arm
+    // entry lands here; ⛔ it is never dropped, because a reader that stopped walking
+    // arms would still pass both legs above.
+    const armWitness = keyTotal() > read.size ? read : ledgerEntryMembers('KnownDrift');
+    const armKeys = Array.from(armWitness.values()).reduce((n, keys) => n + keys.length, 0);
+    expect(armKeys, 'no entry read as a union of more than one literal — the reader is not walking union arms')
+      .toBeGreaterThan(armWitness.size);
   });
 
   it('the seed spans BOTH mirror-construction styles — it is not an artefact of one', () => {

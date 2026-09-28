@@ -323,7 +323,7 @@ export interface DetailSchema extends BaseSchema {
    */
   onBack?: () => void;
   /**
-   * SPA navigation callback — RUNTIME SLOT (objectui#7804, the objectui#6124
+   * SPA navigation callback — RUNTIME SLOT (`7ca6ddd4b`, the objectui#6124
    * shape): a host-supplied function, NOT authorable metadata. `'detail'` is
    * registered to `DetailView` RAW, so an authored value reaches
    * `schema.onNavigate` by identity and `handleBack` / `handleEdit` / the
@@ -340,7 +340,7 @@ export interface DetailSchema extends BaseSchema {
    */
   onNavigate?: (url: string, options?: { replace?: boolean; newTab?: boolean }) => void;
   /**
-   * New comment callback — RUNTIME SLOT (objectui#7804), reaching the renderer
+   * New comment callback — RUNTIME SLOT (`7ca6ddd4b`), reaching the renderer
    * on a DIFFERENT channel from {@link DetailSchema.onNavigate}: `DetailView`
    * does not call it, it forwards it as a prop into `<RecordComments>`, whose
    * submit handler awaits it. Measured per key rather than per prefix, as the

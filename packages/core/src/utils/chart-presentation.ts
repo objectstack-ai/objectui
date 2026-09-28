@@ -180,7 +180,7 @@ function forwardedI18nLabel(v: unknown): I18nLabel | undefined {
  * chart into a combo, and then draw that series as a bar anyway.
  *
  * `ChartRenderer` now narrows the same way for every series it receives,
- * `dataKey`-shaped or not (objectui#7681 fixed the fast path that used to
+ * `dataKey`-shaped or not (`01c27c431` fixed the fast path that used to
  * forward a `dataKey`-shaped array straight through, so `normalizeChartSchema`'s
  * own identical narrowing never saw it) — so this module is no longer that
  * narrowing's only line of defense. It stays anyway:

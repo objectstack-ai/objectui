@@ -33,3 +33,7 @@ has no app layout, so the wizard's layout choice is not saved.
   `logo`, `favicon` or `title`; it reads `branding.logo`, `branding.favicon` and `label`.
 
 Migration: move a top-level `favicon` URL to `branding: { favicon: '…' }`.
+
+⚠️ **Dated note, 2026-09-28 — the wizard has no layout choice — objectui#10867.**
+Later in this same release the wizard's Layout control was removed, with `AppWizardDraft.layout`, so there is no
+layout choice left to not save. The rest of this entry still holds.

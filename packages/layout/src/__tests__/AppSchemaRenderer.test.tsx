@@ -10,7 +10,7 @@ import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import type { AppComponentSchema, NavigationItem, NavigationArea } from '@object-ui/types';
+import type { AppComponentSchema, NavigationItem, NavigationEntryItem, NavigationArea } from '@object-ui/types';
 import { AppSchemaRenderer } from '../AppSchemaRenderer';
 import { hasVisibleNavigationItems } from '../NavigationRenderer';
 
@@ -53,22 +53,23 @@ const schemaWithNav: AppComponentSchema = {
   navigation: navItems,
 };
 
+// Typed as ENTRIES, so a case can spread one and add an entry-only key
+// (`visible`, `requiredPermissions`); a separator carries neither (objectui#10867).
+const salesEntry: NavigationEntryItem = { id: 'a1', type: 'object', label: 'Opportunities', icon: 'Target', objectName: 'opportunity' };
+const serviceEntry: NavigationEntryItem = { id: 'a2', type: 'object', label: 'Cases', icon: 'Inbox', objectName: 'case' };
+
 const salesArea: NavigationArea = {
   id: 'area-sales',
   label: 'Sales',
   icon: 'Briefcase',
-  navigation: [
-    { id: 'a1', type: 'object', label: 'Opportunities', icon: 'Target', objectName: 'opportunity' },
-  ],
+  navigation: [salesEntry],
 };
 
 const serviceArea: NavigationArea = {
   id: 'area-service',
   label: 'Service',
   icon: 'Headphones',
-  navigation: [
-    { id: 'a2', type: 'object', label: 'Cases', icon: 'Inbox', objectName: 'case' },
-  ],
+  navigation: [serviceEntry],
 };
 
 const marketingArea: NavigationArea = {
@@ -223,7 +224,7 @@ describe('AppSchemaRenderer', () => {
         {
           ...salesArea,
           navigation: [
-            { ...salesArea.navigation[0], visible: false },
+            { ...salesEntry, visible: false },
             { id: 'a1b', type: 'object', label: 'Quotes', objectName: 'quote' },
           ],
         },
@@ -250,7 +251,7 @@ describe('AppSchemaRenderer', () => {
         {
           ...salesArea,
           navigation: [
-            { ...salesArea.navigation[0], requiredPermissions: ['sales:admin'] },
+            { ...salesEntry, requiredPermissions: ['sales:admin'] },
             { id: 'a1b', type: 'object', label: 'Quotes', objectName: 'quote' },
           ],
         },
@@ -278,7 +279,7 @@ describe('AppSchemaRenderer', () => {
   describe('derived area visibility (#3311)', () => {
     const gatedSales: NavigationArea = {
       ...salesArea,
-      navigation: [{ ...salesArea.navigation[0], visible: false }],
+      navigation: [{ ...salesEntry, visible: false }],
     };
 
     it('keeps every area in the switcher when every area has a visible item', () => {
@@ -309,7 +310,7 @@ describe('AppSchemaRenderer', () => {
       const adminSales: NavigationArea = {
         ...salesArea,
         navigation: [
-          { ...salesArea.navigation[0], requiredPermissions: ['sales:admin'] },
+          { ...salesEntry, requiredPermissions: ['sales:admin'] },
         ],
       };
       renderApp(
@@ -341,7 +342,7 @@ describe('AppSchemaRenderer', () => {
           title: 'CRM',
           areas: [
             gatedSales,
-            { ...serviceArea, navigation: [{ ...serviceArea.navigation[0], visible: false }] },
+            { ...serviceArea, navigation: [{ ...serviceEntry, visible: false }] },
           ],
         },
         { evaluateVisibility: (expr) => expr !== false },
@@ -394,7 +395,7 @@ describe('AppSchemaRenderer', () => {
       const adminSales: NavigationArea = {
         ...salesArea,
         navigation: [
-          { ...salesArea.navigation[0], requiredPermissions: ['sales:admin'] },
+          { ...salesEntry, requiredPermissions: ['sales:admin'] },
         ],
       };
       const schema: AppComponentSchema = {
@@ -440,7 +441,7 @@ describe('AppSchemaRenderer', () => {
 
     it('ignores separators — a divider is not content', () => {
       expect(
-        hasVisibleNavigationItems([{ id: 's1', type: 'separator', label: '' }]),
+        hasVisibleNavigationItems([{ id: 's1', type: 'separator' }]),
       ).toBe(false);
     });
 

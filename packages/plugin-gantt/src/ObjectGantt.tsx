@@ -75,6 +75,9 @@ import {
   applyNonGridRowCeiling,
   nonGridRowCeilingQuery,
   type NonGridCeilingResult,
+  isRealCalendarDate,
+  toDateInputValue,
+  toDisplayDate,
 } from '@object-ui/core';
 import {
   getSemanticColorName,
@@ -87,6 +90,7 @@ import {
   formatCurrency,
 } from '@object-ui/fields';
 import { GanttView, type GanttTask, type GanttDependency, type GanttLinkType, type GanttTaskType } from './GanttView';
+import { makeTzShift } from './tzShift';
 import { ResourceWorkload } from './ResourceWorkload';
 import { QuickFilterBar, type QuickFilterField, type QuickFilterOption } from './QuickFilterBar';
 import type { WorkingCalendar } from './scheduling';
@@ -363,6 +367,56 @@ function extractServerMessage(err: unknown): string | null {
     }
   }
   return null;
+}
+
+/**
+ * The chart's own calendar, as `GanttView` renders it (objectui#10866).
+ *
+ * `GanttView` re-bases every `Date` it is handed into the configured business
+ * `timeZone` (`makeTzShift`), and hands every emitted change back through the
+ * inverse. That is right for an instant and wrong for a DAY: a date-only value
+ * names a calendar day and carries no instant, so re-basing it moved the bar
+ * off its day for any viewer whose zone is not the chart's. The two helpers
+ * below keep a day a day across that shim, and are the identity when no
+ * `timeZone` is configured — the showcase's case, and every chart's default.
+ */
+type ChartZone = ReturnType<typeof makeTzShift>;
+
+/**
+ * A stored date value → the `Date` handed to `GanttView`.
+ *
+ * `toDisplayDate` reads a date-only value at LOCAL midnight of the day it
+ * names, where the engine's own parse read UTC midnight and drew the bar a day
+ * early west of UTC. For a business-zone chart that midnight is then handed
+ * over as the instant `GanttView` re-bases back onto it, so the bar stands on
+ * the named day of the chart's calendar for every viewer. A value with a time
+ * is an instant and passes through unshifted, as before.
+ */
+function readTaskDate(raw: unknown, chartZone: ChartZone): Date {
+  const date = toDisplayDate(raw as string);
+  return typeof raw === 'string' && isRealCalendarDate(raw) ? chartZone.from(date) : date;
+}
+
+/**
+ * The value a drag writes into one of the task's date fields.
+ *
+ * A field declared `date` holds a calendar day, the spec's `YYYY-MM-DD`
+ * storage form, so it is written as the day the bar was dropped on in the
+ * chart's calendar: the emitted `Date` re-based back into the view's display
+ * space, read with LOCAL getters. ⛔ Never `toISOString()` for it — the UTC
+ * spelling of a local midnight names the PREVIOUS day everywhere east of UTC.
+ * Any other declared type (`datetime`) keeps its instant, exactly as before.
+ *
+ * With no declared type to ask (an `api` provider has no object schema), the
+ * stored value's own shape answers: the same split {@link readTaskDate} made
+ * when it read the value, so a write never disagrees with the read.
+ */
+function toStoredDateValue(date: Date, declaredType: unknown, stored: unknown, chartZone: ChartZone): string {
+  const dateOnly =
+    typeof declaredType === 'string'
+      ? declaredType === 'date'
+      : typeof stored === 'string' && isRealCalendarDate(stored);
+  return dateOnly ? toDateInputValue(chartZone.to(date)) : date.toISOString();
 }
 
 /**
@@ -1142,6 +1196,8 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
 
     const { startDateField, endDateField, titleField, progressField, dependenciesField, colorField, borderColorField, parentField, typeField, lockField, tooltipFields, baselineStartField, baselineEndField, quickFilters } = ganttConfig;
     const fieldDefs: Record<string, any> = objectSchema?.fields ?? {};
+    // The chart's calendar, keyed on the authored zone itself (objectui#10866).
+    const chartZone = makeTzShift(ganttConfig.timeZone);
     // One resolver per declared colour field, built once for the whole
     // dataset rather than per row: rung 1 (the field's own option colour)
     // plus rung 2 (the value already IS a colour literal). See
@@ -1330,8 +1386,8 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       const endDate = record[endDateField];
       const baselineStartRaw = baselineStartField ? record[baselineStartField] : undefined;
       const baselineEndRaw = baselineEndField ? record[baselineEndField] : undefined;
-      const baselineStart = baselineStartRaw ? new Date(baselineStartRaw) : undefined;
-      const baselineEnd = baselineEndRaw ? new Date(baselineEndRaw) : undefined;
+      const baselineStart = baselineStartRaw ? readTaskDate(baselineStartRaw, chartZone) : undefined;
+      const baselineEnd = baselineEndRaw ? readTaskDate(baselineEndRaw, chartZone) : undefined;
       const title = resolveTitle(record);
       const progress = progressField ? record[progressField] : 0;
       const dependencies = dependenciesField ? record[dependenciesField] : [];
@@ -1388,8 +1444,9 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       return {
         id: record.id || record._id || `task-${index}`,
         title,
-        start: startDate ? new Date(startDate) : new Date(),
-        end: endDate ? new Date(endDate) : new Date(),
+        // A date-only day stands on that day (objectui#10866, `readTaskDate`).
+        start: startDate ? readTaskDate(startDate, chartZone) : new Date(),
+        end: endDate ? readTaskDate(endDate, chartZone) : new Date(),
         // Whether the record carried real dates (vs the placeholder "today"
         // above) — summaryExtent:'self' falls back to rollup when it didn't.
         hasOwnDates: !!(startDate && endDate),
@@ -1930,9 +1987,18 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       if (!effectiveDataSource || typeof effectiveDataSource.update !== 'function') return;
 
       const { startDateField, endDateField, titleField, progressField } = ganttConfig;
+      // A `date` field is written as the calendar day, a `datetime` as the
+      // instant (objectui#10866, `toStoredDateValue`).
+      const fieldDefs = objectSchema?.fields as Record<string, { type?: unknown } | undefined> | undefined;
+      const stored: Record<string, unknown> = task.data ?? {};
+      const chartZone = makeTzShift(ganttConfig.timeZone);
       const patch: Record<string, unknown> = {};
-      if (changes.start instanceof Date) patch[startDateField] = changes.start.toISOString();
-      if (changes.end instanceof Date) patch[endDateField] = changes.end.toISOString();
+      if (changes.start instanceof Date) {
+        patch[startDateField] = toStoredDateValue(changes.start, fieldDefs?.[startDateField]?.type, stored[startDateField], chartZone);
+      }
+      if (changes.end instanceof Date) {
+        patch[endDateField] = toStoredDateValue(changes.end, fieldDefs?.[endDateField]?.type, stored[endDateField], chartZone);
+      }
       if (typeof changes.title === 'string' && titleField) patch[titleField] = changes.title;
       if (typeof changes.progress === 'number' && progressField) patch[progressField] = changes.progress;
       if (Object.keys(patch).length === 0) return;
@@ -1960,7 +2026,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         notifyWriteError(err);
       }
     },
-    [ganttConfig, effectiveDataSource, resource, data, reload, notifyWriteError],
+    [ganttConfig, effectiveDataSource, resource, data, reload, notifyWriteError, objectSchema],
   );
 
   // Re-serialize a normalized dependency list back onto a record field,

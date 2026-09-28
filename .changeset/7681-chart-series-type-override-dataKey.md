@@ -4,7 +4,7 @@
 
 Fix: a chart series' `type` override (`ChartDataSeries.type`, objectui#6121) is now
 honoured when the series array is written in the internal `dataKey` binding, not only
-the `name` binding (objectui#7681) — the same sentence #2945 shipped for the other
+the `name` binding — the same sentence #2945 shipped for the other
 dialect.
 
 `ChartRenderer`'s `isInternalShaped` fast path (introduced by #2945 to fix a different

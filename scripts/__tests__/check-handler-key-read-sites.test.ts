@@ -983,27 +983,38 @@ describe('check-handler-key-read-sites — this repository', () => {
     const census = (type: string, key: string) => result.census.find((c) => c.type === type && c.key === key);
 
     // Both are SEEN by the census — the state before objectui#9344 was absence,
-    // which no assertion about declaration could have caught. ⚠️ They are seen in
-    // two DIFFERENT states, and objectui#9573 is why: the `containers` read
-    // belongs to `PageTabsRenderer`, registered `{ namespace: 'page',
-    // skipFallback: true }`, so it claims `page:tabs` and no mirror carries that
-    // arm; the `DetailView` read belongs to a registration that omits
-    // `skipFallback`, so it DOES claim the bare `detail` key and `DetailSchema`
-    // IS its arm. The cast-visibility this leg exists for is unchanged — remove
-    // the receiver peeling and both rows vanish from the census.
+    // which no assertion about declaration could have caught. The cast-visibility
+    // this leg exists for is unchanged — remove the receiver peeling and both rows
+    // vanish from the census. The `containers` read belongs to
+    // `PageTabsRenderer`, registered `{ namespace: 'page', skipFallback: true }`,
+    // so it claims `page:tabs`; the `DetailView` read belongs to a registration
+    // that omits `skipFallback`, so it claims the bare `detail` key and
+    // `DetailSchema` is its arm.
     expect(census('page:tabs', 'onTabChange')?.file).toBe('packages/components/src/renderers/layout/containers.tsx');
     expect(census('detail', 'onTabChange')?.file).toBe('packages/plugin-detail/src/DetailView.tsx');
 
-    // ⛔ The `page:tabs` read is NOT judged against `TabsSchema` any more, and
-    // that is the whole of objectui#9573: `TabsSchema` is the `ui:tabs` arm, a
-    // different component's, and the row it produced could never be drained
-    // without publishing a page-tab handler on it.
-    expect(census('page:tabs', 'onTabChange')?.unmirroredAlias).toEqual({
-      bareType: 'tabs',
-      bareSchema: 'TabsSchema',
-    });
+    // ⭐ `page:tabs` is judged against its OWN arm now (objectui#10872), and
+    // declared there. It sat in the objectui#9573 alias population until then:
+    // no mirror carried a `page:tabs` arm, and scoring the read against the bare
+    // `tabs` key's `TabsSchema` — the `ui:tabs` primitive's arm, a DIFFERENT
+    // component's — produced a row that could never be drained without
+    // publishing a page-tab handler on the wrong schema, so objectui#9573 keyed
+    // it as an unmirrored alias instead. objectui#10872 gave the ADR-0080 public
+    // block its own arm, `PageTabsBlockSchema` (`public-blocks.zod.ts`), and
+    // declared the host-injected callback there as an objectui#6124 RUNTIME
+    // SLOT — so the read is judged where it lives, through that refusal.
+    const pageTabs = census('page:tabs', 'onTabChange');
+    expect(pageTabs?.unmirroredAlias, 'page:tabs is an armed type, not an alias').toBeUndefined();
+    expect(pageTabs?.schema).toBe('PageTabsBlockSchema');
+    expect(pageTabs?.declared).toBe(true);
+    expect(pageTabs?.disposition).toBe('runtime-slot');
+    // Un-vacuous from the arm side too: the resolver READ the member and its
+    // disposition off the arm, rather than defaulting a row to green.
+    expect(collectArms(repoRoot).arms.get('page:tabs')?.members.get('onTabChange')).toBe('runtime-slot');
+    // …and nothing re-keys it onto the bare `tabs` arm.
     expect(census('tabs', 'onTabChange')).toBeUndefined();
     expect(KNOWN_UNDECLARED_READS.has('tabs::TabsSchema.onTabChange')).toBe(false);
+    expect(KNOWN_UNDECLARED_READS.has('page:tabs::PageTabsBlockSchema.onTabChange')).toBe(false);
 
     // `detail` keeps its row. ⚠️ This leg deliberately asserts nothing about
     // which disposition it should get. ⛔ That decision is NOT objectui#9344's —
@@ -1029,14 +1040,18 @@ describe('check-handler-key-read-sites — this repository', () => {
    *
    * ⚠️ The floor matters more here than anywhere else in this file: a census
    * that collapsed would report an empty alias population and read as a clean
-   * tree. So the six registrations are NAMED, not counted.
+   * tree. So the registrations are NAMED, not counted.
+   *
+   * `page:tabs` was the sixth until objectui#10872 gave it its own arm, which
+   * takes it out of this population by construction — an armed type is not an
+   * alias. Where its read is judged now is pinned in the objectui#9344 leg above.
    */
-  it('keys the six namespaced-only aliases on what they claim, and scores their reads once', () => {
+  it('keys the five namespaced-only aliases on what they claim, and scores their reads once', () => {
     const aliasRows = result.census.filter((c) => c.unmirroredAlias);
     expect(
       [...new Set(aliasRows.map((c) => c.type))].sort(),
       'the alias census is the objectui#9573 population — an empty one is a collapsed scan, not a clean tree',
-    ).toEqual(['action:button', 'action:icon', 'page:tabs', 'view:form', 'view:grid', 'view:list']);
+    ).toEqual(['action:button', 'action:icon', 'view:form', 'view:grid', 'view:list']);
     expect(result.counters.aliasReads).toBe(aliasRows.length);
     expect(aliasRows.length).toBeGreaterThan(10);
 

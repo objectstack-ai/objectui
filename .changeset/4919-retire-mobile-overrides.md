@@ -23,7 +23,7 @@ deletion — a config that type-checks, builds and silently does nothing is the
 declare-without-enforce shape the platform doctrine forbids.
 
 Removal rather than a `?: never` tombstone follows this package's own retire-vs-remove
-discriminator, in the form objectui#7678 amended it to. That rule is cited here and not
+discriminator, in its amended form (`5f8190c8c`). That rule is cited here and not
 restated: it is stated once, and a second copy carried in a release note could only drift
 out of agreement with it. Measured against it the route is removal: there is no replacement
 key to steer to, no documentation ever described the surface, and there is no successor

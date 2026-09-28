@@ -279,7 +279,7 @@ export interface SchemaRegistry {
   'chatbot': ChatbotSchema;
   // `'chatbot-enhanced'` and `'chatbot-floating'` are the other two keys
   // `packages/plugin-chatbot/src/renderer.tsx` registers (`:241`, `:379`).
-  // They were absent from this map until objectui#7704, so `ComponentType`
+  // They were absent from this map until `20316bac3`, so `ComponentType`
   // — the published `keyof SchemaRegistry` union — told a consumer
   // discriminating on it that two registered keys do not exist, and
   // `packages/cli/src/utils/known-schema-types.ts` had to keep its own
@@ -307,7 +307,7 @@ export interface SchemaRegistry {
   //
   // Pinned in `src/__tests__/schema-registry-chatbot-keys-7704.test.ts`: the
   // keys survive in `keyof`, each value IS the face its renderer honours, and
-  // each value's `type` literal IS its own key. Scope note — objectui#7704 is
+  // each value's `type` literal IS its own key. Scope note — the card behind `20316bac3` is
   // these two keys, whose faces now exist; it is NOT a sweep of the map's
   // other entries, which objectui#7665 holds.
   'chatbot-enhanced': ChatbotEnhancedSchema;

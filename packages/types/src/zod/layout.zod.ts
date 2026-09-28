@@ -663,7 +663,7 @@ export const PAGE_SPEC_EXCLUDED = [
 const SpecPageFields = specFieldsExcept(stripImportedDefaults(SpecPageSchema).shape, PAGE_SPEC_EXCLUDED);
 
 /**
- * The `actions` REFUSAL on the `page` node (objectui#7926, maintainer ruling
+ * The `actions` REFUSAL on the `page` node (`12b599219`, maintainer ruling
  * 2026-09-09, decision batch #107 item 2 — option A).
  *
  * ## What was measured
@@ -698,7 +698,7 @@ const SpecPageFields = specFieldsExcept(stripImportedDefaults(SpecPageSchema).sh
  * plus one literal carrying a spread), and the undeclared keys that survive
  * passthrough on a real `page` NODE are exactly `actions` (3 sites, all of them
  * the `content/docs/guide/layout.md` passages this card rewrites) and
- * `breadcrumbs` (its own question — objectui#7926 does not rule on it; RULED
+ * `breadcrumbs` (its own question — the 2026-09-09 ruling does not cover it; RULED
  * and refused separately by objectui#8871, see {@link PAGE_BREADCRUMBS_REFUSAL}
  * below, which also corrects the "1 site" reading recorded here to THREE — two
  * were missed for two DIFFERENT reasons: one passage's literal does carry
@@ -719,7 +719,7 @@ const SpecPageFields = specFieldsExcept(stripImportedDefaults(SpecPageSchema).sh
  * turned into a named refusal that carries the remedy.
  */
 const PAGE_ACTIONS_REFUSAL =
-  '`actions` is not a key of the `page` node and never was (objectui#7926): no renderer ' +
+  '`actions` is not a key of the `page` node and never was (ADR-0049): no renderer ' +
   'reads it, so an authored array drew nothing and rode `.passthrough()` onto the wrapper ' +
   'element. Author the buttons as NODES in `children` (a `button` node, or an `action:button` ' +
   'node with a declared `actionType`); on a record page declare them on a `page:header` ' +
@@ -728,13 +728,13 @@ const PAGE_ACTIONS_REFUSAL =
 
 /**
  * The `breadcrumbs` REFUSAL on the `page` node (objectui#8871) — the key
- * objectui#7926 measured on this same node and deliberately left parsing, so
+ * `12b599219` measured on this same node and deliberately left parsing, so
  * that retiring it would be a DECISION rather than an accident. This is that
  * decision, taken under ADR-0049 enforce-or-remove.
  *
  * ## Why ADR-0049 governs this, and not a fresh ruling
  *
- * objectui#7926's maintainer ruling covers `actions` and, by its own comments,
+ * The 2026-09-09 maintainer ruling covers `actions` and, by its own comments,
  * nothing else — so it is NOT borrowed here. What reaches this key instead is
  * the standing enforce-or-remove discipline, which this repository applies to
  * this exact face: {@link retirementTombstone} is documented as the "ADR-0049
@@ -765,7 +765,7 @@ const PAGE_ACTIONS_REFUSAL =
  * readers" and every one of them is false.
  *
  * THREE author sites, all of them teaching passages in one file — and the
- * count corrects objectui#7926's "1 site", which came from a census that
+ * count corrects the `actions` refusal's "1 site", which came from a census that
  * reads every git-tracked JSON file, every `json` fence in `.md`/`.mdx`, and
  * every TS/TSX object literal via the TypeScript AST (PR #8870). It
  * undercounted for TWO DIFFERENT reasons: the Schema API block declared the

@@ -33,7 +33,7 @@
  * the designer does not render survive via `carryOver`; and a whole
  * FIELD whose stored `type` the designer cannot author is carried
  * through verbatim rather than rebuilt from a model that has no way
- * to hold it (objectui#8060 — see `partitionStoredFields`). Those
+ * to hold it (`7dc31bb8d` — see `partitionStoredFields`). Those
  * fields are listed on the page read-only, showing their real stored
  * type, instead of being drawn as editable `text` fields.
  */
@@ -130,7 +130,7 @@ const KNOWN_FIELD_TYPES: ReadonlySet<DesignerFieldType> = new Set(DESIGNER_FIELD
  *
  * This predicate is what is left of `toDesignerType`, which answered
  * `DesignerFieldType` for every input by falling back to `'text'`
- * (objectui#8060). That fallback was not a display default: `toDesignerField`
+ * (`7dc31bb8d`). That fallback was not a display default: `toDesignerField`
  * called it on the READ path, so the collapse happened before the author saw
  * anything, and `fromDesignerField` emits `type: designed.type`, so the
  * collapsed value was written back. Relabelling ONE field rewrote every other
@@ -144,7 +144,7 @@ const KNOWN_FIELD_TYPES: ReadonlySet<DesignerFieldType> = new Set(DESIGNER_FIELD
  * field as text, and nothing reported it. Restoring the relationship required
  * knowing what the type used to be, which the stored document no longer said.
  *
- * ## The census — measured, not estimated (objectui#8060 step 1)
+ * ## The census — measured, not estimated (step 1 of the card behind `7dc31bb8d`)
  *
  * `DESIGNER_FIELD_TYPES` has 27 members and every one of them is a declared
  * `FieldType`, so the designer's vocabulary is a strict SUBSET of the spec's.
@@ -172,7 +172,7 @@ function isDesignerAuthorableType(raw: unknown): raw is DesignerFieldType {
 
 /**
  * The relationship target a stored field definition holds, under EITHER
- * spelling — objectui#8058.
+ * spelling — `3f4b45886`.
  *
  * `reference` is the spec's key and is read first; the pre-objectui#6041
  * `referenceTo` is consulted only when the spec key holds nothing, so a
@@ -277,7 +277,7 @@ function toDesignerField(name: string, raw: ServerFieldSchema): DesignerFieldDef
  *
  * Two of the four cost nothing on the path through the DESIGNER, and the
  * `referenceTo` half is true only because the read door was taught to find the
- * target under BOTH spellings (objectui#8058). `toDesignerField` reads
+ * target under BOTH spellings (`3f4b45886`). `toDesignerField` reads
  * `reference` and falls back to the retired key — see
  * {@link storedRelationshipTarget} — so whichever spelling the stored document
  * used, the target reaches the designer model and `fromDesignerField` re-emits
@@ -289,7 +289,7 @@ function toDesignerField(name: string, raw: ServerFieldSchema): DesignerFieldDef
  * stored value is being relied on.
  *
  * ⛔ The `referenceTo` claim is conditional on that READ, not on the re-emit
- * line alone. Before objectui#8058 this sentence asserted the same conclusion
+ * line alone. Before `3f4b45886` this sentence asserted the same conclusion
  * with no fallback behind it, and it was FALSE for exactly one shape: a field
  * whose target survived ONLY as `referenceTo` read as target-less, so the strip
  * took the stored value with it and the field reached the wire as a `lookup`
@@ -337,11 +337,11 @@ function carryOver(prev?: ServerFieldSchema): ServerFieldSchema {
  *
  * ## Why the preserved half needs its own function
  *
- * objectui#8058 made the `referenceTo` strip cost nothing ON THE DESIGNABLE
+ * `3f4b45886` made the `referenceTo` strip cost nothing ON THE DESIGNABLE
  * HALF, by teaching the read door to find the target under either spelling: the
  * value reaches the designer model through {@link storedRelationshipTarget} and
  * `fromDesignerField` re-emits it as `reference`, so the strip removes a KEY and
- * not the relationship. {@link toFieldsMap} re-emits objectui#8060's preserved
+ * not the relationship. {@link toFieldsMap} re-emits `7dc31bb8d`'s preserved
  * fields from the stored document directly, with no `toDesignerField` in the
  * path — so there the strip WAS the last thing to touch the field, the target
  * left with the key, and {@link assertRelationshipTargetPresent} refused the
@@ -388,7 +388,7 @@ interface PreservedField {
 
 /**
  * Split the stored `fields` map into the half this designer authors and the
- * half it only carries (objectui#8060).
+ * half it only carries (`7dc31bb8d`).
  *
  * ## The rule, in three cases — it turns on the STORED type, nothing else
  *
@@ -483,7 +483,7 @@ function fromDesignerField(
  * — the entry existed for parity with the sibling writer while nothing here
  * could ever hand the guard one, because `toDesignerType` mapped every type
  * outside `DESIGNER_FIELD_TYPES` to `'text'` on the READ path, so a stored
- * master-detail arrived already flattened. objectui#8060 removed that
+ * master-detail arrived already flattened. `7dc31bb8d` removed that
  * flattening: a stored type this designer cannot author is now carried through
  * verbatim (see {@link partitionStoredFields}) and `toFieldsMap` runs this
  * guard over the carried-through entries as well, so the branch fires on the

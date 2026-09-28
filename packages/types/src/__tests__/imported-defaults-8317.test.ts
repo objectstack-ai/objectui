@@ -80,6 +80,24 @@ import {
   ChartDrillDownSchema as SpecChartDrillDownSchema,
   UserFilterFieldSchema as SpecUserFilterFieldSchema,
   ViewFilterRuleSchema as SpecViewFilterRuleSchema,
+  // objectui#10872 — the `ComponentPropsMap` rows the public-block arms read.
+  PageHeaderProps as SpecPageHeaderProps,
+  PageTabsProps as SpecPageTabsProps,
+  PageCardProps as SpecPageCardProps,
+  PageAccordionProps as SpecPageAccordionProps,
+  PageContainerProps as SpecPageContainerProps,
+  RecordDetailsProps as SpecRecordDetailsProps,
+  RecordHighlightsProps as SpecRecordHighlightsProps,
+  RecordRelatedListProps as SpecRecordRelatedListProps,
+  RecordPathProps as SpecRecordPathProps,
+  RecordActivityProps as SpecRecordActivityProps,
+  RecordChatterProps as SpecRecordChatterProps,
+  RecordHistoryProps as SpecRecordHistoryProps,
+  RecordQuickActionsProps as SpecRecordQuickActionsProps,
+  RecordReferenceRailProps as SpecRecordReferenceRailProps,
+  RecordAlertProps as SpecRecordAlertProps,
+  ElementTextPropsSchema as SpecElementTextPropsSchema,
+  ElementButtonPropsSchema as SpecElementButtonPropsSchema,
   objectNavTargetExclusivity,
   checkListViewCalendarVisualization,
   checkPageSourceCompleteness,
@@ -210,6 +228,28 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // `listViews` record, crossed through this boundary, so the container is
   // measured here like every other crossing.
   ['ViewSchema', SpecViewSchema],
+  // objectui#10872: each ADR-0080 public-block arm's `properties` is the
+  // block's `ComponentPropsMap` row, crossed through this boundary, so every
+  // row is measured here like every other crossing (`page:section`,
+  // `page:footer` and `page:sidebar` share `PageContainerProps`, and
+  // `record:discussion` reads the `record:chatter` row, so one entry each).
+  ['PageHeaderProps', SpecPageHeaderProps],
+  ['PageTabsProps', SpecPageTabsProps],
+  ['PageCardProps', SpecPageCardProps],
+  ['PageAccordionProps', SpecPageAccordionProps],
+  ['PageContainerProps', SpecPageContainerProps],
+  ['RecordDetailsProps', SpecRecordDetailsProps],
+  ['RecordHighlightsProps', SpecRecordHighlightsProps],
+  ['RecordRelatedListProps', SpecRecordRelatedListProps],
+  ['RecordPathProps', SpecRecordPathProps],
+  ['RecordActivityProps', SpecRecordActivityProps],
+  ['RecordChatterProps', SpecRecordChatterProps],
+  ['RecordHistoryProps', SpecRecordHistoryProps],
+  ['RecordQuickActionsProps', SpecRecordQuickActionsProps],
+  ['RecordReferenceRailProps', SpecRecordReferenceRailProps],
+  ['RecordAlertProps', SpecRecordAlertProps],
+  ['ElementTextPropsSchema', SpecElementTextPropsSchema],
+  ['ElementButtonPropsSchema', SpecElementButtonPropsSchema],
 ] as const;
 
 /** The subset that actually carries an imported default — where the strip does work. */

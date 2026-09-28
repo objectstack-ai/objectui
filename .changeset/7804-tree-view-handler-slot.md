@@ -2,7 +2,7 @@
 '@object-ui/types': minor
 ---
 
-Declare the one handler key the `'tree-view'` renderer reads (objectui#7804, the
+Declare the one handler key the `'tree-view'` renderer reads (the
 `TreeViewSchema` slice).
 
 The zod arm `type: 'tree-view'` selects now declares `onNodeClick` as an

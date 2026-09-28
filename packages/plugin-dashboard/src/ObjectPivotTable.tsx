@@ -53,7 +53,7 @@ export interface ObjectPivotTableProps {
      * A `?: never` tombstone, not a plain deletion: `PivotTableSchema` extends
      * `BaseSchema`, whose `[key: string]: any` would absorb a deleted member
      * silently at any value. Licensed by prong 1 of the discriminator
-     * (objectui#5941, #7526, as amended by objectui#7678): it names the live
+     * (objectui#5941, #7526, in its amended form, `5f8190c8c`): it names the live
      * replacement, `objectName`. ⚠️ This is the ONLY refusal for this node:
      * neither `object-pivot` nor `PivotTableSchema` has a zod mirror, so a
      * JSON-authored value is refused by nothing at parse time.

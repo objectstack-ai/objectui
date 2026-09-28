@@ -30,14 +30,16 @@
  * ## What the parity half asserts
  *
  * For every member the TypeScript declaration declares, the arm's INPUT type
- * for that member is invariantly equal to the declaration's — with exactly one
- * stated exception per arm: the `on*` handler members. The TypeScript face
- * declares them `string`, the handler-expression string dialect objectui#6182
- * withdrew on EITHER face, and the zod face follows that ruling with
- * `handlerKeyRefusal` (see `../zod/ai.zod.ts`). That divergence is pinned BOTH
- * ways — the TypeScript member still reads `string`, the zod member reads
- * `undefined` — so a later repair of the TypeScript face reddens this file
- * instead of leaving a stale exception standing.
+ * for that member is invariantly equal to the declaration's — with exactly the
+ * objectui#6124 exception: a RUNTIME SLOT, whose TypeScript twin is the callable
+ * its component invokes while the zod face refuses an authored value by name.
+ * When this file was written every `on*` member was an exception of a different
+ * kind: the TypeScript face declared all five `string`, the handler-expression
+ * dialect objectui#6182 withdrew on EITHER face, and that divergence was pinned
+ * both ways so that a repair of the TypeScript face would redden this file.
+ * objectui#10874 made that repair per key — `?: never` for the two keys nothing
+ * reads, the callable for the three runtime slots — and the pins below record
+ * the settled shape.
  */
 
 import { readFileSync } from 'node:fs';
@@ -105,30 +107,37 @@ export type assertionKeySetsAgree = [
 
 /**
  * Every member's accepted type equals the declaration's — the four sub-schemas
- * with no exception, each arm with exactly its `on*` handler members excepted.
+ * and the form-assist arm with no exception, the other two arms with exactly
+ * their objectui#6124 runtime slots excepted (objectui#10874).
  */
 export type assertionMemberTypesAgree = [
   Expect<Equal<MismatchedKeys<typeof AIConfigSchema, Ts_AIConfig>, never>>,
   Expect<Equal<MismatchedKeys<typeof AIFieldSuggestionSchema, Ts_AIFieldSuggestion>, never>>,
   Expect<Equal<MismatchedKeys<typeof AIRecommendationItemSchema, Ts_AIRecommendationItem>, never>>,
   Expect<Equal<MismatchedKeys<typeof NLQueryResultSchema, Ts_NLQueryResult>, never>>,
-  Expect<Equal<MismatchedKeys<typeof AIFormAssistSchema, Ts_AIFormAssistSchema>, 'onApplySuggestion' | 'onRejectSuggestion'>>,
+  Expect<Equal<MismatchedKeys<typeof AIFormAssistSchema, Ts_AIFormAssistSchema>, never>>,
   Expect<Equal<MismatchedKeys<typeof AIRecommendationsSchema, Ts_AIRecommendationsSchema>, 'onSelect' | 'onDismiss'>>,
   Expect<Equal<MismatchedKeys<typeof NLQuerySchema, Ts_NLQuerySchema>, 'onSubmit'>>,
 ];
 
 /**
- * The handler-member divergence, both halves. The TypeScript face still types
- * each `string`; the zod face accepts nothing but absence. Repairing the
- * TypeScript face (a function type for a runtime slot, `?: never` for a retired
- * key, per objectui#6124) turns the first half red, which is the point.
+ * The handler members, both halves — SETTLED per key since objectui#10874. This
+ * was `assertionHandlerDivergence`: the TypeScript face typed each `string`
+ * while the zod face accepted nothing but absence, and the first half was
+ * written to go red when the TypeScript face was repaired. objectui#10874
+ * repaired it by the objectui#6124 rule: the two keys nothing reads are
+ * `?: never` (both faces refuse them), and the three RUNTIME SLOTS declare the
+ * callable their component invokes while the zod face keeps refusing an
+ * authored value. Re-widening either face — a `string` back on the TypeScript
+ * side, a tombstone on a slot a component calls, an accepting arm on the zod
+ * side — reddens a row.
  */
-export type assertionHandlerDivergence = [
-  Expect<Equal<Ts_AIFormAssistSchema['onApplySuggestion'], string | undefined>>,
-  Expect<Equal<Ts_AIFormAssistSchema['onRejectSuggestion'], string | undefined>>,
-  Expect<Equal<Ts_AIRecommendationsSchema['onSelect'], string | undefined>>,
-  Expect<Equal<Ts_AIRecommendationsSchema['onDismiss'], string | undefined>>,
-  Expect<Equal<Ts_NLQuerySchema['onSubmit'], string | undefined>>,
+export type assertionHandlerFacesSettled = [
+  Expect<Equal<Ts_AIFormAssistSchema['onApplySuggestion'], undefined>>,
+  Expect<Equal<Ts_AIFormAssistSchema['onRejectSuggestion'], undefined>>,
+  Expect<Equal<Ts_AIRecommendationsSchema['onSelect'], ((item: Ts_AIRecommendationItem) => void) | undefined>>,
+  Expect<Equal<Ts_AIRecommendationsSchema['onDismiss'], ((item: Ts_AIRecommendationItem) => void) | undefined>>,
+  Expect<Equal<Ts_NLQuerySchema['onSubmit'], ((query: string) => void) | undefined>>,
   Expect<Equal<InputOf<ShapeOf<typeof AIFormAssistSchema>['onApplySuggestion']>, undefined>>,
   Expect<Equal<InputOf<ShapeOf<typeof AIFormAssistSchema>['onRejectSuggestion']>, undefined>>,
   Expect<Equal<InputOf<ShapeOf<typeof AIRecommendationsSchema>['onSelect']>, undefined>>,
@@ -191,19 +200,18 @@ describe('the registered AI node types validate (objectui#10859)', () => {
   });
 
   it('accepts a fully populated document of each type', () => {
-    const config = { provider: 'openai', model: 'gpt-4', temperature: 0.2, maxTokens: 512, systemPrompt: 'x' };
+    // `config` and `context` left these documents with objectui#10874, which
+    // retired both on both faces; their refusal is pinned in
+    // `ai-node-faces-agree-10874.test.ts`, beside this file.
     const docs = [
       {
         type: 'ai-form-assist',
-        context: { record: 1 },
-        config,
         suggestions: [{ fieldName: 'company', value: 'ObjectStack', confidence: 0.9, reasoning: 'domain' }],
         showConfidence: true,
         showReasoning: false,
       },
       {
         type: 'ai-recommendations',
-        config,
         recommendations: [
           { id: 'r1', title: 'Renew', score: 0.8, category: 'sales', metadata: { a: 1 }, action: { type: 'open', target: 'r1' } },
         ],
@@ -215,7 +223,6 @@ describe('the registered AI node types validate (objectui#10859)', () => {
       {
         type: 'nl-query',
         placeholder: 'Ask anything',
-        config,
         result: { query: 'q', data: [{ a: 1 }], columns: [{ name: 'a', label: 'A', type: 'number' }], summary: 's', confidence: 0.5 },
         suggestions: ['top accounts'],
         showHistory: true,

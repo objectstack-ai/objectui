@@ -34,7 +34,7 @@ export function DateTimeField({ value, onChange, field, readonly, error, ...prop
     // default (`Jul 4, 2026, 07:00 AM` in `en`), which every non-cell caller
     // already gets; the sub-grid CELL takes `'compact'` (see `GridField`'s
     // `temporalText`). ⛔ The year is NOT dropped here: that rule is
-    // `formatDate`'s date-only cell rule (objectui#7620) and the ruling on
+    // `formatDate`'s date-only cell rule (`c15d7eca6`) and the ruling on
     // #8209 declines to extend it to `datetime`.
     //
     // An unparseable value now reaches `formatDateTime`'s shared empty face

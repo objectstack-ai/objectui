@@ -329,6 +329,13 @@ const SANCTIONED_LOCAL = new Set<string>([
   'showViewSwitcher',
   // Points at objectui's own named-view record, not a spec key.
   'defaultListView',
+  // The two content channels, redeclared ONLY as named refusals (objectui#9256,
+  // the E3 residual): `ObjectView` reads neither, so both are `?: never` /
+  // `neitherContentChannel()` twins — declared so an authored child list is
+  // refused by name instead of rendering nothing. The spec's view models no child
+  // list on this node, so the refusal is objectui-only surface, as `viewTabBar`'s is.
+  'body',
+  'children',
 ]);
 
 // ── the suite ────────────────────────────────────────────────────────────────
@@ -385,10 +392,13 @@ describe('ObjectViewSchema declared-surface consistency (#2890 scope B)', () => 
     expect(zodOnly).toEqual([]);
   });
 
-  it('narrows exactly the two envelope keys the node means to narrow', () => {
-    // Mechanically derived, so a THIRD redeclaration — the usual way a node
+  it('narrows exactly the four envelope keys the node means to narrow', () => {
+    // Mechanically derived, so a FIFTH redeclaration — the usual way a node
     // quietly re-types `data` or `name` out from under the envelope — fails here.
-    expect([...redeclaredEnvelopeKeys].sort()).toEqual(['description', 'type']);
+    // `body` / `children` joined `description` / `type` with objectui#9256 (the E3
+    // residual): both are redeclared ONLY as named refusals, because the renderer
+    // reads neither content channel.
+    expect([...redeclaredEnvelopeKeys].sort()).toEqual(['body', 'children', 'description', 'type']);
   });
 
   it('has exactly the known TS-only backlog — it may shrink, never grow', () => {
@@ -423,8 +433,13 @@ describe('ObjectViewSchema declared-surface consistency (#2890 scope B)', () => 
     // reference — the last TS-only key closed on the zod side. So 22
     // non-envelope keys, 22 + 2 = 24 declared, and the TS figure again does not
     // move.
+    //
+    // objectui#9256 (the E3 residual) redeclared two ENVELOPE keys, `body` and
+    // `children`, as named refusals: 22 non-envelope keys still, 22 + 4 = 26
+    // declared. The TS figure below does not move either — both keys are
+    // `BaseSchema`'s, so the compiler attributes them to the envelope.
     expect(ouiZodKeys.filter((k) => !ENVELOPE.has(k))).toHaveLength(22);
-    expect(ouiDeclaredKeys).toHaveLength(24);
+    expect(ouiDeclaredKeys).toHaveLength(26);
     // The interface's own surface beyond the envelope. The audit counted 25
     // declared fields including the 3 whose names the envelope also owns
     // (`type`, `description`, `className`); 22 is that figure with those three

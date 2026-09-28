@@ -61,7 +61,7 @@ render **empty**. The ruling: the plugin dialect is authoritative.
   `DeclarativeKanbanSchema`, `DeclarativeKanbanColumnSchema`,
   `DeclarativeKanbanCardSchema` from `@object-ui/types/zod` are gone.
   Importing any of them is a compile error (TS2305).
-- **`SchemaRegistry['kanban']` is `KanbanSchema`.** objectui#7645 (PR #7662)
+- **`SchemaRegistry['kanban']` is `KanbanSchema`.** objectui#7645 (`bc640ec56`)
   weakened the entry to `BaseSchema & { type: 'kanban' }` because this layer
   could not name the plugin's type; it now names the declaration the plugin
   itself imports. `keyof SchemaRegistry` — the published `ComponentType` union —

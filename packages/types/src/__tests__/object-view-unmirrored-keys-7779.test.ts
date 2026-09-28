@@ -55,9 +55,16 @@
  * one key the renderer still read that the protocol refuses, `options`, was
  * disposed by the director ruling on that card (comment 5856694523): refused on
  * the authoring face, no longer read off a named view, and folded at
- * `@object-ui/app-shell`'s `ViewPreview` for a stored body. The census below is
+ * `@object-ui/app-shell`'s `ViewPreview` for a stored body. The census below was
  * RE-TAKEN on that tree — 20 read / 44 unread — and the pins that said "still
- * unmirrored" are inverted rather than deleted.
+ * unmirrored" were inverted rather than deleted.
+ *
+ * ⭐ objectui#10758 re-took it again: bucket ① of the objectui#7924 ruling (the
+ * twenty-three protocol members no route read off a named view) is read off the
+ * named view by the host delegation now, first ahead of the host `views` entry
+ * and the node. The partition moved from 20 / 44 to 43 / 21, bucket ① is empty,
+ * and every pin that held one of those members UNREAD is inverted, not deleted.
+ * ⛔ Quote neither pair from here: the census re-derives both on every run.
  *
  * ⚠️ BOTH FIGURES WERE RE-TAKEN at objectui#8980 and are NOT the ones this file
  * was written with. It measured 47 declared / 6 read / 41 unread, plus a
@@ -106,8 +113,9 @@
  *
  * ⚠️ The distinction the whole finding turns on: a member reached through
  * `activeView?.KEY` — the host's `views` prop — is NOT read off the named view.
- * `rowHeight`, read off `activeView` through the fold, is the pinned
- * counter-control below.
+ * `allowExport`, read off `activeView` and the node only, is the pinned
+ * counter-control below (it was `rowHeight` until objectui#10758 made the
+ * delegation read that one off the named view first).
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -155,8 +163,8 @@ const LEDGERED = 'listViews';
  */
 const READ_TEXT: Record<Mirrored, ReadonlyArray<readonly [file: string, text: string]>> = {
   navigation: [[READER, 'const navigationConfig: ViewNavigationConfig | undefined = schema.navigation;']],
-  searchableFields: [[READER, 'searchableFields: activeView?.searchableFields ?? (schema as any).searchableFields,']],
-  filterableFields: [[READER, 'filterableFields: activeView?.filterableFields ?? (schema as any).filterableFields,']],
+  searchableFields: [[READER, 'searchableFields: currentNamedViewConfig?.searchableFields ?? activeView?.searchableFields ?? (schema as any).searchableFields,']],
+  filterableFields: [[READER, 'filterableFields: currentNamedViewConfig?.filterableFields ?? activeView?.filterableFields ?? (schema as any).filterableFields,']],
   allowCreateView: [
     [READER, 'allowCreateView: schema.allowCreateView,'],
     [SWITCHER, 'const createViewButton = schema.allowCreateView ? ('],
@@ -187,16 +195,23 @@ const READ_CONTROL_KEY = 'objectName';
 const CONTROL_KEY = 'viewSwitcherPosition';
 
 /**
- * The `NamedListView` members the renderer reads off a named view. Twenty since
- * objectui#7928 stopped reading the legacy `options` bag off a named view (it is
- * folded at `ViewPreview` instead); twenty-one from objectui#8980, which wired a
- * read point for each of the seventeen protocol members it declares; seven
- * before that, of which `data` was the undeclared cast.
+ * The `NamedListView` members the renderer reads off a named view. Forty-three
+ * since objectui#10758 made the host delegation read bucket ① — the
+ * twenty-three protocol members no route read off the named view — from the
+ * named view first; twenty from objectui#7928, which stopped reading the legacy
+ * `options` bag off a named view (it is folded at `ViewPreview` instead);
+ * twenty-one from objectui#8980, which wired a read point for each of the
+ * seventeen protocol members it declares; seven before that, of which `data`
+ * was the undeclared cast.
  */
 const NAMED_VIEW_READS = [
-  'appearance', 'calendar', 'chart', 'columns', 'data', 'fieldOrder', 'filter', 'gallery',
-  'gantt', 'grouping', 'kanban', 'label', 'map', 'name', 'rowColor', 'sort',
-  'timeline', 'tree', 'type', 'userActions',
+  'addRecord', 'allowPrinting', 'appearance', 'aria', 'bulkActionDefs', 'bulkActions',
+  'calendar', 'chart', 'columns', 'compactToolbar', 'conditionalFormatting', 'data',
+  'description', 'emptyState', 'exportOptions', 'fieldOrder', 'filter', 'filterableFields',
+  'gallery', 'gantt', 'grouping', 'hiddenFields', 'inlineEdit', 'kanban', 'label', 'map',
+  'name', 'navigation', 'pagination', 'resizable', 'rowActions', 'rowColor', 'rowHeight',
+  'searchableFields', 'selection', 'sharing', 'showRecordCount', 'sort', 'timeline', 'tree',
+  'type', 'userActions', 'userFilters',
 ] as const;
 
 /* ── objectui#7924 — the per-member liveness census ───────────────────────────
@@ -220,15 +235,19 @@ const NAMED_LIST_VIEW_DECLARED = [
 ] as const;
 
 /**
- * The DECLARED members the renderer reads off a named view. All 20 of them
- * (21 until objectui#7928 dropped `options`) — the read set and the declared
- * set disagree on no name since objectui#8980, which is what closed
- * {@link NAMED_VIEW_READ_UNDECLARED}.
+ * The DECLARED members the renderer reads off a named view. All 43 of them
+ * (20 until objectui#10758 added bucket ①; 21 until objectui#7928 dropped
+ * `options`) — the read set and the declared set disagree on no name since
+ * objectui#8980, which is what closed {@link NAMED_VIEW_READ_UNDECLARED}.
  */
 const NAMED_VIEW_READ_DECLARED = [
-  'appearance', 'calendar', 'chart', 'columns', 'data', 'fieldOrder', 'filter', 'gallery',
-  'gantt', 'grouping', 'kanban', 'label', 'map', 'name', 'rowColor', 'sort',
-  'timeline', 'tree', 'type', 'userActions',
+  'addRecord', 'allowPrinting', 'appearance', 'aria', 'bulkActionDefs', 'bulkActions',
+  'calendar', 'chart', 'columns', 'compactToolbar', 'conditionalFormatting', 'data',
+  'description', 'emptyState', 'exportOptions', 'fieldOrder', 'filter', 'filterableFields',
+  'gallery', 'gantt', 'grouping', 'hiddenFields', 'inlineEdit', 'kanban', 'label', 'map',
+  'name', 'navigation', 'pagination', 'resizable', 'rowActions', 'rowColor', 'rowHeight',
+  'searchableFields', 'selection', 'sharing', 'showRecordCount', 'sort', 'timeline', 'tree',
+  'type', 'userActions', 'userFilters',
 ] as const;
 
 /**
@@ -248,12 +267,14 @@ const NAMED_VIEW_READ_DECLARED = [
 const NAMED_VIEW_READ_UNDECLARED = [] as const;
 
 /**
- * The census result: declared, and NOT read off a named view. 44 today — 43
- * plus `options`, which objectui#7928 stopped reading off a named view. A
- * document authoring any of these validates green (`BaseSchema` is
- * `.passthrough()`) and changes nothing — the finding objectui#7924 records.
+ * The census result: declared, and NOT read off a named view. 21 today: the
+ * 44 of objectui#7928 minus bucket ①'s twenty-three, which objectui#10758 made
+ * the host delegation read off the named view. What is left is bucket ② (the
+ * legacy `show*` spellings), bucket ③ (objectui-only members) and the two
+ * members ruled inert below — no member the protocol declares is on it any
+ * more except those two.
  *
- * ⭐ TWO OF THE 43 ARE objectui#8980's OWN, AND THAT IS THE RULED OUTCOME, not
+ * ⭐ TWO OF THEM ARE objectui#8980's OWN, AND THAT IS THE RULED OUTCOME, not
  * an oversight: `tabs` and `pageName`. The ruling's item 2 requires a member
  * with no renderer behaviour to attach to be DECLARED and REPORTED with its
  * measurement — ⛔ not silently declared inert and ⛔ not dropped from the type.
@@ -264,31 +285,35 @@ const NAMED_VIEW_READ_UNDECLARED = [] as const;
  * `pageName` configures.
  */
 const NAMED_LIST_VIEW_UNREAD = [
-  'addDeleteRecordsInline', 'addRecord', 'addRecordViaForm', 'allowExport', 'allowPrinting',
-  'aria', 'bulkActionDefs', 'bulkActions', 'clickIntoRecordDetails', 'collapseAllByDefault',
-  'color', 'compactToolbar', 'conditionalFormatting', 'densityMode', 'description', 'emptyState',
-  'exportOptions', 'fieldTextColor', 'filterableFields', 'hiddenFields', 'inlineEdit',
-  'navigation', 'options', 'pageName', 'pagination', 'prefixField', 'resizable', 'rowActions', 'rowHeight',
-  'searchableFields', 'selection', 'sharing', 'showColor', 'showDensity', 'showDescription',
-  'showFilters', 'showGroup', 'showHideFields', 'showRecordCount', 'showSearch', 'showSort',
-  'tabs', 'userFilters', 'wrapHeaders',
+  'addDeleteRecordsInline', 'addRecordViaForm', 'allowExport', 'clickIntoRecordDetails',
+  'collapseAllByDefault', 'color', 'densityMode', 'fieldTextColor', 'options', 'pageName',
+  'prefixField', 'showColor', 'showDensity', 'showDescription', 'showFilters', 'showGroup',
+  'showHideFields', 'showSearch', 'showSort', 'tabs', 'wrapHeaders',
 ] as const;
 
 /**
- * Two members of the unread set that the renderer does not mention AT ALL —
- * not off the named view, not off `activeView`, not off the node. The sharp end
- * of the census: for these the "declared, unenforced, unread" reading has no
- * host-side twin to weigh against it.
+ * The two members of the unread set that the renderer did not mention AT ALL
+ * until objectui#10758 — not off the named view, not off `activeView`, not off
+ * the node. They were the sharp end of the census: no host-side twin to weigh
+ * against the "declared, unenforced, unread" reading. objectui#10758 gave each a
+ * rung on the host delegation, named view first, so the pin that held their
+ * ABSENCE is inverted below rather than deleted.
  */
-const UNREAD_ABSENT_FROM_RENDERER = ['bulkActionDefs', 'exportOptions'] as const;
+const WERE_ABSENT_FROM_RENDERER = ['bulkActionDefs', 'exportOptions'] as const;
 
 /**
  * The named-view read probe's FIRING CONTROL, and its negative twin. Both are
  * declared members; the control is read off a named view and the counter-control
  * is not, so a probe that returns them correctly is a probe that is running.
+ *
+ * The negative twin was `rowHeight` until objectui#10758 made the delegation
+ * read it off the named view too. `allowExport` replaces it on the same
+ * footing: declared, read off `activeView` and the node, and NOT off a named
+ * view — objectui's own member (retained by the objectui#7924 ruling), which the
+ * protocol does not declare there.
  */
 const NAMED_VIEW_READ_CONTROL = 'columns';
-const NAMED_VIEW_UNREAD_CONTROL = 'rowHeight';
+const NAMED_VIEW_UNREAD_CONTROL = 'allowExport';
 /** A plausible list-view spelling that is neither declared nor read. */
 const NAMED_VIEW_ABSENT_CONTROL = 'stickyHeader';
 
@@ -333,13 +358,28 @@ const PROTOCOL_RETIRED_KEYS = ['bordered', 'performance', 'responsive', 'striped
 const PROTOCOL_TOMBSTONE_MARKER = '[REMOVED]';
 
 /**
- * BUCKET ① — declared by BOTH faces and read off no named view: 23 members.
- * The behaviour is the protocol's; only the SOURCE the renderer reads it from
- * is wrong. ⛔ A `?: never` tombstone here would put objectui narrower than the
- * protocol, which is the direction the maintainer principle forbids — what is
- * left for these is implementation, ⛔ not declaration.
+ * BUCKET ① — declared by BOTH faces and read off no named view. EMPTY since
+ * objectui#10758, and the emptiness is the reading.
+ *
+ * It held twenty-three members ({@link BUCKET_ONE_READ_SINCE_10758}): the
+ * behaviour was the protocol's and only the SOURCE the renderer read it from
+ * was wrong. The ruling on objectui#7924 (comment 5690906005) sent them to
+ * implementation, ⛔ not declaration — a `?: never` tombstone would have put
+ * objectui narrower than the protocol — and objectui#10758 made the host
+ * delegation read each of them off the named view first.
+ *
+ * ⛔ A name appearing here is a protocol member the renderer stopped reading off
+ * a named view (or a new protocol member it never read): implementation owed,
+ * not a test to update.
  */
-const BUCKET_PROTOCOL_DECLARED_UNREAD = [
+const BUCKET_PROTOCOL_DECLARED_UNREAD = [] as const;
+
+/**
+ * The twenty-three bucket-① members, by name — the pinned reading of what moved
+ * from unread to read at objectui#10758. Each is asserted READ, per member,
+ * below; the census above asserts the same from the other side.
+ */
+const BUCKET_ONE_READ_SINCE_10758 = [
   'addRecord', 'allowPrinting', 'aria', 'bulkActionDefs', 'bulkActions', 'compactToolbar',
   'conditionalFormatting', 'description', 'emptyState', 'exportOptions', 'filterableFields',
   'hiddenFields', 'inlineEdit', 'navigation', 'pagination', 'resizable', 'rowActions', 'rowHeight',
@@ -1232,8 +1272,8 @@ describe('objectui#7779 → objectui#7928 — `listViews` was ledgered on the fa
     ])).toEqual(['label-only', 'tuple']);
   });
 
-  it('the renderer reads twenty keys off a named view — every one of them a declared `NamedListView` member — of a declaration with 64, the reason a local key-for-key mirror was never the answer', () => {
-    // ⚠️ The REGEX instrument sees nineteen, not twenty: `name` is read only
+  it('the renderer reads forty-three keys off a named view — every one of them a declared `NamedListView` member — of a declaration with 64, the reason a local key-for-key mirror was never the answer', () => {
+    // ⚠️ The REGEX instrument sees forty-two, not forty-three: `name` is read only
     // at the tab strip (`view.name`), which `currentNamedViewConfig?.KEY` cannot
     // see. The AST derivation below finds it; the gap between the two is
     // asserted by name there rather than papered over here.
@@ -1243,7 +1283,9 @@ describe('objectui#7779 → objectui#7928 — `listViews` was ledgered on the fa
     // objectui#7928 resolves it as the protocol's `I18nLabel` first; `view.label`
     // is still the read.
     expect(readRepo(READER)).toContain('{resolveInlineI18nLabel(view.label, displayLocale) || view.name || key}');
-    // ALL twenty are declared `NamedListView` members since objectui#8980:
+    // ALL forty-three are declared `NamedListView` members (objectui#10758's
+    // twenty-three bucket-① reads are protocol members declared since
+    // objectui#8980 or before). Since objectui#8980:
     // the seventeen the protocol declares on this surface landed with a read
     // point each, and `data` — which used to reach the renderer through an
     // `as any` cast on the named-view config — is one of them. So the "unread"
@@ -1345,10 +1387,10 @@ describe('objectui#7924 — the per-member liveness census on `NamedListView`, r
     }
   });
 
-  it('the renderer reads exactly twenty names off a named view — every one of them declared', () => {
+  it('the renderer reads exactly forty-three names off a named view — every one of them declared', () => {
     const d = deriveNamedViewReads();
     expect(d.reads).toEqual([...NAMED_VIEW_READS]);
-    expect(d.reads).toHaveLength(20);
+    expect(d.reads).toHaveLength(43);
     // ⭐ THE INSTRUMENTS NOW DISAGREE BY ONE NAME, and the difference is pinned
     // rather than smoothed over. The AST finds STRICTLY more than the
     // `currentNamedViewConfig?.KEY` regex it replaced — that was already true
@@ -1367,15 +1409,15 @@ describe('objectui#7924 — the per-member liveness census on `NamedListView`, r
     expect(d.readSites.name.length, '`name` is read at exactly one site: the tab strip\'s display fallback').toBe(1);
   });
 
-  it('the census partitions the declaration exactly: 20 read + 44 unread = 64, disjoint and exhaustive', () => {
+  it('the census partitions the declaration exactly: 43 read + 21 unread = 64, disjoint and exhaustive', () => {
     const declared = new Set(namedListViewMembers().names);
     const reads = new Set(deriveNamedViewReads().reads);
     const read = [...declared].filter((m) => reads.has(m)).sort();
     const unread = [...declared].filter((m) => !reads.has(m)).sort();
     expect(read).toEqual([...NAMED_VIEW_READ_DECLARED]);
     expect(unread).toEqual([...NAMED_LIST_VIEW_UNREAD]);
-    expect(read).toHaveLength(20);
-    expect(unread).toHaveLength(44);
+    expect(read).toHaveLength(43);
+    expect(unread).toHaveLength(21);
     expect(read.length + unread.length).toBe(declared.size);
     expect(read.filter((m) => unread.includes(m))).toEqual([]);
   });
@@ -1418,32 +1460,41 @@ describe('objectui#7924 — the per-member liveness census on `NamedListView`, r
   it('the controls fire on the same instruments that produce every zero above', () => {
     const declared = namedListViewMembers().names;
     const reads = deriveNamedViewReads().reads;
-    // ⭐ The firing control. The query that returns NOTHING for the 41 unread
+    // ⭐ The firing control. The query that returns NOTHING for the unread
     // members is the query that returns `columns` — so a zero is a reading and
     // not a parser that found nothing.
     expect(reads).toContain(NAMED_VIEW_READ_CONTROL);
     expect(declared).toContain(NAMED_VIEW_READ_CONTROL);
     // …and its negative twin: declared, and NOT read off a named view. It is
-    // read off `activeView` instead, through the fold since objectui#7924's
-    // ruling A′ — which is the distinction the whole finding turns on.
+    // read off `activeView` and the node instead — which is the distinction the
+    // whole finding turns on. (`rowHeight` held this role until objectui#10758
+    // made the delegation read it off the named view first.)
     expect(declared).toContain(NAMED_VIEW_UNREAD_CONTROL);
     expect(reads).not.toContain(NAMED_VIEW_UNREAD_CONTROL);
-    expect(readRepo(READER)).toContain('rowHeight: (normalizeListViewSchema(activeView ?? {})');
+    expect(readRepo(READER)).toContain('allowExport: activeView?.allowExport ?? (schema as any).allowExport,');
     // A spelling that is in neither set: non-vacuity for both probes at once.
     expect(declared).not.toContain(NAMED_VIEW_ABSENT_CONTROL);
     expect(reads).not.toContain(NAMED_VIEW_ABSENT_CONTROL);
   });
 
-  it('two unread members are absent from the renderer ENTIRELY — no named-view read, no `activeView` read, no node read', () => {
+  it('INVERTED (objectui#10758): the two members that were absent from the renderer ENTIRELY are read off a named view now', () => {
+    // Was "two unread members are absent from the renderer ENTIRELY — no
+    // named-view read, no `activeView` read, no node read". objectui#10758 gave
+    // each a rung on the host delegation: the named view first, then the host
+    // `views` entry, and ⛔ no node read (the objectui#5097 exemption is fixed
+    // at 27 names). So the absence became a read, in both instruments.
     const src = readRepo(READER);
-    for (const member of UNREAD_ABSENT_FROM_RENDERER) {
-      expect(NAMED_LIST_VIEW_UNREAD as readonly string[]).toContain(member);
-      expect(src, `\`${member}\` now appears in the renderer; re-take the census's absence column`)
-        .not.toMatch(new RegExp(`\\b${member}\\b`));
+    const reads = deriveNamedViewReads().reads;
+    for (const member of WERE_ABSENT_FROM_RENDERER) {
+      expect(NAMED_LIST_VIEW_UNREAD as readonly string[]).not.toContain(member);
+      expect(reads, `\`${member}\` is no longer read off a named view`).toContain(member);
+      expect(src).toContain(`${member}: currentNamedViewConfig?.${member} ?? activeView?.${member},`);
+      expect(src, `\`${member}\` is now read off the object-view NODE — a 28th objectui#5097 exemption`)
+        .not.toContain(`(schema as any).${member}`);
     }
-    // The control for those two absences: a member that IS mentioned, measured
-    // by the same query. Without it "not found" is an unrun grep.
-    expect(src).toMatch(new RegExp(`\\b${NAMED_VIEW_UNREAD_CONTROL}\\b`));
+    // The control for those two node-absences: a member that IS read off the
+    // node, measured by the same query. Without it "not found" is an unrun grep.
+    expect(src).toContain(`(schema as any).${NAMED_VIEW_UNREAD_CONTROL}`);
   });
 });
 
@@ -1522,7 +1573,7 @@ function foldFlagMap(): Record<string, string> {
   return out;
 }
 
-describe('objectui#7924 — the 44 unread members are FOUR populations, derived against the installed protocol', () => {
+describe('objectui#7924 — the unread members, in the FOUR buckets the ruling was written in, derived against the installed protocol (bucket ① empty since objectui#10758)', () => {
   it('the protocol declares 50 keys for a named list view, and the instrument that reads them fires', () => {
     const keys = protocolListViewKeys();
     expect(keys).toEqual([...PROTOCOL_LIST_VIEW_KEYS]);
@@ -1613,7 +1664,7 @@ describe('objectui#7924 — the 44 unread members are FOUR populations, derived 
     }
   });
 
-  it('the 44 unread members partition FOUR ways — 23 + 8 + 11 + 2 — disjoint and exhaustive', () => {
+  it('the 21 unread members partition FOUR ways — 0 + 8 + 11 + 2 since objectui#10758 (23 + 8 + 11 + 2 before it) — disjoint and exhaustive', () => {
     const unread = new Set(NAMED_LIST_VIEW_UNREAD as readonly string[]);
     const protocolKeys = new Set(protocolListViewKeys());
     const ruledInert = new Set<string>(BUCKET_DECLARED_INERT);
@@ -1628,7 +1679,10 @@ describe('objectui#7924 — the 44 unread members are FOUR populations, derived 
     expect(legacy).toEqual([...BUCKET_LEGACY_SHOW_SPELLINGS]);
     expect(inventedOnly).toEqual([...BUCKET_LOCAL_ONLY_UNREAD]);
     expect([...ruledInert].sort()).toEqual([...BUCKET_DECLARED_INERT]);
-    expect(protocolDeclared).toHaveLength(23);
+    // Bucket ① is EMPTY since objectui#10758: every protocol member left on the
+    // unread side is one of the two ruled inert. Derived, not assumed — the
+    // same filter that produced the twenty-three produces nothing now.
+    expect(protocolDeclared).toHaveLength(0);
     expect(legacy).toHaveLength(8);
     expect(inventedOnly).toHaveLength(11);
     expect(BUCKET_DECLARED_INERT).toHaveLength(2);
@@ -1636,8 +1690,8 @@ describe('objectui#7924 — the 44 unread members are FOUR populations, derived 
     // lands in no bucket, or in two, fails here — which is the event that makes
     // the 2026-09-16 disposition ruling stale.
     const union = [...protocolDeclared, ...legacy, ...inventedOnly, ...BUCKET_DECLARED_INERT];
-    expect(union).toHaveLength(44);
-    expect(new Set(union).size).toBe(44);
+    expect(union).toHaveLength(21);
+    expect(new Set(union).size).toBe(21);
     expect([...union].sort()).toEqual([...unread].sort());
   });
 
@@ -1657,10 +1711,24 @@ describe('objectui#7924 — the 44 unread members are FOUR populations, derived 
     expect(map).not.toHaveProperty('showRecordCount');
   });
 
-  it.each(BUCKET_PROTOCOL_DECLARED_UNREAD)('BUCKET ① — `%s` is declared by BOTH faces and read off no named view (the SOURCE is wrong, not the member)', (member) => {
+  it('BUCKET ① is EMPTY since objectui#10758 — no protocol member but the two ruled inert is left unread off a named view', () => {
+    expect([...BUCKET_PROTOCOL_DECLARED_UNREAD]).toEqual([]);
+    const reads = deriveNamedViewReads().reads;
+    const live = protocolListViewKeys().filter((k) => !protocolRetiredKeys().includes(k));
+    const declared = namedListViewMembers().names;
+    const unreadProtocol = live.filter((k) => declared.includes(k) && !reads.includes(k)).sort();
+    expect(unreadProtocol).toEqual([...BUCKET_DECLARED_INERT]);
+    // Control on the same derivation: it still finds the bucket-② / ③ members
+    // unread, so the empty bucket is a reading and not a probe that reads all.
+    expect(declared.filter((k) => !reads.includes(k))).toContain(NAMED_VIEW_UNREAD_CONTROL);
+  });
+
+  it.each(BUCKET_ONE_READ_SINCE_10758)('BUCKET ① → READ (objectui#10758) — `%s` is declared by BOTH faces and now read off a named view (inverted from "read off no named view")', (member) => {
     expect(namedListViewMembers().names).toContain(member);
     expect(protocolListViewKeys()).toContain(member);
-    expect(deriveNamedViewReads().reads).not.toContain(member);
+    expect(deriveNamedViewReads().reads).toContain(member);
+    expect(NAMED_VIEW_READ_DECLARED as readonly string[]).toContain(member);
+    expect(NAMED_LIST_VIEW_UNREAD as readonly string[]).not.toContain(member);
   });
 
   it.each(BUCKET_LEGACY_SHOW_SPELLINGS)('BUCKET ② — `%s` is a legacy SPELLING: the protocol declares it nowhere, and the runtime already folds it onto its canonical twin', (member) => {
@@ -1860,7 +1928,11 @@ describe('objectui#7924 — the retirement: seventeen `?: never` tombstones, one
     expect(appShell).not.toContain('densityMode: viewDef.densityMode');
     expect(appShell).toContain('(normalizeListViewSchema(viewDef ?? {}) as Pick<ListViewSchema, \'rowHeight\'>).rowHeight');
     expect(pluginView).not.toContain('densityMode: activeView?.densityMode');
-    expect(pluginView).toContain('rowHeight: (normalizeListViewSchema(activeView ?? {})');
+    // objectui#10758 put the named view's own `rowHeight` ahead of the host
+    // entry's fold; the host hop still reads THROUGH the fold, and the named
+    // view is read as itself (the strict record refuses `densityMode`).
+    expect(pluginView).toContain('rowHeight: currentNamedViewConfig?.rowHeight ?? (normalizeListViewSchema(activeView ?? {})');
+    expect(pluginView).not.toContain('currentNamedViewConfig?.densityMode');
     // The fold is the one reader left, and stored views keep rendering through it.
     const fold = readRepo(FOLD);
     expect(fold).toContain('const legacyDensity = s.densityMode;');

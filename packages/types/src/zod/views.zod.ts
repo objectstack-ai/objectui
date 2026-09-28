@@ -18,7 +18,7 @@
 
 import { z } from 'zod';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
-import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
 import { ListViewSchema as SpecListViewSchema } from '@objectstack/spec/ui';
 import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
 import { stripImportedDefaults } from './imported-defaults.js';
@@ -161,6 +161,13 @@ const RECORD_ID_IS_A_STRING_GUIDANCE =
   + 'A backend whose primary keys are numeric converts at its OWN adapter boundary, in one typed '
   + 'place, so every author, every caller and every adapter sees one shape.';
 
+/** objectui#9256 (E3 residual): ONE refusal string for both content channels of `DetailViewSchema`. */
+const DETAIL_VIEW_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'detail-view',
+  'its `any`-typed registration hands the node to `DetailView`, which reads it as `DetailViewSchema`',
+  'one record of `objectName` through `fields` / `sections` / `tabs`; its own node slots are `header`, `footer` and each tab\u2019s `content`',
+);
+
 /**
  * Detail View Schema
  */
@@ -190,7 +197,7 @@ export const DetailViewSchema = BaseSchema.extend({
   /**
    * RUNTIME SLOT (objectui#9447, the objectui#6124 shape) — DECLARED on this
    * arm for the first time. The `detail` twin refused this key by name with
-   * objectui#7804; this arm did not, so `BaseSchemaCore`'s `.passthrough()`
+   * `7ca6ddd4b`; this arm did not, so `BaseSchemaCore`'s `.passthrough()`
    * KEPT an authored value instead of refusing it and handed it to a call site
    * expecting a function — the same two keys with two different fates decided
    * only by which `type` literal an author wrote.
@@ -231,7 +238,7 @@ export const DetailViewSchema = BaseSchema.extend({
   /**
    * RUNTIME SLOT (objectui#9447), and a DIFFERENT channel from `onNavigate`
    * above — which is why the disposition is read per key rather than per
-   * prefix, the same reading objectui#7804 demanded on the twin.
+   * prefix, the same reading the ruling behind `7ca6ddd4b` demanded on the twin.
    *
    * `DetailView` never calls this one. It FORWARDS it as a React prop into the
    * `<RecordComments>` it renders, whose submit handler awaits it; the forward
@@ -266,7 +273,7 @@ export const DetailViewSchema = BaseSchema.extend({
    * `retirementTombstone` keeps the key DECLARED and unwritable, which is what
    * makes the refusal loud. Same mechanism and same reasoning as the
    * alert-dialog footer refusals (`./overlay.zod.ts`, objectui#7963) and the
-   * `PageNodeSchema` arms (`./layout.zod.ts`, objectui#7926 / objectui#8871).
+   * `PageNodeSchema` arms (`./layout.zod.ts`, `12b599219` / objectui#8871).
    *
    * ## What was measured — the frame is BASE `efead6c60`, stated out loud
    *
@@ -306,6 +313,10 @@ export const DetailViewSchema = BaseSchema.extend({
     + 'strings, and it renders through the same component, so nothing about the '
     + 'result is lost — only the second door.',
   ),
+  // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
+  // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(DETAIL_VIEW_NEITHER_CHANNEL),
+  children: retirementTombstone(DETAIL_VIEW_NEITHER_CHANNEL),
 });
 
 /**

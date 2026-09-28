@@ -66,3 +66,15 @@ This supersedes the last paragraph of the pending
 `7189-grouped-grid-partial-disclosure` changeset, which said server-side
 grouping was not built: it now is, and the `Partial` marker described there
 remains only for the data sources that cannot answer the header query.
+
+⚠️ **Dated note, 2026-09-28 — a source with no header query now refuses
+grouping — objectui#10881.** Later in this same release two sentences above
+stopped describing the grid: that a source with no header query still groups
+the page it fetched and still marks it partial, and that the `Partial` marker
+remains for the data sources that cannot answer the header query. Maintainer
+ruling F retired both. Over such a source a grouped grid that fetches its own
+rows, and a `ListView` hosting a grouped grid, refuse grouping with an error
+naming `queryGroupHeaders`, and the marker is gone everywhere. Rows handed in
+whole are still grouped in the browser. The rest of this entry is kept as the
+reading of this change; the `10881-grouping-needs-header-query` entry states
+what ships.

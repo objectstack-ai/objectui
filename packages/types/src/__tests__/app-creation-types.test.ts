@@ -49,7 +49,6 @@ describe('App Creation Types', () => {
         title: 'Test Application',
         description: 'A test app',
         icon: 'LayoutDashboard',
-        layout: 'sidebar',
         objects: [],
         navigation: [
           { id: 'nav_1', type: 'object', label: 'Contacts', objectName: 'contacts' },
@@ -86,7 +85,6 @@ describe('App Creation Types', () => {
       const draft: AppWizardDraft = {
         name: 'empty_app',
         title: 'Empty',
-        layout: 'header',
         objects: [],
         navigation: [],
         branding: {},
@@ -94,7 +92,6 @@ describe('App Creation Types', () => {
 
       const schema = wizardDraftToAppSchema(draft);
       expect(schema.navigation).toEqual([]);
-      expect('layout' in schema).toBe(false);
       expect(schema.label).toBe('Empty');
     });
 
@@ -103,7 +100,6 @@ describe('App Creation Types', () => {
         name: 'sales_crm',
         title: 'Sales CRM',
         icon: 'TrendingUp',
-        layout: 'sidebar',
         objects: [],
         navigation: [],
         branding: {
@@ -126,7 +122,6 @@ describe('App Creation Types', () => {
       const draft: AppWizardDraft = {
         name: 'no_icon_app',
         title: 'No Icon',
-        layout: 'sidebar',
         objects: [],
         navigation: [],
         branding: {},

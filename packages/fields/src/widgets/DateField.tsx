@@ -22,13 +22,13 @@ export function DateField({ value, onChange, field, readonly, error, ...props }:
   if (readonly) {
     // The readonly face is `formatDate`'s DEFAULT style — the one home for the
     // `date` display convention (objectui#8194, following the maintainer's
-    // ruling A on objectui#7620). It used to call `toLocaleDateString(locale)`
+    // ruling A behind `c15d7eca6`). It used to call `toLocaleDateString(locale)`
     // with NO options bag, i.e. `Intl`'s numeric default (`7/4/2026`), so it
     // never implemented the deliberate year-dropping decision `formatDate`
     // documents — and this widget's readonly face is what `FieldEditWidget`
     // renders in the grid / detail inline editors, right beside
     // `DateCellRenderer`'s `Jul 4`. Two faces for one value, picked by which
-    // path the surface happened to take: #7620's fact pattern verbatim.
+    // path the surface happened to take: `c15d7eca6`'s fact pattern verbatim.
     // A field that genuinely wants the year on every row is an explicit
     // `format` style honoured by both paths, never a second option bag.
     //

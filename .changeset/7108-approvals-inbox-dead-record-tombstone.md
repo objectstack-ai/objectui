@@ -3,7 +3,7 @@
 ---
 
 Approvals inbox: a record that was deleted now renders a "record deleted"
-tombstone instead of degrading to the bare record id (objectui#7108).
+tombstone instead of degrading to the bare record id.
 
 When an approval's underlying record is deleted, the platform voids the
 still-pending requests and stamps the cause on the row (`status: 'cancelled'`

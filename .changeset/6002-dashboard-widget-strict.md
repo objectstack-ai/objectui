@@ -13,7 +13,7 @@ verdict ACCEPT — the same "dropped without a word" failure the schema's own
 docstring records from the pre-derivation hand copy, still live for every key
 no contract declares (objectui#6002). Maintainer ruling 2026-08-25, Route 1
 two-step: objectui#6150 declared the 13 genuinely-consumed keys first (landed
-as PR #6945), then this flip makes a stale or mistyped key loud everywhere the
+as `2c45966ff`), then this flip makes a stale or mistyped key loud everywhere the
 contract is consulted (`objectui validate`, `safeValidateSchema`, the catalog
 gate) instead of only inside one catalog test.
 

@@ -52,8 +52,7 @@ interface SemanticSchema {
   type: 'header' | 'nav' | 'main' | 'aside' | 'section' | 'article' | 'footer';
   
   // Content
-  children?: SchemaNode | SchemaNode[];  // Child components
-  body?: SchemaNode[];                    // Alternative content prop
+  children?: SchemaNode | SchemaNode[];  // Child components — the only child-list key
   
   // Styling
   className?: string;                     // Tailwind CSS classes
@@ -64,6 +63,8 @@ interface SemanticSchema {
   testId?: string;
 }
 ```
+
+`children` is the one child-list key: the renderer takes its child list from `schema.children` only. The `body` spelling was retired by objectui#6771 — schema validation refuses it with a pointer to `children`, and a `body` list renders nothing.
 
 ## Examples
 

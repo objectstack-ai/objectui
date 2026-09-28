@@ -205,8 +205,8 @@ export interface PermissionContext {
 //
 // Removed outright rather than kept as a `?: never` carcass, on this
 // package's retire-vs-remove discriminator — cited, not restated: the rule is
-// stated on `ChatbotSchema` in `complex.ts`, in the form objectui#7678 amended
-// it to (precedent changesets objectui#5941 / #7526). `PermissionGuardConfig`
+// stated on `ChatbotSchema` in `complex.ts`, in its amended form, `5f8190c8c`
+// (precedent changesets objectui#5941 / #7526). `PermissionGuardConfig`
 // is a whole exported type name, so there is no surviving carrier to hang a
 // `never` key on and that precondition settles the route by itself. Nor is
 // there a silent-strip hazard to guard: this module has never had a `zod/`

@@ -76,9 +76,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import React from 'react';
+import ts from 'typescript';
 import { render } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
-import { ComponentPropsMap } from '@objectstack/spec/ui';
+import { ComponentPropsMap, ObjectListViewSchema as SpecObjectListViewSchema } from '@objectstack/spec/ui';
 import type { NamedListView, ObjectViewSchema, ViewType } from '@object-ui/types';
 
 import {
@@ -211,6 +212,133 @@ describe('the forwarded key set equals the documented exemption (objectui#5097)'
     // host surface, it just stopped being author-reachable.
     expect(castReadsIn(SOURCE.replace(regionSlice(), ''))).not.toContain('conditionalFormatting');
     expect(castReadsIn(regionSlice())).toContain('conditionalFormatting');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 1b. The same fence, read for its NAMED-VIEW rungs (objectui#10758).
+// ---------------------------------------------------------------------------
+//
+// Section 1 reads the fence for what it takes off the NODE. The fence also
+// reads the active NAMED view (`currentNamedViewConfig`, a `listViews` entry —
+// the protocol's strict `ObjectListViewSchema` since objectui#7928), and
+// objectui#10758 (bucket ① of the objectui#7924 ruling) made it read every
+// protocol member it relays from there first. What is pinned here:
+//
+//   - the named-view read set inside the fence, BY NAME, so a rung that stops
+//     reading the named view fails by its name;
+//   - the PROPERTY behind it: every rung the `list-view` literal writes for a
+//     member the protocol declares on a named view reads the named view, and
+//     the three that do not are named with their reason — so a future rung
+//     for a protocol member that skips the named view fails here;
+//   - its converse: no rung reads a key off the named view that the protocol
+//     does not declare there (⛔ no non-protocol key, ⛔ no alias).
+//
+// The literal is walked with the TypeScript parser, over the fence slice only.
+
+/** Top-level rungs of the `list-view` literal handed to `renderListView`: name → does its value read the named view. */
+const namedViewRungs = (): Record<string, boolean> => {
+  const sf = ts.createSourceFile('fence.tsx', regionSlice(), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let literal: ts.ObjectLiteralExpression | undefined;
+  const find = (n: ts.Node): void => {
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === 'renderListView') {
+      const arg = n.arguments[0];
+      if (arg && ts.isObjectLiteralExpression(arg)) {
+        for (const p of arg.properties) {
+          if (ts.isPropertyAssignment(p) && ts.isIdentifier(p.name) && p.name.text === 'schema'
+            && ts.isObjectLiteralExpression(p.initializer)) literal = p.initializer;
+        }
+      }
+    }
+    ts.forEachChild(n, find);
+  };
+  find(sf);
+  expect(literal, 'the fence no longer hands `renderListView` a `schema: { … }` object literal').toBeDefined();
+  const out: Record<string, boolean> = {};
+  for (const p of literal!.properties) {
+    if (!ts.isPropertyAssignment(p) || !ts.isIdentifier(p.name)) continue;
+    let reads = false;
+    const walk = (n: ts.Node): void => {
+      if (ts.isIdentifier(n) && n.text === 'currentNamedViewConfig') reads = true;
+      ts.forEachChild(n, walk);
+    };
+    walk(p.initializer);
+    out[p.name.text] = reads;
+  }
+  return out;
+};
+
+/** Every `currentNamedViewConfig?.KEY` read in a slice of CODE, distinct, sorted. */
+const namedViewReadsIn = (slice: string): string[] =>
+  [...new Set([...stripComments(slice).matchAll(/currentNamedViewConfig\?\.([A-Za-z_$][\w$]*)/g)].map((m) => m[1]))].sort();
+
+/**
+ * The named-view reads inside the fence — the pinned READING. The first eight
+ * were there before objectui#10758 (objectui#8980 and earlier); the rest are
+ * bucket ①.
+ */
+const FENCE_NAMED_VIEW_READS = [
+  'addRecord', 'allowPrinting', 'appearance', 'aria', 'bulkActionDefs', 'bulkActions', 'columns',
+  'compactToolbar', 'conditionalFormatting', 'data', 'description', 'emptyState', 'exportOptions',
+  'fieldOrder', 'filterableFields', 'grouping', 'hiddenFields', 'inlineEdit', 'label', 'navigation',
+  'pagination', 'resizable', 'rowActions', 'rowColor', 'rowHeight', 'searchableFields', 'selection',
+  'sharing', 'showRecordCount', 'userActions', 'userFilters',
+];
+
+/**
+ * The rungs for a protocol member that do NOT read the named view, each for a
+ * stated reason: `type` is the node's identity (`'list-view'`), not the view's
+ * kind; `filter` / `sort` take the named view's segment UPSTREAM, in
+ * `authoredFilters` / `mergedSort`, before the fence.
+ */
+const PROTOCOL_RUNGS_READ_UPSTREAM = ['filter', 'sort', 'type'];
+
+describe('the fence reads the named view first for every protocol member it relays (objectui#10758)', () => {
+  const protocol = Object.keys(SpecObjectListViewSchema.shape);
+
+  it('the named-view reads inside the fence are exactly the pinned set — by name', () => {
+    expect(namedViewReadsIn(regionSlice())).toEqual(FENCE_NAMED_VIEW_READS);
+  });
+
+  it('every rung for a protocol member reads the named view, except the three read upstream', () => {
+    const rungs = namedViewRungs();
+    const protocolRungs = Object.keys(rungs).filter((k) => protocol.includes(k)).sort();
+    const skipping = protocolRungs.filter((k) => !rungs[k]);
+    expect(
+      skipping,
+      'A rung in the `list-view` literal relays a member the protocol declares on a named view, and does\n'
+        + 'not read the named view. objectui#10758 made the named view the first source for every such\n'
+        + 'member (`currentNamedViewConfig?.KEY`, then the host `views` entry, then the node only where the\n'
+        + 'rung already had one). Add the named-view read; ⛔ do not add a `(schema as any)` read.',
+    ).toEqual(PROTOCOL_RUNGS_READ_UPSTREAM);
+    // The upstream three really are upstream reads of the named view.
+    const code = stripComments(SOURCE);
+    expect(code).toMatch(/const mergedSort = currentNamedViewConfig\?\.sort/);
+    expect(code).toMatch(/view: currentNamedViewConfig\?\.filter \|\|/);
+    expect(stripComments(regionSlice())).toMatch(/filter: mergedFilters,/);
+    expect(stripComments(regionSlice())).toMatch(/sort: mergedSort,/);
+  });
+
+  it('no rung reads a key off the named view that the protocol does not declare there — no alias, no local key', () => {
+    const offProtocol = namedViewReadsIn(regionSlice()).filter((k) => !protocol.includes(k));
+    expect(offProtocol).toEqual([]);
+    // Control on the same instrument: the fence DOES relay non-protocol keys —
+    // off the host entry and the node only (`allowExport` is objectui's own,
+    // ruled on objectui#7924) — so "none off the named view" is a reading.
+    const rungs = namedViewRungs();
+    expect(rungs).toHaveProperty('allowExport', false);
+    expect(protocol).not.toContain('allowExport');
+  });
+
+  it('the named-view rungs added no cast read — the objectui#5097 exemption count is untouched', () => {
+    // Section 1 already pins the cast set by name; this names the link: the
+    // three rungs objectui#10758 ADDED are view-sourced only.
+    const cast = castReadsIn(regionSlice());
+    for (const k of ['description', 'exportOptions', 'bulkActionDefs', 'rowHeight']) {
+      expect(cast, `\`${k}\` is now read off the node through a cast`).not.toContain(k);
+      expect(namedViewReadsIn(regionSlice())).toContain(k);
+    }
+    expect(cast).toHaveLength(OBJECT_VIEW_HOST_COMPOSITION_KEYS.length + OBJECT_VIEW_DECLARED_FORWARDED_KEYS.length);
   });
 });
 

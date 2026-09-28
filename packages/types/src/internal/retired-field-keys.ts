@@ -146,7 +146,7 @@ export const RETIRED_FIELD_KEY_TOMBSTONES = [
      * ever true where a READ DOOR had already lifted the target out of the
      * stored document — `fromDesignerField` re-emitting the designer's target
      * under `reference`. The two sites with no read door in front of them
-     * (`metadataFieldsPageCarryOver`'s objectui#8060 preserved branch, which
+     * (`metadataFieldsPageCarryOver`'s `7dc31bb8d` preserved branch, which
      * re-emits a stored document verbatim, and `metadataAdminFieldsReadDoor`,
      * which IS the read) deleted the only copy of the target, and
      * objectui#7714's guard then refused the whole object's save from a page
@@ -161,7 +161,7 @@ export const RETIRED_FIELD_KEY_TOMBSTONES = [
      * how this entry went wrong the first time:
      *
      *   - `metadataFieldsPageCarryOver` — nothing is lost. Its designable branch
-     *     reads through `storedRelationshipTarget` (objectui#8058) and its
+     *     reads through `storedRelationshipTarget` (`3f4b45886`) and its
      *     preserved branch through `carryPreservedField` (objectui#8896); both
      *     re-emit under `reference`.
      *   - `metadataAdminFieldsReadDoor` — nothing is lost. The door keeps the

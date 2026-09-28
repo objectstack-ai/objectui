@@ -240,3 +240,42 @@ export function retiredNodeType(type: string, guidance: string) {
     })
     .describe(text);
 }
+
+/**
+ * The guidance for a node whose renderer reads NEITHER content channel
+ * (objectui#9256, family D; the E3 residual moved there by the maintainer's
+ * ruling on objectui#8284, Q2 A). Feed the ONE string to both members, each a
+ * {@link retirementTombstone}:
+ *
+ * ```ts
+ * const OBJECT_GRID_NEITHER_CHANNEL = neitherContentChannelGuidance('object-grid', route, renders);
+ * BaseSchema.extend({
+ *   …,
+ *   body: retirementTombstone(OBJECT_GRID_NEITHER_CHANNEL),
+ *   children: retirementTombstone(OBJECT_GRID_NEITHER_CHANNEL),
+ * })
+ * ```
+ *
+ * Each key stays a MEMBER, so the parity ratchet's key sets stay equal against
+ * the TypeScript twin's `?: never` pair, and the refusal is BY NAME at the key's
+ * own path with code `invalid_type`. It returns a string rather than the two
+ * members to spread, on purpose: a computed spread is a shape
+ * `scripts/check-handler-key-read-sites.mjs` cannot follow, and that gate stops
+ * judging an arm whose member set it cannot resolve.
+ *
+ * Why `body` is restated although `BaseSchema` already refuses it
+ * (objectui#6771): that refusal names `children` as the remedy, and on these
+ * nodes `children` is dead too. The string names what the node renders instead.
+ *
+ * @param node    the registered `type`, spelled into the message
+ * @param route   how the node reaches the component that reads it, so the
+ *                reader can re-derive the measurement
+ * @param renders what the node renders instead of a child list
+ */
+export function neitherContentChannelGuidance(node: string, route: string, renders: string): string {
+  return 'REFUSED (objectui#9256, ADR-0049) — `' + node + '` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package on a BUILT tree, no renderer read '
+    + 'consumes `body` or `children` for this node — ' + route + ' — and `SchemaRenderer` strips both out '
+    + 'of the props bag it spreads. An authored value therefore rendered NOTHING — no error, no warning, '
+    + 'no element. What it renders instead: ' + renders + '.';
+}

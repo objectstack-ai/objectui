@@ -53,7 +53,7 @@ No stored-metadata survey, export or migration rewrite was run (the maintainer
 ruled the stored population out of scope, 「不考虑存量」); the Phase-1 warning
 period was the notice.
 
-Release note: Phase 1 (PR #5737 — the canon statement plus the warning) shipped
+Release note: Phase 1 (`d1ab06f0f` — the canon statement plus the warning) shipped
 in `@object-ui/core@17.6.0` (npm, 2026-08-24) although its changeset
 `.changeset/row-predicate-record-canon-5330.md` is still pending on `main`, so
 the next CHANGELOG section lists Phase 1 and this Phase 2 together: the warning

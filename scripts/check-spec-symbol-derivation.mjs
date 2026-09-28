@@ -608,11 +608,12 @@ const ALLOW = {
       "Precise upstream, still not bindable — guard header case 2c. objectstack#4171 landed and " +
       "the spec's NavigationItem is neither `any` nor `unknown` any more, so `no longer any` is " +
       "settled and is NOT a licence to bind. The spec models navigation as a nine-variant " +
-      "discriminated union; objectui keeps one flat shape carrying `visible: boolean` (the spec " +
+      "discriminated union; objectui keeps a flat entry shape carrying `visible: boolean` (the spec " +
       "takes a CEL string / Expression envelope, and `menuItemToNavigationItem` MANUFACTURES a " +
       "boolean when it inverts legacy `MenuItem.hidden`), plus `pinned` (`useNavPins` + " +
-      "`FavoritesProvider`) and `defaultOpen`, neither of which the spec declares at either tier, " +
-      "plus a separator carrying `label`. Each blocker is pinned one-per-line in " +
+      "`FavoritesProvider`) and `defaultOpen`, neither of which the spec declares at either tier. " +
+      "Its separator arm agrees with the spec's since objectui#10867, which removed the " +
+      "separator `label`. Each remaining blocker is pinned one-per-line in " +
       "packages/types/src/__tests__/spec-derived-unions.test.ts, written to stop compiling the day " +
       "that specific blocker lifts. What IS derivable is already derived (`NavigationItemType` and " +
       "the per-branch keys come off the spec).",
@@ -626,10 +627,11 @@ const ALLOW = {
       "reason (`the spec's is z.ZodType<any> and would validate nothing`) is spent. The live " +
       "blocker is RUNTIME shape, invisible to every type-level probe: this schema has a published " +
       "consumer in `objectui validate`, and referencing the spec's would make it REJECT metadata " +
-      "objectui accepts today — `pinned`, `defaultOpen` and a separator `label` all fail " +
+      "objectui accepts today — `pinned` and `defaultOpen` fail " +
       "`unrecognized_keys` against the spec's `.strict()` branches, `visible: boolean` fails " +
-      "`invalid_union`, and a one-character `id` fails `too_small`. All five are pinned, behind two " +
-      "positive controls, in packages/types/src/__tests__/navigation-spec-parity.test.ts. " +
+      "`invalid_union`, and a one-character `id` fails `too_small`. All four are pinned, behind two " +
+      "positive controls, in packages/types/src/__tests__/navigation-spec-parity.test.ts; a separator " +
+      "`label` was a fifth until objectui#10867 made this mirror refuse it too. " +
       "Converging on the union is a breaking change tracked separately.",
     issue: 4115,
   },

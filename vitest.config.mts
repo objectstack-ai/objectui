@@ -42,7 +42,7 @@ const __dirname = path.dirname(__filename);
 // (`process.env.TZ`, `getTimezoneOffset`, `resolvedOptions().timeZone` — zero
 // hits across every `*.test.ts`/`*.test.tsx`), and the one zone-aware surface
 // that exists takes its zone from METADATA, explicitly
-// (`GanttView.tsx`'s `tzOffsetMs(schema.timeZone, …)`). Non-UTC coverage, if
+// (`tzShift.ts`'s `tzOffsetMs(schema.timeZone, …)`, behind `GanttView.tsx`). Non-UTC coverage, if
 // it is ever wanted, wants an explicit per-case zone — never the runner's
 // ambient one, which is the thing that made this silent.
 //

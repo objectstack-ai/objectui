@@ -109,16 +109,16 @@ export {
 export { HOME_LAUNCHER_PATH, resolveDeclaredHomePath } from './utils/index.js';
 export type { DeclaredHomeApp } from './utils/index.js';
 
-// objectui#7980 — ONE read of the ADR-0112 failure envelope, published so a
+// `a810bb2ae` — ONE read of the ADR-0112 failure envelope, published so a
 // consumer OUTSIDE this package inherits the pinned rule instead of writing a
 // fourth reading of the same body. `apps/console`'s agent-key generator read
 // `error.message` and stopped, so a producer-marked `error.userMessage` (the
 // #9934 channel, which rides through the 5xx prose withhold untouched) and the
 // declared `error.code` never reached the developer.
 //
-// objectui#7959 left this off the public entry as SCOPE RESTRAINT — that card's
-// file surface was `packages/app-shell/**` — not as a ruling that the function
-// should stay private; see objectui#7980 comment 5583988475. Exported from its
+// The card behind `36fc74629` left this off the public entry as SCOPE RESTRAINT —
+// that card's file surface was `packages/app-shell/**` — not as a ruling that the
+// function should stay private, as the card behind `a810bb2ae` records. Exported from its
 // own module rather than through `./utils/index.js`: the rule and its docblock
 // are the contract, and `apiErrorEnvelope.ts` imports nothing, so this adds no
 // module side effect and no transitive surface. The return type is `string |

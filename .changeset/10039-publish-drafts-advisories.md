@@ -21,7 +21,7 @@ What moves with the route, at all three:
 - A non-2xx raises `MetadataError` inside the client instead of being read off
   `res.ok`. The message is still the server's own, and the ADR-0112
   producer-marked `error.userMessage` now outranks the diagnostic `error.message`
-  where the refusal carries one — the rule objectui#7959 landed on `PackagesPage`,
+  where the refusal carries one — the rule `36fc74629` landed on `PackagesPage`,
   reaching these surfaces by the same seam rather than by a fourth copy.
   `StudioDesignSurface` keeps its field-anchored issue rendering: the client
   already carries `error.details.issues` on `MetadataError.issues`, which is what

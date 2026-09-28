@@ -23,8 +23,9 @@ import { fileURLToPath } from 'node:url';
  * primitive's selected date, which the renderer now coerces through the same
  * shared step. objectui#10844, the family's closure card, added the dashboard
  * filter's custom range bounds, the `date-picker` renderer's value and the
- * report cell's date face; a later date-only read site registers here the
- * same way.
+ * report cell's date face. objectui#10866, its successor, added the calendar
+ * and the gantt, whose pins also hold the written payload of a `date` field;
+ * a later date-only read site registers here the same way.
  *
  * ## Why a driver, and why the forks pool
  *
@@ -74,6 +75,14 @@ const PINS = [
   'packages/plugin-dashboard/src/__tests__/DashboardFilterBar.dateOnlyZone-10844.test.tsx',
   'packages/components/src/renderers/form/__tests__/date-picker.dateValueZone-10844.test.tsx',
   'packages/plugin-report/src/__tests__/formatValue.dateOnlyZone-10844.test.ts',
+  // objectui#10866, the family's successor closure card, slice 1: the
+  // calendar's and the gantt's reads, each with the write of a `date` field
+  // pinned beside it, and the gantt's working-calendar day math.
+  'packages/plugin-calendar/src/__tests__/ObjectCalendar.dateOnlyZone-10866.test.tsx',
+  'packages/plugin-calendar/src/__tests__/calendarViewRenderer.dateOnlyZone-10866.test.tsx',
+  'packages/plugin-gantt/src/__tests__/ObjectGantt.dateOnlyZone-10866.test.tsx',
+  'packages/plugin-gantt/src/__tests__/GanttView.dateOnlyZone-10866.test.tsx',
+  'packages/plugin-gantt/src/__tests__/scheduling.dateOnlyZone-10866.test.ts',
 ] as const;
 
 /** The vitest CLI entry, resolved rather than assumed at a `node_modules` path. */

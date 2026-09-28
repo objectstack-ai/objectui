@@ -1341,7 +1341,7 @@ export interface DataTableSchema extends BaseSchema {
    * Handler invoked when one of {@link rowActionDefs} is chosen from the row
    * overflow menu.
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `75fca9669`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is called by `renderers/complex/data-table.tsx`
@@ -1444,7 +1444,7 @@ export interface DataTableSchema extends BaseSchema {
    * Cell value change handler
    * Called when a cell value is edited
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `75fca9669`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is called by `renderers/complex/data-table.tsx`
@@ -1457,7 +1457,7 @@ export interface DataTableSchema extends BaseSchema {
    * Row save handler
    * Called when saving changes for a single row
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `75fca9669`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is called by `renderers/complex/data-table.tsx`
@@ -1471,7 +1471,7 @@ export interface DataTableSchema extends BaseSchema {
    * Batch save handler
    * Called when saving changes for multiple rows
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `75fca9669`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is called by `renderers/complex/data-table.tsx`
@@ -1484,7 +1484,7 @@ export interface DataTableSchema extends BaseSchema {
    * Row click handler
    * Called when a row is clicked
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `75fca9669`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is called by `renderers/complex/data-table.tsx`
@@ -1577,7 +1577,7 @@ export interface DataTableSchema extends BaseSchema {
   /**
    * Callback when the "+ Add record" row is clicked
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `75fca9669`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is called by `renderers/complex/data-table.tsx`
@@ -1591,7 +1591,7 @@ export interface DataTableSchema extends BaseSchema {
    * Column resize handler
    * Called when a column is resized
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `75fca9669`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is called by `renderers/complex/data-table.tsx`
@@ -1891,7 +1891,7 @@ export interface TreeViewSchema extends BaseSchema {
    * {@link TreeNode}. The handler's return value is discarded.
    *
    * ⚠️ THE MIRROR NOW DECLARES IT — as a NAMED REFUSAL, not as a shape
-   * (objectui#7804, the `TreeViewSchema` slice; `handlerKeyRefusal(…,
+   * (`604476d97`, the `TreeViewSchema` slice; `handlerKeyRefusal(…,
    * 'runtime-slot', …)` in `../zod/data-display.zod.ts`). ⛔ This paragraph
    * used to say the key was "NOT mirrored, deliberately", citing
    * objectui#6152's ruling that a runtime slot never gets a mirror. That
@@ -2085,7 +2085,7 @@ export interface ChartDataSeries {
    * fixtures and designer inputs: 0, controls lit). It is NOT a member here,
    * so the published face does not fossilise a renderer-side tolerance into a
    * second contract (AGENTS.md #0.1); the normalizer's own tolerance is
-   * objectui#7682's decision and is unchanged by this. Any other value is
+   * a separate card's decision and is unchanged by this. Any other value is
    * dropped in silence by the normalizer, so the mirror refuses it by name
    * instead (objectui#7546).
    */
@@ -2149,7 +2149,7 @@ export interface ChartDataSeries {
   /**
    * NOT A KEY OF THIS SERIES — a named ALIAS REFUSAL pointing at {@link type}
    * (objectui#7694; `domain:ui` PM ruling on objectui#7546 and the contract
-   * review of PR #7684: option A, the posture `@objectstack/spec` takes).
+   * review of `8fe8e5c16`'s pull request: option A, the posture `@objectstack/spec` takes).
    *
    * `chartType` is the renderer's INTERNAL spelling of the declared `type`: the
    * first limb of `normalizeSeries`' `str(raw.chartType) ?? str(raw.type)`

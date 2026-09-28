@@ -111,6 +111,38 @@ describe('createAuthClient', () => {
     expect(result.requiresVerification).toBe(true);
   });
 
+  // objectui#10893 — the verification mail's link is built server-side from
+  // the sign-up body's `callbackURL`; a body without one mails `callbackURL=/`
+  // and the invitee lands on the workspace picker instead of the invitation.
+  it('signUp sends the verification callbackURL in the /sign-up/email body (objectui#10893)', async () => {
+    const { mockFn, calls } = createMockFetch({
+      '/sign-up/email': { body: { user: { id: '4', name: 'Invitee', email: 'invitee@test.com' }, token: null } },
+    });
+    const client = createAuthClient({ baseURL: 'http://localhost/api/auth', fetchFn: mockFn });
+
+    await client.signUp({
+      name: 'Invitee',
+      email: 'invitee@test.com',
+      password: 'pass12345',
+      callbackURL: '/_console/accept-invitation/inv_1',
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toContain('/api/auth/sign-up/email');
+    expect(JSON.parse(calls[0].body!).callbackURL).toBe('/_console/accept-invitation/inv_1');
+  });
+
+  it('signUp without a callbackURL leaves the key off the wire, so the server default applies (objectui#10893)', async () => {
+    const { mockFn, calls } = createMockFetch({
+      '/sign-up/email': { body: { user: { id: '5', name: 'Plain', email: 'plain@test.com' }, token: null } },
+    });
+    const client = createAuthClient({ baseURL: 'http://localhost/api/auth', fetchFn: mockFn });
+
+    await client.signUp({ name: 'Plain', email: 'plain@test.com', password: 'pass12345' });
+
+    expect(Object.keys(JSON.parse(calls[0].body!))).not.toContain('callbackURL');
+  });
+
   it('signOut sends POST to /sign-out', async () => {
     const { mockFn, calls } = createMockFetch({
       '/sign-out': { body: { success: true } },

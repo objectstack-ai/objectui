@@ -185,7 +185,7 @@ function RichTextEditorSurface({
 
 /**
  * THE discriminator for the three registry keys this ONE widget serves —
- * `markdown`, `html` and `richtext` (objectui#5498).
+ * `markdown`, `html` and `richtext` (`4bb940b6e`).
  *
  * It is `field.type`, and establishing that was the load-bearing half of the
  * card, because the obvious candidate is wrong in a way that fails silently:
@@ -243,7 +243,7 @@ function resolveRichTextFieldType(field: unknown): string {
  * from the shared `FullscreenFieldEditor`, so one form-level setting keeps
  * producing one behaviour across both widgets.
  *
- * ## Readonly display (objectui#5498)
+ * ## Readonly display (`4bb940b6e`)
  *
  * The readonly early return used to render `{value}` as a React TEXT CHILD,
  * so a readonly field of any of the three types showed the user the markup
@@ -283,7 +283,7 @@ export function RichTextField({ value, onChange, field, readonly, error, ...prop
   const { t } = useObjectTranslation();
   // Resolved BEFORE anything branches on it, and once — the readonly display
   // and the editor's format header are two readings of the same fact, which is
-  // how they stopped being able to disagree (objectui#5498).
+  // how they stopped being able to disagree (`4bb940b6e`).
   const fieldType = resolveRichTextFieldType(field);
   const syntax = richTextSyntax(fieldType);
 

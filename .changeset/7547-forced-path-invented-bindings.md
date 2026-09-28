@@ -15,7 +15,7 @@ whitelisted it**, with nothing behind the toggle. `galleryViewOptions` now
 forwards the view's own declared block (both legacy cover spellings still
 cross-fill each other, and `titleField` keeps its `'name'` display floor) and
 emits no cover key when the view declared none. Same class and same route as
-objectui#7029 (calendar) and objectui#7070 (gantt dates).
+objectui#7029 (calendar) and `5f4514f7b` (gantt dates).
 
 ⚠️ A view that whitelisted `gallery` without a `gallery:` block loses the Gallery
 toggle. That is the ADR-0047 rule working: it was only ever offered because this

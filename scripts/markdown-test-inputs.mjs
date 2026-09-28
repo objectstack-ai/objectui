@@ -498,6 +498,15 @@ export const ADJUDICATED = new Map([
     'packages/types/src/__tests__/schema-reference-named-list-view-keys-7923.test.ts',
     { reads: ['content/docs/api/schema-reference.md'] },
   ],
+  // objectui#10824. Extracts `@object-ui/plugin-timeline`'s README "Schema-Driven
+  // Usage" block and runs it through `safeValidateSchema` and the strict
+  // authoring face -- so an edit to that README IS an edit to this test's input,
+  // and a README-only pull request has to run the shard. It lives in this
+  // package because plugin-timeline's test config names no `node` types.
+  [
+    'packages/types/src/__tests__/timeline-readme-schema-example-10824.test.ts',
+    { reads: ['packages/plugin-timeline/README.md'] },
+  ],
   // objectui#9522. Reads the zod README's own `typescript` fences and runs each
   // worked example through the schema that fence names -- so an edit to that page
   // IS an edit to this test's input, and a README-only pull request has to run

@@ -35,6 +35,7 @@ import { CalendarIcon, RotateCcw } from 'lucide-react';
 import { useSafeTranslate, useObjectTranslation, useSafeFieldLabel, pickLocalized } from '@object-ui/i18n';
 import {
   DATE_RANGE_PRESETS,
+  toDisplayDate,
   type DashboardFilterDef,
   type DateRangeValue,
 } from '@object-ui/core';
@@ -130,6 +131,19 @@ function DateRangeFilter({ def, value, onChange }: { def: DashboardFilterDef; va
   const presetLabel = (p: string) => tt(`dashboard.filters.range.${p}`, p.replace(/_/g, ' '));
 
   const selectValue = value?.preset ?? (value?.from || value?.to ? CUSTOM_VALUE : ALL_VALUE);
+  // The stored bounds are date-only (`toIsoDate` below writes the LOCAL day),
+  // so they are read back through the shared parse step, which rebuilds a
+  // date-only string at local midnight of the day it names. The engine's own
+  // parse read it as UTC midnight, and west of UTC the calendar highlighted
+  // and opened on the day before the one stored (objectui#10844, the
+  // objectui#10183 convention).
+  const rangeFrom = value?.from && !value.from.startsWith('{') ? toDisplayDate(value.from) : undefined;
+  const rangeTo = value?.to && !value.to.startsWith('{') ? toDisplayDate(value.to) : undefined;
+  // The range calendar opens on the month of its first day, and on today's
+  // with none (objectui#10799): react-day-picker's `selected` does not move the
+  // month it opens on. A `from` that names no instant is no first day:
+  // react-day-picker throws on an invalid `defaultMonth`.
+  const openingMonth = rangeFrom && !Number.isNaN(rangeFrom.getTime()) ? rangeFrom : undefined;
 
   return (
     <div className="flex items-center gap-1" data-testid={`dashboard-filter-${def.name}`}>
@@ -167,10 +181,8 @@ function DateRangeFilter({ def, value, onChange }: { def: DashboardFilterDef; va
             <Calendar
               mode="range"
               numberOfMonths={2}
-              selected={{
-                from: value?.from && !value.from.startsWith('{') ? new Date(value.from) : undefined,
-                to: value?.to && !value.to.startsWith('{') ? new Date(value.to) : undefined,
-              }}
+              defaultMonth={openingMonth}
+              selected={{ from: rangeFrom, to: rangeTo }}
               onSelect={(range: any) => {
                 if (!range?.from && !range?.to) { onChange(undefined); return; }
                 onChange({

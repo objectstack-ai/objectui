@@ -30,7 +30,7 @@ import {
   objectNavTargetExclusivity,
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
-import { retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import type { AppMenuItem } from '../app.js';
 import { stripImportedDefaults } from './imported-defaults.js';
 
@@ -398,8 +398,33 @@ export const AppComponentSchema = BaseSchema.extend(SpecAppFields.shape).extend(
   name: z.string().optional().describe('Application name (system ID)'),
   title: z.string().optional().describe('Display title'),
   description: z.string().optional().describe('Application description'),
-  logo: z.string().optional().describe('Logo URL or icon name'),
-  favicon: z.string().optional().describe('Favicon URL'),
+  // The app logo has ONE spelling, `branding.logo` (objectui#10827). A
+  // top-level `logo` was an objectui-only second one: `@objectstack/spec`'s
+  // `AppSchema` never declared it and its alias table answers it with "did you
+  // mean `branding`?". Declared as a named refusal rather than deleted, because
+  // `BaseSchema` is `.passthrough()`: a deleted arm would KEEP the key in
+  // silence. The TS twin is `logo?: never` in `../app.ts`.
+  logo: aliasKeyRefusal(
+    'logo',
+    'branding',
+    'this app',
+    'The app logo is `branding.logo`, the URL `@objectstack/spec`\'s `AppBrandingSchema` declares '
+    + '(objectui#10827): write `branding: { logo: \'/logo.svg\' }`. The top-level `logo` was an '
+    + 'objectui-only second spelling that the platform never accepted, and the console\'s mounted '
+    + 'chrome reads only `branding.logo`. For an icon NAME, use `icon`.',
+  ),
+  // The favicon has ONE spelling too, `branding.favicon` (objectui#10842, the
+  // objectui#10827 rule). `@objectstack/spec`'s `AppSchema` refuses a top-level
+  // `favicon` (`unrecognized_keys`). A named refusal for the same
+  // `.passthrough()` reason as `logo`; the TS twin is `favicon?: never`.
+  favicon: aliasKeyRefusal(
+    'favicon',
+    'branding',
+    'this app',
+    'The app favicon is `branding.favicon`, the URL `@objectstack/spec`\'s `AppBrandingSchema` declares '
+    + '(objectui#10842): write `branding: { favicon: \'/favicon.ico\' }`. The top-level `favicon` was an '
+    + 'objectui-only second spelling that the platform refuses, and the console reads only `branding.favicon`.',
+  ),
   layout: z.enum(['sidebar', 'header', 'empty']).optional().describe('Global layout strategy'),
   menu: z.array(MenuItemSchema).optional().describe('Legacy navigation menu (deprecated, use navigation)'),
   navigation: z.array(NavigationItemSchema).optional().describe('Unified navigation tree'),

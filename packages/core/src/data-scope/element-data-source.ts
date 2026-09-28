@@ -576,7 +576,7 @@ export const ELEMENT_DATA_SOURCE_KEY = 'dataSource';
  * `'object'` kind because the value is a record; the two words are unrelated and
  * both are correct here.
  *
- * ## Typed as the framework's injected input (objectui#6950)
+ * ## Typed as the framework's injected input (`9e37d9b39`)
  *
  * `binding` is not a `ComponentInput` member. The maintainer ruling of
  * 2026-09-07 answered the card's product question — may an ordinary

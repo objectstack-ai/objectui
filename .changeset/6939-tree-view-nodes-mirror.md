@@ -3,8 +3,8 @@
 ---
 
 Repair the `tree-view` mirror: `data` is optional, so the `nodes` spelling the
-renderer reads FIRST is a legal document on its own (objectui#6939, maintainer
-ruling recorded 2026-09-02 — this is one of the eight groups on that card,
+renderer reads FIRST is a legal document on its own (maintainer ruling
+recorded 2026-09-02 — this is one of the eight groups under that ruling,
 dispatched as its own PR per the ruling).
 
 `TreeViewSchema` REQUIRED `data`, the limb the renderer reads THIRD:

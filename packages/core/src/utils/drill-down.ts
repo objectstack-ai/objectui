@@ -25,7 +25,7 @@
 import { parseFilterAST } from '@objectstack/spec/data';
 import type { DrillDownConfig } from '@object-ui/types';
 
-import { mergeFilterNodes } from './filter-converter.js';
+import { FilterOperatorError, mergeFilterNodes } from './filter-converter.js';
 
 /**
  * Generic click payload. Pivots provide row/col, charts provide
@@ -243,15 +243,39 @@ export function isDrillEnabled(config: DrillDownConfig | undefined): boolean {
  * the `INVALID_FILTER` / 400 envelope. Such a filter already fails the widget's
  * OWN query for the same reason, so the drill and the chart now agree instead of
  * the drill quietly sending something the chart could not.
+ *
+ * ## One refusal type out of this seam (objectui#10789)
+ *
+ * The seam has TWO refusing steps, and they used to throw two different
+ * things. `mergeFilterNodes` throws a {@link FilterOperatorError}. The spec's
+ * `parseFilterAST`, which judges comparand shapes the converter passes
+ * through, throws a plain `Error` that carries the same envelope as own
+ * properties: `code: 'INVALID_FILTER'` and `status: 400`. An array-dialect
+ * widget filter holds no rule objects, so the converter never judges it, and
+ * `[['stage', 'in', 'won']]` (a scalar on a list operator) is refused only
+ * there. So is the object spelling `{ stage: { $in: 'won' } }`.
+ *
+ * Every caller catches the refusal as a `FilterOperatorError`: the chart,
+ * pivot and dataset drills report it and open nothing (never a filter-less
+ * drill). So the spec's refusal is re-raised here AS one, with its message
+ * verbatim and the same `INVALID_FILTER` / 400 envelope, rather than taught to
+ * each caller as a second shape. Only an error whose `code` is
+ * `INVALID_FILTER` is re-raised; anything else from `parseFilterAST` is a
+ * defect rather than a statement about the author's filter, and passes
+ * through untouched.
  */
 export function composeDrillFilter(
   widgetFilter: unknown,
   drillFilter: Record<string, unknown> | undefined,
 ): Record<string, unknown> | undefined {
-  // `FilterCondition` is the spec's object-dialect filter; the drill sinks type
-  // the same value as `Record<string, unknown>`, and this is the one seam where
-  // the two names meet.
-  return parseFilterAST(mergeFilterNodes(widgetFilter, drillFilter)) as
-    | Record<string, unknown>
-    | undefined;
+  const merged = mergeFilterNodes(widgetFilter, drillFilter);
+  try {
+    // `FilterCondition` is the spec's object-dialect filter; the drill sinks
+    // type the same value as `Record<string, unknown>`, and this is the one
+    // seam where the two names meet.
+    return parseFilterAST(merged) as Record<string, unknown> | undefined;
+  } catch (error) {
+    if ((error as { code?: unknown } | null)?.code !== 'INVALID_FILTER') throw error;
+    throw new FilterOperatorError((error as Error).message);
+  }
 }

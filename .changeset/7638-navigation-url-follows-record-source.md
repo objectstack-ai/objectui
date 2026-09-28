@@ -9,8 +9,8 @@ A record-page URL now names the object the clicked rows actually came from, in
 
 `useNavigationOverlay` builds `/{objectName}/record/{id}` out of whatever it is handed,
 and both components handed it the bare top-level `schema.objectName` while resolving
-their own rows through the objectui#6939 record-source ladder (`data`, then
-`staticData`, then `objectName`). objectui#6939 published `objectName` as that ladder's
+their own rows through the ruled record-source ladder (`data`, then
+`staticData`, then `objectName`). `77cb489b4` published `objectName` as that ladder's
 THIRD RUNG and not as a parallel "page object" concept, so a block has exactly one
 record source — and a row fetched through `data.object` whose click built
 `/{schema.objectName}/record/{id}` named a record that the URL's own object does not

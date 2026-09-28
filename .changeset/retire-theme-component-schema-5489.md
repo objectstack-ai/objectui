@@ -3,7 +3,7 @@
 ---
 
 Retire `ThemeComponentSchema` (`type: 'theme'`) — a component kind no renderer
-implemented (objectui#5489).
+implemented.
 
 `packages/types/src/theme.ts` declared a theme-manager **component** carrying
 `themes[]`, `activeTheme`, `allowSwitching`, `persistPreference` and

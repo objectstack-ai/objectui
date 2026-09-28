@@ -70,7 +70,7 @@ export interface CelSchemaHint {
   roots?: string[];
   /**
    * The authored KEY this source is the value of — `visibleWhen`,
-   * `readonlyWhen`, `requiredWhen` (objectui#9318). Naming it lets the
+   * `readonlyWhen`, `requiredWhen` (`e3cb47624`). Naming it lets the
    * wrong-layer advisory take its verdict from `@objectstack/lint`'s published
    * `fieldRuleRootIssue`, which judges per SLOT, instead of from a second copy
    * of that judgement maintained here.
@@ -207,7 +207,7 @@ interface RowCanonModule {
 
 let rowCanonCached: Promise<RowCanonModule | null> | null = null;
 
-/** `@objectstack/lint`'s published per-slot verdict (objectui#9318). */
+/** `@objectstack/lint`'s published per-slot verdict (`e3cb47624`). */
 type FieldRuleRootIssue = (slot: string, source: string) => { root: string; message: string } | null;
 
 let fieldRuleVerdictCached: Promise<FieldRuleRootIssue | null> | null = null;
@@ -237,7 +237,7 @@ function loadFieldRuleVerdict(): Promise<FieldRuleRootIssue | null> {
 
 /**
  * The authored slots whose bound-root set IS the platform's field-rule set, so
- * `fieldRuleRootIssue`'s verdict answers THIS surface's question (objectui#9318).
+ * `fieldRuleRootIssue`'s verdict answers THIS surface's question (`e3cb47624`).
  *
  * ⚠️ This is a list of objectui's own surfaces, not a copy of the platform's
  * judgement — the judgement itself is read from `@objectstack/lint` at call
@@ -279,8 +279,8 @@ function loadFieldRuleVerdict(): Promise<FieldRuleRootIssue | null> {
  *
  * So those keep the local instrument. ⛔ Do not extend this list to "tidy up"
  * the branch below without re-measuring the surface's bound roots first —
- * narrowing a consumer to fit the API it adopted is the drift objectui#9318
- * exists to stop, and `celAuthoring.fieldRuleVerdict-9318.test.ts` pins both
+ * narrowing a consumer to fit the API it adopted is the drift `e3cb47624`
+ * set out to stop, and `celAuthoring.fieldRuleVerdict-9318.test.ts` pins both
  * uncovered surfaces as live controls against exactly that edit.
  */
 const FIELD_RULE_VERDICT_SLOTS: readonly string[] = ['visibleWhen', 'readonlyWhen', 'requiredWhen'];
@@ -374,7 +374,7 @@ function loadRowCanon(): Promise<RowCanonModule | null> {
  * `views/metadata-admin/predicate.ts` and never reaches this function — which is
  * why the gate below is `scope === 'record'` and not a source pattern.
  *
- * ## Where the VERDICT comes from since objectui#9318
+ * ## Where the VERDICT comes from since `e3cb47624`
  *
  * "Is this root bound on this surface?" is a judgement the platform publishes:
  * `@objectstack/lint` exports `fieldRuleRootIssue` / `FIELD_RULE_BOUND_ROOTS`,
@@ -535,7 +535,7 @@ export async function lintCelPredicate(
         /* advisory only — never let it break the lint */
       }
     }
-    // Wrong-layer root advisory (objectui#8972, verdict re-homed by objectui#9318)
+    // Wrong-layer root advisory (objectui#8972, verdict re-homed by `e3cb47624`)
     // — see `rowCanonAdvisory`. Only in `record` scope, only once the predicate
     // parses, only a WARNING.
     if (issues.every((i) => i.severity !== 'error') && hint.scope === 'record') {

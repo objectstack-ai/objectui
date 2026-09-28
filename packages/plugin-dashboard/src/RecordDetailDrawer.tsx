@@ -27,6 +27,7 @@ import {
   EmptyValue,
 } from '@object-ui/components';
 import { useSafeFieldLabel, useLocalization, useDisplayLocale } from '@object-ui/i18n';
+import { MaskedCellRenderer } from '@object-ui/fields';
 import {
   indexObjectFields,
   buildFieldMeta,
@@ -55,6 +56,14 @@ export interface RecordDetailDrawerProps {
   target?: 'drawer' | 'dialog';
   /** Called when the drawer requests to close. */
   onClose: () => void;
+  /**
+   * Are the object's field types still unknown (objectui#10657)? The owning
+   * table's reading: its definition is in flight, or its read failed. A value
+   * is drawn from its field type, so with none in hand every value here is
+   * drawn WITHHELD, as the mask — a `password` / `secret` field would
+   * otherwise be printed as text — exactly as the table's own cells are.
+   */
+  objectTypesPending?: boolean;
 }
 
 /** Candidate fields, in priority order, used to title the drawer. */
@@ -79,6 +88,7 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({
   title,
   target = 'drawer',
   onClose,
+  objectTypesPending = false,
 }) => {
   const { fieldLabel, fieldOptionLabel } = useSafeFieldLabel();
   const { currency: tenantCurrency } = useLocalization();
@@ -123,11 +133,15 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({
       return {
         key,
         label,
-        node: renderFieldValue(record[key], fieldMeta, tenantCurrency, displayLocale),
-        numeric: isNumericFieldMeta(fieldMeta),
+        // Withheld while the field types are unknown (objectui#10657): the
+        // mask, never the value, and so for good after a failed read.
+        node: objectTypesPending
+          ? <MaskedCellRenderer value={record[key]} />
+          : renderFieldValue(record[key], fieldMeta, tenantCurrency, displayLocale),
+        numeric: !objectTypesPending && isNumericFieldMeta(fieldMeta),
       };
     });
-  }, [record, objectSchema, objectName, fields, fieldLabel, fieldOptionLabel, tenantCurrency, displayLocale]);
+  }, [record, objectSchema, objectName, fields, fieldLabel, fieldOptionLabel, tenantCurrency, displayLocale, objectTypesPending]);
 
   if (!record) return null;
 

@@ -216,6 +216,12 @@ light-mode HSL triple and does not follow the light/dark toggle, whereas `--prim
 `--accent` carry the mode-adjusted value. Theme against the Shadcn tokens; treat the
 `--brand-*` names as an alias kept for whatever already consumes it.
 
+**The app's logo is not part of that object.** `AppShellBranding` carries theme values and the
+tab title only. An app's `branding.logo` (an image URL — the one logo spelling the app schema
+declares) is drawn by `UnifiedSidebar`, which already resolves the active app: a header at the top
+of the sidebar shows the image, with the app's label as its alt text. An app without a
+`branding.logo` gets no header, so its sidebar is unchanged.
+
 ## Development Mode
 
 There is **no bundled mock backend** — offline development is not a thing here. In dev exactly as

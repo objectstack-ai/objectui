@@ -82,7 +82,7 @@ export const TIMELINE_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // It became REACHABLE in the same change that retired the renderer's own
   // invented field name from the end of the resolver chain; before that a name
   // always resolved and this string could never have rendered. House posture
-  // (maintainer, 2026-09-01, objectui#7070): 日期轴永不虚构 — a date axis is
+  // (maintainer, 2026-09-01, 总监批 #28): 日期轴永不虚构 — a date axis is
   // never fabricated.
   //
   // `{{fields}}` is a hole rather than prose for the reason

@@ -62,7 +62,7 @@ This plugin automatically registers with ObjectUI's component registry when impo
 import '@object-ui/plugin-timeline';
 
 const schema = {
-  component: 'timeline',
+  type: 'timeline',
   variant: 'vertical',
   items: [
     {

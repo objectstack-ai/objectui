@@ -101,7 +101,7 @@ export type {
   SchemaNode,
   ComponentRendererProps,
   ComponentInput,
-  // The input the FRAMEWORK injects (`binding: 'object'`, objectui#6950) —
+  // The input the FRAMEWORK injects (`binding: 'object'`, `9e37d9b39`) —
   // `ComponentInput` plus the marker no registration may author.
   InjectedComponentInput,
   // The arm vocabulary of `ComponentInput.type`, exported because that field
@@ -255,6 +255,10 @@ export type {
   ObjectDataTableDrillDownConfig,
   TimelineEvent,
   TimelineScale,
+  TimelineItemVariant,
+  TimelineFeedItem,
+  TimelineGanttItem,
+  TimelineGanttItemBar,
   TimelineSchema,
   KbdSchema,
   HtmlSchema,
@@ -265,7 +269,7 @@ export type {
 } from './data-display.js';
 
 // The canonical `TableColumn.type` vocabulary and the producer-seam fold that
-// keeps undeclared inference values out of that slot (objectui#5853).
+// keeps undeclared inference values out of that slot (`fc62bb490`).
 export { TABLE_COLUMN_TYPES, normalizeTableColumnType } from './data-display.js';
 
 // ============================================================================
@@ -802,7 +806,7 @@ export type {
   // `ThemeDefinition` were DELETED under the same ruling's zero-reader rider
   // (the first three live on as inline members of `Theme`).
   Theme,
-  // `ThemeComponentSchema` RETIRED in objectui#5489 — the `type: 'theme'`
+  // `ThemeComponentSchema` RETIRED in `78cbdb530` — the `type: 'theme'`
   // component kind no renderer implemented. See `./theme` for the tombstone.
   ThemeMode,
   ColorPalette,
@@ -1068,17 +1072,6 @@ export type {
    * `major`).
    */
   ComponentMeta as PluginComponentMeta,
-  /**
-   * @deprecated Use `ComponentInput` instead. Since objectui#4972 converged the
-   * plugin-scoped declaration onto `base.ts`, this alias names the SAME type
-   * under a second name — it carries no information `ComponentInput` does not.
-   * Retiring it is objectui#5674 (maintainer ruling, 2026-08-22: deprecate for a
-   * release, then remove). This deprecation window exists for consumers outside
-   * this repository, which cannot be measured from here; in-repo the name has
-   * zero importers. Removal ships as a `minor` under this repo's version policy
-   * (objectui's own breaking changes never declare `major`).
-   */
-  ComponentInput as PluginComponentInput,
   PluginEventHandler,
 } from './plugin-scope.js';
 

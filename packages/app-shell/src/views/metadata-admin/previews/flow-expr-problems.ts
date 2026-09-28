@@ -34,7 +34,7 @@
  * flow scope.
  */
 
-import { fieldsForNodeType, getFieldValue } from '../inspectors/flow-node-config.js';
+import { fieldsForNodeType, getFieldValue, localizeFlowFields } from '../inspectors/flow-node-config.js';
 import { resolveFlowScope } from '../inspectors/flow-scope.js';
 import { scopeRoots, findUnknownRefs, describeUnknownRefs } from '../inspectors/flow-ref-check.js';
 import { validateExpressionClient } from '../inspectors/expression-validate.js';
@@ -57,9 +57,13 @@ function str(v: unknown): string | undefined {
   return typeof v === 'string' && v ? v : undefined;
 }
 
-/** Brace error (error) else unknown-ref (warning, when `roots` given) for one CEL value. */
+/**
+ * Brace error (error) else unknown-ref (warning, when `roots` given) for one CEL
+ * value — both in the designer `locale`, the words the inline cell shows for
+ * the same value (objectui#10804).
+ */
 function checkCel(value: unknown, roots: Set<string> | null, locale?: string): { level: DiagnosticLevel; message: string } | null {
-  const issue = validateExpressionClient('predicate', value);
+  const issue = validateExpressionClient('predicate', value, locale);
   if (issue) return { level: 'error', message: issue.message };
   if (roots && roots.size > 0) {
     const unknown = findUnknownRefs(value, 'predicate', roots);
@@ -71,12 +75,17 @@ function checkCel(value: unknown, roots: Set<string> | null, locale?: string): {
 /**
  * Brace error (error) else an undeclared screen-field root (warning) for one
  * screen field's `visibleWhen` — the declared screen scope, shared with the
- * Debug run's screen step (objectui#10743), never the flow scope.
+ * Debug run's screen step (objectui#10743), never the flow scope. Both read the
+ * designer `locale`, as the inline cell does (objectui#10804).
  */
-function checkScreenVisibleWhen(value: unknown, node: ScreenPreviewNode): { level: DiagnosticLevel; message: string } | null {
-  const issue = validateExpressionClient('predicate', value);
+function checkScreenVisibleWhen(
+  value: unknown,
+  node: ScreenPreviewNode,
+  locale?: string,
+): { level: DiagnosticLevel; message: string } | null {
+  const issue = validateExpressionClient('predicate', value, locale);
   if (issue) return { level: 'error', message: issue.message };
-  const scope = screenVisibleWhenScopeError(value, node);
+  const scope = screenVisibleWhenScopeError(value, node, locale);
   return scope ? { level: 'warning', message: scope } : null;
 }
 
@@ -108,7 +117,9 @@ export function flowExpressionProblems(draft: Record<string, unknown>, locale?: 
     // bare trigger-record fields are indistinguishable from typos here).
     const roots = nodeId === startId ? null : scopeRoots(resolveFlowScope(draft, nodeId).refs);
 
-    for (const field of fieldsForNodeType(type)) {
+    // Localized as the inspector localizes them, so a row with no label of its
+    // own is prefixed by the column label the author sees (objectui#10804).
+    for (const field of localizeFlowFields(type, fieldsForNodeType(type), locale)) {
       if (field.kind === 'expression' && field.refMode !== 'template') {
         const hit = checkCel(getFieldValue(node, field), roots, locale);
         if (hit) out.push({ target: { kind: 'node', nodeId }, level: hit.level, message: hit.message });
@@ -121,7 +132,7 @@ export function flowExpressionProblems(draft: Record<string, unknown>, locale?: 
           const rowLabel = str(r.label);
           for (const col of exprCols) {
             const hit = isScreenVisibleWhenColumn(type, field.id, col.key)
-              ? checkScreenVisibleWhen(r[col.key], screenNode)
+              ? checkScreenVisibleWhen(r[col.key], screenNode, locale)
               : checkCel(r[col.key], roots, locale);
             if (hit) {
               const prefix = rowLabel || col.label;

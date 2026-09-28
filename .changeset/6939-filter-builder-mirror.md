@@ -4,8 +4,8 @@
 
 Repair the `filter-builder` mirror: the field key is `value`, the type
 vocabulary is the value families the component actually folds a column into,
-and a filter group is `{ id, logic, conditions }` (objectui#6939, maintainer
-ruling recorded 2026-09-02 — one of the eight groups on that card, dispatched
+and a filter group is `{ id, logic, conditions }` (maintainer ruling
+recorded 2026-09-02 — one of the eight groups under that ruling, dispatched
 as its own PR per the ruling).
 
 Three independent mis-declarations sat in one member, and each is a key-name or
@@ -77,7 +77,7 @@ and both flagged for contract review rather than made quietly:**
   column draws the option-driven Select and no `<input>` at all, against a text
   box for an unrecognised spelling. Dropping it would refuse a spelling this
   mirror accepts *today* and the renderer draws distinctly, which is a fresh
-  instance of the class objectui#6939 exists to close.
+  instance of the class that ruling's eight groups exist to close.
 - **The group's `id` is declared OPTIONAL.** `isValidGroup` never consults it
   and nothing reads `filterGroup.id`; deleting it from an authored group renders
   byte-identically. Requiring it would invent a refusal the renderer does not
@@ -100,11 +100,11 @@ inside this same release by objectui#9559: `FilterOperatorSchema` became the
 spec rule's own operator member, so the alias and dropdown spellings are now
 accepted and normalised to canonical on parse), while the
 canonical spellings it accepts render a **blank** operator trigger — and it is
-reported on objectui#6939 rather than decided here. Seven further live field
+reported on its own card, objectui#7561, rather than decided here. Seven further live field
 types (`status`, `currency`, `percent`, `rating`, `lookup`, `master_detail`,
 `user`) each have their own bucket and control and are still refused; they were
 refused before this change as well, so that gap is pre-existing rather than a
-regression introduced here, and it is reported on the same card. The published
+regression introduced here, and it is reported on its own card, objectui#7562. The published
 doc for this component already offers all fourteen spellings and already marks
 `type` OPTIONAL, which the mirror still does not — a third declaration that
 agrees with the renderer, pinned here so the gap is measured rather than

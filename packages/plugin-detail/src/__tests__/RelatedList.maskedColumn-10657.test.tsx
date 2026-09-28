@@ -135,9 +135,25 @@ const drawnNames = () =>
 
 const payloads = () => writeText.mock.calls.map((call) => call[0]);
 
-/** Wait until the object definition has settled and the mask is drawn. */
+/**
+ * Wait until the object definition has settled and the mask is drawn.
+ *
+ * The drawn NAME is what says "settled": since objectui#10657 PR 2 every cell
+ * is withheld (drawn as the mask) while the definition is unknown, so a mask
+ * alone no longer tells the two windows apart.
+ */
 async function settledWithMask() {
+  await waitFor(() => {
+    const body = document.querySelector('tbody')?.textContent ?? '';
+    expect(body).toContain(MASK);
+    expect(body).toContain('Ada');
+  });
+}
+
+/** Wait until the rows have painted WITHHELD: masks, and no name drawn yet. */
+async function withheldWithMask() {
   await waitFor(() => expect(document.querySelector('tbody')?.textContent ?? '').toContain(MASK));
+  expect(document.querySelector('tbody')?.textContent ?? '').not.toContain('Ada');
 }
 
 const SHAPES: Array<{ shape: string; props: Record<string, unknown> }> = [
@@ -224,8 +240,11 @@ describe('RelatedList — fail closed while the object types are unknown (object
   it('while the definition is in flight no cell copies; once it lands the text cell does', async () => {
     const ds = makeDataSource('held');
     mount(ds, { columns: ['name', 'api_key'] });
-    await waitFor(() => expect(screen.getByText('Ada')).toBeInTheDocument());
-    const nameCell = () => screen.getByText('Ada').closest('td') as HTMLElement;
+    // objectui#10657 PR 2: in this window every cell is also WITHHELD from the
+    // draw (the mask, never the value; `RelatedList.maskedFirstPaint-10657`),
+    // so the row is found by position, not by the name it no longer prints.
+    await withheldWithMask();
+    const nameCell = () => document.querySelectorAll('tbody tr')[0]!.children[0] as HTMLElement;
     const keyCell = () => document.querySelectorAll('tbody tr')[0]!.children[1] as HTMLElement;
 
     fireEvent.keyDown(nameCell(), { key: 'c', ctrlKey: true });
@@ -244,7 +263,8 @@ describe('RelatedList — fail closed while the object types are unknown (object
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     mount(ds, { columns: ['name', 'api_key'] });
     await waitFor(() => expect(ds.getObjectSchema).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByText('Ada')).toBeInTheDocument());
+    // Withheld from the draw as well (objectui#10657 PR 2): wait for the mask.
+    await withheldWithMask();
     await act(async () => {});
     const row = document.querySelectorAll('tbody tr')[0]!;
     fireEvent.keyDown(row.children[0] as HTMLElement, { key: 'c', ctrlKey: true });

@@ -45,11 +45,20 @@ export interface FlowExprIssueProps {
   screenNode?: ScreenPreviewNode;
 }
 
-/** The flow-scope reading: the roots the picker's groups offer. */
-function flowScopeNote(value: unknown, role: ExprFieldRole, scopeGroups: ScopeGroup[] | undefined): string | undefined {
+/**
+ * The flow-scope reading: the roots the picker's groups offer, named in the
+ * designer `locale`, as the siblings `FlowEdgeInspector` and
+ * `FlowNodeConfigField` name them (objectui#10804).
+ */
+function flowScopeNote(
+  value: unknown,
+  role: ExprFieldRole,
+  scopeGroups: ScopeGroup[] | undefined,
+  locale: string,
+): string | undefined {
   const roots = scopeGroups && scopeGroups.length > 0 ? scopeRoots(scopeGroups.flatMap((g) => g.refs)) : null;
   const unknown = roots ? findUnknownRefs(value, role, roots) : [];
-  return unknown.length > 0 ? describeUnknownRefs(unknown) : undefined;
+  return unknown.length > 0 ? describeUnknownRefs(unknown, locale) : undefined;
 }
 
 export function FlowExprIssue({ value, role, scopeGroups, screenNode }: FlowExprIssueProps): React.ReactElement | null {
@@ -64,7 +73,9 @@ export function FlowExprIssue({ value, role, scopeGroups, screenNode }: FlowExpr
       </p>
     );
   }
-  const note = screenNode ? screenVisibleWhenScopeError(value, screenNode) : flowScopeNote(value, role, scopeGroups);
+  const note = screenNode
+    ? screenVisibleWhenScopeError(value, screenNode, locale)
+    : flowScopeNote(value, role, scopeGroups, locale);
   return note ? (
     <p className="text-[11px] leading-snug text-amber-600 dark:text-amber-400" role="note">
       {note}

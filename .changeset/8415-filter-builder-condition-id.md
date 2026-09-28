@@ -128,3 +128,27 @@ breaking for any author who wrote a condition without an identity. It is not
 `major` per this repo's fixed-group convention (objectui's own breaking changes
 ship as `minor`; the group's major tracks `@objectstack` — AGENTS.md 版本号策略,
 mechanically enforced by `scripts/check-changeset-no-major.mjs`).
+
+Superseded in this release by objectui#9306, on two points. (1) The chain an id-less
+condition is reported through is one union shorter: a filter group's `conditions`
+is now flat rows (a nested sub-group is retired and refused by name), so there is
+no union at `["conditions", 0]` any more. The document-level result is still the
+single `invalid_union` at `path: ["value"]`; inside it, arm 1 (`FilterGroupSchema`)
+now reports `invalid_type` at `["conditions", 0, "id"]` directly. (2) The
+component no longer declares its own `FilterBuilderCondition`: it derives the row
+from the `@object-ui/types` declaration, so the required `id: string` it carries is
+that declaration's. The chain described above is the tree this entry was written
+against.
+
+⚠️ **Dated note, 2026-09-27 — `value` is no longer a union, and `defaultValue` is retired — objectui#10825.**
+Later in this same release `FilterBuilderSchema.value` stopped taking a bare condition (it is refused
+by name) and `defaultValue` was retired behind an ADR-0049 tombstone. What this entry says about where
+an id-less row's refusal is REPORTED no longer holds, in both paragraphs that say it. The document-level
+result is not an `invalid_union` at `path: ["value"]` any more: it is the `invalid_type` itself, at
+`path: ["value", "conditions", 0, "id"]`. So it is reported where it logically is, and a consumer reading
+`issue.path` off the document-level result finds `id` there.
+And a `defaultValue` literal no longer fails type-check for the missing `id` but because the key is
+retired (its type is `undefined`). A condition inside a `value` literal still fails with *"Property 'id'
+is missing …"*, and the spellings typed on `FilterBuilderCondition` or `FilterGroup` involve neither key.
+The `id` requirement itself still holds; the rest of this entry holds except for the REPORTED-location
+sentences the paragraph above corrects.

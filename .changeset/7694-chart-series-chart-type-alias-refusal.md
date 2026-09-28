@@ -83,7 +83,7 @@ mode gains is the NAMED refusal and its guidance, not a narrower accept set.
 
 The object stays non-strict — a truly undeclared key is still stripped, exactly as
 `chart-inline-data-retired.test.ts` pins. The six keys objectui#7546 declared, the `data` tombstone
-(objectui#6896) and the at-least-one-binding refinement (objectui#6939 / #7113) are untouched.
+(objectui#6896) and the at-least-one-binding refinement (`5f789538d`, objectui#7113) are untouched.
 **No reader changed:** `normalizeSeries` still reads `chartType` first on the internal-shape arrays
 its producers hand it; that limb is a reader decision, not this declaration's.
 

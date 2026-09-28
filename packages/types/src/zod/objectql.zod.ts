@@ -39,6 +39,8 @@ import {
   I18nLabelSchema as SpecI18nLabelSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
   ChartAxisSchema as SpecChartAxisSchema,
+  ChartSeriesSchema as SpecChartSeriesSchema,
+  ChartTypeSchema as SpecChartTypeSchema,
   UserFilterFieldSchema as SpecUserFilterFieldSchema,
   // objectui#7928 — the spec's view CONTAINER, read for ONE slot: its
   // `listViews` record (`ObjectViewSchema.listViews` below, by reference).
@@ -1809,7 +1811,7 @@ export const ObjectMapConfigSchema = z.object({
 });
 
 /**
- * objectui#6939 — the record-source refinement `ObjectMapSchema`,
+ * `77cb489b4` — the record-source refinement `ObjectMapSchema`,
  * `ObjectGanttSchema` and `ObjectCalendarSchema` below share.
  *
  * Those renderers resolve their records from ONE of three keys, in this order:
@@ -1820,7 +1822,7 @@ export const ObjectMapConfigSchema = z.object({
  * wrapper and `plugin-gantt/src/ObjectGantt.tsx` calls directly: `data`, then
  * `staticData`, then `objectName`, else `null`. Both mirrors
  * used to REQUIRE `objectName` alone, so a document authored on `staticData`
- * (6 of the 20 catalog entries objectui#6939 measured) drew correctly and was
+ * (6 of the 20 catalog entries measured for the 2026-09-02 ruling) drew correctly and was
  * refused by `safeValidateSchema` — `declared !== enforced`, with the corpus
  * on the right side. `objectName` is optional on both members now, and this
  * refinement carries the requirement the renderers actually have: with none of
@@ -1890,14 +1892,14 @@ function requireRecordSource(type: 'object-map' | 'object-gantt' | 'object-calen
  * ruling and stay for compatibility.
  *
  * `objectName` is OPTIONAL and the member ends in `requireRecordSource`
- * (objectui#6939): `getDataConfig` reads `data`, then `staticData`, then
+ * (`77cb489b4`): `getDataConfig` reads `data`, then `staticData`, then
  * `objectName`, so a map authored on inline rows never reads the object name —
  * three catalog entries drew correctly and were refused here. Requiredness
  * moved to the refinement above, which is where the renderer actually has it.
  */
 export const ObjectMapSchema = BaseSchema.extend({
   type: z.literal('object-map'),
-  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source getDataConfig resolves, after data and staticData; one of the three must be present (objectui#6939)'),
+  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source getDataConfig resolves, after data and staticData; one of the three must be present'),
   data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by getDataConfig'),
   staticData: z.array(z.any()).optional().describe('Inline records — read SECOND by getDataConfig, wrapped into a { provider: value } config'),
   filter: z.array(z.any()).optional().describe('Query filter, forwarded as $filter'),
@@ -1935,7 +1937,7 @@ export const ObjectTreeSchema = BaseSchema.extend({
  * ObjectGantt Schema
  *
  * `objectName` is OPTIONAL and the member ends in `requireRecordSource`
- * (objectui#6939): the shared record-source ladder `resolveRecordSourceConfig`
+ * (`77cb489b4`): the shared record-source ladder `resolveRecordSourceConfig`
  * (`@object-ui/core`, called by `plugin-gantt/src/ObjectGantt.tsx`) reads
  * `data`, then `staticData`, then `objectName`, so a gantt authored on inline
  * rows never reads the object name — three catalog entries drew correctly and
@@ -1948,8 +1950,8 @@ export const ObjectTreeSchema = BaseSchema.extend({
  */
 export const ObjectGanttSchema = BaseSchema.extend({
   type: z.literal('object-gantt'),
-  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present (objectui#6939)'),
-  data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by resolveRecordSourceConfig; undeclared on either face until objectui#6939'),
+  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present'),
+  data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by resolveRecordSourceConfig'),
   startDateField: z.string().optional().describe('Start date field'),
   endDateField: z.string().optional().describe('End date field'),
   titleField: z.string().optional().describe('Title field'),
@@ -2082,7 +2084,7 @@ export const ObjectGanttSchema = BaseSchema.extend({
  * ObjectCalendar Schema
  *
  * `objectName` is OPTIONAL and the member ends in `requireRecordSource`
- * (objectui#7313, the objectui#6939 shape): the renderer resolves its records
+ * (objectui#7313, the `77cb489b4` shape): the renderer resolves its records
  * through the shared ladder (`resolveRecordSourceConfig` in
  * `@object-ui/core`, `plugin-calendar/src/ObjectCalendar.tsx`) — `data`, then
  * `staticData`, then `objectName` — so a calendar authored on inline rows never
@@ -2326,7 +2328,7 @@ export const KanbanConditionalFormattingRuleSchema = z.union([
  *
  * `cards` reuses `KanbanCardSchema` (`./complex.zod.ts`) rather than restating
  * it: the card vocabulary has one authority, and reaching it is what restores
- * objectui#6939's judging — a lane card with no `title` is refused again.
+ * the judging `240b80f31` established — a lane card with no `title` is refused again.
  */
 const ObjectKanbanLaneSchema = z.object({
   id: z.string().describe('Lane id — matched against the groupBy value. STRING only, and the narrowing stands on its own: until objectui#8993 the bucketer built knownIds from the raw col.id and compared it with Object.keys(groups), which are strings, so a numeric id bucketed every card TWICE; the sweep now keys membership the way the injection always did'),
@@ -2551,6 +2553,32 @@ function objectChartXAxisError(issue: z.core.$ZodRawIssue): string | undefined {
 }
 
 /**
+ * The chart-family floor on an `object-chart` node (objectui#10770).
+ *
+ * Two keys carry the family. The metadata tier writes `chartType`. The react
+ * tier's `<ObjectChart>` author writes the spec's `type`, which the react-page
+ * wrapper parks as `specType`, because `type` is this node's discriminator.
+ * Either one is enough, so both members are optional. This refinement keeps
+ * the floor that `chartType`'s required flag used to carry: a node that names
+ * no family is refused, as it was before. Only which key may carry the family
+ * widened. The path stays on `chartType`, so the diagnostic lands where it
+ * always did.
+ */
+function requireObjectChartFamily(
+  schema: { chartType?: unknown; specType?: unknown },
+  ctx: z.core.$RefinementCtx,
+): void {
+  if (schema.chartType !== undefined || schema.specType !== undefined) return;
+  ctx.addIssue({
+    code: 'custom',
+    path: ['chartType'],
+    message:
+      '`object-chart` names no chart family: write `chartType` on a metadata node. On the react tier, '
+      + '`<ObjectChart type="bar">` arrives here as `specType`.',
+  });
+}
+
+/**
  * ObjectChart Schema
  */
 export const ObjectChartSchema = BaseSchema.extend({
@@ -2558,7 +2586,18 @@ export const ObjectChartSchema = BaseSchema.extend({
   // Legacy inline path (objectName + aggregate). Optional now that a chart may
   // instead bind to a semantic-layer dataset (ADR-0021, #1890).
   objectName: z.string().optional().describe('ObjectQL object name (legacy inline path)'),
-  chartType: z.enum(['bar', 'column', 'horizontal-bar', 'line', 'area', 'pie', 'donut', 'scatter']).describe('Chart type'),
+  // ── objectui#10770: the chart family, on either tier's key ──
+  //
+  // `chartType` is the metadata tier's spelling. `specType` is where the
+  // react-page wrapper parks a react-tier author's `type`, and its value domain
+  // is the spec's own `ChartTypeSchema`, by reference, because that is what
+  // `ChartConfigSchema.type` declares. Both are optional, and
+  // `requireObjectChartFamily` (the `.superRefine` at the end) requires one of
+  // them. The TS twin in `../objectql.ts` carries the ground.
+  chartType: z.enum(['bar', 'column', 'horizontal-bar', 'line', 'area', 'pie', 'donut', 'scatter']).optional()
+    .describe('Chart type — the metadata tier\'s spelling of the chart family. One of chartType or specType is required'),
+  specType: stripImportedDefaults(SpecChartTypeSchema).optional()
+    .describe('The react tier\'s chart family: the author\'s `type` on <ObjectChart>, parked here by the react-page wrapper because `type` is this node\'s discriminator. @objectstack/spec ChartType, by reference. chartType wins when a node writes both'),
   // ── objectui#10608: three list-view spellings, RETIRED on this node ──
   //
   // `xAxisField` / `yAxisFields` / `aggregation` are the LIST-VIEW chart
@@ -2611,7 +2650,8 @@ export const ObjectChartSchema = BaseSchema.extend({
   // mirror unexamined; what changes is that their VALUES are checked. Leaving
   // them undeclared would instead have put them in `zod-mirror-parity`'s
   // `UnmirroredDeclared` ledger — which that file calls a real defect in the
-  // pair, not a neutral state.
+  // pair, not a neutral state. (`series` is only half internal since
+  // objectui#10770: see its own comment below.)
   // BOTH `filter` arms are live and both are measured — see the twin docblock in
   // `../objectql.ts`. The array arm is the spec's published `FilterArray` and
   // the registry `inputs` spelling; the record arm is the ObjectQL `$filter`
@@ -2634,24 +2674,36 @@ export const ObjectChartSchema = BaseSchema.extend({
   aggregate: stripImportedDefaults(SpecChartAggregateSchema).optional()
     .describe('AUTHORABLE — inline aggregation for the legacy objectName path. @objectstack/spec ChartAggregateSchema ({ field?, function, groupBy }), the same schema the react-page publish gate parses: function and groupBy are REQUIRED, field is optional because only count counts rows rather than a column, and unknown keys are refused rather than dropped'),
   xAxisKey: z.string().optional().describe('INTERNAL (relay-composed) — the category column the renderer binds the x axis to. Authors write the spec xAxis: { field }; all five producers compute this key'),
-  // `series` copies the `{ dataKey }` arm of `ChartRendererProps.schema.series`
-  // WITHOUT that arm's per-series `type` (objectui#8086), deliberately
-  // (objectui#10584): widening a published accept set waits for a named
-  // producer that writes `type` on this node. The `.describe()` says so and
-  // names `chartType` as this copy's override, because that string is what an
-  // author-facing tool renders. The TS twin in `../objectql.ts` carries the
-  // ground.
-  series: z.array(z.object({
-    dataKey: z.string().describe('Result column this series plots'),
-    label: z.string().optional().describe('Series display label'),
-    variant: z.enum(['current', 'comparison']).optional().describe('Comparison overlays render muted'),
-    opacity: z.number().optional().describe('Series opacity override (0-1)'),
-    dashArray: z.string().optional().describe('SVG stroke-dasharray override'),
-    chartType: z.enum(['bar', 'line', 'area']).optional().describe('Per-series family override (combo charts)'),
-    stack: z.string().optional().describe('Stack identifier to group series'),
-    yAxis: z.enum(['left', 'right']).optional().describe('Bind to a specific Y axis'),
-    color: z.string().optional().describe('Series color (hex/rgb/token)'),
-  })).optional().describe("INTERNAL (relay-composed) — plotted series in the renderer's internal { dataKey } contract: the { dataKey } arm ChartRendererProps declares, minus that arm's per-series type, which this copy does not declare. The per-series family override here is chartType (bar | line | area). The spec's author-facing ChartSeriesSchema is the { name } arm and refuses dataKey by name; normalizeChartSchema is the one translation"),
+  // ── objectui#10770: `series` is TWO arms, one verdict each ──
+  //
+  // Arm 1 is the spec's `ChartSeriesSchema` BY REFERENCE: the AUTHOR arm
+  // (`{ name }`). The react tier's `<ObjectChart series={…}>` publishes it, the
+  // react-page wrapper forwards it onto this node untouched, and the showcase
+  // `renewals-pipeline` page writes it. The strict refusal is the spec's too,
+  // so `dataKey` on this arm is refused by name.
+  //
+  // Arm 2 is the INTERNAL arm (`{ dataKey }`), unchanged: the `{ dataKey }` arm
+  // of `ChartRendererProps.schema.series`, WITHOUT that arm's per-series `type`
+  // (objectui#8086), deliberately (objectui#10584). Widening it waits for a
+  // named producer that writes `type` on a `{ dataKey }` entry of this node.
+  //
+  // An entry matching neither arm (no `name` and no `dataKey`) is refused;
+  // `normalizeChartSchema` would drop it from the chart. Arm order puts the
+  // author arm first. The TS twin in `../objectql.ts` carries the ground.
+  series: z.array(z.union([
+    stripImportedDefaults(SpecChartSeriesSchema),
+    z.object({
+      dataKey: z.string().describe('Result column this series plots'),
+      label: z.string().optional().describe('Series display label'),
+      variant: z.enum(['current', 'comparison']).optional().describe('Comparison overlays render muted'),
+      opacity: z.number().optional().describe('Series opacity override (0-1)'),
+      dashArray: z.string().optional().describe('SVG stroke-dasharray override'),
+      chartType: z.enum(['bar', 'line', 'area']).optional().describe('Per-series family override (combo charts)'),
+      stack: z.string().optional().describe('Stack identifier to group series'),
+      yAxis: z.enum(['left', 'right']).optional().describe('Bind to a specific Y axis'),
+      color: z.string().optional().describe('Series color (hex/rgb/token)'),
+    }),
+  ])).optional().describe("Plotted series, each entry ONE of two arms. AUTHORABLE: @objectstack/spec ChartSeriesSchema, by reference (the { name } arm the react tier's <ObjectChart series> publishes; strict, refuses dataKey by name; per-series family override is type). INTERNAL (relay-composed): the renderer's { dataKey } arm, as ChartRendererProps declares it minus that arm's per-series type, which this copy does not declare; its per-series family override is chartType (bar | line | area). An entry with neither name nor dataKey is refused. normalizeChartSchema is the one translation"),
   // Colors are overloaded kanban-style: a string[] is the positional palette
   // (applied per category in order; fallback only), while a Record<value,color>
   // is an explicit value→color map. A select/lookup dimension's option colors —
@@ -2736,7 +2788,7 @@ export const ObjectChartSchema = BaseSchema.extend({
       'AUTHORABLE — value (y) axes: an ARRAY of @objectstack/spec ChartAxis objects, by reference (field required, strict). '
       + 'The first entry is the primary axis; a second entry declares the right-hand axis.',
     ),
-});
+}).superRefine(requireObjectChartFamily);
 
 /**
  * ObjectGallery Schema (objectui#6576)

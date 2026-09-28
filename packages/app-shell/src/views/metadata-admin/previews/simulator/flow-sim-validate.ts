@@ -9,6 +9,14 @@
  * swallow a failure: a debugger must tell the author *why* (parse error,
  * missing variable, type error), so the message is returned to the caller,
  * which fails the node the way the runtime does.
+ *
+ * The evaluators take the designer `locale` as an optional trailing argument
+ * (objectui#10848), as {@link validateFlowDraft} does. It reaches only the
+ * frame this file puts around a CEL failure (`engine.flowSim.note.cel*`) and
+ * the fallback when the producer gives no message
+ * (`engine.flowSim.note.evaluationFailed`). The producer's own text inside
+ * the frame, and every spec refusal returned as is, pass through unchanged.
+ * Absent, the frames read the en rows.
  */
 
 import { ExpressionEngine, validateExpression } from '@objectstack/formula';
@@ -82,6 +90,7 @@ function flowCelScope(variables: Record<string, unknown>): {
 export function evalValueEnvelope(
   envelope: unknown,
   variables: Record<string, unknown>,
+  locale?: string,
 ): { ok: true; value: unknown } | { ok: false; error: string } {
   const refusal = valueEnvelopeRefusal(envelope);
   if (refusal) return { ok: false, error: refusal.join(' ') };
@@ -96,10 +105,12 @@ export function evalValueEnvelope(
       };
     }
     const result = ExpressionEngine.evaluate({ dialect, source }, flowCelScope(variables));
-    if (!result.ok) return { ok: false, error: `CEL evaluation failed: ${result.error.message}` };
+    if (!result.ok) {
+      return { ok: false, error: tFormat('engine.flowSim.note.celEvaluationFailed', locale, { message: result.error.message }) };
+    }
     return { ok: true, value: result.value };
   } catch (err) {
-    return { ok: false, error: (err as Error).message || 'Evaluation failed.' };
+    return { ok: false, error: (err as Error).message || tr('engine.flowSim.note.evaluationFailed', locale) };
   }
 }
 
@@ -156,7 +167,7 @@ export type GuardEvaluation =
  * Steps 4 and 5 are {@link evalCelPredicate}, the one CEL call every predicate
  * in the simulator goes through (objectui#10692).
  */
-export function evalGuard(condition: unknown, variables: Record<string, unknown>): GuardEvaluation {
+export function evalGuard(condition: unknown, variables: Record<string, unknown>, locale?: string): GuardEvaluation {
   try {
     if (condition === undefined) return { kind: 'absent' };
     const shape = structuralConditionRefusal(condition);
@@ -173,9 +184,9 @@ export function evalGuard(condition: unknown, variables: Record<string, unknown>
       }
     }
     const input = condition as SimEdge['condition'];
-    return evalCelPredicate(input as string | { dialect?: string; source?: string }, conditionText(input) ?? '', variables);
+    return evalCelPredicate(input as string | { dialect?: string; source?: string }, conditionText(input) ?? '', variables, locale);
   } catch (err) {
-    return { kind: 'fault', error: (err as Error).message || 'Evaluation failed.' };
+    return { kind: 'fault', error: (err as Error).message || tr('engine.flowSim.note.evaluationFailed', locale) };
   }
 }
 
@@ -198,6 +209,7 @@ function evalCelPredicate(
   input: string | { dialect?: string; source?: string },
   source: string,
   variables: Record<string, unknown>,
+  locale?: string,
 ): Exclude<GuardEvaluation, { kind: 'absent' }> {
   try {
     const parsed = validateExpression('predicate', input);
@@ -205,10 +217,12 @@ function evalCelPredicate(
       return { kind: 'fault', error: parsed.errors.map((e) => e.message).join(' ') };
     }
     const result = ExpressionEngine.evaluate({ dialect: 'cel', source }, flowCelScope(variables));
-    if (!result.ok) return { kind: 'fault', error: `condition failed to evaluate as CEL: ${result.error.message}` };
+    if (!result.ok) {
+      return { kind: 'fault', error: tFormat('engine.flowSim.note.celConditionFailed', locale, { message: result.error.message }) };
+    }
     return { kind: 'value', result: Boolean(result.value) };
   } catch (err) {
-    return { kind: 'fault', error: (err as Error).message || 'Evaluation failed.' };
+    return { kind: 'fault', error: (err as Error).message || tr('engine.flowSim.note.evaluationFailed', locale) };
   }
 }
 
@@ -229,13 +243,14 @@ function evalCelPredicate(
 export function evalBranchPredicate(
   expression: unknown,
   variables: Record<string, unknown>,
+  locale?: string,
 ): Exclude<GuardEvaluation, { kind: 'absent' }> {
   const shape = predicateSlotRefusal(expression);
   if (shape) return { kind: 'fault', error: shape.message };
   const source = expression as string;
   if (!source.trim()) return { kind: 'value', result: false };
   // Parsed as the bare text `registerFlow` checks this slot as.
-  return evalCelPredicate(source, source, variables);
+  return evalCelPredicate(source, source, variables, locale);
 }
 
 /**

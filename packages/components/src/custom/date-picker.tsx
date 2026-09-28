@@ -53,8 +53,15 @@ export function DatePicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0">
+        {/*
+          Opens on the date's month, and on today's with no date
+          (objectui#10799): react-day-picker's `selected` does not move the
+          month it opens on. The content unmounts on close, so each open reads
+          the current date.
+        */}
         <Calendar
           mode="single"
+          defaultMonth={date}
           selected={date}
           onSelect={onDateChange}
           autoFocus

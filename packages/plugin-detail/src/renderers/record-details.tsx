@@ -23,9 +23,9 @@ import {
   isObjectInlineEditable,
   recordDisplayValueAt,
   resolveNameField,
+  withoutDeniedFields,
 } from '@object-ui/core';
 import { DetailView } from '../DetailView';
-import { withoutDeniedFields } from '../withoutDeniedFields';
 import { deriveFieldGroupDetailSections } from '../synth/buildDefaultPageSchema';
 import { useRecordAriaProps } from './recordComponentAria';
 

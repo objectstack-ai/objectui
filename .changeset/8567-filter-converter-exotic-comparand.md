@@ -45,3 +45,14 @@ object. Beside a key that lowers it still constrains nothing — the case this e
 control pins — and it is still never read as an exotic comparand. The rest of this entry
 is kept as the reading of this change; the objectui#9164 entry states what that input now
 answers.
+
+⚠️ **Dated note, 2026-09-27 — an empty operator object BESIDE a key is now refused too — objectui#10788.**
+Later in this same release an empty operator map beside a key that lowers
+(`{ status: 'a', created: {} }`) is refused with a `FilterOperatorError` naming the field
+instead of constraining nothing, because `@objectstack/spec` records `{ field: {} }` as
+REJECTED (objectstack#5240). It is still never read as an exotic comparand: the refusal is
+the empty-operator-map one, not this entry's. "An empty operator object stays the TRUE
+identity and constrains nothing" above is this change's reading, and "Beside a key that
+lowers it still constrains nothing" is the objectui#9164 note's reading; neither is the
+release's. The rest of this entry is kept as the reading of this change; the objectui#10788
+entry states what that input now answers.

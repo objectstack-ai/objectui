@@ -270,7 +270,7 @@ export interface MarkdownFieldMetadata extends BaseFieldMetadata {
    * metadata may carry it on these four types and nowhere else.
    *
    * ⛔ This reverses what this docblock asserted between `0e3b3be09` and
-   * objectui#7635: at 17.2.0 the key WAS refused by name, and the sentence
+   * `544ecba84`: at 17.2.0 the key WAS refused by name, and the sentence
    * saying so outlived the contract it described. Both directions, each behind
    * an accepting control, are re-derived by
    * `__tests__/select-option-spec-extension-7014.test.ts` — read that file's
@@ -294,7 +294,7 @@ export interface HtmlFieldMetadata extends BaseFieldMetadata {
    * docblock there): `RichTextField` reads it for all three registry keys it
    * serves. It is a DECLARED spec key on this type too, type-gated to the four
    * multiline editor types; see the measured reading in the docblock there
-   * (`0e3b3be09`, corrected for the 17.3.0 boundary by objectui#7635).
+   * (`0e3b3be09`, corrected for the 17.3.0 boundary by `544ecba84`).
    */
   rows?: number;
 }
@@ -303,7 +303,7 @@ export interface HtmlFieldMetadata extends BaseFieldMetadata {
  * Rich-text (WYSIWYG) field metadata — the THIRD registry key `RichTextField`
  * serves, and the last of the three to get a declarable face.
  *
- * `markdown`, `html` and `richtext` are ONE widget (objectui#5498). The first
+ * `markdown`, `html` and `richtext` are ONE widget (`4bb940b6e`). The first
  * two carried an exported metadata type; `richtext` carried none, so the only
  * way to write a richtext field's metadata was
  * `as unknown as MarkdownFieldMetadata` — a deliberate cast whose presence in
@@ -379,7 +379,7 @@ export interface HtmlFieldMetadata extends BaseFieldMetadata {
  *
  * The `rows` docblocks on the two siblings described the `@objectstack/spec`
  * 17.2.0 boundary, where `rows` was refused by name, and outlived it;
- * objectui#7635 corrected them in the same change that corrected this
+ * `544ecba84` corrected them in the same change that corrected this
  * paragraph, so all three now read the same boundary and none of them is the
  * odd one out.
  */
@@ -523,7 +523,7 @@ import type { SelectOptionBase } from './select-option.js';
  * WIDER than what may be authored, but by TWO keys rather than three:
  * `disabled` and `icon` are refused BY NAME by the spec's strict
  * `SelectOptionSchema`, which a field's `options` are routed through, while
- * `description` became authorable at `@objectstack/spec` 17.3.0 (objectui#7635
+ * `description` became authorable at `@objectstack/spec` 17.3.0 (`544ecba84`
  * corrected this paragraph; the member docblock below carries the measurement).
  */
 export interface SelectOptionMetadata extends SelectOptionBase {
@@ -546,7 +546,7 @@ export interface SelectOptionMetadata extends SelectOptionBase {
    * authoring door admitted it.
    *
    * ⛔ This reverses what this docblock asserted between `0e3b3be09` and
-   * objectui#7635, when the key was refused by name and this comment said so.
+   * `544ecba84`, when the key was refused by name and this comment said so.
    * The option keys that are STILL outside the vocabulary are `icon` and
    * `disabled` — declared on {@link SelectOptionBase} as objectui-only
    * extensions and refused by name — and they are what keeps "the schema still

@@ -177,31 +177,6 @@ export interface PluginScope {
 export type { ComponentMeta } from './base.js';
 
 /**
- * Component input definition
- *
- * The plugin-scoped twin of `base.ts`' {@link ComponentInput} is no longer a
- * twin: it is the SAME declaration, RE-EXPORTED rather than restated
- * (objectui#4972). Only the arm vocabulary was shared before (objectui#3832);
- * this finishes the job for the rest of the interface, per objectui#4580's
- * ruling — *a structural copy would reproduce the defect the moment either
- * side moved.* Re-exported under this name so that `index.ts`' public
- * `ComponentInput as PluginComponentInput` alias keeps naming a real export.
- *
- * That alias is now `@deprecated` (objectui#5674): with the declaration shared,
- * the second published name carries no information the first does not.
- *
- * Note for whoever completes that retirement: this file no longer imports
- * `ComponentInput` by name at all. Until objectui#5893 it did, to type the
- * local `ComponentMeta.inputs`; that local declaration is now itself a
- * re-export, so this line is the ONLY mention left and its only consumer is
- * the aliased specifier in `index.ts`. It goes dead the moment that alias is
- * deleted and should be removed with it — unlike the `ComponentMeta`
- * re-export above, whose sibling `import type` is still load-bearing for
- * `PluginScope.registerComponent`.
- */
-export type { ComponentInput } from './base.js';
-
-/**
  * Event handler type
  */
 export type PluginEventHandler = (data?: any) => void;

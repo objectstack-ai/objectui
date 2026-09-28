@@ -135,6 +135,11 @@ export * from './utils/reference-keys.js';
 // `toPredicateRecord` for why an unnormalized one gives the same predicate
 // different verdicts on different surfaces.
 export * from './utils/predicate-record.js';
+// The field-read rule for ONE record (objectui#10594, ruling A): the row as the
+// viewer may read it, which every surface that builds a display value from a
+// whole row calls. It replaced module-private copies in `@object-ui/fields`,
+// `@object-ui/react`, `@object-ui/app-shell` and `@object-ui/plugin-detail`.
+export * from './utils/without-denied-fields.js';
 // The parent-relationship condition a detail-page related list is scoped by.
 // One implementation, imported by BOTH the row query and the tab-badge count
 // probe — objectui#8882 is what two of them cost.
@@ -148,7 +153,7 @@ export * from './utils/predicate-fields.js';
 export * from './utils/grouping-fields.js';
 export * from './utils/normalize-list-view.js';
 // The ONE record-source ladder, both halves. `resolveRecordSourceConfig`
-// (objectui#7632) is the PRODUCER — the ruled `data` / `staticData` /
+// (`ce2aaefe1`) is the PRODUCER — the ruled `data` / `staticData` /
 // `objectName` ladder, hand-copied into five view plugins with no gate holding
 // them together. `resolveRecordSourceObjectName` (`b041b9c0c`) is the READER
 // over its output: six view plugins each spelled "the object this block is
@@ -156,7 +161,7 @@ export * from './utils/normalize-list-view.js';
 // `objectName`" locally, and had drifted. Both are deliberately SEPARATE from
 // the `normalizeListViewSchema` gap-fill above: that one answers how
 // `objectName` gets POPULATED when absent (#7477 ruling B), these answer which
-// object a block RESOLVES (the objectui#6939 three-rung ladder). Merging them
+// object a block RESOLVES (the three-rung ladder `77cb489b4` declared). Merging them
 // would override one standing ruling or the other.
 // A THIRD reading ships beside them since objectui#9571:
 // `recordSourceDataArmForType` answers which `data` arm a registered block TYPE

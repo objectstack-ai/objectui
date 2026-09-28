@@ -3,7 +3,7 @@ title: "Filter Builder"
 description: "Visual query builder for constructing complex filter conditions"
 ---
 
-The Filter Builder component provides a visual interface for creating complex filter queries with support for nested conditions and multiple operators.
+The Filter Builder component provides a visual interface for creating filter queries: a flat list of conditions combined with AND or OR, over multiple operators.
 
 ## Basic Usage
 
@@ -42,9 +42,9 @@ interface FilterCondition {
 }
 
 interface FilterGroup {
-  id: string;                            // Group identifier
+  id?: string;                           // Group identifier (optional)
   logic: 'and' | 'or';                  // Logic operator (AND/OR)
-  conditions: (FilterCondition | FilterGroup)[];  // Conditions or nested groups
+  conditions: FilterCondition[];         // Flat condition rows (no nested groups)
 }
 
 interface FilterBuilderSchema {
@@ -57,8 +57,6 @@ interface FilterBuilderSchema {
   // Configuration
   label?: string;                        // Component label
   value?: FilterGroup;                   // Initial/controlled filter value
-  allowGroups?: boolean;                 // Allow nested groups (default: true)
-  maxDepth?: number;                     // Maximum nesting depth (default: 3)
   
   // Events
   // RUNTIME SLOT (objectui#6124): a React host supplies it; JSON refuses it
@@ -75,6 +73,16 @@ interface FilterBuilderSchema {
   testId?: string;
 }
 ```
+
+## Retired: nested groups, `allowGroups` and `maxDepth`
+
+A filter group is one level deep. Every entry of `conditions` is one field /
+operator / value row, and the group's `logic` combines all of them. The builder
+never drew a nested group: it showed a sub-group as a row with blank field and
+operator selects and did not show the sub-group's own conditions. Nested
+sub-groups and the two keys that configured them, `allowGroups` and `maxDepth`,
+are therefore retired (objectui#9306). Validation now refuses each of them by
+name. Write the rows into the one group and remove the two keys.
 
 ## Examples
 

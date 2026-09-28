@@ -525,7 +525,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
   // resolved, so every record read a key no object carries, found nothing, and
   // bucketed into "No date" — a timeline that looks built
   // and is not. It also made a refusal screen unreachable by construction,
-  // which is why the maintainer ruling (2026-09-01, objectui#7070, 总监批 #28)
+  // which is why the maintainer ruling (2026-09-01, 总监批 #28)
   // ordered the floor retired and the refusal added as ONE change. House
   // posture, on record with that ruling: 日期轴永不虚构 — a date axis is never
   // fabricated. `undefined` from here is therefore a real answer, and the
@@ -643,6 +643,12 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
       // two slots (objectui#10456), so one rule answers both: an expanded
       // lookup reads as its display name, a bare id as itself, a number or a
       // boolean as its string, and an empty value as no line at all.
+      //
+      // `startDate`, `endDate`, `color`, `group`, `meta` and `_data` below are
+      // RENDERER-INTERNAL (objectui#6356, ruling Q1 = A): this composer is
+      // their only producer and `TimelineRenderer` their only reader, so they
+      // are typed by the handoff in `./renderHandoff` and are NOT keys of the
+      // authored `TimelineFeedItem` — the strict authoring face refuses them.
       return {
         title: recordDisplayValueAt(item, titleField),
         time: startRaw,
@@ -804,7 +810,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
    * Until objectui#7459 the resolver above ended in a fabricated literal, so a
    * name ALWAYS resolved and this branch could never have been taken — a
    * refusal screen that is present and unreachable. The maintainer ruling
-   * (2026-09-01, objectui#7070, 总监批 #28) ordered the two as one sequence for
+   * (2026-09-01, 总监批 #28) ordered the two as one sequence for
    * exactly that reason, and the other order is no better: retiring the floor
    * with no refusal leaves every record reading a key that is not there and
    * bucketing into "No date". Neither half is observable alone; the pin

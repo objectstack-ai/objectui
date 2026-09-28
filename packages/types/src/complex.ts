@@ -131,11 +131,11 @@ export interface KanbanColumn {
    *
    * Named `cards` because that is what the board reads and every authored
    * document writes: `KanbanImpl` and `bucketCardsIntoColumns` read
-   * `column.cards` (measured at objectui#6939: 12 lines in `KanbanImpl`, and 8
+   * `column.cards` (measured at `240b80f31`: 12 lines in `KanbanImpl`, and 8
    * in `KanbanEnhanced` until objectui#8932 deleted it), and the two catalog
    * entries, the plugin docs and `content/docs/api/schema-reference.md` all
    * author it. The retired declarative face spelled this `items` until
-   * objectui#6939 — a spelling with zero read sites, which made every authored
+   * `240b80f31` — a spelling with zero read sites, which made every authored
    * board fail `safeValidateSchema` while rendering correctly (objectui#6318's
    * bucket).
    */
@@ -495,7 +495,12 @@ export interface CalendarViewSchema extends BaseSchema {
 export type FilterBuilderOperator = SpecViewFilterOperator;
 
 /**
- * Filter condition
+ * Filter condition — one flat row of a {@link FilterGroup}.
+ *
+ * The single name authority for the builder's row (objectui#9306):
+ * `@object-ui/components` derives its own `FilterBuilderCondition` from this
+ * declaration, restating only its two named extensions — `operator` (these
+ * ids plus the opt-in `exists` / `notExists`) and a narrower `value`.
  */
 export interface FilterBuilderCondition {
   /**
@@ -506,8 +511,9 @@ export interface FilterBuilderCondition {
    * that reason; a CONDITION's `id` is the identity every affordance on the row
    * matches on — `removeCondition`, `updateCondition`, `changeOperator` and
    * `changeField` in `packages/components/src/custom/filter-builder.tsx`, plus
-   * the React `key`. The component's own `FilterBuilderCondition` declares it
-   * `string`, and `addCondition` emits `crypto.randomUUID()`.
+   * the React `key`. The component's `FilterBuilderCondition` takes this member
+   * from this declaration rather than restating it (objectui#9306), and
+   * `addCondition` emits `crypto.randomUUID()`.
    *
    * Undeclared, it was STRIPPED by the `z.object` mirror in silence, so a
    * correctly authored row validated and rendered with no individual identity:
@@ -533,16 +539,20 @@ export interface FilterBuilderCondition {
 }
 
 /**
- * Filter group — the shape `FilterBuilder` reads (objectui#6939, the
+ * Filter group — the shape `FilterBuilder` reads (`d4493fdbc`, the
  * `filter-builder` group; maintainer ruling 2026-09-02, director seat summon
  * #8, verbatim 「同意」).
  *
- * The gate is `isValidGroup`,
- * `packages/components/src/custom/filter-builder.tsx:1060`:
+ * The gate is `isValidGroup` in `packages/components/src/custom/filter-builder.tsx`:
  * `Array.isArray(v.conditions) && (v.logic === "and" || v.logic === "or")`.
  * `logic` is the read key; the former `operator` on this face had zero read
  * sites, and a group spelled that way fails the gate, falls back to
  * `EMPTY_GROUP` and renders an EMPTY board.
+ *
+ * ONE level, never nested (objectui#9306, maintainer ruling 「A 撤掉嵌套声明」).
+ * This declaration is the single name authority for the builder's group:
+ * `@object-ui/components` derives its own `FilterGroup` from it rather than
+ * declaring a second one.
  */
 export interface FilterGroup {
   /**
@@ -550,8 +560,8 @@ export interface FilterGroup {
    *
    * OPTIONAL on purpose. `isValidGroup` never consults it and nothing reads
    * `filterGroup.id`; measured, deleting it from an authored group renders
-   * byte-identically. It is declared because the component's own `FilterGroup`
-   * carries it, `EMPTY_GROUP` emits it and it round-trips out through
+   * byte-identically. It is declared because the component's `FilterGroup`
+   * (derived from this one) carries it, `EMPTY_GROUP` emits it and it round-trips out through
    * `onChange` — so a document that carries it should be TYPE-CHECKED on it
    * rather than admitted unvalidated.
    */
@@ -562,9 +572,19 @@ export interface FilterGroup {
    */
   logic: 'and' | 'or';
   /**
-   * Filter conditions or nested groups
+   * The condition rows, FLAT: every entry is one field / operator / value row.
+   *
+   * A nested sub-group is RETIRED (objectui#9306, ADR-0049 enforce-or-remove).
+   * This used to be `(FilterBuilderCondition | FilterGroup)[]`, but nothing
+   * honoured the nesting. `FilterBuilder` draws each entry as one flat row and
+   * has no control that creates a group; given a sub-group it drew a row with
+   * blank field and operator triggers and showed the sub-group's own conditions
+   * nowhere. The consumers that turn a group into a query or a stored filter
+   * read the entries as rows too (a one-time reading on objectui#9306, not
+   * re-derived here). The zod mirror (`FilterGroupSchema`) refuses a sub-group
+   * by name, so the loss is a validation error instead of a blank row.
    */
-  conditions: (FilterBuilderCondition | FilterGroup)[];
+  conditions: FilterBuilderCondition[];
 }
 
 /**
@@ -577,11 +597,26 @@ export interface FilterBuilderSchema extends BaseSchema {
    */
   fields: FilterField[];
   /**
-   * Default filter configuration
+   * REFUSED BY NAME (objectui#10825, ADR-0049) — never read.
+   *
+   * It was declared `defaultValue?: FilterGroup`, and nothing reads it: the
+   * `filter-builder` renderer hands `FilterBuilder` `schema.value || props.value`,
+   * and `FilterBuilder` has no `defaultValue` prop. Measured through the real
+   * `SchemaRenderer`, a group authored here drew the same empty builder as a
+   * node with no filter key at all. Author the group as {@link value} instead.
+   *
+   * @deprecated Not read by `filter-builder` — author the group as `value`.
    */
-  defaultValue?: FilterGroup;
+  defaultValue?: never;
   /**
-   * Controlled filter value
+   * Controlled filter value — a {@link FilterGroup}, the only shape
+   * `FilterBuilder` reads (its `isValidGroup` gate needs `logic` and
+   * `conditions`).
+   *
+   * The zod mirror follows this declaration (objectui#10825): a bare condition
+   * is refused by name, with the prescription to wrap it in
+   * `{ logic, conditions: [ … ] }`. It used to be accepted there, and the
+   * builder then drew it as an empty group.
    */
   value?: FilterGroup;
   /**
@@ -595,19 +630,33 @@ export interface FilterBuilderSchema extends BaseSchema {
    */
   onChange?: (filter: FilterGroup) => void;
   /**
-   * Allow nested groups
-   * @default true
+   * REFUSED BY NAME (objectui#9306, ADR-0049) — `filter-builder` has no nested
+   * groups, so there is nothing for this switch to allow.
+   *
+   * It was declared `allowGroups?: boolean` with a documented default of
+   * `true`, and no renderer read it: `FilterBuilder` takes `fields`, `value`,
+   * `onChange`, `className`, `showClearAll` and `extraOperators`, and draws
+   * every entry of `conditions` as one flat row. Nesting itself is retired on
+   * {@link FilterGroup.conditions}. Remove the key.
+   *
+   * @deprecated Not read by `filter-builder` — nested groups are retired.
    */
-  allowGroups?: boolean;
+  allowGroups?: never;
   /**
-   * Maximum nesting depth
-   * @default 3
+   * REFUSED BY NAME (objectui#9306, ADR-0049) — `filter-builder` has no nested
+   * groups, so there is no depth to limit.
+   *
+   * It was declared `maxDepth?: number` with a documented default of `3`, and
+   * no renderer read it (the same reading as `allowGroups` above). Remove the
+   * key.
+   *
+   * @deprecated Not read by `filter-builder` — nested groups are retired.
    */
-  maxDepth?: number;
+  maxDepth?: never;
   /**
    * Tailwind classes on the outermost wrapper `div`.
    *
-   * READ SITE: `packages/components/src/renderers/complex/filter-builder.tsx:37`
+   * READ SITE: `packages/components/src/renderers/complex/filter-builder.tsx`
    * — `className={schema.wrapperClass || ''}`.
    *
    * Distinct from {@link BaseSchema.className}, which this renderer applies
@@ -670,7 +719,7 @@ export interface FilterBuilderSchema extends BaseSchema {
 
 /**
  * Filter field definition — one entry of `FilterBuilderSchema.fields`
- * (objectui#6939, same ruling).
+ * (`d4493fdbc`, same ruling).
  *
  * Renamed from `name` to `value`: every read site matches on `value`
  * (`fields.find((f) => f.value === …)` in `getOperatorsForField`,
@@ -693,8 +742,8 @@ export interface FilterField {
   /**
    * Field type — the value FAMILY the column is edited in. OPTIONAL: absent
    * means `text`, which is what `valueFamilyForFieldType` and
-   * `operatorsForFieldType` both read (`fieldType || "text"`,
-   * `custom/filter-builder.tsx:408` and `:964`).
+   * `operatorsForFieldType` both read (`fieldType || "text"` and
+   * `const type = fieldType || "text"` in `custom/filter-builder.tsx`).
    *
    * The fourteen members are the published doc's
    * (`content/docs/components/complex/filter-builder.mdx`), which objectui#7562
@@ -706,7 +755,7 @@ export interface FilterField {
    *
    * `string` is still absent and is the contrast that makes the rest read: it
    * is named nowhere in the renderer and reaches the text control only by the
-   * unrecognised-word fallthrough, so it is a phantom (objectui#6939). `text`
+   * unrecognised-word fallthrough, so it is a phantom (`d4493fdbc`). `text`
    * shares that fallthrough but IS named — line 408 is where an absent `type`
    * acquires it — which is why one is declared and the other is not.
    */
@@ -1347,24 +1396,25 @@ export interface ChatbotSchema extends BaseSchema {
    */
   requestBody?: Record<string, unknown>;
   /**
-   * Maximum number of tool-calling round-trips per user message.
+   * ADR-0049 RETIREMENT TOMBSTONE — `maxToolRoundtrips` (objectui#5605). Picked
+   * by name onto {@link ChatbotEnhancedSchema} and {@link ChatbotFloatingSchema},
+   * so all three chat nodes refuse it with this one declaration.
    *
-   * @deprecated objectui#5605 — INERT, and not fixable from here. The renderer
-   * really does thread this value into `useObjectChat`, which then drops it:
-   * the installed chat runtime (`@ai-sdk/react`'s `useChat`) exposes no
-   * client-side round-trip cap — the numeric knob was removed from `useChat`,
-   * and its successor step cap (`stopWhen` / `stepCountIs`) exists only on the
-   * server-side call functions. ObjectUI is backend-agnostic, so it does not
-   * own a server loop to cap either. Setting this has never limited anything.
+   * ENFORCE was measured and is not reachable from a chat node: the tool loop
+   * runs on the server agent inside ONE streamed response (the chat runtime,
+   * `@ai-sdk/react`'s `useChat`, is given no client tool loop), `useChat` has no
+   * numeric round-trip cap, and neither chat request schema in
+   * `@objectstack/spec` carries a cap field. The value used to be threaded from
+   * the document into the chat hook and dropped there, so setting it never
+   * limited anything.
    *
    * Cap tool-calling loops on the agent instead — `planning.maxIterations`,
-   * which the platform spec declares and enforces.
+   * which the platform spec declares (default 10).
    *
-   * Still declared and still accepted so documents that already author it keep
-   * parsing; authoring it now logs a one-time notice from the chatbot plugin.
-   * Slated for removal in a future major (ADR-0049 enforce-or-remove, staged).
+   * @deprecated Not part of this contract — the value was never honoured.
+   * Delete the key; cap tool loops on the agent (`planning.maxIterations`).
    */
-  maxToolRoundtrips?: number;
+  maxToolRoundtrips?: never;
   /**
    * Callback when an error occurs during streaming or API calls.
    *
@@ -1472,7 +1522,7 @@ export interface ChatbotSchema extends BaseSchema {
    * (`GridField`, `MasterDetailForm`); the same pass over `floatingConfig`, a
    * key that IS read, returned 79 lines, so the instrument was not blind. The
    * control and the seed are removed in the same change; the restatement of
-   * that control is this tombstone plus the release note (objectui#7070: a
+   * that control is this tombstone plus the release note (`5f4514f7b`: a
    * control is restated, never deleted into a vacuum).
    *
    * ## Why a tombstone — discriminator prong 2 — and why it is loud-vs-silent here
@@ -1594,7 +1644,7 @@ export interface ChatbotSchema extends BaseSchema {
    * this declaration carries none. What the renderer DOES read off this node:
    * `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`,
    * `autoResponseDelay`, `autoResponseText`, `conversationId`, `headers`,
-   * `maxHeight`, `maxToolRoundtrips`, `messages`, `model`, `onError`, `onSend`,
+   * `maxHeight`, `messages`, `model`, `onError`, `onSend`,
    * `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`,
    * `systemPrompt`, `userAvatarFallback`, `userAvatarUrl` (in
    * `packages/plugin-chatbot/src/renderer.tsx`).
@@ -1644,7 +1694,6 @@ export type ChatbotSharedKey =
   | 'streamingEnabled'
   | 'headers'
   | 'requestBody'
-  | 'maxToolRoundtrips'
   | 'onError'
   | 'showTimestamp'
   | 'userAvatarUrl'
@@ -1672,7 +1721,9 @@ export type ChatbotSharedKey =
  * What is declared here is what THIS registration reads — censused per key on
  * the PR's base, not copied off `ChatbotSchema`:
  *
- *   - the twenty {@link ChatbotSharedKey} members every registration reads;
+ *   - the nineteen {@link ChatbotSharedKey} members every registration reads;
+ *   - the `maxToolRoundtrips` retirement tombstone (objectui#5605), picked off
+ *     {@link ChatbotSchema} so all three chat nodes refuse it with one declaration;
  *   - `maxHeight` and `processVisibility`, which `chatbot-enhanced` forwards to
  *     `<ChatbotEnhanced>` by name and `chatbot-floating` has no named read for
  *     (its panel is sized by `floatingConfig.panelHeight`; for the second,
@@ -1690,7 +1741,7 @@ export type ChatbotSharedKey =
  */
 export interface ChatbotEnhancedSchema
   extends BaseSchema,
-    Pick<ChatbotSchema, ChatbotSharedKey | 'maxHeight' | 'processVisibility'> {
+    Pick<ChatbotSchema, ChatbotSharedKey | 'maxToolRoundtrips' | 'maxHeight' | 'processVisibility'> {
   type: 'chatbot-enhanced';
   /**
    * Render assistant messages as markdown. Forwarded to `<ChatbotEnhanced>`'s
@@ -1745,7 +1796,7 @@ export interface ChatbotEnhancedSchema
    * `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`,
    * `autoResponseDelay`, `autoResponseText`, `conversationId`,
    * `enableFileUpload`, `enableMarkdown`, `headers`, `maxHeight`,
-   * `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, `onSend`,
+   * `messages`, `model`, `onClear`, `onError`, `onSend`,
    * `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`,
    * `streamingEnabled`, `surface`, `systemPrompt`, `userAvatarFallback`,
    * `userAvatarUrl` (in `packages/plugin-chatbot/src/renderer.tsx`).
@@ -1774,7 +1825,8 @@ export interface ChatbotEnhancedSchema
  * Declared here is what THIS registration reads by name (`schema.KEY`),
  * censused per key on the PR's base:
  *
- *   - the twenty {@link ChatbotSharedKey} members;
+ *   - the nineteen {@link ChatbotSharedKey} members;
+ *   - the `maxToolRoundtrips` retirement tombstone (objectui#5605);
  *   - `enableMarkdown`, `enableFileUpload` and the `onClear` runtime slot,
  *     forwarded into the panel's `<ChatbotEnhanced>`;
  *   - `floatingConfig`, the trigger and panel geometry
@@ -1803,7 +1855,7 @@ export interface ChatbotEnhancedSchema
  */
 export interface ChatbotFloatingSchema
   extends BaseSchema,
-    Pick<ChatbotSchema, ChatbotSharedKey> {
+    Pick<ChatbotSchema, ChatbotSharedKey | 'maxToolRoundtrips'> {
   type: 'chatbot-floating';
   /**
    * Render assistant messages as markdown inside the panel. Forwarded to the
@@ -1861,7 +1913,7 @@ export interface ChatbotFloatingSchema
    * `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`,
    * `autoResponseDelay`, `autoResponseText`, `conversationId`,
    * `enableFileUpload`, `enableMarkdown`, `floatingConfig`, `headers`,
-   * `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, `onSend`,
+   * `messages`, `model`, `onClear`, `onError`, `onSend`,
    * `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`,
    * `systemPrompt`, `userAvatarFallback`, `userAvatarUrl` (in
    * `packages/plugin-chatbot/src/renderer.tsx`).

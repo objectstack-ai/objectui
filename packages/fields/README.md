@@ -153,6 +153,21 @@ withholding it. Your own component under an undeclared type answers `false`.
 Spellings are matched raw, the way `getCellRenderer` looks them up:
 `field:password` renders in the clear and is not masked.
 
+The mask itself is exported as `MaskedCellRenderer` (objectui#10657). A table
+that cannot type a column yet, because its object's field types are still
+loading or their read failed, draws that column WITHHELD with it rather than as
+text: `object-grid`, the related list and `object-data-table` do. It is the
+shipped mask, not whatever is registered for `password` at the time, and its
+`field` prop is optional because it reads only whether a value is present.
+`registerFieldRenderer('api_token', MaskedCellRenderer)` masks a type the same
+way the `getCellRenderer('password')` form above does.
+
+```tsx
+import { MaskedCellRenderer } from '@object-ui/fields';
+
+const withheldCell = (value: unknown) => <MaskedCellRenderer value={value} />;
+```
+
 ### File uploads in line-item grids
 
 `GridField` (the master-detail line-items grid) supports `type: 'file'` columns:

@@ -4,7 +4,7 @@
 ---
 
 Retire the `'created_at'` timeline date-axis floors at both plugin faces
-(objectui#7070 step ③, maintainer ruling 2026-09-01, 总监批 #28).
+(step ③ of the maintainer ruling 2026-09-01, 总监批 #28).
 
 **Breaking, deliberately.** A timeline view that declares **no** date axis anywhere no
 longer renders. `ListView`'s and `ObjectView`'s timeline branches used to hand

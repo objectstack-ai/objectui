@@ -28,7 +28,7 @@ import {
 } from '@object-ui/components';
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
 import { createSafeTranslation } from '@object-ui/i18n';
-import { useSchemaContext, useRecordContext, useFilterScope, useResolvedFilter } from '@object-ui/react';
+import { useSchemaContext, useRecordContext, useFilterScope, useResolvedFilter, useDataInvalidation } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { buildMasterDetailEditBatch, sumRows } from './masterDetailTx';
 import { applyColumnPermissions } from './fieldWriteGate';
@@ -244,9 +244,17 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     dataSource: unknown;
     childObject: string | undefined;
     relationshipField: string | undefined;
+    // objectui#10814 — the rest of the read, so a run can tell a re-read of the
+    // rows on screen from a read of other rows (see `rereadsRowsOnScreen`).
+    top: number;
+    filterKey: string;
+    sortKey: string;
   } | null>(null);
   const heldReloadRef = useRef(false);
   const [heldReplay, setHeldReplay] = useState(0);
+  // objectui#10814 — an in-place re-read is in flight: the grid stays drawn over
+  // the rows it already shows, and takes no input until the answer lands.
+  const [refreshing, setRefreshing] = useState(false);
 
   // Child object schema — used to strip computed / read-only columns from each
   // row before persisting (parity with the parent form's sanitize). Rows are
@@ -334,6 +342,27 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     [sortKey],
   );
 
+  // objectui#10814 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10623 way: the nonce moves when a
+  // write to the object this panel QUERIES is declared, and the fetch effect
+  // below names it, so the lines are re-read. Without it a page action over raw
+  // HTTP left a panel with an authored `parentId` / `recordId` (one a stored
+  // page holds with no record context) stale unless its host remounted it, and
+  // `PageView` is to stop doing that (objectui#10519).
+  //
+  // The object is the CHILD object: the panel reads `find(childObject)` scoped
+  // to one parent. It is object-level, because `dataChangeMatches` scopes a
+  // `recordId` to a record OF the object named, and the rows here are many
+  // children, not one record. Subscribed only when `load` below can query (an
+  // adapter and a parent bound).
+  //
+  // The re-read goes through `load('inputs')`, so what already holds for an
+  // input change holds for it: unsaved edits for the current parent HOLD it
+  // (objectui#10712 R3) and the save's reload carries it, and a superseded run
+  // commits nothing. A re-read of the rows on screen keeps the grid drawn
+  // (`rereadsRowsOnScreen` in `load`).
+  const invalidationNonce = useDataInvalidation(dataSource && parentId ? schema.childObject : undefined);
+
   /**
    * `origin` says who asked for the read: `'inputs'` is the fetch effect (a
    * load input moved, or a held change is replayed), `'save'` the post-save
@@ -361,6 +390,26 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
         return;
       }
     }
+    // objectui#10814 — this read asks for exactly what the last run asked for,
+    // and the rows on screen are this parent's: a re-read of the rows already
+    // drawn (a bus event, or a held one replayed). It keeps the grid drawn over
+    // those rows instead of blanking it to the loading branch, the way a
+    // record form's bus re-read stays mounted (objectui#10572). The grid takes
+    // no input while it is in flight, since its commit replaces the rows. Not
+    // for the save's reload, which draws the loading branch as it always has.
+    const top = resolveRowLimit(schema.limit, DEFAULT_LINE_ITEMS_LIMIT);
+    const prev = lastRunRef.current;
+    const rereadsRowsOnScreen =
+      origin === 'inputs'
+      && prev !== null
+      && prev.parentId === parentId
+      && prev.dataSource === dataSource
+      && prev.childObject === schema.childObject
+      && prev.relationshipField === schema.relationshipField
+      && prev.top === top
+      && prev.filterKey === filterKey
+      && prev.sortKey === sortKey
+      && heldEditsRef.current.rowsHeldFor === parentId;
     // Every run reads the panel's current inputs, so whatever change was held
     // is carried by this one.
     heldReloadRef.current = false;
@@ -373,7 +422,13 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
       dataSource,
       childObject: schema.childObject,
       relationshipField: schema.relationshipField,
+      top,
+      filterKey,
+      sortKey,
     };
+    // A newer run ends any in-place re-read it supersedes, including one that
+    // declines below before it reaches the wire.
+    setRefreshing(false);
     if (!dataSource || !parentId) {
       setLoading(false);
       return;
@@ -410,7 +465,8 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
       );
       return;
     }
-    setLoading(true);
+    if (rereadsRowsOnScreen) setRefreshing(true);
+    else setLoading(true);
     try {
       // Parent relationship AND the panel's own criteria (objectstack#7137).
       // The parent condition is not negotiable — an "additional" criterion may
@@ -426,7 +482,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
             ? parentScope
             : mergeFilterNodes(parentScope, listFilterNode),
         ...(orderBy ? { $orderby: orderBy } : {}),
-        $top: resolveRowLimit(schema.limit, DEFAULT_LINE_ITEMS_LIMIT),
+        $top: top,
       });
       // objectui#10712 — a run a newer one has superseded (another `parentId`,
       // say, while this read was in flight) commits nothing: not the rows, not
@@ -471,7 +527,10 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
       // superseded run's release would draw the grid over the empty rows while
       // the current read is still pending. Every decline above releases it
       // before any await, so a run that returns early is never superseded here.
-      if (isCurrent()) setLoading(false);
+      if (isCurrent()) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [
     dataSource,
@@ -482,6 +541,8 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     filterRefusal,
     listFilterNode,
     orderBy,
+    filterKey,
+    sortKey,
   ]);
 
   // objectui#10712 — the panel's latest `load` and the parent it reads, for the
@@ -495,11 +556,12 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     latestLoadRef.current = { load, parentId };
   }, [load, parentId]);
 
-  // A load input moved, or a held change is replayed (`heldReplay`): the read
-  // the panel's inputs ask for, which `load` may hold (objectui#10712 R3).
+  // A load input moved, a held change is replayed (`heldReplay`), or the bus
+  // reported a write to the child object (`invalidationNonce`, objectui#10814):
+  // the read the panel's inputs ask for, which `load` may hold (objectui#10712 R3).
   useEffect(() => {
     void load('inputs');
-  }, [load, heldReplay]);
+  }, [load, heldReplay, invalidationNonce]);
 
   const onChange = useCallback((next: Record<string, any>[]) => {
     setRows(next);
@@ -698,7 +760,9 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
             // No input while the save is in flight (objectui#10631): `save`
             // reloads the rows once the batch lands, so a line edited in the
             // meantime was overwritten by that reload and the panel read clean.
-            disabled={saving}
+            // The same holds while an in-place re-read is in flight
+            // (objectui#10814): its commit replaces the rows drawn here.
+            disabled={saving || refreshing}
           />
         )}
       </CardContent>

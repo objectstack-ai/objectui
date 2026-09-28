@@ -114,7 +114,7 @@ export const ObjectGanttRenderer: React.FC<{ schema: any }> = elementDataSourceB
 
 // `objectName` is NOT a required input (objectui#7470): `getDataConfig` reads
 // `data`, then `staticData`, then `objectName`, and the `object-gantt` zod
-// schema (`requireRecordSource`, objectui#6939) is where "one of the three" is
+// schema (`requireRecordSource`, `77cb489b4`) is where "one of the three" is
 // enforced. The input list is a flat declaration with a boolean `required`, so
 // it states the rule in the description rather than growing a one-of form.
 //

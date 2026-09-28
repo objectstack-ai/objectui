@@ -33,7 +33,7 @@ import { useRecordQuery } from './useRecordQuery.js';
 // The repo's single filter sink — conjoins filter sources under one `and`
 // instead of spreading them, so an id restriction can never overwrite a
 // declared filter on the same field (#5195).
-import { mergeFilterNodes } from '@object-ui/core';
+import { mergeFilterNodes, toFilterNodeSafely, type FilterNodeResult } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import { lookupFiltersToRecord } from './RecordPickerDialog.js';
 import { getPersonId, getPersonNameFields } from './personDisplay.js';
@@ -285,17 +285,28 @@ export function PeoplePicker({
     expand: effectiveExpand,
   });
 
-  const recentFilter = useMemo<unknown>(() => {
+  // ⚠️ `baseFilter` is lowered through `toFilterNodeSafely` before the merge —
+  // objectui#10789. This is a RENDER-time `useMemo`, and the lowering refuses a
+  // malformed authored filter (`lookupFilters`, the host's `baseFilter`) with a
+  // `FilterOperatorError`: uncaught, that threw out of render into the error
+  // boundary. The refusal is kept as a VALUE: the recents query does not run
+  // (never "no filter", which would offer every record), and the candidate
+  // area below reports it in the error slot the main query's own refusal
+  // reaches through `dataSource.find`.
+  const recentFilter = useMemo<FilterNodeResult>(() => {
     const idRestriction = { [idField]: { $in: recentIds } };
-    return baseFilter ? mergeFilterNodes(baseFilter, idRestriction) : idRestriction;
+    if (!baseFilter) return { ok: true, node: idRestriction };
+    const lowered = toFilterNodeSafely(baseFilter);
+    return lowered.ok ? { ok: true, node: mergeFilterNodes(lowered.node, idRestriction) } : lowered;
   }, [baseFilter, idField, recentIds]);
+  const recentFilterRefusal = recentFilter.ok ? undefined : recentFilter.refusal;
 
   const recentQuery = useRecordQuery({
     dataSource,
     objectName,
-    enabled: open && recentIds.length > 0,
+    enabled: open && recentIds.length > 0 && recentFilter.ok,
     pageSize: Math.max(1, recentIds.length),
-    filter: recentFilter,
+    filter: recentFilter.ok ? recentFilter.node : undefined,
     expand: effectiveExpand,
   });
 
@@ -497,12 +508,15 @@ export function PeoplePicker({
     [navList, activeIndex, handleRowSelect, query.search, multiple, selectedRecords, handleRemove, idField],
   );
 
+  // The candidate area's error: the main query's own failure, else the refusal
+  // of the declared filter the recents merge could not lower (objectui#10789).
+  const candidateError = query.error ?? recentFilterRefusal?.message ?? null;
   const initialLoading =
-    query.loading && !query.error && query.records.length === 0 && recentRecords.length === 0;
+    query.loading && !candidateError && query.records.length === 0 && recentRecords.length === 0;
   const refetching = query.loading && !initialLoading;
   const isEmpty =
     !query.loading &&
-    !query.error &&
+    !candidateError &&
     resultRecords.length === 0 &&
     recentRecords.length === 0;
 
@@ -563,13 +577,20 @@ export function PeoplePicker({
           aria-busy={query.loading}
           className={cn('flex flex-col gap-0.5 pr-2 transition-opacity', refetching && 'opacity-70')}
         >
-          {query.error ? (
-            <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground">
+          {candidateError ? (
+            <div
+              className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground"
+              data-testid="people-picker-error"
+            >
               <AlertCircle className="size-5 text-destructive" aria-hidden />
-              <span className="max-w-xs">{query.error}</span>
-              <Button type="button" variant="outline" size="sm" onClick={query.refetch}>
-                {t('lookup.retry')}
-              </Button>
+              <span className="max-w-xs">{candidateError}</span>
+              {/* A retry re-runs a failed READ; it cannot repair an authored
+                  filter this picker refused before reading. */}
+              {query.error ? (
+                <Button type="button" variant="outline" size="sm" onClick={query.refetch}>
+                  {t('lookup.retry')}
+                </Button>
+              ) : null}
             </div>
           ) : initialLoading ? (
             Array.from({ length: SKELETON_ROWS }).map((_, i) => (

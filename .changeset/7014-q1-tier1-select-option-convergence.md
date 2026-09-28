@@ -37,3 +37,20 @@ the strict schema, so one of them fails the whole field.
 
 `SelectOptionBase` is exported from `@object-ui/types` because it appears in the
 `extends` clause of both published interfaces.
+
+⚠️ **Dated note, 2026-09-27 — `description` has since moved inside the spec's option
+vocabulary — objectui#10801.** `@objectstack/spec` 17.3.0 declared it (the
+objectui#6140 / objectui#6153 ruling), and this repository resolves 17.4.0 on this date.
+Measured on 17.2.0, 17.3.0 and 17.4.0, each probe beside a control that differs only by
+the key: from 17.3.0 `SelectOptionSchema` is strict over six keys, `description` among
+them, so an option carrying it is accepted and a field whose `options` carry it parses
+whole, while `disabled` and `icon` are still refused by name (`unrecognized_keys`). So
+the EXTENSION paragraph above no longer describes the contract for `description`: it may
+reach an authored object document, and "must never reach" now holds for `disabled` and
+`icon` only. The derivation this entry introduces did what it promises, and the spec's
+new key reached both faces with no edit here; that also means "exactly one key, on one
+face" and "`SelectOption` identically" undercount what ships, because the SDUI form face
+`SelectOption` gains an optional `description` too (nothing narrowed). The text above is
+kept as the reading of this change; `select-option-spec-extension-7014.test.ts` and
+`select-option-tier1-convergence-7014.test.ts` in `@object-ui/types` re-derive the key
+set, both refusals and the form face's gained key against the installed spec.

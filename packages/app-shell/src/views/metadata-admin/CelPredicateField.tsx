@@ -90,7 +90,7 @@ export interface CelPredicateFieldProps {
   /**
    * The authored key this editor writes (`visibleWhen`, `readonlyWhen`,
    * `requiredWhen`) — see `CelSchemaHint.slot`. Naming it lets the wrong-layer
-   * advisory take the platform's published per-slot verdict (objectui#9318);
+   * advisory take the platform's published per-slot verdict (`e3cb47624`);
    * leaving it unset keeps the local one, which is the right answer for the
    * surfaces whose bound roots are not the field-rule set.
    */

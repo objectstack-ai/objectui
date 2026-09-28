@@ -5,11 +5,11 @@
 `ChartSchema` declares the data model it renders — chart-level `data` and `xAxisKey`, with
 the bare-string `xAxis` folded onto the latter — and `ChartDataSeries` accepts both binding
 dialects (objectui#7113 option B, 项目总监席 总监批 #28 2026-09-01 「同意」; and
-objectui#6939's `chart` row, maintainer ruling 2026-09-02 「同意」 — both rulings
+the `chart` row of the eight-group maintainer ruling of 2026-09-02 「同意」 — both rulings
 independently instructed declaring these two keys, so they land as one change).
 
 ⚠️ Shipped as `minor`, not `patch`, because two document classes that validated before now
-REFUSE. objectui#6939 grades this class "patch where the accept set only widens toward what
+REFUSE. The 2026-09-02 ruling grades this class "patch where the accept set only widens toward what
 already renders"; this change is not a pure widening, so it takes the level objectui#6896
 set for the same transition in this same file — the mirror starting to refuse — and for the
 same reason: this repository's `major` is a cross-repo pin to `@objectstack`'s major rather
@@ -40,7 +40,7 @@ documents whose chart was already broken. Class 3 is not: at base it parsed to
 `normalizeChartSchema` renders it — `str(123)` is `undefined`, so the read falls back to
 `name` and yields `series: [{ dataKey: 'a' }]` (`normalizeChartSchema.ts:239`). So this is a
 narrowing away from a document that **renders today**, which is precisely the distinction
-objectui#6939's grading language turns on. `dataKey: null` behaves identically. Measured on
+the 2026-09-02 ruling's grading language turns on. `dataKey: null` behaves identically. Measured on
 both states; the declaration itself is right, and this note is the disclosure it was owed.
 
 ## Corrected: what class 2 actually did
@@ -95,7 +95,7 @@ would discard them.
 
 ## Not done, deliberately
 
-objectui#6939's `chart` row also says "`series[].data` stops being required". On this base
+The 2026-09-02 ruling's `chart` row also says "`series[].data` stops being required". On this base
 it already is not: objectui#6896 replaced it with `retirementTombstone(...)` —
 `z.never({ error }).optional()` — which is optional AND refuses any authored value by name.
 Implementing the clause literally would re-widen a retired key and reverse a landed ruling,

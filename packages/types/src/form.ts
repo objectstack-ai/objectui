@@ -204,7 +204,7 @@ export interface TextareaSchema extends BaseSchema {
    * READ SITE: `packages/components/src/renderers/form/textarea.tsx:37` —
    * `cn("grid w-full gap-1.5", schema.wrapperClass)`. Undeclared until
    * objectui#7722, surviving only on `BaseSchema`'s index signature: the same
-   * key, on the same class of read, that `CheckboxSchema` (objectui#6938),
+   * key, on the same class of read, that `CheckboxSchema` (`b74a8598d`),
    * `FileUploadSchema` and `FilterBuilderSchema` (objectui#6150) declare.
    * Distinct from `className`, which the renderer hands to the inner control.
    */
@@ -326,7 +326,7 @@ export interface SelectSchema extends BaseSchema {
    * READ SITE: `packages/components/src/renderers/form/select.tsx:45` —
    * `cn("grid w-full items-center gap-1.5", schema.wrapperClass)`. Undeclared until
    * objectui#7722, surviving only on `BaseSchema`'s index signature: the same
-   * key, on the same class of read, that `CheckboxSchema` (objectui#6938),
+   * key, on the same class of read, that `CheckboxSchema` (`b74a8598d`),
    * `FileUploadSchema` and `FilterBuilderSchema` (objectui#6150) declare.
    * Distinct from `className`, which the renderer hands to the inner control.
    */
@@ -477,7 +477,7 @@ export interface CheckboxSchema extends BaseSchema {
    *
    * READ SITE: `packages/components/src/renderers/form/checkbox.tsx:36` —
    * `cn("flex items-center space-x-2", schema.wrapperClass)`. Undeclared until
-   * objectui#6938, surviving only on `BaseSchema`'s index signature: the same
+   * `b74a8598d`, surviving only on `BaseSchema`'s index signature: the same
    * key, on the same class of read, that `FileUploadSchema` and
    * `FilterBuilderSchema` declare (objectui#6150) — left out here only because
    * the checkbox doc page's schema block is a six-line summary.
@@ -701,7 +701,7 @@ export interface SwitchSchema extends BaseSchema {
    * READ SITE: `packages/components/src/renderers/form/switch.tsx:26` —
    * `` `flex items-center space-x-2 ${schema.wrapperClass || ''}` ``. Undeclared until
    * objectui#7722, surviving only on `BaseSchema`'s index signature: the same
-   * key, on the same class of read, that `CheckboxSchema` (objectui#6938),
+   * key, on the same class of read, that `CheckboxSchema` (`b74a8598d`),
    * `FileUploadSchema` and `FilterBuilderSchema` (objectui#6150) declare.
    * Distinct from `className`, which the renderer hands to the inner control.
    */
@@ -1112,7 +1112,7 @@ export interface DatePickerSchema extends BaseSchema {
    * READ SITE: `packages/components/src/renderers/form/date-picker.tsx:35` —
    * `` `grid w-full max-w-sm items-center gap-1.5 ${schema.wrapperClass || ''}` ``. Undeclared until
    * objectui#7722, surviving only on `BaseSchema`'s index signature: the same
-   * key, on the same class of read, that `CheckboxSchema` (objectui#6938),
+   * key, on the same class of read, that `CheckboxSchema` (`b74a8598d`),
    * `FileUploadSchema` and `FilterBuilderSchema` (objectui#6150) declare.
    * Distinct from `className`, which the renderer hands to the inner control.
    */

@@ -1111,7 +1111,7 @@ export function ObjectFieldInspector({
             scope="record"
             roots={FIELD_RULE_ROOTS}
             // The authored key, so the wrong-layer advisory reads the
-            // platform's published per-slot verdict (objectui#9318). Sound
+            // platform's published per-slot verdict (`e3cb47624`). Sound
             // here because `FIELD_RULE_ROOTS` above IS that helper's
             // `FIELD_RULE_BOUND_ROOTS`; the formula editor above deliberately
             // names no slot, because `FORMULA_ROOTS` is not.
@@ -1131,7 +1131,7 @@ export function ObjectFieldInspector({
             scope="record"
             roots={FIELD_RULE_ROOTS}
             // The authored key, so the wrong-layer advisory reads the
-            // platform's published per-slot verdict (objectui#9318). Sound
+            // platform's published per-slot verdict (`e3cb47624`). Sound
             // here because `FIELD_RULE_ROOTS` above IS that helper's
             // `FIELD_RULE_BOUND_ROOTS`; the formula editor above deliberately
             // names no slot, because `FORMULA_ROOTS` is not.
@@ -1151,7 +1151,7 @@ export function ObjectFieldInspector({
             scope="record"
             roots={FIELD_RULE_ROOTS}
             // The authored key, so the wrong-layer advisory reads the
-            // platform's published per-slot verdict (objectui#9318). Sound
+            // platform's published per-slot verdict (`e3cb47624`). Sound
             // here because `FIELD_RULE_ROOTS` above IS that helper's
             // `FIELD_RULE_BOUND_ROOTS`; the formula editor above deliberately
             // names no slot, because `FORMULA_ROOTS` is not.

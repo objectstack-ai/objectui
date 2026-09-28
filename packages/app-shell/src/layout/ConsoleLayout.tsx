@@ -194,8 +194,14 @@ export function ConsoleLayout({
 
       {/* The dock's launcher — rendered when AI service is available OR when
           `VITE_AI_BASE_URL` has been explicitly configured. Dependency-free;
-          the chat graph loads with the dock, on demand. */}
-      {showChatbot && <ConsoleChatbotFab appLabel={appLabel} onOpenDock={dock.expand} />}
+          the chat graph loads with the dock, on demand.
+          It is the dock's COLLAPSED affordance (ADR-0057 open question 2), so
+          it leaves while the dock is open: a fixed bottom-right button over an
+          expanded rail sat on the composer's send button (objectui#10899). The
+          rail and the sheet carry their own collapse / close controls. */}
+      {showChatbot && !dock.expanded && (
+        <ConsoleChatbotFab appLabel={appLabel} onOpenDock={dock.expand} />
+      )}
 
       {/* Under `md` the FAB opens the dock as a bottom sheet (no room for a
           rail on a phone) — same conversation, chrome only. */}

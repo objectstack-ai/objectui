@@ -1257,6 +1257,48 @@ export class AnalyticsUnauthenticatedError extends Error {
 }
 
 /**
+ * Thrown when the dataset query was refused because this user may not READ an
+ * object the dataset queries — `403` + ADR-0112 `PERMISSION_DENIED`, which
+ * `@objectstack/service-analytics`' read admission (`readAdmissionDeniedError`)
+ * answers with the same code and status the data API gives the same user for
+ * the same object (objectui#10899).
+ *
+ * The FOURTH branch. It used to fall through to the generic
+ * `Dataset query failed: 403 Forbidden — [Analytics] Access denied: …` string,
+ * which a dashboard tile then rendered verbatim: a raw English exception where
+ * the list view over the same object shows its localized "no access" state.
+ * That generic string names a transport status where a person needs a fact
+ * ("you can't see this data"), and it is the one case a renderer must be able
+ * to tell apart — so it is typed, and it carries `httpStatus` + a `code` the
+ * shared `classifyLoadError` reads as `forbidden` without any string matching.
+ *
+ * `serverMessage` is kept for diagnostics only. The producer deliberately
+ * names the object and nothing else, but it is still platform prose, not text
+ * addressed to the end user.
+ */
+export class AnalyticsForbiddenError extends Error {
+  readonly code = 'PERMISSION_DENIED';
+  readonly httpStatus = 403;
+  /** The server's own ADR-0112 code — the field this branch was chosen BY. */
+  readonly serverCode?: string;
+  /** The server's own message, verbatim (diagnostics only). */
+  readonly serverMessage?: string;
+  /** The dataset the refused query asked for, when it named one. */
+  readonly datasetName?: string;
+  constructor(opts: { serverCode?: string; serverMessage?: string; datasetName?: string } = {}) {
+    super(
+      `Analytics query refused: this user may not read the data behind ` +
+      `${opts.datasetName ? `dataset "${opts.datasetName}"` : 'this dataset'}.` +
+      (opts.serverMessage ? ` (server said: ${opts.serverMessage})` : ''),
+    );
+    this.name = 'AnalyticsForbiddenError';
+    this.serverCode = opts.serverCode;
+    this.serverMessage = opts.serverMessage;
+    this.datasetName = opts.datasetName;
+  }
+}
+
+/**
  * The ADR-0112 `code` + `message` an analytics REST error body declares.
  *
  * ONE url, TWO declared producers — which is why this reads two SHAPES, and why
@@ -6457,6 +6499,19 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       //    for or against the capability being installed.
       if (errorCodeIs({ code: serverCode }, 'UNAUTHENTICATED')) {
         throw new AnalyticsUnauthenticatedError({ serverCode, serverMessage });
+      }
+
+      // ③a The request ran into a READ refusal: this user may not read an
+      //    object the dataset queries (403 `PERMISSION_DENIED`, the analytics
+      //    read admission — objectui#10899). Typed so a tile can render the
+      //    same localized "no access" state the list view does, instead of
+      //    the generic string below.
+      if (errorCodeIs({ code: serverCode }, 'PERMISSION_DENIED')) {
+        throw new AnalyticsForbiddenError({
+          serverCode,
+          serverMessage,
+          datasetName: requestedDatasetName,
+        });
       }
 
       // ④ Residual — the answer declared NO ADR-0112 code, so no ObjectStack

@@ -349,6 +349,24 @@
  * reason: it reads the roots the split is decided on, so an unreadable root
  * voids the run instead of silently moving live schemas onto the gone line.
  *
+ * ## An EMPTY corpus exits 2, by construction (objectui#10010)
+ *
+ * `changeset version` consumes every pending entry. So the corpus holds none on
+ * the post-version tree `changeset-release.yml` renders and validates, and none
+ * on `main` from the moment a release merges until the next entry lands. There
+ * the lit control reads 0 and the run exits 2 -- and that is the RIGHT answer,
+ * ⛔ not a defect to route around: a corpus that holds nothing and a reader that
+ * read nothing give this instrument the same reading, and the lit control exists
+ * so that the second is never reported as the first. ⛔ An empty corpus is
+ * therefore deliberately NOT special-cased to exit 0. The same holds for a live
+ * corpus that is not empty but carries no present-tense declaration verb at
+ * all -- a state a small corpus, `main` shortly after a release, can be in.
+ * ⇒ The consequence lands on whoever asserts this script's exit status: against
+ * the LIVE `.changeset/`, the status is a fact about the tree's release phase,
+ * not about the instrument. The test therefore pins exit 0 on its fixture
+ * corpus, pins exit 2 on an empty one, and reads the live corpus only for the
+ * boundary below, which holds in every phase.
+ *
  * ## It does not answer about itself
  *
  * The corpus is `.changeset/` and nothing else. This file's own prose names

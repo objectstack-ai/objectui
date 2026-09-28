@@ -667,15 +667,24 @@ if (clientDistInjection) workspaceAliases['@objectstack/client'] = clientDistInj
 const clientFsAllow: string[] = clientDistInjection ? clientDistInjection.fsAllow : [];
 
 // Deps pre-bundled for the dev server. Build-time pre-bundling was removed in
-// Vite 5.1, so this list is read by `pnpm dev` only, never by `vite build`.
+// Vite 5.1, so this list is read by `pnpm dev` only, never by `vite build` —
+// which is why no build or E2E job can see a bad entry here.
+//
+// Vite resolves every entry from THIS directory (the dev root), under the dev
+// conditions, before the server listens (objectui#10865). An entry naming a
+// subpath the installed package does not export aborts the start: a bare
+// `react-map-gl` did, since react-map-gl 8 exports no `.`. An entry naming a
+// package this app does not depend on is skipped with a warning and pre-bundles
+// nothing: `maplibre-gl` was one, and needs no entry of its own, because the
+// `react-map-gl/maplibre` pre-bundle already carries it. The console-config
+// cases in `scripts/__tests__/vite-objectstack-spec-dist.test.ts` resolve every
+// entry the way the dev server does.
 const OPTIMIZE_DEPS_INCLUDE = [
   '@objectstack/spec',
   '@objectstack/spec/data',
   '@objectstack/spec/system',
   '@objectstack/spec/ui',
-  'react-map-gl',
-  'react-map-gl/maplibre',
-  'maplibre-gl'
+  'react-map-gl/maplibre'
 ];
 
 // Baseline `vendor-objectstack` grouping: the installed spec/client, reached

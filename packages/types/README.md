@@ -159,6 +159,20 @@ Opaque `custom` / `function` / `transform` validators have no shape to close;
 `deriveStrictAuthoringSchema` reports each one it meets through the optional
 `onOpaqueShape` callback.
 
+One node spells its props through the passthrough by design: a `metric-card`
+sitting directly in a dashboard's `widgets` slot, whose props are its
+registration's `inputs`. The strict face admits exactly the input names that
+registration declares on that node, each judged as the tolerant face judges it,
+and still refuses any other key by name (objectui#11022; the names are held to
+the live registration by a test in `@object-ui/plugin-dashboard`):
+
+```typescript
+const card = (widget: object) => ({ type: 'dashboard', widgets: [widget] });
+
+StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', value: 42 })).success; // true
+StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', bogus: 1 })).success;  // false — `bogus` is named
+```
+
 ## Type Categories
 
 ### Base Types

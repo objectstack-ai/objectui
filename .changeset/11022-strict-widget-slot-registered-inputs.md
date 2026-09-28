@@ -1,0 +1,13 @@
+---
+'@object-ui/types': minor
+---
+
+The strict authoring face accepts a correctly authored `metric-card` in a dashboard's widget slot (objectui#11022). This widens a published accept set; nothing that parsed before is refused now.
+
+`StrictAnyComponentSchema` refused every `metric-card` widget that carried `value`, its required input, and `icon`, `trend` and `trendValue` with it: each came back as `unrecognized_keys` from both arms of the widget slot's union. The widget slot holds `metric-card` as a component node whose props are its registration's `inputs`. The tolerant face admits them through `BaseSchema`'s passthrough, and the strict face closes that passthrough, so it refused them as undeclared.
+
+- **What changed.** The slot's component-node arm now records the input names the `metric-card` registration declares (`title`, `value`, `icon`, `trend`, `trendValue`, `description`). `deriveStrictAuthoringSchema` admits those names on that node before closing it. Each one is judged the way the tolerant face judges it: the passthrough admits any value, so the strict face checks which KEYS appear and judges no value the tolerant face does not. A name the node already declares, like `description`, keeps its declared type.
+- **What still refuses.** A key no registration declares is still refused by name, as `unrecognized_keys` (`{ type: 'metric-card', bogus: 1 }`). `children` and `body` on `metric-card` are still refused with the objectui#9256 message.
+- **What does not move.** The tolerant face (`AnyComponentSchema`, `DashboardComponentSchema` and every other mirror): its accept set, output and inferred types are unchanged, and the slot arm's shape and catchall are what they were. The legacy `{ id, component, layout }` widget envelope is untouched, and its `component` is still judged as a plain `BaseSchema` node on both faces. `metric-card` is still not a root-level arm of `AnyComponentSchema`, so a root `{ type: 'metric-card' }` document is refused at `type` on both faces, as before.
+
+No migration: a document that parsed on either face still parses there.

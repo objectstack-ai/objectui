@@ -28,6 +28,8 @@ import { toInlineFormType } from './form-preview.js';
 import type { MetadataPreviewProps } from '../preview-registry.js';
 import { PreviewShell, PreviewErrorBoundary, PreviewMessage } from './PreviewShell.js';
 import { primaryVariantBinding } from '../view-variant-model.js';
+import { t as tr } from '../i18n.js';
+import { withNodes } from './row-nodes.js';
 
 function resolveObjectName(
   draft: Record<string, unknown>,
@@ -136,7 +138,7 @@ function buildFormPreviewSchema(
   };
 }
 
-export function ViewPreview({ name, draft, editing }: MetadataPreviewProps) {
+export function ViewPreview({ name, draft, editing, locale }: MetadataPreviewProps) {
   // The single ViewItem body (`draft.config`), or undefined for a raw schema.
   const body = React.useMemo(
     () => primaryVariantBinding(draft)?.schema,
@@ -195,7 +197,7 @@ export function ViewPreview({ name, draft, editing }: MetadataPreviewProps) {
     const schema = { ...(draft as Record<string, unknown>) };
     return (
       <PreviewShell hint={`view · ${(schema as any).type}${designMode ? ' · design' : ''}`}>
-        <PreviewErrorBoundary fallbackHint="The view's `type` may not be registered, or required fields are missing.">
+        <PreviewErrorBoundary fallbackHint={tr('engine.viewPreview.schemaFailed', locale)}>
           <div className="min-h-[300px] max-h-[75vh] overflow-auto">
             <PreviewModeProvider><SchemaRenderer schema={schema as any} /></PreviewModeProvider>
           </div>
@@ -208,8 +210,11 @@ export function ViewPreview({ name, draft, editing }: MetadataPreviewProps) {
     return (
       <PreviewShell hint={`view${designMode ? ' · design' : ''}`}>
         <PreviewMessage tone="warn">
-          This view has no object binding yet. Set the bound <code>Object</code> in
-          the right panel to fetch live data and field options.
+          {/* The code span names the right panel's field by the label that
+              panel shows it under (`ViewVariantInspector`), in the same locale. */}
+          {withNodes(tr('engine.viewPreview.noObject', locale), {
+            object: <code>{tr('engine.inspector.view.object', locale)}</code>,
+          })}
         </PreviewMessage>
       </PreviewShell>
     );
@@ -225,7 +230,7 @@ export function ViewPreview({ name, draft, editing }: MetadataPreviewProps) {
     const formSchema = buildFormPreviewSchema(objectName, body as Record<string, unknown>);
     return (
       <PreviewShell hint={`view · ${rawType} · form${designMode ? ' · design' : ''}`}>
-        <PreviewErrorBoundary fallbackHint="The form view references an object or field that doesn't resolve.">
+        <PreviewErrorBoundary fallbackHint={tr('engine.viewPreview.formFailed', locale)}>
           <div className="min-h-[300px] max-h-[75vh] overflow-auto">
             <PreviewModeProvider><SchemaRenderer schema={formSchema as any} /></PreviewModeProvider>
           </div>
@@ -240,7 +245,7 @@ export function ViewPreview({ name, draft, editing }: MetadataPreviewProps) {
   // -------------------------------------------------------------------------
   return (
     <PreviewShell hint={`view · ${defaultViewType}${designMode ? ' · design' : ''}`}>
-      <PreviewErrorBoundary fallbackHint="The view references an object or field that doesn't resolve.">
+      <PreviewErrorBoundary fallbackHint={tr('engine.viewPreview.listFailed', locale)}>
         <div className="min-h-[300px] max-h-[75vh] overflow-auto">
           <PreviewModeProvider><SchemaRenderer schema={schema as any} /></PreviewModeProvider>
         </div>

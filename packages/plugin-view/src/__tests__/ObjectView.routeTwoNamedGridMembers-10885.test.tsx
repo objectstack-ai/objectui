@@ -23,8 +23,8 @@
  *
  * A member is taken when the protocol declares it on a named view AND on
  * `object-grid`, under the same name, and `ObjectGrid` reads it. The first
- * describe below derives both declarations from the installed protocol. Three
- * bucket-① members pass the declaration test and are still handled apart:
+ * describe below derives both declarations from the installed protocol. Two
+ * bucket-① members are handled apart from that rule:
  *
  *  - `hiddenFields` — declared on the named view, NOT on `object-grid`, and
  *    `ObjectGrid` has no read of it. It is honoured as the protocol composes it:

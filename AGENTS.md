@@ -349,7 +349,7 @@ AGENTS.md 的「只跑受影响的包」指的是**用上面的路径过滤缩�
   队列会把 PR **在当前 `main` 上重建**后再落地,重建不绿就把它踢出队列,而不是把红的落到共享 `main` 上。所以旧版那条「绝不 `gh pr merge --auto`」的前提已经反转:它防的正是队列现在替你防住的事,而在强制队列的仓库里 **enable auto-merge 就是入队的标准手段**,也是本仓实际走得通的唯一通路(仓内佐证:`.github/workflows/dependabot-auto-merge.yml` 对 Dependabot PR 用的就是 `gh pr merge --auto --squash`)。注意 path-filter 跳过的检查(显示 `skipping`)不是失败,配合 `mergeStateStatus: CLEAN` 即算全绿。
 - **auto-merge 会在「合并冲突」和「draft」窗口里被静默丢弃 —— 事后必须复查并重挂。** 已两次踩实(先例 PR #3458):PR 一旦变成 conflicting、或被(重新)标记为 draft,已挂上的 auto-merge 就没了,**且不会有任何通知**。解完冲突或 `gh pr ready` 之后若不重新挂一次,PR 会一直停在那里 —— 看着"全绿待合",实际谁也没在等它。收工前复查一次:`gh pr view <n> --json isDraft,mergeStateStatus,autoMergeRequest`,`autoMergeRequest` 为 `null` 就是掉了,重挂。
 - **不必为了合并去 rebase 其他在途分支** —— 队列自己会在当前 `main` 上重建,旧版「串行合并、合下一个前先 rebase 在途分支」那套编排已是历史。**但队列只拦得住文本冲突和 CI 看得见的破坏**:两个各自全绿的 PR 仍可能**语义冲突**(改了同一约定的两端;一边删掉了另一边刚开始用的导出)。所以动**共享面**(barrel/注册表/公共类型/跨包约定)时,合并前扫一眼在途 PR(`gh pr list`),有交叠就在 PR 正文里写清交叠点与取并集的办法(先例:PR #3458 对 #3456 同文件交叠的说明)。
-- ruleset 的**具体配置**(谁可绕过、required checks 清单)本文不写 —— 从仓内读不到,别照抄任何推断。上面几条写的都是实测到的可观测行为。
+- ruleset 的**具体配置**(谁可绕过、required checks 清单)本文不写,两半的理由不同(objectui#9520 实测):**谁可绕过**从仓内读不到(ruleset 端点对席位 token 只答「我能不能绕过」,不给名单;这一半没有仪器复核),别照抄任何推断;**required checks 清单**读得到,要看就跑 `node scripts/check-required-check-set.mjs`(`.github/workflows/required-check-set-patrol.yml` 定时跑它;`pnpm check:required-check-set` 只是它的离线 self-test,不读线上),⛔ 别把它的答案抄进本文。上面几条写的都是实测到的可观测行为。
 
 ### ⚠️ Actions workflow 注册表:`list_workflows` 回答不了「本仓到底跑不跑 X」
 

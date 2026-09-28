@@ -565,7 +565,7 @@ describe('objectui#10758 — the host delegation reads bucket ① off the named 
       }
     });
 
-    it('CONTROL: with the family absent from the named view, the host `views` entry still supplies it — the rung before this card', () => {
+    it('CONTROL: with the family absent from the named view, the host `views` entry supplies it — the rung before this card, and the fallback of the three rungs it added', () => {
       const s = delegatedWithSources({ ...CONTROL }, valuesOf(family, 'host'), valuesOf(family, 'node'));
       expectControl(s);
       for (const [member, v] of Object.entries(family)) {

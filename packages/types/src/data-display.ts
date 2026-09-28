@@ -2510,8 +2510,9 @@ export interface ObjectMetricDrillDownConfig extends DrillDownConfig {
  * types against it (`ObjectPivotTable`'s `schema.drillDown`). `object-pivot`
  * has no zod mirror, so a stored JSON config is checked by no validator and
  * reaches the block unchanged. (`PivotTableSchema`, the plain `pivot` node,
- * gained one in objectui#10859 batch 2; its `drillDown` is the shared
- * `DrillDownConfig`, as declared, so it does not refuse `mode` either.)
+ * gained one in objectui#10859 batch 2, and there `drillDown` is refused whole:
+ * the key is a retirement tombstone on both faces since objectui#10932, because
+ * nothing drills a `pivot` node. This type is where a pivot drill is authored.)
  */
 export interface ObjectPivotDrillDownConfig extends DrillDownConfig {
   /**
@@ -2644,10 +2645,35 @@ export interface PivotTableSchema extends BaseSchema {
    */
   columnColors?: Record<string, string>;
   /**
-   * Optional drill-down configuration. When enabled, clicking a cell /
-   * row header / column header / total opens a filtered list view.
+   * ADR-0049 RETIREMENT TOMBSTONE — `drillDown` on the `pivot` node
+   * (objectui#10932, triage grade: retire, do NOT wire a drill).
+   *
+   * What was measured: declared here as the shared {@link DrillDownConfig},
+   * accepted by the zod arm, and honoured by nothing. `PivotTable` fired a
+   * drill only when its HOST passed an `onDrillDown` handler, and the one host
+   * that does is `ObjectPivotTable` (`object-pivot`). The `pivot` registration
+   * hands the node to `PivotTable` bare, console's lazy stub loads that same
+   * registration, and `DashboardGridLayout`'s static-data pivot is rendered
+   * through it, so every `pivot` path left the key inert: clicking a cell did
+   * nothing, with no signal. A static-data pivot also has nothing to drill
+   * into: a drill lists the records behind a value, and a pivot over inline
+   * `data` names no object to query them from.
+   *
+   * `?: never` is this package's tombstone convention (see
+   * `DataTableSchema.toolbar`, {@link StaticTableColumn}), NOT a deletion:
+   * `BaseSchema`'s `[key: string]: any` would admit a deleted key as `any`
+   * again. The Zod twin refuses it loudly via `retirementTombstone()`
+   * (`zod/data-display.zod.ts`), naming the same remedy.
+   *
+   * RETIRED (objectui#10932, ADR-0049) — a `pivot` node draws a cross-tab of
+   * the rows you pass in and drills nowhere. For a pivot whose cells open the
+   * records behind a value, author an `object-pivot` (`objectName` + the same
+   * `rowField` / `columnField` / `valueField`), whose `drillDown` is
+   * {@link ObjectPivotDrillDownConfig}.
+   *
+   * @deprecated Not a member `pivot` reads — author `object-pivot` to drill.
    */
-  drillDown?: DrillDownConfig;
+  drillDown?: never;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `pivot` reads NEITHER content
    * channel: no renderer read consumes `body` or `children` for this node.

@@ -146,6 +146,11 @@ to `onMarkerClick` is not `===` the authored object.
 }
 ```
 
+The block is closed (objectui#5157). A key it does not declare — a typo such as
+`latitudeFieId` — is refused by `objectui validate` with an `unrecognized_keys`
+issue at `map` that names the key. At runtime the map still renders, and the
+console warns `[ObjectMap] Invalid map configuration`, naming the same key.
+
 ## Configuration
 
 ### An unconfigured map refuses

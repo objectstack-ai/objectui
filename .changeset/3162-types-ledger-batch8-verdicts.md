@@ -31,3 +31,9 @@ Two stale justifications were corrected in passing, both the same defect class t
 exists to catch — a comment asserting an upstream type "erases to `any`" when it no longer
 does. Left alone, the next triage checks the claim, finds it false, and lands the regression.
 No published behaviour changes; no runtime code was touched.
+
+⚠️ **Dated note, 2026-09-28 — one of the three `NavigationItem` blockers has since lifted — objectui#10867.**
+Later in this same release the separator `label` stopped being a blocker: `NavigationItem` became a union whose
+separator arm admits exactly the spec separator's keys, and `spec-derived-unions.test.ts` pins that agreement where
+the blocker stood. Two semantic blockers remain (`visible: boolean`, and `pinned` / `defaultOpen`), so the symbol
+is still not bindable. The rest of this entry still holds.

@@ -2972,12 +2972,17 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                       </div>
                     );
                   }
+                  // objectui#10965 — `update_metadata` returns `changes_proposed`
+                  // mid-turn, so this card renders while the proposing turn is
+                  // still streaming and being stored. Its actions wait on the
+                  // same `planActionsLocked` the plan card uses (objectui#10925).
                   return (
                     <div className="flex flex-wrap items-center gap-1.5 pt-0.5" data-testid="proposed-changes-actions">
                       <button
                         type="button"
                         onClick={() => handleChangesConfirm(tool.toolCallId)}
-                        className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                        disabled={planActionsLocked}
+                        className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                         data-testid="proposed-changes-confirm"
                       >
                         <CheckCircle2 className="size-3.5" />
@@ -2986,7 +2991,8 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                       <button
                         type="button"
                         onClick={handlePlanAdjust}
-                        className="inline-flex h-7 items-center rounded-md border bg-background px-3 text-xs font-medium hover:bg-accent"
+                        disabled={planActionsLocked}
+                        className="inline-flex h-7 items-center rounded-md border bg-background px-3 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
                         data-testid="proposed-changes-adjust"
                       >
                         {planAdjustLabel}

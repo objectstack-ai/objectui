@@ -66,6 +66,9 @@ const VALID_BAG: Readonly<Record<string, Record<string, unknown>>> = {
   'record:reference_rail': { entries: [{ objectName: 'contact', relationshipField: 'account' }] },
   'record:alert': { severity: 'warning', title: 'Overdue' },
   'element:text': { content: 'Hello' },
+  // objectui#10872 batch 2 — the bag that names its own `object`; the
+  // `dataSource` waiver is pinned in `./element-number-arm-10872.test.ts`.
+  'element:number': { object: 'order', aggregate: 'count' },
   'element:button': { label: 'Go' },
   'element:divider': {},
 };
@@ -161,7 +164,11 @@ describe('the bag is the spec row, read by reference (objectui#10872)', () => {
     expect(keysOf(bagOf(type))).toEqual(keysOf(rowOf(type)));
   });
 
-  it.each(ARMED.filter((type) => type !== 'element:divider'))(
+  // `element:divider` is restated (below); `element:number`'s bag is its row
+  // with `object` alone made optional — the spec's `dataSource` waiver — so it
+  // is a clone by construction, and `./element-number-arm-10872.test.ts` pins
+  // it member by member against the row instead.
+  it.each(ARMED.filter((type) => type !== 'element:divider' && type !== 'element:number'))(
     '%s: the bag is the spec\'s own row object wherever the import boundary has nothing to strip',
     (type) => {
       const row = rowOf(type);

@@ -21,7 +21,7 @@ import {
   chartConfigPresentation,
 } from '@object-ui/core';
 import { cn, Card, CardHeader, CardTitle, CardContent, Button, getLazyIcon } from '@object-ui/components';
-import { forwardRef, useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react';
+import { forwardRef, useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import type { HTMLAttributes } from 'react';
 import { RefreshCw } from 'lucide-react';
 import {
@@ -45,6 +45,7 @@ import { classifyWidgetType, METRIC_LIKE_TYPES } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
 import { useWidgetSubCaption } from './widgetSubCaption';
+import { useDashboardAutoRefresh } from './useDashboardAutoRefresh';
 import { DashboardFilterBar } from './DashboardFilterBar';
 
 /**
@@ -286,9 +287,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     // Defined here (not just above desktopBody) so renderWidget can give
     // layout-less widgets a sensible default span in the positioned grid.
     const hasExplicitColumns = schema.columns != null || inferredColumns !== 4;
-    const [refreshing, setRefreshing] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
-    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // Dashboard-level filters (framework#2501). Filter values live as
     // dashboard variables — the outer DashboardRenderer mounts a
@@ -488,27 +487,11 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
       return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    const handleRefresh = useCallback(() => {
-      if (!onRefresh) return;
-      setRefreshing(true);
-      onRefresh();
-      // Reset refreshing indicator after a short delay
-      setTimeout(() => setRefreshing(false), 600);
-    }, [onRefresh]);
-
-    // Auto-refresh interval. The `* 1000` is seconds → milliseconds, and the
-    // key now says so itself: @objectstack/spec 17.4.0 renamed
-    // `refreshInterval` to `refreshIntervalSeconds` precisely because a reader
-    // multiplying by 1000 was the tell that the unit lived out of band
-    // (objectstack#15680, objectui#7783). The arithmetic is unchanged — the
-    // value is still seconds.
-    useEffect(() => {
-      if (!schema.refreshIntervalSeconds || schema.refreshIntervalSeconds <= 0 || !onRefresh) return;
-      intervalRef.current = setInterval(handleRefresh, schema.refreshIntervalSeconds * 1000);
-      return () => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-      };
-    }, [schema.refreshIntervalSeconds, onRefresh, handleRefresh]);
+    // The refresh indicator, the manual handler and the auto-refresh timer come
+    // from the one implementation this component shares with
+    // `DashboardGridLayout` (objectui#8820), which is also the only place
+    // `refreshIntervalSeconds` is read.
+    const { refreshing, handleRefresh } = useDashboardAutoRefresh(schema, onRefresh);
 
     const handleWidgetClick = useCallback((e: React.MouseEvent, widgetId: string | undefined) => {
       if (!designMode || !onWidgetClick || !widgetId) return;

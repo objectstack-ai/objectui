@@ -121,7 +121,9 @@ describe('CelPredicateField · inline lint (real engine)', () => {
 
   it('advises on a non-pushdown-able USING read filter (fail-open blast radius)', async () => {
     render(<Harness initial={'upper(status) == "OPEN"'} />);
-    expect(await screen.findByText(/push it down|widen/i, {}, { timeout: 3000 })).toBeTruthy();
+    // objectui's own sentence, read through the host's `t` (objectui#10862);
+    // this harness's `t` echoes the key, as it does for `perm.cel.valid`.
+    expect(await screen.findByText('engine.celLint.notPushdownable', {}, { timeout: 3000 })).toBeTruthy();
   });
 });
 

@@ -7,9 +7,17 @@ import {
   testRunCelPredicate,
   inferCelValueType,
   __setCelFormulaLoader,
+  type CelLintIssue,
 } from './celAuthoring';
+import { tFormat } from './i18n';
 
 const HINT = { objectName: 'account', fields: ['organization_id', 'owner_id', 'status', 'amount'] };
+
+/**
+ * What a finding reads in English: the producer's message as written, or the
+ * en row of an advisory the lint words itself (objectui#10862).
+ */
+const en = (i: CelLintIssue): string => (i.messageKey ? tFormat(i.messageKey, 'en-US', i.messageVars) : i.message);
 
 afterEach(() => __setCelFormulaLoader(undefined));
 
@@ -41,12 +49,12 @@ describe('celAuthoring · lintCelPredicate (real engine)', () => {
 
   it('advises when a USING read filter is not pushdown-able (fail-open blast radius)', async () => {
     const issues = await lintCelPredicate('upper(status) == "OPEN"', { ...HINT, clause: 'using' });
-    expect(issues.some((i) => i.severity === 'warning' && /push it down|widen/i.test(i.message))).toBe(true);
+    expect(issues.some((i) => i.severity === 'warning' && /push it down|widen/i.test(en(i)))).toBe(true);
   });
 
   it('does NOT raise the pushdown advisory for a CHECK clause', async () => {
     const issues = await lintCelPredicate('upper(status) == "OPEN"', { ...HINT, clause: 'check' });
-    expect(issues.some((i) => /push it down/i.test(i.message))).toBe(false);
+    expect(issues.some((i) => /push it down/i.test(en(i)))).toBe(false);
   });
 
   it('is clean for empty input', async () => {
@@ -102,10 +110,10 @@ describe('celAuthoring · the wrong-layer `data.*` advisory (objectui#8972)', ()
 
   it('TRUE POSITIVE — a record-scope `data.*` predicate now warns, naming `record` as the fix', async () => {
     const issues = await lintCelPredicate("data.status == 'x'", RULE_HINT);
-    const advisory = issues.filter((i) => /\bdata\b/.test(i.message) && /Re-root/.test(i.message));
+    const advisory = issues.filter((i) => /\bdata\b/.test(en(i)) && /Re-root/.test(en(i)));
     expect(advisory).toHaveLength(1);
     expect(advisory[0].severity).toBe('warning');
-    expect(advisory[0].message).toMatch(/`record`/);
+    expect(en(advisory[0])).toMatch(/`record`/);
   });
 
   it('LIVE CONTROL — the ACCEPT SET is not narrowed: the same predicate raises no error', async () => {
@@ -136,11 +144,11 @@ describe('celAuthoring · the wrong-layer `data.*` advisory (objectui#8972)', ()
   it('adds nothing on top of a parse error, and stands down on a non-CEL dialect', async () => {
     const broken = await lintCelPredicate('data.status ==', RULE_HINT);
     expect(broken.some((i) => i.severity === 'error')).toBe(true);
-    expect(broken.some((i) => /Re-root/.test(i.message))).toBe(false);
+    expect(broken.some((i) => /Re-root/.test(en(i)))).toBe(false);
     // A legacy `${…}` string is not CEL; the detector stands down and so must
     // this — classifying it belongs to its own dialect's rules.
     const legacy = await lintCelPredicate('${data.status}', RULE_HINT);
-    expect(legacy.some((i) => /Re-root/.test(i.message))).toBe(false);
+    expect(legacy.some((i) => /Re-root/.test(en(i)))).toBe(false);
   });
 });
 

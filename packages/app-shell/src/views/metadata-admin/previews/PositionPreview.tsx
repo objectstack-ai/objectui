@@ -19,9 +19,11 @@
 import * as React from 'react';
 import { ShieldCheck, Users } from 'lucide-react';
 import type { MetadataPreviewProps } from '../preview-registry.js';
+import { t as tr } from '../i18n.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
+import { withNodes } from './row-nodes.js';
 
-export function PositionPreview({ name, draft }: MetadataPreviewProps) {
+export function PositionPreview({ name, draft, locale }: MetadataPreviewProps) {
   const d = draft as Record<string, unknown>;
   const positionName = String(d.name ?? name ?? '');
   const label = String(d.label ?? positionName);
@@ -30,7 +32,7 @@ export function PositionPreview({ name, draft }: MetadataPreviewProps) {
   if (!positionName) {
     return (
       <PreviewShell hint="position">
-        <PreviewMessage>Give the position a name to see the preview.</PreviewMessage>
+        <PreviewMessage>{tr('engine.positionPreview.empty', locale)}</PreviewMessage>
       </PreviewShell>
     );
   }
@@ -60,12 +62,12 @@ export function PositionPreview({ name, draft }: MetadataPreviewProps) {
             <div className="flex items-start gap-1.5">
               <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0" />
               <div>
-                <div className="font-medium">Positions don't grant data access on their own.</div>
+                <div className="font-medium">{tr('engine.positionPreview.noAccess', locale)}</div>
                 <div className="opacity-90 mt-0.5">
-                  Bind <code className="font-mono">{positionName}</code> to one or more{' '}
-                  <strong>Permission Sets</strong> to control CRUD-VAMA, field access, and tab
-                  visibility. Record visibility comes from the business-unit tree and sharing
-                  rules, not from the position.
+                  {withNodes(tr('engine.positionPreview.bind', locale), {
+                    name: <code className="font-mono">{positionName}</code>,
+                    permissionSets: <strong>{tr('engine.positionPreview.permissionSets', locale)}</strong>,
+                  })}
                 </div>
               </div>
             </div>

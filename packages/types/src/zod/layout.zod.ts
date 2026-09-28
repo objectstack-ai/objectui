@@ -437,6 +437,16 @@ export const TabItemSchema = z.object({
   icon: z.string().optional().describe('Tab icon'),
   disabled: z.boolean().optional().describe('Whether tab is disabled'),
   content: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).describe('Tab content'),
+  // RETIRED (objectui#9590) — mirrors `TabItem.body: never` (`../layout.ts`).
+  // This object STRIPS undeclared keys, so leaving `body` undeclared would keep
+  // dropping it in silence beside a `content`; the refusal names `content` instead.
+  body: aliasKeyRefusal(
+    'body',
+    'content',
+    'this tab item',
+    '`tabs` draws each panel from `content` (`packages/components/src/renderers/layout/tabs.tsx`). '
+    + 'The item-level `body` fallback was retired by objectui#9590.',
+  ),
 });
 
 /**

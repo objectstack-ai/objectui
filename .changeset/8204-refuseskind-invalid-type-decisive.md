@@ -5,7 +5,7 @@ Test-only change: repair the `registry-inputs-spec-parity` kind classifier so a 
 whose contract is a `z.union` is judged by what the union actually refused. No published
 behaviour changes; nothing outside `apps/console/src/__tests__/` is touched.
 
-objectui#8204. `refusesKind` asked "is EVERY complaint at this node a kind complaint",
+`refusesKind` asked "is EVERY complaint at this node a kind complaint",
 and Zod keeps running a schema's checks after its type check has failed: for
 `z.string().min(1)` the probe `[]` comes back as both `invalid_type` AND `too_small`.
 Read by `every`, that pair is a CONTENT refusal — so the array probe that

@@ -19,7 +19,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { withConsoleBase } from './consoleBase';
+import { withConsoleBase, withConsoleBaseRootRelative } from './consoleBase';
 
 let baseEl: HTMLBaseElement | null = null;
 
@@ -106,5 +106,46 @@ describe('withConsoleBase', () => {
   it('tolerates a relative path by making it absolute against the mount', () => {
     mountConsole('/_console/', '/_console/');
     expect(withConsoleBase('organizations')).toBe('/_console/organizations');
+  });
+});
+
+/**
+ * `withConsoleBaseRootRelative` — the same route as a server-side redirect
+ * target (objectui#10893). The server never sees `<base href>`, and
+ * better-auth refuses a document-relative `./…` callbackURL with
+ * `403 INVALID_CALLBACK_URL` (failing the whole sign-up), so every mount must
+ * yield a ROOT-relative path — and it must be the path a full-page navigation
+ * to the same route lands on.
+ */
+describe('withConsoleBaseRootRelative', () => {
+  const ROUTE = '/accept-invitation/inv_1';
+
+  it('THE HAZARD it exists for: the embedded build\'s withConsoleBase answer is document-relative', () => {
+    mountConsole('/_console/', './');
+    expect(withConsoleBase(ROUTE)).toBe('./accept-invitation/inv_1');
+  });
+
+  it.each([
+    ['the shipped embeddable build', '/_console/', './', '/_console/accept-invitation/inv_1'],
+    ['a pinned absolute base', '/_console/', '/_console/', '/_console/accept-invitation/inv_1'],
+    ['the default `/` mount', null, '/', '/accept-invitation/inv_1'],
+  ])('%s: root-relative, and where a navigation to the route lands', (_name, href, baseUrl, expected) => {
+    mountConsole(href, baseUrl);
+    const target = withConsoleBaseRootRelative(ROUTE);
+    expect(target).toBe(expected);
+    expect(target.startsWith('/') && !target.startsWith('//')).toBe(true);
+    expect(target).toBe(lands(withConsoleBase(ROUTE)));
+  });
+
+  it('keeps the query and hash of the route', () => {
+    mountConsole('/_console/', './');
+    expect(withConsoleBaseRootRelative('/settings?tab=members#invites')).toBe(
+      '/_console/settings?tab=members#invites',
+    );
+  });
+
+  it('leaves a target that names its own absolute SPA mount untouched', () => {
+    mountConsole('/_console/', './');
+    expect(withConsoleBaseRootRelative('/_studio/apps')).toBe('/_studio/apps');
   });
 });

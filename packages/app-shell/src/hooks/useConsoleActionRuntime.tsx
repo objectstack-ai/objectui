@@ -158,7 +158,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
    * see it, and a discarded-and-recomputed context value would rebuild this
    * callback with no change in what it reads.
    *
-   * ⭐ Why this hook reaches for it at all (objectui#10129). Field-backed action
+   * ⭐ Why this hook reaches for it at all (`6cc910b6d`). Field-backed action
    * params resolve against `ctx.objects`, and the `objects` OPTION is whatever
    * the caller happened to hold: `ConsoleShell`'s root runtime passes NONE, and
    * `DeclaredActionsBar` passes exactly ONE object (and none at all when it is
@@ -233,7 +233,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   // backed the narrowing out.
   const paramCollectionHandler = useCallback<ParamCollectionHandler>((params: ActionParamDef[], action?: ConsoleActionDispatch) => {
     return new Promise<Record<string, any> | null>((resolve) => { void (async () => {
-      // ⭐ Ask the store for the object type BEFORE resolving (objectui#10129).
+      // ⭐ Ask the store for the object type BEFORE resolving (`6cc910b6d`).
       // `ensureType` is idempotent and answers from cache in a microtask once
       // warm, so the cost is nil on the path a user actually takes — but it is
       // what makes "this field does not exist" an ANSWER rather than a race.

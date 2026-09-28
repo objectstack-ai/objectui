@@ -229,7 +229,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
    * objectui#10612): FLS drops non-readable fields and locks non-editable ones,
    * and the ADR-0092 D4 managed-object lock disables every field when the
    * object's affordance for the mode is closed. The drawer used to carry
-   * neither half: FLS joined in objectui#10120, the lock in objectui#10612 —
+   * neither half: FLS joined in `80c54122e`, the lock in objectui#10612 —
    * before it, a managed object drew live inputs here.
    */
   const gateFields = useCallback(
@@ -533,7 +533,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       let result;
       // FLS defence-in-depth, inside the ONE outbound filter: react-hook-form
       // retains state for unmounted/disabled fields, so the render gate above
-      // is not enough on its own (objectui#10120).
+      // is not enough on its own (`80c54122e`).
       const payload = sanitizeFormData(data, objectSchema, {
         canEdit: fieldWriteGate(perms, schema.objectName),
       });

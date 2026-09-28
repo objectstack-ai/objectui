@@ -35,6 +35,7 @@ import {
   ExternalServiceUnavailableError,
   type ExternalCatalog,
 } from './api.js';
+import { t as tr, tFormat } from '../i18n.js';
 
 export interface ExternalDatasourcePanelProps {
   /** The datasource's saved name. Empty while the datasource is unsaved. */
@@ -43,12 +44,18 @@ export interface ExternalDatasourcePanelProps {
   schemaMode?: string;
   /** Whether the datasource permits writes (`external.allowWrites`). */
   allowWrites?: boolean;
+  /**
+   * The designer locale the panel's own words read in — `DatasourcePreview`
+   * passes the one its host gives it (objectui#10862).
+   */
+  locale?: string;
 }
 
 export function ExternalDatasourcePanel({
   datasource,
   schemaMode,
   allowWrites,
+  locale,
 }: ExternalDatasourcePanelProps) {
   // Dates and numbers on this surface read the display locale; a bare
   // `toLocale*()` call used the MACHINE's locale (objectui#9909).
@@ -67,7 +74,7 @@ export function ExternalDatasourcePanel({
     } catch (err) {
       setError(
         err instanceof ExternalServiceUnavailableError
-          ? 'Federation is not enabled on this server.'
+          ? tr('engine.externalDatasource.unavailable', locale)
           : err instanceof Error
             ? err.message
             : String(err),
@@ -75,15 +82,14 @@ export function ExternalDatasourcePanel({
     } finally {
       setRefreshing(false);
     }
-  }, [datasource]);
+  }, [datasource, locale]);
 
   // Unsaved datasource: the REST routes key off a saved `:name`, so nothing
   // can be introspected yet. Guide the user to save first.
   if (!datasource) {
     return (
       <div className="rounded border bg-muted/20 p-3 text-xs text-muted-foreground">
-        Save the datasource first to browse its remote tables and validate
-        federated objects.
+        {tr('engine.externalDatasource.saveFirst', locale)}
       </div>
     );
   }
@@ -94,7 +100,7 @@ export function ExternalDatasourcePanel({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b bg-muted/30 px-3 py-2">
         <span className="inline-flex items-center gap-1.5 text-xs font-medium">
           <DatabaseZap className="h-4 w-4 text-sky-500" />
-          External Datasource
+          {tr('engine.externalDatasource.title', locale)}
         </span>
         <span className="rounded border bg-background px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
           {schemaMode ?? 'external'}
@@ -106,14 +112,16 @@ export function ExternalDatasourcePanel({
               : 'bg-muted text-muted-foreground'
           }`}
         >
-          {allowWrites ? 'writes allowed' : 'read-only'}
+          {tr(allowWrites ? 'engine.externalDatasource.writesAllowed' : 'engine.externalDatasource.readOnly', locale)}
         </span>
 
         <div className="ml-auto flex items-center gap-2">
           {catalog?.snapshotAt && (
             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
               <Clock className="h-3 w-3" />
-              snapshot {formatSnapshot(catalog.snapshotAt, displayLocale)}
+              {tFormat('engine.externalDatasource.snapshot', locale, {
+                time: formatSnapshot(catalog.snapshotAt, displayLocale),
+              })}
             </span>
           )}
           <Button variant="outline" size="sm" onClick={() => void handleRefresh()} disabled={refreshing}>
@@ -122,7 +130,7 @@ export function ExternalDatasourcePanel({
             ) : (
               <RefreshCw className="h-3.5 w-3.5" />
             )}
-            <span className="ml-1.5">Refresh catalog</span>
+            <span className="ml-1.5">{tr('engine.externalDatasource.refresh', locale)}</span>
           </Button>
         </div>
       </div>
@@ -135,8 +143,8 @@ export function ExternalDatasourcePanel({
 
       <Tabs defaultValue="tables" className="p-3">
         <TabsList>
-          <TabsTrigger value="tables">Tables</TabsTrigger>
-          <TabsTrigger value="validation">Validation</TabsTrigger>
+          <TabsTrigger value="tables">{tr('engine.externalDatasource.tables', locale)}</TabsTrigger>
+          <TabsTrigger value="validation">{tr('engine.externalDatasource.validation', locale)}</TabsTrigger>
         </TabsList>
         <TabsContent value="tables" className="mt-3">
           <SchemaBrowser datasource={datasource} />

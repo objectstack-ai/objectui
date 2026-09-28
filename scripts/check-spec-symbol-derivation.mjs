@@ -637,15 +637,19 @@ const ALLOW = {
   },
   "@object-ui/types:JoinedReportBlock": {
     reason:
-      "Guard header case 2b, and still live: the spec declares `JoinedReportBlockSchema` as a bare " +
-      "`z.ZodTypeAny`, so its exported type resolves to `unknown`. Re-exporting would replace this " +
-      "package's precise block interface (`name`/`columns`/`groupingsDown`/`groupingsAcross`/" +
-      "`filter`/`chart`) with nothing at all. ⚠️ objectstack#4171 is CLOSED and this is STILL " +
-      "erased — that issue typed the RECURSIVE schemas and never touched this one, whose erasure " +
-      "has a different cause. Re-measured at spec 17.2.0: `IsUnknown` is still `true`. Pinned in " +
-      "packages/types/src/__tests__/report-chart-query-spec-parity.test.ts, which fails the day the " +
-      "spec types the schema — that pin, not the state of any upstream issue, is the release " +
-      "condition.",
+      "Two specs, two cases (objectui#10916). The INSTALLED spec, the published 17.4.0, is guard " +
+      "header case 2b: it declares `JoinedReportBlockSchema` as a bare `z.ZodTypeAny`, so its " +
+      "exported type resolves to `unknown`, and re-exporting would replace this package's block " +
+      "interface with nothing at all. objectstack `main` typed it in objectstack#20369, and there it " +
+      "is case 2c: precise, but a DIFFERENT shape — the ADR-0021 dataset-bound block (`dataset`/" +
+      "`rows`/`columns` as names/`values`/`runtimeFilter`/`order`) in a closed schema, against this " +
+      "package's legacy inline-query block (`objectName`/`columns` as objects/`groupingsDown`/" +
+      "`groupingsAcross`/`filter`/`chart`), all five of whose local-only keys the spec refuses. The " +
+      "burn-down is owed at the first spec bump past 17.4.0, and it REPLACES the published " +
+      "interface with the spec's type in its own slice (a published type changes); before that bump " +
+      "the derived type would be `unknown`. packages/types/src/__tests__/report-chart-query-spec-parity.test.ts " +
+      "pins each divergence at compile time and carries the test-time tripwire that fails at that " +
+      "bump — that tripwire, not the state of any upstream issue, is the release condition.",
     issue: 4115,
   },
   "@object-ui/types:SelectOption": {
@@ -850,8 +854,10 @@ const ALLOW = {
 //      Both sets live in `spec-derived-unions.test.ts` /
 //      `validation-rule-spec-parity.test.ts`, written to fail the day the
 //      blocker they name lifts.
-//   2b. The SPEC export resolves to `unknown` (`JoinedReportBlock`, whose
-//      `JoinedReportBlockSchema` the spec declares as `z.ZodTypeAny`). Just as
+//   2b. The SPEC export resolves to `unknown` (`JoinedReportBlock` in the
+//      published 17.4.0, whose `JoinedReportBlockSchema` that release declares
+//      as `z.ZodTypeAny`; objectstack `main` typed it in objectstack#20369,
+//      which moves it to case 2c there — see its ALLOW entry). Just as
 //      empty as case 2 and just as unburnable, but the `any` probe reports
 //      `false` for it, so a triage that only screens for `any` waves it through
 //      as "safely derivable". Detect: `[unknown] extends [Spec]`. Pinned in

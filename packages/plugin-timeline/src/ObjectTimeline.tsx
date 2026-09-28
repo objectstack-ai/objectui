@@ -10,7 +10,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import type { DataSource, TimelineSchema, ListViewTimelineConfig } from '@object-ui/types';
 import { useDataScope, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
 import { NavigationOverlay } from '@object-ui/components';
-import { extractRecords, buildExpandFields, convertSortToQueryParams, createFieldColorResolver, recordDisplayValueAt } from '@object-ui/core';
+import { extractRecords, buildExpandFields, convertSortToQueryParams, createFieldColorResolver, recordDisplayValueAt, toDisplayDate } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import { usePullToRefresh } from '@object-ui/mobile';
 import { z } from 'zod';
@@ -663,11 +663,31 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
       };
     });
 
+    // Every read of the start value below — this sort, the date bucket, and
+    // the renderer's item date — goes through the shared step,
+    // `toDisplayDate` (`@object-ui/core`, objectui#10866). The engine's own
+    // parse read a date-only `2026-10-06` as UTC midnight, so west of UTC an
+    // item due today bucketed as "Overdue" and sorted among instants at the
+    // wrong hour. The shared step tells the two shapes apart by the value: a
+    // date-only string is local midnight of the day it names, and a value
+    // with a time part keeps its instant. The three must read alike: the
+    // vertical renderer groups ADJACENT items, so a sort that disagreed with
+    // the buckets would split a bucket or order it wrongly.
+    //
+    // A value the shared step refuses (unparsable, or a day its month does
+    // not have, objectui#10026) sorts with the dateless items, as it buckets
+    // with them under "No date".
+    const sortKey = (raw: unknown): number => {
+      if (!raw) return Number.POSITIVE_INFINITY;
+      const ts = toDisplayDate(raw as string).getTime();
+      return Number.isNaN(ts) ? Number.POSITIVE_INFINITY : ts;
+    };
+
     // Sort by start date ascending; nulls sink to the end so users see
     // upcoming work first.
     mapped.sort((a, b) => {
-      const ta = a.startDate ? new Date(a.startDate).getTime() : Number.POSITIVE_INFINITY;
-      const tb = b.startDate ? new Date(b.startDate).getTime() : Number.POSITIVE_INFINITY;
+      const ta = sortKey(a.startDate);
+      const tb = sortKey(b.startDate);
       return ta - tb;
     });
 
@@ -687,7 +707,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
 
     const dateBucket = (raw: any): string => {
       if (!raw) return t('timeline.bucket.noDate');
-      const ts = startOfDay(new Date(raw));
+      const ts = startOfDay(toDisplayDate(raw));
       if (Number.isNaN(ts)) return t('timeline.bucket.noDate');
       if (ts < today) return t('timeline.bucket.overdue');
       if (ts === today) return t('timeline.bucket.today');

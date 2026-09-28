@@ -4821,11 +4821,14 @@ export interface ObjectChartSchema extends BaseSchema {
    * that writes `type` on a `{ dataKey }` entry of an `object-chart` node;
    * none was named. Until one is, the per-series family override on this arm
    * is `chartType`, the renderer-internal spelling of `type`, which wins when
-   * an entry writes both. A `type` written on this arm anyway is an excess
-   * property on a literal typed by this interface, and the zod mirror's
-   * element is a plain `z.object`, which strips it: it parses clean and is
-   * dropped. The mirror's `.describe()` says the same, because that string is
-   * what an author-facing tool renders.
+   * an entry writes both. A `type` written on this arm anyway is NOT refused
+   * on a literal typed by this interface: the `{ name }` arm declares `type`,
+   * and excess-property checking on this union accepts a key that either arm
+   * declares when its value fits that declaration, so
+   * `{ dataKey: 'amount', type: 'line' }` compiles. The zod mirror's element
+   * for this arm is a plain `z.object`, which strips it: it parses clean and
+   * is dropped. The mirror's `.describe()` names the same omission, because
+   * that string is what an author-facing tool renders.
    *
    * An entry with neither `name` nor `dataKey` matches no arm and is refused;
    * `normalizeChartSchema` would drop it from the chart.

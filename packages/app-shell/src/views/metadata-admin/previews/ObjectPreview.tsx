@@ -42,7 +42,7 @@ export function ObjectPreview({
 
   return (
     <PreviewShell hint="object · designer">
-      <PreviewErrorBoundary fallbackHint="The form designer couldn't be rendered. Check the Form tab.">
+      <PreviewErrorBoundary fallbackHint={t('engine.objectPreview.renderFailed', locale)}>
         <ObjectFormCanvas
           objectName={objectName}
           draft={draft}

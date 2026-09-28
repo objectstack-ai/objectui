@@ -163,6 +163,12 @@ formatNumber(1234567, { locale: 'de' });                         // "1.234.567"
 formatRelativeTime(Date.now() - 3 * 86_400_000, 'en');           // "3 days ago"
 ```
 
+A date-only string such as `'2026-09-01'` names a calendar day: every date
+helper reads it as that day in every viewer's time zone (`formatDateTime` shows
+its midnight, and `formatRelativeTime` counts to the start of it). A string
+with a time part is an instant, read in the viewer's zone. `formatDateSpec`
+applies its `timeZone` to an instant only.
+
 ### Built-in locales — one is resident, nine are fetched on demand
 
 The package entry re-exports **`en` only**. It is `fallbackLng`, it is the

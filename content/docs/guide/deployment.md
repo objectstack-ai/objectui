@@ -274,7 +274,7 @@ HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
   CMD wget -qO- http://localhost:80/health.json || exit 1
 ```
 
-```json
+```jsonc
 // railway.json (excerpt)
 {
   "deploy": {

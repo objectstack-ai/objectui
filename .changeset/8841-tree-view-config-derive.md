@@ -11,7 +11,7 @@ protocol refuses on `ListView.tree` (objectui#8841).
 **What was wrong.** `@object-ui/types` published `TreeViewConfig` as a hand-written
 interface — a copy of the protocol's `ListView.tree` block under a second name — and the
 copy declared a fifth key, `titleField`. `@objectstack/spec@17.4.0` refuses that key
-there by name: `TreeConfigSchema` is a `strictObject` since spec #15469 closed the
+there by name: `TreeConfigSchema` is a `strictObject` since spec objectstack#15469 closed the
 `.passthrough()` window 17.3.0 left open. So this package's published face accepted what
 the contract rejects, and an author who followed `@object-ui/types` was refused at
 publish with `Unrecognized key(s) on this tree configuration: 'titleField'`. The copy was

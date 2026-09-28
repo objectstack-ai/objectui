@@ -2,7 +2,7 @@
 '@object-ui/layout': minor
 ---
 
-Nav `visible`: an ancestor's predicate now reaches the whole subtree, and a group no longer outlives its children (objectui#10119)
+Nav `visible`: an ancestor's predicate now reaches the whole subtree, and a group no longer outlives its children
 
 The card reported that an app navigation item's `visible` CEL predicate was served to the
 browser and then ignored, so the entry rendered for every user. That headline no longer

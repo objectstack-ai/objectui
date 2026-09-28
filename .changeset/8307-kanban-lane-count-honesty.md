@@ -2,8 +2,7 @@
 '@object-ui/plugin-kanban': patch
 ---
 
-A Kanban lane header over a windowed fetch now says `77+` instead of `77`
-(objectui#8307).
+A Kanban lane header over a windowed fetch now says `77+` instead of `77`.
 
 **The defect.** `object-kanban` fetches with a real `$top` (objectui#4025) and then
 groups **what came back** into lanes client-side, so `col.cards.length` counts fetched

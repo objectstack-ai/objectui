@@ -2,7 +2,7 @@
 '@object-ui/components': patch
 ---
 
-fix(components): `page:header` resolves a lookup title candidate instead of handing its expanded object to JSX (objectui#10117)
+fix(components): `page:header` resolves a lookup title candidate instead of handing its expanded object to JSX
 
 A record whose declared name field was empty took the whole `page:header` block
 down with "Objects are not valid as a React child" (React #31), leaving the red

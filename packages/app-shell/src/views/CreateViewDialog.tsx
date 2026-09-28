@@ -87,9 +87,9 @@ interface ViewTypeMeta {
 /**
  * Build the picker's rows from a TOTAL record over the visualizations.
  *
- * A total `Record<ListViewVisualization, …>` (objectui#8127). This picker was a
+ * A total `Record<ListViewVisualization, …>` (`ca3942729`). This picker was a
  * nine-entry array whose `type` was plain `string`, so it was never compared
- * against any view-type union — one of the sites the card records as "drifted,
+ * against any view-type union — one of the sites the card behind `ca3942729` records as "drifted,
  * with no type-checking at all". Keyed on the derived visualization union it now
  * fails the build when the spec adds a visualization, instead of quietly
  * becoming unofferable.

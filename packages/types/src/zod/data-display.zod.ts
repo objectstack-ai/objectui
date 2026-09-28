@@ -23,7 +23,7 @@ import {
   I18nLabelSchema,
 } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
-import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
 import { TABLE_COLUMN_TYPES, type TreeNode, type TimelineFeedItem, type TimelineGanttItem } from '../data-display.js';
 import { stripImportedDefaults } from './imported-defaults.js';
 
@@ -871,10 +871,11 @@ const CHART_Y_AXIS_IS_A_LIST_GUIDANCE =
  * (`../data-display.ts`), key for key (objectui#7352).
  *
  * Shared by the declarations that carry `drillDown`: `ChartSchema` below and
- * `ObjectDataTableSchema` (`objectql.zod.ts`) reference it. `PivotTableSchema`
- * declares the key too but has no mirror of its own, so it sits in no ledger;
- * this is the home that key uses whenever the pivot pair is mirrored. Until
- * this mirror existed neither declaring mirror had heard of the key, so under
+ * `ObjectDataTableSchema` (`objectql.zod.ts`) reference it, and so does
+ * `PivotTableSchema` below since objectui#10859 (batch 2) mirrored the pivot
+ * pair — the home this docblock had named for that key while the pair had no
+ * mirror. Until this mirror existed neither declaring mirror had heard of the
+ * key, so under
  * `BaseSchema`'s `.passthrough()` a `drillDown: { enabled: 'yes' }` parsed green
  * and reached a widget that reads `enabled` as truthy — `declared !== enforced`,
  * ledgered in `zod-mirror-parity.test.ts` (`UnmirroredDeclared`) by
@@ -1026,6 +1027,55 @@ export const ChartSchema = BaseSchema.extend({
   config: z.record(z.string(), z.any()).optional().describe('Additional chart configuration'),
   drillDown: DrillDownConfigSchema.optional().describe('Drill-down: clicking a chart segment opens a filtered list view (drawer / dialog)'),
 }).overwrite(foldChartXAxisAlias);
+
+/** objectui#9256 (family D): ONE refusal string for both content channels of `PivotTableSchema`. */
+const PIVOT_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'pivot',
+  'its registration hands the node to `PivotTable`, which reads it as `PivotTableSchema` and destructures only the members below',
+  'a cross-tab of `data` — `rowField` down, `columnField` across, `valueField` aggregated by `aggregation` — '
+    + 'with `title`, `showRowTotals`, `showColumnTotals`, `format`, `columnColors` and `drillDown`',
+);
+
+/**
+ * Pivot Table Schema — mirrors `PivotTableSchema` in `../data-display.ts`,
+ * member for member (objectui#10859, batch 2).
+ *
+ * `pivot` is registered by `@object-ui/plugin-dashboard` (`PivotTable`) and
+ * declared on the published TypeScript face, and until this arm
+ * `AnyComponentSchema` carried none for it — so `safeValidateSchema`, and
+ * `objectui validate`, refused every document naming it with `invalid_union` at
+ * `type`. The count of registered types still refused there is ratcheted by
+ * `packages/cli/src/__tests__/registered-types-validate-ratchet-10859.test.ts`.
+ *
+ * Requiredness is the declaration's: `rowField`, `columnField`, `valueField`
+ * and `data` are required there, so they are required here. `drillDown` is the
+ * shared `DrillDownConfigSchema` above, the home its docblock names for this
+ * pair. Both content channels are refused by name, as the declaration's
+ * `?: never` members refuse them (objectui#9256). The pin is
+ * `../__tests__/registered-type-arms-10859-b2.test.ts`.
+ */
+export const PivotTableSchema = BaseSchema.extend({
+  type: z.literal('pivot'),
+  title: z.string().optional().describe('Pivot table title'),
+  rowField: z.string().describe('Field used for row headers'),
+  columnField: z.string().describe('Field used for column headers'),
+  valueField: z.string().describe('Field whose values are aggregated in cells'),
+  aggregation: z
+    .enum(['sum', 'count', 'avg', 'min', 'max'])
+    .optional()
+    .describe('Aggregation function applied to valueField — one of sum, count, avg, min, max (the renderer treats an absent value as sum)'),
+  data: z.array(z.record(z.string(), z.unknown())).describe('Source data rows — one object per row, keyed by field name'),
+  showRowTotals: z.boolean().optional().describe('Show a totals column on the right'),
+  showColumnTotals: z.boolean().optional().describe('Show a totals row at the bottom'),
+  format: z.string().optional().describe('Numeric format string (e.g. "$,.2f") — applied via simple prefix/suffix/decimals'),
+  columnColors: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe('Mapping of column header values to Tailwind text-color classes'),
+  drillDown: DrillDownConfigSchema.optional().describe('Drill-down config (the shared `DrillDownConfig`). Inert on a `pivot` node: `PivotTable` drills only when its host passes `onDrillDown`, and the `pivot` registration passes none; `object-pivot` is the block whose clicks open the records behind a value'),
+  body: retirementTombstone(PIVOT_NEITHER_CHANNEL),
+  children: retirementTombstone(PIVOT_NEITHER_CHANNEL),
+});
 
 /**
  * Timeline Event Schema — mirrors `TimelineEvent` in `../data-display.ts`, the
@@ -1435,6 +1485,7 @@ export const DataDisplaySchema = z.discriminatedUnion('type', [
   MarkdownSchema,
   TreeViewSchema,
   ChartSchema,
+  PivotTableSchema,
   TimelineSchema,
   KbdSchema,
   HtmlSchema,

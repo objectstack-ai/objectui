@@ -127,13 +127,17 @@ describe('ExpressionEvaluator', () => {
 
 ### Pattern 5: Component rendering with SchemaRenderer
 
+Expression roots are the keys of the `scope` a host publishes through `PredicateScopeProvider`. `SchemaRendererProvider`'s
+`dataSource` is the CRUD adapter and publishes none — a `hidden` gate on a name nothing published fails soft to `true`, hiding the node for every user ([`guides/auth-permissions.md`](./auth-permissions.md)).
+
 ```typescript
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react';
+import '@object-ui/components';
 
 describe('SchemaRenderer', () => {
-  const dataSource = {
+  const scope = {
     users: [
       { id: 1, name: 'Alice' },
       { id: 2, name: 'Bob' },
@@ -143,27 +147,29 @@ describe('SchemaRenderer', () => {
 
   it('renders component from schema', () => {
     render(
-      <SchemaRendererProvider dataSource={dataSource}>
+      <PredicateScopeProvider scope={scope}>
         <SchemaRenderer schema={{ type: 'text', content: 'Hello World' }} />
-      </SchemaRendererProvider>
+      </PredicateScopeProvider>
     );
     expect(screen.getByText('Hello World')).toBeDefined();
   });
 
   it('hides component when hidden expression is true', () => {
-    render(
-      <SchemaRendererProvider dataSource={dataSource}>
-        <SchemaRenderer
-          schema={{
-            type: 'text',
-            content: 'Secret',
-            hidden: '${userRole !== "admin"}',
-          }}
-        />
-      </SchemaRendererProvider>
+    const secret = { type: 'text', content: 'Secret', hidden: '${userRole !== "admin"}' };
+    const { rerender } = render(
+      <PredicateScopeProvider scope={scope}>
+        <SchemaRenderer schema={secret} />
+      </PredicateScopeProvider>
     );
     // admin should see it
     expect(screen.getByText('Secret')).toBeDefined();
+    rerender(
+      <PredicateScopeProvider scope={{ ...scope, userRole: 'viewer' }}>
+        <SchemaRenderer schema={secret} />
+      </PredicateScopeProvider>
+    );
+    // a viewer should not
+    expect(screen.queryByText('Secret')).toBeNull();
   });
 });
 ```

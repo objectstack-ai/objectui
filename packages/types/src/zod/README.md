@@ -202,11 +202,11 @@ function validateComponent(config: unknown) {
 - `InputOTPSchema`, `ComboboxSchema`, `LabelSchema`
 - `CommandSchema`, `FormSchema`
 
-### Data Display Components (14)
+### Data Display Components (15)
 - `AlertSchema`, `BadgeSchema`, `AvatarSchema`
 - `ListSchema`, `TableSchema`, `DataTableSchema`
 - `MarkdownSchema`, `TreeViewSchema`, `ChartSchema`
-- `TimelineSchema`, `BreadcrumbSchema`
+- `TimelineSchema`, `BreadcrumbSchema`, `PivotTableSchema`
 - `KbdSchema`, `HtmlSchema`, `StatisticSchema`
 
 ### Feedback Components (8)
@@ -230,6 +230,10 @@ function validateComponent(config: unknown) {
 ### Complex Components (5)
 - `KanbanSchema`, `CalendarViewSchema`
 - `FilterBuilderSchema`, `CarouselSchema`, `ChatbotSchema`
+
+### ObjectQL Public Blocks (2)
+The ADR-0080 public blocks `object-metric` and `object-master-detail-form`: each arm's `properties` is the block's `@objectstack/spec` `ComponentPropsMap` row, by reference.
+- `ObjectMetricBlockSchema`, `ObjectMasterDetailFormBlockSchema`
 
 ### AI Components (3)
 - `AIFormAssistSchema`, `AIRecommendationsSchema`, `NLQuerySchema`

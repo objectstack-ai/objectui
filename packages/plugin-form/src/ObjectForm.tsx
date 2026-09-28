@@ -246,7 +246,7 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
     if (!perms?.isLoaded) return withGroups(base);
     // ONE render gate, shared with `ModalForm` and `DrawerForm` — see
     // `fieldWriteGate.ts` for why the copy each container used to carry is the
-    // defect rather than the style (objectui#10120).
+    // defect rather than the style (`80c54122e`).
     const filterArr = (arr?: any[]) =>
       applyFieldPermissions(arr, { perms, objectName: base.objectName, mode: base.mode });
     return withGroups({
@@ -1155,7 +1155,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     // `tabbed`, `split` and `wizard` layouts (objectui#10563): strip what a form never
     // writes (server-owned, computed, read-only, unknown to the object, and
     // refused by the caller's field-level security through `fieldWriteGate`,
-    // objectui#10108 / objectui#10120), omit the producer-owned defaults on a
+    // objectui#10108 / `80c54122e`), omit the producer-owned defaults on a
     // create (#4069), and on an EDIT keep only the fields that differ from the
     // record this form read (objectui#10156). `writePayload` goes to BOTH write
     // routes below: the host-owned seam, which is how a master-detail form's

@@ -5,11 +5,11 @@
  * useReadRateReading — the console's data hook for the tenant runtime's
  * read-rate reading (objectui#9954, cloud#2333).
  *
- * Reads `GET {apiBase}/usage/storage` and exposes the ONE key of that response
- * this repo carries a contract for: the optional nested `readRate`. The rest of
- * the storage-usage payload is deliberately NOT modelled here — no contract for
- * it reached this side, and inventing one would be a second, unowned copy of a
- * shape the control plane owns.
+ * Reads `GET {apiBase}/usage/storage` and exposes ONE key of that response: the
+ * optional nested `readRate`. The flat storage half of the same payload is
+ * `useStorageUsageReading`'s (objectui#10439), and ⛔ is not modelled here.
+ * Both hooks read the one response through `readStorageUsage`
+ * (`./storageUsageEndpoint`), so the two banners cost one request.
  *
  * ## Why the three "no banner" answers stay three values
  *
@@ -53,7 +53,12 @@
  * @module
  */
 import * as React from 'react';
-import { createAuthenticatedFetch } from '@object-ui/auth';
+import { readStorageUsage, resolveRuntimeApiBase } from './storageUsageEndpoint.js';
+
+// The base resolver moved to the shared reader with objectui#10439; this module
+// keeps exporting it because the hooks barrel and this hook's tests import it
+// from here.
+export { resolveRuntimeApiBase };
 
 /**
  * The tenant runtime's read-rate reading, as `GET /api/v1/usage/storage`
@@ -129,19 +134,6 @@ export function classifyReadRate(snapshot: ReadRateSnapshot): ReadRateBannerCase
   return snapshot.reading.readsPerWrite === undefined ? 'anomalous-no-writes' : 'anomalous-ratio';
 }
 
-/**
- * Resolve the tenant runtime API base — `${VITE_SERVER_URL}/api/v1`, the same
- * origin + prefix the console's other `/api/v1/*` callers use.
- */
-export function resolveRuntimeApiBase(explicit?: string): string {
-  if (explicit) return explicit.replace(/\/$/, '');
-  // Typed narrowly rather than through `any` — the only member read is the one
-  // named here (AGENTS.md #6).
-  const env = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env ?? {};
-  const serverUrl = env.VITE_SERVER_URL ?? '';
-  return `${serverUrl.replace(/\/$/, '')}/api/v1`;
-}
-
 export interface UseReadRateReadingOptions {
   /** Override the resolved tenant runtime base (e.g. `/api/v1`). */
   apiBase?: string;
@@ -199,21 +191,10 @@ export function useReadRateReading(options: UseReadRateReadingOptions = {}): Use
     if (!enabled) return; // inert — the idle snapshot is DERIVED below, not written
     if (typeof fetch !== 'function') return; // non-browser env → stay inert (fail-soft)
     let cancelled = false;
-    // Built INSIDE the effect on purpose: a memoised identity may never be an
-    // effect dependency (AGENTS.md #10), and this is the console's `/api/v1/*`
-    // lane — the Bearer token lives in localStorage, there is no session cookie,
-    // so a bare `fetch` here would be unauthenticated.
-    const authFetch = createAuthenticatedFetch();
     setSnapshot({ status: 'loading', reading: null });
-    authFetch(`${base}/usage/storage`, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-      credentials: 'include',
-    })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`Failed to load storage usage (${res.status})`);
-        return res.json();
-      })
+    // The shared reader: the storage-capacity banner mounted beside this report
+    // asks for the same response in the same commit, and gets this request.
+    readStorageUsage(base)
       .then((payload) => {
         if (cancelled) return;
         const parsed = parseReading(payload);

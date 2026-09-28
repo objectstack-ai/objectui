@@ -40,6 +40,6 @@ a channel added ALONGSIDE that contract, not a change to it.
   user without devtools open can tell "there are none" from "we could not find out".
   Three new `console.importMappings*` keys ship in all ten locale packs.
 
-This applies framework #13906 decision 1 option A — *a thing that could not be READ is
+This applies framework objectstack#13906 decision 1 option A — *a thing that could not be READ is
 not a thing that is ABSENT* — at this seam. It is an already-adopted discrimination, not
 a new principle.

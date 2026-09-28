@@ -65,7 +65,7 @@ import {
  * TRANSLATED "Date range", the others to the raw `def.name`. Folding those
  * together here would have made an unlabelled date filter read `dateRange`.
  *
- * ## The translation-bundle rung (objectui#10132)
+ * ## The translation-bundle rung (`061f5e829`)
  *
  * `GlobalFilterSchema.object` names the object whose bundle entry keys this
  * filter's labels — the spec's describe text for it reads "Object whose
@@ -503,7 +503,7 @@ function SelectFilter({ def, value, onChange, dataSource }: { def: DashboardFilt
     return authored.map((o) => ({ value: o.value, label: pickLocalized(o.label, language) || o.value }));
   }, [def.options, dynamicOptions, language]);
 
-  // The second half of `GlobalFilterSchema.object` (objectui#10132): the spec
+  // The second half of `GlobalFilterSchema.object` (`061f5e829`): the spec
   // gives that key BOTH the field label and the option labels, and
   // `translateOptions` is the same convention's option resolver — the one lists
   // and forms call, keyed by option VALUE under the field this filter reads.

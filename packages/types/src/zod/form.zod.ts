@@ -219,6 +219,18 @@ export const ButtonSchema = BaseSchema.extend({
 });
 
 /**
+ * objectui#9256 (`input` slice): ONE refusal string for both content channels
+ * of {@link InputSchema}. The `email` / `password` arm below
+ * ({@link InputShorthandSchema}) inherits this pair through its `.omit()` and
+ * overrides it with its own string, which names that node and its route.
+ */
+const INPUT_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'input',
+  '`ui:input` is the only registration claiming the bare key, and it hands the node to the `input` renderer, which reads it as `InputSchema`',
+  'one input field — `label`, `placeholder`, `inputType`, `value` / `defaultValue`, `description`, `error`, `required`',
+);
+
+/**
  * Input Schema - Text input component
  */
 export const InputSchema = BaseSchema.extend({
@@ -243,14 +255,19 @@ export const InputSchema = BaseSchema.extend({
   // `cn("grid w-full items-center gap-1.5", schema.wrapperClass)` — and the TS
   // face has declared it all along; the mirror had not, so a wrong-typed value
   // rode through `.passthrough()` unexamined while all eight sibling readers
-  // refused it at the key (objectui#8072).
+  // refused it at the key (`c974edf14`).
   wrapperClass: z.string().optional()
-    .describe('Classes on the wrapper div around the input and its label (objectui#8072)'),
+    .describe('Classes on the wrapper div around the input and its label'),
   min: z.number().optional().describe('Minimum value (for number type)'),
   max: z.number().optional().describe('Maximum value (for number type)'),
   step: z.number().optional().describe('Step value (for number type)'),
   maxLength: z.number().optional().describe('Maximum length'),
   pattern: z.string().optional().describe('Validation pattern'),
+  // objectui#9256 (`input` slice): the renderer reads NEITHER content channel, so both are
+  // refused by name here as on the TypeScript twin, each kept a MEMBER. `body` was already
+  // refused by `BaseSchema` (objectui#6771), whose message names `children` as the remedy.
+  body: retirementTombstone(INPUT_NEITHER_CHANNEL),
+  children: retirementTombstone(INPUT_NEITHER_CHANNEL),
 });
 
 /**
@@ -1093,7 +1110,7 @@ export const InputShorthandSchema = InputSchema.omit({ type: true, inputType: tr
   inputType: retirementTombstone(SHORTHAND_INPUT_TYPE_REFUSAL),
   // ⭐ `wrapperClass` used to be RE-DECLARED here, because {@link InputSchema}
   // did not carry it and copying the gap into a NEW pair would have minted a
-  // second parity-ledger row for a key that is demonstrably read. objectui#8072
+  // second parity-ledger row for a key that is demonstrably read. `c974edf14`
   // shrank that row instead: the key is on {@link InputSchema} now, so this arm
   // inherits it through the `.omit()` above like every other key, and the
   // restatement is gone rather than left standing as a duplicate of it.
@@ -1102,6 +1119,10 @@ export const InputShorthandSchema = InputSchema.omit({ type: true, inputType: tr
   //
   // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
+  // ⚠️ Since the `input` slice, `.omit()` above already carries {@link InputSchema}'s own
+  // tombstone pair of the same shape, so these two refuse nothing new. They are kept because
+  // they override that pair's message with one that names `email` / `password` and the wrapper
+  // route, which is what an author of these two nodes reads.
   body: retirementTombstone(INPUT_SHORTHAND_NEITHER_CHANNEL),
   children: retirementTombstone(INPUT_SHORTHAND_NEITHER_CHANNEL),
 });

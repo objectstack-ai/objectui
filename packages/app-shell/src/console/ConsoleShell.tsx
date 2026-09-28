@@ -42,6 +42,7 @@ import { RemediationOverlay } from './RemediationOverlay.js';
 import { HostNavigationBridge } from './HostNavigationBridge.js';
 import { ImpersonationBanner } from '../layout/ImpersonationBanner.js';
 import { ReadRateBanner } from '../layout/ReadRateBanner.js';
+import { StorageUsageBanner } from '../layout/StorageUsageBanner.js';
 
 // The console's every pre-React / pre-auth gate (Suspense fallback, adapter
 // not ready, org/auth loading) renders this. It used to be a bare, unbranded
@@ -183,6 +184,12 @@ function ConsoleShellProviders({ children }: { children: ReactNode }) {
                       environment both see nothing — and a non-admin session
                       never even issues the request. */}
                   <ReadRateBanner />
+                  {/* objectui#10439 — the environment admin's storage-capacity
+                      banner, beside the read-rate report and behind the same
+                      admin gate; the two read one `/usage/storage` response.
+                      Renders null unless the runtime's own verdict says `warn`
+                      (80% and up) or `blocked` (uploads and imports refused). */}
+                  <StorageUsageBanner />
                   <Suspense fallback={<LoadingFallback />}>{children}</Suspense>
                   {/* ADR-0069 — full-screen gate (expired password / required MFA) above all routes */}
                   <RemediationOverlay />

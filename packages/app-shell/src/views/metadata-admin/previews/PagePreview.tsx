@@ -20,7 +20,7 @@ import { OutlineStrip } from './OutlineStrip.js';
 import { SourcePageEditor } from './SourcePageEditor.js';
 import { PageBlockCanvas } from './PageBlockCanvas.js';
 import { InterfaceListPage } from '../../InterfaceListPage.js';
-import { t as tr } from '../i18n.js';
+import { t as tr, tFormat } from '../i18n.js';
 
 interface Block { type?: string; id?: string; children?: Block[]; [k: string]: unknown }
 
@@ -80,8 +80,11 @@ export function PagePreview({ draft, editing, selection, onSelectionChange, onPa
       return out;
     }
     const children = Array.isArray((draft as any).children) ? (draft as any).children as Block[] : [];
-    return children.map((b, i) => ({ id: `children[${i}]`, label: b.id || b.type || `block ${i + 1}` }));
-  }, [draft, shape]);
+    return children.map((b, i) => ({
+      id: `children[${i}]`,
+      label: b.id || b.type || tFormat('engine.pagePreview.blockN', locale, { n: i + 1 }),
+    }));
+  }, [draft, shape, locale]);
 
   const handleAddBlock = React.useCallback(() => {
     if (!canEdit) return;
@@ -218,7 +221,7 @@ export function PagePreview({ draft, editing, selection, onSelectionChange, onPa
   }, [recordObject, perms]);
   const recordIdOf = (r: any) => r?.id ?? r?._id ?? r?.name;
   const recordLabelOf = (r: any) =>
-    String(r?.name ?? r?.title ?? r?.label ?? r?.subject ?? recordIdOf(r) ?? '(record)');
+    String(r?.name ?? r?.title ?? r?.label ?? r?.subject ?? recordIdOf(r) ?? tr('engine.pagePreview.recordFallback', locale));
   const selectedRecord = React.useMemo(() => {
     if (!recordSamples.length) return null;
     return recordSamples.find((r) => String(recordIdOf(r)) === String(selectedRecordId)) ?? recordSamples[0];
@@ -261,7 +264,7 @@ export function PagePreview({ draft, editing, selection, onSelectionChange, onPa
       >
         {recordSamples.length > 0 && (
           <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30 text-xs">
-            <span className="text-muted-foreground shrink-0">Preview record</span>
+            <span className="text-muted-foreground shrink-0">{tr('engine.pagePreview.previewRecord', locale)}</span>
             <select
               className="h-7 rounded-md border bg-background px-2 text-xs max-w-[260px]"
               value={String(selectedRecordId ?? '')}
@@ -272,7 +275,13 @@ export function PagePreview({ draft, editing, selection, onSelectionChange, onPa
                 return <option key={String(id)} value={String(id)}>{recordLabelOf(r)}</option>;
               })}
             </select>
-            <span className="text-muted-foreground/70 shrink-0">{recordSamples.length} sample{recordSamples.length === 1 ? '' : 's'}</span>
+            <span className="text-muted-foreground/70 shrink-0">
+              {tFormat(
+                recordSamples.length === 1 ? 'engine.pagePreview.sampleOne' : 'engine.pagePreview.sampleOther',
+                locale,
+                { count: recordSamples.length },
+              )}
+            </span>
           </div>
         )}
         {node}
@@ -288,7 +297,7 @@ export function PagePreview({ draft, editing, selection, onSelectionChange, onPa
   if (isInterfacePage) {
     return (
       <PreviewShell hint="page · interface">
-        <PreviewErrorBoundary fallbackHint="The interface page references a source object/view that isn't available.">
+        <PreviewErrorBoundary fallbackHint={tr('engine.pagePreview.interfaceFailed', locale)}>
           <InterfaceListPage
             page={draft as Record<string, unknown>}
             onConfigChange={canEdit ? (patch) => onPatch!({ interfaceConfig: { ...(((draft as any).interfaceConfig) || {}), ...patch } }) : undefined}
@@ -309,6 +318,7 @@ export function PagePreview({ draft, editing, selection, onSelectionChange, onPa
         draft={draft as Record<string, unknown>}
         onPatch={canEdit ? onPatch : undefined}
         readOnly={!canEdit}
+        locale={locale}
       />
     );
   }
@@ -324,6 +334,7 @@ export function PagePreview({ draft, editing, selection, onSelectionChange, onPa
             onPatch={canEdit ? onPatch : undefined}
             selection={selection ?? null}
             onSelectionChange={onSelectionChange}
+            locale={locale}
           />
         ) : designMode ? (
           <OutlineStrip
@@ -335,7 +346,7 @@ export function PagePreview({ draft, editing, selection, onSelectionChange, onPa
             addLabel={tr('engine.inspector.add.block', locale)}
           />
         ) : null}
-        {!designMode && <PreviewMessage>Add components to the page to see a preview.</PreviewMessage>}
+        {!designMode && <PreviewMessage>{tr('engine.pagePreview.addComponents', locale)}</PreviewMessage>}
       </PreviewShell>
     );
   }
@@ -353,6 +364,7 @@ export function PagePreview({ draft, editing, selection, onSelectionChange, onPa
             onPatch={canEdit ? onPatch : undefined}
             selection={selection ?? null}
             onSelectionChange={onSelectionChange}
+            locale={locale}
           />
         )}
       </PreviewShell>
@@ -361,7 +373,7 @@ export function PagePreview({ draft, editing, selection, onSelectionChange, onPa
 
   return (
     <PreviewShell hint={`page${designMode ? ' · design' : ''}`}>
-      <PreviewErrorBoundary fallbackHint="The Page schema is incomplete or references a component that hasn't been registered yet.">
+      <PreviewErrorBoundary fallbackHint={tr('engine.pagePreview.schemaFailed', locale)}>
         {designMode && (
           <OutlineStrip
             title={tr('engine.inspector.pageBlock.outlineLabel', locale)}

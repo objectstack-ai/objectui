@@ -1006,10 +1006,25 @@ export type SchemaByType<T extends string> = Extract<AnySchema, { type: T }>;
  * position) — this is its generic mapped-type-alias position.
  *
  * ⭐ SEQUENCING (objectui#6397 triage, 2026-08-25) — this declaration is
- * deliberately left AS WRITTEN. It is not repairable in place: `T` is generic,
- * so there is no literal key list to `Pick` the way objectui#6269 could for its
- * two concrete schemas, and every generic re-spelling collapses for the same
- * `keyof T` reason. It is also not removable here — dropping a published export
+ * deliberately left AS WRITTEN. The triage also held that it was not
+ * repairable in place: `T` is generic, so there is no literal key list to
+ * `Pick` the way objectui#6269 could for its two concrete schemas, and it read
+ * every generic re-spelling as collapsing for the same `keyof T` reason.
+ *
+ * ⚠️ That last reading is FALSE, and objectui#9256 is the counter-example. A
+ * key-remapping mapped type (`{ [P in keyof T as P extends K ? never : P]: … }`)
+ * iterates the named members and the index signature separately, so it drops
+ * exactly `K` and keeps every other named member — generic in `T` and all.
+ * `OmitDeclared` in `./form.ts` is that spelling; the E3 slice of objectui#9256
+ * re-spelled `InputShorthandSchema` and `UiCalendarSchema` with it, and
+ * `__tests__/content-channel-e3-residual-9256.test.ts` pins inherited members
+ * on both faces. So the obstacle to a repair here is not the type system.
+ * Re-spelling this alias would NARROW what every instantiation accepts (a
+ * declared member would stop accepting a value of the wrong type), which is a
+ * contract change and is not made in a comment correction; objectui#6397, the
+ * card that triaged it, is closed.
+ *
+ * It is also not removable here — dropping a published export
  * of `@object-ui/types` is a breaking removal of published capability and sits
  * on the human floor. Once objectui#5155 removes the root index signature,
  * `keyof T` resolves to the literal member union again and this alias starts

@@ -2171,7 +2171,7 @@ export function InterfacesPillar({
         ) : isSourcePage ? (
           // Source pages have no block tree — the canvas shows only the live
           // preview; the code editor lives in the inspector's Source tab.
-          <SourcePageEditor mode="preview" draft={draft} readOnly />
+          <SourcePageEditor mode="preview" draft={draft} readOnly locale={locale} />
         ) : Preview ? (
           <Preview
             type={current.type}
@@ -2326,7 +2326,7 @@ export function InterfacesPillar({
         // Properties tab body IS the code editor (its Props pane was only an
         // empty state pointing back at Source).
         <div className="mt-2 min-h-0 flex-1 border-t">
-          <SourcePageEditor mode="editor" draft={draft} onPatch={onPatch} />
+          <SourcePageEditor mode="editor" draft={draft} onPatch={onPatch} locale={locale} />
         </div>
       ) : (
       <Tabs
@@ -2343,7 +2343,7 @@ export function InterfacesPillar({
           </TabsTrigger>
         </TabsList>
         <TabsContent value="source" className="mt-2 min-h-0 flex-1 border-t">
-          <SourcePageEditor mode="editor" draft={draft} onPatch={onPatch} />
+          <SourcePageEditor mode="editor" draft={draft} onPatch={onPatch} locale={locale} />
         </TabsContent>
         <TabsContent value="props" className="mt-0 min-h-0 flex-1 overflow-auto p-3">
           <div className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-muted-foreground">

@@ -459,8 +459,9 @@ describe('chunk attribution (objectui#7399)', () => {
    * objectui#5388). Those are refused a verdict below rather than guessed at.
    *
    * ⚠️ The tail is an OPTIONS list and not a bare `}` — a group may carry
-   * options AFTER `priority`, and two do: `data-adapter` (objectui#9345) and
-   * `types-zod` (objectui#10065), both `includeDependenciesRecursively: false`.
+   * options AFTER `priority`, and three do: `data-adapter` (objectui#9345),
+   * `types-zod` (objectui#10065) and `i18n-runtime` (objectui#10866), each
+   * `includeDependenciesRecursively: false`.
    * Requiring the closing brace silently dropped such a group from this table
    * while every case below went on passing, which is the failure this parse's
    * own "matches nothing agrees with everything" note is about: a group this
@@ -590,15 +591,28 @@ describe('chunk attribution (objectui#7399)', () => {
      * landed where the config says — is `evaluatePerChunkMembership`, which
      * needs a build; this one reds in a unit run.
      */
-    it('narrows `data-adapter` to its own regex, so it cannot absorb `framework`s members', () => {
-      const dataAdapter = groups.find((g) => g.name === 'data-adapter');
-      expect(dataAdapter).toBeDefined();
-      expect(dataAdapter!.options).toContain('includeDependenciesRecursively: false');
-      // The control: the parse can see an options tail at all, and does not
-      // report one where none is written. A tail-blind parse would satisfy the
-      // line above by reading `''` from every group.
-      expect(groups.find((g) => g.name === 'framework')!.options).toBe('');
-    });
+    /*
+     * objectui#10866 added the second group of this shape: `i18n-runtime`
+     * outranks `framework` too, and once `packages/i18n` imported
+     * `@object-ui/core` at runtime (its date helpers read a value through
+     * `toDisplayDate`) the default carried `core` into it — the membership
+     * half of the gate went red on the console build while this table read
+     * as correct. A group that comes to outrank `framework` and reach
+     * `core` through an import belongs in this list.
+     */
+    it.each(['data-adapter', 'i18n-runtime'])(
+      'narrows `%s` to its own regex, so it cannot absorb `framework`s members',
+      (name) => {
+        const group = groups.find((g) => g.name === name);
+        expect(group).toBeDefined();
+        expect(group!.priority).toBeGreaterThan(groups.find((g) => g.name === 'framework')!.priority);
+        expect(group!.options).toContain('includeDependenciesRecursively: false');
+        // The control: the parse can see an options tail at all, and does not
+        // report one where none is written. A tail-blind parse would satisfy the
+        // line above by reading `''` from every group.
+        expect(groups.find((g) => g.name === 'framework')!.options).toBe('');
+      },
+    );
 
     it('leaves no second claimant at the winner`s priority', () => {
       for (const id of [LOCALE_MODULE, RESIDENT_LOCALE_MODULE, DATA_MODULE, ZOD_MODULE]) {

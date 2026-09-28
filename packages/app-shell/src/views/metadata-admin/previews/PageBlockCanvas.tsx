@@ -29,7 +29,7 @@ import type { MetadataSelection } from '../preview-registry.js';
 import {
   BLOCK_TYPE_META,
   TYPES_BY_CATEGORY,
-  CATEGORY_LABEL_EN,
+  CATEGORY_LABEL_KEY,
   UnknownBlockIcon,
   resolveBlockDisplayMeta,
   resolveBlockTone,
@@ -39,6 +39,7 @@ import { parsePath, hopsToPath, getByPath, setByPath } from '../inspectors/PageB
 import { SchemaRenderer, PreviewModeProvider } from '@object-ui/react';
 import { PreviewErrorBoundary } from './PreviewShell.js';
 import { isOverlayFormType } from './form-preview.js';
+import { t as tr, tFormat } from '../i18n.js';
 
 /** Build the schema handed to SchemaRenderer, neutralising overlay form types so
  *  a live form block never mounts a modal over the design canvas. SchemaRenderer
@@ -100,13 +101,21 @@ function useLazyInView<T extends Element>(rootMargin = '300px') {
  *  block scrolls near the viewport: data-bound blocks (grids, related lists,
  *  repeaters) each fetch on mount, so a tall page would otherwise fire every
  *  query at once. Capped height keeps a tall widget from dominating the canvas. */
-function BlockLivePreview({ block, maxHeightClass = 'max-h-72' }: { block: Block; maxHeightClass?: string }) {
+function BlockLivePreview({
+  block,
+  maxHeightClass = 'max-h-72',
+  locale,
+}: {
+  block: Block;
+  maxHeightClass?: string;
+  locale?: string;
+}) {
   const typeStr = String(block?.type ?? '');
   const { ref, inView } = useLazyInView<HTMLDivElement>();
   return (
     <div ref={ref} className={cn('pointer-events-none select-none overflow-hidden p-3', maxHeightClass)}>
       {inView ? (
-        <PreviewErrorBoundary fallbackHint={`"${typeStr}" can't render with its current configuration — check its Properties.`}>
+        <PreviewErrorBoundary fallbackHint={tFormat('engine.pageBlockCanvas.renderFailed', locale, { type: typeStr })}>
           <PreviewModeProvider>
             <SchemaRenderer schema={toCanvasSchema(block) as never} />
           </PreviewModeProvider>
@@ -126,15 +135,17 @@ const GRID_COLS_CLASS: Record<number, string> = {
 
 /** Container blocks expose nested child arrays (issue #1499). Returns each
  *  group's display label, the path suffix to its children array (relative to
- *  the block), and the current children. */
-function childGroups(block: Block): Array<{ label: string; pathSuffix: string; children: Block[] }> {
+ *  the block), and the current children. A tab / accordion item's own `label`
+ *  or `key` is author data; the fallbacks are the designer's words, read in
+ *  `locale` (objectui#10862). */
+function childGroups(block: Block, locale?: string): Array<{ label: string; pathSuffix: string; children: Block[] }> {
   const props = (block?.properties as any) || {};
   switch (block?.type) {
     case 'page:tabs':
     case 'page:accordion': {
       const items = Array.isArray(props.items) ? props.items : [];
       return items.map((it: any, i: number) => ({
-        label: it?.label || it?.key || `Item ${i + 1}`,
+        label: it?.label || it?.key || tFormat('engine.pageBlockCanvas.itemN', locale, { n: i + 1 }),
         pathSuffix: `properties.items[${i}].children`,
         children: Array.isArray(it?.children) ? it.children : [],
       }));
@@ -165,18 +176,18 @@ function childGroups(block: Block): Array<{ label: string; pathSuffix: string; c
       // under that block. Recorded on objectui#9916 (comment 5733844778), ⛔ not
       // repaired here — widening the canvas is that card's call, not this one's.
       if (Array.isArray(props.body) && !Array.isArray(props.children)) {
-        return [{ label: 'Body', pathSuffix: 'properties.body', children: props.body }];
+        return [{ label: tr('engine.pageBlockCanvas.body', locale), pathSuffix: 'properties.body', children: props.body }];
       }
-      return [{ label: 'Body', pathSuffix: 'properties.children', children: Array.isArray(props.children) ? props.children : [] }];
+      return [{ label: tr('engine.pageBlockCanvas.body', locale), pathSuffix: 'properties.children', children: Array.isArray(props.children) ? props.children : [] }];
     }
     case 'page:section':
     case 'grid':
-      return [{ label: 'Content', pathSuffix: 'properties.children', children: Array.isArray(props.children) ? props.children : [] }];
+      return [{ label: tr('engine.pageBlockCanvas.content', locale), pathSuffix: 'properties.children', children: Array.isArray(props.children) ? props.children : [] }];
     default:
       // Future-proof: any block carrying a `properties.children` array (e.g.
       // `container`) exposes those children for selection/editing.
       if (Array.isArray(props.children)) {
-        return [{ label: 'Content', pathSuffix: 'properties.children', children: props.children }];
+        return [{ label: tr('engine.pageBlockCanvas.content', locale), pathSuffix: 'properties.children', children: props.children }];
       }
       return [];
   }
@@ -202,6 +213,8 @@ export interface PageBlockCanvasProps {
   onPatch?: (patch: Record<string, unknown>) => void;
   selection?: MetadataSelection | null;
   onSelectionChange?: (next: MetadataSelection | null) => void;
+  /** The designer locale the canvas's own words read in — `PagePreview` passes the one it receives (objectui#10862). */
+  locale?: string;
 }
 
 /** Canonical record-page slots, in render order. A `kind:'slotted'` page
@@ -280,6 +293,7 @@ export function PageBlockCanvas({
   onPatch,
   selection,
   onSelectionChange,
+  locale,
 }: PageBlockCanvasProps) {
   const readOnly = !onPatch;
   const { regions, shape } = React.useMemo(() => readRegions(draft), [draft]);
@@ -435,15 +449,15 @@ export function PageBlockCanvas({
       <div className="h-full overflow-auto bg-muted/20" onClick={handleBgClick}>
         <div className="mx-auto max-w-3xl px-6 py-8">
           <div className="rounded-lg border-2 border-dashed bg-background py-16 px-6 text-center space-y-3">
-            <div className="text-sm font-medium">No regions yet</div>
+            <div className="text-sm font-medium">{tr('engine.pageBlockCanvas.noRegions', locale)}</div>
             <div className="text-xs text-muted-foreground">
-              A Page is composed of regions (header / main / sidebar / …). Add a region to start dropping blocks into it.
+              {tr('engine.pageBlockCanvas.noRegionsHint', locale)}
             </div>
             {!readOnly && (
               <div className="pt-2">
                 <Button variant="outline" size="sm" className="gap-1.5 border-dashed" onClick={addRegion}>
                   <Plus className="h-3.5 w-3.5" />
-                  Add region
+                  {tr('engine.pageBlockCanvas.addRegion', locale)}
                 </Button>
               </div>
             )}
@@ -477,13 +491,14 @@ export function PageBlockCanvas({
             baseIdOf={(compIdx) => selectionId(shape, regionIdx, compIdx, region.name)}
             onSelectId={(sid, lbl) => onSelectionChange?.({ kind: 'block', id: sid, label: lbl })}
             onAddNested={addNestedBlock}
+            locale={locale}
           />
         ))}
         {!readOnly && shape === 'regions' && (
           <div className="pt-1">
             <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground" onClick={addRegion}>
               <Plus className="h-3.5 w-3.5" />
-              Add region
+              {tr('engine.pageBlockCanvas.addRegion', locale)}
             </Button>
           </div>
         )}
@@ -506,6 +521,7 @@ function RegionSection({
   onRenameLabel,
   onSelectId,
   onAddNested,
+  locale,
 }: {
   region: Region;
   regionIdx: number;
@@ -524,6 +540,7 @@ function RegionSection({
   baseIdOf: (compIdx: number) => string;
   onSelectId: (id: string, label: string) => void;
   onAddNested: (baseId: string, pathSuffix: string, type: BlockTypeId) => void;
+  locale?: string;
 }) {
   const comps = Array.isArray(region.components) ? region.components : [];
   const [active, setActive] = React.useState(false);
@@ -564,18 +581,16 @@ function RegionSection({
       onDrop={handleDrop}
     >
       <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground pl-1 mb-2 flex items-center gap-2">
-        <span>{region.name || `region ${regionIdx + 1}`}</span>
+        <span>{region.name || tFormat('engine.pageBlockCanvas.regionN', locale, { n: regionIdx + 1 })}</span>
         {region.width && (
           <span className="normal-case text-[10px] text-muted-foreground/60">· {region.width}</span>
         )}
-        {active && <span className="text-primary normal-case text-[10px]">drop here</span>}
+        {active && <span className="text-primary normal-case text-[10px]">{tr('engine.pageBlockCanvas.dropHere', locale)}</span>}
       </div>
       <div className="space-y-2.5">
         {comps.length === 0 ? (
           <div className="rounded border border-dashed bg-background/50 py-6 px-4 text-center text-xs text-muted-foreground">
-            {shape === 'slots'
-              ? 'Inherited from the default page — add a block to override this slot.'
-              : 'Empty region — drop a block here or use the add button below.'}
+            {tr(shape === 'slots' ? 'engine.pageBlockCanvas.slotInherited' : 'engine.pageBlockCanvas.regionEmpty', locale)}
           </div>
         ) : (
           comps.map((blk, compIdx) => {
@@ -591,6 +606,7 @@ function RegionSection({
                   onClick={() => onSelectBlock(compIdx, blk)}
                   onMoveBlock={onMoveBlock}
                   onRenameLabel={(v) => onRenameLabel(regionIdx, compIdx, v)}
+                  locale={locale}
                 />
                 <NestedChildren
                   block={blk}
@@ -599,6 +615,7 @@ function RegionSection({
                   readOnly={readOnly}
                   onSelectId={onSelectId}
                   onAddNested={onAddNested}
+                  locale={locale}
                 />
               </React.Fragment>
             );
@@ -606,7 +623,7 @@ function RegionSection({
         )}
         {!readOnly && (
           <div className="pt-1">
-            <AddBlockButton onPick={(type) => onAddBlock(regionIdx, type)} />
+            <AddBlockButton onPick={(type) => onAddBlock(regionIdx, type)} locale={locale} />
           </div>
         )}
       </div>
@@ -625,6 +642,7 @@ function BlockRow({
   onClick,
   onMoveBlock,
   onRenameLabel,
+  locale,
 }: {
   block: Block;
   regionIdx: number;
@@ -639,6 +657,7 @@ function BlockRow({
       | { region: number; appendEnd: true },
   ) => void;
   onRenameLabel: (nextLabel: string) => void;
+  locale?: string;
 }) {
   const typeStr = String(block.type ?? '');
   // DISPLAY meta, not the palette catalogue. `BLOCK_TYPE_META` answers "what may
@@ -764,7 +783,7 @@ function BlockRow({
                 <span
                   className={cn('text-sm font-medium truncate', !readOnly && 'cursor-text')}
                   onDoubleClick={beginEdit}
-                  title={!readOnly ? 'Double-click to rename' : undefined}
+                  title={!readOnly ? tr('designer.canvas.renameHint', locale) : undefined}
                 >
                   {label}
                 </span>
@@ -779,13 +798,13 @@ function BlockRow({
           </button>
         ) : (
           <>
-            <BlockLivePreview block={block} />
+            <BlockLivePreview block={block} locale={locale} />
             <button
               type="button"
               onClick={onClick}
               draggable={draggable}
               onDragStart={handleDragStart}
-              aria-label={`Select ${label}`}
+              aria-label={tFormat('engine.pageBlockCanvas.select', locale, { label })}
               aria-pressed={selected}
               className={cn(
                 'absolute inset-0 z-10 rounded-md',
@@ -823,6 +842,7 @@ function NestedChildren({
   readOnly,
   onSelectId,
   onAddNested,
+  locale,
 }: {
   block: Block;
   baseId: string;
@@ -830,8 +850,9 @@ function NestedChildren({
   readOnly: boolean;
   onSelectId: (id: string, label: string) => void;
   onAddNested: (baseId: string, pathSuffix: string, type: BlockTypeId) => void;
+  locale?: string;
 }) {
-  const groups = childGroups(block);
+  const groups = childGroups(block, locale);
   if (groups.length === 0) return null;
   // A grid lays its children in N columns at runtime — mirror that here so the
   // design canvas matches the preview (other containers stack in one column).
@@ -847,7 +868,7 @@ function NestedChildren({
           <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">{g.label}</div>
           {g.children.length === 0 ? (
             <div className="rounded border border-dashed bg-background/40 py-2 px-3 text-[11px] text-muted-foreground">
-              Empty — add a block.
+              {tr('engine.pageBlockCanvas.groupEmpty', locale)}
             </div>
           ) : (
             <div className={cn('grid gap-2', colsClass)}>
@@ -863,11 +884,11 @@ function NestedChildren({
                       childSelected ? 'border-primary ring-2 ring-primary/30 shadow-sm' : 'border-border',
                     )}
                   >
-                    <BlockLivePreview block={child} maxHeightClass="max-h-56" />
+                    <BlockLivePreview block={child} maxHeightClass="max-h-56" locale={locale} />
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onSelectId(cid, blockLabel(child)); }}
-                      aria-label={`Select ${blockLabel(child)}`}
+                      aria-label={tFormat('engine.pageBlockCanvas.select', locale, { label: blockLabel(child) })}
                       aria-pressed={childSelected}
                       className="absolute inset-0 z-10 rounded-md cursor-pointer"
                     />
@@ -886,7 +907,7 @@ function NestedChildren({
               })}
             </div>
           )}
-          {!readOnly && <AddBlockButton onPick={(type) => onAddNested(baseId, g.pathSuffix, type)} />}
+          {!readOnly && <AddBlockButton onPick={(type) => onAddNested(baseId, g.pathSuffix, type)} locale={locale} />}
         </div>
       ))}
     </div>
@@ -895,7 +916,12 @@ function NestedChildren({
 
 /* ─────────────── Add block picker ─────────────── */
 
-function AddBlockButton({ onPick }: { onPick: (type: BlockTypeId) => void }) {
+/**
+ * The add-block picker. A type's DISPLAYED name is its `labelKey` row, read in
+ * `locale`, and the search matches that name or the type id (objectui#10862,
+ * the add-widget picker's shape from objectui#10804).
+ */
+function AddBlockButton({ onPick, locale }: { onPick: (type: BlockTypeId) => void; locale?: string }) {
   const [open, setOpen] = React.useState(false);
   const [filter, setFilter] = React.useState('');
   const q = filter.trim().toLowerCase();
@@ -907,18 +933,18 @@ function AddBlockButton({ onPick }: { onPick: (type: BlockTypeId) => void }) {
         category: g.category,
         types: g.types.filter((id) => {
           const m = BLOCK_TYPE_META[id];
-          return id.includes(q) || m.label.toLowerCase().includes(q);
+          return id.includes(q) || tr(m.labelKey, locale).toLowerCase().includes(q);
         }),
       }))
       .filter((g) => g.types.length > 0);
-  }, [q]);
+  }, [q, locale]);
 
   return (
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setFilter(''); }}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="gap-1.5 border-dashed">
           <Plus className="h-3.5 w-3.5" />
-          Add block
+          {tr('engine.inspector.add.block', locale)}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[320px] p-0 max-h-[480px] overflow-hidden flex flex-col">
@@ -927,18 +953,18 @@ function AddBlockButton({ onPick }: { onPick: (type: BlockTypeId) => void }) {
             autoFocus
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder="Search block type…"
+            placeholder={tr('engine.pageBlockCanvas.searchTypes', locale)}
             className="h-7 w-full px-2 text-sm border rounded bg-background outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
         <div className="flex-1 overflow-auto p-1">
           {groups.length === 0 ? (
-            <div className="text-xs text-muted-foreground p-4 text-center">No matching types.</div>
+            <div className="text-xs text-muted-foreground p-4 text-center">{tr('engine.pageBlockCanvas.noMatch', locale)}</div>
           ) : (
             groups.map((g) => (
               <div key={g.category} className="mb-1">
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">
-                  {CATEGORY_LABEL_EN[g.category]}
+                  {tr(CATEGORY_LABEL_KEY[g.category], locale)}
                 </div>
                 {g.types.map((id) => {
                   const m = BLOCK_TYPE_META[id];
@@ -952,7 +978,7 @@ function AddBlockButton({ onPick }: { onPick: (type: BlockTypeId) => void }) {
                       className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-accent text-left"
                     >
                       <Icon className={cn('h-3.5 w-3.5 shrink-0', tone.icon)} />
-                      <span className="truncate">{m.label}</span>
+                      <span className="truncate">{tr(m.labelKey, locale)}</span>
                       <code className="ml-auto text-[10px] text-muted-foreground/70 font-mono truncate">{id}</code>
                     </button>
                   );

@@ -253,6 +253,7 @@ ignores would be accepted and dropped, which is the defect this binding removes.
 | `list-view` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `object-grid` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `element:record_picker` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `element:number` | ✅ | filter | ✅ | — single value | — single value |
 | `record:related_list` | ✅ | columns / filter / sort / limit | ✅ | ✅ | ✅ |
 | `object-calendar` | ✅ | filter / sort | ✅ | ✅ | — platform ceiling |
 | `object-kanban` | ✅ | filter / limit | ✅ | — no ordering | ✅ (`limit`) |
@@ -278,6 +279,19 @@ lists, fetches and writes is `childObject`. Its `relationshipField` is *not* par
 of the binding and stays the author's — it has to name a field on the bound child
 object, so rebinding `object` without updating it is an authoring error the panel
 cannot paper over.
+
+The two `element:*` rows keep their configuration in the node's `properties` bag,
+so the binding does not land on a schema key there: each reads it directly, and
+`dataSource.object` wins over `properties.object`. They differ on `filter`.
+`element:record_picker` takes the binding's (or its view's) filter in place of
+`properties.filter`, which applies only when neither supplies one.
+`element:number` AND-combines `properties.filter` with the binding's filter and
+its view's — the rule the gate-wrapped blocks above follow — so neither is
+dropped, and a filter refused while combining them shows the configuration-error
+panel instead of a count. On `element:number`,
+`{ "dataSource": { "object": "contact" }, "properties": { "aggregate": "count" } }`
+is a complete metric; its `sort` and `limit` are not read, because an aggregate
+has no ordering and a capped count would be a wrong number.
 
 On `record:related_list` and `record:line_items` the composed filter is
 AND-combined with the parent relationship condition, never substituted for it: a

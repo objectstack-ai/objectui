@@ -1421,7 +1421,7 @@ function MetadataResourceEditPageImpl({
     if (!key) return path;
     // Resolve the human label for the HEAD segment from the form/schema.
     const headLabel = ((): string => {
-      const formForLabels = (createMode && config.createSchema ? undefined : (entry?.form as any));
+      const formForLabels = (createMode && config.createSchema ? undefined : entry?.form);
       const sections = Array.isArray(formForLabels?.sections) ? formForLabels.sections : [];
       for (const section of sections) {
         const fields = Array.isArray(section?.fields) ? section.fields : [];
@@ -2826,7 +2826,7 @@ function MetadataResourceEditPageImpl({
                           <SchemaForm
                             schema={schema}
                             idPath={formIdPath}
-                            form={createMode && config.createSchema ? undefined : (entry?.form as any)}
+                            form={createMode && config.createSchema ? undefined : entry?.form}
                             value={draft}
                             onChange={handleCreateAwareChange}
                             issues={displayIssues}
@@ -2850,7 +2850,7 @@ function MetadataResourceEditPageImpl({
               <SchemaForm
                 schema={schema}
                 idPath={formIdPath}
-                form={createMode && config.createSchema ? undefined : (entry?.form as any)}
+                form={createMode && config.createSchema ? undefined : entry?.form}
                 value={draft}
                 onChange={handleCreateAwareChange}
                 issues={displayIssues}

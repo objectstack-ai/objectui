@@ -146,7 +146,7 @@ export interface KanbanBoardProps {
   swimlaneField?: string
   /**
    * The cards in `columns` are a fetched WINDOW, not the whole group
-   * (objectui#8307) — see `laneCountLabel`. Injected by `ObjectKanban`, the
+   * (`5591f03bd`) — see `laneCountLabel`. Injected by `ObjectKanban`, the
    * only entry point that issues the windowed query; a board handed its rows
    * whole leaves it unset and keeps the bare number.
    */
@@ -454,7 +454,7 @@ function LaneHeading({
  * the window that number is not the size of the group: every lane is short,
  * the lanes sum to the window, and the result is CREDIBLE — 77 / 19 / 2 reads
  * as a plausible funnel against a true 88 / 46 / 28 / 14 / 9 / 15, so nothing
- * prompts the reader to distrust it (objectui#8307).
+ * prompts the reader to distrust it (`5591f03bd`).
  *
  * The fix is not a better number — this component does not have one, and
  * getting one means a server-side group-count aggregate over the whole
@@ -513,7 +513,7 @@ function KanbanColumnView({
    * doesn't read as N redundant copies of the same message.
    */
   suppressEmptyPlaceholder?: boolean
-  /** The cards handed in are a fetched window — see `laneCountLabel` (objectui#8307). */
+  /** The cards handed in are a fetched window — see `laneCountLabel` (`5591f03bd`). */
   countsAreWindowed?: boolean
   /**
    * Whether this lane renders collapsed right now — the authored

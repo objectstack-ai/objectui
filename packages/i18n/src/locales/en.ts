@@ -1116,6 +1116,7 @@ const en = {
     pathStageLostUpcoming: '{{stage}}, closed lost, not reached',
     pathStageWonUpcoming: '{{stage}}, goal stage, not reached',
     linkCopied: 'Link copied to clipboard',
+    commentFailed: 'Your comment was not posted. Nothing was saved — please try again.',
     linkCopyFailed: 'Failed to copy link',
     cancel: 'Cancel',
     cancelEdit: 'Discard changes',
@@ -1422,6 +1423,8 @@ const en = {
     refreshing: 'Refreshing…',
     pickMeasures: 'Pick measures (values) for this dataset widget.',
     datasetUnsupported: 'This data source does not support dataset queries.',
+    widgetForbiddenTitle: 'You don’t have access',
+    widgetForbiddenMessage: 'You don’t have permission to view the data behind this widget.',
     details: 'Details',
     exportCsv: 'Export CSV',
     openInList: 'Open in list',
@@ -1942,6 +1945,10 @@ const en = {
         ctaUpgrade: 'Upgrade to keep going',
         ctaTopUp: 'Add credits to continue',
         ariaLabel: 'AI usage: {{status}}',
+        // objectui#8524 — heading over the pool's read-only split (`breakdown`:
+        // app-building vs data Q&A) in the popover. The rows reuse `meterBuild` /
+        // `meterAsk`; each is a share of the ONE pool, never a second budget.
+        breakdownTitle: 'Used so far',
       },
       workspaceTitle: 'AI Workspace',
       workspaceSubtitle: 'Ask, inspect, and resume conversations',
@@ -2202,6 +2209,17 @@ const en = {
       ratio: 'Reads are running at {{ratio}} rows for every row written. The platform flags anything above {{threshold}}. Nothing is limited or blocked; this is a report so the read pattern can be reviewed.',
       noWritesTitle: 'Reads with no writes at all in this environment',
       noWrites: 'Rows are being read while none at all are being written, so the read rate has no upper bound. This is the most severe reading. The platform flags anything above {{threshold}}. Nothing is limited or blocked; this is a report so the read pattern can be reviewed.',
+    },
+    // objectui#10439 — the environment admin's storage-capacity banner (cloud#2135).
+    // Raised by the tenant runtime's own verdict on `/api/v1/usage/storage`: `warn`
+    // (80% and up) or `blocked` (uploads and bulk imports refused). `{{used}}` and
+    // `{{limit}}` are that response's `usedMb` / `limitMb`, already formatted.
+    storageUsage: {
+      warningTitle: 'Storage is filling up',
+      warning: '{{used}} MB of {{limit}} MB used. Uploads and imports pause once storage is full.',
+      blockedTitle: 'Storage is full: uploads and imports are paused',
+      blocked: '{{used}} MB of {{limit}} MB used. Existing data is untouched, and reading, exporting and editing single records still work.',
+      upgrade: 'Upgrade to continue',
     },
     errors: {
       somethingWentWrong: 'Something went wrong',

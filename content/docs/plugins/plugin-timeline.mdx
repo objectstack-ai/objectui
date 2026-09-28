@@ -326,6 +326,8 @@ const long: TimelineSchema['dateFormat'] = 'long'    // "January 15, 2024"
 const iso: TimelineSchema['dateFormat'] = 'iso'      // "2024-01-15"
 ```
 
+A date-only value (`2024-01-15`) names a calendar day, so every face prints that day in every viewer's time zone, and the object timeline buckets and sorts it as that day. A value with a time part is an instant: `short` and `long` print its day in the viewer's zone, and `iso` prints its UTC day.
+
 ## Time Scales (Gantt)
 
 For Gantt-style timelines, choose the appropriate time scale:

@@ -7,7 +7,7 @@
  */
 
 import * as React from 'react';
-import { ComponentRegistry, toDomProps } from '@object-ui/core';
+import { ComponentRegistry, isRealCalendarDate, toDateInputValue, toDisplayDate, toDomProps } from '@object-ui/core';
 import type { TimelineRenderSchema } from './renderHandoff';
 import {
   Timeline,
@@ -1179,9 +1179,21 @@ function calculateBarDimensions(
  * nothing to do with the user — while `'long'` passed a literal `'en-US'`. A
  * required parameter is what keeps a future branch from quietly reintroducing
  * either. `'iso'` is a machine format by definition and stays locale-free.
+ *
+ * The value is read through the shared step, `toDisplayDate`
+ * (`@object-ui/core`, objectui#10866), as `ObjectTimeline`'s bucket and sort
+ * read it. The engine's own parse read a date-only `2026-10-06` as UTC
+ * midnight, so the `short` and `long` faces printed October 5th west of UTC.
+ * The shared step tells the two shapes apart by the value: a date-only string
+ * is local midnight of the day it names, and a value with a time part keeps
+ * its instant. So the ISO face prints a date-only value from LOCAL getters
+ * (its `toISOString()` would name the day before east of UTC), and keeps an
+ * instant's UTC day. A value the shared step refuses (unparsable, or a day
+ * its month does not have, objectui#10026) prints as written on the ISO face,
+ * where `toISOString()` would throw.
  */
 function formatDate(dateString: string, format: string | undefined, locale: string): string {
-  const date = new Date(dateString);
+  const date = toDisplayDate(dateString);
   if (format === 'short') {
     return date.toLocaleDateString(locale);
   }
@@ -1192,6 +1204,8 @@ function formatDate(dateString: string, format: string | undefined, locale: stri
       day: 'numeric',
     });
   }
+  if (Number.isNaN(date.getTime())) return String(dateString);
+  if (isRealCalendarDate(dateString)) return toDateInputValue(date);
   return date.toISOString().split('T')[0];
 }
 

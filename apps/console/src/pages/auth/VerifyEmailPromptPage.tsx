@@ -21,6 +21,7 @@ import {
   CardTitle,
 } from '@object-ui/components';
 import { AuthLayout } from './AuthLayout';
+import { withConsoleBaseRootRelative } from '../../utils/consoleBase';
 
 export function VerifyEmailPromptPage() {
   const { t } = useObjectTranslation();
@@ -56,7 +57,16 @@ export function VerifyEmailPromptPage() {
     setResending(true);
     setResendError(null);
     try {
-      await sendVerificationEmail(email, redirect || '/');
+      // objectui#10893 — `redirect` is a router path (basename-stripped). The
+      // server redirects to this value verbatim after verification, so it
+      // must be resolved against the console mount first: the bare route
+      // landed at the ORIGIN root, outside `/_console`. No safe target means
+      // no callbackURL, and the server default applies, as it did before.
+      const callbackURL =
+        redirect.startsWith('/') && !redirect.startsWith('//')
+          ? withConsoleBaseRootRelative(redirect)
+          : undefined;
+      await sendVerificationEmail(email, callbackURL);
       setResent(true);
       toast.success(
         t('auth.verifyEmail.resentSuccess', {

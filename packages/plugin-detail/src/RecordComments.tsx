@@ -15,6 +15,7 @@ import { useDetailTranslation } from './useDetailTranslation';
 
 export interface RecordCommentsProps {
   comments: CommentEntry[];
+  /** A rejection means the comment was not written: the composer keeps the draft. */
   onAddComment?: (text: string) => void | Promise<void>;
   /** Callback to toggle pin/star on a comment */
   onTogglePin?: (commentId: string | number) => void;
@@ -84,6 +85,9 @@ export const RecordComments: React.FC<RecordCommentsProps> = ({
     try {
       await onAddComment(text);
       setNewComment('');
+    } catch {
+      // A rejection means the comment was NOT written (objectui#10899): keep
+      // the draft; the host reports why.
     } finally {
       setIsSubmitting(false);
     }

@@ -45,6 +45,11 @@ import {
   // objectui#7928 — the spec's view CONTAINER, read for ONE slot: its
   // `listViews` record (`ObjectViewSchema.listViews` below, by reference).
   ViewSchema as SpecViewSchema,
+  // objectui#10859 (batch 2) — the `ComponentPropsMap` rows of the two
+  // ADR-0080 public blocks this module arms, each read as its arm's
+  // `properties` bag, by reference (`ObjectQLPublicBlockComponentSchema` below).
+  ObjectMetricPropsSchema as SpecObjectMetricPropsSchema,
+  ObjectMasterDetailFormPropsSchema as SpecObjectMasterDetailFormPropsSchema,
   checkListViewCalendarVisualization,
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
@@ -919,7 +924,7 @@ const KanbanStrayGroupByRefusal = aliasKeyRefusal(
 );
 
 /**
- * WHERE THIS ARM IS INSTALLED — TWO ROUTES, TWO NESTINGS EACH, ONE STRING.
+ * WHERE THIS ARM IS INSTALLED — TWO ROUTES, THREE NESTINGS, ONE STRING.
  *
  * `ListView` merges `{ ...schema.options?.kanban, ...schema.kanban }` before it
  * reads anything, so a stored view can carry the stray key under EITHER. The
@@ -930,11 +935,13 @@ const KanbanStrayGroupByRefusal = aliasKeyRefusal(
  * `options.kanban.groupBy`) — see `ListViewSchema.options` below.
  *
  * The second route is a named view on an `object-view` document, whose
- * `listViews` is unmirrored: nothing `ListViewSchema` declares reaches it, and
- * `generateViewSchema` merges the same two nestings. It takes the SAME guidance
- * through the named-view door (`custom` at `listViews.KEY.kanban.groupBy` and
- * `listViews.KEY.options.kanban.groupBy`, objectui#10321) — see
- * `checkNamedViewKanbanStrayGroupBy` below.
+ * `listViews` is the protocol's strict record by reference (objectui#7928), so
+ * nothing `ListViewSchema` declares reaches it, and it has ONE nesting: the
+ * record refuses a named view's `options` bag whole (`unrecognized_keys` naming
+ * `options`), and `generateViewSchema` no longer reads that bag. The `kanban`
+ * block takes the SAME guidance through the named-view door (`custom` at
+ * `listViews.KEY.kanban.groupBy`, objectui#10321, beside the protocol's own
+ * `unrecognized_keys`) — see `checkNamedViewKanbanStrayGroupBy` below.
  *
  * ⚠️ Covering the legacy nesting is not optional politeness: the retired
  * producer (`app-shell`'s `kanbanViewOptions`, objectui#8213) wrote into
@@ -943,8 +950,8 @@ const KanbanStrayGroupByRefusal = aliasKeyRefusal(
  * population re-grouped in silence — option A, which the ruling did not take.
  *
  * ⛔ Every channel takes ONE string, read off this arm's own `.description`,
- * so the message an author meets cannot depend on which route or nesting they
- * wrote.
+ * so the message an author meets at the key cannot depend on which of those
+ * three nestings they wrote it in.
  */
 
 const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().extend({
@@ -3100,4 +3107,116 @@ export const ObjectQLComponentSchema = z.discriminatedUnion('type', [
   ObjectGallerySchema,
   ObjectDataTableSchema,
   ListViewSchema,
+]);
+
+/* ── ADR-0080 public blocks of this family, armed from their spec rows ───── */
+
+/**
+ * The `properties` member of one of the two blocks below: the spec row,
+ * optional, with the provenance spelled into its description — the same
+ * helper `./public-blocks.zod.ts` uses. The row is passed in already through
+ * the import boundary, so this helper never touches a spec binding.
+ */
+function objectBlockPropsBag<T extends z.ZodType>(type: string, row: T) {
+  return row
+    .optional()
+    .describe(
+      `The \`${type}\` props bag — \`@objectstack/spec\` \`ComponentPropsMap['${type}']\`, by reference. `
+      + 'Judged only when present, as the spec\'s props gate judges it.',
+    );
+}
+
+/**
+ * `object-metric` — `ComponentPropsMap['object-metric']` (objectui#10859,
+ * batch 2).
+ *
+ * ## Why it is armed here, and from what
+ *
+ * `object-metric` is registered by `@object-ui/plugin-dashboard`
+ * (`ObjectMetricBlock`, which renders `ObjectMetricWidget`), curated by
+ * ADR-0080 as a public block (`PUBLIC_BLOCKS` in `@object-ui/core`) and
+ * declared by the spec — and until this arm `AnyComponentSchema` carried none
+ * for it, so `safeValidateSchema` and `objectui validate` refused every
+ * document naming it with `invalid_union` at `type`.
+ *
+ * `@object-ui/types` has no TypeScript declaration of this node: the spec's
+ * row is the one published declaration of what it takes. (The widget's React
+ * props, `ObjectMetricWidgetProps`, describe the component after the node is
+ * resolved — a translator function and a React-node icon among them — and are
+ * not a document shape.) So the arm is built the way `./public-blocks.zod.ts`
+ * builds every arm whose declaration is a `ComponentPropsMap` row
+ * (objectui#10872): `BaseSchema` + the `type` literal + `properties`, which IS
+ * the row, by reference through the objectui#8317 import boundary. Members,
+ * value types, strictness and the spec's own refusals all arrive from the
+ * spec; nothing is restated, so nothing can drift.
+ *
+ * ## Where the props live
+ *
+ * The bag is the spelling the platform's authored documents use — every
+ * `object-metric` the objectstack showcase ships is `{ type, properties }` —
+ * and the one the page designer writes; `SchemaRenderer` hoists it onto the
+ * node before `ObjectMetricBlock` runs. ⚠️ A key written FLAT on the node is
+ * not judged against the row, exactly as on the public blocks next door: one
+ * `BaseSchema` does not declare passes the tolerant face unjudged and is
+ * refused by the strict authoring face. Whether the flat spelling is also an
+ * authoring channel for these blocks is the question objectui#10872 left open
+ * for the whole family; declaring it later is additive.
+ */
+export const ObjectMetricBlockSchema = BaseSchema.extend({
+  type: z.literal('object-metric'),
+  properties: objectBlockPropsBag('object-metric', stripImportedDefaults(SpecObjectMetricPropsSchema)),
+});
+
+/**
+ * `object-master-detail-form` — `ComponentPropsMap['object-master-detail-form']`,
+ * plus the three handler keys its renderer reads off the node (objectui#10859,
+ * batch 2).
+ *
+ * Registered by `@object-ui/plugin-form` (`MasterDetailFormRenderer`, which
+ * renders `MasterDetailForm`), curated by ADR-0080 and declared by the spec,
+ * with no arm until this one. Built exactly as `ObjectMetricBlockSchema` above
+ * is, and for the same reason: the spec row is the published declaration of
+ * the node's props, and the objectstack showcase's master-detail page authors
+ * `{ type, properties }`.
+ *
+ * ⚠️ `@object-ui/plugin-form` also exports `MasterDetailFormSchema`, the type
+ * of `MasterDetailForm`'s `schema` prop: the node as the renderer reads it
+ * after the `properties` hoist. It is not restated here: it carries three host
+ * callbacks and an optional `type`, and it is the renderer's reading rather
+ * than the authored document shape, and where it and the spec row disagree —
+ * it requires `objectName` and `details` and types `title`, `submitText` and
+ * `cancelText` as a plain string, while the row keeps both keys optional and
+ * takes an `I18nLabel` for the three labels — the spec is the contract this
+ * validator answers to.
+ *
+ * `onSuccess`, `onError` and `onCancel` are not props the spec declares: they
+ * are the host callbacks `ObjectForm`, `DrawerForm` and `ModalForm` hand
+ * `MasterDetailForm`, which calls each one off the node. So each is a RUNTIME
+ * SLOT (objectui#6124): refused by name when authored, because JSON has no
+ * function value, rather than left to `.passthrough()` to keep an authored
+ * value and hand it to a call site.
+ */
+export const ObjectMasterDetailFormBlockSchema = BaseSchema.extend({
+  type: z.literal('object-master-detail-form'),
+  properties: objectBlockPropsBag(
+    'object-master-detail-form',
+    stripImportedDefaults(SpecObjectMasterDetailFormPropsSchema),
+  ),
+  onSuccess: handlerKeyRefusal('onSuccess', 'runtime-slot', 'Called with the saved parent record after a successful save'),
+  onError: handlerKeyRefusal('onError', 'runtime-slot', 'Called after a refused save, for bookkeeping only'),
+  onCancel: handlerKeyRefusal('onCancel', 'runtime-slot', 'Cancel button callback'),
+});
+
+/**
+ * The two public blocks above, as one arm of `AnyComponentSchema`
+ * (objectui#10859, batch 2).
+ *
+ * A union of its own rather than two more members of `ObjectQLComponentSchema`,
+ * deliberately: that union mirrors the TypeScript union in `../objectql.ts`
+ * member for member, and neither block has a declaration there — their
+ * declaration is the spec row each `properties` member reads.
+ */
+export const ObjectQLPublicBlockComponentSchema = z.discriminatedUnion('type', [
+  ObjectMetricBlockSchema,
+  ObjectMasterDetailFormBlockSchema,
 ]);

@@ -119,7 +119,7 @@ const COMPUTED_FIELD_TYPES = new Set([
  * predicate. It arrives here, at the single outbound filter, rather than as a
  * strip loop after each container's call, because every such loop is a copy
  * that can be forgotten — and one of the three containers had forgotten it
- * (objectui#10120).
+ * (`80c54122e`).
  */
 export function sanitizeFormData(
   data: Record<string, any>,

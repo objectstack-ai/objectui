@@ -48,6 +48,16 @@ export interface RegisterFormProps {
    *  sign-in on email verification. The page should swap the form for a
    *  "check your inbox" confirmation. */
   onVerificationRequired?: (email: string) => void;
+  /**
+   * Where the email-verification link should land once the address is
+   * verified — e.g. the invitation page the user registered from
+   * (objectui#10893). Forwarded to `signUp` as better-auth's sign-up
+   * `callbackURL`; see `SignUpData.callbackURL` for the only shapes the server
+   * accepts (a document-relative `./…` fails the whole sign-up). Omitted, the
+   * server default (`/`) applies. Only matters when the server requires email
+   * verification — an auto-signed-in registration calls `onSuccess` instead.
+   */
+  verificationCallbackURL?: string;
   /** Callback on registration error */
   onError?: (error: Error) => void;
   /** Link to login page */
@@ -110,6 +120,7 @@ const DefaultUserPlusIcon = () => (
 export function RegisterForm({
   onSuccess,
   onVerificationRequired,
+  verificationCallbackURL,
   onError,
   loginUrl = '/login',
   title = 'Create an account',
@@ -163,7 +174,7 @@ export function RegisterForm({
     // that the server rejects as "Invalid email" (#3238) — trim before use.
     const trimmedEmail = email.trim();
     try {
-      const result = await signUp(name, trimmedEmail, password);
+      const result = await signUp(name, trimmedEmail, password, verificationCallbackURL);
       if (result?.requiresVerification) {
         onVerificationRequired?.(trimmedEmail);
         return;

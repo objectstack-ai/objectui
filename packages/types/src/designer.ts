@@ -416,7 +416,7 @@ export interface ViewColumnConfig {
 /**
  * View type union for the designer's view-configuration panel.
  *
- * DERIVED from `@objectstack/spec/ui` `VisualizationType` (objectui#8127) — the
+ * DERIVED from `@objectstack/spec/ui` `VisualizationType` (`ca3942729`) — the
  * spec's own union of the visualizations a user can switch between, and the one
  * `AppearanceConfig.allowedVisualizations` is typed on. The hand-written
  * eight-arm union this replaces had already drifted: it was missing `tree`,

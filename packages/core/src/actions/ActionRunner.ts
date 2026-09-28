@@ -567,7 +567,7 @@ export type ParamCollectionHandler = (
  * The contract's own result-dialog block, and one entry of its field list.
  *
  * ⭐ The two interfaces below DERIVE their label members from these instead of
- * restating them, and that is the whole repair of objectui#9542: the three
+ * restating them, and that is the whole repair of `43c0d1710`: the three
  * label members were hand-written `string` while the producer declares each as
  * `I18nLabel` — a plain string **or** an inline per-locale map, both authorized
  * and neither deprecated — so this mirror refused what the platform accepts
@@ -753,7 +753,7 @@ export interface ActionParamDef {
    * not apply either. A lookup param that should have rendered a record picker
    * renders an unannotated empty box instead — no options, no dropdown, and no
    * request for the referenced object on the wire, because no picker was ever
-   * built (objectui#10129).
+   * built (`6cc910b6d`).
    *
    * ⛔ It is not a widget config key and `paramToField()` deliberately does not
    * map it: the whole point is that the param's type is UNKNOWN, so there is no

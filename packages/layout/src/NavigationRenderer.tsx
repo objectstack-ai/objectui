@@ -391,7 +391,7 @@ export interface NavigationVisibilityOptions {
  * Extracted because the sequence had been written out three times — in
  * `NavigationItemRenderer`, in `hasVisibleNavigationItems`, and nowhere at all
  * in `collectPinnedItems`, which is how the Favorites section came to render an
- * entry out of a subtree the same guards had already removed (objectui#10119).
+ * entry out of a subtree the same guards had already removed (`73a3c89af`).
  * A gate that holds on one path into a subtree and not on another is the
  * authoring trap this predicate exists to prevent, so the three callers share
  * the statement rather than agreeing about it.
@@ -1084,7 +1084,7 @@ function NavigationItemRenderer({
       .slice()
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-    // A group survives only through its children (objectui#10119). Without
+    // A group survives only through its children (`73a3c89af`). Without
     // this the group's own label rendered as a disclosure that opens onto
     // nothing once every child was gated away — and it contradicted
     // `hasVisibleNavigationItems`, which already scores such a group as
@@ -1506,7 +1506,7 @@ function collectPinnedItems(
 ): NavigationItem[] {
   const pinned: NavigationItem[] = [];
   for (const item of items) {
-    // A gated-away node takes its whole subtree with it (objectui#10119).
+    // A gated-away node takes its whole subtree with it (`73a3c89af`).
     // This walk is a SECOND path into the same children, so without the guard
     // an author who gated a group watched a pinned descendant keep rendering
     // under Favorites — the group's `visible` predicate evaluated, answered

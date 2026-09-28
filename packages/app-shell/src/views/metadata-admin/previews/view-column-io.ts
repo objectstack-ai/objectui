@@ -42,15 +42,21 @@ export interface VariantInfo {
  *
  * A column the canonical keys cannot name falls through to the positional
  * label `col N`, which is what the row shows and what the author clicks — the
- * list never renders nameless.
+ * list never renders nameless. That label is the designer's own word, so a
+ * caller that renders it passes `positional`, the designer row read in its
+ * locale (objectui#10862); this module stays free of the string tables.
  */
-export function colLabel(c: unknown, i: number): string {
-  if (typeof c === 'string') return c || `col ${i + 1}`;
+export function colLabel(
+  c: unknown,
+  i: number,
+  positional: (n: number) => string = (n) => `col ${n}`,
+): string {
+  if (typeof c === 'string') return c || positional(i + 1);
   if (c && typeof c === 'object') {
     const o = c as Record<string, unknown>;
-    return String(o.label ?? o.field ?? `col ${i + 1}`);
+    return String(o.label ?? o.field ?? positional(i + 1));
   }
-  return `col ${i + 1}`;
+  return positional(i + 1);
 }
 
 /**

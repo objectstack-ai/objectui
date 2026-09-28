@@ -46,3 +46,10 @@ TSX code now fails to compile in two places. The first is a refused member insid
 `ObjectDataTableSchema.drillDown`, or inside `ObjectPivotTable`'s `schema.drillDown`. The
 second is a value typed as the shared `DrillDownConfig` handed to either. Delete the key.
 Runtime rendering is unchanged.
+
+⚠️ **Dated note, 2026-09-28 — the plain `pivot` node has a mirror now — objectui#10859.**
+Later in this same release `PivotTableSchema` (the `pivot` node, not `object-pivot`) gains a
+zod mirror whose `drillDown` is the shared `DrillDownConfigSchema`, so a validator does read
+the members of a `pivot` node's `drillDown`, and accepts `mode` there, as `DrillDownConfig`
+declares it. `object-pivot` still has no mirror, so what the paragraph above says of a stored
+`object-pivot` config stands. The rest of this entry is kept as the reading of this change.

@@ -46,8 +46,9 @@
  * refusal with its code and path first, on the TS face read off the member's
  * docblock. Then the closure walk: over every non-test `.ts` file of this
  * package's `src`, no joined text still pairs "no error" with "no warning",
- * and every "no … error or warning" phrasing is followed by the parser tier's
- * clause. The rest of each string is NOT pinned; the sites' own pins read it.
+ * and every "no … error or warning" phrasing names the parser tier in its own
+ * sentence or the next one. The rest of each string is NOT pinned; the sites'
+ * own pins read it.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -200,6 +201,38 @@ describe('objectui#10981 — the closure walk over this package\'s `src`', () =>
   const COMBINED = /\bno (?:[\w-]+ )?errors? (?:or|nor|and) (?:[\w-]+ )?warnings?\b/gi;
   const PARSER_TIER = "the parser tier's";
 
+  /**
+   * Where the parser tier has to be named: anywhere from the phrasing to the
+   * end of the sentence AFTER the one it sits in.
+   *
+   * The phrasing speaks for the render tier only, so the text must go on to say
+   * what the parser tier did. The family writes that in one of two places. Most
+   * sites keep it in the same sentence ("…; only the parser tier's
+   * `unknown-prop` warning noticed it"). A site where the parser tier is
+   * genuinely silent gives it the next sentence, because it has a reason to
+   * record: objectui#9256's `metric-card` refusal says that "in a widget slot
+   * nothing else noticed it either: the parser tier's `not-a-container` warning
+   * (objectui#9910) walks `children`, never `widgets`". A fixed character count
+   * after the match is not that rule. It was 80 here, and it failed the
+   * `metric-card` text, which names the parser tier correctly but a little
+   * further on. Any count is too short for some honest sentence and long
+   * enough to reach an unrelated one somewhere else.
+   *
+   * A sentence ends at `.`, `!` or `?` followed by whitespace, the end of the
+   * text, or a closing quote (a zod string ends in `.'`). So the dots in
+   * `zod/form.zod.ts` or `.describe()` end nothing. `MAX_WINDOW` does not set
+   * the rule. It only stops a text with no sentence end from reaching the rest
+   * of its file.
+   */
+  const MAX_WINDOW = 600;
+  const windowAfter = (t: string, from: number): string => {
+    const end = /[.!?](?=['"`]?(?:\s|$))/g;
+    end.lastIndex = from;
+    const own = end.exec(t);
+    const next = own ? end.exec(t) : null;
+    return t.slice(from, Math.min(next ? next.index + 1 : t.length, from + MAX_WINDOW));
+  };
+
   it('the walk reaches the four sites and both earlier waves (non-vacuity, by name rather than by count)', () => {
     const names = files.map((f) => f.slice(SRC.length + 1));
     for (const f of ['base.ts', 'data-display.ts', 'zod/form.zod.ts', 'zod/objectql.zod.ts']) expect(names).toContain(f);
@@ -213,11 +246,12 @@ describe('objectui#10981 — the closure walk over this package\'s `src`', () =>
     expect(hits).toEqual([]);
   });
 
-  it('every "no … error or warning" phrasing names the parser tier right after it', () => {
+  it('every "no … error or warning" phrasing names the parser tier in the same or the next sentence', () => {
     const bare = texts.flatMap(([f, t]) =>
       [...t.matchAll(COMBINED)]
-        .filter((m) => !t.slice(m.index, (m.index ?? 0) + m[0].length + 80).includes(PARSER_TIER))
-        .map((m) => `${f}: «${t.slice(m.index, (m.index ?? 0) + m[0].length + 80)}»`),
+        .map((m) => windowAfter(t, m.index ?? 0))
+        .filter((w) => !w.includes(PARSER_TIER))
+        .map((w) => `${f}: «${w}»`),
     );
     expect(bare).toEqual([]);
   });

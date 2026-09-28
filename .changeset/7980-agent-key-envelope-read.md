@@ -20,7 +20,7 @@ surface was `packages/app-shell/**` — not as a ruling that it should stay priv
 
 **The console fix this unblocks.** The Integrations page's "Connect an AI agent" section
 read `json?.error?.message` and stopped, so a refused key mint dropped two declared
-things: the producer's marked `error.userMessage` (the #9934 channel, whose presence *is*
+things: the producer's marked `error.userMessage` (the objectstack `79c46da90` channel, whose presence *is*
 the marking) and `error.code`. The 5xx band is where that cost most — the producing door
 substitutes the generic `Internal server error` into `message` while the mark rides
 through untouched, so a marked 500/503 showed the developer the generic sentence and

@@ -104,8 +104,17 @@ export interface RuntimePersistCtx {
    *
    * Optional: report / dashboard / page writes need nothing here, and a call
    * site without an adapter still persists exactly as before.
+   *
+   * Declared as what the seam really takes: the host's adapter OBJECT, whatever
+   * its class, probed for the one capability named here (objectui#7483). The
+   * bare `Partial<ViewCacheInvalidator>` it used to be is a weak type (every
+   * member optional), so TypeScript refused a typed `DataSource` for sharing no
+   * member with it (TS2559) — the published contract does not declare
+   * `invalidateViewKeys`, only the `ObjectStackAdapter` class does. The `object`
+   * half admits any adapter; the `Partial` half still refuses a primitive and a
+   * wrongly-typed `invalidateViewKeys`.
    */
-  dataSource?: Partial<ViewCacheInvalidator> | null;
+  dataSource?: (object & Partial<ViewCacheInvalidator>) | null;
   /**
    * The object a `view` write belongs to — the `{object}` half of both keys.
    *

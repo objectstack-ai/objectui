@@ -506,6 +506,14 @@ export const DataTableSchema = BaseSchema.extend({
   ),
 });
 
+/** objectui#9256 (family-D re-measure): ONE refusal string for both content channels of `MarkdownSchema`. */
+const MARKDOWN_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'markdown',
+  'its registration (`plugin-markdown:markdown`) reads the node through an inline props type and forwards '
+    + 'only `content` and `className` to the Markdown implementation',
+  '`content`, rendered as sanitized Markdown',
+);
+
 /**
  * Markdown Schema - Markdown content renderer
  *
@@ -537,6 +545,10 @@ export const MarkdownSchema = BaseSchema.extend({
     + 'and a map of React component overrides is not a JSON-authorable value. Delete the key; the fenced '
     + 'mermaid / metadata block overrides are the renderer\'s own fixed map, not an authoring surface.',
   ),
+  // objectui#9256 (family-D re-measure): the renderer reads NEITHER content channel, so both are
+  // refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(MARKDOWN_NEITHER_CHANNEL),
+  children: retirementTombstone(MARKDOWN_NEITHER_CHANNEL),
 });
 
 /**
@@ -932,6 +944,14 @@ export const DrillDownConfigSchema = z.object({
   maxRows: z.number().optional().describe('Hard cap on rows fetched'),
 });
 
+/** objectui#9256 (family-D re-measure): ONE refusal string for both content channels of `ChartSchema`. */
+const CHART_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'chart',
+  'its registration (`plugin-charts:chart`, and the `chart:bar` alias) reads the node through '
+    + '`ChartRenderer`\'s inline props type',
+  'a chart of the `data` rows, drawn by `chartType` and `series`',
+);
+
 /**
  * Chart Schema - Chart/graph component
  *
@@ -1026,6 +1046,10 @@ export const ChartSchema = BaseSchema.extend({
   animate: z.boolean().optional().describe('Enable animations'),
   config: z.record(z.string(), z.any()).optional().describe('Additional chart configuration'),
   drillDown: DrillDownConfigSchema.optional().describe('Drill-down: clicking a chart segment opens a filtered list view (drawer / dialog)'),
+  // objectui#9256 (family-D re-measure): the renderer reads NEITHER content channel, so both are
+  // refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(CHART_NEITHER_CHANNEL),
+  children: retirementTombstone(CHART_NEITHER_CHANNEL),
 }).overwrite(foldChartXAxisAlias);
 
 /** objectui#9256 (family D): ONE refusal string for both content channels of `PivotTableSchema`. */
@@ -1461,6 +1485,14 @@ export const HtmlSchema = BaseSchema.extend({
   ),
 });
 
+/** objectui#9256 (family-D re-measure): ONE refusal string for both content channels of `BarChartSchema`. */
+const BAR_CHART_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'bar-chart',
+  'its registration (`plugin-charts:bar-chart`) reads the node through `ChartBarRenderer`\'s inline props '
+    + 'type, which forwards `data`, `dataKey`, `xAxisKey`, `height`, `className` and `color`',
+  'one bar per `data` row, its value from `dataKey` and its category from `xAxisKey`',
+);
+
 /**
  * Data Display Schema Union - All data display component schemas
  */
@@ -1488,6 +1520,10 @@ export const BarChartSchema = BaseSchema.extend({
   xAxisKey: z.string().optional().describe('Row key holding the bar category (x axis)'),
   height: z.number().optional().describe('Chart height in pixels'),
   color: z.string().optional().describe('Bar fill colour'),
+  // objectui#9256 (family-D re-measure): the renderer reads NEITHER content channel, so both are
+  // refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(BAR_CHART_NEITHER_CHANNEL),
+  children: retirementTombstone(BAR_CHART_NEITHER_CHANNEL),
 });
 
 export const DataDisplaySchema = z.discriminatedUnion('type', [

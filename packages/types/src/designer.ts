@@ -95,6 +95,42 @@ export interface PageDesignerSchema extends BaseSchema {
   undoRedo?: boolean;
   /** Read-only mode */
   readOnly?: boolean;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `page-designer` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `page-designer` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `page-designer` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D re-measure). The
+   * `page-designer` registration (`@object-ui/plugin-designer`) takes no
+   * `schema` prop: `SchemaRenderer` spreads the node's other keys into
+   * `PageDesigner` as props, and `PageDesigner` reads no `children` prop of
+   * its own. `SchemaRenderer` strips `body` and `children` out of the props
+   * bag it spreads, so neither reaches the component by another route, and
+   * the registration declares no `children` slot (objectui#9910).
+   *
+   * This declaration has no zod mirror, so this face is the only gate.
+   *
+   * What it renders instead: the designer UI `PageDesigner` draws from its
+   * props; the registration declares `canvas`, `components`,
+   * `showComponentTree`, `undoRedo` and `readOnly` as its inputs.
+   *
+   * @deprecated Not a channel `page-designer` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /** Component palette category */
@@ -204,6 +240,44 @@ export interface DataModelDesignerSchema extends BaseSchema {
   autoLayout?: boolean;
   /** Read-only mode */
   readOnly?: boolean;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `data-model-designer` reads
+   * NEITHER content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `data-model-designer` reads — nothing renders
+   * it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `data-model-designer` reads
+   * NEITHER content channel, so an authored child list here rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D re-measure). The
+   * `data-model-designer` registration (`@object-ui/plugin-designer`) takes
+   * no `schema` prop: `SchemaRenderer` spreads the node's other keys into
+   * `DataModelDesigner` as props, and `DataModelDesigner` reads no `children`
+   * prop of its own. `SchemaRenderer` strips `body` and `children` out of the
+   * props bag it spreads, so neither reaches the component by another route,
+   * and the registration declares no `children` slot (objectui#9910).
+   *
+   * This declaration has no zod mirror, so this face is the only gate.
+   *
+   * What it renders instead: the designer UI `DataModelDesigner` draws from
+   * its props; the registration declares `entities`, `relationships`,
+   * `autoLayout` and `readOnly` as its inputs.
+   *
+   * @deprecated Not a channel `data-model-designer` reads — nothing renders
+   * it.
+   */
+  children?: never;
 }
 
 // ============================================================================
@@ -312,6 +386,42 @@ export interface ProcessDesignerSchema extends BaseSchema {
   showToolbar?: boolean;
   /** Read-only mode */
   readOnly?: boolean;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `process-designer` reads
+   * NEITHER content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `process-designer` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `process-designer` reads
+   * NEITHER content channel, so an authored child list here rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D re-measure). The
+   * `process-designer` registration (`@object-ui/plugin-designer`) takes no
+   * `schema` prop: `SchemaRenderer` spreads the node's other keys into
+   * `ProcessDesigner` as props, and `ProcessDesigner` reads no `children`
+   * prop of its own. `SchemaRenderer` strips `body` and `children` out of the
+   * props bag it spreads, so neither reaches the component by another route,
+   * and the registration declares no `children` slot (objectui#9910).
+   *
+   * This declaration has no zod mirror, so this face is the only gate.
+   *
+   * What it renders instead: the designer UI `ProcessDesigner` draws from its
+   * props; the registration declares `processName`, `nodes`, `edges`,
+   * `showMinimap`, `showToolbar` and `readOnly` as its inputs.
+   *
+   * @deprecated Not a channel `process-designer` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 // ============================================================================
@@ -391,6 +501,42 @@ export interface ReportDesignerSchema extends BaseSchema {
   previewMode?: boolean;
   /** Read-only mode */
   readOnly?: boolean;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `report-designer` reads
+   * NEITHER content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `report-designer` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `report-designer` reads
+   * NEITHER content channel, so an authored child list here rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D re-measure). The
+   * `report-designer` registration (`@object-ui/plugin-designer`) takes no
+   * `schema` prop: `SchemaRenderer` spreads the node's other keys into
+   * `ReportDesigner` as props, and `ReportDesigner` reads no `children` prop
+   * of its own. `SchemaRenderer` strips `body` and `children` out of the
+   * props bag it spreads, so neither reaches the component by another route,
+   * and the registration declares no `children` slot (objectui#9910).
+   *
+   * This declaration has no zod mirror, so this face is the only gate.
+   *
+   * What it renders instead: the designer UI `ReportDesigner` draws from its
+   * props; the registration declares `reportName`, `objectName`, `sections`,
+   * `showToolbar`, `showPropertyPanel` and `readOnly` as its inputs.
+   *
+   * @deprecated Not a channel `report-designer` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 // ============================================================================
@@ -715,6 +861,42 @@ export interface ObjectManagerSchema extends BaseSchema {
   readOnly?: boolean;
   /** Show system objects */
   showSystemObjects?: boolean;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-manager` reads
+   * NEITHER content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `object-manager` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-manager` reads
+   * NEITHER content channel, so an authored child list here rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D re-measure). The
+   * `object-manager` registration (`@object-ui/plugin-designer`) takes no
+   * `schema` prop: `SchemaRenderer` spreads the node's other keys into
+   * `ObjectManager` as props, and `ObjectManager` reads no `children` prop of
+   * its own. `SchemaRenderer` strips `body` and `children` out of the props
+   * bag it spreads, so neither reaches the component by another route, and
+   * the registration declares no `children` slot (objectui#9910).
+   *
+   * This declaration has no zod mirror, so this face is the only gate.
+   *
+   * What it renders instead: the designer UI `ObjectManager` draws from its
+   * props; the registration declares `objects`, `showSystemObjects` and
+   * `readOnly` as its inputs.
+   *
+   * @deprecated Not a channel `object-manager` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 // ============================================================================
@@ -887,6 +1069,42 @@ export interface FieldDesignerSchema extends BaseSchema {
   fields: DesignerFieldDefinition[];
   /** Read-only mode */
   readOnly?: boolean;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `field-designer` reads
+   * NEITHER content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `field-designer` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `field-designer` reads
+   * NEITHER content channel, so an authored child list here rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D re-measure). The
+   * `field-designer` registration (`@object-ui/plugin-designer`) takes no
+   * `schema` prop: `SchemaRenderer` spreads the node's other keys into
+   * `FieldDesigner` as props, and `FieldDesigner` reads no `children` prop of
+   * its own. `SchemaRenderer` strips `body` and `children` out of the props
+   * bag it spreads, so neither reaches the component by another route, and
+   * the registration declares no `children` slot (objectui#9910).
+   *
+   * This declaration has no zod mirror, so this face is the only gate.
+   *
+   * What it renders instead: the designer UI `FieldDesigner` draws from its
+   * props; the registration declares `objectName`, `fields` and `readOnly` as
+   * its inputs.
+   *
+   * @deprecated Not a channel `field-designer` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 // ============================================================================

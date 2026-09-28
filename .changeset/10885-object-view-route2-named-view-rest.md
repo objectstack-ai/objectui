@@ -15,3 +15,6 @@ A named view's `navigation`, `fieldOrder` and `inlineEdit` now reach the registe
 What moves: only a named view that authors one of these three members. The objectui#5097 host-composition relay is unchanged.
 
 `Clause-②: no` — no declared type, accepted key or published export moves. A renderer starts honouring members the spec already declares on a named view.
+
+⚠️ **Dated note, 2026-09-28 — the New button now opens a create form under `split` and `popover` — objectui#10975.**
+Later in this same release, under a `split` or `popover` navigation, the node's own or the active named view's, the New button's create form opens on the surface the node uses with no `navigation`: the modal for `layout: 'modal'`, the drawer otherwise. A record opened to view or edit still opens beside the list. The sentence above that says the New button opens no form is kept as the reading of this change; the objectui#10975 entry states what ships.

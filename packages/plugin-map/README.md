@@ -117,7 +117,16 @@ round-trip, so inline rows must be JSON-serializable.
 
 ## The `map` block
 
-The declared configuration input. Every key is optional:
+The declared configuration input. Every key is optional, and the block is
+**closed** (objectui#5157): a key outside this table — a typo such as
+`latitudeFieId` — is refused by `objectui validate` with an `unrecognized_keys`
+issue at `map` that names it (on a root node; a nested node reports under
+`invalid_union` at `children`, with the key in the arm detail). At runtime
+`ObjectMap` does not throw: it renders from the declared keys and warns
+`[ObjectMap] Invalid map configuration` in the console, naming the same key; the
+undeclared key is never read. A typo that leaves the block with no coordinate
+binding, as `latitudeFieId` does, therefore draws the "Map configuration
+required" refusal below rather than a map.
 
 | Key | Description |
 | --- | --- |

@@ -476,6 +476,18 @@ export const ADJUDICATED = new Map([
     'packages/types/src/__tests__/object-kanban-group-by-limit-7322.test.ts',
     { reads: ['content/docs/plugins/plugin-kanban.mdx'] },
   ],
+  // objectui#5157. Reads no markdown: the two document literals are PROVENANCE
+  // on the rows of its sweep fixture (every `map` block the pre-landing sweep
+  // found in authored metadata, copied into the test and parsed under the strict
+  // schema). The test imports no `fs` and opens neither page, so an edit to
+  // either one cannot move its verdict.
+  [
+    'packages/types/src/__tests__/object-map-config-strict-5157.test.ts',
+    {
+      reads: [],
+      notRead: ['content/docs/fields/location.mdx', 'content/docs/plugins/plugin-map.mdx'],
+    },
+  ],
   [
     'packages/types/src/__tests__/object-view-unmirrored-keys-7779.test.ts',
     {

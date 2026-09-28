@@ -42,7 +42,7 @@ import { Plus, Upload, Star, StarOff, Table as TableIcon, KanbanSquare, Calendar
 import { useFavorites } from '../hooks/useFavorites.js';
 import { useTenancyPosture } from '../hooks/useTenancyPosture.js';
 import { getIcon } from '../utils/getIcon.js';
-import type { ListViewSchema, TreeViewConfig, ViewNavigationConfig } from '@object-ui/types';
+import type { DataSource, ListViewSchema, TreeViewConfig, ViewNavigationConfig } from '@object-ui/types';
 import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { ViewConfigPanel } from './ViewConfigPanel.js';
@@ -1191,7 +1191,38 @@ export function selectFilterParams(searchParams: URLSearchParams): URLSearchPara
     return filterParams;
 }
 
-export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: any) {
+/**
+ * Props of the Console `ObjectView`, the route-level object surface
+ * `@object-ui/app-shell` exports (objectui#7483).
+ *
+ * The parameter used to be a bare `any`, which erased the prop NAMES as well as
+ * their values: a misspelled prop compiled clean and was silently dropped. As an
+ * object type, JSX excess-property checking now refuses a name that is not here,
+ * and the two required members are refused when omitted.
+ *
+ * Named `ConsoleObjectViewProps` rather than `ObjectViewProps` because
+ * `@object-ui/plugin-view` already owns that name for its schema-driven view,
+ * a different shape (objectui#6172: one authority per exported type name).
+ */
+export interface ConsoleObjectViewProps {
+    /** The host's data adapter — the published `DataSource` contract. */
+    dataSource: DataSource;
+    /**
+     * The app's object definitions. The view resolves the route's
+     * `:objectName` against this list and renders the "object not found"
+     * state when it is absent.
+     */
+    objects: any[];
+    /** Opens a record for editing (the toolbar's and the drawer's edit action). */
+    onEdit: (record: Record<string, unknown>) => void;
+    /**
+     * Bumped by the host to refetch the list after a change made outside this
+     * view (for example a record saved in a form the host owns).
+     */
+    externalRefreshKey?: number;
+}
+
+export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: ConsoleObjectViewProps) {
     const { objectName } = useParams();
     const { t } = useObjectTranslation();
 
@@ -1236,7 +1267,7 @@ export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: 
  * definition is known to exist, so every hook below runs unconditionally on
  * every render of this component — no early return sits between hook calls.
  */
-function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: any) {
+function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: ConsoleObjectViewProps) {
     const navigate = useNavigate();
     const { appName, objectName, viewId } = useParams();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -1320,8 +1351,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 // `buildPersistedViewBody` for why the saved-view branch is
                 // deliberately NOT narrowed — its row IS the view, and
                 // `saveItem` is a whole-document PUT.
+                // Optional call: the guard at the top of `persistViewPatch`
+                // does not narrow across this `setTimeout` closure, and the
+                // contract declares `updateViewConfig` optional. `?.()` on the
+                // member keeps the adapter as `this`.
                 Promise.resolve(
-                    dataSource.updateViewConfig(
+                    dataSource.updateViewConfig?.(
                         objectName,
                         viewIdLocal,
                         buildPersistedViewBody(baseViewDef, merged, { isSavedView: targetIsSavedView }),

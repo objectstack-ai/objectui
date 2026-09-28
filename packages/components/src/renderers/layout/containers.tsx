@@ -1002,7 +1002,7 @@ const PageCardRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // `children` is the authorable spelling; `body` is a READ-ONLY back-compat
   // fallback for documents already stored with it (objectui#4027).
   //
-  // `body` was retired from the contract by objectstack#5775 (PR #6281, ADR-0087
+  // `body` was retired from the contract by objectstack#5775 (objectstack `85ec26d28`, ADR-0087
   // D2): it was a second spelling of the slot every other container — grid, flex,
   // section, tabs items — calls `children`, and the spec now declares `children`
   // on `PageCardProps` and rejects `body` by name. The registration below stopped
@@ -1072,7 +1072,7 @@ ComponentRegistry.register('card', PageCardRenderer, {
     { name: 'title', type: ['string', 'object'], description: 'Accepts an inline translation map ({ en, "zh-CN", … })' },
     { name: 'bordered', type: 'boolean' },
     // The card's content slot, respelled from `body` to `children`
-    // (objectui#4027). One slot, one spelling: objectstack#5775 (PR #6281)
+    // (objectui#4027). One slot, one spelling: objectstack#5775 (objectstack `85ec26d28`)
     // retired `PageCardProps.body` and declared `children` in its place, so a
     // designer that kept offering `body` was teaching a key the contract now
     // rejects by name. The renderer still READS `body` for stored documents —

@@ -223,8 +223,8 @@ export async function duplicatePackage(sourceId: string, targetId: string, targe
     // Read by the SAME rule as `fetchPackages` above, and not by a second
     // hand-rolled ladder: this arm read `error.message` alone, so a
     // producer-marked `error.userMessage` — which the dispatcher door serving
-    // this very route has emitted since #9934 — had nowhere to appear, and
-    // `error.code` was dropped too. One definition of the rule, in
+    // this very route has emitted since objectstack `79c46da90` — had nowhere
+    // to appear, and `error.code` was dropped too. One definition of the rule, in
     // {@link readEnvelopeFailureText}; leaving a copy of it a hundred lines
     // below the import is exactly the drift this extraction exists to stop.
     throw new Error(readEnvelopeFailureText(payload) ?? `HTTP ${res.status}`);

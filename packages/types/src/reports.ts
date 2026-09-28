@@ -507,6 +507,40 @@ export interface ReportComponentSchema extends BaseSchema {
     xAxisField?: string;
     yAxisFields?: string[];
   };
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `report` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `report` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `report` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D re-measure). The `report`
+   * registration (`@object-ui/plugin-report`) dispatches the node through
+   * `ReportRenderer`, whose three paths read the report definition; no read
+   * of the node's `body` or `children` exists in that package.
+   * `SchemaRenderer` strips `body` and `children` out of the props bag it
+   * spreads, so neither reaches the component by another route, and the
+   * registration declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: a dataset-bound report (ADR-0021), a stored
+   * pre-9.0 spec report bridged to `report-viewer`, or the legacy `data` /
+   * `columns` / `chart` presentation.
+   *
+   * @deprecated Not a channel `report` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**

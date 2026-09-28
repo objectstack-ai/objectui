@@ -215,13 +215,31 @@ object and view from the host's route, so it takes no `objectName` prop —
 mount it on a route that supplies them, as the console does with
 `/apps/:appName/:objectName` and `/apps/:appName/:objectName/view/:viewId`.
 
+Its props are the exported `ConsoleObjectViewProps`:
+
+- `dataSource` (required) — the host's adapter, the `DataSource` contract from
+  `@object-ui/types`.
+- `objects` (required) — the app's object definitions; the route's
+  `:objectName` is resolved against this list, and an unknown name renders the
+  "object not found" state.
+- `onEdit` (required) — called with the record to edit.
+- `externalRefreshKey` (optional) — bump it to refetch after a change made
+  outside the view.
+
 ```tsx
-import { ObjectView } from '@object-ui/app-shell';
+import { ObjectView, type ConsoleObjectViewProps } from '@object-ui/app-shell';
 import type { DataSource } from '@object-ui/types';
 
 declare const dataSource: DataSource;
+declare const objects: ConsoleObjectViewProps['objects'];
+declare const openEditor: (record: Record<string, unknown>) => void;
 
-<ObjectView dataSource={dataSource} />;
+<ObjectView
+  dataSource={dataSource}
+  objects={objects}
+  onEdit={openEditor}
+  externalRefreshKey={0}
+/>;
 ```
 
 To render an object view from a schema instead of from a route, use

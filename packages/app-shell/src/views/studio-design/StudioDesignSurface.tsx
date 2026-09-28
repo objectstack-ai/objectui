@@ -408,9 +408,9 @@ function PackageSwitcher({
        * ⭐ `userMessage` OUTRANKS `message`, and the order is the contract's,
        * not a preference (objectui#7938).
        *
-       * `error.userMessage` is the producer's #9934 channel, and the envelope
-       * writer's own words are the rule this line implements: "the text a
-       * producer marked, AT THROW TIME, as addressed to the END USER.
+       * `error.userMessage` is the producer's channel (objectstack `79c46da90`),
+       * and the envelope writer's own words are the rule this line implements:
+       * "the text a producer marked, AT THROW TIME, as addressed to the END USER.
        * Presence IS the marking — a consumer that sees the field renders it
        * verbatim and keeps its generic substitution for everything unmarked"
        * (`sendError`, `@objectstack/types` `response-envelope.ts`). This

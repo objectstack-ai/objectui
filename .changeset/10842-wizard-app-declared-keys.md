@@ -34,9 +34,6 @@ has no app layout, so the wizard's layout choice is not saved.
 
 Migration: move a top-level `favicon` URL to `branding: { favicon: '…' }`.
 
-⚠️ **Dated note, 2026-09-28 — the wizard has no layout choice, and a separator no longer blocks the save — objectui#10867.**
+⚠️ **Dated note, 2026-09-28 — the wizard has no layout choice — objectui#10867.**
 Later in this same release the wizard's Layout control was removed, with `AppWizardDraft.layout`, so there is no
-layout choice left to not save. "Creating an app is no longer refused" did not yet hold for an app with a
-navigation separator: the wizard wrote one with a `label`, which the spec's separator does not declare, and that
-save was still refused until objectui#10867 made the separator carry only `type`, `id` and `order`. The rest of
-this entry still holds.
+layout choice left to not save. The rest of this entry still holds.

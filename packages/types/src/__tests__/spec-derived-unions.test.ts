@@ -313,7 +313,7 @@ const _separatorAdmitsTheSpecInputKeys = true satisfies SameKeys<
   AdmittedKeys<LocalSeparator>,
   keyof SpecSeparatorInput
 >;
-// ...and every separator this arm admits is one the spec's accepts, at both tiers.
+// ...and the value types of the keys this arm admits are ones the spec's separator accepts, at both tiers. `extends` ignores extra keys, so key agreement is the two pins above: this one alone passes a labelled arm, and it is vacuous on BASE.
 const _localSeparatorIsSpecValid = true satisfies [LocalSeparator] extends [SpecSeparator & SpecSeparatorInput]
   ? true
   : false;

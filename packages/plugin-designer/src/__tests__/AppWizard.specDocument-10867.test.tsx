@@ -152,6 +152,16 @@ describe('objectui#10867 — member 2: an edit keeps every stored `branding` key
     expect(body.branding).toEqual({ ...STORED.branding, primaryColor: '#dc2626' });
   });
 
+  it('a logo the author clears saves as cleared, not as the stored value', async () => {
+    // Guards the merge's order: the wizard's `branding` wins for the keys it
+    // maintains, empty strings included, so a later "drop empty values" tidy-up
+    // would bring a removed logo back from storage.
+    const body = await editThrough(STORED, () =>
+      fireEvent.change(screen.getByTestId('branding-logo-input'), { target: { value: '' } }),
+    );
+    expect(body.branding).toEqual({ ...STORED.branding, logo: '' });
+  });
+
   it('CONTROL — a stored `branding` key the spec does not declare is not echoed into the save', async () => {
     const body = await editThrough({
       ...STORED,

@@ -16,22 +16,23 @@
  * that objectui's element renderers read the binding FIRST
  * (`ds.object ?? props.object`). `ElementNumberRenderer` read only
  * `properties.object`, so `{ dataSource: { object }, properties: { aggregate } }`
- * — a document both validators accept — issued no query at all and painted the
+ * — which the spec lint gate accepts — issued no query at all and painted the
  * empty dash, with nothing to tell the author why.
  *
- * The renderer now reads the binding the way its element twin
- * `element:record_picker` does: through `useElementDataSource`, with the
- * binding's member winning over the flat `properties` one. This file pins the
- * member set it READS and the members it deliberately does not:
+ * The renderer now resolves the binding the way its element twin
+ * `element:record_picker` does, through `useElementDataSource`. This file pins
+ * the member set it READS and the members it deliberately does not:
  *
  *   | member   | read? | how                                                        |
  *   |----------|-------|------------------------------------------------------------|
  *   | `object` | yes   | `dataSource.object ?? properties.object` — ONE value for   |
- *   |          |       | the fetch guard, `aggregate` / `find` and the bus key      |
+ *   |          |       | the fetch guard, `aggregate` / `find` and the bus key; no  |
+ *   |          |       | object at all while a named view is unresolved            |
  *   | `view`   | yes   | a saved view's `filter` scopes the aggregate; one that     |
  *   |          |       | cannot be resolved REPORTS and aggregates nothing          |
- *   | `filter` | yes   | `(view AND binding filter) ?? properties.filter` — the     |
- *   |          |       | twin's precedence: a binding filter wins outright          |
+ *   | `filter` | yes   | `properties.filter` AND (view AND binding filter) — the    |
+ *   |          |       | `ElementDataSourceGate` rule: neither is dropped, and a    |
+ *   |          |       | refused merge REPORTS and aggregates nothing               |
  *   | `sort`   | no    | an aggregate has no ordering — never reaches the call      |
  *   | `limit`  | no    | an aggregate has no row cap — a capped count is a wrong    |
  *   |          |       | number, so neither the binding's nor a view's cap reaches  |
@@ -73,6 +74,25 @@ const HOT_VIEW = {
 
 const BINDING_FILTER = [{ field: 'owner', operator: 'equals', value: 'ada' }];
 const PROPS_FILTER = [{ field: 'region', operator: 'equals', value: 'emea' }];
+/**
+ * A rule the converter refuses: an ARRAY comparand on single-valued `equals`
+ * (objectui#8557). Written as `properties.filter` beside a binding, it is the
+ * merge's own refusal, not the view's.
+ */
+const REFUSED_FILTER = [{ field: 'tags', operator: 'equals', value: ['a'] }];
+
+/**
+ * The wire shapes, written out rather than computed with the renderer's own
+ * helpers, so a pin cannot agree with an implementation by construction. With
+ * a binding present, every filter source is lowered to the ObjectQL AST and
+ * the survivors are AND-combined, each as its own child — the
+ * `ElementDataSourceGate` merge. With NO binding, `properties.filter` reaches
+ * the adapter exactly as authored (the control rows, and
+ * `elementNumberFilterMembers-8071.test.tsx`).
+ */
+const HOT_NODE = [['status', 'equals', 'hot']];
+const BINDING_NODE = [['owner', 'equals', 'ada']];
+const PROPS_NODE = [['region', 'equals', 'emea']];
 
 /** An adapter that CAN aggregate — the primary path. */
 function makeAdapter() {
@@ -208,10 +228,10 @@ describe('element:number — the `dataSource` members it reads, and the ones it 
     const adapter = makeAdapter();
     mount({ ...BOUND, dataSource: { object: 'contact', filter: BINDING_FILTER } }, adapter);
     await waitFor(() => expect(adapter.aggregate).toHaveBeenCalledTimes(1));
-    expect(adapter.aggregate).toHaveBeenCalledWith('contact', countBag(BINDING_FILTER));
+    expect(adapter.aggregate).toHaveBeenCalledWith('contact', countBag(BINDING_NODE));
   });
 
-  it('filter: a binding filter wins outright over properties.filter, which applies only when the binding carries none', async () => {
+  it('filter: properties.filter is AND-combined with the binding filter — both reach the aggregate, neither is dropped', async () => {
     const both = makeAdapter();
     mount(
       {
@@ -222,13 +242,47 @@ describe('element:number — the `dataSource` members it reads, and the ones it 
       both,
     );
     await waitFor(() => expect(both.aggregate).toHaveBeenCalledTimes(1));
-    expect(both.aggregate).toHaveBeenCalledWith('contact', countBag(BINDING_FILTER));
+    expect(both.aggregate).toHaveBeenCalledWith('contact', countBag(['and', PROPS_NODE, BINDING_NODE]));
     cleanup();
 
+    // A binding that carries no filter leaves the node's own to apply alone.
     const flatOnly = makeAdapter();
     mount({ ...BOUND, properties: { aggregate: 'count', filter: PROPS_FILTER } }, flatOnly);
     await waitFor(() => expect(flatOnly.aggregate).toHaveBeenCalledTimes(1));
-    expect(flatOnly.aggregate).toHaveBeenCalledWith('contact', countBag(PROPS_FILTER));
+    expect(flatOnly.aggregate).toHaveBeenCalledWith('contact', countBag(PROPS_NODE));
+  });
+
+  it("filter: a named view's filter and properties.filter are both applied, AND-combined", async () => {
+    const adapter = makeAdapter();
+    mount(
+      {
+        ...BOUND,
+        dataSource: { object: 'contact', view: 'hot' },
+        properties: { aggregate: 'count', filter: PROPS_FILTER },
+      },
+      adapter,
+    );
+    await waitFor(() => expect(adapter.aggregate).toHaveBeenCalledTimes(1));
+    expect(adapter.aggregate).toHaveBeenCalledWith('contact', countBag(['and', PROPS_NODE, HOT_NODE]));
+  });
+
+  it('filter: a merge the converter refuses reports on the error panel and aggregates nothing', async () => {
+    const adapter = makeAdapter();
+    mount(
+      {
+        ...BOUND,
+        dataSource: { object: 'contact', filter: BINDING_FILTER },
+        properties: { aggregate: 'count', filter: REFUSED_FILTER },
+      },
+      adapter,
+    );
+    const panel = await screen.findByTestId('element-number-datasource-error');
+    // The refusal's own subject, so the author is told which rule to fix.
+    expect(panel.textContent).toContain('tags');
+    await settle();
+    // Refused, not dropped: no count over a filter that lost a source.
+    expect(adapter.aggregate).not.toHaveBeenCalled();
+    expect(adapter.find).not.toHaveBeenCalled();
   });
 
   it("view: a named saved view's filter scopes the aggregate", async () => {
@@ -236,12 +290,31 @@ describe('element:number — the `dataSource` members it reads, and the ones it 
     mount({ ...BOUND, dataSource: { object: 'contact', view: 'hot' } }, adapter);
     await waitFor(() => expect(adapter.aggregate).toHaveBeenCalledTimes(1));
     expect(adapter.getObjectSchema).toHaveBeenCalledWith('contact');
-    expect(adapter.aggregate).toHaveBeenCalledWith('contact', countBag(HOT_FILTER));
+    expect(adapter.aggregate).toHaveBeenCalledWith('contact', countBag(HOT_NODE));
   });
 
   it('view: one that cannot be resolved reports and aggregates nothing', async () => {
     const adapter = makeAdapter();
     mount({ ...BOUND, dataSource: { object: 'contact', view: 'no_such_view' } }, adapter);
+    await waitFor(() => expect(screen.getByTestId('element-number-datasource-error')).toBeTruthy());
+    await settle();
+    expect(adapter.aggregate).not.toHaveBeenCalled();
+    expect(adapter.find).not.toHaveBeenCalled();
+  });
+
+  it('view: an unresolvable one does not fall back to properties.object — no object while it is unresolved', async () => {
+    // The `unresolved ? undefined :` half of the resolution line. Without it,
+    // a flat object beside the binding would be aggregated WITHOUT the view's
+    // filter — the wider count the view was written to prevent.
+    const adapter = makeAdapter();
+    mount(
+      {
+        ...BOUND,
+        dataSource: { object: 'contact', view: 'no_such_view' },
+        properties: { object: 'contact', aggregate: 'count' },
+      },
+      adapter,
+    );
     await waitFor(() => expect(screen.getByTestId('element-number-datasource-error')).toBeTruthy());
     await settle();
     expect(adapter.aggregate).not.toHaveBeenCalled();
@@ -261,7 +334,7 @@ describe('element:number — the `dataSource` members it reads, and the ones it 
     const [object, bag] = adapter.aggregate.mock.calls[0] as [string, Record<string, unknown>];
     expect(object).toBe('contact');
     expect(Object.keys(bag).sort()).toEqual(['field', 'filter', 'function', 'groupBy']);
-    expect(bag).toEqual(countBag(HOT_FILTER));
+    expect(bag).toEqual(countBag(HOT_NODE));
   });
 
   it('limit is not read on the find() fallback either: a count is never capped', async () => {

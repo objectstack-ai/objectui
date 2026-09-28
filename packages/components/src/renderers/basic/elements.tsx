@@ -22,13 +22,14 @@
  * All props are read off `schema.properties` per the spec's
  * `UIComponent.properties` convention; `schema.props` is also accepted
  * as a fallback so authors transitioning between conventions keep working.
- * `element:number` also reads the node-level `dataSource` binding, whose
- * members win over the flat ones (objectui#10909).
+ * `element:number` also reads the node-level `dataSource` binding: its
+ * `object` wins over the flat one, and its filter is AND-combined with the
+ * flat one (objectui#10909).
  */
 
 import * as React from 'react';
-import { ComponentRegistry, elementDataSourceBlock } from '@object-ui/core';
-import type { ActionDef } from '@object-ui/core';
+import { ComponentRegistry, elementDataSourceBlock, mergeFilterNodes, toFilterNodeSafely } from '@object-ui/core';
+import type { ActionDef, FilterOperatorError } from '@object-ui/core';
 import {
   ElementDataSourceErrorPanel,
   ElementDataSourceLoadingPanel,
@@ -392,11 +393,10 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   }>(schema);
   const adapter = useAdapter() as any;
   // objectui#10909 — the spec's per-element binding (`PageComponentSchema
-  // .dataSource`), read the way the element twin `element:record_picker` reads
-  // it: through `useElementDataSource`, with the binding's member winning over
-  // the flat `properties` one. The spec lint gate waives a missing
-  // `properties.object` when `dataSource.object` names one, on exactly this
-  // precedence (`ds.object ?? props.object`); before this, a metric bound only
+  // .dataSource`), resolved the way the element twin `element:record_picker`
+  // resolves it: through `useElementDataSource`. The spec lint gate waives a
+  // missing `properties.object` when `dataSource.object` names one, on the
+  // precedence `ds.object ?? props.object`; before this, a metric bound only
   // through the binding issued no query and painted the empty dash.
   //
   // `object` resolves ONCE, here, and that one value is the fetch guard, the
@@ -411,8 +411,29 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   // source the aggregate reads from.
   const dataBinding = useElementDataSource(schema, adapter);
   const composed = dataBinding.composed;
+  // The filter this metric aggregates over. With no binding it is the node's
+  // own `filter` exactly as authored, so the `properties` form is unchanged.
+  // With one, the node's own filter is AND-combined with the binding's (which
+  // `useElementDataSource` has already AND-combined with its view's): neither
+  // is dropped, so a validated `properties.filter` can never be discarded and
+  // widen the count. That is the rule `ElementDataSourceGate` applies for every
+  // gate-wrapped block that reads a filter, lowered and merged the same way
+  // (`toFilterNodeSafely` + `mergeFilterNodes`). A source the converter
+  // refuses is kept as a VALUE and answered with the configuration-error panel
+  // below — never merged as "no filter", which would count every row.
+  // Memoised for cost only: the result is read by content (`useResolvedFilter`
+  // holds it by structure), never by identity (AGENTS.md #10).
+  const scopedFilter = React.useMemo((): { filter: unknown; refusal?: FilterOperatorError } => {
+    if (!composed) return { filter: props.filter };
+    const own = toFilterNodeSafely(props.filter);
+    if (!own.ok) return { filter: undefined, refusal: own.refusal };
+    const bound = toFilterNodeSafely(composed.filter);
+    if (!bound.ok) return { filter: undefined, refusal: bound.refusal };
+    return { filter: mergeFilterNodes(own.node, bound.node) };
+  }, [composed, props.filter]);
+  const filterRefusal = scopedFilter.refusal;
   const unresolved = dataBinding.status === 'loading' || dataBinding.status === 'missing';
-  const object = unresolved ? undefined : (composed?.object ?? props.object);
+  const object = unresolved || filterRefusal ? undefined : (composed?.object ?? props.object);
   // Tenant default currency (ADR-0053) for a `currency`-format metric; the
   // display locale resolves through the shared precedence (tenant regional
   // default → active UI language), so the metric follows a language switch even
@@ -428,11 +449,11 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   // session scope the host provides, and HELD by structure (`useResolvedFilter`
   // in `@object-ui/react`). Both reads below (the `aggregate` filter and the
   // `find` fallback's `$filter`) sent the literal token before; they and the
-  // content key read THIS, never the raw `props.filter`. Whichever filter wins:
-  // the binding's (already AND-combined with its view's) outright, else the
-  // node's own — `element:record_picker`'s precedence (objectui#10909).
+  // content key read THIS, never the raw `props.filter`. What it resolves is
+  // the scoped filter above: the node's own, AND-combined with the binding's
+  // when there is one (objectui#10909).
   const filterScope = useFilterScope();
-  const queryFilter = useResolvedFilter(composed?.filter ?? props.filter, filterScope);
+  const queryFilter = useResolvedFilter(scopedFilter.filter, filterScope);
   const filterKey = React.useMemo(() => (queryFilter ? JSON.stringify(queryFilter) : ''), [queryFilter]);
   // objectui#10623 — the data-invalidation bus (`notifyDataChanged` from
   // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
@@ -506,15 +527,16 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   }, [adapter, object, props.field, props.aggregate, filterKey, invalidationNonce]);
 
   // After every hook above, so hook order stays stable across resolution
-  // states. A `view` that names nothing reports rather than aggregating the
-  // whole object: one confident number over the wrong set is the quiet failure
-  // a metric has no second chance to show.
-  if (dataBinding.status === 'missing') {
+  // states. A `view` that names nothing, or a filter the merge refuses,
+  // reports rather than aggregating the whole object: one confident number
+  // over the wrong set is the quiet failure a metric has no second chance to
+  // show.
+  if (dataBinding.status === 'missing' || filterRefusal) {
     return (
       <ElementDataSourceErrorPanel
         testId="element-number"
         title="This metric’s data source could not be resolved"
-        message={dataBinding.error}
+        message={filterRefusal?.message ?? dataBinding.error}
       />
     );
   }
@@ -556,7 +578,7 @@ ComponentRegistry.register('number', elementDataSourceBlock(ElementNumberRendere
       name: 'filter',
       type: 'array',
       description:
-        'Criteria the aggregate is scoped by. PRECEDENCE: a node-level `dataSource` binding wins outright — when the binding, or the saved view its `view` names, supplies a filter, this key is dropped rather than merged into it.',
+        'Criteria the aggregate is scoped by. When a node-level `dataSource` binding also supplies a filter (its own, or the saved view its `view` names), the two are AND-combined: neither is dropped.',
     },
     { name: 'format', type: 'enum', enum: ['number', 'currency', 'percent'] },
     { name: 'prefix', type: 'string' },

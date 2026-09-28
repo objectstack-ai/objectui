@@ -44,7 +44,11 @@ const SCHEMAS: Record<string, unknown> = {
   po: { name: 'po', fields: { ref: { type: 'text', label: 'Ref' } } },
   po_line: {
     name: 'po_line',
-    fields: { label: { type: 'text', label: 'Line' }, po: { type: 'master_detail', label: 'PO', reference: 'po' } },
+    fields: {
+      label: { type: 'text', label: 'Line' },
+      memo: { type: 'text', label: 'Memo' },
+      po: { type: 'master_detail', label: 'PO', reference: 'po' },
+    },
   },
   po_note: {
     name: 'po_note',
@@ -145,31 +149,34 @@ const answer = (read: HeldRead, rows: Row[]) => settle(() => read.resolve({ data
 const reads = (ds: { find: { mock: { calls: any[][] } } }, objectName: string) =>
   ds.find.mock.calls.filter((c) => c[0] === objectName).length;
 
-/** A collection's line inputs; the grid always trails one blank entry row. */
-const inputsOf = (label: string) => screen.queryAllByLabelText(label) as HTMLInputElement[];
+/**
+ * A collection's line inputs; the grid always trails one blank entry row. The
+ * row editor's own fields carry the same labels, so they are left out.
+ */
+const inputsOf = (label: string) =>
+  (screen.queryAllByLabelText(label) as HTMLInputElement[]).filter((el) => !el.closest('[data-testid="md-row-form"]'));
 const shown = (label: string) => inputsOf(label).map((i) => i.value).filter((v) => v !== '');
 const saveButton = () => screen.getByTestId('md-form-submit') as HTMLButtonElement;
 const change = (el: HTMLElement, value: string) => settle(() => fireEvent.change(el, { target: { value } }));
 
-async function mount(details: unknown[] = [PO_LINE_DETAIL], stored?: Record<string, Row[]>) {
-  const ds = makeDataSource(
-    stored ?? {
-      po_line: [{ id: 'l1', label: 'first', po: 'po1' }],
-      po_note: [{ id: 'n1', text: 'note one', po: 'po1' }],
-    },
-  );
+async function mount(details: unknown[] = [PO_LINE_DETAIL], seed?: Record<string, Row[]>) {
+  const stored = seed ?? {
+    po_line: [{ id: 'l1', label: 'first', po: 'po1' }],
+    po_note: [{ id: 'n1', text: 'note one', po: 'po1' }],
+  };
+  const ds = makeDataSource(stored);
   const view = renderNode(formNode(details), ds.dataSource);
   await waitFor(() => {
     const ref = view.container.querySelector('input[name="ref"]') as HTMLInputElement | null;
     expect(ref?.value).toBe('PO-1');
   });
-  await waitFor(() => expect(shown('Line')).toEqual(['first']));
+  await waitFor(() => expect(shown('Line')).toEqual(stored.po_line.map((r) => r.label)));
   await waitFor(() => expect(saveButton().disabled).toBe(false));
   // Let every read the mount issued settle, so a count taken now is at rest.
   await act(async () => {
     await new Promise((r) => setTimeout(r, 20));
   });
-  return { ...ds, view };
+  return { ...ds, view, stored };
 }
 
 beforeEach(() => {
@@ -341,5 +348,163 @@ describe('object-master-detail-form (edit) re-reads its lines on the data-invali
 
     expect(screen.getByTestId('bus-control').textContent).toBe('1');
     expect(reads(ds.dataSource, 'po_line')).toBe(0);
+  });
+});
+
+/**
+ * objectui#10853, patch round (contract review of ac526b1) — the row editor
+ * ("Open row", offered in grid mode when `formFields` outnumber `columns`) keeps
+ * the user's draft in its own form, not in the collection's rows, so the rows
+ * alone cannot say the collection is being edited. While the editor is open on
+ * a collection, that collection's bus re-read is HELD, exactly as for unsaved
+ * grid lines, and it is replayed through the same path once the editor closes
+ * and the lines read as saved. The editor is neither reset, re-keyed nor
+ * disabled by a bus event.
+ */
+const EDITOR_DETAIL = {
+  childObject: 'po_line',
+  relationshipField: 'po',
+  title: 'Lines',
+  columns: [{ name: 'label', label: 'Line', type: 'text' }],
+  formFields: ['label', 'memo'],
+};
+const TWO_LINES = () => ({
+  po_line: [
+    { id: 'l1', label: 'first', memo: 'memo one', po: 'po1' },
+    { id: 'l2', label: 'second', memo: 'memo two', po: 'po1' },
+  ],
+});
+
+const editor = () => screen.queryByTestId('md-row-form');
+const editorInput = (name: string) => editor()?.querySelector(`input[name="${name}"]`) as HTMLInputElement | null;
+const editorButton = (text: string) =>
+  Array.from(editor()?.querySelectorAll('button') ?? []).find((b) => b.textContent?.trim() === text) as
+    | HTMLButtonElement
+    | undefined;
+
+async function openRow(index: number, label: string) {
+  await settle(() => fireEvent.click(screen.getAllByLabelText('Open row')[index]));
+  await waitFor(() => expect(editorInput('label')?.value).toBe(label));
+}
+async function draft(values: Record<string, string>) {
+  for (const [name, value] of Object.entries(values)) {
+    await change(editorInput(name)!, value);
+    await waitFor(() => expect(editorInput(name)?.value).toBe(value));
+  }
+}
+const pause = () =>
+  act(async () => {
+    await new Promise((r) => setTimeout(r, 30));
+  });
+
+describe('object-master-detail-form (edit): an open row editor holds its collection’s bus re-read (objectui#10853)', () => {
+  it('a bus event that rewrites the line under the editor: the draft is kept, Apply writes that line, the held re-read replays once after the save', async () => {
+    const { dataSource, stored } = await mount([EDITOR_DETAIL], TWO_LINES());
+    await waitFor(() => expect(shown('Line')).toEqual(['first', 'second']));
+    const atRest = reads(dataSource, 'po_line');
+    await openRow(0, 'first');
+    await draft({ label: 'first (draft)', memo: 'memo draft' });
+
+    stored.po_line[0] = { ...stored.po_line[0], label: 'first (server)', memo: 'memo server' };
+    await emit({ objectName: 'po_line', recordId: 'l1' });
+    await pause();
+
+    expect(editorInput('label')?.value, 'the re-read reset the editor’s draft').toBe('first (draft)');
+    expect(editorInput('memo')?.value, 'the re-read reset the editor’s draft').toBe('memo draft');
+    expect(reads(dataSource, 'po_line'), 'a bus re-read ran under an open row editor').toBe(atRest);
+
+    await settle(() => fireEvent.click(editorButton('Apply')!));
+    await waitFor(() => expect(editor()).toBeNull());
+    expect(shown('Line'), 'Apply did not write the line it was opened on').toEqual(['first (draft)', 'second']);
+    await pause();
+    // The applied line is unsaved, so the re-read stays held behind it.
+    expect(reads(dataSource, 'po_line'), 'the re-read ran over the applied, unsaved line').toBe(atRest);
+
+    await settle(() => fireEvent.click(saveButton()));
+    await waitFor(() => expect(dataSource.batchTransaction).toHaveBeenCalledTimes(1));
+    const ops = dataSource.batchTransaction.mock.calls[0][0] as Array<{ object: string; action?: string; id?: string; data?: Row }>;
+    expect(ops.filter((op) => op.object === 'po_line')).toEqual([
+      { object: 'po_line', action: 'update', id: 'l1', data: { label: 'first (draft)', memo: 'memo draft' } },
+    ]);
+    await waitFor(() => expect(reads(dataSource, 'po_line'), 'the save did not replay the held re-read').toBe(atRest + 1));
+    await waitFor(() => expect(saveButton().disabled).toBe(false));
+    await pause();
+    expect(reads(dataSource, 'po_line'), 'the held re-read was replayed more than once').toBe(atRest + 1);
+  });
+
+  it('the server drops the line under the editor: the draft is kept and Apply writes the line it was opened on, not its neighbour', async () => {
+    const { dataSource, stored } = await mount([EDITOR_DETAIL], TWO_LINES());
+    await waitFor(() => expect(shown('Line')).toEqual(['first', 'second']));
+    const atRest = reads(dataSource, 'po_line');
+    await openRow(0, 'first');
+    await draft({ label: 'first (draft)' });
+
+    stored.po_line = stored.po_line.filter((r) => r.id !== 'l1');
+    await emit({ objectName: '*' });
+    await pause();
+
+    expect(editorInput('label')?.value, 'the re-read reset the editor to another line').toBe('first (draft)');
+    expect(reads(dataSource, 'po_line'), 'a bus re-read ran under an open row editor').toBe(atRest);
+
+    await settle(() => fireEvent.click(editorButton('Apply')!));
+    await waitFor(() => expect(editor()).toBeNull());
+    expect(shown('Line'), 'Apply wrote onto another line').toEqual(['first (draft)', 'second']);
+
+    await settle(() => fireEvent.click(saveButton()));
+    await waitFor(() => expect(dataSource.batchTransaction).toHaveBeenCalledTimes(1));
+    const ops = dataSource.batchTransaction.mock.calls[0][0] as Array<{ object: string; id?: string }>;
+    expect(ops.filter((op) => op.object === 'po_line').map((op) => op.id), 'the edit was sent to another line').toEqual(['l1']);
+    // After the save the held re-read replays once and shows what the server holds.
+    await waitFor(() => expect(reads(dataSource, 'po_line')).toBe(atRest + 1));
+    await waitFor(() => expect(shown('Line')).toEqual(['second']));
+  });
+
+  it('closing the editor without Apply replays the held re-read once', async () => {
+    const { dataSource, stored } = await mount([EDITOR_DETAIL], TWO_LINES());
+    await waitFor(() => expect(shown('Line')).toEqual(['first', 'second']));
+    const atRest = reads(dataSource, 'po_line');
+    await openRow(0, 'first');
+    await draft({ label: 'first (draft)' });
+
+    stored.po_line[0] = { ...stored.po_line[0], label: 'first (server)' };
+    await emit({ objectName: 'po_line' });
+    await pause();
+    expect(editorInput('label')?.value, 'the re-read reset the editor’s draft').toBe('first (draft)');
+    expect(reads(dataSource, 'po_line'), 'a bus re-read ran under an open row editor').toBe(atRest);
+
+    await settle(() => fireEvent.click(editorButton('Close')!));
+    await waitFor(() => expect(editor()).toBeNull());
+    await waitFor(() => expect(reads(dataSource, 'po_line'), 'closing the editor did not replay the held re-read').toBe(atRest + 1));
+    await waitFor(() => expect(shown('Line')).toEqual(['first (server)', 'second']));
+    await pause();
+    expect(reads(dataSource, 'po_line'), 'the held re-read was replayed more than once').toBe(atRest + 1);
+  });
+
+  it('a re-read already in flight when the editor opens is not committed under it; it is held and replays once on close', async () => {
+    const { dataSource, held, state, stored } = await mount([EDITOR_DETAIL], TWO_LINES());
+    await waitFor(() => expect(shown('Line')).toEqual(['first', 'second']));
+    const atRest = reads(dataSource, 'po_line');
+    state.hold = true;
+
+    await emit({ objectName: '*' });
+    await waitFor(() => expect(reads(dataSource, 'po_line')).toBe(atRest + 1));
+    await openRow(0, 'first');
+    await draft({ label: 'first (draft)' });
+    await answer(held.find((r) => r.objectName === 'po_line')!, [
+      { id: 'l1', label: 'first (server)', memo: 'memo one', po: 'po1' },
+      { id: 'l2', label: 'second', memo: 'memo two', po: 'po1' },
+    ]);
+    await pause();
+
+    expect(editorInput('label')?.value, 'the in-flight re-read reset the editor’s draft').toBe('first (draft)');
+    expect(shown('Line'), 'the in-flight re-read committed under the open editor').toEqual(['first', 'second']);
+    expect(reads(dataSource, 'po_line'), 're-read again under the open editor').toBe(atRest + 1);
+
+    state.hold = false;
+    stored.po_line[0] = { ...stored.po_line[0], label: 'first (server)' };
+    await settle(() => fireEvent.click(editorButton('Close')!));
+    await waitFor(() => expect(editor()).toBeNull());
+    await waitFor(() => expect(reads(dataSource, 'po_line')).toBe(atRest + 2));
+    await waitFor(() => expect(shown('Line')).toEqual(['first (server)', 'second']));
   });
 });

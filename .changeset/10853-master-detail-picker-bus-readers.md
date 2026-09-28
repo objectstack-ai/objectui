@@ -11,10 +11,13 @@ page action over raw HTTP does), or an unscoped `'*'`, re-reads that
 collection's lines in place, and the rows and the baseline the next save diffs
 against move together. A collection only re-reads for its own child object. The
 header already re-read through its own form. While a collection holds lines the
-user has not saved (lines the next save would write), its re-read is held: it
-runs once after the lines are changed back to what is stored, or once this
-form's save lands. A line typed while a re-read is in flight is kept, and the
-re-read is held behind it. A re-read that fails keeps the lines on screen.
+user has changed since they were last read or saved (compared the way the save
+compares rows, with the link to the parent set aside), or while the row editor
+("Open row") is open on it, its re-read is held. It runs once, when the row
+editor is closed and either the lines have been changed back or this form's
+save has landed. A line typed while a re-read is in flight, in the grid or in
+the row editor, is kept, and the re-read is held behind it; an open row editor
+is never reset by a re-read. A re-read that fails keeps the lines on screen.
 `object-form` with `subforms`, which renders the same form, re-reads the same
 way.
 

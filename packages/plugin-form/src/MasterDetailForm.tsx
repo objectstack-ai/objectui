@@ -418,15 +418,17 @@ function useObjectsInvalidation(objectNames: readonly string[]): Readonly<Record
 
 /**
  * objectui#10853 — whether one collection holds lines the user has not saved:
- * the edit save's own diff (`buildMasterDetailEditBatch`) finds something to
- * write to it. The same rule decides what a save sends, so "unsaved" here and
- * "written by the next save" cannot disagree, and a line changed back to its
+ * the edit save's own row diff (`buildMasterDetailEditBatch`) finds something
+ * to write to it OTHER than the parent link. A user's edit therefore reads as
+ * unsaved exactly when the save would send it, and a line changed back to its
  * stored value (a revert) reads as saved again.
  *
- * The parent link is set aside. The save restates it on every row it writes,
- * as the parent id in string form, and a row read back can carry it in another
- * form (a numeric id, an expanded lookup); that difference is the save's
- * restatement, not the user's input, so both sides carry the same value here.
+ * The parent link is set aside on purpose, and it is the one place the two
+ * disagree. The save restates the link on every row it writes, as the parent
+ * id in string form, and a row read back can carry it in another form (a
+ * numeric id, an expanded lookup); against such a backend the save restates it
+ * on every row while this reads the lines as saved. That restatement is not the
+ * user's input, so it does not hold a re-read.
  */
 function linesUnsaved(
   state: RowState | undefined,
@@ -1037,6 +1039,21 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
     clearSaveGuardTimer();
   }, [clearSaveGuardTimer]);
 
+  // Per-row "expand to full form": opens the child's complete form (all business
+  // fields, incl. rich types the grid omits) in a drawer, pre-filled with the
+  // row. Saving writes back into the in-memory row — the atomic batch still
+  // persists everything on the parent Save (no separate backend write here).
+  // `isNew` marks a row created by "Add" in list/form mode — cancelling the
+  // editor without applying discards that empty row.
+  const [expanded, setExpanded] = useState<{ entryId: string; rowIdx: number; isNew?: boolean } | null>(null);
+  // objectui#10853 — the collection the row editor is open on. The editor holds
+  // its draft in its own form, not in `rowState`, so the rows alone cannot say
+  // that collection is being edited; the bus re-read reads this instead.
+  // Mirrored in render, as `rowStateRef` is, so a read that lands later sees
+  // the editor as it stands.
+  const rowEditorEntryRef = useRef<string | null>(null);
+  rowEditorEntryRef.current = expanded?.entryId ?? null;
+
   /**
    * objectui#10853 — the edit-mode lines read the data-invalidation bus
    * (`notifyDataChanged` from `@object-ui/react`), the objectui#10623 /
@@ -1053,8 +1070,10 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
    *
    * Unsaved lines are the objectui#10712 R3 / objectui#10572 rule applied per
    * collection: a collection holding lines the user has not saved
-   * ({@link linesUnsaved}) HOLDS its re-read, and one re-read is replayed when
-   * its lines read as saved again (a revert) or when this form's save lands.
+   * ({@link linesUnsaved}), or with the row editor open on it, HOLDS its
+   * re-read. One re-read is replayed once the editor is closed and the lines
+   * read as saved again (a revert), or once this form's save lands. An open
+   * editor is never reset, re-keyed or disabled by a re-read.
    */
   const linesReadObjects =
     isEdit && dataSource
@@ -1075,6 +1094,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   const parentIdKey = String(schema.recordId);
   const unsavedLines = useCallback(
     (entry: DetailEntry) =>
+      rowEditorEntryRef.current === entry.id ||
       linesUnsaved(
         rowStateRef.current[entry.id],
         entry.config,
@@ -1130,7 +1150,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
         if (!isCurrent()) return;
         if (inPlace) {
           console.warn(
-            `[MasterDetailForm] could not re-read the lines of "${d.childObject}" after a data change; the lines on screen are kept.`,
+            `[MasterDetailForm] could not re-read the lines of "${d.childObject}" after a data change; ${rowsAtIssue === undefined ? 'no lines have been read for it yet' : 'the lines on screen are kept'}.`,
             err,
           );
           return;
@@ -1138,16 +1158,17 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
         rows = [];
       }
       if (!isCurrent()) return;
-      if (inPlace && rowStateRef.current[entry.id]?.rows !== rowsAtIssue) {
-        // Edited while this read was in flight: its answer would overwrite the
-        // edit. Ask again, which holds it behind the edit while it is unsaved.
+      if (inPlace && (rowStateRef.current[entry.id]?.rows !== rowsAtIssue || rowEditorEntryRef.current === entry.id)) {
+        // Edited while this read was in flight, in the grid or in the row
+        // editor opened meanwhile: its answer would overwrite the edit. Ask
+        // again, which holds it behind the edit while it is unsaved.
         void readLinesOf(entry, 'bus');
         return;
       }
       // Keyed by entry id, so a collection's rows land in ITS slot regardless
       // of where it currently sits in the authored array.
       setRowState((prev) => {
-        if (inPlace && prev[entry.id]?.rows !== rowsAtIssue) {
+        if (inPlace && (prev[entry.id]?.rows !== rowsAtIssue || rowEditorEntryRef.current === entry.id)) {
           heldLinesRereadRef.current.add(entry.id);
           return prev;
         }
@@ -1189,18 +1210,20 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   // objectui#10853 — a held re-read is replayed once its collection's lines
   // read as saved again (a revert), or once this form's save has written them.
   // Not while a save is in flight: the lines take no input then, and its
-  // outcome decides.
+  // outcome decides. Never while the row editor is open on the collection: it
+  // runs here again when the editor closes (Apply or cancel).
   useEffect(() => {
     if (saving) return;
     const held = heldLinesRereadRef.current;
     for (const e of entries) {
       if (!held.has(e.id)) continue;
+      if (rowEditorEntryRef.current === e.id) continue;
       if (!linesSavedRef.current.has(e.id) && unsavedLines(e)) continue;
       held.delete(e.id);
       void readLines(e, 'replay');
     }
     linesSavedRef.current.clear();
-  }, [rowState, saving, entries, readLines, unsavedLines]);
+  }, [rowState, saving, expanded, entries, readLines, unsavedLines]);
 
   const setRows = useCallback((entryId: string, rows: Record<string, any>[]) => {
     setRowState((prev) => ({
@@ -1213,13 +1236,6 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   // (which scrapes the header record) and drives the Subtotal / Tax / Total stack.
   const taxRateField = schema.taxRateField || 'tax_rate';
 
-  // Per-row "expand to full form": opens the child's complete form (all business
-  // fields, incl. rich types the grid omits) in a drawer, pre-filled with the
-  // row. Saving writes back into the in-memory row — the atomic batch still
-  // persists everything on the parent Save (no separate backend write here).
-  // `isNew` marks a row created by "Add" in list/form mode — cancelling the
-  // editor without applying discards that empty row.
-  const [expanded, setExpanded] = useState<{ entryId: string; rowIdx: number; isNew?: boolean } | null>(null);
   const expandedRow =
     expanded ? rowState[expanded.entryId]?.rows?.[expanded.rowIdx] : undefined;
   const expandedDetail = expanded ? entries.find((e) => e.id === expanded.entryId)?.config : undefined;

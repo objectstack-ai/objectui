@@ -3177,13 +3177,15 @@ export const ObjectMetricBlockSchema = BaseSchema.extend({
  * the node's props, and the objectstack showcase's master-detail page authors
  * `{ type, properties }`.
  *
- * ⚠️ `@object-ui/plugin-form` also exports `MasterDetailFormSchema`, the React
- * props of `MasterDetailForm`. It is not restated here: it is a component's
- * props (three callbacks, an optional `type`) rather than a document shape, and
- * where it and the spec row disagree — it requires `objectName` and `details`
- * and types `title`, `submitText` and `cancelText` as a plain string, while the
- * row keeps all four keys optional and takes an `I18nLabel` for the three
- * labels — the spec is the contract this validator answers to.
+ * ⚠️ `@object-ui/plugin-form` also exports `MasterDetailFormSchema`, the type
+ * of `MasterDetailForm`'s `schema` prop: the node as the renderer reads it
+ * after the `properties` hoist. It is not restated here: it carries three host
+ * callbacks and an optional `type`, and it is the renderer's reading rather
+ * than the authored document shape, and where it and the spec row disagree —
+ * it requires `objectName` and `details` and types `title`, `submitText` and
+ * `cancelText` as a plain string, while the row keeps both keys optional and
+ * takes an `I18nLabel` for the three labels — the spec is the contract this
+ * validator answers to.
  *
  * `onSuccess`, `onError` and `onCancel` are not props the spec declares: they
  * are the host callbacks `ObjectForm`, `DrawerForm` and `ModalForm` hand

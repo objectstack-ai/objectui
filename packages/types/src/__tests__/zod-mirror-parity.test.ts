@@ -4129,7 +4129,7 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   'objectql.zod.ts#ObjectMetricBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `object-metric` literal + `properties`, which IS `ComponentPropsMap['object-metric']`; no TS declaration in this package restates the node",
   'objectql.zod.ts#ObjectMasterDetailFormBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `object-master-detail-form` literal + `properties`, which IS `ComponentPropsMap['object-master-detail-form']`, + three `handlerKeyRefusal` runtime slots; no TS declaration in this package restates the node (`@object-ui/plugin-form`'s `MasterDetailFormSchema` is the component's React props)",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `object-master-detail-form` literal + `properties`, which IS `ComponentPropsMap['object-master-detail-form']`, + three `handlerKeyRefusal` runtime slots; no TS declaration in this package restates the node (`@object-ui/plugin-form`'s `MasterDetailFormSchema` is the type of `MasterDetailForm`'s `schema` prop, the renderer's post-hoist reading)",
   'objectql.zod.ts#ObjectQLPublicBlockComponentSchema':
     "a union OVER the two public-block arms above, not an object of its own — its members are checked individually",
   'overlay.zod.ts#MenuItemSchema':

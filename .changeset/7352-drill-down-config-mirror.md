@@ -50,6 +50,5 @@ drawer they open. The rest of this entry is kept as the reading of this change.
 
 ⚠️ **Dated note, 2026-09-28 — `PivotTableSchema` has a mirror now — objectui#10859.**
 Later in this same release `PivotTableSchema` gains a zod mirror, and its `drillDown`
-is this entry's `DrillDownConfigSchema`, so the first half of the "Unchanged" bullet
-above is this change's reading, not the release's. The rest of this entry is kept as
+is this entry's `DrillDownConfigSchema`, so the opening paragraph's two referencing declarations are three for the release, and the first half of the second "Unchanged" bullet above (`PivotTableSchema.drillDown` has no zod mirror at all) is this change's reading, not the release's. The rest of this entry is kept as
 the reading of this change.

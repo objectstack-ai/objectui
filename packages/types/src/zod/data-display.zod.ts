@@ -1072,7 +1072,7 @@ export const PivotTableSchema = BaseSchema.extend({
     .record(z.string(), z.string())
     .optional()
     .describe('Mapping of column header values to Tailwind text-color classes'),
-  drillDown: DrillDownConfigSchema.optional().describe('Drill-down: clicking a cell, a row or column header, or a total opens a filtered list view (drawer / dialog)'),
+  drillDown: DrillDownConfigSchema.optional().describe('Drill-down config (the shared `DrillDownConfig`). Inert on a `pivot` node: `PivotTable` drills only when its host passes `onDrillDown`, and the `pivot` registration passes none; `object-pivot` is the block whose clicks open the records behind a value'),
   body: retirementTombstone(PIVOT_NEITHER_CHANNEL),
   children: retirementTombstone(PIVOT_NEITHER_CHANNEL),
 });

@@ -4,8 +4,9 @@
 
 **BREAKING (shipped as `minor` — see below):** the `input` node type now refuses
 both content channels by name. Its renderer reads neither `body` nor `children`,
-so an authored child list on it rendered nothing: no error, no warning, no
-element. Both keys are now `?: never` on the TypeScript face (`InputSchema`) and
+so an authored child list on it rendered nothing, with no render-time error or
+warning and no element; only the parser tier's `not-a-container` warning
+(objectui#9910) noticed it. Both keys are now `?: never` on the TypeScript face (`InputSchema`) and
 a by-name refusal on the zod mirror, each kept a member of the mirror shape.
 
 What moves for an author:

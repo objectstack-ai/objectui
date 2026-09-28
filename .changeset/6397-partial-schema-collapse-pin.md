@@ -37,6 +37,21 @@ Once #5155 removes the root index signature, the alias starts working as written
 with no edit at all. What this ships is the removal of the one impermissible
 state — *declared, published, collapsed, and unpinned*.
 
+⚠️ **Dated note, 2026-09-28 — a generic re-spelling of this `Omit` does not collapse —
+objectui#9256.** Later in this same release objectui#9256 declared a key-remapping
+`OmitDeclared` (`{ [P in keyof T as P extends K ? never : P]: T[P] }`, in
+`packages/types/src/form.ts`) and re-spelled the heritage of `InputShorthandSchema` and
+`UiCalendarSchema` with it. Such a mapped type iterates the named members and the index
+signature separately, so it drops exactly `K`, keeps every other named member with its
+modifiers, and keeps the index signature. The same spelling of this alias declares 28
+properties at `ButtonSchema` and 62 at `ObjectGridSchema` in this release, where the
+shipped alias declares 1 at each; at this change's own commit, under the same TypeScript,
+it declares 27 and 61, the source counts in the table above. So "every generic re-spelling
+collapses" was not true when it was written. The alias is still left as written:
+re-spelling it would narrow what every instantiation accepts, a contract change and not a
+pin's business. The `PartialSchema` docblock and `partial-schema-collapse-pin.test.ts`
+carry the correction. The rest of this entry is kept as the reading of this change.
+
 No runtime code, no type declaration and no accepted value changes; a consumer's
 `PartialSchema<X>` means exactly what it meant before. Declared `patch` rather
 than as a no-release so the doc-comment warning actually reaches the published

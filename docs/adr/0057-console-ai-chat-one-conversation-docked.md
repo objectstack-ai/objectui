@@ -12,6 +12,8 @@ realization of the two-agent,
 surface-bound model (cloud ADR-0063). **No agent, boundary, or commercial-model
 change** — this ADR only rearranges how the objectui console *renders and wires*
 chat surfaces.
+**Amended**: Amendment A2 (2026-09-28) — the dock binds its build thread to the
+current authorable app, reversing A1.b's dock clause (objectui#10926).
 **Author**: ObjectUI app-shell / Studio team
 **Consumers**: `@object-ui/app-shell`
 (`console/ai/AiChatPage.tsx`, `layout/ConsoleFloatingChatbot.tsx`,
@@ -343,6 +345,10 @@ degradation.
   cleared** (dock/FAB and bare `/ai/build` keep resolving through it), and
   re-keying is **latest-wins** (the bound thread most recently open becomes
   the app's Edit-with-AI thread; older ones stay in sidebar history).
+  **The dock half of the first decision is reversed by Amendment A2 below**
+  (2026-09-28): inside an authorable app, a `build` dock resolves
+  `app:X:build`, not the product-only key. The key is still never cleared,
+  and bare `/ai/build` still resolves through it.
 - **A1.c — cloud follow-up.** Inject the binding into the build agent's
   context block, and add the pending-blueprint rule: *a new authoring request
   while a blueprint awaits approval defaults to AMENDING that blueprint* (the
@@ -352,6 +358,64 @@ degradation.
 product-scoped threads; a deleted bound package needs a terminal chip state
 (read-only thread); concurrent unbound drafts must not collide (the existing
 `forceNew` path already mints separate threads).
+
+## Amendment A2 (2026-09-28, Accepted) — the dock binds its build thread to the current app
+
+**What it reverses.** One clause of A1.b: "the legacy product-only key is
+**not cleared** (dock/FAB and bare `/ai/build` keep resolving through it)".
+The DOCK half of that clause is reversed for authorable apps. The rest of
+A1.b stands: the key is still never cleared, bare `/ai/build` (no
+`?package=`) still resolves through it, and re-keying is still latest-wins.
+
+**Why.** In the hosted console (objectui#10899 item 4, epic
+objectstack-ai/cloud#2440), a maker who opened the dock inside an existing
+app saw the build chip read "New app". The dock used the app-less,
+product-only build scope and sent no `packageId`, so the build agent had to
+infer which app to edit. That is A1's defect 1 (agent ambiguity), reached
+through the one surface A1.b left unbound.
+
+**Maintainer ruling** (epic session, 2026-09-28), verbatim, not translated:
+
+> 绑定当前应用（推荐）
+
+The terms it was presented with (objectui#10926):
+
+- Inside an authorable app (package not `com.objectstack.*`), when the
+  resolved agent is `build`, the dock binds its build thread to that app:
+  `editPackageId` is the app's package and the scope is `app:PKG:build`.
+- The chip, the empty state and the agent context name the app.
+- The dock, `/ai/build?package=PKG` and the Studio copilot share one thread;
+  Maximize goes to `/ai/build?package=PKG`.
+- `ask` stays ambient.
+- Existing ambient build threads stay reachable in the `/ai` sidebar.
+
+**Decision.**
+
+- **Key.** The dock's scope is `app:PKG:build` exactly when its resolved
+  agent is `build` and the current app's package is authorable. Otherwise it
+  is the product alone, as before: an `ask` dock, a dock inside a
+  `com.objectstack.*` app, and a dock with no current app.
+- **Authorable** is the predicate the A1.b switcher already applies to its
+  list (`isPlatformBuiltinApp`: the `com.objectstack.*` package namespace is
+  the platform's code-delivered apps). There is no second resolver.
+- **The product-only thread.** It is not cleared and not moved: it keeps its
+  own key and its row in the `/ai` sidebar. The dock runs the same A1.b
+  migration read the `?package=` entry runs. When nothing is cached under
+  `app:PKG:build` yet, it adopts the product-only thread only if that
+  thread's own history binds it to `PKG`. So the dock and the full page
+  arrive at the same thread whichever of them resolves first.
+- **Maximize.** A bound dock opens `/ai/build?package=PKG`, carrying the same
+  one-shot full-page opt-out the Studio dock's door sets, so the built-moment
+  transition (objectui#5799) does not bounce the arrival straight on to
+  Studio. An app-less dock opens `/ai`, as before.
+
+**Consequences.** Each authorable app a maker opens the dock in gets its own
+build thread, minted on first open, as the Studio copilot already does per
+package. The dock's previous product-only thread is not shown in the dock
+inside an app unless it is bound to that app; it stays in the `/ai` sidebar
+and in the dock outside any authorable app. This extends A1's direction
+("the `app` axis becomes always present for `build`") to the one surface
+A1.b had kept product-only. Implemented under objectui#10926.
 
 ## Open design questions
 

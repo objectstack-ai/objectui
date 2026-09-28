@@ -2271,6 +2271,45 @@ export interface DashboardWidgetSchema
 export interface DashboardWidgetSlotComponentSchema extends BaseSchema {
   /** An objectui component type legal in a widget slot — the CLOSED set. */
   type: DashboardComponentWidgetType;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `metric-card` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `metric-card` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `metric-card` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element. In a widget slot nothing
+   * else noticed it either: the parser tier's `not-a-container` warning
+   * (objectui#9910) walks `children`, never `widgets`.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D public-block slice).
+   * `DashboardRenderer` hands a `metric-card` widget to `SchemaRenderer` as
+   * the widget's own keys; the registration (`plugin-dashboard:metric-card`)
+   * renders `MetricCard`, which reads `title`, `value`, `icon`, `trend`,
+   * `trendValue`, `description`, `loading` and `error`, and no read of the
+   * node's `body` or `children` exists on that path. `SchemaRenderer` strips
+   * `body` and `children` out of the props bag it spreads, so neither reaches
+   * the component by another route, and the registration declares no
+   * `children` slot (objectui#9910).
+   *
+   * The zod twin is the private slot arm in `zod/complex.zod.ts`, which
+   * declares both members with the same guidance.
+   *
+   * What it renders instead: one KPI card — `title`, `value`, `icon`,
+   * `trend` / `trendValue` and `description`.
+   *
+   * @deprecated Not a channel `metric-card` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**

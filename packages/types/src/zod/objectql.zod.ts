@@ -3191,6 +3191,14 @@ function objectBlockPropsBag<T extends z.ZodType>(type: string, row: T) {
     );
 }
 
+/** objectui#9256 (public-block slice): ONE refusal string for both content channels of `object-metric`. */
+const OBJECT_METRIC_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'object-metric',
+  'its registration (`plugin-dashboard:object-metric`) hands the node to `ObjectMetricBlock`, which resolves its '
+    + '`dataSource` binding and renders `ObjectMetricWidget`, whose props are named keys and never a child list',
+  'one aggregated number over `objectName`, computed by `aggregate` and scoped by `filter`',
+);
+
 /**
  * `object-metric` — `ComponentPropsMap['object-metric']` (objectui#10859,
  * batch 2).
@@ -3226,11 +3234,32 @@ function objectBlockPropsBag<T extends z.ZodType>(type: string, row: T) {
  * refused by the strict authoring face. Whether the flat spelling is also an
  * authoring channel for these blocks is the question objectui#10872 left open
  * for the whole family; declaring it later is additive.
+ *
+ * ## The content channels (objectui#9256)
+ *
+ * The renderer reads NEITHER content channel, so the arm declares `children`
+ * as a by-name refusal and restates `body` with the same guidance — as the
+ * public blocks in `./public-blocks.zod.ts` do, and for the same reason:
+ * `BaseSchema` already refuses `body`, but names `children` as the remedy.
+ * Both stay MEMBERS. `object-master-detail-form` below does the same.
  */
 export const ObjectMetricBlockSchema = BaseSchema.extend({
   type: z.literal('object-metric'),
   properties: objectBlockPropsBag('object-metric', stripImportedDefaults(SpecObjectMetricPropsSchema)),
+  // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
+  // kept a MEMBER.
+  body: retirementTombstone(OBJECT_METRIC_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_METRIC_NEITHER_CHANNEL),
 });
+
+/** objectui#9256 (public-block slice): ONE refusal string for both content channels of `object-master-detail-form`. */
+const OBJECT_MASTER_DETAIL_FORM_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'object-master-detail-form',
+  'its registration (`plugin-form:object-master-detail-form`) hands the node to `MasterDetailFormRenderer`, '
+    + 'which resolves its `dataSource` binding and renders `MasterDetailForm`; that form builds its parent '
+    + '`object-form` node key by key and reads no child list',
+  'a parent form over `objectName` with an editable grid for each `details` entry',
+);
 
 /**
  * `object-master-detail-form` — `ComponentPropsMap['object-master-detail-form']`,
@@ -3271,6 +3300,10 @@ export const ObjectMasterDetailFormBlockSchema = BaseSchema.extend({
   onSuccess: handlerKeyRefusal('onSuccess', 'runtime-slot', 'Called with the saved parent record after a successful save'),
   onError: handlerKeyRefusal('onError', 'runtime-slot', 'Called after a refused save, for bookkeeping only'),
   onCancel: handlerKeyRefusal('onCancel', 'runtime-slot', 'Cancel button callback'),
+  // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
+  // kept a MEMBER.
+  body: retirementTombstone(OBJECT_MASTER_DETAIL_FORM_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_MASTER_DETAIL_FORM_NEITHER_CHANNEL),
 });
 
 /**

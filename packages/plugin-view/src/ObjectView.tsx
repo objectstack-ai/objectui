@@ -2426,6 +2426,26 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // Active view's display label — ListView appends it to export
           // download filenames.
           label: currentNamedViewConfig?.label ?? activeView?.label,
+          // ⭐ objectui#10758 — bucket ① of the objectui#7924 ruling: the
+          // protocol members a named view declares (`ObjectListViewSchema`)
+          // that this branch used to take from the host `views` entry and the
+          // node only. Their rungs below now read the NAMED VIEW first, then
+          // the host `views` entry, then — only where the rung already had
+          // one — the node: the precedence `grouping` / `rowColor` /
+          // `appearance` use. `ListView` reads each of them off the
+          // `list-view` node it is handed. The named-view reads inside this
+          // fence are re-derived BY NAME by `objectViewHostSurface.test.tsx`,
+          // and the whole-file census by `object-view-unmirrored-keys-7779.test.ts`
+          // in `@object-ui/types`; neither list is restated here.
+          //
+          // ⛔ No rung gained a `(schema as any)` read: the objectui#5097
+          // HOST-COMPOSITION exemption stays at the 27 names the 2026-08-18
+          // ruling fixed. The three rungs this card ADDED (`description`,
+          // `exportOptions`, `bulkActionDefs`) are view-sourced only. ⛔ No
+          // alias and no legacy spelling is read off the named view: it is
+          // the protocol's strict record (objectui#7928), so each rung reads
+          // the member under its one protocol name.
+          description: currentNamedViewConfig?.description ?? activeView?.description,
           // Spec-canonical key (#2890) — the view configs this reads from are
           // already `columns`-keyed, so emitting `fields` here was a pure
           // canonical→legacy downgrade.
@@ -2444,7 +2464,10 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // objectui#7924 (ruling A′): the density is read THROUGH the fold,
           // so a stored view that still spells it `densityMode` is handed
           // down as `rowHeight`, and the retired key is never relayed by name.
-          rowHeight: (normalizeListViewSchema(activeView ?? {}) as { rowHeight?: string }).rowHeight,
+          // objectui#10758: the named view's own `rowHeight` comes first, read
+          // as itself — the strict record refuses `densityMode`, so there is
+          // nothing on that side for the fold to map.
+          rowHeight: currentNamedViewConfig?.rowHeight ?? (normalizeListViewSchema(activeView ?? {}) as { rowHeight?: string }).rowHeight,
           groupBy: activeView?.groupBy,
           groupBy2: activeView?.groupBy2,
           // objectui#8980 — the protocol declares `grouping` on a named list
@@ -2468,8 +2491,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
             // view that toggles one action must not blank the rest.
             ...currentNamedViewConfig?.userActions,
           },
-          compactToolbar: activeView?.compactToolbar ?? (schema as any).compactToolbar,
+          compactToolbar: currentNamedViewConfig?.compactToolbar ?? activeView?.compactToolbar ?? (schema as any).compactToolbar,
           allowExport: activeView?.allowExport ?? (schema as any).allowExport,
+          exportOptions: currentNamedViewConfig?.exportOptions ?? activeView?.exportOptions,
           // Propagate display properties
           color: activeView?.color ?? (schema as any).color,
           // The spec-canonical row-colour CONFIGURATION (objectui#7218).
@@ -2490,7 +2514,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // objectui#5097 exemption stays fixed at 27 names.
           rowColor: currentNamedViewConfig?.rowColor ?? activeView?.rowColor,
           // Propagate view-config properties (Bug 4 / items 14-22)
-          inlineEdit: activeView?.inlineEdit ?? (schema as any).inlineEdit,
+          inlineEdit: currentNamedViewConfig?.inlineEdit ?? activeView?.inlineEdit ?? (schema as any).inlineEdit,
           wrapHeaders: activeView?.wrapHeaders ?? (schema as any).wrapHeaders,
           clickIntoRecordDetails: activeView?.clickIntoRecordDetails ?? (schema as any).clickIntoRecordDetails,
           addRecordViaForm: activeView?.addRecordViaForm ?? (schema as any).addRecordViaForm,
@@ -2510,13 +2534,13 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // objectui#5097 host-composition keys.
           data: currentNamedViewConfig?.data ?? (activeView as any)?.data ?? (schema as any).data,
           // Propagate new spec properties (P0/P1/P2)
-          navigation: activeView?.navigation ?? (schema as any).navigation,
-          selection: activeView?.selection ?? (schema as any).selection,
-          pagination: activeView?.pagination ?? (schema as any).pagination,
-          searchableFields: activeView?.searchableFields ?? (schema as any).searchableFields,
-          filterableFields: activeView?.filterableFields ?? (schema as any).filterableFields,
-          resizable: activeView?.resizable ?? (schema as any).resizable,
-          hiddenFields: activeView?.hiddenFields ?? (schema as any).hiddenFields,
+          navigation: currentNamedViewConfig?.navigation ?? activeView?.navigation ?? (schema as any).navigation,
+          selection: currentNamedViewConfig?.selection ?? activeView?.selection ?? (schema as any).selection,
+          pagination: currentNamedViewConfig?.pagination ?? activeView?.pagination ?? (schema as any).pagination,
+          searchableFields: currentNamedViewConfig?.searchableFields ?? activeView?.searchableFields ?? (schema as any).searchableFields,
+          filterableFields: currentNamedViewConfig?.filterableFields ?? activeView?.filterableFields ?? (schema as any).filterableFields,
+          resizable: currentNamedViewConfig?.resizable ?? activeView?.resizable ?? (schema as any).resizable,
+          hiddenFields: currentNamedViewConfig?.hiddenFields ?? activeView?.hiddenFields ?? (schema as any).hiddenFields,
           // objectui#8980 — TWO SLOTS THAT HAD NO RUNG ON THIS BRANCH AT ALL.
           //
           // `fieldOrder` is the live third key of the protocol's
@@ -2534,17 +2558,18 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // untouched.
           fieldOrder: currentNamedViewConfig?.fieldOrder,
           appearance: currentNamedViewConfig?.appearance ?? activeView?.appearance,
-          rowActions: activeView?.rowActions ?? (schema as any).rowActions,
+          rowActions: currentNamedViewConfig?.rowActions ?? activeView?.rowActions ?? (schema as any).rowActions,
           rowActionDefs: (activeView as any)?.rowActionDefs ?? (schema as any).rowActionDefs,
-          bulkActions: activeView?.bulkActions ?? (schema as any).bulkActions,
-          sharing: activeView?.sharing ?? (schema as any).sharing,
-          addRecord: activeView?.addRecord ?? (schema as any).addRecord,
-          conditionalFormatting: activeView?.conditionalFormatting ?? (schema as any).conditionalFormatting,
-          userFilters: activeView?.userFilters ?? (schema as any).userFilters,
-          showRecordCount: activeView?.showRecordCount ?? (schema as any).showRecordCount,
-          allowPrinting: activeView?.allowPrinting ?? (schema as any).allowPrinting,
-          emptyState: activeView?.emptyState ?? (schema as any).emptyState,
-          aria: activeView?.aria ?? (schema as any).aria,
+          bulkActions: currentNamedViewConfig?.bulkActions ?? activeView?.bulkActions ?? (schema as any).bulkActions,
+          bulkActionDefs: currentNamedViewConfig?.bulkActionDefs ?? activeView?.bulkActionDefs,
+          sharing: currentNamedViewConfig?.sharing ?? activeView?.sharing ?? (schema as any).sharing,
+          addRecord: currentNamedViewConfig?.addRecord ?? activeView?.addRecord ?? (schema as any).addRecord,
+          conditionalFormatting: currentNamedViewConfig?.conditionalFormatting ?? activeView?.conditionalFormatting ?? (schema as any).conditionalFormatting,
+          userFilters: currentNamedViewConfig?.userFilters ?? activeView?.userFilters ?? (schema as any).userFilters,
+          showRecordCount: currentNamedViewConfig?.showRecordCount ?? activeView?.showRecordCount ?? (schema as any).showRecordCount,
+          allowPrinting: currentNamedViewConfig?.allowPrinting ?? activeView?.allowPrinting ?? (schema as any).allowPrinting,
+          emptyState: currentNamedViewConfig?.emptyState ?? activeView?.emptyState ?? (schema as any).emptyState,
+          aria: currentNamedViewConfig?.aria ?? activeView?.aria ?? (schema as any).aria,
           // Propagate refresh signal so ListView re-fetches after mutations
           refreshTrigger: refreshKey,
         },

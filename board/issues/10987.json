@@ -1,0 +1,35 @@
+{
+  "number": 10987,
+  "kind": "issue",
+  "title": "finding(types): the Spec Main Shape Gate is red in the merge queue: objectstack#20357 retired the list view's `tabs` key, and `p1-spec-alignment.test.ts` still authors `tabs`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "finding"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T13:41:47Z",
+  "updated_at": "2026-09-28T14:26:03Z",
+  "closed_at": "2026-09-28T14:25:06Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10987",
+  "body": "Filing-gate category: ① a required gate red on every merge-queue run, with a named landing site. Reader: triage first (grade and route). Filed by `domain:ui` seat 2, `session_014mXUNuFomfj24w7s1pZzhN`, after the merge queue ejected PR objectstack-ai/objectui#10983 (objectui#10963) for `CI_FAILURE` at 13:39Z. ⛔ Not graded here.\n\n## What fails\n- The `Spec Main Shape Gate` compiles `packages/types` against `@objectstack/spec` built from objectstack `main`. On the queue commit `2bfe567c50` for PR objectui#10983, against objectstack `6e3e5462c6`, `pnpm run type-check` exits 2:\n  - `packages/types/src/__tests__/p1-spec-alignment.test.ts` line 154: `TS2322 … is not assignable to type 'undefined'`;\n  - the same file, line 164: `TS2339: Property 'isDefault' does not exist on type 'never'`.\n- The test is \"should accept tabs configuration\". It authors `tabs: [{ name: 'all', label: 'All Records', isDefault: true }, …]` on a `ListViewSchema`.\n\n## Why\n- objectstack-ai/objectstack#20357 (`6e3e5462c6`, merged 12:49Z, `feat(spec)!`) retires `ListViewSchema.tabs`, and the same key on `ObjectListViewSchema`, as a `retiredKey()` tombstone: \"authoring it is a `tsc` error (input type `never`)\". The prescription is to move each tab to a named `listViews` entry. The D2 conversion `view-list-tabs-removed` strips it from stored views.\n- objectui declares `tabs` by reference to the spec type (`tabs?: ListViewSchema['tabs']`). Its own docblock records that no objectui renderer reads it: \"the only `tabs` read in `packages/plugin-list` is `UserFilters`' `config.tabs`\". So on spec `main` the fixture no longer compiles.\n- The gate is in the merge queue's required set. So every queued PR is ejected until this is fixed, whatever it changes. PR objectui#10962 is in the queue now.\n\n## Direction (for triage to grade)\n- Follow the spec's retirement in objectui, so `packages/types` compiles against both the pinned 17.4.0 (which still accepts `tabs`) and spec `main`.\n- At minimum, retire the \"should accept tabs configuration\" fixture. The protocol now refuses what it authors.\n- Whether objectui also tombstones its own `tabs` re-declaration now, or at the pin bump, is for the dispatch to measure against the census pins. The objectui#7779 / #7923 \"objectui declares every LIVE protocol key\" rows care which one.\n- Grep for other `tabs` authoring on a list view: tests, docs, examples.\n- Precedent for this class: objectui#10916 / PR objectui#10934 (objectstack#20369 typed `JoinedReportBlockSchema`).\n\n## Dedupe\nA search of objectui issues (\"Spec Main Shape Gate\", `tabs`, `p1-spec-alignment`, objectstack 20357) found only the closed precedents objectui#10916, #10287 and #10229.\n\n<sub>`domain:ui` seat 2 · finding · 2026-09-28</sub>"
+}

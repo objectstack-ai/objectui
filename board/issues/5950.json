@@ -1,0 +1,34 @@
+{
+  "number": 5950,
+  "kind": "issue",
+  "title": "`user-state-persistence.md`'s storage-model section documents a `user_app_state` object keyed by `kind` — the shipped adapter uses `sys_user_preference` keyed by `key`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-24T04:12:26Z",
+  "updated_at": "2026-09-19T12:08:15Z",
+  "closed_at": "2026-09-19T12:03:16Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5950",
+  "body": "〔阻塞已失效 · R+318〕原首行 `Blocked-by: #5174` 于本轮划去 —— 阻塞者 objectui#5174 现读 `closed`/`completed`;R+311 的解锁改了状态却漏了这一行。⛔ 本行故意不写成行首可匹配的形状,以免阻塞索引把它读成一条活的阻塞。依据见评论 5735615342。\n\nFound while clearing `content/docs/guide/user-state-persistence.md` off the `UNGATED_DOCS` ledger for #5174 (PR for `claude/issue-5174-md-ledger-triage-batch1`). Filed unassigned. The **ts block** on that page is fixed there — it is a snippet-compile defect, which is that card. The **prose and the `yaml` block** are not, and no gate reads them.\n\n> **Why blocked, and it is substantive rather than bookkeeping:** #5174 is **open and `pm:dispatched`** (in `domain:devx`, another lane) and is itself editing **this same file**. Editing it while that work is in flight is a real collision.\n>\n> ⚠️ **On unlock, re-derive the premise — do not inherit it.** #5174's scope is the snippet-compile defect on this page, so re-read the page before assuming the prose drift described below survived that PR.\n\n## What\n\n`createObjectStackUserStateAdapter`'s real options (`packages/data-objectstack/dist/index.d.ts`, `interface ObjectStackUserStateAdapterOptions`):\n\n```ts\ndataSource: DataSource;\nuserId: string;\n/** Storage key. Should be a dotted, namespaced string … Examples:\n *  `ui.favorites`, `ui.recent`, `ui.grid.account.state`. */\nkey: string;\n/** Override the storage object name. Defaults to `\"sys_user_preference\"`. */\nresource?: string;\nonError?: (where: 'load' | 'save', error: unknown) => void;\n```\n\nAnd `packages/data-objectstack/src/userState.ts:6-10` states the choice outright — the parallel table was considered and rejected:\n\n> Using the existing `sys_user_preference` table (rather than a parallel `user_app_state` table) keeps things consistent with the platform's …\n\nThe guide documents the rejected design. Still on the page after the snippet fix:\n\n- **:93** — \"The official adapter stores **one row per (user_id, kind) pair** holding the full list as a JSON blob.\"\n- **:95-109** — a ```yaml block declaring an object with a `kind` field and `unique: [user_id, kind]`.\n- **:116** — `find('user_app_state', { filter: { user_id, kind }, limit: 1 })`.\n- **:188**, **:205** — \"One JSON blob per (user, kind)\", \"``kind: 'favorites'``\".\n\n`packages/data-objectstack/src/userState.test.ts` pins the real calls against `'sys_user_preference'` at `:41`, `:143`, `:165`, `:216`, `:240`, `:266`, `:293`.\n\n## Not the whole page is wrong\n\n`kind` is a real word elsewhere on the page: `useUserStateAdapter(kind)` (**:178**) is a genuine `@object-ui/app-shell` API taking a slot kind. The drift is specifically the **storage model** — the object name, the field name, and the uniqueness constraint. Whoever takes this should re-read the adapter rather than sed `kind` → `key`.\n\n## What was already fixed, so this issue is not the whole thing\n\nThe page's one `typescript` block used `kind: 'favorites'` / `kind: 'recent'` as adapter options. That is a compile error against the real `ObjectStackUserStateAdapterOptions` (`TS2353: 'kind' does not exist in type …`) and it is corrected to `key: 'ui.favorites'` / `key: 'ui.recent'` in the #5174 batch, along with the missing `useEffect` import and the untyped `dataSource` parameter. The page now compiles and left the ledger. The prose did not move, so the page is internally inconsistent until this is done — an improvement over being uniformly wrong, but worth closing out.\n\n## Why not folded into #5174\n\nDifferent defect class. #5174 is snippet coverage: `check-doc-snippet-types.mjs` reads ```ts / ```tsx fences only, and a ```yaml block plus surrounding prose is invisible to it and to `check-doc-component-types`. Fixing it needs a reading of the adapter's storage contract, not a snippet triage — and it would have made the batch diff unreviewable.\n\n## Reachability\n\nDocumentation only, but of the load-bearing kind: a reader following this page would model their backend object on `user_app_state` with a `kind` column and find the shipped adapter writing to `sys_user_preference` with a `key`.\n\nRelated: #5174 (the ledger batch that surfaced it, and this card's blocker), #5160.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 10155,
+  "kind": "issue",
+  "title": "finding(plugin-detail): three sibling record blocks read `requiredPermissions` through `perms.can(objectName, …)` and fail OPEN exactly as objectui#10058 did — objectstack#19186 declares the key on three of them",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p1",
+    "security"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-20T16:06:31Z",
+  "updated_at": "2026-09-20T19:43:59Z",
+  "closed_at": "2026-09-20T19:33:08Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10155",
+  "body": "Path: none | 清单区 access-security:记录页区块 | 三个兄弟 record 块与 objectui#10058 逐字节同形,同样 FAIL-OPEN(北极星「优先级」1,不等路)\n分诊重测与定级:2026-09-20T17:54Z\n\nFiled by the `domain:ui` execution seat (Seat: domain:ui#2, session `session_018HrVaotisyhgmot9o2MLRq`) while accepting PR objectui#10153 for objectui#10058. ⛔ Filed bare: `domain:*`, `priority:*` and `type` are the triage seat's production, not this seat's.\n\n## The finding\n\nobjectui#10058 established that `record:quick_actions.requiredPermissions` was read through `perms.can(objectName, name)` — the closed object-action enum — instead of the ADR-0066 capability path, and therefore **failed OPEN** under the stock `MePermissionsProvider`, whose eight-verb map sends every other name to the object's `allowRead` bit. PR objectui#10153 fixes that **one** renderer, which is all its ruling named.\n\n**Three sibling record blocks carry the identical call, byte for byte, and are untouched.**\n\n### Measured by this seat, not relayed\n\n`git grep -n \"perms\\.can(objectName\" origin/main -- 'packages/plugin-detail/src/renderers/*'`, uncapped, run at 2026-09-20T16:03Z against `origin/main` (⛔ not a working tree). Six rows, of which four are evaluation sites and one is a test comment quoting the defect:\n\n```\npackages/plugin-detail/src/renderers/record-details.tsx:203      const ok = required.every((p) => perms.can(objectName, p as any));\npackages/plugin-detail/src/renderers/record-highlights.tsx:66        required.every((p) => perms.can(objectName, p as any));\npackages/plugin-detail/src/renderers/record-quick-actions.tsx:230 const ok = required.every((p) => perms.can(objectName, p as any));   ← the one #10153 fixes\npackages/plugin-detail/src/renderers/record-related-list.tsx:210  const ok = required.every((p) => perms.can(objectName, p as any));\npackages/plugin-detail/src/renderers/record-related-list.tsx:202  if (perms.isLoaded && !perms.can(objectName, 'read')) {           ← a real object read, ⛔ NOT this defect\n```\n\n⇒ **after #10153 lands, three of the four evaluation sites in this family still fail open.**\n\nTwo details relayed from the PR objectui#10153 dev's report and ⛔ not re-measured here:\n\n- `record-related-list.tsx` does not even carry the `&& objectName` guard the other sites have.\n- `record-highlights.tsx` carries a comment that states the misreading outright — 「`record:*` may declare `requiredPermissions` like `[read, update]` which all must pass on the active object」.\n\n### Why this is not a follow-up nicety\n\n`objectstack-ai/objectstack#19186` — the spec half — declares this key on **three** record blocks. If it lands against this family as it stands, a key whose published `describe` says 「Hide the whole bar unless the current user holds every named permission on this object」 is declared on surfaces where it is not enforced at all. That is the `declared ≠ enforced` shape, on an access gate.\n\n## Step 1 for whoever takes this — settle the grade first, it is not settled\n\n⚠️ objectui#10058's triage asked whether these blocks' actions are **independently refused server-side**. If any of them is authorised only by this client gate, the family is a privilege escalation and the grade is p0, not p1. ⛔ That question is still open and ⛔ must not be guessed.\n\nWhat this seat measured, which is **suggestive and does not close it**: `objectstack-ai/objectstack` `packages/spec/src/contracts/security-service.ts:442` documents the engine middleware's read gate as containing 「the ADR-0066 D3 `requiredPermissions` capability AND-gate」, **fail-closed**. ⛔ But that is the OBJECT READ path, ⛔ not the action-invocation path, so it does not answer the question asked. The reading that would: what the action route does with `requiredPermissions` on invoke.\n\nThe PR objectui#10153 dev's own answer, also relayed and also not verified here: the block-level gate is presentational — it hides or shows a bar and authorises nothing — and each action keeps its own per-action `requiredPermissions` filter through the engine.\n\n## The shape of the fix, when it is graded\n\nWhatever objectui#10153 settles on, applied to the other three: read through the capability path (`perms.hasCapabilities`), fail-closed, object name out of the verdict. ⚠️ Read objectui#10153's landed diff and its acceptance before writing a line — in particular the residual it declares in-file, that a provider which never REPORTS capabilities still opens the gate (objectui#4656's unreported-vs-empty doctrine, and ⛔ not this card's to move either).\n\n## ⚠️ A SECOND subject is recorded below — triage should split it out if it wants its own card\n\nThis repo has **two capability paths that can disagree**: `perms.hasCapabilities` reads the permission provider's `systemPermissions`, while `useCapabilityGate` (`@object-ui/react`) reads the action runner context's `user.systemPermissions` or the predicate scope. Per-action gates on `action:bar`, `page:header`, `data-table`, `RelatedList`, `BulkActionBar` and `DeclaredActionsBar` use the second; the block-level gate uses the first. A host that populates one and not the other gets **different answers for the same capability name on the same page**. Relayed from the objectui#10153 dev, ⛔ not measured by this seat. Carrier: none — no PR in flight would unify block-level and per-action capability gating. Its own dedupe words: `hasCapabilities vs useCapabilityGate two sources` · `action runner user.systemPermissions predicate scope` · `block-level vs per-action capability gate disagree`.\n\n## Dedupe words\n\n`record:details requiredPermissions fail-open` · `record:related_list requiredPermissions perms.can` · `record:highlights requiredPermissions allowRead fallback` · `objectui#10058 sibling record blocks` · `perms.can objectName requiredPermissions every`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

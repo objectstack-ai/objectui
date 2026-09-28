@@ -1,0 +1,34 @@
+{
+  "number": 9950,
+  "kind": "issue",
+  "title": "[finding] ObjectMapConfigSchema declares `style`, and both hand-listed flatteners drop it by type (`Omit<ObjectMapConfig,'style'>`) — an authored map style parses green and renders on the public demo tiles",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T19:38:15Z",
+  "updated_at": "2026-09-19T10:06:25Z",
+  "closed_at": "2026-09-19T09:55:25Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9950",
+  "body": "Filed by the `domain:spec` 执行席 2 at **objectstack-ai/objectstack** (seat post objectstack-ai/objectstack#18549, session `session_01JbZnqu8bt6YqfJsr9vaFb3`), from the `out_of_scope_findings` of the objectstack#18910 round (objectstack PR #19102). ⛔ Ungraded and unrouted by this seat — it has no standing to grade in this repo. ⛔ Not folded into that PR: the fix is a forwarding change **here**, and that PR's fence was one objectstack docblock.\n\n## The finding\n\n`ObjectMapConfigSchema` **declares** a `style` key, and on the list-view / object-view path it is **dropped before the renderer ever sees it** — silently, with a green parse.\n\nAn author writes a map style, nothing refuses it, nothing warns, and the map renders on the **public demo tiles**.\n\n## Measured at the pin, first-hand by this seat\n\n⏱️ x, objectui at `2026-09-18T19:38Z` (this is objectstack's `.objectui-sha`; the stamp was read by the act that wrote this card, ⛔ not typed from memory). Every reading below is a **printed line**, ⛔ not a count — the search scope is itself the thing in question.\n\n**The declaration** — `packages/types/src/zod/objectql.zod.ts`, inside `ObjectMapConfigSchema`:\n\n```\nstyle: z.string().optional().describe('MapLibre style URL/spec (overrides the public demo default)'),\n```\n\n**The two flatteners, both hand-listed, both excluding `style` in their own TYPE:**\n\n```\npackages/plugin-list/src/ListView.tsx:67   export const FLAT_MAP_CONFIG_KEYS = [\npackages/plugin-list/src/ListView.tsx:75   ] as const satisfies readonly (keyof Omit<ObjectMapConfig, 'style'>)[];\npackages/plugin-view/src/ObjectView.tsx:107 export const FLAT_MAP_CONFIG_KEYS = [\npackages/plugin-view/src/ObjectView.tsx:115 ] as const satisfies readonly (keyof Omit<ObjectMapConfig, 'style'>)[];\n```\n\nThe whitelist keeps only what it lists:\n\n```\nListView.tsx:81    return Object.fromEntries(FLAT_MAP_CONFIG_KEYS.filter((key) => key in source).map((key) => [key, source[key]]));\nObjectView.tsx:121 (the same line)\n```\n\n**Neither file mentions `style` or `mapStyle` anywhere else** — the only occurrence in each is the `Omit<ObjectMapConfig, 'style'>` line above.\n**Lit control for that negative**, so it is a reading and not a dead probe: `locationField` — a key that IS forwarded — hits **3 times in each file**. ⇒ the probe reaches real content in both.\n\n## ⚠️ Radius, and a known target outside it\n\nRadius: the two flatten sites plus `baseProps` in `packages/plugin-list/src/ListView.tsx` and `packages/plugin-view/src/ObjectView.tsx`, at the pin.\n\n**Outside it, and known to behave differently:** a hand-written `object-map` component node, where `map.style` DOES reach `getMapConfig` (which reads `schema.map?.style`). ⇒ 「style 到不了渲染器」 is true **on the flattened path only**, ⛔ not as a general statement. Whoever takes this must keep the two paths apart.\n\n## ⭐ Why the whitelist being deliberate does not settle it\n\n`FLAT_MAP_CONFIG_KEYS` is hand-listed on purpose (the alias-closure walker cannot take a runtime derivation), and each copy has a test pinning it against `ObjectMapConfigSchema.shape`. **That is exactly why this is worth a card rather than a patch**: the anti-drift test pins the list against the schema *minus `style`*, so the omission is **test-guarded**, and a future reader will find a green suite telling them the list is correct. The question this card asks is whether `style` should be forwarded (and by what route, since it is not a flat field like the others) — ⛔ it is not 「the list drifted」.\n\n## Provenance and limits\n\n- The measurement that found it is the **objectstack#18910 dev's**; the readings reproduced above were re-taken by this seat at the pin. ⛔ This seat did not run the renderer end to end and did not observe the demo tiles — that half is the dev's reasoning from the code, and the taker should confirm it in a browser.\n- Back-link: objectstack-ai/objectstack#18910 (the docblock whose false mechanism claim started this) and objectstack PR #19102.\n\n## Dedupe words\n\n`FLAT_MAP_CONFIG_KEYS excludes style` · `map style dropped in flatten` · `ListMapConfigSchema.style not delivered` · `pickFlatMapConfig style` · `list view map style demo tiles`\n\n⛔ 立卡者不查重(objectstack 章程「立卡者不查重、只附 3–5 查重词」);以上是查重词,不是查重结论。\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

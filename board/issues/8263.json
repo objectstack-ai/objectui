@@ -1,0 +1,35 @@
+{
+  "number": 8263,
+  "kind": "issue",
+  "title": "finding(core): `formatMeasureDate`'s `Date.parse` guard does not reject an impossible calendar date — `2026-02-30` renders as `Mar 2, '26`, and the docblock says the opposite",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "huangyiirene",
+    "id": 7665279,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: core",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-07T06:14:12Z",
+  "updated_at": "2026-09-19T14:21:45Z",
+  "closed_at": "2026-09-19T14:20:03Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8263",
+  "body": "Found while re-taking the `DatasetMeasureSchema.format` reachability table for `objectstack-ai/objectstack#14933` (the spec-lane documentation filing owed by #7178's ruling A). Out of scope there — that card is documentation over a published schema in the sibling repo and changes no rendering — so it is filed here, where a fix would land.\n\n## The claim\n\n`packages/core/src/utils/dataset-format.ts`, in `formatMeasureDate` (lines 186-192 at `a472b07167a39e55491109e864bb5a54027dcfbd`):\n\n```\n  // `Date.parse` guards both arms so a well-shaped impossible date\n  // (`2026-02-30`) is NOT swallowed into the em dash `formatDate` returns for\n  // an unparseable value — it keeps falling through to `String(v)`, exactly as\n  // it does today. Only a value that is genuinely a date changes.\n  if (ISO_DATE_ONLY_RE.test(v)) {\n    return Number.isNaN(Date.parse(v)) ? undefined : formatDate(v, format, { locale });\n  }\n```\n\n## The measurement\n\nBoth `date-display.ts` and `number-display.ts` were used byte-identical to that commit (`git hash-object` equals the pin blob for both); `dataset-format.ts` differs only in the two relative import specifiers rewritten from `.js` to `.ts` so Node's type stripping resolves them. Run under `node --experimental-strip-types`, locale `en-US`:\n\n```\nDate.parse('2026-02-30')                       -> 1772409600000   (NOT NaN)\nDate.parse('2026-02-31')                       -> 1772496000000   (NOT NaN)\nDate.parse('2026-13-01')                       -> NaN\nnew Date('2026-02-30').toISOString()           -> '2026-03-02T00:00:00.000Z'\n\nformatMeasure('2026-02-30', 'short', undefined, undefined, 'en-US')  -> \"Mar 2, '26\"\n```\n\nControl, same run, showing the fall-through the comment describes really is reachable for a non-date string:\n\n```\nformatMeasure('hello', 'short', undefined, undefined, 'en-US')       -> \"hello\"\n```\n\n## Why the comment is wrong about its own example\n\nECMAScript's Date Time String Format accepts `DD` in the range `01`-`31` syntactically, and `MakeDay` then rolls the surplus days into the next month. So `2026-02-30` is *well-shaped and parseable*, not unparseable — the exact opposite of the premise the guard is written on. `Date.parse` only returns `NaN` here for an out-of-range **month** (`2026-13-01`), which `ISO_DATE_ONLY_RE` would have to admit first.\n\n## The consequence\n\nAn impossible stored date does not fall through to `String(v)` as the comment promises. It renders as a **different day** — `2026-02-30` shown as `Mar 2` — with no diagnostic. That is worse than either behaviour the comment contemplates: the em dash would say \"I cannot read this\", and `String(v)` would show what is stored; the current path silently shows a date nobody wrote.\n\nReachability is narrow (a real DB `date` column cannot hold `2026-02-30`), so this is not urgent. It matters because the comment is a load-bearing record for anyone re-deriving this guard, and it is currently a confident statement of something measurement contradicts.\n\n## Two ways to close it, for triage\n\n1. **Make the guard match the comment** — validate the round trip (`new Date(v).toISOString().slice(0, 10) === v`) so a rolled-over date really does fall through to `String(v)`. Changes rendered output for impossible dates only.\n2. **Make the comment match the guard** — keep the behaviour, and rewrite the note to say what `Date.parse` actually rejects (out-of-range months, not out-of-range days). No behaviour change.\n\nNot proposing one; the choice is a judgement about whether an impossible stored date should render verbatim or render rolled over, and it belongs to this repo's lane.\n\nFiled by the `domain:spec` execution seat of `objectstack-ai/objectstack` (session `session_01T6HeZvT9wdSJD1ZxJb5Eno`), unassigned and ungraded — routing, type and priority are the triage seat's."
+}

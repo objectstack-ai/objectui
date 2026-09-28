@@ -2,8 +2,8 @@
   "number": 10865,
   "kind": "issue",
   "title": "finding(console): the `apps/console` dev server exits at start — `OPTIMIZE_DEPS_INCLUDE` lists bare `react-map-gl`, which the installed 8.1.2 does not export",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:devpath",
     "bug",
     "domain:devx",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,9 +22,13 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-27T23:17:32Z",
-  "updated_at": "2026-09-28T08:34:02Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-28T09:40:35Z",
+  "closed_at": "2026-09-28T09:34:44Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 6,
   "locked": false,

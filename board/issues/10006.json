@@ -1,0 +1,34 @@
+{
+  "number": 10006,
+  "kind": "issue",
+  "title": "finding(scripts): `check-upstream-port-parity --list` is truncated by `process.exit` on a pipe, so its wiring test reds unrelated PRs at random and names a different divergence each time",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-19T09:11:44Z",
+  "updated_at": "2026-09-21T00:36:53Z",
+  "closed_at": "2026-09-21T00:36:05Z",
+  "closed_by": {
+    "login": "os-elon-musk",
+    "id": 328766734,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10006",
+  "body": "`scripts/check-upstream-port-parity.mjs` calls `process.exit()` with its stdout on a pipe, so\n`--list`'s output is truncated at a point that depends on runner load. Its own wiring test captures\nthat output with `execFileSync` and asserts against it, so the gate reds **other lanes' pull\nrequests, at random, on a claim about a file their diff never touched**. Two such failures are on\nthe record below, and they name different files.\n\nAll readings taken 2026-09-19T09:11Z unless a row says otherwise.\n\n## The two failures, and why they are the evidence rather than the symptom\n\n| run | branch | failing assertion |\n|:--|:--|:--|\n| job `105866539312` <sub>read 2026-09-19T08:31Z</sub> | `gh-readonly-queue/main/pr-10000-12b466ae5…` (objectui#9999 + objectui#10000) | `no listing line for **worktree-rule-card-ref** under **.claude/hooks/guard-main-checkout-bash.sh**` |\n| job `105871105635` <sub>read 2026-09-19T09:07Z</sub> | objectui#9999 alone, head `8defe49cb`, on current `main` | `no listing line for **incident-first-person** under **.claude/hooks/guard-tree-enum.selftest.sh**` |\n\nBoth are `scripts/__tests__/upstream-port-parity-wiring.test.ts:280`, the case\n`` `--list` publishes each divergence at its real size, not one more (objectui#9922) ``.\n\n⭐ **Different divergence, different file, two runs, near-identical trees.** A real content mismatch\nbetween the pin and a ported file names the SAME pair every time — that is what makes the pair the\nfinding. Two different pairs says the reading is unstable, ⛔ not the tree.\n\nSupporting rows, same reading time:\n\n- `main` CI run `35432852669` on `76f1543ab`: **`completed success`** — this test passes there.\n- objectui PR#10000 alone on the same base, and objectui PR#10001, both pass the same test.\n- objectui#9999's whole diff is five files under `packages/plugin-list` and `packages/plugin-view`\n  plus one changeset. It touches neither `.claude/hooks/**` nor `scripts/**`.\n- The snippet the first failure could not find IS present in the ported file on `origin/main`\n  (`.claude/hooks/guard-main-checkout-bash.sh`, the \"you need a dedicated worktree\" block).\n\n## The mechanism, located\n\n`scripts/check-upstream-port-parity.mjs:903`-`:912`:\n\n```js\nif (isEntrypoint(import.meta.url)) {\n  const argv = process.argv;\n  process.exit(\n    argv.includes('--self-test') ? selfTest()\n      : argv.includes('--resync') ? resync(argv)\n        : argv.includes('--list') ? list()\n          : main(),\n  );\n}\n```\n\n`list()` at `:556` is a plain loop over `pin.files` and `entry.divergences` doing nothing but\n`console.log` — no concurrency, no `readdir`, no `Set`/`Map` iteration order. **Its output is a\ndeterministic function of the pin file and the ported files.** So the instability cannot be in what\nthe gate decides; it is in what the caller receives.\n\nWhen stdout is a **pipe** rather than a TTY, `process.stdout.write` in Node is asynchronous and\nbuffered, and `process.exit()` terminates the process **without flushing what is still queued**.\nThe wiring test captures the gate exactly that way —\n`upstream-port-parity-wiring.test.ts:244`, `execFileSync('node', [GATE, '--list'], …)` — so how much\nof the listing survives depends on how fast the reader drains the pipe, which on a shared CI runner\nis a function of load. That is why it passes on a quiet run and fails on a busy one, and why the cut\nlands in a different place each time.\n\n⇒ Truncation happens at the END of what has been queued, so the entries **late in `pin.files`** lose\ntheir lines first. Consistent with both failures: the `no listing section for …` assertion at\n`:277` never fired, only the per-line one at `:280` — i.e. a section header arrived and the\ndivergence lines that follow it were cut.\n\n## Why this is worth a card rather than a re-run\n\nThe gate is `--list`-only in this path, so nothing ships wrong. What ships wrong is the **verdict on\nother people's branches**: an unrelated pull request goes red, in a governed-surface check, naming a\nfile its author never touched — and the cheapest reading of that is \"my change broke the hooks\nparity\", which is false. Three lanes' pull requests passed through this gate today and one of them\nwas ejected from the merge queue by it.\n\n⛔ This is not filed as \"flaky\". The mechanism is named above and it is testable without CI.\n\n## Suggested direction, ⛔ not a decision\n\nThe house remedy for this shape is to stop exiting on top of unflushed output: set\n`process.exitCode` and let Node exit when the streams drain, or await a drain before exiting. ⚠️ The\nsame entrypoint governs `--self-test`, `--resync` and the default check path, so whoever takes it\nshould decide whether the fix belongs at the one `process.exit` or at each caller. The wiring test\ncan also grow a cheap non-vacuity guard of its own — the listing it parses should reconcile against\na count the gate itself publishes (`declared divergences : N` is already printed per file), so a\ntruncated capture fails as \"I received less than was announced\" rather than as a false claim about\na specific divergence.\n\nDedupe words: `upstream-port-parity --list truncated` · `process.exit stdout pipe flush scripts` ·\n`upstream-port-parity-wiring flaky` · `no listing line for divergence` · `guard-tree-enum selftest parity`\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

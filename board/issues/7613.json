@@ -1,0 +1,34 @@
+{
+  "number": 7613,
+  "kind": "issue",
+  "title": "RecipientPickerField: no picker mode for the `field` sharing recipient — an admin has to type the field name into the degraded text input",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "enhancement",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-04T06:28:12Z",
+  "updated_at": "2026-09-20T07:13:50Z",
+  "closed_at": "2026-09-20T07:12:04Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7613",
+  "body": "Blocked-by: objectstack-ai/objectstack#15072\n\nFiled by the `os-dev` seat implementing objectstack#15072 (session `session_01XpTx2tbq3pZRYAdoGt6E6Y`, branch `claude/issue-15072-field-sharing-recipient`) as an out-of-scope finding; nothing in this card is fixed by that PR, and this card is not addressed there.\n\n## What\n\n`packages/fields/src/widgets/RecipientPickerField.tsx` maps `recipient_type` to a target object (`TYPE_TO_OBJECT`: `user` / `team` / `business_unit` / `unit_and_subordinates` / `position`) and, per its own header, \"Unknown types degrade to a plain text input so nothing breaks.\"\n\n`sys_sharing_rule.recipient_type` gains a sixth value, `field`, with objectstack#15072 (the executor half of the maintainer ruling on objectstack#14103): the recipient is the user or users named by a **user-typed field of the shared object**, so `recipient_id` stores a **field name** (`assignees`, `owner_manager`), not a record id. For that kind the picker has no mapping and falls through to the text input — functional, but the admin must know and type the machine name of the column by hand, with no list of the object's user-typed fields to choose from and no validation that the name exists.\n\n## Suggested shape\n\nWhen `dependentValues.recipient_type === 'field'`, offer the shared object's fields (read from `dependentValues.object_name`, the same dependency `object_name` → `filter-condition` already uses) restricted to user-valued ones — `type: 'user'`, or a `lookup` / `master_detail` whose `reference` is `sys_user` — and store the field **name**. The executor reads exactly that value and treats a column that is not user-typed as \"grants nobody\" (with a logged warning), so the picker's filter and the runtime's judgement should agree.\n\n## Where measured\n\n- objectui `packages/fields/src/widgets/RecipientPickerField.tsx` (`TYPE_TO_OBJECT`, the header's \"Unknown types degrade to a plain text input\" sentence) — no `field` entry.\n- objectstack `packages/plugins/plugin-sharing/src/objects/sys-sharing-rule.object.ts` — the `recipient_type` select gains `field`; the `recipient_id` help text now says the value is the name of the record field for that type.\n\nNot a defect in what ships today (the degraded input stores the right value); an authoring-experience gap that opens the day the select carries the new value."
+}

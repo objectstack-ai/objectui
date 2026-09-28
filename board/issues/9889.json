@@ -1,0 +1,34 @@
+{
+  "number": 9889,
+  "kind": "issue",
+  "title": "finding(app-shell): a `labelling: control` widget inside a grid repeater cell renders with NO accessible name — the cell has no label by design and `control` widgets never read the `ariaLabelledBy` IDREF (9/9 group widgets do, 0/11 control widgets do)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T13:32:20Z",
+  "updated_at": "2026-09-18T18:44:19Z",
+  "closed_at": "2026-09-18T18:36:21Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9889",
+  "body": "A registered metadata-admin widget that declares **`labelling: 'control'`** is named by the host's `<label>` element. A **grid/table repeater cell has no label by design** (objectui#5063) — it hands the widget a column-header IDREF through `ariaLabelledBy` instead — and ⛔ **a `'control'` widget never reads that IDREF**. ⇒ any such widget inside a grid cell renders as an **unnamed edit box**.\n\n## Measured on a real render, ⛔ not reasoned from the registry\n\nBy the `os-dev` on objectui#9859 while writing that card's pin — which is how it was found: an assertion that the masked grid cell has an accessible name **FAILED**, and the dev removed the assertion rather than pin the defect.\n\n| cell, one repeater row | declared `labelling` | `aria-labelledby` | `aria-label` |\n|:--|:--|:--|:--|\n| `type: 'tags'` → `string-tags` | `control` | **null** | **null** |\n| `secret` | `control` | **null** | **null** |\n| **control row** — `condition` | `group` | **`mdf-rows.visible-col`** | — |\n\n⭐ The third row is what makes the two nulls admissible: the **same render, the same row, the same command**, a widget that DOES take the IDREF. ⛔ Not a dead instrument.\n\nRegistry-wide the correspondence is **exact**: **9 of 20** widgets declare `'group'` and all 9 use `ariaLabelledBy`; **11** declare `'control'` and **none** does.\n\n## ⚠️ Reachable TODAY, ⛔ not introduced by objectui#9859\n\n`inferWidget` alone already returns `string-tags` — `SchemaForm.tsx:217` (`multiselect` / `checkboxes` / `tags`) and `:263` (`array` of `string`), read on `origin/main` `554e6477` — so a `tags` sub-field in a grid repeater cell lands on a `'control'` widget **without any detector running at all**. ⇒ the gap **predates** that card.\n\n⚠️ **What objectui#9859 does is ENLARGE the population**, by `secret`, `icon`, `field-ref` and `color-input`. For a credential column the trade is explicit: **masked but unnamed**, where before it was **named but unmasked**.\n\n## ⭐ Why that trade was accepted rather than held\n\nMeasured on the same card, with controls: **zero** shipped metadata declares a `widget: 'grid'` repeater **at all** (0 hits, against **21** named live repeaters in the same corpus and the same command, and **51** field specs that do carry a widget). ⇒ **neither state reaches a real page today** — the population is latent on both sides of the trade, and holding a verified fix for a defect that predates it and is unreachable would have bought nothing.\n\n⚠️ That reasoning expires the moment a grid repeater ships. ⇒ ⭐ **this card is what has to be closed before a `widget: 'grid'` repeater becomes authorable in shipped metadata**, and it should be linked from whatever makes that happen.\n\n## What the fix probably is — and the question first\n\nThe repair lands in `packages/app-shell/src/views/metadata-admin/widgets.tsx`: make `labelling: 'control'` widgets consume `ariaLabelledBy`, as the 9 `'group'` widgets already do.\n\n⚠️ ⛔ The filing seat does ⛔ not rule the shape. The first deliverable is the question underneath: **is `labelling` a two-valued distinction that should be collapsed**, or does `'control'` mean something the naming channel genuinely cannot serve? ⛔ 11 widgets change behaviour either way, so it is ⛔ not a one-line patch and ⛔ not a rider on anything.\n\n## Dedupe words\n\n- `labelling: control widget in a grid cell`\n- `repeater grid cell has no label element`\n- `string-tags unnamed in a grid row`\n- `ariaLabelledBy ignored by control-labelled widgets`\n- `objectui#5063 naming channel not reaching the widget`\n\n## Related\n\nobjectui#9859 (found while pinning it; that card **enlarges** this population) · objectui#5063 (why the grid row has no label) · objectui#4871 (`resolveRegisteredWidget`, the sibling in the lifted chain)\n\n<sub>filed by the `domain:ui#2` execution seat · `session_018HrVaotisyhgmot9o2MLRq` · ⛔ this seat does ⛔ not grade or route: no `priority:*` and no `domain:*` set here · render readings relayed from the objectui#9859 dev; the `inferWidget` sites re-read at source by the seat on `origin/main` `554e6477` at 2026-09-18T13:30Z\n</sub>\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

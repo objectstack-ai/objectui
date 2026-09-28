@@ -2,8 +2,8 @@
   "number": 10887,
   "kind": "issue",
   "title": "finding(plugin-view,plugin-dashboard): `object-view`'s non-grid views and a dashboard's `optionsFrom` filter options re-read after a page action only by the PageView remount — the sixth reader batch, blocking objectui#10519",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:studio",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-steve"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T03:18:50Z",
-  "updated_at": "2026-09-28T06:30:54Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-28T13:00:12Z",
+  "closed_at": "2026-09-28T12:57:45Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 7,
+  "comments": 10,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10887",
   "body": "Ruled: 5864668610 · letter A · 2026-09-28T06:29Z\n\nFiling-gate category: ① a declared contract a renderer does not honour, with named landing sites. These are blockers of objectui#10519 under decision B (「readers first」). Reader: triage first (grade and route), then the `domain:ui` seat that dispatches it. Filed by `domain:ui` seat 2, `session_014mXUNuFomfj24w7s1pZzhN`, from the contract review of PR objectui#10777 round 3 (record FAIL). ⛔ Not graded here.\n\n## Measured (the review, reading the source on PR objectui#10777's head `42226f9ed`)\n\n1. **`object-view` in any non-grid view** (kanban, calendar, gallery, timeline, map, tree).\n   - plugin-view registers `object-view` with the bare fallback, and the console imports it eagerly. `PageSchema.safeParse` (spec 17.4.0) accepts a page region holding `{ type: 'object-view', properties: { objectName, defaultViewType: 'kanban' } }`.\n   - For every non-grid view, `ObjectView` fetches the rows itself. That effect's dependencies name `refreshKey` and no bus nonce.\n   - `refreshKey` moves only through the view's own save or delete (`announceOwnWrite`) and `dataSource.onMutation`. A page `api` action, a flow, a server action or a screen flow fires neither.\n   - The rows are handed to the inner view as `data`, which switches off that view's own bus reader (kanban, gallery, calendar).\n   - So after a page action these views refresh only through `PageView`'s `key={refreshKey}` remount, which PR objectui#10777 removes.\n2. **A `dashboard`'s global-filter options** (`globalFilters` with `optionsFrom`).\n   - `SelectFilter` in `plugin-dashboard`'s `DashboardFilterBar` reads the options through `queryDataset` or `find` on the page adapter.\n   - Its effect depends on `from.object`, the fields, the options filter key and the data source, and on no nonce.\n   - `optionsFrom` is declared in the spec 17.4.0 dashboard filter schema.\n   - This is the same shape as `element:record_picker`'s options (objectui#10853).\n3. **The `kind: 'react'` page scope.** React pages are on by default. Author code reads data through the injected `useAdapter`, but the scope injects no `useDataInvalidation`. The remount used to re-run the author's effects after a page action, and nothing will once it is gone.\n\n## Direction (the seat's ruling on objectui#10519 records it; for triage to grade)\n\n- **Members 1 and 2, the objectui#10623 / #10778 / #10853 shape.**\n  - Each read takes the `useDataInvalidation` nonce for the object it queries: `ObjectView`'s non-grid fetch keys on `schema.objectName`, and `SelectFilter`'s options key on `from.object`.\n  - ⛔ No second channel, and no remount.\n  - The filter keeps its selected value across the re-read, the way the picker's re-read keeps the bound value.\n- **Member 3, by measurement.**\n  - If any shipped or taught react page (examples, docs, skills) reads data through `useAdapter`, inject `useDataInvalidation` into the react-page scope. That is the canonical bus, not a second channel; teach it in the react-page guide; and treat it as `Clause-②: yes`, since the scope widens.\n  - If none does, inject nothing, and the react-page guide states that a react page's own reads are not refreshed by page actions.\n- **Pins:** one bus event re-reads each block once, in place, with no remount (the objectui#10519 census shape), plus a lit control.\n- **Serial:** member 1 edits `plugin-view/src/ObjectView.tsx`, which PR objectui#10884 (seat 4, objectui#10758) holds. It dispatches after that PR, or edits only outside its hunks.\n\n## Dedupe\n\nThe 500 most recently updated objectui issues and PRs, open and closed (down to #10437), were listed via REST and grepped locally:\n- `optionsFrom` / `DashboardFilterBar` / `SelectFilter` near bus, invalidat, re-read or refresh;\n- react page near `useDataInvalidation`, bus or re-read;\n- `ObjectView` near non-grid, `useDataInvalidation` or bus reader.\n\nThree hits, all closed and none a carrier: objectui#10688, #5861 and #10533.\n\nDedupe words: `object-view kanban bus reader page action` · `dashboard optionsFrom filter options stale` · `react page useDataInvalidation scope` · `PageView remount sixth batch readers`"

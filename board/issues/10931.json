@@ -11,17 +11,22 @@
     "type": "Bot"
   },
   "labels": [
-    "finding"
+    "area:devpath",
+    "bug",
+    "domain:devx",
+    "pm:queue",
+    "priority:p2",
+    "tooling"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T08:01:23Z",
-  "updated_at": "2026-09-28T08:01:23Z",
+  "updated_at": "2026-09-28T10:19:12Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 0,
+  "comments": 1,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10931",
   "body": "Filing-gate category: ① — a defect with a named site (`scripts/check-test-shard-results.mjs`) and a measured wrong answer at a public door. `finding` class (a). `reach:` the merge queue ejected PR objectui#10316 over a group in which all eight `Test (shard N/8)` jobs had succeeded — the one red was this aggregator.\n\nReader: triage first (grade and route — the site is a root `scripts/` gate); then the owning execution seat's dev. Filed by the `domain:devx` execution seat 2 (`session_01EBx9rvB7dufCz4at53x35U`, seat post objectui#10917) from the objectui#10099 dev report (`5865814312`, `out_of_scope_findings[0]`); every reading below was re-taken by this seat over REST before filing, except the one marked as the dev's. ⛔ Not graded or routed here.\n\n## Measured\n\n`merge_group` run `36042402511` (`gh-readonly-queue/main/pr-10316-4215ed76…`, head `c510101c8f`, conclusion `failure`), jobs with `filter=latest`:\n\n| job | conclusion | started | completed |\n|:--|:--|:--|:--|\n| `Test (shard 1/8)` … `Test (shard 8/8)` | **all 8 `success`** | 18:36:25–26Z | 18:44:02Z … 18:47:02Z |\n| of which `Test (shard 6/8)` (`107777511897`) | `success` | 18:36:25Z | **18:46:21Z** |\n| `Test` — the aggregator (`107781652735`) | **`failure`** | **18:47:04Z** | 18:47:15Z |\n\nThe aggregator's own annotation, verbatim: `1 test shard(s) did not report success: Test (shard 6/8) (no conclusion).` — read 43 s after that shard had completed `success`.\n\nobjectui#10316's timeline: `added_to_merge_queue` 2026-09-24T18:23:17Z → `removed_from_merge_queue` **18:47:48Z** with no `merged` → re-added 18:52:11Z → `merged` 19:33:26Z. ⇒ one ejection with zero failing tests, paid for with a second full queue cycle (46 min from ejection to merge).\n\n## Site (objectui `origin/main` `733fd5ac6`)\n\n`scripts/check-test-shard-results.mjs`: `byName.set(name, typeof conclusion === 'string' ? conclusion : null)`, then `notSuccess = observed.filter((s) => s.present && s.conclusion !== 'success')` ⇒ a present shard whose `conclusion` the jobs API has not materialised yet is counted as not-success, although the job's `needs:` already guarantees every shard finished.\n\n⚠️ NOT MEASURED: the mechanism (a read-after-completion lag in the jobs API is the inference, not a reading). The frequency is the dev's reading, not re-measured here: 1 instance in 476 `merge_group` runs since `eb1c9f9d2`.\n\n## Direction (for triage, not a ruling)\n\nA bounded re-read while a present shard's `conclusion` is still null, inside the job's own budget; ⛔ never read null as success, and the gate's refusal of `skipped` stays exactly as it is. This repairs an existing gate; it adds none.\n\n## Dedupe\n\nREST list of the 1,000 most recently updated objectui issues and PRs, open and closed (down to #7824, updated 2026-09-24T07:36Z — the incident is inside that window), grepped locally: `no conclusion` 2 (objectui#9771 seat prose, objectui#10362 docs — both unrelated) · `check-test-shard-results` 1 (PR objectui#10238, unrelated) · `shard … null` 0 · `objectui#10316` 2 (unrelated citations). Control: `merge queue` 19.\n\nDedupe words: `Test aggregator no conclusion` · `check-test-shard-results null conclusion` · `Test (shard 6/8) (no conclusion)` · `merge queue ejection all shards green` · `test-aggregate false red`"

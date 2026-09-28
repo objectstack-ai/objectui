@@ -1,0 +1,33 @@
+{
+  "number": 10042,
+  "kind": "issue",
+  "title": "finding(app-shell): the published `RootRedirect` sends `/` to `/home` and ignores `app.isDefault`, while the `apps/console` twin it is \"byte-for-byte the same shape\" as resolves the declared landing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-19T20:00:45Z",
+  "updated_at": "2026-09-20T18:06:49Z",
+  "closed_at": "2026-09-20T14:12:38Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10042",
+  "body": "## 维护者速读\n\n**事情**:根路径 `/` 在这个仓里有**两个答案**,而**发布出去的那个更笨**:\n\n- `packages/app-shell` 发布的 `RootRedirect`(消费者拿到的那个)—— 一律送去 `/home`。\n- `apps/console` 自己挂的 `RootLandingRedirect` —— **带两道守卫**,能按情况决定去哪。\n\n⇒ 我们自己的 console 用聪明的那个,**装了这个包的第三方开发者拿到的是笨的那个**。\n\n**为什么要你拍板、而不是让席位「顺手改成一样」**:`/` 是**已发布路由**的行为。把两者统一,等于替所有消费者改变他们应用的落地页;不统一,等于我们长期发一个自己都不用的默认值。立卡席明确拒绝自己选:「choosing a resolver for a published route is a design decision」。\n\n**选项**:\n- **A(荐)** —— **统一到带守卫的那个**:把 `RootLandingRedirect` 的两道守卫提升进发布的 `RootRedirect`,`apps/console` 不再另挂。消费者拿到和我们一样的行为。⚠️ 这是**已发布路由的行为变化**,算破坏性。\n- **B** —— 维持两套,但把**分叉写进文档**:发布的那个是「最简默认」,复杂落地页请自己挂。诚实,但等于承认我们的参考实现不走自己发布的路。\n- **C** —— 统一到**简单**的那个:`apps/console` 放弃它的两道守卫。⛔ 几乎肯定不对 —— 那两道守卫是为真实需要加的。\n\n**席位意见**:荐 **A**。四棱里**长远合理性**与**防错**同向:我们发布的东西应当就是我们自己用的东西,否则「参考实现」这四个字站不住;而一个第三方开发者按文档装上包、拿到一个我们自己都绕开的默认值,正是最难自查的那类惊讶。⚠️ **没测的**:本席**没有**量任何外部消费者依赖当前 `/` → `/home` 行为 —— A 的破坏性代价取决于这个数,⇒ 若倾向 A,第一交付物是那次普查,⛔ 不是直接改。\n\n**你要做的**:回一个字母 —— **A / B / C**。\n\n**Governing text:** `packages/app-shell/src/console/ConsoleShell.tsx` 的 `RootRedirect` 及其 docblock 自陈的分叉(«`apps/console` mounts its own `RootLandingRedirect` rather…»)· 北极星「给谁」第三方开发者优先。\n\n<!-- os-decision-facets -->\nos-decision-facets\n\n- **① 项目长远合理性** — 「参考实现」的意义就是它走发布出去的那条路。A 让两者合一;B 把分叉制度化;C 把我们自己的能力砍掉去迁就发布面。⇒ 指向 A。\n- **② 实际业务拉动** — ⛔ **NOT MEASURED**:没有量到任何外部消费者依赖当前的 `/` → `/home`。这条轴今天投不了票,而它**恰好决定 A 的代价** ⇒ 已写成 A 的第一交付物。\n- **③ 防 AI 写代码/写元数据犯错** — 一个按文档装包的第三方(或 AI)开发者,拿到的默认行为与参考实现不同,而**没有任何东西告诉他**。这是最难自查的一类惊讶:他的应用「能跑」,只是落地页不是我们示范的那个。A 消掉它,B 至少让它可读,C 让我们失去示范。\n- **④ 创业阶段不扩散** — A/C 都**不新增**面(只是合并两个已存在的答案);B 新增一份长期要维护的分叉文档。⇒ ④ 轻微反对 B。\n\n---\n\nFiled by the `domain:ui#2` execution seat (PM session `session_018HrVaotisyhgmot9o2MLRq`) out of objectui#7373's dev report, which measured it and correctly refused to fold it in. ⛔ Not graded here.\n\n## The two `/` answers\n\nRead on objectui `origin/main` `0febe1a59` at 2026-09-19T20:00Z by the filing seat:\n\n`packages/app-shell/src/console/ConsoleShell.tsx` — `RootRedirect`, the element published for `<Route path=\"/\" />`:\n\n```jsx\nexport function RootRedirect() {\n  const { loading } = useMetadata();\n  if (loading) return <LoadingFallback />;\n  return <RedirectWithSplash to=\"/home\" replace />;\n}\n```\n\nIts own docblock states the split: «`apps/console` mounts its own `RootLandingRedirect` rather than this one … this is byte-for-byte the same shape, **published to consumers** via `@object-ui/app-shell`.»\n\n`apps/console/src/components/RootLandingRedirect.tsx` — the twin `apps/console` actually mounts — resolves through `resolveLandingPath`, which carries two guards this one does not:\n\n- objectui#4048's single-visible-app emptiness heuristic;\n- objectui#4233's refusal to conclude from an unresolved list.\n\n⇒ ⭐ **A consumer that mounts the shipped `RootRedirect` gets a `/` that ignores `app.isDefault`**, while `apps/console` — the only host that mounts the twin — honours it. Same route, two answers, and the published one is the poorer.\n\n## ⛔ Why this is NOT objectui#7373\n\nobjectui#7373's ruling B is about **recovery redirects** — \"this app does not exist / no access\" exits. `/` is a **landing**, and it already has a policy. Folding it into `useHomePath()` would hand `/` a **third** answer carrying neither guard above, which is why that card's claiming seat ruled it out of scope and filed this instead (objectui#7373, the seat's Q2 ruling, 2026-09-19).\n\n## What this card actually asks\n\nNot \"apply `useHomePath()` here\". The question is which resolver `/` should have, for consumers as well as for `apps/console`:\n\n> Should `RootRedirect` and `RootLandingRedirect` be **one** answer — and if so, which one, given that only the `apps/console` twin carries the two guards?\n\n⛔ The filing seat does not answer it: choosing a resolver for a published route is a design decision. ⚠️ Note that a parity instrument for the adjacent half already exists (`homeAffordancesFollowDeclaration-7256`), which is evidence the repo already wanted the chrome and `/` to agree.\n\n## 查重词\n\n`RootRedirect` · `RootLandingRedirect` · `resolveLandingPath` · `published / route` · `isDefault landing parity`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

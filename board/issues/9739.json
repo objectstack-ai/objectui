@@ -1,0 +1,34 @@
+{
+  "number": 9739,
+  "kind": "issue",
+  "title": "decision(types): `operators` is accepted by the published mirror, absorbed as `any` by the twin, read by nothing and REFUSED upstream by name — delete it, or tombstone it with the rename?",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "package: types",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T22:34:58Z",
+  "updated_at": "2026-09-19T03:53:09Z",
+  "closed_at": "2026-09-19T03:52:24Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9739",
+  "body": "Split out of card objectui#9729 by the `domain:spec` @ objectui execution seat, session `session_01UanLVj6xvbS6puBCewLr8L`, before PR objectui#9735 lands. That PR carries `Fixes #9729`, so the card that measured this closes on merge — the decision it uncovered needs its own home, and this is it.\n\n⛔ objectui#9729 delivered the **instrument**. This card is the **remedy**, and every route moves a published accept set ⇒ `Clause-②: yes` ⇒ maintainer ruling plus an at-tier contract review, neither of which the execution seat can serve.\n\n⚠️ This card and its sister (`dueLike`) were **one card** until the measurement split them. They look alike and their answers are **opposite**; the readings below are why.\n\n---\n\n## 维护者速读\n\n表格组件上有一个配置键,作者写了它——**校验通过,然后什么都不发生**。\n\n这个键在我们发布的校验器里,但**没有任何渲染路径读它**、**仓内没有任何文档或示例写它**、而且**上游协议根本没有这个键**:协议上的正确拼写是另一个词。它更像当年扫描时抄错的一个名字,而不是一个曾经存在过的能力——源码里那行注释自己就写着「上次扫描漏掉但很常见」。\n\n作者今天写了它,校验器说「可以」,产品一声不吭地忽略它。这是我们最不希望出现的一种失败:**看起来成功了**。\n\n三条路:**A 把它在类型上也补声明**(等于承认这个错拼是我们的键),**B 从校验器里删掉**(以后写它就报错,但不会说为什么),**C 删掉并留一块墓碑**(以后写它会报错,**并直接告诉作者正确的拼写**)。\n\n请裁一个字母:**A / B / C?**\n\n---\n\n## 一句话问题\n\n作者在表格上写了一个配置键,校验说「可以」,产品完全忽略它,而协议里压根没有这个键。\n\n## 选项 × 真实代价表\n\n| 选项 | 做什么 | 客户可感知的后果 |\n|---|---|---|\n| **A** | 在发布的 TypeScript 面上也补声明这个键 | 我们在自己的门面上,正式声明一个**上游按名字拒收**的键,而且它和本组件已经声明的另一个近似拼写并排站着。作者更可能写错,而且写对了也还是没有行为。⚠️ 扩大接受集,`Clause-②: yes` |\n| **B** | 从发布的校验器里删掉 | 以后写它会被拒。⚠️ 但**拒绝不解释**:作者只知道这个键不行,不知道正确的是哪个 |\n| **C** | 删掉,并在原位留一块墓碑:按名字拒收,并在报错里给出正确拼写 | 以后写它会被拒,**并被直接告知应该写哪个键**。代价:多一块要维护的墓碑 |\n\n## 业务含义直译\n\n- **A** = 把一个错别字写进正式合同,还放在正确条款旁边。\n- **B** = 把错别字划掉,不告诉对方正确写法。\n- **C** = 把错别字划掉,并在旁边批注「你要找的是这个」。\n\n## 四轴从业务立场论证\n\n- **① 项目长远合理性:B 与 C 同向缩小,A 扩大。** 上游协议在同一个组件上声明的是另一个拼写,从无本键。留着它是我们单方面维护一个协议没有的接受点;A 是把这个分歧写进合同。⛔ ① 能把 A 排除,但 ① **分不开 B 与 C**——两者是同一个方向的两种拼法。\n- **② 实际业务拉动:零,而且是四重零。** 渲染路径无人读(字节标尺测量,含点亮控制)、仓内无人写、组件的作者词表从未列过它、上游按名字拒收。⇒ 「零拉动默认 defer 或 remove」在这里直接成立。\n- **③ 防 AI 犯错:这一轴是 B 与 C 的唯一分水岭,而且它指向 C。** 今天的失败形态是最坏的:**静默容忍**——校验绿、索引签名把它吞成 `any`、运行时无声。B 把它变成响亮拒绝,已经是大改善;C 在响亮拒绝之上再加一条**闭合的指向**,把作者直接送到正确的键。「闭合枚举优于自由结构,响亮拒绝优于静默容忍」——C 两条都占。\n- **④ 创业阶段不扩散:排除 A,并轻微地偏好 B。** 「每个已声明的键都是永久义务」——A 新增一份永久义务,换来零行为。C 的墓碑确实也是一份要维护的义务,但它是**已在本仓成立的既有形状**(同一个 zod 目录里已经有一块同款墓碑在服役),⇒ 不是新增一类义务,是复用一类。\n\n## 防 AI 犯错轴:出错时谁看到什么\n\n- **今天**:AI 写了这个键 → 校验器**绿**;TypeScript 那侧因为接口继承了带索引签名的基类,把它**吞成 `any`**,也绿 → 运行时**什么都不做**。两扇门都说成功,产品什么都没做。⭐ 这正是与姊妹卡 `dueLike` 相反的形态:那边两扇门**吵架**(所以有人会发现),这边两扇门**合谋**(所以没人会发现)。\n- **B 之后**:校验器**响亮拒绝** → AI 知道错了,不知道对的是什么 → 它会猜,而近似拼写就在旁边。\n- **C 之后**:校验器**响亮拒绝并给出正确拼写** → AI 一次改对。\n\n<!-- os-decision-facets -->\nos-decision-facets\n\n- ① 项目长远合理性:上游在同一组件上声明的是另一个拼写、从无本键;B/C 同向缩小分歧,A 把分歧写进合同。① 排除 A,但分不开 B 与 C。\n- ② 实际业务拉动:零,四重零——无渲染读者、无仓内作者、组件词表从未列、上游按名字拒收。\n- ③ 防 AI 犯错:今天是**静默容忍**(校验绿 + 索引签名吞成 any + 运行时无声);B 转为响亮拒绝,C 在响亮之上再给正确拼写,是 B/C 的唯一分水岭。\n- ④ 创业阶段不扩散:排除 A;C 的墓碑是本仓**已有的既存形状**而非新增一类义务。\n\nPrior rulings read: operators,objectgridschema,object-grid → 0 hits; none\n\n**推荐:C。** 回退:**B**(同方向、少一块墓碑)。⛔ 不推荐 A。\n自检行:只看①选 **B 或 C**(①判定方向为「缩小」,⛔ 不足以在两种拼法间分辨);②③④ 是否翻转:**否**——②④ 与①同向,③ 在①选定的方向**内部**挑了 C。⚠️ 如实申报:这不是「①选出字母」的标准形状,因为①本身分不开两个同向选项;字母没有被后三轴翻转,只是被③在同一方向内细化。\n置信缺口:⛔ 未量到仓外是否有消费者在写这个键——只量了本仓与上游。⛔ 「无渲染读者」由 objectui#9729 的字节标尺证明(含点亮控制,开关筛选面两种状态下字节完全一致),本席复核了声明面与继承关系,未独立重跑那支标尺。\n\n## 裁后执行段\n\n- **裁 C** ⇒ 立一张执行卡:把镜像成员换成本仓既有的退役墓碑形状,报错文案里给出正确拼写;带 `Clause-②: yes`,走至上而下的契约复审档(`CONTRACT_REVIEW_TIER`),⛔ 本席不自清。同批收掉 `MirroredUndeclared` 台账里对应的那一行,并按本仓惯例为「按名字拒收」补一条双向 pin(拒的那个键红、并排的正确键仍绿)。\n- **裁 B** ⇒ 同上,只是不写墓碑;⚠️ 落地时要在 changeset 里写明作者拿不到指引,这是本选项的已知代价。\n- **裁 A** ⇒ ⛔ 落地前先与上游对齐:我们会在自己的门面上声明一个上游按名字拒收的键,该分歧要先立成 seam 卡。\n\n## 出处\n\n- 测量与选项分析:card objectui#9729 · PR objectui#9735(该 PR ⛔ 不动任何一侧,只测量)\n- 仪器:card objectui#9711 · PR objectui#9725(`MirroredUndeclared` 台账)\n- 本仓既有的同款墓碑形状:`packages/types/src/zod/complex.zod.ts` 上 `DashboardConfigSchema` 的退役键(objectui#5852)——按名字拒收并在报错里给出替代\n- 上游读数:`packages/spec/src/ui/component.zod.ts` 在该组件上声明的是另一个拼写,本仓这个键在其中 **0** 次\n- 姊妹卡(答案相反):`dueLike` · 同族但不同类:objectui#9736\n\nDedupe words: `operators` · `ObjectGridSchema` · `retirement tombstone rename` · `index signature absorbs as any` · `mirror-only published key`\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

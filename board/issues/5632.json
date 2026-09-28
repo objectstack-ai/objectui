@@ -1,0 +1,33 @@
+{
+  "number": 5632,
+  "kind": "issue",
+  "title": "burn-down: 119 ledgered DOM-attribute leaks in `packages/components/src/renderers/**`, grouped by mechanism",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-21T19:39:02Z",
+  "updated_at": "2026-09-19T02:51:17Z",
+  "closed_at": "2026-09-19T02:51:17Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 15,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/5632",
+  "body": "Parent record for the leak ledger that landed with #5574 (PR #5629). Filed **unassigned and ungraded** by the `domain:ui` execution seat (#5560) so the work is tracked rather than stranded inside a test file. Sizing and sequencing are triage's to decide — see \"What this card is not\" below.\n\n## What exists now\n\n`packages/app-shell/src/__tests__/widget-dom-leak-sweep.test.tsx` sweeps **158 registry types** across the five namespaces owned by `packages/components/src/renderers/**` (`ui:`, `element:`, `page:`, `action:`, `protocol-placeholder:`), all 86 renderer source files. Before #5629 it saw **none** of them.\n\n**119 of 158 targets leak** DOM attributes. All 119 are enumerated in `LEAK_LEDGER` in that file — that map is authoritative for the exact per-target attribute sets; the summary below is a reading of it, not a substitute.\n\n## Why this is safe to burn down incrementally\n\nThe per-target assertion is **exact set equality in both directions**, so the ledger expires itself on contact:\n\n- a ledgered renderer that leaks one **more** attribute fails the gate;\n- a renderer that **stops** leaking also fails it, until its row is deleted in the same change.\n\nA follow-up therefore cannot half-land, and the rows cannot quietly become a permanent allowlist. Nothing is skipped, `it.skip`-ed or quarantined — all 158 targets render and are scanned on every run.\n\nThree meta-cases keep that honest: no renderer may appear in two groups; every readiness override must carry a recorded reason **and** every reason an override (two-way, so the override list cannot become a parking space); and the four renderers #5574 originally named must stay ledgered while `ui:grid` must stay out.\n\n## The grouping, as a starting point for decomposition\n\nThe ledger groups by **measured mechanism** rather than by file, which is why mechanism looks like the natural card boundary — each group has one argument and one test story, where a file-sized card would have neither.\n\n| group | targets | note |\n|---|---|---|\n| `BARE_SPREAD` | 95 | 14 attributes including `name` |\n| `BARE_SPREAD_MINUS_NAME` | 18 | 13 attributes — the host **defines** `name`, so HTML makes that one legitimate |\n| `BARE_SPREAD_ON_SVG` | 2 | `ui:icon`, `ui:spinner` — 14 attributes with **camelCase preserved**, because SVG attribute names are case-sensitive |\n| `action:group` | 1 | `BARE_SPREAD` plus `actions` |\n| `action:menu` | 1 | `MINUS_NAME` plus `actions` |\n| `ui:form` | 1 | 12 attributes; `FormRenderer` consumes `dataSource` and `form` defines `name` |\n| `ui:sidebar-trigger` | 1 | 14 attributes **including `schema` itself** — the node `SchemaRenderer` injects on every render |\n\nRead `LEAK_LEDGER` for the authoritative grouping and the exact attribute sets; the counts above are transcribed from the landing report and the mechanisms, not the individual rows, are what this table is for.\n\n## Two things a burn-down needs to know before starting\n\n**A renderer that renders nothing reads clean.** The first sweep pass reported 46 clean targets. **Sixteen were phantom** — 12 rendered zero elements (closed overlays, `action:*` with no actions, `ui:icon` returning `null`) and 4 threw `useSidebar` into an *attribute-clean* error boundary. Once made to render real markup, **7 of the 16 leaked.** A DOM-attribute gate cannot distinguish \"safe\" from \"absent\" without a rendering-something precondition, so any fix that makes a renderer bail early will read as a success it did not earn.\n\n**`ui:grid` is clean and must stay out of the ledger.** #4787 / PR #5573 fixed it, and it is now pinned from both sides rather than by hand. It is the worked example of what a burned-down row looks like.\n\n## What this card is not\n\nIt is **not** a decomposition decision and carries no priority. `packages/components` is the most-shared package in the repo, several agents land into its merge queue concurrently, and how to slice 119 fixes across it is a planning call this seat declined to make on its own authority. Grading, splitting into per-mechanism cards, or closing this in favour of a different decomposition are all triage's.\n\nRefs #5574, PR #5629, #4787 / PR #5573. Related but distinct, on the same renderer family: #5630 (three `element:` renderers swept only in their empty-state branch) and #5631 (`ui:icon` consults the SDUI identity key `name`).\n\n---\n\n## Triage: closed `not_planned` — North Star full-board re-grade (2026-09-19)\n\n**Path: none.** None of the 264 checklist items fail because of this, it is not a step on the single measured journey, and none of the eleven capabilities in 「做出来的是什么」 is absent: the views render and the app is usable. The 119 leaks are recorded in `packages/app-shell/src/__tests__/widget-dom-leak-sweep.test.tsx`, which keeps the ledger whether or not this card is open.\n\n**Nothing is lost.** Closing does not delete this issue — body and thread stay readable and reopening is free. Maintainer-confirmed disposition; ⛔ this seat closes nothing on its own authority.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

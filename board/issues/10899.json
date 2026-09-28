@@ -13,20 +13,18 @@
   "labels": [
     "bug",
     "domain:ui",
-    "pm:dispatched",
-    "pm:epic"
+    "pm:queue",
+    "priority:p2"
   ],
-  "assignees": [
-    "hotlong"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T05:38:59Z",
-  "updated_at": "2026-09-28T08:18:30Z",
+  "updated_at": "2026-09-28T11:32:46Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 5,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10899",
   "body": "## Source\n\nTwo local end-to-end runs on 2026-09-28, both starting from sign-up. Run one used cloud `96eb092f` with objectui pin `efead6c6`. Run two used objectui `main` `35d68c4c` with objectstack `main` `862b6ce8`. Each defect below reproduced on objectui `main` unless marked otherwise. This card collects the objectui halves of findings tracked under epic objectstack-ai/cloud#2440; the cloud halves live on the cloud cards named per item.\n\n## Items (each can land alone)\n\n1. **The in-app assistant's floating button covers the composer's send button.**\n   - Where: an app page (e.g. an AI-built app's list) with the assistant panel open via 「打开…助手」.\n   - What happens: the round FAB at the bottom-right sits on top of the panel's send button. Only the Enter key sends.\n2. **A failed record comment is shown as sent.** This is the objectui half of objectstack-ai/cloud#2431.\n   - Where: the record detail 「讨论」 panel. On a tenant where `sys_comment` is not registered, `POST /api/v1/data/sys_comment` returns 404.\n   - What happens: the comment still renders and the count becomes 「讨论 (1)」, with no error. It is gone after a reload.\n   - Expected: a failed write shows a localized error and does not render as sent. Also, when the object does not exist, do not render the panel, or say that it is unavailable.\n3. **A dashboard 403 renders as a raw English exception.**\n   - Where: a dataset widget the viewer may not read.\n   - What happens: the card shows `Dataset query failed: 403 Forbidden — [Analytics] Access denied: reading \"y8bc_customer\" is not permitted for this user.` The list view already renders a localized 「无权访问」 empty state; the widget should do the same.\n   - Related: objectstack-ai/cloud#2439 is the underlying permission bug.\n4. **The assistant scope chip says 「新建应用」 inside an app.**\n   - Where: the header chip of the in-app assistant while inside app 「客户管理」.\n   - What happens: it reads 「构建 · 新建应用」 while the build proposal correctly targets the existing app (the Studio copilot shows 「客户管理」). The chip should name the current app.\n5. **Empty 「执行过程」 blocks in the AI copilot.**\n   - What happens: after each tool step the conversation renders an italic 「执行过程」 placeholder with a large empty area. The Studio replay also orders steps differently from the live run.\n6. **The control-plane console offers Studio editing to a non-platform-admin.** This is the objectui half of objectstack-ai/cloud#2434 item 1.\n   - Who: a signed-up org owner who is not a platform admin.\n   - What happens: on cloud pages (`/_console/apps/cloud_control/page/welcome`, pricing) this user sees 「在 Studio 中编辑」 (pencil) and 「在 Studio 中设计」 (hammer). They open the control plane's own page metadata editor, which offers 「新建」.\n   - Ask: whether the gate belongs in the console (hide the affordance without the permission) or in the server-side permission set is the dev's first reading. Report the producer.\n\n7. **Marketplace labels an older version as an update.**\n   - Carried from objectstack-ai/cloud#2432 acceptance item 3. That card's PR (objectstack-ai/cloud#2442) fixes only the cloud-side review gate.\n   - Where: the environment marketplace detail page.\n   - What happens: it shows 「已安装 · v1.1.0 / 有可用更新 → v1.0.0」.\n   - Producer, per the #2432 dev (read at objectui pin `efead6c6`): `packages/app-shell/src/console/marketplace/MarketplacePackagePage.tsx`. `cloudUpdateAvailable` (~L620–624) and the env picker's `hasUpdate` (~L939–940) compare installed vs latest approved with `!==` instead of version order.\n   - Expected: an \"update\" appears only for a higher version.\n\n## Acceptance\n\nEach item is either fixed with a test, or reported with the producer named when that producer is outside objectui.\n\n"

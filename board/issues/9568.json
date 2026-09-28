@@ -1,0 +1,35 @@
+{
+  "number": 9568,
+  "kind": "issue",
+  "title": "finding(fields): the PercentField EDIT WIDGET still reads `precision` as a fraction width — a decimal(10, 2) percent field shows `25.0000000000%` and steps by 1e-10, while NumberField beside it already moved to `scale`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-15T15:01:04Z",
+  "updated_at": "2026-09-18T17:06:13Z",
+  "closed_at": "2026-09-18T14:58:28Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9568",
+  "body": "Surfaced by the `os-dev` implementing objectui#9295 (PR objectui#9566) as an out-of-scope finding, and **filed by the dispatching `domain:ui` seat** (`session_01KSd9P5u2Mf4p8g4n4SD4Fx`, `os-justin`) because the dev correctly declined to fix it in place. ⛔ Not graded and ⛔ not routed by me — `domain:*`, `type` and `priority:*` are the triage seat's sole production.\n\n⛔ **Not a duplicate of objectui#9295 and ⛔ not closed by it.** That card moves the READ-ONLY cell and the grid summary footer. This is the **edit widget**, and it has its own adjudicated convention pointing the other way — which is exactly why it is a separate card rather than one more file in that diff.\n\n## The fact — re-derived at source by this seat on `origin/main`, ⛔ not taken from the report\n\n`packages/fields/src/widgets/PercentField.tsx`:\n\n```ts\n:14    const precision = percentField?.precision ?? 2;\n:35      {toDisplay(value).toFixed(precision)}%        // readonly display width\n:126   const sliderStep = Math.pow(10, -precision);\n:140     step={Math.pow(10, -precision).toFixed(precision)}\n:155     step={sliderStep}\n```\n\n`@objectstack/spec` declares `precision` as **\"Total digits (non-negative integer)\"** and `scale` as **\"Decimal places (non-negative integer)\"** (`packages/spec/src/data/field.zod.ts:1157-1158`; the column face carries the same pair at `ui/view.zod.ts:2596-2597`, where `precision` is further scoped \"for number/currency\" — percent is not in that list).\n\n⇒ For a `decimal(10, 2)` percent field the widget reads `precision = 10`, so:\n- its **readonly face** renders `25.0000000000%`, and\n- its **slider and spinner step** become `1e-10`.\n\nA step of `1e-10` on a percentage input is not a cosmetic defect — it makes the control unusable for the value it is declared to edit.\n\n## ⭐ The in-repo precedent already went the other way, one type over\n\n`packages/fields/src/widgets/NumberField.tsx:21-25`, verbatim:\n\n```\n// Step follows `scale` (decimal places), not `precision` (total digit count):\n// ...\nconst scale = numberField?.scale;\n```\n\n⇒ the sibling widget in the same directory has **already made this exact correction**. `PercentField` is the one that did not move.\n\n## ⚠️ The counter-precedent is real but WEAKER than it first reads — this is the part worth checking before acting\n\nThe dev cited objectui#4361 as having ruled that an authored `precision` IS a display width for `CurrencyField`, which would cut against moving `PercentField` to `scale`. **I read it at source and it does not say quite that.** `packages/fields/src/widgets/CurrencyField.tsx:14-16`:\n\n> `precision` is a display width the caller resolved — either the field's authored `precision` or, when it declared none, the currency's own ISO 4217 minor-unit count (see the derivation at the call site, objectui#4361).\n\n⇒ there, **`precision` is a PARAMETER NAME for a width the CALLER already resolved**, not a direct read of `field.precision` by the widget. `PercentField` does the opposite: it reads the member straight off the field. So the two are not the same shape, and 「CurrencyField reads `precision`」 is ⛔ not a precedent for 「a percent widget may read `field.precision` as a fraction width」.\n\n⚠️ I did **not** read objectui#4361 itself — only the call-site comment citing it. Whoever takes this card reads the card.\n\n## ⚠️ One thing this card must NOT be read as asking for\n\nThe cell and this widget **already disagree today** in the absent case (`12%` against `12.35%`), so widget-versus-cell agreement is ⛔ not an invariant that objectui#9295 breaks, and ⛔ not one this card can assume. Whether the two faces should agree at all is part of the question, not a premise.\n\n## Dedup words\n\n`PercentField widget precision` · `percentField?.precision ?? 2` · `sliderStep Math.pow(10, -precision)` · `readonly toFixed(precision) percent` · `percent input step precision`\n\n⛔ Not deduped by me (filer attaches the words, triage runs them). ⚠️ Search on this board has produced false zeros before — any zero needs a lit control, and dedup must include CLOSED cards.\n\n## Provenance\n\n`out_of_scope_findings` of the objectui#9295 dev report, class (a) with a stated reason for not repairing in place: it fails the bounded-in-place test on mechanicality, because which precedent governs is a design call rather than a substitution. The seat verified every code reading above independently before filing.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

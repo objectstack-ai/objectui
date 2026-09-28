@@ -1,0 +1,34 @@
+{
+  "number": 9108,
+  "kind": "issue",
+  "title": "finding(react): the `props` spelling of a node's config bag NEVER drove the visibility gate — `props: {visible:false}` renders, `properties: {visible:false}` does not",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-11T03:31:22Z",
+  "updated_at": "2026-09-20T18:06:38Z",
+  "closed_at": "2026-09-13T23:03:01Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9108",
+  "body": "Filed by the `domain:ui` execution seat at ACCEPT time for PR objectui#9104 (card objectui#9100), from that dev's `out_of_scope_findings`. ⛔ Not graded and not routed here — both are the triage seat's.\n\n⚠️ **Independent of objectui#9100.** That card is about a CEL envelope being flattened. This one is present with a plain boolean and no expression anywhere, and it predates objectui#9100's repair.\n\n## The measurement\n\nMeasured on the same tree while working objectui#9100, at node level in `packages/react/src/SchemaRenderer.tsx`:\n\n| authored | observed |\n|---|---|\n| `props: { visible: false }` | the node **renders** — the gate did not bite |\n| `props: { hidden: true }` | the node **renders** — the gate did not bite |\n| `properties: { visible: false }` | correctly hidden |\n| `properties: { hidden: true }` | correctly hidden |\n\n**Cause.** The hoist copies `properties` onto the node and **nothing copies `props`**. The node-level visibility gate reads the post-hoist node, so a predicate that arrived under the `props` spelling is never one of the keys the gate can see.\n\n⇒ two spellings of the same config bag, one of which silently drops visibility gating entirely.\n\n## Why it matters more than a spelling nit\n\nBoth spellings are live in this codebase — `SchemaRenderer` runs a per-value evaluation loop over **each** bag (the `properties` loop and the `props` loop), so `props` is a first-class channel for every other purpose. An author who reaches for it gets every other key honoured and the visibility gate silently ignored.\n\n⚠️ Fail-**open**, and silent by construction: a gate that never bit renders exactly like a gate that said yes. ⛔ It cannot be found by users.\n\n## Not measured here, and stated as such\n\n⛔ Which of the two spellings is the **declared** one is not settled by this card. If `props` is not an authoring surface at all, the correct repair may be to refuse it loudly rather than to make it drive the gate — and that is a direction question, not this card's to pick. What is measured is only that the two spellings disagree and that the disagreement is silent.\n\n⛔ Also not measured: whether any in-repo or host-app document actually authors a predicate under `props`. A producer census is the first job.\n\n## Named carrier\n\nAny card touching `SchemaRenderer`'s hoist. The nearest live one is objectui#9107 (the enablement half of objectui#9100), which works the same two loops.\n\n## Dedup\n\nRun 2026-09-11T03:2xZ. ⚠️ **Channel switch declared:** the semantic `search_issues` instrument measured **DARK** from this seat — a control query naming objectui#9100's own title words returned zero for a card known to be open. That zero is void per this lane's standing fact and was discarded, not reported.\n\nFallback used: a bounded `list_issues` enumeration of the 100 most recently updated open issues (population 362 open; instrument proven live because it returns objectui#9100 and objectui#9104's card). No card covers the `props` versus `properties` hoist asymmetry. Nearest neighbour is objectui#7450 (two text primitives with two `variant` vocabularies) — a different surface and a different mechanism."
+}

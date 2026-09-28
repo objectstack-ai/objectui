@@ -1,0 +1,34 @@
+{
+  "number": 10978,
+  "kind": "pull_request",
+  "title": "docs(contributing): a repository count in a changeset is a reading at a named commit",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T12:20:41Z",
+  "updated_at": "2026-09-28T12:50:46Z",
+  "closed_at": "2026-09-28T12:50:44Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-28T12:50:44Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/10978",
+  "body": "Fixes #9649\n\nClause-②: no — contributor guidance in a non-governed, unpublished file; no contract, accept set or public surface changes\n\n## What changes\n\n`CONTRIBUTING.md`, section `### Changeset Message Guidelines` only: one short rule and one good/bad pair in the section's existing example style. Diff: +14 lines, no other section touched.\n\n- A count over the repository (\"N files\", \"N call sites\", \"N occurrences\") in a changeset is a reading of one tree. It publishes verbatim, nothing re-checks it, and the next file added can falsify it, including a sibling release note that quotes the same token.\n- So it is stated in the past tense as a reading at a named commit, or left out. \"This branch\" means nothing once the note is in the CHANGELOG, so the example names the commit.\n- It points at AGENTS.md commandment `#9` as the general rule and does not restate it.\n\n## Route\n\nThe card offered (i) a gate, (ii) a convention, (iii) nothing, and ruled on none of them. The claiming seat chose (ii), and that choice is recorded in the claim comment on the card:\n\n- (i) is not taken. The four-axis clause says new gates default to no unless a maintainer names one, and no naming is on record.\n- (iii) is not taken. It would leave user-visible release-note claims that cannot be revised after publishing.\n\nNo checker, script, lint rule or test that polices changeset prose is added.\n\n## Premise checks (on `origin/main` 328abeb553)\n\n- **H1, confirmed.** The section had a good/bad list and 0 lines about counts, revisions or tense. `node scripts/check-governed-queue-guard.mjs --test CONTRIBUTING.md` answered `NOT GOVERNED`. The control `--test AGENTS.md` answered `GOVERNED`, exit 3. Root `AGENTS.md` commandment `#9` states the general principle: prose that declares something counted is derived once and never again, and where nothing re-derives it the text must say so. It does not name changesets or the named-commit device, so the new text points at `#9` instead of restating it. `.changeset/README.md` has no message-writing guidance.\n- **H2, confirmed.** `.changeset/6951-tree-view-data-retired.md` is still pending on `main` (`git cat-file -e` exit 0, with `.changeset/config.json` as the control, also exit 0). Its figures are headed \"What was measured, on this branch's base.\" The note names no commit, so a CHANGELOG reader cannot resolve \"this branch's base\". The new guideline asks for the commit to be named.\n- **H3, re-derived.** The card said \"five notes\", and that figure had not been re-derived. It is an undercount. The per-changeset list, with a truth reading on `main` for each entry, is in the `os-dev-report` comment on the card. No changeset is edited here.\n\n## Local verification (head 247cf09707)\n\n- `node scripts/check-doc-links.mjs` → exit 0, \"Links are valid across 17 scan roots.\"\n- `pnpm check:control-bytes` → exit 0, \"OK (scanned 9250 tracked text file(s); skipped 85 binary)\"\n- `pnpm check:new-line-citations` → exit 0, \"VERDICT new-cross-file-line-citations: 0 new citation(s), enforcement report-only\"\n- `node scripts/check-changeset-presence.mjs` → exit 0, \"No source or published contract of a released package changed in this range, so no changeset is owed.\"\n- `pnpm check:installed-pin-claims` → exit 0, \"OK\"\n- The tests that read `CONTRIBUTING.md` are `scripts/__tests__/check-installed-spec-pin-claims.test.ts` and `scripts/__tests__/ci-cd-pipeline-doc.test.ts`, per the `markdown-test-inputs` ledger. The grep hit `scripts/__tests__/check-doc-links.test.ts` was also run, although it only uses fixtures. They ran as `pnpm exec vitest run --maxWorkers=2` under the shared verify lock → \"Test Files 3 passed (3), Tests 235 passed (235)\", VERDICT command-exit 0.\n- `pnpm check:doc-snippets` is not owed. Its header lists root pages other than `README.md`, `CONTRIBUTING.md` included, as outside its roots. A local invocation exited 2 on unbuilt packages (a prerequisite, not a measurement), so this is NOT MEASURED and was not read as red.\n\n## Acceptance notes\n\n- The section's existing ✅ example \"Improve performance of large data grids by 50%\" is a measured figure, but it is not a count over the repository. It is left untouched, per the file surface.\n- `.changeset/6951-tree-view-data-retired.md` also carries a cross-file line address in its \"measured\" paragraph, the shape AGENTS.md `#11` bans. That is an observation only: it is a pending body owned by another card, it is outside this card's file surface, and no one is taking it up.\n\nAttribution: this change was made in session `https://claude.ai/code/session_01EBx9rvB7dufCz4at53x35U`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01EBx9rvB7dufCz4at53x35U)_\n"
+}

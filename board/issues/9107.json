@@ -1,0 +1,34 @@
+{
+  "number": 9107,
+  "kind": "issue",
+  "title": "finding(react): the ENABLEMENT predicate keys carry objectui#9100's envelope-flattening defect — same two loops, deliberately left out of its fix",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-11T03:31:03Z",
+  "updated_at": "2026-09-20T18:06:35Z",
+  "closed_at": "2026-09-11T09:45:44Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9107",
+  "body": "Filed by the `domain:ui` execution seat at ACCEPT time for PR objectui#9104 (card objectui#9100), from that dev's `out_of_scope_findings`. ⛔ Not graded and not routed here — both are the triage seat's.\n\n## The measurement\n\nobjectui#9100 established that `SchemaRenderer`'s two shallow per-value config-bag loops (`packages/react/src/SchemaRenderer.tsx`, the `properties` loop and the `props` loop) hand every bag value to `ExpressionEvaluator.evaluate`, whose first action is to unwrap any `{ source: string }` object down to its bare `source` string (`packages/core/src/evaluator/ExpressionEvaluator.ts:213-214`).\n\nFor a `{ dialect: 'cel', source }` predicate that unwrap is destructive: the envelope is the only thing that routes `evaluateCondition` to `evaluateCelCondition` (`ExpressionEvaluator.ts:354-356`). Flattened, the predicate goes to the legacy JS engine, any CEL stdlib call faults, and the **fail-soft default renders the component** — a gate authored to hide something shows it instead, silently.\n\nPR objectui#9104 repairs this for the **visibility chain** only: the six keys of the file's own pre-existing `VISIBILITY_SHOW_KEYS` + `VISIBILITY_HIDE_KEYS` declaration (`SchemaRenderer.tsx:245-246`).\n\n**The enablement keys are not in that set and carry the identical defect.** They route through `evaluateEnablementPredicate` rather than the visibility chain, but they sit in the same two bags and are flattened by the same two loops.\n\n- `disabled`\n- `disabledOn`\n- `enabled`\n\n## Why it was left out rather than fixed\n\nDeliberately, on a triage ruling quoted verbatim from objectui#9100's grading comment (`5628540079`):\n\n> ⚠️ ⛔ Do not widen the fix to all of them unbidden — report the count, fix the measured one, and file the rest if the count is non-trivial.\n\n⇒ objectui#9104 fixed the measured one and stopped at the boundary the ruling names. This card is the \"file the rest\" half.\n\n## Named carriers, so this is not an orphan\n\n`packages/components/src/renderers/action/action-button.tsx` and `action-icon.tsx` each declare **two** of these three keys and are the two renderers that would feel it first.\n\n## Not measured here, and stated as such\n\n⛔ Nobody has driven an enablement predicate authored as a CEL envelope end to end. What is measured is the **mechanism** — the same loops, the same unwrap, a key set that the objectui#9104 guard provably does not cover. Whether a real authored document reaches it, and what a user sees when it does, is this card's first job.\n\n⚠️ The failure mode is silent by construction: for enablement, fail-soft means a control that should be disabled stays **enabled**. It cannot be found by users; it has to be found by looking.\n\n## One adjacent blind spot this card should carry\n\nobjectui#7530's pin (`packages/react/src/__tests__/SchemaRenderer.predicateEnvelopeDeclared.test.tsx`) mounts every case at **NODE level**, so it could never observe this defect — the `properties` channel, which is the spelling the server actually emits, is the one channel it never measured. objectui#9104's new fix-site pin closes that for the visibility chain; the same node-level-only blind spot still applies to that file's `disabled` leg.\n\n## Dedup\n\nRun 2026-09-11T03:2xZ. ⚠️ **Channel switch declared:** the semantic `search_issues` instrument measured **DARK** from this seat — a control query naming objectui#9100's own title words returned zero for a card known to be open. Per this lane's standing fact that its false zeros are seat-dependent, that zero is void and was discarded rather than reported.\n\nFallback used: a bounded `list_issues` enumeration of the 100 most recently updated open issues (population 362 open, instrument proven live because it returns objectui#9100 and objectui#9104's card). No card covers the enablement keys or the config-bag flattening. Nearest neighbours, all different mechanisms: objectui#9022 (unresolved drill placeholders), objectui#8069 (field-rule permissive fallback), objectui#8334 (the expression-carriage census's dialect blind spot, a gate rather than a renderer)."
+}

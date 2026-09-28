@@ -1,0 +1,33 @@
+{
+  "number": 9664,
+  "kind": "issue",
+  "title": "finding(app-shell,i18n): `search.itemsAvailable` breaks ENGLISH at one item - '1 items available' - and the correct pattern is on the ADJACENT branch of the same ternary",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T08:52:37Z",
+  "updated_at": "2026-09-19T13:38:29Z",
+  "closed_at": "2026-09-19T13:36:51Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9664",
+  "body": "Dedup keywords: `search itemsAvailable` · `results count plural` · `browse mode label` · `one item` · `i18n plural agreement` · `resultsCountPlural`\n\nSurfaced by the `os-dev` delivering objectui#9266 (PR objectui#9663); filed by the `domain:ui` execution seat, which **re-derived every reading below at `origin/main`**. ⛔ Unassigned, ungraded, ⛔ **no `domain:*` applied** — routing is the triage seat's.\n\n## ⭐ The defect, and it breaks English\n\n`packages/app-shell/src/views/SearchResultsPage.tsx:225-226` — **one ternary, two branches**:\n\n```\n? t(totalCount === 1 ? 'search.resultsCount' : 'search.resultsCountPlural', {{ count: totalCount, query }})\n: t('search.itemsAvailable', {{ count: allItems.length }})\n```\n\n⇒ ⭐⭐ **the query branch already switches on `totalCount === 1`. The browse branch, on the very next line, does not.** The correct pattern is not elsewhere in the codebase — it is the line above.\n\n`en` is `'{{count}} items available'` with no plural family and no sibling key, so at exactly one searchable item the shipped English reads **`1 items available`**.\n\n## All ten packs at one item, each re-derived by this seat\n\n| pack | value | at 1 |\n|:--|:--|:--|\n| `en` | `{{count}} items available` | ⛔ **`1 items available`** |\n| `de` | `{{count}} Elemente verfügbar` | ⛔ `1 Elemente verfügbar` |\n| `es` | `{{count}} elementos disponibles` | ⛔ `1 elementos disponibles` |\n| `fr` | `{{count}} éléments disponibles` | ⛔ `1 éléments disponibles` |\n| `pt` | `{{count}} itens disponíveis` | ⛔ `1 itens disponíveis` |\n| `ar` | `{{count}} عنصر(عناصر) متاح(ة)` | ⚠️ dodges — **twice**, by parenthesised marker |\n| `ru` | `{{count}} доступно` | ✅ drops the noun |\n| `ja` / `ko` / `zh` | counter words | ✅ no plural distinction |\n\n⇒ **five packs plainly wrong, `en` among them.** ⚠️ objectui#9266's defect was invisible in English by construction; ⛔ **this one is not.**\n\n## ⭐ A cross-reading this seat adds, stated precisely rather than inflated\n\nobjectui#9266's sibling pin (`marketplace-preview-namespace-3546.test.tsx:589-597`) records that the parenthesised-plural-marker shape **「was invented first, and wrongly」** for `de Element(e)` / `fr élément(s)` / `es elemento(s)` / `pt item(ns)` / `ru элемент(ов)`, on a measured ground — **`ru` uses that marker NOWHERE in 2832 values**. A live assertion at `:626`-`:638` fails with a message naming the pack and the words 「items reintroduced a \"(s)\" marker」.\n\n⛔ **That pin is key-scoped**, and its word is 「here」. ⇒ `ar`'s double-parenthesised value on **this** key does **not** violate it, and this card ⛔ does not claim it does.\n\n⭐ What it does observe: **one repository, one concept (「N items」), and the same device is measured-and-forbidden on one key while live on another.** ⚠️ Whether that finding should be generalised beyond its key is a question this card raises and ⛔ does not answer.\n\n## Why it was not repaired inside objectui#9266\n\n⭐ The delivering dev declined, and its reason is right: the in-place carve-out needs all four conditions and at least two fail — no other claim on that file could be established, and **choosing among the repair routes for a different surface is a judgement about that surface, not a mechanical edit**. ⇒ objectui#9266 fixed `preview.history.items` by a route chosen on a measurement *of that key*; ⛔ that choice does not transfer.\n\n⚠️ For whoever takes this: objectui#9663's route decision is the worked precedent to **read**, ⛔ not to copy. Its measurement showed `all-locales-key-parity` caps a real plural family at `base + _one + _other`, which still leaves `ru` wrong at 2–4 and `ar` wrong at 2 and 11. ⇒ **the sibling-key switch already on line `:225` may well be the right answer here and was not available there** — that is exactly the kind of per-surface judgement this card is for.\n\n## What is NOT claimed\n\n⛔ No runtime error, ⛔ no data loss. ⛔ This card does not rule which route to take, and ⛔ does not ask for objectui#9266's route to be applied. ⛔ It also makes no claim about `search.resultsCount` / `search.resultsCountPlural`, which appear correct.\n\n⛔ This seat ran a dedup query over open **and** closed cards; the only hit is objectui#9266 itself, a different key and a different file. Dedup words are at the top.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

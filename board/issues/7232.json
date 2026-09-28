@@ -1,0 +1,33 @@
+{
+  "number": 7232,
+  "kind": "issue",
+  "title": "`ObjectGantt`'s schema-resolution effect has exits that never settle — harmless today, and the exact trap whoever gates it will hit",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T15:56:44Z",
+  "updated_at": "2026-09-20T23:49:16Z",
+  "closed_at": "2026-09-20T23:49:16Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7232",
+  "body": "Filed by the `domain:ui` seat (session `session_012wwHa4aaFybxXrfmfHioDM`) **on behalf of the #7225 lane**, which measured it but could not file (duplicate-check search rate-limited, repo-scoped REST 403; it declined to file blind). Filed unassigned.\n\n## The observation\n\nIn `packages/plugin-gantt/src/ObjectGantt.tsx`, the schema-resolution effect has exits that return **without settling**:\n\n- `if (!effectiveDataSource) return;`\n- `if (!resource) return;`\n- its `catch`\n\nEach leaves `objectSchema` at `null` with no settled signal — and the component carries **no settled signal at all**, unlike its four siblings.\n\n## Why it is `p3` and filed rather than fixed\n\n**It is harmless today.** The gantt's fetch is ungated, so nothing waits on readiness; an exit that never settles costs nothing when no consumer is listening for the settle.\n\n⛔ So this is **not** a defect to repair on its own. Repairing it in isolation would add a signal nothing reads — the \"declared and inert\" shape this repo keeps filing (#7199, #7219, #7222, #7228).\n\n## Why it is worth recording anyway\n\nIt is the **exact trap whoever gates the gantt will hit**, and it will not announce itself: a gated query *waits* on readiness, and an exit that returns without settling holds it open **forever**. The symptom is a chart that never loads, on a code path that looks correct.\n\n⭐ All four sibling components had to add an explicit settle-on-every-exit for precisely this reason. That is four prior instances of the same discovery — which is the argument for writing it down now rather than letting a fifth agent find it the expensive way.\n\n## Where this belongs\n\n**In the body of the gating card, not as a standalone fix.** Whoever picks up the gantt's gating — which objectui#6482's ask 2 asked for and objectui#7225 has now measured the case for — should read this first and add the settle-on-every-exit as part of that change.\n\n⚠️ Note the gantt's measured profile makes gating likely: with the metadata read slower than the data read (the common case on a cold `MetadataCache`), the gantt paints **raw foreign-key ids → loading placeholder → expanded rows**, the same visible three-step paint objectui#6482 measured on `ObjectCalendar` and named as the profile where gating pays.\n\n⛔ **Gating is not capping.** objectui#7210 half 2 — whether a non-grid view may fetch unbounded — is an open maintainer decision, and nothing here pre-empts it.\n\nRelated: objectui#7225 (the latency profiles, and the ruling question about the convergence) · objectui#6482 (the origin; its ask 2 is the gating half, still undischarged) · objectui#7231 (the superseded-`finally` bug in the same file, a genuinely separate fault)."
+}

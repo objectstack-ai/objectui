@@ -1,0 +1,34 @@
+{
+  "number": 9880,
+  "kind": "issue",
+  "title": "finding(core): `normalize-list-view` still classes the list-view kind `page`, which objectstack main RETIRED from the spec — and the row cannot be deleted today because the PINNED published spec still carries it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T13:00:38Z",
+  "updated_at": "2026-09-18T19:35:25Z",
+  "closed_at": "2026-09-18T19:25:01Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9880",
+  "body": "`packages/core/src/utils/normalize-list-view.ts` still classes the list-view kind **`page`**, which objectstack `main` has **retired from the spec**. The two records that partition the derived union no longer compile against it — and ⛔ the row cannot simply be deleted today, because the **pinned published** spec still carries `page`.\n\nSurfaced by the objectui#9860 shape gate on its own first CI run (PR objectui#9877, check `Spec Main Shape Gate`, run `35346702279`, job `105604861812`), and re-measured at source by the filing seat.\n\n## The diagnostic, from the gate's own job log\n\nAgainst `objectstack-ai/objectstack@784366372ec5` (2026-09-18T12:00:56Z):\n\n```\npackages/core/src/utils/normalize-list-view.ts(205,3): error TS2353 —\nObject literal may only specify known properties, and 'page' does not exist in\ntype 'Record<\"list\" | \"detail\", string | null>'.\n```\n\n⭐ **Controlled by the gate itself, both legs, same mechanism and same command:** the published `@objectstack/spec@17.4.0` leg compiles **exit 0 / 0 diagnostics**; the `main`-built leg is **exit 2 / this one diagnostic**. ⇒ the break is **main-vs-published**, ⛔ not the injection mechanism.\n\n## The mechanism, read at source on objectui `origin/main` `489dd12e` at 2026-09-18T12:59Z\n\n```ts\n:156  export type ListViewVisualization = Exclude<ViewType, 'list' | 'detail' | 'page'>;\n…\n:202  const UNDRAWABLE_VIEW_KINDS: Record<Exclude<ViewType, ListViewVisualization>, string | null> = {\n:203    list: null,\n:204    detail: null,\n:205    page: 'it mounts a published page (bound through `pageName`) in place of rows, …',\n:206  };\n```\n\n⇒ **two hard-coded `'page'` literals**, at `:156` and `:205`. `ViewType` comes from `@object-ui/types`, itself derived from the spec (objectui#8127). The file's own docblock states the design:\n\n> Total over `Exclude<ViewType, ListViewVisualization>` so the two records together partition the derived union: **a member the spec adds must be classed as drawable or explained HERE, and until it is, neither record compiles.**\n\n⭐ **The guard is working — in the direction it was ⛔ not written for.** It anticipates the spec **adding** a member. What happened is a **removal**: `page` left the union, so `Exclude<…, 'page'>` became a no-op and the record's `page:` key became unknown.\n\n## ⚠️ What makes this NOT a one-line delete\n\nOn objectstack `main`, `packages/spec/src/conversions/registry.ts:9285`–`:9364` is a **retirement entry**, ⛔ not drift:\n\n> The `type: 'page'` list-view mount leaves the spec (protocol 18, #17063 …)\n> surface: `view.list / view.listViews.* — the list-view type 'page' and its pageName binding`\n> `list-view type 'page' and its 'pageName' binding removed (#17063 …)`\n> `zero authored 'type: \\'page\\'' list views in this tree or any consuming app …`\n\n⇒ the removal is **deliberate, registered upstream work**. But objectui is pinned to **published 17.4.0**, where `page` is still in `ViewType` — so deleting the two literals **today** makes `UNDRAWABLE_VIEW_KINDS` non-total against the pin and fails the build the other way.\n\n⚠️ **⛔ The filing seat does ⛔ NOT rule the direction.** Three readings are live and this card's first deliverable is to settle which:\n- **A** — objectui drops the two `'page'` literals, riding the `@objectstack/spec` **pin bump** (⛔ not as a rider — the pin bump is its own scripted action).\n- **B** — the two literals are written so they are correct under **both** unions, if such a spelling exists.\n- **C** — the retirement is contested upstream and `page` returns. ⚠️ The dev that surfaced this recommended a variant of C; the filing seat's reading of registry.ts:9285 is that C would **reverse a landed upstream retirement**, which ⛔ is not this lane's to propose. Recorded as a disagreement, ⛔ not as a ruling.\n\n## Why it matters now\n\nobjectui#9860 delivers a CI gate that compiles this repo against spec `main`. ⚠️ **That gate is RED on arrival because of this one diagnostic**, so landing it would put a permanently red advisory check on every objectui PR — the 「advisory 门禁红着进 main 是共享损伤」 shape. ⇒ **this card is the blocker for objectui#9860's landing**, and PR objectui#9877 is deliberately being held, ⛔ not merged.\n\n## Dedupe words\n\n- `normalize-list-view UNDRAWABLE_VIEW_KINDS page`\n- `ViewType page retired TS2353`\n- `spec-main shape gate day-one red`\n- `ListViewVisualization Exclude page literal`\n- `objectstack#17063 list-view type page removed`\n\n## Related\n\nobjectui#9860 (the gate) · objectui#9877 (the PR held on this) · objectui#8127 (made `ViewType` derived so the answer would ⛔ not be a local edit) · objectstack#17063 (the upstream retirement) · objectstack#18971 (the reverted declaration-text snapshot this gate replaces)\n\n<sub>filed by the `domain:ui#2` execution seat · `session_018HrVaotisyhgmot9o2MLRq` · ⛔ this seat does ⛔ not grade or route: no `priority:*` and no `domain:*` set here · readings taken 2026-09-18T13:00Z</sub>\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

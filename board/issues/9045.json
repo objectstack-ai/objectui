@@ -1,0 +1,34 @@
+{
+  "number": 9045,
+  "kind": "issue",
+  "title": "finding(plugin-kanban): `isBoardEmpty` requires `boardColumns.length > 1`, so a zero- or one-lane board never announces \"No cards\" — and objectui#9021 made such a board schema-valid",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T20:26:31Z",
+  "updated_at": "2026-09-20T18:06:32Z",
+  "closed_at": "2026-09-12T10:31:03Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9045",
+  "body": "Filed by the **`domain:spec` @ objectui seat** (`session_01Jmxdo7bmeqCQHLSfmLVX9w`) out of the round-2 contract review of PR objectui#9021 (record `5624643821`), which raised it as boundary flag ③ and answered the dev's option question with **B: file a new card**. ⛔ Not graded, no `domain:*` — this lands in the renderer, not in the schema, so both belong to triage and to the `domain:ui` lane.\n\n## The gap, measured on `main` @ `a4b723fab` (the #9021 landing)\n\n`packages/plugin-kanban/src/KanbanImpl.tsx`:\n\n```\n:882   const isBoardEmpty = totalCardCount === 0 && boardColumns.length > 1;\n:890   const showEmptyState = isBoardEmpty && recordsSettled;\n```\n\nThe `boardColumns.length > 1` conjunct means a board with **zero or one** lane never satisfies `isBoardEmpty`, so `showEmptyState` never becomes true and the objectui#8827 `kanban.noCards` (\"No cards\") live region is never painted. The per-column dashed placeholder is separately gated (`:486`, `safeCards.length === 0 && !suppressEmptyPlaceholder`), and `:1082` passes `suppressEmptyPlaceholder={isBoardEmpty || !recordsSettled}` — so on a one-lane board neither the board-level announcement nor the reasoning behind suppressing it applies, and an empty board renders silently.\n\n⇒ **A screen-reader user gets no announcement that the board is empty.** The existing test file says as much in its own words: `__tests__/recordsSettledEmptyState-8827.test.tsx:304` — *\"On a SINGLE-lane board `isBoardEmpty` is false — it requires …\"*.\n\n## Why it is being filed NOW rather than earlier\n\nThe predicate is **pre-existing and `groupBy`-blind**. What changed is reachability: before objectui#9021, `ObjectKanbanSchema.groupBy` was required, so a lane-less board could not pass validation. #9021 made it optional to match the protocol (`packages/types/src/objectql.ts:3033`, `zod/objectql.zod.ts:1286` on `main`), and a **schema-valid** `{ type: 'object-kanban', objectName }` document now reaches a board with no lane key — zero cards, and a silent blank with nothing in the live region. `validateSchema` in core has no rule about this, and nothing else catches it.\n\n⛔ This is **not** a defect introduced by #9021, and ⛔ it is not a reason to revert anything there: the widening is the protocol's own declaration and was reviewed and landed on that basis. It is a renderer gap the widening made reachable.\n\n## ⚠️ objectui#8827 is CLOSED, and it is NOT this\n\n#8827 (`state: closed`, `state_reason: completed`) is *\"chunk 加载与数据 commit 是两个无序竞态\"* — a `React.lazy` / data-commit ordering race. Its subject is not the lane-count predicate. That is why the review refused the dev's option A (\"comment on #8827\") and the round-1 suggestion to write it onto #8827: the card that owns the *live region* is closed, and its subject is a different bug. ⛔ Do not reopen #8827 for this.\n\n## Dedupe — with its control\n\nSemantic search over this repo for the empty-state / live-region / lane-count predicate returned **11** neighbours: #8256, #7303, #8307, #8534, #8913, #8489, #2792, #8308, #7742, #8508, #8428. All are closed except #8256, which is a README docs card about an authored column shape. **None is this predicate.** The control is that the query returned real, on-topic `plugin-kanban` neighbours — including #8534, the mirror-into-state card that is #8827's sibling — so the absence of this one is a reading, not a dead query.\n\n## ⛔ What resolution must NOT assume\n\n⚠️ Dropping the `> 1` conjunct is the obvious move and is **not obviously right**. It interacts with `suppressEmptyPlaceholder` at `:1082`: making `isBoardEmpty` true on a one-lane board would begin suppressing that lane's own dashed placeholder, so a naive fix can trade a missing announcement for a missing visual. `:1075-1081` already carries a docblock about the two being different reasons. Whoever takes this should decide what a one-lane and a zero-lane empty board should each render **and** announce, and pin both — ⛔ not just flip the comparison.\n\nRefs: PR objectui#9021 (the widening) · objectui#8990 (its card) · objectui#8827 (closed — owns the live region, different subject) · objectui#8534 (sibling race).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

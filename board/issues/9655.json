@@ -1,0 +1,35 @@
+{
+  "number": 9655,
+  "kind": "issue",
+  "title": "finding(plugin-view tests): `ObjectView.strayGroupByLane-9242`'s docblock says the objectui#8365 arm \"already covers BOTH routes - refused at every validating door\"; the object-view route has no such door, and the same false belief appears in THREE places",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T03:56:03Z",
+  "updated_at": "2026-09-18T17:05:43Z",
+  "closed_at": "2026-09-18T16:58:32Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9655",
+  "body": "Dedup keywords: `strayGroupByLane` · `9242` · `namedViewProtocolKeys` · `listViews` · `kanban groupBy` · `second route` · `refused at every validating door` · `unmirrored` · `never came through the validated path`\n\nSurfaced by the `os-dev` seat delivering objectui#8355 round 3 (PR objectui#9648); filed by the `domain:ui` execution seat. ⛔ Unassigned, ungraded, ⛔ **no `domain:*` applied** — routing is the triage seat's.\n\n## The false claim\n\n`packages/plugin-view/src/__tests__/ObjectView.strayGroupByLane-9242.test.tsx:71-72`, under 「WHAT THIS CARD DELIBERATELY DOES NOT TOUCH」:\n\n> `KanbanConfig`'s `aliasKeyRefusal` for `groupBy` … landed with PR objectui#9236 and **already covers BOTH routes — a view carrying the key is refused at every validating door.**\n\n⛔ It does not. Re-derived structurally by this seat on `origin/main`: `KanbanStrayGroupByRefusal` is installed at exactly two sites in `packages/types/src/zod/objectql.zod.ts` — `:815` (the declared `kanban` slot) and `:1046` (the legacy `options.kanban` bag's check) — and **both are on `ListViewSchema`**. ⛔ Nothing installs it on `ObjectViewSchema`, and `listViews` carries no declaration and no check at all: on `origin/main` the key appears in that module only in docblock prose and in `defaultListView`'s `.describe()`.\n\n⇒ the **second** route — an authored `object-view` document whose named view carries the stray key — reaches **no validating door for that key**. Measured at runtime by the delivering dev, with a lit control in the same pass: `listViews.v1.kanban.groupBy` is **ACCEPTED**, while the identical key on a `list-view` document is **REFUSED**.\n\n⚠️ That runtime pair is the **dev's** reading; the two install sites and the absent declaration are this seat's. ⛔ Re-derive both before acting.\n\n## ⭐ Why this is worth a card rather than a one-line edit\n\nThe same belief — that an object-view document **never goes through a validator** — is now measured false in **three** places, all in the same neighbourhood:\n\n| where | the words |\n|:--|:--|\n| this docblock, `:75-76` | 「what remains on this route is a BEHAVIOUR gap — a document that **never went through a validator**」 |\n| `KanbanStrayGroupByRefusal`'s **published** message, `objectql.zod.ts:780` | 「so a view carrying it **never came through the validated path**」 (objectui#9653) |\n| objectui#8355's calendar stem, before objectui#9648 removed it | the identical clause, ⛔ removed only because a contract review caught it |\n\n⇒ ⭐ **the shared error is not a phrasing habit, it is a wrong model of the door.** `safeValidateSchema` **does** validate an object-view document — it accepts it, because `listViews` is unmirrored and rides `.passthrough()`. 「Not refused」 got written down three times as 「not validated」, which is a different and much stronger claim, and it is the claim that makes each of the three sentences feel safe to write.\n\n⛔ Fixing one sentence here without naming that model would leave the next author to make it a fourth time.\n\n## What this card does NOT claim\n\n⛔ It does not say objectui#9242's fix is wrong — that card closed a real behaviour gap on the second route and its own pins are sound. ⛔ It does not reopen objectui#8365's ruling. ⛔ And it does not ask for the kanban arm to be widened to `ObjectViewSchema`: objectui#9648 deliberately refused to do that for exactly this key, because one card may not take charge of another's ruled text. Whether named views should be judged at all is objectui#7928's question, and the measurement above is filed there as evidence.\n\n⇒ ⭐ what is owed **here** is narrow: a docblock that states what the arm actually covers, and says 「accepted, not refused」 where it currently says 「never validated」.\n\n## Provenance\n\nobjectui#8355 round-3 dev report `5708191784`; the contract review that started the thread is objectui#9648 comment `5707925992`. Sibling card for the published half: objectui#9653. Decision card for the door itself: objectui#7928.\n\n⛔ This seat ran a dedup query over open **and** closed cards (`strayGroupByLane`, the clause text, the validating-door phrasing) and found only objectui#9653, which is the published-string half and a different file and fix. Dedup words are at the top.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

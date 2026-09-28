@@ -1,0 +1,34 @@
+{
+  "number": 9874,
+  "kind": "issue",
+  "title": "finding(react): `useNavigationOverlay` still reads `navigation.view` — removed in @objectstack/spec 17.5.0 — and substitutes the authored name for the navigation-MODE token",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T12:32:04Z",
+  "updated_at": "2026-09-20T09:06:30Z",
+  "closed_at": "2026-09-20T09:06:30Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9874",
+  "body": "Dedupe words: `navigation.view consumer` · `useNavigationOverlay` · `spec 17.5.0 retired` · `navigation-MODE argument` · `view ?? 'view'`\n\nRe-derived first-hand on this repo's `origin/main` by the `domain:ui` execution seat 3 while reviewing a dispatch on objectui#9547. ⛔ Not graded, ⛔ no `domain:*` applied, ⛔ not routed — that is the triage seat's sole production.\n\n## The reading\n\n`packages/react/src/hooks/useNavigationOverlay.ts:275`:\n\n```ts\nconst view = navigation?.view;\n```\n\nand the two call sites that consume it, `:323` and `:356`:\n\n```ts\nonNavigate(recordId as string | number, view ?? 'view');\n```\n\n⭐ Lit control: the same grep counts **4** `onNavigate(` call sites in that file — `:314` and `:337` pass the literal `'new_window'` — so the instrument is live and the two readings above are a real subset, not a failed search.\n\n## Why it is a finding: the key it reads was REMOVED one minor version away\n\n`objectstack-ai/objectstack` `origin/main`, `packages/spec/src/ui/view.zod.ts:1815-1822`, verbatim:\n\n> `view.list.navigation.view` was removed in @objectstack/spec 17.5.0 (ADR-0049 enforce-or-remove) — it named the form view to open for a record detail, and no layer resolved a view by that name: the value was passed straight into the navigation-MODE argument of the console's `onNavigate`, where anything other than `edit` or `view` matched no branch, so the key selected nothing and could silently deaden the row click.\n\n⇒ that sentence describes **this call site**. The file comment beside it is blunter: *\"an authored name did not select a view, it SUBSTITUTED for the mode\"* · *\"Declared, consumed, and wrong\"*.\n\n## Measured: this repo has not reached that version yet, so this is a live consumer, not a broken build\n\n| probe | reading |\n|---|---|\n| declared range, root and packages | `^17.0.0` (some packages `^17.2.0` / `^17.3.0`) |\n| `pnpm-lock.yaml` resolution | **`@objectstack/spec@17.4.0`** |\n\n⇒ today the key still exists in the resolved version and the read is legal. On the bump to ≥17.5.0 it becomes a read of a removed key — and the substitution behaviour ADR-0049 retired is still what this code does in the meantime.\n\n## ⚠️ What this is NOT a duplicate of\n\nobjectui#9667 is the sibling half of the same retirement, and it is about the **parity pin** — `packages/types/src/__tests__/view-navigation-config-spec-parity.test.ts` authoring the retired key in four declaration sites. ⛔ It does not name this live consumer, and a tombstone pin landing there would leave `useNavigationOverlay.ts:275` reading the key exactly as it does now. Whoever takes #9667 should be told this exists; ⛔ this seat did not fold them, because a test pin and a runtime read fail differently.\n\n## Named and ⛔ NOT measured here\n\nWhether any other surface in this repository reads `navigation?.view`, and what the correct behaviour is once the key is gone (the spec's prescription names page assignment — `record` pages plus `isDefault` — as the route that replaces it). Both want the claiming seat's own census, ⛔ not this filer's assumption.\n\n⛔ Not deduped by this seat — the filer attaches the words and triage runs them.\n\n---\n\nos-decision-facets\n\n## 维护者速读\n\n上游把一个字段从契约里**退役**了(`view.list.navigation.view`,spec 17.5.0,ADR-0049「要么强制、要么删除」)。本仓唯一还在读它的地方已经修好并落地。剩下一个小尾巴要您点头或否决:\n\n`@object-ui/react` 对外发布的一个类型 `NavigationOverlayState` 上,有一个成员 `view`,它**只可能**装那个已退役的键。现在它被**删掉了**。\n\n**问:A 删掉(已按否决窗口执行),还是 B 留一个永远是 `undefined` 的墓碑成员?**\n\n⚠️ 这是**收缩已发布的类型面**,所以按理属于人工地板;本席按「可逆 + 有推荐默认 ⇒ 否决窗口」先执行了,**回退是两行**,您说一声我就回退。\n\n| 选项 | 做什么 | 客户能感知到什么 |\n|:--|:--|:--|\n| **A 删(现状)** | 成员从发布类型上消失 | 仓外若有人读 `state.view`,升级时**编译报错**——响亮,且他读到的本来永远是 `undefined` |\n| **B 留墓碑** | 成员保留,永远 `undefined` | 没有类型破坏;代价是发布面上留着一个**教人「可以从这个 state 读到目标视图名」**的成员,而那正是这次退役要终结的假话 |\n\n## 四棱\n\n- **① 项目长远合理性**:A **缩小**发布面,去掉一个「声明了、被消费、而且是错的」的成员——正是 ADR-0049 要退役的形状;B 把它变成**永久义务**。按①:**A**。\n- **② 实际业务拉动**:仓内读者实测为 **0**(同命令点亮了兄弟成员作对照)。⚠️ **仓外宿主未测量**,changeset 里也是这么写的,⛔ 没有假装量过。\n- **③ 防 AI 犯错**:B 的失败是**静默的**——一个 AI 读到这个成员会写出「从 state 里取视图名」的代码,永远拿到 `undefined`;A 的失败是**编译期报错**,响亮。\n- **④ 创业阶段不扩散**:A 是 remove,B 是 declare-and-maintain。\n\n⛔ **The `Prior rulings read:` line published here earlier was run in the WRONG REPO's checkout, and this seat is correcting it in place.** (Corrected at 2026-09-18T20:35Z, clock read by this write.) `check-prior-rulings.mjs` has no `--repo` flag by design — its own docblock says 「the CORPUS is always THIS checkout … so a flag naming a different board would read a card from one repo and answer it out of another repo's rulings, **with nothing in the output saying so**」 — and this seat ran it from the objectstack checkout and pasted the answer onto an objectui card. Measured: objectui's `docs/adr/` holds **0001, 0034, 0036, 0053–0059** only; **ADR-0021, ADR-0029 and ADR-0061 do not exist in this repo** (they do in objectstack, control run in the same command). Both readings, labelled:\n\n- **Prior rulings read (THIS repo, objectui — `AGENTS.md` + `docs/adr/**`)**: `published type` / `member removal` / `breaking` → **1 hit**, in `AGENTS.md`; no ADR in this repo names them.\n- **Prior rulings read (objectstack's corpus — the shared protocol's rulings, relevant where this card touches the contract, ⛔ NOT this repo's numbering)**: published,type,member,removal,breaking → 54 hits; ADR-0087 D7, ADR-0106 D8, ADR-0006 D2, ADR-0019 D3, ADR-0020 D2, ADR-0021 D1\n\n**推荐:A**(即现状),回退项 **B**。自检:「只看①选 A;②③④ 是否翻转:**否**——②只说明影响面小且有一段未测量,③④ 同向。」\n\n**置信缺口**:① **仓外消费者未测量**——本席看不到谁在用 `@object-ui/react` 的这个类型;② 本仓把破坏性变更按 `minor` 发布并把语义写在 changeset 正文里,这是既有做法(仓里有 `check-changeset-no-major` 门禁佐证),⛔ 但「按 minor 发破坏性变更」本身不是本卡裁的事。\n\n**裁后执行**:维持 **A** ⇒ 无动作,本卡关闭;选 **B** ⇒ 本席开一张两行的回退卡,把成员以 `@deprecated` 形式加回并在 changeset 里写明它永远是 `undefined`。\n\n<sub>四棱块由 `domain:ui#2` 执行席在 PR objectui#9936 落地后补齐;⛔ 本席不改级别、不改路由。⭐ 它进决策箱的原因:半状态巡查 H52 指出,一个只写在聊天报告里的否决窗口**在任何板面上都看不见**——「三个成功信号,一个错答案」的形状。裁决记录见评论 `5734666060` 与 `5735023929`。</sub>\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

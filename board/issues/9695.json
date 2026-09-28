@@ -1,0 +1,33 @@
+{
+  "number": 9695,
+  "kind": "issue",
+  "title": "app-shell: the filter builder stops padding a half-typed `$between` pair with `''` — the objectui half of objectstack#18012 (batch #146 item 5, letter A)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T13:16:42Z",
+  "updated_at": "2026-09-20T10:13:50Z",
+  "closed_at": "2026-09-20T10:13:50Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9695",
+  "body": "Filed by the director seat (summon #24, `session_01Wj1HUjzyeiBQ8atRf1ZhaL`) executing **batch #146 item 5, letter A** on objectstack#18012 (maintainer 「146 同意」, ruling 5714975493). This is the **objectui half**; the spec half (refuse a blank `$between` bound at parse) is objectstack#18012.\n\nPart of objectstack-ai/objectstack#18012\n\n## What\n\nThe filter builder pads a half-typed `between` pair with `''` (`reshapeFilterValue`), so a length-based completeness check passes it and `{ $between: [1, ''] }` reaches the document. Today the dataset-filter bridge (`packages/app-shell/.../datasetFilterCondition.ts`) refuses to emit `between` at all (unmapped-but-inert, pinned by PR objectui#9381) precisely because of this.\n\n## Ruling A, this half\n\n- The builder **stops emitting a half-filled range**: while one bound is blank the condition is incomplete (not emitted, shown as incomplete in the UI) — ⛔ never padded to `''`.\n- With that in place the `between` arm of the dataset-filter bridge can map (its refusal-to-emit was a workaround for this card); the pin in objectui#9381 flips from 「unmapped-and-inert」 to a real mapping with both bounds required. ⛔ Do not widen anything else there.\n- This half is **safe to land before the spec half**: it only stops producing a shape the spec is about to refuse. `Clause-②: no` on the objectui face unless the bridge mapping touches a published `@object-ui/*` prop shape — the claiming seat re-declares from the diff.\n\n## Measure first\n\nWhich producers other than `reshapeFilterValue` can emit a two-element `$between` with a blank member (with a firing control); the fix covers every producer found, ⛔ not just the one named here.\n\nDedup words: `$between` blank bound · `reshapeFilterValue` padding · `datasetFilterCondition` between arm · objectstack#18012 · batch #146 item 5\n\n---\n\nos-decision-facets\n\n## 维护者速读\n\n您在批 #146 第 5 项裁过字母 **A**:过滤器构建器**不要**把只填了一半的范围补成空串再发出去。派发之后量下来,**那件事已经做完了**——「两个边界都得填」的完整性规则早就落地(objectui#5025),四个写入/读取路径都走它;而卡面那个具体形状 `{ $between: [1, ''] }` **今天到不了任何文档**,因为全仓没有一个生产者写 `$between`。\n\n⭐ 缺陷是真的,但在**别处、拼法不同**:`packages/fields` 的 `FilterConditionField` 在 `between` 分支发的是 `{ $gte: 1, $lte: \"\" }`。⇒ 已立卡 objectui#9914,并且**它已经落地**(PR objectui#9920,2026-09-18 合并),所以选项 A 的那一半**已经兑现**。\n\n剩下真正没做的只有一件,而且**不在本卡申报的围栏里**:那个「显示为不完整」的 UI 提示(`aria-invalid`,本仓既定习语)**整个没建**,住在 `packages/components`。\n\n**问:A 关掉本卡、由已落地的 objectui#9914 与一张新的 UI 卡接手;B 就地把围栏扩到 `packages/components` + `packages/fields` 重派;C 别的?**\n\n## 四棱\n\n- **① 项目长远合理性**:裁决的**意图**(不完整的范围就是不完整)是对的,而且一半已经成立;错的是它的**落点**——它瞄准的构建器先被修好了。把一张已裁的一行卡扩成三包程序,会让「卡」这个单位失去意义。按①:A。\n- **② 实际业务拉动**:⭐ 真实,而且**比卡面更大**——一条存下来的共享规则条件里带着 `$lte: \"\"`。⛔ 但那是 objectui#9914 的形状,⛔ 不是本卡的;它已经落地。\n- **③ 防 AI 犯错**:UI 不完整提示是**保护作者**的那一半,也正是没人建的那一半。缺它时,作者填了一半的范围**看不到任何信号**。⇒ 这件事该留下来,但它是自己的卡。\n- **④ 创业阶段不扩散**:B 会把一张**已裁**的卡变成三包程序;拆开更便宜,而且每一块都已经点名。\n\n⛔ **The `Prior rulings read:` line published here earlier was run in the WRONG REPO's checkout, and this seat is correcting it in place.** (Corrected at 2026-09-18T20:35Z, clock read by this write.) `check-prior-rulings.mjs` has no `--repo` flag by design — its own docblock says 「the CORPUS is always THIS checkout … so a flag naming a different board would read a card from one repo and answer it out of another repo's rulings, **with nothing in the output saying so**」 — and this seat ran it from the objectstack checkout and pasted the answer onto an objectui card. Measured: objectui's `docs/adr/` holds **0001, 0034, 0036, 0053–0059** only; **ADR-0021, ADR-0029 and ADR-0061 do not exist in this repo** (they do in objectstack, control run in the same command). Both readings, labelled:\n\n- **Prior rulings read (THIS repo, objectui — `AGENTS.md` + `docs/adr/**`)**: `filter` / `between` / `incomplete` → **73 hits** across `AGENTS.md` and `docs/adr/0001`, `0053`, `0054`, `0055`, `0057`.\n- **Prior rulings read (objectstack's corpus — the shared protocol's rulings, relevant where this card touches the contract, ⛔ NOT this repo's numbering)**: filter,between,incomplete,builder → 18 hits; ADR-0021 D2, ADR-0021 D3, ADR-0029 D9.3, ADR-0057 D10, ADR-0057 D12, ADR-0058 D1, ADR-0058 D3, ADR-0061 D1, ADR-0061 D6\n\n**推荐:A**(关本卡 + 新开一张 UI 提示卡),回退项 **B**。自检:「只看①选 A;②③④ 是否翻转:**否**——③ 要求那件事有卡,⛔ 不要求它是**这张**卡。」\n\n**置信缺口**:⛔ **没有人量过** `packages/components/src/custom/filter-builder.tsx` 和 `packages/fields` 上**谁在飞**——本席那次邻接测量只覆盖了 `packages/app-shell`。⇒ 若裁 B,那次测量必须**先**做,否则重派会撞车。\n\n**裁后执行**:裁 A ⇒ 本卡 `not_planned` 关闭并在关闭评论里写明「裁决意图已由 objectui#9025/#9914 兑现」,同笔开一张 `packages/components` 的 UI 提示卡进 `pm:queue`;裁 B ⇒ 先补那次邻接测量,再以三包围栏重派本卡。\n\n<sub>四棱块由 `domain:ui#2` 执行席在本卡因 回翻条款 回到决策箱时补齐(2026-09-18T18:38Z);⛔ 本席不改级别、不改路由,⛔ 也不代裁——本卡带维护者裁决,⛔ 永不静默重裁。释放记录见评论 `5732154132`。</sub>\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

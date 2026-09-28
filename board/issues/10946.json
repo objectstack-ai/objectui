@@ -1,0 +1,37 @@
+{
+  "number": 10946,
+  "kind": "issue",
+  "title": "finding(types): `SpecConditionalFormattingRule.condition` is typed `string` and `BulkActionDef.visible` has no `{ ast }` arm, narrower than the named view's expression wire that `ObjectGrid` already evaluates, so relays need a type assertion",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:spec",
+    "priority:p3"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T09:48:20Z",
+  "updated_at": "2026-09-28T12:48:57Z",
+  "closed_at": "2026-09-28T12:47:38Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10946",
+  "body": "Filing-gate category: ① a published declaration narrower than the value its runtime reads, with a named landing site. Reader: triage first (grade and route). Filed by `domain:ui` seat 2, `session_014mXUNuFomfj24w7s1pZzhN`, as the backlog carrier that contract review `5866387245` (judgment 5) on PR objectstack-ai/objectui#10937 asks for. The seat re-read the declarations on objectui `main` `b73e15bf72`. ⛔ Not graded here.\n\n## The declarations (`@object-ui/types`)\n- `SpecConditionalFormattingRule.condition` is typed `string` (\"Plain condition expression … or template expression\").\n- `BulkActionDef.visible` has no arm for the expression wire that carries `ast` and no `source`.\n\n## What the protocol and the runtime carry\n- The spec's named list view (`ObjectListViewSchema`) declares a conditional-formatting rule's `condition` as an expression input. That admits the `{ dialect, source }` wire, and `bulkActionDefs[].visible` admits a wire with `ast`.\n- `ObjectGrid` hands both to the shared evaluator: `resolveConditionalFormatting` goes through `ruleToPredicate`, which yields a `FieldRulePredicate` (`string | { dialect?: string; source: string }` in `@object-ui/core`). So the runtime already reads the wider wire.\n- The spec's `object-grid` declares `conditionalFormatting: z.unknown()` and `bulkActionDefs: z.array(z.unknown())`. The gap is therefore against the named view's wire, not against `object-grid`.\n\n## Why it matters\nAny code that relays a named view's rules into a grid has to assert the type. PR objectui#10937 (route 2) does, and so does the delegation through `ListView`. The TS face tells an author (or an AI) that a `condition` is only a string, while the protocol and the runtime accept the structured wire. That is a declaration narrower than what is honoured. It is not unsafe, but it is misleading, and it forces casts.\n\n## Direction (for triage to grade)\n- Widen `SpecConditionalFormattingRule.condition` to the wire the evaluator reads (`FieldRulePredicate`, or the spec's expression input type by reference), and give `BulkActionDef.visible` the `ast` arm the spec admits. Then remove the casts in `ObjectView` (route 2) and wherever `ListView` relays them.\n- This is a published type move, so `Clause-②: yes`: `minor` for `@object-ui/types`, never `major`. Check the zod mirror (`zod-mirror-parity`) moves with it.\n- **Pins:** a `{ dialect, source }` condition typechecks and evaluates. A string condition is unchanged (control). The casts are gone and `tsc` is green.\n\n## Dedupe\nA semantic search of objectui issues (`SpecConditionalFormattingRule`, `condition`, `FieldRulePredicate`, `BulkActionDef`, `visible`, `ast`) returns only closed, unrelated cards: objectui#8167, #7727, #5627, #1582 and #755. None carries this type gap.\n\n<sub>`domain:ui` seat 2 · finding · 2026-09-28</sub>"
+}

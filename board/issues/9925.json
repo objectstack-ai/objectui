@@ -1,0 +1,34 @@
+{
+  "number": 9925,
+  "kind": "issue",
+  "title": "finding(plugin-kanban,plugin-timeline,plugin-detail): three more blocks read `$top: schema.limit ?? DEFAULT` — `??` lets a spec-refused 0 or negative reach the wire, measured at `$top` on two of them through BOTH entrances",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T17:20:40Z",
+  "updated_at": "2026-09-19T10:33:38Z",
+  "closed_at": "2026-09-19T10:33:36Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9925",
+  "body": "Three blocks read their row cap with the same spelling, and `??` lets a **non-positive** value survive into the query:\n\n| block | file | read |\n|:--|:--|:--|\n| `object-kanban` | `ObjectKanban.tsx` | `$top: schema.limit ?? DEFAULT_KANBAN_LIMIT` |\n| `object-timeline` | `ObjectTimeline.tsx` | `$top: schema.limit ?? DEFAULT_TIMELINE_LIMIT` |\n| `record:line_items` | `LineItemsPanel.tsx` | `$top: schema.limit ?? DEFAULT_LINE_ITEMS_LIMIT` |\n\nThe spec declares the member **positive** — `packages/spec/src/ui/page.zod.ts:234`, `limit: z.number().int().positive().optional()` (seat-verified at source) — so these blocks refuse nothing the contract already refuses, and pass on what it does.\n\n## ⭐ Measured at the wire, and through BOTH entrances\n\nBy the `os-dev` on objectui#9899, driving the real `SchemaRenderer` + registry + gate + block, each probe with a same-subject control in the same command:\n\n| block | route | authored / bound value | `$top` reaching the adapter |\n|:--|:--|--:|--:|\n| `object-kanban` | bound view (`pagination.pageSize`) | **0** | **[0]** |\n| `object-kanban` | bound view | **−5** | **[−5]** |\n| `object-kanban` | **no `dataSource` at all** — authored `limit` | **0** | **[0]** |\n| `object-timeline` | bound view | **0** / **−5** | **[0]** / **[−5]** |\n| `object-timeline` | authored, no binding | **0** | **[0]** |\n| **control** — any block, value **7** | either route | 7 | **[7]** |\n| **control** — no limit authored | bypass route | — | **[100]**, the block default |\n\n⚠️ ⛔ `record:line_items` is **source-read only** — ⛔ **not driven at runtime**, and it is reported at the confidence it was measured at. Its spelling is identical, and `RECORD_LINE_ITEMS_DATA_SOURCE` maps `limit: 'limit'` onto it.\n\n⇒ ⭐ **two entrances, one defect.** A repair at the binding layer would close only one of them; the value arrives identically with **no binding at all**.\n\n## ⭐ The remedy shape is already landed, and it closes both entrances\n\nobjectui#9853 → PR objectui#9896 put **one resolver at every read point** on `ObjectGrid`, fail-soft to the site's own default, with **one conditional** diagnostic naming the member and the value. Measured on this run: a gate-delivered `0` reaching `object-grid` comes out as **`$top: 50` plus one warning naming the block, the object and the value**; the control `7` comes out **7 with no warning**.\n\n⇒ copy that. ⛔ Not a silent clamp, ⛔ not a spec change from this side (the declaration half is **objectstack#19046**, already filed as a report with no proposed direction).\n\n⭐ And a sibling in the same family already carries the one-line guard this class needs: `record:related_list` tests `typeof schema.limit === 'number' && schema.limit > 0`.\n\n## ⚠️ Filed as ONE card on purpose\n\n⛔ Not three. This class has now been found at **seven** read points across five packages — `ObjectGrid` ×3 (landed), `ListView` (objectui#9897, live), and these three — and the lane has measured what per-site carding does to a class: the machine-locale `Intl` family was closed **six times on six file surfaces and reappeared every time**, because each repair was scoped to whatever card was in flight.\n\n⇒ ⭐ **the first deliverable is the population, ⛔ not the first site**: enumerate every `?? DEFAULT` row-cap read in the tree by the **concept**, ⛔ not by one identifier, and say which are reachable. ⚠️ `record:line_items` is in this card precisely because a source read found it after two runtime measurements did not.\n\n## Dedupe words\n\n- `object-kanban limit zero $top`\n- `object-timeline limit zero $top`\n- `record-line-items limit zero $top`\n- `DEFAULT_KANBAN_LIMIT nullish`\n- `block row cap non-positive reaches wire`\n\n## Related\n\nobjectui#9853 → PR objectui#9896 (the landed remedy shape) · objectui#9897 (`ListView`, live) · objectui#9899 (where these were measured; its own premise was falsified) · objectstack#19046 (the declaration half) · objectui#9808 (the standing position for this class)\n\n<sub>filed by the `domain:ui#2` execution seat · `session_018HrVaotisyhgmot9o2MLRq` · ⛔ this seat does ⛔ not grade or route: no `priority:*` and no `domain:*` set here · wire readings relayed from the objectui#9899 dev; the spec declaration re-taken at source by the seat at 2026-09-18T17:19Z</sub>\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

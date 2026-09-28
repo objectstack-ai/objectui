@@ -1,0 +1,34 @@
+{
+  "number": 9954,
+  "kind": "issue",
+  "title": "Render the read-rate banner for the environment admin from the usage endpoint's new `readRate` reading (cloud#2333 data half has landed)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "enhancement",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T20:00:16Z",
+  "updated_at": "2026-09-20T10:06:03Z",
+  "closed_at": "2026-09-20T09:44:44Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9954",
+  "body": "Filed by the `repo:cloud` execution seat (session `session_01WEsBsV9NHgypgTitazMHbe`), as the maintainer's ruling on **cloud#2333** directs: 「an objectui card renders the banner from it (**filed by the cloud seat with the data half**, `domain:ui`)」 (batch #164 item 3, maintainer 「同意」 2026-09-18T14:17Z).\n\n⭐ **The data half has landed.** cloud PR **#2376** merged 2026-09-18T19:58:41Z (`7b62d51`). This card is the rendering half, and it is the last limb of that ruling.\n\n⛔ Nothing here is a design instruction — the shape of the banner is this repo's call. What the card carries is the **contract the data arrives under**, so the renderer is not written against a guess.\n\n---\n\n## Where the data is\n\n`GET /api/v1/usage/storage` on the **tenant runtime** — the endpoint the storage capacity banner already reads. It gains **one optional nested key**:\n\n```ts\nreadRate?: ReadRateBannerReading;\n\ninterface ReadRateBannerReading {\n    /** `'anomalous'` = over the line (render the banner); `'ok'` = measured and under it. */\n    state: 'ok' | 'anomalous';\n    /** `rowsRead / rowsWritten`. */\n    readsPerWrite?: number;\n    /** The line `state` was taken against, so the banner never hard-codes a second copy. */\n    ratioThreshold: number;\n}\n```\n\nDeclared in `packages/objectos-runtime/src/storage-usage-endpoint-plugin.ts` on cloud `main`.\n\n## ⚠️ Three properties of that contract that change what the renderer must do\n\n**① `readRate` absent ≠ fine.** Absent means the control plane reported **no reading**. It never means \"measured and under the line\". A banner renders **only** on `state: 'anomalous'`, so both silence and `'ok'` render nothing — but ⛔ do not collapse them in the code or in whatever the UI tells a user, because \"why does my environment show no banner\" has two different answers and one of them is *nobody has measured it*.\n\n**② `readsPerWrite` absent is the WORST case, not a missing number.** It means the environment made **no writes at all** — an unbounded ratio. ⚠️ That is the incident's own shape. ⛔ Rendering it as \"—\" or hiding the banner because a number is missing would hide the most severe reading there is. It needs its own words.\n\n**③ `ratioThreshold` arrives as DATA on purpose.** ⛔ Do **not** hard-code the line. It is sent precisely so this side never carries a second copy of a number that moves — the judgement was made once, by the control plane's `read-rate-anomaly.ts`, and `state` is already the verdict. ⛔ The banner does not re-derive `state` from `readsPerWrite` and `ratioThreshold`.\n\n## ⛔ What this banner must never become\n\nVerbatim from the landed module's own doc comment:\n\n> Nothing downstream may turn this into a refusal, a throttle or a degraded read. Option B was rejected on the record (cloud#2179), and this endpoint is read-only in any case — but the banner it feeds must not become an argument for the guardrail beside it.\n\n⇒ ⛔ This is **reporting only**. No gating, no throttling, no \"upgrade to continue\".\n\n## Why the environment admin is being told at all\n\ncloud#2179 / cloud#2180: a runaway reader burned **101.16 billion rows** read in 9 days on one production single-tenant database — **99.9%** of the organization's usage — and nobody noticed for nine days. A staging environment was read-blocked; production was over-billed. The ops half of the same ruling (a public ok/not-ok probe plus a heartbeat row) pages **us**; this banner tells the **environment's own admin**, who is the only one who can act on their own app's read pattern.\n\n## Acceptance\n\n1. A card renders on `readRate.state === 'anomalous'` and on nothing else.\n2. The no-writes case (`readsPerWrite` absent) is rendered **distinctly** and as the more severe reading, ⛔ not as a missing value.\n3. The threshold shown, if any, comes from `ratioThreshold` — ⛔ zero hard-coded copies of the line.\n4. ⛔ Nothing in the UI refuses, throttles or degrades anything; it is a report.\n5. The absent case renders nothing and is ⛔ not conflated with `'ok'` in the code.\n\n## ⚠️ Honest boundary from the filing seat\n\n⛔ I have **not** read this repo's banner components, its existing storage-capacity card, or its design conventions — this card is filed from the cloud side with the data contract, exactly as the ruling assigns. ⇒ Where it names a rendering behaviour it is stating a **requirement of the data**, not a design; how it looks and where it sits are this repo's to decide. If the contract is awkward for this surface, ⛔ do not work around it here — say so on cloud#2333's successor and the cloud side changes the response.\n\n## Provenance\n\n- Ruling: **cloud#2333** comment `5731312367`.\n- Data half: cloud PR **#2376**, merged `7b62d51`; seat review on cloud#2333 comment `5734932623`.\n- Still open on the cloud side, ⛔ neither of them blocking this card: **cloud#2377** (`needs-user-decision`) carries the threshold revisit and two residuals about what the ops channel measures.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

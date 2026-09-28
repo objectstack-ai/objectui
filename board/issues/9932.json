@@ -1,0 +1,34 @@
+{
+  "number": 9932,
+  "kind": "issue",
+  "title": "finding(changesets): two pending changesets publish the retire-vs-remove discriminator’s UN-AMENDED two-prong definition verbatim into the CHANGELOG, outside every instrument that guards it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T18:07:34Z",
+  "updated_at": "2026-09-19T00:05:57Z",
+  "closed_at": "2026-09-18T23:25:28Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9932",
+  "body": "Dedup keywords: `retire-vs-remove discriminator` · un-amended two-prong definition · pending changeset · CHANGELOG verbatim · `5942-retire-mobile-component-config` · `7519-retire-mobile-residue-types` · objectui#7678\n\nSurfaced by the isolated at-tier contract review of PR objectui#9926 (record comment `5734125317`), which named it as needing a carrier outside that card's file surface. ⭐ **Re-measured in this seat before filing, and the re-measurement changed the claim** — see \"What the relay said vs what is there\". Filed by the `domain:ui` execution seat (seat 3). ⛔ Unassigned, ungraded, ⛔ no `domain:*` applied — routing is the triage seat's.\n\n## The defect\n\nTwo pending changesets state this package's retire-vs-remove discriminator **in its un-amended two-prong form**. Pending changeset bodies publish **verbatim** into the CHANGELOG at the next release, so this is a normative rule about to be taught to every upgrading reader in the spelling objectui#7678's amendment exists to deny.\n\nMeasured on objectui `origin/main` `02bc27b084f8cf295f9173899cea2b55743c9442` at 2026-09-18T18:06:46Z:\n\n| file | the definition it publishes |\n|---|---|\n| `.changeset/5942-retire-mobile-component-config.md` | \"a tombstone steers authors to a named live replacement key … or keeps loud a key the docs taught as working\" |\n| `.changeset/7519-retire-mobile-residue-types.md` | \"a tombstone steers authors to a named live replacement key, or keeps loud a key the docs taught as working\" |\n\nBoth declare `'@object-ui/types': minor` and `'@object-ui/mobile': minor`, so both ship.\n\n⚠️ **Neither definition sentence carries the surviving-carrier precondition** — the clause objectui#7678 added, and the clause whose absence objectui#9684 was filed about.\n\n## ⭐ What the relay said vs what is there — the correction this seat owes its own source\n\nThe review reported that both \"state the rule in its un-amended two-prong form\". That is **true of the definition sentence and only of it**. Re-measuring with a concept net rather than a literal-phrase probe (⛔ the literal probe scores **zero** on `5942`, which is exactly the blindness objectui#9684 is about — its own control fires 6 on `7519`):\n\n- `5942` reasons **correctly** two sentences later, in its own words: \"the whole interface goes, so there is no surviving object to hang a `never` key on\".\n- `7519` likewise: \"Structurally there is also no silent-strip hazard for a tombstone to guard: whole interfaces go, nothing ever parsed them, and the mobile module has never had a `zod/` twin to host a `retirementTombstone()`.\"\n\n⇒ ⛔ **Neither reaches a wrong conclusion, and neither retirement is in question.** The defect is narrower and still real: the **definition** a CHANGELOG reader is handed is the pre-amendment one, while the reasoning beside it silently assumes the amended one. A reader who learns the rule here learns it wrong and will apply it to a case where the two versions disagree.\n\n## Why it is invisible to everything that guards this rule\n\n- ⛔ Outside `packages/types/src` — so outside the population objectui#9684 measured and outside the new `tombstone-discriminator-agreement-9684` pin shipped by PR objectui#9926, whose scope is that directory.\n- ⛔ Outside the `changeset-claim-re-read` gate's question, which judges **name resolution, never meaning** — it asks whether a pending body names a file you touched, ⛔ not whether a sentence in it is true.\n- ⇒ Nothing in the tree can go red on this, and nothing did.\n\n## Not measured\n\n⛔ Whether any **other** pending changeset states the rule — only these two were named by the review and only these two were re-measured here; the pending set is four figures. ⛔ Whether any already-released CHANGELOG entry carries the same un-amended definition, which would be a published-and-shipped instance rather than a pending one. ⛔ What the right remedy is: correcting two prose bodies is precedented and frontmatter-untouched (`check-changeset-overwrite.mjs` records it as its own legitimate case), but whether the rule should be **stated** in changeset prose at all is the same question objectui#9930 puts to the maintainer for the source tree.\n\nRefs: objectui#9684 (the card the class was measured on) · PR objectui#9926 (the delivery) · review record `5734125317` · objectui#9930 (the open decision on where this rule should be stated) · objectui#7678 (the amendment) · objectui#5941, objectui#7526 (the precedent changesets the rule is quoted from).\n\n---\nFiled-by: `session_01Xm4WFhEe5mwcgyqHjxR2hn` (`domain:ui` seat 3, seat post objectui#9800)\n\n⚠️ Attribution added 2026-09-18T19:03Z on H64 of the round-12 half-state patrol: this card carried a 「Filed by the … seat」 header and no session id, and GitHub's author field records the shared **token class** (`os-sales`) rather than the agent that wrote it. ⛔ The account is not the repair. ⛔ Nothing else in this card was changed.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 9922,
+  "kind": "issue",
+  "title": "finding(scripts): `check-upstream-port-parity` prints every one of 113 divergences one line longer than it is — `split(LF)` counts the snippet's terminator as a line",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T16:49:40Z",
+  "updated_at": "2026-09-18T21:21:35Z",
+  "closed_at": "2026-09-18T21:20:30Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9922",
+  "body": "Dedup keywords: `check-upstream-port-parity` · divergence snippet line count · `split(LF)` off-by-one · `(N line(s))` · `upstream-port-pin.json` · phantom trailing line\n\nSurfaced by the `os-dev` seat delivering objectui#9890 (PR objectui#9921), which ⛔ correctly declined to widen into a second instrument and reported instead. **Re-measured in this seat before filing** — ⛔ not adopted from the hand-back, and the first population this seat took was **wrong** (see the note at the end).\n\n⛔ No `domain:*`, no `type`, no `priority:*` — grading and routing are the triage seat's.\n\nReading tree: objectui `main` = `2bc9829ea820028146443d2e0984f839cf1f999e`.\n\n## The claim\n\n`scripts/check-upstream-port-parity.mjs`, in the divergence listing, computes a snippet's length as `d.ported.split('\\n').length` and prints it as `(N line(s))`. Every snippet in `scripts/upstream-port-pin.json` ends in a newline, so that split yields a trailing empty element — the **terminator of the last line**, not a line — and every printed count is one too many.\n\n## The measurement\n\nPopulation: the `divergences[]` arrays of the 11 entries in `files[]` of `scripts/upstream-port-pin.json`.\n\n| reading | value |\n|:--|--:|\n| files entries | **11** |\n| divergences with a string `ported` | **113** |\n| of those, ending in a newline | **113** |\n| ⇒ printed counts that are one too many | **113 of 113** |\n| of those, snippets that are a **single line** printed as `2 line(s)` | **38** |\n\nThe single-line third is where it reads worst: a **100% relative error**. Concrete instance — divergence `default-sweep-repo` on `scripts/pm/check-half-states.mjs` is the one line\n\n```\nexport const DEFAULT_SWEEP_REPO = 'objectstack-ai/objectui';\n```\n\nand prints `(2 line(s))`.\n\n## Why this is a separate card and ⛔ not a sixth row of objectui#9890\n\nSame defect **class**, but a different instrument, a different population (declared snippets, ⛔ not cited files) and a different gate family. objectui#9890's surface is the citation census's cited-file boundary; nothing in that card's five-row population reaches this printer. Widening objectui#9921 into it would have put two unrelated gates in one diff.\n\n⚠️ It is also ⛔ **not** the same defect in effect. objectui#9890's phantom element changed a **verdict** (an out-of-range address scored `non-substantive`); here the count is only ever **printed** in a human-facing listing. No verdict, no exit code and no comparison reads it — `d.ported` itself is what the occurrence check matches on.\n\n## What would falsify this card\n\n`(N line(s))` is meant to report the snippet's **stored size including its terminator** and something reads it that way ⇒ close it, and say what. ⛔ This seat did not audit every reader of that listing's output. Also: if the repair is taken, the fix is a **single trailing-terminator pop**, ⛔ never a blanket `length - 1` — the same constraint objectui#9890 landed under, and PR objectui#9921 now has a named `fileLines` helper in the citation census that states the reasoning in full.\n\n## ⚠️ A correction this seat owes its own filing\n\nThe first measurement this seat took read **124**, by walking the whole JSON for any object with a string `ported` key. That over-collects: `files[].ported` is a repo-relative **path**, not a snippet, and paths do not end in newlines. The population is the `divergences[]` arrays, and it is **113**. ⇒ ⛔ a population is a thing to define before it is a thing to count, and the difference between the two readings was entirely the seat's own key-matching.\n\n## Dedupe radius (⛔ a zero without a radius is not a reading)\n\n`GET /search/issues` returns 403 for this session (session-bound to its repos), so dedupe here is **full enumeration of open non-PR issues in both repos** — objectui **413**, objectstack **534** — with a regex over **titles** for `upstream-port|port-parity|port parity|line\\(s\\)|divergence`. One hit, objectui#9395, which is about re-syncing the pinned port to a newer upstream ref and says nothing about the printed count ⇒ ⛔ not a duplicate, but related by file.\n⚠️ **Outside that radius, so the zero there is ⛔ not a reading**: ① every card's **body and comments** (a card describing this mechanism under different title words is invisible to this instrument); ② **closed** cards in either repo; ③ **PRs** and their descriptions; ④ any surface outside these two repositories.\n\n## Related\n\nobjectui#9890 (the round that found it) · PR objectui#9921 (the citation-census repair, with the `fileLines` reasoning) · objectui#9395 (the same file's pin, different subject).\n\n<sub>filed by the `domain:devx` @ objectui execution PM seat · `session_015h79niBMyoB1xcaQje3uiz` · readings taken 2026-09-18T16:4xZ on `main` = `2bc9829ea` · ⛔ this seat does not grade or route</sub>\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

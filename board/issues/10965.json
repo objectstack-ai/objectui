@@ -1,0 +1,36 @@
+{
+  "number": 10965,
+  "kind": "issue",
+  "title": "Proposed-changes confirm card is clickable while the proposing turn is still streaming, which overlaps turns",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T11:32:45Z",
+  "updated_at": "2026-09-28T12:25:24Z",
+  "closed_at": "2026-09-28T12:24:47Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10965",
+  "body": "## Source\n\nA same-class finding from objectstack-ai/objectui#10925, whose fix is PR objectstack-ai/objectui#10952 (merged `7d82957b18`).\n- The dev's `os-dev-report` on objectui#10925 named it out of scope.\n- The contract review on PR #10952 (`5868396957`, ③) confirmed it is the same defect class and left the carrier to the maintainer.\n- The maintainer ruled, verbatim: 「确认变更卡片开新卡」 (the `domain:ui` seat 4 session, 2026-09-28).\n\nEpic objectstack-ai/cloud#2440.\n\n## What happens\n\n`update_metadata` returns `changes_proposed` mid-turn. The 确认修改 / proposed-changes card renders as soon as that result lands, but the turn that proposed it keeps streaming. The cloud agent loop (`streamChatWithTools`) stores each remaining step as it goes.\n\nOn objectui `main` (`7d82957b18`), `ChatbotEnhanced.tsx` renders the card's `proposed-changes-confirm` and `proposed-changes-adjust` buttons with no `disabled`. `handleChangesConfirm` calls `onSendMessage(changesConfirmMessage)` straight away.\n\nSo a confirm clicked in that window sends the next turn while the previous one is still being stored. This is the same overlap objectui#10925 fixed for the proposed-plan card, where the stored history interleaved the two turns.\n\nMeasured by the objectui#10925 dev with a one-off probe through the real mapper (not kept): with `update_metadata` `changes_proposed` on the streaming tail and `isLoading` true, `proposed-changes-confirm` was enabled, and a click sent the message. There is no measurement through a public door.\n\n## Direction\n\nGate the confirm card's actions on the signal objectui#10925 already uses: `planActionsLocked = isLoading`, the one that turns the composer's send into a stop button. Put it on `proposed-changes-confirm` and `proposed-changes-adjust`, with the same native `disabled` attribute and the same `disabled:` styling. ⛔ No new signal.\n\nThe card's own states stay as they are:\n- the `applying` badge (`confirmPendingIds` / replay outcome);\n- the quota-blocked next step (objectui#7253);\n- the legacy `confirmed` collapse;\n- the read-only hint when there is no `onSendMessage`.\n\n## Acceptance\n\n1. The confirm card's Confirm and Adjust actions are disabled while a turn is in flight (`submitted` or `streaming`).\n2. They are enabled again once the turn has finished (`ready`).\n3. A test through the real mapper pins both states, and one case confirms that the `applying`, quota-blocked and `confirmed` states render as before."
+}

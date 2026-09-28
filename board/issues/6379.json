@@ -1,0 +1,33 @@
+{
+  "number": 6379,
+  "kind": "issue",
+  "title": "perf(console): three render-blocking stylesheets floor first paint at ~550 ms on Fast 4G, whatever the HTML shell does",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T18:01:01Z",
+  "updated_at": "2026-09-20T12:23:11Z",
+  "closed_at": "2026-09-20T12:23:11Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6379",
+  "body": "## 维护者速读\n\n**事情**:Console 的首屏要等 CSS 下载完才能画第一帧。实测(Fast 4G):最后一个渲染阻塞样式表 **665.8 ms**,首次绘制 **688 ms** —— 中间只差 22 ms,**样式表就是地板**。\n\n**⭐ 便宜那条路已经走完,买到的是零。** 2026-09-17 落地的 PR objectui#9661 做的正是分诊当初说「不需要决定」的那一条(瘦身 CSS):**−955 gzipped 字节,FCP 改善 0 ms**。⇒ 现在有数说话:**不动架构就到此为止了。**\n\n**剩下的两条都要动产品语义,所以要你拍板**:\n- **A** —— **让 app CSS 不再阻塞渲染**(`media=\"print\"` + onload 换回,或 preload+swap)。一处改动就能拿回那 ~550 ms。⚠️ 代价是**整个 console 的 FOUC 语义**变了:第一帧会是没有样式的。那是产品判断 —— 一个没样式的首帧能不能接受。\n- **B** —— **把关键 CSS 子集内联**进 shell 已有的 `<style>`。保住 FOUC 语义,但需要一条「什么算关键」的规则**加一道门禁**盯着,否则它会腐烂。⚠️ 新增必需门禁本身也在人工地板上 ⇒ B 里面套着第二个决定。\n- **C** —— **不做**,接受现在的 ~550 ms。\n\n**席位意见**:荐 **C**,而且理由是章程的明文规则而不是保守:**零实测拉动 ⇒ 荐不扩散**。⚠️ 把话说全 —— ② 那条轴上,我们测到的是**能力**(样式表确实是地板、便宜路已耗尽),⛔ **没有**测到**需求**:没有任何读数说有用户因为这 550 ms 受损,而当前值已是 #2628 之前(5661–5716 ms)的**十倍改善**。\n\n⇒ 如果你判断这 550 ms 值得,**A 是一处改动**,今天就能做;⛔ 别先做 B —— 它更贵、且会再要你一次决定。\n\n**⚠️ 两个没测的,说在前面**:① 手机 / 真实网络的形状 —— 用的是 Chrome DevTools 的 Fast-4G 预设(4 Mbps / 70 ms),⛔ 不是真链路抓包;② 渲染阻塞样式表现读是 **2** 张(⛔ 不是卡面写的 3 张),`plugin-dashboard` 的 2.2 KB 已离开 eager 路径。\n\n**你要做的**:回一个字母 —— **A / B / C**。\n\n<!-- os-decision-facets -->\nos-decision-facets\n\n- **① 项目长远合理性** — **B** 是成熟形态(关键 CSS 是有名有姓的做法),但**只有带门禁才成立**,否则它腐烂成一份没人维护的清单;**A** 是一处改动换永久的 FOUC 语义变更;**C** 把当前地板固化下来。⇒ 若将来真要做,B 是终态、A 是权宜。\n- **② 实际业务拉动** — ⭐ 这条轴今天**同时给出能力与需求两个答案,方向相反**:**能力**已实测(样式表是地板,22 ms 的差;便宜路 route 3 实测买到 **0 ms**);**需求 ⛔ NOT MEASURED** —— 没有任何读数说有用户受损,且现值已是 #2628 前的十倍改善。⇒ 按「零拉动 ⇒ 荐不扩散」,这条轴指向 **C**。\n- **③ 防 AI 写代码/写元数据犯错** — 与 AI 写元数据无关,权重低。但两条路各带一个结构性风险:**B** 的关键子集**没有门禁就会腐烂**(卡面自己点名了),**A** 让首帧无样式成为全应用的新常态,而那是任何后续页面都要活在其中的前提。\n- **④ 创业阶段不扩散** — **C** 零工作;**A** 一处改动但换走一条产品语义;**B** 最贵,且**内含一次新增必需门禁**,那本身就在人工地板上。⇒ 明确指向 C,其次 A。\n\n**Governing text:** 北极星〈阶段姿态〉与四轴「创业阶段不扩散」· 本卡实测(FCP 688 ms / 最后样式表 665.8 ms / route 3 = 0 ms,引自 `5711071860` 与 `5711468546`)· 分诊 2026-08-28 的定级(`5453884177`,判为人工地板)。\n\n---\n\nFound while measuring #2628. That card's fix puts a boot indicator in `apps/console/index.html` with its styles inline, so it needs no chunk and no stylesheet to paint. It still cannot paint before the render-blocking CSS lands, because nothing can: a pending render-blocking stylesheet blocks the **document's** first paint regardless of where the markup sits.\n\n## What was measured\n\n`apps/console` production build, served locally with the boot endpoints mocked, Playwright + `first-contentful-paint`, cache disabled, fresh context per run.\n\nWith the #2628 indicator in place, first contentful paint:\n\n| profile | first contentful paint |\n|---|---|\n| localhost, no throttling | 120 - 144 ms |\n| 20 Mbps / 80 ms RTT | ~285 ms |\n| Fast 4G (4 Mbps / 70 ms) | 548 - 556 ms |\n\nAt the moment of first paint on the Fast-4G run the page had loaded **4 resources**: the document and the three stylesheets. No JS chunk had arrived. So the remaining half-second is the CSS, start to finish.\n\n`dist/index.html` head:\n\n```\n<link rel=\"stylesheet\" crossorigin href=\"./assets/ui-components-*.css\">    475 B\n<link rel=\"stylesheet\" crossorigin href=\"./assets/plugin-dashboard-*.css\"> 2.2 KB\n<link rel=\"stylesheet\" crossorigin href=\"./assets/index-*.css\">            362 KB raw / 47 KB gzipped\n```\n\nThe third one is essentially all of it.\n\n## Why this is its own card and not part of #2628\n\nTriage scoped #2628 to tier 1 (give the white-frame window a visible indication) and excluded the structural tiers. Every route out of this one is structural:\n\n- **Make the app CSS non-blocking** (`media=\"print\"` + `onload` swap, or a `preload`+swap) — changes FOUC semantics for the entire console, not just the boot window. That is a product judgement about what an unstyled first frame is allowed to look like.\n- **Split a critical subset** into the inline `<style>` the shell already carries — needs a rule for what counts as critical and a gate to keep it honest, or it rots.\n- **Shrink `index-*.css`** — 362 KB raw for a Tailwind build suggests the content scan is reaching more than the eager route needs; related in spirit to `check:eager-closure` on the JS side, which has no CSS counterpart.\n\n## What is NOT established\n\n- **Whether it is worth doing.** ~550 ms is already a 10x improvement over the 5661-5716 ms measured before #2628. Whether the next 550 ms justifies touching FOUC semantics for the whole app is a call for the maintainer, not a measurement.\n- **The mobile/real-network shape.** The Fast-4G profile is Chrome DevTools' preset (4 Mbps / 70 ms), not a capture of a real link.\n\nNo fix attempted; the numbers above are the whole contribution.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

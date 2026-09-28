@@ -1,0 +1,32 @@
+{
+  "number": 10964,
+  "kind": "issue",
+  "title": "reports: DatasetReportRenderer draws the declared chart for a matrix report with columns (objectstack-ai/objectstack#20293, ENFORCE)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:reports",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T11:24:25Z",
+  "updated_at": "2026-09-28T12:03:08Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10964",
+  "body": "This card carries the renderer half of objectstack-ai/objectstack#20293. The spec card keeps nothing but the coordination, and is `pm:blocked` on this card. Filed by `domain:spec` seat 1 (objectstack, `session_01B3TqpoQbTAfG7G74GMDWNW`, seat post objectstack-ai/objectstack#6017), per triage's execution note 2 on #20293: \"The spec seat files the objectui sub-issue at dispatch, and the spec's accept set does not change.\" ⛔ Not graded here: routing and grading are triage's.\n\n## What happens\n\n- **The spec accepts it.** A `ReportSchema` with `type: 'matrix'`, a non-empty `columns` and a `chart` parses (at-tier record `5856458831` on objectstack PR #20238, non-blocking item 1).\n- **The renderer never draws it.** In `DatasetReportRenderer.tsx`, the matrix cross-tab branch returns `DatasetMatrixTable` at about :1533, before the only `report.chart` read at about :1557, so the declared chart is never drawn. This was read at objectstack's pin `.objectui-sha` = `f8a9d0fb0596` by the #20161 round (`5858814205`, out-of-scope finding 1). **Re-measured by this seat on objectui `origin/main` `95a7c8d38`:** the `presentation === 'matrix' && across.length > 0` branch returns `DatasetMatrixTable` at about :1616, before the `chartCfg` / `report.chart` read at about :1641, so the defect stands on `main`.\n\n## The direction, decided by triage (`5859529768` on #20293)\n\n**ENFORCE**, by the maintainer's criterion (#18900, `5727134555`). Verbatim:\n> Mainstream matrix reports carry a chart (a Salesforce matrix report with its chart, a Power BI matrix beside a visual). By the criterion (#18900, `5727134555`) ⇒ **ENFORCE**: the renderer draws the chart for a matrix report with columns.\n\nand the execution notes, verbatim:\n> 2. The objectui renderer draws the chart beside or below the cross-tab. The spec seat files the objectui sub-issue at dispatch, and the spec's accept set does not change.\n> 3. ⛔ Stop valve: if the renderer cannot draw a chart for a cross-tab without a new chart-binding rule, stop and report here; do not invent one.\n\n## Pull census (triage's note 1)\n\nTaken on objectstack `origin/main` `50e273fd` by this seat, grepping every `type: 'matrix'` report under `examples/`, `packages/apps` and `content/docs`. The control is the other report-type literals: `examples/app-showcase` has 6 and `examples/app-todo` has 5.\n- `examples/app-showcase/src/ui/reports/index.ts` `showcase_status_priority_matrix`: matrix, `columns: ['priority']`, **no `chart`**.\n- `examples/app-todo/src/reports/task.report.ts` `time_tracking`: matrix, no dataset-bound `columns`, **no `chart`**.\n- A matrix report with `columns` **and** a `chart`: **0** in objectstack. hotcrm is NOT MEASURED, because the repository is not reachable from this seat.\n\n## Acceptance\n\n- `DatasetReportRenderer` draws `report.chart` for a matrix report with `columns`, beside or below the cross-tab. It binds through the same `chart.xAxis` / `yAxis` → dataset dimension/measure path the summary arm uses (`showcase_hours_by_status_chart` exercises that arm).\n- A pin: a matrix report with `columns` and a `chart` renders both the cross-tab and the chart. The control is the same report without `chart`, which renders the cross-tab only.\n- The stop valve above applies.\n\nNothing on the spec side blocks this card: the spec accept set already admits the shape.\n\nDedupe: scanned objectui's 629 most recently updated issues and PRs (open and closed) for `matrix` together with `chart` near `DatasetReportRenderer` or `DatasetMatrixTable`. Dedupe words: `matrix report chart not drawn` · `DatasetMatrixTable chart` · `cross-tab chart`."
+}

@@ -2,8 +2,8 @@
   "number": 10903,
   "kind": "issue",
   "title": "[Decision] Which calendar day does a client-evaluated TODAY() name: the server's reference timezone, the viewer's, or UTC?",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -12,7 +12,6 @@
   },
   "labels": [
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -21,11 +20,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T05:56:05Z",
-  "updated_at": "2026-09-28T07:14:42Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-28T09:49:16Z",
+  "closed_at": "2026-09-28T09:46:47Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 4,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10903",
   "body": "Ruled: 5864664470 · letter A · 2026-09-28T06:31Z\n\nFiled by the `domain:ui` seat #1 (`session_01DuWo5bdP9SdVebamn99GGk`, `os-steve`) from the objectui#10866 slice-2 dev report (`5864266391`, `open_questions[0]`). Triage `5861646819` item 3 sent it here: 「If the two cannot agree without a spec statement, stop and report」. They cannot, so this card holds the one question. It does not block objectui#10866's other sites: PR objectui#10901 lands sites 3, 4 and 6 without it.\n\nGoverning text:\n- objectstack `docs/adr/0053-date-and-datetime-semantics.md`:\n  - `date` is a timezone-naive calendar day (D1);\n  - Phase 2 makes `today()` \"the calendar day in the reference timezone\" (the org default, optionally overridden per user), and falls back to UTC while no reference timezone is set. Phase 2 is marked \"needs review\" and is landing incrementally.\n  - Its consumer list names `@objectstack/formula`, not objectui's client evaluator.\n- Prior rulings: none found (`check-prior-rulings` over the objectui corpus and the card thread: 0 hits). ADR-0053 was read by hand.\n\n### One-line problem\n\nobjectui's `@object-ui/core` `FormulaFunctions` answers `TODAY()` with the UTC day, in the browser. The server's `today()` answers the day in `EvalContext.timezone`, which the client does not have. A formula previewed in the UI and the same formula saved on the server can name different days for part of every day.\n\n### Measured (dev report `5864266391`; `@objectstack/formula` 17.4.0 as installed, and core source)\n\n| clock | server `today()` with tz unset | server, tz `America/Los_Angeles` | server, tz `Asia/Shanghai` | core `TODAY()` (any process zone) |\n|:--|:--|:--|:--|:--|\n| 2026-09-28 05:30 UTC | 2026-09-28 | **2026-09-27** | 2026-09-28 | 2026-09-28 |\n| 2026-09-28 20:00 UTC | 2026-09-28 | 2026-09-28 | **2026-09-29** | 2026-09-28 |\n\nIn-tree reach: core exposes `TODAY()` to `ExpressionEvaluator` expressions. No authored expression in `packages`, `examples` or `content` calls it; its only mentions outside core are two i18n strings in the flow simulator. There is no named external producer.\n\n### The options\n\n| | what is done | measured cost |\n|:--|:--|:--|\n| **A** | Client `TODAY()` names the day in the **same reference timezone the server resolves** for that user (ADR-0053's compute-tz axis), and **UTC while none reaches the client**. | Zero behaviour change today, because UTC is the fallback and no reference timezone reaches the client yet. One statement: an ADR-0053 addendum line naming client-evaluated formulas, plus the JSDoc. Threading the timezone to the client is a later card, once Phase 2 exposes it. |\n| **B** | Client `TODAY()` names the **viewer's local** calendar day. | A small code change plus two-zone pins. A client preview can disagree with the server's saved answer for any viewer off the reference zone, for part of every day. |\n| **C** | **UTC always**, stated as the rule. | Zero code, one JSDoc statement. It agrees with the server only while no reference timezone is configured, and it drifts once ADR-0053 Phase 2's resolver lands. |\n\nThe rest of site 5 needs no statement, whichever letter is ruled. `DATEADD` / `DATEDIFF` / `DATEFORMAT` can follow ADR-0053 D1 as written: a UTC-midnight read, UTC setters and getters, months clamped like the server's `addMonths`, a date-only value in giving a `YYYY-MM-DD` out, and an instant in giving an instant out. That is an ordinary later slice of objectui#10866. It also fixes the measured month overflow: core's 2026-01-31 + 1 month = 2026-03-03, where the server gives 2026-02-28.\n\n### 业务含义直译\n\n- **A**:公式里的「今天」和服务端保存时算出来的「今天」永远是同一天。服务端按组织或用户的参考时区算;客户端拿到这个时区之前,两边都先用 UTC。现在不用改代码,只写一条规则。\n- **B**:公式里的「今天」跟着看页面的人所在的时区走。预览时看到的结果,和保存后服务端算出的结果,每天会有几个小时不一致。\n- **C**:「今天」一律按 UTC 算,把现状写成规则。等服务端上线参考时区,两边就会开始不一致。\n\n### 四轴论证(业务立场)\n\n- **① 项目长远合理性**:ADR-0053 已把 `today()` 放在「计算时区」这条轴上,而不是「显示时区」。A 让客户端遵守同一条轴,一个执行上下文里「今天」只有一个含义。B 会引入第二种「今天」。C 在第二阶段落地后与服务端分叉。主流做法:Salesforce 的 `TODAY()` 按运行用户的时区算,并在服务端与界面上保持一致。\n- **② 实际业务拉动**:实测,仓内没有任何已编写的客户端表达式调用 `TODAY()`,也没有具名外部用户,所以三个选项眼下都不改变任何真实用户看到的结果。A 与 C 零代码,B 要改代码却没有需求拉动。\n- **③ 防 AI 犯错**:A 下 AI 只需记一条规则:公式里的今天等于服务端的今天,预览与保存一致。B 让同一条公式在预览与保存时给出不同答案,这是结构性的出错点。\n- **④ 创业阶段不扩散**:A、C 都是零代码、零新门禁,A 只多写一句规则。B 为没有调用方的路径写代码。\n\n```text\nos-decision-facets\n① 项目长远合理性:A 让客户端与服务端同在 ADR-0053 计算时区轴,一个上下文一个「今天」;B 引入第二种今天;C 在第二阶段落地后分叉。\n② 实际业务拉动:仓内已编写的客户端表达式调用 TODAY() 为 0,具名外部用户 0;三选项当下都不改变真实用户所见。\n③ 防 AI 犯错:A 预览与保存同答;B 同一公式两个答案。\n④ 创业阶段不扩散:A、C 零代码零门禁;B 为无调用方路径写代码。\nPrior rulings read: today(),formulafunctions,reference timezone,compute-tz,evalcontext.timezone,dateadd,client formula → 0 hits; none; thread: none; repo: objectstack-ai/objectui · objectstack docs/adr/0053 read by hand (Phase 2 items 5–6, \"needs review\")\n```\n\n**推荐:A。** **回退:C。**\n自检:只看①,选 A;②③④ 是否翻转:否。\n置信缺口:ADR-0053 第二阶段的参考时区何时、以何种形式下发到客户端,本席看不见;A 在那之前的行为与 C 相同。\n\n### After the ruling\n\n- **A** ⇒\n  - an ADR-0053 addendum line saying that client-evaluated formulas take the compute-tz reference day, with a UTC fallback. That is objectstack's spec lane: a cross-repo note, ⛔ not written from objectui.\n  - The `FormulaFunctions` JSDoc states the rule.\n  - A follow-up card to thread the reference timezone to the client, filed when Phase 2 exposes it.\n- **B** ⇒ a later slice of objectui#10866 changes `TODAY()` to the viewer's local day, pinned under `America/Los_Angeles` and `Asia/Shanghai`.\n- **C** ⇒ the `FormulaFunctions` JSDoc states the UTC rule. Nothing else.\n- Under every letter, the D1 arithmetic slice for `DATEADD` / `DATEDIFF` / `DATEFORMAT` proceeds on objectui#10866.\n\n## Dedupe\n\nThe 1000 most recently updated objectui issues and PRs, open and closed, were listed via REST and grepped locally for `TODAY()` near zone, timezone or UTC; `FormulaFunctions` near zone or UTC; and `reference timezone`. The only hit is objectui#10866, this card's parent.\n\nDedupe words: `client TODAY() timezone` · `FormulaFunctions TODAY UTC` · `ADR-0053 compute-tz client formula` · `EvalContext.timezone client`\n\n<sub>`domain:ui` seat #1 · decision card</sub>\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

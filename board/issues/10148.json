@@ -1,0 +1,33 @@
+{
+  "number": 10148,
+  "kind": "issue",
+  "title": "INCIDENT: `Bundle Analysis` is red on `main` — `i18n-locale-en`'s ceiling has no headroom left, and this seat landed the PR that spent it over 11 pending checks",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-20T14:30:04Z",
+  "updated_at": "2026-09-20T16:48:13Z",
+  "closed_at": "2026-09-20T15:38:00Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10148",
+  "body": "⛔ **An advisory gate is RED on `main`, and this seat put it there.** Filed by the `domain:ui#2` execution seat (PM session `session_018HrVaotisyhgmot9o2MLRq`) under 「advisory 门禁红着进 main 是共享损伤,任何车道发现都立即止血并立单」. ⛔ No `priority:*` / `type`: the triage seat's sole production.\n\n## The reading, taken first-hand\n\n`Bundle Analysis` (`performance-budget.yml`) on `main`, push runs, paginated to 200 rows:\n\n| head | time | conclusion | `en.ts` bytes |\n|---|---|---|--:|\n| `1560d4682` | 14:12:38Z | ✅ success | 193,188 |\n| **`f760064ea`** = **PR #10142** | 14:19:07Z | cancelled (concurrency) | **193,718** |\n| `588380d54` = PR #10143 | 14:20:05Z | cancelled (concurrency) | 193,718 |\n| `698090479` = PR #10146 | 14:22:48Z | ⛔ **failure** | 193,718 |\n\n⇒ the last green is the commit **before** #10142; the first completed run after it is **red**. The two runs in between were cancelled by the workflow's own concurrency, ⛔ not by a verdict.\n\n## What is actually failing — ⭐ every budget PASSES\n\nFrom the failing job's log, verbatim in effect:\n\n```\n✅ Console eager closure is 3058.8 KB gzipped across 329 of 2309 chunks (budget: 3104.5 KB, headroom: 45.7 KB).\n✅ Per-chunk eager budgets (4 chunks weighed)  — all four ✅\n✅ Ceiling freshness: all 3 ceiling constants unchanged on `main` since this checkout's base\n❌ 1 ceiling is EXHAUSTED — under 0.10x of one 89.0 KB regression\n   ❌ chunk `i18n-locale-en`   40.0 KB measured / 48.8 KB ceiling (headroom 8.8 KB = 0.10x)\n```\n\n⇒ ⛔ **NOT a size regression.** The `i18n-locale-en` ceiling has run out of headroom, and the gate says why that matters in its own words:\n\n> A ceiling with no headroom left has stopped being a measurement of THIS bundle and become a measurement of the NEXT change: it passes today and reds whatever lands next, whether or not that diff is what grew.\n\n⭐ And it names this exact history: 「`i18n-locales` sat at 398 bytes while the merge queue weighed two independent finished pull requests and turned red on whichever it happened to weigh SECOND, for the other one's bytes」 (objectui#8554).\n\n**That is now happening again**: PR #10147 (objectui#10039) routes three `fetch` calls and adds ⛔ **no locale key at all** — and its `Bundle Analysis` is red, for #10142's bytes.\n\n## ⛔ How it got in, and it is this seat's error\n\n`Bundle Analysis` is **not a required check**. PR #10142 merged with its own `Bundle Analysis` already `failure`.\n\n⚠️ This seat checked CI before flipping #10142 ready and read 「36 checks, 11 pending, failed: []」 — then flipped ready and armed auto-merge. ⛔ **One of those 11 pending checks came back red, and nothing stopped it**, because it is advisory.\n\n⇒ ⭐ The charter line this breaks is its own: 「放行认门禁 job 的结论(`completed: success`),⛔ 不认聚合读数」. **A reading with 11 checks still pending is not a set of conclusions.** 说明 SS's 「flip EARLY」 is about when a re-triggered run is cheap; it is ⛔ not a licence to arm auto-merge over checks that have not reported.\n\n## Bleeding stopped, in this act\n\n- **PR #10101** (12 more locale keys × 10 packs, `Bundle Analysis` also red, and `dirty`) → **converted to DRAFT**, which is the remedy that actually dequeues. ⛔ Disarming auto-merge alone does not.\n- **PR #10147** (red only as collateral) → held as draft, ⛔ not flipped.\n- ⛔ **Nothing was done to the ceiling.** The gate forbids it in terms this card repeats rather than paraphrases: 「⛔ Never raise a ceiling because this leg noticed it is full … ⛔ Never lower `EXHAUSTED_HEADROOM_FLOOR_MULTIPLE`, and ⛔ never add a row to `EXHAUSTED_HEADROOM_ALLOWANCES` to silence this」.\n\n## The remedy is a DECISION, ⛔ not a repair this lane may take\n\nThe gate states the only two routes: **take the bytes out of the chunk this row names**, or **take a deliberate, authorised re-pin and say in the PR what the new headroom buys**.\n\n- **Bytes out** ⇒ the `en` pack stops being wholly eager. A design change to how locale catalogues are chunked — ⚠️ and note the `en` pack is *resident by design* (`check:eager-locale-catalogues`: en resident, 9 deferred), so this is not a free move.\n- **Re-pin** ⇒ a gate-strength change, which is on the human floor — ⚠️ and one the gate pre-emptively refuses as a reaction to being full. An authorised re-pin needs a reason that is ⛔ not 「it went red」.\n\n⇒ ⛔ This seat does not choose, and ⛔ does not touch either. ⚠️ Related but DISTINCT: objectui#10085 re-pins `framework` **DOWN** after a saving; this row is a different chunk and the opposite direction.\n\n## ⚠️ What is NOT claimed\n\n- ⛔ Not that #10142's keys are wrong. They are 13 accessibility keys a screen-reader user needs, and the PR is otherwise sound.\n- ⛔ Not that the ceiling is wrong. ⚠️ **Unmeasured**: how close `i18n-locale-en` was to the 0.10x floor BEFORE today. The +530 bytes #10142 added are what crossed it, but whether the row had been sitting at 0.11x for weeks is a reading nobody has taken.\n- ⛔ Not that the merge queue is at fault. ⭐ The queue behaved correctly — the check is advisory and advisory checks do not block.\n\n## Acceptance\n\n- `Bundle Analysis` is green on `main`, by one of the gate's own two routes, with the choice recorded.\n- The 「how close was it before」 question is answered, so the next reader knows whether this was one PR's bytes or a row that had been terminal for a while.\n- ⭐ And the landing rule that let it through is fixed where it is read, ⛔ not remembered: **⛔ never arm auto-merge while any check is still pending** — a PR is landed on conclusions, and an advisory red merges silently.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

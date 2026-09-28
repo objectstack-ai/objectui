@@ -1,0 +1,32 @@
+{
+  "number": 6318,
+  "kind": "issue",
+  "title": "53 in-repo schema files carry a registered ObjectUI type but fail `safeValidateSchema`",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-25T12:31:41Z",
+  "updated_at": "2026-09-19T02:51:25Z",
+  "closed_at": "2026-09-19T02:51:24Z",
+  "closed_by": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 13,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6318",
+  "body": "Filed unassigned by the `os-dev` seat while implementing #6075, which surfaced this bucket for the first time. Grading and `domain:*` are the triage seat's. ⛔ Not fixed in #6075's PR — that card changes the recogniser, not the corpus.\n\n> ⚠️ Editor's note: the first revision of this body wrote a Zod literal with an angle-bracket placeholder. GitHub's body sanitizer ate the fragment on the way in, leaving `z.literal('')` — a sentence that read as a claim about the empty string. Placeholders are spelled in words below for that reason.\n\n## What was measured\n\n`objectui check` now recognises a file either structurally or by validating it, and reports the files it refuses whose root `type` nevertheless names a registered component. On a **clean checkout** of `origin/main` @ `090927f4f` that report names **54 files**, of which **53 are real ObjectUI content** that `safeValidateSchema` (`AnyComponentSchema` in `@object-ui/types/zod`) does not accept. The 54th is `packages/vscode-extension/schemas/objectui-schema.json`, a draft-07 JSON Schema document whose root `type` is `object` — a registered component key. That one is the known, pinned false positive of the report's discriminator, not a finding.\n\nMethod: reproduce the command's own predicate over `globSync('**/*.{json,yaml,yml}', { ignore: ['node_modules/**','dist/**','.git/**'] })` restricted to tracked files, parse with `jsonc-parser`, then bucket. Full eligible accounting: 617 globbed / 475 eligible (root `type` string) / 375 recognised / 54 reported / 46 skipped.\n\n⚠️ Measure on a clean tree. `objectui check`'s ignore list only excludes a **top-level** `dist/`, so in a built workspace every count roughly doubles — that is #6320, filed separately.\n\n## Two distinct causes, both real\n\n**A. Content that violates a schema the union does model — 49 files.**\nThe clearest instance is `examples/schema-catalog/src/schemas/components-basic-text/small.json`:\n\n```json\n{ \"type\": \"text\", \"content\": \"Small text\", \"variant\": \"small\" }\n```\n\n`TextSchema.variant` (`packages/types/src/zod/layout.zod.ts`) is an enum of `h1 h2 h3 h4 h5 h6 body caption overline`. `small` is not in it, so the document is rejected. `BaseSchema` is `.passthrough()`, so the unknown `content` key is not what fails it — the enum is. Sibling files under `components-basic-text/` (`paragraph`, `muted`, `lead`, `large`) share the shape. Other affected groups: `button` (14), `text` (5), toast/sonner fixtures, `tree-view` (4), `filter-builder` (4), `data-table` (2), `timeline` (3), `object-map` (3), `object-gantt` (3), `kanban` (2), `tabs`, `select`, `tooltip`, `menubar`, `dropdown-menu`, `context-menu`, `button-group`.\n\n**B. A registered component type with no Zod schema at all — 4 files.**\n\n- `examples/schema-catalog/src/schemas/plugin-editor/read-only-json-viewer.json` (`code-editor`)\n- `examples/schema-catalog/src/schemas/plugin-editor/python-editor.json` (`code-editor`)\n- `examples/schema-catalog/src/schemas/plugin-editor/javascript-editor.json` (`code-editor`)\n- `examples/schema-catalog/src/schemas/plugin-charts/simple-bar-chart.json` (`bar-chart`)\n\nSearching `packages/types/src/zod/` for a `z.literal` call naming either type — that is, `z.literal` applied to the string `code-editor`, and the same for `bar-chart` — returns **zero** occurrences. Both types render, and `objectui validate` cannot validate either. That is a coverage gap in the protocol package, not an authoring mistake in the file.\n\n## Adjacent measurement, recorded rather than acted on\n\n36 files that the structural arm already admitted **also** fail `safeValidateSchema` today. `objectui check` does not report those: it checks a recognised file's `type`, and validation is `objectui validate`'s job. Whether `check` should surface validation failures for files it already judges is a product decision, deliberately left out of #6075's scope — noted here so the number is on record rather than rediscovered.\n\n## Diagnosability note\n\nEvery failure in this bucket reports a single root issue: `invalid_union — Invalid input`. Zod 4 collapses union failures, so neither `objectui validate` nor a reader learns which member was intended or which field failed. Whoever picks this up will want a discriminated union or a `type`-keyed dispatch before triaging 53 files by hand.\n\n## Reproduce\n\n```\nnode packages/cli/dist/cli.js check\n```\n\nafter building `@object-ui/cli` from the #6075 branch (and before building the examples — see #6320), or on `main` once that PR lands.\n\n## Related\n\n- **#6075** — the recogniser card that surfaced this; its PR reports the bucket but changes no corpus file\n- **#6320** — the scan-scope hole that makes these counts depend on build state\n- **#5127** / **#5334** — the marker gate this bucket sits behind\n- **#5392** — ruled Option B, no shipped schema artifact, which is why the recogniser reads the Zod union directly\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_012CZgmFFzqA9cX8tBMhvpFe)_\n\n---\n\n## Triage: closed `not_planned` — North Star full-board re-grade (2026-09-19)\n\n**Path: none.** This is in-repo corpus quality, not a customer-facing capability: the validator itself is sound, and an author writing a schema goes through that same validator. No checklist item, no journey step, and none of the eleven capabilities is missing.\n\n**Nothing is lost.** Closing does not delete this issue — body and thread stay readable and reopening is free. Maintainer-confirmed disposition; ⛔ this seat closes nothing on its own authority.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

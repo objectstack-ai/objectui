@@ -1,0 +1,28 @@
+{
+  "number": 10976,
+  "kind": "issue",
+  "title": "finding(types,plugin-view): `ObjectViewSchema.table` is typed to carry 60 `ObjectGrid` keys, and `ObjectView` reads 13 of them, so `table.editable` and 46 others type-check and do nothing",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T12:14:08Z",
+  "updated_at": "2026-09-28T12:14:08Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10976",
+  "body": "Filing-gate category: ① a declared surface a renderer does not honour. Reader: triage first (grade and route). Filed by `domain:ui` seat 2, `session_014mXUNuFomfj24w7s1pZzhN`, from contract review `5869604558` on PR objectui#10967 (objectui#10885 member 4), which named `table.editable`. The seat measured the family on `main`. ⛔ Not graded here.\n\n## Measured on `main`\n- `ObjectViewSchema.table` is `Partial of Pick of ObjectGridSchema, ObjectGridSlotKey`. The union `ObjectGridSlotKey` in `packages/types/src/objectql.ts` has 60 members. Its docblock says \"59 keys\".\n- `packages/plugin-view/src/ObjectView.tsx` reads 13 of them off `table`, counting every non-comment `table.X` / `table?.X` access (there is no spread or destructure of `schema.table`): `className`, `columns`, `defaultFilters`, `description`, `fields`, `filter`, `operations`, `pageSize`, `pagination`, `selectable`, `selection`, `sort`, `title`.\n- The other 47 are unread. Among them are grid behaviour keys `ObjectGrid` itself honours: `editable`, `singleClickEdit`, `frozenColumns`, `rowHeight`, `resizable`, `searchableFields`, `conditionalFormatting`, `rowActions`, `bulkActions`, `exportOptions`, `grouping`, `rowColor`, `showSearch` and `showPagination` (each has a read in `ObjectGrid.tsx`; `emptyState` and `showFilters` have none there). Some of the 47 are `BaseSchema` keys (`id`, `style`, `hidden`, `visible` …) that a slot may not need at all.\n\n## Why it matters\nAn author, or an AI, who writes `table: { editable: true }` on an `object-view` gets no type error and no effect. That is declared but not enforced, on a typed author face.\n\n## Direction (for triage to grade)\nEither relay the grid behaviour keys that have a meaning on the view's grid, or narrow `ObjectGridSlotKey` to what `ObjectView` honours, which is a declared-type move (`Clause-②`). The objectui#5155 removal condition in the docblock and the pin `object-view-slot-key-lists.test.ts` (set equality with `ObjectGridSchema`) bear on the second option. Also correct the docblock's \"59 keys\".\n\n## Dedupe\nA semantic search of objectui issues (`table` slot, `ObjectGridSlotKey`, not relayed, `editable`, `frozenColumns`) returned nothing on this.\n\n<sub>`domain:ui` seat 2 · finding · 2026-09-28</sub>"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 8549,
+  "kind": "issue",
+  "title": "Domains page needs the BYO custom-hostname wizard: three steps (enter domain → add TXT → add CNAME), live status, and an upgrade prompt instead of a form on Free",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Feature",
+  "created_at": "2026-09-08T09:58:37Z",
+  "updated_at": "2026-09-20T12:04:07Z",
+  "closed_at": "2026-09-20T12:04:07Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8549",
+  "body": "## 维护者速读\n\n我们的云上有个能力已经做好了:客户可以把自己的域名(比如 `app.acme.com`)绑到自己的生产环境上 —— 控制面、验证流程、证书签发、状态机,全都在 cloud 仓里真的跑起来了。**唯一缺的是控制台里那个让客户自己走完三步(填域名 → 加 TXT → 加 CNAME)的向导页**,这张卡就是那个页面。\n\n但更新后的北极星把这件事划到了线外。北极星〈现在不做〉原话:「云服务的旅程(注册、控制面、托管)**另有自己的清单**」,以及「计费未建」。这张卡两头都占:它是**托管**旅程的操作面,而且它的核心行为之一是「Free 方案显示升级提示、Team 以上才显示表单」—— 那是计费门控。\n\n实测:本仓的能力清单 `docs/qa/platform-checklist/` 现有 15 个领域、264 个条目,**没有任何一条覆盖自定义域名、托管或方案档位**。所以「不在清单上」是量出来的,不是我推的。\n\n三个选项:\n\n- **A 关掉**(不做了,重开免费)—— 云旅程的面归云旅程的清单,本仓的控制台不做这一页。cloud 侧已做好的能力原样保留,只是暂时没有自助界面。\n- **B 留着但停放** —— 降到 p3 挂 `pm:on-hold`,等云旅程真的进本仓清单那天自动醒来。卡不消失,但也不占队列。\n- **C 照旧做** —— 认为控制台这一页属于本仓的产品面,北极星那句管的是 cloud 仓的活、不是 objectui 的页面。\n\n我荐 **A**。请回一个字母:**A / B / C**\n\n<!-- os-decision-facets -->\nos-decision-facets\n\n- **① 项目长远合理性**:A 缩小特例 —— 本仓的路与清单是「一个建在协议上的应用」,自助托管开通是另一条产品线的旅程,把它的操作面留在这里,等于让本仓长期背一条不在自己清单上的验收责任(扩生)。C 扩大:控制台从此有一块没有清单条目、没人验收的面。\n- **② 实际业务拉动**:⚠️ **本仓测不到**。今天撞上的人是「买了 Team 以上、想绑自己域名」的客户,这个数只有 cloud 侧和销售知道,本仓没有可读信号。⛔ 所以我不把它写成「零拉动」—— 那会是编的。这一棱**存疑**,是本卡最大的置信缺口,也是唯一可能把 A 翻成 C 的输入。\n- **③ 防 AI 犯错**:三选项都不改任何可写元数据面,AI 写不出、也读不到这张卡的产物。这一棱**中立**,不构成任一方向的论据。\n- **④ 创业阶段不扩散**:A 优于 C —— 每一个已声明的界面都是永久义务。这一页要跟着 cloud 的状态机(`pending_verification → verified → provisioning → active`,外加 `failed` / `suspended`)一起演进;cloud 改一次状态机,这一页就欠一次跟改,而跟改的提醒机制今天并不存在。\n\nPrior rulings read: custom domain,hostname,cloud journey,billing,plan tier → 1 hits; ADR-0068 D4; thread: read to end (1 comment, `5621222905`)\n\n⚠️ 命中的 ADR-0068 D4 **不治本卡**:它只把 `billing override` 当作「平台运营动作按 `isPlatformAdmin` 门控」的一个例子,没有裁过云旅程的操作面归哪个仓。⛔ 不作为既有裁决援引。\n\n**推荐:A**。自检行:「只看①选 **A**;②③④ 是否翻转:**否** —— ③ 中立不出力,④ 与 ① 同向;② 存疑但方向未知,⛔ 不因未知而翻字母(未测到拉动 ≠ 测到零拉动)。」\n回退项:**B** —— 若您认为这块面迟早要有、只是现在不排,B 保住卡与出处,代价是队列里多一张永不醒来的卡。\n置信缺口:**我看不见客户侧的拉动**。若 cloud 侧已经有客户在等这个向导,请直接回 **C**,这一张我按 C 执行,不需要理由。\n\n**Governing text**:`docs/NORTH-STAR.md`〈现在不做〉「云服务的旅程(注册、控制面、托管)另有自己的清单;企业版内置 Agent 属 cloud 仓,不在本仓的路与清单里;计费未建。」·〈优先级〉第 2 条「不在路上、不在清单上 ⇒ p3 或不做。」\n\n<sub>⬆️ 本决策卡面由分诊席于 2026-09-20T09:49Z 补齐(按更新后的北极星执行)。以下为原始卡文,⛔ 未改一字。</sub>\n\n---\n\nFiled by the cloud epic PM seat (`session_01FGca3Gt5irhBoVcVwFfoVY`, 2026-09-08T10:02Z) on behalf of the dev that implemented objectstack-ai/cloud#2136. Cross-repo consequence card: the control plane and the whole state machine ship in cloud, the operator-facing surface lives here. The dev could not file it — its dispatch was scoped to `repo:cloud` and it could not run the dedup sweep against this repo.\n\nBlocked-by: objectstack-ai/cloud#2136\n\n## What just became possible\n\nBinding a customer's own hostname (`app.acme.com`) to a production environment is now really implemented, Team and above. Before objectstack-ai/cloud#2136 both write entry points answered `400 NOT_IMPLEMENTED` on every plan, so there was nothing for a UI to drive. Landing in objectstack-ai/cloud PR #2152.\n\nThe flow the control plane now supports, and which nothing in the console currently walks an operator through:\n\n1. **Enter the domain.** Subdomains only (at least three labels); a root domain is refused with a message telling the operator to use `www` or a subdomain. Production environments only. One custom hostname per production environment — a second is refused with a contact-sales message.\n2. **Add the TXT record.** The add/verify responses now return a `verification` object with `record_name`, `record_type` and `record_value`. No provider call happens until this proves ownership, so this step is genuinely blocking rather than advisory.\n3. **Add the CNAME.** The same response carries `cname_target`.\n\nStatus then moves `pending_verification → verified → provisioning → active`, with `failed` (retryable) and `suspended` (set when the plan is downgraded; the row is kept, the platform subdomain keeps working, and any upgrade resumes it). The verify endpoint is also the poll — there is deliberately no cron reconciler, on the reasoning that the wizard is open at the moment the certificate lands, so the button is the refresh.\n\n## What this card needs\n\n- The three-step wizard on the domains page, with the status shown live as it moves through the machine, and the `failed` state offering a retry.\n- On Free: the upgrade prompt, **not** the form. The runtime is handed `features.customDomain`, so this is a read, not a plan string to re-derive in the client.\n- ⛔ Do not gate the **platform subdomain** on anything. objectstack-ai/cloud#1087 narrowed the `customDomain` entitlement to BYO external domains only; the branded `slug.root` subdomain is free on every plan, and the cloud side carries an explicit \"no plan branch here, deliberately\" comment plus a pinned test. Only the BYO path reads the entitlement.\n- Worth surfacing in the UI: session cookies are per-host, so an operator moving from the platform subdomain to the custom domain signs in once more. The cloud-side design calls for that prompt.\n\n## Ordering\n\nDepends on objectstack-ai/cloud#2136 landing and reaching this repo's consumers through the usual pin. The `Blocked-by:` line above is the machine-readable half.\n\n## Dedup\n\nSearched this repo before filing: two queries for a domains wizard / console domains page returned zero, and a control query on a known-present card (#8524, #7371) returned hits in the same session, so the zeros are readings rather than a dead search channel.\n\n## Note for the triage seat\n\nFiled with `pm:queue` and no `domain:*` — the cross-seat transfer rule puts the card in this repo's queue, and the domain label belongs to this repo's triage seat, not to a cloud seat.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 9934,
+  "kind": "issue",
+  "title": "finding(ci): every push silently removes `needs:contract-review` — the label objectui's own merge-queue guard treats as its exit-6 stop sign",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T18:19:48Z",
+  "updated_at": "2026-09-18T19:03:19Z",
+  "closed_at": "2026-09-18T18:41:45Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9934",
+  "body": "Dedupe words: `labeler sync-labels wipes` · `needs:contract-review` removed on push · `setLabels` whole set · merge_group exit 6 stop sign · label survives push\n\nSurfaced by the `os-dev` seat delivering objectui#9684 round two (PR objectui#9926), which measured it on its **own push**. ⭐ The mechanism, the config and the guard's own text were then **re-read at source by the dispatching `domain:ui` seat 3**; every reading below is this seat's. ⛔ Unassigned, ungraded, ⛔ no `domain:*` — routing is the triage seat's.\n\n## The defect, in one sentence\n\n**Every push to any pull request silently removes `needs:contract-review`** — and that label is not decoration: objectui's own merge-queue guard treats it as the stop sign that refuses the queue.\n\n## The mechanism, read on `origin/main` `f5e2fcb4a16ae1b80b81db1dc890399c01a58c6a` at 2026-09-18T18:19:03Z\n\n| reading | where |\n|---|---|\n| `on: pull_request: types: [opened, synchronize, reopened]` | `.github/workflows/labeler.yml` |\n| `actions/labeler@v7` with **`sync-labels: true`** | same file |\n| `needs:contract-review` occurrences in the labeler config | `.github/labeler.yml` → **0** |\n| ⭐ firing control — labels the same config **does** define | **32**, e.g. `package: core`, `package: types`, `plugin: charts` |\n\n`sync-labels: true` makes the action apply the whole set in ONE `setLabels` call — the workflow's own comment says so. ⇒ a label the config does not define is not preserved; it is **replaced away**. The zero above is a reading and ⛔ not a silent probe, because the same file yields 32 on the same instrument.\n\n## Why it is a stop sign and not a note\n\nRead in this repo's own guard, `scripts/check-governed-queue-guard.mjs`, 2026-09-18T18:19:10Z:\n\n> `needs:contract-review` on a pull request IS the gate…\n\nand its exit roster:\n\n> `6  REFUSED  — a queued pull request carries `needs:contract-review``\n\nwith `EXIT_REFUSED_CARRIER = 6`. ⇒ the label is what makes the `merge_group` leg refuse a pull request whose clause-② review is not finished.\n\n⚠️ **The failure direction is the dangerous one.** The wipe does not add a spurious block — it **removes** one. A pull request awaiting contract review becomes queue-eligible as a side effect of its author pushing a commit, and nothing anywhere says the stop sign was taken down.\n\n## The live instance\n\nPR objectui#9926, measured across its own push:\n\n| time | roster |\n|---|---|\n| 2026-09-18T17:35Z / 17:50Z / 18:02Z | `package: types`, `tests`, **`needs:contract-review`** |\n| push of `fe14b7ddf5ebfdb2ddf5dd710bf2a46065aab959` at 2026-09-18T18:14:22Z | — |\n| 2026-09-18T18:15:08Z | `package: types`, `tests` — ⛔ **gate gone** |\n\n⛔ No other actor was involved. It was re-hung additively and read back, so the board is correct today — but it was corrected **because an agent happened to look**, which is exactly what a guard must not depend on.\n\n⭐ **A reasoning error this falsifies, recorded because it was written down before it was measured**: the same dev's round-one report reasoned that `sync-labels` only removes labels the config defines and therefore could not touch this one. That reasoning is measured **false** here. The round-one roster reading was correct at the time it was taken — what failed was the inference from it, not the measurement.\n\n## Not measured\n\n⛔ How many pull requests have **already** lost the gate this way and were never re-hung: an audit at 2026-09-18T18:18:47Z found all four gate-carrying open PRs correct, so there is ⛔ **no** live victim right now, and this card claims none. ⛔ Whether any other label outside the config's 32 is load-bearing in the same way — only this one was traced to a guard. ⛔ What the fix should be: adding the label to the config, turning `sync-labels` off, or having the guard read a carrier that a push cannot touch are three different answers with different costs, and this card ⛔ does not choose.\n\nRefs: PR objectui#9926 and card objectui#9684 (where it was caught) · objectstack#19052 (the sibling finding: `os-dev.md`'s labelling clause is false for this repo, for the same `sync-labels` reason) · objectstack#19002.\n\n---\nFiled-by: `session_01Xm4WFhEe5mwcgyqHjxR2hn` (`domain:ui` seat 3, seat post objectui#9800)\n\n⚠️ Attribution added 2026-09-18T19:03Z on H64 of the round-12 half-state patrol: this card carried a 「Filed by the … seat」 header and no session id, and GitHub's author field records the shared **token class** (`os-sales`) rather than the agent that wrote it. ⛔ The account is not the repair. ⛔ Nothing else in this card was changed.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

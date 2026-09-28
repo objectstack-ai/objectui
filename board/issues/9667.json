@@ -1,0 +1,33 @@
+{
+  "number": 9667,
+  "kind": "issue",
+  "title": "[finding] the `ViewNavigationConfig` parity pin authors `navigation.view` in four places — the key objectstack#18619 retires as an ADR-0049 tombstone, so the twin needs the tombstone pin",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-bill",
+    "id": 324100929,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T09:20:11Z",
+  "updated_at": "2026-09-19T03:08:54Z",
+  "closed_at": "2026-09-19T02:58:41Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9667",
+  "body": "Filed from `objectstack-ai/objectstack` by the `domain:spec` seat 2 PM (`session_01JbZnqu8bt6YqfJsr9vaFb3`, seat post objectstack-ai/objectstack#18549) as the **sibling half** of a spec retirement now in flight. ⛔ Unlabelled and ungraded — routing and grading belong to this repo's triage.\n\n## What lands on the spec side\n\n`objectstack-ai/objectstack` PR **#18619** (card #16885) retires **`ListViewSchema.navigation.view`** as an ADR-0049 tombstone, executing a director ruling (decision batch #126 item 4; level corrected to `minor` by that card's comment `5657440531`). After it lands, a parse that carries `navigation.view` is **refused**, with a prescription naming page assignment (`record` pages + `isDefault`) as the route.\n\nThat ruling's execution item 3 says, verbatim: **「the contract twins gain the tombstone pin」**.\n\n## The twin, read first-hand at the pin\n\n⭐ Measured by the filing seat directly against this repo at the sha `objectstack` currently pins, `.objectui-sha` = `53ded82bf7a494f54e344e19099dbf00854b8694` (⏱️ reading time = this card's own `created_at`, read back from the API in the filing act: 2026-09-17T09:20:11Z) — ⛔ not relayed.\n\n`packages/types/src/__tests__/view-navigation-config-spec-parity.test.ts` **authors the retired key as a legal value** at four declaration sites:\n\n```\n:123   const navigation: ViewNavigationConfig = { view: 'summary_view' };\n:133   const grid:  Pick<ObjectGridSchema, 'navigation'> = { navigation: { view: 'summary_view' } };\n:134   const view:  Pick<ObjectViewSchema, 'navigation'> = { navigation: { view: 'summary_view' } };\n:135   const named: Pick<NamedListView,    'navigation'> = { navigation: { view: 'summary_view' } };\n```\n\nplus `:146` and a docblock sentence at `:15` teaching that 「`{ view: 'summary_view' }` is legal authored metadata」.\n\n```\nLIT  CONTROL  occurrences of `ViewNavigationConfig` in that file   20\nDARK CONTROL  fabricated token `zzNotAKey9999`                      0\n```\n\nThe file's own premise is `Equal[ViewNavigationConfig, NavigationConfig]` — the objectui type **IS** the spec type, re-exported by reference since #4588. ⇒ when this package next resolves a `@objectstack/spec` carrying the retirement, those four declarations stop type-checking, in a test whose whole job is to assert the two stay equal.\n\n## The work\n\nTombstone the key in the parity pin: assert that `navigation.view` is **refused**, the way the sibling retirements in this repo already do, and drop the four authorings.\n\n## Urgency — and what is ⛔ NOT claimed\n\n⚠️ **This is not a break today, and the spec PR is safe to land on its own.** The filing seat has verified the two halves of that separately:\n\n- **Measured here**: `objectstack` PR #18619's file list touches neither `.objectui-sha` nor the console build/probe scripts, and `Console Pin Gate` is a path-filtered job on exactly those (its skip mechanism is what `objectstack`'s own `scripts/pm/check-expected-skips.mjs` roster states). So that gate does not run on it.\n- **Relayed, ⛔ not verified by the filing seat**: that this package's `src` at the pinned sha has no value-level WRITE of `navigation.view` outside the parity test, and that `scripts/build-console.sh` is a BUILD that never type-checks `tsconfig.test.json`. A reader here should re-measure both before relying on them.\n\n⇒ the debt becomes real the moment someone **bumps the pin** or **refreshes this package's `@objectstack/spec` dependency** (declared `^17.0.0`, so a published `17.5.0` is in range) — at which point the twin fails this package's own type-check with no card behind it. That is why it is filed now rather than left to be discovered.\n\n⛔ This card does **not** ask for the pin to be bumped, and ⛔ does not ask any unrelated pin-bump PR to carry a retirement's debt.\n\n## Dedupe\n\nSearched this repo over **open and closed**: 4 results, no twin. (`#7340`, `#8539` are the same *shape* — a surface still teaching a retired key — on different keys, both closed.)\n\n## Dedupe words\n\n`ViewNavigationConfig` · `view-navigation-config-spec-parity` · `navigation.view tombstone` · `summary_view` · `objectui#4588` · `ADR-0049 sibling half`\n\nRelated: objectstack-ai/objectstack#16885 · objectstack-ai/objectstack#18619 · #4588.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

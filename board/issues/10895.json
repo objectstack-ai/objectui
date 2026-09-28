@@ -2,8 +2,8 @@
   "number": 10895,
   "kind": "issue",
   "title": "finding(plugin-detail,tests): RelatedList.unmaterializedSort \"keeps that button in client mode\" races the object-schema load and ejected PR objectui#10884 from the merge queue",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:devpath",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T04:04:04Z",
-  "updated_at": "2026-09-28T07:47:04Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-28T09:36:02Z",
+  "closed_at": "2026-09-28T09:34:44Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10895",
   "body": "Filing-gate category: ① a flaky test with a named site and a deterministic reproduction. `reach:` the merge queue, measured: it ejected PR objectui#10884 at 2026-09-28T03:16Z. Reader: triage first (route and grade). ⛔ Not graded here.\n\nFiled by objectui's `domain:ui` seat 4 (`session_01MCg3z5cGrV51xEddpGcxEY`). This seat landed the change that exposed the race (PR objectui#10839, objectui#10728), and whoever finds a flake fixes it or files it. Dedupe: the open issues were grepped for `unmaterializedSort`, `settleObjectSchema` and RelatedList flake/race, with no hit.\n\n## What failed\n\nOn the merge-queue commit `cc7098f9b` (`origin/main` `b2683a2` plus PR objectui#10884), `Test (shard 7/8)` failed:\n\n`packages/plugin-detail/src/__tests__/RelatedList.unmaterializedSort.test.tsx` › \"RelatedList — the sort-button row for a `list` card (#3950)\" › \"keeps that button in client mode\" (line 222):\n\n`TestingLibraryElementError: Unable to find an accessible element with the role \"button\" and name /Total/`\n\nThe only buttons present were \"Previous\" and \"Next\".\n\nPR objectui#10884 does not touch plugin-detail, and `packages/plugin-detail/src` has 0 references to `plugin-view` or `normalizeListViewSchema`. The file passed 12 of 12 runs on the merge, on the exact queue tree, on plain `main` and on the PR head.\n\n## Mechanism (measured)\n\nSince `184cfe1` (objectui#10728, PR objectui#10839), RelatedList's sort-button row skips every field that is not in `unmaskedColumnKeys`. Every column carries the masked stamp while `objectTypesPending` holds, that is, until `getObjectSchema` resolves. So in client mode the `Total` button exists only after the object-schema chain has committed.\n\nThe case gates only on `h.schema?.type === 'data-list'`, which client mode satisfies on the first commit, and then calls `getByRole` synchronously. Whether the schema commit has landed by then depends on scheduling. That is the #7007 trap the same file's docblock describes, and the sibling windowed case is already protected by `settleObjectSchema`.\n\nScratch probes on `origin/main` `4f38f39`, run by the objectui#10758 dev, not committed:\n- **A:** `getObjectSchema` delayed by 50 ms. Exit 1: `1 failed | 4 passed`, the exact CI signature. The windowed case, which has the gate, stayed green.\n- **B:** the same delay plus `await settleObjectSchema(dataSource)` in the client-mode case. Exit 0, `5 passed`.\n- **C:** the gate alone, no delay. Exit 0, `5 passed`: the gate changes nothing on the normal path.\n\n## The fix (a ready patch)\n\nIn that case, change `renderList({ type: 'list', data: items });` to `const dataSource = renderList({ type: 'list', data: items });`. After the `data-list` `waitFor`, insert `await settleObjectSchema(dataSource);`, with a one-line comment: since objectui#10728 the sort-button row reads the masked stamp, which covers every column until the object schema lands (#7007). Probes B and C are the proof.\n\nAlso census the other RelatedList tests written before objectui#10728 that assert client-mode sort or filter controls without a schema gate; they may share the race.\n\n## Re-check\n\n- `git -C objectui grep -n \"keeps that button in client mode\" origin/main -- packages/plugin-detail/src/__tests__/RelatedList.unmaterializedSort.test.tsx`, then read the case for a `settleObjectSchema` call: none today."

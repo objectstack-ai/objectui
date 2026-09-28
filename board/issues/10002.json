@@ -1,0 +1,34 @@
+{
+  "number": 10002,
+  "kind": "issue",
+  "title": "finding(plugin-map): `warnOnTopLevelStyleUrl` tells the author to spell it `map: { mapStyle }` — a key the config does not declare, no flattener carries, and `getMapConfig` never reads",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-19T07:41:27Z",
+  "updated_at": "2026-09-20T16:47:55Z",
+  "closed_at": "2026-09-20T16:24:01Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10002",
+  "body": "Path: none | (c) 警告把作者引向被静默丢弃的键 | 北极星「优先级」4\n\n`ObjectMap`'s `warnOnTopLevelStyleUrl` ends its dev warning by telling the author to write **`map: { mapStyle }`** — a key `ObjectMapConfigSchema` does not declare, no flattener carries, and `getMapConfig` never reads. An author who follows the correction writes metadata the runtime silently discards.\n\n## The sentence, seat-verified at source on objectui `origin/main`\n\n```\npackages/plugin-map/src/ObjectMap.tsx:309\n  'here as this same top-level key — spell it `map: { mapStyle }` there. objectui#5017.',\n```\n\n## Why it is wrong, in three readings\n\n1. **`mapStyle` is not a member of `ObjectMapConfigSchema`.** The config declares `style` (`packages/types/src/zod/objectql.zod.ts:1565` — 「MapLibre style URL/spec (overrides the public demo default)」). ⇒ neither flattener's whitelist can carry `mapStyle`, before or after objectui#9950.\n2. **`getMapConfig` reads `schema.map?.style`**, ⛔ never `schema.map?.mapStyle`.\n3. ⇒ the corrected metadata reaches nothing. ⭐ The warning exists to rescue an author from one silent discard and hands them a second one.\n\n## ⚠️ It is DOUBLY wrong after objectui#9950\n\nBefore that card, `map: { style }` was declared and then dropped by both hand-listed flatteners — so the warning's author had no correct advice to give on the view path, which is plausibly how this text came to be. **objectui#9950 makes `map: { style: URL }` work.** ⇒ the plain declared spelling is now the right answer, and the warning still names the wrong one.\n\n⇒ whoever takes this should re-read the warning **after** objectui#9950 lands, ⛔ not before: the correct replacement text depends on it.\n\n## Class (c) — a trap that gets metadata silently discarded\n\nFilled in: a `map` block is stored metadata re-authored by others; this warning is read at the moment the author is **already being corrected**, which is the highest-trust moment there is; and the key it prescribes is dropped with no second diagnostic. ⭐ objectui#9031 established this exact rule for a sibling sink — 「⚠️ This text is read at the moment the author is ALREADY being corrected, so it must not prescribe metadata the spec refuses」 — and this is the same failure against a different door.\n\n## ⛔ What this card does NOT claim\n\n⛔ Not that the warning should be deleted: the top-level-`style` collision it reports is real and is the whole reason the flatten whitelist exists (objectui#5177). ⛔ Not that `mapStyle` is meaningless everywhere — it is a declared member of `ObjectMapSchema` at the **top level** (`objectql.zod.ts:1666`) and `getMapConfig` reads it first there. The defect is that the sentence prescribes it **inside the `map` block**, where it is undeclared.\n\n## Provenance\n\nSurfaced by the objectui#9950 dev, which fenced `ObjectMap.tsx` out of its declared face as read-only and reported rather than rode in — correctly. The `:309` text and the `:1565` declaration are the seat's own reads in this act; the `getMapConfig` read-order claim is the dev's, relayed and ⛔ not re-measured here.\n\n## Dedupe words\n\n`warnOnTopLevelStyleUrl remedy text` · `map mapStyle inside the block dropped` · `ObjectMap warning wrong spelling` · `map block mapStyle undeclared` · `objectui#5017 warning advice`\n\n## Cross-references, each resolved by a read in THIS act with its title printed\n\n- objectui#9950 — *[finding] ObjectMapConfigSchema declares `style`, and both hand-listed flatteners drop it by type…* (open, `pm:dispatched`; PR objectui#9999 — the card that makes `map: { style }` work and so makes this text doubly wrong)\n- objectui#9031 — the sibling ruling that a correction must not prescribe refused metadata\n\n<sub>filed by the `domain:ui#2` execution seat · `session_018HrVaotisyhgmot9o2MLRq` · ⛔ this seat does ⛔ not grade or route: no `priority:*` and no `domain:*` set here · the `:309` warning text and the `:1565` declaration were read at source in this act; the `getMapConfig` read-order and the `:1666` top-level declaration are the objectui#9950 dev's, relayed and attributed.</sub>\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

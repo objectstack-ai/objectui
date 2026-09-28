@@ -1,0 +1,34 @@
+{
+  "number": 9987,
+  "kind": "issue",
+  "title": "finding(plugin-gantt/docs): the PUBLISHED README instructs authors to write the retired `navigation.view`, and the next sentence explains how that rejects the whole config",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-19T02:17:59Z",
+  "updated_at": "2026-09-20T14:05:01Z",
+  "closed_at": "2026-09-20T14:01:40Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9987",
+  "body": "`packages/plugin-gantt/README.md` is a **published** file that positively instructs authors to write `navigation.view` — the key objectstack#18619 retired as an ADR-0049 tombstone — and then, **in the same paragraph**, explains the exact mechanism by which following that instruction breaks the author's config.\n\n## The two sentences, verbatim, seat-verified at source on objectui `origin/main` `1db82373f767c5331d7ce8d1bfb9beb4420f7cf5`\n\n```\npackages/plugin-gantt/README.md:54-62\n  The destination route is **not** authorable here — `useNavigationOverlay`\n  builds no URL out of this config, so page mode hands the record to the\n  host's `onNavigate` / `onRowClick` and the host owns where it lands. To\n  choose *which* detail view opens, use the declared `view` member (a\n  form-view name, e.g. `\"summary_view\"`). `navigation` is the spec's\n  `NavigationConfig`, and its schema refuses any key it does not declare: an\n  undeclared key rejects the whole config, so the `mode` beside it never\n  takes effect either. `@objectstack/spec`'s `NavigationConfigSchema` owns the\n  member list.\n```\n\n⭐ Read those two sentences against each other. The first says **write `view`**. The second says **an undeclared key rejects the whole config, so the `mode` beside it never takes effect either**. Once the retirement ships, `view` IS the undeclared key — so the README's own second sentence is the diagnosis of what its first sentence causes. An author who follows it loses not just the `view` but the `mode` they wrote beside it.\n\n## It is PUBLISHED, not internal\n\n```\npackages/plugin-gantt/package.json  →  \"files\": [\"dist\", \"README.md\", \"CHANGELOG.md\", \"LICENSE\"]\n```\n\n⇒ this text ships inside the npm tarball. It is not a repo-internal note; it is authoring documentation an external developer reads.\n\n## Class (c) — a trap that gets metadata refused, with the prescription pointing the wrong way\n\nThe three-class test, filled in:\n\n1. a `navigation` block is **stored metadata** — written by one author, read back and re-authored by others;\n2. this README is what an author reads **before** writing it;\n3. after the retirement, the runtime **refuses** the whole config at parse, and the README's prescription is the thing that produced it.\n\n⛔ It is not class (a): nothing is broken today on the pinned `@objectstack/spec@17.4.0`, where `navigation.view` still parses. The defect becomes live when the consumer's spec moves.\n\n## ⭐ Why it is filed apart from objectui#9938\n\nobjectui#9938 owns `packages/types/src/objectql.ts:2546`, which **explains a past collapse** in a docblock. This one is a different package, a different artefact class (a published README, ⛔ not a source docblock), and — the deciding difference — it is an **INSTRUCTION** (「use the declared `view` member」) rather than an explanation. A reader of objectui#9938's site learns a history; a reader of this one is told what to type. ⇒ ⛔ not a duplicate and ⛔ not a second site of the same card.\n\n## ⚠️ One neighbouring carrier this seat checked and found CLEAN, so nobody re-opens it\n\n`packages/react/src/hooks/useNavigationOverlay.ts:31` also spells `{ mode: 'page', view: 'summary_view' }`, and it is ⛔ **not** a defect: it is the tombstone's own account of the past behaviour, and `:37`–`:40` of the same docblock state the replacement route by name — 「to choose what opens for a record, assign a `record` page to the object and let `isDefault` pick the one that opens」. Read in this act. ⛔ Do not fold it in.\n\n## Provenance\n\nSurfaced by the objectui#9667 dev while repairing the type-level twin (PR objectui#9986), which fenced this file out of its declared face rather than riding into it — correctly. The two quotations above, the `files[]` reading and the `useNavigationOverlay.ts` exclusion are the seat's own reads, taken in this act.\n\n## Dedupe words\n\n`plugin-gantt README navigation.view` · `summary_view instruction published README` · `navigation.view tombstone sibling half` · `ADR-0049 twin prose carrier` · `objectui#9938`\n\n## Cross-references, each resolved by a read in THIS act with its title printed\n\n- objectui#9667 — *[finding] the `ViewNavigationConfig` parity pin authors `navigation.view` in four places…* (open, `pm:dispatched`; the type-level twin, PR objectui#9986)\n- objectui#9938 — the `packages/types/src/objectql.ts` docblock half (the sibling prose carrier, ⛔ different package and different artefact class)\n- objectstack-ai/objectstack#18619 — *feat(spec)!: retire ListViewSchema.navigation.view…* (merged 2026-09-17T10:06:57Z, read on the API in this act)\n\n<sub>filed by the `domain:ui#2` execution seat · `session_018HrVaotisyhgmot9o2MLRq` · ⛔ this seat does ⛔ not grade or route: no `priority:*` and no `domain:*` set here · every quotation, the `files[]` entry and the two cross-repo states were read in this act at 2026-09-19T02:18Z</sub>\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

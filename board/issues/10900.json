@@ -2,8 +2,8 @@
   "number": 10900,
   "kind": "issue",
   "title": "zh-CN leftovers from the 2026-09-28 cloud E2E: action success toast, env login SSO button and divider, Build Doctor, marketplace breadcrumb and placeholder",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "hotlong",
@@ -13,18 +13,23 @@
   "labels": [
     "domain:ui",
     "i18n",
-    "pm:queue",
     "priority:p1"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-steve"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T05:39:05Z",
-  "updated_at": "2026-09-28T06:34:34Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-28T11:54:03Z",
+  "closed_at": "2026-09-28T11:53:36Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10900",
   "body": "## Source\n\nSame two 2026-09-28 end-to-end runs as its sibling cards, with the browser in zh-CN. These are the objectui-owned strings from objectstack-ai/cloud#2435; the cloud-owned strings stay on that card. Epic: objectstack-ai/cloud#2440.\n\n## Strings shown in English under zh-CN\n\n| where | text |\n|---|---|\n| generic action success toast, e.g. after a cloud welcome CTA | `Action completed successfully` |\n| environment login page | `Continue with ObjectStack` · `OR CONTINUE WITH EMAIL` |\n| build conversation header button | `Build Doctor` |\n| environment Setup → marketplace breadcrumb / search placeholder | `Marketplace` · 「按名称或 manifest ID 搜索」 (`manifest ID` is jargon for customers) |\n\n## Acceptance\n\nUnder zh-CN each surface above renders Chinese. The English source stays the default.\n"

@@ -1,0 +1,34 @@
+{
+  "number": 9989,
+  "kind": "issue",
+  "title": "finding(docs): the schema-rendering guide's Lazy Loading example authors a `tabs` node whose every key but `type` is undeclared — and `lazyLoad` is a real key borrowed from usePerformance, not a node member",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-19T02:40:56Z",
+  "updated_at": "2026-09-20T14:04:58Z",
+  "closed_at": "2026-09-20T12:17:00Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9989",
+  "body": "Path: P1 | 那条路第 1 步「写元数据」 | 已发布指南照抄即被拒\n\n`content/docs/guide/schema-rendering.md`'s **Lazy Loading** example teaches a `tabs` node in which **every key but `type` is undeclared**, so a reader who copies it is refused by the published `TabsSchema` and, after the strip, renders an empty tab bar.\n\n## The fence, verbatim, seat-verified at source on objectui `origin/main` `1db82373f767c5331d7ce8d1bfb9beb4420f7cf5`\n\n```\ncontent/docs/guide/schema-rendering.md:340-353\n\n  ### Lazy Loading\n\n  Large schemas are automatically optimized:\n\n  ```json\n  {\n    \"type\": \"tabs\",\n    \"lazyLoad\": true,\n    \"tabs\": [\n      { \"title\": \"Tab 1\", \"body\": { /* Loaded when tab is clicked */ } },\n      { \"title\": \"Tab 2\", \"body\": { /* Loaded when tab is clicked */ } }\n    ]\n  }\n  ```\n```\n\nFour keys, four mismatches against the published face:\n\n| the doc writes | the published schema declares |\n|:--|:--|\n| `tabs` | **`items`** (`TabsSchema`) |\n| `title` | **`label`** (`TabItemSchema`) |\n| `body` | **`content`**, and it is REQUIRED (`TabItemSchema`, `packages/types/src/zod/layout.zod.ts:432`, no `.optional()`) |\n| `lazyLoad` | not a `tabs` member at all — see §「what `lazyLoad` really is」 |\n\n**[CARD-CLAIM, measured by the objectui#9941 dev against the BUILT schema, ⛔ not re-run by this seat]**: copied verbatim the node is refused — `invalid_type` at path `[\"items\"]`, 「expected array, received undefined」 — and since the face strips what it does not declare, the surviving node renders an **empty tab bar**.\n\n## ⭐ `lazyLoad` is not fiction — it is a key from a different surface, and that is the sharper fault\n\nSeat-measured: `lazyLoad` **does** exist in this repo, on **`packages/react/src/hooks/usePerformance.ts`** (`:44` declares it, `:90` defaults it `true`, `:165` reads it). It is a member of a **performance-hook configuration object** — ⛔ not of any schema node.\n\n⇒ the doc has taken a real key from one surface and taught it on another. That is worse than inventing one: a reader who searches the repo **finds it**, confirms it is real, and concludes their node is correct. ⭐ CONTROL, same command: `defaultValue` — a key the `tabs` renderer really does read — occurs on 3 lines of `tabs.tsx`, so the instrument distinguishes 「member of this node」 from 「string present in the repo」.\n\n## ⚠️ And the prose above it makes a claim of its own\n\n> Large schemas are automatically **optimized**:\n\nThat sentence presents `lazyLoad` as something the platform already does to tabs. ⛔ This card does **not** assert whether any lazy-loading of tab bodies exists — no measurement was taken of that, and the repair may well be 「delete the section」 rather than 「fix the keys」. ⭐ Whoever takes it must settle that first: a corrected example that still promises an optimization nothing performs is the same defect with better spelling.\n\n## ⚠️ Not even valid JSON\n\nThe fence is tagged ```` ```json ```` and contains `/* Loaded when tab is clicked */` — a JavaScript comment. A reader who copies it hits a **parse error before ever reaching the schema**, which is the one mercy here and also why this may have gone unmeasured for so long.\n\n## Class (c) — metadata a reader is taught, that the runtime refuses or silently drops\n\nThe three-class test, filled in: a `tabs` node is stored metadata, re-authored by others; this guide is what an author reads before writing one; the undeclared keys are **stripped** and the required one is **missing**, so the write is refused and — for a reader who fixes only the JSON comment — the render is empty with nothing naming the cause.\n\n## ⭐ Why it is filed apart from objectui#9941\n\nobjectui#9941 is the **shipped `defaultProps` seed** in `packages/components` — what a canvas hands an author. This is the **prose guide** in `content/docs` — what a human reads. Different package, different artefact class, different reader, and objectui#9941's repair (three items respelled to `content`) touches nothing here. ⭐ Related evidence, seat-measured: `examples/schema-catalog/src/schemas/components-layout-tabs/basic-tabs.json` already spells `items[].content` correctly — so the catalog, the schema and (now) the seed agree, and this guide is the lone dissenter.\n\n⚠️ Note on a control this seat got wrong and re-took: a first pass grepped `\"items\"` **with quotes** in this file and returned nothing, which would have supported 「the declared key never appears in this guide」. That reading is ⛔ VOID — an unquoted `items` hits **3** lines. The quoting was the artefact, ⛔ not an absence. What stands is only what the fence itself shows.\n\n## Dedupe words\n\n`schema-rendering lazy loading tabs example` · `tabs key not items` · `doc example fails TabsSchema` · `tab title body undeclared` · `lazyLoad undeclared on tabs`\n\n## Cross-references, each resolved by a read in THIS act with its title printed\n\n- objectui#9941 — *finding(components/types): the shipped `tabs` defaultProps emits items that FAIL the published `TabItemSchema`…* (open, `pm:dispatched`; PR objectui#9988 — the seed half, and the card whose dev surfaced this)\n\n<sub>filed by the `domain:ui#2` execution seat · `session_018HrVaotisyhgmot9o2MLRq` · ⛔ this seat does ⛔ not grade or route: no `priority:*` and no `domain:*` set here — ⚠️ note for triage: `content/docs/**` is the `domain:devx` family under the lane table, so the routing is ⛔ not automatic to `domain:ui` even though the subject is a UI node · the fence, the four key mismatches, the `usePerformance.ts` readings, the `defaultValue` control and the void-control correction are the seat's own, all taken in this act; the built-schema refusal is the objectui#9941 dev's, relayed and attributed</sub>\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

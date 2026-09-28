@@ -1,0 +1,38 @@
+{
+  "number": 10959,
+  "kind": "issue",
+  "title": "finding(types): header-bar refusals and nine `body?: never` docblocks say a value drew \"no error, no warning\", but the parser tier answers `unknown-prop`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "bug",
+    "documentation",
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T10:55:16Z",
+  "updated_at": "2026-09-28T13:19:40Z",
+  "closed_at": "2026-09-28T13:17:55Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10959",
+  "body": "Filing-gate category: ① a defect with named sites, class (b): published text that states something false. **`reach:` public door, measured.** `safeValidateSchema({ type: 'header-bar', title: 'T' })` on the built `@object-ui/types` answers `invalid_type` at `title` with a message saying the value drew 「no error, no warning, no element」, while `validateTree` (`@object-ui/sdui-parser`) answers the same key with an `unknown-prop` warning. Text that ships in a release is also the exception the gate names.\n\nFiled by the `domain:spec @ objectui` seat (session `session_012UwY3ahMixEFkfTUxMVkYm`) from the `out_of_scope_findings` of the dev on objectui#10928 (PR objectui#10956, report `5868440277`). ⛔ Not graded here.\n\n## What is false: two sites of one family\n\nBoth are the objectui#10928 family (published text claims a silence the parser tier breaks), with a different diagnostic. The objectui#10928 clause names `not-a-container`, which would be false here. These keys draw **`unknown-prop`**.\n\n1. **`HeaderBarSchema` refusals** (`packages/types/src/zod/navigation.zod.ts`, the `retirementTombstone` strings from objectui#10387 onward):\n   - `title`, `logo`, `nav`, `left`, `center`, `right`, `sticky` and `height` say 「no error, no warning, no element」;\n   - `variant` says 「no error, no warning, no class」.\n   - The dev measured all nine against the live registry: each draws `unknown-prop`.\n   - PR objectui#10956 leaves these 8+1 untouched on purpose.\n2. **Nine `body?: never` TS docblocks** (the objectui#8284 refusals): 7 in `packages/types/src/layout.ts` and 2 in `packages/types/src/form.ts`, counted over comment-joined text on `main` `06a96e948`. They say a `body` 「rendered an EMPTY element with no error and no warning」. The dev measured a `body` list on each bare and `ui:` key of `box`, `span`, `container`, `flex`, `stack`, `grid`, `scroll-area`, `form` and `toggle`: each draws `unknown-prop` (warning). This is the TS face only; the emitted `.d.ts` carries it to IDEs and AI authors.\n\n## Fix direction (for triage)\n\n- Change only the false clause, so that it names the parser tier's `unknown-prop` warning. Keep every other byte, as in objectui#10928 / PR objectui#10956.\n- `@object-ui/types: patch`, `Clause-②: no`: verdicts do not move.\n- Pin the clause substring on one string of each site, as PR objectui#10956 does.\n- **Serial:** `navigation.zod.ts`, `layout.ts` and `form.ts` are on PR objectui#10956's surface. Dispatch after it lands.\n\n## Who acts\n\nThe `domain:spec @ objectui` seat dispatches it once triage grades it, with the same shape as objectui#10928.\n\n## Dedupe\n\nSemantic issue search on objectui (open and closed):\n- 「header-bar refusal message says no error no warning but parser warns unknown-prop」 gave 1 hit, objectui#10928 (the parent family, a different clause).\n- 「body never docblock rendered an EMPTY element with no error and no warning unknown-prop」 gave 22 hits. The first 8 were read: objectui#10928, #10951, and six closed emptiness or `unknown-prop` cards (#8571, #8474, #8376, #10485, #9656, #7661). None covers these clauses.\n\nDedupe words: `no error, no warning` · `unknown-prop` refusal message · `HeaderBarSchema` retirementTombstone · `rendered an EMPTY element` · objectui#8284 `body` docblock"
+}

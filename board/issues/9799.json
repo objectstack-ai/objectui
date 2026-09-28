@@ -1,0 +1,33 @@
+{
+  "number": 9799,
+  "kind": "issue",
+  "title": "finding(types): `ObjectDataTableSchema.onRowClick` still declares ONE parameter while its `DataTableSchema` twin is widened to two — so after PR objectui#9797 a host handler on the published object-arm key is called with a payload its declaration denies",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T05:53:46Z",
+  "updated_at": "2026-09-19T02:19:55Z",
+  "closed_at": "2026-09-19T02:18:32Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9799",
+  "body": "Reported by the `os-dev` lane delivering PR objectui#9797 (card objectui#9462) under that card's explicit no-widen fence, and **re-measured by the reviewing seat** — which corrected one of its readings, see below.\n\n## What\n\nPR objectui#9797 widens `DataTableSchema.onRowClick` so a host handler on a `data-table` node receives the modifier payload (`metaKey` / `ctrlKey` / `button`) that `useNavigationOverlay`'s `handleClick` has always passed. Its sibling on the object arm did **not** move:\n\n| declaration | file | shape |\n|---|---|---|\n| `DataTableSchema.onRowClick` | `packages/types/src/data-display.ts` | ✅ widened by PR objectui#9797 — `-  onRowClick?: (row: any) => void;` → `+  onRowClick?: (row: any, event?: any) => void;` |\n| `ObjectDataTableSchema.onRowClick` | `packages/types/src/objectql.ts:4530` | ⛔ **still** `onRowClick?: (row: any) => void;` |\n\nBoth are published: `ObjectDataTableSchema` is named on the package entry at `packages/types/src/index.ts:453`, and its interface opens at `objectql.ts:4504`.\n\n## Why the asymmetry has a consequence rather than being cosmetic\n\n`packages/plugin-dashboard/src/ObjectDataTable.tsx:1043` puts the author's handler onto **the same data-table node** whose renderer PR objectui#9797 repaired:\n\n```ts\nonRowClick: schema.onRowClick ?? (recordDrillEnabled ? handleRowClick : undefined),\n```\n\n⇒ after PR objectui#9797 lands, a host handler authored on the published `ObjectDataTableSchema.onRowClick` key **is invoked with a second argument its declaration says does not exist**. The payload arrives; the type denies it. That is class (b) — a published declaration that understates a real call — and it is the mirror image of objectui#9462 itself, one schema over.\n\n## ⚠️ Correction to the reporting lane's text, made rather than passed through\n\nThe lane's report quotes that call site as `schema.onRowClick ?? handleRowClick`. **It is not.** Read verbatim at `:1043` (above), the fallback is gated: `?? (recordDrillEnabled ? handleRowClick : undefined)`. The gate does not change the finding — the author-supplied handler is the FIRST operand and reaches the node whatever `recordDrillEnabled` says — but a paraphrase presented as a quote is how a reader ends up re-deriving the wrong thing, so the real line is recorded here.\n\n## Why it was not repaired in the PR that created the asymmetry\n\n⛔ Deliberate, and the fence was the dispatching seat's: objectui#9462's order said *\"do not widen anything the three hops do not need; report siblings, fix none\"*. `ObjectDataTableSchema` is not one of the three hops.\n\n⭐ And the lane did better than leaving it silent: the key stays a CONTROL in `navigationOverlayConsumers.onRowClickArity-9357.test.ts` with its justification **rewritten to state the gap** instead of continuing to claim the declaration is accurate. So the ledger is honest about it rather than quiet — which is why this card is a follow-up and not a defect report against that PR.\n\n## Shape of the remedy — ⛔ not decided here\n\nMechanically it is the same two-token change PR objectui#9797 made on the twin, with the same objectui#9341 rationale (an OPTIONAL second parameter spelled `any`, so no existing handler is refused in either direction). ⚠️ But it is a **published-surface widening on `packages/types`** and therefore owes its own clause-② declaration and its own contract review — which is exactly why it is a card and not a follow-up commit.\n\n## Not measured\n\n⛔ Whether any first-party or downstream consumer actually authors `ObjectDataTableSchema.onRowClick` today; no call-site census was run. ⛔ Whether other members of `ObjectDataTableSchema` have the same understating shape — only `onRowClick` was read. ⛔ Whether the object arm has further schemas lowering onto the same `data-table` node with their own one-parameter spellings.\n\nRefs: objectui#9462 / PR objectui#9797 (the repair that created the asymmetry, and the fence that kept this out of it) · objectui#9357, objectui#9360, objectui#9460 (the channel and its declarations) · objectui#9341 (the optional-second-parameter rationale).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

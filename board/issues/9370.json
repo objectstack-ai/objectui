@@ -1,0 +1,34 @@
+{
+  "number": 9370,
+  "kind": "issue",
+  "title": "finding(skills): the published `skills/objectui` guides still teach `dataSource` as the `data` expression root and as what `bind` resolves against — three files, both halves retired by objectui#9308",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:skills",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-13T07:18:24Z",
+  "updated_at": "2026-09-20T09:46:25Z",
+  "closed_at": "2026-09-20T09:32:36Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9370",
+  "body": "Filed by the `os-dev` seat implementing objectui#9308 (PR #9369). ⛔ Not fixed there: `skills/**` is a governed surface (AGENTS.md §受管面, `GOVERNED_SURFACES` `skills-catalog`), and a single path from it would move that whole PR into the draft-and-wait lane — while that PR is the one turning `Doc Snippet Type Check` green on `main`.\n\n## What is now false\n\nThe maintainer ruling of 2026-09-13 on objectui#9308 (option B) did two things:\n\n- **b1** — `SchemaRenderer` no longer publishes the injected `DataSource` adapter as the expression root `data`.\n- **b2** — `useDataScope`, which is what a node's `bind` resolves through, now reads the ambient scope a host publishes via `PredicateScopeProvider` instead of walking the adapter.\n\nThe published skill package still teaches both retired halves. Measured on `claude/issue-9308-unbind-data-root`:\n\n**`skills/objectui/guides/schema-expressions.md`**\n\n| line | text | why it is now false |\n|---|---|---|\n| 112 | a scope-source table row mapping \"Top-level data fields\" to `SchemaRendererProvider dataSource` | the provider's `dataSource` publishes no expression root at all |\n| 113 | a row reading ``| `data` | Alias for dataSource root | `${data.fieldName}` |`` | `data` is not an alias of anything the renderer binds; it is a root only if the HOST published one |\n| 302-303 | \"`dataSource = { customerNames: [...] }`, `list` calls `useDataScope(\"customerNames\")` and renders one entry per array element\" | `useDataScope` no longer walks `dataSource` |\n| 305 | \"Nested paths work: `\"bind\": \"app.settings.users\"` resolves `dataSource.app.settings.users`\" | it resolves `scope.app.settings.users` |\n| 393 | a comment introducing a bound example as `dataSource = { rows: [...] }` | same |\n\nRoughly two dozen further `${data.…}` examples on that page (lines 35-232, 403-406) are not wrong *per se* — `data` is still readable if a host publishes it — but every one of them is now unreachable for a reader following the wiring the same page teaches, so they read as a working example and produce the raw source text.\n\n**`skills/objectui/guides/data-integration.md`** and **`skills/objectui/rules/protocol.md`** carry the same `bind` teaching (both are in `skill-guide-data-table-binding.test.tsx`'s `GUIDE_PATHS`, and all three failed that test's `list` leg before the harness moved).\n\n## The behaviour change a reader has to be told about\n\nNot just a renaming. Measured on the built evaluator, a missing root and a present-but-undefined root are different:\n\n| scope | `data.status == 'draft'` |\n|---|---|\n| `{ data: undefined }` | `false` |\n| no `data` key | `true` (unevaluable, fail-soft), and objectui#5454's reporter warns |\n\nSo a `data.*` gate authored from these guides used to hide its node on every row and now shows it on every row. The correct runtime-layer row root is `record` (ADR-0089 D3).\n\n## What PR #9369 did instead, and what that leaves\n\nThe six pins in `packages/components` that READ these guides and render their examples now publish the host values through `PredicateScopeProvider`, so each still measures its own subject (the JSON example, the registry claim, the diagnostic line). ⚠️ That means those pins are green while the prose beside the examples they read is wrong — the coverage hole this card exists to close. No assertion was weakened and nothing was skipped.\n\n## Suggested shape\n\nMove the three files to the scope channel exactly as `content/docs/guide/schema-rendering.md` and `packages/react/README.md` did in PR #9369 — publish under a real name, read it by that name, and state that `dataSource` is the adapter and not a root. The reader-list paragraph (`the plugin packages register (...)`) and the `data-table` `bind` pothole are unaffected and should not move.\n\n⚠️ Governed surface: an agent drafts, a human merges. ⛔ No ready-flip, no queue, no auto-merge.\n\nFiled by an agent seat while implementing objectui#9308; dedup was run over the 281 open issues this repository's issue-list endpoint returns, with objectui#9308 and objectui#9346 as the known-hit control — no existing card covers this surface (objectui#7945 is the same tree, a different teaching)."
+}

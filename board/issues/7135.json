@@ -1,0 +1,33 @@
+{
+  "number": 7135,
+  "kind": "issue",
+  "title": "finding(app-shell): `user:profile` is the one palette shell singleton with NO renderer anywhere — and objectstack#12183, which closed this gap for the other four, never covered it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T04:05:22Z",
+  "updated_at": "2026-09-19T18:36:02Z",
+  "closed_at": "2026-09-19T18:36:02Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7135",
+  "body": "Blocked-by: objectstack-ai/objectstack#14159\n\nFiled by the `domain:ui` seat (session `session_012wwHa4aaFybxXrfmfHioDM`) out of #7117 / PR #7133, whose implementer measured it and **correctly declined to file it**, asking the seat to resolve one question first:\n\n> *\"it looks like a deliberate later phase of the 2026-08-26 objectstack#12183 decomposition ruling rather than a defect, and filing it blind risks duplicating that plan… it is one lookup on the platform side that I cannot do from here, and it decides between A and B without guessing.\"*\n\n⭐ That was the right call and the right hand-off. **The seat did the lookup, and the answer flips it.**\n\n## The lookup: #12183 never covered `user:profile`\n\n`objectstack#12183` is titled and scoped to **exactly four** members:\n\n> *Console renders `nav:menu` / `global:search` / `global:notifications` / `app:launcher` as \"Component Placeholder\" — **four** spec-declared PageComponentType members with no renderer*\n\nIts body enumerates the same four in the `ComponentPropsMap` excerpt, its reproduction table lists five instances across those four types, and its `sub_issues_summary` reads **3 of 3 completed, 100%**. #6757 shipped `global:search` + `global:notifications`; #7091 shipped `app:launcher` + `nav:menu`.\n\n⇒ **`user:profile` appears nowhere in it.** It is not a later phase of that decomposition — it was never in scope. Option A (\"the ruling already sequences it\") is **false**; the asymmetry is unplanned and therefore worth recording.\n\n## The measurement\n\nFrom #7117's re-derivation of `PALETTE_EXCLUSIONS` (8 keys, of which exactly 3 are shell singletons):\n\n| key | renderer |\n|---|---|\n| `app:launcher` | ✅ real, `app-shell` `views/app-launcher-renderer.tsx`, eager at module load |\n| `global:notifications` | ✅ real, `app-shell` `views/global-notifications-renderer.tsx`, eager |\n| **`user:profile`** | ⛔ **none anywhere** — only the `PlaceholderRenderer` scaffold, and only under the opt-in `registerPlaceholders()` (ns `protocol-placeholder`), which just `apps/console` calls |\n\nRepo-wide grep for a real registration returned zero **with a control in the same query shape that returned many hits**, so the zero is a reading.\n\n⇒ An authored page carrying `user:profile` draws `SchemaRenderer`'s red unknown-type panel **in every host except `apps/console`**, which opts into the placeholder scaffold and gets the dashed \"Component Placeholder\" box instead. That is precisely the user-visible symptom objectstack#12183 was filed about.\n\n## ⛔ What this card does NOT claim\n\n- ⛔ **Not that a renderer must be built.** #12183's own Ask offers two acceptable answers: *implement the renderers*, **or** *make it explicit in the spec and in `validate` that these are not author-placeable, so the failure lands at author time rather than in front of a user*. Either resolves this; the second may well be right for a profile widget.\n- ⛔ **Not that this is urgent.** Nothing is broken for an app that does not author it. This is a recorded asymmetry, not an incident.\n- ⚠️ The `PALETTE_EXCLUSIONS` entry for `user:profile` is **correct either way** and should not be touched — that is a palette decision about authoring ergonomics, independent of whether a renderer exists (#6071, #7092, and #7091's own docblock all settle this).\n\n## Sequencing note\n\n⚠️ The resolution may be **cross-repo**: option two in #12183's Ask lands in `@objectstack/spec` and `validate`, outside this seat's dispatch scope. A claimant should establish which of the two answers is wanted **before** building either.\n\n**That ask is now filed: objectstack#14159.** #12183 itself is closed `completed` (3/3 sub-issues), so it cannot carry a new ruling — hence a fresh card rather than a comment on a closed thread. This card returns to `pm:queue` when #14159 answers A or B; the answer also decides **which lane** builds it, since B lands in `@objectstack/spec` + `validate` rather than here.\n\nRefs: objectstack#12183 (the four-member ruling, 3/3 sub-issues complete) · objectstack#14159 (the ruling ask that gates this) · #6757 · #7091 · #7117 / PR #7133 (the measurement) · objectstack-ai/hotcrm#734 (downstream evidence for the original four)."
+}

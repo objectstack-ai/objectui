@@ -1,0 +1,34 @@
+{
+  "number": 8170,
+  "kind": "issue",
+  "title": "The calendar refusal screen names keys an interface page cannot author — reword it for the page door (objectui#7547's highest-value remaining piece)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "package: app-shell",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T22:22:03Z",
+  "updated_at": "2026-09-19T14:51:12Z",
+  "closed_at": "2026-09-19T14:49:45Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8170",
+  "body": "Split out of objectui#7547 by its implementing seat, on the PM's explicit fence: measure it, state that it is the highest-value remaining piece, leave it for a follow-up card. Filed as that card.\n\n## The defect\n\n`packages/plugin-calendar/src/ObjectCalendar.tsx:795` on `20316bac3`:\n\n    Calendar configuration required. Please specify startDateField and titleField.\n\nThat sentence is correct on the OBJECT-VIEW door, where an author can write a `calendar:` block carrying both keys. It is **unactionable on the INTERFACE-PAGE door**: when a page's leading whitelist entry is `calendar` (`packages/app-shell/src/views/InterfaceListPage.tsx`, `allowed[0]` feeding `viewType`) and the source object has no derivable date, the reader is told to specify two keys **the page surface cannot author**. The only remedy on that door is `sourceView` naming an object view that carries a `calendar:` block — which the screen does not mention.\n\nTriage on objectui#7547 (comment 5548796649) rated this the best value-for-effort user-visible improvement in that card, and the PM agreed with the assessment while fencing it out of the implementation.\n\n## Why it was fenced out of objectui#7547\n\nIt rewords a **localized** string, so ten locale packs must follow, and `packages/i18n/src/locales/*` was held by two in-flight PRs (#8150 in the merge queue, #8152 awaiting CI) at dispatch time. A hot-file collision the PM was not willing to create in that slot. Re-check that both have landed before starting here.\n\n## What makes this worth doing rather than filing and forgetting\n\nEvery other member of the objectui#7029 / #7070 / #7500 family ends at a refusal screen, and the whole value of that family is that the screen tells the author what to do next. On this one door the screen is reached correctly and then gives an instruction that cannot be followed — the refusal is honest about the binding and dishonest about the remedy.\n\n## Shape of the fix\n\nThe refusal needs to know which door it was reached through, and say the remedy for that door. Whether the door is passed as a prop, inferred from the schema, or the string is split into two keys is the design question this card decides.\n\n## Not in scope here\n\n⛔ The forced-path invented binding names themselves — objectui#7547 and its other sub-issues own those.\n\nRefs: objectui#7547 · objectui#7029 · objectui#7459 · objectui#7500.\n\nRecorded by the seat implementing objectui#7547 (`session_01YBWFb5YgMU5dw8p2VKj16S`). Unassigned, for triage."
+}

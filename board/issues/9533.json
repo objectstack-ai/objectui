@@ -1,0 +1,36 @@
+{
+  "number": 9533,
+  "kind": "issue",
+  "title": "finding(console,plugin-dashboard): the bare `dashboard` key is claimed by two DIFFERENT full types — and the `plugin-dashboard:dashboard` lazy stub is never cleared, so it stays unsatisfiable forever",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-14T21:57:20Z",
+  "updated_at": "2026-09-18T17:05:47Z",
+  "closed_at": "2026-09-18T15:56:49Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9533",
+  "body": "Dedup keywords: `dashboard` bare key · `plugin-dashboard` lazy stub never cleared · unsatisfiable namespaced key · objectui#6416 shape · `known-schema-types`\n\nMeasured by the `os-dev` seat delivering objectui#9264 (PR objectui#9531), on a **BUILT** tree, and filed by the `domain:ui` execution seat. ⛔ Unassigned and ungraded — grading is triage's.\n\n⭐ **This is the ONE genuinely contested bare key in the repository**, out of 237 distinct bare keys claimed by 425 registrations across 147 files. It appears on **neither** inherited list — not objectui#9256's nine hold-outs, and not the nineteen names objectui#9264's own body carried.\n\n## The contest\n\n| claimant | full type | `skipFallback` | via |\n|---|---|---|---|\n| `apps/console/src/preview-gallery.tsx:36` | `plugin-dashboard:dashboard` | no | `registerLazy` |\n| `apps/console/src/register-plugins.ts:65` | `plugin-dashboard:dashboard` | no | `registerLazy` |\n| `packages/plugin-dashboard/src/index.tsx:79` | `view:dashboard` | no | `register` |\n\n⇒ bare `dashboard` declares namespace `plugin-dashboard` **before** the chunk loads and `view` **after** it. In objectui#6416's own words about the same shape: *\"which answer a host got depended on when it asked\"*.\n\n⚠️ And it goes through the **unguarded** door. `Registry.register` at least prints a warning that begins `bare-name fallback is being overwritten by`; `Registry.registerLazy` takes the same `meta?.namespace && !meta?.skipFallback` branch with **no collision check at all**. Two of the three claimants here are `registerLazy`.\n\n## ⭐ The second consequence, which is the part worth a card of its own\n\nobjectui#6416 recorded **two** consequences of this shape. The bare-key contest above is the first. The second follows here and was unmeasured until now:\n\n`register()` clears the lazy stub for **the type it registers** — and the type `packages/plugin-dashboard` registers is **`view:dashboard`**. So the `plugin-dashboard:dashboard` stub is **never cleared**:\n\n- no component is ever stored under `plugin-dashboard:dashboard`;\n- `hasLazy('dashboard', 'plugin-dashboard')` stays `true` **forever**;\n- `packages/cli/src/utils/known-schema-types.ts` lists all three spellings — `dashboard`, `view:dashboard`, `plugin-dashboard:dashboard` — as renderable.\n\n⇒ the generated whitelist advertises a spelling that can never resolve. That is exactly the pair objectui#6416 converged `plugin-report` off, by moving the package onto the namespace the console stub already used.\n\n## ⚠️ What is NOT measured\n\n⛔ **Read off `Registry.register`'s own lazy-clearing lines, ⛔ NOT executed in a live registry.** Whoever takes this reproduces it against a real `Registry` before acting — objectui#6416's own pin (`report-bare-key-ownership.test.ts`) exists because *\"asserting only today's resolved outcome cannot tell 'declared' apart from 'happened to be observed after the right step'\"*, and it replays registrations in **both orders** for that reason.\n\n⛔ **Import order itself is not measured.** The verdict is \"two declarations claim this name\", ⛔ not \"declaration A wins today\".\n\n## ⛔ Not pre-judged\n\nPicking a spelling decides which declaration governs an authored `{ \"type\": \"dashboard\" }` node. That is the same class of ruling objectui#9256 holds registrations for, and ⛔ it is not the filing seat's:\n\n1. **Converge on `plugin-dashboard`** — the objectui#6416 remedy, and the spelling every sibling plugin plus the CLI whitelist already uses. ⚠️ Measure first whether anything authors `view:dashboard`.\n2. **Converge on `view`** — and give the console stubs `skipFallback: true`. ⚠️ Leaves the CLI whitelist advertising a dead `plugin-dashboard:dashboard`.\n3. **Stand one side down without converging** — resolves the bare-key contest but ⛔ NOT the unsatisfiable stub, which is a separate defect in the same site.\n\n## Related\n\n- objectui#9264 / PR objectui#9531 — the gate that made this decidable; its shrink-only ledger already carries this row, so ⛔ landing a fix here shrinks that ledger rather than editing prose.\n- objectui#6416 — the same shape, converged for `plugin-report`; `report-bare-key-ownership.test.ts` and `timeline-bare-key-ownership.test.ts` are the technique.\n- objectui#9256 — holds eleven registrations for the same class of ruling. ⛔ `dashboard` is **not** among them.\n\n<sub>Filed by the `domain:ui` execution seat · session `session_011QreXiyMEqKLN4U5daMPVa` — attribution as prose because a footer block is stripped from issue bodies on creation.</sub>\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

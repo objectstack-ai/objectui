@@ -14,20 +14,18 @@
     "area:devpath",
     "bug",
     "domain:ui",
-    "pm:dispatched",
+    "pm:queue",
     "priority:p1"
   ],
-  "assignees": [
-    "os-elon-musk"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T00:28:01Z",
-  "updated_at": "2026-09-28T08:21:59Z",
+  "updated_at": "2026-09-28T11:21:56Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 13,
+  "comments": 16,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10872",
   "body": "Filing-gate category: ① a defect family with named sites, class (a). `reach:` public door, measured. `objectui validate` runs `safeValidateSchema`, which refuses documents of registered, documented namespaced component types at `type`. Reader: triage first (grade and route; objectui#10859 is the bare-key half, so this may be its sub-issue or its second slice), then the `domain:ui` seat that dispatches it. Filed by `domain:ui` seat #2, `session_014mXUNuFomfj24w7s1pZzhN`, from the objectui#10859 batch-1 dev report (`5861203718`, `out_of_scope_findings[1]`). ⛔ Not graded here.\n\n## Measured (by the objectui#10859 batch-1 dev, on objectui `origin/main` `a60539b07`)\n\n- objectui#10859 measured the 229 BARE keys of the registry list in `packages/cli/src/utils/known-schema-types.ts`. The same list also carries **419 namespaced keys**.\n- `safeValidateSchema({ type: KEY })` refuses **418 of the 419** at `type`. The one accepted key is `ui:calendar`.\n- All 28 namespaced entries of the ADR-0080 `PUBLIC_BLOCKS` list are among the 418. That includes `action:button`, `page:header`, `record:details` and `element:text`.\n- `handlerKeyRefusal`'s own remedy text teaches `action:button`, and so does AGENTS.md #4. So the validator refuses the node type that the validator's own error message tells an author to write.\n\n## Read by this seat (objectui `origin/main` `f905090a1`)\n\n- `git grep` for a namespaced discriminator literal (`literal('X:Y')`) across `packages/types/src/zod/` finds exactly one: `ui:calendar`.\n- `AnyComponentSchema` in `index.zod.ts` is a `z.discriminatedUnion('type', …)`, so a namespaced `type` without an arm is refused with `invalid_union`. That agrees with the dev's 418.\n- The registry list's header explains why both spellings are listed:\n  - `register('grid', C, { namespace: 'view' })` stores `view:grid` AND, unless `skipFallback` is set, bare `grid`.\n  - So some of the 418 are the namespaced spelling of a bare key that validates (`view:grid` is refused while `grid` is accepted).\n  - Others have no bare twin at all, because they were registered with `skipFallback` or are namespace-only.\n  - The measurement does not yet separate these two groups. The first step of any fix does.\n\n## Why it matters\n\nThe namespaced vocabulary is the authoring surface the platform teaches: ADR-0080 public blocks, the page and record blocks, and the element family. An author or an AI who runs `objectui validate` on a page built from those blocks gets 「Schema validation failed」 on every block. One of two things is true:\n- the validator does not cover the vocabulary the registry and docs publish;\n- or namespaced documents are validated somewhere else, and `objectui validate` should say so instead of refusing.\n\n## Direction (for triage, not a ruling)\n\n- First, split the 418 into: namespaced spellings whose bare twin validates, and namespace-only keys. Then establish where namespaced blocks are MEANT to be validated. Candidates: objectui's `AnyComponentSchema`; the spec's page and block schemas in objectstack; or a namespaced arm family that the objectui#10859 ratchet could count.\n- Then the same three-way split as objectui#10859 applies: (i) a declaration exists and owes an arm; (ii) authorable but undeclared; (iii) not authorable.\n- The objectui#10859 ratchet counts only bare keys. Whether a namespaced count joins it is triage's call. ⛔ It adds no new gate; it widens an existing ratchet's population.\n\n## Dedupe\n\nThe 1000 most recently updated objectui issues and PRs, open and closed (down to #10213), were listed via REST and grepped locally:\n- namespaced near validate / `safeValidateSchema` / `invalid_union` / `AnyComponentSchema`: 1 hit, PR objectui#10870 (the objectui#10859 batch 1 that reported this);\n- `action:button` near refus / `invalid_union` / validate: 2 hits, objectui#10294 and #10272, neither about `type` refusal;\n- `PUBLIC_BLOCKS` near refus / validate / arm: 0 hits.\n\nDedupe words: `objectui validate namespaced registered types` · `action:button invalid_union` · `PUBLIC_BLOCKS refused at type` · `namespaced registry key no AnyComponentSchema arm`"

@@ -1,0 +1,37 @@
+{
+  "number": 9309,
+  "kind": "issue",
+  "title": "finding(types): `ObjectGallerySchema.filter` is typed `unknown` while its own docblock says it is forwarded verbatim as `$filter` — the one view schema of six that is not `any[]`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "pm:blocked",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T17:09:09Z",
+  "updated_at": "2026-09-20T11:56:10Z",
+  "closed_at": "2026-09-20T11:56:10Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9309",
+  "body": "Measured while implementing objectui#7912 (typing the renderer seam's `dataSource`). Filed\nunassigned and NOT fixed there: repairing it is a published type change on a second package\n(`@object-ui/types`) with its own accept set, and #7912's ruling is scoped to the renderer\nseam. The narrowing is what surfaced it, because it is the one place in that work where a\nverbatim forward had to be asserted rather than declared.\n\nMeasured on `origin/main` at `243fc8317`.\n\n## The site\n\n`packages/types/src/objectql.ts`, in `ObjectGallerySchema`:\n\n```ts\n/** Query filter, forwarded verbatim as `$filter` */\nfilter?: unknown;\n```\n\nIts own docblock states where the value goes: **forwarded verbatim as `$filter`**, which is\n`QueryParams['$filter']` in `packages/types/src/data.ts` — declared as the MongoDB-style\nfield-keyed record or a `FilterArray`, and documented there as such.\n\n`unknown` is wider than that. So the declaration promises a destination it does not type, and\nevery consumer that performs the documented forward has to assert the value first. There is\nexactly one such consumer in this repository (`plugin-list`'s `ObjectGallery`), and on the\nobjectui#7912 branch it now carries that assertion, with a comment naming this card.\n\n## Why it reads as a defect rather than a style choice: it is the only one of six\n\nEvery sibling view schema in the same file declares the same key as `any[]`, with the same\n\"forwarded verbatim as `$filter`\" language — six of them (`grep -c 'filter?: any\\[\\];'`\nreturns 6, against this one `filter?: unknown`). Two of those docblocks go further and say\nthe spelling is deliberately identical across views (\"Spelled exactly as\n`ObjectGanttSchema.filter`, so the two views' filters are one vocabulary\").\n\nSo the outlier is not a stricter contract, it is an untyped one: `any[]` at least tells an\nauthor the shape is an array of rules, and it is assignable to the destination. `unknown`\ntells the author nothing and tells the compiler to refuse the forward the docblock mandates.\n\n## Why it matters for an AI author specifically\n\nThis is the shape that teaches casting. An author (or an agent) writing a gallery reads\n\"forwarded verbatim as `$filter`\", writes the forward, gets a type error on a key the docblock\njust told them to forward, and reaches for `as any` — at which point the destination's real\ntype (`Record` or `FilterArray`) stops being checked at that call site too. The repository's\nown rule is the opposite direction: fix the declaration, do not widen the consumer\n(AGENTS.md #0.1).\n\n## Not decided here\n\nWhether the repair is `any[]` (match the six siblings, one vocabulary) or\n`QueryParams['$filter']` (match the destination exactly, which is strictly better typing but\nnarrows the published accept set further) is a small published-surface choice with a\nchangeset, and it belongs to whoever takes this card. Both are narrowings of `unknown` and so\nboth are breaking for a TypeScript consumer that assigned something else — which nothing in\nthis repository does, because nothing could read the key without asserting it first.\n\nRelated: objectui#7912 (where this was measured; the assertion it forced is commented there),\nobjectui#7804 (a different `@object-ui/types` declaration gap on the same schema family).\n\nFiled by an ObjectUI development agent seat (Claude Code) while implementing objectui#7912;\nthe measurement commands and their readings are quoted above rather than attached.\n\n\n## Held, not stalled — the work is done and the PR is stuck behind an external gate\n\nBlocked-by: objectstack-ai/objectstack#18234\n\nPR objectui#9540 implements this card at head `3e60765fb4a80c3ee5c098b8133a26533de39842`.\nLanding gates (1) and (3) are MET on that head; gate (2) -- `check-clause2-carriers --pair 9540`\n-- exits 4 on a C5 false positive filed as objectstack#18234. The two mechanical clears both\namount to recording a widening that did not happen, so neither is taken. The card stays claimed\nand the PR stays open; the unlock scan puts this back when the upstream closes.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

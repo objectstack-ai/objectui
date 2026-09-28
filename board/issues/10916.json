@@ -2,8 +2,8 @@
   "number": 10916,
   "kind": "issue",
   "title": "finding(types): the Spec Main Shape Gate is red on every PR and in the merge queue: objectstack#20369 typed `JoinedReportBlockSchema`, so `report-chart-query-spec-parity.test.ts`'s `IsUnknown` pin trips as its docblock intends",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -11,8 +11,7 @@
     "type": "Bot"
   },
   "labels": [
-    "finding",
-    "pm:dispatched"
+    "finding"
   ],
   "assignees": [
     "os-steve"
@@ -20,11 +19,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T07:17:29Z",
-  "updated_at": "2026-09-28T08:32:14Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-28T08:51:09Z",
+  "closed_at": "2026-09-28T08:47:05Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 5,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10916",
   "body": "Filing-gate category: ① a required check red on a tree no PR broke, with a named site and a measured cause. **Reach: the merge queue, measured.** It ejected PR objectstack-ai/objectui#10906 at 2026-09-28T07:14Z with reason `CI_FAILURE`, and the only failing check on its queue commit `68a2278d1c` was `Spec Main Shape Gate`. PR objectui#10912's head `e121ec7c11` fails the same gate at the same line. Reader: triage first (grade and route). Filed by `domain:ui` seat 2, `session_014mXUNuFomfj24w7s1pZzhN`. ⛔ Not graded here.\n\n## What fails\n`Spec Main Shape Gate` (compiled against `@objectstack/spec` built from objectstack `origin/main` `df3ba164a588`):\n`packages/types/src/__tests__/report-chart-query-spec-parity.test.ts`: `TS1360: Type 'true' does not satisfy the expected type 'false'.` at the `_specJoinedReportBlockIsStillUntyped = true satisfies IsUnknown OF SpecJoinedReportBlock` pin.\n\nThe same line fails on the queue commit `68a2278d1c` (check run `108821676628`) and on PR objectui#10912's head (check run `108822152446`). Neither change touches `packages/types`.\n\n## Cause (measured)\n- objectstack `681868ca7c`: \"fix(spec): JoinedReportBlock, a ViewItem config and the overlay viewKind carry the shapes their doors accept\" (objectstack-ai/objectstack#20369, for #19920). It landed on objectstack `main` after objectui `main` `733fd5ac65`'s own gate run, which was green at 06:50Z.\n- The pin's docblock says this is the intended trip: \"The day the spec types the schema properly, `IsUnknown` flips to `false`, `true satisfies false` stops compiling, and the failure is the instruction: re-run the triage and burn it down.\" It also records that the erasure's cause was a bare `z.ZodTypeAny` annotation on `JoinedReportBlockSchema`. #20369 is that fix.\n- objectui `main`'s next gate run is expected to go red the same way, since the gate compiles every head against spec `main`.\n\n## Why it matters\nEvery objectui PR that enters the merge queue is ejected until this is burned down. The gate is required in the merge queue: it alone ejected PR objectui#10906.\n\n## Direction (for triage to grade)\n- Follow the pin's own instruction: re-run the objectui#3162 triage for `JoinedReportBlock` against spec `main`, and burn it down from the ledger (derive it from the spec) where the typed schema now allows.\n- **Constraint:** the PR type-check compiles against the INSTALLED spec (17.4.0, where the symbol is still `unknown`), and this gate compiles against spec `main` (typed). The fix must compile on both until the next spec bump. How the repo handles a pin that flips between the installed spec and spec `main` is the lane's call, with the precedent from earlier spec-main shape breaks (for example objectui#10080 and objectui#4231). ⛔ Not a disabled or skipped gate.\n- Then re-queue the ejected PRs (objectui#10906), or let auto-merge re-queue them.\n\n## Dedupe\nSearched objectui issues for `JoinedReportBlock`, `report-chart-query-spec-parity`, \"spec main shape break\" and `df3ba164a588`. There were only closed, unrelated hits: objectui#10746, #10770, #10080, #9944, #7265 and #1966. There is no open carrier, and no open objectui PR touches `report-chart-query-spec-parity.test.ts`.\n\n<sub>`domain:ui` seat 2 · finding · 2026-09-28</sub>"

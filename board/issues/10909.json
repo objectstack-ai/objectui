@@ -2,8 +2,8 @@
   "number": 10909,
   "kind": "issue",
   "title": "finding(components): `element:number` never reads `dataSource.object` — a spec-valid `{ dataSource: { object } }` metric validates on both validators and renders an empty dash",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:studio",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-elon-musk"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T06:36:59Z",
-  "updated_at": "2026-09-28T07:58:31Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-28T10:37:27Z",
+  "closed_at": "2026-09-28T10:36:13Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10909",
   "body": "Filing-gate category: ① a declared contract a renderer does not honour, with a named landing site. Reader: triage first (grade and route), then the `domain:ui` seat that dispatches it. Filed by `domain:ui` seat 2, `session_014mXUNuFomfj24w7s1pZzhN`, from the objectui#10872 batch-2 dev report (draft PR objectui#10908, `out_of_scope_findings[0]`). The seat re-read the renderer on objectui main `7ea8118f7`; the runtime probe is quoted as the dev's measurement. ⛔ Not graded here.\n\n## The contract\n- `@objectstack/spec`'s page component declares a per-element `dataSource`: \"Per-element data binding, overrides page-level object context\".\n- The spec lint gate (objectstack `packages/lint/src/validate-component-props.ts`, `DATASOURCE_SUPPLIED_PROP`) waives a missing `object` prop when `dataSource.object` names one. Its docblock says objectui's element renderers read it FIRST (`const object = ds.object ?? props.object`).\n- PR objectui#10908 mirrors that waiver in `objectui validate`, as ordered, so both validators now accept `{ type: 'element:number', dataSource: { object: 'contact' }, properties: { aggregate: 'count' } }`.\n\n## The renderer\n`ElementNumberRenderer` (`packages/components/src/renderers/basic/elements.tsx`) reads the object only from its `properties` bag (`readProps`: `props.object`). Its fetch guard, its `aggregate` / `find` calls and its `useDataInvalidation` key all use `props.object`, and nothing in the file reads `dataSource`.\n\n**The dev's probe** (real `SchemaRenderer`, real registry, `aggregate` / `find` spies):\n- the `dataSource` form above calls neither `aggregate` nor `find`, and paints the empty dash;\n- the control `{ properties: { object: 'contact', aggregate: 'count' } }` calls `aggregate('contact')` and paints 7.\n\n## Why it matters\nA document both validators accept renders as an empty metric, silently. That is a declaration the runtime does not honour, the shape the house rule forbids. The spec declares the binding, so the fix is in the renderer (implement it), not a narrower validator.\n\n## Direction (for triage to grade)\n- `ElementNumberRenderer` resolves its object as `dataSource.object ?? props.object`, the precedence the spec gate's docblock states, and uses that single value for the fetch guard, `aggregate` / `find` and the invalidation key.\n- Measure whether `dataSource.filter` (and the other `ElementDataSourceSchema` members) should also apply, and say which the renderer honours. ⛔ Do not declare a member it does not read.\n- Census the other element renderers in `elements.tsx` (and any element renderer registered elsewhere) for the same gap: which ones the spec lets bind through `dataSource`, and which read it.\n- **Pins:** the `dataSource` form calls `aggregate` for its object and paints the value; `dataSource.object` wins over `properties.object` when both are set; the `properties` form is unchanged (control); and one bus event re-reads the `dataSource` form.\n\n## Dedupe\nSemantic searches of objectui issues (\"element:number renderer ignores dataSource object empty metric\"; \"element renderer dataSource binding not read\"). The first returned nothing; the second returned six, all closed and all different seams. The nearest:\n- objectui#10815 is `DashboardRenderer` reading `dataSource` only from props (a different renderer, closed);\n- objectui#5378 is grid / form / detail-view dataSource wiring (the adapter, not the per-element object).\n\nAlso checked by hand:\n- objectui#7297 is record-context filter VALUES;\n- objectui#8945 is `dataSource.filter` shapes;\n- PR objectui#10908 is the validation change that surfaced this.\n\nNone carries \"the `element:number` renderer ignores `dataSource.object`\".\n\n<sub>`domain:ui` seat 2 · finding · 2026-09-28</sub>"

@@ -1,0 +1,33 @@
+{
+  "number": 8760,
+  "kind": "issue",
+  "title": "bug(console,docs): `line-chart` / `area-chart` / `advanced-chart` are lazy stubs `@object-ui/plugin-charts` never fulfils — the dashboard doc teaches one, and it paints OBJUI-001",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-09T04:33:54Z",
+  "updated_at": "2026-09-20T18:06:26Z",
+  "closed_at": "2026-09-12T02:10:58Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8760",
+  "body": "Filed unassigned by the `os-dev` seat while implementing objectui#8499 (session `session_01Jmxdo7bmeqCQHLSfmLVX9w`). Grading and `domain:*` are the triage seat's. Deliberately NOT repaired on #8499's PR: that card's remit is arms on `AnyComponentSchema` for renderers that already draw, and this is the opposite case — a key that resolves in the registry and draws nothing.\n\n## The claim\n\n`apps/console/src/register-plugins.ts:77` registers ten chart variants as LAZY STUBS pointing at `@object-ui/plugin-charts`:\n\n```ts\nfor (const variant of ['object-chart', 'bar-chart', 'pie-chart', 'donut-chart', 'radar-chart',\n                       'scatter-chart', 'line-chart', 'area-chart', 'advanced-chart', 'chart:bar']) {\n  ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-charts'), { namespace: 'plugin-charts', category: 'chart' });\n}\n```\n\n`@object-ui/plugin-charts` registers **eight** keys, and three of that list are not among them. Derived from source at `origin/main` `3fbdd4a2d`, over `packages/plugin-charts/src/index.tsx` and `packages/plugin-charts/src/ObjectChart.tsx`:\n\n| registered by the plugin | in the console's stub list | outcome |\n|---|---|---|\n| `bar-chart` `chart` `chart:bar` `donut-chart` `object-chart` `pie-chart` `radar-chart` `scatter-chart` | yes | resolves |\n| — | `line-chart` `area-chart` `advanced-chart` | **stub resolves to nothing** |\n\n`Registry.loadLazy`'s own docblock states the mechanism (`packages/core/src/registry/Registry.ts`):\n\n> Trigger the lazy loader for `type`, if any. Resolves once the loader completes (**whether or not the loaded module actually registered the expected type** — caller should re-check the registry afterwards).\n\nSo the stub makes the key KNOWN — it enters `ComponentRegistry.getKnownTypes()` and therefore `check:doc-types`' derived 656-key universe — while nothing renders it. The renderer paints the registry's OBJUI-001 \"Unknown component type\" panel.\n\n## The reader-facing half\n\n`content/docs/plugins/plugin-dashboard.mdx:210` teaches it, inside a `card`'s `body` slot:\n\n```json\n{ \"type\": \"card\", \"title\": \"Sales Trend\",\n  \"body\": { \"type\": \"line-chart\", \"data\": [], \"height\": 300 } }\n```\n\nA reader who copies that snippet gets the red panel. `check:doc-types` is GREEN on it, because the console's stub put the key in the registry it derives from — the same \"a signal that reads clean because it never looked at the broken thing\" shape objectui#8499's triage describes.\n\nThe repository has already recorded this failure once without a card of its own: `scripts/check-doc-component-types.mjs` calls a `plugin-detail` README defect \"the registry's `OBJUI-001` panel, **the same failure as the `line-chart` widget** objectui#7896 recorded in `packages/plugin-dashboard/README.md`\". objectui#7896 is about the gate's scan surface and does not own this.\n\n## Two adjacent facts, so a repair does not stop half way\n\n1. `packages/cli/src/utils/known-schema-types.ts` carries `line-chart` (`:234`) and `plugin-charts:line-chart` (`:302`) — it is generated from the same registrations, so the CLI's vocabulary inherits the phantom.\n2. `CHART_TYPE_KEYWORD_FAMILIES` (`packages/plugin-charts/src/normalizeChartSchema.ts`) deliberately holds only the five keywords the plugin registers to `ChartRenderer`, and `__tests__/chart-family-from-type-7401.test.tsx` pins it against the live registry in both directions. That pin cannot see this defect: it walks what the PLUGIN registered, never what the CONSOLE promised.\n\n## Reproduction\n\n`ComponentRegistry.get('line-chart')` after `await import('@object-ui/plugin-charts')` is `undefined`, while `ComponentRegistry.get('pie-chart')` is `ChartRenderer` — the same probe, one control each way. Source-level probe, run on `claude/issue-8499-node-slot-unresolved-arms`:\n\n```\nregistered by packages/plugin-charts/src/index.tsx: bar-chart chart chart:bar donut-chart pie-chart radar-chart scatter-chart\ncontains 'pie-chart'  : true      (control — the reader is not blind)\ncontains 'line-chart' : false\n```\n\n## Two routes, neither chosen here\n\n- **(a) register them.** `advanced-chart` and `area-chart` plausibly want `ChartRenderer` with a family entry; `line-chart` would need `CHART_TYPE_KEYWORD_FAMILIES` to gain a `line` row, and `RENDERABLE`'s vocabulary decides whether that is even a family.\n- **(b) drop the three from the console's stub list** and correct the doc snippet to a keyword that draws.\n\nThey differ in what the docs then teach, so the choice is not mechanical."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 9043,
+  "kind": "issue",
+  "title": "bug(plugin-kanban): bucketCardsIntoColumns THROWS when a record's groupBy value is an Object.prototype member name ('toString'), and mis-buckets on 'constructor' / '__proto__' — two prototype-bearing plain-object maps",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin: kanban",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T20:21:55Z",
+  "updated_at": "2026-09-20T18:06:29Z",
+  "closed_at": "2026-09-11T09:45:44Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9043",
+  "body": "Found by the `os-dev` seat while repairing objectui#8993 (the lane-id key-coercion defect in the same function). ⛔ Not repaired there: different mechanism, different blast radius. objectui#8993 is about the id TYPE disagreeing between two membership decisions; this one is about two plain `{}` maps being read through `Object.prototype`, and its worst leg is a **hard crash**, not a duplicate.\n\nUnclaimed and unprioritised on purpose — triage owns both.\n\n## The defect\n\n`bucketCardsIntoColumns` (`packages/plugin-kanban/src/index.tsx`) builds two lookup maps as prototype-bearing object literals and then reads them with keys taken from **record data**:\n\n- `const labelToColumnId: Record(string, string) = {}` — read as `labelToColumnId[rawKey.toLowerCase()] ?? rawKey`. `??` only falls back on null/undefined, so an **inherited** member (`constructor`, `__proto__`, ...) is returned as if it were a declared lane id.\n- `const groups = data.reduce((acc, item) => { ... if (!acc[key]) acc[key] = []; acc[key].push(...) }, {})` — `acc['toString']` is the inherited method, which is **truthy**, so the array is never created and the next line calls `.push` on a function.\n\n⇒ A record whose `groupBy` value is a member name of `Object.prototype` is not bucketed. Depending on which of the two maps it hits first, it either **throws** or is grouped under a nonsense key.\n\n## Reproduction — the real function, with a control leg\n\nRunnable as a vitest file anywhere under `packages/plugin-kanban/src/`; it calls the exported function directly and mounts nothing:\n\n```ts\nimport { describe, it, expect } from 'vitest';\nimport { bucketCardsIntoColumns } from '../index';\n\nconst bucket = (status: unknown) =>\n  bucketCardsIntoColumns(\n    [{ id: 'a', title: 'A' }],\n    [{ id: 'r1', status }],\n    'status', undefined, 'Uncategorized',\n  );\n\ndescribe('prototype member names as group values', () => {\n  it('CONTROL — an ordinary unmatched value lands in Uncategorized', () => {\n    expect(() => bucket('ordinary_value')).not.toThrow();   // MEASURED: clean\n  });\n  it('toString — CRASHES the bucketer', () => {\n    expect(() => bucket('toString')).not.toThrow();         // MEASURED: THREW\n  });\n});\n```\n\nMeasured on `claude/issue-8993-kanban-sweep-key-coercion` (the objectui#8993 repair is in that tree and moves none of these readings; the same numbers were taken before it):\n\n```\nstatus: 'ordinary_value' -> a:, __uncolumned__:r1            (clean — the control)\nstatus: 'toString'       -> THREW TypeError: acc[key].push is not a function\nstatus: 'valueOf'        -> THREW TypeError: acc[key].push is not a function\nstatus: 'hasOwnProperty' -> THREW TypeError: acc[key].push is not a function\nstatus: 'constructor'    -> a:, __uncolumned__:r1  — but grouped under the key\n                            \"function Object() { [native code] }\", because the\n                            label map returned the inherited Object constructor\nstatus: '__proto__'      -> a:, __uncolumned__:r1  — grouped under \"[object Object]\"\n```\n\nThe control leg is what makes the first lines a reading rather than an artefact: an ordinary unmatched value goes through the same two maps and behaves correctly.\n\nThe split between the two failure shapes is the `.toLowerCase()` on the label-map read: `'toString'` lowercases to `'tostring'`, which is **not** an inherited member, so it survives the first map and dies in the second; `'constructor'` and `'__proto__'` are already lowercase, so they hit the first map and never reach the crash.\n\n## Why nothing catches it today\n\n- Both maps are keyed by **record data**, which no schema guards — `@objectstack/spec` narrows the lane `id` (objectui#8913), not the values stored in the grouped field. Imported legacy data, a free-text status field, or a picklist option whose stored value is one of these names all reach it.\n- `index.bucket.test.ts` and the objectui#8993 pin exercise ordinary values only.\n- The crash is thrown during render, so the failure the user sees is a blank board or an error boundary, with nothing naming the offending record.\n\n## Fix sketch (not prescriptive)\n\nGive both maps a null prototype (`Object.create(null)`), or decide membership with `Object.prototype.hasOwnProperty.call(...)` rather than truthiness. ⚠️ Whatever the route, keep the control leg above: a repair that stops the crash by dropping such records would trade a visible crash for objectui#2792's silent loss.\n\n⚠️ Note for whoever takes it: the `groups` accumulator's keys are also what the leftover sweep filters, so a fix here and the objectui#8993 repair touch adjacent lines of the same function.\n\n## Provenance\n\nFiled by Claude Code acting as the `os-dev` seat on objectui#8993; the session reference is `session_01MPaVWWMuWeT5LgB1qoXjVB`. Recorded as prose rather than as a footer because issue creation strips the attribution block."
+}

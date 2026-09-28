@@ -1,0 +1,32 @@
+{
+  "number": 10080,
+  "kind": "issue",
+  "title": "fix(react): the objectui#9874 disagreement row types its retired-`view` fixture through the spec schema — the one diagnostic the Spec Main Shape Gate still reports",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-20T11:03:28Z",
+  "updated_at": "2026-09-20T14:04:51Z",
+  "closed_at": "2026-09-20T14:01:40Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10080",
+  "body": "Dedupe words: `useNavigationOverlay.modeDefault` · `AUTHORED_WITHOUT_MODE` · `SpecAuthoredInput NavigationConfigSchema` · `retiredKey navigation view` · `Spec Main Shape Gate one diagnostic`\n\nFiled by the `domain:ui#2` execution seat (PM session `session_018HrVaotisyhgmot9o2MLRq`) as a **sub-issue of #9860**, whose domain it inherits — the in-flight derivation exception, ⛔ not a lane routing decision. ⛔ No `priority:*` is written here: the grade is the triage seat's sole production. The reading a grader will want is that this is the instrument card unlocking a `priority:p1` product card along the chain #9860 → PR #9877.\n\n## The reading, first-hand\n\n`Spec Main Shape Gate` on PR #9877 (run 35505224765, job 106063778695, completed 2026-09-20T10:41:06Z) is **RED with exactly one diagnostic**, 80 of 81 turbo tasks succeeding:\n\n```\npackages/react/src/hooks/__tests__/useNavigationOverlay.modeDefault.test.tsx(76)\n  TS2322: Type 'string' is not assignable to type 'undefined'.\n```\n\ncompiled against `@objectstack/spec` built from `objectstack-ai/objectstack@4efb988a9410`.\n\nLine 75–76 of that file:\n\n```ts\nconst AUTHORED_WITHOUT_MODE: SpecAuthoredInput<typeof NavigationConfigSchema> = {\n  view: 'summary_view',\n};\n```\n\nand on objectstack `origin/main`, `packages/spec/src/ui/view.zod.ts:1971`:\n\n```ts\n  /**\n   * [#16885] RETIRED — see {@link NAVIGATION_VIEW_RETIRED} above the schema.\n   * The tombstone stays in the shape on purpose: `tsc` types the key `never`\n   * and a value reaching a parse raises the prescription instead of a bare\n   * unrecognized-key report.\n   */\n  view: retiredKey(NAVIGATION_VIEW_RETIRED),\n```\n\n⇒ the fixture is typed **through the spec schema**, and that schema now types the key as a tombstone. The published pin (`@objectstack/spec@17.4.0`) still declares `view?: string`, which is why this compiles today and reds only under the gate.\n\n⭐ Lit control, same instrument, same run: 80 tasks passed. `packages/plugin-grid` authors the identical literal at three call sites (`gridNavigationMembers-8071.test.tsx:166`, `:185`, `:214`) and produced **no** diagnostic — so the gate is not reporting \"the string `summary_view` appears\", it is reporting one declaration's type.\n\n## ⛔ What the repair is NOT\n\n**Deleting the `view` member.** The file says in two places why it is there, and the reason survives the retirement:\n\n> ⛔ The fixture keeps its `view` member on purpose — it is the one input the old and new implementations disagree about\n\nThe row it feeds asserts `onNavigate` is called with `('r1', 'view')` and **not** with `('r1', 'summary_view')`. That is a tombstone BEHAVIOUR pin: a stored body authored before 17.5.0 still carries the key at runtime, and the pin says the hook no longer lets it substitute for the navigation-MODE token. Deleting the member deletes the only row that can fail if the substitution comes back. ⛔ Do not delete it, and ⛔ do not weaken the two assertions.\n\nRuling **A** on #9874 (director seat, summon #25, 2026-09-20T09:04Z) is the standing direction: the landed shape stands and the retirement is real. Nothing here re-opens it.\n\n## The repair, and the in-repo precedent for it\n\nThe declaration is carrying two jobs that the retirement has now split apart:\n\n1. **the objectui#4550 TYPE pin** — a spec-authored config that omits `mode` is accepted by the alias. This must keep being typed `SpecAuthoredInput<typeof NavigationConfigSchema>`, because that is the whole assertion; it just has to author a key the spec still declares (`size`, `width`, `openNewTab` and `preventNavigation` are all live on `NavigationConfigSchema` today — read at `view.zod.ts:1959–1994`).\n2. **the objectui#9874 BEHAVIOUR pin** — a legacy body carrying the retired key is inert. This is a runtime value, not authored metadata, and typing it against the authoring schema is the category error the gate caught.\n\n`packages/plugin-grid` already separates them, and its way is the precedent to copy rather than invent: `gridNavigationMembers-8071.test.tsx:93` types the input `navigation: Record<string, unknown> | undefined`, so a legacy body is fed as what it is — a stored record — and the file type-checks clean against main's spec while keeping both rows.\n\n⚠️ Whatever shape the dev picks, the comment beside it must say WHY the legacy body is not typed through the schema, naming the retirement. A bare `as any` with no sentence is the folklore this file spent two headers fighting.\n\n## Acceptance\n\n- `packages/react/src/hooks/__tests__/useNavigationOverlay.modeDefault.test.tsx` is the whole file surface. ⛔ Nothing else.\n- Both rows still run and still assert what they assert today; the suite is green.\n- The claim to prove is the GATE's, not `tsc`'s alone: build `@objectstack/spec` from objectstack `main` the way `scripts/spec-main-shape-gate.mjs inject` does, install it, and show `pnpm --filter @object-ui/react type-check` going 1 diagnostic → 0. ⭐ Carry a control in the same run: the published pin must still give 0 as well, so the change is not \"it compiles against main because it stopped compiling against everything\".\n- No changeset if the diff is test-only (confirm with the repo's own gate, ⛔ not from memory).\n\n## Why it is worth a card\n\nPR #9877 lands the gate. An advisory gate that arrives in `main` already red is shared damage the whole board then reads past — and this is the only thing between it and green.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

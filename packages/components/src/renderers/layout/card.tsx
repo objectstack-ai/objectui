@@ -62,9 +62,9 @@ const CardRenderer = forwardRef<HTMLDivElement, { schema: CardSchema; className?
           {header}
         </CardHeader>
       )}
-      {/* `children` is the one child-list key: this slot used to read
-          `schema.children || schema.body`, and objectui#6771 dropped the
-          `body` arm when it retired that spelling (the callback's `body`
+      {/* `children` is the one child-list key: this slot used to fall back
+          from `children` to `body` through an `||`, and objectui#6771 dropped
+          that `body` arm when it retired the spelling (the callback's `body`
           below is only a local name for the slot's content). ⛔ No `||` is
           the guard here. That distinction was the point of objectui#9162:
           `children: 0` used to be converted away by the accident of

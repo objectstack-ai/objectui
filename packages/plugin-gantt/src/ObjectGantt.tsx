@@ -1988,8 +1988,8 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       const { startDateField, endDateField, titleField, progressField } = ganttConfig;
       // A `date` field is written as the calendar day, a `datetime` as the
       // instant (objectui#10866, `toStoredDateValue`).
-      const fieldDefs = objectSchema?.fields as Record<string, any> | undefined;
-      const stored = ((task as any).data ?? {}) as Record<string, unknown>;
+      const fieldDefs = objectSchema?.fields as Record<string, { type?: unknown } | undefined> | undefined;
+      const stored: Record<string, unknown> = task.data ?? {};
       const chartZone = makeTzShift(ganttConfig.timeZone);
       const patch: Record<string, unknown> = {};
       if (changes.start instanceof Date) {

@@ -1061,7 +1061,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
 
     // A `date` field is written as the calendar day, a `datetime` as the
     // instant (objectui#10866, `toStoredDateValue`).
-    const fieldDefs = objectSchema?.fields as Record<string, any> | undefined;
+    const fieldDefs = objectSchema?.fields as Record<string, { type?: unknown } | undefined> | undefined;
     const patch: Record<string, string> = {
       [startDateField]: toStoredDateValue(newStart, fieldDefs?.[startDateField]?.type, record?.[startDateField]),
     };
@@ -1139,7 +1139,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     const { startDateField, endDateField, titleField } = calendarConfig;
     // A `date` field is written as the calendar day clicked, a `datetime` as
     // the instant (objectui#10866, `toStoredDateValue`).
-    const dateFieldDefs = objectSchema?.fields as Record<string, any> | undefined;
+    const dateFieldDefs = objectSchema?.fields as Record<string, { type?: unknown } | undefined> | undefined;
     const payload: Record<string, any> = {
       [titleField || 'name']: title,
       [startDateField]: toStoredDateValue(quickCreate.start, dateFieldDefs?.[startDateField]?.type, undefined),

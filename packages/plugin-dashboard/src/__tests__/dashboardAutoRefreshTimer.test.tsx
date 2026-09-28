@@ -11,10 +11,10 @@
  *
  * ## Why the assertion is a call count
  *
- * Every other test for `refreshIntervalSeconds` pins a DECLARATION: that
- * `inputs` publishes the key, that the config panel carries a field for it,
- * that a locale has a label for it. None of them goes red if the timer never
- * runs. So the claim here is `onRefresh` being CALLED, a counted number of
+ * When this file was written, every other test for `refreshIntervalSeconds`
+ * pinned a DECLARATION: that `inputs` publishes the key, that the config panel
+ * carries a field for it, that a locale has a label for it. None of those goes
+ * red if the timer never runs. So the claim here is `onRefresh` being CALLED, a counted number of
  * times, after the fake time the fixture's own period asks for, on real
  * mounted components. Nothing spies on `setInterval` to prove firing: a test
  * that asserted `setInterval` was called with `30000` would stay green if the

@@ -28,13 +28,14 @@ import type { DashboardComponentSchema } from '@object-ui/types';
  * - The period is `refreshIntervalSeconds`, in seconds, and nothing else. The
  *   retired `refreshInterval` spelling is refused by the spec's
  *   `DashboardSchema`, so no fallback reads it (AGENTS.md #0.1).
- * - The timer runs only when the host wired `onRefresh` AND the period is a
- *   positive number: an absent period, `0` and a negative value all mean "off".
+ * - The timer runs only when the host wired `onRefresh` AND the period is
+ *   greater than zero: an absent period, `0` and a negative value all mean
+ *   "off".
  * - The indicator clears itself 600ms after each run, manual or timed.
  *
  * `__tests__/dashboardAutoRefreshTimer.test.tsx` mounts both surfaces and
- * counts `onRefresh` calls under fake timers; it is the instrument for every
- * claim in this list.
+ * counts `onRefresh` calls under fake timers. It pins the first two points;
+ * nothing pins the 600ms indicator.
  */
 
 /** What a dashboard surface needs to drive its refresh affordance. */

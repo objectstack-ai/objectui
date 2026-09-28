@@ -1017,12 +1017,12 @@ export type SchemaByType<T extends string> = Extract<AnySchema, { type: T }>;
  * exactly `K` and keeps every other named member — generic in `T` and all.
  * `OmitDeclared` in `./form.ts` is that spelling; the E3 slice of objectui#9256
  * re-spelled `InputShorthandSchema` and `UiCalendarSchema` with it, and
- * `__tests__/content-channel-e3-residual-9256.test.ts` pins that both faces
- * carry their inherited members again. So the obstacle to a repair here is not
- * the type system. Re-spelling this alias would NARROW what every
- * instantiation accepts (a declared member would stop accepting any value at
- * `any`), a contract change that is not made in a comment correction, and
- * objectui#6397 — the card that triaged it — is closed.
+ * `__tests__/content-channel-e3-residual-9256.test.ts` pins inherited members
+ * on both faces. So the obstacle to a repair here is not the type system.
+ * Re-spelling this alias would NARROW what every instantiation accepts (a
+ * declared member would stop accepting a value of the wrong type), which is a
+ * contract change and is not made in a comment correction; objectui#6397, the
+ * card that triaged it, is closed.
  *
  * It is also not removable here — dropping a published export
  * of `@object-ui/types` is a breaking removal of published capability and sits

@@ -13,12 +13,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { NavigationItem } from '@object-ui/types';
+import type { NavigationItem, NavigationEntryItem } from '@object-ui/types';
 import { resolveHref } from '../NavigationRenderer';
 
 const BASE = '/apps/crm';
 
-function objectItem(extra: Partial<NavigationItem> = {}): NavigationItem {
+function objectItem(extra: Partial<NavigationEntryItem> = {}): NavigationItem {
   return { id: 'nav_task', type: 'object', label: 'Tasks', objectName: 'task', ...extra };
 }
 
@@ -219,7 +219,7 @@ describe('resolveActiveNavItem — single winner across the tree', () => {
 // ============================================================================
 
 describe('resolveHref — component targets', () => {
-  function componentItem(extra: Partial<NavigationItem> = {}): NavigationItem {
+  function componentItem(extra: Partial<NavigationEntryItem> = {}): NavigationItem {
     return { id: 'nav_comp', type: 'component', label: 'Comp', ...extra };
   }
 

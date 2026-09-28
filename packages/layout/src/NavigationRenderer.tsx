@@ -308,6 +308,8 @@ export function resolveNavItemLabel(
   dashboardResolver?: (dashboardName: string, fallbackLabel: string) => string,
   viewResolver?: (objectName: string, viewName: string, fallbackLabel: string) => string,
 ): string {
+  // A separator carries no `label` (objectui#10867): there is nothing to name.
+  if (item.type === 'separator') return '';
   const base = resolveLabel(item.label, t);
   // Only apply convention-based resolution for items with plain string labels.
   // I18nLabel objects (with explicit key/defaultValue) already have their own translation keys.
@@ -1514,7 +1516,7 @@ function collectPinnedItems(
     // of a "Favorites" heading over an empty list.
     if (!passesNavItemGuards(item, options)) continue;
 
-    if (item.pinned && item.type !== 'group' && item.type !== 'separator') {
+    if (item.type !== 'group' && item.type !== 'separator' && item.pinned) {
       pinned.push(item);
     }
     if (item.children?.length) {

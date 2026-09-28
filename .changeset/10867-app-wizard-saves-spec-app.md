@@ -2,6 +2,7 @@
 '@object-ui/types': minor
 '@object-ui/plugin-designer': patch
 '@object-ui/i18n': patch
+'@object-ui/layout': patch
 ---
 
 fix(types,plugin-designer)!: the Studio app wizard saves a document the platform accepts, and an edit keeps the stored `accentColor` (objectui#10867)
@@ -11,11 +12,12 @@ fix(types,plugin-designer)!: the Studio app wizard saves a document the platform
 **Clause-②: yes (narrowing)** — the separator arm of `NavigationItem` loses `label`, and `AppWizardDraft` loses `layout`.
 
 - **A separator carries only `type`, `id` and `order`.** `@objectstack/spec`'s separator branch declares exactly those keys, and its `AppSchema` refuses anything else. `NavigationItem` required a `label` on every item, so the wizard's "Add separator" wrote `{ id, type: 'separator', label: '' }`, and the console's create-app and edit-app saves were refused with `422 INVALID_METADATA` (`unrecognized_keys` `['label']` at `navigation.N`). `NavigationItem` is now a union of two arms, discriminated by `type`. `NavigationEntryItem` holds every other nav type and keeps its required `label`. `NavigationSeparatorItem` admits `type`, `id` and `order`, and every other entry key is `?: never` on it. Both arms are exported. Reading an entry-only key off an unnarrowed item still compiles and answers `undefined` on the separator arm. Narrow on `item.type === 'separator'` before relying on `label`. `menuItemToNavigationItem` maps a legacy separator to `{ id, type: 'separator' }` and drops its label. `spec-derived-unions.test.ts` no longer pins the separator `label` as a blocker. It asserts, at both spec tiers, that the separator arm admits the spec separator's keys and no others.
-- **`@object-ui/plugin-designer`: the wizard and `NavigationDesigner` write a separator as `{ id, type }`.**
+- **`@object-ui/plugin-designer`: the wizard and `NavigationDesigner` write a separator as `{ id, type }`.** `NavigationDesigner` no longer writes a label, icon or visibility onto a separator.
+- **`@object-ui/layout` narrows on the separator arm; nothing it renders changes.** `resolveNavItemLabel` answers `''` for a separator, which is what a separator's `label: ''` resolved to before. The mobile bottom nav's leaf list, which already skipped separators, is now typed as entries.
 - **`@object-ui/plugin-designer`: `EditAppPage` keeps the stored branding.** The wizard maintains the logo, primary colour and favicon, and its `branding` replaced the stored block, so a stored `accentColor` was dropped on every edit. The console reads that key. The save now keeps every stored `branding` key the spec's `AppBrandingSchema` declares, read from that schema. The wizard's values win for the keys it maintains. A stored key the spec does not declare is still left out.
 - **The wizard's Layout control is removed, with `AppWizardDraft.layout`.** The spec declares no app `layout`, no console surface reads one, and since objectui#10842 the save wrote none. The control persisted nothing. `EditAppPage` no longer reads a stored `layout` into the draft. The Basic Info step's description now reads "Name, title, and icon".
 - **`@object-ui/i18n`:** the four `appDesigner` layout keys (`layout`, `layoutSidebar`, `layoutHeader` and `layoutEmpty`) are removed from all ten packs, and `appDesigner.stepBasicDesc` no longer names a layout.
 
-**Migration:** write a separator as `{ id, type: 'separator' }`, with an optional `order`. Remove `layout` from any `AppWizardDraft` you build. `AppComponentSchema.layout`, the renderer node's own layout strategy, is a different member and is unchanged.
+**Migration:** write a separator as `{ id, type: 'separator' }`, with an optional `order`. Remove `layout` from any `AppWizardDraft` you build. Code that spreads an entry-only key (`label`, `visible`, `requiredPermissions` and the rest) onto a value typed `NavigationItem` narrows it first (`item.type !== 'separator'`) or types it `NavigationEntryItem`: the separator arm refuses those keys. `AppComponentSchema.layout`, the renderer node's own layout strategy, is a different member and is unchanged.
 
 Pinned in `packages/types/src/__tests__/app-wizard-separator-layout-10867.test.ts` and `packages/plugin-designer/src/__tests__/AppWizard.specDocument-10867.test.tsx`.

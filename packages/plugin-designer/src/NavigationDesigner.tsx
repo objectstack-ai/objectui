@@ -290,7 +290,7 @@ function NavItemRow({
               !readOnly && 'cursor-text'
             )}
             onDoubleClick={() => {
-              if (!readOnly && item.type !== 'separator') {
+              if (!readOnly) {
                 setLabelDraft(resolveKeyedI18nLabel(item.label) ?? '');
                 setEditingLabel(true);
               }
@@ -516,7 +516,8 @@ export function NavigationDesigner({
     (id: string, label: string) => {
       function update(list: NavigationItem[]): NavigationItem[] {
         return list.map((item) => {
-          if (item.id === id) return { ...item, label };
+          // A separator carries no label, icon or visibility (objectui#10867).
+          if (item.id === id && item.type !== 'separator') return { ...item, label };
           if (item.children) return { ...item, children: update(item.children) };
           return item;
         });
@@ -530,7 +531,7 @@ export function NavigationDesigner({
     (id: string, icon: string) => {
       function update(list: NavigationItem[]): NavigationItem[] {
         return list.map((item) => {
-          if (item.id === id) return { ...item, icon: icon || undefined };
+          if (item.id === id && item.type !== 'separator') return { ...item, icon: icon || undefined };
           if (item.children) return { ...item, children: update(item.children) };
           return item;
         });
@@ -544,7 +545,7 @@ export function NavigationDesigner({
     (id: string) => {
       function update(list: NavigationItem[]): NavigationItem[] {
         return list.map((item) => {
-          if (item.id === id) {
+          if (item.id === id && item.type !== 'separator') {
             return { ...item, visible: item.visible === false ? true : false };
           }
           if (item.children) return { ...item, children: update(item.children) };

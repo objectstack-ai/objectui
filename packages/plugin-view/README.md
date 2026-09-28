@@ -418,8 +418,8 @@ const schema: ObjectViewSchema = {
 
 Without an `onNavigate` handler, `page` mode has nowhere to send the user, so
 keep the two together. `navigation: { mode: 'none' }` (or `preventNavigation`)
-makes rows inert. An active saved view (`listViews`, under Read/List) that
-declares its own `navigation` replaces this one while it is shown.
+makes rows inert. An active named view (`listViews`, under Read/List) that
+declares its own `navigation` replaces this one, as a whole, while it is shown.
 
 With no host `onRowClick`, a Cmd/Ctrl-click or middle-click on a row opens the
 record as a full page in a new browser tab. Inert rows stay inert: `mode: 'none'`,
@@ -510,9 +510,13 @@ column list is declared, and its `fieldOrder` then orders the columns that
 remain, the way `ListView` orders them on a host's `renderListView`. Its
 `inlineEdit` turns on in-cell editing, and only where the object grants inline
 edit to the user. Its `navigation` replaces the node's `navigation` as a whole:
-the row click, and the record form it opens, follow the active named view, on
-this path and on a host's `renderListView` alike. `label` and `data`, also
-declared on both, are still not read off the named view on this path.
+the row click, and the surface and width of the record, create and edit forms,
+follow the active named view, on this path, and on a host's `renderListView`
+when the host wires the `onRowClick` it is handed and passes `ObjectView` no
+`onRowClick` of its own. `label` and `data`, also declared on both, are not
+handed to the grid on this path: the named view's `label` is already the tab's
+text, and `data` waits on objectui#10971, because `ListView` and `ObjectGrid`
+pick different objects for it.
 `src/__tests__/ObjectView.routeTwoNamedGridMembers-10885.test.tsx` pins the ten
 grid members and `hiddenFields`; `ObjectView.namedViewNavigation-10885.test.tsx`
 and `ObjectView.namedViewInlineEdit-10885.test.tsx` pin `navigation` and

@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { aliasKeyRefusal, handlerKeyRefusal, neitherContentChannel, retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
 import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 // The predicate wire shape (`string | { dialect?, source }`, #2212) was a
@@ -1024,6 +1024,13 @@ const SHORTHAND_INPUT_TYPE_REFUSAL =
   '(A form FIELD is a different position: inside `fields: [ … ]` an authored `inputType` still ' +
   'wins over the one the field type implies, and this refusal does not reach there.)';
 
+/** objectui#9256 (E3 residual): ONE refusal string for both content channels of `InputShorthandSchema`. */
+const INPUT_SHORTHAND_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'email` / `password',
+  'both registrations spread the node into the `input` renderer with `inputType` pinned, and that renderer reads it as `InputSchema`',
+  'one input field — `label`, `placeholder`, `value` / `defaultValue`, `description`, `error`, `required`',
+);
+
 /**
  * Input Shorthand Schema — the `email` / `password` aliases
  * `packages/components/src/renderers/form/input.tsx` registers (objectui#8499).
@@ -1095,11 +1102,8 @@ export const InputShorthandSchema = InputSchema.omit({ type: true, inputType: tr
   //
   // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
-  ...neitherContentChannel(
-    'email` / `password',
-    'both registrations spread the node into the `input` renderer with `inputType` pinned, and that renderer reads it as `InputSchema`',
-    'one input field — `label`, `placeholder`, `value` / `defaultValue`, `description`, `error`, `required`',
-  ),
+  body: retirementTombstone(INPUT_SHORTHAND_NEITHER_CHANNEL),
+  children: retirementTombstone(INPUT_SHORTHAND_NEITHER_CHANNEL),
 });
 
 /**

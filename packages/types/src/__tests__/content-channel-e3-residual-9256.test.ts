@@ -19,9 +19,9 @@
  *
  * The nine `object-*` views, `detail-view`, and the `email` / `password` input
  * shorthands: both `body` and `children` are `?: never` on the TypeScript face
- * and a by-name refusal on the zod mirror (`neitherContentChannel`, a pair of
- * `retirementTombstone`s), each kept a MEMBER so `zod-mirror-parity`'s key sets
- * stay equal. `body` was already refused by `BaseSchema` (objectui#6771), but
+ * and a by-name refusal on the zod mirror (two `retirementTombstone` members fed
+ * one `neitherContentChannelGuidance` string), each kept a MEMBER so
+ * `zod-mirror-parity`'s key sets stay equal. `body` was already refused by `BaseSchema` (objectui#6771), but
  * that refusal names `children` as the remedy and `children` is dead here too,
  * so each node restates it with a message naming what the node renders instead.
  *

@@ -58,12 +58,17 @@
  *     ⚠️ `./blocks.ts` earned that leg because the block family had zod mirrors
  *     shipping as runtime values; this family has no zod mirror at all, which is
  *     asserted below rather than assumed.
- *     ⚠️ AMENDED (objectui#10859): the AI family HAS a zod module now —
- *     `../zod/ai.zod.ts` mirrors the three siblings that render, so the premise
- *     leg below re-derives what the retirement actually rests on (that face
- *     declares no `ai-insights` arm and exports no `AIInsightsSchema`) instead
- *     of the module's absence. The sentence above records the tree this pin was
- *     written against and is left as it was.
+ *     ⚠️ AMENDED 2026-09-28 (objectui#10859): the AI family HAS a zod module now
+ *     — `../zod/ai.zod.ts` mirrors the three siblings that render, so the
+ *     premise leg below re-derives what the retirement actually rests on (that
+ *     face declares no `ai-insights` arm and exports no `AIInsightsSchema`)
+ *     instead of the module's absence. Its `'AIInsightsSchema' in ZodFace` probe
+ *     is NOT the fourth instrument ruled out above: that one would read the
+ *     type-only `../ai.ts` namespace, where the name never existed at runtime;
+ *     this one reads the zod barrel, where a mirror of the retired declaration
+ *     WOULD be a runtime value, and its `AIRecommendationsSchema` lit control
+ *     shows the probe can answer yes. The sentence above records the tree this
+ *     pin was written against and is left as it was.
  */
 
 import { describe, it, expect } from 'vitest';

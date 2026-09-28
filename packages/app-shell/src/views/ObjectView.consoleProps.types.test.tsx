@@ -67,6 +67,24 @@ type _DataSourceNotAny = Assert<Equal<IsAny<DataSource>, false>>;
 type _ParamIsTheDeclaredProps = Assert<Equal<Param, ConsoleObjectViewProps>>;
 /** `dataSource` is the published contract, not a loose value type. */
 type _DataSourceIsTheContract = Assert<Equal<ConsoleObjectViewProps['dataSource'], DataSource>>;
+/**
+ * The ruled shape, member by member: names, optionality, value types
+ * (5871194128). The `@ts-expect-error` rows below accept ANY error code, so on
+ * their own they would stay green if `objects` or `onEdit` became optional —
+ * the alternative the ruling priced and rejected. This equation is what binds
+ * the shape.
+ */
+type _PropsAreTheRuledShape = Assert<
+  Equal<
+    ConsoleObjectViewProps,
+    {
+      dataSource: DataSource;
+      objects: any[];
+      onEdit: (record: Record<string, unknown>) => void;
+      externalRefreshKey?: number;
+    }
+  >
+>;
 
 /**
  * Never rendered — only passed as a prop value to elements that are created and

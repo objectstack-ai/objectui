@@ -16,11 +16,16 @@ Its props are now the exported `ConsoleObjectViewProps`:
 - `onEdit: (record: Record<string, unknown>) => void` — required;
 - `externalRefreshKey?: number`.
 
-**What this means for a consumer.** Nothing changes at runtime. At the type
+**What this means for a consumer.** Nothing observable changes at runtime; the
+one runtime byte is an optional call behind an existing guard. At the type
 level, `onEdit` and `objects` are now required (a mount without them is a
 compile error, TS2739), a misspelled prop is a compile error (TS2322), and
-`dataSource` must be a `DataSource`. A mount that passes the four props the
-component always read compiles as before. The name is `ConsoleObjectViewProps`
+`dataSource` must be a `DataSource`. A mount that passes the four props with
+values of the declared types compiles as before. An `onEdit` handler whose
+parameter is a narrower record type (for example an interface with required
+fields) is now refused under `strictFunctionTypes` and must accept
+`Record<string, unknown>`, and `externalRefreshKey` must be a number. The name
+is `ConsoleObjectViewProps`
 because `@object-ui/plugin-view` already exports `ObjectViewProps` for its
 schema-driven view, a different shape.
 

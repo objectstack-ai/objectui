@@ -7,7 +7,7 @@ feat(components): a `kind: 'react'` page's author scope injects `useDataInvalida
 A react page reads data through the injected `useAdapter`, in an effect it
 writes itself. The scope gave that effect no data-invalidation reader to name,
 so the read the react-pages guide taught, keyed on `[adapter]`, re-ran only
-when the page was remounted (as `PageView` does after a page action) or its
+when the page was remounted (as `PageView` did after a page action) or its
 adapter changed.
 
 The scope now injects `useDataInvalidation` from `@object-ui/react` beside

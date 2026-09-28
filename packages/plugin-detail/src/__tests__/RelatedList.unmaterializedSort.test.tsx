@@ -216,8 +216,11 @@ describe('RelatedList — the sort-button row for a `list` card (#3950)', () => 
   });
 
   it('keeps that button in client mode', async () => {
-    renderList({ type: 'list', data: items });
+    const dataSource = renderList({ type: 'list', data: items });
     await waitFor(() => expect(h.schema?.type).toBe('data-list'));
+    // Since objectui#10728 the sort-button row reads the masked stamp, which
+    // covers every column until the object schema lands (#7007).
+    await settleObjectSchema(dataSource);
 
     expect(screen.getByRole('button', { name: /Total/ })).toBeTruthy();
   });

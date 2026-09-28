@@ -354,6 +354,11 @@ Without an `onNavigate` handler, `page` mode has nowhere to send the user, so
 keep the two together. `navigation: { mode: 'none' }` (or `preventNavigation`)
 makes rows inert. An active named view (`listViews`, under Read/List) that
 declares its own `navigation` replaces this one, as a whole, while it is shown.
+Under `split` or `popover`, which open only beside a record the user picked, the
+New button's create form opens on the `layout` surface instead: the modal for
+`layout: 'modal'`, the drawer otherwise, whether the mode is this node's or an
+active named view's. A `page` layout with `onNavigate` still hands New to your
+router.
 
 With no host `onRowClick`, a Cmd/Ctrl-click or middle-click on a row opens the
 record as a full page in a new browser tab. Inert rows stay inert: `mode: 'none'`,
@@ -447,7 +452,9 @@ edit to the user. Its `navigation` replaces the node's `navigation` as a whole:
 the row click, and the surface and width of the record, create and edit forms,
 follow the active named view, on this path, and on a host's `renderListView`
 when the host wires the `onRowClick` it is handed and passes `ObjectView` no
-`onRowClick` of its own. `label` and `data`, also declared on both, are not
+`onRowClick` of its own. Under a named `split` or `popover`, the create form
+opens on the `layout` surface, as under Opening a record. `label` and `data`,
+also declared on both, are not
 handed to the grid on this path: the named view's `label` is already the tab's
 text, and `data` waits on objectui#10971, because `ListView` and `ObjectGrid`
 pick different objects for it.

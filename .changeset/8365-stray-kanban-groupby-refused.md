@@ -40,6 +40,19 @@ fallback and was **not** taken):
    this arm; objectui#10321 gives that route its own door, which refuses the key
    in either nesting with the same message.
 
+⚠️ **Dated note, 2026-09-28 — a named view's `options.kanban` bag is refused whole —
+objectui#7928.** Later in this same release a named view became the protocol's strict
+`ObjectListViewSchema` record, by reference, which refuses its `options` bag by name
+(`unrecognized_keys` at `listViews.KEY`, naming `options`). So the objectui#10321 door no
+longer refuses the key "in either nesting with the same message": it still adds that
+message at `listViews.KEY.kanban.groupBy`, beside the protocol's own refusal of the key,
+and nothing reports `listViews.KEY.options.kanban.groupBy`. A stored body that
+`@object-ui/app-shell`'s `ViewPreview` relays has its `options.kanban` folded onto the
+`kanban` block first (`foldStoredListOptions`). The `list-view` route described above is
+unchanged, its `options.kanban` check included.
+`.changeset/7928-listviews-by-reference-fold.md` (PR objectui#10821) states what ships;
+the text above is kept as the reading of this change.
+
 **Breaking, in the sense worth stating explicitly** (shipped `minor`: this repo
 never declares `major`, and `.changeset/config.json` puts every package in one
 `fixed` group, so levels cannot be split). Two behaviours change for **stored

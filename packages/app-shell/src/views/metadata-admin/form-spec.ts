@@ -269,8 +269,25 @@ export type FormSectionSpec =
     visibleWhen?: VisibilityPredicate;
     /** @deprecated ADR-0089 alias of `visibleWhen`; still read for legacy layouts. */
     visibleOn?: VisibilityPredicate;
-    /** The authored field list. Element type is the converged leaf (objectui#5542). */
-    fields: Array<string | FormFieldSpec>;
+    /**
+     * The authored field list. Element type is the converged leaf (objectui#5542).
+     *
+     * OPTIONAL, matching `@objectstack/spec`'s `FormSection.fields`
+     * (objectui#8725), and optional ONLY in the sense that `group` -- inherited
+     * from the spec half of this type -- is the other way to declare the same
+     * fact: `FormSectionSchema` refuses a section carrying neither and refuses
+     * one carrying both. Declaring it REQUIRED here refused the spec-legal
+     * `{ group }` section at compile time while doing nothing about the channel
+     * that actually delivers one (an untyped server document), so the shape
+     * reached `SchemaForm`'s reads anyway and threw out of the component body.
+     *
+     * ⛔ A reader never defaults this with `?? []`: that renders a group
+     * section as a silently empty one. `SchemaForm` resolves a `{ group }`
+     * section through `@object-ui/plugin-form`'s `resolveSectionGroupReferences`
+     * before any read, exactly as `apps/console`'s `FormPage` does, and still
+     * refuses out loud a section that declares neither key.
+     */
+    fields?: Array<string | FormFieldSpec>;
   };
 
 /**

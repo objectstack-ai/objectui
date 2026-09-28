@@ -2966,7 +2966,7 @@ export const ObjectGallerySchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `object-gallery` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `bind`, `className`, `data`, `filter`, `gallery`, `grouping`, '
     + '`imageField`, `navigation`, `objectName`, `titleField`.',
   ),
@@ -2974,7 +2974,7 @@ export const ObjectGallerySchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `object-gallery` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `bind`, `className`, `data`, `filter`, `gallery`, `grouping`, '
     + '`imageField`, `navigation`, `objectName`, `titleField`.',
   ),
@@ -3060,7 +3060,7 @@ export const ObjectDataTableSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `object-data-table` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `bind`, `columns`, `data`, `drillDown`, `filter`, `objectName`, '
     + '`onRowClick`.',
   ),
@@ -3068,7 +3068,7 @@ export const ObjectDataTableSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `object-data-table` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `bind`, `columns`, `data`, `drillDown`, `filter`, `objectName`, '
     + '`onRowClick`.',
   ),

@@ -347,7 +347,7 @@ export const ViewSwitcherSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `view-switcher` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `activeView`, `allowCreateView`, `defaultView`, `id`, `onViewChange`, '
     + '`persistPreference`, `position`, `storageKey`, `variant`, `viewActions`, `views`.',
   ),
@@ -355,7 +355,7 @@ export const ViewSwitcherSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `view-switcher` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `activeView`, `allowCreateView`, `defaultView`, `id`, `onViewChange`, '
     + '`persistPreference`, `position`, `storageKey`, `variant`, `viewActions`, `views`.',
   ),
@@ -390,14 +390,14 @@ export const FilterUISchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `filter-ui` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `filters`, `layout`, `onChange`, `showApply`, `showClear`, `values`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `filter-ui` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `filters`, `layout`, `onChange`, `showApply`, `showClear`, `values`.',
   ),
 });
@@ -423,14 +423,14 @@ export const SortUISchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `sort-ui` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `fields`, `multiple`, `onChange`, `sort`, `variant`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `sort-ui` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `fields`, `multiple`, `onChange`, `sort`, `variant`.',
   ),
 });

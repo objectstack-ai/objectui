@@ -276,6 +276,7 @@ export function neitherContentChannelGuidance(node: string, route: string, rende
   return 'REFUSED (objectui#9256, ADR-0049) — `' + node + '` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker over one program per workspace package on a BUILT tree, no renderer read '
     + 'consumes `body` or `children` for this node — ' + route + ' — and `SchemaRenderer` strips both out '
-    + 'of the props bag it spreads. An authored value therefore rendered NOTHING — no error, no warning, '
-    + 'no element. What it renders instead: ' + renders + '.';
+    + 'of the props bag it spreads. An authored value therefore rendered NOTHING — no render-time error '
+    + 'or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) '
+    + 'noticed it. What it renders instead: ' + renders + '.';
 }

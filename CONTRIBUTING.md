@@ -601,10 +601,10 @@ Commandment #9 of [AGENTS.md](./AGENTS.md) is the general rule.
 
 ```markdown
 ✅ Good:
-- Measured on this branch's base (`abc1234`): 14 call sites read the retired prop; all 14 are rewritten.
+- Measured on this branch's base (`abc1234`): 14 call sites used the retired prop; all 14 are rewritten.
 
 ❌ Bad:
-- 14 call sites in the repository read the retired prop.
+- 14 call sites in the repository use the retired prop.
 ```
 
 ### Release Process

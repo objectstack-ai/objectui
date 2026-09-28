@@ -81,7 +81,8 @@ afterEach(() => {
 function makeDataSource() {
   let answered = 0;
   return {
-    find: vi.fn(async () => {
+    // The parameters are declared so `mock.calls[i][0]` below is typed.
+    find: vi.fn(async (_objectName: string, _query?: unknown) => {
       answered += 1;
       const rows = Array.from({ length: answered }, (_, i) => ({ id: String(i + 1), name: `Deal ${i + 1}` }));
       return { data: rows, total: rows.length };

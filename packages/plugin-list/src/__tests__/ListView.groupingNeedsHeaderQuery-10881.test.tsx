@@ -165,7 +165,7 @@ describe('ListView refuses a grouped grid over a data source with no header quer
 
     await waitFor(() => expect(ds.find).toHaveBeenCalled());
     await waitFor(() => expect(Array.isArray(lastGridProps?.data) && lastGridProps.data.length > 0).toBe(true));
-    expect(lastGridProps.schema.grouping.fields.map((f: any) => f.field)).toEqual(['business_unit']);
+    expect(lastGridProps.schema.grouping.fields.map((f: { field: string }) => f.field)).toEqual(['business_unit']);
     expect(lastGridProps.manualPagination).toBeUndefined();
     expect(lastGridProps.rowCount).toBeUndefined();
     expect(refusal()).toBeNull();

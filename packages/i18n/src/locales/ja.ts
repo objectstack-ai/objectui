@@ -128,12 +128,12 @@ const ja = {
     printDialogHint: "ブラウザーの印刷ダイアログを開きます（PDF エクスポートではありません）",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "{{total}} 件中、最初の {{shown}} 件を表示しています。フィルターを絞り込んでください。",
     rowCeilingNoteUnknownTotal: "最初の {{shown}} 件を表示しています。フィルターを絞り込んでください。",
   },
@@ -398,13 +398,15 @@ const ja = {
     yes: "はい",
     no: "いいえ",
     systemFields: "システム",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: "一部",
-      partialNotice:
-        "{{total}} 件中、読み込み済みの先頭 {{loaded}} 件のみでグループ化しています。グループの件数は読み込み済みのページだけの集計で、レコードがすべて読み込み範囲の外にあるグループはここに表示されません。",
-      partialNoticeUnknownTotal:
-        "読み込み済みの {{loaded}} 件のみでグループ化しています。このビューに該当するレコードはさらに存在する可能性があるため、グループの件数が不完全であったり、グループが表示されないことがあります。",
+      needsHeaderQuery:
+        "このビューはグループ化されていますが、データソースが queryGroupHeaders を実装していないため、グループの件数を数えられません。レコードを表示するにはグループ化を解除してください。",
+      needsWholeRows:
+        "グループ化にはすべてのレコードが必要ですが、このグリッドにはその一部のページしか渡されていないため、グループの件数を数えられません。すべてのレコードを渡すか、queryGroupHeaders を実装したデータソースからグリッドに読み込ませてください。",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this

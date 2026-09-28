@@ -440,15 +440,16 @@ const GRID_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.yes': 'Yes',
   'grid.no': 'No',
   'grid.systemFields': 'System',
-  // Grouped-view partial-grouping disclosure (objectui#7189). Both sentences
-  // must exist HERE as well as in the locale packs: a provider-less host (a
-  // standalone grid, this package's own tests) never reaches them, and this
-  // is a statement about whether the numbers on screen are true.
-  'grid.grouping.partialBadge': 'Partial',
-  'grid.grouping.partialNotice':
-    'Grouped over the first {{loaded}} of {{total}} records. Group counts are page-scoped, and a group whose records all fall beyond the loaded rows is missing here.',
-  'grid.grouping.partialNoticeUnknownTotal':
-    'Grouped over the {{loaded}} records loaded. More may match this view, so group counts may be partial and a group may be missing here.',
+  // The grouped grid's refusal over a data source that cannot answer the
+  // group header query (objectui#10881, ruling F). It must exist HERE as well
+  // as in the locale packs: a provider-less host (a standalone grid, this
+  // package's own tests) never reaches them, and it is the only thing such a
+  // grid draws.
+  'grid.grouping.needsHeaderQuery':
+    'This view is grouped, but its data source does not implement queryGroupHeaders, so the groups cannot be counted. Remove the grouping to show the records.',
+  // …and over rows a host handed in while declaring them one page of more.
+  'grid.grouping.needsWholeRows':
+    'Grouping needs every record, but this grid was handed one page of them, so the groups cannot be counted. Hand in every record, or let the grid fetch them from a data source that implements queryGroupHeaders.',
   // Reused by the grouped-view pager (falls back here when no I18nProvider).
   'table.rowsPerPage': 'Rows per page',
   'table.pageInfo': 'Page {{current}} of {{total}}',
@@ -2088,8 +2089,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // Presence of `queryGroupHeaders` is the capability. Rows handed in whole
   // (`hasInlineData`) are grouped where they are, which is exact because
   // nothing was withheld. A data source that cannot answer the header query
-  // keeps grouping the page it fetched — and the grid says so on screen (the
-  // "Partial" marker below), because only there are the counts page slices.
+  // cannot group (objectui#10881, maintainer ruling F): the grid refuses,
+  // naming the missing member, and asks for no rows — see
+  // `groupingNeedsHeaderQuery`. It used to group the page it fetched, whose
+  // every count was a page slice.
   //
   // Decided on the grouping AS CONFIGURED less the entries refused on a KNOWN
   // masked type — NOT less the entries merely withheld while the object's
@@ -2112,6 +2115,42 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     && usableGroupingFields(groupingFieldsRaw).some(
       (gf) => !groupingRefusedKnownMasked.includes(gf.field) && groupingKeyReadable(gf.field),
     );
+  // [objectui#10881] The refusal: this grid would fetch its own rows and group
+  // them, and its data source cannot answer the group header query. There is
+  // no honest grouping to draw — a fetched window grouped in the browser shows
+  // page slices as group counts and drops every group whose rows fall past the
+  // window — so the grid names the missing member instead, and the load effect
+  // below asks for no rows (the object definition is still read: it is what
+  // tells a KNOWN masked grouping key, which groups nothing, from one that
+  // does). Rows handed in whole never reach it (`hasInlineData`). The same
+  // grouping entries count as for `serverGroupedFetch`, less the readability
+  // gate: over such a source a grouping by a key this principal may not read
+  // is refused too, rather than falling through to a fetched page.
+  const groupingNeedsHeaderQuery =
+    !hasInlineData
+    && !!objectName
+    && !!dataSource
+    && typeof dataSource.queryGroupHeaders !== 'function'
+    && usableGroupingFields(groupingFieldsRaw).some((gf) => !groupingRefusedKnownMasked.includes(gf.field));
+  // [objectui#10881] The second refusal: rows a host handed in that the SAME
+  // host declares to be one page of more — the external-pagination props
+  // (`externalManualPagination`) with a `rowCount` above the rows it handed.
+  // Only rows handed in WHOLE group where they are; a declared window grouped
+  // here shows page-slice counts and drops every group whose rows fall past
+  // it (on 100 of 186 rows over five units, two groups: 86 and 14). The
+  // header-query sentence is the wrong one here: the host owns this fetch,
+  // and its data source may even declare `queryGroupHeaders`. So this names
+  // its own remedy — hand the rows in whole, or let the grid fetch them.
+  // Counted against the rows as HANDED (`dataConfig.items`), not the `data`
+  // state that mirrors them one render later, so whole rows never flash it.
+  // Same grouping entries as `groupingNeedsHeaderQuery`. A `rowCount` absent
+  // or not above the handed rows is whole rows, and groups as before.
+  const handedRows = hasInlineData ? (dataConfig as { items?: unknown } | undefined)?.items : undefined;
+  const groupingNeedsWholeRows =
+    externalManualPagination
+    && Array.isArray(handedRows)
+    && (hostRowCount as number) > handedRows.length
+    && usableGroupingFields(groupingFieldsRaw).some((gf) => !groupingRefusedKnownMasked.includes(gf.field));
   // The grid's own row query — projection, expansion, order and the view's
   // filter — resolved by the load effect below exactly as the flat fetch
   // resolves it, and handed to each group's row page. `null` until resolved.
@@ -2175,6 +2214,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         }
 
         // --- Step 2: Fetch data ---
+        // [objectui#10881] A grouping this data source cannot count is refused
+        // before any row is asked for; the render names the missing member.
+        if (groupingNeedsHeaderQuery) return;
         if (dataSource && objectName) {
           // [objectui#7179] The fields the view GROUPS BY. `grouping` is a
           // sibling of `columns` in the spec, not a subset of it, so a grid may
@@ -2651,7 +2693,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // held with `filter`. It changes only when the authored alias changes by
   // structure or the scope changes (a new signed-in user), and either one
   // changes the `$filter` this effect sends when `filter` is absent.
-  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaDefaultFilters, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, serverPageSize, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, invalidationNonce, serverGroupedFetch]);
+  // `groupingNeedsHeaderQuery` (objectui#10881): it flips when the object's
+  // types land and show the only grouping key masked, and the flat fetch it
+  // withheld must then go out.
+  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaDefaultFilters, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, serverPageSize, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, invalidationNonce, serverGroupedFetch, groupingNeedsHeaderQuery]);
 
   // The same reset, for the path the loader above never runs on (objectui#4501
   // clause 2). "All N matching are selected" is a claim about ONE query, so it
@@ -4019,6 +4064,23 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     );
   }
 
+  // [objectui#10881] A grouping of rows a host declared to be one page of
+  // more, refused in the load-error panel's own shape with its own sentence
+  // (`groupingNeedsWholeRows`). Nothing to wait for: the rows are the host's,
+  // so this comes before the spinner.
+  if (groupingNeedsWholeRows) {
+    return (
+      <div
+        role="alert"
+        className="p-3 sm:p-4 border border-red-300 bg-red-50 rounded-md"
+        data-testid="grid-grouping-needs-whole-rows"
+      >
+        <h3 className="text-red-800 font-semibold">{t('grid.errorLoading')}</h3>
+        <p className="text-red-600 text-sm mt-1">{t('grid.grouping.needsWholeRows')}</p>
+      </div>
+    );
+  }
+
   // [objectui#7189] A server-grouped grid fails like any other load: the
   // header query refused, or a view filter that would not lower for it.
   const loadError = error
@@ -4056,6 +4118,26 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       <div className="p-4 sm:p-8 text-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
         <p className="mt-2 text-sm text-muted-foreground">{t('grid.loading')}</p>
+      </div>
+    );
+  }
+
+  // [objectui#10881] A grouping the data source cannot count, refused in the
+  // load-error panel's own shape: nothing was fetched, and the sentence names
+  // the member the data source would need (`groupingNeedsHeaderQuery`). AFTER
+  // the spinner, deliberately: the refusal is decided before the object's
+  // field types are known, and a grouping whose only key turns out to be a
+  // masked type is no grouping at all — so while that one read is in flight
+  // the grid shows it is loading, never an error it is about to withdraw.
+  if (groupingNeedsHeaderQuery) {
+    return (
+      <div
+        role="alert"
+        className="p-3 sm:p-4 border border-red-300 bg-red-50 rounded-md"
+        data-testid="grid-grouping-needs-header-query"
+      >
+        <h3 className="text-red-800 font-semibold">{t('grid.errorLoading')}</h3>
+        <p className="text-red-600 text-sm mt-1">{t('grid.grouping.needsHeaderQuery')}</p>
       </div>
     );
   }
@@ -4950,62 +5032,6 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   const manualOnPageSizeChange = externalManualPagination
     ? hostOnPageSizeChange
     : (size: number) => { setServerPageSize(size); setServerPage(1); };
-
-  // ── Is the grouping on screen page-scoped? (objectui#7189) ───────────────
-  //
-  // `useGroupedData` buckets the rows THIS COMPONENT HOLDS and computes every
-  // per-group aggregate from that same array, so both the set of groups and
-  // every number in a group header are properties of the fetched page rather
-  // than of the query. That is a correct implementation of client-side
-  // grouping and is deliberately untouched here; what was missing is any
-  // statement that client-side grouping is what you are looking at. A group
-  // whose records all fall beyond the page does not appear AT ALL — and a
-  // wrong number invites a second look where an absent row invites none.
-  //
-  // Two knowable conditions, deliberately different in strength, because the
-  // wording each one can honestly support differs with it:
-  //
-  //  1. A real match total to compare against — `resolvedTotalMatching`, the
-  //     same ONE derived value the pager and both bulk-bar sites read (do not
-  //     re-spell the `externalManualPagination` conditional here; two copies
-  //     of it is how one of them got missed in #4464). Exceeding the rows in
-  //     hand makes the grouping partial as a FACT, with both numbers.
-  //  2. No total, but we asked the server for a window and it came back full.
-  //     `plugin-list`'s own footer draws exactly this inference when no total
-  //     is known (`items.length >= effectivePageSize`), and it can only ever
-  //     say "may": a result set that exactly fills the window trips it too.
-  //
-  // Rows handed to us inline are NOT a page — nothing was asked for and
-  // nothing was withheld — so `hasInlineData` gates condition 2 out. The
-  // host-driven paging mode still reaches condition 1, through `hostRowCount`.
-  // A result set that fits leaves the grid silent, and that silence is what
-  // makes the marker mean something when it does appear.
-  //
-  // ⭐ RETIRED where the counts are server-true (objectui#7189, ruling A —
-  // enforce-or-remove). A server-grouped grid's group set and every header
-  // number are the header query's own, so there is nothing partial to
-  // disclose and the marker would be a lie. What still reaches it is the one
-  // shape whose counts ARE page slices: a grid grouping the window it fetched
-  // from a data source that declares no `queryGroupHeaders`.
-  const groupingRowsLoaded = data.length;
-  const groupingTotalKnown = typeof resolvedTotalMatching === 'number';
-  const groupingPartialWithTotal =
-    groupingTotalKnown && (resolvedTotalMatching as number) > groupingRowsLoaded;
-  const groupingPartialWindowFull =
-    !groupingTotalKnown && !hasInlineData && groupingRowsLoaded >= serverPageSize;
-  const groupingIsPartial =
-    isGrouped && !serverGroupedFetch && (groupingPartialWithTotal || groupingPartialWindowFull);
-  // ONE sentence, used in both places it belongs: the notice above the group
-  // list, and the accessible name of the marker beside every group count.
-  const groupingPartialNotice = groupingIsPartial
-    ? (groupingPartialWithTotal
-      ? t('grid.grouping.partialNotice', {
-        loaded: groupingRowsLoaded,
-        total: resolvedTotalMatching,
-      })
-      : t('grid.grouping.partialNoticeUnknownTotal', { loaded: groupingRowsLoaded }))
-    : undefined;
-  const groupingPartialLabel = groupingIsPartial ? t('grid.grouping.partialBadge') : undefined;
 
   // Before anyone clicks, the headers show the sort the view was authored with
   // — read from the same `schemaSort` the fetch path above lowers, so the
@@ -6044,8 +6070,6 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           fieldLabel={group.depth === 0 ? fieldLabel : undefined}
           labelColorClass={labelColorClass}
           labelColorStyle={labelColorStyle}
-          partialLabel={groupingPartialLabel}
-          partialTitle={groupingPartialNotice}
           onToggle={toggleGroup}
         >
           {group.subgroups.length > 0 ? (
@@ -6113,19 +6137,6 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // bottom of an overflow-hidden ancestor and clips it.
   const gridContent = isGrouped ? (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* The partial-grouping disclosure sits INSIDE the grouped region,
-          directly above the first group header — not in the paging footer.
-          The footer is paging chrome and says nothing about what was
-          grouped; the number a reader trusts is the one next to the group's
-          name, so the statement has to be where that number is. */}
-      {groupingIsPartial && (
-        <div
-          data-testid="grouping-partial-notice"
-          className="border-b bg-muted/30 px-3 sm:px-4 py-1.5 text-xs text-muted-foreground grouping-partial-notice"
-        >
-          {groupingPartialNotice}
-        </div>
-      )}
       {/* Single shared horizontal scroll container: every group's sub-table
           overflows into this one scroller (disableInnerScroll), so columns
           stay aligned and there is exactly one x-axis scrollbar. */}

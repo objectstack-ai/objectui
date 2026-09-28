@@ -128,12 +128,12 @@ const de = {
     printDialogHint: "Öffnet den Druckdialog Ihres Browsers (kein PDF-Export)",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "Erste {{shown}} von {{total}} Datensätzen. Filter eingrenzen.",
     rowCeilingNoteUnknownTotal: "Erste {{shown}} Datensätze. Filter eingrenzen.",
   },
@@ -398,13 +398,15 @@ const de = {
     yes: "Ja",
     no: "Nein",
     systemFields: "System",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: "Teilweise",
-      partialNotice:
-        "Gruppiert über die ersten {{loaded}} von {{total}} Datensätzen. Gruppenanzahlen gelten nur für die geladene Seite; eine Gruppe, deren Datensätze alle jenseits der geladenen Zeilen liegen, fehlt hier.",
-      partialNoticeUnknownTotal:
-        "Gruppiert über die {{loaded}} geladenen Datensätze. Möglicherweise passen weitere Datensätze zu dieser Ansicht, daher können Gruppenanzahlen unvollständig sein und eine Gruppe kann hier fehlen.",
+      needsHeaderQuery:
+        "Diese Ansicht ist gruppiert, aber ihre Datenquelle implementiert queryGroupHeaders nicht, daher können die Gruppen nicht gezählt werden. Entfernen Sie die Gruppierung, um die Datensätze anzuzeigen.",
+      needsWholeRows:
+        "Die Gruppierung benötigt alle Datensätze, aber dieses Raster hat nur eine Seite davon erhalten, daher können die Gruppen nicht gezählt werden. Übergeben Sie alle Datensätze oder lassen Sie das Raster sie aus einer Datenquelle laden, die queryGroupHeaders implementiert.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this

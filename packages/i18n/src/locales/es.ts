@@ -127,12 +127,12 @@ const es = {
     printDialogHint: "Abre el cuadro de diálogo de impresión de tu navegador (no es una exportación a PDF)",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "Mostrando los primeros {{shown}} de {{total}} registros. Acota el filtro.",
     rowCeilingNoteUnknownTotal: "Mostrando los primeros {{shown}} registros. Acota el filtro.",
   },
@@ -402,13 +402,15 @@ const es = {
     yes: "Sí",
     no: "No",
     systemFields: "Sistema",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: "Parcial",
-      partialNotice:
-        "Agrupado sobre los primeros {{loaded}} de {{total}} registros. Los recuentos por grupo se limitan a la página cargada y un grupo cuyos registros quedan todos fuera de las filas cargadas no aparece aquí.",
-      partialNoticeUnknownTotal:
-        "Agrupado sobre los {{loaded}} registros cargados. Puede haber más registros que coincidan con esta vista, por lo que los recuentos por grupo pueden ser parciales y puede faltar algún grupo.",
+      needsHeaderQuery:
+        "Esta vista está agrupada, pero su origen de datos no implementa queryGroupHeaders, por lo que no se pueden contar los grupos. Quite la agrupación para mostrar los registros.",
+      needsWholeRows:
+        "La agrupación necesita todos los registros, pero esta cuadrícula recibió solo una página de ellos, por lo que no se pueden contar los grupos. Entregue todos los registros o deje que la cuadrícula los obtenga de un origen de datos que implemente queryGroupHeaders.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this

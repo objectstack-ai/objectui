@@ -115,8 +115,15 @@ const gridSchema = (extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
+// The seven rows handed in WHOLE: since objectui#10881 a grouped grid that
+// fetches its own rows over a data source with no group header query refuses
+// grouping, and the page of groups read here is the same on either path.
 const groupedSchema = (extra: Record<string, unknown> = {}) =>
-  gridSchema({ grouping: { fields: [{ field: 'business_unit' }] }, ...extra });
+  gridSchema({
+    grouping: { fields: [{ field: 'business_unit' }] },
+    data: { provider: 'value', items: ROWS },
+    ...extra,
+  });
 
 let warnings: string[] = [];
 beforeEach(() => {

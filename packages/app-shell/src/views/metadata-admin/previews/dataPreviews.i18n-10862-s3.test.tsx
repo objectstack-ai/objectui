@@ -142,6 +142,7 @@ import { ReportPreview } from './ReportPreview';
 import { PagePreview } from './PagePreview';
 import { ValidationPreview } from './ValidationPreview';
 import { FieldsListEditor } from './FieldsListEditor';
+import type { ObjectFieldInfo } from './useObjectFields';
 
 const realFetch = globalThis.fetch;
 
@@ -752,7 +753,7 @@ describe('ValidationPreview reads the designer locale (objectui#10862)', () => {
 
 // ─── The view column manager ─────────────────────────────────────────────────
 
-const CATALOG = [{ name: 'name', label: 'Name', type: 'text' }];
+const CATALOG: ObjectFieldInfo[] = [{ name: 'name', label: 'Name', type: 'text', hidden: false }];
 
 function mountColumns(lang: Lang, columns: unknown[]) {
   return inLang(

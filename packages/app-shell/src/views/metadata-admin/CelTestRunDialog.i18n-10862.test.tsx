@@ -5,11 +5,11 @@
  *
  * `testRunCelPredicate` (`celAuthoring.ts`) wrote two sentences of its own in
  * English: the result for an empty predicate, and the fallback when the
- * engine reports a failure without a message. It now takes the designer
- * locale as an optional trailing argument, and `CelTestRunDialog` passes the
- * one `useMetadataLocale()` answers — the hook its host binds the dialog's
- * `t` from. The dialog's own sample-JSON refusal ("expected a JSON object.")
- * reads its row through that `t`.
+ * engine reports a failure without a message. It now hands them back as
+ * catalogue keys (`messageKey`), and `CelTestRunDialog` reads them through the
+ * `t` its host binds to the designer locale — so `celAuthoring.ts` imports
+ * nothing at load. The dialog's own sample-JSON refusal ("expected a JSON
+ * object.") reads its row through the same `t`.
  *
  * Each case mounts the REAL dialog under the i18n provider in its language,
  * with `t` bound the way `PermissionMatrixEditor` binds it. Each zh

@@ -660,7 +660,7 @@ function renderFieldMock(p: ActionParam, fieldLabel: string, locale?: string): R
           <Search className="h-3 w-3 shrink-0" aria-hidden />
           <span className="truncate">
             {placeholder ||
-              (p.reference
+              (p.reference != null
                 ? tFormat('engine.actionPreview.param.searchObject', locale, { object: p.reference })
                 : tr('engine.actionPreview.param.searchRecords', locale))}
           </span>

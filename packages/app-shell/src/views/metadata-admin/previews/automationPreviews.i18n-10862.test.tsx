@@ -236,6 +236,30 @@ describe('ActionPreview — the designer words read engine.actionPreview.* (obje
       expectAsWritten(['record.total = 1']);
     });
 
+    it(`${lang}: a lookup param authored with an empty \`reference\` degrades to the record-id box, as the base did — no Search placeholder`, () => {
+      // The Search placeholder keeps the base's nullish reading of `reference`
+      // (`reference ?? 'records'`), so an empty string is not "records". The
+      // real component never reaches it with one: `paramDegradesWithoutTarget`
+      // reads the empty target as missing, so this edge renders the degraded box.
+      mountAction(lang, {
+        name: 'assign',
+        label: 'Assign',
+        type: 'script',
+        target: 'assign_owner',
+        params: [{ name: 'owner', label: 'Owner', type: 'lookup', reference: '' }],
+      });
+      expectSites(lang, [
+        { key: 'engine.actionPreview.param.recordIdPlaceholder', vars: { label: 'Owner' }, in: 'placeholder' },
+        { key: 'engine.actionPreview.param.noReference', vars: { reference: 'reference' } },
+      ]);
+      const searches = [
+        row(lang, 'engine.actionPreview.param.searchObject', { object: '' }),
+        row(lang, 'engine.actionPreview.param.searchRecords'),
+      ];
+      expect(searches.filter((text) => rendered('text', norm(text)))).toEqual([]);
+      expect(document.body.querySelector('[role="combobox"]')).toBeNull();
+    });
+
     const HANDLERS: Array<[type: string, target: string | undefined, key: string, vars: Vars]> = [
       ['url', '/orders', 'engine.actionPreview.handler.url', { target: '/orders' }],
       ['flow', 'approve_order', 'engine.actionPreview.handler.flow', { target: 'approve_order' }],

@@ -19,13 +19,10 @@
  * `current_user`) lives in {@link file://./celAuthoring.ts}; this component is
  * just the form + result surface.
  *
- * Its words read the `t` its host binds to the designer locale. The dry-run's
- * own words (the empty-predicate result, the no-message fallback) are written
- * by `testRunCelPredicate`, which takes that locale as its trailing argument
- * (objectui#10862). The dialog reads it from `useMetadataLocale()`, the hook
- * its one host (`PermissionMatrixEditor`) binds `t` from, so both answer the
- * same language without a second prop threaded through
- * `PermissionAdvancedFacets`.
+ * Its words read the `t` its host binds to the designer locale. That includes
+ * the two sentences the dry-run writes itself (the empty-predicate result, the
+ * no-message fallback): `testRunCelPredicate` hands them back as catalogue
+ * keys and the banner reads them through the same `t` (objectui#10862).
  */
 
 import * as React from 'react';
@@ -43,7 +40,6 @@ import {
 } from '@object-ui/components';
 import { AlertCircle, AlertTriangle, ShieldCheck, ShieldX, FlaskConical } from 'lucide-react';
 import { testRunCelPredicate, type CelTestOutcome } from './celAuthoring.js';
-import { useMetadataLocale } from './i18n.js';
 
 type Clause = 'using' | 'check';
 
@@ -86,7 +82,6 @@ export function CelTestRunDialog({
   check,
   t,
 }: CelTestRunDialogProps) {
-  const locale = useMetadataLocale();
   const clauses = React.useMemo<Clause[]>(() => {
     const out: Clause[] = [];
     if (using && using.trim()) out.push('using');
@@ -123,7 +118,7 @@ export function CelTestRunDialog({
     if (!currentUser.ok) return setJsonError(currentUser.error);
     setRunning(true);
     try {
-      setOutcome(await testRunCelPredicate(source, { record: record.value, currentUser: currentUser.value }, locale));
+      setOutcome(await testRunCelPredicate(source, { record: record.value, currentUser: currentUser.value }));
     } finally {
       setRunning(false);
     }
@@ -287,7 +282,9 @@ function OutcomeBanner({ outcome, t }: { outcome: CelTestOutcome; t: (k: string)
   }
   return (
     <Banner tone="error" icon={<AlertCircle className="h-4 w-4 shrink-0" />} title={t('perm.cel.test.error')}>
-      <code className="block whitespace-pre-wrap break-words font-mono text-[11px]">{outcome.message}</code>
+      <code className="block whitespace-pre-wrap break-words font-mono text-[11px]">
+        {outcome.messageKey ? t(outcome.messageKey) : outcome.message}
+      </code>
     </Banner>
   );
 }

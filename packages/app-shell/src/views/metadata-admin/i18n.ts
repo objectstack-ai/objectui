@@ -1437,10 +1437,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.jobPreview.handler': 'Handler',
   'engine.jobPreview.noHandler': 'No handler bound — the job will be a no-op.',
   // objectui#10862 — the RLS policy editor's CEL try-it dialog: the result for
-  // an empty predicate (`celAuthoring.testRunCelPredicate`, which takes the
-  // designer locale as an optional trailing argument) and the sample-JSON
+  // an empty predicate (`celAuthoring.testRunCelPredicate` returns it as a
+  // `messageKey` the dialog reads through its `t`) and the sample-JSON
   // refusal. The engine's own message, when it gives one, passes through as
-  // written; when it gives none, the fallback is
+  // written; when it gives none, the fallback key is
   // `engine.flowSim.note.evaluationFailed`, the same "Evaluation failed.".
   'engine.celTest.predicateEmpty': 'The predicate is empty.',
   'engine.celTest.notObject': 'expected a JSON object.',

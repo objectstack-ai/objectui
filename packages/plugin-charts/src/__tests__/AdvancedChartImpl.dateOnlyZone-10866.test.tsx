@@ -43,11 +43,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import { LocalizationProvider } from '@object-ui/i18n';
 
+// A fixed size, so the axis lays out and draws its ticks in the test DOM.
 vi.mock('recharts', async () => {
-  const actual = await vi.importActual<any>('recharts');
+  const actual = await vi.importActual<Record<string, unknown>>('recharts');
   return {
     ...actual,
-    ResponsiveContainer: ({ children }: any) =>
+    ResponsiveContainer: ({ children }: { children: React.ReactElement<{ width?: number; height?: number }> }) =>
       React.cloneElement(children, { width: 480, height: 320 }),
   };
 });

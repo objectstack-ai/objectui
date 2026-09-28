@@ -2923,6 +2923,9 @@ const fr = {
     openProduction: "Ouvrir la production",
     manageEnvironments: "Gérer les environnements",
   },
+  cloudPlanStatus: {
+    current: "Offre actuelle",
+  },
   ai: {
     nlQuery: {
       placeholder: "Posez une question sur vos données…",

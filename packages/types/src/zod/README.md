@@ -247,6 +247,10 @@ Each arm's `properties` is the block's `@objectstack/spec` `ComponentPropsMap` r
 - `RecordHistoryBlockSchema`, `RecordQuickActionsBlockSchema`, `RecordReferenceRailBlockSchema`
 - `RecordAlertBlockSchema`, `ElementTextBlockSchema`, `ElementNumberBlockSchema`, `ElementButtonBlockSchema`, `ElementDividerBlockSchema`
 
+### Cloud Widgets (1)
+`@object-ui/app-shell`'s `cloud:` SDUI widgets. `@objectstack/spec` has no `ComponentPropsMap` row for them, so each arm is declared here from the keys its widget reads.
+- `CloudPlanStatusSchema` — `cloud:plan-status`, the pricing page's "current plan" marker: `properties` must be exactly `{ plan }`, a non-empty plan code.
+
 ## Schema Structure
 
 All component schemas follow the @objectstack/spec UI specification format:

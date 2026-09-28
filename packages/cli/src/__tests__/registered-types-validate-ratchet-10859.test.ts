@@ -196,6 +196,14 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
       expect(refusedAtType(key), key).toBe(false);
     }
   });
+
+  it('counts `cloud:plan-status` armed — it registered WITH its arm (objectui#10919)', () => {
+    // One registry key (`skipFallback: true`, so no bare `plan-status`), armed in
+    // `@object-ui/types/zod` in the same change, so the pin above did not move.
+    expect(NAMESPACED_KEYS).toContain('cloud:plan-status');
+    expect(BARE_KEYS).not.toContain('plan-status');
+    expect(refusedAtType('cloud:plan-status')).toBe(false);
+  });
 });
 
 /* ── End to end: the README document through `objectui validate` ─────────── */

@@ -2920,6 +2920,9 @@ const pt = {
     openProduction: "Abrir produção",
     manageEnvironments: "Gerenciar ambientes",
   },
+  cloudPlanStatus: {
+    current: "Plano atual",
+  },
   ai: {
     nlQuery: {
       placeholder: "Faça uma pergunta sobre seus dados…",

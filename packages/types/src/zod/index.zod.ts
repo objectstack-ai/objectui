@@ -443,6 +443,11 @@ export {
 } from './public-blocks.zod.js';
 
 // ============================================================================
+// Cloud Widgets - `@object-ui/app-shell`'s `cloud:` SDUI widgets (objectui#10919)
+// ============================================================================
+export { CloudPlanStatusSchema } from './cloud.zod.js';
+
+// ============================================================================
 // Union Types - All Component Schemas
 // ============================================================================
 
@@ -463,6 +468,7 @@ import { ReportUnionSchema } from './reports.zod.js';
 import { ViewComponentSchema } from './views.zod.js';
 import { AIComponentSchema } from './ai.zod.js';
 import { PublicBlockComponentSchema } from './public-blocks.zod.js';
+import { CloudPlanStatusSchema } from './cloud.zod.js';
 
 /**
  * Union of all component schemas.
@@ -531,6 +537,7 @@ export const AnyComponentSchema = defineNodeComponentUnion(z.discriminatedUnion(
   ViewComponentSchema,
   AIComponentSchema,
   PublicBlockComponentSchema,
+  CloudPlanStatusSchema,
 ], {
   // Zod's default message for a missed discriminator spells out EVERY accepted
   // literal — measured, 1,462 chars naming all 107. That is the "print every

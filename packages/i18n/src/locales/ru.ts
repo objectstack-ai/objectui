@@ -2951,6 +2951,9 @@ const ru = {
     openProduction: "Открыть продакшн",
     manageEnvironments: "Управление окружениями",
   },
+  cloudPlanStatus: {
+    current: "Текущий тариф",
+  },
   ai: {
     nlQuery: {
       placeholder: "Задайте вопрос о своих данных…",

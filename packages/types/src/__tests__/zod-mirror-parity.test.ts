@@ -4042,6 +4042,12 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "spec-owned, RESTATED — `BaseSchema` + the `element:divider` literal + a member-less strict `properties`, because `@objectstack/spec/ui` exports `ComponentPropsMap['element:divider']` under no name to read by reference; its key set and accept set are pinned to the row's in `./public-block-arms-10872.test.ts`, and no TS declaration in this package restates the node",
   'public-blocks.zod.ts#PublicBlockComponentSchema':
     "a union OVER the public-block arms, not an object of its own — its members are accounted for individually above",
+  // objectui#10919 — the `cloud:plan-status` widget's arm, declared locally from
+  // the widget's read points: `@objectstack/spec` has no row for a `cloud:`
+  // widget, and the widget's props type lives beside it in `@object-ui/app-shell`,
+  // not in this package. Pinned by `./cloud-plan-status-arm-10919.test.ts`.
+  'cloud.zod.ts#CloudPlanStatusSchema':
+    "no TS declaration in this package restates it — `BaseSchema` + the `cloud:plan-status` literal + a strict `properties` bag holding the one key the widget reads (`plan`) + the two content-channel refusals; the widget's own props type is in `@object-ui/app-shell`",
   // Renamed from `StylePropsSchema` by objectui#5928. Under the old name the
   // like-named `StyleProps` (../base.ts) — the Tailwind-scale vocabulary, sharing
   // ZERO keys with this `{ className, style }` object — read as its declaration, and

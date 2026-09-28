@@ -2921,6 +2921,9 @@ const de = {
     openProduction: "Produktion öffnen",
     manageEnvironments: "Umgebungen verwalten",
   },
+  cloudPlanStatus: {
+    current: "Aktueller Tarif",
+  },
   ai: {
     nlQuery: {
       placeholder: "Stellen Sie eine Frage zu Ihren Daten…",

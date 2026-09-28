@@ -2923,6 +2923,9 @@ const ja = {
     openProduction: "本番環境を開く",
     manageEnvironments: "環境を管理",
   },
+  cloudPlanStatus: {
+    current: "現在のプラン",
+  },
   ai: {
     nlQuery: {
       placeholder: "データについて質問してください…",

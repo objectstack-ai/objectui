@@ -3058,6 +3058,9 @@ const zh = {
     openProduction: '打开生产环境',
     manageEnvironments: '管理环境',
   },
+  cloudPlanStatus: {
+    current: '当前套餐',
+  },
   ai: {
     nlQuery: {
       placeholder: '就您的数据提问…',

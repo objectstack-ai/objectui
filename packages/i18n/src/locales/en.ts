@@ -1946,6 +1946,10 @@ const en = {
         ctaUpgrade: 'Upgrade to keep going',
         ctaTopUp: 'Add credits to continue',
         ariaLabel: 'AI usage: {{status}}',
+        // objectui#8524 — heading over the pool's read-only split (`breakdown`:
+        // app-building vs data Q&A) in the popover. The rows reuse `meterBuild` /
+        // `meterAsk`; each is a share of the ONE pool, never a second budget.
+        breakdownTitle: 'Used so far',
       },
       workspaceTitle: 'AI Workspace',
       workspaceSubtitle: 'Ask, inspect, and resume conversations',

@@ -1560,6 +1560,7 @@ const ko = {
         ctaUpgrade: "업그레이드하고 계속하기",
         ctaTopUp: "크레딧을 추가하고 계속하기",
         ariaLabel: "AI 사용량: {{status}}",
+        breakdownTitle: "지금까지 사용 내역",
       },
       workspaceTitle: "AI 워크스페이스",
       workspaceSubtitle: "질문하고, 살펴보고, 대화를 이어가세요",

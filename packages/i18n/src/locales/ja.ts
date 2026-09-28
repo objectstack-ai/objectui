@@ -1562,6 +1562,7 @@ const ja = {
         ctaUpgrade: "アップグレードして続行",
         ctaTopUp: "クレジットを追加して続行",
         ariaLabel: "AI 使用状況: {{status}}",
+        breakdownTitle: "これまでの使用内訳",
       },
       workspaceTitle: "AI ワークスペース",
       workspaceSubtitle: "質問し、確認し、会話を再開します",

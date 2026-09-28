@@ -1562,6 +1562,7 @@ const fr = {
         ctaUpgrade: "Passer à l'offre supérieure pour continuer",
         ctaTopUp: "Ajouter des crédits pour continuer",
         ariaLabel: "Utilisation de l'IA : {{status}}",
+        breakdownTitle: "Utilisé jusqu'à présent",
       },
       workspaceTitle: "Espace de travail IA",
       workspaceSubtitle: "Posez des questions, inspectez et reprenez vos conversations",

@@ -1564,6 +1564,7 @@ const es = {
         ctaUpgrade: "Mejore el plan para continuar",
         ctaTopUp: "Añada créditos para continuar",
         ariaLabel: "Uso de IA: {{status}}",
+        breakdownTitle: "Usado hasta ahora",
       },
       workspaceTitle: "Espacio de trabajo de IA",
       workspaceSubtitle: "Pregunte, inspeccione y retome conversaciones",

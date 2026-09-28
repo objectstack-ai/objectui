@@ -440,7 +440,7 @@ describe('AppSchemaRenderer', () => {
 
     it('ignores separators — a divider is not content', () => {
       expect(
-        hasVisibleNavigationItems([{ id: 's1', type: 'separator', label: '' }]),
+        hasVisibleNavigationItems([{ id: 's1', type: 'separator' }]),
       ).toBe(false);
     });
 

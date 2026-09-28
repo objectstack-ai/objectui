@@ -11,7 +11,7 @@
  *
  * Multi-step wizard for creating applications following the Airtable
  * Interface Designer UX pattern. Steps:
- * 1. Basic Info (name, title, description, icon, template, layout)
+ * 1. Basic Info (name, title, description, icon, template)
  * 2. Object Selection (select business objects to include)
  * 3. Navigation Builder (build navigation tree from selected objects)
  * 4. Branding (logo, primary color, favicon)
@@ -34,9 +34,6 @@ import {
   ChevronDown,
   Search,
   Trash2,
-  Layout,
-  PanelLeft,
-  LayoutTemplate,
   FolderOpen,
   Link,
   Minus,
@@ -88,7 +85,6 @@ const DEFAULT_DRAFT: AppWizardDraft = {
   description: '',
   icon: '',
   template: '',
-  layout: 'sidebar',
   objects: [],
   navigation: [],
   branding: {
@@ -310,42 +306,6 @@ function BasicInfoStep({ draft, templates, readOnly, onChange, t }: BasicInfoSte
           </select>
         </div>
       )}
-
-      {/* Layout */}
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-gray-700">{t('appDesigner.layout')}</legend>
-        <div className="flex gap-3">
-          {([
-            { value: 'sidebar', labelKey: 'appDesigner.layoutSidebar', Icon: PanelLeft },
-            { value: 'header', labelKey: 'appDesigner.layoutHeader', Icon: Layout },
-            { value: 'empty', labelKey: 'appDesigner.layoutEmpty', Icon: LayoutTemplate },
-          ] as const).map(({ value, labelKey, Icon }) => (
-            <label
-              key={value}
-              data-testid={`app-layout-${value}`}
-              className={cn(
-                'flex flex-1 cursor-pointer flex-col items-center gap-1.5 rounded-lg border-2 p-3 transition-colors',
-                draft.layout === value
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300',
-                readOnly && 'pointer-events-none opacity-60'
-              )}
-            >
-              <Icon className="h-5 w-5 text-gray-600" />
-              <span className="text-xs font-medium text-gray-700">{t(labelKey)}</span>
-              <input
-                type="radio"
-                name="layout"
-                value={value}
-                checked={draft.layout === value}
-                onChange={() => onChange({ layout: value })}
-                disabled={readOnly}
-                className="sr-only"
-              />
-            </label>
-          ))}
-        </div>
-      </fieldset>
     </div>
   );
 }
@@ -786,13 +746,14 @@ export function AppCreationWizard({
   }, []);
 
   const addNavItem = useCallback((type: 'group' | 'url' | 'separator') => {
-    const newItem: NavigationItem = {
-      id: createNavId(type),
-      type,
-      label: type === 'separator' ? '' : type === 'group' ? 'New Group' : 'New Link',
-      ...(type === 'group' ? { children: [] } : {}),
-      ...(type === 'url' ? { url: '' } : {}),
-    };
+    // A separator carries only `type` and `id`: the spec's separator branch
+    // declares no `label`, and the save door refuses one (objectui#10867).
+    const newItem: NavigationItem =
+      type === 'separator'
+        ? { id: createNavId(type), type }
+        : type === 'group'
+          ? { id: createNavId(type), type, label: 'New Group', children: [] }
+          : { id: createNavId(type), type, label: 'New Link', url: '' };
     setDraft((prev) => ({
       ...prev,
       navigation: [...prev.navigation, newItem],

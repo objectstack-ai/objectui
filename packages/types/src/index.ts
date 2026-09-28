@@ -53,6 +53,8 @@
 export type {
   AppComponentSchema,
   NavigationItem,
+  NavigationEntryItem,
+  NavigationSeparatorItem,
   NavigationItemType,
   NavigationArea,
   AppMenuItem,

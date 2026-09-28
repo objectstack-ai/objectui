@@ -45,7 +45,6 @@ const DRAFT: AppWizardDraft = {
   name: 'acme_crm',
   title: 'Acme CRM',
   icon: 'Briefcase',
-  layout: 'sidebar',
   objects: [],
   navigation: [],
   branding: { logo: 'https://cdn.example.test/acme.svg', primaryColor: '#2563eb' },

@@ -163,7 +163,7 @@ describe('referencing the spec NavigationItemSchema would reject metadata object
     ['visible: boolean', { id: 'ai', type: 'url', label: 'AI', url: '/ai', visible: true },
       'menuItemToNavigationItem MANUFACTURES one when it inverts AppMenuItem.hidden'],
     ['separator label', { type: 'separator', label: 'Section' },
-      'menuItemToNavigationItem emits one; the spec separator declares only id/order'],
+      'the flat mirror declares label for every type; the TS face refuses it on a separator since objectui#10867, and the spec separator declares only id/order'],
     ['single-character id', { id: 'a', type: 'url', label: 'A', url: '/a' },
       'objectui requires only a non-empty id; the spec requires two characters'],
   ])('the spec rejects %s (%s)', (_name, input, _why) => {

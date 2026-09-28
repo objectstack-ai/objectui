@@ -80,6 +80,26 @@ function createId(prefix: string): string {
   return `${prefix}_${Date.now()}_${ndCounter}`;
 }
 
+/**
+ * A new navigation item of `type`. A separator carries only `type` and `id`:
+ * the spec's separator branch declares no `label`, and the save door refuses
+ * one (objectui#10867). Every other type gets the label `labelFor` names.
+ */
+function newNavItem(
+  type: NavigationItemType,
+  id: string,
+  labelFor: (type: Exclude<NavigationItemType, 'separator'>) => string,
+): NavigationItem {
+  if (type === 'separator') return { id, type };
+  return {
+    id,
+    type,
+    label: labelFor(type),
+    ...(type === 'group' ? { children: [] } : {}),
+    ...(type === 'url' ? { url: '' } : {}),
+  };
+}
+
 // Keyed by the spec-derived union, so a nav type the spec adds stops this file
 // compiling until it has an entry -- keep it a `Record`, never `Partial` or
 // `Record<string, ...>`.
@@ -538,13 +558,7 @@ export function NavigationDesigner({
 
   const addChild = useCallback(
     (parentId: string, type: NavigationItemType) => {
-      const newItem: NavigationItem = {
-        id: createId(type),
-        type,
-        label: type === 'separator' ? '' : `New ${t(NAV_TYPE_META[type].labelKey)}`,
-        ...(type === 'group' ? { children: [] } : {}),
-        ...(type === 'url' ? { url: '' } : {}),
-      };
+      const newItem = newNavItem(type, createId(type), (entryType) => `New ${t(NAV_TYPE_META[entryType].labelKey)}`);
 
       function insertChild(list: NavigationItem[]): NavigationItem[] {
         return list.map((item) => {
@@ -565,13 +579,7 @@ export function NavigationDesigner({
 
   const addTopLevel = useCallback(
     (type: NavigationItemType) => {
-      const newItem: NavigationItem = {
-        id: createId(type),
-        type,
-        label: type === 'separator' ? '' : `New ${t(NAV_TYPE_META[type].labelKey)}`,
-        ...(type === 'group' ? { children: [] } : {}),
-        ...(type === 'url' ? { url: '' } : {}),
-      };
+      const newItem = newNavItem(type, createId(type), (entryType) => `New ${t(NAV_TYPE_META[entryType].labelKey)}`);
       onChange([...items, newItem]);
     },
     [items, onChange, t]

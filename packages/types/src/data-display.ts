@@ -2495,9 +2495,11 @@ export interface ObjectMetricDrillDownConfig extends DrillDownConfig {
  * an AI) sees.
  *
  * ⚠️ This is a TypeScript declaration, so it refuses the key where an author
- * types against it (`ObjectPivotTable`'s `schema.drillDown`). Neither
- * `object-pivot` nor `PivotTableSchema` has a zod mirror, so a stored JSON
- * config is checked by no validator and reaches the block unchanged.
+ * types against it (`ObjectPivotTable`'s `schema.drillDown`). `object-pivot`
+ * has no zod mirror, so a stored JSON config is checked by no validator and
+ * reaches the block unchanged. (`PivotTableSchema`, the plain `pivot` node,
+ * gained one in objectui#10859 batch 2; its `drillDown` is the shared
+ * `DrillDownConfig`, as declared, so it does not refuse `mode` either.)
  */
 export interface ObjectPivotDrillDownConfig extends DrillDownConfig {
   /**

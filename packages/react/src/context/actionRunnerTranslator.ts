@@ -34,8 +34,9 @@ export function useActionRunnerTranslator(): ActionRunnerTranslate {
   useEffect(() => {
     latest.current = t;
   });
-  const [translate] = useState<ActionRunnerTranslate>(
-    () => (key, options) => String(latest.current(key, options)),
-  );
+  const [translate] = useState<ActionRunnerTranslate>(() => {
+    const read: ActionRunnerTranslate = (key, options) => String(latest.current(key, options));
+    return read;
+  });
   return translate;
 }

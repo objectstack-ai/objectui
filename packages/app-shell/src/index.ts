@@ -217,6 +217,7 @@ export {
   FlowRunner,
 } from './views/index.js';
 export type {
+  ConsoleObjectViewProps,
   RecordFormPageProps,
   DeclaredActionsBarProps,
   FlowRunnerProps,

@@ -12,7 +12,7 @@ The console's "edit app" page (`EditAppPage`) loads the stored app into `AppCrea
   - a newly selected object gets an object entry, appended at the end;
   - the object entries of a deselected object are dropped, at the top level or inside a group. The group keeps its place and its other children, even when that leaves it with none;
   - every other entry is kept as stored, in its position. That includes each object entry's label, icon and order, and an object entry for an object the Objects step does not list.
-- **`EditAppPage` counts an object as selected when the stored navigation has an object entry for it anywhere**, a group's children included. It counted only top-level entries, so a grouped object showed as unselected.
+- **`EditAppPage` counts an object as selected when the stored navigation has an object entry for it at the top level or inside a group, at any depth.** It counted only top-level entries, so a grouped object showed as unselected.
 - The same merge applies on the create path once the author has shaped the navigation. Going back to the Objects step and forward again keeps the added separators, groups and links, and the order.
 
 Pinned in `packages/plugin-designer/src/__tests__/EditAppPage.keepsNavigation-10894.test.tsx`.

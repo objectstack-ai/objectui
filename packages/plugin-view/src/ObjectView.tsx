@@ -2323,17 +2323,18 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       searchableFields: currentNamedViewConfig?.searchableFields,
       // The protocol's rule `condition` is a string or the `{ dialect, source }`
       // expression wire; `ObjectGrid` hands every rule to the shared evaluator
-      // (`resolveConditionalFormatting`), which reads both. The grid's declared
-      // rule type spells the string form only, hence the assertion — the same
-      // one `viewSort` above makes for the named view's `sort`.
-      conditionalFormatting: currentNamedViewConfig?.conditionalFormatting as ObjectGridSchema['conditionalFormatting'],
+      // (`resolveConditionalFormatting`), which reads both. No assertion: the
+      // grid's declared rule type reads the named view's `condition` slot by
+      // reference (objectui#10946), so the relay type-checks as written.
+      conditionalFormatting: currentNamedViewConfig?.conditionalFormatting,
       rowActions: currentNamedViewConfig?.rowActions,
       bulkActions: currentNamedViewConfig?.bulkActions,
-      // Same reason as `conditionalFormatting`: the protocol's `visible`
-      // expression wire may carry `ast` without `source`, which the grid's
-      // declared `BulkActionDef` does not spell. It is the value the host
-      // delegation already hands `ObjectGrid` through `ListView`.
-      bulkActionDefs: currentNamedViewConfig?.bulkActionDefs as ObjectGridSchema['bulkActionDefs'],
+      // Same as `conditionalFormatting`: the protocol's `visible` expression
+      // wire may carry `ast` alongside (or, on the installed spec, instead of)
+      // `source`, and `BulkActionDef.visible` reads that slot by reference
+      // (objectui#10946). It is the value the host delegation already hands
+      // `ObjectGrid` through `ListView`.
+      bulkActionDefs: currentNamedViewConfig?.bulkActionDefs,
       exportOptions: gridExportOptions(currentNamedViewConfig?.exportOptions),
       // ⭐ objectui#8980 — the AUTHOR-REACHABLE read point for two of the
       // seventeen. `ObjectGrid` already reads both (`schema.grouping` in its

@@ -225,12 +225,16 @@ adapter):
 - `bulk?(resource, operation, data)` - Batch create/update/delete on one object
 - `batchTransaction?(operations)` - Cross-object atomic batch (master-detail)
 - `onMutation?(listener)` - Subscribe to create/update/delete events
+- `queryGroupHeaders?(resource, query)` - Answer a grouped list view's group
+  header query (`compileListViewGroupQuery`), one row per group with its true
+  `count` — what a grouped grid groups by on the server (objectui#7189)
 
-`bulk`, `batchTransaction` and `onMutation` are **optional** members of
-`DataSource`: not every adapter implements them, so through a `DataSource`-typed
-value they must be feature-detected (`typeof dataSource.bulk === 'function'`).
-`ObjectStackAdapter` implements all three unconditionally, and the factory
-declares the class, so a value from either form calls them directly. (`onMutation`
+`bulk`, `batchTransaction`, `onMutation` and `queryGroupHeaders` are
+**optional** members of `DataSource`: not every adapter implements them, so
+through a `DataSource`-typed value they must be feature-detected
+(`typeof dataSource.bulk === 'function'`). `ObjectStackAdapter` implements all
+four unconditionally, and the factory declares the class, so a value from
+either form calls them directly. (`onMutation`
 was listed under *Adapter-only* here until objectui#7323; it is optional on
 `DataSource`, not absent from it.)
 

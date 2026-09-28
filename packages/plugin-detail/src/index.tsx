@@ -559,7 +559,7 @@ ComponentRegistry.register('details', RecordDetailsRenderer, {
     // `inlineEdit` is documented as an opt-OUT because that is the only
     // direction it can decide. The value is AND-ed with the object's own
     // resolved editability (`isObjectInlineEditable`, ADR-0103) and with the
-    // server's effective API operation set (objectui#3546), so `true` cannot
+    // server's effective API operation set (objectstack#3546), so `true` cannot
     // open editing the platform refuses; only `false` is unconditional. Saying
     // "enables inline editing" would advertise an authority this key does not
     // have.

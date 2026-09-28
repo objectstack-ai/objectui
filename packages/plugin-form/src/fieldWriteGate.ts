@@ -190,7 +190,7 @@ export interface GateFormFieldsOptions extends ApplyFieldPermissionsOptions {
  * open; the engine-owned buckets (`engine-owned`, `append-only`,
  * `better-auth`) resolve closed unless the object OPENED per-record writing via
  * `userActions.{edit,create}` (e.g. sys_user opens `edit` for its profile
- * fields). #3546 intersects that with the server's effective API operation set
+ * fields). objectstack#3546 intersects that with the server's effective API operation set
  * for the object, so the lock also engages when the server denies `update`
  * (edit) or `create` (create) — the intersection the detail header and the
  * list toolbar apply.

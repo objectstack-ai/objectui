@@ -20,7 +20,7 @@
 
 import { z } from 'zod';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
-import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
 import type { ActionSchema as ActionDeclaration } from '../crud.js';
 
 /**
@@ -160,6 +160,15 @@ const RECORD_ID_IS_A_STRING_GUIDANCE =
   + 'A backend whose primary keys are numeric converts at its OWN adapter boundary, in one typed '
   + 'place, so every author, every caller and every adapter sees one shape.';
 
+/** objectui#9256 (family-D re-measure): ONE refusal string for both content channels of `DetailSchema`. */
+const DETAIL_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'detail',
+  'its registration (`view:detail`, the owner of the bare `detail` key) hands the node to `DetailView`, '
+    + 'which reads it as `DetailViewSchema`',
+  'the record named by `objectName` and `resourceId`, laid out by `DetailView` from `fields`, `sections` '
+    + 'and `tabs`',
+);
+
 /**
  * Detail Schema
  */
@@ -238,6 +247,10 @@ export const DetailSchema = BaseSchema.extend({
    */
   onAddComment: handlerKeyRefusal('onAddComment', 'runtime-slot', 'New comment callback'),
   loading: z.boolean().optional().describe('Whether to show loading state'),
+  // objectui#9256 (family-D re-measure): the renderer reads NEITHER content channel, so both are
+  // refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(DETAIL_NEITHER_CHANNEL),
+  children: retirementTombstone(DETAIL_NEITHER_CHANNEL),
 });
 
 /**

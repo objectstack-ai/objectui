@@ -1759,6 +1759,38 @@ export interface MarkdownSchema extends BaseSchema {
    * @deprecated Not part of `MarkdownSchema`'s contract — the value was inert.
    */
   components?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `markdown` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `markdown` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `markdown` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D re-measure). The
+   * `markdown` registration (`@object-ui/plugin-markdown`) reads the node
+   * through an inline props type and forwards only `content` and `className`
+   * to the Markdown implementation; nothing on that path reads the node's
+   * `body` or `children`. `SchemaRenderer` strips `body` and `children` out
+   * of the props bag it spreads, so neither reaches the component by another
+   * route, and the registration declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: `content`, rendered as sanitized Markdown.
+   *
+   * @deprecated Not a channel `markdown` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -2322,6 +2354,39 @@ export interface ChartSchema extends BaseSchema {
    * segment opens a filtered list view (drawer/dialog).
    */
   drillDown?: DrillDownConfig;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `chart` reads NEITHER content
+   * channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `chart` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `chart` reads NEITHER content
+   * channel, so an authored child list here rendered NOTHING: no render-time
+   * error or warning and no element; only the parser tier's `not-a-container`
+   * warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D re-measure). The `chart`
+   * registration (`@object-ui/plugin-charts`, and its `chart:bar` alias)
+   * reads the node through `ChartRenderer`'s inline props type; nothing on
+   * that path reads the node's `body` or `children`. `SchemaRenderer` strips
+   * `body` and `children` out of the props bag it spreads, so neither reaches
+   * the component by another route, and the registration declares no
+   * `children` slot (objectui#9910).
+   *
+   * What it renders instead: a chart of the `data` rows, drawn by `chartType`
+   * and `series`.
+   *
+   * @deprecated Not a channel `chart` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -3314,6 +3379,39 @@ export interface BarChartSchema extends BaseSchema {
    * @default '#8884d8'
    */
   color?: string;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `bar-chart` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `bar-chart` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `bar-chart` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D re-measure). The
+   * `bar-chart` registration (`@object-ui/plugin-charts`) reads the node
+   * through `ChartBarRenderer`'s inline props type, which forwards `data`,
+   * `dataKey`, `xAxisKey`, `height`, `className` and `color` and nothing
+   * else. `SchemaRenderer` strips `body` and `children` out of the props bag
+   * it spreads, so neither reaches the component by another route, and the
+   * registration declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: one bar per `data` row, its value from `dataKey`
+   * and its category from `xAxisKey`.
+   *
+   * @deprecated Not a channel `bar-chart` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**

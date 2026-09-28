@@ -31,11 +31,11 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { BatchTransactionOperation, DataSource } from '@object-ui/types';
+import type { BatchTransactionOperation, DataSource, I18nLabel } from '@object-ui/types';
 import { runBatchTransaction } from '@object-ui/core';
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
 import { Button, Card, CardContent, CardHeader, CardTitle, cn, toast } from '@object-ui/components';
-import { useDisplayLocale } from '@object-ui/i18n';
+import { pickLocalized, useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
 import { dataChangeMatches, subscribeDataChanges } from '@object-ui/react';
 import { ObjectForm } from './ObjectForm';
@@ -105,11 +105,26 @@ export interface MasterDetailFormSchema {
   sections?: any[];
   fields?: any[];
   formType?: 'simple' | 'tabbed';
-  title?: string;
-  submitText?: string;
-  /** Label for the Cancel button in the action bar. i18n is the host's job
-   *  (this plugin is locale-agnostic); defaults to English 'Cancel'. */
-  cancelText?: string;
+  /**
+   * `title`, `submitText` and `cancelText` are the spec's `I18nLabel`, as
+   * `ComponentPropsMap['object-master-detail-form']` in `@objectstack/spec`
+   * declares them: a plain string or an inline per-locale map such as
+   * `{ en: 'Purchase order', 'zh-CN': '采购单' }`. The form resolves each one
+   * with `pickLocalized` against the active UI language
+   * (`useObjectTranslation().language`) before it reaches the screen
+   * (objectui#10935).
+   *
+   * `title` names the record in the built-in edit-save toast ("… saved"),
+   * which shows only when the host supplies no `onSuccess`.
+   */
+  title?: I18nLabel;
+  /** Label of the Save button. Defaults to English 'Save' (edit) or 'Create'. */
+  submitText?: I18nLabel;
+  /** Label for the Cancel button in the action bar, which renders only when the
+   *  host supplies `onCancel`. Defaults to English 'Cancel'. The English
+   *  defaults are not translated here: a host that wants another language
+   *  authors the label, as a string or a per-locale map. */
+  cancelText?: I18nLabel;
   /** Hide the bottom Save/Cancel action bar — e.g. a non-persisting design
    *  preview. Defaults to shown (the form owns the only Save in this layout). */
   showSubmit?: boolean;
@@ -760,6 +775,13 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
 }) => {
   const rawDetails = schema.details || [];
   const isEdit = schema.mode === 'edit' && !!schema.recordId;
+  // `title` / `submitText` / `cancelText` are `I18nLabel` (see the schema
+  // above), so a locale map is resolved here, against the UI language — the
+  // source `ObjectMetricWidget` resolves its own `I18nLabel` members against.
+  // Read raw, a map threw "Objects are not valid as a React child" as a Button
+  // child and toasted "[object Object] saved" (objectui#10935).
+  const { language } = useObjectTranslation();
+  const titleText = pickLocalized(schema.title, language);
 
   // A detail can be configured with just `{ childObject }` — the relationship
   // FK and grid columns are then derived from the child object's metadata
@@ -1297,7 +1319,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
     async (parent: any) => {
       releaseSave();
       if (!schema.onSuccess) {
-        toast.success(isEdit ? (schema.title ? `${schema.title} saved` : 'Saved') : 'Created', {
+        toast.success(isEdit ? (titleText ? `${titleText} saved` : 'Saved') : 'Created', {
           id: outcomeToastId,
         });
       }
@@ -1313,7 +1335,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
       await schema.onSuccess?.(parent);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isEdit, schema.onSuccess, schema.title, entries.length, releaseSave, outcomeToastId],
+    [isEdit, schema.onSuccess, titleText, entries.length, releaseSave, outcomeToastId],
   );
 
   /**
@@ -1497,7 +1519,8 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
       formType: schema.formType,
       sections: schema.sections,
       fields: schema.fields,
-      title: schema.title,
+      // The resolved string: `ObjectFormSchema.title` is a `string`.
+      title: titleText || undefined,
       showSubmit: false,
       showCancel: false,
       // ObjectForm validates + hands the parent values to submitViaBatch (which
@@ -1507,11 +1530,12 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
       onSuccess: handleSaved,
       onError: handleError,
     }),
-    [schema, submitViaBatch, handleSaved, handleError],
+    [schema, titleText, submitViaBatch, handleSaved, handleError],
   );
 
   const formHostRef = useRef<HTMLDivElement>(null);
-  const submitText = schema.submitText ?? (isEdit ? 'Save' : 'Create');
+  const submitText = pickLocalized(schema.submitText, language) || (isEdit ? 'Save' : 'Create');
+  const cancelText = pickLocalized(schema.cancelText, language) || 'Cancel';
 
   // Upload-in-flight gate (objectui#10166), and this host is the reason the
   // scope CHAINS rather than shadows. The parent fields and every expanded row
@@ -1661,7 +1685,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
           <div className="flex items-center justify-end gap-2">
             {schema.onCancel && (
               <Button type="button" variant="outline" onClick={schema.onCancel} disabled={saving} data-testid="md-form-cancel">
-                {schema.cancelText ?? 'Cancel'}
+                {cancelText}
               </Button>
             )}
             <Button

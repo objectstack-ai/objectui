@@ -12,6 +12,7 @@ import { classifyWidgetType } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
 import { useWidgetSubCaption } from './widgetSubCaption';
+import { useDashboardAutoRefresh } from './useDashboardAutoRefresh';
 
 /** Bridges editMode transitions to the ObjectUI DnD system when a DndProvider is present. */
 function DndEditModeBridge({ editMode }: { editMode: boolean }) {
@@ -128,7 +129,6 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
 }) => {
   const { width, containerRef, mounted } = useContainerWidth();
   const [editMode, setEditMode] = React.useState(false);
-  const [refreshing, setRefreshing] = React.useState(false);
   const hasDndProvider = useHasDndProvider();
   // Active UI language, for resolving inline per-locale widget titles below.
   // `useObjectTranslation` is provider-safe (react-i18next falls back to its
@@ -171,25 +171,11 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
    * degradation the sibling's title/description lookups perform.
    */
   const tWidgetSubCaption = useWidgetSubCaption(schema.name);
-  const intervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const handleRefresh = React.useCallback(() => {
-    if (!onRefresh) return;
-    setRefreshing(true);
-    onRefresh();
-    setTimeout(() => setRefreshing(false), 600);
-  }, [onRefresh]);
-
-  // Auto-refresh interval — seconds → milliseconds, as the key now says
-  // (objectui#7783; the spec renamed `refreshInterval` to
-  // `refreshIntervalSeconds`, value unchanged).
-  React.useEffect(() => {
-    if (!schema.refreshIntervalSeconds || schema.refreshIntervalSeconds <= 0 || !onRefresh) return;
-    intervalRef.current = setInterval(handleRefresh, schema.refreshIntervalSeconds * 1000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [schema.refreshIntervalSeconds, onRefresh, handleRefresh]);
+  // The refresh indicator, the manual handler and the auto-refresh timer come
+  // from the one implementation this component shares with `DashboardRenderer`
+  // (objectui#8820), which is also the only place `refreshIntervalSeconds` is
+  // read.
+  const { refreshing, handleRefresh } = useDashboardAutoRefresh(schema, onRefresh);
   const [layouts, setLayouts] = React.useState<{ lg: RGLLayout[] }>(
     () => buildDefaultLayouts(schema),
   );

@@ -1157,6 +1157,14 @@ export const UiCalendarSchema = CalendarObjectSchema.extend({
     .describe('The `ui`-namespaced date-picker primitive — `calendar` alone names the plugin-calendar view'),
 }).superRefine(calendarSelectionFitsMode);
 
+/** objectui#9256 (family-D re-measure): ONE refusal string for both content channels of `CodeEditorSchema`. */
+const CODE_EDITOR_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'code-editor',
+  'its registration (`plugin-editor:code-editor`) reads the node through `CodeEditorRenderer`\'s inline '
+    + 'props type, which forwards `value`, `language`, `theme`, `height`, `readOnly` and `className` to Monaco',
+  'a Monaco editor over `value`, in `language` and `theme`',
+);
+
 /**
  * Form Component Schema Union - All form component schemas
  */
@@ -1183,6 +1191,10 @@ export const CodeEditorSchema = BaseSchema.extend({
   height: z.string().optional().describe('Editor height as a CSS length'),
   readOnly: z.boolean().optional().describe('Whether the editor refuses edits'),
   onChange: handlerKeyRefusal('onChange', 'runtime-slot', 'Change handler'),
+  // objectui#9256 (family-D re-measure): the renderer reads NEITHER content channel, so both are
+  // refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(CODE_EDITOR_NEITHER_CHANNEL),
+  children: retirementTombstone(CODE_EDITOR_NEITHER_CHANNEL),
 });
 
 export const FormComponentSchema = z.discriminatedUnion('type', [

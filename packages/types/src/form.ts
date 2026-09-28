@@ -2557,6 +2557,39 @@ export interface CodeEditorSchema extends BaseSchema {
    * read by `plugin-editor` (`onChange ?? schema.onChange`).
    */
   onChange?: (value: string | undefined) => void;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `code-editor` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `code-editor` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `code-editor` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D re-measure). The
+   * `code-editor` registration (`@object-ui/plugin-editor`) reads the node
+   * through `CodeEditorRenderer`'s inline props type, which forwards `value`,
+   * `language`, `theme`, `height`, `readOnly` and `className` to Monaco and
+   * nothing else. `SchemaRenderer` strips `body` and `children` out of the
+   * props bag it spreads, so neither reaches the component by another route,
+   * and the registration declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: a Monaco editor over `value`, in `language` and
+   * `theme`.
+   *
+   * @deprecated Not a channel `code-editor` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**

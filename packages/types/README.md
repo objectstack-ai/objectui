@@ -127,7 +127,9 @@ type ButtonSchema = SchemaByType<'button'>;
 
 - The **rendering face** (`AnyComponentSchema`, `SchemaNodeSchema`, every named
   mirror) is tolerant: a node may carry keys the schema does not declare, because
-  renderer props ride through it.
+  renderer props ride through it. Some declared sub-blocks are closed on this face
+  as well — an `object-map` node's `map` block is one (objectui#5157) — so a key
+  misspelled inside one of them is refused by both faces.
 - The **strict authoring face** is a derived twin that closes every declared
   object, at every depth. It is meant for authoring-time checking — validating a
   document a person or an agent just wrote — where an undeclared key is far more

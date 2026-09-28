@@ -1080,6 +1080,7 @@ const fr = {
     pathStageWonUpcoming: '{{stage}}, étape objectif, non atteinte',
     linkCopied: "Lien copié dans le presse-papiers",
     commentFailed: "Votre commentaire n'a pas été publié. Rien n'a été enregistré — veuillez réessayer.",
+    reactionFailed: "Votre réaction n'a pas été enregistrée. Veuillez réessayer.",
     linkCopyFailed: "Impossible de copier le lien",
     cancel: "Annuler",
     cancelEdit: "Abandonner les modifications",

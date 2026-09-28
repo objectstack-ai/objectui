@@ -1121,6 +1121,7 @@ const en = {
     pathStageWonUpcoming: '{{stage}}, goal stage, not reached',
     linkCopied: 'Link copied to clipboard',
     commentFailed: 'Your comment was not posted. Nothing was saved — please try again.',
+    reactionFailed: 'Your reaction was not saved. Please try again.',
     linkCopyFailed: 'Failed to copy link',
     cancel: 'Cancel',
     cancelEdit: 'Discard changes',

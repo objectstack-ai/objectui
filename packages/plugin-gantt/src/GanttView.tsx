@@ -600,8 +600,14 @@ export interface GanttViewProps {
    * 'Asia/Shanghai'. The chart's calendar math — shift bands, day columns,
    * drag snapping, the today line, start/end labels — renders this zone's
    * wall time for EVERY viewer instead of the browser's; without it, a
-   * viewer in another zone sees bands and dates misaligned. Writes
-   * still persist real instants. Note: dates handed to `onBeforeTaskUpdate`
+   * viewer in another zone sees bands and dates misaligned. Dates handed to
+   * `onTaskUpdate` are translated back out of this display space into real
+   * instants. A date-only value is a day rather than an instant, so the host
+   * translates both ways itself (objectui#10866): `ObjectGantt` hands a day in
+   * as `makeTzShift(timeZone).from` of its local midnight, for the shim to
+   * draw it from that midnight here, and writes a `date` field back as the day
+   * `.to` of the emitted date falls on (`makeTzShift` says how exact the shim
+   * is around a DST change). Note: dates handed to `onBeforeTaskUpdate`
    * are in this display space (durations/deltas are unaffected).
    */
   timeZone?: string
@@ -872,7 +878,8 @@ export function GanttView({
   const ixProgress = interactions?.progress !== false;
   const ixLink = interactions?.link !== false;
   // Emitted date changes are display-space — translate back to real instants
-  // before they reach the host (writes must persist real time).
+  // before they reach the host, which decides what to persist: a `datetime`
+  // field the instant, a `date` field its day (see `timeZone`, objectui#10866).
   const onTaskUpdate = React.useMemo(() => {
     if (effectiveReadOnly || !onTaskUpdateProp) return undefined;
     if (tzShift.delta === 0) return onTaskUpdateProp;

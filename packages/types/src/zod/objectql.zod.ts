@@ -1555,6 +1555,14 @@ const SpecRuleConditionSchema = z.union([
   stripImportedDefaults(SpecListViewSchema).shape.conditionalFormatting.unwrap().element.shape.condition,
 ]);
 
+/** objectui#9256 (family-D re-measure): ONE refusal string for both content channels of `ListViewSchema`. */
+const LIST_VIEW_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'list-view',
+  'its registration (`plugin-list:list-view`) reads the node as `ListViewSchema` itself',
+  'the records of `objectName` in the visualization `viewType` names, shaped by `columns`, `filter`, '
+    + '`sort` and `options`',
+);
+
 export const ListViewSchema = BaseSchema
   // Spec-owned fields by reference. `specFieldsExcept` reads the spec object's
   // `.shape` rather than calling `.omit()`, which zod 4 refuses on a schema
@@ -1805,6 +1813,13 @@ export const ListViewSchema = BaseSchema
     onDensityChange: handlerKeyRefusal('onDensityChange', 'runtime-slot', 'Row density change handler'),
     onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'Record navigation handler'),
     onPageSizeChange: handlerKeyRefusal('onPageSizeChange', 'runtime-slot', 'Page size change handler'),
+    // objectui#9256 (family-D re-measure): the renderer reads NEITHER content channel, so both are
+    // refused by name here as on the TypeScript twin, each kept a MEMBER.
+    body: retirementTombstone(LIST_VIEW_NEITHER_CHANNEL),
+    children: retirementTombstone(LIST_VIEW_NEITHER_CHANNEL),
+    // ⚠️ This arm feeds its own TypeScript face (`ListViewInferred` below), so these two members are
+    // what put `body?: undefined` / `children?: undefined` on `ListViewSchema`; there is no separate
+    // `?: never` pair to keep in step.
   })
   // ⭐ THE SPEC'S OBJECT-LEVEL CHECKS, re-attached (objectui#7715, ruling B1).
   //
@@ -1865,6 +1880,29 @@ export type ListViewInferred = z.input<typeof ListViewSchema>;
  * so the declared authoring face and the validation the renderer performs are
  * ONE schema rather than two that can drift (objectui#5018). `ObjectMap`
  * imports this exact object; it no longer declares its own.
+ *
+ * ## `.strict()` — an undeclared key is REFUSED, not stripped (objectui#5157)
+ *
+ * The TypeScript twin `ObjectMapConfig` is a closed interface, so a misspelled
+ * key (`latitudeFieId`) was a compile error for a typed author and nothing at
+ * all for untyped metadata: this object stripped it and parsed clean, and
+ * nothing named it: the card's typo drew the generic "Map configuration
+ * required" refusal (objectui#8169), which names the key the author meant, not
+ * the one they wrote. Closing the block makes all three faces
+ * one accept set, as ruled on objectui#5157 (letter A, carrying the earlier
+ * "the `map` block only" ruling):
+ *
+ *  - runtime: `ObjectMap`'s `safeParse` of the block now fails, so the
+ *    component still renders and `console.warn`s the issue, which names the key;
+ *  - validate: `ObjectMapSchema.map` is this object, so `safeValidateSchema`
+ *    (and `objectui validate` with it) refuses the node with an
+ *    `unrecognized_keys` issue at `map`;
+ *  - `.shape` is untouched, so `ObjectMap`'s `FLAT_MAP_CONFIG_KEYS` (derived
+ *    from it) and the view flatten whitelists (hand-listed, pinned against it)
+ *    see the same keys as before.
+ *
+ * ⛔ The map block ONLY. Whether other component sub-block schemas close the
+ * same way is a separate decision the ruling kept out of this card.
  */
 export const ObjectMapConfigSchema = z.object({
   latitudeField: z.string().optional().describe('Field containing latitude'),
@@ -1875,7 +1913,7 @@ export const ObjectMapConfigSchema = z.object({
   zoom: z.number().optional().describe('Zoom level (1-20); declaring it opts out of the auto-fit'),
   center: z.tuple([z.number(), z.number()]).optional().describe('Center [lat, lng]; declaring it opts out of the auto-fit'),
   style: z.string().optional().describe('MapLibre style URL/spec (overrides the public demo default)'),
-});
+}).strict();
 
 /**
  * `77cb489b4` — the record-source refinement `ObjectMapSchema`,
@@ -3210,11 +3248,12 @@ export const ObjectMetricBlockSchema = BaseSchema.extend({
  * of `MasterDetailForm`'s `schema` prop: the node as the renderer reads it
  * after the `properties` hoist. It is not restated here: it carries three host
  * callbacks and an optional `type`, and it is the renderer's reading rather
- * than the authored document shape, and where it and the spec row disagree —
- * it requires `objectName` and `details` and types `title`, `submitText` and
- * `cancelText` as a plain string, while the row keeps both keys optional and
- * takes an `I18nLabel` for the three labels — the spec is the contract this
- * validator answers to.
+ * than the authored document shape. It types `title`, `submitText` and
+ * `cancelText` as the row's `I18nLabel` (objectui#10935; pinned by
+ * `assertionLabelMembersAreI18nLabel` in plugin-form's
+ * `MasterDetailForm.i18nLabels.test.tsx`), and where it and the spec row still
+ * disagree — it requires `objectName` and `details`, while the row keeps both
+ * keys optional — the spec is the contract this validator answers to.
  *
  * `onSuccess`, `onError` and `onCancel` are not props the spec declares: they
  * are the host callbacks `ObjectForm`, `DrawerForm` and `ModalForm` hand

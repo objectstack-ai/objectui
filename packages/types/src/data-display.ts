@@ -3028,7 +3028,8 @@ export interface TimelineSchema extends BaseSchema {
    * (`{ time, title, … }`).
    *
    * No renderer ever read this key: a timeline authored with `events` drew an
-   * EMPTY rail, with no error and no warning. objectui#6170's maintainer ruling
+   * EMPTY rail, with no render-time error or warning; only the parser tier's
+   * `unknown-prop` warning noticed it. objectui#6170's maintainer ruling
    * (2026-08-25, 「同意」) sent it, {@link TimelineSchema.orientation} and
    * {@link TimelineSchema.position} down the ADR-0049 enforce-or-remove route,
    * and the producer census recorded on objectui#6170 (a dated reading, not

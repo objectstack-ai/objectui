@@ -230,8 +230,9 @@ const SPEC_EXPORT_OPTIONS_OBJECT_SHAPE: SpecExportOptionsShape = ((): SpecExport
  * The refusal it carries is objectui#7762's ruling. `ObjectGrid.tsx` reads
  * `schema.exportOptions?.formats` and nothing else, so a bare format array authored on
  * an `object-grid` node used to validate green through `BaseSchema`'s `.passthrough()`
- * and then lose SILENTLY to the `['csv', 'json']` default — no error, no warning, no
- * console line, with the export button still shown. Refusing it by name is that silent
+ * and then lose SILENTLY to the `['csv', 'json']` default — no render-time error, warning
+ * or console line (only the parser tier's `type-mismatch` warning noticed it), with the
+ * export button still shown. Refusing it by name is that silent
  * no-op made loud; nothing that renders today stops rendering.
  */
 const OBJECT_GRID_EXPORT_OPTIONS_GUIDANCE =

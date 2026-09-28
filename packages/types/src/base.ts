@@ -277,7 +277,10 @@ export interface BaseSchema {
    * widgets in `plugin-charts` / `plugin-dashboard` (×2) / `plugin-grid` /
    * `plugin-kanban` / `plugin-list` / `plugin-timeline`. ⚠️ `data-table` does
    * NOT: a `bind` on it is ignored and the table renders its header over an
-   * empty body, with no error and no warning (`protocol.md`, and pinned in
+   * empty body, with no render-time error; nothing on the page says why, but a
+   * render-time console warning (`[ObjectUI] DataTable bind:`, objectui#6575)
+   * and the parser tier's `unknown-prop` warning both name it
+   * (`protocol.md`, and pinned in
    * `components/src/__tests__/skill-guide-data-table-binding.test.tsx`).
    * Declaring the key here does not change that, and does not bless it — the
    * key was already accepted on every node before this declaration existed.

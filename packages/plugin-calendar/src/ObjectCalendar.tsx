@@ -76,6 +76,9 @@ import {
   applyNonGridRowCeiling,
   nonGridRowCeilingQuery,
   type NonGridCeilingResult,
+  isRealCalendarDate,
+  toDateInputValue,
+  toDisplayDate,
 } from '@object-ui/core';
 
 /**
@@ -314,6 +317,30 @@ function getCalendarConfig(schema: ObjectCalendarSchema): ObjectCalendarConfig |
   }
 
   return null;
+}
+
+/**
+ * The value a moved or quick-created event writes into one of its date fields
+ * (objectui#10866).
+ *
+ * A field declared `date` holds a calendar day, the spec's `YYYY-MM-DD`
+ * storage form, so it is written as the LOCAL calendar day the user dropped on
+ * or clicked. ⛔ Never `toISOString()` for it: the event was read at local
+ * midnight of its day (`toDisplayDate`), and the UTC spelling of a local
+ * midnight names the PREVIOUS day everywhere east of UTC. Any other declared
+ * type (`datetime`) keeps its instant, exactly as before.
+ *
+ * With no declared type to ask (the adapter exposes no object schema), the
+ * stored value's own shape answers: the same split `toDisplayDate` made when it
+ * read the value, so a write never disagrees with the read that placed the
+ * event. A quick-create has no stored value, so it keeps the instant there.
+ */
+function toStoredDateValue(date: Date, declaredType: unknown, stored: unknown): string {
+  const dateOnly =
+    typeof declaredType === 'string'
+      ? declaredType === 'date'
+      : typeof stored === 'string' && isRealCalendarDate(stored);
+  return dateOnly ? toDateInputValue(date) : date.toISOString();
 }
 
 /**
@@ -882,7 +909,11 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
         return;
       }
 
-      const start = new Date(startDate);
+      // A date-only value names a calendar day: `toDisplayDate` reads it at
+      // LOCAL midnight of that day, where the engine's own parse read UTC
+      // midnight and put the event in the previous day's cell west of UTC
+      // (objectui#10866). A value with a time keeps its instant.
+      const start = toDisplayDate(startDate);
       // The guard keeps its ORIGINAL job, on a DIFFERENT fact from the one
       // above: a value that is PRESENT but unparseable ('not a date') is
       // dropped here, never bucketed as unscheduled. Absent and malformed are
@@ -893,7 +924,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
         id,
         title,
         start,
-        end: endDate ? new Date(endDate) : undefined,
+        end: endDate ? toDisplayDate(endDate) : undefined,
         color,
         // ⭐ objectui#8026 — the DECLARED key is the answer when there is one.
         // `allDayField` was resolved into the config above and named in the
@@ -1028,11 +1059,14 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     const id = record?.id ?? record?._id;
     if (!id || !schema.objectName || !dataSource?.update) return;
 
+    // A `date` field is written as the calendar day, a `datetime` as the
+    // instant (objectui#10866, `toStoredDateValue`).
+    const fieldDefs = objectSchema?.fields as Record<string, { type?: unknown } | undefined> | undefined;
     const patch: Record<string, string> = {
-      [startDateField]: newStart.toISOString(),
+      [startDateField]: toStoredDateValue(newStart, fieldDefs?.[startDateField]?.type, record?.[startDateField]),
     };
     if (endDateField && newEnd) {
-      patch[endDateField] = newEnd.toISOString();
+      patch[endDateField] = toStoredDateValue(newEnd, fieldDefs?.[endDateField]?.type, record?.[endDateField]);
     }
 
     // Optimistic UI update
@@ -1067,7 +1101,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
             : extractWriteErrorMessage(err) ?? tt('table.saveFailed', 'Save failed')),
       );
     }
-  }, [calendarConfig, schema.objectName, dataSource, data, tt]);
+  }, [calendarConfig, schema.objectName, dataSource, data, tt, objectSchema]);
 
   // Quick-create state: clicking an empty day cell opens a small dialog
   // pre-filled with that date. On submit, dataSource.create() inserts a
@@ -1103,13 +1137,20 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
 
     setQuickCreate(qc => qc ? { ...qc, submitting: true, error: undefined } : qc);
     const { startDateField, endDateField, titleField } = calendarConfig;
+    // A `date` field is written as the calendar day clicked, a `datetime` as
+    // the instant (objectui#10866, `toStoredDateValue`).
+    const dateFieldDefs = objectSchema?.fields as Record<string, { type?: unknown } | undefined> | undefined;
     const payload: Record<string, any> = {
       [titleField || 'name']: title,
-      [startDateField]: quickCreate.start.toISOString(),
+      [startDateField]: toStoredDateValue(quickCreate.start, dateFieldDefs?.[startDateField]?.type, undefined),
     };
     // Default end_date to range end (or same as start if not provided).
     if (endDateField) {
-      payload[endDateField] = (quickCreate.end ?? quickCreate.start).toISOString();
+      payload[endDateField] = toStoredDateValue(
+        quickCreate.end ?? quickCreate.start,
+        dateFieldDefs?.[endDateField]?.type,
+        undefined,
+      );
     }
     // Auto-fill required fields the user hasn't provided (e.g. select
     // status, autonumber). Without this the server would 400 on

@@ -520,8 +520,9 @@ const specCarried = (type: string): boolean =>
  * outside `LayoutSchema` — was refused deliberately: it would have removed seven
  * genuine layout containers from this population without changing anything about
  * what they are, which is a gate that stops looking rather than a gate that
- * passes. Ledgering them is the reviewable option; objectui#8775 holds the
- * decision itself, which is NOT this card's to take.
+ * passes. Ledgering them was the reviewable option, and objectui#8775 has since
+ * ruled on them (ruling 5857078807, letter B): they stay out, for the reason
+ * their entry records.
  *
  * ⚠️ What an entry here COSTS, stated once so no entry has to re-argue it, and
  * corrected because objectui#8499 first shipped it wrong. Curating a ledgered
@@ -548,29 +549,30 @@ const specCarried = (type: string): boolean =>
  * `renderers/layout/semantic.tsx` over one `tags` array — so they share one
  * reason rather than seven paraphrases of it.
  */
-const SECTIONING_TAG_UNRULED =
-  'NOT YET RULED, either way — and promoting it is not a roster edit. One of the seven HTML ' +
-  'sectioning tags the single loop factory in `renderers/layout/semantic.tsx` registers with ' +
-  '`category: layout` and `isContainer: true` (objectui#6764). objectui#8499 armed them as ' +
-  '`SemanticElementSchema`, which is what first brought already-declared containers into the ' +
-  'population this file derives — none of them is newly a container, and none is newly ' +
-  'authorable. What curating one WOULD move, measured rather than reasoned: it widens the ' +
-  'curated AI-authoring vocabulary and it turns the ' +
-  '"none of the eight is in the curated public contract" pin in ' +
-  '`container-declaration-census.test.tsx` RED BY DESIGN — which is precisely what ' +
-  '`semantic.tsx` means by re-opening the question THERE. (Since objectui#10735 the seven are ' +
-  'ALREADY in `sdui.manifest.json` and the generated intrinsics, as html-tier entries stamped ' +
-  '`tier: \'html\'` from `HTML_TIER_INTRINSICS`, so a `kind:\'html\'` page may author them; ' +
-  'curating one would move it onto the curated tier, unstamped — a different fact from ' +
-  'declaring it.) ⛔ It does NOT delete the tag from ' +
-  'any react page, and an earlier revision of this entry said it did: `react-page.tsx` skips ' +
-  "EVERY container config (`if (!tag || cfg.isContainer || cfg.tier === 'html') continue;`) and these seven already " +
-  'carry `isContainer: true`, so a promoted config is skipped on exactly the same line an ' +
-  'unlisted one never reaches — measured at 46 injected identifiers before and 46 after ' +
-  'simulating the promotion of `main`, with `Main` absent from both. A lowercase `main` in a ' +
-  'react page is a DOM intrinsic either way, because `react-runtime` never reads the registry. ' +
-  'objectui#8775 measured the population and holds the decision: curate the family or a named ' +
-  'subset and carry that consequence, or refuse on stated merits and replace this text with them.';
+const SECTIONING_TAG_REFUSED =
+  'RULED: refused on stated merits (objectui#8775, ruling 5857078807, letter B). One of the seven ' +
+  'HTML sectioning tags the single loop factory in `renderers/layout/semantic.tsx` registers with ' +
+  '`category: layout` and `isContainer: true`. No real application authors any of the seven as a ' +
+  "JSON block: the objectstack showcase and examples, hotcrm, and this repository's examples outside " +
+  "the schema catalogue carry none, while the same grep shape finds each corpus's ordinary layout " +
+  "blocks; the catalogue's own semantic fixtures are the renderer documenting itself, as " +
+  "`aspect-ratio`'s are. " +
+  'They are HTML elements, and HTML elements live on the html tier: all seven are in ' +
+  "`HTML_TIER_INTRINSICS` and reach `sdui.manifest.json` stamped `tier: 'html'` (objectui#10735), " +
+  'which the census pin "none of the eight is in the curated public contract" holds, and a ' +
+  "`kind:'html'` page renders them. The curated tier already carries the landmarks an app page " +
+  'needs, one spelling each: `page:section`, `page:header`, `page:footer` and `page:sidebar`, all ' +
+  'four in `EXPECTED_COVERED` above, render a `section`, `header`, `footer` and `aside` element. ' +
+  'Curating any of the seven would add a near-synonym pair an AI author cannot tell apart: each is a ' +
+  'neutral wrapper that passes `className` through verbatim exactly as the curated `box` does, ' +
+  'differing only in the element it emits, and four of them also emit the same element as a curated ' +
+  '`page:*` block (`section` and `page:section` both render a `section`). Two spellings of one block ' +
+  'is the ambiguity `record:chatter` is ledgered for. The seven still ship, render and validate on the ' +
+  'JSON surface, as `aspect-ratio` does; they are simply not taught, and the published page-builder ' +
+  'guide stopped teaching `section` in the same change. The pull, render and validate readings were ' +
+  'taken once for objectui#8775 and live on its pull request; nothing in this file re-derives them. ' +
+  'Curating one stays available on a named need, not on a census, at the cost the docblock above ' +
+  'states once for every entry.';
 
 const UNCURATED_LAYOUT_CONTAINERS: Record<string, string> = {
   'aspect-ratio':
@@ -585,13 +587,13 @@ const UNCURATED_LAYOUT_CONTAINERS: Record<string, string> = {
     'by "curates every shipped semantic block, or records why not", whose population is the four ' +
     'semantic namespaces, and `aspect-ratio` registers under `ui` — an entry there turns that pin red, ' +
     'and dropping this one turns "curates every declared layout container, or records why not" red.',
-  article: SECTIONING_TAG_UNRULED,
-  aside: SECTIONING_TAG_UNRULED,
-  footer: SECTIONING_TAG_UNRULED,
-  header: SECTIONING_TAG_UNRULED,
-  main: SECTIONING_TAG_UNRULED,
-  nav: SECTIONING_TAG_UNRULED,
-  section: SECTIONING_TAG_UNRULED,
+  article: SECTIONING_TAG_REFUSED,
+  aside: SECTIONING_TAG_REFUSED,
+  footer: SECTIONING_TAG_REFUSED,
+  header: SECTIONING_TAG_REFUSED,
+  main: SECTIONING_TAG_REFUSED,
+  nav: SECTIONING_TAG_REFUSED,
+  section: SECTIONING_TAG_REFUSED,
 };
 
 describe('PUBLIC_BLOCKS ↔ the declared layout containers (derived, objectui#6879)', () => {

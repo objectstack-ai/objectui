@@ -39,12 +39,14 @@ import {
 } from 'lucide-react';
 import { EmptyDescription } from '@object-ui/components';
 import type { MetadataPreviewProps } from '../preview-registry.js';
+import { t as tr, tFormat } from '../i18n.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 
 type Dict = Record<string, unknown>;
 
 interface CategoryDef {
   key: string;
+  /** The catalogue row of the category's heading, read in the preview's locale (objectui#10862). */
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   /** When true, the value is { key: string } (flat). Otherwise { key: nestedObject }. */
@@ -52,19 +54,29 @@ interface CategoryDef {
 }
 
 const CATEGORIES: CategoryDef[] = [
-  { key: 'objects', label: 'Objects', icon: ListChecks, flat: false },
-  { key: 'apps', label: 'Apps', icon: AppWindow, flat: false },
-  { key: 'messages', label: 'Messages', icon: MessageCircle, flat: true },
-  { key: 'validationMessages', label: 'Validation Messages', icon: ShieldAlert, flat: true },
-  { key: 'globalActions', label: 'Global Actions', icon: ClipboardList, flat: true },
-  { key: 'dashboards', label: 'Dashboards', icon: LayoutDashboard, flat: false },
-  { key: 'settings', label: 'Settings', icon: Settings2, flat: true },
-  { key: 'metadataForms', label: 'Metadata Forms', icon: FileText, flat: false },
+  { key: 'objects', label: 'engine.translationPreview.category.objects', icon: ListChecks, flat: false },
+  { key: 'apps', label: 'engine.translationPreview.category.apps', icon: AppWindow, flat: false },
+  { key: 'messages', label: 'engine.translationPreview.category.messages', icon: MessageCircle, flat: true },
+  {
+    key: 'validationMessages',
+    label: 'engine.translationPreview.category.validationMessages',
+    icon: ShieldAlert,
+    flat: true,
+  },
+  { key: 'globalActions', label: 'engine.translationPreview.category.globalActions', icon: ClipboardList, flat: true },
+  { key: 'dashboards', label: 'engine.translationPreview.category.dashboards', icon: LayoutDashboard, flat: false },
+  { key: 'settings', label: 'engine.translationPreview.category.settings', icon: Settings2, flat: true },
+  { key: 'metadataForms', label: 'engine.translationPreview.category.metadataForms', icon: FileText, flat: false },
 ];
 
-export function TranslationPreview({ name, draft }: MetadataPreviewProps) {
+/**
+ * `locale` is the designer's language, the one the preview's own words read
+ * in; `bundleLocale` is the language the translation record itself carries,
+ * author data shown as written (objectui#10862).
+ */
+export function TranslationPreview({ name, draft, locale }: MetadataPreviewProps) {
   const d = draft as Record<string, unknown>;
-  const locale = (d.locale as string | undefined) ?? (d.language as string | undefined) ?? '?';
+  const bundleLocale = (d.locale as string | undefined) ?? (d.language as string | undefined) ?? '?';
   const label = (d.label as string | undefined) ?? (d.name as string | undefined) ?? name ?? '';
   const description = d.description as string | undefined;
   const data = (d.data as Dict | undefined) ?? (d as Dict);
@@ -82,14 +94,14 @@ export function TranslationPreview({ name, draft }: MetadataPreviewProps) {
 
   if (totalKeys === 0) {
     return (
-      <PreviewShell hint={`translation · ${locale}`}>
-        <PreviewMessage>This bundle is empty — add at least one translated string to see the coverage report.</PreviewMessage>
+      <PreviewShell hint={`translation · ${bundleLocale}`}>
+        <PreviewMessage>{tr('engine.translationPreview.empty', locale)}</PreviewMessage>
       </PreviewShell>
     );
   }
 
   return (
-    <PreviewShell hint={`translation · ${locale} · ${totalKeys} keys`}>
+    <PreviewShell hint={`translation · ${bundleLocale} · ${totalKeys} keys`}>
       <PreviewErrorBoundary>
         <div className="p-3 space-y-3">
           {/* Header */}
@@ -100,13 +112,13 @@ export function TranslationPreview({ name, draft }: MetadataPreviewProps) {
                 <div className="flex flex-wrap items-baseline gap-x-2">
                   <span className="text-sm font-medium truncate">{label}</span>
                   <span className="inline-flex items-center gap-1 rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[10px] font-mono text-emerald-800">
-                    <Globe2 className="h-3 w-3" /> {locale}
+                    <Globe2 className="h-3 w-3" /> {bundleLocale}
                   </span>
                 </div>
                 {description && <div className="text-xs text-muted-foreground mt-0.5">{description}</div>}
                 <div className="mt-2 flex items-center gap-2 text-[11px]">
                   <Gauge className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-muted-foreground">Category coverage:</span>
+                  <span className="text-muted-foreground">{tr('engine.translationPreview.coverage', locale)}</span>
                   <div className="h-1.5 w-32 rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full bg-emerald-500"
@@ -116,7 +128,9 @@ export function TranslationPreview({ name, draft }: MetadataPreviewProps) {
                   <span className="font-mono">
                     {populated}/{CATEGORIES.length} ({coverage}%)
                   </span>
-                  <span className="ml-3 text-muted-foreground">{totalKeys} total keys</span>
+                  <span className="ml-3 text-muted-foreground">
+                    {tFormat('engine.translationPreview.totalKeys', locale, { count: totalKeys })}
+                  </span>
                 </div>
               </div>
             </div>
@@ -125,7 +139,7 @@ export function TranslationPreview({ name, draft }: MetadataPreviewProps) {
           {/* Category grid */}
           <div className="grid gap-2 sm:grid-cols-2">
             {counts.map((c) => (
-              <CategoryCard key={c.key} cat={c} />
+              <CategoryCard key={c.key} cat={c} locale={locale} />
             ))}
           </div>
         </div>
@@ -136,8 +150,10 @@ export function TranslationPreview({ name, draft }: MetadataPreviewProps) {
 
 function CategoryCard({
   cat,
+  locale,
 }: {
   cat: CategoryDef & { count: number; sample: Array<[string, unknown]> };
+  locale?: string;
 }) {
   const Icon = cat.icon;
   return (
@@ -145,24 +161,24 @@ function CategoryCard({
       <div className="flex items-center justify-between border-b px-2.5 py-1.5">
         <div className="flex items-center gap-1.5">
           <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-xs font-medium">{cat.label}</span>
+          <span className="text-xs font-medium">{tr(cat.label, locale)}</span>
         </div>
         <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono">{cat.count}</span>
       </div>
       <div className="px-2.5 py-1.5 min-h-[3.5rem]">
         {cat.count === 0 ? (
-          <EmptyDescription className="text-[11px] italic">empty</EmptyDescription>
+          <EmptyDescription className="text-[11px] italic">{tr('engine.translationPreview.categoryEmpty', locale)}</EmptyDescription>
         ) : (
           <ul className="space-y-0.5 text-[11px]">
             {cat.sample.map(([k, v]) => (
               <li key={k} className="flex items-baseline gap-2 truncate">
                 <code className="font-mono text-muted-foreground shrink-0">{k}</code>
-                <span className="truncate text-foreground/80">{renderSampleValue(v, cat.flat)}</span>
+                <span className="truncate text-foreground/80">{renderSampleValue(v, cat.flat, locale)}</span>
               </li>
             ))}
             {cat.count > cat.sample.length && (
               <li className="text-[10px] text-muted-foreground italic">
-                +{cat.count - cat.sample.length} more…
+                {tFormat('engine.translationPreview.more', locale, { count: cat.count - cat.sample.length })}
               </li>
             )}
           </ul>
@@ -172,7 +188,7 @@ function CategoryCard({
   );
 }
 
-function renderSampleValue(v: unknown, flat: boolean): string {
+function renderSampleValue(v: unknown, flat: boolean, locale: string | undefined): string {
   if (flat) {
     if (typeof v === 'string') return `"${v}"`;
     if (v == null) return '∅';
@@ -180,7 +196,7 @@ function renderSampleValue(v: unknown, flat: boolean): string {
   }
   if (v && typeof v === 'object') {
     const n = Object.keys(v as Dict).length;
-    return `{${n} keys}`;
+    return tFormat('engine.translationPreview.keyCount', locale, { count: n });
   }
   return String(v ?? '∅');
 }

@@ -306,11 +306,22 @@ describe('the retired population is measured off the shipped tree (objectui#7340
     // interface. The array that held the type, the app node's `actions`, is
     // itself a named refusal (`./app-actions-retired-7469.test.ts`), so an
     // authored action with an `onClick` is refused before any member is read.
+    //
+    // ⭐ 26 → 28, and `ai.ts` enters this census for the first time:
+    // objectui#10874 settled the five `on*` members of the three
+    // `@object-ui/plugin-ai` declarations per key, by the objectui#6124 rule.
+    // All five were `string` — the objectui#6182 dialect #7344's census could not
+    // see, because `ai.ts` had no mirror until objectui#10859 — so this reader
+    // counted them LIVE until now. `onApplySuggestion` / `onRejectSuggestion`
+    // have no reader and are `?: never` now: the two counted here.
+    // `onSelect` / `onDismiss` / `onSubmit` are RUNTIME SLOTS their components
+    // call, so their twins became callables and they stay LIVE.
     const split: Record<string, number> = {};
     for (const m of RETIRED) split[m.file] = (split[m.file] ?? 0) + 1;
     expect({ total: RETIRED.length, split }).toEqual({
-      total: 26,
+      total: 28,
       split: {
+        'ai.ts': 2,
         'complex.ts': 2,
         'crud.ts': 3,
         'data-display.ts': 4,
@@ -339,6 +350,8 @@ describe('the retired population is measured off the shipped tree (objectui#7340
     // to classify. They are not "live again": the document that could have
     // carried them is refused at its `type`.
     expect(UNAMBIGUOUSLY_RETIRED_NAMES).toEqual([
+      // objectui#10874 — declared on `AIFormAssistSchema` alone, read by nothing.
+      'onApplySuggestion',
       // objectui#9342 — no shipped interface declares an `onCardMove` callable
       // any more. `KanbanRendererProps.onCardMove` is a React prop on
       // `@object-ui/plugin-kanban`, not a member of a `@object-ui/types`
@@ -353,6 +366,8 @@ describe('the retired population is measured off the shipped tree (objectui#7340
       // is NOT here: `UIActionSchema.onSuccess` is LIVE (the spec's navigation
       // block), so that name stays ambiguous and is resolved by the pair rule.
       'onFailure',
+      // objectui#10874 — declared on `AIFormAssistSchema` alone, read by nothing.
+      'onRejectSuggestion',
       'onSave',
       'onSelectChange',
       'onSendMessage',

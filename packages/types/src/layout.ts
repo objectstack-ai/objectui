@@ -1016,9 +1016,20 @@ export interface TabItem {
    */
   disabled?: boolean;
   /**
-   * Tab content
+   * Tab content — THE tab item's content key.
    */
   content: SchemaNode | SchemaNode[];
+  /**
+   * RETIRED (objectui#9590) — author `content`.
+   *
+   * The `tabs` renderer used to fall back to an item-level `body` through an
+   * `any` cast when `content` was missing. This face never declared `body`.
+   * The fallback is gone and the key is refused by name: `tsc` here, and
+   * `TabItemSchema`'s alias refusal naming `content` at parse.
+   *
+   * @deprecated Retired item-level spelling of `content` — author `content`.
+   */
+  body?: never;
 }
 
 /**

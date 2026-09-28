@@ -36,9 +36,11 @@ import {
   useResizeObserver,
 } from "@object-ui/components"
 import { toast } from "sonner"
+import { isRealCalendarDate, toDisplayDate } from "@object-ui/core"
 import { useDisplayLocale } from "@object-ui/i18n"
 import { computeCriticalPath, computeProjectRescheduleDetailed, wouldCreateDependencyCycle, type WorkingCalendar, type RescheduleChange, type RescheduleOptions } from "./scheduling"
 import { shiftDayStart, type NormShiftSegments } from "./shifts"
+import { makeTzShift } from "./tzShift"
 import { useGanttTranslation } from "./useGanttTranslation"
 
 // Width, in px, of the resize "grab zone" at each end of a task bar. The visible
@@ -294,52 +296,9 @@ export const NOMINAL_DAYS: Record<GanttViewMode, number> = {
 
 export const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-/** Offset (ms east of UTC) of an IANA time zone at a given instant. */
-function tzOffsetMs(timeZone: string, at: Date): number {
-  const dtf = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hour12: false,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  });
-  const get = (type: string) => Number(dtf.formatToParts(at).find((p) => p.type === type)?.value ?? 0);
-  const asUTC = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour') % 24, get('minute'), get('second'));
-  return asUTC - Math.floor(at.getTime() / 1000) * 1000;
-}
-
-/**
- * "Shifted clock" for business-time-zone rendering: translate
- * real instants into a display space where the browser's local clock reads
- * the CONFIGURED zone's wall time. All existing local-clock logic — shift
- * bands, day columns, snapping, the today line, date labels — then renders
- * that zone correctly for every viewer; writes translate back so persisted
- * data stays real instants. Per-instant offsets keep DST zones close;
- * fixed-offset zones (Asia/Shanghai) are exact.
- */
-export function makeTzShift(timeZone?: string): {
-  delta: number;
-  to: (d: Date) => Date;
-  from: (d: Date) => Date;
-  now: () => Date;
-} {
-  const identity = { delta: 0, to: (d: Date) => d, from: (d: Date) => d, now: () => new Date() };
-  if (!timeZone) return identity;
-  try {
-    tzOffsetMs(timeZone, new Date()); // validate the IANA name early
-  } catch {
-    console.warn(`[GanttView] invalid timeZone "${timeZone}" — falling back to the browser zone`);
-    return identity;
-  }
-  const deltaAt = (d: Date) => tzOffsetMs(timeZone, d) - -d.getTimezoneOffset() * 60000;
-  const probe = deltaAt(new Date());
-  if (probe === 0) return identity;
-  return {
-    delta: probe,
-    to: (d: Date) => new Date(d.getTime() + deltaAt(d)),
-    from: (d: Date) => new Date(d.getTime() - deltaAt(d)),
-    now: () => new Date(Date.now() + deltaAt(new Date())),
-  };
-}
+// The business-time-zone shim lives in `./tzShift` since objectui#10866;
+// re-exported so every existing import of it from here keeps working.
+export { makeTzShift }
 
 /** Floor a date to the start of its column unit (Monday for weeks). */
 export function startOfUnit(date: Date, mode: GanttViewMode): Date {
@@ -538,7 +497,9 @@ export interface GanttViewProps {
   /**
    * Working calendar for duration math. When set, auto-schedule and critical
    * path count working days only — weekends (`skipWeekends`) and any `holidays`
-   * (ISO `yyyy-mm-dd` UTC keys) are skipped rather than consumed.
+   * (ISO `yyyy-mm-dd` calendar-day keys, read on the chart's own calendar: the
+   * viewer's, or the business `timeZone`'s when one is set) are skipped rather
+   * than consumed.
    */
   workingCalendar?: WorkingCalendar
   /**
@@ -872,7 +833,15 @@ export function GanttView({
   );
   const markers = React.useMemo(() => {
     if (!markersProp || tzShift.delta === 0) return markersProp;
-    return markersProp.map((m) => ({ ...m, date: tzShift.to(new Date(m.date)) }));
+    // A date-only marker names a DAY of the chart's own calendar, so it stands
+    // at that day's display-local midnight and is NOT re-based like an instant:
+    // re-basing moved it to another hour, and for some zones another day
+    // (objectui#10866). A `Date` or a date-time string is an instant and is.
+    return markersProp.map((m) =>
+      typeof m.date === 'string' && isRealCalendarDate(m.date)
+        ? { ...m, date: toDisplayDate(m.date) }
+        : { ...m, date: tzShift.to(toDisplayDate(m.date)) },
+    );
   }, [markersProp, tzShift]);
 
   const { t } = useGanttTranslation();
@@ -2319,7 +2288,10 @@ export function GanttView({
   const resolvedMarkers = React.useMemo(() => {
     return (markers ?? [])
       .map((m, i) => {
-        const date = m.date instanceof Date ? m.date : new Date(m.date);
+        // `toDisplayDate` reads a date-only string at LOCAL midnight of its
+        // day; the engine's own parse read UTC midnight, which stood the line
+        // on the previous day west of UTC (objectui#10866). A `Date` passes.
+        const date = toDisplayDate(m.date);
         return {
           index: i,
           label: m.label,
@@ -3863,8 +3835,13 @@ export function GanttView({
                             task,
                             changes: {
                               title: editValues.title,
-                              start: new Date(editValues.start),
-                              end: new Date(editValues.end),
+                              // The date inputs hold the LOCAL day they were
+                              // seeded with; `toDisplayDate` reads it back at
+                              // local midnight, where the engine's parse read
+                              // UTC midnight and moved an untouched bar to the
+                              // day before west of UTC (objectui#10866).
+                              start: toDisplayDate(editValues.start),
+                              end: toDisplayDate(editValues.end),
                               progress: Number(editValues.progress) || 0,
                             },
                           }]);

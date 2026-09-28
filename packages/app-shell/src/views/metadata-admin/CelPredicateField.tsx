@@ -28,6 +28,12 @@
  * The test-run affordance lives one level up (per-policy) in
  * {@link file://./CelTestRunDialog.tsx}, so both `USING` and `CHECK` can be
  * dry-run against one sample record.
+ *
+ * Its words read the `t` its host binds to the designer locale. That includes
+ * the two advisories the lint words itself (the wrong-layer root, the
+ * non-pushdown-able read filter): `lintCelPredicate` hands them back as
+ * catalogue keys with their values, and the findings list reads them through
+ * the same `t` (objectui#10862). The engine's messages pass through as written.
  */
 
 import * as React from 'react';
@@ -114,6 +120,18 @@ export interface CelPredicateFieldProps {
 }
 
 const EMPTY_FIELDS: string[] = [];
+
+/**
+ * A finding's words: the producer's own message as written, or — for an
+ * advisory the lint words itself — its catalogue row read through the host's
+ * `t`, with each `{token}` hole filled from the values the lint returned. The
+ * fill is the one `tFormat` does, on a row the host already translated.
+ */
+function issueText(iss: CelLintIssue, t: (k: string) => string): string {
+  if (iss.messageKey === undefined) return iss.message;
+  const vars = iss.messageVars;
+  return t(iss.messageKey).replace(/\{(\w+)\}/g, (hole, name: string) => (name in vars ? vars[name] : hole));
+}
 
 export function CelPredicateField({
   value,
@@ -405,13 +423,13 @@ export function CelPredicateField({
           {errors.map((iss, i) => (
             <li key={`e${i}`} className="flex items-start gap-1.5 text-[11px] text-destructive">
               <AlertCircle className="mt-[1px] h-3 w-3 shrink-0" />
-              <span>{iss.message}</span>
+              <span>{issueText(iss, t)}</span>
             </li>
           ))}
           {warnings.map((iss, i) => (
             <li key={`w${i}`} className="flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-500">
               <AlertTriangle className="mt-[1px] h-3 w-3 shrink-0" />
-              <span>{iss.message}</span>
+              <span>{issueText(iss, t)}</span>
             </li>
           ))}
         </ul>

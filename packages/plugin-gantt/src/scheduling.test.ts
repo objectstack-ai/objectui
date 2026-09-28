@@ -179,13 +179,15 @@ describe('working calendar', () => {
     const start = c.start.getTime();
     const end = c.end.getTime();
     let working = 0;
+    // Local days: the working calendar counts the chart's own calendar days
+    // since objectui#10866 (the suite pins `TZ=UTC`, where the two agree).
     for (let t = start; t < end; t += 86_400_000) {
-      const wd = new Date(t).getUTCDay();
+      const wd = new Date(t).getDay();
       if (wd !== 0 && wd !== 6) working++;
     }
     expect(working).toBe(3);
-    expect(new Date(start).getUTCDay()).not.toBe(0); // not a Sunday start
-    expect(new Date(start).getUTCDay()).not.toBe(6); // not a Saturday start
+    expect(new Date(start).getDay()).not.toBe(0); // not a Sunday start
+    expect(new Date(start).getDay()).not.toBe(6); // not a Saturday start
   });
 
   it('treats holidays as non-working days', () => {

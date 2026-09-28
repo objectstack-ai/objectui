@@ -301,7 +301,7 @@ const DECLARED: Exemption[] = [
     reason: 'the end-date twin of the ISO-8601 formatter above, feeding the second `<input type="date">`.',
   },
   {
-    file: 'packages/plugin-gantt/src/GanttView.tsx',
+    file: 'packages/plugin-gantt/src/tzShift.ts',
     expression: "new Intl.DateTimeFormat('en-US', {",
     count: 1,
     verdict: 'deliberate fallback',

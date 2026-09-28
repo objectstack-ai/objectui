@@ -50,8 +50,10 @@ import {
 } from 'lucide-react';
 import { resolveHref } from '@object-ui/layout';
 import type { MetadataPreviewProps } from '../preview-registry.js';
+import { t as tr } from '../i18n.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 import { AppNavCanvas } from './AppNavCanvas.js';
+import { withNodes } from './row-nodes.js';
 
 /** The nine members of the spec's navigation union. */
 type NavKind =
@@ -109,7 +111,11 @@ function navTarget(it: Record<string, unknown>, kind?: NavKind): string | undefi
   }
 }
 
-function normalizeNav(raw: unknown, appName: string): NavItem[] {
+/**
+ * `unnamed` is the designer's word for an entry with children and no label
+ * (`engine.appPreview.unnamed`, in the preview's locale — objectui#10862).
+ */
+function normalizeNav(raw: unknown, appName: string, unnamed: string): NavItem[] {
   if (!Array.isArray(raw)) return [];
   return raw
     .map((it: any): NavItem | null => {
@@ -138,8 +144,8 @@ function normalizeNav(raw: unknown, appName: string): NavItem[] {
           href = undefined;
         }
       }
-      const children = Array.isArray(it.children) ? normalizeNav(it.children, appName) : undefined;
-      return { id: typeof it.id === 'string' ? it.id : undefined, label: label || '(unnamed)', kind, target, href, external, children };
+      const children = Array.isArray(it.children) ? normalizeNav(it.children, appName, unnamed) : undefined;
+      return { id: typeof it.id === 'string' ? it.id : undefined, label: label || unnamed, kind, target, href, external, children };
     })
     .filter((x): x is NavItem => x !== null);
 }
@@ -188,9 +194,10 @@ function findFirstLanding(items: NavItem[]): NavItem | undefined {
   return undefined;
 }
 
-export function AppPreview({ name, draft, editing, selection, onSelectionChange, onPatch }: MetadataPreviewProps) {
+export function AppPreview({ name, draft, editing, selection, onSelectionChange, onPatch, locale }: MetadataPreviewProps) {
   const appName = String((draft as any).name ?? name ?? '');
   const label = (draft as any).label ?? appName;
+  const unnamed = tr('engine.appPreview.unnamed', locale);
   // The landing page is DERIVED, never authored: it is the first navigation
   // item that actually addresses something. The app used to be able to pin it
   // with `homePageId`, but spec 17.0.0 retired that key (objectstack#4667 /
@@ -207,10 +214,10 @@ export function AppPreview({ name, draft, editing, selection, onSelectionChange,
       ['menu', (draft as any).menu],
     ];
     for (const [k, c] of candidates) {
-      if (Array.isArray(c) && c.length) return { rootKey: k, navItems: normalizeNav(c, appName) };
+      if (Array.isArray(c) && c.length) return { rootKey: k, navItems: normalizeNav(c, appName, unnamed) };
     }
     return { rootKey: null, navItems: [] };
-  }, [draft, appName]);
+  }, [draft, appName, unnamed]);
 
   // Resolve the landing entry the same way `resolveLandingRoute` does in the
   // console shell, so the author sees WHICH entry the app will open on:
@@ -242,9 +249,9 @@ export function AppPreview({ name, draft, editing, selection, onSelectionChange,
             target="_blank"
             rel="noreferrer"
             className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-            title="Open this app in a new tab"
+            title={tr('engine.appPreview.openTitle', locale)}
           >
-            Open <ExternalLink className="h-3 w-3" />
+            {tr('engine.appPreview.open', locale)} <ExternalLink className="h-3 w-3" />
           </a>
         )
       }
@@ -257,11 +264,11 @@ export function AppPreview({ name, draft, editing, selection, onSelectionChange,
             <div className="text-xs text-muted-foreground mt-1">
               {homeItem ? (
                 <>
-                  Home: opens the first navigation item
+                  {tr('engine.appPreview.homeFirst', locale)}
                   <span className="ml-1.5">→ {homeItem.label}</span>
                 </>
               ) : (
-                <>Home: no navigation item yields a route yet</>
+                <>{tr('engine.appPreview.homeNone', locale)}</>
               )}
             </div>
           </div>
@@ -278,7 +285,7 @@ export function AppPreview({ name, draft, editing, selection, onSelectionChange,
             />
           ) : navItems.length === 0 ? (
             <PreviewMessage>
-              No top-level nav items. Add <code>navigation</code> entries in the Form tab to populate the app's navigation.
+              {withNodes(tr('engine.appPreview.empty', locale), { navigation: <code>navigation</code> })}
             </PreviewMessage>
           ) : (
             <div className="border rounded divide-y">
@@ -290,6 +297,7 @@ export function AppPreview({ name, draft, editing, selection, onSelectionChange,
                   path={`${rootKey}[${i}]`}
                   onSelect={onSelect}
                   selectedId={selectedId}
+                  locale={locale}
                 />
               ))}
             </div>
@@ -306,12 +314,14 @@ function NavRow({
   path,
   onSelect,
   selectedId,
+  locale,
 }: {
   item: NavItem;
   depth: number;
   path: string;
   onSelect?: (path: string, item: NavItem) => void;
   selectedId: string | null;
+  locale?: string;
 }) {
   const Icon = kindIcon(item.kind);
   const url = item.href;
@@ -331,9 +341,9 @@ function NavRow({
         ) : (
           <span
             className="text-[10px] uppercase tracking-wider text-amber-700"
-            title="Every navigation item needs a `type` discriminator — this entry will be rejected on save."
+            title={tr('engine.appPreview.noTypeTitle', locale)}
           >
-            no type
+            {tr('engine.appPreview.noType', locale)}
           </span>
         )}
         {item.target && (
@@ -359,6 +369,7 @@ function NavRow({
           path={`${path}.children[${i}]`}
           onSelect={onSelect}
           selectedId={selectedId}
+          locale={locale}
         />
       ))}
     </>

@@ -217,6 +217,18 @@ export const ADJUDICATED = new Map([
       walker: 'not-markdown: sweeps package `src` directories for `.ts` sources',
     },
   ],
+  // objectui#10859. Extracts `@object-ui/plugin-ai`'s README "Schema-Driven
+  // Usage" block and runs it through `objectui validate` end to end -- so an edit
+  // to that README IS an edit to this test's input. The scanner also resolves the
+  // bare `'README.md'` segment of that path against this package and the root;
+  // an `fs` trace of the file's run opened the plugin-ai README and nothing else.
+  [
+    'packages/cli/src/__tests__/registered-types-validate-ratchet-10859.test.ts',
+    {
+      reads: ['packages/plugin-ai/README.md'],
+      notRead: ['README.md', 'packages/cli/README.md'],
+    },
+  ],
   [
     'packages/components/src/__tests__/div-guidance-names-box.test.tsx',
     {
@@ -403,6 +415,19 @@ export const ADJUDICATED = new Map([
     {
       reads: ['content/docs/**'],
       walker: 'markdown-tree: walks `content/docs` and refuses the retired callback shape in every `.md`/`.mdx` under it',
+    },
+  ],
+  // objectui#10859. Extracts `@object-ui/plugin-ai`'s README "Schema-Driven
+  // Usage" block and runs it through `safeValidateSchema` and the strict
+  // authoring face -- the `timeline-readme-schema-example-10824.test.ts` shape.
+  // The scanner also resolves the bare `'README.md'` segment of that path against
+  // this package and the root; an `fs` trace of the file's run opened the
+  // plugin-ai README and nothing else.
+  [
+    'packages/types/src/__tests__/ai-zod-arms-10859.test.ts',
+    {
+      reads: ['packages/plugin-ai/README.md'],
+      notRead: ['README.md', 'packages/types/README.md'],
     },
   ],
   [

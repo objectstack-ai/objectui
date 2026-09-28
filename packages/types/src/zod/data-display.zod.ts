@@ -565,7 +565,7 @@ export const TreeViewSchema = BaseSchema.extend({
   // `./tombstone.zod.ts`; the base-vs-extended contrast is pinned in
   // `../__tests__/tree-view-data-retired-6951.test.ts`.
   data: retirementTombstone(
-    'RETIRED (objectui#6951) — `data` is no longer part of TreeViewSchema; write `nodes` (or bind the tree with '
+    'RETIRED (ADR-0049) — `data` is no longer part of TreeViewSchema; write `nodes` (or bind the tree with '
     + '`bind`). It was the second spelling of the one inline-nodes slot, read only as the last limb of '
     + '`boundData || schema.nodes || schema.data || []`, and was retired under ADR-0049 enforce-or-remove with no '
     + 'deprecation window (maintainer ruling B1, 2026-09-04). The renderer reads `bind` then `nodes` now, so an '
@@ -678,7 +678,7 @@ export const ChartDataSeriesSchema = z.object({
   // exists to end. Kept declared and unwritable, so an authored value is a
   // NAMED refusal carrying its own remedy.
   data: retirementTombstone(
-    'RETIRED (objectui#6896) — `ChartDataSeries.data` was never read: '
+    'RETIRED (ADR-0049) — `ChartDataSeries.data` was never read: '
     + '`normalizeChartSchema` takes rows from the chart node\'s chart-level `data` and picks a '
     + 'column with the series\' `name`/`dataKey`, so an authored array was dropped in silence. '
     + 'Delete the key; put the rows on the chart-level `data` and the category axis on `xAxisKey`.',

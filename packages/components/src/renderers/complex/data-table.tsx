@@ -2255,7 +2255,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         that path entirely, so an authored `visibleWhen` on an
                         `emptyAction` was accepted by the spec and then never
                         evaluated — declared-not-enforced (objectui#5926 gap 1),
-                        the same class `c86185eb5` / #5505 closed for
+                        the same class `c86185eb5` closed for
                         `record:alert`, one level down.
 
                         Routing to the ONE gate rather than adding a local

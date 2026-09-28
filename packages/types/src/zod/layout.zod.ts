@@ -118,7 +118,7 @@ export const TextSchema = BaseSchema.extend({
   // silent blank. The tombstone refuses it BY NAME instead — one string, both
   // channels (parse-time message and `.describe()`), see `./tombstone.zod.ts`.
   value: retirementTombstone(
-    'RETIRED (objectui#6951) — `value` is no longer part of TextSchema; write `content`. It was a second '
+    'RETIRED (ADR-0049) — `value` is no longer part of TextSchema; write `content`. It was a second '
     + 'spelling of the one content slot, read only as the fallback limb of `schema.content || schema.value`, '
     + 'and was retired under ADR-0049 enforce-or-remove with no deprecation window (maintainer ruling A1, '
     + '2026-09-04). The renderer reads `content` alone now, so an authored `value` would render nothing. '

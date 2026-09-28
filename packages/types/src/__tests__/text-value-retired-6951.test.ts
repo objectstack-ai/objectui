@@ -58,7 +58,7 @@ const ROOT = resolve(__dirname, '../../../..');
  * on: the retired key, and the spelling to write instead.
  */
 const GUIDANCE =
-  'RETIRED (objectui#6951) — `value` is no longer part of TextSchema; write `content`. It was a second '
+  'RETIRED (ADR-0049) — `value` is no longer part of TextSchema; write `content`. It was a second '
   + 'spelling of the one content slot, read only as the fallback limb of `schema.content || schema.value`, '
   + 'and was retired under ADR-0049 enforce-or-remove with no deprecation window (maintainer ruling A1, '
   + '2026-09-04). The renderer reads `content` alone now, so an authored `value` would render nothing. '
@@ -144,7 +144,7 @@ describe('TextSchema.value is RETIRED — the Zod half of the tombstone (objectu
       Object.keys(TextSchema.shape),
       'value left the mirror — under .passthrough() the retired key becomes a silent blank',
     ).toContain('value');
-    expect(describeOf(TextSchema, 'value')).toContain('RETIRED (objectui#6951)');
+    expect(describeOf(TextSchema, 'value')).toContain('RETIRED (ADR-0049)');
   });
 });
 

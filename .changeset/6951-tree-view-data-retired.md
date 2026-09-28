@@ -32,7 +32,7 @@ authored either spelling.
 
 now fails validation with:
 
-> RETIRED (objectui#6951) — `data` is no longer part of TreeViewSchema; write
+> RETIRED (ADR-0049) — `data` is no longer part of TreeViewSchema; write
 > `nodes` (or bind the tree with `bind`). It was the second spelling of the one
 > inline-nodes slot, read only as the last limb of
 > `boundData || schema.nodes || schema.data || []`, and was retired under

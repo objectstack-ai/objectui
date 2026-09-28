@@ -10,9 +10,10 @@ change, as a 9-character sha, the ruling by its date where the sentence cites a 
 a live successor (objectui#10803, the third batch). Some of these docblocks reach the
 emitted `.d.ts` and `.js`; none of them moves a claim, and none of these comment edits
 changes a code or type token. No published behaviour changes through them, so this
-declares no release. The runtime text the sweep touches, two zod `.describe()` strings in
-`@object-ui/types` and one CEL authoring advisory in `@object-ui/app-shell`, is declared on
-its own as a patch in `10803-third-batch-runtime-strings.md`.
+declares no release. The runtime text the sweep touches, four tombstone guidance strings
+and two zod `.describe()` strings in `@object-ui/types` and one CEL authoring advisory in
+`@object-ui/app-shell`, is declared on its own as a patch in
+`10803-third-batch-runtime-strings.md`.
 
 The same repair in the pending changesets that carried these citations is prose-only, and
 their frontmatter is byte-identical.

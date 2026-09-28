@@ -72,8 +72,8 @@
  *
  * {@link detectNonCanonicalRowSpelling} is the OFFLINE instrument: it classifies
  * an authored predicate's spelling against a row without evaluating it, so a
- * sweep over stored or in-repo metadata (the `702c48a62` corpus sweep,
- * PR #5758's recipe) can find the documents that still need rewriting. It is
+ * sweep over stored or in-repo metadata (the `702c48a62` corpus sweep's
+ * recipe) can find the documents that still need rewriting. It is
  * exported for that purpose and nothing on the hot path calls it — the runtime
  * warning half Phase 1 built on it (`warnNonCanonicalRowSpelling`,
  * `resetRowPredicateCanonWarnings`) was removed with the bindings.

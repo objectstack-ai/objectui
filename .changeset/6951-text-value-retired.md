@@ -34,7 +34,7 @@ nodes, and were excluded by kind.)
 
 now fails validation with:
 
-> RETIRED (objectui#6951) — `value` is no longer part of TextSchema; write
+> RETIRED (ADR-0049) — `value` is no longer part of TextSchema; write
 > `content`. It was a second spelling of the one content slot, read only as the
 > fallback limb of `schema.content || schema.value`, and was retired under
 > ADR-0049 enforce-or-remove with no deprecation window (maintainer ruling A1,

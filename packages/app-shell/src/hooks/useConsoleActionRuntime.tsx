@@ -23,7 +23,7 @@
 
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth, createAuthenticatedFetch, type AuthOrganization } from '@object-ui/auth';
+import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { useObjectLabel, useObjectTranslation } from '@object-ui/i18n';
 import { ActionProvider, useGlobalUndo, useMetadata, type ActionProviderProps } from '@object-ui/react';
@@ -53,19 +53,10 @@ import { resolvePageVarTokens } from '../utils/resolvePageVarTokens.js';
 import { interpretFlowResponse, judgeFlowLaunch } from '../utils/flowResponse.js';
 import { createConsoleServerActionHandler } from '../utils/consoleServerAction.js';
 import { modalTargetRefusalMessage } from '../utils/modalTargetDiagnostics.js';
+import { actionContextOrg } from '../utils/actionContextOrg.js';
 import type { ConsoleActionDispatch } from '../consoleActionDispatch.js';
 
 const FALLBACK_USER = { id: 'current-user', name: 'Demo User', isPlatformAdmin: false };
-
-/**
- * The active organization as the action context carries it: the identity
- * fields the platform's `OrganizationSchema` names (`id`, `slug`, `name`), or
- * `null` when no organization is active. One projection for every context key
- * that publishes the organization, so they cannot drift apart.
- */
-function actionContextOrg(org: AuthOrganization | null | undefined) {
-  return org ? { id: org.id, slug: org.slug, name: org.name } : null;
-}
 
 /**
  * Extract a human-readable message from an error response body — shared with

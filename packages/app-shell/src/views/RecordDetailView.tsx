@@ -37,6 +37,7 @@ import { RECORD_DETAIL_TAB_PARAM, RECORD_TRAIL_PARAM, decodeRecordTrail, buildRe
 import { resolveActionParams } from '../utils/resolveActionParams.js';
 import { createConsoleServerActionHandler } from '../utils/consoleServerAction.js';
 import { modalTargetRefusalMessage } from '../utils/modalTargetDiagnostics.js';
+import { actionContextOrg } from '../utils/actionContextOrg.js';
 import { interpretFlowResponse, judgeFlowLaunch } from '../utils/flowResponse.js';
 import { useRecordBreadcrumbTitle } from '../context/NavigationContext.js';
 // Audit provenance renders as the one-line <RecordMetaFooter>; the other
@@ -2510,9 +2511,13 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         {/* No `approval` handler in the set below (objectui#3055): the record
             page has no bespoke approval action TYPE any more. A decision is an
             ordinary `type:'api'` action declared on `sys_approval_request` and
-            run by the shared runtime the decision bar mounts. */}
+            run by the shared runtime the decision bar mounts.
+            `org` is the spec-declared `${ctx.org.*}` scope. This provider
+            shadows the shell runtime's for every action on the record page, so
+            it carries the same `actionContextOrg` projection, or
+            `${ctx.org.id}` interpolates empty here (objectui#10918). */}
         <ActionProvider
-          context={{ record: pageRecord || {}, objectName, user: currentUser }}
+          context={{ record: pageRecord || {}, objectName, user: currentUser, org: actionContextOrg(activeOrganization) }}
           onConfirm={confirmHandler}
           onToast={toastHandler}
           onNavigate={navigateHandler}

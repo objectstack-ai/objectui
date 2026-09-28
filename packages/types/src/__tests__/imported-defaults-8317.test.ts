@@ -80,6 +80,10 @@ import {
   ChartDrillDownSchema as SpecChartDrillDownSchema,
   UserFilterFieldSchema as SpecUserFilterFieldSchema,
   ViewFilterRuleSchema as SpecViewFilterRuleSchema,
+  // objectui#10859 batch 2 — the `ComponentPropsMap` rows of the two public
+  // blocks `objectql.zod.ts` arms.
+  ObjectMetricPropsSchema as SpecObjectMetricPropsSchema,
+  ObjectMasterDetailFormPropsSchema as SpecObjectMasterDetailFormPropsSchema,
   // objectui#10872 — the `ComponentPropsMap` rows the public-block arms read.
   PageHeaderProps as SpecPageHeaderProps,
   PageTabsProps as SpecPageTabsProps,
@@ -228,6 +232,11 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // `listViews` record, crossed through this boundary, so the container is
   // measured here like every other crossing.
   ['ViewSchema', SpecViewSchema],
+  // objectui#10859 batch 2: the `object-metric` and `object-master-detail-form`
+  // arms' `properties` are their `ComponentPropsMap` rows, crossed through this
+  // boundary, so both rows are measured here like every other crossing.
+  ['ObjectMetricPropsSchema', SpecObjectMetricPropsSchema],
+  ['ObjectMasterDetailFormPropsSchema', SpecObjectMasterDetailFormPropsSchema],
   // objectui#10872: each ADR-0080 public-block arm's `properties` is the
   // block's `ComponentPropsMap` row, crossed through this boundary, so every
   // row is measured here like every other crossing (`page:section`,

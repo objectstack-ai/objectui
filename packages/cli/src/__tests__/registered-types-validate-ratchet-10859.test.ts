@@ -65,10 +65,11 @@ import { validate } from '../commands/validate.js';
 
 /**
  * The head's refused count (objectui#10859 batch 1: 79 on `main` before it,
- * minus the three `@object-ui/plugin-ai` arms). LOWER it when a batch arms more
- * keys; never raise it.
+ * minus the three `@object-ui/plugin-ai` arms; batch 2: minus `pivot`,
+ * `object-metric` and `object-master-detail-form`). LOWER it when a batch arms
+ * more keys; never raise it.
  */
-const REFUSED_AT_TYPE = 76;
+const REFUSED_AT_TYPE = 73;
 
 /**
  * The head's refused count over the NAMESPACED keys (objectui#10872 batch 1:
@@ -140,6 +141,13 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
 
   it('counts the three plugin-ai keys as armed (objectui#10859 batch 1)', () => {
     for (const key of ['ai-form-assist', 'ai-recommendations', 'nl-query']) {
+      expect(BARE_KEYS, key).toContain(key);
+      expect(refusedAtType(key), key).toBe(false);
+    }
+  });
+
+  it('counts the three keys batch 2 armed (objectui#10859 batch 2)', () => {
+    for (const key of ['pivot', 'object-metric', 'object-master-detail-form']) {
       expect(BARE_KEYS, key).toContain(key);
       expect(refusedAtType(key), key).toBe(false);
     }

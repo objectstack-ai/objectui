@@ -497,7 +497,9 @@ export interface GanttViewProps {
   /**
    * Working calendar for duration math. When set, auto-schedule and critical
    * path count working days only — weekends (`skipWeekends`) and any `holidays`
-   * (ISO `yyyy-mm-dd` UTC keys) are skipped rather than consumed.
+   * (ISO `yyyy-mm-dd` calendar-day keys, read on the chart's own calendar: the
+   * viewer's, or the business `timeZone`'s when one is set) are skipped rather
+   * than consumed.
    */
   workingCalendar?: WorkingCalendar
   /**

@@ -12,9 +12,7 @@ Chinese text:
   ratio-axis note, the page preview's sample-record picker, the validation
   rule's pills, section headings and redirect sentences for the removed rule
   types, and the hint beneath every preview's error box;
-- the page block canvas: its region, slot and container labels, empty
-  states, drop target, rename tooltip, select labels and the add-block
-  picker's search box, category headings and block names;
+- the page block canvas: its region and container labels, its empty states (no regions, an empty region, an inherited slot, an empty container group), the add-region and add-block buttons, drop target, rename tooltip, select labels, each block's render-failure hint and the add-block picker's search box, category headings and block names;
 - the page source editor's label and error hint;
 - the view column manager's heading, empty note, remove controls and
   positional column label;

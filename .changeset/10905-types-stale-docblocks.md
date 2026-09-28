@@ -14,6 +14,7 @@ issue under `options.kanban` there; `listViews` is the protocol's strict record
 by reference, which refuses a named view's `options` bag whole, and the named-view
 check reports at `listViews.KEY.kanban.groupBy` only.
 
-No behaviour, type, accept set or `.describe()` string moves. The `series`
-sentence is emitted into the published `.d.ts`, but it and the change that made it
-false are both unreleased, so no release ever carried the false text.
+No behaviour, type, accept set or `.describe()` string moves. Both docblocks reach
+the build output only as comment text (the `series` one in the emitted `.d.ts`,
+the route overview in the zod module's JavaScript), so there is nothing for a
+consumer to act on.

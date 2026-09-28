@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { usePreviewDrafts } from '../../preview/PreviewModeContext.js';
 import { createConsoleMetadataClient } from './metadataClientFactory.js';
 import { emitSaveAdvisories, type TranslateFn } from '../../providers/saveAdvisoryToast.js';
+import type { FormViewSpec } from './form-spec.js';
 
 /**
  * A declarative **type-level** action surfaced on a metadata type by the
@@ -89,8 +90,16 @@ export interface RichMetadataTypeEntry {
   loadOrder?: number;
   /** JSONSchema for the type's item shape (Phase 3a addition). */
   schema?: Record<string, unknown>;
-  /** Canonical FormView layout for the type's editor (Phase 3c+). */
-  form?: Record<string, unknown>;
+  /**
+   * Canonical FormView layout for the type's editor (Phase 3c+).
+   *
+   * Typed as the authoring {@link FormViewSpec} rather than an untyped record
+   * handed on with `as any` (objectui#8725). The document is still deserialised
+   * without validation, so this type is a claim about the channel, and it is an
+   * honest one only because `SchemaForm` resolves a `{ group }` section and
+   * refuses a section with no member source instead of assuming `fields`.
+   */
+  form?: FormViewSpec;
   /** UI hints (icon, color, etc.) the framework may include. */
   ui?: Record<string, unknown>;
 }

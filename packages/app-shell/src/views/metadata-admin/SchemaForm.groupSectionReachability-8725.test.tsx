@@ -75,14 +75,27 @@ export function groupSectionTypePins(): void {
   const groupIsTyped: FormSectionSpec = { group: 42 };
   void groupIsTyped;
 
-  // ── PIN T2 — the registry entry's `form` is still an untyped server document
-  // (arm C, the retype to `FormViewSpec`, lands after parts 1 and 2), so the
-  // crash document of the original measurement is assignable to it.
-  const serverRegistryFormAdmitsIt: NonNullable<RichMetadataTypeEntry['form']> = {
+  // ── PIN T2 — arm C. The registry entry's `form` is the authoring type, not
+  // `Record<string, unknown>` handed on with `as any`. The type now describes the
+  // channel that actually carries a form to this renderer.
+  const registryFormIsTheViewSpec: Assert<
+    Equal<NonNullable<RichMetadataTypeEntry['form']>, FormViewSpec>
+  > = true;
+  void registryFormIsTheViewSpec;
+  // The crash document of the original measurement is a legal value of it...
+  const serverFormWithGroupSection: NonNullable<RichMetadataTypeEntry['form']> = {
     type: 'simple',
-    sections: [{ label: 'Contact', group: 'contact_info' }],
+    sections: [{ group: 'contact_info' }],
   };
-  void serverRegistryFormAdmitsIt;
+  void serverFormWithGroupSection;
+  // ...and a key the form contract does not declare is not. Under the old
+  // `Record<string, unknown>` this directive was unused (TS2578).
+  const refusesAnUndeclaredKey: NonNullable<RichMetadataTypeEntry['form']> = {
+    type: 'simple',
+    // @ts-expect-error objectui#8725 — not a `FormViewSpec` key.
+    notAFormViewKey: true,
+  };
+  void refusesAnUndeclaredKey;
 }
 
 const schema = {

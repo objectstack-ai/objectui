@@ -1004,8 +1004,8 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // with visual-regression evidence across all four surfaces in one stroke.
   // ⛔ The ONE cast objectui#8651 left standing, deliberately. `navigation` is
   // objectui#8652's key: the maintainer ruled B there — declare it on the
-  // platform element schemas first, then mirror — and that card is `pm:blocked`
-  // on objectstack#17987. Its declaredness verdict at this read site is
+  // platform element schemas first, then mirror — and that card waits on
+  // objectstack `e233db9db`. Its declaredness verdict at this read site is
   // UNCHANGED by this card: through the retired union it was undeclared too,
   // and it is undeclared on `ObjectCalendarSchema`. The rule that makes that
   // come out right is NOT "declared on every arm". In the checker reading
@@ -1086,7 +1086,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       // Surface the failure — never silently snap the event back. A row-level
       // security denial (403) is the common case: the user lacks permission to
       // reschedule this record. (cloud#864)
-      // …unless the AUTHOR opted in. `userMessage` (objectstack#9934) is the
+      // …unless the AUTHOR opted in. `userMessage` (objectstack `79c46da90`) is the
       // producer-side marking: a field set at throw time to say "this text is
       // for the end user". It is a SEPARATE field from `message`, so nothing
       // unmarked can reach here — the substitution below still governs every

@@ -43,7 +43,7 @@ export interface MePermissionsResponse {
     viewAllRecords?: boolean;
     modifyAllRecords?: boolean;
     /**
-     * [#3391] Server-resolved effective API operation set for this object
+     * [objectstack#3391] Server-resolved effective API operation set for this object
      * (enum-ordered). Present only when the object tightens exposure via
      * `apiMethods`; absent = unrestricted (client default-allow). The frontend
      * consumes THIS, never a raw `apiMethods` whitelist.
@@ -343,7 +343,7 @@ export function MePermissionsProvider({
         update: 'allowEdit',
         edit: 'allowEdit',
         delete: 'allowDelete',
-        // [#3391] import derives from create∨update, export from list(read) —
+        // [objectstack#3391] import derives from create∨update, export from list(read) —
         // gate them on the base write/read permission bit (the per-object
         // effective API operation set adds the finer apiMethods layer on top,
         // consumed via getObjectApiOperations + resolveCrudAffordances).

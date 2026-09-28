@@ -63,7 +63,7 @@ import { MoreHorizontal, RefreshCw } from 'lucide-react';
  * `page:footer`, `page:sidebar` (objectui#4027).
  *
  * `@objectstack/spec` declares all three through one shared `PageContainerProps`
- * whose single key is `children` (objectstack#5775, PR objectstack#6281, merged
+ * whose single key is `children` (objectstack#5775, objectstack `85ec26d28`, merged
  * 2026-08-07). They had been declared `EmptyProps` upstream — "this component
  * takes zero props" — while their renderers have always rendered a child list;
  * this side carried the mirror-image gap, registering all three with no `inputs`

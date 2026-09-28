@@ -1364,7 +1364,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
         // Surface the failure — never silently snap the card back. A row-level
         // security denial (403) is the common case: the user lacks permission
         // to change this record's status. (cloud#864)
-        // …unless the AUTHOR opted in. `userMessage` (objectstack#9934) is the
+        // …unless the AUTHOR opted in. `userMessage` (objectstack `79c46da90`) is the
         // producer-side marking: a field set at throw time to say "this text is
         // for the end user". It is a SEPARATE field from `message`, so nothing
         // unmarked can reach here — the substitution below still governs every

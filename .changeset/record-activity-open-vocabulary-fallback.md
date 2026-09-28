@@ -10,7 +10,7 @@ queryable and invisible, with only a console warning to say so. It now renders
 through a defined fallback presentation (`UNMAPPED_ACTIVITY_FEED_TYPE`, the
 generic `system` feed type), still announced once per distinct type.
 
-This follows the maintainer ruling of 2026-08-24 on objectstack#11507,
+This follows the maintainer ruling of 2026-08-24 (objectstack `88b9d749a`),
 direction 4: `sys_activity.type` is **author-extensible**. Every field on
 `sys_activity` is `readonly: true` and objectql's `validateRecord` skips
 readonly fields on both write branches, and ADR-0052 §5b.2 forwards an author's

@@ -8,7 +8,7 @@ The permission matrix already locks a set a code package ships (the artifact
 tier: `isArtifactBackedLayer`, the client mirror of the server's
 `isArtifactBacked`), and its guidance offered only the pre-ruling remedies —
 edit the source artifact and redeploy, a new runtime set, the
-`OS_METADATA_WRITABLE` hatch. The ruled path (objectstack#11513, 「同意 第一步
+`OS_METADATA_WRITABLE` hatch. The ruled path (objectstack `e170b0ae5`, 「同意 第一步
 (创业阶段,Salesforce 式)」: lock the base, clone to customize) was never on the
 screen, and the metadata-door refusal a Studio save receives names only the
 pre-ruling remedies; the data door's refusal is the one that names the Clone

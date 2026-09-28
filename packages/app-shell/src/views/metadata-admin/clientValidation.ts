@@ -668,7 +668,7 @@ const LOADERS: Record<string, SchemaLoader> = {
   action: async () => (await import('@objectstack/spec/ui')).ActionSchema as unknown as ZodLikeSchema,
   // `theme` is intentionally absent. It was never a registered metadata type,
   // so metadata-admin never asks for it — and the spec retired the whole
-  // `ui/theme.zod.ts` module (objectstack#10485 / PR objectstack#10695), so the
+  // `ui/theme.zod.ts` module (objectstack `35ad101bc`), so the
   // `ThemeSchema` the old entry read off this subpath is gone upstream. Nothing
   // here ever went red because objectui's own `@objectstack/spec` pin (17.1.0)
   // still publishes that symbol: the entry type-checked and resolved, and would

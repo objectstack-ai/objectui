@@ -221,7 +221,7 @@ const CANVAS_OWNED_KEYS: Record<string, string[]> = {
  * ## Why this is a function and not two inline reads
  *
  * Both steps of the loop send this value — `doSave` binds the draft row to the
- * package (`PUT ?package=`), and since objectstack#10354 `doPublish` states the
+ * package (`PUT ?package=`), and since objectstack `9e04c3e35`, `doPublish` states the
  * same package on the promotion (`POST .../publish?package=`) so #9612's
  * package-closure narrowing at the runtime publish gate is reachable from an
  * HTTP-driven promotion at all. One value, one spelling, both steps — which
@@ -1680,7 +1680,7 @@ function MetadataResourceEditPageImpl({
       // Absent (not empty) when the designer holds no binding: the framework
       // branches on the KEY BEING PRESENT downstream, where a present-but-null
       // package pins the draft lookup to unbound rows and a packaged draft
-      // stops being found (`no_draft`) — see objectstack#10354's own warning.
+      // stops being found (`no_draft`) — see objectstack `9e04c3e35`'s own warning.
       const activePackage = readActivePackageBinding();
       await client.publish<any>(type, name, {
         ...(activePackage ? { packageId: activePackage } : {}),

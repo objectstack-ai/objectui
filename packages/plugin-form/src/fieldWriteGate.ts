@@ -162,7 +162,7 @@ export function applyFieldPermissions<T extends Record<string, any>>(
 /**
  * The principal surface {@link gateFormFields} reads: the field-level resolver
  * plus the server's effective API operation set for an object (`/me/permissions`
- * `apiOperations`, #3391). `undefined` from it means "no effective set", which
+ * `apiOperations`, objectstack#3391). `undefined` from it means "no effective set", which
  * leaves the object's own affordance standing.
  */
 export interface FormFieldPrincipal extends FieldWritePrincipal {

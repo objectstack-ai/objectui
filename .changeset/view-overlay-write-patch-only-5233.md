@@ -24,7 +24,7 @@ delete the user's view rather than narrow it.
 
 This is the write half of the maintainer's 2026-08-12 ruling (objectstack#7494).
 It was blocked until `columnState` was admitted to the view-metadata surface as
-an explicitly runtime-only overlay key (objectstack#9933, released in
+an explicitly runtime-only overlay key (objectstack `d5552ca13`, released in
 `@objectstack/spec` 17.1.0) — before that a `columnState`-only patch was refused
 `422 INVALID_METADATA`, and the fat copy was the only thing supplying a
 recognized key. The read half (`narrowPersonalizationOverlay`) shipped earlier

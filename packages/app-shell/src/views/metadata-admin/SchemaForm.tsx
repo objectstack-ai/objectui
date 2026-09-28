@@ -901,7 +901,7 @@ function resolveFieldWidget({
  * spec's normaliser REWRITES the alias instead of keeping both: a parsed
  * `FormView` carries `visibleWhen` and no `visibleOn` at all
  * (`@objectstack/spec` `shared/visibility.ts`). Reading only `visibleOn` — what
- * this admin engine did until objectstack#6331 — therefore found `undefined` on
+ * this admin engine did until `7a197e7c5` — therefore found `undefined` on
  * every spec-served form and short-circuited each predicate to "always
  * visible", so conditional fields/sections rendered unconditionally.
  *

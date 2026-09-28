@@ -135,7 +135,7 @@ export interface FormFieldSpec {
    *     renderer does not honour — the very shape the `visibleWhen` half of
    *     this comment exists to close.
    *
-   *     ⚠️ RULED 2026-08-28 (objectui#6263 / objectstack#12868, executed
+   *     ⚠️ RULED 2026-08-28 (objectui#6263, executed
    *     upstream by objectstack `c459da6bc`), so this is no longer an open
    *     question this file is holding open: the FORM-VIEW option vocabulary
    *     does not accept a per-option `default`, and the drop above is now the

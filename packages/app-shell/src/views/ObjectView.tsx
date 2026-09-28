@@ -1095,7 +1095,7 @@ export function buildPersistedViewBody(
  * (`isDefault`, `isPinned`, `sortOrder`; the adapter merges them at the row's
  * top level), the tab's `visibility`, and `columnState`, the runtime-only key
  * the spec declares on the ViewItem wire face rather than on the list-view
- * body (objectstack#9933). A view-config save is a whole-document PUT, so
+ * body (objectstack `d5552ca13`). A view-config save is a whole-document PUT, so
  * these are carried forward at the envelope's top level; dropping them would
  * erase the default flag, the pin and the column widths the row held.
  */
@@ -1625,7 +1625,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     // hide the lot — those flows go through purpose-built actions on the
     // source record (e.g. "Submit for Approval" on an Opportunity creates
     // an `sys_approval_request`).  Permissions still gate the buttons.
-    // [#3391] Intersect the bucket affordances with the server's effective API
+    // [objectstack#3391] Intersect the bucket affordances with the server's effective API
     // operation set for this object (from /me/permissions apiOperations), so the
     // toolbar never offers Import/Export/New/Edit/Delete the server would 405.
     // `undefined` (unrestricted object / old backend) leaves affordances as-is.
@@ -1704,7 +1704,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
      *
      * LAYERING: surfaced only when the object-level verdict already passed —
      * the same posture the related-list bridge takes, because a predicate may
-     * not RE-OPEN what the bucket, the effective API operations (#3391) or the
+     * not RE-OPEN what the bucket, the effective API operations (objectstack#3391) or the
      * principal's grant have closed. The identity-import bypass below is a
      * different affordance entirely (it does not read `affordances.import`) and
      * is deliberately left outside this layer.

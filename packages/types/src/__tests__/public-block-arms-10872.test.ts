@@ -217,6 +217,16 @@ describe('the bag is the spec row, read by reference (objectui#10872)', () => {
     expect(rowOf('page:card').safeParse({ title: 'Summary', actions: ['edit'] }).success).toBe(false);
   });
 
+  it('`page:tabs` refuses an authored `onTabChange` by name — a runtime slot, not a prop (objectui#6124)', () => {
+    const result = safeValidateSchema({ type: 'page:tabs', onTabChange: { action: 'toast' } });
+    expect(result.success).toBe(false);
+    const issue = result.success ? undefined : result.error.issues.find((i) => i.path.join('.') === 'onTabChange');
+    expect(issue?.code).toBe('custom');
+    expect(issue?.message).toContain('RUNTIME SLOT');
+    // Control: the same node without the key parses.
+    expect(safeValidateSchema({ type: 'page:tabs' }).success).toBe(true);
+  });
+
   it('a public block nested in a page is judged by its own arm, not by the base keys', () => {
     const page = {
       type: 'page',

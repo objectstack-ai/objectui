@@ -38,7 +38,10 @@
  * refinements and retired-key tombstones all arrive from the spec, and a row
  * the spec changes changes the arm the same day. No member is restated here,
  * so none can drift — except the one row the spec does not export by name
- * (`element:divider`, below).
+ * (`element:divider`, below). The only node-level member any arm adds is an
+ * `on*` key a renderer reads off the node (`page:tabs`'s `onTabChange`),
+ * refused by name with `handlerKeyRefusal` as `check:handler-key-reads`
+ * requires of every such read.
  *
  * The bag is the one spelling every block here is read through at runtime:
  * `SchemaRenderer` hoists each `properties` key onto the node before the
@@ -108,6 +111,7 @@ import {
 } from '@objectstack/spec/ui';
 import { BaseSchema } from './base.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
+import { handlerKeyRefusal } from './tombstone.zod.js';
 
 /**
  * The `properties` member of one public block: the spec row, optional, with
@@ -131,10 +135,21 @@ export const PageHeaderBlockSchema = BaseSchema.extend({
   properties: propsBag('page:header', stripImportedDefaults(SpecPageHeaderProps)),
 });
 
-/** `page:tabs` — `ComponentPropsMap['page:tabs']`. */
+/**
+ * `page:tabs` — `ComponentPropsMap['page:tabs']`, plus the one handler key its
+ * renderer reads off the node.
+ *
+ * `onTabChange` is not a prop the spec declares: it is the host callback
+ * `@object-ui/app-shell` injects onto the node (`withPageTabsUrlSync`, which
+ * writes `?tab=` back), and the `page:tabs` renderer CALLS it on every switch.
+ * So it is a RUNTIME SLOT (objectui#6124): refused by name when authored,
+ * because JSON has no function value, rather than left to `.passthrough()` to
+ * keep an authored value and hand it to a call site.
+ */
 export const PageTabsBlockSchema = BaseSchema.extend({
   type: z.literal('page:tabs'),
   properties: propsBag('page:tabs', stripImportedDefaults(SpecPageTabsProps)),
+  onTabChange: handlerKeyRefusal('onTabChange', 'runtime-slot', 'Tab switch callback'),
 });
 
 /** `page:card` — `ComponentPropsMap['page:card']`. */

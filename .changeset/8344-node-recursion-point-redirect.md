@@ -132,3 +132,9 @@ make the redirect apply.
 release `zod/ai.zod.ts` joins the category modules `AnyComponentSchema` is built from and imports
 `zod/base.zod.ts` too, so both counts in the mechanical note above are one higher; the reason the arm
 cannot be an import is unchanged. The rest of this entry is kept as the reading of this change.
+
+⚠️ **Dated note, 2026-09-28 — a second category module — objectui#10872.** Later still in this same
+release `zod/public-blocks.zod.ts` joins them as well and imports `zod/base.zod.ts` too, so both counts
+in the mechanical note above are two higher, not the one the objectui#10859 note says; the reason the
+arm cannot be an import is unchanged. The rest of this entry, and that note, are kept as their
+readings.

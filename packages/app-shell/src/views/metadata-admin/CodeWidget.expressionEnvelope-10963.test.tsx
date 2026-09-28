@@ -69,7 +69,8 @@ vi.mock('@object-ui/plugin-editor', () => ({
 
 // The module `CodeWidget`'s `React.lazy` factory imports, loaded here at module
 // scope so the lazy boundary resolves at once instead of racing a `findBy`
-// window (AGENTS.md, test discipline). Same specifier as the widget's own.
+// window (the repo's flaky-test rule for lazy boundaries). Same specifier as
+// the widget's own.
 import '@object-ui/plugin-editor';
 
 import { CodeWidget } from './widgets';

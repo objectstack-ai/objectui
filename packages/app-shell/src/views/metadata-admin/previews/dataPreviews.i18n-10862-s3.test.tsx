@@ -219,15 +219,36 @@ function unrendered(lang: Lang, sites: Site[]): string[] {
     .filter((x): x is string => x !== null);
 }
 
+/**
+ * What a case did not find. Every site on every mount of a case is read before
+ * the case judges, so a failing case lists each missing site rather than the
+ * first one.
+ */
+let misses: string[] = [];
+
+/** A case: reads every site it names, then fails once, listing each miss. */
+function pin(name: string, body: () => void | Promise<void>) {
+  it(name, async () => {
+    misses = [];
+    await body();
+    expect(misses).toEqual([]);
+  });
+}
+
 /** Every site renders its row in `lang`; under zh, every row is a real zh row. */
 function expectSites(lang: Lang, sites: Site[]) {
-  expect(unrendered(lang, sites)).toEqual([]);
+  misses.push(...unrendered(lang, sites));
   if (lang === 'zh') for (const s of sites) zhRow(s.key);
 }
 
 /** Author data, identifiers and notation: the same bytes in every locale. */
 function expectAsWritten(texts: string[]) {
-  expect(texts.filter((x) => !rendered('text', x))).toEqual([]);
+  misses.push(...texts.filter((x) => !rendered('text', x)).map((x) => `as written: ${JSON.stringify(x)}`));
+}
+
+/** One more reading the case must find. */
+function expectEqual(what: string, got: string | null | undefined, want: string) {
+  if (got !== want) misses.push(`${what}: ${JSON.stringify(want)}, read ${JSON.stringify(got)}`);
 }
 
 /** A thrown render error is logged by React; keep the run's output readable. */
@@ -240,6 +261,12 @@ function boundaryHint(): string | null {
   return document.body.querySelector('div.m-4 div.flex-1 div.mt-2')?.textContent ?? null;
 }
 
+/** The error boundary's hint reads the row `key` in `lang`. */
+function expectHint(lang: Lang, key: string, vars?: Vars) {
+  expectEqual(`${key} (boundary hint)`, boundaryHint(), row(lang, key, vars));
+  if (lang === 'zh') zhRow(key);
+}
+
 /** A `fetch` answer carrying only the `json()` the previews read. */
 const answer = (body: unknown) => ({ ok: true, json: async () => body }) as unknown as Response;
 
@@ -247,13 +274,12 @@ const answer = (body: unknown) => ({ ok: true, json: async () => body }) as unkn
 
 describe('ObjectPreview reads the designer locale (objectui#10862)', () => {
   for (const lang of LANGS) {
-    it(`${lang}: the form designer's error-boundary hint`, async () => {
+    pin(`${lang}: the form designer's error-boundary hint`, async () => {
       quietBoundary();
       state.formCanvas = 'throw';
       inLang(lang, <ObjectPreview type="object" name="account" draft={{ name: 'account' }} locale={LOCALE[lang]} />);
       await flush();
-      expect(boundaryHint()).toBe(row(lang, 'engine.objectPreview.renderFailed'));
-      if (lang === 'zh') zhRow('engine.objectPreview.renderFailed');
+      expectHint(lang, 'engine.objectPreview.renderFailed');
       expectAsWritten(['field "amount" has no type']);
     });
   }
@@ -277,7 +303,7 @@ function stubDimensionFetch() {
 
 describe('DatasetPreview reads the designer locale (objectui#10862)', () => {
   for (const lang of LANGS) {
-    it(`${lang}: the no-object and no-measure empty states`, () => {
+    pin(`${lang}: the no-object and no-measure empty states`, () => {
       inLang(lang, <DatasetPreview type="dataset" name="sales" draft={{ name: 'sales' }} locale={LOCALE[lang]} />);
       expectSites(lang, [{ key: 'engine.datasetPreview.pickObject' }, { key: 'engine.datasetPreview.pickObjectHint' }]);
       cleanup();
@@ -285,7 +311,7 @@ describe('DatasetPreview reads the designer locale (objectui#10862)', () => {
       expectSites(lang, [{ key: 'engine.datasetPreview.addMeasure' }, { key: 'engine.datasetPreview.addMeasureHint' }]);
     });
 
-    it(`${lang}: the run button, the plural counts, the ratio-axis note and the chart's error-boundary hint`, async () => {
+    pin(`${lang}: the run button, the plural counts, the ratio-axis note and the chart's error-boundary hint`, async () => {
       stubDimensionFetch();
       state.queryDataset = async () => ({
         rows: [{ region: 'NA', revenue: 600000, rate: 0.7 }],
@@ -313,11 +339,10 @@ describe('DatasetPreview reads the designer locale (objectui#10862)', () => {
       inLang(lang, <DatasetPreview type="dataset" name="sales" draft={DATASET} locale={LOCALE[lang]} />);
       await flush();
       await screen.findByText('NA');
-      expect(boundaryHint()).toBe(row(lang, 'engine.datasetPreview.chartFailed'));
-      if (lang === 'zh') zhRow('engine.datasetPreview.chartFailed');
+      expectHint(lang, 'engine.datasetPreview.chartFailed');
     });
 
-    it(`${lang}: the singular measure count, the plural dimension count and the no-rows state`, async () => {
+    pin(`${lang}: the singular measure count, the plural dimension count and the no-rows state`, async () => {
       stubDimensionFetch();
       state.queryDataset = async () => ({ rows: [], fields: [] });
       const draft = {
@@ -337,7 +362,7 @@ describe('DatasetPreview reads the designer locale (objectui#10862)', () => {
       ]);
     });
 
-    it(`${lang}: the analytics-not-installed state`, async () => {
+    pin(`${lang}: the analytics-not-installed state`, async () => {
       stubDimensionFetch();
       state.queryDataset = async () => {
         throw Object.assign(new Error('analytics service not mounted'), { code: 'ANALYTICS_NOT_INSTALLED' });
@@ -353,14 +378,14 @@ describe('DatasetPreview reads the designer locale (objectui#10862)', () => {
 
 describe('ViewPreview reads the designer locale (objectui#10862)', () => {
   for (const lang of LANGS) {
-    it(`${lang}: the no-object note names the right panel's field in the same locale`, () => {
+    pin(`${lang}: the no-object note names the right panel's field in the same locale`, () => {
       inLang(lang, <ViewPreview type="view" name="all" draft={{ name: 'all' }} locale={LOCALE[lang]} />);
       const field = row(lang, 'engine.inspector.view.object');
       expectSites(lang, [{ key: 'engine.viewPreview.noObject', around: (r) => r.replace('{object}', field) }]);
-      expect(document.body.querySelector('code')?.textContent).toBe(field);
+      expectEqual('the code span', document.body.querySelector('code')?.textContent, field);
     });
 
-    it(`${lang}: the three error-boundary hints (raw schema, form view, list view)`, async () => {
+    pin(`${lang}: the three error-boundary hints (raw schema, form view, list view)`, async () => {
       quietBoundary();
       state.schema = 'throw';
       const drafts: Array<[Record<string, unknown>, string]> = [
@@ -371,8 +396,7 @@ describe('ViewPreview reads the designer locale (objectui#10862)', () => {
       for (const [draft, key] of drafts) {
         inLang(lang, <ViewPreview type="view" name={String(draft.name)} draft={draft} locale={LOCALE[lang]} />);
         await flush();
-        expect(boundaryHint(), key).toBe(row(lang, key));
-        if (lang === 'zh') zhRow(key);
+        expectHint(lang, key);
         expectAsWritten(['component "x_widget" is not registered']);
         cleanup();
       }
@@ -384,7 +408,7 @@ describe('ViewPreview reads the designer locale (objectui#10862)', () => {
 
 describe('ReportPreview reads the designer locale (objectui#10862)', () => {
   for (const lang of LANGS) {
-    it(`${lang}: the two empty states`, () => {
+    pin(`${lang}: the two empty states`, () => {
       inLang(lang, <ReportPreview type="report" name="r" draft={{ name: 'r' }} locale={LOCALE[lang]} />);
       expectSites(lang, [{ key: 'engine.reportPreview.empty' }, { key: 'engine.reportPreview.emptyHint' }]);
       cleanup();
@@ -392,7 +416,7 @@ describe('ReportPreview reads the designer locale (objectui#10862)', () => {
       expectSites(lang, [{ key: 'engine.reportPreview.joinedEmpty' }, { key: 'engine.reportPreview.joinedEmptyHint' }]);
     });
 
-    it(`${lang}: the loading text and the error-boundary hint`, async () => {
+    pin(`${lang}: the loading text and the error-boundary hint`, async () => {
       state.report = 'suspend';
       inLang(lang, <ReportPreview type="report" name="r" draft={{ name: 'r', dataset: 'sales' }} locale={LOCALE[lang]} />);
       await flush();
@@ -402,8 +426,7 @@ describe('ReportPreview reads the designer locale (objectui#10862)', () => {
       state.report = 'throw';
       inLang(lang, <ReportPreview type="report" name="r" draft={{ name: 'r', dataset: 'sales' }} locale={LOCALE[lang]} />);
       await flush();
-      expect(boundaryHint()).toBe(row(lang, 'engine.reportPreview.renderFailed'));
-      if (lang === 'zh') zhRow('engine.reportPreview.renderFailed');
+      expectHint(lang, 'engine.reportPreview.renderFailed');
       expectAsWritten(['measure "arr" is not on dataset "sales"']);
     });
   }
@@ -424,7 +447,7 @@ const RECORD_PAGE = { name: 'acct', type: 'record', object: 'account', regions: 
 
 describe('PagePreview reads the designer locale (objectui#10862)', () => {
   for (const lang of LANGS) {
-    it(`${lang}: the empty page and the children-shaped outline's positional block label`, () => {
+    pin(`${lang}: the empty page and the children-shaped outline's positional block label`, () => {
       inLang(lang, <PagePreview type="page" name="p" draft={{}} locale={LOCALE[lang]} />);
       expectSites(lang, [{ key: 'engine.pagePreview.addComponents' }]);
       cleanup();
@@ -444,7 +467,7 @@ describe('PagePreview reads the designer locale (objectui#10862)', () => {
       expectAsWritten(['hero']);
     });
 
-    it(`${lang}: the sample-record picker: its label, the plural count and a record with nothing to name it`, async () => {
+    pin(`${lang}: the sample-record picker: its label, the plural count and a record with nothing to name it`, async () => {
       stubRecordFetch([{ id: 'r1', name: 'Northwind' }, { id: 'r2', name: 'Contoso' }, { industry: 'retail' }]);
       inLang(lang, <PagePreview type="page" name="acct" draft={RECORD_PAGE} locale={LOCALE[lang]} />);
       await flush();
@@ -456,25 +479,24 @@ describe('PagePreview reads the designer locale (objectui#10862)', () => {
       expectAsWritten(['Northwind', 'Contoso']);
     });
 
-    it(`${lang}: the singular sample count`, async () => {
+    pin(`${lang}: the singular sample count`, async () => {
       stubRecordFetch([{ id: 'r1', name: 'Northwind' }]);
       inLang(lang, <PagePreview type="page" name="acct" draft={RECORD_PAGE} locale={LOCALE[lang]} />);
       await flush();
       expectSites(lang, [{ key: 'engine.pagePreview.sampleOne', vars: { count: 1 } }]);
     });
 
-    it(`${lang}: the interface page's and the page schema's error-boundary hints`, async () => {
+    pin(`${lang}: the interface page's and the page schema's error-boundary hints`, async () => {
       quietBoundary();
       state.interfacePage = 'throw';
       inLang(lang, <PagePreview type="page" name="p" draft={{ name: 'p', interfaceConfig: { source: 'account' } }} locale={LOCALE[lang]} />);
       await flush();
-      expect(boundaryHint()).toBe(row(lang, 'engine.pagePreview.interfaceFailed'));
+      expectHint(lang, 'engine.pagePreview.interfaceFailed');
       cleanup();
       state.schema = 'throw';
       inLang(lang, <PagePreview type="page" name="p" draft={{ name: 'p', children: [{ type: 'x_widget' }] }} locale={LOCALE[lang]} />);
       await flush();
-      expect(boundaryHint()).toBe(row(lang, 'engine.pagePreview.schemaFailed'));
-      if (lang === 'zh') for (const k of ['engine.pagePreview.interfaceFailed', 'engine.pagePreview.schemaFailed']) zhRow(k);
+      expectHint(lang, 'engine.pagePreview.schemaFailed');
     });
   }
 });
@@ -483,14 +505,13 @@ describe('PagePreview reads the designer locale (objectui#10862)', () => {
 
 describe('SourcePageEditor reads the locale PagePreview threads to it (objectui#10862)', () => {
   for (const lang of LANGS) {
-    it(`${lang}: the source textarea's label and the live preview's error-boundary hint`, async () => {
+    pin(`${lang}: the source textarea's label and the live preview's error-boundary hint`, async () => {
       quietBoundary();
       state.schema = 'throw';
       inLang(lang, <PagePreview type="page" name="p" draft={{ name: 'p', kind: 'html', source: '<div />' }} locale={LOCALE[lang]} />);
       await screen.findByRole('textbox');
       expectSites(lang, [{ key: 'engine.sourcePageEditor.source', in: 'aria-label' }]);
-      expect(boundaryHint()).toBe(row(lang, 'engine.sourcePageEditor.renderFailed'));
-      if (lang === 'zh') zhRow('engine.sourcePageEditor.renderFailed');
+      expectHint(lang, 'engine.sourcePageEditor.renderFailed');
     });
   }
 });
@@ -523,7 +544,7 @@ const CANVAS_PAGE = {
 
 describe('PageBlockCanvas reads the locale PagePreview threads to it (objectui#10862)', () => {
   for (const lang of LANGS) {
-    it(`${lang}: the no-regions state`, () => {
+    pin(`${lang}: the no-regions state`, () => {
       designPage(lang, { name: 'p', regions: [] });
       expectSites(lang, [
         { key: 'engine.pageBlockCanvas.noRegions' },
@@ -532,7 +553,7 @@ describe('PageBlockCanvas reads the locale PagePreview threads to it (objectui#1
       ]);
     });
 
-    it(`${lang}: regions, container groups, block rows and the drop target`, () => {
+    pin(`${lang}: regions, container groups, block rows and the drop target`, () => {
       designPage(lang, CANVAS_PAGE);
       expectSites(lang, [
         { key: 'engine.pageBlockCanvas.regionN', vars: { n: 1 } },
@@ -555,25 +576,26 @@ describe('PageBlockCanvas reads the locale PagePreview threads to it (objectui#1
       expectSites(lang, [{ key: 'engine.pageBlockCanvas.dropHere' }]);
     });
 
-    it(`${lang}: a slotted page's inherited slots`, () => {
+    pin(`${lang}: a slotted page's inherited slots`, () => {
       designPage(lang, { name: 'p', kind: 'slotted', regions: [], slots: {} });
       expectSites(lang, [{ key: 'engine.pageBlockCanvas.slotInherited' }]);
       expectAsWritten(['header', 'details']);
     });
 
-    it(`${lang}: a block's error-boundary hint names its type as written`, async () => {
+    pin(`${lang}: a block's error-boundary hint names its type as written`, async () => {
       quietBoundary();
       state.schema = 'throw';
       designPage(lang, { name: 'p', regions: [{ name: 'main', components: [{ type: 'x_widget', id: 'hero' }] }] });
       await flush();
-      expect(boundaryHint()).toBe(row(lang, 'engine.pageBlockCanvas.renderFailed', { type: 'x_widget' }));
-      if (lang === 'zh') zhRow('engine.pageBlockCanvas.renderFailed');
+      expectHint(lang, 'engine.pageBlockCanvas.renderFailed', { type: 'x_widget' });
     });
 
-    it(`${lang}: the add-block picker: its search box, category headings, block names and no-match note`, async () => {
+    pin(`${lang}: the add-block picker: its search box, category headings, block names and no-match note`, async () => {
       designPage(lang, { name: 'p', regions: [{ name: 'main', components: [] }] });
-      fireEvent.click(screen.getByRole('button', { name: row(lang, 'engine.inspector.add.block') }));
-      await screen.findByPlaceholderText(row(lang, 'engine.pageBlockCanvas.searchTypes'));
+      // Found by what it is (the popover trigger), not by the words under test.
+      const trigger = screen.getAllByRole('button').find((b) => b.getAttribute('aria-haspopup') === 'dialog');
+      fireEvent.click(trigger!);
+      const search = await screen.findByRole('textbox');
       const categories = TYPES_BY_CATEGORY.map((g) => g.category);
       const types = TYPES_BY_CATEGORY.flatMap((g) => g.types);
       expectSites(lang, [
@@ -585,9 +607,7 @@ describe('PageBlockCanvas reads the locale PagePreview threads to it (objectui#1
       expectAsWritten(['AI']);
       expect(t(categoryKey('ai'), 'zh-CN')).toBe('AI');
 
-      fireEvent.change(screen.getByPlaceholderText(row(lang, 'engine.pageBlockCanvas.searchTypes')), {
-        target: { value: 'zzz_no_such_block' },
-      });
+      fireEvent.change(search, { target: { value: 'zzz_no_such_block' } });
       expectSites(lang, [{ key: 'engine.pageBlockCanvas.noMatch' }]);
     });
   }
@@ -623,12 +643,12 @@ function mountRule(lang: Lang, draft: Record<string, unknown>) {
 
 describe('ValidationPreview reads the designer locale (objectui#10862)', () => {
   for (const lang of LANGS) {
-    it(`${lang}: the no-name state`, () => {
+    pin(`${lang}: the no-name state`, () => {
       mountRule(lang, {});
       expectSites(lang, [{ key: 'engine.validationPreview.empty' }]);
     });
 
-    it(`${lang}: the envelope (pills, message, tags) and a script rule with no condition`, () => {
+    pin(`${lang}: the envelope (pills, message, tags) and a script rule with no condition`, () => {
       mountRule(lang, {
         name: 'amount_positive',
         type: 'script',
@@ -654,7 +674,7 @@ describe('ValidationPreview reads the designer locale (objectui#10862)', () => {
       expectAsWritten(['Amount must be positive', 'amount <= 0']);
     });
 
-    it(`${lang}: the three removed rule types redirect in the designer's words`, () => {
+    pin(`${lang}: the three removed rule types redirect in the designer's words`, () => {
       for (const type of ['unique', 'async', 'custom']) {
         mountRule(lang, { name: 'r', type });
         expectSites(lang, [
@@ -662,12 +682,12 @@ describe('ValidationPreview reads the designer locale (objectui#10862)', () => {
           { key: 'engine.validationPreview.removedType', around: (r) => r.replace('{type}', type) },
           { key: `engine.validationPreview.removed.${type}` },
         ]);
-        expect(document.body.querySelector('code')?.textContent).toBe(type);
+        expectEqual('the code span', document.body.querySelector('code')?.textContent, type);
         cleanup();
       }
     });
 
-    it(`${lang}: a conditional rule with an empty predicate, no nested rule and an untyped otherwise`, () => {
+    pin(`${lang}: a conditional rule with an empty predicate, no nested rule and an untyped otherwise`, () => {
       mountRule(lang, { name: 'c', type: 'conditional', when: '', otherwise: { name: 'fallback_rule' } });
       expectSites(lang, [
         { key: 'engine.validationPreview.when' },
@@ -680,7 +700,7 @@ describe('ValidationPreview reads the designer locale (objectui#10862)', () => {
       expectAsWritten(['fallback_rule']);
     });
 
-    it(`${lang}: state machine, format, cross-field and JSON Schema bodies`, () => {
+    pin(`${lang}: state machine, format, cross-field and JSON Schema bodies`, () => {
       const cases: Array<[Record<string, unknown>, Site[], string[]]> = [
         [{ type: 'state_machine' }, [{ key: 'engine.validationPreview.transitions' }, { key: 'engine.validationPreview.noTransitions' }], []],
         [
@@ -752,12 +772,12 @@ function mountColumns(lang: Lang, columns: unknown[]) {
 
 describe('FieldsListEditor and FieldListRow read the designer locale (objectui#10862)', () => {
   for (const lang of LANGS) {
-    it(`${lang}: the heading and the no-columns note`, () => {
+    pin(`${lang}: the heading and the no-columns note`, () => {
       mountColumns(lang, []);
       expectSites(lang, [{ key: 'engine.fieldsListEditor.columns' }, { key: 'engine.fieldsListEditor.empty' }]);
     });
 
-    it(`${lang}: a column's remove control, and the positional label of a column the canonical keys cannot name`, () => {
+    pin(`${lang}: a column's remove control, and the positional label of a column the canonical keys cannot name`, () => {
       mountColumns(lang, [{ field: 'name', label: 'Name' }, { header: 'Legacy' }]);
       const positional = row(lang, 'engine.fieldsListEditor.colN', { n: 2 });
       expectSites(lang, [

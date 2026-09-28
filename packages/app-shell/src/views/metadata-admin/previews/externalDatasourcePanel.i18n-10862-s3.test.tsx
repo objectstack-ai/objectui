@@ -104,13 +104,36 @@ function rendered(text: string): boolean {
   return Array.from(document.body.querySelectorAll<Element>('*')).some((el) => norm(el.textContent) === text);
 }
 
+/** What a case did not find; a case reads every site before it judges, so a failure lists each miss. */
+let misses: string[] = [];
+
+function pin(name: string, body: () => void | Promise<void>) {
+  it(name, async () => {
+    misses = [];
+    await body();
+    expect(misses).toEqual([]);
+  });
+}
+
 function expectSites(lang: Lang, sites: Site[]) {
-  expect(sites.map((s) => row(lang, s.key, s.vars)).filter((text) => !rendered(norm(text)))).toEqual([]);
+  misses.push(
+    ...sites
+      .map((s) => `${s.key}: ${JSON.stringify(norm(row(lang, s.key, s.vars)))}`)
+      .filter((_, i) => !rendered(norm(row(lang, sites[i].key, sites[i].vars)))),
+  );
   if (lang === 'zh') for (const s of sites) zhRow(s.key);
 }
 
 function expectAsWritten(texts: string[]) {
-  expect(texts.filter((x) => !rendered(x))).toEqual([]);
+  misses.push(...texts.filter((x) => !rendered(x)).map((x) => `as written: ${JSON.stringify(x)}`));
+}
+
+/** The catalog refresh button, found by being one, whichever language it reads in. */
+function refreshButton(): HTMLElement {
+  const words = [row('en', 'engine.externalDatasource.refresh'), row('zh', 'engine.externalDatasource.refresh')];
+  const button = screen.getAllByRole('button').find((b) => words.includes(norm(b.textContent)));
+  expect(button, 'the catalog refresh button').toBeTruthy();
+  return button!;
 }
 
 /** A federated datasource draft as `DatasourcePreview` receives it. */
@@ -124,12 +147,12 @@ function mount(lang: Lang, name: string, draft: Record<string, unknown>) {
 
 describe('ExternalDatasourcePanel reads the locale DatasourcePreview threads to it (objectui#10862)', () => {
   for (const lang of LANGS) {
-    it(`${lang}: an unsaved federated datasource (a draft name, no saved one yet) is asked to save first`, () => {
+    pin(`${lang}: an unsaved federated datasource (a draft name, no saved one yet) is asked to save first`, () => {
       mount(lang, '', { name: 'warehouse', schemaMode: 'external' });
       expectSites(lang, [{ key: 'engine.externalDatasource.saveFirst' }]);
     });
 
-    it(`${lang}: the header, the write badge, the refresh button and the two tabs`, async () => {
+    pin(`${lang}: the header, the write badge, the refresh button and the two tabs`, async () => {
       mount(lang, 'warehouse', federated(true));
       await flush();
       expectSites(lang, [
@@ -146,21 +169,21 @@ describe('ExternalDatasourcePanel reads the locale DatasourcePreview threads to 
       expectSites(lang, [{ key: 'engine.externalDatasource.readOnly' }]);
     });
 
-    it(`${lang}: a refreshed catalog's snapshot line, its time formatted in the display locale`, async () => {
+    pin(`${lang}: a refreshed catalog's snapshot line, its time formatted in the display locale`, async () => {
       mount(lang, 'warehouse', federated(false));
       await flush();
-      fireEvent.click(screen.getByRole('button', { name: row(lang, 'engine.externalDatasource.refresh') }));
+      fireEvent.click(refreshButton());
       await flush();
       const displayLocale = screen.getByTestId('display-locale').getAttribute('data-locale')!;
       const time = new Date(state.snapshotAt).toLocaleString(displayLocale);
       expectSites(lang, [{ key: 'engine.externalDatasource.snapshot', vars: { time } }]);
     });
 
-    it(`${lang}: a server without federation`, async () => {
+    pin(`${lang}: a server without federation`, async () => {
       state.refresh = 'unavailable';
       mount(lang, 'warehouse', federated(false));
       await flush();
-      fireEvent.click(screen.getByRole('button', { name: row(lang, 'engine.externalDatasource.refresh') }));
+      fireEvent.click(refreshButton());
       await flush();
       expectSites(lang, [{ key: 'engine.externalDatasource.unavailable' }]);
     });

@@ -180,14 +180,13 @@ published, and anything else is refused there. objectui's own validator
 (`@object-ui/types`, which `objectui validate` runs) uses the same spec schema, so
 it refuses the same documents before they reach the platform.
 
-> **Deprecated: the bare-string shorthand.** `"options": ["EMEA", "APAC"]` is
-> still lifted by the runtime to `{ "value": "EMEA", "label": "EMEA" }` pairs so
-> that already-stored dashboards keep rendering, but it now logs a deprecation
-> warning naming the filter, and it is scheduled for removal
-> ([objectui#4356](https://github.com/objectstack-ai/objectui/issues/4356)).
-> Write the object form. The lift is mechanically lossless, so migrating a
-> stored dashboard is a direct rewrite of each string `X` to
-> `{ "value": "X", "label": "X" }`.
+> **Not accepted: the bare-string shorthand.** `"options": ["EMEA", "APAC"]` is
+> refused by `GlobalFilterSchema` at publish, and the runtime no longer lifts it
+> either ([objectui#4356](https://github.com/objectstack-ai/objectui/issues/4356)):
+> a bare-string member yields no option, so a stored dashboard authored this way
+> renders that filter with an empty option list, and in development a single
+> `console.warn` names the filter and the dropped members. Rewrite each string
+> `X` as `{ "value": "X", "label": "X" }`.
 
 Options can also be fetched from an object at runtime:
 

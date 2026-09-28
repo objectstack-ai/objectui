@@ -1749,7 +1749,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           { ...legacyViewOptions } as Record<string, any>,
         );
 
-    // Dev-mode warning for flat property access violations
+    // Dev-mode warning for flat property access violations. The place it names
+    // is the view's own top-level `KIND` block — the one `viewOptions[viewType]`
+    // reads. ⛔ Not `options.KIND`: this component reads no `options` bag since
+    // objectui#7928, and a named view refuses `options` by name, so that text
+    // sent an author to a place that is ignored or refused (objectui#10868).
     if (process.env.NODE_ENV === 'development') {
         const flatKeys = ['startDateField', 'endDateField', 'dateField', 'groupBy', 'groupField',
             'locationField', 'imageField', 'dependenciesField', 'progressField', 'titleField',
@@ -1758,8 +1762,8 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         const found = flatKeys.filter(k => k in viewOptions && !(k in nestedConfig));
         if (found.length > 0) {
             console.warn(
-                `[Spec Compliance] View options use flat properties ${JSON.stringify(found)}. ` +
-                `Move them under options.${viewType} per @objectstack/spec protocol.`
+                `[Spec Compliance] The view uses flat properties ${JSON.stringify(found)}. ` +
+                `Move them under its top-level ${viewType} block ({ ${viewType}: { ... } }) per @objectstack/spec protocol.`
             );
         }
     }

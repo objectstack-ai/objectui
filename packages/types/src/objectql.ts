@@ -2236,8 +2236,15 @@ export interface ViewTabBarConfig {
 }
 
 /**
- * Named List View Definition
- * Used in ObjectViewSchema.listViews for named views (e.g., "All", "My Records").
+ * Named List View Definition — objectui's own hand-written named-view shape.
+ *
+ * No member of this package's contract is typed by it: since objectui#7928,
+ * `ObjectViewSchema.listViews` is the protocol's `ObjectListViewSchema` by
+ * reference (see that member), and the pins
+ * `_ListViewsIsNoLongerTheLocalRecord` / `_ListViewsIsTheSpecRecord` in
+ * `__tests__/object-view-unmirrored-keys-7779.test.ts` hold that. It stays
+ * exported from `@object-ui/types`; whether it is retired or narrowed follows
+ * objectui#7924.
  */
 export interface NamedListView {
   /** View display label */

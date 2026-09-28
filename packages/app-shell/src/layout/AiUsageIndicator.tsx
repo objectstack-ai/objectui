@@ -137,9 +137,10 @@ export function AiUsageIndicator({ apiBase, enabled = true, className }: AiUsage
     return () => clearInterval(id);
   }, []);
 
+  if (!enabled || !usage) return null;
   // Unknown (null) and unmetered (usage-based) pools have nothing to ring.
-  const pool = usage?.pool;
-  if (!enabled || !usage || !pool || pool.unmetered || pool.fraction === null) return null;
+  const { pool } = usage;
+  if (pool.unmetered || pool.fraction === null) return null;
   const fraction = pool.fraction;
   const tone = toneFor(fraction);
   const split = breakdownRows(usage.breakdown);

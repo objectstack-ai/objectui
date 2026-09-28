@@ -15,8 +15,9 @@
  * vs data Q&A (cloud ADR-0015). The reader is strict: it reads this shape and no
  * other — the retired per-meter `{ meters: { build, dataChat } }` answer parses
  * to `null` — so the next wire change is a failed parse, not a silent second
- * dialect. `breakdown` is optional by that same ruling, so its ABSENCE is a
- * normal reading and never a parse failure.
+ * dialect. `breakdown` is optional upstream (cloud#2133 lets the endpoint keep
+ * it, it does not require it), so its ABSENCE is a normal reading and never a
+ * parse failure.
  *
  * Refetch triggers, cheap and event-driven (no busy polling):
  *   - on mount / apiBase change,
@@ -130,7 +131,7 @@ function parseUsage(payload: unknown): AiUsageResponse | null {
   if (!payload || typeof payload !== 'object') return null;
   const { pool, breakdown } = payload as { pool?: unknown; breakdown?: unknown };
   if (!isPool(pool)) return null;
-  // Absent `breakdown` is a normal reading (optional by cloud ADR-0015), never
+  // Absent `breakdown` is a normal reading (optional upstream, cloud#2133), never
   // a parse failure: the pool alone is everything the ring needs.
   if (breakdown === undefined) return { pool };
   if (!isBreakdown(breakdown)) return null;

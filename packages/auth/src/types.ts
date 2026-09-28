@@ -154,6 +154,19 @@ export interface SignUpData {
   name: string;
   email: string;
   password: string;
+  /**
+   * Where the email-verification link lands once the address is verified —
+   * e.g. the invitation page the user registered from (objectui#10893).
+   * Sent verbatim as better-auth's `/sign-up/email` `callbackURL`; omitted,
+   * the server's default (`/`) applies.
+   *
+   * better-auth accepts only a root-relative path (`/_console/…`) or an
+   * absolute URL on a trusted origin. Anything else — including a
+   * document-relative `./…` — is refused with `INVALID_CALLBACK_URL` and the
+   * WHOLE sign-up fails, so resolve an SPA route against its mount before
+   * passing it here.
+   */
+  callbackURL?: string;
 }
 
 /** Auth client configuration */

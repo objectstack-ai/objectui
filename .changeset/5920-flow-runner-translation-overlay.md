@@ -26,3 +26,15 @@ Submitting… / completion chrome (the console's message catalogue), and the flo
 
 `@object-ui/app-shell` now declares `@objectstack/spec` `^17.3.0`, the first release that
 exports the resolver family; `^17.0.0` admitted three releases that do not.
+
+⚠️ **Dated note, 2026-09-28 — the declared floor has since moved again —
+objectui#10864.** At this change `@object-ui/app-shell` declared `^17.3.0`, and
+the paragraph above is kept as the reading of that change: `17.3.0` was in fact
+the first release exporting the resolver family this fix uses. Later in this
+same release the floor was raised again, to `^17.4.0`, because two other
+shipped app-shell sources (`screen-spec.ts`, `flow-sim-validate.ts`) import
+four symbols (`predicateSlotRefusal`, `structuralConditionRefusal`,
+`EVALUATED_EXPRESSION_SOURCE_REQUIRED`, `EvaluatedExpressionSchema`) that
+`17.3.0` does not export — a defect this changeset's own range did not
+introduce and did not need to guard against. `@object-ui/app-shell` now
+declares `^17.4.0`.

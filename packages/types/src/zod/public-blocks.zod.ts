@@ -51,10 +51,13 @@
  * synthesizer (`buildDefaultPageSchema`'s `componentNode`) and the page
  * designer both emit `{ type, properties }`.
  *
- * ⚠️ A key written FLAT on the node (`{ "type": "record:details", "columns":
- * "2" }`) is NOT declared here. The tolerant face passes it through unjudged,
- * exactly as it passes every undeclared key of every arm; the strict authoring
- * face refuses it. Whether the flat spelling is ALSO an authoring channel for
+ * ⚠️ A key written FLAT on the node is not judged against the block's row. One
+ * the shared node base does not declare (`{ "type": "record:details",
+ * "columns": "2" }`) passes the tolerant face unjudged, exactly as every
+ * undeclared key of every arm does, and the strict authoring face refuses it;
+ * one `BaseSchema` does declare (`children`, `label`, `disabled`, `visible`) is
+ * judged by the base's own type, and a flat `body` is refused on both faces by
+ * the base's objectui#6771 retirement. Whether the flat spelling is ALSO an authoring channel for
  * the `page:` / `record:` families (their renderers read the hoisted node
  * keys) is left open on objectui#10872 rather than decided by this module —
  * declaring it later is additive, and it must never extend to `element:*`,
@@ -79,8 +82,8 @@
  *     namespace is a closed vocabulary at author time and does not declare
  *     either type.
  *   - `action:button`, `action:group`, `action:menu`, `action:icon` — no spec
- *     row, and the two objectui declarations disagree (the renderers'
- *     `UIActionSchema`-based schema types against the registrations' `inputs`).
+ *     row yet; one is being measured from the renderers' read points upstream
+ *     (objectstack-ai/objectstack#20371).
  *
  * ⛔ No `.default()` anywhere in this module — see the "authors no default"
  * note in `index.zod.ts`.

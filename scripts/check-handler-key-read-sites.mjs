@@ -217,7 +217,7 @@ export const KNOWN_UNDECLARED_READS = new Map([
   // boundary 3 above and ⛔ not a finding this gate can make.
   //
   // ⚠️ AMENDED (objectui#10872) — `page:tabs` has since LEFT that trio the way
-  // the paragraph above says an alias should: the namespaced key was mirrored.
+  // boundary 3 above says an alias should: the namespaced key was mirrored.
   // `PageTabsBlockSchema` (`public-blocks.zod.ts`) is its own arm and declares
   // `onTabChange` as an objectui#6124 runtime slot, so its read is judged there
   // like any armed read. `action:button` and `action:icon` are still aliases.

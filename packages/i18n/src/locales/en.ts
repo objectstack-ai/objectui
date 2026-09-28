@@ -2207,6 +2207,17 @@ const en = {
       noWritesTitle: 'Reads with no writes at all in this environment',
       noWrites: 'Rows are being read while none at all are being written, so the read rate has no upper bound. This is the most severe reading. The platform flags anything above {{threshold}}. Nothing is limited or blocked; this is a report so the read pattern can be reviewed.',
     },
+    // objectui#10439 — the environment admin's storage-capacity banner (cloud#2135).
+    // Raised by the tenant runtime's own verdict on `/api/v1/usage/storage`: `warn`
+    // (80% and up) or `blocked` (uploads and bulk imports refused). `{{used}}` and
+    // `{{limit}}` are that response's `usedMb` / `limitMb`, already formatted.
+    storageUsage: {
+      warningTitle: 'Storage is filling up',
+      warning: '{{used}} MB of {{limit}} MB used. Uploads and imports pause once storage is full.',
+      blockedTitle: 'Storage is full: uploads and imports are paused',
+      blocked: '{{used}} MB of {{limit}} MB used. Existing data is untouched, and reading, exporting and editing single records still work.',
+      upgrade: 'Upgrade to continue',
+    },
     errors: {
       somethingWentWrong: 'Something went wrong',
       unexpectedError: 'An unexpected error occurred while rendering this view.',

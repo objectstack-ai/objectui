@@ -1873,6 +1873,14 @@ const pt = {
       noWritesTitle: 'Leituras sem nenhuma gravação neste ambiente',
       noWrites: 'Linhas estão sendo lidas sem que nenhuma seja gravada, portanto a taxa de leitura não tem limite superior. Esta é a leitura mais grave. A plataforma sinaliza tudo acima de {{threshold}}. Nada está sendo limitado ou bloqueado; este é um relatório para que o padrão de leitura possa ser revisado.',
     },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'O armazenamento está quase cheio',
+      warning: '{{used}} MB de {{limit}} MB usados. Envios e importações são pausados quando o armazenamento fica cheio.',
+      blockedTitle: 'Armazenamento cheio: envios e importações estão pausados',
+      blocked: '{{used}} MB de {{limit}} MB usados. Os dados existentes não são alterados, e a leitura, a exportação e a edição de registros individuais continuam funcionando.',
+      upgrade: 'Faça upgrade para continuar',
+    },
     errors: {
       somethingWentWrong: "Algo deu errado",
       unexpectedError: "Ocorreu um erro inesperado ao renderizar esta visualização.",

@@ -1874,6 +1874,14 @@ const de = {
       noWritesTitle: 'Lesevorgänge ganz ohne Schreibvorgänge in dieser Umgebung',
       noWrites: 'Es werden Zeilen gelesen, aber überhaupt keine geschrieben, sodass die Leserate keine Obergrenze hat. Das ist der schwerwiegendste Messwert. Die Plattform meldet alles über {{threshold}}. Es wird nichts begrenzt oder blockiert; dies ist ein Bericht, damit das Lesemuster geprüft werden kann.',
     },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'Der Speicher ist fast voll',
+      warning: '{{used}} MB von {{limit}} MB belegt. Uploads und Importe werden pausiert, sobald der Speicher voll ist.',
+      blockedTitle: 'Speicher voll: Uploads und Importe sind pausiert',
+      blocked: '{{used}} MB von {{limit}} MB belegt. Vorhandene Daten bleiben unverändert; Lesen, Exportieren und das Bearbeiten einzelner Datensätze funktionieren weiterhin.',
+      upgrade: 'Upgraden, um fortzufahren',
+    },
     errors: {
       somethingWentWrong: "Etwas ist schiefgelaufen",
       unexpectedError: "Beim Rendern dieser Ansicht ist ein unerwarteter Fehler aufgetreten.",

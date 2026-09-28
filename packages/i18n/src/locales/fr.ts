@@ -1876,6 +1876,14 @@ const fr = {
       noWritesTitle: 'Lectures sans aucune écriture dans cet environnement',
       noWrites: 'Des lignes sont lues alors qu’aucune n’est écrite, de sorte que le taux de lecture n’a aucune limite supérieure. C’est la mesure la plus grave. La plateforme signale tout ce qui dépasse {{threshold}}. Rien n’est limité ni bloqué ; il s’agit d’un rapport permettant d’examiner le schéma de lecture.',
     },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'Le stockage est presque plein',
+      warning: '{{used}} Mo sur {{limit}} Mo utilisés. Les envois et les importations sont suspendus dès que le stockage est plein.',
+      blockedTitle: 'Stockage plein : les envois et les importations sont suspendus',
+      blocked: "{{used}} Mo sur {{limit}} Mo utilisés. Les données existantes ne sont pas modifiées, et la lecture, l'export et la modification d'enregistrements individuels fonctionnent toujours.",
+      upgrade: "Passer à l'offre supérieure pour continuer",
+    },
     errors: {
       somethingWentWrong: "Quelque chose s'est mal passé",
       unexpectedError: "Une erreur inattendue est survenue lors du rendu de cette vue.",

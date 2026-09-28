@@ -1947,6 +1947,14 @@ const zh = {
       noWritesTitle: '本环境只有读取、完全没有写入',
       noWrites: '有行被读取,却完全没有任何写入,因此读取比率没有上限。这是最严重的读数。平台会标记高于 {{threshold}} 的比率。没有任何东西被限制或阻断;这只是一份报告,便于检查读取方式。',
     },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: '存储空间即将用满',
+      warning: '已用 {{used}} MB / {{limit}} MB。存储用满后，上传与导入将暂停。',
+      blockedTitle: '存储已满，上传与导入已暂停',
+      blocked: '已用 {{used}} MB / {{limit}} MB。现有数据不受影响，读取、导出与单条记录编辑照常。',
+      upgrade: '升级以继续',
+    },
     errors: {
       somethingWentWrong: '出错了',
       unexpectedError: '渲染此视图时发生意外错误。',

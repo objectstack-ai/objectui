@@ -1876,6 +1876,14 @@ const ja = {
       noWritesTitle: 'この環境は読み取りのみで書き込みがまったくありません',
       noWrites: '行の読み取りはある一方で書き込みがまったくないため、読み取り比率に上限がありません。これは最も深刻な読み取り値です。プラットフォームは {{threshold}} を超える比率を検出対象とします。制限やブロックは一切行われていません。読み取りパターンを確認するための報告です。',
     },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'ストレージの空き容量が少なくなっています',
+      warning: '{{limit}} MB 中 {{used}} MB を使用しています。ストレージが満杯になると、アップロードとインポートは一時停止されます。',
+      blockedTitle: 'ストレージが満杯です：アップロードとインポートは一時停止中です',
+      blocked: '{{limit}} MB 中 {{used}} MB を使用しています。既存のデータはそのままで、読み取り、エクスポート、個々のレコードの編集は引き続き利用できます。',
+      upgrade: 'アップグレードして続行',
+    },
     errors: {
       somethingWentWrong: "問題が発生しました",
       unexpectedError: "このビューのレンダリング中に予期しないエラーが発生しました。",

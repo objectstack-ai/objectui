@@ -48,7 +48,7 @@ import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, waitFor } from '@testing-library/react';
 import type { DataSource } from '@object-ui/types';
-import { makeTzShift } from '../GanttView';
+import { makeTzShift } from '../tzShift';
 
 const probe = vi.hoisted(() => ({ view: null as any }));
 

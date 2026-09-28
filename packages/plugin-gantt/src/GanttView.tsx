@@ -40,6 +40,7 @@ import { isRealCalendarDate, toDisplayDate } from "@object-ui/core"
 import { useDisplayLocale } from "@object-ui/i18n"
 import { computeCriticalPath, computeProjectRescheduleDetailed, wouldCreateDependencyCycle, type WorkingCalendar, type RescheduleChange, type RescheduleOptions } from "./scheduling"
 import { shiftDayStart, type NormShiftSegments } from "./shifts"
+import { makeTzShift } from "./tzShift"
 import { useGanttTranslation } from "./useGanttTranslation"
 
 // Width, in px, of the resize "grab zone" at each end of a task bar. The visible
@@ -295,52 +296,9 @@ export const NOMINAL_DAYS: Record<GanttViewMode, number> = {
 
 export const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-/** Offset (ms east of UTC) of an IANA time zone at a given instant. */
-function tzOffsetMs(timeZone: string, at: Date): number {
-  const dtf = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hour12: false,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  });
-  const get = (type: string) => Number(dtf.formatToParts(at).find((p) => p.type === type)?.value ?? 0);
-  const asUTC = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour') % 24, get('minute'), get('second'));
-  return asUTC - Math.floor(at.getTime() / 1000) * 1000;
-}
-
-/**
- * "Shifted clock" for business-time-zone rendering: translate
- * real instants into a display space where the browser's local clock reads
- * the CONFIGURED zone's wall time. All existing local-clock logic — shift
- * bands, day columns, snapping, the today line, date labels — then renders
- * that zone correctly for every viewer; writes translate back so persisted
- * data stays real instants. Per-instant offsets keep DST zones close;
- * fixed-offset zones (Asia/Shanghai) are exact.
- */
-export function makeTzShift(timeZone?: string): {
-  delta: number;
-  to: (d: Date) => Date;
-  from: (d: Date) => Date;
-  now: () => Date;
-} {
-  const identity = { delta: 0, to: (d: Date) => d, from: (d: Date) => d, now: () => new Date() };
-  if (!timeZone) return identity;
-  try {
-    tzOffsetMs(timeZone, new Date()); // validate the IANA name early
-  } catch {
-    console.warn(`[GanttView] invalid timeZone "${timeZone}" — falling back to the browser zone`);
-    return identity;
-  }
-  const deltaAt = (d: Date) => tzOffsetMs(timeZone, d) - -d.getTimezoneOffset() * 60000;
-  const probe = deltaAt(new Date());
-  if (probe === 0) return identity;
-  return {
-    delta: probe,
-    to: (d: Date) => new Date(d.getTime() + deltaAt(d)),
-    from: (d: Date) => new Date(d.getTime() - deltaAt(d)),
-    now: () => new Date(Date.now() + deltaAt(new Date())),
-  };
-}
+// The business-time-zone shim lives in `./tzShift` since objectui#10866;
+// re-exported so every existing import of it from here keeps working.
+export { makeTzShift }
 
 /** Floor a date to the start of its column unit (Monday for weeks). */
 export function startOfUnit(date: Date, mode: GanttViewMode): Date {

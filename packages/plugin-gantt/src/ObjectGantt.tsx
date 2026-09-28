@@ -89,7 +89,8 @@ import {
   formatPercent,
   formatCurrency,
 } from '@object-ui/fields';
-import { GanttView, makeTzShift, type GanttTask, type GanttDependency, type GanttLinkType, type GanttTaskType } from './GanttView';
+import { GanttView, type GanttTask, type GanttDependency, type GanttLinkType, type GanttTaskType } from './GanttView';
+import { makeTzShift } from './tzShift';
 import { ResourceWorkload } from './ResourceWorkload';
 import { QuickFilterBar, type QuickFilterField, type QuickFilterOption } from './QuickFilterBar';
 import type { WorkingCalendar } from './scheduling';

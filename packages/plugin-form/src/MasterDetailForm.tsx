@@ -1158,10 +1158,15 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
         rows = [];
       }
       if (!isCurrent()) return;
-      if (inPlace && (rowStateRef.current[entry.id]?.rows !== rowsAtIssue || rowEditorEntryRef.current === entry.id)) {
-        // Edited while this read was in flight, in the grid or in the row
-        // editor opened meanwhile: its answer would overwrite the edit. Ask
-        // again, which holds it behind the edit while it is unsaved.
+      if (inPlace && rowEditorEntryRef.current === entry.id) {
+        // The row editor was opened while this read was in flight: its commit
+        // would reset the editor's draft. Held, and replayed when it closes.
+        heldLinesRereadRef.current.add(entry.id);
+        return;
+      }
+      if (inPlace && rowStateRef.current[entry.id]?.rows !== rowsAtIssue) {
+        // Edited while this read was in flight: its answer would overwrite the
+        // edit. Ask again, which holds it behind the edit while it is unsaved.
         void readLinesOf(entry, 'bus');
         return;
       }

@@ -45,8 +45,8 @@
  * `useGroupedData` applies `GroupingField.order` over the header set.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { DataSource } from '@object-ui/types';
+import { useCallback, useEffect, useState } from 'react';
+import type { DataSource, QueryParams } from '@object-ui/types';
 import type { FilterCondition } from '@objectstack/spec/data';
 import {
   compileListViewGroupQuery,
@@ -89,7 +89,7 @@ export interface ServerGroupHeadersInput {
   /** `object-grid.aggregations` — the per-group numbers besides the count. */
   aggregations?: AggregationConfig[];
   /** The object's field catalogue, for reference-typed grouping keys. */
-  objectFields?: Record<string, any>;
+  objectFields?: Record<string, { type?: unknown; reference?: unknown; displayField?: unknown } | undefined>;
   /** Any change re-asks the server (refresh, data invalidation). */
   reloadKey: string;
 }
@@ -137,7 +137,9 @@ export function useServerGroupHeaders(input: ServerGroupHeadersInput): ServerGro
 
   useEffect(() => {
     if (!canAsk || !dataSource || !objectName) {
-      setState(IDLE);
+      // Leaving server grouping drops the last answer rather than keeping a
+      // group set that no longer describes the view.
+      setState((prev) => (prev === IDLE ? prev : IDLE));
       return;
     }
     let cancelled = false;
@@ -235,7 +237,7 @@ export interface ServerGroupRowsInput {
 }
 
 export interface ServerGroupRowsPage {
-  rows: any[];
+  rows: Record<string, unknown>[];
   page: number;
   loading: boolean;
   error: Error | null;
@@ -259,9 +261,7 @@ interface HeldPage extends ServerGroupRowsPage {
  */
 export function useServerGroupRows(input: ServerGroupRowsInput): ServerGroupRows {
   const { enabled, dataSource, objectName, fields, where, baseParams, pageSize, leaves, reloadKey } = input;
-  const [pageByKey, setPageByKey] = useState<Record<string, number>>({});
   const [held, setHeld] = useState<Record<string, HeldPage>>({});
-  const inflight = useRef(new Set<string>());
 
   const fieldsKey = JSON.stringify(fields.map((f) => f.field));
   const whereKey = JSON.stringify(where ?? null);
@@ -269,16 +269,15 @@ export function useServerGroupRows(input: ServerGroupRowsInput): ServerGroupRows
   const leavesKey = JSON.stringify(leaves.map((l) => [l.key, l.keyValues]));
   const queryKey = JSON.stringify([fieldsKey, whereKey, paramsKey, pageSize, reloadKey]);
 
-  // A different question makes every held page a stale answer: start each
-  // group over at its first page.
-  const lastQueryKey = useRef(queryKey);
-  useEffect(() => {
-    if (lastQueryKey.current === queryKey) return;
-    lastQueryKey.current = queryKey;
-    setPageByKey({});
-  }, [queryKey]);
+  // The page each group is on, recorded AGAINST the question it was turned
+  // under: a different question (filter, sort, page size, a refresh) makes
+  // every recorded page stale, so each group starts over at its first page —
+  // read that way at once, rather than reset one render late.
+  const [turned, setTurned] = useState<{ queryKey: string; pages: Record<string, number> }>({ queryKey, pages: {} });
+  const pageByKey = turned.queryKey === queryKey ? turned.pages : {};
 
   const canAsk = enabled && !!objectName && !!dataSource && baseParams !== null && fields.length > 0;
+  const pagesKey = JSON.stringify(pageByKey);
 
   useEffect(() => {
     if (!canAsk || !dataSource || !objectName || !baseParams) return;
@@ -288,10 +287,13 @@ export function useServerGroupRows(input: ServerGroupRowsInput): ServerGroupRows
     const wanted: Array<[string, Record<string, unknown>]> = JSON.parse(leavesKey);
 
     for (const [key, keyValues] of wanted) {
-      const page = pageByKey[key] ?? 1;
+      const page = (JSON.parse(pagesKey) as Record<string, number>)[key] ?? 1;
       const signature = JSON.stringify([queryKey, key, page]);
-      if (held[key]?.signature === signature || inflight.current.has(signature)) continue;
-      inflight.current.add(signature);
+      // Already asked (answered or in flight) for exactly the page on screen.
+      // A response to any OTHER request for this group is dropped on arrival
+      // by the same signature, so paging back and forth never shows a stale
+      // page under the pager's number.
+      if (held[key]?.signature === signature) continue;
       setHeld((prev) => ({
         ...prev,
         [key]: { rows: prev[key]?.rows ?? [], page, loading: true, error: null, signature },
@@ -315,7 +317,7 @@ export function useServerGroupRows(input: ServerGroupRowsInput): ServerGroupRows
       };
 
       dataSource
-        .find(objectName, params as any)
+        .find(objectName, params as QueryParams)
         .then((result) => {
           setHeld((prev) => (prev[key]?.signature === signature
             ? { ...prev, [key]: { rows: result?.data ?? [], page, loading: false, error: null, signature } }
@@ -325,17 +327,21 @@ export function useServerGroupRows(input: ServerGroupRowsInput): ServerGroupRows
           setHeld((prev) => (prev[key]?.signature === signature
             ? { ...prev, [key]: { rows: [], page, loading: false, error: err instanceof Error ? err : new Error(String(err)), signature } }
             : prev));
-        })
-        .finally(() => { inflight.current.delete(signature); });
+        });
     }
     // `held` is read to skip a request already answered; naming it would
     // re-run this effect on every answer, which asks nothing new.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canAsk, dataSource, objectName, fieldsKey, whereKey, leavesKey, pageByKey, queryKey, pageSize]);
+  }, [canAsk, dataSource, objectName, fieldsKey, whereKey, leavesKey, pagesKey, queryKey, pageSize]);
 
   const setPage = useCallback((key: string, page: number) => {
-    setPageByKey((prev) => (prev[key] === page ? prev : { ...prev, [key]: page }));
-  }, []);
+    setTurned((prev) => {
+      const pages = prev.queryKey === queryKey ? prev.pages : {};
+      return pages[key] === page && prev.queryKey === queryKey
+        ? prev
+        : { queryKey, pages: { ...pages, [key]: page } };
+    });
+  }, [queryKey]);
 
   // The held STATE itself, not a projection memoised over it: a consumer
   // keys an effect on it, and a state value's identity is a promise React

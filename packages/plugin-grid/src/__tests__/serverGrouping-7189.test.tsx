@@ -306,23 +306,30 @@ describe('ObjectGrid groups on the server (objectui#7189)', () => {
     expect(ds.queryGroupHeaders.mock.calls.map(([, q]) => q.groupBy)).toEqual([['region'], ['region', 'business_unit']]);
     // A leaf's rows are asked for with BOTH levels of its key.
     await vi.waitFor(() => expect(ds.find).toHaveBeenCalled());
-    expect(ds.find.mock.calls[0][1].$filter.$and).toHaveLength(2);
+    expect((ds.find.mock.calls[0][1].$filter as { $and: unknown[] }).$and).toHaveLength(2);
   });
 
   it('a reference-typed key is labelled from the referenced record, not printed as its id', async () => {
     const rows = buildRows(false).map((r) => ({ ...r, business_unit: `bu_${UNITS.findIndex(([u]) => u === r.business_unit)}` }));
     const ds = makeServerDataSource(rows as Row[]);
     const units = UNITS.map(([name], i) => ({ id: `bu_${i}`, name }));
-    const find = ds.find;
-    ds.find = vi.fn(async (object: string, params: Record<string, unknown>) =>
-      object === 'business_unit'
-        ? { data: units.filter((u) => ((params.$filter as any).id.$in as string[]).includes(u.id)), total: units.length }
-        : find(object, params));
-    ds.getObjectSchema = vi.fn(async () => ({
-      name: OBJECT,
-      fields: { ...OBJECT_FIELDS, business_unit: { type: 'lookup', label: 'Business Unit', reference: 'business_unit' } },
-    }));
-    renderGrid(ds);
+    const rowsFind = ds.find;
+    // The referenced object answers the label read; every other read is a row page.
+    const withLabels = {
+      ...ds,
+      find: vi.fn(async (object: string, params: Record<string, unknown>) =>
+        object === 'business_unit'
+          ? {
+            data: units.filter((u) => ((params.$filter as { id: { $in: string[] } }).id.$in).includes(u.id)),
+            total: units.length,
+          }
+          : rowsFind(object, params)),
+      getObjectSchema: vi.fn(async () => ({
+        name: OBJECT,
+        fields: { ...OBJECT_FIELDS, business_unit: { type: 'lookup', label: 'Business Unit', reference: 'business_unit' } },
+      })),
+    };
+    renderGrid(withLabels);
     await vi.waitFor(() => expect(groupRows()).toHaveLength(5));
     await vi.waitFor(() => expect(headerCounts()).toEqual(EXPECTED));
   });

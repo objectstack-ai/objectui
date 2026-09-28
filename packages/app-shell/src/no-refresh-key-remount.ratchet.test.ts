@@ -105,13 +105,13 @@ function collectSourceFiles(): string[] {
 }
 
 describe('objectui#2269 — no refetch-by-remount ratchet', () => {
-  it('finds the in-scope record-detail surfaces (guards against a broken scan path)', () => {
+  it('finds the in-scope record-detail surfaces and the PageView page host (guards against a broken scan path)', () => {
     // plugin-detail alone has dozens of source files; if this drops the
     // scope globs have gone stale and the ratchet would silently pass.
     expect(collectSourceFiles().length).toBeGreaterThan(20);
   });
 
-  it('has zero `key={…refresh/reload…}` remount sites in the record-detail surfaces', () => {
+  it('has zero `key={…refresh/reload…}` remount sites in the record-detail surfaces or the PageView page host', () => {
     const offenders: string[] = [];
     for (const file of collectSourceFiles()) {
       const src = readFileSync(file, 'utf8');

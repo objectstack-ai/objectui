@@ -22,12 +22,23 @@
  * All props are read off `schema.properties` per the spec's
  * `UIComponent.properties` convention; `schema.props` is also accepted
  * as a fallback so authors transitioning between conventions keep working.
+ * `element:number` also reads the node-level `dataSource` binding, whose
+ * members win over the flat ones (objectui#10909).
  */
 
 import * as React from 'react';
-import { ComponentRegistry } from '@object-ui/core';
+import { ComponentRegistry, elementDataSourceBlock } from '@object-ui/core';
 import type { ActionDef } from '@object-ui/core';
-import { useAdapter, useAction, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
+import {
+  ElementDataSourceErrorPanel,
+  ElementDataSourceLoadingPanel,
+  useAdapter,
+  useAction,
+  useDataInvalidation,
+  useElementDataSource,
+  useFilterScope,
+  useResolvedFilter,
+} from '@object-ui/react';
 import {
   useObjectTranslation,
   pickLocalized,
@@ -380,6 +391,28 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
     aria?: Record<string, any>;
   }>(schema);
   const adapter = useAdapter() as any;
+  // objectui#10909 — the spec's per-element binding (`PageComponentSchema
+  // .dataSource`), read the way the element twin `element:record_picker` reads
+  // it: through `useElementDataSource`, with the binding's member winning over
+  // the flat `properties` one. The spec lint gate waives a missing
+  // `properties.object` when `dataSource.object` names one, on exactly this
+  // precedence (`ds.object ?? props.object`); before this, a metric bound only
+  // through the binding issued no query and painted the empty dash.
+  //
+  // `object` resolves ONCE, here, and that one value is the fetch guard, the
+  // `aggregate` / `find` target and the bus key below. A named `view` is
+  // honoured (its filter scopes the aggregate); while it is unresolved or
+  // unresolvable there is NO object, so nothing is aggregated over the wider
+  // set the view was written to narrow, and the render reports instead. The
+  // binding's `sort` and `limit` are deliberately not read: an aggregate has no
+  // ordering, and a capped count is a wrong number.
+  //
+  // The renderer's own adapter is passed so the view resolves against the same
+  // source the aggregate reads from.
+  const dataBinding = useElementDataSource(schema, adapter);
+  const composed = dataBinding.composed;
+  const unresolved = dataBinding.status === 'loading' || dataBinding.status === 'missing';
+  const object = unresolved ? undefined : (composed?.object ?? props.object);
   // Tenant default currency (ADR-0053) for a `currency`-format metric; the
   // display locale resolves through the shared precedence (tenant regional
   // default → active UI language), so the metric follows a language switch even
@@ -395,20 +428,23 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   // session scope the host provides, and HELD by structure (`useResolvedFilter`
   // in `@object-ui/react`). Both reads below (the `aggregate` filter and the
   // `find` fallback's `$filter`) sent the literal token before; they and the
-  // content key read THIS, never the raw `props.filter`.
+  // content key read THIS, never the raw `props.filter`. Whichever filter wins:
+  // the binding's (already AND-combined with its view's) outright, else the
+  // node's own — `element:record_picker`'s precedence (objectui#10909).
   const filterScope = useFilterScope();
-  const queryFilter = useResolvedFilter(props.filter, filterScope);
+  const queryFilter = useResolvedFilter(composed?.filter ?? props.filter, filterScope);
   const filterKey = React.useMemo(() => (queryFilter ? JSON.stringify(queryFilter) : ''), [queryFilter]);
   // objectui#10623 — the data-invalidation bus (`notifyDataChanged` from
   // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
   // write to the object this number AGGREGATES is declared, and the effect
   // below names it, so the value is re-read. Subscribed only when the effect
-  // can query: no adapter or no aggregate means no read to repeat.
-  const invalidationNonce = useDataInvalidation(adapter && props.aggregate ? props.object : undefined);
+  // can query: no adapter or no aggregate means no read to repeat. Keyed on the
+  // RESOLVED object, so a bound metric re-reads for the object it aggregates.
+  const invalidationNonce = useDataInvalidation(adapter && props.aggregate ? object : undefined);
 
   React.useEffect(() => {
     let cancelled = false;
-    if (!adapter || !props.object || !props.aggregate) {
+    if (!adapter || !object || !props.aggregate) {
       setLoading(false);
       return;
     }
@@ -417,7 +453,7 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
     (async () => {
       try {
         if (typeof adapter.aggregate === 'function') {
-          const rows = await adapter.aggregate(props.object, {
+          const rows = await adapter.aggregate(object, {
             field: props.field,
             function: props.aggregate,
             groupBy: '_all',
@@ -434,7 +470,7 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
         } else if (typeof adapter.find === 'function') {
           // Last-resort: pull all rows and aggregate client-side. Costly
           // but matches the chart renderer fallback path.
-          const res = await adapter.find(props.object, queryFilter ? { $filter: queryFilter } : undefined);
+          const res = await adapter.find(object, queryFilter ? { $filter: queryFilter } : undefined);
           // `data` is the ONE rows member `QueryResult` (`@object-ui/types`)
           // declares; the bare-array arm stays because fakes at this seam
           // really do answer with a plain array. A `res?.records` arm sat
@@ -467,7 +503,24 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adapter, props.object, props.field, props.aggregate, filterKey, invalidationNonce]);
+  }, [adapter, object, props.field, props.aggregate, filterKey, invalidationNonce]);
+
+  // After every hook above, so hook order stays stable across resolution
+  // states. A `view` that names nothing reports rather than aggregating the
+  // whole object: one confident number over the wrong set is the quiet failure
+  // a metric has no second chance to show.
+  if (dataBinding.status === 'missing') {
+    return (
+      <ElementDataSourceErrorPanel
+        testId="element-number"
+        title="This metric’s data source could not be resolved"
+        message={dataBinding.error}
+      />
+    );
+  }
+  if (dataBinding.status === 'loading') {
+    return <ElementDataSourceLoadingPanel testId="element-number" />;
+  }
 
   return (
     <div className={cn('flex flex-col gap-1', schema?.className)} {...ariaAttrs(props.aria)}>
@@ -479,16 +532,32 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   );
 }
 
-ComponentRegistry.register('number', ElementNumberRenderer, {
+// The renderer READS the node-level `dataSource` binding (objectui#10909), so it
+// declares it from the seam every reader of the binding declares it from: the
+// marker below makes `Registry.register` emit `ELEMENT_DATA_SOURCE_INPUT` into
+// these `inputs`, and `object` is no longer `required` because the binding can
+// supply it. Same shape as `element:record_picker`'s registration, and the seam
+// comes from `@object-ui/core` for the same measured reason stated there.
+ComponentRegistry.register('number', elementDataSourceBlock(ElementNumberRenderer), {
   namespace: 'element',
   skipFallback: true,
   label: 'Number',
   category: 'content',
   inputs: [
-    { name: 'object', type: 'string', required: true, description: 'Object the aggregate runs over' },
+    {
+      name: 'object',
+      type: 'string',
+      description:
+        'Object the aggregate runs over. Required unless a node-level `dataSource` binding names one; when both are set, `dataSource.object` wins.',
+    },
     { name: 'aggregate', type: 'enum', enum: ['count', 'sum', 'avg', 'min', 'max'], required: true },
     { name: 'field', type: 'string', description: 'Measure field (required for every aggregate except count)' },
-    { name: 'filter', type: 'array' },
+    {
+      name: 'filter',
+      type: 'array',
+      description:
+        'Criteria the aggregate is scoped by. PRECEDENCE: a node-level `dataSource` binding wins outright — when the binding, or the saved view its `view` names, supplies a filter, this key is dropped rather than merged into it.',
+    },
     { name: 'format', type: 'enum', enum: ['number', 'currency', 'percent'] },
     { name: 'prefix', type: 'string' },
     { name: 'suffix', type: 'string' },

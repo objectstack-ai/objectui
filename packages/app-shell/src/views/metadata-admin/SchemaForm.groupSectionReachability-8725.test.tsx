@@ -199,12 +199,16 @@ describe('objectui#8725 — a `{ group }` section in SchemaForm resolves through
       { group: 'no_such_group_8725' },
     ]);
     const { error, ids } = renderForm(form);
+    // Read the diagnostics BEFORE this test calls the resolver itself: that call
+    // reports too, and read afterwards it would satisfy the assertions below on
+    // its own — measured, by an ablation that silenced SchemaForm's report and
+    // left this leg green until the read was moved here.
+    const said = consoleError.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
 
     expect(error).toBeUndefined();
     expect(resolverFieldNames(form)[1]).toEqual([]);
     expect(ids).toEqual(['mdf-a']);
 
-    const said = consoleError.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
     expect(said).toContain('no_such_group_8725');
     expect(said).toContain(SCHEMA_ID);
     expect(said).toContain('fieldGroups');

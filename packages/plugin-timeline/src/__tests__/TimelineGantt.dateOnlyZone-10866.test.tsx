@@ -199,8 +199,8 @@ describe('timeline gantt, in the suite zone (objectui#10866)', () => {
       scale: 'day',
       items: [{ label: 'Row', items: [{ title: 'Bar', startDate: '2026-02-30', endDate: '2026-03-04' }] }],
     });
-    expect(drawn.refusal).toContain('items[0].items[0].startDate');
-    expect(drawn.bars).toEqual([]);
+    expect(drawn.bars, 'the rolled day was drawn').toEqual([]);
+    expect(drawn.refusal ?? '').toContain('items[0].items[0].startDate');
   });
 
   it('control: a day its month has still draws', () => {

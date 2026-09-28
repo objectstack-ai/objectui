@@ -7,7 +7,8 @@
  */
 
 import { ObjectStackClient, type QueryOptions as ObjectStackQueryOptions } from '@objectstack/client';
-import type { DroppedFieldsEvent } from '@objectstack/spec/data';
+import type { DroppedFieldsEvent, EngineAggregateOptions } from '@objectstack/spec/data';
+import type { ListViewGroupHeaderRow } from '@objectstack/spec/ui';
 // #4934 — a VALUE import, not a type one: the write-warning boundary parses the
 // wire's `reason` against the enum the spec itself declares, so the accept set
 // is read off the pin instead of hand-copied here (a hand copy is the drift
@@ -6206,6 +6207,40 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       // so RLS still applies.
       return await this.aggregateViaFind(resource, params);
     }
+  }
+
+  /**
+   * Answer a grouped list view's GROUP HEADER query (objectui#7189) — see
+   * `DataSource.queryGroupHeaders` in `@object-ui/types` for the contract.
+   *
+   * The compiled query rides the platform's EXISTING data door verbatim:
+   * `client.data.query()` posts it to `POST /data/:object/query`, whose
+   * `findData` routes a body carrying `groupBy` / `aggregations` to
+   * `engine.aggregate` and answers the header rows as `records` (the door the
+   * spec half of objectstack#14556 names, pinned platform-side by
+   * objectstack#15330). No new route, no new wire shape.
+   *
+   * ⛔ No fallback, deliberately — unlike {@link aggregate}. A header query that
+   * degraded to bucketing a fetched page would answer page slices under a name
+   * that promises the query's own numbers, which is the defect this member
+   * exists to end. A failure is thrown to the caller, and a body without a
+   * `records` array is refused rather than read as "no groups".
+   */
+  async queryGroupHeaders(
+    resource: string,
+    query: EngineAggregateOptions,
+  ): Promise<ListViewGroupHeaderRow[]> {
+    await this.connect();
+    const result: unknown = await this.client.data.query(resource, query as any);
+    const records = (result as { records?: unknown } | null)?.records;
+    if (!Array.isArray(records)) {
+      throw new Error(
+        `queryGroupHeaders('${resource}'): POST /data/${resource}/query answered without a `
+        + '`records` array, so no group header can be read from it. The header query was '
+        + 'sent verbatim; nothing was approximated from a page of rows.',
+      );
+    }
+    return records as ListViewGroupHeaderRow[];
   }
 
   /**

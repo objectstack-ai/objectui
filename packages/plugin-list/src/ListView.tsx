@@ -2085,6 +2085,36 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     (schema.data as any).provider === 'api';
 
   /**
+   * Does a GROUPED grid query for itself? (objectui#7189, maintainer ruling A)
+   *
+   * Grouping on a list view is server-side: the set of groups and every number
+   * in a group header are properties of the query, and the rows inside a
+   * group are paged. This component's fetch is one window (`$top:
+   * effectivePageSize`), and a grid handed that window as `data` can only
+   * group the window — measured on 186 rows in five units of 86/61/31/7/1 with
+   * `$top: 100`: two headers (86, 14) or five page slices (31/31/30/7/1), by
+   * row order alone, every row past the window unreachable, and nothing on
+   * screen saying so. So when the data source can answer the group header
+   * query (`queryGroupHeaders`), the grid is handed NO rows: it asks the server
+   * for its groups and pages each group's rows itself, with the SAME effective
+   * filter this component would have sent (see `selfQueryFilter` below).
+   *
+   * ⛔ Not while a toolbar search is active. `$search` has no counterpart on
+   * the header query the platform answers — its aggregate branch composes
+   * `where` / `groupBy` / `aggregations` / `having` and nothing else — so
+   * searched group counts would not be the searched rows' counts. The
+   * searched view keeps grouping this component's window, as before.
+   */
+  const gridOwnsGroupedFetch =
+    currentView === 'grid' &&
+    (groupingConfig?.fields?.length ?? 0) > 0 &&
+    !Array.isArray(schema.data) &&
+    (schema.data as any)?.provider !== 'value' &&
+    !!schema.objectName &&
+    typeof dataSource?.queryGroupHeaders === 'function' &&
+    !searchTerm;
+
+  /**
    * Does the surface rendered below draw the rows THIS component fetched?
    *
    * objectui#7210. The record-count bar at the foot of this component reports
@@ -2122,8 +2152,13 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * is what the client-side CSV/JSON export writes out. Measured with the paged
    * response delayed: while it was in flight the skeleton was up and the chart
    * had 0 rows, though its own unbounded response had already arrived.
+   *
+   * objectui#7189 adds the second surface that draws rows it queried itself: a
+   * grouped grid grouping on the server (`gridOwnsGroupedFetch`). Its group
+   * headers carry the true counts and every group pages its own rows, so this
+   * bar's "N records · Showing first N" would describe a window it never drew.
    */
-  const surfaceDrawsFetchedRows = currentView !== 'gantt';
+  const surfaceDrawsFetchedRows = currentView !== 'gantt' && !gridOwnsGroupedFetch;
 
   // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
   // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
@@ -3093,7 +3128,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    */
   const selfQueryFilterRef = React.useRef<{ key: string; value: unknown } | null>(null);
   let selfQueryFilter: unknown = authoredFilter;
-  if (currentView === 'gantt' || currentView === 'tree' || currentView === 'chart') {
+  if (currentView === 'gantt' || currentView === 'tree' || currentView === 'chart' || gridOwnsGroupedFetch) {
     try {
       const value = buildEffectiveFilter(authoredFilter, appliedFilters, appliedUserFilterConditions);
       const key = JSON.stringify(value ?? null);
@@ -3193,6 +3228,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           ...(schema.selection ? { selection: schema.selection } : {}),
           ...(schema.pagination ? { pagination: schema.pagination } : {}),
           ...(groupingConfig ? { grouping: groupingConfig } : {}),
+          // objectui#7189 — a grid grouping on the server runs its own query,
+          // so it carries the effective filter. See `gridOwnsGroupedFetch`.
+          ...(gridOwnsGroupedFetch ? { filter: selfQueryFilter } : {}),
           ...(rowColorConfig ? { rowColor: rowColorConfig } : {}),
           ...(schema.rowActions ? { rowActions: schema.rowActions } : {}),
           /**
@@ -3669,7 +3707,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // asynchronously (`/me/permissions`) and `objectDef` loads into state, so a
   // grid schema built before either resolved must be rebuilt when they do —
   // otherwise `editable` keeps the pre-verdict answer for the session.
-  }, [currentView, schema, authoredFilter, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, selfQueryFilter, ganttSearchTerm]);
+  }, [currentView, schema, authoredFilter, currentSort, effectiveFields, hasAuthoredColumns, groupingConfig, rowColorConfig, navigation.handleClick, density.mode, galleryCardSize, inlineEdit, inlineEditOffered, objectDef, selfQueryFilter, ganttSearchTerm, gridOwnsGroupedFetch]);
 
   const hasFilters = currentFilters.conditions && currentFilters.conditions.length > 0;
 
@@ -5034,10 +5072,12 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           <SchemaRenderer
             schema={viewComponentSchema}
             {...props}
-            {...(ganttOwnsData
+            {...(ganttOwnsData || gridOwnsGroupedFetch
               // Withheld, not dropped. See `ganttOwnsData` above for why this
               // branch cannot be observed at the chart today (objectui#7222)
-              // and why it is still the correct value to hand down.
+              // and why it is still the correct value to hand down; and
+              // `gridOwnsGroupedFetch` for the grouped grid, which a window of
+              // rows would turn back into page-scoped grouping (objectui#7189).
               ? {}
               : { data })}
             {...(viewComponentSchema.type === 'object-grid' && objectDef?.fields

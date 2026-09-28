@@ -25,8 +25,9 @@ import type {
   ImportRowResult,
   ImportWriteMode,
 } from '@objectstack/spec/api';
-import type { FilterArray } from '@objectstack/spec/data';
+import type { EngineAggregateOptions, FilterArray } from '@objectstack/spec/data';
 import type { ValidationError } from '@objectstack/spec/kernel';
+import type { ListViewGroupHeaderRow } from '@objectstack/spec/ui';
 
 export type { ImportJobStatus, ImportWriteMode, ValidationError };
 
@@ -775,6 +776,35 @@ export interface DataSource<T = any> {
    * @returns Promise resolving to aggregated results
    */
   aggregate?(resource: string, params: AggregateParams): Promise<AggregateResult[]>;
+
+  /**
+   * Answer a grouped list view's GROUP HEADER query (objectui#7189).
+   *
+   * `query` is what `compileListViewGroupQuery` (`@objectstack/spec/ui`)
+   * compiles a grouped view into — an `EngineAggregateOptions` whose `groupBy`
+   * is the grouping fields in nesting order and whose `aggregations` carry the
+   * group count plus any per-group summary. The answer is one header row per
+   * group, every grouped field under its own name holding the RAW stored value
+   * (`null` for the empty group) and the group's TOTAL row count under
+   * `count`. Those numbers are properties of the query, not of any fetched
+   * page: that is the whole contract, and it is what lets a grouped grid show
+   * every group with its true size and page the rows inside each one.
+   *
+   * Optional, and presence is the capability: a grid only asks a data source
+   * that declares this member. A source that cannot answer it must leave it
+   * undeclared rather than approximate it — a grouped grid over such a source
+   * keeps grouping the rows it fetched, and says on screen that it did.
+   *
+   * ⛔ Not a second spelling of {@link aggregate}: that member takes the
+   * analytics-shaped {@link AggregateParams} (one field, one function, one
+   * `groupBy`) and may degrade to a client-side reduction; this one takes the
+   * compiled header query verbatim and never degrades.
+   *
+   * @param resource - Object name
+   * @param query - The compiled header query (`EngineAggregateOptions`)
+   * @returns One header row per group, as the platform answers it
+   */
+  queryGroupHeaders?(resource: string, query: EngineAggregateOptions): Promise<ListViewGroupHeaderRow[]>;
 
   /**
    * Subscribe to mutation events.

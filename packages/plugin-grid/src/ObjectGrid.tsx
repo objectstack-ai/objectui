@@ -25,6 +25,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { ObjectGridSchema, DataSource, ListColumn, TableColumn, ViewData, TableSortItem, DataTableSchema, ListViewExportFormat } from '@object-ui/types';
 import { isSystemManagedField, normalizeTableColumnType } from '@object-ui/types';
 import type { I18nLabel } from '@objectstack/spec/ui';
+import { parseFilterAST, type FilterCondition } from '@objectstack/spec/data';
 import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, useDataInvalidation, useFilterScope } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 // objectui#8920 — the grid reaches a cell renderer through THIS module and
@@ -63,7 +64,8 @@ import {
 } from '@object-ui/plugin-detail';
 import { ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, Download, Rows2, Rows3, Rows4, AlignJustify, Type, Hash, Calendar, CheckSquare, User, Tag, Clock, Loader2 } from 'lucide-react';
 import { useRowColor } from './useRowColor';
-import { useGroupedData, usableGroupingFields } from './useGroupedData';
+import { useGroupedData, usableGroupingFields, type ServerGroupSource } from './useGroupedData';
+import { useServerGroupHeaders, useServerGroupRows, type ServerGroupLeaf } from './useServerGrouping';
 import { GroupRow } from './GroupRow';
 import { useColumnSummary } from './useColumnSummary';
 import { resolveRowCrudAffordances, resolveRowRecordCrudAffordance } from './rowCrudAffordances';
@@ -2021,6 +2023,100 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     return () => { cancelled = true; };
   }, [hasInlineData, objectName, dataSource]);
 
+  // objectui#10583 — a MASKED field is REFUSED as a grouping key.
+  // Grouping by it printed the raw value as each group's label. Masking the
+  // label would not be enough: the buckets would still show which records
+  // share a credential, ordered by its raw value. So the entry is dropped (the
+  // other entries still group, as `usableGroupingFields` does for an unusable
+  // one) and the drop is reported through the grid's warning channel. The rule
+  // is the column flag's: `isMaskedGridColumn` over the view column's type and
+  // the object-declared type.
+  //
+  // objectui#10657 (which folded objectui#10706) — the same rule's third
+  // argument: while the object's field types are unknown (`objectTypesPending`,
+  // the host-fetched window, or a failed read), an entry on a field whose view
+  // column authors no type is WITHHELD and so refused too, since its group
+  // label would print whatever the field holds. The group label follows the
+  // cell: a withheld cell draws the mask, and a withheld key labels no group.
+  // Once the types are known the entry groups again, unless its field is
+  // masked. The refusal of a withheld entry is not warned: it is not a finding
+  // about the authored grouping, and a failed read reports itself.
+  const groupingFieldsRaw = schema.grouping?.fields;
+  const maskedGroupingSignature = React.useMemo(() => {
+    const cols: ReadonlyArray<string | ListColumn> = normalizeColumns(schema.columns) ?? [];
+    const columnTypeOf = (field: string) =>
+      cols.find((c): c is ListColumn => typeof c === 'object' && c !== null && c.field === field)?.type;
+    const refused = usableGroupingFields(groupingFieldsRaw)
+      .map((gf) => gf.field)
+      .filter((field) => isMaskedGridColumn(columnTypeOf(field), objectFields?.[field]?.type, objectTypesPending));
+    return JSON.stringify({
+      refused,
+      // The ones refused on a KNOWN masked type, which is what the warning names.
+      warned: refused.filter((field) => isMaskedGridColumn(columnTypeOf(field), objectFields?.[field]?.type, false)),
+    });
+  }, [groupingFieldsRaw, schema.columns, objectFields, objectTypesPending]);
+  // Keyed on the authored array and the signature STRING, never on a memo's
+  // identity (AGENTS.md #10). Read only when something was refused: the
+  // unmasked path below hands `useGroupedData` the authored config itself.
+  const unmaskedGroupingFields = React.useMemo(() => {
+    const { refused }: { refused: string[] } = JSON.parse(maskedGroupingSignature);
+    return usableGroupingFields(groupingFieldsRaw).filter((gf) => !refused.includes(gf.field));
+  }, [groupingFieldsRaw, maskedGroupingSignature]);
+  const groupingRefusesNothing = maskedGroupingSignature === NO_GROUPING_REFUSAL;
+  useEffect(() => {
+    const { warned: masked }: { warned: string[] } = JSON.parse(maskedGroupingSignature);
+    if (masked.length === 0) return;
+    console.warn(
+      `[ObjectUI] ObjectGrid grouping: ${schema.objectName ?? 'object-grid'} groups by the masked `
+      + `field(s) ${masked.join(', ')}. A masked field cannot be a grouping key: its group labels would `
+      + 'show the raw value, and its groups would show which records share it. The entry was ignored.',
+    );
+  }, [maskedGroupingSignature, schema.objectName]);
+
+  // ── Server-side grouping (objectui#7189, maintainer ruling A) ─────────────
+  //
+  // Grouping on a list view is server-side: the set of groups and every number
+  // in a group header are properties of the QUERY, not of a fetched page, and
+  // the rows inside a group are paged. So a grouped grid that OWNS its fetch
+  // asks the server for its group headers (`dataSource.queryGroupHeaders`,
+  // the compiled `compileListViewGroupQuery`) and pages each open group's rows
+  // (`compileListViewGroupRowsQuery`) instead of fetching one window and
+  // bucketing it — which answered two headers (86, 14) or five page slices
+  // (31/31/30/7/1) for the same five units of 86/61/31/7/1, depending on
+  // nothing but row order, and left every row past the window unreachable.
+  //
+  // Presence of `queryGroupHeaders` is the capability. Rows handed in whole
+  // (`hasInlineData`) are grouped where they are, which is exact because
+  // nothing was withheld. A data source that cannot answer the header query
+  // keeps grouping the page it fetched — and the grid says so on screen (the
+  // "Partial" marker below), because only there are the counts page slices.
+  //
+  // Decided on the grouping AS CONFIGURED less the entries refused on a KNOWN
+  // masked type — NOT less the entries merely withheld while the object's
+  // types are still loading, or the first render would fetch one flat window
+  // it is about to throw away.
+  const groupingRefusedKnownMasked = React.useMemo(
+    () => (JSON.parse(maskedGroupingSignature) as { warned: string[] }).warned,
+    [maskedGroupingSignature],
+  );
+  // A grouping field this principal may not READ is not a key the server may
+  // group by: a header row carries every key's raw value, so grouping by it
+  // would print what the column itself withholds. Same gate, same deferral
+  // (an unanswered policy filters nothing), as the projection's.
+  const groupingKeyReadable = (field: string): boolean =>
+    !perms?.isLoaded || !objectName || perms.checkField(objectName, field, 'read');
+  const serverGroupedFetch =
+    !hasInlineData
+    && !!objectName
+    && typeof dataSource?.queryGroupHeaders === 'function'
+    && usableGroupingFields(groupingFieldsRaw).some(
+      (gf) => !groupingRefusedKnownMasked.includes(gf.field) && groupingKeyReadable(gf.field),
+    );
+  // The grid's own row query — projection, expansion, order and the view's
+  // filter — resolved by the load effect below exactly as the flat fetch
+  // resolves it, and handed to each group's row page. `null` until resolved.
+  const [groupRowQuery, setGroupRowQuery] = useState<Record<string, unknown> | null>(null);
+
   // objectui#10035 — the refresh input this grid had none of, so a host could
   // show it a write only by remounting it (AGENTS.md #8's corollary: refresh
   // data, don't rebuild UI). The nonce moves when the data-invalidation bus
@@ -2494,6 +2590,18 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             params.$expand = expand;
           }
 
+          // [objectui#7189] Server-grouped: no flat window is fetched. The
+          // query is resolved here all the same — every gate above applies to
+          // each group's rows exactly as it would to the flat page — and each
+          // group's row page supplies its own filter and window.
+          if (serverGroupedFetch) {
+            const { $top: _top, $skip: _skip, ...groupQuery } = params;
+            setGroupRowQuery(groupQuery);
+            lastFindParamsRef.current = { ...groupQuery };
+            setSelectAllMatching(false);
+            return;
+          }
+
           const result = await dataSource.find(objectName, params);
           if (cancelled) return;
           setData(result.data || []);
@@ -2543,7 +2651,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // held with `filter`. It changes only when the authored alias changes by
   // structure or the scope changes (a new signed-in user), and either one
   // changes the `$filter` this effect sends when `filter` is absent.
-  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaDefaultFilters, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, serverPageSize, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, invalidationNonce]);
+  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaDefaultFilters, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, serverPageSize, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, invalidationNonce, serverGroupedFetch]);
 
   // The same reset, for the path the loader above never runs on (objectui#4501
   // clause 2). "All N matching are selected" is a claim about ONE query, so it
@@ -2720,63 +2828,71 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     };
   }, [schema.grouping, schema.columns, schema.objectName, objectFields, translateOptions, t]);
 
-  // objectui#10583 — a MASKED field is REFUSED as a grouping key.
-  // Grouping by it printed the raw value as each group's label. Masking the
-  // label would not be enough: the buckets would still show which records
-  // share a credential, ordered by its raw value. So the entry is dropped (the
-  // other entries still group, as `usableGroupingFields` does for an unusable
-  // one) and the drop is reported through the grid's warning channel. The rule
-  // is the column flag's: `isMaskedGridColumn` over the view column's type and
-  // the object-declared type.
-  //
-  // objectui#10657 (which folded objectui#10706) — the same rule's third
-  // argument: while the object's field types are unknown (`objectTypesPending`,
-  // the host-fetched window, or a failed read), an entry on a field whose view
-  // column authors no type is WITHHELD and so refused too, since its group
-  // label would print whatever the field holds. The group label follows the
-  // cell: a withheld cell draws the mask, and a withheld key labels no group.
-  // Once the types are known the entry groups again, unless its field is
-  // masked. The refusal of a withheld entry is not warned: it is not a finding
-  // about the authored grouping, and a failed read reports itself.
-  const groupingFieldsRaw = schema.grouping?.fields;
-  const maskedGroupingSignature = React.useMemo(() => {
-    const cols: ReadonlyArray<string | ListColumn> = normalizeColumns(schema.columns) ?? [];
-    const columnTypeOf = (field: string) =>
-      cols.find((c): c is ListColumn => typeof c === 'object' && c !== null && c.field === field)?.type;
-    const refused = usableGroupingFields(groupingFieldsRaw)
-      .map((gf) => gf.field)
-      .filter((field) => isMaskedGridColumn(columnTypeOf(field), objectFields?.[field]?.type, objectTypesPending));
-    return JSON.stringify({
-      refused,
-      // The ones refused on a KNOWN masked type, which is what the warning names.
-      warned: refused.filter((field) => isMaskedGridColumn(columnTypeOf(field), objectFields?.[field]?.type, false)),
-    });
-  }, [groupingFieldsRaw, schema.columns, objectFields, objectTypesPending]);
-  // Keyed on the authored array and the signature STRING, never on a memo's
-  // identity (AGENTS.md #10). Read only when something was refused: the
-  // unmasked path below hands `useGroupedData` the authored config itself.
-  const unmaskedGroupingFields = React.useMemo(() => {
-    const { refused }: { refused: string[] } = JSON.parse(maskedGroupingSignature);
-    return usableGroupingFields(groupingFieldsRaw).filter((gf) => !refused.includes(gf.field));
-  }, [groupingFieldsRaw, maskedGroupingSignature]);
-  const groupingRefusesNothing = maskedGroupingSignature === NO_GROUPING_REFUSAL;
-  useEffect(() => {
-    const { warned: masked }: { warned: string[] } = JSON.parse(maskedGroupingSignature);
-    if (masked.length === 0) return;
-    console.warn(
-      `[ObjectUI] ObjectGrid grouping: ${schema.objectName ?? 'object-grid'} groups by the masked `
-      + `field(s) ${masked.join(', ')}. A masked field cannot be a grouping key: its group labels would `
-      + 'show the raw value, and its groups would show which records share it. The entry was ignored.',
-    );
-  }, [maskedGroupingSignature, schema.objectName]);
+  const groupingForRender = groupingRefusesNothing || !schema.grouping
+    ? schema.grouping
+    : { ...schema.grouping, fields: unmaskedGroupingFields };
+  // [objectui#7189] The entries the SERVER groups by: the render grouping less
+  // any key this principal may not read (see `groupingKeyReadable`). Keyed on
+  // the names, so a host rebuilding `grouping` every render re-asks nothing.
+  const serverGroupingKey = serverGroupedFetch
+    ? JSON.stringify(
+      usableGroupingFields(groupingForRender?.fields)
+        .filter((gf) => groupingKeyReadable(gf.field))
+        .map((gf) => [gf.field, gf.order ?? null, gf.collapsed ?? null]),
+    )
+    : '[]';
+  const serverGroupingFields = React.useMemo(
+    () => (JSON.parse(serverGroupingKey) as Array<[string, 'asc' | 'desc' | null, boolean | null]>)
+      .map(([field, order, collapsed]) => ({
+        field,
+        ...(order ? { order } : {}),
+        ...(collapsed !== null ? { collapsed } : {}),
+      })),
+    [serverGroupingKey],
+  );
+  // The view's composed filter as ONE `FilterCondition` — what both compiled
+  // queries take, so the header numbers and the rows they head answer the
+  // same question. Lowered from the AST the flat fetch would have sent; a
+  // filter that does not lower is refused, never dropped (dropping it would
+  // group the unfiltered object).
+  const groupRowQueryKey = JSON.stringify(groupRowQuery);
+  const groupWhere = React.useMemo((): { where?: FilterCondition; error?: Error } => {
+    const query = JSON.parse(groupRowQueryKey) as Record<string, unknown> | null;
+    const ast = query?.$filter;
+    if (ast === undefined || ast === null) return {};
+    try {
+      const where = parseFilterAST(ast);
+      if (where === undefined) {
+        return { error: new Error(`[ObjectGrid] The view filter could not be lowered for server-side grouping: ${JSON.stringify(ast)}`) };
+      }
+      return { where };
+    } catch (err) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
+    }
+  }, [groupRowQueryKey]);
+  const groupReloadKey = `${refreshKey}:${invalidationNonce}`;
+  const groupHeaders = useServerGroupHeaders({
+    enabled: serverGroupedFetch && !objectTypesPending && groupRowQuery !== null && !groupWhere.error,
+    dataSource,
+    objectName,
+    fields: serverGroupingFields,
+    where: groupWhere.where,
+    aggregations: schema.aggregations,
+    objectFields,
+    reloadKey: groupReloadKey,
+  });
+  const serverGroupSource: ServerGroupSource | undefined = serverGroupedFetch
+    ? { headers: groupHeaders.headers ?? [], keyLabels: groupHeaders.keyLabels }
+    : undefined;
 
   const { groups, isGrouped, toggleGroup } = useGroupedData(
-    groupingRefusesNothing || !schema.grouping
-      ? schema.grouping
-      : { ...schema.grouping, fields: unmaskedGroupingFields },
+    serverGroupedFetch
+      ? (schema.grouping ? { ...schema.grouping, fields: serverGroupingFields } : undefined)
+      : groupingForRender,
     data,
     schema.aggregations,
     groupValueFormatter,
+    serverGroupSource,
   );
 
   // Reset grouped pagination to page 1 whenever the grouping config, page size
@@ -2788,6 +2904,47 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   React.useEffect(() => {
     setGroupedPage(1);
   }, [groupingKey, groupedPageSize, refreshKey]);
+
+  // [objectui#7189] The open LEAF groups on the current page of groups — the
+  // only ones whose rows are on screen, and so the only ones whose rows are
+  // asked for. A collapsed group costs no row query at all.
+  const serverGroupLeaves: ServerGroupLeaf[] = [];
+  if (serverGroupedFetch) {
+    const groupPages = Math.max(1, Math.ceil(groups.length / groupedPageSize));
+    const onPage = Math.min(groupedPage, groupPages);
+    const collectOpenLeaves = (group: typeof groups[number]) => {
+      if (group.collapsed) return;
+      if (group.subgroups.length === 0) serverGroupLeaves.push({ key: group.key, keyValues: group.keyValues });
+      else group.subgroups.forEach(collectOpenLeaves);
+    };
+    groups.slice((onPage - 1) * groupedPageSize, onPage * groupedPageSize).forEach(collectOpenLeaves);
+  }
+  const groupRows = useServerGroupRows({
+    enabled: serverGroupedFetch && !!groupHeaders.headers,
+    dataSource,
+    objectName,
+    fields: serverGroupingFields,
+    where: groupWhere.where,
+    baseParams: groupRowQuery,
+    pageSize: serverPageSize,
+    leaves: serverGroupLeaves,
+    reloadKey: groupReloadKey,
+  });
+  // The rows in hand are the open groups' pages: what everything else that
+  // reads `data` (column inference, the client export, selection) sees.
+  const serverLeafKeys = JSON.stringify(serverGroupLeaves.map((leaf) => leaf.key));
+  useEffect(() => {
+    if (!serverGroupedFetch) return;
+    const keys = JSON.parse(serverLeafKeys) as string[];
+    setData(keys.flatMap((key) => groupRows.pages[key]?.rows ?? []));
+  }, [serverGroupedFetch, serverLeafKeys, groupRows.pages]);
+  // …and the match total is the QUERY's: the top-level group counts summed.
+  const serverGroupTotal = serverGroupedFetch && groupHeaders.headers
+    ? (groupHeaders.headers[0] ?? []).reduce((sum, row) => sum + (Number(row.count) || 0), 0)
+    : undefined;
+  useEffect(() => {
+    if (serverGroupTotal !== undefined) setTotalMatching(serverGroupTotal);
+  }, [serverGroupTotal]);
 
   // --- Column summary support ---
   const summaryColumns = React.useMemo(() => {
@@ -3857,16 +4014,23 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     );
   }
 
-  if (error) {
+  // [objectui#7189] A server-grouped grid fails like any other load: the
+  // header query refused, or a view filter that would not lower for it.
+  const loadError = error
+    ?? (serverGroupedFetch ? (groupWhere.error ?? groupHeaders.error ?? null) : null);
+  if (loadError) {
     return (
       <div className="p-3 sm:p-4 border border-red-300 bg-red-50 rounded-md">
         <h3 className="text-red-800 font-semibold">{t('grid.errorLoading')}</h3>
-        <p className="text-red-600 text-sm mt-1">{error.message}</p>
+        <p className="text-red-600 text-sm mt-1">{loadError.message}</p>
       </div>
     );
   }
 
-  if (loading && data.length === 0) {
+  // …and it is loading until its group set has first arrived: the flat fetch
+  // it skips never clears `data`'s emptiness, so `loading` alone says nothing.
+  const serverGroupsFirstLoad = serverGroupedFetch && !groupHeaders.headers;
+  if ((loading && data.length === 0) || serverGroupsFirstLoad) {
     if (useCardView) {
       return (
         <div className="space-y-2 p-2">
@@ -4178,19 +4342,26 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     cellClassName: [rowHeightCellClass, col.cellClassName].filter(Boolean).join(' '),
   });
 
-  // Server-side pagination applies to the flat, server-fetched list only.
-  // Inline/static data and the grouped view paginate in-memory (grouped mode
-  // keeps whole groups together via its own groupedPage state), so they stay
-  // on DataTable's default client-side slicing.
+  // Server-side pagination applies to every list whose rows the server pages:
+  // the flat, server-fetched list, and a server-grouped one (per group).
+  // Inline/static data paginates in-memory, and so does a grid grouping a page
+  // it fetched (grouped mode keeps whole groups together via its own
+  // groupedPage state), so they stay on DataTable's client-side slicing.
   //
   // Declared here rather than beside the rest of the manual-mode wiring below
   // because `orderedColumns` needs it: which columns may be sorted at all
   // depends on whether the sort is the server's.
-  const useServerPagination = !hasInlineData && !isGrouped;
+  //
+  // [objectui#7189] The grouped exclusion is gone for a grid that groups on
+  // the SERVER: it pages each group's rows there (see `renderGroup`), so its
+  // sort is the server's too. A grid grouping a page it fetched from a source
+  // that cannot answer the header query still holds whole groups in memory.
+  const useServerPagination = !hasInlineData && (!isGrouped || serverGroupedFetch);
 
   // Either we own the server fetch (useServerPagination) or a parent does
-  // (externalManualPagination). Grouped mode always keeps in-memory slicing so
-  // whole groups stay together. Both server modes feed DataTable a manual pager
+  // (externalManualPagination). This is the FLAT table's pager: a grouped grid
+  // renders no flat table — its pages are per group (`renderGroup`) — so it
+  // never switches this on. Both server modes feed DataTable a manual pager
   // backed by the real match total.
   const manualPaginationOn = (useServerPagination || externalManualPagination) && !isGrouped;
 
@@ -4198,9 +4369,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   //
   // Tied to who owns the ROWS, not to who owns the pager: whenever `data` is
   // one window of a larger collection, sorting it in the browser orders that
-  // window and nothing else. Grouped mode holds every row it groups, so it
-  // keeps DataTable's own client-side sort.
-  const manualSortingOn = manualPaginationOn;
+  // window and nothing else. A server-grouped grid holds one PAGE of each
+  // group, so its sort is the server's (objectui#7189); a grid grouping rows
+  // it holds keeps DataTable's own client-side sort.
+  const manualSortingOn = manualPaginationOn || (isGrouped && serverGroupedFetch);
 
   // Server-side search, on exactly the same condition (objectui#3118). Same
   // question, filter axis: when `data` is one window, a `.filter()` over it
@@ -4803,6 +4975,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // host-driven paging mode still reaches condition 1, through `hostRowCount`.
   // A result set that fits leaves the grid silent, and that silence is what
   // makes the marker mean something when it does appear.
+  //
+  // ⭐ RETIRED where the counts are server-true (objectui#7189, ruling A —
+  // enforce-or-remove). A server-grouped grid's group set and every header
+  // number are the header query's own, so there is nothing partial to
+  // disclose and the marker would be a lie. What still reaches it is the one
+  // shape whose counts ARE page slices: a grid grouping the window it fetched
+  // from a data source that declares no `queryGroupHeaders`.
   const groupingRowsLoaded = data.length;
   const groupingTotalKnown = typeof resolvedTotalMatching === 'number';
   const groupingPartialWithTotal =
@@ -4810,7 +4989,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   const groupingPartialWindowFull =
     !groupingTotalKnown && !hasInlineData && groupingRowsLoaded >= serverPageSize;
   const groupingIsPartial =
-    isGrouped && (groupingPartialWithTotal || groupingPartialWindowFull);
+    isGrouped && !serverGroupedFetch && (groupingPartialWithTotal || groupingPartialWindowFull);
   // ONE sentence, used in both places it belongs: the notice above the group
   // list, and the accessible name of the marker beside every group count.
   const groupingPartialNotice = groupingIsPartial
@@ -5138,11 +5317,29 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   }
 
   /** Build a per-group data-table schema (inherits everything except data & pagination). */
-  const buildGroupTableSchema = (groupRows: any[]): ObjectGridDataTableSchema => ({
+  const buildGroupTableSchema = (
+    groupRows: any[],
+    serverPage?: { count: number; page: number; onPageChange: (page: number) => void },
+  ): ObjectGridDataTableSchema => ({
     ...dataTableSchema,
     caption: undefined,
     data: groupRows,
     pagination: false,
+    // [objectui#7189] A server-grouped leaf holds ONE page of its group: the
+    // pager is the group's own, driven by the header's count, and turning it
+    // asks the server for the group's next page — so every row of every group
+    // is reachable. Shown only when the group spans more than one page.
+    ...(serverPage
+      ? {
+        pagination: serverPage.count > serverPageSize,
+        manualPagination: true,
+        rowCount: serverPage.count,
+        page: serverPage.page,
+        pageSize: serverPageSize,
+        onPageChange: serverPage.onPageChange,
+        onPageSizeChange: (size: number) => { setServerPageSize(size); },
+      }
+      : {}),
     searchable: false,
     // Embedded inside a GroupRow which already provides visual framing.
     // Drop the table's outer rounded border so groups look like Airtable's
@@ -5801,6 +5998,34 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     return { fieldLabel, labelColorClass, labelColorStyle };
   };
 
+  // [objectui#7189] One open leaf group's page of rows, as the server paged it.
+  const renderServerGroupPage = (group: typeof groups[number]): React.ReactNode => {
+    const held = groupRows.pages[group.key];
+    if (held?.error) {
+      return (
+        <p data-testid={`group-rows-error-${group.key}`} className="px-1 py-2 text-xs text-destructive">
+          {held.error.message}
+        </p>
+      );
+    }
+    if (!held || (held.loading && held.rows.length === 0)) {
+      return (
+        <p data-testid={`group-rows-loading-${group.key}`} className="px-1 py-2 text-xs text-muted-foreground">
+          {t('grid.loading')}
+        </p>
+      );
+    }
+    return (
+      <SchemaRenderer
+        schema={buildGroupTableSchema(held.rows, {
+          count: group.count,
+          page: held.page,
+          onPageChange: (page: number) => groupRows.setPage(group.key, page),
+        })}
+      />
+    );
+  };
+
   const renderGroup = (group: typeof groups[number]): React.ReactNode => {
     const { fieldLabel, labelColorClass, labelColorStyle } = resolveGroupHeader(group.field, group.label);
     return (
@@ -5808,7 +6033,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         <GroupRow
           groupKey={group.key}
           label={group.label}
-          count={group.rows.length}
+          count={group.count}
           collapsed={group.collapsed}
           aggregations={group.aggregations}
           fieldLabel={group.depth === 0 ? fieldLabel : undefined}
@@ -5822,6 +6047,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             <div className="space-y-4 mt-2">
               {group.subgroups.map(renderGroup)}
             </div>
+          ) : serverGroupedFetch ? (
+            renderServerGroupPage(group)
           ) : (
             <SchemaRenderer schema={buildGroupTableSchema(group.rows)} />
           )}

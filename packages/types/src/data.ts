@@ -792,8 +792,10 @@ export interface DataSource<T = any> {
    *
    * Optional, and presence is the capability: a grid only asks a data source
    * that declares this member. A source that cannot answer it must leave it
-   * undeclared rather than approximate it — a grouped grid over such a source
-   * keeps grouping the rows it fetched, and says on screen that it did.
+   * undeclared rather than approximate it — a grouped grid that fetches its
+   * own rows over such a source refuses grouping, naming this member, and
+   * fetches no rows (objectui#10881). Rows a host hands in whole are still
+   * grouped where they are.
    *
    * ⛔ Not a second spelling of {@link aggregate}: that member takes the
    * analytics-shaped {@link AggregateParams} (one field, one function, one

@@ -19,8 +19,8 @@
  * PRIOR ART, stated rather than credited: `groupingProjection-7179` pins that a
  * grouping field reaches `$select`, `groupingNullEntry-7217` pins that a `null`
  * hole does not take the grid down, `groupedBooleanLabel` pins the Yes/No
- * fallback, `groupedPagination` and `groupedPartialDisclosure-7189` pin the
- * paging around groups. None of them states the member set, and none says what
+ * fallback, `groupedPagination` pins the paging around groups. None of them
+ * states the member set, and none says what
  * `order` or `collapsed` do.
  *
  * ⭐ **`grouping` and `columns` ARE NOT DISJOINT, and this file is where that

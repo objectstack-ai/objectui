@@ -374,8 +374,13 @@ function sameGroupKey(a: unknown, b: unknown): boolean {
  *     retired, since a group whose rows all fall past the page would not
  *     appear at all and every count would be a page slice.
  *   - `server` absent — the rows in `data` are grouped here. That is exact
- *     when the grid holds every row (inline rows, a host's whole result set);
- *     over a fetched page it is page-scoped, and the grid says so on screen.
+ *     when they are every row, which is what the grid takes rows a host hands
+ *     it to be (inline rows, a host's whole result set). A grid that fetches
+ *     its own rows never groups them here: over a data source with no header
+ *     query it refuses grouping instead (objectui#10881, ruling F). A host
+ *     that hands in a WINDOW gets that window grouped — `ListView` still does
+ *     while a toolbar search is active, since the header query carries no
+ *     search (objectstack#20358).
  *
  * @param config        - GroupingConfig from the grid schema (optional)
  * @param data          - flat data rows (grouped only when `server` is absent)

@@ -128,12 +128,12 @@ const fr = {
     printDialogHint: "Ouvre la boîte de dialogue d'impression de votre navigateur (ce n'est pas un export PDF)",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "Affichage des {{shown}} premiers enregistrements sur {{total}}. Affinez le filtre.",
     rowCeilingNoteUnknownTotal: "Affichage des {{shown}} premiers enregistrements. Affinez le filtre.",
   },
@@ -398,13 +398,12 @@ const fr = {
     yes: "Oui",
     no: "Non",
     systemFields: "Système",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's refusal over a data source that
+    // cannot answer the group header query. `queryGroupHeaders` is the
+    // member's name and stays untranslated.
     grouping: {
-      partialBadge: "Partiel",
-      partialNotice:
-        "Regroupement effectué sur les {{loaded}} premiers enregistrements sur {{total}}. Les décomptes par groupe ne portent que sur la page chargée, et un groupe dont tous les enregistrements se trouvent au-delà des lignes chargées est absent ici.",
-      partialNoticeUnknownTotal:
-        "Regroupement effectué sur les {{loaded}} enregistrements chargés. D'autres enregistrements peuvent correspondre à cette vue : les décomptes par groupe peuvent donc être partiels et un groupe peut manquer ici.",
+      needsHeaderQuery:
+        "Cette vue est groupée, mais sa source de données n'implémente pas queryGroupHeaders : les groupes ne peuvent donc pas être comptés. Supprimez le regroupement pour afficher les enregistrements.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this

@@ -106,8 +106,8 @@ registerAllFields();
  *
  *  - `import.meta.url` IS a `file:` URL in this project. objectui#7800
  *    (comment 5555131785) measured it across three packages and both cwds; the
- *    sibling `packages/plugin-grid/src/__tests__/groupedPartialDisclosure-7189.test.tsx`
- *    has derived its root this way since PR #7806. What Vite rewrites is the
+ *    sibling `groupedPartialDisclosure-7189.test.tsx` derived its root this way
+ *    from PR #7806 until objectui#10881 retired it. What Vite rewrites is the
  *    TWO-ARGUMENT `new URL(rel, import.meta.url)`, which is why only the bare
  *    form is read here and taken apart by hand.
  *  - "the vitest root" and `process.cwd()` are not the same directory. This

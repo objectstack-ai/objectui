@@ -56,17 +56,24 @@
  * ── THE NODE BOUNDARY, AND WHY IT IS NOT OPTIONAL ──────────────────────────
  * Child slots (`children` / `body` / `content` / …) are typed
  * `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])`, and
- * `SchemaNodeSchema` is `z.lazy(() => z.union([BaseSchemaCore, string, number,
- * boolean, null, undefined]))` — the recursion point of the whole node tree is
- * BaseSchemaCore, which declares the ~21 base keys and NOTHING type-specific.
- * Strict-ifying that recursion point measures the recursion point, not the
- * components: every child node's own declared props become unrecognised. So
- * the per-component measurement replaces `SchemaNodeSchema` with `z.any()`
- * (the "node boundary") and instead walks each document into its constituent
- * nodes, judging every node against ITS OWN component schema. Both readings
- * are reported: the per-component tables use the boundary, and
- * `documentLevel.strictRefusedWholeTree` reports the un-boundaried
- * whole-document strict parse — what a naive `.strict()` flip would really do.
+ * `SchemaNodeSchema` is a `z.lazy` over ONE live union: a component arm in
+ * slot 0, then the primitives a slot admits. Since objectui#8344 that arm is
+ * the component union itself — `defineNodeComponentUnion` writes
+ * `AnyComponentSchema` into slot 0 when the `./zod` barrel evaluates, and this
+ * script reads the face through that barrel. So an un-boundaried walk does
+ * judge every child node against its own component schema, but a child slot is
+ * part of its parent's shape: a child's refusal fails every ancestor's parse
+ * too, and a per-node table built that way charges one undeclared key to each
+ * level above it. So the per-component measurement replaces `SchemaNodeSchema`
+ * with `z.any()` (the "node boundary") and instead walks each document into
+ * its constituent nodes, judging every node against ITS OWN component schema,
+ * children excluded. objectui#10076 measured that difference once, on the
+ * corpora of its day (a historical reading, ⛔ not re-derived here): strict
+ * per-component twins refused 168 nodes with the boundary and 185 without it.
+ * Both readings are reported: the per-component tables use the boundary, and
+ * `totals.documentsStrictRefusedWholeTree` (and the same field per corpus)
+ * reports the un-boundaried whole-document strict parse — what a naive
+ * `.strict()` flip would really do.
  *
  * ── THE THREE TWINS PER SCHEMA ─────────────────────────────────────────────
  *  1. `baseline` — the face as shipped, boundary applied, nothing else

@@ -50,6 +50,7 @@ import { Link, useInRouterContext } from 'react-router-dom';
 import { cn, EmptyDescription } from '@object-ui/components';
 import { agentRouteName } from '@object-ui/plugin-chatbot';
 import type { MetadataPreviewProps } from '../preview-registry.js';
+import { t as tr, tFormat } from '../i18n.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 
 interface ModelConfig {
@@ -84,7 +85,7 @@ interface ModelConfig {
  * console to open the chat in, so no link is drawn rather than one that goes
  * nowhere.
  */
-function AgentChatLink({ agentName }: { agentName: string }) {
+function AgentChatLink({ agentName, locale }: { agentName: string; locale?: string }) {
   // Rules-of-hooks safe: whether a router sits above is a fact about the
   // mount, and cannot change under it.
   return useInRouterContext() ? (
@@ -93,14 +94,14 @@ function AgentChatLink({ agentName }: { agentName: string }) {
       target="_blank"
       rel="noreferrer"
       className="text-xs inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
-      title="Open the saved version of this agent in a new chat"
+      title={tr('engine.agentPreview.tryInChatTitle', locale)}
     >
-      Try in chat <ExternalLink className="h-3 w-3" />
+      {tr('engine.agentPreview.tryInChat', locale)} <ExternalLink className="h-3 w-3" />
     </Link>
   ) : null;
 }
 
-export function AgentPreview({ name, draft }: MetadataPreviewProps) {
+export function AgentPreview({ name, draft, locale }: MetadataPreviewProps) {
   const d = draft as Record<string, unknown>;
   const agentName = String(d.name ?? name ?? '');
   const label = String(d.label ?? agentName);
@@ -118,7 +119,7 @@ export function AgentPreview({ name, draft }: MetadataPreviewProps) {
   if (!agentName && !instructions && skills.length === 0) {
     return (
       <PreviewShell hint="agent">
-        <PreviewMessage>Fill in label, role, and instructions in the Form tab to see the agent preview.</PreviewMessage>
+        <PreviewMessage>{tr('engine.agentPreview.empty', locale)}</PreviewMessage>
       </PreviewShell>
     );
   }
@@ -126,7 +127,7 @@ export function AgentPreview({ name, draft }: MetadataPreviewProps) {
   return (
     <PreviewShell
       hint="agent"
-      toolbar={agentName && <AgentChatLink agentName={agentName} />}
+      toolbar={agentName && <AgentChatLink agentName={agentName} locale={locale} />}
     >
       <PreviewErrorBoundary>
         <div className="grid lg:grid-cols-[1fr_240px] gap-0">
@@ -147,40 +148,48 @@ export function AgentPreview({ name, draft }: MetadataPreviewProps) {
                 </div>
                 {role && <div className="text-xs text-muted-foreground mt-0.5">{role}</div>}
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-                  <Pill icon={active ? Eye : EyeOff} label={active ? 'Active' : 'Disabled'} tone={active ? 'green' : 'gray'} />
+                  <Pill
+                    icon={active ? Eye : EyeOff}
+                    label={tr(active ? 'engine.agentPreview.active' : 'engine.agentPreview.disabled', locale)}
+                    tone={active ? 'green' : 'gray'}
+                  />
                   {model.provider && <Pill icon={Sparkles} label={`${model.provider}${model.model ? ` · ${model.model}` : ''}`} mono />}
-                  {model.temperature != null && <Pill icon={Gauge} label={`temp ${model.temperature}`} />}
-                  {model.maxTokens != null && <Pill label={`max ${model.maxTokens}t`} />}
+                  {model.temperature != null && (
+                    <Pill icon={Gauge} label={tFormat('engine.agentPreview.temperature', locale, { value: String(model.temperature) })} />
+                  )}
+                  {model.maxTokens != null && (
+                    <Pill label={tFormat('engine.agentPreview.maxTokens', locale, { count: String(model.maxTokens) })} />
+                  )}
                 </div>
               </div>
             </div>
 
             {/* System prompt */}
-            <Section title="Instructions" icon={ScrollText}>
+            <Section title={tr('engine.agentPreview.instructions', locale)} icon={ScrollText}>
               {instructions ? (
                 <pre className="m-0 rounded border bg-background p-2.5 text-xs whitespace-pre-wrap font-mono max-h-[40vh] overflow-auto">
                   {instructions}
                 </pre>
               ) : (
-                <EmptyDescription className="text-xs italic">No system prompt set yet.</EmptyDescription>
+                <EmptyDescription className="text-xs italic">{tr('engine.agentPreview.noInstructions', locale)}</EmptyDescription>
               )}
             </Section>
 
             {/* Capabilities — skills only. `tools` is a retired tombstone
                 (objectstack#3894); an agent's reachable tool surface IS the
                 union of its skills' own `tools` (ADR-0064). */}
-            <Section title="Capabilities" icon={Sparkles}>
+            <Section title={tr('engine.agentPreview.capabilities', locale)} icon={Sparkles}>
               <div className="space-y-2">
                 <ChipList
-                  label="Skills"
-                  emptyHint="No skills attached — this agent can reach no tools."
+                  label={tr('engine.agentPreview.skills', locale)}
+                  emptyHint={tr('engine.agentPreview.noSkills', locale)}
                   items={skills.map((s) => ({ key: s, label: s }))}
                   icon={Sparkles}
                   tone="violet"
                   mono
                 />
                 <div className="text-[10px] text-muted-foreground">
-                  Tools come from the attached skills; grounding is described in the instructions.
+                  {tr('engine.agentPreview.toolsNote', locale)}
                 </div>
               </div>
             </Section>
@@ -189,12 +198,12 @@ export function AgentPreview({ name, draft }: MetadataPreviewProps) {
           {/* Side rail: planning / memory / guardrails / permissions */}
           <div className="border-l bg-muted/20 p-3 text-xs space-y-3">
             {planning && Object.keys(planning).length > 0 && (
-              <RailBlock icon={BrainCircuit} title="Planning">
-                <KeyVals data={planning} keys={['maxIterations']} />
+              <RailBlock icon={BrainCircuit} title={tr('engine.agentPreview.planning', locale)}>
+                <KeyVals data={planning} keys={['maxIterations']} locale={locale} />
               </RailBlock>
             )}
             {memory && Object.keys(memory).length > 0 && (
-              <RailBlock icon={Activity} title="Memory">
+              <RailBlock icon={Activity} title={tr('engine.agentPreview.memory', locale)}>
                 <KeyVals
                   data={{
                     'short.maxMessages': (memory.shortTerm as any)?.maxMessages,
@@ -202,23 +211,28 @@ export function AgentPreview({ name, draft }: MetadataPreviewProps) {
                     'long.store': (memory.longTerm as any)?.store,
                   }}
                   keys={['short.maxMessages', 'long.enabled', 'long.store']}
+                  locale={locale}
                 />
               </RailBlock>
             )}
             {guardrails && Object.keys(guardrails).length > 0 && (
-              <RailBlock icon={Shield} title="Guardrails">
-                <KeyVals data={guardrails as Record<string, unknown>} keys={Object.keys(guardrails).slice(0, 6)} />
+              <RailBlock icon={Shield} title={tr('engine.agentPreview.guardrails', locale)}>
+                <KeyVals
+                  data={guardrails as Record<string, unknown>}
+                  keys={Object.keys(guardrails).slice(0, 6)}
+                  locale={locale}
+                />
               </RailBlock>
             )}
             {permissions.length > 0 && (
-              <RailBlock icon={Lock} title="Permissions">
+              <RailBlock icon={Lock} title={tr('engine.agentPreview.permissions', locale)}>
                 <ul className="space-y-0.5">
                   {permissions.map((p) => <li key={p} className="font-mono">{p}</li>)}
                 </ul>
               </RailBlock>
             )}
             {!planning && !memory && !guardrails && permissions.length === 0 && (
-              <EmptyDescription className="text-xs italic">Defaults in use.</EmptyDescription>
+              <EmptyDescription className="text-xs italic">{tr('engine.agentPreview.defaults', locale)}</EmptyDescription>
             )}
           </div>
         </div>
@@ -320,7 +334,7 @@ function RailBlock({
   );
 }
 
-function KeyVals({ data, keys }: { data: Record<string, unknown>; keys: string[] }) {
+function KeyVals({ data, keys, locale }: { data: Record<string, unknown>; keys: string[]; locale?: string }) {
   const rows = keys
     .map((k) => [k, getPath(data, k)] as const)
     .filter(([, v]) => v !== undefined && v !== null);
@@ -337,7 +351,7 @@ function KeyVals({ data, keys }: { data: Record<string, unknown>; keys: string[]
   // PR body has the numbers). `text-xs italic` matches the sibling empty
   // states in this file and this directory.
   if (rows.length === 0)
-    return <EmptyDescription className="text-xs italic">No values set.</EmptyDescription>;
+    return <EmptyDescription className="text-xs italic">{tr('engine.agentPreview.noValues', locale)}</EmptyDescription>;
   return (
     <dl className="space-y-0.5">
       {rows.map(([k, v]) => (

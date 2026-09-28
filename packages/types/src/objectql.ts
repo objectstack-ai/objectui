@@ -31,6 +31,12 @@ import type { ObjectDataTableDrillDownConfig } from './data-display.js';
 // this adds no cycle in either direction.
 import type { QueryParams } from './data.js';
 import type { BulkActionOperation } from '@objectstack/spec/ui';
+// objectui#7928 — `ObjectViewSchema.listViews` is the protocol's record of this
+// schema, BY REFERENCE. The spec publishes a TS type for `ListView` and none for
+// the object-scoped `ObjectListView`, so the member reads it as `z.input` (the
+// authoring face: the mirror strips every imported default). Type-only.
+import type { ObjectListViewSchema as SpecObjectListViewSchema } from '@objectstack/spec/ui';
+import type { z } from 'zod';
 import type { FormField } from './form.js';
 // ListView type is now derived from the zod schema (issue #2231) — see ListViewSchema below.
 import type { ListViewInferred, ObjectCalendarBlockConfig } from './zod/objectql.zod.js';
@@ -2036,9 +2042,18 @@ export interface ObjectViewSchema extends BaseSchema {
   
   /**
    * Named list views (e.g., "All Records", "My Records", "Active").
-   * Aligned with @objectstack/spec View.listViews.
+   *
+   * The protocol's own slot BY REFERENCE (objectui#7928, ruling A): the value is
+   * `@objectstack/spec/ui`'s `ObjectListViewSchema`, the value type of
+   * `ViewSchema.listViews`. A named view therefore needs `columns`, takes
+   * `filter` as `{ field, operator, value }` rules and declares each view kind's
+   * config in the top-level block of that kind (`kanban`, `calendar`, …).
+   * ⛔ The legacy `options` bag is not a member: a stored body that carries one
+   * is folded onto the top-level blocks by `@object-ui/app-shell`'s
+   * `ViewPreview` before it reaches this record. `NamedListView` is no longer
+   * this member's type, and its retirement follows objectui#7924.
    */
-  listViews?: Record<string, NamedListView>;
+  listViews?: Record<string, z.input<typeof SpecObjectListViewSchema>>;
   
   /**
    * Default named list view to display

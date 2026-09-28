@@ -119,6 +119,16 @@ export interface CelSampleContext {
   currentUser: Record<string, unknown>;
 }
 
+/**
+ * The words a dry-run writes itself, as keys of the designer catalogue
+ * (objectui#10862). They are handed back as keys, not text, and the dialog
+ * reads them through the `t` its host binds to the designer locale — so this
+ * module stays free of any import at load (the catalogue module reaches
+ * `@object-ui/i18n` and `@object-ui/core`, which every caller of
+ * {@link lintCelPredicate} would then load too).
+ */
+export type CelTestMessageKey = 'engine.celTest.predicateEmpty' | 'engine.flowSim.note.evaluationFailed';
+
 /** The verdict of a dry-run — never throws; the UI branches on `status`. */
 export type CelTestOutcome =
   /** Predicate returned boolean `true` — the row is IN scope (allowed). */
@@ -128,7 +138,13 @@ export type CelTestOutcome =
   /** Predicate returned a non-boolean — an authoring smell (a filter must be bool). */
   | { status: 'value'; value: unknown }
   /** Parse / type / runtime fault — carries the engine's self-correcting message. */
-  | { status: 'error'; kind: string; message: string }
+  | { status: 'error'; kind: string; message: string; messageKey?: never }
+  /**
+   * A fault this module words itself — an empty predicate, or an engine
+   * failure that carries no message — as a {@link CelTestMessageKey} the
+   * renderer translates.
+   */
+  | { status: 'error'; kind: string; messageKey: CelTestMessageKey; message?: never }
   /** The CEL engine could not be loaded — the affordance is unavailable. */
   | { status: 'unavailable' };
 
@@ -742,13 +758,20 @@ export function filterCandidates(
  *
  * Never throws — the engine returns a discriminated result and any thrown
  * loader/eval fault collapses to `error` / `unavailable`.
+ *
+ * The two sentences this function writes itself come back as a `messageKey`
+ * (objectui#10862): the empty-predicate result
+ * (`engine.celTest.predicateEmpty`) and the fallback when the engine reports a
+ * failure without a message (`engine.flowSim.note.evaluationFailed`, the same
+ * "Evaluation failed." the flow debugger uses). The engine's own message
+ * passes through as written, as `message`.
  */
 export async function testRunCelPredicate(
   source: string,
   sample: CelSampleContext,
 ): Promise<CelTestOutcome> {
   if (!source || !source.trim()) {
-    return { status: 'error', kind: 'parse', message: 'The predicate is empty.' };
+    return { status: 'error', kind: 'parse', messageKey: 'engine.celTest.predicateEmpty' };
   }
   let mod: FormulaModule | null;
   try {
@@ -767,11 +790,10 @@ export async function testRunCelPredicate(
     const res = mod.ExpressionEngine.evaluate({ dialect: 'cel', source }, ctx);
     if (!res || res.ok !== true) {
       const err = res && res.ok === false ? res.error : undefined;
-      return {
-        status: 'error',
-        kind: err?.kind ?? 'runtime',
-        message: err?.message ?? 'Evaluation failed.',
-      };
+      const kind = err?.kind ?? 'runtime';
+      return err?.message != null
+        ? { status: 'error', kind, message: err.message }
+        : { status: 'error', kind, messageKey: 'engine.flowSim.note.evaluationFailed' };
     }
     if (res.value === true) return { status: 'allow' };
     if (res.value === false) return { status: 'deny' };

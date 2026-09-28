@@ -239,7 +239,8 @@ describe('objectui#8980 — a canonical top-level view-kind block reaches the re
     // refuses the fixture. That is the protocol narrowing a legacy escape
     // hatch, ⛔ not a defect in this declaration, and ⛔ not licence to widen
     // the type locally: the legacy shape still reaches the branch through the
-    // untyped `options.chart` bag.
+    // host `views` entry (a named view's own `options.chart` bag is folded at
+    // `ViewPreview` since objectui#7928, onto this same top-level block).
     const chartNode = await generatedNodeFor(
       { label: 'Agg', chart: { dataset: 'deals_by_stage', dimensions: ['stage'], values: ['amount'], chartType: 'line' } },
       [{ id: 'c', label: 'Agg', type: 'chart' }],
@@ -258,16 +259,30 @@ describe('objectui#8980 — a canonical top-level view-kind block reaches the re
   });
 });
 
-describe('objectui#8980 — the legacy `options.<kind>` nesting keeps working, and the canonical block wins key-by-key', () => {
-  it('CONTROL: the legacy nesting alone still resolves the lane — untouched by this card', async () => {
-    // The firing control for every canonical case above: the same query through
-    // the path that already worked. Without it, a canonical case passing would
-    // not tell us the merge left the legacy route intact.
+/*
+ * ⭐ objectui#7928 INVERTED this block (director ruling, comment 5856694523,
+ * Q1 A; ⛔ no assertion deleted). A named view's legacy `options.KIND` bag is
+ * refused by the contract (`ObjectViewSchema.listViews` is the protocol's strict
+ * record by reference) and is NO LONGER READ here. The per-key merge these
+ * cases pinned moved to the one door that relays a STORED body into a named
+ * view, `@object-ui/app-shell`'s `ViewPreview` (`foldStoredListOptions`), and
+ * is pinned there, through this same renderer, in
+ * `ViewPreview.optionsFold-7928.test.tsx`. Each case below asserts what the
+ * renderer does with the bag now; the fold file asserts the lane it used to
+ * resolve still resolves.
+ */
+describe('objectui#8980 → objectui#7928 — the legacy `options.<kind>` nesting is no longer read off a named view; the canonical block is the only source', () => {
+  it('INVERTED: the legacy nesting alone no longer resolves the lane — the fold at `ViewPreview` does (objectui#7928)', async () => {
+    // Was the firing control for every canonical case above ("the legacy
+    // nesting alone still resolves the lane"). The canonical cases keep their
+    // own control: the `kanban` case at the top of this file.
     const node = await generatedNodeFor({ label: 'Board', type: 'kanban', options: { kanban: { groupByField: 'legacy_lane' } } } as any);
-    expect(node.groupBy).toBe('legacy_lane');
+    expect(node.groupBy).not.toBe('legacy_lane');
+    // The branch's own floor, which is what a view with no lane declared gets.
+    expect(node.groupBy).toBe('status');
   });
 
-  it('the canonical block WINS for a key both spell', async () => {
+  it('the canonical block WINS for a key both spell — here because the bag is not read; the per-key rule itself is the fold\'s', async () => {
     const node = await generatedNodeFor({
       label: 'Board',
       type: 'kanban',
@@ -278,10 +293,12 @@ describe('objectui#8980 — the legacy `options.<kind>` nesting keeps working, a
     expect(node.groupBy).not.toBe('legacy_lane');
   });
 
-  it('a key the canonical block does NOT restate survives from the legacy nesting — the merge is per-key, not wholesale', async () => {
-    // The arm that tells a MERGE apart from a REPLACE. A wholesale swap would
-    // blank `titleField` here, silently, on every stored view that mixes the two
-    // spellings — which is exactly the population this change has to protect.
+  it('INVERTED: a key only the legacy nesting spells does NOT survive off a named view — the per-key merge is the fold\'s now (objectui#7928)', async () => {
+    // Was "survives from the legacy nesting — the merge is per-key, not
+    // wholesale". The stored population that mixes the two spellings is still
+    // protected: `foldStoredListOptions` merges per key before the body becomes
+    // a named view, and `ViewPreview.optionsFold-7928.test.tsx` asserts this
+    // exact `titleField` through this renderer.
     const node = await generatedNodeFor({
       label: 'Board',
       type: 'kanban',
@@ -289,7 +306,9 @@ describe('objectui#8980 — the legacy `options.<kind>` nesting keeps working, a
       options: { kanban: { titleField: 'subject' } },
     } as any);
     expect(node.groupBy).toBe('canonical_lane');
-    expect(node.titleField).toBe('subject');
+    expect(node.titleField).not.toBe('subject');
+    // The branch's own default, which is what an undeclared title gets.
+    expect(node.titleField).toBe('name');
   });
 });
 

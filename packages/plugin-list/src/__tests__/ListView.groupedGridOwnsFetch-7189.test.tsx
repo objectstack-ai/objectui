@@ -23,7 +23,10 @@
  * effective filter this component would have queried with, and the record
  * count bar — which describes this component's window — is not drawn over a
  * grid that drew something else. Every pin pairs with a control on a data
- * source that cannot answer the header query, where nothing moves.
+ * source that cannot answer the header query, where no grid is handed its own
+ * fetch: since objectui#10881 (ruling F) that source is refused before a grid
+ * is mounted — pinned in `ListView.groupingNeedsHeaderQuery-10881.test.tsx` —
+ * where it used to be handed the window.
  *
  * A stub grid stands in for the renderer: what is under test is what the host
  * hands down, and the real grid's reading of it is pinned one package over.
@@ -118,14 +121,15 @@ describe('ListView → grouped grid: the grid owns its fetch when the server can
     expect(screen.queryByTestId('record-count-bar')).toBeNull();
   });
 
-  // ── CONTROLS: nothing moves where the server cannot group ───────────────
-  it('CONTROL — a data source with no header query still hands the grid its window', async () => {
+  // ── CONTROLS: no grid owns a grouped fetch where the server cannot group ─
+  it('CONTROL — a data source with no header query mounts no grid at all (objectui#10881)', async () => {
     const ds = makeDataSource(false);
     renderList(ds, listSchema());
-    await waitFor(() => expect(Array.isArray(lastGridProps?.data) && lastGridProps.data.length > 0).toBe(true));
-    // …with the AUTHORED filter, exactly as before.
-    expect(lastGridProps.schema.filter).toEqual([{ field: 'status', operator: 'equals', value: 'open' }]);
-    await waitFor(() => expect(screen.getByTestId('record-count-bar')).toBeInTheDocument());
+    // It used to hand the grid its window with the AUTHORED filter; ruling F
+    // refuses there instead, before a grid is mounted.
+    await waitFor(() => expect(screen.getByTestId('list-grouping-needs-header-query')).toBeInTheDocument());
+    expect(lastGridProps).toBeNull();
+    expect(screen.queryByTestId('record-count-bar')).toBeNull();
   });
 
   it('CONTROL — an UNGROUPED grid is still handed its window, header query or not', async () => {

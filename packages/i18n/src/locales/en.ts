@@ -152,12 +152,12 @@ const en = {
     printDialogHint: 'Opens your browser’s print dialog (not a PDF export)',
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: 'Showing the first {{shown}} of {{total}} records. Narrow the filter.',
     rowCeilingNoteUnknownTotal: 'Showing the first {{shown}} records. Narrow the filter.',
   },
@@ -510,19 +510,15 @@ const en = {
     yes: 'Yes',
     no: 'No',
     systemFields: 'System',
-    // objectui#7189 — the grouped grid says, where the group counts are, that
-    // it grouped a PAGE. `useGroupedData` buckets only the rows the browser
-    // holds, so a group beyond the page boundary is absent entirely and every
-    // count is a page slice. The paging footer is not a statement about what
-    // was grouped, and it demonstrably did not prevent the wrong reading.
-    // Two sentences because two conditions: a known total states the fact
-    // with both numbers; a full window with no total can only say "may".
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: 'Partial',
-      partialNotice:
-        'Grouped over the first {{loaded}} of {{total}} records. Group counts are page-scoped, and a group whose records all fall beyond the loaded rows is missing here.',
-      partialNoticeUnknownTotal:
-        'Grouped over the {{loaded}} records loaded. More may match this view, so group counts may be partial and a group may be missing here.',
+      needsHeaderQuery:
+        'This view is grouped, but its data source does not implement queryGroupHeaders, so the groups cannot be counted. Remove the grouping to show the records.',
+      needsWholeRows:
+        'Grouping needs every record, but this grid was handed one page of them, so the groups cannot be counted. Hand in every record, or let the grid fetch them from a data source that implements queryGroupHeaders.',
     },
     // Column-footer aggregate prefixes, keyed by the spec's `ColumnSummary`
     // vocabulary (objectui#4024). The footer already formatted its NUMBER

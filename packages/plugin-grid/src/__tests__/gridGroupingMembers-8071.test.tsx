@@ -19,8 +19,8 @@
  * PRIOR ART, stated rather than credited: `groupingProjection-7179` pins that a
  * grouping field reaches `$select`, `groupingNullEntry-7217` pins that a `null`
  * hole does not take the grid down, `groupedBooleanLabel` pins the Yes/No
- * fallback, `groupedPagination` and `groupedPartialDisclosure-7189` pin the
- * paging around groups. None of them states the member set, and none says what
+ * fallback, `groupedPagination` pins the paging around groups. None of them
+ * states the member set, and none says what
  * `order` or `collapsed` do.
  *
  * ⭐ **`grouping` and `columns` ARE NOT DISJOINT, and this file is where that
@@ -118,6 +118,13 @@ const settled = async () => {
 
 function makeAdapter() {
   return {
+    // objectui#10881: a grouped grid fetches rows only over a data source that
+    // answers the group header query (a find-only one is refused), so the
+    // first `find` below is a group's row query — it carries the grid's own
+    // projection, as the flat window did.
+    queryGroupHeaders: vi.fn(async (_object: string, query: { groupBy?: string[] }) => [
+      { ...Object.fromEntries((query.groupBy ?? []).map((field) => [field, 'won'])), count: 2 },
+    ]),
     find: vi.fn().mockResolvedValue({ data: ROWS, total: ROWS.length }),
     findOne: vi.fn(),
     create: vi.fn(),
@@ -216,9 +223,10 @@ describe('object-grid `grouping` reaches the QUERY, not just the screen (objectu
       columns: [{ field: 'name' }],
       grouping: { fields: [{ field: 'stage' }] },
     });
-    // Without this the server never returns `stage`, `useGroupedData` reads
-    // `undefined` on every row, and ONE `(empty)` group holds every record —
-    // a plausible, wrong statement about the data (objectui#7179).
+    // The grouped field is asked for with the rows it heads. objectui#7179
+    // closed this where a fetched window was grouped in the browser, whose
+    // every row would otherwise read `undefined` there and land in ONE
+    // `(empty)` group.
     expect(params.$select).toEqual(['id', 'name', 'stage']);
   });
 

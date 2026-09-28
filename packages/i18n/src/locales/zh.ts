@@ -135,12 +135,12 @@ const zh = {
     printDialogHint: '打开浏览器打印对话框（不是导出 PDF）',
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: '仅显示 {{total}} 条记录中的前 {{shown}} 条。请缩小筛选范围。',
     rowCeilingNoteUnknownTotal: '仅显示前 {{shown}} 条记录。请缩小筛选范围。',
   },
@@ -384,13 +384,15 @@ const zh = {
     yes: '是',
     no: '否',
     systemFields: '系统字段',
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: '部分',
-      partialNotice:
-        '仅按已加载的前 {{loaded}} 条(共 {{total}} 条)记录分组。分组计数只统计当前页,记录全部落在已加载行之外的分组不会出现在这里。',
-      partialNoticeUnknownTotal:
-        '仅按已加载的 {{loaded}} 条记录分组。可能还有更多记录符合此视图,因此分组计数可能不完整,某个分组也可能不会出现在这里。',
+      needsHeaderQuery:
+        '此视图已分组，但其数据源未实现 queryGroupHeaders，因此无法统计分组。移除分组即可显示记录。',
+      needsWholeRows:
+        '分组需要全部记录，但此表格只收到其中一页，因此无法统计分组。请传入全部记录，或让表格从实现了 queryGroupHeaders 的数据源获取记录。',
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this

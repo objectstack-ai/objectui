@@ -110,6 +110,21 @@ import { ListView } from '@object-ui/plugin-list';
 When both are present, `grouping` wins. End users can also add or remove
 grouping fields at runtime via the Group toolbar button.
 
+A grouped **grid** is grouped on the server: over a data source that answers
+the group header query (`dataSource.queryGroupHeaders`), `ListView` hands the
+grid its own fetch, and the group set, every group count and each group's
+rows come from the query (see *Grouping is server-side* in the
+`@object-ui/plugin-grid` README). While a toolbar search is active it hands the
+grid its window instead, since the header query carries no search.
+
+Over a data source that declares no `queryGroupHeaders`, `ListView` does not
+fetch a window and group it — every count would be a page slice, and groups
+past the window would be missing. It shows an error naming
+`queryGroupHeaders` in place of the grid instead, fetches no rows, and keeps
+the toolbar, so removing the grouping there lifts it (objectui#10881). Rows
+handed in whole (`data` as an array, or `{ provider: 'value', items }`) are
+still grouped in the browser, exactly.
+
 ### With Multiple View Types
 
 ```tsx
@@ -284,11 +299,10 @@ the loaded rows. So on that path a relational or formula column carries no
 clickable header either (`objectui#3950`); offering one would have been the same
 illusion through a different control.
 
-Where the sort really does stay in the browser — inline `data`, or the grouped
-view, which holds every row it groups — both kinds of header stay live and order
-by the value the cell shows: the resolved label for a relational column, the
-server-hydrated result for a formula one (see `getSortValue` in
-`@object-ui/core`).
+Where the sort really does stay in the browser — inline `data` — both kinds of
+header stay live and order by the value the cell shows: the resolved label for
+a relational column, the server-hydrated result for a formula one (see
+`getSortValue` in `@object-ui/core`).
 
 ## View Persistence
 

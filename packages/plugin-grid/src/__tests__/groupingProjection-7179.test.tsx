@@ -108,6 +108,14 @@ const OBJECT_FIELDS = {
   owner: { type: 'lookup', reference: 'sys_user', label: 'Owner' },
 };
 
+/**
+ * Since objectui#10881 (ruling F) a grouped grid that fetches its own rows
+ * asks for rows only over a data source that answers the group header query —
+ * over a find-only one it refuses grouping and sends nothing. So this double
+ * answers `queryGroupHeaders` with one group (every grouped field `'x'`), and
+ * a grouped grid's projection is read off that group's row query, which
+ * carries the grid's own `$select` / `$expand` exactly as the flat window did.
+ */
 const makeDataSource = () => ({
   find: vi.fn().mockResolvedValue({ data: [], total: 0 }),
   findOne: vi.fn(),
@@ -115,6 +123,9 @@ const makeDataSource = () => ({
   update: vi.fn(),
   delete: vi.fn(),
   getObjectSchema: vi.fn(async () => ({ name: OBJECT, fields: OBJECT_FIELDS })),
+  queryGroupHeaders: vi.fn(async (_object: string, query: { groupBy?: string[] }) => [
+    { ...Object.fromEntries((query.groupBy ?? []).map((field) => [field, 'x'])), count: 1 },
+  ]),
 });
 
 /** Render a grid and return the params it actually asked the server for. */
@@ -126,8 +137,11 @@ const paramsFor = async (schemaExtra: Record<string, unknown>) => {
       <ObjectGrid schema={schema} dataSource={ds as never} />
     </ActionProvider>,
   );
-  await vi.waitFor(() => expect(ds.find).toHaveBeenCalled());
-  const call = ds.find.mock.calls.at(-1)?.[1] ?? {};
+  // Rows of THIS object: a lookup grouping key also reads the referenced
+  // object, to label its groups.
+  const rowCalls = () => ds.find.mock.calls.filter((c) => c[0] === OBJECT);
+  await vi.waitFor(() => expect(rowCalls().length).toBeGreaterThan(0));
+  const call = rowCalls().at(-1)?.[1] ?? {};
   return {
     select: (call.$select ?? []) as string[],
     expand: (call.$expand ?? []) as string[],

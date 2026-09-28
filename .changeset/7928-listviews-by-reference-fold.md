@@ -62,6 +62,8 @@ unmirrored, and the objectui#8355, #8365, #9242 and #10321 entries say the
 named-view doors judge the `options` nesting. This entry supersedes both: the key
 is mirrored by reference, and the `options` bag is refused whole.
 
-`NamedListView` is exported and unchanged. It no longer types
-`ObjectViewSchema.listViews` or `ObjectView`'s named-view config, and
-objectui#7924 decides whether it is retired.
+`NamedListView` is exported, and this entry does not change it (objectui#7924's
+own entry in this release retires its `densityMode`). It no longer types
+`ObjectViewSchema.listViews` or `ObjectView`'s named-view config. Its retirement
+or narrowing follows objectui#7924's ruling A′ and the ruling on `allowExport`,
+not this entry.

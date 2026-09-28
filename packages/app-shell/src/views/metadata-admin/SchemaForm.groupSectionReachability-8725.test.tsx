@@ -118,20 +118,18 @@ function serverForm(sections: unknown[], type = 'simple'): FormViewSpec {
   return { type, data: { provider: 'schema', schemaId: SCHEMA_ID }, sections } as unknown as FormViewSpec;
 }
 
-function renderForm(form: FormViewSpec): { error: Error | undefined; html: string; ids: string[] } {
+function renderForm(form: FormViewSpec): { error: Error | undefined; ids: string[] } {
   let error: Error | undefined;
-  let html = '';
   let ids: string[] = [];
   try {
     const { container } = render(
       <SchemaForm schema={schema} form={form} value={{}} onChange={() => {}} />,
     );
-    html = container.innerHTML;
     ids = Array.from(container.querySelectorAll('input[id^="mdf-"]')).map((el) => el.id);
   } catch (err) {
     error = err as Error;
   }
-  return { error, html, ids };
+  return { error, ids };
 }
 
 /**
@@ -242,7 +240,7 @@ describe('objectui#8725 — a section with NO member source is still refused out
   // reference. It stays a THROW out of the render — not an empty section — and
   // the throw names the section it refuses.
   it('neither `fields` nor `group`: the render throws a TypeError naming the section', () => {
-    const { error, html } = renderForm(
+    const { error } = renderForm(
       serverForm([
         { label: 'Basics', fields: ['a'] },
         { label: 'Contact' },
@@ -253,7 +251,6 @@ describe('objectui#8725 — a section with NO member source is still refused out
     expect(error?.message).toContain('"Contact"');
     expect(error?.message).toContain('`fields`');
     expect(error?.message).toContain('`group`');
-    expect(html).toBe('');
   });
 
   it('the tabbed arm refuses the same section the same way', () => {

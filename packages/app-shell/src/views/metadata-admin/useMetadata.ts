@@ -94,10 +94,16 @@ export interface RichMetadataTypeEntry {
    * Canonical FormView layout for the type's editor (Phase 3c+).
    *
    * Typed as the authoring {@link FormViewSpec} rather than an untyped record
-   * handed on with `as any` (objectui#8725). The document is still deserialised
-   * without validation, so this type is a claim about the channel, and it is an
-   * honest one only because `SchemaForm` resolves a `{ group }` section and
-   * refuses a section with no member source instead of assuming `fields`.
+   * handed on with `as any` (objectui#8725). This is a TYPE on a server
+   * document that is deserialised without validation, not a check of it. Known
+   * gaps between the spec's parsed `FormView` and this type (measured on
+   * objectui#8725's PR, not re-derived here): the spec admits its `I18nLabel`
+   * locale map on section and field `label` and on `placeholder` / `helpText`,
+   * writes predicates as `ExpressionInput` rather than `VisibilityPredicate`,
+   * types `colSpan` and `options` wider, and parses field rows with keys
+   * `FormFieldSpec` does not declare (`span`, `keyField`). What `SchemaForm`
+   * itself now guarantees is narrower: it resolves a `{ group }` section and
+   * refuses one with no member source instead of assuming `fields`.
    */
   form?: FormViewSpec;
   /** UI hints (icon, color, etc.) the framework may include. */

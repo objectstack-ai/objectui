@@ -54,10 +54,25 @@
  * The page action is a real `api` action through the runtime's `apiHandler`
  * — an authenticated raw-HTTP call, so no dataSource `onMutation` fires — the
  * class of write that reached the blocks only through the remount.
+ *
+ * ## The round-4 rows (objectui#10887's readers)
+ *
+ * The last describe block holds the blocks whose readers landed with
+ * objectui#10887 members 1 and 2: an `object-view` drawn as a kanban, a
+ * calendar and a gallery (`ObjectView` fetches those rows itself and names the
+ * bus nonce in that fetch), and a `dashboard` whose `globalFilters` select reads
+ * its options through `optionsFrom` (`SelectFilter` names the nonce). Each is
+ * held in a `regions` page in the stored-page shape (`{ type, properties }`),
+ * beside the page action and the stand-in, and is read the same two ways:
+ * (a) the same instance after the action, witnessed by state a remount resets
+ * (the stand-in's instance id, a card node, the calendar's navigated month, the
+ * filter's selected value), and (b) exactly one re-read of the object that
+ * block queries. Before objectui#10887 each of these re-read only through the
+ * remount, so (b) is the half that goes red on that code path.
  */
 
 import * as React from 'react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
@@ -129,6 +144,12 @@ import { registerAllFields } from '@object-ui/fields';
 import '@object-ui/components';
 import '@object-ui/plugin-dashboard';
 import '@object-ui/plugin-form';
+// The round-4 rows: `object-view` and the three views it draws them through
+// (`object-gallery` is registered by plugin-list), all devDependencies here.
+import '@object-ui/plugin-view';
+import '@object-ui/plugin-kanban';
+import '@object-ui/plugin-calendar';
+import '@object-ui/plugin-list';
 import { PageView } from '../PageView';
 
 registerAllFields();
@@ -154,6 +175,8 @@ const OBJECTS = [
     },
     actions: [{ name: 'create_env', label: 'Create environment', type: 'api', target: '/api/v1/environments' }],
   },
+  // The round-4 rows' second object: a dashboard filter reads its options here.
+  { name: 'account', label: 'Account', fields: { id: { type: 'text' }, industry: { type: 'text', label: 'Industry' } } },
 ];
 
 /** The stand-in's own queries, and the instance ids it mounted with. */
@@ -387,5 +410,180 @@ describe('a page action refreshes the page in place (objectui#10519)', () => {
     expect(ds.aggregate.mock.calls.length - aggregatesBefore, 'control: the metric does not read the bus in this harness').toBe(1);
     expect(ganttQueries - ganttBefore, 'control: the stand-in does not read the bus in this harness').toBe(1);
     expect(authFetchSpy, 'control: no action ran').not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Round 4: the blocks whose readers landed with objectui#10887.
+// ---------------------------------------------------------------------------
+
+/**
+ * Counts reads per object, so each row's re-read is attributed to the object
+ * that block queries. Every `deal` read answers one more row than the last
+ * (`Deal 1`, then `Deal 1` and `Deal 2`), dated today so a calendar draws it;
+ * the second `account` read adds an `energy` option.
+ */
+function makeCountingDataSource() {
+  const reads: Record<string, number> = {};
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    reads,
+    find: vi.fn(async (objectName: string, query?: any) => {
+      // A `$top: 0` count probe is not a read of the rows.
+      if (query?.$top === 0) return { data: [], total: 0 };
+      const n = (reads[objectName] = (reads[objectName] ?? 0) + 1);
+      if (objectName === 'account') {
+        const values = n === 1 ? ['finance', 'retail'] : ['energy', 'finance', 'retail'];
+        return { data: values.map((industry, i) => ({ id: `a${i}`, industry })) };
+      }
+      const rows = Array.from({ length: n }, (_, i) => ({ id: `d${i + 1}`, name: `Deal ${i + 1}`, stage: 'a', due: today, amount: 7 }));
+      return { data: rows, total: rows.length };
+    }),
+    findOne: vi.fn(async () => null),
+    aggregate: vi.fn(async () => []),
+    create: vi.fn(async () => ({})),
+    update: vi.fn(async () => ({})),
+    delete: vi.fn(async () => ({})),
+    getObjectSchema: vi.fn(async (name: string) => ({
+      name,
+      label: name,
+      fields: name === 'account' ? OBJECTS[1].fields : { ...FIELDS, due: { type: 'date', label: 'Due' } },
+    })),
+  };
+}
+type CountingDS = ReturnType<typeof makeCountingDataSource>;
+
+/** A stored page (`regions`, the spec shape) holding the action, the stand-in and one block. */
+function mountRegionPage(block: Record<string, unknown>) {
+  const page = {
+    name: 'census',
+    label: 'Census',
+    type: 'app',
+    regions: [{ name: 'main', components: [ACTION_NODE, { type: 'object-gantt', id: 'gantt', objectName: OBJECT }, block] }],
+  };
+  storedPage = page;
+  const ds = makeCountingDataSource();
+  render(
+    <AdapterCtx.Provider value={ds as never}>
+      <SchemaRendererProvider dataSource={ds as any}>
+        <MemoryRouter initialEntries={['/apps/demo/page/census']}>
+          <Routes>
+            <Route path="/apps/:app/page/:pageName" element={<PageView />} />
+          </Routes>
+        </MemoryRouter>
+      </SchemaRendererProvider>
+    </AdapterCtx.Provider>,
+  );
+  return ds;
+}
+
+/** One page action, then the row's reads of its own object and the stand-in's instance. */
+async function actAndRead(ds: CountingDS, objectName: string) {
+  const before = ds.reads[objectName] ?? 0;
+  const instance = ganttInstance();
+  await runPageAction();
+  expect(
+    ganttInstance(),
+    '(a) The page action REMOUNTED the page: the stand-in beside the block has a new\n'
+      + 'instance. The refresh counter is back in the `<SchemaRenderer>` key (AGENTS.md #8).',
+  ).toBe(instance);
+  return (ds.reads[objectName] ?? 0) - before;
+}
+
+const objectView = (properties: Record<string, unknown>) => ({ type: 'object-view', properties: { objectName: OBJECT, ...properties } });
+const dealCard = () => screen.getByText('Deal 1');
+const calendarMonth = () => (document.body.querySelector('[aria-label^="Current date"] span') as HTMLElement | null)?.textContent;
+
+describe('the round-4 rows refresh in place after a page action (objectui#10519, readers from objectui#10887)', () => {
+  beforeAll(() => {
+    // Radix Select opens on pointer events the DOM environment does not
+    // implement; the shim `DashboardFilterBar.busReread-10887` uses.
+    class MockPointerEvent extends Event {
+      button: number;
+      ctrlKey: boolean;
+      pointerType: string;
+      constructor(type: string, props: PointerEventInit = {}) {
+        super(type, props);
+        this.button = props.button ?? 0;
+        this.ctrlKey = props.ctrlKey ?? false;
+        this.pointerType = props.pointerType ?? 'mouse';
+      }
+    }
+    Object.assign(window, { PointerEvent: MockPointerEvent });
+    Object.assign(HTMLElement.prototype, {
+      hasPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
+      scrollIntoView: vi.fn(),
+    });
+  });
+
+  for (const viewType of ['kanban', 'gallery'] as const) {
+    it(`object-view drawn as a ${viewType}: the same view re-reads its rows once`, async () => {
+      const ds = mountRegionPage(
+        objectView(viewType === 'kanban' ? { defaultViewType: 'kanban', defaultListView: 'board', listViews: { board: { label: 'Board', type: 'kanban', kanban: { groupByField: 'stage' } } } } : { defaultViewType: 'gallery' }),
+      );
+      await waitFor(() => expect(dealCard()).toBeTruthy());
+      await settle();
+      const card = dealCard();
+
+      const reReads = await actAndRead(ds, OBJECT);
+
+      expect(dealCard(), `(a) the ${viewType} was rebuilt: its card is a new node`).toBe(card);
+      expect(
+        reReads,
+        `(b) The ${viewType} object-view did not re-read its rows exactly once after the action.\n`
+          + '`ObjectView` fetches these rows itself; its fetch must name the bus nonce (objectui#10887).',
+      ).toBe(1);
+      await waitFor(() => expect(screen.getByText('Deal 2'), 'the re-read rows never reached the view').toBeTruthy());
+    });
+  }
+
+  it('object-view drawn as a calendar: the same calendar keeps its navigated month and re-reads once', async () => {
+    const ds = mountRegionPage(
+      objectView({ defaultViewType: 'calendar', defaultListView: 'cal', listViews: { cal: { label: 'Cal', type: 'calendar', calendar: { startDateField: 'due', titleField: 'name' } } } }),
+    );
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Next period' })).toBeTruthy());
+    await settle();
+    const month = calendarMonth();
+    fireEvent.click(screen.getByRole('button', { name: 'Next period' }));
+    await settle(150);
+    const navigated = calendarMonth();
+    expect(navigated, 'setup: the calendar must have moved off the current month').not.toBe(month);
+
+    const reReads = await actAndRead(ds, OBJECT);
+
+    // The month lives in `ObjectCalendar`'s own state: a remount of the view
+    // (or of the page) resets it to the current month.
+    expect(calendarMonth(), '(a) the calendar was rebuilt: its navigated month was reset').toBe(navigated);
+    expect(reReads, '(b) The calendar object-view did not re-read its rows exactly once after the action.').toBe(1);
+  });
+
+  it('dashboard with an optionsFrom select filter: the same filter keeps its value and re-reads its options once', async () => {
+    const ds = mountRegionPage({
+      type: 'dashboard',
+      properties: {
+        name: 'census_dash',
+        globalFilters: [{ name: 'industry', field: 'industry', label: 'Industry', type: 'select', optionsFrom: { object: 'account', valueField: 'industry', labelField: 'industry' } }],
+        widgets: [],
+      },
+    });
+    const trigger = () => screen.getByTestId('dashboard-filter-industry');
+    await waitFor(() => expect(ds.reads.account).toBe(1));
+    await settle();
+    fireEvent.pointerDown(trigger(), { button: 0 });
+    fireEvent.click(await screen.findByRole('option', { name: 'retail' }));
+    await waitFor(() => expect(trigger().textContent).toBe('retail'));
+    await settle(150);
+    const node = trigger();
+
+    const reReads = await actAndRead(ds, 'account');
+
+    expect(trigger(), '(a) the dashboard filter was rebuilt').toBe(node);
+    expect(trigger().textContent, '(a) the selected filter value was lost').toBe('retail');
+    expect(
+      reReads,
+      '(b) The dashboard filter did not re-read its optionsFrom options exactly once after the action.\n'
+        + '`SelectFilter` must name the bus nonce for `optionsFrom.object` (objectui#10887).',
+    ).toBe(1);
   });
 });

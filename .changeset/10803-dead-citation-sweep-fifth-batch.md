@@ -5,7 +5,8 @@ Comment-only in `@object-ui/app-shell`, `@object-ui/components`, `@object-ui/cor
 `@object-ui/fields`, `@object-ui/plugin-charts`, `@object-ui/plugin-chatbot`,
 `@object-ui/plugin-dashboard`, `@object-ui/plugin-designer`, `@object-ui/plugin-detail`,
 `@object-ui/plugin-grid`, `@object-ui/plugin-list`, `@object-ui/plugin-markdown`,
-`@object-ui/plugin-timeline`, `@object-ui/react` and `@object-ui/types`, plus the private
+`@object-ui/plugin-timeline`, `@object-ui/react` and `@object-ui/types` (whose runtime text is
+declared separately below), plus the private
 `@object-ui/test-support`: docblocks and code comments that cited objectui issues or pull
 requests which answer 404 now cite the commit that landed each change, as a 9-character
 sha, the ruling by its date where the sentence cites a ruling, or a live pointer the

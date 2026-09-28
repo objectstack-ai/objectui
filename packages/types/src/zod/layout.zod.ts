@@ -709,7 +709,7 @@ const SpecPageFields = specFieldsExcept(stripImportedDefaults(SpecPageSchema).sh
  * turned into a named refusal that carries the remedy.
  */
 const PAGE_ACTIONS_REFUSAL =
-  '`actions` is not a key of the `page` node and never was: no renderer ' +
+  '`actions` is not a key of the `page` node and never was (ADR-0049): no renderer ' +
   'reads it, so an authored array drew nothing and rode `.passthrough()` onto the wrapper ' +
   'element. Author the buttons as NODES in `children` (a `button` node, or an `action:button` ' +
   'node with a declared `actionType`); on a record page declare them on a `page:header` ' +

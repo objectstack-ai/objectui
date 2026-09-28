@@ -27,7 +27,9 @@ import { fileURLToPath } from 'node:url';
  * and the gantt, whose pins also hold the written payload of a `date` field,
  * then the timeline, a chart's date axis and `@object-ui/i18n`'s published
  * date helpers, then the timeline's gantt axis and core's formula date
- * arithmetic; a later date-only read site registers here the same way.
+ * arithmetic, then the calendar's day moves across a DST change and the pins
+ * for the calendar's end-date write, its no-schema fallback and the gantt's
+ * no-schema path; a later date-only read site registers here the same way.
  *
  * ## Why a driver, and why the forks pool
  *
@@ -97,6 +99,12 @@ const PINS = [
   // empty plan's today) and core `FormulaFunctions`' day arithmetic.
   'packages/plugin-timeline/src/__tests__/TimelineGantt.dateOnlyZone-10866.test.tsx',
   'packages/core/src/evaluator/__tests__/FormulaFunctions.dateOnlyZone-10866.test.ts',
+  // objectui#10866, slice 4: the calendar's day moves across a DST change,
+  // and the paths slice 1 repaired that no zone pin covered: the calendar's
+  // end-date write and no-schema fallback, and the gantt's no-schema path.
+  'packages/plugin-calendar/src/__tests__/ObjectCalendar.dstDayMove-10866.test.tsx',
+  'packages/plugin-calendar/src/__tests__/ObjectCalendar.endDateNoSchemaZone-10866.test.tsx',
+  'packages/plugin-gantt/src/__tests__/ObjectGantt.noSchemaZone-10866.test.tsx',
 ] as const;
 
 /** The vitest CLI entry, resolved rather than assumed at a `node_modules` path. */

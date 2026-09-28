@@ -22,9 +22,11 @@ validated and clicking a cell did nothing, with no signal. A pivot over inline `
 names no object to list the drilled records from. No shipped or example document authors
 the key on a `pivot` node.
 
-This supersedes one sentence of the objectui#10859 (batch 2) entry, which says the `pivot`
-arm's `drillDown` "is the shared `DrillDownConfigSchema`". As of this change the arm refuses
-the key.
+This supersedes what three pending entries say about the `pivot` arm's `drillDown`: the
+objectui#10859 (batch 2) entry ("`drillDown` is the shared `DrillDownConfigSchema`"), and the
+dated notes on the objectui#7352 and objectui#10685 entries, which read that key as the shared
+mirror (a third referencing declaration, and `mode` accepted there). As of this change the
+arm refuses the key.
 
 - `@object-ui/types`: `PivotTableSchema.drillDown` is `?: never`, and the zod `pivot` arm's
   `drillDown` is a `retirementTombstone()`. The content-channel refusal on `body` / `children`

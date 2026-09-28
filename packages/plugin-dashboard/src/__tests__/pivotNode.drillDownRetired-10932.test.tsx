@@ -32,8 +32,8 @@ import { PivotTable } from '../PivotTable';
 
 afterEach(cleanup);
 
-const NODE = {
-  type: 'pivot',
+const PIVOT = {
+  type: 'pivot' as const,
   rowField: 'stage',
   columnField: 'source',
   valueField: 'amount',
@@ -41,12 +41,14 @@ const NODE = {
     { stage: 'won', source: 'web', amount: 100 },
     { stage: 'lost', source: 'event', amount: 25 },
   ],
-  drillDown: { enabled: true },
 };
+
+/** What an author's document carries: the retired key, reaching the renderer anyway. */
+const NODE = { ...PIVOT, drillDown: { enabled: true } };
 
 describe('a `pivot` node authored with `drillDown` draws no drill affordance (objectui#10932)', () => {
   it('renders the cross-tab through SchemaRenderer, with no interactive cell or header', () => {
-    render(<SchemaRenderer schema={NODE as any} />);
+    render(<SchemaRenderer schema={NODE} />);
     // Lit control: the pivot itself rendered, cells and headers included.
     expect(screen.getByText('won')).toBeTruthy();
     expect(screen.getByText('100')).toBeTruthy();
@@ -55,7 +57,7 @@ describe('a `pivot` node authored with `drillDown` draws no drill affordance (ob
   });
 
   it('CONTROL — the query can see a drill affordance when a host passes `onDrillDown`', () => {
-    render(<PivotTable schema={NODE as any} onDrillDown={vi.fn()} />);
+    render(<PivotTable schema={PIVOT} onDrillDown={vi.fn()} />);
     expect(screen.getByLabelText('Drill into stage=won, source=web')).toBeTruthy();
     expect(screen.queryAllByRole('button').length).toBeGreaterThan(0);
   });

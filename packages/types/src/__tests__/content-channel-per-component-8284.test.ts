@@ -7,37 +7,45 @@
  */
 
 /**
- * objectui#8284 — the `body` / `children` duality on `BaseSchema` is resolved
- * PER COMPONENT: each component schema narrows to the channel its renderer
- * actually reads and TOMBSTONES the other, on both published faces
+ * objectui#8284 — each component schema narrows to the content channel its
+ * renderer actually reads and TOMBSTONES the other, on both published faces
  * (maintainer ruling, summon #17 decision batch #2, 2026-09-07, verbatim
- * 「同意」).
+ * 「同意」). This file pins that rule on the twelve dedicated declarations
+ * listed in `ROWS`.
  *
  * ## The defect this pins closed
  *
- * `BaseSchema` declares TWO optional content channels and its own docblock
- * admits that "some components use `children` instead of `body`" WITHOUT
- * saying which. The zod base is `.passthrough()` and both keys are optional,
+ * `BaseSchema` used to declare TWO optional content channels, and its docblock
+ * admitted that "some components use `children` instead of `body`" WITHOUT
+ * saying which. The zod base is `.passthrough()` and both keys were optional,
  * so a node carrying the WRONG channel type-checked, parsed green, was
  * PRESERVED by the parse, and then rendered an EMPTY element — no error at
  * authoring time, none at validation time, none at render time. Seven cards
  * repaired one page of that each (#5027 · #3900 · #6773 · #6806 · #8197 ·
  * #8234 · #6939) before the declaration itself was named.
  *
+ * objectui#6771 has since retired `body` as a child-list spelling on every
+ * node: `BaseSchema.body` is `never` on the TypeScript face and refused by name
+ * on the zod mirror, and `children` is the one child-list key. So on every row
+ * below the renderer reads `children` and the refused channel is `body`. What
+ * this file still pins is objectui#8284's own refusal on each row's DEDICATED
+ * declaration: it is installed there, it names both keys and this card, it is
+ * the `.describe()` metadata too, and it reaches a nested node.
+ *
  * ## The population here is FAMILY A + B of the measured table, not "all"
  *
  * The table posted on objectui#8284 is derived from every
  * `ComponentRegistry.register(...)` call under
- * `packages/components/src/renderers/**` (114 registrations) and the read side
- * is measured with the TypeScript TYPE CHECKER — each `body` / `children`
- * property access is filed under the TYPE of the object it is read from, so a
- * docblock mention cannot score.
+ * `packages/components/src/renderers/**` (114 registrations when it was taken)
+ * and the read side is measured with the TypeScript TYPE CHECKER — each
+ * `body` / `children` property access is filed under the TYPE of the object it
+ * is read from, so a docblock mention cannot score.
  *
  * ⚠️ THE CONTROL MOVED, because objectui#6771 SPENT the one that stood here.
  * It read: the `BoxSchema` docblock in `renderers/layout/box.tsx` SAYS
  * `schema.body` in prose and `grep -l` counts it, the checker does not — and
- * the card's own `17 / 17` figure came from that query. This card rewrote that
- * docblock, so `box.tsx` now answers 0 to BOTH halves and a reader replaying it
+ * the card's own `17 / 17` figure came from that query. objectui#6771 rewrote
+ * that docblock, so `box.tsx` now answers 0 to BOTH halves and a reader replaying it
  * gets no divergence at all. ⛔ A control that cannot fire is worse than none:
  * it reads as evidence and is not.
  *
@@ -51,24 +59,27 @@
  * `renderers/action/action-icon.tsx` is a REAL property access and survives
  * stripping at 1, so the 0 above is a reading and not a blanked file.
  *
- * The twelve rows below are the ones where the renderer reads EXACTLY ONE
- * channel, the component owns a dedicated declaration, and exactly one
- * registration claims its `type`. `sidebar` is measured into family B and held
- * BACK from it, because two registrations claim `sidebar` and the second types
- * its schema prop `any`. Families C (reads both — a live `children || body`
- * fallback), D (reads neither) and E (no dedicated declaration) are named on
- * the card with the measurement each still needs.
+ * The twelve rows below are the ones that table measured as reading EXACTLY ONE
+ * channel, owning a dedicated declaration, and claimed by exactly one
+ * registration. `sidebar` was measured into family B and held BACK, because two
+ * registrations claim `sidebar` and the second types its schema prop `any`; it
+ * is not a row here. The other families are not pinned in this file:
+ * family C (read both, through a live `children || body` fallback) lost its
+ * `body` arm to objectui#6771 and reads the `children` channel only; family D
+ * (reads neither) is pinned by `content-channel-family-d-9256.test.ts`
+ * (objectui#9256); family E (no dedicated declaration) was ruled done or
+ * superseded by objectui#6771 and objectui#9910, with its residual moved to
+ * objectui#9256 (ruling 5861449497 on objectui#8284).
  *
  * ## What is NOT pinned here, and why
  *
- * ⛔ Not the renderers. Nothing about rendering changes: a document that
- * authors the channel its renderer reads is byte-identical through both faces,
- * and a document that authors the other one rendered nothing before and
- * renders nothing now — it is merely REFUSED first. The counter-probes in
+ * ⛔ Not the renderers. This file pins the two authoring faces only: a
+ * document that authors the channel its renderer reads parses and compiles,
+ * and a document that authors `body` is refused by both.
+ * The render side is pinned elsewhere, by counter-probes that deliberately
+ * author the dead channel (`body`) and assert the empty render:
  * `examples/schema-catalog/test/badge-demo-label-6829.test.tsx` and
- * `packages/components/src/__tests__/span-children-rendering.test.tsx`, which
- * deliberately author the dead channel and assert the empty render, therefore
- * keep passing.
+ * `packages/components/src/__tests__/span-children-rendering.test.tsx`.
  *
  * ## ⚠️ Half of this file is a COMPILE-TIME assertion and vitest CANNOT read it
  *

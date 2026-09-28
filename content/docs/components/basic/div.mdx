@@ -13,9 +13,9 @@ description: "Generic container element - use Shadcn components instead"
     <li>When you want their layout: use <code>card</code>, <code>flex</code>, <code>container</code>, <code>stack</code>, or <code>grid</code> — each injects classes of its own, and <code>card</code> also moves children into an extra element</li>
   </ul>
   <p className="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
-    Move any content authored under the legacy <code>body</code> key into <code>children</code> first: every
-    replacement listed above except <code>card</code> reads <code>children</code> only, so a blind retype drops
-    that content silently, at an unchanged element count.
+    Move any content authored under the retired <code>body</code> key into <code>children</code> first:
+    objectui#6771 retired that child-list spelling, so validation refuses it by name, and neither
+    <code>div</code> nor any replacement listed above draws it.
   </p>
 </div>
 
@@ -47,9 +47,10 @@ the page; a `div` → `box` swap does not.
 
 One caveat for a node still authored in the retired `body` spelling: every
 option reads `children` and never `body` (objectui#6771 retired it across the
-protocol, `card` included). Such a node must move that content into `children`
-as part of the swap, or it disappears from the page without changing the element
-count — silently.
+protocol, `card` included), and so does `div` itself. Such a node must move that
+content into `children` as part of the swap. Until it does, validation refuses
+the key by name, and the content is missing from the page under `div` and under
+every replacement alike.
 
 ### For a Plain Wrapper → Use `box`
 
@@ -83,8 +84,7 @@ interface DivSchema {
   type: 'div';
   
   // Content
-  children?: SchemaNode | SchemaNode[];  // Child components
-  body?: SchemaNode[];                    // Alternative content prop
+  children?: SchemaNode | SchemaNode[];  // Child components (the child key this component reads)
   
   // Styling
   className?: string;                     // Tailwind CSS classes

@@ -80,7 +80,10 @@ function warnDeprecatedOnce(type: string, message: string): void {
  * and four of those five — `flex`, `container`, `stack`, `grid` — read
  * `children` ONLY, so a node that authored `body` loses its content SILENTLY,
  * at an unchanged element count. `box` is the one class-transparent swap, and
- * the old text never named it.
+ * the old text never named it. (That was the measurement at the time. Since
+ * objectui#6771 retired the `body` spelling, `card` and `div` itself read
+ * `children` only as well, so `body` content is drawn by none of them and the
+ * notice's `body` bullet says so.)
  *
  * That is why this is worth a re-ruling rather than a nice-to-have. Deprecation
  * guidance is followed LITERALLY, by humans and by generating models reading
@@ -116,7 +119,7 @@ const DIV_DEPRECATION_NOTICE =
   '[ObjectUI] The "div" component is deprecated on every authoring surface. Please use Shadcn components instead:\n' +
   '  - For a plain wrapper the drop-in swap is "box": same element, your `className` verbatim, no layout of its own.\n' +
   '  - Reach for "card", "flex", "container", "stack", or "grid" only when you want their layout — each injects classes of its own, and "card" also moves children into an extra element.\n' +
-  '  - Move any `body` content into `children` first: every replacement above except "card" reads `children` only, so a blind retype drops it silently at an unchanged element count.\n' +
+  '  - Move any `body` content into `children` first: `body` is the child-list spelling objectui#6771 retired, so validation refuses it by name, and neither this component nor any replacement above draws it.\n' +
   '  This applies to JSON-authored nodes and to kind:\'html\' pages alike: an html page refuses the\n' +
   '  tag when it compiles, naming the same replacement.\n' +
   'See documentation at https://www.objectui.org/docs/components for alternatives.';

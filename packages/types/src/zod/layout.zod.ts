@@ -82,8 +82,8 @@ export const BoxSchema = BaseSchema.extend({
     'children',
     'this box node',
     '`box` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/box.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -99,8 +99,8 @@ export const TextSpanSchema = BaseSchema.extend({
     'children',
     'this span node',
     '`span` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/basic/span.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -315,8 +315,8 @@ export const ContainerSchema = BaseSchema.extend({
     'children',
     'this container node',
     '`container` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/container.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -342,8 +342,8 @@ export const FlexSchema = BaseSchema.extend({
     'children',
     'this flex node',
     '`flex` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/flex.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -363,8 +363,8 @@ export const StackSchema = BaseSchema.extend({
     'children',
     'this stack node',
     '`stack` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/stack.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -399,8 +399,8 @@ export const GridSchema = BaseSchema.extend({
     'children',
     'this grid node',
     '`grid` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/grid.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -485,8 +485,8 @@ export const ScrollAreaSchema = BaseSchema.extend({
     'children',
     'this scroll-area node',
     '`scroll-area` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/complex/scroll-area.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 

@@ -62,13 +62,16 @@ const CardRenderer = forwardRef<HTMLDivElement, { schema: CardSchema; className?
           {header}
         </CardHeader>
       )}
-      {/* `||` here is ALIAS RESOLUTION — `body` is the legacy spelling of
-          `children` — and ⛔ it is no longer the guard. That distinction is
-          the whole point: `children: 0` used to be converted away by the
-          accident of `0 || undefined === undefined`, which protected nothing,
-          because the sibling `body: 0` went through `undefined || 0 === 0`
-          and leaked. `renderNodeSlot` covers both; the alias order is
-          unchanged. */}
+      {/* `children` is the one child-list key: this slot used to read
+          `schema.children || schema.body`, and objectui#6771 dropped the
+          `body` arm when it retired that spelling (the callback's `body`
+          below is only a local name for the slot's content). ⛔ No `||` is
+          the guard here. That distinction was the point of objectui#9162:
+          `children: 0` used to be converted away by the accident of
+          `0 || undefined === undefined`, which protected nothing, because
+          the sibling `body: 0` went through `undefined || 0 === 0` and
+          leaked. `renderNodeSlot` is the guard, so an empty slot, `0`
+          included, renders no `CardContent` at all. */}
       {renderNodeSlot(schema.children, (body) => (
         <CardContent>{renderChildren(body)}</CardContent>
       ))}

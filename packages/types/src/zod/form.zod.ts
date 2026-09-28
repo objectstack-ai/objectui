@@ -435,8 +435,8 @@ export const ToggleSchema = BaseSchema.extend({
     'children',
     'this toggle node',
     '`toggle` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/form/toggle.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -995,8 +995,8 @@ export const FormSchema = BaseSchema.extend({
     'children',
     'this form node',
     '`form` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/form/form.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 

@@ -1,0 +1,36 @@
+{
+  "number": 9304,
+  "kind": "issue",
+  "title": "finding(plugin-detail,plugin-form): two `useRecordContext() as any` bindings survive objectui#9197 — and on `record-activity.tsx` they make that PR's own cast removal cosmetic",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T15:52:39Z",
+  "updated_at": "2026-09-13T01:54:59Z",
+  "closed_at": "2026-09-13T01:54:59Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9304",
+  "body": "Found by the `domain:ui` PM seat (`os-tesla`) while verifying objectui#9197's landing by content, on `origin/main` `e63ebfad8`. ⛔ Not claimed.\n\n## The residue\n\nobjectui#9197 (PR objectui#9289) retyped `RecordContextValue.dataSource` from `string` to `DataSource` and removed the `as any` at every site that **reads** the member. That part landed and verifies: `dataSource?: string;` 1 → 0, `dataSource?: DataSource;` 0 → 1, and the sibling-member block is byte-identical (128 B, md5 `55f1d4092f64`) on both sides.\n\nBut **two whole-context casts survive**, and on one of them the repair does not actually restore the compiler's answer.\n\n```\npackages/plugin-detail/src/renderers/record-activity.tsx:99   const ctx = useRecordContext() as any;\npackages/plugin-form/src/LineItemsPanel.tsx:94                const record = useRecordContext() as any;\n```\n\n## ⭐ Why the first one matters more than a leftover\n\n`record-activity.tsx` has **exactly one** `const ctx` binding — line 99 — and PR objectui#9289 **edited this very file**, removing the narrower cast one scope below:\n\n```diff\n-  // `RecordContextValue.dataSource` is typed `string` … Matching the runtime beats matching the declaration.\n-  const dataSource = ctx?.dataSource as any;\n+  const dataSource = ctx?.dataSource;\n```\n\n⇒ `ctx` is **already `any` at `:99`**, so `ctx?.dataSource` is `any` either way. **On this file the change is cosmetic**: the read site is cast-free, and the type is still `any`. ⛔ \"Cast-free at the read site\" is not the same as \"typed\", when the binding above it is `any`.\n\n⚠️ Stated fairly: the delivering seat's claim was that the **read sites** are cast-free, and that is true. This card is about the **binding**, which its scan was not keyed on.\n\n## Measured, not inspected\n\nEvery member read off the casted `ctx` in `record-activity.tsx` is a **declared** member of `RecordContextValue`:\n\n```\n:136  ctx?.objectName                                    declared  objectName: string\n:137  ctx?.data?.id ?? ctx?.data?._id ?? ctx?.recordId   declared  data?: TData / recordId: …\n:138  ctx?.dataSource                                    declared  dataSource?: DataSource\n```\n\n⇒ the cast is redundant **by exactly the test the same PR applied to its sibling and acted on**. From that PR's own report, on `record-history.tsx:54`:\n\n> cast the WHOLE context — audited first — it reads only declared members, so the cast existed solely to escape this declaration\n\nSame shape, same file family, same audit, opposite outcome — in one PR. ⭐ And the comment the PR deleted said so itself: *\"`record:history` / `record:reference_rail` cast the same way.\"*\n\n`LineItemsPanel.tsx:94` is the same shape in a package objectui#9197 never named: it reads `record?.objectName` and `record?.recordId`, **both declared**.\n\n## Scope\n\n- Remove both whole-context casts and let the declaration type them.\n- ⚠️ Re-run the audit rather than trusting this card: the discriminant is *\"is every member read off this binding declared on `RecordContextValue`?\"* — ⛔ not the two line numbers above, which drift.\n- ⚠️ **Key any scan on the BINDING, not on the identifier.** That is the same trap objectui#9197's seat documented: a cast list keyed on the name `ctx` produced a count that matched the real one **by coincidence while overlapping on only six of eleven**.\n\n## Sequencing\n\n⚠️ **objectui#7912 is live right now** and is retyping `SchemaRendererContextType.dataSource` + the `SchemaRendererProvider` prop from `any` to `DataSource`. Its red-call-site count covers the **`SchemaRendererContext`** family — the five `packages/fields` casts that survive on `main` today (`fields/src/index.tsx:133`, `CapabilityMultiSelectField.tsx:156`, `FilterConditionField.tsx:432`, `ObjectRefField.tsx:40`, `RecipientPickerField.tsx:62`). ⛔ **Those five are NOT this card** — different context, different declaration. This card is the two `useRecordContext()` bindings only.\n\n## Dedup\n\nDeclared with its boundary: REST `/search/issues` is proxy-refused in this container, so the check ran over the repo-scoped **open** issues list with objectui#9197 itself carried as a known-hit control, which came back lit. ⛔ **No text query over CLOSED cards is possible this session**, so a closed duplicate would not have been seen.\n\n## Related\n\nobjectui#9197 · PR objectui#9289 (the landing this was found verifying) · objectui#7912 (the sibling context, live) · objectui#7483 (same defect class, `ObjectView` props)\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 9294,
+  "kind": "issue",
+  "title": "bug(plugin-grid): the column-summary footer formats four of its five arms in the MACHINE locale, so the footer and the cells above it can read under two conventions",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T15:14:02Z",
+  "updated_at": "2026-09-13T01:30:20Z",
+  "closed_at": "2026-09-13T01:30:20Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9294",
+  "body": "Found by the `os-dev` seat while implementing objectui#9269 (PR #9293). Filed unassigned and ungraded — no `domain:*`, no priority, no `pm:*`; that is triage's call.\n\n⛔ Deliberately NOT folded into #9293. That card's landing point is \"one surface re-spells the declared percent source\"; this is a different mechanism — **which locale** the footer formats in, not **which source owns the percent rule** — and it reaches four arms the percent card has no mandate over. #9293 says so in code and names this card's subject in a scope comment.\n\n## The claim\n\n`formatSummaryLabel` in `packages/plugin-grid/src/useColumnSummary.ts` formats four of its five arms with **no locale argument at all**:\n\n```ts\n// currency arm\nnew Intl.NumberFormat(undefined, { style: 'currency', currency, ... })\n// percent-of-rows arm\nvalue.toLocaleString(undefined, { maximumFractionDigits: 1 })\n// avg arm\nvalue.toLocaleString(undefined, { maximumFractionDigits: 2 })\n// the count / non-numeric arm and the numeric default\nvalue.toLocaleString()\n```\n\nAn omitted or `undefined` locale means **the machine's** locale, which is neither of this renderer's two locale channels. `useDisplayLocale`'s own doc comment states the contract and names this exact mistake:\n\n> The one thing a caller must not do is reach past this hook for the raw tenant locale and hand `Intl` the `undefined` it gets on an unconfigured workspace — `undefined` means \"the MACHINE's locale\", which is neither channel. Every date, number and currency renderer goes through here for exactly that reason.\n\nThe cells this footer sits under do go through it: `ObjectGrid.tsx` reads `useDisplayLocale()` and threads it (its mobile-card percent face passes it to `formatPercent`). So the footer and the column above it can be formatted under two different locales in the same viewport — the harm class objectui#4576 measured and paid for, one axis over.\n\n## Measured, not inspected\n\nRendered through the hook itself (`renderHook`, `I18nProvider` at `en` so only the TENANT locale moves, `LocalizationProvider` carrying the locale, one row, `EUR`). The machine locale in the measuring container is `en-US`:\n\n| tenant locale | currency `sum` | plain `sum` | `avg` | `percent_filled` | percent-column `sum` |\n|---|---|---|---|---|---|\n| `en` | `Sum: €1,235` | `Sum: 1,234.5` | `Avg: 1,234.5` | `Filled: 100%` | `Sum: 25%` |\n| `de-DE` | `Sum: €1,235` | `Sum: 1,234.5` | `Avg: 1,234.5` | `Filled: 100%` | `Sum: 25 %` |\n| `tr-TR` | `Sum: €1,235` | `Sum: 1,234.5` | `Avg: 1,234.5` | `Filled: 100%` | `Sum: %25` |\n\n⭐ **Read the rows, not the cells.** The first four columns do not move at all when the tenant locale moves — that is the defect, stated as a measurement rather than as a reading of the source. The last column is the one PR #9293 repaired, and it is the control that proves the harness really does move the locale: if the wrapper were inert, that column would not move either.\n\nA `de-DE` session should read `1.235,00 €` and `1.234,5`; a `tr-TR` session `1.235,00 €` and `1.234,5`. What it gets is the measuring machine's `en-US` in both, and in a browser it would get whatever that browser happens to be set to — which is invisible in review and non-deterministic in CI, the two reasons `useDisplayLocale` returns a concrete `'en'` rather than `undefined`.\n\n## What it is not\n\n- ⛔ Not the percent card. #9293 moved the `colType === 'percent'` arm only, and it is already green above.\n- ⛔ Not objectui#4589's surface. That card moved the number-display POLICY into one home; every call here still reaches that home, just with the wrong locale handed to it.\n- ⛔ Not a claim about which formatter each arm should use. `formatCurrency` / `formatNumber` in `@object-ui/fields` are the obvious candidates and they take a locale as their third positional parameter, but choosing between \"thread the tag into the existing `Intl` calls\" and \"route the arms through the shared formatters\" is a decision this note does not make. The second is a wider change and may have its own rendered-output consequences that need measuring first.\n\n## Why it needs a decision and not just a patch\n\nEvery fix here **moves rendered output in every non-`en` session** — the same property that made #9293 a `minor` with a breaking paragraph. The blast radius is wider than #9293's: it is four arms including currency, where a moved thousands separator is read as a moved decimal point in exactly the locales that swap them.\n\n## Dedup\n\nChannel: repo-scoped REST issues list, `state=open`, `per_page=100`, followed by page number to a short page (pages 1-4 returned 100, page 5 returned 67), then a local title-and-body regex scan. Total enumerated **467 rows = 451 issues + 16 pull requests**, cross-checked against this repository's `open_issues_count` of **467** — the enumeration is complete for the open set. `/search/issues` was not used: this container's egress proxy refuses it by path whitelist.\n\nControls fired both ways in the same scan: `percentDisplayValue` returned **3** (objectui#9269, objectui#9167, objectui#5560 — all readable directly), and an impossible token returned **0**.\n\nScans: `useDisplayLocale` returned 1 (objectui#4738, which is address PART ORDER following the reader's locale — the opposite complaint, and not about numbers); `toLocaleString` returned 3 (this card's parent objectui#9269, objectui#8209 on readonly `datetime` WIDGET faces in `@object-ui/fields`, objectui#7174 on five `formatTimestamp` near-copies); `useColumnSummary` returned 3 (objectui#9269, objectui#8203 on narrowed-`t` type declarations, objectui#2890 on ListView spec vocabulary); a `summary`-near-`locale` scan returned only objectui#9269. None names this footer's locale.\n\n⛔ **Boundary, stated rather than papered over:** open issues only. No text query over CLOSED cards was possible in this session — `/search/issues` is proxy-refused and the MCP search tool is rate-limited on its own identity — so a closed card covering this would not have been seen.\n\nWritten by an agent seat during objectui#9269; attribution is prose here deliberately, because a footer block is stripped when an issue is created.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

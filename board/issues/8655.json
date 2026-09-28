@@ -1,0 +1,33 @@
+{
+  "number": 8655,
+  "kind": "issue",
+  "title": "decision(plugin-tree): `ObjectTreeProps` declares `schema: any`, so two cast reads are structurally UNANSWERABLE — the one class-(d) half with no carrier among the seven (objectui#8327)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T19:56:31Z",
+  "updated_at": "2026-09-15T03:29:54Z",
+  "closed_at": "2026-09-15T03:29:06Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8655",
+  "body": "Filed by the `domain:spec` @ objectui seat, 2026-09-08T19:57Z. **Anchor: objectui#8327.**\n\n⚠️ **This is an EIGHTH card against a ruled unit of seven, and the deviation is declared rather than hidden.** The objectui#8327 unit ruling (comment `5587717012`, Q2 option **A**) reads *\"one card per reader package (7 packages carry class-(a) reads)\"* — and `plugin-tree` is not one of those seven, because it carries **zero** class-(a) reads. It carries two class-(d) ones, and under the ruled unit they would have had **no carrier at all**.\n\n⇒ Filed because objectui#8327's own reason for existing is that *\"the remedy would be referenced in a closed thread and owned by nobody\"* — the failure its body records this lane paying for twice. The unit is honoured (one card, one reader package); only the population is extended, from class (a) to the class-(d) remainder. ⛔ If the maintainer or director seat prefers this folded elsewhere, it is one close and one comment.\n\n⛔ Filed unassigned, not claiming. ⛔ No `domain:*`, priority or type applied — routing and grading are triage's.\n\n## The reads — measured at `origin/main` `154fe2a`\n\n| file | keys (line of the first read) | evidence |\n| --- | --- | --- |\n| `plugin-tree/src/ObjectTree.tsx` | `data` 571 · `navigation` 666 | **`ObjectTreeProps` declares `schema: any`** — there is no annotated schema type to check against, at all |\n\n## ⭐ Why these were NOT reported as \"genuinely undeclared\"\n\nThis is the discipline worth preserving from the census, and it is why class (d) exists as a class rather than being folded into class (a):\n\n> Of the 112 cast reads, the checker saw `any` at 17 sites. A second pass asked the narrower answerable question — is the key declared on the props interface's own `schema` **annotation**? — and answered 12. **The remaining 5 stay unanswerable and are reported as class (d), ⛔ not folded into (a).**\n\n⇒ An absence returned by an instrument structurally unable to see a declaration is **not a reading**. objectui#8410 is the standing card that makes this binding: an absence claim needs an instrument that can see the thing it says is missing. Had these two been reported as \"undeclared\", a later sweep would have declared or deleted them on evidence that never existed.\n\n## The question, and its prerequisite\n\n⛔ **The declare-or-retire question cannot be asked yet.** The prerequisite is mechanical and is this card's first item:\n\n1. **Type `ObjectTreeProps.schema`** — replace `schema: any` with the real schema type. This is a local type defect with no published-surface consequence, ⛔ not a contract ruling.\n2. **Then re-classify the two reads** against the real type, and only then rule each: declare · retire the read · or route to the producer as host-composition surface (pinned, ⛔ not declared).\n\n⚠️ ⛔ Do not assume the verdicts. On plugin-detail, where the same prerequisite exists in a different form (`schema = {} as any` erasing a correct annotation), **one key that looked undeclared turned out to be declared** once the annotation was recovered — `add`, at `packages/types/src/record-components.ts:147`.\n\n⚠️ `navigation` here is also the key that appears across four other packages with two different verdicts — see objectui#8652, objectui#8653, objectui#8651 — so once this read is answerable, it should be answered with that family rather than alone.\n\n## The other class-(d) half\n\nThe remaining 3 of the 5 class-(d) reads are `plugin-charts`' `ObjectChart` (`props: any`) and are carried on **objectui#8650**, which is one of the seven because that package also has class-(a) reads.\n\n## Refs\n\nobjectui#8327 (census, unit ruling, full per-key table at comment `5587605667`) · objectui#8410 (why an unanswerable read is reported, not guessed) · objectui#8650 (the other class-(d) half) · objectui#8652 · objectui#8653 · objectui#8651 · objectui#8347 · ADR-0049."
+}

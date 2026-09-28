@@ -1,0 +1,37 @@
+{
+  "number": 9040,
+  "kind": "issue",
+  "title": "finding(types): `RecordDetailsComponentProps`'s TOP LEVEL diverges from the spec in both directions — it declares the retired `layout`, and omits `hideFields` / `inlineEdit` / `showHeader`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: types",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T20:09:38Z",
+  "updated_at": "2026-09-13T19:00:59Z",
+  "closed_at": "2026-09-13T19:00:12Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9040",
+  "body": "Measured while implementing objectui#8604 (the top-level `columns` narrowing), on the **installed** `@objectstack/spec` **17.4.0**, by reading `RecordDetailsProps`'s own shape and parsing probes against it — not transcribed from the card above. Filed here rather than carried on that branch: objectui#8604 is scoped to one key, and both items below are different dispositions.\n\nSame interface as objectui#8583, one level **up**: that card reconciled `RecordDetailsComponentProps.sections[]` member-for-member. Nobody has done the same for the **top level**, and it diverges in both directions.\n\n## Item 1 — this type declares `layout`, which the spec REFUSES by name (a class-c trap)\n\n```ts\n// packages/types/src/record-components.ts\nlayout?: 'stacked' | 'inline' | 'compact';\n```\n\n`@objectstack/spec` declares the same top-level key as a `retiredKey(...)`: removed in 17.0.0 under ADR-0087 D2 (objectstack#6946), because the published `auto` | `custom` semantics were never implemented.\n\nMeasured: `RecordDetailsProps.safeParse({ layout: 'compact' })` is **RED**, `invalid_type` at path `layout`, and the message is the removal prescription itself, beginning \"`record:details` property `layout` was removed in @objectstack/spec 17.0.0 (ADR-0087 D2)\". The **control** on the same instrument, which would have fired: every other top-level key (`aria`, `columns`, `fields`, `hideFields`, `inlineEdit`, `sections`, `showHeader`) accepts a plausible value in the identical probe loop — so the refusal is about this key, not about a schema that refuses everything.\n\n⇒ A TypeScript author writes `layout: 'compact'`, `tsc` is green, and the contract refuses the document at publish. Identical shape and identical direction to objectui#8604, one key over, and it is the last live holdout of the spelling: objectui#3818 removed the renderer's dead branch, and the `@object-ui/plugin-detail` registry manifest deliberately publishes **no** `layout` input and says so in a comment. The published TypeScript face is the only layer still offering it. The spec's own docblock names this mirror by name as carrying \"a third spelling, `stacked` | `inline` | `compact`\".\n\n⚠️ This is a **retirement**, not a narrowing — a removal of a published key, with its own conversion and pin obligations. That is why objectui#8604 did not ride it in. There is an in-repo precedent to copy for the changeset shape: `.changeset/retire-record-details-section-collapsed.md`, which retired `sections[].collapsed` on this same interface, `minor`, with FROM/TO prose.\n\n⚠️ One in-repo caller writes it today: `packages/types/src/__tests__/p1-spec-alignment.test.ts` sets `layout: 'stacked'` on a `RecordDetailsComponentProps` literal. It needs to move in the same change.\n\n## Item 2 — this type OMITS three top-level keys the spec declares and the renderer honours\n\n`hideFields`, `inlineEdit`, `showHeader`.\n\nMeasured the same way: all three are members of `RecordDetailsProps`'s shape and all three accept a plausible value. `RecordDetailsRenderer` has read all three for some time (`schema.inlineEdit ?? true` gated by the object's editability, `schema.showHeader ?? false` passed to the body, and `hideFields` applied to `fields` and to every section's `fields`), and `@object-ui/plugin-detail`'s registry manifest **declares all three as inputs** — objectui#3808 for `hideFields` and objectui#4668 for the other two, each filed as the same reverse-direction defect.\n\n⇒ Every layer declares them except the published TypeScript face, so a TypeScript author writing spec-valid, renderer-honoured, registry-published metadata gets `TS2353`. That is objectui#8583 item 1 exactly, one level up.\n\nDirection, if it is taken: contract-first (Commandment #0.1) says declare what the contract declares, with the spec's own authoring types.\n\n## Why one card, two items\n\nThat is the shape objectui#8583 used for the same reconciliation on `sections[]`: one measurement over one key set, two dispositions. Splitting them would put two halves of a single \"reconcile this interface's top level against the contract\" job in two queues.\n\n⛔ Not claimed, ⛔ not graded — `domain:*` and priority are triage's.\n\nRefs: objectui#8604 (where this was measured, and the key it narrows) · objectui#8583 / PR #8601 (the same reconciliation on `sections[]`) · objectui#3818 (the renderer half of `layout`) · objectui#3808, objectui#4668 (the registry half of the three omissions). None of those covers this surface: objectui#8583 and objectui#3818 are closed, and a targeted search of open cards for this interface returned 35 on-topic neighbours with no hit on the top-level key set — the neighbours are the control that the query was live.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

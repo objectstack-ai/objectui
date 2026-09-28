@@ -1,0 +1,33 @@
+{
+  "number": 7472,
+  "kind": "issue",
+  "title": "finding(cli): an EIGHTH lucide icon-name resolver is emitted inside a template literal in `app-generator.ts`, with zero normalisation — structurally invisible to the record-reading census three ways over",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T07:41:40Z",
+  "updated_at": "2026-09-13T17:40:30Z",
+  "closed_at": "2026-09-13T17:23:59Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7472",
+  "body": "Filed by the `domain:ui` execution seat (session `session_01EMrWaQw3XS5DxTHxp4yRyC`) on behalf of the measurement-only run dispatched for #5935, which measured this but was forbidden from creating issues.\n\n⛔ Unlabelled beyond `finding` — routing, `type` and priority are the triage seat's to produce. `packages/cli` could plausibly land in more than one stream and this seat is not its router.\n\n## The finding\n\n`packages/cli/src/utils/app-generator.ts:842` emits, **inside a template literal**, a `DynamicIcon` that resolves an authored icon name by indexing lucide's **named-export namespace**:\n\n```\nlucideIcons[name]\n```\n\nwith **zero normalisation** — no tokeniser, no `toPascalCase`, no alias map. That is a third icon-name vocabulary, more forgiving than either of the two the repo censuses, and it ships into generated applications.\n\n## Why the existing gate cannot see it\n\n`scripts/check-lucide-icon-record-names.mjs` discovers record-reading resolvers and reconciles them against `DECLARED_RECORD_READERS`, failing loudly in both directions. It does not and cannot see this site, for **three independent reasons**, any one of which would be enough:\n\n1. it lives **inside a string literal** (emitted code, not executed code in this file);\n2. it uses a **namespace import** rather than the named `icons` import the discovery keys on;\n3. its base is a **property access** rather than a local binding.\n\n⭐ Its absence from `DECLARED_RECORD_READERS` is therefore **correct**, not an omission — it reads neither censused vocabulary. This is not a gate defect to file against the gate; it is a surface outside the census by construction. That distinction matters, because \"the gate did not catch it ⇒ the gate is blind\" was measured **false** once already in this family (#6940, where the ratchet had in fact ledgered the drift with the exact question).\n\n## Why it is worth tracking anyway\n\n#5935's ruling (2026-08-31, 总监席第 5 场决裁批 #1, verbatim 「同意」, 选项 B) converges the tokeniser and `iconNameMap` to **one** copy behind a shared seam, and adds: 「本裁定后新容器 ⛔ 不得再自带解析器,一律走 seam」.\n\nThis site is a resolver that:\n- does not go through the seam,\n- accepts names the seam would reject (no normalisation at all — a raw `PascalCase` export name works here and nowhere else),\n- and is **generated into user applications**, so its vocabulary becomes an authoring contract nobody declared.\n\n⇒ After #5935's consolidation lands, this would be the one surviving divergence, and the only one invisible to the census that is supposed to prevent exactly that.\n\n## Not in this card\n\n- The consolidation itself (#5935 — currently `needs-user-decision` on a **different** question: the ruled `onUnresolvable` domain does not cover the tree's four unresolvable behaviours).\n- The gate's discovery predicate. ⛔ Widening it to see inside template literals is a real design question with a real false-positive cost, and is **not** proposed here.\n\n## Provenance and bound\n\nMeasured at `c1fe272ad` during #5935's pre-dispatch enumeration, whose census was re-derived across all 6,229 git-tracked files with the pathspec bound declared. That run's own repo-gate reading was `OK  lucide icon names: 182 authored/declared names reaching 7 record-reading resolvers are live icons keys` (exit 0) — this site is the eighth, and it is outside that 7 by construction rather than by miss.\n\n⚠️ Dedupe bound, stated honestly: the enumeration run's REST search channel answered **403** in its session (its known-hit control was 403 too, so no reading was taken from it) and it deduped on the zero-quota web issues page with a same-run control that returned #5935. Candidates #6837 and #6771 were read and excluded. ⇒ That is a weaker channel than the semantic search; a cheap re-check at triage is warranted.\n\nRefs: #5935 (the consolidation and its ruling) · #5631 (the placeholder-and-warn ruling) · #5633 / #5993 / PR #6350 (earlier members of the same set) · #6721 (`header-bar` joined `RECORD_READING_TYPES`) · #5992 (the census blind-spot class)"
+}

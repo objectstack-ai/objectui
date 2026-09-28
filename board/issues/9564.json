@@ -1,0 +1,30 @@
+{
+  "number": 9564,
+  "kind": "pull_request",
+  "title": "fix navigation context for direct app routes",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "jinyitao123",
+    "id": 260412432,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-15T12:15:05Z",
+  "updated_at": "2026-09-16T07:28:30Z",
+  "closed_at": "2026-09-16T07:28:29Z",
+  "closed_by": {
+    "login": "jinyitao123",
+    "id": 260412432,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/9564",
+  "body": "Directly opening or refreshing a page inside an app with navigation areas left the first area selected and produced a generic `页面` breadcrumb, even when metadata placed the route under another area's nested item.\n\nThis change resolves one shared navigation trail from the current pathname and query parameters, uses it in both `UnifiedSidebar` and `AppHeader`, and preserves authored query parameters for routes that intentionally share one page. A direct URL without navigation parameters now infers its context only when exactly one menu item owns that pathname; ambiguous shared routes continue to require a qualifier such as `nav`.\n\nValidation:\n- `pnpm exec vitest run packages/layout/src/__tests__/resolveHref.test.ts packages/app-shell/src/utils/navigationContext.test.ts packages/app-shell/src/layout/__tests__/UnifiedSidebar.derivedAreaVisibility.test.tsx` — 45 tests passed.\n- `pnpm --filter @object-ui/console build` — passed.\n- Forge deep link `/_console/apps/forge/page/page_output_invoices?verify=iab-sales4` selected `财务`, expanded `发票管理`, highlighted `销项发票`, and removed the generic `页面` breadcrumb in a locally integrated Console build.\n"
+}

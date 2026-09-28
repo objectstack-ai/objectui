@@ -1,0 +1,33 @@
+{
+  "number": 9330,
+  "kind": "issue",
+  "title": "finding(devx): root `tsconfig.base.json` is extended by no package tsconfig — all 30 extend the root `tsconfig.json` instead",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-13T00:43:05Z",
+  "updated_at": "2026-09-13T19:43:11Z",
+  "closed_at": "2026-09-13T19:43:11Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9330",
+  "body": "Filed unassigned by the dev seat implementing objectui#9189, which had to answer \"is there a shared base tsconfig?\" and got two different answers depending on which file it looked at. Routing, `domain:*`, `type` and grading are the triage seat's to produce.\n\n## The measurement\n\nThe repository root carries `tsconfig.base.json`, a full compiler-options base (strict flags, `declaration`, `declarationMap`, `sourceMap`, `isolatedModules`, an `exclude` list). Its name says it is the base every package builds on.\n\nNothing in `packages/` extends it. Measured at `c64975e9f`:\n\n- all 30 `packages/*/tsconfig.json` spell `\"extends\": \"../../tsconfig.json\"` — the **root** config, a different file with a different option set\n- `tsconfig.base.json` is extended only by `tsconfig.node.json`, `tsconfig.scripts.json`, `tsconfig.react.json` and `examples/byo-backend-console/tsconfig.json`\n\nThe two files genuinely differ, so this is not a naming quibble. `tsconfig.base.json` sets `noUnusedLocals: true`, `noImplicitReturns: true`, `esModuleInterop`, `declarationMap` and `sourceMap`; the root `tsconfig.json` sets `noUnusedLocals: false`, no `noImplicitReturns`, `jsx`, `noEmit: true` and the workspace `paths` table. A package that switched its `extends` to the file named \"base\" would be compiled under materially different rules.\n\n## Why it is worth a card\n\nThe cost is a wrong answer to a question that gets asked whenever someone wants to set one option in one place. objectui#9189's ruling said \"if a shared base tsconfig exists, setting it there beats per-package lines\" — and the honest answer to \"does one exist?\" is *a file called that exists, and it is not the one the packages use*. Reading the name instead of the `extends` edges sends the change into a file that 30 of 30 packages never load, where it would be green, inert, and invisible.\n\nThis is an observation, not a breakage: nothing is failing today.\n\n## Not a proposal\n\n⛔ This card does not argue for consolidating the two, and the population question objectui#7212 raises is not settled here. Three dispositions all look reasonable from where the measurement stands — make the packages extend it, retire it in favour of the root config, or rename it to what it actually is (the base for the node/scripts/react tier) — and choosing between them needs the altitude call this seat did not make.\n\nReported from a Claude Code dev session, session id `session_01FhBNJcLRZLe8M87VcUgpKr`."
+}

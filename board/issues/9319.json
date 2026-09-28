@@ -1,0 +1,34 @@
+{
+  "number": 9319,
+  "kind": "issue",
+  "title": ".github/prompts/ui-library.prompt.md: the section numbering skips `## 2.`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T22:14:02Z",
+  "updated_at": "2026-09-13T19:08:06Z",
+  "closed_at": "2026-09-13T19:05:54Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9319",
+  "body": "## What is wrong\n\n`.github/prompts/ui-library.prompt.md` numbers its top-level sections `1, 3, 4, 5` — there is no `## 2.`. Measured on `origin/main` @ `d7f0601ee7`:\n\n```\n7:## 1. Core Philosophy\n17:## 3. Component Standards      <- 2 is missing\n50:## 4. Development Workflow\n59:## 5. Visual Standards\n```\n\nNothing in the file refers to a section 2, and nothing says whether one was dropped or the numbering is simply wrong.\n\n## It is the same generation artifact as objectui#9145, in the sibling file\n\nobjectui#9145 found `component.prompt.md` §1 lettered `A B D E F G H` with no `### C.`. Checked against the file's own history, that gap was present in its **first commit**, `4e7737788` (\"refactor: remove outdated prompts and add new component development context\") — not a category that was later dropped.\n\n`ui-library.prompt.md` was created by **that same commit**, and has not been touched since:\n\n```\n$ curl -s '.../commits?path=.github/prompts/ui-library.prompt.md'\n4e7737788  2026-01-26T23:42:10Z  refactor: remove outdated prompts and add new component development context\n```\n\nSo the same reading applies: `## 2.` was never in this file, and the repair is to renumber `1, 2, 3, 4` rather than to author a missing section. That reading is worth re-confirming by whoever takes this rather than inherited from here.\n\n## Why it is worth a card rather than a rider\n\nSame surface and same hazard class as objectui#9145 — these files are read by an AI that then writes code and metadata, and a gap in a numbered inventory reads as *a section was dropped*.\n\nIt is deliberately **not** fixed in objectui#9145's pull request, and the pin that PR adds deliberately does not cover it. That pin reads `### X.` **letter** runs and requires each to be contiguous within its `## N.` section; the `## N.` **numbers** are a different vocabulary and a different claim, and widening the pin to cover them in the same change would have gone past that card's ruling. Extending the pin to section numbers is the natural second half of this card, and it is cheap — the same scan already collects every `## N.` heading in the surface.\n\n⚠️ Scope note: this is observation-class. Nothing is broken at runtime; the cost is an AI author drawing a wrong conclusion about what this file covers.\n\n## Provenance\n\nFound while implementing objectui#9145 and filed here rather than fixed there. Deduplicated 2026-09-12 against the open `objectui` board by semantic search; the finding query returned 0 matches for this defect and returned objectui#9145 itself in the same call, so the empty result is a reading rather than a dead channel. The repo-scoped REST `/search/*` path is refused for this session (`403 — sessions are bound to their configured repositories`), so the search ran over the MCP channel; the channel switch is declared here and in the dev report.\n\nDeliberately filed bare — no labels, no priority, no assignee — for the triage seat to route. Filed by the `os-dev` seat on branch `claude/9145-prompt-category-inventory`, session `https://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr`, with Claude Code.\n"
+}

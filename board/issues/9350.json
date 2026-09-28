@@ -1,0 +1,34 @@
+{
+  "number": 9350,
+  "kind": "issue",
+  "title": "bug(skills): the `auth-permissions.md` useAuth example reads `user.name` behind an `isAuthenticated` guard that guest mode and preview mode hardcode true",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:skills",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-13T04:46:21Z",
+  "updated_at": "2026-09-13T10:16:04Z",
+  "closed_at": "2026-09-13T10:12:29Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9350",
+  "body": "Found while repairing objectui#9311 (the unguarded `dataSource` read in `data-integration.md`). Same class — published guidance reading a member the contract declares as possibly absent — but a different guide and a different member, so it is filed rather than folded in: objectui#9311's PR is a governed-surface PR parked for human merge, and its diff is deliberately one file.\n\n⛔ Not claimed, not edited. Published `skills/**` is a governed surface.\n\n## The defect\n\n`skills/objectui/guides/auth-permissions.md`, the fence under \"### useAuth hook\" (fence opens at :38, read on `origin/main` = `a5921a0f8`). Written out in prose because JSX tag shapes do not survive being stored in an issue body — TAGNAME stands for each element:\n\n    const { user, isAuthenticated, isLoading, error, signOut } = useAuth();\n\n    if (isLoading) return SPINNER;\n    if (!isAuthenticated) return LOGINBUTTON;\n\n    // ... then, inside the returned markup:\n    Hello {user.name}\n\n`user.name` is read with `isAuthenticated` as its only guard.\n\n## Why that guard does not hold — and this is the part worth reading\n\n`AuthContextValue` declares `user: AuthUser | null` (`packages/auth/src/AuthContext.ts`). `isAuthenticated` is **not** derived from `user` in two of the three modes (`packages/auth/src/AuthProvider.tsx`):\n\n    const isAuthenticated = (enabled && !isPreviewMode)\n      ? user !== null && session !== null\n      : true;\n\n⇒ in **guest mode** (`enabled: false`) and in **preview mode**, `isAuthenticated` is hardcoded `true` while `user` stays `null`. So the early return does not imply a user, and `user.name` throws a TypeError in exactly those two modes — the ones a reader prototyping without an auth backend is most likely to be in.\n\n⭐ The repository's own shipped component already knows this. `packages/auth/src/UserMenu.tsx` guards **both**:\n\n    if (!isAuthenticated || !user) {\n      return null;\n    }\n\nThe published guidance guards one. That asymmetry is the finding: this is not a compiler-pedantry item, it is the shipped code and the published example disagreeing about a contract the shipped code reads correctly.\n\n## Failing probe, named\n\n`node scripts/check-skill-examples.mjs --measure` (judges every candidate fence, marked or not) on `origin/main`:\n\n    [semantic]  skills/objectui/guides/auth-permissions.md:49:20  TS18047: 'user' is possibly 'null'.\n\nCorpus-wide that is the **only** possibly-null/undefined diagnostic in `skills/` + `.claude/skills/` besides objectui#9311's — measured, 121 candidate ts fences, 97 judged.\n\n## ⚠️ Why the fence is green today, and why marking it is not the whole repair\n\nThe fence carries no `os:check` opt-in marker, so `check-skill-examples.mjs` does not judge it: the defect is published and uncompiled, which is the class that gate's own header calls \"looks like enforcement, isn't\".\n\n⛔ But adding the marker is not the fix on its own. The same fence also fails on three identifiers it never declares (the spinner, login-button and button placeholders), so it is a FRAGMENT by construction, and marking it would turn the gate red for reasons that are not this defect. The repair is the guard plus prose saying why a signed-in-looking context can still have no user; whether the fence is then made self-contained enough to mark is a second, separable question.\n\n## Suggested repair\n\nGuard both members, the way `UserMenu.tsx` does, and say why in the prose around the example (AGENTS.md requires the prose to move with a changed example):\n\n    if (!isAuthenticated || !user) return LOGINBUTTON;\n\nRefs: objectui#9311 (same class, the `dataSource` member) · objectui#7912 (the narrowing ruling that made objectui#9311's instance visible)\n\nFiled by an `os-dev` seat while working objectui#9311, using Claude Code, session `session_01UzHd6hDYatoDn17BuwKxnZ`."
+}

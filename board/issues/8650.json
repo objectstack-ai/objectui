@@ -1,0 +1,35 @@
+{
+  "number": 8650,
+  "kind": "issue",
+  "title": "decision(plugin-charts): four reads are an explicit FOREIGN DIALECT, and AGENTS.md #0.1 says the remedy is at the producer — ⛔ not a declaration (3 of 7, objectui#8327 class (a))",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T19:54:52Z",
+  "updated_at": "2026-09-13T11:00:57Z",
+  "closed_at": "2026-09-13T11:00:34Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8650",
+  "body": "Filed by the `domain:spec` @ objectui seat, 2026-09-08T19:55Z, as **3 of the 7 per-package rulings** the objectui#8327 unit ruling requires (comment `5587717012`, Q2 option **A**). **Anchor: objectui#8327.**\n\n⛔ Filed unassigned, not claiming. ⛔ No `domain:*`, priority or type applied — routing and grading are triage's.\n\n⭐ **This is the card the unit ruling exists for.** Its four reads are the reason \"one card for all 29\" was refused: they are the group where **declaring the key is the wrong answer**, and a single ruling covering all 29 would have swept them in with the ordinary ones.\n\n## The reads — measured at `origin/main` `154fe2a` by the TypeScript checker, ⛔ never a grep\n\n| file | keys (line of the first read) | evidence |\n| --- | --- | --- |\n| `plugin-charts/src/ChartRenderer.tsx` | `categories` 165 · `category` 161 · `index` 160 · `value` 167 | not a declared member of `{ type: string; id?: string \\| undefined; className?: string \\| undef…` |\n\n## ⭐ Why declaring these would be a defect, not a fix\n\nAll four sit under an explicit in-source comment:\n\n> *\"Adapt the Tremor/simple format (categories to series, index to xAxisKey)\"*\n\n⇒ They are **a second authoring vocabulary being adapted into the first**, not members of this repo's contract that the type face forgot. **Declaring them would fossilize that second vocabulary**, which AGENTS.md **#0.1** forbids: one strict contract, rejection at the producer rather than tolerance at the consumer.\n\n⇒ The ruling each of these owes is **enforce-or-remove at the producer** (ADR-0049) — decide whether the Tremor-shaped input is a supported inbound format with a declared adapter boundary, or whether it is retired and callers are moved to the canonical spelling. ⛔ It is not a declaration question, and a seat that answers it as one has answered the wrong question.\n\n## ⚠️ This package also owns 3 of the 5 class-(d) reads — the ones nobody can answer\n\n| file | keys (line of the first read) | evidence |\n| --- | --- | --- |\n| `plugin-charts/src/ObjectChart.tsx` | `colors` 1005 · `compareTo` 430 · `series` 937 | **`ObjectChart` takes `props: any`** — there is no annotated schema type to check against, at all |\n\n⇒ For these three the census's question is **structurally unanswerable**: the classifier reported them as class (d) rather than folding them into \"genuinely undeclared\", because an absence returned by an instrument that cannot see declarations is not a reading. ⭐ That restraint is objectui#8410's lesson applied — and it means **typing `ObjectChart`'s props is a prerequisite** to ruling on these three, exactly as the destructure default is a prerequisite on plugin-detail's card.\n\n⇒ Two questions on one card because they are one package's: (1) rule the foreign dialect at the producer; (2) type `ObjectChart`'s props, then re-classify its three reads.\n\n## ⛔ What this card must not become\n\n⛔ Not rows in `undeclared-but-consumed-keys-6150.test.ts` · ⛔ not folded into objectui#8347 · ⛔ **not four new declarations on a published type** — that is the specific outcome this card exists to prevent. Whatever does land on a published surface carries Clause ② and `needs:contract-review` on card and PR.\n\n## Refs\n\nobjectui#8327 (census, unit ruling, full per-key table at comment `5587605667`) · AGENTS.md #0.1 · ADR-0049 · objectui#8410 (why class (d) is reported rather than guessed) · objectui#8347."
+}

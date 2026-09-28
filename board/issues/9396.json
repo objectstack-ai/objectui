@@ -1,0 +1,33 @@
+{
+  "number": 9396,
+  "kind": "pull_request",
+  "title": "fix(core): guard filter-token near-miss lookup against Object.prototype (objectui#9129)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "package: core",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-13T13:31:44Z",
+  "updated_at": "2026-09-13T14:09:28Z",
+  "closed_at": "2026-09-13T14:09:27Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": "2026-09-13T14:09:27Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/9396",
+  "body": "Fixes #9129\n\n`resolveContextTokens` (`packages/core/src/utils/filter-tokens.ts`) looked a near-miss\nplaceholder spelling up in `@objectstack/spec`'s `CONTEXT_TOKEN_SUGGESTIONS` map with a\nplain bracket index keyed on `token.toLowerCase()`. Two spellings that survive\n`WHOLE_TOKEN_RE` (`[a-zA-Z0-9_]+`) lower-case to inherited `Object.prototype` member\nnames — `constructor` and `__proto__` — so the index resolved to\n`Object.prototype.constructor` / `Object.prototype.__proto__` instead of `undefined`,\nand the resulting warning asserted a \"suggestion\" that was native-code / object text:\nnot a token, not spellable, not anything an author can act on.\n\n**This is not prototype pollution, and this PR does not describe it as one.** The index\nis a read, never an assignment; the resolved filter value is passed through untouched\neither way, so no filter is ever widened or narrowed and no record is ever mis-matched.\nThe only observable effect of the bug was a confusing string inside a single\n`console.warn` call.\n\n## Fix\n\nPer the card's own framing, this closes the *class* rather than special-casing the two\nnames measured today (which would just reproduce the defect the next time a future\nlower-case `Object.prototype` member is added): the lookup now runs over a\nnull-prototype copy of the suggestion map —\n\n```ts\nconst NEAR_MISS_SUGGESTIONS: Readonly<Record<string, ContextTokenName>> = Object.assign(\n  Object.create(null),\n  CONTEXT_TOKEN_SUGGESTIONS,\n);\n```\n\n— built once, local to this one call site. `@objectstack/spec`'s own map is untouched;\nthe identical shape in its `classifyFilterToken` (same map, wider token regex, and a\n*typed* return field rather than a log string) is objectstack#17762, filed separately by\ntriage and out of scope here — fixing this side does not cover that one.\n\n## Tests\n\nPin added beside the existing near-miss cases in\n`packages/core/src/utils/__tests__/filter-token-proto-guard-9129.test.ts`, asserting\n**silence** for `{constructor}` and `{__proto__}` (never today's `[native code]` /\n`[object Object]` strings — pinning those would only prove the two names are\nspecial-cased) plus a lit near-miss control (`{user_id}` still warns with a real\nsuggestion), proving the suggestion feature itself is not broken by the fix.\n\n## Ablation (mutation + restore, on a committed tree)\n\nFix committed first, then mutated `NEAR_MISS_SUGGESTIONS[...]` back to\n`CONTEXT_TOKEN_SUGGESTIONS[...]` under a `trap … EXIT INT TERM` restoring from `HEAD`:\n\n- **Mutated → RED**, reproducing the exact defect text:\n  ```\n  FAIL … \"constructor\" … did you mean \"{function Object() { [native code] }}\"?\n  FAIL … \"__proto__\" … did you mean \"{[object Object]}\"?\n  2 failed | 1 passed (3)\n  ```\n- **Restored → GREEN**: `git diff HEAD` empty, `3 passed (3)`.\n\n## Verification\n\nGate family derived by hand from `package.json` (no `dispatch-gates.mjs` in this repo).\nDependency closure (`pnpm --filter '@object-ui/core^...' build`) built first\n(`@object-ui/types`, `@object-ui/test-support`), then:\n\n| check | result |\n|---|---|\n| `pnpm --filter @object-ui/core build` (`tsc` + dist-completeness) | exit 0 — 204 files verified |\n| `pnpm exec vitest run packages/core/` | **154 files / 3259 tests passed** |\n| `packages/core` `type-check` (`tsc --noEmit` + `tsc -p tsconfig.test.json`) | exit 0, exit 0 |\n| `pnpm exec eslint` on the 2 touched source/test files | exit 0, 0 errors (6 pre-existing `any` warnings, none on touched lines) |\n| `node scripts/check-changeset-presence.mjs` | ✅ 1 changeset declared for 1 released package |\n| `node scripts/check-changeset-no-major.mjs` | ✅ no `major` bump |\n| control-byte self-scan (`grep -naP` on the 3 changed files) | clean, 0 hits |\n\nNo public export of `@object-ui/core` changed (`NEAR_MISS_SUGGESTIONS` is a private\nmodule-level `const`), so per the repo's own scope rule for byte-identical public\nsurfaces, no downstream-consumer sweep or added consumer tests are needed.\n\nLint (full), Type Check (full), Test (4 shards), Build & E2E, Build Docs are left to CI\nper this repo's \"local runs targeted gates, CI runs the farm\" convention — none of them\nis implicated by a change confined to one private lookup inside `@object-ui/core`.\n\n## Acceptance notes\n\nNothing found outside this card's fence during the fix.\n\n---\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_011QreXiyMEqKLN4U5daMPVa\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011QreXiyMEqKLN4U5daMPVa)_"
+}

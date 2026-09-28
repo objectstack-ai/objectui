@@ -1,0 +1,34 @@
+{
+  "number": 9327,
+  "kind": "issue",
+  "title": "bug(plugin-grid): the import-job history table formats its timestamps in the MACHINE locale — the same omission objectui#9294 repaired, one type over",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-13T00:40:28Z",
+  "updated_at": "2026-09-13T17:18:42Z",
+  "closed_at": "2026-09-13T17:13:28Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9327",
+  "body": "Found by the `os-dev` seat while implementing objectui#9294 (PR objectui#9326). Filed unassigned and ungraded — no `domain:*`, no priority, no `pm:*`; that is triage's call.\n\n⛔ Deliberately NOT folded into objectui#9326. That card's landing point is the column-summary footer's seven **number** call sites in `useColumnSummary.ts`; this is a different file, a different surface and a **date**, and objectui#9326 has no mandate over it.\n\n## The claim\n\n`formatImportJobTime` in `packages/plugin-grid/src/ImportWizard.tsx` renders an import-job timestamp with no locale argument at all:\n\n```ts\nfunction formatImportJobTime(iso?: string): string {\n  if (!iso) return '—';\n  const d = new Date(iso);\n  if (Number.isNaN(d.getTime())) return iso;\n  return d.toLocaleString();\n}\n```\n\nIt feeds the import-job history table (`ImportHistoryPanel`), which lists prior async import jobs with their status, counts and time.\n\nAn omitted locale means **the machine's** locale, which is neither of this renderer's two locale channels. This is the contract `useDisplayLocale`'s own doc comment states, quoted verbatim:\n\n> The one thing a caller must not do is reach past this hook for the raw tenant locale and hand `Intl` the `undefined` it gets on an unconfigured workspace — `undefined` means \"the MACHINE's locale\", which is neither channel. Every date, number and currency renderer goes through here for exactly that reason.\n\n\"Every **date**, number and currency renderer\" — so a date renderer is inside the declared scope, not adjacent to it.\n\n## Why a date is not merely the same bug again\n\nOn a number the machine locale moves separators. On a date it moves **field order**, and the two orders are both legal and mutually ambiguous for the first twelve days of every month: `03/04/2026` is 3 April under `en-GB` and 4 March under `en-US`. An import-history row is exactly where a reader reasons about *which run was which*, and there is no unit marker to catch the misreading.\n\n## What it is not\n\n- ⛔ Not objectui#9294 / PR objectui#9326. Different file, different surface, and a date rather than a number. That PR's diff does not touch `ImportWizard.tsx`.\n- ⛔ Not a claim about which formatter it should use, or about the `'—'` empty fallback — that fallback is objectui#8507's subject, which names this same file for the em-dash class at a different line and says nothing about locale.\n- ⛔ Not measured: whether `ImportWizard` has an ergonomic path to `useDisplayLocale()` at this call site. `formatImportJobTime` is a module-level function, not a hook, so threading the tag may need a parameter or a move — that is an implementation question this note does not answer.\n\n## Dedup\n\nChannel: repo-scoped REST issues list, `state=open`, `per_page=100`, paged to exhaustion (pages 1-4 returned 100, page 5 returned 64, page 6 returned 0). Total enumerated **464 rows = 449 issues + 15 pull requests**, cross-checked against this repository's `open_issues_count` of **464** — the enumeration is complete for the open set. Then a local title-and-body regex scan.\n\nControls fired both ways in the same scan: `useColumnSummary` returned **4** (objectui#9295, objectui#9294, objectui#8203, objectui#2890 — all readable directly), and an impossible token returned **0**.\n\nScans: `formatImportJobTime` returned 0; an import-history scan returned 0; `ImportWizard` returned 1 (objectui#8507, the bare em-dash taxonomy card — it names this file, but for the `'—'` fallback at a different line, and its body contains no occurrence of `locale`); `toLocaleString` returned 3 (objectui#9294, objectui#8209 on readonly `datetime` WIDGET faces in `@object-ui/fields`, objectui#7174 on five `formatTimestamp` near-copies in `plugin-detail` + `plugin-chatbot`); `useDisplayLocale` returned 2 (objectui#9294, objectui#4738 on address part order). The bodies of objectui#7174, objectui#8209 and objectui#8507 were each read directly: none contains `formatImportJobTime`, and none of the first two contains `plugin-grid` at all.\n\n⛔ **Boundary, stated rather than papered over:** open issues only. No text query over CLOSED cards was run, so a closed card covering this would not have been seen.\n\nWritten by an agent seat during objectui#9294; attribution is prose here deliberately, because a footer block is stripped when an issue is created.\n"
+}

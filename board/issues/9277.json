@@ -1,0 +1,35 @@
+{
+  "number": 9277,
+  "kind": "issue",
+  "title": "finding(app-shell): `approval.lockRecord` and `boundaryConfig.interrupting` declare no defaultValue while the spec defaults both to `true` — the #6794 shape, twice, found by widening the ledger",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: app-shell",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T11:10:37Z",
+  "updated_at": "2026-09-13T11:54:57Z",
+  "closed_at": "2026-09-13T11:46:53Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9277",
+  "body": "Measured on `origin/main` `7d6439c4b` against installed `@objectstack/spec` **17.4.0**, while widening `flow-node-config.spec-reconciliation.test.ts` for objectui#9109. Filed unassigned by that execution seat — recording, not claiming, and deliberately not ridden into objectui#9109's PR.\n\n## The observation\n\nobjectui#9109 is about one direction of the declared-default ledger: a form field declaring a `defaultValue` the spec applies none of. Widening that ledger from the approval-escalation block to **every** declaring field, with per-node-type spec schemas, turned up the **other** direction in two places the escalation-only walk could never reach:\n\n| node type | field | form declares | installed spec (17.4.0) for an omitted key |\n|:--|:--|:--|:--|\n| `approval` | `config.lockRecord` (boolean) | *nothing* | `ApprovalNodeConfigSchema` materialises `lockRecord: true` |\n| `boundary_event` | `boundaryConfig.interrupting` (boolean) | *nothing* | the `FlowNodeSchema` block materialises `interrupting: true` |\n\nThat is objectui#6794's shape exactly — the card whose own words were 「the checkbox reads unchecked while the runtime notifies」. Both fields are `boolean` kind, and since objectui#8451 a `boolean` control seeds its checked state from `defaultValue`, so today both boxes render **unchecked** on a fresh node while the runtime applies `true`.\n\nProbe, reproducible in a worktree with the workspace installed:\n\n```bash\nnode --input-type=module -e \"\nimport * as A from '@objectstack/spec/automation';\nconsole.log(A.ApprovalNodeConfigSchema.safeParse({ approvers: [{ type: 'user', value: 'u1' }] }).data);\nconsole.log(A.FlowNodeSchema.safeParse({ id: 'n2', type: 'boundary_event', label: 'L',\n  boundaryConfig: { attachedToNodeId: 'n1', eventType: 'error' } }).data.boundaryConfig);\n\"\n```\n\nMeasured output: `lockRecord: true` comes back alongside `behavior`, `onEmptyApprovers` and `maxRevisions`, whose form fields **do** declare matching defaults — those three rows are the positive control in the same output, so `lockRecord`'s presence is a real materialised default and the two undeclared rows are real absences on the form side, not a dead probe.\n\n## Why it is a defect and not a nit\n\nSame reasoning objectui#6794 was graded on, and the repo has already ruled on it: the `defaultValue` doc comment in `flow-node-config.ts` says a declaration is 「a claim about the installed spec and is acted on as one」 and instructs the author to 「derive it from the spec, never from taste」. A field that declares nothing where the spec applies something is the offline half of the form disagreeing with the online half — a published `configSchema` sends `default: true`, which `json-schema-to-fields` turns into `defaultValue: 'true'`, so the same node renders from two different claims depending on which half draws it.\n\n## Why objectui#9109 did not fix it\n\nThree reasons, all of them fences rather than reluctance:\n\n1. objectui#9109's dispatch declared `Clause-②: no` as a **hard stop** on moving the declaration surface, precisely so a product question could not be answered by accident mid-round.\n2. Adding a declaration moves the **ten-field acceptance pin** objectui#6830 deliberately placed in `FlowNodeInspector.declaredDefault.test.tsx` — its own comment says 「a PR that retires the property, or that adds an eleventh declaration, moves this line」. That pin belongs to another card.\n3. It **creates an on-screen claim** where none existed, which is the exact distinction objectui#9109's measurement comment says must not be made casually.\n\nSo objectui#9109's widened ledger **records** both rows in an `UNDECLARED_REGISTER` instead: each entry re-measures the spec state it claims, and the register set must equal the measured divergence set exactly, so neither row can go unchecked and neither entry can outlive its divergence. Whoever fixes this drops the two register rows in the same PR — the ledger reddens if they are left behind.\n\n## The fix, if it is the one wanted\n\n`defaultValue: 'true'` on both fields (the string spelling this table uses, which is what `controllerAdmits` compares against), plus the ten-to-twelve update to objectui#6830's acceptance pin. ⚠️ Per objectui#9273, a package-scoped run is not the blast radius for a change that moves something rendered: `examples/schema-catalog/` and count-shaped prose figures need a look too.\n\nGenerated by Claude Code in session `session_01UzHd6hDYatoDn17BuwKxnZ`, `domain:ui` execution seat, out of objectui#9109's fence."
+}

@@ -1,0 +1,34 @@
+{
+  "number": 9329,
+  "kind": "issue",
+  "title": "`check:published-dist`'s own remedy text tells you to \"leave it at its default (the package root)\" — but for a package with an `outDir` the default IS inside `dist`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-13T00:42:48Z",
+  "updated_at": "2026-09-13T19:35:32Z",
+  "closed_at": "2026-09-13T19:34:36Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9329",
+  "body": "Filed unassigned by the dev seat implementing objectui#9189. Routing, `domain:*`, `type` and grading are the triage seat's to produce. Not caused by that card's diff; that card's diff is what made this readable.\n\n## The measurement\n\n`scripts/check-published-dist-tooling.mjs` emits this remedy when it finds a build record in a published output directory (the `tooling-in-published-output` hint, near the end of the file):\n\n> point that package's `tsBuildInfoFile` outside the published build output, **or leave it at its default (the package root)**, since `files: [\"dist\", ...]` publishes that directory whole\n\nThe second half is false for exactly the packages that can trigger this finding. TypeScript derives the default from `outDir` and `rootDir`:\n\n- `outDir` set, `rootDir` **not** set, which is the shape of all 18 affected projects, gives `outDir/CONFIGNAME.tsbuildinfo` — i.e. **inside `dist`**, not the package root.\n- `outDir` set **and** `rootDir` set rebases the derived path back out, and that is the only reason the other 12 projects were ever correct.\n\nMeasured at `c64975e9f` with TypeScript's own `getTsBuildInfoEmitOutputFilePath` over every tracked tsconfig: 32 incremental projects, 18 of them deriving into `dist`.\n\nSo \"leave it at its default\" is advice that, followed literally by a reader whose package is in the affected shape, reproduces the finding it is the remedy for. The remedy only works via its first half — set the option explicitly.\n\n## Why it is worth a card\n\nThe hint is printed at exactly the moment a reader has no other information: the gate is red, the record has no tooling source to trace, and this paragraph is the whole explanation. A reader who trusts the parenthetical concludes their default is already the package root and goes looking for a different cause.\n\nIt is small and text-only, which is why it is filed rather than ridden along on objectui#9189 — that card's ruling was explicitly scoped to the tsconfigs, and a gate's normative text is a different file with its own pin tests.\n\n## Shape of a change (not a ruling)\n\nProbably: keep the first half, and replace the parenthetical with the actual rule — the default follows `outDir`/`rootDir`, so it is the package root only when `rootDir` is set. Whether the same sentence in the `BUILD_RECORD` docblock needs the same treatment is the triage seat's call.\n\nReported from a Claude Code dev session, session id `session_01FhBNJcLRZLe8M87VcUgpKr`."
+}

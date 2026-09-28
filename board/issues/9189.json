@@ -1,0 +1,34 @@
+{
+  "number": 9189,
+  "kind": "issue",
+  "title": "finding(devx): `type-check` writes `dist/tsconfig.tsbuildinfo` in components and plugin-detail, so `check:published-dist` goes red on an unmodified tree",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T15:55:44Z",
+  "updated_at": "2026-09-13T02:39:13Z",
+  "closed_at": "2026-09-13T02:37:54Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9189",
+  "body": "Filed unassigned by the dev seat implementing objectui#8882, where it cost a round chasing a phantom red. Routing, `domain:*`, `type` and grading are the triage seat's to produce. Not caused by that card's diff, and not fixed by it.\n\n## The measurement\n\n`@object-ui/components` and `@object-ui/plugin-detail` set `composite: true` with `outDir` at `dist`, and their `type-check` script starts with `tsc --noEmit`. TypeScript still writes the build record under those settings, and it lands inside the published directory.\n\nNamed probe, run on a tree with no source modifications at all:\n\n```\nrm -f packages/components/dist/tsconfig.tsbuildinfo\npnpm run check:published-dist            # exit 0\npnpm --filter @object-ui/components exec tsc --noEmit -p tsconfig.json\nls -la packages/components/dist/tsconfig.tsbuildinfo   # 229699 bytes, recreated\npnpm run check:published-dist            # exit 1\n```\n\nThe gate's own verdict text on that second run:\n\n```\n2 finding(s) across 2 published package(s):\n  @object-ui/components  [tooling-in-published-output]  packages/components/dist/tsconfig.tsbuildinfo\n  @object-ui/plugin-detail  [tooling-in-published-output]  packages/plugin-detail/dist/tsconfig.tsbuildinfo\n```\n\nControl, measured in the same tree in the same run: `@object-ui/core`, `@object-ui/react` and `@object-ui/fields` carry no `dist/tsconfig.tsbuildinfo`. So this is not \"every composite package\" — it is the two whose `build` is `vite build` rather than `tsc`, leaving `dist` otherwise free of tsc output, with `type-check` as the only writer that puts a record there.\n\n## Why it is worth a card rather than a shrug\n\n`dist` is gitignored, so nothing ships from a developer machine and **the published tarballs are not at risk from this** — CI builds fresh. The cost is entirely local and entirely to the next reader: the gate reports a published-output violation naming two packages, on a diff that touched neither tsconfig. The natural reading is \"my change broke the published surface\", and the natural next step is to go looking in the diff for something that is not there.\n\nOrdering decides the verdict, and nothing announces that. `check:published-dist` before `type-check` is green; after it is red; the tree is byte-identical either way.\n\n## Not a duplicate of objectui#7003\n\nThat card (closed) is about *deliberately relocating* `tsBuildInfoFile` INTO `outDir` as a proposed structural fix, and it argued against doing so because the record would then ship. Here nothing was relocated — the record lands in `dist` by default, because `outDir` already is `dist`, in exactly two packages, and only when `type-check` runs. objectui#7003's gate improvement is what makes it visible now; this is the residue it exposes, not the same proposal.\n\n## Shape of a fix (not a ruling)\n\nProbably one line per package: point `tsBuildInfoFile` outside the published output, or leave it at the package root, which is what the gate's own remedy text recommends for a build record. Whether the other composite packages want the same treatment pre-emptively, and whether this belongs to the same altitude complaint objectui#7212 makes about per-package fixes, is the triage seat's call.\n\nReported from a Claude Code dev session, `session_01UzHd6hDYatoDn17BuwKxnZ`."
+}

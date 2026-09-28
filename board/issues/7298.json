@@ -1,0 +1,34 @@
+{
+  "number": 7298,
+  "kind": "issue",
+  "title": "Two page keys the renderer reads that `PageSchema` does not declare — `priority` (page assignment) and `disableDiscussion` (comment-panel opt-out) are unwritable by an author",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T04:58:45Z",
+  "updated_at": "2026-09-13T23:21:34Z",
+  "closed_at": "2026-09-13T22:59:31Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7298",
+  "body": "Measured on `@objectstack/spec` 17.2.0 + objectui at the current checkout, authoring a record page over `sys_user` (objectstack-ai/duly#13). Two instances of one defect class, filed together because the fix is the same shape on both sides.\n\n`PageSchema` is a `strictObject`. A key it does not declare is a **hard parse error**, not a dropped key. So a renderer that reads a page key the spec does not declare has a behaviour no author can reach — and in both cases below the behaviour is the one the author wants.\n\n---\n\n### 1. `priority` — `usePageAssignment`\n\n`packages/react/src/hooks/usePageAssignment.ts`:\n\n```js\n// Stable ordering: respect explicit `priority` if present (higher wins),\n// otherwise fall back to declaration order.\ncandidates.sort((a, b) => (b?.priority ?? 0) - (a?.priority ?? 0));\nreturn candidates[0];\n```\n\n`priority` is not on `PageSchema`. Writing it fails the parse; omitting it leaves every candidate at `0`.\n\nThis is not hypothetical on a stock install. `@objectstack/platform-objects` ships `sys_user_detail` (`type: 'record'`, `object: 'sys_user'`, `isDefault: true`), so **any** app that authors its own `sys_user` record page has two candidates. Measured against a running `pnpm demo`, `GET /api/v1/meta/page` returns both, the app's page first, and it wins — by list position and a stable sort, not by anything authored. Note `isDefault` is not consulted here either, so the flag on the platform's page is inert for this decision while looking decisive.\n\n### 2. `disableDiscussion` — `RecordDetailView`\n\n`packages/app-shell/src/views/RecordDetailView.tsx:2046`:\n\n```js\nconst disableDiscussion = (effectivePage as any)?.disableDiscussion === true;\n…\nconst showAutoDiscussion = !disableDiscussion && !hasDiscussion && feedsEnabled;\n```\n\nand its own comment at :2418 — *\"Hard opt-out via `assignedPage.disableDiscussion = true`\"*. That escape hatch cannot be written.\n\nIt matters because the auto-appended panel is hard-coded **open for writes**:\n\n```js\nfeed: { enableReactions: true, enableThreading: true, showCommentInput: true }\n```\n\nand `feedsEnabled` is opt-*out* (`objectDef?.enable?.feeds !== false`). For a record page over a **platform** object the object-side switch is not available either — `sys_user` is `protection: { lock: 'full' }`. So a deliberately read-only page over `sys_user` gets a comment box, reactions and threaded replies appended to it, with no authorable way to decline.\n\n**There is a workaround, and it is backwards.** Placing an explicit `record:discussion` suppresses the append (`hasExplicitDiscussion`) and hands the config to the author, where `feed.showCommentInput: false` *is* honoured (`RecordActivityTimeline.tsx:215`, `config?.showCommentInput !== false`). Verified in a browser: composer gone. But \"declare the component that opens three write surfaces, in order to close them\" is a strange thing to have to know, and an author who simply omits it gets the writes.\n\n---\n\n### Suggested fix\n\nDeclare both on `PageSchema` (`priority: z.number().optional()`, `disableDiscussion: z.boolean().optional()`), or drop the renderer reads. Either is fine; the current state is the one that cannot be right, because the renderer is documenting an affordance the schema refuses.\n\nIf it helps, a gate that walks the renderers' page-key reads against `PageSchema`'s declared keys would catch the next one — this is the same \"declared-≠-read\" asymmetry `ComponentPropsMap` already has machinery for, one level up at the page.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01SqkTcrxUFci7nqXdbBSe2p"
+}

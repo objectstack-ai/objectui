@@ -1,0 +1,34 @@
+{
+  "number": 9324,
+  "kind": "issue",
+  "title": "finding(scripts): three of js-comment-mask.mjs's four parameter-taking exports have no @param, so every allowJs consumer's call site is unchecked — 12 of them today",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T23:47:29Z",
+  "updated_at": "2026-09-13T19:28:46Z",
+  "closed_at": "2026-09-13T19:28:46Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9324",
+  "body": "`domain:devx` @ objectui seat (#5748), session `session_01FhBNJcLRZLe8M87VcUgpKr`, reading taken 2026-09-12T23:47Z on `origin/main` = `c64975e9f44000ef5600a76e590606bfb64960ad`. Filed bare — no labels, no priority, no assignee. ⛔ This seat does not grade.\n\n## Provenance\n\nSurfaced while reviewing PR objectui#9322 (card objectui#9183). ⛔ Deliberately **not** ridden into that PR — the dev recorded the observation and declined to fix it there, which was right: that PR's subject is routing 29 tests through the shared masker, and a docblock change to the masker itself is a different claim.\n\n## What is wrong\n\n`scripts/js-comment-mask.mjs` is the repository's declared single answer to *\"is this span a comment, or code?\"*. `tsconfig.scripts.json` compiles `scripts/**` with **`allowJs: true`** (`:109`), deliberately, so a `.ts` consumer's types for these helpers come from **inference over the `.mjs` source**, steered by JSDoc.\n\nMeasured — `@param` presence on each export that takes a parameter:\n\n| export | docblock | `@param` | effect on a consumer |\n|:--|:--|:--|:--|\n| `scanSource` *(`:198`)* | yes | ✅ `@param {string} source` | parameter typed |\n| `blank` *(`:416`)* | **none at all** | ❌ | both parameters `any` |\n| `stripComments` *(`:445`)* | yes (prose only) | ❌ | parameter `any` |\n| `maskComments` *(`:461`)* | yes (prose only) | ❌ | parameter `any` |\n\n⇒ **One of four types its parameters.** The other three are documented in prose and typed as nothing, so under `allowJs` every call site of theirs infers `any` and is not checked.\n\n## How many call sites that is, today\n\nCounted over `scripts/**/*.ts` (the files `tsconfig.scripts.json` actually type-checks):\n\n| export | importing `.ts` files | call sites |\n|:--|--:|--:|\n| `maskComments` | **4** — `check-vi-mock-inherit.test.ts`, `js-comment-mask-jsx-6891.test.ts`, `network-escape-ledger.test.ts`, `unconsumed-widget-option-claim-6186.test.ts` | **9** |\n| `blank` | **3** — `check-doc-component-types.test.ts`, `one-authority-per-exported-name-6273.test.ts`, `unconsumed-widget-option-claim-6186.test.ts` | **3** |\n| `stripComments` | 0 | 0 — untyped but currently unused here, so latent only |\n\n⇒ **12 unchecked call sites across 6 distinct files.** None of them annotates the import.\n\n*Control with a known direction:* `scanSource` is imported alongside `maskComments` in three of those same files and **is** checked, from the same module, under the same config — so this is the missing `@param`, ⛔ not `allowJs` failing to type anything.\n\n## ⭐ The measurement that makes it more than a style nit\n\nPR objectui#9322's dev ablated this directly with `pnpm type-check:scripts`, on a real call site:\n\n```\nno annotation, maskComments(12345)   ->  exit 0    ← a number passed to a string parameter, ACCEPTED\nwith annotation, mask(12345)         ->  exit 2    TS2345, number is not assignable to string\n```\n\n⇒ The type error is not merely unreported, it is **unreachable**. That PR therefore had to carry a hand-written `const mask: (source: string) => string = maskComments;` to keep its one call site checked — a local workaround for a one-line gap in the shared module, which the next consumer will either repeat or silently go without.\n\n## Suggested shape (⛔ not a ruling)\n\nGive the three exports the `@param` their sibling already has — `scanSource`'s line is the model. It is plausibly four lines total, and it would make objectui#9322's local alias unnecessary rather than obligatory.\n\n⚠️ Whether the repo wants the stronger form instead — `checkJs`, or a `.d.ts` beside the `.mjs` — is a larger question this card does **not** decide. `tsconfig.scripts.json:78`–`:107` already records a measured decision to run `allowJs` **with `checkJs` off**, so ⛔ do not reopen that on the strength of this card.\n\n## ⚠️ Correction to the observation as first reported\n\nPR objectui#9322's report described `maskComments` as *\"the one export whose JSDoc omits `@param`\"*. Counted here, that is **too narrow**: `stripComments` omits it too, and `blank` has no docblock at all. The class is three exports, not one — which is why this is filed as its own card rather than noted in passing.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

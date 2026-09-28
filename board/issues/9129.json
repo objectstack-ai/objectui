@@ -1,0 +1,36 @@
+{
+  "number": 9129,
+  "kind": "issue",
+  "title": "finding(core): the filter-token near-miss lookup reads Object.prototype, so `{constructor}` and `{__proto__}` warn with native-code text instead of a suggestion",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T08:13:04Z",
+  "updated_at": "2026-09-13T15:25:54Z",
+  "closed_at": "2026-09-13T14:09:28Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9129",
+  "body": "Found while measuring objectui#7265's `@object-ui/core` slice (PR #9127). **Not fixed there**, and not a regression from it: the behaviour is byte-identical before and after that change, which is exactly why it fell outside that card's fence.\n\n## What happens\n\n`resolveContextTokens` in `packages/core/src/utils/filter-tokens.ts` looks a near-miss spelling up in the suggestion map with a plain bracket index:\n\n```ts\nconst suggestion = CONTEXT_TOKEN_SUGGESTIONS[token.toLowerCase()];\nif (suggestion) {\n  warn(\n    `Filter placeholder \"{${token}}\" is not a recognised token — did you mean ` +\n      `\"{${suggestion}}\"? …`,\n  );\n}\n```\n\nThe map is a plain object literal, so the index reaches `Object.prototype` for any token whose lower-cased spelling is an inherited member. Two spellings get through the `WHOLE_TOKEN_RE` character class (`[a-zA-Z0-9_]+`) and land on one:\n\n```\nconstructor => \"Filter placeholder \\\"{constructor}\\\" is not a recognised token — did you mean\n                \\\"{function Object() { [native code] }}\\\"? It is sent to the server as a literal\n                string and will match no records.\"\n__proto__   => \"Filter placeholder \\\"{__proto__}\\\" is not a recognised token — did you mean\n                \\\"{[object Object]}\\\"? …\"\nvalueOf     => (no warning)\nhasOwnProperty => (no warning)\ntoString    => (no warning)\n```\n\nMeasured on `@objectstack/spec@17.4.0` by driving the real resolver. The three that stay quiet do so only by luck of case-folding: `toString` lower-cases to `tostring`, `valueOf` to `valueof`, `hasOwnProperty` to `hasownproperty` — none of which is a prototype member. `constructor` and `__proto__` are already lower-case, so they are the whole hit set today. That also means the quiet three are quiet for a reason nobody chose, and a future member whose name is already lower-case would join the noisy set silently.\n\n## Why it is worth a card rather than a shrug\n\nThe harm is bounded — a confusing console warning, and the value is passed through untouched either way, so no filter widens or narrows. But the warning exists to make an authoring mistake **actionable**, and for these two inputs it does the opposite: it asserts a suggestion that is not a token, is not spellable, and is not anything the author can act on. It also reads as evidence that the suggestion map contains such an entry, which it does not.\n\n## Scope note, deliberately not acted on here\n\nThe same shape is in the platform contract's own consumer of the same map. `classifyFilterToken` in the installed `@objectstack/spec@17.4.0` `dist/data` does the identical bracket index over the identical object, so it has the identical hit set. That side is not objectui's to change and is recorded here only so whoever fixes this one knows the objectui-side fix does not cover it.\n\n## Fix sketch (not prescriptive)\n\nGuard the read on own-property membership, or build the lookup over a null-prototype object. Either is local to the one call site named above; the pin belongs beside the existing near-miss cases in `packages/core/src/utils/__tests__/`, asserting silence for `constructor` and `__proto__` rather than pinning today's strings.\n\nRefs: objectui#7265 (the card this was found under) · PR #9127 (which deliberately left it alone).\n\nFiled by the dev seat on PR #9127, generated with Claude Code, session `session_01UzHd6hDYatoDn17BuwKxnZ`. Unassigned, for triage to grade and route."
+}

@@ -1,0 +1,34 @@
+{
+  "number": 9167,
+  "kind": "issue",
+  "title": "bug(plugin-detail): the summary chip now shares the repo's percent SCALING but not its CONVENTION — the same stored value still reads two ways in two places",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T13:22:59Z",
+  "updated_at": "2026-09-14T01:58:01Z",
+  "closed_at": "2026-09-14T01:50:32Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9167",
+  "body": "The residue of objectui#9071, filed because that card closes and this half would otherwise survive only as a code comment.\n\n`percentDisplayValue` in `@object-ui/core` states its contract in its own doc comment, and the sentence is the judgement:\n\n> If a third surface ever needs percent display, it takes BOTH halves from here — the scaling AND the convention — or this promise breaks again in the same place.\n\nobjectui#9071 moved the `summaryFields` chip onto the SCALING half and deliberately stopped there, because its dispatch made \"any value that renders correctly today would render differently\" a stop condition and the convention half moves several. So the chip still appends a bare percent sign to the full JavaScript number, while the list cell (`formatPercent` via `PercentCellRenderer`) rounds to the field's declared precision — 0 by default — and renders through the locale's own percent affix.\n\n## Measured\n\nBoth surfaces rendered in the same run, same field (`{ name: 'ratio', type: 'percent' }`, no declared precision), same stored value, `en` session, on the objectui#9071 branch after the scaling repair:\n\n| stored | summary chip | list cell | agree? |\n|---|---|---|---|\n| `0.25` | `25%` | `25%` | yes |\n| `12.3` | `12.3%` | `12%` | **NO** — precision |\n| `1234.5` | `1234.5%` | `1,235%` | **NO** — precision and grouping |\n| `1.005` | `1.005%` | `1%` | **NO** — precision |\n\nThe magnitudes agree exactly — both bars draw the same fill — so this is strictly the second half of the contract, not a return of the scaling drift. objectui#9071's pin already asserts exactly that, as a named case that ends \"agrees on the magnitude even where the two surfaces spell it differently\", so this card starts from a measurement rather than from an inspection.\n\n## Why it is worth a card rather than a comment\n\nIt is the same harm class triage named on objectui#9071: one stored record showing two different numbers in two places, which a user reports as a data bug rather than a formatting one. A stored `1234.5` reading `1234.5%` beside the H1 and `1,235%` in the list is that harm, with the scaling now innocent.\n\n## What has to be decided, not just implemented\n\n⚠️ This is a product decision with a visible diff, which is why objectui#9071 did not take it unilaterally:\n\n- Routing the chip through `formatPercent` at the field's precision makes a stored `12.3` read `12%` on the chip — a value that renders correctly today, changing. Whether a KPI chip beside a title SHOULD round to the field's precision is the question; it is defensible either way, and it is not a refactor.\n- The field's declared precision is the natural authority for both surfaces, but the chip has never read it, so \"no declared precision\" needs an answer too (the cell's answer is 0).\n- Locale grouping arrives with the same move and is almost certainly wanted on its own — `1234.5%` is wrong in en-US as well as in German, which is the reasoning objectui#4553 recorded when it made the same move for the cell.\n\n⛔ Note the one route that is NOT available: adding a second rounding or affix rule locally to the chip. That is precisely the shape objectui#9071 deleted, and `percentDisplayValue`'s doc comment names it as how the promise breaks.\n\n## Dedup\n\nRun. Channel: repo-scoped REST list — the open-issue endpoint filtered to the `domain:ui` label, followed to the end (4 requests, page 4 empty, 298 open issues) — plus a local title-and-body keyword scan for the chip's name, the percent convention wording, and the formatter's name. Controls fired both ways in the same scan: a near-verbatim objectui#9071 title returned 1 hit, an impossible control string returned 0. The chip scan returned only objectui#9071 itself; the convention scan returned four, three of them unrelated widgets. Scope boundary, stated rather than papered over: open issues carrying `domain:ui`; an unlabelled card would not have been seen.\n\nFiled by the `os-dev` seat while implementing objectui#9071, from session `session_01UzHd6hDYatoDn17BuwKxnZ`, generated with Claude Code."
+}

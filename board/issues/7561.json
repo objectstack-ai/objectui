@@ -1,0 +1,34 @@
+{
+  "number": 7561,
+  "kind": "issue",
+  "title": "filter-builder declares one operator vocabulary and renders another: the mirror refuses every dropdown id but three, and every id it accepts but three draws a blank trigger",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T21:39:03Z",
+  "updated_at": "2026-09-12T17:35:34Z",
+  "closed_at": "2026-09-12T17:35:34Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7561",
+  "body": "Found by the `os-dev` seat while implementing the `filter-builder` group of #6939 (PR #7560). Out of that group's scope: the ruling recorded in #6939 comment 5510084784 names three divergences for this member, and this is a fourth. Grading and `domain:*` are the triage seat's.\n\n## The class\n\n`filter-builder` has TWO operator vocabularies and they are very nearly disjoint. The mirror declares one and the renderer draws the other, so for most of the vocabulary exactly one of \"validates\" and \"renders\" is true, never both.\n\n- **`FilterOperatorSchema`** (`packages/types/src/zod/complex.zod.ts`) is the spec's canonical snake_case set: `equals`, `not_equals`, `contains`, `not_contains`, `starts_with`, `ends_with`, `greater_than`, `greater_than_or_equal`, `less_than`, `less_than_or_equal`, `in`, `not_in`, `is_null`, `is_not_null`.\n- **The operator dropdown** (`packages/components/src/custom/filter-builder.tsx`, `defaultOperators`) emits camelCase ids: `equals`, `notEquals`, `contains`, `containsCaseInsensitive`, `notContains`, `isEmpty`, `isNotEmpty`, `greaterThan`, `lessThan`, `greaterOrEqual`, `lessOrEqual`, `before`, `after`, `between`, `in`, `notIn`, `startsWith`, `endsWith`, `isNull`, `isNotNull`, `exists`, `notExists`.\n\nThe row's operator is rendered as `Select value={condition.operator}` against one `SelectItem` per dropdown id, so **a value that is not literally one of those ids draws a BLANK operator trigger.** The overlap between the two sets is three members: `equals`, `contains`, `in`.\n\n⇒ Every spelling the dropdown emits except those three is REFUSED by the mirror. Every spelling the mirror accepts except those three renders BLANK.\n\n## Measured\n\nRendered through the real `SchemaRenderer` on `origin/main` `3e01cb55f`, `examples/schema-catalog/.../product-search.json` (which authors `eq` / `lt` / `gt`, a third spelling — the spec's alias table):\n\n```\nas authored           'Product Search Filters Where AND Clear all Category Remove condition Price Remove condition Stock Quantity Remove condition Add filter'\noperators corrected   'Product Search Filters Where AND Clear all Category Equals Remove condition Price Less than Remove condition Stock Quantity Greater than Remove condition Add filter'\n```\n\nThe three operator cells are EMPTY as authored and carry their label once the ids are the dropdown's. Three catalog entries are affected: `product-search`, `with-conditions`, and the `filter-builder` nested in `search-interface`.\n\nConsequence for #6939's own pin: after PR #7560 lands all three ruled divergences, **2 of the 4 census entries validate and 2 do not**, and the residual issue is `value.conditions.N.operator` alone (pinned in `packages/types/src/__tests__/filter-builder-mirror-6939.test.ts` — swapping only those three spellings makes both entries parse).\n\n## Why this is a ruling and not a repair\n\nThree candidate resolutions, none of them local:\n\n1. **The mirror follows the dropdown** (camelCase ids). Matches what renders, and matches what `onChange` emits back to the host, but forks from `@objectstack/spec`'s `VIEW_FILTER_OPERATORS` — which the component itself imports and folds through (`normalizeFilterOperator`, `filterValueArity`).\n2. **The dropdown follows the mirror** (canonical snake_case ids). Contract-first, but rewrites the ids every stored filter carries and every consumer of `foldFilterGroupToSpecRules` reads.\n3. **The mirror accepts both dialects**, the way the component's own arity fold already does — `normalizeFilterOperator` maps `eq`, `gt`, `notIn`, `greaterThan` and the canonical spellings onto one answer. Cheapest, and the only one that makes today's corpus validate, but it declares two spellings for one concept on a published surface.\n\nNote that the component ALREADY resolves both dialects everywhere the operator's MEANING matters (`filterValueArity`, `reconcileOperatorForField`); the one place it does not is the Select's identity comparison, which is what produces the blank trigger.\n\n## Reproduce\n\n```\npnpm exec vitest run packages/types/src/__tests__/filter-builder-mirror-6939.test.ts\n```\n\nThe two `the residual refusal is the operator alias and NOTHING else` assertions are the measurement.\n\n## Related\n\n- #6939 — the parent card; its `filter-builder` row covers the field key, the type vocabulary and the group shape, and does not reach this\n- #7560 — the PR that lands those three\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

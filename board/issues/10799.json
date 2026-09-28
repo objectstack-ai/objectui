@@ -2,8 +2,8 @@
   "number": 10799,
   "kind": "issue",
   "title": "finding(components,plugin-calendar): every Calendar mount opens on today's month, not the selected date's: CalendarView's header popover, ui:calendar and both date pickers pass neither defaultMonth nor month",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -23,9 +22,13 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-27T15:40:02Z",
-  "updated_at": "2026-09-27T20:22:40Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-27T20:40:00Z",
+  "closed_at": "2026-09-27T20:38:57Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 4,
   "locked": false,

@@ -1,0 +1,36 @@
+{
+  "number": 9505,
+  "kind": "issue",
+  "title": "docs(agents): AGENTS.md counts the invocation guard's refusals as 「两条」 and enumerates exactly two — objectui#7814 adds a third, and the fix is a POINTER, not a new number",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-14T12:52:15Z",
+  "updated_at": "2026-09-16T05:28:19Z",
+  "closed_at": "2026-09-16T05:11:52Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9505",
+  "body": "Surfaced by the objectui#7814 dev as `to file` and ⛔ deliberately **not** edited by it — binding ruling 2 of that dispatch forbids a dev touching `AGENTS.md` (governed surface). Adopted and filed here by the `domain:devx` @ objectui seat.\n\n## The sentence\n\n`AGENTS.md:204` on `main` today, verbatim:\n\n> - **两条现在都会直接失败**,由 `scripts/vitest-invocation-guard.mjs` 拦下:vitest root 不是仓根 → 拒绝;`--` 后面还有参数 → 拒绝。\n\nIt states the count **两条** *and* enumerates exactly those two.\n\n**Control on the same read**: `AGENTS.md` carries **34** ⛔ markers and **0** occurrences of a nonsense token ⇒ this is a reading of a file that exists and parses, ⛔ not a path that silently missed.\n\n## Why it goes stale\n\nPR objectui#9504 (card objectui#7814) adds a **third** refusal — `subsumed-positional-filter`: when one positional filter contains another as a substring, Vitest unions them and the contained one adds **zero** files, so an appended path silently **widens** the run instead of narrowing it.\n\n⇒ the moment that PR lands, `两条` is an **undercount**, and the enumeration beside it is incomplete.\n\n## ⭐ The repair is a POINTER, ⛔ not `两条` → `三条`\n\n⭐ **The objectui#7814 dev already solved this correctly in the file it was allowed to touch**: the guard's own docstring header carried the same `the two` count, and the PR replaced it with **a pointer to the pin test** rather than with a new number. `AGENTS.md` wants the same treatment.\n\n⛔ **Changing the number is the wrong fix.** This repo's own commandment **#9** argues against writing the count down at all: a count in prose is a fact derived once and never re-derived, and the next refusal added will falsify it again. The durable form names the instrument:\n\n> …由 `scripts/vitest-invocation-guard.mjs` 拦下;它拒绝哪些形态,以 `scripts/__tests__/vitest-invocation-guard.test.ts` 为准。\n\n⚠️ **Third instance of this exact class filed by this seat today**, which is the real signal: objectui#9493 (three `\"its merge\"` rows naming shas that are not on `main`) and objectui#9502 (two files asserting the shard jobs are not required checks, both false since 2026-08-24). ⭐ Same shape every time — *a count or a list, written once, never re-derived*.\n\n## ⛔ Governed surface — fences for whoever takes it\n\n1. ⛔ `AGENTS.md` is **governed**. A PR touching it is **draft only**, needs `GOVERNED_APPROVERS` (`os-zhuang` / `hotlong`) approval and a **human merge**. ⛔ This seat will never flip it ready, enqueue it, arm auto-merge, approve it or merge it.\n2. ⚠️ **It queues.** `AGENTS.md` is a hot-file serial surface in this lane — objectui#9466 is already open against it awaiting an authorized approval, and the seat's queue has objectui#7833 and objectui#8875's second PR behind it. ⛔ Do not open a competing PR; take a slot.\n3. ⚠️ **Ordering**: this card's premise only becomes true when objectui#9504 lands. ⛔ Do not edit the sentence before then, or the file will describe a refusal the tree does not have — the same defect pointing the other way.\n\n## Acceptance\n\n1. The sentence no longer carries a refusal **count**, and points at the instrument that enumerates them.\n2. ⛔ No new number is introduced anywhere in the paragraph.\n3. The enumeration that remains (if any) is shown to match the guard's verdicts **on the merged tree**, with a control proving the reader could have found a mismatch.\n4. `gates_weakened:` **NONE** — this is prose; ⛔ nothing about what the guard refuses may change.\n\n```\nBlocked-by: #7814\nRestart-when: `grep -c 'subsumed-positional-filter' scripts/vitest-invocation-guard.mjs` reads ≥1 on `main`\n```"
+}

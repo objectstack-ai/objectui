@@ -1,0 +1,36 @@
+{
+  "number": 9174,
+  "kind": "issue",
+  "title": "bug(components): `interpolate`'s no-token fast path skips its own trim — a whitespace-only `page:header` title renders a blank `h1` and the page adds a second one",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T14:04:17Z",
+  "updated_at": "2026-09-13T15:25:57Z",
+  "closed_at": "2026-09-13T15:25:14Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9174",
+  "body": "Found while measuring objectui#8923 (PR objectui#9171) and deliberately NOT repaired there — it is pre-existing, reproduces on the `regions[].components` channel that objectui#8923 never touched, and the repair shape is a judgement call. **Unassigned and ungraded on purpose** — `domain:*`, priority and type are triage's to set.\n\n## The divergence\n\n`packages/components/src/renderers/layout/containers.tsx`, the `interpolate` helper:\n\n```ts\nconst interpolate = (template: string, data: any, ...): string => {\n  if (!template || typeof template !== 'string') return template || '';\n  if (!template.includes('{')) return template;      // fast path: returns VERBATIM\n  const out = template.replace(/\\{([a-zA-Z0-9_.]+)\\}/g, (...) => ...);\n  return out.replace(/\\s+/g, ' ').trim();           // token path: collapses + TRIMS\n};\n```\n\nThe two branches disagree about whitespace. The token path finishes with `.replace(/\\s+/g,' ').trim()`; the no-token fast path returns the template **unchanged**, so the trim never runs on it.\n\n`PageHeaderRenderer` in the same file gates its heading on truthiness of that result — `{explicitTitle && h1 …}` — so a whitespace-only authored title survives the gate and renders a **blank `h1`**.\n\n## Why it costs a second `h1`\n\n`pageHeaderOwnsTitle` in `packages/components/src/renderers/layout/page.tsx` decides whether `PageRenderer` suppresses its own implicit heading. It asks `literalTitleText`, which **does** trim:\n\n```ts\nreturn value.replace(/\\{[a-zA-Z0-9_.]+\\}/g, '').replace(/\\s+/g, ' ').trim();\n```\n\nSo for a whitespace-only title the two readers disagree: `literalTitleText` says \"renders no text, do not delegate\", `interpolate` says \"truthy, render the heading\". The page draws its own `h1`, the header draws a blank one, and the document has **two**. That is the broken outline objectui#3434 closed, arriving through a different door.\n\n## Runtime reproduction (measured, not read)\n\njsdom, through the real `SchemaRenderer`, on the fixed objectui#8923 tree (so the arity repair is NOT what produces it), `regions[].components` array arity:\n\n| authored `title` | `h1` count | `h1` text |\n|---|---|---|\n| `'   '` (three spaces, no token) | **2** | `[\"PAGE LABEL\", \"   \"]` |\n| `'{name} '` (token + space, no record) | 1 | `[\"PAGE LABEL\"]` |\n| `'{name}'` (control, already pinned) | 1 | `[\"PAGE LABEL\"]` |\n\nRow 1 and row 2 are the same authored intent — a title that renders nothing visible — and they produce different DOM purely because one string contains a brace and the other does not.\n\n## Two halves, and they can be repaired independently\n\n1. **The blank `h1`.** A heading element with no accessible text is an a11y defect on its own, independent of how many `h1` the page has. Candidate: let the fast path trim too, or gate on `explicitTitle.trim()`.\n2. **The duplicate `h1`.** Fixing half 1 fixes this one as a consequence (an empty title stops rendering a heading, so the page's own heading is the only one). Repairing it at `literalTitleText` instead would be the **wrong** direction: it would suppress the page's real heading and leave the blank one as the document's only `h1`.\n\n⇒ Suggested for triage, not a ruling: repair at `interpolate` / the header's gate, not at `literalTitleText`. A pin belongs with it, in the same accessible-tree style as `packages/components/src/__tests__/page-single-h1.test.tsx`.\n\n## Scope note\n\nNot repaired inside objectui#9171 on purpose. It lands in `containers.tsx`, a different file from that card's diff; the two halves above are a choice rather than a mechanical shape; and it reproduces on the array arity, so it is not the defect objectui#8923 describes. Duplicate search before filing: the repo query page returns no card mentioning `literalTitleText` (control term `containsTitledPageHeader` on the same query surface returns objectui#8310, objectui#8923 and PR objectui#8914, so the zero is a reading and not a dead query).\n\nReported by an ObjectUI development agent seat, Claude Code session `https://claude.ai/code/session_01UzHd6hDYatoDn17BuwKxnZ`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

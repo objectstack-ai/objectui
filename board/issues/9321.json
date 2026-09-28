@@ -1,0 +1,33 @@
+{
+  "number": 9321,
+  "kind": "pull_request",
+  "title": "fix(plugin-ai,vscode-extension): drop --passWithNoTests so an empty collection exits 1 (objectui#9146)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T22:23:24Z",
+  "updated_at": "2026-09-12T23:08:43Z",
+  "closed_at": "2026-09-12T23:08:42Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": "2026-09-12T23:08:42Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/9321",
+  "body": "Fixes #9146\n\n`packages/plugin-ai` and `packages/vscode-extension` were the only two workspace members whose `test` script carried `--passWithNoTests`. Both tokens are deleted; the two entries are now character-identical in form to every other ordinary entry.\n\n```\n- \"test\": \"vitest run --passWithNoTests --root ../.. packages/plugin-ai/\"\n+ \"test\": \"vitest run --root ../.. packages/plugin-ai/\"\n```\n\nThe root config sets `passWithNoTests: !cliHasTestFilters(process.argv)`, and a positional path **is** a test filter — so for ordinary entries the value is already `false` and an empty collection exits **1**, loudly (the property objectui#3288 installed, objectui#8240 relies on). The CLI flag overrode it back to `true`, so for these two members alone a deleted, renamed or mis-spelled test path yielded a silent exit **0** having run nothing. Unlike objectui#9106's three test-less members, these two have real coverage to lose.\n\n## The hard constraint came first: was the flag deliberate?\n\nTriage made this binding — do not assume the deletion is right. This checkout is shallow, and `git log -S` on a shallow clone returns an empty result that is indistinguishable from \"no origin found\", so the history was **unshallowed to the true root** before asking.\n\n| reading | value |\n|:--|:--|\n| `git rev-parse --is-shallow-repository` after `git fetch --unshallow` | **false** |\n| commits reachable from `HEAD` | 5 → 875 (`--deepen=500`) → **10121** |\n| root commit reached | `9947e9af` \"Initial commit\", 2026-01-13 — the repo's only parentless commit |\n\nWith full history, `git log -S '--passWithNoTests' -- PLUGIN_AI_MANIFEST VSCODE_EXT_MANIFEST` (also re-run per-file with `--follow`, to rule out a rename hiding an earlier origin) returns exactly **one** commit:\n\n**`0f76a101` \"Update files\", Jack Zhuang, 2026-05-08** — a nine-file grab-bag whose actual subject was a data-table row-click feature. Both manifests are incidental riders in it, each a one-line `\"vitest run\"` → `\"vitest run --passWithNoTests\"`. The message states no reason.\n\nAnd at that tree, by full listing rather than by pattern, **neither package had a single test file** — `plugin-ai` had a `vitest.setup.ts` and no tests; `vscode-extension` had none either. Coverage arrived four months later:\n\n| test file | added |\n|:--|:--|\n| `vscode-extension/src/__tests__/export-to-react-preamble.test.ts` | `744c25ef` 2026-09-06 |\n| `vscode-extension/src/__tests__/export-to-react-compiles.test.ts` | `f98e73b3` 2026-09-06 |\n| `plugin-ai/src/{AIRecommendations.rendersEveryItem,registrationInputs}-8178.test.*` | `496d31d1` 2026-09-09 |\n\nIn between, `d06ca4a2` (objectui#3240) mechanically rewrote all 43 entries to `--root ../.. DIR/` and carried the two pre-existing flags along verbatim.\n\n⇒ This is squarely the **\"no tests yet, never cleaned up\"** branch, not a deliberate exemption. Deletion is the sanctioned outcome.\n\n## Acceptance\n\n**1 — it now fires.** Three legs on `plugin-ai`; leg 2 is the control that isolates the flag as the cause. Each leg proved its mutation reached disk before the run was read, and the script carried a `trap ... EXIT INT TERM` restore.\n\n| leg | entry | test files on disk | exit | vitest said |\n|:--|:--|--:|--:|:--|\n| 1 | fixed spelling | 0 | **1** | `No test files found, exiting with code 1` |\n| 2 | **flag restored** (control) | 0 | **0** | `No test files found, exiting with code 0` |\n| 3 | fixed spelling, files back | 2 | **0** | `Test Files 2 passed (2)` |\n\nRestoration is proven by state, not by an exit code: after leg 3 `git diff HEAD` is empty and the manifest's on-disk blob `78b2c295…` equals `HEAD:packages/plugin-ai/package.json`.\n\nSame for `vscode-extension`: baseline **0** (2 files passed) → collection emptied **1** (`No test files found, exiting with code 1`) → restored **0** (2 files passed), `git diff HEAD` empty.\n\n**2 — negative control.** Of the 46 workspace manifests, `git hash-object` says exactly **2** changed and **44** are byte-identical, `apps/console` among them. Behaviour spot-checked directly on untouched members: `@object-ui/core` 153 files exit 0, `@object-ui/console` 99 files exit 0.\n\n**3 — one spelling.** Entries with a `test` script: **43**. Matching `vitest run --root ../.. DIR/` exactly: **40 → 42**. Remaining non-canonical: **1**, `apps/console`. No `--passWithNoTests` survives anywhere in a package `test` script.\n\n**4 — `apps/console` untouched.** Byte-identical (see above). Its `--no-passWithNoTests` is the deliberate opposite direction, because a `--project` filter is not a test filter (objectui#8240 / objectui#8096).\n\n## Gates\n\n`pnpm exec vitest run scripts/` — **150 passed | 2 skipped (152) files, 4477 tests**, 0 failed. This is the suite that reads package `test` entries; no pin encoded the two flags, so nothing had to be re-baselined.\n\n`check:test-path-roots` · `check:control-bytes` · `check:changeset-claims` · `check:new-line-citations` — all exit 0 (each exit code captured before any pipe).\n\n## Changeset\n\n`.changeset/tidy-flags-obey-the-filter.md`, **empty frontmatter** — the repo's first-class \"no release is owed\" declaration. `check-changeset-presence.mjs` independently agrees: 0 published source files, 0 published contract fields moved. The entry exists so the decision is written down rather than inferred from the gate's silence.\n\n## Not touched\n\nPRs objectui#8941 and objectui#7058 are open against `packages/plugin-ai/package.json`, but both change only the `dependencies` line `\"lucide-react\": \"^1.31.0\"` → `\"^1.43.0\"` — disjoint from the `scripts` block, and left alone.\n\n---\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr)_"
+}

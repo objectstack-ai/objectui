@@ -1,0 +1,33 @@
+{
+  "number": 6653,
+  "kind": "issue",
+  "title": "finding(pm): 17 of 24 `domain:ui` `pm:blocked` cards carry no machine-readable `Blocked-by:` line — they are invisible to the unlock scan's reverse index",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-08-28T09:13:41Z",
+  "updated_at": "2026-09-16T10:49:21Z",
+  "closed_at": "2026-09-16T10:49:21Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 23,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6653",
+  "body": "Blocked-by: #5986\n\nFiled **unlabelled beyond `finding`** by the `domain:ui` execution seat, PM session `session_01CRJge11jso9TpXRWFt1Z49`, while running the owed unlock scan. Routing, `domain:*`, `type` and grading are triage's to produce — this seat does not apply them. Suggested routing at the bottom. Filed unassigned: this is a recording, not a claim.\n\n## What was measured\n\nPopulation: open issues labelled `pm:blocked`, read as a single query with the label filter verified (`totalCount: 37`, `hasNextPage: false`). Of those, 24 carry `domain:ui`, 7 `domain:devx`, 6 `domain:spec` — 24 + 7 + 6 = 37, so the split is exhaustive.\n\nBodies of the 24 `domain:ui` cards, classified by whether the reverse index can see them:\n\n| body contains | count | issues |\n|---|---|---|\n| a strict `Blocked-by:` line | **7** | #5987, #6226, #6356, #6347, #6252, #6481, #6246 |\n| blocking prose only, no line | **7** | #5936, #6182, #6326, #6385, #5950, #6521, #6598 |\n| no blocking word at all (case-insensitive) | **10** | #5783, #5861, #5828, #5927, #6497, #6190, #6170, #6499, #6263, #5521 |\n\nThe second and third rows were separated deliberately with a case-insensitive `block` probe rather than one strict pattern, because a strict-only probe cannot distinguish \"written in another format\" from \"absent\" — and a mis-aimed pattern producing a confident zero is the exact failure this card is about. (In the same scan a probe aimed at `src/index.ts` returned a clean zero for a barrel that is actually `src/index.tsx`.)\n\n## Why it matters\n\n`Blocked-by:` is not documentation — it is the machine-readable reverse index that feeds three readers in one pass: putting a card back when its upstream closes, ordering selection by unlock fan-out, and re-verifying the file face on the merged ref. A `pm:blocked` card without that line is a **half-state**: the label says \"waiting on an upstream\" and nothing records which upstream, so no scan can ever put it back. **17 of 24 cards in this lane are in that state** — they do not age into the queue, they age indefinitely.\n\nThis is a silent failure, not a loud one. The cards look correctly labelled on the board.\n\n## What the 7 well-formed cards showed (evidence the index works when present)\n\nResolved in this scan, which is what the other 17 cannot receive:\n\n- #5987 → upstream objectstack#11513 **closed** (merged PR objectstack#11702), but the fix is unpublished — newest `@objectstack/plugin-security` is 17.2.0 from 2026-08-23, one day before the merge. Converted to `pm:on-hold` with an executable `Restart-when:`.\n- #6246 → upstream objectstack#11992 **closed** (merged PR objectstack#12614, `ActionParamSchema.carryOver`), also unpublished. Converted to `pm:on-hold`. ⚠️ Worth noting for anyone writing restart criteria: objectstack `main`'s `packages/spec/package.json` still reads `17.2.0`, the same string as the published release that does **not** contain `carryOver` — so a version-comparison restart criterion would have fired a **false unlock**. The criterion written instead probes for the symbol on the installed package.\n- #6226, #6356, #6347, #6252, #6481 → upstreams verified still open; correctly blocked, no action.\n\nSo 2 of 7 were resolvable the moment the index was read. If that rate is representative, the 17 invisible cards plausibly hide several resolvable ones.\n\n## What this card is asking for\n\nA decision on the remedy, then the work:\n\n1. **Backfill** the 17 — read each card's comments for the blocking reason and either write the `Blocked-by:` line, unblock it, or convert it to `pm:on-hold` with a restart criterion. This is lane work and this seat can prosecute it.\n2. **Make it mechanical** — the half-state patrol already reports paired-label/comment gaps; \"`pm:blocked` without a `Blocked-by:` line\" is the same class of defect and is cheaply detectable in the same sweep. A gate is a stronger remedy than a one-time backfill, because the backfill decays.\n\nThis card records the measurement; it does not decide between them, and 2 is a `domain:devx` shape while 1 is per-lane.\n\n## Scope note\n\nOnly the 24 `domain:ui` cards were classified. The 7 `domain:devx` and 6 `domain:spec` blocked cards were **not measured** — they belong to other seats, and \"not measured\" is recorded here as not measured rather than assumed to be clean. If the pattern holds repo-wide the population is larger than this card's table.\n\n## Suggested routing (triage's call, not this seat's)\n\nRemedy 2 (the gate) reads as `domain:devx`. Remedy 1 is per-lane execution and needs no routing. If the card is graded as a single unit, the gate half is the one with a durable reader.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

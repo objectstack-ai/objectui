@@ -1,0 +1,36 @@
+{
+  "number": 9308,
+  "kind": "issue",
+  "title": "finding(react): the renderer seam's `dataSource` carries a second, undeclared meaning — the data scope `bind` and `data.*` resolve against — and typing the key prices it out for a conformant host",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: react",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T17:09:08Z",
+  "updated_at": "2026-09-13T09:02:28Z",
+  "closed_at": "2026-09-13T09:02:28Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9308",
+  "body": "Measured while implementing objectui#7912 (the ruled narrowing of the renderer seam's\n`dataSource`). Filed unassigned and deliberately not repaired there: objectui#7912's ruling is about the ADAPTER\ndeclaration and is binding, while the question below is a second published-surface question\nwith its own precedence problem. Recording it because #7912's narrowing is what makes it\nvisible, and because it is the one thing that narrowing costs.\n\n⚠️ Angle-bracket shaped fragments are spelled out in words below: a tag-shaped fragment does\nnot survive this field, and the passages this card is about are JSX attributes.\n\nMeasured on `origin/main` at `243fc8317`, and on the #7912 branch at `c3e363b5c`.\n\n## The site — one key, two meanings\n\n`SchemaRendererContext.dataSource` is read for two unrelated purposes:\n\n1. **The adapter.** Plugins call `find` / `getObjectSchema` / `aggregate` on it. This is the\n   meaning objectui#7912 declared: it is now the published `DataSource` contract.\n2. **The data scope.** The same value is the root that `bind` paths and `data.*` expressions\n   resolve against:\n   - `packages/react/src/context/SchemaRendererContext.tsx` — `useDataScope(path)` splits the\n     path and walks it over `context.dataSource`.\n   - `packages/react/src/SchemaRenderer.tsx` — the expression evaluator is constructed with\n     `data: dataSource`, so every `visibleWhen` / `hidden` / `disabled` predicate resolves\n     `data.*` against that same value.\n   - `packages/components/src/renderers/complex/dataTableBindDiagnostic.ts` states the design\n     in as many words: \"`bind` is the data-scope binding vocabulary: a path string resolved by\n     `useDataScope()`. `list`, `tree-view` and the `object-*` plugin widgets read it.\"\n\nProduction readers of meaning 2 today: `components`' `list` and `tree-view`,\n`plugin-charts`' `ObjectChart`, `plugin-dashboard`' `ObjectDataTable`, `plugin-list`'s\n`ObjectGallery` — each `useDataScope(schema.bind)`.\n\n## Why this is now a contract question and not just an oddity\n\nA `DataSource` adapter has no `users`, no `customers`, no `status` member. So for a host that\ninjects a conformant adapter — which the seam now REQUIRES — every `bind` path and every\n`data.*` predicate resolves to `undefined`. For a host that injects a data bag, they resolve,\nand the adapter meaning is the one that breaks.\n\nThe two meanings were never compatible; `any` merely hid the choice. What changed with\nobjectui#7912 is that meaning 1 is declared, so meaning 2 is no longer expressible by a\nconformant host: injecting a bag is now a type error, and the only way to keep it is a cast at\nthe injection site.\n\nThe repository already instruments the collision, which is the strongest evidence that it is\nreal and known: `packages/react/src/utils/visibilityDiagnostic.ts` carries\n`reportAdapterOnlyDataPredicate`, a dev warning that fires when a `data.*` path does NOT\nresolve against the injected value — an \"adapter-only data predicate\". That warning exists\nbecause both meanings arrive through one key.\n\n## Measured population\n\nOn the objectui#7912 branch, every internal injection that relies on meaning 2 (or on a\npartial double) is now marked with an explicit cast, so the population is greppable rather\nthan inferred:\n\n- **65** marked injection sites across **33** test files in 8 packages\n  (`grep -rn 'as unknown as DataSource'`).\n- **1** production site was a truthy empty-object stand-in and was repaired there; the\n  remaining production readers of meaning 2 are the five `useDataScope(schema.bind)` callers\n  listed above, which read the value rather than inject it, so they compile either way.\n\n## Options, none taken here\n\n- **A.** Give the data scope its own key on the provider (say a `data` prop), keep\n  `dataSource` the adapter, and define the precedence between them. That is the option the\n  `dataTableBindDiagnostic` header already flags as needing its own ruling, including a\n  `data`-vs-`bind` precedence.\n- **B.** Retire meaning 2 at this seam: `bind` resolves only against a record scope\n  (`RecordContext`) and never against the injected adapter. Decides objectui#7206's sibling\n  question in the same direction.\n- **C.** Declare the union on the key (`DataSource` or a record bag). This is the half-typed\n  seam objectui#7912's ruling refused, so it is listed only to be refused explicitly.\n\n⛔ No recommendation is implied by the order. What this card asks for is a decision, because\ntoday the answer is \"both, through one key, and the compiler can only describe one of them\".\n\nRelated: objectui#7912 (the adapter declaration, landed), objectui#7206 (the\n`formValues` / `data` tail on the same context, deliberately undecided), objectui#6575 and\nobjectui#6665 (the `bind` diagnostics that map meaning 2's blast radius), objectui#7483 (the\nsame defect class on `ObjectView`'s props).\n\nFiled by an ObjectUI development agent seat (Claude Code) while implementing objectui#7912;\nthe measurement commands and their readings are quoted above rather than attached.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 9198,
+  "kind": "issue",
+  "title": "finding(test-infra): \"which tests read this workflow file\" is recalled by name, not derived — measured: 35 readers, name-recall found 6",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-11T16:50:54Z",
+  "updated_at": "2026-09-14T11:16:05Z",
+  "closed_at": "2026-09-14T11:15:49Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9198",
+  "body": "## The observation\n\nPR objectui#9190 added one step to the `lint` job of `.github/workflows/lint.yml`. Before pushing, that round enumerated the \"workflow-wiring pins my `lint.yml` edit could move\" and listed six test files:\n\n`lint-workflow`, `dependabot-merge-gate`, `merge-queue-reporting`, `entry-guard-wiring`, `workflow-cache-save-bound`, `check-lint-rule-coverage`.\n\nAll six are real readers of `lint.yml`. The list was still wrong, because it was assembled by **name similarity to the workflow** rather than by asking which tests actually read the file. The pin that went red in CI — `scripts/__tests__/ci-cd-pipeline-doc.test.ts` — is not named after any workflow, so recall never reached it. One failed shard, one wasted CI round.\n\n## The measurement\n\nMethod: preload a module into every Vitest worker with `NODE_OPTIONS=--import`, patch the `node:fs` read surface (`readFileSync`, `readdirSync`, `openSync`, `existsSync`, `statSync`, `accessSync`, `createReadStream`, plus the `promises` spellings), and on any call whose resolved path is `.github/workflows/lint.yml` record the stack and attribute the read to the first repository frame that is a test file. Subprocesses inherit `NODE_OPTIONS`, so a gate script a test runs out-of-process is attributed too. Candidate population: every tracked test file mentioning `.github` or `workflows` (79 of 3037), each probed; the remaining 2958 mention no path component of the target.\n\n| reading | count |\n| --- | --- |\n| tracked test files that READ `.github/workflows/lint.yml` | **35** |\n| of those, named by the original round's recall | **6** |\n| tracked test files whose TEXT contains the string `lint.yml` | 21 |\n| of those 21, that actually read the file | 13 |\n| of those 21, that never read it (text-search false positives) | 8 |\n| readers that do NOT contain the string `lint.yml` (text-search misses) | **22** |\n\nSo a `git grep lint.yml` over test files is not the instrument either: it is wrong in both directions, and its miss rate is the larger half. The 22 it misses reach the file three ways —\n\n1. **directory enumeration** — the test reads every entry of `.github/workflows/` and never spells any filename (`dependabot-merge-gate.test.ts`, `check-action-ref-convention.test.ts`, `doc-version-claims.test.ts`, and others);\n2. **a shared helper** — `scripts/__tests__/workflow-checks.ts` does the read on the test's behalf (`check-lockfile-integrity`, `check-merge-queue-head`, `merge-queue-reporting`);\n3. **the gate script itself** — the test runs a `scripts/*.mjs` gate in-process or as a child, and the gate walks the tree (`check-control-bytes.test.ts`, `check-action-ref-convention.test.ts`).\n\nShapes 1 and 2 are the same structural blind spot objectui#8953's own gate declares for path roots: resolution that stops at the module edge cannot see a read a helper performs.\n\n## Why this is worth an instrument rather than a habit\n\nThe failure is not \"someone forgot a file\". It is that the question **\"what reads this file?\"** has no mechanical answer in this repository, so every author answers it from memory, and memory indexes on **names**. Every pin whose name does not resemble its subject is therefore systematically invisible at exactly the moment it matters — which is the class of defect the doc pins exist to catch, one level up.\n\n⚠️ Note what the number does and does not say: 35 files read the bytes; only one went red. \"Reads the file\" is the **candidate set** for \"could my edit move this\", not the answer. The instrument's job is to make the candidate set derivable so a human can triage 35 rather than recall 6.\n\n## Sketch of the instrument, deliberately not built here\n\nTwo shapes, and the cheap one is probably right:\n\n- **Runtime (what was used above).** An opt-in preload plus a collector, run on demand as `which-tests-read <path>`. Cost measured here: 79 test files, about two minutes. Whole-population cost is a full suite run. Accurate by construction — it observes actual reads, including every mediated shape — and needs no model of the code.\n- **Static.** Extend the resolver objectui#8953 already landed in `scripts/check-test-path-roots.mjs` to follow imports across the module edge and answer \"which tracked test transitively reads path P\". Cheaper per query, and it inherits exactly the blind spot the runtime version does not have.\n\n⛔ Not filed as a gate. Nothing here should block a merge; the useful artifact is a question a contributor can ask before pushing a workflow or doc edit.\n\nFound while repairing the CI failure on PR objectui#9190 (card objectui#8953). Part of neither — this is a separate tool, out of that card's scope, and nothing in it is blocked on anything.\n"
+}

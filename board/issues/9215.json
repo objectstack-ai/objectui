@@ -1,0 +1,35 @@
+{
+  "number": 9215,
+  "kind": "issue",
+  "title": "`pnpm dedupe --lockfile-only` on an untouched `main` drops 47 duplicate identities (1822 → 1773 resolutions), 0 added — pre-existing lockfile dedupe debt, unrelated to any bump",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "dependencies",
+    "domain:devx",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T23:09:09Z",
+  "updated_at": "2026-09-13T08:25:05Z",
+  "closed_at": "2026-09-13T08:25:05Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9215",
+  "body": "Filed bare (no assignee, no `domain:*`, no `pm:*`) by the dev seat measuring objectui#8333. Generated with [Claude Code](https://claude.ai/code), session `session_01FhBNJcLRZLe8M87VcUgpKr` — this paragraph is the attribution, because the trailing footer block is dropped by issue-create.\n\nFound while pricing the posture options on objectui#8333. It is **not** that card's fact: #8333 is about a second zod arriving when `better-auth` is re-resolved. This one needs no bump at all.\n\n## Measured\n\nFresh clone of `main` = `a94e4d073a3e69203a9e1685c8c92790d97d3645`, linked worktree, `pnpm@10.31.0`, nothing edited.\n\nControl leg first — `pnpm install --lockfile-only` on the unmodified base reproduces the committed lockfile **byte-identically**:\n\n```\ngit diff --stat  ->  (empty, 0 bytes of output)\nsha256  e4e3a203f2f2686daca282323ab5cd222ccea27c56cf28f81a3ea984e3b88ccd   HEAD:pnpm-lock.yaml\nsha256  e4e3a203f2f2686daca282323ab5cd222ccea27c56cf28f81a3ea984e3b88ccd   worktree pnpm-lock.yaml\n```\n\nPositive control in the same run: appending one byte to the lockfile makes `git diff --stat` print `1 file changed, 1 insertion(+)`, so the empty reading above is a measurement and not a broken command.\n\nThen, still with **nothing edited**, `pnpm dedupe --lockfile-only`:\n\n```\npnpm-lock.yaml | 947 +++++-------------------------------\n1 file changed, 186 insertions(+), 761 deletions(-)\n\nresolutions   1822 -> 1773\nidentities    1814 -> 1767      (47 removed, 0 added)\n```\n\n`0 added` is the point: this is a pure collapse of duplicates, not a version bump. Nothing in the delta moves forward.\n\n## What the 47 are\n\nNot obscure build-only leaves — a good share are packages that ship in the console bundle:\n\n```\nrolldown@1.2.3 + 13 @rolldown/binding-* @1.2.3\nvite@8.2.1\nreact-router@7.18.0 · react-router-dom@7.18.0\nlucide-react@1.31.0 · mermaid@11.16.0 · motion@13.1.1 · dayjs@1.11.21\n@radix-ui/react-{slot,primitive,id,compose-refs,use-layout-effect}\n@babel/{parser,types}@7.29.7 · browserslist@4.28.6 · caniuse-lite@1.0.30001806\nes-toolkit@1.50.0 · markdown-it@14.2.0 · minimatch@10.2.5 · picomatch@4.0.5\n@ungap/structured-clone@{1.3.2,1.3.3} · tinyexec@{1.2.4,1.3.0} · flatted@3.4.2\n@oxc-project/types@0.143.0 · @types/hast@3.0.4 · @types/d3-shape@3.1.8\nnode-releases@2.0.51 · electron-to-chromium@1.5.393 · baseline-browser-mapping@2.10.43\nupdate-browserslist-db@1.2.3\n```\n\nEach of those is a second physical copy of a package that already exists at another version in the same tree.\n\n## The existing gate does not see it, correctly\n\n`scripts/check-lockfile-integrity.mjs --base-ref origin/main` on the deduped tree exits **0**:\n\n```\nbase: a94e4d073a...:pnpm-lock.yaml (1822 resolutions)  head: <worktree>/pnpm-lock.yaml (1773 resolutions)\nVERDICT clean — no @objectstack/* identity moved backward and no package gained a copy.\n```\n\nThat is the gate behaving as designed (objectui#8326): it catches copies being **gained**, and dedupe only removes them. So this debt is invisible to CI in both directions — nothing reports it, and nothing would stop it growing.\n\n## Why it is worth a card rather than a silent `pnpm dedupe`\n\n⛔ Not proposing the dedupe here. Running it changes what ships (`vite`, `rolldown`, `react-router`, `lucide-react`, `mermaid`, `motion` all collapse to a single copy), which is a dependency-resolution posture change and a maintainer call — the same fence triage put on objectui#8333.\n\nThe decidable questions:\n\n1. Is the 47-identity debt intentional (something depends on the older copies being distinct) or just accretion from many partial re-resolves?\n2. If accretion: pay it down once in a dedicated PR where `Bundle Analysis` measures the effect in isolation, rather than letting it ride along inside the next unrelated dependency PR and be misattributed to it.\n3. Should anything report the *count* over time, so the debt cannot silently grow? The existing gate deliberately only watches for gains against a base, which does not answer \"how much duplication is in the tree right now\".\n\nRefs: objectui#8333 · objectui#8326.\n"
+}

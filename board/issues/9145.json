@@ -1,0 +1,34 @@
+{
+  "number": 9145,
+  "kind": "issue",
+  "title": ".github/prompts/component.prompt.md: the category inventory is wrong in two ways — no section C, and a count of 3 for 7 sections",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T10:37:16Z",
+  "updated_at": "2026-09-12T23:11:21Z",
+  "closed_at": "2026-09-12T23:08:43Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9145",
+  "body": "## What is wrong\n\n`.github/prompts/component.prompt.md` opens its **§1 Component Categories** with a self-description of the list that follows, and both halves of that description are wrong. Measured on `origin/main` @ `1e0e46af9`.\n\n**1. The section letters skip `C`.** The seven category headings are `A`, `B`, **`D`**, `E`, `F`, `G`, `H` — there is no `### C.`:\n\n```\n36:### A. Field Widgets (`field:*`)\n67:### B. View Layouts (`view:*`)\n109:### D. Page Components (`page:*`)      <- C is missing\n132:### E. Dashboard Widgets (`widget:*`)\n149:### F. Primitive Atoms (`atom:*`)\n160:### G. Smart Actions (`action:*`)\n176:### H. AI Interface (`ai:*`)\n```\n\nA letter gap in a numbered list reads as *a section was dropped*, and this file is read by an AI that then writes metadata. The two available readings lead opposite ways: either a `C` category exists somewhere and this file is incomplete, or the lettering is simply stale. Nothing in the file says which.\n\n**2. Line 34 says three, and there are seven.**\n\n```\n34:You will be asked to build components in these 3 standard slots. Refer to `packages/spec` for the complete Zod definitions.\n```\n\nSeven `### X.` category headings follow it. (The count was presumably true of an earlier version of the file; nothing pins it, so it drifted silently.)\n\n## Why it is worth a card rather than a rider\n\nSame surface and same hazard class as objectui#9098 and objectui#8929 — an AI author reading this file as authoritative — but a **different defect**: those two are about the *key vocabulary inside* the sections, this one is about the *inventory of the sections themselves*. The PR for objectui#9098 deliberately did not fix it in passing, because it is not the same class and would have widened that PR past its ruling.\n\n⚠️ Scope note: this is observation-class. Nothing is broken at runtime; the cost is an AI author drawing a wrong conclusion about what this file covers.\n\n## Suggested shape\n\nDecide which the `C` gap is — a dropped category worth restoring, or stale lettering worth renumbering — and either way make the opening sentence state the real number. If the count is worth keeping honest beyond one edit, `scripts/check-prompt-component-keys.mjs` already parses this file and could pin heading-count against the stated number cheaply; that is a judgement for the round that takes this, not a requirement.\n\n## Provenance\n\nFound while implementing objectui#9098 (PR objectui#9143) and filed here rather than fixed there. Deduplicated 2026-09-11 against the open `objectui` board via semantic search: the finding query returned 0, and a known-hit control query in the same session returned objectui#9098, so the empty result is a reading rather than a broken channel.\n\nDeliberately filed bare — no labels, no priority, no assignee — for the triage seat to route. Filed by the `os-dev` seat on branch `claude/issue-9098-prompt-section-key-vocabulary`, session `https://claude.ai/code/session_01FhBNJcLRZLe8M87VcUgpKr`, with Claude Code."
+}

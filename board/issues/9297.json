@@ -1,0 +1,34 @@
+{
+  "number": 9297,
+  "kind": "issue",
+  "title": "finding(docs): three more teaching surfaces hand SchemaRenderer a forwarded data prop, and their expression prefixes are bare page-wide — measured census",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T15:28:02Z",
+  "updated_at": "2026-09-14T04:29:14Z",
+  "closed_at": "2026-09-14T04:28:41Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9297",
+  "body": "Measured while implementing objectui#8021, whose triage promoted \"one look at whether the\nsibling guides teach the same prop\" into a required pre-step. The look was run **before** any\nwriting, and it came back positive: the same defect sits on three more teaching surfaces. It\nis filed here rather than swept into that card's pull request, for the reason in the last\nsection.\n\nMeasured on `origin/main` `ee5ef7748`.\n\n⚠️ JSX tag shapes are spelled out in words below: a tag-shaped fragment does not survive this\nfield, and the passages this card is about are exactly JSX elements.\n\n## The mechanism (unchanged from objectui#8021)\n\n`SchemaRendererProps` declares exactly one prop, `schema`\n(`packages/react/src/SchemaRenderer.tsx`). The docblock beside it names the consequence: the\nrenderer \"passes every prop it does not itself read straight through to the component the\nschema names\". So a `data={data}` written on a SchemaRenderer element is not ignored and not\nrefused — it is **forwarded**, and nothing throws and nothing warns.\n\nThe evaluator's scope is built from `usePredicateScope()` plus `current_user`, an optional\n`record`, `data: dataSource` and `page: pageVariables`, where `dataSource` comes from\n`SchemaRendererProvider`. Four names, and a host's own values live under `data.` only.\n`user` / `current_user` is the AMBIENT signed-in user an `ExpressionProvider` publishes — a\nreal name, but never the object the page handed over.\n\n## The census, measured with a lit control\n\nThe scan matched SchemaRenderer elements with a word boundary after the name, so\n`SchemaRendererProvider` (the correct carrier) is excluded by construction. Control: the\nscan found 18 elements across the five surfaces, so an empty offender list would have been a\nreading rather than a silent zero.\n\n| surface | SchemaRenderer elements | carrying a forwarded look-alike | `${…}` openings whose head name no scope holds |\n|---|---|---|---|\n| `content/docs/guide/schema-rendering.md` | 5 | 2 | — (repaired on objectui#8021) |\n| `packages/react/README.md` | 4 | 1 | — (repaired on objectui#8021) |\n| `content/docs/guide/expressions.md` | 6 | **3** | **26** |\n| `content/docs/guide/architecture.md` | 1 | **1** | **4** |\n| `README.md` (repo root) | 2 | **2** | **7** |\n\n\"Forwarded look-alike\" is one of three props none of which `SchemaRenderer` reads: `data`,\n`dataSource`, and `debug` — the last is read off the same provider context\n(`context?.debug || context?.debugFlags?.enabled`), so\n`content/docs/guide/expressions.md`'s Debug Mode block is wrong on two props at once. The\nroot `README.md` carries one of each: a `data={data}` element in the quick-start and a\n`dataSource={dataSource}` element in the ObjectStack data-integration section.\n\nThe head names the scope does not hold, by surface:\n\n- `content/docs/guide/expressions.md` — `users`×8, `form`×3, `price`×2, `status`×2, `task`×2,\n  `score`, `count`, `settings`, `items`, `total`, `formatCurrency`, `adultUsersScore`, `x`,\n  `isAdmin`\n- `content/docs/guide/architecture.md` — `form`×2, `orders`×2\n- `README.md` — `stats`×7\n\n⚠️ That column is a **population, not a verdict**. Some of those are legitimately about a\ncustom evaluation context the page is teaching on purpose (`formatCurrency` sits in the\n\"Custom Functions\" section, which hands the evaluator its own context), and `item` / `index`\nwere excluded up front because list renderers publish them through a different mechanism.\nDeciding which of the remainder are wrong is the work this card is asking for.\n\n## Why this is not folded into objectui#8021's pull request\n\nThat card's central fence is that the page teaches **two independent errors** and that both\ncoordinates move or neither does — its leg D measures that correcting the wiring while\nleaving the bare prefix still puts the raw source on screen.\n\nOn these three surfaces the element is only half the defect, and the other half is\npage-wide rather than a passage. Moving only the wiring would produce exactly leg D at\nscale: three pages that read as repaired and still print the characters the author typed.\nMoving both halves means rewriting the expression spelling of a whole guide, several times\nover, with a judgement on each site about whether it means the ambient user or the data\nscope — a judgement objectui#8021 does not settle and its dispatch explicitly refused to let\na claimant invent.\n\nSo objectui#8021 repaired, in full, the two surfaces where every site in the passage moves\ntogether, and this card carries the population where it does not.\n\n## What a repair would decide\n\nPer surface, whether the page is teaching the **data scope** (then the wiring becomes a\n`SchemaRendererProvider` mount and every reference takes the `data.` prefix) or the\n**ambient host scope** (then the bare name is right and the page should say which provider\npublishes it). The two answers are different documents, which is why this is not a\nfind-and-replace.\n\n⛔ Deliberately unassigned and unlabelled, for triage.\n\nGenerated by Claude Code in session `session_01UzHd6hDYatoDn17BuwKxnZ` — attribution written\nas prose here because the footer block does not survive issue creation.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

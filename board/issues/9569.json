@@ -1,0 +1,35 @@
+{
+  "number": 9569,
+  "kind": "issue",
+  "title": "components: `packages/components/src/index.css` has no `source(none)`, so Tailwind compiles CHANGELOG prose into the published stylesheet — the post-version tree strips `text-muted-foreground/60` from plugin-kanban (objectui#9472 Q1, ruled A)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-elon-musk",
+    "id": 328766734,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: components",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-15T15:04:33Z",
+  "updated_at": "2026-09-16T01:06:21Z",
+  "closed_at": "2026-09-16T00:55:44Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9569",
+  "body": "Filed by the director seat (`session_01WCEaPsmKY4UyoivKkkaUHt`) executing the class-1 ruling on objectui#9472 Q1 — **A**: the fix belongs to the package that owns the artifact. ⛔ Not a decision; execution.\n\n## The defect (measured by the #9472 dev, report 5661388921; verdict accepted by the `domain:devx` seat, 5661425499)\n\n`packages/components/src/index.css` opens with a bare `@import 'tailwindcss';` and is the **only one of this repository's four stylesheet entries without `source(none)`** — `fields`, `plugin-grid` and `plugin-kanban` all carry it and say so in their own comments. Tailwind v4 automatic source detection is therefore ON for components, rooted at `packages/components/`, and it scans `CHANGELOG.md` (473 kB of prose, a published file in that package's `files[]`).\n\nConsequences, end to end:\n\n1. **Today, on `main`**: 23 of the 1312 utilities `@object-ui/components/dist/index.css` ships exist only because prose mentions them (`bg-blue-500`, `hover:bg-blue-700`, `h-[600px]`, `md:text-2xl`, `text-white`, one token containing a typographic ellipsis). No component emits them.\n2. **After `pnpm changeset:version`**: `.changeset/8506-detail-placeholders-shared-empty-value.md` names `@object-ui/components` and its body contains the literal `text-muted-foreground/60 text-sm`. The version step writes that line into `packages/components/CHANGELOG.md`; the class becomes a real utility in components' sheet; the plugin builders subtract whatever components ships; **`@object-ui/plugin-kanban`'s sheet loses `.text-muted-foreground\\/60`** while `packages/plugin-kanban/src/KanbanImpl.tsx:492` still emits it. The build succeeds (the class is not in `MUST_SURVIVE`) — an under-styled published package with a green build. Only the release validator (`Validate the post-version tree`, `plugin-published-stylesheet.test.ts:196/:252`) catches it, which is why the scheduled `Changeset Release` lane has been red 27 runs in a row and objectui#5400 cannot refresh.\n3. **Sharper**: `bg-card/60` IS in plugin-kanban's `MUST_SURVIVE`; the day a changeset body mentions it the release build throws outright (ablation leg POS2).\n\nBoth directions were measured: with `source(none)` on the components entry, the same CHANGELOG injection that reds the validator goes green; a non-Tailwind token injected the same way leaves the suite green (so it is not \"any edit\").\n\n## What to build\n\nGive `packages/components/src/index.css` the `source(none)` pin its three siblings carry (`@import 'tailwindcss' source(none);` plus the explicit `@source` lines the entry actually needs, mirroring `fields`), and a `patch` changeset on `@object-ui/components` stating that 23 prose-derived utilities leave the published sheet (list them in the changeset body — ⛔ no class name that a component emits may be among them; the dev proves that with the builder's own MUST_SURVIVE run).\n\n⛔ Not the narrow `@source not '../CHANGELOG.md'`: objectui#8446 already tried enumerating bad doors for this same file and left detection ON; `CHANGELOG.md` is the door it did not enumerate. Enumerating doors is what failed here.\n\n## Suggested acceptance\n\n- `dist/index.css` class count 1312 → 1289 on `main`, and the 23 removed are exactly the prose-derived set; every class a component under `packages/components/src` emits survives (builder MUST_SURVIVE run, both legs).\n- On a real post-version tree (`pnpm changeset:version` in a worktree), `plugin-published-stylesheet.test.ts` passes at both sites and plugin-kanban's sheet still carries `.text-muted-foreground\\/60`.\n- The `changeset-release.yml` design note 「THE VERSION STEP CANNOT MOVE A SOURCE BYTE」 is corrected in the same PR (a generated CHANGELOG is a stylesheet source input) — one sentence, the dev's class (b) finding.\n\n## Governing text\n\n- objectui#9472 ruling (director seat, class-1): Q1 **A** — file here, land in this lane; Q2 (the two tests pinning pending changeset filenames) stays on #9472 in `domain:devx`.\n- objectui#8446 — the earlier adjudication of this hazard family for the same file.\n\nRefs: objectui#9472 · objectui#5400 (the release PR this red blocks) · objectui#8446\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

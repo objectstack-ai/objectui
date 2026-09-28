@@ -1,0 +1,36 @@
+{
+  "number": 9302,
+  "kind": "issue",
+  "title": "finding(filter-builder): `needsValueInput` reads the operator RAW, so a row carrying the canonical valueless spelling (`is_null`) draws a stray value input its dropdown twin does not",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T15:43:30Z",
+  "updated_at": "2026-09-14T02:18:50Z",
+  "closed_at": "2026-09-14T01:57:52Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9302",
+  "body": "Found by the `os-dev` seat implementing objectui#7561 (the operator trigger's identity comparison). ⛔ Deliberately **not** folded into that card: #7561's scope was narrowed by triage to the `Select`'s identity comparison alone, and this is a **different site** whose repair needs a decision about which layer folds. Grading and `domain:*` are the triage seat's.\n\n## Measured\n\nThrough the real `FilterBuilder` (one `text` column, one condition row), on the objectui#7561 branch — i.e. **with** that card's trigger repair already in:\n\n| stored `operator` | operator trigger | value inputs drawn |\n|---|---|---|\n| `isNull` (the dropdown's own id) | `Is null` | **0** |\n| `is_null` (the spec's canonical spelling) | `Is null` | **1** |\n| `isEmpty` | `Is empty` | **0** |\n| `is_empty` (canonical) | `Is empty` | **1** |\n| `equals` (control — really does take a value) | `Equals` | 1 |\n\n⇒ Two spellings of **one** operator draw two different rows. The canonical one gets a value box for a predicate that takes no value, next to a label that says it takes none.\n\n## The cause — one site, and it is not the one #7561 repaired\n\n`packages/components/src/custom/filter-builder.tsx`:\n\n```\nconst needsValueInput = (operator: string) => {\n  return !VALUELESS_FILTER_BUILDER_OPERATORS.has(operator)\n}\n```\n\nThe set holds the builder's **six camelCase ids** (`isEmpty`, `isNotEmpty`, `isNull`, `isNotNull`, `exists`, `notExists`). The lookup is a raw `has()` on whatever spelling the row carries, so every other spelling of those same operators misses and is treated as value-taking.\n\nThis is the same *class* as objectui#7561 — a site reading the operator literally instead of through the spec's `normalizeFilterOperator`, which this component already imports and already folds through in `filterValueArity` and `reconcileOperatorForField`. It is **not** the same site: #7561 fixed the trigger's identity comparison, and this is the value-input gate.\n\n⚠️ Pre-existing, and #7561 did not cause it — before that repair `is_null` drew the same stray input, merely under a **blank** trigger. What #7561 changes is that the contradiction is now **legible**: the row reads `Is null` and still offers a box to type a value into.\n\n## Why this is its own card and not a one-line follow-on\n\n`VALUELESS_FILTER_BUILDER_OPERATORS` is **exported**, and its whole stated job is to let other layers know which rows this builder leaves value-less. Two consumers read it, and one of them already compensates:\n\n- `plugin-list`'s `convertFilterGroupToAST` — what the live grid QUERIES;\n- `app-shell`'s `foldFilterGroupToSpecRules` — what a saved view PERSISTS. Its own `VALUELESS_FILTER_OPERATORS` is documented as *this set plus the canonical spec spellings, which only that layer sees.*\n\n⇒ So the canonical spellings are already handled — **one layer up**. Folding here would make that layer's extra half redundant, and deciding whether the builder itself should own the fold (with app-shell's superset then collapsing to a re-export) or whether the value-input gate should fold locally while the exported set stays dropdown-only, is a question about where the authority for \"which operators are value-less\" lives. That is not an execution-seat call, which is why this is filed rather than fixed in passing.\n\n⛔ Not in scope here either way: **which** operator vocabulary should win. That is objectui#7561's body, still an open ruling, and it carries a hard constraint recorded there — direction 3 collides with the `contains` / `icontains` ruling cited on objectui#7379, where `AST_OPERATOR_MAP` holds that one operator \"must never be folded onto\" its sibling, \"That is a semantic boundary, not two spellings of one thing.\"\n\n## Reproduce\n\nOne condition row on a `text` column, `operator` set to `is_null`, rendered through `FilterBuilder`; count `input` elements and read the second `combobox`'s text. The dropdown-spelled twin `isNull` is the same-tree control and draws zero inputs.\n\n## Related\n\n- objectui#7561 — the operator trigger's identity comparison; the narrowed repair that made this legible. ⛔ Not closed by this card and not waiting on it.\n- objectui#6939 — the mirror census this family sits under.\n\nFiled by an automated development seat (Claude Code) working objectui#7561; session reference `session_01UzHd6hDYatoDn17BuwKxnZ`.\n"
+}

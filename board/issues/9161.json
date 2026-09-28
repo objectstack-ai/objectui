@@ -1,0 +1,34 @@
+{
+  "number": 9161,
+  "kind": "issue",
+  "title": "file 字段只读态不产出查看/下载入口:多值渲染为纯文本「N file」、单值渲染为纯文件名,编辑态仅有删除",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T12:52:59Z",
+  "updated_at": "2026-09-14T10:43:28Z",
+  "closed_at": "2026-09-14T10:42:18Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9161",
+  "body": "## 现象\n\nPC Console 上,`file` 类型字段在**只读态没有任何查看/下载入口**:\n\n- 多值字段(`multiple: true`)只渲染一行纯文本 `1 file` —— 无文件名、无链接、无【查看】、无【下载】;\n- 点该文本只浮出行内编辑铅笔;\n- 点【编辑】进入编辑态,附件行只有「文件 + ×」,**连文件名都没有**;DOM 实查该字段块内 `<button>` 仅 1 个(`lucide-x` 删除)、`<a>` 链接 **0 个**;\n- 记录「相关」页签下也没有附件相关列表。\n\n⇒ 文件上传成功后,在 PC 端再也取不回来。\n\n## 最小复现步骤\n\n1. 任一对象声明一个 `file` 字段,`multiple: true`;\n2. PC Console 新建该对象记录,在该字段上传任意文件(实测 `att-1928.txt`,56 B),保存;\n3. 打开记录详情页 → 定位该字段 → **只显示纯文本 `1 file`**;\n4. 点【编辑】→ 该字段行只有「文件 ×」。\n\n复现率 100%,**单实例即可复现**,与集群部署、与存储适配器(本地驱动 / S3 / OSS)均无关。\n\n## 关键旁证:坏的是渲染,不是数据,也不是鉴权\n\n同一条记录、同一个 fileId,后端三条路径全部 200:\n\n- `GET /api/v1/data/.../<object>/<id>` 读回 `attachment: [{id, name:\"att-1928.txt\", size:56, mimeType:\"text/plain\", url:\"/api/v1/storage/files/<id>\"}]`;\n- `GET /api/v1/storage/files/<id>/url` → 200,正常签发签名地址;\n- 取签名地址 → 200,`content-disposition: inline; filename=\"att-1928.txt\"`,字节内容正确;\n- **跨属主同样 200**(文件属主为 A 账号,用 B 账号取,两步全 200)。\n\n同一个附件在下游项目自建的 H5 端可以正常查看与下载(H5 侧附件展示/下载为项目自行实现)。\n\n⇒ 数据面完好、鉴权完好、自建端完好,**唯独平台渲染的 PC 端不产出入口**。\n\n## 不是使用方配置写错\n\n下游项目共 6 个对象 / 7 处 `file` 字段,声明仅用 `type: 'file'` + `multiple` + 常规展示属性,**全部同样表现**。`@objectstack/spec` 的 `file` 字段可配项(`multiple` / `accept` / `maxFileSize` 一族)中**没有任何开关**可将只读态渲染成可下载链接。\n\n## 期望能力\n\n`file` 字段在**只读态**应渲染为可操作的附件项:至少展示**文件名**,并提供**查看/下载入口**。走平台既有的 `GET /api/v1/storage/files/<id>/url` 签发 + `authorizeDownload` 鉴权即可,**无需新增权限模型**。多值时逐项可操作。\n\n## 环境\n\n- 平台:`@objectstack/spec` **17.3.0**(`@objectstack/console` 同版本线)\n- 复现环境:单实例 dev server、SQLite 本地库、平台本地存储适配器、视口 1440×900\n\n## 影响\n\n下游项目(TitanWind eHR)6 个业务对象的附件在 PC 端均取不回;其中仓库报检申请单的「送货单/材质证明/质量报告」为现场刚需,已因此挂起:steedos-labs/os-project-titanwind-ehr#1928"
+}

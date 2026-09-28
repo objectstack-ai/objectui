@@ -1,0 +1,33 @@
+{
+  "number": 8651,
+  "kind": "issue",
+  "title": "decision(plugin-calendar): four undeclared reads on the `ObjectGridSchema | CalendarSchema` union — and eight more where the key is declared on exactly ONE arm (4 of 7, objectui#8327 class (a))",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T19:55:09Z",
+  "updated_at": "2026-09-14T15:27:10Z",
+  "closed_at": "2026-09-14T15:27:10Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8651",
+  "body": "Filed by the `domain:spec` @ objectui seat, 2026-09-08T19:55Z, as **4 of the 7 per-package rulings** the objectui#8327 unit ruling requires (comment `5587717012`, Q2 option **A**). **Anchor: objectui#8327.**\n\n⛔ Filed unassigned, not claiming. ⛔ No `domain:*`, priority or type applied — routing and grading are triage's.\n\n## Class (a) — undeclared on both arms, measured at `origin/main` `154fe2a` by the TypeScript checker\n\n| file | keys (line of the first read) | evidence |\n| --- | --- | --- |\n| `plugin-calendar/src/ObjectCalendar.tsx` | `allDayField` 168 · `calendar` 157 · `endDateField` 165 · `startDateField` 162 | not a declared member of `ObjectGridSchema \\| CalendarSchema` |\n\n## ⭐ And the reason this package's card is different: it owns ALL EIGHT class-(b)/(a) reads\n\n`ObjectCalendar` is handed a **union**, and for eight further keys the key is declared on **exactly one arm**. The classifier asked the union arm by arm rather than collapsing it — which is why these are their own class and not swept into (a):\n\n| key (first read) | declared on | undeclared on |\n| --- | --- | --- |\n| `colorField` 167 | `CalendarSchema` (`ObjectCalendar.tsx:74`) | `ObjectGridSchema` |\n| `dateField` 162 | `CalendarSchema` (`:71`) | `ObjectGridSchema` |\n| `defaultView` 231 | `CalendarSchema` (`:78`) | `ObjectGridSchema` |\n| `endField` 165 | `CalendarSchema` (`:72`) | `ObjectGridSchema` |\n| `titleField` 166 | `CalendarSchema` (`:73`) | `ObjectGridSchema` |\n| `data` 274 | `ObjectGridSchema` (`types/src/objectql.ts:665`) | `CalendarSchema` |\n| `navigation` 645 | `ObjectGridSchema` (`objectql.ts:960`) | `CalendarSchema` |\n| `staticData` 275 | `ObjectGridSchema` (`objectql.ts:746`) | `CalendarSchema` |\n\n⇒ **The cast is doing real work here**, and it is hiding a genuine modelling question rather than a forgotten declaration: this renderer is handed two schema shapes and reads members of both. ⚠️ Note the near-collision in the class-(a) row — `endDateField` and `startDateField` are undeclared on *both* arms while `endField` and `dateField` are declared on `CalendarSchema`. Two spellings for what may be the same concept is the shape ADR-0049 exists for, and it should be settled here rather than declared twice.\n\n## The questions\n\n1. **The union itself.** Is `ObjectCalendar` supposed to accept both shapes? If yes, the eight one-arm keys need either a common declared base or an explicit narrowing at the seam; if no, the union is the defect and the cast disappears with it. ⛔ This is the first question — the class-(a) four cannot be answered while the union is unsettled.\n2. **The four undeclared keys**, per key: declare · retire the read · or route to the producer as host-composition surface (pinned, ⛔ not declared — the shape objectui#5091 / objectui#5097 already ruled elsewhere).\n3. **`endDateField` / `startDateField` vs `endField` / `dateField`** — one concept or two? If one, the retirement is the spelling, not the member.\n\n## ⛔ What this card must not become\n\n⛔ Not rows in `undeclared-but-consumed-keys-6150.test.ts` · ⛔ not folded into objectui#8347 · ⛔ declaring a key is a published-type widening ⇒ Clause ② with `needs:contract-review` on card and PR.\n\n## Refs\n\nobjectui#8327 (census, unit ruling, full per-key table at comment `5587605667`) · objectui#8410 (why the checker, not a grep) · objectui#5155 · objectui#8347 · ADR-0049."
+}

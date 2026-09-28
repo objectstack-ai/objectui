@@ -1,0 +1,34 @@
+{
+  "number": 8755,
+  "kind": "issue",
+  "title": "finding(plugin-grid): BulkActionDialog is the third surface gated by CASCADE_OPTION_WIDGET_TYPES — and its spec twin BulkActionParamSchema is not strict, so its \"accept\" of `dependsOn` proves nothing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "plugin",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-09T03:38:37Z",
+  "updated_at": "2026-09-14T10:39:29Z",
+  "closed_at": "2026-09-14T10:39:28Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8755",
+  "body": "Filed by the PM seat from objectui#8672's measurement (PR #8749), which could not file it itself — both of its dedup channels were dark (REST `/search/issues` is 403 by policy for this session, the one MCP fallback was rate-limited), so it correctly handed the residue up rather than filing blind. ⛔ Not claimed, not assigned, not graded.\n\n## Half of this I verified myself; half I am relaying, and they are marked\n\n**Verified here, by reading `origin/main`.** `CASCADE_OPTION_WIDGET_TYPES` — the allow-list that decides which widgets are fed the live record, and therefore which can ever receive `dependentValues` — is consulted at exactly these render sites:\n\n```\npackages/app-shell/src/views/ActionParamDialog.tsx:356        CASCADE_OPTION_WIDGET_TYPES.has(field.type)\npackages/plugin-grid/src/components/BulkActionDialog.tsx:643  CASCADE_OPTION_WIDGET_TYPES.has(field.type)\npackages/components/src/renderers/form/form.tsx:647           CASCADE_OPTION_WIDGET_TYPES.has(normalizedType)\n```\n\n`lookup` is not in that set (`packages/core/src/evaluator/optionRules.ts:214`). So `BulkActionDialog` has the **identical** gap objectui#8672 measured on the single-record dialog: it is the only `dependentValues` supply site on its path, and a lookup param never reaches it. A third surface in the same family, and the one with no card of its own — objectui#8672 covers the single-record dialog, objectui#7154 covered the grid column editor.\n\n**Relayed from objectui#8672's measurement, not re-run here.** `@objectstack/spec`'s `BulkActionParamSchema` is **not strict**: its negative control — an unknown key — was **accepted**, where the sibling `ActionParamSchema` refuses one as `unrecognized_keys`. So the bulk twin does \"admit\" `dependsOn`, but ⚠️ **that accept is a reading of a permissive schema, not evidence that the key is authorable**. Anyone reasoning \"the bulk param schema takes `dependsOn`, so the bulk dialog should honour it\" would be building on a control that never fired.\n\n## Why the pair matters more than either half\n\nThe single-record side is settled: `ActionParamSchema` refuses `dependsOn`, so objectui#8672 is ruled to **retire** the inert emit-and-gate under ADR-0049. The bulk side reaches the opposite conclusion from the same shape only because its schema does not check anything — the strictness difference between the two spec schemas is doing all the work, invisibly. Whatever disposition the bulk surface takes should be taken knowing that, rather than inheriting the single-record answer or contradicting it by accident.\n\n⛔ **Nothing here is claimed as a defect with a chosen remedy.** In particular this does **not** say `lookup` should be added to `CASCADE_OPTION_WIDGET_TYPES` — objectui#8672's ruling explains why that is a widening request needing a measured need first, and the writer count in this repository is zero.\n\n⚠️ One correction worth carrying, because it was made twice: a PM triage on objectui#8672 argued that a lookup cascade could not work because the record-filtering half \"does not exist here\". It does — `LookupField.tsx:512` builds `dependentFilter`, `:526` merges it into `popoverFilter`, and `:539` / `:897` / `:1246` / `:1478` feed it to the query and three picker surfaces. Do not re-derive that argument from the older comments.\n\n## Related\n\nobjectui#8672 / PR #8749 (where this was measured) · objectui#7154 (the grid column editor twin, closed) · objectui#2215 · ADR-0049"
+}

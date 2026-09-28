@@ -1,0 +1,35 @@
+{
+  "number": 9414,
+  "kind": "issue",
+  "title": "finding(components): the icon seam's tokeniser never splits the letter-to-digit boundary, so 147 canonical PascalCase lucide names resolve nowhere in the platform",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: components",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-13T16:25:15Z",
+  "updated_at": "2026-09-14T00:21:01Z",
+  "closed_at": "2026-09-14T00:11:45Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9414",
+  "body": "Filed by the `os-dev` seat working objectui#7472 (session `session_01FhBNJcLRZLe8M87VcUgpKr`), as an out-of-scope finding measured while wiring `packages/cli`'s generated layout to the seam. Unlabelled: routing and priority belong to triage, and this seat does not produce a `domain:` label.\n\nNot fixed in objectui#7472's PR, deliberately — that card's fence is explicit that the seam's contract is not to be re-opened, and widening the tokeniser changes behaviour for every censused resolver at once, not just the one call site that card moves.\n\n## The finding\n\n`packages/components/src/lib/lazy-icon.tsx`'s `toKebabIconName` is the platform's single tokeniser since objectui#5935. It splits two boundaries:\n\n```\n.replace(/([a-z0-9])([A-Z])/g, '$1-$2')      // lower-or-digit  ->  Upper\n.replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')   // acronym run     ->  Word\n```\n\nNeither splits **letter to digit**. So `Building2` tokenises to `building2`, and lucide's canonical key is `building-2`. The name is rejected and `getLazyIcon` degrades to the `Database` fallback.\n\n`Building2` is not an obscure spelling: it is the PascalCase component `lucide-react` exports, the spelling an author copies out of lucide's own site, and the spelling that worked in a generated CLI app until objectui#7472.\n\n## Measurement\n\nMeasured on `origin/main` at `9ba7e9c3a2`, against `lucide-react@1.35.0` as resolved from `packages/components` in this workspace. Populations named in words:\n\n| population | count |\n|:--|--:|\n| `lucide-react` namespace export keys (every spelling the library exports) | 6,110 |\n| of those, component-valued | 6,109 |\n| canonical kebab icon names (`iconNames` from `lucide-react/dynamic.mjs`) — what the seam accepts | 2,039 |\n| component keys that DO survive `toKebabIconName` | 1,882 |\n| component keys that do NOT | 4,227 |\n\nSplitting the 4,227 by shape:\n\n| shape | count | verdict |\n|:--|--:|:--|\n| `*Icon` suffix aliases (`HouseIcon`) | 2,037 | correctly rejected — alias, not a canonical key |\n| `Lucide*` prefix aliases (`LucideHouse`) | 2,036 | correctly rejected — same |\n| neither alias shape | 154 | **the finding** |\n\nOf those 154, **147 are recovered by adding a letter-to-digit split and nothing else**: `ArrowDown01`, `Axis3D`, `BarChart2`, `BarChart3`, `BarChart4`, `BookUp2`, `Building2`, `Calendar1`, `CalendarCheck2`, `CheckCircle2`, `CircleSlash2`, `Clock1`, and 135 more.\n\nThe remaining 7 are `Grid2x2`, `Grid2x2Check`, `Grid2x2Plus`, `Grid2x2X`, `Grid3x2`, `Grid3x3` — where the digit-letter-digit run needs more than one rule — plus `useLucideContext`, which is a hook and correctly rejected.\n\nReproduce (run from `packages/components` so the specifiers resolve):\n\n```\nnode --input-type=module -e \"\nimport * as L from 'lucide-react';\nimport { iconNames } from 'lucide-react/dynamic.mjs';\nconst k = (n) => n.includes('-') ? n.toLowerCase()\n  : n.replace(/([a-z0-9])([A-Z])/g,'\\$1-\\$2').replace(/([A-Z]+)([A-Z][a-z])/g,'\\$1-\\$2').toLowerCase();\nconst kd = (n) => n.includes('-') ? n.toLowerCase()\n  : n.replace(/([a-z0-9])([A-Z])/g,'\\$1-\\$2').replace(/([A-Z]+)([A-Z][a-z])/g,'\\$1-\\$2').replace(/([A-Za-z])([0-9])/g,'\\$1-\\$2').toLowerCase();\nconst v = new Set(iconNames);\nconst keys = Object.keys(L).filter((x) => x !== 'icons');\nconst lost = keys.filter((x) => !v.has(k(x)));\nconst other = lost.filter((x) => !/Icon\\$/.test(x) && !/^Lucide/.test(x));\nconsole.log('namespace keys', keys.length, '| canonical names', v.size);\nconsole.log('non-alias keys the tokeniser drops', other.length);\nconsole.log('recovered by a digit-boundary split', other.filter((x) => v.has(kd(x))).length);\nconsole.log('CONTROL, must be true:', v.has(k('House')), v.has(kd('Home')));\n\"\n```\n\n## Why no gate catches it\n\n`scripts/check-lucide-icon-record-names.mjs` judges **authored/declared names that reach a resolver** against the live `icons` keys. Its reading on `9ba7e9c3a2` is\n\n```\nOK  lucide icon names: 184 authored/declared names reaching 1 record-reading resolver are live `icons` keys\n```\n\nGreen, and correctly so: nothing in the tree currently authors a digit-suffixed name. The gate is a census of what IS authored, not of what the tokeniser CAN accept, so this gap is latent rather than live. It becomes live the first time an author copies `Building2` off lucide's site.\n\n## Severity, stated honestly\n\nNo user-visible failure today — the same shape as objectui#7472 itself. What an author gets is the `Database` fallback rather than an error, so the symptom is a wrong glyph, not a crash or a blank.\n\n## Not in this card\n\n- ⛔ Widening `DECLARED_RECORD_READERS` or the gate's discovery predicate. Unrelated, and objectui#7472 already ruled that direction out for its own site.\n- The 7 `Grid2x2`-shaped names. A single letter-to-digit rule does not fix them and they may not be worth a rule of their own; whoever takes this should decide that deliberately rather than inherit it.\n- Whether the fix belongs in the tokeniser or in an explicit alias table. Both reach the 147; a tokeniser rule is smaller, an alias table is auditable. That is a design call for the taker.\n\nRefs: objectui#5935 (the seam and its ruling) · objectui#7472 (where this was measured) · objectui#7830 (the adjacent, closed finding about identifiers imported as components that are not `icons` keys).\n\nGenerated by Claude Code, session `session_01FhBNJcLRZLe8M87VcUgpKr`.\n"
+}

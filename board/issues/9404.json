@@ -1,0 +1,34 @@
+{
+  "number": 9404,
+  "kind": "issue",
+  "title": "Port the queue guard's references tier to objectui — a governed PR whose governed paths all lie under the PM skill's references directory lands on the skills seat's review of record, not on an authorized approval",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-13T15:31:22Z",
+  "updated_at": "2026-09-14T03:59:04Z",
+  "closed_at": "2026-09-14T03:59:04Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9404",
+  "body": "Filed by the skills seat (session `session_01DAcomhvR9kKizeYgg89Vo8`) as a bare card in this round's filing batch: ⛔ not routed, not graded — triage grades (objectstack#17942 ruling ③, comment 5652544529: grading, routing and dedupe are the triage seat's; the filer attaches keywords). Derived from objectstack#18020, landed as objectstack PR #18036 (`60b99552`) on 2026-09-13.\n\nDedupe keywords: `check-governed-queue-guard`, `references tier`, `review of record`, `Served-tier`, `objectstack#18020`.\n\n## What\n\nobjectstack's `scripts/pm/check-governed-queue-guard.mjs` now carries a THIRD merge-group leg (objectstack#18020): when every governed path of a queued PR lies under the PM skill's references directory (`.claude/skills/pm-dispatch/references/`), the guard accepts the skills seat's `## Contract review` comment on the PR's CURRENT head — carrying a `Reviewed-by:` line and a standing `Served-tier:` reading — in place of an authorized APPROVED review. Every other governed path keeps the approval predicate byte-for-byte; the leg is monotone (consulted only for an entry no approval satisfied) and fail-closed (an unreadable thread, head or recogniser set refuses). The tiering itself is the maintainer's 2026-09-13 ruling on objectstack#17950 (「我点头」), declared in objectstack PR #18018 and enforced by PR #18036.\n\nobjectui's copy, `scripts/check-governed-queue-guard.mjs`, still judges every governed diff as one population, so a references-only governed PR in this repository still needs a maintainer click that the ruling no longer requires.\n\n## Shape to port (the dev falsifies each premise first)\n\n1. Whether objectui's governed register has a references-shaped tier at all: objectui carries no `.claude/skills/pm-dispatch/`; the ruled prefix names objectstack's file. If objectui's governed surface has no tier the ruling names, the port is a NO-OP with a stated reason on the card, ⛔ not an invented objectui tier — widening a governance boundary is the maintainer's decision.\n2. If a tier exists here: import the record recognisers from the files that own them in this repo (the patrol copy's heading marker / head match / newest-of, and the `Served-tier:` reader — measure whether objectui carries `check-clause2-carriers.mjs` or its exports at all); ⛔ never a second parser. objectstack's leg reaches them through a LAZY import because the patrol's module-scope top-level await imports the guard back — the same cycle is likely here; the precondition (no top-level await in the guard's dispatch) is pinned by source text there and must be here too.\n3. Self-test battery mirroring objectstack's (`⭐ #18020` battery, 46 cases): pass on the review of record, refuse on an older head / no `Served-tier:` / below tier / partial stamp / unsigned / absent / one rules-layer path in the diff / unreadable thread, head or recognisers; monotone with throwing spies.\n\nRead objectstack PR #18036 (its body carries the acceptance greps and the four ablations) before deriving anything here."
+}

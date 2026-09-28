@@ -1,0 +1,34 @@
+{
+  "number": 9206,
+  "kind": "issue",
+  "title": "finding(devx): the \"not registered in the port pin\" rationale for check-bash32-floor.mjs survives in .github/workflows/lint.yml describing the RETIRED global `upstream.ref` — and objectui#8694 makes the docblock half false too",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T18:51:10Z",
+  "updated_at": "2026-09-13T10:14:30Z",
+  "closed_at": "2026-09-13T10:12:29Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9206",
+  "body": "Found while implementing objectui#8694 (register `scripts/check-bash32-floor.mjs` in the port pin). Filed rather than folded in: objectui#8694's fences are explicit that the ported file itself must not be edited, and `.github/workflows/lint.yml` is a separate review surface. No assignee.\n\n## Two locations, one stale argument\n\n`scripts/check-bash32-floor.mjs` carries a \"why this port is not pinned\" rationale. objectui#8385 item 1 corrected **one** copy of it — its own changeset says so, naming only `scripts/check-bash32-floor.mjs`. A **second** copy lives in the workflow that runs the gate, and it was not touched.\n\n### 1. `.github/workflows/lint.yml` — false on `origin/main` TODAY, independent of anything objectui#8694 does\n\nLines 306-313, quoted:\n\n```\n# Ported from objectstack `scripts/check-bash32-floor.mjs` at `6136293`\n# and deliberately NOT registered in `scripts/upstream-port-pin.json` —\n# that ledger carries ONE global `upstream.ref` (`bf10deb` today) which\n# `--resync` rewrites for every entry, so registering this file would mean\n# either shipping `bf10deb`'s older, weaker construct table or re-syncing\n# three unrelated ported files. The gate's own header carries the full\n# argument and names the follow-up.\n```\n\nEvery clause after the first line is false, and has been since objectui#8288:\n\n- the ledger does **not** carry a global `upstream.ref`. `validatePin` in `scripts/check-upstream-port-parity.mjs` REFUSES a pin that still carries one — the message reads ``` `upstream.ref` is RETIRED ```.\n- `--resync` does not rewrite any ledger-wide field; `resyncedPin` writes only the re-synced entry's own `ref` and digest.\n- neither of the two \"trades\" it describes exists any more, so the reason it gives for the file being unregistered is a reason about a field that is gone.\n\nThis is the same species the ported file's own header warns about, one level up: a confident comment that describes a mechanism that no longer exists, sitting in the workflow step a future reader consults first.\n\n### 2. `scripts/check-bash32-floor.mjs` — becomes false once objectui#8694 lands\n\nTwo claims in the port's docblock stop being true the moment the pin entry exists:\n\n- line 11: `Deliberately NOT registered in scripts/upstream-port-pin.json`\n- line 162 and line 170: the section heading `## Why this port is not YET pinned in scripts/upstream-port-pin.json`, and `It is still NOT registered, but the blocker that kept it out was structural and is GONE`.\n\nobjectui#8694 could not fix this itself without changing the ported bytes, which would change the declared divergence pairs it is registering in the same PR — so the correction is deliberately a follow-up, and this card is it. Two of that entry's divergence `why` fields say so in the ledger, so the obligation is recorded where the next reader of the pin will stand.\n\n## Suggested shape\n\n- rewrite the `lint.yml` comment so it states what is true: the file IS registered (once objectui#8694 lands), at its own per-entry `ref`, and the ledger has no global one. ⛔ Do not write a revision into either prose — the port's own header already records that naming a revision in prose went stale twice; the ref lives on the pin entry.\n- rewrite the docblock's header clause and the `## Why this port is not YET pinned` section into a short pointer at the ledger entry. ⚠️ Both edits change the ported bytes, so whoever does it must update the matching divergence pairs in `scripts/upstream-port-pin.json` — the parity gate will red loudly (`expected its ported text exactly once, found 0`) rather than silently, which is the intended failure direction.\n- the two edits belong together in one PR: they are one argument written twice.\n\n## Verification notes\n\nRead on the branch of objectui#8694, based on `origin/main` `1f4e02995a`. Each grep below printed its matched lines, and each ran with a control that hit in the same run:\n\n- the `lint.yml` claim: lines 307-308 matched; control `Ported from objectstack` matched at line 306 in the same file.\n- the docblock claims: lines 11, 162, 170 matched.\n- the contradiction: `scripts/check-upstream-port-parity.mjs:210` carries the RETIRED refusal text.\n\nGenerated by Claude Code in session `session_01FhBNJcLRZLe8M87VcUgpKr` while implementing objectui#8694; this attribution is written as prose because an attribution footer block is stripped from issue bodies on create."
+}

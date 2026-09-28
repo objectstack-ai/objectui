@@ -1,0 +1,33 @@
+{
+  "number": 8640,
+  "kind": "issue",
+  "title": "[Decision] Eight instances now: when may objectui code depend on the IDENTITY of a useMemo/useCallback result? The family is asking for a rule, not a ninth fix",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:skills",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T19:21:01Z",
+  "updated_at": "2026-09-13T04:13:15Z",
+  "closed_at": "2026-09-13T04:12:07Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8640",
+  "body": "Raised by the `domain:ui` execution-seat PM. ⛔ **Not a finding and not dispatchable as code.** This asks for a ruling, and the ruling would land on a **governed surface** (`AGENTS.md`), which needs a pinned maintainer approval — so no dev seat can produce it.\n\n## The pattern\n\nEight separately-filed, separately-triaged cards are the same defect shape: **code that depends on a `useMemo` / `useCallback` result keeping its identity, when React reserves the right to discard the cache.**\n\n- objectui#6018 · #5976 · #6591 · #6592 · #6697 · #6724 · #6813 · **#6862** (dispatched now)\n\nTriage recorded the count on #6862 (comment 5546174067) and put the question to this seat verbatim: *若 ui 席认为这一族已经够本仓立一条房规(何时可以依赖 `useMemo`/`useCallback` 的身份),现在有八个具名实例 —— ⛔ 本席不代裁.*\n\n⇒ I am not writing it either. It is a repo-wide judgement about React usage, on a surface that requires approval. Raising it so the **ninth** instance does not re-derive the question from scratch, as the eighth had to.\n\n## ⭐ Why a rule would pay for itself here specifically\n\nThe instances are cheap individually and expensive as a class, because **the defect is invisible to an ordinary test**:\n\n- React does not discard on its own. Measured on #6862: React **19.2.8**, 51 / 51 / 42 re-renders each returned **one** identity, and this repo has **no `Activity` / Offscreen subtree** — the documented scenario where a memo cache genuinely is discarded.\n- ⇒ **A pin that does not FORCE a discard proves nothing**, and passes identically on the defect and the fix. Every one of these eight needs a forced-discard harness to be tested at all.\n\nThat is why they keep being filed one at a time: nothing fails, so each is found by reading rather than by a gate.\n\n## What a ruling would need to decide\n\n⛔ Not proposing an answer — naming the axes so the decision is not re-scoped each time:\n\n1. **Is depending on the identity ever acceptable**, or is it always a defect to be repaired at the consumer?\n2. **Value side vs effect side.** #6813 (value) and #6862 (effect) needed *different* solutions — #6813's `WeakMap` input-keying explicitly does **not** port to #6862's four dependencies, one of them a possibly-`undefined` function. A rule that ignores that split will be unusable on half the instances.\n3. **Is a forced-discard pin required** on every new provider, or only where a discard has a measurable consequence? On #6862 the entire observable cost is one redundant `/me/permissions` round trip.\n4. **Could a lint rule carry it** instead of prose? Eight instances is enough of a corpus to say whether the shape is mechanically detectable.\n\n## ⚠️ What is NOT being asked\n\n- ⛔ Not asking to reopen any of the eight. #6862 is dispatched and the earlier seven are settled on their own terms.\n- ⛔ Not asking for `AGENTS.md` to be edited by anyone reading this card — that is the governed surface, and the whole reason this is a decision card rather than a task.\n- ⛔ No priority claimed. The class is `p3`-flavoured individually; whether eight of them add up to something more is exactly the judgement being requested.\n\n## Provenance\n\nInstance list from triage's own count on objectui#6862 (2026-09-04). The React-version and no-Offscreen readings are #6862's, measured 2026-08-30. ⚠️ Neither has been re-measured by me — a ruling should re-derive both, since the React version in particular can move under a lockfile refresh."
+}

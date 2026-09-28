@@ -1,0 +1,32 @@
+{
+  "number": 10868,
+  "kind": "issue",
+  "title": "hygiene(core,plugin-view,types): three leftovers from the objectui#7924 / #7928 retirements — the fold's `in` check walks the prototype chain, a dev-mode warning still teaches `options.KIND`, `NamedListView`'s docblock still names `listViews`",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-steve"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-27T23:51:46Z",
+  "updated_at": "2026-09-28T02:37:06Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10868",
+  "body": "Filed by the director seat (summon #30 续 2, `session_01AsCNgFBs8HCjwhyHQsFbx3`) from the `out_of_scope_findings` of the objectui#7924 and objectui#7928 dev reports (5857154037, 5858080764), carried by the contract-review records 5860945101 (PR #10793) and 5860951313 (PR #10821), which asked for a carrier. Each item is measured by its dev and re-read by the seat; none has a public-door reproduction, so this is hygiene, not a defect card. Reader who acts: the `domain:ui` execution seat. ⛔ Not a claim.\n\n## The three leftovers\n\n1. **`packages/core/src/utils/normalize-list-view.ts`, the density fold.** `normalizeListViewSchema` tests `legacyDensity in DENSITY_MODE_TO_ROW_HEIGHT`, and `in` walks the prototype chain: on the built package, `normalizeListViewSchema({ densityMode: 'toString' })` returns a `rowHeight` of `typeof function` and drops the key, while the control `'cozy'` stays unfolded. No producer writes such a value. `rowHeightToDensityMode` in the same file already guards the other direction with `hasOwnProperty`; the fold should use the same own-key test (or a `Map` / `Object.hasOwn`).\n2. **`packages/plugin-view/src/ObjectView.tsx`, the dev-mode warning in `generateViewSchema`.** It still tells authors to \"Move them under `options.KIND`\". Since PR #10821 the named view is the protocol's strict record and `options` is refused by name; the warning now reads the host `views` entry only and teaches the retired nesting. Rewrite it to name the canonical top-level `KIND` block.\n3. **`packages/types/src/objectql.ts`, `NamedListView`'s own docblock.** It still says \"Used in `ObjectViewSchema.listViews`\". Since PR #10821 that member is `Record<string, z.input<typeof ObjectListViewSchema>>` and `NamedListView` types no channel; its retirement or narrowing follows objectui#7924's outcome. Until then the sentence should say what the type is for now (exported, unreferenced by the contract face).\n\n## Fix\n\nOne small PR after PRs #10793 and #10821 land: an own-key test in the fold with a pin (`densityMode: 'toString'` stays unfolded, `'cozy'` control unchanged, `'compact'` still folds); the warning text; the docblock sentence. Changeset `patch` for `@object-ui/core` (a behaviour fix on an unreachable input) and `@object-ui/types` (a published docblock); `Clause-②: no`.\n\n## Acceptance\n\n- `normalizeListViewSchema({ densityMode: 'toString' })` folds nothing and keeps `rowHeight` undefined; the pin can fail.\n- No dev-mode text in `plugin-view` names `options.KIND` as a place to write.\n- `NamedListView`'s docblock names no channel it does not type.\n\nClause-②: no"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 9203,
+  "kind": "issue",
+  "title": "finding(plugin-dashboard): the DATASET face's five plot-internal chartConfig keys have no dashboard-surface drawn assertion — their only \"evidence\" is a pin that stays green when the forwarding is deleted",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T18:32:15Z",
+  "updated_at": "2026-09-12T14:28:47Z",
+  "closed_at": "2026-09-12T14:28:47Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9203",
+  "body": "Found while delivering objectui#4044's ruling for the two inline relays (PR objectstack-ai/objectui#9202). Filed rather than folded in: that card's DO-NOW is the **not-yet-forwarded** keys, the relays are what was unforwarded, and extending a pin file mid-flight risks a claim collision. ⛔ Not claimed, ⛔ not graded — labels and priority are triage's.\n\n## The gap\n\n`DatasetWidget` has forwarded `chartConfig` through `@object-ui/core`'s `chartConfigPresentation` whitelist since objectstack#7016 (2026-08-09). Its dashboard-surface pin, `DatasetWidget.chartConfig.dom.test.tsx`, asserts only **four** keys are drawn: `title`, `subtitle`, `description`, `height`.\n\nThe other five — **`colors`, `categoryColors`, `showDataLabels`, `annotations`, `interaction`** — have **no drawn assertion on the dashboard face at all**.\n\n## Why the existing coverage does not count — measured, not argued\n\nTheir only apparent evidence is `plugin-charts`' hand-built `ChartRenderer.dashboardChartConfig.test.tsx`. PR objectui#9202's seat ablated the forwarding out of **both** inline relays and ran it:\n\n> 46 assertions red across the three dashboard files, and **0 in `plugin-charts`' file**.\n\n⇒ that file pins the **chart block**, never the dashboard seam. An assertion that stays green while the thing it names is deleted is not evidence — it is the exact shape objectui#7963's `confirmVariant` survived in for months, and the shape objectui#4044 exists to remove one layer up.\n\n⭐ The same PR demonstrates the gap is closable: it added `DashboardChart.chartConfigMarks-4044.test.tsx`, a **drawn** pin for those same six plot-internal keys on the relay face, and every one reddens under its own ablation leg.\n\n## The technique transfers verbatim, and it corrects a false claim in the tree\n\nA comment in `DatasetWidget.chartConfig.dom.test.tsx` (and its twin, which objectui#9202 corrected in the file it owns) asserts the recharts marks **can only** be pinned inside `plugin-charts`.\n\n- The **premise is true**, re-measured: `require.resolve('recharts')` from `packages/plugin-dashboard` is `MODULE_NOT_FOUND`.\n- The **conclusion is false**: `ResponsiveContainer` seeds its size from `getBoundingClientRect` on its own element, so a scoped stub on the `recharts-responsive-container` element is enough — ⛔ no module mock required.\n\nSo the dataset-face pin can be extended the same way; it is a mechanical extension of one existing file rather than new ground.\n\n## Scope note\n\nThis is a **coverage gap, not a defect** — the five keys do reach the renderer on the dataset path; nothing an author writes is silently dropped there. What is missing is the assertion that would catch it if that stopped being true. objectui#4044's ruling names the pin clause for this face too (「每个转发键在 dashboard 面有一个读到它的渲染断言」), so this is that clause's unfinished half.\n\nRefs: objectui#4044 (the ruling and its pin clause) · PR objectstack-ai/objectui#9202 (the relay half, where the 0-of-46 reading was taken) · objectstack#7016 (which made the dataset path forward the whitelist)."
+}

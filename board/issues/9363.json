@@ -1,0 +1,35 @@
+{
+  "number": 9363,
+  "kind": "issue",
+  "title": "finding(app-shell): the Studio dataset-filter bridge drops an `Is null` row on commit, so picking it ERASES the stored filter",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: app-shell",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-13T06:29:23Z",
+  "updated_at": "2026-09-13T11:41:14Z",
+  "closed_at": "2026-09-13T11:36:53Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9363",
+  "body": "Found by the `os-dev` seat implementing objectui#9359. ⛔ Deliberately **not** repaired in that card's PR: different package, different file, and a different mechanism — this one does not read the shared value-less set at all. Grading and `domain:*` are the triage seat's.\n\n## Measured\n\n`groupToCondition` (`packages/app-shell/src/views/metadata-admin/inspectors/datasetFilterCondition.ts`) is the WRITE half of the Studio inspector's bridge between the visual `FilterBuilder` and the Mongo-style `FilterCondition` stored on `dataset.filter` / `measure.filter`. Driven directly, one `date` column, one condition row:\n\n| builder row | committed `FilterCondition` |\n|---|---|\n| `equals` with value `\"acme\"` (control) | `{ closed_at: { $eq: \"acme\" } }` |\n| `isEmpty` | `{ closed_at: { $exists: false } }` |\n| `isNotEmpty` | `{ closed_at: { $exists: true } }` |\n| `isNull` | **`undefined`** — the row is dropped |\n| `isNotNull` | **`undefined`** — the row is dropped |\n| `is_null` (canonical) | **`undefined`** |\n| `is_empty` (canonical) | **`undefined`** |\n\nThe control fires in the same run, so the empty answers are a reading about those operators and not a dead function.\n\n## Why it is reachable, and why it is worse than \"a row is ignored\"\n\n`DatasetDefaultInspector.tsx` mounts the real builder and commits through this function on every change:\n\n```\nFilterBuilder ... onChange={(g) => onCommit(groupToCondition(g))}\n```\n\nIt passes no `extraOperators`, so the dropdown offers the DEFAULT operator list — and `isNull` / `isNotNull` are in it. They are not `OPT_IN_OPERATORS` (only `containsCaseInsensitive`, `exists` and `notExists` are), so **Is null** is an ordinary menu entry in this inspector.\n\n⚠️ `groupToCondition` returns `undefined` when no row survives. So an author who has a working dataset filter, opens the inspector and switches the single condition's operator to **Is null**, commits `undefined` — the stored filter is **erased**, not merely left unchanged. Nothing errors. The panel still shows the condition.\n\n## The cause\n\n`OP_TO_MONGO` has no row for `isNull` / `isNotNull`, and the two value-less operators the function DOES understand are matched as raw literals:\n\n```\nif (c.operator === 'isEmpty')    { parts.push({ [c.field]: { $exists: false } }); continue; }\nif (c.operator === 'isNotEmpty') { parts.push({ [c.field]: { $exists: true  } }); continue; }\nconst mop = OP_TO_MONGO[c.operator];\nif (!mop) continue; // unmapped (e.g. notContains/between) — drop rather than emit a bad filter\n```\n\nThat `continue` is a deliberate decision for `notContains` / `between` — operators this dialect genuinely cannot express, where dropping beats emitting a wrong filter. `isNull` / `isNotNull` are a different case: the Mongo dialect CAN express them (the spec's `$null`, and the file's own header names it), the builder draws them as COMPLETE rows with no value input, and the inspector offers them in its menu. So the drop is not the documented fallback, it is an unhandled operator falling into the fallback's path.\n\n⚠️ Note the asymmetry with the read direction: `conditionToGroup` reports `representable: false` for shapes it cannot round-trip, so the caller can fall back to the source editor. The write direction has no equivalent signal — it drops silently.\n\n## Relationship to objectui#9359 — same CLASS, different mechanism\n\nobjectui#9359 is a reader of the shared `VALUELESS_FILTER_BUILDER_OPERATORS` that forgot to fold the operator. **This file does not read that set at all**; it keeps its own raw literals and its own operator table. So it is not fixed by that card's repair, and not fixed by widening anything — a point worth keeping, because the two look alike from a distance.\n\n⛔ Independent of objectui#9306 (which operator vocabulary wins): every spelling in the table above is dropped, the dropdown's own ids included, so the defect does not turn on that decision.\n\n## Reproduce\n\n```\ngroupToCondition({ id: 'g', logic: 'and', conditions: [\n  { id: 'c1', field: 'closed_at', operator: 'isNull', value: '' },\n]})\n```\n\nReturns `undefined`. The same group with `operator: 'isEmpty'` returns `{ closed_at: { $exists: false } }`.\n\n## Not measured, and worth a look by whoever takes this\n\n- whether `onCommit(undefined)` clears the persisted key or is filtered upstream — measured only at the function boundary here, not in a browser;\n- whether the same table gap affects the other operators it lacks (`startsWith`, `endsWith`, `notContains`, `between`) in a way the \"drop rather than emit a bad filter\" comment no longer covers.\n\nDeduplicated before filing against the repository-scoped issue list endpoint (183 open issues over two pages), with objectui#9359 itself as the known-hit control so the empty result is a reading rather than a silent zero. Filed unassigned and unlabelled by an automated development seat working objectui#9359; session reference `session_01UzHd6hDYatoDn17BuwKxnZ`.\n"
+}

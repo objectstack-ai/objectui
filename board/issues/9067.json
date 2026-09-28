@@ -1,0 +1,36 @@
+{
+  "number": 9067,
+  "kind": "issue",
+  "title": "finding(types): four objectui#8499 arms of `AnyComponentSchema` have no named export on `./zod` — the objectui#7917 defect recurred one day after its repair",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T21:47:56Z",
+  "updated_at": "2026-09-13T16:13:23Z",
+  "closed_at": "2026-09-13T16:12:32Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9067",
+  "body": "Filed from the objectui#8784 implementation run (the pin that fails when an `AnyComponentSchema` arm has no named zod export), by the `os-dev` seat on branch `claude/issue-8784-arm-named-export-pin`, session `session_01Jmxdo7bmeqCQHLSfmLVX9w`. Filed unassigned and ungraded — `domain:*`, type and priority are the triage seat's. Not ridden onto that PR: adding an exported symbol is a `Clause-2` act and objectui#8784's dispatch says stop and report first.\n\n## The reading\n\nFresh census on `7f27bc54343e6193f11ec3f58927fb9afb1bc635`, derived (not hard-coded): flatten `AnyComponentSchema` recursively through unions and `z.lazy`, then match each leaf arm to a named export of `./zod` **by identity**.\n\n**111 arms / 154 `type` literals / 106 named / 5 unnamed.**\n\nFour of the five are unnamed by accident:\n\n| arm | `type` literals | landed |\n|---|---|---|\n| `layout.zod.ts#SemanticElementSchema` | 7 (`aside`, `main`, `header`, `nav`, `footer`, `section`, `article`) | `507b61bf7` |\n| `layout.zod.ts#HtmlElementSchema` | 37 (`h1` … `q`) | `507b61bf7` |\n| `form.zod.ts#InputShorthandSchema` | 2 (`email`, `password`) | `507b61bf7` |\n| `form.zod.ts#UiCalendarSchema` | 1 (`ui:calendar`) | `507b61bf7` |\n\nThe fifth, `complex.zod.ts#RetiredKanbanNodeSchema` (`kanban`), is DECLARED internal in as many words on the barrel itself — \"it is deliberately NOT exported — nothing outside this package parses against a refusal arm\" (objectui#8802, maintainer ruling 2026-09-09). That one is correct as it stands and is ledgered as such by the objectui#8784 pin.\n\n## Why this is the objectui#7917 defect again, not a new one\n\n`507b61bf7` is PR #8763, `fix(types): arm AnyComponentSchema for seven registered node-slot renderers (objectui#8499)`, merged 2026-09-09T07:53:59Z. Its own commit message states the move: \"Four arms, 47 literals, 107 to 154\". Its file list touches `packages/types/src/zod/form.zod.ts` and `packages/types/src/zod/layout.zod.ts` and **does not touch `packages/types/src/zod/index.zod.ts`** — the same shape as objectui#7917's `ObjectTreeSchema`, which PR #1892 added to a module and never to the barrel.\n\n`./zod` is this package's ONLY zod subpath (`packages/types/package.json` maps it to `dist/zod/index.zod.js`), and the barrel carries no star re-export — every name on it is written out by hand. So these four schemas are maintained, are applied by the union, and cannot be named by any consumer: declared-and-unreachable, which is exactly the state objectui#7917 measured and PR #8777 repaired for the two arms it found.\n\nThey are not marginal or half-declared. All four were registered as first-class mirror pairs in the same PR — `zod-mirror-parity.test.ts` gained a `ZOD_MIRRORS` row and a TypeScript counterpart for each, and `EXPECTED_MIRROR_PAIRS` moved 158 to 162. The objectui#7917 repair used exactly that fact (\"the parity census registers both as first-class mirrors with a TS counterpart rather than exempting them\") as its evidence that the omission was accidental.\n\nNone of the four carries any of this directory's seven \"Deliberately NOT exported\" / \"`@internal` … is not re-exported\" markers.\n\n## Timing — why objectui#8784 reads 107/107/0 and this reads 111/154/5\n\nobjectui#8784 was filed 2026-09-09T07:05:02Z. `507b61bf7` merged 48 minutes later. The card's census was correct when it was taken and went stale within the hour, which is itself the strongest available argument for the pin objectui#8784 asks for: the invariant broke again, in the same way, one day after a review repaired it, and nothing said a word.\n\n## What is being asked\n\nA ruling per arm: re-export it from `packages/types/src/zod/index.zod.ts`, or mark it deliberately internal with a reason the way `RetiredKanbanNodeSchema` is marked.\n\nRecommendation: export all four. Each is a registered, live renderer with catalog fixtures (that is why objectui#8499 armed them); each has a TypeScript counterpart already; and the alternative reading — that a `type` an author is taught to write in `content/docs/utilities/runner.mdx` should be un-nameable — matches nothing else on this face.\n\nCost if exported: four new names on a published surface, hence `Clause-2`. Cost if not: an author validating a single `h1` node has no schema to validate it against, and objectui#8784's pin carries four ledger rows saying the answer is owed.\n\nUntil the ruling lands, the objectui#8784 pin ledgers all four against this card, so nothing here is silent and no NEW omission can hide behind them.\n\nRefs: objectui#7917 (the same defect, two other arms) · PR #8777 (its repair) · objectui#8499 (the card that armed these four) · PR #8763 (`507b61bf7`, the commit that armed them without the barrel) · objectui#8784 (the pin) · objectui#8802 (the `RetiredKanbanNodeSchema` ruling)\n\nDedup: the 300 most recently updated issues and pull requests were listed over the repository-scoped REST issues endpoint and grepped locally for `HtmlElementSchema`, `SemanticElementSchema`, `UiCalendarSchema`, `InputShorthandSchema`, `barrel`, `named export`, `index.zod` and `8499` — a live reader, 25 substantive hits including objectui#8784 itself, none claiming this. Bounded honestly: the search endpoint is not reachable from this session, so this is a recency-window read, not a full-corpus one; the defect is 1.5 days old, so a card about it would fall inside that window. Nearest neighbour is objectui#8775, which is about whether the same seven sectioning tags belong in the curated layout vocabulary — a different question about the same arms.\n\nWritten by the ObjectStack `os-dev` agent seat with Claude Code; session `session_01Jmxdo7bmeqCQHLSfmLVX9w`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

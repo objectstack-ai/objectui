@@ -1,0 +1,36 @@
+{
+  "number": 9262,
+  "kind": "issue",
+  "title": "[console] `App not available — it may still be publishing` is asserted for at least seven distinct causes, only one of which is a publish",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T08:01:07Z",
+  "updated_at": "2026-09-13T17:00:24Z",
+  "closed_at": "2026-09-13T16:59:35Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9262",
+  "body": "Split out of objectui#9231 (its second half). That card's repair — the Studio create-app accessible-name collision — is landing separately; this is the downstream message it asked to be **measured, not special-cased**, and the measurement says it is shared.\n\n## The claim\n\n`AppContent` asserts a *transient publish state* on a route where it has measured nothing of the kind. The wording misdirects for every cause except one, and it is the screen an author lands on after any of them.\n\n> **App not available** — This app is not available yet — it may still be publishing. Try again in a moment.\n\n## Render site — exactly one\n\n`packages/app-shell/src/console/AppContent.tsx` lines 764-778 (`empty.appNotAvailable` + `empty.appNotAvailableDescription`, with a Retry button). Verified by grepping both keys across the whole tree: every other hit is a locale table (`packages/i18n/src/locales/*.ts`, ten of them) or a test. There is no second renderer.\n\n## The guard, read\n\n```\nrequestedAppMissing === true                 // AppContent.tsx:252\n  && missingRecheck === 'done'               // AppContent.tsx:726\n  && accessVerdict !== null                  // AppContent.tsx:726\n  && accessVerdict !== 'denied'              // AppContent.tsx:741 — the ONLY branch taken out\n```\n\n`requestedAppMissing = !!appName && !matchedApp && !isSpecialRoute`. `accessVerdict` comes from `ObjectStackDataSource.probeAppAccess` (`packages/data-objectstack/src/index.ts:5708`), whose return set is `granted | denied | unknown` (line 899).\n\n## Enumeration — each cause read individually, not a grep tally\n\nThis is an enumeration of **causes**, produced by reading the guard and the probe. A count of matches on the key would not answer it.\n\n1. **The app was never created.** The objectui#9231 path: the segment names nothing that exists. Absent from the per-session list, and the by-name probe answers 404, which `probeAppAccess` maps to `unknown` (index.ts:5723). Reaches the message.\n2. **A mistyped or stale app segment.** `AppContent.tsx:219-226` names this case in as many words — it is why `isSpecialRoute` is matched on whole path segments. Observationally identical to (1): both absent, both `unknown`. Reaches the message.\n3. **The app exists as a draft and was never published.** `probeAppAccess`'s own docstring (index.ts:5688-5690) enumerates the 404 family as \"a nonexistent name, an unpublished app, an app gated by an absent optional service\". `unknown`. Reaches the message — and the copy's present continuous (\"may still be publishing\") describes a publish that was never started.\n4. **The app is gated by an absent optional service.** Same docstring line, same 404, same `unknown`. Reaches the message.\n5. **The host injected a DataSource that cannot answer.** `AppContent.tsx:344-349` sets `unknown` outright when `probeAppAccess` is not a function, with the comment \"AGENTS #1 — the console is protocol-agnostic … Degrade to today's copy.\" Nothing was asked; the copy is asserted anyway. Reaches the message.\n6. **The probe failed for any reason that is not a permission denial.** Two catches: `AppContent.tsx:352` maps a rejected probe to `unknown`, and `probeAppAccess` itself (index.ts:5722-5723) maps every error failing `isAppPermissionDeniedError` to `unknown` — 5xx, offline, a timeout, a transport that eats the envelope. Reaches the message.\n7. **A genuine post-publish lag.** The one cause the copy actually names. `AppContent.tsx:292-303` forces one `refreshMetadata()` first; if the registry is still behind, the probe 404s too. Reaches the message.\n8. **The probe answered `granted` while the list still does not carry the app.** Only `denied` is branched out at line 741, so `granted` falls through to this screen. Listed as **structural, not observed**: it requires the by-name route and `filterAppForUser` to disagree. Counted separately from the seven above precisely because it is not measured.\n\n⇒ **Seven read, reachable causes; one of them is a publish.** ⛔ Not one, so per objectui#9231's own instruction it is filed rather than special-cased there.\n\n## Why this is not a duplicate of objectui#4252\n\nobjectui#4252 (closed) split exactly ONE cause off this same screen — `denied`, an authorization refusal disguised as a deploy state — and its cost is recorded in the code: two acceptance test batches spent chasing a platform defect that was a missing permission-set binding. This card is the remainder of that same split. The defect class is identical; the population is everything `4252` left behind.\n\n## Direction (not a decision — this needs a ruling)\n\nThe screen should say what it measured, never what it guesses. Three routes, listed without a recommendation:\n\n- **A.** Drop the guess. Keep the title, and say only what is known (\"This app is not available to open\"), with the Retry button carrying the \"try again\" affordance the copy currently spends words on.\n- **B.** Widen the probe. Give `probeAppAccess` a measured verdict that separates \"absent\" from \"unreachable\" (the two are already different HTTP answers) and branch the copy on it, the way `denied` was branched.\n- **C.** Keep the publishing wording, but only behind a signal that a publish is actually in flight.\n\nThe maintainer ruling recorded in `probeAppAccess`'s docstring (2026-08-12) put the WHY on the by-name route rather than in the list, which makes **B** the route already paved — but it widens the enumeration surface, which the same ruling was careful about. That tension is the decision this card needs.\n\n## Provenance\n\nMeasured on `a08096a11` while implementing objectui#9231's first half, by the `os-dev` seat that card was dispatched to. Generated with Claude Code, session `session_01UzHd6hDYatoDn17BuwKxnZ`."
+}

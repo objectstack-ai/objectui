@@ -1,0 +1,35 @@
+{
+  "number": 9218,
+  "kind": "issue",
+  "title": "finding(plugin-detail): `DetailSection`'s collapsible branch never reads `section.showBorder`, so a declared `showBorder: false` keeps its border",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T01:03:09Z",
+  "updated_at": "2026-09-12T14:24:46Z",
+  "closed_at": "2026-09-12T14:24:46Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9218",
+  "body": "Found while implementing objectui#8626 (session `session_01UzHd6hDYatoDn17BuwKxnZ`) and **out of that card's scope**, which is the flat-versus-`section` prop-shape mismatch on the `detail-section` registration. `DetailSection` is that card's declared CONTROL — it stays byte-identical there — so this is recorded rather than repaired on that branch. No assignee, left for triage.\n\n## What was observed, on `origin/main` at `b775500af`\n\n`DetailViewSection.showBorder` is honoured on exactly one of `DetailSection`'s three render branches.\n\n`packages/plugin-detail/src/DetailSection.tsx` ends in three returns:\n\n1. the flat branch — `const isFlat = !section.title && !section.collapsible && section.showBorder === false;` — reads it;\n2. the non-collapsible Card branch — `className={cn(section.showBorder === false ? 'border-none shadow-none' : '', className)}` — reads it;\n3. the **collapsible** branch — a `Collapsible` wrapping a bare `Card` with no `className` at all — **never reads it**.\n\nSo a section authored with both `collapsible: true` and `showBorder: false` keeps its border and shadow. The key is silently dropped, on the one branch where the author asked for two things at once.\n\n## Reproduction\n\nMeasured as a failing assertion while writing objectui#8626's pin, through the real `SchemaRenderer` and the real registry:\n\n```tsx\nrender(\n  <SchemaRenderer\n    schema={{\n      type: 'detail-section',\n      title: 'Billing Address',\n      collapsible: true,\n      showBorder: false,\n      fields: [{ name: 'street', label: 'Street' }],\n    }}\n  />,\n);\n// container.querySelector('.border-none') === null   -- the border stays\n```\n\nThe same node with `collapsible: false` renders `border-none shadow-none` as declared. That is the whole difference.\n\n⚠️ That reproduction is only available from an SDUI-authored node once objectui#8626 lands (before it, every `detail-section` node draws an error banner instead). The defect itself is older and independent of it: it is equally reachable today through `DetailView` / `SectionGroup`, which pass `section={...}` to `DetailSection` directly.\n\n## Why it is worth a card\n\n`showBorder` is a **declared** key on three surfaces at once — `DetailViewSection` in `@object-ui/types`, its `DetailViewSectionSchema` Zod mirror, and the `detail-section` registration's `inputs` (so `sdui-parser`'s `validateTree` tells an author it is correct and complete). An author writes it, publishes clean, and gets a border anyway. That is ADR-0049 enforce-or-remove territory: either the collapsible branch honours the declaration, or the declaration is narrowed to say where it applies.\n\n## Not pre-judged\n\nWhether the collapsible branch should carry `border-none shadow-none` on its `Card`, or whether the chrome of a collapsible section is deliberately fixed, is a design question this card does not pick.\n\n## Scope note\n\nNot touched by the objectui#8626 branch. That card registers the `detail-section` tag against a seam adapter that folds the eight declared inputs into the `section` object the component reads; `DetailSection` itself is unchanged there, by design and proven byte-identical. Its pin authors `collapsible: false` on the `showBorder` row for exactly this reason, and says so in place."
+}

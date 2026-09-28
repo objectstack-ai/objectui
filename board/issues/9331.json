@@ -1,0 +1,34 @@
+{
+  "number": 9331,
+  "kind": "issue",
+  "title": "finding(gate): two more fence-opening predicates in `scripts/` are not run-aware — latent today, same inversion as #9194, and neither imports the authority that card created",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-13T00:53:22Z",
+  "updated_at": "2026-09-13T20:28:00Z",
+  "closed_at": "2026-09-13T20:26:34Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9331",
+  "body": "Found while implementing #9194 (the 4-backtick opener read as a 3-backtick fence). ⛔ Out of that card's scope and deliberately **not** folded into its PR. ⛔ Not claimed.\n\n## How they were found — the discriminant, not a spelling\n\n#9194's triage and its PM seat both warned that the population must be re-derived **behaviourally** — *「does this code decide whether a line OPENS a fence?」* — and ⛔ never from a regex's spelling. Sweeping `scripts/**/*.{mjs,js}` for any fence-marker literal (three-or-more backticks/tildes, or a backtick-run quantifier) and reading every non-comment hit gives **17 sites that decide an opener**. Fifteen were already run-aware. Two are not, and neither is one of the two #9194 repaired.\n\nA second sweep for the marker reached indirectly (a `backtick` identifier, ```, `String.fromCharCode(96)`) returned no opener-deciding site, so the spelling-independent hatch is closed too.\n\n## The two sites\n\n**1. `scripts/check-prompt-component-keys.mjs:176`**\n\n```js\nconst FENCE = /^\\s*(?:```|~~~)/;\n```\n\nA prefix test used as an in-fence/out-of-fence **toggle**. A 4-backtick line matches it as an opener, and the next 3-backtick line — which CommonMark makes body text — toggles it back off. Same inversion as #9194, minus the language capture: from that point on the gate reads code as prose and prose as code, and its `**Keys:**` bullet rule is then applied to the wrong half of the file.\n\n**2. `scripts/check-doc-example-shared-reader.mjs:341`**\n\n```js\nreturn [...body.matchAll(/```(?:tsx?|jsx?|typescript)\\n([\\s\\S]*?)```/g)].map((m) => m[1]);\n```\n\n`@example` fences out of JSDoc. Non-greedy to the first 3-backtick run, so a block written inside a longer wrapper ends at the quoted inner marker and the reader returns a truncated example — which then compiles, or does not, against text that is not the example.\n\n## Measured: both are LATENT today, neither is firing\n\n- `.github/prompts/**` — the first gate's whole scan surface — carries **zero** runs of four or more backticks. Its toggle cannot invert on today's corpus.\n- The shared reader's surface carries one 4-backtick construct, `packages/components/src/renderers/basic/metadata-viewer.tsx:10`, and it is an inline code **span** on a prose line, not an opener, and its info word is not one of the four this regex matches. Not on the failing path.\n\n⇒ Same shape as #9194 before it fired: bounded by what the corpus happens to contain, not by the instrument. Filing it as a finding rather than a fix precisely because nothing is wrong in the output today.\n\n## The remedy is now cheap, which is why this is worth a card\n\n#9194 landed `scripts/markdown-fence-scan.mjs` — one authority for the CommonMark rule (a run of three or more opens; only a run of the same character at least as long, carrying no info string, closes), with controls and a recurrence guard. Both sites above can import `openFence` / `closesFence` and delete their local predicate. The second one needs a line-based rewrite of its extraction loop, which is the larger half of the work and the reason this is not a one-line follow-up.\n\n⚠️ Whoever takes it: the value is in **deleting the private spelling**, not in making it correct in place. Two separately-correct copies is the family this tree keeps paying for (objectstack#17681, the objectui#7448 family) and the reason #9194's triage ordered a single authority in the first place.\n\n## Dedup\n\n`search_issues` over this repo for the fence-scanner / opener-predicate phrasing — 14 hits, read. The control term returned #9194 itself in the same query, so the zero below is a reading and not a false empty. Nearest: #9194 (the two doc gates — the two sites here are **not** those two), #7086 (a fence opened inside a blockquote — same family, different mechanism, closed), #8162 (fence-language gate header drift, closed). ⛔ None names `check-prompt-component-keys` or `check-doc-example-shared-reader`.\n"
+}

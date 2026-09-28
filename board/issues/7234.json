@@ -1,0 +1,33 @@
+{
+  "number": 7234,
+  "kind": "issue",
+  "title": "Object-bound actions are hidden by the ADR-0066 D4 capability gate with nothing anywhere saying so — the relay carries `actions` and the button IS drawn (premise falsified); decide the `requiredPermissions` observability contract",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T16:11:46Z",
+  "updated_at": "2026-09-15T15:43:15Z",
+  "closed_at": "2026-09-15T15:41:32Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7234",
+  "body": "Moved here from objectstack-ai/objectstack#14145 after measuring: the platform side is correct at every layer, and the defect is in the Console.\n\nMeasured against a real ObjectStack application (`objectstack-ai/duly`) on published `@objectstack/*` 17.2.0, admin session, seeded data.\n\n## The claim\n\n**An object-bound action does not render at any of `list_toolbar`, `list_item`, `record_header` or `record_more`, although the Console has already fetched its complete declaration with the correct `locations`.**\n\n## What the Console actually receives\n\n`GET /api/v1/meta/object/duly_catalog_item` → `item.actions`:\n\n```json\n[{ \"name\": \"duly_catalog_apply_to_people\",\n   \"objectName\": \"duly_catalog_item\",\n   \"type\": \"script\",\n   \"label\": \"Apply to people\",\n   \"locations\": [\"list_toolbar\"] }]\n```\n\nOn `/_console/apps/<app>/duly_catalog_item/view/list` — the object's real list view, 20 rows, full grid chrome (New · Import · Filter · Group · Sort):\n\n```\n\"Apply to people\" buttons: 0        page errors: 0        4xx: 0\n```\n\nSame for three actions on `duly_task` at `list_item`, `record_header` and `record_more`.\n\n## What I ruled out, so the next person does not repeat it\n\n| hypothesis | measurement | verdict |\n|:--|:--|:--|\n| metadata store does not have actions | `GET /api/v1/meta/action` → **6**, all with `label`, `type`, `objectName`, `locations` | ❌ ruled out |\n| the object payload omits them | `meta/object/<name>` → `item.actions` present, correct `locations` | ❌ ruled out |\n| the shipped console predates the feature | all 40 served chunks grepped: `list_toolbar` 11, `record_header` 22, `record_more` 12, `list_item` 10 | ❌ ruled out |\n| the `visible` predicate hides them | **`duly_catalog_apply_to_people` declares no `visible` at all** and still renders nothing | ❌ ruled out |\n| a JS error swallows the render | zero page errors, zero 4xx on every screen | ❌ ruled out |\n\nThe predicate row is the sharpest: an action with *no* predicate, at a valid location, present in the payload the page already holds, is not drawn.\n\n**Control that still works**: `bulkActionDefs` declared on the **view** renders and executes end to end, and its per-record `visible` filtering is correct — the confirm dialog even reports *\"3 selected record(s) are not eligible for this action and will be skipped\"*. So the Console renders view-declared actions and not object-declared ones.\n\n## Where to start\n\n`packages/app-shell/src/views/ObjectView.tsx` does read them — line ~2314 gates the toolbar on `objectDef.actions?.some(a => a.locations?.includes('list_toolbar'))`, and line ~1968 derives `rowActionDefs` from `objectDef.actions`. So the wiring exists in source; what I could not determine from outside is whether `objectDef` as ObjectView receives it still carries `actions`, or whether it is normalized away before it gets there.\n\nThat is the same shape as objectui#7199 (a list view's `description` is served but never copied onto the ListView schema by the same relay), which is why I would look at the relay first.\n\n## Why this is worth prioritising\n\n`declared ≠ enforced` is normally a silent-wrong-answer problem; here it is a silent **missing-feature** problem, and every signal an author has says shipped: the schema accepts the action, `validate` passes, `build` passes, the handler registers, the REST route dispatches it, and an engine-level integration test that dispatches it passes. The button does not exist and nothing anywhere says so.\n\nIn the app that found this, the affected actions are one-click task completion — the interaction the product is designed around. It shipped with 35 passing tests and no button, and was only found by opening a browser."
+}

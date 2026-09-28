@@ -1,0 +1,34 @@
+{
+  "number": 9335,
+  "kind": "issue",
+  "title": "finding(app-shell): the flow `end` node's \"Output variable\" field writes `config.outputVariable`, a key `EndConfigSchema` refuses by name",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-13T01:28:56Z",
+  "updated_at": "2026-09-14T01:33:25Z",
+  "closed_at": "2026-09-14T01:30:28Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9335",
+  "body": "Measured on `origin/main` `0f3d15314` against installed `@objectstack/spec` **17.4.0**, from the objectui#9278 execution seat (the `end` group's OTHER line). Filed unassigned — recording, not claiming.\n\n## The observation\n\n`packages/app-shell/src/views/metadata-admin/inspectors/flow-node-config.ts`, the `end` group's second field:\n\n```ts\ncfg('outputVariable', 'Output variable', 'text', { placeholder: 'result' }),\n```\n\n`EndConfigSchema` is a **strict** object whose entire key surface is `outcome` and `message`. `outputVariable` is not on it, so the loader refuses it **by name**. Measured, with the accepted row in the same output so the refusals are a reading and not a dead probe:\n\n```\n{outcome:'completed'}                            ACCEPTED\n{outcome:'completed', outputVariable:'result'}   REJECTED: Unrecognized key(s) on this end node config: `outputVariable`.\n{outputVariable:'result'}                        REJECTED: Unrecognized key(s) on this end node config: `outputVariable`.\n```\n\nReproduce from any package that depends on `@objectstack/spec`:\n\n```bash\nnode --input-type=module -e \"\nimport * as A from '@objectstack/spec/automation';\nconst t = (c) => { const r = A.FlowNodeSchema.safeParse({ id: 'e', type: 'end', label: 'E', config: c });\n  console.log(JSON.stringify(c), r.success ? 'ACCEPTED' : 'REJECTED: ' + r.error.issues[0].message); };\nt({ outcome: 'completed' });\nt({ outcome: 'completed', outputVariable: 'result' });\n\"\n```\n\nThe key is real product vocabulary — it is just not an `end` node's. `MapConfigSchema`, `ScriptConfigSchema` and `GetRecordConfigSchema` all declare `outputVariable`, so the form's other groups offer it correctly. Only the `end` group offers it where the contract has no such key, and an `end` node produces no value to bind in the first place.\n\n## Why it is a defect and not a nit\n\nSame class as objectui#9278, one line below it: **a designer surface that leads the author to write metadata their own runtime refuses.** The failure is loud (`unrecognized_keys` at parse, a 422 on save) but the author has no way to tell from the form which key did it — the control looked as ordinary as the ones beside it. This is the failure class `scripts/check-designer-field-key-parity.mjs` was written for; that gate's population is the field / object / permission designer payload shapes, so the flow-node config table is **out of its field of view** and nothing in CI sees this.\n\n`FlowNodeInspector`'s `withoutSpecRefusedKeys` does not rescue it either: `SPEC_REFUSED_NODE_KEYS` is `['description']` and it strips **node-level** keys only, never config keys.\n\n## Why objectui#9278 did not repair it\n\nobjectui#9278's triage acceptance is a closed list about the **`outcome`** line — control kind, option list, declared default, placeholder deletion. This is a different line, a different key, and — unlike `outcome` — its repair is not obvious enough to ride in: it could be dropping the field, or it could be a spec gap where `end` should declare the key. That choice belongs to a seat that can rule it, not to a card scoped to the field above. objectui#9278 is not addressed by this card and remains open on its own terms.\n\n## Two candidate directions, neither ruled here\n\n1. **Drop the field** from the `end` group. Nothing this repo renders reads an `end` node's `outputVariable`: the simulator binds `config.outputVariable` for the node types that declare it, and an `end` node terminates rather than producing a value. Stored values would want the render-only treatment the table already has for legacy keys, so existing metadata is not hidden.\n2. **The spec is the wrong end**, and an `end` node should be able to bind an output. That is an upstream question for `@objectstack/spec`, not a renderer-side fallback — Commandment #0.1.\n\n⚠️ Whichever is right, the contract-first rule says the renderer does not grow a lenient path around it.\n\nRefs: objectui#9278 (the `outcome` line of the same two-line group, repair in flight) · objectui#5761 / objectui#6223 (the same failure class in the designers the parity gate does cover).\n\nGenerated by Claude Code in session `session_01UzHd6hDYatoDn17BuwKxnZ`, out of objectui#9278's fence."
+}

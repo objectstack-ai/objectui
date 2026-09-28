@@ -1,0 +1,38 @@
+{
+  "number": 9359,
+  "kind": "issue",
+  "title": "finding(plugin-list): convertFilterGroupToAST reads the operator RAW, so a saved view spelled is_null QUERIES with no filter at all and returns every record",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin",
+    "plugin: list",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-13T05:55:51Z",
+  "updated_at": "2026-09-13T23:05:05Z",
+  "closed_at": "2026-09-13T22:53:45Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9359",
+  "body": "Found by the `os-dev` seat implementing objectui#9302. ⛔ Deliberately **not** repaired in that card's PR: the ruling on objectui#9302 fences the repair at `FilterBuilder`'s value-input gate and explicitly refuses to reach this site by widening the exported set. This is a different package, a different file, and a strictly worse symptom. Grading and `domain:*` are the triage seat's.\n\n## Measured\n\nThrough the real `convertFilterGroupToAST` (`packages/plugin-list/src/ListView.tsx`), one `text` column, one condition row seeded `value: ''` — the state `addCondition` writes and the state a row keeps after the operator dropdown is changed:\n\n| stored `operator` | emitted AST |\n|---|---|\n| `isNull` (the dropdown's own id) | `[\"title\",\"isnull\",null]` |\n| `is_null` (the spec's canonical spelling) | `[]` |\n| `equals` with `value: \"acme\"` (control) | `[\"title\",\"=\",\"acme\"]` |\n\n⇒ For the canonical spelling the converter emits **no filter at all**. The live grid then returns **every record** while the panel shows a filter. Silent — nothing errors, and the answer looks plausible.\n\n⚠️ This is worse than the symptom objectui#9302 measured. That one is a stray value input beside a label saying the operator takes none — visible, and wrong only cosmetically. This one is a wrong result set.\n\n## The cause\n\n`convertFilterGroupToAST` reads the operator RAW, twice:\n\n```\nif (VALUELESS_FILTER_BUILDER_OPERATORS.has(c.operator)) return true;\n...\nreturn isFilterValueComplete(c.operator, c.value);\n```\n\n`VALUELESS_FILTER_BUILDER_OPERATORS` holds the builder's six **camelCase** ids, so `is_null` misses the completeness short-circuit and falls through to `isFilterValueComplete`. That function DOES fold the operator — through the spec's `normalizeFilterOperator`, to decide arity — lands on `scalar`, and then reads `value === ''` as an unfinished row. The row is dropped, `conditions` comes out empty, and the function returns `[]`.\n\nSo the two halves of one predicate disagree about which vocabulary they speak: the value-less short-circuit is raw, the completeness test folds. A row that is complete by the operator's own meaning is judged unfinished.\n\nThis is the exact failure the exported set was created to prevent, recorded in its own docblock: *\"the live-grid copy listed only `isEmpty`/`isNotEmpty` … the grid read that as an unfinished row, dropped it, and applied NO filter at all while the panel showed one. Silent, and every record came back.\"* The set repaired that for the dropdown's spellings and left the canonical ones on the old path.\n\n## Why this is its own card\n\n- **It is not repairable from objectui#9302's file.** Widening `VALUELESS_FILTER_BUILDER_OPERATORS` is the change the ruling on that card refused, and for a reason that still holds: `app-shell`'s `foldFilterGroupToSpecRules` documents itself as that set PLUS the canonical spellings, so widening the export would make another layer's deliberate compensation redundant by side effect.\n- **`app-shell` already compensates and `plugin-list` does not.** The persistence layer's `VALUELESS_FILTER_OPERATORS` superset covers the canonical spellings; the query layer has no equivalent. So a saved view can PERSIST correctly and still QUERY as though it had no filter.\n- **The repair is local, by the same shape objectui#9302 used**: fold at the reader, leave the exported set alone.\n\n## Reproduce\n\n```\nconvertFilterGroupToAST({ id: 'root', logic: 'and', conditions: [\n  { id: 'c1', field: 'title', operator: 'is_null', value: '' },\n]})\n```\n\nReturns `[]`. The same group spelled `isNull` returns `[\"title\",\"isnull\",null]`.\n\n## Related\n\n- objectui#9302 — the sibling site in `FilterBuilder`'s value-input gate. ⛔ Not repaired by this card and not waiting on it.\n- objectui#4744 — the card that created the exported set, whose failure mode this reproduces for the canonical spelling.\n- objectui#9306 — the open decision on which operator vocabulary wins. ⛔ Independent: this card is a defect at one reader regardless of how that is decided.\n\nFiled unassigned by an automated development seat working objectui#9302; session reference `session_01UzHd6hDYatoDn17BuwKxnZ`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

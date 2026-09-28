@@ -1,0 +1,35 @@
+{
+  "number": 9088,
+  "kind": "issue",
+  "title": "finding(types): `stripImportedDefaults` rebuilds every rest-less tuple — `def.rest` is `null`, compared against `undefined`, so the identity property breaks",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "package: types",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-11T00:21:12Z",
+  "updated_at": "2026-09-14T15:03:39Z",
+  "closed_at": "2026-09-14T15:03:39Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9088",
+  "body": "`stripImportedDefaults` rebuilds **every rest-less tuple**, whether or not anything beneath it changed — breaking the identity property the module states about itself.\n\n## The identity property this violates\n\n`packages/types/src/zod/imported-defaults.ts` states it in the walker's own docblock:\n\n> A node is rebuilt ONLY if the walk actually changed something beneath it. A subtree with no `ZodDefault` in it therefore comes back REFERENCE-EQUAL to the spec's own object — so this module is exactly the identity function the day `@objectstack/spec` adopts the same principle, with nothing to roll back.\n\nThat is batch #90's reversibility argument made literal, and it is why option A was taken over option B. A rest-less tuple breaks it.\n\n## The mechanism, from source\n\nThe `tuple` arm:\n\n```ts\ncase 'tuple': {\n  const items = (def.items ?? []).map(walk);\n  const rest = def.rest ? walk(def.rest) : undefined;\n  out = unchanged([...(def.items ?? []).map((it, i) => [it, items[i]] as const), [def.rest, rest] as const])\n    ? schema\n    : cloneWithDef(schema, { items, ...(def.rest ? { rest: rest! } : {}) });\n  break;\n}\n```\n\nZod 4.4.3 spells \"no rest element\" as `def.rest === null`, not as an absent key. The arm's own `def.rest ? walk(def.rest) : undefined` produces `undefined`. `unchanged` then compares the pair by `===`:\n\n```\nnull === undefined  ->  false\n```\n\nSo `unchanged` is false for every rest-less tuple regardless of its items, and the arm always takes the `cloneWithDef` branch. Measured on the node this was found through — `RangeOperatorSchema.$between`'s inner tuple:\n\n```\ntuple def keys        : [\"type\",\"items\",\"rest\"]\ndef.rest value        : null\ndef.rest === null     : true\ndef.rest === undefined: false\narm compares [def.rest, rest] -> null === undefined ? false\n```\n\n## Reproduction, two lines\n\n```ts\nstripImportedDefaults(z.tuple([z.number(), z.number()])) === z.tuple(...)  // false — rebuilt\n```\n\nRun against the walker as it stands on `origin/main` (commit `f1190b0`), with controls that fire the other way:\n\n| probe | identity holds? |\n|---|---|\n| `z.tuple([z.number(), z.number()])` — no rest element | **false** |\n| `z.tuple([z.number()], z.string())` — has a rest element | true |\n| `z.object({ a: z.string() })` — no tuple at all | true |\n\nThe second and third rows are the control: the break is specific to the rest-less tuple, not a general failure of the identity property.\n\n## Blast radius on the published spec surface\n\nWalking every schema-shaped export of every module subpath of `@objectstack/spec` 17.4.0 and comparing each against its stripped twin, the exports that have **nothing to strip** yet still come back rebuilt are exactly two sets: those behind a `z.lazy` (the walker's one deliberate, documented exception) and those holding a rest-less tuple. The latter set is non-empty and includes:\n\n- `@objectstack/spec/data#FieldOperatorsSchema`\n- `@objectstack/spec/data#RangeOperatorSchema`\n- `@objectstack/spec/ui#ListMapConfigSchema`\n\nFor each, the differing node is the tuple under `$between` / `center`.\n\n## Why this is its own card and not a rider\n\nFound while pinning the identity property for objectui#9034 (PR objectui#9086) and deliberately **not** fixed there. It is a different defect class from that card's description loss, and the repair changes the **reference identity** of published mirror bindings — `spec-subschema-parity.test.ts` asserts several of those with `toBe`, so this is a contract-surface change that deserves its own review rather than riding in on a documentation fix.\n\n## Candidate fix, not yet probed\n\nCompare like with like instead of normalising one side to `undefined` — e.g. `const rest = def.rest ? walk(def.rest) : def.rest;` so a `null` compares against `null`. A dev should confirm that the `cloneWithDef` spread still produces the right def for both shapes, and re-derive the reference-equality count across the spec surface before and after (it was 9665 of 16120 distinct nodes at the head this was measured on).\n\n## Already carved out, and the carve-out expires loudly\n\n`packages/types/src/__tests__/imported-defaults-describe-9034.test.ts` excludes rest-less tuples from its identity assertion, and asserts that the excluded set is **non-empty**. When this issue lands, that assertion goes red and the carve-out must be deleted rather than left passing vacuously.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

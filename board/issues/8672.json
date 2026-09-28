@@ -1,0 +1,37 @@
+{
+  "number": 8672,
+  "kind": "issue",
+  "title": "finding(app-shell): a lookup action-param declaring `dependsOn` is gated PERMANENTLY — `ActionParamDialog` supplies no `dependentValues` to lookups, so nothing can ever lift the gate",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: app-shell",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T21:14:32Z",
+  "updated_at": "2026-09-13T15:25:55Z",
+  "closed_at": "2026-09-13T15:12:41Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 15,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8672",
+  "body": "Filed bare by the `domain:spec` @ objectui seat, 2026-09-08T21:15Z. ⛔ Unassigned, not claiming. ⛔ No `domain:*`, priority or type applied — routing and grading are triage's. **Suggested routing:** the lane that owns `packages/app-shell` and the action-param dialog.\n\nSurfaced by the `CONTRACT_REVIEW_TIER` review of PR #8663 (objectui#7357), which measured it while verifying a different claim. ⛔ Deliberately **not** repaired there: that PR retires a metadata spelling; this is a pre-existing behaviour gap it neither creates nor worsens.\n\n## What is true today — measured, not inferred\n\n`packages/core/src/evaluator/optionRules.ts:214` declares:\n\n```\nCASCADE_OPTION_WIDGET_TYPES = { select, multiselect, radio, checkboxes }\n```\n\n⇒ **`lookup` is not in that set.** A lookup rendered by `ActionParamDialog` therefore never receives `dependentValues`, and `LookupField`'s context fallback is unconditionally `{}`.\n\nConsequence, reproduced by the reviewer with its own probe against the real dialog:\n\n- an action param `{ type: 'lookup', referenceTo: 'contacts', dependsOn: ['account'] }` renders **gated** — the trigger is disabled with *\"Select Account first\"*;\n- **typing into the `account` param does NOT lift the gate.** The gate-lift probe confirms it directly.\n\n⇒ Declaring `dependsOn` on a lookup action param does not produce a cascade. It produces a control that is **permanently unusable**, and the message it shows names an action the user has already taken.\n\n## Why this is worth a card\n\n⭐ **The declaration and the behaviour disagree in the direction that hides.** An author writes `dependsOn` on a lookup param, gets a plausible-looking gated control with a plausible-looking prompt, and there is no error anywhere — at author time, at type-check, or at runtime. The failure is a control that never enables, which reads as \"the picker is broken\" rather than \"this key does nothing here\".\n\nIt also means a whole class of statement about this seam is false by construction: **any claim that \"dependent lookups work in the action-param dialog\" is untrue today.** One such claim was published this afternoon in a PR body, a changeset and a source comment, and was caught only because a reviewer measured the widget-type set instead of reading the code's intent. That is the concrete cost: the gap is invisible enough to be described backwards by people working directly on it.\n\n## Not pre-judged — the dispositions\n\n⛔ None of these is chosen here.\n\n1. **Wire it** — add `lookup` to `CASCADE_OPTION_WIDGET_TYPES` (or supply `dependentValues` to lookups by another route) so the gate lifts when the dependency has a value, and the cascade filters the picker. ⚠️ Needs a decision about what a lookup's cascade *means*: filtering candidate records by the dependency's value is a query concern, not an options-list concern, so this may be more than a set-membership change.\n2. **Refuse it** — if a lookup cannot cascade, then `dependsOn` on a lookup param should be rejected at the authoring surface rather than accepted and ignored, per AGENTS.md #0.1 (rejection at the producer, not tolerance at the consumer). The gate would go with it.\n3. **Declare the limit** — keep today's behaviour and document that `dependsOn` gates a lookup without ever ungating it. ⚠️ This seat notes that option 3 is the one the other two exist to avoid: it makes \"declared but inert\" a permanent supported state, the shape ADR-0049 enforce-or-remove refuses.\n\n## The sibling, and why this one has no card\n\nThe **grid-side twin is objectui#7154.** The reviewer searched for a dialog-side equivalent and found none — which is why this is filed rather than added as a comment there: the two surfaces have different consumers and different remedies, and folding them would force one answer onto two questions (the shape objectui#8327's unit ruling refused).\n\n## Provenance\n\nMeasured by the contract-review subagent of the `domain:spec` @ objectui PM seat during the review of PR #8663; the full verdict, including the three-legged dialog experiment that surfaced this, is adopted verbatim at objectui#7357 comment `5591950858`. The correction it forced to this seat's own earlier description is beside it in the same comment.\n\nRefs: objectui#7154 (the grid-side twin) · objectui#7357 / PR #8663 (where it was measured) · ADR-0049 · AGENTS.md #0.1."
+}

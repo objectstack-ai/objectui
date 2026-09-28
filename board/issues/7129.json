@@ -1,0 +1,36 @@
+{
+  "number": 7129,
+  "kind": "issue",
+  "title": "[Decision] `hideEmpty` on `record:details` sections: the spec REFUSES the key, `@object-ui/types` declares it, the zod mirror omits it, and the renderer honours it — plus `hideEmpty: false` is not an override",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "package: types",
+    "pm:dispatched"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T03:23:36Z",
+  "updated_at": "2026-09-15T22:57:12Z",
+  "closed_at": "2026-09-03T09:25:01Z",
+  "closed_by": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7129",
+  "body": "Filed by the `domain:ui` seat (session `session_012wwHa4aaFybxXrfmfHioDM`) out of #7064 / PR #7123, which measured both questions below while executing the maintainer's 2026-08-31 ruling. ⛔ **Recording and routing, not claiming.**\n\n#7064's own deliverable is complete and that card closes with its PR. These are **new questions the work surfaced**, not unfinished scope — which is why they are here rather than holding a finished card open.\n\n---\n\n## ⭐ Question 1 — one key, four parties, three different answers\n\nMeasured against installed `@objectstack/spec` **17.2.0**: `RecordDetailsProps.safeParse` over a `record:details` section carrying `hideEmpty` returns `success: false` with `unrecognized_keys: ['hideEmpty']` and the message *\"Unrecognized key(s) on this `record:details` section\"*. ⚠️ Control in the same probe: a section carrying `columns: 2` parses **and the value survives** — so this is about the key, not a broken probe.\n\n| party | says |\n|---|---|\n| `@objectstack/spec` 17.2.0 | ⛔ **refuses** the key — the document fails to parse |\n| `@object-ui/types` — `packages/types/src/views.ts:230` | ✅ **declares** it — `hideEmpty?: boolean` |\n| `packages/types/src/zod/views.zod.ts` | ⛔ **absent** — 0 hits, ⚠️ control `headerColor` = 2 in the same file |\n| `RecordDetailsRenderer` | ✅ **honours** it |\n\n*(The seat verified the two objectui-side rows independently; the spec row is #7123's measurement.)*\n\n### Why this is a decision and not a bug fix\n\n⚠️ **It changes what the ruling did.** The ruling's second clause preserved authored `hideEmpty: true` as \"the explicit opt-in to hiding\". But on any **spec-validated** page the key never reaches the renderer at all — so the old forced `hideEmpty ?? true` was not a default over an authorable key, it was an **unconditional platform policy with no author escape hatch**. PR #7123 is correct as built (the renderer still honours the key for schemas that carry one), but the escape hatch the ruling describes does not exist where the spec is enforced.\n\n### Options\n\n- **A — leave the spec refusing it; close the divergence on the objectui side** (retire `DetailViewSection.hideEmpty`, ADR-0049 enforce-or-remove). ⭐ Consistent with the ruling's own direction: the platform decides this and the app does not author it, so a loud refusal is the aligned answer and the objectui declaration is the thing out of step. **This is the seat's reading, carried up from #7123's implementer.**\n- **B — declare it in the spec** so the honoured key becomes authorable and the contracts agree. ⚠️ Adds an authoring lever the ruling was written to remove.\n- **C — leave all four as they are.** ⛔ Not recommended: a key declared in one contract, refused by another, omitted by a third and honoured by the renderer is exactly the shape that produces confident wrong code.\n\n⚠️ **Cross-repo:** A and B both touch `objectstack`, which is outside the `domain:ui` @ objectui seat's dispatch scope. Routed, ⛔ not actionable here.\n\n---\n\n## Question 2 — `hideEmpty: false` is not an override, and never has been\n\nMeasured inside `DetailSection`: `shouldAutoHideEmpty` tests `!section.hideEmpty`, so an authored `false` is **indistinguishable from unauthored** and the auto-hide heuristic still fires above its thresholds (4 fields / 25% empty; 3 / 20% on mobile).\n\n⇒ An author who writes `hideEmpty: false` on a large sparse section **sees no change at all**.\n\n⚠️ **Pre-existing and NOT introduced by PR #7123** — the old `?? true` preserved an authored `false` too, so the same fixture took the same path before. #7123 pins the behaviour as a measurement, explicitly framed as *not* an endorsement, so it is visible in code rather than only in a report.\n\n### Options\n\n- **A — leave as-is.** Zero risk; the key silently does nothing in exactly the case an author would reach for it.\n- **B — make `false` a hard override** of the heuristic. Restores the key's plain-reading meaning; ⚠️ costs one more authorable lever, cutting against the ruling's zero-authoring direction, and its correct use requires knowing a threshold formula.\n- **C — retire the authored key on this surface** and let the heuristic be the whole contract. ⭐ Coheres with Question 1 option A and with the fact that the spec already refuses it.\n\n**Seat's reading:** ⭐ **A now, then C** — and note Q1-A and Q2-C are *the same action*, so answering Question 1 likely answers this one. ⛔ Recommendation, not a ruling.\n\n---\n\n## Related\n\n- **#7127** — the `record:details` registration comment says the spec \"STRIPS\" undeclared section keys; measured, it refuses them. Same measurement, different artefact — that one is a plain comment fix, ⛔ not a decision.\n- **#7064** / PR #7123 — the ruled flip. Complete.\n- **#7063** — the sibling ruling (dashboard widget empty state), same maintainer principle, different surface."
+}

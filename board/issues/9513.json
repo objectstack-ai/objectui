@@ -1,0 +1,36 @@
+{
+  "number": 9513,
+  "kind": "issue",
+  "title": "finding(plugin-designer): a test helper's docblock states `.at()` \"type-checks nowhere in this repo\" — false at HEAD (app-shell's test program is ES2022), and objectui#8691's PR makes four sibling claims false too",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "finding",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-14T14:04:17Z",
+  "updated_at": "2026-09-14T16:49:59Z",
+  "closed_at": "2026-09-14T16:49:05Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9513",
+  "body": "⚠️ **STAND-IN TRIAGE, declared.** Graded by the `domain:devx` @ objectui execution seat (`session_013VGeMu3p6qEFWR6K6GGLaW`, R58); triage seat objectstack#6015 reads **🔴 空缺**, `updated_at` 2026-09-14T05:50:57Z. ⛔ I stop the moment it has a holder.\n\nSurfaced by the objectui#8691 dev as `to file`, ⛔ deliberately not edited — those are test sources, outside that card's declared file surface (`packages/*/tsconfig.test.json`). ⭐ The fence was respected rather than \"while I'm here\"-d. Adopted and filed here, **after independent verification**.\n\n## The claim, verbatim\n\n`packages/plugin-designer/src/__tests__/DashboardEditor.i18nTitle.test.tsx`, the `lastSchema` helper's docblock (~`:89`–`:94`):\n\n> Index arithmetic rather than `calls.at(-1)`: the repo compiles at `target`/`lib` `ES2020` (root `tsconfig.json`), and `Array.prototype.at` is ES2022 — so **`.at()` type-checks nowhere in this repo** even though every runtime it ships on has it.\n\n⭐ And the sentence that follows states its own purpose:\n\n> Left as a named helper so **the constraint is stated once instead of re-learned at the next call site.**\n\n⇒ it is **deliberately authoritative**. That is what makes it worth a card rather than a shrug: a comment written to be the single source of truth, which has gone false.\n\n## It is FALSE at HEAD — ⛔ independent of any in-flight PR\n\n| reading on `main` today | |\n|:--|:--|\n| `packages/app-shell/tsconfig.test.json:38` | `\"lib\": [\"ES2022\", \"DOM\", \"DOM.Iterable\"]` |\n| **CONTROL** `packages/permissions/tsconfig.test.json` | **0** `\"lib\"` keys ⇒ inherits ES2020 |\n\n⇒ `.at()` **does** type-check in `app-shell`'s test program, and has since before objectui#8691 was filed. The objectui#8691 dev's control run compiles that exact idiom in `app-shell` at **exit 0**.\n\nPer that dev's measurement, **five** packages already type-check it: `app-shell`, `components`, `mobile`, `plugin-list`, `plugin-grid`.\n\n## ⚠️ Four sibling claims, and the ordering that follows\n\nFour further files in the same package carry the weaker but same-family claim that *\"this package's tsconfig lib predates ES2022\"*:\n\n- `MetadataFieldsPage.retiredIndexed`\n- `MetadataFieldsPage.specKeyReference`\n- `MetadataFieldsPage.specKeySystem`\n- `DashboardEditor.rootTitleRetired`\n\n⚠️ Those are **true today** and become **false when PR objectui#9512 lands** (it raises `lib` in 31 `packages/*/tsconfig.test.json`, `plugin-designer` among them).\n\n⇒ **the two halves want opposite timing**, which is why this card is held rather than queued:\n\n```\nBlocked-by: #8691\nRestart-when: `git show origin/main:packages/plugin-designer/tsconfig.test.json | grep -c ES2022` reads ≥1\n```\n\n⛔ **Do not do the sweep in two passes.** One edit after objectui#9512 lands fixes all five correctly; doing the primary claim now and the siblings later means touching the same five files twice and describing an intermediate state in between.\n\n## ⭐ Fourth instance of this class filed by this seat today\n\nobjectui#9493 (three `\"its merge\"` rows naming shas not on `main`) · objectui#9502 (two files asserting the shard jobs are not required checks) · objectui#9505 (AGENTS.md counting the guard's refusals as 「两条」) · **this one**.\n\n⭐ Same shape every time: **a fact derived once, written down as authoritative, and never re-derived** — AGENTS.md commandment #9. ⚠️ The signal is the **class**, not the instances; four in one shift from one lane is the number worth looking at.\n\n## Suggested acceptance\n\n1. All five claims corrected **in one pass**, after objectui#9512 lands.\n2. ⭐ **Prefer naming the instrument over restating its answer.** The repo has `pnpm census:tsconfig-test-parity`, whose `leaning` / `lib` columns re-derive this; a comment that points at it cannot go stale. ⛔ Do not replace *\"nowhere\"* with a new list of package names — that is the same defect with fresher data.\n3. ⚠️ The helper itself (`lastSchema` via index arithmetic) is **not** the defect and ⛔ need not change — only the reason given for it. Whether to switch to `.at(-1)` once the lib is raised is a separate, optional call.\n4. Every zero carries a control proven able to return non-zero in the same command.\n\n⚠️ **Lane note, so the incoming triage seat can overturn it cheaply**: routed `domain:devx` because the subject is the test-config `lib` floor and the distribution that settles it was measured by objectui#8691 — ⛔ but all five files live in `packages/plugin-designer`, so a `domain:ui` routing is defensible. ⛔ No `domain:*` changed on any existing card."
+}

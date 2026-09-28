@@ -1,0 +1,34 @@
+{
+  "number": 9346,
+  "kind": "issue",
+  "title": "finding(docs): objectui#8021's two repaired teaching surfaces inject a plain data bag as the provider's dataSource — three fences that stopped compiling under the objectui#7912 narrowing",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:blocked",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-13T04:02:18Z",
+  "updated_at": "2026-09-13T09:02:28Z",
+  "closed_at": "2026-09-13T09:02:28Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9346",
+  "body": "Measured on PR objectui#9310 (card objectui#7912, decision batch #68) at head `e2c31aa1d`, reproduced locally against the gate's own built closure. Filed unassigned by the `os-dev` seat that repaired the `Type Check` red on that PR. ⛔ Not claimed, not edited there — the repair needs objectui#9308's answer first, for the reason measured below.\n\n⚠️ Angle-bracket shaped fragments are spelled out in words throughout: a tag-shaped fragment does not survive this field, and the subject here is a JSX attribute and a generic parameter. `DataSource OF any` below is written the way tsc printed it.\n\n## The reading\n\n`pnpm check:doc-snippets` — the `Doc Snippet Type Check` context — on PR objectui#9310:\n\n```\n[semantic]  content/docs/guide/schema-rendering.md:99:29\n            TS2740: Type '{ user: { name: string; role: string; }; stats: { totalUsers: number; }; }'\n            is missing the following properties from type 'DataSource OF any':\n            find, findOne, create, update, and 2 more.\n[semantic]  content/docs/guide/schema-rendering.md:434:29   TS2740, same shape\n[semantic]  packages/react/README.md:73:29                  TS2740, same shape\nSemantic phase: 649 of 649 block(s) judged, 3 failed.\n```\n\nEvery control in that same run fired: the resolution control resolved `@object-ui/types` to the built `dist/index.d.ts`, the sentinel import produced TS2305, the positive import produced 0 diagnostics. The three findings are readings, not a harness that degraded the types.\n\n## Where the three blocks came from\n\nThey are objectui#8021's repair, landed on `main` and then merged into the objectui#7912 branch. Before that merge the branch's own run was 646/646 blocks judged, 0 failed; after it, 649/649 judged, 3 failed. The blocks are new; the type they now fail against is objectui#7912's.\n\nAll three teach the same wiring: put the page's own values on the provider's `dataSource`, and read them back through the `data.` prefix. That is the SECOND meaning of this one key — the meaning objectui#9308 was filed to get a decision on. The ruled type declares only the first one, the host's adapter.\n\n## Why this is not a one-line repair\n\nThree routes to green, each refused by something already landed:\n\n1. **Cast inside the fence.** Refused: these are published teaching surfaces, and objectui#7912's execution note 2 is that a cast at the seam re-creates the defect one line lower. A guide that shows the reader how to defeat the contract the same PR establishes is worse than a red context.\n2. **Widen the declaration back.** Refused: the narrowing is the whole card (decision batch #68, maintainer verbatim 「同意」).\n3. **Declare the blocks in the gate's ledger.** Refused: that gate's header says a block is either repaired or declared with a written reason, and the only reason available here is \"the page teaches an off-contract wiring\" — a quarantine, not a reason.\n\nWhat is left is rewriting what the pages teach, and that IS objectui#9308's decision rather than a documentation edit:\n\n- A conformant adapter has no `user`, no `stats` and no `settings` member, so under the ruled type every `data.*` spelling on these pages evaluates to `undefined`. The repo already instruments that exact collision: `reportAdapterOnlyDataPredicate` in `packages/react/src/utils/visibilityDiagnostic.ts` warns in dev when a `data.*` path does not resolve against the injected value.\n- And `content/docs/guide/schema-rendering.md` is PINNED to the wiring it teaches today. `packages/components/src/__tests__/guide-schema-rendering-data-context-8021.test.tsx` leg A reads the `## Data Context` fence off the page, branches on whether that fence carries a provider `dataSource=` attribute, then renders the `### Accessing Data in Schemas` JSON fence and asserts it prints `Welcome, John!`. Take the provider attribute away and leg A takes the other branch and reads `Welcome, !`; move the expression off the `data.` prefix and it prints the raw source text. So the page cannot leave meaning 2 without moving a landed card's pin at the same time.\n\n## What this needs\n\nobjectui#9308's answer — give the data scope its own key on the provider, retire meaning 2 at this seam, or something else — and then one documentation pass that moves the three fences and objectui#8021's pin together.\n\n## Blast radius while this is open\n\n`Doc Snippet Type Check` is **not** in `main`'s required set. Re-measured on `GET /repos/objectstack-ai/objectui/rules/branches/main` at 2026-09-13: the required contexts are `Lint`, `Type Check`, `Build & E2E`, `Test (shard 1/4)` through `Test (shard 4/4)`, `Build Docs` and `Changeset Declaration`. So this blocks nothing in the merge queue; it does leave a red context on PR objectui#9310 and on every pull request opened after it lands.\n\nRelated: objectui#9308 (the decision this waits on), objectui#8021 (landed; it wrote these three fences), objectui#9297 (the three further surfaces objectui#8021 deliberately left), objectui#9311 (the skills-lane sibling of this same red), objectui#7912 and PR objectui#9310 (the narrowing itself).\n\nReported by an agent seat; attribution is recorded in this paragraph rather than in a footer block."
+}

@@ -1,0 +1,36 @@
+{
+  "number": 8169,
+  "kind": "issue",
+  "title": "map `'location'`: two faces hold OPPOSITE documented postures on the same guess, and the relay floor silently shadows the component's own lat/lng defaults (objectui#7547)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T22:21:46Z",
+  "updated_at": "2026-09-13T18:26:06Z",
+  "closed_at": "2026-09-13T18:25:35Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8169",
+  "body": "Split out of objectui#7547 by its implementing seat. The measurement contradicted the card's assumed route badly enough that deleting the literal would move the tree in the wrong direction, so it is reported rather than decided.\n\n## The assumed route\n\n#7547 groups map `'location'` with the invented axes and routes it the objectui#7029 / #7070 / #7500 way: delete the relay floor, let the renderer refuse honestly.\n\n## What is actually below the relay\n\nMeasured on `20316bac3`.\n\nThe two relay floors:\n\n- `packages/plugin-list/src/ListView.tsx:2673` — `locationField: mapConfig.locationField || 'location'`\n- `packages/plugin-view/src/ObjectView.tsx:1468` — `locationField: viewOptions.map?.locationField || 'location'`\n\n`packages/plugin-map/src/ObjectMap.tsx`, `getMapConfig`, has three branches:\n\n1. a declared `map` block, validated and returned;\n2. the internal FLAT form, entered on `schema.locationField || schema.latitudeField`;\n3. **a default branch** returning `latitudeField: 'latitude'`, `longitudeField: 'longitude'`, `locationField: 'location'`, `descriptionField: 'description'`.\n\nBranch 3 is not an oversight. It carries its own reasoning, and objectui#5953 sharpened it in the *opposite* direction from what #7547 assumes — it removed the `titleField` guess from this very branch while deliberately keeping the coordinate ones:\n\n> The coordinate keys above are conventional guesses this component must make — nothing else can read a location out of an unconfigured record. A marker TITLE is not in that position\n\n## The consequence, which runs the wrong way\n\nFor a view that declared no map binding at all:\n\n- **today** the relay supplies `locationField: 'location'`, which makes `getMapConfig` take branch **2**. It returns that one key and **no** `latitudeField` / `longitudeField`.\n- **after deleting the relay floor** nothing is supplied, so `getMapConfig` takes branch **3** and guesses **three** names instead of one.\n\nSo the relay floor is not simply a duplicate of the component's decision — it *shadows half of it*, and removing it makes the tree invent MORE, not less. `extractCoordinates` tries lat/lng before location, so the change is observable: records carrying real `latitude` / `longitude` columns would start plotting on a view that declared nothing.\n\nThere is also no refusal screen anywhere on this path. `ObjectMap` has no \"Map configuration required\" state; an unbound map renders an empty map, which is the silent-credible-wrong shape objectstack#13748 ruled against — but that is a defect in branch 3's posture, not in the relay literal.\n\n## The actual question, for a ruling rather than a patch\n\n`日期轴永不虚构` (the 2026-09-01 ruling behind objectui#7070) settled date axes. objectui#5953 settled the marker title. Coordinates are the one member of the family where a face still holds a *documented* posture that the component MUST guess. Either:\n\n- **A.** branch 3 stands, and the relay floors are deleted as duplicates that shadow it — the read site owns the decision, which is objectui#5953's own principle applied one field over; or\n- **B.** the ruling generalises to coordinates: branch 3 goes, `ObjectMap` gains a refusal screen, and the relay floors go with it.\n\n⛔ Both faces must move together. Deleting only the relay floors delivers A by accident, silently widens the guess from one key to three, and leaves the tree looking as if the class were closed.\n\n⚠️ This is deliberately NOT decided on objectui#7547, for the same reason gantt `'progress'` / `'dependencies'` is not: a standing documented decision is being asked to change, and that belongs on its own card.\n\n## Dedup\n\n`search_issues` on this repo for `getMapConfig`'s default guesses versus the relay floor: zero results. Positive control in the same session returned objectui#7544 as its first result, so the zero is a reading.\n\nRefs: objectui#7547 · objectui#5953 · objectui#4941 · objectui#5042 · objectui#7070 · objectui#7499 · objectstack#13748.\n\nRecorded by the seat implementing objectui#7547 (`session_01YBWFb5YgMU5dw8p2VKj16S`). Unassigned, for triage."
+}

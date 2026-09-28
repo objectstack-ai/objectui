@@ -1,0 +1,36 @@
+{
+  "number": 9311,
+  "kind": "issue",
+  "title": "bug(skills): the marked `data-integration.md` example calls `.find` on an unguarded `dataSource` — a true positive the objectui#7912 narrowing made visible, and the one thing holding PR objectui#9310",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:skills",
+    "needs:contract-review",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T17:31:38Z",
+  "updated_at": "2026-09-13T06:29:58Z",
+  "closed_at": "2026-09-13T06:29:58Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9311",
+  "body": "Routed to the `domain:skills` lane by the `domain:ui` PM seat (`os-tesla`) at R32. ⛔ **Not claimed, not edited** — published `skills/**` is a governed surface and neither this seat nor the `os-dev` seat that found it may touch it.\n\n⚠️ **This is currently the one thing holding PR objectui#9310** (card objectui#7912, the maintainer-ruled `DataSource` narrowing from decision batch #68). The fix is **one line**.\n\n## The defect\n\n`skills/objectui/guides/data-integration.md`, the marked example under **\"Via DataSource methods (in plugin code)\"** — read verbatim on `origin/main`:\n\n```\n<!-- os:check -->\n```typescript\nimport { useSchemaContext } from '@object-ui/react';\n\nfunction MyPlugin() {\n  const { dataSource } = useSchemaContext();\n\n  const loadData = async () => {\n    const result = await dataSource.find('contacts', {\n```\n\n`dataSource` is destructured and `.find` is called on it with **no guard**.\n\n`Skill Example Check` on PR objectui#9310 reports exactly one finding:\n\n```\n[semantic] skills/objectui/guides/data-integration.md:304:26\n  TS18049: 'dataSource' is possibly 'null' or 'undefined'\nSemantic phase: 14 of 14 ts fence(s) judged, 1 failed\n```\n\n## ⭐ It is a TRUE positive, not a gate artefact — and that is the part worth reading\n\n`useSchemaContext()` throws only when there is **no PROVIDER**. A provider **with no adapter bound** is a perfectly real state — ⭐ and PR objectui#9310 contains **two instances of it**, both pre-existing and both corrected in that PR (a react page and `apps/site/app/components/LiveSplitDemo.tsx`, each of which had been injecting a truthy empty-object stand-in for \"no adapter\").\n\n⇒ this guidance, copied into a plugin on such a surface, **throws at the first call**. The published example teaches an unguarded read of a member that can legitimately be absent.\n\n⚠️ Before objectui#7912 the member was typed `any`, so the compiler had nothing to say and the example compiled. The narrowing did not create the hazard — **it made it visible**.\n\n## Minimal repair\n\nOne line inside the fence:\n\n```ts\nif (!dataSource) return [];\n```\n\n⛔ **Do not take the gate's other option** (dropping the `os:check` marker). The example is *meant* to compile, and it only needs the guard the contract now requires. Removing the marker would retire the coverage rather than fix the guidance — and would leave the same unguarded pattern published for readers to copy.\n\n## ⛔ Why it is routed rather than folded in\n\nMeasured with the repo's own tool, quoted because it is the whole routing argument:\n\n- `node scripts/check-governed-queue-guard.mjs --test` on PR objectui#9310's diff ⇒ **\"NOT GOVERNED — an ordinary pull request\"**.\n- the **same diff plus this one file** ⇒ **\"One governed path governs the WHOLE pull request\"**, with draft-park and an authorized **APPROVED** review required.\n\n⇒ adding a one-line docs fix to that PR would convert a clean ordinary PR into a governed, draft-parked one needing human review. ⭐ That is a real cost and it falls on the wrong lane. The `os-dev` seat diagnosed it, reproduced it verbatim, confirmed the harness is sound (`--self-test` exit 0, 59 cases pass, so a permanently-green harness is ruled out) and then **stopped** — which is the fence working.\n\n## ⚠️ What holding this costs, stated plainly\n\nBranch protection on `main` lists **0 required status checks** (read this round), so `Skill Example Check` being red does ⛔ **not** mechanically block PR objectui#9310's merge queue. I am holding it anyway: landing a PR that leaves a check red on `main` is how a lane becomes **blind rather than merely red** — objectui#9271 measured exactly that, six consecutive commits with the coverage thresholds never evaluated. ⛔ I am not starting a second one.\n\n⇒ ⭐ **once this lands, PR objectui#9310 goes green and merges.** Until then it waits.\n\n## Related\n\nobjectui#7912 / PR objectui#9310 (the ruled narrowing, held on this) · decision batch #68 (the ruling) · objectui#9271 (why a red check is not left on `main`) · objectui#6596 (`domain:skills`, machine-enforcing human review on governed paths)\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

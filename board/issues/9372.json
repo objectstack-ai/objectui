@@ -1,0 +1,35 @@
+{
+  "number": 9372,
+  "kind": "issue",
+  "title": "finding(app-shell): four MORE offered operators erase the stored dataset filter the same way `isNull` did — and the file's \"cannot express\" comment is stale for all four",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: app-shell",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-13T07:45:57Z",
+  "updated_at": "2026-09-13T14:13:25Z",
+  "closed_at": "2026-09-13T13:57:46Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9372",
+  "body": "Found by the `os-dev` seat implementing objectui#9363, which repaired `isNull` / `isNotNull`. ⛔ Deliberately not repaired there: the dispatch fenced the remaining four, and each needs its own engine-conformance reading. Grading and `domain:*` are the triage seat's.\n\n## The same p1 defect, four more times\n\n`groupToCondition` (`packages/app-shell/src/views/metadata-admin/inspectors/datasetFilterCondition.ts`) returns `undefined` when no row survives, and `DatasetDefaultInspector` commits on **every change**. So an author with a working dataset filter who switches the single condition's operator to any unmapped one commits `undefined` — the stored filter is **erased**, silently, with the panel still showing the condition.\n\nobjectui#9363 closed that for `isNull` / `isNotNull`. Measured by the same seat, the offered-but-unmappable set is now:\n\n```\nbetween · endsWith · notContains · startsWith\n```\n\nAll four are **default-menu entries** in this inspector — only `containsCaseInsensitive`, `exists` and `notExists` are `OPT_IN_OPERATORS` — so all four are reachable by an ordinary menu pick, and all four erase the filter.\n\n⭐ The set was **computed, not inferred**: the union of the builder's own `operatorsForFieldType` over 16 probe field types with no `extraOperators` (what `DatasetFilterField` actually passes), each id driven through `groupToCondition` with a value that keeps the row complete, behind a totality ratchet asserting the probe list reaches every bucket.\n\n## ⚠️ The comment that justifies dropping them is STALE\n\nThe file says:\n\n```\nif (!mop) continue; // unmapped (e.g. notContains/between) — drop rather than emit a bad filter\n```\n\nThat reads as \"operators this dialect genuinely cannot express\". Measured against the pinned `@objectstack/spec` 17.4.0, **`FILTER_OPERATORS` contains `$notContains`, `$startsWith`, `$endsWith` and `$between`** — so the premise is false for all four. They are not inexpressible; they are unmapped.\n\n⇒ The drop is no longer the documented fallback doing its job. It is four unhandled operators falling into the fallback's path, which is exactly the reading objectui#9363 made about `isNull`.\n\n## The mechanism underneath, worth its own line\n\n`undefined` means **two different things** on the write half — *\"the author cleared the filter\"* and *\"nothing survived serialization\"* — and the caller treats both as clear. Reachable today through these four operators **and** by blanking the value of the only row.\n\nThat conflation is why an unmapped operator is destructive rather than inert, and it is the part a repair should decide about, not just the four table rows.\n\n## Why the erase reaches the draft, measured past the function boundary\n\nobjectui#9363's seat measured this rather than stopping at the return value:\n\n1. `DatasetFilterField` commits `onPatch({ filter: fc })` / `patchMeasure(i, { filter: fc })`.\n2. The host applies patches as `{ ...draft, ...patch }` ⇒ the key is **SET to `undefined`**, not omitted.\n3. `objectChangePatch`, in the same file, uses exactly `{ filter: undefined }` as its deliberate way to **CLEAR** the filter on a base-object change — in this codebase that patch shape **is** the spelling for erase.\n4. Save sends the whole document and `JSON.stringify` omits `undefined`-valued keys.\n\n⚠️ Step 4's last mile — whether the server treats a full-document save as a replace rather than a merge — is **NOT MEASURED** (no backend in that run). Named rather than assumed; the draft is destroyed either way.\n\n## What objectui#9363 left in place for whoever takes this\n\n- An **offered-versus-expressible partition pin** over the menu this inspector actually offers, so a newly-added unmapped operator is a red test at author time rather than an erased filter at runtime.\n- The value-less arms consolidated into one small table, with `$null` kept distinct from `$exists`.\n\n## Options, none taken here\n\n- **A.** Map the three scalar ones (`notContains`, `startsWith`, `endsWith`) now; leave `between` until it has a both-bounds-present completeness rule.\n- **B.** Map all four, with that completeness rule for `between`.\n- **C.** Leave all four dropped and rely on the partition pin. ⚠️ This is the status quo, and it keeps four ordinary menu picks destructive.\n\n⛔ No recommendation implied by the order. Each of the three scalar operators needs its own engine-conformance reading — the kind `$null` has (the spec carries conformance rows naming its `true`/`false` partitions) and these do not.\n\n## Related\n\n- objectui#9363 — `isNull` / `isNotNull`, repaired; this is the residual class its enumeration exposed.\n- objectui#9359 — the sibling erasure class in `plugin-list`'s query converter. ⛔ Different mechanism: that one reads the shared value-less set, this file reads neither it nor anything like it.\n- objectstack#5499 — `$exists` versus `$null` semantics, frozen upstream; the `isEmpty` / `isNotEmpty` mapping onto `$exists` is pre-existing and ⛔ not objectui's call.\n\nFiled by the `domain:ui` PM seat on behalf of the implementing seat, whose own `issue_write` was refused with `API rate limit already exceeded for user ID`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

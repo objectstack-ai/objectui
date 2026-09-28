@@ -1,0 +1,36 @@
+{
+  "number": 9342,
+  "kind": "issue",
+  "title": "objectui#7804 kanban residue: move `onCardMove`'s read to a React prop so the arm can tombstone it — ruled B, blocked in-slice because it narrows a published React API",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin",
+    "plugin: kanban",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-13T02:18:17Z",
+  "updated_at": "2026-09-14T00:21:03Z",
+  "closed_at": "2026-09-14T00:13:38Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9342",
+  "body": "Filed by the `domain:ui` PM seat (`os-tesla`) at R33, as the **ruled disposition** for one row of objectui#7804 that its `plugin-kanban` slice measured but could not land. ⛔ Not claimed. **objectui#7804 stays the parent.**\n\n## The ruling this card exists to execute\n\nMeasured by objectui#7804's `plugin-kanban` seat (PR objectui#9338) and ruled **B** by this seat on that PR (comment `5650176176`):\n\n> Move the **READ**: `KanbanRenderer` takes `onCardMove` as an explicit React prop instead of reading it off `schema`; `ObjectKanban` passes `handleCardMove` as that prop; the arm then tombstones the key with `handlerKeyRefusal(…, 'retired', …)`.\n\n## Why the key could not simply be tombstoned in that slice\n\nThe measurement and the **gate of record disagree**, and neither side can be overruled by a dev seat:\n\n- **MEASURED**: an authored `onCardMove` on an `object-kanban` document reaches **NOTHING**. `ObjectKanban` substitutes `handleCardMove` on the schema it hands down **and** declares no `onCardMove` React prop (its rest parameter is `void _props`), so **both channels are dead**. Driven through the real `SchemaRenderer` with `onCardClick` as a **lit control on the same document and the same render**. ⇒ that is the objectui#6124 `'retired'` disposition.\n- **GATE**: `check:handler-key-reads` refuses `'retired'` while a renderer still reads the key — *\"a tombstone exists precisely because nothing reads the key — it has no read site BY CONSTRUCTION\"* — because `KanbanRenderer` does read `schema.onCardMove` off the document `ObjectKanban` hands it.\n\n⇒ ⭐ **what the gate cannot see is that the value at that read was substituted one hop earlier.** Moving the read is what makes both sides true at once.\n\n## ⛔ Why the three alternatives are out (recorded so they are not re-proposed)\n\n- **A — leave it undeclared** (what PR objectui#9338 shipped, correctly, as the interim): an authored `onCardMove` goes on being **accepted and silently dropped**. Its `KNOWN_UNDECLARED_READS` row is kept naming objectui#7804 and the exposure is pinned as *still ACCEPTED AND KEPT* so it cannot drift. ⛔ An interim, not an answer.\n- **C — declare it `'runtime-slot'` like its two siblings**: the TypeScript twin stays callable, so the face would publish a key the object-bound board **DROPS**. ⛔ **This package's own `quickAdd` carve-out forbids that resolution in as many words.**\n- **D — teach the gate to model the override**: ⛔ falsified by the gate's own history. `'kanban'` registered the **same** `ObjectKanbanRenderer` with the **same** override, so an override-aware gate **would have been GREEN on objectui#7664's deletion** — the reading its docblock calls *\"would make it worthless.\"*\n\n## Precedent\n\n⭐ **objectui#7742 (maintainer decision batch #70)** applied this exact remedy to `objectFields` **one file over**. Verified at this seat: #7742 is closed, on `types` + `plugin-kanban`. ⇒ this is applying a ruled shape, ⛔ not inventing one.\n\nAnd it makes the plugin docs **true**: `packages/components/src/renderers/complex/README-KANBAN.md` already says `onCardMove` *\"is NOT a document key: it is a React prop the host supplies.\"*\n\n## ⚠️ What this costs, stated up front\n\n- It **narrows a published component's props** — `KanbanRendererProps.schema.onCardMove` goes. A direct host that writes the key on the schema object breaks: a **TS error** for typed hosts, a **silent drop** for JS ones.\n- ⇒ **`minor` with a `**BREAKING**` carrier** (41 packages in one `fixed` group ⇒ `major` unavailable), and **`needs:contract-review` on its own merits**.\n- ⚠️ **batch #69 does NOT authorize this** — that ruling is about **arms and registrations**, not published React APIs. This card carries its own authorization from batch #70's precedent plus the ruling on PR objectui#9338.\n\n## Acceptance\n\n- `KanbanRenderer` reads `onCardMove` from an explicit React prop; `ObjectKanban` supplies `handleCardMove` through it.\n- The arm tombstones the key: `handlerKeyRefusal(…, 'retired', …)`.\n- ⭐ `check:handler-key-reads` must go **green on that spelling** — quote its own printed line, and confirm the ledger row for `object-kanban::ObjectKanbanSchema.onCardMove` is **drained** (it is one of the two rows objectui#7804's slice deliberately left, 39 → 37 → **36**).\n- ⚠️ **`README-KANBAN.md` becomes wrong the day this lands** — it teaches an `object-kanban` JSON document carrying `\"onCardMove\": \"(event) => …\"`, a function spelled as a string, accepted and silently dropped today. ⭐ The doc repair **belongs to this change**, ⛔ not to the slice that found it.\n- ⭐ **Ablation leg**: restore the `schema.onCardMove` read — the pin must redden, and the gate must go back to refusing the tombstone.\n\n## Related\n\nobjectui#7804 (**the parent — stays open**) · PR objectui#9338 (the slice that measured this and shipped interim A) · objectui#7742 / decision batch #70 (the precedent) · objectui#7664 (the deletion that falsifies option D) · objectui#6124 (the disposition vocabulary) · objectui#9341 (a separate defect found by the same probe)\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

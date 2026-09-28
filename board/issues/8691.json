@@ -1,0 +1,34 @@
+{
+  "number": 8691,
+  "kind": "issue",
+  "title": "finding(devx): test type-checking runs at two different `lib` levels per package, so `.at(-1)` compiles in 75 test files and is `TS2550` in others",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T22:47:41Z",
+  "updated_at": "2026-09-14T14:40:59Z",
+  "closed_at": "2026-09-14T14:40:28Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8691",
+  "body": "Filed by the objectui#8688 dev seat (branch `claude/issue-8688-provider-ctx-wait-alignment`, PR #8689) as an out-of-scope by-product. ⛔ Not claimed, not assigned.\n\n## Measured\n\nobjectui#8688's card suggested the repair `await waitFor(() => expect(ctxSeen.at(-1)?.userId).toBe('A'))` — a normal, idiomatic shape. Written into `packages/permissions/src/__tests__/providerCtxIdentity.discarded.test.tsx` it ran **green under vitest** and then failed the package's own test type-check, four times over:\n\n```\nsrc/__tests__/providerCtxIdentity.discarded.test.tsx(556,42): error TS2550:\n  Property 'at' does not exist on type '(PermissionContextValue | null)[]'.\n  Do you need to change your target library? Try changing the 'lib'\n  compiler option to 'es2022' or later.\n```\n\nCommand: `pnpm exec tsc -p tsconfig.test.json` in `packages/permissions`, with the dependency closure built first. The PR ships the index form instead, so nothing is broken today — this card is about the divergence, not about that file.\n\n## The divergence\n\n- Root `tsconfig.json`: `target: \"ES2020\"`, `lib: [\"ES2020\"]`.\n- `packages/permissions/tsconfig.test.json` extends the root and does **not** override `lib` ⇒ its tests compile at ES2020, where `Array.prototype.at` (ES2022) does not exist in the type system.\n- `packages/app-shell/tsconfig.test.json` sets `lib: [\"ES2022\", \"DOM\", \"DOM.Iterable\"]` ⇒ its tests compile at ES2022.\n\n`.at(-1)` appears in **75 tracked test files**. It runs everywhere (the runtime is Node 22 / happy-dom, where the method exists) and type-checks only in the packages whose test config raised `lib`.\n\n## Why it is worth a card rather than a shrug\n\nThe failure direction is the awkward one: the method **works at runtime**, so a test written with it is green, reviewable and correct — and then the package's type-check refuses it, or does not, depending on which package the file happens to live in. The author learns the rule per package, by hitting it. The same divergence means a lint or codemod that normalises `arr[arr.length - 1]` to `arr.at(-1)` corpus-wide would redden an unknown subset.\n\nNot asserted here: which way it should be resolved (raise the root `lib`, raise it in each `tsconfig.test.json`, or leave it and document the ES2020 floor). That is a maintainer call — the root `lib` is also what the **published** packages compile against, so raising it is a downlevel-support question and not merely a test-config tidy-up.\n\n## Dedup — declared, not claimed\n\n⚠️ This repo's `search_issues` returns **false zeros** (recorded on objectui#8688), so a zero from it is not evidence of absence. No dedup search is claimed here. The finding surfaced from a measured `tsc` failure rather than from a corpus walk, and both configs are quoted above so a duplicate is cheap to recognise."
+}

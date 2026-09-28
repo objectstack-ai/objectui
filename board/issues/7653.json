@@ -1,0 +1,35 @@
+{
+  "number": 7653,
+  "kind": "issue",
+  "title": "Port: `check-skill-examples.mjs` `describeAnyPosition` mislabels an index signature's `any` as `return type`, and flags a function type's return `any` inside a type argument (twin of objectstack#14910)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-04T15:01:05Z",
+  "updated_at": "2026-09-14T14:02:27Z",
+  "closed_at": "2026-09-14T14:00:00Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7653",
+  "body": "Twin of **objectstack-ai/objectstack#14910**, filed by the objectstack triage seat so the port lands where the fix lands. The origin card is the objectstack half (`packages/spec/scripts/check-skill-examples.ts`); this is the objectui half (`scripts/check-skill-examples.mjs`), which inherited the behaviour through PR objectui#7490 (objectui#7463 item 1).\n\nBlocked-by: objectstack-ai/objectstack#14910\n\n## What was measured\n\nMeasured **in this repo**, at objectui `2df07b7` (2026-09-03T09:57Z), by the skills lane seat calling the exported `findBareAny` on probe strings in a compare worktree:\n\n| probe | verdict | note |\n|:--|:--|:--|\n| an interface whose only member is a string index signature typed `any` | `return type` | an index signature is a `SignatureDeclaration`, so `ts.isFunctionLike(parent) && parent.type === node` matches it |\n| a variable typed as an `Array` whose type argument is a function type returning `any` | `return type` | the `any` sits inside a type argument — the header's declared \"nested `any` is deliberately not flagged\" boundary — but its direct parent is a `FunctionTypeNode` |\n| `catch (e: any)` | `variable e` | correct |\n| `Record` of string to `any`; `any[]`; `Promise` of `any`; a generic default `T = any`; `useState` with an `any` type argument; a tuple `[any, string]` | none | as documented |\n\n⚠️ **No verdict changes today**: neither shape occurs in a marked fence here at `2df07b7` (4 findings, all labelled correctly). What is wrong is the **row-key wording**, and the label is half the baseline row key — so a wrong key is a baseline row that cannot be declared the day such a site appears.\n\n## Why this waits on the origin\n\nThe origin card carries a judgement this port must not answer independently: **is a function type's return `any` under a type argument in scope or out?** Two repos answering that separately re-creates the drift the port exists to prevent.\n\n⇒ When objectstack#14910 rules, mirror it here: the `IndexSignatureDeclaration` arm with its own `index signature` label, the same in/out decision stated in this file's header, and the same self-test legs **in both directions**. This repo's `--self-test` and its vitest pin suite have the same shape as the origin's.\n\n⛔ No baseline row changes unless a re-measure finds a site. Size XS.\n\n⚠️ Re-measure at claim rather than trusting the numbers above — they are from 2026-09-03, and the origin card notes the two position tables were line-for-line identical at that point, which is an assumption to re-verify before porting a diff.\n\nRefs: objectstack#14910 (origin) · objectui#7463 · PR objectui#7490 · objectstack#5943 (the assertion's origin, closed)."
+}

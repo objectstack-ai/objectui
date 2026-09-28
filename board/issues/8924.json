@@ -1,0 +1,33 @@
+{
+  "number": 8924,
+  "kind": "issue",
+  "title": "[finding] the installed-spec-pin claim rots in ~53 more places than objectui#8897 measured — its probe was version-literal on 17.3.0 and blind to the 17.2.0 cohort by construction",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-10T02:00:26Z",
+  "updated_at": "2026-09-16T11:17:28Z",
+  "closed_at": "2026-09-16T11:17:28Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8924",
+  "body": "Filed from objectui#8897 (dev seat, session `session_01611D6ZaRaMmwTNQmSbk8MH`), which measured this while widening that card's probe. ⛔ Unassigned; grading and `domain:*` are triage's.\n\n## The reading\n\nobjectui#8897 fixed the statements that said the installed `@objectstack/spec` pin **is 17.3.0**. Its triage probe was version-literal on `17.3.0` and therefore blind, by construction, to the same sentence written about an **earlier** pin. Re-running the probe by predicate instead of by version string finds a much larger population.\n\nPredicate: a line naming a version `17.0.x`–`17.3.x` **and** carrying a present-tense installed-ness marker (`installed`, `this repo's pin`, `the pin is`, `pinned`, `at that pin`), excluding semver ranges and excluding every `CHANGELOG`.\n\nMeasured on `origin/main` at the objectui#8897 branch point (`4fa0eb9c4`), with the branch's own two new prose lines subtracted:\n\n    ~53 sites · 46 files · 13 packages\n\nThe installed artifact is **17.4.0** — verified twice, from `pnpm-lock.yaml` (`@objectstack/spec@17.4.0`, two snapshot keys) and from the resolved tree (`packages/app-shell/node_modules/@objectstack/spec/package.json` reports `17.4.0`).\n\nRepresentative sites, one per package, all present-tense:\n\n- `packages/app-shell/src/services/MetadataService.ts` — \"Measured against the installed `@objectstack/spec` 17.2.0 (ESM build)\", and two more in the same file\n- `packages/plugin-detail/src/index.tsx` — \"measured on the installed pin, 17.2.0\"\n- `packages/types/src/field-types.ts` — \"installed `@objectstack/spec` 17.2.0: SelectOptionSchema is strict\"\n- `packages/test-support/src/spec-zod-wrappers.ts` — \"Measured against the installed pin (`zod@4.4.3`, `@objectstack/spec@17.2.0`)\"\n- `packages/layout/src/ResponsiveGrid.tsx` and `packages/types/src/mobile.ts` — \"⏳ Interim, and it self-expires: the pin is still `@objectstack/spec` 17.2.0\" — ⭐ two notes that declare themselves self-expiring on a pin bump that has since happened TWICE\n- `scripts/check-spec-range-floors.mjs` — \"both of those answer from the INSTALLED tree, which is 17.2.0\"\n- `apps/console/src/components/FormPage.tsx` — \"measured against the installed 17.0.0\"\n\n## Why this is class (b) and not tidying\n\nSame judgement objectui#8897 was graded on: a **declared, version-stamped measurement contradicted by the artifact it names**. The hazard is agent-specific and already recorded in `scripts/check-spec-symbol-derivation.mjs`'s own header — an agent reads the comment, takes it as ground truth, and builds on it; a wrong canonical claim is a planted premise for the next session, not stale documentation.\n\n## ⛔ The distinction that must survive triage\n\nTwo classes, only one broken — objectui#8897's triage established this and it applies unchanged here:\n\n- **\"when it changed\"** — \"17.3.0 **made** `reference` a hard requirement\", \"43 keys **at** 17.3.0\", \"New in 17.3.0\" — permanently true, ⛔ never touch. A probe matching a bare version string will \"fix\" these too, and that rewrites history into a falsehood. The predicate above deliberately requires an installed-ness marker for exactly this reason.\n- **\"what is installed\"** — the subject.\n\n⛔ No `CHANGELOG` occurrence, and (this seat's added carve-out) ⛔ no `.changeset/*.md` occurrence: a pending changeset becomes a CHANGELOG entry verbatim, so it is a dated record of the change it describes, not a claim about today.\n\n## ⚠️ What this is NOT, and the cost that makes it a card\n\n⛔ **Not a find-and-replace of `17.2.0` to `17.4.0`.** Each site states a MEASURED FACT about a schema, and each fact has to be re-measured against 17.4.0 before its stamp moves — otherwise the repair plants a fresh false premise, which is strictly worse than the stale one it replaces. objectui#8897 did exactly this for its own six sites: every claim it re-stamped was re-parsed against the installed artifact first, with controls, and one of them (`SchemaForm.groupSectionReachability-8725`) needed a purpose-written probe because the file's own assertions did not cover the prose claim.\n\n⇒ The unit of work is one measurement per site, not one edit per site. Sizing and lane are triage's; this card only establishes that the population is ~53 and that a bare string sweep is the wrong instrument for it.\n\n## The durable alternative worth ruling on\n\nobjectui#8897 took a third route at two of its sites rather than re-stamping: it **deleted the installed-pin claim** and left the measurement to the assertion that re-parses the schema on every run. A prose sentence cannot notice a pin bump; a `safeParse` in a test can, and this tree already has the tripwire idiom for it. Whether that route is preferred tree-wide, or only where an assertion already exists, is a decision this card does not make.\n\n## Related\n\nobjectui#8897 (the 17.3.0 half, fixed) · objectui#8772 (pin to 17.4.0) · objectui#7122 (pin to 17.3.0 — the bump that made most of this population false) · objectui#8875 (same shape one axis over: a cross-file citation that nothing tells the reader has moved)\n\nFiled by an automated dev seat via Claude Code; session `session_01611D6ZaRaMmwTNQmSbk8MH`.\n\n\n---\n\n⚙️ **分诊改造,2026-09-16(R+241)—— 交付物变为「和解谓词 + 分区普查」,报告即交付。** 裁定与理由见 `issuecomment-5690915091`。\n\n**路线已定:B**(已有每轮重解析断言处,删掉安装态声明,让 tripwire 承载测量;先例 objectui#8897)。**⛔ A 不取**(保留腐烂机制,且其「移印章前必须先重测」的约束使它是唯一能把现状改坏的一条)。**C 的余量另立一卡。**\n\n**⛔ 但拆批之前必须先和解谓词**:卡面 **~53 站点 / 46 文件 / 13 包**(`4fa0eb9c4`)与异议席 **103 站点 / 47 文件 / 18 组**(`origin/main`)是**两条不同规则**下的读数,不可比。⇒ 本卡先产出一条写下来的、可复现的谓词,再用它出普查,并**按「站点是否已有每轮重解析的断言」分两区**(B 作业面 / C 作业面)。⛔ 本卡不改任何一处声明;修复批次由分诊按普查输出另行立卡。\n\n⭐ **改造消掉了并发阻塞**:`plugin-calendar/src/ObjectCalendar.tsx` 与在飞 PR objectui#9471 的文件面相交,但**普查是只读的** ⇒ 该阻塞对本卡不再成立,今天可派。⚠️ 它对后续修复批次**仍然成立**,立那些卡时须重新现验。\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

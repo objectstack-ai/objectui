@@ -1,0 +1,34 @@
+{
+  "number": 8659,
+  "kind": "issue",
+  "title": "finding(gate): the DOM-leak sweep's own ledger docblock carries five hand-written counts that nothing asserts — all five had drifted before the #5632 sidebar-trigger slice",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T20:40:42Z",
+  "updated_at": "2026-09-14T21:05:03Z",
+  "closed_at": "2026-09-14T21:05:03Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8659",
+  "body": "Filed by the `ui:sidebar-trigger` slice of #5632 (branch `claude/issue-5632-sidebar-trigger-leak`). ⛔ Not fixed there beyond the lines that slice had to rewrite; this is the class, which recurs on every future slice.\n\n## What was measured\n\n`packages/app-shell/src/__tests__/widget-dom-leak-sweep.test.tsx` states its reading in prose, in five places. On `origin/main` at `51f3d8d66`, every one of the five disagreed with the data structures in the same file. Re-derived by parsing `COMPONENTS_PLAIN_TYPES`, `COMPONENTS_SPECIAL_TARGETS` and `COMPONENTS_LEAK_GROUPS` out of the file itself:\n\n| statement in the docblock | what the file's own arrays held |\n|---|---|\n| the reading table's `components` row: `158` targets, `95` leaking | 159 targets, 90 ledgered rows |\n| `**97 of 181 targets leak.**` | 92 of 182 |\n| `### The reading — … ; 97 today` | 90 |\n| `95 of the 158 … in exactly FIVE shapes` | 90 of 159, five shapes (the shape count was right) |\n| `all 158 targets render and all 158 are scanned … the 61 clean ones included` | 159 scanned, 69 clean |\n| the `TARGETS` map's own comment: `158 targets … 138 of them need nothing but the shared readiness class` | 159 / 140 |\n\nThe gate itself is fine — its assertions read the arrays, and every one is green. What rotted is only the prose, and it rotted **silently**, because nothing reads it.\n\n## Why it rots, specifically\n\nThe file's own docblock explains the design that produces this: *\"what the gate asserts is always current truth, which is the whole point of not writing dates into a ledger.\"* That is right about the ROWS and does not extend to the COUNTS — the counts are a second, unasserted copy of the same facts.\n\nThree landed changes moved the numbers without moving the prose, each correctly scoped to its own slice:\n\n- PR #7564 (`BARE_SPREAD_ON_SVG`, 2 rows) updated `97 -> 95` in the table but left the neighbouring `97 of 181` and the `61 clean` line alone.\n- PR #7958 (page wrapper) burned five more rows and updated none of the five statements.\n- PR #8034 (`plugin-charts` families) and the `element:*` additions moved the TARGET count from 158 to 159 and the plain-type count from 138 to 140; nothing tracked either.\n\nSo the drift is not one author's slip — it is the default outcome of the current shape, and it will happen again on the next slice.\n\n## Why it is worth a card rather than a shrug\n\nThis docblock is the FIRST thing a slice reads: the dispatch for the sidebar-trigger slice quoted `95 of 158` as its baseline, and the card body's own summary table repeats those numbers. A slice that trusted them would have reported a burn-down of `95 -> 94` when the truth is `90 -> 89`. The card already tells dispatchers not to trust its summary table (\"a reading of it, not a substitute\"); the same warning is now needed one level down, or the numbers should stop being hand-written.\n\n## Options (not a ruling — triage's call)\n\n1. **Assert them.** A case in the same file that recomputes targets / ledgered rows / clean / shapes from the arrays and compares against named constants, so a slice that forgets to update the prose goes red with the new numbers in the message. Cheapest, and it makes the counts a measurement instead of a memory.\n2. **Derive them.** Delete the numbers from the prose and have the docblock name the constants instead. Loses the at-a-glance reading a burn-down card wants.\n3. **Do nothing and warn.** Add one line saying the counts are indicative and the arrays are authoritative. Honest, but it is what the file already effectively says, and it did not stop six drifts.\n\nOption 1 is the recommendation: it is the same technique this gate already uses on the ledger rows (two-way exact-set equality), applied to the summary of those rows.\n\nRelated, same class, different files: #8535, #8122 (closed), #8484 (closed) — gate `.mjs` docblocks and workflow headers. None of them reads a `*.test.tsx` docblock, so this instance is outside all three.\n\n## Scope note\n\nThe #5632 sidebar-trigger slice corrected all six statements to the measured values as part of rewriting the ledger docblock it had to touch anyway. That is a one-time correction of the text, **not** a fix for the class: the next slice inherits exactly the same unasserted prose.\n\n⛔ No assignee — triage's to route.\n\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

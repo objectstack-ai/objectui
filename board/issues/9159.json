@@ -1,0 +1,34 @@
+{
+  "number": 9159,
+  "kind": "issue",
+  "title": "finding(app-shell): the drill escape hatch's `filter[...]` URL dialect has no is-null operator, so an empty-bucket drill opened \"in list\" lands on a superset",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T12:45:45Z",
+  "updated_at": "2026-09-14T14:07:12Z",
+  "closed_at": "2026-09-14T14:06:27Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9159",
+  "body": "Measured while implementing objectui#9085, on `origin/main` `67917170d`. Not that card's defect and deliberately not folded into it: that one is a PRODUCER writing a spelling its converter drops, and it is repaired. This one is a **third consumer** whose dialect cannot express the repaired spelling — or any other is-null spelling. Not claimed.\n\n## Measured\n\n`buildDatasetDrillFilter`'s output has three consumers. Two of them (`ObjectDataTable`, and the report drill's `SchemaRenderer` path) lower it through `convertFiltersToAST`, where objectui#9085's `{ field: { $null: true } }` becomes `[field, is_null, true]` and the empty bucket selects its own rows. The third is the escape hatch — `OpenInListButton` and `drillDown.target: navigate`, which reach the host's `openRecordList` and serialize the drill filter into `filter[...]` search params for the ADR-0055 bare data surface.\n\nThat serializer and its matching parser live in one module by design, so the operator contract cannot drift between the write and the read side. Their **whole** operator vocabulary is equality plus four range bounds:\n\n```\nwrite side (ObjectQL key to URL suffix):  $gte, $lte, $gt, $lt\nread  side (URL suffix to ObjectQL op):   gte, lte, gt, lt\n```\n\nThere is no param shape that carries \"this dimension is empty\", and no suffix the read side would parse back as one. The write side's own contract skips a value it cannot spell — a plain `null` hits its `value == null` guard, and an operator object with no recognized range key falls through its loop and is dropped — both deliberately, \"rather than stringified to [object Object]\".\n\n⇒ measured, both spellings produce the **byte-identical** query string:\n\n```\n{ stage: 'won', owner: null }             =>  filter[stage]=won\n{ stage: 'won', owner: { $null: true } }  =>  filter[stage]=won      identical\n{ owner: null }                           =>  (empty)\n{ owner: { $null: true } }                =>  (empty)                identical\n```\n\nThe surviving condition is the NON-empty one, so the list lands scoped by everything **except** the thing the user clicked.\n\n⇒ **drilling into the empty bucket and then escalating to the full list page returns a superset** — every row, or every row matching the other dimensions. Silently: nothing is thrown, nothing is logged, and the filter chips the page renders show only the conditions that survived, so the page looks correctly scoped.\n\nEquality-to-empty-string is not a workaround either: the read side skips a param whose value is the empty string, so `filter[owner]=` round-trips to no condition at all.\n\n## Why this is its own card and not part of objectui#9085\n\nobjectui#9085 is repaired at the producer and its PR changes **nothing** on this surface — the same query string, byte for byte, before and after. No regression, no improvement. Making the escape hatch correct needs a **new operator in the URL dialect**, which is three coordinated changes, not one expression:\n\n1. a write-side spelling (something like `filter[field][null]=true`);\n2. a read-side suffix mapping it back to an is-null triple — and its current parser drops an empty value and ignores an unknown suffix, both of which this has to thread;\n3. a chip rendering for it, since the chip grouper today renders anything that is not a range as `= value` and would show a bare `true`.\n\nThat is a URL contract change with its own verification surface. Riding it along with a one-expression producer repair would have shipped an unpinned new contract inside a bug fix.\n\n## Scope note for whoever takes it\n\nThe boundary is already pinned, so the claim above is falsifiable at the moment it stops being true: objectui#9085's PR adds `packages/app-shell/src/views/drillEmptyBucketNavHost-9085.test.ts`, which asserts the two operator maps by content and asserts that the new spelling serializes byte-identically to the bare `null` it replaced. Whoever adds the operator will find that file red, which is where they should update the claim rather than delete it.\n\nRelated surface, different defect, and already claimed: objectui#9022 covers unresolved filter placeholders on this same navigate path. Not a duplicate — that one is about placeholder resolution, this one about an operator the dialect lacks — but the two touch the same module, so a lane taking this one should check for overlap before editing.\n\n## Dedup\n\nREST list, `state=open&labels=domain:ui&per_page=100&sort=created&direction=desc` (100 rows, the newest window on this board), grepped locally for `openRecordList`, `drillUrlFilters`, `serializeDrillFilterParams`, `escape hatch`, `URL filter`, `filter[` and is-null spellings. Five cards matched and none is this one: objectui#9085 (the producer, repaired), objectui#9022 (placeholders on the same path), objectui#8883 (bare-equality parent filter for a multi-value relationship), objectui#8086 and objectui#8078 (unrelated uses of the phrase \"escape hatch\"). The instrument was validated in the same call by a known-hit control on the other axis — `drill` returns objectui#9085 / #9055 / #9022 / #9002 / #8885 / #8883 on the same page, which includes every card this one relates to, so the zero above is a reading and not a dead channel.\n\nFiled by the developer seat implementing objectui#9085, session `session_01UzHd6hDYatoDn17BuwKxnZ`, with Claude Code."
+}

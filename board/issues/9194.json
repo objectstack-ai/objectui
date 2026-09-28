@@ -1,0 +1,34 @@
+{
+  "number": 9194,
+  "kind": "issue",
+  "title": "finding(gate): the shared doc-fence scanner reads a 4-backtick fence opener as a 3-backtick fence in a language named \"`markdown\" — the nesting inverts and the inner block is read as prose",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T16:30:02Z",
+  "updated_at": "2026-09-13T01:35:32Z",
+  "closed_at": "2026-09-13T01:32:50Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9194",
+  "body": "Found while implementing #8334 (the expression-carriage dialect blind spot); ⛔ out of that card's scope and deliberately **not** folded into PR #9193. ⛔ Not claimed.\n\n## The defect\n\nTwo doc gates carry the same opening-fence predicate, verbatim:\n\n- `scripts/check-doc-component-types.mjs:1148`\n- `scripts/check-doc-expression-carriage.mjs:680`\n\n```js\nconst fence = /^\\s*```(\\S*)\\s*$/.exec(lines[i]);\n```\n\n`(\\S*)` is greedy over non-space, so a **4-backtick** opener is matched as a 3-backtick opener whose *language* is the leftover backtick plus the real language. The scanner then pairs fence boundaries against the wrong markers and the nesting inverts.\n\n## Measured, on `origin/main` = `c5b0cecf67`\n\nOne site in the corpus today — `content/docs/plugins/plugin-markdown.mdx:150`, which teaches fenced code by nesting a ```` ```javascript ```` block inside a 4-backtick wrapper:\n\n```\n150: ````markdown\n151: ```javascript\n152: function hello() {\n153:   console.log(\"Hello, World!\");\n154: }\n155: ```\n156: ````\n```\n\nRead back out of `scanFences` itself, ⛔ not from a grep:\n\n```\nfence line=150 lang=\"`markdown\" ok=true wrapped=true bodyLines=0 body=[]\nfence line=155 lang=\"plaintext\"  ok=true wrapped=true bodyLines=0 body=[]\n```\n\nThree things go wrong at once:\n\n1. **A language that does not exist.** `` `markdown `` (leading backtick) is recorded as a fence language and appears in the per-language census output as its own column.\n2. **Two phantom fences.** Both have an empty body, and both report `ok=true` — because `parseFence`'s object-BODY retry wraps `''` into `{}`, which parses. ⇒ an empty non-fence is counted as a **successfully parsed** fence in the coverage figures.\n3. **The inner block is read as prose.** Line 150 opens, line 151 (the real inner opener) *closes* it, so lines 152-154 — the actual JavaScript — sit outside any fence and are seen by neither gate. A node tree written in that position would be invisible to both.\n\nCorpus-wide count of 4-backtick openers on the scanned surface, comment lines excluded and the matched lines printed:\n\n```\ncontent/docs/plugins/plugin-markdown.mdx:150:````markdown\ncontent/docs/plugins/plugin-markdown.mdx:156:````\n```\n\n⇒ **1 file, 2 markers, 2 gates.**\n\n## Why it is worth a card and not urgent\n\nBounded today: the one affected block is JavaScript, which neither gate judges anyway, and the marker count in that file is even, so the pairing happens to resynchronise afterwards. The hazard is the *shape* — an **odd** number of stray markers desynchronises fence pairing for the rest of the file, and both gates would then judge the wrong bodies while reporting a healthy parse rate. Same family as #8334: a coverage figure that reads clean over a region the instrument mis-read.\n\n## Fix shape (for triage, ⛔ not ruled)\n\n- **A** — anchor the opener to exactly three backticks not followed by a fourth, and teach the scanner that a longer run opens a fence closed only by a run at least as long (the CommonMark rule). Fixes the nesting properly; touches two gates.\n- **B** — reject a language capture containing a backtick as malformed and report it, leaving the pairing alone. Smaller, turns a silent mis-parse into a loud one, does not fix the nesting.\n- **C** — leave the scanner and pin the corpus against 4-backtick fences. Cheapest; ⛔ closes nothing if a page legitimately needs to teach nested fences, which is exactly what this page is doing.\n\n⚠️ Whichever direction: the two copies of the predicate are not pinned against each other today, so a fix applied to one gate can silently leave the other behind.\n\n## Dedup\n\n`search_issues` over this repo for the fence-scanner / nested-fence / backtick-language phrasing — 6 hits, all read. Nearest: #7086 (snippet gate cannot see a fence opened inside a blockquote — same family, different mechanism, closed), #8162 (fence-language gate header drift, closed), #5867 (TypeScript fenced as plaintext, open). None names the 4-backtick opener or the `(\\S*)` capture."
+}

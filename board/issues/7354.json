@@ -1,0 +1,36 @@
+{
+  "number": 7354,
+  "kind": "issue",
+  "title": "plugin-form: a refused master-detail save puts the SAME refusal on screen twice — `MasterDetailForm.handleError` and the parent form renderer both toast the write that was re-thrown",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-litant",
+    "id": 314681334,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T13:08:14Z",
+  "updated_at": "2026-09-13T17:19:46Z",
+  "closed_at": "2026-09-13T17:19:20Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7354",
+  "body": "Filed unassigned by the dev of #7345 as an out-of-scope finding, measured while pinning that card. Not fixed there: #7345's criterion is supersession of this form's own two outcomes, and this is a second raiser reporting one rejection twice — a different defect on the same save path.\n\nDedupe: one targeted search of open issues (`repo:objectstack-ai/objectui is:issue is:open MasterDetailForm toast`) returned exactly one card, #7345 itself — that hit is the control, and no open card names a duplicated refusal. Semantic neighbours from #7345's own dedupe: #2278 (closed — two SUCCESS toasts on master-detail create, the mirror-image defect on the success side).\n\n## The defect\n\nOne rejected master-detail write produces two error toasts, with the same text, under two different sonner ids:\n\n1. `MasterDetailForm.handleError` raises `toast.error(err.message || 'Save failed')` — `packages/plugin-form/src/MasterDetailForm.tsx`;\n2. `ObjectForm`'s submit handler calls `schema.onError` (which is that `handleError`) and then **re-throws**; the throw surfaces in the form renderer's own catch in `packages/components/src/renderers/form/form.tsx`, which sets the in-form banner **and** toasts the same message.\n\nSo the user is told once, and shown it twice.\n\n## Measured, not assumed\n\nOn `origin/main` `4704aa4bb`, with a sonner registry modelling ids (the `MasterDetailForm.outcomeToastSupersede.test.tsx` harness #7345 added), a single refused save leaves the registry holding:\n\n```\n[ { type: 'error', message: 'Line 2 quantity exceeds the remaining allocation.' },\n  { type: 'error', message: 'Line 2 quantity exceeds the remaining allocation.' } ]\n```\n\nTwo entries, one message. #7345's pin is deliberately written so its assertions do not depend on how many raisers report an outcome (it compares distinct `type:message` statements), so that card going green does not mask this one.\n\n## Why it is not obviously either raiser's fault\n\nBoth raisers are individually correct: the renderer must report a write its own submit re-threw (that is what makes a refusal visible in flat and wizard forms), and `MasterDetailForm` must report a failure of the batch it owns. The question this card has to settle is which layer owns the message when a host `submitHandler` re-throws — a contract question about the submit seam, not a spelling fix at either site. Deciding it in the renderer without deciding it for every `submitHandler` host would just move the duplicate.\n\n## Scope note\n\nToast durations and supersession are not in this card — #7345 covers supersession on this form, and it landed the shared `form-outcome:` id plus the per-attempt dismissal.\n\nRefs: #7345 (where this was measured) · #7252 · PR #7342 · #2278."
+}

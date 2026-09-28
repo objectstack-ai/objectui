@@ -1,0 +1,33 @@
+{
+  "number": 8968,
+  "kind": "issue",
+  "title": "finding(plugin-detail): `filterMode` and `enableMentions` stay unread on the chatter path even after objectui#8934 — the protocol declares them, the renderer never looks",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-10T11:32:40Z",
+  "updated_at": "2026-09-15T06:14:05Z",
+  "closed_at": "2026-09-15T06:12:56Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8968",
+  "body": "> ## ⛔ Correction — I filed this card pointing the wrong way, ~20 minutes after opening it\n>\n> The first version said `RecordChatterComponentProps.feed?: RecordActivityComponentProps` **over-promises** and offered \"narrow the ObjectUI type\" as route A. That is **refused**, and the reason is a maintainer principle I had not applied when I filed it:\n>\n> > 我们的项目以 objectstack 协议为准，文档应该以实际实现为准。协议不正确的应该先修改协议。\n>\n> (relayed with its source on objectui#8934, [`5617613810`](https://github.com/objectstack-ai/objectui/issues/8934#issuecomment-5617613810).)\n>\n> Measured in the PM seat on `objectstack-ai/objectstack` HEAD `eabdd66f45f402eba0f8404a8a9de4a501fc83a6`, `packages/spec/src/ui/component.zod.ts`:\n>\n> ```ts\n> // :1349\n> export const RecordChatterProps = strictObject({ … }, {\n>   …\n>   /** Feed configuration (delegates to RecordActivityProps) */\n>   // :1366\n>   feed: RecordActivityProps.optional().describe('Embedded activity feed configuration'),\n>   …\n> });\n> ```\n>\n> bound to **both** names — `:2948` `'record:chatter': RecordChatterProps`, `:2962` `'record:discussion': RecordChatterProps`; `RecordActivityProps` is at `:1248`.\n>\n> ⇒ **The ObjectUI type is right.** `feed?: RecordActivityComponentProps` (`packages/types/src/record-components.ts:257`) is the protocol's twin, and narrowing it locally is exactly what the principle forbids. What is wrong is the **renderer**, which reads five of the members the protocol declares. `Blocked-by:` and the scope below are the rewrite.\n\n⭐ **Unblocked 2026-09-15T02:34Z** — objectstack-ai/objectui#8934 closed `completed` at 2026-09-10T15:42:24Z and its `Restart-when:` fired; the premise was re-verified on `origin/main` before the return to the queue (see the comment below). The discharged `Blocked-by:` / `Restart-when:` pair was removed from this line so the reverse index stops matching it.\n\n## Scope — the remainder objectui#8934 does not reach\n\nobjectui#8934 is being implemented on **route 1**: run `applyFeedConfig` on the chatter path before handing items to `RecordActivityTimeline`, the same call shape `renderers/record-activity.tsx:219` uses. That makes four of the protocol's members live on this path: `types`, `limit`, `showCompleted`, `unifiedTimeline`.\n\n**It does not reach two more.** `applyFeedConfig` handles the filter pipeline only.\n\n| member | why it stays unread after objectui#8934 | evidence |\n| --- | --- | --- |\n| `filterMode` | `RecordActivityTimeline` takes it as a **component prop**, never off `config` | `RecordActivityTimeline.tsx:187` destructures `filterMode: controlledFilter`; `:212` `const activeFilter = controlledFilter ?? internalFilter`. `RecordChatterPanel` declares its own `filterMode` prop (`:39`) and forwards it (`:163`, `:220`) — but `RecordChatterRenderer` (`renderers/record-chatter.tsx:54-70`) passes none. So an authored `feed.filterMode` reaches nothing on either name. |\n| `enableMentions` | read only on the `record:activity` renderer | `renderers/record-activity.tsx:123` (`enableMentions: read('enableMentions')`) and `:240` (`config.enableMentions !== false`). Zero reads in `RecordChatterPanel.tsx` or `RecordActivityTimeline.tsx`. The chatter path's @-mentions come from the host discussion context — `record-chatter.tsx:69` passes `mentionSuggestions={discussion?.mentionSuggestions}` unconditionally, so the affordance exists but the member that is supposed to gate it does not. |\n| `aria` | ⚠️ **NOT MEASURED** | whoever picks this up owes the reading. |\n\nThe protocol declares both (`RecordActivityProps`, `component.zod.ts:1248`): `filterMode` seeds which slice the dropdown opens on, `enableMentions` gates the composer's @-autocomplete suggestions. ObjectUI's own `record:activity` registration publishes both — `packages/plugin-detail/src/index.tsx:662` and `:672`, the latter describing exactly the behaviour the chatter path is missing:\n\n> Offer @-mention autocomplete in the composer, from the host discussion context's user list. **Off withholds the suggestions.**\n\nOn `record:chatter` / `record:discussion`, \"off\" withholds nothing.\n\n## Where this came from\n\nTwo independent measurements, both after objectui#8962 opened:\n\n- the contract review of PR #8962 ([`5617990272`](https://github.com/objectstack-ai/objectui/pull/8962#issuecomment-5617990272)), which measured that `record:activity` publishes **11** inputs while that PR's rewritten description accounted for **9**;\n- a re-measurement in the PM seat, reaching the same two names by a different route.\n\nThe review raised it as an under-enumeration defect in a description that is no longer being shipped. The description is reverting, so what survives is the underlying gap, which is this card.\n\n## Not a route list\n\nThere is only one direction consistent with the principle: **make the renderer read what the protocol declares.** The open question is `aria`, and whether `filterMode` on a panel whose filter dropdown is itself gated by `showFilterToggle` has a coherent meaning when the toggle is off — that is a design question for the implementer, not a contract choice.\n\n⚠️ Whoever picks this up: read objectui#8934's landed shape first. If route 1's `applyFeedConfig` wiring happens to make either member live as a side effect, this card is smaller than it reads — the dev on that card was asked to report it if so.\n\n## Class\n\nobjectui#4631's family, but the *opposite* pole from objectui#8236: nothing here is live-by-accident through a rest-spread, and nothing here is a declaration to retire. The declarations are correct on all three faces that mirror the protocol; only the reader is short.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

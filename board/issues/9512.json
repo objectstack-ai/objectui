@@ -1,0 +1,50 @@
+{
+  "number": 9512,
+  "kind": "pull_request",
+  "title": "build(tsconfig): raise test-program `lib` to ES2022 across 31 packages",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: auth",
+    "package: collaboration",
+    "package: core",
+    "package: create-plugin",
+    "package: fields",
+    "package: i18n",
+    "package: layout",
+    "package: permissions",
+    "package: providers",
+    "package: react",
+    "package: react-runtime",
+    "package: runner",
+    "package: sdui-parser",
+    "package: types",
+    "plugin",
+    "plugin: charts",
+    "plugin: editor",
+    "plugin: kanban",
+    "plugin: markdown"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-14T13:57:56Z",
+  "updated_at": "2026-09-14T14:39:14Z",
+  "closed_at": "2026-09-14T14:39:12Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": "2026-09-14T14:39:12Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/9512",
+  "body": "Part of #8691 — the in-lane half, measured. The maintainer fork the card named is answered below: it dissolves.\n\n## What moved\n\n31 `packages/*/tsconfig.test.json` files, one axis only: `lib` ES2020 to ES2022.\n\n- The root `tsconfig.json` is **untouched**. What every package SHIPS still compiles against the ES2020 baseline, so downlevel support is unchanged and this is not the maintainer's downlevel question.\n- Each file keeps its existing DOM set **exactly**. Three spellings existed and all three are preserved: ES2022+DOM+DOM.Iterable, ES2022+DOM, and ES2022 alone for `vscode-extension`.\n- All 31 projects are `noEmit: true` — measured, not assumed — so nothing here reaches an artifact. `tsc` `lib` is type-only; vitest never reads these configs. There is no runtime direction to this change.\n- `packages/plugin-timeline/tsconfig.test.json` is deliberately NOT touched; it belongs to another in-flight card and is left exactly as found.\n\n## The distribution that was actually there\n\nThe card described the divergence as binary. It is not. Measured at `af4ff1d1e0` with TypeScript's own JSONC reader, and independently confirmed by the repo's own `census:tsconfig-test-parity` — two readers, same answer:\n\n39 `tsconfig.test.json` projects, **five** distinct `lib` spellings:\n\n| effective `lib` | count | packages |\n|:--|--:|:--|\n| es2020 + dom + dom.iterable | 29 | the inheriting majority, plus `core` `fields` `plugin-dashboard` `plugin-editor` `react` which RESTATE the inherited value |\n| es2022 + dom + dom.iterable | 4 | `app-shell` `components` `mobile` `plugin-list` |\n| es2020 + dom | 3 | `i18n` `plugin-form` `types` — a NARROWING, drops DOM.Iterable |\n| es2022 + dom | 2 | `plugin-grid`, `examples/schema-catalog` |\n| es2020 | 1 | `vscode-extension` — narrowest, no DOM at all, and extends its own sibling rather than the root |\n\nThe split that matters is not \"sets `lib`\" versus \"inherits\": 13 projects set `lib` and **five of those still land on ES2020**, restating the inherited value for no effect. Reading the file for the presence of a `lib` key tells you nothing about which level it compiles at.\n\n## The `.at(-1)` population, re-measured\n\nRe-read at `af4ff1d1e0`; the card's figure is from six days earlier.\n\n- **79** tracked test files contain the literal, up from the card's 75.\n- **74** of those have at least one real call site; **127** call sites in total.\n- **5** files match on COMMENT TEXT ONLY — all in `plugin-designer`, all comments explaining why the author used index arithmetic instead. A naive file-count reader counts the workaround as an instance of the problem.\n- **0** occurrences in non-test package source. Control for that zero: the same command shape over the same file set returns 475 for a token known to be present.\n\n## What it cost — before and after, with controls\n\nDependency closure built first (43/43 turbo build tasks), because an unbuilt tree makes every program look broken identically.\n\n| run | result |\n|:--|:--|\n| BEFORE — `tsc -p tsconfig.test.json` for all 37 package projects | 37 exit 0, 0 errors |\n| AFTER — same 37 | 37 exit 0, 0 errors |\n| AFTER — `turbo run type-check` (CI's own job: source AND test programs) | 81/81 tasks, exit 0 |\n\nCost of the raise: **zero errors, zero overload-resolution changes, in either direction.**\n\nEvery zero above carries a control proven able to return non-zero in the same command:\n\n| control | result |\n|:--|:--|\n| `.at(-1)` on a `number[]` in `permissions` BEFORE | exit 2 — `TS2550`, the card's exact signature |\n| byte-identical probe in `app-shell` (already ES2022) | exit 0 |\n| the same probe in `permissions` AFTER the raise | exit 0 — the change is load-bearing, not vacuous |\n| provably-false assignment in `permissions` AFTER | exit 2 — `TS2322` |\n| provably-false assignment through `turbo run type-check` | exit 2 — the turbo reader is not serving a cached green |\n\nEvery probe was proven on disk before reading a result, and every leg restored under a trap; `git diff HEAD` verified empty after each.\n\nGates, all exit 0: `type-check:coverage`, `check:published-tsconfig-exclude`, `check:self-import`, `check:published-dist`, `check:control-bytes`, `check-changeset-presence` (0 published files moved, so no changeset is owed), and the 4 script suites that pin these configs (77 tests).\n\n`gates_weakened: NONE`. Nothing was lowered, loosened or excluded — raising a test program's `lib` only admits more to the checker, for files that are never shipped.\n\n## Why the divergence was invisible\n\nAll 37 test projects were green BEFORE this change, including every ES2020 one holding a real `.at(-1)`. That is not the ES2020 floor being harmless — it is the receiver being `any`. Every surviving call site in an ES2020 project reaches `.at` through an `as any` mock factory or a `readonly any[]` annotation, so the checker never sees an array and never applies the floor. The rule only bites when someone types the receiver properly, which is exactly what happened on the card that filed this.\n\nSo the defect was latent, not absent, and it failed in the most expensive direction: green under vitest, green under `tsc` until the day your value is well-typed.\n\n## The remainder — the fork dissolves\n\nAfter this change, nothing requires the root `lib` to move.\n\n- Non-test package source contains **0** uses of `.at(`, `Object.hasOwn`, `.findLast`, or class static blocks. The shipped code does not want ES2022.\n- The package source programs are untouched and still compile at ES2020 — 81/81 above includes them.\n- This is not a new pattern: `packages/app-shell` raised its test `lib` and no other, and its config already documents the reasoning verbatim — raised there \"so the package SOURCE keeps compiling against the ES2020 baseline it ships to.\"\n\nThe downlevel-support question the card correctly declined to answer is a question this card never needed answered. It can stay closed.\n\nAfter this lands, two projects remain at ES2020, both deliberately outside this PR's surface: `packages/plugin-timeline` (another card's file) and `examples/console-starter` (not `packages/*`).\n\n## Known consequence, NOT repaired here\n\nFive `plugin-designer` test files carry comments justifying index arithmetic by the ES2020 floor. This change makes those comments false. These are test sources, outside this PR's declared file surface, so they are reported rather than edited.\n\nOne of the five is **already false at HEAD**, independently of this PR: it states that `.at()` \"type-checks nowhere in this repo\", which five packages have contradicted since before this card was filed. The control run above compiles that exact idiom in `app-shell` today.\n\n## Maintainer speed-read (draft)\n\n**改了什么** — 31 个包的测试专用 tsconfig,`lib` 从 ES2020 抬到 ES2022,只动这一个轴,DOM 集合原样保留。根 `tsconfig.json` 一个字节没动。\n\n**为什么改** — 同一个写法 `calls.at(-1)` 在五个包里能过类型检查,在其余包里报 TS2550,差别只取决于文件恰好放在哪个包。作者只能一个包一个包地撞出来这条规则。\n\n**风险与代价(含回滚)** — 实测代价为零:改动前后 37 个测试程序全绿,CI 自己的 `type-check` 81/81 全绿。测试程序不发布、全部 `noEmit`,发布产物与降级支持不受影响。回滚就是 revert 这一个 commit,无迁移、无数据、无下游。已知副作用一项:`plugin-designer` 五个测试文件里解释「为什么不用 `.at(-1)`」的注释会变成过期描述,已在上面单独列出,未在本 PR 内修改。\n\n**席位意见** — (留空)\n\n**你要做的** — 确认一件事:卡片把「要不要抬根 `lib`」升级成了维护者决定,而实测结论是这个问题不需要回答 —— 发布代码里 `.at(` 出现 0 次,根配置不用动。若认可,这条升级可以就此撤销。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_013VGeMu3p6qEFWR6K6GGLaW)_"
+}

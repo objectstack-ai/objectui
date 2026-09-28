@@ -1,0 +1,35 @@
+{
+  "number": 9137,
+  "kind": "issue",
+  "title": "finding(core): `buildDatasetDrillFilter` SPREADS the runtime filter into the drill filter — the third site of the array-arm mis-composition, and here the array is the DECLARED form",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T09:52:40Z",
+  "updated_at": "2026-09-12T12:13:42Z",
+  "closed_at": "2026-09-12T12:13:42Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9137",
+  "body": "Filed by the dev seat implementing objectui#9024 (the pivot half of this defect class). Ungraded and unrouted — `domain:*`, priority and type are triage's. Filed unassigned. Attribution in prose rather than a footer block: Claude Code, session `session_01UzHd6hDYatoDn17BuwKxnZ`, working from PR objectui#9135.\n\n⚠️ Not fixed in objectui#9135. That card's dispatch fenced third sites out explicitly (\"a third site is its own card\"), so this is the card.\n\n## The statement\n\n`packages/core/src/utils/dataset-format.ts`, the last line of `buildDatasetDrillFilter`:\n\n```ts\nreturn runtimeFilter ? { ...runtimeFilter, ...drillFilter } : drillFilter;\n```\n\nThat is the same composition objectui#8944 removed from `ObjectChart` and objectui#9024 removed from `ObjectPivotTable`: spreading a filter SOURCE into an object literal. Spreading an ARRAY yields index keys — `[['region','=','emea']]` becomes `{ '0': ['region','=','emea'] }` — so the widget's own conditions are replaced by a key nothing reads as a condition, and the drilled list widens to the clicked bucket alone. The widget filter is what NARROWS, so the failure direction is the superset, silently.\n\n## ⭐ Why this site is WORSE than the two already handled: here the array arm is the DECLARED form\n\nOn the chart the record arm was what the corpus authored, and on the pivot nothing declared `filter` at all. Here the declaration exists, it is reached, and it says the array arm is what objectui passes — `packages/types/src/complex.ts`, `DashboardWidgetSchema`, verbatim:\n\n> Data binding: filter conditions. Kept `any` — objectui passes an ObjectQL FilterNode array here, not the spec's `FilterCondition` envelope.\n\n⇒ The spread is not mis-handling an unusual arm. It is mis-handling the arm the type's own docblock names as the one objectui sends.\n\n## The path from that declaration to the spread, each hop named\n\n1. `DatasetWidget` (`packages/plugin-dashboard/src/DatasetWidget.tsx`) takes `{ widget: any }`, so `widget.filter` arrives with the `DashboardWidgetSchema` intent above and no narrowing.\n2. Its `runtimeFilter` memo gates on `rawFilter && typeof rawFilter === 'object' && Object.keys(rawFilter).length > 0`. ⚠️ An ARRAY passes all three: `typeof [] === 'object'`, and `Object.keys(['x']).length` is 1. So the array arm flows through, it is not filtered out by that guard.\n3. That value is handed to `buildDrillFilter` (the re-export of `buildDatasetDrillFilter`) as `runtimeFilter`, and reaches the spread above.\n\n`DatasetReportRenderer` calls the same function twice with its own `runtimeFilter`, which it types as an object — so the report surface is typed against the object arm while the dashboard surface's declaration names the array arm. That disagreement is part of the finding rather than a separate one.\n\n## What is measured and what is NOT — the honest bound\n\nMEASURED, on `origin/main` `c736084bf`, each printed rather than inferred from a pattern that failed:\n- the statement, verbatim, at the end of `buildDatasetDrillFilter`;\n- the `DashboardWidgetSchema.filter` declaration and its docblock;\n- `DatasetWidget`'s `{ widget: any }` signature and the exact `typeof`/`Object.keys` guard;\n- that the array arm satisfies that guard.\n\nNOT MEASURED, and a fair input to grading: whether a live dashboard actually authors the array arm on a DATASET widget, and whether the dataset query leg (which sends the same `runtimeFilter` to the server) accepts it — if the server refuses an array there, the widget is already broken before any drill and the blast radius is smaller than the declaration suggests. Nobody has run that end to end, including me. The artifact defect is real either way; the reach is not established.\n\n## The fix shape, named rather than left open\n\n`composeDrillFilter` (`@object-ui/core`, added by objectui#8944) already states and applies the rule — widget filter conjoined with drill filter, via the repo's single filter sink `mergeFilterNodes` — and lowers the result back to the object dialect. Two sites now route through it. ⛔ Do not derive a third local answer.\n\n⚠️ But this site is NOT a copy-paste of the other two, and whoever takes it should confirm before assuming the seam drops in:\n- `buildDatasetDrillFilter` returns `Record` of string to unknown NON-optionally, and its callers do not expect `undefined` — `composeDrillFilter` answers `undefined` when both sources are empty;\n- its `drillFilter` carries ObjectQL range operator objects (`{ $gte, $lt }`) for time-bucketed dimensions, so whatever composes it has to preserve those, not just equality pairs;\n- it has two consumers with different `runtimeFilter` types (the dashboard's `any`, the report renderer's object).\n\n## Related\n\nobjectui#8944 (the chart half, landed as PR objectui#9016) · objectui#9024 (the pivot half, PR objectui#9135) · objectui#9085 (a DIFFERENT defect in this same function — the empty-bucket bare `null` that `convertFiltersToAST` skips; it is not this one, and repairing it would not repair this) · objectui#6357 (the second-declaration class the pivot card leaned on).\n"
+}

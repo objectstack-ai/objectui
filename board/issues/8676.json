@@ -1,0 +1,33 @@
+{
+  "number": 8676,
+  "kind": "issue",
+  "title": "finding: 12 of the 15 object-metadata write call sites route through neither objectui#7714 guard — and a `client.save(` sweep cannot see them",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T21:48:04Z",
+  "updated_at": "2026-09-14T21:12:55Z",
+  "closed_at": "2026-09-14T21:12:55Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8676",
+  "body": "Filed from the objectui#8057 fix (dev seat, session `session_01YBWFb5YgMU5dw8p2VKj16S`). ⛔ Unassigned; grading and `domain:*` are triage's.\n\nobjectui#8057's triage made a point that outlives its fix:\n\n> objectui#7714's ruling names two writers and its PR guards both — and the surface that reproduced the failure **in that card's own required dogfood** is a third writer neither guard covers. ⇒ **is there a fourth?** A ruling that enumerates writers is only as good as the enumeration.\n\nI swept for it. There is a fourth, and there are eight more after that. Separately — and this is the part I think matters most — **the sweep shape that question is naturally asked in cannot find them.**\n\n## The measurement\n\nPopulation proved live before any zero was read (lit control `doSave`, 10 files):\n\n```\ngit grep -ln 'doSave' -- 'packages/*/src/*' 'apps/*/src/*'\n```\n\nPopulation: 3962 files under `packages/*/src/*`, 191 under `apps/*/src/*`.\n\n```\n{ git grep -n '\\.save[<(]'      -- 'packages/*/src/*' 'apps/*/src/*';\n  git grep -n 'meta\\.saveItem(' -- 'packages/*/src/*' 'apps/*/src/*'; } \\\n  | grep -v '\\.test\\.' | grep -vE ':[0-9]+: *(\\*|//|/\\*)' | grep -vE '\\* ' \\\n  | grep -E \"'object'|\\((type|parentType|current\\.type)|save<\" | sort -u\n\ngit grep -n 'toFieldsMap' -- 'packages/*/src/*' | grep -v '\\.test\\.'\n```\n\nMeasured on `4eb665bcf`: **15 object-metadata write call sites across 10 files.**\n\n`toFieldsMap` — the objectui#7714 guard — exists in exactly **two files** and guards **three** of those call sites:\n\n- `packages/app-shell/src/services/MetadataService.ts:716, :853` (`toFieldsMap` at `:186`, `:850`)\n- `packages/plugin-designer/src/MetadataFieldsPage.tsx:539` (`toFieldsMap` at `:537`)\n\n**Twelve call sites across eight files route through neither guard:**\n\n| File | Lines | Type argument |\n|---|---|---|\n| `metadata-admin/ResourceEditPage.tsx` | 1475 | generic `type` — objectui#8057, now gated on server refusals |\n| `metadata-admin/EmbeddedItemEditor.tsx` | 120 | generic `parentType` |\n| `metadata-admin/PermissionMatrixEditor.tsx` | 755 | generic `type` |\n| `metadata-admin/datasource/DatasourceResourcePage.tsx` | 427 | literal `object` |\n| `views/runtime-metadata-persistence.ts` | 207, 314 | generic `type` |\n| `studio-design/PackageOwdOverviewPanel.tsx` | 252 | literal `object` |\n| `studio-design/StudioDesignSurface.tsx` | 1886, 2988, 3010, 3053 | generic + three literal `object` |\n| `plugin-designer/MetadataObjectsPage.tsx` | 257 | literal `object` |\n\n## ⭐ The methodological half — why this stayed invisible\n\nTwo spellings reach the same PUT, and the obvious sweep sees neither reliably.\n\n1. **`client.save(` misses the generic-call form.** `git grep -c '\\.save('` against `ResourceEditPage.tsx` — the file objectui#8057 is entirely about — returns **0**. The call is `client.save<any>(type, savedName, itemToSave, …)`. `PermissionMatrixEditor.tsx:755` is hidden the same way (`client.save<PermissionSetDraft>(`). Both need `\\.save[<(]`.\n\n2. **There is a second method entirely: `client.meta.saveItem(`.** That is how `MetadataService` writes — one of the two writers the ruling *did* name. A sweep spelled only as `client.save(` would report that named writer absent too.\n\n⇒ Any future guard-coverage claim that greps `client.save(` will produce a confident zero over a population it never searched. That failure mode is what let a two-writer enumeration stand while a third writer reproduced the defect in the ruling's own dogfood.\n\n## ⚠️ What is and is not measured\n\n- **Measured**: these 12 call sites do not route through either `toFieldsMap`, on `4eb665bcf`, by the commands above.\n- **NOT measured**: whether any of them actually emits a body the server refuses. Several write documents the designer never shapes into a `fields` map at all, so some are likely fine by construction.\n\nThis is filed as an **observation**, not as an asserted defect — deliberately no `pm:queue`. What it seems to warrant is a decision about whether guard coverage should be mechanical (a gate over the write call sites) rather than enumerated in prose, since the prose enumeration has now been falsified twice.\n\n## Related\n\nobjectui#8057 (the third writer, fixed in PR #8675) · objectui#7714 (the two-writer ruling) · objectui#8058 / objectui#8060 (same family, `MetadataFieldsPage`) · `scripts/check-designer-field-key-parity.mjs` (key NAMES only — its own boundary section excludes value-level rejections)"
+}

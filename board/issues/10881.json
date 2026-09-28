@@ -1,0 +1,28 @@
+{
+  "number": 10881,
+  "kind": "issue",
+  "title": "[Decision] A grouped grid over a data source with no server group query: keep page grouping with the Partial marker (K), or refuse grouping loudly and retire the marker (F)?",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "needs-user-decision"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T02:23:54Z",
+  "updated_at": "2026-09-28T02:23:54Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10881",
+  "body": "Filed by objectui's `domain:ui` seat 4 (`session_01MCg3z5cGrV51xEddpGcxEY`) from the objectstack-ai/objectui#7189 dev report (`5861938733`, `open_questions[0]`), with the facts verified by the PR objectstack-ai/objectui#10878 contract review (`5862150828`, item 5). objectui#7189 closes when PR objectui#10878 merges, so this question has no natural anchor and gets its own card. It does not block that PR: it lands option K, the status quo for these sources.\n\nGoverning text:\n- The maintainer ruling on objectui#7189 (`5509036555`, 「7189 A  其他同意」): grouping on a list view is server-side; \"the \"Partial\" marker is retired once counts are server-true (enforce-or-remove)\"; options B (whole-set fetch) and C (disclosure only) are not taken.\n- The pm-dispatch four-axis framework (startup focus: 已发布零消费能力不因沉没成本豁免; retirement is immediate unless a named external user exists).\n- objectui `AGENTS.md` 版本号策略 (a break ships as `minor` with the semantics stated; never `major`).\n\n## The question\n\nAfter PR objectui#10878, a grouped `ObjectGrid` over a source that implements `DataSource.queryGroupHeaders` (the objectstack adapter) takes groups and counts from the server, and the Partial marker never renders there. A source without it (`ApiDataSource`, `ValueDataSource`, any host adapter) still groups the fetched page, so its counts are page slices. What should that second case do?\n\n- **K (landed by PR objectui#10878):** keep grouping the page there, and keep the Partial marker, its pin and its ten locale rows, only there.\n- **F:** refuse grouping loudly on such a source (an error panel naming `queryGroupHeaders`), and retire the marker, its pin and its rows everywhere.\n\nFacts (review item 5): the marker is never shown where counts are server-true. On a ListView-hosted grouped grid over a non-capable source, or over a capable source while a toolbar search is active, the grid is handed a window with no total, so the marker does not fire there either. That was also true before the PR. Neither K nor F changes that search path; it stays page-sliced until objectstack-ai/objectstack#20358 (the aggregate branch drops `search`) is fixed.\n\n## 四维分析\n\n- **实际业务需求**：两个选项都没有实测拉动。仓内没有任何一个分组表格建在不支持 `queryGroupHeaders` 的数据源上；`ApiDataSource` / `ValueDataSource` / 宿主适配器是已发布的公开面，但没有具名的外部用户证据。K 保住「现在能用的」，但这份「能用」没有人被测到在用。\n- **项目长远合理性**（权重 ≥50%）：裁决的方向是「分组是查询的属性」。F 只留一种模式，契约与实现一致；K 保留两种模式，客户端分页分组、Partial 标记、十行文案和它的 pin 都要长期维护，而且这条回退路径正是裁决判定为「过渡态、不是契约」的那份实现。长远读数领起 ⇒ F。\n- **防 AI 写错**：F 更响亮。AI 在一个给不出真实计数的数据源上写 `grouping`，F 会在渲染时直接报错并点名缺的能力；K 只在表格上方显示一个「部分」标记，容易被当成正常结果带过。契约收紧优于消费端宽容 ⇒ F。\n- **创业阶段不扩散**：F 是退役（删掉客户端分组回退、标记与文案），K 是保留一块零消费的能力面。按「已发布零消费能力不因沉没成本豁免」「退役默认立即退休，staged 仅凭具名外部用户」⇒ F。\n\n**推荐：F。** 四轴里长远、防错、不扩散三轴指向 F；K 只在「不打破现状」一点上占优，但这份现状没有实测用户。代价要说清：F 是对已发布包的行为破坏（`minor` 加 breaking 说明），任何在自建适配器上用分组表格的宿主会从「按页分组 + 标记」变成报错面板，而这类宿主没有服务端能给出更好的答案。若选 F，落地是一张新卡：`ObjectGrid` 在无 `queryGroupHeaders` 时渲染点名能力的错误面板，退役 `groupedPartialDisclosure-7189.test.tsx`、`grid.grouping.partial*` 各语言行与相关文档句，并在 changeset 写明破坏语义。\n\n## 维护者速读\n\n- 改了什么：还没改。PR objectui#10878 已按 K 落地（不支持服务端分组的数据源继续按页分组并显示「部分」标记）。\n- 为什么问：裁决说「计数为真时退役标记」，没说计数不可能为真的数据源怎么办。\n- 风险与代价：F 会让自建适配器上的分组表格变成报错；K 让一套客户端回退和标记长期留着。\n- 席位意见：F。\n- 你要做的：回一个字母，K 或 F。"
+}

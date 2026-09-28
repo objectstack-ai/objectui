@@ -1,0 +1,34 @@
+{
+  "number": 7486,
+  "kind": "issue",
+  "title": "The console eagerly fetches all ten locale catalogues; a viewer uses one — ~476 KB gzipped of the eager closure is nine languages nobody reads",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-project-manager",
+    "id": 314343378,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:done",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-03T09:07:26Z",
+  "updated_at": "2026-09-12T16:02:19Z",
+  "closed_at": "2026-09-12T16:02:19Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7486",
+  "body": "Filed by the `domain:ui` execution seat (session `session_01EMrWaQw3XS5DxTHxp4yRyC`) as the follow-up the maintainer **deferred to its own card** when ruling #7399.\n\n⛔ Unlabelled beyond `finding` — routing, `type` and priority are the triage seat's. ⛔ Not dispatched, and this card asks for a decision, not an implementation.\n\n## Provenance\n\nMaintainer ruling on #7399, 2026-09-03, verbatim 「同意你的建议」, recorded in [comment 5523282655](https://github.com/objectstack-ai/objectui/issues/7399#issuecomment-5523282655). That recommendation was **A′ now, C as its own card**. A′ (fix the chunk attribution) is in flight. This is C.\n\n## The measurement\n\n`packages/i18n`'s entry statically re-exports all ten locale packs, so every one of them is in the console's **eager closure** — what the browser fetches and parses before the app renders.\n\n| reading | value |\n|---|--:|\n| locale bundles in the eager closure | **10** |\n| a given viewer reads | **1** |\n| their share of the `framework` chunk's module bytes | **78.7%** |\n| that payload, measured by moving it to its own group | **476,480 B gzipped** |\n| aggregate eager closure today | 3,179 KB gz against a 3,191.4 KB ceiling |\n\nMeasured during #7399's investigation: builds of `main` untouched at three bases, one identical command sequence, gate exit 0 each time, plus two probe builds that isolated the grouping. Full method in [#7399 comment 5522762441](https://github.com/objectstack-ai/objectui/issues/7399#issuecomment-5522762441).\n\n⭐ **This is the only option in that family that reduces what a page load actually costs.** A′ re-attributes the bytes so the gate stops misnaming them; B would have raised a ceiling. Neither removes a byte from the wire. Nine of ten catalogues are fetched, parsed, and never read.\n\n## Why it is a decision and not a task\n\nIt is a change to a **published package's loading behaviour** (`@object-ui/i18n`), not a build-config edit:\n\n- the entry's static re-export is what makes every pack reachable — making it lazy changes the package's public loading contract;\n- consumers that today get every catalogue synchronously would need a resolved locale before first paint, or a fallback path;\n- SSR / prerender behaviour and the `LocalizationContext` bootstrap both sit on that assumption.\n\n⇒ Someone has to rule what the loading contract becomes, and that is not an execution seat's call.\n\n## What this card is NOT\n\n- ⛔ Not a claim that #7399's A′ was the wrong first move. A′ is a pure re-attribution that unblocks three PRs carrying ruled user-facing copy; it was correctly ordered first.\n- ⛔ Not a proposal to raise or move any ceiling. If C lands, the ceilings A′ sets should be **re-baselined downward** to bank the reduction — ⛔ never left wide.\n- ⛔ Not scoped here: `#5324` / `#6795` already name payload-shrink candidates and may overlap; triage should check before this is dispatched.\n\n## ⚠️ One piece of context worth carrying\n\nUntil A′ lands, this payload is being policed by a ceiling named `framework`, which taught a **false rule** — *\"don't touch `core|react|types`\"* — while the thing actually consuming the budget was translations. That misdirection cost this lane most of a shift and produced three public retractions from this seat. Whatever is decided here, the lesson that generalises is: **a budget should be named for what it holds.**\n\nRefs: #7399 (the attribution card and this card's ruling) · #5468 · #5490 · #6631 · #5324 / #6795 (named payload-shrink candidates) · #7467 / #7391 / #7194 (the three PRs blocked by the ceiling this payload fills)"
+}

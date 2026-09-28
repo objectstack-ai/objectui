@@ -1,0 +1,34 @@
+{
+  "number": 9296,
+  "kind": "pull_request",
+  "title": "test(plugin-gantt,plugin-kanban,plugin-calendar,plugin-tree): measure the overlay `navigation.mode` collapse at the shell boundary",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "plugin: kanban",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T15:23:20Z",
+  "updated_at": "2026-09-12T16:33:16Z",
+  "closed_at": "2026-09-12T16:33:15Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": "2026-09-12T16:33:15Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/9296",
+  "body": "Part of #9113\n\n## This is a measurement, not a repair\n\nobjectui#9113 is fenced: triage held it to the measuring seat's own words — a\nstraight swap of `RecordDetailDrawer` for `NavigationOverlay` \"is not obviously\navailable\" and the right shape \"is a design question, not a mechanical one\". So\nno product source is touched here and no remedy is implied. What lands is the\ninstrument and the reading, so the question becomes decidable from numbers.\n\n**No published behaviour moved**, so the changeset has empty frontmatter — an\nexplicit \"releases nothing\" rather than a `patch` claimed on packages that did\nnot move. `check-changeset-presence` confirms that is a complete answer.\n\n## The instrument, and why it is not a DOM assertion\n\nMeasured, not assumed: `packages/components/src/ui/sheet.tsx` and\n`packages/components/src/ui/dialog.tsx` **both import `@radix-ui/react-dialog`**\n(`Sheet` is `SheetPrimitive.Root`, where `SheetPrimitive` is that package), and\n**neither stamps a `data-slot`** — zero hits across both files. So `drawer` and\n`modal` reach the DOM as the same Radix role, separated only by Tailwind class\nstrings, which are not a contract. A rendered assertion cannot tell them apart\neven on the renderers that get this right. `expect(drawer).toBeVisible()` is\nblind to this defect by construction.\n\nThe instrument is therefore the **resolved mode value at the shell boundary** —\nthe pair `(shell component that receives the record, mode value it receives)`.\n\n## The readings\n\n| Renderer | Boundary pairs for the four overlay modes | Shell reached |\n|---|---|---|\n| `ObjectTree` (**control**) | **4 distinct** | `NavigationOverlay`, mode carried |\n| `ObjectGantt` | **1** | `RecordDetailDrawer`, no mode prop |\n| `ObjectKanban` | **1** | `RecordDetailDrawer`, no mode prop |\n| `ObjectCalendar` | **1** | `RecordDetailDrawer`, no mode prop |\n\nThe control reads 4, so the 1s are a measurement and not a dark instrument.\n\n**The sharpest reading: the value is correct, then discarded.** A pass-through\nspy on `useNavigationOverlay` runs against the same mount and shows the hook\nresolving each of the four modes correctly. The loss is **at the handoff**, not\nupstream of it — so this is not a re-measurement of objectui#7334, whose\nsubject was the other half: the value never arriving at all.\n\n## Question 1, answered by execution: the Sheet is the CONTAINER\n\n`RecordDetailDrawer` is `Sheet` wrapping exactly one payload —\n`InlineEditProvider` around `DetailView` plus `InlineEditSaveBar` — plus chrome\nand a drag handle. Composed from the same exported parts and rendered through\n`NavigationOverlay`'s `children` render prop, that payload **mounts and shows\nrecord content in the `modal`, `split` and `popover` shells**. A lit control\nrenders it in `drawer` first, so a payload that rendered nowhere could not read\nas a pass.\n\nNote also that `RecordDetailDrawer` **does not fetch the record** — it receives\n`record` and `objectSchema` as props. Of the four capabilities the fence named,\nrecord fetching is the caller's, and the other three live inside the payload.\n\n## Two further narrowings found while establishing the control\n\n1. **No renderer anywhere passes `popoverTrigger`.** `NavigationOverlay`'s\n   popover branch falls back to a compact Dialog without it, and\n   `plugin-view/src/ObjectView.tsx` documents the fallback in its own comment.\n   So `popover` is a second, independent narrowing that reaches the control\n   renderers too.\n2. **`ObjectTree` never passes `mainContent`, which the split branch requires**\n   (`if (!isOpen || !mainContent) return null`). `ObjectGrid` passes it through\n   a dedicated early return; the tree does not. So on a tree an authored `split`\n   arrives at the shell intact and then renders **nothing at all**. Measured in\n   the control file. Not repaired — out of this card's bounds.\n\nTogether these mean \"honour the modes in all five renderers\" is a larger job\nthan the card's two-halves framing suggests.\n\n## Files\n\n- `packages/plugin-tree/src/ObjectTree.overlayShellControl-9113.test.tsx` — the live control.\n- `packages/plugin-gantt/src/ObjectGantt.overlayShellCollapse-9113.test.tsx` — measured surface plus the question-1 portability probe.\n- `packages/plugin-kanban/src/ObjectKanban.overlayShellCollapse-9113.test.tsx`\n- `packages/plugin-calendar/src/ObjectCalendar.overlayShellCollapse-9113.test.tsx`\n\n## Verification\n\nEvery verdict below is the line the tool printed, captured before any pipe.\n\n- `vitest run` over all four files — **4 files / 30 tests passed**, under the\n  shared verify lock (`VERDICT command-exit 0`).\n- `type-check` for the four packages — **exit 0**. Coverage proven rather than\n  assumed: `tsc -p tsconfig.test.json --listFiles` names the new gantt test file.\n- `lint` for the four packages — **exit 0, 0 errors**. A whole-repo\n  `eslint . --no-inline-config` run linted **4900 files**; the four new files\n  carry **0 errors** (only the repo's ubiquitous `no-explicit-any` warnings).\n- Gates re-run **after** committing, so the new files were inside the tracked\n  population (the counts move 4898 to 4902): `check:vi-mock-specifiers`,\n  `check:vi-mock-inherit`, `check:vi-mock-override-shape`, `check:control-bytes`,\n  `check:changeset-claims`, `check:test-path-roots`, `changeset:check`,\n  `check-changeset-presence` — all exit 0.\n\n## Acceptance notes\n\n- The escalation rule applies: deciding what the spec's enum should mean for\n  these view types is a contract change and belongs in the decision box. This PR\n  takes no such decision and recommends none.\n- The dedup sweep behind the two findings above covered **open** issues only\n  (450 read, with objectui#9113 itself as the known-hit control). No text query\n  over closed cards was possible in this session.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01UzHd6hDYatoDn17BuwKxnZ)_"
+}

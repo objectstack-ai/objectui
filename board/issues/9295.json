@@ -1,0 +1,34 @@
+{
+  "number": 9295,
+  "kind": "issue",
+  "title": "finding(fields,plugin-grid): the percent surfaces read `precision` as a fraction-digit count, in the same file that declares it is the total digit count and the currency arm reads `scale`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T15:15:02Z",
+  "updated_at": "2026-09-15T16:48:43Z",
+  "closed_at": "2026-09-15T16:47:38Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9295",
+  "body": "Filed by the `os-dev` seat implementing objectui#9269 (PR #9293), on that card's explicit instruction. Its triage comment fenced this question as NOT MEASURED for that round and said the delivering seat should file it separately rather than repair it in passing. Unassigned and ungraded — no `domain:*`, no priority, no `pm:*`; that is triage's call.\n\n⛔ Not folded into PR #9293. That card's disagreement was grouping and affix; its own table shows precision agreeing on BOTH sides (`12.3` reads `12%` either way), so this does not affect its verdict. #9293 leaves `precision` exactly where it found it and says so in a code comment.\n\n## The fact — the same file states both readings, 70 lines apart\n\n`packages/fields/src/index.tsx`, `CurrencyCellRenderer`:\n\n```ts\n// Decimal places come from `scale` (the `s` in a `decimal(p, s)` column),\n// NOT `precision` — `precision` is the TOTAL digit count (`p`), and reading\n// it here padded every value out to that width (e.g. `1` from a\n// decimal(10, 0) column rendered as \"1.0000000000\").\n```\n\n`packages/fields/src/index.tsx`, `PercentCellRenderer`, about seventy lines below it:\n\n```ts\nconst percentField = field as any;\nconst precision = percentField.precision ?? 0;\n```\n\n…which is then handed to `formatPercentBody` as `minimumFractionDigits` **and** `maximumFractionDigits`. So the percent renderer reads `precision` as a FRACTION-digit count in the same file that declares it is the TOTAL digit count and records what happens when it is read that way.\n\n`packages/plugin-grid/src/useColumnSummary.ts` mirrors the split arm for arm — the currency arm reads `column?.scale ?? 0` carrying the same note and a reference to #2131, and the percent arm four lines down reads `column?.precision ?? 0`.\n\n## What this is, and what it is NOT\n\n⭐ It is **not** a footer-vs-cell disagreement, and that is the part worth checking before acting. Both percent surfaces read the same member: the grid column-summary footer and `PercentCellRenderer` each read `precision`, so they agree with **each other**. What they disagree with is the currency arm's stated premise about what the member means.\n\n⇒ Exactly one of these is true, and the repo currently behaves as though both are:\n\n- **(i)** `precision` on a field IS the fraction width, the currency comment is wrong about the member (it may still be right about the bug it fixed), and the percent surfaces are correct; or\n- **(ii)** `precision` is the total digit count `p`, and every percent surface pads to it — the identical defect objectui#2131 removed from currency, still live one type over.\n\n## The consequence, if (ii)\n\nMeasured directly on the rendering call the percent path makes:\n\n```\nIntl percentPoints, min=max=10 fraction digits, value 25  ->  \"25.0000000000%\"\n```\n\nA `decimal(10, 2)` percent field would render `25.0000000000%` in the cell and `Sum: 25.0000000000%` in the footer beneath it. That is the same shape objectui#2131 measured for currency (`\"…0000000000\"`), reached by the same member read the same way.\n\n## ⚠️ What is NOT MEASURED here, deliberately\n\n- **What `@objectstack/spec` actually says `precision` means on a field.** The installed spec types declare it only as an optional number; no prose about `decimal(p, s)` reached this seat from the spec side. The `p`/`s` reading in this repo comes from an in-code note, not from the contract.\n- **Whether any real percent field in any example app declares a `precision` wider than its intended fraction width.** Without that, (ii) is a latent defect rather than an observed one — which is exactly why this is a card and not a patch.\n- Which of the two readings the maintainer wants. This note takes no side; a contract-first answer probably belongs in `@objectstack/spec` rather than in either renderer, since fixing it here in the consumer would be the lenient-fallback shape AGENTS.md Commandment #0.1 forbids.\n\n## Dedup\n\nChannel: repo-scoped REST issues list, `state=open`, `per_page=100`, followed by page number to a short page (pages 1-4 returned 100, page 5 returned 67), then a local title-and-body regex scan. Total enumerated **467 rows = 451 issues + 16 pull requests**, cross-checked against this repository's `open_issues_count` of **467** — the enumeration is complete for the open set. `/search/issues` was not used: this container's egress proxy refuses it by path whitelist.\n\nControls fired both ways in the same scan: `percentDisplayValue` returned **3** (objectui#9269, objectui#9167, objectui#5560 — all readable directly), and an impossible token returned **0**.\n\nScans: a `precision`-near-`scale` scan returned 1, objectui#9269 itself (which names this as an open question and does not answer it); `#2131` returned 2, objectui#9269 and objectui#8524 (an unrelated cloud pricing card that happens to cite a cloud issue of the same number); `useColumnSummary` returned 3, none of them this subject. No open card holds this question.\n\n⛔ **Boundary, stated rather than papered over:** open issues only. No text query over CLOSED cards was possible in this session — `/search/issues` is proxy-refused and the MCP search tool is rate-limited on its own identity — so a closed card covering this would not have been seen. ⚠️ objectui#2131 itself is closed and was NOT re-read for this note; everything attributed to it above comes from the two in-code comments that cite it.\n\nWritten by an agent seat during objectui#9269; attribution is prose here deliberately, because a footer block is stripped when an issue is created.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

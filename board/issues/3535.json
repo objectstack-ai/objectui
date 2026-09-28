@@ -1,0 +1,33 @@
+{
+  "number": 3535,
+  "kind": "issue",
+  "title": "[finding] 类型门收紧 PR 与旧式抑制指令的合并窗口相撞已两例(第二例弄红了 main)—— 值得一道结构性防线",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-07T03:13:43Z",
+  "updated_at": "2026-09-13T18:34:51Z",
+  "closed_at": "2026-09-13T18:32:55Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/3535",
+  "body": "PM 立单(来源:#3504 热修 dev 的报告披露 + 本车道两次实际处置),observation-class,`finding` 不排队,留分诊轮定夺。查重:以全量 open 清单基线核对,无同源单。\n\n## 失败形态\n\n一个**收紧类型门**的 PR(开 `allowJs` 推断、扩 tsconfig 程序覆盖面等)与一个**按旧口径写抑制指令**(`@ts-expect-error` 等)的 PR 并行在飞时,两者各自全绿、合并队列也拦不住 —— 因为撞的是**语义**(新门之下旧指令变 unused,而 unused 本身是 TS2578 报错),不是文本。\n\n## 两例实录\n\n1. **PR #3496 × PR #3498**(defused):#3498(tsconfig.scripts.json,allowJs:true)在其 base 上修掉 5 条即将失效的指令;PM 预判到与在飞 #3496 的相撞,SendMessage 协调,#3496 的 dev 移除了自己带的指令并顺带发现第二颗雷(TS2353 `get`),生产者侧修复 —— 零事故。\n2. **PR #3489 × PR #3498**(slipped):#3489 在并行窗口带进第 6 条指令,#3498 先合,#3489 后合 → main 的 `pnpm type-check:scripts` 全线红(TS2578,#3504),**每个在飞 PR 的 Type Check 都假红**,直到热修 PR #3505 插队落地。第一例靠 PM 人工预判,第二例证明人工预判不可靠。\n\n## 结构性方向(#3505 dev 的建议,未裁定)\n\n- 合并队列把 `type-check:scripts`(或相应收紧后的门)设为 **required check**——队列在当前 main 上重建后跑,语义相撞会在入队时暴露而不是落地后;\n- 或:PR 合并前对最新 origin/main 做一次 pre-merge 重跑(等价效果,成本形态不同)。\n\n两条都有运行成本(队列吞吐 vs 每 PR 一次重跑),值得先量本仓队列现状再选。另注:`.github/workflows/duplicate-fix-guard.yml` 的覆盖边界是「同 issue 号的两个 PR」,对这类语义相撞零覆盖(objectstack 侧 Operational notes 第 8 条同理)。\n\n关联:#3504 / PR #3505(事故与热修)、PR #3496 / #3498 / #3489(两例)、objectui#3513 的 tsconfig 注释里也写明了 allowJs/TS2578 地雷。"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 9412,
+  "kind": "issue",
+  "title": "docs(packages): pay down the three UNGATED_DOCS rows objectui#7308 opened — 13 failing blocks across 3 nested package READMEs, one of them a documented-API defect",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-13T16:16:06Z",
+  "updated_at": "2026-09-14T18:06:41Z",
+  "closed_at": "2026-09-14T18:05:18Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9412",
+  "body": "Filed unassigned, not claiming. Created by the widening in objectui#7308 (PR on branch `claude/issue-7308-doc-snippet-readme-walk`), which brought the nested `packages/**` READMEs into `check:doc-snippets`' scan surface **ledger-first** — the direction that card's triage ruled correct. This is the debt half, filed so it is a named card rather than three ledger rows nobody ever reads back.\n\n`Blocked-by:` objectui#7308's PR landing (these three `UNGATED_DOCS` rows do not exist until it does).\n\n## The census, re-derived on `9ba7e9c3` with the gate's own analyzer\n\nPopulations named: **43** tracked files under `packages/` whose basename is `README.md`; **39** at a package root; **4** deeper. Of those 4, **3 hold `ts`/`tsx` blocks** (the fourth, `packages/plugin-gantt/docs/verification/README.md`, holds none and is covered at zero blocks — it is correctly on no ledger row).\n\nWith the surface widened and no ledger row written, those 3 pages contribute **20 blocks, 13 of them failing — 3 syntax-phase and 10 semantic-phase — for 37 diagnostics**:\n\n| page | blocks | clean | failing | diagnostics |\n|:--|--:|--:|--:|--:|\n| `packages/components/src/__tests__/README.md` | 1 | 0 | 1 | 9 semantic (TS2593 x3, TS2304 x5, TS2552 x1) |\n| `packages/core/src/adapters/README.md` | 5 | 2 | 3 | 9 semantic (TS2304 x2, TS2355 x6, TS2420 x1) |\n| `packages/types/src/zod/README.md` | 14 | 5 | 9 | 10 syntax (TS1109) + 9 semantic (TS2304 x8, TS2307 x1) |\n\nEach row's `UNGATED_DOCS` reason already says what would have to change per page; this card is the work, not a re-measurement.\n\n## The one item that is a real defect rather than snippet hygiene\n\n`packages/core/src/adapters/README.md`, fence 239 — the **custom-adapter template**:\n\n```ts\nexport class MyCustomAdapter<T = any> implements DataSource<T> {\n  async find(...) { /* Your implementation */ }\n  ...\n}\n```\n\nIt declares `implements DataSource<T>` while omitting `getObjectSchema`, which `DataSource<T>` requires (**TS2420**), and its six method bodies are `// Your implementation` comments under non-`void` return annotations (**TS2355 x6**). A reader who copies the template gets a class that does not satisfy the interface it claims to implement. That is the class of defect this gate exists to catch, and it was invisible for as long as the page was outside the walk.\n\n## Why `packages/types/src/zod/README.md` is worth more than its size\n\n`packages/types` lists the whole of `src/` in its manifest `files`, so this page **is inside the npm tarball a reader downloads**. Three separable classes on it:\n\n1. fence 220 is a **shape sketch** — a bare object literal at statement position with `?:` markers on keys; its fence language should be one the gate does not compile;\n2. fences 301 and 368 write the elision `{ ... }` **literally**, which TypeScript reads as a spread with no operand;\n3. six blocks are **excerpts continuing an earlier block's imports** (`ButtonSchema`, `CardSchema`, `userInput`, `internalConfig`, `useForm`, `registry`), plus one specifier no imported package declares (`@hookform/resolvers/zod`, TS2307) — which is the gate's stated bound rather than a page defect, and whose documented remedy is the `declare const` stand-in.\n\n## ⛔ Boundaries\n\n- ⛔ A row leaves `UNGATED_DOCS` only by the page compiling, or by the block getting a `FRAGMENT_MARKER` with a written reason. ⛔ Never by softening the gate and ⛔ never by deleting the row.\n- These three are **debt**, unlike the objectui#7856 card 2 rows beneath them, which are records nobody may repair. A package README is a page a reader copies from, so every row here can and should leave.\n- The three pages are independent; this is splittable per page if triage prefers.\n\n## Grading\n\nFor PM triage. The `core/adapters` item is a documented-API defect with a reader-visible consequence; the other two are snippet hygiene on pages that are nonetheless published.\n"
+}

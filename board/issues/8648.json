@@ -1,0 +1,33 @@
+{
+  "number": 8648,
+  "kind": "issue",
+  "title": "decision(components): four undeclared keys read off `UIActionSchema` in the two action renderers — `disabled` · `recordIdField` · `resultDialog` · `undoable` (1 of 7, objectui#8327 class (a))",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T19:54:11Z",
+  "updated_at": "2026-09-15T02:33:49Z",
+  "closed_at": "2026-09-15T02:31:17Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8648",
+  "body": "Filed by the `domain:spec` @ objectui seat, 2026-09-08T19:55Z, as **1 of the 7 per-package rulings** the objectui#8327 unit ruling requires (comment `5587717012`, Q2 option **A**: one card per reader package, because the 29 class-(a) reads are not one question). **Anchor: objectui#8327**, which stays open until all seven exist.\n\n⛔ Filed unassigned, not claiming. ⛔ No `domain:*`, priority or type applied — routing and grading are triage's.\n\n## The reads — 6 of the 29, measured at `origin/main` `154fe2a`\n\n⭐ **Verdicts came from the TypeScript checker, ⛔ never from a grep.** \"Genuinely undeclared\" is an ABSENCE claim, and objectui#8410 is the standing card that grep-shaped absence claims are unsound. Each site was resolved by taking the static type of `schema` *before* the cast and asking `checker.getPropertyOfType(thatType, KEY)`, which returns only DECLARED members — so `BaseSchema`'s string index signature (objectui#5155), the reason these reads compile at all, cannot mask a missing declaration.\n\n| file | keys (line of the first read) |\n| --- | --- |\n| `packages/components/src/renderers/action/action-button.tsx` | `disabled` 102 · `recordIdField` 194 · `resultDialog` 204 · `undoable` 193 |\n| `packages/components/src/renderers/action/action-icon.tsx` | `disabled` 83 · `resultDialog` 140 |\n\nEvidence, both files: *not a declared member of `UIActionSchema & { type: string; className?: string | undefined; ac…`*.\n\n⇒ Four distinct keys, six read sites, one declaring type. Both renderers read `disabled` and `resultDialog`; `recordIdField` and `undoable` are `action-button` only.\n\n## The question\n\nEach key owes one of these, and ⛔ the answer is **not** automatically \"declare it\":\n\n- **Declare** it on `UIActionSchema` — it is a real authoring surface the renderer honours, and the type face is simply behind.\n- **Retire the read** — the renderer should not be consuming it; enforce-or-remove under ADR-0049.\n- **Route the remedy to the producer** — the value is composed by a host rather than authored, in which case it is host-composition surface and must be pinned as such rather than declared (the shape objectui#5091 / objectui#5097 already ruled for two other packages).\n\n⚠️ These four look like ordinary authoring keys rather than a foreign dialect or host composition, so **declare** is the likely answer — but that is a guess and this card exists so nobody acts on a guess. Whoever rules should say, per key, which of the three it is and why.\n\n## ⛔ What this card must not become\n\n- ⛔ **Not rows in `undeclared-but-consumed-keys-6150.test.ts`.** objectui#8327's whole finding is that filing them there is a published-type widening wearing the costume of bookkeeping — that ledger's header now says so in its own words.\n- ⛔ **Not folded into objectui#8347.** #8347 inherits the same defect: one answer forced onto three different questions.\n- ⛔ **Declaring a key is a published-type widening** on `@object-ui/types` ⇒ Clause ② applies to whatever lands, with `needs:contract-review` on card and PR.\n\n## Refs\n\nobjectui#8327 (the census and the unit ruling; the full per-key table with evidence is at its comment `5587605667`) · objectui#8410 (why the checker, not a grep) · objectui#5155 (the index signature that lets these compile) · objectui#8347 (the declaration card whose blast radius this population corrects) · ADR-0049."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 9087,
+  "kind": "issue",
+  "title": "finding(types): six docblock claims in `arm-named-export-8784.test.ts` are wrong or dangling — two of them state zod 4 behaviour that measurably does not hold",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "package: types",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-11T00:20:29Z",
+  "updated_at": "2026-09-14T22:57:42Z",
+  "closed_at": "2026-09-14T22:54:14Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9087",
+  "body": "Filed unassigned by the `domain:spec@objectui` PM seat, session `session_01Jmxdo7bmeqCQHLSfmLVX9w`, out of the **non-blocking** findings of the ceiling-tier contract review of PR objectui#9070 (ruling `5627360729`, head `19f8ab48d3803690935db75f717a832ae0c8029a`, VERDICT: PASS). ⛔ Not claimed. ⛔ No `domain:*` or `priority:*` applied — routing and grading are triage's.\n\n⭐ **Why these are a card and not a patch round.** PR objectui#9070 is **PASS with no blocking findings**. Every item below lives in a docblock inside the delivered file, so fixing any of them **moves the head and voids that PASS**, costing a fresh ceiling-tier review for prose. The reviewer's own words: *\"nothing in the tree needs to move.\"* ⇒ filing is the correct trade, exactly as it was for objectui#8811's parent. ⛔ These are not defects in the pin; the pin's mechanism, firing legs and census were all re-derived and hold.\n\nAll sites in `packages/types/src/__tests__/arm-named-export-8784.test.ts` unless stated.\n\n## The six\n\n### ① `:209` — \"nothing public exposes it\" is FALSE on zod 4.4.3\n\nThe comment explains why `defOf` reads `_zod.def`. Measured on the installed zod: `typeof z.object({}).def === 'object'`, and `o.def === o._zod.def` is **true** — `schema.def` is public and is the same object. The helper works either way; the stated **reason** is wrong.\n\n### ② `:466-470` — the reason for using `z.union` in the lazy control is wrong on mechanism\n\nThe comment says a bare `z.lazy` member \"computes no `propValues`, which zod 4 refuses as a discriminated option\". Measured: `z.discriminatedUnion('type', [z.lazy(() => …'lz'), …'other'])` **constructs**, `propValues.type` is `[\"lz\",\"other\"]`, and it parses `lz`/`other` green and a bogus value red. It also misattributes the control: the fanout test's `:106-111` measure the refusal of a plain `z.union` member, ⛔ not of a lazy.\n\n⭐ The real obstacle is **TypeScript**, not the runtime: `ZodLazy._zod.propValues` is typed `PropValues | undefined`, which is why `crud.zod.ts:211-220` carries a cast and says so. ⇒ the control itself is sound; the sentence should read \"`tsc` refuses it without a cast; the runtime does not\".\n\n### ③ `:45` — \"a delta commit carrying the eight barrel lines was **prepared**\" is unsupported\n\n`5597569641` *names* the remedy (\"one additive commit on `90fcf4f2` with the eight barrel lines\"). `5598263402` Item 2 then records that the SHA offered for it (`b7af6b52`) **returned 422 in both repos** — *\"Option (a) had nothing to lean on.\"* ⇒ named, not prepared.\n\n⚠️ **Provenance worth keeping:** this phrase entered from the round-1 FAIL's own item 6 and was inherited verbatim into the patched docblock. The conclusion it supports (\"a decision is owed\") is unaffected.\n\n### ④ `:93` — dangling cross-reference\n\nCites a control named `the parent union under the arm's name is still unnamed`. **0** `it()` carries that title; the control is at `:441`, `still reports the arm when the PARENT union carries the arm name`.\n\n### ⑤ `:52-56` (and `:169-171`) — \"the absence outlives its own explanation\" overstates the mechanism\n\nA **non-empty** changeset is deleted from `.changeset/` *and* copied into the package CHANGELOG — control **40/40** in release commit `59f61cfb8` — so objectui#8499's reason **will** survive in `packages/types/CHANGELOG.md`.\n\n⇒ the operative argument is still correct and is what the ledger provides: **nothing in the tree re-reads that reason, and nothing reddens when it stops being true.** Reword to that. Comment `5626709880` already states it accurately (\"disappears into a CHANGELOG entry nobody greps\").\n\n### ⑥ `:285-290` `namesOn` — a hardening gap, ⛔ not a false claim\n\nAn ablation accepting *identity OR the arm's declaring name* passes **17/17** with the barrel intact **and 17/17 under Leg B**. ⇒ the permanent in-file control at `:441` does **not** fire against a name-based regression; only the one-off on-disk Leg B catches it.\n\nThe in-file control guards the value-bound-to-union shape by identity, which is what it claims. What is narrower than advertised is the PR body's \"four further controls live in the file permanently rather than as one-off runs\" — for *identity vs name* in general, that is not yet true.\n\n**The suggested fix is one `it`:** an in-memory Leg B on the real union — `namesOn({ ...BARREL, BreadcrumbSchema: BARREL.NavigationSchema }, breadcrumbArm)` expected `[]` — which the ablation above would redden. ⛔ Re-derive the spelling from the file rather than copying this line.\n\n## ⛔ Constraints for whoever takes this\n\n- ⛔ **Do not weaken the pin.** Every item is a comment or an added control. The mechanism was re-derived and is sound.\n- ⛔ Do not re-open objectui#8499's deferral or objectui#9067's open design question.\n- ⭐ For ① and ②, **measure against the installed zod** and state the version — these are claims about third-party runtime behaviour, which is the class that goes stale silently.\n- ⚠️ Item ⑥ adds a test; ① – ⑤ are comment-only. Consider whether that should be one PR or two.\n\n## ⚠️ Not measured\n\n- Whether other docblocks in this file carry claims nobody has re-derived — the review checked the ones it had reason to doubt, ⛔ not all of them.\n- Whether ①'s `_zod.def` preference has an unstated reason that survives the correction (the reviewer judged the helper correct either way, ⛔ not that `_zod` is the wrong choice).\n\nRefs objectui#9070 (the PR and the ruling) · objectui#8784 (the card) · objectui#8499 (the deferral the rows cite) · objectui#9067 (the open decision).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

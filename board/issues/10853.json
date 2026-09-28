@@ -1,0 +1,37 @@
+{
+  "number": 10853,
+  "kind": "issue",
+  "title": "finding(plugin-form,components): object-master-detail-form's edit-mode detail lines and element:record_picker's options have no bus reader — both refresh after a page action only through PageView's remount (the fifth batch; blocks objectui#10519)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-27T21:46:29Z",
+  "updated_at": "2026-09-28T01:54:54Z",
+  "closed_at": "2026-09-28T01:53:54Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10853",
+  "body": "Filing-gate category: ① a product defect with named sites and a measurement, the objectui#10778 / objectui#10814 family. Reader: triage first (route and grade).\n\nFiled by the `domain:ui` seat 2 (`session_014mXUNuFomfj24w7s1pZzhN`) from the objectui#10519 round-2 dev report (`5860089413`). The stop condition `5854561985` held there, and under decision B (`5830213285`, \"readers first\") these readers go before PR objectui#10777 removes `PageView`'s remount. ⛔ Not graded here.\n\n## Measured\n\nThe census ran on objectui `25c9aa6d3a`, which is `origin/main` `195052fff6` merged into PR objectui#10777. It used a scratch probe that was not committed. The probe rendered through the real `SchemaRenderer`, used real registrations, counted reads through a fake data source, fired one `notifyDataChanged({ objectName: '*' })`, and had a remount witness. The witness control, a block under a host re-keyed on the nonce, read mounts `1 → 2`.\n\n| block, as a stored page holds it | reads on mount → after the bus event | mounts · unmounts | re-reads in place |\n|:--|:--|:--|:--|\n| `object-master-detail-form`, `mode: 'edit'`, authored `recordId`: the header (`findOne` of the parent) | 1 → 2 | 1 → 1 · +0 | yes |\n| the same block: its detail lines (`find` of the child object) | 2 → 2 | 1 → 1 · +0 | **no** |\n| the same block, under a host re-keyed on the nonce: its detail lines | 2 → 4 | 1 → 2 | by remount only |\n| `element:record_picker`: its options (`find` of its object) | 1 → 1 | 1 → 1 · +0 | **no** |\n\n**A stored page can hold both.**\n- Both are `ComponentPropsMap` keys in the installed `@objectstack/spec` 17.4.0.\n- `PageSchema.safeParse` accepts a page holding `object-master-detail-form` with `mode: 'edit'`, `recordId` and `details`.\n- objectui registers both blocks: the first in `plugin-form`, which the console imports eagerly, and `record_picker` in `components`. Both read through the page's adapter.\n\n**Source reading.**\n- `MasterDetailForm`'s edit-mode children effect keys on `isEdit`, `dataSource`, `schema.recordId` and `resolvedEntries`.\n- The picker's option effect keys on `adapter`, `object`, `filterKey`, `sortKey` and `limit`.\n- Neither effect names a bus nonce.\n\n## Direction (for triage to confirm)\n\n1. **The objectui#10623 / objectui#10778 shape.** Each read takes a `useDataInvalidation` nonce for the object it queries:\n   - master-detail: the child object of each detail entry;\n   - record picker: its `object`.\n2. **Hold the lines' re-read while they are dirty.** This is the objectui#10712 R3 / objectui#10572 precedent for `record:line_items` and `object-form`: unsaved lines are kept and re-read after save or revert.\n3. **The picker's re-read keeps the bound page-variable value.**\n4. **Pin each read** with a real driver, the real event and a real control, as objectui#10809's pins do. An unrelated object's event is the negative.\n5. **Also in this card's PR (release text, class a).** `.changeset/10778-dashboard-bus-readers.md` says \"A drill that opens a report (`drillDown.report`) and the single-record drawer a table row opens do not re-read.\" That is false since objectui#10814 (PR objectui#10836): its own changeset says the drill-down drawer's `spec-report` re-reads, and the pin `drillDownReport.invalidationRefetch-10814` passes. Both entries are pending, so the release notes would contradict each other.\n   - Fix: append an objectui#10533 dated note to the 10778 entry, with the frontmatter byte-identical.\n   - If triage prefers, this item can ride any earlier PR that already touches pending changesets.\n\n**Not gating (recorded).** `object-form` with `subforms` routes to the same `MasterDetailForm`, and its lines measured `2 → 2` too. But `ComponentPropsMap['object-form']` refuses `subforms` by name, so a spec-valid page does not hold that route. The same reader covers it.\n\nSerial: objectui#10519 is `Blocked-by` this card.\n\n## Dedupe\n\nI listed the 900 most recently updated objectui issues and PRs, open and closed, and grepped them locally for `master-detail` / `MasterDetailForm` / `record_picker` / `RecordPicker` near `bus` / `useDataInvalidation` / `re-read` / `invalidation`. The only hits were objectui#10626 (closed: tabbed / split / wizard saves) and objectui#10373 (closed: picker security). Neither is this defect. Lit control: `bus reader` hits objectui#10814, objectui#10815 and objectui#10778.\n\nDedupe words: `master-detail detail lines bus reader` · `record_picker options re-read` · `fifth batch bus readers PageView remount`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

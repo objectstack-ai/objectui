@@ -1,0 +1,34 @@
+{
+  "number": 9336,
+  "kind": "issue",
+  "title": "finding(app-shell): the flow `end` node's form offers no typed control for `config.message`, which `outcome: 'refused'` requires and `outcome: 'completed'` forbids",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-13T01:29:33Z",
+  "updated_at": "2026-09-14T00:21:05Z",
+  "closed_at": "2026-09-14T00:11:45Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9336",
+  "body": "Measured on `origin/main` `0f3d15314` against installed `@objectstack/spec` **17.4.0**, from the objectui#9278 execution seat. Filed unassigned — recording, not claiming.\n\n## The observation, and the half neither the card nor triage had measured\n\nobjectui#9278 established that `EndConfigSchema.outcome` is a closed enum of `completed | refused`. Running that card's probe at this seat reproduced it — and surfaced a **second** rule on the same two keys that neither the card nor triage saw, because both stopped at `completed`:\n\n```\n{}                                  ACCEPTED  {\"outcome\":\"completed\"}\n{outcome:'completed'}               ACCEPTED  {\"outcome\":\"completed\"}\n{outcome:'refused'}                 REJECTED: `outcome: 'refused'` requires a `message` — a refusal with no\n                                              text is the shape this contract exists to replace.\n{outcome:'refused', message:'why'}  ACCEPTED  {\"outcome\":\"refused\",\"message\":\"why\"}\n{outcome:'completed', message:'x'}  REJECTED: `message` is only rendered when `outcome` is 'refused' — on a\n                                              completed end nothing shows it, so the key would be a silent no-op.\n```\n\nSo the pair is cross-validated in **both** directions by a `superRefine` on `EndConfigSchema`: `refused` requires `message`, `completed` refuses it. `message` is `z.string().min(1).optional()`, documented as a `{token}` template interpolated at run time exactly like a screen `description`.\n\nReproduce:\n\n```bash\nnode --input-type=module -e \"\nimport * as A from '@objectstack/spec/automation';\nconst t = (c) => { const r = A.FlowNodeSchema.safeParse({ id: 'e', type: 'end', label: 'E', config: c });\n  console.log(JSON.stringify(c), r.success ? 'ACCEPTED' : 'REJECTED: ' + r.error.issues[0].message); };\nt({ outcome: 'completed' });\nt({ outcome: 'refused' });\nt({ outcome: 'refused', message: 'Refused: {record.name} is a confirmed duplicate' });\n\"\n```\n\n## The gap\n\n`packages/app-shell/src/views/metadata-admin/inspectors/flow-node-config.ts`'s `end` group has **no field for `message`**. The key is therefore authorable only through the Advanced (JSON) block — reachable, since `FlowNodeInspector` reveals that block behind a `+` even when a node carries no extra keys, but untyped, unlabelled and undiscoverable from the control that needs it.\n\n⚠️ **objectui#9278's repair makes this newly reachable in one click.** Before it, the Outcome key was a free-text box whose placeholder advertised two words the loader refuses, so `refused` was not on offer at all. After it, `refused` is one of exactly two dropdown options — and picking it, with nothing else done, produces a flow that fails to load. The failure is loud and the spec's own message is instructive, so this is strictly better than the state it replaced; it is not finished.\n\n## Why it was not repaired inside objectui#9278\n\nTriage's acceptance on that card is a closed list about the `outcome` field: control kind, option list, declared default, placeholder deletion. Adding a second field is outside it on the letter, and on the mechanics it is not free either — a `showWhen`-gated field on `end` moves three exact-count census assertions in `flow-node-config.inactiveRetained.test.ts` (`gatedByType.size` 8, `totalGated` 33, `ungatedTypes.length` 24, all read on `0f3d15314`), which is a second verification surface rather than the same one. The executing seat therefore did the bounded half that was ruled and named this, with the measurement above, rather than widening under its own authority. What it did do inside the fence: the Outcome field's `help` now states the `message` requirement in words, so picking `refused` is not a silent route to a failed load.\n\n## The shape a repair would take, for whoever rules it\n\nA `cfg('message', …, 'text', { showWhen: { field: 'outcome', equals: ['refused'] } })` in the `end` group. The mechanism is well-trodden in this table (about twenty `showWhen` descriptors, including ones gated on a select controller such as `boundaryConfig.eventType`), and the gating works out correctly with objectui#9278's declared default: `controllerAdmits` resolves an unset `outcome` through `defaultValue: 'completed'`, so the field stays off screen until the author actually chooses `refused`, while a **stored** value keeps it visible — which is what lets an author clear a stale `message` after switching back to `completed`, the case the spec's other direction refuses.\n\nOpen questions a seat should answer rather than assume: whether the control is `text` or `textarea`; whether the label follows the spec's own wording (\"Why the run was refused\"); and whether the census movement above should be re-measured at landing time rather than copied from here, the way triage ruled for the declaration-count pin that objectui#9277 and objectui#9278 share.\n\nRefs: objectui#9278 (the `outcome` line; its repair is what makes `refused` offerable) · objectui#9335 (the same group's third fault, `outputVariable`) · objectui#7707 (rendering a run that ended `refused`, which is the same vocabulary at the other end). Neither of those is addressed by this card.\n\nGenerated by Claude Code in session `session_01UzHd6hDYatoDn17BuwKxnZ`, out of objectui#9278's fence."
+}

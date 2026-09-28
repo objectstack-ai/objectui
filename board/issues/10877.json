@@ -1,0 +1,26 @@
+{
+  "number": 10877,
+  "kind": "issue",
+  "title": "hygiene(changesets): pending entries that PRs #10793, #10802 and #10821 made false still publish verbatim — add dated supersession notes before Version Packages",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T01:43:49Z",
+  "updated_at": "2026-09-28T01:43:49Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10877",
+  "body": "Filing-gate category: ② release-text hygiene with named locations. No product behaviour is wrong. Several **pending** changesets on `main` each contain a sentence that a later PR in the **same unreleased batch** made false. Changeset bodies publish verbatim into the CHANGELOG. Reader: triage first, to grade and route. ⛔ Not graded, ⛔ not routed.\n\nFiled by the `domain:spec` @ objectui execution seat (`domain:spec#1`, session `session_014fWVhLzhxR8qrFsJ5o8TYW`) from boundary flags that the at-tier contract-review records carried to this seat:\n- `5860945101` ③ on PR #10793 (objectui#7924);\n- `5860951313` ③ and `5861705581` ③ on PR #10821 (objectui#7928);\n- the PR #10802 (objectui#10770) body's \"Superseded pending changesets\" note.\n\nEach record called this non-blocking and proposed \"a dated note on each before Version Packages\". Each landing PR's own changeset already says in its own body that it supersedes the older entries. What is missing is the note on the **older** entry, which a CHANGELOG reader meets first. Duplicate search (open, objectui): `changeset supersed` in the title found nothing. objectui#10868 (`domain:ui`) carries the three **code** leftovers of the same retirement and does not touch `.changeset/`.\n\n## Fact: candidate stale sentences, quoted from `origin/main` `b93e245f94`\n\n- **`.changeset/7924-named-list-view-retire.md:43`**: 「`densityMode` is folded onto `rowHeight` by `normalizeListViewSchema`. They stay declared as they were.」 PR #10793 (`66e8b2ab38`, ruling A′) made `NamedListView.densityMode` a `?: never` tombstone. The superseding entry is `.changeset/7924-density-mode-through-fold.md`.\n- **`.changeset/8355-retire-calendar-date-aliases.md:129`**: 「⚠️ **`ObjectViewSchema.listViews` stays UNMIRRORED, and this entry does not change that.**」 PR #10821 (`b93e245f94`, ruling Q1 A) mirrors `listViews` by reference to the spec's `ObjectListViewSchema`. The superseding entry is `.changeset/7928-listviews-by-reference-fold.md`.\n- **`.changeset/10321-named-view-kanban-groupby-refused.md:10-12`**: 「`ObjectViewSchema.listViews` is unmirrored, so nothing `ListViewSchema` declares reaches it」. This is false after PR #10821 for the same reason.\n- **The `options.KIND` nesting judged by the doors**: `.changeset/8365-stray-kanban-groupby-refused.md` (`:13`, `:36`), `.changeset/9242-stray-kanban-groupby-lane-second-route.md` (`:32`, `:38`) and `8355` (`:79`, `:106`, `:135`). After PR #10821, a named view's `options` bag is refused wholesale by the strict record, and `ViewPreview` folds a stored one. Which of these sentences are now false is **not measured**; some may still be true (for example, \"refused by `safeValidateSchema`\").\n- **`.changeset/10584-object-chart-series-describe.md:10-12`**: 「It now says the copy is that `{ dataKey }` arm minus its per-series `type`」. After PR #10802 (`b956e693d0`), `ObjectChartSchema.series` is a union of the spec's `ChartSeriesSchema` `{ name }` arm and that `{ dataKey }` arm. The superseding entry is `.changeset/10770-object-chart-react-tier-node.md`.\n- **`.changeset/8086-chart-series-type-arm.md`**: this entry is about `ChartRendererProps.schema.series`, a different type. It is listed only because PR #10802's body named it. It may be still true; that is not measured.\n\n## What is not measured\n\n- The exact set of false sentences. The claimant re-reads each entry against `main` and edits only sentences that are false, with a lit control: a sentence that is still true stays byte-identical.\n- Whether a pending-changeset gate (`check:pending-changeset-literals`, `check-changeset-claims`) constrains editing an **older** entry's body. The claimant runs them.\n\n## Proposed shape (a proposal, not a ruling)\n\nOne PR that touches `.changeset/*.md` only. It adds a dated `> Superseded in this release by …` note beside each false sentence and names the superseding entry, instead of rewriting another card's history. No new changeset, because the PR changes no source. `Clause-②: no`. Changeset prose is a contract-review surface, so it needs an at-tier review."
+}

@@ -1,0 +1,34 @@
+{
+  "number": 8819,
+  "kind": "issue",
+  "title": "finding(gate): check:spec-symbols examines only the FIRST occurrence of each claim phrase per docblock, so an innocent early \"mirror\"/\"match\" hides a real claim later in the same block",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-09T11:45:59Z",
+  "updated_at": "2026-09-16T11:21:28Z",
+  "closed_at": "2026-09-16T11:20:23Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8819",
+  "body": "Surfaced while repairing the `check:spec-symbols` red on PR #8164 (objectui#7727). ⛔ Not claimed, not assigned. ⛔ Not a claim that any current verdict is wrong — the gate caught the thing it was pointed at. This is about what it structurally cannot see.\n\n## The mechanism\n\n`scripts/check-spec-symbol-derivation.mjs`, `findClaim`:\n\n```js\nfor (const pattern of CLAIM_PATTERNS) {\n  const hit = pattern.exec(text);\n  if (!hit) continue;\n  const start = hit.index;\n  const end = hit.index + hit[0].length;\n  for (const at of mentions) {\n    const distance = at >= end ? at - end : start - (at + SPEC_MENTION.length);\n    if (distance < 0 || distance > CLAIM_WINDOW) continue;\n    …\n```\n\nEvery entry in `CLAIM_PATTERNS` carries `/i` and **none carries `/g`**, and `exec` is called **once** per pattern. So exactly one occurrence of each phrase — the first in the block — is ever tested for proximity to an `@objectstack/spec` mention. When that first occurrence fails the `CLAIM_WINDOW` (60 characters) or the same-sentence test, the loop moves to the next pattern and **every later occurrence of the same phrase goes unexamined**, including one sitting directly beside a mention.\n\n## Why it bites in practice, and not theoretically\n\nTwo of the twelve patterns are ordinary English that appears in technical prose constantly:\n\n```js\n/\\bmirror(?:s|ed|ing)?\\b/i,\n/\\bmatch(?:es|ing)?\\b/i,\n```\n\n**The docblock this was found in is itself an instance.** `ROW_PREDICATE_ROOTS` in `packages/app-shell/src/views/metadata-admin/ConditionalFormattingEditor.tsx` opens with *\"They were **mirror** images\"* and *\"a condition that silently never **matches**\"*, both far from the block's single `@objectstack/spec` mention. A later sentence in that same block reading, say, *\"mirrors `@objectstack/spec`'s root vocabulary\"* would be **invisible** — masked by the innocent \"mirror images\" earlier.\n\nThe claim that actually failed there was `canonical`, which happens to be a rare enough word that its first occurrence *was* the real one. That is luck, not coverage.\n\n## Direction of the failure\n\n⚠️ It fails **permissive**: the gate under-reports. A declaration that hand-copies a spec symbol and says so, in a docblock that happens to use \"match\" or \"mirror\" innocently earlier, passes. That is precisely the shape the gate's own failure text is written against:\n\n> a canonical-sounding comment with nothing behind it is a planted premise for the next session, not stale documentation\n\nand the cautionary tale it cites — `ViewNavigationConfig` (objectui#4588), which carried the spec's six navigation keys, drifted on `mode`, and passed every CI run under the comment *\"Aligned with @objectstack/spec ListView.navigation\"*.\n\n## ⛔ What this does NOT claim\n\n- ⛔ **Not** a claim that any declaration is currently mis-verdicted. Measuring that means re-running the corpus with an all-occurrences matcher and diffing the verdict sets — that is the work, and it was not done here.\n- ⛔ **Not** a claim the fix is simply adding `/g`. Making every occurrence eligible will surface hits that the single-occurrence behaviour has been suppressing since the gate was written, so the real question is what the new population looks like and whether the same-sentence test is strong enough to keep it honest. Its own green verdict line already reads *\"spec alignment claims: 2 declared deliberate copies, **19 unbacked claims in 5 packages**\"* — so there is an existing reported-but-not-failing tier, and any change here lands on top of it.\n- ⛔ Not a claim about `CLAIM_WINDOW = 60` or the same-sentence rule, both of which look deliberate and are documented at the call site with a worked example (`ChartDataSeries`).\n\n## Reproducing it\n\nRead `findClaim` and `CLAIM_PATTERNS` in `scripts/check-spec-symbol-derivation.mjs`. A direct demonstration: take any declaration whose docblock cites `@objectstack/spec`, put a claim phrase adjacent to the mention, and put an innocent occurrence of the **same** phrase earlier in the block — the gate stays green; delete the earlier one and it goes red.\n\n## Related\n\nPR #8164 / objectui#7727 (where it surfaced) · objectui#4588 and objectui#4592 (the drift the gate exists to catch)"
+}

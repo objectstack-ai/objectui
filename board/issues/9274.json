@@ -1,0 +1,36 @@
+{
+  "number": 9274,
+  "kind": "issue",
+  "title": "finding(app-shell): the report chart's Title inspector narrows `chart.title` to a plain string and shallow-merges over it, so editing it destroys every other locale",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: app-shell",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T10:04:13Z",
+  "updated_at": "2026-09-13T01:30:20Z",
+  "closed_at": "2026-09-13T01:30:20Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9274",
+  "body": "Found while repairing objectui#9150 (PR objectui#9272). Named and filed rather than repaired\nthere: a different package, an authoring surface rather than a rendering one, and a WRITE\npath — all outside that card's stated scope, which is the report renderer's own heading.\n\n## The defect\n\n`packages/app-shell/src/views/metadata-admin/inspectors/ReportDefaultInspector.tsx` reads\nthe report chart's title into the Studio inspector through the same plain-string narrowing\nobjectui#9150 just removed from the renderer, and then commits over it with a shallow\nmerge:\n\n```ts\nconst chartTitle = typeof chart.title === 'string' ? (chart.title as string) : '';\nconst commitChart = (patch) => {                  // param type: a RECORD of string to unknown\n  const next = { ...chart, ...patch };            // <- the shallow merge\n  onPatch({ chart: next.type ? next : undefined });\n};\n...\nvalue={chartTitle}\nonCommit={(v) => commitChart({ title: v || undefined })}\n```\n\n⚠️ The generic parameter in the snippet above is spelled out in WORDS, not in its\nliteral angle-bracket form. GitHub's body sanitizer deletes tag-shaped fragments on save\nand fenced code blocks do not protect them, so written literally it would render as a bare\n`Record` and the quote would be wrong in exactly the place it is being quoted for.\n\n`@objectstack/spec` types `ReportChartSchema.title` as `I18nLabel` — a plain string OR an\ninline locale map — so `{ \"title\": { \"en\": \"Pricing\", \"zh-CN\": \"定价\" } }` is authored\nsurface the contract accepts. Against that stored value the two halves fail in opposite\ndirections and compound:\n\n1. **The read half shows nothing.** The map arm fails the narrowing, `chartTitle` is `''`,\n   and Studio paints an EMPTY Title box over a report that has a title. The author is shown\n   the absence of the thing they authored.\n2. **The write half destroys it.** `commitChart({ title: v })` shallow-merges, so whatever\n   the author types lands as a plain string **in place of the whole map** — every other\n   locale gone. And because the box reads empty, committing it untouched sends\n   `v || undefined`, which DELETES the stored map outright.\n\nSo the damage does not need a mistake: the surface invites the author to retype a title it\ntold them was missing, and the retype is what silently drops every language they were not\nlooking at. Nothing on the path warns, and the loss is not visible in the panel that just\n\"changed\" it.\n\n## Why this is not the same card\n\nobjectui#9150 is a READ site in `@object-ui/plugin-report` that drew no heading. This is a\nread site AND a write site in `@object-ui/app-shell` that loses stored data. Fixing the\nrenderer does not touch it, and it fails in a strictly worse way: the renderer defect was\nrecoverable the moment the renderer was fixed, this one is not recoverable at all once the\nother locales have been overwritten.\n\n## The repair already exists in this repo, as a pair\n\n`@object-ui/i18n` ships both halves and its own doc comment describes exactly this failure:\n\n- `pickLocalized(value, language)` — the read half, the repo's one resolver for the union.\n- `setLocalized(value, next, language)` — the write half, documented as existing precisely\n  because \"`onChange(e.target.value)` straight back over `{ en, zh-CN }` destroys every\n  locale the author was not looking at, silently, on the first keystroke\". It writes the\n  edit into the ACTIVE locale's entry and preserves every other one, and it deliberately\n  stops short of the display-only fallback limbs so an author editing in `fr`, shown the\n  `en` string, cannot overwrite English.\n\nSo the shape of the fix is settled and its two functions already exist; what is missing is\nthat this inspector calls neither.\n\n## Suggested acceptance (not a ruling)\n\n- A report whose `chart.title` is an inline locale map shows the ACTIVE locale's entry in\n  the inspector's Title box, not an empty one.\n- Editing it writes back into that locale's entry and every other locale survives verbatim\n  — asserted on the committed patch, not just on the input.\n- A plain-string title keeps behaving exactly as it does today (the lit control).\n- Clearing the box does not delete sibling locales wholesale; decide and pin what clearing\n  one locale of a multi-locale title means.\n- Worth checking in the same pass whether the neighbouring `subtitle` / `description`\n  inspector inputs on this surface take the same shape, since they are the same union.\n\n## Reachability\n\nMeasured on `origin/main` at the time of filing, by reading the file: the narrowing, the\nshallow merge and the two bindings quoted above are all live, and `@object-ui/i18n` is\nalready a dependency of `@object-ui/app-shell`.\n\nReported from the os-dev seat while landing PR objectui#9272 for objectui#9150. Generated\nwith Claude Code; session reference `session_01UzHd6hDYatoDn17BuwKxnZ`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

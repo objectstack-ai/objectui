@@ -1,0 +1,35 @@
+{
+  "number": 9280,
+  "kind": "issue",
+  "title": "finding(types): the `record:highlights` `fields[]` object arm declares `icon`, which the spec's strict arm refuses — `tsc` green, publish RED",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "package: types",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T12:43:13Z",
+  "updated_at": "2026-09-13T05:07:35Z",
+  "closed_at": "2026-09-13T05:04:51Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9280",
+  "body": "Found while implementing objectui#9187 (**same interface, different key** —\nthat card is `RecordHighlightsComponentProps.layout`, this is the `fields[]`\nentry union one member down). Filed rather than carried on that branch because\nthe evidence balance points the other way and the direction is not triage-able\nfrom the `#9187` diff alone — see \"Why this is not the same repair\" below.\n\n`packages/types/src/record-components.ts` (⚠️ generic written with SQUARE\nbrackets — GitHub's body sanitizer eats tag-shaped fragments, fences included):\n\n```ts\nfields: Array[\n  string | { name: string; label?: string; icon?: string; type?: string; readonly?: boolean }\n];\n```\n\n`@objectstack/spec` `RecordHighlightsProps.fields[]`'s object arm declares\nFOUR keys and is `$strict`. `icon` is not one of them.\n\n## Measured, on the installed pin (17.4.0), against controls\n\nReading the arm's own shape rather than transcribing anything:\n\n```\nfields[] object-arm keys : [\"name\",\"label\",\"type\",\"readonly\"]\narm strictness           : $strict  (an unlisted key is refused, not stripped)\n```\n\nThe parse probes, one instrument, one loop:\n\n```\n{ fields: [{ name: 'x', label: 'L' }] }     GREEN                            <- CONTROL\n{ fields: [{ name: 'x', icon: 'star' }] }   RED   invalid_union at fields.0\n{ fields: [{ name: 'x', zzzNonsense: 1 }] } RED   invalid_union at fields.0  <- CONTROL\n{ fields: ['x'] }                           GREEN                            <- CONTROL\n```\n\nAll three controls fired as they should: a declared key parses green, so the\narm is not refusing everything; an arbitrary key is refused with the SAME code\nas `icon`, so `icon` is not special-cased; and the string arm is unaffected.\n\n## Why it matters\n\nAn author writes `fields: [{ name: 'amount', icon: 'dollar-sign' }]` on a\n`record:highlights` block, `tsc` is green, and the contract refuses the whole\ndocument at publish. Same class as objectui#9187 and objectui#8604: the\npublished TypeScript face offers something the only layer that matters rejects.\n\n## ⚠️ Why this is NOT the same repair as objectui#9187\n\nOn objectui#9187 every other layer already agreed with the contract, so\nnarrowing the declaration was the whole fix. Here the balance is **inverted** —\n`icon` is live on three layers and dead only on the contract:\n\n- `packages/types` declares it (the arm quoted above).\n- `RecordHighlightsRenderer` **reads** it, in the normalizer that accepts the\n  bare-string and object forms.\n- `@object-ui/plugin-detail`'s registry manifest publishes it to authors, in\n  the `fields` input description.\n\n⇒ deleting the declaration alone would leave a renderer read and a published\nmanifest promise pointing at a key nothing can author. The two candidate\ndirections are a **spec widening** (declare `icon` on the arm upstream) and a\n**three-layer retirement** here. Widening a published accepted set is on the\nhuman floor and is explicitly not this repository's call, so this card is a\nmeasurement plus a fork, not a plan.\n\n⛔ Not claimed, ⛔ not graded — labels, `domain:*` and priority are triage's.\n\n## Dedup — the channel, its control, and its GAP\n\nRead the full **open** population over repository-scoped REST (5 pages,\nper_page=100, 467 items, 455 of them issues) and grepped title plus body: 10\ncards mention \"highlight\", **none** of them also mentions `icon`. Known-hit\ncontrol fired — objectui#9187 itself is in the listing, so the enumeration\nreaches the population rather than returning a confident empty.\n\n⚠️ **The closed half was not measured, and that is a gap, not a silence.** Both\ntext-search channels were refused in this session: MCP `search_issues` returned\n`API rate limit already exceeded` on the shared seat identity, and\nrepository-scoped REST `/search/issues` is refused by this container's proxy\n(`sessions are bound to their configured repositories`), which leaves no text\nquery over closed cards. Nearest open neighbour checked by hand and ruled NOT a\nduplicate: objectui#8649 is the opposite direction (renderer reads keys the\nTYPE does not declare); this is the type declaring a key the CONTRACT does not.\n\nRefs: objectui#9187 (the sibling key, same interface) · objectui#8604 (same\nclass, one interface over) · objectui#8649 (opposite direction, same renderers).\n\nReported by an ObjectStack dev agent seat while working objectui#9187; session\nreference `https://claude.ai/code/session_01UzHd6hDYatoDn17BuwKxnZ` (written as\nprose because an attribution footer does not survive issue creation)."
+}

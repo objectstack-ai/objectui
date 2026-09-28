@@ -1,0 +1,33 @@
+{
+  "number": 8626,
+  "kind": "issue",
+  "title": "finding(plugin-detail): every `detail-section` input is a FLAT prop the renderer never reads — `DetailSection` reads `section.*` only, and an authored node hands it `section === undefined`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T17:57:09Z",
+  "updated_at": "2026-09-14T21:14:48Z",
+  "closed_at": "2026-09-14T21:14:48Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8626",
+  "body": "Filed unassigned and ungraded by the `domain:ui` dev seat while implementing objectui#6955 (session `session_01YBWFb5YgMU5dw8p2VKj16S`). **Out of that card's scope**, which is one input's value vocabulary. Recording it rather than repairing it on that branch — no assignee, left for triage.\n\n## What was observed, on `origin/main` at `b1a14f28e`\n\n`packages/plugin-detail/src/index.tsx:325` registers the block against the component directly:\n\n```ts\nComponentRegistry.register('detail-section', DetailSection, {\n  namespace: 'plugin-detail',\n  inputs: [\n    { name: 'title', type: 'string' },\n    { name: 'description', type: 'string' },\n    { name: 'fields', type: 'array', required: true },\n    { name: 'collapsible', type: 'boolean' },\n    { name: 'defaultCollapsed', type: 'boolean' },\n    { name: 'columns', type: 'number' },\n    { name: 'showBorder', type: 'boolean' },\n    { name: 'headerColor', ... },\n  ],\n});\n```\n\nThose eight names are a FLAT authoring surface. `DetailSection` does not have one. Its props interface (`packages/plugin-detail/src/DetailSection.tsx:102`) declares a single `section` object plus render-context props, and the component destructures `section` and reads `section.title`, `section.fields`, `section.defaultCollapsed`, `section.headerColor` and the rest off it. Not one of the eight declared names is a prop this component reads.\n\nThe two are joined by `SchemaRenderer`, which spreads a node's non-metadata keys as React props (`packages/react/src/SchemaRenderer.tsx:1574`, `createElement(Component, { schema, ...componentProps, … })`). So a node authored exactly as the registration prescribes arrives as `title` / `fields` / `headerColor` props, and `section` arrives as `undefined`.\n\n## Why it is worth a card\n\nThe eight inputs are not inert documentation. `packages/components/src/renderers/layout/page.tsx` builds the JSX-page compiler's manifest from `getKnownTypes()` plus these same `inputs`, and `sdui-parser`'s `validateTree` judges an authored page against it — the same reach `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts` records for `element:record_picker`, which is likewise outside `PUBLIC_BLOCKS`. So the platform's own validator tells an author these eight props are the correct and complete way to write this block, on the one surface where the answer is machine-read.\n\n⚠️ And the failure looks WORSE than inert, though this half is a reading and not an execution — stated separately for that reason. `DetailSection`'s first statement is `React.useState(section.defaultCollapsed ?? false)`. With `section` undefined that is a property read on `undefined`, i.e. a throw at first render rather than a section that renders empty. Whoever picks this up should execute it before believing that sentence; what IS measured here is only the declaration-versus-props mismatch above, by reading both files.\n\n## Reproduction of the measured half\n\n1. `git grep -n \"register('detail-section'\" packages/plugin-detail/src/index.tsx` — read the eight `inputs` names.\n2. Read `DetailSectionProps` at `packages/plugin-detail/src/DetailSection.tsx:102` and the destructure at `:129`.\n3. Intersect the two name sets. It is empty.\n\n## Not pre-judged\n\nAt least three dispositions look plausible and this card picks none:\n\n- **Adapt at the seam** — register an adapter that folds the flat props into a `section` object, which makes the eight declared names true.\n- **Declare what the component takes** — replace the eight with a `section` input of `type: 'object'`, which makes the declaration true instead.\n- **Retire the tag** — the block has no in-repo authoring site (the only `detail-section` references outside the registration are `packages/cli/src/utils/known-schema-types.ts` and a comment), so ADR-0049 enforce-or-remove may point at removal rather than either repair.\n\nThe choice turns on whether `detail-section` is meant to be authorable as a standalone SDUI block at all, which is a product question rather than a mechanical one.\n\n## Scope note\n\nNot touched by the objectui#6955 branch, which narrows the VALUE vocabulary of one of the eight (`headerColor`) and leaves the flat-versus-`section` shape question exactly where it found it. Narrowing that one input neither creates nor worsens this; it is visible from there because the same eight lines had to be read.\n\nGenerated by Claude Code, session `session_01YBWFb5YgMU5dw8p2VKj16S` — https://claude.ai/code\n"
+}

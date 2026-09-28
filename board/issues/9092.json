@@ -1,0 +1,37 @@
+{
+  "number": 9092,
+  "kind": "issue",
+  "title": "spec(types): group A of objectui#7759 — three pairs restate `label`/`description`/`aria` as plain `string`, narrower than the objectui#4580 ruling and than the protocol",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "enhancement",
+    "package: types",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-11T00:30:41Z",
+  "updated_at": "2026-09-13T11:00:55Z",
+  "closed_at": "2026-09-13T11:00:34Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9092",
+  "body": "Filed unassigned by the `domain:spec@objectui` PM seat, session `session_01Jmxdo7bmeqCQHLSfmLVX9w`, carving **group A** out of objectui#7759 so it can be implemented. objectui#7759's charter is measurement-and-proposal and opens no PR, so the implementation lane needs its own card. ⛔ objectui#7759 stays open and unclaimed.\n\n⭐ Director batch #112 delegated this to the seat: 「A 组按 #4580 收尾」 — finish group A against the existing objectui#4580 ruling, ⛔ without a maintainer letter.\n\n## The ruling, and the face that already obeys it\n\n**objectui#4580, revised Q1 ruling, option A** widened the label keys to accept an inline locale map. `BaseSchema` carries it on both faces:\n\n- `packages/types/src/base.ts:140` — `label?: string | I18nLabel;`\n- `packages/types/src/base.ts:158` — `description?: string | I18nLabel;`\n\n⇒ **the base pair is CLEAN.** The three pairs below restate the key as a plain `string`, so the narrowing is on the **declared** side and a forward mirror-vs-declaration comparison reads them as clean while an author writing the declared-upstream locale map is refused by `tsc`.\n\n## Premise re-derived on `origin/main` before filing\n\n| pair | key(s) | what the TS face says |\n|---|---|---|\n| `app.ts` — `AppComponentSchema` | `label` | plain `string` (several sites, incl. `:94` `label: string;`, `:385` / `:519` `label?: string;`) |\n| `objectql.ts` — `ObjectGridSchema` | `label`, `description` | plain `string` on both |\n| `layout.ts` — `PageNodeSchema` | `aria` (the nested aria label) | per objectui#7759 group A — ⛔ re-derive, this seat did not confirm this one |\n\n**Firing control that `I18nLabel` is real and reachable:** it occurs **26×** in `base.ts` and **4×** in `objectql.ts`, and **0×** in `app.ts` — so it is an existing, importable symbol already in use in one of the two files, ⛔ not something this card invents.\n\n⚠️ ⛔ **Re-derive every address above.** The `ObjectGridSchema` line numbers this seat took came from an `awk`-extracted block and are **offsets within that block, not file lines** — a bad probe value, reported as such rather than passed off as a reading. This seat has had card line numbers rot twice tonight (objectui#9026, objectui#8832) and deleted out from under a card once (objectui#8811).\n\n## Why this is the protocol direction, not a local widening\n\nThe maintainer's principle: 「我们的项目以 objectstack 协议为准」, and **being narrower than the protocol is the forbidden direction.** The spec declares the locale-map form; objectui's `BaseSchema` already matches it; these three pairs are narrower than both. ⇒ widening them is **restoring** protocol fidelity.\n\n⭐ objectui#4580 rests on producer evidence — `bridgeListView` assigns `node.label = spec.label` at `react/src/spec-bridge/bridges/list-view.ts:180`, where `ListView.label` is the spec's `I18nLabel`. ⛔ Re-derive that site: if the producer no longer does this, say so, because it is the ruling's factual basis.\n\n## What is owed\n\n1. Confirm or refute each of the three pairs, per key, with exact commands. ⭐ Especially `PageNodeSchema::aria`, which this seat did **not** verify.\n2. Align the declared face to the ruling's form for each confirmed key. ⛔ Do not touch `BaseSchema` — it is already correct.\n3. A **firing control per key**: an inline locale map must be shown refused by `tsc` **before** and accepted **after**, plus a control key whose behaviour does not move.\n4. ⚠️ Check whether each key's **zod mirror** already accepts the locale map. If a mirror does **not**, that pair is a different defect in the opposite direction — ⛔ report it, do not silently fix both faces in one stroke.\n\n`Clause-②: yes` — this moves a **published authoring face**. ⛔ Declared `yes` on the charter tie-break (unsure ⇒ yes), ⛔ not because a widening tell fired; the direction here is restoration toward the protocol.\n\n## ⛔ The maintainer's ordering rule governs this card\n\nVerbatim, from the director's batch #112 note: 「我们的项目以 objectstack 协议为准,文档应该以实际实现为准。**协议不正确的应该先修改协议。**」 and its ordering gloss: 凡「实现或立 spec 卡退役」处,**先判协议对不对**;判协议不对的,spec 卡**先行**、本卡阻塞其上。\n\n⇒ ⛔ **Never narrow or widen a spec-declared shape locally in objectui.** ⛔ Never add an author-writable key the spec does not declare. If you judge the protocol itself wrong, the deliverable is **stop and say so** — a spec card goes first and this card blocks on it.\n\n## Standing rules — read every line, they are not boilerplate\n\n**Identity.** The card is assigned and the `Claim:` on it is **yours**; it names your branch. ⛔ **Never write the assignee field.** ⛔ Never post a second `Claim:`. If the newest `Claim:` names another branch, stop and report.\n\n**Container hazards.**\n- `/home/user/objectui` is **SHALLOW** with a **STALE** `origin/main`. ⛔ Never `git fetch`, `git checkout`, or cut a worktree there. Clone fresh into your own scratchpad subdirectory.\n- `/home/user/objectstack` is a **shared primary checkout** — read-only.\n- ⛔ Never `git stash`. ⛔ Never kill a process by name. ⛔ Never mutate `node_modules`. ⛔ Never touch `content/docs/releases/`.\n- ⛔ These do NOT exist in objectui and are never a red you can wait for: `scripts/pm/os-regen-merge.sh`, `scripts/pm/check-widening-tells.mjs`, `scripts/pm/check-clause2-carriers.mjs`.\n\n**Measurement discipline.**\n- ⛔ **Never write \"(no output above = clean)\"** or any unconditional false-clean echo. Print the command and the exit code.\n- ⭐ A control is only a control **if it is known to fire in the region being tested.** ⚠️ Two true negatives are not a reading.\n- ⛔ A bad probe value is not a reading — a multi-line `grep -F` pattern is split into OR'd patterns and is one. ⛔ An empty gate section is a FAILED RUN.\n- ⛔ Never quote a bare `grep -c` without its exact command.\n- ⛔ **A claim written in the tree is a claim, not a reading** — a docblock, a card body, a triage comment. Three devs refuted this seat tonight by measuring something I had quoted from in-tree prose. Refute me the same way if the measurement says so.\n- Read the stored body back after every GitHub write and report what came back.\n\n**Deliverable.** Worktree → code → tests → changeset → push → **draft** PR carrying `needs:contract-review`. ⛔ Do not flip ready, ⛔ do not enqueue, ⛔ no auto-merge — landing is the seat's. Report structured JSON: PR number and head sha, every premise confirmed or refuted with exact commands, your firing controls, and CI as total / success / skipped / non-green plus whether the reported `total_count` equals the returned array length.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

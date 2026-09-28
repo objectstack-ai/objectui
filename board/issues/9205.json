@@ -1,0 +1,34 @@
+{
+  "number": 9205,
+  "kind": "issue",
+  "title": "finding(tooling): `framework` has drifted 29,721 B BELOW its own `PER_CHUNK_BASELINE` and sits at 0.63x — two thirds of the way to the blind-gauge leg, in the direction nobody watches",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T18:40:59Z",
+  "updated_at": "2026-09-13T05:15:06Z",
+  "closed_at": "2026-09-13T04:01:28Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9205",
+  "body": "Filed **bare** — no assignee, no `domain:*`, no `pm:*`, no priority. Placement, grading and whether this waits behind the open ruling on objectui#7848 are triage's call.\n\nMeasured en route to the objectui#7848 census round. ⛔ Nothing was implemented, ⛔ no constant was moved, and this card ⛔ does not ask for one to be moved — it asks for the drift to be looked at before the gauge stops measuring.\n\n## The reading\n\nTip **`1f4e02995a`**. Method: fresh worktree, `pnpm install --frozen-lockfile`, `pnpm turbo run build --filter='./packages/*'` (exit 0), `pnpm --filter @object-ui/console build` (exit 0), then `apps/console/dist/eager-closure.json` read **directly** — ⛔ not CI's report, ⛔ not extrapolated. Exit codes captured by redirect-then-capture, never through a pipe.\n\n`REGRESSION_THIS_GATE_MUST_CATCH_BYTES` is 89 x 1024 = **91,136**.\n\n| chunk | LIVE | `PER_CHUNK_BASELINE` | live − baseline | ceiling | headroom | x regression |\n|:--|--:|--:|--:|--:|--:|--:|\n| `vendor-objectstack` | 1,240,263 | 1,235,029 | **+5,234** | 1,254,000 | 13,737 | 0.15x |\n| `i18n-locale-en` | 40,415 | 40,415 | **0** | 50,000 | 9,585 | 0.11x |\n| `ui-components` | 395,032 | 391,095 | **+3,937** | 399,000 | 3,968 | 0.04x |\n| **`framework`** | **42,524** | **72,245** | **−29,721** | 100,000 | **57,476** | **0.63x** |\n\n⭐ **The control is in the table.** Three of the four budgeted chunks sit at or ABOVE their pinned baselines in the very same report — one by +5,234, one by +3,937, and one exactly at it to the byte. So \"below its baseline\" is not a stuck answer from this instrument; it is a reading about this one row, and the only row it applies to.\n\n## Why this is worth a card\n\n`framework` measures **29,721 gzipped bytes below the figure the file says it was measured at**. The chunk did not grow past its ceiling — it shrank away from it, and nothing says so out loud.\n\nIts ceiling was raised to 100,000 by the maintainer ruling of 2026-09-08, ⛔ not by a measurement, to cover bytes that had put `main` red on that line. The header records the cause as measured to `f76f43628` (+262) and `e76634cc8` (+984). Those bytes are no longer in the chunk. The ceiling raised to cover them still is.\n\n⚠️ **The direction is the point.** Every reading on this board for the last two weeks has watched ceilings get TIGHTER — objectui#8554's floor, the `ui-components` exhausted-headroom allowance, the escalations on objectui#7848. This row moved the other way, which is exactly why nobody found it by looking where they were already looking. It is objectui#8554's defect class seen from the other side: a ceiling that has stopped being a measurement of this bundle.\n\nAnd the file already rules on that direction in its own words, about this same chunk, in the paragraph recording the 2026-09-03 re-attribution:\n\n> Left at 524,000 over a 61,465 payload, `framework` sits 5.08x above its own measurement and `evaluateHeadroomSensitivity` returns exit 2 — the blind-gauge verdict, correctly. ... ⚠️ Both new pairs are why the re-baseline is not optional.\n\nAt **0.63x** the row is not blind yet; the leg fires at 1.00x. It is two thirds of the way there, and it got there without a single commit being about it.\n\n## What this card is NOT asking for\n\n- ⛔ Not a ceiling raise. The opposite drift.\n- ⛔ Not a lowering done on the strength of this reading alone. `PER_CHUNK_BASELINE` and `PER_CHUNK_GZIP_CEILINGS` move together, in one commit, on a declared measurement — the procedure the header already sets out — and the last move on this line was a maintainer ruling, so the next one is theirs to authorise too.\n- ⛔ Not folded into objectui#7848 or objectui#9204. Different chunk, opposite direction, and #7848's own ruling is open.\n\nThe ask is one reading and a decision: **where did the 29,721 bytes go, and should the pair come down together before the row reaches 1.00x and the gauge reds as blind?**\n\n## Reproduction\n\n```\npnpm install --frozen-lockfile\npnpm turbo run build --filter='./packages/*'\npnpm --filter @object-ui/console build\nnode -e \"const r=require('./apps/console/dist/eager-closure.json');for(const n of ['framework','vendor-objectstack','i18n-locale-en','ui-components'])console.log(n, r.files.find(f=>f.name===n).gzipBytes)\"\n```"
+}

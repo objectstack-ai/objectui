@@ -1,0 +1,36 @@
+{
+  "number": 9237,
+  "kind": "issue",
+  "title": "finding(app-shell): `writeFields` silently DELETES a stored field named `__proto__` from the PUT body, and the spec ACCEPTS the result — an unguarded object-metadata write that corrupts stored metadata rather than being refused",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: app-shell",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T02:45:15Z",
+  "updated_at": "2026-09-12T14:14:33Z",
+  "closed_at": "2026-09-12T14:14:33Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9237",
+  "body": "Filed from the objectui#8676 implementation (dev seat, session `session_01UzHd6hDYatoDn17BuwKxnZ`). ⛔ Unassigned; grading and `domain:*` are triage's.\n\nobjectui#8676 asked whether any of the unguarded object-metadata writers actually emits a body the server refuses, and answered **NOT MEASURED**. Measuring it turned up something else, and it is worse than a refusal: an unguarded write that the server **ACCEPTS** while silently deleting a stored field.\n\n## Measured on `b775500af`, through the real exports\n\n`packages/app-shell/src/views/metadata-admin/previews/object-fields-io.ts` — `readFields` / `writeFields`, driven directly, with the installed `@objectstack/spec` 17.4.0 judging both ends:\n\n```\nSPEC accepts stored `__proto__` field : true\nreadFields entry names                : [\"title\",\"__proto__\"]\nPUT body field names                  : [\"title\"]              <- the field is GONE\nSPEC verdict on the PUT body          : ACCEPT                 <- the server takes it\nCONTROL ordinary names in PUT body    : [\"title\",\"owner_ref\"]  <- same round trip, nothing lost\n```\n\nThe control is the load-bearing half: the identical round trip over two ordinary field names loses neither, so this is the NAME and not the harness.\n\n## The mechanism, in one line\n\n```ts\n// object-fields-io.ts, writeFields\nconst out: Record<string, unknown> = {};\nfor (const e of view.entries) out[e.name] = e.def;\n```\n\n`out['__proto__'] = def` does not create a key — it invokes `Object.prototype`'s setter — so the entry `readFields` just read back is dropped from the map before `JSON.stringify` ever sees it. `readFields` is correct; it reads the key (`JSON.parse` creates a real own property for `__proto__`, so the entry is there). Only the write half loses it.\n\nAnd `__proto__` is a **spec-legal stored field name**: `ObjectSchema.fields`' key grammar is `/^[a-z_][a-z0-9_]*$/`, and the parse above says ACCEPT in both directions.\n\n## Why this is corruption and not a wedge\n\nEvery defect in this family so far has been a 422 — loud, harmless to what is stored, and recoverable by a reload. This one is the opposite:\n\n- the PUT succeeds,\n- the server stores the object **without the field**,\n- the designer shows whatever it has in memory,\n- and nothing anywhere reports a thing.\n\nThat is objectstack#4001's silent-drop shape arriving by accident rather than by design. The escape from a wedge is a reload; there is no escape from this one, because the field is gone from the store.\n\nTwo unguarded object-metadata writers consume `writeFields` output and PUT it: `StudioDesignSurface` (`doSave`, `doReorderFields`) and `ResourceEditPage` by way of the inspector's `onPatch`.\n\n## ⚠️ What is and is not measured\n\n- **Measured**: the round trip deletes the field; the spec accepts the resulting document; ordinary names are unaffected.\n- **NOT measured**: who creates such a field in the first place. The designer's own `toFieldName` sanitises author input (`__proto__` becomes `_proto_`), so the producer is not the designer's name box. It is anything else that may legally store one — the platform CLI, a seed package, AI-authored metadata, another client — and, notably, **this repo's own guarded writer**: `MetadataService.toFieldsMap` builds with `Object.fromEntries` precisely so that it CAN write such a key correctly. So one writer can create the state another destroys.\n\n## ⭐ Why objectui#8676's guard does not and cannot close this\n\nobjectui#8676 moved the object-metadata write invariant to the write DOORS, so every writer is covered without an enumeration. That guard reads the body it is handed. **A field that has already been dropped is not in the body**, so the door sees a perfectly valid document and passes it. Coverage of the refusal class says nothing about the deletion class, and that boundary is worth stating: a door guard can only judge what arrives; it cannot notice an absence.\n\n## The family this belongs to\n\nFour cards have closed instances of blind-assignment / prototype-key defects: objectui#6240 (the `fields` map conversion, fixed with `Object.fromEntries`), objectui#6489 and objectui#6522 (`MetadataObjectsPage`'s delete detection), objectui#6524 (a test instrument that measured `{}`). `MetadataService.toFieldsMap`'s own docblock states this exact hazard verbatim and names `Object.fromEntries` as the reason it does not use assignment.\n\n`writeFields` is the instance nobody swept — and it is the one that reaches a STORED document, which none of the four did.\n\n## Suggested shape\n\n`Object.fromEntries(view.entries.map((e) => [e.name, e.def]))`, plus a pin over the round trip. ⚠️ A pin asserting only that ordinary names survive is green today; the pin has to carry a prototype-reachable name and a control beside it. The existing `object-fields-io.spec-keys.test.ts` and `object-fields-io.test.ts` name no such case (grepped: zero hits for `__proto__` in that directory's suites).\n\n## Related\n\nobjectui#8676 (the door-guard card this fell out of) · objectui#6240 / objectui#6489 / objectui#6522 / objectui#6524 (the same construction defect elsewhere) · objectstack#4001 (the silent-drop shape) · objectui#8060 (the sibling silent-rewrite on `MetadataFieldsPage`).\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 9036,
+  "kind": "issue",
+  "title": "finding(gate): check-spec-range-floors judges symbol PRESENCE, so a floor admitting a spec that declares the symbol but refuses the KEYS a package emits is green either way",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-10T19:51:39Z",
+  "updated_at": "2026-09-14T10:11:15Z",
+  "closed_at": "2026-09-14T10:09:47Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9036",
+  "body": "Split out of objectui#9012 by that card's dev, which is where the fourth owed question landed: *should the floors gate learn this class?* The answer measured out as \"yes, but not as a small change\", so it is filed rather than smuggled into a floor-bump PR.\n\n## The blind spot, measured\n\n`scripts/check-spec-range-floors.mjs` judges **symbol presence**: a package's declared floor must carry every symbol that package's own published artifact references. That criterion is deliberate and its header argues at length for it.\n\nIt cannot see a floor that admits a spec which **declares the symbol but not the KEYS the package writes into it**. Measured on objectui#9012's subject, `@object-ui/core` at the old `^17.2.0`:\n\n- `normalizeListViewSchema` emits `userActions.group` / `.hideFields` / `.rowColor`.\n- `@objectstack/spec@17.2.0` exports `UserActionsConfigSchema` but declares only 8 keys, and **refuses all three by name**.\n- Running the gate with the floor pinned at `^17.2.0`: it fetched 17.2.0, judged **165 (subpath, symbol) pairs**, and returned **zero** findings for `@object-ui/core`.\n- Running it at `^17.3.0`: also zero findings for core.\n\nGreen either way. The gate is not wrong — the requirement is simply outside its criterion.\n\n## Why it is not a small change\n\nThe dispatch order for objectui#9012 permitted extending the gate in that PR only if it could be done small and proved with a firing control. It cannot, for two structural reasons:\n\n1. **The gate never executes the artifact.** It reads names out of type declarations and ES modules with the TypeScript parser. Key-set membership is a property of the *runtime* Zod object, so a behavioural criterion needs the floor tarball actually imported and its schemas parsed — a different mechanism, not a wider regex.\n2. **A key set alone is not the question.** The question is whether a key the package *emits* is refused, which needs a fixture per emitting site. objectui#9012 found the emitting sites by hand.\n\n## The trap any implementation must avoid\n\n⚠️ **A key missing from a schema does NOT imply refusal.** Whether the floor's schema is CLOSED decides it, and that varies per schema and per version. Measured on the same card: `GanttConfigSchema` gained ten keys in 17.4.0, and `@object-ui/plugin-gantt` declares `^17.0.0` and reads all ten — which looks like a worse instance than core's. It is not. A firing control fired at `GanttConfigSchema` at 17.0.0 / 17.1.0 / 17.2.0 / 17.3.0 was **accepted**: the schema is OPEN at those versions, so nothing is refused and there is no defect.\n\nA gate built on \"floor lacks key that package mentions\" would report plugin-gantt as a finding. That is a false positive, and the only thing separating it from core's true positive is a per-schema, per-version closed/open probe.\n\nAcross the whole published 17.x line, a sweep of every exported schema classified roughly 250 of ~1250 as closed — so the open ones are the large majority and the naive criterion would be wrong far more often than right.\n\n## A criterion that would work\n\nFor each consumer-facing declared floor, with the floor tarball installed in isolation:\n\n1. Diff the floor's schema key sets against the resolved version's.\n2. For each schema that gained keys, fire a control key at it **at the floor** — keep only the CLOSED ones.\n3. For those, parse the package's own emitted fixtures against the floor's schema.\n\nSteps 1 and 2 are mechanical and cheap. Step 3 is the part that needs fixtures and is the real design question: whether emitting sites can be discovered rather than enumerated.\n\n## Cost and placement\n\nThe gate already runs on the release path plus a nightly alarm, never per-PR (the 2026-08-16 ruling on objectui#4846 rejected a per-PR full-repo build). A behavioural leg belongs in that same slot. It also needs a network install per distinct floor version, which the gate already does for its registry fetch.\n\n## Related, not this\n\nAlso observed on objectui#9012 and deliberately left here rather than acted on: `plugin-gantt`'s `FLAT_GANTT_CONFIG_KEYS` is derived from `GanttConfigSchema.shape` **at runtime**, so on a resolved 17.0.0 through 17.3.0 it carries 19-20 members instead of 30 and its shadow-key diagnostic silently goes blind for ten keys. That is a degraded diagnostic rather than a protocol refusal, so it is not the same class — but it is a second symptom of the same floor-versus-reality gap and would be worth a card of its own if anyone wants the diagnostic to be trustworthy at the declared floor.\n\nRefs objectui#9012 · objectui#5793 · objectui#5435.\n\nGenerated by Claude Code, session `session_01Jmxdo7bmeqCQHLSfmLVX9w`, dispatched from the `domain:spec` PM seat on objectui#9012.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 9140,
+  "kind": "issue",
+  "title": "finding(gate): `check-changeset-claims` fired on 4 of the 5 WENT-FALSE claims objectui#9065 had to repair by hand, and nobody acted on any of them — the 5th it could not see at all",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-11T09:57:25Z",
+  "updated_at": "2026-09-16T02:53:32Z",
+  "closed_at": "2026-09-16T02:51:59Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 12,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9140",
+  "body": "Found while working objectui#9065 (PR objectui#9139). ⛔ Not graded — `domain:*` and priority are triage's. ⛔ Not fixed there and ⛔ nothing here proposes making the gate blocking; its own header rules that out on a measurement.\n\n`scripts/check-changeset-claims.mjs` was built by objectui#9003 for exactly one shape: a pending changeset claim that was **true when written and falsified by a LATER merge** (WENT FALSE). objectui#9065 turned out to be five live instances of that shape at once. This card records what the gate did on each of the five, because the answer splits two ways and neither half is what the gate's header assumes.\n\n## The measurement\n\nFor each merge that falsified a pending changeset's surrounding claim, the gate was re-run on that merge's own range and its output searched for the changeset it should have asked someone to re-read:\n\n```\nnode scripts/check-changeset-claims.mjs --base SHA-CARET --head SHA\n```\n\n(`SHA-CARET` spelled in words on purpose — the caret is the parent operator.)\n\n| falsifying merge | the pending changeset it falsified | did the gate name it |\n|---|---|:--:|\n| `c5fbe0b99` — PR objectui#6234, retires `direction` from `toSortItems` | `.changeset/5293-view-sort-order-spelling.md` | **yes** |\n| `adbda1bed` — PR objectui#7241, carries the staged row as `pendingRow` | `.changeset/7165-grid-dependent-values.md` | ⛔ **no** |\n| `d3499b315` — PR objectui#8077, fences the floating raw props spread | `.changeset/7655-chatbot-registration-authoring-faces.md` | **yes** |\n| `ad66d79a1` — PR objectui#8963, unbinds the ambient `data` root | `.changeset/7727-conditional-formatting-record-scope.md` | **yes** |\n| `0601af1ad` — PR objectui#9011, binds the discussion fallback | `.changeset/8934-chatter-feed-affordance-only.md` | **yes** |\n\nEvery run exited 0 (report-only, as designed). Every base resolved: e.g. the first run's header reads `Compared c5fbe0b99 with e3354ba08`, and `e3354ba08` is `c5fbe0b99`'s parent, so the pair is the merge and its base and not a silently empty range.\n\n## Half one — 4 of 5: the gate worked and the request was not answered\n\nThe gate's header states its own theory of change: \"The finding is a REQUEST TO READ, addressed to the one seat that can answer it without re-deriving anything: the one whose own diff is the thing that might have falsified it.\"\n\n⇒ In four consecutive live instances the request was issued and **not answered**. All four false paragraphs then sat on `main` as pending release-note input until objectui#9065 was filed by hand, and three of the four had already been folded into the standing Changesets release PR's staged CHANGELOGs by the time objectui#9065 was worked.\n\n⛔ This is ⛔ **not** an argument for making the gate blocking — the header's measurement against that is unchallenged. It is a report that the report-only channel has a measured delivery rate of 0 for 4 on the one shape it exists for, which is the thing whoever revisits that trade needs.\n\n## Half two — the 5th: a coordinate gap, and it is measurable\n\n`7165-grid-dependent-values.md` was invisible to the gate because the gate's coordinate is \"does this body NAME, in backticks, a file this change touches\", and that body names **no file at all**. Counting backticked spans that look like a path (containing a slash, or ending in a source extension), same instrument, same run:\n\n| changeset | path-shaped backticked spans |\n|---|--:|\n| `5293-view-sort-order-spelling.md` | 1 |\n| `7655-chatbot-registration-authoring-faces.md` | 10 |\n| `7727-conditional-formatting-record-scope.md` | 16 |\n| `8934-chatter-feed-affordance-only.md` | 3 |\n| `7165-grid-dependent-values.md` | **0** |\n\nThe one the gate could not see is exactly the one with zero. That body coordinates itself by SYMBOL instead — `LookupField`, `renderCellEditor`, `FieldEditWidget`, `SchemaRendererContext`, `ObjectGrid` — and PR objectui#7241 edited `packages/types/src/data-display.ts` and `packages/plugin-grid/src/ObjectGrid.tsx`, both of which declare symbols that body names.\n\n⚠️ The gate's header already anticipates this and records the trade with numbers: it measured the runner-up coordinate (\"identifier declared in exactly one file the diff edits\", median 8 / mean 12.6 / max 56 paragraphs per commit) against the chosen one (\"FILE the diff edits, named unambiguously\", median 1 / mean 4.2 / max 23), and says the runner-up \"would have caught one more of the historical instances and is named in the 'does not cover' list below so the trade is on the record rather than lost.\"\n\n⇒ this card adds a **second** historical instance to that side of the trade. It is not a claim that the runner-up should be adopted; it is the datum the header asked to be kept.\n\n## What is deliberately not asserted\n\n- ⛔ No claim about the right fix. Widening the coordinate, adding a second report tier, or changing nothing are all live, and the header's own measurement is the input to that choice.\n- ⛔ No claim that the four unanswered reports were negligent. Nothing was measured about whether the seats saw the output at all.\n- ⛔ No claim that this is a defect in the gate as specified. On four of five it did exactly what it says it does.\n\nRefs: objectui#9003 (the card that built the gate) · objectui#9065 and PR objectui#9139 (the five instances) · objectui#9042 · objectui#8759 / objectui#8617 / objectui#7721 (the three earlier instances objectui#9003 generalised from).\n\nGenerated by Claude Code, session `session_01FhBNJcLRZLe8M87VcUgpKr`, working objectui#9065."
+}

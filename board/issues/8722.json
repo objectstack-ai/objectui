@@ -1,0 +1,35 @@
+{
+  "number": 8722,
+  "kind": "issue",
+  "title": "finding(tests): 83 files' jest-dom matchers are typed only by a DIFFERENT file's bare import — delete that one import and four packages stop type-checking",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2",
+    "tests",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-09T01:14:05Z",
+  "updated_at": "2026-09-14T12:28:36Z",
+  "closed_at": "2026-09-14T12:27:00Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8722",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`) from objectui#8714's census (PR #8720). ⛔ Not claimed. Split out of that card deliberately: it is **not** a tsconfig divergence, so it does not belong inside that audit's matrix as a footnote, and it has a blast radius the matrix does not convey.\n\n## Measured\n\nA **bare import** of `@testing-library/jest-dom` augments the matcher types **PROGRAM-WIDE**, not per file. So:\n\n| package | files whose matchers are typed **only** by another file's import |\n| :-- | --: |\n| `plugin-detail` | 40 |\n| `plugin-dashboard` | 16 |\n| `fields` | 15 |\n| `plugin-list` | 12 |\n| **total** | **83** |\n\nNone of these four packages names `@testing-library/jest-dom` in its `tsconfig.test.json` `compilerOptions.types`. ⇒ **83 files compile today because some *other* file in the same package happens to carry an import statement.**\n\n⚠️ **Delete or move that one import — in a refactor, a file split, a \"this import is unused\" cleanup — and up to 40 files in one package stop type-checking**, with nothing in the diff, the config, or the failing files naming the dependency. The failure would land as dozens of `TS2339: Property 'toBeInTheDocument' does not exist` in files nobody touched.\n\n## ⭐ The same mechanism, once more, on a different route\n\nThe census found a second instance of exactly this shape:\n\n> **one triple-slash `node` reference on line 1 of ONE `sdui-parser` test file** gives that package the Node globals its **ten** `types`-unset siblings lack.\n\nProbed with controls: `react-runtime` **TS2591**, `sdui-parser` **clean**, two named-node controls **lit**. ⇒ one line, in one file, silently supplying an ambient type to an entire program.\n\n⇒ ⭐ **the general form**: *ambient type registration is program-scoped, but it is being performed file-locally and by accident.* The config is not the authority; whichever file happens to import first is.\n\n## Why this is not objectui#8714\n\nobjectui#8714 is *\"nothing asserts that sibling packages' test type-programs **agree**\"* — a comparison across configs. This is *\"a program's ambient types are supplied from **outside its config entirely**\"* — the configs could be made perfectly uniform and these 83 files would still be leaning on an import.\n\n⇒ it is **rule 2** in that card's proposed gate (*no file's matchers may be typed only by another file's import*), and objectui#8714's ruling was **rule 1 first, rule 2 as a follow-up**. This card is that follow-up's subject.\n\n## Directions, sketched without recommending — this is a triage call\n\n- **A — name it in the config.** Add `@testing-library/jest-dom` to each package's `types`. ⚠️ Measured: `types: ['@testing-library/jest-dom']` **alone leaves `process` at TS2591** — the working shape is `types: ['node', '@testing-library/jest-dom']`, and setting `types` at all **narrows** the ambient set, so this is not additive. ⛔ Do not apply it blind.\n- **B — require the import per file.** Each test file that uses matchers imports jest-dom itself. Honest and local; adds a line to 83 files and to every future one.\n- **C — a setup file** referenced from every test program, so the augmentation has one declared home.\n- **D — leave it and gate it** (rule 2): assert that no file's matchers are typed only by a sibling's import, and let the violations be fixed by whichever of A/B/C the fixer prefers.\n\n⚠️ **A and C are not interchangeable**: `types` is a compiler-visible declaration, a setup file is a runtime-and-types one. ⚠️ And note `permissions` **documents its `types` omission on purpose** — so any sweep must read comments before changing a config, which is precisely objectui#8714's rule 1.\n\n## Evidence bar for whoever takes it\n\n⚠️ **All 38 test programs compile green today**, so a fix verified by a green run proves nothing.\n\n- ⭐ **Leg 1**: delete the load-bearing import in one package and show the **cascade** — the count of newly-failing files, in files the diff did not touch. That is the finding, demonstrated.\n- The fix must make each file's typing **independent of any other file**: re-run leg 1 after the fix and show **zero** newly-failing files.\n- ⚠️ **PRECONDITION**: `pnpm build` must be green before any `tsc -p` — an unbuilt tree gives `TS2307` for every workspace import and makes all 38 programs look broken identically. Record it as **NOT MEASURED**, ⛔ never as a result.\n- ⚠️ **Pathspec globs lie here**: `'pkg/src/**/*.test.tsx'` matches **nothing** for flat-layout packages (objectui#8714's sweep read **0** test files for `plugin-map` before its control caught it). Enumerate from **TypeScript's own resolved program file list**, not from globs.\n\n## Related\n\nobjectui#8714 / PR #8720 (the census this came from, its audit doc, and the re-runnable `census:tsconfig-test-parity` script) · objectui#8691 (`lib` levels — `.at(-1)` is TS2550 in packages on `ES2020`) · objectui#8710 (a Vite alias resolving subpaths the `exports` map forbids) — ⭐ **three sibling axes of one class: green under one tool, red under another, each found by a dev tripping over it rather than by any instrument.**\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** `search_issues` returns **false zeros** on this repo, and the REST `/search/issues` endpoint answered **403 on all three queries including its own control** — a term from objectui#8714's own title — measured by two independent seats tonight. ⇒ no zero from either channel is evidence of absence. Manual check performed instead: the devx/tooling findings filed since 2026-09-07 read by title. objectui#8714 is the parent and is a **different subject** (config parity, not ambient supply from outside the config)."
+}

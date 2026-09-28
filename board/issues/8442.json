@@ -1,0 +1,35 @@
+{
+  "number": 8442,
+  "kind": "issue",
+  "title": "finding(app-shell): hydratedMessagesToChatMessages keeps the three SDK approval states but drops the approval envelope and pendingActionId that make them actionable",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: app-shell",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T23:43:06Z",
+  "updated_at": "2026-09-14T16:22:54Z",
+  "closed_at": "2026-09-14T16:22:54Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8442",
+  "body": "Found while measuring objectui#8426 (typing `useObjectChat`'s `aiInitialMessages` builder). Not fixed there — out of that card's scope. ⛔ Not claimed.\n\n## What\n\n`packages/app-shell/src/console/ai/AiChatPage.tsx`, `partToolState` (currently `:135`) and `hydratedMessagesToChatMessages` (currently `:165`), measured on `origin/main` @ `ca3942729`.\n\n`partToolState` returns `'approval-requested'`, `'approval-responded'` and `'output-denied'` verbatim from the server-persisted part (`:146-151`). The part it reads is `HydratedUIMessagePart`, declared `{ type: string; text?: string; [key: string]: unknown }` — so whatever else the server persisted on that part is present in the value and reachable.\n\nThe mapper then builds the invocation from exactly six things: `toolCallId`, `toolName`, `state`, `result`, the four detected ObjectStack envelopes, and `errorText` (`:205-217`). It never reads:\n\n- the AI SDK's own `approval` envelope on the part (`{ id, approved?, reason?, isAutomatic?, signature? }`), which the SDK's part union makes **required** for each of those three states; and\n- `pendingActionId` — which `mapMessages.extractToolInvocations` **does** lift on the live path (`packages/plugin-chatbot/src/mapMessages.ts:687`), and which `useHitlInChat` uses as its index key (`useHitlInChat.ts:154-166`: it indexes `toolCallId -> pendingActionId` and skips any invocation without one).\n\n## Why it matters\n\nTwo consequences, stated at the confidence each was measured at:\n\n1. **Measured by type, at objectui#8426.** These three states are not constructible as a declared AI SDK `UIMessagePart` without the `approval` envelope. Three explicit pushes, each a compiler error TS2345 against `UIMessagePart` in `packages/plugin-chatbot`:\n   `{ type: 'tool-NAME', toolCallId, state: 'approval-requested', input }`, and the same for `'approval-responded'` and `'output-denied'`. The seven other authored states build fine. So this drop is the direct blocker on objectui#8426's contract-first fix — the state survives the hydration hop, the data that state requires does not.\n\n2. **Read from the source, not exercised in a browser.** A rehydrated pending approval reaches `useHitlInChat` with `state: 'approval-requested'` and no `pendingActionId`, so it is not indexed by that hook. `ChatbotEnhanced.tsx:2128` gates the awaiting-approval affordance on `state` and `onToolApprove` only, so the card still renders as awaiting. Whether the operator then gets a working Approve/Reject or a dead one was NOT verified end to end here — the reading is the missing index entry, and someone should confirm the UX before costing a fix.\n\nThe live path does not have this gap: `mapMessages` synthesizes `state: 'approval-requested'` **from the result envelope** and lifts `pendingActionId` in the same pass, so the two always arrive together there. Only the hydration path can produce one without the other.\n\n## Note on scope\n\nThe `output-denied` pass-through is deliberate and pinned: `packages/app-shell/src/console/ai/__tests__/AiChatPage.hydration.test.ts:44` feeds a persisted `state: 'output-denied'` part and `:49` asserts the invocation keeps that state. So the fix direction is \"carry the envelope too\", not \"stop carrying the state\".\n\n## Dedup\n\n`search_issues` over this repo for the hydration mapper and the dropped approval id — 2 hits, both read: objectui#2477 (open, Console AI chat post-cleanup UX follow-ups; does not name this) and objectui#2450 (closed, second-handoff auto-send). Neither names the dropped approval envelope or `pendingActionId`.\n\n## Related\n\nobjectui#8426 (blocked on the ruling this feeds) · objectui#8378 · objectui#8342 · objectui#5695"
+}

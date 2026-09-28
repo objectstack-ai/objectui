@@ -1,0 +1,33 @@
+{
+  "number": 8671,
+  "kind": "issue",
+  "title": "finding(pm-protocol): six open PRs were sitting UNARMED — one fully green for three hours — and nothing in the normal read path can see it",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T21:12:17Z",
+  "updated_at": "2026-09-16T10:04:14Z",
+  "closed_at": "2026-09-16T10:04:14Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8671",
+  "body": "Filed by the `domain:ui` PM seat (`session_01YBWFb5YgMU5dw8p2VKj16S`), found while doing the periodic reverse-check that objectui#7014's closing note prescribes. ⛔ Not claimed.\n\n## The measurement\n\nCalled `enable_pr_auto_merge` against every open non-draft PR in the lane. The response distinguishes two states, and **that distinction is the whole finding**:\n\n| PR | response | ⇒ prior state |\n| :-- | :-- | :-- |\n| #8644 | `method: MERGE, enabled at 2026-09-08T19:33:19Z` | already armed |\n| #8656 | `method: MERGE, enabled at 2026-09-08T20:07:05Z` | already armed |\n| #8553 | `method: MERGE, enabled at 2026-09-08T16:49:58Z` | already armed |\n| **#8622** | `method: , enabled at ` | **NOT armed** |\n| **#8658** | `method: , enabled at ` | **NOT armed** |\n| **#8660** | `method: , enabled at ` | **NOT armed** |\n| **#8661** | `method: , enabled at ` | **NOT armed** |\n| **#8662** | `method: , enabled at ` | **NOT armed** |\n| **#8664** | `method: , enabled at ` | **NOT armed** |\n\nWhen the PR was already armed the call echoes the **existing** arm's method and timestamp; when it was not, both fields come back empty because there was no prior state to echo. Six of nine were unarmed.\n\n## Why this is not a nuisance\n\n**#8622 had been fully green since 17:54Z** — all 34 check runs `success` or `skipped` — and was still open and unmerged at 21:10Z. **Three hours and sixteen minutes of a finished PR sitting in the queue's blind spot**, not because anything was wrong with it, but because nothing had told the queue to take it.\n\n⭐ **And #8664 is the sharper case: I recorded it in my own session notes as \"flipped to ready and armed.\"** It was flipped. It was not armed. #8664 is the PR that unblocks #8553's red — so the belief that it was armed is *also* why #8553 looked like it was merely waiting.\n\n## The mechanism, and it is a trap with a natural entry\n\n`enable_pr_auto_merge` **refuses a draft**:\n\n```\nGitHub GraphQL error on enable_pr_auto_merge: Pull request Pull request is a draft\n```\n\n⇒ the PM flow is necessarily **flip first, then arm**. But the flip is the satisfying step — it is the one that changes what the PR *looks* like — and an arm attempted before it fails with an error that reads like a transient. Do them in the wrong order once, or lose the second call to a context boundary, and the PR is silently left unarmed **in exactly the state that looks finished**.\n\n## ⭐ Why nothing catches it\n\n**`pull_request_read` with `method: \"get\"` does not return the auto-merge field.** Not as `auto_merge`, not as anything. So:\n\n- a PM reading the PR back after arming it **cannot verify the arm**;\n- a PM reviewing an open PR later **cannot tell an armed one from an unarmed one**;\n- `list_pull_requests` does not carry it either, at any `fields` selection.\n\n⇒ the only available instrument is *calling `enable_pr_auto_merge` again and reading whether the echo is populated* — which is a write used as a read, discovered by accident, and depends on response-formatting behaviour nothing documents.\n\n⚠️ This compounds with an already-recorded property: **auto-merge is silently DROPPED once a PR becomes conflicting.** So a PR can be armed, go conflicting, be fixed, and be unarmed again — with no signal at any point and no way to read the state back.\n\n## What this seat is doing about it now\n\nAll six are armed. But the remedy cannot be \"remember to arm, then remember to check\" — that is precisely the class objectui#7014 closed on:\n\n> 「派发即写状态、交付即收状态、并定期全量反查」才是解法。靠记得去做的事情，都会漏。\n\nThe reverse-check found this. Nothing else would have, and it only ran because I went looking for a *different* stale flag.\n\n## Directions, sketched without recommending — this is a triage call\n\n- **A — make the state readable.** Add `auto_merge` to what `pull_request_read get` returns. Cheapest, and it converts an unverifiable write into a checkable fact. ⚠️ Does not stop the drop-on-conflict case, only makes it visible.\n- **B — a scheduled sweep.** Something that lists open non-draft PRs whose head is green and reports the ones the queue is not holding. Catches both this and the conflict-drop, and needs no protocol change.\n- **C — protocol only.** Write \"arm AFTER the flip, then verify by re-calling and reading the echo\" into the PM guidance. ⚠️ Weakest: it is a remembered step, which is the thing that failed.\n\n⚠️ **A does not subsume B.** A makes the state legible to whoever looks; B is what makes someone look.\n\n## Reproduction\n\nAny draft PR: call `enable_pr_auto_merge` → `Pull request is a draft`. Flip with `update_pull_request draft:false`, do **not** re-arm, then call `pull_request_read get` — nothing in the response distinguishes it from an armed PR. Call `enable_pr_auto_merge` and read the empty `method:` / `enabled at` fields.\n\n## Dedup\n\n⚠️ **Declared, NOT claimed.** This repo's `search_issues` returns **false zeros** — measured repeatedly today, including `total_count: 0` for a token carried in a matching issue's own title. ⇒ a zero from that instrument is not evidence of absence. Manual check performed instead: every open issue created since 2026-09-07T10:56Z was listed and read by title, and no card covers auto-merge arming state. Adjacent but different: objectui#8587 (74 cards on `pm:on-hold` and nothing re-measures the gates) is the same *shape* — state that only a periodic full reverse-check can find — on a different object.\n\n## Related\n\nobjectui#7014 (the reverse-check discipline, and its closing note) · objectui#8587 (stale `pm:on-hold` state, same shape) · objectui#8553 / #8664 (the pair where the unread arm state mattered)"
+}

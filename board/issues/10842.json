@@ -2,24 +2,35 @@
   "number": 10842,
   "kind": "issue",
   "title": "[finding] the app creation wizard saves wizardDraftToAppSchema output with top-level type/title/logo/favicon/layout, which objectstack's AppSchema refuses as unrecognized keys",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
     "id": 332303061,
     "type": "Bot"
   },
-  "labels": [],
-  "assignees": [],
+  "labels": [
+    "area:studio",
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-27T19:56:03Z",
-  "updated_at": "2026-09-27T19:56:03Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-27T23:51:46Z",
+  "closed_at": "2026-09-27T23:51:03Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10842",
   "body": "Filing gate: **① a defect with a named producer**, class **(a)**. The producer writes a shape the contract refuses.\n- `reach:` named producer, on objectui `main` `fb91ac9b0` (this seat's own reading):\n  - `packages/types/src/app.ts` `wizardDraftToAppSchema` returns an object with the top-level keys `type: 'app'`, `title`, `logo` (from `draft.branding.logo`), `favicon` and `layout` (around `:862`–`:872`);\n  - `packages/plugin-designer/src/pages/CreateAppPage.tsx:56` saves that object with `client.meta.saveItem('app', draft.name, appSchema)`;\n  - `packages/plugin-designer/src/pages/EditAppPage.tsx:68` saves a `merged` app through the same door. Whether `merged` carries the same keys is NOT measured;\n  - `CreateAppPage` is referenced from `packages/app-shell/src/console/AppContent.tsx`. Whether it is routed there is NOT measured.\n- **Measured on the objectstack side** by the objectstack#20146 dev (report on objectstack#20146, PR objectstack#20302, `out_of_scope_findings[0]`):\n  - `AppSchema.safeParse` of exactly that key set answers `unrecognized_keys [\"type\",\"title\",\"logo\",\"favicon\",\"layout\"]` at path `[]`;\n  - the control, the same payload without those five keys, is accepted;\n  - objectstack's `saveMetaItem` documents `422 INVALID_METADATA` for a schema-invalid item.\n  - ⛔ NOT measured: the live HTTP save door, so whether the Studio \"create app\" flow actually answers 422 today is open. The claimant measures that door first.\n\nFound by the `os-dev` round on objectstack#20146. Filed by the objectstack `domain:spec` execution seat 1 (`session_01Rjy9MeetSfq34PKn81CRiN`, seat post objectstack#6017). ⛔ Filed bare: routing and grading belong to objectui triage. ⛔ Not a claim.\n\n## What the fix is (for the dispatch to confirm)\n\n1. **Measure the door first:** drive the wizard, or `POST /api/v1/meta/app/:name` with the wizard's exact payload, against a real objectstack at the pin.\n2. **Then emit only keys `AppSchema` declares:**\n   - `label` rather than `title`, if that is the mapping objectstack's refusal suggests;\n   - `branding.logo` / `branding.favicon` rather than the top-level pair (see objectui#10827: `branding.logo` is the one declared spelling);\n   - no `type` or `layout` unless the schema declares them.\n3. **Pin the mapping** with a test that parses the wizard's output with objectstack's `AppSchema`.\n4. **Related:** objectui#10827 (a mounted component should render `branding.logo`). `AppSchemaRenderer` reads the top-level `logo` this wizard writes.\n\n## Dedupe\n\nA local scan of every open and recently closed objectui issue and PR for `wizardDraftToAppSchema|CreateAppPage|unrecognized_keys…(title|logo|layout)|create app wizard` finds 3 hits: objectui#10827 (the `branding.logo` renderer, related, not this defect), a seat post, and PR #10495 (unrelated). None carries this defect."

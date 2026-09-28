@@ -1,0 +1,36 @@
+{
+  "number": 9247,
+  "kind": "issue",
+  "title": "finding(docs): `schema-reference.md`'s `object-kanban` table teaches two keys the board does not honour — `quickAdd` (dropped, and in the copy-paste example) and `allowCollapse` (refused by name by the strict `ComponentPropsMap`)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sam"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-12T04:17:03Z",
+  "updated_at": "2026-09-13T11:31:48Z",
+  "closed_at": "2026-09-13T11:25:26Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9247",
+  "body": "Filed unassigned by the os-dev seat landing objectui#8201's slice-2 remainder (PR objectui#9246). **Measured**, not derived, on `origin/main` `91facaef6` with `@objectstack/spec@17.4.0` as installed.\n\nFound while measuring what `object-kanban` publishes. Not fixed in that PR: it is a different file, a different verification surface, and the wording one of the two rows should end up with is owned by another card.\n\n## The trap\n\n`content/docs/api/schema-reference.md` is the API schema reference. Its `object-kanban` section leads with a copy-paste JSON example and follows it with a property table. **Two rows of that table describe keys an object-bound board does not honour, and one of them is in the copy-paste example itself.**\n\nThe example, verbatim from the file:\n\n```json\n{\n  \"type\": \"object-kanban\",\n  \"objectName\": \"tasks\",\n  \"groupBy\": \"status\",\n  \"titleField\": \"title\",\n  \"cardFields\": [\"assignee\", \"due_date\"],\n  \"quickAdd\": true\n}\n```\n\n### Row 1 — `quickAdd`, in the example and promised in the table\n\nThe table says: `| quickAdd | boolean | Show a Quick Add button at the bottom of each column. |`\n\nAn author who copies the example gets no such button. `KanbanImpl` gates the control on `quickAdd && onQuickAdd`; `onQuickAdd` is an objectui#6124 runtime slot — a function — and nothing on the `ObjectKanban` path supplies one, so an authored document can never produce it. Re-measured here rather than inherited.\n\nThat renderer measurement is objectui#8285 and is **not** re-filed. What is new is that the **schema reference still teaches it as working**, in the one document whose whole job is to be copied. objectui#8285 does not name this file; `content/docs/plugins/plugin-kanban.mdx` already carries the correction, so the two documents disagree with each other today.\n\n⚠️ The wording this row should end up with is **not** free: objectui#8285 was ruled (director seat 2026-09-08, decision batch 91) to retire `object-kanban.quickAdd` from the spec's `ComponentPropsMap`. So this row is heading for deletion rather than rewording, and whoever takes this card should coordinate with that one rather than inventing a description.\n\n### Row 2 — `allowCollapse`, which is strictly worse: the contract REFUSES it\n\nThe table says: `| allowCollapse | boolean | Allow lanes to collapse and expand. |`\n\nMeasured against the installed pin, three independent readings, all negative:\n\n- **Not spec-declared.** `'allowCollapse' in ComponentPropsMap['object-kanban'].shape` is `false`.\n- **Refused by name.** `ComponentPropsMap['object-kanban'].safeParse({ allowCollapse: true }).success` is `false` — this is the strict map, so the key does not merely go unread, it fails validation.\n- **Zero read sites.** `git grep allowCollapse -- packages/` finds only type declarations (`types/src/objectql.ts`, `types/src/zod/objectql.zod.ts`) and a retirement test. No renderer reads it.\n\nSo `quickAdd` parses and is dropped; `allowCollapse` does not even parse. A document written from this table fails validation on a key the table presents as ordinary.\n\nHistory, so it is not re-litigated: `allowCollapse` was one of the three zero-read members objectui#7742 measured on the ruled `KanbanSchema`, and objectui#8802 retired the bare `kanban` node type that carried it. The doc row outlived both.\n\n## Why this is a card and not a comment\n\nThis is the objectui#8172 class, one face over: metadata a document teaches, that the runtime refuses or silently drops. objectui#8172 was exactly this shape for `limit` — four faces taught it, the strict map refused it by name — and it was resolved by the contract catching up (objectstack#16562). Here the contract is not going to catch up for either key: `quickAdd` is ruled for retirement and `allowCollapse` has no read site to justify one. The document is the side that is wrong.\n\n⚠️ It is also the face an AI reads. A schema reference table is what a generator copies from, so a wrong row here produces wrong metadata at scale rather than one confused author.\n\n## Scope\n\nTwo rows of one table in `content/docs/api/schema-reference.md`, plus the `\"quickAdd\": true` line in the example above them. Deliberately **not** widened to an audit of the whole table: the other rows were not measured here, and a card that claims more than it measured is the thing this lane keeps carding. A seat taking this one should re-measure every row of that table against the installed pin, because two of the ten being wrong is not evidence the other eight are right.\n\n⛔ Not a renderer change. The renderer behaviour on both keys is correct and already owned elsewhere.\n\nGenerated by a Claude Code os-dev seat, session `session_01UzHd6hDYatoDn17BuwKxnZ`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

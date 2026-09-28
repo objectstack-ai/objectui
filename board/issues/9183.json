@@ -1,0 +1,34 @@
+{
+  "number": 9183,
+  "kind": "issue",
+  "title": "finding(tests): six source-scanning tests hand-roll a private comment stripper, the exact family `js-comment-mask.mjs` exists to replace",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T14:59:49Z",
+  "updated_at": "2026-09-13T00:25:07Z",
+  "closed_at": "2026-09-13T00:25:07Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9183",
+  "body": "Found while implementing objectui#9073 (PR objectui#9182). ⛔ Not fixed there — the ordering defect that card names and the choice of masker are different defects, and converting would add a cross-tree import to a package that has none. Filed instead of ridden in.\n\n## The declared contract\n\n`scripts/js-comment-mask.mjs`, its own header, verbatim:\n\n> js-comment-mask -- the ONE answer to \"is this span a comment, or code?\"\n>\n> Every source-scanning gate in this tree has to separate code from prose before it decides anything: a docblock naming a retired error code is not a producer of that code, and a paragraph explaining why an alias is wrong is not an alias. Each gate used to answer that question with its own private `stripComments`, and the copies had drifted into two families with two different failure modes -- both silent, and in opposite directions.\n\nIt then names the first of those two families, again verbatim:\n\n> **Naive regex** -- `src.replace(/\\/\\*[\\s\\S]*?\\*\\//g, '')` and a `//`-to-end-of-line rule. A regex has no idea what a string literal is, so any source carrying a block-comment OPENER inside a string opens a PHANTOM comment that runs to the next real terminator, usually a docblock far below, deleting every line of real code in between. The trigger shapes are ordinary: a glob, a route wildcard, a URL (the `//` rule), a `/*` mentioned inside a template. The gate then reports clean over code it never looked at -- the failure direction AGENTS.md names as worse than no verifier at all, because it reports success.\n\n## The census\n\n`git grep -n \"replace(/\\\\/\\\\/[^\"` over `packages/** examples/** apps/** scripts/**` — **6 hits, all of them reading real source files and deciding something from what they read**:\n\n| file | line | shape |\n|---|---|---|\n| `packages/components/src/renderers/complex/__tests__/table-column-type-read-set.test.tsx` | 46 | block **and** line, both naive |\n| `packages/components/src/renderers/complex/__tests__/table-declared-equals-enforced.test.tsx` | 61 | block **and** line, both naive |\n| `packages/plugin-dashboard/src/__tests__/expandableFamily.identity-5692.test.ts` | 209 | line only |\n| `packages/types/src/__tests__/filter-builder-mirror-6939.test.ts` | 303 | line only |\n| `packages/types/src/__tests__/spec-ui-schema-reexports.test.ts` | 195 | line only |\n| `packages/types/src/__tests__/widget-input-control-vocabulary.test.ts` | 73 | block **and** line, both naive |\n\nThe three marked \"block and line\" spell `/\\/\\*[\\s\\S]*?\\*\\//g` literally — the exact expression the header quotes as the failing example.\n\n⭐ The precedent for the conversion already exists in this tree, twice, so the shape is not in question:\n\n- `packages/app-shell/src/views/ObjectView.relayRungCensus-7559.test.ts:112` — `import { maskComments } from '../../../../scripts/js-comment-mask.mjs';`\n- `packages/plugin-kanban/src/__tests__/ObjectKanban.titleFieldPrecedence-8308.test.tsx:80` — same import.\n\nA third, `packages/layout/src/__tests__/readme-registration-keys.test.ts:61`, names the module in its docblock as the thing it goes through.\n\n## What is measured, and what is NOT\n\n**Measured.** The census above, and the two import precedents. Also: `maskComments` blanks rather than deletes, preserving every byte offset and line number — so a converted reader cannot have the index-shift hazard that objectui#9073's repair had to reason about at all. That is a structural improvement, not only a correctness one.\n\n**⛔ NOT measured, and this is the honest half.** No input in the tree today makes any of the six give a wrong answer. The three block-comment ones are the exposed shape — a `/*` inside a string in a file they scan opens a phantom comment that eats live code and the test then reports clean — but I did not find such an input, and I did not run the masker against the six to diff their verdicts. ⇒ This is filed on the DECLARED CONTRACT, not on a reproduction. Whoever takes it should decide whether to convert all six or only the three block-comment ones, and a diff of old-verdict against new-verdict per file is the cheap way to find out whether any of them is wrong today rather than merely fragile.\n\nAlso unmeasured: whether `packages/types` and `packages/plugin-dashboard` resolve and type-check a `../../../../scripts/*.mjs` import as cleanly as `app-shell` and `plugin-kanban` do. That is the one real cost of the conversion and it should be probed before the work is scoped.\n\n## Not a defect, noted so the next reader is not misled\n\n`pnpm check:comment-mask-corpus` does **not** cover this: it diffs `js-comment-mask.mjs` itself against an independent parser over the tree. It is blind to code that never calls the masker. So nothing mechanical is watching these six, and nothing will start watching them by itself.\n\nRefs: objectui#9073 · PR objectui#9182 · objectui#7882 · objectui#6891\n\nFiled by an ObjectStack dev agent seat; session reference `https://claude.ai/code/session_01UzHd6hDYatoDn17BuwKxnZ` (written as prose because an attribution footer block is stripped from an issue body on create)."
+}

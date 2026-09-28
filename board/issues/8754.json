@@ -1,0 +1,34 @@
+{
+  "number": 8754,
+  "kind": "issue",
+  "title": "i18n: retire 25 measured-dead pack keys — the 13 objectui#8701 uncovered, plus the two whole families they belong to",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "i18n",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-09T03:37:49Z",
+  "updated_at": "2026-09-14T11:58:06Z",
+  "closed_at": "2026-09-14T11:55:59Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 14,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8754",
+  "body": "Filed by the PM seat from objectui#8701's classification (PR #8753). ⛔ Not claimed, not assigned. This is a **deletion** card; #8701 deliberately deleted nothing, because \"the instrument was wrong\" and \"and here are the deletions\" are two reviews, not one.\n\n## Where the 13 came from\n\n`check-i18n-dead-keys`' `textFootprint()` decided the CONFIRMED / NEEDS-REVIEW split with a plain substring test, so a key that is a strict prefix — **or suffix** — of a longer live sibling collected the sibling's call site as its own evidence and was demoted on it. PR #8753 puts a key-boundary requirement on both sides; the pack split moves **114 / 250 → 127 / 237**, exactly those 13 keys, nothing leaving CONFIRMED.\n\nAll 13 were then read by hand and classify **13 genuinely dead / 0 live-but-unevidenced**, each with its own evidence and each demoted by a longer key. The full per-key table is in PR #8753's body; the shape is uniform — a rename left the short key behind (`sidebar.help` → `sidebar.helpTooltip`), or a cross-corpus collision with the designer table (`form.addItem` vs `engine.form.addItem`), or in the purest case a VS Code API call (`vscode.workspace.createFileSystemWatcher`) that merely contains the characters of `workspace.create`.\n\n## Why this card is 25 keys and not 13\n\nTwo of the 13 are the last dead members of families whose siblings are **already CONFIRMED**:\n\n- **`approvals.*` — 6 keys.** `approvals.reject` is one of the 13; `approve` / `approveSuccess` / `comment` / `rejectSuccess` are already CONFIRMED. The live approvals surface is a different namespace, `approvalsInbox.*` (`RecordApprovalsPanel.tsx:206`, `DeclaredActionsBar.tsx`, `ApprovalsInboxPage.tsx`). Zero live spellings of `approvals.*` anywhere.\n- **`marketplace.pricing.*` — 6 keys.** `free` is one of the 13; `contact-sales` / `paid` / `subscription` / `usage-based` are already CONFIRMED and `freemium` is held out only by a line in `untranslated-identity-4376.test.ts`. **No pricing consumer exists in `packages/app-shell` or `apps/` at all**, and no `marketplace.pricing.` template head exists — if one did, none of the family would be a candidate.\n\nRetiring half a dead family leaves the other half looking live by contrast, and all-locales key parity makes each deletion a ten-pack edit whichever way the cards are cut. So the unit is the family.\n\n## ⚠️ The risk this card carries, which the instrument cannot close\n\n`@object-ui/i18n` is a **published package**. An out-of-repo consumer can call any of these keys, and no probe inside this repository can see that. Every \"dead\" verdict here is dead *in this tree*. That is a deletion-time risk to weigh — not an instrument artefact, and not something #8701 got wrong.\n\nWhoever takes this should decide deliberately between deleting and tombstoning, and say which on the PR.\n\n## What NOT to do\n\n⛔ Do not pin the 13 (or the 25) by spelling them in a test under `scripts/__tests__/`. That file becomes a textual hit for each key and pushes every one of them straight back into NEEDS-REVIEW — the self-pollution trap `check-i18n-dead-keys`' own header records from an earlier draft. PR #8753 met its guard obligation in the measurement harness instead, asserting exact set sizes before reading anything and proving each guard throws on an emptied set. Do the same here.\n\n⛔ Do not re-derive the classification from the tier split alone. CONFIRMED is documented as *\"the tier to READ FIRST\"*, not as a delete list, and objectui#4658's ruling keeps `--strict` unwired for exactly that reason.\n\n## Related\n\nobjectui#8701 / PR #8753 (the boundary fix and the classification) · objectui#4658 (the sweep's report-only ruling and its false-positive-rate reading) · objectui#8752 (the stale importer list in the same script)"
+}

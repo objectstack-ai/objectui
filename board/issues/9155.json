@@ -1,0 +1,33 @@
+{
+  "number": 9155,
+  "kind": "issue",
+  "title": "finding(ci): six prose sites call `Bundle Analysis` a required context while this repo's own classifier lists it OPTIONAL, and its workflow has no `merge_group` leg",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-11T12:24:00Z",
+  "updated_at": "2026-09-13T11:22:26Z",
+  "closed_at": "2026-09-13T11:11:09Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9155",
+  "body": "Noticed while implementing objectui#9006 (the eager-closure exit-code fold). Not fixed there, not in that card's scope, no assignee, no `domain:*` grading.\n\n## The reading\n\nSix places in the tree state, as a fact, that `Bundle Analysis` is a **required context**:\n\n- `scripts/check-eager-closure-budget.mjs` — two sites (the header, and the `evaluateCeilingFreshness` docblock)\n- `scripts/__tests__/check-eager-closure-budget.test.ts` — the `describe('ceiling freshness (objectui#6245)')` docblock\n- `.github/workflows/performance-budget.yml` — three sites, including the job-ceiling derivation (\"a job this repository treats as a required context\")\n\nThe repo's own machine-readable classifier says otherwise. `scripts/dependabot-merge-gate.mjs` puts `Bundle Analysis` in `OPTIONAL_CONTEXTS`, not `REQUIRED_CONTEXTS`, with the stated reason that its workflow is path-filtered:\n\n> performance-budget.yml filters on paths: packages/\\*\\*, apps/console/\\*\\*, pnpm-lock.yaml. Blocking when it runs (console gzip budget); absent on a PR that touches none of them.\n\nAnd the same file's own argument for why a path-filtered check cannot be required (its `line-citation-gate.yml` entry, citing objectui#3523) applies verbatim here: a required context that never reports on a build stalls it.\n\nA second, sharper measurement sits inside `performance-budget.yml` itself, in the job-ceiling comment — and it contradicts the sentence four lines above it:\n\n> this workflow subscribes only `push` and `pull_request`, NOT `merge_group`, and 300 sampled runs contain zero `merge_group` runs. So this job cannot hold the merge queue the way `Lint` can\n\nRe-derived on the current tip: the only two occurrences of `merge_group` in that file are inside that comment. The `on:` block has `push` and `pull_request` and nothing else.\n\n## Why that is worth a card rather than a shrug\n\nThis is AGENTS.md commandment #9 exactly: prose that declares something classified, stating a fact derived once and derived never again, sitting beside an instrument that answers the same question differently. The two readings are not stylistic variants — they support opposite decisions:\n\n- read as **required**, a regression in the eager-closure budget gate is blocked by the gate's own job, and nothing else is owed;\n- read as **optional and queue-less**, that job cannot block a queue build at all, and any floor that must hold has to live somewhere a required context runs it.\n\nobjectui#9006 turned on precisely that question, and its dispatch and the workflow prose gave opposite answers.\n\n## What this is NOT\n\n- Not a claim that the branch-protection required set says one thing or the other. That set is not readable from inside the repo (AGENTS.md says so), so neither reading can be settled here — which is itself the point: the prose asserts an answer that nothing in the tree can re-derive.\n- Not a request to promote or demote any check. Enrolling or removing a required context is a maintainer decision, and `dependabot-merge-gate.mjs` records that reservation twice already.\n- Not about `Docs Route Eager Closure Check`, which IS in `REQUIRED_CONTEXTS` and is a different gate (see the sibling observation below).\n\n## A sibling observation, same neighbourhood\n\nobjectui#9006 and its triage both state that `scripts/check-eager-closure-budget.mjs` runs in `docs-route-eager-closure.yml`. It does not: that workflow runs `pnpm check:docs-route-closure` (`scripts/check-docs-route-eager-closure.mjs`), and its own header's first line says as much, citing objectui#6316. Nothing in the tree carries that error, so this is recorded here for the reader rather than as a defect to fix.\n\n## Dedup\n\nBounded rather than exhaustive: the 100 most recently updated open issues, read repo-scoped, grepped locally for the required-context / Bundle Analysis / REQUIRED\\_CONTEXTS / merge\\_group vocabulary, with objectui#9006 returned in the same read as the control that the channel reaches this subject. Six unrelated hits, none about the classification disagreement. The semantic search channel was unavailable (rate-limited) on this run, so this is not upgraded to exhaustive.\n\nFiled by the `os-dev` seat working objectui#9006.\n\nGenerated by Claude Code, session `session_01FhBNJcLRZLe8M87VcUgpKr`."
+}

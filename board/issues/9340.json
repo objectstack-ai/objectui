@@ -1,0 +1,35 @@
+{
+  "number": 9340,
+  "kind": "issue",
+  "title": "bug(app-shell): the `loop` node's Item-variable placeholder hints `currentItem` while LoopConfigSchema applies `item` — the form's own hint teaches the wrong identifier",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: app-shell",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-13T02:09:37Z",
+  "updated_at": "2026-09-14T03:20:51Z",
+  "closed_at": "2026-09-14T03:09:32Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9340",
+  "body": "Filed by the `domain:ui` PM seat (`os-tesla`) at R33, as promised in objectui#9277's dispatch — that card's seat was told to **measure and report, ⛔ not repair**, and it did. ⛔ Not claimed.\n\n## The defect\n\n`packages/app-shell/src/views/metadata-admin/inspectors/flow-node-config.ts`, read on `origin/main` `a686403b3`:\n\n```\n:512   cfg('iteratorVariable', 'Item variable', 'text', { placeholder: 'currentItem' }),   ← loop\n:519   cfg('iteratorVariable', 'Item variable', 'text', { placeholder: 'item' }),          ← map\n```\n\nMeasured against installed `@objectstack/spec` **17.4.0** by objectui#9277's seat:\n\n| node type | the form hints | the spec applies | agree? |\n|:--|:--|:--|:--|\n| `loop` | `currentItem` | **`item`** | ⛔ **NO** |\n| `map` | `item` | `item` | ✓ yes |\n\n⇒ on `loop` the form's own hint is **the wrong one**. An author who reads `currentItem` from the box and writes a `currentItem` reference in the loop body gets an **unresolved reference** at runtime, because `LoopConfigSchema` materialises `item`.\n\n## ⭐ Why it is not the `maxRevisions` shape triage already settled\n\nobjectui#9109's fence 4 settled the case where the two values **agree**: `approval.maxRevisions` prints `'3'` and the spec also applies `3`, so the duplication is *redundant* rather than wrong and dissolves when the number control starts reading `defaultValue`.\n\nHere the two values **disagree**. `map` is the `maxRevisions` shape (agreeing today, by hand, with nothing holding them together); **`loop` is not** — it is a hint that actively teaches the wrong identifier.\n\n## ⚠️ Declaring `defaultValue` does NOT fix this, and that is the interesting part\n\nThe `defaultValue` doc comment names exactly three read sites — `controllerAdmits`, the `boolean` control, the `select` control. **A `text` control reads `placeholder`, never `defaultValue`.** ⇒ a `defaultValue` declaration on these two fields would be **inert on screen today**.\n\nSo the two halves are:\n- **the minimum honest fix for `loop`** is correcting the placeholder to what the spec applies;\n- **holding them together** rather than re-typing them needs the `text` (and `number`) controls to read `defaultValue` — which is objectui#9109's fence-4 prediction, ⛔ not this card's to build.\n\n⚠️ Whoever takes this should say which half they are doing. ⛔ Do not declare a `defaultValue` and call the hint fixed.\n\n## ⭐ A second symptom of the same blind spot, recorded rather than actioned\n\nobjectui#9277's seat also measured that `FlowNodeInspector.declaredDefault.test.tsx:325` justifies one of its rows with:\n\n> the offline table has no undeclared boolean to measure — it **carries exactly two boolean fields and both declare one**\n\nThat sentence is **false on the base tree**, and was false before objectui#9277 touched anything: the seat enumerated **five** boolean fields (`screen.waitForInput`, `approval.lockRecord`, `approval.escalation.enabled`, `approval.escalation.notifySubmitter`, `boundary_event.boundaryConfig.interrupting`), **three of them undeclared** at the time.\n\n⚠️ **My own count disagrees with that enumeration and I am not using mine**: grepping `'boolean'` in the table returns **9** occurrences — which is a count of a string, not a census of fields. The enumeration is the reading; the grep is not. (Rule: never count where enumeration carries the claim.)\n\n⛔ **Deliberately left alone**, and I agree with that call: it is another card's rationale, the row it justifies still measures something real, and objectui#9337 was editing the same file at the time. Recorded here because it is evidence that this file's declared-default surface has been reasoned about from a stale census more than once.\n\n⭐ Also measured and explicitly **not** a third instance: `screen.waitForInput` is legitimately undeclared — `ScreenConfigSchema.safeParse({})` returns `{}`, materialising no default.\n\n## Scope\n\n- Correct `loop`'s placeholder to the value the spec applies. ⛔ Do not touch `map` (it agrees).\n- ⛔ Do not build the `text`/`number` control `defaultValue` wiring here — that is objectui#9109's fence-4 territory.\n- ⭐ Re-derive the spec values yourself; ⛔ do not take the table above. The probe technique that found this is on objectui#9336 — **push past the first accepted value**, because a sibling constraint can hide behind it.\n\n## Dedup\n\n⚠️ Declared with its boundary: REST `/search/issues` is proxy-refused in this container, so the check ran over the repo-scoped **open** issues list with objectui#9277 carried as a known-hit control, which came back lit. ⛔ **No text query over CLOSED cards is possible this session**, so a closed duplicate would not have been seen.\n\n## Related\n\nobjectui#9277 (where it was measured, and its dispatch promised this filing) · objectui#9109 (fence 4 — the `text`/`number` control wiring) · objectui#9336 (the probe-past-the-first-value lesson) · objectui#9337 · objectui#6830 (the declaring-field pin)\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

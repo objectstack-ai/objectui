@@ -1,0 +1,34 @@
+{
+  "number": 7719,
+  "kind": "issue",
+  "title": "contract: should `shortcut` become authorable on `AppAction.items`? — the one capability question left after #6854's B2 ruling",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "enhancement",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T11:27:23Z",
+  "updated_at": "2026-09-14T15:03:33Z",
+  "closed_at": "2026-09-14T15:03:33Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 15,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7719",
+  "body": "Filed unassigned and unlabelled, as the maintainer ruling on #6854 requires (director seat, comment 5548581017, 2026-09-05, decision batch #40, maintainer verbatim 「同意」): \"**File the follow-up card** for `shortcut`-as-authorable with the consumer reading attached (`Related: objectui#6854`), and link it here.\" ⛔ Not decided here.\n\nRelated: objectui#6854 · objectui#6523 (the overlay `MenuItem` union split) · objectui#6124 / ADR-0049 (declared = enforced)\n\n## What #6854 settled, and what it deliberately left open\n\n#6854 measured that `@object-ui/runner`'s `LayoutRenderer` reached two keys on `AppAction.items` through `as any` — `onClick` and `shortcut` — past the declared element type. The ruling separated their fates:\n\n- **`onClick` is closed.** It is retired on every candidate face (`?: never` on `AppAction`, a named `z.custom` refusal on the zod mirror), so re-typing could only ever have handed the runner a refusal. The cast was deleted; the retirement message's own sentence (\"no renderer reads this key, so nothing could ever run it\") is true again and now pinned on both sides.\n- **`shortcut` is the question that survives.** It is *legitimately declared* on the overlay `MenuCommandItem` (`packages/types/src/overlay.ts`), and absent from the legacy `AppMenuItem` that `AppAction.items` actually is. So unlike `onClick`, there is a coherent shape that would let an author write it — the question is whether this product wants one.\n\n## The consumer reading the ruling asked to attach, measured on `origin/main` `4ce14f1`\n\n**Exactly one in-repo consumer reads `AppComponentSchema.actions[]`**, and it is `packages/runner/src/LayoutRenderer.tsx`. Not `packages/layout`'s `AppSchemaRenderer` (zero occurrences of `actions` in the file), not `packages/app-shell`'s `useNavigationSync` (same), not the console. Every other in-repo `.actions` read belongs to a different contract — an object definition's `actions[]`, or an `action:bar` node.\n\n**Zero authors of `shortcut` on `AppAction.items` exist in this repository.** Measured two ways, each with a positive control that fired on a synthetic fixture:\n\n| Instrument | Population | Hits |\n|:--|--:|--:|\n| Structural JSON walk for any object with an `items` array whose members carry `onClick` or `shortcut` | 594 JSON files under `packages` / `apps` / `examples` / `content` / `docs` / `e2e` | 0 |\n| Source scan for an `items:` array literal containing `onClick` or `shortcut` | `packages` / `apps` / `examples` TypeScript and TSX | 2, both the **overlay** `MenuItem` path (`dropdown-menu` / `context-menu` / `menubar`), neither an `AppAction` |\n\nThe only in-repo `shortcut` read in a menu-item context was the deleted cast itself. And nothing can feed one past the validator either: the sole route into `LayoutRenderer` is the standalone runner's `MetadataLoader`, whose two implementations return a bundled `.json` module or `res.json()` — a JSON document, never a hand-built object — and `@object-ui/runner` publishes no library entry point (no `main`, `module` or `exports`), so no host can import the component and hand it one.\n\n**So the capability has no measured pull today.** That is the reading, not the recommendation.\n\n## The options\n\n- **A — leave it undeclared.** `AppAction.items` stays `AppMenuItem[]`; a menu entry in an app header carries no keyboard shortcut, and an author who writes one has it stripped in silence by the legacy mirror. Status quo after #6854, and free.\n- **B — declare `shortcut` on the legacy `AppMenuItem` and render it.** Additive: one optional `string` on the TypeScript face, one member on `MenuItemSchema`, one read restored in `LayoutRenderer`. No migration, since nothing authors the key today. Costs a new authorable surface that must then be honoured everywhere `AppMenuItem` is consumed, and `AppMenuItem` is already marked `@deprecated` in favour of `NavigationItem` — so this would be growing a type the repo is trying to retire.\n- **C — re-type `AppAction.items` to the overlay `MenuItem`.** This is #6854's rejected B1, and its cost has not changed: `path` / `href` / `badge` / `type` would start being refused on an app action's items, and the divider spelling moves from `{ \"type\": \"separator\" }` to `{ \"separator\": true }`. It buys `shortcut` plus the union's discriminated divider arm.\n\n## Why this needs a maintainer\n\nThe startup-scope floor (maintainer, 2026-08-04: 「我们是一个创业项目,应该先专注于核心能力」) treats an unpulled declaration surface as implementation-first by default, which points at A. Against that: a keyboard shortcut rendered beside a menu label is cheap, conventional, and the primitive (`DropdownMenuShortcut`) already ships. Whether a header menu in the standalone runner is core enough to grow the deprecated `AppMenuItem` for is a product call, not a measurement — which is why #6854's ruling sent it here rather than answering it.\n\n⛔ Whatever is chosen, do not re-add the read without the declaration: that is exactly the shape #6854 removed."
+}

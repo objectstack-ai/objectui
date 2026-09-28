@@ -1,0 +1,34 @@
+{
+  "number": 9427,
+  "kind": "issue",
+  "title": "finding(docs): four field pages need a blank line after `SchemaExample` so console's react-markdown renderer emits `## Field Schema` (split from objectui#7666)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-13T19:39:16Z",
+  "updated_at": "2026-09-13T22:13:18Z",
+  "closed_at": "2026-09-13T22:11:43Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9427",
+  "body": "Split from objectui#7666's cross-lane finding. That card fenced its dispatch to\n`packages/plugin-markdown/**` only and named two possible landings —\n`extractToc` (domain:ui) OR the four `content/docs/fields/*.mdx` pages\n(domain:devx). Measurement below settles which one: this is the docs half,\n`content/docs/**`, domain:devx. Filed as its own card per that fence rather\nthan edited into #7666, and objectui#7666 is left for triage to re-grade or\nclose — not done here.\n\n## What was measured\n\nFour docs each place a self-closing `SchemaExample` JSX tag immediately\nbefore `## Field Schema`, with no blank line between them:\n\n- `content/docs/fields/date.mdx`\n- `content/docs/fields/rich-text.mdx`\n- `content/docs/fields/text.mdx`\n- `content/docs/fields/textarea.mdx`\n\nTwo real render pipelines disagree on what that produces:\n\n1. **`packages/plugin-markdown`'s `MarkdownImpl`** (react-markdown, the chain\n   `apps/console`'s `DocPage` uses) follows CommonMark's HTML-block rule: an\n   HTML block only ends at a blank line, so the JSX tag's block swallows the\n   heading line — no `field-schema` id is ever emitted. Re-measured on the\n   real corpus today (223 files, 2981 rendered headings — up from the\n   2941 the original finding read on 2026-09-07, so the corpus moved, but the\n   divergence count is still exactly these same 4 files): confirmed reproduced\n   on all four, unchanged.\n2. **`@mdx-js/mdx`** (the compiler `fumadocs-mdx` uses for `apps/site`) does\n   **not** swallow it: compiled in situ, all four files emit `field-schema`\n   in the expected position — `date.mdx` →\n   `[\"basic-usage\",\"with-default-value\",\"field-schema\",\"date-formats\", …]`,\n   and the other three the same shape. A self-closing MDX JSX flow element\n   closes immediately; it isn't a CommonMark HTML block and doesn't wait for\n   a blank line the way one does.\n\nSo `apps/site`'s rendering of these four pages is already correct, and\n`packages/plugin-markdown`'s `extractToc` already agrees with it (`extractToc`\nhas no `apps/site` consumer — its one real caller is `apps/console`'s\n`DocPage.tsx`, paired with `MarkdownImpl`). The renderer that disagrees\n(`MarkdownImpl`) is the one following CommonMark correctly; the docs are the\nones authoring a shape it can't turn into a heading.\n\nConfirmed the fix on the real file (`date.mdx`): inserting one blank line\nbetween the `SchemaExample` tag and `## Field Schema` makes `MarkdownImpl`\nalso emit `field-schema`, and `extractToc`'s answer then matches the renderer\nexactly. The same synthetic shape rendered through `@mdx-js/mdx` gives the\nsame `field-schema` id whether or not the blank line is present, so the\ninsertion costs `apps/site` nothing.\n\n## The fix\n\nIn each of the four files, add one blank line between the leading\n`SchemaExample` tag and the `## Field Schema` heading that follows it (the\nsame shape every other section boundary in these files already uses).\n\n## Why not fix `extractToc` instead\n\nobjectui#7666's own triage comment already priced this option and rejected\nit: teaching `extractToc` the CommonMark HTML-block continuation rule would\nfix the `MarkdownImpl` pairing but flip the divergence for any MDX consumer\n— `extractToc` doesn't take a \"which parser will render this\" argument, and\nthe measurement above shows the two real pipelines in this monorepo already\ndisagree on this exact shape. That is a strictly worse contract than a\nfour-line docs patch, so `packages/plugin-markdown` needs no change for this\ncard.\n\nRefs: objectui#7666"
+}

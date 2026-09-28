@@ -1,0 +1,33 @@
+{
+  "number": 9604,
+  "kind": "pull_request",
+  "title": "fix(plugin-grid): header arrows read the ONE declared `sort` spelling (objectui#8961)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-16T10:20:33Z",
+  "updated_at": "2026-09-16T11:08:31Z",
+  "closed_at": "2026-09-16T11:08:30Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-09-16T11:08:29Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/9604",
+  "body": "Fixes #8961\n\nExecutes the maintainer ruling of 2026-09-15 — director batch #135 item 5, 「135 同意」, **letter A** (objectui#8961 comment 5682605192). Not a decision; execution.\n\n## What a user saw\n\nA view authored `sort: \"name desc\"` lit a descending arrow on the `name` header **before anyone clicked anything**, while the query that fetched those rows carried no ordering at all. The arrow stated something about the list that was not true of the rows beside it, and the first click on that column then asked for `asc` on a list that was in no declared order. The only signal was a `console.error` no end user reads.\n\n## Why the two halves disagreed\n\nobjectui#8221 retired the legacy string clause — one spelling, the array, everywhere. objectui#8767 (route C) made this block's fetch path REFUSE a string `sort` and send no `$orderby`, and deliberately left the other reader of the same key alone: `parseSchemaSort`, which feeds the header indicators, went on parsing `\"name desc\"` and `[\"name desc\", ...]`. One key, two readers, opposite answers.\n\n## What this does\n\n`parseSchemaSort` admits only `[{ field, order }, ...]` — the spelling `@objectstack/spec` declares for `ObjectGridPropsSchema.sort` (read from the installed `@objectstack/spec@17.4.0`, not copied from the order) and the only one the fetch path still lowers. A retired string yields nothing, so it lights no arrow. The refusal is **per entry**: a mixed array still lights the arrows for the keys spelled in the declared form.\n\nNo second diagnostic is added: the author is already told once per spelling by PR #8758's reporter at the fetch path, which quotes the offending value and prescribes the array form. A second voice here would only restore the arrow the wire cannot honour.\n\nRoute B remains declined and untouched — this diff routes nothing through `convertSortToQueryParams` and moves no wire shape.\n\n## Pins, both directions\n\n- `serverSorting.test.tsx` — declared array lights the arrow (the case that already existed, unchanged); a retired string lights **neither** direction while the query carries no `$orderby` and the one diagnostic still fires exactly once. That case previously pinned the divergence (arrow drawn beside an empty query), so the **arrow** half is what flips; the wire half stays asserted because \"no arrow\" is only right while the query really carries no ordering.\n- Non-vacuity control in that case: the neutral sort indicator is still rendered, so the two \"no arrow\" nulls cannot pass by the column having quietly stopped offering sorting.\n- The unit block re-judges every spelling it used to admit (bare string, array-of-strings, mixed array), each refusal paired with a declared-array control, single- and multi-key.\n- `gridArrayArmOrderby-8973.test.tsx`'s docblock cited this card by a **label** that had already moved twice; it now names the ruling, which does not move.\n\n## Reverse verification (one-off, not left in the tree)\n\nFrom the committed fix, `parseSchemaSort`'s narrowed body was reverted to its pre-fix form on disk and the pins re-run, then restored. Mutation and restoration were each proven on disk by occurrence counts, not by an editor's exit code. Numbers and the head they were taken at are in the report on objectui#8961.\n\n## Gates and tests\n\nCommands, exit codes and the ratchet-bearing runs are listed in the report comment on objectui#8961. Repo-wide scans (`pnpm lint`, the full `pnpm test`) are CI's run, not this branch's claim.\n\n## Measured while here, out of scope\n\nThe docblock this diff replaces claimed that narrowing this reader \"takes the export path with it\". It does not: the server-side export path reads `schema.sort` itself (`Array.isArray(schemaSort)`), never through `parseSchemaSort`, so it was already array-only and does not move. The new docblock says so.\n\n## Acceptance notes\n\n- `plugin-view`'s `ObjectView.tsx` carries a cross-package comment quoting this function's old opening line verbatim (`typeof sort === 'string' ? [sort] : ...`). Its load-bearing conclusion — a bare object yields an empty list — is still true; the quoted opening is not. Left untouched: that file is outside this claim's declared surface. Noted, not filed; the successor is whoever next edits that sort block.\n- The server-side export path maps an array of retired strings to an empty `sort` array rather than omitting the key (the entries are filtered out, the empty array is still sent). Pre-existing, unrelated to the arrow, not filed.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01VCpmqvacV4BypY48QdoxcE)_"
+}

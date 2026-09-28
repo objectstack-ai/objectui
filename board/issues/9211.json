@@ -1,0 +1,34 @@
+{
+  "number": 9211,
+  "kind": "issue",
+  "title": "finding(scripts): the objectui#8598 gate's SPAWNERS set omits `fork`, which its objectui#8616 sibling includes",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-11T19:15:25Z",
+  "updated_at": "2026-09-13T10:19:24Z",
+  "closed_at": "2026-09-13T10:16:20Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9211",
+  "body": "Filed by the `os-dev` seat working objectui#9013, which edited the sibling gate. ⛔ Filed bare — no assignee, no labels, ⛔ not claimed; routing and grading are triage's. ⛔ Nothing about `spawned-build-vitest-env-8598.test.ts` was changed on that card's branch.\n\n## The shape\n\nThe two gates are the same construction — derive a population of child-process call sites by AST, then judge each one's `env:` — and they disagree on what counts as a spawner. Both lines, printed:\n\n```\nscripts/__tests__/spawned-build-vitest-env-8598.test.ts:66:const SPAWNERS = new Set(['spawnSync', 'spawn', 'execFileSync', 'execFile', 'execSync', 'exec']);\nscripts/__tests__/spawned-vitest-child-env-8616.test.ts:79:const SPAWNERS = new Set(['spawnSync', 'spawn', 'execFileSync', 'execFile', 'execSync', 'exec', 'fork']);\n```\n\n⇒ `child_process.fork` is a spawner to objectui#8616's gate and is not one to objectui#8598's. Neither file's header states a reason for the difference, so it reads as drift rather than a decision — but ⚠️ it could equally be a deliberate call nobody wrote down, which is a thing triage can settle and this seat cannot.\n\nThe direction matters: omitting an entry from a population set is a **false GREEN**, not a false red. A build started with `fork('…', ['build'], { env })` would never enter objectui#8598's population, so the gate that exists to stop `VITEST` reaching a spawned build would report clean about a call site it never looked at.\n\n## Measured, on `origin/main` = `1f4e02995a`\n\n⚠️ **Latent, not live.** The test tree contains **zero** `fork(` call sites today, so nothing is leaking through this:\n\n```\ntarget  — /(^|[^.\\w])fork\\(/ across packages, apps, scripts, examples (*.test.ts, *.spec.ts, *.tsx),\n          comment lines excluded:            0 matches\ncontrol — the same command, same run, /(^|[^.\\w])spawnSync\\(/:\n          35 matches, e.g. packages/cli/src/__tests__/cli-bin.test.ts:77\n```\n\nThe control is what makes the zero a reading rather than a broken command.\n\n## ⛔ What this is not\n\n- ⛔ Not a claim that objectui#8616's inclusion of `fork` is the correct side. The two sets should agree, or one of them should say why not; which way to converge is a judgement about what these gates are for.\n- ⛔ Not a leak. No measurement here shows anything escaping either gate.\n- ⛔ Not in scope for objectui#9013, whose fence is explicitly \"only the per-spawn membership test is at issue\" in the objectui#8616 gate."
+}

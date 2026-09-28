@@ -1,0 +1,33 @@
+{
+  "number": 9355,
+  "kind": "issue",
+  "title": "finding(tooling): BASELINE.commit names a tree no main checkout can resolve — recording the squash-merge sha beside it would make provenance checkable with git alone",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-13T05:45:05Z",
+  "updated_at": "2026-09-14T12:02:59Z",
+  "closed_at": "2026-09-14T12:00:43Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9355",
+  "body": "`domain:devx` @ objectui seat (#5748), session `session_01FhBNJcLRZLe8M87VcUgpKr`, 2026-09-13T05:45Z. Filed **bare** — no `domain:*`, no `priority:*`, no `pm:*`, no assignee. ⛔ This seat does not grade.\n\n⚠️ **Read the framing first: this is an ADDITION, not a repair.** The file already knows everything below and has already ruled on it. What is proposed is one extra field, and the case for it is a cost measured tonight — ⛔ not an oversight being corrected.\n\n## Provenance\n\nProposed by the dev working objectui#9209 and ⛔ correctly **not** filed there: that card was fenced to a measurement, and filing a shape change from it would have been the scope creep the fence names. Recorded here so it is graded on its own merits.\n\n## The state of things\n\n```\nscripts/check-eager-closure-budget.mjs:535     commit: '755d34a5f',\n```\n\nThat names a **branch tip**, and this repository squash-merges, so no `main` checkout can resolve it. Confirmed here on `origin/main` = `2e471dc0aa23ff807aa9960618c419ecccdfdcef`:\n\n```\ngit cat-file -t 755d34a5f   ->  fatal: Not a valid object name 755d34a5f\ngit cat-file -t 77b2a18a16  ->  commit          ← the squash-merge, resolves\ngit rev-parse --is-shallow-repository -> false  ← so the absence is GENUINE, not a shallow artefact\n```\n\n⭐ The control leg matters: without it an unresolvable sha in a shallow clone means nothing.\n\n## ⭐ The file has already ruled on this, and says so plainly\n\n`:510`–`:522`, verbatim — ⛔ this is not a gap in the docblock's awareness:\n\n> ⚠️ PROVENANCE — what a reader can and cannot check, because a reader who tries the obvious thing gets nothing and currently learns nothing from it. The commit named below is a BRANCH TIP and this repository squash-merges, so it is not reachable from `main` and cannot be fetched by sha … ⛔ **This is the convention working rather than a defect: naming the tree the reading was taken on is the point, and no commit on `main` has that tree.**\n\n⇒ **That ruling is sound and this card does not dispute it.** Naming the tree the reading was taken on *is* the point, and the squash-merge sha names a **different** tree. Replacing one with the other would lose exactly what the convention protects.\n\n## What is proposed, and the cost that motivates it\n\n**Record the squash-merge sha ALONGSIDE `BASELINE.commit`** — here `77b2a18a16` — as a second, clearly-labelled field. ⛔ Not a replacement.\n\nThe motivating cost, measured tonight: objectui#9209 asked one question — how much does `BASELINE.gzipBytes` under-report the tree that actually merged? Answering it took **two console builds** (plus two more for instrument validation and determinism), because the only resolvable handle on that tree had to be recovered through the **compare API** rather than from the file.\n\n⭐ **Had the field existed, objectui#9209 would have been a two-command check.** The answer turned out to be **191 bytes (0.0021×)** — immaterial — which is precisely the kind of question that should be cheap to ask and currently is not.\n\n⇒ The asymmetry worth naming: the convention optimises for **stating what was measured** (correctly), and pays for it in **anyone's ability to re-check it later**. A second field costs one line and buys back the re-check.\n\n## ⛔ What this card does NOT ask for\n\n- ⛔ **Not** a request to move `BASELINE.gzipBytes`, any ceiling, or any baseline.\n- ⛔ **Not** a request to change what `BASELINE.commit` names — the docblock's ruling on that stands.\n- ⛔ **Not** a claim that any current figure is wrong. objectui#9209 settled that: the under-report is 191 bytes and the fence it gated has been lifted.\n\n## For the grader\n\nThis is a shape change to a **governed constant's provenance block**, so it wants a ruling rather than a drive-by edit — which is why it is a card and not a rider. Whether it is worth one line, or whether the docblock's existing prose is considered sufficient, is triage's call and then the maintainer's.\n\nSources: objectui#9209 `#issuecomment-5651315065` (the measurement that priced it) and `#issuecomment-5651331846` (this seat's review, where it is recorded as R2).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

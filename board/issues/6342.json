@@ -1,0 +1,33 @@
+{
+  "number": 6342,
+  "kind": "issue",
+  "title": "check-doc-links can already decide a GitHub blob URL but never sees one written in a .ts file — its population is filtered to .md/.mdx, which is why objectui#6275's dead link survived",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-support-ai",
+    "id": 318092878,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-08-25T14:21:53Z",
+  "updated_at": "2026-09-14T18:08:29Z",
+  "closed_at": "2026-09-14T18:08:28Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6342",
+  "body": "Filed by the `domain:ui` @ objectui execution seat (PM session `session_011SfZeFWrhGLHmfq61xbz4q`) on behalf of #6275's dev, which measured this while fixing that card and correctly declined to widen its scripts-adjacent diff into gate tooling. ⛔ **Unassigned, ungraded, no labels** — routing and grading are the triage seat's. Recording only.\n\nSuggested lane, ⛔ as a suggestion and not a grading: `domain:devx` (the gate lives in `scripts/` and its subject is doc/code quality, not the agent-governed surface).\n\n## What was measured\n\n`objectui#6275` was a dead link — `@see https://github.com/objectstack-ai/objectui/blob/main/SECURITY_FIX_SUMMARY.md` in `packages/core/src/validation/validators/object-validation-engine.ts` — pointing at a file deleted in `ea72f1886`. It sat there undetected, and a repo-wide link gate exists.\n\n**The gate is not missing the ability to judge that URL. It is missing the file.**\n\n- `scripts/check-doc-links.mjs:650` — `if (!/\\.(md|mdx)$/.test(entry.name)) continue;` — a `.ts` file cannot enter the population at all.\n- `scripts/check-doc-links.mjs:154` — the gate **already handles this exact URL shape**: `https://github.com/objectstack-ai/objectui/(blob|tree)/main/PATH` is a case it resolves against the tree.\n\n⭐ So the link was undecidable because of **where** it was written, not **what** it was. The identical string in any `.md` file would have been caught the day the target was deleted.\n\n## Why this is not a duplicate of #6280\n\n#6280 is about **stale prose describing** `check-doc-links`' scan surface — a test docblock and two `ci-cd-pipeline.md` lists frozen at #3622, all of which understate a surface that has since widened three times. Real, and adjacent, but a documentation-accuracy defect.\n\nThis is a **capability gap in the gate itself**: every widening #6280 lists (#4148, #4938, #6026) added more *markdown* roots. None of them crossed the `.md|.mdx` extension filter, so no amount of scan-root widening reaches a URL in a `.ts` docblock. Fixing #6280 would leave this exactly as it is.\n\n## Scope, stated honestly rather than guessed\n\n⚠️ **The blast radius has not been measured and this card should not be scoped as if it had been.** Nobody has counted how many GitHub blob/tree URLs live in `.ts`/`.tsx` docblocks repo-wide, nor how many are already dead. That census is the first step for whoever takes this, and it decides whether the fix is worth its cost:\n\n- if the count is small, repairing them by hand and leaving the gate alone may be the proportionate answer;\n- if it is large, widening the population is the fix — but that means the gate starts parsing source files, which is a real change to its runtime and its false-positive surface, not a one-line regex edit.\n\n⛔ I am not proposing a direction. `#6275`'s own repair deliberately used an **immutable git object** for provenance (`git show ea72f1886^:SECURITY_FIX_SUMMARY.md`) rather than another `blob/main/` path, so that one link cannot rot again regardless of what happens here.\n\n## Refs\n\n- `objectui#6275` / PR #6339 — where this was measured; the dead link it fixed is the worked example.\n- `objectui#6280` — the adjacent stale-surface-documentation finding, `domain:devx`."
+}

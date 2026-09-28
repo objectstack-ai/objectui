@@ -1,0 +1,34 @@
+{
+  "number": 9417,
+  "kind": "pull_request",
+  "title": "fix(plugin-map): refuse an unbound map instead of guessing coordinates",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-13T17:47:39Z",
+  "updated_at": "2026-09-13T18:25:35Z",
+  "closed_at": "2026-09-13T18:25:34Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": "2026-09-13T18:25:34Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/9417",
+  "body": "Fixes #8169\n\nImplements the ruling recorded on the card (director seat, decision batch #67, maintainer 「同意」, 2026-09-07): **bindings are never fabricated; an unbound surface refuses.** Option B, both faces in one PR, no staged window.\n\n## What moved\n\n| File | Change |\n| --- | --- |\n| `packages/plugin-map/src/ObjectMap.tsx` | `getMapConfig` loses its third branch — the `latitude` / `longitude` / `location` / `description` guesses — and the component gains a refusal state |\n| `packages/plugin-list/src/ListView.tsx` | the `locationField: … \\|\\| 'location'` relay floor is deleted |\n| `packages/plugin-view/src/ObjectView.tsx` | the same floor, deleted |\n\nThe refusal copy is the ruling's, verbatim:\n\n> Map configuration required — declare `map.locationField` or `map.latitudeField` + `map.longitudeField`\n\nIt is **not** translated, and that is a decision, not an omission: `@object-ui/plugin-map` carries no `@object-ui/i18n` dependency and every user-facing string in the file is a literal, the same shape as the `Calendar configuration required` / `Gantt configuration required` refusals in the sibling plugins. Adding the dependency for one string was weighed against the ④ \"don't proliferate surface\" axis and not taken.\n\nTwo deliberate calls beyond the ruling's letter, both reported here rather than assumed:\n\n1. **The refusal covers every branch, not just the unconfigured one.** A declared block that names no coordinate field (`map: { titleField: 'name' }`) and a half pair (`latitudeField` with no `longitudeField`) are just as unbound as an absent block; both used to paint an empty map under the excluded-records notice. The gate is `hasCoordinateBinding`, deliberately the same two reads `extractCoordinates` performs.\n2. **The refusal sits ABOVE the `loading` / `error` gates**, for the reason objectui#8168 placed the chart's category-axis refusal above its own: it is a static authoring fact no fetch outcome changes, and a skeleton that turns into a refusal sends the author to debug the wrong layer. The fetch itself is untouched — this card changes what is rendered, not when data is fetched, and `apps/console`'s `public-block-binding-reach` probe still sees `object-map` reach the data layer.\n\n## Premise check (PM ZONE 2)\n\nBoth mechanical assumptions were measured before any edit:\n\n- **The two line numbers have moved**, as expected: `ListView.tsx:2673` → **2847**, `ObjectView.tsx:1468` → **1565**. The three file paths are all still correct.\n- **`getMapConfig`'s third branch still had exactly the shape the ruling describes** — four field-name literals, `titleField` deliberately absent since objectui#5953, no camera. No divergence to report.\n- The serial fence held: the `groupBy` / kanban path objectui#8365 owns was never touched. The `plugin-list` diff is the one `case 'map'` branch.\n\n## Pins — all three arms the execution notes require\n\n`packages/plugin-map/src/ObjectMap.unboundRefusal-8169.test.tsx` (7 rows):\n\n1. an undeclared map renders the refusal state, and **replaces** the map (no `MapGL`, no markers);\n2. a declared `map` block still renders markers — the control, in both the lat/lng and the `locationField` spelling;\n3. ⭐ a record set carrying **real `latitude` / `longitude` columns**, on an undeclared view driven through the real `ListView`, does **not** plot — with a same-view, same-records CONTROL that declares the block and plots both.\n\nArm 3 is the one that measures the ruling. Arms 1 and 2 pass identically on a tree that deleted only the relay floors — the reading this card rejected, because that route widens the guess from one field name to three.\n\n## Reverse verification\n\nRecorded in the report on the card, and reproduced from the committed state: each face restored independently, the pins go red, restore, green again.\n\n## Repaired pins (behaviour these tests were holding is the behaviour that changed)\n\n- `ObjectMap.filterConfig.test.tsx` — the `0/1` pair whose `1` half proved \"a DEFAULT config applies, not none\" is **inverted**: the rows spelled `latitude` / `longitude` are now exactly the population that must refuse. Its style arm gets a declared binding so `MapGL` mounts at all.\n- `ObjectMap.camera.test.tsx` — four camera arms declared no config and relied on the guess; they now declare the binding the records genuinely carry. Every camera number is unchanged; the file grades the camera, and the binding is now a premise.\n- `ListView.mapFlatten` / `ListView.mapViewLevelConfig` / `ObjectView.mapFlatten` — the three \"still emits the `locationField` default\" pins are inverted to \"emits no floor\", each carrying the reason the two faces had to move together.\n\n## Docs\n\n`packages/plugin-map/README.md` and `content/docs/plugins/plugin-map.mdx` both stated the old fallback as current behaviour; both now state the refusal and the migration. The `filter.map` dev warning in `ObjectMap.tsx` said the map \"renders with the DEFAULT field names\" — false as of this change, repaired.\n\n## Migration\n\nDeclare the binding: `map: { locationField: 'your_field' }`, or `map: { latitudeField, longitudeField }`. Interface pages are unaffected wherever the object actually has a location-typed field — `defaultMapFromObject` derives `locationField` from the object's own field list, which is a reading of declared metadata rather than a guess, and is untouched.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_011QreXiyMEqKLN4U5daMPVa\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011QreXiyMEqKLN4U5daMPVa)_"
+}

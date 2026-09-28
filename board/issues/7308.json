@@ -1,0 +1,34 @@
+{
+  "number": 7308,
+  "kind": "issue",
+  "title": "finding(gate): `check-doc-snippet-types`' package-README walk stops at the package root — the same 4 nested READMEs #6026 fixed for `check-doc-links` are neither covered nor ledgered here",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T05:23:45Z",
+  "updated_at": "2026-09-13T17:39:40Z",
+  "closed_at": "2026-09-13T17:22:15Z",
+  "closed_by": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7308",
+  "body": "Filed unassigned, not claiming. Found while taking measurement (a) for #6214 (does `check:doc-snippets` already compile package README code blocks — it does, and the surface has this hole).\n\n`listDocuments` in `scripts/check-doc-snippet-types.mjs` walks `content/docs` recursively, then adds package READMEs with a **non-recursive** loop over `packages/`:\n\n```js\nfor (const entry of readdirSync(pkgDir).sort()) {\n  const readme = join(pkgDir, entry, 'README.md');\n  if (existsSync(readme)) out.push(...);\n}\n```\n\nSo `packages/NAME/README.md` is collected and anything deeper is not. Measured against the tracked population `scripts/check-readme-exports.mjs` walks (`git ls-files -- packages/`, filtered to `/README.md`): **43 tracked READMEs, 39 of them at a package root, 4 nested and invisible to this gate** — `packages/types/src/zod/README.md` among them.\n\n## Why this is a finding and not a preference\n\nThat gate's own header states the rule this breaks, and states it as the lesson of #5174:\n\n> A document is covered unless it is named in `UNGATED_DOCS` with a reason. The default is therefore COVERED … an entry naming a file that does not exist, or that holds no `ts` / `tsx` block at all, fails as a stale entry, so the list can only shrink.\n\nThe four nested pages are **neither**. They are not compiled, and they are not on the ledger, so they do not appear in the summary line's accounting at all — which is, in the header's own words about #5174, *\"precisely the silent skip the fragment rule exists to prevent, arriving one level up, at the document instead of the block.\"* The same sentence applies one directory deeper, and the header's closing instruction — *\"Anything added to the scan surface later belongs in that list, on the same day\"* — presumes the surface is complete.\n\nThese pages ship: `packages/types` lists its whole `src/` in `files`, so `packages/types/src/zod/README.md` is inside the npm tarball a reader downloads.\n\n## Precedent: this exact class, this exact count, already fixed once next door\n\n**#6026** (closed) is the same defect in the sibling gate — *\"`check-doc-links` 的包内 README 扫描只到顶层:4 个嵌套 README.md 仍未被任何门禁解析\"*. Same four files, same cause, different gate. #6214's tier-1 gate `check-readme-exports` keeps them deliberately and records why in its header (`packageDirOf` walks up to the owning package, so a nested page teaching a `@object-ui/types` import is judged against `@object-ui/types`); either of those two is a worked model for the fix.\n\nWhoever takes this should expect the surface change to **grow `UNGATED_DOCS`** before it shrinks it, and that is the correct direction: an entry with a measured reason is what a page that cannot pass yet is owed. Sizing the diagnostics on the four is the first step, not a code change.\n\n## Coordination\n\n`scripts/check-doc-snippet-types.mjs` and its ledger are held by **#5174**'s batch work right now, and this touches both. It should queue behind that, not race it.\n\n## Grading\n\nFor PM triage. Labelled `finding`: a coverage gap in a gate, with a closed precedent for the same class and no user-visible defect proven through it yet."
+}

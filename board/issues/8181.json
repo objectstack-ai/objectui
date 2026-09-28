@@ -1,0 +1,37 @@
+{
+  "number": 8181,
+  "kind": "issue",
+  "title": "Three other draft-envelope consumers take `getDraft().item` verbatim, with no read-decoration strip",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: app-shell",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T22:41:22Z",
+  "updated_at": "2026-09-13T18:40:46Z",
+  "closed_at": "2026-09-13T18:40:01Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8181",
+  "body": "## What\n\nobjectui#7603 fixed `ResourceEditPage` by stripping the spec's `METADATA_READ_DECORATIONS`\n(`_diagnostics`, `_draft`) in `extractDraftBody` — the chokepoint its three merge sites share.\n**Three other modules read the same decorated envelope and strip nothing.** Filed unassigned\nfor PM triage; found while implementing objectui#7603 and deliberately left untouched there.\n\n`client.getDraft()` serves a decorated body: the strict draft branch returns\n`item: decorateMetadataItem(type, ...)`, which attaches `_diagnostics` whenever the type has a\nregistered Zod schema. Measured on the bundled spec, `PageSchema.safeParse` on a body plus\n`_diagnostics` returns `unrecognized_keys`.\n\n## The three sites, measured on `origin/main` `9bfd61848`\n\n| site | line | shape |\n|---|---|---|\n| `packages/app-shell/src/views/metadata-admin/PermissionMatrixEditor.tsx` | 445, 453-455 | `((pendingDraft as any).item ?? pendingDraft)` becomes `effective`, which seeds `draft` |\n| `packages/app-shell/src/views/studio-design/ObjectHooksPanel.tsx` | 42-47, 139 | its own local `draftBody()` helper, same shape as the pre-fix `extractDraftBody` |\n| `packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` | 1730, 1856, 2845, 3881 | four `getDraft` reads |\n\nEach is the pre-objectui#7603 `extractDraftBody` shape: presence check, emptiness check, body\nreturned verbatim.\n\n## What is and is not measured\n\n**Measured:** none of the three passes the body through `stripReadDecorations`, and none has a\nlocal equivalent — `grep -c stripReadDecorations` is 0 in all three files, while the same grep\nreturns 2 in `ResourceEditPage.tsx` (post-fix) and 3 in `MetadataService.ts`. The zero is\nbacked by a firing control: `grep -c client` on the same three files returns 20 / 12 / 55, so\nthe grep shape does reach these files.\n\n**NOT measured — this is why the card is filed rather than fixed:** whether a decorated body\nactually reaches a gate or a write on any of these paths. One narrow leak is visible by reading\n`PermissionMatrixEditor.doSave`: under the package door it builds\n`base = fresh?.effective ?? payload` and then `merged = { ...base }`, so decorations are dropped\nwhenever the fresh layered read succeeds (`effective` is a RAW layer) — but the `.catch(() =>\nnull)` arm falls back to `payload`, which is the decorated draft, and spreads it into the save.\nThat is a failure-path-only leak and it has not been exercised.\n\n## Why it is worth a card anyway\n\nThe framework has now paid for this class **three times** (a served `_diagnostics` 400ing every\nsaved dataset; the cold-boot flow bind in cloud#971; and objectui#7603 itself). The remaining\nvalue here is that a fourth site is one copy-paste away: `ObjectHooksPanel` already carries a\nhand-rolled duplicate of the helper objectui#7603 just fixed, so the next author who copies it\ninherits the defect and not the cure.\n\n## Suggested shape, not a decision\n\nConsider one shared draft-envelope reader that all consumers call, deriving the key list from\nthe spec's exported `stripReadDecorations` rather than restating it. Triage should decide\nwhether that is worth the refactor or whether the three sites should simply be measured and\nleft alone. Not urgent, and expressly **not** a request to loosen any schema."
+}

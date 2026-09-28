@@ -1,0 +1,36 @@
+{
+  "number": 8420,
+  "kind": "issue",
+  "title": "finding(docs): every ci-cd-pipeline.md workflow section except ci.yml and lint.yml is unpinned against what its job runs — vi-mock-specifiers.yml omits a blocking gate, shadcn-check.yml omits all three of its commands",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "ci/cd",
+    "documentation",
+    "domain:devx",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-07T22:08:04Z",
+  "updated_at": "2026-09-14T04:48:13Z",
+  "closed_at": "2026-09-14T02:42:14Z",
+  "closed_by": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 21,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8420",
+  "body": "Found while implementing #8015, which fixed exactly this class in the `## Lint (lint.yml)` section\nand generalised `scripts/__tests__/ci-cd-pipeline-doc.test.ts`'s command-parity rule to module scope\nso a second section costs three lines to pin. Filing rather than fixing: this needs per-section\njudgement, not a sweep — see the false-positive note at the bottom.\n\n## The class\n\n`content/docs/guide/ci-cd-pipeline.md` gives every workflow its own section. Only two of those\nsections are now held to what their jobs actually RUN:\n\n- `ci.yml`, by the job table's `What it runs` column (#3653), and\n- `lint.yml`, by #8015.\n\nEvery other section is held only by the workflow-INVENTORY pin, which requires a heading naming the\n`.yml` file and asserts nothing about the heading's contents. So each of those sections can name a\ngate its job does not run, or omit one it does, indefinitely and greenly — the #3653 shape, one\nsection over.\n\n## Two instances, verified by hand on `4b4d35a7d`\n\n**1. `## Inert vi.mock Specifiers (vi-mock-specifiers.yml)`** says, in full:\n\n> Runs `scripts/check-vi-mock-specifiers.mjs`.\n\nThe workflow runs two gates:\n\n```\n.github/workflows/vi-mock-specifiers.yml:96:        run: node scripts/check-vi-mock-specifiers.mjs\n.github/workflows/vi-mock-specifiers.yml:116:       run: node scripts/check-vi-mock-inherit.mjs\n```\n\n`check-vi-mock-inherit.mjs` is a blocking gate that the page does not mention. It was widened three\ncommits ago by #8414 (`4b5e07a53`), which is the same drift rate #8015 records.\n\n**2. `### Shadcn Component Check (shadcn-check.yml)`** describes the job in three prose bullets\n(\"Runs offline and online analysis of shadcn/ui components\") and names none of the three\nfirst-party commands the job runs: `pnpm shadcn:analyze`, `pnpm shadcn:check` and\n`scripts/shadcn-check-report.mjs`.\n\n## Reproduce\n\nThe rule now lives at module scope in `scripts/__tests__/ci-cd-pipeline-doc.test.ts`\n(`commandParity(workflowFile, jobKey, documentationText)` plus `undocumentedCommands` /\n`phantomCommands`), so an instance is one call. For the first one:\n\n```ts\ncommandParity('vi-mock-specifiers.yml', 'check', viMockSection())\n```\n\n## Why this is not a sweep — read before writing the fix\n\nA naive extension that pairs every `## Heading (some.yml)` section against every job in that\nworkflow flags **24 of the 34** sections on the page. Most of those are NOT defects:\n\n- a section legitimately names a neighbouring gate for contrast (`check-links.yml`'s section names\n  `scripts/check-doc-links.mjs`, which `docs-links.yml` runs — the page says so);\n- `pre-install-import-graph.yml`'s section names `scripts/some-gate.mjs`, an illustrative\n  placeholder in a code block;\n- several sections name the `pnpm check:*` ALIAS while the workflow invokes `node scripts/…`\n  directly, which is a real and deliberate distinction the workflows document (pre-install\n  placement), not a phantom gate.\n\n`ci.yml`'s table and `lint.yml`'s section each needed a decision about what their documentation\nsurface IS before the rule could be pointed at it. A gate that cries wolf gets switched off rather\nthan fixed — this repository's own words, in `check-unreferenced-sources`. So the fix is\nsection-by-section with the alias question settled first, not one loop over the page.\n\nScope note: not a rider on #8015's PR — that card's acceptance is the `lint.yml` section, and\nthis document is under concurrent edit (#8006, #8417 and #8015 all landed or are open on it today)."
+}

@@ -1,0 +1,35 @@
+{
+  "number": 9357,
+  "kind": "issue",
+  "title": "finding(react): `UseNavigationOverlayOptions.onRowClick` declares ONE parameter and `handleClick` casts it away to call it with TWO — every consumer copies the understated spelling",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: react",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-13T05:50:32Z",
+  "updated_at": "2026-09-14T04:29:47Z",
+  "closed_at": "2026-09-14T04:29:47Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9357",
+  "body": "Found while implementing objectui#9341 (PR objectui#9356), which repairs exactly one leaf of this tree. ⛔ Not fixed there — widening the other declarations would be a second, unrequested move on published surfaces, and that PR already carries `needs:contract-review` for the one the ruling named.\n\n## The contract, and the line that contradicts it\n\n`packages/react/src/hooks/useNavigationOverlay.ts` declares the option with one parameter:\n\n```ts\nexport interface UseNavigationOverlayOptions {\n  /** External onRowClick callback — if set, takes full priority */\n  onRowClick?: (record: Record<string, unknown>) => void;\n}\n```\n\nIts own `handleClick` then **casts the declaration away** to call it with two:\n\n```ts\nif (onRowClick) {\n  (onRowClick as (r: Record<string, unknown>, e?: HandleClickModifiers) => void)(record, event);\n  return;\n}\n```\n\nThe sibling member on the same interface file states what the second argument is for, so the intent is not in doubt:\n\n```ts\nhandleClick: (record: Record<string, unknown>, event?: HandleClickModifiers) => void;\n```\n\nand the comment above the cast says why it matters — \"Forward the modifier event so parent handlers (e.g. ObjectView) can still implement Cmd/Ctrl/middle-click → open in new tab.\"\n\nSo the declared contract says the callback receives a record; the implementation guarantees it receives a record **and** the modifier payload. The `as` is what makes the disagreement compile, and it is the only thing holding the two apart.\n\n## Why it is worth a card rather than a shrug\n\nThe understated spelling is **copied outward**. Each of these declares its own pass-through of the same channel with one parameter, while the value that flows through it is invoked with two:\n\n- `packages/plugin-kanban/src/ObjectKanban.tsx` — `ObjectKanbanComponentProps.onRowClick?: (record: any) => void`\n- `packages/plugin-list/src/ObjectGallery.tsx` — both `onCardClick` and `onRowClick`, feeding the identical `onRowClick: props.onRowClick ?? props.onCardClick`\n- `packages/plugin-kanban/src/index.tsx` — `KanbanRendererProps.schema.onCardClick?: (card: any) => void`\n\nThe consequence is not a crash; it is that **the modifier event is invisible on the declaration a host reads**. A host writing a Cmd/Ctrl/middle-click handler has to discover the second argument from the implementation, and must then spell its own parameter optional (`(record: any, event?: any)`) to stay assignable — which is exactly what `ObjectView.tsx` does at three call sites (`:2734`, `:3120`, `:3163`). That workaround is the tell: the repo already knows the second argument is there, in the one place that could not avoid knowing.\n\nobjectui#9341 is the same class reaching a user: the board's published `onCardClick` declared one argument while the channel delivered two, and the one-argument declaration turned out to describe a *defective* second call rather than the real channel.\n\n## What is not decided here\n\nWhether to widen the hook's option and let the consumers follow, or to name the payload type on each consumer. `HandleClickModifiers` is exported from `@object-ui/react`, so consumers inside that dependency direction can name it — but `@object-ui/types`, where `ObjectKanbanSchema.onCardClick` lives, cannot: it is named in no dependency field of `@object-ui/types`, and `@object-ui/react` depends on `@object-ui/types`, so the import is a phantom dependency and a cycle. objectui#9341 resolved that one face as `event?: any`, matching `BaseSchema`'s own `onClick` / `onChange` / `onSubmit`. Whether the whole family converges on that spelling or on the named interface where it is reachable is a ruling, not a mechanical edit.\n\n⚠️ Any fix here moves several published declarations at once and should carry `needs:contract-review`.\n\nReported by the `os-dev` seat implementing objectui#9341, with Claude Code."
+}

@@ -50,10 +50,13 @@ order, and every record is reachable through its group's own pager.
 - A grouped grid over a capable source sends different requests: one header
   query per grouping level plus one row query per open group, instead of one
   window. A host that counted or mocked the single window sees the new shape.
-- `useGroupedData` takes an optional fifth argument (the server's header rows);
-  `GroupEntry` gains `count` (the group's size — use it instead of
-  `rows.length`, which is empty on a server-grouped grid) and `keyValues`;
-  `AggregationResult.value` is `number | null`, `null` being what the server's
+- `useGroupedData` takes an optional fifth argument (the server's header rows).
+- `GroupEntry` gains two REQUIRED members: `count` (the group's size — use it
+  instead of `rows.length`, which is empty on a server-grouped grid) and
+  `keyValues`. Code that only READS a `GroupEntry` is unaffected; code that
+  CONSTRUCTS a `GroupEntry` literal no longer type-checks until it supplies
+  both.
+- `AggregationResult.value` is `number | null`, `null` being what the server's
   aggregate answered over no values (rendered as a dash, never invented as 0).
 - `@object-ui/plugin-grid` and `@object-ui/data-objectstack` now require
   `@objectstack/spec` `^17.4.0`, the first release that ships the group-query

@@ -1165,9 +1165,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // which switches off its own bus reader (a gantt handed zero rows is the
   // exception: it queries for itself and keeps its reader, objectui#7333),
   // and `refreshKey` moves only on this view's own write and `onMutation`;
-  // a page action over raw HTTP fires
-  // neither, so before this the rows were re-read only when `PageView`
-  // remounted the page (objectui#10519 removes that remount).
+  // a page action over raw HTTP fires neither, so before this the rows were
+  // re-read only when `PageView` remounted the page (objectui#10519 removes
+  // that remount).
   //
   // Subscribed exactly when these rows are what the view draws. A host
   // `renderListView` (its `ListView` reads the bus itself) and the grid
@@ -2523,9 +2523,10 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // `ObjectGrid`, `ObjectChart` and a gantt handed zero rows
     // (objectui#7333) query for themselves and refetch in place on the bus,
     // which every site that moves `refreshKey` also notifies
-    // (`announceOwnWrite`, the `onMutation` subscription). ⛔ Do not put `refreshKey` back in a key: that is the
-    // remount the corollary forbids, and it throws away the view's scroll,
-    // selection, open drawers and in-progress edits on every save.
+    // (`announceOwnWrite`, the `onMutation` subscription). ⛔ Do not put
+    // `refreshKey` back in a key: that is the remount the corollary forbids,
+    // and it throws away the view's scroll, selection, open drawers and
+    // in-progress edits on every save.
     const identityKey = `${schema.objectName}-${activeNamedView || activeView?.id || 'default'}-${currentViewType}`;
 
     // If a custom renderListView is provided, use it

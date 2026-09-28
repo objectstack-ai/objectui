@@ -1108,13 +1108,20 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // which switches off its own bus reader, and `refreshKey` moves only on this
   // view's own write and `onMutation`; a page action over raw HTTP fires
   // neither, so before this the rows were re-read only when `PageView`
-  // remounted the page (objectui#10519 removes that remount). Subscribed
-  // exactly when the effect below queries: a host `renderListView` (whose
-  // `ListView` reads the bus itself) and the grid (`ObjectGrid` does too) are
-  // not this effect's query, and neither is a view with no object or no
-  // adapter.
+  // remounted the page (objectui#10519 removes that remount).
+  //
+  // Subscribed exactly when these rows are what the view draws. A host
+  // `renderListView` (its `ListView` reads the bus itself) and the grid
+  // (`ObjectGrid` does too) are not this effect's query, and neither is a view
+  // with no object or no adapter. The two host-only types query for
+  // themselves and read the bus themselves, so a re-read here would only add
+  // reads: `ObjectTree` runs its own query ahead of the rows handed to it
+  // (objectui#10778) and re-queries whenever that array changes, and
+  // `ObjectChart` never reads them (objectui#10035).
+  const fetchDrawsView =
+    !renderListView && currentViewType !== 'grid' && currentViewType !== 'tree' && currentViewType !== 'chart';
   const invalidationNonce = useDataInvalidation(
-    !renderListView && currentViewType !== 'grid' && dataSource ? schema.objectName || undefined : undefined,
+    fetchDrawsView && dataSource ? schema.objectName || undefined : undefined,
   );
 
   // Fetch data for non-grid view types (grid handles its own data via ObjectGrid)

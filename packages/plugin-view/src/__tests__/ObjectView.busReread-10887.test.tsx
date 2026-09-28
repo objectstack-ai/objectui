@@ -28,6 +28,10 @@
  * plugins that register them, and the rows are this component's read. Each
  * stand-in carries an instance id from a `useState` initializer, so a changed
  * id is a remount.
+ *
+ * Controls: a view with no object never reads, and the two host-only types
+ * whose renderers query for themselves (`tree`, `chart`) are not re-read by
+ * this fetch.
  */
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -41,8 +45,9 @@ import {
 } from '@object-ui/react';
 // Module scope, not a hook: this import IS the registration of `object-view`.
 import '../index';
+import { ObjectView } from '../ObjectView';
 
-const NON_GRID_TYPES = ['kanban', 'calendar', 'gallery', 'timeline', 'map'] as const;
+const NON_GRID_TYPES = ['kanban', 'calendar', 'gallery', 'timeline', 'map', 'gantt'] as const;
 
 let instanceSeq = 0;
 function InnerViewStandIn({ schema, data }: { schema?: { type?: string }; data?: unknown }) {
@@ -56,7 +61,7 @@ function InnerViewStandIn({ schema, data }: { schema?: { type?: string }; data?:
     />
   );
 }
-for (const t of NON_GRID_TYPES) ComponentRegistry.register(`object-${t}`, InnerViewStandIn as never);
+for (const t of [...NON_GRID_TYPES, 'tree', 'chart']) ComponentRegistry.register(`object-${t}`, InnerViewStandIn as never);
 
 /** The positive control: a bare reader of the view's object. */
 function BusControl() {
@@ -157,4 +162,35 @@ describe('object-view non-grid views re-read on the data-invalidation bus (objec
     expect(screen.getByTestId('bus-control').textContent).toBe('1');
     expect(ds.find).not.toHaveBeenCalled();
   });
+
+  // `tree` and `chart` are reachable only from a host `views` prop, not through
+  // the registered renderer, so these compose the component the way a host
+  // does. Their renderers query for themselves and read the bus themselves:
+  // `ObjectTree` runs its own query ahead of the rows handed to it and
+  // re-queries when that array changes, and `ObjectChart` never reads them. A
+  // re-read of this component's rows would only add reads beside theirs.
+  for (const hostType of ['tree', 'chart'] as const) {
+    it(`control: a host-composed ${hostType} view is not re-read by this fetch`, async () => {
+      const ds = makeDataSource();
+      render(
+        <SchemaRendererProvider dataSource={ds as never}>
+          <BusControl />
+          <ObjectView
+            schema={{ type: 'object-view', objectName: 'deal' } as never}
+            views={[{ id: hostType, label: hostType, type: hostType }] as never}
+            dataSource={ds as never}
+          />
+        </SchemaRendererProvider>,
+      );
+      await waitFor(() => expect(inner().getAttribute('data-type')).toBe(`object-${hostType}`));
+      await rest();
+      const before = ds.find.mock.calls.length;
+
+      await emit({ objectName: '*' });
+      await rest();
+
+      expect(screen.getByTestId('bus-control').textContent).toBe('1');
+      expect(ds.find, `the ${hostType} view's rows were re-read beside its own reader`).toHaveBeenCalledTimes(before);
+    });
+  }
 });

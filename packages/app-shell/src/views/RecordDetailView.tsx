@@ -213,7 +213,7 @@ function mergeFeedRows(prev: readonly FeedItem[], incoming: readonly FeedItem[])
  * object — the primary `sys_edit` CTA (which also gates the record-body
  * inline-edit session) and the `sys_delete` overflow item.
  *
- * [#3546] Each bit is the object's resolved CRUD affordance (lifecycle bucket +
+ * [objectstack#3546] Each bit is the object's resolved CRUD affordance (lifecycle bucket +
  * `userActions`) INTERSECTED with the server-resolved effective API operation
  * set (`/me/permissions` `apiOperations`) — never a union. So a server grant can
  * never re-open an affordance the object's bucket closed, and a permissive
@@ -1190,7 +1190,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // standalone embed) the gate stays open — fail-open is safe because the
   // server enforces data access regardless; this is purely a UI/DX filter.
   const { can: canOnObject, isLoaded: permissionsLoaded, getObjectApiOperations, systemPermissions } = perms;
-  // [#3546] Server-resolved effective API operation set for this object
+  // [objectstack#3546] Server-resolved effective API operation set for this object
   // (`/me/permissions` `apiOperations`). Threaded as the 2nd arg into
   // `resolveRecordHeaderActionGates` for the detail header's Edit/Delete and
   // the record-body inline-edit gate, so the detail surface never offers an

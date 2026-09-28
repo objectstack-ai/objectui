@@ -65,7 +65,7 @@ export interface PackageSaveResult {
 
 /**
  * Was this envelope's prose MARKED, i.e. did the producer address it to the end
- * user (`error.userMessage`, #9934) rather than to whoever is debugging?
+ * user (`error.userMessage`, objectstack `79c46da90`) rather than to whoever is debugging?
  *
  * ⚠️ Why this is read separately instead of taken from
  * {@link readEnvelopeFailureText}: that reader answers *what prose to show* and

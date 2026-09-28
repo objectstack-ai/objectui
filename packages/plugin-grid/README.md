@@ -480,23 +480,30 @@ filter AND the group's key, `limit` / `offset` per group). So:
 - A `lookup` / `master_detail` / `user` grouping key is the referenced record's
   id on the wire; the grid labels it from the referenced record.
 
-When a `ListView` hosts the grid (the console's list views), it hands a grouped
-grid its own fetch and the view's effective filter, rather than a window of
-rows.
+When a `ListView` hosts the grid (the console's list views) over a data source
+that answers the group header query, it hands a grouped grid its own fetch and
+the view's effective filter, rather than a window of rows.
 
-Two cases still group **in the browser**:
+**Rows handed in whole** (`data: { provider: 'value', items }`, or a host's
+whole result set) are grouped where they are, in the browser: nothing was
+withheld, so the grouping is exact. The grid takes rows a host hands it to be
+the whole set — unless that host declares them one page of more
+(`manualPagination`, `onPageChange` and a `rowCount` above the rows it
+handed). A grouped grid refuses such a window with an error saying grouping
+needs every record; hand the rows in whole, or let the grid fetch them.
 
-- **Rows handed in whole** (`data: { provider: 'value', items }`, or a host's
-  whole result set): nothing was withheld, so grouping them there is exact.
-- **A data source that declares no `queryGroupHeaders`**: the grid can only
-  group the page it fetched. Every count is then a page slice and a group whose
-  records all fall past the page is absent, so the grid says so where the
-  numbers are — a short `Partial` marker beside every group count and a line
-  above the group list (*"Grouped over the first 100 of 186 records…"*). With
-  counts from the server the marker never appears.
+**Everything else needs the group header query** (objectui#10881). Over a data
+source that declares no `queryGroupHeaders`, a grouped grid that fetches its
+own rows does not group a page of them — every count would be a page slice,
+and a group whose records all fall past the page would be missing. It shows an
+error naming `queryGroupHeaders` instead, and asks for no rows. A `ListView`
+makes the same refusal before it mounts such a grid. To group, implement
+`queryGroupHeaders` on the data source, or hand the rows in whole.
 
 A toolbar **search** has no counterpart on the group header query, so a
-`ListView` keeps grouping its own window while a search term is active.
+`ListView` over a data source that answers it keeps grouping its own window
+while a search term is active: those group counts are the window's, not the
+query's (objectstack#20358).
 
 ## Integration with Data Sources
 

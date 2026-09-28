@@ -174,8 +174,8 @@ export type {
   // The two names on `form.ts`'s export list that this barrel did not carry,
   // added by objectui#9406 (director seat, decision batch #133 item 2, letter
   // (a), maintainer 2026-09-14). Both narrow a schema already on this list
-  // — `InputShorthandSchema` is `Omit<InputSchema, 'type' | 'inputType'>`,
-  // `UiCalendarSchema` is `Omit<CalendarSchema, 'type'>` — and both were
+  // — `InputShorthandSchema` is `InputSchema` without `type` / `inputType`,
+  // `UiCalendarSchema` is `CalendarSchema` without `type` — and both were
   // already published on `@object-ui/types/form` and `@object-ui/types/zod`,
   // so these two lines ALIGN the third entry point rather than widen the
   // surface. Purely ADDITIVE, the same route objectui#7697 took for

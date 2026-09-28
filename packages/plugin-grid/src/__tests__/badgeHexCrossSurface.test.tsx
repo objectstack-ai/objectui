@@ -70,6 +70,13 @@ const ROWS = [
 function makeDataSource() {
   return {
     find: vi.fn(async () => ({ data: ROWS, total: ROWS.length, hasMore: false, pageSize: 50 })),
+    // objectui#10881: a grouped grid that fetches its own rows groups only
+    // over a data source that answers the group header query; a find-only one
+    // is refused. One header row per stage, as the server would count them.
+    queryGroupHeaders: vi.fn(async () => [
+      { stage: 'emerald', count: 1 },
+      { stage: 'forest', count: 1 },
+    ]),
     getObjectSchema: vi.fn(async (name: string) => ({
       name,
       fields: {

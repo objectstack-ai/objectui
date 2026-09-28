@@ -221,7 +221,7 @@ import type { ViewSwitcherSchema } from '../views';
 import type { NLQuerySchema } from '../ai';
 import type { TextSchema, ImageSchema, IconSchema, TabsSchema } from '../layout';
 import type { AccordionSchema } from '../disclosure';
-import type { CalendarSchema, UiCalendarSchema } from '../form';
+import type { CalendarSchema } from '../form';
 
 type Mirror = {
   safeParse: (v: unknown) => { success: boolean; error?: z.ZodError };
@@ -565,20 +565,11 @@ describe('objectui#9256 — the TypeScript face refuses both channels at the AUT
     const timelineBody: TimelineSchema = { type: 'timeline', body: CONTENT };
     // @ts-expect-error objectui#9256 — `timeline` reads neither channel on either of its two readers
     const timelineChildren: TimelineSchema = { type: 'timeline', children: CONTENT };
-    // ⚠️ TRIPWIRE, and deliberately NOT a `@ts-expect-error`. `UiCalendarSchema`
-    // is declared as `Omit<CalendarSchema, 'type'>`, and `BaseSchema` carries an
-    // index signature — so `Omit` resolves through `Exclude<string, 'type'>` =
-    // `string` and collapses every member into that signature. MEASURED with the
-    // checker: `UiCalendarSchema['body']` answers `any`, and so does
-    // `UiCalendarSchema['mode']`, which is a key this change never touched. That
-    // face therefore carries NONE of `CalendarSchema`'s members, tombstones
-    // included, and the line below compiles today. Its MIRROR does refuse the
-    // key — the `ui:calendar` row above is the reading — so this is a measured
-    // asymmetry between the two published faces, not a gap in the mirror.
-    // When the collapse is repaired this line goes RED, which is the signal to
-    // restate the two tombstones on `UiCalendarSchema` and turn it back into a
-    // `@ts-expect-error` pair.
-    const uiCalendarBody: UiCalendarSchema = { type: 'ui:calendar', body: CONTENT };
+    // `ui:calendar`'s TypeScript face stood here as a TRIPWIRE: its heritage was a
+    // plain `Omit` that collapsed into `BaseSchema`'s index signature, so this line
+    // compiled. objectui#9256's E3 slice repaired the heritage, the tripwire fired as
+    // designed, and the pair it asked for lives with that repair's other pins in
+    // `content-channel-e3-residual-9256.test.ts`.
 
     expect([
       separatorBody, separatorChildren, kbdBody, skeletonChildren, checkboxBody, paginationChildren,
@@ -586,9 +577,8 @@ describe('objectui#9256 — the TypeScript face refuses both channels at the AUT
       nlQueryChildren, pivotBody, chatbotChildren,
       textBody, textChildren, imageBody, imageChildren, iconBody, iconChildren,
       tabsBody, tabsChildren, accordionBody, accordionChildren, calendarBody, calendarChildren,
-      uiCalendarBody,
       listBody, listChildren, timelineBody, timelineChildren,
-    ]).toHaveLength(32);
+    ]).toHaveLength(31);
   });
 
   it('CONTROL — the same nodes WITHOUT a content channel compile (no `@ts-expect-error` here, and `tsc` is the reader)', () => {

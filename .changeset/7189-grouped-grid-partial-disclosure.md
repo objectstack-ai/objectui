@@ -67,3 +67,15 @@ described above never render there. On a data source without
 as described above, and the marker and the notice are kept there. The rest of
 this entry is kept as the reading of this change; the
 `7189-server-side-grid-grouping` entry states what a grouped grid does now.
+
+⚠️ **Dated note, 2026-09-28 — the `Partial` marker is retired before release —
+objectui#10881.** Later in this same release the marker and the notice described
+above were retired, with the three `grid.grouping.partial*` strings and
+`GroupRow`'s `partialLabel` / `partialTitle` props that carried them (maintainer
+ruling F). A grouped grid that fetches its own rows over a data source that
+declares no `queryGroupHeaders` no longer groups the page it fetched: it
+refuses grouping with an error naming that member. So the last sentences of the
+note above — that on such a source the grid still groups the page it fetched,
+and that the marker and the notice are kept there — no longer describe the
+grid. The rest of this entry is kept as the reading of this change; the
+`10881-grouping-needs-header-query` entry states what ships.

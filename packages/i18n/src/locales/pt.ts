@@ -127,12 +127,12 @@ const pt = {
     printDialogHint: "Abre a caixa de diálogo de impressão do navegador (não é uma exportação para PDF)",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "Mostrando os primeiros {{shown}} de {{total}} registros. Restrinja o filtro.",
     rowCeilingNoteUnknownTotal: "Mostrando os primeiros {{shown}} registros. Restrinja o filtro.",
   },
@@ -397,13 +397,15 @@ const pt = {
     yes: "Sim",
     no: "Não",
     systemFields: "Sistema",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: "Parcial",
-      partialNotice:
-        "Agrupado sobre os primeiros {{loaded}} de {{total}} registros. As contagens por grupo referem-se apenas à página carregada, e um grupo cujos registros estão todos além das linhas carregadas não aparece aqui.",
-      partialNoticeUnknownTotal:
-        "Agrupado sobre os {{loaded}} registros carregados. Pode haver mais registros correspondentes a esta visão, portanto as contagens por grupo podem estar incompletas e um grupo pode não aparecer aqui.",
+      needsHeaderQuery:
+        "Esta visão está agrupada, mas sua fonte de dados não implementa queryGroupHeaders, portanto os grupos não podem ser contados. Remova o agrupamento para mostrar os registros.",
+      needsWholeRows:
+        "O agrupamento precisa de todos os registros, mas esta grade recebeu apenas uma página deles, portanto os grupos não podem ser contados. Entregue todos os registros ou deixe a grade buscá-los em uma fonte de dados que implemente queryGroupHeaders.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this

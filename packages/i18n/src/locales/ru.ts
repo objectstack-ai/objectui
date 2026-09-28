@@ -138,12 +138,12 @@ const ru = {
     printDialogHint: "Открывает диалог печати браузера (это не экспорт в PDF)",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "Показаны первые {{shown}} из {{total}} записей. Сузьте фильтр.",
     rowCeilingNoteUnknownTotal: "Показаны первые {{shown}} записей. Сузьте фильтр.",
   },
@@ -408,13 +408,15 @@ const ru = {
     yes: "Да",
     no: "Нет",
     systemFields: "Система",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: "Частично",
-      partialNotice:
-        "Группировка выполнена по первым {{loaded}} из {{total}} записей. Счётчики групп относятся только к загруженной странице, а группа, все записи которой находятся за пределами загруженных строк, здесь отсутствует.",
-      partialNoticeUnknownTotal:
-        "Группировка выполнена по {{loaded}} загруженным записям. Этому представлению могут соответствовать и другие записи, поэтому счётчики групп могут быть неполными, а какая-либо группа может здесь отсутствовать.",
+      needsHeaderQuery:
+        "Это представление сгруппировано, но его источник данных не реализует queryGroupHeaders, поэтому группы невозможно подсчитать. Уберите группировку, чтобы показать записи.",
+      needsWholeRows:
+        "Для группировки нужны все записи, но этой таблице передана только одна их страница, поэтому группы невозможно подсчитать. Передайте все записи или позвольте таблице загрузить их из источника данных, который реализует queryGroupHeaders.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this

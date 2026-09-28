@@ -48,7 +48,7 @@ import {
   checkListViewCalendarVisualization,
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
-import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
 import { DrillDownConfigSchema } from './data-display.zod.js';
 // The kanban CARD vocabulary has one authority (`./complex.zod.ts`); the
 // `object-kanban` lane below reads it rather than restating it (objectui#8913).
@@ -236,6 +236,13 @@ const OBJECT_GRID_EXPORT_OPTIONS_GUIDANCE =
   '`exportOptions.formats`, so an array is silently dropped for the csv/json ' +
   'default. Write `{ "formats": ["csv", "xlsx"] }` instead.';
 
+/** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectGridSchema`. */
+const OBJECT_GRID_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'object-grid',
+  'its `any`-typed registration hands the node to `ObjectGrid`, which reads it as `ObjectGridSchema`',
+  'the records of `objectName` as a data grid, shaped by `columns`, `filter`, `sort`, `grouping` and `selection`',
+);
+
 /**
  * ObjectGrid Schema
  */
@@ -375,6 +382,10 @@ export const ObjectGridSchema = BaseSchema.extend({
   // rejected `onNavigate` by name (`unrecognized_keys`), while this mirror
   // accepted and KEPT it. The refusal message points at the node-type spelling.
   onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'Record navigation handler'),
+  // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
+  // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(OBJECT_GRID_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_GRID_NEITHER_CHANNEL),
 });
 
 /**
@@ -390,6 +401,13 @@ const RECORD_ID_IS_A_STRING_GUIDANCE =
   "A record id is a string on every boundary (objectui#9511): write it quoted \u2014 42 becomes '42'. "
   + 'A backend whose primary keys are numeric converts at its OWN adapter boundary, in one typed '
   + 'place, so every author, every caller and every adapter sees one shape.';
+
+/** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectFormSchema`. */
+const OBJECT_FORM_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'object-form',
+  'its `any`-typed registration hands the node to `ObjectForm`, which reads it as `ObjectFormSchema` and assembles every `form` node it renders key by key, never copying either channel',
+  'a form over `objectName` built from `fields` / `sections` / `customFields`, in the declared `mode` and `formType`',
+);
 
 /**
  * ObjectForm Schema
@@ -474,7 +492,18 @@ export const ObjectFormSchema = BaseSchema.extend({
   onOpenChange: handlerKeyRefusal('onOpenChange', 'runtime-slot', 'Modal/drawer open-state handler'),
   onStepChange: handlerKeyRefusal('onStepChange', 'runtime-slot', 'Wizard step change handler'),
   onSuccess: handlerKeyRefusal('onSuccess', 'runtime-slot', 'Submit success handler'),
+  // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
+  // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(OBJECT_FORM_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_FORM_NEITHER_CHANNEL),
 });
+
+/** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectViewSchema`. */
+const OBJECT_VIEW_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'object-view',
+  'its `any`-typed registration hands the node to `ObjectView`, which reads it as `ObjectViewSchema` and delegates each sub-view to an `object-*` node it assembles key by key, every one of which reads neither channel',
+  'the object’s views — `listViews`, `defaultViewType`, `table`, `form` — under its own toolbar',
+);
 
 /**
  * ObjectView Schema
@@ -599,6 +628,10 @@ export const ObjectViewSchema = BaseSchema.extend({
   // signature (`mode: 'view' | 'edit'` rather than the grid's `action?: string`)
   // and a different supplier. Judged separately for that reason.
   onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'Record navigation handler'),
+  // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
+  // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(OBJECT_VIEW_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_VIEW_NEITHER_CHANNEL),
 })
   // ⭐ objectui#8355 / objectui#10321 — the by-name pointers for the named alias
   // refusals on a named view: two sibling checks on this one door (the calendar
@@ -1881,6 +1914,13 @@ function requireRecordSource(type: 'object-map' | 'object-gantt' | 'object-calen
   };
 }
 
+/** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectMapSchema`. */
+const OBJECT_MAP_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'object-map',
+  'its `any`-typed registration hands the node to `ObjectMap`, which reads it as `ObjectMapSchema`',
+  'the records of `objectName` as markers placed by `latitudeField` / `longitudeField` or `locationField`',
+);
+
 /**
  * ObjectMap Schema
  *
@@ -1910,7 +1950,18 @@ export const ObjectMapSchema = BaseSchema.extend({
   locationField: z.string().optional().describe('Location field (internal flat form; prefer map.locationField)'),
   titleField: z.string().optional().describe('Title field (internal flat form; prefer map.titleField)'),
   mapStyle: z.string().optional().describe('MapLibre style URL/spec (overrides the public demo default)'),
+  // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
+  // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(OBJECT_MAP_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_MAP_NEITHER_CHANNEL),
 }).superRefine(requireRecordSource('object-map'));
+
+/** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectTreeSchema`. */
+const OBJECT_TREE_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'object-tree',
+  'its `any`-typed registration hands the node to `ObjectTree`, which reads it as `ObjectTreeSchema`; the `children` it reads belong to the record hierarchy it builds, not to this node',
+  'the records of `objectName` as a hierarchy linked by `parentField` and labelled by `labelField`',
+);
 
 /**
  * ObjectTree (tree-grid) Schema
@@ -1931,7 +1982,18 @@ export const ObjectTreeSchema = BaseSchema.extend({
   labelField: z.string().optional().describe('Field rendered indented in the first column'),
   fields: z.array(z.string()).optional().describe('Additional flat columns'),
   defaultExpandedDepth: z.number().optional().describe('Default expansion depth (0 = roots only)'),
+  // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
+  // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(OBJECT_TREE_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_TREE_NEITHER_CHANNEL),
 });
+
+/** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectGanttSchema`. */
+const OBJECT_GANTT_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'object-gantt',
+  'its `any`-typed registration hands the node to `ObjectGantt`, which reads it as `ObjectGanttSchema`',
+  'the records of `objectName` as bars from `startDateField` to `endDateField`',
+);
 
 /**
  * ObjectGantt Schema
@@ -2078,7 +2140,18 @@ export const ObjectGanttSchema = BaseSchema.extend({
   // both onto a gantt node, because the chart queries for itself.
   search: z.string().optional().describe('Full-text search term, forwarded as $search (the server resolves the matched fields, ADR-0061)'),
   searchableFields: z.array(z.string()).optional().describe('Narrows the fields `search` matches, forwarded as $searchFields alongside a term'),
+  // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
+  // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(OBJECT_GANTT_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_GANTT_NEITHER_CHANNEL),
 }).superRefine(requireRecordSource('object-gantt'));
+
+/** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectCalendarSchema`. */
+const OBJECT_CALENDAR_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'object-calendar',
+  'its `any`-typed registration hands the node to `ObjectCalendar`, which reads it as `ObjectCalendarSchema`',
+  'the records of `objectName` as events from `startDateField` to `endDateField`',
+);
 
 /**
  * ObjectCalendar Schema
@@ -2191,6 +2264,10 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // time".
   filter: z.array(z.any()).optional().describe('Query filter, forwarded as $filter with its context tokens ({current_user_id}, {current_org_id}, date macros) resolved first'),
   sort: z.array(SortConfigSchema).optional().describe('Sort configuration, forwarded as $orderby (array only; the legacy string clause is retired — objectui#8221)'),
+  // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
+  // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(OBJECT_CALENDAR_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_CALENDAR_NEITHER_CHANNEL),
 }).superRefine(requireRecordSource('object-calendar'));
 
 /**
@@ -2353,6 +2430,13 @@ function requireKanbanRecordSource(
   });
 }
 
+/** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectKanbanSchema`. */
+const OBJECT_KANBAN_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'object-kanban',
+  'its `any`-typed registration hands the node to `ObjectKanban`, which reads it as `ObjectKanbanSchema`',
+  'the records of `objectName` as lanes grouped by `groupBy`, with `cardFields` on each card',
+);
+
 // objectui#7322 — `groupBy` and `limit` are the keys `ObjectKanban.tsx` reads
 // (thirteen `schema.groupBy` sites; the row cap lowered into the query as
 // `$top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT)`, re-spelled by
@@ -2491,6 +2575,10 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   onCardClick: handlerKeyRefusal('onCardClick', 'runtime-slot', 'Card click handler'),
   onCardMove: handlerKeyRefusal('onCardMove', 'retired', 'Card move handler'),
   onQuickAdd: handlerKeyRefusal('onQuickAdd', 'runtime-slot', 'Quick Add handler'),
+  // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
+  // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(OBJECT_KANBAN_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_KANBAN_NEITHER_CHANNEL),
 }).superRefine(requireKanbanRecordSource);
 
 /**
@@ -2577,6 +2665,13 @@ function requireObjectChartFamily(
       + '`<ObjectChart type="bar">` arrives here as `specType`.',
   });
 }
+
+/** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectChartSchema`. */
+const OBJECT_CHART_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'object-chart',
+  'its `any`-typed registration hands the node to `ObjectChart`, which reads it as `ObjectChartSchema`',
+  'a chart of `objectName` (or inline `data`) drawn by `chartType` from `aggregate` / `series`',
+);
 
 /**
  * ObjectChart Schema
@@ -2788,6 +2883,10 @@ export const ObjectChartSchema = BaseSchema.extend({
       'AUTHORABLE — value (y) axes: an ARRAY of @objectstack/spec ChartAxis objects, by reference (field required, strict). '
       + 'The first entry is the primary axis; a second entry declares the right-hand axis.',
     ),
+  // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
+  // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(OBJECT_CHART_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_CHART_NEITHER_CHANNEL),
 }).superRefine(requireObjectChartFamily);
 
 /**

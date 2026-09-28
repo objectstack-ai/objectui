@@ -81,7 +81,7 @@ import {
   resolveFilterPlaceholders,
   type FilterTokenScope,
 } from '@object-ui/core';
-import { SchemaRenderer as ImportedSchemaRenderer, useSettledSchema, notifyDataChanged, useFilterScope } from '@object-ui/react';
+import { SchemaRenderer as ImportedSchemaRenderer, useSettledSchema, notifyDataChanged, useDataInvalidation, useFilterScope } from '@object-ui/react';
 import type { HandleClickModifiers } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { ViewSwitcher } from './ViewSwitcher';
@@ -1100,6 +1100,30 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // an equal sort in a fresh array is not a change (AGENTS.md #10).
   const tableSortKey = JSON.stringify(schema.table?.sort ?? null);
 
+  // objectui#10887 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10623 / objectui#10778 /
+  // objectui#10853 way: the nonce moves when the bus reports a change to the
+  // object this fetch QUERIES (or `'*'`), and the effect below names it, so
+  // the rows are re-read in place. The inner view receives them as `data`,
+  // which switches off its own bus reader, and `refreshKey` moves only on this
+  // view's own write and `onMutation`; a page action over raw HTTP fires
+  // neither, so before this the rows were re-read only when `PageView`
+  // remounted the page (objectui#10519 removes that remount).
+  //
+  // Subscribed exactly when these rows are what the view draws. A host
+  // `renderListView` (its `ListView` reads the bus itself) and the grid
+  // (`ObjectGrid` does too) are not this effect's query, and neither is a view
+  // with no object or no adapter. The two host-only types query for
+  // themselves and read the bus themselves, so a re-read here would only add
+  // reads: `ObjectTree` runs its own query ahead of the rows handed to it
+  // (objectui#10778) and re-queries whenever that array changes, and
+  // `ObjectChart` never reads them (objectui#10035).
+  const fetchDrawsView =
+    !renderListView && currentViewType !== 'grid' && currentViewType !== 'tree' && currentViewType !== 'chart';
+  const invalidationNonce = useDataInvalidation(
+    fetchDrawsView && dataSource ? schema.objectName || undefined : undefined,
+  );
+
   // Fetch data for non-grid view types (grid handles its own data via ObjectGrid)
   useEffect(() => {
     let isMounted = true;
@@ -1309,6 +1333,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     schema.objectName, dataSource, currentViewType, refreshKey,
     currentNamedViewConfig, activeViewQueryInputs, renderListView,
     objectSchemaReady, objectSchema, perms, authoredFilters, tableSortKey,
+    invalidationNonce,
   ]);
 
   // Determine layout mode. #2578: default the record surface from how heavy the

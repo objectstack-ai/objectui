@@ -1166,6 +1166,39 @@ export interface ObjectGridSchema extends BaseSchema {
     /** Icon name (Lucide icon identifier) */
     icon?: string;
   };
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-grid` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-grid` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-grid` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * error, no warning, no element.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectGridRenderer` (`packages/plugin-grid`), is
+   * `any`-typed and hands the node to `ObjectGrid`, which reads it as this
+   * type. `SchemaRenderer` strips both keys out of the props bag it spreads,
+   * so neither reaches the component by another route, and the registration
+   * declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: the records of `objectName` as a data grid,
+   * shaped by `columns`, `filter`, `sort`, `grouping`, `selection` and the
+   * rest of this declaration.
+   *
+   * @deprecated Not a channel `object-grid` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -1833,6 +1866,43 @@ export interface ObjectFormSchema extends BaseSchema {
     /** Show a fullscreen-edit affordance for textarea / rich-text fields. */
     fullscreenLongText?: boolean;
   };
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-form` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-form` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-form` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * error, no warning, no element.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectFormRenderer` (`packages/plugin-form`), is
+   * `any`-typed and hands the node to `ObjectForm`, which reads it as this
+   * type. `SchemaRenderer` strips both keys out of the props bag it spreads,
+   * so neither reaches the component by another route, and the registration
+   * declares no `children` slot (objectui#9910).
+   *
+   * The `form` node `ObjectForm` renders DOES draw `children`, and that is
+   * exactly why this was checked rather than assumed: every `form` node the
+   * package builds is assembled key by key, and none copies this node's own
+   * channels into it.
+   *
+   * What it renders instead: a form over `objectName` built from `fields` /
+   * `sections` / `customFields`, in the `mode` and `formType` declared here.
+   *
+   * @deprecated Not a channel `object-form` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -2208,6 +2278,44 @@ export interface ObjectViewSchema extends BaseSchema {
     type: 'share' | 'settings' | 'duplicate' | 'delete';
     icon?: string;
   }>;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-view` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-view` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-view` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * error, no warning, no element.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectViewRenderer` (`packages/plugin-view`), is
+   * `any`-typed and hands the node to `ObjectView`, which reads it as this
+   * type. `SchemaRenderer` strips both keys out of the props bag it spreads,
+   * so neither reaches the component by another route, and the registration
+   * declares no `children` slot (objectui#9910).
+   *
+   * It delegates each sub-view to a node it assembles from named keys, never
+   * by spreading this node, and every type it can generate — `object-kanban`,
+   * `object-calendar`, `object-gallery`, `object-timeline`, `object-gantt`,
+   * `object-map`, `object-tree`, `object-chart` — reads neither channel
+   * either.
+   *
+   * What it renders instead: the object's views — `listViews`,
+   * `defaultViewType`, `table`, `form` — under its own toolbar.
+   *
+   * @deprecated Not a channel `object-view` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -2931,6 +3039,38 @@ export interface ObjectMapSchema extends BaseSchema {
    * avoid colliding with `BaseSchema.style` (inline CSS properties).
    */
   mapStyle?: string;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-map` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-map` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-map` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * error, no warning, no element.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectMapRenderer` (`packages/plugin-map`), is
+   * `any`-typed and hands the node to `ObjectMap`, which reads it as this
+   * type. `SchemaRenderer` strips both keys out of the props bag it spreads,
+   * so neither reaches the component by another route, and the registration
+   * declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: the records of `objectName` as markers placed by
+   * `latitudeField` / `longitudeField` or `locationField`.
+   *
+   * @deprecated Not a channel `object-map` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -2978,6 +3118,41 @@ export interface ObjectTreeSchema extends BaseSchema {
    * Default expansion depth (0 = roots only). When omitted, all nodes expand.
    */
   defaultExpandedDepth?: number;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-tree` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-tree` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-tree` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * error, no warning, no element.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectTreeRenderer` (`packages/plugin-tree`), is
+   * `any`-typed and hands the node to `ObjectTree`, which reads it as this
+   * type. `SchemaRenderer` strips both keys out of the props bag it spreads,
+   * so neither reaches the component by another route, and the registration
+   * declares no `children` slot (objectui#9910).
+   *
+   * `ObjectTree` does read a `children` — on the `TreeNode` hierarchy it
+   * builds from the fetched records, never on this node.
+   *
+   * What it renders instead: the records of `objectName` as a hierarchy linked
+   * by `parentField` and labelled by `labelField`.
+   *
+   * @deprecated Not a channel `object-tree` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -3316,6 +3491,38 @@ export interface ObjectGanttSchema extends BaseSchema {
    * it. Same key and meaning as {@link ObjectGridSchema.searchableFields}.
    */
   searchableFields?: string[];
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-gantt` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-gantt` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-gantt` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * error, no warning, no element.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectGanttRenderer` (`packages/plugin-gantt`), is
+   * `any`-typed and hands the node to `ObjectGantt`, which reads it as this
+   * type. `SchemaRenderer` strips both keys out of the props bag it spreads,
+   * so neither reaches the component by another route, and the registration
+   * declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: the records of `objectName` as bars from
+   * `startDateField` to `endDateField`.
+   *
+   * @deprecated Not a channel `object-gantt` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -3549,6 +3756,38 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * vocabularies cannot fork.
    */
   sort?: SortConfig[];
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-calendar` reads
+   * NEITHER content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-calendar` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-calendar` reads
+   * NEITHER content channel, so an authored child list here rendered NOTHING:
+   * no error, no warning, no element.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectCalendarRenderer` (`packages/plugin-calendar`),
+   * is `any`-typed and hands the node to `ObjectCalendar`, which reads it as
+   * this type. `SchemaRenderer` strips both keys out of the props bag it
+   * spreads, so neither reaches the component by another route, and the
+   * registration declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: the records of `objectName` as events from
+   * `startDateField` to `endDateField`.
+   *
+   * @deprecated Not a channel `object-calendar` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -4171,6 +4410,38 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * function type rather than a tombstone.
    */
   onQuickAdd?: (columnId: string, title: string) => void;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-kanban` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-kanban` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-kanban` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * error, no warning, no element.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectKanbanRenderer` (`packages/plugin-kanban`), is
+   * `any`-typed and hands the node to `ObjectKanban`, which reads it as this
+   * type. `SchemaRenderer` strips both keys out of the props bag it spreads,
+   * so neither reaches the component by another route, and the registration
+   * declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: the records of `objectName` as lanes grouped by
+   * `groupBy`, with `cardFields` on each card.
+   *
+   * @deprecated Not a channel `object-kanban` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -4718,6 +4989,38 @@ export interface ObjectChartSchema extends BaseSchema {
    * (objectui#10608): this list is the one author-facing value-axis spelling.
    */
   yAxis?: SpecChartAxis[];
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-chart` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `object-chart` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-chart` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * error, no warning, no element.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `ObjectChartBlock` (`packages/plugin-charts`), is
+   * `any`-typed and hands the node to `ObjectChart`, which reads it as this
+   * type. `SchemaRenderer` strips both keys out of the props bag it spreads,
+   * so neither reaches the component by another route, and the registration
+   * declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: a chart of `objectName` (or inline `data`) drawn
+   * by `chartType` from `aggregate` / `series`.
+   *
+   * @deprecated Not a channel `object-chart` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**

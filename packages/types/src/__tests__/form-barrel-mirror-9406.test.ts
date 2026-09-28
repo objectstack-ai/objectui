@@ -269,7 +269,7 @@ const EXCLUDED_BY_RULING_ELSEWHERE = ['SemanticElementSchema', 'HtmlElementSchem
 
 describe('objectui#9406 -- the two names resolve from the root barrel', () => {
   it('`InputShorthandSchema` resolves from the root, with its narrowed `type`', () => {
-    // `Omit<InputSchema, 'type' | 'inputType'>` re-narrowed: `type` is the two
+    // `InputSchema` without `type` / `inputType`, re-narrowed: `type` is the two
     // shorthand literals, and `inputType` is unwritable here (objectui#8762).
     const type: Eq<ShorthandFromRoot['type'], 'email' | 'password'> = true;
     const inputType: Eq<ShorthandFromRoot['inputType'], undefined> = true;

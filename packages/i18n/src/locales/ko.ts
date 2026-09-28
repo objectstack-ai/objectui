@@ -128,12 +128,12 @@ const ko = {
     printDialogHint: "브라우저의 인쇄 대화 상자를 엽니다（PDF 내보내기가 아닙니다）",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "전체 {{total}}개 중 처음 {{shown}}개를 표시합니다. 필터를 좁히세요.",
     rowCeilingNoteUnknownTotal: "처음 {{shown}}개를 표시합니다. 필터를 좁히세요.",
   },
@@ -398,13 +398,15 @@ const ko = {
     yes: "예",
     no: "아니요",
     systemFields: "시스템",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: "일부",
-      partialNotice:
-        "전체 {{total}}개 중 불러온 처음 {{loaded}}개 레코드만으로 그룹화했습니다. 그룹 개수는 불러온 페이지 기준이며, 레코드가 모두 불러온 행 밖에 있는 그룹은 여기에 표시되지 않습니다.",
-      partialNoticeUnknownTotal:
-        "불러온 {{loaded}}개 레코드만으로 그룹화했습니다. 이 뷰에 해당하는 레코드가 더 있을 수 있으므로 그룹 개수가 일부일 수 있고 일부 그룹이 표시되지 않을 수 있습니다.",
+      needsHeaderQuery:
+        "이 뷰는 그룹화되어 있지만 데이터 소스가 queryGroupHeaders를 구현하지 않아 그룹 개수를 셀 수 없습니다. 레코드를 표시하려면 그룹화를 제거하세요.",
+      needsWholeRows:
+        "그룹화에는 모든 레코드가 필요하지만 이 그리드에는 한 페이지만 전달되어 그룹 개수를 셀 수 없습니다. 모든 레코드를 전달하거나 queryGroupHeaders를 구현하는 데이터 소스에서 그리드가 불러오도록 하세요.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this

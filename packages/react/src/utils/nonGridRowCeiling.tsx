@@ -27,11 +27,10 @@ import { useObjectTranslation, en } from '@object-ui/i18n';
  * fraction of itself; "some rows are missing" leaves it indistinguishable from
  * a complete one, and `2,000 of 40,000` is the bit that was missing.
  *
- * Two sentences because there are two conditions, the same split
- * `grid.grouping.partialNotice` carries: a known total states the fact with
- * both numbers; an adapter that reported no `total` still gets a DEFINITE
- * sentence (the probe row proves more rows exist), it simply cannot name how
- * many.
+ * Two sentences because there are two conditions: a known total states the
+ * fact with both numbers; an adapter that reported no `total` still gets a
+ * DEFINITE sentence (the probe row proves more rows exist), it simply cannot
+ * name how many.
  *
  * ## It takes the RESULT, and nothing else (objectui#7508, ruling A′)
  *

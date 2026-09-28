@@ -15,8 +15,10 @@
  * the fetched page; rows inside a group are paged. The acceptance carried from
  * objectstack#14556: the 186-row, five-unit, `$top: 100` fixture renders five
  * group headers reading 86/61/31/7/1 regardless of row order, opening the
- * 86-row group pages its rows, no "Partial" marker renders when counts are
- * true, and every row is reachable through the UI.
+ * 86-row group pages its rows, and every row is reachable through the UI.
+ * (The acceptance also asked that no "Partial" marker render when counts are
+ * true; objectui#10881, ruling F, retired that marker everywhere, so there is
+ * no marker left to be absent.)
  *
  * ## What the double answers, and why that is enough here
  *
@@ -31,8 +33,10 @@
  * what THIS file pins is the grid consuming those answers — and not the page.
  *
  * Every positive pin has a control that must come out differently: the SAME
- * fixture through a data source that cannot answer the header query still
- * groups the fetched page (86 + 14 contiguous) and still says so.
+ * fixture through a data source that cannot answer the header query does not
+ * group at all — it used to group the fetched page (86 + 14 contiguous) and
+ * mark it partial, and since objectui#10881 (ruling F) it refuses, naming
+ * `queryGroupHeaders`, and asks for no rows.
  */
 import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
 import { render, cleanup, screen, within, fireEvent } from '@testing-library/react';
@@ -160,7 +164,6 @@ const headerCounts = () => Object.fromEntries(groupRows().map((r) => { const h =
 const groupRowEl = (label: string) => groupRows().find((r) => headerOf(r).label === label)!;
 const subjectsIn = (el: Element, unit: string) =>
   within(el as HTMLElement).queryAllByText(new RegExp(`^${unit} #\\d+$`)).map((n) => n.textContent);
-const partialMarkers = () => [...document.querySelectorAll('.group-count-partial')];
 
 const renderGrid = (dataSource: unknown, schemaExtra: Record<string, unknown> = {}) =>
   render(
@@ -185,7 +188,7 @@ describe('ObjectGrid groups on the server (objectui#7189)', () => {
   it.each([
     ['contiguous', false],
     ['interleaved', true],
-  ])('%s rows: five headers reading 86/61/31/7/1, no Partial marker', async (_name, interleaved) => {
+  ])('%s rows: five headers reading 86/61/31/7/1', async (_name, interleaved) => {
     const ds = makeServerDataSource(buildRows(interleaved));
     renderGrid(ds);
 
@@ -195,8 +198,6 @@ describe('ObjectGrid groups on the server (objectui#7189)', () => {
     expect(groupRows().map((r) => headerOf(r).label)).toEqual([
       'Northgate Operations', 'Northgate Plant', 'Northgate Quality', 'Riverside Depot', 'Riverside Plant',
     ]);
-    expect(partialMarkers()).toHaveLength(0);
-    expect(screen.queryByTestId('grouping-partial-notice')).not.toBeInTheDocument();
   });
 
   it('asks the header query the SPEC compiles, and never fetches a flat window', async () => {
@@ -335,14 +336,14 @@ describe('ObjectGrid groups on the server (objectui#7189)', () => {
   });
 
   // ── CONTROL: the instrument can see the defect ──────────────────────────
-  it('CONTROL — a data source with no header query still groups the page, and says so', async () => {
+  it('CONTROL — a data source with no header query does not group the page: it refuses, and asks for no rows', async () => {
     const ds = makePageOnlyDataSource(buildRows(false));
     renderGrid(ds);
-    await vi.waitFor(() => expect(groupRows().length).toBeGreaterThan(0));
-    // The page-scoped answer the ruling retired where the server can answer:
-    // two headers for five units, and the marker on every one of them.
-    expect(headerCounts()).toEqual({ 'Northgate Operations': 86, 'Northgate Plant': 14 });
-    expect(partialMarkers()).toHaveLength(2);
-    expect(screen.getByTestId('grouping-partial-notice')).toBeInTheDocument();
+    await vi.waitFor(() => expect(screen.getByTestId('grid-grouping-needs-header-query')).toBeInTheDocument());
+    // It used to answer two headers (86, 14) for five units and mark them
+    // partial; ruling F (objectui#10881) refuses instead of grouping a page.
+    await vi.waitFor(() => expect(ds.getObjectSchema).toHaveBeenCalled());
+    expect(ds.find).not.toHaveBeenCalled();
+    expect(groupRows()).toHaveLength(0);
   });
 });

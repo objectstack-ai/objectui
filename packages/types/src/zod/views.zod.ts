@@ -18,7 +18,7 @@
 
 import { z } from 'zod';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
-import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
 import { ListViewSchema as SpecListViewSchema } from '@objectstack/spec/ui';
 import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
 import { stripImportedDefaults } from './imported-defaults.js';
@@ -160,6 +160,13 @@ const RECORD_ID_IS_A_STRING_GUIDANCE =
   "A record id is a string on every boundary (objectui#9511): write it quoted \u2014 42 becomes '42'. "
   + 'A backend whose primary keys are numeric converts at its OWN adapter boundary, in one typed '
   + 'place, so every author, every caller and every adapter sees one shape.';
+
+/** objectui#9256 (E3 residual): ONE refusal string for both content channels of `DetailViewSchema`. */
+const DETAIL_VIEW_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'detail-view',
+  'its `any`-typed registration hands the node to `DetailView`, which reads it as `DetailViewSchema`',
+  'one record of `objectName` through `fields` / `sections` / `tabs`; its own node slots are `header`, `footer` and each tab\u2019s `content`',
+);
 
 /**
  * Detail View Schema
@@ -306,6 +313,10 @@ export const DetailViewSchema = BaseSchema.extend({
     + 'strings, and it renders through the same component, so nothing about the '
     + 'result is lost — only the second door.',
   ),
+  // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
+  // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(DETAIL_VIEW_NEITHER_CHANNEL),
+  children: retirementTombstone(DETAIL_VIEW_NEITHER_CHANNEL),
 });
 
 /**

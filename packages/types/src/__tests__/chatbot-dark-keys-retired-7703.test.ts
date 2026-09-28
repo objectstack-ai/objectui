@@ -102,7 +102,7 @@ const RETIRED = {
   loading: {
     values: [true, false] as const,
     guidance:
-      'RETIRED (objectui#7703, ADR-0049) — never read: chat progress is runtime state the chat runtime owns '
+      'RETIRED (ADR-0049) — never read: chat progress is runtime state the chat runtime owns '
       + '(the registration derives it from `useObjectChat` as `isLoading`), and `<Chatbot>` declares no `loading` '
       + 'prop for an authored value to land on. There is no authored spelling that sets it; delete the key.',
     prescriptive: 'There is no authored spelling that sets it; delete the key.',
@@ -110,17 +110,17 @@ const RETIRED = {
   showAvatars: {
     values: [true, false] as const,
     guidance:
-      'RETIRED (objectui#7703, ADR-0049) — no registration reads or forwards this key by name, and a `chatbot` '
+      'RETIRED (ADR-0049) — no registration reads or forwards this key by name, and a `chatbot` '
       + 'node renders `<Chatbot>`, which has no `showAvatars` prop; the one channel that did deliver it — the '
-      + "`chatbot-floating` registration's unfiltered props spread — was fenced by objectui#7708. Delete the key: "
+      + "`chatbot-floating` registration's unfiltered props spread — was fenced. Delete the key: "
       + 'a `chatbot` node already renders an avatar beside every message, and the images are `userAvatarUrl` / '
       + '`assistantAvatarUrl` with their `userAvatarFallback` / `assistantAvatarFallback` siblings.',
-    prescriptive: 'was fenced by objectui#7708',
+    prescriptive: 'was fenced.',
   },
   userAvatar: {
     values: ['https://example.com/me.png', ''] as const,
     guidance:
-      'RETIRED (objectui#7703, ADR-0049) — never read: this spelling has zero hits anywhere in '
+      'RETIRED (ADR-0049) — never read: this spelling has zero hits anywhere in '
       + '`packages/plugin-chatbot`. Write `userAvatarUrl` instead (with `userAvatarFallback` for the text shown '
       + 'while the image loads or fails), the key all three chatbot registrations read.',
     prescriptive: 'Write `userAvatarUrl` instead',
@@ -128,7 +128,7 @@ const RETIRED = {
   assistantAvatar: {
     values: ['https://example.com/bot.png', ''] as const,
     guidance:
-      'RETIRED (objectui#7703, ADR-0049) — never read: this spelling has zero hits anywhere in '
+      'RETIRED (ADR-0049) — never read: this spelling has zero hits anywhere in '
       + '`packages/plugin-chatbot`. Write `assistantAvatarUrl` instead (with `assistantAvatarFallback` for the '
       + 'text shown while the image loads or fails), the key all three chatbot registrations read.',
     prescriptive: 'Write `assistantAvatarUrl` instead',
@@ -136,7 +136,7 @@ const RETIRED = {
   markdown: {
     values: [true, false] as const,
     guidance:
-      'RETIRED (objectui#7703, ADR-0049) — never read: a `chatbot` node renders `<Chatbot>`, which prints message '
+      'RETIRED (ADR-0049) — never read: a `chatbot` node renders `<Chatbot>`, which prints message '
       + 'content as text and has no markdown path for this switch to reach. Author `type: "chatbot-enhanced"` '
       + '(or `"chatbot-floating"`) with `enableMarkdown` instead — markdown is those nodes\' capability, and '
       + '`enableMarkdown` is the key their registrations read.',
@@ -147,7 +147,7 @@ const RETIRED = {
     // left the numeric one riding `.passthrough()` exactly like the string one.
     values: ['400px', 400] as const,
     guidance:
-      'RETIRED (objectui#7703, ADR-0049) — never read: `<Chatbot>` has no `height` prop. Write `maxHeight` '
+      'RETIRED (ADR-0049) — never read: `<Chatbot>` has no `height` prop. Write `maxHeight` '
       + 'instead (a CSS length string, default "500px"), the key the `chatbot` and `chatbot-enhanced` '
       + 'registrations forward; size a `chatbot-floating` panel with `floatingConfig.panelHeight`, a number of '
       + 'pixels, which is what that panel reads.',
@@ -232,7 +232,7 @@ describe.each(RETIRED_KEYS)(
         Object.keys(shapeOf(ChatbotZod)),
         `${key} left the mirror — under .passthrough() the retired key becomes a SILENT no-op again`,
       ).toContain(key);
-      expect(describeOf(ChatbotZod, key)).toContain('RETIRED (objectui#7703');
+      expect(describeOf(ChatbotZod, key)).toContain('RETIRED (ADR-0049) —');
     });
 
     it('does NOT appear on the two sibling twins — the retirement declares nothing new', () => {

@@ -87,7 +87,7 @@ describe('objectui#10150 — the AUTHOR_SHAPE_ONLY_TYPES header records the obje
   });
 
   it('cites the ruling and the closed ingress by name, in the header itself', () => {
-    for (const subject of ['objectui#7612', 'extractDraftBody']) {
+    for (const subject of ['the 2026-09-20 ruling', 'extractDraftBody']) {
       expect(
         HEADER,
         `the header above AUTHOR_SHAPE_ONLY_TYPES must name ${subject}: the ` +

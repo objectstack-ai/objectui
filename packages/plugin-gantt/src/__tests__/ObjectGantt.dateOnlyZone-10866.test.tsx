@@ -48,15 +48,16 @@ import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, waitFor } from '@testing-library/react';
 import type { DataSource } from '@object-ui/types';
+import type { GanttTask, GanttViewProps } from '../GanttView';
 import { makeTzShift } from '../tzShift';
 
-const probe = vi.hoisted(() => ({ view: null as any }));
+const probe = vi.hoisted(() => ({ view: null as GanttViewProps | null }));
 
 vi.mock('../GanttView', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../GanttView')>();
   return {
     ...actual,
-    GanttView: (props: any) => {
+    GanttView: (props: GanttViewProps) => {
       probe.view = props;
       return <div data-testid="gantt-view">{props.tasks.length}</div>;
     },
@@ -112,10 +113,17 @@ function enter(zone: string): void {
 /** Local calendar parts of a `Date`: year, month (1-based), day, hour. */
 const parts = (d: Date) => [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours()];
 
+/** The data-source methods these cases read the calls of. */
+interface Calls {
+  find: ReturnType<typeof vi.fn>;
+  update: ReturnType<typeof vi.fn>;
+  getObjectSchema: ReturnType<typeof vi.fn>;
+}
+
 interface Mounted {
-  ds: DataSource;
+  ds: Calls;
   /** The task the view was last handed. */
-  task: any;
+  task: GanttTask;
 }
 
 async function mount(kind: 'date' | 'datetime', timeZone?: string): Promise<Mounted> {
@@ -127,7 +135,7 @@ async function mount(kind: 'date' | 'datetime', timeZone?: string): Promise<Moun
     update: vi.fn().mockResolvedValue({}),
     delete: vi.fn(),
     getObjectSchema: vi.fn().mockResolvedValue(OBJECT_SCHEMA),
-  } as unknown as DataSource;
+  };
   const gantt =
     kind === 'date'
       ? {
@@ -138,32 +146,32 @@ async function mount(kind: 'date' | 'datetime', timeZone?: string): Promise<Moun
           baselineEndField: 'plan_end',
         }
       : { titleField: 'name', startDateField: 'begins_at', endDateField: 'ends_at' };
-  const schema: any = {
+  const schema = {
     type: 'gantt',
     gantt: timeZone ? { ...gantt, timeZone } : gantt,
     data: { provider: 'object', object: 'task' },
-  };
-  render(<ObjectGantt schema={schema} dataSource={ds} />);
+  } as unknown as React.ComponentProps<typeof ObjectGantt>['schema'];
+  render(<ObjectGantt schema={schema} dataSource={ds as unknown as DataSource} />);
   await waitFor(() => expect(probe.view?.tasks?.length).toBe(1));
   // The object-schema fetch re-arms the loader once; wait for the call volume
   // to go quiet, as `ObjectGantt.readback.test.tsx` does, so the write
   // handler below is the one that has read the field types.
-  let calls = (ds.find as any).mock.calls.length;
+  let calls = ds.find.mock.calls.length;
   await waitFor(() => {
-    const now = (ds.find as any).mock.calls.length;
+    const now = ds.find.mock.calls.length;
     if (now !== calls) {
       calls = now;
       throw new Error('still loading');
     }
   });
-  return { ds, task: probe.view.tasks[0] };
+  return { ds, task: probe.view!.tasks[0] };
 }
 
 /** Drive the view's LATEST write callback and hand back the patch it produced. */
-async function written(m: Mounted, changes: Record<string, unknown>): Promise<Record<string, unknown>> {
-  probe.view.onTaskUpdate(probe.view.tasks[0], changes);
+async function written(m: Mounted, changes: Partial<Pick<GanttTask, 'start' | 'end'>>): Promise<Record<string, unknown>> {
+  probe.view!.onTaskUpdate!(probe.view!.tasks[0], changes);
   await waitFor(() => expect(m.ds.update).toHaveBeenCalledTimes(1));
-  return (m.ds.update as any).mock.calls[0][2];
+  return m.ds.update.mock.calls[0][2] as Record<string, unknown>;
 }
 
 describe('ObjectGantt date-only days, in the suite zone (objectui#10866)', () => {
@@ -171,8 +179,8 @@ describe('ObjectGantt date-only days, in the suite zone (objectui#10866)', () =>
     const m = await mount('date');
     expect(parts(m.task.start)).toEqual([2026, 10, 5, 0]);
     expect(parts(m.task.end)).toEqual([2026, 10, 9, 0]);
-    expect(parts(m.task.baselineStart)).toEqual([2026, 10, 2, 0]);
-    expect(parts(m.task.baselineEnd)).toEqual([2026, 10, 8, 0]);
+    expect(parts(m.task.baselineStart!)).toEqual([2026, 10, 2, 0]);
+    expect(parts(m.task.baselineEnd!)).toEqual([2026, 10, 8, 0]);
   });
 
   it('a drag writes `date` fields as calendar days, never instants', async () => {
@@ -206,8 +214,8 @@ function zoneCases(zone: string, chartZone: string, instantHour: number, instant
     const m = await mount('date');
     expect(parts(m.task.start)).toEqual([2026, 10, 5, 0]);
     expect(parts(m.task.end)).toEqual([2026, 10, 9, 0]);
-    expect(parts(m.task.baselineStart)).toEqual([2026, 10, 2, 0]);
-    expect(parts(m.task.baselineEnd)).toEqual([2026, 10, 8, 0]);
+    expect(parts(m.task.baselineStart!)).toEqual([2026, 10, 2, 0]);
+    expect(parts(m.task.baselineEnd!)).toEqual([2026, 10, 8, 0]);
   });
 
   it('a drag onto the 7th writes `2026-10-07`', async () => {

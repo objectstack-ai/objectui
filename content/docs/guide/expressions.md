@@ -220,7 +220,7 @@ The scope the evaluator builds is what you published, plus two names the rendere
 
 Some components provide scoped data:
 
-```json
+```jsonc
 {
   "type": "list",
   "items": "${users}",
@@ -337,12 +337,7 @@ Available: All standard `Math` functions
 ```json
 {
   "type": "text",
-  "content": "${
-    status === 'active' ? 'Active' :
-    status === 'pending' ? 'Pending review' :
-    status === 'error' ? 'Failed' :
-    'Unknown'
-  }"
+  "content": "${status === 'active' ? 'Active' : status === 'pending' ? 'Pending review' : status === 'error' ? 'Failed' : 'Unknown'}"
 }
 ```
 
@@ -351,11 +346,7 @@ Available: All standard `Math` functions
 ```json
 {
   "type": "alert",
-  "visibleOn": "${
-    (user.role === 'admin' || user.role === 'moderator') &&
-    user.isActive &&
-    !user.isSuspended
-  }"
+  "visibleOn": "${(user.role === 'admin' || user.role === 'moderator') && user.isActive && !user.isSuspended}"
 }
 ```
 
@@ -364,12 +355,7 @@ Available: All standard `Math` functions
 ```json
 {
   "type": "text",
-  "content": "${
-    users
-      .filter(u => u.isActive)
-      .map(u => u.name)
-      .join(', ')
-  }"
+  "content": "${users.filter(u => u.isActive).map(u => u.name).join(', ')}"
 }
 ```
 
@@ -380,11 +366,7 @@ Available: All standard `Math` functions
 ```json
 {
   "type": "text",
-  "content": "${
-    new Date().getHours() < 12 ? 'Good morning' :
-    new Date().getHours() < 18 ? 'Good afternoon' :
-    'Good evening'
-  }, ${user.firstName}!"
+  "content": "${new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}, ${user.firstName}!"
 }
 ```
 
@@ -526,15 +508,16 @@ evaluated on every component type:
 
 Expressions are re-evaluated when data changes. Avoid expensive operations:
 
+❌ Bad: Complex computation in expression
+
 ```json
-// ❌ Bad: Complex computation in expression
 {
   "type": "text",
   "content": "${users.map(u => expensiveOperation(u)).join(', ')}"
 }
-
-// ✅ Good: Pre-compute, and publish the result
 ```
+
+✅ Good: Pre-compute, and publish the result
 
 <!-- doc-snippet: fragment — the good half of a bad/good contrast: `users` and `expensiveOperation` are the reader's own rows and function, shown only to place the computation outside the expression -->
 
@@ -670,13 +653,17 @@ language's own. A membership test is written with the array method:
 
 ### 1. Keep Expressions Simple
 
+❌ Bad: Too complex
+
 ```json
-// ❌ Bad: Too complex
 {
   "content": "${users.filter(u => u.age > 18).map(u => ({...u, isAdult: true})).reduce((acc, u) => acc + u.score, 0)}"
 }
+```
 
-// ✅ Good: Pre-compute complex logic
+✅ Good: Pre-compute complex logic
+
+```json
 {
   "content": "${adultUsersScore}"
 }
@@ -684,13 +671,17 @@ language's own. A membership test is written with the array method:
 
 ### 2. Use Meaningful Variable Names
 
+❌ Bad
+
 ```json
-// ❌ Bad
 {
   "visibleOn": "${x && y || z}"
 }
+```
 
-// ✅ Good
+✅ Good
+
+```json
 {
   "visibleOn": "${isAdmin && isActive || isSuperUser}"
 }
@@ -698,13 +689,17 @@ language's own. A membership test is written with the array method:
 
 ### 3. Handle Null/Undefined
 
+❌ Bad: Might throw error
+
 ```json
-// ❌ Bad: Might throw error
 {
   "content": "${user.address.city}"
 }
+```
 
-// ✅ Good: Safe access
+✅ Good: Safe access
+
+```json
 {
   "content": "${user.address?.city || 'N/A'}"
 }

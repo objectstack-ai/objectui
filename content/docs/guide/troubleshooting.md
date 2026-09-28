@@ -366,14 +366,21 @@ two different fields: the row fetch asks the server for one field while the
 grid renders another, so the cell has nothing behind it and the relation is
 never expanded.
 
-```jsonc
-// ✗ two identities on one column
+✗ two identities on one column
+
+```json
 { "field": "account", "name": "account_name" }
+```
 
-// ✗ legacy-only: the renderer shows it, the request used to drop it
+✗ legacy-only: the renderer shows it, the request used to drop it
+
+```json
 { "name": "account" }
+```
 
-// ✓ canonical
+✓ canonical
+
+```json
 { "field": "account" }
 ```
 

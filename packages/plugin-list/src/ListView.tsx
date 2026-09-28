@@ -2144,7 +2144,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     currentView === 'grid' &&
     collectGroupingFieldRefs(groupingConfig).length > 0 &&
     !Array.isArray(schema.data) &&
-    (schema.data as any)?.provider !== 'value' &&
+    (schema.data as { provider?: unknown } | undefined)?.provider !== 'value' &&
     !!schema.objectName &&
     !!dataSource &&
     typeof dataSource.queryGroupHeaders !== 'function';

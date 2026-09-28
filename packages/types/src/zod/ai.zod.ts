@@ -24,9 +24,9 @@
  * declarations member for member; `AIComponentSchema` is the category union
  * `AnyComponentSchema` lists.
  *
- * ## Where the mirror does NOT restate the TypeScript face, and why
+ * ## The `on*` members: a named refusal, on both faces
  *
- * The five `on*` members are declared `string` on the TypeScript face — the
+ * The five `on*` members were declared `string` on the TypeScript face — the
  * handler-expression string dialect that objectui#6182 (maintainer ruling,
  * option A) withdrew as an authoring form on EITHER face. The zod face follows
  * that ruling and objectui#6124's shape, `handlerKeyRefusal`, with the
@@ -41,10 +41,20 @@
  *     `AIFormAssist` takes `onApply` / `onRefresh`, not these — so they are
  *     RETIRED.
  *
- * The TypeScript twins are left as they are here, deliberately: this module
- * mirrors the contract and does not edit it. The divergence is pinned — both
- * halves of it — in `../__tests__/ai-zod-arms-10859.test.ts`, so a later
- * change to either face turns that pin red instead of drifting silently.
+ * When objectui#10859 wrote these arms the TypeScript twins still read `string`,
+ * and the divergence was pinned. objectui#10874 closed it from the TypeScript
+ * side: all five are `?: never` there now (for the three runtime slots by that
+ * card's triage ruling — the callback is a React prop of the component, not a
+ * member of the document), so both faces refuse every one. The agreement is
+ * pinned in `../__tests__/ai-zod-arms-10859.test.ts` and
+ * `../__tests__/ai-node-faces-agree-10874.test.ts`.
+ *
+ * ## `config` / `context`: retired on both faces (objectui#10874)
+ *
+ * Nothing in `@object-ui/plugin-ai` read either member: the three components
+ * are presentation only and call no model. Both are `retirementTombstone`s here
+ * and `?: never` on the TypeScript face, and the refusal says what to do
+ * instead — configure AI on the provider the host calls.
  *
  * ⛔ No `.default()` anywhere in this module — see the "authors no default"
  * note in `index.zod.ts`.
@@ -69,6 +79,17 @@ const retiredAiMember = (node: string, key: string, detail: string) =>
   );
 
 /**
+ * The objectui#10874 retirement guidance for `config` / `context`: the refusal
+ * names the key and the node, says why, and prescribes what to do instead.
+ */
+const retiredAiInput = (node: string, key: 'config' | 'context', instead: string) =>
+  retirementTombstone(
+    `RETIRED (objectui#10874, ADR-0049) — \`${key}\` on \`${node}\` had no reader: the component is `
+    + 'presentation only and calls no model, so the value reached nothing and changed nothing on screen. '
+    + `Instead: ${instead} Delete the key from the node.`,
+  );
+
+/**
  * The objectui#9256 family-D guidance: the renderer reads NEITHER content
  * channel, so both are refused by name on this face as on the TypeScript one.
  */
@@ -81,6 +102,10 @@ const neitherChannel = (node: string, renders: string) =>
 
 /**
  * AI Configuration — mirrors `AIConfig` (`../ai.ts`).
+ *
+ * No arm below takes it any more: the three `config` members it typed are
+ * retirement tombstones since objectui#10874. It stays exported beside its
+ * TypeScript twin, which also stays.
  */
 export const AIConfigSchema = z.object({
   provider: z.enum(['openai', 'anthropic', 'google', 'azure', 'custom']).optional().describe('AI provider to use'),
@@ -123,8 +148,16 @@ export const AIFormAssistSchema = BaseSchema.extend({
     'fields',
     'each suggestion already names its own `fieldName`.',
   ),
-  context: z.record(z.string(), z.any()).optional().describe('Additional context for generating suggestions'),
-  config: AIConfigSchema.optional().describe('AI configuration'),
+  context: retiredAiInput(
+    'ai-form-assist',
+    'context',
+    'pass the context to the provider when your host asks it for suggestions.',
+  ),
+  config: retiredAiInput(
+    'ai-form-assist',
+    'config',
+    'configure AI on the provider your host calls to produce `suggestions`, and hand its output to the node.',
+  ),
   suggestions: z.array(AIFieldSuggestionSchema).optional().describe('Current suggestions'),
   autoFill: retiredAiMember(
     'ai-form-assist',
@@ -168,8 +201,16 @@ export const AIRecommendationsSchema = BaseSchema.extend({
     'objectName',
     '`AIRecommendations` renders the `recommendations` it is handed and fetches nothing.',
   ),
-  context: z.record(z.string(), z.any()).optional().describe('Additional context for generating recommendations'),
-  config: AIConfigSchema.optional().describe('AI configuration'),
+  context: retiredAiInput(
+    'ai-recommendations',
+    'context',
+    'pass the context to the provider when your host asks it for recommendations.',
+  ),
+  config: retiredAiInput(
+    'ai-recommendations',
+    'config',
+    'configure AI on the provider your host calls to produce `recommendations`, and hand its output to the node.',
+  ),
   recommendations: z.array(AIRecommendationItemSchema).optional().describe('Current recommendations'),
   maxResults: retiredAiMember(
     'ai-recommendations',
@@ -224,7 +265,11 @@ export const NLQuerySchema = BaseSchema.extend({
     '`NLQueryInput` collects a query string and hands it to `onSubmit`; scope the query in the host that answers it.',
   ),
   placeholder: z.string().optional().describe('Input placeholder text'),
-  config: AIConfigSchema.optional().describe('AI configuration'),
+  config: retiredAiInput(
+    'nl-query',
+    'config',
+    'configure AI on the provider that answers the query, and hand its answer to the node as `result`.',
+  ),
   result: NLQueryResultSchema.optional().describe('Current query result'),
   suggestions: z.array(z.string()).optional().describe('Example queries to suggest'),
   showHistory: z.boolean().optional().describe('Show query history'),

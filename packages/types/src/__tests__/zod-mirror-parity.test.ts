@@ -154,7 +154,15 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **49 entries** in `KnownDrift`, **89 keys** across them — 46 / 84 until
+ *   - **46 entries** in `KnownDrift`, **84 keys** across them — back from 49 / 89,
+ *     where objectui#10859 had taken it: objectui#10874 retired the five `on*`
+ *     handler members on the TypeScript face of the three `@object-ui/plugin-ai`
+ *     declarations (`?: never` in `../ai.ts`, matching the named refusals their
+ *     arms already carried), so all three `ai.zod.ts` pairs measure clean and their
+ *     THREE entries LEFT, taking all five keys with them — the entry count and the
+ *     key total fell by three and by five together, and no other ledger moved (the
+ *     same change retired `config` / `context` on BOTH faces, which leaves the
+ *     pairs agreeing and so adds no row). It was 46 / 84 until
  *     objectui#10859 armed the three `@object-ui/plugin-ai` node types in `ai.zod.ts`:
  *     THREE entries are NEW, one per armed node, and together they carry the five `on*`
  *     handler keys — `ai.zod.ts#AIFormAssistSchema` (`onApplySuggestion`,
@@ -665,7 +673,7 @@
  *
  * ## KNOWN_DRIFT is a ratchet, not a waiver
  *
- * 49 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
+ * 46 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
  * pinned to its EXACT drifted key set, so the entry fails when new drift appears on
  * that mirror AND when the recorded drift is fixed — a stale entry cannot rot
  * quietly. Correcting them is not one change: the pairs below split into DISJOINT
@@ -695,6 +703,11 @@
  * this paragraph describes — the TypeScript twin of every one is `string`, not a
  * callable (objectui#10874 owns that face), and the `AIFormAssistSchema` pair is DEBT
  * rather than a runtime slot, because nothing reads its two keys at all.
+ *
+ * It is 46 again since objectui#10874 settled that face: all five members are
+ * `?: never` on the TypeScript side now, so both faces refuse every one and the
+ * three pairs LEFT the ledger. They never joined the #6124 class above and do not
+ * join it now — no TypeScript twin of theirs is callable.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -1914,32 +1927,6 @@ export type DeclaredTypeOf< K extends MirrorKey, P extends keyof Declared[K] > =
  * new drift on a listed mirror fails, and so does a listed key that has been fixed.
  */
 interface KnownDrift {
-  /**
-   * DEBT, ⛔ not the objectui#6124 shape (objectui#10859). Both mirror arms are
-   * `handlerKeyRefusal(…, 'retired')`: nothing in `@object-ui/plugin-ai` reads either
-   * key — `AIFormAssist` takes `onApply` / `onRefresh`, not these — so the zod face
-   * refuses an authored value by name. `../ai.ts` still types both `string`, the
-   * handler-expression dialect objectui#6182 withdrew on EITHER face, and that TS face
-   * is objectui#10874's to correct. When it lands them as `?: never`, both faces agree
-   * and this entry goes STALE — delete it then; ⛔ never keep it by re-widening a face.
-   */
-  'ai.zod.ts#AIFormAssistSchema': 'onApplySuggestion' | 'onRejectSuggestion';
-  /**
-   * RUNTIME SLOT (objectui#6124, objectui#10859): `ai-recommendations` registers the
-   * raw `AIRecommendations` component, `SchemaRenderer` spreads the node's keys onto
-   * it, and it CALLS both as function props (`onSelect?.(item)`, `onDismiss?.(item)`).
-   * ⚠️ Unlike every other RUNTIME SLOT row in this ledger, the TS twin is `string`,
-   * not a callable: `../ai.ts` still carries the objectui#6182 string dialect, so this
-   * drift is a named refusal against a `string`, and objectui#10874 owns the TS face.
-   */
-  'ai.zod.ts#AIRecommendationsSchema': 'onDismiss' | 'onSelect';
-  /**
-   * RUNTIME SLOT (objectui#6124, objectui#10859): `nl-query` registers the raw
-   * `NLQueryInput` component, which calls `onSubmit` as a function prop
-   * (`onSubmitProp?.(queryText)`). ⚠️ As with `AIRecommendationsSchema` above, the TS
-   * twin is `string`, not a callable (objectui#10874).
-   */
-  'ai.zod.ts#NLQuerySchema': 'onSubmit';
   /**
    * RUNTIME SLOT (objectui#6124): `calendar-view`'s `pickHostCallbacks` reads
    * `onViewChange` off the spread props (function values only) and hands it to

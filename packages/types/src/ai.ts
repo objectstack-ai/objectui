@@ -27,6 +27,13 @@ export type AIModelType = 'gpt-4' | 'gpt-3.5-turbo' | 'claude-3' | 'gemini-pro' 
 
 /**
  * AI Configuration
+ *
+ * ⚠️ No node member takes this type any more (objectui#10874): the `config`
+ * members of {@link AIFormAssistSchema}, {@link AIRecommendationsSchema} and
+ * {@link NLQuerySchema} are retirement tombstones, because none of the three
+ * components calls a model — AI is configured on the provider the host calls.
+ * The type itself stays exported: objectui#10874 retired the members, not the
+ * published type.
  */
 export interface AIConfig {
   /**
@@ -143,14 +150,41 @@ export interface AIFormAssistSchema extends BaseSchema {
   fields?: never;
 
   /**
-   * Additional context for generating suggestions
+   * RETIRED (objectui#10874, ADR-0049) — see {@link AIFormAssistSchema.config}.
+   * Nothing read `context` either: the component asks no model for anything, so
+   * there was no request for this value to be context to.
+   *
+   * **Instead:** pass the context to the provider when your host asks it for
+   * suggestions, and delete the key from the node.
+   * @deprecated Not part of this contract — the value was inert.
    */
-  context?: Record<string, any>;
+  context?: never;
 
   /**
-   * AI configuration
+   * RETIRED (objectui#10874, ADR-0049) — nothing read `config`, on this node or
+   * on either sibling. `AIFormAssist` takes `({ schema, onApply, onRefresh })`
+   * and destructures only `suggestions`, `showConfidence` and `showReasoning`
+   * off the schema; it calls no model and fetches nothing, so a `provider`,
+   * `model` or `systemPrompt` written here configured nothing and changed
+   * nothing on screen. The same holds for `AIRecommendations` and
+   * `NLQueryInput`: all three are presentation only.
+   *
+   * **Instead:** configure AI on the provider — the AI service your host calls
+   * to produce this node's `suggestions` — and hand its output to the node.
+   *
+   * A tombstone rather than a deletion on the grounds
+   * {@link AIFormAssistSchema.formId} records: {@link BaseSchema} carries
+   * `[key: string]: any`, so a DELETED member is absorbed silently at any value,
+   * and the tombstone is what makes the compile-time refusal exist, by name. The
+   * zod mirror refuses the key by name with the same prescription
+   * (`retirementTombstone`), so the two faces agree.
+   *
+   * ⛔ Not enforced instead: a per-node AI configuration is capability growth
+   * nothing pulls on (the objectui#10874 triage ruling). If a component later
+   * needs one, that is a feature card with its own business case.
+   * @deprecated Not part of this contract — the value was inert.
    */
-  config?: AIConfig;
+  config?: never;
 
   /**
    * Current suggestions
@@ -179,14 +213,29 @@ export interface AIFormAssistSchema extends BaseSchema {
   showReasoning?: boolean;
 
   /**
-   * Callback when a suggestion is applied
+   * RETIRED (objectui#10874, the objectui#6182 / objectui#6124 house rule) — it
+   * was typed `string`, the handler-expression dialect objectui#6182 withdrew as
+   * an authoring form on EITHER face, and nothing read it: `AIFormAssist` never
+   * names `onApplySuggestion`. The zod mirror already refused it by name
+   * (`handlerKeyRefusal(…, 'retired')`, objectui#10859); this face now agrees,
+   * so a node that carries it is a compile error rather than a silent no-op.
+   *
+   * **Instead:** pass a handler as a component prop — `onApply` on
+   * `AIFormAssist`, which the component calls with the applied suggestion.
+   * @deprecated Not part of this contract — a string here ran nothing.
    */
-  onApplySuggestion?: string;
+  onApplySuggestion?: never;
 
   /**
-   * Callback when a suggestion is rejected
+   * RETIRED (objectui#10874) — see {@link AIFormAssistSchema.onApplySuggestion}.
+   * Nothing read it, and there is no reject callback to wire it to:
+   * `AIFormAssist` dismisses a suggestion in its own state and reports nothing.
+   *
+   * **Instead:** delete the key. The component's handlers are component props
+   * (`onApply`, `onRefresh`), never members of the node.
+   * @deprecated Not part of this contract — a string here ran nothing.
    */
-  onRejectSuggestion?: string;
+  onRejectSuggestion?: never;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `ai-form-assist` reads NEITHER
    * content channel: no renderer read consumes `body` or `children` for this
@@ -307,14 +356,25 @@ export interface AIRecommendationsSchema extends BaseSchema {
   objectName?: never;
 
   /**
-   * Additional context for generating recommendations
+   * RETIRED (objectui#10874, ADR-0049) — see {@link AIFormAssistSchema.config}
+   * and {@link AIFormAssistSchema.context}. `AIRecommendations` renders the
+   * `recommendations` it is handed and reads no `context`.
+   *
+   * **Instead:** pass the context to the provider when your host asks it for
+   * recommendations, and delete the key from the node.
+   * @deprecated Not part of this contract — the value was inert.
    */
-  context?: Record<string, any>;
+  context?: never;
 
   /**
-   * AI configuration
+   * RETIRED (objectui#10874, ADR-0049) — see {@link AIFormAssistSchema.config}.
+   * `AIRecommendations` calls no model and reads no `config`.
+   *
+   * **Instead:** configure AI on the provider your host calls to produce
+   * `recommendations`, and delete the key from the node.
+   * @deprecated Not part of this contract — the value was inert.
    */
-  config?: AIConfig;
+  config?: never;
 
   /**
    * Current recommendations
@@ -356,14 +416,33 @@ export interface AIRecommendationsSchema extends BaseSchema {
   layout?: 'list' | 'grid';
 
   /**
-   * Callback when a recommendation is selected
+   * RETIRED from the node (objectui#10874, the objectui#6182 / objectui#6124
+   * house rule) — it was typed `string`, the handler-expression dialect
+   * objectui#6182 withdrew. `AIRecommendations` does CALL an `onSelect`, but as
+   * a function PROP of the component (`AIRecommendationsProps`), never as a
+   * string: a string that reached that call could only throw. The zod mirror
+   * refuses the key by name as a RUNTIME SLOT (`handlerKeyRefusal(…,
+   * 'runtime-slot')`, objectui#10859); this face now agrees.
+   *
+   * ⚠️ `?: never`, not a function type, by the objectui#10874 triage ruling: the
+   * callback is a React prop of the component, not a member of the document.
+   *
+   * **Instead:** pass a handler as a component prop —
+   * `<AIRecommendations schema={node} onSelect={(item) => …} />`.
+   * @deprecated Not part of this contract — pass `onSelect` as a component prop.
    */
-  onSelect?: string;
+  onSelect?: never;
 
   /**
-   * Callback when a recommendation is dismissed
+   * RETIRED from the node (objectui#10874) — see
+   * {@link AIRecommendationsSchema.onSelect}; the same reading holds for the
+   * dismiss callback.
+   *
+   * **Instead:** pass a handler as a component prop —
+   * `<AIRecommendations schema={node} onDismiss={(item) => …} />`.
+   * @deprecated Not part of this contract — pass `onDismiss` as a component prop.
    */
-  onDismiss?: string;
+  onDismiss?: never;
 
   /**
    * Loading state
@@ -500,9 +579,15 @@ export interface NLQuerySchema extends BaseSchema {
   placeholder?: string;
 
   /**
-   * AI configuration
+   * RETIRED (objectui#10874, ADR-0049) — see {@link AIFormAssistSchema.config}.
+   * `NLQueryInput` collects a query string and hands it on; it calls no model
+   * and reads no `config`.
+   *
+   * **Instead:** configure AI on the provider that answers the query, and
+   * delete the key from the node.
+   * @deprecated Not part of this contract — the value was inert.
    */
-  config?: AIConfig;
+  config?: never;
 
   /**
    * Current query result
@@ -540,9 +625,16 @@ export interface NLQuerySchema extends BaseSchema {
   loading?: boolean;
 
   /**
-   * Callback when a query is submitted
+   * RETIRED from the node (objectui#10874) — see
+   * {@link AIRecommendationsSchema.onSelect}. `NLQueryInput` calls `onSubmit` as
+   * a function PROP of the component (`NLQueryInputProps`) with the query text;
+   * the zod mirror refuses the key as a RUNTIME SLOT, and this face now agrees.
+   *
+   * **Instead:** pass a handler as a component prop —
+   * `<NLQueryInput schema={node} onSubmit={(query) => …} />`.
+   * @deprecated Not part of this contract — pass `onSubmit` as a component prop.
    */
-  onSubmit?: string;
+  onSubmit?: never;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `nl-query` reads NEITHER
    * content channel: no renderer read consumes `body` or `children` for this
@@ -654,6 +746,11 @@ export interface NLQuerySchema extends BaseSchema {
  * {@link AIFieldSuggestion}, {@link AIRecommendationItem} and
  * {@link NLQueryResult} stay too: each has a reader among those three, so none
  * is orphaned by this removal.
+ *
+ * ⚠️ AMENDED 2026-09-28 (objectui#10874): {@link AIConfig} no longer has a reader
+ * among those three — their `config` members are retirement tombstones now — and
+ * it stays exported as a type only. The sentence above records the tree this
+ * retirement was written against.
  *
  * The pin that makes this tombstone executable — the absence of the symbol, the
  * absence of the spelling, and the lit controls that keep both from being

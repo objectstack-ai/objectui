@@ -67,7 +67,14 @@ export function retirementTombstone(guidance: string) {
 
 /** How a handler key sits on the TypeScript face (objectui#6124, measured per key). */
 export type HandlerKeyDisposition =
-  /** A host-supplied function REACHES a renderer at runtime — the TS twin keeps its function type. */
+  /**
+   * A host-supplied function REACHES a renderer at runtime — the TS twin keeps its
+   * function type. One ruled exception: the three `@object-ui/plugin-ai` slots
+   * (`onSelect`, `onDismiss`, `onSubmit`) are `?: never` on the TS face, because
+   * the objectui#10874 triage ruling keeps each callback a React prop of the
+   * component rather than a member of the node; the arm stays `'runtime-slot'`
+   * because the component still calls it.
+   */
   | 'runtime-slot'
   /** Nothing reads the key — the TS twin is a `?: never` tombstone. */
   | 'retired';

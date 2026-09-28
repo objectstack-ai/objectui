@@ -30,14 +30,14 @@
  * ## What the parity half asserts
  *
  * For every member the TypeScript declaration declares, the arm's INPUT type
- * for that member is invariantly equal to the declaration's — with exactly one
- * stated exception per arm: the `on*` handler members. The TypeScript face
- * declares them `string`, the handler-expression string dialect objectui#6182
- * withdrew on EITHER face, and the zod face follows that ruling with
- * `handlerKeyRefusal` (see `../zod/ai.zod.ts`). That divergence is pinned BOTH
- * ways — the TypeScript member still reads `string`, the zod member reads
- * `undefined` — so a later repair of the TypeScript face reddens this file
- * instead of leaving a stale exception standing.
+ * for that member is invariantly equal to the declaration's — with no exception
+ * since objectui#10874. When this file was written there was one per arm, the
+ * `on*` handler members: the TypeScript face declared them `string`, the
+ * handler-expression string dialect objectui#6182 withdrew on EITHER face,
+ * while the zod face followed that ruling with `handlerKeyRefusal` (see
+ * `../zod/ai.zod.ts`). That divergence was pinned both ways so that a repair of
+ * the TypeScript face would redden this file; objectui#10874 made that repair
+ * (`?: never` on all five) and turned the pin into the agreement below.
  */
 
 import { readFileSync } from 'node:fs';
@@ -105,30 +105,35 @@ export type assertionKeySetsAgree = [
 
 /**
  * Every member's accepted type equals the declaration's — the four sub-schemas
- * with no exception, each arm with exactly its `on*` handler members excepted.
+ * and the three arms alike, with no exception (objectui#10874 removed the `on*`
+ * one each arm carried).
  */
 export type assertionMemberTypesAgree = [
   Expect<Equal<MismatchedKeys<typeof AIConfigSchema, Ts_AIConfig>, never>>,
   Expect<Equal<MismatchedKeys<typeof AIFieldSuggestionSchema, Ts_AIFieldSuggestion>, never>>,
   Expect<Equal<MismatchedKeys<typeof AIRecommendationItemSchema, Ts_AIRecommendationItem>, never>>,
   Expect<Equal<MismatchedKeys<typeof NLQueryResultSchema, Ts_NLQueryResult>, never>>,
-  Expect<Equal<MismatchedKeys<typeof AIFormAssistSchema, Ts_AIFormAssistSchema>, 'onApplySuggestion' | 'onRejectSuggestion'>>,
-  Expect<Equal<MismatchedKeys<typeof AIRecommendationsSchema, Ts_AIRecommendationsSchema>, 'onSelect' | 'onDismiss'>>,
-  Expect<Equal<MismatchedKeys<typeof NLQuerySchema, Ts_NLQuerySchema>, 'onSubmit'>>,
+  Expect<Equal<MismatchedKeys<typeof AIFormAssistSchema, Ts_AIFormAssistSchema>, never>>,
+  Expect<Equal<MismatchedKeys<typeof AIRecommendationsSchema, Ts_AIRecommendationsSchema>, never>>,
+  Expect<Equal<MismatchedKeys<typeof NLQuerySchema, Ts_NLQuerySchema>, never>>,
 ];
 
 /**
- * The handler-member divergence, both halves. The TypeScript face still types
- * each `string`; the zod face accepts nothing but absence. Repairing the
- * TypeScript face (a function type for a runtime slot, `?: never` for a retired
- * key, per objectui#6124) turns the first half red, which is the point.
+ * The handler members, both halves — AGREEING since objectui#10874. This was
+ * `assertionHandlerDivergence`: the TypeScript face typed each `string` while
+ * the zod face accepted nothing but absence, and the first half was written to
+ * go red when the TypeScript face was repaired. objectui#10874 repaired it with
+ * `?: never` on all five (for the three runtime slots by that card's triage
+ * ruling: the callback is a component prop, not a node member), so both halves
+ * now read `undefined`. Re-widening either face — a `string` or a function type
+ * back on the TypeScript side, an accepting arm on the zod side — reddens a row.
  */
-export type assertionHandlerDivergence = [
-  Expect<Equal<Ts_AIFormAssistSchema['onApplySuggestion'], string | undefined>>,
-  Expect<Equal<Ts_AIFormAssistSchema['onRejectSuggestion'], string | undefined>>,
-  Expect<Equal<Ts_AIRecommendationsSchema['onSelect'], string | undefined>>,
-  Expect<Equal<Ts_AIRecommendationsSchema['onDismiss'], string | undefined>>,
-  Expect<Equal<Ts_NLQuerySchema['onSubmit'], string | undefined>>,
+export type assertionHandlerFacesAgree = [
+  Expect<Equal<Ts_AIFormAssistSchema['onApplySuggestion'], undefined>>,
+  Expect<Equal<Ts_AIFormAssistSchema['onRejectSuggestion'], undefined>>,
+  Expect<Equal<Ts_AIRecommendationsSchema['onSelect'], undefined>>,
+  Expect<Equal<Ts_AIRecommendationsSchema['onDismiss'], undefined>>,
+  Expect<Equal<Ts_NLQuerySchema['onSubmit'], undefined>>,
   Expect<Equal<InputOf<ShapeOf<typeof AIFormAssistSchema>['onApplySuggestion']>, undefined>>,
   Expect<Equal<InputOf<ShapeOf<typeof AIFormAssistSchema>['onRejectSuggestion']>, undefined>>,
   Expect<Equal<InputOf<ShapeOf<typeof AIRecommendationsSchema>['onSelect']>, undefined>>,
@@ -191,19 +196,18 @@ describe('the registered AI node types validate (objectui#10859)', () => {
   });
 
   it('accepts a fully populated document of each type', () => {
-    const config = { provider: 'openai', model: 'gpt-4', temperature: 0.2, maxTokens: 512, systemPrompt: 'x' };
+    // `config` and `context` left these documents with objectui#10874, which
+    // retired both on both faces; their refusal is pinned in
+    // `ai-node-faces-agree-10874.test.ts`, beside this file.
     const docs = [
       {
         type: 'ai-form-assist',
-        context: { record: 1 },
-        config,
         suggestions: [{ fieldName: 'company', value: 'ObjectStack', confidence: 0.9, reasoning: 'domain' }],
         showConfidence: true,
         showReasoning: false,
       },
       {
         type: 'ai-recommendations',
-        config,
         recommendations: [
           { id: 'r1', title: 'Renew', score: 0.8, category: 'sales', metadata: { a: 1 }, action: { type: 'open', target: 'r1' } },
         ],
@@ -215,7 +219,6 @@ describe('the registered AI node types validate (objectui#10859)', () => {
       {
         type: 'nl-query',
         placeholder: 'Ask anything',
-        config,
         result: { query: 'q', data: [{ a: 1 }], columns: [{ name: 'a', label: 'A', type: 'number' }], summary: 's', confidence: 0.5 },
         suggestions: ['top accounts'],
         showHistory: true,

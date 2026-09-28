@@ -616,9 +616,13 @@ export const INDIRECT_REGISTRATIONS = [
     excluded:
       'WITHHELD pending objectui#9717, which is open on exactly this question: does a RETIRED ' +
       'TOMBSTONE SPELLING belong in a universe whose job is "does this string name a component that ' +
-      'exists"? Deciding it either way flips one switch and nothing else — DROP this `excluded` line ' +
-      'and the collection\'s keys (today `field:owner`) enter the universe, so a document teaching ' +
-      '`field:owner` turns GREEN; keep it and such a document stays RED, which is what happens today.',
+      'exists"? ⚠️ DROPPING this `excluded` line does NOT admit the collection\'s keys (today ' +
+      '`field:owner`): without the exclusion the derivation has to read the collection literal in the ' +
+      'site file, where RETIRED_FIELD_TYPES is IMPORTED from `@object-ui/core` (the `reason` below says ' +
+      'so), so THIS entry reports `stale-indirect-registration`, `check:doc-types` and ' +
+      '`regenerate-known-schema-types.mjs --check` both exit non-zero, and a document teaching ' +
+      '`field:owner` stays RED for that different reason — admitting the spelling is NOT a one-line ' +
+      'change; re-derive this by deleting the line and running those two commands.',
     reason:
       '`registerAllFields()` registers every key of RETIRED_FIELD_TYPES a second time, last, under the ' +
       '`field:` namespace with `skipFallback: true` — a tombstone widget that renders a visible refusal ' +

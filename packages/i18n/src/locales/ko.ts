@@ -2921,6 +2921,9 @@ const ko = {
     openProduction: "프로덕션 열기",
     manageEnvironments: "환경 관리",
   },
+  cloudPlanStatus: {
+    current: "현재 요금제",
+  },
   ai: {
     nlQuery: {
       placeholder: "데이터에 대해 질문하세요…",

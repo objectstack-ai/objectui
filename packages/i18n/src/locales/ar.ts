@@ -2952,6 +2952,9 @@ const ar = {
     openProduction: "فتح بيئة الإنتاج",
     manageEnvironments: "إدارة البيئات",
   },
+  cloudPlanStatus: {
+    current: "الخطة الحالية",
+  },
   ai: {
     nlQuery: {
       placeholder: "اطرح سؤالًا حول بياناتك…",

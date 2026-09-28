@@ -116,6 +116,13 @@
  *     RE-POINTED at a twin rather than inverted; what this card asserts — that it
  *     narrowed `children` on the chatbot faces and left their `body` alone — is
  *     unmoved.
+ *     ⚠️ AMENDED AGAIN (objectui#9256, public-block slice): the hold-out on the
+ *     two TWIN faces has ended too, and not by a decision on this card —
+ *     objectui#6771 retired `body` on `BaseSchema`, so each twin now declares
+ *     the same neither-channel tombstone on `body` that its `children` carries,
+ *     pointing at `requestBody`. `body` is REFUSED on all three chatbot faces
+ *     today; the two controls below assert that refusal (the mirror control)
+ *     and its compile-time twin, and neither proves `body` parses anywhere.
  *
  * ## ⚠️ Half of this file is a COMPILE-TIME assertion and vitest CANNOT read it
  *
@@ -301,17 +308,22 @@ const ROWS: ReadonlyArray<readonly [
   ['calendar-view', CalendarViewMirror as unknown as Mirror, ['body', 'children'], {}],
   // ⚠️ ONE-SIDED ROW, and ⛔ not a two-sided reading (objectui#9659, carrying a
   // contract-review residual on objectui#9639). The three rows below list `children`
-  // only, and on the two TWIN faces that still means what it always meant: `children`
-  // dead, `body` held out and LIVE, with the same-face LIVE CONTROL below proving it.
-  // On the PLAIN `chatbot` face it no longer does. Ruling A on objectui#8572 retired
-  // `ChatbotSchema.body` as an ADR-0049 tombstone for a DIFFERENT reason than this card's
-  // — a naming collision, not a dead content channel — and objectui#9639 landed it, so
-  // the plain face refuses BOTH channels today. Measured: `body` is ACCEPTED on
-  // `chatbot-enhanced` and `chatbot-floating`, REFUSED on `chatbot`.
-  // ⇒ the absence of `body` from the plain row means "not this card's to assert", ⛔ not
-  // "still live here", and objectui#9639 had to re-point both controls below at a twin
-  // precisely because no same-face control is available any more. The `body` half of the
-  // plain face is pinned by `node-recursion-point-8344.test.ts`, which owns objectui#8572.
+  // only. That no longer means `body` is live on any of them: `body` is REFUSED on all
+  // three faces today, for two different reasons.
+  //   - PLAIN `chatbot`: ruling A on objectui#8572 retired `ChatbotSchema.body` as an
+  //     ADR-0049 tombstone for a DIFFERENT reason than this card's — a naming collision,
+  //     not a dead content channel — and objectui#9639 landed it.
+  //   - The TWINS `chatbot-enhanced` / `chatbot-floating`: objectui#6771 retired `body`
+  //     on `BaseSchema`, so each twin declares the same neither-channel tombstone on
+  //     `body` that its `children` carries, pointing at `requestBody`. The LIVE CONTROL
+  //     below asserts that refusal on `chatbot-enhanced`.
+  // Re-measured in the objectui#9256 public-block slice: `body` is REFUSED on
+  // `chatbot`, `chatbot-enhanced` and `chatbot-floating` alike. (This comment used to
+  // say `body` was ACCEPTED on the two twins; that stopped being true when the twins
+  // gained their `body` tombstone, and the control below already asserted the refusal.)
+  // ⇒ the absence of `body` from these rows means "not this card's row to assert", ⛔ not
+  // "still live here". The `body` half of the plain face is pinned by
+  // `node-recursion-point-8344.test.ts`, which owns objectui#8572.
   // ⛔ Do not add `'body'` to the plain row to "fix" this: the message that row's
   // assertions read is objectui#9256's, and the plain face's tombstone carries
   // objectui#8572's instead — the row would go red on a true statement.
@@ -405,7 +417,10 @@ describe('objectui#9256 — CONTROLS: the node itself, and the held-out channel,
     expect(Object.keys(mirror.shape)).toContain(key);
   });
 
-  it('LIVE CONTROL — the chatbot family still accepts `body`, the channel held out of this card', () => {
+  // Named for what it asserts since the objectui#9256 public-block slice: the
+  // name used to say the family "still accepts `body`", which the body below has
+  // not asserted since the twins gained their `body` tombstone.
+  it('LIVE CONTROL — the chatbot twins REFUSE `body` too, pointing the author at `requestBody`', () => {
     // The held-out channel, still held out — RE-POINTED, not inverted, by
     // objectui#8572. This control was aimed at `ChatbotSchema`, whose own `body`
     // the parity ledger recorded as "two different meanings of one key — a naming

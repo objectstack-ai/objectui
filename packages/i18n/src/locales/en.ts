@@ -3397,6 +3397,10 @@ const en = {
     openProduction: 'Open Production',
     manageEnvironments: 'Manage environments',
   },
+  // `cloud:plan-status` — the Cloud pricing page's current-plan marker (objectui#10919).
+  cloudPlanStatus: {
+    current: 'Current plan',
+  },
   // `@object-ui/plugin-ai` — the `nl-query`, `ai-form-assist` and
   // `ai-recommendations` components (objectui#10232). The `*One` rows are this
   // repo's two-key plural convention (see `search.itemsAvailableOne`): the

@@ -2579,10 +2579,11 @@ export interface CodeEditorSchema extends BaseSchema {
    * workspace package on a built tree (the family-D re-measure). The
    * `code-editor` registration (`@object-ui/plugin-editor`) reads the node
    * through `CodeEditorRenderer`'s inline props type, which forwards `value`,
-   * `language`, `theme`, `height`, `readOnly` and `className` to Monaco and
-   * nothing else. `SchemaRenderer` strips `body` and `children` out of the
-   * props bag it spreads, so neither reaches the component by another route,
-   * and the registration declares no `children` slot (objectui#9910).
+   * `language`, `theme`, `height`, `readOnly`, `className` and the `onChange`
+   * callback to Monaco; none of them is the node's `body` or `children`.
+   * `SchemaRenderer` strips `body` and `children` out of the props bag it
+   * spreads, so neither reaches the component by another route, and the
+   * registration declares no `children` slot (objectui#9910).
    *
    * What it renders instead: a Monaco editor over `value`, in `language` and
    * `theme`.

@@ -3989,21 +3989,25 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   'ai.zod.ts#AIComponentSchema':
     "a union OVER the mirrors, not an object of its own — its members are checked individually above",
   // objectui#10872 — the ADR-0080 public-block arms. Each is `BaseSchema` plus a
-  // `type` literal plus ONE member, `properties`, which is the block's
+  // `type` literal plus `properties`, which is the block's
   // `@objectstack/spec` `ComponentPropsMap` row by reference (through the
   // objectui#8317 boundary). No TS declaration in this package restates any of
   // these nodes — the spec's row types are re-exported under `Spec…` names by
   // `../index.ts`, which is the spec's declaration, not a second one — so there
   // is no pair to register, and the arm-to-row agreement is measured against
   // the installed spec by `./public-block-arms-10872.test.ts` instead.
+  // objectui#9256 then added the content-channel refusals as members on every
+  // arm here but the four `page:` containers (`record:alert`: `children` only),
+  // pinned in `./content-channel-public-blocks-9256.test.ts`; each entry below
+  // names them where they apply.
   'public-blocks.zod.ts#PageHeaderBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `page:header` literal + `properties`, which IS `ComponentPropsMap['page:header']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:header` literal + `properties`, which IS `ComponentPropsMap['page:header']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#PageTabsBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `page:tabs` literal + `properties`, which IS `ComponentPropsMap['page:tabs']`, + the `onTabChange` runtime-slot refusal (objectui#6124) its renderer's read requires; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:tabs` literal + `properties`, which IS `ComponentPropsMap['page:tabs']`, + the `onTabChange` runtime-slot refusal (objectui#6124) its renderer's read requires, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#PageCardBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `page:card` literal + `properties`, which IS `ComponentPropsMap['page:card']`; no TS declaration in this package restates the node",
   'public-blocks.zod.ts#PageAccordionBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `page:accordion` literal + `properties`, which IS `ComponentPropsMap['page:accordion']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:accordion` literal + `properties`, which IS `ComponentPropsMap['page:accordion']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#PageSectionBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `page:section` literal + `properties`, which IS `ComponentPropsMap['page:section']`; no TS declaration in this package restates the node",
   'public-blocks.zod.ts#PageFooterBlockSchema':
@@ -4011,37 +4015,43 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   'public-blocks.zod.ts#PageSidebarBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `page:sidebar` literal + `properties`, which IS `ComponentPropsMap['page:sidebar']`; no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordDetailsBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `record:details` literal + `properties`, which IS `ComponentPropsMap['record:details']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:details` literal + `properties`, which IS `ComponentPropsMap['record:details']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordHighlightsBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `record:highlights` literal + `properties`, which IS `ComponentPropsMap['record:highlights']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:highlights` literal + `properties`, which IS `ComponentPropsMap['record:highlights']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordRelatedListBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `record:related_list` literal + `properties`, which IS `ComponentPropsMap['record:related_list']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:related_list` literal + `properties`, which IS `ComponentPropsMap['record:related_list']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordPathBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `record:path` literal + `properties`, which IS `ComponentPropsMap['record:path']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:path` literal + `properties`, which IS `ComponentPropsMap['record:path']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordActivityBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `record:activity` literal + `properties`, which IS `ComponentPropsMap['record:activity']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:activity` literal + `properties`, which IS `ComponentPropsMap['record:activity']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordDiscussionBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `record:discussion` literal + `properties`, which IS `ComponentPropsMap['record:discussion']` (the spec's shared `record:chatter` row); no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:discussion` literal + `properties`, which IS `ComponentPropsMap['record:discussion']` (the spec's shared `record:chatter` row), + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordHistoryBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `record:history` literal + `properties`, which IS `ComponentPropsMap['record:history']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:history` literal + `properties`, which IS `ComponentPropsMap['record:history']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordQuickActionsBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `record:quick_actions` literal + `properties`, which IS `ComponentPropsMap['record:quick_actions']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:quick_actions` literal + `properties`, which IS `ComponentPropsMap['record:quick_actions']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordReferenceRailBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `record:reference_rail` literal + `properties`, which IS `ComponentPropsMap['record:reference_rail']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:reference_rail` literal + `properties`, which IS `ComponentPropsMap['record:reference_rail']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordAlertBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `record:alert` literal + `properties`, which IS `ComponentPropsMap['record:alert']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:alert` literal + `properties`, which IS `ComponentPropsMap['record:alert']`, + the objectui#9256 `children` refusal (its `body` is a text prop, left to `BaseSchema`); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ElementTextBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `element:text` literal + `properties`, which IS `ComponentPropsMap['element:text']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `element:text` literal + `properties`, which IS `ComponentPropsMap['element:text']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   // objectui#10872 batch 2 — the one arm with a node-level refinement: the
   // spec's `dataSource` waiver on the row's required `object`.
   'public-blocks.zod.ts#ElementNumberBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `element:number` literal + `properties`, which IS `ComponentPropsMap['element:number']` with `object` alone made optional (`.partial({ object: true })`), + `dataSource`, which IS the spec's `ElementDataSourceSchema`, + the refinement that restores `object`'s requiredness wherever the spec gate's `dataSource` waiver does not apply; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `element:number` literal + `properties`, which IS `ComponentPropsMap['element:number']` with `object` alone made optional (`.partial({ object: true })`), + `dataSource`, which IS the spec's `ElementDataSourceSchema`, + the refinement that restores `object`'s requiredness wherever the spec gate's `dataSource` waiver does not apply, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ElementButtonBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `element:button` literal + `properties`, which IS `ComponentPropsMap['element:button']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `element:button` literal + `properties`, which IS `ComponentPropsMap['element:button']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ElementDividerBlockSchema':
     "spec-owned, RESTATED — `BaseSchema` + the `element:divider` literal + a member-less strict `properties`, because `@objectstack/spec/ui` exports `ComponentPropsMap['element:divider']` under no name to read by reference; its key set and accept set are pinned to the row's in `./public-block-arms-10872.test.ts`, and no TS declaration in this package restates the node",
   'public-blocks.zod.ts#PublicBlockComponentSchema':
     "a union OVER the public-block arms, not an object of its own — its members are accounted for individually above",
+  // objectui#10919 — the `cloud:plan-status` widget's arm, declared locally from
+  // the widget's read points: `@objectstack/spec` has no row for a `cloud:`
+  // widget, and the widget's props type lives beside it in `@object-ui/app-shell`,
+  // not in this package. Pinned by `./cloud-plan-status-arm-10919.test.ts`.
+  'cloud.zod.ts#CloudPlanStatusSchema':
+    "no TS declaration in this package restates it — `BaseSchema` + the `cloud:plan-status` literal + a strict `properties` bag holding the one key the widget reads (`plan`) + the two content-channel refusals; the widget's own props type is in `@object-ui/app-shell`",
   // Renamed from `StylePropsSchema` by objectui#5928. Under the old name the
   // like-named `StyleProps` (../base.ts) — the Tailwind-scale vocabulary, sharing
   // ZERO keys with this `{ className, style }` object — read as its declaration, and
@@ -4131,9 +4141,9 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   // built the objectui#10872 way: `BaseSchema` + a `type` literal +
   // `properties`, which is the block's `ComponentPropsMap` row by reference.
   'objectql.zod.ts#ObjectMetricBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `object-metric` literal + `properties`, which IS `ComponentPropsMap['object-metric']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `object-metric` literal + `properties`, which IS `ComponentPropsMap['object-metric']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel), + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'objectql.zod.ts#ObjectMasterDetailFormBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `object-master-detail-form` literal + `properties`, which IS `ComponentPropsMap['object-master-detail-form']`, + three `handlerKeyRefusal` runtime slots; no TS declaration in this package restates the node (`@object-ui/plugin-form`'s `MasterDetailFormSchema` is the type of `MasterDetailForm`'s `schema` prop, the renderer's post-hoist reading)",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `object-master-detail-form` literal + `properties`, which IS `ComponentPropsMap['object-master-detail-form']`, + three `handlerKeyRefusal` runtime slots, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node (`@object-ui/plugin-form`'s `MasterDetailFormSchema` is the type of `MasterDetailForm`'s `schema` prop, the renderer's post-hoist reading)",
   'objectql.zod.ts#ObjectQLPublicBlockComponentSchema':
     "a union OVER the two public-block arms above, not an object of its own — its members are checked individually",
   'overlay.zod.ts#MenuItemSchema':

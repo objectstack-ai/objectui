@@ -1238,6 +1238,24 @@ export const DashboardWidgetSchema = specFieldsExcept(stripImportedDefaults(Spec
 }).strict();
 
 /**
+ * objectui#9256 (public-block slice): ONE refusal string for both content channels of the
+ * widget-slot `metric-card` node. Its own string rather than `neitherContentChannelGuidance`, because
+ * that builder says the parser tier's `not-a-container` warning noticed the key, and in a widget slot
+ * it does not: that tier walks `children`, never `widgets`.
+ */
+const METRIC_CARD_NEITHER_CHANNEL =
+  'REFUSED (objectui#9256, ADR-0049) — `metric-card` reads NEITHER content channel: measured with the '
+  + 'TypeScript type checker over one program per workspace package on a BUILT tree, no renderer read consumes '
+  + '`body` or `children` for this node — `DashboardRenderer` hands a `metric-card` widget to `SchemaRenderer` '
+  + 'as the widget\'s own keys, and the registration (`plugin-dashboard:metric-card`) renders `MetricCard`, '
+  + 'which reads named props and forwards the rest to its `Card` as DOM attributes — and `SchemaRenderer` '
+  + 'strips both out of the props bag it spreads. An '
+  + 'authored value therefore rendered NOTHING — no render-time error or warning and no element — and in a '
+  + 'widget slot nothing else noticed it: the parser tier\'s `not-a-container` warning (objectui#9910) walks '
+  + '`children`, never `widgets`. What it renders instead: one KPI card — `title`, `value`, `icon`, '
+  + '`trend` / `trendValue` and `description`.';
+
+/**
  * A COMPONENT node sitting directly in a dashboard's widget slot — the
  * `metric-card` extension the 2026-08-14 ruling (objectstack#8593) admits:
  *
@@ -1255,10 +1273,23 @@ export const DashboardWidgetSchema = specFieldsExcept(stripImportedDefaults(Spec
  * cannot become a passthrough hatch around #6002's refusal. Deliberately NOT
  * exported: the routing is an internal property of the widget slot, not new
  * authoring surface.
+ *
+ * `children` and `body` are refused by name (objectui#9256): `MetricCard`
+ * reads neither content channel, as its TypeScript twin's `?: never` pair
+ * states. ⚠️ A refusal here does not surface on its own: this is the first arm
+ * of the slot's `z.union`, so a document it refuses falls through to the
+ * strict {@link DashboardWidgetSchema}, which refuses the same key as
+ * unrecognized, and the author gets one `invalid_union` at the widget's path
+ * with each arm's issues under `errors` — this arm's message among them, which
+ * `objectui validate` prints as one arm of two.
  */
 const DashboardWidgetSlotComponentSchema = BaseSchema.extend({
   type: z.enum(DASHBOARD_COMPONENT_WIDGET_TYPES)
     .describe('objectui component type legal in a widget slot (closed set)'),
+  // objectui#9256: `MetricCard` reads NEITHER content channel, so both are refused by name, each
+  // kept a MEMBER, as on the TypeScript twin.
+  body: retirementTombstone(METRIC_CARD_NEITHER_CHANNEL),
+  children: retirementTombstone(METRIC_CARD_NEITHER_CHANNEL),
 });
 
 /**

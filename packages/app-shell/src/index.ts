@@ -313,6 +313,8 @@ import './console/marketplace/InstalledListWidget.js';
 import './console/connect/ConnectAgentWidget.js';
 // SDUI widget for the Cloud Welcome page's state-aware onboarding next-step.
 import './console/home/CloudOnboardingNext.js';
+// SDUI widget for the Cloud pricing page's "current plan" marker (objectui#10919).
+import './console/home/CloudPlanStatus.js';
 // SDUI widget: read-only admin diagnostic for the env's effective AI model
 // (cloud#797) — fetches GET /api/v1/ai/effective-model.
 import './console/diagnostics/CloudAiModelStatus.js';

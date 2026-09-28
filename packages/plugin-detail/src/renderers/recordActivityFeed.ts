@@ -94,7 +94,7 @@ export const DEFAULT_ACTIVITY_LIMIT = 20;
  *
  * ## The vocabulary is OPEN — ruled. Do NOT restore set-equality.
  *
- * Maintainer ruling of 2026-08-24 on objectstack#11507, **direction 4**:
+ * Maintainer ruling of 2026-08-24 (objectstack `88b9d749a`), **direction 4**:
  * `sys_activity.type` is AUTHOR-EXTENSIBLE. The declared select options are the
  * platform's BUILT-IN set, not the column's domain, and the two facts above are
  * why — readonly fields are never validated on write, and ADR-0052 §5b.2
@@ -141,7 +141,7 @@ export const ACTIVITY_TYPE_TO_FEED_TYPE: Readonly<Record<string, FeedItemType | 
  * The presentation an `sys_activity.type` value outside
  * {@link ACTIVITY_TYPE_TO_FEED_TYPE} renders through.
  *
- * The second half of the objectstack#11507 direction-4 ruling (2026-08-24): if
+ * The second half of the direction-4 ruling (2026-08-24, objectstack `88b9d749a`): if
  * the column is author-extensible, then a value this map has never heard of is
  * REAL RECORD ACTIVITY that an author extended the platform with — not a
  * mistake — and dropping it is the objectui#5840 failure mode reappearing for
@@ -725,7 +725,7 @@ function warnUnknownActivityType(type: string): void {
   warnOnce(warnedUnknownActivityTypes, '', [type], () =>
     `[record:activity] rendered a sys_activity row with type "${type}" through the `
       + `generic "${UNMAPPED_ACTIVITY_FEED_TYPE}" presentation: no feed item type is `
-      + 'mapped for it. `sys_activity.type` is author-extensible (objectstack#11507, '
+      + 'mapped for it. `sys_activity.type` is author-extensible ('
       + 'ruled 2026-08-24) and is not validated on write, so a producer can store a '
       + 'value the platform never declared — the row is shown rather than dropped. '
       + 'Map it in ACTIVITY_TYPE_TO_FEED_TYPE (@object-ui/plugin-detail) to give it '
@@ -742,7 +742,7 @@ export function resetUnknownActivityTypeWarnings(): void {
  * record activity (see {@link ACTIVITY_TYPE_TO_FEED_TYPE}).
  *
  * Three outcomes, and the difference between the last two is the whole of the
- * objectstack#11507 direction-4 ruling (2026-08-24):
+ * direction-4 ruling (2026-08-24, objectstack `88b9d749a`):
  *
  *  - a type mapped to a feed type renders with THAT presentation;
  *  - a type the table maps to `undefined` is a DELIBERATE exclusion — `null`,

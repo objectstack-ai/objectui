@@ -291,7 +291,9 @@ dropped, and a filter refused while combining them shows the configuration-error
 panel instead of a count. On `element:number`,
 `{ "dataSource": { "object": "contact" }, "properties": { "aggregate": "count" } }`
 is a complete metric; its `sort` and `limit` are not read, because an aggregate
-has no ordering and a capped count would be a wrong number.
+has no ordering and a capped count would be a wrong number. An `element:number`
+that sets `aggregate` but names no object in either place (no `properties.object`,
+no `dataSource.object`) shows a short "no object named" notice instead of a count.
 
 On `record:related_list` and `record:line_items` the composed filter is
 AND-combined with the parent relationship condition, never substituted for it: a

@@ -802,7 +802,7 @@ import type { AppComponentSchema } from './app.js';
 export type {
   // Theme System — the document vocabulary is owned HERE since objectui#5716
   // (maintainer ruling 2026-08-23, option A — localize): the spec retired its
-  // theme module (objectstack#10485) while objectui RETAINED the theme system,
+  // theme module (objectstack `35ad101bc`) while objectui RETAINED the theme system,
   // so the types moved into `./theme` with the last-published 17.1.0 shapes as
   // the blueprint. `Typography` / `BorderRadius` / `Shadow` /
   // `ThemeDefinition` were DELETED under the same ruling's zero-reader rider

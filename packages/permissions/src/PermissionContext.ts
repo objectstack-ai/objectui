@@ -19,7 +19,7 @@ export interface PermissionContextValue {
   /** Get row filter for an object */
   getRowFilter: (object: string) => string | undefined;
   /**
-   * [#3391] Server-resolved effective API operation set for an object (from
+   * [objectstack#3391] Server-resolved effective API operation set for an object (from
    * `/me/permissions` `apiOperations`), or `undefined` when the object carries
    * no effective set (unrestricted object / old backend / no provider). The UI
    * intersects this with its CRUD affordances (`resolveCrudAffordances`), never

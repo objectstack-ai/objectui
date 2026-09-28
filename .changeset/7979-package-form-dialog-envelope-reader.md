@@ -8,7 +8,7 @@ The create / edit / view package dialog POSTs and PATCHes `/api/v1/packages` thr
 own `apiJson`, which held a fourth copy of the ADR-0112 failure-envelope ladder —
 character for character the one `PackagesPage` had before `36fc74629`. It read the
 diagnostic `error.message` and stopped, so two things a refusal carries never reached the
-author: the producer's marked `error.userMessage` (present since objectstack#9934, emitted
+author: the producer's marked `error.userMessage` (present since objectstack `79c46da90`, emitted
 by both doors that serve these routes) and `error.code`.
 
 The read now comes from the one shared rule, `readEnvelopeFailureText`

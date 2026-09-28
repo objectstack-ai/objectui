@@ -177,8 +177,8 @@ export interface ActionDef {
    * field, because the 2026-08-06 maintainer ruling on objectstack#4075 gave
    * both keys ONE shape: `boolean | string(CEL) | { dialect, source }` —
    * "boolean = 条件的退化形字面量,string = CEL 简写,信封 = 完整形". The
-   * envelope arm arrived in `@objectstack/spec` 17.0.0-rc.6 (objectstack#5970,
-   * PR objectstack#6450); until then this was a hand-written `string | boolean`
+   * envelope arm arrived in `@objectstack/spec` 17.0.0-rc.6 (objectstack
+   * `97e7e3caa`); until then this was a hand-written `string | boolean`
    * that could not describe the envelope, which is why `DeclaredActionsBar`
    * read it through an `(action as any).disabled` cast. Derived, not restated,
    * so the two keys cannot drift apart again.
@@ -386,7 +386,7 @@ export interface ActionDef {
    * spec 采纳 —— `visible` / `disabled` 两键在 spec 侧统一收敛为
    * `boolean | string(CEL) | {dialect, source}`(boolean = 条件的退化形字面量,
    * string = CEL 简写,信封 = 完整形)". `@objectstack/spec` 17.0.0-rc.6 carries
-   * it (objectstack#5970, PR objectstack#6450), so the local `| boolean` is no
+   * it (objectstack `97e7e3caa`), so the local `| boolean` is no
    * longer a tolerance to declare — it is part of the derived type, and adding
    * it back would restate a spec arm rather than widen anything.
    */
@@ -703,7 +703,8 @@ export interface ActionParamDef {
   visible?: string;
   /**
    * Carry-over declaration — `@objectstack/spec`'s `ActionParamSchema.carryOver`
-   * (objectstack#11753 ruling, objectui#6246), passed through unchanged by
+   * (the 2026-08-25 ruling whose spec half is objectstack `0e4e51b0a`,
+   * objectui#6246), passed through unchanged by
    * `resolveActionParams()`. The param's value is carried through the dialog
    * rather than collected from the user: seeded from the row (the spec refuses
    * the key without `defaultFromRow: true`), rendered by `ActionParamDialog` as

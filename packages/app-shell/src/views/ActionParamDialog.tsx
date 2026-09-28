@@ -244,7 +244,8 @@ function carryOverDisplayText(value: unknown): string | null {
 
 /**
  * A param that declares `carryOver` (`@objectstack/spec`'s `ActionParamSchema`,
- * objectstack#11753 ruling, objectui#6246): a collapsed READ-ONLY summary.
+ * the 2026-08-25 ruling whose spec half is objectstack `0e4e51b0a`, objectui#6246): a
+ * collapsed READ-ONLY summary.
  *
  * ⛔ No field widget is built for it at all — not a disabled one, not a
  * read-only one. The ruling's point is that the renderer leaves NO editing

@@ -129,7 +129,7 @@ export function PluginDisclosure({ version }: { version?: MarketplacePackageVers
             items={perms.fs ?? undefined}
           />
           {/*
-            objectstack#17147 — say what this list DOES, because a permission
+            objectstack `aaacf1d5c` — say what this list DOES, because a permission
             panel that only lists grants is read as a confinement promise.
             Measured on objectstack `9bd4344e4`: the consented set is persisted
             (`sys_package_installation.granted_permissions`), re-confirmed on a

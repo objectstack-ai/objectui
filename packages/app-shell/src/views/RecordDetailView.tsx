@@ -1710,7 +1710,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     // drifted the same way one level up: this loop dropped a type the table
     // does not contain SILENTLY, while the block renders it through
     // `UNMAPPED_ACTIVITY_FEED_TYPE` and warns once. `sys_activity.type` is
-    // author-extensible (objectstack#11507 direction 4, ruled 2026-08-24) and
+    // author-extensible (objectstack `88b9d749a`, direction 4, ruled 2026-08-24) and
     // is never validated on write, so that drop made every author-extended
     // row stored, queryable and INVISIBLE on the surface where a shipped
     // producer's rows are most likely to be watched — objectui#5840's failure

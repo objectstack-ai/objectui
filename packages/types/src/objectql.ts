@@ -73,7 +73,7 @@ export type { ObjectCalendarBlockConfig } from './zod/objectql.zod.js';
  * types depending on the entry point — the 7-value enum on `./shared` / `./api`
  * (which adds `HEAD` / `OPTIONS`) and the 5-value UI subset on `./ui`. 17.0.0
  * split them as `HttpMethodType` (objectstack#4691); 17.0.0-rc.5 renamed that
- * again to `HttpMethodSubset` (objectstack#5832, PR objectstack#5976), because
+ * again to `HttpMethodSubset` (objectstack#5832, objectstack `795b6e1aa`), because
  * `schemaNameFromExportKey` strips the `Schema` suffix and both enums published
  * as `shared/HttpMethod` — the later write won, so the emitted JSON Schema and
  * reference page described only the 5-value one.

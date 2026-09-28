@@ -2274,8 +2274,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // because a code package ships it and overwriting a packaged item is an
   // overlay — which `permission` has not opted into.
   'perm.readOnly.artifact': 'Read-only (this set is provided by a code package)',
-  // objectui#5987 — the ruled path comes FIRST (maintainer ruling on
-  // objectstack#11513: lock the base, clone to customize). The remedies that
+  // objectui#5987 — the ruled path comes FIRST (maintainer ruling of
+  // 2026-08-24, objectstack `e170b0ae5`: lock the base, clone to customize). The remedies that
   // used to lead ("edit the source artifact and redeploy", a new runtime set,
   // the operator hatch) stay, as the secondary routes they are.
   'perm.readOnly.artifact.hint':

@@ -29,7 +29,7 @@ export interface MetadataProviderProps {
  *
  * Derivation history (objectui#5716): this union was born reading the spec's
  * `ThemeModeSchema` through its `_zod` input carrier. The spec then retired
- * its whole theme module (objectstack#10485), objectui assumed ownership of
+ * its whole theme module (objectstack `35ad101bc`), objectui assumed ownership of
  * the theme document types, and the mode vocabulary's owner is now
  * `@object-ui/types` (`ThemeMode`, with the `THEME_MODES` runtime witness) —
  * so the derivation reads from there. A mode the owner adds still arrives

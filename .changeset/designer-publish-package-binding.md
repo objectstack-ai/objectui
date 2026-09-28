@@ -7,7 +7,7 @@ The metadata designer states its package on the publish step, not only on the sa
 
 Studio's designer save→publish loop bound the draft to a software package on the
 save (`PUT ?mode=draft&package=<id>`) and then sealed it with a publish that named
-no package at all. `objectstack#10354` (shipped in `@objectstack/rest` 17.2.0) taught
+no package at all. objectstack `9e04c3e35` (shipped in `@objectstack/rest` 17.2.0) taught
 `POST /meta/:type/:name/publish` to accept `?package=<id>`, so the second call can now
 state the same binding the first one already states.
 

@@ -21,12 +21,15 @@ import {
   parseFence,
   parseFenceDialect,
   RENDERER_SOURCE,
+  requireJsonContract,
   ROOT_PAGES,
   runControls,
   sanitizeFence,
   splitTopLevel,
   SURFACE_LABEL,
   toJsonDialect,
+  UNPARSED_PRESCRIPTIONS,
+  unparsedPrescription,
 } from '../check-doc-expression-carriage.mjs';
 import {
   APP_DOCS as TYPES_APP_DOCS,
@@ -35,6 +38,7 @@ import {
   packageReadmePages as typesPackageReadmePages,
   ROOT_PAGES as TYPES_ROOT_PAGES,
 } from '../check-doc-component-types.mjs';
+import { parseJsonFence } from '../check-skill-examples.mjs';
 
 const ROOT = path.resolve(fileURLToPath(import.meta.url), '../../..');
 const GATE = 'scripts/check-doc-expression-carriage.mjs';
@@ -194,7 +198,9 @@ describe('check-doc-expression-carriage: the controls can see, and can fail', ()
 });
 
 describe('check-doc-expression-carriage: the parse surface', () => {
-  const parse = (body: string) => parseFence(body);
+  // These are the `jsonc` tolerances. Since objectui#10943 a `json` fence gets
+  // none of them; the next describe block pins that half.
+  const parse = (body: string) => parseFence(body, 'jsonc');
 
   it('drops comments outside strings and keeps a // that is data', () => {
     const out = parse('{ "type": "text", // a note\n  "content": "https://example.com" }');
@@ -287,6 +293,117 @@ describe('check-doc-expression-carriage: the parse surface', () => {
   it('leaves a strict-JSON body byte-identical — the normalization is a no-op on JSON', () => {
     const body = '{ "type": "badge", "label": "a//b" }';
     expect(toJsonDialect(body)).toBe(body);
+  });
+});
+
+/**
+ * objectui#10943, ruled A on 2026-09-28. A `json` fence is parsed STRICTLY with
+ * the skills tree's own `parseJsonFence`, and `jsonc` keeps the tolerances. The
+ * maintainer granted this as a strength increase of ONE existing pin, 'has no
+ * blind spot on the corpus it ships against', and not as a new gate.
+ *
+ * Every tolerance body below is pinned on BOTH tags: `json` must reject it and
+ * `jsonc` must still parse it. If a later edit quietly sent `json` back through
+ * `sanitizeFence`, the `jsonc` half would stay green and the `json` half would
+ * go red. A pin needs both halves to see that regression.
+ */
+describe('check-doc-expression-carriage: `json` is strict, `jsonc` keeps the tolerances (objectui#10943)', () => {
+  it('judges `json` with the skills tree’s own parseJsonFence, the same function and not a copy', () => {
+    // Identity, not behavioural equality, for the reason the scan-surface pin
+    // below gives for its constants: an import has nothing to drift.
+    expect(requireJsonContract()).toBe(parseJsonFence);
+  });
+
+  it('parses a good `json` fence and hands its value on', () => {
+    const out = parseFence('{\n  "type": "text",\n  "content": "${user.name}"\n}', 'json');
+    expect(out).toEqual({
+      ok: true,
+      reason: null,
+      values: [{ type: 'text', content: '${user.name}' }],
+      wrapped: false,
+    });
+  });
+
+  // One body per tolerance the gate's header lists, plus the object-body retry
+  // and the multi-document split. This census reads each of them under `jsonc`,
+  // and none of them is JSON.
+  const notJson: Array<[string, string]> = [
+    ['a line comment', '{\n  // a note\n  "type": "text"\n}'],
+    ['a block comment', '{ /* a note */ "type": "text" }'],
+    ['a raw newline inside a string', '{ "type": "text", "content": "${ a\n  ? 1 : 2 }" }'],
+    ['a trailing comma', '{ "type": "text", "content": "x", }'],
+    ['an elision', '{ "type": "form", "fields": [...] }'],
+    ['an object BODY', '"dependencies": {\n  "@object-ui/plugin-x": "workspace:*"\n}'],
+    ['two top-level documents', '{ "type": "a" }\n\n{ "type": "b" }'],
+  ];
+
+  it.each(notJson)('rejects %s under `json` with the contract’s own error, and reads it under `jsonc`', (_label, body) => {
+    const error = parseJsonFence(body, 'json');
+    expect(error, 'the contract itself must reject this body, or this row is not about the contract').not.toBeNull();
+
+    const strict = parseFence(body, 'json');
+    expect(strict).toEqual({ ok: false, reason: `invalid-json: ${error}`, values: [], wrapped: false });
+
+    expect(parseFence(body, 'jsonc').ok).toBe(true);
+  });
+
+  it('parses a good `jsonc` fence carrying a comment', () => {
+    const out = parseFence('{\n  // Preview settings\n  "objectui.preview.port": 3000,\n}', 'jsonc');
+    expect(out.ok).toBe(true);
+    expect(out.values).toEqual([{ 'objectui.preview.port': 3000 }]);
+  });
+
+  it('prescribes the ruled remedy for `json`, and keeps the blind-spot remedy for every other language', () => {
+    expect(UNPARSED_PRESCRIPTIONS.json).toContain('retag as `jsonc` if the example needs comments or trailing commas');
+    expect(unparsedPrescription('json')).toBe(UNPARSED_PRESCRIPTIONS.json);
+    expect(unparsedPrescription('jsonc')).toBe(UNPARSED_PRESCRIPTIONS.jsonc);
+    expect(UNPARSED_PRESCRIPTIONS.jsonc).toContain('sanitizeFence');
+  });
+
+  /**
+   * The census on a throwaway tree: a good `json` fence, the SAME annotated body
+   * once as `json` and once as `jsonc`. Only the `json` copy may land on the
+   * unparsed list. The entry must name the file, the fence's opening line, the
+   * language and the contract's own parse error. The CLI stays report-only (exit
+   * 0) and prints the ruled remedy.
+   */
+  it('names file, fence line, language and parse error, and the CLI prints the `jsonc` retag remedy', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carriage-strict-'));
+    const page = `${DOCS_ROOT}/guide/fences.md`;
+    const annotated = ['{', '  // VS Code settings are JSONC', '  "objectui.preview.port": 3000', '}'];
+    fs.mkdirSync(path.join(root, DOCS_ROOT, 'guide'), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, page),
+      [
+        '# Fences', // 1
+        '', // 2
+        '```json', // 3
+        '{ "type": "text", "content": "ok" }',
+        '```',
+        '',
+        '```json', // 7: the one that must land on the list
+        ...annotated,
+        '```',
+        '',
+        '```jsonc',
+        ...annotated,
+        '```',
+        '',
+      ].join('\n'),
+    );
+
+    const census = analyze(root, { channels: deriveChannels(ROOT), carriage: await loadCarriage() });
+    expect(census.counters.fences).toBe(3);
+    expect(census.counters.parsed).toBe(2);
+    expect(census.unparsed).toEqual([
+      { file: page, line: 7, lang: 'json', reason: `invalid-json: ${parseJsonFence(annotated.join('\n'), 'json')}` },
+    ]);
+
+    const run = spawnSync(process.execPath, [GATE, '--root', root], { cwd: ROOT, encoding: 'utf8' });
+    expect(run.status, run.stderr).toBe(0);
+    expect(run.stdout).toContain(`${page}:7  (json)  invalid-json: `);
+    expect(run.stdout).toContain(UNPARSED_PRESCRIPTIONS.json);
+    fs.rmSync(root, { recursive: true, force: true });
   });
 });
 
@@ -520,14 +637,23 @@ describe('check-doc-expression-carriage: the real tree, and the posture', () => 
     // blocking through the back door — the exact thing the ruling forbade.
   });
 
+  /**
+   * objectui#10943 strengthened this pin and added no gate. A `json` fence that
+   * is not JSON now lands on `census.unparsed`, so this assertion is what reds
+   * the pull request that adds one. The list holds two different things, so the
+   * message gives the remedy for each language actually on it. The text comes
+   * from the same constant the CLI prints.
+   */
   it('has no blind spot on the corpus it ships against', async () => {
     const census = analyze(ROOT, { channels: deriveChannels(ROOT), carriage: await loadCarriage() });
-    expect(
-      census.unparsed,
-      'a json fence under content/docs that this gate cannot parse is a fence it says NOTHING ' +
-        'about — the size of its blind spot, not a docs rule. Teach `sanitizeFence` the spelling ' +
-        `(see the tolerances in ${GATE}'s header), or fix the fence if it is simply malformed.`,
-    ).toEqual([]);
+    const langs: string[] = [...new Set<string>(census.unparsed.map((fence: { lang: string }) => fence.lang))];
+    const remedies = langs.map((lang) =>
+      lang === 'json'
+        ? `A \`json\` fence here is NOT JSON — a docs defect, not a blind spot: ${unparsedPrescription(lang)}.`
+        : `A \`${lang}\` fence here is one this gate says NOTHING about — the size of its blind spot, ` +
+          `not a docs rule: ${unparsedPrescription(lang)}.`,
+    );
+    expect(census.unparsed, remedies.join(' ')).toEqual([]);
   });
 
   /**
@@ -693,7 +819,9 @@ describe('check-doc-expression-carriage: the real tree, and the posture', () => 
     // those modules for the imports to resolve at all. If this list ever falls
     // behind the gate's imports the failure is a module-resolution stack trace
     // rather than the message below, which is why the message is asserted and not
-    // merely the exit code.
+    // merely the exit code. `check-skill-examples.mjs` is deliberately NOT copied:
+    // objectui#10943's import of it is guarded, because it loads `typescript`, and
+    // an orphan missing it must still reach the message below.
     for (const file of [
       'check-doc-expression-carriage.mjs',
       'check-doc-component-types.mjs',

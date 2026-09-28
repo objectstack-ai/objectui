@@ -75,7 +75,7 @@ export {
  * loop, and the two constructions had already drifted three ways — the console
  * copy dropped an unmapped type SILENTLY where {@link activityRowToFeedItem}
  * renders it through {@link UNMAPPED_ACTIVITY_FEED_TYPE} and says so once
- * (objectstack#11507 direction 4, ruled 2026-08-24), and its timestamp
+ * (objectstack `88b9d749a`, direction 4, ruled 2026-08-24), and its timestamp
  * fallback could leave `createdAt` `undefined` where the helper yields `''`.
  *
  * So the exported surface is the whole reading — table, fallback, and the

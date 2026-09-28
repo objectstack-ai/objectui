@@ -2451,7 +2451,7 @@ ComponentRegistry.register('form',
         // pi-TgoJ4_DM55Fqz" (objectstack#3821). A permission denial is a
         // condition the UI already knows how to name, so say it in the user's
         // language and keep the server text for the console.
-        // …unless the AUTHOR opted in. `userMessage` (objectstack#9934) is the
+        // …unless the AUTHOR opted in. `userMessage` (objectstack `79c46da90`) is the
         // producer-side marking: a hook sets it at throw time to
         // say "this text is for the end user". It is a separate field from
         // `message`, so nothing unmarked can reach here — the substitution above

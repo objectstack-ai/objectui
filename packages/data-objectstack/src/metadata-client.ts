@@ -1484,7 +1484,7 @@ export class MetadataClient {
     name: string,
     options: { message?: string; packageId?: string } = {},
   ): Promise<T> {
-    // objectstack#10354 (`@objectstack/rest` 17.2.0) — this door accepts
+    // objectstack `9e04c3e35` (`@objectstack/rest` 17.2.0) — this door accepts
     // `?package=<id>` and forwards it as the promotion's package binding, so
     // #9612's package-closure narrowing at the runtime publish gate is
     // reachable from an HTTP-driven promotion at all. Deliberately the SAME

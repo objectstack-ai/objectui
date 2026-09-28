@@ -1629,7 +1629,7 @@ export class ConcurrentUpdateError extends Error {
   readonly currentRecord: unknown;
   /**
    * The refusal text the PRODUCER marked as addressed to the end user
-   * (`ApiErrorSchema.userMessage`, objectstack#9934), or `null` when the
+   * (`ApiErrorSchema.userMessage`, objectstack `79c46da90`), or `null` when the
    * refusal carried no marking.
    *
    * Declared on the class because this error has no `details` bag: the shared
@@ -1695,7 +1695,7 @@ type MarkedRefusal = Pick<ApiError, 'userMessage'>;
 /**
  * Lift the producer's user-facing marking off a client error.
  *
- * `userMessage` (`ApiErrorSchema.userMessage`, objectstack#9934) is the opt-in
+ * `userMessage` (`ApiErrorSchema.userMessage`, objectstack `79c46da90`) is the opt-in
  * channel an application author sets at throw time to say "this text is for
  * the end user". The contract states it **status-agnostic** — not a 403
  * special case, any refusal status may carry it — so this read is
@@ -2850,7 +2850,7 @@ function isPersonalizationOverlayRow(item: any, spec: any): boolean {
  *   (objectui#10210, ruling B — see {@link isPersonalizationOverlayRow}).
  * - **write** (objectui#5233, `buildPersistedViewBody` in app-shell's
  *   `ObjectView`, unblocked by `columnState`'s admission to the view-metadata
- *   surface as a runtime-only overlay key — objectstack#9933, released in
+ *   surface as a runtime-only overlay key — objectstack `d5552ca13`, released in
  *   `@objectstack/spec` 17.1.0): a *system view's* overlay is now written as
  *   the patch alone, so no new row freezes anything, and because the write is
  *   a whole-document PUT the next toggle also strips an old fat row. A *saved

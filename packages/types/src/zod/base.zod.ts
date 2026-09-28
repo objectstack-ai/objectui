@@ -801,7 +801,7 @@ export const HTMLAttributesSchema = z.record(z.string(), z.any()).describe('HTML
  * exempts index signatures by design ("no keys to compare"). This note, not a
  * gate, is what records the absence.
  *
- * Precedent of the same shape: objectstack#12009 / objectstack `89448a52b`.
+ * Precedent of the same shape: objectstack `89448a52b`.
  */
 
 /**

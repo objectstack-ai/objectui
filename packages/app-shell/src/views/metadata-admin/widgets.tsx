@@ -3098,6 +3098,20 @@ const LazyCodeEditor = React.lazy(() =>
   import('@object-ui/plugin-editor').then((m) => ({ default: m.CodeEditorRenderer })),
 );
 
+/**
+ * The one language whose slot is an ADR-0089 expression (objectui#10963). A form
+ * row declares it (`type: 'code'`, `language: 'expression'`) over a spec slot
+ * that persists as the `{ dialect, source, … }` envelope, so the editor text is
+ * the envelope's `source` and an edit goes back through the shared read/write
+ * pair, exactly as `ConditionWidget` does (objectui#3218).
+ *
+ * Keyed on the DECLARED language and nothing else. Every other language keeps
+ * the plain string path, and a stored value's shape is never sniffed: a row
+ * that holds an expression but declares another language is a producer defect
+ * to fix in its form, not a guess to make here.
+ */
+const EXPRESSION_LANGUAGE = 'expression';
+
 export function CodeWidget({
   schema,
   value,
@@ -3108,7 +3122,15 @@ export function CodeWidget({
 }: WidgetProps) {
   const locale = useMetadataLocale();
   const language = inferCodeLanguage(fieldSpec, schema);
-  const stringValue = typeof value === 'string' ? value : (value == null ? '' : String(value));
+  const isExpression = language === EXPRESSION_LANGUAGE;
+  // Expression slot: `expressionSource` never stringifies an envelope into
+  // `[object Object]`, and `writeExpressionSource` keeps its `dialect` / `meta`
+  // (a cleared editor writes `undefined`, as `ConditionWidget` does).
+  const editorText = isExpression
+    ? expressionSource(value)
+    : typeof value === 'string' ? value : (value == null ? '' : String(value));
+  const commit = (next: string | undefined): void =>
+    onChange(isExpression ? writeExpressionSource(value, next ?? '') : (next ?? ''));
   return (
     // The editor's own focusable is Monaco's internal textarea — this widget
     // never renders it and cannot put the host id on it, so a `<label for>` can
@@ -3133,8 +3155,8 @@ export function CodeWidget({
             height: '280px',
             readOnly,
           }}
-          value={stringValue}
-          onChange={(v) => onChange(v ?? '')}
+          value={editorText}
+          onChange={commit}
         />
       </React.Suspense>
     </div>

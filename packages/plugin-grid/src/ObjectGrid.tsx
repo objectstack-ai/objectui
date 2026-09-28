@@ -1666,7 +1666,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
    */
   const objectTypesPending =
     !!objectName && typeof dataSource?.getObjectSchema === 'function' && !objectFields;
-  // [#3391] Server-resolved effective API operation set for this object
+  // [objectstack#3391] Server-resolved effective API operation set for this object
   // (/me/permissions `apiOperations`). The Export button and handler AND their
   // gate with this — a missing set (unrestricted object / old backend / no
   // provider) keeps the current behavior. The frontend consumes the effective
@@ -1713,7 +1713,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // door into the same state that never passes through ListView. Spelling the
   // gate identically here is what keeps the two from drifting: the object's
   // resolved affordance — ADR-0103 bucket ∧ `userActions.edit` ∧ the server's
-  // effective API operations (#3391/#3546), which is what `isObjectInlineEditable`
+  // effective API operations (objectstack#3391/objectstack#3546), which is what `isObjectInlineEditable`
   // names — AND the current principal's own grant (#4096).
   //
   // Fail-open, like every sibling gate in this file. `can()` answers `true`
@@ -3905,7 +3905,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   const handleExport = useCallback((format: ListViewExportFormat) => {
     // Object-level export permission gate. Default-allow: an explicit
     // `operations.export === false` blocks it, and — when the server hands down
-    // an effective API operation set for this object (#3391) — so does its
+    // an effective API operation set for this object (objectstack#3391) — so does its
     // exclusion of `export`. Missing effective set keeps current behavior.
     if (schema.operations?.export === false) return;
     if (effectiveApiOps && !effectiveApiOps.includes('export')) return;
@@ -5905,7 +5905,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // `__tests__/gridNonAuthorKeys.test.tsx`.
   const showRowHeightToggle = schema.rowHeight !== undefined && !(schema as any).hideRowHeightToggle;
   // Export is offered only when configured AND not blocked by object-level perms
-  // — including the server's effective API operation set (#3391): when present
+  // — including the server's effective API operation set (objectstack#3391): when present
   // and it excludes `export`, the button is hidden. Missing set → unchanged.
   const exportEnabled =
     !!schema.exportOptions &&

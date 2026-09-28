@@ -153,7 +153,7 @@ interface ConflictState {
   currentVersion?: string;
   /**
    * The refusal text the PRODUCER marked as addressed to the end user
-   * (`userMessage`, objectstack#9934), or `undefined` when the 409 carried no
+   * (`userMessage`, objectstack `79c46da90`), or `undefined` when the 409 carried no
    * marking. Read through `declaredUserMessage`, never duck-typed here: the
    * marking lands in two different places depending on which error the adapter
    * built (a typed member on `ConcurrentUpdateError`, the details bag on

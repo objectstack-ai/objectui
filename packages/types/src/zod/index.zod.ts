@@ -351,8 +351,8 @@ export {
 // tombstone for the retired theme component-kind surface:
 // - `ColorPaletteSchema` / `TypographySchema` / `BorderRadiusSchema` /
 //   `ShadowSchema` / `ThemeModeSchema` / `ThemeDefinitionSchema` RETIRED with
-//   the spec's whole `ui/theme.zod.ts` module (objectstack#10485, PR
-//   objectstack#10695; removal ruled on objectstack#10856, executed as
+//   the spec's whole `ui/theme.zod.ts` module (objectstack `35ad101bc`;
+//   removal ruled on objectstack#10856, executed as
 //   objectui#5710).
 // - `ThemeComponentSchema` RETIRED in `78cbdb530`.
 // - `ThemeSwitcherSchema` / `ThemePreviewSchema` / `ThemeUnionSchema` RETIRED

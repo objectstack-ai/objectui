@@ -1626,7 +1626,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // Object-level export permission gate. Default-allow: export stays enabled
   // unless `allowExport === false` or `operations.export === false`, AND — when
   // the server hands down an effective API operation set for this object
-  // (/me/permissions `apiOperations`, #3391) — unless it excludes `export`.
+  // (/me/permissions `apiOperations`, objectstack#3391) — unless it excludes `export`.
   // Missing effective set (unrestricted object / old backend / no provider)
   // keeps the current behavior. The frontend consumes the effective set the
   // server resolved; it never reads the raw `apiMethods`.
@@ -1643,7 +1643,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // entry is a WIRING declaration, not a permission grant, so the built-in
   // `delete` is dropped unless the object's resolved delete affordance allows
   // it: the ADR-0103 bucket lock ∧ `userActions.delete` ∧ the server's
-  // effective API operation set (#3391). Custom action ids pass through
+  // effective API operation set (objectstack#3391). Custom action ids pass through
   // untouched — they route through the action runner with their own gates.
   // [#4096] ∧ the CURRENT PRINCIPAL's `allowDelete` — the three layers above
   // all describe the OBJECT, so without this the most destructive entry on a
@@ -1733,7 +1733,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    *
    * The gate is `permittedBulkActions`' verbatim, with the operation moved from
    * `delete` to `update`: the object's resolved affordance — ADR-0103 bucket ∧
-   * `userActions.edit` ∧ the server's effective API operations (#3391) — AND
+   * `userActions.edit` ∧ the server's effective API operations (objectstack#3391) — AND
    * the CURRENT PRINCIPAL's grant (#4096). The first half is spelled
    * `isObjectInlineEditable`, which IS
    * `resolveEffectiveCrudAffordances(...).edit` under the name that says what

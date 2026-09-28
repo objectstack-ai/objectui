@@ -35,6 +35,7 @@ import {
 } from './SchemaForm.js';
 import { getMetadataPreview } from './preview-registry.js';
 import { useMetadataClient, useMetadataTypes } from './useMetadata.js';
+import type { FormViewSpec } from './form-spec.js';
 import { useMetadataLocale, t, tFormat, translateValidationMessage } from './i18n.js';
 import { errorCodeIsAnyOf } from '@object-ui/types';
 
@@ -73,7 +74,7 @@ export function EmbeddedItemEditor({
   // than promised, by `EmbeddedItemEditor.indexFallback.test.tsx`.
   const fallback = !subEntry?.schema && editAs ? FALLBACK_SCHEMAS[editAs] : undefined;
   const schema = (subEntry?.schema as Record<string, unknown> | undefined) ?? fallback?.schema;
-  const form = (subEntry?.form as any) ?? fallback?.form;
+  const form = subEntry?.form ?? fallback?.form;
   // Opt-in per sub-type, exactly like the Preview tab on the full page: a type
   // with no registered renderer gets no surface at all (never a "preview not
   // available" placeholder).
@@ -336,7 +337,7 @@ function spliceEmbedded(
  */
 export const FALLBACK_SCHEMAS: Record<
   string,
-  { schema: Record<string, unknown>; form?: Record<string, unknown> }
+  { schema: Record<string, unknown>; form?: FormViewSpec }
 > = {
   index: {
     schema: {

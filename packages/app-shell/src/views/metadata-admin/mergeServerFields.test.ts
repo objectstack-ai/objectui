@@ -66,7 +66,10 @@ describe('mergeServerFields', () => {
     expect(sections).toHaveLength(2);
     const added = sections[1];
     expect(added.label).toBe('More fields');
-    const fieldNames = added.fields.map((f) => (typeof f === 'string' ? f : f.field));
+    // `fields` is optional on `FormSectionSpec` since objectui#8725. The merge
+    // always appends an enumerated section, so `!` throws if it ever stops doing
+    // so; `?? []` would instead make every `not.toContain` leg below vacuous.
+    const fieldNames = added.fields!.map((f) => (typeof f === 'string' ? f : f.field));
     expect(fieldNames).toEqual(['dataset', 'rows', 'values', 'runtimeFilter']);
   });
 
@@ -79,7 +82,7 @@ describe('mergeServerFields', () => {
       sectionTitle: 'More fields',
     });
     const added = form!.sections![1];
-    const fieldNames = added.fields.map((f) => (typeof f === 'string' ? f : f.field));
+    const fieldNames = added.fields!.map((f) => (typeof f === 'string' ? f : f.field));
     expect(fieldNames).not.toContain('objectName');
     expect(fieldNames).not.toContain('columns');
     // bundled props/sections are untouched (additive only)
@@ -125,7 +128,7 @@ describe('mergeServerFields', () => {
       sectionTitle: 'More fields',
     });
     const added = form!.sections![1];
-    const fieldNames = added.fields.map((f) => (typeof f === 'string' ? f : f.field));
+    const fieldNames = added.fields!.map((f) => (typeof f === 'string' ? f : f.field));
     expect(fieldNames).not.toContain('dataset');
     expect(fieldNames).toEqual(['rows', 'values', 'runtimeFilter']);
     expect(schema!.properties.dataset).toEqual(caughtUp.properties.dataset);
@@ -157,7 +160,7 @@ describe('mergeServerFields', () => {
       sectionTitle: 'More fields',
     });
     const added = form!.sections![1];
-    const fieldNames = added.fields.map((f) => (typeof f === 'string' ? f : f.field));
+    const fieldNames = added.fields!.map((f) => (typeof f === 'string' ? f : f.field));
     expect(fieldNames).not.toContain('dataset');
   });
 });

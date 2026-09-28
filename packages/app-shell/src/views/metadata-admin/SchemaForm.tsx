@@ -56,6 +56,7 @@ import {
   CollapsibleContent,
 } from '@object-ui/components';
 import { usePredicateScope } from '@object-ui/react';
+import { resolveSectionGroupReferences } from '@object-ui/plugin-form';
 import { evaluatePredicate, buildPredicateCtx, visibleOptions } from './predicate.js';
 import type { FormFieldSpec, FormSectionSpec, FormViewSpec, VisibilityPredicate } from './form-spec.js';
 import {
@@ -1060,8 +1061,13 @@ function SchemaFormBody({
   // total mismatch and fall through to the flat schema-driven
   // rendering so the user still gets a usable form.
   if (form?.sections?.length) {
+    // Every read below — this pre-flight included, which is the one that threw
+    // first — sees RESOLVED sections: a `{ group }` section has been through
+    // `resolveSectionGroupReferences` and a section declaring neither member
+    // source has been refused (objectui#8725).
+    const sections = resolveFormSections(form);
     const declaredFields: string[] = [];
-    for (const s of form.sections) {
+    for (const s of sections) {
       for (const f of s.fields) {
         declaredFields.push(typeof f === 'string' ? f : f.field);
       }
@@ -1071,7 +1077,8 @@ function SchemaFormBody({
     if (usable) {
       return (
         <SectionedSchemaForm
-          form={form}
+          sections={sections}
+          formType={form.type}
           props={props}
           idPath={idPath}
           required={required}
@@ -1265,8 +1272,81 @@ function normaliseField(f: string | FormFieldSpec): FormFieldSpec {
   return typeof f === 'string' ? { field: f } : f;
 }
 
+/**
+ * A form section whose members are known: `fields` is present. Every read of a
+ * section's `fields` in this module takes this type, never a raw
+ * {@link FormSectionSpec}, so a `{ group }` section cannot reach a read without
+ * first passing {@link resolveFormSections} (objectui#8725).
+ */
+type ResolvedFormSection = FormSectionSpec & { fields: Array<string | FormFieldSpec> };
+
+function declaresMembers(s: FormSectionSpec): s is ResolvedFormSection {
+  return Array.isArray(s.fields);
+}
+
+/**
+ * Resolve a form's sections into ones with a member list (objectui#8725).
+ *
+ * `@objectstack/spec` lets a section declare its members one of two ways:
+ * enumerate `fields`, or point `group` at a declared field group. A `{ group }`
+ * section reaches this renderer on the `/meta/types` server document, which is
+ * not validated on the way in, and before this function the first read of
+ * `s.fields` threw `TypeError: s.fields is not iterable` out of the component
+ * body, taking every well-formed sibling section with it.
+ *
+ * ⛔ No assembly rule is decided here. A `{ group }` section is resolved by
+ * `@object-ui/plugin-form`'s `resolveSectionGroupReferences`, the one resolver
+ * `ObjectForm` and `apps/console`'s `FormPage` already use, so this renderer
+ * gives the same answer they give, including for a group that names no
+ * declared field group: the section resolves EMPTY and the resolver reports the
+ * dangling key on `console.error`.
+ *
+ * `objectDef` is `null` and `resolvable` is `false`, and that is a measurement,
+ * not a default. A group resolves against the BOUND OBJECT's `fieldGroups`, and
+ * nothing this component renders has one: its forms are metadata-type editors
+ * (`data: { provider: 'schema', schemaId }`), the `/meta/types` entry carries a
+ * `schema` and a `form` but no field groups, and no host hands this component an
+ * object definition. `resolvable: false` is the resolver's own flag for "this
+ * form can never load an object definition", so a `{ group }` section is
+ * reported as unresolvable instead of being left to look like a load in flight.
+ * If a host ever does hold a real object definition, it is passed here.
+ *
+ * ⛔ Not `?? []`. A section that declares NEITHER `fields` nor `group` is
+ * refused by `FormSectionSchema` at parse ("A section must declare its members
+ * exactly one way"), and the resolver leaves it untouched because it is not a
+ * group reference. It is refused here too, out loud: rendering it as an empty
+ * section would turn a malformed document into a silent drop.
+ */
+function resolveFormSections(form: FormViewSpec): ResolvedFormSection[] {
+  const data = form.data;
+  const schemaId = data && 'schemaId' in data ? data.schemaId : undefined;
+  const resolved = (resolveSectionGroupReferences(
+    // Two packages describing ONE authored document, exactly as in `FormPage`:
+    // `FormSectionSpec` is this package's authoring type and `ObjectFormSection`
+    // the plugin's. The parameter type is taken FROM the published signature,
+    // so a change to it lands here as a compile error.
+    form.sections as unknown as Parameters<typeof resolveSectionGroupReferences>[0],
+    {
+      objectName: schemaId ?? '',
+      formType: form.type,
+      objectDef: null,
+      resolvable: false,
+    },
+  ) ?? []) as unknown as FormSectionSpec[];
+  return resolved.map((s, index) => {
+    if (declaresMembers(s)) return s;
+    throw new TypeError(
+      `[SchemaForm] form section ${index}${s.label ? ` ("${s.label}")` : ''} declares neither ` +
+        '`fields` nor `group`. A section must declare its members exactly one way, and ' +
+        "`@objectstack/spec`'s FormSectionSchema refuses this shape at parse: enumerate " +
+        '`fields`, or point `group` at a declared field group.',
+    );
+  });
+}
+
 function SectionedSchemaForm({
-  form,
+  sections: resolvedSections,
+  formType,
   props,
   required,
   hiddenFields,
@@ -1278,7 +1358,9 @@ function SectionedSchemaForm({
   idPath,
   onChange,
 }: {
-  form: FormViewSpec;
+  /** The form's sections, already through {@link resolveFormSections}. */
+  sections: ResolvedFormSection[];
+  formType: FormViewSpec['type'];
   props: Record<string, JsonSchema>;
   required: string[];
   hiddenFields: string[];
@@ -1297,15 +1379,15 @@ function SectionedSchemaForm({
   // returns below. `buildPredicateCtx` selects only the ADR-0068 identity roots
   // out of it and keeps `data` = the draft (objectui#6247).
   const hostScope = usePredicateScope();
-  const sections = (form.sections ?? []).filter((s) => {
+  const sections = resolvedSections.filter((s) => {
     const visibility = readVisibility(s);
     return !visibility || evaluatePredicate(visibility, buildPredicateCtx(value, hostScope));
   });
 
   // Decide whether to render as tabs or stacked sections.
-  const isTabbed = form.type === 'tabbed' && sections.length > 1;
+  const isTabbed = formType === 'tabbed' && sections.length > 1;
 
-  const renderSection = (s: FormSectionSpec, idx: number) => {
+  const renderSection = (s: ResolvedFormSection, idx: number) => {
     const fields = s.fields
       .map(normaliseField)
       .filter((f) => {

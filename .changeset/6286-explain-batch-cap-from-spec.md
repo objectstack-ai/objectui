@@ -17,8 +17,9 @@ cap and the spec follows, the client follows too, instead of paginating at the o
 with no signal anywhere. The cap's whole point is that an over-cap request is refused with
 `400 VALIDATION_FAILED` rather than truncated, so a client that silently disagrees with it
 is exactly the drift `scripts/check-spec-symbol-derivation.mjs` argues about — and could
-not catch here, because both of its scanners skip non-exported declarations and this const
-was module-local (objectui#5899).
+not catch here: when this change landed, both of its scanners skipped non-exported
+declarations, and this const was module-local (objectui#5899). objectui#6291 has since
+removed that filter from both scanners.
 
 The declared floor already carries the symbol, so no range moves: `@objectstack/spec@17.0.0`
 — the minimum `^17.0.0` admits — exports `EXPLAIN_BATCH_MAX_RECORD_IDS = 200` from

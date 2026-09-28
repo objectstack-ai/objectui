@@ -306,11 +306,22 @@ describe('the retired population is measured off the shipped tree (objectui#7340
     // interface. The array that held the type, the app node's `actions`, is
     // itself a named refusal (`./app-actions-retired-7469.test.ts`), so an
     // authored action with an `onClick` is refused before any member is read.
+    //
+    // ⭐ 26 → 31, and `ai.ts` enters this census for the first time:
+    // objectui#10874 retired the five `on*` members of the three
+    // `@object-ui/plugin-ai` declarations on the TypeScript face. They were
+    // `string` — the objectui#6182 dialect #7344's census could not see, because
+    // `ai.ts` had no mirror until objectui#10859 — so this reader counted them
+    // LIVE until now; the zod arms already refused all five by name. Three of
+    // them (`onSelect`, `onDismiss`, `onSubmit`) are still CALLED by their
+    // components, as React props of the component: the triage ruling on
+    // objectui#10874 keeps the callback there, not on the document.
     const split: Record<string, number> = {};
     for (const m of RETIRED) split[m.file] = (split[m.file] ?? 0) + 1;
     expect({ total: RETIRED.length, split }).toEqual({
-      total: 26,
+      total: 31,
       split: {
+        'ai.ts': 5,
         'complex.ts': 2,
         'crud.ts': 3,
         'data-display.ts': 4,
@@ -339,6 +350,8 @@ describe('the retired population is measured off the shipped tree (objectui#7340
     // to classify. They are not "live again": the document that could have
     // carried them is refused at its `type`.
     expect(UNAMBIGUOUSLY_RETIRED_NAMES).toEqual([
+      // objectui#10874 — declared on `AIFormAssistSchema` alone, read by nothing.
+      'onApplySuggestion',
       // objectui#9342 — no shipped interface declares an `onCardMove` callable
       // any more. `KanbanRendererProps.onCardMove` is a React prop on
       // `@object-ui/plugin-kanban`, not a member of a `@object-ui/types`
@@ -347,13 +360,25 @@ describe('the retired population is measured off the shipped tree (objectui#7340
       'onClose',
       'onCollapsedChange',
       'onConfirm',
+      // objectui#10874 — `AIRecommendationsSchema.onDismiss` was the one LIVE
+      // (`string`) declaration of this name; the callable is
+      // `AIRecommendationsProps.onDismiss`, a React prop on
+      // `@object-ui/plugin-ai`, outside this census's population — the
+      // `onCardMove` shape above.
+      'onDismiss',
       'onExpandChange',
       // objectui#7068: the legacy `ActionSchema.onFailure` callback object — no
       // shipped interface declares an `onFailure` at all any more. `onSuccess`
       // is NOT here: `UIActionSchema.onSuccess` is LIVE (the spec's navigation
       // block), so that name stays ambiguous and is resolved by the pair rule.
       'onFailure',
+      // objectui#10874 — declared on `AIFormAssistSchema` alone, read by nothing.
+      'onRejectSuggestion',
       'onSave',
+      // objectui#10874 — as `onDismiss` above: the callable is
+      // `AIRecommendationsProps.onSelect`. `onSubmit` is NOT here: it is still
+      // declared callable elsewhere, so that name is resolved by the pair rule.
+      'onSelect',
       'onSelectChange',
       'onSendMessage',
       'onSlideChange',

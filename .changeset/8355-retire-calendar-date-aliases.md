@@ -84,6 +84,20 @@ to `SchemaRenderer` never parses the mirror at all — `SchemaRenderer` runs the
 structural core validator, which is dev-only and names no key — so the compiler
 is that population's channel, not this one.
 
+⚠️ **Dated note, 2026-09-28 — a named view's `options.calendar` nesting is no longer
+judged inside — objectui#7928.** Later in this same release `ObjectViewSchema.listViews`
+became the protocol's strict `ObjectListViewSchema` record, by reference, and that
+record refuses a named view's `options` bag whole (`unrecognized_keys` at
+`listViews.KEY`, naming `options`). So an alias written under
+`listViews.KEY.options.calendar` no longer draws an issue naming the key or the remedy.
+The named view's `calendar` block still does: the protocol refuses the alias there as an
+unrecognized key, and this entry's check adds the pointer at the key beside it. A stored
+body that `@object-ui/app-shell`'s `ViewPreview` relays has its `options.calendar` folded
+onto the `calendar` block first (`foldStoredListOptions`). The list view's two nestings
+and both `object-calendar` surfaces are unchanged; `calendar-date-alias-refusal-8355.test.ts`
+in `@object-ui/types` re-derives each surface. `.changeset/7928-listviews-by-reference-fold.md`
+(PR objectui#10821) states what ships; the text above is kept as the reading of this change.
+
 ⚠️ **Why this is `minor` and not `major`.** This repository forbids `major` in a
 changeset: the fixed release group's major tracks `@objectstack`'s, so any
 `major` here would push all of it off that cadence
@@ -136,6 +150,19 @@ undeclared key nor the legacy `options` bag. It judges exactly the two spellings
 this entry retires, at the two nestings the producer merges — with pins on each
 of those non-effects.
 
+⚠️ **Dated note, 2026-09-28 — `listViews` has since been mirrored — objectui#7928.** Later
+in this same release the maintainer's ruling A chose the value type this paragraph waits
+on: `ObjectViewSchema.listViews` is now `@objectstack/spec`'s own
+`ViewSchema.shape.listViews`, a record of the strict `ObjectListViewSchema`, by reference
+on both faces. It is in the object's `shape`, a named view needs `columns`, and the
+record refuses an undeclared key and the legacy `options` bag whole. The named-view check
+described here and in the `@object-ui/types` bullet above now reads the protocol's own
+refusal at `listViews.KEY.calendar` and adds the pointer at the key; it no longer walks
+the `options.calendar` nesting, so "a named view's two nestings" and "at the two nestings
+the producer merges" now hold for the `calendar` block only.
+`.changeset/7928-listviews-by-reference-fold.md` (PR objectui#10821) states what ships;
+the text above is kept as the reading of this change.
+
 ⛔ **Not a producer-side fold.** Normalising `dateField` to `startDateField` in
 `ListView` (option A) was put to the director seat and refused as the end state:
 it keeps a second spelling alive at the producer, which is the lenient alias
@@ -184,3 +211,12 @@ structural guard that `listViews` stays out of the object's `shape`),
 reading the node their producer really emits through a spy registration, which is
 the only census that can see a key arriving through a spread — and the inverted
 ledger rows in `calendarUnionReads-8651.test.tsx` (`@object-ui/plugin-calendar`).
+
+⚠️ **Dated note, 2026-09-28 — a named view now refuses `timeline.dateField`, and the
+shape guard is inverted — objectui#7928.** Later in this same release the protocol's
+strict named-view record refuses `timeline.dateField` on a named view as an unrecognized
+key; the `list-view` route still accepts it, and that route is the one the timeline pin
+reads. The structural guard in `calendar-date-alias-refusal-8355.test.ts` now asserts
+the opposite of "`listViews` stays out of the object's shape": `listViews` is a member
+of `ObjectViewSchema.shape`. `.changeset/7928-listviews-by-reference-fold.md` (PR
+objectui#10821) states what ships; the text above is kept as the reading of this change.

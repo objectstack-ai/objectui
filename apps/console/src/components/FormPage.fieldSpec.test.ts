@@ -64,7 +64,9 @@ type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ?
  */
 type ConsoleFormViewSpec = Parameters<typeof buildSections>[0];
 type ConsoleSectionSpec = NonNullable<ConsoleFormViewSpec['sections']>[number];
-type ConsoleFieldSpec = Exclude<ConsoleSectionSpec['fields'][number], string>;
+// `fields` is OPTIONAL on the section since objectui#8725 (a `{ group }` section
+// carries none), so the element type is read through `NonNullable`.
+type ConsoleFieldSpec = Exclude<NonNullable<ConsoleSectionSpec['fields']>[number], string>;
 
 /**
  * These never run. They are the half of this card a runtime test cannot express

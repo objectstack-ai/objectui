@@ -403,6 +403,12 @@ export function createAuthClient(config: AuthClientConfig): AuthClient {
         email: signUpData.email,
         password: signUpData.password,
         name: signUpData.name,
+        // objectui#10893 — the verification mail's link lands here. Without
+        // it better-auth writes `callbackURL=/`, and an invitee who registers
+        // from an invitation link is dropped on the workspace picker instead
+        // of the invitation. Only sent when the caller has somewhere to go,
+        // so the server default is untouched otherwise.
+        ...(signUpData.callbackURL ? { callbackURL: signUpData.callbackURL } : {}),
       });
       if (error) {
         throw toAuthError(error);

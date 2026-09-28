@@ -137,6 +137,26 @@ declare const navigate: (to: string) => void;
 <ForgotPasswordForm onSuccess={() => navigate('/check-email')} />;
 ```
 
+When the server requires email verification, a registration ends in the user's
+inbox, and the verification link is the only way back. `verificationCallbackURL`
+says where that link lands, e.g. the invitation the user signed up from. It is
+sent as better-auth's sign-up `callbackURL` (the same value as the fourth
+argument of `useAuth().signUp`). The server accepts only a root-relative path
+or an absolute URL on a trusted origin, and refuses a document-relative `./…`
+with `INVALID_CALLBACK_URL`, which fails the sign-up. Resolve an SPA route
+against its mount first. Omitted, the server default (`/`) applies.
+
+```tsx
+import { RegisterForm } from '@object-ui/auth';
+
+declare const navigate: (to: string) => void;
+
+<RegisterForm
+  verificationCallbackURL="/_console/accept-invitation/inv_123"
+  onVerificationRequired={(email) => navigate(`/verify-email-prompt?email=${encodeURIComponent(email)}`)}
+/>;
+```
+
 ### UserMenu
 
 Displays current user info with avatar and sign-out:

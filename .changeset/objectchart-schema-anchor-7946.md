@@ -37,6 +37,18 @@ internal spellings by name). The internal pair is declared anyway, because it wa
 already passing through unvalidated: declaring buys the value check without
 minting authorable vocabulary, and each description says which it is.
 
+⚠️ **Dated note, 2026-09-28 — `series` has since gained an AUTHOR arm — objectui#10770.**
+Later in this same release each `ObjectChartSchema.series` entry became ONE of two arms,
+on both faces: the spec's `ChartSeriesSchema` (TS: `ChartSeries`), by reference, which is
+AUTHORABLE (the react tier's `ObjectChart` block publishes it as its `series` prop, and the
+react-page wrapper forwards the authored array onto the node), or the unchanged INTERNAL
+`{ dataKey }` arm, still typed from `ChartRendererProps`. So "two are INTERNAL,
+relay-composed (`xAxisKey`, `series` …)" now holds for `xAxisKey` and for the
+`{ dataKey }` arm only, and "except where `@objectstack/spec` already owns the shape,
+which is `aggregate`" now takes in the `{ name }` arm of `series` too. The `series`
+description names both arms. `.changeset/10770-object-chart-react-tier-node.md` (PR
+objectui#10802) states what ships; the text above is kept as the reading of this change.
+
 `filter` keeps BOTH arms (a `FilterArray` or the ObjectQL `$filter` object), and
 narrowing to one is a decision LOCAL TO THIS NODE rather than a fleet-wide one:
 the six sibling `object-*` widgets that declare `filter` are already array-only,
@@ -76,6 +88,19 @@ change had to absorb:
   `{ dataKey, … }`; the spec's author-facing `{ name, … }` arm is a different
   shape, translated by `normalizeChartSchema` one layer down.
 
+⚠️ **Dated note, 2026-09-28 — a `{ name }`-shaped `series` entry is now accepted —
+objectui#10770.** Later in this same release `ObjectChartSchema.series` took the spec's
+`ChartSeriesSchema` (TS: `ChartSeries`), by reference, as a second arm beside the
+`{ dataKey }` one, on both faces. So "`series` entries must be `dataKey`-shaped" no
+longer holds, and that narrowing no longer bites:
+`series: [{ name: 'total', label: 'Invoice value' }]` compiles and parses. An entry with
+neither `name` nor `dataKey` is still refused, and `normalizeChartSchema` is still the one
+translation between the arms.
+What bites instead is reading: an element of `ObjectChartSchema['series']` is a union, so
+a consumer narrows it (for example with `'dataKey' in entry`) before it reads `.dataKey`.
+`.changeset/10770-object-chart-react-tier-node.md` (PR objectui#10802) states what ships;
+the text above is kept as the reading of this change.
+
 And, from the by-reference `aggregate`:
 
 - **`aggregate.function` and `aggregate.groupBy` are REQUIRED**, `aggregate.field`
@@ -96,3 +121,13 @@ WRITE, not about what the renderer will tolerate.
 `BaseSchema` carries `[key: string]: any` (objectui#5155), the same ceiling
 objectui#6576 accepted. `aggregate` is the exception, and only because the spec's
 own object is strict.
+
+⚠️ **Dated note, 2026-09-28 — `aggregate` is no longer the only strict member —
+objectui#10770.** Later in this same release a `series` entry on the `{ name }` arm became
+the spec's closed `ChartSeriesSchema`, by reference, so on the zod face a misspelled key
+in one is refused, while one in a `{ dataKey }` entry is still stripped. So "`aggregate`
+is the exception" no longer holds alone. Other changes in this release did the same for
+`drillDown` (objectui#8885) and for `xAxis` / `yAxis` (objectui#10518), each a strict spec
+object by reference. A misspelled key on the node itself still passes, as above.
+`.changeset/10770-object-chart-react-tier-node.md` (PR objectui#10802) states what ships;
+the text above is kept as the reading of this change.

@@ -197,7 +197,7 @@ is a compile error rather than a silent no-op:
 | `autoFill` | `AIFormAssistSchema` | apply the suggestions you want from `onApply` |
 | `maxResults` | `AIRecommendationsSchema` | slice `recommendations` before handing it over — **every item is rendered** |
 
-Four more members went the same way (objectui#10874). `config` and `context`
+Four more keys went the same way (objectui#10874), on seven member slots. `config` and `context`
 were read by nothing: none of these components calls a model, so neither
 configured anything. `onApplySuggestion` and `onRejectSuggestion` were typed
 `string` and read by nothing either. All four are now refused by the schema

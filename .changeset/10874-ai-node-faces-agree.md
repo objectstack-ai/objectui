@@ -4,7 +4,7 @@
 
 **BREAKING (authoring)** — the three `@object-ui/plugin-ai` node declarations stop offering members that no runtime honours, and type the handler slots their components call (objectui#10874, ADR-0049, the objectui#6124 per-key rule).
 
-**Clause-②: yes** — authorable members of published `@object-ui/types` declarations narrow. Two members become callable: `string` to a function type. Four members become `never` on both faces. Two more become `never` on the TypeScript face, and the zod face already refused them. Scored `minor`, not `major`: this repository scores its own breaking changes `minor` and spells the breaking semantics out in the body (`check:changeset-no-major`).
+**Clause-②: yes** — authorable members of published `@object-ui/types` declarations narrow. Three members become callable: `string` to a function type (`onSelect`, `onDismiss`, `onSubmit`). `config` and `context` become `never` on both faces, five members across the three declarations. `onApplySuggestion` and `onRejectSuggestion` become `never` on the TypeScript face, and the zod face already refused them. Scored `minor`, not `major`: this repository scores its own breaking changes `minor` and spells the breaking semantics out in the body (`check:changeset-no-major`).
 
 **What changes, on which face.**
 
@@ -47,6 +47,6 @@ const picks: AIRecommendationsSchema = {
 };
 ```
 
-**What does not change.** The renderers are untouched, so a stored document renders exactly as it did: `config` and `context` were ignored and still are, and a function reaching `onSelect`, `onDismiss` or `onSubmit` is still called. What moves is the verdict. `tsc` refuses the four retired members and a string on the three slots. The validator refuses `config` and `context` by name, where the arms objectui#10859 added in this same release accepted them. The exported `AIConfig` type and `AIConfigSchema` stay; no node member takes them any more.
+**What does not change.** The renderers are untouched, so a stored document renders exactly as it did: `config` and `context` were ignored and still are, and a function reaching `onSelect`, `onDismiss` or `onSubmit` is still called. What moves is the verdict. `tsc` refuses the four retired keys, on all seven member slots that carried them, and a string on the three slots. The validator refuses `config` and `context` by name, where the arms objectui#10859 added in this same release accepted them. The exported `AIConfig` type and `AIConfigSchema` stay; no node member takes them any more.
 
 ⚠️ **The census behind "read by nothing" is the in-repo half.** Every package, app, example, doc and skill in this repository was searched: none reads `config` or `context` off an AI node, and none authors a changed member. Customer applications and published documents outside it were not enumerated. A TypeScript consumer that authored one of these keys gets a compile error naming it.

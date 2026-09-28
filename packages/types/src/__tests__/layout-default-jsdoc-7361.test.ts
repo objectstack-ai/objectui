@@ -324,7 +324,7 @@ describe('layout.ts `@default` docs agree with the renderer, re-measured (object
     it('names the read site and the rule it belongs to', () => {
       const doc = docblockFor(interfaceBody(types, 'TextSchema'), 'variant');
       expect(doc).toContain('text.tsx');
-      expect(doc).toContain('6942');
+      expect(doc).toContain('57f9b077b');
     });
 
     /**

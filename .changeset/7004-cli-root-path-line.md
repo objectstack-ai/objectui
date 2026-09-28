@@ -2,8 +2,7 @@
 '@object-ui/cli': patch
 ---
 
-`objectui validate` now says when a validation issue sits at the document root
-(the mechanical half).
+`objectui validate` now says when a validation issue sits at the document root.
 
 The printer guarded its Path line with `issue.path.length > 0`, so an issue at
 `path: []` printed no Path line at all — silent in exactly the case a reader

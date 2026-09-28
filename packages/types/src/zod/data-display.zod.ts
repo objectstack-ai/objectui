@@ -506,8 +506,9 @@ export const DataTableSchema = BaseSchema.extend({
  * and the key retired. `components` was a `Record<string, any>` of React
  * overrides nothing read — not a JSON-authorable value, and no host path
  * consumes such a map either, so there is no runtime slot to keep. Both
- * refuse BY NAME through `retirementTombstone()` (`8063bcbdc`), with the
- * remedy in the message, rather than parsing green and doing nothing. The TS
+ * refuse BY NAME through `retirementTombstone()`, the spelling `8063bcbdc`
+ * made uniform, with the remedy in the message, rather than parsing green and
+ * doing nothing. The TS
  * twins are `?: never` in `../data-display.ts`; both published faces carry the
  * refusal (`@object-ui/types`, and `@object-ui/plugin-markdown`'s re-export of
  * the same authority — objectui#6172).

@@ -26,16 +26,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ObjectMapSchema } from '@object-ui/types';
 import { ObjectMap } from './ObjectMap';
 
+type Slot = { children?: React.ReactNode };
+
 vi.mock('react-map-gl/maplibre', () => ({
-  default: (props: any) => <div aria-label="Map">{props.children}</div>,
-  Map: ({ children }: any) => <div aria-label="Map">{children}</div>,
+  default: ({ children }: Slot) => <div aria-label="Map">{children}</div>,
+  Map: ({ children }: Slot) => <div aria-label="Map">{children}</div>,
   NavigationControl: () => <div data-testid="nav-control" />,
-  Marker: ({ children, longitude, latitude }: any) => (
+  Marker: ({ children, longitude, latitude }: Slot & { longitude: number; latitude: number }) => (
     <div data-testid="map-marker" data-lat={latitude} data-lng={longitude}>
       {children}
     </div>
   ),
-  Popup: ({ children }: any) => <div data-testid="map-popup">{children}</div>,
+  Popup: ({ children }: Slot) => <div data-testid="map-popup">{children}</div>,
 }));
 
 /** The card's own typo: `latitudeFieId`, capital i where the l belongs. */

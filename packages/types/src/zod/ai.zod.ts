@@ -24,7 +24,7 @@
  * declarations member for member; `AIComponentSchema` is the category union
  * `AnyComponentSchema` lists.
  *
- * ## The `on*` members: a named refusal, on both faces
+ * ## The `on*` members: a named refusal here, per key on the TypeScript face
  *
  * The five `on*` members were declared `string` on the TypeScript face — the
  * handler-expression string dialect that objectui#6182 (maintainer ruling,
@@ -41,12 +41,15 @@
  *     `AIFormAssist` takes `onApply` / `onRefresh`, not these — so they are
  *     RETIRED.
  *
- * When objectui#10859 wrote these arms the TypeScript twins still read `string`,
- * and the divergence was pinned. objectui#10874 closed it from the TypeScript
- * side: all five are `?: never` there now (for the three runtime slots by that
- * card's triage ruling — the callback is a React prop of the component, not a
- * member of the document), so both faces refuse every one. The agreement is
- * pinned in `../__tests__/ai-zod-arms-10859.test.ts` and
+ * When objectui#10859 wrote these arms every TypeScript twin still read
+ * `string`, the dialect this face refuses. objectui#10874 settled that face per
+ * key, by the objectui#6124 rule: the three RUNTIME SLOTS now declare the
+ * callable their component invokes (`onSelect` / `onDismiss` take an
+ * `AIRecommendationItem`, `onSubmit` the query string) — the objectui#6124
+ * shape, a named refusal on this JSON face and a callable twin on the
+ * TypeScript one — and the two RETIRED keys are `?: never` there, so both
+ * faces refuse those two. Both halves are pinned in
+ * `../__tests__/ai-zod-arms-10859.test.ts` and
  * `../__tests__/ai-node-faces-agree-10874.test.ts`.
  *
  * ## `config` / `context`: retired on both faces (objectui#10874)
@@ -54,7 +57,8 @@
  * Nothing in `@object-ui/plugin-ai` read either member: the three components
  * are presentation only and call no model. Both are `retirementTombstone`s here
  * and `?: never` on the TypeScript face, and the refusal says what to do
- * instead — configure AI on the provider the host calls.
+ * instead — configure the model in the host's own AI service (ObjectUI has no
+ * AI-provider API) and hand its output to the node.
  *
  * ⛔ No `.default()` anywhere in this module — see the "authors no default"
  * note in `index.zod.ts`.
@@ -151,12 +155,13 @@ export const AIFormAssistSchema = BaseSchema.extend({
   context: retiredAiInput(
     'ai-form-assist',
     'context',
-    'pass the context to the provider when your host asks it for suggestions.',
+    'pass the context to your host\'s own AI service when you ask it for suggestions.',
   ),
   config: retiredAiInput(
     'ai-form-assist',
     'config',
-    'configure AI on the provider your host calls to produce `suggestions`, and hand its output to the node.',
+    'configure the model in your host\'s own AI service (ObjectUI has no AI-provider API; these components '
+    + 'call no model), and hand its output to the node as `suggestions`.',
   ),
   suggestions: z.array(AIFieldSuggestionSchema).optional().describe('Current suggestions'),
   autoFill: retiredAiMember(
@@ -204,12 +209,13 @@ export const AIRecommendationsSchema = BaseSchema.extend({
   context: retiredAiInput(
     'ai-recommendations',
     'context',
-    'pass the context to the provider when your host asks it for recommendations.',
+    'pass the context to your host\'s own AI service when you ask it for recommendations.',
   ),
   config: retiredAiInput(
     'ai-recommendations',
     'config',
-    'configure AI on the provider your host calls to produce `recommendations`, and hand its output to the node.',
+    'configure the model in your host\'s own AI service (ObjectUI has no AI-provider API; these components '
+    + 'call no model), and hand its output to the node as `recommendations`.',
   ),
   recommendations: z.array(AIRecommendationItemSchema).optional().describe('Current recommendations'),
   maxResults: retiredAiMember(
@@ -268,7 +274,8 @@ export const NLQuerySchema = BaseSchema.extend({
   config: retiredAiInput(
     'nl-query',
     'config',
-    'configure AI on the provider that answers the query, and hand its answer to the node as `result`.',
+    'configure the model in your host\'s own AI service (ObjectUI has no AI-provider API; these components '
+    + 'call no model), and hand its answer to the node as `result`.',
   ),
   result: NLQueryResultSchema.optional().describe('Current query result'),
   suggestions: z.array(z.string()).optional().describe('Example queries to suggest'),

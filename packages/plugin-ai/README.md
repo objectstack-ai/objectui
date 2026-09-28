@@ -197,21 +197,26 @@ is a compile error rather than a silent no-op:
 | `autoFill` | `AIFormAssistSchema` | apply the suggestions you want from `onApply` |
 | `maxResults` | `AIRecommendationsSchema` | slice `recommendations` before handing it over — **every item is rendered** |
 
-Seven more members went the same way (objectui#10874). `config` and `context`
+Four more members went the same way (objectui#10874). `config` and `context`
 were read by nothing: none of these components calls a model, so neither
-configured anything. The five `on*` members were typed `string`, the
-handler-expression dialect objectui#6182 withdrew: a string there ran nothing,
-and the callbacks the components do call are component props. All seven are now
-refused by the schema types and by the validator alike:
+configured anything. `onApplySuggestion` and `onRejectSuggestion` were typed
+`string` and read by nothing either. All four are now refused by the schema
+types and by the validator alike:
 
 | Key | Was on | Instead |
 |---|---|---|
-| `config` | all three schemas | configure AI on the provider your host calls, and hand its output to the node |
-| `context` | `AIFormAssistSchema`, `AIRecommendationsSchema` | pass it to that provider when you ask it for suggestions or recommendations |
+| `config` | all three schemas | configure the model in your host's own AI service (ObjectUI has no AI-provider API; these components call no model), and hand its output to the node as `suggestions`, `recommendations` or `result` |
+| `context` | `AIFormAssistSchema`, `AIRecommendationsSchema` | pass it to your host's own AI service when you ask it for suggestions or recommendations |
 | `onApplySuggestion` | `AIFormAssistSchema` | the `onApply` component prop |
 | `onRejectSuggestion` | `AIFormAssistSchema` | delete it — the component has no reject callback |
-| `onSelect`, `onDismiss` | `AIRecommendationsSchema` | the `onSelect` / `onDismiss` component props |
-| `onSubmit` | `NLQuerySchema` | the `onSubmit` component prop |
+
+`onSelect` and `onDismiss` (`AIRecommendationsSchema`) and `onSubmit`
+(`NLQuerySchema`) were typed `string` too, but the components DO call them:
+a string there was called as a function and threw at click. They are now typed
+as the callbacks the components invoke — `(item) => void` and
+`(query) => void` — so pass a function, either as the component prop of the same
+name or on a node you build in TypeScript. The validator still refuses them in
+a JSON document, because JSON has no function value.
 
 ## Links
 

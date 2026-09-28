@@ -30,14 +30,16 @@
  * ## What the parity half asserts
  *
  * For every member the TypeScript declaration declares, the arm's INPUT type
- * for that member is invariantly equal to the declaration's — with no exception
- * since objectui#10874. When this file was written there was one per arm, the
- * `on*` handler members: the TypeScript face declared them `string`, the
- * handler-expression string dialect objectui#6182 withdrew on EITHER face,
- * while the zod face followed that ruling with `handlerKeyRefusal` (see
- * `../zod/ai.zod.ts`). That divergence was pinned both ways so that a repair of
- * the TypeScript face would redden this file; objectui#10874 made that repair
- * (`?: never` on all five) and turned the pin into the agreement below.
+ * for that member is invariantly equal to the declaration's — with exactly the
+ * objectui#6124 exception: a RUNTIME SLOT, whose TypeScript twin is the callable
+ * its component invokes while the zod face refuses an authored value by name.
+ * When this file was written every `on*` member was an exception of a different
+ * kind: the TypeScript face declared all five `string`, the handler-expression
+ * dialect objectui#6182 withdrew on EITHER face, and that divergence was pinned
+ * both ways so that a repair of the TypeScript face would redden this file.
+ * objectui#10874 made that repair per key — `?: never` for the two keys nothing
+ * reads, the callable for the three runtime slots — and the pins below record
+ * the settled shape.
  */
 
 import { readFileSync } from 'node:fs';
@@ -105,8 +107,8 @@ export type assertionKeySetsAgree = [
 
 /**
  * Every member's accepted type equals the declaration's — the four sub-schemas
- * and the three arms alike, with no exception (objectui#10874 removed the `on*`
- * one each arm carried).
+ * and the form-assist arm with no exception, the other two arms with exactly
+ * their objectui#6124 runtime slots excepted (objectui#10874).
  */
 export type assertionMemberTypesAgree = [
   Expect<Equal<MismatchedKeys<typeof AIConfigSchema, Ts_AIConfig>, never>>,
@@ -114,26 +116,28 @@ export type assertionMemberTypesAgree = [
   Expect<Equal<MismatchedKeys<typeof AIRecommendationItemSchema, Ts_AIRecommendationItem>, never>>,
   Expect<Equal<MismatchedKeys<typeof NLQueryResultSchema, Ts_NLQueryResult>, never>>,
   Expect<Equal<MismatchedKeys<typeof AIFormAssistSchema, Ts_AIFormAssistSchema>, never>>,
-  Expect<Equal<MismatchedKeys<typeof AIRecommendationsSchema, Ts_AIRecommendationsSchema>, never>>,
-  Expect<Equal<MismatchedKeys<typeof NLQuerySchema, Ts_NLQuerySchema>, never>>,
+  Expect<Equal<MismatchedKeys<typeof AIRecommendationsSchema, Ts_AIRecommendationsSchema>, 'onSelect' | 'onDismiss'>>,
+  Expect<Equal<MismatchedKeys<typeof NLQuerySchema, Ts_NLQuerySchema>, 'onSubmit'>>,
 ];
 
 /**
- * The handler members, both halves — AGREEING since objectui#10874. This was
- * `assertionHandlerDivergence`: the TypeScript face typed each `string` while
- * the zod face accepted nothing but absence, and the first half was written to
- * go red when the TypeScript face was repaired. objectui#10874 repaired it with
- * `?: never` on all five (for the three runtime slots by that card's triage
- * ruling: the callback is a component prop, not a node member), so both halves
- * now read `undefined`. Re-widening either face — a `string` or a function type
- * back on the TypeScript side, an accepting arm on the zod side — reddens a row.
+ * The handler members, both halves — SETTLED per key since objectui#10874. This
+ * was `assertionHandlerDivergence`: the TypeScript face typed each `string`
+ * while the zod face accepted nothing but absence, and the first half was
+ * written to go red when the TypeScript face was repaired. objectui#10874
+ * repaired it by the objectui#6124 rule: the two keys nothing reads are
+ * `?: never` (both faces refuse them), and the three RUNTIME SLOTS declare the
+ * callable their component invokes while the zod face keeps refusing an
+ * authored value. Re-widening either face — a `string` back on the TypeScript
+ * side, a tombstone on a slot a component calls, an accepting arm on the zod
+ * side — reddens a row.
  */
-export type assertionHandlerFacesAgree = [
+export type assertionHandlerFacesSettled = [
   Expect<Equal<Ts_AIFormAssistSchema['onApplySuggestion'], undefined>>,
   Expect<Equal<Ts_AIFormAssistSchema['onRejectSuggestion'], undefined>>,
-  Expect<Equal<Ts_AIRecommendationsSchema['onSelect'], undefined>>,
-  Expect<Equal<Ts_AIRecommendationsSchema['onDismiss'], undefined>>,
-  Expect<Equal<Ts_NLQuerySchema['onSubmit'], undefined>>,
+  Expect<Equal<Ts_AIRecommendationsSchema['onSelect'], ((item: Ts_AIRecommendationItem) => void) | undefined>>,
+  Expect<Equal<Ts_AIRecommendationsSchema['onDismiss'], ((item: Ts_AIRecommendationItem) => void) | undefined>>,
+  Expect<Equal<Ts_NLQuerySchema['onSubmit'], ((query: string) => void) | undefined>>,
   Expect<Equal<InputOf<ShapeOf<typeof AIFormAssistSchema>['onApplySuggestion']>, undefined>>,
   Expect<Equal<InputOf<ShapeOf<typeof AIFormAssistSchema>['onRejectSuggestion']>, undefined>>,
   Expect<Equal<InputOf<ShapeOf<typeof AIRecommendationsSchema>['onSelect']>, undefined>>,

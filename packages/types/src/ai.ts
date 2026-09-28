@@ -31,7 +31,8 @@ export type AIModelType = 'gpt-4' | 'gpt-3.5-turbo' | 'claude-3' | 'gemini-pro' 
  * ⚠️ No node member takes this type any more (objectui#10874): the `config`
  * members of {@link AIFormAssistSchema}, {@link AIRecommendationsSchema} and
  * {@link NLQuerySchema} are retirement tombstones, because none of the three
- * components calls a model — AI is configured on the provider the host calls.
+ * components calls a model — the model is configured in the host's own AI
+ * service (ObjectUI has no AI-provider API).
  * The type itself stays exported: objectui#10874 retired the members, not the
  * published type.
  */
@@ -154,8 +155,8 @@ export interface AIFormAssistSchema extends BaseSchema {
    * Nothing read `context` either: the component asks no model for anything, so
    * there was no request for this value to be context to.
    *
-   * **Instead:** pass the context to the provider when your host asks it for
-   * suggestions, and delete the key from the node.
+   * **Instead:** pass the context to your host's own AI service when you ask it
+   * for suggestions, and delete the key from the node.
    * @deprecated Not part of this contract — the value was inert.
    */
   context?: never;
@@ -169,8 +170,9 @@ export interface AIFormAssistSchema extends BaseSchema {
    * nothing on screen. The same holds for `AIRecommendations` and
    * `NLQueryInput`: all three are presentation only.
    *
-   * **Instead:** configure AI on the provider — the AI service your host calls
-   * to produce this node's `suggestions` — and hand its output to the node.
+   * **Instead:** configure the model in your host's own AI service (ObjectUI has
+   * no AI-provider API; these components call no model), and hand its output to
+   * the node as `suggestions`.
    *
    * A tombstone rather than a deletion on the grounds
    * {@link AIFormAssistSchema.formId} records: {@link BaseSchema} carries
@@ -360,8 +362,8 @@ export interface AIRecommendationsSchema extends BaseSchema {
    * and {@link AIFormAssistSchema.context}. `AIRecommendations` renders the
    * `recommendations` it is handed and reads no `context`.
    *
-   * **Instead:** pass the context to the provider when your host asks it for
-   * recommendations, and delete the key from the node.
+   * **Instead:** pass the context to your host's own AI service when you ask it
+   * for recommendations, and delete the key from the node.
    * @deprecated Not part of this contract — the value was inert.
    */
   context?: never;
@@ -370,8 +372,9 @@ export interface AIRecommendationsSchema extends BaseSchema {
    * RETIRED (objectui#10874, ADR-0049) — see {@link AIFormAssistSchema.config}.
    * `AIRecommendations` calls no model and reads no `config`.
    *
-   * **Instead:** configure AI on the provider your host calls to produce
-   * `recommendations`, and delete the key from the node.
+   * **Instead:** configure the model in your host's own AI service (ObjectUI has
+   * no AI-provider API; these components call no model), and hand its output to
+   * the node as `recommendations`.
    * @deprecated Not part of this contract — the value was inert.
    */
   config?: never;
@@ -416,33 +419,28 @@ export interface AIRecommendationsSchema extends BaseSchema {
   layout?: 'list' | 'grid';
 
   /**
-   * RETIRED from the node (objectui#10874, the objectui#6182 / objectui#6124
-   * house rule) — it was typed `string`, the handler-expression dialect
-   * objectui#6182 withdrew. `AIRecommendations` does CALL an `onSelect`, but as
-   * a function PROP of the component (`AIRecommendationsProps`), never as a
-   * string: a string that reached that call could only throw. The zod mirror
-   * refuses the key by name as a RUNTIME SLOT (`handlerKeyRefusal(…,
-   * 'runtime-slot')`, objectui#10859); this face now agrees.
-   *
-   * ⚠️ `?: never`, not a function type, by the objectui#10874 triage ruling: the
-   * callback is a React prop of the component, not a member of the document.
-   *
-   * **Instead:** pass a handler as a component prop —
-   * `<AIRecommendations schema={node} onSelect={(item) => …} />`.
-   * @deprecated Not part of this contract — pass `onSelect` as a component prop.
+   * Selection callback — RUNTIME SLOT (objectui#10874, the objectui#6124 shape):
+   * a host-supplied function, NOT authorable metadata. `ai-recommendations` is
+   * registered to the raw `AIRecommendations` component, `SchemaRenderer`
+   * spreads the node's own keys onto its props, and `AIRecommendations` CALLS
+   * `onSelect?.(item)` when a recommendation is chosen — so this declares the
+   * callable the renderer invokes. It used to declare the handler-expression
+   * STRING, which objectui#6182 ruled is not an authoring form: a string there
+   * was called as a function and threw at click. The zod twin refuses the key
+   * by name (`handlerKeyRefusal(…, 'runtime-slot')`); supply it from a React
+   * host, on the node or as the component's own `onSelect` prop.
    */
-  onSelect?: never;
+  onSelect?: (item: AIRecommendationItem) => void;
 
   /**
-   * RETIRED from the node (objectui#10874) — see
-   * {@link AIRecommendationsSchema.onSelect}; the same reading holds for the
-   * dismiss callback.
-   *
-   * **Instead:** pass a handler as a component prop —
-   * `<AIRecommendations schema={node} onDismiss={(item) => …} />`.
-   * @deprecated Not part of this contract — pass `onDismiss` as a component prop.
+   * Dismiss callback — RUNTIME SLOT (objectui#10874, the objectui#6124 shape):
+   * the same channel as {@link AIRecommendationsSchema.onSelect}.
+   * `AIRecommendations` CALLS `onDismiss?.(item)` when a recommendation is
+   * dismissed, so this declares that callable. It used to declare a STRING,
+   * which was called as a function and threw at click. The zod twin refuses the
+   * key by name; supply it from a React host.
    */
-  onDismiss?: never;
+  onDismiss?: (item: AIRecommendationItem) => void;
 
   /**
    * Loading state
@@ -583,8 +581,9 @@ export interface NLQuerySchema extends BaseSchema {
    * `NLQueryInput` collects a query string and hands it on; it calls no model
    * and reads no `config`.
    *
-   * **Instead:** configure AI on the provider that answers the query, and
-   * delete the key from the node.
+   * **Instead:** configure the model in your host's own AI service (ObjectUI has
+   * no AI-provider API; these components call no model), and hand its answer to
+   * the node as `result`.
    * @deprecated Not part of this contract — the value was inert.
    */
   config?: never;
@@ -625,16 +624,17 @@ export interface NLQuerySchema extends BaseSchema {
   loading?: boolean;
 
   /**
-   * RETIRED from the node (objectui#10874) — see
-   * {@link AIRecommendationsSchema.onSelect}. `NLQueryInput` calls `onSubmit` as
-   * a function PROP of the component (`NLQueryInputProps`) with the query text;
-   * the zod mirror refuses the key as a RUNTIME SLOT, and this face now agrees.
-   *
-   * **Instead:** pass a handler as a component prop —
-   * `<NLQueryInput schema={node} onSubmit={(query) => …} />`.
-   * @deprecated Not part of this contract — pass `onSubmit` as a component prop.
+   * Submit callback — RUNTIME SLOT (objectui#10874, the objectui#6124 shape): a
+   * host-supplied function, NOT authorable metadata. `nl-query` is registered
+   * to the raw `NLQueryInput` component, `SchemaRenderer` spreads the node's own
+   * keys onto its props, and `NLQueryInput` CALLS `onSubmit` with the query
+   * text — so this declares the callable the renderer invokes. It used to
+   * declare the handler-expression STRING objectui#6182 withdrew: a string there
+   * was called as a function and threw on submit. The zod twin refuses the key
+   * by name (`handlerKeyRefusal(…, 'runtime-slot')`); supply it from a React
+   * host.
    */
-  onSubmit?: never;
+  onSubmit?: (query: string) => void;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `nl-query` reads NEITHER
    * content channel: no renderer read consumes `body` or `children` for this

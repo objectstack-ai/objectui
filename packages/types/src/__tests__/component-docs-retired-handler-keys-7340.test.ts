@@ -307,21 +307,21 @@ describe('the retired population is measured off the shipped tree (objectui#7340
     // itself a named refusal (`./app-actions-retired-7469.test.ts`), so an
     // authored action with an `onClick` is refused before any member is read.
     //
-    // ⭐ 26 → 31, and `ai.ts` enters this census for the first time:
-    // objectui#10874 retired the five `on*` members of the three
-    // `@object-ui/plugin-ai` declarations on the TypeScript face. They were
-    // `string` — the objectui#6182 dialect #7344's census could not see, because
-    // `ai.ts` had no mirror until objectui#10859 — so this reader counted them
-    // LIVE until now; the zod arms already refused all five by name. Three of
-    // them (`onSelect`, `onDismiss`, `onSubmit`) are still CALLED by their
-    // components, as React props of the component: the triage ruling on
-    // objectui#10874 keeps the callback there, not on the document.
+    // ⭐ 26 → 28, and `ai.ts` enters this census for the first time:
+    // objectui#10874 settled the five `on*` members of the three
+    // `@object-ui/plugin-ai` declarations per key, by the objectui#6124 rule.
+    // All five were `string` — the objectui#6182 dialect #7344's census could not
+    // see, because `ai.ts` had no mirror until objectui#10859 — so this reader
+    // counted them LIVE until now. `onApplySuggestion` / `onRejectSuggestion`
+    // have no reader and are `?: never` now: the two counted here.
+    // `onSelect` / `onDismiss` / `onSubmit` are RUNTIME SLOTS their components
+    // call, so their twins became callables and they stay LIVE.
     const split: Record<string, number> = {};
     for (const m of RETIRED) split[m.file] = (split[m.file] ?? 0) + 1;
     expect({ total: RETIRED.length, split }).toEqual({
-      total: 31,
+      total: 28,
       split: {
-        'ai.ts': 5,
+        'ai.ts': 2,
         'complex.ts': 2,
         'crud.ts': 3,
         'data-display.ts': 4,
@@ -360,12 +360,6 @@ describe('the retired population is measured off the shipped tree (objectui#7340
       'onClose',
       'onCollapsedChange',
       'onConfirm',
-      // objectui#10874 — `AIRecommendationsSchema.onDismiss` was the one LIVE
-      // (`string`) declaration of this name; the callable is
-      // `AIRecommendationsProps.onDismiss`, a React prop on
-      // `@object-ui/plugin-ai`, outside this census's population — the
-      // `onCardMove` shape above.
-      'onDismiss',
       'onExpandChange',
       // objectui#7068: the legacy `ActionSchema.onFailure` callback object — no
       // shipped interface declares an `onFailure` at all any more. `onSuccess`
@@ -375,10 +369,6 @@ describe('the retired population is measured off the shipped tree (objectui#7340
       // objectui#10874 — declared on `AIFormAssistSchema` alone, read by nothing.
       'onRejectSuggestion',
       'onSave',
-      // objectui#10874 — as `onDismiss` above: the callable is
-      // `AIRecommendationsProps.onSelect`. `onSubmit` is NOT here: it is still
-      // declared callable elsewhere, so that name is resolved by the pair rule.
-      'onSelect',
       'onSelectChange',
       'onSendMessage',
       'onSlideChange',

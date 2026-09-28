@@ -21,7 +21,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import type { NavigationArea } from '@object-ui/types';
+import type { NavigationArea, NavigationEntryItem } from '@object-ui/types';
 
 // ---------------------------------------------------------------------------
 // Mocks — providers and console-only chrome. @object-ui/components and
@@ -117,16 +117,21 @@ import { UnifiedSidebar } from '../UnifiedSidebar';
 // Fixtures — labels are pairwise distinct so a hit is unambiguous.
 // ---------------------------------------------------------------------------
 
+// Typed as ENTRIES, so a case can spread one and add an entry-only key
+// (`visible`, `requiredPermissions`); a separator carries neither (objectui#10867).
+const salesEntry: NavigationEntryItem = { id: 'a1', type: 'object', label: 'Opportunities', objectName: 'opportunity' };
+const serviceEntry: NavigationEntryItem = { id: 'a2', type: 'object', label: 'Cases', objectName: 'case' };
+
 const salesArea: NavigationArea = {
   id: 'area-sales',
   label: 'Sales',
-  navigation: [{ id: 'a1', type: 'object', label: 'Opportunities', objectName: 'opportunity' }],
+  navigation: [salesEntry],
 };
 
 const serviceArea: NavigationArea = {
   id: 'area-service',
   label: 'Service',
-  navigation: [{ id: 'a2', type: 'object', label: 'Cases', objectName: 'case' }],
+  navigation: [serviceEntry],
 };
 
 const marketingArea: NavigationArea = {
@@ -137,7 +142,7 @@ const marketingArea: NavigationArea = {
 
 const gatedSales: NavigationArea = {
   ...salesArea,
-  navigation: [{ ...salesArea.navigation[0], visible: false }],
+  navigation: [{ ...salesEntry, visible: false }],
 };
 
 function sidebarUi(areas: NavigationArea[]) {
@@ -183,7 +188,7 @@ describe('UnifiedSidebar derived area visibility (#3319)', () => {
     const partialSales: NavigationArea = {
       ...salesArea,
       navigation: [
-        { ...salesArea.navigation[0], visible: false },
+        { ...salesEntry, visible: false },
         { id: 'a1b', type: 'object', label: 'Quotes', objectName: 'quote' },
       ],
     };
@@ -217,7 +222,7 @@ describe('UnifiedSidebar derived area visibility (#3319)', () => {
     render(
       sidebarUi([
         gatedSales,
-        { ...serviceArea, navigation: [{ ...serviceArea.navigation[0], visible: false }] },
+        { ...serviceArea, navigation: [{ ...serviceEntry, visible: false }] },
       ]),
     );
     expect(screen.queryByText('Sales')).not.toBeInTheDocument();
@@ -245,7 +250,7 @@ describe('UnifiedSidebar derived area visibility (#3319)', () => {
   it('re-elects when the ACTIVE area is gated away, and a mere reveal does not steal the selection', () => {
     const adminSales: NavigationArea = {
       ...salesArea,
-      navigation: [{ ...salesArea.navigation[0], requiredPermissions: ['sales:admin'] }],
+      navigation: [{ ...salesEntry, requiredPermissions: ['sales:admin'] }],
     };
     const areas = [adminSales, serviceArea, marketingArea];
 

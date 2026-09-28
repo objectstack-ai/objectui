@@ -61,7 +61,8 @@ export function useNavPins() {
         // If a NavigationItem is provided, register/refresh the favorite with
         // proper label/href so backend sync carries portable data. Otherwise
         // just flip the flag — the existing favorite (if any) keeps its data.
-        if (item) {
+        // A separator is never pinnable and carries no `label` (objectui#10867).
+        if (item && item.type !== 'separator') {
           addFavorite({
             id: favId,
             label: item.label,
@@ -108,6 +109,8 @@ export function useNavPins() {
       let pinCount = 0;
       const walk = (list: NavigationItem[]): NavigationItem[] =>
         list.map(item => {
+          // A separator carries no `pinned` and no children (objectui#10867).
+          if (item.type === 'separator') return item;
           const shouldPin = pinnedNavIds.has(item.id) && pinCount < MAX_PINS;
           if (shouldPin) pinCount++;
           const children = item.children?.length ? walk(item.children) : item.children;

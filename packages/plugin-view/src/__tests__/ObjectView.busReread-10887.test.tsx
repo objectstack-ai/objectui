@@ -29,9 +29,11 @@
  * stand-in carries an instance id from a `useState` initializer, so a changed
  * id is a remount.
  *
- * Controls: a view with no object never reads, and the two host-only types
- * whose renderers query for themselves (`tree`, `chart`) are not re-read by
- * this fetch.
+ * Controls: the bare `useDataInvalidation` reader beside the view and a grid
+ * `object-view` (`ObjectGrid` reads the bus itself) move on every event, a
+ * view with no object never reads, and the two host-only types whose
+ * renderers query for themselves (`tree`, `chart`) are not re-read by this
+ * fetch.
  */
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -152,6 +154,18 @@ describe('object-view non-grid views re-read on the data-invalidation bus (objec
       await waitFor(() => expect(inner().getAttribute('data-rows')).toBe('2'));
     });
   }
+
+  it('lit control: a grid object-view re-reads on the same event through its own reader (ObjectGrid)', async () => {
+    const ds = mount({ objectName: 'deal', defaultViewType: 'grid' });
+    await waitFor(() => expect(ds.find).toHaveBeenCalled());
+    await rest();
+    const before = ds.find.mock.calls.length;
+
+    await emit({ objectName: '*' });
+    await rest();
+
+    expect(ds.find, 'the grid never re-read: the event did not reach a block that reads the bus').toHaveBeenCalledTimes(before + 1);
+  });
 
   it('control: an object-view with no object reads nothing, on mount or on an invalidation', async () => {
     const ds = mount({ defaultViewType: 'kanban' });

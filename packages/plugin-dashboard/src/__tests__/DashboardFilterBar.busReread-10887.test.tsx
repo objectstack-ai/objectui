@@ -24,8 +24,8 @@
  * `SchemaRendererProvider`, on both option reads: the server-side dataset
  * GROUP BY and the client-side `find` fallback. The selected value lives in the
  * dashboard's own variables provider, so it is chosen through the real select.
- * The bare `useDataInvalidation` reader beside the dashboard is the positive
- * control.
+ * The bare `useDataInvalidation` reader beside the dashboard and an
+ * `object-metric` block (it reads the bus itself) are the positive controls.
  */
 import * as React from 'react';
 import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
@@ -168,6 +168,25 @@ describe('a dashboard filter re-reads its optionsFrom options on the data-invali
     fireEvent.pointerDown(trigger(), { button: 0 });
     expect(await screen.findByRole('option', { name: 'energy' }), 'the re-read options never reached the list').toBeTruthy();
     expect(trigger().textContent).toBe('retail');
+  });
+
+  it('lit control: an object-metric block beside the dashboard re-reads on the same event through its own reader', async () => {
+    const ds = { ...makeDataSource('dataset'), aggregate: vi.fn(async () => [{ industry: 3 }]) };
+    render(
+      <SchemaRendererProvider dataSource={ds as never}>
+        <SchemaRenderer schema={dashboardWith(selectFilter(OPTIONS_FROM)) as never} />
+        <SchemaRenderer
+          schema={{ type: 'object-metric', objectName: 'accounts', aggregate: { field: 'industry', function: 'count' }, label: 'Accounts' } as never}
+        />
+      </SchemaRendererProvider>,
+    );
+    await waitFor(() => expect(ds.aggregate).toHaveBeenCalledTimes(1));
+    await rest();
+
+    await emit({ objectName: '*' });
+    await rest();
+
+    expect(ds.aggregate, 'the metric never re-read: the event did not reach a block that reads the bus').toHaveBeenCalledTimes(2);
   });
 
   it('control: a select filter with no optionsFrom reads nothing, on mount or on an invalidation', async () => {

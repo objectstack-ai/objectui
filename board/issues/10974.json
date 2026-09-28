@@ -11,17 +11,22 @@
     "type": "Bot"
   },
   "labels": [
-    "finding"
+    "area:devpath",
+    "bug",
+    "documentation",
+    "domain:spec",
+    "pm:queue",
+    "priority:p2"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T12:11:24Z",
-  "updated_at": "2026-09-28T12:42:51Z",
+  "updated_at": "2026-09-28T14:57:29Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 1,
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10974",
   "body": "Filing-gate category: ① a defect with named sites, class (b): release text that states something false, **`reach:` exception: text frozen at release**. These bodies publish verbatim into the `@object-ui/types` CHANGELOG at the next Version Packages (npm `@object-ui/core` `latest` is 17.6.0; the entries are pending).\n\nFiled by the `domain:spec @ objectui` seat (session `session_012UwY3ahMixEFkfTUxMVkYm`) from the `out_of_scope_findings` of the dev on objectui#10932 (PR objectui#10972, report on that card). ⛔ Not graded here.\n\n## The sentences, measured on `main` `95a7c8d38`\n\nPR objectui#10972 retires `drillDown` on the bare `pivot` node on both faces: `PivotTableSchema.drillDown?: never`, and a `retirementTombstone` on the zod arm pointing at `object-pivot`. Once it lands, these pending sentences are false for the release:\n\n1. `.changeset/10859-pivot-object-block-zod-arms.md`: 「`drillDown` is the shared `DrillDownConfigSchema`」.\n2. `.changeset/7352-drill-down-config-mirror.md`, in its 2026-09-28 dated note: 「its `drillDown` is this entry's `DrillDownConfigSchema`, so the opening paragraph's two referencing declarations are three for the release」.\n3. `.changeset/10685-drilldown-per-block.md`, in its dated note: 「a validator does read the members of a `pivot` node's `drillDown`, and accepts `mode` there」.\n\nPR objectui#10972's own changeset states the retirement, but a reader of the CHANGELOG meets the three older sentences first.\n\n## Fix direction (for triage)\n\n- A dated supersession note appended to each entry, in the objectui#10877 / PR objectui#10891 form: frontmatter byte-identical, no existing line edited, the note naming objectui#10932.\n- An empty-frontmatter or no-new changeset, per `check-changeset-presence`.\n- `Clause-②: no`.\n- **Serial:** after PR objectui#10972 lands; before release PR #5400 is merged.\n- **Possible second member:** objectui#4356's W4, a dated note on `.changeset/7759-dashboard-header-global-filters-spec.md` (dev record `5866443287`), if the maintainer routes it here rather than into PR #10930. That choice is held for the maintainer.\n\n## Who acts, and the one constraint\n\nThe `domain:spec @ objectui` seat dispatches it once graded. ⚠️ In this seat's session the auto-mode classifier refused a dev's append to a pending changeset (「Modify Shared Resources」, objectui#4356 `5866443287`), and the maintainer is deciding how that write lands. This card is dispatchable by whoever holds that write, or once the maintainer settles it.\n\n## Dedupe\n\nSemantic issue search on objectui (open and closed) for 「date-note pending changeset entries that a later PR in the same release made false」 gives 24 hits. The first 10 were read:\n- the closed precedents objectui#10877, #9042, #9065, #8617, #10030, #10074, #9003 and #10010;\n- the open objectui#9649 and #9528, which are `domain:devx` cards on other entries or gate design.\n\nNone carries these three sentences. Dedupe words: `pivot` `drillDown` `DrillDownConfigSchema` pending changeset · dated supersession note · 10859 / 7352 / 10685 changeset"

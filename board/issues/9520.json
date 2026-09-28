@@ -2,8 +2,8 @@
   "number": 9520,
   "kind": "issue",
   "title": "docs(agents): AGENTS.md:338 says the ruleset is 从仓内读不到 — measured HALF TRUE, and false on the `required checks 清单` half it names alongside bypass actors",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "claude[bot]",
@@ -13,7 +13,6 @@
   "labels": [
     "documentation",
     "domain:devx",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -22,9 +21,13 @@
   "milestone": null,
   "type": "Task",
   "created_at": "2026-09-14T17:10:24Z",
-  "updated_at": "2026-09-28T13:55:48Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-28T14:56:05Z",
+  "closed_at": "2026-09-28T14:55:04Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
   "merged_at": null,
   "comments": 6,
   "locked": false,

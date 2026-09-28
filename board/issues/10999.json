@@ -1,0 +1,32 @@
+{
+  "number": 10999,
+  "kind": "issue",
+  "title": "plugin-form: WizardForm's footer and step labels are hard-coded English (Cancel / Back / Next / Submitting... / Create / Update / \"Step x of y\")",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "i18n",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T15:18:47Z",
+  "updated_at": "2026-09-28T17:02:00Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10999",
+  "body": "## Symptom\n\nOn a zh-CN console, a wizard form renders its chrome in English. Example: the showcase's `showcase_new_project_wizard` page shows `Cancel`, `Step 1 of 3` and `Next` under a Chinese UI.\n\n## Mechanism\n\n`packages/plugin-form/src/WizardForm.tsx` (objectui main `4b742f41d`) writes the footer strings as literals, with no translation call:\n\n- `{schema.cancelText || 'Cancel'}`\n- `Step {currentStep + 1} of {totalSteps}`\n- `{schema.prevText || 'Back'}`\n- `submitting ? 'Submitting...' : (schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'))`\n- `{schema.nextText || 'Next'}`\n- the section fallback `` `Step ${index + 1}` ``\n\nAn author can override some of these per schema (`cancelText`, `prevText`, `nextText`, `submitText`). The defaults and the step counter cannot be overridden, and they are never localized.\n\n## Reproduction\n\n1. Open objectstack's showcase at objectui pin `dd3f7e1be356` with the console locale `zh`.\n2. Go to 功能展示 → 工作区 → 新建项目(向导).\n3. The footer reads `Cancel`, `Step 1 of 3` and `Next`.\n\n## Expected\n\nThe defaults and the step counter resolve through the console's i18n catalogue, the way the rest of `plugin-form`'s chrome does. An authored `cancelText` / `nextText` / `prevText` / `submitText` still wins."
+}

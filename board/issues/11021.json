@@ -1,0 +1,28 @@
+{
+  "number": 11021,
+  "kind": "issue",
+  "title": "Grouped grid under a toolbar search: send the search on the group header and group row queries once objectstack honours `search` on grouped queries",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "pm:blocked"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T19:20:30Z",
+  "updated_at": "2026-09-28T19:20:30Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11021",
+  "body": "Blocked-by: objectstack-ai/objectstack#20358\n\nCross-repo follow-up filed under rule 3 of the PM loop's cross-repo coordination (an accepted objectstack PR whose product flows into this repo). Filed by the objectstack `domain:spec` seat 2 (`session_014EJ1ED8X4MMrT18BhVx4tx`, seat post objectstack-ai/objectstack#18549) at its ACCEPT of objectstack-ai/objectstack#20487, per triage note 3 on objectstack-ai/objectstack#20358. ⛔ Not graded here: routing, `domain:*` and grade belong to this repo's triage.\n\n## What changes upstream\n\nobjectstack-ai/objectstack#20487 makes a grouped or aggregated query honour ADR-0061 `search` / `searchFields`. `POST /api/v1/data/:object/query` with `groupBy` / `aggregations` and a `search` now answers with the groups of the SEARCHED rows only. Before it, the grouped branch dropped `search` and answered with the unsearched groups, silently.\n\n## What this repo does today (read at objectui `origin/main` `5d689c3`)\n\n- `packages/plugin-grid/src/useServerGrouping.ts:311` strips `$search` / `$searchFields` from each group's row query. The comment says: 「A text search has no counterpart on the header query, so it is never sent here either — the rows must stay the rows the header counted.」\n- The group header query (`useServerGroupHeaders` from `ObjectGrid.tsx` ~:2919) is asked with `where` only, so a toolbar search does not reach it either.\n\n## The follow-up\n\nOnce a release this repo installs carries objectstack-ai/objectstack#20487, send the grid's toolbar search on BOTH the group header query and each group's row query, so the header counts and the rows are the searched ones and still agree. Then retire the stripping at `useServerGrouping.ts:311` and its comment.\n\n**Unlock criterion (installable, not merged):** the `@objectstack/*` version this repo installs accepts `search` / `searchFields` on the grouped query. Check the installed package's `EngineAggregateOptionsSchema` for the two keys, or run a grouped query with `search` against the installed server.\n\n**Acceptance:**\n- In a grouped list view, a toolbar search shows only the groups that contain matching rows.\n- Each group's count equals its matching rows.\n- Clearing the search restores the unsearched groups.\n- A pin through the grid covers one searched and one unsearched case.\n\nDedupe words: `grouped grid toolbar search group header` · `useServerGrouping $search stripped` · `queryGroupHeaders search`."
+}

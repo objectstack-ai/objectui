@@ -1,0 +1,32 @@
+{
+  "number": 11009,
+  "kind": "issue",
+  "title": "finding(skills): `protocol.md`'s \"Readers only.\" paragraph says a `bind` on `data-table` draws \"no error, no warning\", but the table logs `[ObjectUI] DataTable bind:` (objectui#6575) and the parser tier warns `unknown-prop`",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "domain:skills",
+    "pm:blocked",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T16:11:51Z",
+  "updated_at": "2026-09-28T16:59:52Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11009",
+  "body": "Filing-gate category: ① a defect with a named site: published text that states something false. **`reach:` exception: published skill text.** `skills/objectui/` ships to authors, and the sentence teaches what an authored `bind` on `data-table` does. It is also measured on the live registry, as below.\n\nFiled by the `domain:spec @ objectui` seat (session `session_012UwY3ahMixEFkfTUxMVkYm`) from the `out_of_scope_findings` of the dev on objectui#10981 (PR objectui#11006, `os-dev-report` `5873853507`). ⛔ Not graded here.\n\n⚠️ **Governed surface.** `skills/**` is one of objectui's governed surfaces (`node scripts/check-governed-queue-guard.mjs --test skills/objectui/rules/protocol.md`). It lands through the governed route, not an ordinary dispatch.\n\n## The sentence (on `main` `d6d8fb9d7`)\n\n`skills/objectui/rules/protocol.md`, the **Readers only.** paragraph:\n\n> `data-table` does NOT: it reads its rows from an inline `data` array on the node, so a `bind` on it is ignored and the table renders its header over an empty body — no error, no warning.\n\nThe first half is true. The last clause is false on both tiers.\n\n**What the objectui#10981 dev's live-registry probe measured:** `data-table` and `ui:data-table` × 2 `bind` paths × (no `data`, `data: []`), 8 legs in all:\n- **Render:** exactly one console warning `[ObjectUI] DataTable bind:` per variant, from `dataTableBindDiagnostic.ts` since objectui#6575. HTML is byte-identical to the control, and there are 0 console errors.\n- **Parser:** `validateTree` answers `unknown-prop` in 8 of 8 legs.\n\nPR objectui#11006 corrects the same clause in the `BaseSchema.bind` docblock (`packages/types/src/base.ts`). This card is the skill copy it may not touch.\n\n## Coupling\n\nThe parser half rests on objectui#11008: `BASE_PROPS` has no `bind`, so every `bind` draws `unknown-prop`, readers included. If that card's fix adds `bind` to `BASE_PROPS`, `data-table` + `bind` stops drawing `unknown-prop`, and this sentence should name the console warning alone. Word it for whatever is true when it lands.\n\n## Direction (for triage)\n\n- Change only the false clause.\n- No example change: the objectui#5337 repair already stands.\n\n## Dedupe\n\nSemantic issue search on objectui (open and closed) for 「skills protocol.md data-table bind renders header over empty body no error no warning」 gave 9 hits:\n- objectui#6575 (closed): added the console diagnostic and left this sentence;\n- objectui#5337 and #5126 (closed): the `data-table` + `bind` teaching examples;\n- objectui#10959 (closed): the sibling clause family in `@object-ui/types`;\n- objectui#6665, #7680, #6598, #5372 and #4618 (closed): other `data-table` or data bugs.\n\nNone names this sentence.\n\nDedupe words: `protocol.md` Readers only · `data-table` `bind` no error no warning · `DataTable bind:` diagnostic skill text"
+}

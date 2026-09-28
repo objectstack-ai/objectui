@@ -2,7 +2,7 @@
   "number": 10984,
   "kind": "pull_request",
   "title": "docs(agents): split the ruleset bullet, and date the governed guard's enrolment as a required context (objectui#9520)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -12,7 +12,6 @@
   },
   "labels": [
     "documentation",
-    "needs-user-decision",
     "tests"
   ],
   "assignees": [
@@ -21,10 +20,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T13:17:35Z",
-  "updated_at": "2026-09-28T14:27:40Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-09-28T14:56:37Z",
+  "closed_at": "2026-09-28T14:55:02Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-09-28T14:55:02Z",
   "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/10984",

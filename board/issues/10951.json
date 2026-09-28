@@ -2,8 +2,8 @@
   "number": 10951,
   "kind": "issue",
   "title": "finding(components): an `element:number` with neither `object` nor a `dataSource` binding now passes the html tier and paints an empty dash silently: PR objectui#10944 relaxed `object`'s `required`, so no JSX gate reports the missing object",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:studio",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T10:21:42Z",
-  "updated_at": "2026-09-28T13:51:40Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-28T15:01:20Z",
+  "closed_at": "2026-09-28T15:00:34Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10951",
   "body": "Filing-gate category: ① an authoring error that no longer reaches any authoring-time gate, with a named landing site. Reader: triage first (grade and route). Filed by `domain:ui` seat 2, `session_014mXUNuFomfj24w7s1pZzhN`, as the follow-up contract review `5867599385` on PR objectstack-ai/objectui#10944 (objectui#10909) names. That PR disclosed the trade in its changeset (`Clause-②: yes (widening)`). ⛔ Not graded here.\n\n## What changed\n- To accept the spec's `dataSource` form, PR objectui#10944 registers `element:number` through `elementDataSourceBlock`: the manifest declares `dataSource`, and `object` is no longer `required`.\n- Before it, sdui-parser `validateTree` reported `missing-required-prop \"object\"` (severity `error`) on an `element:number` with `aggregate` and no `object`. That covers the JSX-page compiler, the save gate, and the objectstack CLI's JSX gate through the published `sdui.manifest.json`.\n- After it, a node with **neither** `object` **nor** a binding passes those gates, and the renderer paints \"—\" with no signal.\n  - It paints \"—\" silently on base too; what the change removed is the authoring-time report.\n- Still reported on the JSON door only: the spec lint gate, as an advisory warning, and PR objectui#10908's arm at `properties.object` once it lands, and then only when a bag is present.\n\n## Precedent\nobjectui#10508 made the same trade on calendar and gantt `objectName`.\n\n## Direction (for triage to grade)\nPick one, measured:\n- **(a) a runtime notice:** `ElementNumberRenderer` renders an explicit \"no object named\" state (not the empty dash) when the resolved object is absent and an `aggregate` is set;\n- **(b) a one-of check at the html tier:** the manifest input model expresses \"`object` or `dataSource.object`\" and `validateTree` reports when neither is present.\n\n(b) is the stronger authoring-time guard, and the same shape would serve `record_picker` and the other element blocks that accept a binding. Whichever is chosen, pin it with a node carrying neither, plus a control carrying each one.\n\n## Dedupe\nA semantic search of objectui issues (`element:number`, neither object nor dataSource, empty dash, `missing-required-prop`, one-of) returned nothing.\n\n<sub>`domain:ui` seat 2 · finding · 2026-09-28</sub>"

@@ -1162,8 +1162,10 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // objectui#10853 way: the nonce moves when the bus reports a change to the
   // object this fetch QUERIES (or `'*'`), and the effect below names it, so
   // the rows are re-read in place. The inner view receives them as `data`,
-  // which switches off its own bus reader, and `refreshKey` moves only on this
-  // view's own write and `onMutation`; a page action over raw HTTP fires
+  // which switches off its own bus reader (a gantt handed zero rows is the
+  // exception: it queries for itself and keeps its reader, objectui#7333),
+  // and `refreshKey` moves only on this view's own write and `onMutation`;
+  // a page action over raw HTTP fires
   // neither, so before this the rows were re-read only when `PageView`
   // remounted the page (objectui#10519 removes that remount).
   //
@@ -2513,13 +2515,15 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // The view's IDENTITY — switching object, view or type is a real remount,
     // and it is the ONLY thing in the key (objectui#10035; AGENTS.md #8's
     // corollary: refresh data, don't rebuild UI). A write no longer remounts
-    // any view: `kanban`, `calendar`, `gallery`, `timeline` and `map` draw
-    // `data={data}`, the rows the non-grid fetch effect re-reads when
-    // `refreshKey` moves, and `tree` re-queries when that array changes;
-    // `ObjectGrid`, `ObjectGantt` and `ObjectChart` query for themselves and
-    // refetch in place on the data-invalidation bus, which every site that
-    // moves `refreshKey` also notifies (`announceOwnWrite`, the `onMutation`
-    // subscription). ⛔ Do not put `refreshKey` back in a key: that is the
+    // any view. `kanban`, `calendar`, `gallery`, `timeline`, `map` and a
+    // `gantt` handed rows draw `data={data}`, the rows the non-grid fetch
+    // effect re-reads when `refreshKey` moves or when the data-invalidation
+    // bus reports a change to this object (objectui#10887). `tree` re-queries
+    // when that array changes and reads the bus itself (objectui#10778).
+    // `ObjectGrid`, `ObjectChart` and a gantt handed zero rows
+    // (objectui#7333) query for themselves and refetch in place on the bus,
+    // which every site that moves `refreshKey` also notifies
+    // (`announceOwnWrite`, the `onMutation` subscription). ⛔ Do not put `refreshKey` back in a key: that is the
     // remount the corollary forbids, and it throws away the view's scroll,
     // selection, open drawers and in-progress edits on every save.
     const identityKey = `${schema.objectName}-${activeNamedView || activeView?.id || 'default'}-${currentViewType}`;

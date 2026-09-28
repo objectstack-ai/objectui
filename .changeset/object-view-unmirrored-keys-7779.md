@@ -67,6 +67,22 @@ very thing ruling B refused for the six local keys. The key therefore stays in
 the parity ledger with that measurement, pinned, until the maintainer decides its
 value type. It is not papered over with `z.any()`.
 
+⚠️ **Dated note, 2026-09-28 — the value type has since been decided, and `listViews` is
+mirrored by reference — objectui#7928.** Later in this same release the maintainer's
+ruling A made `ObjectViewSchema.listViews` the protocol's own named-view record, by
+reference: on both faces its value is `@objectstack/spec`'s strict `ObjectListViewSchema`,
+and a `NamedListView` is not assignable to it. The docs have taught that shape since
+objectui#8255. So "`listViews` stays unmirrored", "The declaration's value is the local
+`NamedListView`", the key "stays in the parity ledger … until the maintainer decides its
+value type" and the table's "still unmirrored" above no longer hold: the
+`ObjectViewSchema` entry has left `UnmirroredDeclared`. `NamedListView` stays exported
+with its 64 declared members. The renderer now reads 20 of them off a named view and
+leaves 44 unread, where this entry counted 21 and 43, because objectui#7928 stopped
+reading the `options` bag, which the record refuses; the census in
+`object-view-unmirrored-keys-7779.test.ts` pins both figures.
+`.changeset/7928-listviews-by-reference-fold.md` (PR objectui#10821) states what ships;
+the text above is kept as the reading of this change.
+
 **Who is affected:** an author who wrote `viewTabBar` on an `object-view` node
 (remove it), or who wrote a wrong-typed value for one of the eight keys — e.g.
 `defaultViewType: 'tree'` (host-composition-only, objectui#5321),

@@ -48,6 +48,7 @@ import {
   isBlankRow,
   sumRows,
   type BatchEditDetailInput,
+  type ChildSchema,
 } from './masterDetailTx';
 import { isSameStoredValue } from './sanitize';
 import { deriveDetail, hydrateColumns, type InlineMode } from './deriveMasterDetail';
@@ -431,7 +432,7 @@ function linesUnsaved(
   state: RowState | undefined,
   detail: MasterDetailDetailConfig,
   parentId: string,
-  childSchema: { fields?: Record<string, any> } | undefined,
+  childSchema: ChildSchema,
 ): boolean {
   if (!state || !detail.relationshipField) return false;
   const relationshipField = detail.relationshipField;
@@ -1118,7 +1119,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
       }
       const inPlace = origin !== 'load';
       const rowsAtIssue = rowStateRef.current[entry.id]?.rows;
-      let rows: Record<string, any>[];
+      let rows: RowState['rows'];
       try {
         const res = await dataSource.find(d.childObject, {
           $filter: { [d.relationshipField]: schema.recordId },
@@ -1153,7 +1154,6 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
         return { ...prev, [entry.id]: { rows: rows.map((r) => ({ ...r })), original: rows.map((r) => ({ ...r })) } };
       });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [dataSource, schema.recordId, unsavedLines],
   );
 

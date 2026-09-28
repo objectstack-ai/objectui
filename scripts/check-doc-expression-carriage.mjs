@@ -290,14 +290,15 @@ const repoRoot = resolve(scriptDir, '..');
  * statically for the reason the header gives: that module loads `typescript` at
  * import time, and a static import would turn an uninstalled checkout's loud
  * instrument failure into a module-resolution stack trace.
+ *
+ * One `const` DECLARATION, and not a top-level `try`: `check:entry-guard`
+ * refuses a statement that runs on import in a file that exports, and a
+ * rejected `import()` settles into `error` here instead of throwing.
  */
-let jsonContract = null;
-let jsonContractError = null;
-try {
-  ({ parseJsonFence: jsonContract } = await import('./check-skill-examples.mjs'));
-} catch (error) {
-  jsonContractError = error;
-}
+const jsonContractLoad = await import('./check-skill-examples.mjs').then(
+  (module) => ({ parseJsonFence: module.parseJsonFence, error: null }),
+  (error) => ({ parseJsonFence: null, error }),
+);
 
 /**
  * The imported contract, or a loud failure. ⛔ Never a fallback: judging a
@@ -305,8 +306,8 @@ try {
  * trees would drift back into two contracts.
  */
 export function requireJsonContract() {
-  if (typeof jsonContract === 'function') return jsonContract;
-  const cause = jsonContractError instanceof Error ? ` (${jsonContractError.message})` : '';
+  if (typeof jsonContractLoad.parseJsonFence === 'function') return jsonContractLoad.parseJsonFence;
+  const cause = jsonContractLoad.error instanceof Error ? ` (${jsonContractLoad.error.message})` : '';
   throw new Error(
     `the strict \`json\` contract, \`parseJsonFence\` in scripts/check-skill-examples.mjs, could not be ` +
       `imported${cause}. Run \`pnpm install\` first. This gate does not judge a \`json\` fence with a ` +

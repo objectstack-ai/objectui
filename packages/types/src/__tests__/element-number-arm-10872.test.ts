@@ -200,12 +200,14 @@ describe('`element:number` validates, with the spec\'s `dataSource` waiver (obje
 });
 
 /**
- * The differential: on every probe, the arm answers exactly what the spec
- * answers — its node schema (`PageComponentSchema`, which judges `dataSource`)
- * together with its props gate over the row, with the gate's one waiver. Each
- * probe is its own row, so a regression names the document it broke.
+ * The differential: on every probe, the arm answers exactly what the spec's
+ * node schema (`PageComponentSchema`, which judges `dataSource`) answers,
+ * together with THIS FILE'S MODEL of the spec gate's documented reading over
+ * the row (`specGateAccepts` below — the gate's docblock, not the gate's code,
+ * which is not importable here). Each probe is its own row, so a regression
+ * names the document it broke.
  */
-describe('`element:number` answers as the spec does (objectui#10872 batch 2)', () => {
+describe('`element:number` answers as the spec node schema plus the spec gate\'s documented reading do (objectui#10872 batch 2)', () => {
   /**
    * The spec gate's verdict on a node's bag: the row's issues, less the one the
    * gate waives — `object` ABSENT while `dataSource.object` is a non-empty
@@ -295,6 +297,33 @@ describe('`element:number` reads the spec by reference (objectui#10872 batch 2)'
     expect(stripImportedDefaults(spec)).not.toBe(spec);
     for (const probe of [{ object: 'order' }, { object: '' }, { object: 1 }, {}, { object: 'o', limit: 0 }, { object: 'o', objectName: 'o' }]) {
       expect(member.safeParse(probe).success, JSON.stringify(probe)).toBe(spec.safeParse(probe).success);
+    }
+  });
+
+  /**
+   * Measured WHERE the rebuild happens: `filter` is the member whose subtree
+   * reaches the recursive filter clause's `z.lazy`, the one node the boundary's
+   * walker rebuilds in this clean schema. Every probe above stops short of it.
+   * Each probe here goes through `filter`, the nested ones through the lazy's
+   * recursion, and each verdict is held to the spec's own schema — on the
+   * member, and on the node through both faces (the strict face rebuilds the
+   * same lazy a second time, as a fresh `z.lazy`).
+   */
+  it.each([
+    ['record filter', { object: 'o', filter: { status: 'won' } }, true],
+    ['nested $and / $or filter', { object: 'o', filter: { $and: [{ status: 'won' }, { $or: [{ amount: { $gt: 100 } }, { stage: { $in: ['a', 'b'] } }] }] } }, true],
+    ['non-object filter', { object: 'o', filter: 5 }, false],
+    ['non-object clause inside $and', { object: 'o', filter: { $and: [5] } }, false],
+  ] as const)('`dataSource.filter` through the rebuilt binding answers as the spec does: %s', (_name, probe, expected) => {
+    const member = (ElementNumberBlockSchema.shape.dataSource as unknown as z.ZodOptional).unwrap() as unknown as z.ZodObject;
+    const spec = ElementDataSourceSchema as unknown as z.ZodObject;
+    // Non-vacuity: the spec's own verdict is the one this row names.
+    expect(spec.safeParse(probe).success).toBe(expected);
+    expect(member.safeParse(probe).success).toBe(expected);
+    const node = { type: TYPE, properties: { object: 'o', aggregate: 'count' }, dataSource: probe };
+    expect(PageComponentSchema.safeParse(node).success).toBe(expected);
+    for (const [face, parse] of FACES) {
+      expect(parse(node).success, face).toBe(expected);
     }
   });
 });

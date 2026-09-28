@@ -287,9 +287,9 @@ export const ElementTextBlockSchema = BaseSchema.extend({
  * that lives in the bag (`elementNumberObjectIsSupplied` below is the other).
  *
  * By reference, and here is how: zod 4's `.partial({ object: true })` clones
- * the row's own def — so its strictness (`catchall` never), its unknown-key
- * guidance and its `.describe()` text travel — and replaces exactly the masked
- * member with a `ZodOptional` wrapped around the row's OWN `object` schema.
+ * the row's own def — so its strictness (`catchall` never) and its unknown-key
+ * guidance travel — and replaces exactly the masked member with a `ZodOptional`
+ * wrapped around the row's OWN `object` schema.
  * Every other member (`field`, `aggregate`, `filter`, `format`, `prefix`,
  * `suffix`, `aria`) is handed through as the very object the row holds. No
  * member is restated, so a row the spec widens or narrows moves this bag the

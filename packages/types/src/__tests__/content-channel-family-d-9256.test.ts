@@ -47,9 +47,12 @@
  *     `icon`, `tabs` and `accordion` each have ONE claimant of the bare key
  *     because every rival passes `skipFallback: true`, while `calendar`'s
  *     several claimants name ONE full type. `ui:calendar` rides along on
- *     `calendar`'s tombstone by declaration (`Omit` on the TS face, `.extend()`
- *     on the mirror) and is pinned as its own row so the propagation is
- *     measured and not assumed.
+ *     `calendar`'s tombstone by declaration (`.extend()` on the mirror, and on
+ *     the TS face `OmitDeclared` since objectui#9256's E3 slice — the plain
+ *     `Omit` it replaced collapsed into `BaseSchema`'s index signature and
+ *     carried no member, the tombstone included). Its mirror half is pinned as
+ *     its own row here; its TS half lives in
+ *     `content-channel-e3-residual-9256.test.ts`.
  *   - ⭐ `list` and `timeline` are narrowed HERE, by objectui#9256 slice 3. They
  *     were held for a SERIAL constraint and ⛔ never for a verdict: both declare
  *     in `data-display.ts`, which another slice was editing. That constraint is
@@ -85,14 +88,23 @@
  *     to tombstone at all — it does not extend `BaseSchema` and carries only
  *     `bodyExtra` / `bodyShape`, the prefix keys grep confuses for the channel.
  *     A LIVE CONTROL below keeps `button` parsing both channels.
- *   - `InputSchema`: `InputShorthandSchema` is declared as an `Omit` of it, so a
- *     tombstone here would propagate onto the `email` / `password` shorthand
- *     face, whose registrations are `any`-typed — family E, frozen.
+ *   - `InputSchema` is narrowed, but NOT in this file. It was held out here while
+ *     `InputShorthandSchema` inherited from it through a plain `Omit`, which
+ *     collapsed into `BaseSchema`'s index signature: a tombstone on `input`
+ *     reached neither the `email` nor the `password` face. objectui#9256's E3
+ *     slice re-spelled that heritage as `OmitDeclared` and narrowed the two
+ *     shorthand faces (`content-channel-e3-residual-9256.test.ts`); its `input`
+ *     slice then narrowed `input` itself, measured to read neither channel
+ *     (`content-channel-input-9256.test.ts`).
  *   - `AppComponentSchema`: it declares the `app` type literal, and `app` is
  *     served by `PageNodeSchema`, which reads BOTH channels — family C, with the
  *     maintainer.
- *   - `DetailViewSchema`: its own literal is `detail-view`, and that name is
- *     registered with an `any`-typed renderer whose reads are unattributable.
+ *   - `DetailViewSchema` is narrowed, but NOT in this file. The `detail-view`
+ *     registration's `any`-typed hop hands the node to `DetailView`, typed
+ *     `DetailViewSchema`, whose `SchemaRenderer` calls render sub-keys (`header`,
+ *     `footer`, a tab's `content`) and never the node's own channel. The E3 slice
+ *     attributed those reads directly and narrowed it there
+ *     (`content-channel-e3-residual-9256.test.ts`).
  *   - the `body` channel of the three chatbot faces: the parity ledger already
  *     records that key as "two different meanings of one key — a naming
  *     collision to rule on". Their `children` channel is narrowed here, and the
@@ -317,9 +329,11 @@ const ROWS: ReadonlyArray<readonly [
   // Each name's owner is MEASURED (`pnpm check:registry-bare-names --table`,
   // objectui#9264) rather than guessed, which is the whole reason these six
   // could move while `list`, `timeline`, `input` and `app-schema-renderer`
-  // could not. `ui:calendar` rides along because its declaration is an `Omit`
-  // of `calendar`'s on the TypeScript face and a `.extend()` of it on the
-  // mirror — the propagation is pinned here rather than assumed.
+  // could not. `ui:calendar` rides along because its mirror is a `.extend()` of
+  // `calendar`'s, which this row pins rather than assumes. Its TypeScript face
+  // inherits through `OmitDeclared` since objectui#9256's E3 slice (a plain
+  // `Omit` until then, which carried no member), and that half is pinned in
+  // `content-channel-e3-residual-9256.test.ts`.
   ['text', TextMirror as unknown as Mirror, ['body', 'children'], {}],
   ['image', ImageMirror as unknown as Mirror, ['body', 'children'], {"src":"/a.png"}],
   ['icon', IconMirror as unknown as Mirror, ['body', 'children'], {"icon":"check"}],

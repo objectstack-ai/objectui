@@ -219,6 +219,18 @@ export const ButtonSchema = BaseSchema.extend({
 });
 
 /**
+ * objectui#9256 (`input` slice): ONE refusal string for both content channels
+ * of {@link InputSchema}. The `email` / `password` arm below
+ * ({@link InputShorthandSchema}) inherits this pair through its `.omit()` and
+ * overrides it with its own string, which names that node and its route.
+ */
+const INPUT_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'input',
+  '`ui:input` is the only registration claiming the bare key, and it hands the node to the `input` renderer, which reads it as `InputSchema`',
+  'one input field — `label`, `placeholder`, `inputType`, `value` / `defaultValue`, `description`, `error`, `required`',
+);
+
+/**
  * Input Schema - Text input component
  */
 export const InputSchema = BaseSchema.extend({
@@ -251,6 +263,11 @@ export const InputSchema = BaseSchema.extend({
   step: z.number().optional().describe('Step value (for number type)'),
   maxLength: z.number().optional().describe('Maximum length'),
   pattern: z.string().optional().describe('Validation pattern'),
+  // objectui#9256 (`input` slice): the renderer reads NEITHER content channel, so both are
+  // refused by name here as on the TypeScript twin, each kept a MEMBER. `body` was already
+  // refused by `BaseSchema` (objectui#6771), whose message names `children` as the remedy.
+  body: retirementTombstone(INPUT_NEITHER_CHANNEL),
+  children: retirementTombstone(INPUT_NEITHER_CHANNEL),
 });
 
 /**
@@ -1102,6 +1119,10 @@ export const InputShorthandSchema = InputSchema.omit({ type: true, inputType: tr
   //
   // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
+  // ⚠️ Since the `input` slice, `.omit()` above already carries {@link InputSchema}'s own
+  // tombstone pair of the same shape, so these two refuse nothing new. They are kept because
+  // they override that pair's message with one that names `email` / `password` and the wrapper
+  // route, which is what an author of these two nodes reads.
   body: retirementTombstone(INPUT_SHORTHAND_NEITHER_CHANNEL),
   children: retirementTombstone(INPUT_SHORTHAND_NEITHER_CHANNEL),
 });

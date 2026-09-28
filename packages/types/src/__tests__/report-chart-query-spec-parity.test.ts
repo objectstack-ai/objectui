@@ -24,8 +24,9 @@
  *    wearing. The risk is picking a new name the spec ALREADY owns — the
  *    `PageComponentSchema` mistake from objectui#3074 — so each new name is
  *    asserted absent from the spec's export set, types and values alike.
- *  - **Not burnable** (`JoinedReportBlock`): kept in the ledger behind an
- *    inverted pin, see the bottom of this file.
+ *  - **Not burnable yet** (`JoinedReportBlock`): erased in the installed spec,
+ *    typed — as a different shape — on spec `main`; the burn-down is owed at the
+ *    bump that installs the typed one. See the bottom of this file.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -40,6 +41,7 @@ import {
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
 } from '@objectstack/spec/ui';
 import type { JoinedReportBlock as SpecJoinedReportBlock } from '@objectstack/spec/ui';
+import type { JoinedReportBlock as LocalJoinedReportBlock } from '../spec-report.js';
 import { AppContextSelectorSchema } from '../zod/app.zod.js';
 import { DashboardWidgetSchema, DashboardWidgetTypeSchema, GlobalFilterSchema } from '../zod/complex.zod.js';
 import { DASHBOARD_COMPONENT_WIDGET_TYPES, DASHBOARD_WIDGET_TYPE_EXTENSIONS } from '../complex.js';
@@ -628,18 +630,20 @@ describe('DashboardWidgetSchema pinned divergences', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Every export name `@objectstack/spec` publishes, per subpath — TYPES included.
- *
- * A runtime `import()` would only see values, and five of the six names below
- * are types, so a value-only check would pass vacuously on exactly the cases
- * that matter. This reads the compiler's view of each subpath's `.d.ts`, which
- * is the same source `scripts/check-spec-symbol-derivation.mjs` uses.
+ * The compiler's view of the INSTALLED `@objectstack/spec`'s built `.d.ts`, per
+ * subpath, with the version it was read from. Shared by the rename tripwires
+ * below and by the `JoinedReportBlock` tripwire at the bottom of this file.
  */
-function specExportNames(subpaths: readonly string[]): Set<string> {
+function specDeclarations(subpaths: readonly string[]): {
+  version: string;
+  checker: ts.TypeChecker;
+  modules: ts.Symbol[];
+} {
   const require = createRequire(import.meta.url);
   const pkgPath = require.resolve('@objectstack/spec/package.json');
   const pkgDir = dirname(pkgPath);
   const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as {
+    version: string;
     exports?: Record<string, { import?: { types?: string }; require?: { types?: string } }>;
   };
 
@@ -664,11 +668,27 @@ function specExportNames(subpaths: readonly string[]): Set<string> {
   });
   const checker = program.getTypeChecker();
 
-  const names = new Set<string>();
-  for (const file of files) {
+  const modules = files.map((file) => {
     const sf = program.getSourceFile(file);
     const moduleSymbol = sf && checker.getSymbolAtLocation(sf);
     if (!moduleSymbol) throw new Error(`no module symbol for ${file}`);
+    return moduleSymbol;
+  });
+  return { version: pkg.version, checker, modules };
+}
+
+/**
+ * Every export name `@objectstack/spec` publishes, per subpath — TYPES included.
+ *
+ * A runtime `import()` would only see values, and five of the six names below
+ * are types, so a value-only check would pass vacuously on exactly the cases
+ * that matter. This reads the compiler's view of each subpath's `.d.ts`, which
+ * is the same source `scripts/check-spec-symbol-derivation.mjs` uses.
+ */
+function specExportNames(subpaths: readonly string[]): Set<string> {
+  const { checker, modules } = specDeclarations(subpaths);
+  const names = new Set<string>();
+  for (const moduleSymbol of modules) {
     for (const exported of checker.getExportsOfModule(moduleSymbol)) names.add(exported.getName());
   }
   return names;
@@ -711,48 +731,215 @@ describe('renamed local dialects do not collide with a spec export (objectui#307
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// JoinedReportBlock — inverted pin, NOT burnable here
+// JoinedReportBlock — erased in the INSTALLED spec, typed on spec `main`, and
+// not burnable until the bump that installs the typed one
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * `JoinedReportBlock` collides with a spec export that carries no type at all:
- * the spec declares `JoinedReportBlockSchema` as `z.ZodTypeAny`, so
- * `z.infer<typeof …>` — and therefore the exported `JoinedReportBlock` type —
- * resolves to `unknown`. Re-exporting it would replace objectui's precise block
- * interface (`name`/`columns`/`groupingsDown`/`groupingsAcross`/`filter`/`chart`)
- * with nothing at all: a type-safety regression wearing a burn-down's clothes.
+ * `JoinedReportBlock` collides with a spec export. Through the published
+ * `@objectstack/spec` 17.4.0 the spec annotated `JoinedReportBlockSchema` as a
+ * bare `z.ZodTypeAny`, so `z.input<typeof …>` — and therefore the exported
+ * `JoinedReportBlock` type — resolves to `unknown`. Re-exporting that would
+ * replace objectui's block interface with nothing at all: a type-safety
+ * regression wearing a burn-down's clothes. It is the objectstack#4171 failure
+ * mode one variant wider: `any` is caught by the `0 extends (1 & T)` probe,
+ * `unknown` is not (that probe answers `false` for it), so a triage that only
+ * screens for `any` concludes the symbol is derivable.
  *
- * This is the objectstack#4171 failure mode, one variant wider than the three
- * already pinned in `spec-derived-unions.test.ts`. Those erase to `any`, which
- * the `0 extends (1 & T)` probe detects; this one erases to `unknown`, which
- * that probe reports as `false` while being just as empty. Any triage that only
- * screens for `any` will conclude this symbol is safely derivable. It is not.
+ * ## The day the old pin was waiting for came, on spec `main` first
  *
- * So it stays in the ledger with its local declaration intact. The day the spec
- * types the schema properly, `IsUnknown<…>` flips to `false`, `true satisfies
- * false` stops compiling, and the failure is the instruction: re-run the triage
- * and burn it down.
+ * This section used to hold ONE inverted pin, `true satisfies IsUnknown<…>`,
+ * whose docblock said: "The day the spec types the schema properly,
+ * `IsUnknown<…>` flips to `false`, `true satisfies false` stops compiling, and
+ * the failure is the instruction: re-run the triage and burn it down."
+ * objectstack#20369 (`681868ca7`) removed the annotation, and the pin fired
+ * where it could first see that — the Spec Main Shape Gate, which compiles this
+ * file against `@objectstack/spec` built from objectstack `main` (objectui#10916).
+ * The pull-request type-check still compiles the SAME file against the INSTALLED
+ * spec, the published 17.4.0, which predates #20369 and still erases the type.
+ * So whatever stands here must compile against both, until a spec bump
+ * installs a release that carries #20369.
  *
- * ⚠️ objectstack#4171 is CLOSED (completed 2026-07-30) and this symbol is STILL
- * erased — do NOT read that closure as this pin's release. #4171 typed the
- * RECURSIVE schemas (`NavigationItem`, `FormField`); it never touched
- * `JoinedReportBlockSchema`, whose erasure has a different cause — a bare
- * `z.ZodTypeAny` annotation, not recursion. Re-measured in the built dist at
- * spec 17.2.0 (objectui#3162 batch 8): `IsUnknown` is still `true`. The pin
- * below, not the state of any upstream issue, is what says when this is
- * burnable.
+ * ## The re-run triage: precise now, and a DIFFERENT shape (guard case 2c, no longer 2b)
+ *
+ * Against spec `main`, member by member (the reading is on objectui#10916):
+ * the spec's block is neither `any` nor `unknown`, and it is not the local
+ * interface either. The spec types the ADR-0021 dataset-bound block — `dataset`,
+ * `rows`, `columns` as dimension NAMES, `values`, `runtimeFilter`, `order` — in
+ * a closed schema. The local interface types the legacy inline-query block —
+ * `objectName`, `columns` as column OBJECTS, `groupingsDown`, `groupingsAcross`,
+ * `filter`, `chart` — plus an index signature. The spec's schema refuses all
+ * five of those local-only keys, `chart` by name since objectstack#20161
+ * retired it. `name` and `type` agree; `label` / `description` do not quite
+ * (the local object arm is not a spec inline locale map).
+ *
+ * ⇒ The burn-down is owed, and it is not a re-export beside the local
+ * interface: it REPLACES the published `JoinedReportBlock` (and the `blocks` of
+ * `JoinedSpecReport`) with the spec's type, which changes a published type and
+ * is its own slice. It cannot land before the bump: against the installed spec
+ * the derived type would be `unknown`, the exact regression this section exists
+ * to stop.
+ *
+ * ## What guards it now: two halves, because two different runs read two different specs
+ *
+ * - COMPILE TIME, both runs. The state pin admits `erased` and `typed` and
+ *   refuses `any`. On a typed spec, the divergence lines under it each name one
+ *   difference and stop compiling the day that one moves — on the Spec Main
+ *   Shape Gate first. On the erased spec they are not asked (`OnTypedSpec`):
+ *   an erased type declares no member to compare.
+ * - TEST TIME, the installed spec only (the Spec Main Shape Gate type-checks and
+ *   runs no test). The tripwire at the bottom reads the INSTALLED spec's built
+ *   declarations and fails on the first bump past the published 17.4.0. If
+ *   that release types the block, the failure is the burn-down's start signal:
+ *   derive the published interface from the spec in its own slice, and delete
+ *   the `erased` arm from the state pin so that an erasure stops compiling
+ *   again. If that release still erases it, the spec erased it again — an
+ *   upstream regression to report, and the `erased` arm loses its licence all
+ *   the same.
+ *
+ * ⚠️ NOT guardable from here: an erasure on objectstack `main` BEFORE that
+ * bump. At the type level it is indistinguishable from the installed 17.4.0 —
+ * both are the same bare `z.ZodTypeAny` — so the state pin admits it on the
+ * gate. The producer's own pin covers that window
+ * (`packages/spec/src/ui/joined-report-block-type.test.ts` in objectstack,
+ * landed with #20369), and the tripwire's version row catches it at the bump
+ * at the latest.
+ *
+ * ⚠️ objectstack#4171 (CLOSED 2026-07-30) was never this symbol's release: it
+ * typed the RECURSIVE schemas, and this erasure's cause was the bare
+ * annotation, not recursion. The state of an upstream issue says nothing here;
+ * the pins and the tripwire below do.
  */
 type IsUnknown<T> = [unknown] extends [T] ? ([T] extends [unknown] ? true : false) : false;
 type IsAny<T> = 0 extends 1 & T ? true : false;
-const _specJoinedReportBlockIsStillUntyped = true satisfies IsUnknown<SpecJoinedReportBlock>;
-const _specJoinedReportBlockIsNotEvenAny = false satisfies IsAny<SpecJoinedReportBlock>;
-void _specJoinedReportBlockIsStillUntyped;
-void _specJoinedReportBlockIsNotEvenAny;
+/** `any` is asked first: it passes `IsUnknown` as well. */
+type SpecTyping<T> = IsAny<T> extends true ? 'any' : IsUnknown<T> extends true ? 'erased' : 'typed';
 
-describe('JoinedReportBlock stays in the ledger — still untyped upstream (objectui#3162)', () => {
-  it('documents why: the spec ships the schema untyped', () => {
-    // The compile-time pins above are the real guard; this keeps the reason
-    // visible in the test report rather than only in a comment.
-    expect(true).toBe(true);
+// THE STATE PIN. `erased` = the installed, published 17.4.0; `typed` = spec
+// `main` since objectstack#20369. `any` is refused on both (case 2).
+const _specJoinedReportBlockTyping = null as unknown as SpecTyping<SpecJoinedReportBlock> satisfies
+  | 'erased'
+  | 'typed';
+const _specJoinedReportBlockIsNotEvenAny = false satisfies IsAny<SpecJoinedReportBlock>;
+
+/**
+ * A divergence probe, asked of a TYPED spec only; on the erased spec the answer
+ * is `true` by construction. The licence for that is the `erased` arm above,
+ * which the test-time tripwire retires at the bump.
+ */
+type OnTypedSpec<Probe extends boolean> = SpecTyping<SpecJoinedReportBlock> extends 'typed' ? Probe : true;
+/** Keys a type DECLARES: the local `[k: string]: unknown` is not a member. */
+type DeclaredBlockKeys<T> = keyof {
+  [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K];
+};
+type SameType<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+/** `T[K]`, or `never` where `T` is the erased `unknown` (which declares no `K`). */
+type BlockMember<T, K extends PropertyKey> = K extends keyof T ? T[K] : never;
+
+// 0. Umbrella: neither block is the other, in either direction. The lines under
+//    it say why, and are the ones to act on.
+const _localBlockIsNotTheSpecBlock = true satisfies OnTypedSpec<
+  [LocalJoinedReportBlock] extends [SpecJoinedReportBlock]
+    ? false
+    : [SpecJoinedReportBlock] extends [LocalJoinedReportBlock]
+      ? false
+      : true
+>;
+// 1. The ADR-0021 dataset-bound selection: declared by the spec, by the local
+//    interface not at all.
+const _specOnlyBlockKeys = true satisfies OnTypedSpec<
+  SameType<
+    Exclude<DeclaredBlockKeys<SpecJoinedReportBlock>, DeclaredBlockKeys<LocalJoinedReportBlock>>,
+    'dataset' | 'rows' | 'values' | 'runtimeFilter' | 'order'
+  >
+>;
+// 2. The legacy inline-query block: declared locally, refused by the spec's
+//    closed schema — `chart` by name, retired by objectstack#20161.
+const _localOnlyBlockKeys = true satisfies OnTypedSpec<
+  SameType<
+    Exclude<DeclaredBlockKeys<LocalJoinedReportBlock>, DeclaredBlockKeys<SpecJoinedReportBlock>>,
+    'objectName' | 'groupingsDown' | 'groupingsAcross' | 'filter' | 'chart'
+  >
+>;
+// 3. `columns`: one name, two concepts. The spec's are dimension NAMES across a
+//    matrix; the local ones are column OBJECTS (`{ field, aggregate, … }`).
+type SpecBlockColumns = NonNullable<BlockMember<SpecJoinedReportBlock, 'columns'>>;
+const _blockColumnsAreTwoConcepts = true satisfies OnTypedSpec<
+  [SpecBlockColumns] extends [string[]]
+    ? [LocalJoinedReportBlock['columns']] extends [SpecBlockColumns]
+      ? false
+      : true
+    : false
+>;
+// 4. `label` / `description`: the local `{ default, translations }` arm is not a
+//    spec inline locale map, every value of which is a string.
+const _blockLabelObjectArmIsNotASpecLabel = true satisfies OnTypedSpec<
+  [LocalJoinedReportBlock['label']] extends [BlockMember<SpecJoinedReportBlock, 'label'>]
+    ? false
+    : [LocalJoinedReportBlock['description']] extends [BlockMember<SpecJoinedReportBlock, 'description'>]
+      ? false
+      : true
+>;
+// 5. Agreement: `name` and `type` mean the same on both sides.
+const _blockNameAgrees = true satisfies OnTypedSpec<
+  SameType<LocalJoinedReportBlock['name'], BlockMember<SpecJoinedReportBlock, 'name'>>
+>;
+const _blockTypeAgrees = true satisfies OnTypedSpec<
+  SameType<LocalJoinedReportBlock['type'], BlockMember<SpecJoinedReportBlock, 'type'>>
+>;
+void _specJoinedReportBlockTyping;
+void _specJoinedReportBlockIsNotEvenAny;
+void _localBlockIsNotTheSpecBlock;
+void _specOnlyBlockKeys;
+void _localOnlyBlockKeys;
+void _blockColumnsAreTwoConcepts;
+void _blockLabelObjectArmIsNotASpecLabel;
+void _blockNameAgrees;
+void _blockTypeAgrees;
+
+/**
+ * How the INSTALLED spec declares an export: the compiler's reading of its
+ * built `.d.ts`, the same reading `SpecTyping` takes at compile time — taken
+ * here so that a TEST can act on it, which is the half the Spec Main Shape Gate
+ * never runs.
+ */
+function installedSpecTyping(name: string): { version: string; typing: 'any' | 'erased' | 'typed' } {
+  const { version, checker, modules } = specDeclarations(['@objectstack/spec/ui']);
+  const exported = checker.getExportsOfModule(modules[0]).find((s) => s.getName() === name);
+  if (!exported) throw new Error(`\`@objectstack/spec/ui\` does not export \`${name}\` — re-run the triage`);
+  const declared = exported.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exported) : exported;
+  const type = checker.getDeclaredTypeOfSymbol(declared);
+  const typing = type.flags & ts.TypeFlags.Any ? 'any' : type.flags & ts.TypeFlags.Unknown ? 'erased' : 'typed';
+  return { version, typing };
+}
+
+describe('JoinedReportBlock burn-down tripwire, read off the INSTALLED spec (objectui#10916)', () => {
+  const installed = installedSpecTyping('JoinedReportBlock');
+
+  it('reads a typed export as `typed` (the lit control for the rows below)', () => {
+    // A reader that answered `erased` for everything would keep the next row
+    // green forever. `ReportSort` is a closed object in every spec this file
+    // has compiled against.
+    expect(installedSpecTyping('ReportSort').typing).toBe('typed');
+  });
+
+  it('the installed spec still erases the block to `unknown`', () => {
+    expect(
+      installed.typing,
+      `the installed @objectstack/spec ${installed.version} now types JoinedReportBlock — this is the ` +
+        'bump the burn-down is owed at. Re-run the triage against the divergence pins above, derive ' +
+        "the published interface from the spec in its own slice (a published type changes), and delete " +
+        "the state pin's `erased` arm so that an erasure stops compiling again",
+    ).toBe('erased');
+  });
+
+  it('the installed spec is still the published 17.4.0, the newest release before objectstack#20369', () => {
+    expect(
+      installed.version,
+      `a newer @objectstack/spec is installed (block typing: ${installed.typing}). Every release after ` +
+        '17.4.0 is cut from an objectstack `main` that carries #20369, so it should type the block: if ' +
+        'the row above is red too, burn down as it says; if it is green, the spec erased the block again ' +
+        "— report that upstream. Either way the state pin's `erased` arm has lost its licence",
+    ).toBe('17.4.0');
   });
 });

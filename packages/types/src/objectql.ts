@@ -342,8 +342,14 @@ export type GanttConfig = SpecGanttConfig & {
    * Business time zone, IANA name like 'Asia/Shanghai'. Renders the
    * chart's calendar — shift bands, day columns, snapping, today line, date
    * labels — in this zone's wall time for every viewer, instead of the
-   * browser's zone (which misplaces shift bands for viewers elsewhere). Persisted
-   * data stays real instants. Forwarded to `GanttView`.
+   * browser's zone (which misplaces shift bands for viewers elsewhere). A
+   * `datetime` value stays a real instant: a drag writes it back as one. A
+   * `date` value is a calendar day, not an instant: the chart draws it from
+   * that day's midnight in this zone's calendar, and a drag writes back the day
+   * it was dropped on there, `YYYY-MM-DD` (objectui#10866). Near a DST change
+   * of this zone or the viewer's, that midnight can be placed an hour early,
+   * and the day drawn, like the day a drop writes, is then the day before.
+   * Forwarded to `GanttView`.
    */
   timeZone?: string;
   /**

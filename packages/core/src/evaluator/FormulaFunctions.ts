@@ -278,6 +278,9 @@ export class FormulaFunctions {
      *   February 29th plus a year is February 28th.
      * - `DATEFORMAT` prints a day as itself, and `DATEDIFF` counts months and
      *   years between two days' own months and years.
+     * - A mixed `DATEDIFF`, one day and one instant, reads each argument by its
+     *   own kind when it counts months or years: the day on the UTC calendar,
+     *   the instant in the zone the formula runs in (in a browser, the viewer's).
      * - Anything else, a value with a time part included, is unchanged: it is
      *   moved and read with local setters and getters, in the zone the formula
      *   runs in, and `DATEADD` hands it back as an instant (`toISOString()`).

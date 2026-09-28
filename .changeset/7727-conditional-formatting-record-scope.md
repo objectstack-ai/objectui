@@ -115,7 +115,7 @@ the engine's `introspectScope` returns byte-identical `fields` for `record` and
 `fields` hint rather than deriving one per scope).
 
 The `flattened` default at the shared authoring seam is **untouched**: RLS predicates
-and flow conditions are not row surfaces (the `702c48a62` corpus sweep's stand-down 3) and stay
+and flow conditions are not row surfaces (stand-down 3 on the corpus-sweep card behind `702c48a62`) and stay
 flattened.
 
 **What this does NOT close — one half is left open, and it is filed.**

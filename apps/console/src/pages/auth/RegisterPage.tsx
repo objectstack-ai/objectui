@@ -8,7 +8,8 @@
  *  - Bounces to `/login` if `emailPassword.disableSignUp === true`
  *    (defense-in-depth; the server-side gate is the source of truth).
  *  - Routes to `/verify-email-prompt` when the server requires email
- *    verification before sign-in.
+ *    verification before sign-in, and carries `?redirect=` into the
+ *    verification mail's link so it survives the inbox (objectui#10893).
  *  - Replays an `/oauth2/authorize` query string when the user landed
  *    here mid-SSO so the IdP can continue the flow post-signup.
  */
@@ -22,7 +23,7 @@ import { AuthLayout } from './AuthLayout';
 import { followOauthAuthorize } from './followAuthorize';
 // Was a second module-private copy of LoginPage's helper; both now share one
 // implementation — objectui#4181. Behaviour here is unchanged.
-import { withConsoleBase } from '../../utils/consoleBase';
+import { withConsoleBase, withConsoleBaseRootRelative } from '../../utils/consoleBase';
 
 function isSafeRedirect(target: string | null): target is string {
   return !!target && target.startsWith('/') && !target.startsWith('//');
@@ -141,6 +142,13 @@ export function RegisterPage() {
   }
 
   const loginUrl = redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login';
+  // objectui#10893 — when the server gates sign-in on email verification, the
+  // mail's link is the only road back, so it must carry `?redirect=` (e.g. the
+  // invitation the user registered from). Only a safe in-app target is
+  // forwarded; anything else would be refused by the server and fail sign-up.
+  const verificationCallbackURL = isSafeRedirect(redirect)
+    ? withConsoleBaseRootRelative(redirect)
+    : undefined;
 
   return (
     <AuthLayout formWidth="md">
@@ -151,6 +159,7 @@ export function RegisterPage() {
           defaultValue: 'Create your account to start building.',
         })}
         loginUrl={loginUrl}
+        verificationCallbackURL={verificationCallbackURL}
         linkComponent={RouterLink}
         errorMessages={{
           USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: t('auth.register.errors.userExists', {

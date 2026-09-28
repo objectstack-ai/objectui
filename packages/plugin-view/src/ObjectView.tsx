@@ -253,8 +253,10 @@ function viewColumnFieldNames(columns: unknown): string[] | undefined {
  * (objectstack#15184 ruling B). `ObjectGrid` has no `hiddenFields` read, and
  * `object-grid` declares no such key, so relaying the member by name would put
  * a key on the grid node that nothing reads. The subtraction is therefore made
- * here, on the resolved projection, the way `ListView` makes it for the host
- * delegation (its `effectiveFields`).
+ * here, on the resolved projection, as `ListView` subtracts it for the host
+ * delegation (its `effectiveFields`), except that an entry with no field
+ * identity is kept: `ListView` drops such an entry whenever `hiddenFields` is
+ * non-empty.
  *
  * - Only a DECLARED projection is narrowed. With no `columns` anywhere the grid
  *   derives its own defaults, and this returns `undefined` unchanged, as

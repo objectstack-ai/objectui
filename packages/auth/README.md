@@ -137,6 +137,13 @@ declare const navigate: (to: string) => void;
 <ForgotPasswordForm onSuccess={() => navigate('/check-email')} />;
 ```
 
+`labels` is how the forms take translated text, and it reaches the social
+provider buttons the server's `/auth/config` turns on: `socialButton`
+is a template whose `{provider}` is replaced with the provider's display name
+(defaults "Continue with {provider}" on `LoginForm`, "Sign up with {provider}"
+on `RegisterForm`), and `orText` is the divider under the buttons (default
+"or continue with email").
+
 When the server requires email verification, a registration ends in the user's
 inbox, and the verification link is the only way back. `verificationCallbackURL`
 says where that link lands, e.g. the invitation the user signed up from. It is

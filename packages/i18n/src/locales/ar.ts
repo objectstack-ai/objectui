@@ -159,6 +159,7 @@ const ar = {
       copyAll: 'نسخ الكل',
     },
     notAvailableHere: '"{{action}}" غير متاح في الصفحة الحالية.',
+    completedSuccessfully: 'اكتمل الإجراء بنجاح',
   },
   validation: {
     required: "{{field}} مطلوب",
@@ -1592,6 +1593,9 @@ const ar = {
       share: "مشاركة",
       shareTitle: "مشاركة هذه المحادثة",
       shareDisabledTitle: "ابدأ المحادثة لتفعيل المشاركة",
+      buildDoctor: "تشخيص البناء",
+      buildDoctorTitle: "تشخيص البناء — ما الذي طُبِّق فعلًا؟",
+      buildDoctorDisabledTitle: "أرسل رسالة أولًا",
       newChat: "جديدة",
       searchChats: "البحث في المحادثات…",
       noChatsYet: "لا توجد محادثات بعد",
@@ -1799,6 +1803,7 @@ const ar = {
       pages: "الصفحات",
       reports: "التقارير",
       system: "النظام",
+      marketplace: "السوق",
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -2087,6 +2092,8 @@ const ar = {
       resendOtpCountdownText: "إعادة الإرسال بعد {seconds} ثانية",
       usePhoneOtpText: "تسجيل الدخول برمز التحقق",
       usePasswordSignInText: "تسجيل الدخول بكلمة المرور بدلاً من ذلك",
+      socialButton: "المتابعة باستخدام {provider}",
+      orText: "أو تابع باستخدام البريد الإلكتروني",
     },
     register: {
       title: "إنشاء حساب",
@@ -2105,6 +2112,8 @@ const ar = {
       submittingButton: "جارٍ إنشاء الحساب…",
       hasAccountText: "لديك حساب بالفعل؟",
       signInText: "تسجيل الدخول",
+      socialButton: "التسجيل باستخدام {provider}",
+      orText: "أو تابع باستخدام البريد الإلكتروني",
       errors: {
         userExists: "يوجد حساب بهذا البريد الإلكتروني بالفعل. حاول تسجيل الدخول.",
       },

@@ -50,6 +50,8 @@ export function LoginPage() {
           submittingButton: t('auth.login.submittingButton'),
           noAccountText: t('auth.login.noAccountText'),
           signUpText: t('auth.login.signUpText'),
+          socialButton: t('auth.login.socialButton'),
+          orText: t('auth.login.orText'),
         }}
       />
     </AuthPageLayout>

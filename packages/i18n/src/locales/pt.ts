@@ -147,6 +147,7 @@ const pt = {
       copyAll: 'Copiar tudo',
     },
     notAvailableHere: '"{{action}}" não está disponível na página atual.',
+    completedSuccessfully: 'A ação foi concluída com sucesso',
   },
   validation: {
     required: "{{field}} é obrigatório",
@@ -1571,6 +1572,9 @@ const pt = {
       share: "Compartilhar",
       shareTitle: "Compartilhar esta conversa",
       shareDisabledTitle: "Comece a conversar para habilitar o compartilhamento",
+      buildDoctor: "Diagnóstico de build",
+      buildDoctorTitle: "Diagnóstico de build — o que foi realmente aplicado?",
+      buildDoctorDisabledTitle: "Envie uma mensagem primeiro",
       newChat: "Nova",
       searchChats: "Pesquisar conversas…",
       noChatsYet: "Ainda não há conversas",
@@ -1778,6 +1782,7 @@ const pt = {
       pages: "Páginas",
       reports: "Relatórios",
       system: "Sistema",
+      marketplace: "Marketplace",
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -2063,6 +2068,8 @@ const pt = {
       resendOtpCountdownText: "Reenviar em {seconds} s",
       usePhoneOtpText: "Entrar com código de verificação",
       usePasswordSignInText: "Entrar com senha em vez disso",
+      socialButton: "Continuar com {provider}",
+      orText: "ou continue com e-mail",
     },
     register: {
       title: "Criar uma conta",
@@ -2081,6 +2088,8 @@ const pt = {
       submittingButton: "Criando conta…",
       hasAccountText: "Já tem uma conta?",
       signInText: "Entrar",
+      socialButton: "Cadastre-se com {provider}",
+      orText: "ou continue com e-mail",
       errors: {
         userExists: "Já existe uma conta com esse e-mail. Tente fazer login.",
       },

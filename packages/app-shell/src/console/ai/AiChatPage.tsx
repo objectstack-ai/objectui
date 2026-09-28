@@ -2257,9 +2257,9 @@ export function ChatPane({
             className="h-7 w-7 text-muted-foreground hover:text-foreground"
             onClick={onDebug}
             disabled={!conversationId}
-            aria-label="Build Doctor"
+            aria-label={t('console.ai.buildDoctor')}
             data-testid="ai-chat-debug-button"
-            title={conversationId ? 'Build Doctor — what actually landed?' : 'Send a message first'}
+            title={conversationId ? t('console.ai.buildDoctorTitle') : t('console.ai.buildDoctorDisabledTitle')}
           >
             <Bug className="h-3.5 w-3.5" />
           </Button>

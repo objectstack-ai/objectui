@@ -359,7 +359,11 @@ export function AppHeader({
       }
     } else if (routeType === 'system') {
       extraSegments.push({ label: t('console.breadcrumb.system') });
-      if (pathParts[3]) extraSegments.push({ label: humanizeSlug(pathParts[3]) });
+      // `marketplace` is the one system page this shell mounts itself
+      // (`AppContent`'s `system/marketplace` routes), so its segment reads from
+      // the pack. A host-mounted page's segment is still its humanized slug.
+      if (pathParts[3] === 'marketplace') extraSegments.push({ label: t('console.breadcrumb.marketplace') });
+      else if (pathParts[3]) extraSegments.push({ label: humanizeSlug(pathParts[3]) });
     } else if (routeType) {
       const currentObject = safeObjects.find((o: any) => o.name === routeType);
       if (currentObject) {

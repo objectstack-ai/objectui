@@ -13,7 +13,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { useDisplayLocale } from '@object-ui/i18n';
+import { useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
 import {
   Sheet,
   SheetContent,
@@ -35,6 +35,7 @@ export function BuildDebugDrawer({ apiBase, conversationId, open, onOpenChange }
   // Dates and numbers on this surface read the display locale; a bare
   // `toLocale*()` call used the MACHINE's locale (objectui#9909).
   const displayLocale = useDisplayLocale();
+  const { t } = useObjectTranslation();
   const [report, setReport] = useState<BuildDebugReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +71,7 @@ export function BuildDebugDrawer({ apiBase, conversationId, open, onOpenChange }
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
-            <Bug className="h-4 w-4" /> Build Doctor
+            <Bug className="h-4 w-4" /> {t('console.ai.buildDoctor')}
           </SheetTitle>
           <SheetDescription>
             What the agent claimed vs what is actually live. Read-only diagnostic.

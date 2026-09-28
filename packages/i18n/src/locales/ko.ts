@@ -148,6 +148,7 @@ const ko = {
       copyAll: '모두 복사',
     },
     notAvailableHere: '"{{action}}"은(는) 현재 페이지에서 사용할 수 없습니다.',
+    completedSuccessfully: '작업이 완료되었습니다',
   },
   validation: {
     required: "{{field}}은(는) 필수입니다",
@@ -1572,6 +1573,9 @@ const ko = {
       share: "공유",
       shareTitle: "이 대화 공유",
       shareDisabledTitle: "공유하려면 먼저 대화를 시작하세요",
+      buildDoctor: "빌드 진단",
+      buildDoctorTitle: "빌드 진단 — 실제로 반영된 내용은?",
+      buildDoctorDisabledTitle: "먼저 메시지를 보내세요",
       newChat: "새로 만들기",
       searchChats: "채팅 검색…",
       noChatsYet: "아직 채팅이 없습니다",
@@ -1779,6 +1783,7 @@ const ko = {
       pages: "페이지",
       reports: "보고서",
       system: "시스템",
+      marketplace: "마켓플레이스",
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -2064,6 +2069,8 @@ const ko = {
       resendOtpCountdownText: "{seconds}초 후 재전송",
       usePhoneOtpText: "인증 코드로 로그인",
       usePasswordSignInText: "비밀번호로 로그인하기",
+      socialButton: "{provider} 계정으로 계속",
+      orText: "또는 이메일로 계속",
     },
     register: {
       title: "계정 만들기",
@@ -2082,6 +2089,8 @@ const ko = {
       submittingButton: "계정 생성 중…",
       hasAccountText: "이미 계정이 있으신가요?",
       signInText: "로그인",
+      socialButton: "{provider} 계정으로 가입",
+      orText: "또는 이메일로 계속",
       errors: {
         userExists: "해당 이메일로 이미 계정이 존재합니다. 로그인해 보세요.",
       },

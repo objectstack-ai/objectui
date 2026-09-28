@@ -175,6 +175,10 @@ const en = {
     // `visible` gate outranks (objectui#4191) — the deep link or host asked
     // for it, but the author hid it on this surface.
     notAvailableHere: '"{{action}}" is not available on the current page.',
+    // The success toast the action runner shows when an action declares no
+    // `successMessage` and the server returned no message — the one toast
+    // text the runner writes itself (objectui#10900).
+    completedSuccessfully: 'Action completed successfully',
   },
   validation: {
     required: '{{field}} is required',
@@ -1763,6 +1767,8 @@ const en = {
       pages: 'Pages',
       reports: 'Reports',
       system: 'System',
+      // The Setup system page segment after `System` (objectui#10900).
+      marketplace: 'Marketplace',
     },
     nav: {
       pinItem: 'Pin {{name}}',
@@ -1955,6 +1961,12 @@ const en = {
       share: 'Share',
       shareTitle: 'Share this conversation',
       shareDisabledTitle: 'Start chatting to enable sharing',
+      // The build conversation's Build Doctor button (its accessible name,
+      // and its tooltip enabled / before the first message) and the drawer
+      // title it opens (objectui#10900).
+      buildDoctor: 'Build Doctor',
+      buildDoctorTitle: 'Build Doctor — what actually landed?',
+      buildDoctorDisabledTitle: 'Send a message first',
       newChat: 'New',
       searchChats: 'Search chats…',
       noChatsYet: 'No chats yet',
@@ -2382,7 +2394,7 @@ const en = {
       signingIn: 'Signing you in…',
       ssoHandoff: 'Continue to {{target}}',
       // Phone/OTP sign-in labels. `LoginForm` interpolates `{seconds}` with a
-      // literal `.replace()` of its own (packages/auth/src/LoginForm.tsx:429),
+      // literal `.replace('{seconds}', …)` of its own (in `LoginForm`),
       // so those SINGLE braces must survive translation — i18next never sees
       // them.
       emailOrPhoneLabel: 'Email or phone number',
@@ -2395,6 +2407,13 @@ const en = {
       resendOtpCountdownText: 'Resend in {seconds}s',
       usePhoneOtpText: 'Sign in with verification code',
       usePasswordSignInText: 'Sign in with password instead',
+      // The social provider buttons and the divider under them
+      // (`SocialSignInButtons`, fed through `LoginForm`'s labels).
+      // `{provider}` is the component's own single-brace hole, filled by a
+      // literal `.replace()` with the provider's name as the server reports
+      // it — the same convention as `{seconds}` above (objectui#10900).
+      socialButton: 'Continue with {provider}',
+      orText: 'or continue with email',
       devAdminHint: {
         title: 'Development instance',
         body: 'Sign in with the seeded dev admin:',
@@ -2423,6 +2442,9 @@ const en = {
       submittingButton: 'Creating account…',
       hasAccountText: 'Already have an account?',
       signInText: 'Sign in',
+      // Same pair as `auth.login.socialButton` / `orText`, for sign-up.
+      socialButton: 'Sign up with {provider}',
+      orText: 'or continue with email',
       errors: {
         userExists: 'An account with this email already exists. Try signing in instead.',
       },

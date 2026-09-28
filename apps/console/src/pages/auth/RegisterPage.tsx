@@ -200,6 +200,10 @@ export function RegisterPage() {
           submittingButton: t('auth.register.submittingButton', { defaultValue: 'Creating account…' }),
           hasAccountText: t('auth.register.hasAccountText', { defaultValue: 'Already have an account?' }),
           signInText: t('auth.register.signInText', { defaultValue: 'Sign in' }),
+          // `{provider}` is `SocialSignInButtons`' own single-brace hole — kept
+          // out of i18next's `{{…}}` interpolation on purpose.
+          socialButton: t('auth.register.socialButton', { defaultValue: 'Sign up with {provider}' }),
+          orText: t('auth.register.orText', { defaultValue: 'or continue with email' }),
         }}
       />
       </Card>

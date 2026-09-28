@@ -540,6 +540,19 @@ export type ToastHandler = (message: string, options?: {
 }) => void;
 
 /**
+ * The success toast the runner falls back to when neither the server (a
+ * `data.message` on the result) nor the author (`successMessage`) supplied one.
+ * It is the only toast text the runner writes itself, so it is the only one
+ * {@link ActionRunner.setTranslator}'s translator is asked for: `key` names the
+ * locale-pack entry (`@object-ui/i18n`'s packs define it), `defaultValue` is the
+ * English source and what shows when no translator is installed.
+ */
+const DEFAULT_SUCCESS_TOAST = {
+  key: 'actions.completedSuccessfully',
+  defaultValue: 'Action completed successfully',
+} as const;
+
+/**
  * Modal handler — consumers provide to render modal dialogs.
  */
 export type ModalHandler = (schema: any, context: ActionContext) => Promise<ActionResult>;
@@ -993,6 +1006,7 @@ export class ActionRunner {
   private navigationHandler: NavigationHandler | null;
   private paramCollectionHandler: ParamCollectionHandler | null;
   private resultDialogHandler: ResultDialogHandler | null;
+  private translate: ((key: string, options: { defaultValue: string }) => string) | null;
 
   /**
    * Built-in dispatch, one entry per runnable action type.
@@ -1031,6 +1045,19 @@ export class ActionRunner {
     this.navigationHandler = null;
     this.paramCollectionHandler = null;
     this.resultDialogHandler = null;
+    this.translate = null;
+  }
+
+  /**
+   * Set the translator for the text the runner supplies itself — the host's
+   * `t`, injected so this package takes no i18n dependency. Today that is one
+   * string: the generic success toast shown when an action declares no
+   * `successMessage` and the server returned no message. An author's
+   * `successMessage` and a server message reach the toast verbatim, translator
+   * or not. With no translator the toast stays English.
+   */
+  setTranslator(translate: (key: string, options: { defaultValue: string }) => string): void {
+    this.translate = translate;
   }
 
   /**
@@ -1317,6 +1344,16 @@ export class ActionRunner {
   }
 
   /**
+   * The generic success toast, in the installed translator's language. An
+   * empty answer from the translator falls back to the English source rather
+   * than raising an empty toast.
+   */
+  private defaultSuccessToast(): string {
+    const { key, defaultValue } = DEFAULT_SUCCESS_TOAST;
+    return this.translate?.(key, { defaultValue }) || defaultValue;
+  }
+
+  /**
    * Post-execution: emit toast notifications, handle chaining, callbacks.
    */
   private async handlePostExecution(action: ActionDef, result: ActionResult): Promise<void> {
@@ -1338,12 +1375,14 @@ export class ActionRunner {
         // check_app_updates / publish / install compute a real outcome
         // ("2 app updates available: CRM 1.0.0→1.0.1", "Published v1.2.0")
         // that the static label can't express; without this the user only ever
-        // sees a generic "Done". Falls back to the static label, then a default.
+        // sees a generic "Done". Falls back to the static label, then a default
+        // — the one string here the runner writes itself, so the only one its
+        // translator is asked for (see `setTranslator`).
         const dyn = (result.data && typeof result.data === 'object'
           && typeof (result.data as { message?: unknown }).message === 'string')
           ? String((result.data as { message?: unknown }).message).trim()
           : '';
-        const message = dyn || action.successMessage || 'Action completed successfully';
+        const message = dyn || action.successMessage || this.defaultSuccessToast();
         // Undoable action: register the captured operation on the global
         // UndoManager and surface an "Undo" affordance on the toast (the
         // consumer's toast handler wires the button to UndoManager).

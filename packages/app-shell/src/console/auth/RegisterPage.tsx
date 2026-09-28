@@ -132,6 +132,8 @@ export function RegisterPage() {
           submittingButton: t('auth.register.submittingButton'),
           hasAccountText: t('auth.register.hasAccountText'),
           signInText: t('auth.register.signInText'),
+          socialButton: t('auth.register.socialButton'),
+          orText: t('auth.register.orText'),
         }}
       />
     </AuthPageLayout>

@@ -155,6 +155,7 @@ const zh = {
       copyAll: '全部复制',
     },
     notAvailableHere: '「{{action}}」在当前页面不可用。',
+    completedSuccessfully: '操作已成功完成',
   },
   validation: {
     required: '{{field}}不能为空',
@@ -1578,6 +1579,7 @@ const zh = {
       // restore 报告 without a new ruling.
       reports: '报表',
       system: '系统',
+      marketplace: '应用市场',
     },
     nav: {
       pinItem: '固定 {{name}}',
@@ -1732,6 +1734,9 @@ const zh = {
       share: '分享',
       shareTitle: '分享此对话',
       shareDisabledTitle: '开始对话后即可分享',
+      buildDoctor: '构建诊断',
+      buildDoctorTitle: '构建诊断 — 实际生效了哪些变更？',
+      buildDoctorDisabledTitle: '请先发送一条消息',
       newChat: '新对话',
       searchChats: '搜索对话…',
       noChatsYet: '暂无对话',
@@ -2140,6 +2145,8 @@ const zh = {
       resendOtpCountdownText: '{seconds} 秒后可重新发送',
       usePhoneOtpText: '使用验证码登录',
       usePasswordSignInText: '改用密码登录',
+      socialButton: '使用 {provider} 继续',
+      orText: '或使用邮箱继续',
     },
     register: {
       title: '创建账户',
@@ -2158,6 +2165,8 @@ const zh = {
       submittingButton: '创建中…',
       hasAccountText: '已有账户？',
       signInText: '登录',
+      socialButton: '使用 {provider} 注册',
+      orText: '或使用邮箱继续',
       errors: {
         userExists: '该邮箱已被注册，请直接登录或更换邮箱。',
       },
@@ -3302,7 +3311,7 @@ const zh = {
   marketplace: {
       title: '应用市场',
       subtitle: '浏览已通过审核、发布到 ObjectStack 目录中的应用。点击应用查看详情并安装到你的某个环境中。',
-      searchPlaceholder: '按名称或 manifest ID 搜索应用…',
+      searchPlaceholder: '按名称或标识搜索应用…',
       searchAria: '搜索市场应用',
       installed: '已安装',
       installedCount: '已安装（{{count}}）',

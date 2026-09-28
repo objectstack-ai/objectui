@@ -1961,9 +1961,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
    *
    * The toggle is computed HERE, in the handler, from the row on screen, and
    * the write is issued here too. It used to be issued from inside the state
-   * updater, which React may call twice (StrictMode does, and measured: one
-   * click, two `update`s), and to end in `.catch(() => {})`, so a refused write
-   * left the reaction on screen as applied, with no message, until a reload.
+   * updater, which React may call twice (StrictMode does in development, so
+   * one click sent two `update`s; the StrictMode row of
+   * `RecordDetailView.reactionWriteFailure-10899.test.tsx` pins one), and to
+   * end in `.catch(() => {})`, so a refused write left the reaction on screen
+   * as applied, with no message, until a reload.
    *
    * Each write stores the row's WHOLE reaction set as of its click, so after
    * several quick clicks the server holds the set of the newest write it

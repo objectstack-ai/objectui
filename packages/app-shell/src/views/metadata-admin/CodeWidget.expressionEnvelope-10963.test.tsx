@@ -104,10 +104,18 @@ function storedVisibleWhen(authored: unknown): unknown {
 
 const META = { rationale: 'Only invoices carry an amount', generatedBy: 'agent:invoice-form' };
 
+/**
+ * The member schema `SchemaForm` hands the widget. It does not pick the path:
+ * `inferCodeLanguage` reads `fieldSpec.language` first, and every row here
+ * declares one. A plain string schema keeps the fixtures free of a second
+ * signal.
+ */
+const MEMBER_SCHEMA = { type: 'string' };
+
 /** Render one `CodeWidget` and return its write spy. */
 function renderCode(fieldSpec: FormFieldSpec, value: unknown) {
   const onChange = vi.fn();
-  render(<CodeWidget fieldSpec={fieldSpec} value={value} onChange={onChange} />);
+  render(<CodeWidget schema={MEMBER_SCHEMA} fieldSpec={fieldSpec} value={value} onChange={onChange} />);
   return onChange;
 }
 

@@ -100,10 +100,11 @@ const CASES: Record<string, Case> = {
     spec: SpecAppSchema,
     oui: OuiAppSchema,
     omitted: ['navigation', 'areas', 'contextSelectors'],
-    // `actions` (objectui#7469) and `logo` (objectui#10827) are local REFUSALS,
-    // not capabilities: each is declared only so an authored value is refused
-    // by name instead of kept in silence by `.passthrough()`. `logo` was a
-    // second spelling of the spec's `branding.logo`.
+    // `actions` (objectui#7469), `logo` (objectui#10827) and `favicon`
+    // (objectui#10842) are local REFUSALS, not capabilities: each is declared
+    // only so an authored value is refused by name instead of kept in silence
+    // by `.passthrough()`. `logo` and `favicon` were second spellings of the
+    // spec's `branding.logo` and `branding.favicon`.
     local: ['title', 'logo', 'favicon', 'layout', 'menu', 'actions'],
   },
   Dashboard: {
@@ -227,7 +228,7 @@ describe('the derivation stays permissive where objectui needs it', () => {
       OuiPageSchema.safeParse({ type: 'page', pageType: 'record', title: 'T', regions: [] }).success,
     ).toBe(true);
     expect(
-      OuiAppSchema.safeParse({ type: 'app', title: 'T', favicon: '/f.png', layout: 'sidebar' }).success,
+      OuiAppSchema.safeParse({ type: 'app', title: 'T', layout: 'sidebar' }).success,
     ).toBe(true);
   });
 

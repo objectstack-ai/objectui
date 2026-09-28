@@ -76,8 +76,12 @@ const DENSITY_ORDER: DensityModeValue[] = ['compact', 'comfortable', 'spacious']
  *
  * @example
  * ```tsx
- * const density = useDensityMode(activeView?.densityMode ?? 'comfortable', {
- *   onChange: (m) => dataSource.updateViewConfig(obj, vid, { densityMode: m }),
+ * import { DENSITY_MODE_TO_ROW_HEIGHT, rowHeightToDensityMode } from '@object-ui/core';
+ *
+ * // A view stores the protocol's `rowHeight`; the legacy `densityMode` key is
+ * // retired on `NamedListView` (objectui#7924), so persist the spec value.
+ * const density = useDensityMode(rowHeightToDensityMode(activeView?.rowHeight) ?? 'comfortable', {
+ *   onChange: (m) => dataSource.updateViewConfig(obj, vid, { rowHeight: DENSITY_MODE_TO_ROW_HEIGHT[m] }),
  * });
  * ```
  */

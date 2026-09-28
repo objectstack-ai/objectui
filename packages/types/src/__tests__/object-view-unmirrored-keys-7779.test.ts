@@ -95,7 +95,8 @@
  *
  * ⚠️ The distinction the whole finding turns on: a member reached through
  * `activeView?.KEY` — the host's `views` prop — is NOT read off the named view.
- * `rowHeight: activeView?.rowHeight` is the pinned counter-control below.
+ * `rowHeight`, read off `activeView` through the fold, is the pinned
+ * counter-control below.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -354,8 +355,9 @@ const BUCKET_LEGACY_SHOW_SPELLINGS = [
  * fold table, and read off no named view by the `object-view` renderer.
  *
  * ⚠️ CORRECTED at objectui#7924's retirement: this block used to add "no runtime
- * fold, and no reader on any path". Two of the ten falsify it —
- * {@link BUCKET_LOCAL_ONLY_RETAINED} — because the `object-view` renderer is not
+ * fold, and no reader on any path". Two of the ten falsified it —
+ * `allowExport` ({@link BUCKET_LOCAL_ONLY_RETAINED}) and `densityMode`, retired
+ * later by ruling A′ ({@link DENSITY_MODE_RETIRED}) — because the `object-view` renderer is not
  * the only host of a named view: `app-shell`'s object page holds the active
  * named view as a flat `NamedListView` and relays members off it into the
  * `list-view` node. The membership below is unchanged (it is derived by the
@@ -368,22 +370,36 @@ const BUCKET_LOCAL_ONLY_UNREAD = [
 ] as const;
 
 /**
- * The two bucket-③ members objectui#7924 did NOT tombstone, because each is
- * read and acted on: `allowExport` gates `ListView`'s export control, and
- * `densityMode` is folded onto `rowHeight` by `normalizeListViewSchema`. Each
- * carries its read as a source assertion in the retirement block below.
+ * The bucket-③ member objectui#7924 did NOT tombstone, because it is read and
+ * acted on: `allowExport` gates `ListView`'s export control. It carries its
+ * read as a source assertion in the retirement block below.
+ *
+ * ⚠️ This held TWO names until ruling A′ (objectui#7924): `densityMode` was kept
+ * because both relays of a named view carried it by name into the fold. Once
+ * both relays read the density THROUGH the fold (`normalizeListViewSchema`),
+ * nothing outside the fold reads it, so it retired as a legacy spelling of
+ * top-level `rowHeight` — see {@link DENSITY_MODE_RETIRED}.
  */
-const BUCKET_LOCAL_ONLY_RETAINED = ['allowExport', 'densityMode'] as const;
+const BUCKET_LOCAL_ONLY_RETAINED = ['allowExport'] as const;
+
+/**
+ * The bucket-③ member retired LATER than its neighbours, by ruling A′ on
+ * objectui#7924: a legacy spelling of top-level `rowHeight` whose only reader
+ * is the runtime fold.
+ */
+const DENSITY_MODE_RETIRED = 'densityMode';
 
 /**
  * Every `?: never` tombstone objectui#7924 put on `NamedListView`: the eight
- * bucket-② spellings plus the eight bucket-③ members that are read nowhere.
- * Derived off the AST (a member whose type node is the `never` keyword).
+ * bucket-② spellings plus the nine bucket-③ members nothing outside the fold
+ * reads (`densityMode` joined the eight at ruling A′). Derived off the AST (a
+ * member whose type node is the `never` keyword).
  */
 const NAMED_LIST_VIEW_TOMBSTONES = [
   'addDeleteRecordsInline', 'addRecordViaForm', 'clickIntoRecordDetails', 'collapseAllByDefault',
-  'color', 'fieldTextColor', 'prefixField', 'showColor', 'showDensity', 'showDescription',
-  'showFilters', 'showGroup', 'showHideFields', 'showSearch', 'showSort', 'wrapHeaders',
+  'color', 'densityMode', 'fieldTextColor', 'prefixField', 'showColor', 'showDensity',
+  'showDescription', 'showFilters', 'showGroup', 'showHideFields', 'showSearch', 'showSort',
+  'wrapHeaders',
 ] as const;
 
 /**
@@ -610,7 +626,7 @@ interface NamedViewReadDerivation {
 /**
  * What the renderer reads OFF A NAMED VIEW — kept strictly apart from what it
  * reads off `activeView` (the host's `views` prop), which is the whole finding:
- * `rowHeight: activeView?.rowHeight` is NOT a named-view read.
+ * `rowHeight`, read off `activeView` through the fold, is NOT a named-view read.
  *
  * Every route from the record to a named view is derived, not listed:
  *   RECORD  — a variable initialised from `schema.listViews`.
@@ -1346,11 +1362,11 @@ describe('objectui#7924 — the per-member liveness census on `NamedListView`, r
     expect(reads).toContain(NAMED_VIEW_READ_CONTROL);
     expect(declared).toContain(NAMED_VIEW_READ_CONTROL);
     // …and its negative twin: declared, and NOT read off a named view. It is
-    // read off `activeView` instead (`rowHeight: activeView?.rowHeight`), which
-    // is the distinction the whole finding turns on.
+    // read off `activeView` instead, through the fold since objectui#7924's
+    // ruling A′ — which is the distinction the whole finding turns on.
     expect(declared).toContain(NAMED_VIEW_UNREAD_CONTROL);
     expect(reads).not.toContain(NAMED_VIEW_UNREAD_CONTROL);
-    expect(readRepo(READER)).toContain('rowHeight: activeView?.rowHeight,');
+    expect(readRepo(READER)).toContain('rowHeight: (normalizeListViewSchema(activeView ?? {})');
     // A spelling that is in neither set: non-vacuity for both probes at once.
     expect(declared).not.toContain(NAMED_VIEW_ABSENT_CONTROL);
     expect(reads).not.toContain(NAMED_VIEW_ABSENT_CONTROL);
@@ -1618,8 +1634,10 @@ describe('objectui#7924 — the 43 unread members are FOUR populations, derived 
  * as `?: never` tombstones on the TypeScript face only — the runtime fold in
  * `normalizeListViewSchema` stays, so stored documents keep parsing.
  *
- * Two bucket-③ members were measured READ at retirement time and are NOT
- * tombstoned ({@link BUCKET_LOCAL_ONLY_RETAINED}).
+ * Two bucket-③ members were measured READ at retirement time and were NOT
+ * tombstoned then. Ruling A′ (objectui#7924) retired one of them later:
+ * `densityMode`, once both relays of a named view read the density through the
+ * fold instead of by name. `allowExport` stays ({@link BUCKET_LOCAL_ONLY_RETAINED}).
  */
 
 const LISTVIEW = 'packages/plugin-list/src/ListView.tsx';
@@ -1634,9 +1652,12 @@ type TombstoneTypes = { [K in Tombstone]: NamedListView[K] };
 // (to `boolean`, `string`, or `any` through a deletion) makes this union not
 // `undefined`, and the type-check goes red.
 export type _EveryTombstoneAdmitsOnlyAbsence = Expect<Equal<TombstoneTypes[Tombstone], undefined>>;
-// The two retained members keep their declared types.
+// The retained member keeps its declared type.
 export type _AllowExportRetained = Expect<Equal<NamedListView['allowExport'], boolean | undefined>>;
-export type _DensityModeRetained = Expect<Equal<NamedListView['densityMode'], 'compact' | 'comfortable' | 'spacious' | undefined>>;
+// `densityMode` — this pin asserted the member RETAINED (its three-value union)
+// until ruling A′ (objectui#7924); re-pointed, not deleted, it now asserts the
+// tombstone: the member admits absence and nothing else.
+export type _DensityModeTombstoned = Expect<Equal<NamedListView['densityMode'], undefined>>;
 // The canonical blocks are the `list-view` node's own spec-derived members.
 export type _UserActionsIsTheSpecDerivedSlot = Expect<Equal<NamedListView['userActions'], TsListViewSchema['userActions']>>;
 export type _AppearanceIsTheSpecDerivedSlot = Expect<Equal<NamedListView['appearance'], TsListViewSchema['appearance']>>;
@@ -1676,6 +1697,8 @@ export const _refusedFieldTextColor: NamedListView = { ...BASE_VIEW, fieldTextCo
 export const _refusedPrefixField: NamedListView = { ...BASE_VIEW, prefixField: 'code' };
 // @ts-expect-error — `wrapHeaders` is RETIRED (objectui#7924): protocol-silent and unread
 export const _refusedWrapHeaders: NamedListView = { ...BASE_VIEW, wrapHeaders: true };
+// @ts-expect-error — `densityMode` is RETIRED (objectui#7924, ruling A′): author top-level `rowHeight`
+export const _refusedDensityMode: NamedListView = { ...BASE_VIEW, densityMode: 'compact' };
 
 // …and the canonical blocks ACCEPT a protocol-shaped value on a literal. The
 // same values are parsed against the protocol's own slots below, so "protocol
@@ -1691,14 +1714,17 @@ export const _acceptedCanonical: NamedListView = {
   appearance: { ...PROTOCOL_APPEARANCE },
   rowColor: { field: 'status' },
 };
-// The two retained members still accept their values.
-export const _acceptedRetained: NamedListView = { ...BASE_VIEW, allowExport: false, densityMode: 'compact' };
+// The retained member still accepts its value…
+export const _acceptedRetained: NamedListView = { ...BASE_VIEW, allowExport: false };
+// …and the density the retired `densityMode` spelled is authored as the
+// protocol's top-level `rowHeight`, which a named view accepts.
+export const _acceptedDensityCanonical: NamedListView = { ...BASE_VIEW, rowHeight: 'compact' };
 
-describe('objectui#7924 — the retirement: sixteen `?: never` tombstones, two retained reads, the canonical blocks', () => {
-  it('the tombstone set is EXACTLY bucket ② plus bucket ③ minus the two retained reads, derived off the AST', () => {
+describe('objectui#7924 — the retirement: seventeen `?: never` tombstones, one retained read, the canonical blocks', () => {
+  it('the tombstone set is EXACTLY bucket ② plus bucket ③ minus the retained read, derived off the AST', () => {
     const { tombstones, names } = namedListViewMembers();
     expect([...tombstones].sort()).toEqual([...NAMED_LIST_VIEW_TOMBSTONES]);
-    expect(tombstones).toHaveLength(16);
+    expect(tombstones).toHaveLength(17);
     const expected = [
       ...BUCKET_LEGACY_SHOW_SPELLINGS,
       ...BUCKET_LOCAL_ONLY_UNREAD.filter((m) => !(BUCKET_LOCAL_ONLY_RETAINED as readonly string[]).includes(m)),
@@ -1737,6 +1763,9 @@ describe('objectui#7924 — the retirement: sixteen `?: never` tombstones, two r
     expect(docs.color).toContain('`rowColor`');
     expect(docs.color).toContain('Not `userActions.rowColor`');
     expect(docs.addRecordViaForm).toContain('`userActions.addRecordForm`');
+    // `densityMode` names the top-level VALUE and warns off the toggle.
+    expect(docs[DENSITY_MODE_RETIRED]).toContain('top-level `rowHeight`');
+    expect(docs[DENSITY_MODE_RETIRED]).toContain('Not `userActions.rowHeight`');
     for (const m of NAMED_LIST_VIEW_TOMBSTONES) expect(docs[m]).toContain('RETIRED (objectui#7924)');
     // No alias: the fold table does not learn any bucket-③ member.
     const map = foldFlagMap();
@@ -1749,9 +1778,19 @@ describe('objectui#7924 — the retirement: sixteen `?: never` tombstones, two r
     expect(readRepo(LISTVIEW)).toContain('schema.allowExport !== false &&');
   });
 
-  it('`densityMode` is RETAINED because it is read: the runtime fold maps it onto `rowHeight`', () => {
-    expect(namedListViewMembers().tombstones).not.toContain('densityMode');
-    expect(readRepo(APP_SHELL_OBJECT_VIEW)).toContain('densityMode: viewDef.densityMode ?? listSchema.densityMode,');
+  it('`densityMode` is RETIRED by ruling A′: both relays read the density THROUGH the fold, and the fold still maps stored views', () => {
+    // Re-pointed from the RETAINED pin it replaces (objectui#7924): that pin
+    // held the app-shell relay line naming the key; this one holds its absence
+    // at BOTH relays, with the fold-through line as the firing control on the
+    // same file, so an absence is a reading and not a missed file.
+    expect(namedListViewMembers().tombstones).toContain(DENSITY_MODE_RETIRED);
+    const appShell = readRepo(APP_SHELL_OBJECT_VIEW);
+    const pluginView = readRepo(READER);
+    expect(appShell).not.toContain('densityMode: viewDef.densityMode');
+    expect(appShell).toContain('(normalizeListViewSchema(viewDef ?? {}) as Pick<ListViewSchema, \'rowHeight\'>).rowHeight');
+    expect(pluginView).not.toContain('densityMode: activeView?.densityMode');
+    expect(pluginView).toContain('rowHeight: (normalizeListViewSchema(activeView ?? {})');
+    // The fold is the one reader left, and stored views keep rendering through it.
     const fold = readRepo(FOLD);
     expect(fold).toContain('const legacyDensity = s.densityMode;');
     expect(fold).toContain('delete next.densityMode;');

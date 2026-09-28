@@ -413,7 +413,18 @@ export const AppComponentSchema = BaseSchema.extend(SpecAppFields.shape).extend(
     + 'objectui-only second spelling that the platform never accepted, and the console\'s mounted '
     + 'chrome reads only `branding.logo`. For an icon NAME, use `icon`.',
   ),
-  favicon: z.string().optional().describe('Favicon URL'),
+  // The favicon has ONE spelling too, `branding.favicon` (objectui#10842, the
+  // objectui#10827 rule). `@objectstack/spec`'s `AppSchema` refuses a top-level
+  // `favicon` (`unrecognized_keys`). A named refusal for the same
+  // `.passthrough()` reason as `logo`; the TS twin is `favicon?: never`.
+  favicon: aliasKeyRefusal(
+    'favicon',
+    'branding',
+    'this app',
+    'The app favicon is `branding.favicon`, the URL `@objectstack/spec`\'s `AppBrandingSchema` declares '
+    + '(objectui#10842): write `branding: { favicon: \'/favicon.ico\' }`. The top-level `favicon` was an '
+    + 'objectui-only second spelling that the platform refuses, and the console reads only `branding.favicon`.',
+  ),
   layout: z.enum(['sidebar', 'header', 'empty']).optional().describe('Global layout strategy'),
   menu: z.array(MenuItemSchema).optional().describe('Legacy navigation menu (deprecated, use navigation)'),
   navigation: z.array(NavigationItemSchema).optional().describe('Unified navigation tree'),

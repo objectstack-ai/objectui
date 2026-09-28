@@ -2399,9 +2399,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
             || schema.table?.columns || schema.table?.fields,
           filter: mergedFilters,
           sort: mergedSort,
-          // Propagate appearance/view-config properties for live preview
-          rowHeight: activeView?.rowHeight,
-          densityMode: activeView?.densityMode,
+          // Propagate appearance/view-config properties for live preview.
+          // objectui#7924 (ruling A′): the density is read THROUGH the fold,
+          // so a stored view that still spells it `densityMode` is handed
+          // down as `rowHeight`, and the retired key is never relayed by name.
+          rowHeight: (normalizeListViewSchema(activeView ?? {}) as { rowHeight?: string }).rowHeight,
           groupBy: activeView?.groupBy,
           groupBy2: activeView?.groupBy2,
           // objectui#8980 — the protocol declares `grouping` on a named list
@@ -2413,8 +2415,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           // Toolbar policy — one vocabulary (#2890). The host node and the
           // active view may still carry the legacy bare `show*` flags, so both
           // go through `normalizeListViewSchema` (the single fold) and merge,
-          // view over host. `densityMode`/`rowHeight` above take the same route
-          // once step 2's fold runs at the ListView boundary.
+          // view over host. `rowHeight` above takes the same fold.
           userActions: {
             ...(normalizeListViewSchema(schema ?? {}) as { userActions?: object }).userActions,
             ...(normalizeListViewSchema(activeView ?? {}) as { userActions?: object }).userActions,

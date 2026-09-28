@@ -240,3 +240,37 @@ export function retiredNodeType(type: string, guidance: string) {
     })
     .describe(text);
 }
+
+/**
+ * Declare BOTH content channels refused on a node whose renderer reads NEITHER
+ * (objectui#9256, family D; the E3 residual moved there by the maintainer's
+ * ruling on objectui#8284, Q2 A). Spread the result into the node's shape:
+ *
+ * ```ts
+ * BaseSchema.extend({ …, ...neitherContentChannel('object-grid', route, renders) })
+ * ```
+ *
+ * Each key stays a MEMBER — a {@link retirementTombstone} — so the parity
+ * ratchet's key sets stay equal against the TypeScript twin's `?: never` pair,
+ * and the refusal is BY NAME at the key's own path with code `invalid_type`.
+ *
+ * Why `body` is restated although `BaseSchema` already refuses it
+ * (objectui#6771): that refusal names `children` as the remedy, and on these
+ * nodes `children` is dead too. ONE string per node feeds both keys and both
+ * author-facing channels (the issue message and the `.describe()` metadata), and
+ * it names what the node renders instead.
+ *
+ * @param node    the registered `type`, spelled into the message
+ * @param route   how the node reaches the component that reads it, so the
+ *                reader can re-derive the measurement
+ * @param renders what the node renders instead of a child list
+ */
+export function neitherContentChannel(node: string, route: string, renders: string) {
+  const guidance =
+    'REFUSED (objectui#9256, ADR-0049) — `' + node + '` reads NEITHER content channel: measured with the '
+    + 'TypeScript type checker over one program per workspace package on a BUILT tree, no renderer read '
+    + 'consumes `body` or `children` for this node — ' + route + ' — and `SchemaRenderer` strips both out '
+    + 'of the props bag it spreads. An authored value therefore rendered NOTHING — no error, no warning, '
+    + 'no element. What it renders instead: ' + renders + '.';
+  return { body: retirementTombstone(guidance), children: retirementTombstone(guidance) };
+}

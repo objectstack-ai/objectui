@@ -1277,18 +1277,17 @@ export interface CalendarSchema extends BaseSchema {
    * at `ui:calendar` only (`packages/components/src/renderers/form/calendar.tsx`),
    * which reads `defaultValue`, `mode` and `value` and neither content channel.
    *
-   * ⚠️ The tombstone does NOT reach {@link UiCalendarSchema} on THIS face, and
-   * that was measured rather than assumed. `UiCalendarSchema` is declared as an
-   * `Omit` of this interface, and {@link BaseSchema} carries an index signature,
-   * so `Omit` resolves through `Exclude<string, 'type'>` = `string` and collapses
-   * every member into that signature: the checker answers `any` for
-   * `UiCalendarSchema['body']` — and for `UiCalendarSchema['mode']` as well, so
-   * this is not about the tombstone. That face has never carried this key set,
-   * whatever its own docblock says. The MIRROR does propagate, because
-   * `zod/form.zod.ts` builds it with `.extend()` and zod carries the shape.
-   * Both halves are pinned in `__tests__/content-channel-family-d-9256.test.ts`
-   * — the mirror as a refusal row, this face as a tripwire that reddens the day
-   * the collapse is repaired.
+   * The tombstone reaches {@link UiCalendarSchema} on BOTH faces. On this one
+   * it did not until objectui#9256's E3 slice: `UiCalendarSchema` was declared
+   * as a plain `Omit` of this interface, and because {@link BaseSchema} carries
+   * an index signature that `Omit` resolved through `Exclude<string, 'type'>` =
+   * `string` and collapsed every member into the signature — the checker
+   * answered `any` for `UiCalendarSchema['body']` and for
+   * `UiCalendarSchema['mode']` alike. Its heritage is now the index-signature-safe
+   * `OmitDeclared`, so it carries this key set; the mirror always did, because
+   * `zod/form.zod.ts` builds it with `.extend()`. The TypeScript half is pinned
+   * in `__tests__/content-channel-e3-residual-9256.test.ts`, the mirror half as
+   * a refusal row in `__tests__/content-channel-family-d-9256.test.ts`.
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -1334,18 +1333,17 @@ export interface CalendarSchema extends BaseSchema {
    * at `ui:calendar` only (`packages/components/src/renderers/form/calendar.tsx`),
    * which reads `defaultValue`, `mode` and `value` and neither content channel.
    *
-   * ⚠️ The tombstone does NOT reach {@link UiCalendarSchema} on THIS face, and
-   * that was measured rather than assumed. `UiCalendarSchema` is declared as an
-   * `Omit` of this interface, and {@link BaseSchema} carries an index signature,
-   * so `Omit` resolves through `Exclude<string, 'type'>` = `string` and collapses
-   * every member into that signature: the checker answers `any` for
-   * `UiCalendarSchema['body']` — and for `UiCalendarSchema['mode']` as well, so
-   * this is not about the tombstone. That face has never carried this key set,
-   * whatever its own docblock says. The MIRROR does propagate, because
-   * `zod/form.zod.ts` builds it with `.extend()` and zod carries the shape.
-   * Both halves are pinned in `__tests__/content-channel-family-d-9256.test.ts`
-   * — the mirror as a refusal row, this face as a tripwire that reddens the day
-   * the collapse is repaired.
+   * The tombstone reaches {@link UiCalendarSchema} on BOTH faces. On this one
+   * it did not until objectui#9256's E3 slice: `UiCalendarSchema` was declared
+   * as a plain `Omit` of this interface, and because {@link BaseSchema} carries
+   * an index signature that `Omit` resolved through `Exclude<string, 'type'>` =
+   * `string` and collapsed every member into the signature — the checker
+   * answered `any` for `UiCalendarSchema['body']` and for
+   * `UiCalendarSchema['mode']` alike. Its heritage is now the index-signature-safe
+   * `OmitDeclared`, so it carries this key set; the mirror always did, because
+   * `zod/form.zod.ts` builds it with `.extend()`. The TypeScript half is pinned
+   * in `__tests__/content-channel-e3-residual-9256.test.ts`, the mirror half as
+   * a refusal row in `__tests__/content-channel-family-d-9256.test.ts`.
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -2487,6 +2485,31 @@ export interface CodeEditorSchema extends BaseSchema {
 }
 
 /**
+ * `Omit` that KEEPS the named members of a type carrying an index signature
+ * (objectui#9256, the `Omit` erasure the maintainer's ruling on objectui#8284
+ * moved onto that card).
+ *
+ * The built-in `Omit<T, K>` is `Pick<T, Exclude<keyof T, K>>`, and `keyof T` on
+ * a type carrying {@link BaseSchema}'s `[key: string]: any` is `string | number`:
+ * the literal member names are absorbed, `Exclude` leaves `string`, and the
+ * `Pick` rebuilds the index signature and NONE of the named members (the same
+ * mechanism objectui#6151 and objectui#6269 measured at other positions). The
+ * two shorthand faces below were spelled that way, so every member they meant
+ * to inherit — `BaseSchema`'s `body` refusal and `CalendarSchema`'s family-D
+ * tombstones included — answered `any` on the published face.
+ *
+ * A key-remapping mapped type iterates the NAMED members and the index
+ * signature separately, so filtering by name drops exactly `K`: every other
+ * named member survives with its own type and modifiers, and the index
+ * signature survives as itself. Not exported — it exists to spell these two
+ * heritage clauses, and `__tests__/content-channel-e3-residual-9256.test.ts`
+ * pins what it delivers on both faces.
+ */
+type OmitDeclared<T, K extends PropertyKey> = {
+  [P in keyof T as P extends K ? never : P]: T[P];
+};
+
+/**
  * The `email` / `password` input shorthands
  * `packages/components/src/renderers/form/input.tsx` registers (objectui#8499).
  *
@@ -2508,7 +2531,7 @@ export interface CodeEditorSchema extends BaseSchema {
  *
  * Mirror: `zod/form.zod.ts#InputShorthandSchema`.
  */
-export interface InputShorthandSchema extends Omit<InputSchema, 'type' | 'inputType'> {
+export interface InputShorthandSchema extends OmitDeclared<InputSchema, 'type' | 'inputType'> {
   type: 'email' | 'password';
   /**
    * ⛔ UNWRITABLE at this position (objectui#8762). The `email` / `password`
@@ -2522,6 +2545,37 @@ export interface InputShorthandSchema extends Omit<InputSchema, 'type' | 'inputT
    * still wins. It is this POSITION that cannot author it.
    */
   inputType?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `email` / `password` read
+   * NEITHER content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), and since this
+   * interface stopped spelling its heritage as a collapsing `Omit` that refusal
+   * reaches this face at all. It is restated here because it names `children`
+   * as the remedy, which these two do not read either.
+   *
+   * @deprecated Not a channel `email` / `password` read — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `email` / `password` read
+   * NEITHER content channel, so an authored child list here rendered NOTHING:
+   * no error, no warning, no element.
+   *
+   * Measured with the TypeScript type checker, not grep: both registrations
+   * spread the node into the `input` renderer with `inputType` pinned, and that
+   * renderer reads it as {@link InputSchema} — no `body` / `children` read is
+   * filed under that declaration, while the same instrument does see it as the
+   * receiver of every key the renderer reads. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, and neither registration declares a
+   * `children` slot (objectui#9910).
+   *
+   * What it renders instead: one input field — `label`, `placeholder`,
+   * `value` / `defaultValue`, `description`, `error`, `required`.
+   *
+   * @deprecated Not a channel `email` / `password` read — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -2539,9 +2593,16 @@ export interface InputShorthandSchema extends Omit<InputSchema, 'type' | 'inputT
  * `examples/schema-catalog/src/schemas/components-form-calendar/` author it; every
  * one rendered and every one was refused by `AnyComponentSchema` until this arm.
  *
+ * Every member is {@link CalendarSchema}'s — `mode`, the selection keys and its
+ * two content-channel tombstones included — through {@link OmitDeclared}. The
+ * heritage used to be a plain `Omit`, which collapsed into `BaseSchema`'s index
+ * signature and left this face declaring `type` alone (objectui#9256). Nothing
+ * new is refused here: this face now carries what `CalendarSchema` already
+ * declared and what the mirror, a `.extend()` of it, already refused.
+ *
  * Mirror: `zod/form.zod.ts#UiCalendarSchema`.
  */
-export interface UiCalendarSchema extends Omit<CalendarSchema, 'type'> {
+export interface UiCalendarSchema extends OmitDeclared<CalendarSchema, 'type'> {
   type: 'ui:calendar';
 }
 

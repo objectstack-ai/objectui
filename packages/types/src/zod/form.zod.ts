@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, handlerKeyRefusal, neitherContentChannel, retirementTombstone } from './tombstone.zod.js';
 import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 // The predicate wire shape (`string | { dialect?, source }`, #2212) was a
@@ -626,8 +626,8 @@ const CalendarObjectSchema = BaseSchema.extend({
     + 'What it renders instead: `defaultValue`, `mode`, `value`. '
     + 'Both readers answer NEITHER: the bare key resolves to plugin-calendar’s calendar VIEW, and this '
     + 'key set describes the `ui:calendar` date-picker primitive. This refusal propagates onto '
-    + '`UiCalendarSchema`, which `.extend()`s this mirror — on the MIRROR only; the TypeScript `Omit` '
-    + 'collapses into `BaseSchema`’s index signature and carries no member of this declaration at all. '
+    + '`UiCalendarSchema` on both faces: the mirror `.extend()`s this one, and the TypeScript face '
+    + 'inherits this declaration through an index-signature-safe `Omit` (objectui#9256). '
     + '`view:calendar` is the measured SOLE owner of the bare `calendar` key (`ui:calendar` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
   ),
@@ -640,8 +640,8 @@ const CalendarObjectSchema = BaseSchema.extend({
     + 'What it renders instead: `defaultValue`, `mode`, `value`. '
     + 'Both readers answer NEITHER: the bare key resolves to plugin-calendar’s calendar VIEW, and this '
     + 'key set describes the `ui:calendar` date-picker primitive. This refusal propagates onto '
-    + '`UiCalendarSchema`, which `.extend()`s this mirror — on the MIRROR only; the TypeScript `Omit` '
-    + 'collapses into `BaseSchema`’s index signature and carries no member of this declaration at all. '
+    + '`UiCalendarSchema` on both faces: the mirror `.extend()`s this one, and the TypeScript face '
+    + 'inherits this declaration through an index-signature-safe `Omit` (objectui#9256). '
     + '`view:calendar` is the measured SOLE owner of the bare `calendar` key (`ui:calendar` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
   ),
@@ -1092,6 +1092,14 @@ export const InputShorthandSchema = InputSchema.omit({ type: true, inputType: tr
   // restatement is gone rather than left standing as a duplicate of it.
   // `__tests__/input-wrapper-class-mirrored-8072.test.ts` pins this arm's
   // membership and its refusal, so the inheritance is measured, not assumed.
+  //
+  // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
+  // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
+  ...neitherContentChannel(
+    'email` / `password',
+    'both registrations spread the node into the `input` renderer with `inputType` pinned, and that renderer reads it as `InputSchema`',
+    'one input field — `label`, `placeholder`, `value` / `defaultValue`, `description`, `error`, `required`',
+  ),
 });
 
 /**

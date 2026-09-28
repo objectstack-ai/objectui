@@ -18,7 +18,7 @@
 
 import { z } from 'zod';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
-import { handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { handlerKeyRefusal, neitherContentChannel, retirementTombstone } from './tombstone.zod.js';
 import { ListViewSchema as SpecListViewSchema } from '@objectstack/spec/ui';
 import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
 import { stripImportedDefaults } from './imported-defaults.js';
@@ -305,6 +305,13 @@ export const DetailViewSchema = BaseSchema.extend({
     + 'entry (RecordRelatedListProps), its `columns` is an array of field-name '
     + 'strings, and it renders through the same component, so nothing about the '
     + 'result is lost — only the second door.',
+  ),
+  // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
+  // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
+  ...neitherContentChannel(
+    'detail-view',
+    'its `any`-typed registration hands the node to `DetailView`, which reads it as `DetailViewSchema`',
+    'one record of `objectName` through `fields` / `sections` / `tabs`; its own node slots are `header`, `footer` and each tab\u2019s `content`',
   ),
 });
 

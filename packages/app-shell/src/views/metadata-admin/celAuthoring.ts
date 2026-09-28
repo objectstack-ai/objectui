@@ -120,6 +120,9 @@ export type CelLintIssue =
   | { severity: 'warning'; message: string; messageKey?: never; messageVars?: never }
   | { severity: 'warning'; messageKey: CelLintMessageKey; messageVars: Record<string, string>; message?: never };
 
+/** The advisory half of {@link CelLintIssue}: either wording, never blocking. */
+type CelLintWarning = Extract<CelLintIssue, { severity: 'warning' }>;
+
 /** The in-scope identifiers an author may reference — the autocomplete catalog. */
 export interface CelScopeInfo {
   /** The target object's field names (referenced BARE, e.g. `organization_id`). */
@@ -474,7 +477,7 @@ function loadRowCanon(): Promise<RowCanonModule | null> {
  *
  * Severity is the one thing that stays objectui's: `warning`, never `error`.
  */
-async function rowCanonAdvisory(source: string, slot: string | undefined): Promise<CelLintIssue | null> {
+async function rowCanonAdvisory(source: string, slot: string | undefined): Promise<CelLintWarning | null> {
   if (slot !== undefined && FIELD_RULE_VERDICT_SLOTS.includes(slot)) {
     const fieldRuleRootIssue = await loadFieldRuleVerdict();
     if (fieldRuleRootIssue) {

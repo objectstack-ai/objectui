@@ -234,14 +234,14 @@ function validateComponent(config: unknown) {
 ### AI Components (3)
 - `AIFormAssistSchema`, `AIRecommendationsSchema`, `NLQuerySchema`
 
-### ADR-0080 Public Blocks (20)
-Each arm's `properties` is the block's `@objectstack/spec` `ComponentPropsMap` row, by reference.
+### ADR-0080 Public Blocks (21)
+Each arm's `properties` is the block's `@objectstack/spec` `ComponentPropsMap` row, by reference. `ElementNumberBlockSchema` also declares the spec's `dataSource` binding, and mirrors the spec gate's one waiver: its bag may omit `object` when `dataSource.object` names the object.
 - `PageHeaderBlockSchema`, `PageTabsBlockSchema`, `PageCardBlockSchema`, `PageAccordionBlockSchema`
 - `PageSectionBlockSchema`, `PageFooterBlockSchema`, `PageSidebarBlockSchema`
 - `RecordDetailsBlockSchema`, `RecordHighlightsBlockSchema`, `RecordRelatedListBlockSchema`
 - `RecordPathBlockSchema`, `RecordActivityBlockSchema`, `RecordDiscussionBlockSchema`
 - `RecordHistoryBlockSchema`, `RecordQuickActionsBlockSchema`, `RecordReferenceRailBlockSchema`
-- `RecordAlertBlockSchema`, `ElementTextBlockSchema`, `ElementButtonBlockSchema`, `ElementDividerBlockSchema`
+- `RecordAlertBlockSchema`, `ElementTextBlockSchema`, `ElementNumberBlockSchema`, `ElementButtonBlockSchema`, `ElementDividerBlockSchema`
 
 ## Schema Structure
 

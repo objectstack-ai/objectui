@@ -218,7 +218,7 @@ describe('`element:number` answers as the spec does (objectui#10872 batch 2)', (
    * beside a binding; the arm does not, and the probe that tells the two apart
    * is its own row below.
    */
-  function specGateAccepts(node: { properties?: unknown; dataSource?: unknown }): boolean {
+  function specGateAccepts(node: Readonly<Record<string, unknown>>): boolean {
     const props = node.properties;
     if (!props || typeof props !== 'object' || Array.isArray(props)) return true;
     const parsed = ROW.safeParse(props) as Result;

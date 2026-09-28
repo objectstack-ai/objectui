@@ -627,9 +627,6 @@ describe('[#4165] legacy `{ preset }` declaration — ADR-0089 alias lift', () =
 });
 
 // ---------------------------------------------------------------------------
-// #4356 — the bare-string `options` shorthand is DEPRECATED and says so.
-//
-// ---------------------------------------------------------------------------
 // #4356 — the bare-string `options` shorthand is RETIRED: dropped, not lifted.
 //
 // Maintainer ruling of 2026-08-12 on objectstack#7917, verbatim 「7917 ②」: the

@@ -110,11 +110,11 @@ describe('DashboardRenderer dashboard-level filters', () => {
       type: 'dashboard',
       globalFilters: [
         // Options in @objectstack/spec's `{ value, label }` pair form. The
-        // bare-string shorthand these used to spell is a UI-side authoring
-        // convenience that `GlobalFilterSchema` does not declare; its own
-        // coverage is `packages/core/src/utils/__tests__/dashboard-filters.test.ts`,
-        // which pins `normalizeFilterOptions` lifting it. Nothing here reads the
-        // list — the broadcast under test comes from `defaultValue`.
+        // bare-string shorthand these used to spell is refused by
+        // `GlobalFilterSchema` and, since objectui#4356, no longer lifted by
+        // `normalizeFilterOptions` either — a bare member yields no option; its
+        // own coverage is `packages/core/src/utils/__tests__/dashboard-filters.test.ts`.
+        // Nothing here reads the list — the broadcast under test comes from `defaultValue`.
         {
           name: 'region',
           field: 'region',

@@ -1076,6 +1076,7 @@ const ko = {
     pathStageLostUpcoming: '{{stage}}, 실패, 도달하지 않음',
     pathStageWonUpcoming: '{{stage}}, 목표 단계, 도달하지 않음',
     linkCopied: "링크가 클립보드에 복사됨",
+    commentFailed: "댓글이 게시되지 않았습니다. 아무것도 저장되지 않았습니다. 다시 시도해 주세요.",
     linkCopyFailed: "링크 복사 실패",
     cancel: "취소",
     cancelEdit: "변경 사항 취소",

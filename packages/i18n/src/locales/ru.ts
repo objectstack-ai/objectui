@@ -1106,6 +1106,7 @@ const ru = {
     pathStageLostUpcoming: '{{stage}}, проигран, не достигнут',
     pathStageWonUpcoming: '{{stage}}, целевой этап, не достигнут',
     linkCopied: "Ссылка скопирована в буфер обмена",
+    commentFailed: "Комментарий не опубликован. Ничего не сохранено — попробуйте ещё раз.",
     linkCopyFailed: "Не удалось скопировать ссылку",
     cancel: "Отмена",
     cancelEdit: "Отменить изменения",

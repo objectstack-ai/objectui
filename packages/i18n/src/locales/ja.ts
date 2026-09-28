@@ -1088,6 +1088,7 @@ const ja = {
     pathStageLostUpcoming: '{{stage}}、失注、未到達',
     pathStageWonUpcoming: '{{stage}}、目標ステージ、未到達',
     linkCopied: "リンクをクリップボードにコピーしました",
+    commentFailed: "コメントを投稿できませんでした。何も保存されていません。もう一度お試しください。",
     linkCopyFailed: "リンクのコピーに失敗しました",
     cancel: "キャンセル",
     cancelEdit: "変更を破棄",

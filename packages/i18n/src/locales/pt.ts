@@ -1077,6 +1077,7 @@ const pt = {
     pathStageLostUpcoming: '{{stage}}, perdida, não alcançada',
     pathStageWonUpcoming: '{{stage}}, etapa objetivo, não alcançada',
     linkCopied: "Link copiado para a área de transferência",
+    commentFailed: "Seu comentário não foi publicado. Nada foi salvo — tente novamente.",
     linkCopyFailed: "Falha ao copiar o link",
     cancel: "Cancelar",
     cancelEdit: "Descartar alterações",

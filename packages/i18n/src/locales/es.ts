@@ -1080,6 +1080,7 @@ const es = {
     pathStageLostUpcoming: '{{stage}}, perdida, no alcanzada',
     pathStageWonUpcoming: '{{stage}}, etapa objetivo, no alcanzada',
     linkCopied: "Enlace copiado al portapapeles",
+    commentFailed: "Tu comentario no se ha publicado. No se ha guardado nada; inténtalo de nuevo.",
     linkCopyFailed: "No se pudo copiar el enlace",
     cancel: "Cancelar",
     cancelEdit: "Descartar cambios",

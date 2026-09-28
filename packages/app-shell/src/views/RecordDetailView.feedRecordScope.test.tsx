@@ -21,8 +21,9 @@
  * non-empty. So the user saw the PREVIOUS record's content where a loading
  * state belonged. Both are asserted here, on the rendered outcome.
  *
- * The subtle half is the OPTIMISTIC rows — a comment the user just posted that
- * has not come back from the server yet. "Empty for a new record" must fall out
+ * The subtle half is the rows the user just POSTED — a comment written on this
+ * visit that the feed re-read has not returned yet. (Since objectui#10899 such
+ * a row lands only once its write resolves; a failed write is never a row.) "Empty for a new record" must fall out
  * of reading the current record's slice, never from a clearing `setState` that
  * would race the post. The round-trip test at the bottom pins that: post on A,
  * go to B (it must not follow), come back to A (it must still be there, exactly
@@ -400,10 +401,14 @@ describe('RecordDetailView — optimistic comments ride with their own record (#
     await waitFor(() => expect(screen.getAllByText('optimistic on A')).toHaveLength(1));
   });
 
-  it('keeps an unpersisted comment when the write never lands', async () => {
-    // Same round-trip with a `create` that rejects (offline, 403…). The view
-    // swallows the failure by design; the local row is all the user has, and
-    // navigating away and back must not be what destroys it.
+  it('never files a comment whose write did not land — on this record or any other', async () => {
+    // Same round-trip with a `create` that rejects (offline, 403, 404 on a
+    // tenant with no `sys_comment`…). This case used to pin the OPPOSITE: the
+    // view swallowed the failure and kept the local row as if it had been
+    // posted, which is the "shown as sent, gone after reload" defect the
+    // maintainer ruled out on cloud#2431 (objectui#10899). The failed comment
+    // is never on the panel; the composer keeps it as a draft instead
+    // (`RecordDetailView.commentWriteFailure-10899.test.tsx` pins that half).
     const dataSource = makeDataSource({});
     dataSource.create = vi.fn(async () => { throw new Error('503 offline'); });
 
@@ -411,14 +416,16 @@ describe('RecordDetailView — optimistic comments ride with their own record (#
     await screen.findByText(EMPTY_COMMENTS);
 
     await postComment('never persisted');
-    expect(await screen.findByText('never persisted')).toBeTruthy();
+    await waitFor(() => expect(dataSource.create).toHaveBeenCalled());
+    expect(screen.getByText(EMPTY_COMMENTS)).toBeTruthy();
 
     rerender(tree(dataSource, REC_B, [AUTHORED_PAGE_WITH_DISCUSSION]));
     expect(await screen.findByText(EMPTY_COMMENTS)).toBeTruthy();
-    expect(screen.queryByText('never persisted')).toBeNull();
 
     rerender(tree(dataSource, REC_A, [AUTHORED_PAGE_WITH_DISCUSSION]));
-    await waitFor(() => expect(screen.getAllByText('never persisted')).toHaveLength(1));
+    expect(await screen.findByText(EMPTY_COMMENTS)).toBeTruthy();
+    // Only the composer's draft may still carry the text — never a feed row.
+    expect(screen.queryByText('never persisted', { selector: ':not(textarea)' })).toBeNull();
   });
 
   it('files the optimistic comment under the record it was written on, not the one visited next', async () => {

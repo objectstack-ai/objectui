@@ -2881,9 +2881,14 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     objectFields,
     reloadKey: groupReloadKey,
   });
-  const serverGroupSource: ServerGroupSource | undefined = serverGroupedFetch
-    ? { headers: groupHeaders.headers ?? [], keyLabels: groupHeaders.keyLabels }
-    : undefined;
+  // Keyed on the hook's STATE values (a stable identity React promises), so
+  // the group tree is rebuilt when the server answers, not on every render.
+  const groupHeaderRows = groupHeaders.headers;
+  const groupKeyLabels = groupHeaders.keyLabels;
+  const serverGroupSource: ServerGroupSource | undefined = React.useMemo(
+    () => (serverGroupedFetch ? { headers: groupHeaderRows ?? [], keyLabels: groupKeyLabels } : undefined),
+    [serverGroupedFetch, groupHeaderRows, groupKeyLabels],
+  );
 
   const { groups, isGrouped, toggleGroup } = useGroupedData(
     serverGroupedFetch

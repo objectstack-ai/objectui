@@ -1528,6 +1528,14 @@ function checkListViewDatasetChartFilter(
   }
 }
 
+/** objectui#9256 (family-D re-measure): ONE refusal string for both content channels of `ListViewSchema`. */
+const LIST_VIEW_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'list-view',
+  'its registration (`plugin-list:list-view`) reads the node as `ListViewSchema` itself',
+  'the records of `objectName` in the visualization `viewType` names, shaped by `columns`, `filter`, '
+    + '`sort` and `options`',
+);
+
 export const ListViewSchema = BaseSchema
   // Spec-owned fields by reference. `specFieldsExcept` reads the spec object's
   // `.shape` rather than calling `.omit()`, which zod 4 refuses on a schema
@@ -1778,6 +1786,13 @@ export const ListViewSchema = BaseSchema
     onDensityChange: handlerKeyRefusal('onDensityChange', 'runtime-slot', 'Row density change handler'),
     onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'Record navigation handler'),
     onPageSizeChange: handlerKeyRefusal('onPageSizeChange', 'runtime-slot', 'Page size change handler'),
+    // objectui#9256 (family-D re-measure): the renderer reads NEITHER content channel, so both are
+    // refused by name here as on the TypeScript twin, each kept a MEMBER.
+    body: retirementTombstone(LIST_VIEW_NEITHER_CHANNEL),
+    children: retirementTombstone(LIST_VIEW_NEITHER_CHANNEL),
+    // ⚠️ This arm feeds its own TypeScript face (`ListViewInferred` below), so these two members are
+    // what put `body?: undefined` / `children?: undefined` on `ListViewSchema`; there is no separate
+    // `?: never` pair to keep in step.
   })
   // ⭐ THE SPEC'S OBJECT-LEVEL CHECKS, re-attached (objectui#7715, ruling B1).
   //

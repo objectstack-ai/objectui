@@ -127,7 +127,7 @@ const DOM_PASS_THROUGH_KEYS = [
  * The keys this helper forwards.
  *
  * Exported so the SIBLING executor — `toHostProps`, which carries the declared
- * NON-DOM keys (objectui#7008) — can subtract this set from the contract and
+ * NON-DOM keys (`f08bcd9af`) — can subtract this set from the contract and
  * assert that the two together cover every declared key exactly once. Without
  * that subtraction there is no way to state "these keys are handled elsewhere"
  * as a compile-time fact rather than as a comment.

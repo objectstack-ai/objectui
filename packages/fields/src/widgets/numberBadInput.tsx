@@ -95,7 +95,7 @@ import { useFieldTranslation } from './useFieldTranslation.js';
  * package's locale channel (objectui#8148).
  *
  * objectui#6755 ruled that a widget's OWN refusal sentence goes through
- * `useFieldTranslation` + `FIELD_DEFAULTS`; objectui#6888 applied it to
+ * `useFieldTranslation` + `FIELD_DEFAULTS`; `320374d2a` applied it to
  * `LocationField`'s residue arm. This was the FIFTH such sentence and the only
  * SHARED one — the four already keyed are each one widget's, while this literal
  * served `NumberField`, `CurrencyField`, `PercentField` and both of

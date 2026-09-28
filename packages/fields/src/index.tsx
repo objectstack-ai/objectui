@@ -4516,7 +4516,7 @@ export { toDomProps } from './widgets/toDomProps.js';
 export type { DomProps } from './widgets/toDomProps.js';
 
 // The sibling executor for the NON-DOM half of the same declaration
-// (objectui#7008): `error` plus the "Host plumbing" block, forwarded as
+// (`f08bcd9af`): `error` plus the "Host plumbing" block, forwarded as
 // COMPONENT props because none of them is DOM-legal. Exported alongside
 // `toDomProps` because a host factory authored outside this repo needs the
 // pair — reaching for only the first one is how `FieldEditWidget` came to

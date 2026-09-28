@@ -86,7 +86,7 @@ export type { RuntimeAuthoringIssue };
  * one event serve both. Measured against the installed `@objectstack/spec`
  * rather than assumed — see the PR for the probe.
  *
- * ## And the BATCH publish door (objectui#6965)
+ * ## And the BATCH publish door (`ce986aafc`)
  *
  * `PublishPackageDraftsResponseSchema` declares the same key with the same
  * element type, riding EACH `published[]` element rather than a parallel
@@ -122,7 +122,7 @@ export interface MetadataSaveAdvisoryEvent {
    *   ({@link MetadataClient.publishPackageDrafts}), which emits ONE event per
    *   `published[]` element carrying that element's own `type` / `name`.
    *
-   * ## Why the batch route is not a third value (objectui#6965)
+   * ## Why the batch route is not a third value (`ce986aafc`)
    *
    * The batch door promotes drafts to active — the author pressed Publish, and
    * every item this event names really was published. What `door` decides is
@@ -156,7 +156,7 @@ export type MetadataSaveAdvisoryListener = (event: MetadataSaveAdvisoryEvent) =>
 /**
  * Read the `advisories` array off a metadata write response, defensively.
  *
- * Serves EVERY write door unchanged (#5026, objectui#6965):
+ * Serves EVERY write door unchanged (#5026, `ce986aafc`):
  * `SaveMetaItemResponseSchema` and `PublishMetaItemResponseSchema` declare the
  * key at the same top level, and `PublishPackageDraftsResponseSchema` declares
  * it on each `published[]` element — under the same name, with the same element
@@ -222,7 +222,7 @@ export interface MetadataClientConfig {
    * Called after a {@link MetadataClient.save} whose 2xx response carried a
    * non-empty `advisories` array (objectstack#7435). Since #5026 the SAME sink
    * also receives the publish door's findings (objectstack#9176), and since
-   * objectui#6965 the batch publish door's too, one event per advised
+   * `ce986aafc` the batch publish door's too, one event per advised
    * `published[]` element (objectstack#9343) — read `event.door` to tell a
    * save from a promotion, and `event.type` / `event.name` for which item. The
    * write already succeeded; this is how the shell learns there is something to
@@ -261,7 +261,7 @@ export interface MetadataDraftHeader {
 /**
  * What {@link MetadataClient.publishPackageDrafts} resolves with — the "publish
  * whole app" body, DERIVED from `PublishPackageDraftsResponseSchema` rather
- * than re-spelled (objectui#6965).
+ * than re-spelled (`ce986aafc`).
  *
  * Derived, and then widened in exactly two ways, each for a measured reason:
  *
@@ -664,7 +664,7 @@ function buildBase(config: MetadataClientConfig): string {
 }
 
 /**
- * The `/api/v1/packages` sibling of this client's `/meta` base (objectui#6965).
+ * The `/api/v1/packages` sibling of this client's `/meta` base (`ce986aafc`).
  *
  * Derived from the base rather than stored, so the two clone methods carry it
  * for free. It keeps the ORIGIN the client was configured with (split-origin
@@ -686,7 +686,7 @@ function packagesBaseOf(metaBase: string): string {
 
 /**
  * Unwrap the HTTP dispatcher's `{ success, data }` envelope — for the ONE route
- * whose spec declaration says it arrives inside one (objectui#6965).
+ * whose spec declaration says it arrives inside one (`ce986aafc`).
  *
  * ⛔ Not a general tolerance, and the difference is per-route rather than per
  * file: {@link MetadataClient.publishDraft} refuses to unwrap because
@@ -1022,7 +1022,7 @@ export class MetadataClient {
    *
    * One helper rather than a copy per door: every door's response declares the
    * key identically, so a second inline copy could only ever drift. The batch
-   * door (objectui#6965) calls it once per `published[]` element, handing it
+   * door (`ce986aafc`) calls it once per `published[]` element, handing it
    * the element — the object that carries the key there — and the same
    * best-effort contract covers that loop unchanged.
    */
@@ -1111,7 +1111,7 @@ export class MetadataClient {
    * too. It did not when this paragraph was first written: it discarded
    * per-draft advisories server-side, which was objectstack#9343, and that card
    * has since landed with a ruling that each `published[]` element carries
-   * them (objectui#6965 is the client half).
+   * them (`ce986aafc` is the client half).
    *
    * What survives that change is the READING RULE, which is about this method
    * rather than about the other route: it reads the top level of the
@@ -1120,7 +1120,7 @@ export class MetadataClient {
    * `published[]` and a client that went looking for findings wherever they
    * might be would be inventing a contract instead of reading one.
    *
-   * ## Why there is no `{ success, data }` unwrapping here (objectui#6962)
+   * ## Why there is no `{ success, data }` unwrapping here (`7b433197d`)
    *
    * This method used to unwrap a dispatcher-shaped envelope before returning,
    * while {@link publish} — the same route, a couple of hundred lines down —
@@ -1176,7 +1176,7 @@ export class MetadataClient {
     // #5026 — this is the SAME single-item publish door `publish()` uses, so it
     // reports the same way, and now off the SAME object: the response body
     // itself. `advisories` is declared at the TOP LEVEL of
-    // `PublishMetaItemResponse`, which is what this route answers (#6962).
+    // `PublishMetaItemResponse`, which is what this route answers (`7b433197d`).
     this.emitAdvisories(body, { type, name, door: 'publish', mode: 'publish' });
     return body as any;
   }
@@ -1187,7 +1187,7 @@ export class MetadataClient {
    * that orders structure-before-seeds server-side and runs the ADR-0038 L3
    * runtime probes).
    *
-   * ## Why it is expressed here at all (objectui#6965)
+   * ## Why it is expressed here at all (`ce986aafc`)
    *
    * It was not, and that was the defect. Two app-shell call sites fired this
    * route with a bare `fetch` / a page-private `apiJson`, outside the seam that

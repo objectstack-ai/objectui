@@ -5,7 +5,7 @@ Gate the `plugin-grid` schema-level held-key census on its ENTRY CONDITION
 (objectui#7201). The census's only pin asserted that the seam ACCEPTS
 `renderCellEditor` and `cellClassName` — equally true while the keys are held
 locally and once they arrive through `DataTableSchema` — so it stayed green
-across objectui#6882, the ruling that expired both holds. The suite now also
+across the 2026-08-30 ruling that expired both holds (`bf97b98c8`). The suite now also
 carries the column-level twin's shape (`columnHoldsExpiry-6424.test.ts`):
 a compile-time verdict per member of `ObjectGridDataTableSchemaHolds` recording
 whether `DataTableSchema` declares that key, plus a pin on the member set so the

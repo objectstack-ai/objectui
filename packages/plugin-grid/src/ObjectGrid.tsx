@@ -1100,7 +1100,7 @@ export type ObjectGridColumn =
  *     `disableInnerScroll`, `borderless`) was already declared then, and is
  *     still declared now;
  *   - the two keys that survived that diff, `renderCellEditor` and
- *     `cellClassName`, were DECLARED by objectui#6882 (maintainer ruling
+ *     `cellClassName`, were DECLARED by `bf97b98c8` (maintainer ruling
  *     2026-08-30) on three surfaces:
  *       · `packages/types/src/data-display.ts` — the members themselves
  *       · `packages/types/src/zod/data-display.zod.ts` — the Zod mirror
@@ -1124,7 +1124,7 @@ export type ObjectGridColumn =
  *     was — a returned widget takes the cell, `null` falls through to the
  *     built-in text / number / date inputs.
  *   - `cellClassName` — said HELD, and described the key as folded "into every
- *     body cell's `className`". The hold is over (declared by the same #6882);
+ *     body cell's `className`". The hold is over (declared by the same `bf97b98c8`);
  *     the DESCRIPTION was wrong from the day it was written, which is the more
  *     useful half of this correction. Measured: `data-table.tsx` folds the
  *     SCHEMA-level key at exactly three sites and every one is a UTILITY cell —
@@ -1136,9 +1136,9 @@ export type ObjectGridColumn =
  *     their density, because `applyDensity` below puts the same class on every
  *     column. What breaks is the checkbox / row-number / row-actions cells
  *     falling out of height alignment with the data beside them, which is why
- *     this grid sets BOTH slots. #6882's declaration is where the authoritative
+ *     this grid sets BOTH slots. `bf97b98c8`'s declaration is where the authoritative
  *     version of this now lives; this is the local copy agreeing with it.
- *     ⭐ GUARDED SINCE objectui#6921: the cell set is MEASURED in the rendered
+ *     ⭐ GUARDED SINCE `4eb665bcf`: the cell set is MEASURED in the rendered
  *     DOM by `packages/components/src/renderers/complex/__tests__/`
  *     `data-table-cellClassName-population-6921.test.tsx` — the fence (a data
  *     cell does NOT fold this key) and the non-regression (the three utility
@@ -1150,7 +1150,7 @@ export type ObjectGridColumn =
  * ⛔ The old closing note ("do not fix either hold by declaring the key on
  * `DataTableSchema` as a rider — that package is published surface with its own
  * review floor") governs nothing now. It was asking for the ruling to be taken
- * deliberately at that package's floor, and that is exactly how #6882 took it.
+ * deliberately at that package's floor, and that is exactly how `bf97b98c8` took it.
  */
 type RemoveIndexSignature<T> = {
   [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K];
@@ -1167,7 +1167,7 @@ export type DeclaredDataTableSchema = RemoveIndexSignature<DataTableSchema>;
  * ⚠️ "Undeclared by `DataTableSchema`" was this type's ENTRY CONDITION, and —
  * exactly as `ObjectGridColumnHolds` warns about its own — it is a claim about
  * ANOTHER package that can stop being true with nothing going red here. It
- * stopped being true on 2026-08-30: objectui#6882 declared BOTH members. As of
+ * stopped being true on 2026-08-30: `bf97b98c8` declared BOTH members. As of
  * objectui#7196 this type holds nothing; every member is redundant with
  * `DeclaredDataTableSchema`.
  *
@@ -1212,7 +1212,7 @@ export type DeclaredDataTableSchema = RemoveIndexSignature<DataTableSchema>;
  */
 export type ObjectGridDataTableSchemaHolds = {
   /**
-   * REDUNDANT since objectui#6882 (2026-08-30) — `DataTableSchema` declares this
+   * REDUNDANT since `bf97b98c8` (2026-08-30) — `DataTableSchema` declares this
    * key itself now, with a shape measured `Equal` to this one. `data-table`
    * calls it to render a host cell editor; returning `null` falls through to the
    * built-in text / number / date inputs. objectui#7188 added `pendingRow` (the
@@ -1231,7 +1231,7 @@ export type ObjectGridDataTableSchemaHolds = {
     cancel: () => void;
   }) => React.ReactNode;
   /**
-   * REDUNDANT since objectui#6882 (2026-08-30) — `DataTableSchema` declares this
+   * REDUNDANT since `bf97b98c8` (2026-08-30) — `DataTableSchema` declares this
    * key itself now, with a shape measured `Equal` to this one. `data-table`
    * folds it into the three UTILITY body cells (selection, row-number,
    * row-actions) and never into a data cell, which folds
@@ -5011,7 +5011,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               // the child before anything is saved — the form's semantics.
               // `ctx.row` alone was #7165's interim and scoped by the SAVED
               // parent. `pendingRow` is a REQUIRED member of the declared
-              // context (`@object-ui/types`, objectui#6882 + #7188), so the
+              // context (`@object-ui/types`, `bf97b98c8` + #7188), so the
               // `?? ctx.row` never selects for a conforming host; it is spelled
               // so a context handed to this factory WITHOUT it degrades to the
               // saved-row scoping rather than to `{}` — gated forever — and it

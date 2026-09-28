@@ -167,7 +167,7 @@ export interface TextSchema extends BaseSchema {
    * NO `@default`, deliberately (objectui#7735). `text.tsx` reads this as
    * `schema.variant ? VARIANT_CLASS[schema.variant] : undefined`, so a node
    * that omits the key gets NO typography class and no wrapping tag — absence
-   * is not `body`, which is the whole point of objectui#6942 and is spelled out
+   * is not `body`, which is the whole point of `57f9b077b` and is spelled out
    * at that read site. The retired `@default 'body'` described the zod mirror's
    * `.default('body')`, which substituted the value into a PARSED document and
    * which objectui#7735 removed; no renderer ever applied it.

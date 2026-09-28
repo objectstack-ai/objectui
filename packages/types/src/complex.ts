@@ -1737,7 +1737,7 @@ export type ChatbotSharedKey =
  * {@link BaseSchema}: `SchemaRenderer` evaluates `disabled` / `disabledOn`
  * for every node type and hands the verdict to the registration as a prop, so
  * redeclaring `disabled` here as `boolean` would only narrow away the
- * expression-string half of an inherited field (objectui#6169, #7087).
+ * expression-string half of an inherited field (objectui#6169, `c93b4d5f3`).
  */
 export interface ChatbotEnhancedSchema
   extends BaseSchema,

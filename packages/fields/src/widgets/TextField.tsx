@@ -42,7 +42,7 @@ export function TextField({ value, onChange, field, readonly, error, ...props }:
    * through the spread untouched. Every OTHER host of this widget was not:
    * `FieldEditWidget` renders no Slot, so the kanban required-fields dialog and
    * the grid / detail inline editors hand the state over as the declared
-   * `error` prop (delivered since objectui#7008) and nothing read it — the red
+   * `error` prop (delivered since `f08bcd9af`) and nothing read it — the red
    * "Required" hint was on screen while assistive tech was told nothing.
    *
    * MARKING only. The message TEXT stays with the host (`<FormMessage/>` in the

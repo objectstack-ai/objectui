@@ -2005,7 +2005,7 @@ export type DroppedFieldsNotice = DroppedFieldsEvent | UnrecognizedDropReasonEve
  *
  * It used to be `Omit<DroppedFieldsEvent, 'reason'> & { reason?: unknown }`,
  * which was honest about `reason` and dishonest about the other two
- * (objectui#6889). `Omit` carried the spec's `fields: string[]` and its
+ * (`f75810e7c`). `Omit` carried the spec's `fields: string[]` and its
  * REQUIRED `object: string` through untouched, while the structural gate below
  * read neither: `fields: [42]` and an entry with no `object` at all both passed
  * and reached subscribers typed as if they had been checked. Required is what
@@ -2033,7 +2033,7 @@ function isRecognizedDropReason(reason: unknown): reason is DroppedFieldsEvent['
  * one string (so the parsed notice below names something). An array holding no
  * string at all — `fields: [42]`, `fields: []` — reports no field name, and an
  * entry that names no field has nothing truthful to tell the user; the
- * pre-objectui#6889 gate already dropped the empty case for exactly that
+ * pre-`f75810e7c` gate already dropped the empty case for exactly that
  * reason, and this is the same rule one level deeper.
  *
  * `object` and `reason` are deliberately NOT gated on. Nothing is dropped for
@@ -2051,7 +2051,7 @@ function isWireDroppedFieldsEntry(e: unknown): e is WireDroppedFieldsEntry {
 }
 
 /**
- * Parse ONE wire entry into a notice (objectui#4934, objectui#6889).
+ * Parse ONE wire entry into a notice (objectui#4934, `f75810e7c`).
  *
  * Three parses, one per field the gate above does not establish, and the
  * result is built rather than asserted — so the last cast in this seam is gone:
@@ -2118,7 +2118,7 @@ function asDroppedFieldsNotice(
  * cannot produce this entry; it takes one that omits (or non-strings) `object`
  * AND sends an index naming no operation, in the same entry. Nothing in this
  * repo emits that shape, and whether a deployed backend does is not answerable
- * from here. Unlike objectui#6889's exotic case this is not structurally
+ * from here. Unlike the exotic case on the card behind `f75810e7c`, this is not structurally
  * impossible — the payload arrives as parsed JSON, and a non-conformant server
  * can send it.
  *
@@ -2142,7 +2142,7 @@ function asDroppedFieldsNotice(
  *
  * So this is neither the skew arm's "tolerate" (objectui#4934 — a `reason` from
  * the future is the producer running AHEAD of us, expected version skew) nor
- * `fields`' "refuse" (objectui#6889 — an off-spec element that would otherwise
+ * `fields`' "refuse" (`f75810e7c` — an off-spec element that would otherwise
  * reach a consumer typed as a field name). There is no producer value to keep
  * or drop here: the question is only what WE write when the response supplied
  * nothing. The answer is a DECLARED placeholder rather than a bare literal that
@@ -3582,7 +3582,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * field); `object`, `fields` and `reason` are then PARSED — an unrecognized
    * reason routed to the skew arm, a non-string field element refused, a missing
    * `object` healed from `resource` — never asserted into the union, and the
-   * entry itself never dropped for them (objectui#4934, objectui#6889).
+   * entry itself never dropped for them (objectui#4934, `f75810e7c`).
    */
   private notifyDroppedFields(
     operation: 'create' | 'update',
@@ -3625,7 +3625,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     for (const entry of dropped) {
       // Same gate as the single-record path, so the two agree on what an entry
       // even is. The remaining cast adds only `index`, which this loop reads
-      // and the gate has no opinion about (objectui#4934, objectui#6889).
+      // and the gate has no opinion about (objectui#4934, `f75810e7c`).
       if (!isWireDroppedFieldsEntry(entry)) continue;
       const e = entry as WireDroppedFieldsEntry & { index?: number };
       const op = typeof e.index === 'number' ? operations[e.index] : undefined;
@@ -3654,7 +3654,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
           : undefined;
       // `object`, `fields` and `reason` are parsed here too — the batch path
       // used to re-assert all three into the union via the cast above
-      // (objectui#4934, objectui#6889). `index` is deliberately not carried onto
+      // (objectui#4934, `f75810e7c`). `index` is deliberately not carried onto
       // the notice: it addresses an operation in THIS response, not the strip,
       // which is why the entry is rebuilt rather than spread.
       const [live] = withoutNoOpDrops(

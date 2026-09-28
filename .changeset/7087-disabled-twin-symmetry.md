@@ -3,8 +3,8 @@
 ---
 
 `disabled` accepts a predicate string — `boolean | string`, the `BaseSchema` union — on
-the 18 concrete schemas that used to narrow it back to `boolean` (objectui#7087,
-maintainer ruling 2026-09-01: option 1, scoped to `disabled`).
+the 18 concrete schemas that used to narrow it back to `boolean`
+(maintainer ruling 2026-09-01: option 1, scoped to `disabled`).
 
 `visible` and `disabled` are twins: objectui#4581 widened both on `BaseSchema` on the same
 evidence — `SchemaRenderer` evaluates both through `evaluator.evaluateCondition` rather

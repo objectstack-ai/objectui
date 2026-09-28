@@ -2,12 +2,12 @@
 '@object-ui/plugin-timeline': patch
 ---
 
-Spell a refused gantt date by a RULE, not by `String` (objectui#6907)
+Spell a refused gantt date by a RULE, not by `String`
 
 `spellGanttDateValue` fills the `{{value}}` hole of the unusable-gantt-date
 alert, whose job is to name the value the author wrote. Its `String(value)`
 fallback was written when nothing but `[object Object]`-shaped values could
-reach it; objectui#6905's type rule routes the whole non-date type space
+reach it; `85f6a6097`'s type rule routes the whole non-date type space
 through it, and it failed three ways — measured on `b458300ca`:
 
 - it **VANISHES**: `endDate: []` rendered "endDate is , which is not a valid
@@ -18,7 +18,7 @@ through it, and it failed three ways — measured on `b458300ca`:
   with no hint the wrapper was at fault;
 - it **THROWS**: `{ toString() { throw } }`, a throwing `Symbol.toStringTag`
   getter and `Object.create(null)` each crashed the render outright. #6759 built
-  this helper "total by construction" and #6905 made that load-bearing, but the
+  this helper "total by construction" and `85f6a6097` made that load-bearing, but the
   type gate only stopped `new Date` from throwing — `String(value)` handed
   control to author code one line later, so the crash class moved into the
   speller instead of going away.

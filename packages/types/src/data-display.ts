@@ -1374,7 +1374,7 @@ export interface DataTableSchema extends BaseSchema {
    */
   singleClickEdit?: boolean;
   /**
-   * Host-supplied cell editor for inline editing (objectui#6882).
+   * Host-supplied cell editor for inline editing (`bf97b98c8`).
    *
    * RUNTIME SLOT (objectui#7759 group E, objectui#6124 shape) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
@@ -1394,7 +1394,7 @@ export interface DataTableSchema extends BaseSchema {
    * input, Escape cancels, click-outside commits); `stage` records a value
    * without leaving edit mode, `commit` saves, `cancel` discards.
    *
-   * ⚠️ Declared as of objectui#6882 (maintainer ruling 2026-08-30). `data-table`
+   * ⚠️ Declared as of `bf97b98c8` (maintainer ruling 2026-08-30). `data-table`
    * has read this key on the production path since inline editing landed — it
    * did so through a `(schema as any)` cast, which existed for no reason other
    * than this declaration's absence and is gone with it. Nothing new runs; a
@@ -1506,7 +1506,7 @@ export interface DataTableSchema extends BaseSchema {
   rowStyle?: (row: any, index: number) => React.CSSProperties | undefined;
   /**
    * Extra CSS classes folded into the table's UTILITY body cells
-   * (objectui#6882) — and ONLY those three, each rendered only when its
+   * (`bf97b98c8`) — and ONLY those three, each rendered only when its
    * feature is on: the leading selection-checkbox cell (`selectable`), the
    * row-number cell (`showRowNumbers`), and the trailing row-actions cell
    * (`rowActions`).
@@ -1528,7 +1528,7 @@ export interface DataTableSchema extends BaseSchema {
    * them. Setting only this key leaves every data cell at the table
    * primitive's default `p-4`.
    *
-   * ⚠️ Declared as of objectui#6882 (maintainer ruling 2026-08-30). `data-table`
+   * ⚠️ Declared as of `bf97b98c8` (maintainer ruling 2026-08-30). `data-table`
    * has destructured this key off the schema and folded it into those three
    * cells all along; only the declaration was missing. `string` matches
    * {@link BaseSchema.className} and {@link TableColumn.cellClassName} — the

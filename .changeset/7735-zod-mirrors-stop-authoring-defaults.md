@@ -53,7 +53,7 @@ keys against their renderers finds **six** disagreements, not two:
 | `container.maxWidth` | `'lg'` | `container.tsx`: `?? 'xl'` |
 | `flex.align` | `'center'` | `flex.tsx`: `\|\| 'start'` |
 | `grid.columns` | `3` | `grid.tsx`: `let baseCols = 2` |
-| `text.variant` | `'body'` | `text.tsx`: none — a bare node, no typography class (objectui#6942) |
+| `text.variant` | `'body'` | `text.tsx`: none — a bare node, no typography class (`57f9b077b`) |
 | `resizable.withHandle` | `true` | forwarded bare; `undefined` draws NO grip |
 | `page.template` | `'default'` | `page.tsx`: a null template falls through to the `pageType` dispatch |
 

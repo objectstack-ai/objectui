@@ -24,7 +24,7 @@ import type { BaseSchema, SchemaNode } from './base.js';
 export type ActionExecutionMode = 'sequential' | 'parallel';
 
 // `ActionCallback` — the Phase-2 callback object the legacy `ActionSchema.onSuccess` /
-// `onFailure` keys carried — was DELETED by objectui#7068 (the objectui#7664 route for
+// `onFailure` keys carried — was DELETED by `6bca0e4e8` (the objectui#7664 route for
 // a standalone retired type: name gone from both faces and from the barrels, absence
 // pinned). The two keys below stay declared as `?: never` tombstones so an authored
 // callback is a `tsc` error at the site instead of a silent index-signature admit;
@@ -144,7 +144,7 @@ export interface ActionSchema extends BaseSchema {
    */
   errorMessage?: string;
   /**
-   * RETIRED (objectui#7068, ADR-0049 enforce-or-remove) — the Phase-2 success
+   * RETIRED (`6bca0e4e8`, ADR-0049 enforce-or-remove) — the Phase-2 success
    * callback, an `ActionCallback` object (`{ type: 'toast' | 'message' | 'redirect'
    * | 'reload' | 'custom' | 'ajax' | 'dialog', message?, url?, api?, method?,
    * dialog?, handler? }`). Measured before the retirement: zero producers outside
@@ -166,7 +166,7 @@ export interface ActionSchema extends BaseSchema {
    */
   onSuccess?: never;
   /**
-   * RETIRED (objectui#7068, ADR-0049 enforce-or-remove) — the Phase-2 failure
+   * RETIRED (`6bca0e4e8`, ADR-0049 enforce-or-remove) — the Phase-2 failure
    * callback, the same `ActionCallback` object shape {@link ActionSchema.onSuccess}
    * carried. Zero producers, zero runtime readers (measured, see `onSuccess`), and
    * `@objectstack/spec`'s `ActionSchema` declares no `onFailure` at all — an

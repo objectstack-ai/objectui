@@ -197,7 +197,7 @@ type CoordinateLabel = (typeof COORDINATE_LABELS)[number];
 /**
  * One half of the typed pair that carried non-numeric residue.
  *
- * `label` is the COORDINATE_LABELS member, not free text: since objectui#6888
+ * `label` is the COORDINATE_LABELS member, not free text: since `320374d2a`
  * it selects a locale key, so widening it to `string` would make
  * {@link coordinateName}'s branch fall through to `longitude` silently.
  */
@@ -323,7 +323,7 @@ function refusedRangeMessage(t: TranslateFn, candidate: LocationValue): string {
  * ruling declines that parse, so pointing at it would advertise a route this
  * widget refuses.
  *
- * objectui#6888 — keyed, closing the gap objectui#6755's scope lock left open:
+ * `320374d2a` — keyed, closing the gap objectui#6755's scope lock left open:
  * that ruling was written before this arm existed, so it named three sentences
  * and this is the fourth. All three arms share ONE `<p>` and one
  * `refusalError`, so leaving this one a literal made a single line speak the
@@ -389,7 +389,7 @@ function coordinateName(t: TranslateFn, label: CoordinateLabel): string {
  * extends that principle to the widget's own placeholder copy, as objectui#3342
  * did for `TagsField`'s. Before it, a zh form showed the English literal
  * `latitude, longitude` in the box while the refusal one line beneath it named
- * the same coordinate in Chinese — objectui#6888 had already keyed the nouns.
+ * the same coordinate in Chinese — `320374d2a` had already keyed the nouns.
  *
  * ⭐ Two halves, two owners:
  *

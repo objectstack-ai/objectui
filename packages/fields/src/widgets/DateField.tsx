@@ -106,7 +106,7 @@ export function DateField({ value, onChange, field, readonly, error, ...props }:
    * untouched; every host WITHOUT that Slot -- `FieldEditWidget`, i.e. the
    * kanban required-fields dialog and the grid / detail inline editors --
    * hands the state over as the declared `error` prop (delivered since
-   * objectui#7008) and nothing read it. MARKING only: the message TEXT stays
+   * `f08bcd9af`) and nothing read it. MARKING only: the message TEXT stays
    * with the host.
    */
   const control = (

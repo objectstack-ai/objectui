@@ -1482,7 +1482,7 @@ ComponentRegistry.register('form',
     // now stands", and splitting them would give one authored intent two
     // behaviours.
     //
-    // Feeds the clear-on-hide effect (objectui#6958). Fields declaring NEITHER
+    // Feeds the clear-on-hide effect (`6a449fc49`). Fields declaring NEITHER
     // key are skipped outright, so a form that does not use conditional
     // visibility recomputes nothing and behaves exactly as before.
     //
@@ -1966,7 +1966,7 @@ ComponentRegistry.register('form',
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ruleRecord, predicateScope]);
 
-    // Clear-on-hide (objectui#6958) — the field's own `visibleWhen` turning it
+    // Clear-on-hide (`6a449fc49`) — the field's own `visibleWhen` turning it
     // invisible clears its value.
     //
     // ## The dead end this closes

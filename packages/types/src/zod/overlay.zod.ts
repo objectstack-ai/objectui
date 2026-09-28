@@ -422,7 +422,7 @@ export const HoverCardSchema = BaseSchema.extend({
  * optional `label`, and why `type` is tombstoned on both arms.
  *
  * Both tombstones carry their guidance through `retirementTombstone()`
- * (objectui#6931), so the arm-level issue reads the remediation instead of
+ * (`8063bcbdc`), so the arm-level issue reads the remediation instead of
  * zod's generic `expected never`. Note what a UNION does to that: the
  * top-level issue this schema reports is zod's own `invalid_union`
  * (`"Invalid input"`, path `[]`), and the per-arm issues — where the guidance

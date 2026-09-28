@@ -1,7 +1,7 @@
 ---
 ---
 
-Test-only and comment-only change (objectui#6921); no published behaviour changes.
+Test-only and comment-only change; no published behaviour changes.
 
 Pins, in the rendered DOM, which body cells the SCHEMA-level `cellClassName` on
 `DataTableSchema` reaches: exactly the three utility cells (selection, row-number,

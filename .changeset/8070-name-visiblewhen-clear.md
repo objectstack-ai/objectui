@@ -6,7 +6,7 @@
 The record form now tells the user when a `visibleWhen` transition clears a field
 (objectui#8070, ruling letter A).
 
-Since objectui#6958 a field whose own `visibleWhen` / `visibleOn` turns it
+Since `6a449fc49` a field whose own `visibleWhen` / `visibleOn` turns it
 invisible while it holds a value has that value cleared, so the server does not
 refuse the row over a column that is no longer on screen. That clear was silent:
 the field disappeared and nothing said a stored value went with it. The ruling

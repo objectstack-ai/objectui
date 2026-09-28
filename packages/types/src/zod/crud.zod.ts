@@ -29,7 +29,7 @@ import type { ActionSchema as ActionDeclaration } from '../crud.js';
 export const ActionExecutionModeSchema = z.enum(['sequential', 'parallel']).describe('Action execution mode for chaining');
 
 // `ActionCallbackSchema` — the mirror of the Phase-2 `ActionCallback` object the legacy
-// `ActionSchema.onSuccess` / `onFailure` keys carried — was DELETED by objectui#7068
+// `ActionSchema.onSuccess` / `onFailure` keys carried — was DELETED by `6bca0e4e8`
 // (the objectui#7664 route for a standalone retired pair: const, TS declaration and
 // barrel exports gone, parity-ledger rows removed, absence pinned in
 // `../__tests__/action-callback-retired-7068.test.ts`). The two keys below stay
@@ -85,7 +85,7 @@ export const ActionSchema: z.ZodType<ActionDeclaration, ActionDeclaration> = z.l
   // loud parse rejection (absent stays valid), mirroring how `@objectstack/spec`
   // retires keys. One confirm spelling: `confirmText` below.
   // This key ESTABLISHED the convention and was the last one still answering
-  // with zod's generic `expected never`; objectui#6931 routes it through
+  // with zod's generic `expected never`; `8063bcbdc` routes it through
   // `retirementTombstone()` so the refusal carries the remedy it teaches.
   confirm: retirementTombstone('RETIRED (objectui#4314) — author confirmText instead'),
   confirmText: z.string().optional().describe('Confirmation message — shows a confirm dialog before executing'),
@@ -97,7 +97,7 @@ export const ActionSchema: z.ZodType<ActionDeclaration, ActionDeclaration> = z.l
   }).optional().describe('Dialog configuration (for dialog actions)'),
   successMessage: z.string().optional().describe('Success message after execution'),
   errorMessage: z.string().optional().describe('Error message on failure'),
-  // ADR-0049 RETIREMENT TOMBSTONES (objectui#7068, maintainer ruling option 1 of
+  // ADR-0049 RETIREMENT TOMBSTONES (`6bca0e4e8`, maintainer ruling option 1 of
   // 2026-09-05). Both keys carried a Phase-2 `ActionCallback` object that no renderer
   // or runner ever read and that the spec refuses at publish (`onSuccess`: wrong
   // block shape; `onFailure`: no such key). A plain deletion here would NOT refuse
@@ -107,7 +107,7 @@ export const ActionSchema: z.ZodType<ActionDeclaration, ActionDeclaration> = z.l
   // TS twins are `?: never` (`../crud.ts`). Pinned in
   // `../__tests__/action-callback-retired-7068.test.ts`.
   onSuccess: retirementTombstone(
-    'RETIRED (objectui#7068) — `onSuccess` is no longer part of this legacy ActionSchema; nothing reads '
+    'RETIRED (ADR-0049) — `onSuccess` is no longer part of this legacy ActionSchema; nothing reads '
     + 'it. It carried a Phase-2 `ActionCallback` object (`{ type: \'toast\' | \'message\' | \'redirect\' | '
     + '\'reload\' | \'custom\' | \'ajax\' | \'dialog\', message?, url?, api?, method?, dialog?, handler? }`) that '
     + 'no renderer or runner ever consumed — the THIRD meaning of this key — and that `@objectstack/spec`\'s '
@@ -117,7 +117,7 @@ export const ActionSchema: z.ZodType<ActionDeclaration, ActionDeclaration> = z.l
     + 'enforce-or-remove with no deprecation window (maintainer ruling option 1, 2026-09-05).',
   ),
   onFailure: retirementTombstone(
-    'RETIRED (objectui#7068) — `onFailure` is no longer part of this legacy ActionSchema; nothing reads '
+    'RETIRED (ADR-0049) — `onFailure` is no longer part of this legacy ActionSchema; nothing reads '
     + 'it. It carried the same Phase-2 `ActionCallback` object `onSuccess` carried, and '
     + '`@objectstack/spec`\'s ActionSchema declares no `onFailure` at all (an authored one is refused at '
     + 'publish as an unrecognized key). A failure notice is `errorMessage`. Retired under ADR-0049 '
@@ -131,7 +131,7 @@ export const ActionSchema: z.ZodType<ActionDeclaration, ActionDeclaration> = z.l
   // RUNTIME SLOT (objectui#7344): `ActionRunner` awaits `action.onClick()` and
   // the action renderers guard `typeof action.onClick === 'function'`. The
   // `z.any()` this replaces accepted an authored string or object that then
-  // reached that call (objectui#7069's mirror-wider-than-declared direction).
+  // reached that call (`2760075ff`'s mirror-wider-than-declared direction).
   onClick: handlerKeyRefusal('onClick', 'runtime-slot', 'Custom click handler'),
   redirect: z.string().optional().describe('Redirect URL after success'),
   tracking: z.object({

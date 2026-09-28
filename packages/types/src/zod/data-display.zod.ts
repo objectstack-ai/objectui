@@ -320,7 +320,7 @@ export const TableColumnSchema = z.object({
  * The later arrivals below (`headerIcon` / `fitContent`, objectui#6424;
  * `format` / `options` / `currency`, objectui#6425; `wrap`, objectui#6650;
  * `masked`, objectui#10583) were outside #6105's reviewed scope; the first
- * five carried the bare spelling until objectui#6931 converted them here
+ * five carried the bare spelling until `8063bcbdc` converted them here
  * (`wrap` and `masked` were born converted). That
  * mattered because a half-converted shape teaches worse than a uniform one:
  * an author reading guidance on nine keys and zod's generic on five learns the
@@ -359,7 +359,7 @@ export const StaticTableColumnSchema = z.object({
  * reference-page teaching describing behaviour that did not exist. An
  * authored value now fails parse loudly rather than doing nothing silently,
  * and the refusal carries its own remediation text through
- * `retirementTombstone()` (objectui#6931) rather than zod's generic
+ * `retirementTombstone()` (`8063bcbdc`) rather than zod's generic
  * `expected never`.
  */
 export const TableSchema = BaseSchema.extend({
@@ -403,7 +403,7 @@ export const DataTableSchema = BaseSchema.extend({
   selectable: z.union([z.boolean(), z.enum(['single', 'multiple'])]).optional().describe('Enable row selection — `true`/`multiple` = multi-select, `single` = replace-on-select with no select-all'),
   sortable: z.boolean().optional().describe('Enable sorting'),
   exportable: z.boolean().optional().describe('Enable data export'),
-  rowActions: z.boolean().optional().describe('Show the row actions column (edit/delete) — mirrors the boolean the renderer truthiness-tests (objectui#6940)'),
+  rowActions: z.boolean().optional().describe('Show the row actions column (edit/delete) — mirrors the boolean the renderer truthiness-tests'),
   resizableColumns: z.boolean().optional().describe('Allow column resizing'),
   reorderableColumns: z.boolean().optional().describe('Allow column reordering'),
   onRowEdit: handlerKeyRefusal('onRowEdit', 'runtime-slot', 'Row edit handler'),
@@ -463,7 +463,7 @@ export const DataTableSchema = BaseSchema.extend({
   onRowActionDef: handlerKeyRefusal('onRowActionDef', 'runtime-slot', 'Row action handler'),
   onRowClick: handlerKeyRefusal('onRowClick', 'runtime-slot', 'Row click handler'),
   onRowSave: handlerKeyRefusal('onRowSave', 'runtime-slot', 'Row save handler'),
-  cellClassName: z.string().optional().describe('Extra classes folded into the utility body cells only — the selection, row-number and row-actions cells; data cells fold the per-column `cellClassName` instead, so row density has to be set on both (objectui#6882)'),
+  cellClassName: z.string().optional().describe('Extra classes folded into the utility body cells only — the selection, row-number and row-actions cells; data cells fold the per-column `cellClassName` instead, so row density has to be set on both'),
   // RUNTIME SLOT (objectui#7759 group E, the objectui#6124 shape): `data-table`
   // reads `schema.renderCellEditor` and calls it with the edit context; its
   // supplier is `ObjectGrid` (`@object-ui/plugin-grid`). The context's shape —
@@ -506,7 +506,7 @@ export const DataTableSchema = BaseSchema.extend({
  * and the key retired. `components` was a `Record<string, any>` of React
  * overrides nothing read — not a JSON-authorable value, and no host path
  * consumes such a map either, so there is no runtime slot to keep. Both
- * refuse BY NAME through `retirementTombstone()` (objectui#6931), with the
+ * refuse BY NAME through `retirementTombstone()` (`8063bcbdc`), with the
  * remedy in the message, rather than parsing green and doing nothing. The TS
  * twins are `?: never` in `../data-display.ts`; both published faces carry the
  * refusal (`@object-ui/types`, and `@object-ui/plugin-markdown`'s re-export of
@@ -1270,7 +1270,7 @@ const timelineItemsFitVariant = (
  * `timeScale` is RETIRED (objectui#6355), and `events` / `orientation` /
  * `position` are RETIRED (objectui#6170, ADR-0049 stage 2 — no renderer ever
  * read any of the three). All four carry the `retirementTombstone()` spelling
- * below (objectui#6931), each message naming what to author instead — still
+ * below (`8063bcbdc`), each message naming what to author instead — still
  * mirrored, deliberately, because the parity ratchet compares key SETS and
  * because a tombstone must be present on both halves to be audible.
  *

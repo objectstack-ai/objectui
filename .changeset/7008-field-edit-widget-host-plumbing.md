@@ -3,7 +3,7 @@
 '@object-ui/plugin-kanban': patch
 ---
 
-`FieldEditWidget` now delivers the NON-DOM half of the contract it declares (objectui#7008).
+`FieldEditWidget` now delivers the NON-DOM half of the contract it declares.
 
 objectui#7009 made the factory forward its declared DOM pass-through block. The rest of
 `FieldWidgetComponentProps` was still dropped: `error`, `onUploadingChange`, and the whole

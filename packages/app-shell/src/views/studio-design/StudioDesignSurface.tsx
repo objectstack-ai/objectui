@@ -890,7 +890,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
       // seam that reports them: one advisory event per advised item, into the
       // same sink, renderer and wording every other write door on this surface
       // uses. A bare fetch had nothing to report THROUGH. Same move
-      // objectui#6965 / PR objectui#10038 made for the two sibling call sites.
+      // PR objectui#10038 made for the two sibling call sites.
       const payload = (await shellClient.publishPackageDrafts(packageId)) as {
         success?: boolean;
         error?: { message?: string; details?: { issues?: unknown } };

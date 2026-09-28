@@ -777,10 +777,11 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
     // moves (objectui#6683 down to 3177.7, objectui#6776 down to 3146.8,
     // objectui#7122 UP to 3468.0 on the authorised raise, objectui#7479 down to
     // 3090.6 when nine locale catalogues left the eager closure, objectui#9251
-    // down to 3060.0 when lucide's 1,781-icon record left it) — a
+    // down to 3060.0 when lucide's 1,781-icon record left it, objectui#10996 UP
+    // to 3104.5 on the authorised re-pin over `main`'s own drift) — a
     // rendering derived in the test would agree with the renderer by
     // construction and pin nothing.
-    expect(result.message).toContain('3060.0');
+    expect(result.message).toContain('3104.5');
   });
 
   it('is exactly one regression wide, from either side of the line', () => {
@@ -1610,7 +1611,7 @@ describe('main', () => {
     // about the FIXTURE while the gate under test behaved correctly. The number
     // this case is actually about is "the report's chunk count, echoed".
     expect(outputs.closure_chunks).toBe(String(fixture.files.length));
-    expect(outputs.closure_gzip_kb).toBe('3060.0');
+    expect(outputs.closure_gzip_kb).toBe('3104.5');
   });
 
   it('exits 1 — a verdict about the BUNDLE — when over budget', () => {
@@ -2550,8 +2551,9 @@ describe('the prose attached to the baselines (objectui#7046)', () => {
 
   /**
    * What each baseline carries AS DATA, recorded so the pin above cannot go
-   * vacuous in silence. Measured on `main`: `BASELINE` carries exactly two
-   * commit strings; `PER_CHUNK_BASELINE` carries NONE — its per-key provenance
+   * vacuous in silence. Measured on `main`: `BASELINE` carries exactly one
+   * commit string, with `squashMerge` null since objectui#10996 (below);
+   * `PER_CHUNK_BASELINE` carries NONE — its per-key provenance
    * commits live only in prose, with no exported value to check them against,
    * which is why the pin above says nothing about it and the claim pin below is
    * what guards its block. Add a `commit` field there and this reds, and the pin
@@ -2571,9 +2573,15 @@ describe('the prose attached to the baselines (objectui#7046)', () => {
    * at that moment is `null`, and `null` reds here. That red is the intended
    * signal: it is a ledger, it is re-pinned deliberately, and a predicate loose
    * enough to accept both shapes would stop recording anything.
+   *
+   * objectui#10996 is the first re-baseline to meet it, and re-pinned it to the
+   * shape it left: `squashMerge` null, one commit carried. ⛔ Still exact and
+   * positional — a back-fill of the squash reds here again, and is re-pinned to
+   * two strings the same way.
    */
   it('records what each baseline carries as data, so the pin cannot go vacuous', () => {
-    expect(commitsCarriedBy(BASELINE)).toEqual([BASELINE.commit, BASELINE.squashMerge]);
+    expect(commitsCarriedBy(BASELINE)).toEqual([BASELINE.commit]);
+    expect(BASELINE.squashMerge).toBeNull();
     expect(commitsCarriedBy(PER_CHUNK_BASELINE)).toEqual([]);
   });
 

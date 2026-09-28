@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { build, resolveConfig } from 'vite';
+import type { InlineConfig } from 'vite';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -1035,7 +1036,7 @@ type IncludeVerdict = { kind: 'resolved'; id: string } | { kind: 'skipped' } | {
  *     `Failed to resolve dependency` and pre-bundles nothing for the entry. This
  *     was the `maplibre-gl` entry objectui#10865 removed.
  */
-async function includeVerdicts(config: any, specifiers: string[]): Promise<Map<string, IncludeVerdict>> {
+async function includeVerdicts(config: InlineConfig, specifiers: string[]): Promise<Map<string, IncludeVerdict>> {
   const resolved = await resolveConfig(
     { ...config, root: consoleRoot, configFile: false, envFile: false, logLevel: 'silent' },
     'serve',

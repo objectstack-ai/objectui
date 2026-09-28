@@ -263,14 +263,40 @@ function viewColumnFieldNames(columns: unknown): string[] | undefined {
  *   other entry, and the entry's own shape, is kept.
  * - A projection that every entry leaves is kept as the empty projection the
  *   author wrote; it does not fall back to the grid's defaults.
+ *
+ * Generic over the whole array type because the `columns` slot is a union of
+ * two array types (`string[] | ListColumn[]`): filtering keeps each entry as it
+ * was, so the result has the type the input had, which the one cast states.
  */
-function withoutHiddenFields<T>(columns: T[] | undefined, hidden: readonly string[] | undefined): T[] | undefined {
+function withoutHiddenFields<C extends readonly unknown[]>(columns: C | undefined, hidden: readonly string[] | undefined): C | undefined {
   if (!Array.isArray(columns) || !Array.isArray(hidden) || hidden.length === 0) return columns;
   const drop = new Set(hidden);
-  return columns.filter((entry) => {
+  return (columns as readonly unknown[]).filter((entry) => {
     const name = columnIdentity(entry);
     return !name || !drop.has(name);
-  });
+  }) as unknown as C;
+}
+
+/**
+ * objectui#10885 — a named view's `exportOptions`, in the one shape the
+ * `object-grid` slot holds.
+ *
+ * The protocol declares the member on a named view as `{ formats?, maxRecords?,
+ * includeHeaders?, fileNamePrefix?, streaming? }`, and declares a bare format
+ * array as its legacy spelling, which "lifts to `{ formats: [...] }` at parse"
+ * (the member's own description in `@objectstack/spec`). A named view reaches
+ * this component unparsed, so the bare array can arrive as written. `ObjectGrid`
+ * reads `exportOptions.formats`, which an array does not have: relayed as is,
+ * the grid would offer its default formats instead of the ones the author
+ * listed. So the declared union is narrowed to the slot's branch here, by the
+ * protocol's own lift, the way `ListView` narrows it for the host delegation.
+ * It accepts no spelling the protocol does not; the node-shape fold of a
+ * declared union at the boundary is the objectui#5269 / objectui#8254 pattern
+ * `viewColumnFieldNames` follows.
+ */
+function gridExportOptions(options: NamedViewConfig['exportOptions']): ObjectGridSchema['exportOptions'] {
+  if (Array.isArray(options)) return { formats: options };
+  return options;
 }
 
 /**
@@ -2293,11 +2319,20 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       rowHeight: currentNamedViewConfig?.rowHeight,
       resizable: currentNamedViewConfig?.resizable,
       searchableFields: currentNamedViewConfig?.searchableFields,
-      conditionalFormatting: currentNamedViewConfig?.conditionalFormatting,
+      // The protocol's rule `condition` is a string or the `{ dialect, source }`
+      // expression wire; `ObjectGrid` hands every rule to the shared evaluator
+      // (`resolveConditionalFormatting`), which reads both. The grid's declared
+      // rule type spells the string form only, hence the assertion — the same
+      // one `viewSort` above makes for the named view's `sort`.
+      conditionalFormatting: currentNamedViewConfig?.conditionalFormatting as ObjectGridSchema['conditionalFormatting'],
       rowActions: currentNamedViewConfig?.rowActions,
       bulkActions: currentNamedViewConfig?.bulkActions,
-      bulkActionDefs: currentNamedViewConfig?.bulkActionDefs,
-      exportOptions: currentNamedViewConfig?.exportOptions,
+      // Same reason as `conditionalFormatting`: the protocol's `visible`
+      // expression wire may carry `ast` without `source`, which the grid's
+      // declared `BulkActionDef` does not spell. It is the value the host
+      // delegation already hands `ObjectGrid` through `ListView`.
+      bulkActionDefs: currentNamedViewConfig?.bulkActionDefs as ObjectGridSchema['bulkActionDefs'],
+      exportOptions: gridExportOptions(currentNamedViewConfig?.exportOptions),
       // ⭐ objectui#8980 — the AUTHOR-REACHABLE read point for two of the
       // seventeen. `ObjectGrid` already reads both (`schema.grouping` in its
       // group-field memo and its reference collector, `useRowColor(schema.rowColor)`),

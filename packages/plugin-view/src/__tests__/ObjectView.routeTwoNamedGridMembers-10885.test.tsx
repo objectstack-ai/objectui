@@ -194,6 +194,16 @@ describe('objectui#10885 — through the registered `object-view` renderer, rout
     }
   });
 
+  it('`exportOptions` in the protocol\'s legacy bare-array spelling reaches the grid in the slot\'s shape — the protocol\'s own lift', async () => {
+    // The protocol accepts a bare format array on a named view and lifts it to
+    // `{ formats }` at parse. `ObjectGrid` reads `exportOptions.formats`, which
+    // an array does not have, so the node carries the lifted shape.
+    expect(SpecObjectListViewSchema.shape.exportOptions.parse(['xlsx'])).toEqual({ formats: ['xlsx'] });
+    const s = await gridNodeThroughRenderer({ ...CONTROL, exportOptions: ['xlsx'] });
+    expectControl(s);
+    expect(s.exportOptions).toEqual({ formats: ['xlsx'] });
+  });
+
   it('CONTROL: with the members absent from the named view, the node applies where route 2 already read it — and only there', async () => {
     const s = await gridNodeThroughRenderer({ ...CONTROL }, pick('table'));
     expectControl(s);

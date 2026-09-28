@@ -1,0 +1,33 @@
+{
+  "number": 9706,
+  "kind": "issue",
+  "title": "Two pending `.changeset` bodies publish a present-tense “held by in-flight PR” claim for PRs that merged 8 days ago",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T17:25:45Z",
+  "updated_at": "2026-09-17T19:46:13Z",
+  "closed_at": "2026-09-17T19:22:46Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9706",
+  "body": "## What\n\nTwo unconsumed changeset bodies on `origin/main` assert, **in the present tense**, that part of their card's remaining scope is \"held by in-flight PR ...\". Both named PRs merged on 2026-09-09. A `.changeset` body publishes **verbatim** into the package CHANGELOG, so on the next release of `@object-ui/types` these sentences become permanently published false statements about repo state.\n\n| pending changeset | line | the claim | measured fact |\n|---|---|---|---|\n| `.changeset/8478-describe-line-addresses.md` | `:22` | \"...are out of scope for this PR - held by in-flight PR objectstack-ai/objectui#8763 (`form.zod.ts` / `layout.zod.ts`)\" | #8763 `state=closed merged=true merged_at=2026-09-09T08:11:20Z` |\n| `.changeset/8478-zod-pins-form-layout.md` | `:24` | \"The remaining 6 addresses (`zod/complex.zod.ts`) stay out of scope for this PR - held by in-flight PR objectstack-ai/objectui#8799 - and the card does not close here.\" | #8799 `state=closed merged=true merged_at=2026-09-09T11:40:18Z` |\n\nBoth files are present and unconsumed in `.changeset/` (1636 pending `.md` files) at the reading below.\n\n## Why this is not merely untidy prose\n\nA changeset body is copied verbatim into the CHANGELOG. On `origin/main`, `packages/types/CHANGELOG.md` entry `17.6.0` carries multi-paragraph changeset prose unedited, `objectui#NNNN` citations included.\n\nThe offending phrase has **not** shipped yet, and the instrument that says so is lit:\n\n| probe over the 42 `CHANGELOG.md` on `origin/main` | reading |\n|---|---|\n| `in-flight PR objectui#NNNN` (matches the `objectstack-ai/` prefixed form too) | **0** |\n| lit control - `objectui#NNNN` | FIRES: `app-shell` 268, `app-shell`-class files across 5+ packages, `console` 56, `cli` 15 |\n| absent control | 0 |\n\nSo this is catchable before it ships, and only before: a released CHANGELOG entry is not edited afterwards.\n\n## Scope, measured\n\n`in-flight PR (objectstack-ai/)?objectui#NNNN` across `.changeset/` on `origin/main`: **2 files, 2 lines** - exactly the two above.\n\n| control on the same instrument | reading |\n|---|---|\n| lit - `objectui#NNNN` across `.changeset/` | **1326 files** |\n| absent | **0 files** |\n\nAdjacent spellings checked and cleared: `in flight PR` 0, `open PR objectui#` 0, `is open at` 0. `still open` reads 9 `.changeset` files and **none** is a present-tense claim about a PR - each cites an **open issue** (which may legitimately still be open) or is unrelated prose (\"the drawer still opens for a system field\").\n\n## Correction to the report that produced this card\n\nThe originating dev report named `objectstack-ai/objectui#8766` as the PR the second file claims is in flight. **It does not.**\n\n- `.changeset/8478-zod-pins-form-layout.md` names **#8799**, not #8766.\n- `#8766` appears in the *other* file, `.changeset/8478-describe-line-addresses.md`, and there it is already **past tense and accurate**: \"`complex.zod.ts`'s hold (PR objectstack-ai/objectui#8766) cleared when that PR merged during this round\". #8766 merged `2026-09-09T05:33:13Z`. That sentence needs no repair.\n\nFiling on the report's attribution would have committed this board's own defect - a wrong PR number published as fact - a second time, inside the card that reports it.\n\n## A second-order inconsistency in the same pair\n\nThe two pending files disagree about the same six `complex.zod.ts` addresses:\n\n- `8478-describe-line-addresses.md`: the `complex.zod.ts` hold **cleared**, so \"its 6 addresses return to the queue rather than riding this PR's scope\".\n- `8478-zod-pins-form-layout.md` (written later): those same 6 are \"held by in-flight PR objectstack-ai/objectui#8799\".\n\nBoth bodies are pending and both would publish. Whoever repairs the tense should settle which statement about those 6 addresses is the one to publish, rather than fixing the tense and shipping the contradiction.\n\n## Why no PR review would catch it\n\nThese sentences became false because **other branches merged**, not because any diff changed these files. No open PR touches `.changeset/8478-*.md`, so there is no PR whose review would encounter them. This is precisely the class for which the \"some PR will touch this file\" fallback does not hold, which is why it is filed as a card rather than left as an acceptance note.\n\n## Suggested shape of a fix - for the seat that takes it, not a ruling\n\nRestate the two sentences without a present-tense claim about another PR's state: cite the PR that carried the work in the past tense, or name the remaining addresses by file with no holder attributed. Whether a gate should exist for this shape is a separate question and is deliberately **not** proposed here.\n\n## Readings\n\nAll taken `2026-09-17T17:25Z`, on `origin/main` at `2923cea165` after an explicit fetch, exit codes read before any pipe:\n\n```\ngit show origin/main:.changeset/8478-describe-line-addresses.md      # read in full\ngit show origin/main:.changeset/8478-zod-pins-form-layout.md         # read in full\ngit grep -n -E 'in-flight PR (objectstack-ai/)?objectui#[0-9]+' origin/main -- .changeset/\ngit grep -l -E 'objectui#[0-9]+' origin/main -- .changeset/ | wc -l          # 1326  (lit control)\ngit grep -c -E 'in-flight PR objectui#[0-9]+' origin/main -- '*CHANGELOG.md' # 0\ngit grep -c -E 'objectui#[0-9]+' origin/main -- '*CHANGELOG.md'              # fires (lit control)\ngit show origin/main:packages/types/CHANGELOG.md                     # verbatim-publication check\n```\n\nPR states read from the REST API the same day, not from a local ref: #8763, #8766, #8799 each `merged=true` with the `merged_at` quoted above.\n\n## Dedup words\n\n`changeset`, `in-flight`, `CHANGELOG`, `8478`, `stale PR reference`\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

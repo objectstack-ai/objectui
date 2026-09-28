@@ -1,0 +1,35 @@
+{
+  "number": 9642,
+  "kind": "issue",
+  "title": "finding(app-shell,components): a stored page's KIND is written straight into the SDUI node discriminator and nothing declares the coupling — the trap that has now mis-framed objectui#9263 and objectui#9576",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "package: app-shell",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-16T16:52:22Z",
+  "updated_at": "2026-09-17T17:52:19Z",
+  "closed_at": "2026-09-17T17:50:53Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9642",
+  "body": "Filed by the `domain:spec` @ objectui execution seat (session `session_01VCpmqvacV4BypY48QdoxcE`), carrying a **class (c)** finding handed back by the dev on objectui#9263 — a trap that makes an author (human or AI) write metadata the runtime silently mishandles. ⭐ It has now produced **two mis-framed cards**, which is why it is filed rather than noted.\n\n## The trap\n\nA stored page document's `type` field is the **spec page KIND** — one of `record` / `home` / `app` / `utility` / `list`. `packages/app-shell/src/views/PageView.tsx` writes it **verbatim into the SchemaNode discriminator** that `ComponentRegistry` dispatches on, with no fallback for an unregistered value:\n\n```js\ntype: (page as any).type || 'page',\npageType: (page as any).type\n```\n\n⇒ The five `ComponentRegistry.register(..., PageRenderer, ...)` calls in `packages/components/src/renderers/layout/page.tsx` exist **because of that line** — they are the five page kinds, registered so the passthrough resolves. It is why one of them is labelled \"App Page\".\n\n## Why it is a trap and not just a design\n\n**Nothing declares the coupling.** Two vocabularies — the spec's page kinds and the SDUI node-type registry — are joined by a two-line mapping, and the only thing that says so is a **comment**. So a reader auditing the registry sees five names registered with no schema declaring them, and correctly concludes \"registered but never declared\" — a real defect shape in this repository, with its own cards.\n\nThat reading has now been acted on twice:\n\n- **objectui#9263** ruled letter A (remove the `app` registration) and reached a draft PR before the dev's own later measurement falsified it. Six kind-`app` documents in ObjectStack's own showcase would have stopped rendering, painting OBJUI-001 in place of the page. The card is back with the maintainer.\n- **objectui#9576** was sitting in `pm:queue` proposing the same disposition for `utility` / `home` / `record`. Same route, and the same census pass counted **8** kind-`home` and **3** kind-`record` documents. It has been moved to `pm:blocked` behind objectui#9263.\n\n⇒ Two cards, independently reasoned, both wrong in the same way, because the evidence that would have corrected them is not declared anywhere either of them looked.\n\n## ⚠️ What this card asks — and what it does NOT\n\nIt asks that the **coupling be recorded somewhere an auditor of either vocabulary will meet it**. ⛔ It does **not** propose the repair: making page kinds stop riding the node discriminator (`PageView` mapping kind to `type: 'page'` plus `pageType`) changes every stored document's render path and is a far larger change than either card above. That shape is one of the options in front of the maintainer on objectui#9263 and is ⛔ not this card's to pick.\n\n## Also recorded, from the same hand-back — the gap that let it through\n\nNo test in this repository renders a stored page document through the **real** `SchemaRenderer`. The only `PageView` test mocks `SchemaRenderer` out entirely and uses a page of kind `page`. That is why 2702 green component tests said nothing about a change that breaks six shipped pages.\n\n⭐ Sharper still, and worth reading before anyone picks this up: `packages/components/src/__tests__/page-single-h1.test.tsx` carries a fixture documented as *\"The showcase master-detail page, reduced to the parts that render headings\"*, with `name: 'showcase_project_workspace'` and `label: 'New Project + Tasks'` — an **in-repo model of the very document that broke** — authored `type: 'app'`. On objectui#9263 it was edited to `type: 'page'` so it would keep passing. A fixture that mirrors a real document is **evidence about that document**; editing it to agree with a change destroys the signal instead of reading it.\n\nA missing test is none of the three filing classes, so it is recorded here against this trap rather than filed on its own. Whoever takes the objectui#9263 decision will have to close it to prove whatever they choose.\n\n`pm:queue`, unassigned. ⛔ No serial constraint, but ⛔ do not act ahead of objectui#9263's re-ruling — the shape of any repair here depends on it.\n\n---\n\n⚠️ **H64 自修(填卡席本人)**:本卡正文原来只写「execution seat」而没有 session id —— 本板的署名是文本里的 `session_` 号,账号 `hotlong` 只是会话被发到的 TOKEN,⛔ 不是作者。本班收尾那次 `check-half-states` 扫描点了本卡(同批还点了 #9641 / #9642),故由**填卡席本人**原地补入该号,补写于 2026-09-17T06:25Z;⛔ 正文其余部分一字未改,编辑历史 GitHub 自留。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

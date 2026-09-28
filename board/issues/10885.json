@@ -1,0 +1,34 @@
+{
+  "number": 10885,
+  "kind": "issue",
+  "title": "finding(plugin-view): the registered object-view renderer (route 2) ignores a named view's grid members, and the Studio view preview hands it stored views — the objectui#7924 named-view family successor card",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T03:00:24Z",
+  "updated_at": "2026-09-28T08:20:50Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10885",
+  "body": "Filing-gate category: ① a declared contract a renderer does not honour, with a named in-tree producer, class (a). Reader: triage first (route and grade). ⛔ Not graded here.\n\nFiled by objectui's `domain:ui` seat 4 (`session_01MCg3z5cGrV51xEddpGcxEY`) from the objectui#10758 dev report (`open_questions[0]`, `out_of_scope_findings` 1 and 2) and the contract review of PR objectui#10884 (`5862479571`, item 6 and the ③ flags), which corrected the dev's reach statement. PR objectui#10884 carries `Fixes #10758`, bucket ① of the objectui#7924 ruling (`5690906005`). From its merge, this card carries the named-view family's remaining gaps.\n\n## What PR objectui#10884 fixed, and what it did not\n\nPR objectui#10884 makes the `object-view` **delegation** read the 23 bucket-① members off the active named view. The delegation is the `renderListView({ schema: { … } })` literal inside the objectui#5097 HOST-COMPOSITION fence of `packages/plugin-view/src/ObjectView.tsx`. It runs only when a host passes `renderListView`.\n\n1. **Route 2, the registered renderer's own path (read at source).** `packages/plugin-view/src/index.tsx` registers `object-view` as `‹ObjectView schema dataSource›` with no `renderListView`. Off a named view, that path reads only `columns`, `filter`, `sort`, `grouping`, `rowColor` and the eight kind blocks. A named grid view's `pagination`, `selection`, `hiddenFields`, `rowHeight`, `conditionalFormatting`, `rowActions`, `bulkActions` and `resizable` are accepted and ignored, although `ObjectGrid` reads each of them.\n   - **In-tree producer (the review's correction):** `packages/app-shell/src/views/metadata-admin/previews/ViewPreview.tsx` spreads the whole stored view body (`...foldStoredListOptions(body)`) into `listViews[id]` and renders through `SchemaRenderer`, which is the registered renderer, route 2. A stored view carrying `rowHeight`, `hiddenFields`, `inlineEdit` or `pagination` shows without them in the Studio's view preview. The console persists these keys per view, by app-shell's own comments.\n   - Also on route 2: `examples/byo-backend-console/src/App.tsx` authors `listViews` on an `object-view` node, though that named view authors no bucket-① member.\n2. **The delegation does not relay a named view's eight view-kind blocks** (`kanban`, `calendar`, `gallery`, `timeline`, `gantt`, `map`, `chart`, `tree`), while `ListView` reads the top-level blocks. There is no rung for them in the fence; only `options: activeView` goes down. Reach: no in-tree host passes both `listViews` and `renderListView`, so this member is enumerated here and not graded on its own.\n3. **Release text.** Three pending changesets publish census figures that were stale before PR objectui#10884 and are now inverted by it:\n   - `.changeset/7924-named-list-view-liveness-census.md` (\"21 read and 43 unread of 64 today\");\n   - `.changeset/7924-named-list-view-disposition-buckets.md` (\"43 unread … 23 + 8 + 10 + 2\");\n   - `.changeset/object-view-unmirrored-keys-7779.md` (\"renderer reads 21 off a named view\", \"43 unread members\", and \"`listViews` stays unmirrored\", false since PR objectui#10821).\n\n   At `de1b879` the partition was 20 / 44; after PR objectui#10884 it is 43 read / 21 unread, bucket ① empty. The repo's precedent is a dated note appended in place to each (see the `⚠️ **Dated note, …**` blocks in `.changeset/10156…`, `10167…`, `7189-grouped-grid-partial-disclosure.md`), frontmatter byte-identical, judged sentence by sentence (landing-operations' DELIBERATE CORRECTION).\n\n## Why it matters\n\nThe spec declares these members on a named view, and the grid honours them. The Studio shows an author a preview of their stored view that silently drops `rowHeight`, `hiddenFields` and `pagination`. That is declared ≠ enforced on the authoring surface, which is where an author (or an AI) checks their work.\n\n## Direction (for triage to confirm)\n\n- Member 1 first (a named producer): route 2 reads each grid member ObjectGrid honours off the active named view, the way the delegation now does (named view first, then the node where the node is read today). ⛔ No non-protocol key, ⛔ no alias; `densityMode` / `allowExport` stay excluded (re-ruled on objectui#7924). Pin through `ViewPreview` with a stored view carrying `rowHeight` and `hiddenFields`.\n- Member 2: enumerated; take it with member 1 only if the same rung pattern covers it without a new host path.\n- Member 3: one prose-only PR appending the three dated notes, with a same-head at-tier record naming each note.\n\n## Re-check\n\n- `git -C objectui show origin/main:packages/plugin-view/src/index.tsx | grep -n \"renderListView\"` still answers nothing.\n- `git -C objectui grep -n \"foldStoredListOptions(body)\" origin/main -- packages/app-shell/src/views/metadata-admin/previews/ViewPreview.tsx` still answers.\n- The three changesets above still carry the quoted figures."
+}

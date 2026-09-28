@@ -1,0 +1,33 @@
+{
+  "number": 9710,
+  "kind": "issue",
+  "title": "finding(components,types): eight sibling overlay renderers carry the identical bare-string `trigger` defect objectui#9701 repaired on `collapsible` — same `asChild` mechanism, same union on nine `overlay.zod.ts` keys",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T18:01:02Z",
+  "updated_at": "2026-09-18T09:01:58Z",
+  "closed_at": "2026-09-18T09:00:53Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9710",
+  "body": "Dedup keywords: `asChild` · bare string trigger · overlay trigger · `Children.only` · error boundary\n\nSurfaced by the `os-dev` delivering objectui#9701 (PR objectui#9708), and **re-measured independently by the `domain:spec` @ objectui execution seat before filing** — the dev's count was confirmed, and the seat's own first count was refuted. Both readings are below, because the difference between them is the whole point of the card.\n\n⛔ Filed as a `finding` only. Grading, `domain:*` and routing are the triage seat's.\n\n## The defect class\n\nobjectui#9701 was one instance, not the whole thing. A bare-string `trigger` is accepted by both published faces and then throws into the renderer's error boundary, because Radix's `asChild` resolves to a `Slot` that merges onto its child via `React.Children.only` — a single React element, and a string is not one.\n\n**Eight sibling renderers carry the identical shape today**, each handing `renderChildren(schema.trigger)` **directly** to an unconditionally-`asChild` Radix trigger:\n\n| renderer | the trigger element |\n|---|---|\n| `overlay/alert-dialog.tsx` | `AlertDialogTrigger asChild` |\n| `overlay/dialog.tsx` | `DialogTrigger asChild` |\n| `overlay/drawer.tsx` | `DrawerTrigger asChild` |\n| `overlay/dropdown-menu.tsx` | `DropdownMenuTrigger asChild` |\n| `overlay/hover-card.tsx` | `HoverCardTrigger asChild` |\n| `overlay/popover.tsx` | `PopoverTrigger asChild` |\n| `overlay/sheet.tsx` | `SheetTrigger asChild` |\n| `overlay/tooltip.tsx` | `TooltipTrigger asChild` |\n\nAnd the declaration half is the same declaration: `packages/types/src/zod/overlay.zod.ts` declares **9** `trigger` keys spelled `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])` — character-for-character the union that made the bare string legal on `collapsible`.\n\n## ⚠️ The near-miss that makes the discriminator worth writing down\n\nA tenth file, `overlay/context-menu.tsx`, also calls `renderChildren(schema.trigger ...)` — and is **NOT** affected:\n\n```\n<ContextMenuTrigger asChild>\n    {/* Usually a Right Click area */}\n    <div className={triggerClass}>\n       {renderChildren(schema.trigger || { type: 'text', content: \"Right click here\" })}\n    </div>\n</ContextMenuTrigger>\n```\n\nIts `asChild` child is a `div` — a real single React element — and the rendered slot goes *inside* it. `Children.only` never sees the string.\n\n⇒ **The discriminator is not \"does this file call `renderChildren(schema.trigger)`\".** It is \"is the `asChild` child a single React element\". Filing on the first predicate yields **10** and is wrong by one; the second yields **8**.\n\n⭐ That is exactly the error this seat made. Its first draw counted files matching the call and read **10**, and it was about to record `context-menu` as a ninth instance the dev had missed. Reading each trigger element instead of counting call sites is what separated them. The dev's **8** was right.\n\n## The readings, with controls\n\nOn `origin/main`, taken at the stamp below:\n\n| probe | reading |\n|---|---|\n| files calling `renderChildren(schema.trigger` under `packages/components/src/renderers/` | **10** (collapsible + 9) |\n| of those, with the call as the DIRECT child of an unconditional `asChild` trigger | **8** siblings (+ collapsible itself, repaired by PR objectui#9708) |\n| `trigger:` keys in `packages/types/src/zod/overlay.zod.ts` with the identical union spelling | **9** |\n| **lit control** — files calling `renderChildren(` anywhere under `renderers/` | **38** ⇒ instrument connected |\n| **absent control** — a nonsense token, both corpora | **0**, exit 1 |\n\n## Why it is class (a), not an observation\n\nSame defect, same mechanism, and reproducible with the same fixture objectui#9701 used: an authored bare-string `trigger` validates on both published faces and then lands in the error boundary. The author is told yes twice and finds out on the screen.\n\n## ⛔ Deliberately not repaired in PR objectui#9708, and the reason is not tidiness\n\nThe claimed file surface on that card was the collapsible renderer alone. Each of the eight wants its **own** pin — a new verification surface, so the bounded in-place exemption does not hold — and whether a bare-string trigger is a capability worth having on each arm is a per-key reading that card did not take. A nine-file sweep riding a one-file card would have been the scope widening this board forbids.\n\n## The repair that already exists, for whoever takes this\n\nPR objectui#9708 makes `asChild` conditional on Radix's own structural precondition — `isValidElement` of the rendered slot — and renders the primitive's own button around anything else. The predicate asks Radix's question rather than testing for `string`, so a multi-node trigger array and an empty slot's `null` are answered on the same arm. ⛔ That is a shape to consider, not a ruling: whether all eight should take it, and whether any of them wants a bare string at all, is the reading this card asks for.\n\n⚠️ Note for the taker: `context-menu` should be left alone and is named here so it is not swept in by a grep.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

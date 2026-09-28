@@ -1,0 +1,34 @@
+{
+  "number": 9453,
+  "kind": "issue",
+  "title": "bug(plugin-detail): the summary chip's currency and date branches format in the MACHINE locale — the one thing `useDisplayLocale` documents a caller must not do",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-14T00:59:20Z",
+  "updated_at": "2026-09-18T05:26:12Z",
+  "closed_at": "2026-09-18T05:23:01Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9453",
+  "body": "Filed by the `os-dev` seat while implementing objectui#9167 (branch `claude/issue-9167-summary-chip-percent-convention`), which put the same chip's PERCENT branch onto the display locale. ⛔ Not folded into that PR: objectui#9167's subject is the percent contract, its acceptance is a value-by-value percent table, and moving two more field families would put changes in that diff its evidence does not cover. Generated with Claude Code, session `session_011QreXiyMEqKLN4U5daMPVa`.\n\n## The declared contract, quoted from the hook it belongs to\n\n`useDisplayLocale` in `packages/i18n/src/useDisplayLocale.ts` states the rule in its own doc comment:\n\n> The one thing a caller must not do is reach past this hook for the raw tenant locale and hand `Intl` the `undefined` it gets on an unconfigured workspace — `undefined` means \"the MACHINE's locale\", which is neither channel. Every date, number and currency renderer goes through here for exactly that reason.\n\n## The fact — three call sites in one switch\n\n`packages/plugin-detail/src/DetailView.tsx`, the `summaryFields` chip's format switch beside the record H1:\n\n```ts\nnew Intl.NumberFormat(undefined, { style: 'currency', currency: cur, maximumFractionDigits: 0 })\nnew Intl.NumberFormat(undefined, { maximumFractionDigits: 0 })\nd.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })\nd.toLocaleDateString(undefined, { dateStyle: 'medium' })\n```\n\nEvery one passes the literal `undefined` the comment above names. The locale is available in the same component — objectui#9167 added `const displayLocale = useDisplayLocale();` at the top of this render for the percent branch — so this is a reach-past, not a missing channel.\n\n## Measured — chip against cell, same run, same field, same stored value\n\nOne vitest run, an explicit session locale, chip vs the field's own cell renderer. The runner's machine locale resolved to `en-US`, which is what the chip is frozen at:\n\n| type | stored | session | summary chip | list cell | agree? |\n|---|---|---|---|---|---|\n| currency (EUR) | `1234.5` | `en` | `EUR1,235` | `EUR1,234.50` | no (digits only) |\n| currency (EUR) | `1234.5` | `de-DE` | `EUR1,235` | `1.234,50 EUR` | **NO** — locale |\n| date | `2026-03-04` | `en` | `Mar 4, 2026` | `Mar 4` | no (format only) |\n| date | `2026-03-04` | `de-DE` | `Mar 4, 2026` | `4. März` | **NO** — locale |\n\n⚠️ The euro sign is written as `EUR` above on purpose: GitHub rewrites body bytes, and a table written to show a symbol difference is worth nothing if the symbol is what moves. The measured chip output carries the symbol.\n\n⚠️ Read the two `en` rows as the CONTROL, not as findings. They differ for reasons that are this chip's declared choices and are NOT what this card is about: the chip pins `maximumFractionDigits: 0` (a KPI chip beside a title states a round number), and the cell's date renderer has its own compact form. Those are the same on every machine. The `de-DE` rows are the defect: the same code, the same values, and an answer that depends on the MACHINE the browser is running on rather than on the tenant's or the user's declared locale.\n\n## Harm\n\nA German tenant reads `4. März` in the list and `Mar 4, 2026` beside the H1 of the record it opens, for one stored date. The same class objectui#4541, objectui#4553, objectui#4566 and objectui#4576 each closed on another surface — this one was not in any of their file surfaces and is still open. On an unconfigured workspace the chip agrees with nothing in particular: it agrees with whatever locale the machine has.\n\n## What a fix has to decide\n\nNothing about the locale — `displayLocale` is already resolved in this render and threading it is mechanical. The open question is whether the chip's own `maximumFractionDigits: 0` and its `dateStyle: 'medium'` survive the move, i.e. whether a KPI chip beside a title should read exactly like its list cell or keep a deliberately compact face. objectui#9167 answered that question for percent by taking the cell's precision, on the argument that the contract named the cell as the authority; no equivalent contract sentence exists for currency or date, so this one is genuinely open.\n\n## Dedup\n\nRun. ⚠️ Channel switch declared: the repo-scoped REST search endpoint answered `403` in this container (the repo-scoped issue READ endpoint answered `200` in the same session), so one directed MCP `search_issues` call was used instead of a REST list plus local grep. Its result carried its own lit control — the query returned objectui#4541, objectui#4553 and objectui#4566, three closed cards on exactly this failure mode on other surfaces — so the absence of a card for the `plugin-detail` summary chip is a reading and not a dead query. ⛔ No wide scan was run: one query. Scope boundary: any unlabelled card outside that query's reach would not have been seen.\n"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 8031,
+  "kind": "issue",
+  "title": "finding(plugin-view,plugin-list,plugin-calendar): three more foreign-shaped `type: 'tree'` fixtures, hidden from #7839's enumeration by the retired snake target spelling",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-steve",
+    "id": 317605050,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T11:34:10Z",
+  "updated_at": "2026-09-18T07:38:38Z",
+  "closed_at": "2026-09-18T07:38:38Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8031",
+  "body": "Filed by the `domain:ui` dev seat working #7839 (branch `claude/issue-7839-tree-arm-own-reference`, PR #8030). Out of that card's declared file surface, so listed and not touched.\n\n## What\n\n#7839 enumerated four fixtures carrying a `type: 'tree'` field whose target names another object — a shape `@objectstack/spec` refuses at parse (`refuseForeignTreeReference`, objectstack#14892 / #15979: a `tree` field's target is optional and, when present, must name the declaring object). Triage comment 5556381290 on that card noted the fourth uses the retired snake_case spelling rather than `reference`, and warned that an enumeration keyed on `reference:` would miss it.\n\nIt missed three more. Read on `origin/main` @ `f5c8b8e` (2026-09-06T11:2xZ), by scanning every `type: 'tree'` emit in the repo rather than by grepping one key:\n\n| file:line | field |\n|---|---|\n| `packages/plugin-view/src/__tests__/ObjectView.expandGate.test.tsx:119` | `parent_task` on a task-shaped schema, retired snake key naming `task` |\n| `packages/plugin-list/src/__tests__/ListView.relationalSort.test.tsx:39` | `parent`, retired snake key naming `contacts` |\n| `packages/plugin-calendar/src/__tests__/ObjectCalendar.expandGate-6453.test.tsx:144` | `parent_visit`, retired snake key naming `visit` |\n\nSame defect class as #7839 item 2, and the same disposition should apply.\n\n## Why it is a finding and not a bug\n\nNothing is failing. These are hand-built fixtures that never pass through `FieldSchema`, and each reads its field by declared TYPE, so the target contributes nothing to any assertion. The hazard is drift: a fixture modelling a shape the parse door refuses is a standing invitation to read the renderer as tolerating it — the exact reading #7839 item 1 just closed in `detectParentField`.\n\nNote the key here is doubly dead, not merely foreign. Measured two-directionally on the copy this repo installs (`@objectstack/spec@17.2.0`), with a nonsense key as the negative control: the retired snake spelling is refused by `FieldSchema` by name with `unrecognized_keys` and a rename hint, while the nonsense control is refused with no hint — so the hint is attached to a refusal, not to an acceptance. And `detectParentField` has read only the canonical spelling since objectui#6837 half 2. So on a `tree` field that key is refused by the schema and unread by the renderer.\n\n## Suggested disposition\n\nDrop the key, as PR #8030 did for #7839's four. It is optional on a `tree`, none of these three containers declares an object identity a self-reference could name, and a copied target value going stale is what produced #7839 in the first place. Renaming would convert a refused key into an accepted self-annotation these fixtures never made.\n\nSmall and mechanical, but deliberately not swept into PR #8030: those three packages are outside that claim's declared file surface, and `plugin-calendar` was held by another in-flight claim at the time (#7711).\n\nNo assignee — for PM triage."
+}

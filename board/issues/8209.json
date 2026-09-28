@@ -1,0 +1,35 @@
+{
+  "number": 8209,
+  "kind": "issue",
+  "title": "[fields] the readonly `datetime` WIDGET faces are the same omission one type over — a bare `toLocaleDateString` + `toLocaleTimeString` pair, not `formatDateTime`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "i18n",
+    "package: fields",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T01:00:18Z",
+  "updated_at": "2026-09-17T00:50:02Z",
+  "closed_at": "2026-09-17T00:48:37Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8209",
+  "body": "Found while implementing objectui#8194 (converging the four readonly `date` widget faces onto `formatDate`). Render-measured on `origin/main` `158d75bb3`. Filing unassigned — recording, not claiming.\n\n⛔ Deliberately NOT folded into #8194: that card's landing point is `formatDate`'s year-dropping decision, and the maintainer ruling it follows (objectui#7620, option A) is about `formatDate` and nothing else. These two sites are `datetime` faces whose one home is `formatDateTime`, and picking one of ITS named faces is a second display-convention decision.\n\n## The claim\n\n#8194's population is defined by OMISSION — a date rendered with no options bag — so it was re-enumerated by mechanism rather than by spelling. Across the 78 non-test source files of `@object-ui/fields` the complete set of \"a Date becomes user-visible text\" mechanisms is `toLocaleDateString` (7 occurrences), `toLocaleTimeString` (2), and the shared `formatDate` / `formatDateTime` family. There is no `Intl.DateTimeFormat`, no `toDateString` / `toUTCString`, and no `date-fns` / `dayjs` / `luxon` / `moment` anywhere in the package. (`toLocaleString`, 4 occurrences, is number formatting.)\n\nThat enumeration returns **six** bare no-bag sites, not the four #8194 names. The two extra ones are these:\n\n| site | spelling |\n| --- | --- |\n| `packages/fields/src/widgets/DateTimeField.tsx` (readonly branch) | `date.toLocaleDateString(locale)` and `date.toLocaleTimeString(locale)`, joined by a space |\n| `packages/fields/src/widgets/GridField.tsx` (`temporalText`, the `datetime` branch) | the same pair, same join |\n\nNeither ever calls `formatDateTime`, which since objectui#7443 is the declared ONE home for the `datetime` display convention.\n\n## Measured, five locales, `origin/main`, TZ=UTC\n\nValue `2026-07-04T07:00:00.000Z`, rendered in the readonly `DateTimeField` and in the sub-grid `datetime` cell (both sites produce the identical string):\n\n| locale | these two sites render | `formatDateTime` `'compact'` (what the `datetime` CELL renders) |\n| --- | --- | --- |\n| en | `7/4/2026 7:00:00 AM` | `7/4/2026 7:00 am` |\n| de | `4.7.2026 07:00:00` | `4.7.2026 7:00 am` |\n| zh | `2026/7/4 07:00:00` | `2026/7/4 上午7:00` |\n| ja | `2026/7/4 7:00:00` | `2026/7/4 午前7:00` |\n| ar | `4/7/2026 7:00:00 ص` | `4/7/2026 7:00 ص` |\n\n(The `ar` forms carry U+200F marks around the date separators; they are omitted here so the table stays readable.)\n\nThe `date` half agrees with the compact face by coincidence — `formatDateTimeCompactParts` asks for `{ month: 'numeric', day: 'numeric', year: 'numeric' }`, which is what `Intl`'s no-options default happens to produce for these locales. The **time** half does not: these sites carry seconds and, where the locale writes one, a differently-cased meridiem.\n\n⭐ One thing a triager should notice in that right-hand column rather than take from me: the compact face declares `hour12: true`, so the German session renders `7:00 am`. `date-display.ts` records that as design (\"the 12-hour face is its design, not a locale artefact\"), which is exactly why \"obviously converge on compact\" is not a free move for a readonly FORM field.\n\n## Why it is worth a card\n\nSame mechanism as objectui#7443, objectui#7620, objectui#8194 and objectui#4576 — more than one option bag for one concept (here: one bag and one absence of a bag), kept in step by nothing. #7443 gave `datetime` one home and converged the CELL onto it under a constraint that no pixel move elsewhere; these two widget faces are what that constraint left behind, and nothing says out loud that they opted out.\n\n## What the answer is NOT, yet\n\nConverging them requires choosing WHICH `formatDateTime` face, and that is the decision:\n\n- **`'compact'`** — what every `datetime` CELL renders. Matches the cell beside it; drops the seconds these sites currently show, and imports the forced 12-hour face above.\n- **the verbose default** (`Jul 4, 2026, 07:00 AM` in `en`) — what a non-cell caller (dataset measure, gantt tooltip, data-table) gets. Arguably the right register for a readonly FORM field, and it also carries the year-dropping question #7620 answered for `date` but nobody has asked for `datetime`.\n\nEither way pixels move on the readonly form / detail surfaces and in the sub-grid, so it wants the treatment #7620 and #8194 got — a ruling, then a pin against a verbatim copy of the former face — not a drive-by edit. ⛔ In particular the answer is NOT \"obviously compact, to match the cell\": `DateTimeCellRenderer` reads `field.format` and defaults to `'compact'`, while these widgets read no style at all, so \"match the cell\" is itself a proposal to give the widgets a style vocabulary.\n\n## Grading\n\nObservation-class. Every face is locale-correct, no data is lost or misread. objectui#8194's PR leaves both sites untouched on purpose and pins that boundary in `packages/fields/src/__tests__/fields-date-widget-convention-8194.test.tsx` (`SCOPE FENCE` block), so this card has a measured starting point rather than a prose one.\n\nRelated: objectui#8194, objectui#7443, objectui#7620, objectui#4576.\n"
+}

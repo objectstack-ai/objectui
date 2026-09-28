@@ -1,0 +1,33 @@
+{
+  "number": 9711,
+  "kind": "issue",
+  "title": "finding(types): the `zod-mirror-parity` ratchet is blind to MIRRORED-but-undeclared keys — the exact hole objectui#6058 closed in the other direction, while rulings cite it as the reason to mirror a twin",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T18:05:49Z",
+  "updated_at": "2026-09-17T20:46:58Z",
+  "closed_at": "2026-09-17T20:46:04Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9711",
+  "body": "Dedup keywords: `zod-mirror-parity` · mirrored-but-undeclared · `WithoutIndexSignature` · `DeclaredKeys` · ratchet blind direction\n\nSurfaced by the `os-dev` delivering objectui#9606 (PR objectui#9709) and **re-derived from the ratchet's own source by the `domain:spec` @ objectui execution seat before filing**. The dev's conclusion is confirmed. ⚠️ Its stated *mechanism* is not, and the corrected mechanism makes the finding **stronger**, so both are recorded.\n\n⛔ Filed as a `finding`. Grading, `domain:*` and routing are the triage seat's.\n\n## The claim\n\n`packages/types/src/__tests__/zod-mirror-parity.test.ts` cannot see a key the **zod mirror declares** and the **TypeScript twin does not**. Measured by the objectui#9606 dev on its worktree: with `cardTitle` declared in the mirror and deleted from the interface, `pnpm --filter @object-ui/types type-check` exited **0** — leg 3 (`tsc -p tsconfig.test.json`, the leg that judges this ratchet) included.\n\n## Why it matters, and why it is class (b)\n\nThe ratchet's own header states the guard's claim, and **maintainer rulings are citing it as the reason to do work**. Director batch #150 item 3 (objectui#9606) says the twin is mirrored *\"so the `zod-mirror-parity` ratchet stays at zero drift\"* — and the ratchet is not what holds that. A rationale that names an instrument the instrument does not perform is the declared-vs-enforced shape this board files.\n\n⛔ The ruling's **instruction** is unaffected and was executed: the twin is the published `.d.ts` surface, and with the member declared `tsc` refuses `cardTitle: 42` where `BaseSchema`'s index signature alone would admit it. Only the stated **reason** is wrong.\n\n## ⚠️ The mechanism — corrected, per operator\n\nThe dev reported one cause: *\"`BaseSchema` carries `[key: string]: any`, so `DeclaredKeys` reads the twin as accepting every name.\"* **That is not what the file does.** `WithoutIndexSignature` exists precisely to strip it:\n\n```\ntype WithoutIndexSignature< D > = {\n  [K in keyof D as string extends K ? never : number extends K ? never : K]: D[K];\n};\nexport type DeclaredKeys< D > = Extract< keyof WithoutIndexSignature< D >, string >;\n```\n\nRead against the three operators, the blindness is real but has **three different causes**, and only one of them is the `any` the dev named:\n\n| operator | keyed on | why it cannot see a mirrored-but-undeclared key |\n|---|---|---|\n| `WiderThanDeclaredKeys` | `MirroredKeys<M> & DeclaredKeys<D>` | the index signature IS stripped, so the key simply **leaves `DeclaredKeys<D>`** and is never iterated — blind by **omission**, not by `any` |\n| `NarrowerThanDeclared` | `MirroredKeys<M> & keyof D` | uses `keyof D`, **not** `DeclaredKeys<D>`; with the index signature present `D[K]` resolves to `any`, and `any` absorbs the comparison — this is where the dev's `any` mechanism actually applies |\n| `UnmirroredDeclaredKeys` | `Exclude<DeclaredKeys<D>, MirroredKeys<M>>` | measures **declared-but-unmirrored** — the opposite direction entirely |\n\n⇒ Three operators, three distinct reasons, all three silent. The dev gave one reason and attached it to the wrong operator; the conclusion survives with better support than it was argued with.\n\n## ⭐ The sharpest framing: this is the mirror image of a hole this file already closed\n\nThe file **documents this exact failure mode**, for the other direction, at `UnmirroredDeclaredKeys`:\n\n> *\"that type maps over the INTERSECTION `MirroredKeys<M> & keyof D`, so a declared key the mirror never mentions is not compared and found equal — it LEAVES THE COMPARISON. objectui#6058 measured the blind spot with a two-instruments ablation: ten keys declared on `ObjectGanttSchema` and stripped from its mirror left both halves of this guard green ... while `gantt-declared-keys.test.ts` over the same tree read 2 failed | 7 passed EXIT=1.\"*\n\nobjectui#6058 found *declared-but-unmirrored* leaving the comparison, and `UnmirroredDeclaredKeys` was added to close it. **There is no counterpart operator for mirrored-but-undeclared.** One direction was closed by name; its reverse was left open, and nothing in the file says so.\n\n⇒ This is not a subtle type-level surprise. It is the same defect the file already names, unfixed in the other direction, while the header reads as though both were covered.\n\n## Readings\n\nOn `origin/main` `396a1c1989`:\n\n| probe | reading |\n|---|---|\n| `[key: string]: any` in `packages/types/src/base.ts` | 2 (lines 499, 531) |\n| absent control, same file | 0, exit 1 |\n| `WithoutIndexSignature` defined and applied by `DeclaredKeys` | yes — quoted above |\n| an operator measuring mirrored-but-undeclared | **none found** |\n\n⚠️ That last row is a zero and is reported as **not found**, not as proven absent: it is a search for something whose spelling I would be guessing at. The lit control is that the three operators that DO exist were all located and read by name. Whoever takes this card should confirm the absence rather than inherit it.\n\n## What this card asks for\n\n⛔ Not a ruling and not a proposed fix. It asks for: confirm the absence of the reverse operator, decide whether the reverse direction should be closed the way objectui#6058 closed the forward one, and — either way — correct the ratchet's header so it stops being cited for a guarantee it does not give.\n\n⚠️ PR objectui#9709 does **not** leave its own declaration unguarded while this is open: it supplies a `@ts-expect-error` row on `cardTitle: 42` whose directive goes unused (`TS2578`) the moment the member is deleted. That is a per-key guard, ⛔ not a fix for the class.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

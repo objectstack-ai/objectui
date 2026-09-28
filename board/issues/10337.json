@@ -2,8 +2,8 @@
   "number": 10337,
   "kind": "issue",
   "title": "finding(types/skills): four more texts still say the manifest serializer forwards SIX keys per input and omit `of` — a governed skills guide, a published `widget.ts` docblock and two test comments",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,7 +13,6 @@
   "labels": [
     "documentation",
     "domain:spec",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -22,9 +21,13 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-24T18:28:22Z",
-  "updated_at": "2026-09-27T13:34:00Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-28T03:53:36Z",
+  "closed_at": "2026-09-28T03:52:55Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
   "merged_at": null,
   "comments": 6,
   "locked": false,

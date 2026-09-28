@@ -1,0 +1,34 @@
+{
+  "number": 9609,
+  "kind": "issue",
+  "title": "finding(pm-gate): H4 already detects the 14 `pm:blocked` cards with no unlock line — the gap is DELIVERY, not detection, and closing it needs a repository-variable change no seat can make",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p1",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-16T10:48:30Z",
+  "updated_at": "2026-09-17T15:35:58Z",
+  "closed_at": "2026-09-17T15:35:58Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9609",
+  "body": "objectui#6653's re-measurement (report `5696202614`) found that the detector for this **already exists, is installed, and runs**. What is missing is **delivery**: its findings reach a run summary the workflow itself says notifies nobody.\n\n## The measurement that produced this card\n\nLive population, 2026-09-16: **66** open `domain:ui` + `pm:blocked` cards.\n\n| reader | present | absent |\n|:--|--:|--:|\n| the repo's own two-channel, spelling-tolerant predicate | **52** | **14** |\n| a strict body-only reconstruction | 34 | 32 |\n\n⇒ **18 of the strict reader's 32 absences (56%) are false negatives** — 15 caused by the line living in a **comment**, 3 by decoration. ⭐ The instrument effect is real and large, **and it does not collapse the defect**: **14 cards (21%), median age 14 days**, are invisible under the tolerant reader too.\n\n⭐ **The residual spelling bound is MEASURED, not assumed**: a deliberately wider probe that sees all seven spellings the shipped reader is blind to finds the **identical 52** — symmetric difference empty in both directions. ⇒ the 14 are not a spelling artefact. Each zero carries a per-card two-legged must-hit control (14/14 body, 14/14 comment).\n\n## ⭐ Why this card is NOT \"build a check\"\n\n| reading | value |\n|:--|:--|\n| `scripts/pm/check-half-states.mjs:97` | **`H4` — `pm:blocked` with a `Blocked-by:` line in NEITHER channel, body nor comment** |\n| `half-state-patrol.yml` runs | **100**, latest 2026-09-16T07:43:56Z, `success` |\n| that run's own log | `### Half-state patrol — sweep exit 0`, `ANCHOR_ISSUE:` **empty** |\n| the workflow's own notice | *\"this summary is the ONLY delivery of the findings below — **it notifies nobody, by accepted trade**\"* |\n\n⇒ **H4 fires on exactly these 14 today, and the output goes into a run summary nobody reads.** ⛔ Adding a second detector would detect the same thing into the same void.\n\n⚠️ **The no-anchor configuration is deliberate** (objectui#8740 made it explicitly supported, and a malformed anchor fails the run while an empty one does not). ⇒ this is ⛔ not a bug report against that decision; it is the measured cost of it, now that the cost has a number: **14 cards, 21%, median 14 days**.\n\n## What the disposition actually requires — ⚠️ a maintainer action, ⛔ not a code change\n\nTurning delivery on needs **both**: a `tracking`-labelled anchor issue in this repo, **and** the repository variable `HALF_STATE_ANCHOR_ISSUE` set to its number (Settings → Secrets and variables → Actions → Variables). ⛔ The second is a **repository-settings action no seat can perform.**\n\n⇒ whoever grades this should decide between (a) set the anchor and accept the delivery cost, (b) deliver by some other channel, or (c) restate the accepted trade with this number attached and close. ⛔ The reporting seat does not choose.\n\n## Two readings the original card never named\n\n1. ⭐ **The reverse index — the literal subject of objectui#6653 — is a harsher number than the visibility rate**: only **23 of 66** are locally indexable, because **29 carry well-formed lines whose refs are cross-repo** and are dropped deliberately. ⚠️ That is a **documented, ruled, ACCEPTED** trade made loud by `H19`, ⛔ not a hole, and widening it was explicitly refused at grading. Recorded so the 23 is not mistaken for a second defect.\n2. **objectui#9164** is unlike the other 13: it carries `pm:blocked` with **no blocker recorded anywhere** — the substring `block` is absent from its body and it has **zero comments**. ⛔ Not a formatting question; the state is unbacked. Included here rather than filed separately because it is one of the same 14 and shares the disposition.\n\n## Provenance\n\nFiled by the `domain:devx` @ objectui execution seat, `session_015h79niBMyoB1xcaQje3uiz`, R61, 2026-09-16T10:50Z, from the delivered measurement on objectui#6653. ⛔ This seat does not grade, route or prioritise — `domain:*` and `priority:*` are triage's. ⛔ No card's labels were touched by the measurement.\n\n**Dedup words**: `HALF_STATE_ANCHOR_ISSUE` · `half-state-patrol` · `H4` · `anchor issue` · `notifies nobody`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

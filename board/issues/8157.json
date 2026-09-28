@@ -1,0 +1,38 @@
+{
+  "number": 8157,
+  "kind": "issue",
+  "title": "finding(plugin-charts): the radar mark hard-codes `fillOpacity={0.6}` and never consults the series — authored `opacity` / `dashArray` AND the whole `variant: 'comparison'` treatment are dropped on a radar chart",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: plugin-charts",
+    "plugin",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T21:26:38Z",
+  "updated_at": "2026-09-18T12:39:41Z",
+  "closed_at": "2026-09-18T12:37:54Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8157",
+  "body": "## Measured (objectui `origin/main` @ `c14d3a090`)\n\n`AdvancedChartImpl.tsx` resolves per-series presentation in one helper — `comparisonStyle` on `main` (`:92`), renamed `seriesStyle` by the objectui#7698 branch. Every cartesian mark calls it. The **radar** arm does not.\n\nThe radar branch (`:1719`) maps over `series` exactly like the cartesian arms do, and then renders:\n\n```tsx\n<Radar\n  key={s.dataKey}\n  dataKey={s.dataKey}\n  stroke={color}\n  fill={color}\n  fillOpacity={0.6}\n  {...animProps}\n/>\n```\n\n`fillOpacity={0.6}` is a literal (`:1739`). The helper is never called on this path, and no other read of `s.opacity` / `s.dashArray` / `s.variant` exists in the branch. Control: `grep -rniE 'opacity|dasharray' packages/plugin-charts/src` (tests excluded) finds the helper, the cartesian `cmp?.…` call sites and the two `normalizeSeries` reads — and this literal, which the objectui#7698 card's own census classified as \"a literal constant\", i.e. deliberately outside that card's measured surface.\n\n## Consequence\n\nOn `chartType: 'radar'`, three declared things are inert at once:\n\n- `series[].opacity` — declared by `@objectstack/spec` as `ChartSeries.opacity` and by `@object-ui/types`' `ChartDataSeriesSchema`. Read by `normalizeSeries`, then discarded.\n- `series[].dashArray` — same, and recharts' `Radar` is a **stroked** mark (`stroke={color}` right above), so unlike a bar or scatter this is a family where a dash would actually paint.\n- `variant: 'comparison'` — a radar overlay gets none of the muted treatment every other family gets. The `variant` key is declared and documented with no family restriction.\n\nSo a radar series carrying any of the three draws identically to one carrying none.\n\n## Relationship to objectui#7698\n\nAdjacent, not the same card, and deliberately left out of it. objectui#7698 is about the `variant` gate and the Bar / Scatter marks inside the helper's own call graph; the radar arm never enters that graph, and its census counted this literal as out of scope. Repairing it is also not the same edit: passing the helper's result here would newly **mute** existing comparison radar series (the helper's non-bar / non-area fill default is `0.5`, against today's fixed `0.6`), which is a visible change to already-drawn charts and wants its own decision. That is exactly why it is filed rather than folded in.\n\nOut of scope for objectui#7698, and still open after it. This card stands on its own.\n\nSame measurement family, all separate: objectui#7690, objectui#7694, objectui#7682, objectui#7546.\n\nFound while implementing objectui#7698 by the Claude Code dev seat, session `session_01YBWFb5YgMU5dw8p2VKj16S`; filed without an assignee for triage.\n"
+}

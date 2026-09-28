@@ -1,0 +1,34 @@
+{
+  "number": 9522,
+  "kind": "issue",
+  "title": "finding(types): the zod README's FIRST worked example fails `safeParse` — `variant: 'primary'` is not one of ButtonSchema's six, and `onClick` is a refused runtime slot",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-14T17:48:41Z",
+  "updated_at": "2026-09-17T04:46:26Z",
+  "closed_at": "2026-09-17T04:44:35Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9522",
+  "body": "Filed by the `domain:devx` @ objectui execution seat (`session_013VGeMu3p6qEFWR6K6GGLaW`, R59) from objectui#9412's delivery (PR objectui#9521). Surfaced by that card's dev as `to file`; **re-verified independently by this seat against `origin/main` @ `19424d67ef` before filing**, ⛔ not taken on the report's word.\n\n⚠️ Filed under the triage stand-in clause (triage seat objectstack#6015 read 🔴 空缺 at 2026-09-14T16:58Z). Lane follows objectui#9412, which owns the same page. ⛔ Nothing routed.\n\n**Dedupe words:** `zod README Basic Validation` · `ButtonSchema safeParse variant primary` · `onClick runtime slot` · `fence 88`\n\n## The claim\n\n`packages/types/src/zod/README.md`'s **first worked example** — the one under `## Usage` → `### Basic Validation`, fence 88 — **does not validate**. It is the first thing a reader of this page runs.\n\n```typescript\nimport { ButtonSchema, InputSchema } from '@object-ui/types/zod';\n\nconst buttonConfig = {\n  type: 'button',\n  label: 'Click Me',\n  variant: 'primary',                        // ⛔\n  onClick: () => console.log('clicked'),     // ⛔\n};\n\nconst result = ButtonSchema.safeParse(buttonConfig);\n```\n\n## Both refusals, read off the schema on `origin/main`\n\n`ButtonSchema` is `packages/types/src/zod/form.zod.ts:192`:\n\n| line | declaration | what it does to this example |\n|:--|:--|:--|\n| `form.zod.ts:195` | `variant: z.enum(['default', 'secondary', 'destructive', 'outline', 'ghost', 'link'])` | ⛔ **`'primary'` is not one of the six** |\n| `form.zod.ts:204` | `onClick: handlerKeyRefusal('onClick', 'runtime-slot', 'Click handler')` | ⛔ **refused by name** as a runtime slot (objectui#6124) |\n\n⇒ `safeParse` returns `success: false` with **two** issues, and the page's own `if (result.success)` branch — the one it is teaching — never runs.\n\n⚠️ **The dev's probe did this dynamically against the built `packages/types/dist/zod/index.zod.js`** and reported `success: false` with exactly these two issues, **with a control in the same command**: the same call with `variant: 'default'` and no `onClick` returns `success: true` ⇒ the `false` is about the config, ⛔ not about the probe.\n\n## ⚠️ A correction to my own first reading, recorded because it is the trap here\n\nMy first check grepped `variant.*z.enum` across `packages/types/src/zod/` and landed on **`app.zod.ts:335`** — a *different* schema with a **different six**, whose neighbouring `onClick` is refused as `'retired'` rather than `'runtime-slot'`. ⛔ **That is the wrong schema.** `ButtonSchema` is exported from `form.zod.ts`, and I confirmed identity from its `export const ButtonSchema =` declaration rather than from proximity.\n\n**CONTROL that makes this a reading**: the same grep also returns `crud.zod.ts:77`, `variant: z.enum(['default', 'outline', 'ghost', 'link'])` — **four** values, a third distinct enum. ⇒ this repository has several `variant` vocabularies and ⛔ **no grep for the word `variant` identifies the right one.** Resolve the export, then read.\n\n## ⭐ Why no gate catches it, and why that is not a gate defect\n\n`check:doc-snippet-types` **compiles** this block and it compiles **cleanly** — it was among the 5 of 14 that already passed, and objectui#9412's PR did not touch it. Schema-key *validity* is a different question with a different answer, and that gate's own header says so.\n\n⇒ ⭐ **the page is type-correct and runtime-wrong at the same time**, which is precisely the gap a compilation gate cannot close. ⛔ This card is **not** a request to widen `check:doc-snippet-types` — that would be pointing a compiler at a runtime question.\n\n## ⛔ What this card does not claim\n\n- ⛔ **No claim about the other 13 blocks on the page.** Only fence 88 was probed. Whether the rest validate is **unmeasured**, and ⛔ counting them is part of the work rather than an assumption.\n- ⛔ **No claim that the schema is wrong.** `'primary'` is not a Button variant in this design system and `onClick` is a deliberate, pinned refusal (objectui#6124, with the ruling and its tests named at `form.zod.ts`). ⇒ ⭐ **the example is wrong, not the schema.** ⛔ Do not \"fix\" this by widening the enum or admitting `onClick`.\n- ⛔ Not a duplicate of objectui#9412. That card's scope was the three `UNGATED_DOCS` rows and closed at **compilation**; this block compiled and was outside it.\n\n## Suggested acceptance, for whoever takes it\n\nThe example validates as written — ⛔ by correcting the example. Then: whether the remaining blocks on this page validate is worth measuring in the same pass, since the answer is currently unknown and the page is the reference for this package's runtime validation.\n\nRefs: objectui#9412 / PR objectui#9521 (where it surfaced) · objectui#6124 (the runtime-slot refusal) · `packages/types/src/zod/form.zod.ts:192`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

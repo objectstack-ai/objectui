@@ -1,0 +1,32 @@
+{
+  "number": 9888,
+  "kind": "pull_request",
+  "title": "test(scripts): pin the DEBT_ISSUE anchor on truthiness, not on being spelled with digits",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T13:31:51Z",
+  "updated_at": "2026-09-18T14:10:00Z",
+  "closed_at": "2026-09-18T14:09:59Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": "2026-09-18T14:09:58Z",
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/9888",
+  "body": "Fixes #9596\n\n`scripts/__tests__/spec-symbol-ledger-plugin-detail-7265.test.ts` pinned the `DEBT_ISSUE` anchor with a bare decimal-digit class. Its own comment says the pin exists so the stale-entry message's tail cannot be switched off -- that tail is written behind a `DEBT_ISSUE ?` guard. Those are two different predicates, and `0` sits in the gap: it is a decimal digit, so it matched; it is falsy, so the guard takes its empty branch and the tail disappears.\n\nThis tightens the assertion to require a leading non-zero digit, and rewrites the test name and the comment to state the invariant that is now enforced -- including, explicitly, what the assertion does not cover.\n\n## Reproduction, before the change\n\nMutating the gate's declaration, running the pin file alone:\n\n| declaration | vitest exit | result |\n|---|---|---|\n| `const DEBT_ISSUE = 7265;` | 0 | 24 passed |\n| `const DEBT_ISSUE = 0;` | **0** | **24 passed -- the defect** |\n| `const DEBT_ISSUE = null;` | 1 | 1 failed / 23 passed (the control leg fires) |\n\n## After the change\n\n| declaration | vitest exit | result |\n|---|---|---|\n| `const DEBT_ISSUE = 7265;` | 0 | 24 passed |\n| `const DEBT_ISSUE = 0;` | 1 | 1 failed / 23 passed, on this pin |\n| `const DEBT_ISSUE = null;` | 1 | 1 failed / 23 passed, on this pin |\n\nEvery mutation was proved to land on disk (occurrence counts for both the injected and the deleted text, asserted before the run) and every restore was proved byte-identical to the HEAD blob before the next leg started.\n\n## Why the source-text shape, and not a runtime read of `LEDGER_ANCHORS`\n\nBoth shapes were built and measured. They are indistinguishable on the three acceptance legs. One measured leg separates them -- the guard's operand going falsy while `LEDGER_ANCHORS` keeps a truthy literal:\n\n| shape | `= 0` | `= null` | truthy | decoupled const / table |\n|---|---|---|---|---|\n| source text, leading non-zero digit | red | red | green | **red** |\n| runtime truthiness over `LEDGER_ANCHORS` | red | red | green | **green -- blind** |\n\nThe guard's operand is the module-local const; the table holds a second binding initialised from it. A pin about the guard reads the guard's operand, so the source-text shape is the one that landed, and the comment now records why the other was refused.\n\n## Deleting the declaration outright\n\nIt reds -- but not because of this assertion, and that is worth stating plainly. Since objectui#9537 landed `LEDGER_ANCHORS`, the table reads the const at module scope, so removing the declaration makes the gate fail to import and this file reports no tests at all (a `ReferenceError`). That leg belongs to the table, not to this pin, before and after this change alike. The comment says so rather than claiming the credit.\n\n## Verification\n\n- `pnpm lint` -- 47/47 tasks successful, exit 0, zero errors repo-wide. Run as the repo spells it, with no narrowing flag.\n- `pnpm type-check` -- 81/81 tasks successful, exit 0.\n- `pnpm exec vitest run` over this pin and its objectui#9537 sibling -- 44 passed, exit 0.\n- `pnpm exec vitest run` over every tracked test file that references this gate -- 335 passed across 12 files, exit 0.\n- `node scripts/check-changeset-presence.mjs`, `pnpm changeset:check`, `pnpm check:spec-symbols`, `pnpm check:control-bytes`, `pnpm check:test-path-roots`, `pnpm check:pending-changeset-literals`, `pnpm check:new-line-citations`, `pnpm check:changeset-claims`, `pnpm lint:coverage`, `pnpm check:lint-rule-coverage`, `pnpm type-check:coverage` -- all exit 0.\n\nNothing in the gate's runtime behaviour changes here, only what the test refuses to let it become. The objectui#9537 sibling pin stays green throughout.\n\n## Acceptance notes\n\nThree readings taken while measuring. All report-only; none folded into this change.\n\n1. **The blind spot was never tree-wide.** With the anchor at `0` the pin file is fully green, exactly as the card measured -- but `spec-symbol-ledger-anchor-liveness-9537.test.ts` reds on its recurrence-path leg, because the dead-anchor diagnostic short-circuits on a falsy anchor. That file landed after the card was filed. The card's reading of the pin is exact; a reading of \"nothing catches a zero\" would not be.\n\n2. **The `CLAIM_DEBT` twin has no anchor-declaration pin -- and is also not silent.** Counting rule: of every occurrence of that constant's name in a tracked test source, how many are an assertion establishing that the gate declares it? Five occurrences, zero such assertions (two concern the exclusion entry and a test title, two concern the gate's surrounding note, one concerns the rendered message's shape). Measured rather than read off: setting that anchor to `0` reds the liveness file's load-bearing-exclusion leg, while the gate itself still exits 0 and quietly stops printing its standing-exclusion banner. Deliberately untouched here -- that exclusion is a standing one, re-affirmed by name.\n\n3. **One measured divergence between this assertion and the liveness file's anchor scan.** That scan admits an optional `export ` prefix; this pin's line anchoring does not, and did not before this change either. An exported spelling of the anchor therefore reds this pin while the scan still counts the anchor as declared. It fails shut rather than silent, so it is safe -- but the two do disagree about what counts as a declared anchor. Not repaired here.\n\nAuthored by an agent seat; the originating session is `https://claude.ai/code/session_012EpHzwH4wTy5sd7ibkD2yq`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_012EpHzwH4wTy5sd7ibkD2yq)_"
+}

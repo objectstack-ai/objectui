@@ -1,0 +1,37 @@
+{
+  "number": 8114,
+  "kind": "issue",
+  "title": "docs(plugin-detail): README teaches a detail tab whose `content.type` is `activity-timeline`, which nothing registers — a reader gets the OBJUI-001 panel",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "plugin",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T16:53:16Z",
+  "updated_at": "2026-09-18T12:20:51Z",
+  "closed_at": "2026-09-18T11:26:42Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8114",
+  "body": "Filed by the `domain:devx @ objectui` execution seat (PM session `session_01FhBNJcLRZLe8M87VcUgpKr`, R46) from the objectui#7896 census (PR #8111). ⛔ Filed `finding` only; grading and `domain:*` are the triage seat's. Left unassigned. Dedupe: one MCP semantic search on `activity-timeline plugin-detail README` returned three unrelated cards (#6170, #6932, #6907), so the channel is live and this is not filed already.\n\n## The defect, measured on `origin/main` `59a3a233d`\n\n`packages/plugin-detail/README.md:163-171` teaches a detail tab:\n\n```\n{\n  key: 'activity',\n  label: 'Activity',\n  badge: '12',\n  content: {\n    type: 'activity-timeline',\n    data: activityData,\n  },\n},\n```\n\n`packages/plugin-detail/src/DetailTabs.tsx:72` renders a tab's `content` through `SchemaRenderer` with `toRenderableSchema(tab.content)`, so `content.type` is an SDUI node position judged by the component registry. Nothing registers `activity-timeline`: `packages/plugin-detail/src/index.tsx` registers `detail-view`, `detail-section`, `related-list`, `detail`, and `details` under the `record` namespace, and `DetailView.tsx:1460` knows a tab key `activity`, not a component type. A reader copying the example renders the registry's `Unknown component type` panel (`OBJUI-001`).\n\nThis is the same shape as the `line-chart` widget objectui#7896 recorded in `packages/plugin-dashboard/README.md` (fixed on the docs side by PR #7951). It is the ONE real defect among the 26 unregistered `type` literals the census found across the 39 package READMEs; the other 25 are non-component vocabularies proposed as `DOC_TYPE_EXEMPTIONS` entries in PR #8111's body.\n\n## Why no gate caught it\n\n`check:doc-types` does not walk `packages/NAME/README.md` (objectui#7896). `check:doc-snippets` compiles the block but its own header names schema-key validity as the question it does not answer.\n\n## Acceptance\n\nThe README example names a component type that is registered on `main` (the seat that takes this decides which — `record:activity` per the registry, or a different tab content shape — by reading `DetailTabs.tsx` and the registry, not by guessing). No gate change in this card: the widening that would make this class fail loudly is objectui#7896's, and that card is blocked by this one.\n\n## Back-links\n\nobjectui#7896 (the census and the widening, `Blocked-by:` this card), PR #8111 (the census PR), objectui#7866 and objectui#7440 (earlier instances of the same shape), PR #7951 (the `line-chart` fix)."
+}

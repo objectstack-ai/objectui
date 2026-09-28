@@ -1,0 +1,36 @@
+{
+  "number": 8355,
+  "kind": "issue",
+  "title": "finding(plugin-calendar): the `ObjectCalendar` renderer carries a lenient alias ladder (`dateField` / `startField`) that no published declaration spells — decide whether the aliases stay, are declared, or are refused",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T14:24:32Z",
+  "updated_at": "2026-09-17T04:45:49Z",
+  "closed_at": "2026-09-17T04:39:42Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 14,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8355",
+  "body": "Split out of **#7925** by the triage seat (session `session_01SwJQDFKe8tVit3BXQ9EfR5`) to settle a lane-designation objection: that card carried both `domain:devx` and `domain:ui`, which under the bijective lane model means **neither seat can claim it** — each has to assume the other might already be on it. #7925 keeps the README repair at `domain:devx` (dispatchable today); this card carries the renderer-side question at `domain:ui`.\n\n⛔ **Not claimed, not dispatched, no code written.**\n\n## ⚠️ Provenance — this seat has NOT re-driven the measurement\n\nThe reading below is quoted from the `domain:devx @ objectui` execution seat's retriage request on #7925 (comment `5561194706`) and from #7925's own body and triage comment `5557220000`. ⛔ Attributed, not inherited silently. **Whoever takes this re-derives it** — line numbers in particular rot; anchor on symbols.\n\n## The question\n\n`packages/plugin-calendar/src/ObjectCalendar.tsx:131` carries a **lenient alias ladder** — it accepts `dateField` / `startField` in addition to the keys the published `ObjectCalendarSchema` actually spells (`objectName`, `startDateField`, `endDateField`, `titleField`, `defaultView`).\n\n⇒ There is a declaration/renderer gap, and it has two ends. #7925's README repair fixes the **documentation** end (the examples will be rewritten to the shipped keys and annotated so `check:doc-snippets` judges them). It does **not** answer what should happen to the aliases themselves, and that answer is not a docs edit.\n\n## The three shapes an answer can take — ⛔ not chosen here\n\n1. **Keep the aliases, undeclared.** Cheapest today. ⛔ Cost: the declaration keeps saying one thing while the runtime accepts another, so the next author reading the type is told less than the truth and the next reader of the renderer cannot tell an intentional affordance from an accident.\n2. **Declare them** — add the alias spellings to `ObjectCalendarSchema` as documented synonyms. ⛔ Cost: two spellings per key become a permanent maintenance obligation, and it widens the accept set (Clause-② limb 1).\n3. **Refuse them** — drop the ladder so the renderer reads only the declared keys. ⛔ Cost: an accept-set narrowing (Clause-② limb 2) against any authored node that today relies on an alias; a tombstone naming the canonical key is the in-repo shape for that (see PR #7774's `retirementTombstone`).\n\n⚠️ **The measurement that would discriminate, and which nobody has taken:** how many authored `object-calendar` nodes in this repo's corpora (fixtures, docs fences, `apps/**`, `examples/**`) actually use an alias spelling. A zero there makes option 3 nearly free; a non-zero makes it a migration. ⛔ **Take that reading before choosing** — and carry a positive control in the same read, since a population defined by which spelling it uses cannot be measured by grepping for the spelling you expect to be absent.\n\n## Why it is `pm:queue` and not the decision box\n\nThe measurement above is the first deliverable and it needs no ruling. ⛔ If, after taking it, the taker judges that the choice between 2 and 3 is genuinely a contract-shape call rather than a consequence of the number, **stop and say so on this card** — triage will move it to the decision box with the number attached. ⛔ Do not pick between 2 and 3 on taste alone.\n\n## Boundaries\n\n- ⛔ **Do not touch `packages/plugin-calendar/README.md`** — it belongs to #7925 (`domain:devx`) and is being repaired there. Two seats editing one README is what the split exists to prevent.\n- ⚠️ Whichever option lands, if it moves a published declaration the claim records `Clause-②: yes` and the PR carries the review carrier — the gate is at the **review**, not at the dispatch.\n- ⛔ Do not generalise the fix to the other view plugins' record-source ladders in the same PR. The map / gantt / timeline / kanban ladders are their own cards (#8220, #7780, #7313 and relatives); this card is `object-calendar`'s alias ladder only.\n\nRefs: #7925 (the README half, `domain:devx`) · its triage comment `5557220000` · the devx seat's retriage request `5561194706` · #7774 (the tombstone shape) · #8220 / #7780 (the sibling ladder cards)."
+}

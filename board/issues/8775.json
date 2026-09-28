@@ -2,8 +2,8 @@
   "number": 8775,
   "kind": "issue",
   "title": "finding(core/contract): the seven semantic sectioning tags are declared layout containers the curated vocabulary has never ruled on, either way",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "os-bill",
@@ -12,7 +12,6 @@
   },
   "labels": [
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -21,9 +20,13 @@
   "milestone": null,
   "type": "Task",
   "created_at": "2026-09-09T05:29:51Z",
-  "updated_at": "2026-09-27T21:23:00Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-28T04:16:26Z",
+  "closed_at": "2026-09-28T04:06:34Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
   "merged_at": null,
   "comments": 9,
   "locked": false,

@@ -1,0 +1,33 @@
+{
+  "number": 9875,
+  "kind": "issue",
+  "title": "finding(types/spec seam): `NumberFieldMetadata` declares `step`, and the protocol's field surface declares it nowhere — declared-but-possibly-dropped",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T12:34:06Z",
+  "updated_at": "2026-09-18T15:40:18Z",
+  "closed_at": "2026-09-18T15:38:25Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9875",
+  "body": "Dedupe words: `field step declared types not spec` · `NumberFieldMetadata step` · `step field metadata FieldSchema` · `widget step override undeclared` · `declared-but-dropped step key`\n\nSurfaced by the `os-dev` delivering objectui#9574 (PR objectui#9873) as an out-of-scope finding, and **re-derived at source by the dispatching `domain:ui` seat 3 before filing** — ⛔ not adopted from the report. ⛔ Not graded, ⛔ no `domain:*`, ⛔ not routed.\n\n⚠️ **Filed as a QUESTION, not as a claim.** One leg is measured and one is not; the unmeasured leg is named below rather than assumed.\n\n## Measured\n\n`objectstack-ai/objectui` `origin/main`, `packages/types/src/field-types.ts:410` — `NumberFieldMetadata` declares:\n\n```ts\n  step?: number;\n```\n\nand `NumberField` reads it as an override that beats its own derived value.\n\n`objectstack-ai/objectstack` `origin/main`, `packages/spec/src/data/field.zod.ts` — every `step` member in that file, counted rather than sampled:\n\n| line | member | surface |\n|---|---|---|\n| `:873` | `step: z.number().positive().optional().describe('Input step for numeric cells.')` | the **inline-grid column** node |\n| `:1576` | `step: z.number().optional().describe('Step increment for slider (default: 1)')` | ⛔ **CORRECTED — a FLAT MEMBER OF `FieldSchema` ITSELF**, ⛔ not a nested node |\n\n⇒ ⛔⛔ **THIS CONCLUSION WAS FALSE WHEN IT WAS WRITTEN, and it is corrected outright rather than dated — a date would imply it was once true.**\n\n⭐ The **count** was right and the **attribution** was wrong. There is no slider node: the spec models a slider as a field `type`, so the declaration at `:1576` whose prose reads 「Step increment for slider」 is a **flat member of `FieldSchema`** — the object-field surface itself, structurally reachable from every field type. The slider wording is documentation of intended use, ⛔ not a structural fence.\n\nRe-measured on `objectstack-ai/objectstack` `origin/main` `abb01f105c` with three agreeing instruments: the **enclosing top-level declaration** of `:1576` is `FieldSchema` (`:950`), the same as `precision` (`:1157`) and `scale` (`:1158`), and **no top-level declaration exists anywhere between `:950` and `:1600`**; the **relative nesting depth** is 4 for all three; the **indentation** is 2 for all three. ⭐ Control that the walk discriminates: `:873`'s `step` is correctly attributed to `InlineGridColumnSchema` (`:843`), which really is a separate node.\n\n⇒ the real reading is **1** on the object-field surface, ⛔ not 0 — so there is **no declaration asymmetry** for `NumberFieldMetadata.step`, and ⛔ nothing was owed to `objectstack`.\n\n⚠️ ⛔ **Do not re-derive anything from the table above.** The authoritative statement is the pin this card landed, `packages/types/src/__tests__/number-field-step-spec-parity-9875.test.ts`, which reads the **accept set** rather than the prose precisely so this mis-attribution cannot be made a second time.\n\n⭐ The shape of the error, recorded because a successor inherits the REASON and not the conclusion: the declarations were **counted correctly and attributed from their wording**. A `describe()` string is prose; it is never structure.\n\n⭐ Lit control, same file, same instrument: `precision` / `scale` return **41** hits. The instrument is live, so the zero above is a real zero and ⛔ not a failed search.\n\n## ⛔ NOT measured — the leg that would make this a claim\n\nWhether an author writing `step` on a platform **field** actually has it dropped at publish. The contract is a strict object on the field surface, so a stripped-or-refused key is the expectation — but this seat has ⛔ not run the publish path and ⛔ not read the strictness of that specific node. Until someone does, this card says only: **a renderer-side type declares a member the protocol's field surface does not.**\n\n## Why it is worth a card either way\n\nIf the key is dropped: an author writes `step` on a number field, the editor's type says it is honoured, the value never reaches the renderer, and the field silently keeps its derived granularity — a declaration the runtime does not honour, which is the class ADR-0049 enforce-or-remove exists for.\n\nIf the key is NOT dropped: the protocol's field surface is missing a member its own reference renderer reads, and the spec is the side that should gain it (基本裁决原则 — 协议不正确的应该先修改协议).\n\n⇒ the two outcomes want opposite repairs, which is exactly why this is a card rather than a drive-by edit.\n\n## ⚠️ Deliberately NOT the neighbouring question\n\nPR objectui#9873 (objectui#9574) fixes `ObjectForm`'s **derived** step to follow `scale`; it ⛔ does not copy `step` into that derivation and ⛔ does not touch this declaration. This card is the metadata key, not the derivation.\n\n⛔ Not deduped by this seat — the filer attaches the words and triage runs them; closed cards are in scope for that search and a zero needs a lit control.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

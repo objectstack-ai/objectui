@@ -1,0 +1,37 @@
+{
+  "number": 10893,
+  "kind": "issue",
+  "title": "邀请注册链路丢失 redirect：signUp 不传 callbackURL，被邀请人验证邮箱后被带去「创建工作区」",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:done",
+    "pm:epic"
+  ],
+  "assignees": [
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T04:00:27Z",
+  "updated_at": "2026-09-28T06:45:24Z",
+  "closed_at": "2026-09-28T06:32:59Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10893",
+  "body": "## 来源\n\n2026-09-28 cloud 本地全链路验收：cloud `96eb092f`，objectui pin `efead6c6`。已对照 objectui `main`（`24845c4f1`），问题代码未变。测试角色：陈晓邀请一个还没有账号的同事 wangwei@example.com 加入「晓光科技」。\n\n## 现象\n\n被邀请人点击邀请邮件里的链接 `/_console/accept-invitation/<id>`：\n\n1. 没登录，跳到 `/_console/login?redirect=/accept-invitation/<id>`。页面上**看不出这是一个邀请**，只是普通登录页。\n2. 点「注册」后进入 `/_console/register?redirect=…`，redirect 还在 ✓\n3. 注册提交后进入 `/_console/verify-email-prompt?email=…&redirect=…`，redirect 还在 ✓\n4. 但**验证邮件里的链接是 `…/verify-email?token=…&callbackURL=%2F`**。被邀请人点击验证后落到 `/_console/organizations`，弹出「创建工作区」对话框，页面写着「尚无工作区」，**没有任何待处理邀请的提示**。\n\n被邀请人会自然地去新建自己的工作区，邀请就此丢失。只有回到邮箱、再点一次原始邀请链接，才会看到「您收到一份邀请 → 接受邀请」（这一步本身工作正常）。\n\n## 机制\n\n`packages/auth/src/createAuthClient.ts:401` 的 `signUp()` 调 `betterAuth.signUp.email({ email, password, name })`，**没有传 `callbackURL`**。better-auth 因此用默认的 `/` 生成验证链接，注册页手上的 `redirect` 就这样断了。\n\n## 修复方向\n\n注册时如果带有 `redirect`，就把它换算成 console 的绝对路径，作为 `callbackURL` 传给 `signUp.email`（与 `LoginForm.tsx:339` 发验证邮件时传 `callbackURL` 的做法对齐）。另外可以考虑两个兜底：\n\n- 已登录用户若存在待处理邀请，在「您的工作区 / 创建工作区」页面给出显眼的提示；\n- 从邀请链接进来的登录页 / 注册页，说明「你被邀请加入 X」。\n\n## 验收\n\n1. 无账号的被邀请人走完「点邀请链接 → 注册 → 点验证邮件」，最终落在接受邀请页面（或直接完成加入），而不是「创建工作区」。\n2. 单测：`signUp` 在 redirect 存在时把 `callbackURL` 带到 `/sign-up/email` 的请求体里。\n\n## 相关\n\n- objectstack-ai/cloud#2429：同一次验收里「被邀请成员进不了环境」（OIDC 客户端缺失），两张卡合起来才是完整的邀请协作链路\n- objectstack-ai/objectstack#20374：验证邮件纯文本链接里的 `&amp;` 同样会丢掉 callbackURL\n"
+}

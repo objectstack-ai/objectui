@@ -2,8 +2,8 @@
   "number": 10867,
   "kind": "issue",
   "title": "finding(types,plugin-designer): the app wizard still saves a document the spec refuses or loses — a separator (422), `branding.accentColor` on edit, a Layout step that persists nothing — successor closure card",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:studio",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p1"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-27T23:34:47Z",
-  "updated_at": "2026-09-28T01:48:08Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-28T04:59:20Z",
+  "closed_at": "2026-09-28T04:55:56Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10867",
   "body": "Filing-gate category: ① a product defect with named sites, class (a), in the app-wizard-document family (objectui#10827 → objectui#10842 → PR objectui#10863). Reader: triage first (route and grade). ⛔ Not graded here.\n\nFiled by the `domain:ui` seat 4 (`session_01MCg3z5cGrV51xEddpGcxEY`) from the objectui#10842 dev report (`5860704537`: `open_questions[0]`, `out_of_scope_findings` 1, 2 and 4) and the contract review of PR objectui#10863 (`5860859721`: items 1, 3 and 8, and the ③ flags). PR objectui#10863 carries `Fixes #10842`, so that card closes on merge. From then on this card is the family's carrier: any key the Studio app wizard (`AppCreationWizard` → `wizardDraftToAppSchema` → `CreateAppPage` / `EditAppPage`) saves that the spec `AppSchema` refuses, or any stored key an edit save drops, rides here.\n\n## Members\n\n1. **A wizard separator is refused at the save door (measured).** `AppCreationWizard`'s `addNavItem('separator')` writes `{ id, type: 'separator', label: '' }`, and the converter passes `draft.navigation` through verbatim. The spec's `SeparatorNavItemSchema` declares only `type`, `id` and `order`.\n   - The dev drove objectstack's real `PUT /api/v1/meta/:type/:name` route handler in-process (objectstack `origin/main` `de091b50`): the spec-valid control plus ONE such separator answers **422** `INVALID_METADATA`, `unrecognized_keys` at `navigation.2`.\n   - The reviewer parsed it with the installed spec 17.4.0 `AppSchema`: `unrecognized_keys` `['label']` at `navigation.0`; the same item without `label` parses.\n   - Root: objectui's `NavigationItem.label: string` is required for every branch. `packages/types/src/app.ts`'s header records this as blocker 3, pinned in `spec-derived-unions.test.ts`. So one click in the wizard (\"add separator\") still breaks the create-app road step after PR objectui#10863.\n2. **`EditAppPage` drops a stored `branding.accentColor` on every save (measured by the dev's probe, pre-existing).** The pre-fill copies only `logo`, `primaryColor` and `favicon` into the draft, and the wizard's `branding` replaces the stored block. A stored `{ primaryColor, accentColor }` saves as `{ logo: '', primaryColor, favicon: '' }`. `accentColor` is declared by the spec's `AppBrandingSchema` and read by the console (`ConsoleLayout`). The reviewer confirmed it at merge-base `4aebea0` and that PR objectui#10863 neither introduces nor widens it.\n3. **The wizard's Layout step persists nothing (declared ≠ enforced).** The spec declares no app `layout`, no console surface reads one, and after PR objectui#10863 no production writer stores one (reviewer item 8, measured on the installed `AppSchema.shape`). The Layout radio in `AppCreationWizard` and `AppWizardDraft.layout` still exist; `EditAppPage` reads `appToEdit.layout` into draft state only. This is an enforce-or-remove item. The dev's four-axis analysis recommends **retiring the step and the draft field** (option A): no reader and no pull exist, and a control that persists nothing invites an AI to author a key the spec refuses. Declaring `layout` in the spec (option B) would be a new capability with no pull, and a no-op control (option C) is a workaround. Triage routes; a maintainer ask is owed only if B is wanted.\n\n**Boundary notes, not graded as members:**\n- `EditAppPage` keeps unmaintained keys filtered to `Object.keys(AppSchema.shape)`, which includes the spec's retired-key tombstones (`version`, `homePageId`, `objects`, `apis`, `sharing`, `embed`, `mobileNavigation`, `aria`). A row stored before spec 17.0.0 that carries one is echoed and refused with the spec's prescription. This is pre-existing (the base spread the whole row) and narrowed by PR objectui#10863, not closed. Excluding tombstones from the kept set would close it.\n- `BrandingConfig.fontFamily` exists on the draft type, and the spec's strict `AppBrandingSchema` refuses it at `branding` (reviewer, measured). Nothing in the wizard writes it today (only `BrandingEditor`, which has no save path through this converter). The converter's return type declares `branding` as the spec's `AppBranding` while the runtime value is a `BrandingConfig`, and `tsc` cannot see the difference.\n\n## Why it matters\n\nCreating or editing an app in the Studio is on the road (\"changing a running app without code\"). Member 1 fails the save for a one-click shape; member 2 silently loses an author's accent colour on every edit.\n\n## Direction (for triage to confirm)\n\n- Member 1: make a separator's saved shape the spec's (no `label`), either by making objectui's `NavigationItem.label` optional on the separator branch (blocker 3) or by emitting the spec shape from the converter. Pin with the spec `AppSchema` parse and a separator draft.\n- Member 2: carry every stored `branding` key the wizard does not maintain through the edit save, as PR objectui#10863 did for top-level keys; pin a stored `accentColor` surviving a save.\n- Member 3: route per the enforce-or-remove channel.\n\n## Re-check\n\n- `git -C objectui grep -n \"addNavItem\" origin/main -- packages/plugin-designer/src/AppCreationWizard.tsx` still writes `label: ''` for a separator.\n- `git -C objectui grep -n \"accentColor\" origin/main -- packages/plugin-designer/src/pages/EditAppPage.tsx` still answers nothing.\n- `git -C objectui grep -n \"layout\" origin/main -- packages/plugin-designer/src/AppCreationWizard.tsx` still shows the Layout step."

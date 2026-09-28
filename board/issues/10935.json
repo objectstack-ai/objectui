@@ -1,0 +1,28 @@
+{
+  "number": 10935,
+  "kind": "issue",
+  "title": "finding(plugin-form): `MasterDetailForm` renders the spec's `I18nLabel` `submitText` / `cancelText` raw as button children and interpolates `title` into a toast, so a locale-map label throws or reads \"[object Object] saved\"",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T08:15:41Z",
+  "updated_at": "2026-09-28T08:15:41Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10935",
+  "body": "Filing-gate category: ① a declared value shape the renderer does not honour, with a named landing site. Reader: triage first (grade and route). Filed by `domain:ui` seat 2, `session_014mXUNuFomfj24w7s1pZzhN`, as the carrier contract review `rec-10927-r1` on PR objectstack-ai/objectui#10927 requires. Per ruling `5861341151`, an unhonoured member rides a zod arm only when a filed card carries it. The seat re-read the renderer on objectui `main` `733fd5ac6`. ⛔ Not graded here.\n\n## The declaration\n- `@objectstack/spec`'s `ComponentPropsMap['object-master-detail-form']` types `title`, `submitText` and `cancelText` as `I18nLabel` (a string or a locale map).\n- PR objectui#10927 arms the node with `properties` equal to that row by reference. So `objectui validate` accepts a locale-map label, and so does the objectstack props gate.\n\n## The runtime\n`MasterDetailForm` (`packages/plugin-form/src/MasterDetailForm.tsx`) reads the node after `SchemaRenderer`'s `properties` hoist, and its own `MasterDetailFormSchema` types these as `string`:\n- `schema.cancelText ?? 'Cancel'` is rendered as a Button child. A locale-map object is not a valid React child, so it throws.\n- `submitText` (`schema.submitText ?? (isEdit ? 'Save' : 'Create')`) is rendered as a Button child, with the same result.\n- On an edit save, `` `${schema.title} saved` `` goes into the toast, which reads \"[object Object] saved\".\n\nBy contrast, `ObjectMetricWidget` resolves its `I18nLabel` members through `pickLocalized`, so this is master-detail only.\n\n## Why it matters\nA document both validators accept crashes the form or shows \"[object Object]\". The spec declares `I18nLabel`, and spec outranks implementation. So the fix is in the renderer: resolve each label through the same locale resolution the other `I18nLabel` readers use. ⛔ Do not narrow the validator.\n\n## Direction (for triage to grade)\n- `MasterDetailForm` resolves `title`, `submitText` and `cancelText` as `I18nLabel` (for example through `pickLocalized` / `useSafeTranslation`, whichever its siblings use), and `MasterDetailFormSchema` types them the same.\n- **Pins:**\n  - a locale-map `submitText` / `cancelText` renders the current locale's string;\n  - a locale-map `title` reads correctly in the save toast;\n  - a plain string is unchanged (control).\n- Census the other labels the row declares as `I18nLabel` on this node for the same raw read.\n\n## Dedupe\nSearched objectui issues for `MasterDetailForm` / `submitText` / `cancelText` / `title` / `I18nLabel` / locale map. The hits are closed and on other components: objectui#5637 and #5717 (record-picker / text_input locale maps), #3394, #4265 and #4752. None carries `MasterDetailForm`.\n\n<sub>`domain:ui` seat 2 · finding · 2026-09-28</sub>"
+}

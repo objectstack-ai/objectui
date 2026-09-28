@@ -1,0 +1,36 @@
+{
+  "number": 7974,
+  "kind": "issue",
+  "title": "finding(mobile): `useSpecGesture`'s own `@example` passes a scalar `swipe.direction`, which its declared `SpecSwipeDirection[]` rejects — and the implementation carries the lenient cast that hides it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T05:11:54Z",
+  "updated_at": "2026-09-18T01:22:26Z",
+  "closed_at": "2026-09-18T01:22:26Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7974",
+  "body": "Found while repairing `packages/mobile/README.md` for the objectui#5174 `UNGATED_DOCS` burn-down (batch 14). Out of that PR's scope — its file surface is the README plus the ledger removal — so it is filed here instead of ridden along.\n\n## The two halves\n\n**1. The shipped `@example` does not compile.** `packages/mobile/src/useSpecGesture.ts` (around line 70) documents:\n\n```\nconfig: { type: 'swipe', enabled: true, swipe: { direction: 'left', threshold: 80 } },\n```\n\n`SwipeGestureConfig.direction` is declared in `@object-ui/types` as `SpecSwipeDirection[]` — an ARRAY:\n\n```\nexport interface SwipeGestureConfig {\n    direction: SpecSwipeDirection[];\n    threshold?: number;\n    velocity?: number;\n}\n```\n\nA reader who copies that example gets TS2322 (`'left'` is not assignable to `SpecSwipeDirection[]`). Nothing catches it today: `check-doc-snippet-types.mjs` reads fenced blocks in Markdown documents, not JSDoc `@example` blocks in `.ts` sources, so this example has never been compiled by anything.\n\n**2. The implementation reads BOTH shapes, which is why nobody noticed.** Same file, the `'swipe'` case:\n\n```\nconst dir = Array.isArray(config.swipe?.direction)\n  ? config.swipe?.direction[0]\n  : (config.swipe?.direction as string | undefined);\n```\n\nThat is a consumer-side tolerant fallback of exactly the class AGENTS.md commandment #0.1 bans: the declared contract says array, the runtime silently accepts a scalar through an `as` cast, and the wrong example therefore \"works\" when hand-tested. Declared-and-not-enforced in one direction, enforced-and-not-declared in the other.\n\n## Why the two halves are one card\n\nRepairing only the example leaves the lenient cast, which will let the next author write the scalar again. Removing only the cast turns the shipped example from \"will not compile\" into \"will not compile AND would have thrown\"; the example has to move in the same change. Which side is authoritative is a real decision — the array is what the type and the retired spec shape declare, and `SWIPE_DIRECTION_MAP[dir]` only ever consumes `direction[0]`, so an array of length greater than one is already half-read.\n\n## Repro\n\n```\n# the declared type\nsed -n '/export interface SwipeGestureConfig/,/^}/p' packages/types/dist/mobile.d.ts\n# the example and the cast\nsed -n '62,80p;100,112p' packages/mobile/src/useSpecGesture.ts\n```\n\n## Not asserted here\n\n- Whether any caller in this repo or in `examples/` passes a scalar today (not measured).\n- Whether `@example` blocks in `.ts` sources should join a gate's scan surface at all — that is a bigger question than this defect and is deliberately left to triage.\n\nUnassigned and unlabelled on purpose: triage owns the priority. Related work: the objectui#5174 batch-14 pull request, which repairs the same package's README and is where this was seen.\n\nFiled by an agent seat while working the batch-14 dispatch; see that pull request for the measurement context.\n"
+}

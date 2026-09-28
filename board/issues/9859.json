@@ -1,0 +1,33 @@
+{
+  "number": 9859,
+  "kind": "issue",
+  "title": "finding(app-shell): RepeaterField's grid layout calls FieldControl directly, so none of the five widget detectors runs for grid cells — `detectSecretWidget` included",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T11:36:01Z",
+  "updated_at": "2026-09-18T14:07:29Z",
+  "closed_at": "2026-09-18T14:06:12Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9859",
+  "body": "`RepeaterField`'s **grid/table** layout renders each cell with `FieldControl` directly, so **none of the five widget detectors runs** for grid cells — while the **card** layout of the very same component runs all five. ⚠️ One of the five is `detectSecretWidget`, so a repeater that opts into `widget: 'grid'` **silently loses secret masking**.\n\nSurfaced by the `os-dev` measuring objectui#9830 (it hit the CARD layout on its way to `action.params`) and **re-measured at source by the filing seat** on `origin/main` `5365b4c3` at 2026-09-18T11:35Z. ⛔ Not inside objectui#9830's fence; that card is a measurement and was released on a falsified premise.\n\n## The fact, read as a block\n\n`packages/app-shell/src/views/metadata-admin/SchemaForm.tsx`.\n\n**All five detectors are called in exactly one place — inside `FieldRow`, at `:1295`–`:1307`, behind `if (!fieldSpec?.widget)`:**\n\n```ts\n:1291  let widget = inferWidget(fieldSpec, schema);\n:1294  if (!fieldSpec?.widget) {\n:1295    const refWidget = detectFieldRefWidget(name, schema, widgetContext);\n:1298      const secretWidget = detectSecretWidget(name, schema);\n:1301        const iconWidget = detectIconWidget(name, schema);\n:1304          const colorWidget = detectColorWidget(name, schema);\n:1307            const condWidget = detectConditionWidget(name, schema);\n```\n\n**`RepeaterField` has two layouts, and only one of them goes through `FieldRow`:**\n\n```ts\n:2066  const useGrid = widget === 'grid' || widget === 'table';\n:2097  if (useGrid) {\n:2141      <FieldControl\n:2151        widget={inferWidget(s, sub)}      // ⛔ inferWidget ALONE — no detector runs\n:2218    <FieldRow                              // the CARD layout — all five run\n```\n\n⇒ `inferWidget` is the **only** widget decision a grid cell gets. `detectFieldRefWidget`, `detectSecretWidget`, `detectIconWidget`, `detectColorWidget` and `detectConditionWidget` are all skipped.\n\n**Control, same instrument, same run:** a search for those five detector names across this file returns their five definitions (`:306`, `:344`, `:360`, `:591`, `:611`) and exactly five call sites, all in the `:1295`–`:1307` chain. ⇒ ⛔ there is no second call site the grid branch could be reaching instead.\n\n## ⚠️ Why the secret one is the sharp end\n\n`detectSecretWidget` (`:611`) is what turns a credential-shaped property into a masked control. In the card layout it runs; in the grid layout it does not. ⇒ the same repeater, the same property, the same data — **masked or not depending on a layout flag**. ⛔ Silent: no warning, no diagnostic, no degradation the author can see.\n\n⚠️ **Stated as a shape, ⛔ not as an incident:** the filing seat did ⛔ **not** measure any shipped form spec that both declares `widget: 'grid'` **and** carries a secret-shaped property. ⇒ whether a live surface is affected today is **unmeasured**, and that is the first thing whoever takes this should settle — it is the difference between a latent asymmetry and a live exposure.\n\n## Why the asymmetry is plausible rather than obviously a bug\n\nA grid row has no `<label>` — the file says so at `:2143-2144`, citing objectui#5063 — so the grid branch was written to hand `FieldControl` an aria-labelledby channel instead. ⇒ it is a **deliberately different render path**, and the detector chain simply never followed it. ⛔ That makes this a gap rather than a regression, and it is why the fix shape is a real question: lift the detector chain out of `FieldRow` so both paths share it, or route grid cells through something that already calls it.\n\n## Dedupe words\n\n- `RepeaterField` grid layout bypasses `FieldRow`\n- `FieldControl` called directly, detectors skipped\n- `widget: 'grid'` loses `detectSecretWidget`\n- repeater cell widget detection\n- `inferWidget` alone in the grid branch\n\n## Related\n\nobjectui#9830 (the measurement that surfaced it — and whose reshaped form may want the sibling `detectConditionWidget` nested-`anyOf` finding folded in) · objectui#5063 (why the grid row has no label)\n\n<sub>filed by the `domain:ui#2` execution seat · `session_018HrVaotisyhgmot9o2MLRq` · ⛔ this seat does ⛔ not grade or route: no `priority:*` and no `domain:*` set here · readings taken 2026-09-18T11:35Z</sub>\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,31 @@
+{
+  "number": 10925,
+  "kind": "issue",
+  "title": "Proposed-plan card actions are clickable while the proposing turn is still streaming, which overlaps turns",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T07:49:55Z",
+  "updated_at": "2026-09-28T07:49:55Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10925",
+  "body": "## Source\n\nobjectui#10899 item 5b, the replay ordering. The dev root-caused it in PR objectstack-ai/objectui#10924 on 2026-09-28. Epic objectstack-ai/cloud#2440.\n\n## What happens\n\nThe proposed-plan card's build / adjust buttons are clickable while the proposing turn is still streaming. In the E2E, 「确认，开始搭建」 was sent while the previous turn was still persisting its tail. That overlapped two turns, and the stored history interleaved.\n\n## Direction\n\nThe epic PM takes the objectui half of the dev's option C: keep the plan card's actions disabled until the proposing turn has finished streaming. The producer-side fix (ordering by turn in the cloud conversation store) is its own cloud card.\n\n## Acceptance\n\n1. The plan card actions are disabled while their turn streams.\n2. They are enabled after the turn finishes.\n3. A test pins both states.\n"
+}

@@ -1,0 +1,36 @@
+{
+  "number": 8631,
+  "kind": "issue",
+  "title": "finding(console): a TERMINAL approval row whose record was deleted still shows the raw record id — the API cannot tell \"deleted\" from \"not visible\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-08T18:23:58Z",
+  "updated_at": "2026-09-17T04:45:22Z",
+  "closed_at": "2026-09-17T04:36:37Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8631",
+  "body": "Follow-up to objectui#7108, filed by that card's implementation seat under its own stop\ncondition: *\"if 'deleted' and 'not visible' cannot be told apart from what the API returns,\nreport that as a finding rather than guessing a rendering.\"* They cannot. This card records\nthe measurement so the question is decided rather than guessed.\n\nNo closing keyword is used anywhere in this body — objectui#7108 stays open on its own merits\nand this card is not a duplicate of it.\n\n## What was measured\n\nAgainst `objectstack` at `6c546ab9` and `@objectstack/spec@17.3.0` as installed in this repo.\n\n1. **The cause exists only for the pending case.** `plugin-approvals` voids a deleted record's\n   still-`pending` requests and stamps `status: 'cancelled'` + `cancel_reason: 'record_deleted'`\n   (objectstack#13568). `cancelForDeletedRecord`'s `where` names `status: 'pending'`, and its\n   own docstring is explicit: *\"Terminal rows are untouched … history is kept; only the\n   presentation of its dead record reference is someone else's card.\"*\n\n2. **So terminal rows carry no cause.** The spec declares `cancel_reason` *\"present only on\n   rows whose status is `cancelled`, absent everywhere else\"* — and an `approved` / `rejected`\n   row was never cancelled, which is exactly why the ruling preserves it.\n\n3. **`record_title` is not a proxy.** `ApprovalService.enrichRows` resolves it with\n   `context: SYSTEM_CTX` and falls back to the request's payload snapshot when the read misses.\n   The client receives one string either way and cannot see which branch produced it — so its\n   presence says nothing about whether the record still exists.\n\n4. **The client-side probe cannot separate them either, by design.** The inbox's readability\n   probe (objectui#5211) issues an `id in (…)` list read as the signed-in viewer. A deleted\n   record and a record the viewer's grants filter out are both simply *absent* from the answer.\n   That fusion is deliberate, in the framework's own words\n   (`packages/runtime/src/action-execution.ts`):\n\n   > the read path collapses \"filtered out by RLS\" and \"this id names nothing\" on purpose\n   > (existence non-disclosure), nothing in the caught error separates them, and inventing a\n   > 403 for the pair would answer a question the platform declines to answer everywhere else.\n\n   `packages/runtime/src/sandbox/script-runner.ts` says the same thing in the other direction:\n   *\"an RLS-invisible row and a nonexistent id both surface as `RECORD_NOT_FOUND`, deliberately\n   (existence non-disclosure), and the flag does not pretend to separate what the read path\n   fused.\"*\n\n## The residual defect\n\nA terminal approval row about a genuinely deleted record still renders the opaque record id —\nthe degradation the objectui#7108 ruling asked to remove. objectui#7108's PR fixes every row\nthe platform actually flags (the cancelled ones) and leaves terminal rows exactly as they are,\non purpose.\n\n## ⛔ Why guessing here is worse than the id it would replace\n\nThe plausible wrong fix is \"any failed lookup is a deletion\". Applied to a terminal row, it\nreports a deletion to a viewer whose only problem is permissions — objectstack#7345's case,\nwhere the record **exists** and a visibility gate hides it. That asserts something that may\nnot have happened, on the strength of an answer the platform designed to carry no such\ninformation. An opaque id is at least true.\n\n## Options, for the maintainer to choose between\n\n- **A — leave it.** Terminal rows keep the raw id. Honest, and the volume is bounded: the\n  pending class (the one that grows) is already handled upstream. Cost: the ruling's second\n  half stays unimplemented for exactly the rows it named.\n- **B — a cause-free affordance.** Render \"this record cannot be opened\" for *any* unresolvable\n  reference, saying nothing about why. Cheap, needs no platform change, and never lies. But it\n  deliberately **merges** the two causes in the copy, which the objectui#7108 ruling separates\n  and objectstack#7345 is a distinct card about.\n- **C — publish a distinguishing signal.** Have `plugin-approvals` return a per-row existence\n  flag, computed in `enrichRows`, which already performs the SYSTEM-context read that would\n  answer it — so the cost is a field on the wire, not a query. Lands in `objectstack`, not\n  here. ⚠️ It is an existence disclosure to a principal who may not read the record, which is\n  precisely the thing the platform refuses everywhere else; the mitigating fact is that this\n  principal was already *routed* the approval and already sees the flow's snapshot summary.\n\n**Recommendation: C, as a decision for the maintainer rather than a change a dev may make.**\nIt is the only option that answers the ruling's intent for terminal rows, and its whole cost is\na narrow, deliberate carve-out of existence non-disclosure — a security-boundary judgement, not\nan implementation detail. B is the right fallback if that carve-out is refused, but it needs the\nobjectui#7108 and objectstack#7345 copy to be reconciled first so the two causes do not quietly\ncollapse into one sentence.\n\nFiled by an agent seat (Claude Code) during the objectui#7108 implementation round; the session\nreference is `session_01YBWFb5YgMU5dw8p2VKj16S`.\n"
+}

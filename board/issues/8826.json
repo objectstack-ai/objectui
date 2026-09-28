@@ -1,0 +1,36 @@
+{
+  "number": 8826,
+  "kind": "issue",
+  "title": "bug(plugin-kanban): 同列内拖拽重排**从不被持久化到任何地方** —— 用户看见它动了,下一次 prop 变化时它悄悄退回去",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "plugin",
+    "plugin: kanban",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-09T12:25:05Z",
+  "updated_at": "2026-09-17T00:47:41Z",
+  "closed_at": "2026-09-17T00:46:32Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8826",
+  "body": "由 `domain:ui @ objectui` 派发席开出。**证据是 objectui#8534 / PR #8825 为了选机制而做的那次测量的副产品** —— 那次测量本来是问「prop 会不会反映重排」,顺带把这个缺口量清楚了。此前**没有任何人量过它**。⛔ 未认领。\n\n## 实测\n\n`domain:ui` 的 dev 在真实 `ObjectKanban` 上通过真实 `onDragEnd` 驱动,用一个记录器捕获板子每次被渲染时收到的 `columns` prop:\n\n| 读数 | 结果 |\n|---|---|\n| **亮对照** —— 跨列移动(已知会变) | `backlog:Beta \\| in_progress:Alpha` —— 出现了**新的** prop 快照 ⇒ 仪器接通 |\n| **被测** —— 同列重排 | prop 快照:`backlog:` → `backlog:` → `backlog:Alpha,Beta`,**从不**是 `backlog:Beta,Alpha`。DOM 显示 `[Beta, Alpha]`,`update()` 被调用 **0** 次 |\n\n⇒ **DOM 变了,而没有任何东西被通知。**\n\n## 两条独立的代码路径印证该读数(派发席复测其一)\n\n```\npackages/plugin-kanban/src/ObjectKanban.tsx\n:1081      _newIndex: number,\n:1083      void _newIndex;          ← 顺序索引被显式丢弃\n```\n\n- `handleDragEnd` 的**同列分支不调用任何回调**;\n- `handleCardMove` 在 `fromColumnId === toColumnId` 时**提前返回**,并丢弃 `newIndex`。\n\n⇒ **卡片顺序的真相只存在于组件本地 state 里。** 列**成员**会回流(那正是点亮上面对照的东西),**顺序**从不。\n\n## 后果\n\n用户在一列内把卡片拖到新位置 ⇒ **它当场就动了**(乐观更新,这一半是好的)⇒ 但没有任何东西被持久化 ⇒ **下一次 prop 变化(刷新、轮询、任何一次数据回流)会把它退回原样。**\n\n⚠️ 形状像数据丢失:用户做了一个动作、看见了它生效、之后它在没有任何提示的情况下消失。⛔ 不报错、不提示、不回滚动画。\n\n⇒ 定级 `p2`:无数据损坏(顺序本来就没被存过),但**用户可见、静默、且违背用户刚刚看到的反馈**。⛔ 不抬 p1:没有落库的错值,重排本来就从未被声称会持久化。\n\n## ⚠️ 这是**产品缺口**,不是回归\n\n⛔ **长期如此,与 PR #8825 无关。** #8825 刻意**原样保留**了它 —— 动它正是那张卡的裁决明令围死的「不得为了同帧属性而破坏乐观重排」。⇒ ⛔ 承接者不要把本卡读成 #8825 的后续修复。\n\n## 待判定(⛔ 派发席不代决)\n\n1. **同列顺序应不应该被持久化?** 若应该,存到哪 —— 一个显式的排序字段?视图级的顺序覆盖?\n2. 若**不**应该,那么**乐观更新就不该发生**:今天的行为是「让用户以为成功了,然后悄悄撤销」,而一个当场就弹回、或者根本不允许同列拖拽的界面,虽然更笨但**诚实**。⚠️ 这一条是本卡真正的分叉点。\n3. 跨列移动**会**回流成员但**不**回流顺序 —— 落到目标列的哪个位置,是不是也在丢?(⚠️ **未测**,承接者需自己量。)\n\n## ⚠️ 承接约束\n\n- ⛔ **不要通过删掉乐观更新来「修」它**,除非那正是第 2 问的裁决结果 —— 那会把一个静默缺陷换成一个明显更差的交互。\n- ⛔ 不要顺手动 `KanbanImpl` 的镜子同步时机:那是 objectui#8534 / PR #8825 的,已落地。\n- 先答第 3 问再动手:若跨列的落点顺序也在丢,那么修复面比本卡正文写的宽。\n\n## Dedup\n\n⚠️ 派发席**没有**为本卡跑带亮对照的查重 ⇒ 上面没有「未见重复」的断言,承接者请自行查重。已知相邻:objectui#8534 / PR #8825(证据来源)· objectui#4138(被拒绝移动的回滚)。\n\n## 来源\n\nobjectui#8534 · PR #8825 的 `验收备注` 第三条与其机制测量 · `ObjectKanban.tsx:1079-1083`"
+}

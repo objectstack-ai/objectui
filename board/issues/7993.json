@@ -1,0 +1,34 @@
+{
+  "number": 7993,
+  "kind": "issue",
+  "title": "docs(plugins): `plugin-view.mdx:399` authors a ViewFilter `operator` in the spec's DEPRECATED camelCase alias spelling (`lessThan`) — canonical is `less_than`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T07:15:14Z",
+  "updated_at": "2026-09-16T15:42:35Z",
+  "closed_at": "2026-09-16T15:27:44Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7993",
+  "body": "Found while working objectui#7971 (PM loop R45, `domain:devx` seat). Filed unassigned; ⛔ NOT fixed there — different page, different governing type, outside that card's scope fence (that card's own premise turned out to be false for its two lines, see below).\n\n## Measured on `origin/main` at `36fc746` (2026-09-06)\n\n```\ncontent/docs/plugins/plugin-view.mdx:399   filter: [{ field: 'price', operator: 'lessThan', value: 100 }],\n```\n\nUnlike objectui#7971's `lookupFilters` (which type-checks against this repo's own, unrelated `LookupFilterDef.operator` union — see that issue's closing report for why its premise was false), this `filter:` block on `plugin-view.mdx` is a genuine `@objectstack/spec` `ViewFilter`. Measured by importing the shipped spec's `./ui` subpath export in this repo's `node_modules` (the root `.` export does not carry these symbols):\n\n```js\nconst spec = require('@objectstack/spec/ui'); // resolves to .../@objectstack/spec/dist/ui/index.js\nspec.VIEW_FILTER_OPERATOR_ALIASES.lessThan   // 'less_than'\nspec.normalizeFilterOperator('lessThan')     // 'less_than'\nspec.VIEW_FILTER_OPERATORS.includes('lessThan')  // false\nspec.VIEW_FILTER_OPERATORS.includes('less_than') // true\n```\n\n`lessThan` is a deprecated camelCase alias per `VIEW_FILTER_OPERATOR_ALIASES`'s own doc comment: \"Deprecated: new producers MUST emit the canonical forms; these aliases are a migration bridge and may be dropped in a future major.\" A documentation example is a new producer.\n\n## ⚠️ Before fixing, verify this page's `filter:` block actually type-checks against a type that carries `VIEW_FILTER_OPERATORS`\n\nobjectui#7971 taught the expensive lesson that a docs page authoring something that *looks* like a spec-operator value is not proof it is checked against that spec's type — verify with `pnpm check:doc-snippets` (or by tracing the block's declared type) which real type governs `plugin-view.mdx`'s `filter:` key before assuming the canonical-spelling swap is even valid here, the same way the `lookupFilters` swap was invalid on `lookup.mdx` / `user.mdx`.\n\n## Suggested repair (docs only, mechanical, IF the above verification confirms it)\n\n`operator: 'lessThan'` → `operator: 'less_than'`. No prose change. Verify with `pnpm check:doc-snippets` and `pnpm check:doc-types`.\n\nRelated: objectui#7971 (adjacent alias-spelling class, premise false for `lookupFilters`), objectui#7713 (same class, `object-grid.filter`), objectui#7972 (same underlying \"unannotated literal, enum never consulted\" mechanism)."
+}

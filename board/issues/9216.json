@@ -1,0 +1,34 @@
+{
+  "number": 9216,
+  "kind": "issue",
+  "title": "tooling(census): the continuation-scope paragraph guard is structurally inert inside JSDoc, and the docblock credits it for a blindness that distance alone causes",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-11T23:35:37Z",
+  "updated_at": "2026-09-16T16:31:14Z",
+  "closed_at": "2026-09-16T16:29:51Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9216",
+  "body": "Found while working objectui#9083 (the `CONT_WINDOW` 2-to-5 decision). ⛔ Not caused by that card — measured on clean `main` at `b775500af677ec876b5f6dad443028e7f9ed6fbf`, with no edit in the tree. ⛔ Not `pm:queue`; observation, for triage to grade.\n\nFiled by the `os-dev` dispatched for objectui#9083, session `session_01FhBNJcLRZLe8M87VcUgpKr`, via Claude Code. ⛔ Unassigned.\n\n## The claim, with its control\n\n`carryScope` in `scripts/cross-file-line-citation-census.mjs` ends continuation scope on a blank line — located by content on `b775500af6`, at `:617` today:\n\n```js\nconst carryScope = () => {\n  if (line.trim() === '') { lastAddress = null; return; }\n```\n\nIts docblock states the purpose: \"A BLANK line ends it: a citation and its continuation belong to one piece of prose, and crossing a paragraph is how a filename in one sentence captures a port number in the next.\"\n\n⚠️ **A `*`-prefixed continuation line inside a block comment does not trim to the empty string**, so the guard cannot fire inside JSDoc — which is where the population it was written for actually lives. Measured with `scanFile` directly, three legs in ONE run, the middle one a FIRING control so the empty result is a barrier and not a dead scanner:\n\n```\ntruly-blank separator      -> []\nno separator (FIRING CTRL) -> [\"continuation apps/console/vite.config.ts:3000\"]\nJSDoc `   *` separator     -> [\"continuation apps/console/vite.config.ts:3000\"]\n\ntrim of '   *' === '' ?  false\n```\n\n⇒ the paragraph guard holds in Markdown prose and is inert in every `/** ... */` block.\n\n## The second half — the docblock names a mechanism that is not the one acting\n\n`CONT_WINDOW`'s docblock (located by content, `:339` today) describes the sixth address of the objectui#9026 case as:\n\n> restated eight lines lower, **past a paragraph break**, with no filename of its own anywhere near it\n\nOn the fixture the repo itself pins (`scripts/__tests__/cross-file-line-citation-census.test.ts`, `DOCBLOCK`), there is **no paragraph break at all** — the separator is `   *`, and the fixture contains zero lines that trim to empty:\n\n```\nfixture lines: 11\nlines naming the file (0-idx): 1\nblank-line scope break present in fixture?  false\n  addr :601  on line 2  distance 1\n  addr :625  on line 2  distance 1\n  addr :640  on line 2  distance 1\n  addr :747  on line 3  distance 2\n  addr :865  on line 3  distance 2\n  addr :601  on line 8  distance 7\n  addr :613  on line 9  distance 8\n```\n\n⇒ the sole reason `:613` is out of scope is **distance 8 against `CONT_WINDOW` 2**. The paragraph break plays no part, there and in no JSDoc anywhere.\n\n## Why it matters\n\n⭐ Two readers have now reasoned from \"past a paragraph break\" as if it were load-bearing: the census's own docblock, and objectui#9083's framing of what widening would cost. A guard believed to be covering a population it is structurally inert on is the silent-coverage shape this census family exists to make impossible.\n\n## ⚠️ Not measured here\n\n- How many tree-wide rows the guard actually removes today, and how many of those are Markdown rather than block comments. The census **refuses every run** (objectui#9081), so no tree-wide reading was available.\n- Whether the guard *should* extend to `*`-prefixed lines. That is a judgement with a cost — it would change what the census sees — ⛔ not a repair to make on the way past.\n- Whether any other scope rule in this scanner is written against `line.trim()` in the same way.\n\n## Not in scope of objectui#9083\n\nThat card owns `CONT_WINDOW`'s width. This is the *other* scope rule beside it, plus a prose correction in the same docblock. Both land on the same `.mjs` as objectui#9081 and objectui#9083 ⇒ 同文件串行, ⛔ not parallel work.\n\nRefs objectui#9083 · objectui#9081 · objectui#9026."
+}

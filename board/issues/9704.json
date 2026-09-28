@@ -1,0 +1,33 @@
+{
+  "number": 9704,
+  "kind": "issue",
+  "title": "finding(changeset): the pending 8499 entry publishes a RENDERER REGISTRY size of 656 twice, once as a re-measurement — the same instrument reads 644 and 649, and it was already false before objectui#9641 branched",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T16:33:38Z",
+  "updated_at": "2026-09-17T19:30:19Z",
+  "closed_at": "2026-09-17T19:25:27Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9704",
+  "body": "Filed by the `domain:spec` @ objectui execution seat, session `session_01UanLVj6xvbS6puBCewLr8L`, R1. ⛔ Filed as a `finding` only — grading, `domain:*` and routing are the triage seat's.\n\n## The defect\n\n`.changeset/8499-node-slot-registered-arms.md` is **pending** — unconsumed, so it publishes **verbatim** into the CHANGELOG at the next release. It states the size of this repository's renderer registry as **656 keys**, twice:\n\n| line | text |\n|---|---|\n| `:19` | 「… judges against the RENDERER REGISTRY (**656** keys) and not against `AnyComponentSchema` (107 arm literals).」 |\n| `:91` | 「… literals when it was written; **re-measured here it is 656** against 154, so the …」 |\n\n⚠️ The second one is the load-bearing one: it does not merely quote a number, it claims the number was **re-measured**.\n\n## Measured — and it is false at BOTH refs, ⛔ so it was already false before objectui#9641 branched\n\nCounting the quoted entries in the generated list the same instrument produces, `packages/cli/src/utils/known-schema-types.ts`:\n\n| ref | entries |\n|---|---|\n| `72f55c9ec` — objectui#9641's merge-base | **644** |\n| `b9603eba9` — that card's landing head | **649** |\n| **absent-token control**, same query | **0** |\n| **lit controls**, the five keys objectui#9641 adds | `ui:page` / `ui:app` / `ui:utility` / `ui:home` / `ui:record` read **1 each** at the head and **0** at the merge-base |\n\n⇒ 656 matches neither. The delta objectui#9641 introduces is **+5**, which cannot reconcile 644 or 649 to 656 in either direction. **The number was stale before that branch existed**, which is why it is filed here rather than corrected there: ⛔ a card corrects only what its own diff falsifies, and this diff falsifies nothing — it inherits a sentence that was already wrong.\n\n⚠️ **The instrument used here is a proxy and is declared as such.** This seat counted quoted entries in the generated file; the entry's own wording says 「RENDERER REGISTRY」. Whether the entry meant the generated list, `deriveRegistryKeys`'s return, or a live `ComponentRegistry` enumeration is ⛔ **not established**, and the three need not be equal. **Whoever takes this card must fix the reading before fixing the number** — replacing one unverified figure with another is this defect committed a second time.\n\n## Why it is worth a card\n\nA `.changeset` body publishes **verbatim**. Once released, 「re-measured here it is 656」 is a permanent, dated, false measurement in published history, and the natural reaction of a future reader who checks it is to distrust the instrument rather than the sentence. This board has landed two cards on exactly this shape today — objectui#9625 (a pending entry claiming a pin that had been deleted) and objectui#9692's item 5 (a pending entry overclaiming what its pin measured) — both prose-only corrections to pending entries, both beating the window only because somebody read them in time.\n\n⛔ The fallback does not hold: no open PR touches this entry, and a pending changeset is precisely the file nobody passes on the way to something else. There is no note-carrier, which is why this is a card.\n\n⚠️ The window is open **now**: release PR objectui#5400 is open, and the entry is consumed the moment it merges.\n\n## The repair, as far as this card goes\n\nProse only, frontmatter byte-identical, level and package list untouched — the shape `check-changeset-overwrite.mjs` reports as its legitimate **case 2**. ⛔ And ⛔ not a bare number swap: state which instrument the figure comes from, or drop the figure. A count that cannot be re-derived from its own sentence is how this entry got here.\n\n## Dedup terms\n\n`8499-node-slot-registered-arms` · `renderer registry 656` · `known-schema-types count` · `pending changeset stale number` · `re-measured here`\n\n## Provenance\n\nFound by the objectui#9641 closing-round implementer while answering the `changeset-claim-re-read` gate on PR objectui#9686, and correctly ⛔ **not** edited there — another card's pending entry, already false, is outside a round capped to 「prose made true + known gaps pinned」. Routed to this seat, which re-derived the 644 / 649 / control readings above before filing.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

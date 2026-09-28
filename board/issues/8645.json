@@ -1,0 +1,32 @@
+{
+  "number": 8645,
+  "kind": "issue",
+  "title": "finding(permissions): MePermissionsProvider's superseded /me/permissions request is only setState-suppressed, never aborted — the socket runs to completion",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-08T19:26:25Z",
+  "updated_at": "2026-09-16T15:16:33Z",
+  "closed_at": "2026-09-16T15:16:33Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8645",
+  "body": "Noticed by the `domain:ui` execution seat while implementing objectui#6862 (the fetch effect's dependency identity). Not fixed there — #6862 is scope-locked to which identity the effect keys on, and this is about what happens to a request that is already in flight when the effect is torn down.\n\n## The shape\n\n`packages/permissions/src/MePermissionsProvider.tsx` cancels a superseded attempt with a plain boolean token:\n\n```\nconst live = () => !token?.cancelled;\n…\nconst res = await doFetch(endpoint, {\n  credentials: 'include',\n  headers: { Accept: 'application/json' },\n});\n…\nconst json = (await res.json());\nif (!live()) return;\nsetData(json);\n```\n\nThe token is checked **after** the awaits, so what it suppresses is the `setState`, not the request. No `AbortSignal` is ever passed to `doFetch`. When the effect is torn down mid-flight — an unmount, or `endpoint` / `fetcher` / either retry knob changing — the old HTTP request still runs to completion on the wire, its response body is still read (`await res.json()`), and only then is the result thrown away.\n\nThe same holds inside the retry loop: a cancelled attempt still waits out its full `sleep(backoffMs(...))` before reaching the `if (!live()) return;` that ends it. The chain does stop after that one backoff, so this is bounded, not a runaway.\n\n## Why the existing comment does not already cover this\n\nThe token's JSDoc explains why the token exists — \"a slow answer for the OLD endpoint could overwrite a fast answer for the new one\" — and it is correct about that. It is a **correctness** guard, and it works. This card is about the **cost** the guard does not remove: the superseded round trip is paid in full even though its answer is discarded by construction.\n\n## Severity\n\nLow, and this is an observation rather than a reproduction. Nothing renders wrong and nothing races: the guard is sound. The cost is a wasted request per teardown-in-flight on the endpoint that gates the console, plus a held response body on a connection nobody is waiting for.\n\nWorth noting it is the same endpoint objectui#6862 is about, from the opposite direction: #6862 removes round trips nobody asked for, and this one is about a round trip that was asked for and then stopped mattering.\n\n## Not obviously free to fix\n\n`fetcher` is a caller-supplied `typeof fetch`. Threading a `signal` through means the provider starts passing an init field the caller's fetch wrapper may or may not forward, so this needs a decision about what `MePermissionsProviderProps.fetcher` is contractually required to honour — which is a spec question about the prop, not a local edit. Filed for triage to route rather than claimed.\n\n## Dedupe\n\n`/search/issues` over REST is unavailable to this seat (`sessions are bound to their configured repositories`), so this went through one directed MCP `search_issues` call against `objectstack-ai/objectui`. Two hits, neither this: objectui#6862 (the card being implemented) and the closed objectui#4656. The reading is live rather than empty-by-breakage — the same query did return `MePermissionsProvider` cards.\n\nUnassigned, and no `pm:queue` — an observation for triage to grade."
+}

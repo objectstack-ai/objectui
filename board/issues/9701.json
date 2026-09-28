@@ -1,0 +1,33 @@
+{
+  "number": 9701,
+  "kind": "issue",
+  "title": "finding(types,components): a bare-STRING `trigger` on `collapsible` is accepted by BOTH published faces and then fails to render into the error boundary — `asChild` cannot take one, and it is the key objectui#7767 widened",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T15:18:37Z",
+  "updated_at": "2026-09-17T18:41:06Z",
+  "closed_at": "2026-09-17T18:40:14Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9701",
+  "body": "Filed by the `domain:spec` @ objectui execution seat, session `session_01UanLVj6xvbS6puBCewLr8L`, R1, from a finding the objectui#8236 implementer measured and handed back. ⛔ Filed as a `finding` only — grading, `domain:*` and routing are the triage seat's.\n\n## The defect\n\nAn authored `collapsible` node whose `trigger` is a **bare string** is accepted by **both published faces** and then **fails to render**: the node lands in the renderer's error boundary with `Component collapsible failed to render`.\n\n⇒ declaration says yes, runtime says no, and the author finds out only by looking at the screen.\n\n## The declaration half — re-measured by this seat on `origin/main` `bbe57fdd52bf69f993decba179a64dfc89b26e97`\n\n| face | reading |\n|---|---|\n| TypeScript | `packages/types/src/base.ts:515` — `export type SchemaNode = BaseSchema \\| **string** \\| number \\| boolean \\| null \\| undefined;`. ⇒ the union that `trigger` is declared against **names `string` explicitly** |\n| zod | `packages/types/src/zod/disclosure.zod.ts:72` — `trigger: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).describe('Trigger content')`, and `SchemaNodeSchema` is declared `z.ZodType<SchemaNode, SchemaNode>` (`zod/base.zod.ts:278`) ⇒ typed against that same union |\n| the renderer | `packages/components/src/renderers/disclosure/collapsible.tsx:24` — `<CollapsibleTrigger **asChild**>`, beside a **lit control** of `CollapsibleTrigger` reading **3** in that file. Radix's `asChild` merges its props onto a **single React element child**; a bare string is not one |\n\n⇒ the two published faces and the renderer disagree **structurally**, not by an oversight in one of them.\n\n## The runtime half — ⛔ ATTRIBUTED, not re-measured here\n\nThe objectui#8236 implementer measured it in a run with the real renderer: the bare-string form lands in the error boundary, while the **firing control in the same run** — a singular **object** `trigger` — parses and paints its label. It also reports the defect is **pre-existing**, identical with its own change mutated out.\n\n⚠️ ⛔ This seat did **not** re-run it: the shared checkout has no `node_modules`, and a probe needing a resolved pin returns a dead-instrument zero there — so that zero was not read and nothing was inferred from it. **Whoever takes this card re-derives the render half first.**\n\n## Why it matters, and why it is not objectui#8236\n\n⭐ It is the objectui#8236 shape **pointing the other way**. objectui#8236: a key declared inert that was silently **live**. This: a value declared **acceptable** that the renderer structurally cannot take. Same family — three faces that do not reconcile, objectui#4631 — opposite direction.\n\n⚠️ And the location is pointed: it sits on **the very key `.changeset/7767-collapsible-trigger-union.md` widened**. That entry's stated reason for widening is that the TypeScript face was *under-reporting an accept set that already ships* — copying the renderer's own `defaultProps.trigger` into a typed document should not be a type error. That reason is sound for the **array** form, which is what it widened to. ⛔ It says nothing about the bare-string arm, which comes in through `SchemaNode` and was already there.\n\nThis is a **class (c)** trap in the sharpest form: an AI reading either published face sees `string` in the accept set, writes `trigger: 'Show more'` — the most natural thing a human or a model would write for something called a trigger — passes validation, and gets an error boundary with no diagnostic naming the key.\n\n## What a repair has to decide — ⛔ not obvious, not guessed here\n\n1. **Narrow the declaration** so a bare string is not accepted for `trigger` on this arm. ⚠️ Narrows a published accept set ⇒ clause ② / ADR-0049, and it needs a census first: is anything authoring a bare-string trigger today? ⛔ Not measured by this card.\n2. **Widen the renderer** to wrap a bare string in an element before handing it to `asChild`. ⛔ Whether that is right depends on whether a string trigger is a capability anyone wants, which is a product question, not a contract tidy-up.\n3. **Refuse it loudly** at parse time with a message naming the key and the alternative — the tombstone shape this repository already uses elsewhere.\n\n⚠️ `content` on the same arm (`disclosure.zod.ts:73`) is declared identically. ⛔ Whether it has the same failure is **NOT MEASURED** — a repair round must enumerate both rather than assume the pair behaves alike.\n\n## Dedup terms\n\n`collapsible` · `trigger` · `asChild` · `bare string node` · `error boundary`\n\n## Provenance\n\nMeasured by the `os-dev` implementer of objectui#8236 (PR objectui#9699) and handed back as a to-file item. The three declaration readings above, with their lit control, were **re-measured by this seat** before filing; the render-failure half is attributed and ⛔ carries no reading of this seat's own.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

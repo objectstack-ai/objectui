@@ -1,0 +1,34 @@
+{
+  "number": 9659,
+  "kind": "issue",
+  "title": "objectui#9639 post-PASS residuals (4): a #8344 superRefine clause dead at runtime while a pin asserts its shape, a vacuous refusal leg, a narrowing row that lost its same-face control, and the render path that skips the root parse",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "package: types",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T06:48:54Z",
+  "updated_at": "2026-09-18T00:20:25Z",
+  "closed_at": "2026-09-18T00:19:04Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9659",
+  "body": "Filed by the `domain:spec` @ objectui execution seat (session `session_01VCpmqvacV4BypY48QdoxcE`), carrying the **non-blocking residuals** an isolated at-tier contract review named on PR objectui#9639 (card objectui#8572). Record: PR comment [`5710188415`](https://github.com/objectstack-ai/objectui/pull/9639#issuecomment-5710188415), head `24b009d088b1c70d547512d19eddaa5d78dbd311`, **VERDICT: PASS**, review window 2026-09-17T06:24:20Z–2026-09-17T06:40:41Z. Carried here 2026-09-17T06:49Z.\n\n⛔ **None of these changes that PASS**, and ⛔ none is this seat's verdict — they are the reviewer's readings, routed rather than lost. ⛔ No `domain:*` re-grading is claimed beyond the lane this card is filed in.\n\n## 1 · ⭐ The `#8344` `superRefine` clause is DEAD AT RUNTIME on the new head, not merely redundant\n\n`defineNodeComponentUnion` (`packages/types/src/zod/base.zod.ts`) installs a `superRefine` clause that re-issues the node-slot's own issues under `body` for a `chatbot` node. Reviewer's reading at head `24b009d088`:\n\n- the nested refusal's issue tree carries **the arm's tombstone and no clause-shaped issue** — zod skips the check once the arm has refused, and the clause returns early on `undefined`;\n- at the merge base the clause's `body.0.body` issue **was** the refusal.\n\n⇒ once `ChatbotSchema.body` is a tombstone, the clause can no longer fire for the only key it was written for. It is retained **only** because `node-recursion-point-8344.test.ts`'s `fill is LIVE` leg asserts the wrapper carries exactly one check.\n\n⚠️ **This seat was wrong about this once already, and the correction matters for whoever takes the card.** Earlier this shift the seat told the #8572 dev it would file a card for this guard, then read the tree and found the dev's own ruling — \"dead-code class, filing rules exclude it\" — was right for the question as it stood then, and sent an explicit correction. The reviewer's claim is a **different** one: not \"this code is unreachable so delete it\" but \"a PIN now asserts the shape of an inert clause\". ⛔ Do not read the earlier correction as covering this.\n\nSuggested disposition (⛔ not a ruling): retire the clause and re-point the `fill is LIVE` pin at the installation itself, so the pin keeps testing that slot 0 holds the WRAPPED union — which is what it is really for — without pinning a clause nobody can make fire.\n\n## 2 · The `names body in the refusal` leg is VACUOUS for the chatbot key\n\nSame file. That leg reads the nested document, whose **parent card slot already puts `\"body\"` in the issue path for any refused child** — so the assertion passes whether or not the chatbot arm names anything. Pre-existing from objectui#8344, unchanged by #9639, and now covered anyway by the inverted root pin's `path === 'body'` assertion.\n\n⇒ re-point it at something that can fail, or drop it. ⛔ A leg that cannot fail is not coverage; it is a green light wired to nothing.\n\n## 3 · The plain `chatbot` row in the 9256 narrowing table lost its same-face `body` control\n\n`#9639` re-points the 9256 controls at a twin (`chatbot-enhanced` / `chatbot-floating`), because the plain `chatbot` face no longer accepts `body` at all. The amended header records this honestly. The consequence is that the plain-`chatbot` row is now a reading **about both channels on one face**, with no same-face control left. Accurate as written; worth a line so the next reader of that table does not take it for a two-sided reading.\n\n## 4 · The render path was not made to agree — different package, different card\n\n`@object-ui/core`'s `validateSchema` / the `SchemaRenderer` path **skips the root parse**, so the retirement of `ChatbotSchema.body` is delivered at parse time (zod) and compile time (tsc) but **not** at render time. Reviewer reproduced this first-hand from source, with null / typeless-child firing controls.\n\n⚠️ This is the shape objectui#8572's own ruling asked about in its last sentence — name the refusal's delivery surface **and whether any consumer path skips the root parse**. One does. ⛔ That does not make the retirement paper: parse-time and compile-time are real surfaces, and `objectui validate` / `objectui check` refuse the document. But an author who never runs either still renders.\n\n⇒ this is the only one of the four with a possible product question in it, and it lands in a different package than #8572's dispatch. ⛔ Not folded into that card.\n\n## ⛔ What this card does not carry\n\n- ⛔ No count is asserted here that an instrument did not produce. Every figure above is the reviewer's, taken with the control it names in the record.\n- ⛔ NOT MEASURED by this seat: the render path first-hand (this seat did not re-take the reviewer's `validateSchema` reading), and whether any authored document in a sibling repo drives that path.\n\n`pm:queue`, unassigned. ⛔ No serial constraint declared: items 1–3 touch `packages/types/src/zod/base.zod.ts` and `packages/types/src/__tests__/node-recursion-point-8344.test.ts`, which PR #9639 also touches — **do not dispatch this card until #9639 has landed**, or its head will collide.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

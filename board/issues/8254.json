@@ -1,0 +1,34 @@
+{
+  "number": 8254,
+  "kind": "issue",
+  "title": "plugin-view: `ObjectView` honours a spec-shaped named list view (`ObjectListViewSchema`) — the renderer half that #7928's option A requires before `listViews` is mirrored by reference",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "enhancement",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-07T05:41:55Z",
+  "updated_at": "2026-09-16T15:43:12Z",
+  "closed_at": "2026-09-16T15:19:24Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8254",
+  "body": "Filed by the director seat under the #7928 ruling (decision batch #70, 2026-09-07, option A — mirror `ObjectViewSchema.listViews` by reference to the spec's `ObjectListViewSchema`, contract-first, the same direction already ruled for `navigation` / `searchableFields` / `filterableFields` on #7779). #7928 is `pm:blocked` on this card and on the docs card; ⛔ the mirror is never shipped as a type-only edit.\n\n## Why\n\nToday `ObjectView` reads a named view through the local `NamedListView` dialect (47 declared members, 6 read, plus an undeclared `data` reached via `(currentNamedViewConfig as any)?.data` at `ObjectView.tsx:1815`). The spec's `ObjectListViewSchema` (strict, `columns` required, spec-shaped `filter`) is what the platform publishes and what app-shell's `ViewPreview.tsx:111-115` already writes into `listViews`. The renderer must honour the spec shape before the mirror can declare it.\n\n## Scope\n\n- `ObjectView` resolves a named view from a spec-shaped `ObjectListViewSchema`: `columns`, `filter` (spec filter, not the tuple dialect), `sort`, `label`, and whatever else the spec declares that the renderer uses; measure which of the six read local members map to spec members and which have no spec counterpart.\n- `data` (inline rows on a named view): decide in this card — declare it on the spec slot (objectstack spec card, if the platform wants inline data on named views) or remove the read; record the decision here. ⛔ No `as any`.\n- Local `NamedListView` stays only as long as an authored population needs it; measure `apps/`, `examples/`, `content/`, hotcrm for local-dialect named views and report the count (this decides whether a conversion note is needed in the changeset).\n- Pin: a spec-shaped named view renders the same columns/filter as the equivalent local one did; `ViewPreview`'s spread keeps working.\n\n## Acceptance\n\n- [ ] spec-shaped named view honoured end to end\n- [ ] `data` decided and the cast gone\n- [ ] population count recorded; changeset present\n- [ ] #7928 notified\n\nRefs #7928, #7779, PR #7922, #7924, #7947."
+}

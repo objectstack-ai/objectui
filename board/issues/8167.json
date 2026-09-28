@@ -1,0 +1,35 @@
+{
+  "number": 8167,
+  "kind": "issue",
+  "title": "`ConditionBuilder` passes no `scope`, so an action's `visible` / `disabled` guard lints bare field refs clean on a row surface — the #7727 defect, at five more mount sites",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: app-shell",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-06T22:17:53Z",
+  "updated_at": "2026-09-18T06:06:41Z",
+  "closed_at": "2026-09-18T06:01:58Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 23,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8167",
+  "body": "Filed unassigned by the #7727 dev (PM loop R3, session `session_01YBWFb5YgMU5dw8p2VKj16S`) after contract review of PR #8164 named it. ⛔ Not folded into that PR: same defect class, different component, and three of the six mounts below need a per-surface verdict this card's author does not get to make.\n\n## What the search that found #7727 missed\n\n#7727 and its triage both looked for the explicit spelling `scope=\"flattened\"`. `CelPredicateField` also reaches the flattened lint by callers **omitting the prop** — `celAuthoring.ts` reads `hint.scope ?? 'flattened'`. Measured on `origin/main` = `c14d3a090`, every `CelPredicateField` mount in the repo:\n\n| mount | `scope=` in that file | scope in effect |\n| :-- | :-- | :-- |\n| `ConditionalFormattingEditor.tsx:341` | 1 | `record` (PR #8164) |\n| `inspectors/ObjectFieldInspector.tsx:760, :874, :888, :902` | 4 | `record` |\n| `PermissionAdvancedFacets.tsx:356, :372` | **0** | flattened — CORRECT, RLS is not a row surface (#5738 stand-down 3) |\n| `inspectors/ConditionBuilder.tsx:368` | **0** | flattened — and this is the problem |\n\n`grep -c 'scope=' inspectors/ConditionBuilder.tsx` is **0**. It has no `scope` prop on its own public interface either, so no caller can override it.\n\n## Why one of its callers is a defect today\n\n`packages/core/src/evaluator/rowPredicateCanon.ts:16-18` names the surface, verbatim:\n\n> A row predicate — `visible` / `disabled` / `enabled` on an action renderer, a row scope, a `record:alert`, a conditional-formatting `condition` — used to bind the row THREE ways\n\nand `packages/react/src/hooks/useExpression.ts:153-158` is what binds it now:\n\n```ts\nexport function usePredicateRecordContext(record: unknown): Record<string, any> {\n  return useMemo(() => {\n    if (record == null || typeof record !== 'object' || Array.isArray(record)) return {};\n    return { record: record as Record<string, any> };\n  }, [record]);\n}\n```\n\n`record` and nothing else. So a bare `status == 'done'` typed into **Visible when** on an action lints clean and never matches — #7727's defect exactly, on a surface #7727 does not touch.\n\n## The six `ConditionBuilder` mounts, with what I could and could not settle\n\n| mount | authors | verdict |\n| :-- | :-- | :-- |\n| `inspectors/ActionDefaultInspector.tsx:671` | action `visible` | ⛔ **DEFECT** — row surface by the canon's own words |\n| `inspectors/ActionDefaultInspector.tsx:672` | action `disabled` | ⛔ **DEFECT** — same |\n| `views/studio-design/ObjectValidationsPanel.tsx:313` | validation rule `condition` | ⚠️ **LIKELY DEFECT** — the draft-level validator for the sibling surface already runs `scope: 'record'` (`clientValidation.ts:792`, `:806`), so the editor and the validator disagree |\n| `inspectors/PageBlockInspector.tsx:689` | page block `visibleWhen` | ❓ needs a verdict — node tier, not classified by #5330 |\n| `widgets.tsx:2369` (`ConditionWidget`) | any schema-driven predicate key | ❓ needs a verdict — its surface is whatever the host schema points it at, so it may need the scope to become a prop |\n| `inspectors/FlowNodeConfigField.tsx:96` | flow node condition | ✅ **CORRECT as-is** — flow tier is not a row surface (#5738 stand-down 3) |\n| `inspectors/HookDefaultInspector.tsx:291` | hook `condition` | ❓ needs a verdict — server trigger tier |\n\n⇒ the fix is **not** \"flip ConditionBuilder to record scope\". Two of its callers are known-flattened or known-not-row, so the scope has to become a prop that each caller sets, and three callers need the tier question answered first.\n\n## What this card is NOT\n\n⛔ Not a duplicate of #8155 (the `app` root is refused although bound) or #8166 (`data.*` is accepted although dead). Those are about the engine's root vocabulary at `scope:'record'`; this is about which sites reach `scope:'record'` at all. All three are tails of #5741 Phase 2, and this one is the only one with a mount site still teaching the bare shorthand.\n\n## Dedup\n\n`search_issues` (REST is 403 from this seat class) — the same query returned #7727 and #8155, so the search was live. Nearest hits, none covering this: #6226 (ConditionBuilder rollout), #6293 (its row-mode quoting), #4527 (its blocking-issue reporting), #4421 (action `visible` and permissions). No open card names ConditionBuilder's lint scope."
+}

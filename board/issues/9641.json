@@ -1,0 +1,35 @@
+{
+  "number": 9641,
+  "kind": "issue",
+  "title": "finding(scripts): `regenerate-known-schema-types.mjs` cannot resolve a namespace passed by spread, so `KNOWN_SCHEMA_TYPES` omits five real runtime keys (`ui:page` / `ui:app` / `ui:utility` / `ui:home` / `ui:record`) — the blind spot three censuses on objectui#9263 shared",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:spec",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-16T16:51:48Z",
+  "updated_at": "2026-09-17T17:10:44Z",
+  "closed_at": "2026-09-17T17:09:17Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9641",
+  "body": "## 维护者速读 — ⚠️ 需要你的一个字母\n\n**事情是什么。** 这张卡要修的缺陷**已经修好并核实了**:校验器过去看不懂「注册配置不是当场写开、而是用一个变量传进去」这种写法,于是漏掉五个真实存在的界面类型键(`ui:page` / `ui:app` / `ui:utility` / `ui:home` / `ui:record`),作者写了它们、页面渲染得好好的,校验器却报「未知类型」。现在这五个键都在表上(649 个键,实测),而且**一个键都没多、一个键都没少**。\n\n**那为什么还没落地。** 因为这个校验器是**用正则近似 JavaScript 的作用域与变量改动规则**,它必然有看不见的角落。每一轮修复都把上一轮点名的角落关掉,然后**在描述这次修复的注释里,又写下一句比代码实际做到的更强的话** —— 已经连续四轮是同一个形状。第三次达档复核实测了 46 种写法:**21 种读对、12 种响亮拒收、22 种静默读错**(其中 1 种是已申报的已知缺口)。⛔ 今天的代码库**一处都没踩上**,所以这不是「有 bug」,而是「注释把守卫说得比它实际更强」。\n\n**风险与代价(含回滚)。** 现状风险接近于零:活树 0 findings、键集只多了那五个、冻结文件零改动。真正的代价是**信任**:一份声称「其它写法一律会报错」的注释,会让下一个人以为可以安心用别的写法。回滚是一次 revert。\n\n**席位意见。** 剩下的活很小且已被逐条点名:两处**把话说准**、三到五条**把已知缺口钉成测试**(这样以后谁修好了它、测试会红),外加一处几行的真修复。我**建议 A**。但我先前已在卡上和对开发都公开说过「第三次 FAIL 就升级给你、不再自己派第四轮」,所以我停下来问,而不是自己续派 —— 规则是我立的,但改不改由你。\n\n**你要做的(一个动作)。** 回一个字母:\n\n- **A** —— 授权再派一轮(第 4 轮),按复核点名的三条做完再落地。**(推荐)**\n- **B** —— 就此封顶:只做「把话说准 + 钉已知缺口」,⛔ 不再修任何代码,然后落地。\n- **C** —— 现在就落地,剩下的全部另开卡。\n- **D** —— 别的(请说)。\n\nos-decision-facets\n\n- **① 实际业务需求** —— 拉动是实测的、而且已经兑现:五个键真的在运行时注册、真的有文档在用、校验器过去真的会拒收它们。⇒ 卡面价值**已经拿到手**。剩下争的不是能力,是**注释的准确度**,而它没有业务拉动方,只有下一个读这段代码的人。\n- **② 项目长远合理性** —— 长远形态是「**声明即强制**」:注释里写的性质必须有仪器兜着(AGENTS #9)。A 与 B 都达成它,区别只在用**关闭缺口**还是用**申报缺口**达成;C 不达成,它把一句已知为假的话留在代码里。⚠️ 这里有个结构性事实值得你知道:**一个正则近似永远补不完**,所以「把所有角落关掉」不是一个能到达的终点 —— 能到达的终点是「**准确申报它看不见什么**」。这正是 B 的形状,也是 A 做完之后必然停在的地方。\n- **③ 防 AI 写元数据犯错** —— 这条最响。22 种静默读错里有**幻影方向**的(校验器放行一个运行时根本不存在的拼法 ⇒ 作者照着写、页面渲染不出东西、没有任何人报错)。⛔ 但今天活树一处都没踩上,而**一句过强的注释本身就是防错轴的问题**:它让下一个人以为别的写法会被拦住。⇒ 这条轴反对 C,对 A 与 B 都满意。\n- **④ 创业阶段不扩散** —— 指向 **B**,并且对 A 有保留。已经四轮了,每轮关掉的角落**今天零消费**;继续投入是在为假想写法买保险。⚠️ 但 A 的增量是**已被逐条点名的小活**(两处措辞 + 几条 pin + 几行修复),不是开放式工程 —— 这是我仍然推荐 A 而不是 B 的唯一理由。\n- **四棱同向?** ⛔ 否 —— ①④ 偏 B(收手),②③ 要求「要么关掉、要么准确申报」,两者 A 与 B 都能满足。⇒ ⛔ 不满足代裁置信门,照常呈报。**分歧只在 A 与 B 之间,且两者都可接受;C 被 ②③ 明确反对。**\n- **推荐:A**(回退:**B**)。理由是剩余工作已被复核逐条点名、范围封闭,一轮就能到「声明即强制」;若你认为四轮已经够了,**B 同样是诚实的终点**,⛔ 只是把缺口写清楚而不是关掉。\n\n**Governing text:** `AGENTS.md` #9(注释断言的性质必须有仪器兜着)· SKILL.md 〈复核〉「最多 2 轮,第三次升级」· 防 AI 写元数据犯错轴 · 创业阶段不扩散轴。\n\n---\n\nFiled by the `domain:spec` @ objectui execution seat (session `session_01VCpmqvacV4BypY48QdoxcE`), carrying a **class (a)** finding handed back by the dev on objectui#9263. ⭐ It is the root cause of that card's entire misdiagnosis: the derivation every census on that card trusted **could not see the namespaced half of the very registration under review**.\n\n## The defect\n\n`scripts/regenerate-known-schema-types.mjs` cannot resolve a `namespace` that arrives through a **spread**. `packages/components/src/renderers/layout/page.tsx` registers five page kinds as:\n\n```js\nComponentRegistry.register('app', PageRenderer, { ...pageMeta, label: 'App Page' })\n```\n\n`pageMeta.namespace` is `'ui'`, so `packages/core/src/registry/Registry.ts` stores **two** runtime keys per registration — `ui:app` and bare `app`. The generator resolves only the bare one.\n\n⇒ The generated `KNOWN_SCHEMA_TYPES` omits **five real runtime registry keys**: `ui:page`, `ui:app`, `ui:utility`, `ui:home`, `ui:record`.\n\n## Measured, at the merge base — independent of objectui#9263's change\n\n| probe | reading |\n|:--|:--|\n| the five namespaced page keys in the generated list | **0** each |\n| the same five in the registry-parity roster (`widget-dom-leak-sweep.test.tsx`) | present as real runtime keys |\n| **firing control** — three namespaced keys registered with a **literal** meta object (`page:header`, `element:text`, `action:button`) | **1** each |\n| absent-token control | 0 |\n\n⭐ The control is the part that makes this a defect rather than a design choice: the derivation is **not** blind to namespaces in general — only to namespaces that arrive by spread.\n\n## The consequence, in the generator's own words\n\nThis is the script's own named **MISSING** direction: `objectui check` reports a document spelling `ui:page` as an unknown type **while it renders perfectly**. A validator that refuses what the platform renders teaches authors to stop trusting the validator — the expensive direction, and the same one objectui#8499 recorded.\n\n## ⚠️ Why this is worth more than its size suggests\n\nOn objectui#9263 three instruments agreed that removing the `app` registration was complete and safe: the card's original census, the dev's independent re-take, **and this repository's own `deriveRegistryKeys`**. All three probed only the bare spelling. ⇒ **They agreed because they shared a blind spot, not because they were independent.** Two of the three inherited it from this generator.\n\nThat card is now back with the maintainer with its premise falsified (see objectui#9263, comment `5700884796`), and six shipped page documents in ObjectStack's own showcase were at stake.\n\n## What is NOT measured here\n\n- ⛔ Whether any other registration in the tree passes its meta by spread and is therefore also half-invisible. The five page kinds are the ones this surfaced; a census across every `ComponentRegistry.register` call is owed before anyone claims these five are all of them.\n- ⛔ The right repair. Resolving a spread statically, importing the meta, or deriving from the runtime registry are all different trades, and the generator's header may already rule some out.\n\n`pm:queue`, unassigned.\n\n---\n\n⚠️ **H64 自修(填卡席本人)**:本卡正文原来只写「execution seat」而没有 session id —— 本板的署名是文本里的 `session_` 号,账号 `hotlong` 只是会话被发到的 TOKEN,⛔ 不是作者。本班收尾那次 `check-half-states` 扫描点了本卡(同批还点了 #9641 / #9642),故由**填卡席本人**原地补入该号,补写于 2026-09-17T06:25Z;⛔ 正文其余部分一字未改,编辑历史 GitHub 自留。\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 9637,
+  "kind": "issue",
+  "title": "objectui#9627 post-PASS residuals (4): two corrected changesets each keep one contradicting sentence that still publishes, a self-referential false claim in a parity-test header, and a PR-prose CJK inaccuracy",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "package: types",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-16T16:30:41Z",
+  "updated_at": "2026-09-17T22:57:47Z",
+  "closed_at": "2026-09-17T22:55:30Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9637",
+  "body": "Filed by the `domain:spec` @ objectui execution seat. Four residuals the **second** isolated at-tier contract review of PR objectui#9627 named as **non-blocking** (record: PR comment `5700911252`, head `f8388535d9`, VERDICT **PASS**). The verdict is adopted verbatim — ⛔ this card does not reopen it, and ⛔ none of these four is a contract defect.\n\nContext for a reader who lands here cold: that PR went **FAIL → patch round → PASS**. The four corrections the FAIL required are done and verified. These are what the second review found *after* them, each judged and explicitly ruled not verdict-carrying.\n\n## 1 + 2 — two corrected changesets each keep one sentence that contradicts the correction ⚠️ time-boxed\n\nobjectui#9627 corrected the prose of two pending changesets in place (the right route, ruled so). Each still carries one older sentence the new text does not reach:\n\n- `.changeset/7129-retire-detailviewsection-hideempty.md` — still reads *\"an authored `hideEmpty` of either polarity is now inert, and the release notes should read that way\"*. The inserted supersession note says \"the paragraphs **above**\", so it does not cover this one, and the corrected Migration paragraph two below it says the opposite.\n- `.changeset/7064-empty-section-default.md` — still closes with *\"No application metadata needs editing — that is the point of the change\"*, now only framed by the new header paragraph rather than corrected.\n\n⚠️ **Both publish verbatim into the CHANGELOG**, in the same release as objectui#9627's own entry. The window closes when release PR objectui#5400 merges. Same class as objectui#9625 and objectui#9528.\n\n⭐ Neither is an instruction a consumer performs (which is why the review ruled them non-blocking — the one that *was* such an instruction was fixed in the patch round), and both entries do now state what ships. A one-line touch on each closes it.\n\n## 3 — a self-referential sentence that is false about its own file\n\n`packages/plugin-detail/src/__tests__/recordDetailsInputs.spec-parity.test.ts`. The patch round rewrote this header to stop asserting a stale fact about `showBorder`. The rewrite works, but the header now says:\n\n> Neither fact is written down as a verdict anywhere in this file\n\n…while the same header **does** write both down (`title` is refused by the installed spec, `showBorder` is declared by it), hedged with \"today\", and the body comment repeats them. Both statements are true at 17.4.0 and are derived per run, so ⛔ the contract is not affected — the only false sentence is the one claiming they are not written down.\n\n## 4 — PR prose inaccurate about its own CJK handling\n\nThe objectui#9627 body says pre-existing non-English strings in the touched files are left alone. For `record-details.hideEmptyRetired-7129.test.tsx` that is not what the diff does: 2 pre-existing lines were converted to English there. ⭐ The conversion itself is correct (AGENTS.md commandment #-1, English-only codebase) — ⛔ do not revert it. Only the PR body's account of it is wrong, and that body is not a published surface, so this is the lowest-value of the four. Recorded for completeness rather than because it costs anything.\n\n## Also recommended by the same review, ⛔ NOT part of this card\n\n`packages/plugin-detail` declares `@objectstack/spec` at `^17.1.0` while its four-party pin asserts a key the spec declares only from 17.3.0 (`packages/types` already declares `^17.4.0`). Pre-existing, outside objectui#9627's diff, and `check:spec-floors` is the instrument that owns it. It wants its own card if anyone picks it up.\n\n## Boundaries\n\n- ⛔ Do not touch the restoration itself, the default's placement, the edit-mode gate, or any pin assertion. The review ruled all of them right, twice.\n- ⛔ Do not change either changeset's frontmatter or declared packages — prose only. `check-changeset-overwrite` records such an edit under its own case 2, which is the intended shape.\n\n## State\n\n`pm:queue`. ⛔ No blocker: PR objectui#9627 is already cleared, ready and enqueued, so items 1–3 are reachable as soon as it lands. Item 1/2's **window** is the thing to watch, not a dependency.\n\nFiled by `session_01VCpmqvacV4BypY48QdoxcE`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

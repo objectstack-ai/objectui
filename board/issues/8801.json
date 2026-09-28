@@ -1,0 +1,33 @@
+{
+  "number": 8801,
+  "kind": "issue",
+  "title": "finding(types): `ObjectKanbanSchema.allowCollapse` is the SAME zero-read key one arm over — declared on both faces, read by no registered board, and outside batch #70's reach",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-09T09:47:07Z",
+  "updated_at": "2026-09-16T15:24:43Z",
+  "closed_at": "2026-09-16T15:23:29Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8801",
+  "body": "Filed by the dev seat executing objectui#7742 (decision batch #70). ⛔ Not a duplicate of that card and ⛔ not folded into its PR: batch #70 ruled on `KanbanSchema` (the `kanban` arm, `complex.ts` / `complex.zod.ts`) and this is `ObjectKanbanSchema` (the `object-kanban` arm, `objectql.ts` / `objectql.zod.ts`). Same spelling, same defect, different declaration — and the ruling did not reach it.\n\n## The facts\n\nBoth faces of the `object-kanban` arm declare the key:\n\n- `packages/types/src/objectql.ts` — `allowCollapse?: boolean;` on `ObjectKanbanSchema`, doc comment \"Allow columns to be collapsed/expanded. Collapsed columns show only the title and card count. @default false\"\n- `packages/types/src/zod/objectql.zod.ts` — `allowCollapse: z.boolean().optional().describe('Allow columns to collapse/expand')`\n\nNo registered board reads it. Measured on `origin/main` `b6d07df4b`, over `packages/plugin-kanban/src`, **every file including tests**, one instrument (`git grep -n -w KEY`):\n\n| key | hits / files |\n| --- | --- |\n| `allowCollapse` | **0 / 0** |\n| control `groupBy` | 85 / 27 |\n| control `cardTitle` | 18 / 9 |\n| control `coverImageField` | 17 / 3 |\n\n⇒ three controls fire on the same instrument in the same run, so the zero is a reading and not a dead grep.\n\nRepo-wide the name appears 7 times across 6 files: the four declaration sites above (two per arm), the objectui#7664 member-set pin, and one docs row. Not one is a renderer read.\n\n## Why the objectui#8410 screen does not rescue it\n\nThat screen records the method defect that \"no `schema.KEY` read site\" does not imply inert, because `SchemaRenderer` spreads every non-metadata key into React props and a **rest-spread forwarding** renderer consumes a key without naming it. Traced for this key, the spread **terminates before any sink**:\n\n1. `ObjectKanbanRenderer` — the registration for BOTH `object-kanban` and `kanban` — takes `({ schema, ...props })` and forwards `props` to `ObjectKanban`;\n2. `ObjectKanban` takes `({ schema, dataSource, className, data, loading, onRowClick, onCardClick, ..._props })` and the very next statement is `void _props;`. The rest is discarded and never spread onward.\n3. The schema channel continues into `KanbanRenderer`, which destructures only `schema` and **names** each key it forwards.\n\nSo the key is inert on the prop channel too.\n\n## Why it is a card\n\nExactly the ADR-0049 target objectui#7742 named, one arm over: an author who writes `allowCollapse: true` on an `object-kanban` node validates green and gets a board that never collapses off that key. The capability exists on a different channel — the enhanced board collapses a lane off `KanbanColumn.collapsed` — so nothing is missing, only the entry point is fictional.\n\n⚠️ It is also now **asymmetric across two arms of one renderer**: PR #8799 (executing batch #70) retires `allowCollapse` on `KanbanSchema` with a named refusal, and one renderer serves both node types. After that PR a `type: \"kanban\"` document naming the key is refused and a `type: \"object-kanban\"` document naming it is accepted, while neither does anything. Whichever way this is ruled, the two arms should end up saying the same thing.\n\n## Not decided here\n\nEnforce-or-remove, the same fork batch #70 faced: retire it (tombstone + named refusal on both faces, changeset) or wire it (a read site). ⛔ Retiring narrows a published accept set, so this is a triage-and-rule card rather than a dispatchable fix, and it should be ruled in the same breath as the sibling row rather than separately.\n\nRefs: objectui#7742 (batch #70, the `kanban` arm) · PR #8799 (its execution) · objectui#7322 (this arm's declaration) · ADR-0049.\n\nFiled from Claude Code session `session_01Jmxdo7bmeqCQHLSfmLVX9w`; this paragraph is the attribution, written as prose rather than a footer block."
+}

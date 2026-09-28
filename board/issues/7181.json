@@ -1,0 +1,34 @@
+{
+  "number": 7181,
+  "kind": "issue",
+  "title": "finding(cli/vscode/core): the `body` dialect has PRODUCERS and generic readers outside objectui#6771's population — `objectui init` scaffolds every new project in it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-warren",
+    "id": 318460043,
+    "type": "User"
+  },
+  "labels": [
+    "auto-adjudicated",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-01T09:54:44Z",
+  "updated_at": "2026-09-18T11:02:03Z",
+  "closed_at": "2026-09-18T10:58:34Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7181",
+  "body": "Found while executing ruling step 1 of objectui#6771 (the `body` liveness census, branch `claude/issue-6771-body-dialect-census`). Out of that dispatch's fence — it is scoped to measurement only — so this is filed rather than swept in.\n\nobjectui#6771's 2026-09-01 ruling retires the `body` child-list dialect in five steps. Steps 2 and 4 enumerate **renderers** and **the tier**; step 5 says \"corpus and teaching migrate in the same commit — the platform never refuses a spelling it still ships.\"\n\nThe census measured two populations the five steps never name. Both are inside this repo.\n\n## 1. The platform PRODUCES `body` metadata today\n\nThese are not corpus and not teaching. They are code paths that emit `body`-spelled metadata into files a user then owns:\n\n| producer | `body` nodes | what it emits |\n|:--|--:|:--|\n| `packages/cli/src/commands/init.ts` | **53** | the scaffolded `app.json` for every `objectui init` template (`simple`, `form`, …) |\n| `packages/vscode-extension/src/extension.ts` | **14** | the extension's new-file templates (`empty`, `form`, `dashboard`) |\n| `packages/components/src/renderers/complex/carousel.tsx` | 3 | shipped `defaultProps.items` |\n| `packages/components/src/renderers/complex/resizable.tsx` | 2 | shipped `defaultProps` panel content |\n| `packages/runner/src/App.tsx` | 1 | the runtime \"no index page found\" fallback tree |\n| `packages/components/src/renderers/complex/scroll-area.tsx` | 1 | shipped `defaultProps` |\n\nVerbatim from `init.ts`, the `simple` template:\n\n```ts\nsimple: {\n  type: 'div',\n  className: 'min-h-screen flex items-center justify-center …',\n  body: {\n    type: 'card',\n    …\n    body: { type: 'div', className: 'p-6 space-y-4', body: [ … ] },\n  },\n},\n```\n\n⇒ **Step 4 (the tier teaches `children` only) cannot land before these move**, or every freshly scaffolded project fails validation on the first run of the tool that scaffolded it. That is the same ordering constraint step 5 states, applied to a surface step 5 does not mention: the `defaultProps` cases are stronger still, because the registration ships the dialect inside its own declared default.\n\n## 2. Three generic `body` readers live outside the renderer tree\n\nStep 2 converges *registrations*. These three resolve `body` for **any** node type, so they outlive that convergence and keep the dialect alive after it lands:\n\n- `packages/core/src/validation/schema-validator.ts:419` — `const children = schema.children || schema.body;`\n- `packages/vscode-extension/src/providers/SchemaValidator.ts:102`\n- `packages/vscode-extension/src/providers/PreviewProvider.ts:226,240`\n\nControl for that reading, same query shape, same run: `schema.children` outside `packages/components/src/renderers` resolves in **14** files, so the three hits above are a positive result and not an empty pathspec. (An earlier attempt at this query used a `packages/*/src` pathspec that returned zero for **both** `body` and `children` — a vacuous control. The reading above is the re-run with a control that fires.)\n\n## Measured with\n\n`pnpm census:body-dialect` (`scripts/body-dialect-census.mjs`, added on the objectui#6771 census branch), plus `git grep` with the control noted above. Repo state `47035ce79`.\n\n## Why this is filed rather than fixed\n\nEvery item above is inside objectui#6771's step 2–5 fence, which is `Clause-② yes at dispatch` and tier-gated. This card only records that the population is wider than the ruling enumerates, so the retirement is not planned against a short list. ⛔ No narrowing is proposed here.\n\n## Related\n\nobjectui#6771 (the retirement and its census) · objectui#6829 (`badge` nodes authoring `children`, independently reproduced by the same census: 7 nodes, same four files)"
+}

@@ -1,0 +1,32 @@
+{
+  "number": 6150,
+  "kind": "issue",
+  "title": "finding(types): 13 top-level schema keys that component renderers genuinely READ are declared by no shipped type — measured across all 76 `content/docs/components` pages",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui-tw",
+    "id": 314596056,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-08-24T21:16:49Z",
+  "updated_at": "2026-09-17T01:41:14Z",
+  "closed_at": "2026-08-31T03:46:28Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 10,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/6150",
+  "body": "Measured while sweeping #6143 (component reference pages re-declaring their own `interface`). Filed unassigned, not fixed there — #6143's dispatch order rules this class out of its scope explicitly:\n\n> A documented key the renderer genuinely reads but the type does not declare is an **undeclared-but-consumed capability** — a types defect, not a docs defect, and it goes to a separate card rather than being edited away.\n\nThis is that card, with the measurement in it.\n\n⚠️ Edited once on filing day to restore two fragments GitHub's body sanitizer ate — it strips anything shaped like an HTML tag, so angle-bracket generics and placeholders are written **in words** here. Nothing else changed.\n\n## What was measured\n\nAll **76** `content/docs/components/**` pages, every `interface` declared in their `## Schema` blocks (98 names), each documented key tested for membership against the **built** `packages/*/dist/*.d.ts` resolved through the gate's own `derivePackageTypePaths()` (`@object-ui/types` resolving to `packages/types/dist/index.d.ts`, 47 entry files from `dist/`, **0** from `src/`).\n\n68 documented keys are not declared members of their shipped type. For each, the renderer was read to see whether it actually consumes the key — a `schema.` dotted read of that key name off the schema object, or the key destructured out of `schema`. **13 are genuinely read.** Those are capabilities that work at runtime and that no type declares.\n\n## The 13\n\n| page | type | key | read at |\n|---|---|---|---|\n| `basic/text.mdx` | `TextSchema` | `content` | `renderers/basic/text.tsx:51,56` — `{schema.content \\|\\| schema.value}` |\n| `complex/carousel.mdx` | `CarouselSchema` | `opts` | `renderers/complex/carousel.tsx:23` — `opts={schema.opts}` |\n| `complex/carousel.mdx` | `CarouselSchema` | `orientation` | `carousel.tsx:24` — `orientation={schema.orientation \\|\\| 'horizontal'}` |\n| `complex/carousel.mdx` | `CarouselSchema` | `itemClassName` | `carousel.tsx:30` — `className={schema.itemClassName}` |\n| `complex/filter-builder.mdx` | `FilterBuilderSchema` | `wrapperClass` | `renderers/complex/filter-builder.tsx:37` |\n| `data-display/tree-view.mdx` | `TreeViewSchema` | `nodes` | `renderers/data-display/tree-view.tsx:105` |\n| `data-display/tree-view.mdx` | `TreeViewSchema` | `onNodeClick` | `tree-view.tsx:98,99` — invoked, not just read |\n| `data-display/tree-view.mdx` | `TreeViewSchema` | `title` | `tree-view.tsx:115,117` |\n| `form/checkbox.mdx` | `CheckboxSchema` | `required` | `renderers/form/checkbox.tsx:45,49` — drives the `*` affordance |\n| `form/file-upload.mdx` | `FileUploadSchema` | `buttonText` | `renderers/form/file-upload.tsx:123` |\n| `form/file-upload.mdx` | `FileUploadSchema` | `wrapperClass` | `file-upload.tsx:78` |\n| `overlay/hover-card.mdx` | `HoverCardSchema` | `align` | `renderers/overlay/hover-card.tsx:24` — `align={schema.align}` |\n| `overlay/context-menu.mdx` | `ContextMenuSchema` | `trigger` | `renderers/overlay/context-menu.tsx:64` |\n\n⚠️ `context-menu.mdx` is one of #6132's five files, currently with the maintainer — that row is recorded, not actioned.\n\n## Why this is not visible today, and will not become visible\n\nThese reads type-check because `BaseSchema` ends with `[key: string]: any` (#5155, open, `pm:queue`, maintainer-ruled 2026-08-19). Every one of these schemas inherits it, so `schema.trigger` on a type that never declared `trigger` resolves to `any` rather than erroring. The declaration and the consumption are connected by nothing at either end:\n\n- the **type** does not declare the key, so no editor completes it and no annotation checks it;\n- the **renderer** reads it anyway and it works;\n- the **docs** document it — correctly, as a description of behavior — which is how these were found.\n\nSo the documentation is the only place in the repo that records these 13 capabilities, and it is the one place with no mechanical guard. #6143's sweep found them precisely because it was checking the docs against the types and had to decide, per key, which side was wrong.\n\n## What is NOT being claimed\n\nThat the docs are wrong. They are right — these keys work. The defect is that the shipped types under-declare a working surface. Two of the 13 (`CheckboxSchema.required`, `TreeViewSchema.onNodeClick`) are behavioral rather than cosmetic: `required` drives a visible required-marker, `onNodeClick` is invoked as a callback.\n\nThe fix direction is to **declare them**, not to delete the prose — but which of the 13 are intended public API versus incidental reads is a judgement this card does not make. `CarouselSchema.opts` in particular is a pass-through of the underlying carousel library's option bag and may want a narrower shape than \"declare what is read\".\n\n## Adjacent, deliberately excluded\n\n- `StackSchema.gap` / `.children` looked identical to this class and are **not** — they are declared on `FlexSchema` and erased by the Omit-of-`FlexSchema`-minus-`type` heritage clause collapsing under the index signature. Filed separately as **#6151**.\n- `NavigationMenuItem.items` and `FilterField.value` were candidates and were **rejected on inspection**: the renderer reads `schema.items` / `schema.value` off the top-level schema, not off the nested item type the docs declare them on. Those two are docs-only keys, not consumed capabilities.\n\nRefs: #5155 (why these compile) · #6143 (where measured) · #6151 (sibling finding, same sweep, different mechanism) · #4631 (same family: three declared surfaces that disagree) · #5903 / #5018 (same shape, per-component, closed).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_019b5UBNMtTzKbVtZZGvFuxe)_"
+}

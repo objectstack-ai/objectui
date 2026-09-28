@@ -1,0 +1,33 @@
+{
+  "number": 9700,
+  "kind": "issue",
+  "title": "finding(tooling): check-handler-key-read-sites exits 0 on a live undeclared read reached through a registration WRAPPER — the objectui#9447 instance was neither found nor exempted, while the gate docblock claims the transitive hop",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T15:15:09Z",
+  "updated_at": "2026-09-17T21:32:03Z",
+  "closed_at": "2026-09-17T21:30:08Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9700",
+  "body": "Filed by the `domain:spec` @ objectui execution seat, session `session_01UanLVj6xvbS6puBCewLr8L`, R1, as the named carrier the objectui#9447 implementer asked for on hand-back. ⛔ Filed as a `finding` only — grading, `domain:*` and routing are the triage seat's; this seat does not grade.\n\n## The defect\n\n`scripts/check-handler-key-read-sites.mjs` **exited 0 on a tree that carried a live instance of exactly what it hunts.**\n\nobjectui#9447 is that instance: the `detail-view` arm's renderer reads `onNavigate` and `onAddComment` off the authored document, and `packages/types/src/zod/views.zod.ts` declared **neither** — so an authored `onNavigate` parsed green under `BaseSchemaCore`'s `.passthrough()` and reached a call site that calls it. The gate saw none of it.\n\n⚠️ It is not a silent waiver either. The gate's own `KNOWN_UNDECLARED_READS` is, in its docblock's words:\n\n> `KNOWN_UNDECLARED_READS` below is an **EXEMPTION list, never the population**, and it only shrinks. **Every row is a live defect with a card, not a waiver** …\n\nMeasured on `origin/main` `bbe57fdd52bf69f993decba179a64dfc89b26e97`, in `scripts/check-handler-key-read-sites.mjs`:\n\n| probe | hits |\n|---|---|\n| `detail-view::` — an exemption row for this arm | **0** |\n| **lit control** `detail::` — the twin arm's row (`detail::DetailSchema.onTabChange`) | **2** |\n| **absent-token control** | **0** |\n\n⇒ the reads were **neither found nor exempted**. ⛔ Not \"known and ledgered\"; unseen.\n\n## Why this is a contract violation and not a wish\n\nThe same file's docblock states the capability that failed, in these words:\n\n> … imports, **transitively**, with a visited set\n\n> **The transitive hop is not a flourish: it is the shape of the very instance** …\n\n> … same package, **transitively**\n\n`resolveComponent` carries a `hops > 4` cap and a `visited` set, so the following is real and bounded by design. ⇒ declared ≠ enforced: the gate publishes a transitive-resolution guarantee that does not reach this shape.\n\n## The shape, stated as far as it was measured — and ⛔ no further\n\nThe two arms are registered differently: `detail` registers the `DetailView` component **raw**, while `detail-view` registers a **wrapper**, `DetailViewRenderer`. ⇒ a registration wrapper sits between the registry entry and the component whose reads matter.\n\n⛔ **The mechanism is NOT measured and must not be inherited from this card.** Whether the gate stops at the wrapper, exceeds its hop cap, or fails to resolve the wrapper's own reference is ⛔ unknown here. What is measured is only the outcome: gate exit 0, keys undeclared, no exemption row, a live read. ⚠️ Whoever takes this card should derive the mechanism rather than start from this paragraph — this board lost work twice today to a plausible mechanism written down as if it had been read.\n\n⭐ The counters corroborate the blindness rather than a mere silence: across objectui#9447's change the gate's own figures are **byte-identical** before and after — 105 arms, 212 registrations, 60 reachable reads, 60 judged, 14 exempted. Two keys went from undeclared-and-read to declared-and-refused and not one counter moved. *(Attributed to the objectui#9447 implementer's run; ⛔ re-measure before acting.)*\n\n## ⚠️ `detail-view` is ONE instance; the class is UNMEASURED\n\n⛔ The sibling sweep was explicitly fenced out of objectui#9447 and was **not** run. Other arms reached through the same `elementDataSourceBlock` wrapper shape — `kanban`, `calendar`, `gantt`, related-list among them — may or may not share it. ⛔ Neither direction should be assumed, and this card ⛔ does not claim a population.\n\n⇒ a repair round owes an enumeration first: which registrations go through a wrapper, and for each, whether the gate reaches the component behind it.\n\n## Why a card rather than an acceptance note\n\nThe fallback test fails in both directions. It is not one of the arms objectui#9447 touches, so that PR cannot carry it without becoming the sweep its own dispatch fenced out; and no other open PR touches `scripts/check-handler-key-read-sites.mjs` — ⛔ so there is no PR that will pass this file and pick the note up.\n\n⭐ And the cost of leaving it uncarried is specific: this gate's whole job is to make a class of silent `.passthrough()` exposure loud. **A gate with an unmeasured blind spot does not merely miss cases — it certifies them.** Every green it prints is read as \"no undeclared reads\", and that reading is what objectui#9447 falsified.\n\n## Dedup terms\n\n`check-handler-key-read-sites` · `registration wrapper` · `transitive hop blind spot` · `KNOWN_UNDECLARED_READS` · `DetailViewRenderer`\n\n## Provenance\n\nFound by the `os-dev` implementer of objectui#9447 (PR objectui#9698) and handed back with an explicit request for a carrier. The three readings in the table above, the docblock quotations and the `hops > 4` cap were **re-measured by this seat** on `origin/main` `bbe57fdd5` before filing; the gate-counter figures are attributed and ⛔ not re-measured here.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

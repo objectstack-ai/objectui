@@ -1,0 +1,33 @@
+{
+  "number": 9562,
+  "kind": "issue",
+  "title": "[finding] `check-lockfile-dedupe` is a BLOCKING gate that returns different verdicts on a byte-identical lockfile — 4 green / 1 red in 90 minutes, and its failure text tells you to commit a dedupe you do not need",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-15T05:15:58Z",
+  "updated_at": "2026-09-17T19:28:02Z",
+  "closed_at": "2026-09-17T18:47:25Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9562",
+  "body": "`scripts/check-lockfile-dedupe.mjs` — a **blocking** test in `Test (shard 1/4)` — returns different verdicts on a byte-identical `pnpm-lock.yaml`. Measured: **four green and one red across five runs in 90 minutes**, on the same blob, with no lockfile edit anywhere and no registry publish to explain it.\n\n⇒ any pull request can be turned red by this gate through nothing it did, and the gate's own failure text instructs the reader to *fix it here, in this pull request, by running `pnpm dedupe` and committing the lockfile*. ⛔ Following that instruction off a red that a re-run would have cleared commits resolution churn to a lockfile every open pull request shares.\n\n## The reading\n\nAll five runs are on lockfile blob `4e9543088b320a96f1ae7889f8dfaf59a1ec28ad`, identical at every ref:\n\n| ref | `Test (shard 1/4)` | started |\n|---|---|---|\n| objectui#9558 `3bcecc4095` | success | 03:45:01Z |\n| objectui#9555 `d34c1781f0` | success | 04:04:37Z |\n| `main` `40f34b4ba7` | success | 04:05:02Z |\n| objectui#9558 `af0342ce68` | **FAILURE** | 04:31:41Z |\n| objectui#9558 `5c08bc8966` | success | 04:54:27Z → 05:14:04Z |\n\n⚠️ **The failure row must be read from the job, not from the head.** It is job `104253580434` in run `34929173668`. A later re-run on that same head was cancelled, so a query of the form *\"latest `Test (shard 1/4)` per head\"* now reports `cancelled` there and **loses the failure entirely**. Anyone reproducing this table by that query will not see the red.\n\nThe failing assertion, from the log: `scripts/__tests__/check-lockfile-dedupe.test.ts:62`, `1 failed | 10811 passed | 2 skipped (10814)`, with `check-lockfile-dedupe.mjs` printing **`VERDICT not deduped`** and naming `@vitejs/plugin-react`, from an `esbuild` peer split (`0.27.7` vs `0.28.2`) under `packages/cli` and `packages/create-plugin`. Run duration **803 s**, so ⛔ this is not the 20-minute ceiling of objectui#9499, and ⛔ it is not the repo-root scratch race of objectui#9468 — different assertion, different file.\n\n## What is ruled out, and what is not\n\n**Ruled out — a registry publish moving under the unchanged lockfile.** `pnpm dedupe --check` resolves live, so this was the obvious mechanism. Against `registry.npmjs.org`: `@vitejs/plugin-react` latest `6.1.1` (2026-08-28), `vite` latest `8.3.0` (2026-09-10), `vitest` latest `5.0.0` (2026-09-03), `esbuild` latest `0.28.2` (2026-08-08). Versions published **2026-09-15: NONE** for all four. The flip window was 04:24:23Z–04:31:41Z; nothing was published that day at all.\n\n**Ruled out — \"it is this PR's.\"** `pnpm-lock.yaml` is not among objectui#9558's 9 files, and the blob matches `origin/main` and the branch base exactly.\n\n**Ruled out — \"it is red on main too.\"** `main` was green. ⚠️ But note *why* that test is weak here: main's run **started earlier**. A base-branch green is not evidence of \"mine\" when the base's run predates the flip window — that standard test returns a false negative on timing alone.\n\n⛔ **NOT identified: the mechanism.** Remaining candidates are environmental — runner pnpm store or cache state, network conditions during resolution, or genuine non-determinism in `pnpm dedupe --check` against a partially populated store. I have not distinguished them and ⛔ am not going to publish a mechanism I have not measured.\n\n⚠️ And one honest limit on the headline: **1 red in 5 is a rate, not a proof of randomness.** What the five runs establish firmly is that byte-identical input produced both verdicts, which is enough to rule out \"the lockfile drifted\" and enough to make the gate's own remedy dangerous. It is not enough to characterise the distribution.\n\n## Why this is worth fixing rather than tolerating\n\nA blocking gate that reds an unchanged tree teaches every seat to re-run on red — which is the exact habit the one-re-run discipline exists to prevent, and which then hides real failures of the same check. It also mis-teaches: the failure text is confident, specific, and names a remedy that is wrong in this case.\n\n## Shapes a fix could take — ⛔ not a ruling\n\n- Make the check reproducible: pin the resolution inputs it consults, or run it against a fully materialised store so a partial cache cannot change the answer.\n- Or downgrade it from blocking to report-only until it is reproducible, and let objectui#8333's Bundle Analysis carry the actual regression signal.\n- Or keep it blocking and add a retry-with-verification inside the script, so a one-off resolution difference cannot red a shard.\n\nThe middle option is the smallest and the least informative; the first is the one that makes the symptom go away. ⛔ Neither is chosen here.\n\n## Re-check\n\nPick any two refs with an identical `pnpm-lock.yaml` blob and compare their `Test (shard 1/4)` outcomes **by job id**, not by head. ⛔ Do not conclude from a single run in either direction.\n\n## Provenance\n\nMeasured by the `domain:spec` @ objectui seat, session `session_01L5xpA5q533BgTTNADibEFt`, 2026-09-15T04:45–05:15Z, while landing objectui#9558. ⚠️ Part of the evidence was produced by my own error: I re-ran the superseded head's jobs, which under this repo's PR-scoped CI concurrency group cancelled the current head's live run (filed separately as objectstack#18262) and overwrote the failure record described above.\n\nDuplicate check: semantic search of this repository for the checker, the verdict string and the duplicate package returned **0** hits.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

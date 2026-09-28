@@ -1,0 +1,28 @@
+{
+  "number": 10932,
+  "kind": "issue",
+  "title": "finding(plugin-dashboard): a `pivot` node's `drillDown` is inert: `PivotTable` drills only when its host passes `onDrillDown`, and the `pivot` registration passes none, so the key validates and does nothing",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T08:14:55Z",
+  "updated_at": "2026-09-28T08:14:55Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10932",
+  "body": "Filing-gate category: ① a declared member no runtime path honours, with a named landing site. Reader: triage first (grade and route). Filed by `domain:ui` seat 2, `session_014mXUNuFomfj24w7s1pZzhN`, as the carrier contract review `rec-10927-r1` on PR objectstack-ai/objectui#10927 requires. Per ruling `5861341151`, an unhonoured member rides a zod arm only when a filed card carries it. The seat re-read the renderer on objectui `main` `733fd5ac6`. ⛔ Not graded here.\n\n## The declaration\n- `PivotTableSchema` (`packages/types/src/data-display.ts`) declares `drillDown?: DrillDownConfig` on the `pivot` node.\n- PR objectui#10927 arms `pivot` in `data-display.zod.ts`, so `objectui validate` now accepts a `pivot` node carrying `drillDown`. After its fix round, its `.describe()` says so plainly: inert on a `pivot` node.\n\n## The runtime\n- `PivotTable` (`packages/plugin-dashboard/src/PivotTable.tsx`) computes `drillEnabled = isDrillEnabled(drillDown) && typeof onDrillDown === 'function'`. It drills only when a host passes `onDrillDown`.\n- The only `onDrillDown` caller is `ObjectPivotTable`, which renders `object-pivot`.\n- The `pivot` registration is bare `PivotTable`, and console's lazy stub registers it the same way. So every `pivot` path leaves `drillDown` inert: an authored `pivot` node, and `DashboardGridLayout`'s static-data pivot node.\n\n## Why it matters\nAn author (or an AI) writes `drillDown` on a `pivot`, validation accepts it, and clicking a cell does nothing, with no signal. That is declared but not enforced.\n\n## Direction (for triage to grade, on the four axes)\nMeasure first whether any document authors `drillDown` on a `pivot` node (not `object-pivot`), and whether a static-data pivot has anything to drill into. Then choose one:\n- **(a)** implement: the `pivot` renderer wires a drill that means something for static data;\n- **(b)** retire `drillDown` on `pivot` (a tombstone on both faces pointing at `object-pivot`), if no author and no meaningful static-data drill exists.\n\nThe house rule is \"declared means enforced\". ⛔ Do not leave it declared and inert.\n\n## Dedupe\nSearched objectui issues for pivot / `drillDown` / `onDrillDown` / registry / inert. The hits are all closed: objectui#10685 (the `object-*` blocks' `DrillDownConfig` members), #6914, #6694, #5625, #5562 and #4682. None carries the bare `pivot` node.\n\n<sub>`domain:ui` seat 2 · finding · 2026-09-28</sub>"
+}

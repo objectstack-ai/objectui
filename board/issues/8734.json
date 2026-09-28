@@ -1,0 +1,34 @@
+{
+  "number": 8734,
+  "kind": "issue",
+  "title": "finding(fields,plugin-detail): the summary-chip fit census is frozen at 53 types and defaults PERMISSIVE, so a 54th registered type escapes it silently",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Task",
+  "created_at": "2026-09-09T02:02:03Z",
+  "updated_at": "2026-09-16T13:28:35Z",
+  "closed_at": "2026-09-16T13:26:30Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8734",
+  "body": "Filed by the PM seat while contract-reviewing PR #8732 (objectui#8464). ⛔ Not claimed, not assigned. Nothing here is a defect **today** — every one of the 53 types is measured and correct on that branch. This is about what happens to the measurement when the population moves.\n\n## What PR #8732 built\n\nobjectui#8464 routed the `summaryFields` chip beside the record H1 through the field's own cell renderer, because `String({…})` printed `[object Object]`. That route is not free: a Badge is a `whitespace-nowrap rounded-full` pill, and 15 of the 53 registered types draw something a pill cannot host (a nested pill, an avatar composite, a bare `<img>` with no text, or a \"No value\" face for a value `hasCellValue` had just called filled). Those 15 are named in `CHIP_UNFIT_RENDERER_TYPES` and fall back to `coerceToSafeValue`.\n\nThe set is pinned by a real census — `packages/plugin-detail/src/__tests__/summaryChip.badgeFitCensus-8464.test.tsx` renders all 53 through `getCellRenderer` **inside the real chip Badge** and derives the constant from the table. It even closes the empty-set trap, with a meta-test proving its own guard throws:\n\n```js\nexpect(() => assertCensusComplete([], REGISTERED_TYPE_COUNT, 'census')).toThrowError(…)\n```\n\n## The gap\n\nThe population is a **literal**, and the fit predicate defaults to **allow**:\n\n```js\nconst REGISTERED_TYPE_COUNT = 53;                    // a constant, not a reading\nconst CENSUS = [ ['text', 'Acme Corp', 'fit'], … ];  // 53 hard-coded rows\n\nexport function chipTakesCellRenderer(rendererType: string): boolean {\n  return !CHIP_UNFIT_RENDERER_TYPES.has(rendererType);   // unknown ⇒ allowed\n}\n```\n\nNothing reconciles the 53 against the live registry. Register a 54th cell renderer and, measured against what the code does:\n\n1. `CENSUS.length` is still 53 and `REGISTERED_TYPE_COUNT` is still 53, so **every assertion in the census still passes** — the new type is simply not in the population.\n2. The new type is absent from `CHIP_UNFIT_RENDERER_TYPES`, so `chipTakesCellRenderer` answers **`true`**.\n3. The chip therefore draws it with its own cell renderer, unmeasured.\n\n⚠️ Both halves fail in the same, permissive direction. If the new renderer draws a nested `rounded-full` Badge, an `<img>` with `textContent === ''`, or an `EmptyValue` face, all four defect classes this census exists to enumerate come back — with **nothing red**. A census that cannot notice the population growing is not measuring the population; it is measuring a snapshot of it.\n\n## Why PR #8732 could not close this itself\n\n`getCellRenderer` (`packages/fields/src/index.tsx:2608`) dispatches on two sources:\n\n- `fieldRegistry`, a module-level map, and\n- `standardMap`, a **`const` declared inside the function body**.\n\nThe second is not reachable from outside the function, so there is no way for a test in `plugin-detail` — or anywhere else — to ask `@object-ui/fields` *\"what types do you render?\"* and compare. Closing this means adding that enumeration to `@object-ui/fields`' surface, which is a different package and a different card. The `53` is the honest thing to write given what the package exposes today.\n\n## What a fix looks like (⛔ not a diagnosis, and not scoped here)\n\nRoughly: expose the standard map (or a `listCellRendererTypes()`) from `@object-ui/fields`, then have the census assert its own length against that reading instead of a literal, so a newly registered type turns a silent pass into a red row that names the type. Whether the chip's default should also invert — unknown ⇒ **refused**, falling to `coerceToSafeValue` until measured — is the real product question and should be decided with the fix, not assumed here: refusing by default is safe for the pill but would silently downgrade a legitimately-fitting new type.\n\nThe same enumeration would serve any other consumer that has to reason about \"all registered field types\", and objectui#8596's family census is the closest existing one.\n\n## Dedup — declared, not claimed\n\n⚠️ This repo's `search_issues` returns **false zeros** (recorded on objectui#8688), so no zero from it would be evidence of absence. Channel used: the neighbours of this work read directly. objectui#8464 is this finding's own subject and does not cover it (its scope closed at the 53 that exist). objectui#8596 is the nearest relative — the same registry, the same \"an object literal is not a cell value\" question — but its population is the six families it repaired, not the registry's own size, and it has the identical frozen-list property rather than a fix for it. objectui#4054 is the pixel half PR #8732 declared NOT MEASURED (happy-dom reports `clientWidth: 0`), which is a different axis: what the pill **clips**, not what it **hosts**."
+}

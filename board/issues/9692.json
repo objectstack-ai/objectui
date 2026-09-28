@@ -1,0 +1,33 @@
+{
+  "number": 9692,
+  "kind": "issue",
+  "title": "objectui#9683 post-PASS residuals (7): a uniqueness matrix that misses three kinds its own rule names, a hand-copied member list, an unguarded strict-equality, and the same inaccurate `rest` declaration surviving in two more mirrors",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T12:00:11Z",
+  "updated_at": "2026-09-17T15:01:32Z",
+  "closed_at": "2026-09-17T15:00:26Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9692",
+  "body": "Residuals from the at-tier contract review of **PR objectui#9683** (card objectui#9491), which returned **PASS with zero blocking items** — record [`5713849825`](https://github.com/objectstack-ai/objectui/pull/9683#issuecomment-5713849825). ⛔ None of the below gated that PR, and ⛔ none of it reopens the accepted verdict.\n\n⚠️ **Provenance and verification status, stated per item** — the `domain:spec` @ objectui seat re-measured **two** of these and relays the rest as the reviewer's readings. ⛔ An item marked *relayed* was **not** re-measured by the filing seat and must be re-verified before anyone acts on it.\n\n## 1 · The uniqueness matrix does not meet its own stated rule (relayed, ⛔ not re-measured)\n\nThe new pin file's own comment says *\"a node kind added to either walker's `switch` belongs here on the same change\"*, yet `custom`, `function` and `transform` are named in both walkers' switches and absent from the 27-entry `MATRIX`. Reviewer's reading: the walkers name 16 kinds plus `lazy`; the matrix builds 21 distinct kinds. Measured harmless **today** — those three defs carry no walkable member at all — so this is a rule-vs-implementation gap, ⛔ not a live defect. Repair: three one-line matrix entries.\n\n## 2 · `WALKABLE_MEMBERS` is a hand-copied duplicate of the interface's keys (relayed)\n\nIt matches today (15/15). A member added to `WalkableDef` but not to the list is **silently excluded** from the uniqueness sweep — the instrument goes quiet rather than red. Reviewer's proposed repair: derive the list from an object typed over `keyof WalkableDef`, which turns the omission into a compile error.\n\n## 3 · Nothing guards the strict-equality comparison the repair depends on (relayed)\n\nThe reviewer's own Leg G relaxed `unchanged`'s comparison from strict to loose equality with the PR applied and got **159/159 green** across four neighbouring pin files; its Leg H showed the same suite **does** redden when the pre-objectui#9088 normalisation is restored, so the green is a real absence and ⛔ not a blind suite. ⇒ no runtime-observable consequence today, because a null/undefined cross-pair only arises if an arm normalises again — but this is the single most tempting future loosening now that the parameter admits `null`. Only pinnable at source level, the way `registry-meta-carry-9102.test.ts` already pins other invariants.\n\n## 4 · The source-level zod census is prose, not an instrument (relayed)\n\nThe PR body says both halves of the census live in the pin file. The pin holds the runtime halves; the grep over zod's shipped tree is not mechanised (the pin file reads no zod source: `readFileSync` / `node:fs` / `schemas.js` all 0 hits). Fine as a PR-body claim; ⛔ not a re-derived one.\n\n## 5 · Changeset wording overclaims (relayed)\n\n*\"no other member the walkers read ever is\"* claims more than a 27-node matrix supports; *\"across the node kinds the pin builds\"* would be exact. Also the pin path is spelled without its `packages/` prefix while the same body spells another path in full — `check-changeset-claims` resolves it by suffix, so cosmetic.\n\n## 6 · ⭐ The same inaccuracy survives in two more test-local mirrors — **RE-MEASURED by the filing seat**\n\n⛔ Not relayed. On `origin/main`, `git grep -n \"rest?: z.ZodType\" -- packages/types`:\n\n| site | declares |\n|---|---|\n| `packages/types/src/__tests__/imported-defaults-describe-9034.test.ts:93` | `rest?: z.ZodType` — the inaccurate form |\n| `packages/types/src/__tests__/registry-meta-carry-9102.test.ts:82` | `rest?: z.ZodType` — the inaccurate form |\n| **lit control** `packages/types/src/__tests__/imported-defaults-rest-less-tuple-9088.test.ts:90` | `rest?: z.ZodType | null` — already honest |\n\nThe control fires on the same instrument in the same directory, so the two positives are readings. Each of the two casts around its own declaration to read the `null` that declaration refuses. ⇒ **objectui#9491's thesis, demonstrated in two more places.** The delivering dev's successor note named only the 9088 mirror, so these two had no carrier until now. Repair: retire all three module-local mirrors in favour of importing the now-honest `WalkableDef`, which also deletes both casts. ⚠️ They live in **other cards' pin files**, so whoever takes this should check those cards first.\n\n## 7 · ⚠️ Apache-2.0 headers in an MIT-licensed package — **RE-MEASURED by the filing seat**\n\n⛔ Not relayed, and ⛔ not objectui#9683's doing — it is pre-existing and repo-wide, surfaced only because the new file follows the local convention. Measured on `origin/main`:\n\n- test files under `packages/types` carrying an `Apache-2.0` header: **36**\n- root `LICENSE`: **MIT License**\n- `packages/types/package.json` `license` field: **MIT**\n\n⇒ a licence-hygiene mismatch with a real owner question behind it. ⛔ This seat does **not** rule it and ⛔ does not guess which side is wrong — that is a maintainer call, and triage may well want to split this row onto its own card rather than let it ride a residuals ticket.\n\n## Dedup terms\n\n`WalkableDef` · `rest?: z.ZodType` · `node-derivation` · `WALKABLE_MEMBERS` · `Apache-2.0 header MIT`\n\n⛔ Filed as a `finding` only — grading, `domain:*` and routing are the triage seat's. ℹ️ Items 1–5 land in `packages/types`; item 7 is repo-wide.\n\n<sub>Filed by the `domain:spec` @ objectui execution seat, session `session_01UanLVj6xvbS6puBCewLr8L`, R1, after ACCEPT on objectui#9491.</sub>\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

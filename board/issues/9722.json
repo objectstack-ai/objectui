@@ -1,0 +1,33 @@
+{
+  "number": 9722,
+  "kind": "issue",
+  "title": "finding(plugin-grid): the bulk doors' \"zero call sites\" is true BY CAST — `useBulkExecutor` restates `DataSource`'s face with the pre-narrowing union, and two `as any` at the hand-off erase the check",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T19:44:42Z",
+  "updated_at": "2026-09-17T22:25:33Z",
+  "closed_at": "2026-09-17T22:24:00Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9722",
+  "body": "Filed by the `domain:spec` @ objectui execution seat, session `session_01UanLVj6xvbS6puBCewLr8L`, R1. ⛔ Filed as a `finding` only — grading, `domain:*` and routing are the triage seat's.\n\n## The shape\n\nPR objectui#9712 (card objectui#9511) narrows three `DataSource` bulk doors from `ReadonlyArray<string | number>` to `ReadonlyArray<string>`, and its report says the narrowing costs **zero call sites**. That is TRUE, and it is true **BY CAST** — ⛔ not because the one in-tree consumer already agrees.\n\nRe-derived on `origin/main` at 2026-09-17T19:44Z, by address:\n\n| address | reading |\n|---|---|\n| `packages/plugin-grid/src/hooks/useBulkExecutor.ts:71-72` | `bulkUpdate?: (resource: string, ids: ReadonlyArray<string \\| number>, patch: …) => Promise<number>` |\n| `packages/plugin-grid/src/hooks/useBulkExecutor.ts:79-81` | `bulkDelete?: (resource: string, ids: ReadonlyArray<string \\| number>) => Promise<number>` |\n| `packages/plugin-grid/src/components/BulkActionDialog.tsx:53` | its own `dataSource` prop is `BulkExecutorOptions['dataSource'] & {…}` — it INHERITS that face |\n| `packages/plugin-grid/src/components/BulkActionDialog.tsx:157` | `useBulkExecutor({ resource, dataSource, … })` — passed straight through |\n| `packages/plugin-grid/src/ObjectGrid.tsx:5328` | `dataSource={dataSource as any}` |\n| `packages/plugin-grid/src/ObjectGrid.tsx:4720` | `dataSource={dataSource as any}` — ⚠️ a **second** cast site, not named by the review that raised this |\n\nLit control, same instrument and corpus: `as any}` reads **10** occurrences in `ObjectGrid.tsx`, so the matcher sees that shape. Absent control: `dataSourceZzz as any` reads **0**. `useBulkExecutor` resolves in five files.\n\n⇒ the only in-tree consumer of the bulk doors declares its **own structural face** for `dataSource`, and that face still spells the **pre-narrowing** union. The real `DataSource` never meets it: an `as any` at both hand-off sites erases the assignability check before it can be made.\n\n## Why the cast is load-bearing rather than incidental\n\nBoth members are declared with **property syntax** (`bulkUpdate?: (…) => …`), not method syntax, so under `strictFunctionTypes` their parameters are checked **contravariantly**. A narrowed `DataSource.bulkUpdate` that accepts only `ReadonlyArray<string>` is therefore ⛔ **not** assignable to a slot demanding a function that accepts `ReadonlyArray<string | number>` — a function that accepts less cannot stand in for one that must accept more.\n\n⇒ remove the `as any` and the narrowing **does** cost a call site. The zero is a reading about the cast, ⛔ not about the consumer.\n\n⚠️ ⭐ **The direction that matters is the one a reader gets backwards.** The cast does not merely hide an error that would appear once the doors narrow; it means this consumer's face has been free to drift from the interface it consumes for as long as the cast has been there, in **either** direction and silently. A widening on either side is equally invisible.\n\n## What is NOT claimed\n\n- ⛔ **Not** a defect introduced by objectui#9712, and ⛔ not that PR's to fix. It is **pre-existing**; that PR merely made it visible by asking what the narrowing costs. It was correctly recorded there and correctly left alone.\n- ⛔ **NOT MEASURED**: whether removing either `as any` compiles today, and what else those two casts are carrying. `BulkActionDialog`'s `dataSource` is an intersection with `find` / `findOne` members, so the cast may well be paying for something other than the bulk doors — ⭐ **whoever takes this must establish what each cast is for before removing it.** Deleting a cast to make one claim true, and thereby erasing a different check, is this defect committed a second time.\n- ⛔ **NOT MEASURED**: whether any out-of-tree consumer passes a numeric id. This is a reading of this repository only.\n\n## Why it is worth a card\n\nA structural face that restates an interface it could import is a declared-versus-enforced gap with no instrument over it, and the `as any` is precisely what guarantees nobody meets it. The natural repair — have `useBulkExecutor` import the `DataSource` members instead of restating them — is mechanical, but it is ⛔ not obviously free: it is what the two casts are currently paying for, and that bill has not been read.\n\n⛔ The Acceptance-notes fallback does not hold: no open PR touches `useBulkExecutor.ts`, and objectui#9712 deliberately does not. There is no note-carrier, which is why this is a card.\n\n## Dedup terms\n\n`useBulkExecutor dataSource face` · `bulkUpdate ReadonlyArray string number` · `ObjectGrid dataSource as any` · `BulkActionDialog dataSource intersection` · `structural restatement of DataSource`\n\n## Provenance\n\nRaised by the at-tier contract re-review on PR objectui#9712 as 「Also recorded, ⛔ not this PR's」, and promised there as this seat's to card. Every address above was re-derived by this seat on `origin/main` with the controls shown; the second cast site (`ObjectGrid.tsx:4720`) is new here and was ⛔ not in the review that raised it.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

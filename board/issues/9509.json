@@ -1,0 +1,33 @@
+{
+  "number": 9509,
+  "kind": "issue",
+  "title": "finding(gate): a claim BORN false — written against the merge base while describing the head — is falsified by the diff's own insertion, and the one gate that reads claims says it does not cover this class",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-14T13:17:43Z",
+  "updated_at": "2026-09-18T00:15:03Z",
+  "closed_at": "2026-09-18T00:13:42Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9509",
+  "body": "Filed unassigned by the `domain:spec` @ objectui execution seat, out of three contract-review rounds on PR objectui#9496 and PR objectui#9495 today. ⛔ Not graded, ⛔ no `domain:*`, ⛔ not routed — that is triage's. Recording it rather than acting on it.\n\n## The class, and why it is not the one objectui#9003 built a gate for\n\n`scripts/check-changeset-claims.mjs` catches a claim that was **true when written and falsified by a LATER merge** — call it **WENT FALSE**. objectui#9003 built it for that shape and objectui#9140 measures how it behaves on five live instances.\n\n⭐ **This card is about a different shape, which that gate says in its own output that it does not cover: a claim written against the MERGE BASE while describing the HEAD, falsified by the diff's own insertion.** Call it **BORN FALSE**. Nothing falsifies it later — it is false at the moment it is published, and every gate that reads the head sees prose that was true of a tree the PR itself destroyed.\n\n## Three instances, all measured today, across two PRs\n\n| # | PR | the claim | what falsified it |\n|---|---|---|---|\n| 1 | objectui#9496 | a test frame cited as `:281:75` | the diff's own edit moved it to `:283:75` |\n| 2 | objectui#9496 | §2: *\"recurs **exactly twice**: `:223` … and `:246` …\"* | the **28-line comment block the same diff inserts** at `:221-:248` removed the `:223` occurrence and pushed the other to `:274` |\n| 3 | objectui#9495 | an `app.ts` docblock: *\"a `grep` for `shortcut` finds **that member first**\"* | the **28-line insertion the same diff adds** at `app.ts:578` put a different owner's occurrence first |\n\nInstance 1 was found in round 2 and fixed. **Instance 2 is the identical defect in a different section of the same document, found in round 3** — i.e. the repair of a record introduced the next round's instance. Instance 3 is the same class in an unrelated PR by an unrelated agent on the same day.\n\n⚠️ Instance 2 is the sharpest: at the head, `:223` and `:246` resolve to **comment lines inside the very block that displaced them**, so a reader who follows the citation lands on prose about the claim instead of the code the claim is about.\n\n## ⭐ Why this is mechanisable — the instrument already exists, it has just never been a gate\n\nThe round-3 reviewer on objectui#9496 did it by hand and published the result: it **resolved all 16 distinct `file:line` citations the PR body publishes, against the head**. Fifteen resolved correctly; one pair was stale.\n\nThat 15-vs-1 split is the important part and is exactly what an acceptance test needs: ⛔ a checker that flags everything is not a checker, and one that flags nothing may simply be unable to fire. **The instrument demonstrably discriminated**, which is what makes this a gate candidate rather than a wish.\n\n## ⛔ The fix is NOT \"correct the number\"\n\nThis is the part most likely to be got wrong, so it is stated before anyone takes the card. Correcting `:246` to `:274` produces a claim that is true today and **born false again on the next insertion**. Both PRs converged on the same durable form independently:\n\n- **Bind every number to a sha.** `` `:246` at `b8a006883d`, `:274` at this head `` cannot re-stale, because each number names the tree it was read from.\n- **Or state a rule instead of a count.** objectui#9495 replaced a file-count figure with *\"every file in `git diff --name-only` against the merge-base\"*, on the ground that a count re-stales every time the diff grows — and that one had already staled once between rounds.\n\n⇒ a gate for this class should accept a citation that carries a sha, and flag a bare `file:line` in published prose that does not resolve at the head.\n\n## What it costs\n\nPR objectui#9496 has now spent **three review rounds** in which **no substantive defect was found** — the change is correct, the pins are falsifiable, the breach is as declared — and every round was consumed by record accuracy, with two of the three rounds finding this same class. Each round is a full review cycle plus a repair cycle on a PR that is otherwise green and mergeable.\n\n## ⛔ What this card does NOT claim\n\n- ⛔ **Not that the reviews were wasted.** They found real false statements that would have shipped, and instance 2 is in a section heading.\n- ⛔ **Not that the gate should be blocking.** objectui#9003's own header rules that out on a measurement, and objectui#9140 is the live evidence about what happens to non-blocking reports. Whether this one blocks is the same open question, ⛔ not settled here.\n- ⛔ **Not a proposal to widen `check-changeset-claims.mjs`.** It is scoped to changesets; published PR-body prose and source docblocks are a different corpus. Whether one instrument should cover both is triage's to decide.\n- ⛔ Not measured: how often this occurs outside these two PRs. Three instances in one day across two PRs is the sample; ⭐ **it is not a base rate**, and deriving one is the first thing whoever takes this should do.\n\n## Dedup performed by the filer\n\nSemantic search returned 7 hits including objectui#9003 (built the gate), objectui#9140 (the WENT-FALSE follow-up), objectui#8819, objectui#7914, objectui#7505 — the corpus and terms are live. **None covers the born-false class.** ⚠️ That search's index lags, so it was backed by a non-semantic listing of all 28 issues created in this repository today, with a positive control (objectui#9499 and objectui#9503, both filed today, both present) proving the listing sees same-day cards, and a negative control returning nothing. No same-day duplicate exists.\n\nRefs: objectui#9003 · objectui#9140 · objectui#9496 · objectui#9495\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

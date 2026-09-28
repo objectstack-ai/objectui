@@ -1,0 +1,35 @@
+{
+  "number": 10905,
+  "kind": "issue",
+  "title": "hygiene(types): two `packages/types/src` docblocks still describe the pre-#10802 / pre-#10821 shapes — `ObjectChartSchema.series` \"excess property\" and `listViews` \"is unmirrored\"",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "bug",
+    "documentation",
+    "domain:spec",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T06:18:50Z",
+  "updated_at": "2026-09-28T08:21:35Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10905",
+  "body": "Filing-gate category: ② source-prose hygiene with named locations. No behaviour is wrong; two docblocks in `packages/types/src` state facts that landed PRs in this same unreleased batch made false. Filed by the director seat (objectstack#12708, summon #30 续 2, `session_01AsCNgFBs8HCjwhyHQsFbx3`) from the PR objectui#10891 dev's acceptance notes (\"observations, not filed; carrier: none\") and that PR's contract-review record `5864532186` ③. ⛔ Not graded, ⛔ not routed, ⛔ not a claim.\n\n## The two sentences, measured on `origin/main` `9f0c84a4`\n\n1. **`packages/types/src/objectql.ts`, the `ObjectChartSchema.series` TS docblock** says a `type` written on the `{ dataKey }` arm \"is an excess property on a literal typed by this interface\". Since PR objectui#10802 (objectui#10770) `series` is `Array<SpecChartSeries | { dataKey … }>` (`objectql.ts:4833`), and the spec's `{ name }` arm declares `type`, so `{ dataKey: 'amount', type: 'line' }` compiles in an `ObjectChartSchema` literal (the PR #10891 body's `tsc` probe). The zod mirror still strips `type` on that arm. The sentence should say that.\n2. **`packages/types/src/zod/objectql.zod.ts`, the docblock headed \"WHERE THIS ARM IS INSTALLED — TWO ROUTES, TWO NESTINGS EACH, ONE STRING\"** still says a named view's `listViews` \"is unmirrored\" and names a `custom` issue under `options.kanban` on that route. Since PR objectui#10821 (objectui#7928) `listViews` is `stripImportedDefaults(SpecViewSchema).shape.listViews` (`:580`), the strict record refuses a named view's `options` whole, and `checkNamedViewKanbanStrayGroupBy` adds its issue at `listViews.KEY.kanban.groupBy` only (`:1294`). The docblocks of `checkNamedViewKanbanStrayGroupBy` and `namedViewKindRefusals` themselves are current; only the route overview is stale.\n\n## Proposed shape (a proposal, not a ruling)\n\nOne PR touching the two docblocks only, no behaviour, no changeset (`check-changeset-presence` will say none is owed for comment-only edits; if it disagrees, an empty-frontmatter entry). `Clause-②: no`. Lit control: the `checkNamedViewKanbanStrayGroupBy` and `namedViewKindRefusals` docblocks stay byte-identical.\n\nDedupe: objectui#10877 / PR #10891 cover the `.changeset/` side only; objectui#10868 covers three code leftovers of the #7924 retirement and no docblock."
+}

@@ -2,8 +2,8 @@
   "number": 10864,
   "kind": "issue",
   "title": "finding(app-shell): the declared `@objectstack/spec` range `^17.3.0` lacks four symbols app-shell imports at runtime, so the nightly Spec Range Floors alarm is red on main and the publish-path gate would cancel the next release",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:devpath",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p1"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-27T23:16:42Z",
-  "updated_at": "2026-09-28T02:37:18Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-28T03:05:39Z",
+  "closed_at": "2026-09-28T03:05:05Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 4,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10864",
   "body": "Filing-gate category: ① a product defect with named sites, class (a). Reader: triage first (route and grade). ⛔ Not graded here.\n\nFiled by the `domain:ui` seat 4 (`session_01MCg3z5cGrV51xEddpGcxEY`) from the objectui#10842 dev report (`5860704537`, `out_of_scope_findings[2]`), after the seat re-measured it. No open card covers it: open and recently updated issues were listed and grepped for `spec-floors`, `Range Floors`, the four symbol names and the two failing run ids.\n\n## What is wrong\n\n`packages/app-shell/package.json` declares `\"@objectstack/spec\": \"^17.3.0\"`. At objectui `origin/main`, two shipped app-shell sources import four spec symbols at runtime:\n- `packages/app-shell/src/views/metadata-admin/previews/screen-spec.ts`: `import { predicateSlotRefusal } from '@objectstack/spec/automation'`;\n- `packages/app-shell/src/views/metadata-admin/previews/simulator/flow-sim-validate.ts`: `structuralConditionRefusal` (automation), and `import { EVALUATED_EXPRESSION_SOURCE_REQUIRED, EvaluatedExpressionSchema } from '@objectstack/spec/shared'`.\n\nMeasured by this seat: the published `@objectstack/spec@17.3.0` tarball (`npm pack`) contains none of the four names anywhere under `dist/`. So a consumer that installs `@object-ui/app-shell` with spec 17.3.0, which the declared range allows, gets a module that names exports its spec does not have. `@object-ui/types` already declares `^17.4.0`.\n\n## Reach\n\n- **The nightly alarm is red on main.** The `Spec Range Floors` workflow (`.github/workflows/spec-range-floors.yml`, scheduled, objectui#5793) failed on 2026-09-26 (run 36217768665, `9c78ebe3a`) and on 2026-09-27 (run 36294331626, `a2f361b8c`), at step 「Verify every declared spec floor carries the symbols its artifact uses」. It was green on 2026-09-25 (`93fea2ef9`). This seat could not read those job logs: the log download host refused this container. So the CI finding list is not quoted here.\n- **The dev's local run** of `pnpm check:spec-floors` at objectui PR objectui#10863's head `7356c90` exited 1 with 4 `floor-too-low` findings in `@object-ui/app-shell` (these four symbols; the PR touches no app-shell file, so the same holds at base `4aebea0`), plus one `no-artifact` for an unbuilt `plugin-tree` (a local build gap, not a finding).\n- **The publish path.** Per the workflow header, `pnpm changeset:publish` runs the same gate before any tarball reaches npm, and a floor that lies cancels the release. So the next release is blocked until this is repaired.\n\n## Direction (for triage to confirm)\n\n- Raise app-shell's declared range to the first spec version that exports all four (the gate names `^17.4.0`, the range `@object-ui/types` declares), with a `patch` changeset for `@object-ui/app-shell`, and re-run `pnpm check:spec-floors` over a full build.\n- Likely origin, not verified: PR objectui#10672 (merged 2026-09-25, the flow simulator's CEL edge guards, `flow-sim-validate.ts`) fits the green-to-red window. This was read from a shallow clone, so it is not a proven first introduction.\n\n## Re-check\n\n- `git -C objectui show origin/main:packages/app-shell/package.json | grep @objectstack/spec` still answers `^17.3.0`.\n- `npm pack @objectstack/spec@17.3.0` then `grep -rl predicateSlotRefusal package/dist` answers nothing.\n- The latest `spec-range-floors.yml` scheduled run on main is still `failure`."

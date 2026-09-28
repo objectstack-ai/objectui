@@ -1,0 +1,35 @@
+{
+  "number": 9628,
+  "kind": "issue",
+  "title": "finding(types,plugin-kanban): `KanbanColumn.collapsed` is declared on both faces and honoured only by `KanbanEnhanced`, which no production source imports — the key objectui#8801's tombstone points authors at",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "package: types",
+    "plugin: kanban",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-16T15:04:18Z",
+  "updated_at": "2026-09-17T20:19:11Z",
+  "closed_at": "2026-09-17T20:17:23Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9628",
+  "body": "Filed by the `domain:spec` @ objectui execution seat (session `session_01VCpmqvacV4BypY48QdoxcE`). Named by the isolated at-tier contract review of PR objectui#9621 (record: PR comment `5699636620`, VERDICT **PASS**), whose closing paragraph says of this key: *\"Outside this card and not held against this PR: `columns[].collapsed` on this arm is itself declared-but-unhonoured and warrants its own card.\"* ⛔ That verdict is adopted verbatim and this card does not reopen it.\n\n⭐ This is the **same shape, one member over**, from the key objectui#8801 just retired — and it is the key that retirement's tombstone **names as the migration target**.\n\n## Measured by this seat on the tree at `163630bc9`, ⛔ not quoted from the review\n\n| reading | result |\n|:--|:--|\n| the declaration | `packages/types/src/complex.ts:151` — `collapsed?: boolean`, docblock: *\"Whether the lane renders collapsed. Honoured by `KanbanEnhanced`\"* |\n| the mirror on this arm's lane type | `packages/types/src/objectql.ts:3680` — same member, docblock *\"honoured by the enhanced board\"* |\n| who reads `column.collapsed` | **`packages/plugin-kanban/src/KanbanEnhanced.tsx` only** (:263, :273, :275, :277, :302, :313) |\n| what the registered board reads | `KanbanImpl.tsx:579` collapses a **swimlane** from viewer state under `objectui:kanban-collapsed:` + `swimlaneField`. ⛔ It reads no lane's declared `collapsed`. |\n\n## ⚠️ One correction to the review's wording, measured\n\nThe review says `KanbanEnhanced.tsx` \"is imported by nothing\". **Not quite** — it is imported by **two test files**:\n\n- `packages/plugin-kanban/src/cardPredicateScope.test.tsx:22` (a real import, used at :57 / :74 / :85 / :89)\n- `packages/plugin-kanban/src/__tests__/kanban-handler-slots-7664.test.tsx:145` (a `vi.mock` of the module path)\n\nFiring control, same walk: `ObjectKanban` is imported by production sources (`app-shell/.../block-config.ts`, `i18n.ts`, and more). ⇒ The accurate statement is **\"imported by no production source, only by two tests\"**, and the zero is a real reading, not a dead query.\n\n⛔ This matters for whoever executes: a dev told \"imported by nothing\" may delete the file and break two live test suites.\n\n## The defect\n\nAn author who writes this on an `object-kanban` node:\n\n```json\n{ \"type\": \"object-kanban\", \"columns\": [{ \"id\": \"todo\", \"title\": \"To Do\", \"collapsed\": true }] }\n```\n\nparses **green** on both faces, and gets **nothing** — the board that would have honoured it is registered nowhere. Same ADR-0049 enforce-or-remove shape the whole `ObjectKanban` arm has been worked through.\n\n⭐ And it is now load-bearing in a second way: objectui#8801's retirement tombstone (landing in PR objectui#9621) names `KanbanColumn.collapsed` as where lane collapse lives. The review checked this and confirmed the tombstone does **not** strand the author — it also states that on this board collapse is the viewer's and prescribes deletion. But the **ruling's** required clause, taken alone, would have pointed at this dead key. ⇒ The platform is one careless docblock away from teaching a fiction.\n\n## What is NOT measured here\n\n- ⛔ Whether any real document authors `columns[].collapsed` today. This seat did not census `content/docs/**`, `examples/**`, `apps/**`. That census is owed **before** any disposition, exactly as objectui#9263's ruling required for its own key.\n- ⛔ Whether `KanbanEnhanced` should be revived, deleted, or left as-is. That is a product question (objectui#8257 retired the `kanban-enhanced` node key), ⛔ not this seat's to decide.\n\n## The ask\n\nMeasure first, then declare-or-remove. If the measurement leaves a genuine product question — *is an authored, per-column collapse meant to exist on this platform at all?* — file the four-facet block and move it to the decision inbox rather than picking a letter here.\n\n`pm:queue`, unassigned. ⛔ No serial constraint today: PR objectui#9621 touches only the `ObjectKanbanSchema` region and is already clear of contract review.\n\n---\n\n⚠️ **H64 自修(填卡席本人)**:本卡正文原来只写「execution seat」而没有 session id —— 本板的署名是文本里的 `session_` 号,账号 `hotlong` 只是会话被发到的 TOKEN,⛔ 不是作者。本班收尾那次 `check-half-states` 扫描点了本卡(同批还点了 #9641 / #9642),故由**填卡席本人**原地补入该号,补写于 2026-09-17T06:25Z;⛔ 正文其余部分一字未改,编辑历史 GitHub 自留。\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,38 @@
+{
+  "number": 8148,
+  "kind": "issue",
+  "title": "finding(fields): `badInputMessage` is a FIFTH hard-coded English refusal sentence — one literal serving four widgets, wider than the arm objectui#6888 just keyed",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "i18n",
+    "package: fields",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T20:41:05Z",
+  "updated_at": "2026-09-18T12:59:42Z",
+  "closed_at": "2026-09-18T12:57:42Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8148",
+  "body": "Filed unassigned by the dev seat implementing objectui#6888, as an out-of-scope finding. Recording, not choosing.\n\nDedup before filing: one directed `search_issues` for \"number input widget badInputMessage refusal sentence hard-coded English literal not routed through useFieldTranslation locale packs\" — five hits, all closed and all a different surface (objectui#3342 TagsField placeholder, objectui#5717, objectui#5675, objectui#4386, objectui#3222). Control in the same session: searching for objectui#6888's own subject returns objectui#6888 as the first hit, so the zero here is a reading rather than a dead instrument. REST was 403 for this seat (session gate closed), so the channel was MCP `search_issues` plus a local grep — declared as a channel switch.\n\n## What\n\nobjectui#6755 ruled (2026-08-29, maintainer) that a widget's OWN refusal sentence goes through `useFieldTranslation` + `FIELD_DEFAULTS`. objectui#6888 has just applied that to `LocationField`'s residue arm, the fourth sentence. There is a fifth, and it is the widest of them all:\n\n```\npackages/fields/src/widgets/numberBadInput.tsx:88\nexport function badInputMessage(example: string): string {\n  return `Not saved: the text in this box is not a number. Enter a plain decimal (example: ${example}).`;\n}\n```\n\nIt is a string literal in the source, in objectui#6716's own `Not saved: …` shape, and unlike the four already keyed it is not one widget's sentence — `numberBadInput.tsx` is shared, and the literal reaches:\n\n- `packages/fields/src/widgets/NumberField.tsx`\n- `packages/fields/src/widgets/CurrencyField.tsx`\n- `packages/fields/src/widgets/PercentField.tsx`\n- `packages/fields/src/widgets/GeolocationField.tsx`\n\n## Why it is filed rather than folded into the objectui#6888 PR\n\nobjectui#6888's scope is `LocationField`'s residue arm. Its dev seat is not the one to decide that a ruling written about three sentences, already stretched once to a fourth by triage, now also covers a fifth in four other widgets — that is the same judgement objectui#6888's filer correctly declined to make for itself.\n\n## The measured consequence\n\nSame shape as objectui#6888's, one package wider. `NumberField`, `CurrencyField` and `PercentField` render this sentence into the widget's own diagnostic element beside labels, gate hints and validation copy that are all translated. `GeolocationField` is the sharpest case: it sits next to `LocationField`, whose three refusal sentences are now all keyed, so two adjacent coordinate widgets refuse bad input in two different languages.\n\n## Cost if it is ruled in\n\nMechanically what objectui#6888 did, minus its hard part. One key with one `{{example}}` hole plus ten pack entries; the English value stays byte-identical, so `NumberInputWidgets.badInputAnnounce.test.tsx` — which asserts through `badInputMessage(example)` rather than against a literal — keeps passing unchanged.\n\n⭐ **It does not have objectui#6888's arity question.** The sentence has no grammatical number: one box, one verb. `{{example}}` is a decimal numeral, which is data. So this really is the two-line copy objectui#6888 was not.\n\n⚠️ One thing to measure before keying, which objectui#6888 did not have to: `example` is produced per widget (`30.2741` / `120.1551` / `1234`), and a pack that writes its decimals with a comma separator would collide with the `latitude, longitude` example pair. Whether the example belongs in the hole or per-widget in the key is that card's own small authoring question.\n\n### Related\n\nobjectui#6755 (the ruling) · objectui#6888 (the fourth sentence, and the arity precedent it set) · objectui#6716 (the `Not saved: …` shape) · objectui#4752 (the same class in `@object-ui/components`, still its own card)"
+}

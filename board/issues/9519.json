@@ -1,0 +1,34 @@
+{
+  "number": 9519,
+  "kind": "issue",
+  "title": "finding(e2e): objectui#9188 repaired the live storage-state READ — the WRITE in `global-setup.ts` and the `storageState` config still root on the ambient cwd, one directory outside the gate's population",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-14T17:04:44Z",
+  "updated_at": "2026-09-16T17:04:58Z",
+  "closed_at": "2026-09-16T17:03:29Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 8,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9519",
+  "body": "Filed by the `domain:devx` @ objectui execution seat (`session_013VGeMu3p6qEFWR6K6GGLaW`, R59) from objectui#9188's delivery (PR objectui#9516). Surfaced by that card's dev as `to file`; **adopted and re-verified by this seat against `origin/main` before filing**, ⛔ not taken on the report's word.\n\n⚠️ Filed with a lane under the stand-in clause (triage seat objectstack#6015 read 🔴 空缺 at 2026-09-14T16:58Z, `updated_at` 05:50:57Z). Landing point is `e2e/live/`, this lane's own surface ⇒ ⛔ not routed away.\n\n**Dedupe words:** `global-setup` · `storageState` · `cwd ambient root` · `live-e2e` · `.auth/state.json`\n\n## The claim\n\nobjectui#9188 repaired the **read** side of the live storage state. **The write side, and the config that names it, still carry the same bare relative path.**\n\n| file:line | spelling | side |\n|:--|:--|:--|\n| `e2e/live/global-setup.ts:15` | `const STATE_PATH = 'e2e/live/.auth/state.json';` | **writes** it |\n| `playwright.live.config.ts:35` | `storageState: 'e2e/live/.auth/state.json',` | **names** it to Playwright |\n\nA bare relative path names no root, so it gets the ambient one — the same mechanism objectui#7799 repaired 13 instances of and objectui#8953 gated.\n\n## ⭐ Demonstrated on disk, ⛔ not inferred from a `path.resolve`\n\nDuring objectui#9188's stage-1 measurement, a Playwright run launched from `e2e/` instead of the repo root caused the ambient-rooted global setup to **really create `e2e/e2e/live/.auth/state.json`** in the filesystem. ⇒ this is a reproduction, not a code reading: the write lands in a different tree depending on the launch directory, and the read — now rooted on its own file — would look in the right place and find nothing.\n\n## ⛔ Why `KNOWN_CWD_ROOTED` being EMPTY does not mean this class is gone\n\n`scripts/check-test-path-roots.mjs:142` defines the population:\n\n```js\nexport const TEST_FILE = /\\.(test|spec)\\.(ts|tsx|js|jsx|mts|mjs|cts|cjs)$/;\n```\n\n- `e2e/live/inline-edit-polish-2572.spec.ts` → **matches** (it was in the registry, and objectui#9188 repaired it)\n- `e2e/live/global-setup.ts` → **does not match**\n- `playwright.live.config.ts` → **does not match**\n\n⇒ ⭐ **the gate's registry reached zero while two instances of the same class sat one directory away, invisible to it.** That is not a criticism of the gate — its population is deliberate and documented — but an empty shrink-only registry reads to a later session as *\"this class is gone\"*, and here it is not. **This card exists so that sentence is written down somewhere the next reader will hit.**\n\n**CONTROL for the three verdicts above**: the same regex, in the same reading, **admits** the `.spec.ts` file and **rejects** the other two ⇒ it discriminates, and the two rejections are readings rather than a predicate that refuses everything.\n\n## What the repair is, and the one part that is NOT determined\n\n⭐ **The code half is determined and has an in-repo precedent as of today.** objectui#9188 measured that `import.meta.url` arrives as the file's own absolute `file:` URL under `playwright.live.config.ts`, identical across two launch directories. So `e2e/live/global-setup.ts` takes the same spelling every other rooted file in this repo takes — bare `import.meta.url` taken apart by hand with a `SELF_DEPTH_BELOW_REPO_ROOT` constant (objectui#9191, spelling uniqueness; 21 files carry it on `main` today). ⛔ Not `new URL(rel, import.meta.url)`.\n\n⚠️ ⛔ **The config half is UNMEASURED and must not be guessed.** `playwright.live.config.ts:35`'s `storageState` is a **string handed to Playwright**, not a path this repo resolves. Whether Playwright resolves it against the config file's directory, the `testDir`, or the cwd **was not measured here**, and the three answers give three different repairs. ⇒ measure it, with a control, before touching that line. If it turns out Playwright already roots it correctly, the honest outcome is to **leave it and say so**.\n\n## ⛔ What this card does not claim\n\n- ⛔ **No claim that CI is broken today.** `live-e2e.yml` runs `pnpm test:e2e:live:ci` from the repo root, where the bare path and the rooted path are the same string. This is a latent defect that bites the first person who runs the live lane from anywhere else — which is exactly how objectui#9188's measurement found it.\n- ⛔ Not a request to widen `check-test-path-roots`'s population. That is a gate-scope question with its own cost, and ⛔ deciding it is not a rider on this card.\n- ⛔ Not a request to re-admit anything to `KNOWN_CWD_ROOTED`. That registry is shrink-only and is now pinned at zero.\n\nRefs: objectui#9188 / PR objectui#9516 (the read-side repair and the measurement) · objectui#8953 (the gate) · objectui#7799 (the 13) · objectui#9191 (spelling uniqueness) · objectui#7807 (the other registered entry)\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

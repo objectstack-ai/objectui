@@ -1,0 +1,33 @@
+{
+  "number": 9688,
+  "kind": "pull_request",
+  "title": "test(types): the unmirrored-keys pin stops claiming a doc side the flag half lost (objectui#7992)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T11:43:58Z",
+  "updated_at": "2026-09-18T00:44:32Z",
+  "closed_at": "2026-09-18T00:44:31Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": "2026-09-18T00:44:30Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/9688",
+  "body": "Part of #7992\n\n## What changed — prose only\n\n`packages/types/src/__tests__/object-view-unmirrored-keys-7779.test.ts` labelled a pair of\n`SpecObjectListViewSchema` refusals with a single source line.\n\n**Before:**\n\n```js\n    // schema-reference.md: an ObjectQL tuple filter and a `default: true` flag.\n```\n\n**After** — the label now covers only the half that still has a doc side, and a second\ncomment says what the other half is:\n\n```js\n    // schema-reference.md: an ObjectQL tuple filter. Only `tuple` still has a\n    // doc side, and that side is HELD — the \"still what the docs teach\" test\n    // below pins this exact filter string off disk.\n```\n\n```js\n    // `flagged` has NO doc side, and its removal was deliberate: objectui#7923\n    // (PR objectui#7991) deleted the per-view `default: true` flag from that\n    // same `object-view` example, because `NamedListView` never declared the\n    // key and `ObjectView` never read it. What is left is a refusal pinned on\n    // its OWN merits — the spec closes `default` too, which is why that doc fix\n    // is not merely cosmetic — so this case is no longer a reading of any shape\n    // the docs teach. ⚠️ Nothing re-derives that absence: read the sentence\n    // above as history, not as a live reading of that file.\n```\n\n⛔ No assertion added, removed or weakened. Mechanically: every changed line in the diff is a\n`//` line — `git diff -U0 | grep '^[+-]' | grep -v '^[+-]\\s*//'` (after dropping the `+++`/`---`\nheaders) returns nothing. The `flagged` assertion is kept because it still measures something\nreal, and the sibling `readRepo('content/docs/api/schema-reference.md')` assertion — the one that\nstill HAS a live doc side — is untouched.\n\n## The doc-side measurement, with a control that FIRES\n\nA bare \"0 hits\" would prove nothing here, and the dispatch's own first probe is the demonstration:\n`\"default\":` — with the colon, JSON-quoted — also scores **0** across `content/docs`, so that\npattern matches nothing anywhere and a zero is a fact about the pattern, not about the tree.\nReadings below taken at `d83ea4160`, this branch's head; a historical reading, ⛔ not re-derived by\nanything and ⛔ not to be read as live.\n\n| probe | reading |\n|---|---|\n| SUBJECT — `\"default\": true` across `content/docs` | **0** |\n| ⚠️ blind-pattern check — `\"default\":` across `content/docs` | **0** — why the subject alone proves nothing |\n| CONTROL A — `\"filter\":` in `content/docs/api/schema-reference.md` | **2** — the JSON-quoted key style DOES match in this file |\n| CONTROL B — the word `default` in that same file | **34** — a zero for the flag is not a file-wide blind spot |\n| CONTROL C — `\"filter\": [[\"owner\", \"=\", \"${currentUser.id}\"]],` in that file | **present**, inside the `object-view` example — the tuple half's doc side, and the string the sibling assertion pins |\n\n⇒ The flag is genuinely gone, on controls that fire. What stands in its place in that example is a\nnode-level `\"defaultListView\"` key — PR objectui#7991 spelled the default list view once, at the\nnode, instead of as a per-view flag `NamedListView` never declared.\n\n## Verification\n\n| check | reading |\n|---|---|\n| `pnpm vitest run` over the changed test file | exit 0 — 1 file, 164 tests passed |\n| `pnpm --filter @object-ui/types test` (via the shared verify lock) | exit 0 — 198 files, 4656 tests passed |\n| `pnpm --filter @object-ui/types type-check` | exit 0 |\n| `eslint .` in `packages/types` | exit 0 — 269 files linted, 0 errors |\n| `node scripts/check-changeset-presence.mjs` | exit 0 — the empty-frontmatter declaration is this gate's own explicit exemption, quoted in its output |\n| `pnpm changeset:check` | exit 0 |\n| `pnpm check:new-line-citations` | exit 0 — 0 new citations |\n| `pnpm check:control-bytes` | exit 0 |\n| `pnpm check:changeset-claims` · `pnpm check:pending-changeset-literals` | exit 0 |\n| `node scripts/check-governed-queue-guard.mjs --test` over both changed paths | NOT GOVERNED — ordinary review and merge-queue route |\n\nEvery exit code above was captured before any pipe (`cmd > log 2>&1; EXIT=$?`), not through one.\nThe lint reading is the whole affected package rather than a narrowing; type-aware linting is not\nenabled in this repo's eslint config either way (no `project` / `projectService` key), so this diff\ncannot move the verdict on a file it does not touch. The repo-level `turbo run lint` belongs to CI.\n\n## Changeset\n\n`.changeset/issue-7992-unmirrored-keys-doc-side.md`, EMPTY frontmatter — declared as releasing\nnothing. Followed the gate rather than guessed: `check-changeset-presence.mjs` scored the test file\nas published source of a released package and demanded a declaration, and names the empty\nfrontmatter as \"a pass, not a workaround\".\n\n## Scope\n\n- ⛔ The docs are NOT touched: objectui#7923 removed that flag deliberately, and restoring it to\n  make the old comment true again is the wrong direction.\n- ⛔ objectui#7721's class — prose inside a pin stating a measurement that has gone stale, with\n  nothing holding prose to measurement — is NOT closed here. This card is one instance of it.\n- ⚠️ The card's own address for the comment has drifted (the card cites an older line number). It\n  is located by content — the quoted line above — and per AGENTS.md #11 the repair is not minted\n  into a new line address here. Reported, not fixed: this is a scope-pinned card, so #11's\n  opportunistic citation repair does not apply.\n- ⚠️ PR #8941 is open on `content/docs/api/schema-reference.md` (a lucide icon rename in the\n  detail-view example). Re-measured: it touches neither the `object-view` example nor `default`.\n  No overlap with this branch, which does not touch that file at all.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_012EpHzwH4wTy5sd7ibkD2yq)_"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 9617,
+  "kind": "pull_request",
+  "title": "docs(i18n): the README's built-in locale count is ten, and derived rather than restated (objectui#7989)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "documentation",
+    "package: i18n",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-16T11:09:59Z",
+  "updated_at": "2026-09-16T14:40:58Z",
+  "closed_at": "2026-09-16T14:40:57Z",
+  "closed_by": {
+    "login": "os-elon-musk",
+    "id": 328766734,
+    "type": "User"
+  },
+  "merged_at": "2026-09-16T14:40:57Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/9617",
+  "body": "Fixes #7989\n\n`packages/i18n/README.md` claimed **11** built-in locales in the two places a reader meets\nfirst, and hedged the list with \"and more\". The package ships **10**, and the same document\nalready reasons correctly on ten six times further down. That README is in the package's\n`files`, so the wrong number went out in every tarball.\n\n## What this does\n\nTwo lines corrected, and then the construct that permitted the error removed:\n\n- `README.md:3` and `:7` state **10**, and the `and more` hedge is gone — that bullet\n  enumerates all ten languages, so there was no more.\n- A new pin **derives** the number instead of letting the prose restate it.\n\nCorrecting alone was weighed and refused. objectui#3351 is the same off-by-one in a\nchangeset file (\"eleven locale packs — the repo has ten\"); it was fixed **in isolation**,\nnobody swept the README, and the README is why this card exists. A restated number rots\nagain on the next pack, and objectui#7479 / objectui#7486 are actively reshaping how the\npacks load.\n\n## The pin asserts two published doors and asserts they agree\n\nThe card's recipe no longer runs. objectui#7479 removed the `builtInLocales` re-export from\nthe package **entry** — an object literal naming ten catalogue modules is the one shape no\nbundler can shake — so `import { builtInLocales } from '@object-ui/i18n'` fails today. What\na consumer of `.` gets is `BUILT_IN_LANGUAGE_CODES` at zero payload; the map is behind the\npublished `@object-ui/i18n/locales` subpath.\n\nBoth are asserted, and asserted to **agree**. The agreement leg is the load-bearing one: a\npack registered but never exported, or exported but never registered, moves one instrument\nand not the other, and a README pinned to only one would stay green over a package that\ndisagrees with itself.\n\n⛔ Deliberately **not** a third instrument: the `.ts` file count under `src/locales/`. That\ndirectory holds 13 files and 10 of them are packs — `index.ts`, `registry.ts` and `rtl.ts`\nare not locales. Counting files reproduces the very error this pin exists to stop, and the\nnon-pack count has already grown from one to three since triage measured it.\n\n## Proof that the pin can fail\n\nAblated twice. Each leg mutates, proves the mutation reached disk by anchor counts **and**\nby `git hash-object` differing from the `HEAD` blob, runs, then restores from an\n`EXIT`/`INT`/`TERM` trap with `git checkout HEAD -- ABSOLUTE_PATH` and proves restoration by\n**state** (`git diff HEAD` empty, hash back to `96455b93d`), never by an exit code.\n\n| mutation | result |\n| --- | --- |\n| count reverted to 11 | FAIL `is what the one-line description restates` — expected 11 to be 10 |\n| `and more` hedge restored | FAIL `is how many languages the feature bullet actually enumerates, with no hedge` — expected length 10, got 11 |\n\n## The ledger entry, and the concurrency\n\nA test that reads **any** markdown document owes an `ADJUDICATED` entry in\n`scripts/markdown-test-inputs.mjs`. Reading its own package's README is no exception: that\nledger is keyed by test file, not by whether the read escapes a package, and eleven entries\nalready in the Map are this exact shape. Without the entry the audit reports\n`unadjudicated-test` and `scripts/__tests__/markdown-test-inputs.test.ts` fails — correctly,\nbecause `ci.yml` would otherwise be unable to tell that editing this README edits a test's\ninput, and a markdown-only pull request would skip the shard.\n\n⚠️ This pull request and objectui#9602 both add an entry to that same `ADJUDICATED` Map.\nThis is a **measured non-conflict**, not an absence of interaction: the entries sort to\nlines 310 and 493 of the merged file, and `git merge-tree --write-tree` run against\nobjectui#9602's head (`e6d0d38`) exits **0** and writes a tree that contains **both**\nentries. Whichever lands second merges without a conflict.\n\n## Gates\n\n| gate | exit |\n| --- | --- |\n| `node scripts/markdown-test-inputs.mjs --audit` | 0 — 98 candidates, all adjudicated; 73 entries, all present |\n| `pnpm exec vitest run scripts/__tests__/markdown-test-inputs.test.ts` + the pin | 0 — 2 files, 28 tests |\n| every other test naming the edited script | 0 — 4 files, 77 tests |\n| `pnpm exec vitest run packages/i18n/` | 0 — 68 files, 1129 tests |\n| `pnpm --filter @object-ui/i18n type-check` | 0 (after building the dependency closure) |\n| `pnpm --filter @object-ui/i18n lint` | 0 (33 pre-existing warnings, 0 errors) |\n| `node scripts/check-changeset-presence.mjs` | 0 |\n| `check-changeset-no-major` · `check-changeset-fixed` · `check-control-bytes` | 0 |\n| `check-doc-links` · `check-doc-fence-languages` · `check-new-cross-file-line-citations` | 0 |\n| `check-test-path-roots` · `check-vi-mock-specifiers` | 0 |\n| `check-governed-queue-guard --test` | NOT GOVERNED — ordinary review and merge-queue route |\n\nExit codes were captured on their own line after a redirect, never read after a pipe.\nRepo-wide scans (`pnpm lint`, `pnpm type-check`, the full `pnpm test`) are CI's run, not\nclaimed here.\n\n## Acceptance notes\n\nObserved while measuring, deliberately **not** repaired here:\n\n- The same wrong count sits in six places outside this README — one of them a docblock in\n  the published source of a different package, the rest in `ROADMAP.md`, three of which say\n  11 and then enumerate ten codes on the same line. Reported to the dispatching seat and\n  being filed on its own card. ⛔ Out of scope for a card about one README.\n- `of the ten packs.` has moved from `README.md:175` to `:266` since triage measured it.\n  The claim is intact; a line citation in a comment aged.\n- `src/index.ts` and `package.json` both say `10+` where the figure is exactly 10. Both are\n  correct and both are untouched — fixing what is right is how a documentation card grows.\n\n---\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_017bzjQQsBrHdwBy17iHVVe9\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_017bzjQQsBrHdwBy17iHVVe9)_"
+}

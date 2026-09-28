@@ -1,0 +1,34 @@
+{
+  "number": 9452,
+  "kind": "issue",
+  "title": "bug(fields): a `progress`-named percent column reads its stored fraction as percentage POINTS, so one record shows two magnitudes in two places",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-14T00:58:53Z",
+  "updated_at": "2026-09-18T05:26:05Z",
+  "closed_at": "2026-09-18T05:21:26Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9452",
+  "body": "Filed by the `os-dev` seat while implementing objectui#9167 (branch `claude/issue-9167-summary-chip-percent-convention`), from the value-by-value run that card asked for. ⛔ Not folded into that PR: this is a SCALING disagreement in `packages/fields`, and objectui#9167's file surface is `packages/plugin-detail/src/`. Generated with Claude Code, session `session_011QreXiyMEqKLN4U5daMPVa`.\n\n## The fact\n\n`PercentCellRenderer` in `packages/fields/src/index.tsx` branches on the field's NAME before it branches on the value:\n\n```ts\nconst WHOLE_PERCENT_FIELD_PATTERN = /progress|completion/;\n...\nconst isWholePercentField = WHOLE_PERCENT_FIELD_PATTERN.test(field?.name?.toLowerCase() || '');\nconst formatted = isWholePercentField\n  ? formatPercentBody(numValue, precision, locale)   // no scaling\n  : formatPercent(numValue, precision, locale);      // percentDisplayValue\n```\n\n`formatPercentBody` is the half of `formatPercent` AFTER `percentDisplayValue`, so a field whose name happens to contain `progress` or `completion` is the one percent surface in the repo that does not consult the declared source at all.\n\n## Measured — both surfaces, same run, same field, same stored value\n\nDriven in one vitest run under an explicit `en` session, field `{ name: 'progress', label: 'Progress', type: 'percent' }`, no declared precision. The chip column is the `summaryFields` chip beside the record H1 AFTER objectui#9167 (before that card it read `50%` / `12.3%` / `57%`, so the divergence is older than the chip's current spelling and is not caused by it):\n\n| stored | summary chip | list cell | agree? |\n|---|---|---|---|\n| `0.5` | `50%` | `1%` | **NO** — scaling |\n| `12.3` | `12%` | `12%` | yes |\n| `57` | `57%` | `57%` | yes |\n\nOne stored `0.5` reading `50%` beside the H1 and `1%` in the list is the harm class objectui#9071, objectui#9165, objectui#9167 and objectui#9269 were each triaged under: the same record showing two different numbers in two places, which a user reports as a data bug rather than a formatting one. Every one of those cards removed a local percent rule in favour of `percentDisplayValue`; this is the last place a local rule is still load-bearing, and unlike the others it is keyed on a STRING MATCH against the column name rather than on the value.\n\n## Why it is a decision, not a refactor\n\n`percentDisplayValue`'s doc comment names the case this branch exists for — \"a value already in whole-percent form (magnitude ≥ 1, e.g. a `progress` / `completion` field storing `57`)\" — and its own value rule already passes that value through untouched. So for every stored value AT OR ABOVE 1 the two paths agree by construction, and the row above confirms it (`12.3`, `57`). The branch only changes an answer BELOW 1, where it decides that a `progress` field storing `0.5` means half a percentage point rather than half.\n\nWhich answer is right is a product question and is deliberately not decided here:\n\n- deleting the name branch makes a `progress` field storing `0.5` read `50%` everywhere, agreeing with every other surface, and moves any tenant that really does store sub-1 whole-percent values in such a column;\n- keeping it means the declared single source of truth has a documented exception, and every surface that consults `percentDisplayValue` by reference — the chip, `formatMeasure`, `MetricWidget`, the grid column summary — must learn the exception too, which is four new copies of a name regex.\n\nA third route, an authored per-field scale declaration, would put the answer in metadata where the name heuristic is guessing at it.\n\n## Scope boundary, stated rather than papered over\n\nAdjacent and NOT the same card: objectui#9295 is `precision` semantics on the same file (fraction-digit count vs total digit count), and it is about how many digits are shown, not about which magnitude. This one changes the magnitude. objectui#9295 is `pm:queue`; nothing here depends on it and it does not depend on this.\n\n## Dedup\n\nRun. ⚠️ Channel switch declared: the repo-scoped REST search endpoint answered `403` in this container (the repo-scoped issue READ endpoint answered `200` in the same session), so one directed MCP `search_issues` call was used instead of a REST list plus local grep. Its result carried its own lit control — the query returned objectui#9167, objectui#9071 and objectui#8728, three cards known to exist on exactly this subject — so the absence of a card for the name-pattern branch is a reading and not a dead query. ⛔ No wide scan was run: open issues only, one query.\n"
+}

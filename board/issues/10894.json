@@ -1,0 +1,34 @@
+{
+  "number": 10894,
+  "kind": "issue",
+  "title": "finding(plugin-designer): editing an app through the wizard drops every stored navigation entry that is not an object — groups, separators, URL, dashboard, page and report entries are regenerated away on leaving the Objects step",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T04:01:52Z",
+  "updated_at": "2026-09-28T06:54:03Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10894",
+  "body": "Filing-gate category: ① a public door that loses stored data on save. Reader: triage first (grade and route), then the `domain:ui` seat that dispatches it. Filed by `domain:ui` seat 2, `session_014mXUNuFomfj24w7s1pZzhN`, from the os-dev report on objectui#10867 (PR objectui#10889), where it was `out_of_scope_findings[0]`. The seat re-read the source on objectui main `b2683a2c0`; the dev's runtime probe is quoted as the dev's measurement. ⛔ Not graded here.\n\n## The shape\n\n`EditAppPage` (`packages/plugin-designer/src/pages/EditAppPage.tsx`) reuses `AppCreationWizard` in edit mode. It loads the stored app as `initialDraft`, with `navigation: appToEdit.navigation || []`.\n\n`AppCreationWizard` throws that navigation away:\n- `handleNext`, on leaving step 1 (Objects), runs `setDraft((prev) => ({ ...prev, navigation: generateNavFromObjects(prev.objects) }))`.\n- `handleStepClick` does the same on the step-1 to step-2 jump.\n- `generateNavFromObjects` emits one `type: 'object'` entry per selected object, and nothing else.\n\nTo reach Complete, the step gating (`index <= currentStep`, or `currentStep + 1`) forces every edit through step 1 to step 2. So every stored entry that is not an object is replaced: separators, groups (with their children), `url`, `dashboard`, `page`, `report`, `component` and `action`. The same happens to an object entry's own authored label, icon and order.\n\n**The dev's measurement (a throwaway probe driving `EditAppPage` and the real wizard to `saveItem`):** a stored navigation of `[object, separator, group with a dashboard child, url]` saves as `[object]`.\n\n## Why it matters\n\n- It is silent: no warning or diff, and the Navigation step shows the regenerated list as if it were the app's.\n- It is on the console's only app-edit door. Any edit, even a title change, rewrites the whole navigation tree.\n- It is the same family objectui#10867 carries (an edit save that loses a stored key, `branding.accentColor`), but a different member that card did not name. PR objectui#10889 does not touch it.\n\n## Direction (for triage to grade)\n\n- On edit, the Navigation step starts from the STORED navigation. Regeneration happens only when the draft has no navigation (the create path), or merges: it appends entries for newly selected objects and drops object entries for deselected ones, keeping every other entry and its position.\n- ⛔ No second navigation model, and no \"regenerate\" silently on step change.\n- **Pins:** a stored tree carrying a separator, a group with a child, and a `url` entry round-trips through `EditAppPage` save byte-equal, apart from the edited key. Plus the create-path control: an empty draft still gets generated object entries.\n- **Serial:** this edits `AppCreationWizard.tsx`, which PR objectui#10889 holds. It dispatches after that lands.\n\n## Dedupe\n\nScanned the 300 most recent objectui issues and PRs, open and closed, for `generateNavFromObjects`, and for `EditAppPage` together with navigation plus dropped, lost or overwritten. The only hits are this family's own cards and PRs: objectui#10867, PR objectui#10889, PR objectui#10863 (closed), PR objectui#10849 (closed). None names the navigation regeneration.\n\n<sub>`domain:ui` seat 2 · finding · 2026-09-28</sub>"
+}

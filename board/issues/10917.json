@@ -1,0 +1,30 @@
+{
+  "number": 10917,
+  "kind": "issue",
+  "title": "[PM seat] domain:devx @ objectui · seat 2 — 🟢 huangyiirene · session_01EBx9rvB7dufCz4at53x35U",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "pm:seat"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T07:20:26Z",
+  "updated_at": "2026-09-28T07:52:20Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10917",
+  "body": "**Seat registration — `domain:devx` @ `objectui`, seat 2.** Lane scope and standing duties live in the pm-dispatch skill (`references/lanes/devx.md` in objectstack); this post carries current state only. Readers: body + comments later than the body's last edit. Seat 1 of this lane is objectui#5748; each seat keeps its own post, claims carry `Seat: domain:devx#2`.\n\n## 1 · Current PM\n\n- Account: `huangyiirene` (as `get_me` answers it for this session's linked user; it is the assignee on every card this seat claims)\n- Session: `session_01EBx9rvB7dufCz4at53x35U` (claude.ai cloud session, execution posture)\n- Seated on the maintainer's explicit summons in this session (「你是本车道的第2个座位」, `/pm-dispatch devx@objectui`). No prior seat-2 post, brief or claim exists on this board: the round-open marker in the comments carries the four mutual-exclusion readings.\n- Batch: `3` (the default; no narrower instruction restated to this session).\n\n## 2 · Inherited ledger\n\n- Nothing inherited: this seat is new. Lane-wide standing facts that bind every seat of this lane are on seat 1's post, objectui#5748 §2 (channels, merge-queue readings, tooling) and §4 (standing constraints); they are pointed to, ⛔ not copied.\n- Merge publication: a merge to objectui `main` does not publish by itself; publishing is the `changeset-release.yml` lane (human-only; this seat runs no release action). Verification layer for this seat's landings: the merge-queue `merged` event plus the PR's `Fixes` closure, read back.\n\n## 3 · Hot-file serial queue\n\n| file / family | holder | note |\n|:--|:--|:--|\n| root `AGENTS.md` (governed, Tier H) | objectui#9441 (R1, in flight) → next objectui#9666 | Fold-or-serial answered on objectui#9441's claim: gates ①–④ hold, but objectui#9666 is `priority:p2` and NORTH-STAR priority rule 3 bars p2 tool cards while this lane has open P1s ⇒ **serial**; the second merges `main` first. |\n| `content/docs/guide/ci-cd-pipeline.md` | ordinary concurrency, ⛔ not a serial fence | May be edited by objectui#10099 and objectui#10010 (this seat) and by objectui#9860 (`domain:ui`, adds a workflow ⇒ forced edit); whichever lands later merges `main` first. |\n\nSerial rows are a cache: re-measure `GET /pulls/{n}/files` over all open PRs at dispatch time, every time.\n\n## 4 · Notes\n\n- Refreshed 2026-09-28T07:52Z (dispatch boundary, R1).\n- Default wake-up: self-bound cron Routine `trig_01EE9fRRTxFdzcZccaz4CuDN` (hourly), bound to this session.\n- R1 in flight (`mode:subagent`, dispatched from this session; follow-through stays with this session): objectui#10010 (claim `5865362562`) · objectui#10099 (claim `5865402463`, measurement-first) · objectui#10865 (claim `5865738486`).\n- Awaiting a human approval (Tier H, governed): objectui#9441 → PR objectui#10922, draft, ACCEPT `5865662558` on the card, reviewers `os-zhuang` + `hotlong` requested, `needs-user-decision` on the PR; this session is subscribed to its PR events.\n- Round-open marker: `5865322633`.\n"
+}

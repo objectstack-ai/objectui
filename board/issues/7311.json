@@ -1,0 +1,36 @@
+{
+  "number": 7311,
+  "kind": "issue",
+  "title": "finding(plugin-calendar): `ObjectCalendarComponentProps.schema` is typed `ObjectGridSchema | CalendarSchema`, so no `object-calendar` node is assignable — the documented direct-React usage cannot compile",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-02T05:45:06Z",
+  "updated_at": "2026-09-17T11:49:07Z",
+  "closed_at": "2026-09-17T11:49:07Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 9,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7311",
+  "body": "Found while bringing `content/docs/plugins/plugin-calendar.mdx` under `check:doc-snippet-types` (objectui#5174 batch 6, PR to follow). Filed unassigned and **not** fixed there — that PR's surface is the `UNGATED_DOCS` ledger plus three doc pages, and `packages/*` source is out of scope by its dispatch.\n\n## What\n\n`packages/plugin-calendar/src/ObjectCalendar.tsx` declares:\n\n```\nschema: ObjectGridSchema | CalendarSchema;\n```\n\nNeither member admits an `object-calendar` node:\n\n- `ObjectGridSchema.type` is the literal `'object-grid'` (`packages/types/dist/objectql.d.ts`).\n- `CalendarSchema` is the **form date picker** — `type: 'calendar'`, with `mode`, `minDate`, `maxDate`, `onChange` (`packages/types/dist/form.d.ts`). It is a different widget entirely.\n\n`ObjectCalendarSchema` — `type: 'object-calendar'`, `objectName`, `startDateField`, `endDateField`, `titleField`, `defaultView` — exists in `@object-ui/types` and is exported, but this prop does not name it.\n\n## Measured\n\nCompiled against the built `dist`, `--strict`, through the doc-snippet gate's own program:\n\n```\n[semantic] content/docs/plugins/plugin-calendar.mdx TS2322:\n  Type '{ objectName: string; calendar: { startDateField: string; titleField: string; }; }'\n  is not assignable to type 'ObjectGridSchema | CalendarSchema'.\n  Property 'type' is missing in type '{ ... }' but required in type 'ObjectGridSchema'.\n```\n\nAdding the `type` the page teaches does not clear it — it moves the diagnostic to\n`Type '\"object-calendar\"' is not assignable to type '\"object-grid\"'`, because that member is a single literal.\n\n## Why this is the declaration's half, not the documentation's\n\nThe runtime path is real and is the one the platform itself takes:\n\n- `packages/plugin-calendar/src/index.tsx` registers `ObjectCalendarRenderer` for `object-calendar` (and for `view:calendar`) and renders `ObjectCalendar` with `schema={bound}` — the authored `object-calendar` node. The renderer is typed `schema: any`, so nothing turns the node away at that boundary.\n- `ObjectCalendar.tsx` reads `objectName` (line 120), `staticData` (113), `data` (109), `filter` and `sort` — and reaches the `calendar` block through `(schema as any).calendar` in `getCalendarConfig` (line 140).\n\nSo the component genuinely serves `object-calendar` nodes and its own reads are spelled `as any` to get at them. That is the same shape twice ruled on already:\n\n- objectui#5018 — `ObjectMapSchema`: \"组件 props 类型写的是 `ObjectGridSchema`,每处 map 读取都走 `as any`\" (closed).\n- objectui#5903 — `ObjectGanttProps.schema` moved from `ObjectGridSchema` to `ObjectGanttSchema`, and its docblock records the same reason: *\"It used to be `ObjectGridSchema`, and that is why ten genuine reads had to be spelled `(schema as any).K`\"*.\n\nplugin-calendar is the remaining member of that family.\n\n## Cost\n\nA reader following the page's **Direct Component Usage** section — importing `ObjectCalendar` and rendering it in their own React tree, which is exactly what that section is for — cannot type-check the schema they were just taught to write. The two escapes are both bad: annotate as `ObjectGridSchema` (what the page's TypeScript Support section did until this batch corrected it — an annotation that is simply false), or cast, which is the lenient-consumer workaround AGENTS.md refuses.\n\nBecause of this, that block ships in the batch-6 PR carrying a `FRAGMENT_MARKER` declaration naming this gap, rather than a cast. It becomes a compiling block the day the declaration names `ObjectCalendarSchema`.\n\n## Scope note, unmeasured here\n\nWhether `ObjectCalendarSchema` should also declare `calendar` (it does not today, so the block lands on `BaseSchema`'s index signature and is unchecked) is a second, related question — `ObjectGanttSchema` does declare `gantt`. Recorded, not asserted: that is a separate decision about the authoring surface, not part of repointing this prop.\n\nRelated: objectui#5018, objectui#5903, objectui#5784, objectui#5667."
+}

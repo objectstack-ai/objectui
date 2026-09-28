@@ -1,0 +1,30 @@
+{
+  "number": 10926,
+  "kind": "issue",
+  "title": "Bind the in-app assistant dock's build thread to the current app (reverses ADR-0057 A1.b per maintainer ruling)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T07:52:19Z",
+  "updated_at": "2026-09-28T07:52:19Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10926",
+  "body": "## Source\n\nobjectui#10899 item 4 (epic objectstack-ai/cloud#2440). When the maker opens the in-app assistant inside app 「客户管理」, the dock's build header chip reads 「构建 · 新建应用」. The dock uses the app-less, product-only build scope and sends no `packageId`, so the agent has to infer which app to edit.\n\nThe PR objectstack-ai/objectui#10924 dev root-caused it and deferred it because it reverses ADR-0057 Amendment A1.b.\n\n## Maintainer ruling (epic session, 2026-09-28, verbatim)\n\n「绑定当前应用（推荐）」\n\nAs presented: inside an authorable app (package not `com.objectstack.*`), when the resolved agent is `build`, the dock binds its build thread to that app. That means `editPackageId` is the app's package and the scope is `app:PKG:build`.\n- The chip, the empty state and the agent context name the app.\n- The dock, `/ai/build?package=PKG` and the Studio copilot share one thread; Maximize goes to `/ai/build?package=PKG`.\n- `ask` stays ambient.\n- Existing ambient build threads stay reachable in the `/ai` sidebar.\n\n## Delivery shape\n\n1. **ADR amendment.** An amendment to `docs/adr/0057-console-ai-chat-one-conversation-docked.md` records the reversal of the A1.b \"dock keeps the legacy product-only key\" line, citing this ruling.\n   - `docs/adr/**` is a governed surface, so it is its own **draft** PR that the maintainer merges.\n   - Do not mix it into the code PR.\n2. **Code PR.** Implements the binding.\n   - Reuse `editPackageId` / `chatConversationScope`; add no new surface.\n   - Tests pin the chip text inside an app, the scope key, thread sharing with `/ai/build?package=`, and `ask` staying ambient.\n\n## Acceptance\n\n1. Inside app X, the dock's build chip names X, and the build request carries X's package id.\n2. Opening `/ai/build?package=X` shows the same thread.\n3. Outside any authorable app, behaviour is unchanged.\n"
+}

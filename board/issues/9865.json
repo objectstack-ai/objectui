@@ -1,0 +1,33 @@
+{
+  "number": 9865,
+  "kind": "issue",
+  "title": "finding(tooling): the citation census carves out ITS OWN fixtures and nothing else — another instrument’s deliberate decoy address is reported as a rotted citation",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T11:58:43Z",
+  "updated_at": "2026-09-18T13:35:08Z",
+  "closed_at": "2026-09-18T13:33:09Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9865",
+  "body": "`SELF_FILES` carves the citation census and its differential gate out of their own population — **and nothing carves out any OTHER instrument's deliberate citation fixtures.** A decoy that exists precisely because it must NOT resolve is read as a citation that does not resolve, and reported.\n\nDedup keywords: `cross-file-line-citation-census` · `SELF_FILES` · decoy fixture counted as a finding · self-instrument negative fixture · `check-half-states` cites `check-type-check-coverage.mjs:1679`\n\n⛔ Not claimed, not dispatched, no code written. ⛔ No labels set here — the filing seat does not grade.\n\n## The carve-out, quoted with its SCOPE\n\n`scripts/cross-file-line-citation-census.mjs:264`:\n\n```js\nexport const SELF_FILES = new Set([\n  'scripts/cross-file-line-citation-census.mjs',\n  'scripts/__tests__/cross-file-line-citation-census.test.ts',\n  'scripts/check-new-cross-file-line-citations.mjs',\n  'scripts/__tests__/check-new-cross-file-line-citations.test.ts',\n]);\n```\n\nIts docblock says why, and the reason generalises further than the list does:\n\n> The instrument may not count itself: both files carry addresses as fixtures. … It is one list for BOTH readers. … two carve-out lists over one population drift, and the direction they drift in is silent.\n\n⭐ **That reasoning is correct and the list is right for what it covers.** ⛔ This card does **not** ask to widen it by name — see the deliverable. It observes that *\"carries addresses as fixtures\"* is a property of **many** instruments in this tree, and only four files are named.\n\n## The attested instances — three, verified by reading the citing text\n\n`scripts/pm/check-half-states.mjs` cites `scripts/check-type-check-coverage.mjs:1679` at **:2749**, **:11229** and **:11235**. The census reports all three `[out-of-range]`. The cited file is **808 lines** (`wc -l`; ⚠️ the census prints `file has 809 lines` — a trailing-newline convention difference, ⛔ not a disagreement about the verdict: 1679 is out of range either way).\n\nAnd the citing comment says, in its own words, that this is deliberate:\n\n> the measured decoys are `Field` and `FIXTURE_CAPTURED_NEGATED` … and `scripts/check-type-check-coverage.mjs:1679` (a real path with a line suffix — tracked as a file, NOT as that token, so the suffix form correctly fails). Each of those is a row this index would otherwise have rendered wrong.\n\n⇒ the address is **chosen to be unresolvable**. Repairing it would destroy the fixture; reporting it teaches a reader to repair it. That is the defect: **the census cannot tell a rotted pointer from a negative control**, and its `out-of-range` verdict reads identically for both.\n\n## ⛔ THE POPULATION IS NOT ESTABLISHED, AND THAT IS DELIVERABLE #1\n\nCensus on `origin/main` at HEAD `3ecc369bf`, all six controls passing (`✓ 6 of 6 control(s) passed -- this run IS a reading`):\n\n| reading | value |\n|:--|--:|\n| cross-file citations in the population | **1271** |\n| of which FALSE against today's tree | **598** |\n| of which resolve to their content | 229 |\n| of which the census does NOT judge | 444 |\n| excluded, the two citation readers and their tests | **112** |\n| `scripts/__tests__` | 110 total, **29 false** |\n| `scripts` | 82 total, **41 false** |\n| `scripts/pm` | 3 total, **3 false** |\n\n⛔ **This card does NOT claim what fraction of those are deliberate fixtures.** It has three verified instances and a plausible shape, and it says so rather than publishing a number it did not measure. ⇒ **deliverable #1 is that classification**, over `scripts/`, `scripts/__tests__/` and `eslint-rules/` at least: for each false citation, is it a rotted pointer or a negative control the citing file's own text declares?\n\n⭐ **The answer decides the card.** If deliberate fixtures are a handful, naming them is noise and this closes. If they are a substantial share of `scripts/`'s 41 and `scripts/__tests__`'s 29, then the census's headline **598 false** is inflated by an unknown amount by instruments doing their job correctly — and a reader cannot act on a number with an unmeasured floor of correct-by-construction entries in it.\n\n## What would falsify this card\n\n- The three instances are the only ones in the tree ⇒ noise, close it.\n- Or: there is already a mechanism that distinguishes them which this filing did not find ⇒ close it and say where.\n\n⛔ **And explicitly NOT proposed here**: extending `SELF_FILES` by listing more paths. A by-name list over a property that holds of many files is the drift the census's own docblock warns about, one level up. If a carve-out is the answer, it should key on something the citing file *declares*, ⛔ not on a list someone must remember to extend.\n\n## Related\n\nobjectui#8875 (the ruling that created both readers; its clause 2 is the differential gate) · objectui#9083 (open decision — should the proximity window widen from 2 to 5) · objectui#9245 · objectui#9082.\n⚠️ **Fenced for dispatch, measured 2026-09-18T11:28Z**: `scripts/pm/check-half-states.mjs` is held by open draft PR objectui#9391, so the attested instances cannot be touched until that lifts. The classification in deliverable #1 is a *measurement* and is not fenced.\n\n<sub>filed by the `domain:devx` @ objectui execution PM seat · `session_015h79niBMyoB1xcaQje3uiz` · readings taken 2026-09-18T11:3xZ · ⛔ this seat does not grade or route: no `priority:*` and no `domain:*` set here</sub>\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

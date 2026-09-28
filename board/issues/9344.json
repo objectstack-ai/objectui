@@ -1,0 +1,34 @@
+{
+  "number": 9344,
+  "kind": "issue",
+  "title": "finding(types): the handler-key read gate is blind to a read behind an `as any` cast — 2 live `onTabChange` reads its 39-row census never saw",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:devx",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-13T03:09:23Z",
+  "updated_at": "2026-09-17T01:36:37Z",
+  "closed_at": "2026-09-13T12:55:04Z",
+  "closed_by": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9344",
+  "body": "Filed by the `os-dev` seat implementing objectui#7804's **`plugin-detail`** slice (PR objectui#9343), 2026-09-13. ⛔ Filed unassigned, not claiming. ⛔ No labels applied — routing and grading are triage's.\n\n## The finding\n\n`scripts/check-handler-key-read-sites.mjs` — **the gate of record** for objectui#7804's whole family — derives its READ population from the TypeScript AST, and it does not see a property access whose receiver is an `as any` cast. Its own docblock lists **five** things it deliberately does not answer (props-spread channels, the 22 retired tombstones, types with no zod arm, whether a declared key's TYPE is right, lazy chunks). **A cast is not one of them.** So this is an undeclared gap in an instrument whose census claim is load-bearing: *\"Both populations are DERIVED. Nothing here is a list a re-key can hold constant.\"*\n\n## Measured, with a control that fires\n\nAnchor `\\((?:schema|props) as any\\)\\??\\.(on[A-Z][A-Za-z]*)` over tracked sources under `packages/`, `apps/`, `examples/`, tests excluded. **Two live reads, in two packages:**\n\n| file | read | registered type | arm | gate sees it |\n| --- | --- | --- | --- | --- |\n| `packages/plugin-detail/src/DetailView.tsx` | `(schema as any).onTabChange`, forwarded into the `Tabs` element's `onValueChange` | `detail` (and `detail-view`) | `crud.zod.ts#DetailSchema` / `views.zod.ts#DetailViewSchema` — neither declares it | **no** |\n| `packages/components/src/renderers/layout/containers.tsx` | `(schema as any)?.onTabChange`, same forward | `tabs` | `layout.zod.ts#TabsSchema` — declares `onValueChange`, not `onTabChange` | **no** |\n\n**Control (it fires):** the same anchor without the `on`-prefix requirement returns **33 files**, so the instrument is alive and the two-row result is a reading, not a dead anchor. Verified on the objectui#7804 `plugin-detail` branch at `6546a1564`, whose base is `a686403b3`.\n\n**Gate output, its own printed line, on that same tree after the slice landed:**\n\n```text\nOK  105 arm(s), 212 registration(s) (119 with an arm), 59 reachable handler read(s), 59 judged, 0 left unjudged on an arm with an unresolved spread, 37 exempted by ledger — every judged read is a declared member of its arm.\n```\n\n`59 reachable handler read(s)` — neither `onTabChange` is among them.\n\n## Why that matters, in this family's own terms\n\nThe exposure is objectui#7804's, verbatim: `BaseSchemaCore` ends `.passthrough()`, so a key an arm does not declare is not refused — it stops being judged and the value is **KEPT** and reaches the renderer. An authored `{ \"type\": \"detail\", \"autoTabs\": true, \"onTabChange\": { \"action\": \"toast\" } }` parses GREEN and the kept object is handed to a slot React invokes as a function. That is the same defect the 39 rows describe; it is simply not one of the 39, because the census could not see it.\n\n⇒ **objectui#7804's \"39\" is a floor, not a total.** That is the part worth recording: the card, the ruling and six dispatches all quote 39 as the population.\n\n## Not a duplicate — the three near neighbours, checked\n\n- **objectui#8327** (CLOSED) — the repo-wide `(schema as any).KEY` sweep. Its table already lists `packages/plugin-detail/src/DetailView.tsx` with `defaultTab` and `onTabChange`. ⚠️ Different instrument, different question: that census asked which cast reads are undeclared **on the TypeScript props type**, where `onTabChange` IS declared (`views.ts#DetailViewSchema`) — which is exactly why it did not reach any of the seven per-package ruling cards. The question here is the **zod arm the registered `type` selects**, where it is declared by nobody.\n- **objectui#8649** — the `plugin-detail` card from that split. Covers `renderers/record-details.tsx`, `record-highlights.tsx`, `record-related-list.tsx`, `record-reference-rail.tsx` and non-handler keys. `DetailView.tsx` is not in it.\n- **objectui#6152** — records `onTabChange` in the parity ledger's `RuntimeOnlyDeclared` for the `views.zod.ts#DetailViewSchema` pair. That is the MIRROR question for one pair; it says nothing about the gate, about the `crud.zod.ts#DetailSchema` arm, or about the `tabs` arm.\n\nDedup channel: the repo-scoped open-issues list, all 5 pages (453 open issues), with objectui#7804 as the known-hit control. `/search/issues` is proxy-refused in this container.\n\n## What this card does NOT decide\n\n1. **The instrument.** Teach the gate to follow a cast receiver, or record the cast as a sixth declared boundary. Following it is cheap and matches the file's stated contract; declaring it a boundary is honest but leaves the hole. Either is a ruling.\n2. **Per key, after that.** The objectui#6124 disposition for each `onTabChange` read is MEASURED, not assumed — `runtime-slot` where the value reaches the renderer, `retired` where the read is dead, declare where it is an authored contract. ⚠️ There are two arms, `crud.zod.ts#DetailSchema` (plus the `detail-view` twin) and `layout.zod.ts#TabsSchema`, and the second one already declares a DIFFERENT spelling (`onValueChange`) for what looks like the same event — so the `tabs` question may be an alias question rather than a declaration one, and the two should not be ruled alike without measuring.\n3. **Whether declaring is Clause-②.** It moves a published accept set the same way objectui#7804's rows do, so it very likely carries `needs:contract-review` on both limbs.\n\n## Refs\n\nobjectui#7804 (the 39-row parent) · objectui#7753 (the gate's card) · objectui#6124 (the disposition ruling) · objectui#8327 (the cast sweep, closed) · objectui#6152 (the parity ledger entry) · PR objectui#9343 (the slice that surfaced this)\n\nGenerated by Claude Code in session `https://claude.ai/code/session_01UzHd6hDYatoDn17BuwKxnZ` — attribution written as prose because an issue body drops a footer block on creation.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

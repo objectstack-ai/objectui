@@ -1,0 +1,39 @@
+{
+  "number": 7998,
+  "kind": "issue",
+  "title": "`plugin-detail` README's \"Reference Rail decision matrix\" says the rail emits automatically and reads its ≥2-related condition off the objectDef — the shipped synth requires an explicit `showReferenceRail` opt-in and reads `options.related`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "documentation",
+    "domain:ui",
+    "plugin",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T07:43:31Z",
+  "updated_at": "2026-09-18T07:25:08Z",
+  "closed_at": "2026-09-18T07:25:07Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7998",
+  "body": "Found while repairing `packages/plugin-detail/README.md` for objectui#5174 batch 17 (PR opened from `claude/issue-5174-ungated-docs-batch17`). Filed unassigned and only PARTLY repaired there: that batch had to stop the section contradicting the fenced block it owns, so it corrected the block and the one matrix bullet naming the retired `detail.hideReferenceRail` route. The two prose claims below are a separate defect and were deliberately left for triage.\n\n## What\n\nThe README's \"Reference Rail decision matrix\" states the rail \"emits automatically when\" four conditions hold. The shipped condition in `packages/plugin-detail/src/synth/buildDefaultPageSchema.ts` is:\n\n```\nconst willEmitRail =\n  options.showReferenceRail === true &&\n  !options.hideReferenceRail &&\n  Array.isArray(options.related) &&\n  options.related.length >= 2;\n```\n\nTwo mismatches:\n\n1. **\"emits automatically\" overstates it.** The first conjunct is `options.showReferenceRail === true` — an explicit opt-IN. A caller who satisfies every condition the README lists and does not pass `showReferenceRail` gets no rail. The README never mentions that flag at all, so the page describes a default that does not exist.\n\n2. **Rung 2 attributes the ≥2 condition to the objectDef.** The README says \"The objectDef declares ≥2 related collections (lookup/master-detail inbound fields)\". The code reads `options.related` — the synth CALLER's option — not the objectDef's inbound fields. The distinction matters to anyone debugging a missing rail: they will go inspect field metadata when the answer is in the `buildDefaultPageSchema` call.\n\nRung 3 (viewport ≥ xl) is a CSS concern and looks correct. Rung 4 named the retired `detail.hideReferenceRail` objectDef route and was corrected in batch 17 to name the surviving `BuildPageOptions` one.\n\n## Context: this section has already rotted once\n\nBatch 17 also had to replace the section's \"Per-object opt-out\" example, which taught\n\n```\nObjectSchema.create({ name: 'product', detail: { hideReferenceRail: true } });\n```\n\n`ObjectSchema` is not a public export of `@objectstack/spec` (it is an internal bundle symbol), and this package's own CHANGELOG records the objectDef `detail.*` block — naming `showReferenceRail`, `hideReferenceRail` and `hideRelatedTab` explicitly — as an ADR-0085 removed dead read that is \"no longer consulted\". A repo-wide grep finds zero readers of `objectDef.detail`. That whole route died and the README followed it down; these two prose claims are the part that is still standing.\n\n## Reachability\n\nDocumentation only — nothing changes at runtime. The cost is the debugging detour above, and it is the class of defect objectui#5174 exists to stop: the fenced block in this section was invisible to the snippet gate for as long as the page carried an `UNGATED_DOCS` entry, and prose is not gated by anything even now.\n\nFiled by the `domain:devx` os-dev seat, session `session_01MM7kaS4dPpYHV5BsMyu4tQ`, as an out-of-scope finding from objectui#5174 batch 17. A dedup search ran first and found no open card for it."
+}

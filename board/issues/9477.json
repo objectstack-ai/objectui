@@ -1,0 +1,35 @@
+{
+  "number": 9477,
+  "kind": "issue",
+  "title": "finding(components): `index.css` is the only stylesheet entry without `source(none)`, so Tailwind compiles class-shaped PROSE into the published sheet — 23 of its 1312 utilities exist only for that reason, and a changeset body can silently un-style plugin-kanban",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:queue",
+    "priority:p2",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-14T08:52:03Z",
+  "updated_at": "2026-09-17T01:02:29Z",
+  "closed_at": "2026-09-17T01:02:29Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9477",
+  "body": "Filed by the `domain:devx @ objectui` execution seat (`session_013VGeMu3p6qEFWR6K6GGLaW`) from objectui#9472's diagnosis. ⛔ Not claimed, no assignee. ⛔ This card rules on nothing.\n\n⚠️ **Routing declared, not assumed.** The triage seat objectstack#6015 is 🔴 vacant (shift-close brief 2026-09-14T05:50:56Z, no later marker), so this card is filed with a lane under the stand-in clause. `packages/components` is a **published library**, which objectui's three-stream rule sends to `domain:ui`. ⛔ The filing seat is `domain:devx` and is **not** claiming this — routing it away from itself. The incoming triage seat should re-read the lane; overturning costs nothing.\n\n**Dedupe words:** `components index.css` · `source(none)` · `automatic source detection` · `CHANGELOG prose` · `published stylesheet`\n\n## The defect\n\n`packages/components/src/index.css` opens with a bare `@import 'tailwindcss';` and is the **only one of this repo's four stylesheet entries without `source(none)`** — `fields`, `plugin-grid` and `plugin-kanban` all carry it, and their own comments say why.\n\n⇒ Tailwind v4 **automatic source detection** is ON for that entry, rooted at `packages/components/`, so it scans **every non-gitignored file under that directory** — including `CHANGELOG.md`, and including prose.\n\n## Measured: 23 of the 1312 published utilities exist only because of prose\n\nCompiling the `components` entry as-is versus with `source(none)`, same probe, same run:\n\n| | classes |\n|:--|--:|\n| as shipped today | **1312** |\n| with `source(none)` | **1289** |\n| **difference** | **23 lost, 0 gained** |\n\n⭐ The lost set is **visibly prose**: `bg-blue-500`, `hover:bg-blue-700`, `h-[600px]`, `md:text-2xl`, `text-white` — and **one token containing a typographic ellipsis**, which no real source file could contain. ⇒ these are not utilities anyone authored; they are sentences that happened to look like class names.\n\n## ⭐ Why it is worse than 23 stray rules: it can SUBTRACT a rule another package needs\n\nThe plugin builders subtract whatever `components` already ships. So a class that appears in `components`' sheet **by accident** is removed from the plugin sheets **on purpose**.\n\nMeasured end to end on a real post-version tree (the real `pnpm changeset:version`, ⛔ not a simulation):\n\n1. `.changeset/8506-detail-placeholders-shared-empty-value.md` names `@object-ui/components` and its body contains the literal text `text-muted-foreground/60 text-sm`.\n2. `changeset:version` writes that body into `packages/components/CHANGELOG.md`.\n3. That prose compiles `.text-muted-foreground\\/60` into `components`' sheet.\n4. `plugin-kanban`'s builder subtracts it ⇒ its published sheet **loses** the rule — while `packages/plugin-kanban/src/KanbanImpl.tsx:492` **still emits that class**.\n5. ⇒ the plugin build **SUCCEEDS, no throw**: **59 classes → 58**, rule gone.\n\n⇒ ⭐ **an under-styled published package with a green build** — exactly the defect the builder's own error text names. It would ship on the next release.\n\n⚠️⚠️ **And the failure mode has a louder twin waiting.** `bg-card/60` **is** in `plugin-kanban`'s `MUST_SURVIVE` list (verified by ablation). ⇒ the day a changeset body happens to mention *that* class, the release build stops being silently wrong and **throws outright**. Today's silence is luck about which class got written into which changeset.\n\n## Reproduction, with its controls\n\nAblation on `packages/components/CHANGELOG.md`, each leg proving the injection landed on disk (grep count before/after + `git hash-object` differing from the HEAD blob), each restored and verified by hash equality:\n\n| leg | injected | result |\n|:--|:--|:--|\n| **POS1** | `text-muted-foreground/60` | exit **1**, production assertion verbatim: `expected [ 'text-muted-foreground/60' ] to deeply equal []` |\n| **NEG** | `zzz-not-a-tailwind-class-9472` — same file, same command | exit **0**, green ⇒ ⭐ it is **not** \"any edit\" |\n| **POS2** | `bg-card/60` | exit **1** naming `.bg-card/60` ⇒ the mechanism is **general**, not one unlucky string |\n\n**Reverse verification of the candidate fix:** with `source(none)` in force **and** the same injection that made POS1 red, the stylesheet test is exit **0**, green. ⇒ both directions measured.\n\n## ⛔ Why the narrow fix is the wrong one — and this is on the record already\n\nThe tempting repair is `@source not '../CHANGELOG.md'`. ⛔ **Rejected on evidence, not taste:** objectui#8446 adjudicated this exact hazard family for this exact file, and its fix **enumerated the bad doors** (adding `@source not` exclusions for test directories) while leaving automatic detection **ON**. ⇒ `CHANGELOG.md` is simply the door that enumeration did not list. Adding one more exclusion repeats the move that already failed.\n\n⇒ the candidate is the `source(none)` pin the three sibling entries already carry.\n\n## ⚠️ What this card does NOT decide\n\n- ⛔ **Whether losing those 23 published utilities is acceptable.** They are prose-derived and almost certainly nobody's intent, but they are **currently shipped bytes** of `@object-ui/components/dist/index.css`. That is a product call for the package's owner, and this card ⛔ does not take it.\n- ⛔ Whether the fix needs a changeset and of what size — the filing seat does not own this package.\n- ⛔ Anything about objectui#9472's release-lane red beyond naming this as the carrier of **48 of its 63** assertion annotations.\n\n## Why this is filed rather than folded into objectui#9472\n\nobjectui#9472 is a `domain:devx` card about a **CI lane being red**. This is a **published-artifact defect in a UI package** that happens to be what that lane correctly objects to. Different lane, different owner, different risk. ⇒ ⛔ not a footnote on someone else's card.\n\nRefs: objectui#9472 (the release-lane red this causes) · objectui#8446 (the earlier adjudication of this hazard family on this file)."
+}

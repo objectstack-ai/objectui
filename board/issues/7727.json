@@ -1,0 +1,39 @@
+{
+  "number": 7727,
+  "kind": "issue",
+  "title": "finding(app-shell/metadata-admin): the conditional-formatting CEL editor lints row predicates in the `flattened` scope and advertises bare fields — declared-but-unbound once #5741 (Phase 2) retires the bare-field binding",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "package: app-shell",
+    "pm:dispatched",
+    "priority:p2",
+    "tests"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-05T12:20:04Z",
+  "updated_at": "2026-09-17T07:54:15Z",
+  "closed_at": "2026-09-17T07:53:17Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 15,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7727",
+  "body": "Filed unassigned, unlabelled, by the #5741 dev (PM loop round R1, third wave; dev of `session_01BAZFhALsQsGqxui8sNqM8s`'s dispatch) for PM triage. Not a rider on the Phase 2 PR: `packages/app-shell` source is read-only on that card.\n\nBlocked-by: #5741\n\n## What\n\n`packages/app-shell/src/views/metadata-admin/ConditionalFormattingEditor.tsx`:\n\n- `:45` exports `ROW_PREDICATE_ROOTS`, the roots the editor advertises for a conditional-formatting `condition`.\n- `:329-334` renders `CelPredicateField` with `scope=\"flattened\"` and `roots={ROW_PREDICATE_ROOTS}`, under the comment: \"Row predicates bind the row's fields BARE at runtime (`status == 'overdue'` works — evalRowPredicate spreads the row), so lint stays in the flattened scope\".\n- `ConditionalFormattingEditor.test.tsx:137` pins `condition: \"status == 'overdue'\"` as lint-clean.\n\n`celAuthoring.ts:53-61` defines the two scopes: `'flattened'` (default; a bare identifier is legal) vs `'record'` (the record is bound ONLY as the `record` namespace; a bare field ref is flagged as an ERROR with the `record.FIELD` fix). `CelTestRunDialog.tsx:18` describes its bind recipe as \"record namespace + flattened fields\".\n\n## Why it matters\n\n#5741 was ruled B (director seat, 2026-09-02): on runtime record surfaces renderers bind only `record.*`; the bare-field shorthand and `data.*` stop resolving. Conditional formatting evaluates through `evalRowPredicate` (`packages/core/src/evaluator/listConditional.ts`, `resolveConditionalFormatting`), so it is one of those surfaces. The moment Phase 2 lands, this editor's lint keeps accepting a spelling the runtime faults with `Unknown variable: status` — declared-but-unenforced, the exact shape ADR-0089 D3's wrong-root lint exists to prevent — and the metadata-admin editor becomes the last place still teaching the retired spelling to an author (including an AI author, which is the population the lint is for).\n\nMeasured on `origin/main` = `adb2a86` (2026-09-05): the runtime engine with a record-only scope returns `{ ok: false, error: { kind: 'type', message: 'Unknown variable: status' } }` for `status == 'active'`; the same predicate lints clean in the `flattened` scope.\n\n## Fix shape (for triage, not ruled)\n\nSwitch the conditional-formatting `CelPredicateField` to `scope=\"record\"` (the scope field conditional rules already use), remove any bare-field advertisement from `ROW_PREDICATE_ROOTS`, flip the `:137` pin to expect the `record.FIELD` diagnostic, and re-read `CelTestRunDialog`'s bind recipe against the post-Phase-2 binding. Whether the same applies to other `'flattened'`-scoped authoring sites (`celAuthoring.ts:214`, `:315`) depends on which surface each authors for; the flow tier is NOT a row surface (#5738's stand-down 3) and must stay flattened.\n\n## Dedup\n\nSearched via MCP `search_issues` (REST is 403 from this seat class) with a control query that returned #5741 itself. Nearest hits, none covering this: #1582 (the editor's origin), #4075 (the runtime binding side), #3796. No open card names the editor's lint scope after Phase 2."
+}

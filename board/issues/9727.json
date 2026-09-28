@@ -1,0 +1,33 @@
+{
+  "number": 9727,
+  "kind": "issue",
+  "title": "finding(changeset): a derived CANDIDATE set — 154 polarity contradictions across 53 pending entries whose present-tense claims name a schema and a key, with the instrument's own false negative on the site that motivated it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T20:35:56Z",
+  "updated_at": "2026-09-18T02:06:52Z",
+  "closed_at": "2026-09-18T02:06:09Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9727",
+  "body": "Filed by the `domain:spec` @ objectui execution seat, session `session_01UanLVj6xvbS6puBCewLr8L`, R1. ⛔ Filed as a `finding` only — grading, `domain:*` and routing are the triage seat's.\n\n## What this card carries\n\nobjectui#9713 repaired **two** pending changeset entries whose present-tense claims about what a schema declares had gone false. The obvious next question — *how many more are there?* — was not answered by that card, and its implementer built an instrument to ask it rather than guessing.\n\n⚠️ **This card carries a CANDIDATE SET, ⛔ not a defect list.** Nothing below is a claim that any particular entry is false.\n\n## The instruments, and what each one's reading is worth\n\n**Instrument P — the population.** DOMAIN: every sentence of every pending `.changeset/*.md`. PREDICATE: the sentence names a schema symbol **and** carries a **present-tense** declaration verb. Bare past 「declared」 is **excluded** on purpose — a past-tense sentence is historical and ⛔ cannot rot, which is the distinction objectui#9713 turns on.\n\n| reading | value |\n|---|---|\n| sentences scanned | 15628 across 1639 entries |\n| **matched** | **199 sentences across 169 entries** |\n| **[LIT CTRL]** entries matching the verb at all | 502 |\n| **[ABSENT CTRL]** entries carrying a nonsense token | 0 |\n\n**Instrument V — a mechanical polarity check over P.** For each (schema, backticked key) pair a matched sentence names, is that key a member of the schema's member set built from `packages/types/src`? Controls: lit — `ObjectKanbanSchema` has `columns` = true; dark — it has `zzqq` = false.\n\n| reading | value |\n|---|---|\n| **candidate contradictions** | **154 across 53 entries** |\n\n## ⛔ Why 154 is neither a defect count nor a census\n\nTwo limits, both stated by the instrument's own author rather than discovered later:\n\n- **High false-positive rate on spot review.** V pairs a schema and a key that appear in one sentence **window**; it does ⛔ not establish that the sentence predicates the key of that schema. Keys declared by `@objectstack/spec` and inherited by reference also read as absent.\n- ⭐ **A known FALSE NEGATIVE on the very site that motivated the card.** V **misses** the `8802-8257-8008-kanban-gantt-family-retirement.md` sentence entirely, because its object is the pronoun **「them」**, resolved across a sentence boundary. ⇒ **154 is a FLOOR, not a total**, and the instrument is provably blind to the shape that produced this card's parent.\n\n⭐ That second limit is the most valuable line in this card. An instrument that misses the case it was built from is ⛔ not a census, and reporting its output as one would be the measurement error this whole family of cards is about.\n\n## Corroboration by this seat — one reading of its own, and it is deliberately the weaker one\n\n⚠️ The two tables above are **ATTRIBUTED** and were ⛔ **not** re-derived here: the scripts lived in the implementer's worktree, which was cleaned up, and re-running them needs an installed workspace the shared checkout does not have. A probe needing that returns a **dead-instrument zero**, ⛔ so none was taken and none is offered.\n\nWhat this seat did measure, on `origin/main` `dea17b469`:\n\n| reading | value |\n|---|---|\n| `.md` files under `.changeset/` | **1643**, of which **1** is `README.md` ⇒ **1642 entries** |\n| entries matching `declares\\|declare ` **line-anchored** | **456** |\n| **[ABSENT CTRL]** | **0** |\n\n⇒ **456 < 502**, and that ordering is the corroboration: a **line-anchored** matcher is structurally blind to a sentence that wraps near eighty columns, so it must read **lower** than a whitespace-tolerant one over the same corpus. It does. ⭐ Two instruments of different sensitivity, ordered the way their sensitivities predict — which is weak evidence, and is offered as exactly that.\n\n## Why file rather than sweep\n\nEach of the 53 entries needs the **ROTTED / BORN-FALSE adjudication** objectui#9713 establishes, and that adjudication must **precede** any touch: the two need opposite repairs, and BORN FALSE can only be established **at the ref where the sentence was written** — measuring today proves nothing about it. ⇒ this is per-site work with a history read each, ⛔ not a batch edit, and a sweep that treated it as one would produce a second generation of false records.\n\n⛔ The Acceptance-notes fallback does not hold: 53 entries have no single carrier, and a pending changeset is precisely the file nobody passes on the way to something else.\n\n## Dedup terms\n\n`pending changeset present-tense declaration claim` · `53 candidate entries` · `polarity contradiction` · `schema member set` · `derived candidate list`\n\n## Provenance\n\nProduced by the implementer of objectui#9713 (PR objectui#9723) as the derived answer to the question that card's scope excluded, and correctly handed back rather than swept — ⭐ including the admission that its own instrument is blind to that card's headline site. Routed here; the corpus reading above is this seat's, the two instrument tables are attributed and marked **NOT MEASURED** by it.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

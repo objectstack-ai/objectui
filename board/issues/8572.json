@@ -1,0 +1,32 @@
+{
+  "number": 8572,
+  "kind": "issue",
+  "title": "ChatbotSchema.body accepts more than the declared contract",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:spec"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-08T12:59:38Z",
+  "updated_at": "2026-09-17T07:51:45Z",
+  "closed_at": "2026-09-17T07:49:43Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 11,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/8572",
+  "body": "## 维护者速读\n\n在这个平台上,`body` 在每一个组件上都是同一个意思:**这个组件里面显示什么**。只有聊天机器人组件例外 —— 它的 `body` 收的是一包自由填写的聊天接口参数(`{ model: ..., temperature: ... }`)。109 处同名重声明里,这是**唯一一处比契约更宽的**,其余 108 处都等于或更窄。\n\n以前这个宽度看不见:聊天机器人一旦嵌在卡片或容器里,那包参数就会被拒。objectui#8344 把判定改成「每个孩子按自己的形状判」之后,**这包自由参数在任何一层都被接受了**(实测:根层、`card.body[]`、`div.children[]` 三处全部 ACCEPTED,另有两个对照证明这次读数不是空转)。\n\n⛔ 今天零个文档这么写 —— 语料、fixture、pin 全零。所以这不是「客户正在疼」,是「从现在起谁写谁合法,而且只有这一个组件合法」。\n\n三个选择:\n\n- **A —— 给聊天参数一个自己的键**:`body` 在所有组件上恒等于「里面显示什么」,聊天接口参数搬到它自己的名字下。一个词一个意思;代价是动一处已发布的面,外面若有文档在写 record 形 `body` 就要迁移(数量 ⛔ 未量)。\n- **B —— 保留现状,并把它写进契约**:聊天机器人的 `body` 就是可以是一包自由参数,任何位置都接受。零迁移;代价是一个词两个意思永久存在。\n- **C —— 保留,但只在最外层接受**:嵌进别的组件时收窄回节点。拦住这次新扩大的那一半;代价是同一个键在不同深度行为不同,比 B 更难跟作者解释。\n\n我的建议是 **A**(回退:**B**)。理由在四棱块里;**B** 的代价不是迁移,是把一条学不会的规则永久化。\n\n裁定之后不必再裁执行:TS 声明与 zod 镜像在同一次改动里改到一致(卡里第 3 点,这对已被 `zod-mirror-parity` 记为词表漂移),不需要你另外发话。\n\n选哪个:A / B / C?\n\nos-decision-facets\n\n- ① 项目长远合理性:A 消灭这个平台上唯一一处「同名更宽」的特例;B 把它写进契约变成永久特例;C 还要额外新增一条「按嵌套深度不同」的规则 —— 三者里 C 的特例增生最多,A 最少。\n- ② 实际业务拉动:今天零人撞上(零文档在子槽写它,实测);拉动来自明天 —— 这个宽度从 objectui#8344 起在每一个位置都可达,越晚裁,外面已经写下的文档越多,A 的迁移代价越贵。\n- ③ 防 AI 犯错:B 最危险。同一个词在一个组件上接受自由结构、在其余所有组件上只接受节点,AI 从任一侧学到的规则在另一侧都是错的;而错的那一侧是**静默接受** —— 写进去、存下来、没有任何人看见,不是响亮拒绝。A 把这个槽的取值收成闭合的一种。\n- ④ 创业阶段不扩散:一包自由填写的参数是典型的 declare-and-maintain —— 它没有边界,每一次聊天接口加参数都自动变成这个平台的已声明面,而没有人签过这份永久义务。\n- 推荐:**A**(回退:**B**)。\n- 本分析看不见什么:我看不见客户手上和已发布文档里有多少个聊天机器人节点正在写 record 形 `body` —— A 的真实迁移代价因此是未知数,只要这个数不小,答案就该翻向 B;我也看不见聊天接口的 body 参数将来会不会收敛成一组固定的键(若会,A 会比今天更便宜)。\n\n---\n\n`complex.zod.ts#ChatbotSchema` mirrors the chat API's body params as\n`z.record(z.string(), z.unknown()).optional()`. That is WIDER than `BaseSchemaCore.body`,\nwhich is the single-or-list node slot. It is the only wider redeclaration among the 109\nbase-key redeclarations across the component union's arms — the other 108 are equal or\nnarrower.\n\nUntil objectui#8344 the width was invisible at runtime, because a child slot was judged by\n`BaseSchemaCore` no matter what the child's `type` said. Redirecting the node recursion point\nat the component union makes each child judged by its OWN mirror, so the extra width becomes\nreachable at every child slot.\n\n## Measured\n\nBoth faces built from source, corpus-valid `examples/schema-catalog/src/schemas/plugin-chatbot/basic-chatbot.json`\nas the seed, plus `body: { model: 'gpt-4', temperature: 0.2 }`. `main` is the face as shipped;\n`head` is objectui#8501's branch.\n\n| document | main | head |\n| --- | --- | --- |\n| the chatbot node at the ROOT | ACCEPTED | ACCEPTED |\n| the same node inside `card.body[]` | REFUSED | **ACCEPTED** |\n| the same node inside `div.children[]` | REFUSED | **ACCEPTED** |\n| control, nested OFF-SPEC `icon` | ACCEPTED | REFUSED (the intended narrowing) |\n| control, nested LEGAL `text` node | ACCEPTED | ACCEPTED (non-vacuity) |\n\nThe two controls are what make the reading a measurement rather than an echo: the same run\nshows the narrowing this programme is for, and shows that a legal nested node still parses.\n\n⛔ No corpus document, fixture or pin writes a chatbot node with a record `body` at a child\nslot, which is why objectui#8344's headline (45 refused before, 54 after, over 554 node\ndocuments) does not show this at all. A count of newly-REFUSED documents is structurally\nblind to a newly-ACCEPTED one.\n\n## Why this is a card and not a line in that PR\n\nPR objectui#8501 **declared** this widening rather than eliminating it, by seat ruling: removing\nit means narrowing a published mirror that deliberately carries the chat API body params, and\nno ruling on objectui#8344 authorises that. The declaration is in that PR's changeset, and it\npoints here.\n\n## What a ruling has to decide\n\n1. Does `chatbot` keep a record-shaped `body` on the published mirror at all, or does the chat\n   API's body params move to their own key so that `body` means what it means on every other\n   component?\n2. If the record stays: is it acceptable at every child slot, or should the node slot narrow it\n   for children specifically?\n3. Whatever is chosen, the TS declaration and the zod mirror have to end up saying the same\n   thing — the pair is already recorded as disjoint-vocabulary drift in\n   `packages/types/src/__tests__/zod-mirror-parity.test.ts`.\n\nRefs: objectui#8344 (the redirect that makes it reachable) · objectui#8501 (declared it) ·\nobjectui#7759 (lists this same pair from the mirror-versus-declaration side, category D, so\nthis card is the runtime half rather than a re-file)\n\nFiled by the `domain:spec` developer seat working objectui#8344, session\n`session_01CZY49skxUBYyJcdnTcYPrE`, from a measurement taken on that branch. Generated with\nClaude Code.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

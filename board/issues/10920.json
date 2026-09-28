@@ -1,0 +1,26 @@
+{
+  "number": 10920,
+  "kind": "issue",
+  "title": "console crashes at boot when built with an injected @objectstack/client — the client lands in `framework` and closes a cycle with `data-adapter`",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T07:28:45Z",
+  "updated_at": "2026-09-28T07:29:21Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/10920",
+  "body": "## Symptom\n\nA console built by objectstack's `scripts/build-console.sh` at objectui `9f0c84a44` never boots. The page stays on the splash screen and the browser logs:\n\n```\nUncaught TypeError: u is not a function\n    at /_console/assets/data-adapter-<hash>.js:1:211\n```\n\n`build-console.sh` always sets `OBJECTSTACK_CLIENT_DIST` to the framework's own `packages/client`. objectui's own CI builds use the installed client and do not hit this. objectstack's Console Pin Gate only builds the bundle and never loads it, so a pin bump carrying this goes green there. The nightly showcase smoke is the first thing that would see it.\n\n## Mechanism\n\n- The injected client resolves outside `node_modules`, so the `vendor-objectstack` group test does not match it. The spec hook widens that test for an injected spec. The client hook does not.\n- Before #9488 the `data-adapter` group was recursive and absorbed the client along its import edge, which hid the gap. #9488 set `includeDependenciesRecursively: false` on `data-adapter`.\n- Now the client lands in `framework`. `chunk-membership.json` of the injected build reads `client: { framework: 1 }`.\n- `framework` imports `data-adapter`, because `packages/react/src/utils/error-message.ts` imports `isApiAccessDeniedError`. `data-adapter` imports the client back from `framework`, so the two chunks form a cycle.\n- The aliased client is the CJS `dist/index.js`. `data-adapter` calls its `require` wrapper at the top level (`var te=u()`). That call runs before `framework` has defined the wrapper, and the console crashes.\n\n## Reproduction\n\n1. In objectstack, set `.objectui-sha` to `9f0c84a448d1`.\n2. Run `OBJECTUI_ROOT=../objectui bash scripts/build-console.sh`.\n3. Start `objectstack dev` and open `/_console/`. The page stays on the splash screen with the error above.\n4. Read `.cache/objectui-9f0c84a448d1/apps/console/dist/chunk-membership.json`. `packages.client` is `{ \"framework\": 1 }`.\n\n## Fix\n\nWiden the `vendor-objectstack` test with the injected client's package directory, the same way the spec hook already widens it for an injected spec. Measured with the fix applied to the same tree: `chunk-membership.json` reads `client: { \"vendor-objectstack\": 1 }`, the console boots to `/login`, and a 95-surface sweep of the showcase and Setup apps shows no page errors."
+}

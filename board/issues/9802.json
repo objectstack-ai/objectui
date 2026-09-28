@@ -1,0 +1,33 @@
+{
+  "number": 9802,
+  "kind": "issue",
+  "title": "finding(app-shell/studio-design): `ObjectValidationsPanel`'s `conditional` skeleton and editor write the guard as `condition`, which the spec refuses BY NAME in favour of `when` — while the same file promises its skeletons never 422",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T06:16:04Z",
+  "updated_at": "2026-09-18T15:07:56Z",
+  "closed_at": "2026-09-18T15:07:56Z",
+  "closed_by": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9802",
+  "body": "Measured by the `os-dev` lane delivering PR objectui#9801 (card objectui#9497), and **re-verified on the objectui side by the reviewing seat** — with the spec-side half declared as the lane's reading rather than re-taken, see «Provenance».\n\n## What\n\n`packages/app-shell/src/views/studio-design/ObjectValidationsPanel.tsx` builds a `conditional` rule's skeleton with a guard key named **`condition`**, and its editor reads and writes that same key. The spec spells that rule type's guard **`when`** and refuses `condition` **by name**.\n\nRe-read on objectui `origin/main` by the reviewing seat:\n\n| line | reading |\n|---|---|\n| `:127`–`:132` | the `conditional` case of the skeleton builder: `condition: 'false'`, plus a nested `then: { type: 'script', …, condition: 'false', … }` |\n| `:338`–`:339` | the editor: `value={expressionSource(rule.condition)}` · `onCommit={(cel) => patch({ condition: … })}` |\n| `:21` | the file's own summary of the type: *\"conditional — a CEL guard + a nested rule applied when it holds.\"* |\n\n## ⭐ Why it is a contract contradiction rather than a typo\n\nThe same file promises the opposite, in its own docblock:\n\n- `:109` — *\"A **VALID** minimal skeleton for a rule of `type` — every required field is …\"*\n- `:24` — *\"… skeleton so the immediate object-draft save **never 422s**.\"*\n\n⇒ adding a conditional rule from the no-code panel produces a draft the object gate **refuses**, on the one path whose stated purpose is that it cannot. That is a reproducible contradiction of a contract the file states about itself, ⛔ not a style question.\n\n## The spec side\n\nMeasured by the delivering lane on resolved `@objectstack/spec` **17.4.0**: `ConditionalValidationSchema` spells the guard `when` and rejects `condition` with `unrecognized_keys`, carrying the suggestion *\"Did you mean `condition` → `when`?\"*.\n\n⚠️ **Provenance, stated rather than blurred:** the objectui readings above are the reviewing seat's own, taken from `origin/main` in the act of filing. The `@objectstack/spec` reading is **the lane's**, ⛔ not re-taken here — this container's `node_modules` is empty, so the reviewing seat cannot resolve the package. ⇒ whoever takes this re-measures the spec half before acting. The suggestion text quoted above is strong evidence the refusal is deliberate and named, but it is a quote of a quote until someone re-runs it.\n\n## Why it was not folded into the card that found it\n\n⛔ Deliberate and correct: objectui#9497 is a **gate** card — nothing lints an object validation rule's predicate at draft level — and this is an **editor writing a wrong key**. Different defect class, different file, and `studio-design/` was outside that branch's surface. ⭐ The two are adjacent in an instructive way: objectui#9497's new gate lints the `when` key, so once both land, this panel's `condition`-keyed guard would be **silently unlinted as well as refused** — the guard the author typed is not the key anything reads.\n\n## Shape of the remedy — ⛔ not decided here\n\nRenaming the skeleton's and the editor's key is mechanical. ⚠️ What is not: whether existing drafts already carry `condition` on a `conditional` rule and need a read-side alias, and whether the panel should surface the spec's own suggestion text rather than silently writing the corrected key. ⛔ Neither was measured.\n\n## Not measured\n\n⛔ Whether any first-party fixture, example or tenant draft already carries a `conditional` rule with a `condition` guard. ⛔ Whether the nested `then` / `otherwise` skeletons have the same mismatch on their own keys — only the outer guard was read. ⛔ Whether any other rule type's skeleton disagrees with the spec's spelling; only `conditional` was examined.\n\n⚠️ Adjacent and correctly **not** filed by the lane: the spec's own `ConditionalValidation` docblock worked examples author `when` with **bare-shorthand** predicates (`account_type = \"enterprise\"`), the very spelling the server fail-closes on. That is objectstack's published documentation, reached by nothing in objectui.\n\nRefs: objectui#9497 / PR objectui#9801 (the delivery that surfaced it) · objectui#8167 (the editor-scope card next door) · `@objectstack/spec` `ConditionalValidationSchema`.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,39 @@
+{
+  "number": 9492,
+  "kind": "issue",
+  "title": "perf(app-shell): one dynamic import pulls the WHOLE core barrel into `framework` — destructuring the single symbol it uses frees 14,096 gz and closes objectui#9345's entire overage",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "pm:blocking",
+    "pm:dispatched",
+    "priority:p2",
+    "tooling"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-14T11:02:44Z",
+  "updated_at": "2026-09-17T10:37:47Z",
+  "closed_at": "2026-09-17T10:32:19Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9492",
+  "body": "## What this is\n\n`loadRowCanon()` in `packages/app-shell/src/views/metadata-admin/celAuthoring.ts` dynamically imports the `@object-ui/core` **barrel** and keeps the whole namespace object alive, so rolldown must retain **every** export of that barrel in the eager `framework` chunk. It consumes exactly **one** symbol.\n\nNarrowing it to that one symbol is a **one-line change** that removes **14,096 gz** from `framework`.\n\n⭐ This is filed as its own card because the fix lives in `packages/app-shell` — **this is `domain:ui` surface, not the `domain:devx` surface of the card that measured it.** The measuring seat deliberately did not reach across the lane boundary: the edit was applied only inside a throwaway worktree, measured, and reverted. Nothing was committed, pushed, or opened as a PR.\n\n## Why it matters right now — it is the ONLY thing keeping objectui#9345 red\n\nobjectui#9345's repair (PR objectui#9488) returns `packages/core` modules to the budgeted `framework` chunk, where they belong. That is correct, and it is what makes the gate red: ⭐ **the repair did not cost 4,636 bytes, it made 4,636 bytes VISIBLE.** `framework` was over its ceiling all along; the modules were hiding in the unbudgeted `data-adapter` chunk.\n\n⛔ The forbidden repair is raising the ceiling. **This card is the permitted one**, and it over-delivers:\n\n| | before | after | ceiling |\n|:--|--:|--:|--:|\n| `framework`, gzipped | **104,636** | **90,540** | **100,000 — ⛔ unchanged** |\n| gate `check:eager-closure` | **exit 1** — `OVER by 4.5 KB` | **exit 0** — `headroom 9.2 KB` | |\n\n⇒ the 4,636 gz gap closes **entirely, with 9,460 gz to spare**, and ⛔ **no ceiling, baseline or budget constant is touched** — the gate flips on payload alone.\n\n## The reading, not an assertion\n\n- **Call site**: exactly **one** in production — `celAuthoring.ts`, inside `loadRowCanon()`.\n- **Consumed**: exactly **one** symbol, `detectNonCanonicalRowSpelling`. The local `interface RowCanonModule` declares exactly one member, and a whole-file grep returns exactly one member access.\n- The other twelve matches for the same dynamic specifier in the tree are **all test files**, plus one prose mention in `apps/console/vite.config.ts`.\n- **Why the barrel costs so much**: the loader does `.then((m) => m as unknown as RowCanonModule)`, so the entire namespace object escapes into a cached Promise.\n\n### The change\n\nDestructure the single symbol in the `.then` callback, so only that binding escapes.\n\n⚠️ **Do NOT trust a line number here.** The measuring run recorded `:297` against PR objectui#9488's head; on `main` today the anchor sits at **`:298`**. It has already drifted by one. **Grep the anchor `as unknown as RowCanonModule` (1 occurrence on `main` today) instead of seeking a line.**\n\n## ⛔ Fences for whoever takes this\n\n1. ⛔ **Do NOT revert or disable objectui#9185's dynamic import.** Narrowing *what it imports* is **not** reverting it — verified: the specifier is still present and still dynamic after the edit; only what it **names** changed.\n2. ⛔ **Do NOT move any ceiling, baseline or budget constant.** The measured result needs none.\n3. ⚠️ **A deep subpath import is NOT available** — `packages/core/package.json` declares only the `\".\"` export key. `import '@object-ui/core/rowPredicateCanon'` is not reachable for real consumers of the published package. **The destructure form is the one that works**, and it works through the published barrel.\n4. ⚠️ These are **console-build** readings: `apps/console/vite.config.ts` aliases every workspace package to `src`.\n\n## The boundary's purpose is improved, not weakened\n\n`vendor-objectstack`, which carries the formula package, **also shrank by 3,936 gz**. ⇒ part of the CEL surface was in fact eager *through the barrel*, and narrowing removes it. The docblock's warning about a *static* import remains true; it is simply silent about the *namespace* case.\n\n## Controls — every zero carries one\n\n- **Reconciliation**: 23 of the 329 eager chunks changed size; the 23 per-chunk deltas sum to **exactly −18,001**, equal to the report's own closure delta. **No chunk entered or left the closure** — both the before-only and after-only name sets are empty.\n- **Module-level control**: `framework` holds 178 modules before and 162 after. **16 named `packages/core` modules are retained before and absent after, and ZERO are added** — and that zero comes from the same set-difference that simultaneously returned 16 in the other direction, so it is a measured zero and ⛔ not an empty run. The 16 are absent from **all 2,309** emitted chunks afterwards, ⛔ not moved elsewhere.\n- **Cross-instrument agreement**: `stats.html` and the gate's independent `chunk-membership.json` agree exactly on both legs — 92 core modules in `framework` before, 76 after.\n- **Not vacuous green**: the two covering suites pass 51/51 with the narrowing applied; mutating the destructured name to a non-existent export takes the **same command** to exit 1 with exactly 2 failures on this code path. ⇒ the suite really does exercise the narrowed symbol.\n- **Instrument validated before use**: the BEFORE build reproduced the previous round's `framework` figure **to the byte** (104,636) — a reading that could have disagreed and did not.\n- **Mutation and restore proven on disk**, never by an editor's exit code: blob hash before/after, grep counts in both directions, `git diff HEAD` zero lines, `git status --short` empty.\n- **Deadweight, not a dropped dependency**: spot-checked that all 8 references to `ThemeEngine` outside `packages/core` are **prose in comments**.\n\n⚠️ **Declared honestly**: the confirming third build was a turbo `FULL TURBO` cache restore, so it proves the restored tree hashes identically to the original inputs — it is ⛔ **not** an independent recompile. The two readings that carry the result (BEFORE and AFTER) were both real compiles.\n\n## Acceptance\n\n1. The narrowing lands, with `check:eager-closure` exit 0 and ⛔ `gates_weakened: NONE`.\n2. The membership half stays green — `packages/core` 76 modules in `framework`, zero core modules in any other chunk. ⭐ PR objectui#9488's repair must **not** be undone by this.\n3. Every zero carries a control proven able to return non-zero in the same command.\n4. Refresh the `loadRowCanon` docblock while you are in these exact lines — it is silent about the namespace case.\n\nBlocks: objectui#9345 (and its PR objectui#9488, which cannot go green until this lands).\n\nMeasurement round and full evidence: objectui#9345 comment 5662857036."
+}

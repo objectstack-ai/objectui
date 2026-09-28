@@ -1,0 +1,32 @@
+{
+  "number": 9561,
+  "kind": "issue",
+  "title": "finding(plugin-detail): the unrecognised-`filterMode` diagnostic is hard-prefixed `[record:activity]` and memoised on the value alone — after objectui#9555 a `record:chatter` block warns under another renderer’s name, and two blocks sharing one bad value warn once",
+  "state": "closed",
+  "state_reason": "not_planned",
+  "draft": null,
+  "author": {
+    "login": "claude[bot]",
+    "id": 209825114,
+    "type": "Bot"
+  },
+  "labels": [
+    "finding"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-15T04:12:52Z",
+  "updated_at": "2026-09-17T11:12:18Z",
+  "closed_at": "2026-09-17T11:12:18Z",
+  "closed_by": {
+    "login": "os-sam",
+    "id": 318158314,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9561",
+  "body": "The diagnostic that exists to stop an authored `filterMode` from being folded away in silence names the wrong block, and counts the wrong population. Both halves were measured here rather than taken on report.\n\n## The site\n\n`packages/plugin-detail/src/renderers/recordActivityFeed.ts`, in `normalizeFilterMode`. The message template opens with a hard-coded literal:\n\n```\n`[record:activity] ignoring an unrecognised \\`filterMode\\` (${shown}) and opening `\n```\n\nand the once-per-value memo is keyed on the value alone:\n\n```\nconst warnedUnrecognisedFilterModes = new Set<string>();\n...\nconst key = typeof value === 'string' ? value : `non-string ${shown}`;\nwarnOnce(warnedUnrecognisedFilterModes, [key], () => ...)\n```\n\nThere is no block identity anywhere in the prefix or in the key.\n\n## What that produces, in two sentences\n\n1. An author who writes `filterMode: \"commentsOnly\"` on a **`record:chatter`** block gets a console warning that says **`record:activity`**. The one diagnostic built to stop a silent fold sends them to a block they did not write.\n2. A page that carries the same bad value on a `record:chatter` block **and** a `record:activity` block warns **once in total**, because the memo cannot tell the two apart. The second block's authoring mistake is reported by a message that names the first.\n\nNeither is a rendering change: the fold to `'all'` is the ruled behaviour on objectui#5891 and is not in question here. What is in question is that the diagnostic which was added *because* the fold is invisible has itself become misdirecting.\n\n## Reachability — this becomes live when objectui#9555 merges, and not before\n\n⚠️ Stated up front because it decides when this is worth anyone's time.\n\n| ref | `normalizeFilterMode` in `renderers/record-chatter.tsx` | exit |\n|---|---|---|\n| `origin/main` | **0 occurrences** | 1 |\n| objectui#9555 head `d34c1781f02aa2d11a61c0f831654e874af64a61` | **2** — the import at `:102` and `const defaultFilterMode = normalizeFilterMode(feed?.filterMode)` at `:195` | 0 |\n\nFiring control, same instrument and same corpus, so the zero above is a reading and not a dead probe: the same `git grep -n \"normalizeFilterMode\" origin/main -- packages/plugin-detail/src/renderers/record-activity.tsx` returns **2** lines, exit 0. Absent-token control at the PR head over `packages/plugin-detail/src`: `qqzz_absent_token_9999` → **0** files, exit 1. (⛔ `zzqx_no_such_key` is not usable as an absent-token control in this repository — it occurs in 3 files.)\n\n⇒ on `main` today `record:chatter` does not reach this diagnostic at all. objectui#9555 routes it there, which is correct for that card and is what makes this one exist.\n\n## Re-check commands\n\n```\ngit grep -n \"normalizeFilterMode\" origin/main -- packages/plugin-detail/src/renderers/record-chatter.tsx\ngit grep -n \"record:activity\" origin/main -- packages/plugin-detail/src/renderers/recordActivityFeed.ts\ngit grep -n \"warnedUnrecognisedFilterModes\" origin/main -- packages/plugin-detail/src/renderers/recordActivityFeed.ts\n```\n\nThe first is expected to stay empty until objectui#9555 lands and to return two lines afterwards; the other two locate the prefix and the memo set and hold at both refs.\n\n## Shapes a repair could take — ⛔ not a ruling, and not this seat's to make\n\n- Pass the renderer name in, so the prefix is the block that was actually authored, and include it in the memo key so two blocks with the same bad value each get told.\n- Or drop the prefix to something true of both (`[plugin-detail]`), which fixes the misdirection and leaves the once-per-page under-count.\n- Or leave it and say so on the card, if the under-count and the wrong name are judged cheaper than threading an argument through a shared sanitiser.\n\nThe middle option is the smallest diff and the least useful answer; the first is the one that makes both symptoms go away. ⛔ Neither is chosen here.\n\n## Provenance\n\nSurfaced by the `os-dev` agent on objectui#8968 as an out-of-scope finding it declined to fix, the fix being outside that card's declared file surface — the correct call, and it carried the reasoning in a comment at the call site rather than acting on it. Independently re-measured by the `domain:spec` @ objectui seat at 2026-09-15T04:11Z against `origin/main` `5495b8de70` and PR objectui#9555 head `d34c1781f0`, with the controls above; ⛔ no figure here is inherited.\n\nDuplicate check before filing: semantic search over this repository for the diagnostic, the prefix and the renderer names returned **0** hits.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

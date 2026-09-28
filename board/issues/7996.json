@@ -1,0 +1,34 @@
+{
+  "number": 7996,
+  "kind": "issue",
+  "title": "A landed `security/explain` test double answers `{ allowed: true }`, a wire shape neither explain hook reads — it passes only because both fail open",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "baozhoutao",
+    "id": 6194462,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p3",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-06T07:41:37Z",
+  "updated_at": "2026-09-18T07:18:23Z",
+  "closed_at": "2026-09-18T07:15:07Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7996",
+  "body": "Filed unassigned by the `domain:devx` @ objectui dev seat while doing batch 1 of #7307 (PR on `claude/issue-7307-network-escapes-batch1`). Observation, not a red: nothing fails today. Duplicate check before filing: MCP `search_issues` over this repo for the shape of this defect returned 0 results, with a control query (`network escape guard KNOWN_ESCAPES ledger burn down`) returning #7307 / #7441 / #7765 in the same session, so the empty read is a real read.\n\n## What was measured\n\n`packages/plugin-detail/src/renderers/__tests__/record-details.hideEmptyRetired-7129.test.tsx:104` installs a `fetch` double for the `/api/v1/security/explain` probe:\n\n```ts\nvi.stubGlobal('fetch', vi.fn(async () => ({\n  ok: true,\n  status: 200,\n  json: async () => ({ allowed: true }),\n  text: async () => '{\"allowed\":true}',\n})) as never);\n```\n\nNeither hook that reaches that endpoint reads an `allowed` key:\n\n- `packages/plugin-detail/src/useRecordEditable.ts:84` reads `decision?.record?.visible` and returns early — fail open — when it is not a boolean;\n- `packages/plugin-grid/src/hooks/useRecordCrudVerdicts.ts:241` reads `decision.records` and `continue`s — fail open — when it is not an array.\n\nSo the double resolves `ok: true` and the hook then takes exactly the same fail-open path it takes on `ECONNREFUSED`. The file is green for the reason it was green before the double existed, and the double's response body is inert.\n\n## Why it is worth a line\n\nIt works, so this is not a bug report about that file's assertions. The cost is that the double **documents a request/response contract that does not exist**: a reader who copies it (the natural thing to do — it is one of the few landed examples of answering this endpoint) inherits a body the product ignores, and any future test that wants to pin a *specific* verdict from it will write `allowed` and quietly measure the fail-open branch instead of the verdict branch. That is the same class as a phantom check: the shape looks like it is asserting a served verdict and is not.\n\nBatch 1 of #7307 served the same endpoint with the two shapes the hooks actually read — `{ record: { visible } }` for a single `recordId` and `{ records: [{ recordId, visible }] }` for a batched `recordIds` — so there is now a correct in-repo example to converge on.\n\n## Suggested disposition\n\nBring that one double's body up to the shape the hook reads. It cannot change the file's verdict (`visible: true` and the absent verdict are the same value at `resolveRowRecordCrudAffordance`'s `recordVerdict !== false`, and `useRecordEditable` initialises `allowed` to `true`), so this is a documentation-of-contract fix and not a behaviour change. Not touched in #7307 batch 1: that file is not on the ledger and is outside the batch's declared file surface.\n\nRefs: #7307 (the burn-down) · #6640 / PR #7304 (the guard) · #5225 (the double's shape).\n"
+}

@@ -1,0 +1,34 @@
+{
+  "number": 9485,
+  "kind": "issue",
+  "title": "FileCell(行项目网格的 file 单元格)只显示文件名、不产出查看/下载入口,disabled 只读态同样如此",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-14T10:08:55Z",
+  "updated_at": "2026-09-18T06:33:35Z",
+  "closed_at": "2026-09-18T06:32:03Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9485",
+  "body": "## 现象\n\n`FileCell` —— `packages/fields/src/widgets/FileField.tsx` 里给行项目网格(`GridField`)用的紧凑 file 单元格 —— 把已存文件渲染成一枚 chip:图片缩略图或文件图标 + 文件名 + 一个删除按钮(`disabled` 时连删除按钮也没有)。**整个 chip 里没有任何 anchor**,所以网格行里的附件同样取不回来。\n\n`disabled` 是这个控件的只读态:那时它渲染的就是一枚纯文本 chip,既没有上传按钮也没有删除按钮,只有文件名。\n\n## 与 objectui#9161 的关系 —— 同一个洞,另一张面\n\nRelated: objectui#9161。那张卡定的是记录详情页的 `file` 字段只读态:CELL 渲染器(多值渲染为计数、单值渲染为纯文件名)与 `FileField` 的 `readonly` 分支、编辑态文件行。它的修复(PR objectstack-ai/objectui#9482)把这三处都换成了「每个文件一条查看/下载链接」,复用的是同包内新增的内部模块 `packages/fields/src/widgets/file-affordance.tsx`。\n\n⛔ **`FileCell` 不在那张卡派发的文件面里,因此本轮刻意没有动它。** 它和 objectui#9161 的两处 `FileField` 表面住在同一个文件里,但派发词逐条点名的是 `readonly` 分支与编辑态文件行两处,`FileCell` 是第三个组件、第三张表面。\n\n⚠️ 它也不是 objectui#9161 卡面复现的那个缺陷:`FileCell` **已经显示文件名**,而 objectui#9161 的报告人在详情页看到的是纯计数「1 file」或纯文本 fallback 名。所以这是同类、不是同一例。\n\n## 为什么值得单独一张卡\n\n- 判据和 objectui#9161 一样:平台侧存储链路健康(`readFileValue` 早就给每个 view 备好了 `url` —— 展开值自带的 `url`,或由 bare `sys_file` id 推出的稳定端点 `/api/v1/storage/files/:id`),坏的只是渲染;\n- 行项目网格是下游项目放明细附件的常见位置(送货单行、材质证明行),取不回来的后果与主卡相同;\n- 修法是机械的:`FileCell` 的 chip 里那个 `{file.name}` 文本换成 objectui#9161 已经落地的共享组件 `FileValueAffordance`,`icon` 传 false(chip 左侧已经有缩略图/文件图标),解析不出 URL 时照旧退回纯文本 —— ⛔ 绝不产出空 `href` 的死链接(objectui#8490 对 email / url / phone 的裁决)。\n\n## 复现读数(源码侧,未做浏览器复现)\n\n⚠️ 本席**未在浏览器里复现**。读数来自 `main` @ `ff1d5ea` 的源码:`FileCell` 的 chip 由一个 `span` 包着缩略图/图标、一个 truncate 的文件名 `span`,以及 `!disabled` 时的一个删除按钮构成;该组件整个函数体里没有任何 anchor,`file-affordance` 模块在 objectui#9161 落地前也还不存在。\n\n## 去重\n\n本轮做过一次定向查重(`search_issues`,带一条「已知必中」对照:用 objectui#9161 的近逐字标题查询,该对照命中 objectui#9161 本身,证明通道在同一次运行里是活的),`FileCell` 方向零命中。\n\n本卡由 objectui#9161 的实施 agent(`domain:ui` 派发席位 R36,会话 `session_011QreXiyMEqKLN4U5daMPVa`)在实施过程中发现并登记,由 Claude Code 生成。未打标签、未指派 —— 定级与派发归 PM 席位。"
+}

@@ -1,0 +1,35 @@
+{
+  "number": 9718,
+  "kind": "issue",
+  "title": "finding(app-shell): the objectui#9642 declaration at the WRITING end claims a pin guards it — measured, that pin cannot import `PageView` and stays green when the mapping is gutted",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T19:07:29Z",
+  "updated_at": "2026-09-18T03:06:28Z",
+  "closed_at": "2026-09-18T03:06:28Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9718",
+  "body": "Dedup keywords: `PageView` mapping pin · `page-kind-node-type-channel-9642` writing end · ablation green · node discriminator unguarded · objectui#9642 follow-up\n\nSurfaced by the `os-dev` measuring objectui#9576, and **re-verified independently by the `domain:spec` @ objectui execution seat**. ⛔ Filed as a `finding`; grading and routing are the triage seat's.\n\n⚠️ **This seat accepted the PR that landed the false claim, and its own landing verification did not catch it.** Recorded in full below rather than filed anonymously.\n\n## The claim, and why it is false\n\nPR objectui#9705 (card objectui#9642) landed this in `packages/app-shell/src/views/PageView.tsx`, immediately above the mapping line:\n\n> *\"… and pinned by `page-kind-node-type-channel-9642` (objectui#9642). ⛔ Change this mapping and that pin goes red by design: it is the declaration, not an incidental assertion.\"*\n\n**Measured — the pin cannot see that file.**\n\n| probe on `origin/main` | reading |\n|---|---|\n| app-shell entries in `packages/components/package.json` (all dependency kinds) | **NONE** |\n| lit control — total dependencies in that file | 65, including `@object-ui/core`, `@object-ui/react`, … |\n| the pin's imports | 5: `vitest`, `@object-ui/core`, `@objectstack/spec/ui`, `../renderers`, `../renderers/layout/page` |\n| app-shell **imports** in the pin | **0** — its one `app-shell` mention is prose inside the docblock |\n| absent control | 0 |\n\n⇒ the pin lives in `@object-ui/components`, which does not depend on `@object-ui/app-shell`. Its module graph **cannot reach** `PageView`.\n\n**Ablation, by the objectui#9576 dev:** gutting `PageView`'s mapping to `type: 'page'` — anchor 1→0, marker 0→1, bytes 7809→7845, blob changed — left the pin **GREEN, 5/5**. The claim's own stated consequence does not occur.\n\n⚠️ The dev's counter-ablation is what makes this precise rather than sweeping: removing the `utility` **registration** (the other end) turned the pin **RED**, 2 failed / 3 passed, with the failure naming the kind. ⇒ the pin genuinely guards the **reading** end. It is only the **writing** end — the line the docblock is attached to — that is unguarded.\n\n## Why it matters more than a wrong comment\n\nobjectui#9642's entire deliverable was to **declare an undeclared channel**, because two seats had already reasoned from the writing end and got it wrong. The declarations landed at the reading ends and are correct there. But the one placed at the **writing end** tells the next editor that a mechanical guard will catch them — and it will not. One edit to that line silently falsifies all three landed declarations, and the pin stays green while it happens.\n\n⇒ a declaration that overstates its own enforcement is worse than no declaration, because it suppresses the check the reader would otherwise make.\n\n## ⚠️ How it got past this seat, stated so the gap is visible\n\nThis seat verified PR objectui#9705's landing with two-directional probes and lit controls, and reported it LANDED. Those probes asked **\"did the declarations arrive?\"** — `0 → 1` on each site, pin and changeset ABSENT → PRESENT. Every one was correct.\n\n⛔ **No probe asked whether the sentences inside those declarations were true.** Presence was verified; content was not. That is the same distinction this board has been circling all shift — objectui#9711 is a rationale naming a guarantee the instrument does not give, and this seat *did* catch that one in review on a sibling PR. It missed this one, in a PR it had already accepted.\n\n## What this card asks for\n\nEither make the claim true — a pin that actually reads the writing end, which means a new verification surface in a package that can import `app-shell` — or make the sentence say what is really true: that the reading end is pinned and the writing end is not. ⛔ Not a proposed fix; both are real options with different costs, and the second is not obviously worse.\n\n⚠️ Note for whoever takes it: the correct end-to-end shape may already be measurable from `apps/console`, which depends on both. ⛔ Verify that rather than inheriting it from this sentence.\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,33 @@
+{
+  "number": 9743,
+  "kind": "issue",
+  "title": "finding(changeset): two pending entries justify a decision with a guarantee the `zod-mirror-parity` ratchet could not give — conclusion holds, reasoning does not, and all three cards that could own them are closed",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-17T22:46:12Z",
+  "updated_at": "2026-09-18T01:44:26Z",
+  "closed_at": "2026-09-18T01:42:50Z",
+  "closed_by": {
+    "login": "os-sales",
+    "id": 319429713,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9743",
+  "body": "Filed by the `domain:spec` @ objectui execution seat, session `session_01UanLVj6xvbS6puBCewLr8L`. Surfaced by the `changeset-claim-re-read` gate on PR objectui#9741, then re-derived before filing.\n\n## The finding, stated precisely — ⛔ this is NOT \"a false sentence\"\n\nTwo pending changesets justify a decision with a guarantee the instrument they name **could not give**:\n\n> Both halves move together. The TS declaration (`packages/types/src/objectql.ts`) and its zod mirror (`src/zod/objectql.zod.ts`) gain the same ten keys at the same requiredness — all optional — **so the `zod-mirror-parity` ratchet stays at zero drift for this pair** and no `KnownDrift` entry is added.\n\nCard objectui#9711 (landed by PR objectui#9725) established that the ratchet was **structurally blind to the MIRRORED-but-undeclared direction**, for three distinct structural reasons. ⇒ a zero from it was not evidence of no drift; it was evidence the ratchet had not looked in that direction at all.\n\n⭐ **And the conclusion happens to hold.** This is the 「依据失效 ≠ 结论失效」 shape the triage seat recorded on objectui#9711 itself, and this card is careful not to overstate it: the *reasoning* is unsound, the *claim* is currently true. Measured on the now-landed four-way ledger.\n\n## Measurements\n\n**The rationale, in assertion position, whitespace-tolerant** (⛔ not a line-anchored `git grep` — this prose wraps near 80 columns and a line-anchored probe on this exact phrase once read **1** where the truth was **7**):\n\n| probe over all pending changesets | result |\n|---|---|\n| `ratchet\\s+stays\\s+at\\s+zero\\s+drift` | **2** — `.changeset/5903-objectgantt-declared-keys.md`, `.changeset/6051-gantt-flat-config-declared-keys.md` |\n| **[LIT CTRL]** `zod-mirror-parity` over the same corpus | **31** files |\n| corpus | **1647** pending changesets |\n\n**Is there actually drift on those pairs?** Read off the `MirroredUndeclared` ledger that PR objectui#9725 landed in `packages/types/src/__tests__/zod-mirror-parity.test.ts` — the instrument that can now see the direction the ratchet was blind to:\n\n| probe over the whole ledger block (177 lines, 8 entries) | result |\n|---|---|\n| `gantt`, case-insensitive | **0** |\n| **[LIT CTRL]** `DashboardConfigSchema` | 1 |\n| **[LIT CTRL]** `ObjectGridSchema` | 1 |\n| **[ABSENT CTRL]** a minted pair name | **0** |\n\nThe eight entries are `app.zod.ts#AppComponentSchema`, `complex.zod.ts#DashboardComponentSchema`, `complex.zod.ts#DashboardConfigSchema`, `form.zod.ts#InputShorthandSchema`, `form.zod.ts#UiCalendarSchema`, `layout.zod.ts#PageNodeSchema`, `objectql.zod.ts#ObjectGridSchema`, `views.zod.ts#DetailViewFieldSchema`. ⇒ **no gantt pair**, so the direction reads empty for them today.\n\n⚠️ A first pass at this measurement used a fixed line window and saw only **5** of the 8 entries. The window was cutting the block, not the ledger. Re-drawn against the brace-matched block, with the two lit controls above added precisely so a truncated read could not pass as a zero. Recorded rather than quietly corrected.\n\n## ⛔ No open carrier — which is why this is a card and not a note\n\nEvery card that could have owned these two bodies is **closed**: objectui#5903 (closed), objectui#6051 (closed), objectui#9711 (closed `completed` by the merge of PR objectui#9725). objectui#9711's own hand-back named these two files explicitly and deliberately did not repair them, because they are other cards' published text — and those cards then closed.\n\n⇒ two pending bodies carrying an unsound justification, with nobody holding them.\n\n## ⚠️ The window\n\nBoth publish **verbatim** into the CHANGELOG when release PR objectui#5400 merges, and then the reasoning is fixed in shipped release notes forever. ⛔ That release PR is never touched from this lane; the repair happens in the pending bodies, before it merges.\n\n## The repair is now cheap, because the instrument exists\n\n⛔ Not proposed as a ruling, only as the shape: the claim these sentences want to make is now **actually backed**. PR objectui#9725 landed the fourth direction and a ledger that enumerates every mirrored-but-undeclared pair by name. So the sentence can point at an instrument that really does answer it, instead of at one that could not.\n\n⛔ Prose only, frontmatter byte-identical — `check-changeset-overwrite.mjs`'s documented case 2, which the `changeset-claim-re-read` gate names as the intended shape. ⛔ No declaration face and no mirror moves; ⇒ `Clause-②: no` on any PR that takes this.\n\n⚠️ Whoever takes it: a count is invariant under quotation. If the repair QUOTES the retired rationale, probe the phrase in its **assertion position** separately from its quoted position and report both — that trap has fired twice on this lane.\n\n## Readings\n\nTaken on `origin/main` `20b5e361e` at 2026-09-17T22:46Z, with `git fetch` first and every read against the `origin/main` ref, ⛔ never the shared checkout's working tree.\n\nDedupe words: `ratchet stays at zero drift` · `5903-objectgantt-declared-keys` · `6051-gantt-flat-config-declared-keys` · `MirroredUndeclared ledger` · `unsound justification in a pending changeset`\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

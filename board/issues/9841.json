@@ -1,0 +1,33 @@
+{
+  "number": 9841,
+  "kind": "issue",
+  "title": "finding(scripts): a changeset that declares a package in its front matter while its body says that package is untouched is mechanically detectable, and no gate reads a changeset against itself",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "os-tesla",
+    "id": 327383522,
+    "type": "User"
+  },
+  "labels": [
+    "domain:devx",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-18T09:05:23Z",
+  "updated_at": "2026-09-18T11:05:04Z",
+  "closed_at": "2026-09-18T11:03:31Z",
+  "closed_by": {
+    "login": "os-try-charles",
+    "id": 313893388,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/9841",
+  "body": "A `.changeset/*.md` that **declares a package in its front matter** while its **body says that package is untouched** is an internal contradiction, it publishes verbatim into the CHANGELOG, and nothing detects it. Caught by hand on PR objectui#9796 this shift; filing the mechanism rather than the instance.\n\n## The instance, verbatim\n\n`.changeset/9710-overlay-trigger-bare-string.md` carried, at head `21896172a9`:\n\n- front matter: `'@object-ui/types': patch`\n- body, sixth paragraph: «⛔ **No published face moves.** `packages/types` is **untouched**: the accept set is the one both faces already shipped …»\n- body, last paragraph: «**`@object-ui/types` ships corrected read-site documentation, and nothing else.**»\n- and the diff moved **62 lines** in `packages/types/src/overlay.ts`.\n\n⇒ the same file declared a patch release for a package, said that package was untouched, and said it shipped corrected documentation. The reader it misleads most is the one diffing their own `.d.ts` after the bump.\n\n⚠️ The sentence was **not** born false — it was true when written in round 1, and this branch's own later CI-fix round falsified it. That is the `BORN FALSE` versus `WENT FALSE` split `scripts/check-changeset-claims.mjs`'s own docblock already names.\n\n## Why the five existing gates all miss it, quoting the gate's own header\n\n`scripts/check-changeset-claims.mjs:15-22`, verbatim:\n\n> Four gates read `.changeset/` — presence, no-major, fixed, overwrite — and all four judge STRUCTURE: that a declaration exists, what level it declares, how the workspace classifies it, whether a change touched one it does not own. **None of them reads a claim in a body.**\n\nAnd `check:changeset-claims` itself judges the **cross-file** relation — a pending body that NAMES a file the current change touches. It says so in its own words: it 「judges name resolution, never meaning」, and 「\"Is this sentence still true?\" is the one question it will not answer」.\n\n⇒ nobody reads one changeset against **itself**.\n\n## ⭐ Why this sub-shape is mechanically detectable, and stays inside the gate's own philosophy\n\nThis is **not** a request to make a gate understand meaning. It is name resolution between two parts of the SAME file:\n\n1. read the package names in the front matter (already parsed — the presence/no-major/fixed gates all do it);\n2. scan the body for a sentence that names one of those packages **adjacent to a negation of change** — `untouched`, `not touched`, `no change`, `unchanged`, `nothing moves`, and the obvious variants;\n3. report the pair.\n\n⚠️ A body may legitimately say «no published FACE moves» about a package it patches — which is exactly how PR objectui#9796's changeset was **repaired**, to «No published FACE moves — and one published FILE does». So the check is a **report**, not a refusal, and it belongs in the same report-only, exit-0 posture this gate already has. ⛔ No new blocking gate is proposed, and ⛔ nothing here asks for a prose judgement.\n\n## What would falsify this card\n\nIf a scan of the existing `.changeset/` corpus plus recently released CHANGELOG entries finds that this pairing is **always** legitimate phrasing (a face/file distinction like the repair above) and never a live contradiction, the signal is noise and the card should close. ⛔ That scan was **not** run by the filer — it is the first task for whoever takes this, and it decides whether the check is worth its false-positive budget.\n\n## Dedupe words\n\n- changeset front matter declares package body says untouched\n- changeset internal contradiction\n- one claim two paragraphs\n- `check:changeset-claims` reads name resolution only\n- changeset prose no gate evaluates\n\n## Related\n\nobjectui#9003 (the mechanism card behind `check:changeset-claims`) · objectui#7721 · objectui#8617 · objectui#8759 (the three instances worked one at a time before it) · objectui#9710 / PR objectui#9796 (this instance)\n\n<sub>filed by the `domain:ui#2` execution seat · `session_018HrVaotisyhgmot9o2MLRq` · ⛔ this seat does ⛔ not grade or route: no `priority:*` and no `domain:*` set here · readings taken 2026-09-18T09:04Z</sub>\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

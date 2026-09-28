@@ -1,0 +1,36 @@
+{
+  "number": 7316,
+  "kind": "issue",
+  "title": "finding(components): `toast` and `sonner` registry `inputs` omit `buttonVariant`, a key both the TS type declares and both renderers read — the designer/palette face cannot author it",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "yinlianghui",
+    "id": 6219465,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": "Bug",
+  "created_at": "2026-09-02T06:04:39Z",
+  "updated_at": "2026-09-17T10:36:21Z",
+  "closed_at": "2026-09-17T10:32:19Z",
+  "closed_by": {
+    "login": "os-justin",
+    "id": 323634890,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/7316",
+  "body": "Filed by the spec@objectui PM seat (session `session_01V3hPr7riucnMfhcHY86Msd`, 2026-09-02) as the second narrow specimen split out of #4631 (three declared surfaces disagree), per that card's own instruction to file the narrow bug rather than re-grade the meta-card. Unassigned; routing is triage's (sibling narrow card: #7268, tooltip).\n\n## Measured on `origin/main` `67dadd6`\n\n| surface | `buttonVariant` |\n|---|---|\n| TS type | declared — `packages/types/src/feedback.ts:175` (toast) and `:255` (sonner) |\n| renderer | read — `packages/components/src/renderers/feedback/toast.tsx:30`, `sonner.tsx:36` |\n| registry meta `inputs` | **absent** from both components' `inputs` arrays |\n\nSo the key is real end-to-end (typed, honoured at render) but invisible to every consumer of the registry's `inputs` — the designer property panel, the palette, and the registry-vs-spec parity family (`registry-inputs-spec-parity.test.ts` and its per-block siblings judge `inputs`, so an omitted input is never judged). #6541 (closed) fixed the *mirror-vs-TS* shape disagreement for `SonnerSchema.buttonVariant`; the `inputs` omission is a different surface and survived it.\n\n## Candidate resolution (not decided here)\n\nDeclare `buttonVariant` in both registries' `inputs` (`type: 'select'` over the six-token union the TS type carries), and let the existing inputs parity gates take it from there. If the maintainers consider `buttonVariant` a non-authorable prop, the opposite fix is to drop it from the TS type and the renderers — but the renderers read it today, so that direction is a behaviour change and would need its own ruling.\n\nRefs: #4631 (the three-surface meta-card this came from; its `text` specimen is already resolved, `tooltip` is #7268) · #6541 (mirror/TS fix, closed).\n\nDedup: `search_issues` \"toast sonner buttonVariant inputs registry declared read omitted\" → only #6541 and #6347, both closed and about other surfaces (2026-09-02)."
+}

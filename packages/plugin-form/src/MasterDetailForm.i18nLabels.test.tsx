@@ -43,7 +43,7 @@ const { toasts, fakeToast } = vi.hoisted(() => {
       toasts.push({ type, message: String(message) });
       return `toast:${toasts.length}`;
     };
-  const fakeToast: any = Object.assign(raise('message'), {
+  const fakeToast = Object.assign(raise('message'), {
     success: raise('success'),
     error: raise('error'),
     info: raise('info'),
@@ -57,12 +57,13 @@ const { toasts, fakeToast } = vi.hoisted(() => {
 });
 
 vi.mock('@object-ui/components/ui/sonner', async (importOriginal) => {
-  const actual = await importOriginal<any>();
+  const actual = await importOriginal<Record<string, unknown>>();
   return { ...actual, toast: fakeToast };
 });
 
 import { I18nProvider } from '@object-ui/i18n';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import type { BaseSchema, DataSource } from '@object-ui/types';
 import { safeValidateSchema } from '@object-ui/types/zod';
 import { registerAllFields } from '@object-ui/fields';
 // Registers `object-master-detail-form` — the block under test.
@@ -103,7 +104,7 @@ function makeDataSource() {
     batchTransaction: vi.fn(async (ops: Array<{ id?: string; data?: Record<string, unknown> }>) => ({
       results: ops.map((op) => ({ id: op.id ?? 'new1', ...op.data })),
     })),
-  } as any;
+  };
 }
 
 /** A JSON document: the node and its `properties` bag, nothing a host adds. */
@@ -121,8 +122,8 @@ function mount(properties: Record<string, unknown>, host: Record<string, unknown
   const ds = makeDataSource();
   const view = render(
     <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false, resources: {} }}>
-      <SchemaRendererProvider dataSource={ds}>
-        <SchemaRenderer schema={{ ...doc(properties), ...host } as any} />
+      <SchemaRendererProvider dataSource={ds as unknown as DataSource}>
+        <SchemaRenderer schema={{ ...doc(properties), ...host } as BaseSchema} />
       </SchemaRendererProvider>
     </I18nProvider>,
   );
@@ -133,7 +134,7 @@ const submitButton = () => screen.findByTestId('md-form-submit');
 const cancelButton = () => screen.findByTestId('md-form-cancel');
 
 /** Edit mode: wait for the stored parent, press Save, return the toasts. */
-async function saveEdit(container: HTMLElement, ds: any) {
+async function saveEdit(container: HTMLElement, ds: ReturnType<typeof makeDataSource>) {
   await waitFor(() => {
     const ref = container.querySelector('input[name="ref"]') as HTMLInputElement | null;
     if (!ref || ref.value !== 'PO-1') throw new Error('parent record not loaded');

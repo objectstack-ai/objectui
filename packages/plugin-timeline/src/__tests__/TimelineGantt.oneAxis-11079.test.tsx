@@ -182,9 +182,9 @@ function drawScale(c: ScaleCase): Drawn {
 }
 
 describe('every spec scale draws its headers and bars on one axis (objectui#11079)', () => {
-  it.each(SCALES.map((c) => [c.scale, c] as const))(
-    '%s: a bar starting at the second unit begins exactly where the second header begins',
-    (_scale, c) => {
+  it.each(SCALES)(
+    '$scale: a bar starting at the second unit begins exactly where the second header begins',
+    (c) => {
       const { columns, bars } = drawScale(c);
       expect(columns.map((col) => col.label)).toEqual(c.labels);
       const [second] = bars;
@@ -196,9 +196,9 @@ describe('every spec scale draws its headers and bars on one axis (objectui#1107
     },
   );
 
-  it.each(SCALES.map((c) => [c.scale, c] as const))(
-    '%s: a bar spanning the last unit ends at 100%%',
-    (_scale, c) => {
+  it.each(SCALES)(
+    '$scale: a bar spanning the last unit ends at the right edge, 100 percent of the axis',
+    (c) => {
       const { columns, bars } = drawScale(c);
       const last = bars[1];
       // Two separately rounded shares of the axis, so their sum is compared to
@@ -210,9 +210,9 @@ describe('every spec scale draws its headers and bars on one axis (objectui#1107
     },
   );
 
-  it.each(SCALES.map((c) => [c.scale, c] as const))(
-    '%s: each header is as wide as its unit is long',
-    (_scale, c) => {
+  it.each(SCALES)(
+    '$scale: each header is as wide as its unit is long',
+    (c) => {
       const { columns } = drawScale(c);
       if (c.lengths) {
         const total = c.lengths[0] + c.lengths[1] + c.lengths[2];

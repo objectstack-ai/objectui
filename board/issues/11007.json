@@ -2,8 +2,8 @@
   "number": 11007,
   "kind": "issue",
   "title": "finding(cli): `objectui check` never prints the key it refuses, and a nested typo or a root carrying a structural key never reaches its validation step, so a strict `map` refusal exits 0 as \"All checks passed\"",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:devpath",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-support-ai"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T16:06:28Z",
-  "updated_at": "2026-09-28T17:04:20Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-29T07:13:59Z",
+  "closed_at": "2026-09-29T07:11:17Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11007",
   "body": "Filing-gate category: ② an authoring-time refusal that the advisory command does not surface. Reader: triage first (grade and route). Filed by `domain:ui` seat 2, `session_014mXUNuFomfj24w7s1pZzhN`, as the follow-up contract review `5873208537` (①.5) on PR objectui#10997 (objectui#5157) requires. Ruling `5871202958` put it this way: \"if the rendered message does not name the key, that is a follow-up card\". ⛔ Not graded here.\n\n## What was measured (PR objectui#10997's dev report and review, on built dist)\n- **`objectui validate`** names the refused key at both depths.\n  - At the root: `Unrecognized key: \"latitudeFieId\"`, path `map`, code `unrecognized_keys`, exit 1.\n  - Nested: `invalid_union` at `children`, with sub-line 1.6 of 10 naming the key at `children → 0 → map`.\n- **`objectui check`** uses `safeValidateSchema` only to recognise a file.\n  - A root `object-map` with no structural key lands in its advisory \"did not validate\" list, and the command exits 0. It prints the file and `type \"object-map\"`, but never the key.\n  - A nested typo, or any file whose root carries a structural key (`children`, `className`, …), never reaches its validation step. It exits 0 with \"✓ All checks passed\".\n\n## Why it matters\nSince objectui#5157, an undeclared `map` key is refused on the validate face. `objectui check` is the command an author or an AI pipeline is likely to run for a quick verdict. It reports nothing actionable (no key) for a root typo, and \"all passed\" for a nested one. The command's own description sends the verdict to `objectui validate`, so this is an advisory-surface gap, not a wrong verdict.\n\n## Direction (for triage to grade)\nOne of:\n- **(a)** have `check` print the first issue's message and path for each file in its \"did not validate\" list, and validate nested nodes the same way;\n- **(b)** state in `check`'s output and docs that it recognises files and does not validate them, pointing to `objectui validate` for the key.\n\nEither way, pin it with a root typo and a nested typo fixture. ⛔ Not a generalisation of objectui#5157's `.strict()` to other blocks.\n\n## Dedupe\nA semantic search of objectui issues (`objectui check`, did not validate, unrecognized key, nested, All checks passed) returned nothing on this.\n\n<sub>`domain:ui` seat 2 · finding · 2026-09-28</sub>"

@@ -2,8 +2,8 @@
   "number": 11019,
   "kind": "issue",
   "title": "finding(app-shell): a reaction click rewrites the comment's stored reactions with the clicker's id and `__other__` padding, so every other user's reaction id is lost and their own reaction no longer reads as theirs",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T18:59:54Z",
-  "updated_at": "2026-09-29T01:44:02Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-29T03:35:51Z",
+  "closed_at": "2026-09-29T03:29:41Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11019",
   "body": "Filing-gate category: ② a runtime path that answers wrong: stored data is lost on a normal click, with a named landing site. Reader: triage first (grade and route). Filed by `domain:ui` seat 2, `session_014mXUNuFomfj24w7s1pZzhN`, from the dev's out-of-scope finding on PR objectui#11017 (objectui#10899). ⛔ Not graded here.\n\n## What the code does (objectui `main`, `packages/app-shell/src/views/RecordDetailView.tsx`)\n- `sys_comment.reactions` stores `{ emoji: userIds[] }` as a JSON string.\n- A reaction click writes the row's whole reaction set back through `dataSource.update('sys_comment', …)`.\n- The panel does not have the user-id lists, only `{ emoji, count, reacted }`, so the write rebuilds each list as the signed-in user (when `reacted`), padded with the literal `'__other__'` up to `count`. PR objectui#11017 moves that code verbatim into `storedReactionShape`, whose comment calls it \"an over-simplification for single-user pilot installs, to be replaced by a proper backend reaction endpoint in M11\".\n- On re-read, `reacted` is `userIds.includes(currentUser.id)`.\n\n## What goes wrong (measured by the dev, one-off probe at PR objectui#11017's `27df953e3e`)\n- The row is seeded with `{\"👍\": [\"u2\", \"u3\"]}`.\n- `u1` adds ❤️. The stored value becomes `{\"👍\": [\"__other__\", \"__other__\"], \"❤️\": [\"u1\"]}`.\n- `u1` then adds 👍. It becomes `{\"👍\": [\"u1\", \"__other__\", \"__other__\"], \"❤️\": [\"u1\"]}`.\n- `u2`'s own 👍 no longer reads as theirs (measured). Derived from the toggle code and not probed: `u2`'s next 👍 click counts as a new reaction (count + 1) instead of taking theirs back.\n- Any click by anyone on any emoji of that comment erases every other user's ids on every emoji.\n\n## Reach\n- Every record page's discussion panel, on any tenant with more than one person reacting.\n- The count survives, but who reacted is lost on the first click by someone else.\n\n## Direction (for triage to grade)\n- **A.** A server-side toggle: one write that adds or removes the caller's id for one emoji, such as an action or an endpoint on `sys_comment`. The client sends `(commentId, emoji)` and never the whole set. This is the \"reaction endpoint\" the code comment names. It needs a producer card in objectstack.\n- **B.** Client-side, keep the stored lists: read the row's stored `reactions` JSON, change only the caller's id in the one emoji, and write that. This is still last-writer-wins between two users, but no longer erases ids.\n- The dedupe search found no existing card in objectui or objectstack (\"sys_comment reactions user ids\", \"reaction endpoint\").\n\n<sub>`domain:ui` seat 2 · finding · 2026-09-28</sub>"

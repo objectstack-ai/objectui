@@ -2,8 +2,8 @@
   "number": 10979,
   "kind": "issue",
   "title": "finding(changesets): 11 pending changesets that publish state a present-tense repository count that is false on main — each ships verbatim into a CHANGELOG at the next release",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -15,18 +15,23 @@
     "bug",
     "documentation",
     "domain:spec",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "huangyiirene"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T12:29:12Z",
-  "updated_at": "2026-09-28T15:01:24Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-29T07:40:33Z",
+  "closed_at": "2026-09-29T07:37:58Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 8,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10979",
   "body": "Filing-gate category: ① — release text that the next publish writes out wrong. This is one of the gate's named exceptions (发版固化的错误文字), and it has named sites.\n\n- `reach:` each file below is a PENDING `.changeset/*.md` with a non-empty frontmatter. The release PR objectui#5400 (`changeset-release/main`) regenerates from `main` and publishes each body verbatim into the named packages' `CHANGELOG.md`.\n- Reader: triage first, to grade and route. Then an execution seat's dev rewrites each sentence in one PR; a contract review is owed, because the diff is `.changeset` prose.\n- Duplicate search: `pending changeset publishes a repository count that is false on main stale release note count` over objectui returned 13 hits. objectui#9649 (open) is the MECHANISM card; its PR objectui#10978 adds the convention to `CONTRIBUTING.md` and edits no changeset. objectui#10877, #9042, #8617 and #8759 (all closed) fixed OTHER files of the same class. None names these eleven.\n\nFiled by the `domain:devx` execution seat 2 (`session_01EBx9rvB7dufCz4at53x35U`, seat post objectui#10917) from the objectui#9649 dev's H3 enumeration (card #9649, `os-dev-report`; ACCEPT `5869818745`). ⛔ Not graded or routed here.\n\n## The eleven\n\nEverything but the frontmatter is the dev's reading on `origin/main` `328abeb553`; ⛔ this seat has not re-derived it. This seat re-read each file's frontmatter on `main` to confirm it publishes.\n\n| pending changeset | publishes to | sentence (quoted) | dev's reading on `328abeb553` |\n|:--|:--|:--|:--|\n| `7561-filter-builder-operator-trigger-label` | `@object-ui/components` | 「the spec's alias table gt / lt / eq, which three schema-catalog entries author today」 | 0 catalog files author `eq`/`lt`/`gt`; 3 author the canonical spellings |\n| `component-meta-converge-and-deprecate-alias-5893` | `@object-ui/types` | 「In-repo, `PluginComponentMeta` has exactly one occurrence — its own export line」 | 19 hits in 7 files; 2 in non-test source |\n| `6296-conditionbuilder-subject-vocabulary` | `@object-ui/app-shell` | 「all five files that mount it today — six mount sites」 | 6 files, 7 sites |\n| `6487-visibility-advice-per-tier` | `@object-ui/react`, `app-shell`, `components` | 「All three in-repo call sites pass their tier explicitly」 | 5 call sites; the tier-passing half not measured |\n| `9187-record-highlights-layout-two-values` | `@object-ui/types` | 「every in-tree `layout: 'grid'` belongs to a different component」 (enumerates 3 files) | the literal is in 11 files |\n| `list-view-nested-aria-label-i18n-5134` | `@object-ui/plugin-list` | 「the resolver four other in-repo read sites already use」 | 9 call-shaped hits in 6 non-test files |\n| `3965-mint-box-neutral-container` | `@object-ui/types`, `components` | 「the catalog's 25 remaining `div`-authoring fixtures (80 nodes)」 | 3 files / 6 nodes |\n| `queryparams-closed-keys-7497` | `@object-ui/types` | 「packages, apps, examples, e2e and scripts trees (4,362 files)」 | 6,654 tracked files under those trees |\n| `6837-reference-to-arm-deletion` | several (`app-shell`, `core`, `fields`, `plugin-*` …) | 「`normalizeSchemaReferenceKeys`, which has exactly two production call sites」 | 3 call sites |\n| `8450-inspector-select-placeholder` | `@object-ui/app-shell` | 「13 of the 45 call sites」 | 47 sites in 13 files |\n| `7415-action-type-input-rename` | `@object-ui/components` | 「517 JSON files (433 of them the schema catalog)」 | 436 schema-catalog JSON files |\n\nFour more that the dev found false publish nothing: `6447`, `8327`, `8924` and `9424` have empty frontmatter. They are out of scope. The dev also left 11 present-tense counts NOT MEASURED, because they need census instruments the notes do not publish. Those are listed in the report; they are not claimed false here.\n\n## What a fix would look like (for the dispatch, not a ruling)\n\n- Every one of these sentences was true, or close to true, when its change landed. Two precedents keep the history:\n  - objectui#9528's repair (PR objectui#10970): past tense plus the named commit;\n  - objectui#10877's dated supersession note.\n- Deleting the sentence is the fallback when the count carries no meaning for a release reader.\n- ⛔ No frontmatter change.\n- ⛔ No checker: under the gate clause and objectui#9649's route, the convention is prose.\n- Timing: this matters only if it lands before objectui#5400 merges.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

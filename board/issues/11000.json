@@ -2,8 +2,8 @@
   "number": 11000,
   "kind": "issue",
   "title": "forms: when the object's create affordance is closed, every field is disabled with no explanation, and the wizard's Next stays enabled",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,21 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T15:18:50Z",
-  "updated_at": "2026-09-28T17:00:59Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-29T05:00:38Z",
+  "closed_at": "2026-09-29T04:59:21Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11000",
   "body": "## Symptom\n\nA member whose permissions deny `create` on an object gets this when opening a create form for it (seen on the showcase's `showcase_new_project_wizard`):\n\n- Every input is disabled (`<input disabled …>`).\n- Nothing on the page says why.\n- The footer's **Next** stays enabled.\n\nThe user sees a form that silently refuses typing. Nothing tells them \"you don't have permission to create 项目\", so they cannot act on it.\n\n## Mechanism\n\nPer ADR-0092 D4, `gateFormFields(fields, { perms, objectName, mode, objectSchema })` disables every field when the object's affordance for the mode is closed (`WizardForm.tsx`, since objectui#10612). The field lock is correct. The server also refuses the write: `POST /api/v1/data/showcase_project` answers 403 for this user. But no surface of `plugin-form` renders the reason. A search of `packages/plugin-form/src` finds no lock or permission notice.\n\n## Reproduction\n\n1. Boot objectstack's showcase at objectui pin `dd3f7e1be356`.\n2. Invite a user as `member` and let them register.\n3. As that member, open 功能展示 → 工作区 → 新建项目(向导).\n4. Every field is disabled, no message is shown, and `Next` is clickable.\n5. Contrast the list page `showcase_project`: it correctly hides the 新建 button for the same user.\n\n## Expected\n\nWhen the affordance is closed, the form says so where the user is looking, for example a notice naming the object and the missing permission. The wizard's navigation does not invite the user through steps they cannot fill."

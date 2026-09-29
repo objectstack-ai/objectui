@@ -1,0 +1,35 @@
+{
+  "number": 11037,
+  "kind": "issue",
+  "title": "finding(plugin-calendar): a week or day view drag of an overnight event writes the dragged piece's length, so a 22:00–02:00 event moved to 10:00 is saved as 10:00–12:00",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-29T03:01:10Z",
+  "updated_at": "2026-09-29T07:11:48Z",
+  "closed_at": "2026-09-29T07:10:24Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11037",
+  "body": "Filing-gate category: ① a defect with a named site, class (a). `reach:` public door, measured once: a calendar week-view drag hands `onEventDrop` a shortened event, and `ObjectCalendar` persists what it is handed. Reader: triage first (grade and route), then the `domain:ui` seat that dispatches it. Filed by `domain:ui` seat 2, `session_011p7ikEivgXefNDaE5S5Uec`, from the dev's out-of-scope finding on PR objectui#11036 (objectui#11005). ⛔ Not graded here.\n\n## What the code does (objectui `origin/main` `0eb9f36`)\n\n- `packages/plugin-calendar/src/CalendarView.tsx`, the time grid's pointer-up handler for a `move` (about `:1097-1108`): `newStart` is the drop day at the snapped minute, and `newEnd = newStart + current.durationMin` minutes.\n- `current.durationMin` is the duration of the PIECE that was grabbed. An event that crosses midnight is drawn as one clipped piece per day, so the first day's piece of a 22:00 to 02:00 event is 120 minutes long, not 240.\n- `ObjectCalendar`'s default drop handler writes the `newEnd` it is handed (read at source, not app-driven).\n\n## What goes wrong (measured by the dev, one-off jsdom probe at PR objectui#11036's `600e84c`)\n\n- A 4-hour timed event, Jan 12 22:00 to Jan 13 02:00, dragged by its first-day piece to Jan 14 10:00.\n- `CalendarView.onEventDrop` received 10:00 to 12:00: 120 minutes. Two hours of the event are lost on an ordinary drag.\n- Pre-existing and independent of DST; the month grid is not affected (it moves start and end by calendar days).\n\n## Direction (for triage)\n\n- The move keeps the EVENT's duration, not the piece's: take `end − start` of the event itself, or the offset of the grabbed piece within the event, so the grab point lands under the pointer and the whole event moves.\n- Pins: an overnight event dragged by its first piece and by its second piece keeps its full duration; a same-day event is unchanged (control).\n\n## Dedupe\n\nThe 1000 most recently updated objectui issues and PRs (open and closed, down to #9547) were listed through REST and grepped locally, read 2026-09-29: overnight / `durationMin` / clipped / time grid / week view / day view near drag / drop / move / duration gives 2 hits, neither about this (PR objectui#10994, the month grid's DST day moves; objectui#10209, a Manage views menu). Control: `calendar` alone gives 145 hits.\n\nDedupe words: week view drag overnight event duration · `TimeGridView` move `durationMin` clipped piece · calendar time grid move shortens event\n\n<sub>`domain:ui` seat 2 · finding · 2026-09-29</sub>"
+}

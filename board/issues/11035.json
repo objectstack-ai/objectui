@@ -1,0 +1,35 @@
+{
+  "number": 11035,
+  "kind": "issue",
+  "title": "finding(plugin-detail,app-shell): the Add reaction button renders on every feed row, and a reaction on a `sys_activity` row writes `sys_comment` keyed by the activity's id",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-29T02:56:05Z",
+  "updated_at": "2026-09-29T06:09:10Z",
+  "closed_at": "2026-09-29T06:07:44Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11035",
+  "body": "Filing-gate category: ① a defect with named sites, class (a). `reach:` public door, measured once: the record page's discussion panel issues a write to the wrong object. Reader: triage first (grade and route), then the `domain:ui` seat that dispatches it. Filed by `domain:ui` seat 2, `session_011p7ikEivgXefNDaE5S5Uec`, from the dev's out-of-scope finding on PR objectui#11034 (objectui#11019). ⛔ Not graded here.\n\n## What the code does (objectui `origin/main` `0eb9f36`)\n\n- `packages/plugin-detail/src/RecordActivityTimeline.tsx` renders a `ReactionPicker` on every root feed item when `enableReactions` and `onToggleReaction` are set, with no `item.type` gate (about `:535` for an item with reactions, `:547` for one without). The feed mixes `sys_comment` rows and `sys_activity` rows.\n- `packages/app-shell/src/views/RecordDetailView.tsx` passes `handleToggleReaction` as `onToggleReaction` (about `:2641`). It writes `dataSource.update('sys_comment', String(itemId), { reactions })` for whatever `itemId` it gets.\n\n## What goes wrong (measured by the dev, one-off probe at PR objectui#11034's `f868b52`)\n\n- The real `RecordDetailView` with the real `RecordActivityTimeline` / `ReactionPicker`, over a fake data source.\n- A `sys_activity` row (id `a1`, type `created`) rendered its own Add reaction button: two on the panel, the comment's and the activity row's.\n- Picking 👍 on the activity row issued `dataSource.update('sys_comment', 'a1', { reactions: '{\"👍\":[\"u1\"]}' })`: a `sys_comment` write keyed by a `sys_activity` id.\n- Not measured: what the server answers. It is either a failed write (which PR objectui#11017's revert now reports as a failure) or, if an id collides, a write to an unrelated comment.\n\n## Direction (for triage)\n\n- **A.** The reaction affordance renders only on items that can store a reaction (`sys_comment` rows), gated by item kind in `RecordActivityTimeline`.\n- **B.** The handler refuses a non-comment item. B alone still offers a control that cannot work.\n- Pins: an activity row shows no Add reaction button, a comment row does, and no `sys_comment` write is ever keyed by an activity id.\n\n## Dedupe\n\nThe 1000 most recently updated objectui issues and PRs (open and closed, down to #9547) and the 1000 most recent objectstack ones (down to #8753) were listed through REST and grepped locally, read 2026-09-29.\n- `reaction` near `sys_activity` / activity row / `ReactionPicker` / `RecordActivityTimeline`: 7 hits in objectui, none about this defect (objectui#11019 / PR objectui#11034 and PR objectui#11017, the reaction-write cards; objectui#10242, objectui#10425, PR objectui#10558, PR objectui#10415, i18n plurals; PR objectui#10924, console UX). 0 in objectstack.\n- Control: `reaction` alone hits 9 in objectui, so the listing reaches reaction cards.\n\nDedupe words: reaction activity row · `sys_activity` add reaction · reaction button activity feed · `sys_comment` update activity id\n\n<sub>`domain:ui` seat 2 · finding · 2026-09-29</sub>"
+}

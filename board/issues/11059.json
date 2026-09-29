@@ -1,0 +1,35 @@
+{
+  "number": 11059,
+  "kind": "pull_request",
+  "title": "fix(plugin-dashboard): the auto-refresh interval reads its handler through a ref, not a memoised identity (objectui#11004)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-29T06:46:44Z",
+  "updated_at": "2026-09-29T07:28:18Z",
+  "closed_at": "2026-09-29T07:28:16Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-29T07:28:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11059",
+  "body": "Fixes #11004\nClause-②: no\n\n## What changed\n\n`useDashboardAutoRefresh` (the one timer behind `DashboardGridLayout` and `DashboardRenderer`) armed its interval in an effect keyed on `[seconds, onRefresh, handleRefresh]`, and `handleRefresh` is a `useCallback` result. That is the shape AGENTS.md commandment #10 bans (objectui#8640): if React discards the memo, the new function identity clears the interval and sets it again, and the phase restarts. The card's premise holds on `origin/main` at `30f912a0d`: the dependency list and its own warning comment were still there.\n\n- The latest host handler now lives in one ref (`onRefreshRef`), updated in a dependency-free effect. This is the house shape, the same one used by `surfaceDeepLinkChannel.ts` and the studio-design panels.\n- A module-scope `runRefresh(handler, setRefreshing)` holds the run: call the handler, then show the 600ms indicator. The manual `handleRefresh` (a `useCallback` with an empty list, kept only for cost) and the interval callback both call it, and both read the handler through the ref.\n- The interval effect is keyed on the two VALUES it reads: `[seconds, wired]`, where `wired = Boolean(onRefresh)`.\n\nZone 2, item 2, was decided from commandment #10: `onRefresh` leaves the list too. It is a caller-supplied identity, which is the cross-boundary instance of the same class the commandment names (\"a prop, a hook return, a context\"). The ref still meets the handler-swap case, because the CURRENT handler is the one called. The one behaviour change is the intended one: when the host passes a new handler identity at the same period, the phase is kept instead of restarted. No in-tree host passes a changing `onRefresh` today. `DashboardWithConfig` only passes its prop through, and the console's `DashboardView` wires none.\n\n## The new case\n\nThe new case is `keeps its phase when a handler identity changes at an equal period (objectui#11004)`, inside the existing per-surface `describe.each`, so it runs once per surface. It runs as two steps on one 30s schedule:\n\n1. At 20s it forces a memo discard, with the same host handler and the same period. The discard uses a module-level `react` proxy, the same technique as `providerCtxIdentity.discarded.test.tsx` in `packages/permissions`, and is inert unless a case arms it. It then asserts the run still lands at 30s. A control asserts that the discard really reached the hook: `handleRefresh` comes back as a different function. Without that control, a proxy that patched nothing would read green.\n2. At 50s the host swaps in a new handler at the same period. The case asserts the NEW handler runs at 60s and the old one does not run again.\n\nAll 22 earlier cases are untouched and green, the equal-period phase case and the handler-swap case among them.\n\n## Evidence, all at HEAD `8fa76e0ed`\n\n- `pnpm exec vitest run packages/plugin-dashboard/src/__tests__/dashboardAutoRefreshTimer.test.tsx`: base tree `Tests  22 passed (22)`, this branch `Tests  24 passed (24)`.\n- Reverse verification (fix committed first, hook reverted to `30f912a0d`, restored with `git checkout HEAD`, blob equal to HEAD and `git diff HEAD` empty): `Tests  2 failed | 22 passed (24)`. The two failures are the new case, one per surface, at `a discarded memo re-armed the interval`. The controls passed, so the discard did reach the hook.\n- Mutation legs, through `ablation-replace.mjs` (anchor hit 1 to 0, blob changed, then restored to the HEAD blob with `git diff HEAD` empty):\n  - `onRefresh` added back to the interval list: `2 failed | 22 passed (24)` at `a new host handler identity re-armed the interval`. Step 1 passed, so step 2 is load-bearing on its own.\n  - `handleRefresh` added back (even as a ref-reading, empty-list callback): `2 failed | 22 passed (24)` at `a discarded memo re-armed the interval`.\n- `pnpm exec vitest run packages/plugin-dashboard/`: `Test Files  151 passed (151)`, `Tests  1379 passed | 6 skipped (1385)`.\n- `pnpm --filter @object-ui/plugin-dashboard type-check`: exit 0, after building the package's dependency closure (`--filter '@object-ui/plugin-dashboard^...' run build`, exit 0). `tsc -p tsconfig.test.json --listFiles` includes the changed test file.\n- `pnpm exec eslint --format json` on the two changed source files: 2 files, 0 errors, 0 warnings. `react-hooks/exhaustive-deps` accepts `[seconds, wired]`. This is a declared narrowing: the config enables no type-aware linting (no `parserOptions.project` or `projectService`), and no local rule in `eslint-rules/` reads another file, so this diff cannot move a verdict on an untouched file. The package-wide `eslint .` belongs to CI.\n- `node scripts/check-*.mjs`, each exit 0: changeset-presence, control-bytes, vi-mock-specifiers, vi-mock-inherit, vi-mock-override-shape, new-cross-file-line-citations (`0 new citation(s)`), changeset-no-major, changeset-claims, pending-changeset-literals, test-path-roots.\n- Nothing in `scripts/`, `eslint-rules/` or `.github/` enforces commandment #10. A grep for it returned zero hits, with a positive control that did hit, which matches the commandment's own \"Nothing enforces this rule\".\n\nChangeset: `.changeset/11004-autorefresh-handler-ref.md`, `'@object-ui/plugin-dashboard': patch`.\n\n## Acceptance notes\n\n- Observation, not fixed here: the console's `DashboardView` mounts `DashboardRenderer` with no `onRefresh`, so an authored `refreshIntervalSeconds` never starts a timer in the console. The Studio metadata form still offers the field (its zh label is \"自动刷新\"). This was read from the JSX, not measured in a running console. It is handed to the seat in the report.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011p7ikEivgXefNDaE5S5Uec)_\n"
+}

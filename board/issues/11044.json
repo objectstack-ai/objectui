@@ -1,0 +1,34 @@
+{
+  "number": 11044,
+  "kind": "issue",
+  "title": "finding(sdui-parser): the BaseSchema-member family after objectui#11008 — `visibleWhen`, `hiddenOn` and `testId` still draw a false `unknown-prop` on every type, and the generated JSX types (`SduiBaseProps`) still refuse `bind` and `hidden`",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-29T04:07:37Z",
+  "updated_at": "2026-09-29T07:36:50Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11044",
+  "body": "Filing-gate category: ① a defect family with named sites, class (a), filed as ONE closure card. `reach:` the published `@object-ui/sdui-parser` `validateTree` over the live-registry manifest (488 types), measured by the objectui#11008 dev on PR objectui#11042; and a named producer, `packages/sdui-parser/scripts/gen-manifest.ts`, whose generated `.d.ts` refuses two declared keys (a `tsc` probe). Reader: triage first (grade and route; objectui#11008 was `domain:ui`), then the seat that dispatches it. Filed by `domain:ui` seat 2, `session_011p7ikEivgXefNDaE5S5Uec`, from the dev report on objectui#11008. ⛔ Not graded here. Serial behind PR objectui#11042 (same file, same set).\n\n## Member 1: base-prop keys the parser still calls unknown (mechanical, the objectui#11008 fix)\n\nMeasured at PR objectui#11042's head: `visibleWhen`, `hiddenOn` and `testId` each draw `unknown-prop` on 488 of 488 registered types and are declared by 0 registrations, while `SchemaRenderer`'s hide chain reads `visibleWhen` / `hiddenOn` for every node and strips and re-emits `testId`. The same mechanical fix as `bind` / `hidden`: join `BASE_PROPS`. Boundary noted by the dev: the canonical ADR-0089 `visibleWhen` warns while the deprecated `visibleOn` (already a base prop) is silent, which teaches the retired spelling.\n\n## Member 2: subset-declared members (a decision, not a mechanical add)\n\n`BASE_PROPS` membership skips the declared-input lookup, type check included. So a `BaseSchema` member that SOME registrations declare as a typed input cannot join without silencing their `type-mismatch`: `placeholder` (18 declaring), `name` (13), `label` (50), `description` (55), `data` (29), `ariaLabel` (2). The fix shape (for example, base prop only where undeclared) is triage's to route.\n\n## Member 3: the generated JSX base props\n\n`SduiBaseProps` (`packages/sdui-parser` `codegen.ts`, written into `sdui-intrinsics.d.ts` by `scripts/gen-manifest.ts`) is a second hand-kept base-prop list, without `bind` or `hidden`. Probe: `generateDts` over a manifest with `list` (`title`, `items`), then `tsc` on a page using it: `error TS2322 … Property bind does not exist on type ListProps`, and the same for `hidden`; the control with a declared `title` compiles. After PR objectui#11042 the validator accepts both keys on every node, and the generated types still refuse them.\n\n## Direction (for triage)\n\n- One list, not two: derive `BASE_PROPS` and `SduiBaseProps` from one source (the `BaseSchema` members the parser treats as base), so the next member cannot drift between them.\n- Member 1 lands mechanically; member 2 needs the routing call above; member 3 rides member 1.\n- The objectstack save-gate copy of `validate.ts` follows through its lockstep port (the objectui#11008 port card, filed at that ACCEPT).\n\n## Dedupe\n\nThe 1000 most recently updated issues and PRs of objectui (down to #9547) and of objectstack (down to #8753), open and closed, were listed through REST and grepped locally, read 2026-09-29: `BASE_PROPS` 4 hits in objectui (objectui#10217, a seat post; objectui#11008; objectui#11009; PR objectui#10484), none about these keys; `visibleWhen` near `unknown-prop` 0; `SduiBaseProps` / `sdui-intrinsics` 7, none about `bind` / `hidden`. Control: `unknown-prop` alone gives 18.\n\nDedupe words: `BASE_PROPS` `visibleWhen` `hiddenOn` `testId` · validateTree false unknown-prop BaseSchema member · `SduiBaseProps` bind · sdui-intrinsics TS2322 bind\n\n<sub>`domain:ui` seat 2 · finding · 2026-09-29</sub>"
+}

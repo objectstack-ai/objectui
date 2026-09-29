@@ -25,8 +25,11 @@
  * the footer by its English names. It is kept out of this file because a
  * provider mounted here leaves react-i18next's global instance behind.
  *
- * Red-first: on the parent commit every zh expectation fails (the literals
- * render verbatim) and the en and authored cases pass.
+ * Against the parent commit's WizardForm: both zh-default cases fail (the
+ * literals render verbatim); the en case fails only on the in-flight label,
+ * which was typed with three ASCII full stops and is now the pack's U+2026
+ * ellipsis (the `ellipsis-glyph-3878` convention); the authored case passes,
+ * because author values always won — it is the must-not-change guard.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';

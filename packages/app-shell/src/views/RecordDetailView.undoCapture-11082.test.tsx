@@ -249,7 +249,7 @@ describe('RecordDetailView `api` handler — the Undo snapshot never records an 
     expect(undoButton).toBeUndefined();
     expect(globalUndoManager.canUndo).toBe(false);
     // The author is told which field blocked the capture.
-    const noUndo = warn.mock.calls.find(([message]) => String(message).startsWith('[RecordDetailView]'));
+    const noUndo = warn.mock.calls.find((args: unknown[]) => String(args[0]).startsWith('[RecordDetailView]'));
     expect(noUndo?.[1]).toEqual({ action: 'complete_call', missing: ['status'] });
   });
 

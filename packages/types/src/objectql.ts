@@ -346,9 +346,10 @@ export type GanttConfig = SpecGanttConfig & {
    * `datetime` value stays a real instant: a drag writes it back as one. A
    * `date` value is a calendar day, not an instant: the chart draws it from
    * that day's midnight in this zone's calendar, and a drag writes back the day
-   * it was dropped on there, `YYYY-MM-DD` (objectui#10866). Near a DST change
-   * of this zone or the viewer's, that midnight can be placed an hour early,
-   * and the day drawn, like the day a drop writes, is then the day before.
+   * it was dropped on there, `YYYY-MM-DD` (objectui#10866), on a DST change of
+   * this zone or the viewer's too. Where no instant is drawn at that midnight
+   * (for example, this zone's clocks change at 00:00 that day), the day is
+   * drawn from the first instant after it, still on that day.
    * Forwarded to `GanttView`.
    */
   timeZone?: string;

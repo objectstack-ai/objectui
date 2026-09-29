@@ -90,7 +90,7 @@ import {
   formatCurrency,
 } from '@object-ui/fields';
 import { GanttView, type GanttTask, type GanttDependency, type GanttLinkType, type GanttTaskType } from './GanttView';
-import { makeTzShift } from './tzShift';
+import { invertFrom, invertTo, makeTzShift } from './tzShift';
 import { ResourceWorkload } from './ResourceWorkload';
 import { QuickFilterBar, type QuickFilterField, type QuickFilterOption } from './QuickFilterBar';
 import type { WorkingCalendar } from './scheduling';
@@ -388,13 +388,15 @@ type ChartZone = ReturnType<typeof makeTzShift>;
  * `toDisplayDate` reads a date-only value at LOCAL midnight of the day it
  * names, where the engine's own parse read UTC midnight and drew the bar a day
  * early west of UTC. For a business-zone chart that midnight is then handed
- * over as the instant `GanttView` re-bases back onto it, so the bar stands on
- * the named day of the chart's calendar for every viewer. A value with a time
- * is an instant and passes through unshifted, as before.
+ * over as the instant `GanttView` re-bases EXACTLY back onto it (`invertTo`),
+ * so the bar stands on the named day of the chart's calendar for every viewer,
+ * on a DST day too: the shim's own round trip, `to(from(midnight))`, fell on
+ * 23:00 of the day before there. A value with a time is an instant and passes
+ * through unshifted, as before.
  */
 function readTaskDate(raw: unknown, chartZone: ChartZone): Date {
   const date = toDisplayDate(raw as string);
-  return typeof raw === 'string' && isRealCalendarDate(raw) ? chartZone.from(date) : date;
+  return typeof raw === 'string' && isRealCalendarDate(raw) ? invertTo(chartZone, date) : date;
 }
 
 /**
@@ -402,9 +404,11 @@ function readTaskDate(raw: unknown, chartZone: ChartZone): Date {
  *
  * A field declared `date` holds a calendar day, the spec's `YYYY-MM-DD`
  * storage form, so it is written as the day the bar was dropped on in the
- * chart's calendar: the emitted `Date` re-based back into the view's display
- * space, read with LOCAL getters. ⛔ Never `toISOString()` for it — the UTC
- * spelling of a local midnight names the PREVIOUS day everywhere east of UTC.
+ * chart's calendar: the display-space `Date` the view emitted, recovered
+ * EXACTLY from the instant it hands over (`invertFrom`; the shim's own
+ * `to(instant)` fell on 23:00 of the day before on a DST day), read with LOCAL
+ * getters. ⛔ Never `toISOString()` for it — the UTC spelling of a local
+ * midnight names the PREVIOUS day everywhere east of UTC.
  * Any other declared type (`datetime`) keeps its instant, exactly as before.
  *
  * With no declared type to ask (an `api` provider has no object schema), the
@@ -416,7 +420,7 @@ function toStoredDateValue(date: Date, declaredType: unknown, stored: unknown, c
     typeof declaredType === 'string'
       ? declaredType === 'date'
       : typeof stored === 'string' && isRealCalendarDate(stored);
-  return dateOnly ? toDateInputValue(chartZone.to(date)) : date.toISOString();
+  return dateOnly ? toDateInputValue(invertFrom(chartZone, date)) : date.toISOString();
 }
 
 /**

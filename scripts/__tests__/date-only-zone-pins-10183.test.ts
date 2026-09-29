@@ -30,7 +30,9 @@ import { fileURLToPath } from 'node:url';
  * arithmetic, then the calendar's day moves across a DST change and the pins
  * for the calendar's end-date write, its no-schema fallback and the gantt's
  * no-schema path. objectui#11005 added the month grid's own drags, which move
- * a value by calendar days across a DST change. A later date-only read site
+ * a value by calendar days across a DST change. objectui#10866 then added a
+ * gantt with a business `timeZone` read and dropped on a DST day, from a viewer
+ * zone whose DST differs from the chart's. A later date-only read site
  * registers here the same way.
  *
  * ## Why a driver, and why the forks pool
@@ -110,6 +112,9 @@ const PINS = [
   // objectui#11005: the month grid moves a value by calendar days and keeps
   // its wall-clock time across a DST change, for a move and an end drag.
   'packages/plugin-calendar/src/__tests__/CalendarView.monthMoveCalendarDays-11005.test.tsx',
+  // objectui#10866, slice 5: a gantt with a business `timeZone` draws and
+  // writes a stored day as that day on a DST change of either zone.
+  'packages/plugin-gantt/src/__tests__/ObjectGantt.zonedDstDay-10866.test.tsx',
 ] as const;
 
 /** The vitest CLI entry, resolved rather than assumed at a `node_modules` path. */

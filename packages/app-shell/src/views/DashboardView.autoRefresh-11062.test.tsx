@@ -157,12 +157,12 @@ describe('DashboardView honours an authored refreshIntervalSeconds (objectui#110
     expect(busEvents).toHaveLength(0);
 
     await advance(1);
-    expect(busEvents, 'the authored period started no timer in the console').toEqual([{ objectName: '*' }]);
-    expect(ds.queryDataset, 'the bus event reached no widget re-read').toHaveBeenCalledTimes(2);
+    expect(ds.queryDataset, 'the widget was not re-read when the authored period ended').toHaveBeenCalledTimes(2);
+    expect(busEvents, 'the re-read was not driven by one unscoped bus event').toEqual([{ objectName: '*' }]);
 
     await advance(60_000);
-    expect(busEvents).toHaveLength(2);
     expect(ds.queryDataset).toHaveBeenCalledTimes(3);
+    expect(busEvents).toHaveLength(2);
 
     // In place (AGENTS.md #8): the same table node, so the widget was not remounted.
     expect(widgetTable(), 'the refresh remounted the widget').toBe(table);
@@ -184,8 +184,8 @@ describe('DashboardView honours an authored refreshIntervalSeconds (objectui#110
     const { ds, view } = await mountDashboard({ refreshIntervalSeconds: 60 });
     await advance(60_000);
     // The timer was running, so what follows is a stop, not a timer that never started.
+    expect(ds.queryDataset, 'the timer never ran, so its stop cannot be measured').toHaveBeenCalledTimes(2);
     expect(busEvents).toHaveLength(1);
-    expect(ds.queryDataset).toHaveBeenCalledTimes(2);
 
     view.unmount();
     await advance(180_000);
@@ -202,8 +202,8 @@ describe('DashboardView honours an authored refreshIntervalSeconds (objectui#110
     });
     await flush();
 
+    expect(ds.queryDataset, 'the button did not re-read the widget').toHaveBeenCalledTimes(2);
     expect(busEvents).toEqual([{ objectName: '*' }]);
-    expect(ds.queryDataset).toHaveBeenCalledTimes(2);
-    expect(widgetTable()).toBe(table);
+    expect(widgetTable(), 'the manual refresh remounted the widget').toBe(table);
   });
 });

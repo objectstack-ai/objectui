@@ -26,11 +26,11 @@
  * NOT ported here and that nothing in this repository ran it; that paragraph is
  * updated by the same change that added this file.
  *
- * ⛔ This is NOT a verbatim copy. The four divergences below are structural --
+ * ⛔ This is NOT a verbatim copy. The five divergences below are structural --
  * a different oracle import, a different prerequisite helper, a different
- * skip-list and a different failure posture. No gate compares it with upstream
- * (this repository's port pin and its parity gate were retired by
- * objectui#10208), so drift from upstream is found by hand.
+ * skip-list, a different failure posture and a different enumeration. No gate
+ * compares it with upstream (this repository's port pin and its parity gate
+ * were retired by objectui#10208), so drift from upstream is found by hand.
  *
  *   1. THE ORACLE IS REACHED THROUGH `typescript-eslint`, NOT
  *      `@typescript-eslint/parser`. Upstream imports the parser package
@@ -62,6 +62,15 @@
  *
  *   4. THE POSTURE IS REPORT-WITH-A-CEILING, NOT FAIL-ON-ANY-DISAGREEMENT --
  *      see the next section, which is the reason this card exists.
+ *
+ *   5. THE CORPUS IS THE TRACKED FILES, NOT A WALK OF THE WORKING TREE
+ *      (objectui#11040). Upstream walks the directories. A walk lists whatever
+ *      is on disk as it passes, including a file another process is about to
+ *      delete, and the read that follows throws. That failed a CI Test shard:
+ *      `packages/cli/src/__tests__/cli-bin.test.ts` builds with tsup, which
+ *      writes a temporary `tsup.config.bundled_*.mjs` and deletes it, and
+ *      `check-hand-rolled-comment-mask` (which shares this enumeration) read it
+ *      in between, on a pull request that touched neither file.
  *
  * ## The posture, and why it is not upstream's
  *
@@ -204,11 +213,12 @@
  * reading a green run as coverage of that half is reading it wrong.
  */
 
-// The sweep walks every authored JS/TS file from the repo root, so the corpus is
-// the whole tree; the one path literal below names the masker this gate
-// exercises, not the files it reads.
+// The sweep reads every tracked JS/TS file under the repo root, so the corpus is
+// the whole tree as git records it; the one path literal below names the masker
+// this gate exercises, not the files it reads.
 
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
@@ -234,6 +244,11 @@ export const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', 
  * shape in `js-comment-mask.mjs` on behalf of a generator -- the failure
  * upstream records for its own `.cache` entry, which is the objectstack-only
  * case this port drops.
+ *
+ * The corpus is the TRACKED files (`collectSources`), so a gitignored
+ * directory is out of it before this list is read. The list still applies to a
+ * tracked path under one of these names, so exclusion by location stays
+ * declared here rather than left to whatever `.gitignore` says.
  */
 export const SKIPPED_DIRECTORIES = new Set([
   'node_modules', 'dist', '.next', 'build', '.turbo', 'coverage', '.git',
@@ -273,28 +288,59 @@ const JSX_BY_EXTENSION = /\.(tsx|jsx)$/;
 /** ...and JS-family sources may carry JSX under any of their extensions. */
 const JSX_RETRY = /\.(js|mjs|cjs|jsx)$/;
 
+/** The NUL that `git ls-files -z` delimits with, built from its code point. */
+const NUL = String.fromCharCode(0);
+
 /**
- * Every source file under `root`, depth-first, symlinked directories skipped
- * (a symlink is not `isDirectory()` here, which also makes the walk immune to
- * cycles).
+ * Every TRACKED source file under `root`: `git ls-files`, the enumeration this
+ * repository's other censuses use, filtered by `SOURCE_EXTENSIONS` and by
+ * `SKIPPED_DIRECTORIES`.
+ *
+ * ⛔ Not a walk of the working tree (objectui#11040, divergence 5 in the
+ * header). A tracked file is one somebody added, so build output and temporary
+ * files are out of the corpus as a class, not by name. The cost: a new file is
+ * invisible until it is `git add`ed. CI checks out commits, so every file of a
+ * pull request is in. A tracked path can still be gone from disk; `readListedSource`
+ * is the guard for that half.
+ *
+ * `root` must be inside a git work tree. Outside one, `git` refuses and this
+ * throws. There is no fallback to a walk, because a fallback would bring the
+ * race back without saying so.
  *
  * @param {string} [root]
- * @returns {string[]} absolute paths
+ * @returns {string[]} absolute paths, sorted
  */
 export function collectSources(root = REPO_ROOT) {
-  const found = [];
-  const walk = (dir) => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.isDirectory()) {
-        if (!SKIPPED_DIRECTORIES.has(entry.name)) walk(join(dir, entry.name));
-      } else if (entry.isFile() && SOURCE_EXTENSIONS.has(extname(entry.name))) {
-        found.push(join(dir, entry.name));
-      }
-    }
-  };
-  walk(root);
-  found.sort();
-  return found;
+  return execFileSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'buffer', maxBuffer: 64 * 1024 * 1024 })
+    .toString('utf8')
+    .split(NUL)
+    .filter((path) => SOURCE_EXTENSIONS.has(extname(path)))
+    .filter((path) => !path.split('/').slice(0, -1).some((dir) => SKIPPED_DIRECTORIES.has(dir)))
+    .map((path) => join(root, path))
+    .sort();
+}
+
+/**
+ * Read one listed file, or `null` when it is no longer on disk.
+ *
+ * A path can be listed and then vanish before its read: a tracked file deleted
+ * in the working tree, or a file another process removes between the two
+ * steps. It is not in the tree any more, so it is read as ABSENT rather than
+ * thrown on (objectui#11040). ⛔ Not a retry or a wait: nothing here tries
+ * again. Only ENOENT means absent. Any other error is thrown, because a file
+ * that exists and cannot be read must never score as a file with nothing to
+ * report.
+ *
+ * @param {string} file
+ * @returns {string | null}
+ */
+export function readListedSource(file) {
+  try {
+    return readFileSync(file, 'utf8');
+  } catch (error) {
+    if (error && error.code === 'ENOENT') return null;
+    throw error;
+  }
 }
 
 /** Thrown when the oracle cannot read a file -- never swallowed. */
@@ -466,10 +512,15 @@ export function sweep({ root = REPO_ROOT, files = collectSources(root), parse, s
   const started = Date.now();
   const disagreements = [];
   const unparseable = [];
+  const absent = [];
   let fabricatedBytes = 0;
   let overMaskedBytes = 0;
   for (const file of files) {
-    const source = readFileSync(file, 'utf8');
+    const source = readListedSource(file);
+    if (source === null) {
+      absent.push(relative(root, file));
+      continue;
+    }
     let result;
     try {
       result = compareFile(file, source, { scan, parse });
@@ -483,7 +534,7 @@ export function sweep({ root = REPO_ROOT, files = collectSources(root), parse, s
     overMaskedBytes += result.overMasks;
     disagreements.push({ file: relative(root, file), ...result });
   }
-  return { files, disagreements, unparseable, fabricatedBytes, overMaskedBytes, elapsedMs: Date.now() - started };
+  return { files, disagreements, unparseable, absent, fabricatedBytes, overMaskedBytes, elapsedMs: Date.now() - started };
 }
 
 /**
@@ -589,8 +640,9 @@ async function main({ maskerPath = null } = {}) {
   const scan = await loadMasker(maskerPath);
   const label = maskerPath ? `${maskerPath} (control run)` : 'scripts/js-comment-mask.mjs';
   const result = sweep({ files, parse, scan });
-  const { disagreements, unparseable, fabricatedBytes, overMaskedBytes, elapsedMs } = result;
+  const { disagreements, unparseable, absent, fabricatedBytes, overMaskedBytes, elapsedMs } = result;
   const seconds = (elapsedMs / 1000).toFixed(1);
+  const absentNote = absent.length ? ` (${absent.length} more listed but gone from disk, read as absent)` : '';
 
   for (const row of unparseable.slice(0, ROW_LIMIT)) {
     console.error(`  UNPARSEABLE  ${row.file}\n               ${row.reason}`);
@@ -608,7 +660,7 @@ async function main({ maskerPath = null } = {}) {
   // The measurement line prints on EVERY run, green or red: this gate was asked
   // for a reading, and a reading that only appears on failure is not one.
   const summary =
-    `comment-mask corpus sweep [${label}]: ${files.length} files, ${disagreements.length} disagree `
+    `comment-mask corpus sweep [${label}]: ${files.length - absent.length} files${absentNote}, ${disagreements.length} disagree `
     + `(${fabricatedBytes} comment bytes read as code, ${overMaskedBytes} code bytes read as comment), `
     + `${unparseable.length} unparseable, ${seconds}s `
     + `(comparator self-test: ${SELF_TEST_CASE_COUNT} cases pass).`;
@@ -745,7 +797,7 @@ async function runSelfTestCases(parse) {
   //
   // `SKIPPED_DIRECTORIES` is the kind of declaration that reads as obviously
   // correct and is measured by nothing, so the exclusion is proven the way the
-  // corpus is judged -- by walking a directory on disk. The SAME BYTES are
+  // corpus is judged -- by enumerating a real git tree on disk. The SAME BYTES are
   // planted twice, inside a skipped directory and outside it, against a masker
   // that disagrees with the parser on them: the copy outside reds, the copy
   // inside never enters the corpus at all, and the only variable between the two
@@ -759,6 +811,10 @@ async function runSelfTestCases(parse) {
       mkdirSync(dirname(join(fixtureRoot, relPath)), { recursive: true });
       writeFileSync(join(fixtureRoot, relPath), plantedSource, 'utf8');
     }
+    // Both plants TRACKED, force-added past any ignore file, so the copy under
+    // `dist` is excluded by the skip list and not merely by being untracked.
+    execFileSync('git', ['init', '-q'], { cwd: fixtureRoot, stdio: 'pipe' });
+    execFileSync('git', ['add', '-f', '--', outsidePath, insidePath], { cwd: fixtureRoot, stdio: 'pipe' });
 
     const collected = collectSources(fixtureRoot).map((file) => relative(fixtureRoot, file));
     ok('the walk collects a planted source that sits outside a skipped directory', collected.includes(outsidePath));

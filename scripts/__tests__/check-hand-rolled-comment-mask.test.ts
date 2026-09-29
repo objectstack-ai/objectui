@@ -1,7 +1,11 @@
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+
+import { collectSources } from '../check-comment-mask-corpus.mjs';
 
 // Plain-JS CI helper; its types are INFERRED from the .mjs source by
 // `tsconfig.scripts.json` (`allowJs`), so no `@ts-expect-error` here.
@@ -127,6 +131,81 @@ describe('the verdict, read as values', () => {
 
   it('an unknown argument is a usage error rather than a silent sweep', () => {
     expect(run(['--all-of-them']).status).toBe(EXIT_USAGE);
+  });
+});
+
+/**
+ * A fixture tree that IS a git repository, every file force-added (past any
+ * ignore file) and nothing committed, so no identity config is needed.
+ */
+function gitFixture(files: Record<string, string>): string {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hand-rolled-mask-'));
+  for (const [rel, contents] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    fs.writeFileSync(path.join(root, rel), contents, 'utf8');
+  }
+  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'pipe' });
+  execFileSync('git', ['add', '-A', '-f'], { cwd: root, stdio: 'pipe' });
+  return root;
+}
+
+describe('objectui#11040 -- the sweep reads what git tracks, and a vanished path is absent', () => {
+  /**
+   * The failure: `cli-bin.test.ts` builds with tsup, which writes a temporary
+   * `tsup.config.bundled_*.mjs` and deletes it. The working-tree walk listed it,
+   * the build deleted it, and the read in `sweep` threw ENOENT, failing a Test
+   * shard on a pull request that touched neither file. Both guards are driven
+   * here with a fixture, not a race.
+   */
+  it('a path listed and then deleted before the read is absent, not thrown on', () => {
+    const root = gitFixture({ 'src/kept.ts': HYBRID_PAIR, 'src/gone.ts': HYBRID_PAIR });
+    try {
+      const listed = collectSources(root);
+      expect(listed.map((file: string) => path.relative(root, file).split(path.sep).join('/'))).toEqual([
+        'src/gone.ts',
+        'src/kept.ts',
+      ]);
+      fs.rmSync(path.join(root, 'src', 'gone.ts'));
+
+      const result = sweep({ root, files: listed });
+      expect(result.absent).toEqual(['src/gone.ts']);
+      // Not counted toward the floor, and not scored as a file with nothing to report.
+      expect(result.scanned).toBe(1);
+      expect([...result.byFile.keys()]).toEqual(['src/kept.ts']);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('...but only absence is tolerated: a listed path that cannot be read still throws', () => {
+    const root = gitFixture({ 'src/kept.ts': 'export const a = 1;\n' });
+    try {
+      fs.mkdirSync(path.join(root, 'src', 'dir.ts'));
+      let code: unknown = null;
+      try {
+        sweep({ root, files: [path.join(root, 'src', 'dir.ts')] });
+      } catch (error) {
+        code = (error as NodeJS.ErrnoException).code;
+      }
+      expect(code).toBe('EISDIR');
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('an untracked build temp file is never listed, while the same bytes tracked are read', () => {
+    const root = gitFixture({ 'packages/cli/tsup.config.ts': HYBRID_PAIR });
+    try {
+      // Written after `git add`, the way tsup writes it mid-run: on disk, untracked.
+      fs.writeFileSync(path.join(root, 'packages', 'cli', 'tsup.config.bundled_x1.mjs'), HYBRID_PAIR, 'utf8');
+      const result = sweep({ root });
+      expect(result.scanned).toBe(1);
+      // The control: the tracked copy of the identical bytes IS a carrier, so the
+      // untracked one is missing because it was never listed, not because it is clean.
+      expect([...result.byFile.keys()]).toEqual(['packages/cli/tsup.config.ts']);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 

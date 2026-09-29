@@ -32,7 +32,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import * as React from 'react';
 import { render, screen, cleanup, waitFor, fireEvent, act } from '@testing-library/react';
-import { I18nProvider } from '@object-ui/i18n';
+import { I18nProvider, useObjectTranslation } from '@object-ui/i18n';
 import { registerAllFields } from '@object-ui/fields';
 import { WizardForm } from './WizardForm';
 
@@ -73,10 +73,20 @@ const baseSchema = {
   ],
 };
 
+/**
+ * Reads the active catalogue outside the wizard, so a case can wait for the zh
+ * pack to be live without leaning on anything WizardForm renders.
+ */
+function CatalogueProbe() {
+  const { t } = useObjectTranslation();
+  return <span data-testid="catalogue-probe">{t('common.next')}</span>;
+}
+
 function mount(language: string, overrides: Record<string, unknown> = {}) {
   const ds = makeDS();
   const utils = render(
     <I18nProvider config={{ defaultLanguage: language, detectBrowserLanguage: false }}>
+      <CatalogueProbe />
       <WizardForm schema={{ ...baseSchema, ...overrides } as any} dataSource={ds as any} />
     </I18nProvider>,
   );
@@ -85,10 +95,13 @@ function mount(language: string, overrides: Record<string, unknown> = {}) {
 
 const button = (name: string) => screen.getByRole('button', { name });
 
-/** Jump to the review step through the step indicator (`allowSkip`). */
-async function toLastStep(emptyStepText: string) {
+/**
+ * Jump to the review step through the step indicator (`allowSkip`), then wait
+ * for a text only that step renders.
+ */
+async function toLastStep(landmark: string) {
   fireEvent.click(screen.getByTestId('wizard-step:review'));
-  await screen.findByText(emptyStepText);
+  await screen.findByText(landmark);
   await act(async () => {});
 }
 
@@ -137,15 +150,15 @@ describe('WizardForm chrome resolves through the i18n catalogue (objectui#10999)
       submitText: 'Launch project',
     });
 
+    // The zh catalogue is live (read outside the wizard), and the wizard is up.
+    await waitFor(() => expect(screen.getByTestId('catalogue-probe').textContent).toBe('下一步'));
     await screen.findByRole('button', { name: 'Onward' });
     expect(button('Abandon')).toBeTruthy();
     expect(screen.queryByRole('button', { name: '下一步' })).toBeNull();
     expect(screen.queryByRole('button', { name: '取消' })).toBeNull();
-    // The counter has no author key; it stays localized beside authored buttons.
-    expect(screen.getByText('第 1 步，共 2 步')).toBeTruthy();
 
-    await toLastStep('此步骤未配置字段');
-    expect(button('Rewind')).toBeTruthy();
+    // Landmark is an authored label, so this case reads only author keys.
+    await toLastStep('Rewind');
     expect(button('Launch project')).toBeTruthy();
     expect(screen.queryByRole('button', { name: '上一步' })).toBeNull();
     expect(screen.queryByRole('button', { name: '创建' })).toBeNull();

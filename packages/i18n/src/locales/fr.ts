@@ -195,6 +195,11 @@ const fr = {
     },
     lineItems: {
       title: "Lignes",
+      saveRecordFirst: "Enregistrez d'abord l'enregistrement pour ajouter des lignes.",
+      notLoaded: "Les lignes de cet enregistrement n'ont pas été chargées.",
+      loadFailed: "Échec du chargement des lignes",
+      saveFailed: "Échec de l'enregistrement des lignes",
+      noChildObject: "Aucun objet enfant n'est configuré pour ce panneau : définissez {{property}} sur l'objet dont il liste les lignes.",
     },
     keepEditing: "Continuer l'édition",
     discard: "Abandonner",
@@ -351,6 +356,11 @@ const fr = {
       addLine: "Ajouter une ligne",
       noItems: "Aucun élément",
       noItemsAddHint: "Aucun élément pour l'instant — cliquez sur « {{label}} » pour commencer.",
+      optionalColumns: "Colonnes facultatives",
+      computed: "Calculé",
+      openRow: "Ouvrir la ligne",
+      duplicateRow: "Dupliquer la ligne",
+      removeRow: "Supprimer la ligne",
     },
   },
   table: {

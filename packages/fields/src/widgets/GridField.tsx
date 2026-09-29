@@ -649,7 +649,18 @@ export function GridField({
   // default chrome: the Add button and the two empty states, English literals
   // until then. Each `defaultValue` is the `en` pack's value (held to it by
   // `pnpm check:i18n-keys`), which is what a provider-less host renders.
+  // Since objectui#11145 the rest of the chrome too: the column chooser, the
+  // footer total, the computed cell's tooltip and the row actions.
   const { t } = useFieldTranslation();
+  // One key per row action, read by both its `aria-label` and its `title`
+  // (objectui#11145). The two used to disagree for two of them (`Open row` /
+  // `Open full form`, `Duplicate row` / `Duplicate line`); the accessible
+  // name is the text kept.
+  const dragLabel = t('view.dragToReorder', { defaultValue: 'Drag to reorder' });
+  const openRowLabel = t('fields.grid.openRow', { defaultValue: 'Open row' });
+  const duplicateRowLabel = t('fields.grid.duplicateRow', { defaultValue: 'Duplicate row' });
+  const removeRowLabel = t('fields.grid.removeRow', { defaultValue: 'Remove row' });
+  const totalLabel = t('form.masterDetail.total', { defaultValue: 'Total' });
   const cellIdBase = React.useId();
   // The tenant default currency (ADR-0053) — the resolver's last step, and in
   // practice the currency of every `currency` column (objectui#10355, see
@@ -869,7 +880,7 @@ export function GridField({
           data-testid="line-items-columns"
         >
           <SlidersHorizontal className="h-3.5 w-3.5" />
-          Columns
+          {t('table.columns', { defaultValue: 'Columns' })}
           {extraShown.size > 0 && (
             <span className="rounded-full bg-primary/10 px-1.5 text-[10px] font-medium text-primary">
               +{extraShown.size}
@@ -878,7 +889,9 @@ export function GridField({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-56 p-2">
-        <div className="px-1 pb-1.5 text-xs font-medium text-muted-foreground">Optional columns</div>
+        <div className="px-1 pb-1.5 text-xs font-medium text-muted-foreground">
+          {t('fields.grid.optionalColumns', { defaultValue: 'Optional columns' })}
+        </div>
         <div className="max-h-64 space-y-0.5 overflow-y-auto">
           {optionalColumns.map((c) => {
             const id = `col-toggle-${c.name}`;
@@ -988,7 +1001,7 @@ export function GridField({
                   colSpan={Math.max((showLineNumbers ? 1 : 0) + totalColIndex, 1)}
                   className="px-3 py-2 text-right text-xs font-medium text-muted-foreground"
                 >
-                  Total
+                  {totalLabel}
                 </td>
                 <td className="px-3 py-2 text-right font-semibold text-foreground tabular-nums">
                   {total.toLocaleString(displayLocale)}
@@ -1071,7 +1084,7 @@ export function GridField({
       return (
         <span
           className={cn('block px-2 text-sm tabular-nums', isNumeric(c.type) ? 'text-right' : 'text-left', (val == null || val === '') ? 'text-muted-foreground' : 'text-foreground')}
-          title="Computed"
+          title={t('fields.grid.computed', { defaultValue: 'Computed' })}
           data-computed={c.name}
         >
           {displayText(c, val, displayLocale, currency)}
@@ -1289,8 +1302,8 @@ export function GridField({
                               onDragStart={() => { dragIndex.current = rowIdx; }}
                               onDragEnd={() => { dragIndex.current = null; }}
                               className="cursor-grab text-muted-foreground/40 opacity-0 transition-opacity group-hover:opacity-100"
-                              title="Drag to reorder"
-                              aria-label="Drag to reorder"
+                              title={dragLabel}
+                              aria-label={dragLabel}
                               data-testid={`line-items-drag-${rowIdx}`}
                             >
                               <GripVertical className="h-3.5 w-3.5" />
@@ -1347,8 +1360,8 @@ export function GridField({
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                              aria-label="Open row"
-                              title="Open full form"
+                              aria-label={openRowLabel}
+                              title={openRowLabel}
                               data-testid={`line-items-expand-${rowIdx}`}
                               onClick={() => onRowExpand!(rowIdx)}
                             >
@@ -1365,8 +1378,8 @@ export function GridField({
                               // which have no hover. The action column width is reserved
                               // regardless, so this adds no layout shift.
                               className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                              aria-label="Duplicate row"
-                              title="Duplicate line"
+                              aria-label={duplicateRowLabel}
+                              title={duplicateRowLabel}
                               data-testid={`line-items-duplicate-${rowIdx}`}
                               onClick={() => duplicateRow(rowIdx)}
                               disabled={disabled || (maxRows != null && rows.length >= maxRows)}
@@ -1381,7 +1394,7 @@ export function GridField({
                               size="icon"
                               // Always visible — see the duplicate button above.
                               className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                              aria-label="Remove row"
+                              aria-label={removeRowLabel}
                               data-testid={`line-items-remove-${rowIdx}`}
                               onClick={() => removeRow(rowIdx)}
                               disabled={disabled || rows.length <= minRows}
@@ -1404,7 +1417,7 @@ export function GridField({
                   colSpan={Math.max((showLineNumbers ? 1 : 0) + totalColIndex, 1)}
                   className="px-3 py-2 text-right text-xs font-medium text-muted-foreground"
                 >
-                  Total
+                  {totalLabel}
                 </td>
                 <td className="px-3 py-2 text-right font-semibold text-foreground tabular-nums" data-testid="line-items-total">
                   {total.toLocaleString(displayLocale)}

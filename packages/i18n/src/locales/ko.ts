@@ -195,6 +195,11 @@ const ko = {
     },
     lineItems: {
       title: "라인 항목",
+      saveRecordFirst: "라인 항목을 추가하려면 먼저 레코드를 저장하세요.",
+      notLoaded: "이 레코드의 라인 항목을 불러오지 않았습니다.",
+      loadFailed: "라인 항목을 불러오지 못했습니다",
+      saveFailed: "라인 항목을 저장하지 못했습니다",
+      noChildObject: "이 패널에 하위 개체가 구성되지 않았습니다. {{property}}을(를) 행을 나열할 개체로 설정하세요.",
     },
     keepEditing: "계속 편집",
     discard: "버리기",
@@ -351,6 +356,11 @@ const ko = {
       addLine: "행 추가",
       noItems: "항목 없음",
       noItemsAddHint: "아직 항목이 없습니다. “{{label}}”을(를) 클릭하여 시작하세요.",
+      optionalColumns: "선택 열",
+      computed: "자동 계산",
+      openRow: "행 열기",
+      duplicateRow: "행 복제",
+      removeRow: "행 삭제",
     },
   },
   table: {

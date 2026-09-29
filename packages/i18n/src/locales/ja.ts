@@ -195,6 +195,11 @@ const ja = {
     },
     lineItems: {
       title: "明細行",
+      saveRecordFirst: "明細行を追加するには、先にレコードを保存してください。",
+      notLoaded: "このレコードの明細行は読み込まれていません。",
+      loadFailed: "明細行の読み込みに失敗しました",
+      saveFailed: "明細行の保存に失敗しました",
+      noChildObject: "このパネルには子オブジェクトが設定されていません。{{property}} に、行を一覧表示するオブジェクトを設定してください。",
     },
     keepEditing: "編集を続ける",
     discard: "破棄",
@@ -351,6 +356,11 @@ const ja = {
       addLine: "行を追加",
       noItems: "項目なし",
       noItemsAddHint: "まだ項目がありません。「{{label}}」をクリックして開始してください。",
+      optionalColumns: "オプションの列",
+      computed: "自動計算",
+      openRow: "行を開く",
+      duplicateRow: "行を複製",
+      removeRow: "行を削除",
     },
   },
   table: {

@@ -206,6 +206,11 @@ const ar = {
     },
     lineItems: {
       title: "البنود",
+      saveRecordFirst: "احفظ السجل أولًا لإضافة البنود.",
+      notLoaded: "لم يتم تحميل بنود هذا السجل.",
+      loadFailed: "تعذّر تحميل البنود",
+      saveFailed: "تعذّر حفظ البنود",
+      noChildObject: "لم يُكوَّن كائن فرعي لهذه اللوحة: عيّن {{property}} إلى الكائن الذي تسرد صفوفه.",
     },
     keepEditing: "متابعة التحرير",
     discard: "تجاهل",
@@ -362,6 +367,11 @@ const ar = {
       addLine: "إضافة سطر",
       noItems: "لا توجد عناصر",
       noItemsAddHint: "لا توجد عناصر بعد — انقر على «{{label}}» للبدء.",
+      optionalColumns: "أعمدة اختيارية",
+      computed: "محسوب",
+      openRow: "فتح الصف",
+      duplicateRow: "تكرار الصف",
+      removeRow: "إزالة الصف",
     },
   },
   table: {

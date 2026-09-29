@@ -199,6 +199,11 @@ const es = {
     },
     lineItems: {
       title: "Líneas de detalle",
+      saveRecordFirst: "Guarde primero el registro para agregar líneas de detalle.",
+      notLoaded: "Las líneas de detalle de este registro no se han cargado.",
+      loadFailed: "No se pudieron cargar las líneas de detalle",
+      saveFailed: "No se pudieron guardar las líneas de detalle",
+      noChildObject: "Este panel no tiene configurado ningún objeto secundario: establezca {{property}} en el objeto cuyas filas enumera.",
     },
     keepEditing: "Seguir editando",
     discard: "Descartar",
@@ -355,6 +360,11 @@ const es = {
       addLine: "Agregar línea",
       noItems: "Sin elementos",
       noItemsAddHint: "Aún no hay elementos: haga clic en «{{label}}» para empezar.",
+      optionalColumns: "Columnas opcionales",
+      computed: "Calculado",
+      openRow: "Abrir fila",
+      duplicateRow: "Duplicar fila",
+      removeRow: "Quitar fila",
     },
   },
   table: {

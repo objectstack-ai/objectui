@@ -268,9 +268,22 @@ const en = {
     },
     // The record page's `record:line_items` panel (objectui#11131): its
     // title when the author declared none. Its Save / Saving… button reads
-    // `common.save` / `detail.saving`.
+    // `common.save` / `detail.saving`. `MasterDetailForm` reads `title` too,
+    // for a collection that authors no heading (objectui#11145).
+    //
+    // The rest is the panel's own states (objectui#11145): no parent record
+    // bound yet, rows held for another parent, and the two fallbacks for a
+    // failed load or save, shown when the server sent no message of its own.
+    // Its loading line reads `common.loading`. `noChildObject` is the config
+    // hint for a panel with no `childObject`: `{{property}}` is filled with
+    // the property name, rendered as code and never translated.
     lineItems: {
       title: 'Line Items',
+      saveRecordFirst: 'Save the record first to add line items.',
+      notLoaded: 'This record’s line items have not been loaded.',
+      loadFailed: 'Failed to load line items',
+      saveFailed: 'Failed to save line items',
+      noChildObject: 'This panel has no child object configured: set {{property}} to the object whose rows it lists.',
     },
     keepEditing: 'Keep editing',
     discard: 'Discard',
@@ -531,10 +544,21 @@ const en = {
     // its Add button, the read-only grid's empty state, and the list-mode
     // grid's empty state. An authored `add_label` still wins over `addLine`,
     // and it fills the `{{label}}` hole (`detail.add` when none is authored).
+    //
+    // objectui#11145 — the rest of that chrome: the column chooser's heading,
+    // the computed cell's tooltip, and the row actions. Each row action has
+    // one key, read by both its `aria-label` and its `title`. The chooser's
+    // button reads `table.columns`, the footer `form.masterDetail.total` and
+    // the drag handle `view.dragToReorder`.
     grid: {
       addLine: 'Add line',
       noItems: 'No items',
       noItemsAddHint: 'No items yet — click “{{label}}” to begin.',
+      optionalColumns: 'Optional columns',
+      computed: 'Computed',
+      openRow: 'Open row',
+      duplicateRow: 'Duplicate row',
+      removeRow: 'Remove row',
     },
   },
   table: {

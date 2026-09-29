@@ -194,6 +194,11 @@ const pt = {
     },
     lineItems: {
       title: "Itens de linha",
+      saveRecordFirst: "Salve o registro primeiro para adicionar itens de linha.",
+      notLoaded: "Os itens de linha deste registro não foram carregados.",
+      loadFailed: "Falha ao carregar os itens de linha",
+      saveFailed: "Falha ao salvar os itens de linha",
+      noChildObject: "Este painel não tem nenhum objeto filho configurado: defina {{property}} como o objeto cujas linhas ele lista.",
     },
     keepEditing: "Continuar editando",
     discard: "Descartar",
@@ -350,6 +355,11 @@ const pt = {
       addLine: "Adicionar linha",
       noItems: "Nenhum item",
       noItemsAddHint: "Ainda não há itens — clique em “{{label}}” para começar.",
+      optionalColumns: "Colunas opcionais",
+      computed: "Calculado",
+      openRow: "Abrir linha",
+      duplicateRow: "Duplicar linha",
+      removeRow: "Remover linha",
     },
   },
   table: {

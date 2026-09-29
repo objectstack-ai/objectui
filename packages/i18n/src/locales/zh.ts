@@ -208,6 +208,11 @@ const zh = {
     },
     lineItems: {
       title: '明细行',
+      saveRecordFirst: '保存记录后才能添加明细行。',
+      notLoaded: '此记录的明细行尚未加载。',
+      loadFailed: '明细行加载失败',
+      saveFailed: '明细行保存失败',
+      noChildObject: '此面板未配置子对象：请将 {{property}} 设为其所列行所属的对象。',
     },
     keepEditing: '继续编辑',
     discard: '放弃',
@@ -362,6 +367,11 @@ const zh = {
       addLine: '添加行',
       noItems: '暂无条目',
       noItemsAddHint: '暂无条目，点击“{{label}}”开始添加。',
+      optionalColumns: '可选列',
+      computed: '自动计算',
+      openRow: '打开行',
+      duplicateRow: '复制行',
+      removeRow: '删除行',
     },
   },
   table: {

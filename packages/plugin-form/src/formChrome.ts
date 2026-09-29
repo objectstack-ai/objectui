@@ -63,6 +63,10 @@ const FORM_CHROME_DEFAULTS = {
   'detail.add': 'Add',
   'common.close': 'Close',
   'detail.saving': 'Saving…',
+  // A master-detail collection's heading when it authors no `title`
+  // (objectui#11145): the key the record page's `record:line_items` panel
+  // reads for its own default title, not a key of the form's own.
+  'form.lineItems.title': 'Line Items',
 };
 
 /**

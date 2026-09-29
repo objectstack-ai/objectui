@@ -51,15 +51,40 @@ import {
 //   button reuses the shared verbs `MasterDetailForm`'s Save reads; the title
 //   is the panel's own key, and an authored `title` still wins. Like
 //   `WizardForm`'s, this hook carries its own rows (see `formChrome.ts`).
+// - The panel's states and errors (objectui#11145): the loading line (the
+//   shared `common.loading`), the no-parent and held-for-another-parent
+//   states, the config hint for a panel with no `childObject`, and the
+//   fallbacks for a failed load or save. A message the server sent still wins
+//   over those fallbacks.
 const useLineItemsTranslation = createSafeTranslation(
   {
     'view.malformedFilter': 'This view’s filter is malformed, so no records are shown: the {{subject}} condition cannot be applied.',
     'form.lineItems.title': 'Line Items',
     'common.save': 'Save',
     'detail.saving': 'Saving…',
+    'common.loading': 'Loading…',
+    'form.lineItems.saveRecordFirst': 'Save the record first to add line items.',
+    'form.lineItems.notLoaded': 'This record’s line items have not been loaded.',
+    'form.lineItems.loadFailed': 'Failed to load line items',
+    'form.lineItems.saveFailed': 'Failed to save line items',
+    'form.lineItems.noChildObject':
+      'This panel has no child object configured: set {{property}} to the object whose rows it lists.',
   },
   'view.malformedFilter',
 );
+
+/**
+ * What the panel's error banner shows. A failure the server described is shown
+ * in its words (`message`). One it did not describe is shown as the panel's own
+ * fallback for the operation that failed (`op`), resolved when the banner
+ * renders, so it reads the session locale (objectui#11145).
+ */
+type PanelError = { message: string } | { op: 'load' | 'save' };
+
+function panelError(e: any, op: 'load' | 'save'): PanelError {
+  // `||`, as before: an empty message falls through to the fallback.
+  return e?.message ? { message: e.message } : { op };
+}
 
 export interface LineItemsPanelSchema {
   type?: 'record:line_items';
@@ -205,7 +230,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<PanelError | null>(null);
   // objectui#10682 — the number of the latest `load` run (objectui#10683). Only
   // the current run writes `error`: its commit clears the banner, its failure
   // raises it, and a run a newer one has superseded (another `parentId`, say,
@@ -525,7 +550,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
       }
     } catch (e: any) {
       if (isCurrent()) {
-        setError(e?.message || 'Failed to load line items');
+        setError(panelError(e, 'load'));
         // Nothing held yet: the empty rows on screen are this parent's from
         // here on, so a line added under this failure is saved to it and to no
         // parent the panel moves to later (objectui#10740). Rows already held
@@ -658,7 +683,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
       if (ops.length) await runBatchTransaction(dataSource, ops);
       if (parentStillShown()) await latestLoadRef.current.load('save');
     } catch (e: any) {
-      if (parentStillShown()) setError(e?.message || 'Failed to save line items');
+      if (parentStillShown()) setError(panelError(e, 'save'));
     } finally {
       setSaving(false);
     }
@@ -682,6 +707,13 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     [schema, perms],
   );
 
+  // The config hint names the property to set as code, and the property name
+  // is never translated: the pack sentence carries a `{{property}}` hole, and
+  // the hint renders the text on either side of it around the `<code>`.
+  const [noChildObjectBefore, noChildObjectAfter] = t('form.lineItems.noChildObject', {
+    property: '{{property}}',
+  }).split('{{property}}');
+
   return (
     <Card className={cn('shadow-none')}>
       <CardHeader className="flex-row items-center justify-between gap-2 pb-2">
@@ -698,7 +730,13 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
         )}
       </CardHeader>
       <CardContent>
-        {error && <p className="mb-2 text-sm text-destructive">{error}</p>}
+        {error && (
+          <p className="mb-2 text-sm text-destructive">
+            {'message' in error
+              ? error.message
+              : t(error.op === 'load' ? 'form.lineItems.loadFailed' : 'form.lineItems.saveFailed')}
+          </p>
+        )}
         {/* An unresolvable panel gets its OWN branch, ahead of `loading`
             (objectui#6194) — following objectui#5940's config-hint precedent for
             this exact key, and `AdvancedChartImpl`'s refusal placeholders
@@ -740,14 +778,15 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
             className="py-6 text-center text-sm text-muted-foreground"
             data-testid="line-items-no-child-object"
           >
-            This panel has no child object configured: set{' '}
-            <code className="font-mono">childObject</code> to the object whose rows it lists.
+            {noChildObjectBefore}
+            <code className="font-mono">childObject</code>
+            {noChildObjectAfter}
           </p>
         ) : loading ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">Loading…</p>
+          <p className="py-6 text-center text-sm text-muted-foreground">{t('common.loading')}</p>
         ) : !parentId ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            Save the record first to add line items.
+            {t('form.lineItems.saveRecordFirst')}
           </p>
         ) : heldForAnotherParent ? (
           /* The held rows were loaded for, or edited under, another parent
@@ -759,7 +798,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
             className="py-6 text-center text-sm text-muted-foreground"
             data-testid="line-items-held-for-another-parent"
           >
-            This record’s line items have not been loaded.
+            {t('form.lineItems.notLoaded')}
           </p>
         ) : (
           <LineItemsField

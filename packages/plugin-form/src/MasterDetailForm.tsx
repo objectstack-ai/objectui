@@ -654,6 +654,8 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   const { currency: tenantCurrency } = useLocalization();
   // The collection placeholder, the document totals stack and the in-form
   // collection's default add label, in the session locale (objectui#11071).
+  // Since objectui#11145 also a collection's heading when it authors no
+  // `title`: the key the record page's line-items panel reads for its own.
   const { t } = useFormChromeTranslation();
   // The caller's field-level grants on each CHILD object. With no provider
   // mounted this is the fail-open answer (`isLoaded` false) and every grid below
@@ -725,7 +727,7 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
         // its position, so a sibling moving above it re-associated the section
         // and its rows with a different collection (objectui#6371).
         <section key={entry.id} className="space-y-2">
-          <h3 className="text-sm font-medium text-foreground">{d.title || 'Line Items'}</h3>
+          <h3 className="text-sm font-medium text-foreground">{d.title || t('form.lineItems.title')}</h3>
           {/* A detail whose child object never resolved gets its OWN branch,
               ahead of the columns/loading one (objectui#6360) — the render half
               of the decline at `MasterDetailForm`'s resolve effect, and the same

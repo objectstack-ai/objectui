@@ -195,6 +195,11 @@ const de = {
     },
     lineItems: {
       title: "Positionen",
+      saveRecordFirst: "Speichern Sie zuerst den Datensatz, um Positionen hinzuzufügen.",
+      notLoaded: "Die Positionen dieses Datensatzes wurden nicht geladen.",
+      loadFailed: "Positionen konnten nicht geladen werden",
+      saveFailed: "Positionen konnten nicht gespeichert werden",
+      noChildObject: "Für dieses Panel ist kein untergeordnetes Objekt konfiguriert: Setzen Sie {{property}} auf das Objekt, dessen Zeilen es auflistet.",
     },
     keepEditing: "Weiter bearbeiten",
     discard: "Verwerfen",
@@ -351,6 +356,11 @@ const de = {
       addLine: "Zeile hinzufügen",
       noItems: "Keine Einträge",
       noItemsAddHint: "Noch keine Einträge – klicken Sie auf „{{label}}“, um zu beginnen.",
+      optionalColumns: "Optionale Spalten",
+      computed: "Berechnet",
+      openRow: "Zeile öffnen",
+      duplicateRow: "Zeile duplizieren",
+      removeRow: "Zeile entfernen",
     },
   },
   table: {

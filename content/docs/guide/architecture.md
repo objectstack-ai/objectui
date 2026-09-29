@@ -273,9 +273,10 @@ row a record surface is bound to, and is the only spelling a row field has — t
 (objectui#5330 phase 2). A head name outside the scope is not refused: the predicate is
 unevaluable, this surface fails soft, and the node is shown on every row.
 
-A button's text key is `label`, and `text` is not a `ButtonSchema` key at all. Nothing
-refuses the misspelling either: `BaseSchema` is `.passthrough()`, so the validator KEEPS
-the unknown key, and the renderer — which reads `schema.label` — never looks at it.
+A button's text key is `label`, and `text` is not a `ButtonSchema` key at all. Only
+`objectui validate` refuses the misspelling, by name: the rendering face is
+`.passthrough()` — `BaseSchema` KEEPS the unknown key — and the renderer, which reads
+`schema.label`, never looks at it.
 Measured on the node above with `text`: the button renders with an empty `textContent`,
 so it appears on screen as a blank rectangle with no text.
 

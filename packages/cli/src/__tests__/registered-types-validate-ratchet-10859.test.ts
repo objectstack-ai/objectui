@@ -12,8 +12,9 @@
  *
  * ## The gap this closes
  *
- * `objectui validate` judges a document with `safeValidateSchema`, whose root
- * is `AnyComponentSchema` — a union discriminated on `type`. A registered type
+ * `objectui validate` judges a document through the strict authoring face
+ * (`validateAuthoredDocument`, objectui#5250), whose root is the strict twin of
+ * `AnyComponentSchema` — a union discriminated on `type`. A registered type
  * with no arm in that union is refused with one `invalid_union` issue at
  * `['type']`, whatever else the document says: `ai-form-assist`, which
  * `packages/plugin-ai/README.md` teaches, was one of them. The mirror-parity
@@ -26,7 +27,7 @@
  * The population is the bare (un-namespaced) keys of `KNOWN_SCHEMA_TYPES`
  * (`../utils/known-schema-types.ts`), the list generated from the registration
  * calls themselves, which `objectui check` already uses. A key is REFUSED when
- * `safeValidateSchema({ type: KEY })` fails with an `invalid_union` issue at
+ * `validateAuthoredDocument({ type: KEY })` fails with an `invalid_union` issue at
  * path `['type']` — the "no arm claims this literal" reading. A key whose arm
  * exists but wants more than the bare `type` (a required member) is not
  * refused here: its `type` is claimed, and the missing member is the
@@ -58,7 +59,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { safeValidateSchema } from '@object-ui/types/zod';
+import { validateAuthoredDocument } from '../utils/authoring-face.js';
 
 import { KNOWN_SCHEMA_TYPES } from '../utils/known-schema-types.js';
 import { validate } from '../commands/validate.js';
@@ -102,7 +103,7 @@ const ARMED_PUBLIC_BLOCKS_10872_BATCH_2 = ['element:number'] as const;
 
 /** Is `type` unclaimed by every arm of the validator's root union? */
 function refusedAtType(type: string): boolean {
-  const result = safeValidateSchema({ type });
+  const result = validateAuthoredDocument({ type });
   if (result.success) return false;
   return result.error.issues.some(
     (issue) => issue.code === 'invalid_union' && issue.path.length === 1 && issue.path[0] === 'type',
@@ -137,7 +138,7 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
     // Lit control: an armed, registered key is not refused at `type`.
     expect(refusedAtType('timeline')).toBe(false);
     // A key whose arm wants a required member fails, but NOT at `type`.
-    expect(safeValidateSchema({ type: 'chart' }).success).toBe(false);
+    expect(validateAuthoredDocument({ type: 'chart' }).success).toBe(false);
     expect(refusedAtType('chart')).toBe(false);
     // And a type no arm claims IS refused there.
     expect(refusedAtType('no-such-component-10859')).toBe(true);

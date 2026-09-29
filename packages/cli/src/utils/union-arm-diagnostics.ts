@@ -32,7 +32,9 @@
  * its lines stays in `validate.ts`, the CLI's full zod-issue printer.
  * `objectui check` prints one line per file that did not validate — the first
  * issue only, never an arm selection (objectui#11007) — and the two share
- * nothing but `formatIssuePath`, so no second arm-rendering surface exists.
+ * `formatIssuePath` plus ONE reader from here, {@link findUndeclaredKeys}, so
+ * both name an undeclared key the same way (objectui#5250). No second
+ * arm-rendering surface exists: that reader returns keys and paths, never lines.
  *
  * ## Measured facts this rests on (Zod 4.4.3, re-measured on this tree)
  *
@@ -113,6 +115,8 @@ export interface UnionIssueLike {
   /** The key that union dispatches on. ⛔ Not always `type` — see the guard. */
   discriminator?: string;
   note?: string;
+  /** Present on `unrecognized_keys`: the keys the object does not declare. */
+  keys?: readonly string[];
 }
 
 /** One arm issue, rebased onto an absolute path. */
@@ -247,7 +251,7 @@ export function nearestArmNames(
 }
 
 /** Read `document[...path].type`, when it is a string. */
-function authoredTypeAt(document: unknown, path: readonly PropertyKey[]): string | undefined {
+export function authoredTypeAt(document: unknown, path: readonly PropertyKey[]): string | undefined {
   let node: unknown = document;
   for (const key of path) {
     if (node === null || typeof node !== 'object') return undefined;
@@ -432,4 +436,99 @@ export function explainUnionIssue(issue: UnionIssueLike, document: unknown): Uni
   if (discriminated) return [discriminated];
   if (!isUnion(issue)) return [];
   return explain(issue, issue.path ?? [], document);
+}
+
+/** One key an object carries and its schema does not declare, at its absolute path. */
+export interface UndeclaredKey {
+  /** Path of the OBJECT carrying the key — `[]` for the document root. */
+  path: PropertyKey[];
+  key: string;
+}
+
+/**
+ * Did this arm fail because the authored `type` is not the one it declares?
+ * Shapes (a) and (b) of header fact 2, read at the arm's own node.
+ */
+function isTypeMismatch(issue: UnionIssueLike): boolean {
+  return isAtTypeKey(issue) && (issue.code === 'invalid_value' || isUnion(issue));
+}
+
+/**
+ * Did this arm fail because the value is not its SHAPE at all — a string arm
+ * handed an object, the single-node arm of a child slot handed an array? Either
+ * an `invalid_type` at the arm's own node, or a union there none of whose arms
+ * is viable.
+ */
+function isShapeMismatch(issue: UnionIssueLike): boolean {
+  if ((issue.path ?? []).length !== 0) return false;
+  if (issue.code === 'invalid_type') return true;
+  return isUnion(issue) && (issue.errors ?? []).every((arm) => !isViableArm(arm));
+}
+
+/**
+ * An arm the document could have been MEANT for: its `type` did not mismatch,
+ * and it did not fail on shape alone. Only a viable arm's `unrecognized_keys`
+ * say something about the document — an arm the document was never meant for
+ * would report "undeclared" keys that are declared on the arm it was meant for.
+ */
+function isViableArm(armIssues: readonly UnionIssueLike[]): boolean {
+  if (armIssues.some(isTypeMismatch)) return false;
+  return !armIssues.every(isShapeMismatch);
+}
+
+/**
+ * Every key the strict authoring face refused as undeclared, wherever in the
+ * issue tree it was reported (objectui#5250).
+ *
+ * The strict face (`StrictAnyComponentSchema`, objectui#8345) reports an
+ * undeclared key as `unrecognized_keys` on the object that carries it. At the
+ * document root that is a top-level issue. Below a child slot it is NOT: a slot
+ * is `SchemaNode | SchemaNode[]`, an undiscriminated union, so the refusal sits
+ * inside an arm's `errors` — twice nested for `children[0]`, once more per
+ * level — under an `invalid_union` · `Invalid input` that names no key at all.
+ * So this walks union arms, rebasing each path onto its union's node (header
+ * fact 3), and reads only the VIABLE arms (see {@link isViableArm}).
+ *
+ * When more than one arm is viable, a key counts only when EVERY viable arm
+ * refuses it. A key one viable arm declares is not undeclared — it may belong
+ * to the arm the document was meant for. The live instance: a dashboard widget
+ * `{ type: 'metric-card', value, trendValu }` is viable on the `metric-card`
+ * arm, which declares `value` as a registered input (objectui#11022), and on
+ * the generic widget arm, which does not; naming `value` would send the author
+ * to delete a key the component reads. The intersection names `trendValu` only.
+ *
+ * Deduplicated by path and key, in the order the issues report them. ⛔ No cap:
+ * each entry is a refusal the author has to act on.
+ */
+export function findUndeclaredKeys(issues: readonly UnionIssueLike[]): UndeclaredKey[] {
+  const idOf = (finding: UndeclaredKey): string =>
+    JSON.stringify([...finding.path.map(String), finding.key]);
+  const collect = (list: readonly UnionIssueLike[], prefix: readonly PropertyKey[]): UndeclaredKey[] => {
+    const found: UndeclaredKey[] = [];
+    for (const issue of list) {
+      const path = [...prefix, ...(issue.path ?? [])];
+      if (issue.code === 'unrecognized_keys') {
+        for (const key of issue.keys ?? []) found.push({ path, key });
+      }
+      if (isUnion(issue)) {
+        const perArm = (issue.errors ?? [])
+          .filter(isViableArm)
+          .map((arm) => collect(arm, path));
+        const [first, ...others] = perArm;
+        if (first === undefined) continue;
+        const refusedByAll = first.filter((finding) =>
+          others.every((arm) => arm.some((other) => idOf(other) === idOf(finding))),
+        );
+        found.push(...refusedByAll);
+      }
+    }
+    return found;
+  };
+  const seen = new Set<string>();
+  return collect(issues, []).filter((finding) => {
+    const id = idOf(finding);
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
 }

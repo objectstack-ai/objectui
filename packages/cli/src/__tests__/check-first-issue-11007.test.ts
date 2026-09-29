@@ -29,7 +29,8 @@
  * the ruling.
  *
  * Expected text is derived from the command's own `describeFirstIssue` and
- * `closingLine`, fed from `safeValidateSchema`'s real issues, rather than
+ * `closingLine`, fed from the real issues of the door `check` parses with
+ * (`validateAuthoredDocument`, the strict authoring face since objectui#5250), rather than
  * copied here as literals. What the assertions hold by hand is the SUBJECT:
  * the refused key, the path it sits at, and the counts.
  *
@@ -44,7 +45,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { safeValidateSchema } from '@object-ui/types/zod';
+import { validateAuthoredDocument } from '../utils/authoring-face.js';
 
 import { check, closingLine, describeFirstIssue } from '../commands/check.js';
 import { formatIssuePath } from '../utils/issue-path.js';
@@ -90,9 +91,12 @@ function plainLines(): string[] {
   return lines.map((l) => l.replace(ANSI, ''));
 }
 
-/** The validator's issues for a document the test asserts does not validate. */
+/**
+ * The validator's issues for a document the test asserts does not validate —
+ * read through the same door `check` and `validate` parse with (objectui#5250).
+ */
 function issuesOf(document: unknown) {
-  const result = safeValidateSchema(document);
+  const result = validateAuthoredDocument(document);
   if (result.success) throw new Error('fixture validates; this test needs one that does not');
   return result.error.issues;
 }
@@ -214,7 +218,7 @@ describe('objectui check — the closing line is a tally, never a pass', () => {
   it('does not report the nested typo as passed', async () => {
     // The precondition: the document IS invalid — `objectui validate` refuses
     // it. `check` admits it on `children` without parsing it.
-    expect(safeValidateSchema(NESTED_TYPO).success).toBe(false);
+    expect(validateAuthoredDocument(NESTED_TYPO).success).toBe(false);
 
     writeSchema('page.json', NESTED_TYPO);
     await check(cwd);
@@ -264,8 +268,8 @@ describe('objectui check — no nested walk of its own (triage ruling on objectu
     // duplicate `objectui validate`, whose verdict this command points to.
     // The control that makes the pair meaningful: the validator DOES tell them
     // apart.
-    expect(safeValidateSchema(NESTED_TYPO).success).toBe(false);
-    expect(safeValidateSchema(NESTED_CLEAN).success).toBe(true);
+    expect(validateAuthoredDocument(NESTED_TYPO).success).toBe(false);
+    expect(validateAuthoredDocument(NESTED_CLEAN).success).toBe(true);
 
     writeSchema('broken-page.json', NESTED_TYPO);
     writeSchema('clean-page.json', NESTED_CLEAN);

@@ -63,10 +63,11 @@ and the renderer builds the element's class list from `variant`, `align` and
 `"text-muted-foreground"` on the `text` nodes themselves.
 
 ⚠️ This page taught a `color` key until objectui#7444. Nothing ever declared or
-read it: `BaseSchema` is `.passthrough()`, so an authored `color` is still
-accepted today and still does nothing — it does not even reach the element,
-because `color` is not on the DOM pass-through whitelist. Rename the key to
-`className`; the Tailwind class string is unchanged.
+read it: `BaseSchema` is `.passthrough()`, so an authored `color` still renders
+without error and still does nothing — it does not even reach the element,
+because `color` is not on the DOM pass-through whitelist. `objectui validate`
+refuses it by name. Rename the key to `className`; the Tailwind class string is
+unchanged.
 
 <SchemaExample id="components-basic-text/text-with-colors" />
 

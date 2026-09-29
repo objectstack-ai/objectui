@@ -348,6 +348,38 @@ export function addUnits(date: Date, units: number, mode: GanttViewMode): Date {
 }
 
 /**
+ * The calendar days from `from`'s local day to `to`'s: the difference of their
+ * local year / month / day, counted on the UTC calendar, where every day is
+ * exactly 24 hours, so the quotient is a whole number. ⛔ Never the elapsed
+ * milliseconds between two local times over a day's length: across a DST
+ * change that span is a whole number of days plus or minus an hour
+ * (objectui#10866, as objectui#11005 ruled for the calendar).
+ */
+function calendarDaysBetween(from: Date, to: Date): number {
+  return (
+    (Date.UTC(to.getFullYear(), to.getMonth(), to.getDate()) -
+      Date.UTC(from.getFullYear(), from.getMonth(), from.getDate())) /
+    MS_PER_DAY
+  );
+}
+
+/**
+ * A summary's group move: every value in its subtree moves by the move the
+ * dragged summary's start made, from `originStart` to `movedStart` — the same
+ * calendar days on the day-and-coarser scales, the same elapsed span on the
+ * shift-band scale (`byElapsedTime`; see `computeDragChanges`). Shared by the
+ * drop and the live preview, so the two cannot disagree.
+ */
+function groupMover(originStart: Date, movedStart: Date, byElapsedTime: boolean): (value: Date) => Date {
+  if (byElapsedTime) {
+    const deltaMs = movedStart.getTime() - originStart.getTime();
+    return (value) => new Date(value.getTime() + deltaMs);
+  }
+  const days = calendarDaysBetween(originStart, movedStart);
+  return (value) => addUnits(value, days, 'day');
+}
+
+/**
  * The tier the toolbar's period label and its prev/next steppers work in.
  *
  * It is deliberately the SAME tier `headerGroups` bands the timeline by, so the
@@ -1118,13 +1150,7 @@ export function GanttView({
   const suppressNextClickRef = React.useRef(false);
 
   const computeDragChanges = React.useCallback((s: NonNullable<typeof dragState>) => {
-    // In shift mode a bar can be as short as the smallest band (e.g. a 12h day shift);
-    // otherwise never collapse below one whole day.
     const segActive = viewMode === 'day' && !!shiftSegments && shiftSegments.bands.length > 0;
-    const minDurationMs =
-      segActive && shiftSegments
-        ? Math.min(...shiftSegments.bands.map((b) => b.durMs))
-        : MS_PER_DAY;
     // Folded/segmented axes advance by visible columns (Fri +1 → Mon, band →
     // band); both only exist in day mode. Every other granularity snaps by
     // whole DAYS — dragging in week/month view must not jump 7/30 days per
@@ -1134,24 +1160,53 @@ export function GanttView({
       foldShiftRef.current ? foldShiftRef.current(date, n) : addUnits(date, n, 'day');
     let start = new Date(s.originStart);
     let end = new Date(s.originEnd);
+    if (segActive && shiftSegments) {
+      // Shift-band scale: a drag moves by bands, laid end to end on an
+      // elapsed-time axis, so the end follows the start by the same elapsed
+      // span, and a bar can be as short as the smallest band (e.g. a 12h day
+      // shift). objectui#10866 left this scale as it was: the calendar-day rule
+      // below was ruled for a move to a day, not to a band.
+      const minDurationMs = Math.min(...shiftSegments.bands.map((b) => b.durMs));
+      if (s.mode === 'move') {
+        start = shift(s.originStart, s.unitDelta);
+        end = new Date(s.originEnd.getTime() + (start.getTime() - s.originStart.getTime()));
+      } else if (s.mode === 'resize-left') {
+        start = shift(s.originStart, s.unitDelta);
+        if (end.getTime() - start.getTime() < minDurationMs) {
+          start = new Date(end.getTime() - minDurationMs);
+        }
+      } else if (s.mode === 'resize-right') {
+        end = shift(s.originEnd, s.unitDelta);
+        if (end.getTime() - start.getTime() < minDurationMs) {
+          end = new Date(start.getTime() + minDurationMs);
+        }
+      }
+      return { start, end };
+    }
+    // Day-and-coarser scales: the user moved a value to a day, so every value
+    // moves by the calendar days its snapped edge moved (`setDate` on a copy,
+    // hours / minutes / seconds kept) and a bar never collapses below one
+    // calendar day. ⛔ Not by the elapsed milliseconds of the start's move:
+    // across a DST change that span is a whole number of days plus or minus
+    // an hour, which ended a day task at 23:00 of the day before
+    // (objectui#10866, objectui#11005's ruling B).
+    const daysMoved = (from: Date) => calendarDaysBetween(from, shift(from, s.unitDelta));
     if (s.mode === 'move') {
-      // Snap the start to whole units; the end follows by the same ms offset
-      // so the task keeps its duration even across uneven months.
-      start = shift(s.originStart, s.unitDelta);
-      end = new Date(s.originEnd.getTime() + (start.getTime() - s.originStart.getTime()));
+      const days = daysMoved(s.originStart);
+      start = addUnits(s.originStart, days, 'day');
+      end = addUnits(s.originEnd, days, 'day');
     } else if (s.mode === 'resize-left') {
-      start = shift(s.originStart, s.unitDelta);
-      if (end.getTime() - start.getTime() < minDurationMs) {
-        start = new Date(end.getTime() - minDurationMs);
-      }
+      start = addUnits(s.originStart, daysMoved(s.originStart), 'day');
+      const latest = addUnits(end, -1, 'day');
+      if (start.getTime() > latest.getTime()) start = latest;
     } else if (s.mode === 'resize-right') {
-      end = shift(s.originEnd, s.unitDelta);
-      if (end.getTime() - start.getTime() < minDurationMs) {
-        end = new Date(start.getTime() + minDurationMs);
-      }
+      end = addUnits(s.originEnd, daysMoved(s.originEnd), 'day');
+      const earliest = addUnits(start, 1, 'day');
+      if (end.getTime() < earliest.getTime()) end = earliest;
     }
     return { start, end };
   }, [viewMode, shiftSegments]);
+
 
   // --- Undo / redo (Phase 6) --------------------------------------------
   // GanttView is presentational — the parent owns task state — so we can't
@@ -1366,16 +1421,16 @@ export function GanttView({
         if (task && onTaskUpdate) {
           const { start, end } = computeDragChanges(cur);
           if (cur.group) {
-            // Move the summary and every descendant by the same ms offset so
-            // the subtree keeps its internal spacing and durations — recorded as
+            // Move the summary and every descendant by the same move (see
+            // groupMover) so the subtree keeps its internal spacing — recorded as
             // a single undoable batch. Locked (view-only) descendants stay put:
             // they must never be mutated, by drag or by group shift.
-            const deltaMs = start.getTime() - cur.originStart.getTime();
+            const move = groupMover(cur.originStart, start, segActive);
             const shifted = [task, ...collectDescendants(task.id).filter((t) => !t.locked)].map((t) => ({
               task: t,
               changes: {
-                start: new Date(t.start.getTime() + deltaMs),
-                end: new Date(t.end.getTime() + deltaMs),
+                start: move(t.start),
+                end: move(t.end),
               },
             }));
             commitTaskUpdates(shifted);
@@ -2875,13 +2930,10 @@ export function GanttView({
     if (dragState) {
       if (dragGroupIds?.has(String(row.task.id))) {
         // Whole-group preview: every row in the subtree shifts by the same
-        // snapped offset as the dragged summary bar.
+        // move as the dragged summary bar, as the drop commits it.
         const previewed = computeDragChanges(dragState);
-        const deltaMs = previewed.start.getTime() - dragState.originStart.getTime();
-        return styleFor(
-          new Date(row.start.getTime() + deltaMs),
-          new Date(row.end.getTime() + deltaMs)
-        );
+        const move = groupMover(dragState.originStart, previewed.start, segmenting);
+        return styleFor(move(row.start), move(row.end));
       }
       // The dragged bar itself under a NON-group drag: a leaf move/resize, or a
       // self-extent summary resizing its own dates. Group moves are handled

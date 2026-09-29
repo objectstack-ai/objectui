@@ -152,6 +152,7 @@ const fr = {
     failed: "Échec de l'action",
     parallelFailed: 'Une ou plusieurs actions parallèles ont échoué',
     undo: 'Annuler',
+    undone: 'Modification annulée',
   },
   validation: {
     required: "{{field}} est obligatoire",

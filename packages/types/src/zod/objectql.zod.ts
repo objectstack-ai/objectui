@@ -518,6 +518,67 @@ export const ObjectFormSchema = BaseSchema.extend({
   children: retirementTombstone(OBJECT_FORM_NEITHER_CHANNEL),
 });
 
+/**
+ * objectui#10976 — the `ObjectGridSchema` members an `object-view`'s `table`
+ * slot WITHHOLDS, each refused BY NAME inside the slot.
+ *
+ * The slot relays to the grid only what `ObjectView` hands it (the keys it
+ * reads off `table` by name, and `OBJECT_VIEW_TABLE_RELAY_KEYS` in
+ * `@object-ui/plugin-view`). Every other grid member used to be declared here
+ * too — the slot was `ObjectGridSchema` minus `type` and `objectName` — so a
+ * document writing `table: { emptyState: … }` parsed green and drew nothing.
+ * The TypeScript twin (`ObjectGridSlotKey` in `../objectql.ts`) withholds the
+ * same set; `object-view-slot-key-lists.test.ts` holds the two to one list.
+ *
+ * ⛔ A tombstone, not an `.omit()`: `BaseSchema` is `.passthrough()`, so an
+ * omitted key would be KEPT unexamined, and the slot would accept silently
+ * what the TypeScript face refuses. The three tombstones `ObjectGridSchema`
+ * itself declares (`body`, `children`, `defaultSort`) are inherited unchanged.
+ */
+const tableKeyRefusal = (key: string, why: string) =>
+  retirementTombstone(
+    `NOT A TABLE KEY (objectui#10976) — \`table.${key}\` is not one of the grid keys an object-view `
+    + `hands the grid it draws, so it reached nothing: ${why}`,
+  );
+const TABLE_KEY_UNREAD = '`ObjectGrid` has no read of it.';
+const TABLE_KEY_RECORD_SOURCE =
+  'the view\'s grid lists the records of the view\'s own `objectName`, and `table` does not re-point that record source.';
+const TABLE_KEY_ROW_CLICK =
+  'the view hands its grid its own row-click handler, which the grid obeys first. '
+  + 'Write `navigation` / `onNavigate` on the object-view node itself.';
+const TABLE_KEY_NODE_LEVEL =
+  'the view draws its grid as a component, not as a schema node, so no renderer applies a node-level key to it. '
+  + 'A node-level key belongs on the object-view node itself.';
+
+const OBJECT_VIEW_TABLE_WITHHELD = {
+  ariaLabel: tableKeyRefusal('ariaLabel', TABLE_KEY_NODE_LEVEL),
+  batchActions: tableKeyRefusal('batchActions', 'it is the legacy alias of `bulkActions`. Write `bulkActions`.'),
+  bind: tableKeyRefusal('bind', TABLE_KEY_RECORD_SOURCE),
+  bulkSpecActions: tableKeyRefusal('bulkSpecActions', `${TABLE_KEY_UNREAD} Write \`bulkActions\`.`),
+  data: tableKeyRefusal('data', TABLE_KEY_RECORD_SOURCE),
+  description: tableKeyRefusal('description', `${TABLE_KEY_UNREAD} Write \`description\` on the object-view node itself.`),
+  disabled: tableKeyRefusal('disabled', TABLE_KEY_NODE_LEVEL),
+  disabledOn: tableKeyRefusal('disabledOn', TABLE_KEY_NODE_LEVEL),
+  emptyState: tableKeyRefusal('emptyState', TABLE_KEY_UNREAD),
+  hidden: tableKeyRefusal('hidden', TABLE_KEY_NODE_LEVEL),
+  hiddenOn: tableKeyRefusal('hiddenOn', TABLE_KEY_NODE_LEVEL),
+  id: tableKeyRefusal('id', 'the view fixes its grid\'s identity, as it fixes `type` and `objectName`.'),
+  keyboardNavigation: tableKeyRefusal('keyboardNavigation', TABLE_KEY_UNREAD),
+  name: tableKeyRefusal('name', TABLE_KEY_UNREAD),
+  navigation: tableKeyRefusal('navigation', TABLE_KEY_ROW_CLICK),
+  onNavigate: tableKeyRefusal('onNavigate', TABLE_KEY_ROW_CLICK),
+  placeholder: tableKeyRefusal('placeholder', TABLE_KEY_UNREAD),
+  resizableColumns: tableKeyRefusal('resizableColumns', 'it is the legacy alias of `resizable`. Write `resizable`.'),
+  rowSpecActions: tableKeyRefusal('rowSpecActions', `${TABLE_KEY_UNREAD} Write \`rowActions\`.`),
+  showFilters: tableKeyRefusal('showFilters', TABLE_KEY_UNREAD),
+  staticData: tableKeyRefusal('staticData', TABLE_KEY_RECORD_SOURCE),
+  style: tableKeyRefusal('style', TABLE_KEY_NODE_LEVEL),
+  testId: tableKeyRefusal('testId', TABLE_KEY_NODE_LEVEL),
+  visible: tableKeyRefusal('visible', TABLE_KEY_NODE_LEVEL),
+  visibleOn: tableKeyRefusal('visibleOn', TABLE_KEY_NODE_LEVEL),
+  visibleWhen: tableKeyRefusal('visibleWhen', TABLE_KEY_NODE_LEVEL),
+};
+
 /** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectViewSchema`. */
 const OBJECT_VIEW_NEITHER_CHANNEL = neitherContentChannelGuidance(
   'object-view',
@@ -601,7 +662,12 @@ export const ObjectViewSchema = BaseSchema.extend({
   // Spec slot by reference (objectui#7779) — `NavigationConfigSchema.optional()`,
   // the same object `ListViewSchema` derives its `navigation` from.
   navigation: stripImportedDefaults(SpecListViewSchema).shape.navigation,
-  table: z.lazy(() => ObjectGridSchema.omit({ type: true, objectName: true }).partial()).optional().describe('Table config'),
+  // objectui#10976 — the grid keys `ObjectView` hands its grid; every other
+  // grid member is refused by name (`OBJECT_VIEW_TABLE_WITHHELD` above).
+  table: z
+    .lazy(() => ObjectGridSchema.omit({ type: true, objectName: true }).extend(OBJECT_VIEW_TABLE_WITHHELD).partial())
+    .optional()
+    .describe('Table config'),
   form: z.lazy(() => ObjectFormSchema.omit({ type: true, objectName: true, mode: true }).partial()).optional().describe('Form config'),
   // Spec slots by reference (objectui#7779) — `array(string).optional()` on
   // both; the spec's own description marks `filterableFields` a legacy

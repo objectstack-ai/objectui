@@ -151,6 +151,7 @@ const pt = {
     failed: 'A ação falhou',
     parallelFailed: 'Uma ou mais ações paralelas falharam',
     undo: 'Desfazer',
+    undone: 'Alteração desfeita',
   },
   validation: {
     required: "{{field}} é obrigatório",

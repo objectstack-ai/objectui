@@ -163,6 +163,7 @@ const ar = {
     failed: 'فشل الإجراء',
     parallelFailed: 'فشل إجراء متوازٍ واحد أو أكثر',
     undo: 'تراجع',
+    undone: 'تم التراجع عن التغيير',
   },
   validation: {
     required: "{{field}} مطلوب",

@@ -685,9 +685,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // with the real type — the same drift family as objectui#5610 / objectui#3320.
   //
   // `options` is inert ON THIS PATH and that is not a reason to narrow it. The
-  // handler is only ever handed to the runner as `onConfirm`, and the runner
-  // calls it with ONE argument (the structured `confirm` arm that forwarded a
-  // bag was retired, objectui#4314). The parameter is LIVE elsewhere:
+  // handler has two callers here and both pass ONE argument: the runner, which
+  // gets it as `onConfirm` (the structured `confirm` arm that forwarded a bag
+  // was retired, objectui#4314), and the header's `sys_delete` action below,
+  // which passes no bag either, exactly like the list view's delete
+  // (objectui#11001). The parameter is LIVE elsewhere:
   // `handleDeleteView` in `ObjectView.tsx` calls a `ConfirmationHandler`
   // directly with all three fields localized. One published type, two call
   // paths, one of which never fills the bag — settled KEEP, 2026-08-22 ruling
@@ -769,12 +771,14 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
 
   // Global undo/redo (Ctrl+Z), backed by the dataSource — the success toast's
   // "Undo" button (for `undoable` actions) restores the record's prior values.
+  // The confirmation it raises reads the session's language, as the button's
+  // own label does (objectui#11056).
   const undoCtl = useGlobalUndo({
     dataSource,
     onUndo: (op: any) => {
       if (op?.objectName) notifyDataChanged({ objectName: op.objectName, recordId: op.recordId });
       else notifyRecordChanged();
-      toast.success('Change undone');
+      toast.success(t('actions.undone'));
     },
   });
 
@@ -2523,7 +2527,14 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           const msg = t('detail.deleteConfirmation', {
             defaultValue: 'Are you sure you want to delete this record?',
           });
-          if (!window.confirm(msg)) return;
+          // objectui#11001 — asked through this page's own confirm runtime,
+          // the in-app `ActionConfirmDialog` the list view's delete asks
+          // through too, never the browser's native `window.confirm` (which
+          // cannot be themed, and which headless automation dismisses, so the
+          // button reads as dead). ONE argument, like the runner's call: the
+          // dialog's title and buttons are its defaults, as on the list view.
+          // A cancel settles `false` and leaves the record and the page alone.
+          if (!(await confirmHandler(msg))) return;
           try {
             await dataSource.delete(objectName!, pureRecordId!);
             toast.success(t('detail.deleted', { defaultValue: 'Record deleted' }));

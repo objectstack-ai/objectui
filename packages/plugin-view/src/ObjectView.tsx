@@ -322,6 +322,69 @@ function gridExportOptions(options: NamedViewConfig['exportOptions']): ObjectGri
 }
 
 /**
+ * objectui#10976 — the `table` members this component hands the grid it draws
+ * VERBATIM, beside the ones the grid-node build below reads off `table` by
+ * name (`columns` / `fields`, `filter` / `defaultFilters`, `sort`,
+ * `pagination` / `pageSize`, `selection` / `selectable`, `operations`, `title`,
+ * `className`).
+ *
+ * Each is a key `ObjectGrid` reads (`schema.KEY` in `ObjectGrid.tsx`), so a
+ * value an author writes on `table` reaches a read. Before this card the slot
+ * TYPED every one of them and the build copied none: `table: { editable: true }`
+ * type-checked and did nothing.
+ *
+ * Copied only when the author wrote the key — no default is injected, so a view
+ * that writes none of them hands the grid exactly what it did before. Where the
+ * active NAMED view declares the same member (the objectui#10885 rungs below),
+ * the named view wins and `table` is the fallback: the precedence `pagination`,
+ * `selection`, `filter` and `sort` already have.
+ *
+ * ⛔ The slot declares these keys and the by-name ones and no other grid member
+ * (`ObjectGridSlotKey` in `@object-ui/types`). A key added here is added there,
+ * or `object-view-slot-key-lists.test.ts` and this file's `satisfies` refuse it;
+ * `ObjectView.tableSlotRelay-10976.test.tsx` pins each one reaching `ObjectGrid`.
+ * ⛔ No alias: `batchActions` and `resizableColumns` are the legacy spellings of
+ * `bulkActions` and `resizable`, and the slot withholds them.
+ */
+export const OBJECT_VIEW_TABLE_RELAY_KEYS = [
+  'aggregations',
+  'bulkActionDefs',
+  'bulkActions',
+  'conditionalFormatting',
+  'editable',
+  'exportOptions',
+  'frozenColumns',
+  'grouping',
+  'label',
+  'reorderableColumns',
+  'resizable',
+  'rowActions',
+  'rowColor',
+  'rowHeight',
+  'searchableFields',
+  'showColumnTypeIcons',
+  'showPagination',
+  'showSearch',
+  'singleClickEdit',
+] as const satisfies readonly (keyof NonNullable<ObjectViewSchema['table']>)[];
+
+type TableRelayKey = (typeof OBJECT_VIEW_TABLE_RELAY_KEYS)[number];
+type TableRelay = Partial<Pick<ObjectGridSchema, TableRelayKey>>;
+
+/** One relayed member, copied only when the author wrote it. */
+function copyAuthored<K extends TableRelayKey>(to: TableRelay, from: TableRelay, key: K): void {
+  if (from[key] !== undefined) to[key] = from[key];
+}
+
+/** The relayed `table` members the author wrote, and only those. */
+function authoredTableRelay(table: ObjectViewSchema['table']): TableRelay {
+  const relay: TableRelay = {};
+  if (!table) return relay;
+  for (const key of OBJECT_VIEW_TABLE_RELAY_KEYS) copyAuthored(relay, table, key);
+  return relay;
+}
+
+/**
  * One entry of `ObjectViewSchema.listViews` — the protocol's
  * `ObjectListViewSchema`, by reference (objectui#7928). Derived from the member
  * rather than named on its own, so this component reads exactly the type the
@@ -2380,12 +2443,15 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // what survives is put in the named view's `fieldOrder`.
     const hiddenFields = currentNamedViewConfig?.hiddenFields;
     const fieldOrder = currentNamedViewConfig?.fieldOrder;
+    // objectui#10976 — the `table` members relayed verbatim, as authored.
+    const tableRelay = authoredTableRelay(schema.table);
 
     return {
       type: 'object-grid',
       objectName: schema.objectName,
       title: schema.table?.title,
-      description: schema.table?.description,
+      // objectui#10976: no `description` — `ObjectGrid` has no read of it, so
+      // the slot withholds it and this build no longer copies a dead value.
       // objectui#8254 — the same names-slot/union-slot split the non-grid
       // branch above makes, on the pair this memo emits together: `fields` is
       // `ObjectGridSchema.fields` (`string[]`) so the named-view segment is
@@ -2420,50 +2486,58 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       // express; what changes is only WHICH slot a view's sort arrives in, and
       // this is the one whose declared arity can hold it.
       sort: viewSort || schema.table?.sort,
+      // ⭐ objectui#10976 — every relayed `table` member the author wrote
+      // (`OBJECT_VIEW_TABLE_RELAY_KEYS`). Spread FIRST, so a named-view rung
+      // below that declares the same member overrides it; each such rung falls
+      // back to `tableRelay` rather than to `undefined`.
+      ...tableRelay,
       // ⭐ objectui#10885 — the named view's own GRID MEMBERS, read here the
       // way the host delegation below reads them since objectui#10758: the
-      // named view first, then the node only where this branch already read
-      // the node (`table.pagination`, `table.selection`). Each is a member the
+      // named view first, then the node's `table` (`table.pagination` and
+      // `table.selection` by name, the rest through `tableRelay` since
+      // objectui#10976). Each is a member the
       // protocol declares on a named view AND on `object-grid`, under the same
       // name, and `ObjectGrid` reads each one. The Studio's view preview renders
       // a stored view through this branch, so before this a stored view's
       // `rowHeight`, `pagination` and the rest were accepted and not shown.
       //
-      // NAMED-VIEW SOURCED, like `grouping` / `rowColor` below: ⛔ no
+      // NAMED-VIEW FIRST, like `grouping` / `rowColor` below: ⛔ no
       // `activeView` rung (the host `views` path never fed these slots on this
-      // branch) and ⛔ no node read this branch did not already have. ⛔ No
-      // alias and no key `object-grid` does not declare: `hiddenFields` and
-      // `fieldOrder` are applied to the projection above rather than relayed.
+      // branch). The node's `table` is each rung's fallback since objectui#10976
+      // — objectui#10885 added no node read, and this card adds them as the
+      // relay above. ⛔ No alias and no key `object-grid` does not declare:
+      // `hiddenFields` and `fieldOrder` are applied to the projection above
+      // rather than relayed.
       // `navigation` is still not relayed to `ObjectGrid`: this component
       // passes the grid its own `onRowClick`, which the grid's navigation hook
       // obeys first, and that handler reads the named view's `navigation`
       // (`navigationConfig`, objectui#10885).
       pagination: currentNamedViewConfig?.pagination ?? schema.table?.pagination,
       selection: currentNamedViewConfig?.selection ?? schema.table?.selection,
-      rowHeight: currentNamedViewConfig?.rowHeight,
-      resizable: currentNamedViewConfig?.resizable,
-      searchableFields: currentNamedViewConfig?.searchableFields,
+      rowHeight: currentNamedViewConfig?.rowHeight ?? tableRelay.rowHeight,
+      resizable: currentNamedViewConfig?.resizable ?? tableRelay.resizable,
+      searchableFields: currentNamedViewConfig?.searchableFields ?? tableRelay.searchableFields,
       // The protocol's rule `condition` is a string or the `{ dialect, source }`
       // expression wire; `ObjectGrid` hands every rule to the shared evaluator
       // (`resolveConditionalFormatting`), which reads both. No assertion: the
       // grid's declared rule type reads the named view's `condition` slot by
       // reference (objectui#10946), so the relay type-checks as written.
-      conditionalFormatting: currentNamedViewConfig?.conditionalFormatting,
-      rowActions: currentNamedViewConfig?.rowActions,
-      bulkActions: currentNamedViewConfig?.bulkActions,
+      conditionalFormatting: currentNamedViewConfig?.conditionalFormatting ?? tableRelay.conditionalFormatting,
+      rowActions: currentNamedViewConfig?.rowActions ?? tableRelay.rowActions,
+      bulkActions: currentNamedViewConfig?.bulkActions ?? tableRelay.bulkActions,
       // Same as `conditionalFormatting`: the protocol's `visible` expression
       // wire may carry `ast` alongside (or, on the installed spec, instead of)
       // `source`, and `BulkActionDef.visible` reads that slot by reference
       // (objectui#10946). It is the value the host delegation already hands
       // `ObjectGrid` through `ListView`.
-      bulkActionDefs: currentNamedViewConfig?.bulkActionDefs,
-      exportOptions: gridExportOptions(currentNamedViewConfig?.exportOptions),
+      bulkActionDefs: currentNamedViewConfig?.bulkActionDefs ?? tableRelay.bulkActionDefs,
+      exportOptions: gridExportOptions(currentNamedViewConfig?.exportOptions) ?? tableRelay.exportOptions,
       // objectui#10885 — the named view's `inlineEdit` is the grid's
-      // `editable`. Route 2 handed the grid no `editable` before, so there is
-      // no node rung. It cannot widen editing past a grant: `ObjectGrid` ANDs
-      // it with the object's inline-edit verdict and the principal's `update`
-      // grant (`inlineEditable`), as `ListView` does on the delegation.
-      editable: currentNamedViewConfig?.inlineEdit,
+      // `editable`. The node rung is `table.editable` since objectui#10976
+      // (the relay above). Neither can widen editing past a grant: `ObjectGrid`
+      // ANDs it with the object's inline-edit verdict and the principal's
+      // `update` grant (`inlineEditable`), as `ListView` does on the delegation.
+      editable: currentNamedViewConfig?.inlineEdit ?? tableRelay.editable,
       // ⭐ objectui#8980 — the AUTHOR-REACHABLE read point for two of the
       // seventeen. `ObjectGrid` already reads both (`schema.grouping` in its
       // group-field memo and its reference collector, `useRowColor(schema.rowColor)`),
@@ -2471,13 +2545,12 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       // with a `type: 'grid'` named view actually lands — the `renderListView`
       // delegation above runs only for a HOST (objectui#5097).
       //
-      // NAMED-VIEW SOURCED ONLY. ⛔ No `activeView` rung: the host `views` path
-      // has never fed these two slots on this branch, and widening it here would
-      // be a behaviour change on a surface this card does not own. Undefined is
-      // what `ObjectGrid` reads today for both keys, so the value only ever
-      // changes for a document that authors the protocol key.
-      grouping: currentNamedViewConfig?.grouping,
-      rowColor: currentNamedViewConfig?.rowColor,
+      // NAMED-VIEW FIRST, then the node's `table` (objectui#10976). ⛔ No
+      // `activeView` rung: the host `views` path has never fed these two slots
+      // on this branch, and widening it here would be a behaviour change on a
+      // surface neither card owns.
+      grouping: currentNamedViewConfig?.grouping ?? tableRelay.grouping,
+      rowColor: currentNamedViewConfig?.rowColor ?? tableRelay.rowColor,
       pageSize: schema.table?.pageSize,
       selectable: schema.table?.selectable,
       className: schema.table?.className,

@@ -31,8 +31,14 @@ zero named consumers, and the ruling's decline turned on exactly that. This prom
 carriers outside the type declaration: `content/docs/api/schema-reference.md` states it as a
 table row and authors `testId` in that page's own base-schema example, `@object-ui/cli`'s
 `OBJECTUI_STRUCTURAL_KEYS` identifies a file as an ObjectUI schema node by this key,
-`ObjectGridSlotKey` / `ObjectFormSlotKey` pin it, `SchemaBuilder.testId()` writes it, and
-ADR-0054 C4 — shipped — reads "the renderer emits `data-testid` … derived from metadata".
+at this change `ObjectGridSlotKey` / `ObjectFormSlotKey` pin it, `SchemaBuilder.testId()` writes
+it, and ADR-0054 C4 — shipped — reads "the renderer emits `data-testid` … derived from metadata".
+
+⚠️ **Dated note, 2026-09-29 — `ObjectGridSlotKey` withholds `testId` — objectui#10976.** Later
+in this same release `ObjectGridSlotKey` stops carrying `testId`: `ObjectView` draws its grid as
+a component, not as a schema node, so nothing emits the attribute there, and `table.testId` is
+refused. `ObjectFormSlotKey` still carries it. The rest of this entry is kept as the reading of
+this change; the objectui#10976 entry states what ships.
 
 `minor`, not `patch`: nodes that author `testId` change what they emit in both directions, so a
 selector written against the accidental `[testid=…]` stops matching.

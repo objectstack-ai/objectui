@@ -124,12 +124,27 @@ Three structural facts about this node:
 
 `table` carries grid configuration and `form` carries form configuration, but
 `ObjectView` forwards a **fixed set of keys** from each rather than passing the
-object through. Anything else you put in them is ignored:
+object through:
 
 | Sub-config | Keys `ObjectView` forwards |
 | --- | --- |
-| `table` | `columns`, `fields`, `title`, `description`, `filter`, `defaultFilters`, `sort`, `pagination`, `pageSize`, `selection`, `selectable`, `operations`, `className` |
+| `table` | read by name: `columns`, `fields`, `title`, `filter`, `defaultFilters`, `sort`, `pagination`, `pageSize`, `selection`, `selectable`, `operations`, `className`; handed to the grid as written: `editable`, `singleClickEdit`, `frozenColumns`, `rowHeight`, `resizable`, `reorderableColumns`, `searchableFields`, `showSearch`, `showPagination`, `showColumnTypeIcons`, `conditionalFormatting`, `rowActions`, `bulkActions`, `bulkActionDefs`, `exportOptions`, `grouping`, `aggregations`, `rowColor`, `label` |
 | `form` | `fields`, `customFields`, `sections`, `groups`, `layout`, `columns`, `title`, `description`, `subforms`, `buttons`, `defaults`, `initialValues`, `readOnly`, `showSubmit`, `submitText`, `showCancel`, `cancelText`, `showReset`, `className` |
+
+`table` declares exactly these keys (objectui#10976). Any other grid key —
+`emptyState`, `showFilters`, `description`, `keyboardNavigation`, the record
+source (`data`, `staticData`), the row click (`navigation`, `onNavigate`: write
+those on the `object-view` node), node-level keys such as `id`, `hidden` or
+`style`, and the legacy aliases `batchActions` / `resizableColumns` (write
+`bulkActions` / `resizable`) — has nothing to act on in the grid the view
+draws, so TypeScript rejects it and the validator refuses it by name. Anything
+else you put in `form` is ignored.
+
+The keys handed to the grid as written reach the grid the registered renderer
+draws. Where the active named view declares the same member (see below), the
+named view wins and `table` is the fallback. A host that supplies
+`renderListView` composes its own list and takes `columns`, `fields`, `filter`
+and `sort` from `table`, as before.
 
 The forwarding is literal, key by key, spread across three sites in
 `ObjectView.tsx` — the non-grid data fetch, the `gridSchema` memo, and the
@@ -451,8 +466,9 @@ view preview, draws a grid named view through `ObjectGrid`. Ten grid members the
 protocol declares under the same name on a named view and on `object-grid` —
 `pagination`, `selection`, `rowHeight`, `resizable`, `searchableFields`,
 `conditionalFormatting`, `rowActions`, `bulkActions`, `bulkActionDefs` and
-`exportOptions` — come from the active named view first; `pagination` and
-`selection` still fall back to `table` (objectui#10885). A named view's
+`exportOptions` — come from the active named view first, and fall back to
+the same key on `table` (`pagination` and `selection` since objectui#10885, the
+rest since objectui#10976). A named view's
 `hiddenFields` removes those fields from the columns the grid draws, when a
 column list is declared, and its `fieldOrder` then orders the columns that
 remain, the way `ListView` orders them on a host's `renderListView`. Its

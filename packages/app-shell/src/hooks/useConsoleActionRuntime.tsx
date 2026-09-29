@@ -187,9 +187,11 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   // Global undo/redo (Ctrl+Z / Ctrl+Shift+Z), backed by the dataSource. The
   // success toast's "Undo" button calls `undoCtl.undo()` for `undoable` actions
   // (the ActionRunner has already pushed the operation onto the UndoManager).
+  // The confirmation it raises reads the session's language, as the button's
+  // own label does (objectui#11056).
   const undoCtl = useGlobalUndo({
     dataSource,
-    onUndo: () => { refresh(); toast.success('Change undone'); },
+    onUndo: () => { refresh(); toast.success(t('actions.undone')); },
   });
 
   // Promise-based confirm / param / result dialogs.

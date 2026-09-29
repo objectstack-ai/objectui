@@ -1991,103 +1991,115 @@ export interface ObjectFormSchema extends BaseSchema {
 }
 
 /**
- * The `ObjectGridSchema` keys a view's `table` slot may carry: every member
- * `ObjectGridSchema` declares, minus the identity keys the view itself fixes
- * (`type`, `objectName`). 59 keys.
+ * The `ObjectGridSchema` keys a view's `table` slot carries: the members
+ * `ObjectView` hands the grid it draws, and nothing else (objectui#10976). The
+ * count is not written here — `src/__tests__/object-view-slot-key-lists.test.ts`
+ * re-derives it through the checker (AGENTS.md #9).
  *
- * ⚠️ This is an explicit list, and NOT `Omit<ObjectGridSchema, 'type' | 'objectName'>`,
+ * The list is three groups:
+ *
+ *   - the keys `ObjectView` reads off `table` BY NAME when it builds the grid
+ *     node: `columns` / `fields`, `filter` / `defaultFilters`, `sort`,
+ *     `pagination` / `pageSize`, `selection` / `selectable`, `operations`,
+ *     `title` and `className`;
+ *   - the keys it RELAYS verbatim, `OBJECT_VIEW_TABLE_RELAY_KEYS` in
+ *     `@object-ui/plugin-view`'s `ObjectView.tsx` — each one a key
+ *     `ObjectGrid` reads, so a value written here reaches a read. Where the
+ *     active named view declares the same member, the named view wins;
+ *   - the three retirement tombstones `ObjectGridSchema` declares (`body`,
+ *     `children`, `defaultSort`, each `?: never`). They type nothing: they keep
+ *     the named refusal, and its guidance, on this face too.
+ *
+ * ⛔ Every other `ObjectGridSchema` member is WITHHELD, because on the view's
+ * grid it reached nothing: `ObjectGrid` has no read of it (`emptyState`,
+ * `showFilters`, `keyboardNavigation`, `rowSpecActions`, `bulkSpecActions`,
+ * `description`, `name`, `placeholder`); the view owns it (the record source
+ * `data` / `staticData` / `bind`, the row click `navigation` / `onNavigate`,
+ * the grid's `id`); the view draws the grid as a component rather than a
+ * schema node, so the node-level `BaseSchema` keys have no renderer to apply
+ * them (`style`, `testId`, `ariaLabel`, `hidden` / `hiddenOn`,
+ * `visible` / `visibleOn` / `visibleWhen`, `disabled` / `disabledOn`); or it
+ * is the legacy alias of a relayed key (`batchActions` for `bulkActions`,
+ * `resizableColumns` for `resizable`). Before objectui#10976 the slot typed
+ * all of them, so `table: { emptyState: … }` type-checked and did nothing.
+ * The zod twin (`zod/objectql.zod.ts`, `ObjectViewSchema.table`) refuses each
+ * withheld key by name, and the pin below holds the two faces to one list.
+ *
+ * ⚠️ This is an explicit list, and NOT an `Omit` of `ObjectGridSchema`,
  * because `Omit` collapses here (objectui#6269). `Omit<T, K>` is
  * `Pick<T, Exclude<keyof T, K>>`, and `keyof T` on a type carrying a string
  * index signature is `string | number` — the literal member names are ABSORBED.
  * `ObjectGridSchema` inherits `BaseSchema`'s `[key: string]: any`
  * (objectui#5155), so the `Omit` rebuilt a type holding the index signature and
- * NONE of the 61 named members: measured through the checker,
+ * none of the named members: measured through the checker at objectui#6269,
  * `Omit<ObjectGridSchema, 'type' | 'objectName'>` declared 0 properties. The
  * slot accepted anything (`table: { colunms: 3 }` type-checked), offered no
  * editor completion, and the doc comment promised an inheritance it did not
  * deliver. `Pick` with LITERAL keys never computes `keyof T`, so it cannot
  * collapse the same way.
  *
- * 🔒 The duplicate-list hazard — a member added to `ObjectGridSchema` and not to
- * this list — is pinned by
+ * 🔒 The duplicate-list hazard — a member added to `ObjectGridSchema` and
+ * placed in neither this list nor the withheld set — is pinned by
  * `src/__tests__/object-view-slot-key-lists.test.ts`, which recomputes the
  * source schema's declared members through the TypeScript checker and requires
- * set equality with this list.
+ * this list to equal them minus the identity keys and minus its withheld set.
+ * A new grid member therefore turns it red until it is relayed (here and in
+ * `OBJECT_VIEW_TABLE_RELAY_KEYS`) or withheld (there and on the zod twin).
  *
  * 🗑️ When a #5155 phase removes `BaseSchema`'s root index signature, `Omit`
- * stops collapsing: this list, `ObjectFormSlotKey` below, and their pin all
- * become removable in favour of the original `Omit` form.
+ * stops collapsing, and this list may be spelled as an `Omit` of the identity
+ * keys and the withheld set. The pin stays: what it guards now is that every
+ * grid member is classified, which an `Omit` does not do by itself.
  */
 type ObjectGridSlotKey =
   | 'aggregations'
-  | 'ariaLabel'
-  | 'batchActions'
-  | 'bind'
   | 'body'
   | 'bulkActionDefs'
   | 'bulkActions'
-  | 'bulkSpecActions'
   | 'children'
   | 'className'
   | 'columns'
   | 'conditionalFormatting'
-  | 'data'
   | 'defaultFilters'
   | 'defaultSort'
-  | 'description'
-  | 'disabled'
-  | 'disabledOn'
   | 'editable'
-  | 'emptyState'
   | 'exportOptions'
   | 'fields'
   | 'filter'
   | 'frozenColumns'
   | 'grouping'
-  | 'hidden'
-  | 'hiddenOn'
-  | 'id'
-  | 'keyboardNavigation'
   | 'label'
-  | 'name'
-  | 'navigation'
-  | 'onNavigate'
   | 'operations'
   | 'pageSize'
   | 'pagination'
-  | 'placeholder'
   | 'reorderableColumns'
   | 'resizable'
-  | 'resizableColumns'
   | 'rowActions'
   | 'rowColor'
   | 'rowHeight'
-  | 'rowSpecActions'
   | 'searchableFields'
   | 'selectable'
   | 'selection'
   | 'showColumnTypeIcons'
-  | 'showFilters'
   | 'showPagination'
   | 'showSearch'
   | 'singleClickEdit'
   | 'sort'
-  | 'staticData'
-  | 'style'
-  | 'testId'
-  | 'title'
-  | 'visible'
-  | 'visibleOn'
-  | 'visibleWhen';
+  | 'title';
 
 /**
  * The `ObjectFormSchema` keys a view's `form` slot may carry: every member
  * `ObjectFormSchema` declares, minus the identity keys the view itself fixes
- * (`type`, `objectName`, `mode`). 64 keys.
+ * (`type`, `objectName`, `mode`). The count is not written here —
+ * `src/__tests__/object-view-slot-key-lists.test.ts` re-derives it (AGENTS.md
+ * #9).
  *
- * Same mechanism, same pin, same removal condition as `ObjectGridSlotKey` above
- * — see its comment. Measured before the fix:
- * `Omit<ObjectFormSchema, 'type' | 'objectName' | 'mode'>` declared 0 of
+ * Same `Omit` collapse and same pin as `ObjectGridSlotKey` above — see its
+ * comment. Unlike that list, this one withholds nothing but the identity keys,
+ * so its removal condition is the original one: when a #5155 phase removes
+ * `BaseSchema`'s root index signature, this list and its half of the pin become
+ * removable in favour of `Omit<ObjectFormSchema, 'type' | 'objectName' | 'mode'>`.
+ * Measured before the objectui#6269 fix: that `Omit` declared 0 of
  * `ObjectFormSchema`'s 67 members.
  */
 type ObjectFormSlotKey =
@@ -2224,9 +2236,12 @@ export interface ObjectViewSchema extends BaseSchema {
   /**
    * Table/Grid configuration.
    *
-   * Every `ObjectGridSchema` member except the identity keys this view already
-   * fixes (`type`, `objectName`) — see `ObjectGridSlotKey` for why the key list
-   * is spelled out instead of `Omit`-ed (objectui#6269).
+   * The `ObjectGridSchema` members this view hands the grid it draws — the
+   * keys it reads off `table` by name and the ones it relays verbatim — and no
+   * other (objectui#10976). A grid member the view does not honour is withheld,
+   * so writing it here is a type error rather than a silent no-op. See
+   * `ObjectGridSlotKey` for the three groups, the withheld set, and why the
+   * key list is spelled out instead of `Omit`-ed (objectui#6269).
    */
   table?: Partial<Pick<ObjectGridSchema, ObjectGridSlotKey>>;
   

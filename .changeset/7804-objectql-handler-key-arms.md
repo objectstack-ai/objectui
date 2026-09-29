@@ -26,11 +26,20 @@ Accept-set change on the published validator, stated plainly — this NARROWS:
 - REFUSED one level deeper too, and this is a consequence rather than a separate
   decision: `ObjectViewSchema`'s nested `form` and `table` config slots are the
   `object-form` / `object-grid` mirrors BY REFERENCE, and the declaration types
-  them off `ObjectFormSlotKey` / `ObjectGridSlotKey` — two unions that list
-  exactly these handler keys. So an authored `form: { onSuccess: … }` on an
-  `object-view` node is refused as well. Working around that by omitting the
+  them off `ObjectFormSlotKey` / `ObjectGridSlotKey` — two unions that, at this
+  change, list exactly these handler keys. So an authored `form: { onSuccess: … }`
+  on an `object-view` node is refused as well. Working around that by omitting the
   keys from the nested reference would keep accepting an un-authorable function
   value one level down, which is the defect and not the fix.
+
+  ⚠️ **Dated note, 2026-09-29 — `table` no longer types `onNavigate` — objectui#10976.**
+  Later in this same release `ObjectGridSlotKey` stops listing `onNavigate`, with the
+  other grid keys `ObjectView` does not hand the grid it draws, so the declaration no
+  longer types it on `table`. The nested refusal still holds: the `table` mirror
+  refuses `onNavigate` by name with the slot's own guidance (a retirement tombstone,
+  `code: 'invalid_type'`) in place of the handler-key refusal, and `form` is
+  unchanged. The rest of this entry is kept as the reading of this change; the
+  objectui#10976 entry states what ships.
 - Measured before choosing this level: NOTHING in this repository authors any of
   the nine as metadata — not in `examples/`, not in `apps/`, not in the schema
   catalog, not in a doc fence. Across 2603 tracked `.json` / `.md` / `.mdx` /

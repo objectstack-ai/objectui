@@ -159,6 +159,7 @@ const zh = {
     failed: '操作失败',
     parallelFailed: '一个或多个并行操作失败',
     undo: '撤销',
+    undone: '已撤销更改',
   },
   validation: {
     required: '{{field}}不能为空',

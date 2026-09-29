@@ -19,6 +19,14 @@ export * from './element-data-source/ElementDataSourceGate.js';
 // i18n utilities
 export { resolveKeyedI18nLabel } from './utils/i18n.js';
 
+// The spec's NESTED `aria` bag (`AriaPropsSchema`) → `aria-label` /
+// `aria-describedby` / `role`, with `ariaLabel` resolved as an inline locale
+// map (objectui#11051). Exported for the renderers in `@object-ui/components`,
+// which depends on this package, so the mapping is written once. It is not the
+// flat keyed reader `SchemaRenderer` applies to every node; objectui#4580 Q2-B
+// keeps the two vocabularies apart.
+export { resolveInlineAriaProps } from './utils/inlineAria.js';
+
 // "Is this a real config bag?" — the ONE definition of that question
 // (objectui#6761), exported at the package entry for the same reason the node-gate
 // reporter above is (objectui#6038): a surface in `@object-ui/components`, which

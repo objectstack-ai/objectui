@@ -55,7 +55,7 @@ import { applyDecisionBranches, syncDecisionEdgesByOrder, withBranchTargets } fr
 import { useActionConfigSchemas } from '../previews/useFlowNodePalette.js';
 import { FlowNodeConfigField } from './FlowNodeConfigField.js';
 import { useFlowScope } from './useFlowScope.js';
-import { nodeOutputRefs, type ScopeRef } from './flow-scope.js';
+import { hasCommittedConnectorAction, nodeOutputRefs, type ScopeRef } from './flow-scope.js';
 import { NESTED_NODE_KIND, parseNestedNodeId, locateFlowNode, type InspectorFlowNode } from './flow-nested-selection.js';
 import { displayRegionLabel } from '../previews/flow-region-label.js';
 import type { FlowDesignerEdge } from '../previews/flow-canvas-layout.js';
@@ -180,8 +180,6 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
     () => (loc?.nested && loc.container ? nodeOutputRefs(loc.container).filter((r) => r.group === 'loop') : []),
     [loc],
   );
-  // In-scope variable references for this node, for the data-picker (#1934).
-  const { groups: scopeGroups, approvalExpressionGroups, trigger: triggerScope } = useFlowScope(draft as Record<string, unknown>, loc?.scopeAnchorId, nestedLoopRefs);
   // #4305 — a COMMITTED connector action (connector + action both chosen) types
   // its Input section from that action's descriptor `inputSchema`. Read the
   // committed pair and the stored input map off the node's spec-structured
@@ -201,7 +199,20 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
       storedInput: block.input,
     };
   }, [node]);
-  const connectors = useConnectorRegistry(!!connectorId && !!actionId);
+  // The same registry read also serves the scope (objectui#11028): an upstream
+  // committed `connector_action` node offers its action's declared output keys
+  // as references, so the read fires for this node's own committed pair OR for
+  // any committed connector action in the flow — one read, two consumers.
+  const connectors = useConnectorRegistry(
+    (!!connectorId && !!actionId) || hasCommittedConnectorAction(draft as Record<string, unknown>),
+  );
+  // In-scope variable references for this node, for the data-picker (#1934).
+  const { groups: scopeGroups, approvalExpressionGroups, trigger: triggerScope } = useFlowScope(
+    draft as Record<string, unknown>,
+    loc?.scopeAnchorId,
+    nestedLoopRefs,
+    connectors,
+  );
   const connectorInput = React.useMemo(
     () => connectorInputFields(connectorActionInputSchema(connectors, connectorId, actionId)),
     [connectors, connectorId, actionId],

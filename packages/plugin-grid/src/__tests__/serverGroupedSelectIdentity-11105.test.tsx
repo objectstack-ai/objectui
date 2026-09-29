@@ -37,6 +37,7 @@ import React from 'react';
 import { ObjectGrid } from '../ObjectGrid';
 import { ActionProvider } from '@object-ui/react';
 import { registerAllFields } from '@object-ui/fields';
+import type { DataSource, ObjectGridSchema } from '@object-ui/types';
 
 beforeAll(() => {
   registerAllFields();
@@ -51,9 +52,7 @@ const OBJECT_FIELDS = {
   list_price: { type: 'number', label: 'List Price' },
 };
 
-interface Row { id: string; name: string; category: string; list_price: number }
-
-const ROWS: Row[] = [
+const ROWS: Array<Record<string, unknown>> = [
   { id: 'p1', name: 'Router X1', category: 'hardware', list_price: 100 },
   { id: 'p2', name: 'Switch S2', category: 'hardware', list_price: 200 },
   { id: 'p3', name: 'Onsite Setup', category: 'service', list_price: 300 },
@@ -84,8 +83,8 @@ const makeDataSource = () => ({
   queryGroupHeaders: vi.fn(async (_object: string, query: { where?: unknown; groupBy?: string[] }) => {
     const groupBy = query.groupBy ?? [];
     const buckets = new Map<string, number>();
-    for (const row of ROWS.filter((r) => matches(r as any, query.where))) {
-      const key = JSON.stringify(groupBy.map((f) => (row as any)[f] ?? null));
+    for (const row of ROWS.filter((r) => matches(r, query.where))) {
+      const key = JSON.stringify(groupBy.map((f) => row[f] ?? null));
       buckets.set(key, (buckets.get(key) ?? 0) + 1);
     }
     return [...buckets.entries()].map(([key, count]) => {
@@ -99,7 +98,7 @@ const makeDataSource = () => ({
     if (unknownKey !== undefined) {
       throw new Error(`INVALID_FIELD: Unknown field '${String(unknownKey)}' on object '${OBJECT}'`);
     }
-    const matching = ROWS.filter((r) => matches(r as any, params.$filter));
+    const matching = ROWS.filter((r) => matches(r, params.$filter));
     const skip = (params.$skip as number | undefined) ?? 0;
     const top = (params.$top as number | undefined) ?? matching.length;
     return { data: matching.slice(skip, skip + top), total: matching.length };
@@ -125,11 +124,13 @@ const renderGrid = (ds: ReturnType<typeof makeDataSource>, columns: unknown[], s
           type: 'object-grid',
           objectName: OBJECT,
           // The node `ListView` builds: the same entries under both keys.
+          // `ObjectGridSchema.fields` is declared `string[]`, and this is the
+          // object-entry node the grid receives anyway, hence the cast.
           fields: columns,
           columns,
           ...schemaExtra,
-        } as any}
-        dataSource={ds as any}
+        } as unknown as ObjectGridSchema}
+        dataSource={ds as unknown as DataSource}
       />
     </ActionProvider>,
   );

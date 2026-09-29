@@ -60,6 +60,11 @@ export interface FlowReferenceContext {
 interface Option {
   value: string;
   label: string;
+  /**
+   * Secondary text shown beside the label in the suggestion list — a connector
+   * action's authored `description` (objectui#11028). Absent → the label alone.
+   */
+  hint?: string;
 }
 
 /**
@@ -338,15 +343,27 @@ export function resolveConnectorName(kind: ReferenceKind, connectorSource: strin
   return typeof v === 'string' && v ? v : undefined;
 }
 
-/** A connector descriptor's action list → combobox options (exported for test). */
+/**
+ * A connector descriptor's action list → combobox options (exported for test).
+ *
+ * The action's `description` rides along as the option's `hint`, so the author
+ * reads what an action does where they pick it (objectui#11028). The served
+ * descriptor carries it as a plain string (`ConnectorActionDescriptor.description`
+ * in `@objectstack/spec`); a missing, blank or non-string one adds no hint.
+ */
 export function connectorActionsToOptions(actions: unknown): Option[] {
   if (!Array.isArray(actions)) return [];
   return actions
-    .filter((a): a is { key: string; label?: string } => !!a && typeof (a as { key?: unknown }).key === 'string' && !!(a as { key: string }).key)
-    .map((a) => ({
-      value: a.key,
-      label: typeof a.label === 'string' && a.label && a.label !== a.key ? `${a.label} (${a.key})` : a.key,
-    }));
+    .filter((a): a is { key: string; label?: unknown; description?: unknown } =>
+      !!a && typeof (a as { key?: unknown }).key === 'string' && !!(a as { key: string }).key)
+    .map((a) => {
+      const description = typeof a.description === 'string' ? a.description.trim() : '';
+      return {
+        value: a.key,
+        label: typeof a.label === 'string' && a.label && a.label !== a.key ? `${a.label} (${a.key})` : a.key,
+        ...(description ? { hint: description } : {}),
+      };
+    });
 }
 
 /**
@@ -416,7 +433,7 @@ function useMetadataListOptions(type: string | undefined): { options: Option[]; 
 /**
  * Fetch a connector's actions as combobox options from the runtime connector
  * descriptors (`GET /api/v1/automation/connectors`, each `{ name, actions:
- * [{key,label}] }`). `connectorName === undefined` disables the fetch (so the
+ * [{key,label,description}] }`). `connectorName === undefined` disables the fetch (so the
  * hook is safe to call unconditionally). Degrades to empty on any failure.
  */
 function useConnectorActionOptions(connectorName: string | undefined): { options: Option[]; loading: boolean } {
@@ -788,7 +805,7 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
         <datalist id={listId}>
           {options.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {o.hint ? `${o.label} — ${o.hint}` : o.label}
             </option>
           ))}
         </datalist>

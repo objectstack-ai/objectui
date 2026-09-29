@@ -771,12 +771,14 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
 
   // Global undo/redo (Ctrl+Z), backed by the dataSource — the success toast's
   // "Undo" button (for `undoable` actions) restores the record's prior values.
+  // The confirmation it raises reads the session's language, as the button's
+  // own label does (objectui#11056).
   const undoCtl = useGlobalUndo({
     dataSource,
     onUndo: (op: any) => {
       if (op?.objectName) notifyDataChanged({ objectName: op.objectName, recordId: op.recordId });
       else notifyRecordChanged();
-      toast.success('Change undone');
+      toast.success(t('actions.undone'));
     },
   });
 

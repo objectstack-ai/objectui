@@ -152,6 +152,7 @@ const ko = {
     failed: '작업 실패',
     parallelFailed: '하나 이상의 병렬 작업이 실패했습니다',
     undo: '실행 취소',
+    undone: '변경 실행 취소됨',
   },
   validation: {
     required: "{{field}}은(는) 필수입니다",

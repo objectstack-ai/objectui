@@ -365,6 +365,41 @@ the failure it exists to prevent — a cut-off schedule still looks like a
 schedule — so a view that caps rows without rendering the note is a defect, not
 an optimisation.
 
+### resolveInlineAriaProps
+
+Maps the spec's nested `aria` bag (`AriaPropsSchema`, the `aria` prop a block
+such as `element:text` declares) to the DOM attributes it names
+(objectui#11051):
+
+- `ariaLabel` → `aria-label`. A plain string is used as written; an inline
+  locale map (`{ en: 'Order total', 'zh-CN': '订单合计' }`) gives the entry for
+  `locale`, through the spec's own `resolveI18nLabel`.
+- `ariaDescribedBy` → `aria-describedby`.
+- `role` → `role`.
+
+Only attributes that have a value are returned, so the result can be spread
+onto an element directly. It is a pure function: pass the locale yourself, in
+React from `useDisplayLocale()`.
+
+```tsx
+import { resolveInlineAriaProps } from '@object-ui/react'
+import { useDisplayLocale } from '@object-ui/i18n'
+import type { AriaProps } from '@object-ui/types'
+
+function CloseButton({ aria, onClose }: { aria?: AriaProps; onClose: () => void }) {
+  const locale = useDisplayLocale()
+  return (
+    <button type="button" onClick={onClose} {...resolveInlineAriaProps(aria, locale)}>
+      ×
+    </button>
+  )
+}
+```
+
+This is not the reader `SchemaRenderer` applies to a node's FLAT `ariaLabel`,
+which is objectui's keyed `{ key, defaultValue }` form. Each resolver returns
+nothing useful for the other's shape, so the two stay separate (objectui#4580).
+
 ### ComponentRegistry
 
 There is no registry hook: the registry is a process-level singleton exported

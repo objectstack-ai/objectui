@@ -122,6 +122,12 @@ type VisibilityPredicate = Parameters<ExpressionEvaluator['evaluateCondition']>[
  *   ariaLabel: string | I18nLabel (→ aria-label)
  *   ariaDescribedBy: string (→ aria-describedby)
  *   role: string (→ role)
+ *
+ * ⚠️ This reads the FLAT node keys, and resolves `ariaLabel` in objectui's
+ * KEYED vocabulary (`resolveKeyedI18nLabel`), which returns `undefined` for an
+ * inline locale map. It does not read the NESTED `aria` bag a block's props
+ * carry. That bag is read by `resolveInlineAriaProps` (`utils/inlineAria.ts`,
+ * objectui#11051), and objectui#4580 Q2-B keeps the two readers separate.
  */
 function resolveAriaProps(schema: Record<string, any>): Record<string, string | undefined> {
   const aria: Record<string, string | undefined> = {};

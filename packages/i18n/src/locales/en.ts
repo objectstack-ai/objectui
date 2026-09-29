@@ -185,6 +185,10 @@ const en = {
     failed: 'Action failed',
     parallelFailed: 'One or more parallel actions failed',
     undo: 'Undo',
+    // The confirmation toast after that Undo has run — written by the console's
+    // two undo handlers (`useConsoleActionRuntime` and `RecordDetailView`), not
+    // by the runner (objectui#11056).
+    undone: 'Change undone',
   },
   validation: {
     required: '{{field}} is required',

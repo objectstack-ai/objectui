@@ -152,6 +152,7 @@ const de = {
     failed: 'Aktion fehlgeschlagen',
     parallelFailed: 'Eine oder mehrere parallele Aktionen sind fehlgeschlagen',
     undo: 'Rückgängig',
+    undone: 'Änderung rückgängig gemacht',
   },
   validation: {
     required: "{{field}} ist erforderlich",

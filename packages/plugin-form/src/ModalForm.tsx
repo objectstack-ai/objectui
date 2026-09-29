@@ -167,7 +167,12 @@ export interface ModalFormSchema {
   modalSize?: 'sm' | 'default' | 'lg' | 'xl' | 'full';
 
   /**
-   * Whether to show a close button in the header.
+   * Whether the dialog draws its close (X) button. Only an explicit `false`
+   * hides it (objectui#11061); both dialog arms (the flat form and the
+   * `subforms` master-detail form) pass it to `MobileDialogContent`'s
+   * `showCloseButton`. Hidden, the form is still dismissable: Escape (and a
+   * backdrop click) still reach `onOpenChange(false)`, as does the Cancel
+   * action when it is shown.
    * @default true
    */
   modalCloseButton?: boolean;
@@ -310,6 +315,9 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   const confirmOnDiscard = schema.confirmOnDiscard !== false;
 
   const isOpen = schema.open !== false;
+  // `modalCloseButton` (objectui#11061): only an explicit `false` hides the
+  // dialog's X; unset and `true` keep it.
+  const showCloseButton = schema.modalCloseButton !== false;
 
   // Stable form id for linking the external submit button to the form element
   const formId = useId();
@@ -1007,7 +1015,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   if (subforms?.length && schema.mode !== 'view') {
     return (
       <Dialog open={isOpen} onOpenChange={schema.onOpenChange}>
-        <MobileDialogContent className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}>
+        <MobileDialogContent showCloseButton={showCloseButton} className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}>
           {(schema.title || schema.description) && (
             <DialogHeader className="shrink-0 px-4 pt-4 sm:px-6 sm:pt-6 pb-2 border-b">
               {schema.title && <DialogTitle>{schema.title}</DialogTitle>}
@@ -1059,7 +1067,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         attemptClose(false);
       }}
     >
-      <MobileDialogContent className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}>
+      <MobileDialogContent showCloseButton={showCloseButton} className={cn(sizeClass, 'flex flex-col h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden p-0', className, schema.className)}>
         {(schema.title || schema.description) && (
           <DialogHeader className="shrink-0 px-4 pt-4 sm:px-6 sm:pt-6 pb-2 border-b">
             {schema.title && <DialogTitle>{schema.title}</DialogTitle>}

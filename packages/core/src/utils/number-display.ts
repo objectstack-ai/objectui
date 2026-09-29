@@ -21,11 +21,12 @@
  *     grouped and pointed decimals the US way; and
  *  2. `useGrouping` was never set, so a four-digit YEAR stored as
  *     `Field.number({ scale: 0 })` rendered as `2,026` — in every locale, with
- *     no field property able to turn it off.
+ *     no field property able to turn it off. (That property now exists: the
+ *     spec's `FieldSchema.useGrouping`, read here since objectui#11026.)
  *
- * Both policies now live here and nowhere else. Call sites bring the value and
- * the display width; they do not bring a locale default and they do not decide
- * grouping.
+ * Both policies now live here and nowhere else. Call sites bring the value, the
+ * display width and whatever the FIELD declared (`scale`, `useGrouping`); they
+ * do not bring a locale default and they do not decide grouping.
  *
  * ── Why this module lives in `@object-ui/core` (objectui#4576) ──
  * It used to live in `@object-ui/i18n`, and that home cost the repo a real
@@ -108,14 +109,41 @@ export interface DisplayNumberFormatOptions {
    *
    * ⚠️ INTERIM DEFAULT (objectui#4033, PM ruling 2026-08-11). Suppressing
    * grouping for every scale-0 number is a transitional policy with a known,
-   * accepted cost: a large scale-0 COUNT loses its separators too. It is the
-   * better trade only until the spec gains an authorable presentation hint
-   * (`useGrouping` / `displayFormat` — being specified separately, contract-first,
-   * in the objectstack repo). When that hint lands it OVERRIDES this default,
-   * and this heuristic should be reduced to the fallback for fields that
-   * declare nothing.
+   * accepted cost: a large scale-0 COUNT loses its separators too. The
+   * authorable hint it was waiting for has landed as
+   * {@link DisplayNumberFormatOptions.useGrouping} (objectui#11026): an
+   * authored boolean OVERRIDES this default, and the heuristic is now only the
+   * fallback for a field that declares nothing.
    */
   scale?: number;
+
+  /**
+   * The FIELD's authored `useGrouping` — `FieldSchema.useGrouping` in
+   * `@objectstack/spec`, the author's digit-grouping hint — and nothing else.
+   * Like `scale` it is a POLICY input: pass it only when a field declaration
+   * actually said so (objectui#11026).
+   *
+   * Three-valued, and the spec's own reading of each value is the one this
+   * option implements:
+   *
+   *   - `undefined` — the author made no judgement, so the renderer decides:
+   *     the `scale`/`currency` heuristic in {@link shouldGroupDisplayNumber},
+   *     unchanged.
+   *   - `false` — the author's explicit opt-out (a year, an ID, a zip code).
+   *     Never grouped, whatever `scale` or `currency` would have suggested.
+   *   - `true` — the author pins grouping ON, overriding the heuristic the
+   *     other way (a scale-0 count that should read `2,026`).
+   *
+   * The spec maps the key 1:1 onto `Intl.NumberFormat`'s `useGrouping`, so an
+   * authored `true` reaches `Intl` as `true`, which means "always". That is
+   * deliberately NOT what the heuristic's own "group" answer does: it omits
+   * the key and keeps the locale's "auto" (see the `Intl` note inside
+   * {@link formatDisplayNumber}). The two differ where a locale leaves a
+   * four-digit number alone under "auto" (es-ES and pl-PL render `1234`); an
+   * author who pinned grouping on gets `1.234` / `1 234` there, because that
+   * is what they declared.
+   */
+  useGrouping?: boolean;
 
   /**
    * How the number relates to a percentage — the ONE place that distinction is
@@ -159,11 +187,26 @@ export interface DisplayNumberFormatOptions {
  * The grouping policy, alone and testable: does this number get thousands
  * separators?
  *
- * @param scale    the field's declared `scale`, or `undefined` when the caller
- *                 has no field declaration behind it
- * @param currency ISO 4217 code when the number is money
+ * This is the ONE place the decision is made. An authored `useGrouping`
+ * answers it outright; only when the field declared nothing does the
+ * `scale`/`currency` heuristic below get a say (objectui#11026).
+ *
+ * @param scale       the field's declared `scale`, or `undefined` when the
+ *                    caller has no field declaration behind it
+ * @param currency    ISO 4217 code when the number is money
+ * @param useGrouping the field's authored `useGrouping`, or `undefined` when
+ *                    the author declared none
  */
-export function shouldGroupDisplayNumber(scale?: number, currency?: string): boolean {
+export function shouldGroupDisplayNumber(
+  scale?: number,
+  currency?: string,
+  useGrouping?: boolean,
+): boolean {
+  // The author's explicit declaration beats every guess below, money included:
+  // the spec reads `false` as "never grouped, regardless of what the
+  // renderer's heuristic would have guessed", and `true` as the same override
+  // in the other direction.
+  if (typeof useGrouping === 'boolean') return useGrouping;
   // Money always groups — including money whose currency code could not be
   // resolved, which still renders as an amount (just without a symbol).
   if (currency) return true;
@@ -185,7 +228,7 @@ export function formatDisplayNumber(
   value: number,
   options: DisplayNumberFormatOptions = {},
 ): string {
-  const { locale, currency, scale, style, ...passthrough } = options;
+  const { locale, currency, scale, useGrouping, style, ...passthrough } = options;
 
   const intlOptions: Intl.NumberFormatOptions = { ...passthrough };
   if (style === 'percentPoints') {
@@ -204,14 +247,23 @@ export function formatDisplayNumber(
     delete intlOptions.unitDisplay;
   }
 
-  // ⚠️ Set `useGrouping` ONLY to suppress. `useGrouping: true` is NOT the same
-  // as omitting the key: `true` means "always", while omitting it means "auto"
-  // (and "min2" under compact notation), which is the locale's own preference.
-  // Measured — for 1234: es-ES "auto" → `1234` but "always" → `1.234`; pl-PL
-  // "auto" → `1234` but "always" → `1 234`. Writing `true` here would silently
-  // override those locales' conventions in the name of preserving en-US output.
-  if (!shouldGroupDisplayNumber(scale, currency)) {
+  // ⚠️ Never write `useGrouping: true` on the renderer's own behalf.
+  // `useGrouping: true` is NOT the same as omitting the key: `true` means
+  // "always", while omitting it means "auto" (and "min2" under compact
+  // notation), which is the locale's own preference. Measured — for 1234:
+  // es-ES "auto" → `1234` but "always" → `1.234`; pl-PL "auto" → `1234` but
+  // "always" → `1 234`. Writing `true` for a field that declared nothing would
+  // silently override those locales' conventions in the name of preserving
+  // en-US output.
+  //
+  // The ONE `true` this function writes is the author's own (objectui#11026):
+  // `FieldSchema.useGrouping` maps 1:1 onto this `Intl` option, and an author
+  // who pinned grouping on asked for "always". The decision itself is made
+  // once, above, by `shouldGroupDisplayNumber`; this only spells it for `Intl`.
+  if (!shouldGroupDisplayNumber(scale, currency, useGrouping)) {
     intlOptions.useGrouping = false;
+  } else if (useGrouping === true) {
+    intlOptions.useGrouping = true;
   }
 
   try {

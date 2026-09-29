@@ -361,8 +361,6 @@ describe.each(PRODUCERS)('$name — an unlabelled undoable action is named by it
     ['declared an empty label', ''],
   ])('zh: an action that %s reads 撤销：OBJECT and 重做：OBJECT, with no English verb', async (_case, label) => {
     const op = await run(label);
-    expect(op.description).toBe(OBJECT_NAME);
-    expect(op.onStack?.description).toBe(OBJECT_NAME);
 
     renderConsole(ZH);
     await screen.findByTestId('create-first-app-btn');
@@ -371,11 +369,13 @@ describe.each(PRODUCERS)('$name — an unlabelled undoable action is named by it
     expect(infoMessages()).toEqual([`撤销：${OBJECT_NAME}`, `重做：${OBJECT_NAME}`]);
     // The undo really ran through the adapter before its toast was raised.
     expect(dataSourceStub.update).toHaveBeenCalledWith(OBJECT_NAME, RECORD_ID, { status: 'open' });
+    // And the producer's own description, which the toast interpolated.
+    expect(op.description).toBe(OBJECT_NAME);
+    expect(op.onStack?.description).toBe(OBJECT_NAME);
   });
 
   it('en control: the same action reads Undo: OBJECT and Redo: OBJECT, the verb said once', async () => {
-    const op = await run(undefined);
-    expect(op.description).toBe(OBJECT_NAME);
+    await run(undefined);
 
     renderConsole(EN);
     await screen.findByTestId('create-first-app-btn');
@@ -387,12 +387,12 @@ describe.each(PRODUCERS)('$name — an unlabelled undoable action is named by it
   it('control: an authored label is the description and reaches both zh toasts byte for byte', async () => {
     const label = '标记为完成 & notify "owner"';
     const op = await run(label);
-    expect(op.description).toBe(label);
 
     renderConsole(ZH);
     await screen.findByTestId('create-first-app-btn');
     await pressUndoThenRedo();
 
     expect(infoMessages()).toEqual([`撤销：${label}`, `重做：${label}`]);
+    expect(op.description).toBe(label);
   });
 });

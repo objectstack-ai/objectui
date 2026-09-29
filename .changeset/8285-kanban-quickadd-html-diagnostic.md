@@ -23,3 +23,6 @@ Interim by ruling (objectui#8285, decision batch #91): the contract-side refusal
 retiring `object-kanban.quickAdd` from the spec's `ComponentPropsMap`, and this
 diagnostic is removed by the change that lands it. `kanban-ui` keeps the
 `quickAdd` / `onQuickAdd` pair untouched.
+
+⚠️ **Dated note, 2026-09-29 — the contract moved in this same release — objectui#11073.**
+The reason given above, that "has no prop quickAdd" was false because `@objectstack/spec` publishes the key, no longer holds. Later in this release this repository began resolving `@objectstack/spec` 17.5.0, which carries the retirement this diagnostic was declared interim for: `object-kanban.quickAdd` is now a spec tombstone, refused by name at the authoring door. The diagnostic's own removal belongs to the change that ruled it and is not made here. Until then, the key it names is one the contract itself refuses.

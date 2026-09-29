@@ -50,3 +50,6 @@ nothing here, because the bound is merged and unreleased at the installed
 renderer-side fallback #0.1 bans, and the module is to be deleted rather than
 kept beside the enforced contract. The percent pin file asks the installed
 `FieldSchema` that question on every run and fails with those instructions.
+
+⚠️ **Dated note, 2026-09-29 — the SUNSET above fired in this same release — objectui#11073.**
+Later in this release this repository began resolving `@objectstack/spec` 17.5.0, which bounds `scale` at 100: a percent field declaring `scale: 101` is now refused at the declaration (`too_big` at `scale`). That is the condition the SUNSET paragraph names, and it fired as written. The clamp, its console warning and the module that held them are deleted, and `formatPercent` and both percent faces pass the declared width through again. So what this release ships is the spec's refusal at the declaration, not the clamp-and-report described above, and `formatPercent` no longer returns a string for a width the engine refuses.

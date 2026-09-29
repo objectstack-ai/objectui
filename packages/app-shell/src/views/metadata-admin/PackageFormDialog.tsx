@@ -73,7 +73,7 @@ export interface PackageSaveResult {
  * (`userMessage || message`, plus the declared code). Its return value
  * therefore cannot tell a caller WHICH channel won — and objectui#8051's two
  * status arms need exactly that bit, because their localized constant is a
- * generic substitution that objectui#3821 keeps for UNMARKED bodies only. So
+ * generic substitution that objectstack-ai/objectstack#3821 keeps for UNMARKED bodies only. So
  * the mark is read here and carried across the throw; ⛔ the arms cannot
  * re-derive it from the message they receive.
  *
@@ -291,7 +291,7 @@ export function PackageFormDialog({
       const msg: string = e?.message ?? '';
       // objectui#8051 — WAS this refusal marked? The two status arms below
       // answer with a localized constant, and that constant is a GENERIC
-      // SUBSTITUTION: objectui#3821's rule, which the envelope writer states as
+      // SUBSTITUTION: objectstack-ai/objectstack#3821's rule, which the envelope writer states as
       // "a consumer that sees the field renders it verbatim and keeps its
       // generic substitution for everything unmarked", keeps it for unmarked
       // bodies and hands a MARKED body straight to the person. Until this card

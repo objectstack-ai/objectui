@@ -17,7 +17,7 @@ import { ViewSettingsPopover } from './components/ViewSettingsPopover';
 import { UserFilters } from './UserFilters';
 import { SchemaRenderer, useNavigationOverlay, classifyLoadError, usePredicateScope, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
 import type { LoadErrorKind } from '@object-ui/react';
-import { useDensityMode } from '@object-ui/react';
+import { useDensityMode, resolveInlineAriaProps } from '@object-ui/react';
 import type { ListViewSchema, ObjectMapConfig } from '@object-ui/types';
 import { detectStatusField } from '@object-ui/types';
 import { usePullToRefresh } from '@object-ui/mobile';
@@ -4246,31 +4246,31 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   }, [schema.columns, tFieldLabel]);
 
   /**
-   * The accessible name for the list region, resolved — not cast.
+   * The list region's ARIA attributes, read through the ONE reader of the
+   * nested bag (objectui#11083).
    *
    * The NESTED bag is the spec's `AriaPropsSchema`, whose `ariaLabel` is
    * `I18nLabel`: a plain string **or** an inline locale map
-   * (`{ en: 'Accounts', 'zh-CN': '客户' }`). This read site used to spread it
-   * with `as string` — a cast, not a conversion — so a map-valued label
-   * reached the DOM as `aria-label="[object Object]"` and a screen reader
-   * announced that as the view's accessible name, in every locale
-   * (objectui#5134). `as string` is invisible to the compiler by
-   * construction, which is why the sweep that fixed the compile-visible sites
-   * (objectui#4163 part 1) could not see this one.
+   * (`{ en: 'Accounts', 'zh-CN': '客户' }`). `resolveInlineAriaProps` from
+   * `@object-ui/react` maps its three keys (`ariaLabel`, `ariaDescribedBy`,
+   * `role`) and resolves the label against the display locale, so this
+   * component keeps no mapping of its own. A key that resolves to nothing is
+   * left out: no accessible name beats a garbage one. This read site once spread
+   * the label with `as string`, so a map reached the DOM as
+   * `aria-label="[object Object]"` (objectui#5134).
    *
-   * A miss resolves to `undefined` and the attribute is omitted, which is what
-   * an attribute wants — no accessible name beats a garbage one. That is also
-   * why this uses the spec's resolver rather than objectui's `pickLocalized`
-   * (`''` on a miss, the spelling a TEXT NODE wants — see `TabBar.tsx`); the
-   * two agree limb for limb, pinned by `i18nLabel-resolver-parity.test.ts` in
-   * this package.
+   * What stays here is only what is this view's own:
+   *   - the default role, `region`, when the author declares none;
+   *   - `aria.live`, the one key objectui's `ListViewSchema` adds to the spec's
+   *     bag (`.extend({ live })`, kept by objectui#2890). The shared reader does
+   *     not read it, because the spec's shape does not declare it.
    *
    * ⚠️ The FLAT `schema.ariaLabel` is a different vocabulary — objectui's
    * keyed `{ key, defaultValue?, params? }` ref, resolved by `SchemaRenderer`'s
    * `resolveKeyedI18nLabel` — and is deliberately NOT touched here. Neither
    * resolver accepts the other's shape.
    */
-  const ariaLabel = resolveInlineI18nLabel(schema.aria?.ariaLabel, displayLocale);
+  const regionAria = resolveInlineAriaProps(schema.aria, displayLocale);
 
   /**
    * The view's description, resolved — not type-tested (objectui#7199).
@@ -4301,10 +4301,9 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     <div
       ref={pullRef}
       className={cn('flex flex-col h-full bg-background relative min-w-0 overflow-hidden', className)}
-      {...(ariaLabel ? { 'aria-label': ariaLabel } : {})}
-      {...(schema.aria?.ariaDescribedBy ? { 'aria-describedby': schema.aria.ariaDescribedBy } : {})}
+      {...regionAria}
+      role={regionAria.role ?? 'region'}
       {...(schema.aria?.live ? { 'aria-live': schema.aria.live } : {})}
-      role={schema.aria?.role ?? 'region'}
       aria-busy={loading || undefined}
       data-state={loading ? 'loading' : 'idle'}
     >

@@ -20,7 +20,11 @@ inspector). A `fault` edge keeps the scope at its source: the engine walks it
 only when the node failed, with nothing written back. A reference no node
 writes still warns.
 
-`buildFlowProblems` also accepts an optional `connectors` argument (the runtime
-connector registry) and threads it into the expression scan, so a host that
-passes it has a committed connector action's declared output keys judged in
-scope there, as the inspectors judge them.
+The Problems panel also stops warning on a later node's reference to a
+committed connector action's declared output (`post.ok` after a `post` node
+whose action's `outputSchema` declares `ok`), which the node and edge
+inspectors already accepted. The flow designer now reads the runtime connector
+registry for its problem list the way the inspectors read it, only when the
+draft holds a committed connector action, and `buildFlowProblems` takes it as
+an optional `connectors` argument. The panel rows and the canvas badges read
+that one list, so they agree with the inspectors.

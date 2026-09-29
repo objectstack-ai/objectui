@@ -11,6 +11,7 @@ import {
   REREAD_WAIT_MS,
   evaluate,
   exitCodeFor,
+  fetchJob,
   renderReading,
   settleReading,
   shardContexts,
@@ -309,6 +310,20 @@ describe('check-test-shard-results — a present shard with no conclusion is re-
     expect(exitCodeFor(reading)).toBe(EXIT_CANNOT_RUN);
     expect(rereads).toBe(0);
     expect(run.reread).toEqual([]);
+  });
+
+  it('re-reads one job by id on the single-job endpoint, and an HTTP error is not an answer', async () => {
+    const urls: string[] = [];
+    const reply = (status: number, body: unknown) =>
+      (async (url: string | URL | Request) => {
+        urls.push(String(url));
+        return new Response(JSON.stringify(body), { status });
+      }) as typeof fetch;
+    const input = { repository: 'objectstack-ai/objectui', apiUrl: 'https://api.test', token: 't' };
+
+    expect(await fetchJob(lateJob.id, { ...input, fetchImpl: reply(200, lateJob) })).toEqual(lateJob);
+    expect(urls).toEqual([`https://api.test/repos/objectstack-ai/objectui/actions/jobs/${lateJob.id}`]);
+    await expect(fetchJob(lateJob.id, { ...input, fetchImpl: reply(404, {}) })).rejects.toThrow(/HTTP 404/);
   });
 
   it('refuses a re-read that answers about another job, and a shard with no id to re-read', async () => {

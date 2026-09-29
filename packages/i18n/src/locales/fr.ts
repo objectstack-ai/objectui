@@ -166,6 +166,8 @@ const fr = {
   },
   form: {
     noPermissionToSave: "Vous n'avez pas l'autorisation d'enregistrer cet enregistrement.",
+    noPermissionToCreate: "Vous n'avez pas l'autorisation de créer des enregistrements {{object}}. Les champs sont en lecture seule.",
+    noPermissionToEdit: "Vous n'avez pas l'autorisation de modifier les enregistrements {{object}}. Les champs sont en lecture seule.",
     submitFailed: "Échec de l'enregistrement. Veuillez réessayer.",
     uploadInFlight: "Attendez la fin du téléversement avant de sauvegarder.",
     clearedOnHide: "Ce qui ne s'applique plus aux valeurs actuelles a été effacé : {{fields}}",

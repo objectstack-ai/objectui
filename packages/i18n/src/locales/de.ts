@@ -166,6 +166,8 @@ const de = {
   },
   form: {
     noPermissionToSave: "Sie haben keine Berechtigung, diesen Datensatz zu speichern.",
+    noPermissionToCreate: "Sie haben keine Berechtigung, „{{object}}“-Datensätze zu erstellen. Die Felder sind schreibgeschützt.",
+    noPermissionToEdit: "Sie haben keine Berechtigung, „{{object}}“-Datensätze zu bearbeiten. Die Felder sind schreibgeschützt.",
     submitFailed: "Speichern fehlgeschlagen. Bitte versuchen Sie es erneut.",
     uploadInFlight: "Warten Sie, bis der Upload abgeschlossen ist, bevor Sie speichern.",
     clearedOnHide: "Geleert, was für die aktuellen Werte nicht mehr gilt: {{fields}}",

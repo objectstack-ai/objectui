@@ -58,7 +58,8 @@ import {
   advanceLoadedRecord,
   type LoadedRecordSnapshot,
 } from './sanitize';
-import { fieldWriteGate, gateFormFields } from './fieldWriteGate';
+import { closedFormAffordance, fieldWriteGate, gateFormFields } from './fieldWriteGate';
+import { ClosedAffordanceNotice } from './closedAffordanceNotice';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
@@ -840,6 +841,23 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     );
   };
 
+  // objectui#11000 — why `gateFields` locked every field, when the lock is the
+  // form-wide one: the affordance for the mode is closed. Drawn above the
+  // fields once they are on screen; the master-detail body below draws its own
+  // through the `ObjectForm` it renders.
+  const closedAffordanceNotice = !error && !loading ? (
+    <ClosedAffordanceNotice
+      affordance={closedFormAffordance({
+        perms,
+        objectName: schema.objectName,
+        mode: schema.mode,
+        objectSchema,
+      })}
+      objectName={schema.objectName}
+      objectSchema={objectSchema}
+    />
+  ) : null;
+
   // Master-detail in a drawer: render the master-detail form (it owns its Save
   // bar) when the schema declares inline child collections; saved atomically.
   const subforms = (schema as any).subforms as any[] | undefined;
@@ -862,7 +880,10 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       dataSource={dataSource}
     />
   ) : (
-    renderContent()
+    <>
+      {closedAffordanceNotice}
+      {renderContent()}
+    </>
   );
 
   // Design/preview surfaces render this live on a canvas; a portalled modal Sheet

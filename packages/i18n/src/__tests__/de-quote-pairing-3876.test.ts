@@ -295,7 +295,11 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // 66 once objectui#7699 added `fields.file.uploadIncomplete`, the refusal of
     // an upload that returned no file id, which quotes the pick's name
     // („{{name}}“) — one interpolated span, runtime data.
-    expect(okSpans, 'correctly paired spans').toBe(66);
+    // 68 once objectui#11000 added `form.noPermissionToCreate` and
+    // `form.noPermissionToEdit`, the notice on a form locked for a closed
+    // affordance, which each quote the object's label („{{object}}“-Datensätze)
+    // — two interpolated spans, runtime data.
+    expect(okSpans, 'correctly paired spans').toBe(68);
   });
 
   it('keeps the count identity that replaces the card’s count(„) === count(“)', () => {
@@ -328,8 +332,10 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // `fields.dateTime.impossibleDay`, one more matched pair. 65 / 65 / 0 after
     // objectui#10567 added `fields.date.impossibleDay`, one more matched pair.
     // 66 / 66 / 0 after objectui#7699 added `fields.file.uploadIncomplete`, one
-    // more matched pair.
-    expect({ open, close, rdq }).toEqual({ open: 66, close: 66, rdq: 0 });
+    // more matched pair. 68 / 68 / 0 after objectui#11000 added
+    // `form.noPermissionToCreate` and `form.noPermissionToEdit`, one matched
+    // pair each.
+    expect({ open, close, rdq }).toEqual({ open: 68, close: 68, rdq: 0 });
     // The durable shape: every „ closed by a “, every surplus “ an English
     // opener answered by a ”. Survived translating the two English values.
     expect(close).toBe(open + rdq);

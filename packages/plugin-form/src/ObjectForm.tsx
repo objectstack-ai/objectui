@@ -58,7 +58,8 @@ import {
   type LoadedRecordSnapshot,
 } from './sanitize';
 import { formWritePayload } from './writePayload';
-import { applyFieldPermissions, fieldWriteGate, gateFormFields } from './fieldWriteGate';
+import { applyFieldPermissions, closedFormAffordance, fieldWriteGate, gateFormFields } from './fieldWriteGate';
+import { ClosedAffordanceNotice } from './closedAffordanceNotice';
 import { resolveInitialRecord } from './initialRecord';
 import { noSubmitTargetError } from './submitTarget';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
@@ -654,6 +655,22 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
         deniedDescription: 'You do not have edit access to this field.',
       }) as FormField[],
     [perms, schema.objectName, schema.mode, objectSchema],
+  );
+  // objectui#11000 — why `gateFields` locked every field, when the lock is the
+  // form-wide one: the affordance for the mode is closed. Rendered above the
+  // fields by `ClosedAffordanceNotice`.
+  const closedAffordance = closedFormAffordance({
+    perms,
+    objectName: schema.objectName,
+    mode: schema.mode,
+    objectSchema,
+  });
+  const closedAffordanceNotice = (
+    <ClosedAffordanceNotice
+      affordance={closedAffordance}
+      objectName={schema.objectName}
+      objectSchema={objectSchema}
+    />
   );
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [initialData, setInitialData] = useState<any>(null);
@@ -1726,6 +1743,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
     return (
       <UploadGateProvider gate={uploadGate}>
         <div className="w-full @container">
+          {closedAffordanceNotice}
           <SchemaRenderer
             schema={{
               type: 'form',
@@ -1914,6 +1932,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
         className={mobileOpts?.stickyActions ? 'w-full pb-20 md:pb-0' : 'w-full'}
         data-mobile-form={mobileOpts ? 'true' : undefined}
       >
+        {closedAffordanceNotice}
         <SchemaRenderer schema={formSchema} />
         <UploadInFlightNotice gate={uploadGate} />
         {conflictDialog}

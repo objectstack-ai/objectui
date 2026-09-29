@@ -31,7 +31,8 @@ import { buildSectionFields as buildSectionFieldsShared } from './sectionFields'
 import { seedCreateValues } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
-import { fieldWriteGate, gateFormFields } from './fieldWriteGate';
+import { closedFormAffordance, fieldWriteGate, gateFormFields } from './fieldWriteGate';
+import { ClosedAffordanceNotice } from './closedAffordanceNotice';
 import { snapshotLoadedRecord, advanceLoadedRecord, type LoadedRecordSnapshot } from './sanitize';
 import { formWritePayload } from './writePayload';
 import { applyAutoColSpan, containerGridColsFor } from './autoLayout';
@@ -471,7 +472,7 @@ export const SplitForm: React.FC<SplitFormProps> = ({
   }
 
   // The form is ONE grid; each section then lays ITS fields out at its own
-  // declared density within that grid via colSpan (#2578) — the same arrangement
+  // declared density within that grid via colSpan (objectstack-ai/objectstack#2578) — the same arrangement
   // the stacked/tabbed sectioned forms use. The grid lives on the FIELD
   // container inside the form, never wrapped around the form (that leaves the
   // extra columns permanently empty, #2128).
@@ -539,6 +540,18 @@ export const SplitForm: React.FC<SplitFormProps> = ({
   return (
     <UploadGateProvider gate={uploadGate}>
     <div className={cn('w-full @container', className, schema.className)}>
+      {/* Why every field below is locked, when the lock is the form-wide one
+          (objectui#11000). */}
+      <ClosedAffordanceNotice
+        affordance={closedFormAffordance({
+          perms,
+          objectName: schema.objectName,
+          mode: schema.mode,
+          objectSchema,
+        })}
+        objectName={schema.objectName}
+        objectSchema={objectSchema}
+      />
       <SchemaRenderer
         schema={{
           type: 'form' as const,

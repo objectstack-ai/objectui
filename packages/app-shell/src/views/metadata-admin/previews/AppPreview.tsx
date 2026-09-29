@@ -201,7 +201,7 @@ export function AppPreview({ name, draft, editing, selection, onSelectionChange,
   // The landing page is DERIVED, never authored: it is the first navigation
   // item that actually addresses something. The app used to be able to pin it
   // with `homePageId`, but spec 17.0.0 retired that key (objectstack#4667 /
-  // #4709) — an ID cross-reference with no referential integrity, which fell
+  // objectstack-ai/objectstack#4709) — an ID cross-reference with no referential integrity, which fell
   // back to the first item silently when it dangled. Before that it was
   // `landing`, removed in objectstack#4001. Reading either one back here would
   // show the author a landing page the runtime will not honour.

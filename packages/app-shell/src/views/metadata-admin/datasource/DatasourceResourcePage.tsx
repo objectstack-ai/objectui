@@ -213,7 +213,7 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
       let body: any = text;
       try { body = JSON.parse(text); } catch { /* keep text */ }
       if (!res.ok) {
-        // `error` is `{ code, message }` post-#3843 and was a bare string
+        // `error` is `{ code, message }` post-objectstack-ai/objectstack#3843 and was a bare string
         // before it; without the first read this threw "[object Object]".
         const detail =
           (body && typeof body.error === 'object' && body.error?.message) ||

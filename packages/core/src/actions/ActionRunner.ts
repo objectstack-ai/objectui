@@ -285,9 +285,9 @@ export interface ActionDef {
    * `'url'`, flow name for `'flow'`, modal/page for `'modal'`, endpoint for
    * `'api'`, FormView name for `'form'`.
    *
-   * The `execute` alias was REMOVED in @objectstack/spec 17 (#3855) and is not
-   * read here (#3856) — don't re-add it. Two handler slots is how one action ran
-   * one script server-side and a different one client-side (#3713).
+   * The `execute` alias was REMOVED in @objectstack/spec 17 (objectstack-ai/objectstack#3855) and is not
+   * read here (objectstack-ai/objectstack#3856) — don't re-add it. Two handler slots is how one action ran
+   * one script server-side and a different one client-side (objectstack-ai/objectstack#3713).
    */
   target?: string;
   /**
@@ -350,7 +350,7 @@ export interface ActionDef {
   // rather than stylistic. `ActionSchema` is a `ZodPipe` whose transforms narrow
   // the authored shape — `visible` is authored as `string | { dialect, source }`
   // but INFERS to the object form alone. This runner consumes authored/stored
-  // rows, which #3903 established are rehydrated UNPARSED, so it sees the input
+  // rows, which objectstack-ai/objectstack#3903 established are rehydrated UNPARSED, so it sees the input
   // shape. Deriving from the `z.infer` side would type-error the raw-string
   // predicate that `ActionEngine` explicitly supports and that
   // `ActionEngine.visibility.test.ts` pins.
@@ -540,17 +540,46 @@ export type ToastHandler = (message: string, options?: {
 }) => void;
 
 /**
- * The success toast the runner falls back to when neither the server (a
- * `data.message` on the result) nor the author (`successMessage`) supplied one.
- * It is the only toast text the runner writes itself, so it is the only one
- * {@link ActionRunner.setTranslator}'s translator is asked for: `key` names the
- * locale-pack entry (`@object-ui/i18n`'s packs define it), `defaultValue` is the
- * English source and what shows when no translator is installed.
+ * The text the runner writes itself, and so the only text
+ * {@link ActionRunner.setTranslator}'s translator is asked for. In each entry
+ * `key` names the locale-pack entry (`@object-ui/i18n`'s packs define it) and
+ * `defaultValue` is the English source, which is also what shows when no
+ * translator is installed.
+ *
+ * - `completedSuccessfully` — the success toast when neither the server (a
+ *   `data.message` on the result) nor the author (`successMessage`) supplied
+ *   one (objectui#10900).
+ * - `failed` — the error toast when the error that reached the toast carries
+ *   no readable message, and a parallel chain's result when its last action
+ *   rejected (objectui#10969).
+ * - `parallelFailed` — a parallel chain's error when no failed action reported
+ *   one of its own (objectui#10969).
+ * - `undo` — the label the runner hands the toast handler for an undoable
+ *   success toast's Undo affordance (objectui#10969).
+ *
+ * An author's `successMessage` / `errorMessage`, a server message and an
+ * action's own error are never in this table: they reach the toast verbatim.
  */
-const DEFAULT_SUCCESS_TOAST = {
-  key: 'actions.completedSuccessfully',
-  defaultValue: 'Action completed successfully',
+const RUNNER_TEXT = {
+  completedSuccessfully: {
+    key: 'actions.completedSuccessfully',
+    defaultValue: 'Action completed successfully',
+  },
+  failed: {
+    key: 'actions.failed',
+    defaultValue: 'Action failed',
+  },
+  parallelFailed: {
+    key: 'actions.parallelFailed',
+    defaultValue: 'One or more parallel actions failed',
+  },
+  undo: {
+    key: 'actions.undo',
+    defaultValue: 'Undo',
+  },
 } as const;
+
+type RunnerText = (typeof RUNNER_TEXT)[keyof typeof RUNNER_TEXT];
 
 /**
  * Modal handler — consumers provide to render modal dialogs.
@@ -763,7 +792,7 @@ export interface ActionParamDef {
    * hands back `type: param.type ?? 'text'`, and every downstream reader of the
    * degradation is blind to it: the param is a `text` param by then, so
    * `paramDegradesWithoutTarget()` answers false, `paramToField()` emits no
-   * "no reference target" warning, and the #3405 "paste a record id" hints do
+   * "no reference target" warning, and the objectstack-ai/objectstack#3405 "paste a record id" hints do
    * not apply either. A lookup param that should have rendered a record picker
    * renders an unannotated empty box instead — no options, no dropdown, and no
    * request for the referenced object on the wire, because no picker was ever
@@ -1051,11 +1080,14 @@ export class ActionRunner {
 
   /**
    * Set the translator for the text the runner supplies itself — the host's
-   * `t`, injected so this package takes no i18n dependency. Today that is one
-   * string: the generic success toast shown when an action declares no
-   * `successMessage` and the server returned no message. An author's
-   * `successMessage` and a server message reach the toast verbatim, translator
-   * or not. With no translator the toast stays English.
+   * `t`, injected so this package takes no i18n dependency. That text is the
+   * `RUNNER_TEXT` table in this file: the generic success toast shown when an
+   * action declares no `successMessage` and the server returned no message,
+   * the error fallbacks when no readable error message reached the runner, and
+   * the Undo label of an undoable success toast. An author's `successMessage`
+   * / `errorMessage`, a server message and an action's own error reach the
+   * toast verbatim, translator or not. With no translator the text stays
+   * English.
    */
   setTranslator(translate: (key: string, options: { defaultValue: string }) => string): void {
     this.translate = translate;
@@ -1132,11 +1164,11 @@ export class ActionRunner {
     try {
       // `ActionDef` accepts any key of any type, so a typo (`targt`) and a
       // retired key (`execute`) both reach here having type-checked. Neither
-      // binds a handler, and binding no handler silently is the #2169 "Mark Done
-      // does nothing" shape. Dev-only, warn-once, changes nothing (#4075 step 1).
+      // binds a handler, and binding no handler silently is the objectstack-ai/objectstack#2169 "Mark Done
+      // does nothing" shape. Dev-only, warn-once, changes nothing (objectstack-ai/objectstack#4075 step 1).
       warnOnUnknownActionKeys(action);
 
-      // The compat window for the object-form `params` payload (#5777, maintainer
+      // The compat window for the object-form `params` payload (objectstack-ai/objectstack#5777, maintainer
       // ruling 2026-08-06 direction A). Checked HERE, before the param-collection
       // block below rewrites `action.params` into a values map — after that point
       // an action that authored a legitimate ActionParam[] DEFINITION array also
@@ -1324,13 +1356,13 @@ export class ActionRunner {
         ) as PromiseFulfilledResult<ActionResult> | undefined;
         return {
           success: false,
-          error: firstFail?.value?.error || 'One or more parallel actions failed',
+          error: firstFail?.value?.error || this.runnerText(RUNNER_TEXT.parallelFailed),
         };
       }
       const lastResult = results[results.length - 1];
       return lastResult.status === 'fulfilled'
         ? lastResult.value
-        : { success: false, error: 'Action failed' };
+        : { success: false, error: this.runnerText(RUNNER_TEXT.failed) };
     }
 
     // Sequential execution — stop on first failure
@@ -1345,12 +1377,11 @@ export class ActionRunner {
   }
 
   /**
-   * The generic success toast, in the installed translator's language. An
+   * One entry of `RUNNER_TEXT`, in the installed translator's language. An
    * empty answer from the translator falls back to the English source rather
-   * than raising an empty toast.
+   * than raising an empty toast or an empty label.
    */
-  private defaultSuccessToast(): string {
-    const { key, defaultValue } = DEFAULT_SUCCESS_TOAST;
+  private runnerText({ key, defaultValue }: RunnerText): string {
     return this.translate?.(key, { defaultValue }) || defaultValue;
   }
 
@@ -1377,20 +1408,26 @@ export class ActionRunner {
         // ("2 app updates available: CRM 1.0.0→1.0.1", "Published v1.2.0")
         // that the static label can't express; without this the user only ever
         // sees a generic "Done". Falls back to the static label, then a default
-        // — the one string here the runner writes itself, so the only one its
-        // translator is asked for (see `setTranslator`).
+        // — text the runner writes itself, so its translator is asked for it
+        // (see `setTranslator`).
         const dyn = (result.data && typeof result.data === 'object'
           && typeof (result.data as { message?: unknown }).message === 'string')
           ? String((result.data as { message?: unknown }).message).trim()
           : '';
-        const message = dyn || action.successMessage || this.defaultSuccessToast();
+        const message = dyn || action.successMessage || this.runnerText(RUNNER_TEXT.completedSuccessfully);
         // Undoable action: register the captured operation on the global
         // UndoManager and surface an "Undo" affordance on the toast (the
-        // consumer's toast handler wires the button to UndoManager).
+        // consumer's toast handler wires the button to UndoManager). The
+        // button's label is the runner's own text, so it is translated here
+        // rather than left to each handler's English default (objectui#10969).
         if (result.undo) {
           try { globalUndoManager.push(result.undo); } catch { /* non-fatal */ }
         }
-        this.toastHandler(message, { type: 'success', duration, undo: result.undo ? {} : undefined });
+        this.toastHandler(message, {
+          type: 'success',
+          duration,
+          undo: result.undo ? { label: this.runnerText(RUNNER_TEXT.undo) } : undefined,
+        });
       }
 
       if (!result.success && showToast.showOnError !== false && result.error) {
@@ -1404,7 +1441,7 @@ export class ActionRunner {
           ? raw
           : (raw && typeof (raw as { message?: unknown }).message === 'string')
             ? (raw as { message: string }).message
-            : 'Action failed';
+            : this.runnerText(RUNNER_TEXT.failed);
         this.toastHandler(message, { type: 'error', duration });
       }
     }
@@ -1466,7 +1503,7 @@ export class ActionRunner {
     // found zero producers outside the channel's own pins.
     //
     // `readOnSuccessNavigation` stays as the shape guard, not as a
-    // discriminator: stored rows are rehydrated UNPARSED (#3903), so the value
+    // discriminator: stored rows are rehydrated UNPARSED (objectstack-ai/objectstack#3903), so the value
     // is still read as data, and a shape the spec refuses gets no reading —
     // no navigation, no callback dispatch, no lenient fallback.
     if (result.success && action.onSuccess) {
@@ -1661,9 +1698,9 @@ export class ActionRunner {
    */
   private async executeScript(action: ActionDef): Promise<ActionResult> {
     // `target` is the only handler slot. The `execute` alias was removed in
-    // @objectstack/spec 17 (#3855), which rejects an authored `execute` at parse
+    // @objectstack/spec 17 (objectstack-ai/objectstack#3855), which rejects an authored `execute` at parse
     // with the rename prescription — so parsed metadata cannot carry it and a
-    // `target || execute` fallback could only ever evaluate to `target` (#3856).
+    // `target || execute` fallback could only ever evaluate to `target` (objectstack-ai/objectstack#3856).
     const script = action.target;
     if (!script) {
       // A spec `body` IS a script — this runner just cannot run one (see the
@@ -1687,11 +1724,11 @@ export class ActionRunner {
       // `ActionDef` no longer declares `execute` — nor any open index signature
       // — so `tsc` now catches the retired key at every site that AUTHORS an
       // action literal in code. That is the half of the problem the type can
-      // reach. It is not this half: #3903 established that stored
+      // reach. It is not this half: objectstack-ai/objectstack#3903 established that stored
       // `sys_metadata` rows are rehydrated UNPARSED, so metadata written before
       // spec 17 arrives here as a plain object the compiler never saw, still
       // carrying `execute`. Declaring the key to make this read compile would
-      // re-legitimize a tombstone (#3855 removed it; the spec keeps it only to
+      // re-legitimize a tombstone (objectstack-ai/objectstack#3855 removed it; the spec keeps it only to
       // reject it BY NAME), and deleting the branch would send those rows back
       // to a bare "no script provided" — which reads as "you forgot a field" to
       // an author who did write one, the objectstack#2169 shape.
@@ -2047,7 +2084,7 @@ export class ActionRunner {
    * old object-form `params` page — POSTed an empty body here.
    *
    * `params` contributes only in its DEPRECATED non-array form (the compat window
-   * #5777 opened; see `warnOnDeprecatedObjectParams`). An ARRAY `params` is a
+   * objectstack-ai/objectstack#5777 opened; see `warnOnDeprecatedObjectParams`). An ARRAY `params` is a
    * parameter DEFINITION list, not a payload: it reaches this method unconsumed
    * only when no `paramCollectionHandler` is mounted, and POSTing the definitions
    * as the request body was never a payload any endpoint wanted. It now falls
@@ -2342,7 +2379,7 @@ export interface OnSuccessNavigation {
  * Is this `onSuccess` the spec's navigation block?
  *
  * The test IS the spec's declaration: a non-array object carrying a STRING
- * `navigate`. Stored rows are rehydrated UNPARSED (#3903), so the runner reads
+ * `navigate`. Stored rows are rehydrated UNPARSED (objectstack-ai/objectstack#3903), so the runner reads
  * the value as data and anything else gets NO reading — since objectui#5934
  * retired the legacy chained-callback channel (`ActionDef | ActionDef[]`),
  * there is no other channel for an off-contract shape to fall into. This is a

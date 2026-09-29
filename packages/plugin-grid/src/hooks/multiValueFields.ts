@@ -44,7 +44,7 @@ export function hasMultiValueShape(def: MultiValueFieldDef | undefined | null): 
  * Return a copy of `patch` where any lone scalar aimed at a multi-value
  * field (per the object schema) is wrapped into a single-element array.
  * A scalar written verbatim silently corrupts the column shape for every
- * array-consumer (#2204); the server normalizes too (framework #2552), but
+ * array-consumer (#2204); the server normalizes too (objectstack-ai/objectstack#2552), but
  * the client should never emit the wrong shape in the first place.
  *
  * Only unambiguous scalars (string/number/boolean) are wrapped — arrays

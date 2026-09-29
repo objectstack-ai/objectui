@@ -240,7 +240,7 @@ export function ObjectDataPage({ dataSource, objects }: any) {
     // Template variables mirror nav `recordId` substitution so shared links
     // can carry `{current_user_id}`. Routed through the shared resolver so a
     // link also gets `{current_org_id}` and date macros, instead of the single
-    // hard-coded token this used to compare against (framework #3574).
+    // hard-coded token this used to compare against (objectstack-ai/objectstack#3574).
     return resolveFilterPlaceholders(readable, {
       currentUserId: user?.id ?? null,
       currentOrgId: activeOrganization?.id ?? null,
@@ -248,7 +248,7 @@ export function ObjectDataPage({ dataSource, objects }: any) {
   }, [filterParamsKey, canRead, user?.id, activeOrganization?.id]);
 
   // One display chip per field — a date-bucket drill's two range triples
-  // (>= start, < end) collapse into a single "start → end" chip (#1752).
+  // (>= start, < end) collapse into a single "start → end" chip (objectstack-ai/objectstack#1752).
   const filterChips = React.useMemo(() => groupFilterChips(urlFilters), [urlFilters]);
 
   const removeUrlFilter = React.useCallback(

@@ -8,7 +8,7 @@
  * Client-side emulation of {@link DataSource.batchTransaction} for adapters
  * that lack a server-side transactional batch endpoint. This is the single,
  * tested home for the non-atomic fallback (ObjectStack objectui #2679 /
- * framework #1604 / ADR-0034 item 4): components call `runBatchTransaction`
+ * objectstack-ai/objectstack#1604 / ADR-0034 item 4): components call `runBatchTransaction`
  * unconditionally and never orchestrate cross-object writes themselves.
  *
  * The emulation runs operations sequentially — NOT the old `bulk('create')`

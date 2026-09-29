@@ -11,10 +11,9 @@
  * language. `marketplace` is the one `system/*` page `AppContent` mounts
  * itself, so its segment now reads `console.breadcrumb.marketplace`.
  *
- * Deliberately NOT pinned here: a host-mounted `system/*` page (the console
- * app's `system/audit-log`, `system/settings`, …) still shows its humanized
- * slug. That is outside this card, and a pin on it would enshrine English
- * under zh as correct.
+ * The console app's own `system/*` pages (`system/audit-log`,
+ * `system/settings`, …) read their segments from the packs since
+ * objectui#10969; they are pinned in `AppHeader.systemBreadcrumbs-10969`.
  *
  * Harness: the sibling AppHeader suites' mocks, except `useObjectTranslation`,
  * which is real here under a real `I18nProvider` — the pack lookup is the

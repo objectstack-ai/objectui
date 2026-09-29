@@ -17,7 +17,7 @@
  *
  *   - 查看详情 → navigate to the child record's detail route
  *   - 增 / 改   → open the child form as an OVERLAY on the parent detail
- *                 (#2604 D3: a child task's return target is ALWAYS the parent
+ *                 (objectstack-ai/objectstack#2604 D3: a child task's return target is ALWAYS the parent
  *                 detail with the subtable refreshed — never a route, which
  *                 would drop the parent's scroll/tab context and refetch it).
  *                 Implemented by pushing the console's record-form URL params
@@ -281,7 +281,7 @@ export function RelatedRecordActionsBridge({
     [recordHref, navigate],
   );
 
-  // #2604 D3 — open a child create/edit task as the console's global record
+  // objectstack-ai/objectstack#2604 D3 — open a child create/edit task as the console's global record
   // form overlay, by URL params. Pushes ONE history entry (Back = close, the
   // parent detail stays mounted underneath). The read side lives in
   // `AppContent` (see its record-form URL contract).

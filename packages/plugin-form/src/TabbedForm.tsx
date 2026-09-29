@@ -21,7 +21,8 @@ import { buildSectionFields as buildSectionFieldsShared } from './sectionFields'
 import { seedCreateValues } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
-import { fieldWriteGate, gateFormFields } from './fieldWriteGate';
+import { closedFormAffordance, fieldWriteGate, gateFormFields } from './fieldWriteGate';
+import { ClosedAffordanceNotice } from './closedAffordanceNotice';
 import { snapshotLoadedRecord, advanceLoadedRecord, type LoadedRecordSnapshot } from './sanitize';
 import { formWritePayload } from './writePayload';
 import { applyAutoColSpan, containerGridColsFor } from './autoLayout';
@@ -650,6 +651,18 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
   return (
     <UploadGateProvider gate={uploadGate}>
     <div className={cn('w-full @container', className, schema.className)}>
+      {/* Why every field below is locked, when the lock is the form-wide one
+          (objectui#11000). */}
+      <ClosedAffordanceNotice
+        affordance={closedFormAffordance({
+          perms,
+          objectName: schema.objectName,
+          mode: schema.mode,
+          objectSchema,
+        })}
+        objectName={schema.objectName}
+        objectSchema={objectSchema}
+      />
       <SchemaRenderer
         schema={{
           type: 'form' as const,

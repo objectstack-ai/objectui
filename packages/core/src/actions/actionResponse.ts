@@ -77,7 +77,7 @@ export interface ActionResponseOutcome {
 export function readActionPayload(envelope: unknown): unknown {
     // objectstack#3962 servers single-wrap: `body.data` IS the handler value,
     // so most of the time this is the identity function. Only the exact LEGACY
-    // action envelope (pre-#3962: a boolean `success` and no keys beyond the
+    // action envelope (pre-objectstack-ai/objectstack#3962: a boolean `success` and no keys beyond the
     // envelope's own) is unwrapped one more level — a handler value that
     // merely contains a `success` key passes through untouched.
     if (isLegacyActionEnvelope(envelope)) {
@@ -107,7 +107,7 @@ export function interpretActionResponse(
     label: string,
 ): ActionResponseOutcome {
     const envelope = json?.data;
-    // Pre-#3962 servers reported a rejection as HTTP 200 with the inner
+    // Pre-objectstack-ai/objectstack#3962 servers reported a rejection as HTTP 200 with the inner
     // `{success:false, error}`; current servers answer a real status, which
     // `res.ok` catches first. Detected narrowly so a handler value that merely
     // contains `success: false` is not misread as a failure.

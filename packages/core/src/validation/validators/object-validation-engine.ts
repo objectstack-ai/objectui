@@ -608,7 +608,7 @@ export class ObjectValidationEngine {
    *   - no `initialStates` declared        → allow (legacy no-op)
    *   - field absent from the write        → allow (requiredness is not our job)
    *   - value empty                        → allow (ditto)
-   *   - value ∉ initialStates              → reject (the FSM entry point, #3165)
+   *   - value ∉ initialStates              → reject (the FSM entry point, objectstack-ai/objectstack#3165)
    *
    *   UPDATE
    *   - field absent from the write        → allow (no transition to police)

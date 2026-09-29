@@ -263,7 +263,7 @@ function useLookupName(
     typeof dataSource.find === 'function' &&
     (typeof value === 'string' || typeof value === 'number') &&
     value !== '';
-  // The preferred display field is part of the cache identity (#2926 ⑧). The
+  // The preferred display field is part of the cache identity (objectstack-ai/objectstack#2926 ⑧). The
   // entry now holds the record, not a name, so two columns with different
   // `displayField`s could share one; the key is left as it was so that this
   // change does not alter how many reads a screen makes.
@@ -2485,7 +2485,7 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
 
   // Explicit author-chosen display field on the lookup — beats every resolver.
   // ObjectGrid forwards `displayField` on the column meta (RELATIONAL_META_KEYS)
-  // the same way it forwards `reference` (#2926 ⑧).
+  // the same way it forwards `reference` (objectstack-ai/objectstack#2926 ⑧).
   const displayField =
     (field as { displayField?: string }).displayField ||
     (field as { reference_field?: string }).reference_field ||

@@ -13,6 +13,7 @@ import { join } from 'path';
 import { parse as parseJsonc, printParseErrorCode, type ParseError } from 'jsonc-parser';
 import { safeValidateSchema } from '@object-ui/types/zod';
 
+import { formatIssuePath } from '../utils/issue-path.js';
 import { isKnownSchemaType } from '../utils/known-schema-types.js';
 import { didYouMeanClause } from '../utils/known-type-case-suggestion.js';
 
@@ -98,6 +99,16 @@ const OBJECTUI_STRUCTURAL_KEYS: readonly string[] = [
  * `node_modules` rather than a URL fetched over HTTP.
  */
 
+/** The part of a Zod issue this command prints. */
+interface IssueLike {
+  path?: readonly PropertyKey[];
+  message: string;
+}
+
+type Recognition =
+  | { recognised: true; validated: boolean }
+  | { recognised: false; issues: readonly IssueLike[] };
+
 /**
  * Does this parsed file positively read as an ObjectUI schema (objectui#5127,
  * objectui#6075)?
@@ -139,11 +150,77 @@ const OBJECTUI_STRUCTURAL_KEYS: readonly string[] = [
  * hazard left to chance — it is the reason `check` reports a third bucket
  * rather than two (see `UNVALIDATED_CANDIDATE` below). A file that stops
  * validating stops being *judged*, but it does not stop being *mentioned*.
+ *
+ * The answer says WHICH arm admitted the file, because the two arms promise
+ * different things (objectui#11007). The validity arm parsed the whole
+ * document, nested nodes included. The structural arm parsed nothing: a page
+ * whose `children` hold a refused node is admitted on `children` alone. So a
+ * file the structural arm admitted is counted as "recognised but not
+ * validated", never as a pass. ⛔ Do not close that gap by parsing it here —
+ * the verdict on a document is `objectui validate`'s, and a second walk in
+ * this command would duplicate it (triage ruling on objectui#11007).
+ *
+ * A refusal carries the validator's issues from the parse the validity arm
+ * already ran, so the report below can name the first one without parsing
+ * the file a second time.
  */
-function isObjectUiSchemaFile(content: Record<string, unknown>): boolean {
+function recogniseObjectUiSchemaFile(content: Record<string, unknown>): Recognition {
+  if (OBJECTUI_STRUCTURAL_KEYS.some((key) => key in content)) {
+    return { recognised: true, validated: false };
+  }
+  const result = safeValidateSchema(content);
+  return result.success
+    ? { recognised: true, validated: true }
+    : { recognised: false, issues: result.error.issues };
+}
+
+/**
+ * The one line `check` prints under a file that did not validate: where the
+ * validator's first issue points, and what it says (objectui#11007).
+ *
+ * Only the first, and ⛔ no union-arm selection: the full diagnosis is
+ * `objectui validate`'s, and the report sends the reader there. The count is
+ * in the line so a reader who fixes this one issue knows whether it was the
+ * only one. The path is spelled by `formatIssuePath`, the formatter
+ * `objectui validate` prints its `Path:` lines with.
+ *
+ * `undefined` for an empty list, which a failed parse does not produce; the
+ * caller prints nothing rather than an invented reason.
+ */
+export function describeFirstIssue(issues: readonly IssueLike[]): string | undefined {
+  const [first] = issues;
+  if (first === undefined) return undefined;
+  const lead = issues.length === 1 ? 'Issue' : `First of ${issues.length} issues`;
+  return `${lead} at ${formatIssuePath(first.path)}: ${first.message}`;
+}
+
+/** What the closing line counts, one bucket per recognition outcome. */
+export interface CheckTally {
+  /** Recognised by the validity arm: the whole document parsed. */
+  validated: number;
+  /** Recognised by a structural root key: never parsed by this command. */
+  notValidated: number;
+  /** Refused by both arms, with a registered root `type`: listed by name. */
+  didNotValidate: number;
+}
+
+/**
+ * The line a run with no parse errors ends on (objectui#11007).
+ *
+ * It used to be 「✓ All checks passed」, printed over files this command never
+ * validated — a page whose nested node carries a refused key among them. An
+ * AI pipeline reads a line like that as a verdict. So the line states what was
+ * actually established, bucket by bucket, and sends the reader to
+ * `objectui validate` for the verdict. ⛔ It says nothing that reads as a pass.
+ *
+ * The exit code is unchanged: a run exits non-zero on unreadable JSON only.
+ */
+export function closingLine(tally: CheckTally): string {
   return (
-    OBJECTUI_STRUCTURAL_KEYS.some((key) => key in content) ||
-    safeValidateSchema(content).success
+    `ObjectUI schema files: ${tally.validated} validated, ` +
+    `${tally.notValidated} recognised but not validated, ` +
+    `${tally.didNotValidate} did not validate. ` +
+    'This sweep is advisory; run `objectui validate <file>` for a verdict.'
   );
 }
 
@@ -182,6 +259,13 @@ function isObjectUiSchemaFile(content: Record<string, unknown>): boolean {
  * skipped count into an unreported bucket would make the recall debt look
  * repaid while nothing had been repaid, which is the one outcome objectui#6075
  * names as unacceptable.
+ *
+ * Each entry also carries the validator's first issue (objectui#11007). A file
+ * name and a type are not actionable on their own: the root `object-map` with
+ * a mistyped `map` key was listed, and the key it was refused for was not.
+ * The issue comes from the parse the recogniser already ran. Printing it for
+ * THIS bucket only is what keeps it from flooding the report — a skipped file
+ * is foreign, and its parse failure says nothing about ObjectUI.
  */
 function isUnvalidatedCandidate(type: string): boolean {
   return isKnownSchemaType(type);
@@ -236,8 +320,16 @@ export async function check(cwd: string = process.cwd()) {
   // These are ObjectUI content that does not validate — a finding, not a
   // foreign file — so they are listed by name rather than folded into the
   // count above.
-  const unvalidatedCandidates: { file: string; type: string }[] = [];
-  
+  const unvalidatedCandidates: {
+    file: string;
+    type: string;
+    issues: readonly IssueLike[];
+  }[] = [];
+  // Recognised files, split by the arm that admitted them — the closing line
+  // reports them apart because only one arm validated anything (objectui#11007).
+  let validated = 0;
+  let notValidated = 0;
+
   for (const file of files) {
     try {
       // Basic JSON parsing check
@@ -284,17 +376,31 @@ export async function check(cwd: string = process.cwd()) {
             // Note this arm is reached for `.json` only, as the parse above
             // is. The glob also matches `.yaml`/`.yml`, and those files are
             // read by neither arm, before this change or after it.
-            if (!isObjectUiSchemaFile(content as Record<string, unknown>)) {
+            const recognition = recogniseObjectUiSchemaFile(
+              content as Record<string, unknown>
+            );
+            if (!recognition.recognised) {
               // Refused. Which of the two refusals is this? A file whose root
               // `type` names a registered component is ObjectUI content the
               // recogniser could not validate — say so. Everything else is
               // simply not ours.
               if (isUnvalidatedCandidate(content.type)) {
-                unvalidatedCandidates.push({ file, type: content.type });
+                unvalidatedCandidates.push({
+                  file,
+                  type: content.type,
+                  issues: recognition.issues,
+                });
               } else {
                 skipped++;
               }
-            } else if (!isKnownSchemaType(content.type)) {
+              continue;
+            }
+            if (recognition.validated) {
+              validated++;
+            } else {
+              notValidated++;
+            }
+            if (!isKnownSchemaType(content.type)) {
               // The known-type universe is DERIVED from the repository's
               // registration calls (see `packages/cli/src/utils/known-schema-types.ts`
               // and the script that writes it), not typed by hand. The array that
@@ -330,11 +436,17 @@ export async function check(cwd: string = process.cwd()) {
         `⚠️ ${n} file${n === 1 ? '' : 's'} carr${n === 1 ? 'ies' : 'y'} a registered ObjectUI component type but did not validate as an ObjectUI schema:`
       )
     );
-    for (const { file, type } of unvalidatedCandidates) {
+    for (const { file, type, issues } of unvalidatedCandidates) {
       console.log(chalk.yellow(`   ${file} (type "${type}")`));
+      // Indented under its file, so it reads as that file's reason and never
+      // as another entry (objectui#11007).
+      const firstIssue = describeFirstIssue(issues);
+      if (firstIssue !== undefined) {
+        console.log(chalk.yellow(`     ${firstIssue}`));
+      }
     }
     console.log(
-      chalk.dim('   Run `objectui validate <file>` on any of them for the reason.')
+      chalk.dim('   Run `objectui validate <file>` on any of them for the full diagnosis.')
     );
     console.log(
       chalk.dim(
@@ -378,7 +490,13 @@ export async function check(cwd: string = process.cwd()) {
   }
   
   if (errors === 0) {
-    console.log(chalk.green('✓ All checks passed'));
+    console.log(
+      closingLine({
+        validated,
+        notValidated,
+        didNotValidate: unvalidatedCandidates.length,
+      })
+    );
   } else {
     console.log(chalk.red(`Found ${errors} errors`));
     process.exit(1);

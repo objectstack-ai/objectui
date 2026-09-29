@@ -25,7 +25,8 @@ import { buildSectionFields as buildSectionFieldsShared } from './sectionFields'
 import { seedCreateValues, isCreateFormMode } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
-import { fieldWriteGate, gateFormFields } from './fieldWriteGate';
+import { closedFormAffordance, fieldWriteGate, gateFormFields } from './fieldWriteGate';
+import { ClosedAffordanceNotice } from './closedAffordanceNotice';
 import { snapshotLoadedRecord, advanceLoadedRecord, type LoadedRecordSnapshot } from './sanitize';
 import { formWritePayload } from './writePayload';
 import { applyAutoColSpan, containerGridColsFor } from './autoLayout';
@@ -718,6 +719,20 @@ export const WizardForm: React.FC<WizardFormProps> = ({
     [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, schema.customFields, fieldLabel, perms],
   );
 
+  // objectui#11000 — the affordance the lock above found CLOSED for this
+  // wizard's mode (`create`, or `edit` on an edit wizard), read from the same
+  // predicate that disabled every field. A user it answers for cannot submit,
+  // so the wizard does not walk them on: Next and the final submit are
+  // disabled, the indicator does not jump forward, and a step submit that
+  // arrives anyway (the keyboard) is not taken. Cancel and Back stay usable,
+  // every step stays shown, and the notice says why.
+  const closedAffordance = closedFormAffordance({
+    perms,
+    objectName: schema.objectName,
+    mode: schema.mode,
+    objectSchema,
+  });
+
   // The same "no persisted record" test the seeding and the create-mode
   // `required` suppression use, so this wizard cannot be seeded as a create
   // form and gated as an edit one.
@@ -824,6 +839,10 @@ export const WizardForm: React.FC<WizardFormProps> = ({
 
   // Handle step data collection (merge partial data into formData)
   const handleStepSubmit = useCallback(async (stepData: Record<string, any>) => {
+    // objectui#11000 — Next and the final submit are disabled while the
+    // affordance is closed; this is the guard for a submit that arrives
+    // without them. Nothing is merged, advanced or written.
+    if (closedAffordance) return;
     const mergedData = { ...formData, ...stepData };
     setFormData(mergedData);
     // An answer that differs from what the wizard held is unsaved input the
@@ -1067,7 +1086,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
       // Move to next step
       goToStep(currentStep + 1);
     }
-  }, [formData, currentStep, isLastStep, schema, objectSchema, dataSource, perms, missingRequiredByStep, t, saveWithOcc, uploadGate.uploading, uploadGate.reason, reportUnsavedInput, recordSaved]);
+  }, [closedAffordance, formData, currentStep, isLastStep, schema, objectSchema, dataSource, perms, missingRequiredByStep, t, saveWithOcc, uploadGate.uploading, uploadGate.reason, reportUnsavedInput, recordSaved]);
 
   // Navigation
   const goToStep = useCallback((step: number) => {
@@ -1089,11 +1108,21 @@ export const WizardForm: React.FC<WizardFormProps> = ({
     }
   }, [schema]);
 
+  // Which steps the indicator may open: any step up to the current one, and a
+  // later step only through `allowSkip` or a completed step — never while the
+  // affordance is closed (objectui#11000), where a jump forward would walk the
+  // user through steps they cannot submit.
+  const canOpenStep = useCallback(
+    (step: number) =>
+      step <= currentStep || (!closedAffordance && (!!schema.allowSkip || completedSteps.has(step))),
+    [currentStep, closedAffordance, schema.allowSkip, completedSteps],
+  );
+
   const handleStepClick = useCallback((step: number) => {
-    if (schema.allowSkip || completedSteps.has(step) || step <= currentStep) {
+    if (canOpenStep(step)) {
       goToStep(step);
     }
-  }, [schema.allowSkip, completedSteps, currentStep, goToStep]);
+  }, [canOpenStep, goToStep]);
 
   if (error) {
     return (
@@ -1166,7 +1195,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
             {schema.sections.map((section, index) => {
               const isActive = index === currentStep;
               const isCompleted = completedSteps.has(index);
-              const isClickable = schema.allowSkip || isCompleted || index <= currentStep;
+              const isClickable = canOpenStep(index);
               // The last submit found a required field outstanding on this step.
               const hasError = invalidSteps.has(index);
 
@@ -1244,6 +1273,14 @@ export const WizardForm: React.FC<WizardFormProps> = ({
           </ol>
         </nav>
       )}
+
+      {/* Why every field below is locked, when the lock is the form-wide one
+          (objectui#11000). */}
+      <ClosedAffordanceNotice
+        affordance={closedAffordance}
+        objectName={schema.objectName}
+        objectSchema={objectSchema}
+      />
 
       {/* Current Step Content */}
       <div className="min-h-[200px]">
@@ -1350,7 +1387,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
             <Button
               type="submit"
               form={stepFormId}
-              disabled={submitting || schema.mode === 'view' || uploadGate.uploading}
+              disabled={submitting || schema.mode === 'view' || uploadGate.uploading || !!closedAffordance}
             >
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
               {uploadGate.uploading
@@ -1363,6 +1400,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
             <Button
               type="submit"
               form={stepFormId}
+              disabled={!!closedAffordance}
             >
               {schema.nextText || t('common.next')}
               <ChevronRight className="h-4 w-4 ml-1" />

@@ -89,7 +89,7 @@ export interface DataFetcher {
    *
    * Optional because most fetchers only read records. A fetcher WITHOUT it
    * cannot honour a named view, and {@link ViewDataProvider.resolveElementDataSource}
-   * says so in `error` rather than dropping the key — the whole point of #5576
+   * says so in `error` rather than dropping the key — the whole point of objectstack-ai/objectstack#5576
    * is that a `view` the runtime cannot apply must never look applied.
    *
    * Either shape stored views come in is accepted: a map keyed by view id, or

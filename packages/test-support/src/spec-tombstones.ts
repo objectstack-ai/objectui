@@ -19,7 +19,7 @@
  *
  * on purpose: a deleted key would be SILENTLY STRIPPED by a non-strict parse,
  * while a `never` member fails `tsc` at the authoring site and raises the
- * upgrade prescription itself on parse (upstream #3855 / ADR-0104). The removal
+ * upgrade prescription itself on parse (upstream objectstack-ai/objectstack#3855 / ADR-0104). The removal
  * has to be audible, so the entry stays.
  *
  * The consequence for a consumer is the whole reason this module exists: a

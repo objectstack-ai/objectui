@@ -153,7 +153,7 @@ export function resolveFormViewLayout(
 }
 
 /**
- * Result of the post-create-save navigation decision (#2604 save invariant:
+ * Result of the post-create-save navigation decision (objectstack-ai/objectstack#2604 save invariant:
  * *create takes you to the record you made*). `kind: 'none'` means stay put
  * (no usable record id came back from the save).
  */
@@ -162,7 +162,7 @@ export type PostCreateTarget =
   | { kind: 'detail-page' | 'detail-drawer'; url: string };
 
 /**
- * Decide where a CREATE save lands (#2604): the new record's detail, on the
+ * Decide where a CREATE save lands (objectstack-ai/objectstack#2604): the new record's detail, on the
  * record's own derived surface.
  *
  *   - `surface: 'page'` (field-heavy) → the detail ROUTE

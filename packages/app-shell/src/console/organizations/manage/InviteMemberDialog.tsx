@@ -48,7 +48,7 @@ export function InviteMemberDialog({
   const { t } = useObjectTranslation();
   const { inviteMember, describeDelegableScope, activeMember } = useAuth();
 
-  // [framework #3697] The roles this issuer may actually confer. Mirrors the
+  // [objectstack-ai/objectstack#3697] The roles this issuer may actually confer. Mirrors the
   // server's invitation role cap — a below-admin issuer (e.g. a
   // `delegated_admin`) may invite as `member` only, and nobody may invite above
   // their own grade. Same property as the placement picker below: it NARROWS,

@@ -4,12 +4,12 @@
  * FlowRunsPanel — run history for a flow, fetched from the automation engine
  * (`GET /api/v1/automation/{name}/runs`, the observability surface next to
  * resume/screen). Renders each run's status / start time / duration with an
- * expandable step log (the `ExecutionLog.steps` ADR-0019/#1479 shape). Body
+ * expandable step log (the `ExecutionLog.steps` ADR-0019 / objectstack-ai/objectstack#1479 shape). Body
  * steps that ran inside a structured control-flow region — a `loop` iteration,
  * a `parallel` branch, or a `try`/`catch` handler — are nested under their
- * container node and grouped by iteration / branch (#1505), so authors can see
+ * container node and grouped by iteration / branch (objectstack-ai/objectstack#1505), so authors can see
  * where a run paused or failed *and which iteration did it*, without leaving the
- * Studio. A step may also carry advisory `warnings` (#3407) — e.g. a write to a
+ * Studio. A step may also carry advisory `warnings` (objectstack-ai/objectstack#3407) — e.g. a write to a
  * `readonly` field the data layer legally stripped — rendered amber beneath the
  * step without demoting its `success` status.
  *
@@ -37,7 +37,7 @@ interface RunStep {
   status: 'success' | 'failure' | 'skipped' | string;
   durationMs?: number;
   error?: RunError;
-  // #1505: structured-region grouping. A step that ran inside a `loop` /
+  // objectstack-ai/objectstack#1505: structured-region grouping. A step that ran inside a `loop` /
   // `parallel` / `try_catch` body region is tagged by the engine with its
   // immediate container so the panel can nest it, instead of showing the
   // container as one opaque step. Absent on top-level (main-graph) steps.
@@ -48,7 +48,7 @@ interface RunStep {
   branch?: number;
   /** Region kind the step ran in: `loop-body` | `parallel-branch` | `try` | `catch`. */
   regionKind?: string;
-  // #3407: advisory warnings the engine attaches to an otherwise-successful step
+  // objectstack-ai/objectstack#3407: advisory warnings the engine attaches to an otherwise-successful step
   // — e.g. an `update_record` whose write to a `readonly` / `readonlyWhen` field
   // was legally stripped by the data layer. The step still `success`es (the strip
   // is legitimate semantics); the warning is the only signal the intended write
@@ -91,7 +91,7 @@ export function errorText(e: RunError | undefined | null): string | undefined {
 
 /**
  * Reconstruct the execution tree from the engine's flat, pre-order step log
- * (#1505). Each step carries its **immediate** structured-region container in
+ * (objectstack-ai/objectstack#1505). Each step carries its **immediate** structured-region container in
  * `parentNodeId`; the container's own step always precedes its body steps in the
  * array, and a whole region's steps are contiguous (the engine appends
  * `NodeExecutionResult.childSteps` in one shot). A stack walk therefore rebuilds
@@ -169,7 +169,7 @@ export function parallelBranchIndex(step: RunStep): ParallelBranchIndex {
 }
 
 /**
- * Human label for a body step's enclosing region (#1505). `loop-body` carries a
+ * Human label for a body step's enclosing region (objectstack-ai/objectstack#1505). `loop-body` carries a
  * zero-based `iteration`, `parallel-branch` a zero-based `branch` plus the
  * enclosing loop's `iteration` when it has one (read by
  * {@link parallelBranchIndex}), each surfaced 1-based; `try`/`catch` carry only
@@ -289,7 +289,7 @@ function StepRow({ step, depth = 0 }: { step: RunStep; depth?: number }) {
         ? 'text-rose-600 dark:text-rose-400'
         : 'text-muted-foreground';
   const stepErr = errorText(step.error);
-  // #3407: advisory warnings are amber and never recolor the status — a step
+  // objectstack-ai/objectstack#3407: advisory warnings are amber and never recolor the status — a step
   // that legally stripped a write is still a `success`, just not silent. The
   // status badge keeps its tone; the ⚠ marker and the amber sub-lines below
   // carry the "your write didn't fully land" signal.
@@ -346,7 +346,7 @@ function RegionHeader({ label, depth }: { label: string; depth: number }) {
 }
 
 /** Render a step and, nested beneath it, its structured-region body steps —
- *  grouped by iteration / branch / handler (#1505). Recurses for nested regions. */
+ *  grouped by iteration / branch / handler (objectstack-ai/objectstack#1505). Recurses for nested regions. */
 function StepNode({ node, depth, locale }: { node: StepTreeNode; depth: number; locale?: string }) {
   const groups = node.children.length > 0 ? groupChildren(node.children, locale) : [];
   return (

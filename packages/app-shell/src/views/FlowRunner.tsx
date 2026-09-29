@@ -397,7 +397,7 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
     // declared list. A `visibleWhen` field that is required *when shown* is not
     // required while hidden — the user was never asked for it, and the flow is
     // not waiting on it. Validating the full list here is what dead-ended
-    // #3528: HotCRM's lead conversion declares `opportunityName` required with
+    // objectstack-ai/objectstack#3528: HotCRM's lead conversion declares `opportunityName` required with
     // `visibleWhen: createOpportunity == true`, so leaving the checkbox
     // unticked blocked Submit on an input that was not on screen, and the run
     // sat paused with no resume request ever issued.

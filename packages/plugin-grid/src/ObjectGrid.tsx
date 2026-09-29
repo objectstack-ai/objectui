@@ -1624,7 +1624,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // real match total + page controls. We must forward those straight to DataTable
   // instead of client-slicing the window — otherwise the footer would report
   // "pages = window / pageSize" and records beyond the window stay unreachable
-  // (framework #2212). `data` is a prop, and so are these — all declared on
+  // (objectstack-ai/objectstack#2212). `data` is a prop, and so are these — all declared on
   // `ObjectGridExternalPaginationProps` since #4277.
   const externalManualPagination =
     hostManualPagination === true &&
@@ -5075,7 +5075,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
    * sort state as, and what it EMITS back to whoever persists it. A stale
    * entry is inert on arrival and is dropped the first time anything writes
    * the sort back. Only under a served projection — with no signal there is no
-   * verdict to filter by, and the pre-#10235 behaviour stands unchanged.
+   * verdict to filter by, and the pre-objectstack-ai/objectstack#10235 behaviour stands unchanged.
    */
   const rawManualSort: TableSortItem[] = externalManualPagination
     ? (hostSort ?? [])

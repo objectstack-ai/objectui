@@ -8,7 +8,8 @@
  * `manifest ID` is jargon to a customer, and English inside the Chinese line.
  * The zh pack now reads 「按名称或标识搜索应用…」 — 标识 being the identifier each
  * card prints under its name (the `manifest_id` code), which is the vocabulary
- * the zh pack already uses for identifiers. `en` is unchanged.
+ * the zh pack already uses for identifiers. `en` and the eight other packs
+ * dropped the same jargon in objectui#10969: `en` now names the "app ID".
  *
  * The placeholder is only honest if the search matches what it names, so this
  * suite measures that too, through the page's own filter: the display name and
@@ -101,10 +102,11 @@ describe('MarketplacePage search placeholder (objectui#10900)', () => {
     expect(search.getAttribute('placeholder')).not.toMatch(/manifest/i);
   });
 
-  it('en: unchanged English', async () => {
+  it('en: plain English, no manifest jargon (objectui#10969)', async () => {
     renderIn(EN);
     const search = await screen.findByLabelText('Search marketplace apps');
-    expect(search).toHaveAttribute('placeholder', 'Search apps by name or manifest ID…');
+    expect(search).toHaveAttribute('placeholder', 'Search apps by name or app ID…');
+    expect(search.getAttribute('placeholder')).not.toMatch(/manifest/i);
   });
 
   it('the search matches the name and the identifier the placeholder names', async () => {

@@ -165,7 +165,7 @@ export interface BaseSchema {
    * call a hook, `BridgeContext` declares no locale, and `updateContext()` has
    * zero callers — so a bridge-resolved label would freeze one audience's
    * language into the node tree with no re-translation channel, the defect the
-   * spec's own resolver doc records as #6761.
+   * spec's own resolver doc records as objectstack-ai/objectstack#6761.
    *
    * @example "Submit"
    * @example { en: 'Submit', 'zh-CN': '提交' }

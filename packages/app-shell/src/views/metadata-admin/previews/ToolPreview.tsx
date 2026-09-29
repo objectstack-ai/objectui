@@ -22,7 +22,7 @@
  * for end-to-end testing — see `ApiConsoleLink` below for where it points
  * and what it carries (objectui#10591).
  *
- * NO FLAG PILLS — deliberate (objectstack#3715 / #3896, objectui#3236).
+ * NO FLAG PILLS — deliberate (objectstack#3715 / objectstack-ai/objectstack#3896, objectui#3236).
  * The header strip used to render `requiresConfirmation`, `active`,
  * `builtIn` and `category`. All four were removed from the spec's
  * `ToolSchema`, which is now `.strict()` and rejects them by name with an

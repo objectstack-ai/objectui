@@ -14,7 +14,7 @@
  * extra dependencies, and built-in accessibility.
  *
  * Four kinds carry a stronger contract than suggest-and-allow-anything
- * (framework #3508): the directory-backed kinds (`user`/`team`/`department`/
+ * (objectstack-ai/objectstack#3508): the directory-backed kinds (`user`/`team`/`department`/
  * `position`) render a record lookup against the data API (with a manual-entry
  * escape hatch, so the never-trap rule still holds), `org-membership-level` is
  * a strict select over a closed enum, `manager` is auto-resolved (disabled
@@ -70,7 +70,7 @@ interface Option {
  * backed by DATA records, not the metadata registry: they used to map here,
  * so the picker queried `GET /api/v1/meta/user` (which lists no `sys_user`
  * rows), came back empty, and silently degraded to a free-text id box
- * (framework #3508). They live in {@link KIND_TO_RECORD_LOOKUP} instead.
+ * (objectstack-ai/objectstack#3508). They live in {@link KIND_TO_RECORD_LOOKUP} instead.
  */
 const KIND_TO_META_TYPE: Partial<Record<ReferenceKind, string>> = {
   object: 'object',
@@ -82,7 +82,7 @@ const KIND_TO_META_TYPE: Partial<Record<ReferenceKind, string>> = {
 /**
  * Reference kinds backed by DATA records in the system directory objects —
  * mirrors `APPROVER_VALUE_BINDINGS` in `@objectstack/spec` (automation/
- * approval.zod.ts, framework #3508; import it once a published ^16 release
+ * approval.zod.ts, objectstack-ai/objectstack#3508; import it once a published ^16 release
  * carries the export). The approval engine resolves these against records,
  * so the designer offers a record lookup through the DataSource adapter.
  *
@@ -135,7 +135,7 @@ const RECORD_LOOKUP_PRESENTATION = {
  * registry, which holds no `sys_user` / `sys_team` / `sys_business_unit` /
  * `sys_position` ROWS, so candidates came back empty, the control degraded to
  * free text, and `sales_manager` got typed into a field that accepts three
- * values (framework #3508). Spec answered by publishing the binding with a
+ * values (objectstack-ai/objectstack#3508). Spec answered by publishing the binding with a
  * `satisfies` that makes an undeclared `ApproverType` a compile error; reading
  * it here is what finally carries that guarantee across the repo boundary.
  *
@@ -167,7 +167,7 @@ export const KIND_TO_RECORD_LOOKUP: Partial<Record<ReferenceKind, RecordLookupBi
  * used to map to `client.list('role')`, but ADR-0090 D3 removed the `role`
  * metadata type, so that call returned nothing and the picker silently
  * degraded to a free-text box — which is how `sales_manager` got typed into a
- * closed enum. The tier renders as a STRICT select (framework #3508); free
+ * closed enum. The tier renders as a STRICT select (objectstack-ai/objectstack#3508); free
  * text would re-open the same trap.
  *
  * This list used to be hand-spelled `owner` / `admin` / `member` under a
@@ -488,7 +488,7 @@ function useConnectorListOptions(enabled: boolean, locale: SupportedLocale): { o
 
 /**
  * A single-select RECORD lookup cell for the directory-backed reference kinds
- * (framework #3508). Wraps `@object-ui/fields` LookupField with the app-shell
+ * (objectstack-ai/objectstack#3508). Wraps `@object-ui/fields` LookupField with the app-shell
  * adapter as its DataSource — the same pattern `AccessExplainPanel` and
  * `AssignedUsersSection` already use to pick `sys_user` rows inside metadata
  * editing (ADR-0072: the picker only offers references that actually resolve).
@@ -617,7 +617,7 @@ export interface ReferenceComboboxProps {
  * directory-backed kinds render a record lookup ({@link RecordLookupCell}),
  * `org-membership-level` a strict select (closed enum), `manager` a disabled
  * auto-resolved cell, and `queue` free text with a not-supported warning
- * (framework #3508). Hooks are called unconditionally (kind-gated args) so the
+ * (objectstack-ai/objectstack#3508). Hooks are called unconditionally (kind-gated args) so the
  * component is safe to use in a repeater where the kind changes per row.
  */
 export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect, disabled, placeholder, context, showHint = true }: ReferenceComboboxProps) {
@@ -682,7 +682,7 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
   // ── Kinds with a stronger contract than suggest-and-allow-anything ──────
   // (All hooks above have already run — the branches below only render.)
 
-  // Directory-backed kinds → single-select record lookup (framework #3508).
+  // Directory-backed kinds → single-select record lookup (objectstack-ai/objectstack#3508).
   // The object + committed column come from the schema when the server
   // publishes them, so this package no longer decides where the engine's
   // approvers live — see `recordLookupFor`.
@@ -751,7 +751,7 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
     );
   }
 
-  // Declared-but-unenforced (framework #3508): the runtime has no queue
+  // Declared-but-unenforced (objectstack-ai/objectstack#3508): the runtime has no queue
   // resolution, so a stored value keeps its free-text cell but carries a
   // warning — rendered regardless of `showHint` because the slot silently
   // routes to nobody. New rows can no longer choose this type.

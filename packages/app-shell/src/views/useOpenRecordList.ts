@@ -19,7 +19,7 @@ import { serializeDrillFilterParams } from './drillUrlFilters.js';
  * Navigates to the object's ADR-0055 bare data surface, scoped by a record
  * filter, using the console's `/apps/:appName/:object/data?filter[...]` route
  * shape. Equality dims serialize to `filter[field]=value`; a date-bucket drill's
- * range serializes to `filter[field][gte]=…&filter[field][lt]=…` (#1752). Wire it
+ * range serializes to `filter[field][gte]=…&filter[field][lt]=…` (objectstack-ai/objectstack#1752). Wire it
  * into a `DrillNavigationProvider` so the dashboard/report drill drawers can offer
  * "Open in list →" and honor `drillDown.target: 'navigate'`.
  *
@@ -73,12 +73,12 @@ export function useOpenRecordList(): (objectName: string, filter?: Record<string
     (objectName: string, filter?: Record<string, unknown>) => {
       // Expand EVERY placeholder vocabulary in one call — date macros and
       // session tokens. Calling only one of the two is the defect this helper
-      // exists to prevent (framework #3574): `{today}` would work and
+      // exists to prevent (objectstack-ai/objectstack#3574): `{today}` would work and
       // `{current_user_id}` would silently not.
       const runtimeFilter = resolveFilterPlaceholders(filter, filterScope);
       // A date-bucket drill carries an ObjectQL range operator object
       // (`{ $gte, $lt }`); the shared serializer emits it as `filter[field][gte|lt]`
-      // (never "[object Object]"). Equality dims stay `filter[field]=value` (#1752).
+      // (never "[object Object]"). Equality dims stay `filter[field]=value` (objectstack-ai/objectstack#1752).
       const qs = serializeDrillFilterParams(runtimeFilter).toString();
       const base = appName ? `/apps/${appName}` : '';
       // ADR-0055 bare data surface (`/:object/data`): "the URL is the view" — no

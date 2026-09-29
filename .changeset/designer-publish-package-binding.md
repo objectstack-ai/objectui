@@ -27,3 +27,8 @@ narrowing at the runtime publish gate fire on an HTTP-driven promotion at all. T
 narrowing has a second, independent gate this does not touch — objects carrying no
 `_packageId` provenance are kept unconditionally — so on a tenant-authored overlay
 corpus stating the package still narrows nothing.
+
+⚠️ **Dated note, 2026-09-29 — the publish-gate narrowing is an objectstack card — objectui#11016.** The last paragraph
+names the package-closure narrowing by a bare number, which in this repository
+resolves to an unrelated objectui pull request. It is
+objectstack-ai/objectstack#9612, the runtime publish gate's rule snapshot. The text above is kept as the reading of this change.

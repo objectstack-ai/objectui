@@ -34,7 +34,7 @@ export interface UseFlowScopeResult {
   /** Flat, de-duplicated ref list (all groups). */
   refs: ScopeRef[];
   /**
-   * #3447: the picker groups for an approval node's `expression` APPROVER,
+   * objectstack-ai/objectstack#3447: the picker groups for an approval node's `expression` APPROVER,
    * whose closed root set differs from a flow condition's — `current.<field>`
    * (live record at node entry), `trigger.<field>` (submit-time snapshot) and
    * `vars.*` (flow variables / upstream outputs, prefix-mapped). `record.*`
@@ -61,7 +61,7 @@ export interface UseFlowScopeResult {
   isEmpty: boolean;
 }
 
-// The REGULAR picker's sections — the approval_* group ids (#3447) never
+// The REGULAR picker's sections — the approval_* group ids (objectstack-ai/objectstack#3447) never
 // appear here; they ride the separately-emitted approvalExpressionGroups.
 // Each heading is a catalogue key, resolved in the designer locale
 // (objectui#10748).
@@ -109,7 +109,7 @@ export function useFlowScope(
       refs: refs.filter((r) => r.group === id),
     })).filter((g) => g.refs.length > 0);
 
-    // #3447: approval-expression picker groups, built from the same materials.
+    // objectstack-ai/objectstack#3447: approval-expression picker groups, built from the same materials.
     // Trigger-object fields expand under BOTH times (current/trigger); the
     // graph-walk refs (variables / upstream outputs / loop items) re-home
     // under the `vars.` prefix. Trigger-group refs (record.<f>, previous.<f>,

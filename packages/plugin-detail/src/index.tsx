@@ -503,7 +503,7 @@ ComponentRegistry.register('details', RecordDetailsRenderer, {
   // validate, not one the contract quietly throws away — the same trap as
   // declaring a top-level `readonly` on `record:highlights` below. The
   // renderer tolerating it is not a licence to teach it. (This said "STRIPS"
-  // until objectui#7127: that was the pre-#4001-batch-A behaviour the spec's
+  // until objectui#7127: that was the pre-objectstack-ai/objectstack#4001-batch-A behaviour the spec's
   // own refusal message still recounts, and the `layout` paragraph above
   // already said `rejects`.)
   //
@@ -658,7 +658,7 @@ ComponentRegistry.register('highlights', RecordHighlightsRenderer, {
   // trusted that surface would be left with the machine-owned column still
   // hand-editable and their page refused by the contract wherever it is
   // parsed. (This said "strips the unknown key on parse without error" until
-  // objectui#7127: the pre-#4001-batch-A behaviour, the same stale claim the
+  // objectui#7127: the pre-objectstack-ai/objectstack#4001-batch-A behaviour, the same stale claim the
   // `record:details` block above carried.) `ComponentInput.of` carries a member
   // KIND and nothing finer (objectui#8067), so an array input publishes its
   // member KEYS in prose, the same way `record:path.stages` and

@@ -84,7 +84,7 @@ interface JsonSchemaNode {
     kindFrom?: string;
     map?: Record<string, string>;
     /**
-     * Per-discriminator data contract (framework #3508 follow-up): where each
+     * Per-discriminator data contract (objectstack-ai/objectstack#3508 follow-up): where each
      * kind's candidates live and which column the picker commits. `map` names
      * only a picker KIND, which is how this package came to query the metadata
      * REGISTRY for data records; with `sources` the designer reads the answer
@@ -116,7 +116,7 @@ const REFERENCE_KINDS: ReadonlySet<string> = new Set<ReferenceKind>([
   'queue',
   'department',
   // Auto-resolved approver (submitter's manager) — renders as a disabled
-  // cell, not a picker (framework #3508). Listed so the spec's xRef map entry
+  // cell, not a picker (objectstack-ai/objectstack#3508). Listed so the spec's xRef map entry
   // survives validation; an older designer without it just degraded to text.
   'manager',
   'connector',

@@ -31,7 +31,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { check } from '../commands/check.js';
+import { check, closingLine } from '../commands/check.js';
 
 let cwd: string;
 let lines: string[];
@@ -112,7 +112,11 @@ describe('objectui check — `.json` is read as JSONC', () => {
     await check(cwd);
 
     expect(parseErrorLines()).toEqual([]);
-    expect(plainLines()).toContain('✓ All checks passed');
+    // The no-error close (objectui#11007): a tsconfig has no root `type`, so
+    // nothing was recognised and every bucket is empty.
+    expect(plainLines()).toContain(
+      closingLine({ validated: 0, notValidated: 0, didNotValidate: 0 })
+    );
     expect(exitCodes).toEqual([]);
   });
 
@@ -217,7 +221,11 @@ describe('objectui check — the unknown-type warning arm is untouched (objectui
 
     expect(unknownTypeWarnings()).toHaveLength(1);
     expect(unknownTypeWarnings()[0]).toContain('Unknown schema type "totally-made-up-xyz"');
-    expect(plainLines()).toContain('✓ All checks passed');
+    // The no-error close, counting the file its `className` admitted without
+    // a parse (objectui#11007).
+    expect(plainLines()).toContain(
+      closingLine({ validated: 0, notValidated: 1, didNotValidate: 0 })
+    );
     expect(exitCodes).toEqual([]);
   });
 

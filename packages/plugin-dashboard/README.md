@@ -388,8 +388,10 @@ into each bound widget's inline query (`AND`-combined with the widget's own
       "type": "select",             // text | select | date | number | lookup
       // Canonical @objectstack/spec pair form — the only form the platform
       // accepts at publish, and the only form `@object-ui/types` validates
-      // (objectui#7759). The bare-string shorthand (["EMEA", …]) is
-      // deprecated: a STORED one is still lifted at runtime, and warns (objectui#4356).
+      // (objectui#7759). The bare-string shorthand (["EMEA", …]) is NOT
+      // accepted: the runtime no longer lifts it (objectui#4356) — a bare member
+      // yields no option, and a dev-mode warning names it. Rewrite each X as
+      // { "value": X, "label": X }.
       "options": [
         { "value": "EMEA", "label": "EMEA" },
         { "value": "APAC", "label": "APAC" },

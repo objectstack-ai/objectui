@@ -443,7 +443,7 @@ function savedViewColumns(view: ElementSavedView | null | undefined): unknown {
  *
  * Pure — the caller resolves the view (see {@link resolveSavedView}) and owns
  * the "named a view that does not exist" decision. Passing `undefined` /`null`
- * for `view` composes a binding with no view, which is exactly the pre-#5576
+ * for `view` composes a binding with no view, which is exactly the pre-objectstack-ai/objectstack#5576
  * behaviour for the other four keys.
  *
  * See the module doc for the per-key rule table; `filter` is the only key that

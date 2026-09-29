@@ -326,7 +326,7 @@ export interface ImportWizardProps {
   /** Override the storage backend (defaults to window.localStorage). Use this
    *  to disable persistence (`null`) or to inject an in-memory store in tests. */
   templateStorage?: ImportTemplateStorage | null;
-  /** Registered server-side import mappings for this object (framework #2611).
+  /** Registered server-side import mappings for this object (objectstack-ai/objectstack#2611).
    *  When omitted, the wizard fetches them via `dataSource.listImportMappings`
    *  (feature-detected). Pass explicitly to override / for tests. */
   savedMappings?: SavedMapping[];
@@ -591,7 +591,7 @@ function assembleImportRequest(
     skipBlankMatchKey: boolean;
     dryRun?: boolean;
     /** When set, the server resolves this registered mapping and owns the
-     *  rename + transform + write semantics (framework #2611). `rows` must
+     *  rename + transform + write semantics (objectstack-ai/objectstack#2611). `rows` must
      *  then carry SOURCE headers (see buildSourceRows), and the inline
      *  column mapping / write-mode are omitted — mutually exclusive per the
      *  server contract. `runAutomations` is still honored. */
@@ -975,7 +975,7 @@ const TemplateBar: React.FC<{
   );
 };
 
-/** Selector for a registered server-side import mapping (framework #2611).
+/** Selector for a registered server-side import mapping (objectstack-ai/objectstack#2611).
  *  Picking one hands rename + transforms to the server; the manual column
  *  table is replaced by a read-only summary of the artifact. */
 const SavedMappingBar: React.FC<{
@@ -1637,7 +1637,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const [runAutomations, setRunAutomations] = useState(true);
   // Default OFF (opt-in): a normal import must still walk the state machine —
   // only an explicit "historical" import skips it so mid-lifecycle rows aren't
-  // rejected by initialStates (framework #3479). The strict behavior is the default.
+  // rejected by initialStates (objectstack-ai/objectstack#3479). The strict behavior is the default.
   const [treatAsHistorical, setTreatAsHistorical] = useState(false);
   const [skipBlankMatchKey, setSkipBlankMatchKey] = useState(false);
   // Opt-in: route this import through a background job even when the row count
@@ -1704,7 +1704,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   // Re-hydrate templates if the storage backend or key changes.
   useEffect(() => { setTemplates(loadTemplates(storage, storageKey)); }, [storage, storageKey]);
 
-  // ── Server-registered import mappings (framework #2611) ─────────────
+  // ── Server-registered import mappings (objectstack-ai/objectstack#2611) ─────────────
   // The reusable, governed alternative to hand-building the column mapping.
   // Supplied via prop, or fetched from the adapter (feature-detected; a data
   // source without the method simply yields none, hiding the selector).

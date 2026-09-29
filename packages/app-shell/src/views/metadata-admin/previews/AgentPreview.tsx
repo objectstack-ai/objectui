@@ -13,7 +13,7 @@
  *
  * NOT shown — `agent.tools` and `agent.knowledge` (objectui#3275).
  * Both are `retiredKey()` tombstones in `@objectstack/spec` 17
- * (objectstack#3894 / #3896): `AgentSchema` rejects them BY NAME, so a
+ * (objectstack#3894 / objectstack-ai/objectstack#3896): `AgentSchema` rejects them BY NAME, so a
  * draft carrying either cannot be saved. This preview used to read both
  * and paint a TOOLS chip strip plus a `KNOWLEDGE (RAG)` block, which told
  * the author their draft was fine right up until publish refused it —

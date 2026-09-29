@@ -43,6 +43,13 @@ parses against the schema a file whose root carries a structural key (`children`
 not validate, without naming the missing field, and it exits non-zero on
 unreadable JSON only. The refusal is `objectui validate`'s.
 
+⚠️ **Dated note, 2026-09-29 — objectui#11007.** The note above says `check`
+lists such a file "without naming the missing field". It now prints the file's
+first issue under it, path and message, so the missing field is named there
+when it is the first issue. `check` still never parses a file admitted by a
+structural key, and still exits non-zero on unreadable JSON only: the refusal
+is still `objectui validate`'s.
+
 **This is a `declared = enforced` restoration, not new requiredness.**
 `getGanttConfig`'s block branch already fed the block to
 `GanttConfigSchema.safeParse` and logged `[ObjectGantt] Invalid gantt

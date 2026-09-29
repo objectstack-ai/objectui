@@ -88,10 +88,10 @@ export const RECORD_DRAWER_PARAM = 'recordId';
 /** Global record-form overlay: `new` | `<recordId>` (framework#2604). */
 export const RECORD_FORM_PARAM = 'form';
 
-/** Child-task object override for the record-form overlay (#2604 D3). */
+/** Child-task object override for the record-form overlay (objectstack-ai/objectstack#2604 D3). */
 export const RECORD_FORM_OBJECT_PARAM = 'formObject';
 
-/** Child-task parent pre-link `"<fkField>:<parentId>"` (#2604 D3). */
+/** Child-task parent pre-link `"<fkField>:<parentId>"` (objectstack-ai/objectstack#2604 D3). */
 export const RECORD_FORM_LINK_PARAM = 'formLink';
 
 /** Active record-detail tab (objectui#2257; stable semantic values). */

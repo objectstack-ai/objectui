@@ -1257,7 +1257,7 @@ ComponentRegistry.register('section', PageSectionRenderer, {
 /**
  * One-time diagnostics for header-action `visible` / `hidden` predicates
  * (#2358). Warn-once per (action, predicate) pair so re-renders don't spam the
- * console, mirroring ActionEngine's `warnHiddenPredicate` (#2183).
+ * console, mirroring ActionEngine's `warnHiddenPredicate` (objectstack-ai/objectstack#2183).
  *
  * The *fault* half of these diagnostics is no longer written here: since
  * objectui#3521 the predicates run through `evalRowPredicate`, whose own

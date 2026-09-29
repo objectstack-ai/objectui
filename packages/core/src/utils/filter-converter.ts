@@ -209,7 +209,7 @@ const AST_LOGIC_KEYWORD: Record<string, 'and' | 'or'> = {
  * would widen the result set, which is the one failure direction this file
  * exists to avoid.
  *
- * `#5322` (maintainer ruling 2026-08-04, recorded on `FilterConditionSchema`)
+ * `objectstack-ai/objectstack#5322` (maintainer ruling 2026-08-04, recorded on `FilterConditionSchema`)
  * fixes the identities: `{ $and: [] }` is TRUE, `{ $or: [] }` is FALSE, and a
  * `{}` disjunct is TRUE and ABSORBS its `$or`. TRUE is expressible here — it is
  * the absence of a constraint. FALSE is not: the AST has no contradiction
@@ -263,7 +263,7 @@ function lowerLogicalGroup(
       // and the refusal propagates out of the whole filter (objectui#9164).
       // Both spellings mean the same thing here, which is
       // why the test is `Array.isArray` and not a comparison against either
-      // spelling: that child is the TRUE identity (#5322), so it absorbs an
+      // spelling: that child is the TRUE identity (objectstack-ai/objectstack#5322), so it absorbs an
       // `$or` outright and drops out of an `$and`. It must not be pushed as a
       // child either way: an object in AST child position makes `isFilterAST`
       // false (measured), and the wire face answers `400 INVALID_FILTER` for
@@ -274,7 +274,7 @@ function lowerLogicalGroup(
     children.push(lowered as FilterNode);
   }
 
-  // A TRUE disjunct absorbs its `$or` (#5322) — now that every member was read.
+  // A TRUE disjunct absorbs its `$or` (objectstack-ai/objectstack#5322) — now that every member was read.
   if (absorbed) return undefined;
 
   // Every conjunct reduced to TRUE, so the `$and` constrains nothing.
@@ -288,7 +288,7 @@ function lowerLogicalGroup(
 }
 
 /**
- * `{ $or: [] }` — FALSE, the OR identity (#5322) — as the leaf this file has
+ * `{ $or: [] }` — FALSE, the OR identity (objectstack-ai/objectstack#5322) — as the leaf this file has
  * always emitted for it.
  *
  * Deliberately unchanged, and deliberately not a group node. Three measurements
@@ -302,7 +302,7 @@ function lowerLogicalGroup(
  *   - `['or']` — the "obvious" empty group — is `isFilterAST` FALSE and
  *     `parseFilterAST` `undefined`: no filter at all, i.e. EVERY row. That is
  *     the widening direction, on a filter whose whole purpose is to hide rows
- *     (#5134), so it is the one shape that must not be emitted.
+ *     (objectstack-ai/objectstack#5134), so it is the one shape that must not be emitted.
  *
  * A leaf naming `$or` as a field is not a shape to be proud of; it is the shape
  * that answers FALSE at both consumers, which the alternatives do not.
@@ -393,7 +393,7 @@ function describeExoticComparand(value: object): string {
  *
  * > *an empty `$icontains` comparand is REFUSED* — "Every row contains the
  * > empty substring, so evaluating it is a predicate that constrains nothing —
- * > the widening #5240 refused `{ field: {} }` over, one level in."
+ * > the widening [objectstack-ai/objectstack#5240] refused `{ field: {} }` over, one level in."
  *
  * > *a non-string `$icontains` comparand is REFUSED* — "Coercing 42 to `"42"`
  * > would answer a query nobody wrote; the declared comparand type is string."

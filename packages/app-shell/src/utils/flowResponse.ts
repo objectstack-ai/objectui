@@ -46,7 +46,7 @@
  * ## A failed run does NOT always arrive as HTTP 200 (`833c90047`)
  *
  * The three shapes above describe the route as it answers today. objectstack#8684
- * unifies the resume route onto real status codes — inheriting the #3962 ruling
+ * unifies the resume route onto real status codes — inheriting the objectstack-ai/objectstack#3962 ruling
  * that business failures must not ride HTTP 200 inside a double envelope — so the
  * SAME terminal node failure that answers `200 {data:{success:false}}` today will
  * answer `400` + `FLOW_FAILED` once that lands, in the ADR-0112 error envelope:

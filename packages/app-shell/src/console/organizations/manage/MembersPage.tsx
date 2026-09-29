@@ -174,7 +174,7 @@ export function MembersPage() {
       {/* Member list */}
       <div className="space-y-2">
         {members.map((member) => {
-          /* [framework #3697] Roles this actor may SET on THIS member — see the
+          /* [objectstack-ai/objectstack#3697] Roles this actor may SET on THIS member — see the
              menu below for what the list mirrors. Hoisted out of the JSX because
              objectui#4475 needs its emptiness twice: an actor with no assignable
              role AND no remove permission gets no menu at all, rather than a

@@ -38,11 +38,11 @@ const dateDef: DashboardFilterDef = {
 };
 
 describe('resolveDashboardFilterDefs', () => {
-  it('normalizes options: spec {value,label} objects AND bare-string shorthand → {value,label} pairs', () => {
-    // The shorthand arm now also emits the #4356 deprecation warning, so this
-    // case captures `console.warn` rather than letting it reach the suite's
-    // output — the warning must be audible to AUTHORS, not to our own test log.
-    // Its own pins are in the `[#4356]` block at the foot of this file.
+  it('normalizes spec {value,label} objects, and DROPS a bare-string member rather than lifting it (objectui#4356)', () => {
+    // The dropped member is reported once by a dev-mode `console.warn`, so this
+    // case captures it rather than letting it reach the suite's output — the
+    // warning must be audible to AUTHORS, not to our own test log. Its own pins
+    // are in the `[#4356]` block at the foot of this file.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     resetDashboardFilterWarnings();
     let defs;
@@ -52,7 +52,7 @@ describe('resolveDashboardFilterDefs', () => {
           // @objectstack/spec object form — rendering this un-normalized as a
           // React child crashed the Revenue Pulse dashboard (caught in dogfood).
           { name: 'region', field: 'region', type: 'select', options: [{ value: 'amer', label: 'AMER' }, { value: 'emea', label: 'EMEA' }] },
-          // objectui bare-string shorthand — DEPRECATED (#4356), still lifted.
+          // The RETIRED bare-string shorthand (#4356) — yields no option at all.
           { name: 'status', field: 'status', type: 'select', options: ['draft', 'paid'] },
         ] as any,
       });
@@ -63,10 +63,7 @@ describe('resolveDashboardFilterDefs', () => {
       { value: 'amer', label: 'AMER' },
       { value: 'emea', label: 'EMEA' },
     ]);
-    expect(defs[1].options).toEqual([
-      { value: 'draft', label: 'draft' },
-      { value: 'paid', label: 'paid' },
-    ]);
+    expect(defs[1].options).toBeUndefined();
   });
 
   it('maps dateRange to the reserved name with a created_at field default', () => {
@@ -630,28 +627,34 @@ describe('[#4165] legacy `{ preset }` declaration — ADR-0089 alias lift', () =
 });
 
 // ---------------------------------------------------------------------------
-// #4356 — the bare-string `options` shorthand is DEPRECATED and says so.
+// #4356 — the bare-string `options` shorthand is RETIRED: dropped, not lifted.
 //
 // Maintainer ruling of 2026-08-12 on objectstack#7917, verbatim 「7917 ②」: the
-// spec stays strict and the runtime lift retires behind a deprecation window.
-// This block is the warn half (Phase 1). The lift itself is unchanged — the
-// LIFT pins live in `resolveDashboardFilterDefs` above and stay green in both
-// directions, which is exactly what "the lift is untouched" has to mean.
+// spec stays strict and the runtime lift retires. PR #4601 shipped the warn half
+// (Phase 1); the window closed on the 2026-09-02 ruling, verbatim
+// 「objectstack#7917 不考虑现有数据」, and this block pins the end state
+// (Phase 2): a non-object member yields no option, a shorthand-only filter
+// resolves with no `options`, and a mixed array keeps only its object members.
 //
 // What each pin here is for:
-//  - the WARNING pin is the discriminating one: it goes red the moment the
-//    warning is removed, and it is what makes the window closable (ADR-0078 —
-//    a silent lift can never be retired, because nothing would ever show that
-//    the last shorthand document is gone);
+//  - the DROP pins are the discriminating ones: each went red against the
+//    Phase 1 build (which lifted `'EMEA'` to `{ value: 'EMEA', label: 'EMEA' }`)
+//    before the arm was removed — red-first, quoted in the landing PR;
+//  - the WARNING pin keeps the skip audible (ADR-0078 §4 — where the runtime
+//    skips an instance it emits a dev-mode diagnostic rather than swallowing
+//    it): a stored dashboard is the one document no author-time gate re-reads,
+//    and an empty select with no line in the console reads as "no data". The
+//    warning names the filter, the dropped members and the rewrite, and it
+//    promises NO lift — the Phase 1 sentence "Still lifted here" retired with
+//    the arm, which the negative pin below guards;
 //  - the ONCE pin protects the render path. `resolveDashboardFilterDefs` runs
 //    on every dashboard render, so a warning without the memo floods the
 //    console per frame — and a warning that floods is a warning that gets muted;
-//  - the CANONICAL-SILENCE pin is a false-positive guard, and it is honestly
-//    NOT a discrimination proof: it passes vacuously against a build with no
-//    warning at all. Its value is post-change — it goes red if the warn ever
-//    starts firing on healthy dashboards, which would be every dashboard.
+//  - the CANONICAL-SILENCE pin is a false-positive guard, honestly NOT a
+//    discrimination proof: it passes vacuously against a build with no warning
+//    at all. It goes red if the warn ever fires on healthy dashboards.
 // ---------------------------------------------------------------------------
-describe('[#4356] bare-string `options` shorthand — deprecation warning', () => {
+describe('[#4356] bare-string `options` shorthand — retired: dropped, not lifted', () => {
   /** Capture warnings without letting them reach the suite's console. */
   const resolveQuietly = (globalFilters: unknown[]) => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -665,48 +668,78 @@ describe('[#4356] bare-string `options` shorthand — deprecation warning', () =
     }
   };
 
+  /** The one warning this block is about, picked by its card, not its prose. */
+  const shorthandWarnings = (warnings: string[]) => warnings.filter((m) => m.includes('objectui#4356'));
+
   beforeEach(() => {
     resetDashboardFilterWarnings();
   });
 
-  it('still lifts a bare string, byte-identically, AND warns', () => {
+  it('DROPS a bare string: a shorthand-only filter resolves with no `options`, and says so', () => {
     const { defs, warnings } = resolveQuietly([
       { name: 'region', field: 'region', type: 'select', options: ['EMEA', 'APAC'] },
     ]);
 
-    // The lift is untouched — mechanically lossless, as the survey measured.
-    expect(defs[0].options).toEqual([
-      { value: 'EMEA', label: 'EMEA' },
-      { value: 'APAC', label: 'APAC' },
-    ]);
+    // Nothing is lifted — the spec's reading of the document, no dialect beside it.
+    expect(defs).toHaveLength(1);
+    expect(defs[0].options).toBeUndefined();
 
-    const shorthandWarnings = warnings.filter((m) => m.includes('bare-string shorthand'));
-    expect(shorthandWarnings).toHaveLength(1);
-    // Names the offending filter, the offending values, and the canonical form
-    // — a warning an author cannot act on is not a deprecation, it is noise.
-    expect(shorthandWarnings[0]).toContain('filter "region"');
-    expect(shorthandWarnings[0]).toContain('"EMEA"');
-    expect(shorthandWarnings[0]).toContain('{ value: "EMEA", label: "EMEA" }');
-    expect(shorthandWarnings[0]).toContain('objectui#4356');
+    const w = shorthandWarnings(warnings);
+    expect(w).toHaveLength(1);
+    // Names the filter, the dropped members and the rewrite — a warning an
+    // author cannot act on is noise.
+    expect(w[0]).toContain('filter "region"');
+    expect(w[0]).toContain('"EMEA"');
+    expect(w[0]).toContain('"APAC"');
+    expect(w[0]).toContain('{ value: "EMEA", label: "EMEA" }');
+    // …and promises no lift. The Phase 1 text said "Still lifted here"; that
+    // sentence is the one thing the ruling forbids this warning to carry.
+    expect(w[0]).not.toContain('lifted here');
   });
 
-  it('warns ONCE per offending filter across repeated renders, not once per render', () => {
+  it('keeps ONLY the object members of a MIXED array, and names only the dropped ones', () => {
+    // Partial migrations happen — the survey found one in this very repo. The
+    // object member renders; re-reporting it would send the author back to an
+    // option they had just fixed.
+    const { defs, warnings } = resolveQuietly([
+      { name: 'stage', field: 'stage', type: 'select', options: [{ value: 'won', label: 'Won' }, 'lost'] },
+    ]);
+    expect(defs[0].options).toEqual([{ value: 'won', label: 'Won' }]);
+    const w = shorthandWarnings(warnings);
+    expect(w).toHaveLength(1);
+    expect(w[0]).toContain('"lost"');
+    expect(w[0]).not.toContain('"won"');
+  });
+
+  it('drops EVERY non-object member — a number and a boolean, not only a string', () => {
+    // Phase 1 lifted every non-nullish primitive through `String(o)`; the
+    // retirement removes the whole arm, not the string case of it.
+    const { defs, warnings } = resolveQuietly([
+      { name: 'tier', field: 'tier', type: 'select', options: [42, true, { value: 'gold', label: 'Gold' }] },
+    ]);
+    expect(defs[0].options).toEqual([{ value: 'gold', label: 'Gold' }]);
+    const w = shorthandWarnings(warnings);
+    expect(w).toHaveLength(1);
+    expect(w[0]).toContain('42');
+    expect(w[0]).toContain('true');
+  });
+
+  it('warns ONCE per offending filter across repeated renders, and drops on every one of them', () => {
     // The render path calls this on every frame. Three resolves, one warning.
     const filters = [{ name: 'status', field: 'status', type: 'select', options: ['draft', 'paid'] }];
     const first = resolveQuietly(filters);
     const second = resolveQuietly(filters);
     const third = resolveQuietly(filters);
 
-    expect(first.warnings.filter((m) => m.includes('bare-string shorthand'))).toHaveLength(1);
-    expect(second.warnings.filter((m) => m.includes('bare-string shorthand'))).toHaveLength(0);
-    expect(third.warnings.filter((m) => m.includes('bare-string shorthand'))).toHaveLength(0);
+    expect(shorthandWarnings(first.warnings)).toHaveLength(1);
+    expect(shorthandWarnings(second.warnings)).toHaveLength(0);
+    expect(shorthandWarnings(third.warnings)).toHaveLength(0);
 
-    // …and the lift keeps working on every one of them, memo or not. A dedupe
-    // that also suppressed the BEHAVIOUR would be a silent data change.
-    expect(third.defs[0].options).toEqual([
-      { value: 'draft', label: 'draft' },
-      { value: 'paid', label: 'paid' },
-    ]);
+    // The memo mutes the WARNING, never the behaviour: the member is dropped on
+    // every resolve, memo or not — a dedupe that also changed the output would
+    // be a silent data change.
+    expect(first.defs[0].options).toBeUndefined();
+    expect(third.defs[0].options).toBeUndefined();
   });
 
   it('warns separately for a DIFFERENT filter — the memo is not a global mute', () => {
@@ -716,13 +749,13 @@ describe('[#4356] bare-string `options` shorthand — deprecation warning', () =
       { name: 'region', field: 'region', type: 'select', options: ['EMEA'] },
       { name: 'status', field: 'status', type: 'select', options: ['draft'] },
     ]);
-    const shorthandWarnings = warnings.filter((m) => m.includes('bare-string shorthand'));
-    expect(shorthandWarnings).toHaveLength(2);
-    expect(shorthandWarnings[0]).toContain('filter "region"');
-    expect(shorthandWarnings[1]).toContain('filter "status"');
+    const w = shorthandWarnings(warnings);
+    expect(w).toHaveLength(2);
+    expect(w[0]).toContain('filter "region"');
+    expect(w[1]).toContain('filter "status"');
   });
 
-  it('says NOTHING for canonical `{ value, label }` options', () => {
+  it('says NOTHING for canonical `{ value, label }` options, and keeps an I18nLabel map intact', () => {
     // False-positive guard: this would otherwise fire on every healthy
     // dashboard in the product.
     const { defs, warnings } = resolveQuietly([
@@ -733,7 +766,7 @@ describe('[#4356] bare-string `options` shorthand — deprecation warning', () =
         options: [{ value: 'emea', label: 'EMEA' }, { value: 'apac', label: { en: 'APAC', 'zh-CN': '亚太' } }],
       },
     ]);
-    expect(warnings.filter((m) => m.includes('bare-string shorthand'))).toEqual([]);
+    expect(shorthandWarnings(warnings)).toEqual([]);
     // The I18nLabel map survives untouched (#4032 / #4163 must-not-change).
     expect(defs[0].options).toEqual([
       { value: 'emea', label: 'EMEA' },
@@ -741,20 +774,11 @@ describe('[#4356] bare-string `options` shorthand — deprecation warning', () =
     ]);
   });
 
-  it('names ONLY the bare members of a MIXED array', () => {
-    // Partial migrations happen — the survey found one in this very repo. A
-    // warning that re-reported the already-canonical members would send the
-    // author back to options they had just fixed.
-    const { defs, warnings } = resolveQuietly([
-      { name: 'stage', field: 'stage', type: 'select', options: [{ value: 'won', label: 'Won' }, 'lost'] },
-    ]);
-    const shorthandWarnings = warnings.filter((m) => m.includes('bare-string shorthand'));
-    expect(shorthandWarnings).toHaveLength(1);
-    expect(shorthandWarnings[0]).toContain('"lost"');
-    expect(shorthandWarnings[0]).not.toContain('"won"');
-    expect(defs[0].options).toEqual([
-      { value: 'won', label: 'Won' },
-      { value: 'lost', label: 'lost' },
-    ]);
+  it('`resetDashboardFilterWarnings` re-arms the memo — the export keeps its job', () => {
+    const filters = [{ name: 'region', field: 'region', type: 'select', options: ['EMEA'] }];
+    expect(shorthandWarnings(resolveQuietly(filters).warnings)).toHaveLength(1);
+    expect(shorthandWarnings(resolveQuietly(filters).warnings)).toHaveLength(0);
+    resetDashboardFilterWarnings();
+    expect(shorthandWarnings(resolveQuietly(filters).warnings)).toHaveLength(1);
   });
 });

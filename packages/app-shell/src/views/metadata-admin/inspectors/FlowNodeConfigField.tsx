@@ -58,7 +58,7 @@ export interface FlowNodeConfigFieldProps {
   context?: FlowReferenceContext;
   /** In-scope variable references for the data-picker (#1934). */
   scopeGroups?: ScopeGroup[];
-  /** #3447: approval-expression picker groups (current/trigger/vars roots). */
+  /** objectstack-ai/objectstack#3447: approval-expression picker groups (current/trigger/vars roots). */
   approvalScopeGroups?: ScopeGroup[];
   /**
    * The trigger record's declared subject vocabulary at this node, when one is

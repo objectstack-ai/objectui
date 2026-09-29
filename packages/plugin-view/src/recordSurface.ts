@@ -8,7 +8,7 @@
 
 /**
  * Record-surface derivation — now sourced from `@objectstack/spec/data`
- * (framework #2578 / #2604). The local mirror this file used to carry existed
+ * (objectstack-ai/objectstack#2578 / objectstack-ai/objectstack#2604). The local mirror this file used to carry existed
  * only because objectui pinned a spec that predated the export; with the spec
  * bump to `^12.2.0` the real derivation is available, so we re-export it and
  * delete the copy (restoring the single-source guarantee the mirror stood in
@@ -40,7 +40,7 @@ import { countAuthorableFields } from '@objectstack/spec/data';
 
 /**
  * Overlay size bucket for a drawer/modal (mirrors spec `NavigationConfig.size`
- * / `FormView.modalSize`). #2578: width is a runtime concern — the author can't
+ * / `FormView.modalSize`). objectstack-ai/objectstack#2578: width is a runtime concern — the author can't
  * know the client viewport — so buckets map to a pixel CAP that the renderer
  * always clamps to the viewport (`min(cap, 92vw)`).
  */

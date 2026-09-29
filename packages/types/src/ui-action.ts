@@ -37,7 +37,7 @@ import type { FieldType as SpecFieldType } from '@objectstack/spec/data';
  *
  * Single source of truth lives in `@objectstack/spec/ui` as
  * `ACTION_LOCATIONS` + `ActionLocationSchema` + `ActionLocation`. These are now
- * literally those three values rather than a restatement of them (#4074): the
+ * literally those three values rather than a restatement of them (objectstack-ai/objectstack#4074): the
  * comment claimed "re-export" while the code re-*declared* a parallel union,
  * `as const` tuple, and `z.enum`. To add a new location, edit
  * `packages/spec/src/ui/action.zod.ts` — every layer (spec, core, types,
@@ -281,7 +281,7 @@ export function resolveDeclaredActionIds<T extends { readonly name?: unknown }>(
 
 /**
  * Visual component type for actions — derived from the spec's
- * `ActionSchema.component` enum (#4074; formerly a hand-written union).
+ * `ActionSchema.component` enum (objectstack-ai/objectstack#4074; formerly a hand-written union).
  *
  * `action:button` | `action:icon` | `action:menu` | `action:group`
  *
@@ -347,7 +347,7 @@ export type RunnableActionType = ActionType | ObjectUiLocalActionType;
 
 /**
  * Field type for action parameters — derived from the spec's `FieldType`
- * (#4074; formerly a hand-written 16-member subset).
+ * (objectstack-ai/objectstack#4074; formerly a hand-written 16-member subset).
  *
  * `ActionParamSchema.type` is `FieldType.optional()`, and `FieldType` carries 49
  * members. The old union listed 16 of them, so a spec-valid param typed
@@ -373,7 +373,7 @@ export const ACTION_PARAM_FIELD_TYPES = SpecFieldTypeEnum.options;
 
 /**
  * Param-only `type` spellings objectui still resolves that the spec's
- * `FieldType` does NOT contain (#4074).
+ * `FieldType` does NOT contain (objectstack-ai/objectstack#4074).
  *
  * These are the keys of `PARAM_TYPE_ALIASES` in
  * `@object-ui/app-shell`'s `paramToField.ts`, which folds each onto a canonical
@@ -413,7 +413,7 @@ export type ResolvableParamFieldType = ActionParamFieldType | ObjectUiLocalParam
  * "authoring ≠ resolved" note below, and objectui#3174 for what conflating them
  * cost.
  *
- * It is aligned with the spec's `ActionParamSchema` input (#4074 steps 2–3):
+ * It is aligned with the spec's `ActionParamSchema` input (objectstack-ai/objectstack#4074 steps 2–3):
  * `name` / `label` / `type` are optional because the `field` reference form
  * supplies them from an existing object field. The RESOLVED shape the dialog
  * consumes — after `resolveActionParams()` in `@object-ui/app-shell` inlines
@@ -605,10 +605,10 @@ export interface UIActionSchema {
   /**
    * Target for the action (URL, script name, etc.) — the **only** handler slot.
    *
-   * The `execute` alias was removed in `@objectstack/spec` 17 (#3855); this
+   * The `execute` alias was removed in `@objectstack/spec` 17 (objectstack-ai/objectstack#3855); this
    * interface no longer declares it, so `execute: '…'` now fails `tsc` at the
    * authoring site instead of binding a second handler nothing agrees on
-   * (#3713, #3856). Rename to `target`; the value is unchanged.
+   * (objectstack-ai/objectstack#3713, objectstack-ai/objectstack#3856). Rename to `target`; the value is unchanged.
    */
   target?: string;
 
@@ -824,7 +824,7 @@ export interface UIActionSchema {
 
   /**
    * Predicate DISABLING the control — TRUE means disabled. The primary gate on
-   * both action renderers since #1885 / ADR-0049; {@link enabled} below is the
+   * both action renderers since objectstack-ai/objectstack#1885 / ADR-0049; {@link enabled} below is the
    * legacy non-spec fallback kept so existing metadata keeps working.
    *
    * Declared here as an ALIGNMENT (objectui#8648), and this key is the one the

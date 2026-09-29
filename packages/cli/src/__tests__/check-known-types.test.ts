@@ -25,7 +25,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { check } from '../commands/check.js';
+import { check, closingLine } from '../commands/check.js';
 
 let cwd: string;
 let lines: string[];
@@ -149,6 +149,12 @@ describe('objectui check — unknown schema types', () => {
     // neutrality would keep passing if the type were never REPORTED either,
     // which is the state a lost marker puts this fixture in.
     expect(unknownTypeWarnings()).toHaveLength(1);
-    expect(lines.some((l) => l.includes('All checks passed'))).toBe(true);
+    // The run reached the no-error close. That close is a tally, not a pass
+    // (objectui#11007): the fixture's `className` admits it without a parse.
+    expect(
+      lines.some((l) =>
+        l.includes(closingLine({ validated: 0, notValidated: 1, didNotValidate: 0 }))
+      )
+    ).toBe(true);
   });
 });

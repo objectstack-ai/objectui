@@ -526,7 +526,7 @@ export function buildDatasetFieldHelpers(
 }
 
 /**
- * A half-open date-range drill scope for one time-bucketed dimension (#1752):
+ * A half-open date-range drill scope for one time-bucketed dimension (objectstack-ai/objectstack#1752):
  * the object FIELD to filter and its inclusive `gte` / exclusive `lt` bounds
  * (the server's `drillRanges` sidecar entry).
  */
@@ -586,7 +586,7 @@ export interface DatasetDrillRange {
  * URL-dialect operator on both the write and the read side, which is its own
  * card.
  *
- * A time-bucketed date dimension (#1752) drills by RANGE, not equality — a
+ * A time-bucketed date dimension (objectstack-ai/objectstack#1752) drills by RANGE, not equality — a
  * humanized bucket ("2026-Q2") can't be exact-matched, so the server sends a
  * half-open `[gte, lt)` per date dim in `rawRanges` instead of a raw value.
  * Each becomes an ObjectQL range operator object (`{ $gte, $lt }`) so the drill
@@ -657,7 +657,7 @@ export interface DatasetDrillRange {
  * $lt }` range is two conditions on its own, so even a single date bucket
  * re-spells. Sending the identity leg through the sink therefore re-shaped
  * every multi-condition dataset drill — including the controls objectui#9085,
- * objectui#4056, objectstack#5473 and #1752 pin on paths this card does not
+ * objectui#4056, objectstack#5473 and objectstack-ai/objectstack#1752 pin on paths this card does not
  * touch — for ZERO change in the rows selected or the `filter[...]` params
  * emitted. ⛔ Do not "simplify" this to an unconditional call without redoing
  * that measurement.

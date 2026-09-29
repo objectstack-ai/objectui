@@ -31,7 +31,7 @@
  * `record:line_items`) next to three sibling blocks that each inlined a
  * byte-identical private copy (`ObjectGantt` / `ObjectMap` / `ObjectCalendar`),
  * and a fifth and sixth copy is how the conversions start disagreeing. Those
- * three copies were deliberately left alone by #7137 and collapsed onto this
+ * three copies were deliberately left alone by objectstack-ai/objectstack#7137 and collapsed onto this
  * function by objectui#4022; every block now imports it from here.
  *
  * Two deliberate differences from those retired private copies, both of which

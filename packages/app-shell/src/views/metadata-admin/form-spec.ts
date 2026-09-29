@@ -145,7 +145,7 @@ export interface FormFieldSpec {
    *     engine honours on the insert path (`applyFieldDefaults` falls back to
    *     the option marked `default: true` when the field declares no
    *     `defaultValue`; `defaultValue` wins when both are declared —
-   *     objectstack#7246, ruled `enforce`, PR #7388). That is why
+   *     objectstack#7246, ruled `enforce`, PR objectstack-ai/objectstack#7388). That is why
    *     `SelectOptionSchema` still carries the key and only this reference site
    *     narrows it: one surface honours it, this one deliberately does not, and
    *     a second default contract here is what the 2026-08-10 ruling's objectui

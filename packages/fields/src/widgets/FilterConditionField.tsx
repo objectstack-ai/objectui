@@ -531,7 +531,7 @@ function mongoToFilterGroup(mongo: any): BuilderGroup | null {
  * Would this criteria select EVERY record of the object?
  *
  * Mirrors the server's `isMatchAllCriteria` (objectstack `plugin-sharing`,
- * #3896) closely enough to warn before the round-trip: blank, `{}`, `[]`, and
+ * objectstack-ai/objectstack#3896) closely enough to warn before the round-trip: blank, `{}`, `[]`, and
  * the vacuous combinators. Deliberately conservative in the same direction —
  * the cost of a false positive is one extra hint, the cost of a false negative
  * is a save that fails with a toast. The server stays authoritative.

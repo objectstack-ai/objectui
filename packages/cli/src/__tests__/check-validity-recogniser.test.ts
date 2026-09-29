@@ -44,7 +44,7 @@ import { tmpdir } from 'node:os';
 
 import { safeValidateSchema } from '@object-ui/types/zod';
 
-import { check } from '../commands/check.js';
+import { check, closingLine } from '../commands/check.js';
 
 let cwd: string;
 let lines: string[];
@@ -272,7 +272,11 @@ describe('objectui check — a broken ObjectUI schema is never filed as a foreig
     writeSchema('small.json', { type: 'text', content: 'Small text', variant: 'small' });
     await check(cwd);
     expect(candidateCount()).toBe(1);
-    expect(plainLines().some((l) => l.includes('All checks passed'))).toBe(true);
+    // The no-error close (objectui#11007) counts the file as one that did not
+    // validate — reported, and still not a failure.
+    expect(plainLines()).toContain(
+      closingLine({ validated: 0, notValidated: 0, didNotValidate: 1 })
+    );
     expect(exitCodes).toEqual([]);
   });
 });

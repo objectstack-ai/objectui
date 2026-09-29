@@ -126,7 +126,7 @@ export function deriveStaticTableColumns(rows: unknown): Array<{ header: string;
 // vocabularies (date macros AND `{current_user_id}` / `{current_org_id}`).
 // Calling `resolveDateMacros` alone is exactly what left every dashboard
 // widget unable to resolve user-scoped filters — they silently rendered 0
-// (framework #3574).
+// (objectstack-ai/objectstack#3574).
 export { resolveDateMacros, resolveFilterPlaceholders } from '@object-ui/core';
 
 // Re-export compareTo helpers from core for convenience.

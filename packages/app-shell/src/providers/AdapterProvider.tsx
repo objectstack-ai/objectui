@@ -73,7 +73,7 @@ export function AdapterProvider({ children, adapter: externalAdapter }: AdapterP
           cache: { maxSize: 50, ttl: 300_000 },
         });
 
-        // Surface silently-stripped write fields (#3431/#3455) as a toast so a
+        // Surface silently-stripped write fields (objectstack-ai/objectstack#3431 / objectstack-ai/objectstack#3455) as a toast so a
         // read-only value the user typed doesn't just vanish on save. The sink
         // is passed in rather than imported by the message builder — see
         // `WriteWarningSink`.

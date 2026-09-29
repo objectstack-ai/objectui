@@ -174,7 +174,7 @@ export function ActionPreview({ name, draft, locale }: MetadataPreviewProps) {
   const icon = (d.icon as string | undefined) || undefined;
   const type = String(d.type ?? 'script');
   // `target` only: the `execute` alias was removed in @objectstack/spec 17
-  // (#3855, #3856). Reading it here would preview a draft as bound when the
+  // (objectstack-ai/objectstack#3855, objectstack-ai/objectstack#3856). Reading it here would preview a draft as bound when the
   // spec rejects it at save, which is the opposite of what a preview is for.
   const target = d.target as string | undefined;
   const variant = (d.variant as string | undefined) || undefined;
@@ -580,7 +580,7 @@ function renderFieldMock(p: ActionParam, fieldLabel: string, locale?: string): R
   if (widget === undefined) return options.length > 0 ? selectMock : inputMock('text');
 
   // A targetless picker collapses to a record-id text box in the dialog, with
-  // its own placeholder and help text (#3405). The box alone would be honest
+  // its own placeholder and help text (objectstack-ai/objectstack#3405). The box alone would be honest
   // about the control and silent about the reason, which is the state that
   // help text was added for.
   if (degraded) {

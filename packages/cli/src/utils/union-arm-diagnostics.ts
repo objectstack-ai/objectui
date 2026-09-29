@@ -28,9 +28,11 @@
  * picking the arm with the fewest issues (option C) and the status quo (option
  * D) were all rejected.
  *
- * This module performs the SELECTION only. Every `console.*` call stays in
- * `validate.ts`, which remains the repository's only zod-issue printer — so no
- * second rendering surface is created and no shared renderer is warranted.
+ * This module performs the SELECTION only. Every `console.*` call that prints
+ * its lines stays in `validate.ts`, the CLI's full zod-issue printer.
+ * `objectui check` prints one line per file that did not validate — the first
+ * issue only, never an arm selection (objectui#11007) — and the two share
+ * nothing but `formatIssuePath`, so no second arm-rendering surface exists.
  *
  * ## Measured facts this rests on (Zod 4.4.3, re-measured on this tree)
  *

@@ -1718,7 +1718,7 @@ export interface ObjectFormSchema extends BaseSchema {
   /**
    * Structured, spec-aligned form action-button config — the authoring surface
    * for submit/cancel/reset visibility + labels, mirroring `@objectstack/spec`
-   * `FormViewSchema.buttons` (framework#1894 / #2998). ObjectForm normalizes
+   * `FormViewSchema.buttons` (framework#1894 / objectstack-ai/objectstack#2998). ObjectForm normalizes
    * this down onto the flat `showSubmit`/`submitText`/`showCancel`/`cancelText`/
    * `showReset` props at render, so prefer this over those flat keys (which
    * remain only as deprecated back-compat). An explicitly-set flat key wins.
@@ -1732,7 +1732,7 @@ export interface ObjectFormSchema extends BaseSchema {
   /**
    * Create-mode initial field values, keyed by field machine name — the
    * spec-aligned alias of the deprecated flat {@link initialValues}, mirroring
-   * `@objectstack/spec` `FormViewSchema.defaults` (framework#1894 / #2998).
+   * `@objectstack/spec` `FormViewSchema.defaults` (framework#1894 / objectstack-ai/objectstack#2998).
    * ObjectForm folds this into `initialValues` at render.
    */
   defaults?: Record<string, any>;
@@ -4759,7 +4759,7 @@ export interface ObjectChartSchema extends BaseSchema {
    * @deprecated Not a key this node reads. Write `aggregate: { field, function, groupBy }`.
    */
   aggregation?: never;
-  /** Semantic-layer dataset name (ADR-0021, #1890) */
+  /** Semantic-layer dataset name (ADR-0021, objectstack-ai/objectstack#1890) */
   dataset?: string;
   /** Dataset dimension names */
   dimensions?: string[];

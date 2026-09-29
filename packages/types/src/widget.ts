@@ -45,7 +45,7 @@ import type { ComponentInputControlType } from './base.js';
  * states the relationship these two types always had, verbatim: "objectui's
  * registry has always carried its own runtime manifest for that
  * (`RuntimeWidgetManifest` / `RuntimeWidgetSource` in `@object-ui/types`,
- * objectui#3161 / #4115), which models different keys and never derived from
+ * objectui#3161 / [objectstack-ai/objectstack#4115]), which models different keys and never derived from
  * these". `field.widget` is still what it always was — a `z.string()` naming a
  * component the RENDERER has registered.
  *

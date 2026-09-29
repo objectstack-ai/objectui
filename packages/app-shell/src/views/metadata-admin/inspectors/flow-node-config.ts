@@ -56,7 +56,7 @@ export type FlowConfigFieldKind =
  *   • `flow`          → a flow, by name (`client.list('flow')`)
  *   • `org-membership-level`
  *                     → an org-membership tier. A CLOSED enum rendered as a
- *                       STRICT select (framework #3508): there is no `role`
+ *                       STRICT select (objectstack-ai/objectstack#3508): there is no `role`
  *                       metadata type to list (ADR-0090 D3), and free text is
  *                       how dirty values like `sales_manager` got stored. The
  *                       vocabulary is the spec's membership-role list, taken
@@ -67,7 +67,7 @@ export type FlowConfigFieldKind =
  *                       the matching directory object (`sys_user` / `sys_team`
  *                       / `sys_business_unit` / `sys_position`) via the
  *                       DataSource adapter — NOT the metadata registry, which
- *                       lists no records (framework #3508). `position` commits
+ *                       lists no records (objectstack-ai/objectstack#3508). `position` commits
  *                       the machine NAME (`sys_user_position` routes by name,
  *                       ADR-0090 D3); the others commit the row id. See
  *                       `KIND_TO_RECORD_LOOKUP`, which mirrors the spec's
@@ -75,7 +75,7 @@ export type FlowConfigFieldKind =
  *   • `manager`       → auto-resolved at runtime (submitter's manager) — a
  *                       disabled cell, no value to author
  *   • `queue`         → declared-but-unenforced in the runtime (framework
- *                       #3508): free text + warning, not offered for new rows
+ *                       objectstack-ai/objectstack#3508): free text + warning, not offered for new rows
  *   • `node`          → another node in *this* flow, by id (read from the draft)
  *   • `connector`     → an installed connector (`client.list('connector')`)
  *   • `email-template`→ an email template (`client.list('email_template')`)
@@ -132,7 +132,7 @@ export interface FlowReferenceSpec {
   map?: Record<string, ReferenceKind>;
   /**
    * Where each discriminator value's candidates actually live, keyed like
-   * {@link map} — published by the spec as `xRef.sources` (framework #3508
+   * {@link map} — published by the spec as `xRef.sources` (objectstack-ai/objectstack#3508
    * follow-up) and carried through by `json-schema-to-fields`.
    *
    * {@link map} only ever named a picker KIND. It never said what backs that
@@ -416,7 +416,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       help: 'Cron expression — when the flow runs. A time-relative sweep defaults to daily if left empty.',
       showWhen: { field: 'triggerType', equals: ['schedule', 'time_relative'] },
     },
-    // Time-relative trigger (#1874) — a `config.timeRelative` descriptor sweeps an
+    // Time-relative trigger (objectstack-ai/objectstack#1874) — a `config.timeRelative` descriptor sweeps an
     // object on a schedule (daily by default) and launches the flow once per record
     // whose date field falls in the window. All fields live under the nested
     // `config.timeRelative` block (which the whole group "owns", so it never leaks
@@ -812,7 +812,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
             { value: 'department', label: 'Department' },
             { value: 'team', label: 'Team' },
             { value: 'field', label: 'Field' },
-            // #3447: CEL over current.* / trigger.* / vars.*, resolved at node
+            // objectstack-ai/objectstack#3447: CEL over current.* / trigger.* / vars.*, resolved at node
             // entry — the value cell switches to the expression input.
             { value: 'expression', label: 'Expression (CEL)' },
             { value: 'org_membership_level', label: 'Organization membership tier' },
@@ -823,8 +823,8 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
           // Polymorphic: the picker follows the row's `type` — record lookups
           // for the directory kinds, a strict select for the membership tier,
           // an auto-resolved cell for `manager`, an object-field picker for
-          // `field` (framework #3508). Unmapped/empty types fall back to free
-          // text — except `expression` (#3447), which the cell special-cases
+          // `field` (objectstack-ai/objectstack#3508). Unmapped/empty types fall back to free
+          // text — except `expression` (objectstack-ai/objectstack#3447), which the cell special-cases
           // into the CEL expression input (it is a discriminator value, not a
           // reference kind, so it deliberately has no `map` entry).
           key: 'value',
@@ -852,7 +852,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
           },
         },
         {
-          // #3447: expression-only — how the expression's resolved ids expand
+          // objectstack-ai/objectstack#3447: expression-only — how the expression's resolved ids expand
           // into people. Dead config on other types (linted server-side).
           key: 'resolveAs',
           label: 'Resolve as',
@@ -865,7 +865,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
           ],
         },
         {
-          // Group label for `per_group` sign-off (#3266): approvers sharing a
+          // Group label for `per_group` sign-off (objectstack-ai/objectstack#3266): approvers sharing a
           // label form one group; the node advances when EACH group reaches
           // `minApprovals`. Ignored by other behaviors.
           key: 'group',
@@ -907,7 +907,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       placeholder: 'approval_status',
       help: 'Business-object field to mirror request status onto (pending/approved/rejected). Should be readonly.',
     }),
-    // #3447: empty-slate policy — load-bearing for expression approvers, whose
+    // objectstack-ai/objectstack#3447: empty-slate policy — load-bearing for expression approvers, whose
     // slate is runtime data and may legitimately resolve to nobody.
     cfg('onEmptyApprovers', 'If no approver resolves', 'select', {
       options: [
@@ -1033,7 +1033,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       ],
       help: 'Notification severity.',
     }),
-    // Click-through target (#2675): deep-link the notification to a record.
+    // Click-through target (objectstack-ai/objectstack#2675): deep-link the notification to a record.
     cfg('sourceObject', 'Link object', 'text', { placeholder: 'sys_approval_request', help: 'Object of the record the notification links to (requires Link record id).' }),
     cfg('sourceId', 'Link record id', 'text', { help: 'Record id the notification links to (requires Link object).' }),
     cfg('url', 'Click-through URL', 'text', { help: 'Explicit link; overrides the one synthesized from Link object/record.' }),

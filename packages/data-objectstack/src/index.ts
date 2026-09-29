@@ -819,7 +819,7 @@ export function clearSharedDiscoveryCache(): void {
 
 /**
  * Read the cross-object atomic-batch capability from a `discovery` document
- * (framework #3298 / objectui #2693). The server advertises it hierarchically
+ * (objectstack-ai/objectstack#3298 / objectui #2693). The server advertises it hierarchically
  * under `capabilities.transactionalBatch.enabled`; the published
  * `@objectstack/client` also accepts the flat `capabilities.transactionalBatch:
  * boolean` form and normalizes the two — mirror that here so the adapter reads
@@ -832,7 +832,7 @@ export function clearSharedDiscoveryCache(): void {
  *     real error.
  *   - `false` — the backend explicitly does NOT (route absent, or a runtime that
  *     can't open a transaction).
- *   - `undefined` — the capability is absent, i.e. the backend predates #3298;
+ *   - `undefined` — the capability is absent, i.e. the backend predates objectstack-ai/objectstack#3298;
  *     the caller must keep the legacy runtime-probe fallback (we can't tell
  *     whether `/batch` exists without trying it).
  */
@@ -1118,7 +1118,7 @@ export function isViewConfigPermissionDeniedError(
 
 /**
  * Thrown when the deployment has no analytics capability installed
- * (framework#3891 / #4019).
+ * (framework#3891 / objectstack-ai/objectstack#4019).
  *
  * The framework retired its degraded in-kernel analytics fallback — it dropped
  * the caller's RLS/tenant scope and ignored the contract filter, so it answered
@@ -2205,7 +2205,7 @@ const UNATTRIBUTED_STRIP_OBJECT = '';
 
 /**
  * Emitted after a create/update whose response carried `droppedFields`
- * (framework #3431/#3455). The write SUCCEEDED — this is a warning that some
+ * (objectstack-ai/objectstack#3431 / objectstack-ai/objectstack#3455). The write SUCCEEDED — this is a warning that some
  * supplied fields never landed, so the UI can tell the user rather than let it
  * pass silently. Subscribe via {@link ObjectStackAdapter.onWriteWarning}.
  *
@@ -2880,7 +2880,7 @@ export const VIEW_OVERLAY_OWNED_KEYS = Object.freeze([
  * still says what KIND of row it is.
  *
  * `label` is deliberately NOT here even though the platform stamps it onto
- * these rows: `viewIdentityPatch` (`@objectstack/metadata-protocol`, #2555)
+ * these rows: `viewIdentityPatch` (`@objectstack/metadata-protocol`, objectstack-ai/objectstack#2555)
  * inherits `viewKind`/`object`/`label` from the registry entry an overlay
  * shadows, so a stored `label` is a snapshot of the source view's label at
  * write time — content, and exactly the class of frozen key this narrowing
@@ -3109,10 +3109,10 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   // one adapter that has to cope with a backend lacking server atomicity (#2679).
   private batchUnsupported = false;
   // The server's declared cross-object atomic-batch capability, read from
-  // discovery at connect() (framework #3298 / objectui #2693). `true` → the
+  // discovery at connect() (objectstack-ai/objectstack#3298 / objectui #2693). `true` → the
   // backend GUARANTEES an atomic `/batch`, so batchTransaction trusts it and
   // never degrades to the non-atomic emulation (any failure surfaces as a real
-  // error). `false` or `undefined` (capability absent → backend predates #3298)
+  // error). `false` or `undefined` (capability absent → backend predates objectstack-ai/objectstack#3298)
   // → keep the legacy runtime-probe + emulation fallback so a save is still
   // possible; dropping it there would turn "saves, less safe" into "no save
   // path" on older backends (#2679 compatibility constraint).
@@ -3124,7 +3124,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   private mutationListeners = new Set<(event: DataSourceMutationEvent<T>) => void>();
 
   // Subscribers registered via onWriteWarning(). Emitted after a create/update
-  // whose response carried `droppedFields` (framework #3431/#3455) so the app
+  // whose response carried `droppedFields` (objectstack-ai/objectstack#3431 / objectstack-ai/objectstack#3455) so the app
   // shell can surface a toast instead of the strip passing silently.
   private writeWarningListeners = new Set<WriteWarningListener>();
 
@@ -3229,7 +3229,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         // helpers continue to work without a redundant fetch.
         (this.client as unknown as { discoveryInfo?: unknown }).discoveryInfo = data;
 
-        // Record the declared cross-object atomic-batch capability (#3298) so
+        // Record the declared cross-object atomic-batch capability (objectstack-ai/objectstack#3298) so
         // batchTransaction can decide declaratively at call time whether it may
         // trust server atomicity instead of runtime-probing 404/405/501.
         this.atomicBatchCapability = readTransactionalBatchCapability(data);
@@ -3434,7 +3434,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * — a per-object metadata-driven search (ADR-0061) — this consults the search
    * index and ranks hits across objects, so it surfaces records the per-object
    * fanout misses. Global affordances (⌘K command palette, search page) prefer
-   * this path (framework #3371).
+   * this path (objectstack-ai/objectstack#3371).
    *
    * Returns `{ query, hits }`. A backend without the search plugin installed
    * answers `404`; we treat that as "no global search here" and return an empty
@@ -3616,7 +3616,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   }
 
   /**
-   * Read `droppedFields` off a create/update response (framework #3431/#3455)
+   * Read `droppedFields` off a create/update response (objectstack-ai/objectstack#3431 / objectstack-ai/objectstack#3455)
    * and, when present, notify write-warning subscribers. Tolerant of a client
    * whose response type predates `droppedFields`: the field is read structurally
    * and validated, so an older client (or a backend that never drops) is a no-op.
@@ -3647,7 +3647,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   }
 
   /**
-   * Same, for the cross-object transactional batch (framework #3794). Its
+   * Same, for the cross-object transactional batch (objectstack-ai/objectstack#3794). Its
    * response hangs the events off a top-level `droppedFields` list, each tagged
    * with the `index` of the operation it came from — `results` entries are bare
    * record echoes with nowhere to hang a per-row list.
@@ -3731,7 +3731,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
 
   /**
    * Subscribe to write-warning events (a create/update dropped caller-supplied
-   * fields — #3431/#3455). Returns an unsubscribe function. The app shell uses
+   * fields — objectstack-ai/objectstack#3431 / objectstack-ai/objectstack#3455). Returns an unsubscribe function. The app shell uses
    * this to toast the user; the write itself already succeeded.
    */
   onWriteWarning(callback: WriteWarningListener): () => void {
@@ -3746,7 +3746,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * advisory findings on a save that SUCCEEDED (#4237; backend
    * objectstack#7435). Returns an unsubscribe function.
    *
-   * Deliberately the same seam as {@link onWriteWarning} (#3431/#3455), which
+   * Deliberately the same seam as {@link onWriteWarning} (objectstack-ai/objectstack#3431 / objectstack-ai/objectstack#3455), which
    * is what {@link MetadataSaveAdvisoryEvent}'s own declaration already said it
    * was modelled on. It is a SIBLING of that channel rather than a second
    * payload pushed down it: `WriteWarningEvent` is a closed shape whose
@@ -4121,25 +4121,25 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * @returns Promise resolving to array of results
    */
   /**
-   * Cross-object transactional batch (ObjectStack #1604 / ADR-0034 item 4).
+   * Cross-object transactional batch (objectstack-ai/objectstack#1604 / ADR-0034 item 4).
    * Runs the operations in ONE server transaction — commit all or roll back
    * all. A field value of `{ $ref: <earlier op index> }` resolves to that op's
    * created id, so a child can reference its parent created earlier in the same
    * batch (master-detail).
    *
    * Transport: the published `@objectstack/client` SDK method
-   * `data.batchTransaction` (framework #3271; shipped since client v16, our
+   * `data.batchTransaction` (objectstack-ai/objectstack#3271; shipped since client v16, our
    * dependency floor). Per AGENTS.md §7 data always flows through the client —
    * never a hand-rolled `fetch('/api/v1/batch')`.
    *
-   * Fallback decision — declarative capability negotiation (framework #3298 /
+   * Fallback decision — declarative capability negotiation (objectstack-ai/objectstack#3298 /
    * objectui #2693). At connect() we read `capabilities.transactionalBatch`
    * from discovery:
    *   - Declared `true` → the backend GUARANTEES atomicity (declared ===
    *     enforced). We TRUST it: any batch failure — including 404/405/501 —
    *     surfaces as a real error. No non-atomic client-side compensation. This
    *     is the path modern backends take.
-   *   - Declared `false`, or ABSENT (backend predates #3298) → we can't rely on
+   *   - Declared `false`, or ABSENT (backend predates objectstack-ai/objectstack#3298) → we can't rely on
    *     server atomicity, so we keep the legacy behaviour: on 404/405 (no
    *     endpoint) or 501 (runtime without transactions) degrade to the
    *     client-side, NON-atomic {@link emulateBatchTransaction} so a save is
@@ -4150,13 +4150,13 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   async batchTransaction(
     operations: BatchTransactionOperation[],
   ): Promise<{ results: any[] }> {
-    // Ensure discovery (and thus the #3298 capability) is loaded so the
+    // Ensure discovery (and thus the objectstack-ai/objectstack#3298 capability) is loaded so the
     // decision below is declarative, not "fire a batch and read the status".
     await this.connect();
 
     // When the backend declares atomic batch support we never degrade: a
     // failure is a real error, not a cue to fall back. Otherwise (declared
-    // false, or capability absent on a pre-#3298 backend) the emulation
+    // false, or capability absent on a pre-objectstack-ai/objectstack#3298 backend) the emulation
     // fallback below stays active.
     const guaranteed = this.atomicBatchCapability === true;
 
@@ -4168,7 +4168,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
 
     try {
       // Typed SDK method — guaranteed present by the `@objectstack/client@^16`
-      // dependency floor (framework #3271). No hand-rolled POST /api/v1/batch.
+      // dependency floor (objectstack-ai/objectstack#3271). No hand-rolled POST /api/v1/batch.
       const payload = await this.client.data.batchTransaction(operations);
       this.emitBatchMutations(operations, payload?.results);
       this.notifyBatchDroppedFields(operations, payload);
@@ -4612,7 +4612,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     const records = resultObj.records || resultObj.value || [];
     const total = resultObj.total ?? resultObj.count ?? records.length;
     // Prefer the server's `hasMore` (real server-side pagination, framework
-    // issue #2212). Fall back to the page-local estimate (a full page implies
+    // issue objectstack-ai/objectstack#2212). Fall back to the page-local estimate (a full page implies
     // there may be more) only when the server doesn't report it.
     const hasMore = typeof resultObj.hasMore === 'boolean'
       ? resultObj.hasMore
@@ -4888,7 +4888,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       // Use cache with automatic fetching. The cache is keyed by object name
       // only (locale-independent); a language switch wipes it wholesale via
       // `clearCache()` so the next read re-fetches in the new locale — see the
-      // shell's locale remount (issue #1319). Keeping the key locale-free here
+      // shell's locale remount (issue objectstack-ai/objectstack#1319). Keeping the key locale-free here
       // means a metadata *write* still invalidates the single entry it knows
       // about, without having to fan out across every cached locale.
       // Read through a cache-revalidating fetch (see fetchObjectSchemaFresh):
@@ -5552,7 +5552,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
 
   /**
    * List registered import `mapping` artifacts targeting a given object
-   * (framework #2611). Reads the `mapping` metadata kind via the overlay API
+   * (objectstack-ai/objectstack#2611). Reads the `mapping` metadata kind via the overlay API
    * and filters by `targetObject` client-side (the metadata index is
    * name-only). Feeds the import wizard's "saved mapping" selector.
    *
@@ -5911,7 +5911,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    *
    * The maintainer ruling (2026-08-12) put the answer on the BY-NAME route
    * rather than in the list, so the enumeration surface is not widened past what
-   * a by-name probe already implies (objectstack#8013 / PR #8135): an app that
+   * a by-name probe already implies (objectstack#8013 / PR objectstack-ai/objectstack#8135): an app that
    * exists and whose `requiredPermissions` the session lacks answers `403` with
    * `PERMISSION_DENIED` in the declared envelope, and absence — a nonexistent
    * name, an unpublished app, an app gated by an absent optional service — is

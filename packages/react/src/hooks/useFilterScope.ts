@@ -11,7 +11,7 @@ import type { FilterTokenScope } from '@object-ui/core';
 
 /**
  * The session values filter placeholders resolve against — `{current_user_id}`
- * and `{current_org_id}` (framework #3574).
+ * and `{current_org_id}` (objectstack-ai/objectstack#3574).
  *
  * ## Why a dedicated context
  *
@@ -64,7 +64,7 @@ export function FilterScopeProvider({
  * Pass the result straight to `resolveFilterPlaceholders(filter, scope)` from
  * `@object-ui/core` — that helper expands every placeholder vocabulary in one
  * call, which is the point: resolving only some of them is the defect behind
- * #3574.
+ * objectstack-ai/objectstack#3574.
  */
 export function useFilterScope(): FilterTokenScope {
   return useContext(FilterScopeContext);

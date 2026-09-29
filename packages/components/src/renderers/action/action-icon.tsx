@@ -96,7 +96,7 @@ const ActionIconRenderer = forwardRef<
 
     const isVisible = useCondition(toPredicateInput(schema.visible), recordData);
     // Spec `disabled` (boolean | CEL — disabled when TRUE) primary, legacy
-    // non-spec `enabled` fallback (#1885 follow-through — only action-button
+    // non-spec `enabled` fallback (objectstack-ai/objectstack#1885 follow-through — only action-button
     // was wired; this renderer ignored a spec-authored `disabled`). Uncast
     // since objectui#8648 — see `action-button.tsx` for the reading.
     const isDisabledPred = useCondition(toPredicateInput(schema.disabled), recordData);

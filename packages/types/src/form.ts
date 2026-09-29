@@ -1884,7 +1884,7 @@ export interface FormField {
   colSpan?: number;
   /**
    * Relative field width, decoupled from the (auto-derived) column count so it
-   * stays correct at 1/2/3/4 columns (#2578). `'auto'` (default): width from
+   * stays correct at 1/2/3/4 columns (objectstack-ai/objectstack#2578). `'auto'` (default): width from
    * the widget type × current columns (wide widgets take the whole row);
    * `'full'`: whole row at any column count. Aligns with
    * @objectstack/spec FormField.span. Prefer this over `colSpan`.

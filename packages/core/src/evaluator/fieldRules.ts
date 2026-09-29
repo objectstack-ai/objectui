@@ -263,7 +263,7 @@ export function evalFieldPredicate(
         ...(scope ? { extra: scope } : {}),
       });
       // Parse error, type error, unbound identifier, engine fault … — every
-      // not-ok verdict resolves to the fallback, but never silently (#5149).
+      // not-ok verdict resolves to the fallback, but never silently (objectstack-ai/objectstack#5149).
       if (!res.ok) reason = `[${res.error.kind}] ${res.error.message}`;
       else value = res.value === true;
     } catch (err) {

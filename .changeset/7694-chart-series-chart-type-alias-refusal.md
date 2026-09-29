@@ -41,6 +41,12 @@ name when the file does not validate, without the issue, and it exits non-zero o
 only. The refusal is `objectui validate`'s. The source citations in this entry now name files
 rather than line numbers.
 
+⚠️ **Dated note, 2026-09-29 — objectui#11007.** The note above says `check` lists such a file
+"without the issue". It now prints the file's first issue under it, path and message, so a
+document with none of the structural keys can show this refusal there when it is the first
+issue. `check` still never parses a file admitted by a structural key, and still exits non-zero
+on unreadable JSON only: the refusal is still `objectui validate`'s.
+
 This repository's `major` is a cross-repo pin to `@objectstack`'s major, not a severity dial; the
 break is announced here, which is the channel that carries it.
 

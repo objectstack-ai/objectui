@@ -176,10 +176,11 @@ describe('GlobalFilterSchema derives from the spec', () => {
  * by the spec on both faces. So the local schema IS the spec's now, and what is
  * pinned is that verdict, on the same literals, from both schemas.
  *
- * ⚠️ Retired at the SCHEMA only. `normalizeFilterOptions` (`@object-ui/core`'s
- * `dashboard-filters.ts`) still lifts a stored bare-string option on read, with
- * its deprecation warning, on the objectstack#7917 window — the objectui#4165
- * split: the schema refuses, the read path lifts.
+ * ⚠️ Retired at the SCHEMA first, and since objectui#4356 at the READ PATH too
+ * (the objectstack#7917 option-② schedule): `normalizeFilterOptions`
+ * (`@object-ui/core`'s `dashboard-filters.ts`) no longer lifts a stored
+ * bare-string option — the member yields no option and a dev-mode warning
+ * names it — so both faces now refuse the same spelling.
  */
 describe('GlobalFilterSchema: the local divergences are retired (objectui#7759)', () => {
   const both = (doc: unknown) => [GlobalFilterSchema.safeParse(doc).success, SpecGlobalFilterSchema.safeParse(doc).success];

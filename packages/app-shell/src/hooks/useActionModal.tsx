@@ -183,7 +183,7 @@ export function useActionModal(dataSource?: any) {
    * `headlessActionTypeError` rejects `type: 'modal'` over REST with a 400), so
    * objectstack#3959 removed that fallthrough from the console runtimes and
    * objectui#3320 removed the copy in `RecordDetailView`. This TSDoc still
-   * described the pre-#3959 behaviour; corrected here.
+   * described the pre-objectstack-ai/objectstack#3959 behaviour; corrected here.
    */
   const resolveModalTarget = useCallback(
     async (schema: any): Promise<ModalDescriptor | null> => {

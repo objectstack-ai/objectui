@@ -36,7 +36,7 @@ export function AppSwitcher({ activeAppName, onAppChange }: AppSwitcherProps) {
   // (personal-settings-style surfaces like the Account app), not the
   // top-level App Switcher.
   //
-  // ⛔ Do NOT add `_unpublished` here (objectstack#6955 / #4829 A1). That key is
+  // ⛔ Do NOT add `_unpublished` here (objectstack#6955 / objectstack-ai/objectstack#4829 A1). That key is
   // the ADR-0045 publish gate and is enforced server-side — the REST metadata
   // gate withholds unpublished apps from non-builders, so anything that reaches
   // this list is already permitted. Filtering it here would hide a builder's own

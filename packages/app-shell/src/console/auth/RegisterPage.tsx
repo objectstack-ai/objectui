@@ -7,6 +7,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { RegisterForm, useAuth, type AuthLinkComponentProps } from '@object-ui/auth';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { AuthPageLayout } from './AuthPageLayout.js';
+import { signUpRefusalMessages } from './signUpRefusalMessages.js';
 
 const RouterLink = ({ href, className, children }: AuthLinkComponentProps) => (
   <Link to={href} className={className}>{children}</Link>
@@ -117,6 +118,7 @@ export function RegisterPage() {
         title={t('auth.register.title')}
         description={t('auth.register.description')}
         linkComponent={RouterLink}
+        errorMessages={signUpRefusalMessages(t)}
         labels={{
           nameLabel: t('auth.register.nameLabel'),
           namePlaceholder: t('auth.register.namePlaceholder'),

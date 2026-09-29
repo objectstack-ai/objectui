@@ -292,7 +292,7 @@ export function useRecordSearch(opts: UseRecordSearchOptions): UseRecordSearchRe
       // per-object `find({ $search })` fanout below only runs each object's
       // metadata-driven search (ADR-0061) and can miss records the global
       // search index knows about — the command-palette symptom in framework
-      // #3371, where `/api/v1/search` returned an account/opportunity the
+      // objectstack-ai/objectstack#3371, where `/api/v1/search` returned an account/opportunity the
       // palette never showed. When `searchAll` is absent (mock/test adapters,
       // non-ObjectStack backends) we fall back to the fanout.
       const searchAll = (dataSource as { searchAll?: unknown }).searchAll;

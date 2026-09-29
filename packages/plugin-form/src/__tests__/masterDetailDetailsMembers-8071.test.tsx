@@ -240,6 +240,16 @@ describe('`object-master-detail-form` — the member shape of `details`', () => 
   it('2b. control: with none of the five authored, the same six keys arrive EMPTY', async () => {
     await mount({ details: [{ childObject: 'po_line', relationshipField: 'po', title: 'Lines', columns: [QTY] }] });
     const field = await waitFor(() => gridOf('Lines').field);
+    // The key set first: `toEqual` treats a key holding `undefined` as absent,
+    // so on its own it could not tell "six keys, five empty" from "one key".
+    expect(Object.keys(field).sort()).toEqual([
+      'add_label',
+      'columns',
+      'max_rows',
+      'min_rows',
+      'sort_field',
+      'total_field',
+    ]);
     expect(field).toEqual({
       columns: [QTY],
       sort_field: undefined,

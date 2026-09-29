@@ -277,7 +277,7 @@ export function InboxPopover({
             </button>
           )}
         </div>
-        {/* Badge breakdown (#7233). The bell badge is `unreadTopics +
+        {/* Badge breakdown (objectstack-ai/objectstack#7233). The bell badge is `unreadTopics +
             pendingApprovalsCount` and clamps at "9+", so the number on its own
             is unexplainable — and the two tab pills clamp at "9+" too, which
             means a loaded inbox can show three "9+"s that reconcile to nothing.

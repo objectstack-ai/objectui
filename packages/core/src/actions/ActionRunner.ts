@@ -285,9 +285,9 @@ export interface ActionDef {
    * `'url'`, flow name for `'flow'`, modal/page for `'modal'`, endpoint for
    * `'api'`, FormView name for `'form'`.
    *
-   * The `execute` alias was REMOVED in @objectstack/spec 17 (#3855) and is not
-   * read here (#3856) — don't re-add it. Two handler slots is how one action ran
-   * one script server-side and a different one client-side (#3713).
+   * The `execute` alias was REMOVED in @objectstack/spec 17 (objectstack-ai/objectstack#3855) and is not
+   * read here (objectstack-ai/objectstack#3856) — don't re-add it. Two handler slots is how one action ran
+   * one script server-side and a different one client-side (objectstack-ai/objectstack#3713).
    */
   target?: string;
   /**
@@ -350,7 +350,7 @@ export interface ActionDef {
   // rather than stylistic. `ActionSchema` is a `ZodPipe` whose transforms narrow
   // the authored shape — `visible` is authored as `string | { dialect, source }`
   // but INFERS to the object form alone. This runner consumes authored/stored
-  // rows, which #3903 established are rehydrated UNPARSED, so it sees the input
+  // rows, which objectstack-ai/objectstack#3903 established are rehydrated UNPARSED, so it sees the input
   // shape. Deriving from the `z.infer` side would type-error the raw-string
   // predicate that `ActionEngine` explicitly supports and that
   // `ActionEngine.visibility.test.ts` pins.
@@ -763,7 +763,7 @@ export interface ActionParamDef {
    * hands back `type: param.type ?? 'text'`, and every downstream reader of the
    * degradation is blind to it: the param is a `text` param by then, so
    * `paramDegradesWithoutTarget()` answers false, `paramToField()` emits no
-   * "no reference target" warning, and the #3405 "paste a record id" hints do
+   * "no reference target" warning, and the objectstack-ai/objectstack#3405 "paste a record id" hints do
    * not apply either. A lookup param that should have rendered a record picker
    * renders an unannotated empty box instead — no options, no dropdown, and no
    * request for the referenced object on the wire, because no picker was ever
@@ -1132,11 +1132,11 @@ export class ActionRunner {
     try {
       // `ActionDef` accepts any key of any type, so a typo (`targt`) and a
       // retired key (`execute`) both reach here having type-checked. Neither
-      // binds a handler, and binding no handler silently is the #2169 "Mark Done
-      // does nothing" shape. Dev-only, warn-once, changes nothing (#4075 step 1).
+      // binds a handler, and binding no handler silently is the objectstack-ai/objectstack#2169 "Mark Done
+      // does nothing" shape. Dev-only, warn-once, changes nothing (objectstack-ai/objectstack#4075 step 1).
       warnOnUnknownActionKeys(action);
 
-      // The compat window for the object-form `params` payload (#5777, maintainer
+      // The compat window for the object-form `params` payload (objectstack-ai/objectstack#5777, maintainer
       // ruling 2026-08-06 direction A). Checked HERE, before the param-collection
       // block below rewrites `action.params` into a values map — after that point
       // an action that authored a legitimate ActionParam[] DEFINITION array also
@@ -1466,7 +1466,7 @@ export class ActionRunner {
     // found zero producers outside the channel's own pins.
     //
     // `readOnSuccessNavigation` stays as the shape guard, not as a
-    // discriminator: stored rows are rehydrated UNPARSED (#3903), so the value
+    // discriminator: stored rows are rehydrated UNPARSED (objectstack-ai/objectstack#3903), so the value
     // is still read as data, and a shape the spec refuses gets no reading —
     // no navigation, no callback dispatch, no lenient fallback.
     if (result.success && action.onSuccess) {
@@ -1661,9 +1661,9 @@ export class ActionRunner {
    */
   private async executeScript(action: ActionDef): Promise<ActionResult> {
     // `target` is the only handler slot. The `execute` alias was removed in
-    // @objectstack/spec 17 (#3855), which rejects an authored `execute` at parse
+    // @objectstack/spec 17 (objectstack-ai/objectstack#3855), which rejects an authored `execute` at parse
     // with the rename prescription — so parsed metadata cannot carry it and a
-    // `target || execute` fallback could only ever evaluate to `target` (#3856).
+    // `target || execute` fallback could only ever evaluate to `target` (objectstack-ai/objectstack#3856).
     const script = action.target;
     if (!script) {
       // A spec `body` IS a script — this runner just cannot run one (see the
@@ -1687,11 +1687,11 @@ export class ActionRunner {
       // `ActionDef` no longer declares `execute` — nor any open index signature
       // — so `tsc` now catches the retired key at every site that AUTHORS an
       // action literal in code. That is the half of the problem the type can
-      // reach. It is not this half: #3903 established that stored
+      // reach. It is not this half: objectstack-ai/objectstack#3903 established that stored
       // `sys_metadata` rows are rehydrated UNPARSED, so metadata written before
       // spec 17 arrives here as a plain object the compiler never saw, still
       // carrying `execute`. Declaring the key to make this read compile would
-      // re-legitimize a tombstone (#3855 removed it; the spec keeps it only to
+      // re-legitimize a tombstone (objectstack-ai/objectstack#3855 removed it; the spec keeps it only to
       // reject it BY NAME), and deleting the branch would send those rows back
       // to a bare "no script provided" — which reads as "you forgot a field" to
       // an author who did write one, the objectstack#2169 shape.
@@ -2047,7 +2047,7 @@ export class ActionRunner {
    * old object-form `params` page — POSTed an empty body here.
    *
    * `params` contributes only in its DEPRECATED non-array form (the compat window
-   * #5777 opened; see `warnOnDeprecatedObjectParams`). An ARRAY `params` is a
+   * objectstack-ai/objectstack#5777 opened; see `warnOnDeprecatedObjectParams`). An ARRAY `params` is a
    * parameter DEFINITION list, not a payload: it reaches this method unconsumed
    * only when no `paramCollectionHandler` is mounted, and POSTing the definitions
    * as the request body was never a payload any endpoint wanted. It now falls
@@ -2342,7 +2342,7 @@ export interface OnSuccessNavigation {
  * Is this `onSuccess` the spec's navigation block?
  *
  * The test IS the spec's declaration: a non-array object carrying a STRING
- * `navigate`. Stored rows are rehydrated UNPARSED (#3903), so the runner reads
+ * `navigate`. Stored rows are rehydrated UNPARSED (objectstack-ai/objectstack#3903), so the runner reads
  * the value as data and anything else gets NO reading — since objectui#5934
  * retired the legacy chained-callback channel (`ActionDef | ActionDef[]`),
  * there is no other channel for an off-contract shape to fall into. This is a

@@ -103,7 +103,7 @@ export const ActionMenuItem: React.FC<{
 }> = ({ action, onExecute, record }) => {
   const { recordData, isVisible } = useMenuActionVisible(action, record);
   // Spec `disabled` (boolean | CEL — disabled when TRUE) primary, legacy
-  // non-spec `enabled` fallback (#1885 follow-through — only action-button
+  // non-spec `enabled` fallback (objectstack-ai/objectstack#1885 follow-through — only action-button
   // was wired; this renderer ignored a spec-authored `disabled`).
   const isDisabledPred = useCondition(toPredicateInput((action as any).disabled), recordData);
   const isEnabled = useCondition(toPredicateInput(action.enabled), recordData);

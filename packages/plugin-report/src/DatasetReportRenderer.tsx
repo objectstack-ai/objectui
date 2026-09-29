@@ -618,7 +618,7 @@ function DatasetReportTable({
     // emit an exact field→raw filter (correct for select/lookup dims, which a
     // display-label groupKey would mis-filter); the host then filters with no
     // extra metadata round-trip. Older server → groupKey-only fallback.
-    // #1752: a time-bucketed date dim contributes a RANGE (not an equality dim),
+    // objectstack-ai/objectstack#1752: a time-bucketed date dim contributes a RANGE (not an equality dim),
     // so the fast path also fires when the server sent a range for this row —
     // covering a date-ONLY report that has no equality drill dim at all.
     const rowRanges = state.drillRanges?.[index];
@@ -1284,7 +1284,7 @@ function DatasetMatrixTable({
 }) {
   // Row subtotals, column subtotals, and the grand total ([]), in that order.
   //
-  // #3916: the ordering rides on the PRIMARY query only — the server drops it
+  // objectstack-ai/objectstack#3916: the ordering rides on the PRIMARY query only — the server drops it
   // for the totals sub-queries by design (a total covers the whole selection,
   // and an order key may name a dimension the totals grouping doesn't have).
   // The across-axis header sequence follows from it: `pivot` below collects
@@ -1386,7 +1386,7 @@ function DatasetMatrixTable({
     ? [...rows, ...columnsAcross].filter((d) => d in state.dimensionFields!)
     : [];
   const drillCell = (rowKey: Row, colKey: Row, index: number) => {
-    // #1752: include the date-bucket range sidecar so an "X by time" cell scopes
+    // objectstack-ai/objectstack#1752: include the date-bucket range sidecar so an "X by time" cell scopes
     // to the clicked time bucket, not every bucket in that row/column.
     const cellRanges = state.drillRanges?.[index];
     const hasRange = !!cellRanges && Object.keys(cellRanges).length > 0;
@@ -1555,7 +1555,7 @@ export const DatasetReportRenderer: React.FC<DatasetReportRendererProps> = ({
           warnOnRejectedFilterAlias(block, `${reportSite} block \`${block.name ?? index}\``);
           const blockFilter = mergeFilters(outerFilter, block.runtimeFilter);
           const blockAcross = readNames(block.columns);
-          // #3916 — each block orders ITSELF. A joined container selects nothing
+          // objectstack-ai/objectstack#3916 — each block orders ITSELF. A joined container selects nothing
           // of its own (the schema rejects `order` on it), and every block is an
           // independent query over its own dataset, so there is no report-level
           // ordering to inherit here.

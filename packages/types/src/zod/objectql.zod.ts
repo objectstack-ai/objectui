@@ -1744,7 +1744,7 @@ export const ListViewSchema = BaseSchema
     // `streaming`), with `'pdf'` refused in both spellings under an
     // `os migrate meta --from 16` prescription (objectstack#8010).
     //
-    // This member used to restate a pre-#8010 shape — `'pdf'` accepted in both
+    // This member used to restate a pre-objectstack-ai/objectstack#8010 shape — `'pdf'` accepted in both
     // branches, no `streaming`, a non-strict object — so `ListViewInferred`
     // (`z.input` of this schema, and through it the `ListViewSchema` TYPE the
     // ListView renderer is written against) disagreed with its sibling
@@ -2752,7 +2752,7 @@ const OBJECT_CHART_NEITHER_CHANNEL = neitherContentChannelGuidance(
 export const ObjectChartSchema = BaseSchema.extend({
   type: z.literal('object-chart'),
   // Legacy inline path (objectName + aggregate). Optional now that a chart may
-  // instead bind to a semantic-layer dataset (ADR-0021, #1890).
+  // instead bind to a semantic-layer dataset (ADR-0021, objectstack-ai/objectstack#1890).
   objectName: z.string().optional().describe('ObjectQL object name (legacy inline path)'),
   // ── objectui#10770: the chart family, on either tier's key ──
   //

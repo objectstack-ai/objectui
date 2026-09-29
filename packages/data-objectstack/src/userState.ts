@@ -167,11 +167,11 @@ export function createObjectStackUserStateAdapter<T = unknown>(
   // failed insert.
   //
   // Deliberately does NOT stamp `updated_at`: the column is server-managed, and
-  // a non-system caller's write to it is stripped (framework #2948) and reported
+  // a non-system caller's write to it is stripped (objectstack-ai/objectstack#2948) and reported
   // back as a dropped field — which the console surfaces as a "Some fields were
-  // not saved" toast (#3431). Sending it made every recents/favorites write pop
+  // not saved" toast (objectstack-ai/objectstack#3431). Sending it made every recents/favorites write pop
   // a scary warning about a field the user never touched, drowning the real
-  // signal the toast exists for (#3794). The server stamps it either way.
+  // signal the toast exists for (objectstack-ai/objectstack#3794). The server stamps it either way.
   const upsert = async (items: T[]): Promise<void> => {
     // Fast path: we already know the row id from a previous load/save.
     if (cachedRowId !== null) {

@@ -770,7 +770,7 @@ export type FormatValidation = z.input<typeof SpecFormatValidationSchema>;
  * `unknown`, and the index signature waves through any member at all — a typo'd
  * `type: 'formatt'` included. The spec's own comment on `ValidationRuleSchema`
  * says as much and names the remaining work: "it is not strictness … Removing
- * the index signature is the #4075 family of work, not this change."
+ * the index signature is the [objectstack-ai/objectstack#4075] family of work, not this change."
  *
  * So the branches stay re-typed to objectui's discriminated union here. What
  * changed in #3177 is the tripwire, not the divergence:

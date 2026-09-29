@@ -206,7 +206,7 @@ function presetBounds(preset: string): { from?: string; to?: string } | undefine
  * protect.
  *
  * What stays local is the BOUNDS table above, which is the other half of
- * #4614's design ("the two vocabularies live one import apart and neither
+ * objectstack-ai/objectstack#4614's design ("the two vocabularies live one import apart and neither
  * restates the other's grammar"): the spec owns which presets exist, this
  * module owns what each one resolves to in date-macro tokens.
  */

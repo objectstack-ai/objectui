@@ -36,7 +36,7 @@ export interface PageHeaderComponentProps extends React.HTMLAttributes<HTMLDivEl
      * was retired in objectui#3789, once the ADR-0087 D2 conversion
      * `page-header-subtitle-alias` was measured to reach EVERY spec-valid header
      * position on the load path (regions, slots, and containers nested to any
-     * depth — objectstack#6775 / #6776 / PR #7034). Stored metadata authored with
+     * depth — objectstack#6775 / objectstack-ai/objectstack#6776 / PR objectstack-ai/objectstack#7034). Stored metadata authored with
      * `description` is rewritten to `subtitle` before it ever reaches a renderer,
      * so the second line survives without this side holding a second dialect open.
      */

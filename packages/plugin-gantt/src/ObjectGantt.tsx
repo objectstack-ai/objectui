@@ -1835,7 +1835,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // detail panel inline (no full-page navigation). Schema can override by
   // providing its own `navigation` config (e.g., page mode).
   //
-  // No width is spelled here on purpose. `width` is `@deprecated [#2578 ->
+  // No width is spelled here on purpose. `width` is `@deprecated [objectstack-ai/objectstack#2578 ->
   // size]` in the spec that owns this shape, and `resolveOverlayWidth` gives
   // an explicit `width` priority OVER `size` — so spelling it kept the
   // deprecated branch load-bearing on the path most gantts take (no declared

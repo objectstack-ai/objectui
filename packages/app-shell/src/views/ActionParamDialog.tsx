@@ -606,7 +606,7 @@ export function ActionParamDialog({ state, onOpenChange }: ActionParamDialogProp
               ? { dependentValues: values }
               : {};
             // A picker param that fell back to text for want of a declared
-            // target keeps the "paste an ID" placeholder/help hints (#3405).
+            // target keeps the "paste an ID" placeholder/help hints (objectstack-ai/objectstack#3405).
             //
             // WHICH params fell back is asked of the adapter that performs the
             // fallback — never restated here (objectui#5654). This line used to

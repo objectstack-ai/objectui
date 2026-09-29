@@ -133,7 +133,7 @@ function Placeholder({ tone = 'muted', children }: { tone?: 'muted' | 'warn'; ch
  *   - `default` is KEPT, and is read at `initial` below. That is deliberate and
  *     is the whole reason this is a spec derivation rather than a narrower
  *     local shape: `default` on the OBJECT-field face is ruled `enforce`
- *     (objectstack#7246, implemented by PR #7388) — the engine seeds the insert
+ *     (objectstack#7246, implemented by PR objectstack-ai/objectstack#7388) — the engine seeds the insert
  *     path from the option marked `default: true` — so the state this view
  *     calls "initial" is the same one the platform actually writes.
  *

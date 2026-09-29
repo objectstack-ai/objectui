@@ -120,7 +120,7 @@ export { toPredicateInput } from '@object-ui/core';
  * Because the rule has two halves and every predicate face has to get both:
  * the SHAPE — `record` is the row's one name, so `record.viewer.can_act`, what
  * every declared action on framework's `sys_approval_request` gates on
- * (framework#3310 / #3424), reaches the row — and the NO-ROW case below.
+ * (framework#3310 / objectstack-ai/objectstack#3424), reaches the row — and the NO-ROW case below.
  * `DeclaredActionsBar` and the four generic action renderers once carried
  * inline copies of this bag and drifted (objectui#4077 / #4079); one named
  * helper is what keeps a fifth copy from drifting again.

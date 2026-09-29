@@ -513,7 +513,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // ONE extra statement, `SELECT SUM(…), AVG(…) FROM t` — the same WHERE, no
   // GROUP BY — at 9.6ms beside the primary's 48.8ms, i.e. +20% on the widget's
   // query, holding at +19%/1M rows and +28%/10k. The cross-tab has shipped
-  // THREE such groupings, ungated, since #1753; one is strictly less.
+  // THREE such groupings, ungated, since objectstack-ai/objectstack#1753; one is strictly less.
   //
   // NOT requested when `options.limit` truncates the table. The executor drops
   // `limit` for a totals query by design (a total covers the whole selection),
@@ -555,7 +555,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   //
   // Resolve BOTH vocabularies. This used to call `resolveDateMacros` alone, so
   // a user-scoped widget sent `{current_user_id}` to SQL as a literal, matched
-  // no row, and rendered 0 with no error anywhere (framework #3574).
+  // no row, and rendered 0 with no error anywhere (objectstack-ai/objectstack#3574).
   const filterScope = useFilterScope();
   // The object-schema probe's host-authenticated fetch (objectui#4121) is no
   // longer read here: it moved INTO `useDatasetDimensionMeta` along with the
@@ -947,7 +947,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // charts map a clicked segment back to its dataset row (see handleChartDrill).
   const { object: drillObject, dimensionFields, drillRawRows, drillRanges } = state;
   const drillDims = dimensionFields ? dimensions.filter((d) => d in dimensionFields) : [];
-  // #1752: a date-only widget has no equality drill dim but still drills by the
+  // objectstack-ai/objectstack#1752: a date-only widget has no equality drill dim but still drills by the
   // server's per-row date RANGE, so the presence of ranges makes it drillable too.
   const canDrill = !!drillObject && (drillDims.length > 0 || !!drillRanges?.length);
   const openDrill = (index: number, title: string) => {

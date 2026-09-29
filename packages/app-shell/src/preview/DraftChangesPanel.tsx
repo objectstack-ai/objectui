@@ -34,7 +34,7 @@ import {
   SheetTitle,
 } from '@object-ui/components';
 import { useObjectTranslation } from '@object-ui/i18n';
-// The `/meta` URL-spelling fold (objectstack#7894, #8424), applied once in
+// The `/meta` URL-spelling fold (objectstack#7894, objectstack-ai/objectstack#8424), applied once in
 // `listPendingDrafts` below.
 //
 // CORRECTED, and the correction matters more than the number. An earlier

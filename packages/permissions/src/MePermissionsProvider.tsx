@@ -64,7 +64,7 @@ export interface MePermissionsProviderProps {
    * request carries the Bearer token: with the default global `fetch` the
    * request is cookie-only, and a token-only session (localStorage, no
    * better-auth cookie) resolves as anonymous — the UI then renders
-   * restricted fields as editable (#2926 ④).
+   * restricted fields as editable (objectstack-ai/objectstack#2926 ④).
    */
   fetcher?: typeof fetch;
   /** Pre-fetched permissions payload (testing / SSR) */
@@ -315,7 +315,7 @@ export function MePermissionsProvider({
       // No explicit field-level override → defer to object-level perms.
       const objPerm = data.objects?.[objKey] ?? data.objects?.[object] ?? data.objects?.['*'];
       if (!objPerm) {
-        // [#2926 ④] Unknown-object default is authentication-gated:
+        // [objectstack-ai/objectstack#2926 ④] Unknown-object default is authentication-gated:
         //  - authenticated session → fail-CLOSED. The server resolved this
         //    user's permissions and said nothing about the object, so
         //    rendering it editable invites input the data layer will strip.
@@ -351,7 +351,7 @@ export function MePermissionsProvider({
         export: 'allowRead',
       };
       const k = map[action as string] ?? 'allowRead';
-      // Same authentication-gated default as checkField (#2926 ④).
+      // Same authentication-gated default as checkField (objectstack-ai/objectstack#2926 ④).
       const allowed = objPerm ? (objPerm as any)[k] !== false : data.authenticated !== true;
       return { allowed, reason: allowed ? undefined : 'denied-by-permission-set' };
     },

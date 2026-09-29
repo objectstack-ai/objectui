@@ -24,7 +24,7 @@ import { resolveDateMacros } from './date-macros.js';
  *
  *     { owner_id: '{current_user_id}' }
  *
- * ## Why this module exists (framework #3574)
+ * ## Why this module exists (objectstack-ai/objectstack#3574)
  *
  * There used to be no shared resolver. Three ad-hoc implementations had grown
  * up independently — one in `ObjectView` for list views, one in
@@ -231,7 +231,7 @@ export function resolveContextTokens<T = any>(filter: T, scope: FilterTokenScope
  * macros and context tokens — in one call.
  *
  * This is the function surfaces should call. Calling only one of the two
- * resolvers is the defect behind framework #3574: dashboard widgets called
+ * resolvers is the defect behind objectstack-ai/objectstack#3574: dashboard widgets called
  * `resolveDateMacros` alone, so `{today}` worked and `{current_user_id}`
  * silently did not.
  *

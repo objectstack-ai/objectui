@@ -145,7 +145,7 @@ export interface FlowObjectListFieldProps {
   /** In-scope variable references for `expression` columns (#1934). */
   scopeGroups?: ScopeGroup[];
   /**
-   * #3447: picker groups for approval `expression` approver cells — the
+   * objectstack-ai/objectstack#3447: picker groups for approval `expression` approver cells — the
    * closed current/trigger/vars root set. Regular flow scopeGroups must NOT
    * be offered there (record.* / bare-field spellings are rejected at
    * runtime), which is why this rides as its own prop.
@@ -349,7 +349,7 @@ export function FlowObjectListField({
                       const disc = col.ref?.kindFrom
                         ? String(row.values[col.ref.kindFrom] ?? '')
                         : '';
-                      // #3447: `expression` is a discriminator value, not a
+                      // objectstack-ai/objectstack#3447: `expression` is a discriminator value, not a
                       // reference kind — an approver whose sibling `type` is
                       // 'expression' authors a CEL expression over the approval
                       // roots (current/trigger/vars). Render the expression

@@ -43,7 +43,7 @@
  * objectui#3529's body points at `details.code`. Verified against the producer,
  * that is the SERVER-INTERNAL carrier only: `HttpDispatcher.errorFromThrown`
  * builds `details: { code: e.code }`, and `buildApiError`/`splitSemanticCode`
- * (objectstack `packages/runtime/src/error-envelope.ts`, #3842) then LIFT that
+ * (objectstack `packages/runtime/src/error-envelope.ts`, objectstack-ai/objectstack#3842) then LIFT that
  * code into `error.code` and drop `details` entirely when it held nothing else.
  * So `details.code` never reaches the browser from this producer, and a consumer
  * reading it would be running a check that can only ever pass vacuously. We read
@@ -55,7 +55,7 @@
  *
  * The card also expects the 503's prose to say "unknown". It does not reach the
  * browser: `declaresServerFault` (objectstack `packages/types/src/error-leak.ts`,
- * #5811) is true for exactly this error — `status >= 500` WITH a string `code` —
+ * objectstack-ai/objectstack#5811) is true for exactly this error — `status >= 500` WITH a string `code` —
  * so the dispatcher replaces the sentence with the generic
  * `INTERNAL_ERROR_MESSAGE` ("Internal server error") while `error.code` survives.
  * Rendering the envelope message here would therefore show an operator a generic

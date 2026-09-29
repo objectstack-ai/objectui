@@ -111,7 +111,7 @@ export interface ObjectFormComponentProps {
 
 /**
  * Fold the structured, spec-aligned `buttons`/`defaults` surface
- * (`@objectstack/spec` FormViewSchema; framework#1894 / #2998) down onto the
+ * (`@objectstack/spec` FormViewSchema; framework#1894 / objectstack-ai/objectstack#2998) down onto the
  * flat renderer props ObjectForm and its variants read
  * (`showSubmit`/`submitText`/`showCancel`/`cancelText`/`showReset`/
  * `initialValues`). This is the objectui-side consumer of those spec keys — it
@@ -202,7 +202,7 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
   // (Tabbed/Wizard/Split/Drawer/Modal/Simple) transparently honour FLS.
   // Fail-open when no provider mounted (perms.isLoaded false).
   const schema = useMemo<ObjectFormComponentProps['schema']>(() => {
-    // framework#1894 / #2998 (ADR-0078): the authored @objectstack/spec
+    // framework#1894 / objectstack-ai/objectstack#2998 (ADR-0078): the authored @objectstack/spec
     // FormViewSchema carries the structured `buttons.{submit,cancel,reset}.
     // {show,label}` + `defaults` surface, but this renderer historically read
     // only the flat `showSubmit`/`submitText`/…/`initialValues`. Fold the
@@ -1499,7 +1499,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
     // Derived (fieldGroup) sections were computed from the filtered field list;
     // explicit sections keep the authored field selection as-is.
     const sourceFields = fieldGroupSections ? groupableFields : formFields;
-    // #2578: honour per-section `columns`. The form renders as ONE grid (one
+    // objectstack-ai/objectstack#2578: honour per-section `columns`. The form renders as ONE grid (one
     // react-hook-form instance); each section lays its OWN fields out at its
     // declared density within that grid. Grid width = explicit form `columns`,
     // else the widest section, else inferred from field count (the
@@ -1633,7 +1633,7 @@ const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
         }),
       );
 
-      // #2578: lay THIS section's fields out at its declared column density
+      // objectstack-ai/objectstack#2578: lay THIS section's fields out at its declared column density
       // within the shared form grid (span-aware; wide fields still full-row).
       const secCols = clampCol((section as any).columns);
       const laid = formColumns > 1 ? applyAutoColSpan(sectionFields, formColumns, secCols) : sectionFields;

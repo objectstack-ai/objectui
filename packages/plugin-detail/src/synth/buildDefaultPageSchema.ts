@@ -98,7 +98,7 @@ export interface ObjectDefLike {
   fieldGroups?: Array<Partial<NonNullable<ServiceObject['fieldGroups']>[number]>>;
   /**
    * Spec `enable` capability toggles. Only `files` is read here:
-   * `enable.files === true` (opt-in, #2727) makes the synthesizer emit an
+   * `enable.files === true` (opt-in, objectstack-ai/objectstack#2727) makes the synthesizer emit an
    * Attachments tab beside Details/Related (objectstack#4358).
    */
   enable?: { files?: boolean; [key: string]: any };
@@ -221,7 +221,7 @@ export interface BuildPageOptions {
      *
      * The host supplies it; this synthesizer neither derives nor merges it.
      * `RecordDetailView` fills it from the FK field's `relatedListFilter`
-     * (objectui#4664 — the spec key from objectstack#8704 / PR #8955), already
+     * (objectui#4664 — the spec key from objectstack#8704 / PR objectstack-ai/objectstack#8955), already
      * in the canonical Query-DSL `FilterCondition` shape that key declares. The
      * component-level authored `filter` and this derived one are therefore the
      * same vocabulary arriving at the same prop, which is the point: one read
@@ -888,7 +888,7 @@ export function buildDefaultDiscussion(): any {
 }
 
 /**
- * Sub-builder: the `record:attachments` panel (#2727). Emitted only when the
+ * Sub-builder: the `record:attachments` panel (objectstack-ai/objectstack#2727). Emitted only when the
  * object opts in via `enable.files: true` — the same gate the server enforces
  * on `sys_attachment` rows (403 FILES_DISABLED otherwise).
  */

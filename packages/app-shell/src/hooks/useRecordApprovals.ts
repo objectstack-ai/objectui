@@ -349,7 +349,7 @@ export async function remindApprovalRequest(
  * ⛔ No `currentUserId` parameter (objectui#3055). It existed only to feed the
  * retired client-side `canDecide`; every remaining question about the viewer —
  * may they act, are they the submitter, may they override — is answered by the
- * server on the row itself (`viewer`, framework#3310 / #3424). A surface that
+ * server on the row itself (`viewer`, framework#3310 / objectstack-ai/objectstack#3424). A surface that
  * still needs the signed-in id for a pre-`viewer` fallback (the panel's remind)
  * reads it from `useAuth()` where it renders.
  */

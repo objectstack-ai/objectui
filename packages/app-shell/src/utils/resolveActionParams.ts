@@ -133,7 +133,7 @@ export interface RawActionParam {
   /** Max upload size in bytes for `file`/`image` params. */
   maxSize?: number;
   /**
-   * Reference target for an INLINE `lookup`/`master_detail` param (#3405) —
+   * Reference target for an INLINE `lookup`/`master_detail` param (objectstack-ai/objectstack#3405) —
    * the object whose records the picker searches. Field-backed params inherit
    * it from the referenced field instead (see `lookupExtras` below). Spelled
    * `reference` to match `FieldSchema.reference` / `ActionParamSchema.reference`.
@@ -499,7 +499,7 @@ export function resolveActionParam(
       multiple: param.multiple,
       accept: param.accept,
       maxSize: param.maxSize,
-      // Inline picker target (#3405). Without this an inline `lookup` param
+      // Inline picker target (objectstack-ai/objectstack#3405). Without this an inline `lookup` param
       // could never reach `<LookupField>` — `paramToField()` degrades a
       // targetless picker to a raw record-id text input.
       referenceTo: param.reference,
@@ -525,7 +525,7 @@ export function resolveActionParam(
     // offering a box no human can fill. Without this key the degradation is
     // undetectable downstream: by the time `paramToField()` sees the param it
     // is a `text` param, so `paramDegradesWithoutTarget()` answers false and
-    // even the #3405 "paste a record id" hints do not fire.
+    // even the objectstack-ai/objectstack#3405 "paste a record id" hints do not fire.
     //
     // ⛔ The warning is NOT gated on the param's type. "Which widget did this
     // want?" is exactly the question that cannot be answered here, so gating on
@@ -609,7 +609,7 @@ export function resolveActionParam(
   const lookupExtras: Partial<ActionParamDef> = isLookupResolvedType
     ? {
         // Inline `reference` wins, matching how every other inline value
-        // overrides the resolved field (#3405).
+        // overrides the resolved field (objectstack-ai/objectstack#3405).
         // ⚠️ objectui#6837 half 2: the READ narrows to `reference` (the only
         // spelling the protocol declares — `FieldSchema` refuses `reference_to`
         // by name). The EMITTED key is unchanged: it is what this emit's TARGET

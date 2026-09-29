@@ -10,7 +10,7 @@
  * URL filter (de)serialization shared by the drill "escape hatch"
  * (`useOpenRecordList`, the WRITE side) and the ADR-0055 bare data surface
  * (`ObjectDataPage`, the READ side). Keeping both sides in ONE module keeps the
- * `filter[<field>][<op>]` operator contract (#1752) from drifting between the
+ * `filter[<field>][<op>]` operator contract (objectstack-ai/objectstack#1752) from drifting between the
  * code that emits a URL and the code that parses it back.
  *
  * Contract:
@@ -353,7 +353,7 @@ function collectFilterParams(filter: Record<string, unknown>, params: URLSearchP
 /**
  * Delete the equality param AND every operator param (both range bounds, and the
  * emptiness param in either direction) for a field, so removing a date-range
- * chip drops the whole range together (#1752) and removing an emptiness chip
+ * chip drops the whole range together (objectstack-ai/objectstack#1752) and removing an emptiness chip
  * drops its param (objectui#9159, objectui#9508). Prefix-based, so it covers a suffix by construction rather
  * than by listing one — a new operator is removable the day it is writable.
  * Mutates and returns `params`.

@@ -72,7 +72,7 @@ const SETUP_APP_SEGMENT = 'setup';
  * One definition, because "an app the user can open" has to mean the same thing
  * to Home's launcher and to every producer that builds a link into an app.
  *
- * ⛔ Do NOT add `_unpublished` to this predicate (objectstack#6955 / #4829 A1).
+ * ⛔ Do NOT add `_unpublished` to this predicate (objectstack#6955 / objectstack-ai/objectstack#4829 A1).
  * It is the machine-managed ADR-0045 publish gate, and it is enforced
  * SERVER-SIDE — the REST metadata gate withholds unpublished apps from
  * non-builders, so any that reach this function belong to a builder entitled to

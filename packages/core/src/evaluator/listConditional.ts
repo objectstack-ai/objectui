@@ -140,7 +140,7 @@ function evalCel(
   // verbatim — no second engine — so CEL semantics never drift from B2.
   // `warn: false`: this caller reports the fault itself (the labelled
   // `warnEvalError` in `evalRowPredicate`) — one warning per broken predicate,
-  // not two (#5149). `onFault` carries the engine's reason across that silence
+  // not two (objectstack-ai/objectstack#5149). `onFault` carries the engine's reason across that silence
   // so the labelled report can still name it (objectui#3792); both probes fault
   // identically, so the first reason is the reason.
   let reason: string | undefined;
@@ -325,7 +325,7 @@ export function evalRowPredicate(
   // The fault-aware `evalCel` costs two evaluations (to tell a fault
   // from a genuine `false`), so only pay it when a caller wants the labelled
   // fail-closed warning — the formatting hot path takes the single-eval fast
-  // route. Since #5149 the fast route is no longer silent either: the
+  // route. Since objectstack-ai/objectstack#5149 the fast route is no longer silent either: the
   // canonical helper itself warns once per broken predicate (with `opts.label`
   // as the locator when given).
   if (!opts.warnOnError) {

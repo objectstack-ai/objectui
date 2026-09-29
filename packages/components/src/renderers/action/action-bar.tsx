@@ -202,7 +202,7 @@ const ActionBarRenderer = forwardRef<HTMLDivElement, { schema: ActionBarSchema; 
       // nobody sets `order` and nobody is `primary` keeps its exact registration
       // order. This is what lets an injected Approve/Reject with a negative
       // `order` float into the primary slot instead of the "More" overflow menu
-      // (#2670), lets authors declaratively promote an action via `Action.order`,
+      // (objectstack-ai/objectstack#2670), lets authors declaratively promote an action via `Action.order`,
       // and — when several unordered actions tie at the default `order` 0 — lets
       // the `primary`-variant action claim the primary button without the author
       // having to also assign an `order`.

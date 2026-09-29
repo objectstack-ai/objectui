@@ -19,7 +19,7 @@
  *
  * That asymmetry was the issue. An open key set on a DECLARED METADATA CONTRACT
  * is what lets a typo (`targt`, `exectue`) and a tombstoned key (`execute`) both
- * sail through to a runner that then silently does nothing — the #2169 "Mark
+ * sail through to a runner that then silently does nothing — the objectstack-ai/objectstack#2169 "Mark
  * Done does nothing" shape.
  *
  * This module was step 1 of the staged narrowing: make the key set VISIBLE and
@@ -428,7 +428,7 @@ const isDev = (): boolean =>
  * Dev-mode only: name the keys an action carries that no reader will ever look
  * at. Non-breaking by construction — it changes no types and rejects nothing.
  *
- * Silently binding no handler is the #2169 "Mark Done does nothing" shape. The
+ * Silently binding no handler is the objectstack-ai/objectstack#2169 "Mark Done does nothing" shape. The
  * compiler now catches it in action literals AUTHORED IN CODE — objectstack#4075
  * step 3 closed `ActionDef` — but not in the actions that arrive as DATA, which
  * reach the runner unparsed and which no compiler ever looked at. This is the

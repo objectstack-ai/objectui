@@ -100,9 +100,9 @@ import type { SpecAuthoredInput } from '../spec-input.js';
  *
  * Two per-key notes the hand copy carried, kept here because a derived alias
  * has no members to hang them on:
- *  - `size` is the coarse overlay bucket added by #2578; `resolveOverlayWidth`
+ *  - `size` is the coarse overlay bucket added by objectstack-ai/objectstack#2578; `resolveOverlayWidth`
  *    below maps it through {@link OVERLAY_SIZE_WIDTHS}.
- *  - `width` is DEPRECATED by #2578 in favour of `size`. It still wins when
+ *  - `width` is DEPRECATED by objectstack-ai/objectstack#2578 in favour of `size`. It still wins when
  *    present, because app-shell pre-resolves `size` into it.
  */
 export type NavigationConfig = SpecAuthoredInput<typeof NavigationConfigSchema>;

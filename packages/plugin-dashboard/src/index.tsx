@@ -70,7 +70,7 @@ export {
 // `__tests__/dashboardAuthoredInputs.test.tsx`:
 //   - `title`  — legacy spelling of `label`; the spec rejects it by name.
 //     The `schema.title || schema.label` read STAYS (documents in the wild).
-//   - `aria`   — spec tombstone (#3896 audit close-out): no dashboard
+//   - `aria`   — spec tombstone (objectstack-ai/objectstack#3896 audit close-out): no dashboard
 //     renderer ever applied it, and this package has no read site either.
 //
 // `name` is honoured too (the `schema.name` read keys the

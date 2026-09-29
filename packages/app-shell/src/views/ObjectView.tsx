@@ -111,7 +111,7 @@ const FALLBACK_USER = { id: 'current-user', name: 'Demo User' };
  * (`if (!Array.isArray(filter)) return filter`) and knew exactly one token.
  * That narrowness is why it could not be reused by dashboard widgets, whose
  * filters are MongoDB-style objects — so widgets went without any resolution
- * at all and silently rendered 0 (framework #3574). Every surface now routes
+ * at all and silently rendered 0 (objectstack-ai/objectstack#3574). Every surface now routes
  * through one shape-agnostic resolver.
  */
 function substituteFilterTokens(filter: any, scope: FilterTokenScope): any {
@@ -2328,7 +2328,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             if (authored) {
                 // Authored config wins. For an overlay, resolve the `size`
                 // bucket (or 'auto') to a viewport-clamped width when no explicit
-                // width was given — #2578: a pixel width can't be authored blind.
+                // width was given — objectstack-ai/objectstack#2578: a pixel width can't be authored blind.
                 if (authored.mode === 'page') return authored;
                 return {
                     ...authored,
@@ -2338,7 +2338,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                     ),
                 };
             }
-            // #2578: derive surface + width from FIELD COUNT. Field-heavy → full
+            // objectstack-ai/objectstack#2578: derive surface + width from FIELD COUNT. Field-heavy → full
             // page (cramped in a drawer); light → a drawer sized to the content
             // and clamped to the viewport. Mobile always pages (in deriveRecordSurface).
             return deriveRecordSurface(objectDef) === 'page'
@@ -2609,7 +2609,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             // (objectui#10035): `ObjectChart` runs its own query and refetches
             // in place on the data-invalidation bus (see `refreshData`).
             //
-            // ADR-0021 (#1890): dataset-bound chart — the single author-facing
+            // ADR-0021 (objectstack-ai/objectstack#1890): dataset-bound chart — the single author-facing
             // shape. Selects dimensions/measures BY NAME and runs through the
             // governed queryDataset path (numbers consistent across surfaces).
             if (chartConfig.dataset) {
@@ -3050,7 +3050,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 // This was a hand-listed projection of six keys (`chartType` /
                 // `xAxisField` / `yAxisFields` / `aggregation` / `series` /
                 // `config`): the PRE-ADR-0021 set, frozen. The whole ADR-0021
-                // (#1890) authoring shape (`dataset` / `dimensions` / `values`)
+                // (objectstack-ai/objectstack#1890) authoring shape (`dataset` / `dimensions` / `values`)
                 // and the legacy `categoryField` / `valueField` spelling had no
                 // rung here, so an author who declared them reached `ListView`
                 // with the binding stripped. Once objectui#7544 gave

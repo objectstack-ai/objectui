@@ -38,7 +38,7 @@ import { t, tFormat } from '../i18n.js';
 /** Which group a reference belongs to (drives the picker's section headers). */
 export type ScopeGroupId =
   | 'variables' | 'outputs' | 'loop' | 'trigger'
-  // #3447: approval `expression` approvers see a DIFFERENT root set than flow
+  // objectstack-ai/objectstack#3447: approval `expression` approvers see a DIFFERENT root set than flow
   // conditions (current/trigger/vars — never `record`/bare fields). Their
   // picker groups carry their own ids so they can never leak into the regular
   // condition picker.
@@ -109,7 +109,7 @@ interface FlowEdgeLike {
 const RECORD_TRIGGER_TYPES = new Set([
   'record-after-create',
   'record-after-update',
-  'record-after-write', // create OR update (#3427)
+  'record-after-write', // create OR update (objectstack-ai/objectstack#3427)
   'record-before-write',
   'record-before-update',
   'record-after-delete',

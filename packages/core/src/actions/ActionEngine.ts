@@ -286,7 +286,7 @@ export class ActionEngine {
           // BARE field reference (`done` instead of `record.done`), which is
           // an undeclared variable in the `{ record, recordId, objectName,
           // user }` eval scope. Silently hiding it makes that bug invisible
-          // (the #2183 hunt). Warn once per predicate so it is diagnosable
+          // (the objectstack-ai/objectstack#2183 hunt). Warn once per predicate so it is diagnosable
           // without spamming re-renders.
           warnHiddenPredicate(ra.action.name, raw, err);
           return false;

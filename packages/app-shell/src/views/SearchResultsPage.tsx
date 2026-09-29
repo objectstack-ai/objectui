@@ -134,7 +134,7 @@ export function SearchResultsPage() {
   // (`/api/v1/search` via `useRecordSearch`/`searchAll`), scoped to the app's
   // searchable nav objects so record links resolve within this app. This is
   // what makes the full-page search actually surface records, not just the
-  // metadata nav items above (issue #3371 follow-up).
+  // metadata nav items above (issue objectstack-ai/objectstack#3371 follow-up).
   const searchableObjectNames = useMemo(() => {
     if (!activeApp) return [] as string[];
     return flattenNavigation(activeApp.navigation || [])

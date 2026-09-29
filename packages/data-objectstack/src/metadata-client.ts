@@ -69,17 +69,17 @@ export type { RuntimeAuthoringIssue };
  * returned 200 — so this is advisory, never a failure.
  *
  * Deliberately the same shape of seam as `ObjectStackAdapter.onWriteWarning`
- * (#3431/#3455): a successful write whose response carries something the author
+ * (objectstack-ai/objectstack#3431 / objectstack-ai/objectstack#3455): a successful write whose response carries something the author
  * needs to be told, surfaced to the shell as an event so the data layer never
  * imports a toaster. The difference is only which door produced it — that one
  * is record CRUD, these are the metadata write doors.
  *
  * ## Both write doors report (#5026)
  *
- * The #4463 runtime authoring gate runs on BOTH metadata write doors by its D1
+ * The objectstack-ai/objectstack#4463 runtime authoring gate runs on BOTH metadata write doors by its D1
  * ruling — a draft→active promotion is gated exactly as a direct active save —
  * and its non-blocking findings ride the 2xx of whichever door earned them.
- * `SaveMetaItemResponseSchema` has carried the key since #4717 and
+ * `SaveMetaItemResponseSchema` has carried the key since objectstack-ai/objectstack#4717 and
  * `PublishMetaItemResponseSchema` since objectstack#9176; both declare it at
  * the response's TOP level, under the same name and with the same
  * `RuntimeAuthoringIssueSchema` element type, which is what lets one reader and
@@ -1486,7 +1486,7 @@ export class MetadataClient {
   ): Promise<T> {
     // objectstack `9e04c3e35` (`@objectstack/rest` 17.2.0) — this door accepts
     // `?package=<id>` and forwards it as the promotion's package binding, so
-    // #9612's package-closure narrowing at the runtime publish gate is
+    // objectstack-ai/objectstack#9612's package-closure narrowing at the runtime publish gate is
     // reachable from an HTTP-driven promotion at all. Deliberately the SAME
     // wire spelling and the same conditional as `save()` a few hundred lines
     // up: ONE value, ONE spelling, both steps of the save->publish loop.

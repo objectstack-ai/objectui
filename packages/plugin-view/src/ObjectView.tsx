@@ -1397,20 +1397,6 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         const expand = !perms?.isLoaded
           ? expandable
           : expandable.filter((f) => perms.checkField(schema.objectName as string, f, 'read'));
-        const query = {
-          // `mergeFilterNodes` returns a node or `undefined`; the old
-          // `.length > 0` here was the second place an object filter was lost.
-          $filter: finalFilter,
-          // objectui#4869: lowered through the shared sink, so ONE normalized
-          // shape reaches `DataSource.find` from every object-bound read site
-          // rather than whichever of `$orderby`'s four declared shapes the
-          // author happened to write. An adapter that implements `find` itself
-          // now sees the same `Record<field, direction>` here that it already
-          // sees from the other five blocks.
-          $orderby: convertSortToQueryParams(sort),
-          $top: 100,
-          ...(expand.length > 0 ? { $expand: expand } : {}),
-        };
 
         // ⭐ objectui#10982 — the placeholder is for a view with no answer to
         // THIS request yet: its first load, or a changed filter, sort,
@@ -1427,9 +1413,27 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // A failed re-read surfaces exactly as a failed first load does: the
         // error is logged below, `loading` ends false and the rows already
         // drawn stay; nothing here swallows it.
-        const request = JSON.stringify([schema.objectName, query]);
+        //
+        // The request is named by the inputs the `find` below is built from —
+        // the rest of it is constant — rather than by the params object, which
+        // stays an inline literal so `no-unprefixed-query-params` and the
+        // `QueryParams` excess-property check keep reading it.
+        const request = JSON.stringify([schema.objectName, finalFilter, sort, expand]);
         setLoading(drawnRequestRef.current !== request);
-        const results = await dataSource.find(schema.objectName, query);
+        const results = await dataSource.find(schema.objectName, {
+          // `mergeFilterNodes` returns a node or `undefined`; the old
+          // `.length > 0` here was the second place an object filter was lost.
+          $filter: finalFilter,
+          // objectui#4869: lowered through the shared sink, so ONE normalized
+          // shape reaches `DataSource.find` from every object-bound read site
+          // rather than whichever of `$orderby`'s four declared shapes the
+          // author happened to write. An adapter that implements `find` itself
+          // now sees the same `Record<field, direction>` here that it already
+          // sees from the other five blocks.
+          $orderby: convertSortToQueryParams(sort),
+          $top: 100,
+          ...(expand.length > 0 ? { $expand: expand } : {}),
+        });
 
         let items: any[] = [];
         if (Array.isArray(results)) {

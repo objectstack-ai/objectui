@@ -57,6 +57,7 @@ import type {
   ObjectMapSchema,
 } from '../objectql.js';
 import type { FormField, FormSchema } from '../form.js';
+import type { ElementDataSource as SpecElementDataSource } from '@objectstack/spec/ui';
 import { AnyComponentSchema, StrictAnyComponentSchema } from '../zod/index.zod.js';
 
 type Issue = { code: string; path: PropertyKey[]; keys?: string[]; errors?: Issue[][] };
@@ -196,12 +197,22 @@ export type assertionFormFieldMembersAreTyped = Expect<Equal<
   false
 >>;
 export type assertionShowSubmitIsBoolean = Expect<Equal<FormSchema['showSubmit'], boolean | undefined>>;
-export type assertionBindingIsTyped = Expect<Equal<
-  IsAny<ObjectGridSchema['dataSource'] | ObjectFormSchema['dataSource'] | ObjectKanbanSchema['dataSource']
-    | ListViewSchema['dataSource'] | ObjectGanttSchema['dataSource'] | ObjectMapSchema['dataSource']
-    | ObjectCalendarSchema['dataSource']>,
-  false
->>;
+/**
+ * Each binding member IS the spec's `ElementDataSource` — an exact match, not a
+ * mere "not `any`": `ListViewSchema` is derived from its zod mirror, and a member
+ * that left the mirror resolves to the index signature's `unknown` there, which
+ * an `IsAny` check would wave through.
+ */
+type BindingOf<T extends { dataSource?: unknown }> = NonNullable<T['dataSource']>;
+export type assertionBindingIsTheSpecBinding = [
+  Expect<Equal<BindingOf<ObjectGridSchema>, SpecElementDataSource>>,
+  Expect<Equal<BindingOf<ObjectFormSchema>, SpecElementDataSource>>,
+  Expect<Equal<BindingOf<ObjectKanbanSchema>, SpecElementDataSource>>,
+  Expect<Equal<BindingOf<ListViewSchema>, SpecElementDataSource>>,
+  Expect<Equal<BindingOf<ObjectGanttSchema>, SpecElementDataSource>>,
+  Expect<Equal<BindingOf<ObjectMapSchema>, SpecElementDataSource>>,
+  Expect<Equal<BindingOf<ObjectCalendarSchema>, SpecElementDataSource>>,
+];
 
 // @ts-expect-error — an adapter is not a binding: the binding names an `object`.
 export const adapterIsNotABinding: ObjectGridSchema['dataSource'] = { find: () => [] };

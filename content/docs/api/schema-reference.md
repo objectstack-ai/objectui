@@ -139,6 +139,7 @@ Top-level page container. Defines a full page with optional regions (header, sid
 | `children` | `SchemaNode \| SchemaNode[]` | Main page content when the page declares no regions — one node, or a list of them. Spelled `body` until objectui#6771 retired that spelling. |
 | `isDefault` | `boolean` | Whether this is the default page for the object. |
 | `assignedProfiles` | `string[]` | Security profiles that can access this page. |
+| `aria` | `AriaProps` | ARIA attributes for the page's root element: `ariaLabel` (a plain string, or an inline locale map such as `{ "en": "Orders", "fr": "Commandes" }`, resolved for the display locale) renders `aria-label`, `ariaDescribedBy` renders `aria-describedby`, and `role` renders `role`. This is the spec's inline vocabulary, not the keyed flat `ariaLabel` described under DivSchema. The page adds no default role. |
 
 **Related:** [AppSchema](/docs/core/app-schema), [DivSchema](#divschema), [GridSchema](#gridschema)
 

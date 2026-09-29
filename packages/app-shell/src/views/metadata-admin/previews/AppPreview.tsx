@@ -244,7 +244,7 @@ export function AppPreview({ name, draft, editing, selection, onSelectionChange,
   const appName = String((draft as any).name ?? name ?? '');
   // `label` is `I18nLabel` too: resolved in the designer locale, the app's own
   // name only when it authored none (objectui#11100).
-  const label = resolveI18nLabel((draft as any).label, locale) ?? appName;
+  const label = resolveI18nLabel(draft.label as I18nText, locale) ?? appName;
   const unnamed = tr('engine.appPreview.unnamed', locale);
   // The landing page is DERIVED, never authored: it is the first navigation
   // item that actually addresses something. The app used to be able to pin it

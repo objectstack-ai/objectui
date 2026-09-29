@@ -1,0 +1,36 @@
+{
+  "number": 11024,
+  "kind": "issue",
+  "title": "finding(ci): Spec Main Shape Gate is red on every run since objectstack c5ad1de0 — the sparse objectstack checkout omits `patches/`, so `pnpm install` cannot open `patches/tsup@8.5.1.patch`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "bug",
+    "domain:ui",
+    "priority:p1",
+    "tooling"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T21:50:59Z",
+  "updated_at": "2026-09-29T00:07:46Z",
+  "closed_at": "2026-09-29T00:06:17Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11024",
+  "body": "Filing-gate category: ① a required check red on a tree no objectui PR broke. It has a named site and a measured cause.\n\n**Reach: measured.**\n- PR objectui#11023's run of the required `Spec Main Shape Gate` (run 36488067207, job 109149732486, 2026-09-28T21:44Z) failed in `Build @objectstack/spec from objectstack main` with exit 254.\n- It fails before any objectui file is compiled. The gate's `report` step then exits 2 with \"the captured typecheck log … does not exist\".\n- Every later run resolves objectstack `main` afresh, so every pull request, and every merge group, meets the same failure.\n\nFiled by the `domain:spec @ objectui` seat (session `session_012UwY3ahMixEFkfTUxMVkYm`). ⛔ Not graded here.\n\n**Standing rule** (the maintainer's ruling recorded on objectui#10916, comment `5866275396`): when this gate is red on `main` or in the merge queue, any `domain:ui` seat claims the repair at once as a stop-the-bleed, without waiting for triage's grade.\n\n## The failure\n\n```\npnpm: ENOENT: no such file or directory, open '/home/runner/work/_temp/objectstack/patches/tsup@8.5.1.patch'\n##[error]Process completed with exit code 254.\n```\n\nIt was compiling against objectstack `9e9bb4641704` (2026-09-28T21:03Z).\n\n## Cause, measured\n\n- **What changed upstream.** objectstack PR objectstack-ai/objectstack#20499 (`c5ad1de0`, merged 2026-09-28T20:19:57Z) added the root file `patches/tsup@8.5.1.patch`. It also added this to its root `pnpm-workspace.yaml`:\n  ```\n  patchedDependencies:\n    tsup@8.5.1: patches/tsup@8.5.1.patch\n  ```\n- **What the gate checks out.** `.github/workflows/spec-main-shape-gate.yml` clones objectstack blobless with a cone sparse checkout: `git sparse-checkout set packages/spec scripts`. Cone mode brings in root files, including `pnpm-workspace.yaml` with its new `patchedDependencies` entry, but not the `patches/` directory. So `pnpm install --frozen-lockfile --filter @objectstack/spec...` reads the patch map and cannot open the file.\n- **Why earlier runs were green.** The last green run was the merge group for PR #11006 at 20:44Z (run 36481292449). It compiled against objectstack `4a1df19656bf` (20:06:57Z), before `c5ad1de0`. Nothing about objectui changed between that green run and this red one.\n\n## Direction (for the claiming seat)\n\n- **Smallest objectui-side fix:** add `patches` to the gate's sparse set, i.e. `git sparse-checkout set packages/spec scripts patches`. Re-derive the list from objectstack's root `pnpm-workspace.yaml` at fix time, since any other root-relative path the install reads must be in the cone too.\n- Consider having the gate derive the sparse set from `patchedDependencies`, so the next upstream patch does not break it again.\n- ⚠️ **Push permission.** The file is under `.github/workflows/`. A push that edits a workflow needs a token with workflow permission (landing-operations: \"PR touches `.github/workflows/**` and the token lacks workflows permission\").\n- The objectstack-side alternative (not needing a root `patches/` dir for a filtered spec install) is objectstack's own call and is not proposed here.\n\n## Dedupe\n\n- Semantic issue search on objectui for 「Spec Main Shape Gate pnpm install ENOENT patches tsup patch sparse checkout objectstack」 returned 22 hits. The gate cards among them (objectui#10916, #10987, #10287, #10229, #9860) are all closed and carry other causes: type errors against new spec shapes, and the gate's origin.\n- A scan of objectui and objectstack issues created since 2026-09-28T20:00Z found only objectstack PR #20499 itself, the upstream change.\n- None names the sparse checkout or `patches/`.\n\nDedupe words: Spec Main Shape Gate ENOENT patches tsup@8.5.1.patch · sparse-checkout packages/spec scripts · patchedDependencies objectstack pnpm-workspace · exit 254 before compile"
+}

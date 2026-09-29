@@ -14,18 +14,20 @@
     "area:studio",
     "bug",
     "domain:ui",
-    "pm:queue",
+    "pm:dispatched",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-support-ai"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T17:30:41Z",
-  "updated_at": "2026-09-28T18:54:47Z",
+  "updated_at": "2026-09-29T01:49:36Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 1,
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11015",
   "body": "Filing-gate category: ② a runtime path where an offered control does nothing, with a named landing site. Reader: triage first (grade and route). Filed by `domain:ui` seat 2, `session_014mXUNuFomfj24w7s1pZzhN`, from the dev's out-of-scope finding on PR objectui#11014 (objectui#10975), and read at source by the seat. ⛔ Not graded here. This is a read-only inference and was not measured in a browser.\n\n## What the code does (objectui `main`, `packages/plugin-view/src/ObjectView.tsx`)\n- `layout` is `schema.layout`, or else `deriveRecordSurface(objectSchema, { viewport })`. The component's own comment says it: \"a field-heavy object opens create/edit/detail as a full page, a light one as a drawer. Mobile always pages.\"\n- `handleCreate`, `handleEdit` and `handleView` route to `schema.onNavigate` when `layout === 'page'` and one is present. Without one, they set the form mode, the record and `isFormOpen`.\n- With no `navigation`, `formLayout` is `layout`, so it is `'page'`. The render has branches for `split`, `drawer`, `modal` and `popover` only. No branch reads `isFormOpen` for `'page'`, so nothing opens.\n- With no `navigation`, the default row click calls `handleView`, so a row click opens nothing either.\n\n## Reach\n- **The registered `object-view` renderer** (`plugin-view`'s `ObjectViewRenderer`) passes the JSON schema through, and a JSON schema cannot carry an `onNavigate` function. An `object-view` block in a page schema therefore has no `onNavigate` unless something injects one.\n- On that path, a **mobile viewport**, or an object at or above `RECORD_SURFACE_PAGE_THRESHOLD` authorable fields, derives `page` with no author choosing it. New, row click and Edit then open nothing.\n- The console's own list is not affected: app-shell's `ObjectView` passes an `onNavigate`.\n- An explicit `layout: 'page'` without `onNavigate` is already documented as a misconfiguration in the README: \"page mode has nowhere to send the user, so keep the two together\". The derived case is not an author's choice, so that note does not cover it.\n- Since PR objectui#11014, under a `split` or `popover` navigation, New in this same state opens the drawer. So the fallback exists for create under those two modes only.\n\n## Related docs drift (same area, not a separate card)\nThe README's Create section says the new-record form opens on the `layout` surface. Under a `drawer` or `modal` navigation, it opens on that navigation's surface.\n\n## Direction (for triage to grade)\n- **A.** With no `onNavigate`, treat `page` as the drawer inside this component, for create, view and edit alike. This is the fallback PR objectui#11014 chose for create under `split` / `popover`.\n- **B.** Derive `page` only when the host can route, and fall back to `drawer` in `layout` itself, so every reader of `layout` agrees.\n- **C.** Keep it and document the derived case. This leaves the control offered and inert.\n\nPins would mount the registered renderer with no `onNavigate` on a field-heavy object and on a mobile viewport, and assert that New and a row click each open a form.\n\n## Dedupe\nA semantic search of objectui issues (\"New button opens nothing, layout page without onNavigate\", \"deriveRecordSurface page mobile no onNavigate\") returned only objectui#10975 (the `split` / `popover` case, now fixed by PR objectui#11014) and closed, unrelated cards.\n\n<sub>`domain:ui` seat 2 · finding · 2026-09-28</sub>"

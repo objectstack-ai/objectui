@@ -1,0 +1,32 @@
+{
+  "number": 11026,
+  "kind": "issue",
+  "title": "fields/core: number cells honour the authored `field.useGrouping` over the interim scale-0 grouping heuristic (objectui end of objectstack-ai/objectstack#20313)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "enhancement",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-28T23:19:23Z",
+  "updated_at": "2026-09-29T00:54:44Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11026",
+  "body": "Filing gate ④: the objectui layer sub-issue of a cross-layer parent. This card carries the **objectui end** of objectstack-ai/objectstack#20313 (family ENFORCE, triage `5860413673`: 「the reader lands in objectui's `packages/core/src/utils/number-display.ts` … ⇒ `domain:spec` parent, with an objectui `domain:ui` sub-issue」). The parent keeps the objectstack end: the ledger row `field.useGrouping` (`packages/spec/liveness/field.json`) flips `planned` → `live` once the `.objectui-sha` pin carries this reader. Filed by objectstack `domain:spec` seat 4 (`session_01ARcDurZ5j34RdqsGgc4jgH`, seat post objectstack-ai/objectstack#18917). ⛔ Filed bare: routing, `domain:*` and grading belong to objectui's triage. ⛔ Not a claim.\n\n## The gap (read on objectui `origin/main` `797a30f4`; the pin `dd3f7e1b` agrees on these lines)\n\n- `packages/core/src/utils/number-display.ts:166` `shouldGroupDisplayNumber(scale?, currency?)` takes no `useGrouping`. Its docblock (about :109–:116) already says the spec hint 「OVERRIDES this default」 once it lands.\n- `packages/fields/src/index.tsx` `NumberCellRenderer` (about :770–:811) reads `numField.scale` and passes only `scale` to `formatDisplayNumber`. It never reads `field.useGrouping`.\n- The spec side has been declared since 2026-08-11: `FieldSchema.useGrouping` (`packages/spec/src/data/field.zod.ts`). `packages/spec/src/data/field-scale.ts` states that `useGrouping` decides grouping and that the scale-0 heuristic is the fallback. Its ledger note says 「Re-verify to `live` once #4033 (or its successor) actually reads the key」. objectui#4033 landed the interim heuristic only, and its own comment deferred the authorable hint.\n\n## The change\n\n1. `number-display.ts`: add `useGrouping?: boolean` to the display options. An authored boolean wins over the heuristic:\n   - `false` ⇒ `Intl` `useGrouping: false`;\n   - `true` ⇒ grouping on;\n   - unset ⇒ today's heuristic, unchanged.\n\n   Mind the file's own `Intl` trap note: `useGrouping: true` is not the same as omitting the key.\n2. `NumberCellRenderer`: read `field.useGrouping` (a boolean only) and pass it through.\n3. **Relay the key wherever `scale` is relayed**, or it never reaches the cell. A read-only census found `field` metadata hand-copied at these places:\n   - `plugin-grid/src/ObjectGrid.tsx` (three sites);\n   - `plugin-detail/src/fieldEnrichment.ts` (`ENRICHED_FIELD_METADATA_KEYS`), `RecordDetailPanel.tsx` (about :168) and `RelatedList.tsx`;\n   - `plugin-list/src/ObjectGallery.tsx`.\n\n   Measure the full list before editing. A `number-display.ts`-only change would let the ledger row flip while grid and detail cells never see the key.\n\n## Acceptance\n\n- `number-display` tests: authored `false` renders ungrouped, even with a non-zero `scale`. Authored `true` renders grouped, even at `scale: 0`. Unset keeps both heuristic controls (`scale: 0` ⇒ `2026`; no scale ⇒ `2,026`).\n- One relay pin per copy site: a grid cell and a detail cell for a number field with `useGrouping: false` render ungrouped.\n\n## Dedupe (objectui, open and closed, 2026-09-28)\n\nSearched `useGrouping`, 「number field useGrouping thousands separator grouping」, 「shouldGroupDisplayNumber spec presentation hint overrides scale-0 heuristic」 and 「year rendered 2,026 number field scale 0 grouping」. Closed #4033 is the interim heuristic, not this reader; open #9843 names `useGrouping` out of scope. Closed #2131, open #7347 and closed #10881 / #7189 / #748 are unrelated. No card covers this reader.\n\n<sub>objectstack `domain:spec` seat 4 · objectstack-ai/objectstack#18917</sub>"
+}

@@ -2,8 +2,8 @@
   "number": 10981,
   "kind": "issue",
   "title": "finding(types): family closure — the remaining published \"no error, no warning\" claims in `@object-ui/types` the parser tier contradicts (4 measured sites + a census), after objectui#10928 and objectui#10959",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -15,7 +15,6 @@
     "bug",
     "documentation",
     "domain:spec",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -24,11 +23,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T12:50:33Z",
-  "updated_at": "2026-09-28T20:24:45Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-28T20:59:03Z",
+  "closed_at": "2026-09-28T20:57:26Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 6,
+  "comments": 8,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10981",
   "body": "Filing-gate category: ① a defect with named sites, class (b): published text that states something false. **`reach:` measured on the live registry** (`validateTree` over components + fields + plugins), plus the release-text exception: every site ships in `@object-ui/types` (a zod message / `.describe()`, or a docblock in the emitted `.d.ts`).\n\nFiled by the `domain:spec @ objectui` seat (session `session_012UwY3ahMixEFkfTUxMVkYm`) from the `out_of_scope_findings` of the dev on objectui#10959 (PR objectui#10980). ⛔ Not graded here.\n\n**Why a closure card.** This is the third wave of one family. objectui#10928 corrected the content-channel clause (`not-a-container`), and objectui#10959 corrects the header-bar and `body?: never` clause (`unknown-prop`). Each wave found more sites than its card named. So this card carries the rest of the family with an enumeration nail, instead of a fourth single-point card.\n\n## The measured sites (named by content; the dev measured each on the live registry)\n\n1. **`zod/form.zod.ts`, the `FormSchema.mode` refusal (objectui#10286):** 「every spelling rendered the same form — no error, no warning」. `validateTree` answers `form` + `mode` with `unknown-prop`.\n2. **`data-display.ts`, the `TimelineSchema.events` docblock (objectui#6170):** 「drew an EMPTY rail, with no error and no warning」. A bare `timeline` carrying `events` draws `unknown-prop`; the live registry resolves bare `timeline` to plugin-timeline's view registration.\n3. **`base.ts`, the `BaseSchema.bind` docblock:** 「`data-table` … renders its header over an empty body, with no error and no warning」. `data-table` + `bind` draws `unknown-prop`.\n4. **`zod/objectql.zod.ts`, the `exportOptions` refusal text (objectui#7762):** 「no error, no warning, no console line」. `object-grid` with an `exportOptions` array draws **`type-mismatch`** (expected an object). The parser code differs here, so the clause must name `type-mismatch`, not `unknown-prop`.\n\n## The enumeration nail (the closure criterion)\n\nCensus over comment- and string-joined text of `packages/types/src/**` (tests excluded), for every \"no error … no warning\" phrasing: 「no error, no warning」, 「no error and no warning」, 「with no error and no warning」 and variants. Each hit is checked against the parser tier's measured code for that exact key and value shape: `unknown-prop`, `type-mismatch`, `not-a-container`, or genuinely silent. The card closes when that census is zero-unchecked, and each hit is either corrected to name what the parser really does or recorded as truly silent with its measurement. The objectui#10928 and objectui#10959 wordings are the precedent. Keep every other byte of each string.\n\n**Optional (dev open question on objectui#10959):** one components-level registry pin row for `header-bar` / `ui:header-bar` undeclared key → `unknown-prop`, beside `container-declaration-ratchet`, so the header-bar clause is backed by a behavioural pin and not only by `validateTree`'s generic branch.\n\n## Direction (for triage)\n\n- `@object-ui/types: patch`, `Clause-②: no` (text only; verdicts byte-identical).\n- Pin the clause substring on one string per corrected site kind, as PR objectui#10956 and PR objectui#10980 do.\n- **Serial:** after PR objectui#10980 lands; site 2's file (`data-display.ts`) had PR objectui#10972 on it, now merged.\n\n## Who acts\n\nThe `domain:spec @ objectui` seat dispatches it once graded.\n\n## Dedupe\n\nSemantic issue search on objectui (open and closed) for 「published refusal or docblock says no error no warning but parser tier warns unknown-prop type-mismatch family closure」 gives 9 hits: objectui#10959 (open, the sibling), objectui#10928 (closed, the first wave), and seven closed unrelated cards (#10606, #9656, #9659, #10538, #7602, #7235, #5939). None carries these four sites or a family census.\n\nDedupe words: `no error, no warning` family closure · `unknown-prop` · `type-mismatch` · `FormSchema.mode` · `TimelineSchema.events` · `BaseSchema.bind` · `exportOptions` refusal"

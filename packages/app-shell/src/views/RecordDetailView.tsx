@@ -1002,7 +1002,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
                   objectName: targetObject,
                   recordId: String(targetId),
                   timestamp: Date.now(),
-                  description: action.label || `Undo ${targetObject}`,
+                  // objectui#11080 — the object, never an English verb: the Undo /
+                  // Redo toast supplies the verb from a pack key (see the runner's twin).
+                  description: action.label || targetObject,
                   undoData,
                   redoData: { ...params },
                 };

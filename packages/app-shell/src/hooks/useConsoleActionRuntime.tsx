@@ -559,7 +559,9 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
             objectName: obj,
             recordId: String(recId),
             timestamp: Date.now(),
-            description: action.label || `Undo ${obj}`,
+            // objectui#11080 — the object, never an English verb: the Undo / Redo
+            // toast supplies the verb from a pack key (see the runner's twin).
+            description: action.label || obj,
             undoData,
             redoData: { ...fields },
           };

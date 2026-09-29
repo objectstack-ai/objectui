@@ -1726,7 +1726,10 @@ export class ActionRunner {
             objectName,
             recordId: String(recordId),
             timestamp: Date.now(),
-            description: action.label || `Undo ${objectName}`,
+            // objectui#11080 — no English verb here. The toast that reports the
+            // Undo / Redo already says which one it is, from a pack key, so an
+            // action that declared no label is named by the object it acted on.
+            description: action.label || objectName,
             undoData,
             redoData: Object.fromEntries(writtenFields.map((k) => [k, params[k]])),
           };

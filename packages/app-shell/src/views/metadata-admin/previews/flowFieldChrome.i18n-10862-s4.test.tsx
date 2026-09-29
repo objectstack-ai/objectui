@@ -167,9 +167,14 @@ function expectAsWritten(texts: string[], where: NonNullable<Site['in']> = 'text
   misses.push(...texts.filter((x) => !rendered(where, x)).map((x) => `as written (${where}): ${JSON.stringify(x)}`));
 }
 
-function buttonReading(lang: Lang, key: string): HTMLElement {
-  const want = norm(row(lang, key));
-  const button = screen.getAllByRole('button').find((b) => norm(b.textContent) === want);
+/**
+ * A button found by being one: its whole text is the row in either language,
+ * so a case still reaches the sites behind it when the button itself is the
+ * miss (the case's own `expectSites` judges the button's words).
+ */
+function buttonReading(_lang: Lang, key: string): HTMLElement {
+  const words = [norm(row('en', key)), norm(row('zh', key))];
+  const button = screen.getAllByRole('button').find((b) => words.includes(norm(b.textContent)));
   expect(button, `the ${key} button`).toBeTruthy();
   return button!;
 }
@@ -342,6 +347,7 @@ function mountWidget(lang: Lang) {
 async function openAddField(lang: Lang) {
   const want = norm(row(lang, 'engine.form.addFieldPlain'));
   const trigger = screen.getAllByRole('button').find((b) => norm(b.textContent) === want);
+  // The trigger's words predate this slice; it is found in the case's language.
   expect(trigger, 'the add-field trigger').toBeTruthy();
   fireEvent.click(trigger!);
   await flush();

@@ -188,10 +188,14 @@ async function mountPanel(lang: Lang) {
   return view;
 }
 
-/** A button found by its whole text being the row in `lang`. */
-function buttonReading(lang: Lang, key: string): HTMLElement {
-  const want = norm(row(lang, key));
-  const button = screen.getAllByRole('button').find((b) => norm(b.textContent) === want);
+/**
+ * A button found by being one: its whole text is the row in either language,
+ * so a case still reaches the sites behind it when the button itself is the
+ * miss (the case's own `expectSites` judges the button's words).
+ */
+function buttonReading(_lang: Lang, key: string): HTMLElement {
+  const words = [norm(row('en', key)), norm(row('zh', key))];
+  const button = screen.getAllByRole('button').find((b) => words.includes(norm(b.textContent)));
   expect(button, `the ${key} button`).toBeTruthy();
   return button!;
 }
@@ -381,6 +385,15 @@ describe('ValidationPanel reads the designer locale (objectui#10862, slice 4)', 
 
 // ─── The import dialog (ImportObjectDialog) ──────────────────────────────────
 
+/** The dialog's footer import button (the last button reading the title row, in either language). */
+function importDraftButton(): HTMLElement {
+  const key = 'engine.externalDatasource.import.title';
+  const words = [norm(row('en', key)), norm(row('zh', key))];
+  const button = screen.getAllByRole('button').filter((b) => words.includes(norm(b.textContent))).pop();
+  expect(button, 'the dialog footer import button').toBeTruthy();
+  return button!;
+}
+
 async function openImport(lang: Lang) {
   state.tables = [TABLES[0]];
   await mountPanel(lang);
@@ -424,23 +437,14 @@ describe('ImportObjectDialog reads the designer locale (objectui#10862, slice 4)
       state.draft = DRAFT;
       state.importing = 'never';
       await openImport(lang);
-      const importButton = screen
-        .getAllByRole('button')
-        .filter((b) => norm(b.textContent) === norm(row(lang, 'engine.externalDatasource.import.title')))
-        .pop()!;
-      fireEvent.click(importButton);
+      fireEvent.click(importDraftButton());
       await flush();
       expectSites(lang, [{ key: 'engine.externalDatasource.import.importing' }]);
       cleanup();
 
       state.importing = 'ok';
       await openImport(lang);
-      fireEvent.click(
-        screen
-          .getAllByRole('button')
-          .filter((b) => norm(b.textContent) === norm(row(lang, 'engine.externalDatasource.import.title')))
-          .pop()!,
-      );
+      fireEvent.click(importDraftButton());
       await flush();
       expectSites(lang, [
         { key: 'engine.externalDatasource.import.done', vars: { name: 'orders' } },

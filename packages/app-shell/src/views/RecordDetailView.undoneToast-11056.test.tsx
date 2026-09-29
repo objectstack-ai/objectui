@@ -80,15 +80,17 @@ vi.mock('../utils/consoleServerAction', () => ({
   createConsoleServerActionHandler: () => vi.fn(async () => ({ success: true })),
 }));
 
+type ProviderProps = React.ComponentProps<typeof import('@object-ui/react').ActionProvider>;
+
 /** Capture every `<ActionProvider>`'s props while keeping the real provider. */
-const captured: Array<{ onToast: any; context: any }> = [];
+const captured: Array<Pick<ProviderProps, 'onToast' | 'context'>> = [];
 vi.mock('@object-ui/react', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@object-ui/react')>();
   return {
     ...actual,
-    ActionProvider: (props: any) => {
+    ActionProvider: (props: ProviderProps) => {
       captured.push({ onToast: props.onToast, context: props.context });
-      return React.createElement(actual.ActionProvider as any, props);
+      return React.createElement(actual.ActionProvider, props);
     },
     SchemaRenderer: () => null,
   };
@@ -125,7 +127,7 @@ const METADATA = {
   ensureType: async () => [],
   getItem: async () => null,
   getItemsByType: () => [],
-} as any;
+} as never;
 
 /**
  * The view's side panels read over the global `fetch`, and the Undo's
@@ -157,7 +159,7 @@ async function undoOnRecordPage(config: typeof ZH | typeof EN, undoLabel: string
     create: vi.fn(async () => ({})),
     update: vi.fn(async () => ({})),
     delete: vi.fn(async () => ({})),
-  } as any;
+  };
   render(
     <I18nProvider config={config} persistLanguage={false}>
       <MemoryRouter initialEntries={[`/app/demo/${OBJECT_NAME}/${RECORD_ID}`]}>
@@ -175,7 +177,10 @@ async function undoOnRecordPage(config: typeof ZH | typeof EN, undoLabel: string
     </I18nProvider>,
   );
   const pick = () =>
-    [...captured].reverse().find((c) => c.onToast && c.context?.record?.id === RECORD_ID)?.onToast;
+    [...captured]
+      .reverse()
+      .find((c) => c.onToast && (c.context?.record as { id?: unknown } | undefined)?.id === RECORD_ID)
+      ?.onToast;
   await waitFor(() => expect(pick()).toBeTruthy());
 
   // What the runner does for an undoable success: push the operation, then

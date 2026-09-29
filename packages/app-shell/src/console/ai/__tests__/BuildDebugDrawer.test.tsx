@@ -3,6 +3,7 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { I18nProvider } from '@object-ui/i18n';
 import { BuildDebugDrawer } from '../BuildDebugDrawer';
 import type { BuildDebugReport } from '../buildDebugApi';
 
@@ -24,6 +25,17 @@ const REPORT: BuildDebugReport = {
   pendingActions: [],
 };
 
+// The drawer's chrome reads `console.ai.buildDoctorDrawer.*` (objectui#10969),
+// so it renders under the en pack the console always mounts; its zh reading is
+// pinned in `buildDoctor.drawerBody-10969`.
+function renderDrawer() {
+  return render(
+    <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }} persistLanguage={false}>
+      <BuildDebugDrawer apiBase="/api/v1/ai" conversationId="conv_x" open onOpenChange={() => {}} />
+    </I18nProvider>,
+  );
+}
+
 describe('BuildDebugDrawer', () => {
   beforeEach(() => {
     vi.stubGlobal(
@@ -36,7 +48,7 @@ describe('BuildDebugDrawer', () => {
   });
 
   it('renders the orphaned proposal (审批流 evaporated) + de-noised verify when opened', async () => {
-    render(<BuildDebugDrawer apiBase="/api/v1/ai" conversationId="conv_x" open onOpenChange={() => {}} />);
+    renderDrawer();
 
     // The headline failure: a proposed change that never landed.
     expect(await screen.findByText(/Proposed but never applied/)).toBeInTheDocument();
@@ -50,7 +62,7 @@ describe('BuildDebugDrawer', () => {
   it('hits the debug endpoint for the conversation', async () => {
     const spy = vi.fn(async () => ({ ok: true, status: 200, json: async () => REPORT }));
     vi.stubGlobal('fetch', spy);
-    render(<BuildDebugDrawer apiBase="/api/v1/ai" conversationId="conv_x" open onOpenChange={() => {}} />);
+    renderDrawer();
     await screen.findByText(/Proposed but never applied/);
     expect(spy).toHaveBeenCalledWith('/api/v1/ai/conversations/conv_x/debug', { credentials: 'include' });
   });

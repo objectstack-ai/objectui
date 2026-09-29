@@ -22,6 +22,7 @@ import { useAdapter, SchemaRendererProvider } from '@object-ui/react';
 // copy that did the unwrap and skipped the strip.
 import { extractDraftBody } from '@object-ui/data-objectstack';
 import type { FlowRuntimeState as SpecFlowRuntimeState } from '@objectstack/spec/contracts';
+import type { I18nLabel } from '@objectstack/spec/ui';
 import { StudioChatDock, type StudioSurfaceLabel } from './StudioAiCopilot.js';
 import { nextCenterTab, type StudioCenterTab } from './centerTab.js';
 import { useIsWideViewport } from './wideViewport.js';
@@ -119,6 +120,7 @@ import { t, tFormat, translateMetadataType, useMetadataLocale } from '../metadat
 import { useDisplayLocale } from '@object-ui/i18n';
 import { SuggestedBindingsPanel } from '../../components/SuggestedBindingsPanel.js';
 import { AppNavCanvas } from '../metadata-admin/previews/AppNavCanvas.js';
+import { navItemLabelText, renamedLabel } from '../metadata-admin/previews/navItemLabel.js';
 import {
   readFields,
   writeFields,
@@ -1419,6 +1421,14 @@ function NavTree({
  * spelling `AppSchema` answers with `unrecognized_keys`; the code has always
  * written the canonical key and cleared `object` (objectui#4881).
  *
+ * The Label input edits the item's `label`, an `I18nLabel` (a plain string or
+ * an inline locale map), through the same `navItemLabel` module as the canvas
+ * card beside it (objectui#11148): it shows the text resolved in the designer
+ * locale, and an edit of a map writes only that locale's entry and keeps every
+ * other one. It used to read `String(label ?? title ?? name)`, so a map showed
+ * as `[object Object]`, and one keystroke wrote a string over the whole map.
+ * `title` / `name` are not nav-item keys and are not read as the label.
+ *
  * Exported for tests (`StudioDesignSurface.navItemInspector.test.tsx`) — the
  * object picker's canonical-key binding is pinned there directly rather than
  * by driving the whole pillar. Not re-exported from the package index.
@@ -1461,7 +1471,8 @@ export function StudioNavItemInspector({
   // read should exist at all — a draft carrying `object` ALONE still displays
   // as bound — is a follow-up card's question, deliberately left out of #4881's scope.
   const boundObject = String(node.objectName ?? node.object ?? '');
-  const curLabel = String(node.label ?? node.title ?? node.name ?? '');
+  const label = node.label as I18nLabel | undefined;
+  const curLabel = navItemLabelText(label, locale);
   // A nav card is a placeholder until its label is edited or a target adopts a
   // real label. Match both the legacy English sentinel and the locale-specific
   // default from AppNavCanvas so items created in any locale are recognized.
@@ -1473,7 +1484,7 @@ export function StudioNavItemInspector({
         <label className="mb-1 block text-[11px] font-medium text-muted-foreground">{t('engine.studio.nav.label', locale)}</label>
         <input
           value={curLabel}
-          onChange={(e) => patch({ label: e.target.value })}
+          onChange={(e) => patch({ label: renamedLabel(label, e.target.value, locale) })}
           placeholder={t('engine.studio.nav.labelPlaceholder', locale)}
           className="w-full rounded border bg-background px-2 py-1 text-xs"
         />
@@ -1501,7 +1512,10 @@ export function StudioNavItemInspector({
               objectName: objName,
               object: undefined,
               path: undefined,
-              label: isPlaceholder && obj ? obj.label : curLabel,
+              // Adopting the object's label is an edit like any other: a map
+              // keeps every other locale's entry. A real label is kept as
+              // authored, never rewritten as its resolved text.
+              label: isPlaceholder && obj ? renamedLabel(label, obj.label, locale) : label,
             });
           }}
           className="w-full rounded border bg-background px-2 py-1 text-xs"

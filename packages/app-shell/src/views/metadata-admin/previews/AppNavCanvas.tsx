@@ -19,7 +19,9 @@
  * A nav item's `label` is `I18nLabel`: a plain string or an inline locale
  * map. The card shows it resolved in the designer locale through the spec's
  * `resolveI18nLabel`, and an inline rename of a map edits the designer
- * locale's entry only, never the whole map (objectui#11128).
+ * locale's entry only, never the whole map (objectui#11128). Both halves
+ * live in `./navItemLabel.ts`, which the Studio's nav-item inspector imports
+ * too, so the two editors of one label cannot disagree (objectui#11148).
  *
  * Selection IDs match AppNavInspector:
  *   { kind: 'nav', id: `${rootKey}[${i}]` }
@@ -43,10 +45,11 @@ import {
   Trash2,
   type LucideIcon,
 } from 'lucide-react';
-import { resolveI18nLabel, type I18nLabel } from '@objectstack/spec/ui';
+import type { I18nLabel } from '@objectstack/spec/ui';
 import { Badge, cn } from '@object-ui/components';
 import { appendArray, moveArray, spliceArray } from '../inspectors/_shared.js';
 import { t, tFormat, useMetadataLocale } from '../i18n.js';
+import { navItemLabelText, renamedLabel } from './navItemLabel.js';
 
 const DND_MIME = 'text/x-objectui-nav';
 
@@ -171,37 +174,16 @@ function kindTone(kind: string): KindTone {
  * The text a card shows for its entry, in the designer `locale`.
  *
  * `label` only — `title` / `name` / `path` are not nav-item keys. The label is
- * `I18nLabel`, so a locale map resolves through the spec's own resolver, never
- * a `typeof === 'string'` test that reads a map as no label (objectui#11128).
+ * `I18nLabel`, so a locale map resolves through the spec's own resolver
+ * (`navItemLabelText`, shared with the Studio's nav-item inspector), never a
+ * `typeof === 'string'` test that reads a map as no label (objectui#11128).
  * The positional `engine.appNav.item` row is for a label that is truly absent
  * or resolves to nothing.
  */
 function navLabel(it: RawNav, i: number, locale: string): string {
-  const l = (resolveI18nLabel(it.label, locale) ?? '').trim();
+  const l = navItemLabelText(it.label, locale).trim();
   if (l) return l;
   return tFormat('engine.appNav.item', locale, { n: i + 1 });
-}
-
-/**
- * The label an inline rename writes (objectui#11128).
- *
- * A plain string (or no label) is replaced by the new string, as before. A
- * locale map is NEVER replaced by a string: that would delete every other
- * language's text. Only the designer locale's entry changes, and every other
- * entry is kept. The entry written is the one `resolveI18nLabel` reads first
- * for this locale — the exact tag, else its bare language (`en` under
- * `en-US`) — so the card shows the new text straight after the rename. A map
- * with neither gains an entry under the exact tag; an entry the resolver only
- * reached as another language's fallback (`default`, `en` under `zh-CN`, a
- * sibling region) is left as it was.
- */
-function renamedLabel(cur: I18nLabel | undefined, next: string, locale: string): I18nLabel {
-  if (!cur || typeof cur !== 'object' || Array.isArray(cur)) return next;
-  const map: Record<string, string> = cur;
-  const tag = locale.trim();
-  const own = (key: string) => Object.prototype.hasOwnProperty.call(map, key) && typeof map[key] === 'string';
-  const key = [tag, tag.split('-')[0]].find(own) ?? tag;
-  return { ...map, [key]: next };
 }
 
 /**

@@ -32,7 +32,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { check } from '../commands/check.js';
+import { check, closingLine } from '../commands/check.js';
 
 let cwd: string;
 let lines: string[];
@@ -367,7 +367,11 @@ describe('objectui check — the narrowed judgement surface is never silent (opt
     writeSchema('package.json', { name: 'x', type: 'module' });
     await check(cwd);
     expect(skippedCount()).toBe(1);
-    expect(plainLines().some((l) => l.includes('All checks passed'))).toBe(true);
+    // The no-error close (objectui#11007). A skipped file is in none of its
+    // buckets: it was not recognised as ObjectUI at all.
+    expect(plainLines()).toContain(
+      closingLine({ validated: 0, notValidated: 0, didNotValidate: 0 })
+    );
     expect(exitCodes).toEqual([]);
   });
 });

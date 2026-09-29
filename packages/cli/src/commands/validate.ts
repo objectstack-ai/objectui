@@ -13,6 +13,7 @@ import { load as loadYaml } from 'js-yaml';
 import { safeValidateSchema } from '@object-ui/types/zod';
 import { findSpecVocabularyFormFields } from '../utils/spec-vocabulary-hint.js';
 import { explainUnionIssue } from '../utils/union-arm-diagnostics.js';
+import { formatIssuePath } from '../utils/issue-path.js';
 
 /**
  * Validate a schema file
@@ -121,8 +122,8 @@ export async function validate(schemaPath: string) {
       // already absolute, with no union issue at the root; a `type` that matches
       // nothing is judged at `['type']`. A root path now means a non-object.
       //
-      // `(root)` is parenthesised so it cannot be read as a real key literally
-      // named `root` — a genuine path to one would print as `root`.
+      // The path is spelled by `formatIssuePath`, which owns the `(root)`
+      // convention and is shared with `objectui check` (objectui#11007).
       //
       // The ARM-SELECTION half (`a5d55472b`) landed on the 2026-09-02
       // maintainer ruling (option B): print the issues of the arm the authored
@@ -132,14 +133,13 @@ export async function validate(schemaPath: string) {
       // `explainUnionIssue` still answers is the other half of the ruling: the
       // capped candidate note when NO arm accepts, and the undiscriminated
       // unions still reached at nested slots. Everything about WHICH arm lives
-      // in `../utils/union-arm-diagnostics.js`; this file only prints, so it
-      // stays the repository's only zod-issue printer.
+      // in `../utils/union-arm-diagnostics.js`; this file only prints, and it
+      // is the CLI's full zod-issue printer. `objectui check` prints one line
+      // per file that did not validate — that file's first issue, through the
+      // same path formatter — and sends the reader here for the rest.
       result.error.issues.forEach((issue, index) => {
         console.error(chalk.red(`\n${index + 1}. ${issue.message}`));
-        const path = issue.path ?? [];
-        console.error(
-          chalk.gray(`   Path: ${path.length > 0 ? path.join(' → ') : '(root)'}`)
-        );
+        console.error(chalk.gray(`   Path: ${formatIssuePath(issue.path)}`));
         if (issue.code) {
           console.error(chalk.gray(`   Code: ${issue.code}`));
         }
@@ -149,7 +149,7 @@ export async function validate(schemaPath: string) {
         // separate top-level issue (`1.1` does not match the `^\d+\. ` shape a
         // numbered entry has).
         explainUnionIssue(issue, schema).forEach((line, sub) => {
-          const where = line.path.length > 0 ? line.path.join(' → ') : '(root)';
+          const where = formatIssuePath(line.path);
           if (line.kind === 'note') {
             // No arm accepts the authored `type`. Name that, then the nearest
             // few of the accepted values — never all of them, which is the

@@ -3928,7 +3928,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       prefix: exportConfig?.fileNamePrefix,
       label: objectSchema?.label,
       objectName: objectName || schema.objectName,
-      viewLabel: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
+      // `title` is the deprecated spelling of `label` and takes the same door:
+      // the spec types it `I18nLabel`, so an inline locale map reaches this
+      // string sink and must resolve here, not stringify (objectui#10993).
+      viewLabel: resolveInlineI18nLabel(schema.label, displayLocale)
+        || resolveInlineI18nLabel(schema.title, displayLocale),
     });
 
     // Server-streamed path: csv / xlsx / json via dataSource.exportDownload.
@@ -5119,7 +5123,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
   const dataTableSchema: ObjectGridDataTableSchema = {
     type: 'data-table',
-    caption: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
+    // The deprecated `title` fallback resolves like `label` (objectui#10993):
+    // handed on raw, a locale map reached the data-table caption as an object
+    // and the whole block failed to render.
+    caption: resolveInlineI18nLabel(schema.label, displayLocale)
+      || resolveInlineI18nLabel(schema.title, displayLocale),
     columns: orderedColumns,
     data,
     pagination: paginationEnabled,

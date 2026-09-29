@@ -47,6 +47,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
+import { createI18n } from '@object-ui/i18n';
 import { FormPage } from './FormPage';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -152,6 +153,12 @@ function renderPublic() {
 beforeEach(() => {
   submits = [];
   vi.mocked(toast.error).mockClear();
+  // FormPage's feedback chrome reads the i18n catalogue (objectui#11039)
+  // through the provider `main.tsx` mounts above this route. The app's own
+  // factory registers its instance as react-i18next's global, which is how
+  // this unwrapped route reaches the `en` pack; the harness restores the
+  // global after every test (`installI18nGlobalReset`).
+  createI18n({ defaultLanguage: 'en', detectBrowserLanguage: false });
 });
 
 afterEach(() => {
@@ -319,7 +326,7 @@ describe('an out-of-contract destination is refused, not followed', () => {
 
     // The write succeeded, so the submitter is told that too. Refusing the
     // destination must not read as "your submission failed".
-    expect(screen.getByText('Your submission has been received.')).toBeInTheDocument();
+    expect(screen.getByText('Your submission has been received successfully.')).toBeInTheDocument();
     expect(submits).toHaveLength(1);
 
     // Nothing was navigated to, and no interstitial promises otherwise.

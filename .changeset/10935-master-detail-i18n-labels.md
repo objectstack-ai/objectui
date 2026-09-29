@@ -10,8 +10,8 @@ A master-detail form whose `title`, `submitText` or `cancelText` is a per-locale
 
 - Each of the three is resolved with `pickLocalized` against the active UI language (`useObjectTranslation().language`), the source `ObjectMetricWidget` resolves its own `I18nLabel` members against. A map shows the entry for the viewer's language, then falls back the way `pickLocalized` does.
 - A plain string renders exactly as authored.
-- With nothing authored, the English defaults are unchanged: 'Create' or 'Save' on the Save button, 'Cancel' on the Cancel button, and 'Created' or 'Saved' in the built-in save toast. These defaults are still English (author the label to show another language), and so is the " saved" the toast puts after an authored `title`.
-- On the two buttons, an authored empty string, or a map with no string entry, now shows the English default. An authored empty string used to render an empty button; a map with no string entry used to throw as a React child.
+- With nothing authored, this change leaves the defaults as they were: 'Create' or 'Save' on the Save button, 'Cancel' on the Cancel button, and 'Created' or 'Saved' in the built-in save toast. objectui#11039 moves those defaults, and the " saved" the toast puts after an authored `title`, into the locale packs, so they follow the session language.
+- On the two buttons, an authored empty string, or a map with no string entry, now shows the default. An authored empty string used to render an empty button; a map with no string entry used to throw as a React child.
 - The parent `ObjectForm` is handed the resolved `title` string, the `string` its `ObjectFormSchema.title` declares.
 - The block's registration declares both arms for the three keys, `type: ['string', 'object']`, with descriptions that teach the per-locale map. The manifest built from `ComponentRegistry.getPublicConfigs()` therefore no longer makes `validateTree` report `type-mismatch` on a locale map for these keys. A value that matches neither arm, such as a number, is still reported.
 

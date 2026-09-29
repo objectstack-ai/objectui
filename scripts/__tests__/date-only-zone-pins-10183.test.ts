@@ -31,8 +31,10 @@ import { fileURLToPath } from 'node:url';
  * for the calendar's end-date write, its no-schema fallback and the gantt's
  * no-schema path. objectui#11005 added the month grid's own drags, which move
  * a value by calendar days across a DST change, and objectui#11037 the week
- * and day views' move, which keeps an event's elapsed length across one. A
- * later date-only read site registers here the same way.
+ * and day views' move, which keeps an event's elapsed length across one.
+ * objectui#10866 then added a gantt with a business `timeZone` read and
+ * dropped on a DST day, from a viewer zone whose DST differs from the chart's.
+ * A later date-only read site registers here the same way.
  *
  * ## Why a driver, and why the forks pool
  *
@@ -114,6 +116,9 @@ const PINS = [
   // objectui#11037: the week and day views move an event by its own elapsed
   // length and grab offset, so a 4-hour event keeps 4 hours across a DST change.
   'packages/plugin-calendar/src/__tests__/CalendarView.timeGridMoveDuration-11037.test.tsx',
+  // objectui#10866, slice 5: a gantt with a business `timeZone` draws and
+  // writes a stored day as that day on a DST change of either zone.
+  'packages/plugin-gantt/src/__tests__/ObjectGantt.zonedDstDay-10866.test.tsx',
 ] as const;
 
 /** The vitest CLI entry, resolved rather than assumed at a `node_modules` path. */

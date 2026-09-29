@@ -29,6 +29,7 @@
  * `configSchema` fields, since built-in nodes share the same field ids.
  */
 
+import type { FlowTriggerKind } from '@objectstack/spec/automation';
 import { flowFieldZh, isZhLocale } from '../i18n.js';
 
 export type FlowConfigFieldKind =
@@ -42,7 +43,11 @@ export type FlowConfigFieldKind =
   | 'stringList'
   | 'numberList'
   | 'objectList'
-  | 'reference';
+  | 'reference'
+  // A write-only credential (objectui#11054). Rendered through the metadata
+  // form's existing `secret` widget; a value already on the node is never put
+  // back into the control, and leaving it blank writes nothing.
+  | 'secret';
 
 /**
  * What a `reference` field points at — the picker's data source. Most kinds
@@ -282,6 +287,28 @@ export interface FlowConfigField {
    * never hidden.
    */
   showWhen?: { field: string; equals: string[] };
+  /**
+   * Flow-level visibility (objectui#11054): only render this field when the
+   * OWNING FLOW's trigger kind — the spec's `resolveFlowTriggerKind` over the
+   * whole draft, the one question the engine asks before it binds a trigger —
+   * is one of these. The gate for a key the engine reads because of what the
+   * flow as a whole resolves to, not because of one sibling field: an `api`
+   * flow is `type: 'api'` at the flow level OR `triggerType: 'api'` on the
+   * start node, and a `showWhen` on the select alone would miss the first.
+   *
+   * Same re-show rule as {@link showWhen}: a stored value keeps the field on
+   * screen, flagged as retained, whatever the kind. The host supplies the kind
+   * ({@link isFieldVisible}'s fourth argument); a host that supplies none never
+   * admits a `flowKind` field on the gate alone.
+   */
+  flowKind?: readonly FlowTriggerKind[];
+  /**
+   * A notice shown beside the control while the field holds no value and its
+   * gate admits it (objectui#11054) — for a key the engine refuses the flow
+   * without. English, like `help`; the zh overlay localizes it. Shown, never
+   * blocking: the host's save is not held back by it.
+   */
+  unsetNotice?: string;
   /** Column schema for `objectList` fields (array-of-objects repeater). */
   columns?: FlowConfigColumn[];
   /**
@@ -322,7 +349,7 @@ export interface FlowConfigField {
    * DECLARED vocabulary, so {@link FlowNodeConfigField} mounts it only where the
    * mount site also supplies one — the `TriggerScope` `flow-scope.ts` resolves
    * (`fieldPrefix`, `includePrevious`, `objectName`). No declared vocabulary (a
-   * schedule / manual / webhook trigger binds no record) ⇒ the field keeps the
+   * schedule / manual / api trigger binds no record) ⇒ the field keeps the
    * raw expression input rather than the component guessing a scope from the
    * value it was handed.
    */
@@ -377,15 +404,33 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
         { value: 'schedule', label: 'Schedule (cron)' },
         { value: 'time_relative', label: 'Time-relative (date sweep)' },
         { value: 'manual', label: 'Manual / autolaunched' },
-        { value: 'webhook', label: 'Webhook / API' },
+        // objectui#11054 — `api` is the token the engine routes to the inbound
+        // hook (`resolveFlowTriggerKind` in `@objectstack/spec/automation`).
+        // This option used to write `webhook`, which resolves to no trigger
+        // kind at all: the flow bound nothing and never received a post.
+        { value: 'api', label: 'Webhook / API' },
         { value: 'event', label: 'Platform event' },
       ],
+    }),
+    // objectui#11054 — the inbound hook's per-flow secret. The engine refuses
+    // an `api`-kind flow whose start node carries no non-blank `config.secret`,
+    // so the field is gated on the FLOW's kind (`flowKind`), not on the select:
+    // a flow-level `type: 'api'` needs it just as much.
+    //
+    // Write-only. A server that withholds the secret from definition reads
+    // serves the start node WITHOUT the key, and keeps the stored secret when a
+    // save carries no key either — so leaving this blank must write nothing,
+    // and a value already on the draft is never put back into the control.
+    cfg('secret', 'Secret', 'secret', {
+      flowKind: ['api'],
+      help: 'The per-flow secret the inbound hook verifies every post against. Write-only: a saved secret is never shown here, and leaving this blank keeps it.',
+      unsetNotice: 'No secret entered. An API-triggered flow is refused unless its start node carries a secret. A secret already saved on this flow is kept when this is left blank.',
     }),
     cfg('objectName', 'Object', 'reference', {
       ref: { kind: 'object' },
       placeholder: 'crm_lead',
       help: 'Target object for record / scheduled-scan triggers.',
-      showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete', 'schedule', 'webhook', 'event'] },
+      showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete', 'schedule', 'api', 'event'] },
     }),
     cfg('condition', 'Entry condition', 'expression', {
       // objectui#6226 — the one predicate every business admin meets. Row
@@ -396,7 +441,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       conditionBuilder: true,
       placeholder: 'status == "qualifying" && previous.status != "qualifying"',
       help: 'CEL predicate — the flow runs only when this is true (for time-relative sweeps it gates each matched record). Leave empty to run on every event. On a "created or updated" trigger, `previous == null` selects the create path.',
-      showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete', 'schedule', 'time_relative', 'webhook', 'event'] },
+      showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete', 'schedule', 'time_relative', 'api', 'event'] },
     }),
     // Schedule descriptor — author the canonical nested `config.schedule` object
     // the runtime actually reads (resolveTriggerBinding → normalizeSchedule). This
@@ -1225,6 +1270,7 @@ function localizeField(rawType: string, canonicalType: string, field: FlowConfig
   const out: FlowConfigField = { ...field };
   if (z.label) out.label = z.label;
   if (z.help) out.help = z.help;
+  if (field.unsetNotice && z.unsetNotice) out.unsetNotice = z.unsetNotice;
   if (field.options && z.opts) {
     out.options = field.options.map((o) => ({ ...o, label: z.opts![o.value] ?? o.label }));
   }
@@ -1285,20 +1331,25 @@ export function configKeyOf(field: FlowConfigField): string | undefined {
  * (by `id`) resolves — via stored value, else spec `defaultValue` — to one of
  * `equals`, OR when the field already holds a stored value (so existing config
  * is never hidden).
+ *
+ * `flowKind` is the owning flow's trigger kind, for a field gated by
+ * {@link FlowConfigField.flowKind} (objectui#11054) — the host resolves it once
+ * from the whole draft. It is read by no other field.
  */
 export function isFieldVisible(
   field: FlowConfigField,
   node: Record<string, unknown> | null | undefined,
   fields: FlowConfigField[],
+  flowKind?: FlowTriggerKind,
 ): boolean {
-  if (!field.showWhen) return true;
+  if (!field.showWhen && !field.flowKind) return true;
   // ⛔ THE STORED-VALUE RE-SHOW RULE — do not weaken it, and do not invert it
   // into a prune. objectui#6499 ruled (maintainer, 2026-08-27, Option C) that a
   // hidden-but-stored dependent value is KEPT: the author sees it and clears it
   // deliberately. Deleting it on save is the rejected option precisely because
   // this line is what stops config an author entered from vanishing unseen.
   if (hasStoredValue(field, node)) return true;
-  return controllerAdmits(field, node, fields);
+  return controllerAdmits(field, node, fields, flowKind);
 }
 
 /**
@@ -1317,6 +1368,19 @@ export function isFieldVisible(
  */
 export function isUnsetFieldValue(raw: unknown): boolean {
   return raw === undefined || raw === null || raw === '';
+}
+
+/**
+ * Whether a field's {@link FlowConfigField.unsetNotice} stands for this value
+ * (objectui#11054). A `secret` counts as unset unless it is a non-blank string
+ * — the engine's own test for the inbound hook's secret (`trim() !== ''`), so
+ * a whitespace-only value keeps the notice up exactly as the engine keeps
+ * refusing the flow. Every other kind uses {@link isUnsetFieldValue}.
+ */
+export function unsetNoticeApplies(field: FlowConfigField, raw: unknown): boolean {
+  if (!field.unsetNotice) return false;
+  if (field.kind === 'secret') return !(typeof raw === 'string' && raw.trim() !== '');
+  return isUnsetFieldValue(raw);
 }
 
 /**
@@ -1340,12 +1404,18 @@ function hasStoredValue(
  * read ONE definition of "the controller says yes". Duplicating the resolution
  * would let the two drift, and the drift would be silent: the affordance would
  * quietly stop matching the fields it is supposed to annotate.
+ *
+ * A `flowKind` gate (objectui#11054) is one more controller, ANDed with any
+ * `showWhen`: the flow's resolved trigger kind must be one the field names. No
+ * kind supplied ⇒ the gate does not admit.
  */
 function controllerAdmits(
   field: FlowConfigField,
   node: Record<string, unknown> | null | undefined,
   fields: FlowConfigField[],
+  flowKind?: FlowTriggerKind,
 ): boolean {
+  if (field.flowKind && (flowKind === undefined || !field.flowKind.includes(flowKind))) return false;
   if (!field.showWhen) return true;
   const controller = fields.find((f) => f.id === field.showWhen!.field);
   if (!controller) return false;
@@ -1386,15 +1456,20 @@ export type InactiveRetainedKind = 'controller-off' | 'no-controller';
  * consults it; clearing is an ordinary author-initiated field commit through
  * the inspector's existing `setField`, exactly as if the author had emptied the
  * control by hand.
+ *
+ * A field gated by `flowKind` alone reports `'controller-off'`: its controller
+ * is the flow's trigger, which the author can switch back.
  */
 export function inactiveRetainedKind(
   field: FlowConfigField,
   node: Record<string, unknown> | null | undefined,
   fields: FlowConfigField[],
+  flowKind?: FlowTriggerKind,
 ): InactiveRetainedKind | null {
-  if (!field.showWhen) return null;
+  if (!field.showWhen && !field.flowKind) return null;
   if (!hasStoredValue(field, node)) return null;
-  if (controllerAdmits(field, node, fields)) return null;
+  if (controllerAdmits(field, node, fields, flowKind)) return null;
+  if (!field.showWhen) return 'controller-off';
   return fields.some((f) => f.id === field.showWhen!.field) ? 'controller-off' : 'no-controller';
 }
 

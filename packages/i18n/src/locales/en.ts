@@ -251,6 +251,26 @@ const en = {
     createSuccess: '{{object}} created successfully',
     updateSuccess: '{{object}} updated successfully',
     deleteSuccess: '{{object}} deleted successfully',
+    // plugin-form's own feedback chrome (objectui#11039): the success toast
+    // a form raises when the author declared no `successMessage` (`created`
+    // after a create, `saved` after an edit), the master-detail form's edit
+    // toast when the form has a `title` (`{{title}}` is that title), and the
+    // console form page's toast after a submit. An authored message always
+    // wins; these are only the defaults. The form's loading line and its
+    // thank-you panel read `publicForm.loading` / `publicForm.thankYouTitle` /
+    // `publicForm.thankYouMessage`, which say the same thing.
+    created: 'Created',
+    saved: 'Saved',
+    savedNamed: '{{title}} saved',
+    submitted: 'Submitted',
+    // The heading of the panel a form shows when its object schema or its
+    // record could not be loaded; the error's own message follows it.
+    errorLoading: 'Error loading form',
+    // Rides the success toast when a DECLARED `navigateOnSuccess` produced no
+    // destination (objectui#5034): the write succeeded, the declared
+    // navigation did not happen. `navigateOnSuccess` is the metadata key's
+    // name, so every pack keeps it as written.
+    navigateRefused: 'The `navigateOnSuccess` destination declared for this form was refused, so the navigation did not happen.',
     fullscreen: {
       title: 'Edit text',
       description: 'Edit the full text value, then save or cancel your changes.',

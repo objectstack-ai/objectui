@@ -36,6 +36,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { createI18n } from '@object-ui/i18n';
 import { FormPage } from './FormPage';
 
 type ToastEntry = { type: string; message: string };
@@ -131,6 +132,12 @@ const renderPublic = () =>
 
 beforeEach(() => {
   toastRegistry.clear();
+  // FormPage's feedback chrome reads the i18n catalogue (objectui#11039)
+  // through the provider `main.tsx` mounts above this route. The app's own
+  // factory registers its instance as react-i18next's global, which is how
+  // this unwrapped route reaches the `en` pack; the harness restores the
+  // global after every test (`installI18nGlobalReset`).
+  createI18n({ defaultLanguage: 'en', detectBrowserLanguage: false });
 });
 
 afterEach(() => {
@@ -152,7 +159,7 @@ describe('FormPage — the later submit outcome supersedes the earlier one', () 
 
     // The retry the card describes: same form, same page, and it is accepted.
     await userEvent.click(screen.getByRole('button', { name: /Submit/ }));
-    expect(await screen.findByText('Your submission has been received.')).toBeInTheDocument();
+    expect(await screen.findByText('Your submission has been received successfully.')).toBeInTheDocument();
 
     await waitFor(() => expect(onScreen()).toEqual([{ type: 'success', message: 'Submitted' }]));
   });

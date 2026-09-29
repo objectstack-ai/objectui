@@ -209,6 +209,13 @@ const zh = {
     createSuccess: '{{object}}创建成功',
     updateSuccess: '{{object}}更新成功',
     deleteSuccess: '{{object}}删除成功',
+    // objectui#11039 — plugin-form feedback chrome; see the `en` pack.
+    created: '已创建',
+    saved: '已保存',
+    savedNamed: '{{title}}已保存',
+    submitted: '已提交',
+    errorLoading: '表单加载失败',
+    navigateRefused: '此表单声明的 `navigateOnSuccess` 跳转目标被拒绝，因此未执行跳转。',
     fullscreen: {
       title: '编辑文本',
       description: '编辑完整的文本内容，然后保存或取消更改。',
@@ -3022,7 +3029,7 @@ const zh = {
     submitAnother: '再填一份',
     poweredBy: '由 ObjectStack 提供技术支持',
     secureNotice: '您的信息将通过安全通道传输,仅用于回复您本次请求。',
-    thankYouTitle: '感谢您的提交!',
+    thankYouTitle: '感谢您的提交！',
     thankYouMessage: '我们已成功收到您的信息。',
     redirecting: '将在 {{seconds}} 秒后跳转…',
     unavailableTitle: '表单不可用',

@@ -204,14 +204,20 @@ const ALL_DIAGNOSTICS = [UNKNOWN_COMPONENT, FAILED_TO_RENDER, DATASOURCE_REQUIRE
 
 /**
  * The placeholder every `@object-ui/plugin-form` container paints while it
- * fetches (`ObjectForm.tsx:1092`, and the same string in `TabbedForm`,
- * `SplitForm`, `WizardForm`, `DrawerForm`). NOT a diagnostic — it is a frame on
- * the way to the tile — but `renderEntry` has to settle past it, so it is a
- * literal here for the same reason the three above are: a reworded placeholder
- * should turn this file red for review rather than silently stop being waited
- * for.
+ * fetches (`ObjectForm`'s `t('publicForm.loading')` line, and the same key in
+ * `TabbedForm`, `SplitForm`, `WizardForm`, `DrawerForm`). NOT a diagnostic — it
+ * is a frame on the way to the tile — but `renderEntry` has to settle past it,
+ * so it is a literal here, as the three above are.
+ *
+ * ⚠️ The wait below is NEGATIVE (`not.toContain`), so a reworded placeholder
+ * does not turn a whole-file run red: the wait just passes at once, and the
+ * frame is no longer waited for. So this literal has to move with the string
+ * by hand, as it did when objectui#11039 made the placeholder the `en` pack's
+ * `publicForm.loading` (U+2026 in place of three full stops). This file mounts
+ * no i18n provider, so the containers render their English defaults table,
+ * which `pnpm check:i18n-keys` holds byte-identical to the `en` pack.
  */
-const FORM_LOADING = 'Loading form...';
+const FORM_LOADING = 'Loading form…';
 
 /** The packages the gallery host must load, in the host's own order. */
 const HOST_PACKAGES = [
@@ -473,7 +479,7 @@ async function renderEntry(schema: unknown): Promise<Rendered> {
   );
   // A third shape (objectui#6167), and the one that makes the two above
   // insufficient: a data-bound form holds its first paint behind
-  // `Loading form...` while it fetches the object schema and the record. That
+  // `Loading form…` while it fetches the object schema and the record. That
   // placeholder is 5 elements of real DOM, so `drewSomething` accepts it — and
   // every assertion after it would then be measured against a frame that was
   // never the tile. Measured: without this wait the `plugin-form` entries'

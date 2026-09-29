@@ -41,6 +41,7 @@ import { dataChangeMatches, subscribeDataChanges } from '@object-ui/react';
 import { ObjectForm } from './ObjectForm';
 import { applyColumnPermissions } from './fieldWriteGate';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
+import { useFormChromeTranslation } from './formChrome';
 import {
   buildMasterDetailBatch,
   buildMasterDetailEditBatch,
@@ -114,16 +115,18 @@ export interface MasterDetailFormSchema {
    * (`useObjectTranslation().language`) before it reaches the screen
    * (objectui#10935).
    *
-   * `title` names the record in the built-in edit-save toast ("… saved"),
-   * which shows only when the host supplies no `onSuccess`.
+   * `title` names the record in the built-in edit-save toast ("… saved",
+   * pack key `form.savedNamed`), which shows only when the host supplies no
+   * `onSuccess`.
    */
   title?: I18nLabel;
-  /** Label of the Save button. Defaults to English 'Save' (edit) or 'Create'. */
+  /** Label of the Save button. Defaults to the session locale's `common.save`
+   *  (edit) or `form.create` ('Save' / 'Create' in English). */
   submitText?: I18nLabel;
   /** Label for the Cancel button in the action bar, which renders only when the
-   *  host supplies `onCancel`. Defaults to English 'Cancel'. The English
-   *  defaults are not translated here: a host that wants another language
-   *  authors the label, as a string or a per-locale map. */
+   *  host supplies `onCancel`. Defaults to the session locale's `common.cancel`
+   *  ('Cancel' in English); an authored label, a string or a per-locale map,
+   *  always wins (objectui#11039). */
   cancelText?: I18nLabel;
   /** Hide the bottom Save/Cancel action bar — e.g. a non-persisting design
    *  preview. Defaults to shown (the form owns the only Save in this layout). */
@@ -782,6 +785,9 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   // child and toasted "[object Object] saved" (objectui#10935).
   const { language } = useObjectTranslation();
   const titleText = pickLocalized(schema.title, language);
+  // The defaults behind those three, and the built-in save toast, in the
+  // session locale (objectui#11039). See `formChrome.ts`.
+  const { t } = useFormChromeTranslation();
 
   // A detail can be configured with just `{ childObject }` — the relationship
   // FK and grid columns are then derived from the child object's metadata
@@ -1319,9 +1325,12 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
     async (parent: any) => {
       releaseSave();
       if (!schema.onSuccess) {
-        toast.success(isEdit ? (titleText ? `${titleText} saved` : 'Saved') : 'Created', {
-          id: outcomeToastId,
-        });
+        toast.success(
+          isEdit
+            ? (titleText ? t('form.savedNamed', { title: titleText }) : t('form.saved'))
+            : t('form.created'),
+          { id: outcomeToastId },
+        );
       }
       // An edit keeps its rows: `submitViaBatch` has already advanced their
       // baseline to what this save wrote (objectui#10564).
@@ -1335,7 +1344,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
       await schema.onSuccess?.(parent);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isEdit, schema.onSuccess, titleText, entries.length, releaseSave, outcomeToastId],
+    [isEdit, schema.onSuccess, titleText, entries.length, releaseSave, outcomeToastId, t],
   );
 
   /**
@@ -1534,8 +1543,8 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   );
 
   const formHostRef = useRef<HTMLDivElement>(null);
-  const submitText = pickLocalized(schema.submitText, language) || (isEdit ? 'Save' : 'Create');
-  const cancelText = pickLocalized(schema.cancelText, language) || 'Cancel';
+  const submitText = pickLocalized(schema.submitText, language) || (isEdit ? t('common.save') : t('form.create'));
+  const cancelText = pickLocalized(schema.cancelText, language) || t('common.cancel');
 
   // Upload-in-flight gate (objectui#10166), and this host is the reason the
   // scope CHAINS rather than shadows. The parent fields and every expanded row

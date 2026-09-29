@@ -18,6 +18,7 @@
 
 import * as React from 'react';
 import { useMetadataClient } from '../useMetadata.js';
+import { t, useMetadataLocale } from '../i18n.js';
 
 export interface DatasetDimensionInfo {
   /** Dimension name (snake_case, referenced by `report.rows`). */
@@ -139,6 +140,10 @@ export function useDatasetSemantics(
   catalog: UseDatasetCatalogResult,
 ): UseDatasetSemanticsResult {
   const client = useMetadataClient();
+  // The designer locale the hook's own not-found sentence reads in
+  // (objectui#10862), read where the hook returns; a transport error passes
+  // through as the transport's message.
+  const locale = useMetadataLocale();
   const entry = name ? catalog.datasets.find((d) => d.name === name) : undefined;
   const needsFetch =
     !!name && !catalog.loading &&
@@ -147,6 +152,9 @@ export function useDatasetSemantics(
   const [fetched, setFetched] = React.useState<{
     name: string;
     entry: DatasetCatalogEntry | null;
+    /** The server answered with no document for `name`. */
+    notFound: boolean;
+    /** The transport's own message. */
     error: string | null;
   } | null>(null);
 
@@ -158,22 +166,23 @@ export function useDatasetSemantics(
       .get<Record<string, unknown>>('dataset', name)
       .then((doc) => {
         if (cancelled) return;
-        setFetched({ name, entry: doc ? toCatalogEntry(doc) : null, error: doc ? null : 'Dataset not found' });
+        setFetched({ name, entry: doc ? toCatalogEntry(doc) : null, notFound: !doc, error: null });
       })
       .catch((err) => {
         if (cancelled) return;
-        setFetched({ name, entry: null, error: err?.message ?? String(err) });
+        setFetched({ name, entry: null, notFound: false, error: err?.message ?? String(err) });
       });
     return () => {
       cancelled = true;
     };
   }, [client, name, needsFetch, fetched]);
 
-  const resolved = needsFetch && fetched?.name === name ? fetched.entry : entry;
+  const own = needsFetch && fetched?.name === name ? fetched : null;
+  const resolved = own ? own.entry : entry;
   return {
     dimensions: resolved?.dimensions ?? [],
     measures: resolved?.measures ?? [],
     loading: catalog.loading || (needsFetch && fetched?.name !== name),
-    error: (needsFetch && fetched?.name === name ? fetched.error : null) ?? catalog.error,
+    error: (own ? (own.notFound ? t('engine.form.datasetNotFound', locale) : own.error) : null) ?? catalog.error,
   };
 }

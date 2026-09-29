@@ -358,12 +358,12 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
                       )}
                       {v.isInput && (
                         <span className="text-[9px] font-semibold uppercase px-1 rounded bg-sky-100 text-sky-700">
-                          in
+                          {tr('engine.flowPreview.varIn', locale)}
                         </span>
                       )}
                       {v.isOutput && (
                         <span className="text-[9px] font-semibold uppercase px-1 rounded bg-emerald-100 text-emerald-700">
-                          out
+                          {tr('engine.flowPreview.varOut', locale)}
                         </span>
                       )}
                     </div>

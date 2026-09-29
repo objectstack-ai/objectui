@@ -131,7 +131,7 @@ export function FieldStub(props: FieldStubProps) {
     case 'location':
       return <PlainInput {...props} icon={<MapPin className="h-3.5 w-3.5" />} placeholder={t('designer.stub.latLng', locale)} />;
     case 'address':
-      return <TextareaStub {...props} placeholder={props.placeholder ?? 'Street\nCity, State ZIP\nCountry'} />;
+      return <TextareaStub {...props} placeholder={props.placeholder ?? t('designer.stub.address', locale)} />;
     case 'formula':
     case 'summary':
       return (

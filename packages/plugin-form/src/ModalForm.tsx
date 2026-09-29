@@ -58,7 +58,8 @@ import {
   advanceLoadedRecord,
   type LoadedRecordSnapshot,
 } from './sanitize';
-import { fieldWriteGate, gateFormFields } from './fieldWriteGate';
+import { closedFormAffordance, fieldWriteGate, gateFormFields } from './fieldWriteGate';
+import { ClosedAffordanceNotice } from './closedAffordanceNotice';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
@@ -960,6 +961,22 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   // render the master-detail form inside the dialog (it owns its own Save/Cancel
   // action bar, so the modal footer is suppressed). Persisted atomically.
   const subforms = (schema as any).subforms as any[] | undefined;
+  // objectui#11000 — why `gateFields` locked every field, when the lock is the
+  // form-wide one: the affordance for the mode is closed. Drawn above the
+  // fields once they are on screen; the master-detail body draws its own
+  // through the `ObjectForm` it renders.
+  const closedAffordanceNotice = !error && !loading ? (
+    <ClosedAffordanceNotice
+      affordance={closedFormAffordance({
+        perms,
+        objectName: schema.objectName,
+        mode: schema.mode,
+        objectSchema,
+      })}
+      objectName={schema.objectName}
+      objectSchema={objectSchema}
+    />
+  ) : null;
   // Design/preview surfaces render this live on a canvas; a portalled modal Dialog
   // would lock the whole editor (Radix sets body pointer-events:none + a focus trap
   // while open). Render the form body inline instead — a hard backstop complementing
@@ -974,6 +991,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
             {schema.description && <p className="text-xs text-muted-foreground">{schema.description}</p>}
           </div>
         )}
+        {closedAffordanceNotice}
         {renderContent()}
       </div>
     );
@@ -1051,7 +1069,10 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         <div className="@container flex-1 overflow-y-auto px-4 sm:px-6 py-4">
           {/* Every upload widget below reports into this scope, however deep —
               a section, a tab, a subform row (objectui#10166). */}
-          <UploadGateProvider gate={uploadGate}>{renderContent()}</UploadGateProvider>
+          <UploadGateProvider gate={uploadGate}>
+            {closedAffordanceNotice}
+            {renderContent()}
+          </UploadGateProvider>
         </div>
 
         {/* Sticky footer — always visible action buttons */}

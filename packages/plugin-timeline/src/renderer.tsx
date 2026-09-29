@@ -682,7 +682,7 @@ function calculateDateRange(rows: readonly GanttRow[]): {
   // each end the same way. `end - 1` is the last millisecond of `[start, end)`.
   const through = Math.max(
     ...rows.flatMap((row) =>
-      row.items.map((item: any) => {
+      row.items.map((item) => {
         const start = readGanttDate(item.startDate).getTime();
         const end = readGanttBarEnd(item.endDate).getTime();
         return end > start ? end - 1 : start;

@@ -425,6 +425,17 @@ export interface NumberFieldMetadata extends BaseFieldMetadata {
    * asymmetry that does not exist.
    */
   step?: number;
+  /**
+   * The author's digit-grouping hint — `FieldSchema.useGrouping` in
+   * `@objectstack/spec`, derived from it by reference so the two cannot drift
+   * (objectui#11026). `false` renders the number with no thousands separators
+   * (a year reads `2026`), `true` always groups it (a scale-0 count reads
+   * `2,026`), and leaving it out lets the renderer decide: a declared
+   * `scale: 0` is then read as an ordinal and left ungrouped, anything else is
+   * grouped the locale's way. `NumberCellRenderer` (`@object-ui/fields`) is the
+   * reader; the policy itself is `formatDisplayNumber` in `@object-ui/core`.
+   */
+  useGrouping?: SpecField['useGrouping'];
 }
 
 /**

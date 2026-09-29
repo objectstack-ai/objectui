@@ -3331,6 +3331,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               if (objectDefField.currencyConfig) fieldMeta.currencyConfig = objectDefField.currencyConfig;
               if (objectDefField.precision !== undefined) fieldMeta.precision = objectDefField.precision;
               if ((objectDefField as any).scale !== undefined) (fieldMeta as any).scale = (objectDefField as any).scale;
+              // objectui#11026 — the author's digit-grouping hint rides beside
+              // `scale`, its heuristic fallback: dropped here, the cell never
+              // sees it and a `useGrouping: false` year still reads `2,026`.
+              if (objectDefField.useGrouping !== undefined) fieldMeta.useGrouping = objectDefField.useGrouping;
               if (objectDefField.format) fieldMeta.format = objectDefField.format;
               if (objectDefField.options) fieldMeta.options = translateOptions(schema.objectName, col.field, objectDefField.options);
             }
@@ -3558,6 +3562,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             if (fieldDef.currencyConfig) fieldMeta.currencyConfig = fieldDef.currencyConfig;
             if (fieldDef.precision !== undefined) fieldMeta.precision = fieldDef.precision;
             if ((fieldDef as any).scale !== undefined) fieldMeta.scale = (fieldDef as any).scale;
+            // Beside `scale`, as path A copies it (objectui#11026).
+            if (fieldDef.useGrouping !== undefined) fieldMeta.useGrouping = fieldDef.useGrouping;
             if (fieldDef.format) fieldMeta.format = fieldDef.format;
             if (fieldDef.options) fieldMeta.options = translateOptions(schema.objectName, fieldName, fieldDef.options);
           }
@@ -3731,6 +3737,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             if (fieldDef.currencyConfig) fieldMeta.currencyConfig = fieldDef.currencyConfig;
             if (fieldDef.precision !== undefined) fieldMeta.precision = fieldDef.precision;
             if ((fieldDef as any).scale !== undefined) fieldMeta.scale = (fieldDef as any).scale;
+            // Beside `scale`, as path A copies it (objectui#11026).
+            if (fieldDef.useGrouping !== undefined) fieldMeta.useGrouping = fieldDef.useGrouping;
             if (fieldDef.format) fieldMeta.format = fieldDef.format;
             if (fieldDef.options) fieldMeta.options = translateOptions(schema.objectName, fieldName, fieldDef.options);
           }

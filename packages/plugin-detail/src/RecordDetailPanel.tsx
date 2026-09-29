@@ -166,6 +166,9 @@ export function buildRecordDetailFields(
         currency: def.currency,
         precision: def.precision,
         scale: (def as any).scale,
+        // Beside `scale`, whose scale-0 grouping heuristic it overrides in the
+        // number cell (objectui#11026).
+        useGrouping: def.useGrouping,
         format: def.format,
         // Served schemas key the target as `reference` (ObjectStack
         // convention, #2407); the panel can receive a raw schema from any

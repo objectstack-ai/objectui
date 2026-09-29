@@ -25,8 +25,11 @@ only `columns`, `fields`, `filter` and `sort` from `table`.
 **`@object-ui/types` (breaking for a writer of a withheld key, hence `minor`).** The `table`
 slot no longer declares the grid keys the view's grid does not honour:
 
-- no read in `ObjectGrid`: `emptyState`, `showFilters`, `description`, `keyboardNavigation`,
-  `rowSpecActions`, `bulkSpecActions`, `name`, `placeholder`;
+- no read in `ObjectGrid`: `showFilters`, `keyboardNavigation`, `rowSpecActions`,
+  `bulkSpecActions`, `name`, `placeholder` (the last four retired from `object-grid` itself by
+  objectui#11068);
+- not handed on by the view: `emptyState`, `description` (`ObjectGrid` honours both on an
+  `object-grid` node since objectui#11068; write them there);
 - owned by the view: `data`, `staticData`, `bind` (the view lists its own `objectName`),
   `navigation`, `onNavigate` (write them on the `object-view` node), `id`;
 - node-level keys, which no renderer applies to a grid the view draws as a component: `style`,

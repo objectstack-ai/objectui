@@ -1163,6 +1163,16 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowCanvas.awaitingRevision': 'Awaiting Revision',
   'engine.flowCanvas.collapseRegions': 'Collapse nested regions',
   'engine.flowCanvas.expandRegions': 'Expand nested regions',
+  // objectui#10862, slice 4 — an edge's hover title and the node card's
+  // one-line config summary (FlowCanvas).
+  'engine.flowCanvas.edge.undeclaredCycle':
+    '{source} → {target} — part of an un-declared cycle; mark the edge that closes the loop as a back-edge',
+  'engine.flowCanvas.edge.backEdge': '{source} ↩ {target} (back-edge)',
+  'engine.flowCanvas.summary.branches': '{count} branches',
+  'engine.flowCanvas.summary.approversOne': '{count} approver',
+  'engine.flowCanvas.summary.approversOther': '{count} approvers',
+  'engine.flowCanvas.summary.unanimous': 'all',
+  'engine.flowCanvas.summary.code': 'code',
   // Nested structured-region tray headers (FlowRegionView / extractRegions).
   'engine.flowRegion.branchN': 'Branch {n}',
   'engine.flowRegion.try': 'Try',
@@ -1186,6 +1196,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowPreview.problemsTitle': 'Validation problems',
   'engine.flowPreview.problems': 'Problems',
   'engine.flowPreview.debug': 'Debug',
+  // objectui#10862, slice 4 — the variables panel's input / output tags.
+  'engine.flowPreview.varIn': 'in',
+  'engine.flowPreview.varOut': 'out',
   // Flow run-history panel (FlowRunsPanel).
   'engine.flowRuns.title': 'Runs',
   'engine.flowRuns.refresh': 'Refresh run history',
@@ -1205,6 +1218,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowRuns.status.paused': 'Paused',
   'engine.flowRuns.status.running': 'Running',
   'engine.flowRuns.status.cancelled': 'Cancelled',
+  // objectui#10862, slice 4 — an expanded run's id line (the trigger part is
+  // appended after a ` · ` separator when the run carries one).
+  'engine.flowRuns.runId': 'run {id}',
+  'engine.flowRuns.trigger': 'trigger {type}',
   // Flow debug simulator (FlowSimulatorPanel).
   'engine.flowSim.run': 'Run',
   'engine.flowSim.step': 'Step',
@@ -1748,6 +1765,59 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.externalDatasource.refresh': 'Refresh catalog',
   'engine.externalDatasource.tables': 'Tables',
   'engine.externalDatasource.validation': 'Validation',
+  // objectui#10862, slice 4 — the panel's two tabs and the import dialog:
+  // the tables tab (`SchemaBrowser`), the validation tab (`ValidationPanel`,
+  // one row per diff kind, total over the spec's kind union) and
+  // `ImportObjectDialog`. A `{hole}` a code span fills is rendered by
+  // `withNodes`.
+  'engine.externalDatasource.browser.filter': 'Filter tables…',
+  'engine.externalDatasource.browser.refresh': 'Refresh',
+  'engine.externalDatasource.browser.introspecting': 'Introspecting remote schema…',
+  'engine.externalDatasource.browser.noRemoteTables':
+    'No remote tables found (check the datasource’s allowedSchemas).',
+  'engine.externalDatasource.browser.noMatch': 'No tables match the filter.',
+  'engine.externalDatasource.browser.colTable': 'Table',
+  'engine.externalDatasource.browser.colColumns': 'Columns',
+  'engine.externalDatasource.browser.colRows': 'Rows (est.)',
+  'engine.externalDatasource.browser.import': 'Import',
+  'engine.externalDatasource.browser.unavailable':
+    'Federation is not enabled on this server. The {service} service must be registered for table browsing, drafting, and validation to work.',
+  'engine.externalDatasource.check.unavailable':
+    'Federation is not enabled on this server, so validation is unavailable.',
+  'engine.externalDatasource.check.intro':
+    'Check that every federated object on {datasource} still matches its live remote table.',
+  'engine.externalDatasource.check.run': 'Run validation',
+  'engine.externalDatasource.check.allMatchOne': 'All {count} object match the remote schema.',
+  'engine.externalDatasource.check.allMatchOther': 'All {count} objects match the remote schema.',
+  'engine.externalDatasource.check.divergeOne': '{diverged} of {count} object diverge from the remote schema.',
+  'engine.externalDatasource.check.divergeOther': '{diverged} of {count} objects diverge from the remote schema.',
+  'engine.externalDatasource.check.noObjects':
+    'No federated objects are bound to this datasource yet. Import a table from the Tables tab to get started.',
+  'engine.externalDatasource.check.diffsOne': '{count} diff',
+  'engine.externalDatasource.check.diffsOther': '{count} diffs',
+  'engine.externalDatasource.check.expectedActual': 'expected {expected}, actual {actual}',
+  'engine.externalDatasource.diff.missingTable': 'Missing table',
+  'engine.externalDatasource.diff.missingColumn': 'Missing column',
+  'engine.externalDatasource.diff.typeMismatch': 'Type mismatch',
+  'engine.externalDatasource.diff.nullabilityMismatch': 'Nullability mismatch',
+  'engine.externalDatasource.diff.unmappedColumn': 'Unmapped column',
+  'engine.externalDatasource.diff.pkMismatch': 'Primary-key mismatch',
+  'engine.externalDatasource.diff.indexMismatch': 'Index mismatch',
+  'engine.externalDatasource.diff.unmappedIndex': 'Unmapped index',
+  'engine.externalDatasource.diff.defaultMismatch': 'Column default mismatch',
+  'engine.externalDatasource.diff.unreachable': 'Not checked — remote unreachable',
+  'engine.externalDatasource.import.title': 'Import as Object',
+  'engine.externalDatasource.import.intro':
+    'Map remote table {table} into an ObjectStack object bound to {datasource}. The remote schema is never modified.',
+  'engine.externalDatasource.import.generating': 'Generating draft…',
+  'engine.externalDatasource.import.done': 'Imported object {name}.',
+  'engine.externalDatasource.import.doneNext':
+    'Review its binding and run validation to confirm it matches the remote table.',
+  'engine.externalDatasource.import.objectName': 'Object name',
+  'engine.externalDatasource.import.reviewOne': '{count} column need review',
+  'engine.externalDatasource.import.reviewOther': '{count} columns need review',
+  'engine.externalDatasource.import.source': 'Generated source',
+  'engine.externalDatasource.import.importing': 'Importing…',
   // Structural flow validation (flow-sim-validate) — canvas banner, Problems
   // panel, and the debug simulator.
   'engine.flowValidate.nodeMissingId': 'A node is missing an id.',
@@ -1944,6 +2014,12 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.form.searchFields': 'Search fields…',
   'engine.form.allFieldsAdded': 'All fields added',
   'engine.form.noObjectFields': 'No object fields ({error}).',
+  // objectui#10862, slice 4 — the not-found `error` the field and dataset
+  // catalogue hooks (`useObjectFields`, `useDatasetSemantics`) publish, read
+  // in the designer locale where the hook returns it. Every other `error`
+  // they carry is the transport's own message and passes through.
+  'engine.form.objectNotFound': 'Object not found',
+  'engine.form.datasetNotFound': 'Dataset not found',
   'engine.form.noMatchingFields': 'No matching fields.',
   'engine.form.noFieldsOnObject': 'No fields on this object.',
   'engine.form.added': 'Added',
@@ -2352,6 +2428,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'designer.stub.searchRef': 'Search {ref}…',
   'designer.stub.chooseRelated': 'Choose related object…',
   'designer.stub.latLng': 'Lat, lng',
+  // objectui#10862, slice 4 — the address stub's three-line placeholder.
+  'designer.stub.address': 'Street\nCity, State ZIP\nCountry',
   // Field inspector
   'designer.field.kind': 'Field',
   'designer.field.close': 'Close',
@@ -4095,6 +4173,14 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowCanvas.awaitingRevision': '等待修订',
   'engine.flowCanvas.collapseRegions': '折叠嵌套区域',
   'engine.flowCanvas.expandRegions': '展开嵌套区域',
+  // objectui#10862, slice 4.
+  'engine.flowCanvas.edge.undeclaredCycle': '{source} → {target} —— 属于未声明的环；请将闭合该环的连线标记为回边',
+  'engine.flowCanvas.edge.backEdge': '{source} ↩ {target}（回边）',
+  'engine.flowCanvas.summary.branches': '{count} 个分支',
+  'engine.flowCanvas.summary.approversOne': '{count} 位审批人',
+  'engine.flowCanvas.summary.approversOther': '{count} 位审批人',
+  'engine.flowCanvas.summary.unanimous': '全员',
+  'engine.flowCanvas.summary.code': '代码',
   // Nested structured-region tray headers.
   'engine.flowRegion.branchN': '分支 {n}',
   'engine.flowRegion.try': '尝试',
@@ -4116,6 +4202,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowPreview.problemsTitle': '校验问题',
   'engine.flowPreview.problems': '问题',
   'engine.flowPreview.debug': '调试',
+  // objectui#10862, slice 4.
+  'engine.flowPreview.varIn': '输入',
+  'engine.flowPreview.varOut': '输出',
   // Flow run-history panel.
   'engine.flowRuns.title': '运行',
   'engine.flowRuns.refresh': '刷新运行历史',
@@ -4134,6 +4223,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowRuns.status.paused': '已暂停',
   'engine.flowRuns.status.running': '运行中',
   'engine.flowRuns.status.cancelled': '已取消',
+  // objectui#10862, slice 4.
+  'engine.flowRuns.runId': '运行 {id}',
+  'engine.flowRuns.trigger': '触发 {type}',
   // Flow debug simulator.
   'engine.flowSim.run': '运行',
   'engine.flowSim.step': '单步',
@@ -4601,6 +4693,50 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.externalDatasource.refresh': '刷新目录',
   'engine.externalDatasource.tables': '表',
   'engine.externalDatasource.validation': '校验',
+  // objectui#10862, slice 4 — SchemaBrowser, ValidationPanel, ImportObjectDialog.
+  'engine.externalDatasource.browser.filter': '筛选表…',
+  'engine.externalDatasource.browser.refresh': '刷新',
+  'engine.externalDatasource.browser.introspecting': '正在读取远程表结构…',
+  'engine.externalDatasource.browser.noRemoteTables': '未找到远程表（请检查数据源的 allowedSchemas）。',
+  'engine.externalDatasource.browser.noMatch': '没有与筛选条件匹配的表。',
+  'engine.externalDatasource.browser.colTable': '表名',
+  'engine.externalDatasource.browser.colColumns': '列',
+  'engine.externalDatasource.browser.colRows': '行数（估算）',
+  'engine.externalDatasource.browser.import': '导入',
+  'engine.externalDatasource.browser.unavailable':
+    '此服务器未启用数据联邦。必须注册 {service} 服务，才能浏览表、生成草稿并进行校验。',
+  'engine.externalDatasource.check.unavailable': '此服务器未启用数据联邦，因此无法进行校验。',
+  'engine.externalDatasource.check.intro': '检查 {datasource} 上的每个联邦对象是否仍与其实时远程表一致。',
+  'engine.externalDatasource.check.run': '运行校验',
+  'engine.externalDatasource.check.allMatchOne': '全部 {count} 个对象均与远程表结构一致。',
+  'engine.externalDatasource.check.allMatchOther': '全部 {count} 个对象均与远程表结构一致。',
+  'engine.externalDatasource.check.divergeOne': '{count} 个对象中有 {diverged} 个与远程表结构不一致。',
+  'engine.externalDatasource.check.divergeOther': '{count} 个对象中有 {diverged} 个与远程表结构不一致。',
+  'engine.externalDatasource.check.noObjects': '尚无联邦对象绑定到此数据源。请在“表”标签页中导入一张表以开始。',
+  'engine.externalDatasource.check.diffsOne': '{count} 处差异',
+  'engine.externalDatasource.check.diffsOther': '{count} 处差异',
+  'engine.externalDatasource.check.expectedActual': '预期 {expected}，实际 {actual}',
+  'engine.externalDatasource.diff.missingTable': '缺少表',
+  'engine.externalDatasource.diff.missingColumn': '缺少列',
+  'engine.externalDatasource.diff.typeMismatch': '类型不匹配',
+  'engine.externalDatasource.diff.nullabilityMismatch': '可空性不匹配',
+  'engine.externalDatasource.diff.unmappedColumn': '未映射的列',
+  'engine.externalDatasource.diff.pkMismatch': '主键不匹配',
+  'engine.externalDatasource.diff.indexMismatch': '索引不匹配',
+  'engine.externalDatasource.diff.unmappedIndex': '未映射的索引',
+  'engine.externalDatasource.diff.defaultMismatch': '列默认值不匹配',
+  'engine.externalDatasource.diff.unreachable': '未检查 —— 远程不可达',
+  'engine.externalDatasource.import.title': '导入为对象',
+  'engine.externalDatasource.import.intro':
+    '将远程表 {table} 映射为绑定到 {datasource} 的 ObjectStack 对象。远程表结构不会被修改。',
+  'engine.externalDatasource.import.generating': '正在生成草稿…',
+  'engine.externalDatasource.import.done': '已导入对象 {name}。',
+  'engine.externalDatasource.import.doneNext': '请复查其绑定并运行校验，确认它与远程表一致。',
+  'engine.externalDatasource.import.objectName': '对象名称',
+  'engine.externalDatasource.import.reviewOne': '{count} 个列需要复查',
+  'engine.externalDatasource.import.reviewOther': '{count} 个列需要复查',
+  'engine.externalDatasource.import.source': '生成的源码',
+  'engine.externalDatasource.import.importing': '正在导入…',
   // 连线(edge)Type 枚举值 —— 属性表单里的 SchemaForm 下拉(与画布连线检查器一致)。
   'engine.enum.type.default': '普通',
   'engine.enum.type.conditional': '条件',
@@ -4763,6 +4899,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.form.searchFields': '搜索字段…',
   'engine.form.allFieldsAdded': '已添加全部字段',
   'engine.form.noObjectFields': '没有对象字段（{error}）。',
+  // objectui#10862, slice 4.
+  'engine.form.objectNotFound': '未找到对象',
+  'engine.form.datasetNotFound': '未找到数据集',
   'engine.form.noMatchingFields': '没有匹配字段。',
   'engine.form.noFieldsOnObject': '此对象暂无字段。',
   'engine.form.added': '已添加',
@@ -5152,6 +5291,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'designer.stub.searchRef': '搜索 {ref}…',
   'designer.stub.chooseRelated': '选择关联对象…',
   'designer.stub.latLng': '经纬度',
+  // objectui#10862, slice 4.
+  'designer.stub.address': '街道地址\n城市，省 / 州 邮政编码\n国家 / 地区',
   // Field inspector
   'designer.field.kind': '字段',
   'designer.field.close': '关闭',

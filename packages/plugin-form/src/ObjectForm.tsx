@@ -647,6 +647,10 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
   const perms = usePermissions();
 
   const [objectSchema, setObjectSchema] = useState<any>(null);
+  // The hint under a field the caller may read but not write, in the session
+  // locale (objectui#11071). A string rather than `t` in the dependency list
+  // below: it changes when the language does and at no other time.
+  const deniedDescription = t('form.deniedDescription');
   // The ONE field-gate step every layout draws through (objectui#10612):
   // field-level security plus the ADR-0092 D4 managed-object lock, which this
   // arm's field generator used to stamp on its own — see `gateFormFields`.
@@ -657,9 +661,9 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
         objectName: schema.objectName,
         mode: schema.mode,
         objectSchema,
-        deniedDescription: 'You do not have edit access to this field.',
+        deniedDescription,
       }) as FormField[],
-    [perms, schema.objectName, schema.mode, objectSchema],
+    [perms, schema.objectName, schema.mode, objectSchema, deniedDescription],
   );
   // objectui#11000 — why `gateFields` locked every field, when the lock is the
   // form-wide one: the affordance for the mode is closed. Rendered above the

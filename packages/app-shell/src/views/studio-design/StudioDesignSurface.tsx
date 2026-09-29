@@ -4072,24 +4072,46 @@ export function AutomationsPillar({
   // it and saves the draft immediately; the change goes live when the package is
   // published (so "review before enabling" is preserved).
   const flowEnabled = draft.status !== 'obsolete' && draft.status !== 'invalid';
+  // The flow the draft on screen belongs to — read by the toggle's rollback
+  // below, so a refusal that lands after the author opened another flow never
+  // rewrites that other flow's draft.
+  const draftFlowRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    draftFlowRef.current = current?.name ?? null;
+  }, [current]);
   const toggleEnabled = React.useCallback(async () => {
-    if (!current) return;
+    // Guarded in addition to being disabled (objectui#11124): a read-only
+    // package refuses the draft save, so the flip would only be rolled back.
+    if (!current || readOnly) return;
+    const flowName = current.name;
+    const prevDraft = draft;
     const next = !(draft.status !== 'obsolete' && draft.status !== 'invalid');
-    const nextDraft = { ...draft, status: next ? 'active' : 'obsolete' };
+    const nextStatus = next ? 'active' : 'obsolete';
+    const nextDraft = { ...draft, status: nextStatus };
     setDraft(nextDraft);
     setSaving('draft');
     setError(null);
     try {
-      await client.save('flow', current.name, nextDraft, { mode: 'draft', packageId });
+      await client.save('flow', flowName, nextDraft, { mode: 'draft', packageId });
       setHasDraft(true);
       onDraftSaved?.();
       toast.success(next ? t('engine.studio.auto.enabledToast', locale) : t('engine.studio.auto.disabledToast', locale));
     } catch (e) {
+      // objectui#11124 — the save was refused, so roll the optimistic flip
+      // back: the switch and the canvas status (both read `draft.status`) must
+      // never show a status the server refused. Only `status` is put back, so
+      // an edit made while the save was in flight survives; and only on the
+      // same flow, still holding the refused status.
+      setDraft((d) => {
+        if (draftFlowRef.current !== flowName || d.status !== nextStatus) return d;
+        const { status: _refused, ...rest } = d;
+        return 'status' in prevDraft ? { ...rest, status: prevDraft.status } : rest;
+      });
       setError(formatMetadataError(e));
     } finally {
       setSaving(false);
     }
-  }, [client, current, draft, packageId, onDraftSaved, locale]);
+  }, [client, current, draft, packageId, onDraftSaved, locale, readOnly]);
 
   return (
     <div className="flex h-full flex-col">
@@ -4114,8 +4136,16 @@ export function AutomationsPillar({
             role="switch"
             aria-checked={flowEnabled}
             onClick={toggleEnabled}
-            disabled={!isEditable || !!saving}
-            title={flowEnabled ? t('engine.studio.auto.disableTitle', locale) : t('engine.studio.auto.enableTitle', locale)}
+            // objectui#11124 — a read-only package takes no status change: the
+            // draft save would be refused (`ITEM_LOCKED`).
+            disabled={!isEditable || !!saving || readOnly}
+            title={
+              readOnly
+                ? t('engine.studio.pkg.readonlyHint', locale)
+                : flowEnabled
+                  ? t('engine.studio.auto.disableTitle', locale)
+                  : t('engine.studio.auto.enableTitle', locale)
+            }
             className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] hover:bg-muted disabled:opacity-50"
           >
             <span className={'relative inline-flex h-3.5 w-6 shrink-0 items-center rounded-full transition-colors ' + (flowEnabled ? 'bg-emerald-500' : 'bg-muted-foreground/40')}>
@@ -4222,7 +4252,11 @@ export function AutomationsPillar({
                 editing: true,
                 selection,
                 onSelectionChange: setSelection,
-                onPatch,
+                // objectui#11124 — a read-only package gets no `onPatch`: per
+                // the preview contract the canvas is then read-only (no add,
+                // insert, drag or delete — each a doomed write), while node and
+                // edge selection still open the inspector read-only below.
+                onPatch: readOnly ? undefined : onPatch,
                 locale,
               })
             ) : (
@@ -4258,7 +4292,9 @@ export function AutomationsPillar({
                 onPatch,
                 onClearSelection: () => setSelection(null),
                 onSelectionChange: setSelection,
-                readOnly: false,
+                // objectui#11124 — the pillar's real flag, threaded exactly as
+                // the Data pillar threads it (objectui#2259).
+                readOnly,
                 locale,
               })
             ) : designersUnregistered ? (

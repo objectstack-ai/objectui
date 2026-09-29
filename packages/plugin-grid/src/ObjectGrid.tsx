@@ -2420,15 +2420,30 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               );
               return extra.length > 0 ? [...list, ...extra] : list;
             };
+            // [objectui#11105] ONE projection for BOTH branches: gate, then read
+            // each entry's field NAME through `columnIdentity`, then drop the
+            // entries that have none. Only names go on the wire.
+            //
+            // The `schemaFields` branch used to return its entries UNMAPPED,
+            // and `ListView` hands its effective column entries to the grid as
+            // `fields` AND `columns` alike. So a view whose columns are objects
+            // (`{ field, width }`) put the objects themselves into `$select`,
+            // which the adapter's `join(',')` serialized as `[object Object]`.
+            // Harmless while grouped grids got inline rows; since the grid
+            // groups on the server (objectui#7189) every group's row page
+            // carries this `$select`, and a server that refuses unknown select
+            // keys answered INVALID_FIELD in every group. For a `fields` entry
+            // that is already a name, `columnIdentity` hands it back unchanged.
+            const projectFieldNames = (entries: unknown[]): string[] =>
+              entries
+                .filter(passesProjectionGate)
+                .map((entry) => columnIdentity(entry))
+                .filter((v): v is string => !!v);
             if (schemaFields) {
-              return withHarvestedFields(ensureId((schemaFields as any[]).filter(passesProjectionGate)));
+              return withHarvestedFields(ensureId(projectFieldNames(schemaFields as unknown[])));
             }
             if (schemaColumns && Array.isArray(schemaColumns)) {
-              const fields = schemaColumns
-                .filter(passesProjectionGate)
-                .map((c: any) => columnIdentity(c))
-                .filter((v): v is string => !!v);
-              return withHarvestedFields(ensureId(fields));
+              return withHarvestedFields(ensureId(projectFieldNames(schemaColumns)));
             }
             return undefined;
           };

@@ -178,6 +178,29 @@ withoutDeniedFields({ account_code: 'A-1', salary: 100 }, policy, 'account', ['a
 - When nothing is withheld the SAME object comes back, so callers can tell the
   two cases apart by identity.
 
+### Undo snapshot for an update (`captureUpdateUndoData`)
+
+An `undoable` update restores exactly the fields it wrote, from their values
+before the write. `captureUpdateUndoData` is the one rule for reading those
+values off a record. `ActionRunner` uses it, and so should any surface that
+builds its own `update` Undo operation.
+
+```typescript
+import { captureUpdateUndoData } from '@object-ui/core'
+
+captureUpdateUndoData(['status'], { id: 't1', status: 'open' }) // { status: 'open' }
+captureUpdateUndoData(['status'], { id: 't1', status: null })   // { status: null }
+captureUpdateUndoData(['status'], { id: 't1' })                 // undefined
+```
+
+- A field counts as carried when it is an own key whose value is not
+  `undefined`. A carried `null` is a real empty value and is captured.
+- When any written field is not carried, the answer is `undefined` and the
+  caller offers no Undo at all. A record projected by `$select`, or one the
+  server stripped of fields the reader may not read, can lack a written field
+  while the server holds a real value for it; a partial or `null` snapshot
+  would overwrite that value on Undo.
+
 ## Philosophy
 
 This package is designed to be **framework-agnostic**. It contains:

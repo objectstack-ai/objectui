@@ -1650,9 +1650,11 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       // section whole, heading included.
       //
       // ⛔ The intersection itself is NOT the defect and is deliberately left
-      // standing: `fields` is the parent field pool for values, create
-      // defaults and the submitted set as well as for layout, so resolving
-      // these members here would change what a landed schema writes. What WAS
+      // standing: `fields` is the parent field pool that bounds what this form
+      // DRAWS and edits, so resolving these members here would change what a
+      // landed schema draws and lets a user edit. It does not bound the write
+      // itself: a value seeded through `initialValues` is written whether or
+      // not it is drawn (objectui#11114). What WAS
       // the defect is that the loss was silent, plus this block's registration
       // claiming `fields` is "Ignored when `sections` is given" — a claim its
       // three sibling `fields` registrations never made and the one shared

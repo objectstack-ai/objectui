@@ -885,10 +885,28 @@ type TimeGridMoveDrag = {
   minutes: number
 }
 
+/**
+ * A resize moves ONE edge of the EVENT and keeps the other where the event
+ * truly has it (objectui#11060), not at the grabbed piece's clipped bound. The
+ * top handle sits on the event's first piece and moves only its start; the
+ * bottom handle sits on its last piece and moves only its end. For an event
+ * that crosses midnight, or one drawn taller than it is, the piece's other
+ * bound is midnight or the drawn height, never the event's edge.
+ *
+ * `keptMs` is that other edge, the event's own instant (its end for the top
+ * handle, its start for the bottom), handed back to `onEventDrop` unchanged.
+ */
+type TimeGridResizeDrag = {
+  kind: "resize-top" | "resize-bottom"
+  eventId: string | number
+  keptMs: number
+  dayIndex: number
+  minutes: number
+}
+
 type TimeGridDrag =
   | TimeGridMoveDrag
-  | { kind: "resize-top"; eventId: string | number; anchorEndMin: number; dayIndex: number; minutes: number }
-  | { kind: "resize-bottom"; eventId: string | number; anchorStartMin: number; dayIndex: number; minutes: number }
+  | TimeGridResizeDrag
   | { kind: "select"; dayIndex: number; anchorMinutes: number; headMinutes: number }
 
 const PX_PER_HOUR = 48
@@ -933,6 +951,37 @@ function movedStartMinutes(drag: TimeGridMoveDrag, slotMinutes: number): number 
   const snapped = Math.round(head / slotMinutes) * slotMinutes
   if (!drag.withinOneDay) return snapped
   return Math.max(0, Math.min(1440 - drag.durationMs / 60_000, snapped))
+}
+
+/**
+ * `instant`'s row on `day`'s column, in minutes from that day's midnight on
+ * the grid's clock: below 0 on the day before, past 1440 on the day after.
+ */
+function gridMinutesOn(day: Date, instant: Date): number {
+  const dayOffset = Math.round((startOfDay(instant).getTime() - day.getTime()) / 86_400_000)
+  return dayOffset * 1440 + minutesIntoDay(instant)
+}
+
+/**
+ * What a resize writes (objectui#11060): the dragged edge at the pointer's row
+ * on the grabbed piece's day, snapped as before and held one slot away from
+ * the kept edge wherever that edge falls, and the kept edge exactly as the
+ * event has it. `startMin` and `endMin` are both edges' rows on that day's
+ * column, so either may fall outside it.
+ */
+function resizedEvent(
+  drag: TimeGridResizeDrag,
+  day: Date,
+  slotMinutes: number
+): { start: Date; end: Date; startMin: number; endMin: number } {
+  const kept = new Date(drag.keptMs)
+  const keptMin = gridMinutesOn(day, kept)
+  if (drag.kind === "resize-top") {
+    const startMin = Math.min(keptMin - slotMinutes, Math.max(0, drag.minutes))
+    return { start: atGridMinutes(day, startMin), end: kept, startMin, endMin: keptMin }
+  }
+  const endMin = Math.max(keptMin + slotMinutes, Math.min(1440, drag.minutes))
+  return { start: kept, end: atGridMinutes(day, endMin), startMin: keptMin, endMin }
 }
 
 function TimeGridView({
@@ -1189,27 +1238,11 @@ function TimeGridView({
             suppressNextClickRef.current = true
             onEventDrop(ev, newStart, newEnd)
           }
-        } else if (current.kind === "resize-top" && onEventDrop) {
+        } else if ((current.kind === "resize-top" || current.kind === "resize-bottom") && onEventDrop) {
           const ev = events.find((x) => String(x.id) === String(current.eventId))
           if (ev) {
             const dayDate = days[current.dayIndex] ?? days[0]
-            const newStartMin = Math.min(current.anchorEndMin - slotMinutes, Math.max(0, current.minutes))
-            const newStart = new Date(dayDate)
-            newStart.setHours(0, newStartMin, 0, 0)
-            const newEnd = new Date(dayDate)
-            newEnd.setHours(0, current.anchorEndMin, 0, 0)
-            suppressNextClickRef.current = true
-            onEventDrop(ev, newStart, newEnd)
-          }
-        } else if (current.kind === "resize-bottom" && onEventDrop) {
-          const ev = events.find((x) => String(x.id) === String(current.eventId))
-          if (ev) {
-            const dayDate = days[current.dayIndex] ?? days[0]
-            const newEndMin = Math.max(current.anchorStartMin + slotMinutes, Math.min(1440, current.minutes))
-            const newStart = new Date(dayDate)
-            newStart.setHours(0, current.anchorStartMin, 0, 0)
-            const newEnd = new Date(dayDate)
-            newEnd.setHours(0, newEndMin, 0, 0)
+            const { start: newStart, end: newEnd } = resizedEvent(current, dayDate, slotMinutes)
             suppressNextClickRef.current = true
             onEventDrop(ev, newStart, newEnd)
           }
@@ -1273,19 +1306,14 @@ function TimeGridView({
         dayIndex,
         minutes,
       })
-    } else if (zone === "top") {
-      setDrag({
-        kind: "resize-top",
-        eventId: entry.event.id,
-        anchorEndMin: entry.endMin,
-        dayIndex,
-        minutes,
-      })
     } else {
+      // The edge this handle does not move is the event's own, never the
+      // grabbed piece's clipped bound (objectui#11060).
+      const { start, end } = timedEventInstants(entry.event)
       setDrag({
-        kind: "resize-bottom",
+        kind: zone === "top" ? "resize-top" : "resize-bottom",
         eventId: entry.event.id,
-        anchorStartMin: entry.startMin,
+        keptMs: (zone === "top" ? end : start).getTime(),
         dayIndex,
         minutes,
       })
@@ -1349,16 +1377,13 @@ function TimeGridView({
       )
     }
     if ((drag.kind === "resize-top" || drag.kind === "resize-bottom") && drag.dayIndex === dayIndex) {
-      let startMin: number, endMin: number
-      if (drag.kind === "resize-top") {
-        startMin = Math.min(drag.anchorEndMin - slotMinutes, Math.max(0, drag.minutes))
-        endMin = drag.anchorEndMin
-      } else {
-        startMin = drag.anchorStartMin
-        endMin = Math.max(drag.anchorStartMin + slotMinutes, Math.min(1440, drag.minutes))
-      }
-      const top = (startMin / 60) * PX_PER_HOUR
-      const height = ((endMin - startMin) / 60) * PX_PER_HOUR
+      // As the move preview is: what the drop writes, drawn over the part of
+      // it on this day and labelled with the whole event's times.
+      const { start, end, startMin, endMin } = resizedEvent(drag, days[dayIndex], slotMinutes)
+      const topMin = Math.max(0, startMin)
+      const bottomMin = Math.min(1440, endMin)
+      const top = (topMin / 60) * PX_PER_HOUR
+      const height = Math.max(0, ((bottomMin - topMin) / 60) * PX_PER_HOUR)
       return (
         <div
           className="absolute left-1 right-1 rounded border-2 border-dashed border-primary bg-primary/10 pointer-events-none z-10"
@@ -1366,7 +1391,7 @@ function TimeGridView({
           aria-hidden
         >
           <div className="px-2 py-0.5 text-xs font-medium text-primary">
-            {formatTimeRange(days[dayIndex], startMin, endMin, locale)}
+            {formatInstantRange(start, end, locale)}
           </div>
         </div>
       )

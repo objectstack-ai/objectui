@@ -1952,7 +1952,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // ($top/$skip) and the DataTable's display page size are the SAME number here
   // — the records we hold ARE one page, so paging means refetching the next
   // slice from the server instead of slicing an in-memory batch. This is what
-  // makes records beyond the first batch reachable at all (objectstack-ai/objectstack#2212).
+  // makes records beyond the first batch reachable at all (framework #2212).
   const [serverPage, setServerPage] = useState(1);
   const [serverPageSize, setServerPageSize] = useState<number>(
     resolvePageSize(schema, DEFAULT_SERVER_WINDOW_SIZE),

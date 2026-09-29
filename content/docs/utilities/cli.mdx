@@ -241,6 +241,10 @@ nothing. `objectui check` refuses it in every recognised file:
   render time.
 - **A type no registered component answers to** is warned about, not refused: a
   custom renderer may evaluate its own keys.
+- **There is no escape spelling.** A `${…}` meant as literal text on one of
+  these keys — a code sample in a `code-editor`'s `value`, a shell `${VAR}` — is
+  refused too. Write the text without `${`, for example with string
+  concatenation in a code sample.
 
 ```text
 x Unevaluated expression in dashboard.json at children → 0 → title: "statistic" never evaluates `title` (it evaluates only `label`, `value`, `description`), so the expression is never resolved: the user sees its literal text, or nothing.

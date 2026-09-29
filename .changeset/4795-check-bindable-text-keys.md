@@ -26,6 +26,9 @@ never evaluated.
   no row, and is not read as `card`.
 - **A type no registered component answers to** gets a warning instead of a
   refusal, because a custom renderer may evaluate its own keys.
+- **There is no escape spelling**: a `${…}` meant as literal text on one of
+  these keys, such as a code sample in a `code-editor`'s `value`, is refused
+  too. Write it without `${`.
 
 The key vocabulary and the per-type carriage map are read from
 `@objectstack/spec`, now a declared dependency of `@object-ui/cli`, so a row

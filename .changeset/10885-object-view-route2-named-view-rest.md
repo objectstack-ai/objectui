@@ -10,7 +10,7 @@ A named view's `navigation`, `fieldOrder` and `inlineEdit` now reach the registe
 - `fieldOrder` orders the projected columns, after `hiddenFields` has removed its fields, the same way `ListView` orders them on the delegation. Columns `fieldOrder` does not name keep their order after the named ones. A name the projection does not carry orders nothing, and with no projection nothing is added.
 - `inlineEdit` is handed to the grid as `editable`. `ObjectGrid` still turns in-cell editing on only where the object grants inline edit and the user may update the record.
 
-`label` and `data`, also declared on both a named view and `object-grid`, are not handed to the grid on this path, by ruling. The named view's `label` is already the tab's text, and handing it to the grid would paint a second caption the delegation never paints. `data` is held back because `ListView` and `ObjectGrid` pick different objects when `data.object` differs from the node's `objectName` (objectui#10971).
+At this change `label` and `data`, also declared on both a named view and `object-grid`, are not handed to the grid on this path, by ruling. The named view's `label` is already the tab's text, and handing it to the grid would paint a second caption the delegation never paints. `data` is held back because `ListView` and `ObjectGrid` pick different objects when `data.object` differs from the node's `objectName` (objectui#10971).
 
 What moves: only a named view that authors one of these three members. The objectui#5097 host-composition relay is unchanged.
 
@@ -18,3 +18,6 @@ What moves: only a named view that authors one of these three members. The objec
 
 ⚠️ **Dated note, 2026-09-28 — the New button now opens a create form under `split` and `popover` — objectui#10975.**
 Later in this same release, under a `split` or `popover` navigation, the node's own or the active named view's, the New button's create form opens on the surface the node uses with no `navigation`: the modal for `layout: 'modal'`, the drawer otherwise. A record opened to view or edit still opens beside the list. The sentence above that says the New button opens no form is kept as the reading of this change; the objectui#10975 entry states what ships.
+
+⚠️ **Dated note, 2026-09-29 — a `label` written on `table` now reaches the grid on this path — objectui#10976.**
+Later in this same release the registered renderer hands the grid on this path a `label` written on the node's `table`, and the grid draws it as its caption and uses it as its export view label, as it already did with `table.title`; the host `renderListView` delegation does not take it. The named view's `label` is still not read on this path. `data` is not handed to the grid on this path either way: the `table` slot withholds `data` and the validator refuses `table.data` by name, and the named view's `data` still waits on objectui#10971. The sentence above about `label` and `data` is kept as the reading of this change; the objectui#10976 entry states what ships.

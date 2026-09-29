@@ -62,7 +62,9 @@ const SURFACES: ReadonlyArray<readonly [string, React.ComponentType<SurfaceProps
 const schema = { type: 'dashboard', name: 'ops', widgets: [] } as unknown as DashboardComponentSchema;
 
 /** The three strings the button can show, as one pack carries them. */
-const copyOf = (pack: typeof en) => ({
+const copyOf = (pack: {
+  dashboard: { refreshAll: string; refreshing: string; refreshDashboard: string };
+}) => ({
   idle: pack.dashboard.refreshAll,
   busy: pack.dashboard.refreshing,
   name: pack.dashboard.refreshDashboard,

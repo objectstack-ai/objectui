@@ -179,9 +179,10 @@ A `page` node has no action row of its own. Buttons are NODES, and they go in `c
 }
 ```
 
-`label` is the button's text key — `text` is not a `ButtonSchema` key, and because
-`BaseSchema` is `.passthrough()` nothing refuses it: the validator keeps the unknown key
-and `button.tsx`, which reads `schema.label`, renders a button with no text.
+`label` is the button's text key — `text` is not a `ButtonSchema` key. `objectui validate`
+refuses it by name, but nothing on the render path does: `BaseSchema` is `.passthrough()`,
+so the rendering face keeps the unknown key and `button.tsx`, which reads `schema.label`,
+renders a button with no text.
 
 > **⛔ `actions` on a `page` node is refused by name** (objectui#7926). This page used to
 > teach `"actions": [ … ]` as a sibling of `title`, and it drew **nothing**: `PageRenderer`

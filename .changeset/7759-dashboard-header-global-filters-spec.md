@@ -50,3 +50,19 @@ conversion keeps its own retirement schedule (objectstack#7917).
 `DashboardRenderer` now shows the label in the active language, both as the
 button text and as the fallback for the
 `dashboards.NAME.actions.KEY.label` bundle lookup.
+
+⚠️ **Dated note, 2026-09-29 — the runtime bare-string lift has since retired —
+objectui#4356.** Later in this same release `@object-ui/core`'s
+`normalizeFilterOptions` stopped converting a STORED bare-string option into a
+pair: a `globalFilters[].options` member that is not a `{ value, label }` object
+now yields no option, a shorthand-only filter resolves with no `options`, and a
+mixed array keeps only its object members; in development a once-per-filter
+`console.warn` names the filter and the dropped members. The objectstack#7917
+retirement window is closed (maintainer, 2026-09-02, verbatim 「objectstack#7917
+不考虑现有数据」). So "The runtime is unchanged too: `@object-ui/core` still
+converts a STORED bare-string option into a pair when it reads the document, and
+logs a deprecation warning" and "That conversion keeps its own retirement
+schedule (objectstack#7917)" above no longer hold; the validator's refusal of
+`options: ['EMEA']` described above is unchanged and now matches the read path.
+`.changeset/retire-options-shorthand-lift-4356.md` (PR objectui#10930) states
+what ships; the text above is kept as the reading of this change.

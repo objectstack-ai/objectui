@@ -16,6 +16,11 @@ import { safeValidateSchema } from '@object-ui/types/zod';
 import { formatIssuePath } from '../utils/issue-path.js';
 import { isKnownSchemaType } from '../utils/known-schema-types.js';
 import { didYouMeanClause } from '../utils/known-type-case-suggestion.js';
+import {
+  describeUnbindableTextExpression,
+  findUnbindableTextExpressions,
+  workingChannels,
+} from '../utils/unbindable-text-expressions.js';
 
 /**
  * Root keys that positively identify a file as an ObjectUI schema node.
@@ -213,7 +218,9 @@ export interface CheckTally {
  * actually established, bucket by bucket, and sends the reader to
  * `objectui validate` for the verdict. ⛔ It says nothing that reads as a pass.
  *
- * The exit code is unchanged: a run exits non-zero on unreadable JSON only.
+ * It is printed only when nothing was refused. A run exits non-zero on
+ * unreadable JSON, and on a `${…}` expression refused on a text key its node
+ * never evaluates (objectui#4795).
  */
 export function closingLine(tally: CheckTally): string {
   return (
@@ -414,6 +421,20 @@ export async function check(cwd: string = process.cwd()) {
                     didYouMeanClause(content.type)
                 )
               );
+            }
+            // objectui#4795, ruling item 2: a `${…}` on a closed text key its
+            // component node never evaluates reaches the user as literal
+            // text. Refused on a registered type, warned on any other
+            // (sub-rule ii). Judged on recognised files only, from either arm.
+            for (const finding of findUnbindableTextExpressions(content)) {
+              const line = `${file} ${describeUnbindableTextExpression(finding)}`;
+              if (finding.severity === 'refusal') {
+                console.log(chalk.red(`x Unevaluated expression in ${line}`));
+                console.log(chalk.dim(`   ${workingChannels(finding)}`));
+                errors++;
+              } else {
+                console.log(chalk.yellow(`⚠️ Expression not judged in ${line}`));
+              }
             }
           }
         }

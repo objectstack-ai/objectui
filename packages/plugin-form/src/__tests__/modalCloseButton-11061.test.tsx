@@ -25,6 +25,7 @@ import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { registerAllFields } from '@object-ui/fields';
+import type { DataSource } from '@object-ui/types';
 import { ObjectForm } from '../ObjectForm';
 
 registerAllFields();
@@ -39,8 +40,10 @@ function dataSource() {
     findOne: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
-  } as any;
+  } as unknown as DataSource;
 }
+
+type ObjectFormNode = React.ComponentProps<typeof ObjectForm>['schema'];
 
 async function renderModal(extra: Record<string, unknown>) {
   const onOpenChange = vi.fn();
@@ -56,7 +59,7 @@ async function renderModal(extra: Record<string, unknown>) {
         onOpenChange,
         onCancel,
         ...extra,
-      } as any}
+      } as unknown as ObjectFormNode}
       dataSource={dataSource()}
     />,
   );

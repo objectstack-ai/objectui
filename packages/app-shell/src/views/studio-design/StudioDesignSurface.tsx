@@ -1553,7 +1553,12 @@ export function InterfacesPillar({
   /** Invoked from the empty state when this package has no app, to open the
    * header's create-app flow (single source of truth for app creation). */
   onCreateApp?: () => void;
-  /** Courtesy gate: hide/disable nav-authoring affordances. */
+  /** Courtesy gate: hide/disable interface-authoring affordances — nav
+   * editing, the canvas's in-place edits and every editor in the right rail
+   * (the block inspector, the default inspector, a source page's code editor)
+   * included. Both autosaves below are blocked on it, so an affordance that
+   * ignored it would take an edit on screen and silently discard it
+   * (objectui#11136). */
   readOnly?: boolean;
   /** ADR-0057 P3c — the chat dock owns the right side, so the inspector folds
    * into center `[canvas | properties]` tabs instead of its own right aside.
@@ -2180,7 +2185,12 @@ export function InterfacesPillar({
             editing={designing}
             selection={designing ? selection : null}
             onSelectionChange={designing ? setSelection : undefined}
-            onPatch={onPatch}
+            // objectui#11136 — a read-only package gets no `onPatch`: per the
+            // preview contract the canvas is then read-only (no add, drag,
+            // rename or delete — each a write the blocked autosave would
+            // discard), while selecting a block or widget still opens the
+            // inspector, read-only.
+            onPatch={readOnly ? undefined : onPatch}
             locale={locale}
           />
         ) : (
@@ -2315,7 +2325,9 @@ export function InterfacesPillar({
           onBlockingIssuesChange={(count: number) =>
             setBlockingReport({ key: inspectorKey, count })
           }
-          readOnly={false}
+          // objectui#11136 — the pillar's real flag, threaded exactly as the
+          // Data pillar threads it (objectui#2259).
+          readOnly={readOnly}
           locale={locale}
         />
       </div>
@@ -2325,8 +2337,16 @@ export function InterfacesPillar({
         // preview, so the nested Source/Props tab strip adds nothing — the
         // Properties tab body IS the code editor (its Props pane was only an
         // empty state pointing back at Source).
+        // objectui#11136 — the editor's own read-only contract ("onPatch:
+        // undefined in read-only mode"), fed by the pillar's real flag.
         <div className="mt-2 min-h-0 flex-1 border-t">
-          <SourcePageEditor mode="editor" draft={draft} onPatch={onPatch} locale={locale} />
+          <SourcePageEditor
+            mode="editor"
+            draft={draft}
+            onPatch={readOnly ? undefined : onPatch}
+            readOnly={readOnly}
+            locale={locale}
+          />
         </div>
       ) : (
       <Tabs
@@ -2343,7 +2363,13 @@ export function InterfacesPillar({
           </TabsTrigger>
         </TabsList>
         <TabsContent value="source" className="mt-2 min-h-0 flex-1 border-t">
-          <SourcePageEditor mode="editor" draft={draft} onPatch={onPatch} locale={locale} />
+          <SourcePageEditor
+            mode="editor"
+            draft={draft}
+            onPatch={readOnly ? undefined : onPatch}
+            readOnly={readOnly}
+            locale={locale}
+          />
         </TabsContent>
         <TabsContent value="props" className="mt-0 min-h-0 flex-1 overflow-auto p-3">
           <div className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-muted-foreground">
@@ -2369,7 +2395,8 @@ export function InterfacesPillar({
           onBlockingIssuesChange={(count: number) =>
             setBlockingReport({ key: inspectorKey, count })
           }
-          readOnly={false}
+          // objectui#11136 — same flag, same threading as the block inspector.
+          readOnly={readOnly}
           locale={locale}
         />
       </div>

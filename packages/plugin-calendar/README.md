@@ -28,8 +28,8 @@ Calendar view plugins for Object UI - includes both ObjectQL-integrated and stan
 
 | Gesture | Effect |
 | --- | --- |
-| Drag the event pill body to another day cell | Shifts both `startDateField` and `endDateField` by the day delta. Grab cell → drop cell defines the delta, so dragging from any day of a multi-day span works as expected. |
-| Drag the right-edge handle of a multi-day pill | Adjusts only `endDateField`; start is preserved. Refuses drops earlier than start. |
+| Drag the event pill body to another day cell | Moves both `startDateField` and `endDateField` by the calendar days from the grabbed cell to the drop cell, each keeping its time of day: a 10:00 event stays at 10:00, even across a DST change. Grab cell → drop cell defines the days, so dragging from any day of a multi-day span works as expected. |
+| Drag the right-edge handle of a multi-day pill | Moves only `endDateField` to the drop day, keeping its time of day; start is preserved. Refuses drops earlier than start. |
 
 ### Week / Day view (time grid)
 

@@ -783,30 +783,29 @@ describe('renamed local dialects do not collide with a spec export (objectui#307
  * the derived type would be `unknown`, the exact regression this section exists
  * to stop.
  *
- * ## What guards it now: two halves, because two different runs read two different specs
+ * ## What guards it now: one state, on both runs (objectui#11073)
  *
- * - COMPILE TIME, both runs. The state pin admits `erased` and `typed` and
- *   refuses `any`. On a typed spec, the divergence lines under it each name one
- *   difference and stop compiling the day that one moves — on the Spec Main
- *   Shape Gate first. On the erased spec they are not asked (`OnTypedSpec`):
- *   an erased type declares no member to compare.
- * - TEST TIME, the installed spec only (the Spec Main Shape Gate type-checks and
- *   runs no test). The tripwire at the bottom reads the INSTALLED spec's built
- *   declarations and fails on the first bump past the published 17.4.0. If
- *   that release types the block, the failure is the burn-down's start signal:
- *   derive the published interface from the spec in its own slice, and delete
- *   the `erased` arm from the state pin so that an erasure stops compiling
- *   again. If that release still erases it, the spec erased it again — an
- *   upstream regression to report, and the `erased` arm loses its licence all
- *   the same.
+ * - COMPILE TIME, both runs. Until the bump that installed `@objectstack/spec`
+ *   17.5.0 the state pin admitted `erased` as well as `typed`, because the
+ *   pull-request type-check read the erasing 17.4.0 while the Spec Main Shape
+ *   Gate read `main`. 17.5.0 carries #20369, so both runs now read a typed
+ *   block, and the pin admits `typed` ALONE: an erasure — on the installed
+ *   spec or on `main` — stops compiling. `any` is refused as before. The
+ *   divergence lines under it each name one difference and stop compiling the
+ *   day that one moves, on the Spec Main Shape Gate first.
+ * - TEST TIME, the resolved spec only (the Spec Main Shape Gate type-checks and
+ *   runs no test). The tripwire at the bottom reads the resolved spec's built
+ *   declarations. It fired at that bump, as it was written to, and was flipped:
+ *   it now expects `typed`, so an erasure is reported as the upstream
+ *   regression it would be. The burn-down it announced — replacing the
+ *   PUBLISHED `JoinedReportBlock` with the spec's type — is objectui#10940's
+ *   own slice, not the bump's.
  *
- * ⚠️ NOT guardable from here: an erasure on objectstack `main` BEFORE that
- * bump. At the type level it is indistinguishable from the installed 17.4.0 —
- * both are the same bare `z.ZodTypeAny` — so the state pin admits it on the
- * gate. The producer's own pin covers that window
- * (`packages/spec/src/ui/joined-report-block-type.test.ts` in objectstack,
- * landed with #20369), and the tripwire's version row catches it at the bump
- * at the latest.
+ * The window that was NOT guardable from here before that bump — an erasure on
+ * objectstack `main` looked, at the type level, exactly like the erasing
+ * 17.4.0 the pull-request run read — closed with the `erased` arm. The
+ * producer's own pin (`packages/spec/src/ui/joined-report-block-type.test.ts`
+ * in objectstack, landed with #20369) still covers it upstream.
  *
  * ⚠️ objectstack#4171 (CLOSED 2026-07-30) was never this symbol's release: it
  * typed the RECURSIVE schemas, and this erasure's cause was the bare
@@ -827,9 +826,10 @@ const _specJoinedReportBlockTyping = null as unknown as SpecTyping<SpecJoinedRep
 const _specJoinedReportBlockIsNotEvenAny = false satisfies IsAny<SpecJoinedReportBlock>;
 
 /**
- * A divergence probe, asked of a TYPED spec only; on the erased spec the answer
- * is `true` by construction. The licence for that is the `erased` arm above,
- * which the test-time tripwire retires at the bump.
+ * A divergence probe, asked of a TYPED spec only; on an erased spec the answer
+ * would be `true` by construction. That licence was the `erased` arm of the
+ * state pin, deleted at the 17.5.0 bump (objectui#11073), so today every probe
+ * below is asked.
  */
 type OnTypedSpec<Probe extends boolean> = SpecTyping<SpecJoinedReportBlock> extends 'typed' ? Probe : true;
 /** Keys a type DECLARES: the local `[k: string]: unknown` is not a member. */

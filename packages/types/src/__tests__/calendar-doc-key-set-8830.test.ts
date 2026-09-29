@@ -19,7 +19,7 @@
  * "destructures exactly" those same four — "so the list above is also the whole
  * of what the renderer reads".
  *
- * Measured on the dispatch base, `@objectstack/spec` 17.4.0 installed:
+ * Measured on the dispatch base, with `@objectstack/spec` 17.4.0 installed then:
  *
  *   SPEC FACE      `CalendarConfigSchema` is a strict object of exactly
  *                  `startDateField` / `endDateField` / `titleField` /
@@ -176,7 +176,7 @@ describe('objectui#8830 — the page states the renderer\'s key set, derived on 
   });
 
   it('the spec schema accepts `allDayField` since 17.5.0, and still refuses an undeclared key BY NAME', () => {
-    // Through `@objectstack/spec` 17.4.0 this row pinned `allDayField` as the
+    // Through `@objectstack/spec` 17.4.0 this row asserted `allDayField` as the
     // REFUSED fifth key. 17.5.0 declares it (objectui#11073), so the fence above
     // lists five keys and the refusal half moves to a key the spec never had.
     const five = { startDateField: 's', endDateField: 'e', titleField: 't', colorField: 'c', allDayField: 'isAllDay' };

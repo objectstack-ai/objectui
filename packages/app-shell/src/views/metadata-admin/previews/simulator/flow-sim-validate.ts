@@ -234,9 +234,11 @@ function evalCelPredicate(
  * {@link evalCelPredicate} (objectui#10692).
  *
  * - A blank `expression` is read as `false`, as `evaluateCondition` reads an
- *   empty source; objectstack main refuses it at `registerFlow`
- *   (`predicateSlotRefusal`, objectstack#17493) and the installed 17.4.0 admits it — a
- *   declared divergence.
+ *   empty source. The platform refuses it at `registerFlow`
+ *   (`predicateSlotRefusal`, objectstack#17493), and so does the installed
+ *   17.5.0's `FlowSchema` at parse, at `config.conditions[i].expression` (it
+ *   admitted it through 17.4.0; objectui#11073) — so only a draft that has
+ *   not passed that door reaches this read.
  * - A non-string `expression` is refused with the spec's
  *   `predicateSlotRefusal`, the refusal `registerFlow` applies to this slot.
  */

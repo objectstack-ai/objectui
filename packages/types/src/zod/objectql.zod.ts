@@ -1056,8 +1056,10 @@ const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().ext
  * ⚠️ THE CANONICAL TARGET IS objectui's, AND UPSTREAM ANSWERS DIFFERENTLY — but
  * ⛔ NOT BECAUSE IT HOLDS A CONTRARY ALIAS ENTRY. This paragraph said "upstream's
  * alias table points this spelling at the END of the event" and that was WRONG
- * about the protocol; the corrected mechanism, re-derived by RUNNING the
- * installed pin (`@objectstack/spec` 17.4.0) rather than reading it:
+ * about the protocol; the corrected mechanism, re-derived by RUNNING
+ * `@objectstack/spec` 17.4.0 (the version in the lockfile then) rather than
+ * reading it — and RE-RUN on the installed 17.5.0 (objectui#11073), whose
+ * answer moved, as the last bullet says:
  *
  *   - `CalendarConfigSchema`'s `strictObject` options carry `surface` and
  *     `history` and NOTHING ELSE. There is no `aliases` entry, so upstream holds
@@ -1074,22 +1076,31 @@ const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().ext
  *     hint — and neither does a nonsense control key. ⭐ Positive control that
  *     the suggester is alive and correct for what it is for: a genuine one-char
  *     typo of the canonical key resolves to `startDateField`.
+ *   - ON 17.5.0 THAT HINT IS GONE. The formatter now asks an opposite-pole
+ *     question before the suggester: `dateField` sits between
+ *     `startDateField` and `endDateField`, so the refusal names BOTH ("does
+ *     not say which end of the range it binds … Write the one you mean") and
+ *     prescribes neither. `endField` still draws no hint, and a one-char typo
+ *     still resolves by distance (`titleFeld` → `titleField`) — all three
+ *     measured on the installed 17.5.0.
  *
- * ⇒ a generic typo-distance suggester picked the wrong sibling. It is not a
- * declaration, it contradicts no declaration, and ⛔ no upstream text says
- * `dateField` means the end of an event.
+ * ⇒ through 17.4.0 a generic typo-distance suggester picked the wrong sibling.
+ * It was not a declaration, it contradicted no declaration, and ⛔ no upstream
+ * text says `dateField` means the end of an event.
  *
- * The author-facing hazard is real all the same: an author who copies that hint
- * writes `endDateField` and binds the END of an event to the date they meant as
- * the START — accepted by every layer, wrong on screen. Every objectui read site
+ * The author-facing hazard was real all the same: an author who copied that
+ * hint wrote `endDateField` and bound the END of an event to the date they
+ * meant as the START — accepted by every layer, wrong on screen. Every objectui read site
  * folds this spelling onto the START: the ladder this card retires did,
  * `normalizeListViewSchema`'s `timeline` fold does, `resolveTimelineDateBinding`
  * documents it as "the pre-#2231 alias for `startDateField`", and this package
  * has published "Deprecated alias for startDateField" on `TimelineConfig` for
- * releases. So these arms name `startDateField`, and the remedy upstream needs
- * is an explicit `aliases` (or `guidance`) entry for the two spellings so the
- * suggester never answers for them. ⛔ Not fixed here — it is upstream's
- * formatter, on upstream's card.
+ * releases. So these arms name `startDateField`. The remedy upstream needed was
+ * a formatter answer that keeps the suggester from speaking for `dateField`;
+ * 17.5.0's opposite-pole prescription is that answer (it declines to guess an
+ * end, where these arms name one because objectui's own alias history does).
+ * `endField` still draws nothing upstream. ⛔ Neither is fixed here — it is
+ * upstream's formatter.
  *
  * ONE detail STEM, four installed arms, plus ONE consequence clause PER KEY.
  * ⚠️ The per-key split is not tidiness: the two spellings fail DIFFERENTLY when
@@ -1268,20 +1279,23 @@ const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial()
  *     gate's own failure mode one layer in.
  *
  * ⚠️ THE MEMBER LIST IS objectui's OWN, and the spec does NOT supply it.
- * MEASURED on the installed `@objectstack/spec` 17.4.0:
+ * MEASURED on the installed `@objectstack/spec` 17.5.0 (the same answer
+ * 17.4.0 gave):
  * `ComponentPropsMap['object-calendar'].calendar` is NOT `CalendarConfigSchema`
  * — it is `z.unknown().optional()` (wrapper chain `["optional","unknown"]`, and
  * not the same object reference), so at THIS position the protocol accepts
  * everything: a nonsense key, a wrong-typed member, even `calendar: 42` all
- * parse. `CalendarConfigSchema` is the strict four-key object the spec uses for
- * a LIST VIEW's calendar block, which is a different position.
+ * parse. `CalendarConfigSchema` is the strict object the spec uses for a LIST
+ * VIEW's calendar block, which is a different position — four keys through
+ * 17.4.0, five since 17.5.0 declared `allDayField` (objectui#11073).
  *
  * ⇒ what the protocol settles here is the KEY, not its SHAPE. The shape below
  * is objectui's, chosen as exactly the five members `ObjectCalendar.tsx`'s
- * events pass destructures out of the resolved config — the spec's four plus
- * objectui's own `allDayField`, the same objectui-local lane objectui#8466 took
- * for the FLAT spelling of this vocabulary, on this same interface, for the same
- * renderer.
+ * events pass destructures out of the resolved config. Through 17.4.0 that was
+ * the spec's four plus objectui's own `allDayField`, the same objectui-local
+ * lane objectui#8466 took for the FLAT spelling of this vocabulary, on this same
+ * interface, for the same renderer; since 17.5.0 it is the list view block's
+ * five exactly.
  *
  * That makes this mirror STRICTER than the protocol at this position, which is
  * the sanctioned direction and not the forbidden one: objectui#8327's triage

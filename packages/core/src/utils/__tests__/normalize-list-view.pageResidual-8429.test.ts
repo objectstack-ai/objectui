@@ -41,7 +41,7 @@ const SPEC_LIST_VIEW_TYPES: readonly string[] = SpecListViewSchema.shape.type.re
 const OBJECTUI_VIEW_TYPES: readonly string[] = ViewTypeSchema.options;
 
 /**
- * The page-mount document objectui#8429 pinned as spec-valid through 17.4.0:
+ * The page-mount document objectui#8429 held spec-valid through 17.4.0:
  * `type: 'page'` with its `pageName` and empty `columns`. The spec REFUSES it
  * since 17.5.0, by name, with the removal prescription.
  */

@@ -548,11 +548,14 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
  *
  * ## Why these keys were added
  *
- * `@objectstack/spec`'s `ComponentPropsMap['object-kanban']` declares FOURTEEN
- * top-level keys on the installed 17.4.0 pin; this list published three until
- * objectui#8186 added `filter`. ⚠️ It declared THIRTEEN when objectui#8201 was
- * filed — 17.4.0 added `limit` (see below), and the count moved with it. Both
- * numbers are correct about their own pin, which is why this one names its pin.
+ * `@objectstack/spec`'s `ComponentPropsMap['object-kanban']` carries FIFTEEN
+ * top-level keys on the installed 17.5.0 pin, fourteen of them live: 17.5.0
+ * added `navigation` and turned `quickAdd` into a tombstone (typed `never`,
+ * refused by name — objectui#8285's ruled retirement, landed). This list
+ * published three until objectui#8186 added `filter`. ⚠️ The shape carried
+ * THIRTEEN when objectui#8201 was filed and FOURTEEN through 17.4.0, which
+ * added `limit` (see below). Each number is correct about its own spec
+ * version, which is why this one names its version.
  * The gap was STRUCTURAL rather than considered — the console registers this
  * block with `ComponentRegistry.registerLazy` and `getConfig` is loaded-only by
  * design, so the block sat outside the console's reverse-parity population

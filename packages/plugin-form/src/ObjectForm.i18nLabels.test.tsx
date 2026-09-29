@@ -26,8 +26,9 @@
  * resolver that fell back to `en` or to the first entry would paint English
  * and fail the row: the rows can pass only by following the active language.
  * Each member is read in at least one presentation that displays it: the
- * simple form's buttons and success toast, the wizard's step buttons, and the
- * drawer and modal headings and footers.
+ * simple form's buttons and success toast, the wizard's step buttons, the
+ * tabbed and split forms' Save button, and the drawer and modal headings and
+ * footers.
  *
  * The plain-string rows and the nothing-authored rows are the controls. A
  * string stays exactly what was authored, and the English defaults stay
@@ -113,16 +114,25 @@ const doc = (properties: Record<string, unknown>) => ({
   properties: { objectName: 'order', mode: 'create', ...properties },
 });
 
-/** Mount a node through the real `SchemaRenderer` under a `zh` UI. */
-function mount(properties: Record<string, unknown>) {
+/**
+ * Mount a node through the real `SchemaRenderer` under a `zh` UI.
+ *
+ * The render and the adapter's first answers land inside one `act` scope, so
+ * the schema read the form starts on mount has committed before the row reads
+ * the DOM.
+ */
+async function mount(properties: Record<string, unknown>) {
   const ds = makeDataSource();
-  const view = render(
-    <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false, resources: {} }}>
-      <SchemaRendererProvider dataSource={ds as unknown as DataSource}>
-        <SchemaRenderer schema={doc(properties) as BaseSchema} />
-      </SchemaRendererProvider>
-    </I18nProvider>,
-  );
+  let view!: ReturnType<typeof render>;
+  await act(async () => {
+    view = render(
+      <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false, resources: {} }}>
+        <SchemaRendererProvider dataSource={ds as unknown as DataSource}>
+          <SchemaRenderer schema={doc(properties) as BaseSchema} />
+        </SchemaRendererProvider>
+      </I18nProvider>,
+    );
+  });
   return { ...view, ds };
 }
 
@@ -146,7 +156,7 @@ afterEach(() => {
 
 describe('object-form — the seven I18nLabel members resolve against the UI language (objectui#10993)', () => {
   it('simple: a locale-map `submitText` and `cancelText` label the form buttons', async () => {
-    const { container } = mount({ submitText: SUBMIT_MAP, cancelText: CANCEL_MAP });
+    const { container } = await mount({ submitText: SUBMIT_MAP, cancelText: CANCEL_MAP });
 
     expect(await button('保存订单')).toBeTruthy();
     expect(await button('返回')).toBeTruthy();
@@ -155,7 +165,7 @@ describe('object-form — the seven I18nLabel members resolve against the UI lan
   });
 
   it('simple: a locale-map `successMessage` is the create toast', async () => {
-    const { ds } = mount({ successMessage: SUCCESS_MAP });
+    const { ds } = await mount({ successMessage: SUCCESS_MAP });
 
     const save = (await button('Create')) as HTMLButtonElement;
     await act(async () => {
@@ -167,7 +177,7 @@ describe('object-form — the seven I18nLabel members resolve against the UI lan
   });
 
   it('wizard: a locale-map `nextText` and `prevText` label the step buttons', async () => {
-    const { container } = mount({
+    const { container } = await mount({
       formType: 'wizard',
       sections: STEPS,
       nextText: NEXT_MAP,
@@ -183,10 +193,21 @@ describe('object-form — the seven I18nLabel members resolve against the UI lan
     expect(container.innerHTML).not.toContain('[object Object]');
   });
 
+  it.each(['tabbed', 'split'] as const)(
+    '%s: a locale-map `submitText` labels the Save button',
+    async (formType) => {
+      const { container } = await mount({ formType, sections: STEPS, submitText: SUBMIT_MAP });
+
+      expect(await button('保存订单')).toBeTruthy();
+      expect(failureCard()).toBeNull();
+      expect(container.innerHTML).not.toContain('[object Object]');
+    },
+  );
+
   it.each(['drawer', 'modal'] as const)(
     '%s: a locale-map `title` and `description` head the presentation, and the footer labels resolve',
     async (formType) => {
-      mount({
+      await mount({
         formType,
         title: TITLE_MAP,
         description: DESCRIPTION_MAP,
@@ -205,14 +226,14 @@ describe('object-form — the seven I18nLabel members resolve against the UI lan
   );
 
   it('CONTROL: plain strings render exactly as authored (simple)', async () => {
-    mount({ submitText: 'Save PO', cancelText: 'Discard' });
+    await mount({ submitText: 'Save PO', cancelText: 'Discard' });
 
     expect(await button('Save PO')).toBeTruthy();
     expect(await button('Discard')).toBeTruthy();
   });
 
   it('CONTROL: plain strings render exactly as authored (wizard)', async () => {
-    mount({ formType: 'wizard', sections: STEPS, nextText: 'Onward', prevText: 'Go back' });
+    await mount({ formType: 'wizard', sections: STEPS, nextText: 'Onward', prevText: 'Go back' });
 
     await act(async () => {
       fireEvent.click(await button('Onward'));
@@ -221,7 +242,7 @@ describe('object-form — the seven I18nLabel members resolve against the UI lan
   });
 
   it('CONTROL: plain strings render exactly as authored (drawer)', async () => {
-    mount({ formType: 'drawer', title: 'New PO', description: 'PO details' });
+    await mount({ formType: 'drawer', title: 'New PO', description: 'PO details' });
 
     const dialog = await screen.findByRole('dialog');
     await waitFor(() => expect(dialog.textContent).toContain('New PO'));
@@ -229,7 +250,7 @@ describe('object-form — the seven I18nLabel members resolve against the UI lan
   });
 
   it('CONTROL: with nothing authored, the simple form keeps its English defaults', async () => {
-    const { ds } = mount({});
+    const { ds } = await mount({});
 
     await act(async () => {
       fireEvent.click(await button('Create'));
@@ -241,7 +262,7 @@ describe('object-form — the seven I18nLabel members resolve against the UI lan
   });
 
   it('CONTROL: with nothing authored, the wizard keeps its English defaults', async () => {
-    mount({ formType: 'wizard', sections: STEPS });
+    await mount({ formType: 'wizard', sections: STEPS });
 
     await act(async () => {
       fireEvent.click(await button('Next'));

@@ -841,7 +841,10 @@ A smart form that auto-generates fields from an ObjectQL object. Supports simple
 | `groups` | `array` | **Deprecated.** Legacy alias of `sections` (spec defines `groups` as an alias); normalized into `sections` when `sections` is absent. Legacy shape: `title`→`label`, `defaultCollapsed`→`collapsed`. |
 | `layout` | `string` | Label layout: `"vertical"`, `"horizontal"`, `"inline"`, `"grid"`. |
 | `columns` | `number` | Number of form columns. |
-| `submitText` / `cancelText` | `string` | Button labels. |
+| `submitText` / `cancelText` | `string \| I18nLabel` | Button labels. |
+| `title` / `description` | `string \| I18nLabel` | Heading and subtitle of the drawer and modal presentations. |
+| `nextText` / `prevText` | `string \| I18nLabel` | Wizard step-button labels. |
+| `successMessage` | `string \| I18nLabel` | Toast shown after a successful submit. |
 | `showSubmit` / `showCancel` / `showReset` | `boolean` | Toggle action buttons. |
 | `drawerSide` | `string` | Drawer position: `"top"`, `"bottom"`, `"left"`, `"right"`. |
 | `modalSize` | `string` | Modal size: `"sm"`, `"default"`, `"lg"`, `"xl"`, `"full"`. |
@@ -853,6 +856,8 @@ A smart form that auto-generates fields from an ObjectQL object. Supports simple
 - **Spec-aligned** — same name and semantics as `@objectstack/spec` `FormViewSchema`: `title`, `description`, `layout`, `columns`, `sections`, `defaultTab`, `tabPosition`, `allowSkip`, `showStepIndicator`, `splitDirection`/`splitSize`/`splitResizable`, `drawerSide`/`drawerWidth`, `modalSize`, `subforms`, `submitBehavior` (plus `formType` ↔ spec `type`).
 - **ObjectUI extensions** — serializable extras with no spec backing yet: `showSubmit`/`submitText`, `showCancel`/`cancelText`, `showReset`, `nextText`/`prevText`, `successMessage`, `navigateOnSuccess`, `resetOnSuccess`, `modalCloseButton`, `className`, `initialValues`, `fields`, `customFields`. Sanctioned and documented here; candidates for upstreaming into the spec are tracked in #2545.
 - **Runtime-only** — non-serializable renderer concerns that never appear in view metadata: `mode`, `recordId`, `open`/`onOpenChange`, `readOnly`, and all callbacks (`onSuccess`, `onError`, `onCancel`, `onStepChange`, `submitHandler`).
+
+`I18nLabel` is `@objectstack/spec`'s label union: a plain string, or an inline per-locale map such as `{ "en": "Save order", "zh-CN": "保存订单" }`. `ObjectForm` resolves a map against the active UI language before any presentation reads it (objectui#10993).
 
 **Related:** [FormSchema](#formschema), [ObjectViewSchema](#objectviewschema)
 

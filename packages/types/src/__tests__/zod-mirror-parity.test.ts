@@ -2561,7 +2561,11 @@ interface KnownDrift {
  * explicit that forcing the 121 per-key decisions now would be wrong. Two splits
  * are recorded here so whoever works them off does not re-derive them:
  *
- *   - **SPEC-DERIVED (2 entries, 16 keys)** — it was 3 / 17 until objectui#7928 MIRRORED
+ *   - **SPEC-DERIVED (3 entries, 37 keys)** — it was 2 / 16 until objectui#10993 MIRRORED
+ *     five `ObjectFormSchema` members by reference to the spec's `I18nLabelSchema`: none
+ *     of them was in the ledger, so no key closed, but the spec reference re-derives the
+ *     pair's entry (21 keys) into this half, the objectui#7762 membership move with ZERO
+ *     keys repaired. ⚠️ Those 21 are still plain local omissions. It was 3 / 17 until objectui#7928 MIRRORED
  *     `ObjectViewSchema.listViews` by reference to the spec's own record
  *     (`ViewSchema.shape.listViews`): the value-type question below was answered with
  *     ruling A, the entry's one remaining key closed, and the entry left the ledger —
@@ -2624,7 +2628,9 @@ interface KnownDrift {
  *     spec schema does not model, which is objectui#2231's unification question and
  *     NOT a local mirror edit. They are marked, not exempted: exempting them in the
  *     instrument would re-blind exactly the pairs objectui#5927 leaned on hardest.
- *   - **LOCAL (10 entries, 68 keys)** — plain omissions from a hand-written mirror.
+ *   - **LOCAL (9 entries, 47 keys)** — plain omissions from a hand-written mirror.
+ *     It was 10 / 68 until objectui#10993 re-derived `ObjectFormSchema`'s entry (21
+ *     keys) into the SPEC-DERIVED half by membership: no key moved between ledgers.
  *     It was 11 / 69 until objectui#8072 MIRRORED `InputSchema.wrapperClass`: the entry's
  *     ONLY key, so the entry left this half with it and no entry crossed to the
  *     SPEC-DERIVED half — `form.zod.ts#InputSchema` is not in `SPEC_DERIVED_PAIRS`, so
@@ -2673,10 +2679,12 @@ interface KnownDrift {
  * touches, so the entry emptied, the LOCAL half lost an entry and a key, and the
  * SPEC-DERIVED half did not move. objectui#7928 then MIRRORED
  * `ObjectViewSchema.listViews`, that entry's last key, by reference: the SPEC-DERIVED
- * half lost the entry, and the LOCAL half did not move. The seeded pair is no longer
+ * half lost the entry, and the LOCAL half did not move. objectui#10993 then moved
+ * `ObjectFormSchema`'s entry (21 keys) from the LOCAL half to the SPEC-DERIVED one by
+ * membership alone, without moving the totals. The seeded pair is no longer
  * among them, and the ledger now totals — on ONE line, because the pin below reads
  * this sentence off disk —
- * **12 entries / 84 keys** — 2 / 16 spec-derived, 10 / 68 local.
+ * **12 entries / 84 keys** — 3 / 37 spec-derived, 9 / 47 local.
  *
  * ⛔ The four split figures above and this totals line are PINNED: 'objectui#7279'
  * at the bottom of this file derives every one of them from the `UnmirroredDeclared`
@@ -2792,7 +2800,15 @@ interface UnmirroredDeclared {
   // entry above (`onRowClick`, a runtime slot the mirror refuses by name) and records
   // nothing here.
   /**
-   * LOCAL, and still the second-largest at 21. It was 26: the five `on*` keys are in
+   * SPEC-DERIVED by MEMBERSHIP since objectui#10993, LOCAL before it, and still the
+   * second-largest at 21. That card mirrored five `I18nLabel` members BY REFERENCE to
+   * the spec's `I18nLabelSchema`, none of them in this entry, which puts a `Spec…`
+   * symbol in the mirror's initializer: the `ObjectGridSchema` (objectui#7762) shape.
+   * ⚠️ Read the half as MEMBERSHIP, not as a remedy: these 21 keys are still plain
+   * hand-written omissions on a `BaseSchema.extend({…})` mirror. `nextText` and
+   * `prevText` are the row's other two `I18nLabel` members, left unmirrored by that
+   * card on purpose (`object-form-i18n-label-members-10993.test.ts` records it).
+   * It was 26: the five `on*` keys are in
    * `RuntimeOnlyDeclared` below (objectui#6152). ⚠️ `submitHandler` is NOT among them
    * — the reclassification took the measured `/^on[A-Z]/` set and nothing else, so a
    * handler-shaped key with another name stays here until someone measures it.
@@ -4265,6 +4281,13 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // is exactly what this list exists to make legible rather than mysterious.
   'objectql.zod.ts#ObjectCalendarSchema',
   'objectql.zod.ts#ObjectChartSchema',
+  // objectui#10993: `title`, `description`, `submitText`, `cancelText` and
+  // `successMessage` are the spec's `I18nLabelSchema` by reference, the union
+  // `ComponentPropsMap['object-form']` declares on them, so a spec bump that
+  // moves the i18n label union moves ONE side of this pair. The first spec
+  // reference in this mirror, so it re-derives the pair's `UnmirroredDeclared`
+  // entry (21 keys, none of them touched) into the split's SPEC-DERIVED half.
+  'objectql.zod.ts#ObjectFormSchema',
   'objectql.zod.ts#ObjectGallerySchema',
   'objectql.zod.ts#ObjectGanttSchema',
   // objectui#7762: `exportOptions` is the spec's OBJECT ARM by reference — peeled out of

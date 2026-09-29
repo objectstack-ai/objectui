@@ -147,10 +147,17 @@ async function enterReorderAndSave(detail: Record<string, unknown>, child = line
   fireEvent.drop(target);
   await waitFor(() => expect((screen.getAllByLabelText('Description')[0] as HTMLInputElement).value).toBe('B'));
 
-  // Give the header scrape its settle window before reading the stack.
-  await waitFor(() => expect(view.container.querySelector('input[name="tax_rate"]')).not.toBeNull());
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  const subtotal = screen.queryByTestId('md-subtotal')?.textContent?.trim() ?? null;
+  // Enter the header's tax rate: its `change` is what the header scrape
+  // listens for, so the stack's own trigger is in place before it is read.
+  const rate = await waitFor(() => {
+    const el = view.container.querySelector('input[name="tax_rate"]') as HTMLInputElement | null;
+    expect(el).not.toBeNull();
+    return el!;
+  });
+  fireEvent.change(rate, { target: { value: '10' } });
+  // Null when the stack never renders: that absence is the defect under test,
+  // so it is read as a value rather than thrown as a timeout.
+  const subtotal = await waitFor(() => screen.getByTestId('md-subtotal').textContent?.trim() ?? '').catch(() => null);
 
   fireEvent.change(ref, { target: { value: 'INV-1' } });
   fireEvent.click(screen.getByRole('button', { name: /create/i }));

@@ -1242,6 +1242,8 @@ const zh = {
     },
     loading: '加载中…',
     refreshing: '刷新中…',
+    refreshAll: '全部刷新',
+    refreshDashboard: '刷新仪表盘',
     pickMeasures: '请为该数据集组件选择度量（值）。',
     datasetUnsupported: '当前数据源不支持数据集查询。',
     widgetForbiddenTitle: '无权访问',

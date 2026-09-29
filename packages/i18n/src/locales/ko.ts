@@ -1170,6 +1170,8 @@ const ko = {
     },
     loading: "로딩 중…",
     refreshing: "새로고침 중…",
+    refreshAll: "모두 새로고침",
+    refreshDashboard: "대시보드 새로고침",
     pickMeasures: "이 데이터셋 위젯의 측정값(값)을 선택하세요.",
     datasetUnsupported: "이 데이터 소스는 데이터셋 쿼리를 지원하지 않습니다.",
     widgetForbiddenTitle: "접근 권한 없음",

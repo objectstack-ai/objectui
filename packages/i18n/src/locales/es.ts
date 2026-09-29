@@ -1174,6 +1174,8 @@ const es = {
     },
     loading: "Cargando…",
     refreshing: "Actualizando…",
+    refreshAll: "Actualizar todo",
+    refreshDashboard: "Actualizar panel de control",
     pickMeasures: "Elija medidas (valores) para este widget de dataset.",
     datasetUnsupported: "Esta fuente de datos no admite consultas de dataset.",
     widgetForbiddenTitle: "Sin acceso",

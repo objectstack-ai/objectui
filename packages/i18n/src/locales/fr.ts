@@ -1172,6 +1172,8 @@ const fr = {
     },
     loading: "Chargement…",
     refreshing: "Actualisation…",
+    refreshAll: "Tout actualiser",
+    refreshDashboard: "Actualiser le tableau de bord",
     pickMeasures: "Choisissez des mesures (valeurs) pour ce widget de dataset.",
     datasetUnsupported: "Cette source de données ne prend pas en charge les requêtes de dataset.",
     widgetForbiddenTitle: "Accès refusé",

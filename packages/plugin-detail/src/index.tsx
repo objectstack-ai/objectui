@@ -523,7 +523,8 @@ ComponentRegistry.register('details', RecordDetailsRenderer, {
     { name: 'fields', type: 'array', of: 'string', description: 'Explicit field list (overrides highlightFields)' },
     // `hideFields` is DECLARED, not merely honoured (objectui#3808). The spec
     // declares it (objectstack#5611) and `RecordDetailsRenderer` has read it
-    // since the highlight-dedup phase (`renderers/record-details.tsx:147`), but
+    // since the highlight-dedup phase (its `hideFields` read in
+    // `renderers/record-details.tsx`), but
     // it was missing here — so an author reading the manifest could not
     // discover it, and every layer that reads the manifest said the opposite:
     // `sdui.manifest.json` / `sdui-intrinsics.d.ts` omitted it and
@@ -537,7 +538,7 @@ ComponentRegistry.register('details', RecordDetailsRenderer, {
     // refuses, the same fence `fields` above is held to.
     //
     // The "hiding every field drops the section" sentence is read off
-    // `DetailSection.tsx:439` (`visibleFields.length === 0 &&
+    // `DetailSection.tsx` (`visibleFields.length === 0 &&
     // emptyCount === section.fields.length` returns null), not assumed.
     { name: 'hideFields', type: 'array', of: 'string', description: 'Field names to omit from the body — applied to the top-level `fields` list AND to every section\'s `fields`. Bare field names only. Authors rarely need it: the synth pipeline fills it with the fields already shown in `record:highlights`, and hand-authored pages get the same dedup live from HighlightFieldsContext, so its purpose is suppressing a field you do not want repeated (the page H1 title field is dropped for you too). Hiding every field of a section leaves that section out entirely.' },
     // `inlineEdit` and `showHeader` are DECLARED, not merely honoured
@@ -577,8 +578,9 @@ ComponentRegistry.register('related_list', RecordRelatedListRenderer, {
   // Mirrors @objectstack/spec RecordRelatedListProps.
   //
   // `relationshipValueField` and `add` are DECLARED, not merely honoured
-  // (objectui#3808). Both are spec keys this renderer has read all along —
-  // `renderers/record-related-list.tsx:95` and `:186` — while `inputs` omitted
+  // (objectui#3808). Both are spec keys this renderer has read all along — in
+  // `renderers/record-related-list.tsx`, the `schema.relationshipValueField ||
+  // 'id'` read and the `schema.add` forward to `RelatedList` — while `inputs` omitted
   // them, so the published surface and the runtime disagreed in the direction
   // nothing reports: `sdui.manifest.json` / `sdui-intrinsics.d.ts` never
   // mentioned them, `sdui-parser`'s prop walk raised `unknown-prop` on an
@@ -601,7 +603,21 @@ ComponentRegistry.register('related_list', RecordRelatedListRenderer, {
     // an author who reads "filter" as "the list's whole filter" would expect it
     // to be able to widen past the parent record, and it cannot (objectstack#7118).
     { name: 'filter', type: 'array', of: 'object', description: 'Additional filter criteria, as spec `ViewFilterRule` entries (`[{ field, operator, value }]`). AND-combined with the parent relationship condition, never a replacement for it: it can only narrow this record\'s children. Also the key a per-element `dataSource` binding\'s composed filter lands on.' },
-    { name: 'title', type: 'string' },
+    // `title` is an `I18nLabel` in the spec row (`ComponentPropsMap
+    // ['record:related_list']`), and `RecordRelatedListRenderer` resolves it with
+    // `pickLocalized` against the active UI language before it falls back to the
+    // related object's label. So both arms are declared, as `ComponentInput.type`
+    // prescribes for a key whose render site resolves the map: a `'string'`-only
+    // declaration made the manifest gate report `type-mismatch` on a legal map
+    // (objectui#10993). The render is pinned by
+    // `record-related-list.titleI18nLabel-10993.test.tsx`, the manifest by the
+    // console's `i18nLabelInputsManifest-10993.test.ts`.
+    {
+      name: 'title',
+      type: ['string', 'object'],
+      description:
+        'Heading of the list. Defaults to the related object\'s label (its translation when one is loaded, otherwise the humanized object name). Accepts either a plain string or an inline per-locale map (`{ en: "Open tasks", "zh-CN": "未完成任务" }`) — the `I18nLabel` union the contract admits on this key — and the list resolves the map against the active UI language, falling back through base language, a region-qualified sibling, `default`, then `en`, and finally to any remaining entry.',
+    },
     { name: 'showViewAll', type: 'boolean' },
     { name: 'actions', type: 'array', of: 'string', description: 'Action IDs available for related records' },
     // `add` publishes its MEMBER shape in prose for the reason the sibling
@@ -615,9 +631,10 @@ ComponentRegistry.register('related_list', RecordRelatedListRenderer, {
     // Documented members are exactly the spec's — `picker.object`,
     // `picker.valueField`, `picker.labelField`, `linkField`, `label` — with each
     // default taken from the RENDERER, which is where an author's expectation
-    // gets settled: `RelatedList.tsx:724` defaults `picker.valueField` to `id`
-    // (matching the spec's own default) but `:390` defaults `picker.labelField`
-    // to `name`, NOT to the object's title field as the spec's `.describe()`
+    // gets settled: `RelatedList.tsx` defaults `picker.valueField` to `id`
+    // (`add.picker.valueField || 'id'`, matching the spec's own default) but
+    // defaults `picker.labelField` to `name` (`add?.picker?.labelField ||
+    // 'name'`), NOT to the object's title field as the spec's `.describe()`
     // says. Publishing the spec's wording there would have been a description
     // the platform does not honour.
     //
@@ -746,7 +763,8 @@ const CHATTER_INPUTS: ComponentInput[] = [
   // `feed` delegates its whole member list to `record:activity`, and that is
   // the SPEC's statement rather than this file's: `@objectstack/spec` declares
   // `RecordChatterProps.feed: RecordActivityProps.optional()`
-  // (`component.zod.ts:1366`), bound to both names (`:2948` / `:2962`). So the
+  // (`component.zod.ts`), bound to both names (the `record:chatter` and
+  // `record:discussion` entries of `ComponentPropsMap`). So the
   // description names the declaration it delegates to instead of re-listing
   // its members, which would then be free to drift from it. (Re-listing would
   // also have to decide what to do with `aria`, which the spec shape carries
@@ -758,7 +776,8 @@ const CHATTER_INPUTS: ComponentInput[] = [
   // because `record-chatter.tsx` handed `discussion.items` to the panel raw.
   // That was an IMPLEMENTATION GAP against a wider protocol, not a narrower
   // contract, so it was closed in the renderer — see `renderers/record-chatter.tsx`,
-  // which now runs `applyFeedConfig` with `record-activity.tsx:219`'s call shape.
+  // which now runs `applyFeedConfig` with the call shape `record-activity.tsx`
+  // uses (`applyFeedConfig(sourceItems, { types, showCompleted, unifiedTimeline }, …)`).
   // ⛔ Do not narrow this declaration to match an implementation: the protocol
   // is the contract, and a protocol that is wrong is changed in
   // `@objectstack/spec` first.

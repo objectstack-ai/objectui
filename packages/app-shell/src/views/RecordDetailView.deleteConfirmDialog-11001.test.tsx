@@ -177,16 +177,15 @@ async function chooseHeaderDelete() {
 }
 
 let nativeConfirm: ReturnType<typeof vi.fn>;
-let hadNativeConfirm = false;
-let originalNativeConfirm: unknown;
+/** The window's own `confirm` slot as it was, so the file hands it back. */
+let ownConfirmBefore: PropertyDescriptor | undefined;
 
 beforeEach(() => {
   cleanup();
   // A spy that answers YES: the native-box code would delete on the spot.
-  hadNativeConfirm = Object.prototype.hasOwnProperty.call(window, 'confirm');
-  originalNativeConfirm = (window as any).confirm;
+  ownConfirmBefore = Object.getOwnPropertyDescriptor(window, 'confirm');
   nativeConfirm = vi.fn(() => true);
-  (window as any).confirm = nativeConfirm;
+  Object.defineProperty(window, 'confirm', { value: nativeConfirm, configurable: true, writable: true });
   // Unrelated chrome (approvals, favourites, the record-explain probe) reaches
   // for the platform API; answer locally so the record read is the only
   // asynchrony before the header renders.
@@ -202,8 +201,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  if (hadNativeConfirm) (window as any).confirm = originalNativeConfirm;
-  else delete (window as any).confirm;
+  if (ownConfirmBefore) Object.defineProperty(window, 'confirm', ownConfirmBefore);
+  else Reflect.deleteProperty(window, 'confirm');
   vi.unstubAllGlobals();
   vi.clearAllMocks();
 });

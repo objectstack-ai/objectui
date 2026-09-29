@@ -24,6 +24,19 @@ import { captureUpdateUndoData as fromRunner } from '../ActionRunner.js';
 
 const { captureUpdateUndoData } = core;
 
+/**
+ * The written object's field definitions, which the rule takes since
+ * objectui#11122 (a relation is captured as its stored id). None of the
+ * fields below holds an expanded record, so every answer is the one the rule
+ * gave with two arguments.
+ */
+const FIELDS = {
+  name: { type: 'text' },
+  status: { type: 'text' },
+  note: { type: 'text' },
+  owner: { type: 'user' },
+};
+
 describe('`captureUpdateUndoData` — the package export of the one Undo capture rule (objectui#11082)', () => {
   it('is exported from the package entry, and is the runner module\'s own function', () => {
     expect(typeof captureUpdateUndoData).toBe('function');
@@ -31,22 +44,22 @@ describe('`captureUpdateUndoData` — the package export of the one Undo capture
   });
 
   it('snapshots the stored value of every written field the row carries', () => {
-    expect(captureUpdateUndoData(['status', 'owner'], { id: 't_1', status: 'open', owner: 'u_2', name: 'Ada' }))
+    expect(captureUpdateUndoData(['status', 'owner'], { id: 't_1', status: 'open', owner: 'u_2', name: 'Ada' }, FIELDS))
       .toEqual({ status: 'open', owner: 'u_2' });
   });
 
   it('captures a `null` the row carries as `null`: a real empty value', () => {
-    expect(captureUpdateUndoData(['status'], { id: 't_1', status: null })).toEqual({ status: null });
+    expect(captureUpdateUndoData(['status'], { id: 't_1', status: null }, FIELDS)).toEqual({ status: null });
   });
 
   it('answers `undefined` when any written field is absent: no partial snapshot', () => {
-    expect(captureUpdateUndoData(['status'], { id: 't_1', name: 'Ada' })).toBeUndefined();
-    expect(captureUpdateUndoData(['status', 'note'], { id: 't_1', status: 'open' })).toBeUndefined();
+    expect(captureUpdateUndoData(['status'], { id: 't_1', name: 'Ada' }, FIELDS)).toBeUndefined();
+    expect(captureUpdateUndoData(['status', 'note'], { id: 't_1', status: 'open' }, FIELDS)).toBeUndefined();
   });
 
   it('does not count an own key holding `undefined`, or an inherited key, as carried', () => {
-    expect(captureUpdateUndoData(['status'], { id: 't_1', status: undefined })).toBeUndefined();
+    expect(captureUpdateUndoData(['status'], { id: 't_1', status: undefined }, FIELDS)).toBeUndefined();
     const inherited = Object.create({ status: 'open' }) as Record<string, unknown>;
-    expect(captureUpdateUndoData(['status'], inherited)).toBeUndefined();
+    expect(captureUpdateUndoData(['status'], inherited, FIELDS)).toBeUndefined();
   });
 });

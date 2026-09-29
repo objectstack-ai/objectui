@@ -28,6 +28,7 @@ import { hasDeclaredPredicate } from '../evaluator/declaredPredicate.js';
 import { globalUndoManager, type UndoableOperation } from './UndoManager.js';
 import { warnOnDeprecatedObjectParams, warnOnUnknownActionKeys } from './actionKeys.js';
 import { readActionPayload } from './actionResponse.js';
+import { toPredicateRecord, type FieldContainerLike } from '../utils/predicate-record.js';
 
 export interface ActionResult {
   success: boolean;
@@ -878,6 +879,24 @@ function readContextObjectName(context: ActionContext): string | undefined {
 }
 
 /**
+ * The field definitions the host published for `objectName`, or `undefined`
+ * (objectui#11122).
+ *
+ * A host publishes `objectFields` BESIDE `objectName` (`useConsoleActionRuntime`
+ * and `RecordDetailView` both do), so the pair names one object and its fields.
+ * They are answered only for THAT object: an action that retargets another
+ * object (a related-list row on the record page carries the child's
+ * `objectName`) gets no field map rather than the host object's, because
+ * reading one object's field types against another object's row would decide
+ * which of its fields are relations by the wrong schema.
+ */
+function readContextObjectFields(context: ActionContext, objectName: string): FieldContainerLike {
+  if (readContextObjectName(context) !== objectName) return undefined;
+  const fields: unknown = context.objectFields;
+  return fields && typeof fields === 'object' ? (fields as FieldContainerLike) : undefined;
+}
+
+/**
  * Whether opening FormView `viewName` from a record of `contextObject` would
  * cross an object boundary (objectui#4292).
  *
@@ -945,6 +964,26 @@ function isUpdateOperationAction(action: ActionDef): boolean {
  * option, for the reason above: a partial restore reported as a full one is
  * worse than no Undo.
  *
+ * ⛔ A relation's prior value is its STORED id, never the record `$expand`
+ * put in its place (objectui#11122). Surfaces read rows with `$expand` on the
+ * relations they show (a grid, its visible and grouping columns; the record
+ * page, every relation the reader may read), and the server replaces the id
+ * in place with the related record. Copied verbatim, that record became the
+ * Undo value and Undo wrote it into the reference slot, which stores an id:
+ * refused under a strict value-shape posture, stored as corruption under the
+ * lenient one. So each carried value goes through `toPredicateRecord`, the one
+ * rule that binds a fetched record the way the server stores it: a field the
+ * object DECLARES relational (`EXPANDABLE_FIELD_TYPES`, the set that decides
+ * what is expanded in the first place) collapses to its id, element-wise for a
+ * `multiple` relation, and every other field is left exactly as the row
+ * carries it. It is read from `fields`, never from the value's shape: a `json`
+ * field may hold an object with an `id`, and that object is its stored value.
+ *
+ * `fields` is the written object's field definitions (`objectSchema.fields`,
+ * either served shape), and it is REQUIRED so that a caller without them has
+ * to say so: `undefined` collapses nothing, because a caller that cannot name
+ * the relations must not guess them.
+ *
  * Exported (objectui#11082) because it is THE rule, not this runner's: every
  * surface that builds an `update` Undo snapshot itself calls it rather than
  * restating it. Today that is the console runtime's `api` handler
@@ -952,14 +991,16 @@ function isUpdateOperationAction(action: ActionDef): boolean {
  * (`RecordDetailView`), which reads prior values off the page's loaded record;
  * that record lacks a written field when field-level security hides it from
  * the reader. To name the fields that blocked a capture, ask per field:
- * `captureUpdateUndoData([field], rowRecord) === undefined`.
+ * `captureUpdateUndoData([field], rowRecord, fields) === undefined`.
  */
 export function captureUpdateUndoData(
   writtenFields: readonly string[],
   rowRecord: Record<string, unknown>,
+  fields: FieldContainerLike,
 ): Record<string, unknown> | undefined {
   if (!writtenFields.every((field) => rowCarries(rowRecord, field))) return undefined;
-  return Object.fromEntries(writtenFields.map((field) => [field, rowRecord[field]]));
+  const stored = toPredicateRecord(rowRecord, fields);
+  return Object.fromEntries(writtenFields.map((field) => [field, stored[field]]));
 }
 
 /** Whether the row CARRIES `field`: an own key whose value is not `undefined`. */
@@ -1666,12 +1707,18 @@ export class ActionRunner {
     // record to read them from — without one there is nothing to restore, so
     // the affordance is correctly not offered rather than offered empty. The
     // same holds when the row lacks a written field (objectui#10404): no Undo,
-    // never one that writes `null` over the stored value.
+    // never one that writes `null` over the stored value. A relation the row
+    // carries expanded is captured as its stored id, read against the field
+    // map the host published for this object (objectui#11122).
     if (action.undoable && rowRecord && writtenFields.length > 0) {
       const objectName = action.objectName || readContextObjectName(this.context);
       const recordId = collected.recordId ?? rowRecord.id;
       if (objectName && recordId != null) {
-        const undoData = captureUpdateUndoData(writtenFields, rowRecord);
+        const undoData = captureUpdateUndoData(
+          writtenFields,
+          rowRecord,
+          readContextObjectFields(this.context, objectName),
+        );
         if (undoData) {
           result.undo = {
             id: `undo-${objectName}-${String(recordId)}-${Date.now()}`,

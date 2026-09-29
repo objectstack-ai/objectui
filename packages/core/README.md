@@ -188,9 +188,24 @@ builds its own `update` Undo operation.
 ```typescript
 import { captureUpdateUndoData } from '@object-ui/core'
 
-captureUpdateUndoData(['status'], { id: 't1', status: 'open' }) // { status: 'open' }
-captureUpdateUndoData(['status'], { id: 't1', status: null })   // { status: null }
-captureUpdateUndoData(['status'], { id: 't1' })                 // undefined
+// The written object's field definitions (`objectSchema.fields`).
+const fields = {
+  status: { type: 'text' },
+  account: { type: 'lookup', reference: 'account' },
+  config: { type: 'json' },
+}
+
+captureUpdateUndoData(['status'], { id: 't1', status: 'open' }, fields) // { status: 'open' }
+captureUpdateUndoData(['status'], { id: 't1', status: null }, fields)   // { status: null }
+captureUpdateUndoData(['status'], { id: 't1' }, fields)                 // undefined
+
+// A relation read with `$expand` is captured as its stored id.
+captureUpdateUndoData(['account'], { id: 't1', account: { id: 'a1', name: 'Acme' } }, fields)
+// { account: 'a1' }
+
+// Any other field is captured as the record carries it, whatever its shape.
+captureUpdateUndoData(['config'], { id: 't1', config: { id: 'c1', mode: 'strict' } }, fields)
+// { config: { id: 'c1', mode: 'strict' } }
 ```
 
 - A field counts as carried when it is an own key whose value is not
@@ -200,6 +215,14 @@ captureUpdateUndoData(['status'], { id: 't1' })                 // undefined
   server stripped of fields the reader may not read, can lack a written field
   while the server holds a real value for it; a partial or `null` snapshot
   would overwrite that value on Undo.
+- A field the object declares as a relation (`lookup`, `master_detail`,
+  `user`, `tree`) is captured as the id it stores, and a `multiple` one as the
+  array of ids. `$expand` puts the related record where the id was, and
+  writing that record back into the reference is what Undo must never do.
+  Which fields are relations is read from `fields`, never from the value's
+  shape: a `json` field may hold an object with an `id`.
+- `fields` is required. Pass `undefined` only when the caller has no field
+  definitions for the object; nothing is then treated as a relation.
 
 ## Philosophy
 

@@ -982,11 +982,19 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
             // stored value. A `null` the record carries is a real empty value
             // and is captured as one. When any written field is not carried
             // there is no Undo at all: the success toast then has no Undo button.
+            //
+            // ⛔ A relation is captured as its stored id (objectui#11122). The
+            // page record is read with `$expand` on every relation the reader
+            // may read, so it carries the related record where the server
+            // stores the id; copied verbatim, Undo wrote that record into the
+            // reference. The rule reads which fields are relations from this
+            // object's field definitions, the same ones that built `$expand`.
             let undoMissing: string[] | undefined;
             if (action.undoable && isThisRecord && pageRecord) {
               const record = pageRecord as Record<string, unknown>;
               const written = Object.keys(params);
-              const undoData = captureUpdateUndoData(written, record);
+              const objectFields = objectDef?.fields;
+              const undoData = captureUpdateUndoData(written, record, objectFields);
               if (undoData) {
                 undo = {
                   id: `undo-${targetObject}-${targetId}-${Date.now()}`,
@@ -999,7 +1007,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
                   redoData: { ...params },
                 };
               } else {
-                undoMissing = written.filter((k) => captureUpdateUndoData([k], record) === undefined);
+                undoMissing = written.filter((k) => captureUpdateUndoData([k], record, objectFields) === undefined);
               }
             }
             await dataSource.update(targetObject, String(targetId), params);
@@ -1028,7 +1036,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
-  }, [dataSource, objectName, pureRecordId, pageRecord, authFetch, activeOrganization]);
+  }, [dataSource, objectName, objectDef, pureRecordId, pageRecord, authFetch, activeOrganization]);
 
   // Client-side modal transport: `type:'modal'` actions open here (Dialog /
   // Sheet / Drawer by `placement`) and render arbitrary SchemaNode content.
@@ -2713,7 +2721,16 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
             it carries the same `actionContextOrg` projection, or
             `${ctx.org.id}` interpolates empty here (objectui#10918). */}
         <ActionProvider
-          context={{ record: pageRecord || {}, objectName, user: currentUser, org: actionContextOrg(activeOrganization) }}
+          context={{
+            record: pageRecord || {},
+            objectName,
+            // This object's field definitions, published beside `objectName`
+            // (objectui#11122): the runner's `operation: 'update'` Undo capture
+            // reads them to capture a relation `$expand` filled as its stored id.
+            ...(objectDef?.fields ? { objectFields: objectDef.fields } : {}),
+            user: currentUser,
+            org: actionContextOrg(activeOrganization),
+          }}
           onConfirm={confirmHandler}
           onToast={toastHandler}
           onNavigate={navigateHandler}

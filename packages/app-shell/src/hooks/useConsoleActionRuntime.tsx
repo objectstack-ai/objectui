@@ -536,11 +536,22 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
       // real empty value and is captured as one. When any written field is not
       // carried there is no Undo at all: the success toast then has no Undo
       // button, and the warning names the cause.
+      //
+      // ⛔ A relation is captured as its stored id, never as the record
+      // `$expand` put in its place (objectui#11122): a grid expands the
+      // relations it shows, so the row carries `{ id, name, … }` where the
+      // server stores the id. The rule reads which fields are relations from
+      // the written object's field definitions, looked up the way the param
+      // dialog looks them up (the caller's `objects` first, then the console's
+      // metadata store, asked to load before it answers).
       let undo: ActionResult['undo'];
       if (action.undoable && obj && recId && rowRecord && Object.keys(fields).length > 0
           && typeof dataSource?.update === 'function') {
         const written = Object.keys(fields);
-        const undoData = captureUpdateUndoData(written, rowRecord);
+        await metadata.ensureType('object').catch(() => []);
+        const objectFields = withKnownObjects(objects, metadata.objects)
+          .find((o: any) => o?.name === obj)?.fields;
+        const undoData = captureUpdateUndoData(written, rowRecord, objectFields);
         if (undoData) {
           undo = {
             id: `undo-${obj}-${recId}-${Date.now()}`,
@@ -553,7 +564,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
             redoData: { ...fields },
           };
         } else {
-          const missing = written.filter((k) => captureUpdateUndoData([k], rowRecord) === undefined);
+          const missing = written.filter((k) => captureUpdateUndoData([k], rowRecord, objectFields) === undefined);
           console.warn(
             '[useConsoleActionRuntime] `undoable` action succeeded but offers no Undo: the row it ran on '
             + 'does not carry every field it wrote, so their prior values are unknown and an Undo would '
@@ -570,7 +581,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
-  }, [dataSource, objApiName, authFetch, activeOrganization, refresh, openEntitlementDialog, t]);
+  }, [dataSource, objApiName, objects, metadata, authFetch, activeOrganization, refresh, openEntitlementDialog, t]);
 
   // Flow action handler — POST to /api/v1/automation/{name}/trigger.
   // `context` is the shared ActionRunner context (registered handlers are
@@ -735,6 +746,11 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   const actionProviderProps = useMemo(() => ({
     context: {
       ...(objectName ? { objectName } : {}),
+      // The field definitions of the object `objectName` names, published
+      // beside it (objectui#11122). `ActionRunner`'s `operation: 'update'`
+      // Undo capture reads them to tell a relation, captured as its stored id,
+      // from a field whose value merely has an object's shape.
+      ...(objectName && objectDef?.fields ? { objectFields: objectDef.fields } : {}),
       user: currentUser,
       // Backend origin — lets `type: 'url'` actions issue full-page
       // navigations to API endpoints across origins in dev.
@@ -755,7 +771,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
     onModal: modalHandler,
     handlers: { api: apiHandler, flow: flowHandler, script: serverActionHandler, modal: modalActionHandler },
   }), [
-    objectName, currentUser, activeOrganization, confirmHandler, toastHandler,
+    objectName, objectDef, currentUser, activeOrganization, confirmHandler, toastHandler,
     navigateHandler, paramCollectionHandler, resultDialogHandler, apiHandler,
     flowHandler, serverActionHandler, modalHandler, modalActionHandler,
   ]);

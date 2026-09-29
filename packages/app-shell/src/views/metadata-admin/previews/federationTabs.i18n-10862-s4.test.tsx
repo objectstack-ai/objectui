@@ -126,8 +126,13 @@ function zhRow(key: string): string {
 interface Site {
   key: string;
   vars?: Vars;
-  /** Where the row lands: an element's whole text (default) or a `placeholder`. */
-  in?: 'text' | 'placeholder';
+  /**
+   * Where the row lands: an element's whole text (default), a `placeholder`,
+   * or a text-only button's whole text — the dialog's footer buttons, told
+   * apart from the dialog's own close control, whose icon carries a
+   * screen-reader label of the same word.
+   */
+  in?: 'text' | 'placeholder' | 'button';
   /** How many elements carry it on their own (default: at least one). */
   count?: number;
 }
@@ -159,7 +164,12 @@ function pin(name: string, body: () => void | Promise<void>) {
 function expectSites(lang: Lang, sites: Site[]) {
   for (const s of sites) {
     const r = row(lang, s.key, s.vars);
-    if (s.in === 'placeholder') {
+    if (s.in === 'button') {
+      const found = screen
+        .getAllByRole('button')
+        .some((b) => !b.querySelector('svg') && norm(b.textContent) === norm(r));
+      if (!found) misses.push(`${s.key} (text-only button): ${JSON.stringify(norm(r))}`);
+    } else if (s.in === 'placeholder') {
       const found = Array.from(document.body.querySelectorAll('[placeholder]')).some(
         (el) => el.getAttribute('placeholder') === r,
       );
@@ -411,7 +421,7 @@ describe('ImportObjectDialog reads the designer locale (objectui#10862, slice 4)
         { key: 'engine.externalDatasource.import.title', count: 2 },
         { key: 'engine.externalDatasource.import.intro', vars: { table: 'public.orders', datasource: 'warehouse' } },
         { key: 'engine.externalDatasource.import.generating' },
-        { key: 'engine.cancel' },
+        { key: 'engine.cancel', in: 'button' },
       ]);
     });
 
@@ -423,7 +433,7 @@ describe('ImportObjectDialog reads the designer locale (objectui#10862, slice 4)
         { key: 'engine.externalDatasource.import.objectName' },
         { key: 'engine.externalDatasource.import.reviewOther', vars: { count: 2 } },
         { key: 'engine.externalDatasource.import.source' },
-        { key: 'engine.cancel' },
+        { key: 'engine.cancel', in: 'button' },
       ]);
       expectAsWritten(['— lossy money to currency', '(geometry)', DRAFT.source]);
       cleanup();
@@ -449,7 +459,7 @@ describe('ImportObjectDialog reads the designer locale (objectui#10862, slice 4)
       expectSites(lang, [
         { key: 'engine.externalDatasource.import.done', vars: { name: 'orders' } },
         { key: 'engine.externalDatasource.import.doneNext' },
-        { key: 'engine.close' },
+        { key: 'engine.close', in: 'button' },
       ]);
     });
 

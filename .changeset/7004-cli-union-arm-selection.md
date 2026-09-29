@@ -36,4 +36,10 @@ arms, so one mistyped `type` would have produced hundreds of lines.
 *negative* recognition would flood its report with diagnoses of non-ObjectUI files, the
 failure objectui#5127 and objectui#6075 exist to prevent.
 
+⚠️ **Dated note, 2026-09-29 — objectui#11007.** `check` now prints one line under each file in
+its "did not validate" list: the first issue's path, spelled by the formatter behind `validate`'s
+`Path:` line, and its message, with no arm selection. That list is the only place it prints
+one. Files counted as skipped, the foreign files the paragraph above guards against, still get
+no diagnosis.
+
 Nothing about which documents are ACCEPTED changes — this is diagnostic output only.

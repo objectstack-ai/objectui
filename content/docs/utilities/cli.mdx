@@ -199,16 +199,35 @@ structural key (`children`, `className`, …) **or** when the whole
 document validates as an ObjectUI component schema. Recognised files have their
 `type` checked against the component types this build registers.
 
+The two ways in are not equal. A document recognised by validating was parsed
+in full, nested nodes included. A document recognised by a structural key was
+**not parsed at all**: a page whose `children` hold a node with a refused key
+is recognised on `children` alone, and `check` says nothing about that node.
+`objectui validate` is the command that parses it.
+
 Files that are recognised by neither arm fall into one of two reports, and the
 distinction matters:
 
 - **Reported by name** when the root `type` *does* name a registered component.
   That is ObjectUI content the validator could not accept — either the document
-  is off-spec, or its component type is not modelled by `@object-ui/types`. Run
-  `objectui validate <file>` for the reason.
+  is off-spec, or its component type is not modelled by `@object-ui/types`.
+  Under each file, `check` prints the validator's first issue: its path, spelled
+  as `objectui validate` spells it, and its message. Run
+  `objectui validate <file>` for the full diagnosis.
 - **Counted as skipped** otherwise. A root `type` heads several unrelated JSON
   vocabularies — `package.json`'s `"type": "module"` most of all — and those are
   not ObjectUI files.
+
+```text
+⚠️ 1 file carries a registered ObjectUI component type but did not validate as an ObjectUI schema:
+   stores.json (type "object-map")
+     Issue at map: Unrecognized key: "latitudeFieId"
+```
+
+A run with no parse errors ends on a tally rather than a pass: how many
+recognised files validated, how many were recognised by a structural key and not
+validated, and how many did not validate, followed by a pointer to
+`objectui validate` for the verdict.
 
 Only unreadable JSON makes `objectui check` exit non-zero; everything above is a
 report. Use `objectui validate` when you want a failing exit code.

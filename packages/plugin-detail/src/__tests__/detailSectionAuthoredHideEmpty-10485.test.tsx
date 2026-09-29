@@ -42,10 +42,11 @@
  *   the same judge: a non-boolean `hideEmpty` draws `type-mismatch` naming the
  *   key, which only a declared `boolean` input can produce (an undeclared key
  *   draws `unknown-prop` instead).
- * - THE CONTROL IS LIT — `name`, a `DetailViewSection` member this block
- *   neither declares nor reads, still draws `unknown-prop` from the same
- *   manifest in the same run. A silenced validator would pass the rows above
- *   vacuously; it cannot pass this one.
+ * - THE CONTROL IS LIT — `hideIfEmpty`, a near-miss this block neither
+ *   declares nor reads, still draws `unknown-prop` from the same manifest in
+ *   the same run. A silenced validator would pass the rows above vacuously; it
+ *   cannot pass this one. (It was `name` until objectui#11044 made `name` a
+ *   base prop wherever a type does not declare it.)
  * - REACHES `DetailSection` — measured in the DOM through the real
  *   `SchemaRenderer` and the real registry, over a record on which every field
  *   of the section is empty. `true` hides the section: no heading, no
@@ -137,10 +138,10 @@ describe('objectui#10485 — an authored detail-section hideEmpty validates', ()
     expect(found[0].message).toContain('"hideEmpty"');
   });
 
-  it('CONTROL: still warns on name, which the block neither declares nor reads', () => {
-    const found = diagnose({ name: 'billing' });
+  it('CONTROL: still warns on hideIfEmpty, which the block neither declares nor reads', () => {
+    const found = diagnose({ hideIfEmpty: true });
     expect(found.map((d) => d.code)).toEqual(['unknown-prop']);
-    expect(found[0].message).toContain('"name"');
+    expect(found[0].message).toContain('"hideIfEmpty"');
   });
 });
 

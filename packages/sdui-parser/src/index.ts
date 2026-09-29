@@ -9,7 +9,8 @@
 export * from './types.js';
 export { parseJsx, interpretBrace } from './parse.js';
 export { HTML_TIER_NODE, isHtmlTierNode, markHtmlTierNode } from './provenance.js';
-export { validateTree, acceptsChildren, CHILD_LIST_KEY } from './validate.js';
+export { validateTree, acceptsChildren, CHILD_LIST_KEY, SDUI_BASE_PROPS } from './validate.js';
+export type { SduiBaseProp, SduiBasePropScope } from './validate.js';
 export {
   checkDashboardWidgetOptions,
   CONSUMED_WIDGET_OPTION_KEYS,

@@ -10,6 +10,24 @@
 
 import type { Manifest, ManifestComponent, ManifestInput, ManifestInputType } from './types.js';
 import { inputTypeArms } from './input-type.js';
+import { SDUI_BASE_PROPS } from './validate.js';
+
+/**
+ * `SduiBaseProps`, emitted from {@link SDUI_BASE_PROPS} — the list
+ * `validateTree` reads — so the generated types and the validator cannot
+ * disagree about a base prop (objectui#11044). ⛔ Never a second hand-kept
+ * copy of the list here: that is how this interface came to refuse `bind` and
+ * `hidden` after the validator accepted them.
+ */
+const emitBaseProps = (): string =>
+  `export interface SduiBaseProps {\n${SDUI_BASE_PROPS.filter((prop) => prop.tsType !== null)
+    .map((prop) => `  ${prop.name}?: ${prop.tsType};`)
+    .join('\n')}\n}`;
+
+/** The base props a declared input of the same name outranks (`'where-undeclared'`). */
+const YIELDING_BASE_PROPS = new Set(
+  SDUI_BASE_PROPS.filter((prop) => prop.scope === 'where-undeclared').map((prop) => prop.name),
+);
 
 export interface CodegenOptions {
   /** include a self-contained minimal JSX namespace so the d.ts type-checks
@@ -39,16 +57,7 @@ export function generateDts(manifest: Manifest, options: CodegenOptions = {}): s
 // Source of truth: ComponentRegistry inputs (ADR-0080 §3). Regenerate via codegen.
 /* eslint-disable */
 
-export interface SduiBaseProps {
-  id?: string;
-  className?: string;
-  style?: Record<string, unknown>;
-  visible?: boolean;
-  visibleOn?: string;
-  disabled?: boolean;
-  disabledOn?: string;
-  children?: unknown;
-}
+${emitBaseProps()}
 
 ${interfaces}
 
@@ -71,13 +80,18 @@ export {};
  * those arms only (objectui#3832): the old test was `i.type !== 'slot'`, which a
  * union like `['slot', 'string']` would have passed while `tsType` fell through
  * to the default and typed it `string` anyway.
+ *
+ * A `'where-undeclared'` base prop the component declares is `Omit`ted from
+ * the base it extends (objectui#11044): the declared input wins, as it does in
+ * `validateTree`, and a declared type the base one does not admit
+ * (`label?: string | Record<string, unknown>`) is not a TS2430 conflict.
  */
 function emitInterface(comp: ManifestComponent): string {
-  const lines = comp.inputs
-    .filter((i) => valueArms(i).length > 0)
-    .map((i) => `  ${propLine(i)}`)
-    .join('\n');
-  return `export interface ${propsName(comp.type)} extends SduiBaseProps {\n${lines}\n}`;
+  const emitted = comp.inputs.filter((i) => valueArms(i).length > 0);
+  const lines = emitted.map((i) => `  ${propLine(i)}`).join('\n');
+  const yielded = emitted.filter((i) => YIELDING_BASE_PROPS.has(i.name)).map((i) => JSON.stringify(i.name));
+  const base = yielded.length > 0 ? `Omit<SduiBaseProps, ${yielded.join(' | ')}>` : 'SduiBaseProps';
+  return `export interface ${propsName(comp.type)} extends ${base} {\n${lines}\n}`;
 }
 
 /** The arms that describe a VALUE (every arm except `'slot'`). */

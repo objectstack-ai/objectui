@@ -246,18 +246,24 @@ describe('the declaration face matches what the renderers read (#3972)', () => {
     expect(diagnose(schema).filter((d) => d.code === 'unknown-prop')).toEqual([]);
   });
 
-  it('still draws `unknown-prop` for a key the declaration deliberately withholds', () => {
-    // The control, and it is a real key rather than a nonsense one: `description`
-    // is the legacy alias of `subtitle`, which objectui#3226 removed from `inputs`
-    // on purpose so the registry stops teaching a second dialect — and which
-    // objectui#3789 has since removed from the renderer too, once the load-path
-    // conversion was measured to rewrite it everywhere. It must keep drawing
-    // `unknown-prop` — that warning is the narrowing doing its job, and it now
-    // reports a key nothing on this side reads at all. If this goes green, either
-    // the alias was re-declared or the check stopped running, and the assertion
-    // above is then measuring nothing.
-    const schema = { ...(getExample(EXAMPLE_ID).schema as Record<string, unknown>), description: 'x' };
+  it('still draws `unknown-prop` for a near-miss the declaration does not carry', () => {
+    // The control: `subTitle` is a misspelling of the declared `subtitle`. If this
+    // goes green, the check stopped running, and the assertion above is then
+    // measuring nothing. It was `description` until objectui#11044 — see below.
+    const schema = { ...(getExample(EXAMPLE_ID).schema as Record<string, unknown>), subTitle: 'x' };
     expect(codesFor(schema)).toContain('unknown-prop');
+  });
+
+  it('draws nothing for `description`, the retired alias of `subtitle` — the named cost of objectui#11044', () => {
+    // `description` is the legacy alias of `subtitle`, which objectui#3226 removed
+    // from `inputs` on purpose so the registry stops teaching a second dialect, and
+    // which objectui#3789 removed from the renderer. It used to draw `unknown-prop`
+    // here. objectui#11044 (triage ruling) made it, as a `BaseSchema` member some
+    // registrations declare, a base prop wherever a type declares no input of that
+    // name, so the parser tier no longer reports it on `page-header`. Pinned so that
+    // restoring the warning is a deliberate change rather than a silent one.
+    const schema = { ...(getExample(EXAMPLE_ID).schema as Record<string, unknown>), description: 'x' };
+    expect(diagnose(schema).filter((d) => d.message.includes('"description"'))).toEqual([]);
   });
 
   it('accepts the `actions` array the docs page documents', () => {

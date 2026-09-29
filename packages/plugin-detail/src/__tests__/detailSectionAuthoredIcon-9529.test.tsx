@@ -36,13 +36,14 @@
  *   non-string `icon` draws `type-mismatch` naming the key, which only a
  *   declared `string` input can produce (an undeclared key draws
  *   `unknown-prop` instead).
- * - THE CONTROL IS LIT — `name`, a `DetailViewSection` member this block
- *   neither declares nor reads, still draws `unknown-prop` from the same
- *   manifest in the same run. A silenced validator would pass the rows above
- *   vacuously; it cannot pass this one. `visible` cannot serve here: it is one
- *   of the validator's base node keys (`BASE_PROPS` in `sdui-parser`'s
- *   `validate.ts`), which every node may carry and which are never judged
- *   against `inputs`, so it draws nothing before or after this change.
+ * - THE CONTROL IS LIT — `iconName`, a near-miss this block neither declares
+ *   nor reads, still draws `unknown-prop` from the same manifest in the same
+ *   run. A silenced validator would pass the rows above vacuously; it cannot
+ *   pass this one. The two `DetailViewSection` members the block leaves out
+ *   cannot serve: `visible` is one of the validator's base node keys
+ *   (`BASE_PROPS` in `sdui-parser`'s `validate.ts`), which every node may carry
+ *   and which are never judged against `inputs`, and `name` (the control until
+ *   objectui#11044) is a base prop wherever a type does not declare it.
  * - RENDERS — measured in the DOM through the real `SchemaRenderer` and the
  *   real registry, in BOTH header branches `DetailSection` reads the key in:
  *   the authored Lucide name is drawn as that icon's glyph beside the
@@ -123,10 +124,10 @@ describe('objectui#9529 — an authored detail-section icon validates', () => {
     expect(found[0].message).toContain('"icon"');
   });
 
-  it('CONTROL: still warns on name, which the block neither declares nor reads', () => {
-    const found = diagnose({ name: 'billing' });
+  it('CONTROL: still warns on iconName, which the block neither declares nor reads', () => {
+    const found = diagnose({ iconName: 'map-pin' });
     expect(found.map((d) => d.code)).toEqual(['unknown-prop']);
-    expect(found[0].message).toContain('"name"');
+    expect(found[0].message).toContain('"iconName"');
   });
 });
 

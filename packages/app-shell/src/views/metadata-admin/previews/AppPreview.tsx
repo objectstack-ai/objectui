@@ -265,7 +265,7 @@ export function AppPreview({ name, draft, editing, selection, onSelectionChange,
   // `separator` and `action` address nothing inside the app).
   const homeItem = React.useMemo(() => findFirstLanding(navItems), [navItems]);
 
-  const areas = readAreas((draft as any).areas, locale);
+  const areas = readAreas(draft.areas, locale);
 
   // For Add we need a root key even when empty — default to `navigation`,
   // the only root key the spec (AppSchema) actually accepts; `nav` /

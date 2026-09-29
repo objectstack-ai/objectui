@@ -26,6 +26,7 @@ import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { SchemaRendererProvider } from '@object-ui/react';
+import type { DataSource } from '@object-ui/types';
 // Module scope, not a hook: this import IS the `object-view` registration the
 // preview's `SchemaRenderer` resolves.
 import '@object-ui/plugin-view';
@@ -42,7 +43,8 @@ const objectDef = {
   },
 };
 
-function createDataSource(): any {
+/** A stub adapter: the members this route calls, not the whole `DataSource` surface. */
+function createDataSource(): DataSource {
   return {
     find: vi.fn(async () => ({ data: [{ id: 't1', name: 'Alpha', stage: 'open' }], total: 1 })),
     findOne: vi.fn(async () => null),
@@ -50,7 +52,7 @@ function createDataSource(): any {
     update: vi.fn(async () => ({})),
     delete: vi.fn(async () => ({})),
     getObjectSchema: vi.fn(async () => objectDef),
-  };
+  } as unknown as DataSource;
 }
 
 /** `ObjectGrid` asks the explain engine for row verdicts; a 501 reads fail-open. */

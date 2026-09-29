@@ -41,17 +41,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor, cleanup } from '@testing-library/react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import type { ObjectViewSchema } from '@object-ui/types';
+import type { DataSource, ObjectViewSchema } from '@object-ui/types';
 // Module scope, not a hook: this import IS the `object-view` registration.
 import '../index';
 import { OBJECT_VIEW_TABLE_RELAY_KEYS } from '../ObjectView';
 
+/** A grid node as the probe records it: read key by key. */
+type GridNode = Record<string, unknown>;
+
 /** Every schema handed to `ObjectGrid` — route 2's sink. */
-const gridSchemas: any[] = [];
+const gridSchemas: GridNode[] = [];
 
 vi.mock('@object-ui/plugin-grid', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  ObjectGrid: ({ schema }: any) => {
+  ObjectGrid: ({ schema }: { schema: GridNode }) => {
     gridSchemas.push(schema);
     return <div data-testid="object-grid" />;
   },
@@ -61,14 +64,14 @@ vi.mock('@object-ui/plugin-form', async (importOriginal) => ({
   ObjectForm: () => <div data-testid="object-form" />,
 }));
 
-const dataSource = (): any => ({
+const dataSource = (): DataSource => ({
   find: vi.fn().mockResolvedValue({ data: [], total: 0 }),
   findOne: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
   delete: vi.fn(),
   getObjectSchema: vi.fn().mockResolvedValue({ name: 'task', fields: {} }),
-});
+}) as unknown as DataSource;
 
 /** ⚠️ `cleanup()` is load-bearing: a view left mounted keeps pushing into the sink. */
 function resetSink() {
@@ -151,11 +154,11 @@ const BY_NAME: Required<Pick<TableSlot, Exclude<ByNameKey, 'operations'>>> = {
  * The node `ObjectGrid` receives from the REGISTERED renderer — through
  * `SchemaRenderer`, so no `renderListView` is in play.
  */
-async function gridNode(extra: Record<string, unknown>): Promise<any> {
+async function gridNode(extra: Record<string, unknown>): Promise<GridNode> {
   resetSink();
   render(
     <SchemaRendererProvider dataSource={dataSource()}>
-      <SchemaRenderer schema={{ type: 'object-view', objectName: 'task', ...extra } as any} />
+      <SchemaRenderer schema={{ type: 'object-view', objectName: 'task', ...extra } as never} />
     </SchemaRendererProvider>,
   );
   await waitFor(() => expect(gridSchemas.length).toBeGreaterThan(0));

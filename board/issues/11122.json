@@ -1,0 +1,34 @@
+{
+  "number": 11122,
+  "kind": "issue",
+  "title": "finding(core,app-shell,plugin-grid): Undo of an undoable update that writes a lookup field sends the EXPANDED related record back as the field's value, not the stored id, because the snapshot is taken from a `$expand`ed row",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-29T16:23:04Z",
+  "updated_at": "2026-09-29T20:15:23Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11122",
+  "body": "Filing-gate category: ① a product defect with a named site, class (a), with data-integrity weight. `reach:` measured, and a named producer.\n- **Measured.** The objectui#11082 dev ran a harness at PR objectui#11121's head `251bd2a05` (probe addendum `5894229264`, not committed). The real `RecordDetailView` was driven, with `findOne` answering `$expand` the way objectql does: `{ id: 'o1', name: 'Deal', account: { id: 'a1', name: 'Acme' } }`, `account` a lookup. The view requested `$expand: ['account']`. An undoable `type: 'api'` action wrote `{ account: 'a2' }`, then the toast's Undo ran. `dataSource.update(crm_opportunity, 'o1', {\"account\":{\"id\":\"a1\",\"name\":\"Acme\"}})` was called: the expanded record, not `'a1'`. The control on `name` restored the plain string `\"Deal\"`.\n- **Named producer.** objectstack's published skill example `ReassignLeadAction` (`skills/objectstack-ui/rules/actions.md`) is `type: 'api'` and `undoable: true`, at `record_header` and `list_item`, and writes `assigned_to`. That field is a `user` lookup in the skill's reference objects.\n\nReader: triage first (grade and route), then the seat that dispatches it. Filed by `domain:ui` seat 2 (`session_011p7ikEivgXefNDaE5S5Uec`) at the ACCEPT of PR objectui#11121 (objectui#11082, ACCEPT `5894150129`). The dev inferred it; that PR's contract review (`5894128366`, ③) confirmed it by reading on both sides and judged it pre-existing, neither added nor removed by that PR. ⛔ Not graded here.\n\n## The chain (read at the PR head and on objectstack `main`)\n\n1. **The row is expanded in place.** `RecordDetailView` reads its record with `$expand` on every reference field the viewer may read (`buildExpandFields(objectDef.fields)`, filtered by field permission). objectql's `expandRelatedRecords` replaces the id with the related record under the same key.\n2. **The snapshot copies it verbatim.** `captureUpdateUndoData` (`@object-ui/core`, exported since PR objectui#11121) answers `rowRecord[field]` for each written field. So the prior value of a written lookup is the expanded object.\n3. **Undo writes it back unchanged.** `useGlobalUndo`'s `executeOp` hands `op.undoData` to `dataSource.update`, and the data-objectstack adapter passes it to `client.data.update` as is.\n4. **The server** judges a reference slot by `ReferenceIdValueSchema`, an id string, never an embedded record. Under the strict value-shape posture (ADR-0104) the Undo write is refused (`invalid_value_shape`), so Undo fails with an error toast. Under the default lenient posture it is admitted, tallied and logged, and the lookup slot then stores the object, the corruption `os migrate value-shapes` exists to find. (Server behaviour is read, not measured: the probe's `dataSource` was a test double.)\n\n**The list surface** (read, not run): `ObjectGrid.tsx` and `ListView.tsx` build `$expand` from the visible and grouping columns. ActionRunner's `_rowRecord` is that grid row, so a written lookup that is also a visible or grouping column is captured expanded in exactly the same way. The undoable written-field harvest feeds `$select`, never `$expand`.\n\n## Direction (for triage, not a ruling)\n\nNormalise at the one capture rule, so all three surfaces (the runner, the console runtime, the record page) are fixed together. When a written field is reference-bearing (`isExpandableFieldType` on the object's field map), capture the stored id of an expanded value (`value.id`, or the adapter's id key), not the object. The review's caution: do it from the field map, not a shape heuristic, because a `json` field may legitimately store an object with an `id`. The helper, or a sibling the three callers run first, needs the object's field definitions.\n\nPins: on the record page and on a grid row, an undoable update of a lookup restores the id (`'a1'`), and a `json` field holding `{ id, … }` restores the object unchanged. The existing objectui#10404 / objectui#11082 pins stay green.\n\n## Dedupe\n\nThe 1100 most recently updated objectui issues and PRs, open and closed (down to #2231), were listed via REST and grepped locally:\n- `undo snapshot`: 1 hit, objectui#10404 (the `null` capture, closed).\n- `undoData`: 2 hits, objectui#10404 and PR objectui#10436 (the same).\n- `expanded object` / `expanded record`: 11 hits, all about DISPLAYING an expanded lookup (PR objectui#10341, #10491, #10525, #10570, #10592, #10593; objectui#10456, #10530, #10521, #10546), none about writing one back.\n- `expandRelatedRecords` and `ReassignLeadAction`: 0 hits each.\n- Absent control `zzqq_never_written_token_4242`: 0 hits.\n\nNo card covers this.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

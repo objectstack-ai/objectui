@@ -2,8 +2,8 @@
   "number": 10862,
   "kind": "issue",
   "title": "finding(app-shell,i18n): 19 designer preview files render English chrome under zh-CN — the designer-English family's successor closure card once objectui#10848 closes",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:i18n",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-support-ai"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-27T22:59:48Z",
-  "updated_at": "2026-09-28T09:04:29Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-29T20:04:22Z",
+  "closed_at": "2026-09-29T19:43:52Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 12,
+  "comments": 15,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/10862",
   "body": "Filing-gate category: ① a product defect with named sites, class (a), in the designer-English family (objectui#10586 → #10696 → #10748 → #10804 → #10835 → #10848). Reader: triage first (route and grade). ⛔ Not graded here.\n\nFiled by the `domain:ui` seat 4 (`session_01MCg3z5cGrV51xEddpGcxEY`) from the objectui#10848 dev report (`5860493272`, `out_of_scope_findings` 1 and 2) and the contract review of PR objectui#10857 (`5860625320`, item 7). PR objectui#10857 carries `Fixes #10848`, so the family's closure card closes on merge. From then on, this card is the family's carrier: a designer surface found in English under zh-CN rides here.\n\n## Sites (read at source on objectui `e386a59`; not driven in a browser)\n\nAll paths below are under `packages/app-shell/src/views/metadata-admin/`.\n\n1. **`PreviewErrorBoundary` hints.** Ten `fallbackHint` literals in seven files render in English beneath the now-localized heading:\n   - `DatasetPreview` (1), `ObjectPreview` (1), `PageBlockCanvas` (1, a template literal), `PagePreview` (2), `ReportPreview` (1), `SourcePageEditor` (1) and `ViewPreview` (3), all under `previews/`.\n2. **`ActionPreview`.** The pills 「AI: opted out」 / 「AI: exposed」 and the labels 「Visible when」 / 「Disabled when」.\n3. **`celAuthoring.ts`.** The CEL try-it result 「The predicate is empty.」 and its own 「Evaluation failed.」 fallback. The shared `engine.flowSim.note.evaluationFailed` row already exists.\n4. **Preview files that never read the designer `t`.** A regex census over `previews/**` counts 19 such files: `ActionPreview`, `AgentPreview`, `AppPreview`, `BookPreview`, `DatasourcePreview`, `EmailTemplatePreview`, `JobPreview`, `PageBlockCanvas`, `PermissionPreview`, `PositionPreview`, `SkillPreview`, `ToolPreview`, `TranslationPreview`, `ValidationPreview`, `ReportPreview`, `SourcePageEditor`, `ViewPreview`, `FieldsListEditor` and `ViewColumnPanes`. What renders English in them:\n   - empty-state sentences;\n   - section headings and `title=` tooltips, e.g. 「Where it appears」, 「Object Permissions」, 「Trigger Conditions」, 「Input Parameters」, 「Then apply」;\n   - notes, e.g. 「No schedule set — runs only when triggered manually.」 and 「Positions don't grant data access on their own.」;\n   - `aria-label`s, e.g. 「Remove …」, 「Select …」, 「Page source」.\n\n   `DatasetPreview` and `PagePreview` are partly localized.\n\n   **Census caveat (the reviewer's).** The census is a regex pass, not a browser drive. Some `title=` hits may never render, or may already be localized through a key table. The same holds for `label` / `hint` table values in `block-types.ts`, `flow-canvas-parts.tsx` and `widget-types.ts`, which may already be read through a `labelKey` (as objectui#10832 did for widget types). Confirm each before counting it.\n\n## Why it matters\n\nA zh-CN author sees Chinese headings and pickers beside English sentences on the same designer canvas. It is the same defect the family's earlier cards fixed, site by site.\n\n## Direction (for triage to confirm)\n\n- Use the family's shape (PRs objectui#10832, #10850, #10857): `engine.*` rows whose en value equals today's literal byte for byte, plus zh.\n- Read the locale the surface already receives, or `useMetadataLocale()`.\n- Add one zh pin per site through the real component, with an en control read via `t` / `tFormat` for `en-US`.\n- ⛔ Stored author data stays literal. ⛔ Producer text keeps its producer's wording.\n- The work is large (19 files). Triage may split it by preview family (the object/data previews, the flow/automation previews, the admin previews). Each split card must name this card as its parent, so the enumeration stays whole.\n\nRelated, not in scope: `apps/console/src/preview-gallery.tsx` mounts `I18nProvider` in `en` while `?locale=` feeds only the typed `locale` prop. So in the gallery, hook-read sites stay English under `?locale=zh-CN`. That is a dev-harness gap, disclosed on PR objectui#10857.\n\n## Dedupe\n\nOpen `area:i18n` cards on objectui: only objectui#10848, which closes with PR objectui#10857. The 30 most recently created open issues, grepped for `zh-CN|designer…English|fallbackHint|ActionPreview|celAuthoring`, turned up objectui#10848 and objectui#10847 (a crash, not English chrome). No other carrier.\n\nDedupe words: `designer English zh-CN preview` · `fallbackHint PreviewErrorBoundary English` · `ActionPreview Visible when zh` · `celAuthoring predicate is empty`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

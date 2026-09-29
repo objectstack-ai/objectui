@@ -2,8 +2,8 @@
   "number": 11105,
   "kind": "issue",
   "title": "plugin-grid: server-grouped grid sends `select=id,[object Object],…` when the view's columns are objects — every group shows INVALID_FIELD (17.5.0 regression)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "hotlong",
@@ -11,17 +11,27 @@
     "type": "User"
   },
   "labels": [
-    "bug"
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p1"
   ],
-  "assignees": [],
+  "assignees": [
+    "hotlong"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-29T13:09:54Z",
-  "updated_at": "2026-09-29T13:09:54Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-29T16:12:41Z",
+  "closed_at": "2026-09-29T16:12:41Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11105",
   "body": "Found while upgrading HotCRM from `@objectstack/*` 17.4.0 to 17.5.0 (objectstack-ai/hotcrm#1970) and checking the console in a browser.\n\n## Symptom\n\nA grid list view that declares `grouping` and writes its `columns` as objects (`{ field, width, … }`) renders its group headers with correct counts. Every expanded group then shows this instead of rows:\n\n```\nUnknown field '[object Object]' on object 'crm_product' (also: [object Object], …). 'select' chooses which fields to return; …\n```\n\nIn HotCRM this breaks the default list of **Products**, **Knowledge Articles** and **Forecasts**. All three are `grouping` plus object `columns`.\n\n## Wire evidence (17.5.0 console, `objectstack dev`)\n\n```\n200 GET /api/v1/data/crm_product?top=50&sort=name&select=id,product_code,name,category,family,sku,list_price,cost,is_active\n400 GET /api/v1/data/crm_product?top=50&skip=0&sort=name+asc&select=id,[object+Object],[object+Object],…&filter=[\"and\",[\"category\",\"=\",\"service\"]]\n    {\"code\":\"INVALID_FIELD\",\"field\":\"[object Object]\",\"object\":\"crm_product\", …}\n```\n\nThe 400 repeats once per group.\n\n**Control:** the same app, view and data on 17.4.0 makes only the flat request, with a correct `select`, and renders all 13 products.\n\n## Mechanism (objectui `main` @ `88fbd793`)\n\n- `packages/plugin-grid/src/ObjectGrid.tsx`, `getSelectFields()`. The `schemaColumns` branch maps each entry through `columnIdentity(c)`. The `schemaFields` branch (`return withHarvestedFields(ensureId((schemaFields as any[]).filter(passesProjectionGate)))`, around line 2424) returns the entries **unmapped**. When the view's fields are column objects, the objects themselves end up in `$select`.\n- `packages/data-objectstack/src/index.ts` then serializes `$select` with `selectFields.join(',')`, which produces `[object Object]`.\n- Before objectui#7189 / #10878 (server-side grid grouping), a grouped ObjectGrid under ListView got its rows as inline `data`, so this path never reached the wire. With server grouping, `setGroupRowQuery(groupQuery)` carries this `$select` into every per-group page request. The 17.5 server refuses unknown `select` keys instead of widening the projection, so the latent bug became a visible failure.\n\n## Reproduce\n\n```ts\ndefineView({ list: {\n  type: 'grid',\n  data: { provider: 'object', object: 'crm_product' },\n  columns: [{ field: 'name' }, { field: 'category' }],\n  grouping: { fields: [{ field: 'category', order: 'asc' }] },\n} })\n```\n\nOpen the list. Every group shows the INVALID_FIELD message. With `collapsed: true` the error appears only when a group is expanded.\n\n## Suggested direction (not a ruling)\n\nMap the `schemaFields` branch through `columnIdentity` the same way the `schemaColumns` branch does, so both branches project field names. It would also help to make the data adapter refuse a non-string `$select` entry rather than `join` it. Add a test with a server-grouped grid and object columns.\n\nHotCRM will not work around this in app metadata. Its views are valid, and rewriting `columns` as strings would drop widths, pinning and summaries."

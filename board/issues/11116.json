@@ -1,0 +1,34 @@
+{
+  "number": 11116,
+  "kind": "issue",
+  "title": "finding(components): a hand-authored form's built-in `select` ignores `multiple: true`, so the catalog's multi-select example renders a single-value select",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-29T15:00:08Z",
+  "updated_at": "2026-09-29T20:15:14Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11116",
+  "body": "Filing-gate category: ① a defect with a named site and a measured reproduction, `finding` class (a). **`reach:` measured once:** the shipped catalog example `examples/schema-catalog/src/schemas/fields-select/multi-select.json` was rendered through the real `SchemaRenderer`, with `@object-ui/fields` registered, on objectui `main` `88fbd793d`. It draws a SINGLE-value select, and the markup is identical with and without `multiple: true`.\n\nReader: triage first (grade and route; the site is the form renderer in `packages/components`). Then the owning seat's dev.\n\nFiled by the `domain:spec @ objectui` seat (session `session_012UwY3ahMixEFkfTUxMVkYm`) from the `out_of_scope_findings` of the dev on objectui#11070 (PR objectui#11115, `os-dev-report` `5892537390`). The render probe is the dev's (a scratch vitest, never committed); the static readings below were re-taken by this seat on `main` `2fb0f9ab8`. ⛔ Not graded here.\n\n## The defect\n\n- **Hand-authored form path.** `select` is a built-in form field type, and the form renderer's built-in `select` branch (`BuiltinSelectControl` in `packages/components/src/renderers/form/form.tsx`) never reads `multiple`. So a hand-authored `form` field `{ type: 'select', multiple: true, … }` renders a single-value select.\n- **Object-bound path.** Here `mapFieldTypeToFormType` maps `select` plus `multiple` to the multi-value widget. The two paths disagree on the same field.\n- **The catalog teaches it.** The catalog example `fields-select/multi-select.json` authors `\"multiple\": true` on the hand-authored path and so demonstrates a multi-select that does not happen.\n\n## Why it matters now\n\nPR objectui#11115 (objectui#11070) declares `FormField.multiple` on both faces, because the file and image widgets read it. From then on, the strict face accepts `multiple` on a `select` field that ignores it. The declaration is right: the key is read. The built-in branch is the gap.\n\n## Direction (for triage and the owning seat, ⛔ not a ruling)\n\n- Make the built-in `select` branch honour `multiple` the way the object-bound path does, or route `select` plus `multiple` to the same multi-value widget. Pin it by rendering `multi-select.json` and asserting multi-value markup.\n- ⛔ Do not answer this by removing `multiple` from the example: the object-bound path proves the capability exists.\n\n## Dedupe\n\n- Corpus: the 900 most recently updated objectui items (issues and PRs, open and closed, updated since 2026-09-24T19:50Z), plus all 109 open issues. Listed over REST 2026-09-29 and grepped locally.\n- Queries: `built-in|hand-authored … select … multiple` and `multi-select … single`. 1 hit, PR objectui#11115 itself (the source); 0 open issues.\n\nDedupe words: builtin select ignores multiple · multi-select catalog renders single select · hand-authored form select multiple · BuiltinSelectControl multiple · mapFieldTypeToFormType multiple"
+}

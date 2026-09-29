@@ -2,8 +2,8 @@
   "number": 11083,
   "kind": "issue",
   "title": "finding(components,plugin-list,plugin-detail): the spec's nested `aria` bag has one shared reader now; the page root still drops it, and two blocks keep their own copies",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:studio",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-29T10:20:12Z",
-  "updated_at": "2026-09-29T14:02:34Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-29T17:00:53Z",
+  "closed_at": "2026-09-29T17:00:13Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 6,
+  "comments": 10,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11083",
   "body": "Filing-gate category: ① a product defect with a named site, class (a), with the follow-ups triage ordered filed at objectui#11051's landing (retriage answer `5886920927`: \"A2, not A1: migrating ListView's inline mapping and `plugin-detail`'s `useRecordAriaProps` onto the shared reader is filed as follow-ups when this lands\"). One family card, enumerated, rather than three single-site cards. `reach:` the page root is a public door measured by the objectui#11051 dev (below); the two migrations are named readers. Reader: triage first (grade and route), then the seat that dispatches it. Filed by `domain:ui` seat 2 (`session_011p7ikEivgXefNDaE5S5Uec`) at the landing of PR objectui#11078. ⛔ Not graded here.\n\n## The shared reader\n\nPR objectui#11078 added `resolveInlineAriaProps(aria, locale)` to `@object-ui/react`. It is a pure reader of the spec's nested `AriaProps`:\n- `ariaLabel` → `aria-label`, resolving an inline locale map with the spec's `resolveI18nLabel`;\n- `ariaDescribedBy` → `aria-describedby`;\n- `role` → `role`.\n\nThe four `element:*` renderers use it. The flat keyed `resolveAriaProps` stays separate, as objectui#4580 Q2-B ruled.\n\n## The family (sites read at objectui `origin/main` `e119f120c`)\n\n1. **The page root drops its `aria` bag (a defect).** `packages/types/src/layout.ts` declares `PageSchema.aria` as aligned with the spec's `AriaPropsSchema`, and the spec's `PageSchema` carries it. `packages/components/src/renderers/layout/page.tsx` has no `aria` read. Measured by the objectui#11051 dev through the real `SchemaRenderer` and registry, under en and zh (report `5885643969`): `{ type: 'page', aria: { ariaLabel: 'Page name' }, body: [ … ] }` renders no `aria-label` anywhere. A flat-keyed control in the same run renders its `aria-label`. This is declared ≠ enforced on the page root.\n2. **`plugin-list` `ListView.tsx` keeps an inline mapping** (around `:4298`–`:4308`). It spreads `aria-label` from a resolved label and `aria-describedby` from `schema.aria.ariaDescribedBy`, and it also reads `schema.aria.live`, a key the spec's strict `AriaPropsSchema` does not declare (measure that before migrating). `role` defaults to `region`.\n3. **`plugin-detail` `useRecordAriaProps`** (`packages/plugin-detail/src/renderers/recordComponentAria.ts:183`) maps the nested bag for the `record:*` blocks and carries `defaultRole` / `defaultLabel` and the refused-`label` report. Migrating it onto the shared reader keeps those.\n\n## Direction (for triage, not a ruling)\n\n- Route each site through `resolveInlineAriaProps` and keep each site's defaults (a default role, a default label) at the call site. ⛔ Keep no second mapping table.\n- The page root is the defect half, and the two migrations are consolidation. Triage may split the two.\n- **Also for triage, noted by the objectui#11078 contract review (`5888212746`):** `element:text` (`p` / `h2` / `h3`) and `element:number` (`div`) supply no default role. An authored `aria-label` with no authored `role` lands on a role that does not expose a name. `useRecordAriaProps` already supplies a `defaultRole`. Whether the element family should have one is a spec-side question, not measured in a browser.\n- **Pins:** per site, a plain string and a locale map under en and zh render `aria-label`; each site's default still applies when nothing is authored.\n\n## Dedupe\n\nThe 1100 most recently updated objectui issues and PRs, open and closed (down to #2231), were listed via REST and grepped locally:\n- `resolveInlineAriaProps`: 0 hits. The cache predates PR objectui#11078, which introduces it.\n- `useRecordAriaProps`: 2 hits, PR objectui#10609 (the `record:*` `aria.label` fold that built the hook) and PR objectui#11050. Neither migrates it.\n- `PageSchema.aria` / `page root`: 0 hits.\n- `AriaProps` (lit control): 7 hits, all unrelated or already closed:\n  - objectui#11051 and PR objectui#11050;\n  - PR objectui#10855 (timeline root forwarding);\n  - objectui#9945 and PR objectui#10609;\n  - closed objectui#2890, which migrated ListView's legacy `aria: { label, describedBy, live }` vocabulary to `AriaPropsSchema`. Its residue is the `aria.live` read in item 2;\n  - the seat post objectui#5560.\n- Absent control `zzqq_never_written_token_4242`: 0 hits.\n\nNo card covers the page root or the two migrations.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

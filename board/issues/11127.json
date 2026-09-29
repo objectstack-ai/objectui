@@ -1,0 +1,33 @@
+{
+  "number": 11127,
+  "kind": "pull_request",
+  "title": "fix(app-shell): Studio's app preview resolves locale-map app, nav-item and group labels (objectui#11100)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-29T16:54:39Z",
+  "updated_at": "2026-09-29T17:30:51Z",
+  "closed_at": "2026-09-29T17:30:49Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-29T17:30:49Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11127",
+  "body": "Fixes #11100\n\nClause-②: no\n\nStudio's app preview now resolves the app label, each nav item's label and each group's label through the spec's `resolveI18nLabel` in the designer locale, the way the areas list in the same file already does. A label only decides an entry's text; it no longer decides whether the entry exists.\n\n## What was wrong (measured on origin/main 76e9df06c, `AppPreview.tsx`)\n\n- The header ran `String()` over the app label, so a locale-map label printed `[object Object]`.\n- `normalizeNav` kept a label only when `typeof it.label === 'string'`, so a childless nav item with a map label was dropped together with its target.\n- The same test made a map-labelled group fall to `(unnamed)`.\n\nThe spec types all three as `I18nLabel` (a plain string or a per-locale map): the `label` of every navigation branch except `separator`, and the app's own `label`.\n\n## What changed\n\n- `AppPreview.tsx`: the app label is `resolveI18nLabel(draft.label, locale) ?? appName`; `normalizeNav` takes the designer `locale` (threaded the way `unnamed` is) and resolves each item's and group's label with it. The header no longer calls `String()` on a label.\n- An entry is dropped only when it has no label, no children and no target. `(unnamed)` now reads only for a label that is truly absent, or a map that resolves to nothing.\n- New pin `AppPreview.labelMaps-11100.test.tsx` (7 tests) and one patch changeset for `@object-ui/app-shell`.\n\n## Behavior change to review\n\nAn entry that names a record (has a target) but carries no label used to vanish from the preview. It is now kept and reads `(unnamed)`, which is what the direction on the card rules (\"a nav item is kept whenever it has a target\"). An entry with no label, no children and no target is still dropped, as before. Nothing else about a plain-string label moves; the plain-string control is pinned.\n\n## Evidence\n\n- Before, pins against the unmodified file: `Tests 5 failed | 2 passed (7)`.\n- Reverse verification from the committed state: `git checkout` of `AppPreview.tsx` from the pinned base commit 76e9df06c (the `resolveI18nLabel(draft.label` anchor count 1 to 0, the `String(label)` anchor 0 to 1), then the pin file again: `Tests 5 failed | 2 passed (7)` (direction: red, the two controls stay green). Restored with `git checkout HEAD -- FILE`; `git diff HEAD` empty and the HEAD blob hash equals the working-tree hash (5557011d1 at that step). The subject is imported by relative path from `src`, so no rebuild sits between the mutation and the run.\n- After, at head cbe37f8b2:\n  - `pnpm exec vitest run packages/app-shell/src/views/metadata-admin/previews/`: `Test Files 79 passed (79)`, `Tests 1057 passed (1057)`, 7 of them the new pin.\n  - `pnpm --filter @object-ui/app-shell type-check` (`tsc --noEmit && tsc -p tsconfig.test.json`), after building its dependency closure with `pnpm --workspace-concurrency=2 --filter '@object-ui/app-shell^...' build` (the upstream direction): exit 0. `tsc -p tsconfig.test.json --listFilesOnly` names the new test file, so the test project covers it.\n  - `pnpm exec eslint` on both changed files: 0 errors, 7 warnings, all the `no-explicit-any` casts that were already in the file (the count is unchanged by this diff).\n  - `node scripts/check-changeset-presence.mjs`, `node scripts/check-control-bytes.mjs`, `pnpm run check:new-line-citations` (0 new citations), `check:changeset-claims`, `check:pending-changeset-literals`, `check:test-path-roots`: all exit 0.\n\n## Declared narrowing (CI owns the rest)\n\nThe repo-wide lint scan and the full test and check farm are CI's. The public surface is unchanged (`AppPreview`'s props, no new export; `normalizeNav` is module-private), so no downstream sweep is owed. The pins are the evidence; the browser gallery was not driven.\n\n## Acceptance notes\n\n- Out of scope, measured, not fixed here: in design mode the nav is drawn by `AppNavCanvas`, whose own `navLabel` also tests `typeof label === 'string'`. Probe at this head: a draft with a nav item labelled as a locale map, rendered with `editing` in zh-CN, prints `Item 1` for that row while the landing line above it (this PR) prints the resolved `客户`. The canvas is a different file and an inline-rename editor, so it is reported for a separate card, not widened into this one.\n- objectui#10862 (designer chrome strings in this file) stays serial behind this card and is not addressed here.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011p7ikEivgXefNDaE5S5Uec)_"
+}

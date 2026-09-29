@@ -2,7 +2,7 @@
   "number": 11102,
   "kind": "pull_request",
   "title": "fix(components,plugin-list,plugin-detail): the page root reads its nested aria bag, and ListView and useRecordAriaProps map through the shared reader (objectui#11083)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -22,10 +22,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-29T13:01:41Z",
-  "updated_at": "2026-09-29T14:03:06Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-09-29T14:42:11Z",
+  "closed_at": "2026-09-29T14:42:09Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-29T14:42:09Z",
   "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/11102",

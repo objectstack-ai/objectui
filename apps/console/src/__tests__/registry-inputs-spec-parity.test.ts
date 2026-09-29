@@ -2541,6 +2541,18 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-form/src/MasterDetailForm.i18nLabels.test.tsx',
     pins: 'The I18nLabel object arm, resolved at the read site: through the real `SchemaRenderer`, a `properties.cancelText` map under a `zh` UI renders the map\'s `zh-CN` entry on the Cancel button, with `en` listed FIRST so an `en` or first-entry fallback fails the row. Before objectui#10935 the map was a raw Button child and threw "Objects are not valid as a React child". The button renders only when the host supplies `onCancel`, so the row adds one beside the document and asserts the host handler still runs. A plain-string control and the nothing-authored control (`Cancel`) stay green, and the first row asserts the mounted documents pass `safeValidateSchema`. The manifest half (a map is not a `type-mismatch`) is `masterDetailFormI18nLabelManifest.test.ts` in this directory (objectui#10935).',
   },
+  'object-master-detail-form.dataSource': {
+    file: 'packages/plugin-form/src/MasterDetailForm.elementDataSource.test.tsx',
+    pins: 'The per-element binding\'s members on the block that writes a parent AND its children in one batch. `object` is the only key mapped (the gate\'s default mapping), asserted at the fetch it causes, and it OUTRANKS a flat `objectName` on the same node: `next[objectKey] = composed.object` is unconditional, and the `??=` spelling would keep a rebound form on the old parent with no diagnostic. ⭐ The row only this block can make: the bound object reaches the DETAIL half. `deriveDetail` picks a child\'s FK by the parent object\'s name and the atomic batch names the parent on its first leg, measured on one child object that carries a lookup to BOTH candidate parents, so the derived FK and the parent leg together say which name won. `view` / `filter` / `sort` / `limit` are NOT mapped: a resolving view adds no parent collection query, an unresolvable one REPORTS, and in `edit` mode each child line read stays `{ $filter: { FK: recordId }, $top: 500 }` whatever the binding carries. ⚠️ Unmapped is not unread: beside a named `view` the gate merges the binding\'s `filter` with the view\'s, so a malformed one WITHHOLDS the whole form behind the malformed-filter notice, with a well-formed one as that row\'s control. A binding-free form is the control for the negatives. `dataSource` is absent from `ComponentPropsMap[\'object-master-detail-form\']` (it is the injected `ELEMENT_DATA_SOURCE_INPUT`), so nothing declared constrains the precedence. Pre-existing file (objectstack#7121), promoted after being read end to end and GROWN by five rows, four facts and a control (objectui#8071 slice 18).',
+  },
+  'object-master-detail-form.details': {
+    file: 'packages/plugin-form/src/__tests__/masterDetailDetailsMembers-8071.test.tsx',
+    pins: 'Members are detail-collection OBJECTS (`MasterDetailDetailConfig`), and unlike this block\'s parent keys the read site is THIS block: `MasterDetailForm` is the key\'s only reader. Each member renders as its own section in AUTHORED order, headed by `title` (fallback `Line Items`), with `columns` reaching the line grid in authored order. ⭐ The sharp row: five members reach the grid through ONE hand-written object and four are RENAMED on the way (`sortField` to `sort_field`, `minRows` to `min_rows`, `maxRows` to `max_rows`, `addLabel` to `add_label`, `amountField` to `total_field`). That object is pinned as a SORTED KEY SET of exactly six, with two off-list members (one in the grid\'s own snake_case spelling) asserted not forwarded and an all-empty control beside it. `inlineMode: \'form\'` makes a list whose Add opens the full form (labelled `Add` when unset), and in grid mode `formFields` wider than `columns` offers the row form; each arm is the other\'s control. `childObject` and `relationshipField` address the atomic batch (each line a create on the child, linked by `{ $ref: 0 }`) and the edit-mode read (`{ $filter: { FK: recordId }, $top: 500 }` per collection). `totalField` receives the sum of the lines\' `amountField` on the PARENT leg, and a collection without one puts nothing there. With `{ childObject }` alone the FK and the columns are DERIVED from the child object, the one member behaviour the spec\'s description promises, and the batch writes the derived FK. `details: []` is the non-vacuity control: no section, no grid, a one-leg batch. The line grid is the REAL `LineItemsField`, wrapped only to record the props it is handed. The spec row is `z.array(z.unknown())`, whose description names five of the twelve members the renderer reads, and the registration declares no `of`, so the read site is the whole member contract. New file (objectui#8071 slice 18).',
+  },
+  'object-master-detail-form.fields': {
+    file: 'packages/plugin-form/src/__tests__/topLevelFieldsWarnCoverage-8847.test.tsx',
+    pins: 'Members are bare PARENT field names drawn in AUTHORED order, against a no-`fields` control whose order is the object\'s. A name the parent does not declare is dropped rather than drawn as an untyped stub, measured with a DETAIL column name because one node here declares two field vocabularies, while the line grid keeps that column. `{ name }` is the same member as the bare name. The two pre-existing rows carry the sharpest member fact: the spec `FormFieldSchema` object that is legal in `sections[].fields` resolves to no name here, draws the named route-1 warning (objectui#8738, objectui#8847) and does not render, with a bare name as the firing control. ⚠️ Pinned as BEHAVIOUR and handed back: the key bounds what is DRAWN, not what the parent leg WRITES. A seeded field it does not list is still written, while the registration calls this key the parent pool for "the submitted set". The intersection with `sections` belongs to the `object-master-detail-form.sections` pin and is not re-asserted. `MasterDetailForm` reads none of this itself: the `parentSchema` memo copies the key onto an `object-form`-shaped node rendered through a DIRECTLY imported `<ObjectForm>`, the hand-written carrier that is why the pin is taken at this block. The spec row is `z.array(z.unknown())` and the registration declares no `of`, so the read site is the whole member contract. Pre-existing file (objectui#8847), promoted after being read end to end and GROWN by five rows (objectui#8071 slice 18).',
+  },
   'object-master-detail-form.initialData': {
     file: 'packages/plugin-form/src/__tests__/masterDetailInitialMembers-8071.test.tsx',
     pins: 'Members are PARENT FIELD NAMES and each member value is that control\'s opening value \u2014 pinned in ONE file with `initialValues`, because this block\'s own registration declares them a pair ("Alternate spelling of `initialValues` the renderer also reads", with new schemas told to prefer `initialValues`) and a pair pinned apart leaves the PRECEDENCE stated nowhere. The precedence is PER MEMBER since objectui#9760: one shared `resolveInitialRecord(schema)` merges `{ ...initialValues, ...initialData }`, so with both authored a member `initialData` says nothing about keeps its `initialValues` value, and an EMPTY `initialData` contributes nothing rather than blanking the parent form. It used to be whole-object (`schema.initialData || schema.initialValues`, where `||` tests the object and `{}` is truthy); objectui#8071 wrote pins only, so it recorded that and handed the defect back, and the maintainer ruling on objectui#9760 repaired it \u2014 the two rows were FLIPPED there, \u26d4 not deleted. \u2b50 The two rows no sibling pin can make are the block\'s own: the seed reaches the PARENT LEG of the atomic batch and nothing else (a member naming a detail column seeds no child row and the posted batch still carries exactly one operation), and in `edit` mode with a `recordId` the fetched record REPLACES both keys wholesale, so a member the record omits opens empty rather than falling back to the seed. Neither key has a read site in this block at all: `MasterDetailForm`\'s `parentSchema` memo copies them key by key onto an `object-form`-shaped object rendered through a DIRECTLY imported `<ObjectForm>` \u2014 no `SchemaRenderer`, no registry lookup \u2014 which is exactly why the pin is taken here, since that hand-written map can drop a key while every declaration still reads correct (the failure `object-form.sections` records twice, objectui#9779 / objectui#9834). A no-keys row renders the same controls empty as the non-vacuity control. Both keys are registered `type: \'object\'` and typed `Record<string, any>`, so every object parses on both declared sides and the read site is the whole member contract. New file (objectui#8071 slice 15).',
@@ -2687,28 +2699,17 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
 };
 
-/**
- * The reason every entry in `MEMBER_PIN_EXEMPTIONS` carries today.
- *
- * One shared constant rather than one near-copy per entry, because the reason
- * really is uniform and a copy is what drifts: none of these keys has a pin, and
- * writing one string per key is not the dispatched scope of the card that built
- * this direction. (The measured population size lives in the string below, where
- * it is attributed to the card that measured it and dated by it.)
- * objectui#8068 prescribes the transition itself for a population this size, and
- * objectui#8071 owns the work — key by key, deleting an entry here in the same
- * change that registers its pin.
- *
- * A key that needs a DIFFERENT reason — a shape a pin genuinely cannot express,
- * a contract question upstream owns — gets its own string. The map is
- * `Record<string, string>` precisely so that stays possible without a second
- * mechanism.
- */
-const AWAITING_A_PIN =
-  'No per-block member pin today. Measured with objectui#8068: 58 of the 77 array/object-armed ' +
-  'inputs on covered blocks had none, which is the population size that card prescribes a ' +
-  'self-deleting transition for rather than a same-PR sweep. objectui#8071 owns writing the pin; ' +
-  'delete this entry in the same change that registers it.';
+// `AWAITING_A_PIN` — the one shared reason every key in objectui#8068's
+// measured population carried ("objectui#8071 owns writing the pin; delete this
+// entry in the same change that registers it") — was DELETED by objectui#8071
+// slice 18 together with its last three entries (`object-master-detail-form`'s
+// `dataSource`, `details` and `fields`). With no entry carrying it, it was a
+// reason for nothing, and a constant nothing reads is a claim nothing checks.
+// The two docblocks below still contrast against it by name; read those
+// mentions as the retired constant. The rule it stated survives as the
+// discipline of this map: a key that needs a reason other than "no pin yet" —
+// a shape a pin genuinely cannot express, a contract question upstream owns —
+// gets its own string, which is why the map stays `Record<string, string>`.
 
 /**
  * The reason the four keys objectui#8176 brought INTO this population carry.
@@ -2819,12 +2820,10 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
 
   // object-master-detail-form — objectui#8071 slice 15 pinned the two PARENT
   // SEED keys (`initialData`, `initialValues`, an alternate-spelling pair the
-  // registration declares as one) and `sections`; the three below are what that
-  // first bite left, and they are the block's other half — where the parent
-  // record comes from and what the child collections are.
-  'object-master-detail-form.dataSource': AWAITING_A_PIN,
-  'object-master-detail-form.details': AWAITING_A_PIN,
-  'object-master-detail-form.fields': AWAITING_A_PIN,
+  // registration declares as one) and `sections`, and slice 18 the block's
+  // other half (`dataSource`, `details`, `fields`); the block is now fully
+  // pinned, and this header stays only as a note for the next reader who
+  // greps for it.
 
   // object-metric — objectui#8071 slice 8 pinned the four QUERY members
   // (`dataSource`, `aggregate`, `filter`, `compareTo`) and slice 9 the two
@@ -3604,11 +3603,48 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
  * `NO_READ_SITE_TO_PIN` reading was not re-measured here either — slice 7's
  * measurement still stands.
  *
+ * ## 4 -> 1 (objectui#8071 slice 18) — `object-master-detail-form` CLOSES,
+ * and `AWAITING_A_PIN` goes with its last three entries
+ *
+ * `dataSource`, `details` and `fields` are pinned, which takes the last block
+ * carrying the generic reason to zero. Set arithmetic: -3 exemptions,
+ * -3 ceiling, +3 pins, and the remaining count equals this constant, so the
+ * enumeration is the whole population: one entry,
+ * `record:related_list.actions`.
+ *
+ * ⚠️ Two of the three are PROMOTED pre-existing files and one is new, and the
+ * split follows what each file already stated. `MasterDetailForm.elementDataSource`
+ * already fixed WHICH binding members this block honours, and was grown by
+ * where the honoured one goes: it OUTRANKS the flat `objectName`, and it
+ * reaches the DETAIL half (the derived child FK and the batch's parent leg).
+ * It was also grown by the finding that "unmapped" is not "unread": a
+ * malformed binding `filter` beside a named view withholds the whole form.
+ * `topLevelFieldsWarnCoverage-8847` already pinned the `FormFieldSchema`
+ * trap, and was grown by what a legal member IS. `details` is this block's
+ * own half, and nothing stated its twelve members member by member, so its
+ * pin is new.
+ *
+ * ⚠️ One member fact is pinned as BEHAVIOUR and handed back rather than
+ * repaired here, the same choice slice 9 made and for the same reason:
+ * `fields` bounds what the parent form DRAWS and not what its batch leg
+ * WRITES, while the registration calls the key the parent pool for "the
+ * submitted set".
+ *
+ * ⚠️ `AWAITING_A_PIN` was deleted in this commit. Its last entries were these
+ * three, and a reason no entry carries says nothing (see the note where it
+ * stood). The constant beside it, `AWAITING_A_PIN_NEWLY_JUDGED`, is kept,
+ * because the objectui#8176 audit test still reads it.
+ *
+ * ⚠️ Unchanged by this slice: `record:related_list.actions`, whose
+ * `NO_READ_SITE_TO_PIN` reading was not re-measured here. The one unit left
+ * in this constant is that key's, and it moves only with the enforce-or-remove
+ * decision the constant names, which the spec owns.
+ *
  * ⇒ The rule for every future slice of objectui#8071: delete the entry, register
  * the pin, and set this constant to the new count. Not to the new count plus
  * room.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 4;
+const MEMBER_PIN_EXEMPTION_CEILING = 1;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.

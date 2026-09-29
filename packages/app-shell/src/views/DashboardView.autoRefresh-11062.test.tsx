@@ -36,7 +36,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, cleanup, fireEvent } from '@testing-library/react';
 import { MetadataCtx, subscribeDataChanges, type DataChange } from '@object-ui/react';
 
-const meta = vi.hoisted(() => ({ value: null as any }));
+const meta = vi.hoisted(() => ({ value: null as unknown }));
 vi.mock('../providers/MetadataProvider', () => ({ useMetadata: () => meta.value }));
 
 vi.mock('react-router-dom', () => ({
@@ -115,7 +115,7 @@ async function mountDashboard(root: Record<string, unknown>) {
     getTypeStatus: () => 'ready',
   };
   const view = render(
-    <MetadataCtx.Provider value={meta.value as any}>
+    <MetadataCtx.Provider value={meta.value as React.ContextType<typeof MetadataCtx>}>
       <DashboardView dataSource={ds} />
     </MetadataCtx.Provider>,
   );

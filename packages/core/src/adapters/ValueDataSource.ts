@@ -189,7 +189,7 @@ function refuseArrayComparand(
  *
  * > *an empty `$icontains` comparand is REFUSED* — "Every row contains the
  * > empty substring, so evaluating it is a predicate that constrains nothing —
- * > the widening #5240 refused `{ field: {} }` over, one level in."
+ * > the widening [objectstack-ai/objectstack#5240] refused `{ field: {} }` over, one level in."
  *
  * > *a non-string `$icontains` comparand is REFUSED* — "Coercing 42 to `"42"`
  * > would answer a query nobody wrote; the declared comparand type is string."

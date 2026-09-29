@@ -24,7 +24,7 @@ import { createAuthenticatedFetch } from '@object-ui/auth';
 import { useObjectTranslation, isPermissionError, classifyLoadError } from '@object-ui/react';
 
 /**
- * RecordAttachmentsPanel — generic record Attachments surface (#2727,
+ * RecordAttachmentsPanel — generic record Attachments surface (objectstack-ai/objectstack#2727,
  * Salesforce "Notes & Attachments" parity).
  *
  * Rendered by RecordDetailView ONLY when the object declares
@@ -37,7 +37,7 @@ import { useObjectTranslation, isPermissionError, classifyLoadError } from '@obj
  * `sys_attachment` join row linking it to `(parent_object, parent_id)`.
  * Downloads fetch a short-lived signed URL from `/storage/files/:fileId/url`
  * with the console's Bearer token (the endpoint requires an authenticated
- * session for attachments-scope files, #2970), then open it.
+ * session for attachments-scope files, objectstack-ai/objectstack#2970), then open it.
  */
 
 interface AttachmentRow {
@@ -171,7 +171,7 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
     [baseUrl, authFetch],
   );
 
-  /** Map the server's fail-closed 40x codes (#2755, #2970) to friendly copy. */
+  /** Map the server's fail-closed 40x codes (objectstack-ai/objectstack#2755, objectstack-ai/objectstack#2970) to friendly copy. */
   const friendlyError = React.useCallback(
     (err: unknown): string => {
       const anyErr = err as { code?: string; message?: unknown } | null;
@@ -308,7 +308,7 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
             file_name: uploaded.name ?? file.name,
             mime_type: uploaded.mimeType ?? file.type,
             size: uploaded.size ?? file.size,
-            // Back-compat with pre-#2755 servers; a current server stamps
+            // Back-compat with pre-objectstack-ai/objectstack#2755 servers; a current server stamps
             // `uploaded_by` from the session and ignores this value.
             ...(currentUserId ? { uploaded_by: currentUserId } : {}),
           });
@@ -333,7 +333,7 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
         setRows((prev) => prev.filter((r) => r.id !== row.id));
       } catch (err: any) {
         // The delete button deliberately renders for every row: the server
-        // is the gate (uploader-or-parent-editor, #2755) and the client
+        // is the gate (uploader-or-parent-editor, objectstack-ai/objectstack#2755) and the client
         // lacks the parent-edit data to pre-compute it — a denial surfaces
         // here as friendly copy instead.
         setError(friendlyError(err));
@@ -347,7 +347,7 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
       setError(null);
       try {
         // The stable `/files/:fileId` endpoint now requires an authenticated
-        // session for attachments-scope files (#2970) — an <a href> can't
+        // session for attachments-scope files (objectstack-ai/objectstack#2970) — an <a href> can't
         // carry the Bearer token. Fetch a short-lived signed URL with auth,
         // then open it (the signed URL itself needs no credentials).
         const res = await authFetch(

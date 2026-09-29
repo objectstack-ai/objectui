@@ -220,7 +220,7 @@ export interface BatchRef {
 
 /**
  * One operation in a cross-object transactional batch. Field names match the
- * server contract of `POST /api/v1/batch` (ObjectStack framework #1604 /
+ * server contract of `POST /api/v1/batch` (objectstack-ai/objectstack#1604 /
  * ADR-0034 item 4).
  *
  * Distinct from the driver-level `BatchOperation` in `data-protocol.ts`
@@ -979,7 +979,7 @@ export interface ImportRequestOptions {
   /** Source column → target field mapping (compact record or entry array). */
   mapping?: Record<string, string> | ImportFieldMappingEntry[];
   /**
-   * Name of a registered `mapping` metadata artifact (framework #2611). When
+   * Name of a registered `mapping` metadata artifact (objectstack-ai/objectstack#2611). When
    * set, the server resolves the mapping by name and applies its
    * fieldMapping pipeline (rename + transforms, strict projection); mutually
    * exclusive with the inline `mapping` rename above.
@@ -995,9 +995,9 @@ export interface ImportRequestOptions {
   runAutomations?: boolean;
   /** Import as established historical facts. Skips the `state_machine` rule so
    *  mid-lifecycle rows (already-closed tickets, closed_won deals) aren't rejected
-   *  by `initialStates` (framework #3479), AND preserves the original audit timeline:
+   *  by `initialStates` (objectstack-ai/objectstack#3479), AND preserves the original audit timeline:
    *  a supplied `updated_at`/`updated_by` and business `readonly` fields are kept
-   *  instead of stamped-now / stripped (framework #3493). @default false */
+   *  instead of stamped-now / stripped (objectstack-ai/objectstack#3493). @default false */
   treatAsHistorical?: boolean;
   /** Trim leading/trailing whitespace from string cells. @default true */
   trimWhitespace?: boolean;

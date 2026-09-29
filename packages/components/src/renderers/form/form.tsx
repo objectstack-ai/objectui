@@ -1463,7 +1463,7 @@ ComponentRegistry.register('form',
           },
           previousRecord,
           predicateScope,
-          // Same locator as the render path (#5149). A failure here reports the
+          // Same locator as the render path (objectstack-ai/objectstack#5149). A failure here reports the
           // field, not a bare rule kind; `warnPredicateFailure` dedupes by
           // predicate source, so re-evaluating a rule the renderer already
           // evaluated cannot double-warn.
@@ -1514,7 +1514,7 @@ ComponentRegistry.register('form',
             },
             previousRecord,
             predicateScope,
-            // Same locator the render path uses (#5149), so a faulted
+            // Same locator the render path uses (objectstack-ai/objectstack#5149), so a faulted
             // predicate is reported once, against the field.
             `field '${name}'`,
           );
@@ -2455,7 +2455,7 @@ ComponentRegistry.register('form',
         // producer-side marking: a hook sets it at throw time to
         // say "this text is for the end user". It is a separate field from
         // `message`, so nothing unmarked can reach here — the substitution above
-        // still governs every platform diagnostic, and #3821 holds by
+        // still governs every platform diagnostic, and objectstack-ai/objectstack#3821 holds by
         // construction rather than by us guessing what a 403 body contains.
         // Status-agnostic on purpose: 403 is where this was reported
         // (objectui#5210), not a fence the contract draws.
@@ -2631,7 +2631,7 @@ ComponentRegistry.register('form',
       // canonical CEL engine and record scope as visibleWhen; both
       // the bare-string and `{ dialect, source }` wire shapes are
       // accepted, and a broken predicate fails open — loudly since
-      // #5149 (#2212).
+      // objectstack-ai/objectstack#5149 (#2212).
       if (
         visibleOn != null &&
         !evalFieldPredicate(visibleOn, ruleRecord, true, previousRecord, predicateScope, {

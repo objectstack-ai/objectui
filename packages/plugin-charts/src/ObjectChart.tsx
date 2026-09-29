@@ -575,7 +575,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
     () => (schema.compareTo ? JSON.stringify(schema.compareTo) : ''),
     [schema.compareTo],
   );
-  // ADR-0021 (#1890): a chart can bind to a semantic-layer `dataset` instead of
+  // ADR-0021 (objectstack-ai/objectstack#1890): a chart can bind to a semantic-layer `dataset` instead of
   // the legacy inline `objectName` + `aggregate` query. Stable key over the
   // dataset selection so a fresh object literal each render doesn't refetch-loop.
   const datasetKey = useMemo(
@@ -777,7 +777,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
         setError(null);
       }
       try {
-          // ── Dataset-bound path (ADR-0021, #1890) ──────────────
+          // ── Dataset-bound path (ADR-0021, objectstack-ai/objectstack#1890) ──────────────
           // When the chart binds to a semantic-layer `dataset`, run the same
           // governed `queryDataset` path the dashboard DatasetWidget and
           // dataset-bound reports use, so the numbers match everywhere. The

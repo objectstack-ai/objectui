@@ -71,7 +71,7 @@ export interface RecordRelatedListRendererProps {
    * sides — one describes what an author writes, the other what the block reads.
    *
    * Spelling it `RecordRelatedListComponentProps` flat said the opposite, and
-   * said it about the wrapper: the exact authoring shape #6953 added did not
+   * said it about the wrapper: the exact authoring shape objectstack-ai/objectstack#6953 added did not
    * type-check against the component that exists to accept it. The body already
    * reads the key defensively (`objectName && …`, `objectName || ''`) precisely
    * because it can arrive unbound; this declaration now agrees with that code.

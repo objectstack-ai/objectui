@@ -471,7 +471,7 @@ export const SplitForm: React.FC<SplitFormProps> = ({
   }
 
   // The form is ONE grid; each section then lays ITS fields out at its own
-  // declared density within that grid via colSpan (#2578) — the same arrangement
+  // declared density within that grid via colSpan (objectstack-ai/objectstack#2578) — the same arrangement
   // the stacked/tabbed sectioned forms use. The grid lives on the FIELD
   // container inside the form, never wrapped around the form (that leaves the
   // extra columns permanently empty, #2128).

@@ -73,7 +73,7 @@ export interface PackageSaveResult {
  * (`userMessage || message`, plus the declared code). Its return value
  * therefore cannot tell a caller WHICH channel won — and objectui#8051's two
  * status arms need exactly that bit, because their localized constant is a
- * generic substitution that objectui#3821 keeps for UNMARKED bodies only. So
+ * generic substitution that objectstack-ai/objectstack#3821 keeps for UNMARKED bodies only. So
  * the mark is read here and carried across the throw; ⛔ the arms cannot
  * re-derive it from the message they receive.
  *
@@ -291,7 +291,7 @@ export function PackageFormDialog({
       const msg: string = e?.message ?? '';
       // objectui#8051 — WAS this refusal marked? The two status arms below
       // answer with a localized constant, and that constant is a GENERIC
-      // SUBSTITUTION: objectui#3821's rule, which the envelope writer states as
+      // SUBSTITUTION: objectstack-ai/objectstack#3821's rule, which the envelope writer states as
       // "a consumer that sees the field renders it verbatim and keeps its
       // generic substitution for everything unmarked", keeps it for unmarked
       // bodies and hands a MARKED body straight to the person. Until this card
@@ -312,7 +312,7 @@ export function PackageFormDialog({
         setError(marked ? msg : t('engine.packages.create.exists', locale));
       } else if (e?.status === 403 || /manage_metadata/i.test(msg)) {
         // objectstack#8270 — for an UNMARKED body this arm still answers
-        // exactly as it did, and that is the whole of what #8270 measured. The
+        // exactly as it did, and that is the whole of what objectstack-ai/objectstack#8270 measured. The
         // sentence it was ruled about, "Managing packages requires the
         // `manage_metadata` capability.", is the door's DIAGNOSTIC:
         // `sendError(res, 403, 'FORBIDDEN', …)` in `@objectstack/rest`
@@ -321,7 +321,7 @@ export function PackageFormDialog({
         // byte as the 2026-08-13 maintainer ruling requires. A deployment that
         // withholds the capability does so deliberately, so this is a settled
         // posture to state in the user's language, not a transient failure to
-        // retry. What changes is only the case #8270 never saw: a body a
+        // retry. What changes is only the case objectstack-ai/objectstack#8270 never saw: a body a
         // producer deliberately marked for the end user.
         //
         // Probed the same way as the 409 arm above — the status when the

@@ -1123,7 +1123,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
    * because a modal has no server dispatch — the fallthrough only converted an
    * authoring mistake (a target naming no page) into a confusing round-trip.
    * objectstack#3959 removed it from the shared runtime; this copy kept the
-   * pre-#3959 shape until objectui#3320. An unresolvable target is now
+   * pre-objectstack-ai/objectstack#3959 shape until objectui#3320. An unresolvable target is now
    * reported as what it is. To collect input and then run server-side, declare
    * `type: 'script'` with `params`: the runner collects the same dialog and
    * the handler runs with those values.
@@ -1418,7 +1418,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     return objects.some((o: any) => o.name === 'sys_audit_log');
   }, [objectDef, objects]);
 
-  // ── Capability gates: enable.feeds / enable.activities (#2707) ─────
+  // ── Capability gates: enable.feeds / enable.activities (objectstack-ai/objectstack#2707) ─────
   // Both are opt-OUT capabilities (spec default `true`): absent enable
   // block/flag = on; only an explicit `false` disables. `feeds:false`
   // hides the discussion panel and skips the sys_comment fetch (the
@@ -1428,7 +1428,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // empty anyway — skipping keeps the network quiet).
   const feedsEnabled = objectDef?.enable?.feeds !== false;
   const activitiesEnabled = objectDef?.enable?.activities !== false;
-  // `enable.files` (#2727) is opt-IN (spec default `false`): the generic
+  // `enable.files` (objectstack-ai/objectstack#2727) is opt-IN (spec default `false`): the generic
   // Attachments panel is a new surface, so it only renders when the object
   // explicitly declares it. The server enforces the same gate on
   // sys_attachment creation (403 FILES_DISABLED).
@@ -1768,7 +1768,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     // M10.11: Fetch sys_activity rows for this record and merge into the
     // timeline. plugin-audit's writers populate sys_activity on every
     // create/update/delete unless the object opts OUT via an explicit
-    // `enable.activities: false` (#2707 — opt-out contract, spec default
+    // `enable.activities: false` (objectstack-ai/objectstack#2707 — opt-out contract, spec default
     // true), so this surface gives us a Salesforce-style "what happened
     // on this record" feed without any per-app glue.
     //
@@ -2572,7 +2572,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // composes `record:discussion` itself — out-of-the-box record pages are
   // unchanged; AUTHORED pages that relied on the append add one node.
   //
-  // `enable.feeds` (#2707) stays the OBJECT's switch and OUTRANKS the page: an
+  // `enable.feeds` (objectstack-ai/objectstack#2707) stays the OBJECT's switch and OUTRANKS the page: an
   // object with feeds off shows no panel, declared or not. That is the one half
   // of the ruling this tree did not already do — the old `feedsEnabled` gate
   // sat on the append alone, so a declared (or synthesized) node rendered a
@@ -2767,7 +2767,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
                   <RecordPermissionAssignmentsRenderer />
                 </div>
               )}
-              {/* Generic Attachments panel (#2727) — opt-in via
+              {/* Generic Attachments panel (objectstack-ai/objectstack#2727) — opt-in via
                   `enable.files: true`; the server rejects attachments
                   targeting any other object (403 FILES_DISABLED).
                   Fallback only: synthesized pages already place a

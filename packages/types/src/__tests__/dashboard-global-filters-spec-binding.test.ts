@@ -84,11 +84,12 @@ describe('DashboardComponentSchema.globalFilters — bound to the spec, not rest
     // Binding fixes both directions at once, which is the point of binding.
     type _ShorthandGone = Assert< Equal< Accepts< 'options', string[] >, false > >;
 
-    // NOT a runtime removal. `normalizeFilterOptions` in `@object-ui/core`
-    // still lifts a bare string for STORED documents — narrowing the authoring
-    // type and dropping tolerance for already-persisted metadata are different
-    // changes, and only the first is in this card's scope. The runtime half is
-    // filed separately.
+    // This card was the TYPE half only. The runtime half followed on its own
+    // card (objectui#4356, the objectstack#7917 option-② schedule):
+    // `normalizeFilterOptions` in `@object-ui/core` no longer lifts a bare
+    // string for STORED documents either — the member yields no option and a
+    // dev-mode warning names it. Narrowing the authoring type and retiring the
+    // runtime tolerance were different changes, and landed apart.
     expect(true).toBe(true);
   });
 

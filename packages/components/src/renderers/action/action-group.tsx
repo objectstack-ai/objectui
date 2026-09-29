@@ -79,7 +79,7 @@ const InlineActionButton: React.FC<{
   // row-scoped predicate faulted on its root (objectui#4075).
   const recordData = usePredicateRecordContext(record);
   const isVisible = useCondition(toPredicateInput(action.visible), recordData);
-  // Spec field is `disabled` (boolean | CEL — disabled when TRUE). #1885 wired
+  // Spec field is `disabled` (boolean | CEL — disabled when TRUE). objectstack-ai/objectstack#1885 wired
   // it in action-button only; this leaf kept reading the legacy non-spec
   // `enabled`, so a spec-authored `disabled` guard did nothing here. `disabled`
   // is now the primary control; `enabled` stays as a deprecated fallback.
@@ -165,7 +165,7 @@ export const DropdownActionItem: React.FC<{
   const recordData = usePredicateRecordContext(record);
   const isVisible = useCondition(toPredicateInput(action.visible), recordData);
   // Spec `disabled` primary, legacy non-spec `enabled` fallback (see
-  // InlineActionButton above — #1885 follow-through).
+  // InlineActionButton above — objectstack-ai/objectstack#1885 follow-through).
   const isDisabledPred = useCondition(toPredicateInput((action as any).disabled), recordData);
   const isEnabled = useCondition(toPredicateInput(action.enabled), recordData);
   // Same declared-gate rule as `InlineActionButton` above — one action cannot be

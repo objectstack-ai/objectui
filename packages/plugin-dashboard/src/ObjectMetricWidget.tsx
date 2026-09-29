@@ -318,7 +318,7 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
   // "{current_quarter_start}") AND session tokens ("{current_user_id}") — so
   // the server sees real values and the drill-down `find()` later sees the
   // exact same filter as the aggregate query. Resolving only date macros here
-  // left user-scoped metrics silently rendering 0 (framework #3574).
+  // left user-scoped metrics silently rendering 0 (objectstack-ai/objectstack#3574).
   const filterScope = useFilterScope();
   const resolvedFilter = useMemo(
     () => resolveFilterPlaceholders(filter, filterScope),

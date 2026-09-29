@@ -161,7 +161,7 @@ function isGroupLike(value: unknown): value is FilterGroupLike {
  *      value}` — the spec version this repo pins REJECTS a rule carrying `id`
  *      with `unrecognized_keys` on `filter.0`. (The issue's replay matrix saw
  *      variant ② accepted against a server running framework `main`, where
- *      #5154 tolerates the extra key; objectui's own pin does not. Keeping the
+ *      objectstack-ai/objectstack#5154 tolerates the extra key; objectui's own pin does not. Keeping the
  *      id would only trade one 422 for another.)
  *   2. Nothing downstream needs it persisted: the read path regenerates it —
  *      `parseSpecFilter`'s `parseTriplet` always mints `crypto.randomUUID()`,

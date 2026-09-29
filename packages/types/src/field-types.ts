@@ -726,7 +726,7 @@ export interface LookupFieldMetadata extends BaseFieldMetadata {
    * when the reference is stored by another column — e.g. an approval
    * `position` approver stores `sys_position.name`, because the engine routes
    * by machine name and names stay portable across environments
-   * (objectstack #3508).
+   * (objectstack-ai/objectstack#3508).
    */
   idField?: string;
 

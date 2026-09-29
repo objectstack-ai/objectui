@@ -1104,7 +1104,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         // all (objectui#7299).
         //
         // Measured, not assumed. The repo's one operator contract for this
-        // spelling is `drillUrlFilters`' `URL_FILTER_OPS` (#1752) — `gte`,
+        // spelling is `drillUrlFilters`' `URL_FILTER_OPS` (objectstack-ai/objectstack#1752) — `gte`,
         // `lte`, `gt`, `lt` and nothing else — and its parser DROPS an
         // unrecognised suffix rather than downgrading it, so a hopeful
         // `filter[<field>][contains]=` would arrive as no condition whatsoever:

@@ -222,7 +222,7 @@ const CANVAS_OWNED_KEYS: Record<string, string[]> = {
  *
  * Both steps of the loop send this value — `doSave` binds the draft row to the
  * package (`PUT ?package=`), and since objectstack `9e04c3e35`, `doPublish` states the
- * same package on the promotion (`POST .../publish?package=`) so #9612's
+ * same package on the promotion (`POST .../publish?package=`) so objectstack-ai/objectstack#9612's
  * package-closure narrowing at the runtime publish gate is reachable from an
  * HTTP-driven promotion at all. One value, one spelling, both steps — which
  * means one derivation too. A second inline copy in the publish path would be

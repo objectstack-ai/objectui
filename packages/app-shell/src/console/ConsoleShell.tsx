@@ -257,7 +257,7 @@ function ConnectedShellInner({ children }: { children: ReactNode }) {
   // the time the shell mounts and the same queries fire, once each.
   const { isLoading: isAuthLoading } = useAuth();
 
-  // ── Language switch → relabel without a page refresh (issue #1319) ──
+  // ── Language switch → relabel without a page refresh (issue objectstack-ai/objectstack#1319) ──
   //
   // Static UI strings already flip reactively through react-i18next, and
   // metadata labels that have a translation key resolve client-side via

@@ -227,7 +227,7 @@ export function ThemeProvider({
     el.classList.remove('light', 'dark');
     el.classList.add(resolvedMode);
 
-    // No favicon here: spec v17 (#3494) pruned `Theme.logo`, so the key is
+    // No favicon here: spec v17 (objectstack-ai/objectstack#3494) pruned `Theme.logo`, so the key is
     // stripped at parse and could never arrive. The live favicon comes from
     // operator branding (`getFaviconUrl()`), applied in the console's
     // index.html, main.tsx, and on route change.

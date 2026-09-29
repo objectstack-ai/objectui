@@ -120,7 +120,7 @@ const ActionButtonRenderer = forwardRef<
     });
     // Spec field is `disabled` (boolean | CEL predicate — disabled when TRUE).
     // It previously had zero consumers (the renderer only read a non-spec
-    // `enabled`), so a spec-authored `disabled` guard did nothing (#1885,
+    // `enabled`), so a spec-authored `disabled` guard did nothing (objectstack-ai/objectstack#1885,
     // ADR-0049). We now consume `disabled` as the primary control and keep the
     // legacy non-spec `enabled` as a deprecated fallback so existing metadata
     // keeps working. Uncast since objectui#8648: the mirror declares `disabled`

@@ -143,7 +143,7 @@ export function generateColorVars(colors: ColorPalette): Record<string, string> 
 // (`fontSize` / `fontWeight` / `lineHeight` / `letterSpacing`, plus
 // `fontFamily.heading` / `fontFamily.mono`) became TOMBSTONES: the schema now
 // rejects them by name and their prescription points at `theme.customVars`, the
-// declared — and since #5021 the only — door for a custom property. A
+// declared — and since objectstack-ai/objectstack#5021 the only — door for a custom property. A
 // `--z-modal` or a `--duration-fast` is authored there now, emitted verbatim as
 // `--<key>: <value>`.
 //

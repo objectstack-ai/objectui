@@ -2448,7 +2448,7 @@ export interface DashboardComponentSchema extends BaseSchema, Omit<SpecDashboard
   // `__tests__/dashboard-daterange-spec-10334.test.ts`.
   // `aria` was DECLARED here until objectui#5830, under a comment claiming
   // alignment with @objectstack/spec AriaPropsSchema — by then the opposite of
-  // the contract: the spec removed `dashboard.aria` at the #3896 audit
+  // the contract: the spec removed `dashboard.aria` at the objectstack-ai/objectstack#3896 audit
   // close-out (no dashboard renderer ever applied it), so
   // `DashboardSchema.shape.aria` is a tombstone that refuses any value, the
   // Zod twin (`zod/complex.zod.ts`) inherits that refusal through

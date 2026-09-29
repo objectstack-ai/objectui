@@ -133,7 +133,7 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
   }, [objects]);
 
   // Group the (server-ranked) record hits by object so the palette lists them
-  // under per-object headings — issue #3371 asks for record hits "grouped by
+  // under per-object headings — issue objectstack-ai/objectstack#3371 asks for record hits "grouped by
   // object". The object with the top-ranked hit leads (first-seen order), and
   // within each group the server's relevance order is preserved.
   const recordGroups = useMemo(() => {
@@ -216,7 +216,7 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
         )}
 
         {/* Record search hits from the platform's global search
-            (/api/v1/search), grouped by object (issue #3371). The searching
+            (/api/v1/search), grouped by object (issue objectstack-ai/objectstack#3371). The searching
             pulse rides the first group's heading so it stays visible while a
             refined query is in flight over an existing result set. */}
         {recordGroups.map((group, groupIndex) => {

@@ -256,6 +256,11 @@ defineReport({
 `series`, `colors`, `height`, `showDataLabels`, `annotations` and `interaction`
 are passed through to the chart as authored.
 
+The chart runs its own `xAxis` × `yAxis` dataset query, so it binds the same way
+on every non-`joined` type. It draws above a `tabular` or `summary` table, and
+below the cross-tab of a `matrix` that declares `columns`; there `xAxis` may name
+a `rows` or a `columns` dimension.
+
 ## Server-side aggregation + drill-down
 
 A dataset-bound report selects its dimensions (`rows`, and for `matrix` also

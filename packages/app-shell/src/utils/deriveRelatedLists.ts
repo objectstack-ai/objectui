@@ -26,7 +26,7 @@
  *     columns when omitted — resolved by the renderer).
  *   - `relatedListFilter` on the FK field is the list's own declared SCOPE
  *     (objectui#4664; the spec key landed upstream as objectstack#8704 / PR
- *     #8955 and ships from `@objectstack/spec` 17.1.0). It is carried through
+ *     objectstack-ai/objectstack#8955 and ships from `@objectstack/spec` 17.1.0). It is carried through
  *     to the `record:related_list` node's existing `filter` prop, where
  *     `RelatedList` AND-composes it with `{ [referenceField]: parentId }`
  *     (objectstack#7118) — the parent condition is never negotiable, so the

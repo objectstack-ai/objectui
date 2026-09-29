@@ -175,8 +175,8 @@ export function MetadataTypeActions({ entry, location, recordId, onAfter }: Meta
       // one place every `type: 'api'` action passes through.
       //
       // Deliberately tolerant of an already-unwrapped body: endpoints an action
-      // may target are converted module by module (framework#3675 → #3689 →
-      // #3843), so this repo must not be coupled to the merge order of that
+      // may target are converted module by module (framework#3675 → objectstack-ai/objectstack#3689 →
+      // objectstack-ai/objectstack#3843), so this repo must not be coupled to the merge order of that
       // sequence. Same reason the two attachment openers read
       // `body?.url ?? body?.data?.url` for framework#3689.
       const data =

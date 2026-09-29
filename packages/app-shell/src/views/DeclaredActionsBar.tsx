@@ -153,7 +153,7 @@ const DeclaredActionButton: React.FC<{
    *
    * What is specific to this bar is the cost of getting it wrong: EVERY
    * declared action on `sys_approval_request` gates on `record.viewer.*`
-   * (framework#3310 / #3424), so under a root-only bag the whole
+   * (framework#3310 / objectstack-ai/objectstack#3424), so under a root-only bag the whole
    * server-declared decision set was invisible on every surface this bar
    * renders — `record.viewer.can_act` does not read as false there, it throws
    * `record is not defined` and `throwOnError` turns that into "hidden".
@@ -168,7 +168,7 @@ const DeclaredActionButton: React.FC<{
   });
   // Spec `disabled` — the same three arms as `visible` (`boolean | CEL string |
   // { dialect, source }`, disabled when TRUE), evaluated against the same record
-  // context. #1885 wired it in action-button only; this bar ignored it, so a
+  // context. objectstack-ai/objectstack#1885 wired it in action-button only; this bar ignored it, so a
   // spec-authored `disabled` guard on a declared action did nothing here. (No
   // legacy `enabled` fallback: server-declared actions are spec-shaped and never
   // carried the non-spec key.)
@@ -255,7 +255,7 @@ const DeclaredActionButton: React.FC<{
       // input), and reserve `params` for the `_rowRecord` stash the api handler
       // reads for `{id}` interpolation + record-id injection.
       const { params: rawParams, ...rest } = action as ActionDef & { params?: unknown };
-      // #3447: an approval decision may carry author-declared structured
+      // objectstack-ai/objectstack#3447: an approval decision may carry author-declared structured
       // outputs. The key set is PER-REQUEST (each approval node declares its
       // own `decisionOutputs`, surfaced on the row as `decision_output_defs`),
       // so it cannot be a static action param — synthesize one param per key

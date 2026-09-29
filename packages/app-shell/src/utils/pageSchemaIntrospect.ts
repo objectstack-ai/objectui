@@ -65,7 +65,7 @@ function hasNodeOfType(root: unknown, types: ReadonlySet<string>): boolean {
  * Return `root` with every `record:discussion` / `record:chatter` node removed
  * from the containers this module walks.
  *
- * This is the object-level `enable.feeds: false` gate (#2707) applied to a
+ * This is the object-level `enable.feeds: false` gate (objectstack-ai/objectstack#2707) applied to a
  * COMPOSED page (objectui#7298). The maintainer ruling of 2026-09-12 makes the
  * declared node the only way a discussion panel reaches a record page, and
  * keeps `enable.feeds` as the object's switch *over* the page: an object with

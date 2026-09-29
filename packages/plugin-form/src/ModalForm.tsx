@@ -135,7 +135,7 @@ export interface ModalFormSchema {
   title?: string;
   description?: string;
   sections?: ModalFormSectionConfig[];
-  /** Internal content layout (ADR-0050, #1890): 'tabbed' renders sections as
+  /** Internal content layout (ADR-0050, objectstack-ai/objectstack#1890): 'tabbed' renders sections as
    *  tabs inside the modal, so "modal + tabbed" composes. Default stacks them. */
   contentLayout?: 'simple' | 'tabbed';
   fields?: string[];
@@ -770,7 +770,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
 
       // The form is ONE grid. Its width is the explicit form `columns`, else the
       // widest section; each section then lays ITS fields out at its own
-      // declared density within that grid via colSpan (#2578), exactly like the
+      // declared density within that grid via colSpan (objectstack-ai/objectstack#2578), exactly like the
       // full-page sectioned form.
       const clampCol = (n: unknown): number | undefined =>
         typeof n === 'number' && n > 0 ? Math.min(Math.floor(n), 4) : undefined;
@@ -822,7 +822,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         ...(containerFieldClass ? { fieldContainerClass: containerFieldClass } : {}),
       };
 
-      // ADR-0050 (#1890): a modal can host a tabbed layout — sections render as
+      // ADR-0050 (objectstack-ai/objectstack#1890): a modal can host a tabbed layout — sections render as
       // tabs (label on the trigger) instead of a vertical stack, so a modal
       // create/edit form composes with `tabbed`. The renderer owns the tab strip
       // and panels (`fieldTabs`) so all tabs stay mounted inside the one form.
@@ -1003,7 +1003,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
                 fields: schema.fields as any,
                 sections: schema.sections as any,
                 // Forward create-mode prefills (e.g. a subtable child's parent
-                // pre-link, #2604) — MasterDetailForm consumes them the same
+                // pre-link, objectstack-ai/objectstack#2604) — MasterDetailForm consumes them the same
                 // way the flat form path does.
                 initialValues: schema.initialValues,
                 initialData: schema.initialData,

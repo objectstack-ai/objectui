@@ -55,7 +55,7 @@ import type {
  * third-party node executor, legitimately carries no `fields` array, and an
  * absent `fields` used to throw the moment the dialog opened. Every read goes
  * through {@link screenFields} rather than touching the array directly, so the
- * widening cannot leak into rendering or `required` enforcement (#3528).
+ * widening cannot leak into rendering or `required` enforcement (objectstack-ai/objectstack#3528).
  *
  * If the spec ever makes `fields` optional itself, this alias collapses to a
  * plain re-export — `__tests__/spec-symbol-parity.test.ts` fails on that day and says so.
@@ -77,7 +77,7 @@ export function screenFields(screen: ScreenSpec): ScreenFieldSpec[] {
  * field whose `visibleWhen` predicate holds (or that declares none).
  *
  * This is the list callers must use for BOTH rendering and `required`
- * enforcement. Splitting them is the #3528 dead-end: validate the full list
+ * enforcement. Splitting them is the objectstack-ai/objectstack#3528 dead-end: validate the full list
  * while rendering a subset and Submit blocks on a field the user was never
  * shown, with no resume request ever issued.
  *

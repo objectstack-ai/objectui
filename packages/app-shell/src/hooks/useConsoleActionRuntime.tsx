@@ -401,7 +401,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
           : undefined;
         const body: Record<string, any> = wrap ? { [wrap]: resolvedParams } : { ...resolvedParams };
 
-        // #3447: decision outputs. DeclaredActionsBar synthesizes one param per
+        // objectstack-ai/objectstack#3447: decision outputs. DeclaredActionsBar synthesizes one param per
         // author-declared output key, named `outputs.<key>` (the key set is
         // per-request, so it can't be a static action param). Fold the dotted
         // params into the nested `outputs` object the approvals decide route

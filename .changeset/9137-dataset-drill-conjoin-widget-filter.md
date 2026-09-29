@@ -38,6 +38,12 @@ multi-condition dataset drill — including paths pinned by objectui#9085,
 objectui#4056, objectstack#5473 and #1752 — for no change in the rows selected
 or the `filter[...]` params emitted.
 
+⚠️ **Dated note, 2026-09-29 — the last pinned path in the list above is objectstack's — objectui#11016.** The list of
+pinned paths above ends with a bare number after objectstack#5473, which in this
+repository resolves to an unrelated objectui pull request. It is
+objectstack-ai/objectstack#1752, the card that made a time-bucketed date dimension
+drill by range rather than by equality. The text above is kept as the reading of this change.
+
 **The failure direction, corrected by measurement.** This was filed and graded
 as a silent fail-OPEN superset, on the premise that an index key is one "nothing
 reads as a condition". It is not: a bare array is not a legal equality comparand

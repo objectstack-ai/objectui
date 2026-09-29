@@ -1223,7 +1223,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   // panel inline. A schema can override this with its own `navigation` config.
   //
   // No width is spelled here on purpose (objectui#6303, converging kanban on
-  // the shape #6305 gave ObjectGantt). `width` is `@deprecated [#2578 -> size]`
+  // the shape #6305 gave ObjectGantt). `width` is `@deprecated [objectstack-ai/objectstack#2578 -> size]`
   // in the spec that owns this shape, and `resolveOverlayWidth` gives an
   // explicit `width` priority OVER `size` — so spelling it kept the deprecated
   // branch load-bearing on the path most boards take (no declared
@@ -1368,7 +1368,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
         // producer-side marking: a field set at throw time to say "this text is
         // for the end user". It is a SEPARATE field from `message`, so nothing
         // unmarked can reach here — the substitution below still governs every
-        // platform diagnostic and #3821 holds by construction rather than by us
+        // platform diagnostic and objectstack-ai/objectstack#3821 holds by construction rather than by us
         // guessing what a body contains. Status-agnostic on purpose: 403 is
         // where this was reported (objectui#5210/#5902), not a fence the
         // contract draws — a marked 409 or 400 renders identically.

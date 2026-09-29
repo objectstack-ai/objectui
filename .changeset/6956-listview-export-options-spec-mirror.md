@@ -32,6 +32,11 @@ intact. The mirror now IS that schema object, so the four verdicts are the
 spec's by construction; `export-options-spec-parity.test.ts` pins the identity,
 the four verdicts, and the survival of `streaming` through a parse.
 
+⚠️ **Dated note, 2026-09-29 — the card behind the mirror's old shape is objectstack's — objectui#11016.** The shape the
+mirror used to declare is dated above by a bare number, which in this repository
+resolves to an unrelated objectui item. It is objectstack-ai/objectstack#8010, the
+card the first paragraph cites as objectstack#8010. The text above is kept as the reading of this change.
+
 **The TS face follows.** `ListViewSchema['exportOptions']` is now the spec's
 INPUT type: `ListViewExportFormat[] | ListViewExportOptions` — the bare array
 stays admissible on input because nothing on the render path parses, and the

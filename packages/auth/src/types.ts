@@ -272,7 +272,7 @@ export interface AuthPublicConfig {
      * better-auth admin plugin mounted server-side (`auth.plugins.admin`;
      * SCIM forces it on). Gates the admin user-management surfaces — the
      * sys_user create/set-password actions and the identity import wizard
-     * entry (framework#2766 / #2782).
+     * entry (framework#2766 / objectstack-ai/objectstack#2782).
      */
     admin?: boolean;
     /**

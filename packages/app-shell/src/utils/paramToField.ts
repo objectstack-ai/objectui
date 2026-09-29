@@ -59,14 +59,14 @@ const LOOKUP_WIDGET_TYPES = new Set(['lookup', 'master_detail']);
  * The ONE answer to that question, exported so every surface that REACTS to the
  * degradation reads the same table that PERFORMS it. `ActionParamDialog` is the
  * caller that made exporting it necessary (objectui#5654): it decides whether to
- * show the #3405 "paste a record id" placeholder and help text, and it used to
+ * show the objectstack-ai/objectstack#3405 "paste a record id" placeholder and help text, and it used to
  * answer with its own literal over RAW param spellings
  * (`param.type === 'lookup' || param.type === 'reference'`). That copy disagreed
  * with this one in BOTH directions, so neither set contained the other:
  *
  *   - `master_detail` degrades here but got no hints there — a targetless
  *     `master_detail` param really did render as an unexplained empty box asking
- *     for a bare UUID, which is exactly the state #3405 added the hints for.
+ *     for a bare UUID, which is exactly the state objectstack-ai/objectstack#3405 added the hints for.
  *   - `reference` was hand-copied out of `PARAM_TYPE_ALIASES`, a spelling this
  *     side never sees: it is folded to `lookup` before the membership test.
  *
@@ -95,7 +95,7 @@ export function paramDegradesWithoutTarget(param: ActionParamDef): boolean {
  * without a target object) — preserving the dialog's long-standing behavior
  * for partially-resolved metadata.
  *
- * That fallback is now a last resort, not an expected path (#3405): inline
+ * That fallback is now a last resort, not an expected path (objectstack-ai/objectstack#3405): inline
  * params declare `reference` and field-backed ones inherit it, and the spec
  * rejects a targetless inline picker at parse time. Reaching it means the
  * metadata is broken or partial, so say so in dev instead of silently handing

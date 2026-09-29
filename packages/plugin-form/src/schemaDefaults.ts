@@ -252,7 +252,7 @@ export function schemaDefaultValues(
  * Is this field one the `current_user` token may legally default — and does it
  * declare that token?
  *
- * The type gate mirrors the spec's own authoring rule (`field.zod` #7127:
+ * The type gate mirrors the spec's own authoring rule (`field.zod` objectstack-ai/objectstack#7127:
  * `current_user` is legal "on `user` or `lookup` with `reference: 'sys_user'`
  * only"), so a token that somehow reached an illegal field type is left alone
  * here exactly as the engine's validator would refuse it. `reference` is the

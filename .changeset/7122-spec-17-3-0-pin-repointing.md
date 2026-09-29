@@ -47,3 +47,10 @@ released by this change.
   refusal's SHAPE. The `LocationField` fence explicitly re-derives why its
   key-level assertions stay: no parse stands on the emit path, so strictness
   changed the consequence of a spread regression, not the widget's exposure.
+
+⚠️ **Dated note, 2026-09-29 — the ruling number in the first two bullets is objectstack's — objectui#11016.** The first
+two bullets name the `submitBehavior.url` ruling by a bare number, once as the
+family's name and once inside the quoted 17.2.0 spelling. In this repository that
+number resolves to an unrelated objectui item; it means
+objectstack-ai/objectstack#7496, the spec card that ruled the semantics. The quoted
+spelling is the artifact's own and stays verbatim. The text above is kept as the reading of this change.

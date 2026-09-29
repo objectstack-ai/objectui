@@ -1355,18 +1355,17 @@ const DashboardWidgetSlotComponentSchema = declareRegisteredInputs(BaseSchema.ex
  * The spec declares the key, so under that card's ruling (5617465269,
  * principle 1) both faces follow the spec, both ways: the declaration already
  * bound `GlobalFilter` by reference (objectui#4032), and this validator now does
- * too. The runtime is untouched: `@object-ui/core`'s `normalizeFilterOptions`
- * still LIFTS a stored bare-string option on read, with its deprecation
- * warning, on the objectstack#7917 option-② window (the spec stays strict; the
- * renderer's lift retires behind a survey), and the filter bar still falls back
- * to `valueField` when `labelField` is absent. This is the objectui#4165 split
- * applied to `options`: the SCHEMA refuses the legacy spelling, the READ PATH
- * lifts it.
+ * too. The runtime followed on the objectstack#7917 option-② schedule
+ * (objectui#4356): `@object-ui/core`'s `normalizeFilterOptions` no longer lifts
+ * a stored bare-string option — the member yields no option, and a dev-mode
+ * warning names it — so the SCHEMA and the READ PATH now refuse the same
+ * spelling. The filter bar still falls back to `valueField` when `labelField`
+ * is absent.
  *
- * The `{ preset }` `defaultValue` object form was the objectui#4165 instance of
- * the same shape: refused by the schema, lifted on read by
- * `liftLegacyGlobalFilterDefault` (`../dashboard-filter-alias.ts`, which carries
- * the retirement window).
+ * The `{ preset }` `defaultValue` object form is the objectui#4165 instance of
+ * the split `options` has now left behind — refused by the schema, still lifted
+ * on read by `liftLegacyGlobalFilterDefault` (`../dashboard-filter-alias.ts`,
+ * which carries its own retirement window).
  *
  * Drift guard: `__tests__/report-chart-query-spec-parity.test.ts`; pinned by
  * `__tests__/dashboard-header-global-filters-spec-7759.test.ts`.

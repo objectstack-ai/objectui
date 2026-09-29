@@ -164,7 +164,7 @@ function viewSchemaForDraft(item: ZodLikeSchema, container: ZodLikeSchema): ZodL
  * that root issue literally is what collapsed every field-level diagnostic on
  * the edit path into one un-addressable "Invalid input": `SchemaForm` highlights
  * by `path` and Monaco locates by `path`, so an empty path points at nothing,
- * and the guided messages the spec wrote for these rejections (#4001) never
+ * and the guided messages the spec wrote for these rejections (objectstack-ai/objectstack#4001) never
  * reached the user.
  *
  * Selection is by the draft's OWN discriminant — the same `isViewItemDraft` the
@@ -362,7 +362,7 @@ function arrayVariantMemberIndex(groups: ZodLikeIssue[][], value: unknown): numb
  * `sort: [{field: 'n', order: 'bogus'}]` the plain-`string` member rejects the
  * array outright and the `ColumnSort[]` member reports
  * `[0].order` / `Invalid option: expected one of "asc"|"desc"` — the spec's own
- * guided message (#4001), which until now was thrown away and rendered as
+ * guided message (objectstack-ai/objectstack#4001), which until now was thrown away and rendered as
  * `config.sort` / `Invalid input`.
  *
  * This rule does NOT index members positionally: the index is derived from the
@@ -624,7 +624,7 @@ const LOADERS: Record<string, SchemaLoader> = {
   //
   // CREATE — the authoring gate, unchanged: `viewSchemaForDraft` dispatches on
   // the record's own `viewKind` discriminant to `ViewItemSchema` (what
-  // `createBuildBody` emits) or `ViewSchema` (the container). #5074 made these
+  // `createBuildBody` emits) or `ViewSchema` (the container). objectstack-ai/objectstack#5074 made these
   // strict on purpose and this admin's create path passes them cleanly.
   //
   // EDIT — the WIRE gate. The editor opens a body that came back out of
@@ -636,7 +636,7 @@ const LOADERS: Record<string, SchemaLoader> = {
   // the accepted body verbatim (ADR-0005 §Validation). So the server ACCEPTS
   // this body — it validates against `ViewMetadataSchema` — while the authoring
   // gate rejects it. Judging a stored body by the authoring schema made the
-  // client strictly stricter than the server; that is the inversion #5316 fixes.
+  // client strictly stricter than the server; that is the inversion objectstack-ai/objectstack#5316 fixes.
   //
   // Why `ViewMetadataSchema` and not the narrower `ViewItemWireSchema`, which
   // also declares `isPinned`/`sortOrder`: two measured reasons.
@@ -699,7 +699,7 @@ const LOADERS: Record<string, SchemaLoader> = {
   // since spec 7.1.0 (`BUILTIN_METADATA_TYPE_SCHEMAS` in
   // `kernel/metadata-type-schemas.ts` is the authority); `EmailTemplateSchema`
   // survived only as an inline sub-shape of the old `Notification` holder and
-  // was deleted with it in objectstack#4610 / #4616. So this validator was
+  // was deleted with it in objectstack#4610 / objectstack-ai/objectstack#4616. So this validator was
   // checking authored templates against the WRONG contract — `name` + `locale`
   // and `bodyHtml` / `bodyText`, not `id` and `body` + `bodyType`.
   email_template: async () => (await import('@objectstack/spec/system')).EmailTemplateDefinitionSchema as unknown as ZodLikeSchema,
@@ -870,7 +870,7 @@ async function validateObjectFieldRules(draft: unknown): Promise<SchemaFormIssue
  * — binds a validation predicate's context as `{ record, previous }` and
  * NOTHING else, and since objectstack#4649 a predicate it cannot evaluate is
  * fail-CLOSED: `checkPredicate` logs "predicate failed to evaluate (…) — write
- * rejected (#4649)" and `unevaluableRuleError` turns that into a
+ * rejected (objectstack-ai/objectstack#4649)" and `unevaluableRuleError` turns that into a
  * `rule_violation`. So a bare-shorthand `amount > 100` authored here does not
  * merely fail to match — it rejects EVERY write to the object, and the spec's
  * Zod accepts it (`ExpressionInputSchema` checks the SHAPE only, exactly as it

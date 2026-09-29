@@ -775,7 +775,7 @@ export function LookupField({ value, onChange, field, readonly, error: fieldErro
         // Single id: the pre-existing cheap paths — a primary-id `findOne`
         // GET, or an equality filter when the field commits a different
         // column (`idField: 'name'` — e.g. position machine names,
-        // objectstack #3508).
+        // objectstack-ai/objectstack#3508).
         if (unresolved.length === 1) {
           const id = unresolved[0];
           if (typeof (dataSource as any).findOne === 'function' && idField === 'id') {

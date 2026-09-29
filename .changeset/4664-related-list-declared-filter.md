@@ -16,6 +16,11 @@ related lists answered wider than the metadata asked, and the driving scenario �
 soft-deleted child rows on auto-derived record pages — had no way to be
 expressed at all.
 
+⚠️ **Dated note, 2026-09-29 — the pull request beside objectstack#8704 is objectstack's — objectui#11016.** The spec key's
+pull request is named above by a bare number, which in this repository resolves
+to an unrelated objectui pull request. It is objectstack-ai/objectstack#8955, the
+spec change that declared the field-level `relatedListFilter`. The text above is kept as the reading of this change.
+
 What ships:
 
 - `deriveRelatedLists` reads the key off the FK and carries it on the derived

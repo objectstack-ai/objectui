@@ -38,7 +38,7 @@
  *
  * ## Unknown roles degrade, they never blank
  *
- * The membership vocabulary is closed and framework-owned (ADR-0108 / #3723), so
+ * The membership vocabulary is closed and framework-owned (ADR-0108 / objectstack-ai/objectstack#3723), so
  * a role outside the four is not supposed to exist. `member.role` is still a
  * server string, and the console's job when it does not recognize one is to show
  * what the server said — the same "prefer mapped, degrade to verbatim" rule the

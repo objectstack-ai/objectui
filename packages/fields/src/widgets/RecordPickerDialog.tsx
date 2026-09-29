@@ -361,7 +361,7 @@ export interface RecordPickerDialogProps {
    *   (`before`, `after`, `is_empty`, `is_not_empty`) the record form has no
    *   `$op` for. No second operator vocabulary is introduced here: two already
    *   exist (the spec's `AST_OPERATOR_MAP`, data-objectstack's
-   *   `FILTER_OPERATOR_ALIASES`) and #3948 is what a third costs.
+   *   `FILTER_OPERATOR_ALIASES`) and objectstack-ai/objectstack#3948 is what a third costs.
    *
    * The discriminator is exact rather than heuristic — every AST node is an
    * ARRAY and a rule is a plain OBJECT, the same predicate `toFilterNode` uses.

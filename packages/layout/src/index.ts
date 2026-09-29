@@ -44,7 +44,7 @@ export function registerLayout() {
   // the framework repo) was MEASURED to reach every spec-valid header position:
   // regions, `slots.*` (objectstack#6776) and containers nested to any depth,
   // `properties.children` / `items[].children` / `body` / `footer`
-  // (objectstack#6775, PR #7034). That measurement is now a standing pin —
+  // (objectstack#6775, PR objectstack-ai/objectstack#7034). That measurement is now a standing pin —
   // `__tests__/page-header-subtitle-conversion-coverage.test.ts` — so a spec
   // build whose conversion reach narrows again goes red HERE, where the missing
   // fallback would otherwise turn into a silently dropped second line.

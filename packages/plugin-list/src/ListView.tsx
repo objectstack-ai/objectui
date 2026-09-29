@@ -174,7 +174,7 @@ function resolveListMapConfig(schema: { map?: unknown; options?: { map?: unknown
  *
  * `resolves` is the "renders from names the AUTHOR wrote" question, one leg per
  * shape:
- *   - ADR-0021 (#1890): a `dataset` with at least one measure in `values`. The
+ *   - ADR-0021 (objectstack-ai/objectstack#1890): a `dataset` with at least one measure in `values`. The
  *     dimensions are what it plots BY, and a block may legitimately declare
  *     none (a single aggregate), so they are not required here.
  *   - legacy: a declared category (`xAxisField` / `categoryField`) AND a
@@ -1416,7 +1416,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     if (message) console.warn(message);
   }, [dynamicPageSize, authoredPageSize, schema.objectName]);
 
-  // --- Server-side pagination (#2212) ---
+  // --- Server-side pagination (objectstack-ai/objectstack#2212) ---
   // ListView owns the fetch, so it owns paging too: it requests one window at a
   // time ($skip = (page-1)*size) and reads the real match `total` from the
   // result. That total + page controls are handed DOWN to the flat grid view so
@@ -2663,7 +2663,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         
         setData(items);
 
-        // Capture the real match total (framework #2212: findData now returns it).
+        // Capture the real match total (objectstack-ai/objectstack#2212: findData now returns it).
         // With a known total the grid pages server-side, so the "showing first N"
         // cap warning no longer applies; without one we fall back to the old
         // single-window behaviour and keep the warning.
@@ -3695,7 +3695,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         // block.
         const chartBinding = resolveListChartBinding(schema);
         const chartCfg = chartBinding.config;
-        // ADR-0021 (#1890): the single author-facing shape binds to a semantic
+        // ADR-0021 (objectstack-ai/objectstack#1890): the single author-facing shape binds to a semantic
         // `dataset` and selects dimensions/measures BY NAME, so the chart runs
         // through the governed queryDataset path (numbers consistent everywhere).
         //
@@ -5169,7 +5169,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                   // Drive the flat grid's single (DataTable) pager from the
                   // server: it renders THIS window as the current page, the real
                   // total sets the page count, and turning the page asks ListView
-                  // to refetch the next window. One pager, server-backed (#2212).
+                  // to refetch the next window. One pager, server-backed (objectstack-ai/objectstack#2212).
                   manualPagination: true,
                   rowCount: serverTotal,
                   page: serverPage,

@@ -1427,7 +1427,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     invalidationNonce,
   ]);
 
-  // Determine layout mode. #2578: default the record surface from how heavy the
+  // Determine layout mode. objectstack-ai/objectstack#2578: default the record surface from how heavy the
   // object is — a field-heavy object opens create/edit/detail as a full page, a
   // light one as a drawer. Mobile always pages. An explicit `schema.layout` (or
   // a per-view navigation config, handled in handleRowClick) still wins.
@@ -2206,7 +2206,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // Aggregated chart of the object's records, delegating to the same
         // object-chart component the dashboard uses.
         const chartCfg = viewOptions.chart || {};
-        // ADR-0021 (#1890): dataset-bound chart — the single author-facing shape.
+        // ADR-0021 (objectstack-ai/objectstack#1890): dataset-bound chart — the single author-facing shape.
         if (chartCfg.dataset) {
           const dims: string[] = Array.isArray(chartCfg.dimensions) ? chartCfg.dimensions : [];
           const vals: string[] = Array.isArray(chartCfg.values) ? chartCfg.values : [];
@@ -2450,7 +2450,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       cancelText: schema.form?.cancelText,
       showReset: schema.form?.showReset,
       initialValues: schema.form?.initialValues,
-      // framework#1894 / #2998: forward the spec-aligned structured
+      // framework#1894 / objectstack-ai/objectstack#2998: forward the spec-aligned structured
       // `buttons`/`defaults`; ObjectForm folds them onto the flat props above
       // (an explicitly-set flat key still wins).
       buttons: schema.form?.buttons,

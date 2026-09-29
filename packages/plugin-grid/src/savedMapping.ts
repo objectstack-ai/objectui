@@ -1,4 +1,4 @@
-// A registered server-side import `mapping` artifact (framework #2611), fetched
+// A registered server-side import `mapping` artifact (objectstack-ai/objectstack#2611), fetched
 // via the data source and offered in the import wizard as a reusable, governed
 // alternative to hand-building the column mapping. The server owns the rename +
 // transform pipeline; the wizard only picks a mapping by name and previews it.

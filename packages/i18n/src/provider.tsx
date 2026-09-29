@@ -301,7 +301,7 @@ function resolveSeedLanguage(seed: string, config?: I18nConfig): string | null {
  * Applied at instance creation rather than through a post-mount
  * `changeLanguage`, because the very first render must already be in the right
  * locale: `<html lang>` seeds the `Accept-Language` header on every API call
- * (`createAuthenticatedFetch`, issue #1319), so a late switch would fetch the
+ * (`createAuthenticatedFetch`, issue objectstack-ai/objectstack#1319), so a late switch would fetch the
  * first wave of server-resolved metadata labels in the wrong language and then
  * have to remount to fix it.
  *

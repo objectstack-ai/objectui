@@ -1465,6 +1465,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.appPreview.noTypeTitle':
     'Every navigation item needs a `type` discriminator — this entry will be rejected on save.',
   'engine.appPreview.noType': 'no type',
+  // objectui#11027 — the heading over the app's navigation areas (`AppSchema.areas`).
+  'engine.appPreview.areas': 'Areas',
   'engine.bookPreview.nameTitle': 'Name your book',
   'engine.bookPreview.nameDescription': 'Enter a name in the Form tab to start authoring the documentation spine.',
   'engine.bookPreview.treeTitle': 'Open the live-resolved navigation tree (actual docs per group)',
@@ -4352,6 +4354,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.appPreview.unnamed': '（未命名）',
   'engine.appPreview.noTypeTitle': '每个导航项都需要 `type` 判别字段 —— 此条目将在保存时被拒绝。',
   'engine.appPreview.noType': '无类型',
+  'engine.appPreview.areas': '区域',
   'engine.bookPreview.nameTitle': '为文档书命名',
   'engine.bookPreview.nameDescription': '在“表单”标签页中输入名称，即可开始编写文档目录骨架。',
   'engine.bookPreview.treeTitle': '打开实时解析的导航树（每个分组的实际文档）',

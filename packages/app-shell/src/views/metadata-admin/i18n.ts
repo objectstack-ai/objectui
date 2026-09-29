@@ -5898,7 +5898,6 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
         time_relative: '相对时间(日期扫描)',
         manual: '手动 / 自动启动',
         api: 'Webhook / API',
-        event: '平台事件',
       },
     },
     // objectui#11054 — the inbound hook's per-flow secret (write-only).

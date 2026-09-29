@@ -6233,6 +6233,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     <DataEmptyState
       data-testid="object-grid-empty-state"
       className="flex-1 min-h-[200px]"
+      // The annotation the other `resolveIcon` seam call sites carry: it returns
+      // a STABLE, cached component per icon name; it does not create one during
+      // render. The rule cannot see that through a call.
+      // eslint-disable-next-line react-hooks/static-components
       icon={AuthoredEmptyIcon ? <AuthoredEmptyIcon className="size-5 text-muted-foreground" /> : undefined}
       title={authoredEmptyState?.title || t('table.noResults')}
       description={authoredEmptyState?.message || undefined}

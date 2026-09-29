@@ -303,6 +303,10 @@ export function toDisplayEndDate(value: string | Date | number): Date {
   const end = toDisplayDate(value);
   if (typeof value !== 'string' || !isRealCalendarDate(value)) return end;
   end.setDate(end.getDate() + 1);
+  // Back to the start of that day. A day whose own midnight does not exist is
+  // read at its first hour, and the step keeps the hour, so without this the
+  // day after it would start an hour late and name itself back.
+  end.setHours(0, 0, 0, 0);
   return end;
 }
 

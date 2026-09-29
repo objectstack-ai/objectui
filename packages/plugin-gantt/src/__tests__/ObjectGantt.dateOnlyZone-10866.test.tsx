@@ -20,6 +20,14 @@
  * the calendar day as `yyyy-MM-dd`. A `datetime` field keeps its instant: the
  * control rows below.
  *
+ * ── An END runs through its day (objectui#11141) ────────────────────────────
+ * A date-only end is INCLUSIVE, the rule `plugin-timeline`'s gantt reads too:
+ * a stored `2026-10-09` end is handed to the view as the 10th's local midnight,
+ * the exclusive end of the span, and a bar the view hands back ending on a
+ * day's midnight is written as the day BEFORE it, the day it runs through. So
+ * the end cases below read the 10th and drop onto the 12th to write the 11th,
+ * and a read handed straight back writes the stored days unchanged.
+ *
  * ── A chart with a business `timeZone` ──────────────────────────────────────
  * `GanttView` re-bases every `Date` it is handed into the configured zone
  * (`makeTzShift`) and hands every emitted change back through the inverse. A
@@ -175,19 +183,27 @@ async function written(m: Mounted, changes: Partial<Pick<GanttTask, 'start' | 'e
 }
 
 describe('ObjectGantt date-only days, in the suite zone (objectui#10866)', () => {
-  it('a date-only row reads its days at local midnight', async () => {
+  it('a date-only row reads its start at local midnight and runs its end through its day, baselines too', async () => {
     const m = await mount('date');
     expect(parts(m.task.start)).toEqual([2026, 10, 5, 0]);
-    expect(parts(m.task.end)).toEqual([2026, 10, 9, 0]);
+    expect(parts(m.task.end)).toEqual([2026, 10, 10, 0]);
     expect(parts(m.task.baselineStart!)).toEqual([2026, 10, 2, 0]);
-    expect(parts(m.task.baselineEnd!)).toEqual([2026, 10, 8, 0]);
+    expect(parts(m.task.baselineEnd!)).toEqual([2026, 10, 9, 0]);
   });
 
   it('a drag writes `date` fields as calendar days, never instants', async () => {
     const m = await mount('date');
-    expect(await written(m, { start: new Date(2026, 9, 7), end: new Date(2026, 9, 11) })).toEqual({
+    expect(await written(m, { start: new Date(2026, 9, 7), end: new Date(2026, 9, 12) })).toEqual({
       start_date: '2026-10-07',
       end_date: '2026-10-11',
+    });
+  });
+
+  it('the dates the view was handed, handed straight back, write the stored days (objectui#11141)', async () => {
+    const m = await mount('date');
+    expect(await written(m, { start: m.task.start, end: m.task.end })).toEqual({
+      start_date: '2026-10-05',
+      end_date: '2026-10-09',
     });
   });
 
@@ -209,21 +225,30 @@ function zoneCases(zone: string, chartZone: string, instantHour: number, instant
     expect(new Date(INSTANT).getHours()).toBe(instantHour);
   });
 
-  it('`2026-10-05` → `2026-10-09` reads as those days at local midnight, baselines too', async () => {
+  it('`2026-10-05` → `2026-10-09` reads from the 5th\'s midnight through the 9th, baselines too', async () => {
     enter(zone);
     const m = await mount('date');
     expect(parts(m.task.start)).toEqual([2026, 10, 5, 0]);
-    expect(parts(m.task.end)).toEqual([2026, 10, 9, 0]);
+    expect(parts(m.task.end)).toEqual([2026, 10, 10, 0]);
     expect(parts(m.task.baselineStart!)).toEqual([2026, 10, 2, 0]);
-    expect(parts(m.task.baselineEnd!)).toEqual([2026, 10, 8, 0]);
+    expect(parts(m.task.baselineEnd!)).toEqual([2026, 10, 9, 0]);
   });
 
-  it('a drag onto the 7th writes `2026-10-07`', async () => {
+  it('a drag onto the 7th writes `2026-10-07`, and its end the day it runs through', async () => {
     enter(zone);
     const m = await mount('date');
-    expect(await written(m, { start: new Date(2026, 9, 7), end: new Date(2026, 9, 11) })).toEqual({
+    expect(await written(m, { start: new Date(2026, 9, 7), end: new Date(2026, 9, 12) })).toEqual({
       start_date: '2026-10-07',
       end_date: '2026-10-11',
+    });
+  });
+
+  it('the dates the view was handed, handed straight back, write the stored days (objectui#11141)', async () => {
+    enter(zone);
+    const m = await mount('date');
+    expect(await written(m, { start: m.task.start, end: m.task.end })).toEqual({
+      start_date: '2026-10-05',
+      end_date: '2026-10-09',
     });
   });
 
@@ -233,11 +258,22 @@ function zoneCases(zone: string, chartZone: string, instantHour: number, instant
     const m = await mount('date', chartZone);
     // Where `GanttView` draws the bar: the task re-based into the chart zone.
     expect(parts(shift.to(m.task.start))).toEqual([2026, 10, 5, 0]);
-    expect(parts(shift.to(m.task.end))).toEqual([2026, 10, 9, 0]);
+    expect(parts(shift.to(m.task.end))).toEqual([2026, 10, 10, 0]);
     // What `GanttView` hands back for a drop onto the 7th: the inverse re-base.
     expect(
-      await written(m, { start: shift.from(new Date(2026, 9, 7)), end: shift.from(new Date(2026, 9, 11)) }),
+      await written(m, { start: shift.from(new Date(2026, 9, 7)), end: shift.from(new Date(2026, 9, 12)) }),
     ).toEqual({ start_date: '2026-10-07', end_date: '2026-10-11' });
+  });
+
+  it(`a chart in ${chartZone} writes back the stored days for the bar it drew, untouched (objectui#11141)`, async () => {
+    enter(zone);
+    const shift = makeTzShift(chartZone);
+    const m = await mount('date', chartZone);
+    const back = (d: Date) => shift.from(shift.to(d));
+    expect(await written(m, { start: back(m.task.start), end: back(m.task.end) })).toEqual({
+      start_date: '2026-10-05',
+      end_date: '2026-10-09',
+    });
   });
 
   it('control: a `datetime` row keeps its instant, in the chart zone too', async () => {

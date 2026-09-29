@@ -7,7 +7,7 @@
  */
 
 import * as React from 'react';
-import { ComponentRegistry, isRealCalendarDate, toDateInputValue, toDisplayDate, toDomProps } from '@object-ui/core';
+import { ComponentRegistry, isRealCalendarDate, toDateInputValue, toDisplayDate, toDisplayEndDate, toDomProps } from '@object-ui/core';
 import type { TimelineRenderSchema } from './renderHandoff';
 import {
   Timeline,
@@ -269,29 +269,30 @@ function axisScaleOf(scale: string): TimelineAxisScale {
  * THE ONE READ of a bar's END (objectui#11112): where a bar is drawn to.
  *
  * A date-only end is INCLUSIVE: the bar runs through the end of the day it
- * names, which is the next day's local midnight, reached by the step the day
- * column takes (`DAY_AXIS.step`). So a bar authored `2024-01-01` to
- * `2024-01-31` fills January and ends exactly where the February column
+ * names, which is the next day's local midnight, the step the day column
+ * takes too (a calendar day, never 24 hours). So a bar authored `2024-01-01`
+ * to `2024-01-31` fills January and ends exactly where the February column
  * begins, and a bar whose date-only start and end name the same day is one day
  * wide, across a DST change too (that day's column is 23 or 25 hours wide, and
  * so is the bar). That is how the catalog producer and a project plan author
  * an end: "January 1st to January 31st" runs through January 31st.
  *
+ * The rule itself lives in `@object-ui/core`, `toDisplayEndDate`
+ * (objectui#11141), which `plugin-gantt` reads its ends through too, so the
+ * two gantt surfaces draw one authored end on one day. ⛔ Do not step a day
+ * here again. A string is handed to it: it reads the value as
+ * `toDisplayDate` does, which is `readGanttDate`'s read of a string, and then
+ * steps a date-only value (`isRealCalendarDate`) to its day's end.
+ *
  * A value with a time part is an instant and the bar ends at it, as does a
- * number (epoch milliseconds) or a `Date` (objectui#10866). Date-only is
- * decided by the value's own shape, with the predicate `toDisplayDate` and
- * `plugin-gantt` ask (`isRealCalendarDate`, `@object-ui/core`), after
- * `readGanttDate`, so an end reads its day exactly as a start does and then
- * runs to that day's end.
+ * number (epoch milliseconds) or a `Date` (objectui#10866), which keep
+ * `readGanttDate`'s own read.
  *
  * The tooltip still prints the authored end: `formatDate` reads the day the
  * value names, not the edge the bar is drawn to.
  */
 function readGanttBarEnd(value: string | number | Date): Date {
-  const end = readGanttDate(value);
-  if (typeof value !== 'string' || !isRealCalendarDate(value)) return end;
-  DAY_AXIS.step(end);
-  return end;
+  return typeof value === 'string' ? toDisplayEndDate(value) : readGanttDate(value);
 }
 
 /**

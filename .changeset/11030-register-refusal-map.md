@@ -1,5 +1,5 @@
 ---
-'@object-ui/app-shell': patch
+'@object-ui/app-shell': minor
 '@object-ui/console': patch
 ---
 

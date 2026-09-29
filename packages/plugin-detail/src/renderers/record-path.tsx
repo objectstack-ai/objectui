@@ -95,12 +95,13 @@ type PathStage = { value: unknown; label: string; terminal?: 'won' | 'lost' };
 function localizeStageLabels(stages: unknown, language: string): PathStage[] {
   if (!Array.isArray(stages)) return [];
   let out: PathStage[] | null = null;
-  stages.forEach((stage, idx) => {
+  for (let idx = 0; idx < stages.length; idx++) {
+    const stage = stages[idx];
     const label: unknown = stage?.label;
-    if (label === null || typeof label !== 'object') return;
+    if (label === null || typeof label !== 'object') continue;
     out ??= [...stages];
     out[idx] = { ...stage, label: pickLocalized(label, language) };
-  });
+  }
   return out ?? (stages as PathStage[]);
 }
 

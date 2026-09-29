@@ -44,6 +44,8 @@ import { FlowSimulatorPanel } from './FlowSimulatorPanel.js';
 import { FlowRunsPanel } from './FlowRunsPanel.js';
 import { ProblemsPanel } from './ProblemsPanel.js';
 import { buildFlowProblems, deriveInvalidElements, type FlowProblem } from './flow-problems.js';
+import { useConnectorRegistry } from '../inspectors/connector-input-fields.js';
+import { hasCommittedConnectorAction } from '../inspectors/flow-scope.js';
 
 /**
  * This preview reads the draft's nodes and edges and hands them straight to
@@ -103,9 +105,14 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
   // source for every validation surface — the clickable inline banner, the
   // per-element badges, the red error ring/stroke, and the Problems panel.
   // Recomputed from the live draft so they all clear as the author fixes each issue.
+  // The runtime connector registry is read the way the inspectors read it —
+  // only when the draft holds a committed `connector_action` — so the
+  // expression scan judges that action's declared output keys in scope
+  // downstream, as the inspectors do (objectui#11085).
+  const connectors = useConnectorRegistry(hasCommittedConnectorAction(d));
   const problems = React.useMemo<FlowProblem[]>(
-    () => buildFlowProblems({ nodes, edges, serverDiagnostics: diagnostics, variables, locale }),
-    [nodes, edges, diagnostics, d.variables, locale],
+    () => buildFlowProblems({ nodes, edges, serverDiagnostics: diagnostics, variables, locale, connectors }),
+    [nodes, edges, diagnostics, d.variables, locale, connectors],
   );
   const errorCount = problems.filter((p) => p.level === 'error').length;
   // Red error ring/stroke derived from the same list (errors only; a cycle

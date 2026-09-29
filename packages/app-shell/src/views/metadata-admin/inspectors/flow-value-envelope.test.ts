@@ -8,7 +8,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { ASSIGNMENT_VALUE_ENVELOPE_REFUSAL, FLOW_NODE_EXPRESSION_PATHS } from '@objectstack/spec/automation';
+import {
+  ASSIGNMENT_VALUE_ENVELOPE_REFUSAL,
+  CreateRecordConfigSchema,
+  FLOW_NODE_EXPRESSION_PATHS,
+  UpdateRecordConfigSchema,
+} from '@objectstack/spec/automation';
 import {
   isEditableValueEnvelope,
   isValueEnvelopeSlot,
@@ -29,26 +34,58 @@ describe('isValueEnvelopeSlot — read off the spec expression ledger (objectui#
     expect(isValueEnvelopeSlot(undefined, ['config', 'assignments'])).toBe(false);
   });
 
-  it('offers the envelope on exactly one hand-table key/value map: assignment.assignments', () => {
+  it('offers the envelope on exactly the three hand-table key/value maps the ledger names', () => {
     // The key/value editor serves many maps (params, headers, filters, inputs)
     // where an object naming a `dialect` is plain data. Every keyValue field in
     // the designer table is enumerated here. If the ledger declares another
     // `value`-role map, this goes red, and whoever widens it has to confirm
     // that `AssignmentValueSchema` is the right refusal for the new slot.
+    //
+    // It went red at `@objectstack/spec` 17.5.0, which declares
+    // `create_record` / `update_record` `fields.*` as `value`-role slots, and the
+    // confirmation it asks for is the next case (objectui#11073).
     const keyValueFields = FLOW_NODE_TYPE_OPTIONS.flatMap((type) =>
       fieldsForNodeType(type)
         .filter((f) => f.kind === 'keyValue')
         .map((f) => ({ type, path: f.path })),
     );
-    expect(keyValueFields.length).toBeGreaterThan(1);
+    expect(keyValueFields.length).toBeGreaterThan(3);
     const offered = keyValueFields
       .filter(({ type, path }) => isValueEnvelopeSlot(type, path))
       .map(({ type, path }) => `${type}:${path.join('.')}`);
-    expect(offered).toEqual(['assignment:config.assignments']);
-    // The same answer the ledger gives: one value-role entry, on that map.
-    expect(FLOW_NODE_EXPRESSION_PATHS.filter((e) => e.role === 'value').map((e) => `${e.nodeType}:${e.path}`)).toEqual([
-      'assignment:assignments.*',
+    expect(offered.sort()).toEqual([
+      'assignment:config.assignments',
+      'create_record:config.fields',
+      'update_record:config.fields',
     ]);
+    // The same answer the ledger gives: three value-role entries, on those maps.
+    expect(
+      FLOW_NODE_EXPRESSION_PATHS.filter((e) => e.role === 'value').map((e) => `${e.nodeType}:${e.path}`).sort(),
+    ).toEqual(['assignment:assignments.*', 'create_record:fields.*', 'update_record:fields.*']);
+  });
+
+  it('confirms `AssignmentValueSchema` is the right refusal for the two record field maps', () => {
+    // The confirmation the case above demands, measured: each record node's own
+    // config schema refuses a malformed envelope in `fields` with exactly the
+    // messages the editor shows (`valueEnvelopeRefusal`), and accepts the
+    // well-formed envelope and a plain `{token}` string it accepts.
+    const schemas = {
+      create_record: CreateRecordConfigSchema,
+      update_record: UpdateRecordConfigSchema,
+    } as const;
+    const MALFORMED = [{ dialect: 'cel' }, { dialect: 'js', source: 'a' }];
+    for (const [nodeType, schema] of Object.entries(schemas)) {
+      for (const bad of MALFORMED) {
+        const parsed = schema.safeParse({ objectName: 'account', fields: { name: bad } });
+        expect(parsed.success, `${nodeType}: ${JSON.stringify(bad)} is refused`).toBe(false);
+        const messages = parsed.success ? [] : parsed.error.issues.map((i) => i.message);
+        expect(messages, `${nodeType}: with the same sentences the editor shows`).toEqual(valueEnvelopeRefusal(bad));
+      }
+      for (const good of [{ dialect: 'cel', source: 'a + 1' }, '{record.name}']) {
+        expect(schema.safeParse({ objectName: 'account', fields: { name: good } }).success).toBe(true);
+        expect(valueEnvelopeRefusal(good)).toBeNull();
+      }
+    }
   });
 });
 

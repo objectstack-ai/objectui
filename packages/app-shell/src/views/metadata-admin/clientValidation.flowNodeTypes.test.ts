@@ -32,12 +32,24 @@
 import { describe, it, expect } from 'vitest';
 import { validateMetadataDraft } from './clientValidation';
 
-/** A flow that differs from a clean one only in its single node's `type`. */
-const flowWithNodeType = (type: unknown) => ({
+/**
+ * A flow that differs from a clean one only in its single node's `type` — plus,
+ * for a type whose own contract requires a sibling block, that block.
+ *
+ * `@objectstack/spec` 17.5.0 refuses a `connector_action` node without a
+ * `connectorConfig` naming the connector and the action (objectui#11073). That
+ * is a refusal about the NODE's config, addressed to `nodes.N.connectorConfig`,
+ * ⛔ not a re-closed `type` enum — the next case pins exactly that — so the
+ * type-only fixture carries the block its type requires.
+ */
+const REQUIRED_SIBLING: Record<string, Record<string, unknown>> = {
+  connector_action: { connectorConfig: { connectorId: 'slack', actionId: 'post_message' } },
+};
+const flowWithNodeType = (type: unknown, extra: Record<string, unknown> = REQUIRED_SIBLING[type as string] ?? {}) => ({
   name: 'f1',
   label: 'F1',
   type: 'autolaunched',
-  nodes: [{ id: 'n1', type, label: 'N1' }],
+  nodes: [{ id: 'n1', type, label: 'N1', ...extra }],
   edges: [],
 });
 
@@ -53,6 +65,16 @@ describe('flow node `type` is an open string — the shim premise, re-measured',
     // real node types would still reject it.
     expect(res.issues, JSON.stringify(res.issues)).toEqual([]);
     expect(res.ok).toBe(true);
+  });
+
+  it('refuses a `connector_action` with no `connectorConfig` at that block — never at `type` (17.5.0)', async () => {
+    // The new refusal, pinned where it lands. If it were addressed to
+    // `nodes.0.type` the open-string premise above would be back in doubt.
+    const res = await validateMetadataDraft('flow', flowWithNodeType('connector_action', {}));
+    expect(res.ok).toBe(false);
+    const paths = res.issues.map((i) => i.path);
+    expect(paths).toEqual(['nodes.0.connectorConfig']);
+    expect(paths).not.toContain('nodes.0.type');
   });
 
   it('still rejects an EMPTY node type, and that issue was never suppressed', async () => {

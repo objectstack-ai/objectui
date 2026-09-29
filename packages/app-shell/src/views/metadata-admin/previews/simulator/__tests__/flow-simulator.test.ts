@@ -1,8 +1,7 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 import { describe, it, expect } from 'vitest';
-import { FlowEdgeSchema } from '@objectstack/spec/automation';
-import { EVALUATED_EXPRESSION_SOURCE_REQUIRED } from '@objectstack/spec/shared';
+import { FlowEdgeSchema, STRUCTURAL_CONDITION_SHAPE_REFUSAL } from '@objectstack/spec/automation';
 import { FlowSimulator } from '../flow-simulator';
 import { validateFlowDraft, findCycle } from '../flow-sim-validate';
 import type { SimEdge, SimNode } from '../flow-sim-types';
@@ -576,7 +575,13 @@ describe('decision guards in the spec expression envelope (#3216)', () => {
     const sim = run(NODES, [START, astOnly, { id: 'e_lo', source: 'd', target: 'lo', isDefault: true }], { amount: 20 });
 
     const hiEval = edgeEval(sim, 'hi');
-    expect(hiEval.error).toContain(EVALUATED_EXPRESSION_SOURCE_REQUIRED);
+    // The shape rule answers first since `@objectstack/spec` 17.5.0: its
+    // `structuralConditionRefusal` refuses an object carrying an `ast` but no
+    // string `source`, before the evaluated-slot rule is reached. Through
+    // 17.4.0 this row read `EVALUATED_EXPRESSION_SOURCE_REQUIRED`, the second
+    // rule's sentence (objectui#11073).
+    expect(hiEval.error).toContain(STRUCTURAL_CONDITION_SHAPE_REFUSAL);
+    expect(hiEval.error).toContain('`ast`');
     expect(sim.state.status).toBe('error');
     expect(sim.state.visitedNodeIds).not.toContain('lo');
   });

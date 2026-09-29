@@ -50,8 +50,9 @@ registerAllFields();
 beforeAll(() => {
   // The client-side export builds a Blob URL; neither jsdom nor happy-dom
   // is guaranteed to carry the plumbing.
-  if (!URL.createObjectURL) (URL as any).createObjectURL = () => 'blob:export';
-  if (!URL.revokeObjectURL) (URL as any).revokeObjectURL = () => {};
+  const url = URL as unknown as Record<string, unknown>;
+  if (!URL.createObjectURL) url.createObjectURL = () => 'blob:export';
+  if (!URL.revokeObjectURL) url.revokeObjectURL = () => {};
 });
 
 afterEach(() => {

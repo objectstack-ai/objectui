@@ -2017,7 +2017,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       // with a row cached for another record cannot reach across.
       const key = feedRecordKey;
       const row = (feedItemsByRecord[key] ?? EMPTY_FEED).find(item => item.id === itemId);
-      if (!row) return;
+      // Only a `sys_comment` row stores reactions, and those are the feed's
+      // `comment` rows. The panel offers the control on comment rows only;
+      // this refuses any other id without a write, so a `sys_activity` id can
+      // never key a `sys_comment` update (objectui#11035).
+      if (!row || row.type !== 'comment') return;
       const rowKey = JSON.stringify([key, String(itemId)]);
       let ledger = reactionLedgersRef.current.get(rowKey);
       if (!ledger || ledger.shown !== row.reactions) {

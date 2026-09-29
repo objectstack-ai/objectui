@@ -561,6 +561,9 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   // used to pass `toLocaleString` an explicit `undefined`, i.e. the MACHINE's
   // locale (objectui#9909).
   const displayLocale = useDisplayLocale();
+  // The collection placeholder, the document totals stack and the in-form
+  // collection's default add label, in the session locale (objectui#11071).
+  const { t } = useFormChromeTranslation();
   // The caller's field-level grants on each CHILD object. With no provider
   // mounted this is the fail-open answer (`isLoaded` false) and every grid below
   // renders exactly as it did before permissions existed (objectui#10163).
@@ -695,7 +698,7 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
               field that holds the parent record.
             </p>
           ) : !d.columns?.length ? (
-            <p className="py-4 text-sm text-muted-foreground">Loading columns…</p>
+            <p className="py-4 text-sm text-muted-foreground">{t('form.masterDetail.loadingColumns')}</p>
           ) : (
             <LineItemsField
               value={rowState[entry.id]?.rows ?? []}
@@ -732,7 +735,7 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
                   sort_field: d.sortField,
                   min_rows: d.minRows,
                   max_rows: d.maxRows,
-                  add_label: d.inlineMode === 'form' ? (d.addLabel || 'Add') : d.addLabel,
+                  add_label: d.inlineMode === 'form' ? (d.addLabel || t('detail.add')) : d.addLabel,
                 } as any
               }
             />
@@ -747,15 +750,15 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
         <div className="flex justify-end">
           <dl className="w-64 space-y-1.5 text-sm" data-testid="md-totals">
             <div className="flex items-center justify-between">
-              <dt className="text-muted-foreground">Subtotal</dt>
+              <dt className="text-muted-foreground">{t('form.masterDetail.subtotal')}</dt>
               <dd className="tabular-nums" data-testid="md-subtotal">{money(subtotal)}</dd>
             </div>
             <div className="flex items-center justify-between">
-              <dt className="text-muted-foreground">Tax ({taxPct}%)</dt>
+              <dt className="text-muted-foreground">{t('form.masterDetail.tax', { rate: taxPct })}</dt>
               <dd className="tabular-nums" data-testid="md-tax">{money(taxAmount)}</dd>
             </div>
             <div className="flex items-center justify-between border-t border-border pt-1.5 text-base font-semibold">
-              <dt>Total</dt>
+              <dt>{t('form.masterDetail.total')}</dt>
               <dd className="tabular-nums" data-testid="md-grand-total">{money(grandTotal)}</dd>
             </div>
           </dl>
@@ -1638,7 +1641,10 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
         <Card className="border-primary/40 shadow-none ring-1 ring-primary/10" data-testid="md-row-form">
           <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2 space-y-0">
             <CardTitle className="text-sm font-medium">
-              {(expandedDetail.title || 'Line item')} — row {expanded.rowIdx + 1}
+              {t('form.masterDetail.rowTitle', {
+                title: expandedDetail.title || t('form.masterDetail.lineItem'),
+                row: expanded.rowIdx + 1,
+              })}
             </CardTitle>
             <Button
               type="button"
@@ -1647,7 +1653,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
               className="h-7 text-xs text-muted-foreground"
               onClick={cancelRowEdit}
             >
-              Close
+              {t('common.close')}
             </Button>
           </CardHeader>
           <CardContent>
@@ -1667,7 +1673,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
                   // No recordId → ObjectForm uses initialData (no backend fetch).
                   initialData: expandedRow ?? {},
                   ...(expandedDetail.formFields?.length ? { fields: expandedDetail.formFields } : {}),
-                  submitText: 'Apply',
+                  submitText: t('form.masterDetail.applyRow'),
                   // Non-persisting: return the values; the atomic batch on the
                   // parent Save does the real write.
                   submitHandler: async (values: any) => values,
@@ -1703,7 +1709,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
               disabled={saving || (needsDerive && !resolvedEntries) || uploadGate.uploading}
               data-testid="md-form-submit"
             >
-              {uploadGate.uploading ? uploadGate.busyLabel : saving ? 'Saving…' : submitText}
+              {uploadGate.uploading ? uploadGate.busyLabel : saving ? t('detail.saving') : submitText}
             </Button>
           </div>
         </div>

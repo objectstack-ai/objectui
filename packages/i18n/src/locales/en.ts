@@ -238,6 +238,27 @@ const en = {
     // only displace it by authoring a `description`, which makes a VISIBLE
     // subtitle appear on every form — so the fallback has to come from here.
     dialogDescriptionFallback: 'Complete the form fields, then submit or cancel.',
+    // The hint under a field the caller may read but not write, shown when the
+    // field declares no description of its own (objectui#11071).
+    deniedDescription: 'You do not have edit access to this field.',
+    // The master-detail form's own chrome (objectui#11071): the collection
+    // placeholder while its columns resolve, the document totals stack
+    // (`{{rate}}` is the header's tax rate), the row editor's title
+    // (`{{title}}` is the collection's authored title, or `lineItem` when it
+    // has none; `{{row}}` is the 1-based row number), its Apply button, and the
+    // sr-only description of the dialog that hosts the form. The verbs `Add`,
+    // `Close` and `Saving…` come from `detail.add`, `common.close` and
+    // `detail.saving`.
+    masterDetail: {
+      loadingColumns: 'Loading columns…',
+      subtotal: 'Subtotal',
+      tax: 'Tax ({{rate}}%)',
+      total: 'Total',
+      lineItem: 'Line item',
+      rowTitle: '{{title}} — row {{row}}',
+      applyRow: 'Apply',
+      editorDescription: 'Enter the record and its line items, then save.',
+    },
     keepEditing: 'Keep editing',
     discard: 'Discard',
     conflictTitle: 'Save conflict',
@@ -3399,6 +3420,10 @@ const en = {
     thankYouTitle: 'Thank you!',
     thankYouMessage: 'Your submission has been received successfully.',
     redirecting: 'Redirecting in {{seconds}} seconds…',
+    // The console form page's line for a submit whose declared redirect is
+    // pending (objectui#11071). `redirecting` above is the embeddable form's
+    // countdown and carries a `{{seconds}}` hole this page has no value for.
+    redirectPending: 'Redirecting…',
     unavailableTitle: 'Form unavailable',
     unavailableDescription:
       'No public form is available at this URL. Make sure the underlying view has anonymous sharing enabled and matches this slug.',
@@ -3406,6 +3431,10 @@ const en = {
     retry: 'Retry',
     loading: 'Loading form…',
     requiredHint: '* Required field',
+    // The console form page's client-side refusal when required rows are empty
+    // (objectui#11071). `{{fields}}` is the empty rows' labels joined with a
+    // comma; the colon, its spacing and the order are the pack's.
+    requiredFields: 'Required: {{fields}}',
     consentLabelDefault: 'I agree to the privacy policy and consent to my data being processed for this request.',
     consentLink: 'Privacy policy',
     consentRequired: 'Please accept the privacy policy to continue.',

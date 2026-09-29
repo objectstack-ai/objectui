@@ -29,7 +29,8 @@ The `@object-ui/plugin-gantt` plugin provides Gantt chart visualization for Obje
 - **Date Ranges**: Automatic date range calculation
 - **Interactive**: Click handling for tasks
 - **Drag-and-drop rescheduling**: Drag a bar to move it; drag either edge to
-  resize start/end. Snaps to whole days and persists the change through
+  resize start/end. Snaps to whole days, keeps each date's time of day across
+  a daylight-saving change, and persists the change through
   `dataSource.update()` automatically (optimistic local update + revert on
   failure). See the [package README](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-gantt/README.md#drag-and-drop-rescheduling) for details on the
   lower-level `onTaskUpdate` hook when embedding `<GanttView>` directly.

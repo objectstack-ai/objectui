@@ -70,8 +70,13 @@ When the renderer is used through `ObjectGantt` (the standard wiring used by
 the framework's `gantt` stored view type) drag is enabled automatically: each bar
 shows a grab cursor; the body drags the entire task, and the two thin edge
 zones (≈6px) resize start or end. Pointer motion snaps to whole days using
-the current column width. On release `ObjectGantt` issues an optimistic local
-patch and a `dataSource.update(objectName, recordId, { [startDateField]: …,
+the current column width. A move shifts the start and the end by the same
+number of calendar days and keeps each one's time of day, so across a
+daylight-saving change a day task keeps its length in days and a 10:00 start
+stays at 10:00; dragging a summary moves every task beneath it the same way.
+With shift bands configured (`timeSegments`), a day-view drag moves by bands
+instead and keeps the bar's elapsed length. On release `ObjectGantt` issues an
+optimistic local patch and a `dataSource.update(objectName, recordId, { [startDateField]: …,
 [endDateField]: … })`. If the request fails the local state is reverted.
 
 When you embed the lower-level `<GanttView>` directly, pass `onTaskUpdate`

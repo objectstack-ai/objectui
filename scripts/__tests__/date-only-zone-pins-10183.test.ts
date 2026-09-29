@@ -33,7 +33,9 @@ import { fileURLToPath } from 'node:url';
  * a value by calendar days across a DST change, and objectui#11037 the week
  * and day views' move, which keeps an event's elapsed length across one.
  * objectui#10866 then added a gantt with a business `timeZone` read and
- * dropped on a DST day, from a viewer zone whose DST differs from the chart's.
+ * dropped on a DST day, from a viewer zone whose DST differs from the chart's,
+ * and the gantt's drags, which move every value by calendar days across a DST
+ * change, as objectui#11005 ruled for the calendar.
  * A later date-only read site registers here the same way.
  *
  * ## Why a driver, and why the forks pool
@@ -119,6 +121,9 @@ const PINS = [
   // objectui#10866, slice 5: a gantt with a business `timeZone` draws and
   // writes a stored day as that day on a DST change of either zone.
   'packages/plugin-gantt/src/__tests__/ObjectGantt.zonedDstDay-10866.test.tsx',
+  // objectui#10866, slice 6: a gantt move, end drag and group move shift every
+  // value by calendar days and keep its wall-clock time across a DST change.
+  'packages/plugin-gantt/src/__tests__/GanttView.moveCalendarDays-10866.test.tsx',
 ] as const;
 
 /** The vitest CLI entry, resolved rather than assumed at a `node_modules` path. */

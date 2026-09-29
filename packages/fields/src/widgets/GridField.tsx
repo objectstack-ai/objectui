@@ -25,7 +25,6 @@ import { toDateInputValue, toDateTimeInputValue, fromDateTimeInputValue, isImpos
 import { useFieldTranslation } from './useFieldTranslation.js';
 import { toDomProps } from './toDomProps.js';
 import { toHostGroupProps } from './toHostGroupProps.js';
-import { renderableFractionScale } from './percent-scale.js';
 
 /**
  * GridField / LineItemsField — editable child-grid ("line items") widget.
@@ -383,8 +382,9 @@ function currencyWidth(c: GridColumn, currency: string | undefined): number | un
  * - every other type — the column's declared `scale`, unrounded when absent
  *   (unchanged).
  *
- * Either way the caller clamps the width to the engine's `toFixed` ceiling
- * (`renderableFractionScale`, objectui#10071).
+ * No clamp to the engine's `toFixed` ceiling: the objectui#10071 one retired at
+ * the objectui#9808 SUNSET (objectui#11073), since `@objectstack/spec` 17.5.0
+ * refuses a `scale` above 100 at the declaration.
  */
 function storedFractionScale(c: GridColumn, tenantCurrency: string | undefined): number | undefined {
   if (c.type !== 'currency') return c.scale;
@@ -404,11 +404,7 @@ export function computeRow(columns: GridColumn[], row: Row, tenantCurrency?: str
     const v = evalArith(c.expr!, next);
     if (v === null) { next[c.name] = null; continue; }
     const scale = storedFractionScale(c, tenantCurrency);
-    // A width above the engine's `toFixed` ceiling is clamped and reported,
-    // never thrown out of the edit (objectui#10071, the objectui#9808 ruling).
-    next[c.name] = scale != null
-      ? Number(v.toFixed(renderableFractionScale(scale, 'grid computed column', 'objectui#10071')))
-      : v;
+    next[c.name] = scale != null ? Number(v.toFixed(scale)) : v;
   }
   return next;
 }
@@ -525,17 +521,14 @@ function currencyAdornment(c: GridColumn, currency: string | undefined, locale: 
  * stored value — so an authored `scale` shows that many places, and without
  * one a yen amount shows no decimals and a dinar amount three. With neither
  * there is no width to take, and the amount keeps the plain locale format
- * this branch always had. An authored width above the engine's ceiling is
- * clamped and reported like the stored one (objectui#10071), since `Intl`
- * refuses it the same way `toFixed` does.
+ * this branch always had.
  *
  * With no authored `prefix`, the amount is `Intl`'s own currency format, so
  * the symbol sits where the locale puts it (`¥3,704`, `3.704 ¥` in de-DE). An
  * authored `prefix` replaces the symbol, not the width.
  */
 function currencyText(c: GridColumn, n: number, currency: string | undefined, locale: string): string {
-  const declared = currencyWidth(c, currency);
-  const digits = declared === undefined ? undefined : renderableFractionScale(declared, 'grid currency cell', 'objectui#10071');
+  const digits = currencyWidth(c, currency);
   const width = digits === undefined ? {} : { minimumFractionDigits: digits, maximumFractionDigits: digits };
   if (c.prefix || !currency) {
     return `${currencyAdornment(c, currency, locale)}${formatDisplayNumber(n, { locale, ...width })}`;

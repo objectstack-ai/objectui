@@ -157,9 +157,9 @@ describe('objectui#9784 — the percent cell renderer reads `scale` off the fiel
   const src = readFileSync(join(REPO_ROOT, CELL), 'utf8');
 
   it('the read still exists — the fact this declaration was catching up to', () => {
-    // Pinned as the READ, not as the whole expression: objectui#9808 is open
-    // against this same renderer over an unbounded `scale`, and a clamp there
-    // may reshape the expression around this member without ending the read.
+    // Pinned as the READ, not as the whole expression: objectui#9808's clamp
+    // reshaped the expression around this member without ending the read, and
+    // retiring it at its SUNSET (objectui#11073) did the same.
     expect(src, `${CELL} no longer reads \`scale\` off the percent field`).toMatch(/percentField\.scale\b/);
   });
 

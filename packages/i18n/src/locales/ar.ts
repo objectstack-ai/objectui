@@ -164,6 +164,8 @@ const ar = {
     parallelFailed: 'فشل إجراء متوازٍ واحد أو أكثر',
     undo: 'تراجع',
     undone: 'تم التراجع عن التغيير',
+    undoneOperation: 'تراجع: {{description}}',
+    redoneOperation: 'إعادة: {{description}}',
   },
   validation: {
     required: "{{field}} مطلوب",

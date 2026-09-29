@@ -152,6 +152,8 @@ const es = {
     parallelFailed: 'Una o más acciones paralelas fallaron',
     undo: 'Deshacer',
     undone: 'Cambio deshecho',
+    undoneOperation: 'Deshacer: {{description}}',
+    redoneOperation: 'Rehacer: {{description}}',
   },
   validation: {
     // "{{field}} es obligatorio" only agreed with masculine field labels —

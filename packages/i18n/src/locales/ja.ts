@@ -153,6 +153,8 @@ const ja = {
     parallelFailed: '1 つ以上の並列操作が失敗しました',
     undo: '元に戻す',
     undone: '変更を元に戻しました',
+    undoneOperation: '元に戻す: {{description}}',
+    redoneOperation: 'やり直す: {{description}}',
   },
   validation: {
     required: "{{field}}は必須です",

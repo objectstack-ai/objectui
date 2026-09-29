@@ -160,6 +160,8 @@ const zh = {
     parallelFailed: '一个或多个并行操作失败',
     undo: '撤销',
     undone: '已撤销更改',
+    undoneOperation: '撤销：{{description}}',
+    redoneOperation: '重做：{{description}}',
   },
   validation: {
     required: '{{field}}不能为空',

@@ -163,6 +163,8 @@ const ru = {
     parallelFailed: 'Одно или несколько параллельных действий не выполнены',
     undo: 'Отменить',
     undone: 'Изменение отменено',
+    undoneOperation: 'Отменить: {{description}}',
+    redoneOperation: 'Повторить: {{description}}',
   },
   validation: {
     required: "Поле {{field}} обязательно для заполнения",

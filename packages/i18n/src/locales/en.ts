@@ -189,6 +189,13 @@ const en = {
     // two undo handlers (`useConsoleActionRuntime` and `RecordDetailView`), not
     // by the runner (objectui#11056).
     undone: 'Change undone',
+    // The console's global Ctrl+Z / Ctrl+Shift+Z toasts, raised by
+    // `AppContent`'s `useGlobalUndo` handlers once the operation has been
+    // undone / redone (objectui#11080). `{{description}}` is the operation's
+    // own description, passed through unchanged; the pack owns the words and
+    // the word order around it.
+    undoneOperation: 'Undo: {{description}}',
+    redoneOperation: 'Redo: {{description}}',
   },
   validation: {
     required: '{{field}} is required',

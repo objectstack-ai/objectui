@@ -152,6 +152,8 @@ const pt = {
     parallelFailed: 'Uma ou mais ações paralelas falharam',
     undo: 'Desfazer',
     undone: 'Alteração desfeita',
+    undoneOperation: 'Desfazer: {{description}}',
+    redoneOperation: 'Refazer: {{description}}',
   },
   validation: {
     required: "{{field}} é obrigatório",

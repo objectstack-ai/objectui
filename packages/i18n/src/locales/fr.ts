@@ -153,6 +153,8 @@ const fr = {
     parallelFailed: 'Une ou plusieurs actions parallèles ont échoué',
     undo: 'Annuler',
     undone: 'Modification annulée',
+    undoneOperation: 'Annuler : {{description}}',
+    redoneOperation: 'Rétablir : {{description}}',
   },
   validation: {
     required: "{{field}} est obligatoire",

@@ -153,6 +153,8 @@ const de = {
     parallelFailed: 'Eine oder mehrere parallele Aktionen sind fehlgeschlagen',
     undo: 'Rückgängig',
     undone: 'Änderung rückgängig gemacht',
+    undoneOperation: 'Rückgängig: {{description}}',
+    redoneOperation: 'Wiederholen: {{description}}',
   },
   validation: {
     required: "{{field}} ist erforderlich",

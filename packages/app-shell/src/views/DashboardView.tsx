@@ -44,11 +44,18 @@ import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
  * It declares a change on the data-invalidation bus and rebuilds nothing
  * (AGENTS.md #8's corollary: refresh data, don't rebuild UI). The widgets that
  * read data (`DatasetWidget`, `ObjectChart`, `ObjectMetricWidget`,
- * `ObjectDataTable`, `ObjectPivotTable`) and the filter bar's options each
- * already re-read in place when the bus reports a change they match, so they
- * stay mounted. Nothing here re-keys, remounts or re-derives the schema.
+ * `ObjectDataTable`, `ObjectPivotTable`) and the filter bar's options re-read
+ * in place when the bus reports a change they match, so they stay mounted.
+ * Nothing here re-keys, remounts or re-derives the schema.
  * `DashboardView.autoRefresh-11062.test.tsx` counts the re-reads and checks the
  * widget's node survives them.
+ *
+ * ⚠️ A `DatasetWidget` matches nothing until its answer names the dataset's
+ * base object, and the server names it only beside drill-through metadata. A
+ * dataset-bound KPI tile (no dimensions) therefore never re-reads on the bus,
+ * from this handler or from a declared write. That gap is the widget's
+ * subscription key, not this handler; it was measured in a running console on
+ * objectui#11062.
  *
  * The scope is the bus's unknown-scope value, `'*'`, the same one `PageView`
  * uses after a page action. A timed re-read does not know what changed, and

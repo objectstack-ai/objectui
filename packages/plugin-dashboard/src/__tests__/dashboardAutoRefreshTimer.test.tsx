@@ -31,6 +31,17 @@
  *
  * The last case of each block is the de-duplication pin: it goes red for a
  * surface that carries its own timer instead of calling the shared hook.
+ *
+ * ## The forced memo discard (objectui#11004)
+ *
+ * AGENTS.md #10: an interval keyed on a `useCallback` identity re-arms, and
+ * loses its phase, whenever React throws that memo away. React does not do so
+ * on its own in this tree, so a case that merely re-renders passes on the
+ * defect and on the fix alike. The phase-under-identity-change case therefore
+ * FORCES a discard, with the module-level `react` proxy below. It is the same
+ * technique as `providerCtxIdentity.discarded.test.tsx` in `packages/permissions`,
+ * which says why a `vi.spyOn` on the module namespace cannot do it. The proxy
+ * is inert unless a case arms it, so every other case runs on plain React.
  */
 
 import * as React from 'react';
@@ -41,6 +52,45 @@ import { DashboardGridLayout } from '../DashboardGridLayout';
 import { DashboardRenderer } from '../DashboardRenderer';
 import { useDashboardAutoRefresh } from '../useDashboardAutoRefresh';
 
+const memoProxy = vi.hoisted(() => ({ armed: false, epoch: 0 }));
+
+vi.mock('react', async (importOriginal) => {
+  // `<any>` as in the sibling pins: a precise module type makes the real
+  // hooks' deps parameter `DependencyList`, which the patched signatures below
+  // cannot satisfy.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const actual = await importOriginal<any>();
+  const realUseMemo = actual.useMemo;
+  const realUseCallback = actual.useCallback;
+  const patchedUseMemo = (factory: () => unknown, deps?: unknown[]) =>
+    memoProxy.armed && Array.isArray(deps)
+      ? realUseMemo(factory, [...deps, memoProxy.epoch])
+      : realUseMemo(factory, deps);
+  const patchedUseCallback = (fn: unknown, deps?: unknown[]) =>
+    memoProxy.armed && Array.isArray(deps)
+      ? realUseCallback(fn, [...deps, memoProxy.epoch])
+      : realUseCallback(fn, deps);
+  return {
+    ...actual,
+    useMemo: patchedUseMemo,
+    useCallback: patchedUseCallback,
+    default: {
+      ...(actual.default ?? actual),
+      useMemo: patchedUseMemo,
+      useCallback: patchedUseCallback,
+    },
+  };
+});
+
+/** Put every memo and callback mounted from now on under this file's control. */
+function armDiscardProxy(): void {
+  memoProxy.armed = true;
+}
+/** Throw away every armed cache: one discard event, on demand. */
+function discardNow(): void {
+  memoProxy.epoch += 1;
+}
+
 // The real hook, wrapped so each surface's call to it can be observed. The
 // timer under test is still the real one.
 vi.mock('../useDashboardAutoRefresh', async (importOriginal) => {
@@ -49,6 +99,13 @@ vi.mock('../useDashboardAutoRefresh', async (importOriginal) => {
 });
 
 const sharedHook = vi.mocked(useDashboardAutoRefresh);
+
+/** The `handleRefresh` identity the hook returned on its latest render. */
+function latestHandleRefresh(): unknown {
+  const { results } = sharedHook.mock;
+  const last = results[results.length - 1];
+  return last?.type === 'return' ? last.value.handleRefresh : undefined;
+}
 
 interface SurfaceProps {
   schema: DashboardComponentSchema;
@@ -77,6 +134,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  memoProxy.armed = false;
   vi.useRealTimers();
 });
 
@@ -197,6 +255,40 @@ describe.each(SURFACES)('%s: the auto-refresh timer fires (objectui#8820)', (_na
     advance(60_000);
     expect(first, 'a stale handler kept firing').toHaveBeenCalledTimes(1);
     expect(second).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps its phase when a handler identity changes at an equal period (objectui#11004)', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const schema = dash({ refreshIntervalSeconds: 30 });
+    // Armed before the mount, so every memo carries the epoch from its first
+    // render and a discard reads as a changed dependency, not a resized list.
+    armDiscardProxy();
+    const view = render(<Surface schema={schema} onRefresh={first} />);
+
+    // 1. React discards its memos mid-period. Period and host handler are
+    //    unchanged, so the only thing that moves is `handleRefresh`'s identity.
+    advance(20_000);
+    const beforeDiscard = latestHandleRefresh();
+    discardNow();
+    view.rerender(<Surface schema={schema} onRefresh={first} />);
+    // The control: the discard reached the hook. Without it, a proxy that
+    // patched nothing would leave the assertion below green for no reason.
+    expect(beforeDiscard, 'control: the hook returned a handler').toBeTypeOf('function');
+    expect(latestHandleRefresh(), 'control: the forced discard did not reach the hook').not.toBe(
+      beforeDiscard,
+    );
+    // Still due at 30s. A re-armed interval would fire at 50s instead.
+    advance(10_000);
+    expect(first, 'a discarded memo re-armed the interval').toHaveBeenCalledTimes(1);
+
+    // 2. The host passes a new handler identity mid-period, same period.
+    advance(20_000);
+    view.rerender(<Surface schema={schema} onRefresh={second} />);
+    // Due at 60s. A re-armed interval would fire at 80s instead.
+    advance(10_000);
+    expect(second, 'a new host handler identity re-armed the interval').toHaveBeenCalledTimes(1);
+    expect(first, 'the old handler ran after the swap').toHaveBeenCalledTimes(1);
   });
 
   it('takes its timer from the shared `useDashboardAutoRefresh` hook', () => {

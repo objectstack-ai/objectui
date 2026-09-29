@@ -368,7 +368,7 @@ export const HOST_DISPATCH_ACTION_KEYS = ['overrideNotice'] as const;
  * a tombstone the spec keeps only in order to reject it by name.
  */
 export const RETIRED_ACTION_KEYS: Readonly<Record<string, string>> = {
-  execute: '`execute` was removed in @objectstack/spec 17 (#3855) — rename the key to `target`. ' +
+  execute: '`execute` was removed in @objectstack/spec 17 (objectstack-ai/objectstack#3855) — rename the key to `target`. ' +
     'The value (a script name or expression) is unchanged. ' +
     'Run `os migrate meta --from 16` to rewrite it automatically.',
 };

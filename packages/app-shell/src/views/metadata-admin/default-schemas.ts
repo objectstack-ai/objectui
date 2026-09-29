@@ -174,7 +174,7 @@ const SCHEMAS: Record<string, Record<string, unknown>> = {
       triggerConditions: {
         type: 'array',
         title: 'Trigger Conditions',
-        description: 'Programmatic activation conditions (context field / operator / value). The activation-critical field — previously only hand-editable (#1878/#1895).',
+        description: 'Programmatic activation conditions (context field / operator / value). The activation-critical field — previously only hand-editable (objectstack-ai/objectstack#1878 / objectstack-ai/objectstack#1895).',
         items: {
           type: 'object',
           properties: {

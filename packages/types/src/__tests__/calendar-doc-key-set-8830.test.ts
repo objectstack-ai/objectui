@@ -175,14 +175,17 @@ describe('objectui#8830 — the page states the renderer\'s key set, derived on 
     expect(listed).toEqual(Object.keys((CalendarConfigSchema as unknown as { shape: Record<string, unknown> }).shape).sort());
   });
 
-  it('the spec schema really does refuse the fifth key BY NAME — the half the old sentence got right', () => {
-    const four = { startDateField: 's', endDateField: 'e', titleField: 't', colorField: 'c' };
-    expect(CalendarConfigSchema.safeParse(four).success).toBe(true);
-    const refused = CalendarConfigSchema.safeParse({ ...four, allDayField: 'isAllDay' });
+  it('the spec schema accepts `allDayField` since 17.5.0, and still refuses an undeclared key BY NAME', () => {
+    // Through `@objectstack/spec` 17.4.0 this row pinned `allDayField` as the
+    // REFUSED fifth key. 17.5.0 declares it (objectui#11073), so the fence above
+    // lists five keys and the refusal half moves to a key the spec never had.
+    const five = { startDateField: 's', endDateField: 'e', titleField: 't', colorField: 'c', allDayField: 'isAllDay' };
+    expect(CalendarConfigSchema.safeParse(five).success).toBe(true);
+    const refused = CalendarConfigSchema.safeParse({ ...five, dateField: 'kickoff' });
     expect(refused.success).toBe(false);
     if (!refused.success) {
       expect(refused.error.issues.map((i) => i.code)).toContain('unrecognized_keys');
-      expect(JSON.stringify(refused.error.issues)).toContain('allDayField');
+      expect(JSON.stringify(refused.error.issues)).toContain('dateField');
     }
   });
 });

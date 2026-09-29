@@ -30,7 +30,6 @@
  * rather than leaving a pin that compares two acceptances.
  */
 import { describe, it, expect } from 'vitest';
-import { z } from 'zod';
 // ⛔ Schemas only. No spec `check*` function is imported by name in this file;
 // they are read at RUN time by `specUiChecks()` below, and why is written there.
 import {
@@ -135,9 +134,12 @@ const SITES = [
     site: 'ListViewSchema (objectql.zod.ts)',
     spec: SpecListViewSchema,
     attached: ['checkListViewCalendarVisualization'],
-    // Reads `type`, which on this node is the component discriminator — see the
-    // measurement below.
-    notAttachable: ['checkListViewPageMount'],
+    // `checkListViewPageMount` stood here (it read `type`, which on this node is
+    // the component discriminator, so it was measured not attachable). The spec
+    // stopped exporting it at 17.5.0, when it retired `pageName` and the `page`
+    // list-view type; the row and its measurement left together, as the
+    // measurement's own message instructed (objectui#11073).
+    notAttachable: [],
   },
 ] as const;
 
@@ -184,10 +186,6 @@ async function specUiChecks(): Promise<Map<string, unknown>> {
 const objectLevelChecks = (schema: unknown): number =>
   ((schema as { _zod: { def: { checks?: unknown[] } } })._zod.def.checks ?? []).length;
 
-/** Run one exported check directly, outside any schema. */
-const runCheck = (check: unknown, value: unknown) =>
-  z.any().superRefine(check as (v: unknown, ctx: z.RefinementCtx) => void).safeParse(value);
-
 describe('objectui#7715 — census: the spec\'s object-level checks at the six derivation sites', () => {
   it.each(SITES.map((s) => [s.site, s] as const))('%s accounts for every object-level check the spec object carries', (_site, s) => {
     expect({
@@ -204,22 +202,6 @@ describe('objectui#7715 — census: the spec\'s object-level checks at the six d
     const named = [...SITES.flatMap((s) => [...s.attached, ...s.notAttachable]), ...CARRIED_ELSEWHERE].sort();
     expect([...checks.keys()].sort()).toEqual(named);
     for (const [name, binding] of checks) expect(typeof binding, name).toBe('function');
-  });
-
-  it('`checkListViewPageMount` is not attachable: it reads `type`, which the list-view node spends on its discriminator', async () => {
-    const checkListViewPageMount = (await specUiChecks()).get('checkListViewPageMount');
-    expect(
-      typeof checkListViewPageMount,
-      'the spec no longer exports `checkListViewPageMount` — remove it from the ListView row\'s ' +
-        '`notAttachable` list, and this measurement with it',
-    ).toBe('function');
-    // The same page mount, spelled once per face. The spec accepts its own.
-    expect(SpecListViewSchema.safeParse({ type: 'page', pageName: 'home_page', columns: [] }).success).toBe(true);
-    // Attached as-is, the check would refuse objectui's spelling of it, at
-    // `pageName` — the verdict a mirror must never add.
-    const asIs = runCheck(checkListViewPageMount, { type: 'list-view', viewType: 'page', pageName: 'home_page', columns: [] });
-    expect(asIs.success).toBe(false);
-    expect(asIs.error!.issues.map((i) => i.path.join('.'))).toEqual(['pageName']);
   });
 
   it('`checkGlobalFilterDateDefaultValue` already runs on objectui\'s GlobalFilterSchema, with the spec\'s own issue', () => {

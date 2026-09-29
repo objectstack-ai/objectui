@@ -201,6 +201,9 @@ const ru = {
       applyRow: "Применить",
       editorDescription: "Введите запись и её позиции, затем сохраните.",
     },
+    lineItems: {
+      title: "Позиции",
+    },
     keepEditing: "Продолжить редактирование",
     discard: "Отменить",
     conflictTitle: "Конфликт сохранения",
@@ -351,6 +354,11 @@ const ru = {
     textarea: {
       characterCount: "Количество символов: {{count}} из {{max}}",
       charactersRemaining: "Осталось символов: {{count}}",
+    },
+    grid: {
+      addLine: "Добавить строку",
+      noItems: "Нет элементов",
+      noItemsAddHint: "Пока нет элементов — нажмите «{{label}}», чтобы начать.",
     },
   },
   table: {

@@ -645,7 +645,10 @@ export function GridField({
   const displayLocale = useDisplayLocale();
   // The editable `date` / `datetime` cell's notice for a stored nonexistent
   // day (objectui#10474, objectui#10567) — the sentences `DateField` and
-  // `DateTimeField` show for it too.
+  // `DateTimeField` show for it too. Since objectui#11131 also the grid's own
+  // default chrome: the Add button and the two empty states, English literals
+  // until then. Each `defaultValue` is the `en` pack's value (held to it by
+  // `pnpm check:i18n-keys`), which is what a provider-less host renders.
   const { t } = useFieldTranslation();
   const cellIdBase = React.useId();
   // The tenant default currency (ADR-0053) — the resolver's last step, and in
@@ -939,7 +942,7 @@ export function GridField({
                   colSpan={Math.max(columns.length + (showLineNumbers ? 1 : 0), 1)}
                   className="px-3 py-6 text-center text-muted-foreground"
                 >
-                  No items
+                  {t('fields.grid.noItems', { defaultValue: 'No items' })}
                 </td>
               </tr>
             ) : (
@@ -1253,7 +1256,10 @@ export function GridField({
                   colSpan={columns.length + (hasRowActions ? 1 : 0) + (showLineNumbers ? 1 : 0)}
                   className="px-3 py-6 text-center text-muted-foreground"
                 >
-                  No items yet — click “{cfg.add_label || 'Add'}” to begin.
+                  {t('fields.grid.noItemsAddHint', {
+                    label: cfg.add_label || t('detail.add', { defaultValue: 'Add' }),
+                    defaultValue: 'No items yet — click “{{label}}” to begin.',
+                  })}
                 </td>
               </tr>
             ) : (
@@ -1422,7 +1428,7 @@ export function GridField({
           data-testid="line-items-add"
         >
           <Plus className="mr-1.5 h-4 w-4" />
-          {cfg.add_label || 'Add line'}
+          {cfg.add_label || t('fields.grid.addLine', { defaultValue: 'Add line' })}
         </Button>
       )}
     </div>

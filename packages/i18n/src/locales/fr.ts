@@ -191,6 +191,9 @@ const fr = {
       applyRow: "Appliquer",
       editorDescription: "Saisissez l'enregistrement et ses lignes, puis enregistrez.",
     },
+    lineItems: {
+      title: "Lignes",
+    },
     keepEditing: "Continuer l'édition",
     discard: "Abandonner",
     conflictTitle: "Conflit d'enregistrement",
@@ -341,6 +344,11 @@ const fr = {
     textarea: {
       characterCount: "Nombre de caractères : {{count}} sur {{max}}",
       charactersRemaining: "Caractères restants : {{count}}",
+    },
+    grid: {
+      addLine: "Ajouter une ligne",
+      noItems: "Aucun élément",
+      noItemsAddHint: "Aucun élément pour l'instant — cliquez sur « {{label}} » pour commencer.",
     },
   },
   table: {

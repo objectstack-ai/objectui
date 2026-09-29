@@ -190,6 +190,9 @@ const pt = {
       applyRow: "Aplicar",
       editorDescription: "Preencha o registro e seus itens de linha e depois salve.",
     },
+    lineItems: {
+      title: "Itens de linha",
+    },
     keepEditing: "Continuar editando",
     discard: "Descartar",
     conflictTitle: "Conflito ao salvar",
@@ -340,6 +343,11 @@ const pt = {
     textarea: {
       characterCount: "Contagem de caracteres: {{count}} de {{max}}",
       charactersRemaining: "Caracteres restantes: {{count}}",
+    },
+    grid: {
+      addLine: "Adicionar linha",
+      noItems: "Nenhum item",
+      noItemsAddHint: "Ainda não há itens — clique em “{{label}}” para começar.",
     },
   },
   table: {

@@ -40,13 +40,23 @@ import {
   convertSortToQueryParams,
 } from '@object-ui/core';
 
-// The malformed-filter state (objectui#9050 step 2). A provider-less host —
-// a standalone embed, this package's own tests — must read the sentence rather
-// than the raw key, which is what `createSafeTranslation` is for; the row is
-// byte-identical to the `en` pack, enforced by `defaults-maps-mirror-en-pack`.
+// The panel's own chrome. A provider-less host — a standalone embed, this
+// package's own tests — must read English rather than the raw key, which is
+// what `createSafeTranslation` is for; every row is byte-identical to the `en`
+// pack (`pnpm check:i18n-keys`, `defaults-maps-mirror-en-pack`).
+//
+// - The malformed-filter state (objectui#9050 step 2).
+// - The default title and the Save / Saving… button (objectui#11131): English
+//   literals until then, so a zh session read `Line Items` and `Save`. The
+//   button reuses the shared verbs `MasterDetailForm`'s Save reads; the title
+//   is the panel's own key, and an authored `title` still wins. Like
+//   `WizardForm`'s, this hook carries its own rows (see `formChrome.ts`).
 const useLineItemsTranslation = createSafeTranslation(
   {
     'view.malformedFilter': 'This view’s filter is malformed, so no records are shown: the {{subject}} condition cannot be applied.',
+    'form.lineItems.title': 'Line Items',
+    'common.save': 'Save',
+    'detail.saving': 'Saving…',
   },
   'view.malformedFilter',
 );
@@ -675,7 +685,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
   return (
     <Card className={cn('shadow-none')}>
       <CardHeader className="flex-row items-center justify-between gap-2 pb-2">
-        <CardTitle className="text-sm font-medium">{schema.title || 'Line Items'}</CardTitle>
+        <CardTitle className="text-sm font-medium">{schema.title || t('form.lineItems.title')}</CardTitle>
         {!schema.readonly && (
           <Button
             type="button"
@@ -683,7 +693,7 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
             onClick={save}
             disabled={saving || loading || !dirty || !parentId || heldForAnotherParent}
           >
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('detail.saving') : t('common.save')}
           </Button>
         )}
       </CardHeader>

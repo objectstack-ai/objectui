@@ -191,6 +191,9 @@ const ja = {
       applyRow: "適用",
       editorDescription: "レコードとその明細行を入力してから、保存してください。",
     },
+    lineItems: {
+      title: "明細行",
+    },
     keepEditing: "編集を続ける",
     discard: "破棄",
     conflictTitle: "保存の競合",
@@ -341,6 +344,11 @@ const ja = {
     textarea: {
       characterCount: "文字数: {{max}} 文字中 {{count}} 文字",
       charactersRemaining: "残り {{count}} 文字",
+    },
+    grid: {
+      addLine: "行を追加",
+      noItems: "項目なし",
+      noItemsAddHint: "まだ項目がありません。「{{label}}」をクリックして開始してください。",
     },
   },
   table: {

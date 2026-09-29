@@ -191,6 +191,9 @@ const ko = {
       applyRow: "적용",
       editorDescription: "레코드와 라인 항목을 입력한 다음 저장하세요.",
     },
+    lineItems: {
+      title: "라인 항목",
+    },
     keepEditing: "계속 편집",
     discard: "버리기",
     conflictTitle: "저장 충돌",
@@ -341,6 +344,11 @@ const ko = {
     textarea: {
       characterCount: "글자 수: {{max}}자 중 {{count}}자",
       charactersRemaining: "{{count}}자 남음",
+    },
+    grid: {
+      addLine: "행 추가",
+      noItems: "항목 없음",
+      noItemsAddHint: "아직 항목이 없습니다. “{{label}}”을(를) 클릭하여 시작하세요.",
     },
   },
   table: {

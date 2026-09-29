@@ -195,6 +195,9 @@ const es = {
       applyRow: "Aplicar",
       editorDescription: "Introduzca el registro y sus líneas de detalle y luego guarde.",
     },
+    lineItems: {
+      title: "Líneas de detalle",
+    },
     keepEditing: "Seguir editando",
     discard: "Descartar",
     conflictTitle: "Conflicto al guardar",
@@ -345,6 +348,11 @@ const es = {
     textarea: {
       characterCount: "Recuento de caracteres: {{count}} de {{max}}",
       charactersRemaining: "Caracteres restantes: {{count}}",
+    },
+    grid: {
+      addLine: "Agregar línea",
+      noItems: "Sin elementos",
+      noItemsAddHint: "Aún no hay elementos: haga clic en «{{label}}» para empezar.",
     },
   },
   table: {

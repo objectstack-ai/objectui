@@ -202,6 +202,9 @@ const ar = {
       applyRow: "تطبيق",
       editorDescription: "أدخل السجل وبنوده ثم احفظ.",
     },
+    lineItems: {
+      title: "البنود",
+    },
     keepEditing: "متابعة التحرير",
     discard: "تجاهل",
     conflictTitle: "تعارض في الحفظ",
@@ -352,6 +355,11 @@ const ar = {
     textarea: {
       characterCount: "عدد الأحرف: {{count}} من {{max}}",
       charactersRemaining: "الأحرف المتبقية: {{count}}",
+    },
+    grid: {
+      addLine: "إضافة سطر",
+      noItems: "لا توجد عناصر",
+      noItemsAddHint: "لا توجد عناصر بعد — انقر على «{{label}}» للبدء.",
     },
   },
   table: {

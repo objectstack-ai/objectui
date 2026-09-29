@@ -204,6 +204,9 @@ const zh = {
       applyRow: '应用',
       editorDescription: '填写记录及其明细行，然后保存。',
     },
+    lineItems: {
+      title: '明细行',
+    },
     keepEditing: '继续编辑',
     discard: '放弃',
     conflictTitle: '保存冲突',
@@ -352,6 +355,11 @@ const zh = {
     textarea: {
       characterCount: '已输入 {{count}} 个字符，最多 {{max}} 个',
       charactersRemaining: '还可输入 {{count}} 个字符',
+    },
+    grid: {
+      addLine: '添加行',
+      noItems: '暂无条目',
+      noItemsAddHint: '暂无条目，点击“{{label}}”开始添加。',
     },
   },
   table: {

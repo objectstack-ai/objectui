@@ -191,6 +191,9 @@ const de = {
       applyRow: "Übernehmen",
       editorDescription: "Erfassen Sie den Datensatz und seine Positionen und speichern Sie anschließend.",
     },
+    lineItems: {
+      title: "Positionen",
+    },
     keepEditing: "Weiter bearbeiten",
     discard: "Verwerfen",
     conflictTitle: "Speicherkonflikt",
@@ -341,6 +344,11 @@ const de = {
     textarea: {
       characterCount: "Zeichenanzahl: {{count}} von {{max}}",
       charactersRemaining: "Verbleibende Zeichen: {{count}}",
+    },
+    grid: {
+      addLine: "Zeile hinzufügen",
+      noItems: "Keine Einträge",
+      noItemsAddHint: "Noch keine Einträge – klicken Sie auf „{{label}}“, um zu beginnen.",
     },
   },
   table: {

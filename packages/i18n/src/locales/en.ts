@@ -259,6 +259,12 @@ const en = {
       applyRow: 'Apply',
       editorDescription: 'Enter the record and its line items, then save.',
     },
+    // The record page's `record:line_items` panel (objectui#11131): its
+    // title when the author declared none. Its Save / Saving… button reads
+    // `common.save` / `detail.saving`.
+    lineItems: {
+      title: 'Line Items',
+    },
     keepEditing: 'Keep editing',
     discard: 'Discard',
     conflictTitle: 'Save conflict',
@@ -513,6 +519,15 @@ const en = {
     textarea: {
       characterCount: 'Character count: {{count}} of {{max}}',
       charactersRemaining: 'Characters remaining: {{count}}',
+    },
+    // objectui#11131 — the line-items grid's default chrome (`GridField`):
+    // its Add button, the read-only grid's empty state, and the list-mode
+    // grid's empty state. An authored `add_label` still wins over `addLine`,
+    // and it fills the `{{label}}` hole (`detail.add` when none is authored).
+    grid: {
+      addLine: 'Add line',
+      noItems: 'No items',
+      noItemsAddHint: 'No items yet — click “{{label}}” to begin.',
     },
   },
   table: {

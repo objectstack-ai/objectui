@@ -364,7 +364,12 @@
  *     and 37 / 53 until objectui#7344 swept the string / `z.any()` handler mirrors:
  *     `DetailSchema` and `DetailViewSchema` entered (one `onBack` each) and
  *     `CalendarViewSchema` grew by `onEventClick`.
- *   - **12 entries** in `UnmirroredDeclared`, **84 keys** across them — 13 / 85 until
+ *   - **12 entries** in `UnmirroredDeclared`, **65 keys** across them — 12 / 84 until
+ *     objectui#6152 round 1 MIRRORED nineteen of `ObjectFormSchema`'s twenty-one keys,
+ *     each measured authored and READ (`ObjectForm` reads them off its schema, or
+ *     `ObjectView` / `RecordFormPage` / `ScreenView` relay them into the node it
+ *     reads): the entry kept `open` and `submitHandler`, so only the key total moved,
+ *     and the TypeScript face did not move at all; 13 / 85 until
  *     objectui#7928 MIRRORED `ObjectViewSchema.listViews` BY REFERENCE to the spec's
  *     `ViewSchema.shape.listViews` (maintainer ruling A, staged behind objectui#8254 and
  *     objectui#8255): the key objectui#7779 left on its fallback clause, and that entry's
@@ -2470,7 +2475,7 @@ interface KnownDrift {
  *
  * objectui#6058 seeded this ledger at **121 keys**, and — on ONE line, because the
  * pin below reads this sentence off disk —
- * **84 keys** is what this ledger records today.
+ * **65 keys** is what this ledger records today.
  * The movements between the two are different facts. objectui#6152 measured the 23
  * callback-shaped (`on*`) keys and ruled that mirroring is the wrong remedy for every
  * one of them;
@@ -2489,7 +2494,11 @@ interface KnownDrift {
  * keys — growth, and the only growth this ledger has seen since the seed. Then
  * objectui#7779 MIRRORED eight of `ObjectViewSchema`'s keys BY REFERENCE and RETIRED a
  * ninth (`viewTabBar`) — the largest single shrink, and the movement this docstring
- * did not follow: the figure above read 94, fully green, until objectui#8243.
+ * did not follow: the figure above read 94, fully green, until objectui#8243. Then
+ * objectui#6152 round 1 MIRRORED nineteen of `ObjectFormSchema`'s keys, each measured
+ * authored and read — larger than objectui#7779's shrink, and all of it by REPAIR.
+ * The entry stays, holding the two keys that round left open (`open`,
+ * `submitHandler`).
  *
  * ## The decomposition of "121" — a reading at NAMED REVISIONS, so it cannot rot
  *
@@ -2574,7 +2583,9 @@ interface KnownDrift {
  * explicit that forcing the 121 per-key decisions now would be wrong. Two splits
  * are recorded here so whoever works them off does not re-derive them:
  *
- *   - **SPEC-DERIVED (3 entries, 37 keys)** — it was 2 / 16 until objectui#10993 MIRRORED
+ *   - **SPEC-DERIVED (3 entries, 18 keys)** — it was 3 / 37 until objectui#6152 round 1
+ *     MIRRORED nineteen of `ObjectFormSchema`'s keys: the entry kept two, so it stayed in
+ *     this half and only the keys moved. It was 2 / 16 until objectui#10993 MIRRORED
  *     five `ObjectFormSchema` members by reference to the spec's `I18nLabelSchema`: none
  *     of them was in the ledger, so no key closed, but the spec reference re-derives the
  *     pair's entry (21 keys) into this half, the objectui#7762 membership move with ZERO
@@ -2694,10 +2705,12 @@ interface KnownDrift {
  * `ObjectViewSchema.listViews`, that entry's last key, by reference: the SPEC-DERIVED
  * half lost the entry, and the LOCAL half did not move. objectui#10993 then moved
  * `ObjectFormSchema`'s entry (21 keys) from the LOCAL half to the SPEC-DERIVED one by
- * membership alone, without moving the totals. The seeded pair is no longer
+ * membership alone, without moving the totals. objectui#6152 round 1 then MIRRORED
+ * nineteen of that entry's keys: the SPEC-DERIVED half lost keys and no entry, and
+ * the LOCAL half did not move. The seeded pair is no longer
  * among them, and the ledger now totals — on ONE line, because the pin below reads
  * this sentence off disk —
- * **12 entries / 84 keys** — 3 / 37 spec-derived, 9 / 47 local.
+ * **12 entries / 65 keys** — 3 / 18 spec-derived, 9 / 47 local.
  *
  * ⛔ The four split figures above and this totals line are PINNED: 'objectui#7279'
  * at the bottom of this file derives every one of them from the `UnmirroredDeclared`
@@ -2813,24 +2826,40 @@ interface UnmirroredDeclared {
   // entry above (`onRowClick`, a runtime slot the mirror refuses by name) and records
   // nothing here.
   /**
-   * SPEC-DERIVED by MEMBERSHIP since objectui#10993, LOCAL before it, and still the
-   * second-largest at 21. That card mirrored five `I18nLabel` members BY REFERENCE to
-   * the spec's `I18nLabelSchema`, none of them in this entry, which puts a `Spec…`
-   * symbol in the mirror's initializer: the `ObjectGridSchema` (objectui#7762) shape.
-   * ⚠️ Read the half as MEMBERSHIP, not as a remedy: these 21 keys are still plain
-   * hand-written omissions on a `BaseSchema.extend({…})` mirror. `nextText` and
-   * `prevText` are the row's other two `I18nLabel` members, left unmirrored by that
-   * card on purpose (`object-form-i18n-label-members-10993.test.ts` records it).
-   * It was 26: the five `on*` keys are in
+   * SPEC-DERIVED by MEMBERSHIP since objectui#10993, LOCAL before it. That card
+   * mirrored five `I18nLabel` members BY REFERENCE to the spec's `I18nLabelSchema`,
+   * none of them in this entry, which puts a `Spec…` symbol in the mirror's
+   * initializer: the `ObjectGridSchema` (objectui#7762) shape. ⚠️ Read the half as
+   * MEMBERSHIP, not as a remedy: the keys below are plain hand-written omissions on a
+   * `BaseSchema.extend({…})` mirror.
+   *
+   * It was 21 until objectui#6152 round 1 MIRRORED nineteen of them — the ledger's
+   * largest single shrink by REPAIR. Each was measured authored (a document, the
+   * object-view `form` slot, or a form view relayed into the node) and READ (`ObjectForm`
+   * reads the variant keys off `schema.*`; `buttons` / `defaults` / `subforms` through
+   * casts after `ObjectView` / `RecordFormPage` / `ScreenView` relay them), and is shaped
+   * as the twin declares it, `nextText` / `prevText` by reference to the spec's
+   * `I18nLabelSchema` as objectui#10993 bound their five siblings. The two keys left
+   * are the entry's MEASURED EXCEPTIONS, and mirroring repairs neither:
+   *
+   *   - `submitHandler` — a FUNCTION slot `ObjectForm` calls in place of the data
+   *     source's write (`await schema.submitHandler(…)`), supplied in code by
+   *     `MasterDetailForm` and authored nowhere. objectui#6182 ruled the handler-string
+   *     dialect out, so it is ⛔ never mirrored as a string; and `RuntimeOnlyDeclared`'s
+   *     shape pin admits `/^on[A-Z]/` spellings only, so filing it there means relaxing
+   *     that pin — a ruling, not a refiling. Its route is open on objectui#6152.
+   *   - `open` — a BOOLEAN the drawer and modal variants read (`open: schema.open`),
+   *     written only by hosts that build the node in code (`AppContent`,
+   *     `useActionModal`, `ObjectManager`, `FieldDesigner`), authored in no document, and
+   *     outside the spec's `ComponentPropsMap['object-form']`. Not callback-shaped, so
+   *     not `RuntimeOnlyDeclared`'s either; its route is open on objectui#6152.
+   *
+   * It was 26 before that: the five `on*` keys are in
    * `RuntimeOnlyDeclared` below (objectui#6152). ⚠️ `submitHandler` is NOT among them
    * — the reclassification took the measured `/^on[A-Z]/` set and nothing else, so a
-   * handler-shaped key with another name stays here until someone measures it.
+   * handler-shaped key with another name stayed here until round 1 measured it.
    */
-  'objectql.zod.ts#ObjectFormSchema':
-    | 'allowSkip' | 'buttons' | 'defaultTab' | 'defaults' | 'drawerSide' | 'drawerWidth'
-    | 'formType' | 'mobile' | 'modalCloseButton' | 'modalSize' | 'nextText' | 'open' | 'prevText'
-    | 'sections' | 'showStepIndicator' | 'splitDirection' | 'splitResizable' | 'splitSize'
-    | 'subforms' | 'submitHandler' | 'tabPosition';
+  'objectql.zod.ts#ObjectFormSchema': 'open' | 'submitHandler';
   /**
    * SPEC-DERIVED by MEMBERSHIP since objectui#7762, LOCAL before it: that card mirrored
    * `exportOptions` as the spec's OBJECT ARM by reference, which puts a `Spec…` symbol in
@@ -2879,7 +2908,7 @@ interface UnmirroredDeclared {
  *
  * `UnmirroredDeclared` above was seeded at **121 keys** by objectui#6058, and — on
  * ONE line, because the pin below reads this sentence off disk —
- * `UnmirroredDeclared` records **84 keys** today.
+ * `UnmirroredDeclared` records **65 keys** today.
  * These 23 moved here whole. Keys have since left that ledger by MIRRORING and by
  * RETIREMENT, but the move recorded HERE is neither and repaired nothing. ⛔ Nothing
  * was mirrored by it, no declaration was removed, no defect was repaired and nothing was

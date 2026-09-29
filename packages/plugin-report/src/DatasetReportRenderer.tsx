@@ -26,6 +26,9 @@
  *   so an older server that returns no `totals` renders the plain cross-tab
  *   with no totals row/column. A matrix without `columns` degrades to the
  *   flat grouped table.
+ * - `chart` (any non-joined type) → the embedded chart, its own
+ *   `chart.xAxis` × `chart.yAxis` dataset query: above the grouped / flat
+ *   table, below the matrix cross-tab (objectui#10964).
  * - `joined` → a vertical stack of blocks, each its own dataset-bound table,
  *   with the report-level `runtimeFilter` merged into every block.
  *
@@ -741,7 +744,7 @@ export type ReportChartPlan =
   | { kind: 'series'; chartType: string }
   /** Single-value family — one dimensionless dataset query, shown as a number. */
   | { kind: 'single_value' }
-  /** Tabular family — the grouped table beneath IS the rendering; no duplicate chart. */
+  /** Tabular family — the report's own table beside it IS the rendering; no duplicate chart. */
   | { kind: 'tabular' }
   /** Out-of-spec value (stored dialect / typo) — surfaced, never a silent bar. */
   | { kind: 'unsupported'; type: string };
@@ -758,8 +761,8 @@ export type ReportChartPlan =
  * - the single-value families (`gauge` / `solid-gauge` / `metric` / `kpi` /
  *   `bullet`) render the measure as a number — the spec's own comment calls
  *   them "honest single-value variants pending a real dial/target renderer";
- * - `table` / `pivot` add no duplicate chart: the grouped table that always
- *   renders beneath the chart slot is exactly the tabular presentation;
+ * - `table` / `pivot` add no duplicate chart: the table that always renders
+ *   beside the chart slot is exactly the tabular presentation;
  * - anything else is out-of-spec and gets a visible notice.
  *
  * `combo` joined `ChartTypeSchema` in spec 17.0.0-rc.1 and routes as a series
@@ -933,7 +936,7 @@ function DatasetReportChart({
   const xAxis = typeof chart.xAxis === 'string' ? chart.xAxis : '';
   const yAxis = typeof chart.yAxis === 'string' ? chart.yAxis : '';
   const plan = planReportChart(chart.type);
-  // The chart plots a NARROWER selection than the table beneath it (one
+  // The chart plots a NARROWER selection than the table beside it (one
   // dimension × one measure), so `useDatasetRows` scopes the report's order to
   // those two columns — a "biggest first" on the plotted measure still sorts
   // the bars; a key naming some other row dimension is simply not applicable
@@ -974,7 +977,7 @@ function DatasetReportChart({
   // zh limb of a translated label.
   const { language } = useObjectTranslation();
   // objectui#4330 — the embedded chart plots the SAME dimension the table
-  // beneath it groups by, so it takes the same label map. Leaving it out would
+  // beside it groups by, so it takes the same label map. Leaving it out would
   // put the two spellings of one value on one screen, which is the defect this
   // family exists to close.
   const chartDimensions = React.useMemo(() => (xAxis ? [xAxis] : []), [xAxis]);
@@ -1032,18 +1035,20 @@ function DatasetReportChart({
   // its own frame.
   const title = pickLocalized(chart.title, language) || undefined;
 
-  // `table` / `pivot`: the grouped table rendered beneath this slot IS the
+  // `table` / `pivot`: the report's own table rendered beside this slot IS the
   // tabular presentation — a duplicate chart would say nothing new.
   if (plan.kind === 'tabular') return null;
   if (plan.kind === 'unsupported') {
     // Out-of-spec chart type in stored metadata: say so instead of drawing a
-    // silently wrong bar (#2941). The table beneath still carries the numbers.
+    // silently wrong bar (#2941). The report's table still carries the numbers.
+    // The notice names no position: this slot sits ABOVE a grouped table and
+    // BELOW a matrix cross-tab (objectui#10964).
     return (
       <div
         className="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground"
         data-testid="dataset-report-chart-unsupported"
       >
-        Chart type &ldquo;{plan.type}&rdquo; is not a spec chart type — the grouped table below carries this report&rsquo;s numbers.
+        Chart type &ldquo;{plan.type}&rdquo; is not a spec chart type — the report&rsquo;s table carries its numbers.
       </div>
     );
   }
@@ -1058,7 +1063,7 @@ function DatasetReportChart({
       </div>
     );
   }
-  // On error or empty, fall back silently to the table beneath.
+  // On error or empty, fall back silently to the report's table.
   if (state.status === 'error' || state.rows.length === 0) return null;
 
   // objectui#7534 — resolve a BUILT-IN default measure's caption through the
@@ -1104,7 +1109,7 @@ function DatasetReportChart({
   }
 
   // The chart component is registered lazily; until it resolves render nothing
-  // (the grouped table beneath still shows the exact numbers).
+  // (the report's table beside it still shows the exact numbers).
   if (!ChartComponent) return null;
 
   // ── The DATA half: derived from the selection, never authored (#4229) ─────
@@ -1613,34 +1618,65 @@ export const DatasetReportRenderer: React.FC<DatasetReportRendererProps> = ({
   const reportOrder = readOrder(report.order);
   // Matrix with an across dimension → true cross-tab; without one it
   // degrades to the grouped (summary) table (pre-`columns` stored JSON).
-  if (presentation === 'matrix' && across.length > 0) {
-    return (
-      <div className={className} data-testid="dataset-report" data-report-name={report.name}>
-        <DatasetMatrixTable
-          dataset={String(report.dataset ?? '')}
-          rows={readNames(report.rows)}
-          columnsAcross={across}
-          values={readNames(report.values)}
-          runtimeFilter={outerFilter}
-          dataSource={dataSource}
-          onDrill={drillSink}
-          order={reportOrder}
-        />
-      </div>
-    );
-  }
+  const crossTab = presentation === 'matrix' && across.length > 0;
 
-  // summary → grouped table with the server-computed totals footer;
-  // tabular → the same selection as a simple list, no totals (the declared
-  // type is what separates them, #2941). A matrix without `columns` degrades
-  // to the summary presentation — it is a grouped type. Either is preceded by
-  // the embedded chart visualization when the report declares one (ADR-0021:
+  // The embedded chart visualization, when the report declares one (ADR-0021:
   // the chart plots the dataset's yAxis measure across the xAxis dimension;
-  // the table beneath always carries the exact numbers).
+  // the table always carries the exact numbers). ONE slot for every non-joined
+  // presentation, the cross-tab included: `DatasetReportChart` runs its OWN
+  // `chart.xAxis` × `chart.yAxis` dataset query, so it binds the same way
+  // whichever table sits next to it — a matrix's rows and columns are dataset
+  // dimensions like a summary's rows, and the chart's axes name them.
+  //
+  // objectui#10964 — the cross-tab used to RETURN before this read, so a matrix
+  // report with `columns` parsed its `chart` and drew nothing. The spec accepts
+  // that shape, so the renderer now draws it (ENFORCE, objectstack-ai/objectstack#20293).
   const chartCfg =
     report.chart && typeof report.chart === 'object' && (report.chart as { type?: unknown }).type
       ? (report.chart as Record<string, unknown>)
       : null;
+  const chart = chartCfg ? (
+    <DatasetReportChart
+      dataset={String(report.dataset ?? '')}
+      chart={chartCfg}
+      runtimeFilter={outerFilter}
+      dataSource={dataSource}
+      order={reportOrder}
+    />
+  ) : null;
+
+  // summary → grouped table with the server-computed totals footer;
+  // tabular → the same selection as a simple list, no totals (the declared
+  // type is what separates them, #2941). A matrix without `columns` degrades
+  // to the summary presentation — it is a grouped type.
+  const table = crossTab ? (
+    <DatasetMatrixTable
+      dataset={String(report.dataset ?? '')}
+      rows={readNames(report.rows)}
+      columnsAcross={across}
+      values={readNames(report.values)}
+      runtimeFilter={outerFilter}
+      dataSource={dataSource}
+      onDrill={drillSink}
+      order={reportOrder}
+    />
+  ) : (
+    <DatasetReportTable
+      dataset={String(report.dataset ?? '')}
+      rows={readNames(report.rows)}
+      values={readNames(report.values)}
+      runtimeFilter={outerFilter}
+      dataSource={dataSource}
+      onDrill={drillSink}
+      order={reportOrder}
+      withTotals={presentation === 'summary' || presentation === 'matrix'}
+    />
+  );
+
+  // The chart precedes the grouped / flat table, and follows the cross-tab:
+  // the ruling on objectstack-ai/objectstack#20293 draws a matrix's chart
+  // "beside or below the cross-tab", and below is the one placement that needs
+  // no new layout option.
   return (
     <div
       className={`${className ?? ''} flex flex-col gap-3`}
@@ -1648,25 +1684,8 @@ export const DatasetReportRenderer: React.FC<DatasetReportRendererProps> = ({
       data-report-name={report.name}
       data-report-presentation={presentation}
     >
-      {chartCfg ? (
-        <DatasetReportChart
-          dataset={String(report.dataset ?? '')}
-          chart={chartCfg}
-          runtimeFilter={outerFilter}
-          dataSource={dataSource}
-          order={reportOrder}
-        />
-      ) : null}
-      <DatasetReportTable
-        dataset={String(report.dataset ?? '')}
-        rows={readNames(report.rows)}
-        values={readNames(report.values)}
-        runtimeFilter={outerFilter}
-        dataSource={dataSource}
-        onDrill={drillSink}
-        order={reportOrder}
-        withTotals={presentation === 'summary' || presentation === 'matrix'}
-      />
+      {crossTab ? table : chart}
+      {crossTab ? chart : table}
     </div>
   );
 };

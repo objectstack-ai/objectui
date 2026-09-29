@@ -201,6 +201,11 @@ paths and not expressions. `title`, `subtitle`, `series`, `colors`, `height`,
 through as authored. See the [package README](https://github.com/objectstack-ai/objectui/tree/main/packages/plugin-report)
 for a complete `chart` block.
 
+The chart runs its own `xAxis` × `yAxis` dataset query, so it binds the same way
+on every non-`joined` type. It draws above a `tabular` or `summary` table, and
+below the cross-tab of a `matrix` that declares `columns`; there `xAxis` may name
+a `rows` or a `columns` dimension.
+
 ## Drill-down
 
 Drill-down is a **host callback**, not a registered handler. Pass `onDrill` and

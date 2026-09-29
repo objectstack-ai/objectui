@@ -122,8 +122,17 @@ const FORM_IDENTITY_KEYS = ['type', 'objectName', 'mode'] as const;
  * is not here.
  */
 const TABLE_WITHHELD_BY_REASON = {
-  /** `ObjectGrid` has no read of it, so nothing could draw it. */
-  unread: ['bulkSpecActions', 'description', 'emptyState', 'keyboardNavigation', 'name', 'placeholder', 'rowSpecActions', 'showFilters'],
+  /**
+   * `ObjectGrid` has no read of it, so nothing could draw it. Four of these are
+   * retirement tombstones on `ObjectGridSchema` itself since objectui#11068
+   * (`bulkSpecActions`, `name`, `placeholder`, `rowSpecActions`).
+   */
+  unread: ['bulkSpecActions', 'keyboardNavigation', 'name', 'placeholder', 'rowSpecActions', 'showFilters'],
+  /**
+   * `ObjectGrid` honours it on its own node since objectui#11068, and the view
+   * does not hand it on: that card enforced both without widening this slot.
+   */
+  notRelayed: ['description', 'emptyState'],
   /** The view owns it: its own record source, its own row click, its grid's identity. */
   viewOwned: ['bind', 'data', 'id', 'navigation', 'onNavigate', 'staticData'],
   /**
@@ -138,9 +147,11 @@ const TABLE_WITHHELD_BY_REASON = {
 const TABLE_WITHHELD_KEYS: readonly string[] = Object.values(TABLE_WITHHELD_BY_REASON).flat();
 
 /**
- * The retirement tombstones `ObjectGridSchema` declares itself (`?: never` on
- * both faces). The slot keeps them: they type nothing, and they carry the named
- * refusal and its guidance onto this face too.
+ * Retirement tombstones `ObjectGridSchema` declares itself (`?: never` on both
+ * faces) that the slot keeps: they type nothing, and they carry the named
+ * refusal and its guidance onto this face too. The four the grid retired in
+ * objectui#11068 are in the withheld set above instead, refused by the slot's
+ * own message.
  */
 const TABLE_INHERITED_TOMBSTONES = ['body', 'children', 'defaultSort'] as const;
 

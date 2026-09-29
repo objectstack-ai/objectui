@@ -55,16 +55,24 @@ const OPTIONS = [
  * `aria-labelledby`, one toggle per option, and emits an ARRAY — the value
  * shape the real widget produces.
  */
-function MultiProbe(props: any) {
-  const { name, value, onChange, field, error: _error, options: _options, ...rest } = props;
+type MultiProbeProps = {
+  name?: string;
+  value?: unknown;
+  onChange?: (next: string[]) => void;
+  field?: { options?: Array<{ label: string; value: string }> };
+  id?: string;
+  'aria-labelledby'?: string;
+};
+
+function MultiProbe({ name, value, onChange, field, id, 'aria-labelledby': labelledBy }: MultiProbeProps) {
   const selected: string[] = Array.isArray(value) ? value : [];
-  const opts: Array<{ label: string; value: string }> = field?.options ?? [];
+  const opts = field?.options ?? [];
   return (
     <div
       data-testid={`multi-probe-${name}`}
-      role={rest['aria-labelledby'] ? 'group' : undefined}
-      aria-labelledby={rest['aria-labelledby']}
-      id={rest.id}
+      role={labelledBy ? 'group' : undefined}
+      aria-labelledby={labelledBy}
+      id={id}
     >
       {opts.map((o) => (
         <button
@@ -86,7 +94,10 @@ function MultiProbe(props: any) {
   );
 }
 
-function renderForm(fields: any[], onSubmit?: (data: Record<string, unknown>) => void) {
+function renderForm(
+  fields: Array<Record<string, unknown>>,
+  onSubmit?: (data: Record<string, unknown>) => void,
+) {
   const Form = ComponentRegistry.get('form')!;
   return render(
     <Form

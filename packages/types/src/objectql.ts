@@ -1496,15 +1496,26 @@ export interface ObjectFormSchema extends BaseSchema {
   recordId?: string;
   
   /**
-   * Optional title for the form
+   * Optional title for the form — the heading of the drawer and modal
+   * presentations.
+   *
+   * `title`, `description`, `submitText`, `cancelText`, `nextText`, `prevText`
+   * and `successMessage` are the spec's `I18nLabel`, as
+   * `ComponentPropsMap['object-form']` in `@objectstack/spec` declares them: a
+   * plain string or an inline per-locale map such as
+   * `{ en: 'Save order', 'zh-CN': '保存订单' }`. `ObjectForm` resolves all seven
+   * with `pickLocalized` against the active UI language
+   * (`useObjectTranslation().language`) once, above the `formType` fork, so every
+   * presentation receives a string (objectui#10993).
    */
-  title?: string;
-  
+  title?: I18nLabel;
+
   /**
-   * Optional description
+   * Optional description — the subtitle of the drawer and modal presentations.
+   * `I18nLabel`; see `title`.
    */
-  description?: string;
-  
+  description?: I18nLabel;
+
   /**
    * Field names to include in the form
    * If not specified, uses all editable fields from object schema
@@ -1611,15 +1622,17 @@ export interface ObjectFormSchema extends BaseSchema {
   
   /**
    * Text for Next button. Only used when formType is 'wizard'.
+   * `I18nLabel`; see `title`.
    * @default 'Next'
    */
-  nextText?: string;
+  nextText?: I18nLabel;
   
   /**
    * Text for Previous button. Only used when formType is 'wizard'.
+   * `I18nLabel`; see `title`.
    * @default 'Back'
    */
-  prevText?: string;
+  prevText?: I18nLabel;
   
   /**
    * Called when wizard step changes. Only used when formType is 'wizard'.
@@ -1647,16 +1660,17 @@ export interface ObjectFormSchema extends BaseSchema {
   showSubmit?: boolean;
   
   /**
-   * Submit button text
+   * Submit button text. `I18nLabel`; see `title`.
    */
-  submitText?: string;
+  submitText?: I18nLabel;
 
   /**
    * Declarative success toast text shown after a successful create/update when
    * no `onSuccess` function handler is supplied (metadata-only pages cannot
-   * pass a function). Falls back to 'Created' / 'Saved'.
+   * pass a function). Falls back to 'Created' / 'Saved'. `I18nLabel`; see
+   * `title`.
    */
-  successMessage?: string;
+  successMessage?: I18nLabel;
 
   /**
    * Navigate here after a successful create/update (declarative; falls back to
@@ -1695,9 +1709,9 @@ export interface ObjectFormSchema extends BaseSchema {
   showCancel?: boolean;
   
   /**
-   * Cancel button text
+   * Cancel button text. `I18nLabel`; see `title`.
    */
-  cancelText?: string;
+  cancelText?: I18nLabel;
   
   /**
    * Show reset button

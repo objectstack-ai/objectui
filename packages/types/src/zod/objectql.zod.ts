@@ -426,8 +426,19 @@ export const ObjectFormSchema = BaseSchema.extend({
     .string({ error: (issue) => (issue.code === 'invalid_type' ? RECORD_ID_IS_A_STRING_GUIDANCE : undefined) })
     .optional()
     .describe('Record ID \u2014 a string, never a number (objectui#9511)'),
-  title: z.string().optional().describe('Form title'),
-  description: z.string().optional().describe('Form description'),
+  // `title`, `description`, `submitText`, `cancelText` and `successMessage` are
+  // the spec's `I18nLabel` BY REFERENCE, as `ComponentPropsMap['object-form']`
+  // declares them: a plain string or an inline per-locale map. `ObjectForm`
+  // resolves all seven of the row's `I18nLabel` members with `pickLocalized`
+  // against the active UI language, above its `formType` fork (objectui#10993).
+  // This mirror used to narrow the five it declares to `z.string()`, refusing a
+  // map the row and the renderer both accept. The row's other two, `nextText`
+  // and `prevText`, are not mirrored here; they stay in this pair's
+  // `UnmirroredDeclared` entry in `../__tests__/zod-mirror-parity.test.ts`.
+  title: stripImportedDefaults(SpecI18nLabelSchema).optional()
+    .describe('Form title: the drawer and modal heading. @objectstack/spec I18nLabel, a plain string or an inline locale map'),
+  description: stripImportedDefaults(SpecI18nLabelSchema).optional()
+    .describe('Form description: the drawer and modal subtitle. @objectstack/spec I18nLabel, a plain string or an inline locale map'),
   fields: z.array(z.string()).optional().describe('Included fields'),
   customFields: z.array(z.any()).optional().describe('Custom field configs'),
   initialData: z.record(z.string(), z.any()).optional().describe('Initial data'),
@@ -441,8 +452,10 @@ export const ObjectFormSchema = BaseSchema.extend({
   layout: z.enum(['vertical', 'horizontal', 'inline', 'grid']).optional().describe('Form layout'),
   columns: z.number().optional().describe('Grid columns'),
   showSubmit: z.boolean().optional().describe('Show submit button'),
-  submitText: z.string().optional().describe('Submit button text'),
-  successMessage: z.string().optional().describe('Success toast text after create/update when no onSuccess handler is given'),
+  submitText: stripImportedDefaults(SpecI18nLabelSchema).optional()
+    .describe('Submit button text. @objectstack/spec I18nLabel, a plain string or an inline locale map'),
+  successMessage: stripImportedDefaults(SpecI18nLabelSchema).optional()
+    .describe('Success toast text after create/update when no onSuccess handler is given. @objectstack/spec I18nLabel, a plain string or an inline locale map'),
   navigateOnSuccess: z.string().optional().describe('DEPRECATED, write submitBehavior instead: navigate here after success (relative path only; {id}/{recordId} interpolated and URL-escaped); precedes the toast'),
   resetOnSuccess: z.boolean().optional().describe('Reset the form after a successful create for another entry'),
   submitBehavior: z.union([
@@ -452,7 +465,8 @@ export const ObjectFormSchema = BaseSchema.extend({
     z.object({ kind: z.literal('next-record') }),
   ]).optional().describe('Declarative post-submit behavior; takes precedence over successMessage/navigateOnSuccess/resetOnSuccess'),
   showCancel: z.boolean().optional().describe('Show cancel button'),
-  cancelText: z.string().optional().describe('Cancel button text'),
+  cancelText: stripImportedDefaults(SpecI18nLabelSchema).optional()
+    .describe('Cancel button text. @objectstack/spec I18nLabel, a plain string or an inline locale map'),
   showReset: z.boolean().optional().describe('Show reset button'),
   initialValues: z.record(z.string(), z.any()).optional().describe('Initial values'),
   readOnly: z.boolean().optional().describe('Read-only mode'),

@@ -233,8 +233,27 @@ ComponentRegistry.register('object-form', ObjectFormRenderer, {
     { name: 'mode', type: 'enum', enum: ['create', 'edit', 'view'] },
     { name: 'formType', type: 'enum', enum: ['simple', 'tabbed', 'wizard', 'split', 'drawer', 'modal'] },
     { name: 'sections', type: 'array' },
-    { name: 'title', type: 'string' },
-    { name: 'description', type: 'string' },
+    // The row's seven `I18nLabel` members (`ComponentPropsMap['object-form']`):
+    // `title`, `description` here, and `submitText`, `cancelText`, `nextText`,
+    // `prevText` and `successMessage` below. `ObjectForm` resolves a map with
+    // `pickLocalized` against the active UI language, above its `formType` fork
+    // (objectui#10993). So both arms are declared, in the same change that taught
+    // the render site to resolve the map, as `ComponentInput.type` prescribes: a
+    // `'string'`-only declaration made the manifest gate report `type-mismatch`
+    // on a legal map. The render is pinned by `ObjectForm.i18nLabels.test.tsx`,
+    // the manifest by the console's `objectFormI18nLabelManifest.test.ts`.
+    {
+      name: 'title',
+      type: ['string', 'object'],
+      description:
+        'Heading of the drawer and modal presentations (`formType: "drawer"` / `"modal"`). Accepts either a plain string or an inline per-locale map (`{ en: "New order", "zh-CN": "新建订单" }`) — the `I18nLabel` union the contract admits on this key — and the form resolves the map against the active UI language, falling back through base language, a region-qualified sibling, `default`, then `en`, and finally to any remaining entry.',
+    },
+    {
+      name: 'description',
+      type: ['string', 'object'],
+      description:
+        'Subtitle under the drawer and modal heading. Accepts either a plain string or an inline per-locale map (`{ en: "Enter the order details", "zh-CN": "填写订单信息" }`), resolved against the active UI language with the same fallback chain as `title`.',
+    },
     { name: 'layout', type: 'enum', enum: ['vertical', 'horizontal', 'inline', 'grid'] },
     { name: 'columns', type: 'number' },
     // Tabbed
@@ -262,16 +281,41 @@ ComponentRegistry.register('object-form', ObjectFormRenderer, {
     { name: 'initialData', type: 'object', description: 'Alternate spelling of `initialValues` that the drawer/modal presentations read FIRST — PER MEMBER (`{ ...initialValues, ...initialData }`), so a member this key says nothing about keeps its `initialValues` value. Prefer `initialValues` in new schemas.' },
     { name: 'readOnly', type: 'boolean', description: 'Render every field read-only, whatever `mode` says.' },
     // Buttons
-    { name: 'submitText', type: 'string' },
-    { name: 'cancelText', type: 'string' },
-    { name: 'nextText', type: 'string', description: 'Label of the next-step button (wizard).' },
-    { name: 'prevText', type: 'string', description: 'Label of the previous-step button (wizard).' },
+    {
+      name: 'submitText',
+      type: ['string', 'object'],
+      description:
+        'Label of the Save button. A map no locale limb resolves shows the default label. Accepts either a plain string or an inline per-locale map (`{ en: "Save order", "zh-CN": "保存订单" }`), resolved against the active UI language with the same fallback chain as `title`.',
+    },
+    {
+      name: 'cancelText',
+      type: ['string', 'object'],
+      description:
+        'Label of the Cancel button. Accepts either a plain string or an inline per-locale map (`{ en: "Back", "zh-CN": "返回" }`), resolved against the active UI language with the same fallback chain as `title`.',
+    },
+    {
+      name: 'nextText',
+      type: ['string', 'object'],
+      description:
+        'Label of the next-step button (wizard). Defaults to "Next". Accepts either a plain string or an inline per-locale map (`{ en: "Continue", "zh-CN": "继续" }`), resolved against the active UI language with the same fallback chain as `title`.',
+    },
+    {
+      name: 'prevText',
+      type: ['string', 'object'],
+      description:
+        'Label of the previous-step button (wizard). Defaults to "Back". Accepts either a plain string or an inline per-locale map (`{ en: "Previous", "zh-CN": "上一步" }`), resolved against the active UI language with the same fallback chain as `title`.',
+    },
     { name: 'showSubmit', type: 'boolean' },
     { name: 'showCancel', type: 'boolean' },
     { name: 'showReset', type: 'boolean' },
     // After a successful submit
     { name: 'submitBehavior', type: 'object', description: 'Declarative post-submit behaviour, one of `{ kind: "thank-you", title?, message? }`, `{ kind: "redirect", url, delayMs? }`, `{ kind: "continue" }`, `{ kind: "next-record" }`. When present it takes precedence over `successMessage` / `navigateOnSuccess` / `resetOnSuccess`.' },
-    { name: 'successMessage', type: 'string', description: 'Toast shown after a successful submit. Ignored when `submitBehavior` or `navigateOnSuccess` is set.' },
+    {
+      name: 'successMessage',
+      type: ['string', 'object'],
+      description:
+        'Toast shown after a successful submit. Ignored when `submitBehavior` or `navigateOnSuccess` is set. Accepts either a plain string or an inline per-locale map (`{ en: "Order saved", "zh-CN": "订单已保存" }`), resolved against the active UI language with the same fallback chain as `title`.',
+    },
     { name: 'navigateOnSuccess', type: 'string', description: 'Path to navigate to after a successful create/update. Supports `{id}` / `{recordId}` interpolation from the saved record and is same-origin-guarded. Takes precedence over `successMessage`.' },
     { name: 'resetOnSuccess', type: 'boolean', description: 'Clear the form after a successful submit instead of keeping the saved values.' },
     // Mobile

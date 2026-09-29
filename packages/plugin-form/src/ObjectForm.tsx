@@ -16,6 +16,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { ObjectFormSchema, FormField, FormSchema, DataSource } from '@object-ui/types';
 import { SchemaRenderer, useSafeFieldLabel } from '@object-ui/react';
+import { pickLocalized, useObjectTranslation } from '@object-ui/i18n';
 import { useRecordInvalidation } from './recordInvalidation';
 import { mapFieldTypeToFormType, buildValidationRules, formatFileSize } from '@object-ui/fields';
 import { useIsMobile, toast } from '@object-ui/components';
@@ -138,6 +139,63 @@ function foldFormButtons(schema: ObjectFormComponentProps['schema']): ObjectForm
 }
 
 /**
+ * The seven members `ComponentPropsMap['object-form']` in `@objectstack/spec`
+ * declares as `I18nLabel`: a plain string or an inline per-locale map such as
+ * `{ en: 'Save order', 'zh-CN': '保存订单' }` (objectui#10993).
+ */
+const OBJECT_FORM_LABEL_KEYS = [
+  'title',
+  'description',
+  'submitText',
+  'cancelText',
+  'nextText',
+  'prevText',
+  'successMessage',
+] as const;
+type ObjectFormLabelKey = (typeof OBJECT_FORM_LABEL_KEYS)[number];
+
+/**
+ * `ObjectFormSchema` as every presentation below reads it: the seven
+ * `I18nLabel` members already resolved to a string. A homomorphic mapped type
+ * rather than `Omit`, because `BaseSchema`'s index signature makes `Omit`
+ * collapse to that signature and drop every declared member.
+ */
+type LocalizedObjectFormSchema = {
+  [K in keyof ObjectFormSchema]: K extends ObjectFormLabelKey ? string : ObjectFormSchema[K];
+};
+
+/**
+ * Resolve the seven `I18nLabel` members against the active UI language — the
+ * source `ObjectMetricWidget` and `MasterDetailForm` resolve their own
+ * `I18nLabel` members against — before any presentation reads them.
+ *
+ * Read raw, a map was a React child in every presentation that renders one
+ * (`submitText` / `cancelText` on the form's buttons, `nextText` / `prevText`
+ * on the wizard's, `title` / `description` as the drawer and modal headings)
+ * and threw "Objects are not valid as a React child", taking the whole form
+ * down; `successMessage` went into the success toast.
+ *
+ * Only the map arm is touched: a string, or any value that is not an object,
+ * is handed on exactly as authored. A map with no usable entry resolves to
+ * `undefined`, so each presentation's own default ('Create', 'Cancel', 'Next',
+ * …) shows. Returns its input untouched when no member is a map, so there is
+ * no allocation on the hot path.
+ */
+function localizeFormLabels(
+  schema: ObjectFormComponentProps['schema'],
+  language: string,
+): LocalizedObjectFormSchema {
+  let out: Record<string, unknown> | null = null;
+  for (const key of OBJECT_FORM_LABEL_KEYS) {
+    const value: unknown = schema[key];
+    if (value === null || typeof value !== 'object') continue;
+    out ??= { ...schema };
+    out[key] = pickLocalized(value, language) || undefined;
+  }
+  return (out ?? schema) as LocalizedObjectFormSchema;
+}
+
+/**
  * ObjectForm Component
  *
  * Renders a form for an ObjectQL object with automatic schema integration.
@@ -197,11 +255,15 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
     return () => { alive = false; };
   }, [needsGroupLayout, canResolveGroups, dataSource, rawSchema.objectName]);
 
+  // The UI language the seven `I18nLabel` members resolve against — see
+  // `localizeFormLabels` (objectui#10993).
+  const { language } = useObjectTranslation();
+
   // Apply field-level permissions to the entire schema (sections + flat
   // fields) BEFORE dispatching to any variant. This way all variants
   // (Tabbed/Wizard/Split/Drawer/Modal/Simple) transparently honour FLS.
   // Fail-open when no provider mounted (perms.isLoaded false).
-  const schema = useMemo<ObjectFormComponentProps['schema']>(() => {
+  const schema = useMemo<LocalizedObjectFormSchema>(() => {
     // framework#1894 / #2998 (ADR-0078): the authored @objectstack/spec
     // FormViewSchema carries the structured `buttons.{submit,cancel,reset}.
     // {show,label}` + `defaults` surface, but this renderer historically read
@@ -209,13 +271,18 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
     // structured shape down onto those flat props FIRST so every downstream
     // read (and every variant we dispatch `schema` into) sees it. An
     // explicitly-set flat key still wins (deprecated back-compat).
-    const folded = foldFormButtons(rawSchema);
+    //
+    // objectui#10993: the seven `I18nLabel` members are resolved HERE, above the
+    // `formType` fork, for the reason `sections[].group` is resolved above it:
+    // every presentation reads them, so one site covers all of them. Folded
+    // first, so a `buttons.*.label` lands on the flat key before it resolves.
+    const folded = localizeFormLabels(foldFormButtons(rawSchema), language);
     // #2545: spec FormViewSchema defines `groups` as a legacy alias of
     // `sections`, and this renderer only ever consumes `sections` — normalize
     // so groups-only metadata actually renders (it used to be silently
     // ignored). Legacy shape maps `title`→`label`, `defaultCollapsed`→`collapsed`.
     const legacyGroups = (folded as any).groups;
-    const base: ObjectFormComponentProps['schema'] =
+    const base: LocalizedObjectFormSchema =
       !folded.sections?.length && Array.isArray(legacyGroups) && legacyGroups.length
         ? {
             ...folded,
@@ -234,7 +301,7 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
      * Returns its input UNCHANGED — same array reference — when no section
      * uses the reference form, so this memo cannot perturb any existing form.
      */
-    const withGroups = (s: ObjectFormComponentProps['schema']) => {
+    const withGroups = (s: LocalizedObjectFormSchema) => {
       const resolved = resolveSectionGroupReferences(s.sections as any, {
         objectName: s.objectName,
         formType: s.formType,
@@ -256,8 +323,8 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
         ...s,
         fields: filterArr(s.fields),
       })),
-    } as ObjectFormComponentProps['schema']);
-  }, [rawSchema, perms, groupObjectDef, canResolveGroups]);
+    } as LocalizedObjectFormSchema);
+  }, [rawSchema, perms, groupObjectDef, canResolveGroups, language]);
   const { sectionLabel } = useSafeFieldLabel();
   const tSec = (s: any) =>
     s?.name ? sectionLabel(schema.objectName, s.name, s.label || s.name) : s?.label;
@@ -557,7 +624,7 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
 /**
  * SimpleObjectForm — default form variant with auto-generated fields from ObjectQL schema.
  */
-const SimpleObjectForm: React.FC<ObjectFormComponentProps> = ({
+const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource?: DataSource }> = ({
   schema,
   dataSource,
 }) => {

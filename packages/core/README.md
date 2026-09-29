@@ -186,14 +186,12 @@ values off a record. `ActionRunner` uses it, and so should any surface that
 builds its own `update` Undo operation.
 
 ```typescript
-import { captureUpdateUndoData } from '@object-ui/core'
+import { captureUpdateUndoData, type FieldContainerLike } from '@object-ui/core'
 
-// The written object's field definitions (`objectSchema.fields`).
-const fields = {
-  status: { type: 'text' },
-  account: { type: 'lookup', reference: 'account' },
-  config: { type: 'json' },
-}
+// The written object's field definitions, as its schema serves them
+// (`objectSchema.fields`). Below, `status` is a text field, `account` a
+// lookup and `config` a json field.
+declare const fields: FieldContainerLike
 
 captureUpdateUndoData(['status'], { id: 't1', status: 'open' }, fields) // { status: 'open' }
 captureUpdateUndoData(['status'], { id: 't1', status: null }, fields)   // { status: null }

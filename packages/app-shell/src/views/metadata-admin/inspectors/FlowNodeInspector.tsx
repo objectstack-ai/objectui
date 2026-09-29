@@ -21,6 +21,7 @@
 
 import * as React from 'react';
 import { Plus } from 'lucide-react';
+import { resolveFlowTriggerKind } from '@objectstack/spec/automation';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
 import { t } from '../i18n.js';
 import {
@@ -228,7 +229,12 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
     return applyConnectorInputForm(localized, connectorInput, storedInput);
   }, [configSchemas, nodeType, locale, connectorInput, storedInput]);
   const config = asConfig(node);
-  const visibleFields = fields.filter((f) => isFieldVisible(f, node, fields));
+  // objectui#11054 — the flow's trigger kind, asked of the whole draft with the
+  // spec's own resolver (the engine's precedence), for fields gated by
+  // `flowKind`: an `api` flow is `type: 'api'` OR a start-node
+  // `triggerType: 'api'`, and only the draft can answer the first.
+  const flowKind = resolveFlowTriggerKind(draft);
+  const visibleFields = fields.filter((f) => isFieldVisible(f, node, fields, flowKind));
 
   // `{var}` interpolation source for the screen preview — the flow's declared
   // variables and their defaults (the designer has no live run state).
@@ -473,7 +479,7 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
             // control's clothes. Name it, and offer the deliberate clear.
             // Computed from `field` (not `effField`): the read is by `path`,
             // which the nested-branch rewrite above does not touch.
-            inactiveRetained={inactiveRetainedKind(field, node, fields)}
+            inactiveRetained={inactiveRetainedKind(field, node, fields, flowKind)}
             onClearInactive={readOnly ? undefined : () => setField(field, undefined)}
           />
         );

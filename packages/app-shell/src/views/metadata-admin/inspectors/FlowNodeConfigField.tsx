@@ -7,9 +7,10 @@
  */
 
 import * as React from 'react';
-import { isUnsetFieldValue } from './flow-node-config.js';
+import { isUnsetFieldValue, unsetNoticeApplies } from './flow-node-config.js';
 import type { FlowConfigField, InactiveRetainedKind } from './flow-node-config.js';
 import { t } from '../i18n.js';
+import { WIDGETS, OBJECTUI_SECRET_MASK } from '../widgets.js';
 import {
   InspectorNumberField,
   InspectorSelectField,
@@ -47,6 +48,70 @@ import { findUnknownRefs, scopeRoots, describeUnknownRefs } from './flow-ref-che
  * who needs one still has the raw CEL escape hatch.
  */
 const FLOW_TRIGGER_CONTEXT_SUBJECTS: ReadonlyArray<{ value: string; label?: string }> = [];
+
+/** The metadata form's write-only credential input, reused as-is (objectui#11054). */
+const SecretWidget = WIDGETS['secret'];
+
+/**
+ * The `secret` kind (objectui#11054) — a flow-node credential, write-only.
+ *
+ * The widget speaks the metadata form's protocol: a value equal to
+ * `OBJECTUI_SECRET_MASK` means "one is stored" (the box starts empty with a
+ * leave-blank-to-keep hint and a Clear button); any other string is a value it
+ * would put INTO the input. A flow never carries the mask — a server that
+ * withholds the secret serves the start node without the key, and one that does
+ * not serves the value itself — so this adapter translates both directions:
+ *
+ * - READ: a value already on the node when the control mounts is `held`, and
+ *   is handed to the widget as the mask. It is never rendered, revealed or
+ *   echoed: the widget's own input only ever holds what the author types here.
+ * - WRITE: a typed value is committed as-is. Blank over a held value writes
+ *   nothing (the node keeps it); blank with nothing held commits `undefined`,
+ *   which the inspector's `setAtPath` turns into an ABSENT key — never `''`, and
+ *   never the mask, either of which a server would store as the secret. Clear
+ *   drops the key from the draft and forgets the held value.
+ *
+ * An absent key is what a withholding server reads as "keep the stored
+ * secret", so a save that never touched this control keeps it.
+ */
+function FlowSecretControl({
+  id,
+  value,
+  onCommit,
+  disabled,
+}: {
+  id: string;
+  value: unknown;
+  onCommit: (value: unknown) => void;
+  disabled?: boolean;
+}) {
+  const [held, setHeld] = React.useState<string | undefined>(() =>
+    typeof value === 'string' && value !== '' ? value : undefined,
+  );
+  const shown = held !== undefined && value === held ? OBJECTUI_SECRET_MASK : typeof value === 'string' && value !== '' ? value : undefined;
+  const onChange = (next: unknown) => {
+    if (next === OBJECTUI_SECRET_MASK) return; // blank over a held secret: keep it
+    if (next === null) {
+      setHeld(undefined); // Clear: forget it, and drop the key from the draft
+      onCommit(undefined);
+      return;
+    }
+    if (typeof next === 'string' && next !== '') {
+      onCommit(next);
+      return;
+    }
+    onCommit(held); // blank: back to what was held, or no key at all
+  };
+  return (
+    <SecretWidget
+      id={id}
+      value={shown}
+      onChange={onChange}
+      readOnly={disabled}
+      schema={{ type: 'string', writeOnly: true }}
+    />
+  );
+}
 
 export interface FlowNodeConfigFieldProps {
   field: FlowConfigField;
@@ -98,6 +163,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
   // `interpolate()` field (a loop `collection`) out even if one ever opts in.
   const asConditionBuilder =
     field.kind === 'expression' && !!field.conditionBuilder && !!triggerScope && refMode !== 'template';
+  const secretId = React.useId();
   const control = (() => {
     if (asConditionBuilder && triggerScope) {
       return (
@@ -328,6 +394,19 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             />
           );
         })();
+      case 'secret': {
+        // objectui#11054 — keyed on the node, so a control moved to another
+        // node's value never carries the previous node's `held` secret over.
+        const nodeId = typeof context?.node?.id === 'string' ? context.node.id : '';
+        return (
+          <div className="space-y-1">
+            <Label htmlFor={secretId} className="text-xs text-muted-foreground">
+              {field.label}
+            </Label>
+            <FlowSecretControl key={nodeId} id={secretId} value={value} onCommit={onCommit} disabled={disabled} />
+          </div>
+        );
+      }
       case 'textarea':
         return (
           <div className="space-y-1">
@@ -432,6 +511,20 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             </Button>
           )}
         </div>
+      )}
+      {/*
+        objectui#11054 — a key the engine refuses the flow without, while it is
+        empty. Shown only on a field its gate admits: a retained-but-inert value
+        above already says the field is not in effect.
+      */}
+      {!inactiveRetained && unsetNoticeApplies(field, value) && (
+        <p
+          className="text-[11px] leading-snug text-amber-700 dark:text-amber-400"
+          role="note"
+          data-testid="unset-notice"
+        >
+          {field.unsetNotice}
+        </p>
       )}
       {exprIssue && (
         <p className="text-[11px] leading-snug text-destructive" role="alert">

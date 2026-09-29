@@ -66,7 +66,7 @@ import {
   toast,
 } from '@object-ui/components';
 import { Plus } from 'lucide-react';
-import { useObjectTranslation, createSafeTranslation, useDisplayLocale } from '@object-ui/i18n';
+import { useObjectTranslation, createSafeTranslation, useDisplayLocale, pickLocalized } from '@object-ui/i18n';
 // objectui#7928 — a named view's `label` is the protocol's `I18nLabel` (a plain
 // string or an inline locale map) since `ObjectViewSchema.listViews` became its
 // record by reference. Resolved the way `ListView` resolves its own `label`.
@@ -979,6 +979,12 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // Declared with the other top-level hooks so it stays above every conditional
   // return — rules-of-hooks.
   const { t: tView } = useObjectViewTranslation();
+  // The UI language the `form` slot's `title` and `description` resolve against
+  // (objectui#10993). Both are `ObjectFormSchema`'s `I18nLabel` members, and
+  // `ObjectForm` resolves the same form's other labels against this language,
+  // so the heading this view draws around the form and the form's own buttons
+  // read in one language. A top-level hook for the same rules-of-hooks reason.
+  const { language: uiLanguage } = useObjectTranslation();
   // The locale a named view's `I18nLabel` resolves in on the tab strip
   // (objectui#7928). A top-level hook for the same rules-of-hooks reason.
   const displayLocale = useDisplayLocale();
@@ -2473,8 +2479,12 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // Two branches stay literal on purpose:
   //   - `schema.form?.title` — the author wrote a title, so use the author's.
   //   - `default` — returns the object label alone, no verb to translate.
+  // `form.title` / `form.description` are `I18nLabel` (objectui#10993): read
+  // raw, a per-locale map was a React child in the drawer and modal headers.
+  const formTitleText = pickLocalized(schema.form?.title, uiLanguage);
+  const formDescriptionText = pickLocalized(schema.form?.description, uiLanguage);
   const getFormTitle = (): string => {
-    if (schema.form?.title) return schema.form.title;
+    if (formTitleText) return formTitleText;
     const objectLabel = (objectSchema?.label as string) || schema.objectName;
     switch (formMode) {
       case 'create': return tView('form.createTitle', { object: objectLabel });
@@ -2498,8 +2508,8 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       <DrawerContent className={cn('w-full sm:max-w-2xl', formWidthClass)}>
         <DrawerHeader>
           <DrawerTitle>{getFormTitle()}</DrawerTitle>
-          {schema.form?.description && (
-            <DrawerDescription>{schema.form.description}</DrawerDescription>
+          {formDescriptionText && (
+            <DrawerDescription>{formDescriptionText}</DrawerDescription>
           )}
         </DrawerHeader>
         <div className="flex-1 overflow-y-auto px-4 pb-4">
@@ -2515,8 +2525,8 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       <DialogContent className={cn('max-w-2xl max-h-[90vh] overflow-y-auto', formWidthClass)}>
         <DialogHeader>
           <DialogTitle>{getFormTitle()}</DialogTitle>
-          {schema.form?.description && (
-            <DialogDescription>{schema.form.description}</DialogDescription>
+          {formDescriptionText && (
+            <DialogDescription>{formDescriptionText}</DialogDescription>
           )}
         </DialogHeader>
         <ObjectForm schema={buildFormSchema()} dataSource={dataSource} />

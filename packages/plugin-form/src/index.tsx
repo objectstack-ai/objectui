@@ -297,13 +297,13 @@ ComponentRegistry.register('object-form', ObjectFormRenderer, {
       name: 'nextText',
       type: ['string', 'object'],
       description:
-        'Label of the next-step button (wizard). Defaults to "Next". Accepts either a plain string or an inline per-locale map (`{ en: "Continue", "zh-CN": "继续" }`), resolved against the active UI language with the same fallback chain as `title`.',
+        'Label of the next-step button (wizard). Accepts either a plain string or an inline per-locale map (`{ en: "Continue", "zh-CN": "继续" }`), resolved against the active UI language with the same fallback chain as `title`.',
     },
     {
       name: 'prevText',
       type: ['string', 'object'],
       description:
-        'Label of the previous-step button (wizard). Defaults to "Back". Accepts either a plain string or an inline per-locale map (`{ en: "Previous", "zh-CN": "上一步" }`), resolved against the active UI language with the same fallback chain as `title`.',
+        'Label of the previous-step button (wizard). Accepts either a plain string or an inline per-locale map (`{ en: "Previous", "zh-CN": "上一步" }`), resolved against the active UI language with the same fallback chain as `title`.',
     },
     { name: 'showSubmit', type: 'boolean' },
     { name: 'showCancel', type: 'boolean' },

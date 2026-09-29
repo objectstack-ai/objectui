@@ -2407,11 +2407,11 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-form.nextText': {
     file: 'packages/plugin-form/src/ObjectForm.i18nLabels.test.tsx',
-    pins: 'The I18nLabel object arm on the wizard\'s next-step button — see `object-form.cancelText` for the harness. With `formType: "wizard"` and two sections, a `properties.nextText` map renders its `zh-CN` entry and the button still advances the step; the controls are a plain string rendered as authored and, with nothing authored, the English `Next` (objectui#10993).',
+    pins: 'The I18nLabel object arm on the wizard\'s next-step button — see `object-form.cancelText` for the harness. With `formType: "wizard"` and two sections, a `properties.nextText` map renders its `zh-CN` entry and the button still advances the step; the control is a plain string rendered as authored. The map\'s `zh-CN` entry differs from the zh pack\'s own default for the button (objectui#10999), so a map dropped instead of resolved fails the row (objectui#10993).',
   },
   'object-form.prevText': {
     file: 'packages/plugin-form/src/ObjectForm.i18nLabels.test.tsx',
-    pins: 'The I18nLabel object arm on the wizard\'s previous-step button, reached by advancing one step — see `object-form.nextText`. A `properties.prevText` map renders its `zh-CN` entry; the controls are a plain string rendered as authored and, with nothing authored, the English `Back` (objectui#10993).',
+    pins: 'The I18nLabel object arm on the wizard\'s previous-step button, reached by advancing one step — see `object-form.nextText`. A `properties.prevText` map renders its `zh-CN` entry; the control is a plain string rendered as authored. The map\'s `zh-CN` entry differs from the zh pack\'s `wizard.back`, so a map dropped instead of resolved fails the row (objectui#10993).',
   },
   'object-form.sections': {
     file: 'packages/plugin-form/src/__tests__/objectFormSectionMembers-8071.test.tsx',

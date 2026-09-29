@@ -10,7 +10,7 @@ An `object-form` whose `title`, `description`, `submitText`, `cancelText`, `next
 **What changed, in observable terms.**
 
 - `ObjectForm` resolves the seven with `pickLocalized` against the active UI language (`useObjectTranslation().language`), once, before it picks a presentation. So the simple, tabbed, split and wizard forms, the drawer and modal presentations, and the master-detail route all receive the entry for the viewer's language, with the fallback chain `pickLocalized` applies.
-- A plain string renders exactly as authored. With nothing authored, the English defaults are unchanged ('Create' / 'Update', 'Cancel', 'Next', 'Back', 'Created' / 'Saved').
+- A plain string renders exactly as authored. With nothing authored, every presentation shows the default label it showed before.
 - A map with no string entry resolves to nothing, so the presentation's default label shows.
 - The `object-form` registration declares both arms for the seven keys, `type: ['string', 'object']`, with descriptions that teach the per-locale map. The manifest built from `ComponentRegistry.getPublicConfigs()` therefore no longer makes `validateTree` report `type-mismatch` on a locale map for these keys. A value that matches neither arm, such as a number, is still reported.
 

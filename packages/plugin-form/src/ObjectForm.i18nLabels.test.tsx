@@ -30,9 +30,13 @@
  * tabbed and split forms' Save button, and the drawer and modal headings and
  * footers.
  *
- * The plain-string rows and the nothing-authored rows are the controls. A
- * string stays exactly what was authored, and the English defaults stay
- * byte-identical.
+ * The plain-string rows and the nothing-authored row are the controls. A
+ * string stays exactly what was authored, and the simple form's English
+ * defaults stay byte-identical. The wizard's own defaults are its i18n
+ * catalogue's since objectui#10999 and are pinned there
+ * (`WizardForm.i18nChrome-10999.test.tsx`); every wizard map below has a `zh`
+ * entry that differs from the zh pack's default for the same button, so a map
+ * that was dropped instead of resolved cannot pass.
  */
 
 import React from 'react';
@@ -86,9 +90,11 @@ const ORDER_SCHEMA = {
 const TITLE_MAP = { en: 'New order', 'zh-CN': '新建订单' };
 const DESCRIPTION_MAP = { en: 'Enter the order details', 'zh-CN': '填写订单信息' };
 const SUBMIT_MAP = { en: 'Save order', 'zh-CN': '保存订单' };
-const CANCEL_MAP = { en: 'Back', 'zh-CN': '返回' };
+const CANCEL_MAP = { en: 'Back', 'zh-CN': '放弃编辑' };
 const NEXT_MAP = { en: 'Continue', 'zh-CN': '继续' };
-const PREV_MAP = { en: 'Previous', 'zh-CN': '上一步' };
+// Not '上一步': that is the zh pack's own `wizard.back`, the wizard's default
+// (objectui#10999), so a map dropped rather than resolved would still pass.
+const PREV_MAP = { en: 'Previous', 'zh-CN': '回到上一步' };
 const SUCCESS_MAP = { en: 'Order saved', 'zh-CN': '订单已保存' };
 
 /** Two wizard steps, one field each, neither required. */
@@ -159,7 +165,7 @@ describe('object-form — the seven I18nLabel members resolve against the UI lan
     const { container } = await mount({ submitText: SUBMIT_MAP, cancelText: CANCEL_MAP });
 
     expect(await button('保存订单')).toBeTruthy();
-    expect(await button('返回')).toBeTruthy();
+    expect(await button('放弃编辑')).toBeTruthy();
     expect(failureCard()).toBeNull();
     expect(container.innerHTML).not.toContain('[object Object]');
   });
@@ -188,7 +194,7 @@ describe('object-form — the seven I18nLabel members resolve against the UI lan
     await act(async () => {
       fireEvent.click(next);
     });
-    expect(await button('上一步')).toBeTruthy();
+    expect(await button('回到上一步')).toBeTruthy();
     expect(failureCard()).toBeNull();
     expect(container.innerHTML).not.toContain('[object Object]');
   });
@@ -219,7 +225,7 @@ describe('object-form — the seven I18nLabel members resolve against the UI lan
       await waitFor(() => expect(dialog.textContent).toContain('新建订单'));
       expect(dialog.textContent).toContain('填写订单信息');
       expect(await button('保存订单')).toBeTruthy();
-      expect(await button('返回')).toBeTruthy();
+      expect(await button('放弃编辑')).toBeTruthy();
       expect(failureCard()).toBeNull();
       expect(document.body.innerHTML).not.toContain('[object Object]');
     },
@@ -259,14 +265,5 @@ describe('object-form — the seven I18nLabel members resolve against the UI lan
     await waitFor(() => expect(toasts.filter((t) => t.type === 'success')).toHaveLength(1));
     expect(toasts.filter((t) => t.type === 'success').map((t) => t.message)).toEqual(['Created']);
     expect(buttonTexts()).not.toContain('[object Object]');
-  });
-
-  it('CONTROL: with nothing authored, the wizard keeps its English defaults', async () => {
-    await mount({ formType: 'wizard', sections: STEPS });
-
-    await act(async () => {
-      fireEvent.click(await button('Next'));
-    });
-    expect(await button('Back')).toBeTruthy();
   });
 });

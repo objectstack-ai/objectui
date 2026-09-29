@@ -921,7 +921,7 @@ A complete object management interface combining grid, form, search, filters, an
 | `defaultViewType` | `string` | Initial view: `"grid"`, `"kanban"`, `"gallery"`, `"calendar"`, `"timeline"`, `"gantt"`, `"map"`. |
 | `listViews` | `Record<string, …>` | Named list views with filters and sort. Each entry is `@objectstack/spec`'s `ObjectListViewSchema`: it needs `columns`, takes `filter` as `{ field, operator, value }` rules, and puts view-kind config in the top-level block of that kind (`kanban`, `calendar`, …). A legacy `options` bag is refused. |
 | `defaultListView` | `string` | Key of the default list view. |
-| `table` | `Partial<ObjectGridSchema>` | Grid configuration overrides. |
+| `table` | grid keys of [ObjectGridSchema](#objectgridschema) | The grid keys the view hands the grid it draws; any other grid key is refused (objectui#10976). The key list is in the `@object-ui/plugin-view` guide. |
 | `form` | `Partial<ObjectFormSchema>` | Form configuration overrides. |
 | `showSearch` / `showFilters` / `showCreate` | `boolean` | Toggle toolbar features. |
 | `showViewSwitcher` | `boolean` | Show view type toggle (grid, kanban, etc.). |

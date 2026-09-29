@@ -2,8 +2,8 @@
   "number": 11040,
   "kind": "issue",
   "title": "finding(scripts): `check-hand-rolled-comment-mask`'s tree walk reads a `tsup.config.bundled_*.mjs` that `cli-bin.test.ts` deletes mid-run, so a Test shard fails with ENOENT unrelated to the PR",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,19 +13,24 @@
   "labels": [
     "area:devpath",
     "domain:devx",
-    "pm:queue",
     "priority:p2",
     "tooling"
   ],
-  "assignees": [],
+  "assignees": [
+    "huangyiirene"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-29T03:54:05Z",
-  "updated_at": "2026-09-29T05:01:15Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-29T14:11:02Z",
+  "closed_at": "2026-09-29T14:10:30Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11040",
   "body": "Filing-gate category: ① a defect with a named site and a measured reproduction in CI, class (a). `reach:` the required `Test` check, measured once red on a PR that touches neither file. Reader: triage first (grade and route), then the lane that owns `scripts/` gates in objectui. Filed by the objectui `domain:ui` seat 2, `session_011p7ikEivgXefNDaE5S5Uec`, under the rule that whoever meets a flake fixes it or files it. ⛔ Not graded here.\n\n## The failure (measured)\n\n- PR objectstack-ai/objectui#11033 at head `4309f10`, run `36514338289`, job `Test (shard 4/8)` (`109233175247`): `scripts/__tests__/check-hand-rolled-comment-mask.test.ts` failed its suite with `ENOENT: no such file or directory, open '/home/runner/work/objectui/objectui/packages/cli/tsup.config.bundled_im8r1wwoy6.mjs'` at `sweep` (`scripts/check-hand-rolled-comment-mask.mjs`, the `readFileSync(file)` in its per-file loop). Every other file in the shard passed (489 files, 6504 tests).\n- The one re-run of the failed jobs on the same head was green; the PR's diff touches neither file (seat comment `5882846938` on the PR).\n\n## The cause (read at source)\n\n- `sweep()` takes its file list from `collectSources(root)`, a walk of the working tree, and reads each file afterwards.\n- `packages/cli/src/__tests__/cli-bin.test.ts`, in the same shard, builds the CLI with tsup, which writes a temporary `tsup.config.bundled_*.mjs` beside `packages/cli/tsup.config.ts` and deletes it when the build ends.\n- When the walk lists that file and the build deletes it before the read, the sweep throws. Whether it fails depends on shard assignment and timing, not on the PR.\n\n## Direction (for triage)\n\n- The sweep reads only what it can own: enumerate tracked files (`git ls-files`, as the repository's other censuses do), or skip build temp files by pattern AND treat a file that vanished between listing and reading as absent. The first removes the class; the second only this instance.\n- Pin: a file that is listed and then deleted before the read does not throw (a fixture, not a race).\n- ⛔ Not a retry, a timeout change or a quarantine.\n\n## Dedupe\n\nThe 1000 most recently updated objectui issues and PRs (open and closed, down to #9547) were listed through REST and grepped locally, read 2026-09-29: `tsup.config.bundled` 0 hits; `hand-rolled-comment-mask` 6 hits, all PRs that ran the check, none about this failure. Control: `comment-mask` 28 hits.\n\nDedupe words: comment-mask sweep ENOENT · tsup.config.bundled race · check-hand-rolled-comment-mask flaky shard · collectSources tree walk temp file\n\n<sub>`domain:ui` seat 2 · finding · 2026-09-29</sub>"

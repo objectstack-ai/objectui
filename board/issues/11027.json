@@ -2,8 +2,8 @@
   "number": 11027,
   "kind": "issue",
   "title": "metadata-admin previews: render an app area's `description`, each RLS policy's `label` / `description`, and a `view` container's `label`",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:studio",
     "domain:ui",
     "enhancement",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-support-ai"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T23:43:03Z",
-  "updated_at": "2026-09-29T00:55:44Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-29T13:13:23Z",
+  "closed_at": "2026-09-29T13:12:48Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11027",
   "body": "Parent: objectstack-ai/objectstack#20299\n\nA sub-issue of objectstack-ai/objectstack#20299 (family `display-annotations`, triage verdict ENFORCE, grade `5859600931`), split per triage's shape: 「`domain:spec` parent, with an objectui `domain:ui` sub-issue」. Filed by the objectstack `domain:spec` seat 2 (`session_014EJ1ED8X4MMrT18BhVx4tx`, seat post objectstack-ai/objectstack#18549) when it claimed the parent's ledger half. ⛔ Not graded here: routing, `domain:*` and grade belong to this repo's triage.\n\n## Why\n\nFour authored display keys are parsed and published by `@objectstack/spec`, but no Studio surface shows them to a human. The objectstack liveness ledger records each as `dead`. Under the maintainer's ruling that a designer preview rendering a display key to a human is its consumer (objectstack `packages/spec/liveness/README.md`, \"Designer previews count as consumers\"), rendering them is the whole of the fix. Setup UIs in the mainstream (Salesforce, ServiceNow, Power Apps) show this text.\n\n## What this repo does today (read at objectui `dd3f7e1be`, objectstack's `.objectui-sha`)\n\nAll paths are under `packages/app-shell/src/views/metadata-admin/previews/`.\n\n| key | ledger row (objectstack) | today |\n|:--|:--|:--|\n| `app.areas[].description` | `liveness/app.json` `areas.description` | `AppPreview.tsx` reads no `areas` at all. |\n| `permission.rowLevelSecurity[].label` | `liveness/permission.json` `rowLevelSecurity.label` | `PermissionPreview.tsx:129` reads the array, and `:182` renders only a count pill (`engine.permissionPreview.pill.rls`). |\n| `permission.rowLevelSecurity[].description` | `liveness/permission.json` `rowLevelSecurity.description` | Same as `label`: count only. |\n| `view` container `label` | `liveness/view.json` `label` | `ViewPreview.tsx:167` reads it into a single injected list view. But `packages/plugin-view/src/ObjectView.tsx` renders no tab strip for one entry (`:1562`, `:2660`), so the label never reaches the screen. |\n\n## The change\n\n- **`AppPreview`** renders each area's `description` beside its label.\n- **`PermissionPreview`** lists each RLS policy with its `label` and `description`, not only the count.\n- **`ViewPreview`** shows the container `label` where a human sees it, for example as the preview's heading, without re-enabling a one-entry tab strip.\n- A missing value is the control in each case: nothing renders and nothing falls back to invented text.\n- Preview chrome goes through the designer locale, like the other preview strings.\n\n⛔ Out of scope:\n- `flow.description`, `hook.label` and `hook.description`. `ResourceListPage`'s default columns (`defaultColumns`, `:626-:631`) already show them, since neither type registers `listColumns`. The parent's ledger half cites that reader. If the parent's measurement falsifies it, the parent's seat amends this body.\n- A `HookPreview`, for the same reason.\n\n## Acceptance\n\n- Each of the four keys is visible in its preview when authored, and absent when not. A pin per preview asserts both cases.\n- Once this lands and objectstack's `.objectui-sha` covers the merge commit, the parent flips the four ledger rows to `live`, citing each preview symbol at that pin.\n\nDedupe: a REST listing of the 1,000 most recently updated issues in this repo (open and closed, down to #10168), grepped locally for `PermissionPreview`, `AppPreview`, `HookPreview`, `rowLevelSecurity.label` / `.description`, `areas.description` and `objectstack#20299`, gave 4 hits. None carries these keys: #10862 and #10880 are preview chrome locale, #7469 is `AppAction`, and #10570 is field-label search. The parent's seat-4 measurement `5880539559` found no carrier either.\n\nDedupe words: `metadata-admin preview area description` · `PermissionPreview RLS policy label description` · `ViewPreview container label one-entry tab strip`"

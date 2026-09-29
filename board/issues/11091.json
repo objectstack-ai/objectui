@@ -1,0 +1,37 @@
+{
+  "number": 11091,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): object-form's modalCloseButton: false hides the modal's close button (objectui#11061)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "package: components",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-29T11:57:45Z",
+  "updated_at": "2026-09-29T12:28:58Z",
+  "closed_at": "2026-09-29T12:28:56Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-29T12:28:56Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11091",
+  "body": "Fixes #11061\nClause-②: yes\n\nAn author can now hide a modal form's close (X) button. `object-form`'s `modalCloseButton` was declared on `ObjectFormSchema` and on the `object-form` registration, and `ObjectForm`'s modal route forwarded it, but `ModalForm` never read it. As a result, `modalCloseButton: false` still drew the X, with no effect and no error. The route is A from the seat's answer on the card (comment 5889172074, amending claim 5888697196): the switch lives on the shared dialog wrapper.\n\n## What changes\n\n- **`@object-ui/components`**: `MobileDialogContent` (in `custom/mobile-dialog-content.tsx`) gains an optional `showCloseButton`, default `true`. `false` leaves the close button out of the DOM. The name and default match upstream Shadcn's `DialogContent`, whose parameter is `showCloseButton = true` in `apps/v4/registry/new-york-v4/ui/dialog.tsx` on shadcn-ui/ui main. That was read once for this PR, and nothing here re-derives it. The prop is destructured, so it never reaches the Radix content element as a DOM attribute. The props type is exported as `MobileDialogContentProps` through `custom/index.ts`'s `export *`. That follows the package's convention: most `custom/` wrappers export their props type. **For the contract review:** the published surface gains one optional member on the component's props, plus that one named type.\n- **`@object-ui/plugin-form`**: `ModalForm` computes `showCloseButton = schema.modalCloseButton !== false` once, and passes it on BOTH dialog arms: the flat form and the `subforms` master-detail form. Only an explicit `false` hides the button; unset and `true` keep it. The `modalCloseButton` JSDoc on `ModalFormSchema` now says this.\n- **Registration description**: the `object-form` registration's `modalCloseButton` description is restored to what is now true. It is honoured by `ModalForm` on both arms, and the modal still closes on Escape, and on the Cancel action when that is shown. The old wording before objectui#11050 carried a cross-file line address, which is not restored.\n- **Docs**: one `modalCloseButton` row is added to the `object-form` table in `content/docs/api/schema-reference.md`.\n- **Changeset** `.changeset/11061-modal-close-button.md`: `@object-ui/components: minor`, `@object-ui/plugin-form: patch`.\n- No change to `packages/types`.\n\n## Pins\n\n- `packages/components/src/__tests__/mobile-dialog-show-close-button-11061.test.tsx`\n  - The wrapper renders the close button by default and with `true`.\n  - With `false`, the dialog still renders its content but holds no button, and carries no leaked `showclosebutton` attribute.\n  - Escape still reaches `onOpenChange(false)` with the button hidden.\n- `packages/plugin-form/src/__tests__/modalCloseButton-11061.test.tsx`\n  - Driven through `ObjectForm`, so the forwarding hop is inside the pin.\n  - The default and `true` keep the close button (the control rows).\n  - `false` has no close button.\n  - With it hidden, Escape reaches `onOpenChange(false)`, and Cancel reaches `onOpenChange(false)` and `onCancel`.\n  - The subforms arm keeps the button by default, and with `false` has none and still closes on Escape.\n\n## Verification (all at HEAD `6231bf720`, branch merged with main `a5841be35`)\n\n- **Locked run** (`os-verify-lock`, 'VERDICT command-exit 0'; shared-box figures):\n  - `turbo run build --filter='@object-ui/plugin-form^...' --concurrency=2`: 'Tasks: 11 successful, 11 total'.\n  - `pnpm --filter @object-ui/components type-check`: exit 0.\n  - `pnpm --filter @object-ui/plugin-form type-check`: exit 0. Both run `tsc --noEmit` and then `tsc -p tsconfig.test.json`.\n  - `pnpm exec vitest run --maxWorkers=2` covered `packages/plugin-form/`, the four `mobile-dialog-*` test files in components, and `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`. Result: 'Test Files  148 passed (148)', 'Tests  1918 passed | 1 skipped (1919)'. 148 is the 143 tracked plugin-form test files plus the 5 named files, so both new pins ran.\n- **Ablation** (locked, 'VERDICT command-exit 0', each leg through `ablation-replace.mjs` with a trap restore, both pins run each time):\n  - Leg 1 changes `ModalForm`'s `const showCloseButton = schema.modalCloseButton !== false;` to `const showCloseButton = true;`. The anchor went from 1 to 0 hits, and the blob changed from `62fd6bcd4e06` to `afa17b9d7e7a`. Result: 'Tests  2 failed | 9 passed (11)', the two `false` rows of the ModalForm pin.\n  - Leg 2 changes the wrapper's `{showCloseButton && (` to `{true && (`. The blob changed from `dd2d1daed4fc` to `a357b2a3d367`. Result: 'Tests  3 failed | 8 passed (11)', the wrapper's `false` row plus the same two ModalForm rows.\n  - Restored: blob equals HEAD, `git diff HEAD` is empty, and 'Tests  11 passed (11)'.\n  - As predicted, the Escape and Cancel rows stay green under both mutations: those ways out predate the fix. The pins that turn red are exactly the ones that read the new switch.\n- **eslint on the changed files** (`--format json`: 5 files): 0 errors.\n  - Warnings on the three modified sources are 2, 20 and 23. Those equal their counts at base `a5841be35`, linted from `git show` through `--stdin`. The two new pins have 0.\n  - Narrowing, declared: `eslint.config.js` configures no type-aware parsing (no `projectService`, `project` or `TypeChecked` config), so these per-file verdicts cannot move on an untouched file. The full `pnpm lint` is CI's.\n- **Other gates, exit 0**: `node scripts/check-changeset-presence.mjs` (1 changeset for 5 published source files of 2 packages), `check-control-bytes`, `check-changeset-no-major`, `check:new-line-citations` (0 new), `check:component-surface-parity`, `check:changeset-claims`, `check:pending-changeset-literals`, `check:unreferenced-sources`, `check:test-path-roots`, `check:doc-types`, `check:doc-fences`.\n- **NOT MEASURED**, prerequisite not met and left to CI:\n  - `check:readme-exports` and `check:doc-snippets` need a whole-tree build.\n  - `check:sdui-registration-pins` needs a console build.\n\n## Acceptance notes\n\n- The docs row in `content/docs/api/schema-reference.md` is outside the amended file surface. It was added under AGENTS.md #2 (docs-driven): one table row, no snippet.\n- The premise was measured at runtime before the fix. With `modalCloseButton` unset, `true` and `false`, the dialog drew 1, 1 and 1 close buttons, and Escape and Cancel already reached `onOpenChange(false)` in all three cases (report 5889134591 on the card).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011p7ikEivgXefNDaE5S5Uec)_\n"
+}

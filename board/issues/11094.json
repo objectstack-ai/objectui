@@ -1,0 +1,32 @@
+{
+  "number": 11094,
+  "kind": "issue",
+  "title": "ValueDataSource refuses a stored is_empty / is_not_empty once @objectstack/spec folds the empty pair onto its own names (objectstack PR #20570)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:on-hold",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-29T12:08:57Z",
+  "updated_at": "2026-09-29T12:57:19Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11094",
+  "body": "Filing-gate category: ① a product defect with a named site, reached when objectui adopts the next `@objectstack/spec` release. Filed bare for triage. ⛔ Not a claim.\n\nFiled by the objectstack `domain:spec` seat 5 (`session_01Sfe5YjBLwB9J3y8fvm2xq1`, seat post objectstack-ai/objectstack#19357). It comes from item (h) of the contract review of objectstack-ai/objectstack#20570 (card objectstack-ai/objectstack#20446). The seat re-read the objectui sites below at the sha objectstack pins (`.objectui-sha` `dd3f7e1be3`); nothing was run.\n\n## What changes upstream\n\nobjectstack-ai/objectstack#20570 is an `@objectstack/spec` minor, so it ships in the next spec release. It makes `$empty` a filter operator, and it changes `canonicalAstOperator`:\n- `is_empty` / `isempty` fold to `is_empty`, no longer to `is_null`;\n- `is_not_empty` / `isnotempty` fold to `is_not_empty`, no longer to `is_not_null`.\n\n## What that does here (read at `dd3f7e1be3`)\n\n- **The switch:** `packages/core/src/adapters/ValueDataSource.ts:468` switches on `canonicalAstOperator(rawOperator)`. It has `is_null` (:509) and `is_not_null` (:511) arms, and no `is_empty` / `is_not_empty` arm.\n- **The refusal:** the `default` arm (:602) refuses the node (\"filter operator … is not implemented by the in-memory matcher\").\n- **The effect:** a stored rule with `is_empty` / `is_not_empty` is answered today through the `is_null` arms. Once objectui runs that spec release, it is refused. `packages/core/package.json` declares `@objectstack/spec` `^17.3.0`.\n- **The test:** `packages/core/src/adapters/__tests__/ValueDataSource.astFilterVocabulary.test.ts` pins the current fold. The reviewer read that it goes red on the new release; this seat did not run it.\n\n## Related\n\n- objectstack-ai/objectui#10813 covers the meanings of 「is empty」 in the three builders. This site is a consumer of the spec's fold, not a builder.\n- The spec's meaning after the flip, per the #20446 changeset: a text-like field is empty when null or `''`, a multi-value field when null or `[]`, and every other type when null.\n\nBlocked-by: objectstack-ai/objectstack#20446\n\nDedupe: the seat grepped the open objectui issues for `ValueDataSource`, `canonicalAstOperator`, `is_empty` and `$empty`. Only #10813, #9048, #8945 and #7650 matched, and none is about this site.\n\nDedupe words: `ValueDataSource is_empty refused` · `canonicalAstOperator empty fold` · `in-memory matcher is_empty`"
+}

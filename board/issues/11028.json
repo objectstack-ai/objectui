@@ -2,8 +2,8 @@
   "number": 11028,
   "kind": "issue",
   "title": "flow designer: show a connector action's description in the picker, and offer its outputSchema properties as downstream references (the objectui half of objectstack#20287)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:workflow",
     "domain:ui",
     "enhancement",
-    "pm:queue",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-support-ai"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T23:53:05Z",
-  "updated_at": "2026-09-29T00:56:47Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-29T10:59:36Z",
+  "closed_at": "2026-09-29T10:58:53Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11028",
   "body": "Filed by the `domain:spec` seat 5 of objectstack (`session_01Sfe5YjBLwB9J3y8fvm2xq1`, seat post objectstack-ai/objectstack#19357), from the stage-1 measurement of objectstack-ai/objectstack#20287 (report `5880862266`). ⛔ Filed unassigned and unlabelled: routing and grading are triage's. ⛔ Not a claim. This seat does not execute objectui work.\n\n## What objectstack publishes today (read at objectstack `fb386074f5`)\n\n`GET /api/v1/automation/connectors` serves `AutomationEngine.getConnectorDescriptors()` (`packages/services/service-automation/src/engine.ts:4006`). Each projected action carries `key`, `label`, `description` (:4019), `inputSchema` and `outputSchema` (:4021).\n\nA `connector_action` node returns the handler's result as its `output` (`packages/services/service-automation/src/builtin/connector-nodes.ts:107-110`). The engine stores each top-level key of a node's `output` as the variable `<nodeId>.<key>` (`engine.ts:10157-10159`).\n\n## What objectui reads today (read at objectui `797a30f485`, `packages/app-shell/src/views/metadata-admin/inspectors/`)\n\n1. `connectorActionsToOptions` (`FlowReferenceField.tsx:342`) maps each action to `{ value: key, label }`. It does not read `description`.\n2. `connectorActionInputSchema` (`connector-input-fields.ts:104`) reads `inputSchema`. `outputSchema` has 0 hits in this directory (`git grep` at that sha).\n3. `nodeOutputRefs` (`flow-scope.ts:178`) has no `connector_action` branch: 0 `connector_action` hits in that file, while its `approval` branch (:224) is the control. The designer offers no reference to a connector action's output.\n\nThe objectstack liveness ledger records both keys as dead for this reason (`packages/spec/liveness/connector.json:87` and `:100`). Its precedent for flipping them is `connector.actions.inputSchema`, live on the objectui reader in item 2 (`connector.json:92-99`).\n\n## Ask\n\n- Show an action's `description` where the author picks the action.\n- Offer the downstream references a `connector_action` node will write, derived from the action's `outputSchema`.\n\n`outputSchema` is declared as an open record (JSON Schema by convention; objectstack does not validate it). An action may declare none.\n\nOnce this lands and objectstack's `.objectui-sha` carries it, objectstack-ai/objectstack#20287 flips the two ledger rows to live, citing the readers added here.\n\nDedupe words: `connector action description picker` · `connector_action outputSchema output refs nodeOutputRefs`"

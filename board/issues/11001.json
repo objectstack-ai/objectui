@@ -2,8 +2,8 @@
   "number": 11001,
   "kind": "issue",
   "title": "RecordDetailView: deleting a record asks through the native window.confirm, while the list view already uses the in-app confirm dialog",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p3"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T15:18:53Z",
-  "updated_at": "2026-09-29T08:35:52Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-29T10:03:08Z",
+  "closed_at": "2026-09-29T10:02:27Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11001",
   "body": "## Symptom\n\nOn a record page, **更多操作 → 删除** opens the browser's native `window.confirm` box (「确定要删除此记录吗?」). Everywhere else the console confirms destructive actions with its own styled dialog, and so does deleting the same record from the list view.\n\n## Mechanism\n\n- `packages/app-shell/src/views/RecordDetailView.tsx` (objectui main `4b742f41d`, around line 2399): `if (!window.confirm(msg)) return;` in the `delete` header action's `onClick`.\n- `packages/app-shell/src/views/ObjectView.tsx` (around line 2216) says it uses the confirm dialog and a Sonner toast \"instead of native window.confirm\".\n- `useObjectActions` also documents a confirm-handler seam that falls back to `window.confirm`.\n\nThe native box cannot be themed or localized beyond the passed string. Headless automation dismisses it by default, which also makes the delete look like a dead button to any test that does not register a dialog handler.\n\n## Reproduction\n\n1. objectstack showcase at objectui pin `dd3f7e1be356`, as the owner.\n2. Open any `showcase_project` record.\n3. Choose 更多操作 → 删除. A native browser confirm appears.\n\n## Expected\n\nThe record-page delete goes through the same in-app confirm dialog the list view uses."

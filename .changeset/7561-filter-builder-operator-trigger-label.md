@@ -14,6 +14,16 @@ operator under another spelling — `@objectstack/spec`'s canonical
 Radix drew a **blank** operator cell over a row that went on filtering
 correctly: the user's own operator, invisible and unreachable.
 
+⚠️ **Dated note, 2026-09-29 — the three catalog entries no longer author the alias
+spellings — objectui#6939.** "which three schema-catalog entries author today" above held
+when this change landed (`9ae871d00`): three `components-complex-filter-builder` fixtures
+spelled seven operators `eq`, `lt` or `gt`. Later in this same release objectui#6939 (PR
+objectui#9558) respelled all seven to `equals` / `less_than` / `greater_than`, the
+members the mirror declares. Re-measured for objectui#10979 on `main` at `2eaf5be27`, no
+file under `examples/schema-catalog` spelled an operator `eq`, `lt` or `gt`, and the same
+three fixtures carried the canonical spellings. The text above is kept as the reading of
+this change.
+
 Everywhere the operator's *meaning* matters this component already folded
 through the spec's `normalizeFilterOperator` (`filterValueArity`,
 `reconcileOperatorForField`). The one site that did not was this identity

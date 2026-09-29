@@ -39,6 +39,14 @@ is reserved for following `@objectstack` across a major (see AGENTS.md, version
 alignment). A `patch` would be wrong: this is a deliberate narrowing, not a
 fix inside the accepted set.
 
+⚠️ **Dated note, 2026-09-29 — the file count above is a reading of one commit —
+objectui#10979.** "(4,362 files)" above is the census this change's commit message dates
+to its base, `7dcda9cd4`. A tracked-file count does not re-derive it there: the five
+trees held 5,203 tracked files at that commit, 4,344 of them TypeScript or JavaScript
+sources. Re-measured on `main` at `2eaf5be27`, the same five trees held 6,700 tracked
+files, 5,819 of them sources. The census itself was not re-run for this note. The text
+above is kept as the reading of this change.
+
 Migration for a downstream caller that did pass an extra key: if an adapter of
 yours reads it, declare it on your own params type and widen at your adapter's
 boundary; if nothing reads it, it was already being dropped — delete it.

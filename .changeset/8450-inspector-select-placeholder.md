@@ -25,3 +25,20 @@ offering a "none" row, and those now show `'—'` where they showed nothing — 
 flow-node config selects, the app-nav item type, the curated page-block props,
 the report dataset/chart-axis pickers and the action target/variant/mode/component
 pickers. The other 32 render exactly as before.
+
+⚠️ **Dated note, 2026-09-29 — the call-site figures above have since moved —
+objectui#6830, objectui#7551 and objectui#7597.** "all 45 call sites, none of which passes
+a placeholder of its own" above held when this change landed (`0c4694437`): 45
+`InspectorSelectField` mounts in 13 files, none passing a `placeholder`. Later in this
+same release objectui#6830 (PR objectui#9110) made the flow-node config select pass its
+declared default as its `placeholder`, so a flow-node select whose descriptor declares a
+default shows that default rather than `'—'`; and objectui#7551 (PR objectui#9972) and
+objectui#7597 (PR objectui#10527) each added a mount, the action inspector's operation
+select and the field inspector's `valueDomain` select, both of which offer a `''` row.
+Re-measured for objectui#10979 on `main` at `2eaf5be27`, there were 47 mounts in 13
+files, one of them passing a `placeholder`. This note does not re-classify the 45, so "13
+of the 45" and "The other 32" above stay the reading of this change.
+`.changeset/6830-flownode-select-declared-default.md` (PR objectui#9110),
+`.changeset/7551-action-operation-update-executor.md` (PR objectui#9972) and
+`.changeset/7597-field-inspector-value-domain.md` (PR objectui#10527) state what ships;
+the text above is kept as the reading of this change.

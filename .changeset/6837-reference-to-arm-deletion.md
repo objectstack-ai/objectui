@@ -86,6 +86,16 @@ warning at all**. On that path the failure is exactly as silent as before.
 A reader-side or shared-resolver diagnostic, which would cover it, remains open
 on objectui#6837.
 
+⚠️ **Dated note, 2026-09-29 — the call-site count above has since moved —
+objectui#7650.** "exactly two production call sites" above held when this change landed
+(`045d20ba8`). Later in this same release objectui#7650 (PR objectui#8868) added a call
+on `MetadataProvider`'s by-name object-schema serve path. Re-measured for objectui#10979
+on `main` at `2eaf5be27`, `normalizeSchemaReferenceKeys` had three production call sites:
+two in `MetadataProvider`, on its list path and on its by-name path, and one in
+`ObjectStackAdapter.getObjectSchema`.
+`.changeset/7650-metadata-item-reference-canonicalisation.md` (PR objectui#8868) states
+what ships; the text above is kept as the reading of this change.
+
 ## What did NOT change
 
 **Every key these readers EMIT is byte-identical**, and that was verified

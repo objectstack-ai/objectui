@@ -14,6 +14,14 @@ a screen reader announces as the list view's accessible name — in every locale
 read now goes through the spec's own `resolveI18nLabel` (the resolver four other
 in-repo read sites already use) against `useDisplayLocale()`.
 
+⚠️ **Dated note, 2026-09-29 — the read-site count above does not re-derive —
+objectui#10979.** "the resolver four other in-repo read sites already use" above does not
+hold even at this change's own base. On the commit this change landed on (`e40b8579bd`),
+ten non-test source files already imported `@objectstack/spec`'s `resolveI18nLabel` (each
+as `resolveInlineI18nLabel`) and called it on 17 lines. Re-measured on `main` at
+`2eaf5be27`, fourteen non-test files besides `ListView` imported it, calling it on 27
+lines. The text above is kept as the reading of this change.
+
 Reachability, stated plainly: the path is **live but unexercised**. `I18nLabel` was a
 plain `string` through `@objectstack/spec` 17.0.0-rc.5, so no stored map-valued label
 predates rc.6, and no measured author writes one today — but map values are legitimate

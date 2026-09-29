@@ -4699,7 +4699,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.externalDatasource.browser.introspecting': '正在读取远程表结构…',
   'engine.externalDatasource.browser.noRemoteTables': '未找到远程表（请检查数据源的 allowedSchemas）。',
   'engine.externalDatasource.browser.noMatch': '没有与筛选条件匹配的表。',
-  'engine.externalDatasource.browser.colTable': '表',
+  'engine.externalDatasource.browser.colTable': '表名',
   'engine.externalDatasource.browser.colColumns': '列',
   'engine.externalDatasource.browser.colRows': '行数（估算）',
   'engine.externalDatasource.browser.import': '导入',

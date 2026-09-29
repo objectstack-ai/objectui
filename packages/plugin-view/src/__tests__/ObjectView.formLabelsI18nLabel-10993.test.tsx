@@ -40,7 +40,7 @@ vi.mock('@object-ui/react', async (importOriginal) => {
   const React = await import('react');
   return {
     ...(await importOriginal<Record<string, unknown>>()),
-    SchemaRenderer: ({ schema }: any) => (
+    SchemaRenderer: ({ schema }: { schema?: { type?: string } }) => (
       <div data-testid="schema-renderer" data-schema-type={schema?.type}>
         {schema?.type}
       </div>
@@ -53,7 +53,13 @@ vi.mock('@object-ui/react', async (importOriginal) => {
 
 vi.mock('@object-ui/plugin-grid', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  ObjectGrid: ({ schema, onRowClick }: any) => (
+  ObjectGrid: ({
+    schema,
+    onRowClick,
+  }: {
+    schema?: { objectName?: string };
+    onRowClick?: (row: Record<string, unknown>) => void;
+  }) => (
     <div data-testid="object-grid" data-object={schema?.objectName}>
       <button data-testid="grid-row" onClick={() => onRowClick?.({ id: '1', name: 'Test' })}>
         Row 1
@@ -64,7 +70,7 @@ vi.mock('@object-ui/plugin-grid', async (importOriginal) => ({
 
 vi.mock('@object-ui/plugin-form', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  ObjectForm: ({ schema }: any) => (
+  ObjectForm: ({ schema }: { schema?: { mode?: string } }) => (
     <div data-testid="object-form" data-mode={schema?.mode}>
       Form ({schema?.mode})
     </div>

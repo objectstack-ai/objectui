@@ -54,8 +54,23 @@
  * ⭐ Neutralising that drift is what this file is for. It recomputes each source
  * schema's declared members THROUGH THE CHECKER — the same instrument that
  * produced the 61 -> 0 measurement — and requires the slot's member set to
- * equal exactly "source members minus the identity keys the view fixes". A
- * member added to `ObjectGridSchema` and not to the key list turns this red.
+ * equal exactly "source members minus the identity keys the view fixes" and,
+ * for `table`, minus the withheld set below. A member added to
+ * `ObjectGridSchema` and placed in neither list turns this red.
+ *
+ * ## The `table` slot withholds what the view's grid does not honour (objectui#10976)
+ *
+ * The repair above made the slot declare EVERY `ObjectGridSchema` member, and
+ * `ObjectView` hands its grid only some of them: it reads a fixed set off
+ * `table` by name and relays `OBJECT_VIEW_TABLE_RELAY_KEYS` verbatim
+ * (`@object-ui/plugin-view`). Every other member type-checked on the slot and
+ * reached nothing — `table: { editable: true }` was one of them until it was
+ * relayed. `TABLE_WITHHELD_KEYS` below is the set the slot no longer declares,
+ * each with the reason it has no meaning on the view's grid, and section 4
+ * holds the zod twin to the same set: it must refuse each one BY NAME, so the
+ * two faces refuse the same keys. Which keys `ObjectView` hands its grid is
+ * pinned from the side that can read the renderer,
+ * `plugin-view/src/__tests__/ObjectView.tableSlotRelay-10976.test.tsx`.
  *
  * ## Why it emits its own declarations instead of reading `dist/`
  *
@@ -72,13 +87,17 @@
  *
  * ## 🗑️ Removal condition (recorded at triage's request)
  *
- * These `Pick` lists exist ONLY because `BaseSchema` carries a root string index
+ * These `Pick` lists exist because `BaseSchema` carries a root string index
  * signature. When an objectui#5155 phase removes it, `keyof ObjectGridSchema`
- * becomes the literal member union again, `Omit` stops collapsing, and
- * `ObjectGridSlotKey` / `ObjectFormSlotKey` — together with this whole file —
- * become removable in favour of the original `Omit` form. `declaresStringIndex`
- * below is the tripwire that will notice: when it reports `false` for the source
- * schemas, the mechanism this file guards is gone.
+ * becomes the literal member union again and `Omit` stops collapsing.
+ * `ObjectFormSlotKey` and the `form` half of this file then become removable in
+ * favour of the original `Omit` form. The `table` half does NOT: since
+ * objectui#10976 its list is a deliberate subset, so an `Omit` would have to
+ * name the withheld set, and what this file guards for `table` — that every
+ * grid member is either handed to the grid or withheld, and that both faces
+ * withhold the same keys — stays true work. `declaresStringIndex` below is the
+ * tripwire that will notice the index signature going: when it reports `false`
+ * for the source schemas, the collapse half of this file is gone.
  */
 
 import { describe, it, expect, afterAll } from 'vitest';
@@ -86,12 +105,54 @@ import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { z } from 'zod';
+import { ObjectViewSchema as ObjectViewMirror } from '../zod/objectql.zod.js';
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** The identity keys each slot deliberately withholds — the view fixes them. */
 const TABLE_IDENTITY_KEYS = ['type', 'objectName'] as const;
 const FORM_IDENTITY_KEYS = ['type', 'objectName', 'mode'] as const;
+
+/**
+ * objectui#10976 — the `ObjectGridSchema` members the `table` slot withholds,
+ * by the reason each has no meaning on the grid `ObjectView` draws. Measured
+ * against `ObjectGrid.tsx` and `ObjectView.tsx`, not listed from the card: a key
+ * `ObjectGrid` reads and the view could hand it is relayed instead, and then it
+ * is not here.
+ */
+const TABLE_WITHHELD_BY_REASON = {
+  /** `ObjectGrid` has no read of it, so nothing could draw it. */
+  unread: ['bulkSpecActions', 'description', 'emptyState', 'keyboardNavigation', 'name', 'placeholder', 'rowSpecActions', 'showFilters'],
+  /** The view owns it: its own record source, its own row click, its grid's identity. */
+  viewOwned: ['bind', 'data', 'id', 'navigation', 'onNavigate', 'staticData'],
+  /**
+   * A node-level `BaseSchema` key. `ObjectView` draws its grid as a component,
+   * not as a schema node, so no renderer applies one of these to it.
+   */
+  nodeLevel: ['ariaLabel', 'disabled', 'disabledOn', 'hidden', 'hiddenOn', 'style', 'testId', 'visible', 'visibleOn', 'visibleWhen'],
+  /** The legacy alias of a relayed key: `bulkActions`, `resizable`. */
+  alias: ['batchActions', 'resizableColumns'],
+} as const;
+
+const TABLE_WITHHELD_KEYS: readonly string[] = Object.values(TABLE_WITHHELD_BY_REASON).flat();
+
+/**
+ * The retirement tombstones `ObjectGridSchema` declares itself (`?: never` on
+ * both faces). The slot keeps them: they type nothing, and they carry the named
+ * refusal and its guidance onto this face too.
+ */
+const TABLE_INHERITED_TOMBSTONES = ['body', 'children', 'defaultSort'] as const;
+
+/**
+ * The one tombstone the zod `ObjectGridSchema` declares and its TypeScript twin
+ * deliberately does not: `operators`, the misspelling of `operations`
+ * (objectui#9739 — declaring `?: never` would write the misspelling into the
+ * published interface). The nested `table` inherits it, so it is refused there
+ * too; it is no member of the TypeScript slot, which refuses it as an unknown
+ * key.
+ */
+const TABLE_MIRROR_ONLY_TOMBSTONES = ['operators'] as const;
 
 /**
  * Emit declarations with the package's OWN build settings, into a scratch dir
@@ -200,18 +261,24 @@ describe('the source schemas still declare their full member sets', () => {
 /* ── 2. The measurement — the key lists equal members-minus-identity-keys ─── */
 
 describe.each([
-  { slot: 'table' as const, source: 'ObjectGridSchema', identity: TABLE_IDENTITY_KEYS },
-  { slot: 'form' as const, source: 'ObjectFormSchema', identity: FORM_IDENTITY_KEYS },
-])('ObjectViewSchema.$slot ships $source’s configuration (objectui#6269)', ({ slot, source, identity }) => {
-  it('declares EXACTLY the source members minus the identity keys the view fixes', () => {
-    // Before the fix this read `[]` against 59 (table) / 64 (form).
+  { slot: 'table' as const, source: 'ObjectGridSchema', identity: TABLE_IDENTITY_KEYS, withheld: TABLE_WITHHELD_KEYS },
+  { slot: 'form' as const, source: 'ObjectFormSchema', identity: FORM_IDENTITY_KEYS, withheld: [] as readonly string[] },
+])('ObjectViewSchema.$slot ships $source’s configuration (objectui#6269)', ({ slot, source, identity, withheld }) => {
+  it('declares EXACTLY the source members minus the identity keys the view fixes and the withheld set', () => {
+    // Before the objectui#6269 fix this read `[]`.
     // Set equality, not a spot check: it fails when the slot collapses again,
     // AND when a member is added to the source schema without being added to
-    // the key list (the duplicate-list hazard this pin exists to neutralise).
+    // the key list or the withheld set (the duplicate-list hazard this pin
+    // exists to neutralise).
     const expected = memberNames(exportedType(source)).filter(
-      (k) => !(identity as readonly string[]).includes(k),
+      (k) => !(identity as readonly string[]).includes(k) && !withheld.includes(k),
     );
     expect(memberNames(slotType(slot))).toEqual(expected);
+  });
+
+  it('every withheld key is a member of the source schema — the set names no key that does not exist', () => {
+    const source_members = memberNames(exportedType(source));
+    expect(withheld.filter((k) => !source_members.includes(k))).toEqual([]);
   });
 
   it('withholds the identity keys the view already fixes', () => {
@@ -251,4 +318,81 @@ describe('the slots offer the members their doc comments promise', () => {
       expect(memberNames(slotType('form'))).toContain(member);
     },
   );
+});
+
+/* ── 4. objectui#10976 — the `table` slot withholds, and both faces agree ─── */
+
+/**
+ * The zod twin's nested `table` object, resolved through its `.optional()` and
+ * `z.lazy` the way the parser resolves it.
+ */
+function mirrorTableObject(): z.ZodObject {
+  let node: z.ZodType = ObjectViewMirror.shape.table;
+  for (let hop = 0; hop < 8; hop += 1) {
+    if (node instanceof z.ZodObject) return node;
+    if (node instanceof z.ZodOptional) node = node.unwrap() as z.ZodType;
+    else if (node instanceof z.ZodLazy) node = node.unwrap() as z.ZodType;
+    else break;
+  }
+  throw new Error('ObjectViewSchema.shape.table did not resolve to a zod object');
+}
+
+/** A shape member that refuses every value: a `z.never()` under any number of `.optional()`s. */
+function refusesEverything(member: z.ZodType): boolean {
+  let node: z.ZodType = member;
+  while (node instanceof z.ZodOptional) node = node.unwrap() as z.ZodType;
+  return node instanceof z.ZodNever;
+}
+
+const sampleView = (table: Record<string, unknown>) => ({ type: 'object-view', objectName: 'task', table });
+
+describe('objectui#10976 — the table slot withholds what the view\'s grid does not honour', () => {
+  it('the TypeScript slot declares none of the withheld keys', () => {
+    const declared = memberNames(slotType('table'));
+    expect(TABLE_WITHHELD_KEYS.filter((k) => declared.includes(k))).toEqual([]);
+  });
+
+  it('the slot keeps the three retirement tombstones `ObjectGridSchema` declares, as `never`', () => {
+    const table = slotType('table');
+    for (const key of TABLE_INHERITED_TOMBSTONES) {
+      const member = checker.getPropertyOfType(table, key);
+      expect(member, `\`${key}\` left the slot`).toBeDefined();
+      const type = checker.getNonNullableType(checker.getTypeOfSymbol(member!));
+      expect(type.flags & ts.TypeFlags.Never, `\`${key}\` is no longer \`never\` on the slot`).not.toBe(0);
+    }
+  });
+
+  it('LIT CONTROL: the positive keys the slot hands the grid are declared', () => {
+    const declared = memberNames(slotType('table'));
+    for (const key of ['editable', 'frozenColumns', 'rowHeight', 'columns', 'pagination']) {
+      expect(declared).toContain(key);
+    }
+  });
+
+  it('the zod twin refuses EXACTLY the withheld keys and the inherited tombstones by name — the two faces agree', () => {
+    const shape = mirrorTableObject().shape as Record<string, z.ZodType>;
+    const refused = Object.keys(shape).filter((k) => refusesEverything(shape[k])).sort();
+    expect(refused).toEqual(
+      [...TABLE_WITHHELD_KEYS, ...TABLE_INHERITED_TOMBSTONES, ...TABLE_MIRROR_ONLY_TOMBSTONES].sort(),
+    );
+  });
+
+  it('the mirror-only tombstone is no member of the TypeScript slot', () => {
+    const declared = memberNames(slotType('table'));
+    for (const key of TABLE_MIRROR_ONLY_TOMBSTONES) expect(declared).not.toContain(key);
+  });
+
+  it.each(TABLE_WITHHELD_KEYS.map((k) => [k]))('`table.%s` is refused by the validator, at its own path, with guidance', (key) => {
+    const r = ObjectViewMirror.safeParse(sampleView({ [key]: 'x' }));
+    expect(r.success).toBe(false);
+    const issue = r.success ? undefined : r.error.issues.find((i) => i.path.join('.') === `table.${key}`);
+    expect(issue, `no issue at table.${key}`).toBeDefined();
+    expect(issue!.code).toBe('invalid_type');
+    expect(issue!.message).toContain('objectui#10976');
+  });
+
+  it('LIT CONTROL: a relayed key and a key read by name parse green on the same validator', () => {
+    const r = ObjectViewMirror.safeParse(sampleView({ editable: true, frozenColumns: 2, columns: ['name'], pageSize: 25 }));
+    expect(r.success, r.success ? '' : JSON.stringify(r.error.issues)).toBe(true);
+  });
 });

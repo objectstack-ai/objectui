@@ -89,10 +89,11 @@ function resetSink() {
 beforeEach(resetSink);
 
 /**
- * The bucket-① members route 2 relays, each with a named-view value and, for
- * the two this branch already read off the node (`table.pagination`,
- * `table.selection`), a node value. Every other member carries a node value
- * too, which must NOT arrive: route 2 gained no node read.
+ * The bucket-① members route 2 relays, each with a named-view value and a node
+ * value. This card gained no node read: only `table.pagination` and
+ * `table.selection` were read off the node then. objectui#10976 made the node's
+ * `table` the fallback of every other member too (its relay), so the node value
+ * now arrives when the named view is silent, and still loses when it speaks.
  */
 const MEMBERS: Record<string, { named: unknown; table: unknown }> = {
   pagination: { named: { pageSize: 5, pageSizeOptions: [5, 10] }, table: { pageSize: 100 } },
@@ -113,7 +114,7 @@ const MEMBERS: Record<string, { named: unknown; table: unknown }> = {
   exportOptions: { named: { formats: ['csv'] }, table: { formats: ['xlsx'] } },
 };
 
-/** The members whose node rung route 2 already had — `table.KEY`. */
+/** The members whose node rung route 2 already had before objectui#10976 — `table.KEY`. */
 const NODE_RUNG = ['pagination', 'selection'];
 
 const pick = (source: 'named' | 'table'): Record<string, unknown> =>
@@ -209,15 +210,16 @@ describe('objectui#10885 — through the registered `object-view` renderer, rout
     expect(s.exportOptions).toEqual({ formats: ['xlsx'] });
   });
 
-  it('CONTROL: with the members absent from the named view, the node applies where route 2 already read it — and only there', async () => {
+  it('CONTROL: with the members absent from the named view, the node\'s `table` applies — for every member since objectui#10976', async () => {
+    // Before objectui#10976 only `NODE_RUNG` arrived here and the rest read
+    // `undefined`: the slot typed them and route 2 copied none. The relay made
+    // the node's `table` every member's fallback; the named view still wins
+    // above.
     const s = await gridNodeThroughRenderer({ ...CONTROL }, pick('table'));
     expectControl(s);
     for (const [member, v] of Object.entries(MEMBERS)) {
-      if (NODE_RUNG.includes(member)) {
-        expect(s[member], `\`${member}\` no longer arrives from the node's \`table\``).toEqual(v.table);
-      } else {
-        expect(s[member], `\`${member}\` is now read off the node's \`table\``).toBeUndefined();
-      }
+      const since = NODE_RUNG.includes(member) ? 'objectui#10885' : 'objectui#10976';
+      expect(s[member], `\`${member}\` does not arrive from the node's \`table\` (a rung since ${since})`).toEqual(v.table);
     }
   });
 });

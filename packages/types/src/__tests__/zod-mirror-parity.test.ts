@@ -154,7 +154,15 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **49 entries** in `KnownDrift`, **88 keys** across them — 48 / 87 until
+ *   - **49 entries** in `KnownDrift`, **87 keys** across them — 49 / 88 until
+ *     objectui#10976 narrowed `ObjectViewSchema.table` to the grid keys `ObjectView`
+ *     hands the grid it draws: the TypeScript slot no longer declares `onNavigate`,
+ *     the one callable the nested mirror refused, so `table` LEFT
+ *     `objectql.zod.ts#ObjectViewSchema`'s entry and the entry stays on its other two
+ *     keys. The key total fell by one and the entry count did not move. The slot's
+ *     withheld keys are refused by name on the mirror and absent from the
+ *     declaration, so both faces refuse them and neither ledger gains a row. It was
+ *     48 / 87 until
  *     objectui#9256 repaired the `Omit` erasure on `form.zod.ts#InputShorthandSchema`:
  *     the face had declared nothing it inherited, so no key of it could drift, and it
  *     now carries `InputSchema`'s members, `onChange` included. ONE entry is new with
@@ -2329,22 +2337,27 @@ interface KnownDrift {
    * `ObjectView`, which builds the `object-view` node in TypeScript and puts
    * `onNavigate: (recordId, mode) => …` on it.
    *
-   * ⭐ `form` and `table` are the SAME slice reaching one level down, and they
-   * are here by measurement rather than by intent: this pair's two nested
-   * config slots are the sibling mirrors BY REFERENCE
-   * (`ObjectFormSchema.omit({ type, objectName, mode }).partial()` and
-   * `ObjectGridSchema.omit({ type, objectName }).partial()`), while the
-   * declaration types them `Partial<Pick<…, ObjectFormSlotKey>>` /
-   * `Partial<Pick<…, ObjectGridSlotKey>>` — and those two slot-key unions list
-   * exactly the handler keys this slice declared (`onCancel`, `onError`,
-   * `onOpenChange`, `onStepChange`, `onSuccess` on the form union;
-   * `onNavigate` on the grid union). So the named refusals propagate into the
-   * nested config and an authored `form: { onSuccess: … }` is refused there
-   * too. ⛔ NOT worked around by omitting the keys from the nested lazy: that
-   * would keep accepting an un-authorable function value one level down, which
-   * is the defect, not the fix.
+   * ⭐ `form` is the SAME slice reaching one level down, and it is here by
+   * measurement rather than by intent: this pair's nested form slot is the
+   * sibling mirror BY REFERENCE
+   * (`ObjectFormSchema.omit({ type, objectName, mode }).partial()`), while the
+   * declaration types it `Partial<Pick<…, ObjectFormSlotKey>>` — and that
+   * slot-key union lists exactly the handler keys this slice declared
+   * (`onCancel`, `onError`, `onOpenChange`, `onStepChange`, `onSuccess`). So the
+   * named refusals propagate into the nested config and an authored
+   * `form: { onSuccess: … }` is refused there too. ⛔ NOT worked around by
+   * omitting the keys from the nested lazy: that would keep accepting an
+   * un-authorable function value one level down, which is the defect, not the
+   * fix.
+   *
+   * `table` sat here for the same reason, on `onNavigate`, until objectui#10976
+   * narrowed `ObjectGridSlotKey` to the grid keys `ObjectView` hands its grid.
+   * `ObjectView` never relayed `table.onNavigate`, so the declaration stopped
+   * typing it, and the nested mirror refuses it by name with the slot's other
+   * withheld keys. Both faces now refuse it, and `table` measures clean. ⛔ Its
+   * refusal was not dropped to get there: the key is refused, not omitted.
    */
-  'objectql.zod.ts#ObjectViewSchema': 'onNavigate' | 'form' | 'table';
+  'objectql.zod.ts#ObjectViewSchema': 'onNavigate' | 'form';
   /**
    * RUNTIME SLOT (objectui#6124 shape, declared by objectui#7804) ×2 — the
    * SECOND handler entry on this mirror, and the first anywhere in this ledger

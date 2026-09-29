@@ -3192,6 +3192,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.appNav.empty': 'Empty — click “Add nav item” to start',
   'engine.appNav.emptyReadonly': 'No top-level nav items yet',
   'engine.appNav.newItem': 'New item',
+  'engine.appNav.item': 'Item {n}',
   'engine.appNav.itemOne': 'item',
   'engine.appNav.itemOther': 'items',
 };
@@ -5997,6 +5998,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.appNav.empty': '还没有导航项 — 点「添加导航项」开始',
   'engine.appNav.emptyReadonly': '还没有顶层导航项',
   'engine.appNav.newItem': '新菜单项',
+  'engine.appNav.item': '导航项 {n}',
   'engine.appNav.itemOne': '项',
   'engine.appNav.itemOther': '项',
 };

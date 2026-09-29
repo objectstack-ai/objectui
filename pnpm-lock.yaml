@@ -1190,7 +1190,7 @@ importers:
         specifier: ^17.0.0
         version: 17.5.0(ai@7.0.65(zod@4.6.5))
       '@objectstack/spec':
-        specifier: ^17.3.0
+        specifier: ^17.5.0
         version: 17.5.0(ai@7.0.65(zod@4.6.5))
     devDependencies:
       '@object-ui/test-support':
@@ -2846,10 +2846,10 @@ importers:
   packages/types:
     dependencies:
       '@objectstack/spec':
-        specifier: ^17.4.0
+        specifier: ^17.5.0
         version: 17.5.0(ai@7.0.65(zod@4.6.5))
       zod:
-        specifier: ^4.4.3
+        specifier: ^4.6.1
         version: 4.6.5
     devDependencies:
       '@object-ui/test-support':

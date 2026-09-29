@@ -91,8 +91,11 @@ import { metricAccentTextClass } from './colorVariants';
 import { DrillDownDrawer } from './DrillDownDrawer';
 
 type Row = Record<string, unknown>;
-interface DatasetTotals { dimensions: string[]; rows: Row[] }
-interface DatasetResult { rows: Row[]; fields?: DatasetResultField[]; object?: string; dimensionFields?: Record<string, string>; drillRawRows?: Row[]; drillRanges?: Array<Record<string, DatasetDrillRange>>; totals?: DatasetTotals[] }
+// One RESULT-side totals grouping (the response's `totals[]`), named apart from
+// `@objectstack/spec/api`'s `DatasetTotals`, which since 17.5.0 is the REQUEST side
+// (`{ groupings }`, what to compute) — objectui#11073.
+interface DatasetResultTotals { dimensions: string[]; rows: Row[] }
+interface DatasetResult { rows: Row[]; fields?: DatasetResultField[]; object?: string; dimensionFields?: Record<string, string>; drillRawRows?: Row[]; drillRanges?: Array<Record<string, DatasetDrillRange>>; totals?: DatasetResultTotals[] }
 interface DatasetCapableSource {
   queryDataset?: (dataset: string, selection: unknown) => Promise<DatasetResult>;
 }
@@ -588,7 +591,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
 
   // `signature` is the query an `ok` answer was read for, and `refreshing` marks
   // a re-read of that same query in flight (objectui#10815, see the effect).
-  const [state, setState] = useState<{ status: 'idle' | 'loading' | 'ok' | 'error'; rows: Row[]; fields?: DatasetResultField[]; object?: string; dimensionFields?: Record<string, string>; drillRawRows?: Array<Record<string, unknown>>; drillRanges?: Array<Record<string, DatasetDrillRange>>; totals?: DatasetTotals[]; error?: string; forbidden?: boolean; signature?: string; refreshing?: boolean }>({ status: 'idle', rows: [] });
+  const [state, setState] = useState<{ status: 'idle' | 'loading' | 'ok' | 'error'; rows: Row[]; fields?: DatasetResultField[]; object?: string; dimensionFields?: Record<string, string>; drillRawRows?: Array<Record<string, unknown>>; drillRanges?: Array<Record<string, DatasetDrillRange>>; totals?: DatasetResultTotals[]; error?: string; forbidden?: boolean; signature?: string; refreshing?: boolean }>({ status: 'idle', rows: [] });
   // Drill-through (ADR-0021 D2): the clicked bucket's record-list filter + title.
   const [drill, setDrill] = useState<{ filter: Record<string, unknown>; title: string } | null>(null);
   // ── The flat table's client-side sort (objectui#5827) ────────────────────

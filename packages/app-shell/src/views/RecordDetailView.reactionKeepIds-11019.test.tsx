@@ -22,7 +22,7 @@
 import * as React from 'react';
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup, fireEvent, within, act } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, within, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { MetadataCtx } from '@object-ui/react';
 import { DETAIL_DEFAULT_TRANSLATIONS } from '@object-ui/plugin-detail';

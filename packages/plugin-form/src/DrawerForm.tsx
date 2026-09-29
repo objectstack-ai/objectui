@@ -74,8 +74,11 @@ import {
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
 import { useRecordInvalidation } from './recordInvalidation';
 
-// Localized strings for the unsaved-changes guard. Falls back to English when
-// no i18n provider is mounted (createSafeTranslation handles that).
+// Localized strings for the unsaved-changes guard and, since objectui#11039,
+// the form's own chrome (the default submit and cancel labels, the loading
+// line and the load-failure heading — the same keys and values as
+// `formChrome.ts`). Falls back to English when no i18n provider is mounted
+// (createSafeTranslation handles that).
 const useDiscardTranslation = createSafeTranslation(
   {
     'form.discardTitle': 'Discard changes?',
@@ -88,6 +91,11 @@ const useDiscardTranslation = createSafeTranslation(
     'form.dialogDescriptionFallback': 'Complete the form fields, then submit or cancel.',
     'form.keepEditing': 'Keep editing',
     'form.discard': 'Discard',
+    'form.create': 'Create',
+    'form.update': 'Update',
+    'common.cancel': 'Cancel',
+    'form.errorLoading': 'Error loading form',
+    'publicForm.loading': 'Loading form…',
   },
   'form.discardTitle',
 );
@@ -666,8 +674,8 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   // would keep an already-emptied form. Mirrors ModalForm.
   const showSubmit = schema.showSubmit !== false && schema.mode !== 'view';
   const showCancel = schema.showCancel !== false;
-  const submitLabel = schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update');
-  const cancelLabel = schema.cancelText || 'Cancel';
+  const submitLabel = schema.submitText || (schema.mode === 'create' ? t('form.create') : t('form.update'));
+  const cancelLabel = schema.cancelText || t('common.cancel');
 
   // Build base form schema
   const baseFormSchema = {
@@ -692,7 +700,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     if (error) {
       return (
         <div className="p-4 border border-red-300 bg-red-50 rounded-md">
-          <h3 className="text-red-800 font-semibold">Error loading form</h3>
+          <h3 className="text-red-800 font-semibold">{t('form.errorLoading')}</h3>
           <p className="text-red-600 text-sm mt-1">{error.message}</p>
         </div>
       );
@@ -702,7 +710,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       return (
         <div className="p-8 text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          <p className="mt-2 text-sm text-gray-600">Loading form...</p>
+          <p className="mt-2 text-sm text-gray-600">{t('publicForm.loading')}</p>
         </div>
       );
     }

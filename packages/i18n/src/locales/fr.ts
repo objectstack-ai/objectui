@@ -202,6 +202,12 @@ const fr = {
     createSuccess: "{{object}} créé",
     updateSuccess: "{{object}} mis à jour",
     deleteSuccess: "{{object}} supprimé",
+    created: "Créé",
+    saved: "Enregistré",
+    savedNamed: "{{title}} enregistré",
+    submitted: "Envoyé",
+    errorLoading: "Erreur de chargement du formulaire",
+    navigateRefused: "La destination `navigateOnSuccess` déclarée pour ce formulaire a été refusée, la navigation n’a donc pas eu lieu.",
     fullscreen: {
       title: "Modifier le texte",
       description: "Modifiez la valeur texte complète, puis enregistrez ou annulez vos modifications.",

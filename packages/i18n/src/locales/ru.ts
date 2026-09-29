@@ -212,6 +212,12 @@ const ru = {
     createSuccess: "{{object}} создан",
     updateSuccess: "{{object}} обновлён",
     deleteSuccess: "{{object}} удалён",
+    created: "Создано",
+    saved: "Сохранено",
+    savedNamed: "{{title}} сохранён",
+    submitted: "Отправлено",
+    errorLoading: "Ошибка загрузки формы",
+    navigateRefused: "Цель `navigateOnSuccess`, объявленная для этой формы, была отклонена, поэтому переход не выполнен.",
     fullscreen: {
       title: "Изменить текст",
       description: "Измените полное текстовое значение, затем сохраните или отмените изменения.",

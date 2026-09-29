@@ -27,8 +27,11 @@
  * and fail the row: the rows can pass only by following the active language.
  *
  * The plain-string rows and the nothing-authored rows are the controls. A
- * string stays exactly what was authored, and the English defaults stay
- * byte-identical.
+ * string stays exactly what was authored, and with nothing authored the zh
+ * pack's own defaults show: the Save / Create / Cancel labels and the built-in
+ * save toast read the i18n catalogue since objectui#11039, so under this `zh`
+ * UI they are 保存 / 创建 / 取消 and 已保存, and a `title` is named in the zh
+ * pack's `form.savedNamed` ("{{title}}已保存").
  */
 
 import React from 'react';
@@ -208,7 +211,7 @@ describe('object-master-detail-form — `title` / `submitText` / `cancelText` ar
   it('a locale-map `title` reads in the active locale in the edit-save toast', async () => {
     const { container, ds } = mount({ mode: 'edit', recordId: 'po1', title: TITLE_MAP });
 
-    expect(await saveEdit(container, ds)).toEqual(['采购单 saved']);
+    expect(await saveEdit(container, ds)).toEqual(['采购单已保存']);
     expect(container.innerHTML).not.toContain('[object Object]');
   });
 
@@ -220,17 +223,19 @@ describe('object-master-detail-form — `title` / `submitText` / `cancelText` ar
 
     expect((await submitButton()).textContent).toBe('Save PO');
     expect((await cancelButton()).textContent).toBe('Discard');
-    expect(await saveEdit(container, ds)).toEqual(['PO saved']);
+    expect(await saveEdit(container, ds)).toEqual(['PO已保存']);
   });
 
-  it('CONTROL: with nothing authored, the English defaults are unchanged', async () => {
+  it('CONTROL: with nothing authored, the zh pack\'s defaults show (objectui#11039)', async () => {
     const create = mount({}, { onCancel: vi.fn() });
-    expect((await submitButton()).textContent).toBe('Create');
-    expect((await cancelButton()).textContent).toBe('Cancel');
+    // `waitFor`, not a bare read: the zh catalogue loads after the first
+    // render, and until it lands the fallback language answers.
+    await waitFor(async () => expect((await submitButton()).textContent).toBe('创建'));
+    expect((await cancelButton()).textContent).toBe('取消');
     create.unmount();
 
     const { container, ds } = mount({ mode: 'edit', recordId: 'po1' });
-    expect((await submitButton()).textContent).toBe('Save');
-    expect(await saveEdit(container, ds)).toEqual(['Saved']);
+    await waitFor(async () => expect((await submitButton()).textContent).toBe('保存'));
+    expect(await saveEdit(container, ds)).toEqual(['已保存']);
   });
 });

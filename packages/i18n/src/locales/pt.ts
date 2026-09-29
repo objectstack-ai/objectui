@@ -201,6 +201,12 @@ const pt = {
     createSuccess: "{{object}} criado",
     updateSuccess: "{{object}} atualizado",
     deleteSuccess: "{{object}} excluído",
+    created: "Criado",
+    saved: "Salvo",
+    savedNamed: "{{title}} salvo",
+    submitted: "Enviado",
+    errorLoading: "Erro ao carregar formulário",
+    navigateRefused: "O destino `navigateOnSuccess` declarado para este formulário foi recusado, então a navegação não aconteceu.",
     fullscreen: {
       title: "Editar texto",
       description: "Edite o valor de texto completo e depois salve ou cancele as alterações.",

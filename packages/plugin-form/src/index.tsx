@@ -498,13 +498,13 @@ ComponentRegistry.register('object-master-detail-form', MasterDetailFormRenderer
       name: 'submitText',
       type: ['string', 'object'],
       description:
-        'Label of the button that saves the parent and every detail row in one batch. Defaults to "Save" when editing a record (`mode: "edit"` with a `recordId`) and to "Create" otherwise; an empty string, or a map no locale limb resolves, shows the default too. Accepts either a plain string or an inline per-locale map (`{ en: "Save order", "zh-CN": "保存订单" }`), resolved against the active UI language with the same fallback chain as `title`.',
+        'Label of the button that saves the parent and every detail row in one batch. Defaults to "Save" when editing a record (`mode: "edit"` with a `recordId`) and to "Create" otherwise, in the active UI language; an empty string, or a map no locale limb resolves, shows the default too. Accepts either a plain string or an inline per-locale map (`{ en: "Save order", "zh-CN": "保存订单" }`), resolved against the active UI language with the same fallback chain as `title`.',
     },
     {
       name: 'cancelText',
       type: ['string', 'object'],
       description:
-        'Label of the Cancel button, which renders only when the host supplies an `onCancel` callback (a runtime slot, not authorable in a JSON document). Defaults to "Cancel"; an empty string, or a map no locale limb resolves, shows the default too. Accepts either a plain string or an inline per-locale map (`{ en: "Back", "zh-CN": "返回" }`), resolved against the active UI language with the same fallback chain as `title`.',
+        'Label of the Cancel button, which renders only when the host supplies an `onCancel` callback (a runtime slot, not authorable in a JSON document). Defaults to "Cancel", in the active UI language; an empty string, or a map no locale limb resolves, shows the default too. Accepts either a plain string or an inline per-locale map (`{ en: "Back", "zh-CN": "返回" }`), resolved against the active UI language with the same fallback chain as `title`.',
     },
     { name: 'showSubmit', type: 'boolean' },
     { name: 'initialValues', type: 'object', description: 'Values to prefill on the PARENT record in `create` mode.' },

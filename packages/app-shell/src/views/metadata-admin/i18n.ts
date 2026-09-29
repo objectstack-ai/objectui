@@ -5866,6 +5866,8 @@ export function isZhLocale(locale?: SupportedLocale | string): boolean {
 interface FlowFieldZh {
   label?: string;
   help?: string;
+  /** The field's `unsetNotice` (objectui#11054). */
+  unsetNotice?: string;
   /** select option value → zh label. */
   opts?: Record<string, string>;
   /** objectList column key → zh label (+ nested option labels). */
@@ -5895,9 +5897,15 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
         schedule: '定时(cron)',
         time_relative: '相对时间(日期扫描)',
         manual: '手动 / 自动启动',
-        webhook: 'Webhook / API',
+        api: 'Webhook / API',
         event: '平台事件',
       },
+    },
+    // objectui#11054 — the inbound hook's per-flow secret (write-only).
+    secret: {
+      label: '密钥',
+      help: '入站 hook 用来校验每一次请求的流程级密钥。只写不读:已保存的密钥不会在此显示,留空即保持不变。',
+      unsetNotice: '未输入密钥。API 触发的流程若开始节点没有密钥,会被拒绝。此流程已保存的密钥在留空时保持不变。',
     },
     objectName: { label: '对象', help: '记录 / 定时扫描触发的目标对象。' },
     condition: {

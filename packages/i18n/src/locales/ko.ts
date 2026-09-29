@@ -202,6 +202,12 @@ const ko = {
     createSuccess: "{{object}} 생성됨",
     updateSuccess: "{{object}} 업데이트됨",
     deleteSuccess: "{{object}} 삭제됨",
+    created: "생성됨",
+    saved: "저장됨",
+    savedNamed: "{{title}} 저장됨",
+    submitted: "제출됨",
+    errorLoading: "양식 로딩 오류",
+    navigateRefused: "이 양식에 선언된 `navigateOnSuccess` 대상이 거부되어 이동하지 않았습니다.",
     fullscreen: {
       title: "텍스트 편집",
       description: "전체 텍스트 값을 편집한 다음 변경 사항을 저장하거나 취소하세요.",

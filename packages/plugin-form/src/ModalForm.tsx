@@ -75,8 +75,11 @@ import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
 import { useRecordInvalidation } from './recordInvalidation';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 
-// Localized strings for the unsaved-changes guard. Falls back to English when
-// no i18n provider is mounted (createSafeTranslation handles that).
+// Localized strings for the unsaved-changes guard and, since objectui#11039,
+// the form's own chrome (the default submit and cancel labels and the
+// load-failure heading — the same keys and values as `formChrome.ts`). Falls
+// back to English when no i18n provider is mounted (createSafeTranslation
+// handles that).
 const useDiscardTranslation = createSafeTranslation(
   {
     'form.discardTitle': 'Discard changes?',
@@ -89,6 +92,10 @@ const useDiscardTranslation = createSafeTranslation(
     'form.dialogDescriptionFallback': 'Complete the form fields, then submit or cancel.',
     'form.keepEditing': 'Keep editing',
     'form.discard': 'Discard',
+    'form.create': 'Create',
+    'form.update': 'Update',
+    'common.cancel': 'Cancel',
+    'form.errorLoading': 'Error loading form',
   },
   'form.discardTitle',
 );
@@ -705,8 +712,8 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   // Actions are hidden inside the form renderer — we render them in a sticky footer instead
   const showSubmit = schema.showSubmit !== false && schema.mode !== 'view';
   const showCancel = schema.showCancel !== false;
-  const submitLabel = schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update');
-  const cancelLabel = schema.cancelText || 'Cancel';
+  const submitLabel = schema.submitText || (schema.mode === 'create' ? t('form.create') : t('form.update'));
+  const cancelLabel = schema.cancelText || t('common.cancel');
 
   const baseFormSchema = {
     type: 'form' as const,
@@ -733,7 +740,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     if (error) {
       return (
         <div className="p-4 border border-red-300 bg-red-50 rounded-md">
-          <h3 className="text-red-800 font-semibold">Error loading form</h3>
+          <h3 className="text-red-800 font-semibold">{t('form.errorLoading')}</h3>
           <p className="text-red-600 text-sm mt-1">{error.message}</p>
         </div>
       );

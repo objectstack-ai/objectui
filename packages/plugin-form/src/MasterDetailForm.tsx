@@ -59,7 +59,7 @@ import {
   type ChildSchema,
 } from './masterDetailTx';
 import { isSameStoredValue } from './sanitize';
-import { deriveDetail, hydrateColumns, type InlineMode } from './deriveMasterDetail';
+import { deriveDetail, type InlineMode } from './deriveMasterDetail';
 
 export interface MasterDetailDetailConfig {
   /** Child object name, e.g. 'expense_line'. */
@@ -991,23 +991,35 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
             return { ...entry, status: 'failed' };
           }
           try {
-            // Author gave the FK + an explicit column set but left some columns
-            // untyped — hydrate just their widget types from the schema, keeping
-            // their exact column set / order / labels (don't re-derive columns).
-            if (d.relationshipField && d.columns?.length) {
-              return {
-                ...entry,
-                config: { ...d, columns: hydrateColumns(d.columns, childSchema) },
-                status: 'ready',
-                amountFieldDef: childFieldDef(childSchema, d.amountField),
-              };
-            }
+            // ONE derivation for every entry that reaches here. With authored
+            // `columns`, `deriveDetail` keeps them: its `columns` is
+            // `hydrateColumns(d.columns, childSchema)`, and its amount rule
+            // picks from that same set. An authored `amountField` / `sortField`
+            // still wins over the derived one.
             const derived = deriveDetail(d.childObject, childSchema, schema.objectName, {
               relationshipField: d.relationshipField,
               columns: d.columns,
               amountField: d.amountField,
             });
             const amountField = d.amountField ?? derived.amountField;
+            const sortField = d.sortField ?? derived.sortField;
+            // Author gave the FK + an explicit column set but left some columns
+            // untyped — hydrate just their widget types from the schema, keeping
+            // their exact column set / order / labels (don't re-derive columns),
+            // and their own `formFields` / `inlineMode`. The sort field and the
+            // amount field are still taken from the derivation: a child whose
+            // relationship declares `inlineColumns` lands here, and nothing
+            // else supplies them (the spec has no inline sort-field key), so
+            // skipping them lost the drag-reorder `position` and the running
+            // total (objectui#11144).
+            if (d.relationshipField && d.columns?.length) {
+              return {
+                ...entry,
+                config: { ...d, columns: derived.columns, amountField, sortField },
+                status: 'ready',
+                amountFieldDef: childFieldDef(childSchema, amountField),
+              };
+            }
             return {
               ...entry,
               status: 'ready',
@@ -1018,7 +1030,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
                 formFields: d.formFields ?? derived.formFields,
                 inlineMode: d.inlineMode ?? derived.mode,
                 amountField,
-                sortField: d.sortField ?? derived.sortField,
+                sortField,
               },
               amountFieldDef: childFieldDef(childSchema, amountField),
             };

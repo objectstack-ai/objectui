@@ -31,6 +31,9 @@
  * write exactly the days they wrote with it. The `datetime` controls keep
  * their wall-clock time across the DST change; the first Los Angeles one ends
  * at 10:00 on November 2nd, where the elapsed-time arithmetic put it at 09:00.
+ * The mixed rows (one `date` field, one `datetime`) are slice 5's: the slice-4
+ * repair never reached their `date` half, and the grid's calendar-day move
+ * writes it right with no repair (`MIXED_MOVES`).
  *
  * `Asia/Shanghai` keeps no DST, so every day move there is the control zone.
  *
@@ -74,10 +77,13 @@ const OBJECT_SCHEMA = {
   },
 };
 
-type Kind = 'date' | 'datetime';
+/** `datetime-date` and `date-datetime` are a MIXED event: one field of each type. */
+type Kind = 'date' | 'datetime' | 'datetime-date' | 'date-datetime';
 const FIELDS: Record<Kind, { start: string; end: string }> = {
   date: { start: 'starts_on', end: 'ends_on' },
   datetime: { start: 'starts_at', end: 'ends_at' },
+  'datetime-date': { start: 'starts_at', end: 'ends_on' },
+  'date-datetime': { start: 'starts_on', end: 'ends_at' },
 };
 
 afterEach(() => {
@@ -269,6 +275,78 @@ const WEST_INSTANT_MOVES: Array<[string, Move, { start: string; end: string }]> 
   ],
 ];
 
+/**
+ * A MIXED event, one `date` field and one `datetime` field, moved across
+ * November 1st (objectui#10866, slice 5). The slice-4 repair gated a whole
+ * event, so a mixed event took the elapsed-time path for its `date` half too,
+ * and under `America/Los_Angeles` that half was written a day short: the first
+ * move below wrote its end `2026-11-02`, the second its start `2026-11-01`
+ * (review of PR objectui#10994, measured on that head and on its base). Since
+ * objectui#11005 the grid moves each value by calendar days, so the `date`
+ * half comes back at local midnight of the day it was dropped on, with no
+ * repair in `ObjectCalendar`. These rows record that; the `datetime` half keeps
+ * its wall-clock time, as the grid's own pins rule.
+ *
+ * The grab cell is the start's LOCAL day in each zone: 10:00 on October 29th in
+ * Los Angeles is 01:00 on October 30th in Shanghai.
+ */
+const MIXED_MOVES: Record<'west' | 'east', Array<[string, Move, { start: string; end: string }]>> = {
+  west: [
+    [
+      'a `datetime` start with a `date` end `2026-10-31`, moved three days across November 1st, writes its end `2026-11-03`',
+      {
+        clock: OCTOBER,
+        kind: 'datetime-date',
+        start: '2026-10-29T17:00:00.000Z',
+        end: '2026-10-31',
+        grab: 'October 29, 2026',
+        drop: 'November 1, 2026',
+      },
+      // October 29th 10:00 PDT to November 1st 10:00 PST.
+      { start: '2026-11-01T18:00:00.000Z', end: '2026-11-03' },
+    ],
+    [
+      'a `date` start `2026-11-01` with a `datetime` end, grabbed on the 2nd and dropped on the 3rd, writes its start `2026-11-02`',
+      {
+        clock: OCTOBER,
+        kind: 'date-datetime',
+        start: '2026-11-01',
+        end: '2026-11-03T18:00:00.000Z',
+        grab: 'November 2, 2026',
+        drop: 'November 3, 2026',
+      },
+      // November 3rd 10:00 PST to November 4th 10:00 PST.
+      { start: '2026-11-02', end: '2026-11-04T18:00:00.000Z' },
+    ],
+  ],
+  east: [
+    [
+      'a `datetime` start with a `date` end `2026-10-31`, moved three days, writes its end `2026-11-03`',
+      {
+        clock: OCTOBER,
+        kind: 'datetime-date',
+        start: '2026-10-29T17:00:00.000Z',
+        end: '2026-10-31',
+        grab: 'October 30, 2026',
+        drop: 'November 2, 2026',
+      },
+      { start: '2026-11-01T17:00:00.000Z', end: '2026-11-03' },
+    ],
+    [
+      'a `date` start `2026-11-01` with a `datetime` end, grabbed on the 2nd and dropped on the 3rd, writes its start `2026-11-02`',
+      {
+        clock: OCTOBER,
+        kind: 'date-datetime',
+        start: '2026-11-01',
+        end: '2026-11-03T18:00:00.000Z',
+        grab: 'November 2, 2026',
+        drop: 'November 3, 2026',
+      },
+      { start: '2026-11-02', end: '2026-11-04T18:00:00.000Z' },
+    ],
+  ],
+};
+
 describe('ObjectCalendar day moves, in the suite zone (objectui#10866)', () => {
   it('a day span moved two days writes both of its days', async () => {
     const [, move, want] = DAY_MOVES[0];
@@ -295,6 +373,10 @@ describe.runIf(DRIVEN)('ObjectCalendar day moves across a DST change, west of UT
   });
 
   it.each(WEST_INSTANT_MOVES)('%s', async (_name, move, want) => {
+    expect(await moved(move, WEST)).toEqual(want);
+  });
+
+  it.each(MIXED_MOVES.west)('mixed: %s', async (_name, move, want) => {
     expect(await moved(move, WEST)).toEqual(want);
   });
 });
@@ -324,5 +406,9 @@ describe.runIf(DRIVEN)('ObjectCalendar day moves east of UTC, the control (objec
         EAST,
       ),
     ).toEqual({ start: '2026-11-02T17:00:00.000Z', end: '2026-11-04T18:00:00.000Z' });
+  });
+
+  it.each(MIXED_MOVES.east)('mixed: %s', async (_name, move, want) => {
+    expect(await moved(move, EAST)).toEqual(want);
   });
 });

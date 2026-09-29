@@ -52,3 +52,19 @@ drawer they open. The rest of this entry is kept as the reading of this change.
 Later in this same release `PivotTableSchema` gains a zod mirror, and its `drillDown`
 is this entry's `DrillDownConfigSchema`, so the opening paragraph's two referencing declarations are three for the release, and the first half of the second "Unchanged" bullet above (`PivotTableSchema.drillDown` has no zod mirror at all) is this change's reading, not the release's. The rest of this entry is kept as
 the reading of this change.
+
+⚠️ **Dated note, 2026-09-29 — the `pivot` arm no longer references this mirror —
+objectui#10932.** Later in this same release `drillDown` was retired on the `pivot`
+node on both faces: `PivotTableSchema.drillDown` is a `?: never` tombstone on the
+TypeScript face, and the zod arm declares it as a `retirementTombstone()`, which
+refuses the key by name whatever it holds. So "its `drillDown` is this entry's
+`DrillDownConfigSchema`, so the opening paragraph's two referencing declarations
+are three for the release" in the 2026-09-28 note above no longer holds: for the
+release the referencing declarations are the opening paragraph's two, `ChartSchema`
+and `ObjectDataTableSchema` (whose member extends this mirror per block,
+objectui#10685). The rest of that note stands: `PivotTableSchema` does have a zod
+mirror, so "`PivotTableSchema.drillDown` has no zod mirror at all" is still this
+change's reading, not the release's, and that mirror's `drillDown` member refuses
+the key rather than mirroring it. `.changeset/10932-pivot-drilldown-retired.md`
+(PR objectui#10972) states what ships; the text above is kept as the reading of
+this change.

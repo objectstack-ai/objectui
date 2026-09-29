@@ -53,3 +53,16 @@ zod mirror whose `drillDown` is the shared `DrillDownConfigSchema`, so a validat
 the members of a `pivot` node's `drillDown`, and accepts `mode` there, as `DrillDownConfig`
 declares it. `object-pivot` still has no mirror, so what the paragraph above says of a stored
 `object-pivot` config stands. The rest of this entry is kept as the reading of this change.
+
+⚠️ **Dated note, 2026-09-29 — the `pivot` node refuses `drillDown` whole now — objectui#10932.**
+Later in this same release `drillDown` was retired on the `pivot` node on both faces:
+`PivotTableSchema.drillDown` is a `?: never` tombstone, and the `pivot` arm of the zod mirror
+declares it as a `retirementTombstone()`, which refuses the key by name whatever it holds
+(`invalid_type` at `drillDown`). So "a validator does read the members of a `pivot` node's
+`drillDown`, and accepts `mode` there" in the 2026-09-28 note above no longer holds: the
+validator refuses the whole key before reading any member, so it accepts no `mode` on a `pivot`
+node. Nothing ever drilled a `pivot` node; a pivot drill is authored on `object-pivot`, whose
+`drillDown` type, `ObjectPivotDrillDownConfig`, refuses `mode` at the TypeScript door, as this
+entry says. `object-pivot` still has no zod mirror, so what this entry says of a stored
+`object-pivot` config stands. `.changeset/10932-pivot-drilldown-retired.md` (PR objectui#10972)
+states what ships; the text above is kept as the reading of this change.

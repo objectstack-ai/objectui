@@ -46,6 +46,16 @@ the count independently matches the corpus census already recorded in `SchemaRen
 ("`action:button` (5 nodes)"). No docs page documents the input; no catalog entry uses the
 components. So the rename breaks no authored document in this repo.
 
+⚠️ **Dated note, 2026-09-29 — the census above is a reading of one commit —
+objectui#10979.** The census above was taken before the rename. On the commit this change
+landed on (`6411def250`) two of its figures re-derive: 433 JSON files under
+`examples/schema-catalog/src/schemas`, and the control, 127 plain `button` nodes in the
+JSON of the four trees. Re-measured on `main` at `2eaf5be27`, the catalog held 432 such
+files and the control read 119 nodes, while the zero still held: no JSON file in the four
+trees carried an `action:button` or `action:icon` node. The 4,797-file, 517-file and
+2,410-node figures are not re-derived here, and the fenced blocks in md and mdx were not
+re-walked. The text above is kept as the reading of this change.
+
 **What changes for a consumer.** The renderers no longer fall back to `schema.type` when
 `actionType` is absent — that fallback is the old spelling, and the ruling forbids an alias.
 A node that declares neither now forwards `type: undefined`, and `ActionRunner` falls

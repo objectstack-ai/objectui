@@ -20,6 +20,18 @@ to `'page-component'`, so a five-argument call keeps printing the bytes it
 printed before. All three in-repo call sites pass their tier explicitly rather
 than lean on that default.
 
+⚠️ **Dated note, 2026-09-29 — the call-site count above has since moved —
+objectui#6445.** "All three in-repo call sites" above held when this change landed
+(`c71e14d1c`), counting gates: `reportUnresolvableVisibilityPredicate` was called from
+`SchemaRenderer`'s node visibility gate (twice), the `page:tabs` item gate and
+`ExpressionProvider`'s chrome gate, four calls in three files. Later in this same release
+objectui#6445 (PR objectui#6510) added a fourth gate, `SchemaRenderer`'s `disabled` /
+`disabledOn` enablement gate. Re-measured for objectui#10979 on `main` at `2eaf5be27`,
+the reporter was called five times outside its own module, from four gates in the same
+three files, and all five calls passed their tier explicitly, so none leaned on the
+default. `.changeset/6445-disabled-gate-fault-diagnostic.md` (PR objectui#6510) states
+what ships; the text above is kept as the reading of this change.
+
 Each tier's root set was derived from the code that builds the bag, not from the
 prose that described it:
 

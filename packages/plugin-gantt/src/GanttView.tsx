@@ -604,11 +604,13 @@ export interface GanttViewProps {
    * `onTaskUpdate` are translated back out of this display space into real
    * instants. A date-only value is a day rather than an instant, so the host
    * translates both ways itself (objectui#10866): `ObjectGantt` hands a day in
-   * as `makeTzShift(timeZone).from` of its local midnight, for the shim to
-   * draw it from that midnight here, and writes a `date` field back as the day
-   * `.to` of the emitted date falls on (`makeTzShift` says how exact the shim
-   * is around a DST change). Note: dates handed to `onBeforeTaskUpdate`
-   * are in this display space (durations/deltas are unaffected).
+   * as the instant the shim maps exactly onto its local midnight, so it is
+   * drawn from that midnight here, and writes a `date` field back as the day
+   * of the display date the emitted instant was translated from, recovered
+   * exactly (`invertTo` / `invertFrom` in `./tzShift`, which say why the shim's
+   * own round trip is not exact around a DST change). Note: dates handed to
+   * `onBeforeTaskUpdate` are in this display space (durations/deltas are
+   * unaffected).
    */
   timeZone?: string
   /**

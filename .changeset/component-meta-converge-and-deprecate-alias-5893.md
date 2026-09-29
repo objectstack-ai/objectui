@@ -58,6 +58,19 @@ converts a silent break into a warned one before stage 2 lands. Stage 2 removes 
 and the now-dead re-export in `plugin-scope.ts` that exists only to feed it, and ships as
 a `minor` under this repo's policy that its own breaking changes never declare `major`.
 
+⚠️ **Dated note, 2026-09-29 — the one-occurrence reading above has since moved —
+objectui#10979.** "In-repo, `PluginComponentMeta` has exactly one occurrence — its own
+export line" above is the reading of the commit this change landed on (`575b71c850`),
+where a whole-tree search for the name returned that one line, in
+`packages/types/src/index.ts`. This change then added its own pins and this entry, and
+later in this same release objectui#5674's retirement of the sibling alias
+`PluginComponentInput` (PR objectui#10826) added mentions in its test and its entry.
+Re-measured on `main` at `2eaf5be27`, the name occurred on 19 lines in 7 files. In
+non-test source it appeared only on the export line and on one doc-comment line in
+`plugin-scope.ts`, and the one file that imported it was this change's own
+`component-meta-single-declaration.test.ts`. The text above is kept as the reading of
+this change.
+
 ## Pinned by identity, not by member set
 
 A new test asserts that `plugin-scope.ts` re-exports the declaration and declares no

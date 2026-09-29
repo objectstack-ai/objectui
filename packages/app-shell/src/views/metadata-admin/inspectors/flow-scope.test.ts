@@ -1,7 +1,15 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 import { describe, it, expect } from 'vitest';
-import { flowAncestors, nodeOutputRefs, resolveFlowScope, triggerFieldRefs } from './flow-scope';
+import {
+  connectorActionOutputKeys,
+  connectorActionOutputSchema,
+  flowAncestors,
+  hasCommittedConnectorAction,
+  nodeOutputRefs,
+  resolveFlowScope,
+  triggerFieldRefs,
+} from './flow-scope';
 
 const tokens = (refs: ReadonlyArray<{ token: string }>) => refs.map((r) => r.token);
 const groupTokens = (scope: { refs: Array<{ token: string; group: string }> }, group: string) =>
@@ -196,5 +204,134 @@ describe('triggerFieldRefs', () => {
       'record.status',
       'previous.status',
     ]);
+  });
+});
+
+// objectui#11028 — a `connector_action` node offers `<nodeId>.<key>` for each
+// top-level `properties` key of its action's served `outputSchema`, the keys
+// the engine writes back from the handler's result. The schema is an open
+// record nothing validates, so every other shape offers nothing: keys are
+// never guessed.
+describe('connector action output references (objectui#11028)', () => {
+  const POST_OUTPUT = { type: 'object', properties: { ts: { type: 'string' }, channel: { type: 'string' } } };
+  /** A served `GET /automation/connectors` payload, unwrapped to the connector array. */
+  const REGISTRY = [
+    {
+      name: 'slack',
+      label: 'Slack',
+      actions: [
+        { key: 'chat.postMessage', label: 'Post Message', outputSchema: POST_OUTPUT },
+        { key: 'chat.delete', label: 'Delete Message' }, // declares no outputSchema
+      ],
+    },
+  ];
+  const connectorNode = (connectorConfig: Record<string, unknown> = { connectorId: 'slack', actionId: 'chat.postMessage' }) => ({
+    id: 'post',
+    type: 'connector_action',
+    label: 'Post to Slack',
+    connectorConfig,
+  });
+
+  describe('connectorActionOutputKeys', () => {
+    it('returns each top-level properties key, in declared order', () => {
+      expect(connectorActionOutputKeys({ type: 'object', properties: { ts: {}, channel: {} } })).toEqual(['ts', 'channel']);
+    });
+
+    it('returns no keys when the schema is absent or declares no properties', () => {
+      expect(connectorActionOutputKeys(undefined)).toEqual([]);
+      expect(connectorActionOutputKeys({})).toEqual([]);
+      expect(connectorActionOutputKeys({ type: 'object' })).toEqual([]);
+      expect(connectorActionOutputKeys({ type: 'object', properties: {} })).toEqual([]);
+    });
+
+    it('returns no keys for a schema that is not an object', () => {
+      expect(connectorActionOutputKeys(null)).toEqual([]);
+      expect(connectorActionOutputKeys('object')).toEqual([]);
+      expect(connectorActionOutputKeys(['ts'])).toEqual([]);
+    });
+
+    it('returns no keys when properties is not an object', () => {
+      expect(connectorActionOutputKeys({ properties: ['ts', 'channel'] })).toEqual([]);
+      expect(connectorActionOutputKeys({ properties: 'ts' })).toEqual([]);
+      expect(connectorActionOutputKeys({ properties: null })).toEqual([]);
+    });
+
+    it('reads only the TOP level: nested properties are not references of their own', () => {
+      expect(
+        connectorActionOutputKeys({ properties: { message: { type: 'object', properties: { text: {}, user: {} } } } }),
+      ).toEqual(['message']);
+    });
+  });
+
+  describe('connectorActionOutputSchema', () => {
+    it('finds the named action’s object schema in the registry', () => {
+      expect(connectorActionOutputSchema(REGISTRY, 'slack', 'chat.postMessage')).toEqual(POST_OUTPUT);
+    });
+
+    it('is undefined for any miss', () => {
+      expect(connectorActionOutputSchema(REGISTRY, 'slack', 'chat.delete')).toBeUndefined();
+      expect(connectorActionOutputSchema(REGISTRY, 'slack', 'nope')).toBeUndefined();
+      expect(connectorActionOutputSchema(REGISTRY, 'jira', 'chat.postMessage')).toBeUndefined();
+      expect(connectorActionOutputSchema(REGISTRY, undefined, 'chat.postMessage')).toBeUndefined();
+      expect(connectorActionOutputSchema(REGISTRY, 'slack', undefined)).toBeUndefined();
+      expect(connectorActionOutputSchema(undefined, 'slack', 'chat.postMessage')).toBeUndefined();
+      expect(
+        connectorActionOutputSchema([{ name: 'slack', actions: [{ key: 'x', outputSchema: ['ts'] }] }], 'slack', 'x'),
+      ).toBeUndefined();
+    });
+  });
+
+  describe('nodeOutputRefs — the connector_action branch', () => {
+    it('an outputSchema with two properties offers two references', () => {
+      const refs = nodeOutputRefs(connectorNode(), REGISTRY);
+      expect(tokens(refs)).toEqual(['post.ts', 'post.channel']);
+      expect(refs.every((r) => r.group === 'outputs' && r.detail === 'Post to Slack')).toBe(true);
+    });
+
+    it('an action with no outputSchema offers none', () => {
+      expect(nodeOutputRefs(connectorNode({ connectorId: 'slack', actionId: 'chat.delete' }), REGISTRY)).toEqual([]);
+    });
+
+    it('offers none without the registry, or before the connector and action are both chosen', () => {
+      expect(nodeOutputRefs(connectorNode())).toEqual([]);
+      expect(nodeOutputRefs(connectorNode({ connectorId: 'slack' }), REGISTRY)).toEqual([]);
+      expect(nodeOutputRefs(connectorNode({ actionId: 'chat.postMessage' }), REGISTRY)).toEqual([]);
+    });
+
+    it('reads the pair only on a connector_action node', () => {
+      expect(nodeOutputRefs({ ...connectorNode(), type: 'http' }, REGISTRY)).toEqual([]);
+    });
+  });
+
+  describe('resolveFlowScope — threaded registry', () => {
+    const flow = {
+      nodes: [
+        { id: 'start', type: 'start' },
+        connectorNode(),
+        { id: 'decide', type: 'decision' },
+      ],
+      edges: [
+        { source: 'start', target: 'post' },
+        { source: 'post', target: 'decide' },
+      ],
+    };
+
+    it('offers the upstream connector action’s output keys downstream', () => {
+      expect(groupTokens(resolveFlowScope(flow, 'decide', undefined, REGISTRY), 'outputs')).toEqual(['post.ts', 'post.channel']);
+    });
+
+    it('never offers them at the connector node itself, and not without the registry', () => {
+      expect(groupTokens(resolveFlowScope(flow, 'post', undefined, REGISTRY), 'outputs')).toEqual([]);
+      expect(groupTokens(resolveFlowScope(flow, 'decide'), 'outputs')).toEqual([]);
+    });
+  });
+
+  describe('hasCommittedConnectorAction', () => {
+    it('is true only when a top-level connector_action has both a connector and an action', () => {
+      expect(hasCommittedConnectorAction({ nodes: [{ id: 's', type: 'start' }, connectorNode()] })).toBe(true);
+      expect(hasCommittedConnectorAction({ nodes: [connectorNode({ connectorId: 'slack' })] })).toBe(false);
+      expect(hasCommittedConnectorAction({ nodes: [{ id: 'h', type: 'http', connectorConfig: { connectorId: 'slack', actionId: 'x' } }] })).toBe(false);
+      expect(hasCommittedConnectorAction({})).toBe(false);
+    });
   });
 });

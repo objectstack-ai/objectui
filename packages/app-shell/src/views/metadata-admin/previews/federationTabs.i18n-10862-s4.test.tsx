@@ -87,11 +87,14 @@ const LANGS = ['zh', 'en'] as const;
 const LOCALE = { en: 'en-US', zh: 'zh-CN' } as const;
 type Vars = Record<string, string | number>;
 
-/** Hands the case the provider's own language switch. */
+/** The provider's own language switch, handed to the case by the probe below. */
 let switchLanguage: ((lang: string) => Promise<void>) | null = null;
-function LanguageProbe() {
+const keepSwitch = (fn: (lang: string) => Promise<void>) => {
+  switchLanguage = fn;
+};
+function LanguageProbe({ onSwitch }: { onSwitch: (fn: (lang: string) => Promise<void>) => void }) {
   const { changeLanguage } = useObjectTranslation();
-  switchLanguage = changeLanguage;
+  React.useEffect(() => onSwitch(changeLanguage), [onSwitch, changeLanguage]);
   return null;
 }
 
@@ -100,7 +103,7 @@ function inLang(lang: Lang, ui: React.ReactElement) {
   return render(
     <I18nProvider config={{ defaultLanguage: lang, detectBrowserLanguage: false }}>
       {ui}
-      <LanguageProbe />
+      <LanguageProbe onSwitch={keepSwitch} />
     </I18nProvider>,
   );
 }

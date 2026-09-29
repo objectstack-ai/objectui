@@ -133,10 +133,10 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-function renderPillar(readOnly: boolean, search = '') {
+function renderPillar(readOnly: boolean, opts: { foldInspector?: boolean } = {}) {
   return render(
-    <MemoryRouter initialEntries={[`/studio/${PKG}/interfaces${search}`]}>
-      <InterfacesPillar packageId={PKG} readOnly={readOnly} />
+    <MemoryRouter initialEntries={[`/studio/${PKG}/interfaces`]}>
+      <InterfacesPillar packageId={PKG} readOnly={readOnly} foldInspector={opts.foldInspector} />
     </MemoryRouter>,
   );
 }
@@ -185,6 +185,19 @@ async function openLanding(): Promise<HTMLTextAreaElement> {
   return editor as HTMLTextAreaElement;
 }
 
+/**
+ * The folded layout (the chat dock owns the right side): the rail becomes the
+ * center "Properties" tab, whose body for a source page IS the code editor —
+ * the second of the pillar's two source-editor sites.
+ */
+async function openLandingFolded(): Promise<HTMLTextAreaElement> {
+  const tabs = await screen.findByTestId('studio-center-tabs', undefined, { timeout: 8000 });
+  fireEvent.click(await screen.findByRole('button', { name: /Landing/ }, { timeout: 8000 }));
+  fireEvent.mouseDown(within(tabs).getByRole('tab', { name: 'Properties' }), { button: 0 });
+  const editor = await within(tabs).findByRole('textbox', { name: 'Page source' }, { timeout: 8000 });
+  return editor as HTMLTextAreaElement;
+}
+
 describe('Interfaces pillar on a read-only package (objectui#11136)', () => {
   it('opens the default inspector read-only: every page-form control is disabled or read-only', async () => {
     renderPillar(true);
@@ -217,6 +230,13 @@ describe('Interfaces pillar on a read-only package (objectui#11136)', () => {
   it("opens a source page's code editor read-only", async () => {
     renderPillar(true);
     const editor = await openLanding();
+
+    expect(editor.readOnly).toBe(true);
+  });
+
+  it("opens a source page's code editor read-only in the folded layout too", async () => {
+    renderPillar(true, { foldInspector: true });
+    const editor = await openLandingFolded();
 
     expect(editor.readOnly).toBe(true);
   });
@@ -262,5 +282,12 @@ describe('Interfaces pillar on a writable package — the control (objectui#1113
 
     await waitFor(() => expect(server.saves).toHaveLength(1), { timeout: 8000 });
     expect(server.saves[0]).toMatchObject({ type: 'page', name: 'landing', body: { source: '<h1>Hello</h1>' } });
+  });
+
+  it("a source page's code editor in the folded layout edits too", async () => {
+    renderPillar(false, { foldInspector: true });
+    const editor = await openLandingFolded();
+
+    expect(editor.readOnly).toBe(false);
   });
 });

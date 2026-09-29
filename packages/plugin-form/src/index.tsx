@@ -271,8 +271,8 @@ ComponentRegistry.register('object-form', ObjectFormRenderer, {
     { name: 'drawerWidth', type: 'string' },
     // Modal
     { name: 'modalSize', type: 'enum', enum: ['sm', 'default', 'lg', 'xl', 'full'] },
-    { name: 'modalCloseButton', type: 'boolean', description: 'Show the modal presentation’s close button. Read at ObjectForm.tsx:361 and honoured by ModalForm.' },
-    { name: 'contentLayout', type: 'enum', enum: ['simple', 'tabbed'], description: 'How the modal presentation lays out sections. `tabbed` needs more than one section to differ from `simple` (ModalForm.tsx:638).' },
+    { name: 'modalCloseButton', type: 'boolean', description: 'Meant to show or hide the modal presentation’s close button. `ObjectForm`’s modal route forwards it (`modalCloseButton: schema.modalCloseButton`), but `ModalForm` only declares the key and never reads it: the close button renders either way, so `false` does not hide it.' },
+    { name: 'contentLayout', type: 'enum', enum: ['simple', 'tabbed'], description: 'How the modal presentation lays out sections. `tabbed` differs from `simple` only when more than one section has a field to show (`ModalForm` tests `schema.contentLayout === "tabbed" && groups.length > 1`).' },
     { name: 'confirmOnDiscard', type: 'boolean', description: 'Ask before discarding unsaved edits when a drawer/modal form is dismissed. Set `false` to close immediately.' },
     // Record binding
     { name: 'recordId', type: 'string', description: 'The record to load in `edit` / `view` mode. Leave unset for `create`.' },

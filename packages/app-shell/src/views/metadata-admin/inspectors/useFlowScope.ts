@@ -13,6 +13,7 @@
 
 import * as React from 'react';
 import {
+  edgeSourceOutputRefs,
   resolveFlowScope,
   triggerFieldRefs,
   type ScopeGroupId,
@@ -75,9 +76,10 @@ const GROUP_LABEL_KEYS: Record<(typeof GROUP_ORDER)[number], string> = {
 
 /**
  * Resolve + (async) expand the in-scope references at a flow node. `draft` is
- * the whole flow draft; `nodeId` the node being edited (for an edge, pass its
- * source node id — references available on an edge are those in scope at its
- * source).
+ * the whole flow draft; `nodeId` the node being edited. An EDGE is not a node:
+ * its guard also sees its source node's own outputs, so an edge goes through
+ * {@link useEdgeScope}, never through this hook with its source id
+ * (objectui#11085).
  *
  * `extraRefs` are merged in before de-dup / grouping — used for a NESTED node,
  * whose scope anchor is its container (ADR-0031 outer scope): the container's
@@ -157,4 +159,28 @@ export function useFlowScope(
       isEmpty: refs.length === 0,
     };
   }, [scope, fields, loading, extraRefs, locale]);
+}
+
+/**
+ * The edge twin of {@link useFlowScope}: the references in scope on an edge's
+ * guard — the scope at its SOURCE node plus that source's own outputs, the
+ * engine having written them before it evaluates the out-edge
+ * (objectui#11085). Which own outputs count is {@link edgeSourceOutputRefs},
+ * the rule the Problems panel's edge scan (`resolveEdgeScope`) reads too.
+ *
+ * `edge` may be missing (a stale selection): the result is then the flow
+ * variables alone, as for an unset node id.
+ */
+export function useEdgeScope(
+  draft: Record<string, unknown> | undefined,
+  edge: { source?: unknown; type?: unknown } | null | undefined,
+  connectors?: unknown,
+): UseFlowScopeResult {
+  const source = typeof edge?.source === 'string' && edge.source ? edge.source : undefined;
+  const edgeType = edge?.type;
+  const ownRefs = React.useMemo(
+    () => edgeSourceOutputRefs(draft ?? {}, { source, type: edgeType }, connectors),
+    [draft, source, edgeType, connectors],
+  );
+  return useFlowScope(draft, source, ownRefs, connectors);
 }

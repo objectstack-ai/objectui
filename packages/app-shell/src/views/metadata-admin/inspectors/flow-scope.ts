@@ -11,7 +11,8 @@
  *   - Flow variables — every entry in `draft.variables[]` (declared up-front, so
  *     always in scope).
  *   - Upstream outputs — the `outputVariable(s)` / collected screen
- *     `fields[].name` / `assignments` keys / `idVariable` of every ANCESTOR node
+ *     `fields[].name` / `assignments` keys / `idVariable` / connector action
+ *     output keys of every ANCESTOR node
  *     (a node from which N is reachable, found by walking edges backwards). A
  *     node's OWN outputs and any DOWNSTREAM node's outputs are deliberately
  *     excluded — they don't exist yet when N runs. This is the property the
@@ -99,6 +100,8 @@ interface ScopeFlowNode {
   type?: unknown;
   label?: unknown;
   config?: unknown;
+  /** A `connector_action` node's spec-structured sibling block (connector + action). */
+  connectorConfig?: unknown;
 }
 interface FlowEdgeLike {
   source?: unknown;
@@ -132,6 +135,69 @@ function asRecord(v: unknown): Record<string, unknown> {
 }
 function str(v: unknown): string | undefined {
   return typeof v === 'string' && v ? v : undefined;
+}
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object' && !Array.isArray(v);
+}
+
+/**
+ * The connector + action a `connector_action` node has COMMITTED, read off its
+ * spec-structured `connectorConfig` block (where the connector and action
+ * pickers write them). Either half missing → undefined.
+ */
+function committedConnectorAction(node: ScopeFlowNode): { connectorId: string; actionId: string } | undefined {
+  if (str(node.type) !== 'connector_action') return undefined;
+  const cc = asRecord(node.connectorConfig);
+  const connectorId = str(cc.connectorId);
+  const actionId = str(cc.actionId);
+  return connectorId && actionId ? { connectorId, actionId } : undefined;
+}
+
+/**
+ * Whether any top-level node of `draft` is a `connector_action` with a committed
+ * connector + action — the only nodes whose output references need the runtime
+ * connector registry (objectui#11028). The inspectors gate their registry read
+ * on it, so a flow with no such node never fetches for scope.
+ */
+export function hasCommittedConnectorAction(draft: Record<string, unknown>): boolean {
+  return asArray(draft.nodes).some((n) => !!committedConnectorAction(asRecord(n) as ScopeFlowNode));
+}
+
+/**
+ * Find one action's `outputSchema` in a `GET /automation/connectors` payload
+ * (already unwrapped to the connector array) — the output twin of
+ * `connectorActionInputSchema`, with the same tolerance: an unknown connector,
+ * an unknown action, or an action that declares no object schema is undefined.
+ */
+export function connectorActionOutputSchema(
+  connectors: unknown,
+  connectorName: string | undefined,
+  actionKey: string | undefined,
+): Record<string, unknown> | undefined {
+  if (!Array.isArray(connectors) || !connectorName || !actionKey) return undefined;
+  const connector = connectors.find((c) => isPlainObject(c) && c.name === connectorName) as Record<string, unknown> | undefined;
+  if (!connector || !Array.isArray(connector.actions)) return undefined;
+  const action = connector.actions.find((a) => isPlainObject(a) && a.key === actionKey) as Record<string, unknown> | undefined;
+  const schema = action?.outputSchema;
+  return isPlainObject(schema) ? schema : undefined;
+}
+
+/**
+ * The top-level output keys a connector action's `outputSchema` DECLARES — the
+ * keys of its top-level `properties` object (objectui#11028).
+ *
+ * The engine stores each top-level key of a `connector_action` node's `output`
+ * as the variable `<nodeId>.<key>`, so these are exactly the references the
+ * node writes. `outputSchema` is an open record nothing validates (JSON Schema
+ * by convention), so anything else — no schema, a schema with no `properties`,
+ * a `properties` that is not an object — yields NO keys. ⛔ Keys are never
+ * guessed: a reference the designer offers must be one the action declared.
+ */
+export function connectorActionOutputKeys(outputSchema: unknown): string[] {
+  if (!isPlainObject(outputSchema)) return [];
+  const properties = outputSchema.properties;
+  if (!isPlainObject(properties)) return [];
+  return Object.keys(properties).filter((key) => key.length > 0);
 }
 
 /**
@@ -170,12 +236,17 @@ export function flowAncestors(nodeId: string, edges: FlowEdgeLike[]): Set<string
  * `loop` ref). The start node is NOT handled here — its trigger record is
  * resolved separately.
  *
+ * A `connector_action` node's references live in the runtime connector
+ * registry, not on the node, so the caller passes that registry
+ * (`GET /api/v1/automation/connectors`, unwrapped to the connector array) as
+ * `connectors`. Without it the node offers no references.
+ *
  * Deliberately NOT read: the script node's legacy `outputVariables` list. The
  * engine never binds those names (it binds the singular `outputVariable` on the
  * function path — framework#4278), so suggesting them in the data picker
  * offered successors variables that never exist at run time.
  */
-export function nodeOutputRefs(node: ScopeFlowNode): ScopeRef[] {
+export function nodeOutputRefs(node: ScopeFlowNode, connectors?: unknown): ScopeRef[] {
   const type = str(node.type);
   const cfg = asRecord(node.config);
   const nodeId = str(node.id) ?? '';
@@ -229,6 +300,17 @@ export function nodeOutputRefs(node: ScopeFlowNode): ScopeRef[] {
     }
   }
 
+  // Connector action (objectui#11028), modelled on the approval branch: the
+  // engine writes each top-level key of the handler's result as
+  // `<nodeId>.<key>`, and the action's served `outputSchema` declares those
+  // keys. No committed connector + action, no registry, or no declared
+  // top-level `properties` → no references.
+  const committed = nodeId ? committedConnectorAction(node) : undefined;
+  if (committed) {
+    const schema = connectorActionOutputSchema(connectors, committed.connectorId, committed.actionId);
+    for (const key of connectorActionOutputKeys(schema)) add(`${nodeId}.${key}`);
+  }
+
   return out;
 }
 
@@ -244,8 +326,17 @@ function dedupeByToken(refs: ScopeRef[]): ScopeRef[] {
  * the returned `trigger` carries the object name and per-field token prefix for
  * the UI layer to expand. Order: flow variables, upstream outputs, loop
  * iterators, then trigger refs, de-duplicated by token.
+ *
+ * `connectors` is the already-fetched runtime connector registry, handed to
+ * {@link nodeOutputRefs} so an upstream `connector_action` node offers the
+ * output keys its action declares; omitted, such a node offers none.
  */
-export function resolveFlowScope(draft: Record<string, unknown>, nodeId: string | undefined, locale?: string): FlowScope {
+export function resolveFlowScope(
+  draft: Record<string, unknown>,
+  nodeId: string | undefined,
+  locale?: string,
+  connectors?: unknown,
+): FlowScope {
   const nodes = asArray(draft.nodes).map(asRecord) as ScopeFlowNode[];
   const edges = asArray(draft.edges) as FlowEdgeLike[];
   const refs: ScopeRef[] = [];
@@ -274,7 +365,7 @@ export function resolveFlowScope(draft: Record<string, unknown>, nodeId: string 
     const id = str(node.id);
     if (!id || id === nodeId || !ancestors.has(id)) continue;
     if (id === startId) continue; // the start node contributes the trigger record, below
-    for (const ref of nodeOutputRefs(node)) refs.push(ref);
+    for (const ref of nodeOutputRefs(node, connectors)) refs.push(ref);
   }
 
   // 3. Trigger record — on a record-triggered flow, when the start node is in

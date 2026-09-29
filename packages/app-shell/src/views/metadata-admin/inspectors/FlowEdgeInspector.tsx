@@ -30,6 +30,8 @@ import { Label } from '@object-ui/components';
 import { edgeKey, conditionText } from '../previews/flow-canvas-layout.js';
 import { validateExpressionClient } from './expression-validate.js';
 import { useFlowScope } from './useFlowScope.js';
+import { hasCommittedConnectorAction } from './flow-scope.js';
+import { useConnectorRegistry } from './connector-input-fields.js';
 import { VariableTextInput } from './VariableTextInput.js';
 import { findUnknownRefs, scopeRoots, describeUnknownRefs } from './flow-ref-check.js';
 import { writeExpressionSource } from './expression-envelope.js';
@@ -64,9 +66,13 @@ export function FlowEdgeInspector({ selection, draft, onPatch, onClearSelection,
   const edges = Array.isArray((draft as any).edges) ? ((draft as any).edges as FlowDesignerEdge[]) : [];
   const index = edges.findIndex((e, i) => edgeKey(e, i) === selection.id);
   const edge = index >= 0 ? edges[index] : null;
+  // The runtime connector registry, read only when the flow holds a committed
+  // `connector_action` node, so the guard's scope offers that action's declared
+  // output keys (objectui#11028).
+  const connectors = useConnectorRegistry(hasCommittedConnectorAction(draft as Record<string, unknown>));
   // References available on this edge are those in scope at its SOURCE node
   // (#1934). Called unconditionally — `edge?.source` is undefined when missing.
-  const { groups: scopeGroups } = useFlowScope(draft as Record<string, unknown>, edge?.source);
+  const { groups: scopeGroups } = useFlowScope(draft as Record<string, unknown>, edge?.source, undefined, connectors);
 
   if (!edge) {
     return (

@@ -84,16 +84,25 @@ const GROUP_LABEL_KEYS: Record<(typeof GROUP_ORDER)[number], string> = {
  * own outputs are excluded from the graph walk at its id, so a loop's
  * `iteratorVariable` must be injected explicitly for a body node to see it. Pass
  * a memoized array (a fresh one every render would thrash the memo).
+ *
+ * `connectors` is the runtime connector registry the calling inspector already
+ * reads (`useConnectorRegistry`, gated on `hasCommittedConnectorAction`), so an
+ * upstream `connector_action` node offers its action's declared output keys
+ * (objectui#11028). Omitted, such a node offers none.
  */
 export function useFlowScope(
   draft: Record<string, unknown> | undefined,
   nodeId: string | undefined,
   extraRefs?: ReadonlyArray<ScopeRef>,
+  connectors?: unknown,
 ): UseFlowScopeResult {
   // The picker's headings and details, in the designer locale — read here, as
   // `VariableTextInput` (which renders them) reads it (objectui#10748).
   const locale = useMetadataLocale();
-  const scope = React.useMemo(() => resolveFlowScope(draft ?? {}, nodeId, locale), [draft, nodeId, locale]);
+  const scope = React.useMemo(
+    () => resolveFlowScope(draft ?? {}, nodeId, locale, connectors),
+    [draft, nodeId, locale, connectors],
+  );
   const { fields, loading } = useObjectFields(scope.trigger?.objectName);
 
   return React.useMemo(() => {

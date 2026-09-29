@@ -2173,6 +2173,8 @@ const zh = {
       orText: '或使用邮箱继续',
       errors: {
         userExists: '该邮箱已被注册，请直接登录或更换邮箱。',
+        selfRegistrationClosed: '本环境未开放自助注册，请联系管理员获取邀请。',
+        emailDomainNotAllowed: '该邮箱的域名不允许在此注册，请使用组织邮箱，或联系管理员获取邀请。',
       },
       verifyInbox: {
         title: '请检查您的邮箱',

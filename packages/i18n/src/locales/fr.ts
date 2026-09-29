@@ -2099,6 +2099,8 @@ const fr = {
       orText: "ou continuer avec l'e-mail",
       errors: {
         userExists: "Un compte avec cet e-mail existe déjà. Essayez de vous connecter.",
+        selfRegistrationClosed: "L'inscription libre n'est pas ouverte dans cet environnement. Demandez une invitation à un administrateur.",
+        emailDomainNotAllowed: "Le domaine de cet e-mail n'est pas autorisé à s'inscrire ici. Utilisez l'e-mail de votre organisation ou demandez une invitation à un administrateur.",
       },
       verifyInbox: {
         title: "Vérifiez votre boîte de réception",

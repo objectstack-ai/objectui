@@ -2451,6 +2451,8 @@ const en = {
       orText: 'or continue with email',
       errors: {
         userExists: 'An account with this email already exists. Try signing in instead.',
+        selfRegistrationClosed: 'Self-registration is not open on this environment. Ask an administrator for an invitation.',
+        emailDomainNotAllowed: "This email's domain is not allowed to register here. Use your organization email, or ask an administrator for an invitation.",
       },
       verifyInbox: {
         title: 'Check your inbox',

@@ -2097,6 +2097,8 @@ const de = {
       orText: "oder mit E-Mail fortfahren",
       errors: {
         userExists: "Ein Konto mit dieser E-Mail existiert bereits. Versuchen Sie sich anzumelden.",
+        selfRegistrationClosed: "Die Selbstregistrierung ist in dieser Umgebung nicht möglich. Bitten Sie einen Administrator um eine Einladung.",
+        emailDomainNotAllowed: "Die Domain dieser E-Mail-Adresse ist für die Registrierung hier nicht zugelassen. Verwenden Sie die E-Mail-Adresse Ihrer Organisation oder bitten Sie einen Administrator um eine Einladung.",
       },
       verifyInbox: {
         title: "Überprüfen Sie Ihren Posteingang",

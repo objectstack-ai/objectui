@@ -2101,6 +2101,8 @@ const es = {
       orText: "o continúe con correo electrónico",
       errors: {
         userExists: "Ya existe una cuenta con ese correo. Intente iniciar sesión.",
+        selfRegistrationClosed: "El registro por cuenta propia no está abierto en este entorno. Solicite una invitación a un administrador.",
+        emailDomainNotAllowed: "El dominio de este correo no está autorizado para registrarse aquí. Use el correo de su organización o solicite una invitación a un administrador.",
       },
       verifyInbox: {
         title: "Revise su bandeja de entrada",

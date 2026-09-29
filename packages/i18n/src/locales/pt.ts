@@ -2096,6 +2096,8 @@ const pt = {
       orText: "ou continue com e-mail",
       errors: {
         userExists: "Já existe uma conta com esse e-mail. Tente fazer login.",
+        selfRegistrationClosed: "O cadastro por conta própria não está aberto neste ambiente. Peça um convite a um administrador.",
+        emailDomainNotAllowed: "O domínio deste e-mail não tem permissão para se cadastrar aqui. Use o e-mail da sua organização ou peça um convite a um administrador.",
       },
       verifyInbox: {
         title: "Verifique sua caixa de entrada",

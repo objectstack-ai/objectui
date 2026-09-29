@@ -2097,6 +2097,8 @@ const ko = {
       orText: "또는 이메일로 계속",
       errors: {
         userExists: "해당 이메일로 이미 계정이 존재합니다. 로그인해 보세요.",
+        selfRegistrationClosed: "이 환경에서는 직접 가입을 받지 않습니다. 관리자에게 초대를 요청하세요.",
+        emailDomainNotAllowed: "이 이메일의 도메인으로는 여기에서 가입할 수 없습니다. 조직 이메일을 사용하거나 관리자에게 초대를 요청하세요.",
       },
       verifyInbox: {
         title: "받은 편지함을 확인하세요",

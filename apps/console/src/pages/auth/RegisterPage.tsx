@@ -161,12 +161,26 @@ export function RegisterPage() {
         loginUrl={loginUrl}
         verificationCallbackURL={verificationCallbackURL}
         linkComponent={RouterLink}
+        // Server refusal `code` → localized end-user text. A code missing here
+        // falls through to the server's own `message`, which is English and
+        // may name internal configuration — so every refusal an end user can
+        // meet at `/sign-up/email` belongs in this map (objectui#10998).
         errorMessages={{
           USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: t('auth.register.errors.userExists', {
             defaultValue: 'An account with this email already exists. Try signing in instead.',
           }),
           USER_ALREADY_EXISTS: t('auth.register.errors.userExists', {
             defaultValue: 'An account with this email already exists. Try signing in instead.',
+          }),
+          // The server's audience gate: the environment admits new accounts by
+          // invitation only, or only from allowlisted email domains.
+          SELF_REGISTRATION_CLOSED: t('auth.register.errors.selfRegistrationClosed', {
+            defaultValue:
+              'Self-registration is not open on this environment. Ask an administrator for an invitation.',
+          }),
+          EMAIL_DOMAIN_NOT_ALLOWED: t('auth.register.errors.emailDomainNotAllowed', {
+            defaultValue:
+              "This email's domain is not allowed to register here. Use your organization email, or ask an administrator for an invitation.",
           }),
         }}
         onVerificationRequired={(email) => {

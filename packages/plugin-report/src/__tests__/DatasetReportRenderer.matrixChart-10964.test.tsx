@@ -36,11 +36,12 @@ import { ComponentRegistry } from '@object-ui/core';
 import { DatasetReportRenderer } from '../DatasetReportRenderer';
 
 /** The schema the registered chart component was last handed, or `null`. */
-let captured: { schema: Record<string, any> } | null = null;
+type ChartProps = { schema: Record<string, unknown> };
+let captured: ChartProps | null = null;
 
 beforeEach(() => {
   captured = null;
-  ComponentRegistry.register('chart', (props: any) => {
+  ComponentRegistry.register('chart', (props: ChartProps) => {
     captured = props;
     return null;
   });

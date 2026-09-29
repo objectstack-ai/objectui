@@ -37,7 +37,7 @@ import * as React from 'react';
 import { render, screen, cleanup, waitFor, fireEvent, act } from '@testing-library/react';
 import { I18nProvider, useObjectTranslation } from '@object-ui/i18n';
 import { registerAllFields } from '@object-ui/fields';
-import { WizardForm } from './WizardForm';
+import { WizardForm, type WizardFormProps } from './WizardForm';
 
 registerAllFields();
 
@@ -90,7 +90,10 @@ function mount(language: string, overrides: Record<string, unknown> = {}) {
   const utils = render(
     <I18nProvider config={{ defaultLanguage: language, detectBrowserLanguage: false }}>
       <CatalogueProbe />
-      <WizardForm schema={{ ...baseSchema, ...overrides } as any} dataSource={ds as any} />
+      <WizardForm
+        schema={{ ...baseSchema, ...overrides } as unknown as WizardFormProps['schema']}
+        dataSource={ds as unknown as WizardFormProps['dataSource']}
+      />
     </I18nProvider>,
   );
   return { ds, ...utils };

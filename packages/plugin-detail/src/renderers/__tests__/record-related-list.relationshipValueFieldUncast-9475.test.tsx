@@ -173,8 +173,10 @@ describe('objectui#9475 — the guard population is derived and the matcher disc
     expect(keys).toContain('relationshipValueField');
     expect(keys).toContain('add');
     // …and it is not an everything-set, which would make them unfalsifiable.
-    expect(keys).not.toContain('enforceFieldSecurity');
-    expect(keys).not.toContain('requiredPermissions');
+    // (`enforceFieldSecurity` / `requiredPermissions` were the absent controls
+    // through `@objectstack/spec` 17.4.0; 17.5.0 declares both on this block —
+    // objectui#11073 — so the control is a key nothing declares.)
+    expect(keys).not.toContain('zzqxNoSuchRecordBlockKey');
     // The premise of reading the named export: it IS this block's map entry.
     expect(ComponentPropsMap['record:related_list']).toBe(RecordRelatedListProps);
   });

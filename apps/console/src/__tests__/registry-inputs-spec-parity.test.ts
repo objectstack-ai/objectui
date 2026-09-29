@@ -1167,8 +1167,14 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   //   member instead (`field`, `order`, an omitted `order` meaning ascending,
   //   and a member with no usable `field` dropped rather than invented). That
   //   is a SHARPER member claim than a pass-through, not a weaker one.
-  'object-kanban.quickAdd':
-    'RULED CARVE-OUT — PREMATURE, not "wrong" (PM ruling on objectui#8201, Q1 = A, 2026-09-07). The renderer does not honour this key; objectui#8285 owns the fix. Measured, and re-measured at @objectstack/spec 17.4.0 rather than inherited: `KanbanImpl` gates the Quick Add control on `quickAdd && onQuickAdd`, `onQuickAdd` is an objectui#6124 RUNTIME SLOT the zod twin refuses BY NAME, and nothing on the `ObjectKanban` path supplies one — so an authored `quickAdd: true` reaches the board and changes nothing. The key is still a live `z.boolean().optional()` on the installed pin, with a control key drawing `unrecognized_keys` on the same safeParse call, so this cover is describing something. WHAT THIS ENTRY DOES NOT SAY, deliberately: it does not claim the object-bound board cannot grow quick-add. That is a strictly stronger claim than anything measured, and the sibling `KanbanRenderer` host contradicts it by honouring the same `quickAdd` + `onQuickAdd` pair by identity. Declaring the input is the one resolution FORBIDDEN here — it would publish a key the renderer cannot honour, which is the failure mode this whole gate exists to catch. THE EXIT IS NOT A DECLARATION: objectui#8285 was ruled (director seat 2026-09-08, decision batch #91) to retire `object-kanban.quickAdd` from the spec ComponentPropsMap, so the day that lands the key leaves the accepted set, this entry goes dangling AND stale, and it is harvested exactly as the eight ADR-0087 tombstones above were. objectui#8176.',
+  // `object-kanban.quickAdd` — the RULED CARVE-OUT (PREMATURE; PM ruling on
+  // objectui#8201, Q1 = A) whose entry stood here — was HARVESTED at the
+  // `@objectstack/spec` 17.5.0 bump (objectui#11073). Its named exit landed:
+  // objectui#8285's ruled retirement took the key out of the spec's accepted
+  // set (typed `never`, refused by name), the entry went dangling AND stale in
+  // the same run, and deleting it was the only way back to green, exactly as
+  // the eight ADR-0087 tombstones before it. The tombstone pin below now names
+  // it, so it cannot come back as an exemption or as a published input.
 
   // ── record:reference_rail.entries — a nested collection, newly JUDGED ──────
   //                                                                   (1 key)
@@ -1276,8 +1282,14 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
  * the exemption entry goes dangling AND stale, and deleting it is the only way
  * back to green — at which point assertion 2 above fails until this list is
  * emptied in the same change. The two halves cannot drift apart.
+ *
+ * ⭐ EMPTIED at the `@objectstack/spec` 17.5.0 bump (objectui#11073), by exactly
+ * that route: 17.5.0 carries objectui#8285's retirement, `quickAdd` is a
+ * tombstone, its exemption entry was deleted, and this list emptied in the same
+ * change. The three assertions above now read an empty list; the tombstone pin
+ * names the key instead.
  */
-const LAZY_BLOCK_RULED_CARVE_OUTS = ['object-kanban.quickAdd'];
+const LAZY_BLOCK_RULED_CARVE_OUTS: string[] = [];
 
 /**
  * Exemption entries whose KEY the installed spec is allowed not to declare yet.
@@ -4232,6 +4244,9 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     //    0  objectui#8201 slice 2 lands the PM's Q1 = A ruling on the last
     //        entry — `object-kanban.quickAdd` becomes a RULED CARVE-OUT and
     //        moves into `LAZY_BLOCK_RULED_CARVE_OUTS`
+    //    0  the `@objectstack/spec` 17.5.0 bump carries objectui#8285's ruled
+    //        retirement: the carve-out's entry is harvested and the list
+    //        empties (objectui#11073) — the MAP is now empty on these blocks too
     //
     // ⚠️ THE LAST STEP IS THE ONLY ONE THAT IS NOT A DECLARATION, and reading
     // it as one would be the wrong lesson. Every step above was this ceiling's
@@ -4305,11 +4320,13 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     //
     // 1. PINNED BY NAME. Growing the list has to be a visible edit to a
     //    literal, never a side effect of writing one more exemption.
+    //    EMPTY since the 17.5.0 bump harvested `object-kanban.quickAdd`
+    //    (objectui#11073) — the exit this list named, landed upstream.
     expect(
       [...LAZY_BLOCK_RULED_CARVE_OUTS].sort(),
       'a ruled carve-out was added on a newly judged block — a ruling is a ' +
         'maintainer or PM decision on the record, so name it here and cite it',
-    ).toEqual(['object-kanban.quickAdd']);
+    ).toEqual([]);
 
     for (const id of LAZY_BLOCK_RULED_CARVE_OUTS) {
       const [type] = splitExemptionKey(id);
@@ -4341,7 +4358,7 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     }
   });
 
-  it('the eight tombstoned keys are recognised, not exempted — and not published either', () => {
+  it('the nine tombstoned keys are recognised, not exempted — and not published either', () => {
     // The pin the harvest leaves behind (objectui#3809). Deleting eight
     // exemptions is only half the change: the derived assertions above would go
     // green just as readily if a future edit RE-EXEMPTED one of these keys, or
@@ -4351,7 +4368,8 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // the same reason the `#3808 / #3830` and `rc.6 record_picker` pins next door
     // are written by name.
     //
-    // Five upstream retirements, eight keys, several facts each. The list is
+    // Six upstream retirements, nine keys, several facts each (eight through
+    // 17.4.0; `object-kanban.quickAdd` joined at 17.5.0). The list is
     // pin-dependent by construction and that is the point: it is the measurement
     // (`@objectstack/spec@17.0.0`, and the same eight on the rc.6 that preceded
     // it — this change was verified on both), so a pin that un-retires one of
@@ -4366,6 +4384,10 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       ['page:header', 'icon'],
       ['page:tabs', 'type'],
       ['record:details', 'layout'],
+      // The ninth, harvested at the `@objectstack/spec` 17.5.0 bump
+      // (objectui#11073): objectui#8285's ruled retirement, which emptied
+      // `LAZY_BLOCK_RULED_CARVE_OUTS` in the same change.
+      ['object-kanban', 'quickAdd'],
     ];
 
     for (const [type, key] of HARVESTED) {

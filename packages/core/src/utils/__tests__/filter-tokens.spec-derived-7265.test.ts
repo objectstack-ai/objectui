@@ -48,6 +48,22 @@ const NEAR_MISSES_AT_567f370 = [
   ['current_tenant_id', 'current_org_id'],
 ] as const;
 
+/**
+ * The near-miss spellings `@objectstack/spec` 17.5.0 ADDED to the imported map,
+ * transcribed from the installed map when the bump turned the exact-set
+ * assertion red (objectui#11073) — the pool widening doing its job. Kept apart
+ * from the 567f370 table so that table stays what it says it is.
+ *
+ * Four were added; only these two WARN, because `{record.id}` and `{record-id}`
+ * never reach the lookup: the resolver's whole-token pattern is
+ * `[a-zA-Z0-9_]+`, so a `.` or `-` spelling is not a placeholder to it and
+ * passes through in silence, exactly as it did before the bump.
+ */
+const NEAR_MISSES_ADDED_AT_17_5_0 = [
+  ['current_record_id', 'record_id'],
+  ['recordid', 'record_id'],
+] as const;
+
 /** Every token the deleted local predicate answered `true` for. */
 const CONTEXT_TOKENS_AT_567f370 = ['current_user_id', 'current_org_id'] as const;
 
@@ -110,7 +126,7 @@ describe('objectui#7265 — the derived map and predicate behave as the local co
   });
 
   it('warns with the same suggestion target for every near-miss spelling', () => {
-    for (const [spelling, target] of NEAR_MISSES_AT_567f370) {
+    for (const [spelling, target] of [...NEAR_MISSES_AT_567f370, ...NEAR_MISSES_ADDED_AT_17_5_0]) {
       const { value, warnings } = resolveOne(spelling);
       expect(value).toBe(`{${spelling}}`); // never substituted — it is not a token
       expect(warnings).toHaveLength(1);
@@ -130,7 +146,7 @@ describe('objectui#7265 — the derived map and predicate behave as the local co
     const warners = [...new Set(pool)].filter((s) => resolveOne(s).warnings.length > 0);
 
     expect(warners.sort()).toEqual(
-      [...NEAR_MISSES_AT_567f370.map(([spelling]) => spelling)].sort(),
+      [...NEAR_MISSES_AT_567f370, ...NEAR_MISSES_ADDED_AT_17_5_0].map(([spelling]) => spelling).sort(),
     );
   });
 

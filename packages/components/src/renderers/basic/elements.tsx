@@ -33,6 +33,7 @@ import type { ActionDef, FilterOperatorError } from '@object-ui/core';
 import {
   ElementDataSourceErrorPanel,
   ElementDataSourceLoadingPanel,
+  resolveInlineAriaProps,
   useAdapter,
   useAction,
   useDataInvalidation,
@@ -48,6 +49,7 @@ import {
   formatDisplayNumber,
   type DisplayNumberFormatOptions,
 } from '@object-ui/i18n';
+import type { AriaProps } from '@object-ui/types';
 import { cn } from '../../lib/utils';
 import { LazyIcon } from '../../lib/lazy-icon';
 import { Button, Separator } from '../../ui';
@@ -55,18 +57,16 @@ import { readProps } from './readProps';
 import { readActionEntryParamValues } from '../action/static-params';
 
 // ---------------------------------------------------------------------------
-// Shared helpers
+// The `aria` bag (objectui#11051)
 // ---------------------------------------------------------------------------
-
-function ariaAttrs(aria?: Record<string, any>): Record<string, string> {
-  if (!aria || typeof aria !== 'object') return {};
-  const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(aria)) {
-    if (v == null) continue;
-    out[k.startsWith('aria-') || k === 'role' ? k : `aria-${k}`] = String(v);
-  }
-  return out;
-}
+//
+// `element:text`, `element:image`, `element:button` and `element:number` each
+// declare the spec's `AriaPropsSchema` as their `aria` prop. Every read site
+// below spreads `resolveInlineAriaProps(props.aria, locale)` from
+// `@object-ui/react` with the display locale, and this file keeps no mapping of
+// its own. A local helper used to put `aria-` in front of each key as written,
+// so `ariaLabel` reached the DOM as `aria-arialabel`, an attribute no assistive
+// technology reads, and a locale map was written as `[object Object]`.
 
 // ---------------------------------------------------------------------------
 // element:text
@@ -90,16 +90,17 @@ function ElementTextRenderer({ schema }: { schema: any }) {
     content?: unknown;
     variant?: 'heading' | 'subheading' | 'body' | 'caption';
     align?: 'left' | 'center' | 'right';
-    aria?: Record<string, any>;
+    aria?: AriaProps;
   }>(schema);
   const { language } = useObjectTranslation();
+  const locale = useDisplayLocale();
   const variant = props.variant ?? 'body';
   const align = props.align ?? 'left';
   const Tag = variant === 'heading' ? 'h2' : variant === 'subheading' ? 'h3' : 'p';
   return (
     <Tag
       className={cn(VARIANT_CLASS[variant] ?? VARIANT_CLASS.body, ALIGN_CLASS[align], schema?.className)}
-      {...ariaAttrs(props.aria)}
+      {...resolveInlineAriaProps(props.aria, locale)}
     >
       {pickLocalized(props.content, language)}
     </Tag>
@@ -157,8 +158,11 @@ function ElementImageRenderer({ schema }: { schema: any }) {
     alt?: string;
     fit?: 'cover' | 'contain' | 'fill';
     height?: number;
-    aria?: Record<string, any>;
+    aria?: AriaProps;
   }>(schema);
+  // Before the early return below, so the hook order is the same with and
+  // without a `src`.
+  const locale = useDisplayLocale();
   const fit = props.fit ?? 'cover';
   if (!props.src) {
     return (
@@ -179,7 +183,7 @@ function ElementImageRenderer({ schema }: { schema: any }) {
       alt={props.alt ?? ''}
       className={cn('w-full rounded-md', FIT_CLASS[fit] ?? FIT_CLASS.cover, schema?.className)}
       style={props.height ? { height: props.height } : undefined}
-      {...ariaAttrs(props.aria)}
+      {...resolveInlineAriaProps(props.aria, locale)}
     />
   );
 }
@@ -218,7 +222,7 @@ function ElementButtonRenderer({ schema }: { schema: any }) {
     icon?: string;
     iconPosition?: 'left' | 'right';
     disabled?: boolean;
-    aria?: Record<string, any>;
+    aria?: AriaProps;
     /**
      * Optional action executed on click. Any ActionDef the ActionRunner
      * understands — `url`/`navigation` (link to another page), `api`/`script`
@@ -233,6 +237,7 @@ function ElementButtonRenderer({ schema }: { schema: any }) {
   const variant = (SHADCN_BUTTON_VARIANT[props.variant ?? 'primary'] ?? 'default') as any;
   const size = (SHADCN_BUTTON_SIZE[props.size ?? 'medium'] ?? 'default') as any;
   const { language } = useObjectTranslation();
+  const locale = useDisplayLocale();
   const label = pickLocalized(props.label, language);
   const iconPosition = props.iconPosition ?? 'left';
   const icon = props.icon ? <LazyIcon name={props.icon} className="h-4 w-4" /> : null;
@@ -314,7 +319,7 @@ function ElementButtonRenderer({ schema }: { schema: any }) {
       disabled={props.disabled || running}
       className={cn(schema?.className)}
       onClick={action ? handleClick : undefined}
-      {...ariaAttrs(props.aria)}
+      {...resolveInlineAriaProps(props.aria, locale)}
     >
       {iconPosition === 'left' && icon}
       {label}
@@ -389,7 +394,7 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
     format?: 'number' | 'currency' | 'percent';
     prefix?: string;
     suffix?: string;
-    aria?: Record<string, any>;
+    aria?: AriaProps;
   }>(schema);
   const adapter = useAdapter() as any;
   // objectui#10909 — the spec's per-element binding (`PageComponentSchema
@@ -556,7 +561,7 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
       <div
         className={cn('text-xs text-muted-foreground', schema?.className)}
         data-testid="element-number-no-object"
-        {...ariaAttrs(props.aria)}
+        {...resolveInlineAriaProps(props.aria, locale)}
       >
         {t('element.number.noObject', { defaultValue: 'No object named: set object or dataSource.object.' })}
       </div>
@@ -564,7 +569,7 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   }
 
   return (
-    <div className={cn('flex flex-col gap-1', schema?.className)} {...ariaAttrs(props.aria)}>
+    <div className={cn('flex flex-col gap-1', schema?.className)} {...resolveInlineAriaProps(props.aria, locale)}>
       <div className="text-3xl font-semibold tracking-tight tabular-nums">
         {loading ? '…' : formatValue(value, props.format, props.prefix, props.suffix, tenantCurrency, locale)}
       </div>

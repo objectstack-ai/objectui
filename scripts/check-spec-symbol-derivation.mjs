@@ -1196,7 +1196,6 @@ const CLAIM_DEBT = {
   "@object-ui/types": [
     "ListViewExportOptions",
     "ManagedByBucket",
-    "ObjectFormSchema",
     "ObjectFormSection",
     "PageRegionWidth",
     "RecordActivityComponentProps",

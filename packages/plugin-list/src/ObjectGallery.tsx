@@ -371,6 +371,9 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
         // percent as `25%` beside a Grid/Detail `25.00%` (objectui#9575).
         // Same presence test the ObjectGrid and RelatedList builders use.
         if (def.scale !== undefined) enriched.scale = def.scale;
+        // The author's digit-grouping hint rides beside `scale`, whose scale-0
+        // heuristic it overrides in the number cell (objectui#11026).
+        if (def.useGrouping !== undefined) enriched.useGrouping = def.useGrouping;
         if (def.format) enriched.format = def.format;
         // objectui#6837 half 2 — maintainer 2026-08-31: protocol normalization
         // belongs on the SERVER, the front end just executes the protocol.

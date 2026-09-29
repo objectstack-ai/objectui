@@ -409,7 +409,11 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
         // This option used to write `webhook`, which resolves to no trigger
         // kind at all: the flow bound nothing and never received a post.
         { value: 'api', label: 'Webhook / API' },
-        { value: 'event', label: 'Platform event' },
+        // objectui#11067 — no 「Platform event」 option. It wrote
+        // `triggerType: 'event'`, which `resolveFlowTriggerKind` answers no
+        // kind for and no engine trigger binds, so a flow authored with it
+        // never fired. A stored `event` is not rewritten: the select shows it
+        // as its flagged unknown value, and a save keeps it as written.
       ],
     }),
     // objectui#11054 — the inbound hook's per-flow secret. The engine refuses
@@ -430,7 +434,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       ref: { kind: 'object' },
       placeholder: 'crm_lead',
       help: 'Target object for record / scheduled-scan triggers.',
-      showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete', 'schedule', 'api', 'event'] },
+      showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete', 'schedule', 'api'] },
     }),
     cfg('condition', 'Entry condition', 'expression', {
       // objectui#6226 — the one predicate every business admin meets. Row
@@ -441,7 +445,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       conditionBuilder: true,
       placeholder: 'status == "qualifying" && previous.status != "qualifying"',
       help: 'CEL predicate — the flow runs only when this is true (for time-relative sweeps it gates each matched record). Leave empty to run on every event. On a "created or updated" trigger, `previous == null` selects the create path.',
-      showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete', 'schedule', 'time_relative', 'api', 'event'] },
+      showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete', 'schedule', 'time_relative', 'api'] },
     }),
     // Schedule descriptor — author the canonical nested `config.schedule` object
     // the runtime actually reads (resolveTriggerBinding → normalizeSchedule). This

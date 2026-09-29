@@ -1557,6 +1557,9 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         ...(def.currency && { currency: def.currency }),
         ...(def.precision !== undefined && { precision: def.precision }),
         ...((def as any).scale !== undefined && { scale: (def as any).scale }),
+        // Beside `scale`, whose scale-0 grouping heuristic it overrides in the
+        // number cell (objectui#11026).
+        ...(def.useGrouping !== undefined && { useGrouping: def.useGrouping }),
         ...(def.format && { format: def.format }),
         // ⚠️ objectui#6837 half 2: the READ narrows to `reference` (the only
         // spelling the protocol declares — `FieldSchema` refuses `reference_to`

@@ -203,6 +203,9 @@ export const ENRICHED_FIELD_METADATA_KEYS = [
   'currencyConfig',
   'precision',
   'scale',
+  // The author's digit-grouping hint, which overrides `scale`'s scale-0
+  // heuristic in the number cell (objectui#11026).
+  'useGrouping',
   // Numeric range/step constraints (objectui#2572 item 3).
   'min',
   'max',

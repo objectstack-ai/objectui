@@ -266,6 +266,16 @@ import { PageView } from '@object-ui/app-shell';
 <PageView />;
 ```
 
+`DashboardView` hands `DashboardRenderer` an `onRefresh` handler, so the
+renderer shows its "Refresh All" button and honours an authored
+`refreshIntervalSeconds`: every that many seconds the widgets re-read their
+data. A refresh declares an unscoped change on the data-invalidation bus
+(`notifyDataChanged({ objectName: '*' })` from `@object-ui/react`), and each
+widget that holds a bus subscription re-reads in place; nothing is remounted.
+`0`, a negative value or no value means no timer. A dataset-bound KPI tile does
+not re-read yet: its widget subscribes on the base object the query's answer
+names, and the answer to a query with no dimensions names none (objectui#11062).
+
 The schema-driven renderers live elsewhere: `DashboardRenderer` in
 `@object-ui/plugin-dashboard`, and everything else through `SchemaRenderer` in
 `@object-ui/react`, which resolves `type` against the component registry.

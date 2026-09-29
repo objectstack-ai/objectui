@@ -20,10 +20,19 @@
  *
  * A raw single-schema draft (a bare `{ type, … }` with no `config` wrapper,
  * e.g. an ad-hoc preview) is rendered straight through SchemaRenderer.
+ *
+ * The view's own `label` (objectui#11027) is the preview's heading. It is
+ * also relayed as the injected listView's label, but `object-view` draws a
+ * named-view tab strip only for two or more entries and this preview always
+ * injects one, so that copy never reached the screen. ⛔ The fix is not a
+ * one-entry tab strip. The label is the spec's `I18nLabel`, resolved in the
+ * designer `locale` through `resolveI18nLabel`; an unauthored label draws no
+ * heading, and nothing stands in for it.
  */
 
 import * as React from 'react';
 import { SchemaRenderer, PreviewModeProvider } from '@object-ui/react';
+import { resolveI18nLabel } from '@objectstack/spec/ui';
 import { toInlineFormType } from './form-preview.js';
 import type { MetadataPreviewProps } from '../preview-registry.js';
 import { PreviewShell, PreviewErrorBoundary, PreviewMessage } from './PreviewShell.js';
@@ -138,6 +147,12 @@ function buildFormPreviewSchema(
   };
 }
 
+/** The view's authored `label` as the preview heading; nothing when it is unauthored or empty. */
+function ViewLabelHeading({ label }: { label: string | undefined }) {
+  if (!label || !label.trim()) return null;
+  return <h3 className="border-b px-3 py-2 text-sm font-medium text-foreground truncate">{label}</h3>;
+}
+
 export function ViewPreview({ name, draft, editing, locale }: MetadataPreviewProps) {
   // The single ViewItem body (`draft.config`), or undefined for a raw schema.
   const body = React.useMemo(
@@ -150,6 +165,11 @@ export function ViewPreview({ name, draft, editing, locale }: MetadataPreviewPro
   );
 
   const designMode = !!editing;
+
+  const viewLabel = resolveI18nLabel(
+    (draft as { label?: Parameters<typeof resolveI18nLabel>[0] }).label,
+    locale,
+  );
 
   // Surface the draft body as a named listView so the preview renders THIS
   // view (with unsaved edits) rather than the object's saved default. The body
@@ -209,6 +229,7 @@ export function ViewPreview({ name, draft, editing, locale }: MetadataPreviewPro
   if (!objectName) {
     return (
       <PreviewShell hint={`view${designMode ? ' · design' : ''}`}>
+        <ViewLabelHeading label={viewLabel} />
         <PreviewMessage tone="warn">
           {/* The code span names the right panel's field by the label that
               panel shows it under (`ViewVariantInspector`), in the same locale. */}
@@ -230,6 +251,7 @@ export function ViewPreview({ name, draft, editing, locale }: MetadataPreviewPro
     const formSchema = buildFormPreviewSchema(objectName, body as Record<string, unknown>);
     return (
       <PreviewShell hint={`view · ${rawType} · form${designMode ? ' · design' : ''}`}>
+        <ViewLabelHeading label={viewLabel} />
         <PreviewErrorBoundary fallbackHint={tr('engine.viewPreview.formFailed', locale)}>
           <div className="min-h-[300px] max-h-[75vh] overflow-auto">
             <PreviewModeProvider><SchemaRenderer schema={formSchema as any} /></PreviewModeProvider>
@@ -245,6 +267,7 @@ export function ViewPreview({ name, draft, editing, locale }: MetadataPreviewPro
   // -------------------------------------------------------------------------
   return (
     <PreviewShell hint={`view · ${defaultViewType}${designMode ? ' · design' : ''}`}>
+      <ViewLabelHeading label={viewLabel} />
       <PreviewErrorBoundary fallbackHint={tr('engine.viewPreview.listFailed', locale)}>
         <div className="min-h-[300px] max-h-[75vh] overflow-auto">
           <PreviewModeProvider><SchemaRenderer schema={schema as any} /></PreviewModeProvider>

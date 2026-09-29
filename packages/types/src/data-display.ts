@@ -2925,7 +2925,15 @@ export type TimelineGanttItemBar = {
    * milliseconds), or a `Date`.
    */
   startDate?: string | number | Date;
-  /** Bar end — same accept set as {@link TimelineGanttItemBar.startDate}. */
+  /**
+   * Bar end — same accept set as {@link TimelineGanttItemBar.startDate}.
+   *
+   * Inclusive for a date-only value (objectui#11112): a `YYYY-MM-DD` end is
+   * drawn through the end of the day it names, so `2024-01-01` to
+   * `2024-01-31` fills January and a bar that starts and ends on the same day
+   * is one day wide. A value with a time part, a number or a `Date` is an
+   * instant, and the bar ends at it.
+   */
   endDate?: string | number | Date;
   /** Bar colour. */
   variant?: TimelineItemVariant;

@@ -125,6 +125,19 @@ function producer(): Record<string, unknown> {
   return JSON.parse(fs.readFileSync(PRODUCER, 'utf8')) as Record<string, unknown>;
 }
 
+/**
+ * The producer's inclusive ends land on their month columns' edges
+ * (objectui#11112): API Design (January 1st to 31st) ends where the February
+ * column begins, and QA Phase (March 1st to April 30th) at the axis's end.
+ */
+function expectProducerBarsFillTheirMonths(drawn: Drawn): void {
+  const pct = (value: string) => Number.parseFloat(value);
+  const right = (bar: { left: string; width: string }) => pct(bar.left) + pct(bar.width);
+  expect(drawn.bars).toHaveLength(5);
+  expect(right(drawn.bars[0])).toBeCloseTo(pct(drawn.columns[0]), 10);
+  expect(right(drawn.bars[4])).toBeCloseTo(100, 10);
+}
+
 /** Two date-only bars, the axis computed from them: October 5th to 7th. */
 const COMPUTED = {
   scale: 'day',
@@ -196,9 +209,11 @@ describe('timeline gantt, in the suite zone (objectui#10866)', () => {
     // objectui#11079: the bars are measured on the axis the headers draw,
     // October 5th to the end of October 7th, three days — not on the two days
     // from the first midnight to the last, which put the second bar at 50%.
+    // objectui#11112: each date-only end is drawn through its day, so each bar
+    // is two days wide and the second ends at the axis's end.
     expect(drawn.bars).toEqual([
-      { left: '0%', width: `${(1 / 3) * 100}%` },
-      { left: `${(1 / 3) * 100}%`, width: `${(1 / 3) * 100}%` },
+      { left: '0%', width: `${(2 / 3) * 100}%` },
+      { left: `${(1 / 3) * 100}%`, width: `${(2 / 3) * 100}%` },
     ]);
   });
 
@@ -242,6 +257,11 @@ describe.runIf(DRIVEN)('timeline gantt west of UTC (objectui#10866)', () => {
     expect(drawn.titles[0]).toBe('API Design\n1/1/2024 - 1/31/2024');
   });
 
+  it('the producer\'s API Design bar, January 1st to 31st, ends where the February column begins (objectui#11112)', () => {
+    enter(WEST);
+    expectProducerBarsFillTheirMonths(draw(producer()));
+  });
+
   it('a computed day axis reads October 5th to 7th, the days its bars store', () => {
     enter(WEST);
     const drawn = draw(COMPUTED);
@@ -249,9 +269,11 @@ describe.runIf(DRIVEN)('timeline gantt west of UTC (objectui#10866)', () => {
     // objectui#11079: the bars are measured on the axis the headers draw,
     // October 5th to the end of October 7th, three days — not on the two days
     // from the first midnight to the last, which put the second bar at 50%.
+    // objectui#11112: each date-only end is drawn through its day, so each bar
+    // is two days wide and the second ends at the axis's end.
     expect(drawn.bars).toEqual([
-      { left: '0%', width: `${(1 / 3) * 100}%` },
-      { left: `${(1 / 3) * 100}%`, width: `${(1 / 3) * 100}%` },
+      { left: '0%', width: `${(2 / 3) * 100}%` },
+      { left: `${(1 / 3) * 100}%`, width: `${(2 / 3) * 100}%` },
     ]);
   });
 
@@ -260,10 +282,11 @@ describe.runIf(DRIVEN)('timeline gantt west of UTC (objectui#10866)', () => {
     const drawn = draw(PINNED_MIXED);
     expect(drawn.axis).toEqual(['Oct 5', 'Oct 6', 'Oct 7']);
     // objectui#11079: on the 72-hour axis the headers draw, October 5th to the
-    // end of the 7th. The day bar is the second day, 24 hours from the start;
-    // the instant bar starts 21 hours in and is 6 hours long.
+    // end of the 7th. The day bar starts on the second day, 24 hours from the
+    // start, and runs through its date-only end, the 7th (objectui#11112); the
+    // instant bar starts 21 hours in and is 6 hours long, its end unchanged.
     expect(drawn.bars).toEqual([
-      { left: `${(24 / 72) * 100}%`, width: `${(24 / 72) * 100}%` },
+      { left: `${(24 / 72) * 100}%`, width: `${(48 / 72) * 100}%` },
       { left: `${(21 / 72) * 100}%`, width: `${(6 / 72) * 100}%` },
     ]);
     expect(drawn.bars[0].left).toBe(drawn.columns[0]);
@@ -277,14 +300,16 @@ describe.runIf(DRIVEN)('timeline gantt west of UTC (objectui#10866)', () => {
     expect(drawn.bars).toEqual([]);
   });
 
-  it('a day axis across the spring DST change draws the 23-hour day as a narrower column, and a bar from that day starts on it (objectui#11079)', () => {
+  it('a day axis across the spring DST change draws the 23-hour day as a narrower column, and a bar on that day fills it (objectui#11079, objectui#11112)', () => {
     enter(WEST);
     // March 8th 2026 is 23 hours long here: the clocks go forward at 02:00.
+    // The bar starts and ends on March 8th: a date-only end runs through its
+    // day, which is the 23 hours of that column (objectui#11112).
     const drawn = draw({
       scale: 'day',
       minDate: '2026-03-07',
       maxDate: '2026-03-09',
-      items: [{ label: 'Row', items: [{ title: 'Bar', startDate: '2026-03-08', endDate: '2026-03-09' }] }],
+      items: [{ label: 'Row', items: [{ title: 'Bar', startDate: '2026-03-08', endDate: '2026-03-08' }] }],
     });
     expect(drawn.axis).toEqual(['Mar 7', 'Mar 8', 'Mar 9']);
     expect(drawn.columns).toEqual([
@@ -315,6 +340,11 @@ describe.runIf(DRIVEN)('timeline gantt east of UTC, the control (objectui#10866)
     expect(drawn.titles[0]).toBe('API Design\n1/1/2024 - 1/31/2024');
   });
 
+  it('the producer\'s API Design bar, January 1st to 31st, ends where the February column begins (objectui#11112)', () => {
+    enter(EAST);
+    expectProducerBarsFillTheirMonths(draw(producer()));
+  });
+
   it('a computed day axis reads October 5th to 7th, not from the day before (the extent is printed from local getters)', () => {
     enter(EAST);
     const drawn = draw(COMPUTED);
@@ -322,9 +352,11 @@ describe.runIf(DRIVEN)('timeline gantt east of UTC, the control (objectui#10866)
     // objectui#11079: the bars are measured on the axis the headers draw,
     // October 5th to the end of October 7th, three days — not on the two days
     // from the first midnight to the last, which put the second bar at 50%.
+    // objectui#11112: each date-only end is drawn through its day, so each bar
+    // is two days wide and the second ends at the axis's end.
     expect(drawn.bars).toEqual([
-      { left: '0%', width: `${(1 / 3) * 100}%` },
-      { left: `${(1 / 3) * 100}%`, width: `${(1 / 3) * 100}%` },
+      { left: '0%', width: `${(2 / 3) * 100}%` },
+      { left: `${(1 / 3) * 100}%`, width: `${(2 / 3) * 100}%` },
     ]);
   });
 
@@ -333,10 +365,11 @@ describe.runIf(DRIVEN)('timeline gantt east of UTC, the control (objectui#10866)
     const drawn = draw(PINNED_MIXED);
     expect(drawn.axis).toEqual(['Oct 5', 'Oct 6', 'Oct 7']);
     // objectui#11079: on the 72-hour axis the headers draw, October 5th to the
-    // end of the 7th. The day bar is the second day, 24 hours from the start;
-    // the instant bar starts 36 hours in and is 6 hours long.
+    // end of the 7th. The day bar starts on the second day, 24 hours from the
+    // start, and runs through its date-only end, the 7th (objectui#11112); the
+    // instant bar starts 36 hours in and is 6 hours long, its end unchanged.
     expect(drawn.bars).toEqual([
-      { left: `${(24 / 72) * 100}%`, width: `${(24 / 72) * 100}%` },
+      { left: `${(24 / 72) * 100}%`, width: `${(48 / 72) * 100}%` },
       { left: `${(36 / 72) * 100}%`, width: `${(6 / 72) * 100}%` },
     ]);
     expect(drawn.bars[0].left).toBe(drawn.columns[0]);

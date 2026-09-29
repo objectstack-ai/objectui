@@ -1184,7 +1184,9 @@ export const TimelineGanttItemBarSchema = z
   .object({
     title: z.string().optional().describe('Bar label'),
     startDate: TimelineGanttDateSchema.optional().describe('Bar start — a string, a finite number (epoch ms) or a Date'),
-    endDate: TimelineGanttDateSchema.optional().describe('Bar end — a string, a finite number (epoch ms) or a Date'),
+    endDate: TimelineGanttDateSchema.optional().describe(
+      'Bar end — a string, a finite number (epoch ms) or a Date; inclusive for a date-only value: a YYYY-MM-DD end is drawn through the end of that day',
+    ),
     variant: TimelineItemVariantSchema.optional().describe('Bar colour'),
   })
   .passthrough();

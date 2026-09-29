@@ -252,15 +252,17 @@ describe('pin 4 — a NON-empty gantt is untouched by the empty-state guards (ob
     // Re-derived by objectui#11079 from the one axis the headers draw:
     // January 1st to the end of March 2024, 31 + 29 + 31 = 91 days (the
     // b76ca6764 baseline measured the bars on the 90 days from January 1st to
-    // March 31st). API Design is 30 days from day 0, Implementation 59 days
-    // from day 31, and UI Design 31 days from day 14.
+    // March 31st). Re-derived again by objectui#11112, which draws a date-only
+    // end through its day: API Design is 31 days from day 0 (January 1st to
+    // 31st), Implementation 60 days from day 31 (February 1st to March 31st),
+    // and UI Design 32 days from day 14 (January 15th to February 15th).
     // The full float spelling on purpose: a guard that rounded, clamped or
     // short-circuited the normal arithmetic would still pass a tolerance
     // assertion and fail this one.
     expect(barStylesOf(container)).toEqual([
-      'left: 0%; width: 32.967032967032964%;',
-      'left: 34.065934065934066%; width: 64.83516483516483%;',
-      'left: 15.384615384615385%; width: 34.065934065934066%;',
+      'left: 0%; width: 34.065934065934066%;',
+      'left: 34.065934065934066%; width: 65.93406593406593%;',
+      'left: 15.384615384615385%; width: 35.16483516483517%;',
     ]);
 
     expect(rowLabelsOf(container)).toEqual(['Backend Development', 'Frontend Development']);
@@ -305,10 +307,11 @@ describe('pin 5b — `calculateBarDimensions` on a degenerate range (objectui#67
     // means no bars), which is why it has its own pin.
     //
     // Re-derived by objectui#11079: the bar is measured on the axis the header
-    // draws, May 2024, 31 days, so the span is never zero. A task that starts
-    // and ends at the same instant is a zero-width bar at that instant, as it
-    // already was on any plan with two distinct dates; the `left: 0%; width:
-    // 100%` it used to get was the zero-wide span's special case.
+    // draws, May 2024, 31 days, so the span is never zero; the `left: 0%;
+    // width: 100%` it used to get was the zero-wide span's special case.
+    // Re-derived again by objectui#11112: a date-only end is drawn through its
+    // day, so a task that starts and ends on May 1st is that one day wide, 1
+    // of May's 31 days, where objectui#11079 drew it zero wide.
     const SAME_DAY = [
       { label: 'One Day', items: [{ title: 'Kickoff', startDate: '2024-05-01', endDate: '2024-05-01' }] },
     ];
@@ -316,7 +319,7 @@ describe('pin 5b — `calculateBarDimensions` on a degenerate range (objectui#67
       <TimelineRenderer schema={{ type: 'timeline', variant: 'gantt', items: SAME_DAY } as any} />,
     );
 
-    expect(barStylesOf(container)).toEqual(['left: 0%; width: 0%;']);
+    expect(barStylesOf(container)).toEqual(['left: 0%; width: 3.225806451612903%;']);
     // The axis is still real, and still one bucket wide.
     expect(axisOf(container)).toEqual(['May 2024']);
   });
@@ -326,9 +329,10 @@ describe('pin 5b — `calculateBarDimensions` on a degenerate range (objectui#67
     // without any same-day task: the pinned range wins at the call site even
     // though the rows span a real interval. Re-derived by objectui#11079: the
     // axis is the one unit the pin falls in, February 2024, 29 days, and UI
-    // Design (January 15th to February 15th, 31 days) starts 17 days before
-    // it, so it overhangs the pinned range as any bar outside a pinned range
-    // does.
+    // Design (January 15th through February 15th, 32 days now that a
+    // date-only end is drawn through its day, objectui#11112) starts 17 days
+    // before it, so it overhangs the pinned range as any bar outside a pinned
+    // range does.
     const { container } = render(
       <TimelineRenderer
         schema={
@@ -343,7 +347,7 @@ describe('pin 5b — `calculateBarDimensions` on a degenerate range (objectui#67
       />,
     );
 
-    expect(barStylesOf(container)).toEqual(['left: -58.620689655172406%; width: 106.89655172413792%;']);
+    expect(barStylesOf(container)).toEqual(['left: -58.620689655172406%; width: 110.34482758620689%;']);
     expect(axisOf(container)).toEqual(['Feb 2024']);
   });
 });

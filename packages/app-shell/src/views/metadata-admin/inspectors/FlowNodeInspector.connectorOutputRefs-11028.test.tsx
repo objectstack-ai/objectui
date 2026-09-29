@@ -82,7 +82,14 @@ function makeDraft(connectorConfig: Record<string, unknown> = { connectorId: 'sl
   };
 }
 
-const common = { type: 'flow', name: 'digest_flow', onPatch: vi.fn(), onClearSelection: vi.fn(), locale: 'en-US', readOnly: false };
+const common = {
+  type: 'flow',
+  name: 'digest_flow',
+  onPatch: vi.fn(),
+  onClearSelection: vi.fn(),
+  locale: 'en-US' as const,
+  readOnly: false,
+};
 
 function renderNode(draft: Record<string, unknown>, id = 'each') {
   const selection: MetadataSelection = { kind: 'node', id };

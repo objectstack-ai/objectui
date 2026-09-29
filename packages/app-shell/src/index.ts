@@ -265,6 +265,7 @@ export { MarketplacePage } from './console/marketplace/MarketplacePage.js';
 export { MarketplacePackagePage } from './console/marketplace/MarketplacePackagePage.js';
 export { MarketplaceInstalledPage } from './console/marketplace/MarketplaceInstalledPage.js';
 export { LoginPage as DefaultLoginPage } from './console/auth/LoginPage.js';
+export { signInRefusalMessages } from './console/auth/signInRefusalMessages.js';
 export { RegisterPage as DefaultRegisterPage } from './console/auth/RegisterPage.js';
 export { signUpRefusalMessages } from './console/auth/signUpRefusalMessages.js';
 export { ForgotPasswordPage as DefaultForgotPasswordPage } from './console/auth/ForgotPasswordPage.js';

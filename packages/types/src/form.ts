@@ -1936,11 +1936,15 @@ export interface FormField {
   // read in a snake_case spelling beside a spec key of the same meaning —
   // `return_type` (spec `returnType`), `summary_type` (spec
   // `summaryOperations`), `reference_to` (spec `reference`) and `min_length`
-  // (spec `minLength`) — so declaring one would add a second spelling to this
-  // contract, which is a ruling to make, not a declaration to write. The grid
+  // (spec `minLength`) — and none of the four is declared: a second spelling
+  // is not added to this contract. Where the widgets already read the SPEC
+  // spelling too, that spelling is the one declared (`reference`, below;
+  // `minLength`, above), and `reference_to` / `min_length` stay refused by the
+  // strict face (the seat's answer on objectui#11070). `return_type` and
+  // `summary_type` have no read of the spec spelling to declare. The grid
   // field's `columns` is read too, but its element shape is undecided: the
   // declared `GridColumnDefinition` (`./field-types.ts`) is not the shape
-  // `GridField` reads. objectui#11070 carries all five as open questions.
+  // `GridField` reads. Those three remain open on objectui#11070.
 
   /**
    * Hold several values instead of one. Read by the `file`, `image`,
@@ -1966,6 +1970,17 @@ export interface FormField {
    * (`(768D)`), falling back to the value's own length when absent.
    */
   dimensions?: SpecField['dimensions'];
+  /**
+   * Target object of a `lookup` / `user` field, as `@objectstack/spec`'s
+   * `FieldSchema` spells it. The `lookup` widget resolves its target as
+   * `reference_to || reference` and the `user` widget as
+   * `reference || reference_to` (falling back to `sys_user`), so this is the
+   * object the picker queries through the injected adapter. The legacy
+   * `reference_to` spelling is still read by both, and is ⛔ NOT declared:
+   * the strict face refuses it, so an author writes this spelling
+   * (objectui#11070).
+   */
+  reference?: SpecField['reference'];
   /**
    * Minimum value. The `number` widget and the built-in `input` branch put it
    * on the native control as `min`, which the browser enforces at submit

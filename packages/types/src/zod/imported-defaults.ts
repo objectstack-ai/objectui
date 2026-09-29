@@ -135,7 +135,7 @@ const walk = (schema: z.ZodType): z.ZodType => {
   // for its `listViews` slot: the recursive form-field group under
   // `ViewSchema.formViews[…].groups[].fields[]`, walked because the whole
   // container crosses the boundary, not only the slot. objectui#11070 added a
-  // FIFTH by importing the spec's `FieldSchema` for eight `FormFieldSchema`
+  // FIFTH by importing the spec's `FieldSchema` for nine `FormFieldSchema`
   // members: the one under `FieldSchema.relatedListFilter`, walked for the
   // same reason.
   // Each sits inside a schema that carries a default anyway, so the exception

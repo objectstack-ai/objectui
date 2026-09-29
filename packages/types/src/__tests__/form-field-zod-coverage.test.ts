@@ -84,6 +84,7 @@ const DECLARED_KEYS = [
   'rows',
   'accept',
   'dimensions',
+  'reference',
   'min',
   'max',
   'minLength',

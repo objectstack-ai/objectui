@@ -2574,7 +2574,7 @@ interface KnownDrift {
  * explicit that forcing the 121 per-key decisions now would be wrong. Two splits
  * are recorded here so whoever works them off does not re-derive them:
  *
- *   - **SPEC-DERIVED (4 entries, 38 keys)** — it was 3 / 37 until objectui#11070 declared eight
+ *   - **SPEC-DERIVED (4 entries, 38 keys)** — it was 3 / 37 until objectui#11070 declared nine
  *     field-metadata members on `FormFieldSchema` by reference to the spec's `FieldSchema`:
  *     none of them was in the ledger, so no key closed, but the spec reference re-derives
  *     the pair's entry (its one key, `field`) into this half — the objectui#10993 membership
@@ -2794,7 +2794,7 @@ interface UnmirroredDeclared {
     | 'showAddRow' | 'showSelectionCount' | 'singleClickEdit' | 'sort';
   /**
    * SPEC-DERIVED by MEMBERSHIP since objectui#11070, LOCAL before it: that card declared
-   * eight field-metadata members by reference to the spec's `FieldSchema`, so
+   * nine field-metadata members by reference to the spec's `FieldSchema`, so
    * `SPEC_DERIVED_PAIRS` re-derives the pair into that half. ⚠️ `field` itself did not
    * move and is not a spec key here: it is the resolved object-field metadata stash,
    * kept out of the authorable surface on purpose (objectui#6609).
@@ -4276,10 +4276,10 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // reference (the axis config object `ChartConfigSchema` declares), so a spec
   // bump that moves the axis vocabulary moves ONE side of this pair.
   'data-display.zod.ts#ChartSchema',
-  // objectui#11070: eight of the field-metadata members a hand-authored form
+  // objectui#11070: nine of the field-metadata members a hand-authored form
   // writes on the entry itself are the spec's `FieldSchema` members by
-  // reference (`multiple`, `rows`, `accept`, `dimensions`, `min`, `max`,
-  // `minLength`, `maxLength`), so a spec bump that moves one of those field
+  // reference (`multiple`, `rows`, `accept`, `dimensions`, `reference`, `min`,
+  // `max`, `minLength`, `maxLength`), so a spec bump that moves one of those field
   // keys moves ONE side of this pair. The first spec reference in this mirror.
   'form.zod.ts#FormFieldSchema',
   'form.zod.ts#SelectOptionSchema',
@@ -4328,9 +4328,10 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   'objectql.zod.ts#ObjectGridSchema',
   // objectui#11070: `dataSource` is the spec's `ElementDataSourceSchema` by
   // reference (the per-element binding `PageComponentSchema.dataSource`
-  // declares) — the first spec reference in this mirror. `ObjectGridSchema`
-  // and `ObjectFormSchema` gained the same member and were already
-  // spec-derived.
+  // declares) — the first spec reference in this mirror. `ObjectGridSchema`,
+  // `ObjectFormSchema`, `ListViewSchema`, `ObjectGanttSchema`,
+  // `ObjectMapSchema` and `ObjectCalendarSchema` gained the same member and
+  // were already spec-derived.
   'objectql.zod.ts#ObjectKanbanSchema',
   'objectql.zod.ts#ObjectMapSchema',
   // objectui#7779: BACK, by a real code reference this time — `navigation`,

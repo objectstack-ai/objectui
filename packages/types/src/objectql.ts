@@ -792,11 +792,14 @@ export interface ObjectGridSchema extends BaseSchema {
    * authored input (objectui#6678, `ELEMENT_DATA_SOURCE_INPUT` in
    * `@object-ui/core`); this member is that declaration on the schema faces,
    * which the strict authoring face refused until it was written. Same
-   * declaration on {@link ObjectFormSchema} and {@link ObjectKanbanSchema}.
-   * ⚠️ Not yet on `ListViewSchema`, whose renderer reads it the same way:
-   * that member also needs a rung-or-absence entry in `@object-ui/app-shell`'s
-   * `ListViewSchema` relay census (objectui#7559), which objectui#11070 leaves
-   * to its seat.
+   * declaration on {@link ObjectFormSchema}, {@link ObjectKanbanSchema},
+   * {@link ObjectGanttSchema}, {@link ObjectMapSchema},
+   * {@link ObjectCalendarSchema} and `ListViewSchema` (derived from its zod
+   * mirror; its absence from `@object-ui/app-shell`'s relay census is declared
+   * there, objectui#7559). ⚠️ Not on {@link ObjectChartSchema}: the react-page
+   * wrapper writes the host's ADAPTER (or `null`) under this key on every data
+   * block it builds, and objectui#10770 pins that `object-chart` node as
+   * valid, so declaring the binding there waits on objectui#11070's seat.
    */
   dataSource?: ElementDataSource;
   
@@ -3113,6 +3116,14 @@ export interface ObjectMapConfig {
 export interface ObjectMapSchema extends BaseSchema {
   type: 'object-map';
   /**
+   * Per-element data binding — the spec's `ElementDataSource`, by reference
+   * (objectui#11070). This block's registration is gate-wrapped
+   * (`elementDataSourceBlock`), so `ElementDataSourceGate` reads the binding
+   * off the node and lands its `object` on `objectName`. Metadata, ⛔ not the
+   * adapter: see {@link ObjectGridSchema.dataSource}.
+   */
+  dataSource?: ElementDataSource;
+  /**
    * ObjectQL object name — the THIRD record source `getDataConfig` resolves,
    * after {@link ObjectMapSchema.data} and {@link ObjectMapSchema.staticData}
    * (`plugin-map/src/ObjectMap.tsx`).
@@ -3304,6 +3315,14 @@ export interface ObjectTreeSchema extends BaseSchema {
  */
 export interface ObjectGanttSchema extends BaseSchema {
   type: 'object-gantt';
+  /**
+   * Per-element data binding — the spec's `ElementDataSource`, by reference
+   * (objectui#11070). This block's registration is gate-wrapped
+   * (`elementDataSourceBlock`), so `ElementDataSourceGate` reads the binding
+   * off the node and lands its `object` on `objectName`. Metadata, ⛔ not the
+   * adapter: see {@link ObjectGridSchema.dataSource}.
+   */
+  dataSource?: ElementDataSource;
   /**
    * ObjectQL object name — the THIRD record source `resolveRecordSourceConfig`
    * (`@object-ui/core`) resolves, after {@link ObjectGanttSchema.data} and
@@ -3675,6 +3694,14 @@ export interface ObjectGanttSchema extends BaseSchema {
  */
 export interface ObjectCalendarSchema extends BaseSchema {
   type: 'object-calendar';
+  /**
+   * Per-element data binding — the spec's `ElementDataSource`, by reference
+   * (objectui#11070). This block's registration is gate-wrapped
+   * (`elementDataSourceBlock`), so `ElementDataSourceGate` reads the binding
+   * off the node and lands its `object` on `objectName`. Metadata, ⛔ not the
+   * adapter: see {@link ObjectGridSchema.dataSource}.
+   */
+  dataSource?: ElementDataSource;
   /**
    * ObjectQL object name — the THIRD record source `resolveRecordSourceConfig`
    * (`@object-ui/core`) resolves, after {@link ObjectCalendarSchema.data} and

@@ -21,12 +21,14 @@
  *
  *   - `form.showSubmit` — the `form` renderer's submit-button switch;
  *   - `form.fields[]` — field metadata a hand-authored form writes on the entry
- *     itself (`multiple`, `rows`, `accept`, `dimensions`, `min`, `max`,
- *     `minLength`, `maxLength`, `pattern`), which the renderer hands each field
- *     widget as its metadata carrier;
- *   - `dataSource` on `object-grid`, `object-form` and `object-kanban` — the
- *     spec's per-element binding, which the registered renderers read off the
- *     node through `ElementDataSourceGate`.
+ *     itself (`multiple`, `rows`, `accept`, `dimensions`, `reference`, `min`,
+ *     `max`, `minLength`, `maxLength`, `pattern`), which the renderer hands
+ *     each field widget as its metadata carrier;
+ *   - `dataSource` on `object-grid`, `object-form`, `object-kanban`,
+ *     `list-view`, `object-gantt`, `object-map` and `object-calendar` — the
+ *     spec's per-element binding, which each block's
+ *     gate-wrapped registration reads off the node through
+ *     `ElementDataSourceGate`.
  *
  * Each read is reasoned on the TypeScript member that declares it.
  *
@@ -45,7 +47,15 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import type { ObjectFormSchema, ObjectGridSchema, ObjectKanbanSchema } from '../objectql.js';
+import type {
+  ListViewSchema,
+  ObjectCalendarSchema,
+  ObjectFormSchema,
+  ObjectGanttSchema,
+  ObjectGridSchema,
+  ObjectKanbanSchema,
+  ObjectMapSchema,
+} from '../objectql.js';
 import type { FormField, FormSchema } from '../form.js';
 import { AnyComponentSchema, StrictAnyComponentSchema } from '../zod/index.zod.js';
 
@@ -87,6 +97,7 @@ describe('objectui#11070 — the declared read keys parse on the strict face', (
     ['rows', { type: 'textarea', rows: 6 }],
     ['accept', { type: 'file', accept: ['application/pdf'] }],
     ['dimensions', { type: 'vector', dimensions: 768 }],
+    ['reference', { type: 'lookup', reference: 'users' }],
     ['min', { type: 'number', min: 0 }],
     ['max', { type: 'number', max: 120 }],
     ['minLength', { type: 'input', minLength: 3 }],
@@ -109,6 +120,10 @@ describe('objectui#11070 — the declared read keys parse on the strict face', (
     // props gate lets it on `element:number`) is a separate question from
     // whether the key is declared, and this block measures only the second.
     ['object-kanban', { objectName: 'task' }],
+    ['list-view', { objectName: 'task' }],
+    ['object-gantt', { objectName: 'task' }],
+    ['object-map', { objectName: 'task' }],
+    ['object-calendar', { objectName: 'task' }],
   ];
 
   it.each(BOUND_NODES)('`%s.dataSource` parses; `dataSourc` beside it is refused by name', (type, rest) => {
@@ -139,12 +154,15 @@ describe('objectui#11070 — a declared key is judged by its declared type on bo
 /* ── 3. the read keys this card did NOT declare stay refused ─────────────── */
 
 describe('objectui#11070 — the read keys left undeclared pending a ruling stay refused on the strict face', () => {
-  // Each is read by a widget, and each waits on a question objectui#11070
-  // records rather than a declaration: a snake_case second spelling of a spec
-  // key (`return_type` / `returnType`, `summary_type` / `summaryOperations`,
-  // `reference_to` / `reference`, `min_length` / `minLength`), or an element
-  // shape not yet decided (the grid field's `columns`). ⛔ Declaring one is a
-  // contract ruling, not a fix to this list.
+  // Each is read by a widget and none is declared. Two are the snake_case
+  // second spelling of a spec key this card DID declare (`reference_to` /
+  // `reference`, `min_length` / `minLength`): the seat's answer on
+  // objectui#11070 keeps the legacy spelling refused, so an author writes the
+  // spec's. Three wait on a question that stays open on objectui#11070: a
+  // snake_case spelling with no read of the spec's to declare instead
+  // (`return_type` / `returnType`, `summary_type` / `summaryOperations`), and
+  // an element shape not yet decided (the grid field's `columns`). ⛔
+  // Declaring one is a contract ruling, not a fix to this list.
   const PENDING: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
     ['return_type', { type: 'formula', return_type: 'number' }],
     ['summary_type', { type: 'summary', summary_type: 'sum' }],
@@ -158,8 +176,8 @@ describe('objectui#11070 — the read keys left undeclared pending a ruling stay
     expect(issuesOf(AnyComponentSchema, form(field))).toBeNull();
   });
 
-  it('`list-view.dataSource` is refused by name: its renderer reads the binding as the other three do, but the member also owes a classification in `@object-ui/app-shell`\'s relay census (objectui#7559), outside this card', () => {
-    const doc = { type: 'list-view', objectName: 'task', dataSource: { object: 'task' } };
+  it('`object-chart.dataSource` is refused by name: the react-page wrapper writes the host adapter (or `null`) under that key, and objectui#10770 pins that node as valid on the tolerant face', () => {
+    const doc = { type: 'object-chart', objectName: 'task', chartType: 'bar', dataSource: { object: 'task' } };
     expect(undeclared(issuesOf(StrictAnyComponentSchema, doc))).toEqual(['dataSource']);
     expect(issuesOf(AnyComponentSchema, doc)).toBeNull();
   });
@@ -174,15 +192,18 @@ type IsAny<T> = 0 extends 1 & T ? true : false;
 /** Each declared member is a named, typed member — not the index signature's `any`. */
 export type assertionFormFieldMembersAreTyped = Expect<Equal<
   IsAny<FormField['multiple'] | FormField['rows'] | FormField['accept'] | FormField['dimensions']
-    | FormField['min'] | FormField['max'] | FormField['minLength'] | FormField['maxLength'] | FormField['pattern']>,
+    | FormField['reference'] | FormField['min'] | FormField['max'] | FormField['minLength'] | FormField['maxLength'] | FormField['pattern']>,
   false
 >>;
 export type assertionShowSubmitIsBoolean = Expect<Equal<FormSchema['showSubmit'], boolean | undefined>>;
 export type assertionBindingIsTyped = Expect<Equal<
-  IsAny<ObjectGridSchema['dataSource'] | ObjectFormSchema['dataSource'] | ObjectKanbanSchema['dataSource']>,
+  IsAny<ObjectGridSchema['dataSource'] | ObjectFormSchema['dataSource'] | ObjectKanbanSchema['dataSource']
+    | ListViewSchema['dataSource'] | ObjectGanttSchema['dataSource'] | ObjectMapSchema['dataSource']
+    | ObjectCalendarSchema['dataSource']>,
   false
 >>;
 
 // @ts-expect-error — an adapter is not a binding: the binding names an `object`.
 export const adapterIsNotABinding: ObjectGridSchema['dataSource'] = { find: () => [] };
 export const bindingOnKanban: ObjectKanbanSchema['dataSource'] = { object: 'task', view: 'open', limit: 20 };
+export const bindingOnListView: ListViewSchema['dataSource'] = { object: 'task', view: 'open', limit: 20 };

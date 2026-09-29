@@ -961,11 +961,14 @@ export const FormFieldSchema = z.object({
   // carrier. Every member but `pattern` is the spec's `FieldSchema` member BY
   // REFERENCE (values, checks and `.describe()` text included), so it cannot
   // drift from the key the widgets were written against. The reads, and the
-  // five read keys deliberately NOT declared, are reasoned on the TS twin.
+  // read keys deliberately NOT declared, are reasoned on the TS twin.
   multiple: stripImportedDefaults(SpecFieldSchema).shape.multiple,
   rows: stripImportedDefaults(SpecFieldSchema).shape.rows,
   accept: stripImportedDefaults(SpecFieldSchema).shape.accept,
   dimensions: stripImportedDefaults(SpecFieldSchema).shape.dimensions,
+  // The spec spelling of a lookup / user field's target object; the legacy
+  // `reference_to` is read too and deliberately stays undeclared (objectui#11070).
+  reference: stripImportedDefaults(SpecFieldSchema).shape.reference,
   min: stripImportedDefaults(SpecFieldSchema).shape.min,
   max: stripImportedDefaults(SpecFieldSchema).shape.max,
   minLength: stripImportedDefaults(SpecFieldSchema).shape.minLength,

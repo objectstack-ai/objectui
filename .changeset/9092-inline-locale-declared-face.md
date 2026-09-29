@@ -24,8 +24,15 @@ reference. The defect was therefore declaration-only, and it sat on the side a
 forward mirror-vs-declaration comparison reads as clean — an author following the
 published ruling was refused by `tsc` while `safeParse` said yes.
 
-`ObjectViewSchema.table` is `Partial<Pick<ObjectGridSchema, …>>` and picks up the
-same repair mechanically.
+At this change `ObjectViewSchema.table` is `Partial<Pick<ObjectGridSchema, …>>` and picks up
+the same repair mechanically.
+
+⚠️ **Dated note, 2026-09-29 — `table` no longer carries `description` — objectui#10976.** Later
+in this same release the `table` slot keeps `label`, which picks up this repair as described, and
+withholds `description`: `ObjectGrid` has no read of it, so `table.description` is a type error
+and is refused by the validator. `ObjectGridSchema.description` itself keeps the widening. The
+rest of this entry is kept as the reading of this change; the objectui#10976 entry states what
+ships.
 
 **One runtime behaviour changes, at three sites.** `@object-ui/plugin-grid`'s
 `ObjectGrid` put `schema.label` straight into three string positions — the

@@ -31,12 +31,13 @@
  * footers.
  *
  * The plain-string rows and the nothing-authored row are the controls. A
- * string stays exactly what was authored, and the simple form's English
- * defaults stay byte-identical. The wizard's own defaults are its i18n
- * catalogue's since objectui#10999 and are pinned there
- * (`WizardForm.i18nChrome-10999.test.tsx`); every wizard map below has a `zh`
- * entry that differs from the zh pack's default for the same button, so a map
- * that was dropped instead of resolved cannot pass.
+ * string stays exactly what was authored, and with nothing authored the simple
+ * form shows the zh pack's own defaults: its default Save label and success
+ * toast read the i18n catalogue since objectui#11039, as the wizard's have
+ * since objectui#10999 (`formChrome.i18n-11039.test.tsx` and
+ * `WizardForm.i18nChrome-10999.test.tsx` pin those). Every map below has a
+ * `zh` entry that differs from the zh pack's default for the same slot, so a
+ * map that was dropped instead of resolved cannot pass.
  */
 
 import React from 'react';
@@ -173,7 +174,7 @@ describe('object-form — the seven I18nLabel members resolve against the UI lan
   it('simple: a locale-map `successMessage` is the create toast', async () => {
     const { ds } = await mount({ successMessage: SUCCESS_MAP });
 
-    const save = (await button('Create')) as HTMLButtonElement;
+    const save = (await button('创建')) as HTMLButtonElement;
     await act(async () => {
       fireEvent.click(save);
     });
@@ -255,15 +256,15 @@ describe('object-form — the seven I18nLabel members resolve against the UI lan
     expect(dialog.textContent).toContain('PO details');
   });
 
-  it('CONTROL: with nothing authored, the simple form keeps its English defaults', async () => {
+  it('CONTROL: with nothing authored, the simple form shows the zh pack\'s defaults (objectui#11039)', async () => {
     const { ds } = await mount({});
 
     await act(async () => {
-      fireEvent.click(await button('Create'));
+      fireEvent.click(await button('创建'));
     });
     await waitFor(() => expect(ds.create).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(toasts.filter((t) => t.type === 'success')).toHaveLength(1));
-    expect(toasts.filter((t) => t.type === 'success').map((t) => t.message)).toEqual(['Created']);
+    expect(toasts.filter((t) => t.type === 'success').map((t) => t.message)).toEqual(['已创建']);
     expect(buttonTexts()).not.toContain('[object Object]');
   });
 });

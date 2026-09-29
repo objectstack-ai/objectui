@@ -245,7 +245,9 @@ describe('ObjectForm redirect — an out-of-contract destination is refused, not
 
     // The write SUCCEEDED, so the submitter is told that too — refusing the
     // destination must not read as "your submission failed".
-    expect(screen.getByText('Thanks!')).toBeTruthy();
+    // The thank-you heading is the `en` pack's `publicForm.thankYouTitle`
+    // (objectui#11039; it read 'Thanks!' before it came from the catalogue).
+    expect(screen.getByText('Thank you!')).toBeTruthy();
     expect(screen.getByText('Created')).toBeTruthy();
 
     // …and the still-filled form is GONE, so the duplicate-record move the old

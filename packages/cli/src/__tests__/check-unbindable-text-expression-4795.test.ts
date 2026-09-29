@@ -32,11 +32,11 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { expressionBindableTextKeysFor } from '@objectstack/spec/ui';
+import { EXPRESSION_BINDABLE_TEXT_KEYS, expressionBindableTextKeysFor } from '@objectstack/spec/ui';
 
 import { check } from '../commands/check.js';
 import { formatIssuePath } from '../utils/issue-path.js';
-import { isKnownSchemaType } from '../utils/known-schema-types.js';
+import { KNOWN_SCHEMA_TYPES, isKnownSchemaType } from '../utils/known-schema-types.js';
 import {
   describeUnbindableTextExpression,
   findUnbindableTextExpressions,
@@ -292,5 +292,56 @@ describe('only recognised ObjectUI files are judged', () => {
     await check(cwd);
     expect(refusalLines()).toEqual([]);
     expect(exitCodes).toEqual([]);
+  });
+});
+
+/**
+ * The gate and `SchemaRenderer` ask the lookup the same question.
+ *
+ * Both call `expressionBindableTextKeysFor(type)`, but a lookup called with a
+ * different type string answers a different question: a gate that stripped
+ * `ui:` would grant `ui:card` the `card` row the runtime never applies, and
+ * pass the very literal the user then sees. The runtime's half — the type is
+ * passed VERBATIM — is pinned by the `@object-ui/react` suite
+ * `SchemaRenderer.bindableTextKeys.test.tsx` ("a namespaced spelling is not
+ * silently normalized"). This table pins the gate's half on every type this
+ * build registers, against the same verbatim lookup.
+ */
+describe('the gate asks the lookup what SchemaRenderer asks, on every registered type', () => {
+  /** The four keys the gate refuses on a component node of `type`. */
+  const refusedByGate = (type: string): string[] => {
+    const node: Record<string, unknown> = { type };
+    for (const key of EXPRESSION_BINDABLE_TEXT_KEYS) node[key] = EXPR;
+    // Under a parent's `children`, so every type — `page` included — is judged
+    // as a component node; the page document root is sub-rule (i)'s, above.
+    return findUnbindableTextExpressions({ type: 'div', children: [node] })
+      .filter((finding) => finding.severity === 'refusal')
+      .map((finding) => finding.key);
+  };
+
+  it('refuses exactly the keys the verbatim lookup excludes', () => {
+    const disagreements = KNOWN_SCHEMA_TYPES.flatMap((type) => {
+      const excluded = EXPRESSION_BINDABLE_TEXT_KEYS.filter(
+        (key) => !expressionBindableTextKeysFor(type).includes(key),
+      );
+      const refused = refusedByGate(type);
+      return JSON.stringify(refused) === JSON.stringify(excluded)
+        ? []
+        : [`${type}: lookup excludes [${excluded.join(', ')}], gate refused [${refused.join(', ')}]`];
+    });
+    expect(disagreements).toEqual([]);
+  });
+
+  it('gives a namespaced spelling no row, even where its bare name has one', () => {
+    // The registered types a prefix-stripping gate would get wrong. Derived,
+    // and asserted non-empty, so this case cannot pass by having no subject.
+    const namespacedWithBareRow = KNOWN_SCHEMA_TYPES.filter((type) => {
+      const bare = type.slice(type.lastIndexOf(':') + 1);
+      return type.includes(':') && expressionBindableTextKeysFor(bare).length > 0;
+    });
+    expect(namespacedWithBareRow).toContain('ui:card');
+    for (const type of namespacedWithBareRow) {
+      expect(refusedByGate(type), type).toEqual([...EXPRESSION_BINDABLE_TEXT_KEYS]);
+    }
   });
 });

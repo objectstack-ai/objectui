@@ -44,10 +44,10 @@ import { isKnownSchemaType } from './known-schema-types.js';
  * than copied, so a row added upstream moves this gate and the runtime in the
  * same install. The type string is passed VERBATIM, because that is what the
  * evaluation memo in `SchemaRenderer` passes: no prefix stripping, so
- * `ui:card` answers the empty set exactly as it does at render time. The
- * agreement is measured, not asserted: the runtime-agreement suite renders
- * every registered type through the real `SchemaRenderer` and compares what it
- * evaluated with what this gate refuses.
+ * `ui:card` answers the empty set exactly as it does at render time. Each half
+ * is pinned against that verbatim lookup: the runtime's by the `@object-ui/react`
+ * suite `SchemaRenderer.bindableTextKeys.test.tsx`, this gate's over every
+ * registered type by `check-unbindable-text-expression-4795.test.ts`.
  *
  * ## What a component node is: the root, and what `children` holds
  *

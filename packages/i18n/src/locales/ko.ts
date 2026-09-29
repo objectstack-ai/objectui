@@ -3674,6 +3674,11 @@ const ko = {
   },
   wizard: {
     missingRequired: "필수 항목을 입력하세요: {{fields}}",
+    back: "뒤로",
+    submitting: "제출 중…",
+    stepFallback: "{{n}}단계",
+    progressLabel: "진행 상황",
+    emptyStep: "이 단계에 구성된 필드가 없습니다",
   },
   flowRunner: {
     title: '입력',

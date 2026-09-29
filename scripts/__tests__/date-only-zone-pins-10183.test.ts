@@ -29,7 +29,9 @@ import { fileURLToPath } from 'node:url';
  * date helpers, then the timeline's gantt axis and core's formula date
  * arithmetic, then the calendar's day moves across a DST change and the pins
  * for the calendar's end-date write, its no-schema fallback and the gantt's
- * no-schema path; a later date-only read site registers here the same way.
+ * no-schema path. objectui#11005 added the month grid's own drags, which move
+ * a value by calendar days across a DST change. A later date-only read site
+ * registers here the same way.
  *
  * ## Why a driver, and why the forks pool
  *
@@ -105,6 +107,9 @@ const PINS = [
   'packages/plugin-calendar/src/__tests__/ObjectCalendar.dstDayMove-10866.test.tsx',
   'packages/plugin-calendar/src/__tests__/ObjectCalendar.endDateNoSchemaZone-10866.test.tsx',
   'packages/plugin-gantt/src/__tests__/ObjectGantt.noSchemaZone-10866.test.tsx',
+  // objectui#11005: the month grid moves a value by calendar days and keeps
+  // its wall-clock time across a DST change, for a move and an end drag.
+  'packages/plugin-calendar/src/__tests__/CalendarView.monthMoveCalendarDays-11005.test.tsx',
 ] as const;
 
 /** The vitest CLI entry, resolved rather than assumed at a `node_modules` path. */

@@ -11,21 +11,26 @@
  * month grid writes the days it was dropped on.
  *
  * ── What was measured ───────────────────────────────────────────────────────
- * The month grid moves each date of an event by the milliseconds between the
- * grabbed cell's local midnight and the drop cell's. A date-only value is read
- * at local midnight of its day (`toDisplayDate`), so when a DST change lies
- * between one of the event's dates and where it lands, but not between the two
- * cells (or the other way round), that date comes back an hour off local
- * midnight. Under `America/Los_Angeles` the clocks fall back on November 1st,
- * 2026 and spring forward on March 8th, 2026, and before this slice four of the
- * ten day moves below wrote a day one short: the `Date` came back at 23:00 of
- * the day before, and the write takes its local day. `ObjectCalendar` now moves
- * a day event's `date` field by the whole days the grid moved it
- * (`toMovedDateValue`).
+ * At slice 4 the month grid moved each date of an event by the milliseconds
+ * between the grabbed cell's local midnight and the drop cell's. A date-only
+ * value is read at local midnight of its day (`toDisplayDate`), so when a DST
+ * change lay between one of the event's dates and where it landed, but not
+ * between the two cells (or the other way round), that date came back an hour
+ * off local midnight. Under `America/Los_Angeles` the clocks fall back on
+ * November 1st, 2026 and spring forward on March 8th, 2026, and before slice 4
+ * four of the ten day moves below wrote a day one short: the `Date` came back
+ * at 23:00 of the day before, and the write takes its local day. Slice 4
+ * repaired that in `ObjectCalendar`, from the stored day.
  *
- * The other six moves, and every `datetime` control, wrote the same values
- * before this slice as after: the grid's own arithmetic is unchanged, so an
- * instant still writes exactly the instant the grid hands back.
+ * ── Since objectui#11005 (ruled B) ──────────────────────────────────────────
+ * The month grid moves a value by calendar days and keeps its time of day
+ * (the grid's own zone pins are `CalendarView.monthMoveCalendarDays-11005`).
+ * A day read at local midnight now comes back at local midnight of the day it
+ * was dropped on, so its local day is the day to write, and the slice-4
+ * repair is gone. These ten day moves are how it was measured redundant: they
+ * write exactly the days they wrote with it. The `datetime` controls keep
+ * their wall-clock time across the DST change; the first Los Angeles one ends
+ * at 10:00 on November 2nd, where the elapsed-time arithmetic put it at 09:00.
  *
  * `Asia/Shanghai` keeps no DST, so every day move there is the control zone.
  *
@@ -219,12 +224,14 @@ const DAY_MOVES: Array<[string, Move, { start: string; end: string }]> = [
 ];
 
 /**
- * `datetime` controls under `America/Los_Angeles`: each writes the instant the
- * grid hands back, the value it wrote before this slice.
+ * `datetime` controls under `America/Los_Angeles`: each keeps its wall-clock
+ * time on the days it was dropped on (objectui#11005). Before that change the
+ * first one wrote its end as `2026-11-02T17:00:00.000Z`, 09:00; the other two
+ * wrote what they write now.
  */
 const WEST_INSTANT_MOVES: Array<[string, Move, { start: string; end: string }]> = [
   [
-    'control: a `datetime` span grabbed on its start and moved two days keeps the grid\'s instants',
+    'control: a `datetime` span grabbed on its start and moved two days keeps its wall-clock time',
     {
       clock: OCTOBER,
       kind: 'datetime',
@@ -233,10 +240,11 @@ const WEST_INSTANT_MOVES: Array<[string, Move, { start: string; end: string }]> 
       grab: 'October 29, 2026',
       drop: 'October 31, 2026',
     },
-    { start: '2026-10-31T17:00:00.000Z', end: '2026-11-02T17:00:00.000Z' },
+    // October 31st 10:00 PDT to November 2nd 10:00 PST.
+    { start: '2026-10-31T17:00:00.000Z', end: '2026-11-02T18:00:00.000Z' },
   ],
   [
-    'control: a `datetime` span grabbed on a later cell and moved one day keeps the grid\'s instants',
+    'control: a `datetime` span grabbed on a later cell and moved one day keeps its wall-clock time',
     {
       clock: OCTOBER,
       kind: 'datetime',
@@ -248,7 +256,7 @@ const WEST_INSTANT_MOVES: Array<[string, Move, { start: string; end: string }]> 
     { start: '2026-11-02T17:00:00.000Z', end: '2026-11-04T18:00:00.000Z' },
   ],
   [
-    'control: a `datetime` span moved back one day across March 8th keeps the grid\'s instants',
+    'control: a `datetime` span moved back one day across March 8th keeps its wall-clock time',
     {
       clock: MARCH,
       kind: 'datetime',
@@ -302,7 +310,7 @@ describe.runIf(DRIVEN)('ObjectCalendar day moves east of UTC, the control (objec
     expect(await moved(move, EAST)).toEqual(want);
   });
 
-  it('control: a `datetime` span keeps the grid\'s instants', async () => {
+  it('control: a `datetime` span keeps its wall-clock time', async () => {
     expect(
       await moved(
         {

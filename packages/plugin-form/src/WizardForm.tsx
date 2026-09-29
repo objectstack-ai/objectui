@@ -123,7 +123,7 @@ export interface WizardStepConfig {
 
   /**
    * Step label — the text the step indicator shows.
-   * Falls back to `Step <n>`.
+   * Falls back to `Step <n>`, in the session locale (`wizard.stepFallback`).
    */
   label?: string;
 
@@ -218,9 +218,30 @@ const stepValuesDiffer = (stepData: Record<string, unknown>, held: Record<string
     }
   });
 
+// Every row must stay byte-identical to the `en` pack value of the same key —
+// `pnpm check:i18n-keys` compares this table against it. The table is what a
+// provider-less host (a standalone embed, this package's own tests) renders.
+//
+// The wizard's own chrome (objectui#10999): the footer buttons, the step
+// counter, the step indicator's accessible name, its fallback step label and
+// the empty-step notice. The generic verbs reuse the shared keys; `wizard.back`
+// and `wizard.submitting` are the wizard's own, because the shared spelling
+// either says something else in some packs (zh reads `common.back` as "return",
+// where a wizard says "previous step", as the import and bulk wizards already
+// do) or does not exist (there is no generic `submitting`).
 const useWizardTranslation = createSafeTranslation(
   {
     'wizard.missingRequired': 'Please complete the required fields: {{fields}}',
+    'common.cancel': 'Cancel',
+    'wizard.back': 'Back',
+    'common.next': 'Next',
+    'wizard.submitting': 'Submitting…',
+    'form.create': 'Create',
+    'form.update': 'Update',
+    'form.stepOf': 'Step {{current}} of {{total}}',
+    'wizard.stepFallback': 'Step {{n}}',
+    'wizard.progressLabel': 'Progress',
+    'wizard.emptyStep': 'No fields configured for this step',
   },
   'wizard.missingRequired',
 );
@@ -293,19 +314,22 @@ export interface WizardFormSchema {
   showStepIndicator?: boolean;
   
   /**
-   * Text for Next button
+   * Text for Next button. Rendered as authored when set; otherwise the
+   * session locale's `common.next`.
    * @default 'Next'
    */
   nextText?: string;
   
   /**
-   * Text for Previous button
+   * Text for Previous button. Rendered as authored when set; otherwise the
+   * session locale's `wizard.back`.
    * @default 'Back'
    */
   prevText?: string;
   
   /**
-   * Submit button text (shown on last step)
+   * Submit button text (shown on last step). Rendered as authored when set;
+   * otherwise the session locale's `form.create` / `form.update`.
    */
   submitText?: string;
 
@@ -341,7 +365,8 @@ export interface WizardFormSchema {
   showCancel?: boolean;
   
   /**
-   * Cancel button text
+   * Cancel button text. Rendered as authored when set; otherwise the session
+   * locale's `common.cancel`.
    */
   cancelText?: string;
   
@@ -1136,7 +1161,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
     <div className={cn('w-full @container', className, schema.className)}>
       {/* Step Indicator */}
       {schema.showStepIndicator !== false && (
-        <nav aria-label="Progress" className="mb-8">
+        <nav aria-label={t('wizard.progressLabel')} className="mb-8">
           <ol className="flex items-center">
             {schema.sections.map((section, index) => {
               const isActive = index === currentStep;
@@ -1209,7 +1234,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
                             : isActive ? 'text-foreground' : 'text-muted-foreground'
                         )}
                       >
-                        {section.label || `Step ${index + 1}`}
+                        {section.label || t('wizard.stepFallback', { n: index + 1 })}
                       </span>
                     </span>
                   </button>
@@ -1284,7 +1309,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
                 }}
               >
                 <div className="text-center py-8 text-muted-foreground">
-                  No fields configured for this step
+                  {t('wizard.emptyStep')}
                 </div>
               </form>
             )}
@@ -1300,7 +1325,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
               variant="ghost"
               onClick={handleCancel}
             >
-              {schema.cancelText || 'Cancel'}
+              {schema.cancelText || t('common.cancel')}
             </Button>
           )}
         </div>
@@ -1308,7 +1333,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         <div className="flex items-center gap-2">
           {/* Step counter */}
           <span className="text-sm text-muted-foreground mr-2">
-            Step {currentStep + 1} of {totalSteps}
+            {t('form.stepOf', { current: currentStep + 1, total: totalSteps })}
           </span>
           
           {!isFirstStep && (
@@ -1317,7 +1342,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
               onClick={handlePrev}
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
-              {schema.prevText || 'Back'}
+              {schema.prevText || t('wizard.back')}
             </Button>
           )}
           
@@ -1330,14 +1355,16 @@ export const WizardForm: React.FC<WizardFormProps> = ({
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
               {uploadGate.uploading
                 ? uploadGate.busyLabel
-                : submitting ? 'Submitting...' : (schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'))}
+                : submitting
+                  ? t('wizard.submitting')
+                  : (schema.submitText || (schema.mode === 'create' ? t('form.create') : t('form.update')))}
             </Button>
           ) : (
             <Button
               type="submit"
               form={stepFormId}
             >
-              {schema.nextText || 'Next'}
+              {schema.nextText || t('common.next')}
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           )}

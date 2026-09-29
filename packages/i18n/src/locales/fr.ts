@@ -3677,6 +3677,11 @@ const fr = {
   },
   wizard: {
     missingRequired: "Veuillez renseigner les champs obligatoires : {{fields}}",
+    back: "Retour",
+    submitting: "Envoi…",
+    stepFallback: "Étape {{n}}",
+    progressLabel: "Progression",
+    emptyStep: "Aucun champ configuré pour cette étape",
   },
   flowRunner: {
     title: 'Saisie',

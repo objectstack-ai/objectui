@@ -390,7 +390,10 @@ const schema: ObjectViewSchema = {
 
 When `layout` is omitted, the surface is derived from how heavy the object is
 (`deriveRecordSurface`): a field-heavy object opens as a page, a light one as a
-drawer, and mobile always pages.
+drawer, and mobile always pages. A page is handed to `onNavigate`; with none to
+hand it to, as on the registered `object-view` renderer, whose JSON schema
+cannot carry a function, the page falls back to the drawer for create, edit and
+read.
 
 ### Opening a record
 
@@ -417,7 +420,9 @@ const schema: ObjectViewSchema = {
 ```
 
 Without an `onNavigate` handler, `page` mode has nowhere to send the user, so
-keep the two together. `navigation: { mode: 'none' }` (or `preventNavigation`)
+keep the two together: a `page` layout without one falls back to the drawer,
+and a row click under `navigation: { mode: 'page' }` opens nothing.
+`navigation: { mode: 'none' }` (or `preventNavigation`)
 makes rows inert. An active named view (`listViews`, under Read/List) that
 declares its own `navigation` replaces this one, as a whole, while it is shown.
 Under `split` or `popover`, which open only beside a record the user picked, the
@@ -440,7 +445,9 @@ not wire handlers for them — you switch them on or off with `operations`, and
 ### Create
 
 `operations.create` enables record creation; `showCreate` shows the button.
-Both default to on, and the new-record form opens on the `layout` surface:
+Both default to on. The new-record form opens on the surface a `drawer` or
+`modal` navigation names, and on the `layout` surface otherwise, under `split`
+and `popover` too (see Opening a record):
 
 ```typescript
 import type { ObjectViewSchema } from '@object-ui/types';
@@ -455,8 +462,10 @@ const schema: ObjectViewSchema = {
 };
 ```
 
-With `layout: 'page'`, creation calls `onNavigate('new', 'edit')` instead of
-opening a drawer, so the host route owns the form.
+With a `page` surface, authored or derived, creation calls
+`onNavigate('new', 'edit')`, whatever the navigation, so the host route owns the
+form. With no `onNavigate`, the page has nowhere to route, so it falls back to
+the drawer.
 
 ### Read/List
 
@@ -561,7 +570,8 @@ const schema: ObjectViewSchema = {
 };
 ```
 
-Under `layout: 'page'` this becomes `onNavigate(recordId, 'edit')`.
+Under a `page` surface this becomes `onNavigate(recordId, 'edit')`; a page with
+no `onNavigate` falls back to the drawer.
 
 ### Delete
 

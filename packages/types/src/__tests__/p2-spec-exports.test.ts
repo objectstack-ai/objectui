@@ -210,13 +210,17 @@ describe('P2.4 Spec Protocol Type Re-exports — View Configuration', () => {
     });
 
     it('should validate a full ViewTab', () => {
-      // `operator: 'eq'` is a legacy alias spec folds onto `equals` at parse time,
-      // so it is valid INPUT and absent from the canonical output union.
+      // A filter rule's TYPED input `operator` is the canonical
+      // `ViewFilterOperator` since objectstack#20503, so a typed author writes
+      // `'equals'`; the legacy alias `'eq'` is refused by the compiler. Only the
+      // type narrowed: upstream's runtime still folds a stored or plain-JS `'eq'`
+      // onto `equals` at parse time, and objectstack pins that in
+      // `view-filter-operator-input-typed.test.ts`, not here.
       const tab: z.input<typeof ViewTabZod> = {
         name: 'active',
         label: 'Active',
         icon: 'CheckCircle',
-        filter: [{ field: 'status', operator: 'eq', value: 'active' }],
+        filter: [{ field: 'status', operator: 'equals', value: 'active' }],
         order: 1,
         pinned: true,
         isDefault: true,
@@ -240,7 +244,7 @@ describe('v3.0.10 Spec Protocol New Types', () => {
     });
 
     it('should validate a ViewFilterRule', () => {
-      const rule: z.input<typeof ViewFilterRuleZod> = { field: 'status', operator: 'eq', value: 'active' };
+      const rule: z.input<typeof ViewFilterRuleZod> = { field: 'status', operator: 'equals', value: 'active' };
       const result = ViewFilterRuleZod.safeParse(rule);
       expect(result.success).toBe(true);
     });

@@ -890,8 +890,15 @@ a disabled input, so nothing is typed into a field the save would leave out.
 Every layout likewise disables every field of a managed object (ADR-0092 D4)
 whose `userActions` do not open the form's mode, `create` on a create form and
 `edit` on an edit form, and of any object whose `create` or `update` the
-server's effective API operations deny (objectui#10612). The submit button stays
-on screen; the server's write guard is what refuses the save.
+server's effective API operations deny (objectui#10612). While that lock holds,
+every layout shows one notice above the fields that names the object, by its
+translated label, and the missing permission (`form.noPermissionToCreate` or
+`form.noPermissionToEdit`, objectui#11000); a field locked on its own shows none.
+The submit button of the simple, `tabbed`, `split`, `modal` and `drawer` layouts
+stays on screen and the lock does not disable it; the server's write guard is
+what refuses the save.
+A `wizard` disables Next and its final submit button, and its step indicator does
+not jump forward, while Cancel and Back stay usable.
 
 The comparison sends every field it cannot prove unchanged, because a field
 wrongly judged unchanged would lose the user's edit while the server still

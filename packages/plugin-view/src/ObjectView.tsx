@@ -22,7 +22,7 @@
  * - ViewSwitcher for toggling between view types
  */
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import type {
   ObjectViewSchema,
   ObjectGridSchema,
@@ -910,6 +910,45 @@ export const OBJECT_VIEW_HOST_COMPOSITION_VIEW_TYPES = [
 ] as const;
 
 /**
+ * The view types whose renderer DRAWS the rows this component's non-grid fetch
+ * reads (objectui#10982). An ALLOW-list: the fetch, and its data-invalidation
+ * subscription (`fetchDrawsView` in the component), run for these types and
+ * for nothing else.
+ *
+ * Read off each `generateViewSchema` case AND the renderer it resolves to,
+ * because a case alone does not decide it. The rows reach a view as the `data`
+ * prop `SchemaRenderer` spreads onto the registered renderer, and:
+ *
+ *   - `object-kanban`, `object-calendar` and `object-map` spread that prop
+ *     into their component, and `object-gallery` / `object-timeline` read it —
+ *     each draws the handed array in place of its own query;
+ *   - `object-gantt`'s registered wrapper hands its component the schema
+ *     alone, so the chart never sees the array and queries for itself
+ *     (pinned in plugin-gantt, `ObjectGantt.hostDataProp-7210.test.tsx`);
+ *   - `object-tree` runs its own full query ahead of any rows it is handed
+ *     (objectui#10778), and `object-chart` never reads them;
+ *   - a type `generateViewSchema` has no case for (`page`, `list`, `detail`)
+ *     falls through to `ObjectGrid`, which queries for itself.
+ *
+ * Every renderer outside the list reads the bus itself, so a read here only
+ * added requests beside its own (and, for the tree, a second query of its own
+ * each time the handed array changed). The list used to be a deny-list of
+ * `grid` / `tree` / `chart`, which is how `gantt` and every case-less type
+ * were read and re-read for rows nothing draws.
+ *
+ * ⛔ A new view type fetches only when it is added HERE and its case hands the
+ * rows on; adding it to one without the other either draws nothing or reads
+ * for nothing.
+ */
+const VIEW_TYPES_DRAWING_FETCHED_ROWS: ReadonlySet<string> = new Set([
+  'kanban',
+  'calendar',
+  'gallery',
+  'timeline',
+  'map',
+]);
+
+/**
  * ObjectView Component
  *
  * Renders a complete object management interface with multi-view rendering
@@ -1055,6 +1094,12 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // Data fetching state for non-grid views
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  // objectui#10982 — the request the rows in `data` answer, written in the same
+  // block as `setData` and read only by the fetch effect below. A run that
+  // issues that same request again is a RE-READ (a data-invalidation event,
+  // `refreshKey`), which keeps those rows on screen until the new ones land;
+  // any other run is a first load for its request and shows the placeholder.
+  const drawnRequestRef = useRef<string | null>(null);
 
   // NOTE: this component used to carry its own filter/sort BAR — `filterValues`
   // and `sortConfig` state, a `filter-ui` schema and a `sort-ui` schema. None of
@@ -1188,28 +1233,25 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   // objectui#10853 way: the nonce moves when the bus reports a change to the
   // object this fetch QUERIES (or `'*'`), and the effect below names it, so
   // the rows are re-read in place. The inner view receives them as `data`,
-  // which switches off its own bus reader (a gantt handed zero rows is the
-  // exception: it queries for itself and keeps its reader, objectui#7333),
-  // and `refreshKey` moves only on this view's own write and `onMutation`;
+  // which switches off its own bus reader, and `refreshKey` moves only on
+  // this view's own write and `onMutation`;
   // a page action over raw HTTP fires neither, so before this the rows were
   // re-read only when `PageView` remounted the page (objectui#10519 removes
   // that remount).
   //
-  // Subscribed exactly when these rows are what the view draws. A host
-  // `renderListView` (its `ListView` reads the bus itself) and the grid
-  // (`ObjectGrid` does too) are not this effect's query, and neither is a view
-  // with no object or no adapter. The two host-only types query for
-  // themselves and read the bus themselves, so a re-read here would only add
-  // reads: `ObjectTree` runs its own query ahead of the rows handed to it
-  // (objectui#10778) and re-queries whenever that array changes, and
-  // `ObjectChart` never reads them (objectui#10035).
-  const fetchDrawsView =
-    !renderListView && currentViewType !== 'grid' && currentViewType !== 'tree' && currentViewType !== 'chart';
+  // Subscribed — and the fetch below run at all — exactly when these rows are
+  // what the view draws (objectui#10982): the view type is on
+  // `VIEW_TYPES_DRAWING_FETCHED_ROWS`, the allow-list read off the renderer
+  // cases (see it for why `gantt`, `tree`, `chart` and a case-less type are
+  // not). A host `renderListView` (its `ListView` reads the bus itself) is not
+  // this effect's query either, and neither is a view with no object or no
+  // adapter.
+  const fetchDrawsView = !renderListView && VIEW_TYPES_DRAWING_FETCHED_ROWS.has(currentViewType);
   const invalidationNonce = useDataInvalidation(
     fetchDrawsView && dataSource ? schema.objectName || undefined : undefined,
   );
 
-  // Fetch data for non-grid view types (grid handles its own data via ObjectGrid)
+  // Fetch the rows a data-drawing view type draws (see `fetchDrawsView`).
   useEffect(() => {
     let isMounted = true;
 
@@ -1217,9 +1259,10 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       // When renderListView is provided, the custom list view (e.g. ListView)
       // handles its own data fetching — skip to avoid duplicate requests and
       // unnecessary re-renders that can cause duplicate records in child views.
-      if (renderListView) return;
-      // Only fetch for non-grid views (ObjectGrid has its own data fetching)
-      if (currentViewType === 'grid') return;
+      // `fetchDrawsView` is false then too, and for every view type whose
+      // renderer queries for itself — the grid, and since objectui#10982 also
+      // `gantt`, `tree`, `chart` and a type with no `generateViewSchema` case.
+      if (!fetchDrawsView) return;
       if (!dataSource || !schema.objectName) return;
 
       // ⭐ objectui#6419 — the object schema GATES this query; it does not
@@ -1259,7 +1302,6 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       // paint in between.
       if (!objectSchemaReady) return;
 
-      setLoading(true);
       try {
         // `mergeFilterNodes` rescues an OBJECT source: `table.defaultFilters` is
         // declared `Record<string, any>`, and the `baseFilter.length > 0` test
@@ -1355,6 +1397,29 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         const expand = !perms?.isLoaded
           ? expandable
           : expandable.filter((f) => perms.checkField(schema.objectName as string, f, 'read'));
+
+        // ⭐ objectui#10982 — the placeholder is for a view with no answer to
+        // THIS request yet: its first load, or a changed filter, sort,
+        // expansion or object. A RE-READ — the same request issued again, on a
+        // data-invalidation event or a `refreshKey` move — keeps the rows on
+        // screen and replaces them when the new ones land. Before this every
+        // run set `loading`, and `ObjectCalendar` handed rows swaps them for
+        // its "Loading calendar…" placeholder while it is true, so each bus
+        // event flashed the calendar (its own reader had the same flash under
+        // objectui#10572). Set on EVERY run, false included, so a re-read that
+        // supersedes a first load still in flight shows the rows it already
+        // has rather than a placeholder that run left behind.
+        //
+        // A failed re-read surfaces exactly as a failed first load does: the
+        // error is logged below, `loading` ends false and the rows already
+        // drawn stay; nothing here swallows it.
+        //
+        // The request is named by the inputs the `find` below is built from —
+        // the rest of it is constant — rather than by the params object, which
+        // stays an inline literal so `no-unprefixed-query-params` and the
+        // `QueryParams` excess-property check keep reading it.
+        const request = JSON.stringify([schema.objectName, finalFilter, sort, expand]);
+        setLoading(drawnRequestRef.current !== request);
         const results = await dataSource.find(schema.objectName, {
           // `mergeFilterNodes` returns a node or `undefined`; the old
           // `.length > 0` here was the second place an object filter was lost.
@@ -1398,7 +1463,10 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           }
         }
 
-        if (isMounted) setData(items);
+        if (isMounted) {
+          setData(items);
+          drawnRequestRef.current = request;
+        }
       } catch (err) {
         console.error('ObjectView data fetch error:', err);
       } finally {
@@ -1418,7 +1486,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     schema.objectName, dataSource, currentViewType, refreshKey,
     currentNamedViewConfig, activeViewQueryInputs, renderListView,
     objectSchemaReady, objectSchema, perms, authoredFilters, tableSortKey,
-    invalidationNonce,
+    invalidationNonce, fetchDrawsView,
   ]);
 
   // Determine layout mode. objectstack-ai/objectstack#2578: default the record surface from how heavy the
@@ -2568,13 +2636,13 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     // The view's IDENTITY — switching object, view or type is a real remount,
     // and it is the ONLY thing in the key (objectui#10035; AGENTS.md #8's
     // corollary: refresh data, don't rebuild UI). A write no longer remounts
-    // any view. `kanban`, `calendar`, `gallery`, `timeline`, `map` and a
-    // `gantt` handed rows draw `data={data}`, the rows the non-grid fetch
-    // effect re-reads when `refreshKey` moves or when the data-invalidation
-    // bus reports a change to this object (objectui#10887). `tree` re-queries
-    // when that array changes and reads the bus itself (objectui#10778).
-    // `ObjectGrid`, `ObjectChart` and a gantt handed zero rows
-    // (objectui#7333) query for themselves and refetch in place on the bus,
+    // any view. `kanban`, `calendar`, `gallery`, `timeline` and `map` draw
+    // `data={data}`, the rows the non-grid fetch effect re-reads when
+    // `refreshKey` moves or when the data-invalidation bus reports a change to
+    // this object (objectui#10887), keeping them on screen meanwhile
+    // (objectui#10982). `ObjectGrid`, `ObjectGantt`, `ObjectTree` and
+    // `ObjectChart` query for themselves (`VIEW_TYPES_DRAWING_FETCHED_ROWS`
+    // says why each is off that list) and refetch in place on the bus,
     // which every site that moves `refreshKey` also notifies
     // (`announceOwnWrite`, the `onMutation` subscription). ⛔ Do not put
     // `refreshKey` back in a key: that is the remount the corollary forbids,

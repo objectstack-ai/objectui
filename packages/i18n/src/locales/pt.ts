@@ -165,6 +165,8 @@ const pt = {
   },
   form: {
     noPermissionToSave: "Você não tem permissão para salvar este registro.",
+    noPermissionToCreate: "Você não tem permissão para criar registros de {{object}}. Os campos são somente leitura.",
+    noPermissionToEdit: "Você não tem permissão para editar registros de {{object}}. Os campos são somente leitura.",
     submitFailed: "Não foi possível salvar. Tente novamente.",
     uploadInFlight: "Aguarde a conclusão do upload antes de salvar.",
     clearedOnHide: "O que não se aplica mais aos valores atuais foi limpo: {{fields}}",

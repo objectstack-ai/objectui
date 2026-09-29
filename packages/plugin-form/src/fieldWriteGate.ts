@@ -213,6 +213,36 @@ function managedModeLocked(
   return mode === 'edit' ? !affordances.edit : !affordances.create;
 }
 
+/** The form-level affordance {@link closedFormAffordance} can report closed. */
+export type ClosedFormAffordance = 'create' | 'edit';
+
+/**
+ * Which affordance the managed-object lock found CLOSED for this form, or
+ * `undefined` when the lock does not engage (objectui#11000).
+ *
+ * It is {@link managedModeLocked}, the very predicate {@link gateFormFields}
+ * disables every drawn field on, read for its reason: `create` for a create
+ * form, `edit` for an edit form. The locked form's notice
+ * (`ClosedAffordanceNotice`) and the wizard's navigation gate read THIS, not a
+ * verdict of their own, so a form cannot explain a lock it did not draw, nor
+ * draw one it does not explain.
+ *
+ * A per-field lock never answers here: a field the caller may read but not
+ * edit ({@link applyFieldPermissions}) or a field declared `readonly` locks
+ * that one field while the form's affordance stays open.
+ */
+export function closedFormAffordance({
+  perms,
+  objectName,
+  mode,
+  objectSchema,
+}: Pick<GateFormFieldsOptions, 'perms' | 'objectName' | 'mode' | 'objectSchema'>):
+  | ClosedFormAffordance
+  | undefined {
+  if (!managedModeLocked(objectSchema, perms, objectName, mode)) return undefined;
+  return mode === 'edit' ? 'edit' : 'create';
+}
+
 /**
  * The ONE field-gate step every `ObjectForm` layout draws its RESOLVED fields
  * through (objectui#10612): the default arm (flat and sectioned), `DrawerForm`

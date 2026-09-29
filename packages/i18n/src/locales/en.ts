@@ -201,6 +201,11 @@ const en = {
   },
   form: {
     noPermissionToSave: "You don't have permission to save this record.",
+    // The notice a record form shows when every field is locked because the
+    // object's affordance for the form's mode is closed for this user
+    // (objectui#11000). `{{object}}` is the object's label.
+    noPermissionToCreate: "You don't have permission to create {{object}} records. The fields are read-only.",
+    noPermissionToEdit: "You don't have permission to edit {{object}} records. The fields are read-only.",
     submitFailed: 'Could not save. Please try again.',
     uploadInFlight: 'Wait for the upload to finish before saving.',
     // The notice the record form raises when a field's own `visibleWhen` turns

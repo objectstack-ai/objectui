@@ -31,9 +31,12 @@
  *
  * Controls: the bare `useDataInvalidation` reader beside the view and a grid
  * `object-view` (`ObjectGrid` reads the bus itself) move on every event, a
- * view with no object never reads, and the two host-only types whose
- * renderers query for themselves (`tree`, `chart`) are not re-read by this
- * fetch.
+ * view with no object never reads, and the view types whose renderers query
+ * for themselves (`gantt`, and the host-only `tree` and `chart`) are not
+ * re-read by this fetch. `gantt` was in the re-read list until objectui#10982:
+ * its stand-in here drew the handed rows, but the registered `object-gantt`
+ * wrapper hands its component the schema alone, so nothing drew them
+ * (`ObjectView.fetchAllowList-10982.test.tsx` pins the whole allow-list).
  */
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -49,7 +52,7 @@ import {
 import '../index';
 import { ObjectView } from '../ObjectView';
 
-const NON_GRID_TYPES = ['kanban', 'calendar', 'gallery', 'timeline', 'map', 'gantt'] as const;
+const NON_GRID_TYPES = ['kanban', 'calendar', 'gallery', 'timeline', 'map'] as const;
 
 let instanceSeq = 0;
 function InnerViewStandIn({ schema, data }: { schema?: { type?: string }; data?: unknown }) {
@@ -63,7 +66,7 @@ function InnerViewStandIn({ schema, data }: { schema?: { type?: string }; data?:
     />
   );
 }
-for (const t of [...NON_GRID_TYPES, 'tree', 'chart']) ComponentRegistry.register(`object-${t}`, InnerViewStandIn as never);
+for (const t of [...NON_GRID_TYPES, 'gantt', 'tree', 'chart']) ComponentRegistry.register(`object-${t}`, InnerViewStandIn as never);
 
 /** The positive control: a bare reader of the view's object. */
 function BusControl() {
@@ -176,6 +179,24 @@ describe('object-view non-grid views re-read on the data-invalidation bus (objec
 
     expect(screen.getByTestId('bus-control').textContent).toBe('1');
     expect(ds.find).not.toHaveBeenCalled();
+  });
+
+  // objectui#10982 — `gantt` is authorable, so this goes through the registered
+  // renderer. Its stand-in above would draw rows, but the real `object-gantt`
+  // wrapper forwards none: the chart queries for itself and reads the bus
+  // itself, so a read here only added one beside it.
+  it('control: an object-view drawn as a gantt is not re-read by this fetch', async () => {
+    const ds = mount({ objectName: 'deal', defaultViewType: 'gantt' });
+    await waitFor(() => expect(inner().getAttribute('data-type')).toBe('object-gantt'));
+    await waitFor(() => expect(ds.getObjectSchema).toHaveBeenCalled());
+    await rest();
+    const before = ds.find.mock.calls.length;
+
+    await emit({ objectName: '*' });
+    await rest();
+
+    expect(screen.getByTestId('bus-control').textContent).toBe('1');
+    expect(ds.find, "the gantt view's rows were re-read beside its own reader").toHaveBeenCalledTimes(before);
   });
 
   // `tree` and `chart` are reachable only from a host `views` prop, not through

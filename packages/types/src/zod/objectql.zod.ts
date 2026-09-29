@@ -50,6 +50,9 @@ import {
   // `properties` bag, by reference (`ObjectQLPublicBlockComponentSchema` below).
   ObjectMetricPropsSchema as SpecObjectMetricPropsSchema,
   ObjectMasterDetailFormPropsSchema as SpecObjectMasterDetailFormPropsSchema,
+  // objectui#11070 — the per-element data binding (`PageComponentSchema.dataSource`)
+  // the four object-bound arms below declare as `dataSource`, by reference.
+  ElementDataSourceSchema as SpecElementDataSourceSchema,
   checkListViewCalendarVisualization,
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
@@ -255,6 +258,16 @@ const OBJECT_GRID_NEITHER_CHANNEL = neitherContentChannelGuidance(
 export const ObjectGridSchema = BaseSchema.extend({
   type: z.literal('object-grid'),
   objectName: z.string().describe('ObjectQL object name'),
+  // objectui#11070 — the spec's per-element binding, by reference, as
+  // `public-blocks.zod.ts`'s `element:number` arm already declares it. The
+  // registered renderer reads it off the node through `ElementDataSourceGate`,
+  // and every gate-wrapped registration publishes it as an authored input
+  // (objectui#6678); the reasoning is on the TS twin's member.
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe('Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema `PageComponentSchema.dataSource` declares, by reference: { object, view?, filter?, sort?, limit? } '
+      + 'describing WHAT this block queries. Metadata, never the data-source adapter (the host injects that; '
+      + '`SchemaRenderer` strips this key from the props it spreads so it cannot shadow the adapter).'),
   data: ViewDataSchema.optional().describe('Data source configuration'),
   columns: z.union([z.array(z.string()), z.array(ListColumnSchema)]).optional().describe('Columns configuration'),
   filter: z.array(z.any()).optional().describe('Filter criteria'),
@@ -420,6 +433,13 @@ const OBJECT_FORM_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ObjectFormSchema = BaseSchema.extend({
   type: z.literal('object-form'),
+  // objectui#11070 — the spec's per-element binding, by reference; see
+  // `ObjectGridSchema.dataSource` above.
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe('Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema `PageComponentSchema.dataSource` declares, by reference: { object, view?, filter?, sort?, limit? } '
+      + 'describing WHAT this block queries. Metadata, never the data-source adapter (the host injects that; '
+      + '`SchemaRenderer` strips this key from the props it spreads so it cannot shadow the adapter).'),
   objectName: z.string().describe('ObjectQL object name'),
   mode: z.enum(['create', 'edit', 'view']).describe('Form mode'),
   recordId: z
@@ -556,6 +576,9 @@ const OBJECT_VIEW_TABLE_WITHHELD = {
   bind: tableKeyRefusal('bind', TABLE_KEY_RECORD_SOURCE),
   bulkSpecActions: tableKeyRefusal('bulkSpecActions', `${TABLE_KEY_UNREAD} Write \`bulkActions\`.`),
   data: tableKeyRefusal('data', TABLE_KEY_RECORD_SOURCE),
+  // objectui#11070 declared the per-element binding on `ObjectGridSchema`; on
+  // the view's grid it is one more record source the view owns.
+  dataSource: tableKeyRefusal('dataSource', TABLE_KEY_RECORD_SOURCE),
   description: tableKeyRefusal('description', `${TABLE_KEY_UNREAD} Write \`description\` on the object-view node itself.`),
   disabled: tableKeyRefusal('disabled', TABLE_KEY_NODE_LEVEL),
   disabledOn: tableKeyRefusal('disabledOn', TABLE_KEY_NODE_LEVEL),
@@ -1676,6 +1699,15 @@ export const ListViewSchema = BaseSchema
   .extend({
     // Component discriminator — load-bearing for the ObjectQLComponentSchema union.
     type: z.literal('list-view'),
+    // objectui#11070 — the spec's per-element binding, by reference; see
+    // `ObjectGridSchema.dataSource`. The spec's `ListViewSchema` declares no
+    // `dataSource`, so this is a node-level member of objectui's arm, and the
+    // TS `ListViewSchema` inherits it through `ListViewInferred`.
+    dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+      .optional()
+      .describe('Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema `PageComponentSchema.dataSource` declares, by reference: { object, view?, filter?, sort?, limit? } '
+      + 'describing WHAT this block queries. Metadata, never the data-source adapter (the host injects that; '
+      + '`SchemaRenderer` strips this key from the props it spreads so it cannot shadow the adapter).'),
     // objectui-only object binding (spec binds via data.provider:'object'; migration deferred).
     objectName: z.string().describe('Object Name'),
     // Renamed spec `type` (view-kind); enum imported from spec so it can't drift.
@@ -2601,6 +2633,13 @@ const OBJECT_KANBAN_NEITHER_CHANNEL = neitherContentChannelGuidance(
 // VIEW-LEVEL alias `KanbanConfig.groupField` above is live and untouched.
 export const ObjectKanbanSchema = BaseSchema.extend({
   type: z.literal('object-kanban'),
+  // objectui#11070 — the spec's per-element binding, by reference; see
+  // `ObjectGridSchema.dataSource`.
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe('Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema `PageComponentSchema.dataSource` declares, by reference: { object, view?, filter?, sort?, limit? } '
+      + 'describing WHAT this block queries. Metadata, never the data-source adapter (the host injects that; '
+      + '`SchemaRenderer` strips this key from the props it spreads so it cannot shadow the adapter).'),
   objectName: z.string().optional().describe('ObjectQL object name — the LAST rung of the board ladder, after the pre-fetched data prop, bind and the inline row array on data; one of bind, data, objectName must be present (objectui#7780)'),
   // objectui#8990 — OPTIONAL, mirroring `@objectstack/spec`
   // (`ObjectKanbanPropsSchema.groupBy` is `z.string().optional()`). Required

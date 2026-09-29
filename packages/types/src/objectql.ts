@@ -31,6 +31,8 @@ import type { ObjectDataTableDrillDownConfig } from './data-display.js';
 // this adds no cycle in either direction.
 import type { QueryParams } from './data.js';
 import type { BulkActionOperation } from '@objectstack/spec/ui';
+// objectui#11070 — the per-element binding `dataSource` declares, by reference.
+import type { ElementDataSource } from '@objectstack/spec/ui';
 // objectui#7928 — `ObjectViewSchema.listViews` is the protocol's record of this
 // schema, BY REFERENCE. The spec publishes a TS type for `ListView` and none for
 // the object-scoped `ObjectListView`, so the member reads it as `z.input` (the
@@ -771,6 +773,29 @@ export interface ListViewExportOptions {
  */
 export interface ObjectGridSchema extends BaseSchema {
   type: 'object-grid';
+
+  /**
+   * Per-element data binding — `@objectstack/spec`'s `ElementDataSource`
+   * (`PageComponentSchema.dataSource`), by reference: `{ object, view?,
+   * filter?, sort?, limit? }` describing WHAT this block queries
+   * (objectui#11070).
+   *
+   * ⚠️ Metadata, ⛔ NOT the data-source ADAPTER. The two share a name and are
+   * different things: the adapter is injected by the host
+   * (`SchemaRendererProvider`) and reaches the component as a React prop,
+   * while this is authored JSON. `SchemaRenderer` strips `dataSource` from the
+   * props it spreads (objectstack#5576) so the binding can never shadow the
+   * adapter, and the registered renderer reads it off the NODE through
+   * `ElementDataSourceGate` (`@object-ui/react`), which lands `object` on
+   * `objectName` and composes a named saved `view` with the binding's own
+   * keys. Every gate-wrapped registration already PUBLISHES this key as an
+   * authored input (objectui#6678, `ELEMENT_DATA_SOURCE_INPUT` in
+   * `@object-ui/core`); this member is that declaration on the schema faces,
+   * which the strict authoring face refused until it was written. Same
+   * declaration on {@link ObjectFormSchema}, {@link ObjectKanbanSchema} and
+   * `ListViewSchema` (derived from its zod mirror).
+   */
+  dataSource?: ElementDataSource;
   
   /**
    * Internal name for the view
@@ -1462,6 +1487,14 @@ export type SubmitBehavior =
  */
 export interface ObjectFormSchema extends BaseSchema {
   type: 'object-form';
+
+  /**
+   * Per-element data binding — the spec's `ElementDataSource`, by reference
+   * (objectui#11070). A form honours its `object` (it edits one record, so
+   * there is no collection query to filter or page). Metadata, ⛔ not the
+   * adapter: see {@link ObjectGridSchema.dataSource}.
+   */
+  dataSource?: ElementDataSource;
   
   /**
    * Form variant type.
@@ -2014,7 +2047,8 @@ export interface ObjectFormSchema extends BaseSchema {
  * grid it reached nothing: `ObjectGrid` has no read of it (`emptyState`,
  * `showFilters`, `keyboardNavigation`, `rowSpecActions`, `bulkSpecActions`,
  * `description`, `name`, `placeholder`); the view owns it (the record source
- * `data` / `staticData` / `bind`, the row click `navigation` / `onNavigate`,
+ * `data` / `staticData` / `bind`, and since objectui#11070 the binding
+ * `dataSource`; the row click `navigation` / `onNavigate`;
  * the grid's `id`); the view draws the grid as a component rather than a
  * schema node, so the node-level `BaseSchema` keys have no renderer to apply
  * them (`style`, `testId`, `ariaLabel`, `hidden` / `hiddenOn`,
@@ -2114,6 +2148,10 @@ type ObjectFormSlotKey =
   | 'columns'
   | 'customFields'
   | 'data'
+  // objectui#11070 — joins with `ObjectFormSchema.dataSource`. This slot
+  // withholds nothing but the identity keys (above), so it carries the binding
+  // as it carries `bind` and `data`; `ObjectView` relays neither to its form.
+  | 'dataSource'
   | 'defaultTab'
   | 'defaults'
   | 'description'
@@ -3900,6 +3938,14 @@ export interface ObjectCalendarSchema extends BaseSchema {
  */
 export interface ObjectKanbanSchema extends BaseSchema {
   type: 'object-kanban';
+  /**
+   * Per-element data binding — the spec's `ElementDataSource`, by reference
+   * (objectui#11070). The board honours its `object` and `filter`, and its
+   * `sort` is where the board's ordering is authored — the spec refuses a
+   * top-level `sort` on this node (see {@link ObjectKanbanSchema.filter}).
+   * Metadata, ⛔ not the adapter: see {@link ObjectGridSchema.dataSource}.
+   */
+  dataSource?: ElementDataSource;
   /**
    * ObjectQL object name — the LAST rung of this board's record-source ladder,
    * and the only one that names an object.

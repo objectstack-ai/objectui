@@ -2574,7 +2574,11 @@ interface KnownDrift {
  * explicit that forcing the 121 per-key decisions now would be wrong. Two splits
  * are recorded here so whoever works them off does not re-derive them:
  *
- *   - **SPEC-DERIVED (3 entries, 37 keys)** — it was 2 / 16 until objectui#10993 MIRRORED
+ *   - **SPEC-DERIVED (4 entries, 38 keys)** — it was 3 / 37 until objectui#11070 declared eight
+ *     field-metadata members on `FormFieldSchema` by reference to the spec's `FieldSchema`:
+ *     none of them was in the ledger, so no key closed, but the spec reference re-derives
+ *     the pair's entry (its one key, `field`) into this half — the objectui#10993 membership
+ *     move again, with ZERO keys repaired. It was 2 / 16 until objectui#10993 MIRRORED
  *     five `ObjectFormSchema` members by reference to the spec's `I18nLabelSchema`: none
  *     of them was in the ledger, so no key closed, but the spec reference re-derives the
  *     pair's entry (21 keys) into this half, the objectui#7762 membership move with ZERO
@@ -2641,7 +2645,9 @@ interface KnownDrift {
  *     spec schema does not model, which is objectui#2231's unification question and
  *     NOT a local mirror edit. They are marked, not exempted: exempting them in the
  *     instrument would re-blind exactly the pairs objectui#5927 leaned on hardest.
- *   - **LOCAL (9 entries, 47 keys)** — plain omissions from a hand-written mirror.
+ *   - **LOCAL (8 entries, 46 keys)** — plain omissions from a hand-written mirror.
+ *     It was 9 / 47 until objectui#11070 re-derived `FormFieldSchema`'s entry (one key)
+ *     into the SPEC-DERIVED half by membership: no key moved between ledgers.
  *     It was 10 / 68 until objectui#10993 re-derived `ObjectFormSchema`'s entry (21
  *     keys) into the SPEC-DERIVED half by membership: no key moved between ledgers.
  *     It was 11 / 69 until objectui#8072 MIRRORED `InputSchema.wrapperClass`: the entry's
@@ -2694,10 +2700,11 @@ interface KnownDrift {
  * `ObjectViewSchema.listViews`, that entry's last key, by reference: the SPEC-DERIVED
  * half lost the entry, and the LOCAL half did not move. objectui#10993 then moved
  * `ObjectFormSchema`'s entry (21 keys) from the LOCAL half to the SPEC-DERIVED one by
- * membership alone, without moving the totals. The seeded pair is no longer
+ * membership alone, without moving the totals, and objectui#11070 moved
+ * `FormFieldSchema`'s entry (one key) the same way. The seeded pair is no longer
  * among them, and the ledger now totals — on ONE line, because the pin below reads
  * this sentence off disk —
- * **12 entries / 84 keys** — 3 / 37 spec-derived, 9 / 47 local.
+ * **12 entries / 84 keys** — 4 / 38 spec-derived, 8 / 46 local.
  *
  * ⛔ The four split figures above and this totals line are PINNED: 'objectui#7279'
  * at the bottom of this file derives every one of them from the `UnmirroredDeclared`
@@ -2785,7 +2792,13 @@ interface UnmirroredDeclared {
     | 'page' | 'rowActionDefs' | 'rowClassName'
     | 'rowCount' | 'rowStyle' | 'search' | 'selectionResetKey' | 'selectionStyle'
     | 'showAddRow' | 'showSelectionCount' | 'singleClickEdit' | 'sort';
-  /** LOCAL. */
+  /**
+   * SPEC-DERIVED by MEMBERSHIP since objectui#11070, LOCAL before it: that card declared
+   * eight field-metadata members by reference to the spec's `FieldSchema`, so
+   * `SPEC_DERIVED_PAIRS` re-derives the pair into that half. ⚠️ `field` itself did not
+   * move and is not a spec key here: it is the resolved object-field metadata stash,
+   * kept out of the authorable surface on purpose (objectui#6609).
+   */
   'form.zod.ts#FormFieldSchema': 'field';
   /**
    * LOCAL. `fields` is in `KnownDrift` above (mirrored, drifted in TYPE; `mode` sat
@@ -4263,6 +4276,12 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // reference (the axis config object `ChartConfigSchema` declares), so a spec
   // bump that moves the axis vocabulary moves ONE side of this pair.
   'data-display.zod.ts#ChartSchema',
+  // objectui#11070: eight of the field-metadata members a hand-authored form
+  // writes on the entry itself are the spec's `FieldSchema` members by
+  // reference (`multiple`, `rows`, `accept`, `dimensions`, `min`, `max`,
+  // `minLength`, `maxLength`), so a spec bump that moves one of those field
+  // keys moves ONE side of this pair. The first spec reference in this mirror.
+  'form.zod.ts#FormFieldSchema',
   'form.zod.ts#SelectOptionSchema',
   'layout.zod.ts#PageNodeSchema',
   // ⭐ ONE entry, SIX spec crossings over FIVE spec symbols — three cards put
@@ -4307,6 +4326,12 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // `SpecListViewSchema.shape.exportOptions` (the two-arm union) so the bare-array arm,
   // which LIFTS, is left behind and refused by name on this node instead.
   'objectql.zod.ts#ObjectGridSchema',
+  // objectui#11070: `dataSource` is the spec's `ElementDataSourceSchema` by
+  // reference (the per-element binding `PageComponentSchema.dataSource`
+  // declares) — the first spec reference in this mirror. `ObjectGridSchema`,
+  // `ObjectFormSchema` and `ListViewSchema` gained the same member and were
+  // already spec-derived.
+  'objectql.zod.ts#ObjectKanbanSchema',
   'objectql.zod.ts#ObjectMapSchema',
   // objectui#7779: BACK, by a real code reference this time — `navigation`,
   // `searchableFields` and `filterableFields` are `SpecListViewSchema.shape.*`

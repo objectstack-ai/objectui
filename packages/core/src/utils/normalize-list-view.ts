@@ -216,7 +216,8 @@ const LIST_VIEW_KINDS: Record<ListViewVisualization, true> = {
  * the literal EXACT in BOTH directions: a kind the spec adds is a missing key
  * (wanted) and a kind the spec RETIRES is an EXCESS PROPERTY — a TS2353 that
  * demands a deletion this repository cannot make while it resolves a published
- * spec which still carries the kind. `satisfies` keeps the value constraint
+ * spec which still carries the kind (as it did with `page` through 17.4.0).
+ * `satisfies` keeps the value constraint
  * (every reason is a `string` or `null`) and drops the exactness, which is what
  * lets one spelling compile against both the pinned published spec and one
  * built from objectstack `main`.
@@ -247,9 +248,10 @@ const UNDRAWABLE_VIEW_KINDS = {
  * `Extract` over the table's keys, not the table's raw `keyof`, is the load-
  * bearing operator (objectui#9880): the table may carry a row for a kind the
  * spec has since RETIRED, and `Extract` drops that row from the TYPE without
- * the table having to lose it at runtime. That is what makes one spelling
- * correct against both the pinned published spec (which still publishes `page`)
- * and a spec built from objectstack `main` (which retired it).
+ * the table having to lose it at runtime. That is what made one spelling
+ * correct against both the published spec (which published `page` through
+ * 17.4.0) and a spec built from objectstack `main` (which retired it), and what
+ * made the row's deletion at 17.5.0 a plain deletion (objectui#11073).
  */
 type UndrawableViewKind = Extract<ViewType, keyof typeof UNDRAWABLE_VIEW_KINDS>;
 

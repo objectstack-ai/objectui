@@ -19,6 +19,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth, RegisterForm } from '@object-ui/auth';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { Card } from '@object-ui/components';
+import { signUpRefusalMessages } from '@object-ui/app-shell';
 import { AuthLayout } from './AuthLayout';
 import { followOauthAuthorize } from './followAuthorize';
 // Was a second module-private copy of LoginPage's helper; both now share one
@@ -161,28 +162,9 @@ export function RegisterPage() {
         loginUrl={loginUrl}
         verificationCallbackURL={verificationCallbackURL}
         linkComponent={RouterLink}
-        // Server refusal `code` → localized end-user text. A code missing here
-        // falls through to the server's own `message`, which is English and
-        // may name internal configuration — so every refusal an end user can
-        // meet at `/sign-up/email` belongs in this map (objectui#10998).
-        errorMessages={{
-          USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: t('auth.register.errors.userExists', {
-            defaultValue: 'An account with this email already exists. Try signing in instead.',
-          }),
-          USER_ALREADY_EXISTS: t('auth.register.errors.userExists', {
-            defaultValue: 'An account with this email already exists. Try signing in instead.',
-          }),
-          // The server's audience gate: the environment admits new accounts by
-          // invitation only, or only from allowlisted email domains.
-          SELF_REGISTRATION_CLOSED: t('auth.register.errors.selfRegistrationClosed', {
-            defaultValue:
-              'Self-registration is not open on this environment. Ask an administrator for an invitation.',
-          }),
-          EMAIL_DOMAIN_NOT_ALLOWED: t('auth.register.errors.emailDomainNotAllowed', {
-            defaultValue:
-              "This email's domain is not allowed to register here. Use your organization email, or ask an administrator for an invitation.",
-          }),
-        }}
+        // Server refusal `code` → localized end-user text: the one map both
+        // register pages pass, owned by `@object-ui/app-shell` (objectui#11030).
+        errorMessages={signUpRefusalMessages(t)}
         onVerificationRequired={(email) => {
           const sp = new URLSearchParams();
           sp.set('email', email);

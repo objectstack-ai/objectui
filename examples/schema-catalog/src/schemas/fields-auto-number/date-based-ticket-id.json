@@ -10,7 +10,6 @@
       "name": "ticket_id",
       "label": "Ticket ID",
       "type": "auto_number",
-      "format": "TKT-{YYYY}{MM}-{0000}",
       "readonly": true
     }
   ]

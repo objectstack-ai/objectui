@@ -10,7 +10,6 @@
       "name": "invoice_id",
       "label": "Invoice ID",
       "type": "auto_number",
-      "format": "INV-{0000}",
       "readonly": true
     }
   ]

@@ -118,7 +118,7 @@ Top-level page container. Defines a full page with optional regions (header, sid
   "regions": [
     {
       "name": "header",
-      "children": [{ "type": "text", "content": "Welcome back" }]
+      "components": [{ "type": "text", "content": "Welcome back" }]
     }
   ],
   "children": [

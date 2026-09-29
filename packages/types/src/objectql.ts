@@ -792,8 +792,11 @@ export interface ObjectGridSchema extends BaseSchema {
    * authored input (objectui#6678, `ELEMENT_DATA_SOURCE_INPUT` in
    * `@object-ui/core`); this member is that declaration on the schema faces,
    * which the strict authoring face refused until it was written. Same
-   * declaration on {@link ObjectFormSchema}, {@link ObjectKanbanSchema} and
-   * `ListViewSchema` (derived from its zod mirror).
+   * declaration on {@link ObjectFormSchema} and {@link ObjectKanbanSchema}.
+   * ⚠️ Not yet on `ListViewSchema`, whose renderer reads it the same way:
+   * that member also needs a rung-or-absence entry in `@object-ui/app-shell`'s
+   * `ListViewSchema` relay census (objectui#7559), which objectui#11070 leaves
+   * to its seat.
    */
   dataSource?: ElementDataSource;
   

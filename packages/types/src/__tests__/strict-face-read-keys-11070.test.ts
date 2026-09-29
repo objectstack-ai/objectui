@@ -24,9 +24,9 @@
  *     itself (`multiple`, `rows`, `accept`, `dimensions`, `min`, `max`,
  *     `minLength`, `maxLength`, `pattern`), which the renderer hands each field
  *     widget as its metadata carrier;
- *   - `dataSource` on `object-grid`, `list-view`, `object-form` and
- *     `object-kanban` — the spec's per-element binding, which the registered
- *     renderers read off the node through `ElementDataSourceGate`.
+ *   - `dataSource` on `object-grid`, `object-form` and `object-kanban` — the
+ *     spec's per-element binding, which the registered renderers read off the
+ *     node through `ElementDataSourceGate`.
  *
  * Each read is reasoned on the TypeScript member that declares it.
  *
@@ -45,7 +45,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import type { ListViewSchema, ObjectFormSchema, ObjectGridSchema, ObjectKanbanSchema } from '../objectql.js';
+import type { ObjectFormSchema, ObjectGridSchema, ObjectKanbanSchema } from '../objectql.js';
 import type { FormField, FormSchema } from '../form.js';
 import { AnyComponentSchema, StrictAnyComponentSchema } from '../zod/index.zod.js';
 
@@ -103,7 +103,6 @@ describe('objectui#11070 — the declared read keys parse on the strict face', (
   const BINDING = { object: 'task', filter: { project: 'acme' } };
   const BOUND_NODES: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
     ['object-grid', { objectName: 'task' }],
-    ['list-view', { objectName: 'task' }],
     ['object-form', { objectName: 'task', mode: 'edit' }],
     // `objectName` on every node, deliberately: whether a binding's `object`
     // may stand in for the node's own required record source (as the spec's
@@ -158,6 +157,12 @@ describe('objectui#11070 — the read keys left undeclared pending a ruling stay
     expect(undeclared(issuesOf(StrictAnyComponentSchema, form(field)))).toEqual([`fields.0.${key}`]);
     expect(issuesOf(AnyComponentSchema, form(field))).toBeNull();
   });
+
+  it('`list-view.dataSource` is refused by name: its renderer reads the binding as the other three do, but the member also owes a classification in `@object-ui/app-shell`\'s relay census (objectui#7559), outside this card', () => {
+    const doc = { type: 'list-view', objectName: 'task', dataSource: { object: 'task' } };
+    expect(undeclared(issuesOf(StrictAnyComponentSchema, doc))).toEqual(['dataSource']);
+    expect(issuesOf(AnyComponentSchema, doc)).toBeNull();
+  });
 });
 
 /* ── 4. type level: the TypeScript faces declare the same members ────────── */
@@ -174,10 +179,10 @@ export type assertionFormFieldMembersAreTyped = Expect<Equal<
 >>;
 export type assertionShowSubmitIsBoolean = Expect<Equal<FormSchema['showSubmit'], boolean | undefined>>;
 export type assertionBindingIsTyped = Expect<Equal<
-  IsAny<ObjectGridSchema['dataSource'] | ObjectFormSchema['dataSource'] | ObjectKanbanSchema['dataSource'] | ListViewSchema['dataSource']>,
+  IsAny<ObjectGridSchema['dataSource'] | ObjectFormSchema['dataSource'] | ObjectKanbanSchema['dataSource']>,
   false
 >>;
 
 // @ts-expect-error — an adapter is not a binding: the binding names an `object`.
 export const adapterIsNotABinding: ObjectGridSchema['dataSource'] = { find: () => [] };
-export const bindingOnListView: ListViewSchema['dataSource'] = { object: 'task', view: 'open', limit: 20 };
+export const bindingOnKanban: ObjectKanbanSchema['dataSource'] = { object: 'task', view: 'open', limit: 20 };

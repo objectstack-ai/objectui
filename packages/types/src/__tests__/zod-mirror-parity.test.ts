@@ -4328,9 +4328,9 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   'objectql.zod.ts#ObjectGridSchema',
   // objectui#11070: `dataSource` is the spec's `ElementDataSourceSchema` by
   // reference (the per-element binding `PageComponentSchema.dataSource`
-  // declares) — the first spec reference in this mirror. `ObjectGridSchema`,
-  // `ObjectFormSchema` and `ListViewSchema` gained the same member and were
-  // already spec-derived.
+  // declares) — the first spec reference in this mirror. `ObjectGridSchema`
+  // and `ObjectFormSchema` gained the same member and were already
+  // spec-derived.
   'objectql.zod.ts#ObjectKanbanSchema',
   'objectql.zod.ts#ObjectMapSchema',
   // objectui#7779: BACK, by a real code reference this time — `navigation`,

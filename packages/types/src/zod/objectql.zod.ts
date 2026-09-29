@@ -1699,15 +1699,6 @@ export const ListViewSchema = BaseSchema
   .extend({
     // Component discriminator — load-bearing for the ObjectQLComponentSchema union.
     type: z.literal('list-view'),
-    // objectui#11070 — the spec's per-element binding, by reference; see
-    // `ObjectGridSchema.dataSource`. The spec's `ListViewSchema` declares no
-    // `dataSource`, so this is a node-level member of objectui's arm, and the
-    // TS `ListViewSchema` inherits it through `ListViewInferred`.
-    dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
-      .optional()
-      .describe('Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema `PageComponentSchema.dataSource` declares, by reference: { object, view?, filter?, sort?, limit? } '
-      + 'describing WHAT this block queries. Metadata, never the data-source adapter (the host injects that; '
-      + '`SchemaRenderer` strips this key from the props it spreads so it cannot shadow the adapter).'),
     // objectui-only object binding (spec binds via data.provider:'object'; migration deferred).
     objectName: z.string().describe('Object Name'),
     // Renamed spec `type` (view-kind); enum imported from spec so it can't drift.

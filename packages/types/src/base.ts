@@ -277,11 +277,14 @@ export interface BaseSchema {
    * widgets in `plugin-charts` / `plugin-dashboard` (×2) / `plugin-grid` /
    * `plugin-kanban` / `plugin-list` / `plugin-timeline`. ⚠️ `data-table` does
    * NOT: a `bind` on it is ignored and the table renders its header over an
-   * empty body, with no render-time error; nothing on the page says why, but a
-   * render-time console warning (`[ObjectUI] DataTable bind:`, objectui#6575)
-   * and the parser tier's `unknown-prop` warning both name it
-   * (`protocol.md`, and pinned in
-   * `components/src/__tests__/skill-guide-data-table-binding.test.tsx`).
+   * empty body, with no render-time error; nothing on the page says why. The
+   * one signal is a render-time console warning
+   * (`[ObjectUI] DataTable bind:`, objectui#6575; pinned in
+   * `components/src/__tests__/skill-guide-data-table-binding.test.tsx`). The
+   * parser tier stays silent on it: `validateTree` counts `bind` among the base
+   * props every node may carry (objectui#11008), so a `bind` draws no
+   * `unknown-prop` there, on `data-table` or on any other node (pinned in
+   * `components/src/renderers/__tests__/bind-base-prop-parser-tier-11008.test.tsx`).
    * Declaring the key here does not change that, and does not bless it — the
    * key was already accepted on every node before this declaration existed.
    *

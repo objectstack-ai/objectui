@@ -59,7 +59,30 @@ export function acceptsChildren(comp: Pick<ManifestComponent, 'inputs'>): boolea
 }
 
 /**
- * Base props every node may carry (mirrors BaseSchema) — never "unknown prop".
+ * Base props every node may carry (mirrors BaseSchema: every entry is one of
+ * its members, though not every member is an entry — see the ⚠️ below) —
+ * never "unknown prop".
+ *
+ * `bind` and `hidden` ARE here (objectui#11008). `BaseSchema` declares both for
+ * every node and no registration declares either as an input, so before they
+ * joined, the undeclared-key branch below answered every authored one with
+ * `unknown-prop` — "has no prop" about a key the protocol declares, on the
+ * nodes that honour it: `hidden` is read for every node by `SchemaRenderer`'s
+ * hide chain, and `bind` by every renderer that calls `useDataScope` (`list`,
+ * `tree-view`, the `object-*` widgets). The declaration outranks the
+ * implementation, so the parser's view is the declared type's, not a
+ * per-registration subset. The cost is accepted and named: a `bind` on a node
+ * that does not read it — `data-table` (objectui#6575) — draws nothing here
+ * either, and its render-time console warning is the one signal left. Held
+ * over `@object-ui/components`' live registry — that none of its registrations
+ * declares either key included — by `bind-base-prop-parser-tier-11008.test.tsx`
+ * there.
+ *
+ * ⚠️ Membership SKIPS the declared-input lookup below, type check included. So
+ * a `BaseSchema` member some registrations DECLARE as a typed input — e.g.
+ * `placeholder` on the input family — is not a mechanical addition: joining
+ * would silence those registrations' `type-mismatch`. Such a member stays out
+ * until that trade is decided.
  *
  * ⛔ `body` is NOT here and must not be added. It was `BaseSchema`'s second
  * child-list spelling until objectui#6771 retired it; teaching this set the key
@@ -81,6 +104,8 @@ const BASE_PROPS = new Set([
   'visibleOn',
   'disabled',
   'disabledOn',
+  'hidden',
+  'bind',
   CHILD_LIST_KEY,
 ]);
 

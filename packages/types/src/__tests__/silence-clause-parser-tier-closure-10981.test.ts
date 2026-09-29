@@ -12,8 +12,9 @@
  * (`unknown-prop`).
  *
  * Four more sites in this package said an authored value drew no error and no
- * warning. The parser tier's `validateTree` (`@object-ui/sdui-parser`) answers
- * each of them, with the code the registration's declared inputs decide:
+ * warning. The parser tier's `validateTree` (`@object-ui/sdui-parser`)
+ * answered each of them when objectui#10981 landed, with the code the
+ * registration's declared inputs decide (one has moved since — the `bind` row):
  *
  *   - `FormSchema.mode` (`zod/form.zod.ts`, objectui#10286, zod face):
  *     `form` declares no `mode` input, so every spelling draws `unknown-prop`.
@@ -21,10 +22,13 @@
  *     neither the presentational `TimelineRenderer` registration this type
  *     describes nor the view registration the bare key resolves to declares
  *     `events`, so it draws `unknown-prop`.
- *   - `BaseSchema.bind` on `data-table` (`base.ts`, TS face): `data-table`
- *     declares no `bind` input, so it draws `unknown-prop`. This one was not
- *     silent at render either: `data-table` has logged a console warning for
- *     an authored `bind` since objectui#6575, so the clause names both.
+ *   - `BaseSchema.bind` on `data-table` (`base.ts`, TS face): this one was
+ *     not silent at render: `data-table` has logged a console warning for an
+ *     authored `bind` since objectui#6575. When objectui#10981 landed, the
+ *     parser tier answered it with `unknown-prop` too, and the clause named
+ *     both. objectui#11008 made `bind` a base prop of `validateTree` — every
+ *     node may carry it, so it draws nothing there — and the clause now names
+ *     the console warning as the one signal and the parser tier as silent.
  *   - The bare `exportOptions` array on `object-grid` (`zod/objectql.zod.ts`,
  *     objectui#7762, the source note above the refusal string): the
  *     registration declares `exportOptions` as an object, so an array draws
@@ -38,7 +42,9 @@
  * clauses — every key spelling and value shape each sentence describes, over
  * the live registry, with a render leg — are on objectui#10981's pull request:
  * a record of one run, not re-derived here. The `data-table` render warning is
- * pinned in `packages/components`, by `skill-guide-data-table-binding.test.tsx`.
+ * pinned in `packages/components`, by `skill-guide-data-table-binding.test.tsx`;
+ * the parser tier's silence on a `bind` since objectui#11008 is re-derived there
+ * too, over the live registry, by `bind-base-prop-parser-tier-11008.test.tsx`.
  *
  * ## What is pinned, and what is deliberately not
  *
@@ -62,8 +68,13 @@ const UNKNOWN_PROP_TAIL = "only the parser tier's `unknown-prop` warning noticed
 const FORM_CLAUSE = `rendered the same form — no render-time error or warning; ${UNKNOWN_PROP_TAIL}`;
 const TIMELINE_CLAUSE = `drew an EMPTY rail, with no render-time error or warning; ${UNKNOWN_PROP_TAIL}`;
 const BIND_CLAUSE =
-  'with no render-time error; nothing on the page says why, but a render-time console warning '
-  + "(`[ObjectUI] DataTable bind:`, objectui#6575) and the parser tier's `unknown-prop` warning both name it";
+  'with no render-time error; nothing on the page says why. The one signal is a render-time console warning '
+  + '(`[ObjectUI] DataTable bind:`, objectui#6575; pinned in '
+  + '`components/src/__tests__/skill-guide-data-table-binding.test.tsx`). The parser tier stays silent on it: '
+  + '`validateTree` counts `bind` among the base props every node may carry (objectui#11008), '
+  + 'so a `bind` draws no `unknown-prop` there, on `data-table` or on any other node';
+/** The objectui#10981 wording, false since objectui#11008 made `bind` a parser-tier base prop. */
+const RETIRED_BIND_CLAUSE = "the parser tier's `unknown-prop` warning both name it";
 const EXPORT_CLAUSE =
   "no render-time error, warning or console line (only the parser tier's `type-mismatch` warning noticed it)";
 
@@ -166,10 +177,11 @@ describe('objectui#10981 — the TS-face docblocks name what the parser tier ans
     for (const old of RETIRED) expect(doc).not.toContain(old);
   });
 
-  it('`BaseSchema.bind` names the `data-table` console warning and `unknown-prop`', () => {
+  it('`BaseSchema.bind` names the `data-table` console warning as the one signal, and the parser tier as silent (objectui#11008)', () => {
     const doc = memberDocblock(read(`${SRC}/base.ts`), 'BaseSchema', 'bind');
     expect(doc).toContain('`data-table` does NOT');
     expect(doc).toContain(BIND_CLAUSE);
+    expect(doc).not.toContain(RETIRED_BIND_CLAUSE);
     for (const old of RETIRED) expect(doc).not.toContain(old);
   });
 });

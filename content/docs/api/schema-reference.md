@@ -848,6 +848,7 @@ A smart form that auto-generates fields from an ObjectQL object. Supports simple
 | `showSubmit` / `showCancel` / `showReset` | `boolean` | Toggle action buttons. |
 | `drawerSide` | `string` | Drawer position: `"top"`, `"bottom"`, `"left"`, `"right"`. |
 | `modalSize` | `string` | Modal size: `"sm"`, `"default"`, `"lg"`, `"xl"`, `"full"`. |
+| `modalCloseButton` | `boolean` | Show the modal's close (X) button. Default `true`; `false` hides it. The modal still closes on Escape, and on the Cancel action when that is shown. |
 
 #### Spec alignment & extension keys
 

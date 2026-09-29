@@ -304,7 +304,8 @@ describe('the generated intrinsics type the html tier (objectui#10735)', () => {
     for (const tag of HTML_TIER_INTRINSICS) {
       expect(dts, `\`${tag}\` missing from the intrinsics`).toContain(`"${tag}": `);
     }
-    expect(dts).toContain('export interface AProps extends SduiBaseProps {');
+    // `a` declares `className`, a base attribute, so it `Omit`s it (objectui#11075).
+    expect(dts).toContain('export interface AProps extends Omit<SduiBaseProps, "className"> {');
     expect(dts).toContain('  href?: string;');
     expect(dts).toContain('"object-grid": ObjectGridProps;');
   });

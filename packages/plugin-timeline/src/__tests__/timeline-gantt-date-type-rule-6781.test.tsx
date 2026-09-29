@@ -218,7 +218,7 @@ describe('pin 2 — the guard no longer CRASHES while reporting (objectui#6781)'
 });
 
 describe('pin 3 — `0` IS KEPT: the control that must stay green (objectui#6781)', () => {
-  it('the card’s own `endDate: 0` reading is UNCHANGED, down to the bar geometry', () => {
+  it('the card’s own `endDate: 0` reading still draws, down to the bar geometry', () => {
     // This is the measurement the card was filed on — axis 649 columns
     // Jan 1970 … Jan 2024, bars ["left: 100%; width: -100%;"] — and the ruling
     // makes it LEGAL. `0` is a finite number and therefore a date. If a future
@@ -231,7 +231,11 @@ describe('pin 3 — `0` IS KEPT: the control that must stay green (objectui#6781
     expect(axis.length).toBe(649);
     expect(axis[0]).toBe('Jan 1970');
     expect(axis[axis.length - 1]).toBe('Jan 2024');
-    expect(barStylesOf(container)).toEqual(['left: 100%; width: -100%;']);
+    // Re-derived by objectui#11079: the axis the headers draw runs from
+    // January 1st 1970 to the end of January 2024, 19754 days, and the bar
+    // runs backwards from day 19723 to day 0. The card's reading was the same
+    // bar on the 19723 days up to January 1st 2024: `left: 100%; width: -100%`.
+    expect(barStylesOf(container)).toEqual(['left: 99.84306975802369%; width: -99.84306975802369%;']);
   });
 
   it('`0` as a MEANINGFUL epoch start draws a correct chart', () => {
@@ -245,7 +249,10 @@ describe('pin 3 — `0` IS KEPT: the control that must stay green (objectui#6781
 
     expect(diagnosticOf(container), 'an epoch-anchored chart was refused').toBeNull();
     expect(axisOf(container)).toEqual(['Jan 1970', 'Feb 1970', 'Mar 1970']);
-    expect(barStylesOf(container)).toEqual(['left: 0%; width: 100%;']);
+    // Re-derived by objectui#11079: the bar runs January 1st to March 1st
+    // 1970, 59 days, on the axis the headers draw, January 1st to the end of
+    // March, 90 days.
+    expect(barStylesOf(container)).toEqual(['left: 0%; width: 65.55555555555556%;']);
   });
 });
 
@@ -263,7 +270,9 @@ describe('pin 4 — the rest of the ACCEPT set still renders (objectui#6781)', (
     });
     expect(diagnosticOf(container)).toBeNull();
     expect(axisOf(container)).toEqual(['Jan 2024', 'Feb 2024', 'Mar 2024']);
-    expect(barStylesOf(container)).toEqual(['left: 0%; width: 100%;']);
+    // Re-derived by objectui#11079: January 1st to March 1st 2024, 60 days, on
+    // the axis the headers draw, January 1st to the end of March, 91 days.
+    expect(barStylesOf(container)).toEqual(['left: 0%; width: 65.93406593406593%;']);
   });
 
   it('a `Date` instance renders', () => {
@@ -299,10 +308,12 @@ describe('pin 4 — the rest of the ACCEPT set still renders (objectui#6781)', (
 
     expect(diagnosticOf(container), 'the type rule fired on a perfectly good gantt').toBeNull();
     expect(axisOf(container)).toEqual(['Jan 2024', 'Feb 2024', 'Mar 2024']);
+    // Re-derived by objectui#11079 on the one axis, January 1st to the end of
+    // March 2024, 91 days: see #6750's pin 4.
     expect(barStylesOf(container)).toEqual([
-      'left: 0%; width: 33.33333333333333%;',
-      'left: 34.44444444444444%; width: 65.55555555555556%;',
-      'left: 15.555555555555555%; width: 34.44444444444444%;',
+      'left: 0%; width: 32.967032967032964%;',
+      'left: 34.065934065934066%; width: 64.83516483516483%;',
+      'left: 15.384615384615385%; width: 34.065934065934066%;',
     ]);
   });
 });
@@ -356,7 +367,8 @@ describe('pin 6 — the PINNED path keeps its `||` asymmetry (objectui#6759 boun
       const { container } = gantt({ items: [GOOD_ROW], minDate: pin, maxDate: pin });
       expect(diagnosticOf(container), `a discarded ${String(pin)} pin was refused`).toBeNull();
       expect(axisOf(container)).toEqual(['Jan 2024', 'Feb 2024', 'Mar 2024']);
-      expect(barStylesOf(container)).toEqual(['left: 0%; width: 100%;']);
+      // Re-derived by objectui#11079: 60 of the axis's 91 days, as pin 4.
+      expect(barStylesOf(container)).toEqual(['left: 0%; width: 65.93406593406593%;']);
     }
   });
 

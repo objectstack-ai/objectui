@@ -4033,7 +4033,7 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   'public-blocks.zod.ts#RecordReferenceRailBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `record:reference_rail` literal + `properties`, which IS `ComponentPropsMap['record:reference_rail']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordAlertBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `record:alert` literal + `properties`, which IS `ComponentPropsMap['record:alert']`, + the objectui#9256 `children` refusal (its `body` is a text prop, left to `BaseSchema`); no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:alert` literal + `properties`, which IS `ComponentPropsMap['record:alert']`, + the objectui#9256 `children` refusal, + the objectui#10872 `body` alias refusal naming `properties.body` (its `body` is a text prop, so no neither-channel tombstone); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ElementTextBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `element:text` literal + `properties`, which IS `ComponentPropsMap['element:text']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   // objectui#10872 batch 2 — the one arm with a node-level refinement: the
@@ -4141,7 +4141,7 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   // built the objectui#10872 way: `BaseSchema` + a `type` literal +
   // `properties`, which is the block's `ComponentPropsMap` row by reference.
   'objectql.zod.ts#ObjectMetricBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `object-metric` literal + `properties`, which IS `ComponentPropsMap['object-metric']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel), + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `object-metric` literal + `properties`, which IS `ComponentPropsMap['object-metric']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'objectql.zod.ts#ObjectMasterDetailFormBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `object-master-detail-form` literal + `properties`, which IS `ComponentPropsMap['object-master-detail-form']`, + three `handlerKeyRefusal` runtime slots, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node (`@object-ui/plugin-form`'s `MasterDetailFormSchema` is the type of `MasterDetailForm`'s `schema` prop, the renderer's post-hoist reading)",
   'objectql.zod.ts#ObjectQLPublicBlockComponentSchema':

@@ -3674,6 +3674,11 @@ const pt = {
   },
   wizard: {
     missingRequired: "Preencha os campos obrigatórios: {{fields}}",
+    back: "Voltar",
+    submitting: "Enviando…",
+    stepFallback: "Etapa {{n}}",
+    progressLabel: "Progresso",
+    emptyStep: "Nenhum campo configurado para esta etapa",
   },
   flowRunner: {
     title: 'Entrada',

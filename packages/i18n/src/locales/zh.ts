@@ -193,7 +193,7 @@ const zh = {
     conflictMessage: '您编辑期间，这条记录已被其他人修改。覆盖保存将用您的内容替换对方的修改。',
     conflictLatestVersion: '对方保存时间：{{time}}',
     conflictOverwrite: '覆盖保存',
-    stepOf: '第{{current}}步，共{{total}}步',
+    stepOf: '第 {{current}} 步，共 {{total}} 步',
     createTitle: '新建{{object}}',
     editTitle: '编辑{{object}}',
     viewTitle: '查看{{object}}',
@@ -3745,6 +3745,11 @@ const zh = {
   },
   wizard: {
     missingRequired: '请填写以下必填字段：{{fields}}',
+    back: '上一步',
+    submitting: '提交中…',
+    stepFallback: '第 {{n}} 步',
+    progressLabel: '进度',
+    emptyStep: '此步骤未配置字段',
   },
   flowRunner: {
     title: '输入',

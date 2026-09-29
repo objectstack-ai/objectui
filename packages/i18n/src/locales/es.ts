@@ -3679,6 +3679,11 @@ const es = {
   },
   wizard: {
     missingRequired: "Complete los campos obligatorios: {{fields}}",
+    back: "Atrás",
+    submitting: "Enviando…",
+    stepFallback: "Paso {{n}}",
+    progressLabel: "Progreso",
+    emptyStep: "No hay campos configurados para este paso",
   },
   flowRunner: {
     title: 'Entrada',

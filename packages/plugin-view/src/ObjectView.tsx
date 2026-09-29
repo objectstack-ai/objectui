@@ -1428,6 +1428,20 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   const isMobile = useIsMobile();
   const layout = schema.layout || deriveRecordSurface(objectSchema, { viewport: isMobile ? 'mobile' : 'desktop' });
 
+  // objectui#11015 — the surface create, edit and view actually open on. A
+  // `page` hands the record to the host's router, so it holds only while there
+  // IS one: with no `onNavigate` a page has no surface inside this component,
+  // and it falls back to the drawer — the surface objectui#10975 already gave
+  // create under `split` / `popover` for a page. That is the registered
+  // `object-view` renderer's case, where a JSON schema cannot carry a function,
+  // on a mobile viewport or a field-heavy object: `deriveRecordSurface` picks
+  // `page` with no author choosing it. An explicit `layout: 'page'` without
+  // `onNavigate` (the README's documented misconfiguration) takes the same
+  // fallback. The three handlers, `formLayout` and `renderCreateSurface` read
+  // this and never `layout`, so no two of them disagree. Pinned by
+  // `ObjectView.pageSurfaceFallback-11015.test.tsx`.
+  const recordSurface = layout === 'page' && !schema.onNavigate ? 'drawer' : layout;
+
   // Determine enabled operations
   const operations = schema.operations || schema.table?.operations || {
     create: true,
@@ -1436,16 +1450,17 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     delete: true,
   };
 
-  // Handle create action
+  // Handle create action. `recordSurface` is `page` only when `onNavigate` is
+  // set; the second operand narrows the type and changes no outcome.
   const handleCreate = useCallback(() => {
-    if (layout === 'page' && schema.onNavigate) {
+    if (recordSurface === 'page' && schema.onNavigate) {
       schema.onNavigate('new', 'edit');
     } else {
       setFormMode('create');
       setSelectedRecord(null);
       setIsFormOpen(true);
     }
-  }, [layout, schema]);
+  }, [recordSurface, schema]);
 
   // Handle edit action
   const handleEdit = useCallback((record: Record<string, unknown>) => {
@@ -1453,7 +1468,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       onEditProp(record);
       return;
     }
-    if (layout === 'page' && schema.onNavigate) {
+    if (recordSurface === 'page' && schema.onNavigate) {
       const recordId = record.id || record._id;
       schema.onNavigate(recordId as string | number, 'edit');
     } else {
@@ -1461,11 +1476,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       setSelectedRecord(record);
       setIsFormOpen(true);
     }
-  }, [layout, schema, onEditProp]);
+  }, [recordSurface, schema, onEditProp]);
 
   // Handle view action (read a record)
   const handleView = useCallback((record: Record<string, unknown>) => {
-    if (layout === 'page' && schema.onNavigate) {
+    if (recordSurface === 'page' && schema.onNavigate) {
       const recordId = record.id || record._id;
       schema.onNavigate(recordId as string | number, 'view');
     } else {
@@ -1473,7 +1488,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       setSelectedRecord(record);
       setIsFormOpen(true);
     }
-  }, [layout, schema]);
+  }, [recordSurface, schema]);
 
   // Handle row click - respects NavigationConfig
   //
@@ -2879,24 +2894,27 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     );
   };
 
-  // Determine which form container to render
+  // Determine which form container to render. With no overlay `navigation` it
+  // is `recordSurface`: `'page'` only with an `onNavigate`, whose handlers
+  // route every verb away, and the drawer for a page with nowhere to route
+  // (objectui#11015).
   const formLayout = navigationConfig?.mode === 'modal' ? 'modal'
     : navigationConfig?.mode === 'drawer' ? 'drawer'
     : navigationConfig?.mode === 'split' ? 'split'
     : navigationConfig?.mode === 'popover' ? 'popover'
-    : layout;
+    : recordSurface;
 
   // objectui#10975 — `split` and `popover` draw a form only beside a selected
   // record, and `handleCreate` clears it, so under either mode (the node's own
   // or the active named view's) the CREATE form opens on the surface
-  // `formLayout` falls back to with no `navigation`: the modal for
-  // `layout: 'modal'`, the drawer otherwise. `'page'` only gets here with no
-  // `onNavigate` (`handleCreate` routes it first), and a page has no surface
-  // inside this component, so it takes the drawer. A record opened to view or
-  // edit still opens beside, as before. Pinned by
+  // `formLayout` falls back to with no `navigation`: `recordSurface`, the modal
+  // for `layout: 'modal'`, the drawer otherwise. A `page` only gets here with no
+  // `onNavigate` (`handleCreate` routes it first), and `recordSurface` already
+  // resolves that page to the drawer (objectui#11015). A record opened to view
+  // or edit still opens beside, as before. Pinned by
   // `ObjectView.splitPopoverCreate-10975.test.tsx`.
   const renderCreateSurface = () =>
-    formMode !== 'create' ? null : layout === 'modal' ? renderModalForm() : renderDrawerForm();
+    formMode !== 'create' ? null : recordSurface === 'modal' ? renderModalForm() : renderDrawerForm();
 
   // Build the record detail content for NavigationOverlay (split/popover modes)
   const renderOverlayDetail = (_record: Record<string, unknown>) => (

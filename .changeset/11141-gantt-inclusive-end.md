@@ -1,0 +1,13 @@
+---
+'@object-ui/core': patch
+'@object-ui/plugin-gantt': patch
+'@object-ui/plugin-timeline': patch
+---
+
+fix(plugin-gantt,core,plugin-timeline): both gantt surfaces read a date-only end inclusively through one core rule, and a drag writes the same day back (objectui#11141)
+
+- **A date-only end is inclusive on the object gantt too.** `ObjectGantt` read a stored end like a start, as the named day's local midnight, so every bar was drawn one day short and a successor starting the next day stood one day after its predecessor. The schema catalog's own plans drew that way. A task from `2024-01-01` to `2024-01-15` now runs through January 15th, and a successor starting `2024-01-16` begins exactly where it ends, as the timeline's gantt already drew it (objectui#11112). A task whose date-only start and end name the same day is now one day long, where it was a zero-length milestone. An end with a time part is still an instant, and the bar ends exactly there. Baseline ends read the same way.
+- **One rule, in `@object-ui/core`.** `toDisplayEndDate` reads an end: a date-only value becomes the start of the next day (a calendar day, so 23 or 25 hours across a DST change), and anything else is read as `toDisplayDate` reads it. `toInclusiveEndDay` is its exact inverse: it names the last day a span ending at an instant runs through. The timeline's gantt and `ObjectGantt` both read their ends through the first, so they cannot drift apart again. A day whose next midnight does not exist in the viewer's zone now ends at that next day's first hour. The timeline used to end such a day an hour later.
+- **A drag writes the day the bar runs through.** A dragged or resized bar whose end lands on a day's midnight writes the day before it into a date-only end field, so reading, dragging and writing a stored `2024-01-15` leaves `2024-01-15`. This also holds under a business `timeZone` whose clock skips a midnight. A `datetime` end still writes its instant.
+- **The view names that day.** `GanttView`'s End column, row date line, tooltip, drag preview and inline editor now name the last day a bar runs through, and the tooltip's day count includes it. Pressing Enter on an untouched row in the inline editor commits the end it started with. An end inside a day still names that day, and a zero-length task still names its own day. An embedder that passes `GanttView` a `Date` end directly now sees that end named as the last day the bar covers. A local-midnight end is named as the day before, which is where its bar already stopped.
+- With `autoZoomToFilter: false`, the pinned range ends on the last day any task runs through, and no longer adds an empty day column after it.

@@ -222,6 +222,14 @@ export interface GanttTask {
   id: string | number
   title: string
   start: Date
+  /**
+   * The EXCLUSIVE end of the bar's half-open span `[start, end)`: the bar is
+   * drawn and scheduled up to this instant, and the task list, the tooltip, a
+   * drag's preview and the inline editor name the last day it runs through
+   * (objectui#11141). `ObjectGantt` hands a stored date-only end over as the
+   * next day's local midnight (`toDisplayEndDate`, `@object-ui/core`), so a
+   * task ending `2024-01-15` is drawn, and named, through the 15th.
+   */
   end: Date
   progress: number
   color?: string

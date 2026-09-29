@@ -31,10 +31,12 @@
  * path is the rest of this package's suite, which renders English from the
  * defaults tables; `en` below shows that the pack's English is that English.
  *
- * Against the parent commit, every zh case and the `en` loading case fail (the
- * literals render verbatim, and the loading line was typed with three ASCII
- * full stops); the `CONTROL` cases pass there too, because authored values
- * always won — they are the must-not-change guards.
+ * Measured against the merge-base containers (the pins at this head): every
+ * zh case fails, because the literals render verbatim; the `en` case fails at
+ * its first assertion, because the loading line was typed with three ASCII
+ * full stops. Two of the three `CONTROL` cases pass there too — authored
+ * values always won, so they are the must-not-change guards — and the third
+ * fails only on the refused-navigation note, which is chrome, not authored.
  */
 
 import React from 'react';
@@ -149,10 +151,13 @@ const okDataSource = (opts: { omitId?: boolean } = {}) => ({
   delete: vi.fn(),
 });
 
-/** Reads the active catalogue outside the form, for the zh-is-live wait. */
+/**
+ * Reads the active catalogue outside the form, for the zh-is-live wait. It reads
+ * a key no case asserts, so the probe's own text can never satisfy one.
+ */
 function CatalogueProbe() {
   const { t } = useObjectTranslation();
-  return <span data-testid="catalogue-probe">{t('form.errorLoading')}</span>;
+  return <span data-testid="catalogue-probe">{t('common.next')}</span>;
 }
 
 function mount(
@@ -171,7 +176,7 @@ function mount(
 
 /** Wait until the probe reads the zh pack. */
 const zhIsLive = () =>
-  waitFor(() => expect(screen.getByTestId('catalogue-probe').textContent).toBe(ZH.errorLoading));
+  waitFor(() => expect(screen.getByTestId('catalogue-probe').textContent).toBe('下一步'));
 
 /** Everything on screen, portals (the drawer and the modal) included. */
 const pageText = () => document.body.textContent ?? '';

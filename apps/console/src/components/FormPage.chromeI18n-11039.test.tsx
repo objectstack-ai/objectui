@@ -25,10 +25,11 @@
  * The DOM setup makes every built-in catalogue resident, as `main.tsx`'s
  * `preloadBootstrapLocale()` does before first paint.
  *
- * Against the parent commit the three zh cases fail (the literals render
- * verbatim) and the `en` case fails on the two strings whose English changed
- * with the key: `Thanks!` is now `Thank you!`, and the message gained
- * `successfully`. The `CONTROL` case passes there too: declared copy always won.
+ * Measured against the merge-base `FormPage` (this file at this head): the three
+ * zh cases fail, because the literals render verbatim, and the `en` case fails
+ * at its first assertion, because two strings' English changed with their keys:
+ * `Thanks!` is now `Thank you!`, and the message gained `successfully`. The
+ * `CONTROL` case passes there too: declared copy always won.
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';

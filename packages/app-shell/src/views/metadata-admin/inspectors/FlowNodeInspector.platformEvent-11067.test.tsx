@@ -113,6 +113,7 @@ function mount(initial: Draft, locale: Locale = 'en-US') {
           });
         }}
         onClearSelection={vi.fn()}
+        readOnly={false}
         locale={locale}
       />
     );

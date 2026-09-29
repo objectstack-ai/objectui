@@ -48,6 +48,13 @@ const OBJECT_SCHEMA = {
 const DATE_ROW = { id: 't1', name: 'Build', start_date: '2024-01-10', end_date: '2024-01-15' };
 /** The same bar in instants, ending mid-afternoon. */
 const DATETIME_ROW = { id: 't1', name: 'Build', begins_at: '2024-01-10T00:00:00.000Z', ends_at: '2024-01-15T15:00:00.000Z' };
+/**
+ * The RULER: a second task starting ten days after the first. The distance
+ * between the two bars' left edges measures a day's width on the axis without
+ * reading any END, so the width case below can fail.
+ */
+const DATE_RULER = { id: 'r1', name: 'Ruler', start_date: '2024-01-20', end_date: '2024-01-22' };
+const DATETIME_RULER = { id: 'r1', name: 'Ruler', begins_at: '2024-01-20T00:00:00.000Z', ends_at: '2024-01-22T00:00:00.000Z' };
 
 beforeEach(() => {
   Object.defineProperty(window, 'innerWidth', { value: 1280, configurable: true });
@@ -79,7 +86,7 @@ interface Mounted {
 
 async function mount(kind: 'date' | 'datetime'): Promise<Mounted> {
   const ds = {
-    find: vi.fn().mockResolvedValue({ data: [kind === 'date' ? DATE_ROW : DATETIME_ROW] }),
+    find: vi.fn().mockResolvedValue({ data: kind === 'date' ? [DATE_ROW, DATE_RULER] : [DATETIME_ROW, DATETIME_RULER] }),
     findOne: vi.fn(),
     create: vi.fn(),
     update: vi.fn().mockResolvedValue({}),
@@ -100,7 +107,10 @@ async function mount(kind: 'date' | 'datetime'): Promise<Mounted> {
       <ObjectGantt schema={schema} dataSource={ds as unknown as DataSource} />
     </div>,
   );
-  await waitFor(() => expect(container.querySelector('[data-testid="gantt-task-bar-t1"]')).not.toBeNull());
+  await waitFor(() => {
+    expect(container.querySelector('[data-testid="gantt-task-bar-t1"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="gantt-task-bar-r1"]')).not.toBeNull();
+  });
   // The object-schema fetch re-arms the loader once; wait for the call volume
   // to go quiet, as the zone pins do, so the write handler has read the types.
   let calls = ds.find.mock.calls.length;
@@ -111,11 +121,10 @@ async function mount(kind: 'date' | 'datetime'): Promise<Mounted> {
       throw new Error('still loading');
     }
   });
-  const bar = container.querySelector('[data-testid="gantt-task-bar-t1"]') as HTMLElement;
-  // January 10th through 15th is six days; the instant row ends mid-afternoon
-  // of the 15th, 5 days and 15 hours after its start.
-  const days = kind === 'date' ? 6 : 5 + 15 / 24;
-  return { update: ds.update, container, pxPerDay: parseFloat(bar.style.width) / days };
+  const leftOf = (id: string) =>
+    parseFloat((container.querySelector(`[data-testid="gantt-task-bar-${id}"]`) as HTMLElement).style.left);
+  // The ruler starts ten days after the task, on a linear axis (no folded days).
+  return { update: ds.update, container, pxPerDay: (leftOf('r1') - leftOf('t1')) / 10 };
 }
 
 /** Drag `testId` by `days` days and hand back the patch the data source was sent. */
@@ -131,13 +140,11 @@ async function drag(m: Mounted, testId: string, days: number): Promise<Record<st
 }
 
 describe('a date-only end survives a read, a drag and a write (objectui#11141)', () => {
-  it('fixture validity: the bar is drawn through the 15th, six days wide', async () => {
+  it('the bar is drawn through the 15th: six days wide, where the start-of-day read drew five', async () => {
     const m = await mount('date');
     const bar = m.container.querySelector('[data-testid="gantt-task-bar-t1"]') as HTMLElement;
-    const left = parseFloat(bar.style.left);
-    // Five days' width would be the bar the start-of-day read drew.
-    expect(parseFloat(bar.style.width)).toBeCloseTo(6 * m.pxPerDay, 6);
-    expect(left).toBeGreaterThan(0);
+    expect(m.pxPerDay).toBeGreaterThan(0);
+    expect(parseFloat(bar.style.width) / m.pxPerDay).toBeCloseTo(6, 6);
   });
 
   it('a left-edge drag two days back writes the stored end back unchanged', async () => {

@@ -33,8 +33,11 @@
 
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
+// The strict authoring face is read through this same barrel
+// (`NodeFace.StrictAnyComponentSchema`), never from `strict-authoring-face`
+// itself: objectui#8345 pins the barrel as the only entry into that module's
+// cycle, test files included.
 import * as NodeFace from '../zod/index.zod';
-import { StrictAnyComponentSchema } from '../strict-authoring-face';
 
 type Z = z.ZodType & { _zod: { def: Record<string, any>; constr?: { name?: string } } };
 
@@ -199,7 +202,7 @@ describe('objectui#11073 — terminal unknown-key refusal on plain unions: censu
 
   it('strict authoring face: the same census and the same differential', async () => {
     const specOwned = await specOwnedNodes();
-    const reading = readFace(reach([StrictAnyComponentSchema]), specOwned);
+    const reading = readFace(reach([NodeFace.StrictAnyComponentSchema]), specOwned);
     expect(reading.plainUnionsWithStrictArm).toBeGreaterThan(0);
     expect(reading.openStrictArms, 'a plain union with an OPEN strict arm on the strict face').toEqual([]);
     expect(reading.acceptMoves, 'the terminal refusal moved an ACCEPT set on the strict face').toEqual([]);

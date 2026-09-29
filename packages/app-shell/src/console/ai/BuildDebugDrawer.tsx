@@ -38,18 +38,22 @@ export function BuildDebugDrawer({ apiBase, conversationId, open, onOpenChange }
   const { t } = useObjectTranslation();
   const [report, setReport] = useState<BuildDebugReport | null>(null);
   const [loading, setLoading] = useState(false);
+  // `notFound` is kept apart from a transport error's own message so its
+  // sentence is read from the pack at render time, in the current language.
   const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     if (!open || !conversationId) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setNotFound(false);
     setReport(null);
     fetchBuildDebug(apiBase, conversationId)
       .then((r) => {
         if (cancelled) return;
-        if (!r) setError('Not available — the conversation was not found or you are not authorized.');
+        if (!r) setNotFound(true);
         else setReport(r);
       })
       .catch((e: unknown) => {
@@ -73,20 +77,18 @@ export function BuildDebugDrawer({ apiBase, conversationId, open, onOpenChange }
           <SheetTitle className="flex items-center gap-2">
             <Bug className="h-4 w-4" /> {t('console.ai.buildDoctor')}
           </SheetTitle>
-          <SheetDescription>
-            What the agent claimed vs what is actually live. Read-only diagnostic.
-          </SheetDescription>
+          <SheetDescription>{t('console.ai.buildDoctorDrawer.description')}</SheetDescription>
         </SheetHeader>
 
         <div className="mt-4 space-y-4 text-sm">
           {loading && (
             <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Reconciling…
+              <Loader2 className="h-4 w-4 animate-spin" /> {t('console.ai.buildDoctorDrawer.reconciling')}
             </div>
           )}
-          {error && !loading && (
+          {(error || notFound) && !loading && (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-destructive">
-              {error}
+              {notFound ? t('console.ai.buildDoctorDrawer.notAvailable') : error}
             </div>
           )}
 
@@ -94,11 +96,16 @@ export function BuildDebugDrawer({ apiBase, conversationId, open, onOpenChange }
             <>
               {/* Summary line */}
               <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-                <div className="font-medium text-foreground">{report.title ?? '(untitled)'}</div>
+                <div className="font-medium text-foreground">
+                  {report.title ?? t('console.ai.buildDoctorDrawer.untitled')}
+                </div>
                 <div className="mt-1">
-                  {report.summary.userTurns} turn(s) · {report.summary.messages} msgs ·{' '}
-                  {report.summary.totalTokens.toLocaleString(displayLocale)} tok ·{' '}
-                  {(report.summary.llmMs / 1000).toFixed(1)}s LLM
+                  {t('console.ai.buildDoctorDrawer.summary', {
+                    turns: report.summary.userTurns,
+                    messages: report.summary.messages,
+                    tokens: report.summary.totalTokens.toLocaleString(displayLocale),
+                    seconds: (report.summary.llmMs / 1000).toFixed(1),
+                  })}
                   {report.summary.models.length ? ` · ${report.summary.models.join(', ')}` : ''}
                 </div>
               </div>
@@ -115,8 +122,8 @@ export function BuildDebugDrawer({ apiBase, conversationId, open, onOpenChange }
                   {rec.ok ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
                   <span className="font-medium">
                     {rec.ok
-                      ? `All ${rec.liveCount} attempted change(s) are live — nothing evaporated.`
-                      : `${problems} discrepancy(ies) — what the chat said doesn't match what's live.`}
+                      ? t('console.ai.buildDoctorDrawer.allLive', { count: rec.liveCount })
+                      : t('console.ai.buildDoctorDrawer.discrepancies', { count: problems })}
                   </span>
                 </div>
               )}
@@ -125,8 +132,8 @@ export function BuildDebugDrawer({ apiBase, conversationId, open, onOpenChange }
               {rec && rec.orphaned.length > 0 && (
                 <FindingSection
                   icon={<CircleSlash className="h-4 w-4 text-destructive" />}
-                  title="Proposed but never applied"
-                  hint="A confirm card the agent proposed but no later turn applied — the change silently evaporated."
+                  title={t('console.ai.buildDoctorDrawer.orphanedTitle')}
+                  hint={t('console.ai.buildDoctorDrawer.orphanedHint')}
                   findings={rec.orphaned}
                   tone="destructive"
                 />
@@ -134,8 +141,8 @@ export function BuildDebugDrawer({ apiBase, conversationId, open, onOpenChange }
               {rec && rec.missing.length > 0 && (
                 <FindingSection
                   icon={<AlertTriangle className="h-4 w-4 text-amber-600" />}
-                  title="Claimed but missing"
-                  hint="A tool result said it was applied, but the artifact isn't live in sys_metadata."
+                  title={t('console.ai.buildDoctorDrawer.missingTitle')}
+                  hint={t('console.ai.buildDoctorDrawer.missingHint')}
                   findings={rec.missing}
                   tone="amber"
                 />
@@ -143,8 +150,8 @@ export function BuildDebugDrawer({ apiBase, conversationId, open, onOpenChange }
               {rec && rec.errors.length > 0 && (
                 <FindingSection
                   icon={<XCircle className="h-4 w-4 text-destructive" />}
-                  title="Tool errors"
-                  hint="Tool calls that returned an error during the build."
+                  title={t('console.ai.buildDoctorDrawer.toolErrorsTitle')}
+                  hint={t('console.ai.buildDoctorDrawer.toolErrorsHint')}
                   findings={rec.errors}
                   tone="destructive"
                 />
@@ -153,16 +160,20 @@ export function BuildDebugDrawer({ apiBase, conversationId, open, onOpenChange }
               {/* verify_build, de-noised */}
               {report.verify && (
                 <div className="rounded-md border p-3 text-xs">
-                  <div className="font-medium text-foreground">Build check (verify_build)</div>
+                  <div className="font-medium text-foreground">{t('console.ai.buildDoctorDrawer.verifyTitle')}</div>
                   <div className="mt-1 text-muted-foreground">
-                    Your app:{' '}
+                    {t('console.ai.buildDoctorDrawer.yourApp')}{' '}
                     {report.verify.userIssues.length === 0 ? (
-                      <span className="text-emerald-600 dark:text-emerald-400">0 issues</span>
+                      <span className="text-emerald-600 dark:text-emerald-400">
+                        {t('console.ai.buildDoctorDrawer.noIssues')}
+                      </span>
                     ) : (
-                      <span className="text-destructive">{report.verify.userIssues.length} issue(s)</span>
+                      <span className="text-destructive">
+                        {t('console.ai.buildDoctorDrawer.issueCount', { count: report.verify.userIssues.length })}
+                      </span>
                     )}
                     {report.verify.platformNoise > 0
-                      ? ` · ${report.verify.platformNoise} platform sys_* finding(s) hidden`
+                      ? ` · ${t('console.ai.buildDoctorDrawer.platformNoise', { count: report.verify.platformNoise })}`
                       : ''}
                   </div>
                   {report.verify.userIssues.map((is, i) => (
@@ -176,7 +187,7 @@ export function BuildDebugDrawer({ apiBase, conversationId, open, onOpenChange }
               {/* Pending actions */}
               {report.pendingActions.length > 0 && (
                 <div className="rounded-md border p-3 text-xs">
-                  <div className="font-medium text-foreground">Pending actions</div>
+                  <div className="font-medium text-foreground">{t('console.ai.buildDoctorDrawer.pendingActions')}</div>
                   {report.pendingActions.map((p, i) => (
                     <div key={i} className="mt-1 text-muted-foreground">
                       {p.tool ?? '?'} · {p.object ?? '-'} · <span className="font-mono">{p.status ?? '-'}</span>
@@ -188,7 +199,7 @@ export function BuildDebugDrawer({ apiBase, conversationId, open, onOpenChange }
               {/* Timeline (collapsed) */}
               <details className="rounded-md border p-3 text-xs">
                 <summary className="cursor-pointer font-medium text-foreground">
-                  Timeline ({report.timeline.length})
+                  {t('console.ai.buildDoctorDrawer.timeline', { count: report.timeline.length })}
                 </summary>
                 <div className="mt-2 space-y-1 font-mono text-[11px] leading-relaxed">
                   {report.timeline.map((e, i) => (

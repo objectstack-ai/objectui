@@ -89,6 +89,27 @@ function humanizeSlug(slug: string): string {
   return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/**
+ * The breadcrumb segment after `System` for the `system/*` pages the console
+ * knows by name, read from the packs. `marketplace` is the one this shell
+ * mounts itself (`AppContent`'s `system/marketplace` routes, objectui#10900);
+ * the other six are the console app's own `system/*` routes (its
+ * `AppContent`'s `systemRoutes` fragment, objectui#10969). Any other segment
+ * answers `undefined`, and the header shows its humanized slug.
+ */
+function systemSegmentLabel(segment: string, t: (key: string) => string): string | undefined {
+  switch (segment) {
+    case 'marketplace': return t('console.breadcrumb.marketplace');
+    case 'settings': return t('console.breadcrumb.settings');
+    case 'apps': return t('console.breadcrumb.apps');
+    case 'profile': return t('console.breadcrumb.profile');
+    case 'approvals': return t('console.breadcrumb.approvals');
+    case 'ai-approvals': return t('console.breadcrumb.aiApprovals');
+    case 'audit-log': return t('console.breadcrumb.auditLog');
+    default: return undefined;
+  }
+}
+
 /** Muted `/` separator between path segments */
 function PathSep() {
   return (
@@ -371,11 +392,9 @@ export function AppHeader({
       }
     } else if (routeType === 'system') {
       extraSegments.push({ label: t('console.breadcrumb.system') });
-      // `marketplace` is the one system page this shell mounts itself
-      // (`AppContent`'s `system/marketplace` routes), so its segment reads from
-      // the pack. A host-mounted page's segment is still its humanized slug.
-      if (pathParts[3] === 'marketplace') extraSegments.push({ label: t('console.breadcrumb.marketplace') });
-      else if (pathParts[3]) extraSegments.push({ label: humanizeSlug(pathParts[3]) });
+      if (pathParts[3]) {
+        extraSegments.push({ label: systemSegmentLabel(pathParts[3], t) ?? humanizeSlug(pathParts[3]) });
+      }
     } else if (routeType) {
       const currentObject = safeObjects.find((o: any) => o.name === routeType);
       if (currentObject) {

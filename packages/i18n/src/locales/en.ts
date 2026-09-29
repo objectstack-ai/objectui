@@ -179,6 +179,12 @@ const en = {
     // `successMessage` and the server returned no message — the one toast
     // text the runner writes itself (objectui#10900).
     completedSuccessfully: 'Action completed successfully',
+    // The runner's other own text (objectui#10969): the error fallbacks when no
+    // readable error message reached it, and the Undo label it hands the toast
+    // handler for an undoable success toast.
+    failed: 'Action failed',
+    parallelFailed: 'One or more parallel actions failed',
+    undo: 'Undo',
   },
   validation: {
     required: '{{field}} is required',
@@ -1773,6 +1779,13 @@ const en = {
       system: 'System',
       // The Setup system page segment after `System` (objectui#10900).
       marketplace: 'Marketplace',
+      // The console app's own `system/*` pages after `System` (objectui#10969).
+      settings: 'Settings',
+      apps: 'Apps',
+      profile: 'Profile',
+      approvals: 'Approvals',
+      aiApprovals: 'AI Approvals',
+      auditLog: 'Audit Log',
     },
     nav: {
       pinItem: 'Pin {{name}}',
@@ -1971,6 +1984,32 @@ const en = {
       buildDoctor: 'Build Doctor',
       buildDoctorTitle: 'Build Doctor — what actually landed?',
       buildDoctorDisabledTitle: 'Send a message first',
+      // The Build Doctor drawer's body (objectui#10969): its description, the
+      // loading and not-found states, the summary line, the verdict, and each
+      // section's title and hint. What the report itself carries (tool, artifact
+      // and status names, timeline text) is data and stays verbatim.
+      buildDoctorDrawer: {
+        description: 'What the agent claimed vs what is actually live. Read-only diagnostic.',
+        reconciling: 'Reconciling…',
+        notAvailable: 'Not available — the conversation was not found or you are not authorized.',
+        untitled: '(untitled)',
+        summary: '{{turns}} turn(s) · {{messages}} msgs · {{tokens}} tok · {{seconds}}s LLM',
+        allLive: 'All {{count}} attempted change(s) are live — nothing evaporated.',
+        discrepancies: "{{count}} discrepancy(ies) — what the chat said doesn't match what's live.",
+        orphanedTitle: 'Proposed but never applied',
+        orphanedHint: 'A confirm card the agent proposed but no later turn applied — the change silently evaporated.',
+        missingTitle: 'Claimed but missing',
+        missingHint: "A tool result said it was applied, but the artifact isn't live in sys_metadata.",
+        toolErrorsTitle: 'Tool errors',
+        toolErrorsHint: 'Tool calls that returned an error during the build.',
+        verifyTitle: 'Build check (verify_build)',
+        yourApp: 'Your app:',
+        noIssues: '0 issues',
+        issueCount: '{{count}} issue(s)',
+        platformNoise: '{{count}} platform sys_* finding(s) hidden',
+        pendingActions: 'Pending actions',
+        timeline: 'Timeline ({{count}})',
+      },
       newChat: 'New',
       searchChats: 'Search chats…',
       noChatsYet: 'No chats yet',
@@ -3678,7 +3717,7 @@ const en = {
   marketplace: {
     title: 'App Marketplace',
       subtitle: 'Browse approved apps published to the ObjectStack catalog. Click an app to view details and install it into one of your environments.',
-      searchPlaceholder: 'Search apps by name or manifest ID…',
+      searchPlaceholder: 'Search apps by name or app ID…',
       searchAria: 'Search marketplace apps',
       installed: 'Installed',
       installedCount: 'Installed ({{count}})',

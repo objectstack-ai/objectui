@@ -21,12 +21,14 @@
     "Adding an entry also means raising WAIVER_CEILING in scripts/__tests__/check-i18n-en-drift.test.ts.",
     "That is the ratchet: the ceiling is free to fall and costs a reviewed test edit to rise.",
     "",
-    "The five entries below are objectui#3878's ellipsis convergence, and they are the one shape",
+    "The first five entries below are objectui#3878's ellipsis convergence, and they are the one shape",
     "this ledger was designed for: en moved to U+2026 on keys where the packs ALREADY spelled it",
     "U+2026, so there is nothing for them to follow. That is the inverse of the usual drift -- here",
     "en was the outlier, not the packs -- and the transcribed sentences below are the evidence, since",
     "the gate re-checks each one against en on every run. Four of the five had all nine packs already",
     "correct; search.placeholder had zh already correct and the other eight followed in that same PR.",
+    "The sixth, marketplace.searchPlaceholder (objectui#10969), has that search.placeholder shape: en",
+    "dropped the 'manifest ID' jargon, eight packs followed, and zh had already dropped it.",
     "",
     "designerWaivers is the SECOND section, for the metadata-admin designer table population added by",
     "objectui#8834 (packages/app-shell/src/views/metadata-admin/i18n.ts). Same shape, same expiry rule,",
@@ -60,6 +62,11 @@
       "en": "Search apps…",
       "reason": "Ellipsis convergence on U+2026 (objectstack#6015 consistency pass). All nine packs already ended this value with U+2026; en was the sole ASCII outlier, so no translation changes.",
       "issue": "objectui#3878"
+    },
+    "marketplace.searchPlaceholder": {
+      "en": "Search apps by name or app ID…",
+      "reason": "The 'manifest ID' jargon leaves the marketplace search placeholder (triage call on objectui#10969, item 5). Eight packs followed in this PR; zh already said '按名称或标识搜索应用…' (name or identifier) since objectui#10900 replaced the jargon there, so it had nothing to change.",
+      "issue": "objectui#10969"
     }
   },
 

@@ -1,29 +1,27 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * objectui#10900 — the environment Setup → marketplace breadcrumb reads
- * `Marketplace` from the packs.
+ * objectui#10969 — the console app's own `system/*` breadcrumb segments read
+ * from the packs, as objectui#10900 made the marketplace segment do.
  *
- * The 2026-09-28 cloud E2E, browser in zh-CN, read `系统 / Marketplace` on
- * `/apps/setup/system/marketplace`. The header builds a `system/*` breadcrumb
- * from `console.breadcrumb.system` plus the next URL segment put through
- * `humanizeSlug` — so the segment was the slug, capitalized, in every
- * language. `marketplace` is the one `system/*` page `AppContent` mounts
- * itself, so its segment now reads `console.breadcrumb.marketplace`.
+ * The header builds a `system/*` breadcrumb from `console.breadcrumb.system`
+ * plus the next URL segment. objectui#10900 gave `marketplace` (the one
+ * `system/*` page this shell mounts) a pack key; every other segment was the
+ * slug through `humanizeSlug` — `Settings`, `Apps`, `Profile`, `Approvals`,
+ * `Ai Approvals`, `Audit Log` — in every language. Those six are the console
+ * app's own `system/*` routes, and each now reads `console.breadcrumb.*`. A
+ * segment the header does not know still shows its humanized slug; that is the
+ * control, so a later route is visibly unnamed rather than silently wrong.
  *
- * The console app's own `system/*` pages (`system/audit-log`,
- * `system/settings`, …) read their segments from the packs since
- * objectui#10969; they are pinned in `AppHeader.systemBreadcrumbs-10969`.
- *
- * Harness: the sibling AppHeader suites' mocks, except `useObjectTranslation`,
- * which is real here under a real `I18nProvider` — the pack lookup is the
- * subject.
+ * Harness: `AppHeader.marketplaceBreadcrumb-10900`'s, verbatim — the sibling
+ * AppHeader suites' mocks, except `useObjectTranslation`, which is real here
+ * under a real `I18nProvider`, because the pack lookup is the subject.
  */
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 
-const route = vi.hoisted(() => ({ pathname: '/apps/setup/system/marketplace' }));
+const route = vi.hoisted(() => ({ pathname: '/apps/setup/system/settings' }));
 
 vi.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: route.pathname, search: '', hash: '', state: null, key: 't' }),
@@ -164,25 +162,40 @@ function renderAt(pathname: string, config: typeof ZH | typeof EN) {
   );
 }
 
-describe('AppHeader — the Setup → marketplace breadcrumb (objectui#10900)', () => {
-  it('zh: the segment after 系统 is Chinese', () => {
-    renderAt('/apps/setup/system/marketplace', ZH);
+const SEGMENTS = [
+  // [URL segment, zh pack value, en pack value]
+  ['settings', '设置', 'Settings'],
+  ['apps', '应用', 'Apps'],
+  ['profile', '个人资料', 'Profile'],
+  ['approvals', '审批', 'Approvals'],
+  ['ai-approvals', 'AI 审批', 'AI Approvals'],
+  ['audit-log', '审计日志', 'Audit Log'],
+] as const;
+
+describe('AppHeader — the console app\'s system/* breadcrumbs (objectui#10969)', () => {
+  it.each(SEGMENTS)('zh: system/%s reads %s after 系统', (segment, zh, en) => {
+    renderAt(`/apps/setup/system/${segment}`, ZH);
     // The last segment is drawn twice — the desktop trail and the compact
     // mobile title — so both copies are counted.
     expect(screen.getByText('系统')).toBeInTheDocument();
-    expect(screen.getAllByText('应用市场').length).toBeGreaterThan(0);
-    expect(screen.queryAllByText('Marketplace')).toHaveLength(0);
+    expect(screen.getAllByText(zh).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(en)).toHaveLength(0);
   });
 
-  it('en: the segment is unchanged English', () => {
-    renderAt('/apps/setup/system/marketplace', EN);
+  it.each(SEGMENTS)('en: system/%s reads the en pack value', (segment, _zh, en) => {
+    renderAt(`/apps/setup/system/${segment}`, EN);
     expect(screen.getByText('System')).toBeInTheDocument();
-    expect(screen.getAllByText('Marketplace').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(en).length).toBeGreaterThan(0);
   });
 
-  it('zh: a package page under the marketplace keeps the marketplace segment', () => {
-    renderAt('/apps/setup/system/marketplace/com.acme.crm', ZH);
-    expect(screen.getAllByText('应用市场').length).toBeGreaterThan(0);
-    expect(screen.queryAllByText('Marketplace')).toHaveLength(0);
+  it('zh: a settings namespace page keeps the settings segment', () => {
+    renderAt('/apps/setup/system/settings/mail', ZH);
+    expect(screen.getAllByText('设置').length).toBeGreaterThan(0);
+    expect(screen.queryAllByText('Settings')).toHaveLength(0);
+  });
+
+  it('a system/* segment the header does not know still shows its humanized slug', () => {
+    renderAt('/apps/setup/system/some-host-page', ZH);
+    expect(screen.getAllByText('Some Host Page').length).toBeGreaterThan(0);
   });
 });

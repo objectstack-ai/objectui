@@ -314,10 +314,16 @@ What to write instead:
 - **A notice** — `successMessage` / `errorMessage`, plain strings (the runner
   surfaces `successMessage` as a toast after a successful action). The runner
   shows `successMessage` as written. Without one, and without a message from
-  the server, it falls back to a generic "Action completed successfully",
-  which is the one toast text it translates: `<ActionProvider>` and
-  `useActionRunner` install the session's translator on their runner, and a
-  runner you build yourself takes one through `runner.setTranslator(t)`.
+  the server, it falls back to a generic "Action completed successfully".
+  That fallback is text the runner writes itself, and so are the "Action
+  failed" error toast for an error with no readable message, a parallel
+  chain's "One or more parallel actions failed", and the label it hands your
+  toast handler for an undoable success toast's Undo button
+  (`options.undo.label`). Those are the strings it translates; an author's
+  `successMessage` / `errorMessage` and a server message are never
+  translated. `<ActionProvider>` and `useActionRunner` install the session's
+  translator on their runner, and a runner you build yourself takes one
+  through `runner.setTranslator(t)`.
 - **Post-success navigation** — the spec's `onSuccess` block, `{ navigate, openIn }`,
   declared on `UIActionSchema` and forwarded to the runner (objectui#5934). It is
   a spec key, not a member of this legacy type, so it is not shown in a fence here.

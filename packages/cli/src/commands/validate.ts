@@ -10,9 +10,9 @@ import chalk from 'chalk';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 import { load as loadYaml } from 'js-yaml';
-import { safeValidateSchema } from '@object-ui/types/zod';
+import { describeUndeclaredKey, validateAuthoredDocument } from '../utils/authoring-face.js';
 import { findSpecVocabularyFormFields } from '../utils/spec-vocabulary-hint.js';
-import { explainUnionIssue } from '../utils/union-arm-diagnostics.js';
+import { explainUnionIssue, findUndeclaredKeys } from '../utils/union-arm-diagnostics.js';
 import { formatIssuePath } from '../utils/issue-path.js';
 
 /**
@@ -55,9 +55,11 @@ export async function validate(schemaPath: string) {
       }
     }
 
-    // Validate the schema
+    // Validate the schema — through the STRICT authoring face (objectui#5250):
+    // a key no schema declares is refused, at any depth. The door is shared
+    // with `objectui check`; see `../utils/authoring-face.ts`.
     console.log(chalk.gray('Validating schema...\n'));
-    const result = safeValidateSchema(schema);
+    const result = validateAuthoredDocument(schema);
 
     if (result.success) {
       console.log(chalk.green('✓ Schema is valid!\n'));
@@ -136,7 +138,9 @@ export async function validate(schemaPath: string) {
       // in `../utils/union-arm-diagnostics.js`; this file only prints, and it
       // is the CLI's full zod-issue printer. `objectui check` prints one line
       // per file that did not validate — that file's first issue, through the
-      // same path formatter — and sends the reader here for the rest.
+      // same path formatter — plus the undeclared-key lines printed below (the
+      // same reader and wording, objectui#5250), and sends the reader here for
+      // the rest.
       result.error.issues.forEach((issue, index) => {
         console.error(chalk.red(`\n${index + 1}. ${issue.message}`));
         console.error(chalk.gray(`   Path: ${formatIssuePath(issue.path)}`));
@@ -185,6 +189,31 @@ export async function validate(schemaPath: string) {
           }
         });
       });
+
+      // Every undeclared key, named with its path and what to do (objectui#5250).
+      // The issue list above already carries each one — but below a child slot
+      // only inside an arm's diagnosis, under an `Invalid input` that names no
+      // key, and nowhere with a prescription. This block is the loud form, and
+      // it is read off the same issues rather than a second parse.
+      const undeclared = findUndeclaredKeys(result.error.issues);
+      if (undeclared.length > 0) {
+        console.error(chalk.bold('\nUndeclared keys — the strict authoring face refuses them:'));
+        for (const finding of undeclared) {
+          console.error(chalk.yellow(`   ${describeUndeclaredKey(finding, schema)}`));
+        }
+      }
+
+      // A mixed-vocabulary entry validated under the tolerant face and got the
+      // warning in the success branch above (#3090). The strict face refuses its
+      // `field` key as undeclared, so the same entry now lands HERE — keep the
+      // explanation with it rather than leave that warning unreachable.
+      const mixedHere = findSpecVocabularyFormFields(schema).filter((f) => f.mixedName);
+      for (const m of mixedHere) {
+        console.error(chalk.yellow(
+          `   ${m.path}: '${m.mixedName}' also carries { field: '${m.field}' } — mixed form-field ` +
+          `vocabularies. The renderer ignores \`field\` here; drop one of the two.`,
+        ));
+      }
 
       // "name: expected string, received undefined" on a `{ field: … }` entry
       // reads as an instruction to bolt a `name` on — which converts the

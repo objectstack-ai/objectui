@@ -32,7 +32,11 @@
  *     the declared input wins, `type-mismatch` included;
  *   - MEMBER 3: the generated `.d.ts`, compiled by `tsc`, accepts the base
  *     props on a type that declares none of them, refuses a near-miss, and
- *     lets a declared input's type win without a TS2430 conflict.
+ *     lets a declared input's type win without a TS2430 conflict — for an
+ *     `'every-node'` member too (objectui#11075): `notice` declares `visible`
+ *     wider than the base `boolean`, as `record:alert` does in the live
+ *     registry. The real public manifest's half is
+ *     `apps/console/src/__tests__/sdui-intrinsics-compile-11075.test.ts`.
  */
 import { describe, expect, it } from 'vitest';
 import ts from 'typescript';
@@ -44,7 +48,10 @@ import type { Diagnostic, SchemaElement } from '../types.js';
  * any `'every-node'` member added here. `field` declares every
  * `'where-undeclared'` member as a typed input — the input-family shape — and
  * two of them with a type the base one does not admit (`label` takes any
- * object, `data` only an array).
+ * object, `data` only an array). `notice` declares three `'every-node'`
+ * members (objectui#11075): `visible` with the three arms `record:alert`
+ * declares, which the base `boolean` does not admit, and `disabled` /
+ * `className` with the base type; its `children` input is a slot.
  */
 const manifest = manifestFromConfigs([
   { type: 'leaf', namespace: 'ui', inputs: [{ name: 'content', type: 'string' }] },
@@ -66,6 +73,17 @@ const manifest = manifestFromConfigs([
     inputs: [
       { name: 'title', type: 'string' },
       { name: 'items', type: 'array' },
+    ],
+  },
+  {
+    type: 'notice',
+    namespace: 'ui',
+    inputs: [
+      { name: 'message', type: 'string' },
+      { name: 'visible', type: ['boolean', 'string', 'object'] },
+      { name: 'disabled', type: 'boolean' },
+      { name: 'className', type: 'string' },
+      { name: 'children', type: 'slot' },
     ],
   },
 ] as unknown as Parameters<typeof manifestFromConfigs>[0]);
@@ -174,6 +192,11 @@ const TSX_CASES: ReadonlyArray<{ what: string; code: string; rejected: boolean }
   { what: 'a declared `data` array', rejected: false, code: `export const c8 = <field data={['a']} />;` },
   { what: 'the declared `data` type wins over the base one', rejected: true, code: `export const c9 = <field data={{ a: 1 }} />;` },
   { what: 'the base `data` type where undeclared', rejected: false, code: `export const c10 = <list data={{ a: 1 }} />;` },
+  { what: 'objectui#11075: a declared `visible` takes a string', rejected: false, code: `export const c11 = <notice visible="data.open" />;` },
+  { what: 'objectui#11075: a declared `visible` takes an envelope', rejected: false, code: `export const c12 = <notice visible={{ dialect: 'cel', source: 'data.open' }} />;` },
+  { what: 'objectui#11075: a declared `visible` still judges the value', rejected: true, code: `export const c13 = <notice visible={1} />;` },
+  { what: 'objectui#11075 control: the base `visible` stays `boolean` where undeclared', rejected: true, code: `export const c14 = <list visible="data.open" />;` },
+  { what: 'objectui#11075: a declared `slot` keeps the base `children`', rejected: false, code: `export const c15 = <notice className="p-2" disabled={false}><list /></notice>;` },
 ];
 
 /** `tsc` over the generated `.d.ts` plus one page, in memory. */
@@ -221,6 +244,16 @@ describe('objectui#11044 member 3 — the generated JSX types read the same list
       'export interface FieldProps extends Omit<SduiBaseProps, "name" | "label" | "description" | "placeholder" | "data" | "ariaLabel"> {',
     );
     expect(generateDts(manifest)).toContain('export interface ListProps extends SduiBaseProps {');
+  });
+
+  it('objectui#11075: every declared `every-node` attribute is `Omit`ted, in declaration order, and the base is unmoved', () => {
+    const dts = generateDts(manifest);
+    // `children` is declared too, but as a slot: no attribute, so no `Omit`.
+    expect(dts).toContain('export interface NoticeProps extends Omit<SduiBaseProps, "visible" | "disabled" | "className"> {');
+    expect(dts).toContain('  visible?: boolean | string | Record<string, unknown>;');
+    const base = dts.match(/export interface SduiBaseProps \{\n([\s\S]*?)\n\}\n/)?.[1].split('\n') ?? [];
+    expect(base).toContain('  visible?: boolean;');
+    expect(base).toContain('  children?: unknown;');
   });
 
   it.each(TSX_CASES.map((c, line) => [c.what, c.rejected, line] as const))(

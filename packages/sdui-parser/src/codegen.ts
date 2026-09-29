@@ -24,10 +24,12 @@ const emitBaseProps = (): string =>
     .map((prop) => `  ${prop.name}?: ${prop.tsType};`)
     .join('\n')}\n}`;
 
-/** The base props a declared input of the same name outranks (`'where-undeclared'`). */
-const YIELDING_BASE_PROPS = new Set(
-  SDUI_BASE_PROPS.filter((prop) => prop.scope === 'where-undeclared').map((prop) => prop.name),
-);
+/**
+ * The attributes `SduiBaseProps` carries — every entry of the list but `type`,
+ * whatever its scope. A declared input of the same name outranks each of them
+ * in the generated types (objectui#11044, objectui#11075).
+ */
+const BASE_ATTRIBUTES = new Set(SDUI_BASE_PROPS.filter((prop) => prop.tsType !== null).map((prop) => prop.name));
 
 export interface CodegenOptions {
   /** include a self-contained minimal JSX namespace so the d.ts type-checks
@@ -81,15 +83,28 @@ export {};
  * union like `['slot', 'string']` would have passed while `tsType` fell through
  * to the default and typed it `string` anyway.
  *
- * A `'where-undeclared'` base prop the component declares is `Omit`ted from
- * the base it extends (objectui#11044): the declared input wins, as it does in
- * `validateTree`, and a declared type the base one does not admit
- * (`label?: string | Record<string, unknown>`) is not a TS2430 conflict.
+ * A base attribute the component declares is `Omit`ted from the base it
+ * extends, whatever its scope: the declared input wins with its type. So a
+ * declared type the base one does not admit is no TS2430 conflict — neither
+ * `label?: string | Record<string, unknown>` on a `'where-undeclared'` member
+ * (objectui#11044) nor `record:alert`'s
+ * `visible?: boolean | string | Record<string, unknown>` on an `'every-node'`
+ * one (objectui#11075) — and one the base admits (`className?: string`) types
+ * the same either way.
+ *
+ * The scope is the VALIDATOR's distinction — `validateTree` skips an
+ * `'every-node'` key before the declared-input lookup — and does not reach this
+ * surface. ⛔ Every declared base attribute is `Omit`ted, not only the ones
+ * whose types conflict: assignability is TypeScript's judgement, and a
+ * conflicts-only rule here would re-derive it from type strings.
+ *
+ * A slot-only input emits no attribute, so a declared `children: 'slot'` is
+ * not `Omit`ted and the base `children` stays.
  */
 function emitInterface(comp: ManifestComponent): string {
   const emitted = comp.inputs.filter((i) => valueArms(i).length > 0);
   const lines = emitted.map((i) => `  ${propLine(i)}`).join('\n');
-  const yielded = emitted.filter((i) => YIELDING_BASE_PROPS.has(i.name)).map((i) => JSON.stringify(i.name));
+  const yielded = emitted.filter((i) => BASE_ATTRIBUTES.has(i.name)).map((i) => JSON.stringify(i.name));
   const base = yielded.length > 0 ? `Omit<SduiBaseProps, ${yielded.join(' | ')}>` : 'SduiBaseProps';
   return `export interface ${propsName(comp.type)} extends ${base} {\n${lines}\n}`;
 }

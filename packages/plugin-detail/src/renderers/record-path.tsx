@@ -54,6 +54,7 @@
 
 import React from 'react';
 import { useRecordContext, useSafeFieldLabel } from '@object-ui/react';
+import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import type { RecordPathComponentProps } from '@object-ui/types';
 import { cn } from '@object-ui/components';
 import { useDetailTranslation } from '../useDetailTranslation';
@@ -65,6 +66,44 @@ const splitDesigner = (props: Record<string, any>) => {
 };
 
 type StageState = 'completed' | 'current' | 'upcoming';
+
+type PathStage = { value: unknown; label: string; terminal?: 'won' | 'lost' };
+
+/**
+ * `stages[].label` is an `I18nLabel` in the spec row
+ * (`ComponentPropsMap['record:path']`): a plain string or an inline per-locale
+ * map, and the row accepts the map (objectui#10993). This block read the member
+ * raw, as the stage's visible text node and as the `stage` value of its
+ * composed accessible name, so a map threw "Objects are not valid as a React
+ * child" and the node rendered `Component "record:path" failed to render`.
+ *
+ * Resolved HERE, before anything reads a stage, for the reason `object-form`'s
+ * labels are resolved above its `formType` fork: every later read wants the
+ * text. That is three reads, not two: the picklist translation below keeps the
+ * authored label as its fallback, and `classify()` probes `value + label` for
+ * its won/lost tokens, so a map left raw there would probe `[object Object]`
+ * and a lost stage authored as a map would stop reading as lost.
+ *
+ * `pickLocalized` against `useObjectTranslation().language`, the UI language:
+ * the source this package's other visible `record:*` labels resolve against
+ * (`record:related_list.title`, `record:alert.title`), and the language the
+ * composed accessible name's state words come from, so one name never mixes
+ * two languages. Only the map arm is touched: a string, or any other value, is
+ * handed on as authored, and the input is returned untouched when no stage
+ * carries a map.
+ */
+function localizeStageLabels(stages: unknown, language: string): PathStage[] {
+  if (!Array.isArray(stages)) return [];
+  let out: PathStage[] | null = null;
+  for (let idx = 0; idx < stages.length; idx++) {
+    const stage = stages[idx];
+    const label: unknown = stage?.label;
+    if (label === null || typeof label !== 'object') continue;
+    out ??= [...stages];
+    out[idx] = { ...stage, label: pickLocalized(label, language) };
+  }
+  return out ?? (stages as PathStage[]);
+}
 
 export interface RecordPathRendererProps {
   schema?: RecordPathComponentProps & Record<string, any>;
@@ -109,15 +148,19 @@ export const RecordPathRenderer: React.FC<RecordPathRendererProps> = ({
     block: 'record:path',
   });
 
-  const rawStages: Array<{ value: any; label: string; terminal?: 'won' | 'lost' }> = Array.isArray(schema.stages)
-    ? (schema.stages as any)
-    : [];
+  // The UI language `stages[].label` resolves against — see
+  // `localizeStageLabels` (objectui#10993).
+  const { language } = useObjectTranslation();
+  const rawStages: PathStage[] = React.useMemo(
+    () => localizeStageLabels(schema.stages, language),
+    [schema.stages, language],
+  );
   const statusField: string | undefined = schema.statusField;
   // Localize picklist labels when an i18n provider is mounted and the
   // record context knows which object owns the field. Falls back to the
   // schema's own labels (already English in synth, possibly authored in
   // any language for full Lightning pages) when no translation is found.
-  const stages: Array<{ value: any; label: string; terminal?: 'won' | 'lost' }> = React.useMemo(() => {
+  const stages: PathStage[] = React.useMemo(() => {
     if (rawStages.length === 0 || !statusField || !ctx?.objectName) return rawStages;
     const translated = translateOptions(ctx.objectName, statusField, rawStages as any);
     if (Array.isArray(translated) && translated.length === rawStages.length) {

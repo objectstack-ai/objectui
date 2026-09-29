@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -62,7 +62,11 @@ function run(args: string[]): { status: number | null; stdout: string; stderr: s
   return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
 }
 
-/** A throwaway tree; the caller gets an absolute root and cleans up. */
+/**
+ * A throwaway tree; the caller gets an absolute root and cleans up. It is a git
+ * repository with every file force-added (past any ignore file) and nothing
+ * committed, because the corpus is what git tracks (objectui#11040).
+ */
 function fixture(files: Record<string, string>): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'corpus-test-'));
   for (const [rel, contents] of Object.entries(files)) {
@@ -70,6 +74,8 @@ function fixture(files: Record<string, string>): string {
     fs.mkdirSync(path.dirname(full), { recursive: true });
     fs.writeFileSync(full, contents, 'utf8');
   }
+  execFileSync('git', ['init', '-q'], { cwd: root, stdio: 'pipe' });
+  execFileSync('git', ['add', '-A', '-f'], { cwd: root, stdio: 'pipe' });
   return root;
 }
 
@@ -294,6 +300,40 @@ describe('check-comment-mask-corpus — the walk', () => {
       const flagEverything = (s: string) => ({ comment: new Uint8Array(s.length).fill(1) });
       expect(compareFile(path.join(root, 'dist', 'probe.tsx'), same, { scan: flagEverything, parse }).overMasks)
         .toBeGreaterThan(0);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('collects only TRACKED files: an untracked build temp file beside a tracked source is not listed', () => {
+    // objectui#11040. tsup writes `tsup.config.bundled_*.mjs` mid-build and
+    // deletes it; a walk of the working tree listed it and the read threw.
+    const root = fixture({ 'packages/cli/tsup.config.ts': 'export default {};\n' });
+    try {
+      fs.writeFileSync(path.join(root, 'packages', 'cli', 'tsup.config.bundled_x1.mjs'), 'export default {};\n', 'utf8');
+      const collected = collectSources(root).map((file: string) => path.relative(root, file));
+      expect(collected).toEqual([path.join('packages', 'cli', 'tsup.config.ts')]);
+      // The control: the same file, once added, IS listed.
+      execFileSync('git', ['add', '-f', '--', path.join('packages', 'cli', 'tsup.config.bundled_x1.mjs')], {
+        cwd: root,
+        stdio: 'pipe',
+      });
+      expect(collectSources(root)).toHaveLength(2);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('a path listed and then deleted before the read is absent in the sweep, not thrown on', () => {
+    const root = fixture({ 'src/kept.ts': '// a comment\nconst a = 1;\n', 'src/gone.ts': '// a comment\nconst b = 2;\n' });
+    try {
+      const listed = collectSources(root);
+      expect(listed).toHaveLength(2);
+      fs.rmSync(path.join(root, 'src', 'gone.ts'));
+      const result = sweep({ root, files: listed, parse, scan: flagNothing });
+      expect(result.absent).toEqual([path.join('src', 'gone.ts')]);
+      // Only the file that was read is judged.
+      expect(result.disagreements.map((row: { file: string }) => row.file)).toEqual([path.join('src', 'kept.ts')]);
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }

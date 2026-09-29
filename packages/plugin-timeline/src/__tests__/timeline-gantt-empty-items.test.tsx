@@ -40,6 +40,10 @@
  *      `NaN`, which the CSSOM rejects, leaving the bar with NO `style`
  *      attribute at all. Pin 5b holds that. Not reachable from the empty case
  *      (no rows means no bars), which is exactly why it needs its own pin.
+ *      Since objectui#11079 the bars are measured on the axis the headers
+ *      draw, which always spans at least one whole unit, so the zero-wide span
+ *      is gone rather than guarded; pin 5b still holds that the geometry is
+ *      real.
  *
  * ## What is deliberately NOT here
  *
@@ -212,8 +216,9 @@ describe('pin 3 — an author-pinned range survives the sentinel (objectui#6750)
 });
 
 /**
- * The catalog fixture's shape, trimmed. Its rendered output below is the
- * BASELINE captured on b76ca6764 before any change — this pin is what catches a
+ * The catalog fixture's shape, trimmed. Its axis below is the BASELINE
+ * captured on b76ca6764 before any change, and its bars are that baseline
+ * re-derived on the one axis (objectui#11079) — this pin is what catches a
  * sentinel or a degenerate-range guard leaking into the normal path.
  */
 const GANTT_ROWS = [
@@ -232,8 +237,8 @@ const GANTT_ROWS = [
   },
 ];
 
-describe('pin 4 — a NON-empty gantt is byte-for-byte unchanged (objectui#6750)', () => {
-  it('draws the same axis and the same bar geometry as before the guards', () => {
+describe('pin 4 — a NON-empty gantt is untouched by the empty-state guards (objectui#6750)', () => {
+  it('draws the same axis as before the guards, and the bar geometry of the one axis', () => {
     const { container } = render(
       <TimelineRenderer
         schema={{ type: 'timeline', variant: 'gantt', scale: 'month', items: GANTT_ROWS } as any}
@@ -244,17 +249,18 @@ describe('pin 4 — a NON-empty gantt is byte-for-byte unchanged (objectui#6750)
     //   PROBE-C axis: ["Jan 2024","Feb 2024","Mar 2024"]
     expect(axisOf(container)).toEqual(['Jan 2024', 'Feb 2024', 'Mar 2024']);
 
-    // Captured on b76ca6764 with the pre-fix code:
-    //   PROBE-C bars: ["left: 0%; width: 33.33333333333333%;",
-    //                  "left: 34.44444444444444%; width: 65.55555555555556%;",
-    //                  "left: 15.555555555555555%; width: 34.44444444444444%;"]
+    // Re-derived by objectui#11079 from the one axis the headers draw:
+    // January 1st to the end of March 2024, 31 + 29 + 31 = 91 days (the
+    // b76ca6764 baseline measured the bars on the 90 days from January 1st to
+    // March 31st). API Design is 30 days from day 0, Implementation 59 days
+    // from day 31, and UI Design 31 days from day 14.
     // The full float spelling on purpose: a guard that rounded, clamped or
     // short-circuited the normal arithmetic would still pass a tolerance
     // assertion and fail this one.
     expect(barStylesOf(container)).toEqual([
-      'left: 0%; width: 33.33333333333333%;',
-      'left: 34.44444444444444%; width: 65.55555555555556%;',
-      'left: 15.555555555555555%; width: 34.44444444444444%;',
+      'left: 0%; width: 32.967032967032964%;',
+      'left: 34.065934065934066%; width: 64.83516483516483%;',
+      'left: 15.384615384615385%; width: 34.065934065934066%;',
     ]);
 
     expect(rowLabelsOf(container)).toEqual(['Backend Development', 'Frontend Development']);
@@ -290,13 +296,19 @@ describe('pin 5a — `generateTimeScaleHeaders` on the degenerate range (objectu
   });
 });
 
-describe('pin 5b — `calculateBarDimensions` on a degenerate axis (objectui#6750)', () => {
-  it('a same-day task gets a real bar instead of `NaN` geometry', () => {
+describe('pin 5b — `calculateBarDimensions` on a degenerate range (objectui#6750)', () => {
+  it('a same-day task gets real geometry instead of `NaN`', () => {
     // `totalDuration === 0`, so both divisions were `0 / 0`. Measured on
     // b76ca6764: the bar element carried NO `style` attribute at all, because
     // the CSSOM rejects `left: NaN%` and `width: NaN%` — an invisible failure,
     // not a crash. This case is NOT reachable from the empty gantt (no rows
     // means no bars), which is why it has its own pin.
+    //
+    // Re-derived by objectui#11079: the bar is measured on the axis the header
+    // draws, May 2024, 31 days, so the span is never zero. A task that starts
+    // and ends at the same instant is a zero-width bar at that instant, as it
+    // already was on any plan with two distinct dates; the `left: 0%; width:
+    // 100%` it used to get was the zero-wide span's special case.
     const SAME_DAY = [
       { label: 'One Day', items: [{ title: 'Kickoff', startDate: '2024-05-01', endDate: '2024-05-01' }] },
     ];
@@ -304,16 +316,19 @@ describe('pin 5b — `calculateBarDimensions` on a degenerate axis (objectui#675
       <TimelineRenderer schema={{ type: 'timeline', variant: 'gantt', items: SAME_DAY } as any} />,
     );
 
-    expect(barStylesOf(container)).toEqual(['left: 0%; width: 100%;']);
+    expect(barStylesOf(container)).toEqual(['left: 0%; width: 0%;']);
     // The axis is still real, and still one bucket wide.
     expect(axisOf(container)).toEqual(['May 2024']);
   });
 
-  it('an author pinning `minDate === maxDate` reaches the same guard', () => {
-    // The second way to a zero-width axis, and the one an author can trip
-    // without any same-day task: the pinned range wins at the call site, so
-    // `calculateBarDimensions` gets `totalDuration === 0` even though the rows
-    // span a real interval.
+  it('an author pinning `minDate === maxDate` gets real geometry too', () => {
+    // The second way to a degenerate range, and the one an author can trip
+    // without any same-day task: the pinned range wins at the call site even
+    // though the rows span a real interval. Re-derived by objectui#11079: the
+    // axis is the one unit the pin falls in, February 2024, 29 days, and UI
+    // Design (January 15th to February 15th, 31 days) starts 17 days before
+    // it, so it overhangs the pinned range as any bar outside a pinned range
+    // does.
     const { container } = render(
       <TimelineRenderer
         schema={
@@ -328,7 +343,8 @@ describe('pin 5b — `calculateBarDimensions` on a degenerate axis (objectui#675
       />,
     );
 
-    expect(barStylesOf(container)).toEqual(['left: 0%; width: 100%;']);
+    expect(barStylesOf(container)).toEqual(['left: -58.620689655172406%; width: 106.89655172413792%;']);
+    expect(axisOf(container)).toEqual(['Feb 2024']);
   });
 });
 

@@ -21,17 +21,54 @@
  *      `<ObjectForm>`, `MasterDetailForm.tsx`), so THIS one is measured here.
  *
  * Result: route 1 covers both for free. `MasterDetailForm`'s `parentSchema`
- * carries `fields: schema.fields` straight through with no `sections`
- * (`fields` is documented as ignored once `sections` is given), so
- * `ObjectForm`'s formType routing (`ObjectForm.tsx`, the `schema.sections?.length`
- * guards on every sectioned branch) falls through to `SimpleObjectForm` — the
- * exact read site route 1 patches — regardless of the master-detail
- * `formType` ('simple' | 'tabbed'). ⇒ #8847's remaining work for both
- * surfaces is documentation only (see the `description` added in `index.tsx`).
+ * carries `fields: schema.fields` straight through, and with no `sections`
+ * authored (the case these rows mount) `ObjectForm`'s formType routing
+ * (`ObjectForm.tsx`, the `schema.sections?.length` guards on every sectioned
+ * branch) falls through to `SimpleObjectForm` — the exact read site route 1
+ * patches — regardless of the master-detail `formType` ('simple' | 'tabbed').
+ * ⇒ #8847's remaining work for both surfaces is documentation only (see the
+ * `description` added in `index.tsx`).
+ *
+ * ⚠️ This paragraph used to give a reason in brackets: that `fields` is
+ * documented as ignored once `sections` is given. objectui#9884 corrected that
+ * declaration. The two keys INTERSECT, and the registration now says so. The
+ * intersection is pinned by `masterDetailSectionMembers-8071.test.tsx`, so this
+ * file does not re-pin it.
+ *
+ * ## Promoted to the member pin for `object-master-detail-form.fields`
+ *
+ * ⭐ objectui#8071 slice 18 registered this file as the key's member pin. It was
+ * read end to end first. Its two rows already pin the sharpest member fact:
+ * the spec `FormFieldSchema` object, which is legal in `sections[].fields`,
+ * resolves to no name here, draws a named warning and does not render. What
+ * they never stated is what a legal member IS, so the file was GROWN by the
+ * rows in the `MEMBER-PIN rows` block below:
+ *
+ *   - a member is a bare PARENT field name, drawn in AUTHORED order. The
+ *     control is the no-`fields` form, whose order is the object's;
+ *   - a name the parent object does not declare is dropped, not drawn as an
+ *     untyped stub. A DETAIL column name is the case this composition invites,
+ *     because one node declares two field vocabularies. It renders nothing in
+ *     the parent, while the line grid keeps that column;
+ *   - `{ name }` is tolerated as the same member as the bare name;
+ *   - ⚠️ the key bounds what is DRAWN, not what the PARENT leg of the atomic
+ *     batch WRITES: a seeded parent field it does not list is still written.
+ *     That is pinned as behaviour and handed back, not changed here, because
+ *     the registration's description calls this key the parent pool for "the
+ *     submitted set". Changing it is a decision about the renderer or the
+ *     declaration, and this card writes pins only.
+ *
+ * `MasterDetailForm` reads none of this itself. The `parentSchema` memo copies
+ * `fields` onto an `object-form`-shaped node rendered through a DIRECTLY
+ * imported `<ObjectForm>`. That hand-written carrier is why the pin is taken at
+ * THIS block and not left to `object-form.fields`: dropping `fields:` from the
+ * memo leaves the sibling's pin green. The spec row is `z.array(z.unknown())`
+ * and the registration declares no `of`, so the read site is the whole member
+ * contract.
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { registerAllFields } from '@object-ui/fields';
 import { MasterDetailForm } from '../MasterDetailForm';
@@ -133,5 +170,108 @@ describe('object-master-detail-form parent `fields` inherits route 1 for free (o
     } finally {
       warn.mockRestore();
     }
+  });
+});
+
+// ── the MEMBER-PIN rows (objectui#8071 slice 18) ───────────────────────────
+//
+// See the docblock. Every row mounts the same parent object with a third
+// field, so an order and a subset are both observable.
+
+const MEMBER_PARENT = {
+  name: 'invoice',
+  fields: {
+    status: { type: 'text', label: 'Status' },
+    note: { type: 'text', label: 'Note' },
+    memo: { type: 'text', label: 'Memo' },
+  },
+};
+
+const MEMBER_DETAILS = [
+  {
+    childObject: 'invoice_line',
+    relationshipField: 'invoice',
+    title: 'Lines',
+    columns: [{ name: 'qty', label: 'Qty', type: 'number' }],
+  },
+];
+
+function makeMemberDataSource() {
+  return {
+    getObjectSchema: vi.fn(async (name: string) =>
+      name === 'invoice'
+        ? MEMBER_PARENT
+        : { name, fields: { invoice: { type: 'master_detail', reference: 'invoice' }, qty: { type: 'number' } } },
+    ),
+    find: vi.fn().mockResolvedValue({ data: [] }),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    bulk: vi.fn(),
+    batchTransaction: vi.fn().mockResolvedValue({ results: [{ id: 'inv1' }] }),
+  } as any;
+}
+
+async function mountMembers(schema: Record<string, unknown>, dataSource = makeMemberDataSource()) {
+  const view = render(
+    <MasterDetailForm
+      schema={{ objectName: 'invoice', mode: 'create', details: MEMBER_DETAILS, ...schema } as any}
+      dataSource={dataSource}
+    />,
+  );
+  // Every row keeps at least one legal parent member, so a drawn control is
+  // the ready signal.
+  await waitFor(() => {
+    if (!view.container.querySelector('form [data-field]')) throw new Error('parent form not ready');
+  });
+  return { ...view, dataSource };
+}
+
+/** The PARENT controls, in the order the form draws them. */
+const parentFields = (container: HTMLElement) =>
+  Array.from(container.querySelectorAll('form [data-field]')).map((el) => el.getAttribute('data-field'));
+
+describe('object-master-detail-form `fields` — the member shape (objectui#8071 slice 18)', () => {
+  it('a member is a bare PARENT field name, drawn in AUTHORED order', async () => {
+    const { container } = await mountMembers({ fields: ['memo', 'status'] });
+    expect(parentFields(container)).toEqual(['memo', 'status']);
+  });
+
+  it('control: with no `fields` the parent draws every field, in the OBJECT’s order', async () => {
+    const { container } = await mountMembers({});
+    expect(parentFields(container)).toEqual(['status', 'note', 'memo']);
+  });
+
+  it('a name the parent does not declare is dropped — a DETAIL column name included — while the line grid keeps its column', async () => {
+    const { container } = await mountMembers({ fields: ['qty', 'status', 'nowhere'] });
+    expect(parentFields(container), 'no untyped stub for either name').toEqual(['status']);
+    expect(
+      screen.getAllByLabelText('Qty').length,
+      'the detail vocabulary is untouched by the parent key',
+    ).toBeGreaterThan(0);
+  });
+
+  it('`{ name }` is tolerated as the same member as the bare name', async () => {
+    const { container } = await mountMembers({ fields: [{ name: 'note' }, 'status'] });
+    expect(parentFields(container)).toEqual(['note', 'status']);
+  });
+
+  it('the key bounds what is DRAWN, not what the parent leg WRITES: a seeded field it does not list is still written', async () => {
+    const { container, dataSource } = await mountMembers({
+      fields: ['status'],
+      // `memo` is a real parent field, seeded but NOT listed in `fields`.
+      initialValues: { status: 'draft', memo: 'seeded' },
+    });
+    expect(parentFields(container), 'the unlisted field is not drawn').toEqual(['status']);
+    fireEvent.click(screen.getByRole('button', { name: /^create$/i }));
+    await waitFor(() => expect(dataSource.batchTransaction).toHaveBeenCalledTimes(1));
+    const ops = dataSource.batchTransaction.mock.calls[0][0] as Array<Record<string, any>>;
+    expect(ops).toHaveLength(1);
+    expect(ops[0]).toMatchObject({ object: 'invoice', action: 'create' });
+    // Pinned as BEHAVIOUR and handed back rather than changed here: the
+    // registration's `fields` description calls this key the parent pool for
+    // "the submitted set", and a seeded field outside it is written all the
+    // same. Hiding a field with `fields` does not stop its seed being saved.
+    expect(ops[0].data).toEqual({ status: 'draft', memo: 'seeded' });
   });
 });

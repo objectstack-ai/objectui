@@ -239,7 +239,21 @@ const GRID_QUERY_INPUTS: ComponentInput[] = [
   { name: 'columns', type: 'array', description: 'Columns to show, either field names (`["name", "email"]`) or column objects (`[{ field: "name", label: "Full Name", width: 200 }]`). The canonical spelling — the deprecated `fields` is only read when this is absent.' },
   { name: 'filter', type: 'array', description: 'Filter criteria in JSON-rules form. The canonical spelling — the deprecated `defaultFilters` is only read when this is absent.' },
   // ── identity ──────────────────────────────────────────────────────────────
-  { name: 'label', type: 'string', description: 'Grid label, used as the table caption and as the export file title. The canonical spelling — the deprecated `title` is only read when this is absent.' },
+  // `label` is an `I18nLabel` in the spec row (`ComponentPropsMap['object-grid']`),
+  // and every read of it in `ObjectGrid` (the table caption, the export title,
+  // the record-detail overlay heading) resolves a map with the spec's
+  // `resolveI18nLabel` against `useDisplayLocale()`. So both arms are declared,
+  // as `ComponentInput.type` prescribes for a key whose render site resolves the
+  // map: a `'string'`-only declaration made the manifest gate report
+  // `type-mismatch` on a legal map (objectui#10993). The render is pinned by
+  // `ObjectGrid.labelI18nLabel-10993.test.tsx`, the manifest by the console's
+  // `i18nLabelInputsManifest-10993.test.ts`.
+  {
+    name: 'label',
+    type: ['string', 'object'],
+    description:
+      'Grid label, used as the table caption, as the export file title and in the record-detail overlay heading. The canonical spelling — the deprecated `title` is only read when this is absent. Accepts either a plain string or an inline per-locale map (`{ en: "Accounts", "zh-CN": "客户" }`) — the `I18nLabel` union the contract admits on this key — and the grid resolves the map against the display locale (the workspace\'s regional default when one is configured, otherwise the active UI language), falling back through base language, a region-qualified sibling, `default`, then `en`, and finally to any remaining entry.',
+  },
   // ── query shaping ─────────────────────────────────────────────────────────
   { name: 'sort', type: 'array', description: 'Initial sort order, `[{ field, order }]`. The only sort spelling this block reads — the retired single-sort `defaultSort` is refused by the protocol and ignored by the renderer.' },
   { name: 'pagination', type: 'object', description: 'Pagination config, `{ pageSize, pageSizeOptions, … }`. Presence enables paging with the object\'s settings, and an explicit off wins — the deprecated flat `showPagination: false` turns paging off even beside this object, because this object declares no off switch of its own. Prefer it over the deprecated flat `pageSize` / `showPagination` pair.' },

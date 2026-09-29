@@ -16,9 +16,18 @@ name such as `map-pin`), and the adapter folds it like the other declared
 inputs. A non-string `icon` now draws `type-mismatch` instead of `unknown-prop`.
 
 **Clause-②: yes** — the authoring surface of `detail-section` widens by one
-key, `icon`, which the renderer already honoured. No other key's verdict moves:
-`name`, which the block neither declares nor reads, still draws `unknown-prop`.
+key, `icon`, which the renderer already honoured. No other key's verdict moves at
+this change: `name`, which the block neither declares nor reads, still draws
+`unknown-prop`.
 No exported symbol is added, removed, renamed or retyped — the package entry
 re-exports neither `DetailSectionNode` nor `DETAIL_SECTION_NODE_INPUTS`. The
 tag is outside the public block tier, so the generated `sdui.manifest.json` and
 `sdui-intrinsics.d.ts` never carried it and do not change.
+
+⚠️ **Dated note, 2026-09-29 — `name` no longer draws `unknown-prop` on this node —
+objectui#11044.** Later in this same release, `name` becomes a `where-undeclared`
+base prop of the JSX-page compiler's validator: a base prop on every type that
+declares no input of that name. `detail-section` declares none, so an authored
+`name` on it now draws nothing, although the block still does not read it. The
+sentence above is kept as the reading of this change; the objectui#11044 entry
+states what ships.

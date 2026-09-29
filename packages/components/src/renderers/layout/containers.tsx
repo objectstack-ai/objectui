@@ -23,7 +23,7 @@ import { ComponentRegistry, ExpressionEvaluator, declaredNameField, evalRowPredi
 import type { ComponentInput } from '@object-ui/core';
 import { actionRendersAt, resolveDeclaredActionIds } from '@object-ui/types';
 import type { DeclaredActionsRefusal } from '@object-ui/types';
-import { useRecordContext, useAction, useCapabilityGate, usePredicateScope, usePageVariables, useInlineEdit, useActionTextLocalizer, useMetadataItem, reportUnresolvableVisibilityPredicate } from '@object-ui/react';
+import { useRecordContext, useAction, useCapabilityGate, usePredicateScope, usePageVariables, useInlineEdit, useActionTextLocalizer, useMetadataItem, reportUnresolvableVisibilityPredicate, resolveInlineAriaProps } from '@object-ui/react';
 import { renderChildren, renderNodeSlot, cn } from '../../lib/utils';
 import { LazyIcon } from '../../lib/lazy-icon';
 import { RelatedCountStore, useRelatedCountVersion } from '../../hooks/related-count-store';
@@ -55,7 +55,7 @@ import {
 } from '../../ui';
 import { RecordTitleChip } from '../../custom/RecordTitleChip';
 import { readActionEntryParamValues } from '../action/static-params';
-import { useObjectLabel, useSafeFieldLabel, useObjectTranslation, useSafeTranslate, createSafeTranslation, pickLocalized } from '@object-ui/i18n';
+import { useObjectLabel, useSafeFieldLabel, useObjectTranslation, useSafeTranslate, createSafeTranslation, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
 import { MoreHorizontal, RefreshCw } from 'lucide-react';
 
 /**
@@ -451,6 +451,24 @@ const interpolate = (
 };
 
 // ---------------------------------------------------------------------------
+// The `aria` bag of the four page blocks (objectui#11083)
+// ---------------------------------------------------------------------------
+//
+// `@objectstack/spec` declares an `aria` member (`AriaPropsSchema`) on
+// `page:header`, `page:tabs`, `page:card` and `page:accordion`, and
+// `SchemaRenderer` hoists `properties.aria` onto the node. None of the four
+// renderers below read it, so a declared accessible name reached no element.
+// Each one now spreads `resolveInlineAriaProps(schema?.aria, locale)` from
+// `@object-ui/react`, the one reader of that bag, onto the block's own root
+// element (the one carrying `className` and the designer props), against
+// `useDisplayLocale()`. ⛔ No mapping of the bag lives in this file.
+//
+// ⛔ None of the four adds a default role. The root keeps the role it had
+// (`header`'s own semantics, or none), so a block that authors no `aria`
+// renders the same DOM as before. Whether a nameless-role root should get a
+// default role is not decided here.
+
+// ---------------------------------------------------------------------------
 // page:tabs
 // ---------------------------------------------------------------------------
 
@@ -571,6 +589,10 @@ const containsAttachmentsNode = (nodes: any): boolean => {
 
 const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const { designer } = splitDesignerProps(props);
+  // The block's `aria` bag, on the `Tabs` root (see "The `aria` bag of the four
+  // page blocks" above).
+  const displayLocale = useDisplayLocale();
+  const tabsAria = resolveInlineAriaProps(schema?.aria, displayLocale);
   // `useTabsTranslation` surfaces `language` itself (it wraps
   // `useObjectTranslation`), so the count-badge copy and the tab-label
   // localization below read the same session locale from one hook.
@@ -890,6 +912,7 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       orientation={isVertical ? 'vertical' : 'horizontal'}
       className={cn(className, isVertical && 'flex gap-4 w-full')}
       {...designer}
+      {...tabsAria}
     >
       {/* Hide the tab strip entirely when there's only one tab — a single
           pill labelled "Details" is visual clutter rather than an
@@ -993,6 +1016,10 @@ ComponentRegistry.register('tabs', PageTabsRenderer, {
 const PageCardRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const { designer } = splitDesignerProps(props);
   const { language } = useObjectTranslation();
+  // The block's `aria` bag, on the `Card` root (see "The `aria` bag of the four
+  // page blocks" above).
+  const displayLocale = useDisplayLocale();
+  const cardAria = resolveInlineAriaProps(schema?.aria, displayLocale);
   // Resolve the title via pickLocalized so inline-i18n shapes (`{ en, zh }`)
   // render in the active locale. `labelText` only understands `{ default, value }`
   // and would silently blank an `{ en, zh }` title — e.g. the Cloud Pricing
@@ -1034,6 +1061,7 @@ const PageCardRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     <Card
       className={cn(className, !bordered && 'border-0 shadow-none bg-transparent')}
       {...designer}
+      {...cardAria}
     >
       {title && (
         <CardHeader>
@@ -1097,6 +1125,10 @@ interface PageAccordionItem {
 const PageAccordionRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const { designer } = splitDesignerProps(props);
   const { language } = useObjectTranslation();
+  // The block's `aria` bag, on the `Accordion` root of either variant (see
+  // "The `aria` bag of the four page blocks" above).
+  const displayLocale = useDisplayLocale();
+  const accordionAria = resolveInlineAriaProps(schema?.aria, displayLocale);
   // Same lookup the tab strip reads (objectui#4645) — `page:accordion` is the
   // other renderer that localizes well-known English section labels, and the
   // two must not answer differently for the same token.
@@ -1157,6 +1189,7 @@ const PageAccordionRenderer: React.FC<any> = ({ schema, className, ...props }) =
         defaultValue={defaultOpen}
         className={className}
         {...designer}
+        {...accordionAria}
       >
         {commonChildren}
       </Accordion>
@@ -1170,6 +1203,7 @@ const PageAccordionRenderer: React.FC<any> = ({ schema, className, ...props }) =
       defaultValue={defaultOpen[0]}
       className={className}
       {...designer}
+      {...accordionAria}
     >
       {commonChildren}
     </Accordion>
@@ -1388,6 +1422,10 @@ function reportRefusedHeaderActions(
 
 const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const { designer } = splitDesignerProps(props);
+  // The block's `aria` bag, on the `header` root of both layouts below (see
+  // "The `aria` bag of the four page blocks" above).
+  const displayLocale = useDisplayLocale();
+  const headerAria = resolveInlineAriaProps(schema?.aria, displayLocale);
   const ctx = useRecordContext();
   // Record-level inline-edit session (objectui#2572 item 4): while a shared
   // inline draft is active, header actions flagged `disableDuringInlineEdit`
@@ -2299,6 +2337,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
           className,
         )}
         {...designer}
+        {...headerAria}
       >
         <div className="flex flex-col min-w-0 sm:min-w-48 flex-1">
           {breadcrumb && (
@@ -2335,6 +2374,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     <header
       className={cn('flex flex-col gap-2 pb-4 border-b', className)}
       {...designer}
+      {...headerAria}
     >
       {breadcrumb && (
         <div className="text-xs text-muted-foreground" data-page-breadcrumb-slot />

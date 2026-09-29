@@ -26,8 +26,9 @@
 
 import * as React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
-import { usePageVariableBinding } from '@object-ui/react';
-import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import { usePageVariableBinding, resolveInlineAriaProps } from '@object-ui/react';
+import { useObjectTranslation, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
+import type { AriaProps } from '@object-ui/types';
 import { Input, Label } from '../../ui';
 import { cn } from '../../lib/utils';
 import { readProps } from './readProps';
@@ -44,6 +45,7 @@ function ElementTextInputRenderer({ schema }: { schema: any }) {
     required?: boolean;
     disabled?: boolean;
     description?: unknown;
+    aria?: AriaProps;
   }>(schema);
 
   const inputType: TextInputType = INPUT_TYPES.includes(props.inputType as TextInputType)
@@ -117,6 +119,22 @@ function ElementTextInputRenderer({ schema }: { schema: any }) {
   // falling through to whatever else could describe the field.
   const descriptionId = description ? `${instanceId}-description` : undefined;
 
+  // The block's `aria` bag (objectui#11083). The spec declares `aria`
+  // (`AriaPropsSchema`) on `element:text_input`, and nothing read it, so a
+  // declared accessible name reached no element. It goes through
+  // `resolveInlineAriaProps` from `@object-ui/react`, the one reader of that
+  // bag, onto the INPUT: the element that carries the field's name, as
+  // `element:button`'s bag lands on its button. No default role is added.
+  //
+  // This site's own default is the description paragraph's id above, and an
+  // authored `ariaDescribedBy` is ADDED to it rather than replacing it:
+  // `aria-describedby` is a list of ids, and the paragraph still describes the
+  // field when an author points at a second hint.
+  const locale = useDisplayLocale();
+  const inputAria = resolveInlineAriaProps(props.aria, locale);
+  const describedBy =
+    [descriptionId, inputAria['aria-describedby']].filter(Boolean).join(' ') || undefined;
+
   return (
     <div
       className={cn('grid w-full max-w-sm items-center gap-1.5', schema?.className)}
@@ -150,7 +168,8 @@ function ElementTextInputRenderer({ schema }: { schema: any }) {
         defaultValue={value === undefined ? (props.defaultValue as any) : undefined}
         required={props.required}
         disabled={props.disabled}
-        aria-describedby={descriptionId}
+        {...inputAria}
+        aria-describedby={describedBy}
         onChange={handleChange}
       />
       {description && (

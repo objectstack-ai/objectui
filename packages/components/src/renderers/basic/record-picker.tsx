@@ -42,9 +42,11 @@ import {
   usePageVariableBinding,
   useFilterScope,
   useResolvedFilter,
+  resolveInlineAriaProps,
 } from '@object-ui/react';
-import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import { useObjectTranslation, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
 import type { I18nLabel } from '@objectstack/spec/ui';
+import type { AriaProps } from '@object-ui/types';
 import {
   Label,
   Select,
@@ -85,6 +87,7 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
     filter?: unknown;
     sort?: any;
     limit?: number;
+    aria?: AriaProps;
   }>(schema);
 
   const adapter = useAdapter() as any;
@@ -273,6 +276,18 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
   // empty — `pickLocalized` passes either string through untouched.
   const emptyText = pickLocalized(props.emptyText ?? 'No records', language);
 
+  // The block's `aria` bag (objectui#11083). The spec declares `aria`
+  // (`AriaPropsSchema`) on `element:record_picker`, and nothing read it, so a
+  // declared accessible name reached no element. It goes through
+  // `resolveInlineAriaProps` from `@object-ui/react`, the one reader of that
+  // bag, onto the TRIGGER: the `combobox` button that carries the control's
+  // name, the same element `label`'s `htmlFor` names. No default role is added;
+  // the trigger keeps the `combobox` role Radix gives it unless an author
+  // declares another. Resolved here, above the status-panel returns, because it
+  // calls a hook.
+  const displayLocale = useDisplayLocale();
+  const triggerAria = resolveInlineAriaProps(props.aria, displayLocale);
+
   // Placed AFTER every hook above so the hook order stays stable across
   // resolution states. A `view` that names nothing renders a configuration
   // error rather than an unfiltered picker: degrading to "all records" turns a
@@ -323,6 +338,7 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
           id={schema?.id}
           className="w-full max-w-xs"
           data-testid="record-picker-trigger"
+          {...triggerAria}
         >
           <SelectValue
             placeholder={loading ? 'Loading…' : error ? 'Failed to load' : placeholder}

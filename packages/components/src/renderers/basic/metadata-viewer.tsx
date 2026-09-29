@@ -20,7 +20,9 @@
 
 import * as React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
-import { useMetadataItem } from '@object-ui/react';
+import { useMetadataItem, resolveInlineAriaProps } from '@object-ui/react';
+import { useDisplayLocale } from '@object-ui/i18n';
+import type { AriaProps } from '@object-ui/types';
 import {
   ArrowRight,
   CircleDot,
@@ -393,8 +395,10 @@ function PermissionView({ name }: ViewerProps) {
 // Dispatcher + registration
 // ---------------------------------------------------------------------------
 
-export function ElementMetadataViewerRenderer({ schema }: { schema: any }) {
-  const props = readProps<ViewerProps>(schema);
+/**
+ * The view for the authored `type`, the part of the block below its root.
+ */
+function MetadataView(props: ViewerProps) {
   switch (props.type) {
     case 'state_machine':
       return <StateMachineView {...props} />;
@@ -411,6 +415,27 @@ export function ElementMetadataViewerRenderer({ schema }: { schema: any }) {
         </Placeholder>
       );
   }
+}
+
+export function ElementMetadataViewerRenderer({ schema }: { schema: any }) {
+  const { aria, ...props } = readProps<ViewerProps & { aria?: AriaProps }>(schema);
+  // The block's `aria` bag (objectui#11083). The spec declares `aria`
+  // (`AriaPropsSchema`) on `element:metadata_viewer`, and nothing read it, so a
+  // declared accessible name reached no element. It goes through
+  // `resolveInlineAriaProps` from `@object-ui/react`, the one reader of that
+  // bag.
+  //
+  // Each view returns its own root (a loading line, a warning, or the card), so
+  // the block had no one element to carry the bag. This `div` is that element,
+  // and it is always rendered: a wrapper that came and went with the bag would
+  // remount the view whenever the bag resolved differently. It adds no default
+  // role, and with nothing authored it carries no attribute.
+  const locale = useDisplayLocale();
+  return (
+    <div {...resolveInlineAriaProps(aria, locale)}>
+      <MetadataView {...props} />
+    </div>
+  );
 }
 
 ComponentRegistry.register('metadata_viewer', ElementMetadataViewerRenderer, {

@@ -35,7 +35,14 @@ import type { BatchTransactionOperation, DataSource, I18nLabel } from '@object-u
 import { runBatchTransaction } from '@object-ui/core';
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
 import { Button, Card, CardContent, CardHeader, CardTitle, cn, toast } from '@object-ui/components';
-import { pickLocalized, useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
+import {
+  formatDisplayNumber,
+  pickLocalized,
+  resolveFieldCurrency,
+  useDisplayLocale,
+  useLocalization,
+  useObjectTranslation,
+} from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
 import { dataChangeMatches, subscribeDataChanges } from '@object-ui/react';
 import { ObjectForm } from './ObjectForm';
@@ -351,6 +358,87 @@ interface DetailEntry {
   /** The authored config, with derived columns / FK folded in once resolved. */
   config: MasterDetailDetailConfig;
   status: DetailResolution;
+  /**
+   * The child object's own definition of `config.amountField`, kept from the
+   * schema the resolve effect loaded, so the document totals stack can read the
+   * amount's currency off the FIELD (objectui#11132). Absent when no schema was
+   * loaded for this entry (a fully configured entry skips the fetch) or the
+   * child declares no such field; the stack then resolves to the tenant's
+   * currency. Internal state, never part of the authored config.
+   */
+  amountFieldDef?: CurrencyFieldDef;
+}
+
+/** The field shape `resolveFieldCurrency` reads — the one currency resolver. */
+type CurrencyFieldDef = Parameters<typeof resolveFieldCurrency>[0];
+
+/**
+ * The child object's definition of `fieldName`, or `undefined` when the name is
+ * unset or the child declares no such field.
+ */
+function childFieldDef(
+  childSchema: { fields?: Record<string, unknown> } | undefined,
+  fieldName: string | undefined,
+): CurrencyFieldDef {
+  if (!fieldName) return undefined;
+  const def = childSchema?.fields?.[fieldName];
+  return def && typeof def === 'object' ? (def as CurrencyFieldDef) : undefined;
+}
+
+/**
+ * The currency the document totals stack is denominated in (objectui#11132).
+ *
+ * Each entry that switches the stack on (one with an `amountField`) resolves its
+ * amount's currency through `resolveFieldCurrency`, the one precedence every
+ * currency face shares: the field's fixed currency, else the tenant default.
+ * ⛔ No constant: the stack used to print a literal `¥` whatever either said.
+ *
+ * The stack adds every entry's amounts into ONE subtotal, so it has one
+ * currency only when every entry resolves to the same code. When they differ,
+ * or none is known, this answers `undefined` and the stack shows plain numbers,
+ * the resolver's own answer for an amount with no known currency: never a
+ * guessed sign.
+ */
+function totalsCurrency(entries: DetailEntry[], tenantCurrency: string | undefined): string | undefined {
+  const codes = new Set(
+    entries
+      .filter((e) => !!e.config.amountField)
+      .map((e) => resolveFieldCurrency(e.amountFieldDef, tenantCurrency)),
+  );
+  return codes.size === 1 ? codes.values().next().value : undefined;
+}
+
+/**
+ * The fraction width of a totals line with no currency: the historical two
+ * places the stack always showed, which is also `CurrencyField`'s width when
+ * no currency resolves.
+ */
+const PLAIN_AMOUNT_DIGITS = 2;
+
+/**
+ * One line of the document totals stack, in the display locale (objectui#9909).
+ *
+ * With a currency, the amount is `Intl`'s own currency format through
+ * `formatDisplayNumber`, the formatter the line grid's currency cells use. So
+ * the sign sits where the locale puts it (`$1,234.50`, `1.234,50 $` in de-DE)
+ * and the width is the currency's ISO 4217 minor unit, the default `Intl`
+ * applies to `style: 'currency'`: 2 for USD, 0 for JPY, 3 for KWD. A
+ * currency's decimal places are the currency's, not a setting.
+ *
+ * Without one, a plain number at {@link PLAIN_AMOUNT_DIGITS}. A code `Intl`
+ * refuses (`RangeError: Invalid currency code`) is shown as the code beside
+ * that plain number, as `CurrencyField` and the grid cells show one, rather
+ * than taking the form down; the digits stay in the display locale.
+ */
+function formatTotalsAmount(n: number, currency: string | undefined, locale: string): string {
+  const plain = () =>
+    formatDisplayNumber(n, { locale, minimumFractionDigits: PLAIN_AMOUNT_DIGITS, maximumFractionDigits: PLAIN_AMOUNT_DIGITS });
+  if (!currency) return plain();
+  try {
+    return formatDisplayNumber(n, { locale, currency });
+  } catch {
+    return `${currency} ${plain()}`;
+  }
 }
 
 /**
@@ -561,6 +649,9 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   // used to pass `toLocaleString` an explicit `undefined`, i.e. the MACHINE's
   // locale (objectui#9909).
   const displayLocale = useDisplayLocale();
+  // The tenant default currency (ADR-0053): the totals stack's currency when
+  // the amount field fixes none (objectui#11132).
+  const { currency: tenantCurrency } = useLocalization();
   // The collection placeholder, the document totals stack and the in-form
   // collection's default add label, in the session locale (objectui#11071).
   const { t } = useFormChromeTranslation();
@@ -614,7 +705,10 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   const taxPct = taxRate ?? 0;
   const taxAmount = subtotal * (taxPct / 100);
   const grandTotal = subtotal + taxAmount;
-  const money = (n: number) => `¥${n.toLocaleString(displayLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // The amounts' own currency, else the tenant's; never a constant sign
+  // (objectui#11132). See `totalsCurrency` and `formatTotalsAmount`.
+  const currency = totalsCurrency(entries, tenantCurrency);
+  const money = (n: number) => formatTotalsAmount(n, currency, displayLocale);
 
   return (
     <>
@@ -901,13 +995,19 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
             // untyped — hydrate just their widget types from the schema, keeping
             // their exact column set / order / labels (don't re-derive columns).
             if (d.relationshipField && d.columns?.length) {
-              return { ...entry, config: { ...d, columns: hydrateColumns(d.columns, childSchema) }, status: 'ready' };
+              return {
+                ...entry,
+                config: { ...d, columns: hydrateColumns(d.columns, childSchema) },
+                status: 'ready',
+                amountFieldDef: childFieldDef(childSchema, d.amountField),
+              };
             }
             const derived = deriveDetail(d.childObject, childSchema, schema.objectName, {
               relationshipField: d.relationshipField,
               columns: d.columns,
               amountField: d.amountField,
             });
+            const amountField = d.amountField ?? derived.amountField;
             return {
               ...entry,
               status: 'ready',
@@ -917,9 +1017,10 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
                 columns: derived.columns,
                 formFields: d.formFields ?? derived.formFields,
                 inlineMode: d.inlineMode ?? derived.mode,
-                amountField: d.amountField ?? derived.amountField,
+                amountField,
                 sortField: d.sortField ?? derived.sortField,
               },
+              amountFieldDef: childFieldDef(childSchema, amountField),
             };
           } catch (err) {
             // THE DERIVE FAILED, on a schema that loaded fine — almost always

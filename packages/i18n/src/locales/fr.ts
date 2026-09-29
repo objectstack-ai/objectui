@@ -148,6 +148,7 @@ const fr = {
       copyAll: 'Tout copier',
     },
     notAvailableHere: '« {{action}} » n\'est pas disponible sur la page actuelle.',
+    completedSuccessfully: 'Action effectuée avec succès',
   },
   validation: {
     required: "{{field}} est obligatoire",
@@ -1078,6 +1079,8 @@ const fr = {
     pathStageLostUpcoming: '{{stage}}, perdue, non atteinte',
     pathStageWonUpcoming: '{{stage}}, étape objectif, non atteinte',
     linkCopied: "Lien copié dans le presse-papiers",
+    commentFailed: "Votre commentaire n'a pas été publié. Rien n'a été enregistré — veuillez réessayer.",
+    reactionFailed: "Votre réaction n'a pas été enregistrée. Veuillez réessayer.",
     linkCopyFailed: "Impossible de copier le lien",
     cancel: "Annuler",
     cancelEdit: "Abandonner les modifications",
@@ -1159,6 +1162,8 @@ const fr = {
     refreshing: "Actualisation…",
     pickMeasures: "Choisissez des mesures (valeurs) pour ce widget de dataset.",
     datasetUnsupported: "Cette source de données ne prend pas en charge les requêtes de dataset.",
+    widgetForbiddenTitle: "Accès refusé",
+    widgetForbiddenMessage: "Vous n’avez pas l’autorisation de voir les données de ce widget.",
     details: "Détails",
     exportCsv: "Exporter en CSV",
     openInList: "Ouvrir dans la liste",
@@ -1564,6 +1569,7 @@ const fr = {
         ctaUpgrade: "Passer à l'offre supérieure pour continuer",
         ctaTopUp: "Ajouter des crédits pour continuer",
         ariaLabel: "Utilisation de l'IA : {{status}}",
+        breakdownTitle: "Utilisé jusqu'à présent",
       },
       workspaceTitle: "Espace de travail IA",
       workspaceSubtitle: "Posez des questions, inspectez et reprenez vos conversations",
@@ -1573,6 +1579,9 @@ const fr = {
       share: "Partager",
       shareTitle: "Partager cette conversation",
       shareDisabledTitle: "Commencez à discuter pour activer le partage",
+      buildDoctor: "Diagnostic de build",
+      buildDoctorTitle: "Diagnostic de build — qu'est-ce qui a réellement été appliqué ?",
+      buildDoctorDisabledTitle: "Envoyez d'abord un message",
       newChat: "Nouveau",
       searchChats: "Rechercher des discussions…",
       noChatsYet: "Aucune discussion pour l'instant",
@@ -1780,6 +1789,7 @@ const fr = {
       pages: "Pages",
       reports: "Rapports",
       system: "Système",
+      marketplace: "Marketplace",
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -1877,6 +1887,14 @@ const fr = {
       ratio: '{{ratio}} lignes sont lues pour chaque ligne écrite. La plateforme signale tout ce qui dépasse {{threshold}}. Rien n’est limité ni bloqué ; il s’agit d’un rapport permettant d’examiner le schéma de lecture.',
       noWritesTitle: 'Lectures sans aucune écriture dans cet environnement',
       noWrites: 'Des lignes sont lues alors qu’aucune n’est écrite, de sorte que le taux de lecture n’a aucune limite supérieure. C’est la mesure la plus grave. La plateforme signale tout ce qui dépasse {{threshold}}. Rien n’est limité ni bloqué ; il s’agit d’un rapport permettant d’examiner le schéma de lecture.',
+    },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'Le stockage est presque plein',
+      warning: '{{used}} Mo sur {{limit}} Mo utilisés. Les envois et les importations sont suspendus dès que le stockage est plein.',
+      blockedTitle: 'Stockage plein : les envois et les importations sont suspendus',
+      blocked: "{{used}} Mo sur {{limit}} Mo utilisés. Les données existantes ne sont pas modifiées, et la lecture, l'export et la modification d'enregistrements individuels fonctionnent toujours.",
+      upgrade: "Passer à l'offre supérieure pour continuer",
     },
     errors: {
       somethingWentWrong: "Quelque chose s'est mal passé",
@@ -2057,6 +2075,8 @@ const fr = {
       resendOtpCountdownText: "Renvoyer dans {seconds} s",
       usePhoneOtpText: "Se connecter avec un code de vérification",
       usePasswordSignInText: "Se connecter avec un mot de passe à la place",
+      socialButton: "Continuer avec {provider}",
+      orText: "ou continuer avec l'e-mail",
     },
     register: {
       title: "Créer un compte",
@@ -2075,8 +2095,12 @@ const fr = {
       submittingButton: "Création du compte…",
       hasAccountText: "Vous avez déjà un compte ?",
       signInText: "Se connecter",
+      socialButton: "S'inscrire avec {provider}",
+      orText: "ou continuer avec l'e-mail",
       errors: {
         userExists: "Un compte avec cet e-mail existe déjà. Essayez de vous connecter.",
+        selfRegistrationClosed: "L'inscription libre n'est pas ouverte dans cet environnement. Demandez une invitation à un administrateur.",
+        emailDomainNotAllowed: "Le domaine de cet e-mail n'est pas autorisé à s'inscrire ici. Utilisez l'e-mail de votre organisation ou demandez une invitation à un administrateur.",
       },
       verifyInbox: {
         title: "Vérifiez votre boîte de réception",
@@ -2902,6 +2926,9 @@ const fr = {
     openProduction: "Ouvrir la production",
     manageEnvironments: "Gérer les environnements",
   },
+  cloudPlanStatus: {
+    current: "Offre actuelle",
+  },
   ai: {
     nlQuery: {
       placeholder: "Posez une question sur vos données…",
@@ -3650,6 +3677,11 @@ const fr = {
   },
   wizard: {
     missingRequired: "Veuillez renseigner les champs obligatoires : {{fields}}",
+    back: "Retour",
+    submitting: "Envoi…",
+    stepFallback: "Étape {{n}}",
+    progressLabel: "Progression",
+    emptyStep: "Aucun champ configuré pour cette étape",
   },
   flowRunner: {
     title: 'Saisie',
@@ -3745,6 +3777,11 @@ const fr = {
     actionsEmptyTitle: "Aucune action de package",
     actionsEmptyBody: "Aucun package installé ne déclare d'action sur ce déploiement. Les actions que vous créez vous-même se trouvent dans Studio.",
     actionsLoadFailed: "Impossible de charger les actions des packages.",
+  },
+  element: {
+    number: {
+      noObject: "Aucun objet indiqué : définissez object ou dataSource.object.",
+    },
   },
 };
 

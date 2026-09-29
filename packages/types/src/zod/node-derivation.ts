@@ -274,3 +274,63 @@ export const cloneWithDef = (schema: z.ZodType, patch: Partial<WalkableDef>): z.
   const Ctor = internals(schema).constructor;
   return carryRegistryMeta(schema, new Ctor({ ...internals(schema)._zod.def, ...patch }));
 };
+
+/**
+ * REGISTERED INPUTS — the keys a component's REGISTRATION declares as `inputs`,
+ * recorded on the passthrough object that carries them (objectui#11022).
+ *
+ * A node whose props the ruling routes to `BaseSchema`'s `.passthrough()`
+ * rather than to members of its own — the widget-slot component node,
+ * `metric-card` (objectstack#8593) — has an accept set the tolerant face spells
+ * with its catchall, not with its shape: `value` is admitted because the
+ * catchall admits every key. The strict authoring face closes that catchall, so
+ * without this record it refused the node's own registered inputs as
+ * unrecognized — every correctly authored `metric-card` that carried `value`.
+ *
+ * A record here is what the strict walker reads instead: it admits each named
+ * key the shape does not already declare, judged by the object's OWN catchall
+ * (the judgment the tolerant face gave it), and still closes the object, so a
+ * key no registration declares is refused by name. The tolerant object is not
+ * touched — not its shape, not its catchall, not its registry metadata — so the
+ * rendering face's accept set, its output and its inferred type do not move.
+ *
+ * ⛔ A plain `WeakMap` keyed by NODE IDENTITY, and ⛔ not `.meta()` /
+ * `z.globalRegistry`: a registry entry is published by `z.toJSONSchema` and
+ * inherited down zod's `clone()` parent chain, and this record is neither a
+ * description of the node nor something a copy of it should claim.
+ *
+ * ⚠️ The names are declared where the node is (`@object-ui/types` has no
+ * dependency on the registry that holds the registration). Their parity with
+ * the registration is measured by the registering package's own test, which
+ * reads the live `ComponentRegistry` — see the arm that records them.
+ */
+const REGISTERED_INPUTS = new WeakMap<z.ZodType, readonly string[]>();
+
+/**
+ * Record the registered input names of a PASSTHROUGH object node, for the
+ * strict authoring face to admit (see {@link REGISTERED_INPUTS}). Returns the
+ * node unchanged, so it can wrap a declaration in place.
+ *
+ * ⛔ Throws on a node that is not an object with a catchall: on a stripping
+ * object the tolerant face DROPS an undeclared key, so there is no tolerant
+ * judgment for the strict face to copy, and admitting the key there would make
+ * the strict face keep what the tolerant one throws away.
+ */
+export const declareRegisteredInputs = <T extends z.ZodType>(schema: T, names: readonly string[]): T => {
+  const def = internals(schema)._zod.def;
+  if (def.type !== 'object' || def.catchall === undefined) {
+    throw new TypeError(
+      `declareRegisteredInputs: registered inputs can only be recorded on a passthrough object node (got \`${def.type}\``
+      + `${def.type === 'object' ? ' with no catchall' : ''}). The strict face admits them with the catchall's own judgment, `
+      + 'and a node without one has no judgment to copy.',
+    );
+  }
+  REGISTERED_INPUTS.set(schema, Object.freeze([...names]));
+  return schema;
+};
+
+/**
+ * The registered input names recorded on this exact node, or `undefined` when
+ * none are. Identity-keyed: a clone or a wrapper of the node carries none.
+ */
+export const registeredInputsOf = (schema: z.ZodType): readonly string[] | undefined => REGISTERED_INPUTS.get(schema);

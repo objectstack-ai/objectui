@@ -1634,7 +1634,7 @@ function FilterBuilder({
       /**
        * WHICH bound is missing on a half-filled pair — `0`, `1`, or `null` when
        * the row is not half-filled at all (objectui#10061, executing ruling
-       * batch #146 item 5 letter A on objectstack#18012).
+       * batch #146 item 5 letter A, which objectstack `176b03582` executed upstream).
        *
        * The ruling's two halves are 「not emitted」 and 「shown as incomplete」.
        * The first has been true since objectui#5025: every write path asks

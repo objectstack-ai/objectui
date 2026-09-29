@@ -24,8 +24,14 @@ import { fileURLToPath } from 'node:url';
  * shared step. objectui#10844, the family's closure card, added the dashboard
  * filter's custom range bounds, the `date-picker` renderer's value and the
  * report cell's date face. objectui#10866, its successor, added the calendar
- * and the gantt, whose pins also hold the written payload of a `date` field;
- * a later date-only read site registers here the same way.
+ * and the gantt, whose pins also hold the written payload of a `date` field,
+ * then the timeline, a chart's date axis and `@object-ui/i18n`'s published
+ * date helpers, then the timeline's gantt axis and core's formula date
+ * arithmetic, then the calendar's day moves across a DST change and the pins
+ * for the calendar's end-date write, its no-schema fallback and the gantt's
+ * no-schema path. objectui#11005 added the month grid's own drags, which move
+ * a value by calendar days across a DST change. A later date-only read site
+ * registers here the same way.
  *
  * ## Why a driver, and why the forks pool
  *
@@ -83,6 +89,27 @@ const PINS = [
   'packages/plugin-gantt/src/__tests__/ObjectGantt.dateOnlyZone-10866.test.tsx',
   'packages/plugin-gantt/src/__tests__/GanttView.dateOnlyZone-10866.test.tsx',
   'packages/plugin-gantt/src/__tests__/scheduling.dateOnlyZone-10866.test.ts',
+  // objectui#10866, slice 2: the timeline's date bucket, sort and item date,
+  // the chart's date-only axis tick, and `@object-ui/i18n`'s published date
+  // helpers.
+  'packages/plugin-timeline/src/__tests__/ObjectTimeline.dateOnlyZone-10866.test.tsx',
+  'packages/plugin-timeline/src/__tests__/TimelineRenderer.dateOnlyZone-10866.test.tsx',
+  'packages/plugin-charts/src/__tests__/AdvancedChartImpl.dateOnlyZone-10866.test.tsx',
+  'packages/i18n/src/__tests__/formatting.dateOnlyZone-10866.test.ts',
+  // objectui#10866, slice 3: the timeline renderer's gantt variant (its axis
+  // headers, extent, bar geometry, validity gate, min-over-max guard and the
+  // empty plan's today) and core `FormulaFunctions`' day arithmetic.
+  'packages/plugin-timeline/src/__tests__/TimelineGantt.dateOnlyZone-10866.test.tsx',
+  'packages/core/src/evaluator/__tests__/FormulaFunctions.dateOnlyZone-10866.test.ts',
+  // objectui#10866, slice 4: the calendar's day moves across a DST change,
+  // and the paths slice 1 repaired that no zone pin covered: the calendar's
+  // end-date write and no-schema fallback, and the gantt's no-schema path.
+  'packages/plugin-calendar/src/__tests__/ObjectCalendar.dstDayMove-10866.test.tsx',
+  'packages/plugin-calendar/src/__tests__/ObjectCalendar.endDateNoSchemaZone-10866.test.tsx',
+  'packages/plugin-gantt/src/__tests__/ObjectGantt.noSchemaZone-10866.test.tsx',
+  // objectui#11005: the month grid moves a value by calendar days and keeps
+  // its wall-clock time across a DST change, for a move and an end drag.
+  'packages/plugin-calendar/src/__tests__/CalendarView.monthMoveCalendarDays-11005.test.tsx',
 ] as const;
 
 /** The vitest CLI entry, resolved rather than assumed at a `node_modules` path. */

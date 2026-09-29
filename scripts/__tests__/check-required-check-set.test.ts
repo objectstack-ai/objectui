@@ -358,11 +358,17 @@ describe('check-required-check-set — the wiring', () => {
  * stale the next time a maintainer edits the ruleset.
  *
  * ⚠️ The population is named in words: the three files objectui#9502 repaired.
- * `AGENTS.md` carries a fourth instance and is deliberately NOT in that set —
- * it is governed surface, and its parenthetical also covers who may bypass the
- * ruleset, which the endpoint this gate reads does not carry. That exclusion is
- * what makes the control below real: the same detector, run over `AGENTS.md`,
- * must FIRE. A zero from a detector never observed firing is decoration.
+ * `AGENTS.md` carried a fourth instance and is deliberately NOT in that set.
+ * objectui#9502 left it standing — it is governed surface, and its
+ * parenthetical also covered who may bypass the ruleset, which the endpoint
+ * this gate reads does not carry — and objectui#9520 then split it along that
+ * line: its required-checks half points at this gate, and "从仓内读不到" stays
+ * on the bypass-actors half alone, where it was measured true. So it still
+ * cannot join `REPAIRED` (the "makes no cannot-be-read claim" case would go red
+ * on that true half, which is exactly what Leg 2 below asserts it carries), and
+ * it is still what makes the control below real: the same detector, run over
+ * `AGENTS.md`, must FIRE. A zero from a detector never observed firing is
+ * decoration.
  */
 describe('check-required-check-set — the prose points here instead of answering (#9502)', () => {
   /** The three files objectui#9502 repaired. */
@@ -372,8 +378,12 @@ describe('check-required-check-set — the prose points here instead of answerin
     'scripts/dependabot-merge-gate.mjs',
   ];
 
-  /** The carrier left standing on purpose — and this block's positive control. */
-  const LEFT_STANDING = 'AGENTS.md';
+  /**
+   * The carrier objectui#9502 left standing and objectui#9520 split: the one
+   * file that still writes "从仓内读不到", on its bypass-actors half, where it is
+   * true — and this block's positive control.
+   */
+  const SPLIT_CARRIER = 'AGENTS.md';
 
   /**
    * The claim being hunted: the ruleset cannot be READ from this repository.
@@ -393,15 +403,20 @@ describe('check-required-check-set — the prose points here instead of answerin
     expect(CANNOT_READ.test('that set is a surface nothing here can change')).toBe(false);
 
     // Leg 2, the same detector over real content: `AGENTS.md` still carries the
-    // claim, deliberately. If this leg ever goes red the governed carrier was
-    // ruled on and repaired — which is a legitimate change, not a bug here. The
-    // remedy is to move the inventory docblock in the gate with it and retire
-    // this leg, NOT to weaken the detector.
+    // phrase, deliberately, on the bypass-actors half of its ruleset bullet —
+    // the one place in the tree it is true, which is where objectui#9520 kept it
+    // when it split that bullet. ⚠️ Said per AGENTS.md #9 rather than left to be
+    // assumed: this detector cannot tell which half a phrase sits on, so this
+    // leg does NOT hold the bullet's required-checks half to its pointer, and
+    // nothing else in this file does either. If this leg ever goes red the bypass
+    // half was re-worded or ruled on again — a legitimate change, not a bug
+    // here. The remedy is to move the inventory docblock in the gate with it and
+    // retire this leg, NOT to weaken the detector.
     expect(
-      CANNOT_READ.test(flatten(LEFT_STANDING)),
-      `${LEFT_STANDING} no longer carries the claim this detector hunts. If that carrier was ` +
-        `repaired, update the inventory docblock in ${GATE} to match and drop this leg. ` +
-        'Leg 1 above keeps the detector honest either way.',
+      CANNOT_READ.test(flatten(SPLIT_CARRIER)),
+      `${SPLIT_CARRIER} no longer carries the phrase this detector hunts (its bypass-actors half did, ` +
+        `deliberately). If that half was re-worded, update the inventory docblock in ${GATE} to match ` +
+        'and drop this leg. Leg 1 above keeps the detector honest either way.',
     ).toBe(true);
   });
 
@@ -440,9 +455,9 @@ describe('check-required-check-set — the prose points here instead of answerin
     }
   });
 
-  it("the gate's own docblock inventories every repaired carrier, and the one left standing", () => {
+  it("the gate's own docblock inventories every repaired carrier, and the one objectui#9520 split", () => {
     const docblock = fs.readFileSync(path.join(ROOT, GATE), 'utf8').slice(0, 4000);
-    for (const rel of [...REPAIRED, LEFT_STANDING]) {
+    for (const rel of [...REPAIRED, SPLIT_CARRIER]) {
       expect(docblock, `${GATE} no longer names ${rel} in its inventory`).toContain(rel);
     }
     // The write half is the reason the sentences were not simply deleted.

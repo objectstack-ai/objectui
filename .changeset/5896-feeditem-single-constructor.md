@@ -12,7 +12,7 @@ table (objectui#5878) and then built the `FeedItem` itself, ending in
 situations: a type the table maps to `undefined` **on purpose** (`commented` /
 `mentioned` / `login` / `logout`), and a type the table has never heard of. The
 second is an **author-extended** value — `sys_activity.type` is
-author-extensible (objectstack#11507 direction 4, ruled 2026-08-24), every
+author-extensible (objectstack `88b9d749a`, direction 4, ruled 2026-08-24), every
 column on that table is `readonly` so objectql never validates a write, and
 ADR-0052 §5b.2 forwards an author's `activityMilestones[].type` into it
 verbatim. So an activity that happened, was written and is queryable had no row

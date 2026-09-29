@@ -8,7 +8,7 @@
 
 /**
  * 「May this caller edit this field?」 — asked once, of the resolver that owns
- * the answer (objectui#10120).
+ * the answer (`80c54122e`).
  *
  * ## The one answer, and where it lives
  *
@@ -162,7 +162,7 @@ export function applyFieldPermissions<T extends Record<string, any>>(
 /**
  * The principal surface {@link gateFormFields} reads: the field-level resolver
  * plus the server's effective API operation set for an object (`/me/permissions`
- * `apiOperations`, #3391). `undefined` from it means "no effective set", which
+ * `apiOperations`, objectstack#3391). `undefined` from it means "no effective set", which
  * leaves the object's own affordance standing.
  */
 export interface FormFieldPrincipal extends FieldWritePrincipal {
@@ -190,7 +190,7 @@ export interface GateFormFieldsOptions extends ApplyFieldPermissionsOptions {
  * open; the engine-owned buckets (`engine-owned`, `append-only`,
  * `better-auth`) resolve closed unless the object OPENED per-record writing via
  * `userActions.{edit,create}` (e.g. sys_user opens `edit` for its profile
- * fields). #3546 intersects that with the server's effective API operation set
+ * fields). objectstack#3546 intersects that with the server's effective API operation set
  * for the object, so the lock also engages when the server denies `update`
  * (edit) or `create` (create) — the intersection the detail header and the
  * list toolbar apply.

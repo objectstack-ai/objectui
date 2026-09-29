@@ -103,10 +103,27 @@ export function ConsoleLayout({
   // "/ai = the dock maximized": record where we maximized FROM at click time,
   // so the page's collapse-to-dock returns exactly here (history-back could
   // land on a prior /ai URL after in-page conversation switches).
-  const openDockFullPage = useCallback(() => {
-    rememberDockReturnLocation(`${location.pathname}${location.search}`);
-    navigate('/ai');
-  }, [location.pathname, location.search, navigate]);
+  // objectui#10926 — a build thread bound to this app maximizes to that app's
+  // build surface, which resolves the same `app:PKG:build` thread. That arrival
+  // carries the same one-shot opt-out as the Studio dock's full-page door, so
+  // the built-moment transition (objectui#5799) does not bounce a thread that
+  // built the app straight on to Studio.
+  const openDockFullPage = useCallback(
+    (boundPackageId?: string) => {
+      rememberDockReturnLocation(`${location.pathname}${location.search}`);
+      if (!boundPackageId) {
+        navigate('/ai');
+        return;
+      }
+      try {
+        sessionStorage.setItem('objectstack:ai-full-page-requested', '1');
+      } catch {
+        /* storage unavailable — the transition may bounce the arrival to Studio */
+      }
+      navigate(`/ai/build?package=${encodeURIComponent(boundPackageId)}`);
+    },
+    [location.pathname, location.search, navigate],
+  );
 
   // Set navigation context to 'app' when this layout mounts
   useEffect(() => {
@@ -157,10 +174,14 @@ export function ConsoleLayout({
             // The dock honors the app's own default agent exactly like the FAB
             // did — through the ONE resolver (bounded to ask/build there).
             defaultAgent={activeApp?.defaultAgent}
+            // objectui#10926 — the app a build thread binds to (authorable
+            // packages only; the dock decides).
+            appPackageId={activeApp?._packageId}
             // ADR-0057 P3c — "/ai = the dock maximized": the maximize button
-            // opens the full-page surface, which canonicalizes `/ai` to the
-            // default agent and resolves the same `(user, product)` scope —
-            // i.e. THE SAME THREAD this rail shows.
+            // opens the full-page surface on THE SAME THREAD this rail shows —
+            // `/ai` for an app-less thread (canonicalized to the default agent,
+            // same `(user, product)` scope), `/ai/build?package=PKG` for one
+            // bound to this app.
             onMaximize={openDockFullPage}
           />
         ) : undefined
@@ -194,8 +215,14 @@ export function ConsoleLayout({
 
       {/* The dock's launcher — rendered when AI service is available OR when
           `VITE_AI_BASE_URL` has been explicitly configured. Dependency-free;
-          the chat graph loads with the dock, on demand. */}
-      {showChatbot && <ConsoleChatbotFab appLabel={appLabel} onOpenDock={dock.expand} />}
+          the chat graph loads with the dock, on demand.
+          It is the dock's COLLAPSED affordance (ADR-0057 open question 2), so
+          it leaves while the dock is open: a fixed bottom-right button over an
+          expanded rail sat on the composer's send button (objectui#10899). The
+          rail and the sheet carry their own collapse / close controls. */}
+      {showChatbot && !dock.expanded && (
+        <ConsoleChatbotFab appLabel={appLabel} onOpenDock={dock.expand} />
+      )}
 
       {/* Under `md` the FAB opens the dock as a bottom sheet (no room for a
           rail on a phone) — same conversation, chrome only. */}
@@ -205,6 +232,7 @@ export function ConsoleLayout({
           onOpenChange={(open) => (open ? dock.expand() : dock.collapse())}
           userId={userId}
           defaultAgent={activeApp?.defaultAgent}
+          appPackageId={activeApp?._packageId}
           // Bridge to full-page /ai (history + share live there on mobile). The
           // sheet defers the navigation until it has cleanly closed.
           onMaximize={openDockFullPage}

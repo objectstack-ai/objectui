@@ -19,14 +19,19 @@
  * (`notifyDataChanged` from `@object-ui/react`) and let readers refetch via
  * `useDataInvalidation`. See objectui#2269 / DetailView / RecordDetailView.
  *
- * SCOPE — the RECORD-DETAIL data surfaces #2269 fixed. It is deliberately not
- * repo-wide: an explicit user "Refresh this page" affordance
- * (`PageView.onRefresh` → `InterfaceListPage key={refreshKey}`) and the Studio
- * dev preview harness (`sdui-workbench-preview.tsx`) legitimately remount to
- * reset, and are a different concern from "a SAVE silently rebuilt the record
- * page under the user". Guarding the fixed surfaces exactly, with no
- * allowlist-of-shame, is the honest lock; AGENTS.md Commandment #8 + review
- * cover brand-new surfaces.
+ * SCOPE — the RECORD-DETAIL data surfaces #2269 fixed, plus the custom-page
+ * host `PageView` (objectui#10519). It is deliberately not repo-wide: the
+ * Studio dev preview harness (`sdui-workbench-preview.tsx`) legitimately
+ * remounts to reset, and is a different concern from "a SAVE silently rebuilt
+ * the page under the user". `PageView.onRefresh` is NOT such an affordance —
+ * an earlier version of this header called it "an explicit user 'Refresh this
+ * page' affordance", which was false by a source reading of
+ * `useConsoleActionRuntime`: `onRefresh` is fed only by the console action
+ * runtime's post-action refresh (`api`, flow and server-action success, undo,
+ * screen-flow completion), and `PageView` has no refresh control. objectui#10519
+ * routed that refresh through the bus and brought the file into scope. Guarding
+ * the fixed surfaces exactly, with no allowlist-of-shame, is the honest lock;
+ * AGENTS.md Commandment #8 + review cover brand-new surfaces.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -46,14 +51,18 @@ const repoRoot = path.resolve(here, '../../..');
 const REFRESH_KEY_REMOUNT = /\bkey=\{\s*[^}]*(?:refresh|reload)[^}]*\}/i;
 
 /**
- * The record-detail data surfaces #2269 fixed. Path fragments (POSIX) — a
- * file is in scope if its repo-relative path contains any of these.
+ * The record-detail data surfaces #2269 fixed, and the custom-page host
+ * objectui#10519 fixed. Path fragments (POSIX) — a file is in scope if its
+ * repo-relative path contains any of these.
  */
 const IN_SCOPE = [
   'packages/plugin-detail/src/',
   'packages/app-shell/src/views/RecordDetailView',
   'packages/app-shell/src/views/RelatedRecordActionsBridge',
   'packages/app-shell/src/console/AppContent',
+  // objectui#10519: the page host declares a page action's change on the bus;
+  // its two render branches are keyed on identity, never on a refresh counter.
+  'packages/app-shell/src/views/PageView',
 ];
 
 function collectSourceFiles(): string[] {
@@ -96,13 +105,13 @@ function collectSourceFiles(): string[] {
 }
 
 describe('objectui#2269 — no refetch-by-remount ratchet', () => {
-  it('finds the in-scope record-detail surfaces (guards against a broken scan path)', () => {
+  it('finds the in-scope record-detail surfaces and the PageView page host (guards against a broken scan path)', () => {
     // plugin-detail alone has dozens of source files; if this drops the
     // scope globs have gone stale and the ratchet would silently pass.
     expect(collectSourceFiles().length).toBeGreaterThan(20);
   });
 
-  it('has zero `key={…refresh/reload…}` remount sites in the record-detail surfaces', () => {
+  it('has zero `key={…refresh/reload…}` remount sites in the record-detail surfaces or the PageView page host', () => {
     const offenders: string[] = [];
     for (const file of collectSourceFiles()) {
       const src = readFileSync(file, 'utf8');

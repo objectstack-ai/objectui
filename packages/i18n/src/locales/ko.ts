@@ -148,6 +148,7 @@ const ko = {
       copyAll: '모두 복사',
     },
     notAvailableHere: '"{{action}}"은(는) 현재 페이지에서 사용할 수 없습니다.',
+    completedSuccessfully: '작업이 완료되었습니다',
   },
   validation: {
     required: "{{field}}은(는) 필수입니다",
@@ -1076,6 +1077,8 @@ const ko = {
     pathStageLostUpcoming: '{{stage}}, 실패, 도달하지 않음',
     pathStageWonUpcoming: '{{stage}}, 목표 단계, 도달하지 않음',
     linkCopied: "링크가 클립보드에 복사됨",
+    commentFailed: "댓글이 게시되지 않았습니다. 아무것도 저장되지 않았습니다. 다시 시도해 주세요.",
+    reactionFailed: "반응이 저장되지 않았습니다. 다시 시도해 주세요.",
     linkCopyFailed: "링크 복사 실패",
     cancel: "취소",
     cancelEdit: "변경 사항 취소",
@@ -1157,6 +1160,8 @@ const ko = {
     refreshing: "새로고침 중…",
     pickMeasures: "이 데이터셋 위젯의 측정값(값)을 선택하세요.",
     datasetUnsupported: "이 데이터 소스는 데이터셋 쿼리를 지원하지 않습니다.",
+    widgetForbiddenTitle: "접근 권한 없음",
+    widgetForbiddenMessage: "이 위젯의 데이터를 볼 수 있는 권한이 없습니다.",
     details: "세부 정보",
     exportCsv: "CSV 내보내기",
     openInList: "목록에서 열기",
@@ -1562,6 +1567,7 @@ const ko = {
         ctaUpgrade: "업그레이드하고 계속하기",
         ctaTopUp: "크레딧을 추가하고 계속하기",
         ariaLabel: "AI 사용량: {{status}}",
+        breakdownTitle: "지금까지 사용 내역",
       },
       workspaceTitle: "AI 워크스페이스",
       workspaceSubtitle: "질문하고, 살펴보고, 대화를 이어가세요",
@@ -1571,6 +1577,9 @@ const ko = {
       share: "공유",
       shareTitle: "이 대화 공유",
       shareDisabledTitle: "공유하려면 먼저 대화를 시작하세요",
+      buildDoctor: "빌드 진단",
+      buildDoctorTitle: "빌드 진단 — 실제로 반영된 내용은?",
+      buildDoctorDisabledTitle: "먼저 메시지를 보내세요",
       newChat: "새로 만들기",
       searchChats: "채팅 검색…",
       noChatsYet: "아직 채팅이 없습니다",
@@ -1778,6 +1787,7 @@ const ko = {
       pages: "페이지",
       reports: "보고서",
       system: "시스템",
+      marketplace: "마켓플레이스",
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -1875,6 +1885,14 @@ const ko = {
       ratio: '쓰기 1행당 {{ratio}}행을 읽고 있습니다. 플랫폼은 {{threshold}} 초과 비율을 표시합니다. 제한하거나 차단하는 것은 없습니다. 읽기 패턴을 검토할 수 있도록 알리는 보고입니다.',
       noWritesTitle: '이 환경은 읽기만 있고 쓰기가 전혀 없습니다',
       noWrites: '행을 읽고 있지만 쓰기가 전혀 없어 읽기 비율에 상한이 없습니다. 가장 심각한 수치입니다. 플랫폼은 {{threshold}} 초과 비율을 표시합니다. 제한하거나 차단하는 것은 없습니다. 읽기 패턴을 검토할 수 있도록 알리는 보고입니다.',
+    },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: '저장 공간이 거의 가득 찼습니다',
+      warning: '{{limit}} MB 중 {{used}} MB 사용 중입니다. 저장 공간이 가득 차면 업로드와 가져오기가 일시 중지됩니다.',
+      blockedTitle: '저장 공간이 가득 찼습니다: 업로드와 가져오기가 일시 중지되었습니다',
+      blocked: '{{limit}} MB 중 {{used}} MB 사용 중입니다. 기존 데이터는 그대로 유지되며, 읽기, 내보내기, 개별 레코드 편집은 계속 사용할 수 있습니다.',
+      upgrade: '업그레이드하고 계속하기',
     },
     errors: {
       somethingWentWrong: "문제가 발생했습니다",
@@ -2055,6 +2073,8 @@ const ko = {
       resendOtpCountdownText: "{seconds}초 후 재전송",
       usePhoneOtpText: "인증 코드로 로그인",
       usePasswordSignInText: "비밀번호로 로그인하기",
+      socialButton: "{provider} 계정으로 계속",
+      orText: "또는 이메일로 계속",
     },
     register: {
       title: "계정 만들기",
@@ -2073,8 +2093,12 @@ const ko = {
       submittingButton: "계정 생성 중…",
       hasAccountText: "이미 계정이 있으신가요?",
       signInText: "로그인",
+      socialButton: "{provider} 계정으로 가입",
+      orText: "또는 이메일로 계속",
       errors: {
         userExists: "해당 이메일로 이미 계정이 존재합니다. 로그인해 보세요.",
+        selfRegistrationClosed: "이 환경에서는 직접 가입을 받지 않습니다. 관리자에게 초대를 요청하세요.",
+        emailDomainNotAllowed: "이 이메일의 도메인으로는 여기에서 가입할 수 없습니다. 조직 이메일을 사용하거나 관리자에게 초대를 요청하세요.",
       },
       verifyInbox: {
         title: "받은 편지함을 확인하세요",
@@ -2899,6 +2923,9 @@ const ko = {
     openProduction: "프로덕션 열기",
     manageEnvironments: "환경 관리",
   },
+  cloudPlanStatus: {
+    current: "현재 요금제",
+  },
   ai: {
     nlQuery: {
       placeholder: "데이터에 대해 질문하세요…",
@@ -3647,6 +3674,11 @@ const ko = {
   },
   wizard: {
     missingRequired: "필수 항목을 입력하세요: {{fields}}",
+    back: "뒤로",
+    submitting: "제출 중…",
+    stepFallback: "{{n}}단계",
+    progressLabel: "진행 상황",
+    emptyStep: "이 단계에 구성된 필드가 없습니다",
   },
   flowRunner: {
     title: '입력',
@@ -3741,6 +3773,11 @@ const ko = {
     actionsEmptyTitle: "패키지 액션 없음",
     actionsEmptyBody: "이 배포에는 액션을 선언하는 설치된 패키지가 없습니다. 직접 작성한 액션은 Studio에 있습니다.",
     actionsLoadFailed: "패키지 액션을 불러오지 못했습니다.",
+  },
+  element: {
+    number: {
+      noObject: "개체가 지정되지 않았습니다. object 또는 dataSource.object를 설정하세요.",
+    },
   },
 };
 

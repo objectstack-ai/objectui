@@ -95,8 +95,15 @@ export interface SocialSignInButtonsProps {
   callbackURL?: string;
   /** Where the provider should redirect on error. Defaults to current page. */
   errorCallbackURL?: string;
-  /** Divider text shown between social buttons and the email form */
+  /** Divider text shown between social buttons and the email form (defaults to "or continue with email") */
   dividerText?: string;
+  /**
+   * Provider button label, for i18n. `{provider}` is replaced with the
+   * provider's display name, so a translation places the name where its
+   * grammar needs it. Defaults to "Continue with {provider}" in `sign-in`
+   * mode and "Sign up with {provider}" in `sign-up` mode.
+   */
+  buttonText?: string;
   /** Called once after config resolves with whether any social providers are available. */
   onProvidersResolved?: (hasProviders: boolean) => void;
 }
@@ -113,6 +120,7 @@ export function SocialSignInButtons({
   callbackURL,
   errorCallbackURL,
   dividerText = 'or continue with email',
+  buttonText,
   onProvidersResolved,
 }: SocialSignInButtonsProps) {
   const { getAuthConfig, signInWithProvider } = useAuth();
@@ -151,7 +159,8 @@ export function SocialSignInButtons({
 
   if (loading || providers.length === 0) return null;
 
-  const label = mode === 'sign-in' ? 'Continue with' : 'Sign up with';
+  const labelTemplate =
+    buttonText ?? (mode === 'sign-in' ? 'Continue with {provider}' : 'Sign up with {provider}');
   const defaultCallback =
     typeof window !== 'undefined' ? window.location.href : undefined;
 
@@ -190,7 +199,8 @@ export function SocialSignInButtons({
           className="inline-flex h-10 w-full items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
         >
           {pendingId === p.id ? <AuthSpinner /> : <ProviderIcon id={p.id} />}
-          {label} {PROVIDER_LABEL[p.id] ?? p.name}
+          {/* A replacer FUNCTION, so a `$` in a provider name is never read as a replacement pattern. */}
+          {labelTemplate.replace('{provider}', () => PROVIDER_LABEL[p.id] ?? p.name)}
         </button>
       ))}
       <div className="relative my-1">

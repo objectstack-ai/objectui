@@ -36,8 +36,17 @@ export interface RegisterFormLabels {
   submittingButton?: string;
   hasAccountText?: string;
   signInText?: string;
-  /** Divider label between social sign-up and email/password (defaults to "or") */
+  /**
+   * Divider label between the social provider buttons and the email/password
+   * form (defaults to "or continue with email"). Rendered only when the server
+   * reports at least one social provider.
+   */
   orText?: string;
+  /**
+   * Social provider button label (defaults to "Sign up with {provider}");
+   * `{provider}` is replaced with the provider's display name.
+   */
+  socialButton?: string;
 }
 
 export interface RegisterFormProps {
@@ -153,7 +162,6 @@ export function RegisterForm({
     submittingButton: labels.submittingButton ?? 'Creating account…',
     hasAccountText: labels.hasAccountText ?? 'Already have an account?',
     signInText: labels.signInText ?? 'Sign in',
-    orText: labels.orText ?? 'or',
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -197,7 +205,13 @@ export function RegisterForm({
       />
 
       <div className="space-y-5">
-        <SocialSignInButtons mode="sign-up" />
+        {/* Unset labels stay `undefined` here, so the component's own English
+            defaults apply — one copy of each default, not two. */}
+        <SocialSignInButtons
+          mode="sign-up"
+          dividerText={labels.orText}
+          buttonText={labels.socialButton}
+        />
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* No divider here: SocialSignInButtons already renders its own

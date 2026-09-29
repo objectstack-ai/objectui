@@ -319,7 +319,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   //    `protocol.ts`). Gating on `allowOrgOverride` alone therefore locked a
   //    surface the server accepts: `permission` is `allowOrgOverride: false`
   //    (ADR-0005 forbids per-org overlay of a packaged permission set — silent
-  //    privilege drift) but `allowRuntimeCreate: true`, and objectstack#6483
+  //    privilege drift) but `allowRuntimeCreate: true`, and objectstack `ee58392e1`
   //    kept that second door open on purpose ("Runtime-created sets … ride
   //    `allowRuntimeCreate` (still `true`) and keep working").
   //    `useMetadata.ts` states the convention on the field itself: "UI

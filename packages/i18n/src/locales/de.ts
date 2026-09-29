@@ -148,6 +148,7 @@ const de = {
       copyAll: 'Alle kopieren',
     },
     notAvailableHere: '„{{action}}“ ist auf der aktuellen Seite nicht verfügbar.',
+    completedSuccessfully: 'Aktion erfolgreich abgeschlossen',
   },
   validation: {
     required: "{{field}} ist erforderlich",
@@ -1076,6 +1077,8 @@ const de = {
     pathStageLostUpcoming: '{{stage}}, verloren, nicht erreicht',
     pathStageWonUpcoming: '{{stage}}, Zielphase, nicht erreicht',
     linkCopied: "Link in die Zwischenablage kopiert",
+    commentFailed: "Ihr Kommentar wurde nicht veröffentlicht. Es wurde nichts gespeichert – bitte versuchen Sie es erneut.",
+    reactionFailed: "Ihre Reaktion wurde nicht gespeichert. Bitte versuchen Sie es erneut.",
     linkCopyFailed: "Link konnte nicht kopiert werden",
     cancel: "Abbrechen",
     cancelEdit: "Änderungen verwerfen",
@@ -1157,6 +1160,8 @@ const de = {
     refreshing: "Wird aktualisiert…",
     pickMeasures: "Wählen Sie Kennzahlen (Werte) für dieses Dataset-Widget.",
     datasetUnsupported: "Diese Datenquelle unterstützt keine Dataset-Abfragen.",
+    widgetForbiddenTitle: "Kein Zugriff",
+    widgetForbiddenMessage: "Sie haben keine Berechtigung, die Daten dieses Widgets anzuzeigen.",
     details: "Details",
     exportCsv: "CSV exportieren",
     openInList: "In Liste öffnen",
@@ -1562,6 +1567,7 @@ const de = {
         ctaUpgrade: "Upgraden, um weiterzumachen",
         ctaTopUp: "Credits hinzufügen, um fortzufahren",
         ariaLabel: "KI-Nutzung: {{status}}",
+        breakdownTitle: "Bisher verbraucht",
       },
       workspaceTitle: "KI-Workspace",
       workspaceSubtitle: "Fragen stellen, prüfen und Unterhaltungen fortsetzen",
@@ -1571,6 +1577,9 @@ const de = {
       share: "Teilen",
       shareTitle: "Diese Unterhaltung teilen",
       shareDisabledTitle: "Beginnen Sie zu chatten, um das Teilen zu aktivieren",
+      buildDoctor: "Build-Diagnose",
+      buildDoctorTitle: "Build-Diagnose — was ist tatsächlich angekommen?",
+      buildDoctorDisabledTitle: "Senden Sie zuerst eine Nachricht",
       newChat: "Neu",
       searchChats: "Chats durchsuchen…",
       noChatsYet: "Noch keine Chats",
@@ -1778,6 +1787,7 @@ const de = {
       pages: "Seiten",
       reports: "Berichte",
       system: "System",
+      marketplace: "Marktplatz",
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -1875,6 +1885,14 @@ const de = {
       ratio: 'Pro geschriebener Zeile werden {{ratio}} Zeilen gelesen. Die Plattform meldet alles über {{threshold}}. Es wird nichts begrenzt oder blockiert; dies ist ein Bericht, damit das Lesemuster geprüft werden kann.',
       noWritesTitle: 'Lesevorgänge ganz ohne Schreibvorgänge in dieser Umgebung',
       noWrites: 'Es werden Zeilen gelesen, aber überhaupt keine geschrieben, sodass die Leserate keine Obergrenze hat. Das ist der schwerwiegendste Messwert. Die Plattform meldet alles über {{threshold}}. Es wird nichts begrenzt oder blockiert; dies ist ein Bericht, damit das Lesemuster geprüft werden kann.',
+    },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'Der Speicher ist fast voll',
+      warning: '{{used}} MB von {{limit}} MB belegt. Uploads und Importe werden pausiert, sobald der Speicher voll ist.',
+      blockedTitle: 'Speicher voll: Uploads und Importe sind pausiert',
+      blocked: '{{used}} MB von {{limit}} MB belegt. Vorhandene Daten bleiben unverändert; Lesen, Exportieren und das Bearbeiten einzelner Datensätze funktionieren weiterhin.',
+      upgrade: 'Upgraden, um fortzufahren',
     },
     errors: {
       somethingWentWrong: "Etwas ist schiefgelaufen",
@@ -2055,6 +2073,8 @@ const de = {
       resendOtpCountdownText: "Erneut senden in {seconds} s",
       usePhoneOtpText: "Mit Bestätigungscode anmelden",
       usePasswordSignInText: "Stattdessen mit Passwort anmelden",
+      socialButton: "Weiter mit {provider}",
+      orText: "oder mit E-Mail fortfahren",
     },
     register: {
       title: "Konto erstellen",
@@ -2073,8 +2093,12 @@ const de = {
       submittingButton: "Konto wird erstellt…",
       hasAccountText: "Bereits ein Konto?",
       signInText: "Anmelden",
+      socialButton: "Mit {provider} registrieren",
+      orText: "oder mit E-Mail fortfahren",
       errors: {
         userExists: "Ein Konto mit dieser E-Mail existiert bereits. Versuchen Sie sich anzumelden.",
+        selfRegistrationClosed: "Die Selbstregistrierung ist in dieser Umgebung nicht möglich. Bitten Sie einen Administrator um eine Einladung.",
+        emailDomainNotAllowed: "Die Domain dieser E-Mail-Adresse ist für die Registrierung hier nicht zugelassen. Verwenden Sie die E-Mail-Adresse Ihrer Organisation oder bitten Sie einen Administrator um eine Einladung.",
       },
       verifyInbox: {
         title: "Überprüfen Sie Ihren Posteingang",
@@ -2900,6 +2924,9 @@ const de = {
     openProduction: "Produktion öffnen",
     manageEnvironments: "Umgebungen verwalten",
   },
+  cloudPlanStatus: {
+    current: "Aktueller Tarif",
+  },
   ai: {
     nlQuery: {
       placeholder: "Stellen Sie eine Frage zu Ihren Daten…",
@@ -3648,6 +3675,11 @@ const de = {
   },
   wizard: {
     missingRequired: "Bitte füllen Sie die Pflichtfelder aus: {{fields}}",
+    back: "Zurück",
+    submitting: "Wird gesendet…",
+    stepFallback: "Schritt {{n}}",
+    progressLabel: "Fortschritt",
+    emptyStep: "Für diesen Schritt sind keine Felder konfiguriert",
   },
   flowRunner: {
     title: 'Eingabe',
@@ -3743,6 +3775,11 @@ const de = {
     actionsEmptyTitle: "Keine Paket-Aktionen",
     actionsEmptyBody: "In dieser Installation deklariert kein installiertes Paket eine Aktion. Selbst erstellte Aktionen finden Sie im Studio.",
     actionsLoadFailed: "Paket-Aktionen konnten nicht geladen werden.",
+  },
+  element: {
+    number: {
+      noObject: "Kein Objekt angegeben: Legen Sie object oder dataSource.object fest.",
+    },
   },
 };
 

@@ -1,7 +1,7 @@
 ---
 ---
 
-ci(workflows): replace the `type-check` / `e2e` markdown claim in `ci.yml` with a traced reading (objectui#9241)
+ci(workflows): replace the `type-check` / `e2e` markdown claim in `ci.yml` with a traced reading
 
 `ci.yml`'s `test` job carried the reason for being the only job with a markdown
 second stage as an assertion — "measured: `type-check` reads no document, and no

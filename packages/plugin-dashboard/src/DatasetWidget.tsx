@@ -33,7 +33,7 @@ import { useEffect, useMemo, useState } from 'react';
 // behind. It lives in `@object-ui/react` because it reads the host context —
 // see its file header for the measured dependency direction. This widget
 // layers its CHART-ONLY colour/order derivation on top, below.
-import { SchemaRenderer, useDatasetDimensionMeta, useDataInvalidation } from '@object-ui/react';
+import { SchemaRenderer, useDatasetDimensionMeta, useDataInvalidation, classifyLoadError } from '@object-ui/react';
 import {
   buildChartSeries,
   buildOptionColorMap,
@@ -81,7 +81,7 @@ import {
 } from '@object-ui/core';
 import { cn, Skeleton, ChartSkeleton, GridSkeleton, RefreshIndicator } from '@object-ui/components';
 import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useDisplayLocale, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
-import { AlertTriangle, Download, ArrowUpIcon, ArrowDownIcon, MinusIcon, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react';
+import { AlertTriangle, ShieldAlert, Download, ArrowUpIcon, ArrowDownIcon, MinusIcon, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 // objectui#7063 — the default empty state is stated ONCE for the dashboard
 // surface (see that component's header for why it is dashboard-local).
 import { WidgetEmptyState } from './WidgetEmptyState';
@@ -588,7 +588,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
 
   // `signature` is the query an `ok` answer was read for, and `refreshing` marks
   // a re-read of that same query in flight (objectui#10815, see the effect).
-  const [state, setState] = useState<{ status: 'idle' | 'loading' | 'ok' | 'error'; rows: Row[]; fields?: DatasetResultField[]; object?: string; dimensionFields?: Record<string, string>; drillRawRows?: Array<Record<string, unknown>>; drillRanges?: Array<Record<string, DatasetDrillRange>>; totals?: DatasetTotals[]; error?: string; signature?: string; refreshing?: boolean }>({ status: 'idle', rows: [] });
+  const [state, setState] = useState<{ status: 'idle' | 'loading' | 'ok' | 'error'; rows: Row[]; fields?: DatasetResultField[]; object?: string; dimensionFields?: Record<string, string>; drillRawRows?: Array<Record<string, unknown>>; drillRanges?: Array<Record<string, DatasetDrillRange>>; totals?: DatasetTotals[]; error?: string; forbidden?: boolean; signature?: string; refreshing?: boolean }>({ status: 'idle', rows: [] });
   // Drill-through (ADR-0021 D2): the clicked bucket's record-list filter + title.
   const [drill, setDrill] = useState<{ filter: Record<string, unknown>; title: string } | null>(null);
   // ── The flat table's client-side sort (objectui#5827) ────────────────────
@@ -660,7 +660,19 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
         setState({ status: 'ok', rows: Array.isArray(res?.rows) ? res.rows : [], fields: Array.isArray(res?.fields) ? res.fields : [], object: res?.object, dimensionFields: res?.dimensionFields, drillRawRows: Array.isArray(res?.drillRawRows) ? res.drillRawRows : undefined, drillRanges: Array.isArray(res?.drillRanges) ? res.drillRanges : undefined, totals: Array.isArray(res?.totals) ? res.totals : undefined, signature });
         if (typeof res?.object === 'string' && res.object) setDatasetObject(res.object);
       })
-      .catch((e) => { if (!cancelled) setState({ status: 'error', rows: [], error: String((e as Error)?.message ?? e) }); });
+      .catch((e) => {
+        if (cancelled) return;
+        // A READ refusal (403 / `PERMISSION_DENIED` — the analytics read
+        // admission, objectui#10899) is not a failure to explain: it is the same
+        // "you can't see this data" the list view over the same object states in
+        // its localized no-access panel. Classified by the shared, adapter-
+        // agnostic `classifyLoadError`, never by matching the message text.
+        if (classifyLoadError(e) === 'forbidden') {
+          setState({ status: 'error', rows: [], forbidden: true });
+          return;
+        }
+        setState({ status: 'error', rows: [], error: String((e as Error)?.message ?? e) });
+      });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature, invalidationNonce]);
@@ -840,6 +852,26 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
         ) : (
           <ChartSkeleton className="h-full" />
         )}
+      </div>
+    );
+  }
+  if (state.status === 'error' && state.forbidden) {
+    // The viewer may not read the data behind this tile (objectui#10899). A
+    // localized statement of that fact, in the list view's words — never the
+    // transport's `Dataset query failed: 403 Forbidden — …` string.
+    return (
+      <div
+        role="alert"
+        data-testid="dataset-widget-forbidden"
+        className="flex h-full w-full flex-col items-center justify-center gap-1 p-3 text-center text-xs text-muted-foreground"
+      >
+        <ShieldAlert className="h-5 w-5 text-muted-foreground/70" aria-hidden="true" />
+        <span className="font-medium text-foreground/80">
+          {tt('dashboard.widgetForbiddenTitle', 'You don’t have access')}
+        </span>
+        <span>
+          {tt('dashboard.widgetForbiddenMessage', 'You don’t have permission to view the data behind this widget.')}
+        </span>
       </div>
     );
   }

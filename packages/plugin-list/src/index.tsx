@@ -37,7 +37,7 @@ export type { ViewSwitcherProps, ViewType } from './ViewSwitcher';
  * Designer label per visualization, and the `viewType` enum options both
  * registrations below are built from.
  *
- * A total `Record<ListViewVisualization, string>` (objectui#8127). The two
+ * A total `Record<ListViewVisualization, string>` (`ca3942729`). The two
  * registrations each carried their own seven-entry `{ label, value }` literal,
  * compared against nothing — so both had drifted, missing `chart` and `tree`,
  * which `ListView` has drawn for releases. Deriving the options from one total

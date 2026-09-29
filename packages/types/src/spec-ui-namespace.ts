@@ -13,7 +13,7 @@
  * Existence note (objectui#5716). `index.ts` used to point that namespace
  * export straight at `@objectstack/spec/ui`, so the namespace tracked
  * whatever the installed pin publishes — and on the dependency refresh past
- * the spec's theme retirement (objectstack#10485), the `UI.Theme`-family
+ * the spec's theme retirement (objectstack `35ad101bc`), the `UI.Theme`-family
  * members would have vanished with no error anywhere in this repo. The
  * objectui#5716 ruling says that silent narrowing must stop for the theme
  * family. This shim is the mechanism: an explicit re-export beats a star

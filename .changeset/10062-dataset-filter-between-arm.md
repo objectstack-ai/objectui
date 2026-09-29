@@ -5,7 +5,7 @@
 fix(app-shell): the Studio dataset-filter inspector stores a `between` range as the
 spec's `$between`, with both bounds required (objectui#10062)
 
-Executes ruling batch #146 item 5 letter A (objectstack#18012): the `between` arm of the
+Executes ruling batch #146 item 5 letter A (objectstack `176b03582`): the `between` arm of the
 dataset-filter bridge maps once a both-bounds completeness rule exists, and one does. Until
 now a `Between` row in a dataset's or a measure's filter was dropped on every commit —
 inertly since objectui#9372, but dropped — so a date range could be drawn in the inspector

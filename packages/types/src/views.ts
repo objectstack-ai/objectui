@@ -26,7 +26,7 @@ import type { ListView as SpecListView } from '@objectstack/spec/ui';
  * objectui view CATEGORIES that are not list-view types at all.
  *
  * DERIVED from `@objectstack/spec/ui` `ListView['type']`, never re-declared
- * (objectui#8127). The eleven-arm hand-written union this replaces was total
+ * (`ca3942729`). The eleven-arm hand-written union this replaces was total
  * over a copy of the spec's list of 17.2.0, and `@objectstack/spec@17.3.0`
  * added `page` to that list. Nothing went red, because every structure keyed
  * on this union was total over the COPY — a total map is only as honest as the
@@ -77,7 +77,7 @@ export type ViewType = NonNullable<SpecListView['type']> | 'list' | 'detail';
  *
  * It had already drifted when it landed. The copy declared a fifth key,
  * `titleField`, which `@objectstack/spec@17.4.0` REFUSES on `ListView.tree` by
- * name — `TreeConfigSchema` is a `strictObject` since spec #15469 closed the
+ * name — `TreeConfigSchema` is a `strictObject` since spec objectstack#15469 closed the
  * `.passthrough()` window 17.3.0 left open. So this package's published face
  * accepted what the protocol rejects, and an author who followed this type was
  * refused at publish. 协议为基准: this type now IS the spec's, so the next key
@@ -440,7 +440,7 @@ export interface DetailViewSection {
    * ## Provenance
    *
    * Declared by `@objectstack/spec` on the `record:details` section entry
-   * (`RecordDetailsProps.sections[]`, 17.3.0+, upstream #11289, maintainer
+   * (`RecordDetailsProps.sections[]`, 17.3.0+, upstream objectstack#11289, maintainer
    * ruling 2026-08-23 direction 1). objectui#7129 (maintainer 2026-09-01)
    * retired this declaration and the renderer read on the premise that the
    * spec REFUSED the key — true at the 17.2.0 pin, false upstream by the time
@@ -998,7 +998,8 @@ export interface DetailViewSchema extends BaseSchema {
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `detail-view` reads NEITHER
    * content channel, so an authored child list here rendered NOTHING: no
-   * error, no warning, no element.
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
    *
    * Measured with the TypeScript type checker, not grep: no `body` /
    * `children` read is filed under this declaration, while the same instrument
@@ -1106,7 +1107,8 @@ export interface ViewSwitcherSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -1133,7 +1135,8 @@ export interface ViewSwitcherSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -1234,7 +1237,8 @@ export interface FilterUISchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -1260,7 +1264,8 @@ export interface FilterUISchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -1335,7 +1340,8 @@ export interface SortUISchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -1360,7 +1366,8 @@ export interface SortUISchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by

@@ -177,8 +177,8 @@ export interface ActionDef {
    * field, because the 2026-08-06 maintainer ruling on objectstack#4075 gave
    * both keys ONE shape: `boolean | string(CEL) | { dialect, source }` —
    * "boolean = 条件的退化形字面量,string = CEL 简写,信封 = 完整形". The
-   * envelope arm arrived in `@objectstack/spec` 17.0.0-rc.6 (objectstack#5970,
-   * PR objectstack#6450); until then this was a hand-written `string | boolean`
+   * envelope arm arrived in `@objectstack/spec` 17.0.0-rc.6 (objectstack
+   * `97e7e3caa`); until then this was a hand-written `string | boolean`
    * that could not describe the envelope, which is why `DeclaredActionsBar`
    * read it through an `(action as any).disabled` cast. Derived, not restated,
    * so the two keys cannot drift apart again.
@@ -386,7 +386,7 @@ export interface ActionDef {
    * spec 采纳 —— `visible` / `disabled` 两键在 spec 侧统一收敛为
    * `boolean | string(CEL) | {dialect, source}`(boolean = 条件的退化形字面量,
    * string = CEL 简写,信封 = 完整形)". `@objectstack/spec` 17.0.0-rc.6 carries
-   * it (objectstack#5970, PR objectstack#6450), so the local `| boolean` is no
+   * it (objectstack `97e7e3caa`), so the local `| boolean` is no
    * longer a tolerance to declare — it is part of the derived type, and adding
    * it back would restate a spec arm rather than widen anything.
    */
@@ -540,6 +540,19 @@ export type ToastHandler = (message: string, options?: {
 }) => void;
 
 /**
+ * The success toast the runner falls back to when neither the server (a
+ * `data.message` on the result) nor the author (`successMessage`) supplied one.
+ * It is the only toast text the runner writes itself, so it is the only one
+ * {@link ActionRunner.setTranslator}'s translator is asked for: `key` names the
+ * locale-pack entry (`@object-ui/i18n`'s packs define it), `defaultValue` is the
+ * English source and what shows when no translator is installed.
+ */
+const DEFAULT_SUCCESS_TOAST = {
+  key: 'actions.completedSuccessfully',
+  defaultValue: 'Action completed successfully',
+} as const;
+
+/**
  * Modal handler — consumers provide to render modal dialogs.
  */
 export type ModalHandler = (schema: any, context: ActionContext) => Promise<ActionResult>;
@@ -567,7 +580,7 @@ export type ParamCollectionHandler = (
  * The contract's own result-dialog block, and one entry of its field list.
  *
  * ⭐ The two interfaces below DERIVE their label members from these instead of
- * restating them, and that is the whole repair of objectui#9542: the three
+ * restating them, and that is the whole repair of `43c0d1710`: the three
  * label members were hand-written `string` while the producer declares each as
  * `I18nLabel` — a plain string **or** an inline per-locale map, both authorized
  * and neither deprecated — so this mirror refused what the platform accepts
@@ -690,7 +703,8 @@ export interface ActionParamDef {
   visible?: string;
   /**
    * Carry-over declaration — `@objectstack/spec`'s `ActionParamSchema.carryOver`
-   * (objectstack#11753 ruling, objectui#6246), passed through unchanged by
+   * (the 2026-08-25 ruling whose spec half is objectstack `0e4e51b0a`,
+   * objectui#6246), passed through unchanged by
    * `resolveActionParams()`. The param's value is carried through the dialog
    * rather than collected from the user: seeded from the row (the spec refuses
    * the key without `defaultFromRow: true`), rendered by `ActionParamDialog` as
@@ -753,7 +767,7 @@ export interface ActionParamDef {
    * not apply either. A lookup param that should have rendered a record picker
    * renders an unannotated empty box instead — no options, no dropdown, and no
    * request for the referenced object on the wire, because no picker was ever
-   * built (objectui#10129).
+   * built (`6cc910b6d`).
    *
    * ⛔ It is not a widget config key and `paramToField()` deliberately does not
    * map it: the whole point is that the param's type is UNKNOWN, so there is no
@@ -993,6 +1007,7 @@ export class ActionRunner {
   private navigationHandler: NavigationHandler | null;
   private paramCollectionHandler: ParamCollectionHandler | null;
   private resultDialogHandler: ResultDialogHandler | null;
+  private translate: ((key: string, options: { defaultValue: string }) => string) | null;
 
   /**
    * Built-in dispatch, one entry per runnable action type.
@@ -1031,6 +1046,19 @@ export class ActionRunner {
     this.navigationHandler = null;
     this.paramCollectionHandler = null;
     this.resultDialogHandler = null;
+    this.translate = null;
+  }
+
+  /**
+   * Set the translator for the text the runner supplies itself — the host's
+   * `t`, injected so this package takes no i18n dependency. Today that is one
+   * string: the generic success toast shown when an action declares no
+   * `successMessage` and the server returned no message. An author's
+   * `successMessage` and a server message reach the toast verbatim, translator
+   * or not. With no translator the toast stays English.
+   */
+  setTranslator(translate: (key: string, options: { defaultValue: string }) => string): void {
+    this.translate = translate;
   }
 
   /**
@@ -1317,6 +1345,16 @@ export class ActionRunner {
   }
 
   /**
+   * The generic success toast, in the installed translator's language. An
+   * empty answer from the translator falls back to the English source rather
+   * than raising an empty toast.
+   */
+  private defaultSuccessToast(): string {
+    const { key, defaultValue } = DEFAULT_SUCCESS_TOAST;
+    return this.translate?.(key, { defaultValue }) || defaultValue;
+  }
+
+  /**
    * Post-execution: emit toast notifications, handle chaining, callbacks.
    */
   private async handlePostExecution(action: ActionDef, result: ActionResult): Promise<void> {
@@ -1338,12 +1376,14 @@ export class ActionRunner {
         // check_app_updates / publish / install compute a real outcome
         // ("2 app updates available: CRM 1.0.0→1.0.1", "Published v1.2.0")
         // that the static label can't express; without this the user only ever
-        // sees a generic "Done". Falls back to the static label, then a default.
+        // sees a generic "Done". Falls back to the static label, then a default
+        // — the one string here the runner writes itself, so the only one its
+        // translator is asked for (see `setTranslator`).
         const dyn = (result.data && typeof result.data === 'object'
           && typeof (result.data as { message?: unknown }).message === 'string')
           ? String((result.data as { message?: unknown }).message).trim()
           : '';
-        const message = dyn || action.successMessage || 'Action completed successfully';
+        const message = dyn || action.successMessage || this.defaultSuccessToast();
         // Undoable action: register the captured operation on the global
         // UndoManager and surface an "Undo" affordance on the toast (the
         // consumer's toast handler wires the button to UndoManager).

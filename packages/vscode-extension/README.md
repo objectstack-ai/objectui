@@ -122,7 +122,7 @@ Access these commands via the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
 
 Customize the extension behavior in VSCode settings:
 
-```json
+```jsonc
 {
   // Preview settings
   "objectui.preview.port": 3000,

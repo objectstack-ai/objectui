@@ -7,7 +7,7 @@ Retire the discovery-wire preview mode — the console no longer turns
 authentication off because a server said `mode: 'preview'` (objectui#6654).
 
 `@objectstack/spec` retired the `RuntimeMode` value `'preview'` and the whole
-`PreviewModeConfig` block (objectstack#11846). This console still read that
+`PreviewModeConfig` block (objectstack `0c2334f6c`). This console still read that
 surface back off the runtime discovery payload, which is a different layer from
 the retired compile-time type — so the consumption could not simply be assumed
 dead, and its removal was ruled deliberately (2026-08-29).

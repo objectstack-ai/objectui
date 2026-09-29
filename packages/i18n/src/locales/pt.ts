@@ -147,6 +147,7 @@ const pt = {
       copyAll: 'Copiar tudo',
     },
     notAvailableHere: '"{{action}}" não está disponível na página atual.',
+    completedSuccessfully: 'A ação foi concluída com sucesso',
   },
   validation: {
     required: "{{field}} é obrigatório",
@@ -1077,6 +1078,8 @@ const pt = {
     pathStageLostUpcoming: '{{stage}}, perdida, não alcançada',
     pathStageWonUpcoming: '{{stage}}, etapa objetivo, não alcançada',
     linkCopied: "Link copiado para a área de transferência",
+    commentFailed: "Seu comentário não foi publicado. Nada foi salvo — tente novamente.",
+    reactionFailed: "Sua reação não foi salva. Tente novamente.",
     linkCopyFailed: "Falha ao copiar o link",
     cancel: "Cancelar",
     cancelEdit: "Descartar alterações",
@@ -1156,6 +1159,8 @@ const pt = {
     refreshing: "Atualizando…",
     pickMeasures: "Escolha medidas (valores) para este widget de dataset.",
     datasetUnsupported: "Esta fonte de dados não oferece suporte a consultas de dataset.",
+    widgetForbiddenTitle: "Sem acesso",
+    widgetForbiddenMessage: "Você não tem permissão para ver os dados deste widget.",
     details: "Detalhes",
     exportCsv: "Exportar CSV",
     openInList: "Abrir na lista",
@@ -1561,6 +1566,7 @@ const pt = {
         ctaUpgrade: "Faça upgrade para continuar",
         ctaTopUp: "Adicione créditos para continuar",
         ariaLabel: "Uso de IA: {{status}}",
+        breakdownTitle: "Usado até agora",
       },
       workspaceTitle: "Workspace de IA",
       workspaceSubtitle: "Pergunte, inspecione e retome conversas",
@@ -1570,6 +1576,9 @@ const pt = {
       share: "Compartilhar",
       shareTitle: "Compartilhar esta conversa",
       shareDisabledTitle: "Comece a conversar para habilitar o compartilhamento",
+      buildDoctor: "Diagnóstico de build",
+      buildDoctorTitle: "Diagnóstico de build — o que foi realmente aplicado?",
+      buildDoctorDisabledTitle: "Envie uma mensagem primeiro",
       newChat: "Nova",
       searchChats: "Pesquisar conversas…",
       noChatsYet: "Ainda não há conversas",
@@ -1777,6 +1786,7 @@ const pt = {
       pages: "Páginas",
       reports: "Relatórios",
       system: "Sistema",
+      marketplace: "Marketplace",
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -1874,6 +1884,14 @@ const pt = {
       ratio: 'São lidas {{ratio}} linhas para cada linha gravada. A plataforma sinaliza tudo acima de {{threshold}}. Nada está sendo limitado ou bloqueado; este é um relatório para que o padrão de leitura possa ser revisado.',
       noWritesTitle: 'Leituras sem nenhuma gravação neste ambiente',
       noWrites: 'Linhas estão sendo lidas sem que nenhuma seja gravada, portanto a taxa de leitura não tem limite superior. Esta é a leitura mais grave. A plataforma sinaliza tudo acima de {{threshold}}. Nada está sendo limitado ou bloqueado; este é um relatório para que o padrão de leitura possa ser revisado.',
+    },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'O armazenamento está quase cheio',
+      warning: '{{used}} MB de {{limit}} MB usados. Envios e importações são pausados quando o armazenamento fica cheio.',
+      blockedTitle: 'Armazenamento cheio: envios e importações estão pausados',
+      blocked: '{{used}} MB de {{limit}} MB usados. Os dados existentes não são alterados, e a leitura, a exportação e a edição de registros individuais continuam funcionando.',
+      upgrade: 'Faça upgrade para continuar',
     },
     errors: {
       somethingWentWrong: "Algo deu errado",
@@ -2054,6 +2072,8 @@ const pt = {
       resendOtpCountdownText: "Reenviar em {seconds} s",
       usePhoneOtpText: "Entrar com código de verificação",
       usePasswordSignInText: "Entrar com senha em vez disso",
+      socialButton: "Continuar com {provider}",
+      orText: "ou continue com e-mail",
     },
     register: {
       title: "Criar uma conta",
@@ -2072,8 +2092,12 @@ const pt = {
       submittingButton: "Criando conta…",
       hasAccountText: "Já tem uma conta?",
       signInText: "Entrar",
+      socialButton: "Cadastre-se com {provider}",
+      orText: "ou continue com e-mail",
       errors: {
         userExists: "Já existe uma conta com esse e-mail. Tente fazer login.",
+        selfRegistrationClosed: "O cadastro por conta própria não está aberto neste ambiente. Peça um convite a um administrador.",
+        emailDomainNotAllowed: "O domínio deste e-mail não tem permissão para se cadastrar aqui. Use o e-mail da sua organização ou peça um convite a um administrador.",
       },
       verifyInbox: {
         title: "Verifique sua caixa de entrada",
@@ -2899,6 +2923,9 @@ const pt = {
     openProduction: "Abrir produção",
     manageEnvironments: "Gerenciar ambientes",
   },
+  cloudPlanStatus: {
+    current: "Plano atual",
+  },
   ai: {
     nlQuery: {
       placeholder: "Faça uma pergunta sobre seus dados…",
@@ -3647,6 +3674,11 @@ const pt = {
   },
   wizard: {
     missingRequired: "Preencha os campos obrigatórios: {{fields}}",
+    back: "Voltar",
+    submitting: "Enviando…",
+    stepFallback: "Etapa {{n}}",
+    progressLabel: "Progresso",
+    emptyStep: "Nenhum campo configurado para esta etapa",
   },
   flowRunner: {
     title: 'Entrada',
@@ -3742,6 +3774,11 @@ const pt = {
     actionsEmptyTitle: "Nenhuma ação de pacote",
     actionsEmptyBody: "Nenhum pacote instalado declara uma ação nesta implantação. As ações que você mesmo cria ficam no Studio.",
     actionsLoadFailed: "Não foi possível carregar as ações de pacote.",
+  },
+  element: {
+    number: {
+      noObject: "Nenhum objeto indicado: defina object ou dataSource.object.",
+    },
   },
 };
 

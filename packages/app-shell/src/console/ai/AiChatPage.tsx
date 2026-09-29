@@ -318,6 +318,27 @@ export function deriveBoundPackageId(
 }
 
 /**
+ * ADR-0057 Amendment A1.b migration read — is a product-only (legacy-scope)
+ * build thread bound to `packageId` by its OWN history (the latest
+ * draft/handoff package)? The adopt predicate every `app:X:build` surface
+ * that runs the migration read hands `useChatConversation`: the full page's
+ * `?package=` entry and the console dock bound to the current app
+ * (objectui#10926). One predicate, so whichever surface resolves first adopts
+ * the same thread. Exported for that second caller.
+ */
+export function isThreadBoundToPackage(
+  messages: HydratedUIMessage[],
+  packageId: string,
+): boolean {
+  return (
+    deriveBoundPackageId(
+      hydratedMessagesToChatMessages(messages) as unknown as readonly PackageBearingMessage[],
+      undefined,
+    ) === packageId
+  );
+}
+
+/**
  * #2466 / ADR-0057 Amendment A1.b — is this app a CODE-LOADED platform built-in
  * (`com.objectstack.setup` / `account`, …) rather than a user- or AI-authored
  * package? The A1.b switcher lists only authorable packages, so a built-in —
@@ -953,11 +974,7 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
       : undefined;
   const adoptLegacyBuildThread = useCallback(
     (messages: HydratedUIMessage[]) =>
-      Boolean(editPackageId) &&
-      deriveBoundPackageId(
-        hydratedMessagesToChatMessages(messages) as unknown as readonly PackageBearingMessage[],
-        undefined,
-      ) === editPackageId,
+      editPackageId !== undefined && isThreadBoundToPackage(messages, editPackageId),
     [editPackageId],
   );
 
@@ -2257,9 +2274,9 @@ export function ChatPane({
             className="h-7 w-7 text-muted-foreground hover:text-foreground"
             onClick={onDebug}
             disabled={!conversationId}
-            aria-label="Build Doctor"
+            aria-label={t('console.ai.buildDoctor')}
             data-testid="ai-chat-debug-button"
-            title={conversationId ? 'Build Doctor — what actually landed?' : 'Send a message first'}
+            title={conversationId ? t('console.ai.buildDoctorTitle') : t('console.ai.buildDoctorDisabledTitle')}
           >
             <Bug className="h-3.5 w-3.5" />
           </Button>

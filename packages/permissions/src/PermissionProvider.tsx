@@ -55,7 +55,7 @@ const VALUE = createDiscardProofCache<PermissionContextValue>();
 const NO_USER: object = { user: 'absent' };
 
 /**
- * [#3391] Role-based provider does not model the server's effective API
+ * [objectstack#3391] Role-based provider does not model the server's effective API
  * operation set — return undefined so consumers keep current behavior.
  *
  * [objectui#6813] Module-level rather than a literal rebuilt inside the value

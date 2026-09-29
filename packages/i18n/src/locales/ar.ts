@@ -159,6 +159,7 @@ const ar = {
       copyAll: 'نسخ الكل',
     },
     notAvailableHere: '"{{action}}" غير متاح في الصفحة الحالية.',
+    completedSuccessfully: 'اكتمل الإجراء بنجاح',
   },
   validation: {
     required: "{{field}} مطلوب",
@@ -1095,6 +1096,8 @@ const ar = {
     pathStageLostUpcoming: '{{stage}}، خاسرة، لم يتم الوصول إليها',
     pathStageWonUpcoming: '{{stage}}، المرحلة الهدف، لم يتم الوصول إليها',
     linkCopied: "تم نسخ الرابط إلى الحافظة",
+    commentFailed: "لم يُنشر تعليقك. لم يُحفظ أي شيء — يُرجى المحاولة مرة أخرى.",
+    reactionFailed: "لم يُحفظ تفاعلك. يُرجى المحاولة مرة أخرى.",
     linkCopyFailed: "فشل نسخ الرابط",
     cancel: "إلغاء",
     cancelEdit: "تجاهل التغييرات",
@@ -1177,6 +1180,8 @@ const ar = {
     refreshing: "جارٍ التحديث…",
     pickMeasures: "اختر المقاييس (القيم) لأداة مجموعة البيانات هذه.",
     datasetUnsupported: "مصدر البيانات هذا لا يدعم استعلامات مجموعات البيانات.",
+    widgetForbiddenTitle: "لا تملك صلاحية الوصول",
+    widgetForbiddenMessage: "ليست لديك صلاحية لعرض البيانات الخاصة بهذه الأداة.",
     details: "التفاصيل",
     exportCsv: "تصدير CSV",
     openInList: "فتح في القائمة",
@@ -1582,6 +1587,7 @@ const ar = {
         ctaUpgrade: "قم بالترقية للمتابعة",
         ctaTopUp: "أضف أرصدة للمتابعة",
         ariaLabel: "استخدام الذكاء الاصطناعي: {{status}}",
+        breakdownTitle: "المستخدَم حتى الآن",
       },
       workspaceTitle: "مساحة عمل الذكاء الاصطناعي",
       workspaceSubtitle: "اسأل وافحص واستأنف المحادثات",
@@ -1591,6 +1597,9 @@ const ar = {
       share: "مشاركة",
       shareTitle: "مشاركة هذه المحادثة",
       shareDisabledTitle: "ابدأ المحادثة لتفعيل المشاركة",
+      buildDoctor: "تشخيص البناء",
+      buildDoctorTitle: "تشخيص البناء — ما الذي طُبِّق فعلًا؟",
+      buildDoctorDisabledTitle: "أرسل رسالة أولًا",
       newChat: "جديدة",
       searchChats: "البحث في المحادثات…",
       noChatsYet: "لا توجد محادثات بعد",
@@ -1798,6 +1807,7 @@ const ar = {
       pages: "الصفحات",
       reports: "التقارير",
       system: "النظام",
+      marketplace: "السوق",
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -1895,6 +1905,14 @@ const ar = {
       ratio: 'تتم قراءة {{ratio}} صف مقابل كل صف مكتوب. تُعلِّم المنصة كل ما يتجاوز {{threshold}}. لا يتم تقييد أو حظر أي شيء؛ هذا تقرير لمراجعة نمط القراءة.',
       noWritesTitle: 'قراءات بدون أي كتابة في هذه البيئة',
       noWrites: 'تتم قراءة صفوف دون كتابة أي صف على الإطلاق، لذا لا يوجد حد أعلى لمعدل القراءة. هذه هي أخطر قراءة. تُعلِّم المنصة كل ما يتجاوز {{threshold}}. لا يتم تقييد أو حظر أي شيء؛ هذا تقرير لمراجعة نمط القراءة.',
+    },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'مساحة التخزين توشك على الامتلاء',
+      warning: 'تم استخدام {{used}} ميغابايت من {{limit}} ميغابايت. يتوقف الرفع والاستيراد مؤقتًا عند امتلاء مساحة التخزين.',
+      blockedTitle: 'مساحة التخزين ممتلئة: الرفع والاستيراد متوقفان مؤقتًا',
+      blocked: 'تم استخدام {{used}} ميغابايت من {{limit}} ميغابايت. البيانات الحالية لم تُمس، ولا تزال القراءة والتصدير وتعديل السجلات الفردية تعمل.',
+      upgrade: 'قم بالترقية للمتابعة',
     },
     errors: {
       somethingWentWrong: "حدث خطأ ما",
@@ -2078,6 +2096,8 @@ const ar = {
       resendOtpCountdownText: "إعادة الإرسال بعد {seconds} ثانية",
       usePhoneOtpText: "تسجيل الدخول برمز التحقق",
       usePasswordSignInText: "تسجيل الدخول بكلمة المرور بدلاً من ذلك",
+      socialButton: "المتابعة باستخدام {provider}",
+      orText: "أو تابع باستخدام البريد الإلكتروني",
     },
     register: {
       title: "إنشاء حساب",
@@ -2096,8 +2116,12 @@ const ar = {
       submittingButton: "جارٍ إنشاء الحساب…",
       hasAccountText: "لديك حساب بالفعل؟",
       signInText: "تسجيل الدخول",
+      socialButton: "التسجيل باستخدام {provider}",
+      orText: "أو تابع باستخدام البريد الإلكتروني",
       errors: {
         userExists: "يوجد حساب بهذا البريد الإلكتروني بالفعل. حاول تسجيل الدخول.",
+        selfRegistrationClosed: "التسجيل الذاتي غير متاح في هذه البيئة. اطلب دعوة من المسؤول.",
+        emailDomainNotAllowed: "نطاق هذا البريد الإلكتروني غير مسموح له بالتسجيل هنا. استخدم البريد الإلكتروني لمؤسستك أو اطلب دعوة من المسؤول.",
       },
       verifyInbox: {
         title: "تحقق من صندوق الوارد",
@@ -2930,6 +2954,9 @@ const ar = {
     openProduction: "فتح بيئة الإنتاج",
     manageEnvironments: "إدارة البيئات",
   },
+  cloudPlanStatus: {
+    current: "الخطة الحالية",
+  },
   ai: {
     nlQuery: {
       placeholder: "اطرح سؤالًا حول بياناتك…",
@@ -3684,6 +3711,11 @@ const ar = {
   },
   wizard: {
     missingRequired: "يرجى إكمال الحقول المطلوبة: {{fields}}",
+    back: "رجوع",
+    submitting: "جارٍ الإرسال…",
+    stepFallback: "الخطوة {{n}}",
+    progressLabel: "التقدم",
+    emptyStep: "لا توجد حقول مهيأة لهذه الخطوة",
   },
   flowRunner: {
     title: 'إدخال',
@@ -3779,6 +3811,11 @@ const ar = {
     actionsEmptyTitle: "لا توجد إجراءات من الحزم",
     actionsEmptyBody: "لا توجد حزمة مثبّتة تعلن عن إجراء في هذا النشر. الإجراءات التي تنشئها بنفسك موجودة في Studio.",
     actionsLoadFailed: "تعذّر تحميل إجراءات الحزم.",
+  },
+  element: {
+    number: {
+      noObject: "لم يُحدَّد أي كائن: عيّن object أو dataSource.object.",
+    },
   },
 };
 

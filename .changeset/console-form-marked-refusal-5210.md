@@ -19,7 +19,7 @@ returning 400 instead of 403 for permission failures, degrading the status
 semantics logs, monitoring and API consumers depend on.
 
 The maintainer ruling (2026-08-19) was a producer-side opt-in rather than a
-chattier 403 branch, and the platform half shipped as objectstack#9934: a hook
+chattier 403 branch, and the platform half shipped as objectstack `79c46da90`: a hook
 marks its refusal text with `userMessage` at throw time. This is the consumer
 half.
 

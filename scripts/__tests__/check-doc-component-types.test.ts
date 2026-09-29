@@ -1274,7 +1274,7 @@ describe("the indirect bypass is keyed by COLLECTION, the way the table's covera
 
   it('⭐ takes a WITHHELD declaration as coverage — no finding, and no keys either', () => {
     // The other legitimate answer to `uncovered-indirect-collection`, and the
-    // one the live table gives RETIRED_FIELD_TYPES while objectui#9717 is open:
+    // one the live table gives RETIRED_FIELD_TYPES by ruling objectui#9717 letter A:
     // the registration is declared, its keys deliberately stay OUT, and the
     // reason is written down. ⛔ The point is not that the finding goes away —
     // it is that the exclusion becomes a reviewable line instead of a silence.

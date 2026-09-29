@@ -391,6 +391,10 @@ function LoginFormCard({
         usePasswordSignInText: t('auth.login.usePasswordSignInText', {
           defaultValue: 'Sign in with password instead',
         }),
+        // `{provider}` is `SocialSignInButtons`' own single-brace hole — kept
+        // out of i18next's `{{…}}` interpolation on purpose.
+        socialButton: t('auth.login.socialButton', { defaultValue: 'Continue with {provider}' }),
+        orText: t('auth.login.orText', { defaultValue: 'or continue with email' }),
       }}
     />
   );

@@ -56,9 +56,18 @@ name: Spec Main Shape Gate
 # copied here, because a figure in a comment is derived once and never again):
 # the blobless + depth-1 + cone-sparse clone transfers the least by a wide
 # margin, because a packed codeload tarball has no server-side path filter and
-# still ships the whole repository. `packages/spec` and `scripts` are both in the
-# cone: the spec's own build script calls two scripts from the objectstack repo
-# root, so a cone holding only `packages/spec` fails in its build step.
+# still ships the whole repository. Each directory in the cone is there because
+# a step below fails without it:
+#   - `packages/spec` is the subject.
+#   - `scripts`: the spec's own build script calls scripts from the objectstack
+#     repository root, so a cone without it fails in the build step.
+#   - `patches`: objectstack's root `pnpm-workspace.yaml` declares
+#     `patchedDependencies`, and pnpm reads and hashes EVERY patch file that map
+#     names on any install, filtered or not, so a cone without it fails in the
+#     install step before anything is built (objectui#11024). The cone holds the
+#     directory `pnpm patch-commit` writes to; a patch declared anywhere else
+#     needs its directory added here, because nothing derives the cone from
+#     that map yet.
 #
 # ## ⛔ The turbo cache is a FALSE GREEN here
 #
@@ -142,13 +151,15 @@ jobs:
           # `--filter=blob:none` fetches file contents lazily, `--depth=1` drops
           # history, and the cone below decides which blobs are ever fetched at
           # all. `scripts` is in the cone because the spec's build calls scripts
-          # from the objectstack repository root.
+          # from the objectstack repository root; `patches` because the install
+          # reads every patch file the root `pnpm-workspace.yaml` declares in
+          # `patchedDependencies` (the header says why each one is needed).
           git clone --depth=1 --filter=blob:none --no-checkout --single-branch \
             --branch main https://github.com/objectstack-ai/objectstack \
             "$RUNNER_TEMP/objectstack"
           cd "$RUNNER_TEMP/objectstack"
           git sparse-checkout init --cone
-          git sparse-checkout set packages/spec scripts
+          git sparse-checkout set packages/spec scripts patches
           # Check out the resolved SHA, not `main`: `main` may have moved between
           # the step above and this one, and the report names the sha.
           git fetch --depth=1 origin "$UPSTREAM_SHA"

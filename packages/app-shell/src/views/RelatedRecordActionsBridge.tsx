@@ -334,7 +334,7 @@ export function RelatedRecordActionsBridge({
       resolve: ({ objectName, relationshipField, parentId }) => {
         const childDef = objects.find((o: any) => o?.name === objectName);
         if (!childDef || !base) return {} as RelatedRecordHandlers;
-        // [#3546] Intersect the child object's bucket affordances with the
+        // [objectstack#3546] Intersect the child object's bucket affordances with the
         // server-resolved effective API operation set for THAT child
         // (`/me/permissions` `apiOperations`), so a related list never offers
         // Create/Edit/Delete on the child the server would 405. `undefined`

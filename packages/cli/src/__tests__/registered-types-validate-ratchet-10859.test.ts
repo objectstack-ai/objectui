@@ -65,18 +65,20 @@ import { validate } from '../commands/validate.js';
 
 /**
  * The head's refused count (objectui#10859 batch 1: 79 on `main` before it,
- * minus the three `@object-ui/plugin-ai` arms). LOWER it when a batch arms more
- * keys; never raise it.
+ * minus the three `@object-ui/plugin-ai` arms; batch 2: minus `pivot`,
+ * `object-metric` and `object-master-detail-form`). LOWER it when a batch arms
+ * more keys; never raise it.
  */
-const REFUSED_AT_TYPE = 76;
+const REFUSED_AT_TYPE = 73;
 
 /**
  * The head's refused count over the NAMESPACED keys (objectui#10872 batch 1:
  * 418 on `main` before it, minus the twenty ADR-0080 public blocks armed from
- * their `@objectstack/spec` `ComponentPropsMap` rows). LOWER it when a batch
- * arms more keys; never raise it.
+ * their `@objectstack/spec` `ComponentPropsMap` rows; batch 2: minus
+ * `element:number`, armed with the spec's `dataSource` waiver). LOWER it when
+ * a batch arms more keys; never raise it.
  */
-const NAMESPACED_REFUSED_AT_TYPE = 398;
+const NAMESPACED_REFUSED_AT_TYPE = 397;
 
 /** The bare registry keys — the population the card measured. */
 const BARE_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => !key.includes(':'));
@@ -94,6 +96,9 @@ const ARMED_PUBLIC_BLOCKS_10872 = [
   'record:discussion', 'record:history', 'record:quick_actions', 'record:reference_rail', 'record:alert',
   'element:text', 'element:button', 'element:divider',
 ] as const;
+
+/** The public block objectui#10872 batch 2 armed. */
+const ARMED_PUBLIC_BLOCKS_10872_BATCH_2 = ['element:number'] as const;
 
 /** Is `type` unclaimed by every arm of the validator's root union? */
 function refusedAtType(type: string): boolean {
@@ -144,6 +149,13 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
       expect(refusedAtType(key), key).toBe(false);
     }
   });
+
+  it('counts the three keys batch 2 armed (objectui#10859 batch 2)', () => {
+    for (const key of ['pivot', 'object-metric', 'object-master-detail-form']) {
+      expect(BARE_KEYS, key).toContain(key);
+      expect(refusedAtType(key), key).toBe(false);
+    }
+  });
 });
 
 describe('registered NAMESPACED component types refused at `type` — a ratchet (objectui#10872)', () => {
@@ -176,6 +188,21 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
       expect(NAMESPACED_KEYS, key).toContain(key);
       expect(refusedAtType(key), key).toBe(false);
     }
+  });
+
+  it('counts the public block objectui#10872 batch 2 armed', () => {
+    for (const key of ARMED_PUBLIC_BLOCKS_10872_BATCH_2) {
+      expect(NAMESPACED_KEYS, key).toContain(key);
+      expect(refusedAtType(key), key).toBe(false);
+    }
+  });
+
+  it('counts `cloud:plan-status` armed — it registered WITH its arm (objectui#10919)', () => {
+    // One registry key (`skipFallback: true`, so no bare `plan-status`), armed in
+    // `@object-ui/types/zod` in the same change, so the pin above did not move.
+    expect(NAMESPACED_KEYS).toContain('cloud:plan-status');
+    expect(BARE_KEYS).not.toContain('plan-status');
+    expect(refusedAtType('cloud:plan-status')).toBe(false);
   });
 });
 
@@ -283,6 +310,41 @@ describe('objectui validate — a page built from ADR-0080 public blocks (object
     const text = out.join('\n').replace(ANSI, '');
     expect(text).toContain('Schema validation failed');
     expect(text).toContain('inventedProp10872');
+    expect(exitCodes).toEqual([1]);
+  });
+
+  it('validates `element:number` in both of its binding forms (objectui#10872 batch 2)', async () => {
+    // The props form, and the `dataSource` form the spec's props gate waives
+    // `properties.object` for.
+    const page = {
+      type: 'page',
+      children: [
+        { type: 'element:number', properties: { object: 'order', aggregate: 'count' } },
+        { type: 'element:number', dataSource: { object: 'order' }, properties: { aggregate: 'sum', field: 'total' } },
+      ],
+    };
+    const file = join(dir, 'element-number-page.json');
+    writeFileSync(file, JSON.stringify(page, null, 2), 'utf-8');
+
+    await validate(file);
+
+    const text = out.join('\n').replace(ANSI, '');
+    expect(text).not.toContain('Schema validation failed');
+    expect(text).toContain('Schema is valid');
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it('refuses an `element:number` that names its object nowhere, at `properties.object`', async () => {
+    // The control that keeps the row above from passing for the wrong reason.
+    const page = { type: 'page', children: [{ type: 'element:number', properties: { aggregate: 'count' } }] };
+    const file = join(dir, 'element-number-page-refused.json');
+    writeFileSync(file, JSON.stringify(page, null, 2), 'utf-8');
+
+    await validate(file);
+
+    const text = out.join('\n').replace(ANSI, '');
+    expect(text).toContain('Schema validation failed');
+    expect(text).toContain('dataSource.object');
     expect(exitCodes).toEqual([1]);
   });
 });

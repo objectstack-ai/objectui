@@ -155,6 +155,7 @@ const zh = {
       copyAll: '全部复制',
     },
     notAvailableHere: '「{{action}}」在当前页面不可用。',
+    completedSuccessfully: '操作已成功完成',
   },
   validation: {
     required: '{{field}}不能为空',
@@ -192,7 +193,7 @@ const zh = {
     conflictMessage: '您编辑期间，这条记录已被其他人修改。覆盖保存将用您的内容替换对方的修改。',
     conflictLatestVersion: '对方保存时间：{{time}}',
     conflictOverwrite: '覆盖保存',
-    stepOf: '第{{current}}步，共{{total}}步',
+    stepOf: '第 {{current}} 步，共 {{total}} 步',
     createTitle: '新建{{object}}',
     editTitle: '编辑{{object}}',
     viewTitle: '查看{{object}}',
@@ -982,6 +983,8 @@ const zh = {
     pathStageLostUpcoming: '{{stage}}，已失败，未到达',
     pathStageWonUpcoming: '{{stage}}，目标阶段，未到达',
     linkCopied: '链接已复制到剪贴板',
+    commentFailed: '评论未发布，内容没有保存，请重试。',
+    reactionFailed: '表情回应未保存，请重试。',
     linkCopyFailed: '复制链接失败',
     cancel: '取消',
     cancelEdit: '放弃更改',
@@ -1228,6 +1231,8 @@ const zh = {
     refreshing: '刷新中…',
     pickMeasures: '请为该数据集组件选择度量（值）。',
     datasetUnsupported: '当前数据源不支持数据集查询。',
+    widgetForbiddenTitle: '无权访问',
+    widgetForbiddenMessage: '你没有查看该组件数据的权限。',
     details: '明细',
     exportCsv: '导出 CSV',
     openInList: '在列表中打开',
@@ -1578,6 +1583,7 @@ const zh = {
       // restore 报告 without a new ruling.
       reports: '报表',
       system: '系统',
+      marketplace: '应用市场',
     },
     nav: {
       pinItem: '固定 {{name}}',
@@ -1722,6 +1728,7 @@ const zh = {
         ctaUpgrade: '升级以继续使用',
         ctaTopUp: '购买额度包以继续',
         ariaLabel: 'AI 用量：{{status}}',
+        breakdownTitle: '已用额度构成',
       },
       workspaceTitle: 'AI 工作区',
       workspaceSubtitle: '提问、查看并继续历史对话',
@@ -1731,6 +1738,9 @@ const zh = {
       share: '分享',
       shareTitle: '分享此对话',
       shareDisabledTitle: '开始对话后即可分享',
+      buildDoctor: '构建诊断',
+      buildDoctorTitle: '构建诊断 — 实际生效了哪些变更？',
+      buildDoctorDisabledTitle: '请先发送一条消息',
       newChat: '新对话',
       searchChats: '搜索对话…',
       noChatsYet: '暂无对话',
@@ -1949,6 +1959,14 @@ const zh = {
       noWritesTitle: '本环境只有读取、完全没有写入',
       noWrites: '有行被读取,却完全没有任何写入,因此读取比率没有上限。这是最严重的读数。平台会标记高于 {{threshold}} 的比率。没有任何东西被限制或阻断;这只是一份报告,便于检查读取方式。',
     },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: '存储空间即将用满',
+      warning: '已用 {{used}} MB / {{limit}} MB。存储用满后，上传与导入将暂停。',
+      blockedTitle: '存储已满，上传与导入已暂停',
+      blocked: '已用 {{used}} MB / {{limit}} MB。现有数据不受影响，读取、导出与单条记录编辑照常。',
+      upgrade: '升级以继续',
+    },
     errors: {
       somethingWentWrong: '出错了',
       unexpectedError: '渲染此视图时发生意外错误。',
@@ -2131,6 +2149,8 @@ const zh = {
       resendOtpCountdownText: '{seconds} 秒后可重新发送',
       usePhoneOtpText: '使用验证码登录',
       usePasswordSignInText: '改用密码登录',
+      socialButton: '使用 {provider} 继续',
+      orText: '或使用邮箱继续',
     },
     register: {
       title: '创建账户',
@@ -2149,8 +2169,12 @@ const zh = {
       submittingButton: '创建中…',
       hasAccountText: '已有账户？',
       signInText: '登录',
+      socialButton: '使用 {provider} 注册',
+      orText: '或使用邮箱继续',
       errors: {
         userExists: '该邮箱已被注册，请直接登录或更换邮箱。',
+        selfRegistrationClosed: '本环境未开放自助注册，请联系管理员获取邀请。',
+        emailDomainNotAllowed: '该邮箱的域名不允许在此注册，请使用组织邮箱，或联系管理员获取邀请。',
       },
       verifyInbox: {
         title: '请检查您的邮箱',
@@ -3037,6 +3061,9 @@ const zh = {
     openProduction: '打开生产环境',
     manageEnvironments: '管理环境',
   },
+  cloudPlanStatus: {
+    current: '当前套餐',
+  },
   ai: {
     nlQuery: {
       placeholder: '就您的数据提问…',
@@ -3293,7 +3320,7 @@ const zh = {
   marketplace: {
       title: '应用市场',
       subtitle: '浏览已通过审核、发布到 ObjectStack 目录中的应用。点击应用查看详情并安装到你的某个环境中。',
-      searchPlaceholder: '按名称或 manifest ID 搜索应用…',
+      searchPlaceholder: '按名称或标识搜索应用…',
       searchAria: '搜索市场应用',
       installed: '已安装',
       installedCount: '已安装（{{count}}）',
@@ -3718,6 +3745,11 @@ const zh = {
   },
   wizard: {
     missingRequired: '请填写以下必填字段：{{fields}}',
+    back: '上一步',
+    submitting: '提交中…',
+    stepFallback: '第 {{n}} 步',
+    progressLabel: '进度',
+    emptyStep: '此步骤未配置字段',
   },
   flowRunner: {
     title: '输入',
@@ -3813,6 +3845,11 @@ const zh = {
     actionsEmptyTitle: '没有打包动作',
     actionsEmptyBody: '本部署中没有任何已安装软件包声明动作。你自己编写的动作在 Studio 中。',
     actionsLoadFailed: '无法加载打包动作。',
+  },
+  element: {
+    number: {
+      noObject: '未指定对象：请设置 object 或 dataSource.object。',
+    },
   },
 } as const;
 

@@ -110,7 +110,8 @@ export interface AccordionSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -145,7 +146,8 @@ export interface AccordionSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -210,7 +212,7 @@ export interface CollapsibleSchema extends BaseSchema {
    * then hands control back to the user, which is a different capability.
    *
    * ⚠️ Retiring this declaration does NOT by itself stop the takeover — the
-   * render path runs no `safeParse` (objectui#9585 measured NOT GATED), so a
+   * render path runs no `safeParse` (`ee70287e4`'s pin measures it NOT GATED), so a
    * refused key still rides the spread. The renderer-side named exclusion
    * landed FIRST, in the same change, for exactly that reason; ⛔ do not remove
    * it on the strength of this tombstone.
@@ -248,7 +250,8 @@ export interface CollapsibleSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -274,7 +277,8 @@ export interface CollapsibleSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -366,7 +370,8 @@ export interface ToggleGroupSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -392,7 +397,8 @@ export interface ToggleGroupSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by

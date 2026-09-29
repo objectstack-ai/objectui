@@ -2,8 +2,7 @@
 '@object-ui/plugin-list': patch
 ---
 
-`ListView`'s record-detail overlay heading resolves an inline locale map
-(objectui#9373).
+`ListView`'s record-detail overlay heading resolves an inline locale map.
 
 `ListViewSchema.label` is an `I18nLabel` — a plain string **or** an inline locale
 map such as `{ en: 'Accounts', 'zh-CN': '客户' }`. The `detailTitle` computation

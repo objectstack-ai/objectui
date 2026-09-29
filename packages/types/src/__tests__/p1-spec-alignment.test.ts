@@ -19,6 +19,7 @@ import type {
   // P1.1 ListView types
   ListViewSchema,
   ObjectGridSchema,
+  ObjectViewSchema,
   // P1.2 FormView types
   ObjectFormSchema,
   ObjectFormSection,
@@ -140,28 +141,35 @@ describe('P1.1 ListView Spec Alignment', () => {
     expect(schema.appearance?.allowedVisualizations).toHaveLength(2);
   });
 
-  it('should accept tabs configuration', () => {
-    // A minimal tab is valid AUTHORING input: the spec's ViewTab `.default()`s
-    // `pinned`/`visible`, so they are optional on the input side — which is what
-    // `ListViewSchema` types since framework#4074 (nothing on the render path
-    // parses, so defaults never materialize at runtime either). A tab filter is
-    // the spec's rule-object shape; the previous fixture wrote an ObjectQL
-    // triplet (`['owner', '=', 'current_user']`), which no type on this surface
-    // has ever admitted — this file just never compiled (objectui#3009).
-    const schema: ListViewSchema = {
-      type: 'list-view',
+  it('authors a named preset as a `listViews` entry, not as the retired list-view `tabs`', () => {
+    // objectstack#20357 retired the list view's own `tabs` (`ViewTabSchema[]`)
+    // as a `retiredKey()` tombstone: on spec `main` its input type is `never`,
+    // so the fixture that authored it here stopped compiling on the Spec Main
+    // Shape Gate (objectui#10987). No fixture may author it: the installed
+    // spec still admits the key and spec `main` refuses it, so neither an
+    // accept nor a refusal compiles on both until the pin bump.
+    // This is the protocol's prescription instead: each tab becomes a named view
+    // under the object's `listViews`. The tab's `name` is the entry's key, its
+    // `label` the entry's `label`, its `filter` rules the entry's `filter`, and
+    // the entry declares its own `columns`. `defaultListView` names the view the
+    // tab's `isDefault` picked. Every entry renders as a tab in the saved-view
+    // switcher.
+    const schema: ObjectViewSchema = {
+      type: 'object-view',
       objectName: 'Account',
-      tabs: [
-        { name: 'all', label: 'All Records', isDefault: true },
-        {
-          name: 'mine',
+      defaultListView: 'all',
+      listViews: {
+        all: { label: 'All Records', columns: ['name'] },
+        mine: {
           label: 'My Records',
+          columns: ['name'],
           filter: [{ field: 'owner', operator: 'equals', value: 'current_user' }],
         },
-      ],
+      },
     };
-    expect(schema.tabs).toHaveLength(2);
-    expect(schema.tabs![0].isDefault).toBe(true);
+    expect(Object.keys(schema.listViews ?? {})).toEqual(['all', 'mine']);
+    expect(schema.listViews?.mine?.filter).toHaveLength(1);
+    expect(schema.defaultListView).toBe('all');
   });
 
   it('should accept addRecord configuration', () => {

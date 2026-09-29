@@ -352,7 +352,7 @@ Now all plugin components are available in your schemas!
 
 All ObjectUI plugins follow the same usage pattern:
 
-```json
+```jsonc
 {
   "type": "plugin-component-name",
   "className": "tailwind-classes"

@@ -183,6 +183,10 @@ export function FieldListRow({
   onDragOverRow: () => void;
   onDropRow: () => void;
 }) {
+  // The designer locale, read as this file's `AddFieldPopover` reads it
+  // (objectui#10862): both hosts (`FieldsListEditor`, `ReportDefaultInspector`)
+  // render the popover beside these rows.
+  const locale = useMetadataLocale();
   return (
     <div className="relative">
       {dropBefore && (
@@ -241,7 +245,7 @@ export function FieldListRow({
           <span
             role="button"
             tabIndex={0}
-            aria-label={`Remove ${label}`}
+            aria-label={tFormat('engine.viewColumnPanes.remove', locale, { label })}
             onClick={(e) => {
               e.stopPropagation();
               onRemove();

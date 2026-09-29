@@ -6,7 +6,7 @@ Renderers for the `global:search` and `global:notifications` page blocks.
 A page that declared either member drew the literal "Component
 Placeholder" scaffold: both are first-class `PageComponentType` members that the
 2026-08-26 maintainer ruling on objectstack#12183 kept declared once the
-readiness read in objectstack#13117 evidenced both data sources shipped, and
+readiness read in objectstack `225e7690f` evidenced both data sources shipped, and
 the renderer was the remaining half.
 
 Neither block adds a data layer — each is a new mount point on plumbing that was

@@ -70,8 +70,9 @@ export interface BoxSchema extends BaseSchema {
    *
    * Before objectui#8284 tombstoned it here, `body` was inherited-and-optional
    * from {@link BaseSchema} — so authoring it here type-checked, parsed green
-   * through `.passthrough()`, and rendered an EMPTY element with no error and
-   * no warning. Per component, the channel a renderer does not read is now
+   * through `.passthrough()`, and rendered an EMPTY element with no render-time
+   * error or warning; only the parser tier's `unknown-prop` warning noticed it.
+   * Per component, the channel a renderer does not read is now
    * tombstoned on both published faces (maintainer ruling, summon #17 decision
    * batch #2, 2026-09-07), and objectui#6771 has since retired `body` on
    * `BaseSchema` itself.
@@ -109,8 +110,9 @@ export interface TextSpanSchema extends BaseSchema {
    *
    * Before objectui#8284 tombstoned it here, `body` was inherited-and-optional
    * from {@link BaseSchema} — so authoring it here type-checked, parsed green
-   * through `.passthrough()`, and rendered an EMPTY element with no error and
-   * no warning. Per component, the channel a renderer does not read is now
+   * through `.passthrough()`, and rendered an EMPTY element with no render-time
+   * error or warning; only the parser tier's `unknown-prop` warning noticed it.
+   * Per component, the channel a renderer does not read is now
    * tombstoned on both published faces (maintainer ruling, summon #17 decision
    * batch #2, 2026-09-07), and objectui#6771 has since retired `body` on
    * `BaseSchema` itself.
@@ -203,7 +205,8 @@ export interface TextSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -238,7 +241,8 @@ export interface TextSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -300,7 +304,8 @@ export interface ImageSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -335,7 +340,8 @@ export interface ImageSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -421,7 +427,8 @@ export interface IconSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -456,7 +463,8 @@ export interface IconSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -497,7 +505,8 @@ export interface SeparatorSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -522,7 +531,8 @@ export interface SeparatorSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -575,8 +585,9 @@ export interface ContainerSchema extends BaseSchema {
    *
    * Before objectui#8284 tombstoned it here, `body` was inherited-and-optional
    * from {@link BaseSchema} — so authoring it here type-checked, parsed green
-   * through `.passthrough()`, and rendered an EMPTY element with no error and
-   * no warning. Per component, the channel a renderer does not read is now
+   * through `.passthrough()`, and rendered an EMPTY element with no render-time
+   * error or warning; only the parser tier's `unknown-prop` warning noticed it.
+   * Per component, the channel a renderer does not read is now
    * tombstoned on both published faces (maintainer ruling, summon #17 decision
    * batch #2, 2026-09-07), and objectui#6771 has since retired `body` on
    * `BaseSchema` itself.
@@ -704,8 +715,9 @@ export interface FlexSchema extends BaseSchema, FlexLayoutProps {
    *
    * Before objectui#8284 tombstoned it here, `body` was inherited-and-optional
    * from {@link BaseSchema} — so authoring it here type-checked, parsed green
-   * through `.passthrough()`, and rendered an EMPTY element with no error and
-   * no warning. Per component, the channel a renderer does not read is now
+   * through `.passthrough()`, and rendered an EMPTY element with no render-time
+   * error or warning; only the parser tier's `unknown-prop` warning noticed it.
+   * Per component, the channel a renderer does not read is now
    * tombstoned on both published faces (maintainer ruling, summon #17 decision
    * batch #2, 2026-09-07), and objectui#6771 has since retired `body` on
    * `BaseSchema` itself.
@@ -739,8 +751,9 @@ export interface StackSchema extends BaseSchema, FlexLayoutProps {
    *
    * Before objectui#8284 tombstoned it here, `body` was inherited-and-optional
    * from {@link BaseSchema} — so authoring it here type-checked, parsed green
-   * through `.passthrough()`, and rendered an EMPTY element with no error and
-   * no warning. Per component, the channel a renderer does not read is now
+   * through `.passthrough()`, and rendered an EMPTY element with no render-time
+   * error or warning; only the parser tier's `unknown-prop` warning noticed it.
+   * Per component, the channel a renderer does not read is now
    * tombstoned on both published faces (maintainer ruling, summon #17 decision
    * batch #2, 2026-09-07), and objectui#6771 has since retired `body` on
    * `BaseSchema` itself.
@@ -791,8 +804,9 @@ export interface GridSchema extends BaseSchema {
    *
    * Before objectui#8284 tombstoned it here, `body` was inherited-and-optional
    * from {@link BaseSchema} — so authoring it here type-checked, parsed green
-   * through `.passthrough()`, and rendered an EMPTY element with no error and
-   * no warning. Per component, the channel a renderer does not read is now
+   * through `.passthrough()`, and rendered an EMPTY element with no render-time
+   * error or warning; only the parser tier's `unknown-prop` warning noticed it.
+   * Per component, the channel a renderer does not read is now
    * tombstoned on both published faces (maintainer ruling, summon #17 decision
    * batch #2, 2026-09-07), and objectui#6771 has since retired `body` on
    * `BaseSchema` itself.
@@ -949,7 +963,8 @@ export interface TabsSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -984,7 +999,8 @@ export interface TabsSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -1069,8 +1085,9 @@ export interface ScrollAreaSchema extends BaseSchema {
    *
    * Before objectui#8284 tombstoned it here, `body` was inherited-and-optional
    * from {@link BaseSchema} — so authoring it here type-checked, parsed green
-   * through `.passthrough()`, and rendered an EMPTY element with no error and
-   * no warning. Per component, the channel a renderer does not read is now
+   * through `.passthrough()`, and rendered an EMPTY element with no render-time
+   * error or warning; only the parser tier's `unknown-prop` warning noticed it.
+   * Per component, the channel a renderer does not read is now
    * tombstoned on both published faces (maintainer ruling, summon #17 decision
    * batch #2, 2026-09-07), and objectui#6771 has since retired `body` on
    * `BaseSchema` itself.
@@ -1126,7 +1143,8 @@ export interface ResizableSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by
@@ -1152,7 +1170,8 @@ export interface ResizableSchema extends BaseSchema {
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
    * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
-   * no error, no warning, no element. objectui#6771 has since retired `body` on
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
    * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
    * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
    * out of the props bag it spreads, so neither reaches the component by

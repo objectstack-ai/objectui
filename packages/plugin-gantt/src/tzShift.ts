@@ -37,9 +37,16 @@ function tzOffsetMs(timeZone: string, at: Date): number {
  * real instants into a display space where the browser's local clock reads
  * the CONFIGURED zone's wall time. All existing local-clock logic — shift
  * bands, day columns, snapping, the today line, date labels — then renders
- * that zone correctly for every viewer; writes translate back so persisted
- * data stays real instants. Per-instant offsets keep DST zones close;
- * fixed-offset zones (Asia/Shanghai) are exact.
+ * that zone correctly for every viewer. `from` translates an emitted date
+ * back into the real instant, which is what a `datetime` field persists. A
+ * date-only value is a calendar day, not an instant (objectui#10866):
+ * `ObjectGantt` hands the view `from` of the day's local midnight, for `to`
+ * to land back on that midnight, and writes a dropped `date` field as the day
+ * `to` gives, never as an instant (`readTaskDate`, `toStoredDateValue`).
+ * `to` and `from` read each zone's offset at the instant they are handed, so
+ * they are exact inverses except near a DST change of the configured zone or
+ * the viewer's, where they can disagree by an hour: `to(from(midnight))` can
+ * then be 23:00 of the day before.
  */
 export function makeTzShift(timeZone?: string): {
   delta: number;

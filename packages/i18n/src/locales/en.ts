@@ -175,6 +175,10 @@ const en = {
     // `visible` gate outranks (objectui#4191) — the deep link or host asked
     // for it, but the author hid it on this surface.
     notAvailableHere: '"{{action}}" is not available on the current page.',
+    // The success toast the action runner shows when an action declares no
+    // `successMessage` and the server returned no message — the one toast
+    // text the runner writes itself (objectui#10900).
+    completedSuccessfully: 'Action completed successfully',
   },
   validation: {
     required: '{{field}} is required',
@@ -1116,6 +1120,8 @@ const en = {
     pathStageLostUpcoming: '{{stage}}, closed lost, not reached',
     pathStageWonUpcoming: '{{stage}}, goal stage, not reached',
     linkCopied: 'Link copied to clipboard',
+    commentFailed: 'Your comment was not posted. Nothing was saved — please try again.',
+    reactionFailed: 'Your reaction was not saved. Please try again.',
     linkCopyFailed: 'Failed to copy link',
     cancel: 'Cancel',
     cancelEdit: 'Discard changes',
@@ -1422,6 +1428,8 @@ const en = {
     refreshing: 'Refreshing…',
     pickMeasures: 'Pick measures (values) for this dataset widget.',
     datasetUnsupported: 'This data source does not support dataset queries.',
+    widgetForbiddenTitle: 'You don’t have access',
+    widgetForbiddenMessage: 'You don’t have permission to view the data behind this widget.',
     details: 'Details',
     exportCsv: 'Export CSV',
     openInList: 'Open in list',
@@ -1763,6 +1771,8 @@ const en = {
       pages: 'Pages',
       reports: 'Reports',
       system: 'System',
+      // The Setup system page segment after `System` (objectui#10900).
+      marketplace: 'Marketplace',
     },
     nav: {
       pinItem: 'Pin {{name}}',
@@ -1942,6 +1952,10 @@ const en = {
         ctaUpgrade: 'Upgrade to keep going',
         ctaTopUp: 'Add credits to continue',
         ariaLabel: 'AI usage: {{status}}',
+        // objectui#8524 — heading over the pool's read-only split (`breakdown`:
+        // app-building vs data Q&A) in the popover. The rows reuse `meterBuild` /
+        // `meterAsk`; each is a share of the ONE pool, never a second budget.
+        breakdownTitle: 'Used so far',
       },
       workspaceTitle: 'AI Workspace',
       workspaceSubtitle: 'Ask, inspect, and resume conversations',
@@ -1951,6 +1965,12 @@ const en = {
       share: 'Share',
       shareTitle: 'Share this conversation',
       shareDisabledTitle: 'Start chatting to enable sharing',
+      // The build conversation's Build Doctor button (its accessible name,
+      // and its tooltip enabled / before the first message) and the drawer
+      // title it opens (objectui#10900).
+      buildDoctor: 'Build Doctor',
+      buildDoctorTitle: 'Build Doctor — what actually landed?',
+      buildDoctorDisabledTitle: 'Send a message first',
       newChat: 'New',
       searchChats: 'Search chats…',
       noChatsYet: 'No chats yet',
@@ -2203,6 +2223,17 @@ const en = {
       noWritesTitle: 'Reads with no writes at all in this environment',
       noWrites: 'Rows are being read while none at all are being written, so the read rate has no upper bound. This is the most severe reading. The platform flags anything above {{threshold}}. Nothing is limited or blocked; this is a report so the read pattern can be reviewed.',
     },
+    // objectui#10439 — the environment admin's storage-capacity banner (cloud#2135).
+    // Raised by the tenant runtime's own verdict on `/api/v1/usage/storage`: `warn`
+    // (80% and up) or `blocked` (uploads and bulk imports refused). `{{used}}` and
+    // `{{limit}}` are that response's `usedMb` / `limitMb`, already formatted.
+    storageUsage: {
+      warningTitle: 'Storage is filling up',
+      warning: '{{used}} MB of {{limit}} MB used. Uploads and imports pause once storage is full.',
+      blockedTitle: 'Storage is full: uploads and imports are paused',
+      blocked: '{{used}} MB of {{limit}} MB used. Existing data is untouched, and reading, exporting and editing single records still work.',
+      upgrade: 'Upgrade to continue',
+    },
     errors: {
       somethingWentWrong: 'Something went wrong',
       unexpectedError: 'An unexpected error occurred while rendering this view.',
@@ -2367,7 +2398,7 @@ const en = {
       signingIn: 'Signing you in…',
       ssoHandoff: 'Continue to {{target}}',
       // Phone/OTP sign-in labels. `LoginForm` interpolates `{seconds}` with a
-      // literal `.replace()` of its own (packages/auth/src/LoginForm.tsx:429),
+      // literal `.replace('{seconds}', …)` of its own (in `LoginForm`),
       // so those SINGLE braces must survive translation — i18next never sees
       // them.
       emailOrPhoneLabel: 'Email or phone number',
@@ -2380,6 +2411,13 @@ const en = {
       resendOtpCountdownText: 'Resend in {seconds}s',
       usePhoneOtpText: 'Sign in with verification code',
       usePasswordSignInText: 'Sign in with password instead',
+      // The social provider buttons and the divider under them
+      // (`SocialSignInButtons`, fed through `LoginForm`'s labels).
+      // `{provider}` is the component's own single-brace hole, filled by a
+      // literal `.replace()` with the provider's name as the server reports
+      // it — the same convention as `{seconds}` above (objectui#10900).
+      socialButton: 'Continue with {provider}',
+      orText: 'or continue with email',
       devAdminHint: {
         title: 'Development instance',
         body: 'Sign in with the seeded dev admin:',
@@ -2408,8 +2446,13 @@ const en = {
       submittingButton: 'Creating account…',
       hasAccountText: 'Already have an account?',
       signInText: 'Sign in',
+      // Same pair as `auth.login.socialButton` / `orText`, for sign-up.
+      socialButton: 'Sign up with {provider}',
+      orText: 'or continue with email',
       errors: {
         userExists: 'An account with this email already exists. Try signing in instead.',
+        selfRegistrationClosed: 'Self-registration is not open on this environment. Ask an administrator for an invitation.',
+        emailDomainNotAllowed: "This email's domain is not allowed to register here. Use your organization email, or ask an administrator for an invitation.",
       },
       verifyInbox: {
         title: 'Check your inbox',
@@ -3356,6 +3399,10 @@ const en = {
     openProduction: 'Open Production',
     manageEnvironments: 'Manage environments',
   },
+  // `cloud:plan-status` — the Cloud pricing page's current-plan marker (objectui#10919).
+  cloudPlanStatus: {
+    current: 'Current plan',
+  },
   // `@object-ui/plugin-ai` — the `nl-query`, `ai-form-assist` and
   // `ai-recommendations` components (objectui#10232). The `*One` rows are this
   // repo's two-key plural convention (see `search.itemsAvailableOne`): the
@@ -4104,6 +4151,25 @@ const en = {
   // comma-joined, already-truncated label list built at the call site.
   wizard: {
     missingRequired: 'Please complete the required fields: {{fields}}',
+    // The wizard's footer and step chrome (objectui#10999). The generic verbs
+    // it shows come from `common.cancel`, `common.next`, `form.create`,
+    // `form.update` and `form.stepOf`; these five are the wizard's own.
+    // The Previous-step button. Not `common.back`: some packs say a wizard's
+    // step back with a different word from a page's back (zh reads "previous
+    // step" here and "return" for `common.back`), and the wizard spelling is
+    // the one `grid.import.back` and `grid.bulk.back` already use.
+    back: 'Back',
+    // The final button while the record is being written.
+    submitting: 'Submitting…',
+    // The step indicator's label for a step that declares no `label`.
+    // `{{n}}` is the 1-based step number.
+    stepFallback: 'Step {{n}}',
+    // The step indicator's `aria-label` — what a screen reader calls the list
+    // of steps.
+    progressLabel: 'Progress',
+    // Shown in place of the fields on a step that has none (a final review
+    // step is the usual case).
+    emptyStep: 'No fields configured for this step',
   },
   // The screen-flow runner dialog (`app-shell/views/FlowRunner`) — the modal a
   // `type: 'flow'` action opens when its run pauses at a `screen` node.
@@ -4276,6 +4342,14 @@ const en = {
     actionsEmptyBody:
       'No installed package declares an action on this deployment. Actions you author yourself live in Studio.',
     actionsLoadFailed: 'Could not load packaged actions.',
+  },
+  element: {
+    // objectui#10951 — `element:number` authored with an aggregate and no
+    // object (neither `object` nor `dataSource.object`). Kept terse: this pack
+    // is eager, and the console closure budget weighs it.
+    number: {
+      noObject: 'No object named: set object or dataSource.object.',
+    },
   },
 } as const;
 

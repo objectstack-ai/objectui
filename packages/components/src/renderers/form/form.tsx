@@ -172,7 +172,7 @@ const BARE_SPAN_CLASS: Record<number, string> = {
 /**
  * The col-span classes a field must carry to occupy `targetCols` cells of
  * `containerClass` — ONE CLASS PER TIER, not one class for the widest tier
- * (objectui#9244).
+ * (`bd0995738`).
  *
  * The form's column count is resolved per tier, by container queries on the
  * field container (`grid-cols-1 @md:grid-cols-2 @2xl:grid-cols-3` is three
@@ -2451,7 +2451,7 @@ ComponentRegistry.register('form',
         // pi-TgoJ4_DM55Fqz" (objectstack#3821). A permission denial is a
         // condition the UI already knows how to name, so say it in the user's
         // language and keep the server text for the console.
-        // …unless the AUTHOR opted in. `userMessage` (objectstack#9934) is the
+        // …unless the AUTHOR opted in. `userMessage` (objectstack `79c46da90`) is the
         // producer-side marking: a hook sets it at throw time to
         // say "this text is for the end user". It is a separate field from
         // `message`, so nothing unmarked can reach here — the substitution above
@@ -2842,7 +2842,7 @@ ComponentRegistry.register('form',
       const containerClass = schema.fieldContainerClass || gridClass;
       // One class PER TIER, derived from the container class — see
       // {@link spanLadderFor} for why a single widest-tier class under-spans
-      // every intermediate width (objectui#9244), and for why the tier
+      // every intermediate width (`bd0995738`), and for why the tier
       // prefixes are load-bearing rather than decoration.
       const pickSpanClass = (targetCols: number): string =>
         spanLadderFor(containerClass, targetCols);

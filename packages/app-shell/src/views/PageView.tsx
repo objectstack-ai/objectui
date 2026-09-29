@@ -9,9 +9,8 @@
  * embedding the heavyweight page canvas in the runtime.
  */
 
-import { useState } from 'react';
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
-import { SchemaRenderer, useAdapter } from '@object-ui/react';
+import { SchemaRenderer, notifyDataChanged, useAdapter } from '@object-ui/react';
 import { Empty, EmptyTitle, EmptyDescription, Spinner } from '@object-ui/components';
 import { FileText, Pencil } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/i18n';
@@ -21,7 +20,27 @@ import { useMetadata } from '../providers/MetadataProvider.js';
 import { useExpressionContext } from '../providers/ExpressionProvider.js';
 import { preferLocal } from '../utils/preferLocal.js';
 import { ConsoleActionRuntimeProvider } from '../hooks/useConsoleActionRuntime.js';
+import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
 import { InterfaceListPage } from './InterfaceListPage.js';
+
+/**
+ * After a successful page-level action, declare the change on the
+ * data-invalidation bus so every embedded block that reads it refetches IN
+ * PLACE (AGENTS.md #8's corollary: refresh data, don't rebuild UI). A page
+ * binds no object and the runtime's refresh carries none, so the scope is the
+ * bus's documented unknown-scope value.
+ *
+ * This host used to bump a counter into the `key` of both render branches
+ * below, which remounted the whole page on every page action: scroll, collapsed
+ * sections and in-progress edits in every block went with it, and every block
+ * refetched from scratch (objectui#10519). Both branches are now keyed on
+ * identity; `no-refresh-key-remount.ratchet` holds this file in scope.
+ * Module-level so its identity is stable across renders (the runtime names it
+ * in dependency lists).
+ */
+function declarePageDataChanged(): void {
+  notifyDataChanged({ objectName: '*' });
+}
 
 export function PageView() {
   const { t } = useObjectTranslation();
@@ -31,8 +50,15 @@ export function PageView() {
   const navigate = useNavigate();
   const location = useLocation();
   // Editing a page mutates the shared metadata definition, so the entry point
-  // is admin-only (mirrors the view/report/dashboard runtime editors).
+  // is admin-only (mirrors the view/report/dashboard runtime editors) — AND
+  // requires the metadata-authoring capability the SERVER reports
+  // (`manage_metadata`, ADR-0066). The role alone is not that answer: an
+  // organization owner is a workspace admin while `organization_admin`
+  // deliberately withholds `manage_metadata`, so on the cloud control plane a
+  // signed-up customer was offered the platform's own page editor
+  // (objectui#10899). Same doctrine as HomePage's builder CTAs.
   const { isAdmin } = useWorkspaceAdminStatus();
+  const canAuthorMetadata = useCanAuthorMetadata();
 
   const { pages, objects, getTypeStatus } = useMetadata();
   // ADR-0048 Phase 2 — prefer the page owned by the current app's package so
@@ -40,9 +66,6 @@ export function PageView() {
   // container instead of by load order.
   const { app: activeApp } = useExpressionContext();
   const dataSource = useAdapter();
-  // Bumped after a successful page action so embedded data (lists, etc.)
-  // re-fetch. Threaded into the page context AND used to remount the renderer.
-  const [refreshKey, setRefreshKey] = useState(0);
   const page = preferLocal(pages as any[], pageName, (activeApp as any)?._packageId);
 
   if (!page) {
@@ -80,7 +103,7 @@ export function PageView() {
   // Resolve the app slug from the path (`/apps/:app/page/:name`) so the deep
   // link survives whatever Router basename the host mounts under.
   const appName = location.pathname.match(/\/apps\/([^/]+)/)?.[1];
-  const canEditInStudio = isAdmin && !!appName && !!pageName;
+  const canEditInStudio = isAdmin && canAuthorMetadata && !!appName && !!pageName;
   const openInStudio = () => {
     if (!canEditInStudio) return;
     navigate(`/apps/${appName}/metadata/page/${encodeURIComponent(pageName!)}`);
@@ -95,7 +118,7 @@ export function PageView() {
     <ConsoleActionRuntimeProvider
       dataSource={dataSource}
       objects={objects}
-      onRefresh={() => setRefreshKey((k) => k + 1)}
+      onRefresh={declarePageDataChanged}
     >
       <div className="flex flex-row h-full w-full overflow-hidden relative">
         <div className="flex-1 overflow-auto h-full relative">
@@ -114,10 +137,9 @@ export function PageView() {
           {(page as any).interfaceConfig?.source ? (
             // ADR-0047 interface mode: the page binds a source view into a
             // curated list surface — rendered directly, not via regions.
-            <InterfaceListPage key={refreshKey} page={page} reserveEditAffordance={canEditInStudio} />
+            <InterfaceListPage page={page} reserveEditAffordance={canEditInStudio} />
           ) : (
             <SchemaRenderer
-              key={refreshKey}
               schema={{
                 ...page,
                 // `type` stays the SchemaNode discriminator ComponentRegistry
@@ -155,7 +177,7 @@ export function PageView() {
                 // refuses a page-level `context` key, so no parsed page can
                 // carry one (objectui#9673). Written after `...page`, it also
                 // overrides whatever an unparsed document smuggled in.
-                context: { params, refreshKey },
+                context: { params },
               }}
             />
           )}

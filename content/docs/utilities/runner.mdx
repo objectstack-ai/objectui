@@ -211,8 +211,10 @@ strict pnpm workspace.)
    then re-run `pnpm install` from the repo root:
 
 ```json
-"dependencies": {
-  "@object-ui/plugin-yourplugin": "workspace:*"
+{
+  "dependencies": {
+    "@object-ui/plugin-yourplugin": "workspace:*"
+  }
 }
 ```
 
@@ -243,7 +245,7 @@ import '@object-ui/plugin-yourplugin'
 
 5. **Use in schemas:**
 
-```json
+```jsonc
 {
   "type": "your-component"
   // Your component's keys go here, on the node itself — renderers read
@@ -293,9 +295,9 @@ Test how multiple plugins work together:
 {
   "type": "div",
   "children": [
-    { "type": "object-kanban", "..." },
-    { "type": "bar-chart", "..." },
-    { "type": "data-table", "..." }
+    { "type": "object-kanban" },
+    { "type": "bar-chart" },
+    { "type": "data-table" }
   ]
 }
 ```
@@ -493,7 +495,7 @@ ComponentRegistry.register('my-component', MyComponent)
 Add a page document to `src/app-data/pages/`. The file name is the route: this one is
 served at `/my-page`.
 
-```json
+```jsonc
 // src/app-data/pages/my-page.json
 {
   "type": "page",

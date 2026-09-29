@@ -70,9 +70,13 @@ export interface RecordActivityTimelineProps {
    *  screen yet, the timeline shows a loading row instead of the empty state
    *  — "still fetching" is not "no activity" (objectui#3205). */
   loading?: boolean;
-  /** Called when a comment is submitted */
+  /**
+   * Called when a comment is submitted. A returned promise that REJECTS means
+   * the comment was not written: the composer keeps the draft, and reporting
+   * the failure is the host's job.
+   */
   onAddComment?: (text: string, attachments?: Attachment[]) => void | Promise<void>;
-  /** Called when a reply is submitted */
+  /** Called when a reply is submitted — a rejection keeps the reply draft, as above. */
   onAddReply?: (parentId: string | number, text: string) => void | Promise<void>;
   /** Called when user toggles a reaction */
   onToggleReaction?: (itemId: string | number, emoji: string) => void | Promise<void>;
@@ -275,6 +279,10 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
       );
       setCommentText('');
       setPendingAttachments([]);
+    } catch {
+      // A rejection means the comment was NOT written (objectui#10899). The
+      // host reports why; the composer's part is to keep the draft and its
+      // attachments so the user can retry without retyping.
     } finally {
       setIsSubmitting(false);
     }

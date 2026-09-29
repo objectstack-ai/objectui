@@ -547,7 +547,11 @@ describe('objectui#5233 ratchet — the owned-key list tracks the writers', () =
      * caller is a `useCallback` inside a ~2700-line component.
      */
     it('the toolbar write routes its body through `buildPersistedViewBody`', () => {
-        const call = objectViewSrc.match(/dataSource\.updateViewConfig\(([\s\S]{0,400}?)\{\s*isSavedView/);
+        // The call is an optional member call since objectui#7483 typed the
+        // `dataSource` prop (the contract declares `updateViewConfig` optional
+        // and the guard above the debounce does not narrow into its closure),
+        // so both spellings of the call site are the same call site.
+        const call = objectViewSrc.match(/dataSource\.updateViewConfig(?:\?\.)?\(([\s\S]{0,400}?)\{\s*isSavedView/);
         // Vacuous-pass guard: no match means the call site was renamed or
         // restructured, not that it is clean.
         expect(call, 'the `dataSource.updateViewConfig(...)` call site was not found').toBeTruthy();

@@ -364,6 +364,40 @@ export interface DetailSchema extends BaseSchema {
    * @default false
    */
   loading?: boolean;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `detail` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `detail` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `detail` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D re-measure). The bare
+   * `detail` key is owned by `view:detail` (`@object-ui/plugin-detail`),
+   * which hands the node to `DetailView`; `DetailView` reads it as
+   * `DetailViewSchema`, and no `body` or `children` read is filed under that
+   * type. `SchemaRenderer` strips `body` and `children` out of the props bag
+   * it spreads, so neither reaches the component by another route, and the
+   * registration declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: the record named by `objectName` and
+   * `resourceId`, laid out by `DetailView` from `fields`, `sections` and
+   * `tabs`.
+   *
+   * @deprecated Not a channel `detail` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**

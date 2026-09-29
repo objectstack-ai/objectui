@@ -9,8 +9,8 @@ to `joined`, and in the same render hid its dataset / values / rows / columns / 
 controls, while the spec's own `reportForm` hid the whole "Dataset binding" section
 (`order` included) through `visibleWhen: "data.type != 'joined'"`. A report that was
 bound first and switched second kept every one of those keys invisibly. `ReportSchema`'s
-joined arm refuses a container `dataset` / `rows` / `columns` / `values` (objectstack PR
-#20160: "a `joined` report selects per block — move `KEY` onto `blocks[]`, or delete it")
+joined arm refuses a container `dataset` / `rows` / `columns` / `values` (PR
+objectstack#20160: "a `joined` report selects per block — move `KEY` onto `blocks[]`, or delete it")
 and has always refused a container `order`, so the save was refused at a path no control
 on the Properties tab could reach; only the JSON source tab could delete the key.
 

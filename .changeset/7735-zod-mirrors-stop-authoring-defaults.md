@@ -26,7 +26,7 @@ was not even self-consistent.
 **What changed.** All 41 `.default()` call sites under `packages/types/src/zod/`
 are removed — `layout.zod.ts` 22, `crud.zod.ts` 11, `form.zod.ts` 5,
 `views.zod.ts` 2, `app.zod.ts` 1. `@object-ui/components` reconciles the third
-face objectui#8229 found: `flex`'s registration `defaultProps.align` seeded
+face a separate finding found: `flex`'s registration `defaultProps.align` seeded
 `'center'`, the value its own renderer never applies, so a designer-made node
 laid out differently from a hand-authored one; it now seeds `'start'`.
 

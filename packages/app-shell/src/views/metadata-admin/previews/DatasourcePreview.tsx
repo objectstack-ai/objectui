@@ -157,6 +157,7 @@ export function DatasourcePreview({ name, draft, locale }: MetadataPreviewProps)
               datasource={String(name ?? '')}
               schemaMode={schemaMode}
               allowWrites={allowWrites}
+              locale={locale}
             />
           )}
 

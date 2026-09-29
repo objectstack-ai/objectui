@@ -13,7 +13,9 @@
  * never carries one. PageView used to spread `(page as any).context` into the
  * node anyway: a no-op on every parsed page, and a channel that read as
  * author-supplied page context that no author could supply. Ruled "remove"
- * (comment 5811058824): the node's `context` is exactly `{ params, refreshKey }`.
+ * (comment 5811058824): the node's `context` is exactly `{ params }` — the
+ * `refreshKey` it also carried when this was ruled left with objectui#10519,
+ * which measured that no block read it.
  *
  * The second case is the discriminating one: a document that never passed
  * `PageSchema` and sneaks `context` in through a cast must not leak it into the
@@ -96,7 +98,7 @@ function writeFor(doc: Record<string, unknown>, query: string): Record<string, a
 const PARSED_PAGE = { name: PAGE_NAME, label: 'A Page', type: 'app' };
 
 describe('objectui#9673 — PageView builds the node context, it never reads one off the page', () => {
-  it('hands SchemaRenderer a context of exactly { params, refreshKey } for a page that parses', () => {
+  it('hands SchemaRenderer a context of exactly { params } for a page that parses', () => {
     // Control: the fixture is a page PageSchema accepts, so this is the case
     // every real author is in.
     expect(PageSchema.safeParse(PARSED_PAGE).success).toBe(true);
@@ -105,7 +107,7 @@ describe('objectui#9673 — PageView builds the node context, it never reads one
 
     // Firing control: absence means the harness stopped reaching SchemaRenderer.
     expect(schema, 'PageView rendered no schema at all; this probe measured nothing').toBeDefined();
-    expect(schema!.context).toEqual({ params: { account: '42', tab: 'notes' }, refreshKey: 0 });
+    expect(schema!.context).toEqual({ params: { account: '42', tab: 'notes' } });
   });
 
   it('a document that sneaks `context` in past PageSchema does not leak it into the node', () => {
@@ -121,6 +123,6 @@ describe('objectui#9673 — PageView builds the node context, it never reads one
       schema!.context,
       'the node context must be built from the route alone; a `context` key on the stored page ' +
         'is one PageSchema refuses and must not reach SchemaRenderer (objectui#9673).',
-    ).toEqual({ params: { account: '42' }, refreshKey: 0 });
+    ).toEqual({ params: { account: '42' } });
   });
 });

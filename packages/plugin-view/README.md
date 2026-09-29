@@ -390,7 +390,10 @@ const schema: ObjectViewSchema = {
 
 When `layout` is omitted, the surface is derived from how heavy the object is
 (`deriveRecordSurface`): a field-heavy object opens as a page, a light one as a
-drawer, and mobile always pages.
+drawer, and mobile always pages. A page is handed to `onNavigate`; with none to
+hand it to, as on the registered `object-view` renderer, whose JSON schema
+cannot carry a function, the page falls back to the drawer for create, edit and
+read.
 
 ### Opening a record
 
@@ -417,8 +420,16 @@ const schema: ObjectViewSchema = {
 ```
 
 Without an `onNavigate` handler, `page` mode has nowhere to send the user, so
-keep the two together. `navigation: { mode: 'none' }` (or `preventNavigation`)
-makes rows inert.
+keep the two together: a `page` layout without one falls back to the drawer,
+and a row click under `navigation: { mode: 'page' }` opens nothing.
+`navigation: { mode: 'none' }` (or `preventNavigation`)
+makes rows inert. An active named view (`listViews`, under Read/List) that
+declares its own `navigation` replaces this one, as a whole, while it is shown.
+Under `split` or `popover`, which open only beside a record the user picked, the
+New button's create form opens on the `layout` surface instead: the modal for
+`layout: 'modal'`, the drawer otherwise, whether the mode is this node's or an
+active named view's. A `page` layout with `onNavigate` still hands New to your
+router.
 
 With no host `onRowClick`, a Cmd/Ctrl-click or middle-click on a row opens the
 record as a full page in a new browser tab. Inert rows stay inert: `mode: 'none'`,
@@ -434,7 +445,9 @@ not wire handlers for them — you switch them on or off with `operations`, and
 ### Create
 
 `operations.create` enables record creation; `showCreate` shows the button.
-Both default to on, and the new-record form opens on the `layout` surface:
+Both default to on. The new-record form opens on the surface a `drawer` or
+`modal` navigation names, and on the `layout` surface otherwise, under `split`
+and `popover` too (see Opening a record):
 
 ```typescript
 import type { ObjectViewSchema } from '@object-ui/types';
@@ -449,8 +462,10 @@ const schema: ObjectViewSchema = {
 };
 ```
 
-With `layout: 'page'`, creation calls `onNavigate('new', 'edit')` instead of
-opening a drawer, so the host route owns the form.
+With a `page` surface, authored or derived, creation calls
+`onNavigate('new', 'edit')`, whatever the navigation, so the host route owns the
+form. With no `onNavigate`, the page has nowhere to route, so it falls back to
+the drawer.
 
 ### Read/List
 
@@ -497,6 +512,34 @@ const schema: ObjectViewSchema = {
 };
 ```
 
+**On the registered renderer.** An authored `object-view` node, and the Studio's
+view preview, draws a grid named view through `ObjectGrid`. Ten grid members the
+protocol declares under the same name on a named view and on `object-grid` —
+`pagination`, `selection`, `rowHeight`, `resizable`, `searchableFields`,
+`conditionalFormatting`, `rowActions`, `bulkActions`, `bulkActionDefs` and
+`exportOptions` — come from the active named view first; `pagination` and
+`selection` still fall back to `table` (objectui#10885). A named view's
+`hiddenFields` removes those fields from the columns the grid draws, when a
+column list is declared, and its `fieldOrder` then orders the columns that
+remain, the way `ListView` orders them on a host's `renderListView`. Its
+`inlineEdit` turns on in-cell editing, and only where the object grants inline
+edit to the user. Its `navigation` replaces the node's `navigation` as a whole:
+the row click, and the surface and width of the record, create and edit forms,
+follow the active named view, on this path, and on a host's `renderListView`
+when the host wires the `onRowClick` it is handed and passes `ObjectView` no
+`onRowClick` of its own. Under a named `split` or `popover`, the create form
+opens on the `layout` surface, as under Opening a record. `label` and `data`,
+also declared on both, are not
+handed to the grid on this path: the named view's `label` is already the tab's
+text, and `data` waits on objectui#10971, because `ListView` and `ObjectGrid`
+pick different objects for it.
+`src/__tests__/ObjectView.routeTwoNamedGridMembers-10885.test.tsx` pins the ten
+grid members and `hiddenFields`; `ObjectView.namedViewNavigation-10885.test.tsx`
+and `ObjectView.namedViewInlineEdit-10885.test.tsx` pin `navigation` and
+`inlineEdit`, and `@object-ui/app-shell`'s
+`objectViewRouteParity.fieldOrder-10885.test.tsx` pins `fieldOrder` against
+`ListView`.
+
 **On a host's `renderListView`.** A host that composes `ObjectView` with both
 `listViews` and its own `renderListView` receives a `list-view` node for the
 active view. For the list members the protocol declares on a named view — list
@@ -527,7 +570,8 @@ const schema: ObjectViewSchema = {
 };
 ```
 
-Under `layout: 'page'` this becomes `onNavigate(recordId, 'edit')`.
+Under a `page` surface this becomes `onNavigate(recordId, 'edit')`; a page with
+no `onNavigate` falls back to the drawer.
 
 ### Delete
 

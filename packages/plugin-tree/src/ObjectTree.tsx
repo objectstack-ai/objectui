@@ -1051,7 +1051,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
     //
     // ⛔ And this card does NOT rule it. `navigation` is objectui#8652's
     // family: maintainer-ruled option B — declare on the PLATFORM element
-    // schemas first, then mirror — blocked on objectstack#17987, whose unlock
+    // schemas first, then mirror — blocked on objectstack `e233db9db`, whose unlock
     // criterion is a released `@objectstack/spec` carrying the declaration
     // being installable here. Measured on the installed spec: `navigation` is
     // declared on exactly one `ComponentPropsMap` entry, `object-grid`, and

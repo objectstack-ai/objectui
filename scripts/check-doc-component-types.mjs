@@ -614,11 +614,15 @@ export const INDIRECT_REGISTRATIONS = [
     kind: 'object-keys',
     namespace: 'field',
     excluded:
-      'WITHHELD pending objectui#9717, which is open on exactly this question: does a RETIRED ' +
-      'TOMBSTONE SPELLING belong in a universe whose job is "does this string name a component that ' +
-      'exists"? Deciding it either way flips one switch and nothing else — DROP this `excluded` line ' +
-      'and the collection\'s keys (today `field:owner`) enter the universe, so a document teaching ' +
-      '`field:owner` turns GREEN; keep it and such a document stays RED, which is what happens today.',
+      'WITHHELD by ruling objectui#9717 letter A, which answered NO to exactly this question: does a ' +
+      'RETIRED TOMBSTONE SPELLING belong in a universe whose job is "does this string name a component that ' +
+      'exists"? ⚠️ DROPPING this `excluded` line does NOT admit the collection\'s keys (today ' +
+      '`field:owner`): without the exclusion the derivation has to read the collection literal in the ' +
+      'site file, where RETIRED_FIELD_TYPES is IMPORTED from `@object-ui/core` (the `reason` below says ' +
+      'so), so THIS entry reports `stale-indirect-registration`, `check:doc-types` and ' +
+      '`regenerate-known-schema-types.mjs --check` both exit non-zero, and a document teaching ' +
+      '`field:owner` stays RED for that different reason — admitting the spelling is NOT a one-line ' +
+      'change; re-derive this by deleting the line and running those two commands.',
     reason:
       '`registerAllFields()` registers every key of RETIRED_FIELD_TYPES a second time, last, under the ' +
       '`field:` namespace with `skipFallback: true` — a tombstone widget that renders a visible refusal ' +
@@ -638,8 +642,9 @@ export const INDIRECT_REGISTRATIONS = [
     kind: 'object-keys',
     namespace: 'view',
     excluded:
-      'WITHHELD, the same disposition and the same open question as the RETIRED_FIELD_TYPES entry ' +
-      'above (objectui#9717): does a RETIRED TOMBSTONE SPELLING belong in a universe whose job is ' +
+      'WITHHELD, the same disposition and the same ruling as the RETIRED_FIELD_TYPES entry ' +
+      'above (objectui#9717 letter A: retired spellings stay OUT): does a RETIRED TOMBSTONE SPELLING ' +
+      'belong in a universe whose job is ' +
       '"does this string name a component that exists"? Held the same way here so the two answers ' +
       'cannot drift apart. ⭐ For this collection the exclusion also carries the point of the ' +
       'retirement: objectui#8760 graded a key that passes every authoring check and fails only in ' +

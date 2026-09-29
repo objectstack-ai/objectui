@@ -139,7 +139,7 @@ function clampGrid(n: number | undefined): number {
  * ⚠️ «Whole row» is a claim about what RENDERS, and this function only returns
  * a number. It is kept by the form renderer's `spanLadderFor`, which turns
  * that number into one col-span class per container-query tier. Until
- * objectui#9244 the renderer emitted a single class for the widest tier only,
+ * `bd0995738` the renderer emitted a single class for the widest tier only,
  * so this sentence was true of the return value and false on screen at every
  * intermediate width. ⛔ A pin under this function cannot observe that — see
  * `__tests__/spanFullTierLadder-9244.test.tsx` for the leg that can.

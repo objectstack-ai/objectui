@@ -190,6 +190,7 @@ export {
   ChartDataSeriesSchema,
   DrillDownConfigSchema,
   ChartSchema,
+  PivotTableSchema,
   TimelineEventSchema,
   TimelineFeedItemSchema,
   TimelineGanttItemSchema,
@@ -325,6 +326,11 @@ export {
   ObjectDataTableSchema,
   ListViewSchema,
   ObjectQLComponentSchema,
+  // objectui#10859 batch 2 — two ADR-0080 public blocks armed from their
+  // `ComponentPropsMap` rows, and the union they reach `AnyComponentSchema` by.
+  ObjectMetricBlockSchema,
+  ObjectMasterDetailFormBlockSchema,
+  ObjectQLPublicBlockComponentSchema,
 } from './objectql.zod.js';
 
 // ============================================================================
@@ -345,8 +351,8 @@ export {
 // tombstone for the retired theme component-kind surface:
 // - `ColorPaletteSchema` / `TypographySchema` / `BorderRadiusSchema` /
 //   `ShadowSchema` / `ThemeModeSchema` / `ThemeDefinitionSchema` RETIRED with
-//   the spec's whole `ui/theme.zod.ts` module (objectstack#10485, PR
-//   objectstack#10695; removal ruled on objectstack#10856, executed as
+//   the spec's whole `ui/theme.zod.ts` module (objectstack `35ad101bc`;
+//   removal ruled on objectstack#10856, executed as
 //   objectui#5710).
 // - `ThemeComponentSchema` RETIRED in `78cbdb530`.
 // - `ThemeSwitcherSchema` / `ThemePreviewSchema` / `ThemeUnionSchema` RETIRED
@@ -430,10 +436,16 @@ export {
   RecordReferenceRailBlockSchema,
   RecordAlertBlockSchema,
   ElementTextBlockSchema,
+  ElementNumberBlockSchema,
   ElementButtonBlockSchema,
   ElementDividerBlockSchema,
   PublicBlockComponentSchema,
 } from './public-blocks.zod.js';
+
+// ============================================================================
+// Cloud Widgets - `@object-ui/app-shell`'s `cloud:` SDUI widgets (objectui#10919)
+// ============================================================================
+export { CloudPlanStatusSchema } from './cloud.zod.js';
 
 // ============================================================================
 // Union Types - All Component Schemas
@@ -450,12 +462,13 @@ import { DisclosureSchema } from './disclosure.zod.js';
 import { OverlaySchema } from './overlay.zod.js';
 import { NavigationSchema } from './navigation.zod.js';
 import { ComplexSchema } from './complex.zod.js';
-import { ObjectQLComponentSchema } from './objectql.zod.js';
+import { ObjectQLComponentSchema, ObjectQLPublicBlockComponentSchema } from './objectql.zod.js';
 import { CRUDComponentSchema } from './crud.zod.js';
 import { ReportUnionSchema } from './reports.zod.js';
 import { ViewComponentSchema } from './views.zod.js';
 import { AIComponentSchema } from './ai.zod.js';
 import { PublicBlockComponentSchema } from './public-blocks.zod.js';
+import { CloudPlanStatusSchema } from './cloud.zod.js';
 
 /**
  * Union of all component schemas.
@@ -518,11 +531,13 @@ export const AnyComponentSchema = defineNodeComponentUnion(z.discriminatedUnion(
   NavigationSchema,
   ComplexSchema,
   ObjectQLComponentSchema,
+  ObjectQLPublicBlockComponentSchema,
   CRUDComponentSchema,
   ReportUnionSchema,
   ViewComponentSchema,
   AIComponentSchema,
   PublicBlockComponentSchema,
+  CloudPlanStatusSchema,
 ], {
   // Zod's default message for a missed discriminator spells out EVERY accepted
   // literal — measured, 1,462 chars naming all 107. That is the "print every

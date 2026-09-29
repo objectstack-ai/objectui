@@ -277,11 +277,7 @@ it on `label`: `text` is not a `BadgeSchema` key.
   "title": "Welcome!",
   "children": {
     "type": "text",
-    "content": "${
-      user.isNew ? 'Start with the quick tour.' :
-      user.tasks.length === 0 ? 'You are all caught up.' :
-      'You have tasks waiting.'
-    }"
+    "content": "${user.isNew ? 'Start with the quick tour.' : user.tasks.length === 0 ? 'You are all caught up.' : 'You have tasks waiting.'}"
   }
 }
 ```

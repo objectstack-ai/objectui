@@ -233,7 +233,7 @@ export interface DetailViewProps {
  * it and `SchemaErrorBoundary` blanked the whole `record:details` component —
  * one authored key erasing every sibling section on the page (objectui#8497).
  * The crash predates the key it fires on: it arrived with `e99770841`
- * (2026-05-01), months before #13855 declared `group`, so it was never a
+ * (2026-05-01), months before objectstack#13855 declared `group`, so it was never a
  * deliberate refusal of anything.
  */
 const sectionFieldEntries = (sections: any[] | undefined): any[] =>

@@ -1,4 +1,5 @@
 export { ObjectView } from './ObjectView.js';
+export type { ConsoleObjectViewProps } from './ObjectView.js';
 export { RecordDetailView } from './RecordDetailView.js';
 export { RecordFormPage } from './RecordFormPage.js';
 export type { RecordFormPageProps } from './RecordFormPage.js';

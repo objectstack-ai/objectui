@@ -9,7 +9,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { AppCreationWizard } from '../AppCreationWizard';
+import { AppCreationWizard, navObjectNames } from '../AppCreationWizard';
 import { wizardDraftToAppSchema } from '@object-ui/types';
 import type { AppWizardDraft, ObjectSelection } from '@object-ui/types';
 import { AppSchema as SpecAppSchema, AppBrandingSchema as SpecAppBrandingSchema } from '@objectstack/spec/ui';
@@ -56,15 +56,18 @@ export function EditAppPage() {
   // Find the app to edit
   const appToEdit = apps.find((a: any) => a.name === targetAppName);
 
-  // Map metadata objects to ObjectSelection format
+  // Map metadata objects to ObjectSelection format. An object is selected when
+  // the stored navigation has an object entry for it ANYWHERE, a group's
+  // children included (objectui#10894): leaving the Objects step drops the
+  // entries of every object listed as deselected, so a grouped entry read as
+  // unselected would be lost on an edit that never touched it.
+  const storedObjectNames = navObjectNames(appToEdit?.navigation || []);
   const availableObjects: ObjectSelection[] = (objects || []).map((obj: any) => ({
     name: obj.name,
     label: obj.label || obj.name,
     pluralLabel: obj.pluralLabel,
     icon: obj.icon,
-    selected: appToEdit?.navigation?.some(
-      (nav: any) => nav.type === 'object' && nav.objectName === obj.name,
-    ) ?? false,
+    selected: storedObjectNames.has(obj.name),
   }));
 
   // Convert existing app to wizard draft

@@ -2,7 +2,7 @@
 '@object-ui/types': patch
 ---
 
-Mirror `wrapperClass` on `InputSchema` (objectui#8072 — the last
+Mirror `wrapperClass` on `InputSchema` (the last
 `schema.wrapperClass` reader whose value the validator admitted unexamined).
 
 `packages/components/src/renderers/form/input.tsx` reads

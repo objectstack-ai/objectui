@@ -148,6 +148,7 @@ const ja = {
       copyAll: 'すべてコピー',
     },
     notAvailableHere: '「{{action}}」は現在のページでは利用できません。',
+    completedSuccessfully: '操作が正常に完了しました',
   },
   validation: {
     required: "{{field}}は必須です",
@@ -1088,6 +1089,8 @@ const ja = {
     pathStageLostUpcoming: '{{stage}}、失注、未到達',
     pathStageWonUpcoming: '{{stage}}、目標ステージ、未到達',
     linkCopied: "リンクをクリップボードにコピーしました",
+    commentFailed: "コメントを投稿できませんでした。何も保存されていません。もう一度お試しください。",
+    reactionFailed: "リアクションが保存されませんでした。もう一度お試しください。",
     linkCopyFailed: "リンクのコピーに失敗しました",
     cancel: "キャンセル",
     cancelEdit: "変更を破棄",
@@ -1157,6 +1160,8 @@ const ja = {
     refreshing: "更新中…",
     pickMeasures: "このデータセットウィジェットの指標（値）を選択してください。",
     datasetUnsupported: "このデータソースはデータセットクエリに対応していません。",
+    widgetForbiddenTitle: "アクセス権がありません",
+    widgetForbiddenMessage: "このウィジェットのデータを表示する権限がありません。",
     details: "詳細",
     exportCsv: "CSV で書き出す",
     openInList: "リストで開く",
@@ -1564,6 +1569,7 @@ const ja = {
         ctaUpgrade: "アップグレードして続行",
         ctaTopUp: "クレジットを追加して続行",
         ariaLabel: "AI 使用状況: {{status}}",
+        breakdownTitle: "これまでの使用内訳",
       },
       workspaceTitle: "AI ワークスペース",
       workspaceSubtitle: "質問し、確認し、会話を再開します",
@@ -1573,6 +1579,9 @@ const ja = {
       share: "共有",
       shareTitle: "この会話を共有",
       shareDisabledTitle: "共有するにはチャットを開始してください",
+      buildDoctor: "ビルド診断",
+      buildDoctorTitle: "ビルド診断 — 実際に反映された内容は？",
+      buildDoctorDisabledTitle: "先にメッセージを送信してください",
       newChat: "新規",
       searchChats: "チャットを検索…",
       noChatsYet: "チャットはまだありません",
@@ -1780,6 +1789,7 @@ const ja = {
       pages: "ページ",
       reports: "レポート",
       system: "システム",
+      marketplace: "マーケットプレイス",
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -1877,6 +1887,14 @@ const ja = {
       ratio: '書き込み 1 行あたり {{ratio}} 行を読み取っています。プラットフォームは {{threshold}} を超える比率を検出対象とします。制限やブロックは一切行われていません。読み取りパターンを確認するための報告です。',
       noWritesTitle: 'この環境は読み取りのみで書き込みがまったくありません',
       noWrites: '行の読み取りはある一方で書き込みがまったくないため、読み取り比率に上限がありません。これは最も深刻な読み取り値です。プラットフォームは {{threshold}} を超える比率を検出対象とします。制限やブロックは一切行われていません。読み取りパターンを確認するための報告です。',
+    },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'ストレージの空き容量が少なくなっています',
+      warning: '{{limit}} MB 中 {{used}} MB を使用しています。ストレージが満杯になると、アップロードとインポートは一時停止されます。',
+      blockedTitle: 'ストレージが満杯です：アップロードとインポートは一時停止中です',
+      blocked: '{{limit}} MB 中 {{used}} MB を使用しています。既存のデータはそのままで、読み取り、エクスポート、個々のレコードの編集は引き続き利用できます。',
+      upgrade: 'アップグレードして続行',
     },
     errors: {
       somethingWentWrong: "問題が発生しました",
@@ -2057,6 +2075,8 @@ const ja = {
       resendOtpCountdownText: "{seconds} 秒後に再送信",
       usePhoneOtpText: "確認コードでサインイン",
       usePasswordSignInText: "パスワードでサインインする",
+      socialButton: "{provider} で続行",
+      orText: "またはメールアドレスで続行",
     },
     register: {
       title: "アカウントを作成",
@@ -2075,8 +2095,12 @@ const ja = {
       submittingButton: "アカウント作成中…",
       hasAccountText: "すでにアカウントをお持ちですか？",
       signInText: "サインイン",
+      socialButton: "{provider} で新規登録",
+      orText: "またはメールアドレスで続行",
       errors: {
         userExists: "このメールアドレスのアカウントはすでに存在します。代わりにサインインしてください。",
+        selfRegistrationClosed: "この環境ではセルフ登録を受け付けていません。管理者に招待を依頼してください。",
+        emailDomainNotAllowed: "このメールアドレスのドメインはここでの登録が許可されていません。組織のメールアドレスを使用するか、管理者に招待を依頼してください。",
       },
       verifyInbox: {
         title: "受信箱を確認してください",
@@ -2902,6 +2926,9 @@ const ja = {
     openProduction: "本番環境を開く",
     manageEnvironments: "環境を管理",
   },
+  cloudPlanStatus: {
+    current: "現在のプラン",
+  },
   ai: {
     nlQuery: {
       placeholder: "データについて質問してください…",
@@ -3650,6 +3677,11 @@ const ja = {
   },
   wizard: {
     missingRequired: "必須項目を入力してください: {{fields}}",
+    back: "戻る",
+    submitting: "送信中…",
+    stepFallback: "ステップ {{n}}",
+    progressLabel: "進捗",
+    emptyStep: "このステップにはフィールドが設定されていません",
   },
   flowRunner: {
     title: '入力',
@@ -3744,6 +3776,11 @@ const ja = {
     actionsEmptyTitle: "パッケージアクションはありません",
     actionsEmptyBody: "このデプロイには、アクションを宣言するインストール済みパッケージがありません。自分で作成したアクションは Studio にあります。",
     actionsLoadFailed: "パッケージアクションを読み込めませんでした。",
+  },
+  element: {
+    number: {
+      noObject: "オブジェクトが指定されていません。object または dataSource.object を設定してください。",
+    },
   },
 };
 

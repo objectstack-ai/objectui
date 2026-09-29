@@ -45,6 +45,11 @@ import {
   // objectui#7928 — the spec's view CONTAINER, read for ONE slot: its
   // `listViews` record (`ObjectViewSchema.listViews` below, by reference).
   ViewSchema as SpecViewSchema,
+  // objectui#10859 (batch 2) — the `ComponentPropsMap` rows of the two
+  // ADR-0080 public blocks this module arms, each read as its arm's
+  // `properties` bag, by reference (`ObjectQLPublicBlockComponentSchema` below).
+  ObjectMetricPropsSchema as SpecObjectMetricPropsSchema,
+  ObjectMasterDetailFormPropsSchema as SpecObjectMasterDetailFormPropsSchema,
   checkListViewCalendarVisualization,
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
@@ -225,8 +230,9 @@ const SPEC_EXPORT_OPTIONS_OBJECT_SHAPE: SpecExportOptionsShape = ((): SpecExport
  * The refusal it carries is objectui#7762's ruling. `ObjectGrid.tsx` reads
  * `schema.exportOptions?.formats` and nothing else, so a bare format array authored on
  * an `object-grid` node used to validate green through `BaseSchema`'s `.passthrough()`
- * and then lose SILENTLY to the `['csv', 'json']` default — no error, no warning, no
- * console line, with the export button still shown. Refusing it by name is that silent
+ * and then lose SILENTLY to the `['csv', 'json']` default — no render-time error, warning
+ * or console line (only the parser tier's `type-mismatch` warning noticed it), with the
+ * export button still shown. Refusing it by name is that silent
  * no-op made loud; nothing that renders today stops rendering.
  */
 const OBJECT_GRID_EXPORT_OPTIONS_GUIDANCE =
@@ -919,7 +925,7 @@ const KanbanStrayGroupByRefusal = aliasKeyRefusal(
 );
 
 /**
- * WHERE THIS ARM IS INSTALLED — TWO ROUTES, TWO NESTINGS EACH, ONE STRING.
+ * WHERE THIS ARM IS INSTALLED — TWO ROUTES, THREE NESTINGS, ONE STRING.
  *
  * `ListView` merges `{ ...schema.options?.kanban, ...schema.kanban }` before it
  * reads anything, so a stored view can carry the stray key under EITHER. The
@@ -930,11 +936,13 @@ const KanbanStrayGroupByRefusal = aliasKeyRefusal(
  * `options.kanban.groupBy`) — see `ListViewSchema.options` below.
  *
  * The second route is a named view on an `object-view` document, whose
- * `listViews` is unmirrored: nothing `ListViewSchema` declares reaches it, and
- * `generateViewSchema` merges the same two nestings. It takes the SAME guidance
- * through the named-view door (`custom` at `listViews.KEY.kanban.groupBy` and
- * `listViews.KEY.options.kanban.groupBy`, objectui#10321) — see
- * `checkNamedViewKanbanStrayGroupBy` below.
+ * `listViews` is the protocol's strict record by reference (objectui#7928), so
+ * nothing `ListViewSchema` declares reaches it, and it has ONE nesting: the
+ * record refuses a named view's `options` bag whole (`unrecognized_keys` naming
+ * `options`), and `generateViewSchema` no longer reads that bag. The `kanban`
+ * block takes the SAME guidance through the named-view door (`custom` at
+ * `listViews.KEY.kanban.groupBy`, objectui#10321, beside the protocol's own
+ * `unrecognized_keys`) — see `checkNamedViewKanbanStrayGroupBy` below.
  *
  * ⚠️ Covering the legacy nesting is not optional politeness: the retired
  * producer (`app-shell`'s `kanbanViewOptions`, objectui#8213) wrote into
@@ -943,8 +951,8 @@ const KanbanStrayGroupByRefusal = aliasKeyRefusal(
  * population re-grouped in silence — option A, which the ruling did not take.
  *
  * ⛔ Every channel takes ONE string, read off this arm's own `.description`,
- * so the message an author meets cannot depend on which route or nesting they
- * wrote.
+ * so the message an author meets at the key cannot depend on which of those
+ * three nestings they wrote it in.
  */
 
 const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().extend({
@@ -1521,6 +1529,41 @@ function checkListViewDatasetChartFilter(
   }
 }
 
+/**
+ * The `condition` of a spec-shape conditional-formatting rule, `{ condition, style }`:
+ * the zod twin of `SpecConditionalFormattingRule.condition` (`../objectql.ts`), read by
+ * both rule unions below (the list view's `conditionalFormatting` and
+ * `KanbanConditionalFormattingRuleSchema`), objectui#10946.
+ *
+ * Two arms, and their ORDER is the point:
+ *
+ *  - `z.string()` FIRST, the member's pre-existing declaration. A string condition
+ *    parses exactly as it always did. It is not canonicalized into an envelope, and
+ *    `''` is still accepted. The spec's own slot does both of those things to a string
+ *    (its string arm is a `min(1)` pipe into `{ dialect: 'cel', source }`), so reading
+ *    the slot alone would have narrowed this validator and rewritten its parse output.
+ *  - The protocol's own slot schema, `ListViewSchema.conditionalFormatting[].condition`,
+ *    BY REFERENCE, for everything that is not a string: the `{ dialect, source }`
+ *    envelope `objectstack build` emits, judged by the spec's rule for it. The installed
+ *    spec takes `source` or `ast`; spec `main` requires a non-blank `source`. Whichever
+ *    line is installed is what this arm enforces, with no local copy to drift.
+ *
+ * The union's `z.input` is the TS member's type, `string` plus the spec slot's input,
+ * so the two faces admit the same values by construction.
+ */
+const SpecRuleConditionSchema = z.union([
+  z.string(),
+  stripImportedDefaults(SpecListViewSchema).shape.conditionalFormatting.unwrap().element.shape.condition,
+]);
+
+/** objectui#9256 (family-D re-measure): ONE refusal string for both content channels of `ListViewSchema`. */
+const LIST_VIEW_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'list-view',
+  'its registration (`plugin-list:list-view`) reads the node as `ListViewSchema` itself',
+  'the records of `objectName` in the visualization `viewType` names, shaped by `columns`, `filter`, '
+    + '`sort` and `options`',
+);
+
 export const ListViewSchema = BaseSchema
   // Spec-owned fields by reference. `specFieldsExcept` reads the spec object's
   // `.shape` rather than calling `.omit()`, which zod 4 refuses on a schema
@@ -1686,7 +1729,7 @@ export const ListViewSchema = BaseSchema
         expression: z.string().optional(),
       }),
       z.object({
-        condition: z.string(),
+        condition: SpecRuleConditionSchema,
         style: z.record(z.string(), z.string()),
       }),
     ])).optional().describe('Conditional formatting rules'),
@@ -1771,6 +1814,13 @@ export const ListViewSchema = BaseSchema
     onDensityChange: handlerKeyRefusal('onDensityChange', 'runtime-slot', 'Row density change handler'),
     onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'Record navigation handler'),
     onPageSizeChange: handlerKeyRefusal('onPageSizeChange', 'runtime-slot', 'Page size change handler'),
+    // objectui#9256 (family-D re-measure): the renderer reads NEITHER content channel, so both are
+    // refused by name here as on the TypeScript twin, each kept a MEMBER.
+    body: retirementTombstone(LIST_VIEW_NEITHER_CHANNEL),
+    children: retirementTombstone(LIST_VIEW_NEITHER_CHANNEL),
+    // ⚠️ This arm feeds its own TypeScript face (`ListViewInferred` below), so these two members are
+    // what put `body?: undefined` / `children?: undefined` on `ListViewSchema`; there is no separate
+    // `?: never` pair to keep in step.
   })
   // ⭐ THE SPEC'S OBJECT-LEVEL CHECKS, re-attached (objectui#7715, ruling B1).
   //
@@ -1831,6 +1881,29 @@ export type ListViewInferred = z.input<typeof ListViewSchema>;
  * so the declared authoring face and the validation the renderer performs are
  * ONE schema rather than two that can drift (objectui#5018). `ObjectMap`
  * imports this exact object; it no longer declares its own.
+ *
+ * ## `.strict()` — an undeclared key is REFUSED, not stripped (objectui#5157)
+ *
+ * The TypeScript twin `ObjectMapConfig` is a closed interface, so a misspelled
+ * key (`latitudeFieId`) was a compile error for a typed author and nothing at
+ * all for untyped metadata: this object stripped it and parsed clean, and
+ * nothing named it: the card's typo drew the generic "Map configuration
+ * required" refusal (objectui#8169), which names the key the author meant, not
+ * the one they wrote. Closing the block makes all three faces
+ * one accept set, as ruled on objectui#5157 (letter A, carrying the earlier
+ * "the `map` block only" ruling):
+ *
+ *  - runtime: `ObjectMap`'s `safeParse` of the block now fails, so the
+ *    component still renders and `console.warn`s the issue, which names the key;
+ *  - validate: `ObjectMapSchema.map` is this object, so `safeValidateSchema`
+ *    (and `objectui validate` with it) refuses the node with an
+ *    `unrecognized_keys` issue at `map`;
+ *  - `.shape` is untouched, so `ObjectMap`'s `FLAT_MAP_CONFIG_KEYS` (derived
+ *    from it) and the view flatten whitelists (hand-listed, pinned against it)
+ *    see the same keys as before.
+ *
+ * ⛔ The map block ONLY. Whether other component sub-block schemas close the
+ * same way is a separate decision the ruling kept out of this card.
  */
 export const ObjectMapConfigSchema = z.object({
   latitudeField: z.string().optional().describe('Field containing latitude'),
@@ -1841,7 +1914,7 @@ export const ObjectMapConfigSchema = z.object({
   zoom: z.number().optional().describe('Zoom level (1-20); declaring it opts out of the auto-fit'),
   center: z.tuple([z.number(), z.number()]).optional().describe('Center [lat, lng]; declaring it opts out of the auto-fit'),
   style: z.string().optional().describe('MapLibre style URL/spec (overrides the public demo default)'),
-});
+}).strict();
 
 /**
  * `77cb489b4` — the record-source refinement `ObjectMapSchema`,
@@ -2293,7 +2366,7 @@ export const KanbanConditionalFormattingRuleSchema = z.union([
     borderColor: z.string().optional().describe('Border color'),
   }),
   z.object({
-    condition: z.string().describe('CEL predicate evaluated against the card record'),
+    condition: SpecRuleConditionSchema.describe('CEL predicate evaluated against the card record'),
     style: z.record(z.string(), z.string()).describe('CSS styles applied when the condition is true'),
   }),
 ]);
@@ -2959,7 +3032,7 @@ export const ObjectGallerySchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `object-gallery` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `bind`, `className`, `data`, `filter`, `gallery`, `grouping`, '
     + '`imageField`, `navigation`, `objectName`, `titleField`.',
   ),
@@ -2967,7 +3040,7 @@ export const ObjectGallerySchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `object-gallery` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `bind`, `className`, `data`, `filter`, `gallery`, `grouping`, '
     + '`imageField`, `navigation`, `objectName`, `titleField`.',
   ),
@@ -3053,7 +3126,7 @@ export const ObjectDataTableSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `object-data-table` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `bind`, `columns`, `data`, `drillDown`, `filter`, `objectName`, '
     + '`onRowClick`.',
   ),
@@ -3061,7 +3134,7 @@ export const ObjectDataTableSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `object-data-table` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `bind`, `columns`, `data`, `drillDown`, `filter`, `objectName`, '
     + '`onRowClick`.',
   ),
@@ -3100,4 +3173,150 @@ export const ObjectQLComponentSchema = z.discriminatedUnion('type', [
   ObjectGallerySchema,
   ObjectDataTableSchema,
   ListViewSchema,
+]);
+
+/* ── ADR-0080 public blocks of this family, armed from their spec rows ───── */
+
+/**
+ * The `properties` member of one of the two blocks below: the spec row,
+ * optional, with the provenance spelled into its description — the same
+ * helper `./public-blocks.zod.ts` uses. The row is passed in already through
+ * the import boundary, so this helper never touches a spec binding.
+ */
+function objectBlockPropsBag<T extends z.ZodType>(type: string, row: T) {
+  return row
+    .optional()
+    .describe(
+      `The \`${type}\` props bag — \`@objectstack/spec\` \`ComponentPropsMap['${type}']\`, by reference. `
+      + 'Judged only when present, as the spec\'s props gate judges it.',
+    );
+}
+
+/** objectui#9256 (public-block slice): ONE refusal string for both content channels of `object-metric`. */
+const OBJECT_METRIC_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'object-metric',
+  'its registration (`plugin-dashboard:object-metric`) hands the node to `ObjectMetricBlock`, which resolves its '
+    + '`dataSource` binding and renders `ObjectMetricWidget`, whose props are named keys and never a child list',
+  'one aggregated number over `objectName`, computed by `aggregate` and scoped by `filter`',
+);
+
+/**
+ * `object-metric` — `ComponentPropsMap['object-metric']` (objectui#10859,
+ * batch 2).
+ *
+ * ## Why it is armed here, and from what
+ *
+ * `object-metric` is registered by `@object-ui/plugin-dashboard`
+ * (`ObjectMetricBlock`, which renders `ObjectMetricWidget`), curated by
+ * ADR-0080 as a public block (`PUBLIC_BLOCKS` in `@object-ui/core`) and
+ * declared by the spec — and until this arm `AnyComponentSchema` carried none
+ * for it, so `safeValidateSchema` and `objectui validate` refused every
+ * document naming it with `invalid_union` at `type`.
+ *
+ * `@object-ui/types` has no TypeScript declaration of this node: the spec's
+ * row is the one published declaration of what it takes. (The widget's React
+ * props, `ObjectMetricWidgetProps`, describe the component after the node is
+ * resolved — a translator function and a React-node icon among them — and are
+ * not a document shape.) So the arm is built the way `./public-blocks.zod.ts`
+ * builds every arm whose declaration is a `ComponentPropsMap` row
+ * (objectui#10872): `BaseSchema` + the `type` literal + `properties`, which IS
+ * the row, by reference through the objectui#8317 import boundary. Members,
+ * value types, strictness and the spec's own refusals all arrive from the
+ * spec; nothing is restated, so nothing can drift.
+ *
+ * ## Where the props live
+ *
+ * The bag is the spelling the platform's authored documents use — every
+ * `object-metric` the objectstack showcase ships is `{ type, properties }` —
+ * and the one the page designer writes; `SchemaRenderer` hoists it onto the
+ * node before `ObjectMetricBlock` runs. ⚠️ A key written FLAT on the node is
+ * not judged against the row, exactly as on the public blocks next door: one
+ * `BaseSchema` does not declare passes the tolerant face unjudged and is
+ * refused by the strict authoring face. Whether the flat spelling is also an
+ * authoring channel for these blocks is the question objectui#10872 left open
+ * for the whole family; declaring it later is additive.
+ *
+ * ## The content channels (objectui#9256)
+ *
+ * The renderer reads NEITHER content channel, so the arm declares `children`
+ * as a by-name refusal and restates `body` with the same guidance — as the
+ * public blocks in `./public-blocks.zod.ts` do, and for the same reason:
+ * `BaseSchema` already refuses `body`, but names `children` as the remedy.
+ * Both stay MEMBERS. `object-master-detail-form` below does the same.
+ */
+export const ObjectMetricBlockSchema = BaseSchema.extend({
+  type: z.literal('object-metric'),
+  properties: objectBlockPropsBag('object-metric', stripImportedDefaults(SpecObjectMetricPropsSchema)),
+  // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
+  // kept a MEMBER.
+  body: retirementTombstone(OBJECT_METRIC_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_METRIC_NEITHER_CHANNEL),
+});
+
+/** objectui#9256 (public-block slice): ONE refusal string for both content channels of `object-master-detail-form`. */
+const OBJECT_MASTER_DETAIL_FORM_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'object-master-detail-form',
+  'its registration (`plugin-form:object-master-detail-form`) hands the node to `MasterDetailFormRenderer`, '
+    + 'which resolves its `dataSource` binding and renders `MasterDetailForm`; that form builds its parent '
+    + '`object-form` node key by key and reads no child list',
+  'a parent form over `objectName` with an editable grid for each `details` entry',
+);
+
+/**
+ * `object-master-detail-form` — `ComponentPropsMap['object-master-detail-form']`,
+ * plus the three handler keys its renderer reads off the node (objectui#10859,
+ * batch 2).
+ *
+ * Registered by `@object-ui/plugin-form` (`MasterDetailFormRenderer`, which
+ * renders `MasterDetailForm`), curated by ADR-0080 and declared by the spec,
+ * with no arm until this one. Built exactly as `ObjectMetricBlockSchema` above
+ * is, and for the same reason: the spec row is the published declaration of
+ * the node's props, and the objectstack showcase's master-detail page authors
+ * `{ type, properties }`.
+ *
+ * ⚠️ `@object-ui/plugin-form` also exports `MasterDetailFormSchema`, the type
+ * of `MasterDetailForm`'s `schema` prop: the node as the renderer reads it
+ * after the `properties` hoist. It is not restated here: it carries three host
+ * callbacks and an optional `type`, and it is the renderer's reading rather
+ * than the authored document shape. It types `title`, `submitText` and
+ * `cancelText` as the row's `I18nLabel` (objectui#10935; pinned by
+ * `assertionLabelMembersAreI18nLabel` in plugin-form's
+ * `MasterDetailForm.i18nLabels.test.tsx`), and where it and the spec row still
+ * disagree — it requires `objectName` and `details`, while the row keeps both
+ * keys optional — the spec is the contract this validator answers to.
+ *
+ * `onSuccess`, `onError` and `onCancel` are not props the spec declares: they
+ * are the host callbacks `ObjectForm`, `DrawerForm` and `ModalForm` hand
+ * `MasterDetailForm`, which calls each one off the node. So each is a RUNTIME
+ * SLOT (objectui#6124): refused by name when authored, because JSON has no
+ * function value, rather than left to `.passthrough()` to keep an authored
+ * value and hand it to a call site.
+ */
+export const ObjectMasterDetailFormBlockSchema = BaseSchema.extend({
+  type: z.literal('object-master-detail-form'),
+  properties: objectBlockPropsBag(
+    'object-master-detail-form',
+    stripImportedDefaults(SpecObjectMasterDetailFormPropsSchema),
+  ),
+  onSuccess: handlerKeyRefusal('onSuccess', 'runtime-slot', 'Called with the saved parent record after a successful save'),
+  onError: handlerKeyRefusal('onError', 'runtime-slot', 'Called after a refused save, for bookkeeping only'),
+  onCancel: handlerKeyRefusal('onCancel', 'runtime-slot', 'Cancel button callback'),
+  // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
+  // kept a MEMBER.
+  body: retirementTombstone(OBJECT_MASTER_DETAIL_FORM_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_MASTER_DETAIL_FORM_NEITHER_CHANNEL),
+});
+
+/**
+ * The two public blocks above, as one arm of `AnyComponentSchema`
+ * (objectui#10859, batch 2).
+ *
+ * A union of its own rather than two more members of `ObjectQLComponentSchema`,
+ * deliberately: that union mirrors the TypeScript union in `../objectql.ts`
+ * member for member, and neither block has a declaration there — their
+ * declaration is the spec row each `properties` member reads.
+ */
+export const ObjectQLPublicBlockComponentSchema = z.discriminatedUnion('type', [
+  ObjectMetricBlockSchema,
+  ObjectMasterDetailFormBlockSchema,
 ]);

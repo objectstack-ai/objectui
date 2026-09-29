@@ -336,11 +336,14 @@ function getCalendarConfig(schema: ObjectCalendarSchema): ObjectCalendarConfig |
  * event. A quick-create has no stored value, so it keeps the instant there.
  */
 function toStoredDateValue(date: Date, declaredType: unknown, stored: unknown): string {
-  const dateOnly =
-    typeof declaredType === 'string'
-      ? declaredType === 'date'
-      : typeof stored === 'string' && isRealCalendarDate(stored);
-  return dateOnly ? toDateInputValue(date) : date.toISOString();
+  return isDateOnlyField(declaredType, stored) ? toDateInputValue(date) : date.toISOString();
+}
+
+/** Does this date field hold a calendar day? {@link toStoredDateValue}'s split. */
+function isDateOnlyField(declaredType: unknown, stored: unknown): boolean {
+  return typeof declaredType === 'string'
+    ? declaredType === 'date'
+    : typeof stored === 'string' && isRealCalendarDate(stored);
 }
 
 /**
@@ -1004,8 +1007,8 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // with visual-regression evidence across all four surfaces in one stroke.
   // ⛔ The ONE cast objectui#8651 left standing, deliberately. `navigation` is
   // objectui#8652's key: the maintainer ruled B there — declare it on the
-  // platform element schemas first, then mirror — and that card is `pm:blocked`
-  // on objectstack#17987. Its declaredness verdict at this read site is
+  // platform element schemas first, then mirror — and that card waits on
+  // objectstack `e233db9db`. Its declaredness verdict at this read site is
   // UNCHANGED by this card: through the retired union it was undeclared too,
   // and it is undeclared on `ObjectCalendarSchema`. The rule that makes that
   // come out right is NOT "declared on every arm". In the checker reading
@@ -1060,7 +1063,11 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     if (!id || !schema.objectName || !dataSource?.update) return;
 
     // A `date` field is written as the calendar day, a `datetime` as the
-    // instant (objectui#10866, `toStoredDateValue`).
+    // instant (objectui#10866, `toStoredDateValue`). The month grid moves a
+    // value by calendar days and keeps its time of day (objectui#11005), so a
+    // day read at local midnight comes back at local midnight of the day it
+    // was dropped on, whatever DST change lies between, and its local day is
+    // the day to write.
     const fieldDefs = objectSchema?.fields as Record<string, { type?: unknown } | undefined> | undefined;
     const patch: Record<string, string> = {
       [startDateField]: toStoredDateValue(newStart, fieldDefs?.[startDateField]?.type, record?.[startDateField]),
@@ -1086,7 +1093,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       // Surface the failure — never silently snap the event back. A row-level
       // security denial (403) is the common case: the user lacks permission to
       // reschedule this record. (cloud#864)
-      // …unless the AUTHOR opted in. `userMessage` (objectstack#9934) is the
+      // …unless the AUTHOR opted in. `userMessage` (objectstack `79c46da90`) is the
       // producer-side marking: a field set at throw time to say "this text is
       // for the end user". It is a SEPARATE field from `message`, so nothing
       // unmarked can reach here — the substitution below still governs every

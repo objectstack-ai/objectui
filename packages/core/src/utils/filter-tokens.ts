@@ -115,7 +115,7 @@ const WHOLE_TOKEN_RE = /^\$?\{([a-zA-Z0-9_]+)\}$/;
  * than special-casing the two spellings measured today: this object has no
  * prototype at all, so *no* key — known or future — can resolve through it.
  * `@objectstack/spec`'s own map is left untouched (out of scope here; the
- * identical shape in its `classifyFilterToken` is objectstack#17762).
+ * identical shape in its `classifyFilterToken` is the one objectstack `4342c9923` closed).
  */
 const NEAR_MISS_SUGGESTIONS: Readonly<Record<string, ContextTokenName>> = Object.assign(
   Object.create(null),

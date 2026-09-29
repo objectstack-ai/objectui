@@ -15,11 +15,11 @@ A `record:path` whose stage labels are per-locale maps now shows the viewer's la
 **The registry inputs.** These inputs declared `type: 'string'` only, while their renderers already resolve a per-locale map, so the manifest built from `ComponentRegistry.getPublicConfigs()` made `validateTree` report `type-mismatch` on a map the spec accepts. Each now declares both arms, `type: ['string', 'object']`, with a description that teaches the map:
 
 - `@object-ui/plugin-dashboard`: `object-metric`'s `label` (the tile heading), `description` (the sub-caption under the value) and `title` (the drill-down panel heading), resolved against the active UI language.
-- `@object-ui/plugin-grid`: `object-grid`'s `label` (the table caption, the export title and the record-detail overlay heading), resolved against the display locale: the workspace's regional default when one is configured, otherwise the active UI language. `view:grid` shares the same inputs, so its `label` widens with it.
+- `@object-ui/plugin-grid`: `object-grid`'s `label` (the table caption, the export title and the record-detail overlay heading), resolved against the display locale: the workspace's regional default when one is configured, otherwise the active UI language. `view:grid` registers the same inputs, so its declared `label` carries the same two arms.
 - `@object-ui/plugin-detail`: `record:related_list`'s `title` (the list heading), resolved against the active UI language.
 
 A value that matches neither arm, such as a number, is still reported. No renderer changes for these five: each already resolved the map.
 
 **Not in this batch.** `object-grid`'s deprecated `title`, read when `label` is absent, still renders a map raw; it follows in a later batch.
 
-**Clause-②: yes** — five registry inputs (six with `view:grid`'s `label`) widen from `'string'` to `['string', 'object']`, so `validateTree` accepts a locale map on them. Nothing that was accepted before is refused now.
+**Clause-②: yes** — five published registry inputs widen from `'string'` to `['string', 'object']`, so `validateTree` accepts a locale map on them (and `view:grid`'s `label`, which shares `object-grid`'s inputs, declares the same arms). Nothing that was accepted before is refused now.

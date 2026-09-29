@@ -67,7 +67,7 @@ const splitDesigner = (props: Record<string, any>) => {
 
 type StageState = 'completed' | 'current' | 'upcoming';
 
-type PathStage = { value: any; label: string; terminal?: 'won' | 'lost' };
+type PathStage = { value: unknown; label: string; terminal?: 'won' | 'lost' };
 
 /**
  * `stages[].label` is an `I18nLabel` in the spec row

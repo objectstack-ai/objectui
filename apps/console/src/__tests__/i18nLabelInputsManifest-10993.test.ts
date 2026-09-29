@@ -15,8 +15,9 @@
  *     (`ObjectMetric.i18nLabel-10993.test.tsx` in `plugin-dashboard` pins the
  *     render);
  *   - `object-grid`: `label` (`ObjectGrid.labelI18nLabel-10993.test.tsx` in
- *     `plugin-grid`), and `view:grid`, the same registration's inputs under
- *     its view name;
+ *     `plugin-grid`). `view:grid` registers the same inputs, so its declaration
+ *     carries the same two arms, but it is not in the public manifest, so it has
+ *     no row here: this door does not reach it;
  *   - `record:related_list`: `title`
  *     (`record-related-list.titleI18nLabel-10993.test.tsx` in `plugin-detail`).
  *
@@ -45,7 +46,6 @@ const manifest = manifestFromConfigs(
 const BLOCKS: ReadonlyArray<{ block: string; base: Record<string, unknown>; keys: readonly string[] }> = [
   { block: 'object-metric', base: { objectName: 'deal' }, keys: ['label', 'description', 'title'] },
   { block: 'object-grid', base: { objectName: 'account' }, keys: ['label'] },
-  { block: 'view:grid', base: { objectName: 'account' }, keys: ['label'] },
   {
     block: 'record:related_list',
     base: { objectName: 'task', relationshipField: 'account_id', columns: ['name'] },
@@ -53,7 +53,7 @@ const BLOCKS: ReadonlyArray<{ block: string; base: Record<string, unknown>; keys
   },
 ];
 
-const ROWS = BLOCKS.flatMap(({ block, base, keys }) => keys.map((key) => ({ block, base, key })));
+const ROWS = BLOCKS.flatMap(({ block, base, keys }) => keys.map((key) => ({ id: `${block}.${key}`, block, base, key })));
 
 /** `en` first, as in the render pins. */
 const MAP = { en: 'Pipeline', 'zh-CN': '销售管道' };
@@ -73,22 +73,22 @@ describe('the I18nLabel registry half at the manifest public door (objectui#1099
     expect(diagnose(block, base)).toEqual([]);
   });
 
-  it.each(ROWS)('`$block.$key` declares the string arm and the locale-map arm', ({ block, key }) => {
+  it.each(ROWS)('`$id` declares the string arm and the locale-map arm', ({ block, key }) => {
     const input = manifest.components[block].inputs.find((i) => i.name === key);
     expect(input, `${block}.${key} is not a declared input`).toBeDefined();
     const arms = Array.isArray(input?.type) ? [...input.type].sort() : [input?.type];
     expect(arms).toEqual(['object', 'string']);
   });
 
-  it.each(ROWS)('a locale map on `$block.$key` is not reported', ({ block, base, key }) => {
+  it.each(ROWS)('a locale map on `$id` is not reported', ({ block, base, key }) => {
     expect(mismatchesOn(block, { ...base, [key]: MAP }, key)).toEqual([]);
   });
 
-  it.each(ROWS)('CONTROL: a plain string on `$block.$key` is not reported', ({ block, base, key }) => {
+  it.each(ROWS)('CONTROL: a plain string on `$id` is not reported', ({ block, base, key }) => {
     expect(mismatchesOn(block, { ...base, [key]: 'Pipeline' }, key)).toEqual([]);
   });
 
-  it.each(ROWS)('CONTROL: a value matching neither arm on `$block.$key` is still reported', ({ block, base, key }) => {
+  it.each(ROWS)('CONTROL: a value matching neither arm on `$id` is still reported', ({ block, base, key }) => {
     // The union is not a way out of the gate: a number is neither a string nor
     // a map, and must still be a `type-mismatch`.
     expect(mismatchesOn(block, { ...base, [key]: 42 }, key)).toHaveLength(1);

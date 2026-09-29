@@ -944,8 +944,17 @@ function isUpdateOperationAction(action: ActionDef): boolean {
  * then offers no Undo at all. Capturing only the carried fields is not an
  * option, for the reason above: a partial restore reported as a full one is
  * worse than no Undo.
+ *
+ * Exported (objectui#11082) because it is THE rule, not this runner's: every
+ * surface that builds an `update` Undo snapshot itself calls it rather than
+ * restating it. Today that is the console runtime's `api` handler
+ * (`useConsoleActionRuntime`) and the record page's own `api` handler
+ * (`RecordDetailView`), which reads prior values off the page's loaded record;
+ * that record lacks a written field when field-level security hides it from
+ * the reader. To name the fields that blocked a capture, ask per field:
+ * `captureUpdateUndoData([field], rowRecord) === undefined`.
  */
-function captureUpdateUndoData(
+export function captureUpdateUndoData(
   writtenFields: readonly string[],
   rowRecord: Record<string, unknown>,
 ): Record<string, unknown> | undefined {

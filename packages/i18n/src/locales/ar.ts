@@ -1190,6 +1190,8 @@ const ar = {
     },
     loading: "جارٍ التحميل…",
     refreshing: "جارٍ التحديث…",
+    refreshAll: "تحديث الكل",
+    refreshDashboard: "تحديث لوحة القيادة",
     pickMeasures: "اختر المقاييس (القيم) لأداة مجموعة البيانات هذه.",
     datasetUnsupported: "مصدر البيانات هذا لا يدعم استعلامات مجموعات البيانات.",
     widgetForbiddenTitle: "لا تملك صلاحية الوصول",

@@ -1190,6 +1190,8 @@ const ru = {
     },
     loading: "Загрузка…",
     refreshing: "Обновление…",
+    refreshAll: "Обновить все",
+    refreshDashboard: "Обновить дашборд",
     pickMeasures: "Выберите меры (значения) для этого виджета набора данных.",
     datasetUnsupported: "Этот источник данных не поддерживает запросы к наборам данных.",
     widgetForbiddenTitle: "Нет доступа",

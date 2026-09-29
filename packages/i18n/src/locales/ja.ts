@@ -1170,6 +1170,8 @@ const ja = {
     },
     loading: "読み込み中…",
     refreshing: "更新中…",
+    refreshAll: "すべて更新",
+    refreshDashboard: "ダッシュボードを更新",
     pickMeasures: "このデータセットウィジェットの指標（値）を選択してください。",
     datasetUnsupported: "このデータソースはデータセットクエリに対応していません。",
     widgetForbiddenTitle: "アクセス権がありません",

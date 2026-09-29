@@ -2521,6 +2521,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-grid/src/__tests__/gridArrayArmOrderby-8973.test.tsx',
     pins: 'The two members of one sort entry — `field` and `order` — across ALL THREE readers this block has for them, which is the half a declaration saying `[{ field, order }]` cannot publish. The file\'s own six-row probe table pins the fetch path: an entry missing `order` lowers to `asc` rather than the literal text `undefined` (a `400 INVALID_QUERY` at the server), an entry missing `field` is skipped rather than ordering by a column named `undefined`, an empty array carries NO `$orderby` rather than `""`, and a mixed array keeps its usable member — each with a live `"name desc"` control so the absences are readings. The growth is the other two readers: the server-side EXPORT projection spells the same member `{ field, direction }` and the header-arrow reader `parseSchemaSort` spells it `{ field, order }`. ⚠️⚠️ They do NOT agree, and the disagreement is pinned rather than repaired: `normalizeSortEntries` folds any non-`desc` order to `asc` for the wire and `parseSchemaSort` does the same for the arrow, while the export projection reads `?? \'asc\'` and passes an UNRECOGNISED direction through verbatim — one authored `{ field: \'name\', order: \'descending\' }` orders the screen ascending, draws an ascending arrow, and asks the export door for `direction: \'descending\'`. Reported as a finding; changing what that door receives is a change to a shipped request shape, not a member pin. Pre-existing file (objectui#8973), promoted after being read end to end and grown by the three-reader section (objectui#8071 slice 17).',
   },
+  'object-grid.label': {
+    file: 'packages/plugin-grid/src/__tests__/ObjectGrid.labelI18nLabel-10993.test.tsx',
+    pins: 'The I18nLabel object arm on the grid\'s identity key: through the real `SchemaRenderer`, the `{ type, properties }` document, and the table caption `ObjectGrid` builds from `resolveI18nLabel(schema.label, displayLocale)`. With no regional locale mounted the display locale is the UI language, so a `properties.label` map paints its `zh-CN` entry under `zh` and its `en` entry under `en`, every map listing `en` FIRST so an `en` or first-entry fallback fails the `zh` row; a plain-string control renders as authored. The record-detail overlay heading, the third read, is `ObjectGrid.overlayTitleInlineLocale-9092.test.tsx`\'s pin; the manifest half (a map is not a `type-mismatch`) is `i18nLabelInputsManifest-10993.test.ts` in this directory. ⛔ Not the deprecated `title`, whose caption fallback still reads a map raw and is held to a later batch (objectui#10993).',
+  },
   'object-kanban.cardFields': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'Members are BARE FIELD NAMES, and the pin is explicit about WHICH question it answers (the objectui#8269 trap): `resolveKanbanCardFields` answers which names the AUTHOR chose — authored order preserved, and NOT filtered against the object definition, which is the one behaviour that separates the explicit list from the `highlightFields` fallback it overrides (that fallback IS filtered). Which cells a card ends up carrying is a SECOND and narrower question, measured separately at the render, because the card loop further drops a name duplicating the title and one whose value is empty. An empty array reading as omitted is the control that keeps the fallback rows from being vacuous. The spec side is `z.array(z.string())`, so it constrains the member KIND but says nothing about either read — the sinks are the whole of the member contract (objectui#8313).',
@@ -2552,6 +2556,18 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'object-master-detail-form.cancelText': {
     file: 'packages/plugin-form/src/MasterDetailForm.i18nLabels.test.tsx',
     pins: 'The I18nLabel object arm, resolved at the read site: through the real `SchemaRenderer`, a `properties.cancelText` map under a `zh` UI renders the map\'s `zh-CN` entry on the Cancel button, with `en` listed FIRST so an `en` or first-entry fallback fails the row. Before objectui#10935 the map was a raw Button child and threw "Objects are not valid as a React child". The button renders only when the host supplies `onCancel`, so the row adds one beside the document and asserts the host handler still runs. A plain-string control and the nothing-authored control (`Cancel`) stay green, and the first row asserts the mounted documents pass `safeValidateSchema`. The manifest half (a map is not a `type-mismatch`) is `masterDetailFormI18nLabelManifest.test.ts` in this directory (objectui#10935).',
+  },
+  'object-master-detail-form.dataSource': {
+    file: 'packages/plugin-form/src/MasterDetailForm.elementDataSource.test.tsx',
+    pins: 'The per-element binding\'s members on the block that writes a parent AND its children in one batch. `object` is the only key mapped (the gate\'s default mapping), asserted at the fetch it causes, and it OUTRANKS a flat `objectName` on the same node: `next[objectKey] = composed.object` is unconditional, and the `??=` spelling would keep a rebound form on the old parent with no diagnostic. ⭐ The row only this block can make: the bound object reaches the DETAIL half. `deriveDetail` picks a child\'s FK by the parent object\'s name and the atomic batch names the parent on its first leg, measured on one child object that carries a lookup to BOTH candidate parents, so the derived FK and the parent leg together say which name won. `view` / `filter` / `sort` / `limit` are NOT mapped: a resolving view adds no parent collection query, an unresolvable one REPORTS, and in `edit` mode each child line read stays `{ $filter: { FK: recordId }, $top: 500 }` whatever the binding carries. ⚠️ Unmapped is not unread: beside a named `view` the gate merges the binding\'s `filter` with the view\'s, so a malformed one WITHHOLDS the whole form behind the malformed-filter notice, with a well-formed one as that row\'s control. A binding-free form is the control for the negatives. `dataSource` is absent from `ComponentPropsMap[\'object-master-detail-form\']` (it is the injected `ELEMENT_DATA_SOURCE_INPUT`), so nothing declared constrains the precedence. Pre-existing file (objectstack#7121), promoted after being read end to end and GROWN by five rows, four facts and a control (objectui#8071 slice 18).',
+  },
+  'object-master-detail-form.details': {
+    file: 'packages/plugin-form/src/__tests__/masterDetailDetailsMembers-8071.test.tsx',
+    pins: 'Members are detail-collection OBJECTS (`MasterDetailDetailConfig`), and unlike this block\'s parent keys the read site is THIS block: `MasterDetailForm` is the key\'s only reader. Each member renders as its own section in AUTHORED order, headed by `title` (fallback `Line Items`), with `columns` reaching the line grid in authored order. ⭐ The sharp row: five members reach the grid through ONE hand-written object and four are RENAMED on the way (`sortField` to `sort_field`, `minRows` to `min_rows`, `maxRows` to `max_rows`, `addLabel` to `add_label`, `amountField` to `total_field`). That object is pinned as a SORTED KEY SET of exactly six, with two off-list members (one in the grid\'s own snake_case spelling) asserted not forwarded and an all-empty control beside it. `inlineMode: \'form\'` makes a list whose Add opens the full form (labelled `Add` when unset), and in grid mode `formFields` wider than `columns` offers the row form; each arm is the other\'s control. `childObject` and `relationshipField` address the atomic batch (each line a create on the child, linked by `{ $ref: 0 }`) and the edit-mode read (`{ $filter: { FK: recordId }, $top: 500 }` per collection). `totalField` receives the sum of the lines\' `amountField` on the PARENT leg, and a collection without one puts nothing there. With `{ childObject }` alone the FK and the columns are DERIVED from the child object, the one member behaviour the spec\'s description promises, and the batch writes the derived FK. `details: []` is the non-vacuity control: no section, no grid, a one-leg batch. The line grid is the REAL `LineItemsField`, wrapped only to record the props it is handed. The spec row is `z.array(z.unknown())`, whose description names five of the twelve members the renderer reads, and the registration declares no `of`, so the read site is the whole member contract. New file (objectui#8071 slice 18).',
+  },
+  'object-master-detail-form.fields': {
+    file: 'packages/plugin-form/src/__tests__/topLevelFieldsWarnCoverage-8847.test.tsx',
+    pins: 'Members are bare PARENT field names drawn in AUTHORED order, against a no-`fields` control whose order is the object\'s. A name the parent does not declare is dropped rather than drawn as an untyped stub, measured with a DETAIL column name because one node here declares two field vocabularies, while the line grid keeps that column. `{ name }` is the same member as the bare name. The two pre-existing rows carry the sharpest member fact: the spec `FormFieldSchema` object that is legal in `sections[].fields` resolves to no name here, draws the named route-1 warning (objectui#8738, objectui#8847) and does not render, with a bare name as the firing control. ⚠️ Pinned as BEHAVIOUR and handed back: the key bounds what is DRAWN, not what the parent leg WRITES. A seeded field it does not list is still written, while the registration calls this key the parent pool for "the submitted set". The intersection with `sections` belongs to the `object-master-detail-form.sections` pin and is not re-asserted. `MasterDetailForm` reads none of this itself: the `parentSchema` memo copies the key onto an `object-form`-shaped node rendered through a DIRECTLY imported `<ObjectForm>`, the hand-written carrier that is why the pin is taken at this block. The spec row is `z.array(z.unknown())` and the registration declares no `of`, so the read site is the whole member contract. Pre-existing file (objectui#8847), promoted after being read end to end and GROWN by five rows (objectui#8071 slice 18).',
   },
   'object-master-detail-form.initialData': {
     file: 'packages/plugin-form/src/__tests__/masterDetailInitialMembers-8071.test.tsx',
@@ -2585,6 +2601,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-dashboard/src/ObjectMetric.elementDataSource.test.tsx',
     pins: 'The per-element binding\'s members as a WHITELIST in both directions. Acting: `object` is what gets aggregated, and a named `view`\'s own `filter` becomes the metric\'s scope — with an unresolvable `view` REPORTING instead of aggregating the whole object, which for a metric is the quiet failure (one number, no rows, nothing to notice). Not acting: the same view fixture declares `columns`, `sort` and `pagination`, and the aggregate options bag is asserted whole to keep all three OUT — `OBJECT_METRIC_DATA_SOURCE` names only `filter`, because a metric is one aggregated number with no projection, ordering or page for the rest to act on. A metric with NO binding behaving exactly as before is the control. Pre-existing file (objectstack#6953), promoted here after being read end to end; objectui#8071 slice 8 added the whole-bag row, without which the pin would have been satisfied by a mapping that forwarded everything.',
   },
+  'object-metric.description': {
+    file: 'packages/plugin-dashboard/src/__tests__/ObjectMetric.i18nLabel-10993.test.tsx',
+    pins: 'The I18nLabel object arm as the sub-caption under the value — see `object-metric.label` for the harness. A `properties.description` map paints its `zh-CN` entry on the tile under `zh` and its `en` entry under `en`; a plain-string control renders as authored (objectui#10993).',
+  },
   'object-metric.drillDown': {
     file: 'packages/plugin-dashboard/src/__tests__/objectMetricDrillDownMembers-8071.test.tsx',
     pins: 'The click-through config\'s member set, read through the registered block on a LIVE drawer. `enabled` is `!== false`, not truthiness, and all four arms (absent, `{}`, `true`, `false`) are pinned against each other, so a "simplification" to `!!config.enabled` — which would silently disable every `{}` config — is red; and it is not sufficient on its own, because without an object name AND a data source the tile stays unclickable rather than opening a list it cannot fetch. `target` chooses the panel SHAPE (`\'dialog\'` = centred modal, anything else the edge-anchored sheet), each arm the other\'s control. `title` OUTRANKS the tile\'s own `title` and `label`, with the chain below it (`title`, then `label`, then the literal "Details") pinned as its fallback. `report` selects the drawer BODY by its own SHAPE — an `objectName`-bearing (or array-`columns`) report goes to a `spec-report` body while anything else falls through to the inline record list, and whether the record list is fetched at all is the observable that separates them. The invariant the key hangs off is pinned too: the drilled list is scoped by the METRIC\'s resolved filter with macros already substituted — the registration\'s own promise that the number and the records behind it agree, and a drawer listing every row of the object is the quiet failure it exists to stop. LIMIT, stated and deliberately NOT asserted: `filter` and `mode` have no read site on this block — a metric has no click event for `${event.*}` to resolve against, and its registration promises the drilled list agrees with the number — so they are left to objectui#8970\'s open question rather than frozen into the pin, because an assertion that a member is dead has to be deleted before the gap can be closed. The other three the shared component honours (`columns`, `maxRows`, `target: \'navigate\'`) were dead here for the same reason and are now LIVE: objectui#8970 routed this block through `DrillDownDrawer`, and they are pinned on their effects in `ObjectMetricWidget.drillRoutedToSharedDrawer-8970.test.tsx`. The spec row is `z.unknown()`, so the read site is the whole member contract. New file (objectui#8071 slice 9).',
@@ -2592,6 +2612,14 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'object-metric.filter': {
     file: 'packages/plugin-dashboard/src/__tests__/objectMetricQueryMembers-8071.test.tsx',
     pins: 'No named member set — the renderer never inspects the predicate — so the member shape is the SPELLING it arrives under, and there are two, chosen by an adapter capability the author cannot see: FLAT under its own name inside the aggregate options bag, and WRAPPED as `$filter` on the no-`aggregate()` `find()` fallback. Collapsing them into one drops the predicate on whichever path lost and the tile counts every row — the same defect `element:number.filter` was pinned for (slice 7) on a different renderer. Two further halves: placeholders are resolved BEFORE the query (an authored `{current_quarter_start}` reaches the adapter as a real date, and a macro surviving onto the wire is a literal nobody matches), and the key is read BY VALUE rather than by identity (`JSON.stringify` memo) — a deep-equal rebuild by a re-rendering parent must NOT re-probe while a changed comparand MUST and carries the new predicate, each arm the other\'s control against a dependency "simplified" to the raw object. New file (objectui#8071 slice 8).',
+  },
+  'object-metric.label': {
+    file: 'packages/plugin-dashboard/src/__tests__/ObjectMetric.i18nLabel-10993.test.tsx',
+    pins: 'The I18nLabel object arm on the tile\'s heading, through the real `SchemaRenderer` and the registered `ObjectMetricBlock`, in the `{ type, properties }` form, every map listing `en` FIRST so an `en` or first-entry fallback fails the `zh` row. A `properties.label` map paints its `zh-CN` entry on the tile under `zh` and its `en` entry under `en`, and heads the drill-down panel when no `title` is authored; a plain-string control renders as authored. `MetricWidget` resolves it with `pickLocalized` against the UI language; `ObjectMetricWidget.i18nLabel.test.tsx` pins the same resolution on the widget mounted directly. The manifest half (a map is not a `type-mismatch`) is `i18nLabelInputsManifest-10993.test.ts` in this directory (objectui#10993).',
+  },
+  'object-metric.title': {
+    file: 'packages/plugin-dashboard/src/__tests__/ObjectMetric.i18nLabel-10993.test.tsx',
+    pins: 'The I18nLabel object arm as the drill-down panel\'s heading — see `object-metric.label` for the harness. The tile is clicked open and a `properties.title` map heads the panel with its `zh-CN` entry under `zh` and its `en` entry under `en`; a plain-string control heads it as authored (objectui#10993).',
   },
   'object-metric.trend': {
     file: 'packages/plugin-dashboard/src/__tests__/objectMetricTrendMembers-8071.test.tsx',
@@ -2667,7 +2695,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'record:path.stages': {
     file: 'packages/plugin-detail/src/renderers/__tests__/recordPathStagesMembers-8071.test.tsx',
-    pins: 'The stage member set `{ value, label, terminal? }`, read through the real renderer. `value` is stage IDENTITY — compared against the record\'s `statusField` to choose the current stage, controlled by moving the RECORD rather than the array, by an unmatched value leaving NO stage current, and by a record carrying some stage\'s LABEL still matching nothing. `label` is the rendered text and the `value` behind it never appears. `terminal` OUTRANKS the `WON_TOKENS`/`LOST_TOKENS` heuristic, pinned only on fixtures where the member CONTRADICTS the heuristic and each paired with the identical stage minus `terminal` to show which way the heuristic was pointing, plus an unclassified control. Deliberately the DESKTOP row only: `record-path.crossRowClassification.test.tsx` owns the cross-row agreement invariant, which is a different claim (objectui#8071 slice 6).',
+    pins: 'The stage member set `{ value, label, terminal? }`, read through the real renderer. `value` is stage IDENTITY — compared against the record\'s `statusField` to choose the current stage, controlled by moving the RECORD rather than the array, by an unmatched value leaving NO stage current, and by a record carrying some stage\'s LABEL still matching nothing. `label` is the rendered text and the `value` behind it never appears. `terminal` OUTRANKS the `WON_TOKENS`/`LOST_TOKENS` heuristic, pinned only on fixtures where the member CONTRADICTS the heuristic and each paired with the identical stage minus `terminal` to show which way the heuristic was pointing, plus an unclassified control. Deliberately the DESKTOP row only: `record-path.crossRowClassification.test.tsx` owns the cross-row agreement invariant, which is a different claim (objectui#8071 slice 6). The `label` member is an `I18nLabel`: its locale-map arm, resolved before the stages are classified or rendered, is pinned through the real `SchemaRenderer` under `zh` and `en` by `record-path.stageLabelI18nLabel-10993.test.tsx` (objectui#10993).',
   },
   'record:quick_actions.actionNames': {
     file: 'packages/plugin-detail/src/__tests__/recordQuickActionsInputs.actionNamesFallback.test.tsx',
@@ -2697,30 +2725,23 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-detail/src/__tests__/RecordRelatedListRenderer.sortMembers.test.tsx',
     pins: 'Members are `{ field, order }` and reach `$orderby` verbatim and IN ORDER, driven through the block to the wire because `normalizeSortSpec` — not the block — is what reads them. The rows a declaration reading only "array" can never publish: a member with no `field` is dropped SILENTLY while its siblings survive (a two-key order quietly becomes one-key), an all-unusable array sends no `$orderby` rather than an empty clause, and the STRING arm the registration does not declare at all is read as the OData-ish `field` / `-field` — deliberately NOT `ListView.sort`\'s legacy space-separated clause, which the same spec union spells the same way and means differently (objectui#8221 retired that one at the derivation boundary only, and this key still accepts what it accepts). A CONTROL row pins the declaration as a bare array with no `of` and no description, so making it honest reds this file and forces the pins to be re-read (objectui#8071).',
   },
+  'record:related_list.title': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/record-related-list.titleI18nLabel-10993.test.tsx',
+    pins: 'The I18nLabel object arm on the list\'s heading: through the real `SchemaRenderer`, this block\'s registration and the real `RelatedList`, in the `{ type, properties }` form inside a record context. A `properties.title` map paints its `zh-CN` entry under `zh` and its `en` entry under `en`, every map listing `en` FIRST so an `en` or first-entry fallback fails the `zh` row; a plain-string control renders as authored, and a no-title control shows the related object\'s label instead, so the map rows read the authored text. `RecordRelatedListRenderer` resolves it with `pickLocalized` against the UI language. The manifest half (a map is not a `type-mismatch`) is `i18nLabelInputsManifest-10993.test.ts` in this directory (objectui#10993).',
+  },
 };
 
-/**
- * The reason every entry in `MEMBER_PIN_EXEMPTIONS` carries today.
- *
- * One shared constant rather than one near-copy per entry, because the reason
- * really is uniform and a copy is what drifts: none of these keys has a pin, and
- * writing one string per key is not the dispatched scope of the card that built
- * this direction. (The measured population size lives in the string below, where
- * it is attributed to the card that measured it and dated by it.)
- * objectui#8068 prescribes the transition itself for a population this size, and
- * objectui#8071 owns the work — key by key, deleting an entry here in the same
- * change that registers its pin.
- *
- * A key that needs a DIFFERENT reason — a shape a pin genuinely cannot express,
- * a contract question upstream owns — gets its own string. The map is
- * `Record<string, string>` precisely so that stays possible without a second
- * mechanism.
- */
-const AWAITING_A_PIN =
-  'No per-block member pin today. Measured with objectui#8068: 58 of the 77 array/object-armed ' +
-  'inputs on covered blocks had none, which is the population size that card prescribes a ' +
-  'self-deleting transition for rather than a same-PR sweep. objectui#8071 owns writing the pin; ' +
-  'delete this entry in the same change that registers it.';
+// `AWAITING_A_PIN` — the one shared reason every key in objectui#8068's
+// measured population carried ("objectui#8071 owns writing the pin; delete this
+// entry in the same change that registers it") — was DELETED by objectui#8071
+// slice 18 together with its last three entries (`object-master-detail-form`'s
+// `dataSource`, `details` and `fields`). With no entry carrying it, it was a
+// reason for nothing, and a constant nothing reads is a claim nothing checks.
+// The two docblocks below still contrast against it by name; read those
+// mentions as the retired constant. The rule it stated survives as the
+// discipline of this map: a key that needs a reason other than "no pin yet" —
+// a shape a pin genuinely cannot express, a contract question upstream owns —
+// gets its own string, which is why the map stays `Record<string, string>`.
 
 /**
  * The reason the four keys objectui#8176 brought INTO this population carry.
@@ -2831,12 +2852,10 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
 
   // object-master-detail-form — objectui#8071 slice 15 pinned the two PARENT
   // SEED keys (`initialData`, `initialValues`, an alternate-spelling pair the
-  // registration declares as one) and `sections`; the three below are what that
-  // first bite left, and they are the block's other half — where the parent
-  // record comes from and what the child collections are.
-  'object-master-detail-form.dataSource': AWAITING_A_PIN,
-  'object-master-detail-form.details': AWAITING_A_PIN,
-  'object-master-detail-form.fields': AWAITING_A_PIN,
+  // registration declares as one) and `sections`, and slice 18 the block's
+  // other half (`dataSource`, `details`, `fields`); the block is now fully
+  // pinned, and this header stays only as a note for the next reader who
+  // greps for it.
 
   // object-metric — objectui#8071 slice 8 pinned the four QUERY members
   // (`dataSource`, `aggregate`, `filter`, `compareTo`) and slice 9 the two
@@ -3616,11 +3635,48 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
  * `NO_READ_SITE_TO_PIN` reading was not re-measured here either — slice 7's
  * measurement still stands.
  *
+ * ## 4 -> 1 (objectui#8071 slice 18) — `object-master-detail-form` CLOSES,
+ * and `AWAITING_A_PIN` goes with its last three entries
+ *
+ * `dataSource`, `details` and `fields` are pinned, which takes the last block
+ * carrying the generic reason to zero. Set arithmetic: -3 exemptions,
+ * -3 ceiling, +3 pins, and the remaining count equals this constant, so the
+ * enumeration is the whole population: one entry,
+ * `record:related_list.actions`.
+ *
+ * ⚠️ Two of the three are PROMOTED pre-existing files and one is new, and the
+ * split follows what each file already stated. `MasterDetailForm.elementDataSource`
+ * already fixed WHICH binding members this block honours, and was grown by
+ * where the honoured one goes: it OUTRANKS the flat `objectName`, and it
+ * reaches the DETAIL half (the derived child FK and the batch's parent leg).
+ * It was also grown by the finding that "unmapped" is not "unread": a
+ * malformed binding `filter` beside a named view withholds the whole form.
+ * `topLevelFieldsWarnCoverage-8847` already pinned the `FormFieldSchema`
+ * trap, and was grown by what a legal member IS. `details` is this block's
+ * own half, and nothing stated its twelve members member by member, so its
+ * pin is new.
+ *
+ * ⚠️ One member fact is pinned as BEHAVIOUR and handed back rather than
+ * repaired here, the same choice slice 9 made and for the same reason:
+ * `fields` bounds what the parent form DRAWS and not what its batch leg
+ * WRITES, while the registration calls the key the parent pool for "the
+ * submitted set".
+ *
+ * ⚠️ `AWAITING_A_PIN` was deleted in this commit. Its last entries were these
+ * three, and a reason no entry carries says nothing (see the note where it
+ * stood). The constant beside it, `AWAITING_A_PIN_NEWLY_JUDGED`, is kept,
+ * because the objectui#8176 audit test still reads it.
+ *
+ * ⚠️ Unchanged by this slice: `record:related_list.actions`, whose
+ * `NO_READ_SITE_TO_PIN` reading was not re-measured here. The one unit left
+ * in this constant is that key's, and it moves only with the enforce-or-remove
+ * decision the constant names, which the spec owns.
+ *
  * ⇒ The rule for every future slice of objectui#8071: delete the entry, register
  * the pin, and set this constant to the new count. Not to the new count plus
  * room.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 4;
+const MEMBER_PIN_EXEMPTION_CEILING = 1;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.

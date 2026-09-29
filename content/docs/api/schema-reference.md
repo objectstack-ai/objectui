@@ -139,6 +139,7 @@ Top-level page container. Defines a full page with optional regions (header, sid
 | `children` | `SchemaNode \| SchemaNode[]` | Main page content when the page declares no regions — one node, or a list of them. Spelled `body` until objectui#6771 retired that spelling. |
 | `isDefault` | `boolean` | Whether this is the default page for the object. |
 | `assignedProfiles` | `string[]` | Security profiles that can access this page. |
+| `aria` | `AriaProps` | ARIA attributes for the page's root element: `ariaLabel` (a plain string, or an inline locale map such as `{ "en": "Orders", "fr": "Commandes" }`, resolved for the display locale) renders `aria-label`, `ariaDescribedBy` renders `aria-describedby`, and `role` renders `role`. This is the spec's inline vocabulary, not the keyed flat `ariaLabel` described under BaseSchema. The page adds no default role. |
 
 **Related:** [AppSchema](/docs/core/app-schema), [DivSchema](#divschema), [GridSchema](#gridschema)
 
@@ -772,6 +773,7 @@ A data grid that auto-fetches from an ObjectQL object definition. Includes searc
 | Property | Type | Description |
 |----------|------|-------------|
 | `objectName` | `string` | **Required.** ObjectQL object API name. |
+| `label` | `string \| I18nLabel` | Grid label: the table caption, the export file title and the record-detail overlay heading. The canonical spelling; the deprecated `title` is read only when `label` is absent. A per-locale map (`{ "en": "Accounts", "zh-CN": "客户" }`) resolves against the display locale (the workspace's regional default when one is configured, otherwise the active UI language) (objectui#10993). |
 | `columns` | `string[] \| ListColumn[]` | Columns to display. Either a plain array of field names (`["name", "email"]`), which auto-resolve from object metadata, or an array of `ListColumn` objects whose identity key is `field` (`{ "field": "status", "label": "Status" }`) — never `name`. **Do not mix the two forms in one array:** the array is dispatched on its first entry, so column objects sitting behind a bare string are dropped. |
 | `filter` | `any[]` | Pre-applied filter conditions. |
 | `sort` | `SortConfig[]` | Default sort configuration. The string clause (`"name desc"`) was retired in objectui#8221 and now fails validation. |
@@ -848,13 +850,15 @@ A smart form that auto-generates fields from an ObjectQL object. Supports simple
 | `showSubmit` / `showCancel` / `showReset` | `boolean` | Toggle action buttons. |
 | `drawerSide` | `string` | Drawer position: `"top"`, `"bottom"`, `"left"`, `"right"`. |
 | `modalSize` | `string` | Modal size: `"sm"`, `"default"`, `"lg"`, `"xl"`, `"full"`. |
+| `modalCloseButton` | `boolean` | Show the modal's close (X) button. Default `true`; `false` hides it. The modal still closes on Escape, and on the Cancel action when that is shown. |
 
 #### Spec alignment & extension keys
 
-`ObjectFormSchema` keys fall into three classes (#2545):
+`ObjectFormSchema` keys fall into four classes (#2545):
 
 - **Spec-aligned** — same name and semantics as `@objectstack/spec` `FormViewSchema`: `title`, `description`, `layout`, `columns`, `sections`, `defaultTab`, `tabPosition`, `allowSkip`, `showStepIndicator`, `splitDirection`/`splitSize`/`splitResizable`, `drawerSide`/`drawerWidth`, `modalSize`, `subforms`, `submitBehavior` (plus `formType` ↔ spec `type`).
-- **ObjectUI extensions** — serializable extras with no spec backing yet: `showSubmit`/`submitText`, `showCancel`/`cancelText`, `showReset`, `nextText`/`prevText`, `successMessage`, `navigateOnSuccess`, `resetOnSuccess`, `modalCloseButton`, `className`, `initialValues`, `fields`, `customFields`. Sanctioned and documented here; candidates for upstreaming into the spec are tracked in #2545.
+- **Component-contract keys** — not on `FormViewSchema`, but members of the spec's `ComponentPropsMap['object-form']` row, the `object-form` block's own props contract: `showSubmit`/`submitText`, `showCancel`/`cancelText`, `showReset`, `nextText`/`prevText`, `successMessage`, `navigateOnSuccess`, `resetOnSuccess`, `modalCloseButton`, `initialValues`, `fields`, `customFields`. `submitText`, `cancelText`, `nextText`, `prevText` and `successMessage` are `I18nLabel` there, as `title` and `description` are. This list was read off the installed `@objectstack/spec`'s `ComponentPropsMap['object-form']` row; nothing re-derives it, so check that row itself before relying on it.
+- **Envelope key** — `className` is on neither `FormViewSchema` nor the `object-form` row, but on the spec's `PageComponentSchema`, the envelope every page node carries beside `type` and `properties`.
 - **Runtime-only** — non-serializable renderer concerns that never appear in view metadata: `mode`, `recordId`, `open`/`onOpenChange`, `readOnly`, and all callbacks (`onSuccess`, `onError`, `onCancel`, `onStepChange`, `submitHandler`).
 
 `I18nLabel` is `@objectstack/spec`'s label union: a plain string, or an inline per-locale map such as `{ "en": "Save order", "zh-CN": "保存订单" }`. `ObjectForm` resolves a map against the active UI language before any presentation reads it (objectui#10993).

@@ -783,11 +783,22 @@ export function NumberCellRenderer({ value, field }: CellRendererProps): React.R
   // No clamp: the objectui#10071 one retired at the objectui#9808 SUNSET
   // (objectui#11073) — `@objectstack/spec` 17.5.0 refuses a `scale` above 100.
   const scale = typeof numField.scale === 'number' ? numField.scale : undefined;
+  // The author's digit-grouping hint (objectui#11026): `FieldSchema.useGrouping`,
+  // declared on `NumberFieldMetadata`, so it is read off the typed `field` and
+  // not through `numField`. An authored boolean overrides the `scale` heuristic
+  // above in either direction; the decision is `formatDisplayNumber`'s, this
+  // only hands the declaration over. Booleans only — the spec's door refuses
+  // anything else, and a value that is not one is not a declaration.
+  const useGrouping =
+    'useGrouping' in field && typeof field.useGrouping === 'boolean'
+      ? field.useGrouping
+      : undefined;
   const num = Number(safe);
   const formatted = !isNaN(num)
     ? formatDisplayNumber(num, {
         locale,
         scale,
+        useGrouping,
         minimumFractionDigits: scale ?? 0,
         maximumFractionDigits: scale ?? 20,
       })

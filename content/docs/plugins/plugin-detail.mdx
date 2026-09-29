@@ -352,6 +352,13 @@ decision as a defect is how a warning channel gets ignored:
   composes one. Every panel a user sees is therefore an authored or synthesized
   block running this pipeline. The object's `enable.feeds: false` still
   outranks the page and suppresses the panel either way.
+
+  `feed.aria` is read too (objectui#11083), the way `record:activity` reads its
+  own `aria`: it lands on a `div` around the embedded timeline, and a declared
+  `ariaLabel` (a plain string or an inline locale map) names that `div` as a
+  `region`. The timeline keeps its heading as its own name, and the block's
+  top-level `aria` still names the block's own container, so the two bags name
+  two different regions.
 </Callout>
 
 ### RecordActivityTimeline Config

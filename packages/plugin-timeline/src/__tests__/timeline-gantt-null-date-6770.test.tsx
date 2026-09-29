@@ -241,7 +241,10 @@ describe('pin 2 — a PINNED null is not judged (objectui#6770 boundary)', () =>
 
     expect(diagnosticOf(container), 'a discarded null pin was refused').toBeNull();
     expect(axisOf(container)).toEqual(['Jan 2024', 'Feb 2024', 'Mar 2024']);
-    expect(barStylesOf(container)).toEqual(['left: 0%; width: 100%;']);
+    // Re-derived by objectui#11079: the bar runs January 1st to March 1st, 60
+    // days, on the axis the headers draw, January 1st to the end of March, 91
+    // days, so it ends where the March header begins.
+    expect(barStylesOf(container)).toEqual(['left: 0%; width: 65.93406593406593%;']);
   });
 });
 
@@ -256,7 +259,8 @@ describe('pin 3 — the line is `null`, not "coerces to the epoch" (objectui#677
 
     expect(diagnosticOf(container), 'a valid numeric timestamp was refused').toBeNull();
     expect(axisOf(container)).toEqual(['Jan 2024', 'Feb 2024', 'Mar 2024']);
-    expect(barStylesOf(container)).toEqual(['left: 0%; width: 100%;']);
+    // Re-derived by objectui#11079: 60 of the axis's 91 days, as pin 2.
+    expect(barStylesOf(container)).toEqual(['left: 0%; width: 65.93406593406593%;']);
   });
 
   it('a `Date` instance still renders', () => {
@@ -323,10 +327,12 @@ describe('pin 4 — the neighbouring cards are untouched (objectui#6759, objectu
 
     expect(diagnosticOf(container), 'the guard fired on a perfectly good gantt').toBeNull();
     expect(axisOf(container)).toEqual(['Jan 2024', 'Feb 2024', 'Mar 2024']);
+    // Re-derived by objectui#11079 on the one axis, January 1st to the end of
+    // March 2024, 91 days: see #6750's pin 4.
     expect(barStylesOf(container)).toEqual([
-      'left: 0%; width: 33.33333333333333%;',
-      'left: 34.44444444444444%; width: 65.55555555555556%;',
-      'left: 15.555555555555555%; width: 34.44444444444444%;',
+      'left: 0%; width: 32.967032967032964%;',
+      'left: 34.065934065934066%; width: 64.83516483516483%;',
+      'left: 15.384615384615385%; width: 34.065934065934066%;',
     ]);
   });
 

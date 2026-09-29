@@ -342,6 +342,8 @@ const longProject: TimelineSchema['scale'] = 'month'   // long projects
 
 A date-only bar date, `minDate` or `maxDate` (`2024-01-15`) names a calendar day, so the axis headers, the bar positions and the bar tooltips all place it on that day in every viewer's time zone. A value with a time part is an instant and sits at its hour in the viewer's day. A plan with no bar dates and no pinned range shows a one-day axis on the viewer's today.
 
+The headers and the bars share one axis. It runs from the start of the unit that holds the first date to the end of the unit that holds the last. Each header is as wide as its unit is long: hour, day and week columns are equal, and a month is as wide as its days. So a bar lines up under the header of the unit it starts in.
+
 ## Customization
 
 ### Custom Icons

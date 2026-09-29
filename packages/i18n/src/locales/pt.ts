@@ -1169,6 +1169,8 @@ const pt = {
     },
     loading: "Carregando…",
     refreshing: "Atualizando…",
+    refreshAll: "Atualizar tudo",
+    refreshDashboard: "Atualizar painel",
     pickMeasures: "Escolha medidas (valores) para este widget de dataset.",
     datasetUnsupported: "Esta fonte de dados não oferece suporte a consultas de dataset.",
     widgetForbiddenTitle: "Sem acesso",

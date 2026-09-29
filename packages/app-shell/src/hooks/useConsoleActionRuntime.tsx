@@ -39,7 +39,7 @@ import type {
   ResultDialogHandler,
   ToastHandler,
 } from '@object-ui/core';
-import { actionErrorDetail, isRecordScopedAction, resolveRecordIdParamSeed } from '@object-ui/core';
+import { actionErrorDetail, captureUpdateUndoData, isRecordScopedAction, resolveRecordIdParamSeed } from '@object-ui/core';
 import { useActionModal } from './useActionModal.js';
 import { ActionConfirmDialog, type ConfirmDialogState } from '../views/ActionConfirmDialog.js';
 import { ActionParamDialog, type ParamDialogState } from '../views/ActionParamDialog.js';
@@ -527,22 +527,21 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
       // fields from the row record so the success toast can offer "Undo".
       //
       // ⛔ A field the row does not CARRY is never captured as `null`
-      // (objectui#10404) — the rule `captureUpdateUndoData` in
-      // `@object-ui/core`'s `ActionRunner` states, applied to this handler's
-      // written set (`params` plus `bodyExtra`). A list row is projected by
-      // `$select`, so a written field no column shows is absent while the
-      // server holds a real value; recording `null` made Undo overwrite it. A
-      // `null` the row carries is a real empty value and is captured as one.
-      // When any written field is not carried there is no Undo at all: the
-      // success toast then has no Undo button, and the warning names the cause.
+      // (objectui#10404). The snapshot is `@object-ui/core`'s
+      // `captureUpdateUndoData`, called on this handler's written set
+      // (`params` plus `bodyExtra`), so the rule lives in one place
+      // (objectui#11082). A list row is projected by `$select`, so a written
+      // field no column shows is absent while the server holds a real value;
+      // recording `null` made Undo overwrite it. A `null` the row carries is a
+      // real empty value and is captured as one. When any written field is not
+      // carried there is no Undo at all: the success toast then has no Undo
+      // button, and the warning names the cause.
       let undo: ActionResult['undo'];
       if (action.undoable && obj && recId && rowRecord && Object.keys(fields).length > 0
           && typeof dataSource?.update === 'function') {
         const written = Object.keys(fields);
-        const missing = written.filter(
-          (k) => !Object.prototype.hasOwnProperty.call(rowRecord, k) || rowRecord[k] === undefined,
-        );
-        if (missing.length === 0) {
+        const undoData = captureUpdateUndoData(written, rowRecord);
+        if (undoData) {
           undo = {
             id: `undo-${obj}-${recId}-${Date.now()}`,
             type: 'update',
@@ -550,10 +549,11 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
             recordId: String(recId),
             timestamp: Date.now(),
             description: action.label || `Undo ${obj}`,
-            undoData: Object.fromEntries(written.map((k) => [k, rowRecord[k]])),
+            undoData,
             redoData: { ...fields },
           };
         } else {
+          const missing = written.filter((k) => captureUpdateUndoData([k], rowRecord) === undefined);
           console.warn(
             '[useConsoleActionRuntime] `undoable` action succeeded but offers no Undo: the row it ran on '
             + 'does not carry every field it wrote, so their prior values are unknown and an Undo would '

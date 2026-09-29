@@ -255,7 +255,11 @@ describe('pin 2 — an inverted pinned range refuses instead of drawing nonsense
 
     expect(diagnosticOf(container), 'the degenerate range was refused as inverted').toBeNull();
     expect(axisOf(container)).toEqual(['Feb 2024']);
-    expect(barStylesOf(container)).toEqual(['left: 0%; width: 100%;']);
+    // Re-derived by objectui#11079: the bar is measured on the axis the header
+    // draws, February 2024, 29 days. API Design runs January 1st to March 1st,
+    // 60 days starting 31 days before it, so it overhangs the pinned range on
+    // both sides, as any bar wider than a pinned range does.
+    expect(barStylesOf(container)).toEqual(['left: -106.89655172413792%; width: 206.89655172413794%;']);
   });
 });
 
@@ -361,11 +365,12 @@ describe('pin 6 — the healthy path and #6750 are untouched (objectui#6759)', (
     expect(axisOf(container)).toEqual(['Jan 2024', 'Feb 2024', 'Mar 2024']);
     // The full float spelling, same as #6750's pin 4: a guard that rounded,
     // clamped or short-circuited the arithmetic would pass a tolerance
-    // assertion and fail this one.
+    // assertion and fail this one. Re-derived by objectui#11079 on the one
+    // axis, January 1st to the end of March 2024, 91 days: see #6750's pin 4.
     expect(barStylesOf(container)).toEqual([
-      'left: 0%; width: 33.33333333333333%;',
-      'left: 34.44444444444444%; width: 65.55555555555556%;',
-      'left: 15.555555555555555%; width: 34.44444444444444%;',
+      'left: 0%; width: 32.967032967032964%;',
+      'left: 34.065934065934066%; width: 64.83516483516483%;',
+      'left: 15.384615384615385%; width: 34.065934065934066%;',
     ]);
   });
 

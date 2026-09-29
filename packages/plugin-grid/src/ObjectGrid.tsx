@@ -2420,15 +2420,30 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               );
               return extra.length > 0 ? [...list, ...extra] : list;
             };
+            // [objectui#11105] ONE projection for BOTH branches: gate, then read
+            // each entry's field NAME through `columnIdentity`, then drop the
+            // entries that have none. Only names go on the wire.
+            //
+            // The `schemaFields` branch used to return its entries UNMAPPED,
+            // and `ListView` hands its effective column entries to the grid as
+            // `fields` AND `columns` alike. So a view whose columns are objects
+            // (`{ field, width }`) put the objects themselves into `$select`,
+            // which the adapter's `join(',')` serialized as `[object Object]`.
+            // Harmless while grouped grids got inline rows; since the grid
+            // groups on the server (objectui#7189) every group's row page
+            // carries this `$select`, and a server that refuses unknown select
+            // keys answered INVALID_FIELD in every group. For a `fields` entry
+            // that is already a name, `columnIdentity` hands it back unchanged.
+            const projectFieldNames = (entries: unknown[]): string[] =>
+              entries
+                .filter(passesProjectionGate)
+                .map((entry) => columnIdentity(entry))
+                .filter((v): v is string => !!v);
             if (schemaFields) {
-              return withHarvestedFields(ensureId((schemaFields as any[]).filter(passesProjectionGate)));
+              return withHarvestedFields(ensureId(projectFieldNames(schemaFields as unknown[])));
             }
             if (schemaColumns && Array.isArray(schemaColumns)) {
-              const fields = schemaColumns
-                .filter(passesProjectionGate)
-                .map((c: any) => columnIdentity(c))
-                .filter((v): v is string => !!v);
-              return withHarvestedFields(ensureId(fields));
+              return withHarvestedFields(ensureId(projectFieldNames(schemaColumns)));
             }
             return undefined;
           };
@@ -3331,6 +3346,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               if (objectDefField.currencyConfig) fieldMeta.currencyConfig = objectDefField.currencyConfig;
               if (objectDefField.precision !== undefined) fieldMeta.precision = objectDefField.precision;
               if ((objectDefField as any).scale !== undefined) (fieldMeta as any).scale = (objectDefField as any).scale;
+              // objectui#11026 — the author's digit-grouping hint rides beside
+              // `scale`, its heuristic fallback: dropped here, the cell never
+              // sees it and a `useGrouping: false` year still reads `2,026`.
+              if (objectDefField.useGrouping !== undefined) fieldMeta.useGrouping = objectDefField.useGrouping;
               if (objectDefField.format) fieldMeta.format = objectDefField.format;
               if (objectDefField.options) fieldMeta.options = translateOptions(schema.objectName, col.field, objectDefField.options);
             }
@@ -3558,6 +3577,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             if (fieldDef.currencyConfig) fieldMeta.currencyConfig = fieldDef.currencyConfig;
             if (fieldDef.precision !== undefined) fieldMeta.precision = fieldDef.precision;
             if ((fieldDef as any).scale !== undefined) fieldMeta.scale = (fieldDef as any).scale;
+            // Beside `scale`, as path A copies it (objectui#11026).
+            if (fieldDef.useGrouping !== undefined) fieldMeta.useGrouping = fieldDef.useGrouping;
             if (fieldDef.format) fieldMeta.format = fieldDef.format;
             if (fieldDef.options) fieldMeta.options = translateOptions(schema.objectName, fieldName, fieldDef.options);
           }
@@ -3731,6 +3752,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             if (fieldDef.currencyConfig) fieldMeta.currencyConfig = fieldDef.currencyConfig;
             if (fieldDef.precision !== undefined) fieldMeta.precision = fieldDef.precision;
             if ((fieldDef as any).scale !== undefined) fieldMeta.scale = (fieldDef as any).scale;
+            // Beside `scale`, as path A copies it (objectui#11026).
+            if (fieldDef.useGrouping !== undefined) fieldMeta.useGrouping = fieldDef.useGrouping;
             if (fieldDef.format) fieldMeta.format = fieldDef.format;
             if (fieldDef.options) fieldMeta.options = translateOptions(schema.objectName, fieldName, fieldDef.options);
           }
@@ -3920,7 +3943,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       prefix: exportConfig?.fileNamePrefix,
       label: objectSchema?.label,
       objectName: objectName || schema.objectName,
-      viewLabel: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
+      // `title` is the deprecated spelling of `label` and takes the same door:
+      // the spec types it `I18nLabel`, so an inline locale map reaches this
+      // string sink and must resolve here, not stringify (objectui#10993).
+      viewLabel: resolveInlineI18nLabel(schema.label, displayLocale)
+        || resolveInlineI18nLabel(schema.title, displayLocale),
     });
 
     // Server-streamed path: csv / xlsx / json via dataSource.exportDownload.
@@ -5111,7 +5138,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
   const dataTableSchema: ObjectGridDataTableSchema = {
     type: 'data-table',
-    caption: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
+    // The deprecated `title` fallback resolves like `label` (objectui#10993):
+    // handed on raw, a locale map reached the data-table caption as an object
+    // and the whole block failed to render.
+    caption: resolveInlineI18nLabel(schema.label, displayLocale)
+      || resolveInlineI18nLabel(schema.title, displayLocale),
     columns: orderedColumns,
     data,
     pagination: paginationEnabled,

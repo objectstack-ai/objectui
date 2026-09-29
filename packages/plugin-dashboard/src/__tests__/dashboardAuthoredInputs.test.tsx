@@ -347,11 +347,12 @@ describe('the published artifacts carry the change — same generators as gen-ma
 
   it('the generated JSX intrinsics type the new keys, unions included', () => {
     const dts = generateDts(manifest);
-    // `label` and `description` are `where-undeclared` base props, so the
-    // declared inputs outrank the base ones: `Omit` them (objectui#11044).
+    // `label` and `description` are `where-undeclared` base props, and
+    // `className` an `every-node` one: each declared input outranks the base
+    // one, so each is `Omit`ted (objectui#11044, objectui#11075).
     const match = dts.match(
       new RegExp(
-        `export interface ${propsName('dashboard')} extends Omit<SduiBaseProps, "label" \\| "description"> \\{[^}]*\\}`,
+        `export interface ${propsName('dashboard')} extends Omit<SduiBaseProps, "label" \\| "description" \\| "className"> \\{[^}]*\\}`,
       ),
     );
     expect(match, `no ${propsName('dashboard')} interface in the generated d.ts`).toBeTruthy();

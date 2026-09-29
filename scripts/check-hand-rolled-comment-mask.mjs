@@ -69,7 +69,9 @@
  * not widen it on the strength of this paragraph alone.
  *
  * The sweep also reads only the JS family (`SOURCE_EXTENSIONS`). A projection
- * written in a fenced example inside a `.md` is invisible here.
+ * written in a fenced example inside a `.md` is invisible here. And it reads
+ * only TRACKED files (`collectSources`, objectui#11040): a new file is invisible
+ * until it is `git add`ed.
  *
  * ## Why a DEBT list and not an assertion at zero, and why it cannot grow
  *
@@ -115,13 +117,12 @@
  * exists. ⛔ It adds no CI context and touches no workflow file.
  */
 
-import { readFileSync } from 'node:fs';
 import { relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { isEntrypoint } from './invoked-as.mjs';
 import { blank, scanSource } from './js-comment-mask.mjs';
-import { collectSources, SKIPPED_DIRECTORIES, SOURCE_EXTENSIONS } from './check-comment-mask-corpus.mjs';
+import { collectSources, readListedSource, SKIPPED_DIRECTORIES, SOURCE_EXTENSIONS } from './check-comment-mask-corpus.mjs';
 
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url));
 
@@ -268,15 +269,30 @@ export function carriersIn(source) {
 /**
  * Sweep the tree.
  *
+ * The population is `collectSources`: the TRACKED files, never a walk of the
+ * working tree. objectui#11040: a walk listed a tsup temp file that a build in
+ * the same Test shard deleted before this loop read it, and the shard failed on
+ * a pull request that touched neither file. A path listed and then gone before
+ * its read is ABSENT: not scanned, not counted toward `CORPUS_FLOOR`, and
+ * returned in `absent` so it is named rather than hidden. ⛔ Not a retry, a
+ * timeout or a quarantine: nothing here waits for a file or reads it twice.
+ *
  * @param {{ root?: string, files?: string[] }} [input]
  */
 export function sweep({ root = REPO_ROOT, files = collectSources(root) } = {}) {
   const byFile = new Map();
+  const absent = [];
   for (const file of files) {
-    const carriers = carriersIn(readFileSync(file, 'utf8'));
-    if (carriers.length) byFile.set(relative(root, file).split('\\').join('/'), carriers);
+    const path = relative(root, file).split('\\').join('/');
+    const source = readListedSource(file);
+    if (source === null) {
+      absent.push(path);
+      continue;
+    }
+    const carriers = carriersIn(source);
+    if (carriers.length) byFile.set(path, carriers);
   }
-  return { scanned: files.length, byFile };
+  return { scanned: files.length - absent.length, byFile, absent };
 }
 
 /**
@@ -374,8 +390,9 @@ export const USAGE = 'usage: node scripts/check-hand-rolled-comment-mask.mjs [--
 
 function report(result, verdict, { list }) {
   const carriers = [...result.byFile.values()].reduce((n, rows) => n + rows.length, 0);
+  const absent = result.absent.length ? ` (${result.absent.length} more listed but gone from disk, read as absent)` : '';
   console.log(
-    `swept ${result.scanned} source file(s) under ${relative(REPO_ROOT, REPO_ROOT) || '.'}; ` +
+    `swept ${result.scanned} source file(s)${absent} under ${relative(REPO_ROOT, REPO_ROOT) || '.'}; ` +
       `${carriers} private comment projection(s) in ${result.byFile.size} file(s); DEBT names ${Object.keys(DEBT).length}.`,
   );
   if (list) {
@@ -424,9 +441,9 @@ export async function main(argv = process.argv.slice(2)) {
   return verdict.code;
 }
 
-// Referenced so the reuse is visible to a reader: the corpus walk and its skip
-// list are this gate's population too, and a second copy of either would be a
-// second definition of what "this tree's source" means.
+// Referenced so the reuse is visible to a reader: the corpus enumeration and its
+// skip list are this gate's population too, and a second copy of either would be
+// a second definition of what "this tree's source" means.
 void SKIPPED_DIRECTORIES;
 void SOURCE_EXTENSIONS;
 

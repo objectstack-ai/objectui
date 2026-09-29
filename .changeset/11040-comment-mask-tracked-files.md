@@ -1,0 +1,4 @@
+---
+---
+
+Tooling and tests only, no package released: the two comment-mask sweeps in `scripts/` now read the files git tracks instead of walking the working tree. `check-hand-rolled-comment-mask` failed a Test shard with ENOENT on a pull request that touched neither file: `cli-bin.test.ts` builds with tsup, which writes a temporary `tsup.config.bundled_*.mjs` and deletes it, and the walk listed that file before the sweep read it. `collectSources` in `check-comment-mask-corpus.mjs`, which both sweeps share, now enumerates `git ls-files`, as the repository's other censuses do, so untracked build output is out of both sweeps as a class. A path that is listed and then gone before its read is read as absent rather than thrown on; any other read error still throws. No retry, timeout or quarantine was added (objectui#11040).

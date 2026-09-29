@@ -1170,6 +1170,8 @@ const de = {
     },
     loading: "Wird geladen…",
     refreshing: "Wird aktualisiert…",
+    refreshAll: "Alle aktualisieren",
+    refreshDashboard: "Dashboard aktualisieren",
     pickMeasures: "Wählen Sie Kennzahlen (Werte) für dieses Dataset-Widget.",
     datasetUnsupported: "Diese Datenquelle unterstützt keine Dataset-Abfragen.",
     widgetForbiddenTitle: "Kein Zugriff",

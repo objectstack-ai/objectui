@@ -1461,6 +1461,8 @@ const en = {
     },
     loading: 'Loading…',
     refreshing: 'Refreshing…',
+    refreshAll: 'Refresh All',
+    refreshDashboard: 'Refresh dashboard',
     pickMeasures: 'Pick measures (values) for this dataset widget.',
     datasetUnsupported: 'This data source does not support dataset queries.',
     widgetForbiddenTitle: 'You don’t have access',

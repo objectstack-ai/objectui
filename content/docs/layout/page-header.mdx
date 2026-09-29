@@ -323,6 +323,13 @@ The PageHeader includes:
 - Color contrast for text
 - Responsive layout
 
+On a canonical `page:header` node, the spec's `aria` bag lands on the `<header>` element in
+both layouts: `ariaLabel` (a plain string, or an inline locale map such as
+`{ "en": "Orders", "zh-CN": "订单" }`, resolved for the display locale) renders `aria-label`,
+`ariaDescribedBy` renders `aria-describedby`, and `role` renders `role`. The header adds no
+role of its own. `page:tabs`, `page:card` and `page:accordion` put the same bag on their
+root element (objectui#11083).
+
 ## Responsive Behavior
 
 - **Mobile**: Actions stack below title if needed

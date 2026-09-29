@@ -17,7 +17,11 @@
  *      All" is on (highlighting the bypass).
  *   3. Field-level security: grouped by object, only fields with a
  *      non-default setting are listed (read=false or editable=true).
- *   4. System permissions + Tab visibility as compact chip lists.
+ *   4. Row-level security: each `rowLevelSecurity` policy by its `name`,
+ *      with its `label` beside it and its `description` beneath it when
+ *      authored (objectui#11027). Both keys are plain strings in the spec,
+ *      so an unauthored one renders nothing rather than a stand-in.
+ *   5. System permissions + Tab visibility as compact chip lists.
  *
  * Sanity-check banner at the bottom flags risky combinations:
  *   • allowEdit without allowRead (silently fails at runtime)
@@ -91,6 +95,32 @@ interface Warning {
   vars?: Record<string, string>;
 }
 
+/** One `rowLevelSecurity` policy, reduced to the keys the preview shows. */
+interface PolicyRow {
+  name?: string;
+  label?: string;
+  description?: string;
+}
+
+/** A spec string key's value, or `undefined` when it is absent, empty or not a string. */
+function authoredText(v: unknown): string | undefined {
+  return typeof v === 'string' && v ? v : undefined;
+}
+
+function readPolicies(rls: unknown[]): PolicyRow[] {
+  const rows: PolicyRow[] = [];
+  for (const entry of rls) {
+    if (!entry || typeof entry !== 'object') continue;
+    const policy = entry as Record<string, unknown>;
+    rows.push({
+      name: authoredText(policy.name),
+      label: authoredText(policy.label),
+      description: authoredText(policy.description),
+    });
+  }
+  return rows;
+}
+
 function findWarnings(objects: Record<string, ObjectPermission>): Warning[] {
   const out: Warning[] = [];
   for (const [obj, p] of Object.entries(objects)) {
@@ -127,6 +157,7 @@ export function PermissionPreview({ name, draft, locale }: MetadataPreviewProps)
   const systemPerms = Array.isArray(d.systemPermissions) ? (d.systemPermissions as string[]) : [];
   const tabPerms = (d.tabPermissions ?? {}) as Record<string, string>;
   const rls = Array.isArray(d.rowLevelSecurity) ? (d.rowLevelSecurity as unknown[]) : [];
+  const policies = readPolicies(rls);
 
   const objectNames = React.useMemo(() => Object.keys(objects).sort(), [objects]);
   const warnings = React.useMemo(() => findWarnings(objects), [objects]);
@@ -147,7 +178,14 @@ export function PermissionPreview({ name, draft, locale }: MetadataPreviewProps)
     return out;
   }, [fields]);
 
-  if (objectNames.length === 0 && systemPerms.length === 0 && Object.keys(tabPerms).length === 0) {
+  // A set whose only grants are row-level policies is not empty: those
+  // policies are listed below (objectui#11027).
+  if (
+    objectNames.length === 0 &&
+    systemPerms.length === 0 &&
+    Object.keys(tabPerms).length === 0 &&
+    rls.length === 0
+  ) {
     return (
       <PreviewShell hint="permission">
         <PreviewMessage>{tr('engine.permissionPreview.empty', locale)}</PreviewMessage>
@@ -278,6 +316,23 @@ export function PermissionPreview({ name, draft, locale }: MetadataPreviewProps)
                   </div>
                 ))}
               </div>
+            </Section>
+          )}
+
+          {/* Row-level security policies */}
+          {policies.length > 0 && (
+            <Section title={tr('perm.rls.title', locale)} count={policies.length}>
+              <ul className="rounded border bg-background divide-y text-xs">
+                {policies.map((p, i) => (
+                  <li key={i} className="px-2.5 py-2">
+                    <div className="flex flex-wrap items-baseline gap-x-2">
+                      {p.label && <span className="font-medium">{p.label}</span>}
+                      {p.name && <span className="font-mono text-[11px] text-muted-foreground">{p.name}</span>}
+                    </div>
+                    {p.description && <p className="mt-0.5 text-muted-foreground">{p.description}</p>}
+                  </li>
+                ))}
+              </ul>
             </Section>
           )}
 

@@ -232,11 +232,36 @@ ComponentRegistry.register(
     category: 'Dashboard',
     inputs: [
         { name: 'objectName', type: 'string', required: true },
-        { name: 'label', type: 'string' },
+        // The row's three `I18nLabel` members (`ComponentPropsMap['object-metric']`):
+        // `label`, `description` and `title`. `MetricWidget` resolves `label` and
+        // `description` with `pickLocalized` against the active UI language, and
+        // `ObjectMetricWidget` resolves `title` (and `label` as its fallback) the
+        // same way for the drill-down panel's heading. So both arms are declared,
+        // as `ComponentInput.type` prescribes for a key whose render site resolves
+        // the map: a `'string'`-only declaration made the manifest gate report
+        // `type-mismatch` on a legal map (objectui#10993). The render is pinned by
+        // `ObjectMetric.i18nLabel-10993.test.tsx`, the manifest by the console's
+        // `i18nLabelInputsManifest-10993.test.ts`.
+        {
+          name: 'label',
+          type: ['string', 'object'],
+          description:
+            'Heading of the tile, and of the drill-down panel when `title` is not set. Accepts either a plain string or an inline per-locale map (`{ en: "Pipeline", "zh-CN": "销售管道" }`) — the `I18nLabel` union the contract admits on this key — and the tile resolves the map against the active UI language, falling back through base language, a region-qualified sibling, `default`, then `en`, and finally to any remaining entry.',
+        },
         { name: 'aggregate', type: 'object', description: 'Aggregation config: { field, function, groupBy }' },
         { name: 'icon', type: 'string' },
-        { name: 'description', type: 'string', description: 'Helper text rendered under the value.' },
-        { name: 'title', type: 'string', description: 'Heading of the drill-down panel. Defaults to `label` — set it only when the records list wants a different name from the tile.' },
+        {
+          name: 'description',
+          type: ['string', 'object'],
+          description:
+            'Helper text rendered under the value. Accepts either a plain string or an inline per-locale map (`{ en: "This quarter", "zh-CN": "本季度" }`), resolved against the active UI language with the same fallback chain as `label`.',
+        },
+        {
+          name: 'title',
+          type: ['string', 'object'],
+          description:
+            'Heading of the drill-down panel. Defaults to `label` — set it only when the records list wants a different name from the tile. Accepts either a plain string or an inline per-locale map (`{ en: "Open deals", "zh-CN": "进行中的商机" }`), resolved against the active UI language with the same fallback chain as `label`.',
+        },
         { name: 'filter', type: 'array', description: 'Criteria the aggregation is scoped by. The same filter narrows the drill-down list, so the number and the records behind it always agree.' },
         { name: 'colorVariant', type: 'enum', enum: ['default', 'blue', 'teal', 'orange', 'purple', 'success', 'warning', 'danger'], description: 'Colour of the icon container. Semantic, not decorative: `success` / `warning` / `danger` should track what the number means.' },
         { name: 'variant', type: 'enum', enum: ['card', 'bare'], description: '`card` draws the tile’s own surface; `bare` drops it, for a metric already sitting inside a card.' },

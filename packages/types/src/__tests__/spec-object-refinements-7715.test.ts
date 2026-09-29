@@ -42,7 +42,7 @@ import {
   PageSchema as SpecPageSchema,
 } from '@objectstack/spec/ui';
 import { ListViewSchema, PageNodeSchema, safeValidateSchema } from '../zod/index.zod';
-import { GlobalFilterSchema } from '../zod/complex.zod';
+import { DashboardWidgetSchema, GlobalFilterSchema } from '../zod/complex.zod';
 
 /** The spec-shaped view: the spec requires `columns`, objectui does not. */
 const specView = (extra: Record<string, unknown>) => ({ columns: ['name'], ...extra });
@@ -127,7 +127,14 @@ describe('objectui#7715 — the Page source-completeness refusal reaches objectu
 const SITES = [
   { site: 'NavigationAreaSchema (app.zod.ts)', spec: SpecNavigationAreaSchema, attached: [], notAttachable: [] },
   { site: 'SpecAppFields → AppComponentSchema (app.zod.ts)', spec: SpecAppSchema, attached: [], notAttachable: [] },
-  { site: 'DashboardWidgetSchema (complex.zod.ts)', spec: SpecDashboardWidgetSchema, attached: [], notAttachable: [] },
+  {
+    site: 'DashboardWidgetSchema (complex.zod.ts)',
+    spec: SpecDashboardWidgetSchema,
+    // Both added to the spec object at 17.5.0 and attached by objectui#11073: each reads only
+    // `type`, `options.stageOrder` / `values` and `id`, the spec's own fields on this node.
+    attached: ['checkDashboardWidgetStageOrder', 'checkDashboardWidgetMetricMeasureArity'],
+    notAttachable: [],
+  },
   { site: 'SpecDashboardFields → DashboardComponentSchema (complex.zod.ts)', spec: SpecDashboardSchema, attached: [], notAttachable: [] },
   { site: 'SpecPageFields → PageNodeSchema (layout.zod.ts)', spec: SpecPageSchema, attached: ['checkPageSourceCompleteness'], notAttachable: [] },
   {
@@ -219,3 +226,28 @@ describe('objectui#7715 — census: the spec\'s object-level checks at the six d
     expect(GlobalFilterSchema.safeParse(good).success).toBe(true);
   });
 });
+
+describe('objectui#11073 — the DashboardWidget checks reach objectui\'s door with the spec\'s own issue (objectui#9111\'s criterion)', () => {
+  // The spec requires `id` and `values`; without them its own parse aborts before the
+  // object-level check runs, and the comparison would have no spec issue to read.
+  const widget = (extra: Record<string, unknown>) => ({ id: 'stages', dataset: 'pipeline', values: ['amount'], ...extra });
+
+  it('a non-funnel widget carrying `options.stageOrder` is refused at `options.stageOrder`, as the spec refuses it', () => {
+    const doc = widget({ type: 'horizontal-bar', options: { stageOrder: ['a', 'b'] } });
+    const spec = SpecDashboardWidgetSchema.safeParse(doc);
+    expect(spec.success).toBe(false);
+    const specIssue = spec.error!.issues.find((i) => i.path.join('.') === 'options.stageOrder')!;
+    expect(specIssue.code).toBe('custom');
+    const mirror = DashboardWidgetSchema.safeParse(doc);
+    expect(mirror.success).toBe(false);
+    expect(mirror.error!.issues.map((i) => ({ code: i.code, path: i.path.join('.'), message: i.message })))
+      .toContainEqual({ code: 'custom', path: 'options.stageOrder', message: specIssue.message });
+  });
+
+  it('LIT CONTROL: the same widget as a `funnel` parses on both', () => {
+    const doc = widget({ type: 'funnel', options: { stageOrder: ['a', 'b'] } });
+    expect(SpecDashboardWidgetSchema.safeParse(doc).success).toBe(true);
+    expect(DashboardWidgetSchema.safeParse(doc).success).toBe(true);
+  });
+});
+

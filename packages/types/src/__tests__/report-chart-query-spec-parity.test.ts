@@ -24,9 +24,11 @@
  *    wearing. The risk is picking a new name the spec ALREADY owns — the
  *    `PageComponentSchema` mistake from objectui#3074 — so each new name is
  *    asserted absent from the spec's export set, types and values alike.
- *  - **Not burnable yet** (`JoinedReportBlock`): erased in the installed spec,
- *    typed — as a different shape — on spec `main`; the burn-down is owed at the
- *    bump that installs the typed one. See the bottom of this file.
+ *  - **Burnable now, on its own card** (`JoinedReportBlock`): erased through the
+ *    published 17.4.0, typed — as a different shape — since 17.5.0, which this
+ *    repository installs since objectui#11073. The tripwire has fired and been
+ *    flipped; the burn-down (a published-type change) is objectui#10940's. See the
+ *    bottom of this file.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -816,11 +818,12 @@ type IsAny<T> = 0 extends 1 & T ? true : false;
 /** `any` is asked first: it passes `IsUnknown` as well. */
 type SpecTyping<T> = IsAny<T> extends true ? 'any' : IsUnknown<T> extends true ? 'erased' : 'typed';
 
-// THE STATE PIN. `erased` = the installed, published 17.4.0; `typed` = spec
-// `main` since objectstack#20369. `any` is refused on both (case 2).
-const _specJoinedReportBlockTyping = null as unknown as SpecTyping<SpecJoinedReportBlock> satisfies
-  | 'erased'
-  | 'typed';
+// THE STATE PIN. `typed` — the installed `@objectstack/spec` 17.5.0 and spec
+// `main` since objectstack#20369 both type the block. The `erased` arm (the
+// published 17.4.0) was deleted at the bump that installed 17.5.0 (objectui#11073),
+// as the tripwire below instructed, so an erasure stops compiling again on both
+// runs. `any` is refused (case 2).
+const _specJoinedReportBlockTyping = null as unknown as SpecTyping<SpecJoinedReportBlock> satisfies 'typed';
 const _specJoinedReportBlockIsNotEvenAny = false satisfies IsAny<SpecJoinedReportBlock>;
 
 /**
@@ -924,23 +927,17 @@ describe('JoinedReportBlock burn-down tripwire, read off the INSTALLED spec (obj
     expect(installedSpecTyping('ReportSort').typing).toBe('typed');
   });
 
-  it('the installed spec still erases the block to `unknown`', () => {
+  // FLIPPED at the bump (objectui#11073). This row read "the installed spec still
+  // erases the block" and fired when `@objectstack/spec` 17.5.0 was installed, which
+  // types it; its companion version row ("still the published 17.4.0") retired with
+  // it, having done its one job. The state pin's `erased` arm is deleted above. The
+  // burn-down it announced — deriving the PUBLISHED `JoinedReportBlock` from the
+  // spec, a published-type change — is objectui#10940's own slice, not this bump's.
+  it('the installed spec types the block (the erasure is gone; an erasure is an upstream regression)', () => {
     expect(
       installed.typing,
-      `the installed @objectstack/spec ${installed.version} now types JoinedReportBlock — this is the ` +
-        'bump the burn-down is owed at. Re-run the triage against the divergence pins above, derive ' +
-        "the published interface from the spec in its own slice (a published type changes), and delete " +
-        "the state pin's `erased` arm so that an erasure stops compiling again",
-    ).toBe('erased');
-  });
-
-  it('the installed spec is still the published 17.4.0, the newest release before objectstack#20369', () => {
-    expect(
-      installed.version,
-      `a newer @objectstack/spec is installed (block typing: ${installed.typing}). Every release after ` +
-        '17.4.0 is cut from an objectstack `main` that carries #20369, so it should type the block: if ' +
-        'the row above is red too, burn down as it says; if it is green, the spec erased the block again ' +
-        "— report that upstream. Either way the state pin's `erased` arm has lost its licence",
-    ).toBe('17.4.0');
+      `the installed @objectstack/spec ${installed.version} erases JoinedReportBlock again — an ` +
+        'upstream regression to report; the state pin above refuses it at compile time too',
+    ).toBe('typed');
   });
 });

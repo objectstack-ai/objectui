@@ -108,6 +108,8 @@ import {
   objectNavTargetExclusivity,
   checkListViewCalendarVisualization,
   checkPageSourceCompleteness,
+  checkDashboardWidgetStageOrder,
+  checkDashboardWidgetMetricMeasureArity,
 } from '@objectstack/spec/ui';
 import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
@@ -552,6 +554,10 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
       // rebuilt them without the spec object's own checks.
       ['checkListViewCalendarVisualization', checkListViewCalendarVisualization],
       ['checkPageSourceCompleteness', checkPageSourceCompleteness],
+      // objectui#11073: the two `@objectstack/spec` 17.5.0 added to `DashboardWidgetSchema`,
+      // re-attached by objectui's `DashboardWidgetSchema` under the same ruling.
+      ['checkDashboardWidgetStageOrder', checkDashboardWidgetStageOrder],
+      ['checkDashboardWidgetMetricMeasureArity', checkDashboardWidgetMetricMeasureArity],
     ]);
 
     const isSpecModule = (m: string): boolean =>

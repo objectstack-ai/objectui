@@ -36,7 +36,8 @@ import {
   type SectionFieldsContext,
 } from './sectionFields';
 import { TabbedForm } from './TabbedForm';
-import { WizardForm, NAVIGATE_ON_SUCCESS_REFUSED_NOTE } from './WizardForm';
+import { WizardForm } from './WizardForm';
+import { useFormChromeTranslation } from './formChrome';
 import { SplitForm } from './SplitForm';
 import { DrawerForm } from './DrawerForm';
 import { ModalForm } from './ModalForm';
@@ -630,6 +631,10 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
   dataSource,
 }) => {
   const { fieldLabel, sectionLabel } = useSafeFieldLabel();
+  // The form's own feedback chrome — the default success toast and
+  // confirmation, the loading line, the load-failure heading and the default
+  // submit label — in the session locale (objectui#11039). See `formChrome.ts`.
+  const { t } = useFormChromeTranslation();
   const isMobile = useIsMobile();
   // Upload-in-flight gate (objectui#10166). Owns the aggregated "is any
   // file/image widget below me still uploading" answer, the Save label while it
@@ -1331,7 +1336,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
               toast.error(verdict.refusal);
               setSubmitted({
                 message: schema.successMessage
-                  || (schema.mode === 'create' ? 'Created' : 'Saved'),
+                  || (schema.mode === 'create' ? t('form.created') : t('form.saved')),
                 refusal: verdict.refusal,
               });
               break;
@@ -1352,7 +1357,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
           default: {
             const message = behavior.kind === 'thank-you' && behavior.message
               ? behavior.message
-              : schema.successMessage || (schema.mode === 'create' ? 'Created' : 'Saved');
+              : schema.successMessage || (schema.mode === 'create' ? t('form.created') : t('form.saved'));
             toast.success(message);
             // Replace the (still fully filled) form with a confirmation panel
             // so there's nothing left to resubmit.
@@ -1415,11 +1420,11 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
             schema.navigateOnSuccess,
           );
           toast.success(
-            schema.successMessage || (schema.mode === 'create' ? 'Created' : 'Saved'),
-            { description: NAVIGATE_ON_SUCCESS_REFUSED_NOTE },
+            schema.successMessage || (schema.mode === 'create' ? t('form.created') : t('form.saved')),
+            { description: t('form.navigateRefused') },
           );
         } else {
-          toast.success(schema.successMessage || (schema.mode === 'create' ? 'Created' : 'Saved'));
+          toast.success(schema.successMessage || (schema.mode === 'create' ? t('form.created') : t('form.saved')));
         }
       }
 
@@ -1434,7 +1439,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       
       throw err;
     }
-  }, [schema, dataSource, hasInlineFields, perms, objectSchema, saveWithOcc, initialData, uploadGate.uploading, uploadGate.reason, recordSaved]);
+  }, [schema, dataSource, hasInlineFields, perms, objectSchema, saveWithOcc, initialData, uploadGate.uploading, uploadGate.reason, recordSaved, t]);
 
   // Handle form cancellation
   const handleCancel = useCallback(() => {
@@ -1517,7 +1522,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
   if (error) {
     return (
       <div className="p-3 sm:p-4 border border-red-300 bg-red-50 rounded-md">
-        <h3 className="text-red-800 font-semibold">Error loading form</h3>
+        <h3 className="text-red-800 font-semibold">{t('form.errorLoading')}</h3>
         <p className="text-red-600 text-sm mt-1">{error.message}</p>
       </div>
     );
@@ -1528,7 +1533,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
     return (
       <div className="p-4 sm:p-8 text-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        <p className="mt-2 text-sm text-gray-600">Loading form...</p>
+        <p className="mt-2 text-sm text-gray-600">{t('publicForm.loading')}</p>
       </div>
     );
   }
@@ -1536,7 +1541,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
   if (submitted) {
     const confirmation = (
       <div className="rounded-md border bg-card p-6 sm:p-8 text-center">
-        <h3 className="text-lg font-semibold">{submitted.title ?? 'Thanks!'}</h3>
+        <h3 className="text-lg font-semibold">{submitted.title ?? t('publicForm.thankYouTitle')}</h3>
         {submitted.message && (
           <p className="mt-2 text-sm text-muted-foreground">{submitted.message}</p>
         )}
@@ -1761,7 +1766,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
               // below carries the reason in a sentence (objectui#10166).
               submitLabel: uploadGate.uploading
                 ? uploadGate.busyLabel
-                : schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
+                : schema.submitText || (schema.mode === 'create' ? t('form.create') : t('form.update')),
               cancelLabel: schema.cancelText,
               onSubmit: handleSubmit,
               onCancel: handleCancel,
@@ -1910,7 +1915,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
     // explanation while an upload is in flight (objectui#10166).
     submitLabel: uploadGate.uploading
       ? uploadGate.busyLabel
-      : schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
+      : schema.submitText || (schema.mode === 'create' ? t('form.create') : t('form.update')),
     cancelLabel: schema.cancelText,
     showSubmit: schema.showSubmit !== false && schema.mode !== 'view',
     showCancel: schema.showCancel !== false,

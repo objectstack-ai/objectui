@@ -145,7 +145,7 @@ import {
   resolveFormWidgetType,
 } from '@object-ui/fields';
 import { usePredicateScope } from '@object-ui/react';
-import { useSafeFieldLabel } from '@object-ui/i18n';
+import { useObjectTranslation, useSafeFieldLabel } from '@object-ui/i18n';
 import type { FormFieldSpec, FormSectionSpec, FormViewSpec } from '@object-ui/app-shell';
 import { resolveSubmitRedirect } from './submitRedirect';
 
@@ -1988,6 +1988,11 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
    * and NO in the same position with the wrapper removed.
    */
   const { sectionLabel, fieldLabel } = useSafeFieldLabel();
+  // The page's own feedback chrome — the loading line, the success toast and
+  // the thank-you panel's defaults — through the same provider, and the same
+  // pack keys plugin-form's forms read (objectui#11039). An authored
+  // thank-you `title` / `message` still wins.
+  const { t } = useObjectTranslation();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -2139,7 +2144,7 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
         mode === 'public'
           ? await submitPublic(identifier, payload)
           : await submitInternal(loaded.object, payload, editingId);
-      toast.success('Submitted', { id: outcomeToastId });
+      toast.success(t('form.submitted'), { id: outcomeToastId });
       // Behaviour after submit
       switch (behavior.kind) {
         case 'created-record': {
@@ -2233,7 +2238,7 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="text-sm text-muted-foreground">Loading…</div>
+        <div className="text-sm text-muted-foreground">{t('common.loading')}</div>
       </div>
     );
   }
@@ -2259,10 +2264,10 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
       <div className="mx-auto max-w-2xl p-6">
         <div className="rounded-md border bg-card p-6 text-center">
           <h2 className="mb-2 text-lg font-semibold">
-            {title ?? 'Thanks!'}
+            {title ?? t('publicForm.thankYouTitle')}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {message ?? 'Your submission has been received.'}
+            {message ?? t('publicForm.thankYouMessage')}
           </p>
         </div>
       </div>
@@ -2276,9 +2281,9 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
       return (
         <div className="mx-auto max-w-2xl space-y-4 p-6">
           <div className="rounded-md border bg-card p-6 text-center">
-            <h2 className="mb-2 text-lg font-semibold">Thanks!</h2>
+            <h2 className="mb-2 text-lg font-semibold">{t('publicForm.thankYouTitle')}</h2>
             <p className="text-sm text-muted-foreground">
-              Your submission has been received.
+              {t('publicForm.thankYouMessage')}
             </p>
           </div>
           <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">

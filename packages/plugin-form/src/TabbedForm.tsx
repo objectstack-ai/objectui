@@ -37,6 +37,7 @@ import {
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
 import { useRecordInvalidation } from './recordInvalidation';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
+import { useFormChromeTranslation } from './formChrome';
 
 export interface FormSectionConfig {
   /**
@@ -269,6 +270,9 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
   className,
 }) => {
   const { fieldLabel } = useSafeFieldLabel();
+  // The loading line, the load-failure heading and the default submit label,
+  // in the session locale (objectui#11039). See `formChrome.ts`.
+  const { t } = useFormChromeTranslation();
   const perms = usePermissions();
   const { userId: currentUserId } = perms;
   const [objectSchema, setObjectSchema] = useState<any>(null);
@@ -544,7 +548,7 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
   if (error) {
     return (
       <div className="p-4 border border-red-300 bg-red-50 rounded-md">
-        <h3 className="text-red-800 font-semibold">Error loading form</h3>
+        <h3 className="text-red-800 font-semibold">{t('form.errorLoading')}</h3>
         <p className="text-red-600 text-sm mt-1">{error.message}</p>
       </div>
     );
@@ -554,7 +558,7 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
     return (
       <div className="p-8 text-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        <p className="mt-2 text-sm text-gray-600">Loading form...</p>
+        <p className="mt-2 text-sm text-gray-600">{t('publicForm.loading')}</p>
       </div>
     );
   }
@@ -678,7 +682,7 @@ export const TabbedForm: React.FC<TabbedFormProps> = ({
           // ActionParamDialog gives its Confirm (objectui#10166).
           submitLabel: uploadGate.uploading
             ? uploadGate.busyLabel
-            : schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'),
+            : schema.submitText || (schema.mode === 'create' ? t('form.create') : t('form.update')),
           cancelLabel: schema.cancelText,
           showSubmit: schema.showSubmit !== false && schema.mode !== 'view',
           showCancel: schema.showCancel !== false,

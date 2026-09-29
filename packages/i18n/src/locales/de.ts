@@ -202,6 +202,12 @@ const de = {
     createSuccess: "{{object}} erfolgreich erstellt",
     updateSuccess: "{{object}} erfolgreich aktualisiert",
     deleteSuccess: "{{object}} erfolgreich gelöscht",
+    created: "Erstellt",
+    saved: "Gespeichert",
+    savedNamed: "{{title}} gespeichert",
+    submitted: "Gesendet",
+    errorLoading: "Fehler beim Laden des Formulars",
+    navigateRefused: "Das für dieses Formular deklarierte `navigateOnSuccess`-Ziel wurde abgelehnt, daher fand keine Navigation statt.",
     fullscreen: {
       title: "Text bearbeiten",
       description: "Bearbeiten Sie den vollständigen Textwert und speichern oder verwerfen Sie dann Ihre Änderungen.",

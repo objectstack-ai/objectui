@@ -213,6 +213,12 @@ const ar = {
     createSuccess: "تم إنشاء {{object}}",
     updateSuccess: "تم تحديث {{object}}",
     deleteSuccess: "تم حذف {{object}}",
+    created: "تم الإنشاء",
+    saved: "تم الحفظ",
+    savedNamed: "تم حفظ {{title}}",
+    submitted: "تم الإرسال",
+    errorLoading: "خطأ في تحميل النموذج",
+    navigateRefused: "تم رفض وجهة `navigateOnSuccess` المعلنة لهذا النموذج، لذلك لم يتم الانتقال.",
     fullscreen: {
       title: "تحرير النص",
       description: "حرّر قيمة النص الكاملة، ثم احفظ التغييرات أو ألغِها.",

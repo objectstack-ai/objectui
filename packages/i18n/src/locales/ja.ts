@@ -202,6 +202,12 @@ const ja = {
     createSuccess: "{{object}}が作成されました",
     updateSuccess: "{{object}}が更新されました",
     deleteSuccess: "{{object}}が削除されました",
+    created: "作成しました",
+    saved: "保存しました",
+    savedNamed: "{{title}}を保存しました",
+    submitted: "送信しました",
+    errorLoading: "フォームの読み込みエラー",
+    navigateRefused: "このフォームに宣言された `navigateOnSuccess` の遷移先が拒否されたため、遷移は行われませんでした。",
     fullscreen: {
       title: "テキストを編集",
       description: "テキスト全体を編集してから、変更を保存またはキャンセルしてください。",

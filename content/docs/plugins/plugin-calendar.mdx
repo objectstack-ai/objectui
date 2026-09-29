@@ -28,8 +28,8 @@ Both components support month, week, and day views with full event management ca
 
 ### Month view
 
-- **Move an event** — grab any cell of the event pill and drop it on another day. The grabbed-day → drop-day distance is the day delta applied to both `startDateField` and `endDateField`, so dragging a multi-day span from any of its days behaves intuitively.
-- **Resize an event** — grab the small right-edge handle on the last day of a multi-day pill and drop it on a different day to extend or shrink the end date. The start date is preserved; drops earlier than the start are ignored.
+- **Move an event** — grab any cell of the event pill and drop it on another day. The calendar days from the grabbed day to the drop day move both `startDateField` and `endDateField`, so dragging a multi-day span from any of its days behaves intuitively. Each value keeps its time of day: a 10:00 event stays at 10:00, even across a DST change.
+- **Resize an event** — grab the small right-edge handle on the last day of a multi-day pill and drop it on a different day to extend or shrink the end date. The end keeps its time of day, and the start date is preserved; drops earlier than the start are ignored.
 
 ### Week / Day view (time grid)
 

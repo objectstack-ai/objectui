@@ -3677,6 +3677,11 @@ const ja = {
   },
   wizard: {
     missingRequired: "必須項目を入力してください: {{fields}}",
+    back: "戻る",
+    submitting: "送信中…",
+    stepFallback: "ステップ {{n}}",
+    progressLabel: "進捗",
+    emptyStep: "このステップにはフィールドが設定されていません",
   },
   flowRunner: {
     title: '入力',

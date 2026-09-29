@@ -3705,6 +3705,11 @@ const ru = {
   },
   wizard: {
     missingRequired: "Заполните обязательные поля: {{fields}}",
+    back: "Назад",
+    submitting: "Отправка…",
+    stepFallback: "Шаг {{n}}",
+    progressLabel: "Прогресс",
+    emptyStep: "Для этого шага не настроены поля",
   },
   flowRunner: {
     title: 'Ввод',

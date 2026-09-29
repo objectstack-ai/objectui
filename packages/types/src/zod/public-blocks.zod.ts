@@ -43,7 +43,8 @@
  * `onTabChange`), refused by name with `handlerKeyRefusal` as
  * `check:handler-key-reads` requires of every such read; `element:number`'s
  * `dataSource`, the spec's own binding schema by reference (below); and the
- * content-channel tombstones (next section).
+ * content-channel refusals (next section) — the tombstones, and
+ * `record:alert`'s flat-`body` alias refusal.
  *
  * ## The content channels (objectui#9256)
  *
@@ -60,8 +61,12 @@
  * Two carve-outs, each stated on its arm: `page:tabs` and `page:accordion`
  * render the `children` of each ITEM in their `items` bag member, which is
  * the spec row's and stays live — only the node's own `children` is refused;
- * and `record:alert` reads a key named `body` as its message TEXT, so only its
- * `children` is declared here, and its `body` is left to `BaseSchema`.
+ * and `record:alert` reads a key named `body` as its message TEXT, so its
+ * `body` is not a content channel and gets no tombstone. Its message text is
+ * `properties.body`, the spec row's member; a `body` written flat on the node
+ * is refused by an alias refusal that names `properties.body` (objectui#10872),
+ * where `BaseSchema`'s objectui#6771 refusal would name `children`, a channel
+ * this block does not render.
  *
  * The bag is the one spelling every block here is read through at runtime:
  * `SchemaRenderer` hoists each `properties` key onto the node before the
@@ -79,8 +84,9 @@
  * judged by the base's own type — unless the arm declares it again, as the
  * content-channel tombstones below do for `children` on every block but the
  * four `page:` containers. A flat `body` is refused on both faces: by those
- * tombstones, or, on `record:alert` and the four containers, by the base's
- * objectui#6771 retirement. Whether the flat spelling is ALSO an authoring channel for
+ * tombstones; on `record:alert`, by its alias refusal naming `properties.body`;
+ * and on the four containers, by the base's objectui#6771 retirement, whose
+ * `children` remedy they do render. Whether the flat spelling is ALSO an authoring channel for
  * the `page:` / `record:` families (their renderers read the hoisted node
  * keys) is left open on objectui#10872 rather than decided by this module —
  * declaring it later is additive, and it must never extend to `element:*`,
@@ -154,7 +160,12 @@ import {
 } from '@objectstack/spec/ui';
 import { BaseSchema } from './base.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
-import { handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
+import {
+  aliasKeyRefusal,
+  handlerKeyRefusal,
+  neitherContentChannelGuidance,
+  retirementTombstone,
+} from './tombstone.zod.js';
 
 /**
  * The `properties` member of one public block: the spec row, optional, with
@@ -449,7 +460,8 @@ export const RecordReferenceRailBlockSchema = BaseSchema.extend({
 /**
  * objectui#9256 (public-block slice): the `children` refusal of `record:alert` — its OWN string, because
  * `neitherContentChannelGuidance` says no read consumes `body` or `children`, and this renderer does read
- * a key named `body`: its message TEXT. That key is not a child list and is not refused here.
+ * a key named `body`: its message TEXT. That key is not a child list, so it gets no tombstone; a `body`
+ * written flat on the node gets the alias refusal on the arm below instead (objectui#10872).
  */
 const RECORD_ALERT_NO_CHILD_LIST =
   'REFUSED (objectui#9256, ADR-0049) — `record:alert` renders no child list: measured with the TypeScript '
@@ -465,16 +477,42 @@ const RECORD_ALERT_NO_CHILD_LIST =
 /**
  * `record:alert` — `ComponentPropsMap['record:alert']`.
  *
- * Only `children` is declared here (objectui#9256). `body` is this block's
- * message TEXT — a row member, read by the renderer — not a content channel, so
- * it gets no neither-channel tombstone; a flat `body` is still refused by
- * `BaseSchema`'s objectui#6771 retirement, whose remedy text is objectui#10872's
- * to correct.
+ * Declares `children` (objectui#9256) and `body` (objectui#10872), and neither
+ * is a content channel on this block.
+ *
+ * `body` is this block's message TEXT, a member of the spec row, so its home is
+ * `properties.body`. A `body` written flat on the node is a sibling SPELLING of
+ * that member, which is the case `aliasKeyRefusal` exists for: the arm restates
+ * `body` with a refusal that names `properties.body`. Without it the node
+ * inherits `BaseSchema`'s objectui#6771 refusal, whose remedy is `children`, the
+ * key this same arm refuses because the block renders no child list. An author
+ * who followed that message moved the text to a key nothing renders.
+ *
+ * ⛔ Not a `retirementTombstone` and not the neither-channel guidance: both say
+ * the key is dead, and this block's `body` is live in the bag (the objectui#9256
+ * ruling: `record:alert` gets its `children` narrowed, never a `body`
+ * tombstone). ⛔ Not an accept either. A flat `body` does render, because the
+ * renderer merges the node's own keys under `properties` (`readProps`), but
+ * admitting it is the flat-props channel that objectui#10872 holds for every
+ * block armed here. So the accept set stays where `BaseSchema` put it (a flat
+ * `body` is refused with `invalid_type` at `body`, on both faces), and only the
+ * prescription is this arm's own.
  */
 export const RecordAlertBlockSchema = BaseSchema.extend({
   type: z.literal('record:alert'),
   properties: propsBag('record:alert', stripImportedDefaults(SpecRecordAlertProps)),
-  // objectui#9256: `children` only — see the docblock for why `body` is not restated.
+  // objectui#10872: the flat spelling of the row's `body`, refused by name with the key that holds the text.
+  body: aliasKeyRefusal(
+    'body',
+    'properties.body',
+    'this `record:alert` node',
+    'A `record:alert` banner\'s message text is the `body` member of its `properties` bag, where '
+    + '`@objectstack/spec`\'s `ComponentPropsMap[\'record:alert\']` row declares it: write '
+    + '`{ "type": "record:alert", "properties": { "body": "…" } }` (objectui#10872). Not `children`: '
+    + 'this block renders no child list and refuses that key (objectui#9256), so the node-level '
+    + '`body` → `children` rename of objectui#6771 does not apply here.',
+  ),
+  // objectui#9256: the block renders no child list.
   children: retirementTombstone(RECORD_ALERT_NO_CHILD_LIST),
 });
 

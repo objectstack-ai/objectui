@@ -25,7 +25,9 @@
  *     any of these nodes, so the zod arm is the only face that moves.
  *   - `record:alert`: `children` only. Its renderer reads a key named `body` as
  *     the message TEXT, so `body` is not a content channel there, and this
- *     slice leaves it to `BaseSchema`.
+ *     slice gives it no tombstone. (A flat `body` there now has its own alias
+ *     refusal naming `properties.body`, objectui#10872, pinned in
+ *     `record-alert-flat-body-remedy-10872.test.ts`.)
  *   - `page:tabs` / `page:accordion`: the NODE's channels only. Each renders the
  *     `children` of every ITEM in its `items` bag member, and that item-level
  *     key stays live.
@@ -187,10 +189,15 @@ describe('objectui#9256 public blocks — the carve-outs', () => {
     expect((RecordAlertBlockSchema as unknown as Mirror).shape.children?.description).toBe(issue?.message);
   });
 
-  it('`record:alert`\'s `body` is NOT restated: a flat `body` is still `BaseSchema`\'s objectui#6771 refusal, and `properties.body` still parses', () => {
+  it('`record:alert`\'s `body` gets no neither-channel tombstone: a flat `body` is refused toward `properties.body`, and `properties.body` still parses', () => {
     const issue = at(issuesOf(RecordAlertBlockSchema as unknown as Mirror, { type: 'record:alert', body: 'Overdue' }), 'body');
-    expect(issue?.message).toContain('objectui#6771');
-    expect(issue?.message).not.toContain('objectui#9256');
+    expect(issue?.code).toBe('invalid_type');
+    // Not this slice's tombstone: this renderer DOES read a key named `body`.
+    expect(issue?.message).not.toContain('reads NEITHER content channel');
+    expect(issue?.message).not.toContain('REFUSED (objectui#9256');
+    // The remedy is objectui#10872's; its own pins live in
+    // `record-alert-flat-body-remedy-10872.test.ts`.
+    expect(issue?.message).toContain('`properties.body`');
     // CONTROL — the message TEXT, where the spec row declares it, is live.
     expect(AnyComponentSchema.safeParse({ type: 'record:alert', properties: { severity: 'warning', body: 'Overdue' } }).success)
       .toBe(true);

@@ -346,47 +346,6 @@ function isDateOnlyField(declaredType: unknown, stored: unknown): boolean {
     : typeof stored === 'string' && isRealCalendarDate(stored);
 }
 
-/** A stored calendar day: a `YYYY-MM-DD` string naming a day its month has. */
-function isStoredDay(value: unknown): value is string {
-  return typeof value === 'string' && isRealCalendarDate(value);
-}
-
-const DAY_MS = 86_400_000;
-
-/**
- * The value a MOVED event writes into one of its date fields (objectui#10866,
- * slice 4): {@link toStoredDateValue}'s answer, except for a `date` field of a
- * DAY EVENT, one whose start and end (when it has one) are both stored calendar
- * days.
- *
- * Only the month grid drags a day event: the week and day views draw it in
- * their all-day row, which does not drag. The month grid moves each date by the
- * milliseconds between two local midnights, the grabbed cell's and the drop
- * cell's, and a day event's dates were handed to it at local midnight of their
- * days (`toDisplayDate`). When a DST change lies between a date and where it
- * lands but not between the two cells, or the other way round, the moved date
- * comes back an hour off local midnight: 23:00 of the day before when the
- * clocks fell back in between. Measured under `America/Los_Angeles`: a
- * two-day span grabbed on its start and moved two days, across November 1st,
- * wrote its end one day short, and the local day of that `Date` is what
- * {@link toStoredDateValue} writes.
- *
- * So a day event's `date` field is written as its stored day moved by the
- * whole days the grid moved it, on the UTC calendar, the way this card's
- * binding reading moves a calendar day. The grid's own arithmetic is
- * unchanged, because the grid cannot tell a day from an instant at local
- * midnight: every other field, instants included, writes exactly what it did.
- */
-function toMovedDateValue(moved: Date, declaredType: unknown, stored: unknown, dayEvent: boolean): string {
-  if (!dayEvent || !isStoredDay(stored) || !isDateOnlyField(declaredType, stored)) {
-    return toStoredDateValue(moved, declaredType, stored);
-  }
-  const days = Math.round((moved.getTime() - toDisplayDate(stored).getTime()) / DAY_MS);
-  const day = new Date(`${stored}T00:00:00.000Z`);
-  day.setUTCDate(day.getUTCDate() + days);
-  return day.toISOString().slice(0, 10);
-}
-
 /**
  * A record the calendar cannot place: the field declared as `startDateField`
  * carries no value on it, so there is no date to draw and none is invented
@@ -1104,18 +1063,17 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     if (!id || !schema.objectName || !dataSource?.update) return;
 
     // A `date` field is written as the calendar day, a `datetime` as the
-    // instant (objectui#10866, `toStoredDateValue`); a day event's `date`
-    // field moves by whole days (`toMovedDateValue`). `dayEvent` asks the same
-    // values the read handed the view: the start, and the end only when set.
+    // instant (objectui#10866, `toStoredDateValue`). The month grid moves a
+    // value by calendar days and keeps its time of day (objectui#11005), so a
+    // day read at local midnight comes back at local midnight of the day it
+    // was dropped on, whatever DST change lies between, and its local day is
+    // the day to write.
     const fieldDefs = objectSchema?.fields as Record<string, { type?: unknown } | undefined> | undefined;
-    const storedStart: unknown = record?.[startDateField];
-    const storedEnd: unknown = endDateField ? record?.[endDateField] : undefined;
-    const dayEvent = isStoredDay(storedStart) && (!storedEnd || isStoredDay(storedEnd));
     const patch: Record<string, string> = {
-      [startDateField]: toMovedDateValue(newStart, fieldDefs?.[startDateField]?.type, storedStart, dayEvent),
+      [startDateField]: toStoredDateValue(newStart, fieldDefs?.[startDateField]?.type, record?.[startDateField]),
     };
     if (endDateField && newEnd) {
-      patch[endDateField] = toMovedDateValue(newEnd, fieldDefs?.[endDateField]?.type, storedEnd, dayEvent);
+      patch[endDateField] = toStoredDateValue(newEnd, fieldDefs?.[endDateField]?.type, record?.[endDateField]);
     }
 
     // Optimistic UI update

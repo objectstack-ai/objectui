@@ -502,6 +502,33 @@ function getEventsForDate(date: Date, events: CalendarViewEvent[]): CalendarView
   })
 }
 
+/**
+ * The calendar days from `from`'s local day to `to`'s: the difference of their
+ * local year / month / day, counted on the UTC calendar, where every day is
+ * exactly 24 hours, so the quotient is a whole number. ⛔ Never the
+ * milliseconds between two local midnights over a day's length: across a DST
+ * change that span is 23 or 25 hours (objectui#11005).
+ */
+function calendarDaysBetween(from: Date, to: Date): number {
+  return (
+    (Date.UTC(to.getFullYear(), to.getMonth(), to.getDate()) -
+      Date.UTC(from.getFullYear(), from.getMonth(), from.getDate())) /
+    86_400_000
+  )
+}
+
+/**
+ * `value` moved by `days` calendar days on the local calendar: a copy whose
+ * date moves with `setDate`, its hours, minutes, seconds and milliseconds
+ * untouched, so a 10:00 event stays at 10:00 across a DST change and a value
+ * at local midnight stays at midnight of the day it lands on (objectui#11005).
+ */
+function moveByCalendarDays(value: Date, days: number): Date {
+  const moved = new Date(value)
+  moved.setDate(moved.getDate() + days)
+  return moved
+}
+
 interface MonthViewProps {
   date: Date
   events: CalendarViewEvent[]
@@ -567,7 +594,9 @@ function MonthView({ date, events, locale = "default", onEventClick, onDateClick
   // Drag mode: "move" shifts the entire event so the day cell the user
   // grabbed lands on the drop-target day. "resize-end" only adjusts the
   // event's end date — used by the right-edge resize handle on multi-day
-  // spans. The mode and the source cell are encoded in the dataTransfer
+  // spans. Both move a value by calendar days and keep its time of day
+  // (`moveByCalendarDays`, objectui#11005). The mode and the source cell
+  // are encoded in the dataTransfer
   // payload so the drop target doesn't need any DOM state to interpret the
   // gesture, and so dragging from a *continuation* day of a multi-day
   // event still results in a sensible delta.
@@ -640,42 +669,47 @@ function MonthView({ date, events, locale = "default", onEventClick, onDateClick
     newTargetDay.setHours(0, 0, 0, 0)
 
     if (payload.mode === "resize-end") {
-      // Resize: snap the end date to the drop-target day, keep start fixed.
+      // Resize: move the end to the drop-target day, keep start fixed. The
+      // handle sits on the span's end cell, so the grabbed cell is the end's
+      // own day, and the end moves by the calendar days from it to the drop
+      // cell with its time of day untouched (objectui#11005).
       const oldEnd = draggedEvent.end ? new Date(draggedEvent.end) : new Date(draggedEvent.start)
-      const oldEndDay = new Date(oldEnd)
-      oldEndDay.setHours(0, 0, 0, 0)
-      if (newTargetDay.getTime() === oldEndDay.getTime()) return
+      const days = calendarDaysBetween(oldEnd, newTargetDay)
+      if (days === 0) return
       // Guard: new end can't precede start day.
       const startDay = new Date(draggedEvent.start)
       startDay.setHours(0, 0, 0, 0)
       if (newTargetDay.getTime() < startDay.getTime()) return
-      // Preserve the time-of-day component of the original end.
-      const newEnd = new Date(newTargetDay)
-      newEnd.setHours(oldEnd.getHours(), oldEnd.getMinutes(), oldEnd.getSeconds(), 0)
-      onEventDrop(draggedEvent, new Date(draggedEvent.start), newEnd)
+      onEventDrop(draggedEvent, new Date(draggedEvent.start), moveByCalendarDays(oldEnd, days))
       return
     }
 
-    // Move: translate both start and end by the day delta. When sourceDay
+    // Move: translate both start and end by the same number of calendar
+    // days, each keeping its time of day (objectui#11005). When sourceDay
     // is present (drag started from a specific cell of the span), the
-    // delta is `targetDay - sourceDay` so the grabbed cell lands on the
-    // drop target. Without sourceDay we fall back to `targetDay -
-    // eventStartDay` (legacy behavior).
+    // days are counted from sourceDay to targetDay so the grabbed cell
+    // lands on the drop target. Without sourceDay we fall back to the
+    // event's start day (legacy behavior).
+    //
+    // ⛔ Not the milliseconds between the two cells' local midnights added
+    // to each instant: across a DST change that span is 23 or 25 hours, so a
+    // 10:00 event landed at 09:00 or 11:00, and a span starting at local
+    // midnight, grabbed on a later cell, started at 23:00 of the day before
+    // the one it was dropped on.
     const oldStart = new Date(draggedEvent.start)
     let anchorDay: Date
     if (payload.sourceDay) {
       const [y, m, d] = payload.sourceDay.split("-").map((v) => parseInt(v, 10))
       anchorDay = new Date(y, m, d)
     } else {
-      anchorDay = new Date(oldStart)
+      anchorDay = oldStart
     }
-    anchorDay.setHours(0, 0, 0, 0)
-    const deltaMs = newTargetDay.getTime() - anchorDay.getTime()
-    if (deltaMs === 0) return
-    const newStart = new Date(oldStart.getTime() + deltaMs)
+    const days = calendarDaysBetween(anchorDay, newTargetDay)
+    if (days === 0) return
+    const newStart = moveByCalendarDays(oldStart, days)
     let newEnd: Date | undefined
     if (draggedEvent.end) {
-      newEnd = new Date(new Date(draggedEvent.end).getTime() + deltaMs)
+      newEnd = moveByCalendarDays(new Date(draggedEvent.end), days)
     }
     onEventDrop(draggedEvent, newStart, newEnd)
   }

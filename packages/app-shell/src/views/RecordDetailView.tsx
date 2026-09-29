@@ -209,43 +209,59 @@ function mergeFeedRows(prev: readonly FeedItem[], incoming: readonly FeedItem[])
 }
 
 /**
- * A feed row's reactions with the signed-in user's `emoji` reaction toggled:
- * added when they have not given it, taken back when they have. Pure — it
- * returns a new array and never touches `reactions` — because it runs in the
- * click handler and its result goes both on screen and into the write.
+ * The user ids a feed row's reaction holds in `sys_comment.reactions`. Every
+ * reaction on a row carries them: the read keeps each emoji's stored list as
+ * `userIds`, and a toggle keeps it. A reaction without them is refused, never
+ * written as a list made up from its count, because such a list replaces the
+ * stored id of every other user who gave that emoji (objectui#11019).
  */
-function toggleOwnReaction(reactions: readonly Reaction[] | undefined, emoji: string): Reaction[] {
+function storedUserIds(reaction: Reaction): string[] {
+  if (!Array.isArray(reaction.userIds)) {
+    throw new Error(`The ${reaction.emoji} reaction carries no stored user ids, so it cannot be written.`);
+  }
+  return reaction.userIds;
+}
+
+/**
+ * A feed row's reactions with `userId`'s `emoji` reaction toggled: their id is
+ * added to that emoji's stored ids when they have not given it, and taken out
+ * when they have. Every other id, on that emoji and on every other emoji, is
+ * kept as stored, and an emoji left with no ids is dropped, the way the read
+ * shows an emoji the stored map does not carry. Pure (it returns a new array
+ * and never touches `reactions`) because it runs in the click handler and its
+ * result goes both on screen and into the write.
+ */
+function toggleOwnReaction(
+  reactions: readonly Reaction[] | undefined,
+  emoji: string,
+  userId: string,
+): Reaction[] {
   const next = [...(reactions ?? [])];
   const idx = next.findIndex(r => r.emoji === emoji);
   if (idx < 0) {
-    next.push({ emoji, count: 1, reacted: true });
-  } else if (!next[idx].reacted) {
-    next[idx] = { ...next[idx], count: next[idx].count + 1, reacted: true };
-  } else if (next[idx].count <= 1) {
+    next.push({ emoji, count: 1, reacted: true, userIds: [userId] });
+    return next;
+  }
+  const ids = storedUserIds(next[idx]);
+  const userIds = ids.includes(userId) ? ids.filter(id => id !== userId) : [...ids, userId];
+  if (userIds.length === 0) {
     next.splice(idx, 1);
   } else {
-    next[idx] = { ...next[idx], count: next[idx].count - 1, reacted: false };
+    next[idx] = { ...next[idx], count: userIds.length, reacted: userIds.includes(userId), userIds };
   }
   return next;
 }
 
 /**
- * The stored `sys_comment.reactions` shape, `{ emoji: userIds[] }`, rebuilt
- * from the panel's reactions. The panel does not have the original user-id
- * list, so this approximates it: the signed-in user when they reacted, padded
- * with a synthetic `__other__` marker up to the count so the count survives a
- * re-read by other clients. That is an over-simplification for single-user
- * pilot installs, to be replaced by a proper backend reaction endpoint in M11.
+ * The stored `sys_comment.reactions` shape, `{ emoji: userIds[] }`, of a feed
+ * row's reactions: each emoji's stored ids, as the read kept them and the
+ * toggle changed them. Two people reacting at the same moment still means the
+ * later write wins; this only stops a write from rebuilding the lists.
  */
-function storedReactionShape(reactions: readonly Reaction[], userId: string): Record<string, string[]> {
-  const shape: Record<string, string[]> = {};
-  for (const r of reactions) {
-    const ids: string[] = [];
-    if (r.reacted) ids.push(userId);
-    while (ids.length < r.count) ids.push('__other__');
-    shape[r.emoji] = ids;
-  }
-  return shape;
+function storedReactions(reactions: readonly Reaction[]): Record<string, string[]> {
+  const stored: Record<string, string[]> = {};
+  for (const r of reactions) stored[r.emoji] = storedUserIds(r);
+  return stored;
 }
 
 /**
@@ -1707,7 +1723,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     //
     // Reactions are stored as a JSON object of `{ emoji: string[] }`
     // (one array of user-ids per emoji). The aggregator below counts
-    // entries and flags the currently-signed-in user.
+    // entries and flags the currently-signed-in user, and keeps each
+    // emoji's stored ids as `userIds`: a reaction click writes the row
+    // back from them, changing only the clicker's own id (objectui#11019).
     const parseReactions = (raw: unknown): FeedItem['reactions'] => {
       if (!raw) return undefined;
       let parsed: Record<string, string[]> | undefined;
@@ -1717,11 +1735,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         parsed = raw as Record<string, string[]>;
       }
       if (!parsed) return undefined;
-      return Object.entries(parsed).map(([emoji, userIds]) => ({
-        emoji,
-        count: Array.isArray(userIds) ? userIds.length : 0,
-        reacted: Array.isArray(userIds) && userIds.includes(currentUser.id),
-      }));
+      return Object.entries(parsed).map(([emoji, stored]) => {
+        const userIds = Array.isArray(stored) ? stored : [];
+        return { emoji, count: userIds.length, reacted: userIds.includes(currentUser.id), userIds };
+      });
     };
 
     if (feedsEnabled) inFlight.push(dataSource.find('sys_comment', { $filter: { thread_id: threadId }, $orderby: { created_at: 'asc' } })
@@ -1983,8 +2000,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
    * The error is raised only when a rollback takes back something the user
    * sees; a refused write whose click a later write stored lost nothing.
    *
-   * ⛔ The stored shape is unchanged (`storedReactionShape`): that is the later
-   * reaction-endpoint work its comment names.
+   * The set a write stores is the row's stored ids as the read kept them, with
+   * only the clicker's id added or taken out of the clicked emoji
+   * (`toggleOwnReaction`, objectui#11019), so every other user's reaction is
+   * written back as it was read. Two people reacting at the same moment still
+   * means the later write wins.
    */
   const reactionLedgersRef = useRef(new Map<string, ReactionLedger>());
 
@@ -2004,7 +2024,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         ledger = { steps: [{ reactions: row.reactions, outcome: 'stored' }], shown: row.reactions };
         reactionLedgersRef.current.set(rowKey, ledger);
       }
-      const step: ReactionStep = { reactions: toggleOwnReaction(row.reactions, emoji), outcome: 'pending' };
+      const step: ReactionStep = {
+        reactions: toggleOwnReaction(row.reactions, emoji, currentUser.id),
+        outcome: 'pending',
+      };
       ledger.steps.push(step);
       ledger.shown = step.reactions;
       setFeedItemsByRecord(prev => ({
@@ -2047,7 +2070,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
 
       dataSource
         .update('sys_comment', String(itemId), {
-          reactions: JSON.stringify(storedReactionShape(step.reactions ?? [], currentUser.id)),
+          reactions: JSON.stringify(storedReactions(step.reactions ?? [])),
         })
         .then(
           () => settle('stored'),

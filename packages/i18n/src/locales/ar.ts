@@ -3711,6 +3711,11 @@ const ar = {
   },
   wizard: {
     missingRequired: "يرجى إكمال الحقول المطلوبة: {{fields}}",
+    back: "رجوع",
+    submitting: "جارٍ الإرسال…",
+    stepFallback: "الخطوة {{n}}",
+    progressLabel: "التقدم",
+    emptyStep: "لا توجد حقول مهيأة لهذه الخطوة",
   },
   flowRunner: {
     title: 'إدخال',

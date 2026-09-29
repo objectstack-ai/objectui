@@ -54,3 +54,5 @@ among the keys `CodeEditorRenderer` forwards to Monaco.
 `minor` rather than `major` because this repo's version policy forbids `major`
 in any changeset — one `fixed` group — and records `minor` plus an explicit
 breaking note as the spelling for a breaking change here.
+
+⚠️ **Dated note, 2026-09-29 — `record:alert`'s flat `body` — objectui#10872 batch 3.** Later in this same release `record:alert`'s arm restates `body` as well: not with this entry's neither-channel guidance, since its `body` is the message text, but with an alias refusal that names `properties.body`, where that text lives. So the `record:alert` bullet's "is left as it was", and "Everywhere except `record:alert`" under "What moves for an author", no longer describe the release as a whole: a flat `body` on `record:alert` is still refused, and its message no longer points at `children` either. The rest of this entry is kept as the reading of this change.

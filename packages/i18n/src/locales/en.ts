@@ -4151,6 +4151,25 @@ const en = {
   // comma-joined, already-truncated label list built at the call site.
   wizard: {
     missingRequired: 'Please complete the required fields: {{fields}}',
+    // The wizard's footer and step chrome (objectui#10999). The generic verbs
+    // it shows come from `common.cancel`, `common.next`, `form.create`,
+    // `form.update` and `form.stepOf`; these five are the wizard's own.
+    // The Previous-step button. Not `common.back`: some packs say a wizard's
+    // step back with a different word from a page's back (zh reads "previous
+    // step" here and "return" for `common.back`), and the wizard spelling is
+    // the one `grid.import.back` and `grid.bulk.back` already use.
+    back: 'Back',
+    // The final button while the record is being written.
+    submitting: 'Submitting…',
+    // The step indicator's label for a step that declares no `label`.
+    // `{{n}}` is the 1-based step number.
+    stepFallback: 'Step {{n}}',
+    // The step indicator's `aria-label` — what a screen reader calls the list
+    // of steps.
+    progressLabel: 'Progress',
+    // Shown in place of the fields on a step that has none (a final review
+    // step is the usual case).
+    emptyStep: 'No fields configured for this step',
   },
   // The screen-flow runner dialog (`app-shell/views/FlowRunner`) — the modal a
   // `type: 'flow'` action opens when its run pauses at a `screen` node.

@@ -43,18 +43,19 @@ import { ObjectView } from '../ObjectView';
 import { RECORD_SURFACE_PAGE_THRESHOLD } from '../recordSurface';
 
 /** The handlers each mounted `ObjectGrid` received from route 2. */
-const gridProps: Array<{ onRowClick: (record: Record<string, unknown>) => void; onEdit?: (record: Record<string, unknown>) => void }> = [];
+type GridHandlers = { onRowClick: (record: Record<string, unknown>) => void; onEdit?: (record: Record<string, unknown>) => void };
+const gridProps: GridHandlers[] = [];
 
 vi.mock('@object-ui/plugin-grid', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  ObjectGrid: ({ onRowClick, onEdit }: any) => {
+  ObjectGrid: ({ onRowClick, onEdit }: GridHandlers) => {
     gridProps.push({ onRowClick, onEdit });
     return <div data-testid="object-grid" />;
   },
 }));
 vi.mock('@object-ui/plugin-form', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  ObjectForm: ({ schema }: any) => <div data-testid="object-form" data-mode={schema.mode} />,
+  ObjectForm: ({ schema }: { schema: { mode?: string } }) => <div data-testid="object-form" data-mode={schema.mode} />,
 }));
 
 const DESKTOP = 1280;

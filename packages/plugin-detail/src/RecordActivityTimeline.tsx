@@ -170,6 +170,24 @@ function formatTimestamp(
   }
 }
 
+/**
+ * Whether a feed row can store a reaction (objectui#11035).
+ *
+ * A reaction is stored in `sys_comment.reactions`, and `comment` is the one feed
+ * kind built from a `sys_comment` row (the record page's `sys_comment` read and
+ * the rows its composer adds). Every other kind comes from a source with no
+ * reaction store: a `sys_activity` row reaches the feed through
+ * `activityRowToFeedItem`, whose kinds never include `comment`. So only a
+ * comment row offers the reaction control. Before this gate an activity row's
+ * Add reaction handed the host the activity's id, and the record page wrote
+ * `sys_comment` by it. Reactions a host hands on any other row still show, as
+ * chips that cannot be clicked. Pinned by
+ * `RecordActivityTimeline.reactionsCommentRowsOnly-11035.test.tsx`.
+ */
+function canStoreReaction(item: FeedItem): boolean {
+  return item.type === 'comment';
+}
+
 function filterItems(items: FeedItem[], mode: FeedFilterMode): FeedItem[] {
   switch (mode) {
     case 'comments_only':
@@ -460,6 +478,12 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
                 const colorClass =
                   FEED_TYPE_COLORS[item.type] || 'bg-gray-100 text-gray-600';
                 const replies = repliesByParent.get(item.id) ?? [];
+                // Undefined on a row that cannot store a reaction: no Add
+                // reaction button, and its chips render disabled (objectui#11035).
+                const toggleReaction =
+                  enableReactions && onToggleReaction && canStoreReaction(item)
+                    ? (emoji: string) => onToggleReaction(item.id, emoji)
+                    : undefined;
 
                 return (
                   <div key={item.id}>
@@ -534,21 +558,17 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
                           <div className="mt-1.5">
                             <ReactionPicker
                               reactions={item.reactions}
-                              onToggleReaction={
-                                onToggleReaction
-                                  ? (emoji) => onToggleReaction(item.id, emoji)
-                                  : undefined
-                              }
+                              onToggleReaction={toggleReaction}
                             />
                           </div>
                         )}
 
                         {/* Add reaction button (even if no reactions yet) */}
-                        {enableReactions && (!item.reactions || item.reactions.length === 0) && onToggleReaction && (
+                        {(!item.reactions || item.reactions.length === 0) && toggleReaction && (
                           <div className="mt-1.5">
                             <ReactionPicker
                               reactions={[]}
-                              onToggleReaction={(emoji) => onToggleReaction(item.id, emoji)}
+                              onToggleReaction={toggleReaction}
                             />
                           </div>
                         )}

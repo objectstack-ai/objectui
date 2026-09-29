@@ -173,7 +173,7 @@ declare const handleAddComment: (text: string) => void;
 - **Activity Timeline**: Unified view of comments, field changes, tasks, and system events
 - **Filter Modes**: Filter by `all`, `comments_only`, `changes_only`, or `tasks_only`
 - **@Mentions**: Autocomplete dropdown for mentioning users
-- **Emoji Reactions**: Toggle emoji reactions on any feed item
+- **Emoji Reactions**: Toggle emoji reactions on comments. A reaction is stored on the comment (`sys_comment`), so only a `comment` row offers the reaction control
 - **Subscription Toggle**: Bell icon to subscribe/unsubscribe from record notifications
 - **Field Change History**: Visual old → new value display for field changes
 - **Pagination**: Load more items with `hasMore` / `onLoadMore` pattern
@@ -258,7 +258,7 @@ itself, so everything above describes that page too.
 | `unifiedTimeline` | Default `true` mixes field changes and comments in one timeline (Airtable style). `false` un-mixes them: the panel becomes a discussion stream and field changes stay in `record:history`. | — |
 | `showCommentInput` | Shows the composer. | A host discussion context to persist the comment. Without one the feed is read-only and no composer is rendered. |
 | `enableMentions` | Offers @-mention autocomplete in the composer. `false` withholds the suggestions. | The host context's user list. |
-| `enableReactions` | Shows emoji reactions on feed items. Existing reactions still render without a host; toggling one needs the host handler. | A host `onToggleReaction`. |
+| `enableReactions` | Shows emoji reactions on feed items. Existing reactions still render without a host; toggling one needs the host handler. Only a `comment` row offers Add reaction and clickable chips, because a reaction is stored on the comment (`sys_comment`). Any other row, such as a field change read from `sys_activity`, shows its reactions as chips that cannot be clicked. | A host `onToggleReaction`. |
 | `enableThreading` | Groups replies under their parent comment. Posting a reply needs the host handler. | A host `onAddReply`. |
 | `showSubscriptionToggle` | **Not implemented.** | — |
 
@@ -417,7 +417,7 @@ decision as a defect is how a warning channel gets ignored:
 | `loading` | `boolean` | `false` | Loading state indicator |
 | `onAddComment` | `(text: string) => void` | — | New comment callback |
 | `onAddReply` | `(parentId, text) => void` | — | Reply to comment callback |
-| `onToggleReaction` | `(itemId, emoji) => void` | — | Toggle emoji reaction callback |
+| `onToggleReaction` | `(itemId, emoji) => void` | — | Toggle emoji reaction callback. Called only for a `comment` row |
 | `subscription` | `RecordSubscription` | — | Current subscription state |
 | `onToggleSubscription` | `(subscribed: boolean) => void` | — | Toggle subscription callback |
 | `filterMode` | `FeedFilterMode` | `'all'` | Active filter mode |
@@ -437,7 +437,7 @@ decision as a defect is how a warning channel gets ignored:
 | `loading` | `boolean` | `false` | Loading state indicator |
 | `onAddComment` | `(text: string) => void` | — | New comment callback |
 | `onAddReply` | `(parentId, text) => void` | — | Reply to comment callback |
-| `onToggleReaction` | `(itemId, emoji) => void` | — | Toggle emoji reaction callback |
+| `onToggleReaction` | `(itemId, emoji) => void` | — | Toggle emoji reaction callback. Called only for a `comment` row |
 | `subscription` | `RecordSubscription` | — | Current subscription state |
 | `onToggleSubscription` | `(subscribed: boolean) => void` | — | Toggle subscription callback |
 | `className` | `string` | `''` | Additional CSS classes |

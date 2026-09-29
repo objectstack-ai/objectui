@@ -21,11 +21,14 @@
  *
  * ## Two kinds of view, one rule
  *
- * - DATA-FED views (`kanban`, `calendar`, `gallery`, `timeline`, `map`,
- *   `tree`) draw the `data` this component fetches; its non-grid fetch effect
- *   re-reads on `refreshKey`.
- * - SELF-FETCHING views (`gantt`, `chart`, the grid branch) render a component
- *   that queries for itself. They read the data-invalidation bus
+ * - DATA-FED views (`kanban`, `calendar`, `gallery`, `timeline`, `map`) draw
+ *   the `data` this component fetches; its non-grid fetch effect re-reads on
+ *   `refreshKey`.
+ * - SELF-FETCHING views (`gantt`, `tree`, `chart`, the grid branch) render a
+ *   component that queries for itself. `tree` sat in the list above until
+ *   objectui#10982: `ObjectTree` runs its own query ahead of any rows it is
+ *   handed, so this component no longer reads rows for it at all (see
+ *   `VIEW_TYPES_DRAWING_FETCHED_ROWS`). They read the data-invalidation bus
  *   (`useDataInvalidation`), which every site that moves `refreshKey` also
  *   notifies. That half used to be missing — they kept `refreshKey` in their
  *   key instead (`REMOUNT_TO_REFRESH_VIEW_TYPES`), and these cases asserted a
@@ -40,10 +43,10 @@
  * The stand-ins carry an instance id from a `useState` initializer, which runs
  * once per mount: a changed id IS a remount. The self-fetching stand-in reads
  * the REAL bus hook and queries on it exactly as `ObjectGrid` / `ObjectGantt` /
- * `ObjectChart` now do — each renderer's own pin
- * (`*.invalidationRefetch-10035.test.tsx` in its package) proves the real
- * component does that; this file proves the HOST keeps them mounted and tells
- * the bus.
+ * `ObjectChart` now do, and `ObjectTree` does since objectui#10778 — each
+ * renderer's own pin (`*.invalidationRefetch-*.test.tsx` in its package)
+ * proves the real component does that; this file proves the HOST keeps them
+ * mounted and tells the bus.
  */
 
 import * as React from 'react';
@@ -62,7 +65,7 @@ function useInstanceId(): number {
 
 /**
  * A view that queries for itself and refetches on the bus — the idiom the
- * three real self-fetching renderers follow. Its own reads go through
+ * four real self-fetching renderers follow. Its own reads go through
  * `selfQuery`, so they are counted apart from the host's non-grid fetch.
  */
 function SelfFetchingStandIn({ renderedType, objectName, dataSource }: any) {
@@ -85,7 +88,7 @@ vi.mock('@object-ui/react', async (importOriginal) => {
   const ReactMod = await import('react');
   function ViewStandIn({ schema, data, dataSource }: any) {
     const id = useInstanceId();
-    if (schema?.type === 'object-gantt' || schema?.type === 'object-chart') {
+    if (schema?.type === 'object-gantt' || schema?.type === 'object-chart' || schema?.type === 'object-tree') {
       return <SelfFetchingStandIn renderedType={schema.type} objectName={schema.objectName} dataSource={dataSource} />;
     }
     return (
@@ -187,10 +190,10 @@ beforeEach(() => {
 });
 
 describe('ObjectView refreshes a data-fed view in place after a write (objectui#10035)', () => {
-  // Every non-grid type whose renderer draws the `data` this component fetches
-  // (`tree` re-queries when that array changes). `tree` is host-only
-  // (objectui#5321), which is why every case goes through a `views` prop.
-  it.each(['kanban', 'calendar', 'gallery', 'timeline', 'map', 'tree'])(
+  // Every non-grid type whose renderer draws the `data` this component fetches.
+  // Every case goes through a `views` prop, as the host-only types below must
+  // (objectui#5321).
+  it.each(['kanban', 'calendar', 'gallery', 'timeline', 'map'])(
     '%s: the same view instance receives the refetched rows',
     async (type) => {
       const { ds, find, write } = makeDataSource();
@@ -222,6 +225,7 @@ describe('ObjectView refreshes a data-fed view in place after a write (objectui#
 describe('ObjectView keeps a self-fetching view mounted and tells the bus instead (objectui#10035)', () => {
   it.each([
     ['gantt', 'object-gantt'],
+    ['tree', 'object-tree'],
     ['chart', 'object-chart'],
     ['grid', 'object-grid'],
   ])('%s: after a data-source write, the same instance refetches once', async (type, renderedType) => {

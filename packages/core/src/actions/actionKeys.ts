@@ -242,6 +242,14 @@ export const SPEC_ACTION_KEYS = [
   'disabled',
   'errorMessage',
   'execute',
+  // Added to `ActionSchema` in @objectstack/spec 17.5.0 (objectui#11073): the
+  // bulk dispatch contract the action's body is written for, in
+  // `bulkActionDefs`' own `'perRecord' | 'aggregate'` vocabulary. Listed for the
+  // reason `description` is — this array restates the spec's declared keys, so
+  // an action carrying it is not reported as having an unknown key. `ActionDef`
+  // does NOT declare it and the runner does not read it: the spec's own
+  // enforcement is `@objectstack/lint`'s authoring-time check.
+  'execution',
   'icon',
   'label',
   'locations',

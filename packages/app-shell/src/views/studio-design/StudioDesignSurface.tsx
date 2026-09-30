@@ -184,51 +184,85 @@ const PILLARS: ReadonlyArray<{ key: string; label: string; Icon: LucideIcon }> =
 //    of at the timer, under the same conditions, and says whether a save went
 //    out. A flushed snapshot counts as attempted, so the timer never sends it
 //    a second time.
+//  - objectui#11204 — a save that lands clears its dirty flag only if nothing
+//    was edited while it was in flight. The hook hands every save it sends a
+//    `DraftSend` claim on the snapshot it sent, and the caller's
+//    `set*Dirty(false)` after its await runs only while `sent.unmoved()`. An
+//    edit taken meanwhile keeps the buffer dirty, and the autosave, unblocked
+//    by the save's end, sends it next. A save the caller sends itself takes
+//    its claim from `sending(body)`.
+
+/**
+ * objectui#11204 — one draft save's claim on the buffer it sent. `unmoved()`
+ * is true while the buffer, as last committed, is still the snapshot that
+ * save sent, compared the way the autosave compares snapshots (serialised).
+ * It compares content, not an edit count: an edit undone while the save was
+ * in flight leaves the buffer as the server now holds it, and so clean.
+ */
+interface DraftSend {
+  unmoved: () => boolean;
+}
+
+function draftSnapshotKey(snapshot: unknown): string {
+  try {
+    return JSON.stringify(snapshot ?? null);
+  } catch {
+    // Unserializable draft (never the case for metadata bodies): a constant
+    // key means one auto-save per dirty period instead of per edit, and a
+    // save that lands always reads unmoved: degraded, as before.
+    return '"__unserializable__"';
+  }
+}
+
 function useDraftAutoSave(opts: {
   dirty: boolean;
   blocked: boolean;
   snapshot: unknown;
-  save: () => void | Promise<void>;
-}): () => boolean {
+  save: (sent: DraftSend) => void | Promise<void>;
+}): { flush: () => boolean; sending: (snapshot: unknown) => DraftSend } {
   const { dirty, blocked, snapshot, save } = opts;
-  const snapKey = React.useMemo(() => {
-    try {
-      return JSON.stringify(snapshot ?? null);
-    } catch {
-      // Unserializable draft (never the case for metadata bodies): a constant
-      // key means one auto-save per dirty period instead of per edit —
-      // degraded but pure (the react compiler forbids impure render calls).
-      return '"__unserializable__"';
-    }
-  }, [snapshot]);
+  // Pure (the react compiler forbids impure render calls).
+  const snapKey = React.useMemo(() => draftSnapshotKey(snapshot), [snapshot]);
   const lastAttemptRef = React.useRef<string | null>(null);
   const saveRef = React.useRef(save);
-  // What the timer below would send, as last committed, for `flush` to read.
+  // What the timer below would send, as last committed, for `flush` and for a
+  // landing save's claim to read. A layout effect, so it is current as soon as
+  // a render commits: a save that lands right after an edit reads the edit.
   const pendingRef = React.useRef({ dirty, blocked, snapKey });
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     saveRef.current = save;
     pendingRef.current = { dirty, blocked, snapKey };
+  });
+  // A state initializer, not a memo: React keeps its identity by contract, so
+  // a caller may list it, or a member of it, as an effect dependency
+  // (AGENTS.md #10).
+  const [api] = React.useState(() => {
+    const claim = (key: string): DraftSend => ({ unmoved: () => pendingRef.current.snapKey === key });
+    const send = (key: string): void => {
+      lastAttemptRef.current = key;
+      void saveRef.current(claim(key));
+    };
+    return {
+      send,
+      flush: (): boolean => {
+        const pending = pendingRef.current;
+        if (!pending.dirty || pending.blocked || lastAttemptRef.current === pending.snapKey) return false;
+        send(pending.snapKey);
+        return true;
+      },
+      sending: (sent: unknown): DraftSend => claim(draftSnapshotKey(sent)),
+    };
   });
   React.useEffect(() => {
     if (!dirty || blocked) return;
     if (lastAttemptRef.current === snapKey) return;
     const timer = setTimeout(() => {
       if (lastAttemptRef.current === snapKey) return;
-      lastAttemptRef.current = snapKey;
-      void saveRef.current();
+      api.send(snapKey);
     }, 1500);
     return () => clearTimeout(timer);
-  }, [dirty, blocked, snapKey]);
-  // A state initializer, not a memo: React keeps its identity by contract, so
-  // a caller may list it as an effect dependency (AGENTS.md #10).
-  const [flush] = React.useState(() => (): boolean => {
-    const pending = pendingRef.current;
-    if (!pending.dirty || pending.blocked || lastAttemptRef.current === pending.snapKey) return false;
-    lastAttemptRef.current = pending.snapKey;
-    void saveRef.current();
-    return true;
-  });
-  return flush;
+  }, [dirty, blocked, snapKey, api]);
+  return { flush: api.flush, sending: api.sending };
 }
 
 // objectui#5813 — Access is a low-frequency ADMIN surface, demoted from the
@@ -1653,11 +1687,6 @@ export function InterfacesPillar({
   const [editNav, setEditNav] = React.useState(false);
   const [navSel, setNavSel] = React.useState<{ kind: string; id: string } | null>(null);
   const [navDirty, setNavDirty] = React.useState(false);
-  // objectui#11189 — the nav buffer's edit generation: every nav edit bumps it,
-  // in the same update as the edit, so a save reads the generation it sends
-  // from the render whose buffer it sends. A load's install or a read-only put
-  // back is not an edit and does not bump it.
-  const [navGen, setNavGen] = React.useState(0);
 
   // App resolution status — tells "still loading" apart from "this package has
   // no app", so the canvas shows a real empty state instead of an endless
@@ -1725,14 +1754,14 @@ export function InterfacesPillar({
   React.useEffect(() => {
     onDirtyChangeRef.current?.(navDirty);
   }, [navDirty]);
-  // objectui#11189 — `navGen` and `navDirty` as last committed, for the two
-  // readers that land after an await: a nav save completing, and the app load
-  // installing what it read. The same state, read late; only this effect
-  // writes it.
-  const navCommittedRef = React.useRef({ gen: navGen, dirty: navDirty });
+  // objectui#11189 — `navDirty` as last committed, for the app load, which
+  // installs what it read after an await. The same state, read late; only this
+  // effect writes it. (A nav save completing reads the autosave's claim on the
+  // buffer it sent instead, objectui#11204.)
+  const navCommittedRef = React.useRef({ dirty: navDirty });
   React.useEffect(() => {
-    navCommittedRef.current = { gen: navGen, dirty: navDirty };
-  }, [navGen, navDirty]);
+    navCommittedRef.current = { dirty: navDirty };
+  }, [navDirty]);
   React.useEffect(
     () => () => {
       onDirtyChangeRef.current?.(false);
@@ -2092,13 +2121,14 @@ export function InterfacesPillar({
     },
     [],
   );
-  const doSave = React.useCallback(async () => {
+  const doSave = React.useCallback(async (sent: DraftSend) => {
     if (!current) return;
     setSaving('draft');
     try {
       await client.save(current.type, current.name, draft, { mode: 'draft', packageId });
       setHasDraft(true);
-      setIfDirty(false);
+      // objectui#11204 — clean only if nothing was edited while it was in flight.
+      if (sent.unmoved()) setIfDirty(false);
       onDraftSaved?.();
     } catch (e) {
       setError(formatMetadataError(e));
@@ -2116,13 +2146,10 @@ export function InterfacesPillar({
   // nav editing — patch appDraft.navigation, then save/publish the App overlay
   const onNavPatch = React.useCallback((patch: Record<string, unknown>) => {
     setAppDraft((d) => ({ ...d, ...patch }));
-    setNavGen((g) => g + 1);
     setNavDirty(true);
   }, []);
-  const doNavSave = React.useCallback(async () => {
+  const doNavSave = React.useCallback(async (sent: DraftSend) => {
     if (!appName) return;
-    // objectui#11189 — the edit generation of the buffer this save sends.
-    const sentGen = navGen;
     setNavSaving('draft');
     try {
       // "Add nav item" inserts a blank placeholder that only becomes a valid,
@@ -2141,19 +2168,20 @@ export function InterfacesPillar({
       await client.save('app', appName, saved, { mode: 'draft', packageId });
       navBaselineRef.current = saved;
       setNavHasDraft(true);
-      // Clear only the generation this save sent. An edit taken while it was
-      // in flight keeps the buffer dirty: the autosave (or a pending "Done")
-      // sends it next, and the leave guard holds until then.
-      if (navCommittedRef.current.gen === sentGen) setNavDirty(false);
+      // objectui#11189, objectui#11204 — clean only if the buffer is still what
+      // this save sent. An edit taken while it was in flight keeps the buffer
+      // dirty: the autosave (or a pending "Done") sends it next, and the leave
+      // guard holds until then.
+      if (sent.unmoved()) setNavDirty(false);
       onDraftSaved?.();
     } catch (e) {
       setError(formatMetadataError(e));
     } finally {
       setNavSaving(false);
     }
-  }, [client, appName, appDraft, navGen, onDraftSaved]);
+  }, [client, appName, appDraft, onDraftSaved]);
   // objectui#5813 — nav edits auto-save while edit mode is open.
-  const flushNavSave = useDraftAutoSave({
+  const { flush: flushNavSave } = useDraftAutoSave({
     dirty: navDirty,
     blocked: !appName || !editNav || !!navSaving || readOnly,
     snapshot: appDraft,
@@ -3290,14 +3318,15 @@ export function DataPillar({
     [objects, client, packageId, onDraftSaved, readOnly, locale, namespace],
   );
 
-  const doSave = React.useCallback(async () => {
+  const doSave = React.useCallback(async (sent: DraftSend) => {
     if (!current) return;
     setSaving('draft');
     setError(null);
     try {
       await client.save('object', current.name, objDraft, { mode: 'draft', packageId });
       setHasDraft(true);
-      setDirty(false);
+      // objectui#11204 — clean only if nothing was edited while it was in flight.
+      if (sent.unmoved()) setDirty(false);
       setSavedAt(new Date());
       // No success toast: with auto-save (objectui#5813) it would fire after
       // every editing pause — the quiet last-saved hint is the affordance.
@@ -3311,7 +3340,7 @@ export function DataPillar({
 
   // objectui#5813 — auto-save replaces the Save draft button; the blocked guard
   // is the button's old disabled-condition verbatim.
-  useDraftAutoSave({
+  const { sending: sendingObjDraft } = useDraftAutoSave({
     dirty,
     blocked: !current || !!saving || readOnly || saveBlocking > 0,
     snapshot: objDraft,
@@ -3321,6 +3350,9 @@ export function DataPillar({
   // Drag-reorder columns → reorder the object's `fields` metadata (field display
   // order follows metadata order), saved as a DRAFT. Published later via the
   // package release — NOT auto-published per reorder as it used to be.
+  // objectui#11204 — this save is sent here, not by the autosave, so it takes
+  // its claim on the buffer from the autosave's `sending`: an edit taken while
+  // it is in flight stays dirty, and the autosave sends it next.
   const doReorderFields = React.useCallback(
     async (orderedNames: string[]) => {
       if (!current) return;
@@ -3335,12 +3367,13 @@ export function DataPillar({
       const entries = view.entries.map((e) => (visible.has(e.name) ? visibleInOrder[vi++] : e));
       const body = { ...objDraft, fields: writeFields({ ...view, entries }) };
       setObjDraft(body);
+      const sent = sendingObjDraft(body);
       setSaving('draft');
       setError(null);
       try {
         await client.save('object', current.name, body, { mode: 'draft', packageId });
         setHasDraft(true);
-        setDirty(false);
+        if (sent.unmoved()) setDirty(false);
         onDraftSaved?.();
         setGridVer((v) => v + 1); // remount so the grid reflects the new (draft) order
       } catch (e) {
@@ -3349,7 +3382,7 @@ export function DataPillar({
         setSaving(false);
       }
     },
-    [client, current, objDraft, onDraftSaved],
+    [client, current, objDraft, onDraftSaved, sendingObjDraft],
   );
 
   const inspector = getMetadataInspector('object');
@@ -4207,14 +4240,15 @@ export function AutomationsPillar({
     },
     [],
   );
-  const doSave = React.useCallback(async () => {
+  const doSave = React.useCallback(async (sent: DraftSend) => {
     if (!current) return;
     setSaving('draft');
     setError(null);
     try {
       await client.save('flow', current.name, draft, { mode: 'draft', packageId });
       setHasDraft(true);
-      setAutoDirty(false);
+      // objectui#11204 — clean only if nothing was edited while it was in flight.
+      if (sent.unmoved()) setAutoDirty(false);
       onDraftSaved?.();
     } catch (e) {
       setError(formatMetadataError(e));

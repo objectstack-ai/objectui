@@ -16,6 +16,7 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import {
   ActionRunner,
+  subjectPermissionsOf,
   type ActionContext as ActionCtx,
   type ActionDef,
   type ActionResult,
@@ -27,6 +28,7 @@ import {
   type ResultDialogHandler,
 } from '@object-ui/core';
 import { useActionRunnerTranslator } from './actionRunnerTranslator.js';
+import { usePredicateScope } from '../hooks/useExpression.js';
 
 export interface ActionProviderProps {
   children: React.ReactNode;
@@ -129,6 +131,40 @@ export const ActionProvider: React.FC<ActionProviderProps> = ({
     return r;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(context)]);
+
+  // The acting subject the surrounding predicate scope binds as `current_user`
+  // (objectui#11242): the ONE object `ExpressionProvider` publishes under
+  // `current_user` / `user` / `ctx.user` / `os.user`, carrying the caller's
+  // effective object permissions once they have loaded. The runner evaluates
+  // its own gates — `execute`'s `disabled` re-check, `params[].visible`, the
+  // engine's `visible` filter — against ITS bag, which a host seeds with its
+  // own `user` and never with `current_user`. Bound here, every `execute` gate
+  // under this provider answers `current_user.can(…)` and every other
+  // `current_user.*` predicate, whatever else the page mounts. Before, only
+  // `useActionEngine` wrote it onto a shared runner, so the answer depended on
+  // whether the page happened to mount `record:quick_actions`, `record:alert`
+  // or a dashboard (the objectui#6493 "one bag" rule, broken per page).
+  //
+  // The same object, not a copy: the engine answers `can` only for a receiver
+  // IDENTICAL to the bound `current_user`. Only `current_user` is added — the
+  // runner's `user` / `ctx.user` / `os.user` stay the host's object, which
+  // carries the `systemPermissions` the capability gate reads — so on this bag
+  // `user.can(…)` still faults while `current_user.can(…)` answers. With no
+  // scope above this provider (`{}`) nothing is bound, and a host's own
+  // `context.current_user`, if it passed one, is left as it is.
+  //
+  // Bound during render, before any child renders or executes, and keyed on
+  // what the binding READS, never on the subject's identity (a memoised value
+  // upstream — AGENTS.md #10): its serialisable fields, and the permissions map
+  // it carries, which the upstream adapter caches per payload outside React. A
+  // new runner (the host `context` changed) is bound again.
+  const subject = usePredicateScope().current_user as Record<string, unknown> | undefined;
+  const subjectKey = subject === undefined ? '' : JSON.stringify(subject);
+  const subjectPermissions = subjectPermissionsOf(subject);
+  useMemo(() => {
+    if (subject !== undefined) runner.updateContext({ current_user: subject } as Partial<ActionCtx>);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runner, subjectKey, subjectPermissions]);
 
   const execute = useCallback(
     async (action: ActionDef): Promise<ActionResult> => {

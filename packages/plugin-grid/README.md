@@ -532,10 +532,13 @@ error naming `queryGroupHeaders` instead, and asks for no rows. A `ListView`
 makes the same refusal before it mounts such a grid. To group, implement
 `queryGroupHeaders` on the data source, or hand the rows in whole.
 
-A toolbar **search** has no counterpart on the group header query, so a
-`ListView` over a data source that answers it keeps grouping its own window
-while a search term is active: those group counts are the window's, not the
-query's (objectstack#20358).
+A **search** term the grid queries with goes on the group header query and on
+every group's row query, as one pair (`search` / `searchFields`, which the
+header query declares beside `where`): the headers count the
+searched rows, and the rows under them are those rows (objectui#11021). A
+`ListView` does not hand its toolbar search to the grid: over a data source
+that answers the header query it keeps grouping its own window while a search
+term is active, so those group counts are the window's, not the query's.
 
 ## Integration with Data Sources
 

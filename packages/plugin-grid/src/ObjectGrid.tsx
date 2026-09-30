@@ -66,7 +66,7 @@ import {
 import { ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, Download, Rows2, Rows3, Rows4, AlignJustify, Type, Hash, Calendar, CheckSquare, User, Tag, Clock, Loader2 } from 'lucide-react';
 import { useRowColor } from './useRowColor';
 import { useGroupedData, usableGroupingFields, type ServerGroupSource } from './useGroupedData';
-import { useServerGroupHeaders, useServerGroupRows, type ServerGroupLeaf } from './useServerGrouping';
+import { groupSearchOf, useServerGroupHeaders, useServerGroupRows, type ServerGroupLeaf } from './useServerGrouping';
 import { GroupRow } from './GroupRow';
 import { useColumnSummary } from './useColumnSummary';
 import { resolveRowCrudAffordances, resolveRowRecordCrudAffordance } from './rowCrudAffordances';
@@ -2942,6 +2942,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     objectName,
     fields: serverGroupingFields,
     where: groupWhere.where,
+    // [objectui#11021] The search term, off the same resolved query every
+    // group's row page is asked with: one pair on both queries.
+    ...groupSearchOf(groupRowQuery),
     aggregations: schema.aggregations,
     objectFields,
     reloadKey: groupReloadKey,

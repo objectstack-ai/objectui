@@ -37,3 +37,14 @@ the intended accept set is an open decision on objectui#7650, untouched here.
 Landed with the width pin objectui#8938 asked for, which drives every snake twin the
 linked `@objectstack/spec` implies through the public choke point, and with the correction
 to the objectui#7650 changeset that presented a handful of keys as the accepted set.
+
+**Correction, 2026-09-30 (objectui#7650).** Two sentences above claim more than holds. "A key
+that does not reaches none of them" is true only of the consumers narrowed to the canonical
+spelling: some reads of a retired spelling were kept on purpose, so a value the choke point
+leaves alone can still reach a reader — `resolveActionParam` in `@object-ui/app-shell` reads
+`id_field` and `title_format` (kept by objectui#7435), and `resolveGroupByLabels` in
+`@object-ui/plugin-charts` reads `id_field`. Likewise, "the retired value is inert" holds only
+for consumers of the declared spelling (`deriveColumns` in `@object-ui/plugin-form` reads
+`display_field`). The diagnostic line now claims only what holds for every refusal: a consumer
+that reads only the spellings `FieldSchema` declares will not see the value. No read changes,
+and nothing about which keys fold changes.

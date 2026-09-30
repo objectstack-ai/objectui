@@ -261,7 +261,10 @@ describe('objectui#8990 — `groupBy` requiredness IS overturned; the record-sou
     // `objectName` upstream of the node), so this document has no record source
     // — and it is STILL refused for that, which is the record-source rule doing
     // its job. What changed is that `groupBy` is no longer among the reasons.
-    const fragment = { type: 'object-kanban', dataSource: { object: 'task', filter: { project: 'acme' } } };
+    const fragment = {
+      type: 'object-kanban',
+      dataSource: { object: 'task', filter: [{ field: 'project', operator: 'equals', value: 'acme' }] },
+    };
     const f = ObjectKanbanSchema.safeParse(fragment);
     expect(f.success).toBe(false);
     if (!f.success) {

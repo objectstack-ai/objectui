@@ -143,10 +143,7 @@ A complete form with validation, driven entirely by schema:
       "label": "Email",
       "required": true,
       "placeholder": "jane@example.com",
-      "validation": {
-        "pattern": "^[^@]+@[^@]+\\.[^@]+$",
-        "message": "Enter a valid email address"
-      }
+      "pattern": "^[^@]+@[^@]+\\.[^@]+$"
     },
     {
       "name": "role",

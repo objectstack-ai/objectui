@@ -39,6 +39,43 @@ export function addNavigationItem(
 }
 
 /**
+ * The navigation entry written when a page is added to an app's navigation.
+ *
+ * With no author label it carries NO `label` key (objectui#9868): an absent
+ * label is `@objectstack/spec` 17.5.0's "resolve at render time", so nothing is
+ * frozen into the app's metadata the way `label || pageName` used to freeze the
+ * machine name. (The ruling names label inheritance for views, objects and
+ * dashboards; a label-less page entry renders its `pageName` —
+ * `resolveNavItemLabel` in `@object-ui/layout`.) An author label is still
+ * written, and renders verbatim. ⛔ Never `''` — that is a present label.
+ */
+export function newPageNavigationItem(pageName: string, label?: string): NavigationItem {
+  return {
+    id: generateNavId('nav_page'),
+    type: 'page',
+    ...(label ? { label } : {}),
+    pageName,
+    icon: 'FileText',
+  };
+}
+
+/**
+ * The navigation entry written when a dashboard is added to an app's
+ * navigation — the same rule as {@link newPageNavigationItem}: no author label,
+ * no `label` key, so the entry shows the dashboard's CURRENT label at render
+ * time (objectui#9868) instead of a stored copy of `dashboardName`.
+ */
+export function newDashboardNavigationItem(dashboardName: string, label?: string): NavigationItem {
+  return {
+    id: generateNavId('nav_dash'),
+    type: 'dashboard',
+    ...(label ? { label } : {}),
+    dashboardName,
+    icon: 'LayoutDashboard',
+  };
+}
+
+/**
  * Recursively remove all navigation items that match a given type and name.
  * Returns a new array (immutable).
  */
@@ -237,13 +274,7 @@ export function useNavigationSync(): UseNavigationSyncReturn {
       if (!app) return;
 
       const prev = app.navigation ?? [];
-      const newItem: NavigationItem = {
-        id: generateNavId('nav_page'),
-        type: 'page',
-        label: label || pageName,
-        pageName,
-        icon: 'FileText',
-      };
+      const newItem = newPageNavigationItem(pageName, label);
       const updated = addNavigationItem(prev, newItem);
       const updatedApp: AppComponentSchema = { ...app, navigation: updated };
 
@@ -275,13 +306,7 @@ export function useNavigationSync(): UseNavigationSyncReturn {
       if (!app) return;
 
       const prev = app.navigation ?? [];
-      const newItem: NavigationItem = {
-        id: generateNavId('nav_dash'),
-        type: 'dashboard',
-        label: label || dashboardName,
-        dashboardName,
-        icon: 'LayoutDashboard',
-      };
+      const newItem = newDashboardNavigationItem(dashboardName, label);
       const updated = addNavigationItem(prev, newItem);
       const updatedApp: AppComponentSchema = { ...app, navigation: updated };
 

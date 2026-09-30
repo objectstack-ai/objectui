@@ -8,7 +8,7 @@
       "label": "Assigned To",
       "type": "lookup",
       "placeholder": "Select user...",
-      "reference_to": "users",
+      "reference": "users",
       "options": [
         {
           "label": "John Doe",

@@ -221,11 +221,15 @@ export const ADJUDICATED = new Map([
   // Usage" block and runs it through `objectui validate` end to end -- so an edit
   // to that README IS an edit to this test's input. The scanner also resolves the
   // bare `'README.md'` segment of that path against this package and the root;
-  // an `fs` trace of the file's run opened the plugin-ai README and nothing else.
+  // an `fs` trace of the file's run at objectui#10859 opened the plugin-ai README
+  // and nothing else. objectui#10872 batch 4 added the second read (its
+  // `QUICK_START` path): the first json fence under the quick-start's
+  // "### Add Actions" heading -- the taught `action:button` node -- which the
+  // page pin runs through `objectui validate` beside a `page:header`.
   [
     'packages/cli/src/__tests__/registered-types-validate-ratchet-10859.test.ts',
     {
-      reads: ['packages/plugin-ai/README.md'],
+      reads: ['packages/plugin-ai/README.md', 'content/docs/guide/quick-start.md'],
       notRead: ['README.md', 'packages/cli/README.md'],
     },
   ],
@@ -467,6 +471,13 @@ export const ADJUDICATED = new Map([
   [
     'packages/types/src/__tests__/filter-builder-mirror-6939.test.ts',
     { reads: ['content/docs/components/complex/filter-builder.mdx'] },
+  ],
+  // objectui#10872 batch 4. `taughtActionButton()` extracts the first json fence
+  // under the quick-start's "### Add Actions" heading -- the taught
+  // `action:button` node -- and judges it on both zod faces, in a page and alone.
+  [
+    'packages/types/src/__tests__/held-public-block-arms-10872.test.ts',
+    { reads: ['content/docs/guide/quick-start.md'] },
   ],
   [
     'packages/types/src/__tests__/object-calendar-record-source-7313.test.ts',

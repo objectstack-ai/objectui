@@ -140,12 +140,14 @@ function codeList(keys: readonly string[]): string {
 const NavigationItemObject = z.object({
   // Declared optional so a bare `{ type: 'separator' }` — which the spec
   // accepts, and which carries no identity or text by definition — validates
-  // here too (objectstack#4115). Every OTHER type still requires both; that is
+  // here too (objectstack#4115). Every OTHER type still requires `id`; that is
   // re-imposed by the refinement below rather than by the field declarations,
   // because this is one flat shape and not the spec's discriminated union.
+  // `label` is optional for every type since objectui#9868 (inherited when
+  // absent); the refinement refuses only an EMPTY one.
   id: z.string().optional().describe('Unique identifier'),
   type: NavigationItemTypeSchema.describe('Navigation item type'),
-  label: z.string().optional().describe('Display label'),
+  label: z.string().optional().describe("Display label. Optional: absent ⇒ the entry inherits its target's current label at render time (view, else object / dashboard, else the target's machine name); present ⇒ rendered verbatim. Never an empty string"),
   icon: z.string().optional().describe('Icon name (Lucide)'),
 
   // Type-specific target fields
@@ -199,7 +201,9 @@ const NavigationItemObject = z.object({
   // Identity and text are required for every real destination; only the
   // separator — a rule, not an entry — is exempt. Declaring the fields
   // optional above is what lets `{ type: 'separator' }` through, so without
-  // this an id-less `type: 'object'` item would validate too.
+  // this an id-less `type: 'object'` item would validate too. Since
+  // objectui#9868 the TEXT half is met by inheritance when `label` is absent
+  // (see below); identity is still required here.
   //
   // The separator carries exactly what the spec's separator declares
   // (objectui#10867). This shape is flat, so it declares `label`, `icon` and
@@ -218,14 +222,33 @@ const NavigationItemObject = z.object({
     }
     return;
   }
-  for (const key of ['id', 'label'] as const) {
-    if (typeof item[key] !== 'string' || item[key] === '') {
-      ctx.addIssue({
-        code: 'custom',
-        path: [key],
-        message: `\`${key}\` is required for navigation items of type '${item.type}'`,
-      });
-    }
+  // Identity is required; TEXT may be inherited (objectui#9868, the cloud#2021
+  // letter-A ruling, matching `@objectstack/spec` 17.5.0, whose shared nav-item
+  // base declares `label` optional for every entry type). An ABSENT `label`
+  // means "inherit the target's current label at render time" —
+  // `resolveNavItemLabel` in `@object-ui/layout` resolves it; this validator
+  // fills nothing in, so the parsed item keeps no `label` key. The rule above
+  // still holds: identity is the target, text is inherited.
+  if (typeof item.id !== 'string' || item.id === '') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['id'],
+      message: `\`id\` is required for navigation items of type '${item.type}'`,
+    });
+  }
+  // A PRESENT empty label is not "no label": it renders verbatim, i.e. as
+  // empty text, and silently opts the entry out of inheritance. Refused here as
+  // it was while `label` was required. ⚠️ A divergence from the spec, stated:
+  // the spec's base accepts `''`, so the platform's save door does not catch
+  // it — this mirror (what `objectui validate` answers) is where it is caught.
+  if (item.label === '') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['label'],
+      message:
+        `\`label\` is empty on a navigation item of type '${item.type}': omit the key to inherit ` +
+        "the target's label at render time, or write the text to show",
+    });
   }
 
   // The spec's OWN target-exclusivity rule, CHAINED rather than restated

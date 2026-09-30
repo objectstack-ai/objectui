@@ -18,10 +18,19 @@
  * `centerTab.ts` live beside it.
  */
 
+import type { I18nLabel } from '@objectstack/spec/ui';
+import { navItemLabelText } from '../metadata-admin/previews/navItemLabel.js';
+
 /** One rail entry / canvas target. */
 export interface Surface {
   type: string;
   name: string;
+  /**
+   * The nav item's label as display text, resolved ONCE by `resolveSurface`
+   * in the designer locale (objectui#11158). Every reader of a Surface (the
+   * rail, the canvas caption, the breadcrumb, the copilot chip) prints this
+   * string; none of them sees the authored label. `''` when the item has none.
+   */
   label: string;
   /** Lucide icon name from the object's metadata (`icon` field); falls back per getIcon. */
   icon?: string;
@@ -29,7 +38,13 @@ export interface Surface {
 
 export interface NavNode {
   id?: string;
-  label?: string;
+  /**
+   * The spec's `I18nLabel`: a plain string or an inline locale map. Typed as
+   * the spec types it so the compiler refuses rendering it raw, which is how a
+   * map crashed the rail (objectui#11158). Read it only through
+   * `navItemLabelText`, the one helper the Studio's nav readers share.
+   */
+  label?: I18nLabel;
   type?: string;
   icon?: string;
   children?: NavNode[];
@@ -72,9 +87,13 @@ export interface NavNode {
  * open"), not a navigation type. Measured on spec 17.0.0, `type: 'view'` fails
  * the discriminator outright (`invalid_union` at `type`), so such a leaf can
  * never reach a saved app and had no reachable branch to resolve.
+ *
+ * The label is resolved here, once, in `locale` (the designer locale), so the
+ * Surface carries display text and its callers cannot disagree about it
+ * (objectui#11158). The binding itself never reads the label or the locale.
  */
-export function resolveSurface(node: NavNode): Surface | null {
-  const label = String(node.label ?? '');
+export function resolveSurface(node: NavNode, locale: string): Surface | null {
+  const label = navItemLabelText(node.label, locale);
   switch (node.type) {
     case 'page':
       return node.pageName ? { type: 'page', name: String(node.pageName), label } : null;
@@ -109,15 +128,20 @@ export function resolveSurface(node: NavNode): Surface | null {
  * Walk the nav tree for the leaf that binds to `{type,name}`, returning its
  * resolved Surface (carrying the node's label so the canvas title / highlight
  * match). Backs the `?surface=` deep-link restore — a shared URL only names
- * the target, so we re-derive the label from the live tree.
+ * the target, so we re-derive the label from the live tree. The match is on
+ * `{type,name}` alone: `locale` only resolves the label of the leaf found.
  */
-export function findSurfaceInTree(nodes: NavNode[], target: { type: string; name: string }): Surface | null {
+export function findSurfaceInTree(
+  nodes: NavNode[],
+  target: { type: string; name: string },
+  locale: string,
+): Surface | null {
   for (const node of nodes) {
     if (node.type === 'group' || node.children?.length) {
-      const hit = findSurfaceInTree(node.children ?? [], target);
+      const hit = findSurfaceInTree(node.children ?? [], target, locale);
       if (hit) return hit;
     } else {
-      const s = resolveSurface(node);
+      const s = resolveSurface(node, locale);
       if (s && s.type === target.type && s.name === target.name) return s;
     }
   }

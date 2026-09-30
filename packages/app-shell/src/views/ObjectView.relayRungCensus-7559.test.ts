@@ -475,6 +475,7 @@ const ABSENCES: Record<string, Absence> = {
   performance: { kind: 'unread', reason: 'Imported from the spec by reference; no objectui renderer reads it.' },
   pageName: { kind: 'unread', reason: 'Page-context key with no reader on the list path.' },
   tabs: { kind: 'unread', reason: "Spec view-tab list. ListView has no reader — the object page's tab bar is `ViewTabBar`, driven by `buildViewTabs`, and the `tabs` readers in the tree belong to `plugin-detail`'s DetailView." },
+  dataSource: { kind: 'unread', reason: "The spec's per-element binding (declared on the list-view arm by objectui#11070). `ListView` has no read of `schema.dataSource`: the binding is resolved one layer up, by the registered `list-view` renderer `ListViewBlock` through `ElementDataSourceGate`, and `renderListView` bypasses that layer. It renders `ListView` directly with `schema={fullSchema}` and takes the ADAPTER as its separate `dataSource` argument (`ds`), not off the node." },
 
   // ── Authored on the NODE, resolved by the host ────────────────────────────
   operations: { kind: 'node-authored', reason: "Legacy CRUD affordance authored on the object-view node (`examples/.../object-view-record-surface.json`), not on a view record; the host resolves it upstream (`schema.operations || schema.table?.operations || …`). ListView does read `schema.operations?.export`, but what would feed it here is the NODE's value, and forwarding it is the caller's composition to make — objectui#5097's surface, not a per-view rung." },

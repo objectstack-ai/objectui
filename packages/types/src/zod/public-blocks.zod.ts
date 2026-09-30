@@ -13,8 +13,10 @@
  * vocabulary `PUBLIC_BLOCKS` in `@object-ui/core`
  * (`packages/core/src/registry/public-blocks.ts`) — whose props
  * `@objectstack/spec` declares as a `ComponentPropsMap` row: the `page:`
- * structure blocks, the `record:` blocks that carry a row, and `element:text`,
- * `element:number`, `element:button` and `element:divider`.
+ * structure blocks, the `record:` blocks that carry a row, `element:text`,
+ * `element:number`, `element:button`, `element:divider`,
+ * `element:definition-list` and `element:repeater`, and the four `action:`
+ * controls (`action:button`, `action:icon`, `action:group`, `action:menu`).
  *
  * ## Why this module exists (objectui#10872)
  *
@@ -39,16 +41,18 @@
  * the spec changes changes the arm the same day. No member is restated here,
  * so none can drift — except the one row the spec does not export by name
  * (`element:divider`, below). The node-level members an arm adds are three
- * kinds: an `on*` key a renderer reads off the node (`page:tabs`'s
- * `onTabChange`), refused by name with `handlerKeyRefusal` as
- * `check:handler-key-reads` requires of every such read; `element:number`'s
- * `dataSource`, the spec's own binding schema by reference (below); and the
- * content-channel refusals (next section) — the tombstones, and
- * `record:alert`'s flat-`body` alias refusal.
+ * kinds: an `on*` key a renderer reads off the node, declared as
+ * `check:handler-key-reads` requires of every such read — refused by name with
+ * `handlerKeyRefusal` where it is a runtime slot (`page:tabs`'s `onTabChange`,
+ * the `action:button` / `action:icon` `onClick`), or refused with an alias
+ * refusal naming its bag member where the row declares it (the same two
+ * blocks' `onSuccess`, below); `element:number`'s `dataSource`, the spec's own
+ * binding schema by reference (below); and the content-channel refusals (next
+ * section) — the tombstones, and `record:alert`'s flat-`body` alias refusal.
  *
  * ## The content channels (objectui#9256)
  *
- * Every block armed here except the four `page:` containers (`page:card`,
+ * Every block here except the four `page:` containers (`page:card`,
  * `page:section`, `page:footer`, `page:sidebar`, which render the node's child
  * list) reads NEITHER content channel: no read of the node's `children` or
  * `body` reaches the renderer, and `SchemaRenderer` strips both out of the
@@ -57,6 +61,20 @@
  * already refuses `body` (objectui#6771), but its message names `children` as
  * the remedy, which these blocks do not read either. Both stay MEMBERS
  * (`retirementTombstone`), so the refusal sits at the key's own path.
+ *
+ * The six arms objectui#10872 batch 4 added (the four `action:` controls,
+ * `element:definition-list`, `element:repeater`) had no arm when
+ * objectui#9256 measured, so objectui#10872 batch 5 took the same measurement
+ * for them — the TypeScript type checker over the `@object-ui/components`
+ * program, where all six register, on a built tree — and took it again at
+ * runtime, through the real `SchemaRenderer` and registry. Both readings were
+ * taken once, are recorded on objectui#10872, and nothing here re-derives
+ * them. They carry the same two refusals, built by the same two helpers.
+ * `@objectstack/spec`'s own `PageComponentSchema` refuses a node-level
+ * `children` on each of the six as an unrecognized key, so these refusals
+ * align this face with the spec rather than add a rule of objectui's own;
+ * `../__tests__/held-block-content-channels-10872.test.ts` re-reads that
+ * verdict from the installed spec.
  *
  * Two carve-outs, each stated on its arm: `page:tabs` and `page:accordion`
  * render the `children` of each ITEM in their `items` bag member, which is
@@ -87,10 +105,14 @@
  * tombstones; on `record:alert`, by its alias refusal naming `properties.body`;
  * and on the four containers, by the base's objectui#6771 retirement, whose
  * `children` remedy they do render. Whether the flat spelling is ALSO an authoring channel for
- * the `page:` / `record:` families (their renderers read the hoisted node
+ * the `page:` / `record:` / `action:` families (their renderers read the hoisted node
  * keys) is left open on objectui#10872 rather than decided by this module —
  * declaring it later is additive, and it must never extend to `element:*`,
- * whose renderers do not read a flat key at all.
+ * whose renderers do not read a flat key at all. ⚠️ For `action:button` it is
+ * the TAUGHT spelling: AGENTS.md #4 and the guides write `label`, `actionType`
+ * and `target` flat on the node, which the tolerant face passes (`label` judged
+ * by the base, the other two unjudged) and the strict face refuses, as the
+ * spec's own `PageComponentSchema` does.
  *
  * `properties` is optional on every arm, as it is on `PageComponentSchema`:
  * the spec's own props gate (`validateComponentProps`, `@objectstack/lint`)
@@ -122,12 +144,16 @@
  *   - `record:line_items` — the spec carries no row, on purpose: its
  *     `STRING_ARM_REGISTERED_TYPES` ledger records the row as still to be
  *     measured from the renderer's read points.
- *   - `element:definition-list`, `element:repeater` — the spec's `element:`
- *     namespace is a closed vocabulary at author time and does not declare
- *     either type.
- *   - `action:button`, `action:group`, `action:menu`, `action:icon` — no spec
- *     row yet; one is being measured from the renderers' read points upstream
- *     (objectstack-ai/objectstack#20371).
+ *
+ * The six held until `@objectstack/spec` 17.5.0 — `action:button`,
+ * `action:group`, `action:menu`, `action:icon`, `element:definition-list` and
+ * `element:repeater` — are armed below (objectui#10872 batch 4), from the rows
+ * objectstack-ai/objectstack#20371 measured at the renderers' read points.
+ * Those rows follow the READS, not the registrations: a key a registration
+ * publishes and no renderer reads is refused by the row, and so by the arm.
+ * Where a registration's `inputs` and its row disagree, the difference is
+ * booked and re-derived by `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`,
+ * not restated here.
  *
  * ⛔ No `.default()` anywhere in this module — see the "authors no default"
  * note in `index.zod.ts`.
@@ -157,6 +183,12 @@ import {
   ElementNumberPropsSchema as SpecElementNumberPropsSchema,
   ElementButtonPropsSchema as SpecElementButtonPropsSchema,
   ElementDataSourceSchema as SpecElementDataSourceSchema,
+  ElementDefinitionListPropsSchema as SpecElementDefinitionListPropsSchema,
+  ElementRepeaterPropsSchema as SpecElementRepeaterPropsSchema,
+  ActionButtonPropsSchema as SpecActionButtonPropsSchema,
+  ActionIconPropsSchema as SpecActionIconPropsSchema,
+  ActionGroupPropsSchema as SpecActionGroupPropsSchema,
+  ActionMenuPropsSchema as SpecActionMenuPropsSchema,
 } from '@objectstack/spec/ui';
 import { BaseSchema } from './base.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
@@ -695,6 +727,227 @@ export const ElementDividerBlockSchema = BaseSchema.extend({
   children: retirementTombstone(ELEMENT_DIVIDER_NEITHER_CHANNEL),
 });
 
+/** objectui#10872 batch 5 (the objectui#9256 method): ONE refusal string for both content channels of `element:definition-list`. */
+const ELEMENT_DEFINITION_LIST_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'element:definition-list',
+  'its registration (`element:definition-list`, `@object-ui/components`) hands the node to '
+    + '`DefinitionListRenderer`, an `any`-typed renderer that reads the props bag (`readProps`) and `className` '
+    + 'and nothing else off the node',
+  'one term / description pair per `properties.items` entry (`{ term, description }`), in one or two '
+    + '`columns`',
+);
+
+/**
+ * `element:definition-list` — `ComponentPropsMap['element:definition-list']`
+ * (objectui#10872 batch 4).
+ *
+ * Its renderer reads the props bag only (`readProps`), so the row is the whole
+ * of what an author configures. The row was measured at those reads: `columns`
+ * is the NUMBER the renderer compares against, so a string `'2'` is refused
+ * with the row's own prescription, and each item is a strict `{ term,
+ * description }`, so the `label` / `value` items the designer once wrote
+ * (objectui#8279) are refused by name rather than rendered blank.
+ *
+ * Its content is `properties.items`; the node's own `children` and `body` are
+ * refused (objectui#10872 batch 5, the objectui#9256 method).
+ */
+export const ElementDefinitionListBlockSchema = BaseSchema.extend({
+  type: z.literal('element:definition-list'),
+  properties: propsBag('element:definition-list', stripImportedDefaults(SpecElementDefinitionListPropsSchema)),
+  // objectui#10872 batch 5: the renderer reads NEITHER content channel, so both are refused by name,
+  // each kept a MEMBER (see "The content channels" above).
+  body: retirementTombstone(ELEMENT_DEFINITION_LIST_NEITHER_CHANNEL),
+  children: retirementTombstone(ELEMENT_DEFINITION_LIST_NEITHER_CHANNEL),
+});
+
+/** objectui#10872 batch 5 (the objectui#9256 method): ONE refusal string for both content channels of `element:repeater`. */
+const ELEMENT_REPEATER_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'element:repeater',
+  'its registration (`element:repeater`, `@object-ui/components`) hands the node to `RepeaterRenderer`, an '
+    + '`any`-typed renderer that reads the props bag (`readProps`) and `className` and nothing else off the node',
+  'one line per record of `properties.object` that its query returns, printing that record\'s '
+    + '`titleField` and `fields` values. It has NO content channel: no per-row template and no child slot',
+);
+
+/**
+ * `element:repeater` — `ComponentPropsMap['element:repeater']` (objectui#10872
+ * batch 4).
+ *
+ * Its renderer reads the props bag only (`readProps`), and never the node's
+ * `dataSource` binding, so the row's query keys are the only way to aim it. The
+ * row requires `object`, as `element:number`'s does, but with NO waiver: a
+ * repeater with no `object` never queries, so a bag without one is refused at
+ * `properties.object`. A `fields` entry is a bare name or a strict `{ field }`;
+ * a `label` there is refused by name, because the list has no header row to
+ * print it in.
+ *
+ * It has no content channel at all — each row prints fields of the queried
+ * record, and nothing an author writes is placed inside a row — so the node's
+ * own `children` and `body` are refused, and the message names no channel to
+ * move them to (objectui#10872 batch 5, the objectui#9256 method).
+ */
+export const ElementRepeaterBlockSchema = BaseSchema.extend({
+  type: z.literal('element:repeater'),
+  properties: propsBag('element:repeater', stripImportedDefaults(SpecElementRepeaterPropsSchema)),
+  // objectui#10872 batch 5: the renderer reads NEITHER content channel, so both are refused by name,
+  // each kept a MEMBER (see "The content channels" above).
+  body: retirementTombstone(ELEMENT_REPEATER_NEITHER_CHANNEL),
+  children: retirementTombstone(ELEMENT_REPEATER_NEITHER_CHANNEL),
+});
+
+/* ── action: — action controls ──────────────────────────────────────────── */
+
+/**
+ * The refusal of a flat `onSuccess` on `action:button`, and its reason. ONE
+ * string per block, as the tombstones above keep theirs.
+ */
+const ACTION_BUTTON_FLAT_ON_SUCCESS =
+  'An `action:button`\'s post-success block (`{ navigate, openIn }`) is the `onSuccess` member of its '
+  + '`properties` bag, where `@objectstack/spec`\'s `ComponentPropsMap[\'action:button\']` row declares it: write '
+  + '`{ "type": "action:button", "properties": { "onSuccess": { "navigate": "…" } } }` (objectui#10872). '
+  + 'The spec\'s own page component refuses the key on the node as mis-layered.';
+
+/** The same refusal, for `action:icon`. */
+const ACTION_ICON_FLAT_ON_SUCCESS =
+  'An `action:icon`\'s post-success block (`{ navigate, openIn }`) is the `onSuccess` member of its '
+  + '`properties` bag, where `@objectstack/spec`\'s `ComponentPropsMap[\'action:icon\']` row declares it: write '
+  + '`{ "type": "action:icon", "properties": { "onSuccess": { "navigate": "…" } } }` (objectui#10872). '
+  + 'The spec\'s own page component refuses the key on the node as mis-layered.';
+
+/** objectui#10872 batch 5 (the objectui#9256 method): ONE refusal string for both content channels of `action:button`. */
+const ACTION_BUTTON_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'action:button',
+  'its registration (`action:button`, `@object-ui/components`) hands the node to `ActionButtonRenderer`, which '
+    + 'reads the action keys `SchemaRenderer` hoists onto the node from the `properties` bag (`label`, `icon`, '
+    + '`actionType`, `target`, …)',
+  'one button labelled `properties.label`, with `properties.icon`, that runs the action '
+    + '`properties.actionType` names. It has no child slot: its label and icon are its whole content',
+);
+
+/**
+ * `action:button` — `ComponentPropsMap['action:button']` (objectui#10872 batch
+ * 4), plus the two handler keys its renderer reads off the node, plus the
+ * content-channel refusals (objectui#10872 batch 5, the objectui#9256 method):
+ * the button's content is its `label` and `icon`, and the node's own
+ * `children` and `body` are refused.
+ *
+ * The row is the spec's page-node declaration of the button, measured at the
+ * renderer's reads (objectstack-ai/objectstack#20371) — ⛔ not the spec's
+ * object-metadata `Action` declaration, which requires `name`. The renderer
+ * reads `name ?? label`, so `name` is optional here, as it is read, and
+ * AGENTS.md #4's taught node, which carries none, is not refused for lacking
+ * one.
+ *
+ * The renderer reads `schema.X` — the node with its `properties` hoisted onto
+ * it by `SchemaRenderer` — so it also reads two `on*` keys there, and
+ * `check:handler-key-reads` requires each to be a declared member:
+ *
+ *   - `onClick` is a RUNTIME SLOT (objectui#6124): the renderer calls it only
+ *     when it is a function, which reaches it from a code-composed schema (an
+ *     `action:bar` member spread onto the node), never from JSON. Refused by
+ *     name, as `ButtonSchema.onClick` is. The row does not declare it either.
+ *   - `onSuccess` is DATA, the spec's post-success `{ navigate, openIn }` block,
+ *     and the row declares it in the bag. On the node it is the flat spelling
+ *     of that member — the case `aliasKeyRefusal` exists for, as `record:alert`'s
+ *     flat `body` is — so it is refused with a message naming
+ *     `properties.onSuccess`. The strict face and the spec's own
+ *     `PageComponentSchema` refuse it there as well.
+ */
+export const ActionButtonBlockSchema = BaseSchema.extend({
+  type: z.literal('action:button'),
+  properties: propsBag('action:button', stripImportedDefaults(SpecActionButtonPropsSchema)),
+  onClick: handlerKeyRefusal('onClick', 'runtime-slot', 'Click handler'),
+  onSuccess: aliasKeyRefusal('onSuccess', 'properties.onSuccess', 'this `action:button` node', ACTION_BUTTON_FLAT_ON_SUCCESS),
+  // objectui#10872 batch 5: the renderer reads NEITHER content channel, so both are refused by name,
+  // each kept a MEMBER (see "The content channels" above).
+  body: retirementTombstone(ACTION_BUTTON_NEITHER_CHANNEL),
+  children: retirementTombstone(ACTION_BUTTON_NEITHER_CHANNEL),
+});
+
+/** objectui#10872 batch 5 (the objectui#9256 method): ONE refusal string for both content channels of `action:icon`. */
+const ACTION_ICON_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'action:icon',
+  'its registration (`action:icon`, `@object-ui/components`) hands the node to `ActionIconRenderer`, which '
+    + 'reads the action keys `SchemaRenderer` hoists onto the node from the `properties` bag (`icon`, `label`, '
+    + '`actionType`, `target`, …)',
+  'one icon button showing `properties.icon`, named and tooltipped by `properties.label`, that runs the '
+    + 'action `properties.actionType` names. It has no child slot: its icon and label are its whole content',
+);
+
+/**
+ * `action:icon` — `ComponentPropsMap['action:icon']` (objectui#10872 batch 4),
+ * plus the same two handler keys as `action:button`, read the same way by its
+ * renderer. Its own row, measured separately: it declares no `size`, and
+ * forwards neither `undoable` nor `recordIdField`. Its content is its `icon`
+ * and `label`; the node's own `children` and `body` are refused (objectui#10872
+ * batch 5, the objectui#9256 method).
+ */
+export const ActionIconBlockSchema = BaseSchema.extend({
+  type: z.literal('action:icon'),
+  properties: propsBag('action:icon', stripImportedDefaults(SpecActionIconPropsSchema)),
+  onClick: handlerKeyRefusal('onClick', 'runtime-slot', 'Click handler'),
+  onSuccess: aliasKeyRefusal('onSuccess', 'properties.onSuccess', 'this `action:icon` node', ACTION_ICON_FLAT_ON_SUCCESS),
+  // objectui#10872 batch 5: the renderer reads NEITHER content channel, so both are refused by name,
+  // each kept a MEMBER (see "The content channels" above).
+  body: retirementTombstone(ACTION_ICON_NEITHER_CHANNEL),
+  children: retirementTombstone(ACTION_ICON_NEITHER_CHANNEL),
+});
+
+/** objectui#10872 batch 5 (the objectui#9256 method): ONE refusal string for both content channels of `action:group`. */
+const ACTION_GROUP_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'action:group',
+  'its registration (`action:group`, `@object-ui/components`) hands the node to `ActionGroupRenderer`, which '
+    + 'reads the group keys `SchemaRenderer` hoists onto the node from the `properties` bag and draws each '
+    + 'member of `actions` itself',
+  'the members of `properties.actions`, in order: a row of buttons, or with `display: "dropdown"` one '
+    + 'trigger labelled `properties.label` whose menu lists them. A member goes in `properties.actions`',
+);
+
+/**
+ * `action:group` — `ComponentPropsMap['action:group']` (objectui#10872 batch
+ * 4). The row declares `actions` as a list of member objects, each one read
+ * and forwarded by the renderer, and refuses a group-level `name` with its own
+ * prescription: the renderer never reads it.
+ *
+ * Its content is `properties.actions`; the node's own `children` and `body`
+ * are refused (objectui#10872 batch 5, the objectui#9256 method).
+ */
+export const ActionGroupBlockSchema = BaseSchema.extend({
+  type: z.literal('action:group'),
+  properties: propsBag('action:group', stripImportedDefaults(SpecActionGroupPropsSchema)),
+  // objectui#10872 batch 5: the renderer reads NEITHER content channel, so both are refused by name,
+  // each kept a MEMBER (see "The content channels" above).
+  body: retirementTombstone(ACTION_GROUP_NEITHER_CHANNEL),
+  children: retirementTombstone(ACTION_GROUP_NEITHER_CHANNEL),
+});
+
+/** objectui#10872 batch 5 (the objectui#9256 method): ONE refusal string for both content channels of `action:menu`. */
+const ACTION_MENU_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'action:menu',
+  'its registration (`action:menu`, `@object-ui/components`) hands the node to `ActionMenuRenderer`, which '
+    + 'reads the menu keys `SchemaRenderer` hoists onto the node from the `properties` bag and draws each '
+    + 'member of `actions` itself',
+  'one trigger button (`properties.label`, `properties.icon`) whose dropdown lists the members of '
+    + '`properties.actions`, in order. A menu item goes in `properties.actions`',
+);
+
+/**
+ * `action:menu` — `ComponentPropsMap['action:menu']` (objectui#10872 batch 4).
+ * Its `variant` and `size` reach the Button primitive unmapped, so the row
+ * declares neither `primary` nor `md`.
+ *
+ * Its content is `properties.actions`; the node's own `children` and `body`
+ * are refused (objectui#10872 batch 5, the objectui#9256 method).
+ */
+export const ActionMenuBlockSchema = BaseSchema.extend({
+  type: z.literal('action:menu'),
+  properties: propsBag('action:menu', stripImportedDefaults(SpecActionMenuPropsSchema)),
+  // objectui#10872 batch 5: the renderer reads NEITHER content channel, so both are refused by name,
+  // each kept a MEMBER (see "The content channels" above).
+  body: retirementTombstone(ACTION_MENU_NEITHER_CHANNEL),
+  children: retirementTombstone(ACTION_MENU_NEITHER_CHANNEL),
+});
+
 /**
  * Union of the public-block arms — the category member `AnyComponentSchema`
  * lists (objectui#10872).
@@ -721,4 +974,10 @@ export const PublicBlockComponentSchema = z.discriminatedUnion('type', [
   ElementNumberBlockSchema,
   ElementButtonBlockSchema,
   ElementDividerBlockSchema,
+  ElementDefinitionListBlockSchema,
+  ElementRepeaterBlockSchema,
+  ActionButtonBlockSchema,
+  ActionIconBlockSchema,
+  ActionGroupBlockSchema,
+  ActionMenuBlockSchema,
 ]);

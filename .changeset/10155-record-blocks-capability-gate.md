@@ -37,3 +37,14 @@ role-based `PermissionProvider`, or a backend predating ADR-0066) still opens
 these gates. That is `hasCapabilities`'s ruled unreported-vs-empty doctrine
 (objectui#4656) and this change does not move it. A REPORTED empty array is a
 real answer and gates strictly.
+
+**Correction, 2026-09-30 (objectui#8649).** "Hides the block" above is wrong
+about what the reader sees. When a declared capability is unheld or
+unrecognised, the block's content is withheld and an insufficient-permissions
+notice (`role="status"`) renders in its place, on all three blocks. That is
+what the contract's `requiredPermissions` describe on these blocks says: "this
+block does not render its content; wherever it would otherwise render, an
+insufficient-permissions notice takes its place". Everything else above stands:
+the capabilities the gate asks for, and its fail-closed verdict. The automatic
+child-object read gate of `record:related_list` is a different gate, and it
+does hide the section.

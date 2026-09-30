@@ -26,10 +26,13 @@
  *
  * ⚠️ Those two member counts are the HISTORICAL reading that produced this
  * pin, kept verbatim because the `-> 0` half is only legible beside them. The
- * LIVE counts are 62 and 68: objectui#6357 declared `bind` on `BaseSchema`,
+ * LIVE counts are 63 and 69: objectui#6357 declared `bind` on `BaseSchema`,
  * both schemas inherit it, and this guard turned red naming them — which is
  * precisely the drift it exists to catch. The key was added to both slot
  * unions in the same change, so the slots still ship the full configuration.
+ * objectui#11070 then declared `dataSource` (the spec's per-element binding)
+ * on both source schemas and the guard named it again: the `form` slot carries
+ * it, and the `table` slot withholds it as a record source the view owns.
  *
  * Nothing errored — the index signature answers every key as `any` — so the
  * symptoms were in the tools that READ the declaration: `table: { colunms: 3 }`
@@ -134,7 +137,7 @@ const TABLE_WITHHELD_BY_REASON = {
    */
   notRelayed: ['description', 'emptyState'],
   /** The view owns it: its own record source, its own row click, its grid's identity. */
-  viewOwned: ['bind', 'data', 'id', 'navigation', 'onNavigate', 'staticData'],
+  viewOwned: ['bind', 'data', 'dataSource', 'id', 'navigation', 'onNavigate', 'staticData'],
   /**
    * A node-level `BaseSchema` key. `ObjectView` draws its grid as a component,
    * not as a schema node, so no renderer applies one of these to it.
@@ -252,18 +255,18 @@ function slotType(slot: 'table' | 'form'): ts.Type {
  * inherited: bump them deliberately when a member is genuinely added.
  */
 describe('the source schemas still declare their full member sets', () => {
-  it('ObjectGridSchema declares 62 members and carries the #5155 index signature', () => {
+  it('ObjectGridSchema declares 63 members and carries the #5155 index signature', () => {
     const grid = exportedType('ObjectGridSchema');
-    expect(memberNames(grid)).toHaveLength(62);
+    expect(memberNames(grid)).toHaveLength(63);
     expect(memberNames(grid)).toEqual(expect.arrayContaining(['columns', 'pageSize', 'rowActions']));
     // When this flips to `false`, objectui#5155 has removed the root index
     // signature and the `Pick` lists this file pins become removable.
     expect(declaresStringIndex(grid)).toBe(true);
   });
 
-  it('ObjectFormSchema declares 68 members and carries the #5155 index signature', () => {
+  it('ObjectFormSchema declares 69 members and carries the #5155 index signature', () => {
     const form = exportedType('ObjectFormSchema');
-    expect(memberNames(form)).toHaveLength(68);
+    expect(memberNames(form)).toHaveLength(69);
     expect(memberNames(form)).toEqual(expect.arrayContaining(['fields', 'sections', 'submitText']));
     expect(declaresStringIndex(form)).toBe(true);
   });

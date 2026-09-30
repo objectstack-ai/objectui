@@ -1045,13 +1045,15 @@ describe('check-handler-key-read-sites — this repository', () => {
    * `page:tabs` was the sixth until objectui#10872 gave it its own arm, which
    * takes it out of this population by construction — an armed type is not an
    * alias. Where its read is judged now is pinned in the objectui#9344 leg above.
+   * `action:button` and `action:icon` left the same way in objectui#10872 batch
+   * 4; where their reads are judged now is pinned in the leg below.
    */
-  it('keys the five namespaced-only aliases on what they claim, and scores their reads once', () => {
+  it('keys the three namespaced-only aliases on what they claim, and scores their reads once', () => {
     const aliasRows = result.census.filter((c) => c.unmirroredAlias);
     expect(
       [...new Set(aliasRows.map((c) => c.type))].sort(),
       'the alias census is the objectui#9573 population — an empty one is a collapsed scan, not a clean tree',
-    ).toEqual(['action:button', 'action:icon', 'view:form', 'view:grid', 'view:list']);
+    ).toEqual(['view:form', 'view:grid', 'view:list']);
     expect(result.counters.aliasReads).toBe(aliasRows.length);
     expect(aliasRows.length).toBeGreaterThan(10);
 
@@ -1079,6 +1081,36 @@ describe('check-handler-key-read-sites — this repository', () => {
     // left unkeyed — and an unkeyed registration is what a broken resolver looks
     // like across the board.
     expect(result.unkeyable).toEqual([]);
+  });
+
+  /**
+   * objectui#10872 batch 4 — `action:button` and `action:icon` got their own
+   * arms (`ActionButtonBlockSchema`, `ActionIconBlockSchema`), so the four reads
+   * this census used to report as UNMIRRORED-ALIAS rows are judged there now,
+   * each a DECLARED member: `onClick` as an objectui#6124 runtime slot, and
+   * `onSuccess` as the alias refusal naming `properties.onSuccess`, the row's
+   * member. ⛔ Neither was waived into the ledger.
+   */
+  it('judges the `action:button` / `action:icon` handler reads on their own arms (objectui#10872 batch 4)', () => {
+    const census = (type: string, key: string) => result.census.find((c) => c.type === type && c.key === key);
+    for (const [type, schema] of [['action:button', 'ActionButtonBlockSchema'], ['action:icon', 'ActionIconBlockSchema']]) {
+      for (const key of ['onClick', 'onSuccess']) {
+        const row = census(type, key);
+        expect(row, `${type}.${key} left the census`).toBeDefined();
+        expect(row?.unmirroredAlias, `${type} is an armed type, not an alias`).toBeUndefined();
+        expect(row?.schema).toBe(schema);
+        expect(row?.declared, `${type}.${key}`).toBe(true);
+        expect(KNOWN_UNDECLARED_READS.has(`${type}::${schema}.${key}`)).toBe(false);
+      }
+      expect(census(type, 'onClick')?.disposition).toBe('runtime-slot');
+      // Un-vacuous from the arm side: the resolver READ both members off the arm.
+      const members = collectArms(repoRoot).arms.get(type)?.members;
+      expect(members?.get('onClick')).toBe('runtime-slot');
+      expect(members?.has('onSuccess')).toBe(true);
+    }
+    // …and nothing re-keys them onto the bare `button` / `icon` arms, which are other components'.
+    expect(census('button', 'onClick')).toBeUndefined();
+    expect(census('icon', 'onSuccess')).toBeUndefined();
   });
 
   /**

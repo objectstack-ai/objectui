@@ -43,20 +43,21 @@
  *  2. the FLAT predicate renders the SAME face in the SAME render — it was
  *     green before this change and must stay green, so case 1 cannot be read as
  *     a builder that now mounts on anything;
- *  3. ⛔ the HUSK — `anyOf: [ {}, {…envelope} ]`, what the output-mode
- *     derivation emits for `hook.condition`, `sharing_rule.condition` and
- *     `field.visibleWhen` / `readonlyWhen` / `requiredWhen` — still gets NO
- *     builder. `{}` is JSON Schema for "anything", and it is equally what "this
- *     transform erased its own input type" looks like on the wire; reading it
- *     as a string arm would mount a CEL builder on a genuinely boolean-only key.
- *     That half of objectui#9830 needs a signal only the DECLARATION side can
- *     send and is reported, ⛔ not guessed here;
+ *  3. ⛔ the UNMARKED HUSK — `anyOf: [ {}, {…envelope} ]` with no declaration
+ *     mark on the `{}` arm — still gets NO builder. `{}` is JSON Schema for
+ *     "anything", and it is equally what "this transform erased its own input
+ *     type" looks like on the wire; reading it as a string arm would mount a CEL
+ *     builder on a genuinely boolean-only key. The declaration side now marks
+ *     an erased arm, and a MARKED husk does get the builder — that inversion,
+ *     and the boundaries of the mark read, are pinned in
+ *     `SchemaForm.erasedArmMark-9830.test.tsx`; this case is the unmarked half
+ *     and stays a veto;
  *  4. a predicate-NAMED key is still required: a plain `label` string keeps its
  *     text input, so the shape gate is not doing the naming's job either.
  *
  * ⚠️ Case 3 is the one that makes this a pin rather than a ratchet: widen the
- * gate to treat `{}` as a string arm and it goes red, which is the intended
- * alarm and ⛔ not a test to relax.
+ * gate to treat an UNMARKED `{}` as a string arm and it goes red, which is the
+ * intended alarm and ⛔ not a test to relax.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -97,7 +98,8 @@ const SCHEMA = {
     },
     // CONTROL — `action.params[].visible`: the same union, top level.
     condition: { title: 'Flat predicate', anyOf: [{ type: 'string', minLength: 1 }, ENVELOPE] },
-    // BOUNDARY — `hook.condition` in output mode: the string arm is erased.
+    // BOUNDARY — an output-mode husk whose erased arm carries NO declaration
+    // mark: indistinguishable from "admits anything", so it keeps the veto.
     hidden: { title: 'Husk predicate', anyOf: [{}, ENVELOPE] },
     // NEGATIVE — a plain string that no naming convention claims.
     label: { title: 'Plain text', type: 'string' },
@@ -148,11 +150,11 @@ describe('#9830 — the predicate shape gate looks THROUGH a nested union', () =
     expect(builderFor('visible')).not.toBeNull();
   });
 
-  it('⛔ the erased husk `anyOf: [ {}, envelope ]` still gets NO builder', () => {
+  it('⛔ the UNMARKED husk `anyOf: [ {}, envelope ]` still gets NO builder', () => {
     renderForm();
     expect(
       builderFor('hidden'),
-      'a predicate whose string arm was ERASED now mounts the builder — `{}` is being read as a string arm, which it is not',
+      'an UNMARKED husk now mounts the builder — a bare `{}` is being read as a string arm, which it is not',
     ).toBeNull();
     // It falls through to the union fallback, so the author still has an editor.
     expect(document.querySelector('#mdf-hidden')).not.toBeNull();

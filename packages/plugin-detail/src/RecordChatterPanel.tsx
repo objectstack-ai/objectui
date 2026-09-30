@@ -55,6 +55,11 @@ export interface RecordChatterPanelProps {
     url?: string;
     thumbnailUrl?: string;
   }>>;
+  /** The feed's activity read was refused; forwarded to the timeline, which
+   *  shows a no-permission state for it (objectui#11195). */
+  activityDenied?: boolean;
+  /** The same, for the feed's comment read. */
+  commentsDenied?: boolean;
   className?: string;
 }
 
@@ -83,6 +88,8 @@ export const RecordChatterPanel: React.FC<RecordChatterPanelProps> = ({
   collapseWhenEmpty = false,
   mentionSuggestions,
   onUploadAttachments,
+  activityDenied,
+  commentsDenied,
   className,
 }) => {
   const position = config?.position ?? 'right';
@@ -185,6 +192,8 @@ export const RecordChatterPanel: React.FC<RecordChatterPanelProps> = ({
               onUploadAttachments={onUploadAttachments}
               titleLabel={t('detail.discussion')}
               emptyLabel={t('detail.noCommentsYet')}
+              activityDenied={activityDenied}
+              commentsDenied={commentsDenied}
               className="border-0 shadow-none"
             />
           </div>
@@ -244,6 +253,8 @@ export const RecordChatterPanel: React.FC<RecordChatterPanelProps> = ({
               onUploadAttachments={onUploadAttachments}
               titleLabel={t('detail.discussion')}
               emptyLabel={t('detail.noCommentsYet')}
+              activityDenied={activityDenied}
+              commentsDenied={commentsDenied}
             />
           </div>
         </div>

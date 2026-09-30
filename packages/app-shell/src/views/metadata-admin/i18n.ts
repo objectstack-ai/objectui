@@ -1319,6 +1319,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.screenPreview.noDataSource': 'Connect to a backend to preview this object form.',
   'engine.screenPreview.hiddenOne': '{count} field hidden by its “visible when” condition.',
   'engine.screenPreview.hiddenOther': '{count} fields hidden by their “visible when” conditions.',
+  'engine.screenPreview.defaultTemplate': 'Default template for “{field}”, shown as written — the run fills it in:',
   // objectui#10862 (slice 1: the flow / automation previews) — the designer's
   // own words in `ActionPreview`, `AgentPreview`, `SkillPreview`,
   // `ToolPreview` and `JobPreview`, read in the `locale` each preview is
@@ -4309,6 +4310,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.screenPreview.noDataSource': '连接后端后即可预览此对象表单。',
   'engine.screenPreview.hiddenOne': '有 {count} 个字段因其“显示条件”而隐藏。',
   'engine.screenPreview.hiddenOther': '有 {count} 个字段因其“显示条件”而隐藏。',
+  'engine.screenPreview.defaultTemplate': '“{field}”的默认值模板,按原文显示 —— 运行时填入实际值:',
   // objectui#10862 — the flow / automation previews and the CEL try-it dialog (see the en rows).
   'engine.actionPreview.empty': '设置名称和标签，即可查看操作预览。',
   'engine.actionPreview.pill.type': '类型：{type}',

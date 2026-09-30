@@ -1210,8 +1210,10 @@ export interface ObjectGridSchema extends BaseSchema {
   navigation?: ViewNavigationConfig;
 
   /**
-   * Callback for page-level navigation (used by 'page' mode).
-   * Called with recordId and action ('view' | 'edit').
+   * Called for page-level navigation with the record id and a
+   * {@link RecordNavigateAction} — a navigation-MODE token from a closed
+   * vocabulary: `'view'` opens the record page, `'new_window'` opens it in a
+   * new browser tab.
    *
    * PROGRAMMATIC ONLY — not authoring surface. Deliberately absent from
    * `GRID_QUERY_INPUTS` (`@object-ui/plugin-grid`'s `index.tsx`), so the
@@ -1225,10 +1227,11 @@ export interface ObjectGridSchema extends BaseSchema {
    * key. Writing it into a stored document does nothing at all.
    *
    * Programmatic callers should prefer `ObjectGridComponentProps`
-   * (`@object-ui/plugin-grid`), where the nine sibling callbacks —
-   * `onRowClick`, `onRowSelect`, `onCellChange`, `onRowSave`, `onBatchSave`,
-   * `onEdit`, `onDelete`, `onBulkDelete`, `onAddRecord` — live and only live,
-   * for exactly this reason.
+   * (`@object-ui/plugin-grid`), which declares ten callbacks: this one, as a
+   * prop since objectui#9547 — and the prop wins when both are supplied — and
+   * the nine siblings `onRowClick`, `onRowSelect`, `onCellChange`,
+   * `onRowSave`, `onBatchSave`, `onEdit`, `onDelete`, `onBulkDelete`,
+   * `onAddRecord`, which live and only live there, for exactly this reason.
    *
    * The declaration is kept rather than removed: with the key explicitly
    * published, removing it is a breaking public type change plus a deprecation
@@ -1250,7 +1253,7 @@ export interface ObjectGridSchema extends BaseSchema {
    * from a schema and asserts the call. What is absent is a supplier, not the
    * channel, so `'retired'` ("no renderer reads this key") would be false.
    */
-  onNavigate?: (recordId: string | number, action?: string) => void;
+  onNavigate?: (recordId: string | number, action: RecordNavigateAction) => void;
 
   /**
    * Conditional formatting rules for row/cell styling.
@@ -2997,6 +3000,36 @@ export interface NamedListView {
 export type ViewNavigationConfig = NavigationConfig;
 
 /**
+ * The second argument of the record-navigation `onNavigate` callback on the
+ * list channel: a navigation-MODE token from a CLOSED vocabulary. `'view'`
+ * opens the record page, `'new_window'` opens it in a new browser tab.
+ *
+ * One type, four faces (objectui#9547, maintainer ruling C of 2026-09-18):
+ * `ObjectGridSchema.onNavigate` and `ListViewRuntimeProps.onNavigate` here,
+ * `UseNavigationOverlayOptions.onNavigate` in `@object-ui/react` — the hook
+ * whose click handler is the one producer of this value — and
+ * `ObjectGridComponentProps.onNavigate` in `@object-ui/plugin-grid`. The
+ * hook's own calls are typed against this union, so emitting any other token
+ * is a compile error there rather than a branch a host silently misses.
+ *
+ * Written out here, not imported: `@objectstack/spec` (17.5.0 on) publishes
+ * this vocabulary only as TEXT — the `type` string of the `onNavigate` row in
+ * the react-tier `ListView` entry of `REACT_BLOCKS`,
+ * `(recordId, action: 'view' | 'new_window') => void` — and exports no
+ * TypeScript type to derive from. `plugin-grid`'s
+ * `__tests__/onNavigateProp-9547.test.tsx` reads that row and fails when the
+ * two vocabularies part.
+ *
+ * ⛔ Not `'edit'`: no branch of the hook emits it
+ * (objectstack#19057 dropped it from the catalogue). ⛔ Not `string`: the slot
+ * is closed, and an open type defers every misspelt mode to runtime.
+ * ⚠️ `ObjectViewSchema.onNavigate` is a different channel with its own
+ * vocabulary (`mode: 'view' | 'edit'`, invoked by `plugin-view`'s
+ * `ObjectView`) and does not use this type.
+ */
+export type RecordNavigateAction = 'view' | 'new_window';
+
+/**
  * ListView component node — DERIVED from the zod `ListViewSchema` (issue #2231), which
  * itself derives from `@objectstack/spec/ui` `ListViewSchema`. Spec-owned fields are
  * imported by the schema rather than re-typed here, so this type can no longer drift from
@@ -3066,10 +3099,12 @@ type ListViewAuthored = {
  */
 export interface ListViewRuntimeProps {
   /**
-   * Callback for page-level navigation (used by 'page' navigation mode).
-   * Called with recordId and action ('view' | 'edit').
+   * Called for page-level navigation with the record id and a
+   * {@link RecordNavigateAction} — a navigation-MODE token from a closed
+   * vocabulary: `'view'` opens the record page, `'new_window'` opens it in a
+   * new browser tab.
    */
-  onNavigate?: (recordId: string | number, action?: string) => void;
+  onNavigate?: (recordId: string | number, action: RecordNavigateAction) => void;
 
   /**
    * Callback fired when the user toggles row density/height via the toolbar. Lets the host

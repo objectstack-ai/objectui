@@ -1177,6 +1177,8 @@ const zh = {
     tasksOnly: '仅任务',
     leaveCommentPlaceholder: '留下评论… (Ctrl+Enter 提交)',
     noActivity: '暂无活动记录',
+    activityAccessDenied: '您没有查看此记录活动的权限。',
+    commentsAccessDenied: '您没有查看此记录评论的权限。',
     // objectui#7149 — the rest of `ActivityTimeline`. The four chip labels the
     // `detail.*` pack did not already name, and the `formatFieldChange`
     // sentences, which are assembled in code and so need interpolation holes.

@@ -1069,6 +1069,8 @@ const de = {
     tasksOnly: "Nur Aufgaben",
     leaveCommentPlaceholder: "Kommentar hinterlassen… (Strg+Enter zum Senden)",
     noActivity: "Keine Aktivitäten aufgezeichnet",
+    activityAccessDenied: "Sie haben keine Berechtigung, die Aktivitäten dieses Datensatzes anzuzeigen.",
+    commentsAccessDenied: "Sie haben keine Berechtigung, die Kommentare zu diesem Datensatz anzuzeigen.",
     // objectui#7149 — the rest of `ActivityTimeline`. The four chip labels the
     // `detail.*` pack did not already name, and the `formatFieldChange`
     // sentences, which are assembled in code and so need interpolation holes.

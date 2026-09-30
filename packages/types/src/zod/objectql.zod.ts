@@ -63,6 +63,7 @@ import { DrillDownConfigSchema } from './data-display.zod.js';
 import { KanbanCardSchema } from './complex.zod.js';
 import { ViewSwitcherSchema } from './views.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
+import { propsBag } from './public-blocks.zod.js';
 
 /**
  * ⭐ THE IMPORT BOUNDARY (objectui#8317, decision batch #90, 2026-09-08).
@@ -435,7 +436,8 @@ export const ObjectGridSchema = BaseSchema.extend({
   //
   // ⛔ Disposition MEASURED, not patterned. `'retired'` publishes "no renderer
   // reads this key" — FALSE here: `ObjectGrid` reads it (`onNavigate:
-  // schema.onNavigate` into its `useNavigationOverlay` call) and
+  // onNavigate ?? schema.onNavigate` into its `useNavigationOverlay` call —
+  // the node key is the fallback behind the component prop, objectui#9547) and
   // `gridNonAuthorKeys.test.tsx` pins the read firing on a row click from a
   // SCHEMA-supplied function. So `'runtime-slot'`, and the channel is the one
   // the maintainer's 2026-08-19 ruling on objectui#5234 (option C) preserved on
@@ -893,8 +895,9 @@ export const ObjectViewSchema = BaseSchema.extend({
   // which is the TypeScript face, never `safeParse`.
   //
   // ⚠️ Same key NAME as `ObjectGridSchema.onNavigate` above, a DIFFERENT
-  // signature (`mode: 'view' | 'edit'` rather than the grid's `action?: string`)
-  // and a different supplier. Judged separately for that reason.
+  // signature (`mode: 'view' | 'edit'` rather than the grid's
+  // `action: RecordNavigateAction`, objectui#9547) and a different supplier.
+  // Judged separately for that reason.
   onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'Record navigation handler'),
   // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
@@ -3339,20 +3342,9 @@ export const ObjectQLComponentSchema = z.discriminatedUnion('type', [
 
 /* ── ADR-0080 public blocks of this family, armed from their spec rows ───── */
 
-/**
- * The `properties` member of one of the two blocks below: the spec row,
- * optional, with the provenance spelled into its description — the same
- * helper `./public-blocks.zod.ts` uses. The row is passed in already through
- * the import boundary, so this helper never touches a spec binding.
- */
-function objectBlockPropsBag<T extends z.ZodType>(type: string, row: T) {
-  return row
-    .optional()
-    .describe(
-      `The \`${type}\` props bag — \`@objectstack/spec\` \`ComponentPropsMap['${type}']\`, by reference. `
-      + 'Judged only when present, as the spec\'s props gate judges it.',
-    );
-}
+// The `properties` member of each of the two blocks below is `propsBag` from
+// `./public-blocks.zod.ts` — the one helper every public-block arm uses
+// (objectui#10872), imported rather than restated.
 
 /** objectui#9256 (public-block slice): ONE refusal string for both content channels of `object-metric`. */
 const OBJECT_METRIC_NEITHER_CHANNEL = neitherContentChannelGuidance(
@@ -3408,7 +3400,7 @@ const OBJECT_METRIC_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ObjectMetricBlockSchema = BaseSchema.extend({
   type: z.literal('object-metric'),
-  properties: objectBlockPropsBag('object-metric', stripImportedDefaults(SpecObjectMetricPropsSchema)),
+  properties: propsBag('object-metric', stripImportedDefaults(SpecObjectMetricPropsSchema)),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER.
   body: retirementTombstone(OBJECT_METRIC_NEITHER_CHANNEL),
@@ -3456,7 +3448,7 @@ const OBJECT_MASTER_DETAIL_FORM_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ObjectMasterDetailFormBlockSchema = BaseSchema.extend({
   type: z.literal('object-master-detail-form'),
-  properties: objectBlockPropsBag(
+  properties: propsBag(
     'object-master-detail-form',
     stripImportedDefaults(SpecObjectMasterDetailFormPropsSchema),
   ),

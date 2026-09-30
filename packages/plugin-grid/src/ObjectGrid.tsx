@@ -22,7 +22,7 @@
  */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import type { ObjectGridSchema, DataSource, ListColumn, TableColumn, ViewData, TableSortItem, DataTableSchema, ListViewExportFormat } from '@object-ui/types';
+import type { ObjectGridSchema, DataSource, ListColumn, TableColumn, ViewData, TableSortItem, DataTableSchema, ListViewExportFormat, RecordNavigateAction } from '@object-ui/types';
 import { isSystemManagedField, normalizeTableColumnType } from '@object-ui/types';
 import type { I18nLabel } from '@objectstack/spec/ui';
 import { parseFilterAST, type FilterCondition } from '@objectstack/spec/data';
@@ -698,6 +698,22 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
    * already use this spelling for exactly this situation.
    */
   onRowClick?: (record: any, event?: any) => void;
+  /**
+   * Called for page-level navigation with the record id and a
+   * {@link RecordNavigateAction} — a navigation-MODE token from a closed
+   * vocabulary: `'view'` opens the record page, `'new_window'` opens it in a
+   * new browser tab.
+   *
+   * [objectui#9547] The tenth callback on this interface, and the channel a
+   * programmatic caller should use: its nine siblings below are props here
+   * too, and `ObjectGridSchema.onNavigate`'s own docblock sends callers to
+   * this interface for it. That schema key still works — it is the
+   * same slot reached off the node — and when BOTH are supplied, THIS PROP
+   * WINS (maintainer ruling C on objectui#9547: the programmatic caller is the
+   * nearer party). `onRowClick` above still takes full priority over either:
+   * a host that owns the row click owns navigation too.
+   */
+  onNavigate?: (recordId: string | number, action: RecordNavigateAction) => void;
   onEdit?: (record: any) => void;
   onDelete?: (record: any) => void;
   onBulkDelete?: (records: any[]) => void;
@@ -1463,6 +1479,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   onBulkDelete,
   onRowSelect,
   onRowClick,
+  onNavigate,
   onCellChange,
   onRowSave,
   onBatchSave,
@@ -2834,8 +2851,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     // three. Programmatic callers already have the channel its nine siblings
     // use: `onRowClick`, `onRowSelect`, `onCellChange`, `onRowSave`,
     // `onBatchSave`, `onEdit`, `onDelete`, `onBulkDelete` and `onAddRecord`
-    // are props on `ObjectGridComponentProps`, and that is where a caller
-    // should prefer to pass this one too.
+    // are props on `ObjectGridComponentProps`, and since objectui#9547 this one
+    // is the tenth prop there, which is where a caller should prefer to pass
+    // it. When both are supplied the PROP WINS (maintainer ruling C on
+    // objectui#9547), so `schema.onNavigate` below is the fallback read — kept,
+    // because a host that builds the node in TypeScript still reaches the slot
+    // that way. `__tests__/onNavigateProp-9547.test.tsx` pins both halves.
     //
     // The contract says the same thing independently: `ComponentPropsMap
     // ['object-grid']` (`@objectstack/spec@17`) is a `strictObject` and
@@ -2844,7 +2865,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     // rejected there — are pinned by `__tests__/gridNonAuthorKeys.test.tsx`,
     // together with the read itself, so this exemption cannot decay into a
     // silent drop.
-    onNavigate: schema.onNavigate,
+    onNavigate: onNavigate ?? schema.onNavigate,
     onRowClick,
   });
 

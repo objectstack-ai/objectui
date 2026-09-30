@@ -7,14 +7,17 @@
  *
  * `record:activity` — the pure half (objectui#3165).
  *
- * Two things live here, both testable without a DOM:
+ * Three things live here, all testable without a DOM:
  *
  *  1. the `sys_activity` row → {@link FeedItem} map the block's self-fetch
  *     uses (the same map `RecordDetailView` applies to the rows it merges
  *     into its own feed — one shape for one table);
  *  2. {@link applyFeedConfig}, the filter/pagination pipeline that turns the
  *     block's DECLARED inputs (`types` / `showCompleted` / `unifiedTimeline`
- *     / `limit`) into observable behaviour.
+ *     / `limit`) into observable behaviour;
+ *  3. {@link isRefusedFeedRead}, which tells a REFUSED feed read from an empty
+ *     or failed one. The block's self-fetch and `RecordDetailView`'s two feed
+ *     reads use the same verdict (objectui#11195).
  *
  * (2) exists as its own function on purpose. Before #3165 every one of those
  * inputs was a filter over a feed that was hard-coded empty — declared,
@@ -29,6 +32,7 @@
  */
 
 import { FeedFilterMode as FeedFilterModeEnum, FeedItemType as FeedItemTypeEnum } from '@objectstack/spec/data';
+import { classifyLoadError } from '@object-ui/react';
 import type { FeedItem, FeedItemType } from '@object-ui/types';
 import type { FeedFilterMode } from '../RecordActivityTimeline';
 
@@ -889,4 +893,48 @@ export function mergeFeedItems(...groups: readonly FeedItem[][]): FeedItem[] {
     const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
     return (Number.isNaN(ta) ? 0 : ta) - (Number.isNaN(tb) ? 0 : tb);
   });
+}
+
+/**
+ * Whether a rejected feed read — `sys_activity` or `sys_comment` — was REFUSED
+ * (objectui#11195): the server answered, and the answer was "not for you".
+ *
+ * A refused read and an empty read are different answers about the record, and
+ * the panel used to give both the same one. Every failure on the feed landed on
+ * `No activity recorded` / `No comments yet`, so a member the server refused
+ * read a permission wall as a record where nothing had happened. The panel now
+ * shows a no-permission state for a refused read instead, and keeps the empty
+ * state for a read that answered with zero rows.
+ *
+ * The verdict is `classifyLoadError`'s (`@object-ui/react`), the read
+ * classifier `ListView`'s error panel and `RecordAttachmentsPanel` already
+ * share. Nothing here reads a status or a code of its own. Refused means the
+ * two kinds that are about the caller:
+ *
+ *   - `forbidden`: 403, or a `PERMISSION_DENIED` / `FORBIDDEN` envelope;
+ *   - `unauthorized`: 401, or `UNAUTHORIZED` / `UNAUTHENTICATED`.
+ *
+ * ⚠️ The 401 half is a deliberate difference from `RecordAttachmentsPanel`,
+ * whose `denied` state does not claim a 401. The triage on objectui#11195 ruled
+ * it for this panel: any refused read (401 / 403, or a permission envelope)
+ * shows the no-permission state.
+ *
+ * NOT refused, so these keep today's empty state:
+ *
+ *   - `api-disabled` (`OBJECT_API_DISABLED` 404 / `OBJECT_API_METHOD_NOT_ALLOWED`
+ *     405): a property of the object's metadata, not of the caller, and no
+ *     permission grant changes it;
+ *   - a bare 404 (`sys_activity` on a deployment without the audit plugin).
+ *     The ObjectStack adapter already answers that as zero rows; another
+ *     adapter's rejection classifies as `network` and lands here;
+ *   - `rejected` (400) and `network` (a 5xx, an unreachable server). Those are
+ *     failures, not refusals. The panel has no error state of its own, so they
+ *     still render the empty state.
+ *
+ * ⛔ A refusal is not retried. A refused read is the same answer on every
+ * retry, so the callers write it into state and do not re-issue the read.
+ */
+export function isRefusedFeedRead(err: unknown): boolean {
+  const kind = classifyLoadError(err);
+  return kind === 'forbidden' || kind === 'unauthorized';
 }

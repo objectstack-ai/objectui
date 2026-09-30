@@ -194,9 +194,11 @@ ActionAutoTrigger.displayName = 'ActionAutoTrigger';
 
 // Index signature on the parameter annotation, not on the `forwardRef` type
 // argument — see the mechanism note on `action:bar` (objectui#4422), pinned by
-// `__tests__/forwardref-props-annotation.guard.test.ts`.
+// `__tests__/forwardref-props-annotation.guard.test.ts`. `disabled` is the
+// host-EVALUATED enablement verdict, declared rather than left to the index
+// signature, as `ActionButtonRendererProps` declares it (objectui#9131).
 const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSchema; className?: string }>(
-  ({ schema, className, ...props }: { schema: ActionMenuSchema; className?: string; [key: string]: any }, ref) => {
+  ({ schema, className, ...props }: { schema: ActionMenuSchema; className?: string; disabled?: boolean; [key: string]: any }, ref) => {
     const {
       'data-obj-id': dataObjId,
       'data-obj-type': dataObjType,
@@ -206,6 +208,15 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
       // Also keeps `data` out of `...rest`, which is spread onto the DOM
       // trigger button.
       data,
+      // The host's EVALUATED verdict, taken by name — the objectui#9131 rule
+      // `action:button` and `action:icon` follow (objectui#11182).
+      // `SchemaRenderer` forwards `disabled: __disabled || undefined` with the
+      // key unconditional, and `...rest` is spread after the trigger's own
+      // `disabled`, so a PRESENT `undefined` re-declared it: through
+      // `SchemaRenderer` an in-flight menu's trigger read `disabled=false`
+      // while its spinner showed, and a second execution could start. Taking
+      // it off `rest` removes that second writer; the trigger consumes it.
+      disabled: hostDisabled,
       ...rest
     } = props;
 
@@ -366,7 +377,12 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
                 schema.className,
                 className,
               )}
-              disabled={loading}
+              // `hostDisabled` leads the OR (objectui#9131): the host verdict is
+              // a reason to disable, never a reason to enable — `SchemaRenderer`
+              // emits `true` or `undefined`, never `false`. The menu declares no
+              // enablement gate of its own, so the only other source is an
+              // execution in flight. See `action:button`.
+              disabled={hostDisabled || loading}
               aria-label={schema.label || moreActionsLabel}
               {...rest}
               {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}

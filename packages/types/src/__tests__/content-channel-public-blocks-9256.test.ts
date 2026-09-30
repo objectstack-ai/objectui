@@ -214,10 +214,15 @@ describe('objectui#9256 public blocks — the carve-outs', () => {
     ['page:section', PageSectionBlockSchema],
     ['page:footer', PageFooterBlockSchema],
     ['page:sidebar', PageSidebarBlockSchema],
-  ] as const)('CONTROL — `%s` renders the node\'s child list, so it still takes `children`', (type, mirror) => {
-    // Measured in the same run as the rows above: a reader keeps its channel.
-    expect(issuesOf(mirror as unknown as Mirror, { type, children: CONTENT })).toBeNull();
-    expect(AnyComponentSchema.safeParse({ type, children: CONTENT }).success).toBe(true);
+  ] as const)('CONTROL — `%s` renders its child list, so it still takes one, in `properties.children`', (type, mirror) => {
+    // Measured in the same run as the rows above: a reader keeps its channel. Its spelling is the
+    // spec row's `children` member, in the bag: objectui#10872 batch 6 refuses the node-level one,
+    // with a message that names the bag member and never this slice's neither-channel text
+    // (`container-children-channel-10872.test.ts` pins that refusal).
+    expect(issuesOf(mirror as unknown as Mirror, { type, properties: { children: CONTENT } })).toBeNull();
+    expect(AnyComponentSchema.safeParse({ type, properties: { children: CONTENT } }).success).toBe(true);
+    expect(at(issuesOf(mirror as unknown as Mirror, { type, children: CONTENT }), 'children')?.message)
+      .not.toContain('reads NEITHER content channel');
   });
 
   it('a narrowed block nested in a `page` is refused; the same block without a child list parses', () => {

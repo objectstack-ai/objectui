@@ -10,7 +10,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
-import { activityRowToFeedItem, InlineEditSaveBar, buildDefaultPageSchema, deriveFieldGroupDetailSections, extractMentions, resolveTitleField, useRecordEditable } from '@object-ui/plugin-detail';
+import { activityRowToFeedItem, InlineEditSaveBar, buildDefaultPageSchema, deriveFieldGroupDetailSections, extractMentions, isRefusedFeedRead, resolveTitleField, useRecordEditable } from '@object-ui/plugin-detail';
 import { Empty, EmptyTitle, EmptyDescription } from '@object-ui/components';
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
@@ -186,6 +186,18 @@ export function isSecondaryField(fieldName: string, fieldDef: any): boolean {
  * pipeline on every render of a record with no comments.
  */
 const EMPTY_FEED: FeedItem[] = [];
+
+/**
+ * Which of a record's two feed reads the server REFUSED (objectui#11195):
+ * 401 / 403, or a permission envelope, judged by plugin-detail's
+ * `isRefusedFeedRead`. A read that answered, even with zero rows, and a read
+ * that failed for any other reason are both `false` here. Only a refusal is a
+ * different answer from "nothing to show".
+ */
+interface FeedRefusal {
+  activity: boolean;
+  comments: boolean;
+}
 
 /**
  * Union two feed slices by row id, oldest first.
@@ -400,6 +412,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // The discussion feed, stored PER RECORD (objectui#3268). See the
   // `feedRecordKey` block below for why this is a map and not a `FeedItem[]`.
   const [feedItemsByRecord, setFeedItemsByRecord] = useState<Record<string, FeedItem[]>>({});
+  // Which feed reads were refused, stored under the same per-record key as the
+  // rows (objectui#11195), so a refusal on record A never reaches record B's
+  // panel.
+  const [feedRefusalByRecord, setFeedRefusalByRecord] = useState<Record<string, FeedRefusal>>({});
   const [mentionSuggestions, setMentionSuggestions] = useState<
     Array<{ id: string; label: string; avatarUrl?: string }>
   >([]);
@@ -1731,6 +1747,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   //     a spinner while the re-read confirms them (#3205).
   const feedRecordKey = objectName && pureRecordId ? `${objectName}:${pureRecordId}` : null;
   const feedItems = (feedRecordKey ? feedItemsByRecord[feedRecordKey] : undefined) ?? EMPTY_FEED;
+  const feedRefusal = feedRecordKey ? feedRefusalByRecord[feedRecordKey] : undefined;
   const feedFetchKey =
     dataSource && feedRecordKey && (feedsEnabled || activitiesEnabled) ? feedRecordKey : null;
   const [settledFeedKey, setSettledFeedKey] = useState<string | null>(null);
@@ -1753,6 +1770,26 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     // loading flag can close over BOTH of them — see the `allSettled` at the
     // end of this effect.
     const inFlight: Promise<unknown>[] = [];
+
+    // objectui#11195: each read's verdict on REFUSAL, recorded under THIS
+    // record's key when it settles. An answered read clears it, so a grant
+    // the member receives shows on the next read. Returning `prev` for an
+    // unchanged verdict keeps the map's identity when nothing moved. Nothing
+    // here re-issues a read: a refusal is recorded, never retried.
+    const recordRefusal = (source: keyof FeedRefusal, refused: boolean) => {
+      setFeedRefusalByRecord(prev => {
+        const current = prev[threadId];
+        if ((current?.[source] ?? false) === refused) return prev;
+        return {
+          ...prev,
+          [threadId]: {
+            activity: current?.activity ?? false,
+            comments: current?.comments ?? false,
+            [source]: refused,
+          },
+        };
+      });
+    };
 
     // M10.10: Fetch persisted comments from sys_comment. Field names
     // are snake_case to match the platform-objects schema
@@ -1782,6 +1819,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
 
     if (feedsEnabled) inFlight.push(dataSource.find('sys_comment', { $filter: { thread_id: threadId }, $orderby: { created_at: 'asc' } })
       .then((res: any) => {
+        recordRefusal('comments', false);
         if (!res?.data?.length) return;
         const mapped: FeedItem[] = res.data.map((c: any) => ({
           id: c.id,
@@ -1802,7 +1840,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           [threadId]: mergeFeedRows(prev[threadId] ?? EMPTY_FEED, mapped),
         }));
       })
-      .catch(() => {}));
+      // A refused comment read is the same panel's other half (objectui#11195):
+      // the panel says the member may not see the comments, instead of "No
+      // comments yet". Any other failure still lands on the empty state.
+      .catch((err: unknown) => { recordRefusal('comments', isRefusedFeedRead(err)); }));
 
     // M10.11: Fetch sys_activity rows for this record and merge into the
     // timeline. plugin-audit's writers populate sys_activity on every
@@ -1833,13 +1874,18 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     // re-declare the table or rebuild the item by hand.
     //
     // sys_activity is system-owned so a 404 ("table not provisioned",
-    // older schemas without activities) is silently tolerated.
+    // older schemas without activities) is silently tolerated. A REFUSED read
+    // is not (objectui#11195): a member the server will not show this record's
+    // activity to sees the panel say so, not "no activity". The verdict is
+    // `isRefusedFeedRead`, the one the `record:activity` block's self-fetch
+    // uses, so the two surfaces cannot disagree about what a refusal is.
     if (activitiesEnabled) inFlight.push(dataSource.find('sys_activity', {
       $filter: { object_name: objectName, record_id: pureRecordId },
       $orderby: { timestamp: 'asc' },
       $top: 200,
     })
       .then((res: any) => {
+        recordRefusal('activity', false);
         if (!res?.data?.length) return;
         const systemActorLabel = t('detail.systemActor', { defaultValue: 'System' });
         const mapped: FeedItem[] = [];
@@ -1862,14 +1908,15 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           [threadId]: mergeFeedRows(prev[threadId] ?? EMPTY_FEED, mapped),
         }));
       })
-      .catch(() => {}));
+      .catch((err: unknown) => { recordRefusal('activity', isRefusedFeedRead(err)); }));
 
     // The panel leaves the loading state exactly once, when BOTH reads have
     // answered. `allSettled` over promises that already carry their own
-    // `.catch(() => {})` is what makes a FAILED read count as an answer: a
-    // 404 from `sys_activity` (deployment without the audit plugin) or a
-    // rejected `sys_comment` must land the panel on the empty state, never
-    // pin it in a permanent spinner. Keyed off `feedFetchKey` so a settle
+    // `.catch` is what makes a FAILED read count as an answer: a 404 from
+    // `sys_activity` (deployment without the audit plugin) or a rejected
+    // `sys_comment` must land the panel on the empty state, and a REFUSED one
+    // on the no-permission state (objectui#11195), never pin it in a permanent
+    // spinner. Keyed off `feedFetchKey` so a settle
     // that arrives after the user has navigated to another record cannot
     // clear the new record's loading state.
     Promise.allSettled(inFlight).then(() => {
@@ -2709,6 +2756,8 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         <DiscussionContextProvider
           items={feedItems as any}
           loading={feedLoading}
+          activityDenied={feedRefusal?.activity ?? false}
+          commentsDenied={feedRefusal?.comments ?? false}
           onAddComment={handleAddComment as any}
           onAddReply={handleAddReply as any}
           onToggleReaction={handleToggleReaction as any}

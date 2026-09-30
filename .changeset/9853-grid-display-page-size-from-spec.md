@@ -1,35 +1,59 @@
 ---
 '@object-ui/plugin-grid': minor
+'@object-ui/plugin-list': minor
+'@object-ui/plugin-kanban': minor
 ---
 
-`object-grid` with no declared `pageSize` now shows **25** rows (or groups) per
-page — the default `@objectstack/spec` declares for `pagination.pageSize` — on
-every page it renders (objectui#9853).
+A page size with nothing declared is now the one `@objectstack/spec` declares for
+`pagination.pageSize`, on every surface that has a pager; a fetch that has no
+pager keeps its own fetch batch, which does not follow it (objectui#9853).
 
-⚠️ **Visible change on grids that declare no page size.** Declare
-`pagination: { pageSize: N }` to keep the old count:
+"Page size" now means one page, and only where there is a pager. The grid,
+the list and the board read the display default from the spec (`PaginationConfigSchema`)
+instead of keeping numbers of their own, so it is declared once, in the protocol.
+`@objectstack/spec` 17.5.0 declares **50**. The views that fetch one window and
+page nothing keep a fetch batch of their own, with the value they had, so no
+view loses records it could reach before.
 
-| surface (no `pageSize` declared) | before | after |
+⚠️ **Visible change where no page size is declared.** Measured on the renderer
+with `@objectstack/spec` 17.5.0. Declare `pagination: { pageSize: N }` (or, on a
+board, `limit`) to keep an old count:
+
+| surface (nothing declared) | before | after |
 |:--|--:|--:|
-| grid that fetches its own rows (server-paged table), rows per page **and** the `$top` of each page fetch | 50 | 25 |
-| grid over inline `data` (client-paged table), rows per page | 10 | 25 |
-| grouped grid, groups per page | 10 | 25 |
-| grouped grid, rows fetched to group (`$top`) | 50 | 50 (unchanged) |
+| `object-grid` that fetches its own rows: rows per page, and the `$top` of each page fetch | 50 | 50 (unchanged) |
+| `object-grid` over inline `data`: rows per page | 10 | **50** |
+| grouped `object-grid`: groups per page | 10 | **50** |
+| grouped `object-grid` over a data source that groups on the server: rows per group page (`$top`) | 50 | 50 (unchanged) |
+| `list-view`, grid view (paged on the server): rows per page, and `$top` | 100 | **50** |
+| `list-view`, every view it does not page (kanban, calendar, gallery, timeline and the rest, and a grouped grid): the one fetch's `$top` | 100 | 100 (unchanged) |
+| `object-kanban` with no `limit`: the board's `$top` | 100 | 100 (unchanged) |
 
-The grid used to fall back to three local numbers, and one of them — named a
-"server window" — sized both a fetch and the page the user sees. The display
-default is now read from `@objectstack/spec` (`PaginationConfigSchema`), with no
-local number behind it; the fetch batch is renamed `DEFAULT_FETCH_BATCH_SIZE`,
-keeps its value, and is read only by the grouped view's fetch, never as a page
-size. A declared `pageSize` is honoured exactly as before, and a refused one (zero,
-negative, non-integer) still warns and falls back — now to 25.
+What changed underneath:
 
-Inside a `ListView`, the server-paged flat grid still takes its page size from the
-list and does not change here. The list hands no page size to a grouped grid,
-though, so a grouped list with no declared `pageSize` also moves from 10 to 25
-groups per page. The grouped view's rows-per-page selector now also lists the
-size in force when it is not one of its fixed steps, as the table pager already
-did.
+- **`@object-ui/plugin-grid`.** `ObjectGrid` falls back to the spec's display
+  default on every page it shows, with no local number behind it: if a future
+  spec stops declaring the default, the module throws at load instead of
+  inventing one. The old "server window" constant is renamed
+  `DEFAULT_FETCH_BATCH_SIZE` and keeps its value. Since grouping moved to the
+  server, it is read only when the grid groups a window of rows in the browser
+  because the server does not group it (a grouping key the principal may not
+  read), and never as a page size. The grouped view's rows-per-page selector
+  also lists the size in force when it is not one of its fixed steps.
+- **`@object-ui/plugin-list`.** `ListView` splits its undeclared fallback by
+  whether the view pages. The grid view, which it pages on the server, falls
+  back to the spec's display default. Every other view falls back to a fetch
+  batch of 100, the value it had. A declared `pagination.pageSize` sizes the
+  window on every view, as before. With no declared size, switching between the
+  grid view and an unpaged view now changes the window, so the list fetches
+  again. A refused page size still warns, and the warning names the fallback
+  that view actually used.
+- **`@object-ui/plugin-kanban`.** The board's default `limit` is renamed from
+  `DEFAULT_KANBAN_LIMIT` to `DEFAULT_KANBAN_FETCH_BATCH_SIZE` and stays 100. Its
+  diagnostic for a refused `limit` now calls it the board's fetch batch.
+
+The display default follows the `@objectstack/spec` a host installs. A host
+that resolves an older spec gets that spec's default, on every surface alike.
 
 Released as `minor`, not `major`: this repository keeps its major aligned with
-`@objectstack/spec`, so a behaviour change is spelled out here instead.
+`@objectstack/spec`, so the behaviour change is spelled out here instead.

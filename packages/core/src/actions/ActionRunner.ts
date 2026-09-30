@@ -407,8 +407,6 @@ export interface ActionDef {
   objectName?: SpecActionInput['objectName'];
   /** AI affordance metadata (tool exposure, prompts). */
   ai?: SpecActionInput['ai'];
-  /** Accessibility overrides for the rendered control. */
-  aria?: SpecActionInput['aria'];
   /** Extra properties merged into the request body alongside the collected params. */
   bodyExtra?: SpecActionInput['bodyExtra'];
   /** How collected params are shaped into the request body (`flat` or nested). */

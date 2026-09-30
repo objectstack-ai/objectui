@@ -175,7 +175,11 @@ export const ACTION_DEF_KEYS = [
   'component',
   'objectName',
   'ai',
-  'aria',
+  // `aria` left this list, with its `ActionDef` field, when `@objectstack/spec`
+  // 17.5.0 retired `action.aria` as a `retiredKey()` tombstone (objectui#10929):
+  // the derived type had become `undefined`, so the field mirrored nothing. It
+  // stays in `SPEC_ACTION_KEYS` below, because `ActionSchema` still declares the
+  // tombstone.
   'bodyExtra',
   'bodyShape',
   // The declarative single-record field write (spec 17.3.0). Promoted from

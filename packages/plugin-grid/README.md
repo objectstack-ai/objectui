@@ -321,8 +321,18 @@ own percent convention for the sign — so the footer and the cells never read
 under two conventions. A stored `1234.5` renders `Sum: 1,235%` in `en`,
 `Sum: 1.235 %` in `de-DE` (no-break space before the sign) and `Sum: %1.235` in
 `tr-TR`, where the sign goes in front of the number (objectui#9269). The width
-comes from the column's `scale` (zero decimal places when absent), never its
-`precision` (objectui#9295).
+is what `resolveFieldScale` in `@objectstack/spec/data` resolves for the column:
+its declared `scale`, or, when it declares none, the protocol's own width for a
+percent — the answer the list cell, the record header's summary chip and the
+percent edit widget read too, so an undeclared percent shows one width on every
+face (objectui#9843). It is never the column's `precision` (objectui#9295).
+
+A `number` column's aggregate reads the same resolver. A declared `scale` is a
+fixed width (`Sum: 1.50`); a `number` declaring none has no fixed width, and the
+footer rounds the computed result to the most decimal places any of the values
+it was computed from carried — an average of `1`, `2`, `2` reads `Avg: 2`, and a
+sum of `0.1` and `0.2` reads `Sum: 0.3` (objectstack#19628, objectui#9843). A
+column with no `type` keeps the plain widths it always had.
 
 The footer row renders only when at least one column resolves to a summary — a
 view whose columns are all `none` (or carry no `summary`) has no footer.

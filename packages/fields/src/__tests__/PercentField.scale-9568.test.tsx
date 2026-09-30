@@ -32,18 +32,20 @@
  * increment of `1e-10`; `{ scale: 0 }` was ignored outright because
  * `precision` was absent, so the width fell to the widget's own 2.
  *
- * ── The ABSENT-`scale` case is a DECISION, not a leftover ───────────────
- * It keeps this widget's own 2 (`12.35%`, `step="0.01"`), so the repair is
- * invisible to a percent field that declares neither member — pinned below as
- * a MUST-NOT-CHANGE control. ⚠️ `PercentCellRenderer` spells the same absence
- * `0` and pins that, so the two faces still disagree when nothing is declared.
- * objectui#9568 declines to make widget-versus-cell agreement a premise; this
- * change neither widens nor closes that disagreement.
+ * ── The ABSENT-`scale` case moved later, by its own ruling ──────────────
+ * objectui#9568 kept this widget's own 2 for a field declaring neither member
+ * and pinned it as a must-not-change control, declining to settle the
+ * disagreement with `PercentCellRenderer`, which spelled the same absence `0`.
+ * objectui#9843 settled it (ruling A′): the absent width is the protocol's,
+ * read through `@objectstack/spec`'s `resolveFieldScale` on every face. The
+ * rows below that declare no `scale` now assert that width; the five-face
+ * parity pin is `percentAbsentScale.fiveFaces-9843.test.tsx` in plugin-grid.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { resolveFieldScale } from '@objectstack/spec/data';
 
 import { PercentField } from '../widgets/PercentField';
 
@@ -119,26 +121,29 @@ describe('PercentField reads `scale`, not `precision` (objectui#9568)', () => {
 
   it('ignores `precision` entirely when no `scale` is declared', () => {
     // decimal(10, 0) — ten total digits. `precision` alone must move nothing,
-    // in either face.
+    // in either face: the field is undeclared, and takes the protocol's width.
+    const width = resolveFieldScale({ type: 'percent' }) as number;
     renderReadonly(0.25, { precision: 10 });
-    expect(readonlyText()).toContain('25.00%');
+    expect(readonlyText()).toContain(`${(25).toFixed(width)}%`);
     expect(readonlyText()).not.toContain('25.0000000000%');
     cleanup();
 
     renderEditable(0.25, { precision: 10 });
-    expect(inputStep()).toBe('0.01');
+    expect(inputStep()).toBe((10 ** -width).toFixed(width));
     expect(inputStep()).not.toBe('0.0000000001');
   });
 
-  it('leaves a field declaring neither member exactly where it was', () => {
-    // MUST-NOT-CHANGE control: the absent-`scale` width stays this widget's
-    // own 2, so this repair is invisible to every field that declares nothing.
+  it('a field declaring neither member takes the protocol’s absent width (objectui#9843)', () => {
+    // This row pinned the widget's own `2` (`12.35%`, `step="0.01"`) until
+    // objectui#9843 retired it; the width is `resolveFieldScale`'s now, the
+    // same one `PercentCellRenderer` reads, so the widget renders `12%`.
     renderReadonly(0.12345);
-    expect(readonlyText()).toContain('12.35%');
+    expect(readonlyText()).toContain('12%');
+    expect(readonlyText()).not.toContain('12.35%');
     cleanup();
 
     renderEditable(0.12345);
-    expect(inputStep()).toBe('0.01');
+    expect(inputStep()).toBe('1');
   });
 
   it('applies the declared width to the whole-percent convention too', () => {

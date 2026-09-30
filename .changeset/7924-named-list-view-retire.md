@@ -61,6 +61,14 @@ members are NOT retired" and "They stay declared as they were" now hold for
 `rowHeight`. `.changeset/7924-density-mode-through-fold.md` (PR objectui#10793) states
 what ships; the text above is kept as the reading of this change.
 
+⚠️ **Dated note, 2026-09-30 — `allowExport` has since been retired as well — objectui#11013.**
+Later in this same release both relays stopped reading `allowExport` off a view, and
+`NamedListView.allowExport` became a `?: never` tombstone too. So neither of the two
+bucket-③ members above stays declared as it was. `ListView` still gates its export
+control on the `list-view` node's own `allowExport`.
+`.changeset/11013-view-row-declared-spellings.md` states what ships; the text above is
+kept as the reading of this change.
+
 **Only the authoring face changes.** Stored view documents that still carry a legacy
 spelling keep loading: `normalizeListViewSchema` (`@object-ui/core`) still folds the eight
 `show*` flags onto `userActions` / `appearance` at runtime, and hosts that read a stored

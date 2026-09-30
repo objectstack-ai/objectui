@@ -21,12 +21,12 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { createI18n, I18nProvider } from '@object-ui/i18n';
-import { ScreenView, type ScreenSpec } from './ScreenView';
+import { ScreenView, type ScreenSpec, type ScreenFieldSpec } from './ScreenView';
 
 afterEach(cleanup);
 
 /** The named producer's field: options, no `placeholder`, no `defaultValue`. */
-const CATEGORY = {
+const CATEGORY: ScreenFieldSpec = {
   name: 'category',
   label: 'Category',
   type: 'select',
@@ -34,7 +34,7 @@ const CATEGORY = {
     { value: 'personal', label: 'Personal' },
     { value: 'work', label: 'Work' },
   ],
-} as const;
+};
 
 function specOf(fields: ScreenSpec['fields']): ScreenSpec {
   return { nodeId: 'screen_1', title: 'Step', fields } as ScreenSpec;

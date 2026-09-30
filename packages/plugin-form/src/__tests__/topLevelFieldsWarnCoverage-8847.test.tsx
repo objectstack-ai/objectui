@@ -53,10 +53,10 @@
  *   - `{ name }` is tolerated as the same member as the bare name;
  *   - ⚠️ the key bounds what is DRAWN, not what the PARENT leg of the atomic
  *     batch WRITES: a seeded parent field it does not list is still written.
- *     That is pinned as behaviour and handed back, not changed here, because
- *     the registration's description calls this key the parent pool for "the
- *     submitted set". Changing it is a decision about the renderer or the
- *     declaration, and this card writes pins only.
+ *     That is the ruled behaviour (objectui#11114), not a defect: the
+ *     registration's `fields` description says that, on a create, the submitted
+ *     set is the drawn fields plus any seeded `initialValues`, and this row is
+ *     what keeps that sentence true.
  *
  * `MasterDetailForm` reads none of this itself. The `parentSchema` memo copies
  * `fields` onto an `object-form`-shaped node rendered through a DIRECTLY
@@ -268,10 +268,11 @@ describe('object-master-detail-form `fields` — the member shape (objectui#8071
     const ops = dataSource.batchTransaction.mock.calls[0][0] as Array<Record<string, any>>;
     expect(ops).toHaveLength(1);
     expect(ops[0]).toMatchObject({ object: 'invoice', action: 'create' });
-    // Pinned as BEHAVIOUR and handed back rather than changed here: the
-    // registration's `fields` description calls this key the parent pool for
-    // "the submitted set", and a seeded field outside it is written all the
-    // same. Hiding a field with `fields` does not stop its seed being saved.
+    // The ruled behaviour, not an accident (objectui#11114): the registration's
+    // `fields` description says that, on a create, the submitted set is the
+    // drawn fields plus any seeded `initialValues`, so a seeded field outside
+    // `fields` is written all the same. Hiding a field with `fields` does not
+    // stop its seed being saved.
     expect(ops[0].data).toEqual({ status: 'draft', memo: 'seeded' });
   });
 });

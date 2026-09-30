@@ -22,6 +22,8 @@ import {
   type RemoteTable,
 } from './api.js';
 import { ImportObjectDialog } from './ImportObjectDialog.js';
+import { t as tr, useMetadataLocale } from '../i18n.js';
+import { withNodes } from '../previews/row-nodes.js';
 
 export interface SchemaBrowserProps {
   datasource: string;
@@ -33,6 +35,10 @@ export function SchemaBrowser({ datasource }: SchemaBrowserProps) {
   // Dates and numbers on this surface read the display locale; a bare
   // `toLocale*()` call used the MACHINE's locale (objectui#9909).
   const displayLocale = useDisplayLocale();
+  // The designer locale this tab's own words read in (objectui#10862): the
+  // one the console's language resolves to, the same value its host panel's
+  // `locale` carries (`DatasourcePreview`'s hosts pass `useMetadataLocale()`).
+  const locale = useMetadataLocale();
   const [state, setState] = React.useState<LoadState>('idle');
   const [tables, setTables] = React.useState<RemoteTable[]>([]);
   const [error, setError] = React.useState<string | null>(null);
@@ -76,7 +82,7 @@ export function SchemaBrowser({ datasource }: SchemaBrowserProps) {
   };
 
   if (state === 'unavailable') {
-    return <UnavailableHint />;
+    return <UnavailableHint locale={locale} />;
   }
 
   return (
@@ -87,7 +93,7 @@ export function SchemaBrowser({ datasource }: SchemaBrowserProps) {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter tables…"
+            placeholder={tr('engine.externalDatasource.browser.filter', locale)}
             className="w-full rounded border bg-background pl-7 pr-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
@@ -97,7 +103,7 @@ export function SchemaBrowser({ datasource }: SchemaBrowserProps) {
           ) : (
             <RefreshCw className="h-3.5 w-3.5" />
           )}
-          <span className="ml-1.5">Refresh</span>
+          <span className="ml-1.5">{tr('engine.externalDatasource.browser.refresh', locale)}</span>
         </Button>
       </div>
 
@@ -109,15 +115,15 @@ export function SchemaBrowser({ datasource }: SchemaBrowserProps) {
 
       {state === 'loading' && tables.length === 0 && (
         <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Introspecting remote schema…
+          <Loader2 className="h-4 w-4 animate-spin" /> {tr('engine.externalDatasource.browser.introspecting', locale)}
         </div>
       )}
 
       {state === 'loaded' && filtered.length === 0 && (
         <div className="py-10 text-center text-sm text-muted-foreground">
           {tables.length === 0
-            ? 'No remote tables found (check the datasource’s allowedSchemas).'
-            : 'No tables match the filter.'}
+            ? tr('engine.externalDatasource.browser.noRemoteTables', locale)
+            : tr('engine.externalDatasource.browser.noMatch', locale)}
         </div>
       )}
 
@@ -126,9 +132,15 @@ export function SchemaBrowser({ datasource }: SchemaBrowserProps) {
           <table className="w-full text-xs">
             <thead className="bg-muted/40 text-muted-foreground">
               <tr>
-                <th className="px-2.5 py-1.5 text-left font-medium">Table</th>
-                <th className="px-2.5 py-1.5 text-right font-medium">Columns</th>
-                <th className="px-2.5 py-1.5 text-right font-medium">Rows (est.)</th>
+                <th className="px-2.5 py-1.5 text-left font-medium">
+                  {tr('engine.externalDatasource.browser.colTable', locale)}
+                </th>
+                <th className="px-2.5 py-1.5 text-right font-medium">
+                  {tr('engine.externalDatasource.browser.colColumns', locale)}
+                </th>
+                <th className="px-2.5 py-1.5 text-right font-medium">
+                  {tr('engine.externalDatasource.browser.colRows', locale)}
+                </th>
                 <th className="px-2.5 py-1.5 w-px" />
               </tr>
             </thead>
@@ -158,7 +170,7 @@ export function SchemaBrowser({ datasource }: SchemaBrowserProps) {
                     <td className="px-2.5 py-1.5">
                       <Button variant="ghost" size="sm" onClick={() => openImport(t)}>
                         <Download className="h-3.5 w-3.5" />
-                        <span className="ml-1.5">Import</span>
+                        <span className="ml-1.5">{tr('engine.externalDatasource.browser.import', locale)}</span>
                       </Button>
                     </td>
                   </tr>
@@ -179,13 +191,12 @@ export function SchemaBrowser({ datasource }: SchemaBrowserProps) {
   );
 }
 
-function UnavailableHint() {
+function UnavailableHint({ locale }: { locale: string }) {
   return (
     <div className="rounded border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-3 text-xs text-amber-900 dark:text-amber-200">
-      Federation is not enabled on this server. The
-      <span className="font-mono"> external-datasource </span>
-      service must be registered for table browsing, drafting, and validation
-      to work.
+      {withNodes(tr('engine.externalDatasource.browser.unavailable', locale), {
+        service: <span className="font-mono">external-datasource</span>,
+      })}
     </div>
   );
 }

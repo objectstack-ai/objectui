@@ -36,7 +36,7 @@ import {
   useResizeObserver,
 } from "@object-ui/components"
 import { toast } from "sonner"
-import { isRealCalendarDate, toDisplayDate } from "@object-ui/core"
+import { isRealCalendarDate, toDateInputValue, toDisplayDate, toDisplayEndDate, toInclusiveEndDay } from "@object-ui/core"
 import { useDisplayLocale } from "@object-ui/i18n"
 import { computeCriticalPath, computeProjectRescheduleDetailed, wouldCreateDependencyCycle, type WorkingCalendar, type RescheduleChange, type RescheduleOptions } from "./scheduling"
 import { shiftDayStart, type NormShiftSegments } from "./shifts"
@@ -222,6 +222,14 @@ export interface GanttTask {
   id: string | number
   title: string
   start: Date
+  /**
+   * The EXCLUSIVE end of the bar's half-open span `[start, end)`: the bar is
+   * drawn and scheduled up to this instant, and the task list, the tooltip, a
+   * drag's preview and the inline editor name the last day it runs through
+   * (objectui#11141). `ObjectGantt` hands a stored date-only end over as the
+   * next day's local midnight (`toDisplayEndDate`, `@object-ui/core`), so a
+   * task ending `2024-01-15` is drawn, and named, through the 15th.
+   */
   end: Date
   progress: number
   color?: string
@@ -377,6 +385,37 @@ function groupMover(originStart: Date, movedStart: Date, byElapsedTime: boolean)
   }
   const days = calendarDaysBetween(originStart, movedStart);
   return (value) => addUnits(value, days, 'day');
+}
+
+/**
+ * The day a bar's END is named by wherever the view prints or edits it as a
+ * day: the task list's End column and date sublabel, the hover tooltip, a
+ * drag's preview and the inline editor (objectui#11141).
+ *
+ * `end` is the EXCLUSIVE end of the half-open span `[start, end)` every bar is
+ * drawn (`styleFor`) and scheduled (`scheduling.ts`) on, so the day it names
+ * is the last one the bar runs through: `toInclusiveEndDay` (`@object-ui/core`),
+ * the exact inverse of the end read `ObjectGantt` and the timeline's gantt
+ * share (`toDisplayEndDate`). A stored date-only `2024-01-15` is handed in as
+ * the 16th's local midnight, drawn through the 15th, printed as the 15th, and
+ * written back as the 15th. An end inside a day names that day, as it did.
+ * A zero-length span (a milestone, or an end at or before its start) runs
+ * through no day, so it names its end's own day, as it did.
+ */
+function endDayOf(start: Date, end: Date): Date {
+  return end.getTime() > start.getTime() ? toInclusiveEndDay(end) : end;
+}
+
+/**
+ * The inline editor's typed END day → the end it commits: the exact inverse of
+ * {@link endDayOf} for the task being edited, so Enter on an untouched row
+ * commits the end it was seeded from (objectui#11141). A task that spans time
+ * commits the end of the typed day (`toDisplayEndDate`), the instant a stored
+ * date-only end of that day is read as; a zero-length one commits the typed
+ * day's local midnight (`toDisplayDate`), as every end did before.
+ */
+function endOfTypedDay(typed: string, task: Pick<GanttTask, 'start' | 'end'>): Date {
+  return task.end.getTime() > task.start.getTime() ? toDisplayEndDate(typed) : toDisplayDate(typed);
 }
 
 /**
@@ -1206,6 +1245,12 @@ export function GanttView({
     }
     return { start, end };
   }, [viewMode, shiftSegments]);
+
+  /** The day a drag's preview names as the end it will commit (`endDayOf`, objectui#11141). */
+  const dragPreviewEndDay = (s: NonNullable<typeof dragState>): Date => {
+    const previewed = computeDragChanges(s);
+    return endDayOf(previewed.start, previewed.end);
+  };
 
 
   // --- Undo / redo (Phase 6) --------------------------------------------
@@ -3852,7 +3897,8 @@ export function GanttView({
                     setEditValues({
                       title: task.title,
                       start: task.start.toLocaleDateString('en-CA'),
-                      end: task.end.toLocaleDateString('en-CA'),
+                      // The day the bar runs through (objectui#11141).
+                      end: toDateInputValue(endDayOf(task.start, task.end)),
                       progress: String(task.progress),
                     });
                   } else {
@@ -3900,9 +3946,10 @@ export function GanttView({
                               // seeded with; `toDisplayDate` reads it back at
                               // local midnight, where the engine's parse read
                               // UTC midnight and moved an untouched bar to the
-                              // day before west of UTC (objectui#10866).
+                              // day before west of UTC (objectui#10866). The
+                              // end is the typed day's end (objectui#11141).
                               start: toDisplayDate(editValues.start),
-                              end: toDisplayDate(editValues.end),
+                              end: endOfTypedDay(editValues.end, task),
                               progress: Number(editValues.progress) || 0,
                             },
                           }]);
@@ -3928,7 +3975,7 @@ export function GanttView({
                           className="text-[10px] text-muted-foreground"
                           data-testid={`gantt-row-dates-${task.id}`}
                         >
-                          {row.start.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })} → {row.end.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}
+                          {row.start.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })} → {endDayOf(row.start, row.end).toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}
                         </span>
                       )}
                     </span>
@@ -3963,7 +4010,7 @@ export function GanttView({
                       onClick={(e) => e.stopPropagation()}
                     />
                   ) : (
-                    row.end.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })
+                    endDayOf(row.start, row.end).toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })
                   )}
                 </div>
                   </>
@@ -4254,7 +4301,7 @@ export function GanttView({
                          <div className="text-muted-foreground">
                            {row.start.toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })}
                            {' → '}
-                           {row.end.toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })}
+                           {endDayOf(row.start, row.end).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })}
                            {' · '}{durationDays}{t('gantt.tooltip.days')}
                            {' · '}{Math.round(row.progress)}%
                          </div>
@@ -4474,7 +4521,7 @@ export function GanttView({
                           >
                             {computeDragChanges(dragState).start.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}
                             {' → '}
-                            {computeDragChanges(dragState).end.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}
+                            {dragPreviewEndDay(dragState).toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}
                           </div>
                         )}
                         {tooltip}
@@ -4787,7 +4834,7 @@ export function GanttView({
                             bar's text width never shifts on hover. */}
                         <span className="absolute inset-0 flex items-center px-2 text-[10px] text-white font-medium truncate opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                           {isDragging
-                            ? `${computeDragChanges(dragState!).start.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })} → ${computeDragChanges(dragState!).end.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}`
+                            ? `${computeDragChanges(dragState!).start.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })} → ${dragPreviewEndDay(dragState!).toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}`
                             : `${Math.round(liveProgress)}%`}
                         </span>
                       </div>
@@ -5061,7 +5108,8 @@ export function GanttView({
                   setEditValues({
                     title: task.title,
                     start: task.start.toLocaleDateString('en-CA'),
-                    end: task.end.toLocaleDateString('en-CA'),
+                    // The day the bar runs through (objectui#11141).
+                    end: toDateInputValue(endDayOf(task.start, task.end)),
                     progress: String(task.progress),
                   });
                 }}

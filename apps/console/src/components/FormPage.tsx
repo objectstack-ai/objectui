@@ -1988,10 +1988,11 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
    * and NO in the same position with the wrapper removed.
    */
   const { sectionLabel, fieldLabel } = useSafeFieldLabel();
-  // The page's own feedback chrome — the loading line, the success toast and
-  // the thank-you panel's defaults — through the same provider, and the same
-  // pack keys plugin-form's forms read (objectui#11039). An authored
-  // thank-you `title` / `message` still wins.
+  // The page's own chrome — the loading line, the success toast, the
+  // thank-you panel's defaults, and (objectui#11071) the submit button, the
+  // pending-redirect line and the required refusal's frame — through the same
+  // provider, and the same pack keys plugin-form's forms read
+  // (objectui#11039). An authored thank-you `title` / `message` still wins.
   const { t } = useObjectTranslation();
 
   const [loading, setLoading] = useState(true);
@@ -2123,7 +2124,14 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
     // write (objectui#7252).
     const missing = findMissingRequired(sections, values, loaded.record, isCreateForm, predicateScope);
     if (missing.length > 0) {
-      const msg = `Required: ${missing.map((f) => fieldLabel(loaded.object, f.name, f.label)).join(', ')}`;
+      // One catalogue frame around the labels (objectui#11071), joined with
+      // the pack's own list separator: the colon, its spacing and the order of
+      // the words are the locale's, not a concatenation of English.
+      const msg = t('publicForm.requiredFields', {
+        fields: missing
+          .map((f) => fieldLabel(loaded.object, f.name, f.label))
+          .join(t('validation.formInvalidJoiner')),
+      });
       setError(msg);
       toast.error(msg, { id: outcomeToastId });
       return;
@@ -2294,7 +2302,7 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
     }
     return (
       <div className="mx-auto max-w-2xl p-6 text-center text-sm text-muted-foreground">
-        Redirecting…
+        {t('publicForm.redirectPending')}
       </div>
     );
   }
@@ -2450,7 +2458,11 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
             disabled={submitting || isUploading}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
           >
-            {submitting ? 'Submitting…' : isUploading ? 'Uploading…' : 'Submit'}
+            {submitting
+              ? t('publicForm.submitting')
+              : isUploading
+                ? t('fields.file.uploading')
+                : t('publicForm.submit')}
           </button>
         </div>
       </form>

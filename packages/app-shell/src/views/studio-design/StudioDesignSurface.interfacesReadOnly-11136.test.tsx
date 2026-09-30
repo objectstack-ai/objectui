@@ -1,0 +1,293 @@
+// Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
+
+/**
+ * objectui#11136 — the Interfaces pillar honours a read-only package on every
+ * editor it opens for a leaf: the block inspector, the default inspector, a
+ * source page's code editor, and the canvas's in-place edits.
+ *
+ * Both of the pillar's autosaves are blocked on `readOnly`, but the block
+ * inspector and the default inspector were created with a hardcoded
+ * `readOnly={false}`, and the canvas and the source editor were handed the
+ * pillar's `onPatch` unconditionally. On a source-loaded package
+ * (`writable: false`) an edit therefore took on screen, nothing said it would
+ * not persist, and nothing was saved. The Data pillar threads its real flag
+ * since objectui#2259 and the Automations pillar since objectui#11124; this
+ * pillar now does the same, through each editor's own documented read-only
+ * contract.
+ *
+ * The canvas and the inspectors are the REAL registered `PagePreview`,
+ * `PageBlockInspector` and `PageDefaultInspector`: the value under test is
+ * what they offer the author, so none of them is stubbed. The client is a
+ * server double that records every save. Every read-only case has its writable
+ * control in the same file, and the control proves the edit reaches a save.
+ */
+
+import '@testing-library/jest-dom/vitest';
+import * as React from 'react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+
+const PKG = 'com.acme.app';
+
+const NAV = [
+  { id: 'nav_home', type: 'page', label: 'Home', pageName: 'home' },
+  { id: 'nav_landing', type: 'page', label: 'Landing', pageName: 'landing' },
+];
+const APP = { name: 'acme_app', label: 'Acme', navigation: NAV };
+
+/** A block page: one region, one leaf block the canvas renders and can select. */
+const HOME = {
+  name: 'home',
+  label: 'Home',
+  type: 'app',
+  regions: [{ name: 'main', components: [{ id: 'hello', type: 'element:text', properties: { content: 'Hello' } }] }],
+};
+
+/** A source page: no block tree, its editor is the rail's code editor. */
+const LANDING = { name: 'landing', label: 'Landing', type: 'app', kind: 'html', source: '<h1>Hi</h1>' };
+
+const server = vi.hoisted(() => ({
+  active: new Map<string, Record<string, unknown>>(),
+  saves: [] as Array<{ type: string; name: string; body: Record<string, unknown> }>,
+}));
+
+const mockClient = vi.hoisted(() => {
+  const k = (type: string, name: string) => `${type}/${name}`;
+  return {
+    list: vi.fn(async (type: string) =>
+      [...server.active.entries()]
+        .filter(([key]) => key.startsWith(`${type}/`))
+        .map(([, row]) => ({ name: row.name, label: row.label ?? row.name })),
+    ),
+    listDrafts: vi.fn(async () => []),
+    listTypes: vi.fn(async () => ({ entries: [] })),
+    get: vi.fn(async () => null),
+    references: vi.fn(async () => []),
+    layered: vi.fn(async (type: string, name: string) => {
+      const eff = server.active.get(k(type, name)) ?? null;
+      return { code: null, overlay: eff, overlayScope: eff ? 'env' : null, effective: eff, editable: true, deletable: true, resettable: false, lock: 'none' };
+    }),
+    getDraft: vi.fn(async (type: string, name: string) => {
+      throw Object.assign(new Error(`No pending draft exists for ${type}/${name}.`), { code: 'NO_DRAFT', status: 404 });
+    }),
+    save: vi.fn(async (type: string, name: string, item: unknown) => {
+      server.saves.push({ type, name, body: JSON.parse(JSON.stringify(item)) as Record<string, unknown> });
+      return { type, name, item };
+    }),
+    publish: vi.fn(async () => ({ success: true })),
+    reset: vi.fn(async () => ({})),
+  };
+});
+
+vi.mock('../metadata-admin/useMetadata', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../metadata-admin/useMetadata')>();
+  return { ...mod, useMetadataClient: () => mockClient, useMetadataTypes: () => ({ entries: [] }) };
+});
+
+vi.mock('./packages-io', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('./packages-io')>();
+  return { ...mod, fetchPackages: vi.fn(async () => []) };
+});
+
+vi.mock('@object-ui/react', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@object-ui/react')>();
+  return { ...mod, useAdapter: () => dataSource };
+});
+
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+// Monaco's loader fails (offline), so the source editor falls back to its
+// textarea, which carries the same `readOnly` the Monaco options would.
+vi.mock('@monaco-editor/react', () => {
+  const Editor = () => null;
+  return { Editor, default: Editor, loader: { init: () => Promise.reject(new Error('offline')) } };
+});
+
+import { InterfacesPillar } from './StudioDesignSurface';
+import { createEmptyDataSource, failOnAbsorbedFetchError } from './__tests__/emptyDataSource';
+import { registerMetadataPreview } from '../metadata-admin/preview-registry';
+import { registerMetadataInspector } from '../metadata-admin/inspector-registry';
+import { registerMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry';
+import { PagePreview } from '../metadata-admin/previews/PagePreview';
+import { PageBlockInspector } from '../metadata-admin/inspectors/PageBlockInspector';
+import { PageDefaultInspector } from '../metadata-admin/inspectors/PageDefaultInspector';
+
+const dataSource = createEmptyDataSource();
+failOnAbsorbedFetchError();
+
+registerMetadataPreview('page', PagePreview);
+registerMetadataInspector('page', PageBlockInspector);
+registerMetadataDefaultInspector('page', PageDefaultInspector);
+
+const key = (type: string, name: string) => `${type}/${name}`;
+
+beforeEach(() => {
+  server.active.clear();
+  server.saves.length = 0;
+  for (const fn of Object.values(mockClient)) (fn as unknown as { mockClear: () => void }).mockClear();
+  server.active.set(key('app', APP.name), JSON.parse(JSON.stringify(APP)));
+  server.active.set(key('page', HOME.name), JSON.parse(JSON.stringify(HOME)));
+  server.active.set(key('page', LANDING.name), JSON.parse(JSON.stringify(LANDING)));
+});
+
+afterEach(cleanup);
+
+function renderPillar(readOnly: boolean, opts: { foldInspector?: boolean } = {}) {
+  return render(
+    <MemoryRouter initialEntries={[`/studio/${PKG}/interfaces`]}>
+      <InterfacesPillar packageId={PKG} readOnly={readOnly} foldInspector={opts.foldInspector} />
+    </MemoryRouter>,
+  );
+}
+
+/** The right rail (classic layout: the inspector's own aside). */
+function rail(): HTMLElement {
+  return screen.getByRole('complementary');
+}
+
+/** The form controls an author types or picks into — not section toggles. */
+function railControls(): HTMLElement[] {
+  return Array.from(
+    rail().querySelectorAll<HTMLElement>(
+      'input, textarea, select, [role="combobox"], [role="switch"], [role="checkbox"]',
+    ),
+  );
+}
+
+function isInert(el: HTMLElement): boolean {
+  const field = el as HTMLInputElement;
+  return (
+    field.disabled === true ||
+    field.readOnly === true ||
+    el.getAttribute('aria-disabled') === 'true' ||
+    el.getAttribute('aria-readonly') === 'true' ||
+    el.hasAttribute('data-disabled')
+  );
+}
+
+/** The home page open, its default inspector (the page form) in the rail. */
+async function openHome(): Promise<void> {
+  await screen.findByRole('button', { name: 'Select hello' }, { timeout: 8000 });
+  await waitFor(() => expect(railControls().length).toBeGreaterThan(0), { timeout: 8000 });
+}
+
+/** Select the `hello` block on the canvas; the block inspector opens in the rail. */
+async function inspectHello(): Promise<HTMLElement> {
+  fireEvent.click(screen.getByRole('button', { name: 'Select hello' }));
+  return within(rail()).findByLabelText('ID', undefined, { timeout: 8000 });
+}
+
+async function openLanding(): Promise<HTMLTextAreaElement> {
+  await openHome();
+  fireEvent.click(screen.getByRole('button', { name: /Landing/ }));
+  const editor = await within(rail()).findByRole('textbox', { name: 'Page source' }, { timeout: 8000 });
+  return editor as HTMLTextAreaElement;
+}
+
+/**
+ * The folded layout (the chat dock owns the right side): the rail becomes the
+ * center "Properties" tab, whose body for a source page IS the code editor —
+ * the second of the pillar's two source-editor sites.
+ */
+async function openLandingFolded(): Promise<HTMLTextAreaElement> {
+  const tabs = await screen.findByTestId('studio-center-tabs', undefined, { timeout: 8000 });
+  fireEvent.click(await screen.findByRole('button', { name: /Landing/ }, { timeout: 8000 }));
+  fireEvent.mouseDown(within(tabs).getByRole('tab', { name: 'Properties' }), { button: 0 });
+  const editor = await within(tabs).findByRole('textbox', { name: 'Page source' }, { timeout: 8000 });
+  return editor as HTMLTextAreaElement;
+}
+
+describe('Interfaces pillar on a read-only package (objectui#11136)', () => {
+  it('opens the default inspector read-only: every page-form control is disabled or read-only', async () => {
+    renderPillar(true);
+    await openHome();
+
+    const controls = railControls();
+    expect(controls.length).toBeGreaterThan(0);
+    expect(controls.filter((el) => !isInert(el)).map((el) => el.id)).toEqual([]);
+  });
+
+  it('opens the block inspector read-only: a block still selects, and its inputs are disabled', async () => {
+    renderPillar(true);
+    await openHome();
+
+    const id = await inspectHello();
+    expect(id).toBeDisabled();
+    const controls = railControls();
+    expect(controls.length).toBeGreaterThan(1);
+    expect(controls.filter((el) => !isInert(el)).map((el) => el.id)).toEqual([]);
+  });
+
+  it('offers no canvas edit: no "Add block", and the block is not draggable', async () => {
+    renderPillar(true);
+    await openHome();
+
+    expect(screen.queryAllByRole('button', { name: 'Add block' })).toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'Select hello' })).toHaveAttribute('draggable', 'false');
+  });
+
+  it("opens a source page's code editor read-only", async () => {
+    renderPillar(true);
+    const editor = await openLanding();
+
+    expect(editor.readOnly).toBe(true);
+  });
+
+  it("opens a source page's code editor read-only in the folded layout too", async () => {
+    renderPillar(true, { foldInspector: true });
+    const editor = await openLandingFolded();
+
+    expect(editor.readOnly).toBe(true);
+  });
+});
+
+describe('Interfaces pillar on a writable package — the control (objectui#11136)', () => {
+  it('the default inspector edits, and the edit autosaves', async () => {
+    renderPillar(false);
+    await openHome();
+
+    const label = within(rail()).getByLabelText(/^Label/);
+    expect(label).toBeEnabled();
+    expect(label).not.toHaveAttribute('readonly');
+    fireEvent.change(label, { target: { value: 'Welcome' } });
+    fireEvent.blur(label);
+
+    await waitFor(() => expect(server.saves).toHaveLength(1), { timeout: 8000 });
+    expect(server.saves[0]).toMatchObject({ type: 'page', name: 'home', body: { label: 'Welcome' } });
+  });
+
+  it('the canvas edits, the block inspector edits, and the edit autosaves', async () => {
+    renderPillar(false);
+    await openHome();
+    expect(screen.getAllByRole('button', { name: 'Add block' }).length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Select hello' })).toHaveAttribute('draggable', 'true');
+
+    const id = await inspectHello();
+    expect(id).toBeEnabled();
+    fireEvent.change(id, { target: { value: 'greeting' } });
+
+    await waitFor(() => expect(server.saves).toHaveLength(1), { timeout: 8000 });
+    const saved = server.saves[0]!;
+    expect(saved).toMatchObject({ type: 'page', name: 'home' });
+    expect((saved.body.regions as Array<{ components: Array<{ id: string }> }>)[0]!.components[0]!.id).toBe('greeting');
+  });
+
+  it("a source page's code editor edits, and the edit autosaves", async () => {
+    renderPillar(false);
+    const editor = await openLanding();
+    expect(editor.readOnly).toBe(false);
+
+    fireEvent.change(editor, { target: { value: '<h1>Hello</h1>' } });
+
+    await waitFor(() => expect(server.saves).toHaveLength(1), { timeout: 8000 });
+    expect(server.saves[0]).toMatchObject({ type: 'page', name: 'landing', body: { source: '<h1>Hello</h1>' } });
+  });
+
+  it("a source page's code editor in the folded layout edits too", async () => {
+    renderPillar(false, { foldInspector: true });
+    const editor = await openLandingFolded();
+
+    expect(editor.readOnly).toBe(false);
+  });
+});

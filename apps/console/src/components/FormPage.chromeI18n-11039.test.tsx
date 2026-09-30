@@ -86,10 +86,14 @@ function renderPublic() {
   );
 }
 
-/** Submit the loaded form. The Submit button itself is out of this card's scope. */
-async function submit() {
+/**
+ * Submit the loaded form through the button's name in the session language:
+ * the button is chrome the catalogue localises (objectui#11071), so a zh page
+ * offers `提交`, not `Submit`.
+ */
+async function submit(name: string) {
   await screen.findByLabelText(/Title/);
-  await userEvent.click(screen.getByRole('button', { name: /Submit/ }));
+  await userEvent.click(screen.getByRole('button', { name }));
 }
 
 function inLanguage(language: string) {
@@ -118,7 +122,7 @@ describe('FormPage chrome resolves through the i18n catalogue (objectui#11039)',
     inLanguage('zh');
     vi.stubGlobal('fetch', stubFetch(publicPayload()));
     renderPublic();
-    await submit();
+    await submit('提交');
 
     await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(1));
     expect(toastSuccess.mock.calls[0][0]).toBe('已提交');
@@ -128,7 +132,7 @@ describe('FormPage chrome resolves through the i18n catalogue (objectui#11039)',
     inLanguage('zh');
     vi.stubGlobal('fetch', stubFetch(publicPayload()));
     renderPublic();
-    await submit();
+    await submit('提交');
 
     expect(await screen.findByRole('heading', { name: '感谢您的提交！' })).toBeInTheDocument();
     expect(screen.getByText('我们已成功收到您的信息。')).toBeInTheDocument();
@@ -143,7 +147,7 @@ describe('FormPage chrome resolves through the i18n catalogue (objectui#11039)',
       stubFetch(publicPayload({ kind: 'thank-you', title: 'Merci', message: 'We will be in touch.' })),
     );
     renderPublic();
-    await submit();
+    await submit('提交');
 
     expect(await screen.findByRole('heading', { name: 'Merci' })).toBeInTheDocument();
     expect(screen.getByText('We will be in touch.')).toBeInTheDocument();
@@ -154,7 +158,7 @@ describe('FormPage chrome resolves through the i18n catalogue (objectui#11039)',
     inLanguage('en');
     vi.stubGlobal('fetch', stubFetch(publicPayload()));
     renderPublic();
-    await submit();
+    await submit('Submit');
 
     expect(await screen.findByRole('heading', { name: 'Thank you!' })).toBeInTheDocument();
     expect(screen.getByText('Your submission has been received successfully.')).toBeInTheDocument();

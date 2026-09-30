@@ -167,6 +167,15 @@ config, so it applies alongside a `gantt` block or the flat `*Field` keys.
 }
 ```
 
+A date-only end (`YYYY-MM-DD`) is inclusive: the bar runs through the end of
+that day. So a task from `2024-01-01` to `2024-01-15` covers January 1st to
+15th, a successor starting `2024-01-16` begins exactly where it ends, and a
+task whose start and end name the same day is one day long. A drag or resize
+writes a date-only end back as the last day the bar runs through, which is
+also the day the task list, the tooltip and the inline editor show. An end
+with a time part is an instant, and the bar ends exactly there. The timeline's
+`gantt` variant reads an end the same way.
+
 ## Configuration
 
 ### Field Mapping

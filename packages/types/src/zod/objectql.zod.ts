@@ -250,6 +250,24 @@ const OBJECT_GRID_NEITHER_CHANNEL = neitherContentChannelGuidance(
 );
 
 /**
+ * objectui#11068 — ONE string per retired key, for both author-facing channels
+ * (`retirementTombstone()` writes it into `.describe()` and the parse message).
+ */
+const OBJECT_GRID_ROW_SPEC_ACTIONS_RETIRED =
+  'RETIRED (objectui#11068, ADR-0049) — `rowSpecActions` was a second spelling of `rowActions`, and nothing '
+  + 'ever read it, so an authored list drew no row-menu entry. Rename the key to `rowActions`.';
+const OBJECT_GRID_BULK_SPEC_ACTIONS_RETIRED =
+  'RETIRED (objectui#11068, ADR-0049) — `bulkSpecActions` was a second spelling of `bulkActions`, and nothing '
+  + 'ever read it, so an authored list offered no bulk action. Rename the key to `bulkActions`.';
+const OBJECT_GRID_NAME_RETIRED =
+  'RETIRED on `object-grid` (objectui#11068, ADR-0049) — a grid has no `name`: it is not a form field, and '
+  + 'nothing read the key. Write `id` for the node\'s identity (it also scopes the saved column layout) and '
+  + '`label` for the grid\'s caption.';
+const OBJECT_GRID_PLACEHOLDER_RETIRED =
+  'RETIRED on `object-grid` (objectui#11068, ADR-0049) — a grid is not an input, and nothing read '
+  + '`placeholder`. The text the grid shows when it has no rows is `emptyState: { message }`.';
+
+/**
  * ObjectGrid Schema
  */
 export const ObjectGridSchema = BaseSchema.extend({
@@ -355,6 +373,30 @@ export const ObjectGridSchema = BaseSchema.extend({
     + 'Omit `rowActions` to keep the default generic entries.',
   ),
   batchActions: z.array(z.string()).optional(),
+  // objectui#11068 — RETIRED under ADR-0049, in lockstep with the `?: never`
+  // twins on the interface. `rowSpecActions` / `bulkSpecActions` were second
+  // spellings of `rowActions` / `bulkActions` that nothing ever read; `name` and
+  // `placeholder` are `BaseSchema` members with no meaning on a grid (a grid is
+  // neither a form field nor an input), and `ObjectGrid` never read either. A
+  // tombstone rather than a deletion, as for `defaultSort`: `BaseSchema` is
+  // `.passthrough()` (and declares `name` / `placeholder` itself), so without a
+  // member here the key would be KEPT unexamined, not refused.
+  rowSpecActions: retirementTombstone(OBJECT_GRID_ROW_SPEC_ACTIONS_RETIRED),
+  bulkSpecActions: retirementTombstone(OBJECT_GRID_BULK_SPEC_ACTIONS_RETIRED),
+  name: retirementTombstone(OBJECT_GRID_NAME_RETIRED),
+  placeholder: retirementTombstone(OBJECT_GRID_PLACEHOLDER_RETIRED),
+  // objectui#11068 — read by `ObjectGrid`, which draws it in place of an empty
+  // table. Mirrored member for member with the interface: three optional
+  // strings, and an unknown member refused rather than kept, so a misspelt
+  // `description` / `text` for `message` is named instead of drawing nothing.
+  emptyState: z
+    .strictObject({
+      title: z.string().optional().describe('Heading of the empty state; absent, the table’s own "No results found"'),
+      message: z.string().optional().describe('Line of text below the heading; absent, no line'),
+      icon: z.string().optional().describe('Lucide icon name; absent or unknown, the shared empty-state glyph'),
+    })
+    .optional()
+    .describe('What the grid draws instead of an empty table: `{ title, message, icon }`'),
   editable: z.boolean().optional(),
   keyboardNavigation: z.boolean().optional(),
   frozenColumns: z.number().optional(),
@@ -532,8 +574,11 @@ export const ObjectFormSchema = BaseSchema.extend({
  *
  * ⛔ A tombstone, not an `.omit()`: `BaseSchema` is `.passthrough()`, so an
  * omitted key would be KEPT unexamined, and the slot would accept silently
- * what the TypeScript face refuses. The three tombstones `ObjectGridSchema`
- * itself declares (`body`, `children`, `defaultSort`) are inherited unchanged.
+ * what the TypeScript face refuses. Three of the tombstones `ObjectGridSchema`
+ * itself declares (`body`, `children`, `defaultSort`) are inherited unchanged;
+ * the four it retired later (`name`, `placeholder`, `rowSpecActions`,
+ * `bulkSpecActions`, objectui#11068) are overridden below by this slot's own
+ * refusal, which names the same remedy.
  */
 const tableKeyRefusal = (key: string, why: string) =>
   retirementTombstone(
@@ -541,6 +586,10 @@ const tableKeyRefusal = (key: string, why: string) =>
     + `hands the grid it draws, so it reached nothing: ${why}`,
   );
 const TABLE_KEY_UNREAD = '`ObjectGrid` has no read of it.';
+// objectui#11068 — `ObjectGrid` honours these on its own node, and the view does
+// not hand them on: that card enforced them without widening this slot.
+const TABLE_KEY_NOT_RELAYED =
+  '`ObjectGrid` honours it on an `object-grid` node, but the view does not hand it to the grid it draws.';
 const TABLE_KEY_RECORD_SOURCE =
   'the view\'s grid lists the records of the view\'s own `objectName`, and `table` does not re-point that record source.';
 const TABLE_KEY_ROW_CLICK =
@@ -556,10 +605,10 @@ const OBJECT_VIEW_TABLE_WITHHELD = {
   bind: tableKeyRefusal('bind', TABLE_KEY_RECORD_SOURCE),
   bulkSpecActions: tableKeyRefusal('bulkSpecActions', `${TABLE_KEY_UNREAD} Write \`bulkActions\`.`),
   data: tableKeyRefusal('data', TABLE_KEY_RECORD_SOURCE),
-  description: tableKeyRefusal('description', `${TABLE_KEY_UNREAD} Write \`description\` on the object-view node itself.`),
+  description: tableKeyRefusal('description', `${TABLE_KEY_NOT_RELAYED} Write \`description\` on the object-view node itself.`),
   disabled: tableKeyRefusal('disabled', TABLE_KEY_NODE_LEVEL),
   disabledOn: tableKeyRefusal('disabledOn', TABLE_KEY_NODE_LEVEL),
-  emptyState: tableKeyRefusal('emptyState', TABLE_KEY_UNREAD),
+  emptyState: tableKeyRefusal('emptyState', TABLE_KEY_NOT_RELAYED),
   hidden: tableKeyRefusal('hidden', TABLE_KEY_NODE_LEVEL),
   hiddenOn: tableKeyRefusal('hiddenOn', TABLE_KEY_NODE_LEVEL),
   id: tableKeyRefusal('id', 'the view fixes its grid\'s identity, as it fixes `type` and `objectName`.'),

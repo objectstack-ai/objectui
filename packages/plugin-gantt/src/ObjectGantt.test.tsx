@@ -24,7 +24,10 @@ vi.mock('./GanttView', () => ({
               </div>
             ) : null}
             <button data-testid={`gv-view-${t.id}`} onClick={() => onTaskClick?.(t)}>view</button>
-            <button data-testid={`gv-update-${t.id}`} onClick={() => onTaskUpdate?.(t, { start: new Date('2024-02-01T00:00:00.000Z'), end: new Date('2024-02-05T00:00:00.000Z') })}>update</button>
+            {/* A bar dropped onto February 1st to 5th: its end is the EXCLUSIVE
+                instant GanttView hands back, the 6th's midnight, so a
+                date-only end field is written as the 5th (objectui#11141). */}
+            <button data-testid={`gv-update-${t.id}`} onClick={() => onTaskUpdate?.(t, { start: new Date('2024-02-01T00:00:00.000Z'), end: new Date('2024-02-06T00:00:00.000Z') })}>update</button>
             <button data-testid={`gv-delete-${t.id}`} onClick={() => onTaskDelete?.(t)}>delete</button>
           </div>
         ))}

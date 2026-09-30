@@ -1,128 +1,92 @@
 ---
-title: "PageHeader"
-description: "Page header component with title, subtitle, and actions"
+title: "Page Header"
+description: "The page:header block: a page's title bar, with a subtitle, the record chip and the record's header actions"
 ---
 
-> **Canonical author key: `page:header`. This page's key, `page-header`, is a legacy alias
-> — and it resolves to a different renderer.**
->
-> Measured against the `@objectstack/spec` build this repo installs, `page:header` is the
-> only spelling the contract knows: it is the `PageComponentType` value, and it is the
-> `ComponentPropsMap` row that binds `PageHeaderProps` — whose own rejection messages name
-> the surface `page:header`. Neither `page-header` nor `layout:page-header` appears in
-> either place.
->
-> The alias is **still accepted** — not retired, and not silently dropped.
-> `registerLayout()` registers `page-header` (plus its namespaced form
-> `layout:page-header`), so a node written that way renders today: it resolves to the
-> `@object-ui/layout` component documented below, which is also what the demo on this page
-> renders. What the alias does not carry is a contract. A node's props are validated by
-> dispatching its `type` through `ComponentPropsMap`, `page-header` has no row there, and
-> `PageComponentSchema.properties` is an open `z.record(z.string(), z.unknown())` bag — so
-> a misspelled or retired key written under the alias is neither rejected nor reported.
-> Under `page:header` the same key is refused by name.
->
-> Author metadata pages against `page:header`. The canonical node is the record-aware
-> renderer in `@object-ui/components`; [Slotted pages](/docs/guide/slotted-pages) shows it
-> in place. Its props are **not** the props below — `icon`, `action` and `showBack` are this
-> component's own, and `icon` is retired on the canonical node (Component Props, below).
-> Everything on this page — Props, Styling, Examples, demo — is measured against this
-> component, the alias's renderer; converting the page to the canonical node is tracked in
-> objectui#3906.
-
-The PageHeader component provides a consistent header for pages with title, subtitle, and action buttons.
+`page:header` is a page's title bar: a heading, an optional subtitle and, on a record page,
+the record chip and the record's header actions. It is rendered by `PageHeaderRenderer` in
+`@object-ui/components`, and its props contract is `PageHeaderProps` from
+`@objectstack/spec/ui`, the row `ComponentPropsMap['page:header']` binds.
 
 ## Basic Usage
 
-```tsx
-import { PageHeader } from '@object-ui/layout';
-
-<PageHeader
-  title="Dashboard"
-  subtitle="Welcome to your dashboard"
-/>
-```
-
-## With Actions
-
-<SchemaExample id="layout-page-header/pageheader-with-actions" />
-
-## Component Props
-
-```ts
-interface PageHeaderComponentProps extends React.HTMLAttributes<HTMLDivElement> {
-  title: string;                      // Page title (required); {field.path} tokens interpolated
-  subtitle?: string;                  // Secondary line under the title — the canonical key
-  icon?: React.ReactNode | string;    // Lucide icon name, or a pre-rendered node
-  action?: React.ReactNode;           // Action buttons or elements (right-aligned slot)
-  actions?: unknown[];                // ActionDef list (or action ids) → record:quick_actions
-  showBack?: boolean;                 // Back arrow; inferred from record context when omitted
-  schema?: { children?: unknown[]; actions?: unknown[]; properties?: { actions?: unknown[] } };
-  children?: React.ReactNode;         // Additional content (right-aligned slot)
-  className?: string;                 // Additional CSS classes
+```json
+{
+  "type": "page:header",
+  "properties": {
+    "title": "Users",
+    "subtitle": "Manage your team members and permissions"
+  }
 }
 ```
 
-`subtitle` is the canonical key: `@objectstack/spec/ui`'s `PageHeaderProps` — the contract
-for the authored `page:header` node — declares `title / subtitle / breadcrumb / actions /
-recordChrome / showStar / showCopyId / maxVisible / mobileMaxVisible / aria` and has no
-`description`. Both `title` and `subtitle` interpolate `{field.path}` tokens against the
-surrounding record context.
+<SchemaExample id="layout-page-header/basic-page-header" />
 
-`maxVisible` and `mobileMaxVisible` are the canonical node's action-overflow budget, and
-they belong to that contract rather than to this component: the `page:header` renderer in
-`@object-ui/components` reads them, and `@object-ui/layout`'s `PageHeader` — the component
-documented above — does not. The shape describes them as "How many header actions render as
-inline buttons before the rest fold into the overflow menu (renderer default 3)" and "The
-`maxVisible` budget on mobile viewports (renderer default 1)";
-[Slotted pages](/docs/guide/slotted-pages) shows them authored on a page.
+The header's props go in `properties`, the page-component spelling of the contract, and that
+is where they are judged. `PageHeaderProps` is a closed shape, so a misspelled or removed key
+there is refused by name: `subTitle` comes back as an unrecognized key with `subtitle`
+suggested, and `icon` as a removed property.
 
-`icon` is deliberately **not** in that list, and the distinction matters because this page
-documents a React component while the spec governs an authored node. `PageHeaderProps.icon`
-was retired from `@objectstack/spec` (objectstack#6946, ADR-0087 D2): the canonical
-`page:header` renderer never read it, so an authored value used to be accepted and dropped,
-and the contract now rejects the key by name. On a canonical `page:header` node the
-header's identity comes from the record chrome (`recordChrome`, on by default) plus each
-action's own `icon`; `os migrate meta --from 16` rewrites stored sources.
+The renderer reads the same keys written directly on the node, beside `type`, but nothing
+judges them there: the spec's page-component shape refuses `title` or `subtitle` in that
+position as unrecognized keys, and objectui's schema mirror (`safeValidateSchema` from
+`@object-ui/types/zod`) passes them through without checking them. `className` is the one
+exception, and it goes the other way: it belongs on the node, beside `type`, and the contract
+refuses it inside `properties`.
 
-The `icon` prop listed above is this component's **own** capability, not that spec key.
-`PageHeader` from `@object-ui/layout` — registered as `page-header` and
-`layout:page-header` — really does draw it (a string resolves through `LazyIcon`, a React
-node renders as-is), which is why it stays on that registration's `inputs` and why the demo
-on this page writes `"icon": "users"` (objectui#3829). Do not carry the key over to a
-canonical `page:header` node: the same JSON renders here and fails to parse there.
+## Properties
 
-`description` used to be a **legacy alias** of `subtitle` that this component read as
-well. It is **retired** (objectui#3789): the prop is gone and the renderer draws a
-secondary line only for `subtitle`.
+Every key below sits in `properties`. Defaults marked *spec* are applied by
+`PageHeaderProps`; defaults marked *renderer* are what the renderer uses when the key is
+absent.
 
-Nothing is lost by that, because the normalization moved upstream where it belongs. The
-ADR-0087 D2 conversion entry `page-header-subtitle-alias` is **live** in protocol 17: the
-loader rewrites a header node's `properties.description` to `properties.subtitle` as the
-stack is loaded, so a page stored with the old key still renders its second line. An
-already-canonical `subtitle` wins, and a `description` it shadows is left exactly as
-authored rather than the loader choosing between two different second lines.
+| Key | Type | Default | What it does |
+|---|---|---|---|
+| `title` | string, or an inline locale map | derived from the record on a record page | The heading. `{field.path}` tokens are interpolated against the record in scope. |
+| `subtitle` | string, or an inline locale map | — | The secondary line under the title. Same interpolation as `title`. |
+| `actions` | array of action ids | — | Names of actions declared on the object's own metadata, drawn as the header's button row. |
+| `breadcrumb` | boolean | `true` (*spec*) | Renders a breadcrumb slot above the title. `false` removes it. |
+| `recordChrome` | boolean | `true` (*spec*) | On a record page, renders the title as the record chip. `false` keeps the bare heading. |
+| `showStar` | boolean | `true` (*spec*) | The follow star beside the record title. Part of the record chip. |
+| `showCopyId` | boolean | `true` (*spec*) | The copy-record-id button beside the record title. Part of the record chip. |
+| `maxVisible` | positive integer | `3` (*renderer*) | How many header actions render as inline buttons before the rest fold into the `⋯` menu. |
+| `mobileMaxVisible` | positive integer | `1` (*renderer*) | The same budget on a mobile viewport. |
+| `aria` | `{ ariaLabel?, ariaDescribedBy?, role? }` | — | Accessibility attributes for the `<header>` element (see [Accessibility](#accessibility)). |
 
-The retirement waited on a measurement rather than a date: every position a `page-header`
-node can occupy had to be shown to pass through that rewrite. It did not, at first — the
-conversion walk reached only `regions[].components[]`, leaving `slots.header` and
-container-nested headers unconverted (objectstack#6775). With that walk widened
-(objectstack#6776 for slots, PR #7034 for containers nested to any depth), all seven
-positions convert; `packages/layout/src/__tests__/page-header-subtitle-conversion-coverage.test.ts`
-re-measures them on every run against the spec build this repo consumes.
+**`title` and `subtitle`** take a plain string or an inline locale map such as
+`{ "en": "Orders" }`, resolved for the display locale. A `{field.path}` token that resolves
+to nothing collapses to an empty string rather than leaking the raw template: with no record
+in scope, `"Hello {name}"` renders `Hello`. Without a record, a header with no `title` draws
+no `<h1>` at all. On a record page, omit `title` and the heading is derived from the record.
 
-If you are hand-feeding schema JSON to the renderer without going through an ObjectStack
-loader, write `subtitle` — that is the only spelling that renders on every path. Stored
-metadata is migrated in place by `os migrate meta`.
+There is no `description` key on this node: the contract refuses it and names `subtitle`.
 
-`actions` is delegated to the `record:quick_actions` widget with
-`location: 'record_header'`, so authors get the standard toolbar (icons, overflow menu,
-permission filtering, confirm dialogs) without declaring a sibling node. Precedence for
-the right-aligned slot is `action` → React `children` → `actions` → schema children.
+**`actions`** holds action ids, not nodes and not inline definitions. Each id is resolved
+against the object bound to the page, the same lookup `record:quick_actions` performs, so the
+definition lives once on the object. A header that is bound to no object resolves no ids: it
+renders none of them and says so once per id in the console. That is why the demo above
+carries no actions. Placement (`locations: ['record_header']` or `record_more`), ordering and
+the overflow menu are covered in [Slotted pages](/docs/guide/slotted-pages).
 
-`showBack` renders a back arrow that navigates one level up the URL. When omitted it
-defaults to `true` on record pages (a `recordId` in scope) that are not embedded in a
-drawer or modal, and `false` otherwise.
+**`breadcrumb`** renders an empty slot element, marked `data-page-breadcrumb-slot`, above
+the title. The renderer draws no trail into it itself.
+
+**`maxVisible` / `mobileMaxVisible`** must be positive integers: the contract rejects `0`
+and fractional values, and the renderer falls back to its default for a value the contract
+rejects.
+
+**`icon` is not a key of this node.** The contract refuses it by name, because no renderer
+ever read it. The header's identity comes from the record chip (`recordChrome`) and each
+action carries its own `icon`.
+
+On the node itself, beside `type`, `className` is merged onto the `<header>` element, so
+`"className": "mb-6"` adds space below the header.
+
+## Children
+
+`page:header` draws no children. Buttons written in `children` do not render, and objectui's
+schema mirror refuses `children` on this node by name. Header buttons are `actions` ids;
+anything else that belongs next to the header goes in a sibling node.
 
 ## Gating a header action on a relation field
 
@@ -170,174 +134,117 @@ The identity side of the comparison is `os.user` — the spec's canonical CEL id
 scope, and the same one the server binds — with `current_user`, `user` and `ctx.user`
 available as aliases of it.
 
-## Examples
-
-### Simple Header
-
-```plaintext
-<PageHeader title="Settings" />
-```
-
-### With Subtitle
-
-```plaintext
-<PageHeader
-  title="Analytics"
-  subtitle="Track your key metrics and performance indicators"
-/>
-```
-
-### With Action Buttons
-
-```plaintext
-<PageHeader
-  title="Projects"
-  subtitle="Manage your projects and tasks"
-  action={
-    <div className="flex gap-2">
-      <Button variant="outline">
-        <Download className="mr-2 h-4 w-4" />
-        Export
-      </Button>
-      <Button>
-        <Plus className="mr-2 h-4 w-4" />
-        New Project
-      </Button>
-    </div>
-  }
-/>
-```
-
-### With Children
-
-```plaintext
-<PageHeader
-  title="Team"
-  subtitle="Manage your team members"
->
-  <Button>Invite Member</Button>
-  <Button variant="outline">Settings</Button>
-</PageHeader>
-```
-
 ## Layout
 
-The PageHeader uses a flex layout:
+The renderer picks one of two layouts when it renders:
 
-```
-┌─────────────────────────────────────┐
-│ Title                     [Actions] │
-│ Subtitle                            │
-└─────────────────────────────────────┘
-```
+- **Bare heading** — no record in scope, or `recordChrome: false`. The title and subtitle
+  stack on the left, the action row sits on the right.
+- **Record chip** — a record page (a record context with its object schema) with the record
+  chrome on. The title renders as the record chip: the heading, the object's label, the
+  copy-id button and the follow star.
 
-- **Left Side**: Title and subtitle stacked vertically
-- **Right Side**: Action buttons or custom content
-- **Responsive**: Actions move below title on mobile (if needed)
+```plaintext
+┌──────────────────────────────────────────────┐
+│ (breadcrumb slot)                            │
+│ Title                         [Actions] [⋯]  │
+│ Subtitle                                     │
+└──────────────────────────────────────────────┘
+```
 
 ## Styling
 
-### Title
+### Bare heading
 
-- Font size: `text-2xl` on mobile, `text-3xl` on desktop
-- Font weight: `font-bold`
-- Tracking: `tracking-tight`
+- Root: a `<header>` with `flex flex-col gap-2 pb-4 border-b`, the same at every breakpoint
+- Title row: `flex items-center justify-between gap-4`
+- Title: an `<h1>` with `text-2xl font-semibold tracking-tight`, the same at every breakpoint
+- Subtitle: a `<p>` with `text-sm text-muted-foreground`
 
-### Subtitle
+The demo's test (`examples/schema-catalog/test/pageheader-with-actions.test.tsx`) renders the
+demo above and re-derives the root and title classes on every run.
 
-- Font size: `text-sm`
-- Color: `text-muted-foreground` (gray)
+### Record chip
 
-### Container
+- Root: a `<header>` with `flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center
+  justify-between gap-3 sm:gap-4 pb-4 border-b` — a column below the `sm` breakpoint, a
+  wrapping row from `sm` up
+- Title column: `flex flex-col min-w-0 sm:min-w-48 flex-1`
+- Title: an `<h1>` with `text-xl sm:text-2xl font-bold truncate`
+- Subtitle: a `<p>` with `text-sm text-muted-foreground mt-1`
 
-- Padding bottom: `pb-4` at every breakpoint — there is no responsive variant
-- Border: `border-b` along the bottom edge
-- Gap: `gap-3` on the outer column; the title row itself uses `gap-x-4 gap-y-2`
+No docs test re-derives the record-chip classes; they are read from the renderer.
 
-## Usage with Page Component
+## Usage in a Page
 
-The Page component includes built-in PageHeader support:
+Put the header in the page's `header` region (or first in its `children`):
 
-```plaintext
-<Page
-  title="Dashboard"
-  description="Welcome to your dashboard"
-  action={<Button>Add Widget</Button>}
-  body={[
-    // Page content
-  ]}
-/>
-```
-
-Note that `description` here is **the Page component's own prop**, not the header's — it
-renders the page's prose under the page title and is a declared input of the `page`
-renderer. It is unrelated to the `description` alias retired above: that one was a second
-spelling of the header's `subtitle`, this one is the `page` node's own live key. Do not
-rename it to `subtitle`, and do not assume objectui#3789 touched it.
-
-## Complete Example
-
-```tsx
-import { PageHeader } from '@object-ui/layout';
-import { Button } from '@object-ui/components';
-import { Plus, Download, Settings } from 'lucide-react';
-
-function UsersPage() {
-  return (
-    <div>
-      <PageHeader
-        title="Team Members"
-        subtitle="Manage your team members and their roles"
-        action={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
-            </Button>
-            <Button variant="outline" size="sm">
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
-            </Button>
-            <Button size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Invite Member
-            </Button>
-          </div>
+```json
+{
+  "type": "page",
+  "pageType": "app",
+  "title": "Users",
+  "regions": [
+    {
+      "name": "header",
+      "components": [
+        {
+          "type": "page:header",
+          "properties": {
+            "title": "Users",
+            "subtitle": "Manage your team members and permissions"
+          }
         }
-      />
-      
-      {/* Page content */}
-      <div className="space-y-4">
-        {/* Table, cards, etc. */}
-      </div>
-    </div>
-  );
+      ]
+    },
+    {
+      "name": "main",
+      "components": [
+        { "type": "text", "content": "Page content" }
+      ]
+    }
+  ]
 }
 ```
 
+A page has exactly one `<h1>`. On a record page (`pageType` defaults to `record`) the header
+always owns it. On any other page type, a `page:header` with a literal title in the page's
+regions or children makes the `page` renderer drop its own heading, so the header's `<h1>` is
+the page heading; without one, the page draws its `title` itself.
+
 ## Accessibility
 
-The PageHeader includes:
-- Semantic HTML (`<h1>` for title)
-- Proper heading hierarchy
-- Color contrast for text
-- Responsive layout
+- The title is the page's `<h1>`: the bare heading's own `<h1>`, or the record chip's.
+- The action row is a `role="toolbar"` labelled "Page header actions", and the overflow
+  trigger is labelled "More actions".
 
-On a canonical `page:header` node, the spec's `aria` bag lands on the `<header>` element in
-both layouts: `ariaLabel` (a plain string, or an inline locale map such as
-`{ "en": "Orders", "zh-CN": "订单" }`, resolved for the display locale) renders `aria-label`,
-`ariaDescribedBy` renders `aria-describedby`, and `role` renders `role`. The header adds no
-role of its own. `page:tabs`, `page:card` and `page:accordion` put the same bag on their
-root element (objectui#11083).
+The spec's `aria` bag lands on the `<header>` element in both layouts: `ariaLabel` (a plain
+string, or an inline locale map such as `{ "en": "Orders", "zh-CN": "订单" }`, resolved for
+the display locale) renders `aria-label`, `ariaDescribedBy` renders `aria-describedby`, and
+`role` renders `role`. The header adds no role of its own. `page:tabs`, `page:card` and
+`page:accordion` put the same bag on their root element (objectui#11083).
 
 ## Responsive Behavior
 
-- **Mobile**: Actions stack below title if needed
-- **Desktop**: Actions align to right side
-- **Spacing**: Identical at every breakpoint — there is no responsive padding variant; the only breakpoint-driven change is the title's font size (see Styling → Title)
+- **Bare heading**: no breakpoint variant — the same row, spacing and title size at every
+  width.
+- **Record chip**: a column on narrow screens and a wrapping row from `sm` up; the title
+  steps from `text-xl` to `text-2xl`, and its column keeps a `sm:min-w-48` floor, so a long
+  action row wraps onto its own line instead of squeezing the title.
+- **Actions**: up to `maxVisible` inline buttons on desktop and `mobileMaxVisible` on a
+  mobile viewport; the rest fold into the `⋯` menu.
+
+## The `page-header` alias
+
+`page-header` (and its namespaced form `layout:page-header`) is still accepted: a node
+written that way renders. It is an alias, not the author key. It resolves to a different
+renderer, the `PageHeader` component in `@object-ui/layout`, and it has no
+`ComponentPropsMap` row, so props written under it are never checked against
+`PageHeaderProps`. Author `page:header`.
 
 ## Related
 
+- [Slotted pages](/docs/guide/slotted-pages) - Header actions, overflow and the refresh button on record pages
 - [Page](/docs/components/layout/page) - Complete page layout
 - [AppShell](/docs/layout/app-shell) - Application shell
 - [SidebarNav](/docs/layout/sidebar-nav) - Sidebar navigation

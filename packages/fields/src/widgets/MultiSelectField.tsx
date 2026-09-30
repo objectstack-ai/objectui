@@ -163,6 +163,21 @@ export function MultiSelectField({
   // editor, a bare SDUI node) nothing is emitted and the markup is unchanged.
   const isLabelledGroup = groupDomProps['aria-labelledby'] != null;
 
+  // The author's `placeholder`, shown while nothing is selected and gone after
+  // the first pick (objectui#11140). This widget used to read no `placeholder`
+  // at all, so a `select` + `multiple` field silently dropped the key the
+  // single-value branch honours. It is read the way that branch reads it, off
+  // the `field` carrier with an empty string as "none"; unlike that branch
+  // there is no stock fallback copy, because every option is already on screen
+  // as a chip, so a field that authors none renders the same markup as before.
+  //
+  // Plain text inside the container, and nothing more: no `aria-label`, no id
+  // for anything to reference. `aria-labelledby` keeps naming the group after
+  // the host label, and `group` does not take its name from content, so this
+  // text never becomes the field's name. The readonly `EmptyValue` above is a
+  // different state and keeps its own answer.
+  const placeholder = selected.length === 0 ? field?.placeholder : undefined;
+
   return (
     <div
       {...groupDomProps}
@@ -170,6 +185,9 @@ export function MultiSelectField({
       className={cn('flex flex-wrap gap-1.5', className)}
       data-testid={fieldName ? `multiselect-${fieldName}` : undefined}
     >
+      {placeholder ? (
+        <span className="self-center text-sm text-muted-foreground">{placeholder}</span>
+      ) : null}
       {options.map((opt) => {
         // Multi-value fields store string arrays — stringify the (possibly
         // numeric, #3090-widened) authored value at this boundary.

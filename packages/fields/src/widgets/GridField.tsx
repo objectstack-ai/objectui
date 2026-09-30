@@ -150,17 +150,19 @@ export interface GridColumn {
    *  parentheses, numeric literals and field refs (`record.qty` or bare `qty`). */
   expr?: string;
   /**
-   * Decimal places to round a computed numeric/currency result to — the
-   * spec's own words for `InlineGridColumnSchema.scale`, which declares this
-   * key on an inline grid column of either type.
+   * Decimal places to round a computed `number` result to — the spec's
+   * `InlineGridColumnSchema.scale`.
    *
-   * On a `currency` column an authored `scale` still decides the width. When
-   * it is absent, the width is the resolved currency's ISO 4217 minor unit,
-   * never the literal `2` this used to default to (objectui#10355); see
-   * `currencyWidth`. Ruling B on objectstack-ai/objectstack#19629 retires
-   * `FieldSchema.scale` from the currency FIELD type — a different schema —
-   * so a column derived from a currency field stops carrying one once the
-   * spec refuses it there.
+   * ⛔ Not read on a `currency` column (objectui#10783). A currency amount's
+   * decimal places are its currency's: the resolved currency's ISO 4217 minor
+   * unit decides both the stored and the shown width (`currencyWidth`), and
+   * `@objectstack/spec` 17.5.0 refuses `scale` on an inline grid column that
+   * declares `type: 'currency'`, as it refuses it on the currency FIELD
+   * (ruling B on objectstack-ai/objectstack#19629, ruling 乙 on
+   * objectstack-ai/objectstack#19910). The spec cannot see a column that
+   * declares no `type` and takes `currency` from its child field at render
+   * time, so `hydrateColumns` in `@object-ui/plugin-form` reports a `scale`
+   * on such a column instead of letting it go unread in silence.
    */
   scale?: number;
   /** For `type: 'lookup'` — when a record is picked, copy its fields into any
@@ -355,30 +357,32 @@ function columnCurrency(tenantCurrency: string | undefined): string | undefined 
  * The fraction width of a `currency` column (objectui#10355) — the ONE
  * decision behind both its stored computed value and its display.
  *
- * 1. The column's authored `scale`, when present. `InlineGridColumnSchema`
- *    declares it for a computed "numeric/currency result", and the installed
- *    spec accepts it on a currency column, so it is honoured here: a declared
- *    key is implemented or retired in the spec, never narrowed away by its
- *    consumer.
- * 2. Otherwise the resolved currency's ISO 4217 minor unit (0 for JPY, 2 for
- *    USD, 3 for KWD), from `currencyFractionDigits`, the helper every currency
- *    face already uses. This replaces the old default of a literal `2`, under
- *    which a yen amount was stored with cents it does not have and a dinar
- *    amount lost its third digit (KWD 3 × 1.2345 stored `3.7`) — a currency's
- *    decimal places are the currency's (ruling 乙 on
- *    objectstack-ai/objectstack#19910).
- * 3. Otherwise `undefined`: with no minor unit to round to, nothing is
+ * 1. The resolved currency's ISO 4217 minor unit (0 for JPY, 2 for USD, 3 for
+ *    KWD), from `currencyFractionDigits`, the helper every currency face
+ *    already uses. It replaced the old default of a literal `2`, under which a
+ *    yen amount was stored with cents it does not have and a dinar amount lost
+ *    its third digit (KWD 3 × 1.2345 stored `3.7`): a currency's decimal places
+ *    are the currency's (ruling 乙 on objectstack-ai/objectstack#19910).
+ * 2. Otherwise `undefined`: with no minor unit to round to, nothing is
  *    invented.
+ *
+ * ⛔ The column's own `scale` is not an input (objectui#10783). This read it
+ * first, so an authored `scale` beat the minor unit. `@objectstack/spec` 17.5.0
+ * refuses that key on a column declaring `type: 'currency'`, with the remedy
+ * that the minor unit decides, so a spec-valid typed column never carries one.
+ * A column that declares no `type` and hydrates to `currency` still can; its
+ * `scale` is reported where the child field is known (`hydrateColumns` in
+ * `@object-ui/plugin-form`), not read here.
  */
-function currencyWidth(c: GridColumn, currency: string | undefined): number | undefined {
-  return c.scale ?? (currency ? currencyFractionDigits(currency) : undefined);
+function currencyWidth(currency: string | undefined): number | undefined {
+  return currency ? currencyFractionDigits(currency) : undefined;
 }
 
 /**
  * The fraction width a computed cell's STORED value is rounded to.
  *
- * - `currency` — {@link currencyWidth}; with neither an authored `scale` nor a
- *   resolved currency the value is stored as computed.
+ * - `currency` — {@link currencyWidth}; with no resolved currency the value is
+ *   stored as computed. The column's `scale` is not read (objectui#10783).
  * - every other type — the column's declared `scale`, unrounded when absent
  *   (unchanged).
  *
@@ -388,7 +392,7 @@ function currencyWidth(c: GridColumn, currency: string | undefined): number | un
  */
 function storedFractionScale(c: GridColumn, tenantCurrency: string | undefined): number | undefined {
   if (c.type !== 'currency') return c.scale;
-  return currencyWidth(c, columnCurrency(tenantCurrency));
+  return currencyWidth(columnCurrency(tenantCurrency));
 }
 
 /**
@@ -518,17 +522,17 @@ function currencyAdornment(c: GridColumn, currency: string | undefined, locale: 
  * Display text for a finite amount in a `currency` cell (objectui#10355).
  *
  * The width is {@link currencyWidth} — the same decision that rounds the
- * stored value — so an authored `scale` shows that many places, and without
- * one a yen amount shows no decimals and a dinar amount three. With neither
- * there is no width to take, and the amount keeps the plain locale format
- * this branch always had.
+ * stored value — so a yen amount shows no decimals and a dinar amount three,
+ * whatever `scale` the column carries (objectui#10783). With no resolved
+ * currency there is no width to take, and the amount keeps the plain locale
+ * format this branch always had.
  *
  * With no authored `prefix`, the amount is `Intl`'s own currency format, so
  * the symbol sits where the locale puts it (`¥3,704`, `3.704 ¥` in de-DE). An
  * authored `prefix` replaces the symbol, not the width.
  */
 function currencyText(c: GridColumn, n: number, currency: string | undefined, locale: string): string {
-  const digits = currencyWidth(c, currency);
+  const digits = currencyWidth(currency);
   const width = digits === undefined ? {} : { minimumFractionDigits: digits, maximumFractionDigits: digits };
   if (c.prefix || !currency) {
     return `${currencyAdornment(c, currency, locale)}${formatDisplayNumber(n, { locale, ...width })}`;

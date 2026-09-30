@@ -46,3 +46,6 @@ columns, round as before.
 
 ⚠️ **Dated note, 2026-09-29 — one sentence above was made false in this same release — objectui#11073.**
 The sentence saying an authored currency `scale` above 100 "is clamped and reported on the display too" no longer holds. Later in this release this repository began resolving `@objectstack/spec` 17.5.0, which refuses a `scale` above 100 at the declaration, and the objectui#10071 clamp that sentence relied on was retired with it. The display now uses the authored width as it is, as the stored value does. Everything else above is unchanged.
+
+⚠️ **Dated note, 2026-09-30 — a currency column's `scale` is no longer read, reversed in this same release — objectui#10783.**
+The first item of the list above ("its authored `scale`, when it has one") and the sentence saying columns with an authored `scale` round as before no longer hold for a `currency` column, and neither does the 2026-09-29 note just above, which is about that same authored width. Later in this release the grid stopped reading `scale` on a currency column: `@objectstack/spec` 17.5.0 refuses it on a column that declares `type: 'currency'`, and the currency's ISO 4217 minor unit now decides the stored and the shown width whatever `scale` the column carries. A `scale` on a `number` column is unchanged. Everything else above is unchanged.

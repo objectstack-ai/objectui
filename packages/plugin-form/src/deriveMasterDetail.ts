@@ -10,7 +10,9 @@
  * Derive a master-detail child collection's grid columns + relationship FK from
  * object metadata, so a master-detail form can be configured with just the
  * child object name instead of a hand-authored columns block. Pure (no React /
- * no I/O) so it is unit-testable; the async schema fetch lives in the component.
+ * no fetch) so it is unit-testable; the async schema fetch lives in the
+ * component. The one side effect is an author diagnostic on the console —
+ * `reportCurrencyColumnScale` (objectui#10783).
  */
 
 import type { GridColumn } from '@object-ui/fields';
@@ -277,6 +279,54 @@ export function deriveColumns(
 }
 
 /**
+ * objectui#10783 — an authored `scale` on a column that renders as `currency`
+ * is reported, because the grid does not read it.
+ *
+ * A currency amount's decimal places are its currency's: `GridField`'s
+ * `currencyWidth` takes the resolved currency's ISO 4217 minor unit and never
+ * the column's `scale` (ruling B on objectstack-ai/objectstack#19629, ruling 乙
+ * on objectstack-ai/objectstack#19910). `@objectstack/spec` 17.5.0 refuses the
+ * key on an `inlineColumns` entry that DECLARES `type: 'currency'`, and its own
+ * docblock says the reach stops there: an identity-only entry
+ * (`{ name: 'amount', scale: 2 }`) takes its type from the child field at
+ * render time, here, so it still parses. `objectui validate` cannot see it
+ * either: a subform's `columns` is `z.array(z.any())` in the `object-form`
+ * mirror, and the child object's fields are not in the document it judges.
+ * This is the first place the child field is known, so the report is made
+ * here — ⛔ never a silent drop.
+ *
+ * The declared arm is reported too. A form view's `subforms[].columns` is
+ * `z.array(z.any())` in the spec's `FormViewSchema`, so a typed currency column
+ * carrying `scale` reaches this function unjudged on that path.
+ *
+ * Once per column per page load (the `sectionFields.ts` convention): this runs
+ * on every child-schema resolve. The first sentence is the spec's refusal with
+ * the same subject; it is a warning, not a refusal, and the column still
+ * renders at its currency's minor unit.
+ */
+const reportedCurrencyColumnScales = new Set<string>();
+function reportCurrencyColumnScale(
+  col: GridColumn,
+  childObject: string | undefined,
+  hydrated: boolean,
+): void {
+  if (col.scale === undefined) return;
+  const of = childObject ? ` of '${childObject}'` : '';
+  const key = `${childObject ?? ''}:${col.name}:${hydrated ? 'hydrated' : 'declared'}:${String(col.scale)}`;
+  if (reportedCurrencyColumnScales.has(key)) return;
+  reportedCurrencyColumnScales.add(key);
+  const how = hydrated
+    ? `takes type 'currency' from child field '${col.name}'${of}`
+    : `declares type 'currency'${of}`;
+  console.warn(
+    `[object-ui] \`scale\` is not valid on a \`currency\` inline grid column — delete the key. ` +
+      `Inline grid column '${col.name}' ${how}, so its \`scale: ${String(col.scale)}\` is not read: ` +
+      `the currency's ISO 4217 minor unit (2 for USD, 0 for JPY, 3 for KWD) decides how the cell ` +
+      `displays the amount and the width a computed amount is rounded to.`,
+  );
+}
+
+/**
  * Fill in missing widget metadata on author-supplied grid columns from the
  * child object's field definitions. A view often lists columns as bare
  * `{ name, label }` (the common, ergonomic authoring form) — without a `type`
@@ -286,6 +336,11 @@ export function deriveColumns(
  * schema, exactly as {@link deriveColumns} would, while preserving the author's
  * column set, order and labels. A column that already declares a `type` is left
  * untouched — the author's explicit choice always wins.
+ *
+ * A column that renders as `currency` and carries an authored `scale`, whether
+ * its type is declared or hydrated, is reported by
+ * {@link reportCurrencyColumnScale} (objectui#10783): the grid does not read
+ * that key.
  */
 export function hydrateColumns(
   columns: GridColumn[] | undefined,
@@ -295,10 +350,14 @@ export function hydrateColumns(
   const fields = childSchema?.fields;
   if (!cols.length || !fields || typeof fields !== 'object') return cols;
   return cols.map((col) => {
-    if (col.type) return col; // explicit type — respect the author's choice
+    if (col.type) {
+      if (col.type === 'currency') reportCurrencyColumnScale(col, childSchema?.name, false);
+      return col; // explicit type — respect the author's choice
+    }
     const d = (fields as any)[col.name];
     if (!d) return col; // unknown field — leave as-is (grid falls back to text)
     const type = fieldTypeToColumnType(d?.type);
+    if (type === 'currency') reportCurrencyColumnScale(col, childSchema?.name, true);
     const next: GridColumn = { ...col, type };
     if (next.label == null) next.label = d?.label || col.name;
     if (next.required == null) next.required = !!d?.required;

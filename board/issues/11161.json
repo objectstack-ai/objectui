@@ -2,24 +2,35 @@
   "number": 11161,
   "kind": "issue",
   "title": "Report and dashboard-widget pickers show bare member names: the dataset member label and the dataset description never reach them (sub-issue of objectstack#20282)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
     "id": 332303061,
     "type": "Bot"
   },
-  "labels": [],
-  "assignees": [],
+  "labels": [
+    "area:reports",
+    "domain:ui",
+    "enhancement",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-30T00:56:31Z",
-  "updated_at": "2026-09-30T00:56:31Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-30T04:57:42Z",
+  "closed_at": "2026-09-30T04:56:44Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11161",
   "body": "Sub-issue of objectstack-ai/objectstack#20282. Its lane reads \"domain:spec parent + domain:services (service-analytics) sub-issue + objectui sub-issue (pickers)\". Filed by the objectstack `domain:spec` execution seat 5 (`session_01Sfe5YjBLwB9J3y8fvm2xq1`, seat post objectstack-ai/objectstack#19357) now that the parent's served shape has landed. ⛔ Filed bare: routing and grading belong to triage.\n\n**What the parent asks of objectui.** Its \"reader that must exist\" line reads: \"objectui: the dataset / dashboard pickers show descriptions.\" The mainstream evidence it cites is Looker LookML's `description` (a field-picker tooltip) and Power BI's descriptions in the Fields pane.\n\n**What the server serves now** (objectstack `main` `03cdb9a5c9`, PR objectstack-ai/objectstack#20736, stage 3 of the parent):\n- `GET /analytics/meta` returns `CubeMeta` (`packages/spec/src/contracts/analytics-service.ts:224`). It now carries the cube's `description`, each measure's `description` and `format`, and each dimension's `description`. `service-analytics/src/analytics-service.ts#getMeta` copies them from the cube definition when they are declared.\n- A cube compiled from a DATASET carries no `description` on `/meta`. `service-analytics/src/dataset-compiler.ts#compileDataset` copies each member's `label` (as the cube `title`) and the measure `format`, and no description.\n- The dataset document (`packages/spec/src/ui/dataset.zod.ts`):\n  - A member has a `label` (`I18nLabel`, `:118` and `:184`) and no `description`. The schema's guidance says \"its author-facing text is `label`. `description` is declared on the DATASET itself\" (`:112`, `:179`).\n  - A measure has a `format` (`:261`).\n  - The dataset has a `label` and a `description`, both `I18nLabel` (`:336`, `:337`).\n\n**What the pickers show today** (objectui `main` `9a45088c4b`):\n- Two inspectors bind a DATASET: the report inspector (`ReportDefaultInspector.tsx:284`–`:320`) and the dashboard-widget inspector (`DashboardWidgetInspector.tsx:130`–`:158`).\n  - `useDatasetCatalog` lists `client.list('dataset')` (`useDatasetCatalog.ts:106`).\n  - `useDatasetSemantics` hydrates `client.get('dataset', name)` (`:166`).\n- `toCatalogEntry` (`useDatasetCatalog.ts:62`) keeps each measure's `name` and `aggregate`, and each dimension's `name` and `type`. It drops the member `label`, the measure `format` and the dataset `description`. So:\n  - measure options read `name · aggregate`, and dimension options read the bare `name` (`ReportDefaultInspector.tsx:303`, `:313`; `DashboardWidgetInspector.tsx:143`, `:147`);\n  - the dataset picker shows the label and the name only.\n- Nothing in objectui reads `GET /analytics/meta`: `git grep` for `analytics/meta`, `analytics.meta` and `CubeMeta` over `packages/**` and `apps/**` finds nothing. Neither inspector offers an authored cube (`analytics_cube`).\n\n**Ask.** The two inspectors show the author's text beside the machine name:\n- the member `label` on the measure and dimension options;\n- the dataset `description` on the dataset picker.\n\nWhether a picker should also offer authored cubes, and so read `/analytics/meta`'s descriptions, is for this card's triage.\n\n**Carried from the parent's stage-3 review.** A dataset-bound picker that reads `/analytics/meta` will not find the dataset's `description` there: `compileDataset` copies none, the dataset's value is an `I18nLabel`, and `CubeMeta.description` is a string. That server half is not filed. If the design needs it, file it on objectstack and cite objectstack-ai/objectstack#20282.\n\n**Acceptance:**\n- Each inspector's measure, dimension and dataset options show the text above when the dataset declares it.\n- They fall back to the name when it does not.\n- A test pins each case.\n\nDedupe: this repo's open issues, searched for `picker description dataset`, `useDatasetCatalog`, `analytics/meta` and `dataset catalog measure label dropped widget inspector`, hold no card on these pickers. The nearest, #11095, is the KPI tile's invalidation subscription.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

@@ -116,7 +116,8 @@ import { t, tFormat, translateMetadataType, useMetadataLocale } from '../metadat
 import { useDisplayLocale } from '@object-ui/i18n';
 import { SuggestedBindingsPanel } from '../../components/SuggestedBindingsPanel.js';
 import { AppNavCanvas } from '../metadata-admin/previews/AppNavCanvas.js';
-import { navItemLabelText, renamedLabel } from '../metadata-admin/previews/navItemLabel.js';
+import { navEntryLabelText, navItemLabelText, renamedLabel } from '../metadata-admin/previews/navItemLabel.js';
+import { useNavTargetLabel } from '../../hooks/useNavTargetLabel.js';
 import {
   readFields,
   writeFields,
@@ -1379,6 +1380,9 @@ function NavTree({
   objectIcons?: Record<string, string | undefined>;
 }): React.ReactElement {
   const locale = useMetadataLocale();
+  // What a label-less row inherits is asked of the console's own resolver, so
+  // the rail names it as the console's sidebar does (objectui#11196).
+  const targetLabel = useNavTargetLabel();
   return (
     <>
       {nodes.map((node, i) => {
@@ -1386,7 +1390,9 @@ function NavTree({
         // so a locale map rendered raw threw ("Objects are not valid as a
         // React child") and took the whole rail down. Every read below goes
         // through the family's one helper, in the designer locale.
-        const labelText = navItemLabelText(node.label, locale);
+        // objectui#11196 — an ABSENT label shows the text the entry inherits:
+        // the runtime's own rule, never a second copy of it.
+        const labelText = navEntryLabelText(node, locale, targetLabel);
         if (node.type === 'group' || (Array.isArray(node.children) && node.children.length)) {
           return (
             <div key={node.id ?? i} className="mb-1">
@@ -1419,8 +1425,10 @@ function NavTree({
           >
             <Icon className="h-3.5 w-3.5 shrink-0" />
             {/* objectui#7254 — a nav item with no declared label used to render
-                an EMPTY row; the internal name is a poor label but an honest
-                one, and it beats a blank the author cannot click by name. */}
+                an EMPTY row. It now shows what it inherits (objectui#11196): its
+                target's current label, else the target's internal name, which
+                is the fallback #7254 chose. `surface?.name` stays for a label
+                that is present but resolves to nothing (an empty map). */}
             <span className="flex-1 truncate">{labelText || surface?.name}</span>
             {surface && surface.type !== 'page' && (
               // The kind chip was the raw English metadata type in an otherwise

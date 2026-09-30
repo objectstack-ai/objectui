@@ -435,6 +435,32 @@ function inferWidget(
 }
 
 /**
+ * The served declaration's mark on an arm whose authoring type a transform
+ * erased (objectui#9830), as `@objectstack/metadata-protocol` emits it — and the
+ * one version of its value this reader was written against. `@objectstack/spec`
+ * exports neither, so this is the reader's single spelling of the keyword.
+ */
+const ERASED_AUTHORING_INPUT_KEYWORD = 'x-objectstack-erased-authoring-input';
+const ERASED_AUTHORING_INPUT_VERSION = 1;
+
+/**
+ * The authoring type(s) the declaration says a transform erased from THIS
+ * node, or `undefined` when it carries no mark this reader understands — an
+ * absent mark, a malformed one, and one of another version all decline the same
+ * way, back to the unmarked husk. {@link admitsString} documents what the mark
+ * disambiguates and why it is the only signal read for it.
+ */
+function erasedAuthoringType(node: JsonSchema): string[] | undefined {
+  const mark = node[ERASED_AUTHORING_INPUT_KEYWORD];
+  if (!mark || typeof mark !== 'object' || Array.isArray(mark)) return undefined;
+  if (mark.version !== ERASED_AUTHORING_INPUT_VERSION) return undefined;
+  const type: unknown = mark.type;
+  if (typeof type === 'string') return [type];
+  if (Array.isArray(type) && type.every((t) => typeof t === 'string')) return type as string[];
+  return undefined;
+}
+
+/**
  * Does this schema admit a STRING value — looking THROUGH nested unions?
  *
  * ## Why this is not `schema.anyOf.some(b => b.type === 'string')`
@@ -467,18 +493,42 @@ function inferWidget(
  * same split one combinator over. `allOf` is deliberately NOT walked: it is an
  * intersection, so an arm typed string does not mean the value may be one.
  *
- * ## ⛔ What this deliberately does NOT read as a string arm
+ * ## ⛔ An EMPTY schema is not a string arm — unless the declaration marks it
  *
- * An EMPTY schema (`{}`). JSON Schema says `{}` admits everything, strings
- * included, and the platform's output-mode derivation emits exactly
- * `anyOf: [ {}, { …envelope } ]` for `hook.condition`, `sharing_rule.condition`
- * and `field.visibleWhen` / `readonlyWhen` / `requiredWhen` — the transform on
- * those keys erases its own input type. Reading that husk as "string allowed"
- * would mount the condition builder on any predicate-named key whose schema
- * derived to nothing, including one that is genuinely boolean-only, because
- * `{}` is what "we could not derive this" and "anything goes" BOTH look like on
- * the wire. Distinguishing them needs a signal only the DECLARATION side can
- * send, so that half is reported rather than guessed (objectui#9830 ②).
+ * JSON Schema says `{}` admits everything, strings included, and the
+ * platform's output-mode derivation emits exactly `anyOf: [ {}, { …envelope } ]`
+ * for `hook.condition`, `sharing_rule.condition` and `field.visibleWhen` /
+ * `readonlyWhen` / `requiredWhen` — the transform on those keys erases its own
+ * input type. `{}` is what "we could not derive this" and "anything goes" BOTH
+ * look like on the wire, so a BARE `{}` is still not read as a string arm:
+ * doing so would mount the condition builder on any predicate-named key whose
+ * schema derived to nothing, including one that is genuinely boolean-only.
+ *
+ * Telling the two apart needed a signal only the DECLARATION side can send, and
+ * it now sends one (objectui#9830, maintainer ruling B): the served projection
+ * annotates an erased arm IN PLACE with
+ * `"x-objectstack-erased-authoring-input": { "version": 1, "type": "string" }`,
+ * where `type` names the authoring type the transform erased. The mark sits on
+ * the erased arm itself — inside the member's `anyOf`, not on the member's own
+ * schema and not on the envelope — so this walk reads it on every node it
+ * visits, the same place it already reads `type`. {@link erasedAuthoringType}
+ * is that read, and it answers "string" only when the mark says so:
+ *
+ *  - a mark whose `type` names `string` IS a string arm: the arm accepted a
+ *    string before the transform ran, which is what an author writes there;
+ *  - a mark naming any other type says nothing about strings — the emitter
+ *    names whatever authoring type was erased, not only `string`;
+ *  - a mark of a version this reader was not written for is not evidence of
+ *    anything, so it declines exactly as an unmarked husk does;
+ *  - an UNMARKED `{}` keeps the veto — a genuinely open member is served that
+ *    way, and so is the envelope's own `ast` key one level below a marked arm.
+ *
+ * ⛔ Never a key-name rule instead (`condition` / `*When` ⇒ "must be a
+ * string"): the ruling refused that as an inference copied into every consumer
+ * and wrong in a direction nothing reports. The mark is SHAPE information, so it
+ * is read here, in the one shape test all five detectors share — a detector
+ * that saw it and a detector that did not would answer "does this admit a
+ * string?" two ways for one schema, the split this helper exists to close.
  *
  * ## The precedence this gate is one third of
  *
@@ -507,6 +557,7 @@ function admitsString(schema: JsonSchema | undefined): boolean {
     seen.add(node as object);
     const branch = node as JsonSchema;
     if (branch.type === 'string') return true;
+    if (erasedAuthoringType(branch)?.includes('string')) return true;
     for (const key of ['anyOf', 'oneOf'] as const) {
       const arms = branch[key];
       if (Array.isArray(arms)) pending.push(...(arms as unknown[]));
@@ -803,8 +854,9 @@ const CONDITION_FIELD_NAMES = new Set(['visible', 'hidden', 'disabled', 'visible
  * `disabled` / `visibleOn` / `condition` / `*When`) so it renders the no-code
  * condition builder instead of a raw expression text box. No enum, and the
  * schema must admit a string — {@link admitsString} holds that veto and
- * documents why it looks through nested unions and why an empty schema is not
- * one (objectui#9830).
+ * documents why it looks through nested unions, why an empty schema is not
+ * one, and why an empty schema the declaration MARKS as an erased string arm is
+ * (objectui#9830).
  */
 function detectConditionWidget(name: string, schema: JsonSchema | undefined): string | undefined {
   if (Array.isArray(schema?.enum)) return undefined;

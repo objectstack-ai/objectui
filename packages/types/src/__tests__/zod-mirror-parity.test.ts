@@ -5618,6 +5618,11 @@ const RECURSION_BREAKING_MIRRORS: readonly (readonly [string, unknown])[] = [
  */
 const UNNAMED_LAZY_SLOTS: readonly string[] = [
   'complex.zod.ts#DashboardComponentSchema.widgets',
+  // objectui#11070 round 3: `FormFieldSchema.summaryOperations` is the spec's
+  // `FieldSchema` member by reference, and its optional `filter` is the spec's
+  // recursive filter condition. That `z.lazy` sits inside an IMPORTED schema
+  // (rebuilt by `stripImportedDefaults`), so no local const names it either.
+  'form.zod.ts#FormFieldSchema.summaryOperations',
   'objectql.zod.ts#ObjectViewSchema.form',
   'objectql.zod.ts#ObjectViewSchema.table',
 ];

@@ -44,7 +44,7 @@ beforeEach(() => {
 afterEach(() => warn.mockRestore());
 
 const blankLines = (): string[] =>
-  warn.mock.calls.map((call: unknown[]) => String(call[0])).filter((w) => w.includes('[blank]'));
+  warn.mock.calls.map((call: unknown[]) => String(call[0])).filter((w: string) => w.includes('[blank]'));
 
 const BLANKS = [
   ['an empty string', ''],

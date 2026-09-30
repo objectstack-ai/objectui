@@ -29,7 +29,7 @@ import {
 import { Label } from '@object-ui/components';
 import { edgeKey, conditionText } from '../previews/flow-canvas-layout.js';
 import { validateExpressionClient } from './expression-validate.js';
-import { useFlowScope } from './useFlowScope.js';
+import { useEdgeScope } from './useFlowScope.js';
 import { hasCommittedConnectorAction } from './flow-scope.js';
 import { useConnectorRegistry } from './connector-input-fields.js';
 import { VariableTextInput } from './VariableTextInput.js';
@@ -70,9 +70,11 @@ export function FlowEdgeInspector({ selection, draft, onPatch, onClearSelection,
   // `connector_action` node, so the guard's scope offers that action's declared
   // output keys (objectui#11028).
   const connectors = useConnectorRegistry(hasCommittedConnectorAction(draft as Record<string, unknown>));
-  // References available on this edge are those in scope at its SOURCE node
-  // (#1934). Called unconditionally — `edge?.source` is undefined when missing.
-  const { groups: scopeGroups } = useFlowScope(draft as Record<string, unknown>, edge?.source, undefined, connectors);
+  // References available on this edge: those in scope at its SOURCE node
+  // (#1934) plus the source's own outputs, which the engine has written by the
+  // time it evaluates this guard (objectui#11085). Called unconditionally — a
+  // missing edge resolves the flow variables alone.
+  const { groups: scopeGroups } = useEdgeScope(draft as Record<string, unknown>, edge, connectors);
 
   if (!edge) {
     return (
@@ -258,8 +260,8 @@ export function FlowEdgeInspector({ selection, draft, onPatch, onClearSelection,
             </p>
           );
         }
-        // #1934 — gentle scope-aware "unknown reference" warning (refs in scope
-        // at the edge's SOURCE node), once the guard is structurally valid.
+        // #1934 — gentle scope-aware "unknown reference" warning (the edge's
+        // scope, above), once the guard is structurally valid.
         const unknown = isDefault
           ? []
           : findUnknownRefs(conditionText(edge.condition), 'predicate', scopeRoots(scopeGroups.flatMap((g) => g.refs)));

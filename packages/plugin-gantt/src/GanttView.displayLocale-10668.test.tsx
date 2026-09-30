@@ -30,9 +30,13 @@ import { I18nProvider, LocalizationProvider } from '@object-ui/i18n';
 import { isMachineLocale, recordLocaleArguments } from '@object-ui/test-support';
 import { GanttView, type GanttTask } from './GanttView';
 
-/** Mon 2 Mar to Fri 13 Mar 2020, local midnight (the suite pins `TZ=UTC`). */
+/**
+ * Mon 2 Mar to Fri 13 Mar 2020, local midnight (the suite pins `TZ=UTC`). The
+ * end is the EXCLUSIVE instant a bar is drawn to, the 14th's midnight, and the
+ * End cell names the day the bar runs through, the 13th (objectui#11141).
+ */
 const TASKS: GanttTask[] = [
-  { id: 'a', title: 'Task a', start: new Date(2020, 2, 2), end: new Date(2020, 2, 13), progress: 0 },
+  { id: 'a', title: 'Task a', start: new Date(2020, 2, 2), end: new Date(2020, 2, 14), progress: 0 },
 ];
 
 beforeEach(() => {

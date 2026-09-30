@@ -294,13 +294,6 @@ const DECLARED: Exemption[] = [
       'context-menu edit both seed it).',
   },
   {
-    file: 'packages/plugin-gantt/src/GanttView.tsx',
-    expression: "task.end.toLocaleDateString('en-CA')",
-    count: 2,
-    verdict: 'deliberate fallback',
-    reason: 'the end-date twin of the ISO-8601 formatter above, feeding the second `<input type="date">`.',
-  },
-  {
     file: 'packages/plugin-gantt/src/tzShift.ts',
     expression: "new Intl.DateTimeFormat('en-US', {",
     count: 1,

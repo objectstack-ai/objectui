@@ -256,10 +256,11 @@ describe('pin 2 — an inverted pinned range refuses instead of drawing nonsense
     expect(diagnosticOf(container), 'the degenerate range was refused as inverted').toBeNull();
     expect(axisOf(container)).toEqual(['Feb 2024']);
     // Re-derived by objectui#11079: the bar is measured on the axis the header
-    // draws, February 2024, 29 days. API Design runs January 1st to March 1st,
-    // 60 days starting 31 days before it, so it overhangs the pinned range on
-    // both sides, as any bar wider than a pinned range does.
-    expect(barStylesOf(container)).toEqual(['left: -106.89655172413792%; width: 206.89655172413794%;']);
+    // draws, February 2024, 29 days. API Design runs January 1st through March
+    // 1st, 61 days now that a date-only end is drawn through its day
+    // (objectui#11112), starting 31 days before it, so it overhangs the pinned
+    // range on both sides, as any bar wider than a pinned range does.
+    expect(barStylesOf(container)).toEqual(['left: -106.89655172413792%; width: 210.3448275862069%;']);
   });
 });
 
@@ -366,11 +367,13 @@ describe('pin 6 — the healthy path and #6750 are untouched (objectui#6759)', (
     // The full float spelling, same as #6750's pin 4: a guard that rounded,
     // clamped or short-circuited the arithmetic would pass a tolerance
     // assertion and fail this one. Re-derived by objectui#11079 on the one
-    // axis, January 1st to the end of March 2024, 91 days: see #6750's pin 4.
+    // axis, January 1st to the end of March 2024, 91 days, and again by
+    // objectui#11112, which draws a date-only end through its day: see
+    // #6750's pin 4.
     expect(barStylesOf(container)).toEqual([
-      'left: 0%; width: 32.967032967032964%;',
-      'left: 34.065934065934066%; width: 64.83516483516483%;',
-      'left: 15.384615384615385%; width: 34.065934065934066%;',
+      'left: 0%; width: 34.065934065934066%;',
+      'left: 34.065934065934066%; width: 65.93406593406593%;',
+      'left: 15.384615384615385%; width: 35.16483516483517%;',
     ]);
   });
 

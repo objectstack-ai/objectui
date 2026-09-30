@@ -254,90 +254,80 @@ Available values:
 - `2xl` - 1536px
 - `full` - No maximum width (default)
 
-## PageHeader Component
+## Page Header (`page:header`)
 
-The `PageHeader` provides consistent page headers with a title, an optional subtitle,
-an icon chip, and an action row.
-
-> **The canonical author key is `page:header`; `page-header` is a legacy alias.** The
-> snippets in this section are the `@object-ui/layout` component, which `registerLayout()`
-> registers as `page-header` (plus its namespaced form `layout:page-header`) — that node
-> still renders, so metadata already written this way is not stranded. The contract knows
-> only `page:header`, though: that is the `PageComponentType` value and the
-> `ComponentPropsMap` row binding `PageHeaderProps`, and it resolves to a different,
-> record-aware renderer in `@object-ui/components`. Props written under the alias have no
-> `ComponentPropsMap` row to dispatch, so nothing validates them — a misspelling there is
-> neither rejected nor reported. Author metadata pages against `page:header`
-> ([Slotted pages](/docs/guide/slotted-pages)); its props are not the ones below — see the
-> [PageHeader reference](/docs/layout/page-header).
+`page:header` is a page's title bar: a title, an optional subtitle and, on a record page, the
+record chip and the record's header actions. Its props contract is `PageHeaderProps`, the
+`ComponentPropsMap['page:header']` row, and it is rendered by the record-aware
+`PageHeaderRenderer` in `@object-ui/components`. The
+[Page Header reference](/docs/layout/page-header) documents every key, both layouts and the
+styling.
 
 ### Usage
 
 ```json
 {
-  "type": "page-header",
-  "title": "Customer Details",
-  "subtitle": "View and edit customer information",
-  "icon": "users",
-  "actions": ["edit", "delete"]
+  "type": "page:header",
+  "properties": {
+    "title": "{first_name} {last_name}",
+    "subtitle": "View and edit customer information",
+    "actions": ["edit_customer", "send_email"]
+  }
 }
 ```
 
+The props go in `properties`, which is where `PageHeaderProps` judges them: a misspelled or
+removed key there is refused by name. `className` is the one key that belongs on the node
+itself, beside `type`.
+
 `title` and `subtitle` both interpolate `{field.path}` tokens against the surrounding
-record context, so `"title": "{first_name} {last_name}"` resolves on a record page.
-Unresolvable tokens collapse to an empty string rather than leaking the raw template.
+record context, so the title above resolves on a record page. Unresolvable tokens collapse to
+an empty string rather than leaking the raw template.
+
+`actions` holds action **ids**, resolved from the object's own `actions` metadata, which
+keeps the definitions in one place. They are **not** `SchemaNode` nodes: the contract refuses
+an entry that is not a string. Nor does the header draw `children`, so a button written there
+does not render.
 
 ### Schema API
 
-<!-- doc-snippet: fragment — a SHAPE excerpt, not an expression — the keys carry `?` optional markers and trailing prose comments, so the object literal cannot parse as TypeScript (measured: TS1109 / TS1005 / TS1011) -->
+<!-- doc-snippet: fragment — a SHAPE excerpt, not an expression — its keys carry `?` optional markers and trailing prose comments, so the object literal cannot parse as TypeScript -->
 ```typescript
 {
-  type: 'page-header',
-
-  title: string,                     // required; {field.path} tokens interpolated
-  subtitle?: string,                 // secondary line; {field.path} tokens interpolated
-  icon?: string,                     // Lucide icon name, rendered in a chip left of the title
-  actions?: Array<string | ActionDef>, // action ids, or inline ActionDef objects
-  showBack?: boolean,                // back arrow; inferred from record context when omitted
-  children?: SchemaNode[],           // rendered into the right-aligned slot; `actions` takes precedence
-  className?: string,
+  type: 'page:header',
+  className?: string,                 // on the node, beside `type`
+  properties?: {
+    title?: string | Record<string, string>,    // {field.path} tokens interpolated; derived from the record when omitted on a record page
+    subtitle?: string | Record<string, string>, // secondary line; same interpolation
+    actions?: string[],               // action ids, resolved against the object's own actions
+    breadcrumb?: boolean,             // default true — the breadcrumb slot above the title
+    recordChrome?: boolean,           // default true — the record chip on a record page
+    showStar?: boolean,               // default true
+    showCopyId?: boolean,             // default true
+    maxVisible?: number,              // positive integer; inline action buttons (renderer default 3)
+    mobileMaxVisible?: number,        // positive integer; the same on mobile (renderer default 1)
+    aria?: { ariaLabel?, ariaDescribedBy?, role? },
+  },
 }
 ```
 
-`showBack` defaults to `true` when a record context carrying a `recordId` is in scope and
-the header is not rendered inside embedded chrome (drawer / modal, which already provide
-their own Close control), and `false` otherwise. Pass it explicitly to override.
+> **Write `subtitle`; there is no `description` and no `icon`.** The contract refuses
+> `description` on this node and names `subtitle` in its place. It refuses `icon` by name as
+> an ADR-0087 D2 tombstone — "`page:header` property `icon` was removed in
+> @objectstack/spec 17.0.0 (ADR-0087 D2) — no renderer ever read it … Delete the key." The
+> header's identity comes from the record chip (`recordChrome`), and each action carries its
+> own `icon`.
 
-`actions` is handed to the `record:quick_actions` widget with
-`location: 'record_header'`. Its entries are **action ids** — resolved from the object's
-own `actions` metadata, which keeps the definitions in one place — or inline `ActionDef`
-objects. They are **not** `SchemaNode` nodes: a `{ "type": "button", … }` entry
-renders nothing here.
+> **There is no `breadcrumbs` array.** The node's `breadcrumb` is singular and a
+> **boolean** display toggle for the slot above the title, not a list of links. A trail of
+> links is a `breadcrumb` node — see
+> [Breadcrumbs for Deep Navigation](#2-breadcrumbs-for-deep-navigation).
 
-> **Write `subtitle`. `description` is retired.** `@objectstack/spec/ui`'s
-> `PageHeaderProps` — the contract for the canonical `page:header` node — declares
-> `title / subtitle / breadcrumb / actions / recordChrome / showStar / showCopyId /
-> maxVisible / mobileMaxVisible / aria` and has **no** `description`, and
-> `page-header`'s registration declares four authorable inputs — `title`, `subtitle`,
-> `icon` and `actions`. `icon` sits on exactly one of those two lists on purpose: it is
-> an ADR-0087 D2 tombstone on the spec shape, which rejects it by name — "`page:header`
-> property `icon` was removed in @objectstack/spec 17.0.0 (#6946, ADR-0087 D2) — no
-> renderer ever read it … Delete the key." — while remaining a live input of *this*
-> component, whose `<PageHeader>` does draw an icon beside the title (objectui#3829). On
-> a canonical `page:header` node the key is gone; as a prop of this component it is
-> live. The renderer used to read `description` as well, as a legacy alias; objectui#3789
-> removed that read, so `subtitle` is now the only spelling this component draws. Stored
-> metadata written the old way is not stranded: protocol 17's ADR-0087 D2 conversion
-> `page-header-subtitle-alias` rewrites `description` to `subtitle` on header nodes as the
-> stack loads — at every position a header can occupy, regions and slots and containers
-> nested to any depth (objectstack#6775 / #6776) — and `os migrate meta` rewrites it at
-> rest. See the [PageHeader reference](/docs/layout/page-header) for the per-key
-> reference face.
-
-> **There is no `breadcrumbs` array.** The component reads no breadcrumb property of any
-> kind, in either spelling. The spec's `breadcrumb` is singular and a **boolean** — a
-> display toggle on the canonical `page:header` node (see
-> [Slotted pages](/docs/guide/slotted-pages)), not a list of links.
+> **`page-header` is an alias, not the author key.** `page-header` (and its namespaced form
+> `layout:page-header`) is still accepted: a node written that way renders. It resolves to a
+> different renderer, the `PageHeader` component in `@object-ui/layout`, and it has no
+> `ComponentPropsMap` row, so props written under it are never checked against
+> `PageHeaderProps`. Author `page:header`.
 
 ## SidebarNav Component
 

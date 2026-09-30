@@ -118,6 +118,11 @@ Exported as `TimelineGanttItem` (a row) and `TimelineGanttItemBar` (one bar).
 A bar whose dates cannot be drawn is not a validation failure: the chart shows
 its "unusable date range" message for it instead.
 
+A date-only `endDate` is inclusive: the bar runs through the end of that day.
+So `2024-01-01` to `2024-01-31` fills January, and a bar that starts and ends
+on the same day is one day wide. An `endDate` with a time part, or given as a
+number or a `Date`, is an instant, and the bar ends exactly there.
+
 <Callout type="warn">
 `variant` decides which of the two shapes `items` holds — `vertical` (the
 default) and `horizontal` draw timeline items, `gantt` draws gantt rows.
@@ -252,7 +257,7 @@ const schedule: TimelineSchema = {
         {
           title: 'Mockups',
           startDate: '2024-01-15',
-          endDate: '2024-02-01',
+          endDate: '2024-01-31',
           variant: 'success'
         }
       ]

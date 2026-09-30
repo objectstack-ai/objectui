@@ -736,12 +736,8 @@ A data grid that auto-fetches from an ObjectQL object definition. Includes searc
   "objectName": "Contact",
   "title": "All Contacts",
   "description": "Manage your contacts",
-  "showSearch": true,
-  "showFilters": true,
-  "showPagination": true,
-  "pageSize": 25,
-  "resizableColumns": true,
-  "striped": true,
+  "searchableFields": ["name", "email", "company"],
+  "resizable": true,
   "columns": [
     { "field": "name" },
     { "field": "email" },
@@ -752,23 +748,29 @@ A data grid that auto-fetches from an ObjectQL object definition. Includes searc
   "sort": [{ "field": "name", "order": "asc" }],
   "operations": {
     "create": true,
-    "read": true,
     "update": true,
     "delete": true,
     "export": true
   },
   "rowActions": ["edit", "delete"],
-  "selection": {
-    "enabled": true,
-    "mode": "multiple"
-  },
   "pagination": {
-    "enabled": true,
     "pageSize": 25,
     "pageSizeOptions": [10, 25, 50, 100]
+  },
+  "emptyState": {
+    "title": "No contacts yet",
+    "message": "Contacts you add appear here.",
+    "icon": "users"
   }
 }
 ```
+
+Every key in this example is one the grid reads (objectui#11068). It used to
+also author `showFilters`, `striped` and `operations.read`, which nothing reads,
+and `selection: { enabled, mode }` and `pagination.enabled`, which the validator
+refuses: selection is spelled `selection: { type: 'multiple' }` (`'none'`,
+`'single'` or `'multiple'`), and `pagination` declares no on switch — its
+presence enables paging.
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -777,6 +779,7 @@ A data grid that auto-fetches from an ObjectQL object definition. Includes searc
 | `columns` | `string[] \| ListColumn[]` | Columns to display. Either a plain array of field names (`["name", "email"]`), which auto-resolve from object metadata, or an array of `ListColumn` objects whose identity key is `field` (`{ "field": "status", "label": "Status" }`) — never `name`. **Do not mix the two forms in one array:** the array is dispatched on its first entry, so column objects sitting behind a bare string are dropped. |
 | `filter` | `any[]` | Pre-applied filter conditions. |
 | `sort` | `SortConfig[]` | Default sort configuration. The string clause (`"name desc"`) was retired in objectui#8221 and now fails validation. |
+| `description` | `string \| I18nLabel` | One line of help text drawn above the grid; a per-locale map resolves like `label` (objectui#11068). |
 | `searchableFields` | `string[]` | Fields included in search. |
 | `selection` | `SelectionConfig` | Row selection configuration. |
 | `pagination` | `PaginationConfig` | Pagination settings. |
@@ -786,6 +789,14 @@ A data grid that auto-fetches from an ObjectQL object definition. Includes searc
 | `grouping` | `GroupingConfig` | Row grouping configuration. **Server-side**: the set of groups, every group count and every per-group aggregation come from the group header query (`dataSource.queryGroupHeaders`), and each group's rows are paged by the server. Rows handed in whole are grouped in the browser (exact); over a data source with no header query, a grid that fetches its own rows refuses grouping with an error naming `queryGroupHeaders`. |
 | `frozenColumns` | `number` | Number of columns frozen on scroll. |
 | `navigation` | `ViewNavigationConfig` | SPA navigation configuration. |
+| `emptyState` | `{ title?, message?, icon? }` | Drawn in place of an empty table: a Lucide `icon`, a `title` (default: the table's "No results found") and a `message` (default: none). Not drawn when a term in the grid's own server-side search box emptied it — the table and its search box stay (objectui#11068). |
+
+> **`name`, `placeholder`, `rowSpecActions` and `bulkSpecActions` are retired on
+> this node (objectui#11068).** Nothing ever read them: `rowSpecActions` /
+> `bulkSpecActions` were second spellings of `rowActions` / `bulkActions`, and a
+> grid is neither a form field (`name`) nor an input (`placeholder`). Both faces of
+> `@object-ui/types` refuse them by name. Write `rowActions`, `bulkActions`, `id`
+> or `label`, and `emptyState: { "message": … }` instead.
 
 > **`defaultSort` is retired (objectui#5861).** `ObjectGridSchema` used to accept a
 > legacy single-entry `defaultSort: { field, order }` beside `sort`. The installed

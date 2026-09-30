@@ -129,7 +129,13 @@ const NODE_CENSUS: Readonly<Record<string, { rendered: number; noElement: number
   // renderer DOES read (`cancelText` / `actionText`), which are strings rather
   // than nodes and so leave this walk. Catalog-authored, no renderer touched —
   // the case this table's header sanctions.
-  button: { rendered: 118, noElement: 0 },
+  //
+  // 118 -> 116 with objectui#3906: the PageHeader docs demo was a `page-header`
+  // alias node carrying two `type: 'button'` children, and is now the canonical
+  // `page:header` node, which draws no children (the contract refuses the key
+  // on it), so the demo authors none. Catalog-authored, no renderer touched —
+  // the case this table's header sanctions.
+  button: { rendered: 116, noElement: 0 },
   input: { rendered: 48, noElement: 0 },
   checkbox: { rendered: 12, noElement: 0 },
   switch: { rendered: 7, noElement: 0 },

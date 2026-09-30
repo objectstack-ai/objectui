@@ -195,12 +195,15 @@ describe('P1.1 ListView Spec Alignment', () => {
         { condition: '${data.amount > 10000}', style: { backgroundColor: '#fee2e2' } },
       ],
       emptyState: { title: 'No Records', message: 'Create your first account', icon: 'Database' },
-      rowSpecActions: ['edit', 'delete'],
-      bulkSpecActions: ['delete', 'export'],
+      // The spec's row / bulk action slots are `rowActions` / `bulkActions`.
+      // `rowSpecActions` / `bulkSpecActions` were second spellings of them that
+      // nothing read, retired by objectui#11068.
+      rowActions: ['edit', 'delete'],
+      bulkActions: ['delete', 'export'],
     };
     expect(schema.conditionalFormatting).toHaveLength(1);
     expect(schema.emptyState?.title).toBe('No Records');
-    expect(schema.rowSpecActions).toEqual(['edit', 'delete']);
+    expect(schema.rowActions).toEqual(['edit', 'delete']);
   });
 
   // P2: Sharing / ExportOptions / Pagination protocol alignment tests

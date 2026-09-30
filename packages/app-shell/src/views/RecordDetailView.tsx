@@ -16,7 +16,7 @@ import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate } from '@object-ui/react';
-import { buildExpandFields, resolveRecordIdParamSeed, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
+import { buildExpandFields, captureUpdateUndoData, resolveRecordIdParamSeed, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
 import { toast } from 'sonner';
 import { useRecordPresence, PresenceAvatars } from '@object-ui/collaboration';
 import { Database, ChevronLeft } from 'lucide-react';
@@ -971,21 +971,56 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
             // values from the loaded record so the success toast can offer Undo.
             // Only this page's record has its prior values loaded, so child-row
             // updates skip undo capture.
+            //
+            // ⛔ A field the record does not CARRY is never captured as `null`
+            // (objectui#11082, the objectui#10404 rule). The snapshot is
+            // `@object-ui/core`'s `captureUpdateUndoData`, the one capture rule
+            // the runner and the console runtime also call. The page record is
+            // read with no column list, but the server deletes every field the
+            // reader may not read, so an action that writes such a field finds
+            // it absent here; `?? null` then made Undo write `null` over its
+            // stored value. A `null` the record carries is a real empty value
+            // and is captured as one. When any written field is not carried
+            // there is no Undo at all: the success toast then has no Undo button.
+            //
+            // ⛔ A relation is captured as its stored id (objectui#11122). The
+            // page record is read with `$expand` on every relation the reader
+            // may read, so it carries the related record where the server
+            // stores the id; copied verbatim, Undo wrote that record into the
+            // reference. The rule reads which fields are relations from this
+            // object's field definitions, the same ones that built `$expand`.
+            let undoMissing: string[] | undefined;
             if (action.undoable && isThisRecord && pageRecord) {
-              const undoData: Record<string, unknown> = {};
-              for (const k of Object.keys(params)) undoData[k] = (pageRecord as any)[k] ?? null;
-              undo = {
-                id: `undo-${targetObject}-${targetId}-${Date.now()}`,
-                type: 'update',
-                objectName: targetObject,
-                recordId: String(targetId),
-                timestamp: Date.now(),
-                description: action.label || `Undo ${targetObject}`,
-                undoData,
-                redoData: { ...params },
-              };
+              const record = pageRecord as Record<string, unknown>;
+              const written = Object.keys(params);
+              const objectFields = objectDef?.fields;
+              const undoData = captureUpdateUndoData(written, record, objectFields);
+              if (undoData) {
+                undo = {
+                  id: `undo-${targetObject}-${targetId}-${Date.now()}`,
+                  type: 'update',
+                  objectName: targetObject,
+                  recordId: String(targetId),
+                  timestamp: Date.now(),
+                  // objectui#11080 — the object, never an English verb: the Undo /
+                  // Redo toast supplies the verb from a pack key (see the runner's twin).
+                  description: action.label || targetObject,
+                  undoData,
+                  redoData: { ...params },
+                };
+              } else {
+                undoMissing = written.filter((k) => captureUpdateUndoData([k], record, objectFields) === undefined);
+              }
             }
             await dataSource.update(targetObject, String(targetId), params);
+            if (undoMissing) {
+              console.warn(
+                '[RecordDetailView] `undoable` action succeeded but offers no Undo: the record it ran on '
+                + 'does not carry every field it wrote, so their prior values are unknown and an Undo would '
+                + 'overwrite stored data. The record page carries a written field when the principal may read it.',
+                { action: action.name, missing: undoMissing },
+              );
+            }
           }
           break;
         }
@@ -1003,7 +1038,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
-  }, [dataSource, objectName, pureRecordId, pageRecord, authFetch, activeOrganization]);
+  }, [dataSource, objectName, objectDef, pureRecordId, pageRecord, authFetch, activeOrganization]);
 
   // Client-side modal transport: `type:'modal'` actions open here (Dialog /
   // Sheet / Drawer by `placement`) and render arbitrary SchemaNode content.
@@ -2688,7 +2723,16 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
             it carries the same `actionContextOrg` projection, or
             `${ctx.org.id}` interpolates empty here (objectui#10918). */}
         <ActionProvider
-          context={{ record: pageRecord || {}, objectName, user: currentUser, org: actionContextOrg(activeOrganization) }}
+          context={{
+            record: pageRecord || {},
+            objectName,
+            // This object's field definitions, published beside `objectName`
+            // (objectui#11122): the runner's `operation: 'update'` Undo capture
+            // reads them to capture a relation `$expand` filled as its stored id.
+            ...(objectDef?.fields ? { objectFields: objectDef.fields } : {}),
+            user: currentUser,
+            org: actionContextOrg(activeOrganization),
+          }}
           onConfirm={confirmHandler}
           onToast={toastHandler}
           onNavigate={navigateHandler}

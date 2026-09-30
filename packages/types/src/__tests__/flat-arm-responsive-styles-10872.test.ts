@@ -63,7 +63,7 @@ import {
   StrictAnyComponentSchema,
   safeValidateSchema,
 } from '../zod/index.zod.js';
-import type { FlexSchema as TsFlexSchema } from '../layout';
+import type { FlexSchema as TsFlexSchema, StackSchema as TsStackSchema } from '../layout';
 import type { ObjectChartSchema as TsObjectChartSchema, ObjectGridSchema as TsObjectGridSchema } from '../objectql';
 
 /* ── Type-level pins (compiled by `tsc -p tsconfig.test.json`) ─────────────── */
@@ -90,8 +90,14 @@ export type assertionTsTwinIsTheSpecType = [
   Expect<Equal<TsObjectGridSchema['responsiveStyles'], SpecResponsiveStyles | undefined>>,
   Expect<Equal<TsObjectChartSchema['responsiveStyles'], SpecResponsiveStyles | undefined>>,
 ];
-/** The helper can FAIL: `any` is not the spec's type. */
-export type assertionEqualRefusesAny = Expect<Equal<Equal<any, SpecResponsiveStyles | undefined>, false>>;
+/**
+ * The helper can FAIL, on the exact shape a missing declaration takes: `stack`
+ * declares no `responsiveStyles`, so the member resolves through the index
+ * signature, and `Equal` refuses it.
+ */
+export type assertionUndeclaredTwinIsRefused = Expect<
+  Equal<Equal<TsStackSchema['responsiveStyles'], SpecResponsiveStyles | undefined>, false>
+>;
 
 /* ── The population ───────────────────────────────────────────────────────── */
 

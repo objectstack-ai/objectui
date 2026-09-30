@@ -13,7 +13,7 @@ The layout system provides:
 
 - **AppShell** - Full application container with a top navbar, sidebar, and content areas
 - **Page** - Individual page wrapper with header and body
-- **PageHeader** - Consistent page headers with title, breadcrumbs, and actions
+- **PageHeader** - Consistent page headers with title and actions
 - **SidebarNav** - Navigation sidebar with menu items
 
 ## Installation
@@ -199,8 +199,8 @@ and `button.tsx`, which reads `schema.label`, renders a button with no text.
 > the array rather than refusing it — the same silent-accept shape as `actions`, retired
 > under the same ADR-0049 enforce-or-remove gate. The trail is a **node**, not a key: put
 > a `breadcrumb` node in `children`, as [Breadcrumbs for Deep Navigation](#2-breadcrumbs-for-deep-navigation)
-> shows. ⛔ Not the `page:header` block's `breadcrumb` either — that one is singular and a
-> **boolean** display toggle, not a list of links.
+> shows. ⛔ Not the `page:header` block's `breadcrumb` either — that one is a singular
+> **boolean** the renderer ignores, not a list of links.
 
 ### Schema API
 
@@ -300,7 +300,6 @@ does not render.
     title?: string | Record<string, string>,    // {field.path} tokens interpolated; derived from the record when omitted on a record page
     subtitle?: string | Record<string, string>, // secondary line; same interpolation
     actions?: string[],               // action ids, resolved against the object's own actions
-    breadcrumb?: boolean,             // default true — the breadcrumb slot above the title
     recordChrome?: boolean,           // default true — the record chip on a record page
     showStar?: boolean,               // default true
     showCopyId?: boolean,             // default true
@@ -318,9 +317,9 @@ does not render.
 > header's identity comes from the record chip (`recordChrome`), and each action carries its
 > own `icon`.
 
-> **There is no `breadcrumbs` array.** The node's `breadcrumb` is singular and a
-> **boolean** display toggle for the slot above the title, not a list of links. A trail of
-> links is a `breadcrumb` node — see
+> **There is no `breadcrumbs` array, and `breadcrumb` draws nothing.** The contract still
+> accepts a singular **boolean** `breadcrumb` until objectstack#20758 retires it; the renderer
+> ignores it. A trail of links is a `breadcrumb` node — see
 > [Breadcrumbs for Deep Navigation](#2-breadcrumbs-for-deep-navigation).
 
 > **`page-header` is an alias, not the author key.** `page-header` (and its namespaced form
@@ -698,7 +697,7 @@ ellipsis while keeping the first crumb and the current page. See the
 
 ⛔ Not `"breadcrumbs"` on the `page` node — that key has no reader and is refused by name
 (objectui#8871), the same way `actions` is. ⛔ Nor the `page:header` block's `breadcrumb`,
-which is a **boolean** display toggle rather than a list of links.
+a **boolean** the renderer ignores rather than a list of links.
 
 ### 3. Action Buttons at the Top of the Body
 

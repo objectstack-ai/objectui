@@ -48,6 +48,16 @@
  *      manifest is `packages/sdui-parser/src/__tests__/kanban-quick-add-8285.test.ts`.
  *   5. THE REGISTRATION does not declare the key, and the one tag this renderer
  *      is registered under is the one the cut covers.
+ *
+ * ⭐ objectui#11234 retired the OTHER half, `onQuickAdd`, on `object-kanban`,
+ * and moved the cut rows 1 and 2 read. `ObjectKanban` used to write
+ * `quickAdd: undefined` onto the schema it handed `KanbanRenderer`. It now
+ * renders the internal `KanbanBoardCore`, which takes the pair only as
+ * explicit props, and passes neither. Rows 1 and 2 are unchanged, and they are
+ * that card's end-to-end pins as well: row 1 is the `object-kanban` node that
+ * draws no control, and row 2 is the host pair on `KanbanRenderer` that still
+ * draws and calls. Which half reaches the board is measured per key in
+ * `handlerKeyDispositionsMeasured-7804.test.tsx`.
  */
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';

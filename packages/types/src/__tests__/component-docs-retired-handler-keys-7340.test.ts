@@ -316,10 +316,16 @@ describe('the retired population is measured off the shipped tree (objectui#7340
     // have no reader and are `?: never` now: the two counted here.
     // `onSelect` / `onDismiss` / `onSubmit` are RUNTIME SLOTS their components
     // call, so their twins became callables and they stay LIVE.
+    //
+    // ⭐ 28 → 29, `objectql.ts` 1 → 2: objectui#11234 tombstoned
+    // `ObjectKanbanSchema.onQuickAdd` on both faces, completing ruling B of
+    // decision batch #91 on `object-kanban`. The Quick Add pair stays on
+    // `KanbanRenderer`'s props, which are not a `@object-ui/types` document
+    // interface, so they are not in this census's population.
     const split: Record<string, number> = {};
     for (const m of RETIRED) split[m.file] = (split[m.file] ?? 0) + 1;
     expect({ total: RETIRED.length, split }).toEqual({
-      total: 28,
+      total: 29,
       split: {
         'ai.ts': 2,
         'complex.ts': 2,
@@ -328,7 +334,7 @@ describe('the retired population is measured off the shipped tree (objectui#7340
         'feedback.ts': 1,
         'form.ts': 8,
         'navigation.ts': 3,
-        'objectql.ts': 1,
+        'objectql.ts': 2,
         'overlay.ts': 2,
         'reports.ts': 2,
       },
@@ -366,6 +372,12 @@ describe('the retired population is measured off the shipped tree (objectui#7340
       // is NOT here: `UIActionSchema.onSuccess` is LIVE (the spec's navigation
       // block), so that name stays ambiguous and is resolved by the pair rule.
       'onFailure',
+      // objectui#11234 — no shipped interface declares an `onQuickAdd` callable
+      // any more. `KanbanRendererProps['schema'].onQuickAdd` is a prop of
+      // `@object-ui/plugin-kanban`'s component, not a member of a
+      // `@object-ui/types` document interface, so it is not in this census's
+      // population — the same reading as `onCardMove` above.
+      'onQuickAdd',
       // objectui#10874 — declared on `AIFormAssistSchema` alone, read by nothing.
       'onRejectSuggestion',
       'onSave',

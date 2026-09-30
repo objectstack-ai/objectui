@@ -368,8 +368,10 @@ const RUNTIME_SLOT: readonly Site[] = [
   // moved `KanbanRenderer`'s read off the document and onto an explicit React
   // prop — until then `check:handler-key-reads` refused the tombstone spelling
   // while the renderer still read the key.
+  //
+  // ⭐ `onQuickAdd` LEFT this half for `RETIRED` below (objectui#11234). Its row
+  // moved; no row was dropped, which is why `ALL_SITES` holds its size.
   ['objectql.zod.ts', 'ObjectKanbanSchema', 'onCardClick', ObjectKanbanZod],
-  ['objectql.zod.ts', 'ObjectKanbanSchema', 'onQuickAdd', ObjectKanbanZod],
   // ⭐ objectui#7804 — the `objectql.ts` slice: nine keys across FOUR plain
   // `export interface X extends BaseSchema` faces in one file, every one read
   // off the authored document by a registered renderer while its arm declared
@@ -474,6 +476,16 @@ const RETIRED: readonly Site[] = [
   // as an explicit React prop — the objectui#7742 remedy `objectFields` took —
   // and the tombstone is spelled on both faces.
   ['objectql.zod.ts', 'ObjectKanbanSchema', 'onCardMove', ObjectKanbanZod],
+  // ⭐ objectui#11234 — the Quick Add handler, MOVED here from `RUNTIME_SLOT`
+  // above. Its function did reach the board by identity, but on `object-kanban`
+  // it was never called: its partner `quickAdd` is retired on this element
+  // (objectui#8285, ruling B of decision batch #91). `check:handler-key-reads`
+  // refused the tombstone while `KanbanRenderer` read the key off the document
+  // `ObjectKanban` handed it. So `ObjectKanban` now renders the internal
+  // `KanbanBoardCore`, which takes the pair only as explicit props, and it
+  // supplies neither. The exported `KanbanRenderer` keeps the pair for a React
+  // host; that is a component prop, not a document key.
+  ['objectql.zod.ts', 'ObjectKanbanSchema', 'onQuickAdd', ObjectKanbanZod],
   ['overlay.zod.ts', 'AlertDialogSchema', 'onConfirm', AlertDialogZod],
   ['overlay.zod.ts', 'AlertDialogSchema', 'onCancel', AlertDialogZod],
 ];
@@ -555,7 +567,7 @@ describe('census: no on* key in the eight mirrors is declared z.function() (obje
     expect([...spelled.matchAll(NON_ON_FUNCTION)].map((m) => m[1])).toEqual(['cell']);
   });
 
-  it('82 sites are ledgered, 61 runtime slots + 21 retired, with no key filed twice', () => {
+  it('82 sites are ledgered, 60 runtime slots + 22 retired, with no key filed twice', () => {
     // 58 from objectui#6124; the 59th is `ObjectDataTableSchema.onRowClick`,
     // minted with its arm by objectui#6576 / #6914; the 60th is
     // `AlertDialogSchema.onAction`, declared by objectui#7104 for a key the
@@ -600,8 +612,13 @@ describe('census: no on* key in the eight mirrors is declared z.function() (obje
     // them. All seven land on the RUNTIME SLOT half, each measured at its own
     // channel; `onColumnResize` is the one that does not share the group's, and
     // the site comment beside the rows records why that mattered.
-    expect(RUNTIME_SLOT).toHaveLength(61);
-    expect(RETIRED).toHaveLength(21);
+    //
+    // ⭐ 61 + 21 → 60 + 22, total unchanged: objectui#11234 MOVED
+    // `ObjectKanbanSchema.onQuickAdd` from the runtime-slot half to the retired
+    // half. A move between halves holds `ALL_SITES` at the same size, so the two
+    // half lengths are the readings that see it, and both are pinned here.
+    expect(RUNTIME_SLOT).toHaveLength(60);
+    expect(RETIRED).toHaveLength(22);
     const ids = ALL_SITES.map(([file, schema, key]) => `${file}#${schema}.${key}`);
     expect(new Set(ids).size).toBe(82);
   });
@@ -746,6 +763,8 @@ export type assertionRetiredKeysAreTombstoned = [
   Expect<RetiredIsNever<ButtonGroupButton['onClick']>>,
   Expect<RetiredIsNever<AlertDialogSchema['onConfirm']>>,
   Expect<RetiredIsNever<AlertDialogSchema['onCancel']>>,
+  // objectui#11234 — moved here from the runtime-slot block below.
+  Expect<RetiredIsNever<ObjectKanbanSchema['onQuickAdd']>>,
 ];
 
 export type assertionRuntimeSlotsKeepTheirFunctionType = [
@@ -810,7 +829,6 @@ export type assertionRuntimeSlotsKeepTheirFunctionType = [
   Expect<KeepsFunction<PaginationSchema['onPageChange']>>,
   Expect<KeepsFunction<ObjectDataTableSchema['onRowClick']>>,
   Expect<KeepsFunction<ObjectKanbanSchema['onCardClick']>>,
-  Expect<KeepsFunction<ObjectKanbanSchema['onQuickAdd']>>,
   Expect<KeepsFunction<DialogSchema['onOpenChange']>>,
   Expect<KeepsFunction<AlertDialogSchema['onOpenChange']>>,
   Expect<KeepsFunction<AlertDialogSchema['onAction']>>,

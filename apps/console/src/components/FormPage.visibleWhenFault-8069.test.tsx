@@ -156,15 +156,19 @@ describe('objectui#8069 — FormPage refuses a faulted visibleWhen at submit', (
     await screen.findByText(/visibleWhen rule of Notes could not be evaluated/);
     expect(writes()).toHaveLength(0);
     expect(screen.getByLabelText('Notes')).toBeInTheDocument();
+    expect(warn.mock.calls.some((c: unknown[]) => String(c[0]).includes('[blank]'))).toBe(true);
   });
 
-  it('control — a blank VIEW-level visibleWhen is a layout gate: it submits, diagnosed (D4)', async () => {
+  it('control — a blank VIEW-level visibleWhen is a layout gate, not a field rule: it submits', async () => {
+    // The view's section entry is normalized before this page builds its rows,
+    // and a blank view-level predicate does not survive that step — "no gate",
+    // and nothing on this path refuses it.
     renderForm(objectWith({}), {
       sections: [{ label: 'Basics', fields: ['title', 'priority', { field: 'notes', visibleWhen: '' }, 'status'] }],
     });
     await submit();
     await waitFor(() => expect(writes()).toHaveLength(1));
-    expect(warn.mock.calls.some((c: unknown[]) => String(c[0]).includes('[blank]'))).toBe(true);
+    expect(screen.getByLabelText('Notes')).toBeInTheDocument();
   });
 
   it('a faulted requiredWhen is NOT refused on the client — it is the server’s to refuse (D2)', async () => {

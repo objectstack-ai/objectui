@@ -2,6 +2,7 @@ import React from 'react';
 import { EmptyValue } from '@object-ui/components';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { formatDate, toDisplayDate } from '@object-ui/core';
+import type { FormulaFieldMetadata } from '@object-ui/types';
 import { FieldWidgetComponentProps } from './types.js';
 
 /**
@@ -13,15 +14,19 @@ export function FormulaField({ value, field, ...props }: FieldWidgetComponentPro
   // a value flips between null and set. A `date` return type used to format
   // through the MACHINE's locale (objectui#4468).
   const locale = useDisplayLocale();
-  const formulaField = field as any;
-  const returnType = formulaField?.return_type || 'text';
+  // The spec's `returnType` (`number` / `text` / `boolean` / `date`), the
+  // spelling object metadata carries — authoring stamps it from the inferred
+  // CEL type. It is the ONLY spelling read: the snake_case `return_type` this
+  // widget used to read is retired, so an object-bound formula field is
+  // formatted by what its definition declares (objectui#11070).
+  const returnType = (field as FormulaFieldMetadata | undefined)?.returnType ?? 'text';
 
   if (value == null) {
     return <EmptyValue className={props.className} />;
   }
 
   let displayValue: string;
-  if (returnType === 'number' || returnType === 'currency') {
+  if (returnType === 'number') {
     displayValue = typeof value === 'number' ? value.toFixed(2) : String(value);
   } else if (returnType === 'boolean') {
     displayValue = value ? 'Yes' : 'No';

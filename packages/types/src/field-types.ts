@@ -607,8 +607,20 @@ export interface UrlFieldMetadata extends BaseFieldMetadata {
  */
 export interface PasswordFieldMetadata extends BaseFieldMetadata {
   type: 'password';
-  min_length?: number;
-  max_length?: number;
+  /**
+   * Minimum character length — `@objectstack/spec`'s `FieldSchema.minLength`,
+   * typed BY REFERENCE (objectui#11070). The form's validation rules
+   * (`buildValidationRules` in `@object-ui/fields`) read it for every field
+   * type and enforce it at submit. It replaces the retired snake_case
+   * `min_length`, which the spec refuses by name.
+   */
+  minLength?: SpecField['minLength'];
+  /**
+   * Maximum character length — `@objectstack/spec`'s `FieldSchema.maxLength`,
+   * typed BY REFERENCE and read the same way as {@link minLength}. It replaces
+   * the retired snake_case `max_length`.
+   */
+  maxLength?: SpecField['maxLength'];
 }
 
 /**
@@ -792,9 +804,19 @@ export interface FormulaFieldMetadata extends BaseFieldMetadata {
    */
   formula?: string;
   /**
-   * Return type of the formula
+   * The value type the formula computes — `@objectstack/spec`'s
+   * `FieldSchema.returnType`, typed BY REFERENCE so the two cannot drift
+   * (objectui#11070). `FormulaField` formats the computed value by it: a
+   * number to two decimals, a boolean as Yes/No, a date through the shared
+   * date face, anything else as text (the default when it is absent).
+   *
+   * It replaces the retired snake_case `return_type`, which the spec refuses
+   * by name and which no reader reads any more: the spec spelling is the one
+   * object metadata carries (authoring stamps it from the inferred CEL type),
+   * so an object-bound formula field is formatted by what its definition
+   * declares.
    */
-  return_type?: 'text' | 'number' | 'boolean' | 'date' | 'datetime';
+  returnType?: SpecField['returnType'];
   /**
    * Whether to recompute on dependency changes
    */
@@ -808,21 +830,21 @@ export interface FormulaFieldMetadata extends BaseFieldMetadata {
 export interface SummaryFieldMetadata extends BaseFieldMetadata {
   type: 'summary';
   /**
-   * Related object to summarize from
+   * The roll-up definition — `@objectstack/spec`'s
+   * `FieldSchema.summaryOperations`, typed BY REFERENCE so the two cannot
+   * drift (objectui#11070): the child `object`, the child `field` to
+   * aggregate, the aggregation `function` (`count` / `sum` / `min` / `max` /
+   * `avg`), and optionally the child's `relationshipField` and a `filter`
+   * restricting which child rows are aggregated. `SummaryField` formats the
+   * value by `function`: `count` as it arrives, the other four to two
+   * decimals.
+   *
+   * It replaces four retired snake_case members, one per part:
+   * `summary_object` (now `object`), `summary_field` (now `field`),
+   * `summary_type` (now `function`) and `summary_filter` (now `filter`). The
+   * spec refuses them, and no reader reads them any more.
    */
-  summary_object?: string;
-  /**
-   * Field to aggregate in the related object
-   */
-  summary_field?: string;
-  /**
-   * Aggregation type
-   */
-  summary_type?: 'count' | 'sum' | 'avg' | 'min' | 'max' | 'first' | 'last';
-  /**
-   * Filter condition for summarized records
-   */
-  summary_filter?: Record<string, any>;
+  summaryOperations?: SpecField['summaryOperations'];
   /**
    * Whether to auto-update on related record changes
    */

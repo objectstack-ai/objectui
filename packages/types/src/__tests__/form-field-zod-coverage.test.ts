@@ -90,6 +90,10 @@ const DECLARED_KEYS = [
   'minLength',
   'maxLength',
   'pattern',
+  // objectui#11070 round 3 — the spec spellings the `formula` and `summary`
+  // widgets read (their snake_case forms are retired), by reference too.
+  'returnType',
+  'summaryOperations',
 ];
 
 describe('FormFieldSchema covers the FormField contract', () => {

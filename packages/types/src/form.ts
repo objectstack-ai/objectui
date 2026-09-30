@@ -1932,19 +1932,18 @@ export interface FormField {
   // typed BY REFERENCE to that member, so the two cannot drift; `pattern` is
   // the one the spec does not declare.
   //
-  // ⛔ Not every key a widget reads off the carrier is declared here. Four are
-  // read in a snake_case spelling beside a spec key of the same meaning —
-  // `return_type` (spec `returnType`), `summary_type` (spec
-  // `summaryOperations`), `reference_to` (spec `reference`) and `min_length`
-  // (spec `minLength`) — and none of the four is declared: a second spelling
-  // is not added to this contract. Where the widgets already read the SPEC
-  // spelling too, that spelling is the one declared (`reference`, below;
-  // `minLength`, above), and `reference_to` / `min_length` stay refused by the
-  // strict face (the seat's answer on objectui#11070). `return_type` and
-  // `summary_type` have no read of the spec spelling to declare. The grid
-  // field's `columns` is read too, but its element shape is undecided: the
-  // declared `GridColumnDefinition` (`./field-types.ts`) is not the shape
-  // `GridField` reads. Those three remain open on objectui#11070.
+  // ⛔ Not every key a widget reads off the carrier is declared here. Two are
+  // still read in a snake_case spelling beside a spec key of the same
+  // meaning — `reference_to` (spec `reference`) and `min_length` (spec
+  // `minLength`) — and neither is declared: a second spelling is not added
+  // to this contract. The SPEC spelling is the one declared (`reference`,
+  // below; `minLength`, above), and `reference_to` / `min_length` stay
+  // refused by the strict face (the seat's answer on objectui#11070). The
+  // formula and summary widgets read ONLY the spec spellings, `returnType`
+  // and `summaryOperations` (below); their snake_case forms are retired and
+  // refused. The grid field's `columns` is read too, but its element shape
+  // is undecided: the declared `GridColumnDefinition` (`./field-types.ts`) is
+  // not the shape `GridField` reads. It remains open on objectui#11070.
 
   /**
    * Hold several values instead of one. Read by the `file`, `image`,
@@ -2014,6 +2013,23 @@ export interface FormField {
    * cannot carry.
    */
   pattern?: string;
+  /**
+   * The value type a `formula` field computes (`number` / `text` /
+   * `boolean` / `date`). The `formula` widget formats the value by it: a
+   * number to two decimals, a boolean as Yes/No, a date through the shared
+   * date face, anything else as text (the default when it is absent). The
+   * retired snake_case `return_type` is read by nothing and refused.
+   */
+  returnType?: SpecField['returnType'];
+  /**
+   * The roll-up definition of a `summary` field: the child `object`, the
+   * child `field` and the aggregation `function`, plus an optional
+   * `relationshipField` and `filter`. The `summary` widget formats the value
+   * by `function`: `count` as it arrives, the other four to two decimals. The
+   * retired snake_case `summary_object` / `summary_field` / `summary_type`
+   * are read by nothing and refused.
+   */
+  summaryOperations?: SpecField['summaryOperations'];
 }
 
 /**

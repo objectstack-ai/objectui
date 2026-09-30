@@ -287,9 +287,10 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // like every other one.
   ['ElementNumberPropsSchema', SpecElementNumberPropsSchema],
   ['ElementDataSourceSchema', SpecElementDataSourceSchema],
-  // objectui#11070: `FormFieldSchema` reads nine of the spec's `FieldSchema`
-  // members by reference (the field metadata a hand-authored form writes on
-  // the entry itself), and `multiple` carries the spec's `.default(false)` —
+  // objectui#11070: `FormFieldSchema` reads spec `FieldSchema` members by
+  // reference (the field metadata a hand-authored form writes on the entry
+  // itself; `FormFieldSchema.shape` lists them), and `multiple` carries the
+  // spec's `.default(false)` —
   // exactly what this boundary exists to keep out of a parse output.
   ['FieldSchema', SpecFieldSchema],
 ] as const;

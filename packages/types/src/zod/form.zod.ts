@@ -978,6 +978,11 @@ export const FormFieldSchema = z.object({
   maxLength: stripImportedDefaults(SpecFieldSchema).shape.maxLength,
   pattern: z.string().optional()
     .describe('Regular expression the value must match, as a string (JSON has no RegExp) — the built-in input branch puts it on the native control as `pattern`; the field-level spelling the `validation.pattern` refusal directs JSON authors to'),
+  // The spec spellings the `formula` and `summary` widgets read; their
+  // snake_case forms (`return_type`, `summary_type`, `summary_object`,
+  // `summary_field`) are retired and stay undeclared (objectui#11070).
+  returnType: stripImportedDefaults(SpecFieldSchema).shape.returnType,
+  summaryOperations: stripImportedDefaults(SpecFieldSchema).shape.summaryOperations,
 }).superRefine((field, ctx) => {
   // objectui#5449 — the namespace rule `@object-ui/core` has enforced since
   // objectui#5375, stated here so `objectui validate` (which reaches this

@@ -353,6 +353,19 @@ export const ObjectTimelineRenderer: React.FC<any> = elementDataSourceBlock(({ s
   );
 });
 
+// `filter` and `sort` are declared on BOTH registrations of this renderer
+// (objectui#8220): `ObjectTimeline` lowers both onto its object query
+// (`$filter` / `$orderby`), and `@objectstack/spec`'s `object-timeline` row
+// declares both, so without an input the html tier's `validateTree` reported a
+// working key as `unknown-prop` on either tag. `view:timeline` is the same
+// renderer under a second tag, so it declares the same pair — the
+// `view:calendar` precedent (objectui#7712 / objectui#8171). `filter` is the
+// RULE-ARRAY arm only — the spec refuses the MongoDB-style record form at this
+// door, and `type: 'array'` makes the html tier refuse it too. Pinned in
+// `__tests__/queryKeysDeclared-8220.test.tsx`.
+const TIMELINE_FILTER_DESCRIPTION = 'Base query filter in the rule-array form `[{ field, operator, value }, ...]`, narrowing the records the timeline fetches. Context tokens such as `{current_user_id}` are resolved first, then the filter is lowered to `$filter` on the query. Authored `items` or `data` suppress that query, so the key then narrows nothing. The MongoDB-style record form is not this key’s shape.';
+const TIMELINE_SORT_DESCRIPTION = 'Entry order in `[{ field, order }]` form, ordering the records the timeline fetches. Lowered to `$orderby` on the same query.';
+
 ComponentRegistry.register('object-timeline', ObjectTimelineRenderer, {
   namespace: 'plugin-timeline',
   label: 'Object Timeline',
@@ -360,6 +373,8 @@ ComponentRegistry.register('object-timeline', ObjectTimelineRenderer, {
   inputs: [
     { name: 'objectName', type: 'string', required: true },
     { name: 'variant', type: 'enum', enum: ['vertical', 'horizontal', 'gantt'] },
+    { name: 'filter', type: 'array', description: TIMELINE_FILTER_DESCRIPTION },
+    { name: 'sort', type: 'array', description: TIMELINE_SORT_DESCRIPTION },
   ]
 });
 
@@ -370,5 +385,7 @@ ComponentRegistry.register('timeline', ObjectTimelineRenderer, {
   inputs: [
     { name: 'objectName', type: 'string', required: true },
     { name: 'variant', type: 'enum', enum: ['vertical', 'horizontal', 'gantt'] },
+    { name: 'filter', type: 'array', description: TIMELINE_FILTER_DESCRIPTION },
+    { name: 'sort', type: 'array', description: TIMELINE_SORT_DESCRIPTION },
   ]
 });

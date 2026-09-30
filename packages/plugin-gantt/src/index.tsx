@@ -128,6 +128,14 @@ export const ObjectGanttRenderer: React.FC<{ schema: any }> = elementDataSourceB
 // array of records. Each description names only what `ObjectGantt` was
 // measured to do with the key. Pinned in
 // `__tests__/recordSourceInputs-10394.test.ts`.
+//
+// `filter` and `sort` are declared (objectui#8220): `ObjectGantt` lowers both
+// onto the one `find` its reload issues for every record source (`$filter` /
+// `$orderby`), and `@objectstack/spec`'s `object-gantt` row declares both, so
+// without an input the html tier's `validateTree` reported a working key as
+// `unknown-prop`. `filter` is the RULE-ARRAY arm only — the spec refuses the
+// MongoDB-style record form at this door, and `type: 'array'` makes the html
+// tier refuse it too. Pinned in `__tests__/queryKeysDeclared-8220.test.tsx`.
 ComponentRegistry.register('object-gantt', ObjectGanttRenderer, {
   namespace: 'plugin-gantt',
   label: 'Object Gantt',
@@ -137,6 +145,8 @@ ComponentRegistry.register('object-gantt', ObjectGanttRenderer, {
     { name: 'gantt', type: 'object', description: 'startDateField, endDateField, titleField, progressField, percentageField, colorField, dependenciesField' },
     { name: 'data', type: 'object', description: 'A `{ provider, … }` data-source configuration, read FIRST on the record-source ladder: a gantt carrying one never reaches `staticData` and never queries `objectName`. `{ provider: \'value\', items }` charts those rows, `{ provider: \'object\', object }` queries that object and `{ provider: \'api\', read }` reads through that request. A bare array is not this key’s shape and is not a record source: the gantt falls through to `staticData`, then `objectName`, so inline rows belong under `staticData`.' },
     { name: 'staticData', type: 'array', description: 'Inline records, read SECOND on the record-source ladder: a `data` configuration wins and this key is then never reached, while `objectName` is read AFTER it, so a gantt carrying both charts these rows and never queries that object. `filter` and `sort` narrow and order these rows exactly as they do fetched ones.' },
+    { name: 'filter', type: 'array', description: 'Base query filter in the rule-array form `[{ field, operator, value }, ...]`, narrowing the tasks the gantt charts — from every record source it reads: the object, an `api` request, or inline rows. Context tokens such as `{current_user_id}` are resolved first, then the filter is lowered to `$filter` on the query. The MongoDB-style record form is not this key’s shape.' },
+    { name: 'sort', type: 'array', description: 'Task order in `[{ field, order }]` form, ordering the rows the gantt charts. Lowered to `$orderby` on the same query.' },
   ],
 });
 

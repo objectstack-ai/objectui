@@ -76,6 +76,14 @@ export const ObjectMapRenderer: React.FC<any> = elementDataSourceBlock(({ schema
 // provider plots nothing here (`API provider not yet implemented for
 // ObjectMap`).
 //
+// `filter` and `sort` are declared (objectui#8220): `ObjectMap` lowers both onto
+// its query (`$filter` / `$orderby`), and `@objectstack/spec`'s `object-map`
+// row declares both, so without an input the html tier's `validateTree`
+// reported a working key as `unknown-prop`. `filter` is the RULE-ARRAY arm
+// only — the spec refuses the MongoDB-style record form at this door, and
+// `type: 'array'` makes the html tier refuse it too. Pinned in
+// `__tests__/queryKeysDeclared-8220.test.tsx`.
+//
 // The list is spelled INLINE rather than spread from a shared constant:
 // `check:component-surface-parity` cannot name the entries of a spread, so a
 // spread list would drop this registration out of that reader's population.
@@ -89,6 +97,8 @@ ComponentRegistry.register('object-map', ObjectMapRenderer, {
     { name: 'map', type: 'object', description: 'latitudeField, longitudeField, titleField' },
     { name: 'data', type: 'object', description: 'A `{ provider, … }` data-source configuration, read FIRST on the record-source ladder: a map carrying one never reaches `staticData` and never queries `objectName`. `{ provider: \'value\', items }` plots those rows and `{ provider: \'object\', object }` queries that object, both narrowed by `filter` and ordered by `sort`. The `api` provider is not implemented on the map and plots no markers. A bare array is not this key’s shape and is not a record source: the map falls through to `staticData`, then `objectName`, so inline rows belong under `staticData`.' },
     { name: 'staticData', type: 'array', description: 'Inline records, read SECOND on the record-source ladder: a `data` configuration wins and this key is then never reached, while `objectName` is read AFTER it, so a map carrying both plots these rows and never queries that object. `filter` and `sort` narrow and order these rows exactly as they do fetched ones.' },
+    { name: 'filter', type: 'array', description: 'Base query filter in the rule-array form `[{ field, operator, value }, ...]`, narrowing the markers the map plots — fetched rows and inline (`staticData`, `{ provider: \'value\' }`) rows alike. Context tokens such as `{current_user_id}` are resolved first, then the filter is lowered to `$filter` on the query. The MongoDB-style record form is not this key’s shape.' },
+    { name: 'sort', type: 'array', description: 'Marker order in `[{ field, order }]` form, ordering the rows the map plots. Lowered to `$orderby` on the same query.' },
   ],
 });
 

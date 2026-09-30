@@ -45,9 +45,9 @@ const captured: { listView?: any; listViewContextAdapter?: unknown; objectForm?:
 
 const adapter = { find: async () => [], getObjectSchema: async () => ({ name: 'showcase_project', fields: {} }) } as any;
 
-function renderReactPage(source: string, hostAdapter: unknown = adapter) {
+function renderReactPage(source: string, hostAdapter: typeof adapter | null = adapter) {
   return render(
-    <AdapterCtx.Provider value={hostAdapter as any}>
+    <AdapterCtx.Provider value={hostAdapter}>
       <SchemaRenderer schema={{ type: 'home', kind: 'react', name: 'test_page', source }} />
     </AdapterCtx.Provider>,
   );

@@ -222,6 +222,7 @@ export const ReactKindPage: React.FC<{ schema: any }> = ({ schema }) => {
       variables: schema?.variables ?? {},
       page: schema ?? {},
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `adapter` is a recompile trigger kept on purpose, not a read; the reason is above this memo.
     [schema, adapter],
   );
 

@@ -71,13 +71,20 @@
  *     today. It is not a dead-bolt, for the reason the ruling gives and the
  *     reason the editors give: the ruling makes the same body a server refusal
  *     once the door closes (a stored row is named and every later save of that
- *     object is refused until it gains options), and every surface in this
- *     repository that can author a choice field clears it on screen, because
- *     the message names the field and the field's inspector carries the options
- *     editor. `object-metadata-write-guard.derivation.test.ts` re-measures
- *     "still accepted by the installed server" on every run; when the door
- *     ships and the pin moves, that reading turns red, and this paragraph
- *     collapses into the relationship one above.
+ *     object is refused until it gains options), and the message names the
+ *     field on every surface that holds one. The Studio data page and the
+ *     metadata-admin object editor carry an options editor in that field's
+ *     inspector, so the hold clears on screen, including for an object that
+ *     already stores such a field (both pinned by their
+ *     `*.choiceWithoutOptions-11253` suites). plugin-designer's drawer has no
+ *     options editor, so it stops offering the choice types; a stored `select`
+ *     keeps its type there and can be retyped or removed, and a stored `radio`
+ *     is among the types that page carries through unedited and sends to
+ *     metadata-admin, as it already does for a target-less `master_detail`.
+ *     `object-metadata-write-guard.derivation.test.ts` re-measures "still
+ *     accepted by the installed server" on every run; when the door ships and
+ *     the pin moves, that reading turns red, and this paragraph collapses into
+ *     the relationship one above.
  *
  * ⛔ **NOT strip-and-report-saved.** Dropping the offending field and reporting
  * success would trade a visible refusal for an invisible deletion —

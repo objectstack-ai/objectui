@@ -635,8 +635,8 @@ describe('DetailView', () => {
       getObjectSchema: vi.fn().mockResolvedValue({
         fields: {
           name: { type: 'text' },
-          customer: { type: 'lookup', reference_to: 'contact' },
-          account: { type: 'master_detail', reference_to: 'account' },
+          customer: { type: 'lookup', reference: 'contact' },
+          account: { type: 'master_detail', reference: 'account' },
         },
       }),
       findOne: vi.fn().mockResolvedValue({ name: 'Order 1', customer: { name: 'Alice' }, account: { name: 'Acme' } }),

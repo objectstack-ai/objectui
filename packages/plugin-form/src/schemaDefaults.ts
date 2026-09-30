@@ -103,15 +103,15 @@ export { isRuntimeDefault };
  * the stricter of the pair (its field values are pinned, not `any`), so a
  * value legal here is legal there but not the reverse.
  *
- * NOT `@object-ui/types`' `ObjectSchemaMetadata`: that type requires `name`,
- * requires a `type` on every field, and has no `reference_to` member at all —
- * and `isCurrentUserSeedField` below honours BOTH `reference` (the ObjectStack
- * spelling) and `reference_to` (the objectui-types one) on purpose.
+ * NOT `@object-ui/types`' `ObjectSchemaMetadata`: that type requires `name`
+ * and requires a `type` on every field. `isCurrentUserSeedField` below reads
+ * the target as `reference`, the one spelling the spec declares and ObjectUI
+ * reads (objectui#11070 round 4).
  */
 export interface FieldDefaultsSchemaLike {
   fields?: Record<
     string,
-    { defaultValue?: unknown; type?: unknown; reference?: unknown; reference_to?: unknown } | undefined
+    { defaultValue?: unknown; type?: unknown; reference?: unknown } | undefined
   >;
 }
 
@@ -255,16 +255,16 @@ export function schemaDefaultValues(
  * The type gate mirrors the spec's own authoring rule (`field.zod` objectstack-ai/objectstack#7127:
  * `current_user` is legal "on `user` or `lookup` with `reference: 'sys_user'`
  * only"), so a token that somehow reached an illegal field type is left alone
- * here exactly as the engine's validator would refuse it. `reference` is the
- * ObjectStack schema spelling and `reference_to` the objectui-types one; both
- * are honoured, same as `LookupField`'s own reader.
+ * here exactly as the engine's validator would refuse it. The target is read
+ * as `reference` alone — the spelling the spec's own rule names, and the only
+ * one `LookupField` reads (objectui#11070 round 4).
  */
 function isCurrentUserSeedField(
-  f: { defaultValue?: unknown; type?: unknown; reference?: unknown; reference_to?: unknown } | undefined,
+  f: { defaultValue?: unknown; type?: unknown; reference?: unknown } | undefined,
 ): boolean {
   if (!f || !isCurrentUserDefaultToken(f.defaultValue)) return false;
   if (f.type === 'user') return true;
-  return f.type === 'lookup' && (f.reference === 'sys_user' || f.reference_to === 'sys_user');
+  return f.type === 'lookup' && f.reference === 'sys_user';
 }
 
 /**

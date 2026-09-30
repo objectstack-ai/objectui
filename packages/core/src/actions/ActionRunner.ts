@@ -764,7 +764,7 @@ export interface ActionParamDef {
   // to a `lookup` or `reference` field. Forwarded to `<LookupField>` inside
   // `ActionParamDialog` so the user gets a real record picker (popover +
   // RecordPickerDialog) instead of a plain text input.
-  /** Object name the lookup picker queries (`reference_to` on the field). */
+  /** Object name the lookup picker queries (`reference` on the field). */
   referenceTo?: string;
   /** Field on the referenced record used as the human label (default `name`). */
   displayField?: string;

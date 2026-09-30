@@ -21,8 +21,8 @@ import type { DetailViewSection } from '@object-ui/types';
 describe('DetailSection inline-edit reference fields', () => {
   const objectSchema = {
     fields: {
-      project: { type: 'master_detail', reference_to: 'projects' },
-      factory: { type: 'lookup', reference_to: 'factories' },
+      project: { type: 'master_detail', reference: 'projects' },
+      factory: { type: 'lookup', reference: 'factories' },
       title: { type: 'text' },
     },
   };

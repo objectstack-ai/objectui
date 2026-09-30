@@ -67,7 +67,7 @@ const INVOICE_USER_ACTIONS = {
 const OBJECT_FIELDS = {
   name: { type: 'text' },
   status: { type: 'select' },
-  owner: { type: 'lookup', reference_to: 'user' },
+  owner: { type: 'lookup', reference: 'user' },
 };
 
 /**

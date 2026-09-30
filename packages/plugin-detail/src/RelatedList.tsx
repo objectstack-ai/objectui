@@ -1573,13 +1573,13 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         // number cell (objectui#11026).
         ...(def.useGrouping !== undefined && { useGrouping: def.useGrouping }),
         ...(def.format && { format: def.format }),
-        // ⚠️ objectui#6837 half 2: the READ narrows to `reference` (the only
+        // objectui#6837 half 2 narrowed the READ to `reference` (the only
         // spelling the protocol declares — `FieldSchema` refuses `reference_to`
-        // by name). The EMITTED key is unchanged: it is what this emit's TARGET
-        // contract declares, and renaming it would be a separate change.
-        // Target contract here: `FieldMetadata` (`LookupFieldMetadata.reference_to`
-        // in `@object-ui/types`), handed straight to `CellRenderer` as `field`.
-        ...(def.reference && { reference_to: def.reference }),
+        // by name), and objectui#11070 round 4 moved the EMITTED key with it:
+        // the target contract here, `FieldMetadata`
+        // (`LookupFieldMetadata.reference` in `@object-ui/types`), handed
+        // straight to `CellRenderer` as `field`, declares `reference`.
+        ...(def.reference && { reference: def.reference }),
         ...(def.reference_field && { reference_field: def.reference_field }),
       };
       return (value: any) => {

@@ -75,7 +75,7 @@ function makeDataSource() {
 const lookupField = {
   name: 'contact',
   label: 'Contact',
-  reference_to: 'contacts',
+  reference: 'contacts',
   reference_field: 'name',
   dependsOn: ['account'],
 } as any;

@@ -1861,7 +1861,7 @@ export interface FormField {
    * The resolved object-field metadata **object** (typically a
    * {@link FieldMetadata} / server-served field definition), stashed by the
    * object-bound form paths so widgets can read `precision`, `currency`,
-   * `reference_to`, `dependsOn`, … It feeds the field-widget `field` prop.
+   * `reference`, `dependsOn`, … It feeds the field-widget `field` prop.
    *
    * ⚠️ Same key, different layer: in the SPEC form-view vocabulary `field` is
    * a **string** (the referenced object-field name). That authored shape ends
@@ -1932,18 +1932,19 @@ export interface FormField {
   // typed BY REFERENCE to that member, so the two cannot drift; `pattern` is
   // the one the spec does not declare.
   //
-  // ⛔ Not every key a widget reads off the carrier is declared here. Two are
+  // ⛔ Not every key a widget reads off the carrier is declared here. One is
   // still read in a snake_case spelling beside a spec key of the same
-  // meaning — `reference_to` (spec `reference`) and `min_length` (spec
-  // `minLength`) — and neither is declared: a second spelling is not added
-  // to this contract. The SPEC spelling is the one declared (`reference`,
-  // below; `minLength`, above), and `reference_to` / `min_length` stay
-  // refused by the strict face (the seat's answer on objectui#11070). The
-  // formula and summary widgets read ONLY the spec spellings, `returnType`
-  // and `summaryOperations` (below); their snake_case forms are retired and
-  // refused. The grid field's `columns` is read too, but its element shape
-  // is undecided: the declared `GridColumnDefinition` (`./field-types.ts`) is
-  // not the shape `GridField` reads. It remains open on objectui#11070.
+  // meaning — `min_length` (spec `minLength`) — and it is not declared: a
+  // second spelling is not added to this contract. The SPEC spelling is the
+  // one declared (`minLength`, above), and `min_length` stays refused by the
+  // strict face (the seat's answer on objectui#11070). The lookup and user
+  // widgets read ONLY the spec's `reference` (below), and the formula and
+  // summary widgets ONLY the spec's `returnType` and `summaryOperations`
+  // (below); their snake_case forms (`reference_to`, `return_type`,
+  // `summary_type`, …) are retired and refused. The grid field's `columns`
+  // is read too, but its element shape is undecided: the declared
+  // `GridColumnDefinition` (`./field-types.ts`) is not the shape `GridField`
+  // reads. It remains open on objectui#11070.
 
   /**
    * Hold several values instead of one. Read by the `file`, `image`,
@@ -1971,12 +1972,11 @@ export interface FormField {
   dimensions?: SpecField['dimensions'];
   /**
    * Target object of a `lookup` / `user` field, as `@objectstack/spec`'s
-   * `FieldSchema` spells it. The `lookup` widget resolves its target as
-   * `reference_to || reference` and the `user` widget as
-   * `reference || reference_to` (falling back to `sys_user`), so this is the
-   * object the picker queries through the injected adapter. The legacy
-   * `reference_to` spelling is still read by both, and is ⛔ NOT declared:
-   * the strict face refuses it, so an author writes this spelling
+   * `FieldSchema` spells it. The `lookup` widget resolves its target from
+   * this key alone and the `user` widget likewise (falling back to
+   * `sys_user`), so this is the object the picker queries through the
+   * injected adapter. The retired `reference_to` spelling is read by neither
+   * and is ⛔ NOT declared: the strict face refuses it by name
    * (objectui#11070).
    */
   reference?: SpecField['reference'];

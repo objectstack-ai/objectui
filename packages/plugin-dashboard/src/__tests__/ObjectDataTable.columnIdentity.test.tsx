@@ -134,7 +134,7 @@ describe('ObjectDataTable — normalizeColumns resolves identity at the producer
 describe('ObjectDataTable — the $expand whitelist reads the same identity (#5120)', () => {
   const objectSchema = {
     fields: {
-      account: { type: 'lookup', reference_to: 'accounts' },
+      account: { type: 'lookup', reference: 'accounts' },
       stage: { type: 'text' },
     },
   };

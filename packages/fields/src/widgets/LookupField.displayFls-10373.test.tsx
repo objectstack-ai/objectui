@@ -51,7 +51,7 @@ const ACCOUNT_FIELDS: Record<string, any> = {
   name: { type: 'text', label: 'Name' },
   code: { type: 'text', label: 'Code' },
   secret: { type: 'text', label: 'Secret' },
-  region: { type: 'lookup', label: 'Region', reference_to: 'region' },
+  region: { type: 'lookup', label: 'Region', reference: 'region' },
 };
 
 interface BackendOptions {
@@ -156,7 +156,7 @@ async function openDropdown(
           value={undefined}
           onChange={onChange}
           dataSource={ds}
-          field={{ reference_to: 'account' } as never}
+          field={{ reference: 'account' } as never}
           {...(extra as object)}
         />
       </SchemaRendererContext.Provider>,

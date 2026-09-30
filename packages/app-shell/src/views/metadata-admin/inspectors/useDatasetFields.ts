@@ -90,12 +90,13 @@ export function resolveLabel(label: unknown, fallback: string): string {
  *                         this way. This is the positive control every zero
  *                         below is measured against.
  *   reference_to          REFUSED BY NAME — "Did you mean `reference_to` ->
- *                         `reference`?". Zero producers on THIS surface. It is
- *                         a live key only on ObjectUI's own view/field schema
- *                         (`@object-ui/types` `views.zod.ts`), a different
- *                         contract that `plugin-detail` translates INTO from
- *                         `reference`; an object metadata document never
- *                         carries it.
+ *                         `reference`?". Zero producers on THIS surface. It was
+ *                         then a live key only on ObjectUI's own view/field
+ *                         schema (`@object-ui/types` `views.zod.ts`), a
+ *                         different contract that `plugin-detail` translated
+ *                         INTO from `reference` (objectui#11070 round 4 moved
+ *                         that schema to `reference` too); an object metadata
+ *                         document never carries it.
  *   referenceTo           REFUSED BY NAME. Its two historical producers were
  *                         retired at the producer by objectui#6041, and
  *                         objectui#6519 added it to `RETIRED_FIELD_KEYS` so the

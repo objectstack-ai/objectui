@@ -5039,11 +5039,12 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         this.fetchObjectSchemaFresh(objectName),
       );
 
-      // Canonicalize the relational-target key: the server names it
-      // `reference` (ObjectStack convention) while most consumers read
-      // `reference_to` (#2407 / PR #2587). Stamping both here — the choke
-      // point every schema read goes through — means no per-consumer
-      // dual-key fallback can drift. Idempotent on the cached object.
+      // Canonicalize the relational-target key onto `reference`, the only
+      // spelling the spec declares and ObjectUI's readers read (objectui#11070
+      // round 4): a stored def that still spells a legacy `reference_to` /
+      // `referenceTo` is folded here — the choke point every schema read goes
+      // through — so no consumer needs a dual-key fallback. `reference_to` is
+      // never stamped. Idempotent on the cached object.
       normalizeSchemaReferenceKeys(schema);
 
       // ADR-0056 P2 (epic #2398): stamp structured-widget hints onto specific

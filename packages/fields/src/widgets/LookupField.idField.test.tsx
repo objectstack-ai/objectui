@@ -28,7 +28,7 @@ describe('LookupField — idField hydration (#3508)', () => {
         onChange={() => {}}
         dataSource={{ find, findOne } as never}
         field={{
-          reference_to: 'sys_position',
+          reference: 'sys_position',
           idField: 'name',
           displayField: 'label',
           multiple: false,
@@ -53,7 +53,7 @@ describe('LookupField — idField hydration (#3508)', () => {
         value="u1"
         onChange={() => {}}
         dataSource={{ find, findOne } as never}
-        field={{ reference_to: 'sys_user', multiple: false } as never}
+        field={{ reference: 'sys_user', multiple: false } as never}
       />,
     );
     await waitFor(() => expect(findOne).toHaveBeenCalledWith('sys_user', 'u1'));

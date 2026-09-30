@@ -39,7 +39,7 @@
  *
  * ── ⭐ How many states hide behind "unresolved" — measured, not assumed ────
  * Six causes reach this arm and the renderer distinguishes NONE of them:
- * never fetched (no dataSource / no `reference_to`), IN FLIGHT, the resolver
+ * never fetched (no dataSource / no `reference`), IN FLIGHT, the resolver
  * threw, the resolver answered with no record, it answered with a record no
  * display field could name, and — for array entries after the first — never
  * asked at all (`primaryPrimitiveId`). `useLookupName` returns
@@ -95,7 +95,7 @@ const SHAPES: ReadonlyArray<readonly [label: string, value: string]> = [
   ['opaque, the shape `isLikelyOpaqueId` used to mute away', '01HQZX9K2M4N6P8R'],
 ];
 
-const REF = { reference_to: 'sys_user' };
+const REF = { reference: 'sys_user' };
 
 /** Every family that routes through `LookupCellRenderer` — a bigger surface than `user`. */
 const FAMILIES = ['lookup', 'master_detail', 'tree'] as const;
@@ -186,7 +186,7 @@ describe('objectui#8695 — ADDITIVE, NOT SUBTRACTIVE: the sentence that graded 
     const { container } = renderCell(
       'lookup',
       ['Ada Lovelace', '01HQZX9K2M4N6P8R', { id: 'a_1', name: 'Globex' }],
-      { reference_to: 'account' },
+      { reference: 'account' },
     );
 
     expect(marks(container), 'both unresolved chips say so').toHaveLength(2);
@@ -201,7 +201,7 @@ describe('objectui#8695 — ADDITIVE, NOT SUBTRACTIVE: the sentence that graded 
     const { container } = renderCell(
       'lookup',
       ['a', 'b', 'c', 'Ada Lovelace', '01HQZX9K2M4N6P8R'],
-      { reference_to: 'account' },
+      { reference: 'account' },
     );
     const overflow = screen.getByText('+2');
     expect(
@@ -231,7 +231,7 @@ describe('objectui#8695 — THE SENTENCE: epistemic, and about a RECORD', () => 
   // pointing at any other object — and two existing tests pin that wording
   // byte-for-byte, so it could not be widened in place either.
   it('the lookup sentence is a SIBLING key, and never claims the target is a user', () => {
-    const { container } = renderCell('lookup', 'Ada Lovelace', { reference_to: 'mtc_work_order' });
+    const { container } = renderCell('lookup', 'Ada Lovelace', { reference: 'mtc_work_order' });
     const stated = marks(container)[0]!.getAttribute('title') ?? '';
 
     expect(stated, 'a work order is not a user').not.toMatch(/\buser\b/i);
@@ -257,7 +257,7 @@ describe('objectui#8695 — POSITIVE CONTROLS: a resolved reference is untouched
   // today, unmarked — otherwise this repair is indistinguishable from
   // "every lookup now looks broken".
   it('an EXPANDED record renders its name, unmarked, exactly as before', () => {
-    const { container } = renderCell('lookup', { id: 'a_1', name: 'Globex' }, { reference_to: 'account' });
+    const { container } = renderCell('lookup', { id: 'a_1', name: 'Globex' }, { reference: 'account' });
     expect(marks(container), 'a resolved reference is not unresolved').toHaveLength(0);
     expect(container.innerHTML).toBe(
       '<span class="block max-w-full truncate" title="Globex">Globex</span>',
@@ -282,7 +282,7 @@ describe('objectui#8695 — POSITIVE CONTROLS: a resolved reference is untouched
       <SchemaRendererProvider dataSource={{ findOne, find: vi.fn() } as any}>
         <Renderer
           value={'01ARZ3NDEKTSV4RRFFQ69G5FAV' as any}
-          field={{ type: 'lookup', name: 'account', reference_to: 'account' } as any}
+          field={{ type: 'lookup', name: 'account', reference: 'account' } as any}
         />
       </SchemaRendererProvider>,
     );
@@ -316,7 +316,7 @@ describe('objectui#8695 — POSITIVE CONTROLS: a resolved reference is untouched
       <RelatedRecordActionsProvider value={host}>
         <Renderer
           value={'01HQZX9K2M4N6P8R' as any}
-          field={{ type: 'lookup', name: 'account', reference_to: 'account' } as any}
+          field={{ type: 'lookup', name: 'account', reference: 'account' } as any}
         />
       </RelatedRecordActionsProvider>,
     );

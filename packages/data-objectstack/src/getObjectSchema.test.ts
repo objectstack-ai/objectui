@@ -75,12 +75,13 @@ describe('ObjectStackAdapter.getObjectSchema', () => {
     expect(Object.keys(schema.fields)).toEqual(['x']);
   });
 
-  it('canonicalizes the ObjectStack-convention `reference` key onto `reference_to` (and back)', async () => {
+  it('folds a legacy `reference_to` onto `reference`, and stamps no `reference_to` (objectui#11070 round 4)', async () => {
     // The server names a relational field's target `reference`
     // (showcase_project.account → { type: 'lookup', reference: 'showcase_account' }),
-    // while most consumers read `reference_to` (#2407 / PR #2587). getObjectSchema
-    // is the choke point every schema read goes through, so both keys must come
-    // back stamped — regardless of which convention the served schema used.
+    // the only spelling ObjectUI's readers read. getObjectSchema is the choke
+    // point every schema read goes through, so a stored def that still spells
+    // the legacy key comes back carrying `reference` — and a `reference` def
+    // comes back exactly as served, with no second spelling stamped on it.
     const { fetchImpl } = makeFetch({
       name: 'showcase_project',
       fields: {
@@ -98,13 +99,15 @@ describe('ObjectStackAdapter.getObjectSchema', () => {
 
     const schema: any = await adapter.getObjectSchema('showcase_project');
 
-    expect(schema.fields.account.reference_to).toBe('showcase_account');
-    expect(schema.fields.team_members.reference_to).toBe('sys_user');
-    // Mirror direction: `.reference`-only readers (e.g. attachInlineSubforms)
-    // must also see the target on a reference_to-authored schema.
+    expect(schema.fields.account).toEqual({ type: 'lookup', reference: 'showcase_account' });
+    expect(schema.fields.team_members).toEqual({ type: 'user', reference: 'sys_user', multiple: true });
+    // The fold: every reader reads `reference`, so a legacy-only def must
+    // reach them carrying it. The key it arrived with is left in place.
     expect(schema.fields.legacy.reference).toBe('showcase_order');
+    expect(schema.fields.legacy.reference_to).toBe('showcase_order');
     // Non-relational fields stay untouched.
     expect('reference_to' in schema.fields.name).toBe(false);
+    expect('reference' in schema.fields.name).toBe(false);
   });
 
   it('preserves `validations` (incl. state_machine transitions) — the seam the inline editor depends on', async () => {

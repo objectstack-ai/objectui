@@ -41,7 +41,7 @@
  *   2. the declared key is judged by its declared type on BOTH faces;
  *   3. the read keys this card deliberately did NOT declare are still refused
  *      on the strict face — each waits on a ruling the card records — and the
- *      snake_case spellings round 3 retired are refused by name;
+ *      snake_case spellings rounds 3 and 4 retired are refused by name;
  *   4. the TypeScript faces type the binding, not `any`, and the field
  *      metadata types carry the spec members by reference with the retired
  *      snake_case members gone (type-level, read by
@@ -61,7 +61,15 @@ import type {
   ObjectMapSchema,
 } from '../objectql.js';
 import type { FormField, FormSchema } from '../form.js';
-import type { FormulaFieldMetadata, PasswordFieldMetadata, SummaryFieldMetadata } from '../field-types.js';
+import type {
+  FormulaFieldMetadata,
+  LookupFieldMetadata,
+  MasterDetailFieldMetadata,
+  PasswordFieldMetadata,
+  SummaryFieldMetadata,
+} from '../field-types.js';
+import type { DetailViewField } from '../views.js';
+import { DetailViewFieldSchema } from '../zod/views.zod.js';
 import type { ElementDataSource as SpecElementDataSource } from '@objectstack/spec/ui';
 import type { Field as SpecField } from '@objectstack/spec/data';
 import { AnyComponentSchema, StrictAnyComponentSchema } from '../zod/index.zod.js';
@@ -167,16 +175,13 @@ describe('objectui#11070 — a declared key is judged by its declared type on bo
 /* ── 3. the read keys this card did NOT declare stay refused ─────────────── */
 
 describe('objectui#11070 — the read keys left undeclared pending a ruling stay refused on the strict face', () => {
-  // Each is read by a widget and none is declared. Two are the snake_case
-  // second spelling of a spec key this card DID declare (`reference_to` /
-  // `reference`, `min_length` / `minLength`): the seat's answer on
-  // objectui#11070 keeps the legacy spelling refused, so an author writes the
-  // spec's. `reference_to` is still WRITTEN by in-repo producers that feed the
-  // lookup readers, so its reads stay until that is ruled. The grid field's
+  // Each is read by a widget and none is declared. `min_length` is the
+  // snake_case second spelling of a spec key this card DID declare
+  // (`minLength`): the seat's answer on objectui#11070 keeps the legacy
+  // spelling refused, so an author writes the spec's. The grid field's
   // `columns` has an element shape not yet decided. ⛔ Declaring one is a
   // contract ruling, not a fix to this list.
   const PENDING: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
-    ['reference_to', { type: 'lookup', reference_to: 'users' }],
     ['min_length', { type: 'password', min_length: 8 }],
     ['columns', { type: 'grid', columns: [{ name: 'qty', type: 'number' }] }],
   ];
@@ -191,7 +196,13 @@ describe('objectui#11070 — the read keys left undeclared pending a ruling stay
   // spellings are read by nothing and retired at once — no alias, no dual
   // read. The strict face refuses each by name, as before; what changed is
   // that the spec spelling beside it is now declared (block 1).
+  //
+  // Round 4 (the seat's answer A to Q1, under the objectui#6837 ruling): the
+  // `lookup` and `user` widgets and both read cells read the spec's
+  // `reference` only, and no in-repo producer writes `reference_to` any more,
+  // so it joins this list rather than waiting on one.
   const RETIRED: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
+    ['reference_to', { type: 'lookup', reference_to: 'users' }],
     ['return_type', { type: 'formula', return_type: 'number' }],
     ['summary_type', { type: 'summary', summary_type: 'sum' }],
     ['summary_object', { type: 'summary', summary_object: 'orders' }],
@@ -200,6 +211,12 @@ describe('objectui#11070 — the read keys left undeclared pending a ruling stay
 
   it.each(RETIRED)('the retired `fields[].%s` is refused by name', (key, field) => {
     expect(undeclared(issuesOf(StrictAnyComponentSchema, form(field)))).toEqual([`fields.0.${key}`]);
+  });
+
+  it('the authored detail-view field declares `reference`, and `reference_to` is not in its mirror (round 4)', () => {
+    const keys = Object.keys(DetailViewFieldSchema.shape);
+    expect(keys).toContain('reference');
+    expect(keys).not.toContain('reference_to');
   });
 
   it('`object-chart.dataSource` is refused by name until it is declared (the react-page wrapper no longer puns the adapter into that key; the declaration and the objectui#10770 node pin move together)', () => {
@@ -241,6 +258,19 @@ export type assertionRetiredMembersAreGone = [
   Expect<Equal<Extract<keyof FormulaFieldMetadata, Retired>, never>>,
   Expect<Equal<Extract<keyof SummaryFieldMetadata, Retired>, never>>,
   Expect<Equal<Extract<keyof PasswordFieldMetadata, Retired>, never>>,
+];
+/**
+ * Round 4: the relational target is the spec's `reference`, carried BY
+ * REFERENCE on both field metadata types, and `reference_to` is gone from
+ * them and from the authored detail-view field — one spelling, no second.
+ */
+export type assertionReferenceIsTheOnlyTargetSpelling = [
+  Expect<Equal<LookupFieldMetadata['reference'], SpecField['reference']>>,
+  Expect<Equal<MasterDetailFieldMetadata['reference'], SpecField['reference']>>,
+  Expect<Equal<DetailViewField['reference'], string | undefined>>,
+  Expect<Equal<Extract<keyof LookupFieldMetadata, 'reference_to'>, never>>,
+  Expect<Equal<Extract<keyof MasterDetailFieldMetadata, 'reference_to'>, never>>,
+  Expect<Equal<Extract<keyof DetailViewField, 'reference_to'>, never>>,
 ];
 export type assertionShowSubmitIsBoolean = Expect<Equal<FormSchema['showSubmit'], boolean | undefined>>;
 /**

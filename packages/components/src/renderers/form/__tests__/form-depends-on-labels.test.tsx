@@ -62,7 +62,7 @@ const fields = [
     name: 'contact',
     label: 'Contact',
     type: 'lookup',
-    field: { name: 'contact', reference_to: 'crm_contact', dependsOn: ['crm_account'] },
+    field: { name: 'contact', reference: 'crm_contact', dependsOn: ['crm_account'] },
   },
   // A widget outside the data-source family, to pin the strip half.
   { name: 'topics', label: 'Topics', type: 'tags' },

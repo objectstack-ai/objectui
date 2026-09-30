@@ -60,9 +60,9 @@ const CANDIDATES = 50;
 const TASK_VERSION_FIELDS: Record<string, any> = {
   name: { type: 'text', label: 'Name' },
   code: { type: 'text', label: 'Code' },
-  task: { type: 'master_detail', label: 'Task', reference_to: 'task' },
+  task: { type: 'master_detail', label: 'Task', reference: 'task' },
   version: { type: 'number', label: 'Version' },
-  owner: { type: 'user', label: 'Owner', reference_to: 'sys_user' },
+  owner: { type: 'user', label: 'Owner', reference: 'sys_user' },
 };
 
 interface BackendOptions {
@@ -182,7 +182,7 @@ async function mountLookup(
           value={undefined}
           onChange={() => {}}
           dataSource={backend.dataSource}
-          field={{ reference_to: 'task_version' } as never}
+          field={{ reference: 'task_version' } as never}
           {...(extra as object)}
         />
       </SchemaRendererContext.Provider>,
@@ -296,8 +296,8 @@ describe('LookupField — no displayed reference column, no `$expand` (objectui#
    */
   const WITH_AUDIT_RELATIONS: Record<string, any> = {
     ...TASK_VERSION_FIELDS,
-    created_by: { type: 'user', label: 'Created By', reference_to: 'sys_user' },
-    owner_id: { type: 'lookup', label: 'Owner', reference_to: 'sys_user' },
+    created_by: { type: 'user', label: 'Created By', reference: 'sys_user' },
+    owner_id: { type: 'lookup', label: 'Owner', reference: 'sys_user' },
   };
 
   it('dropdown and recents rail: `highlightFields` naming only the display field send no `$expand` key', async () => {

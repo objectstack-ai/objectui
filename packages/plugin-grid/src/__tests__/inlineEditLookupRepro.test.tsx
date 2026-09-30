@@ -69,7 +69,7 @@ function makeDataSource() {
         fields: {
           id: { type: 'text' },
           name: { type: 'text' },
-          manager: { type: 'lookup', label: '管理责任人', reference_to: 'users' },
+          manager: { type: 'lookup', label: '管理责任人', reference: 'users' },
         },
       };
     },

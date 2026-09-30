@@ -73,7 +73,7 @@ const KPI_ENTRY_SHEET = {
   nameField: 'name',
   fields: {
     name: { type: 'text', label: 'Name', readonly: true },
-    subject: { type: 'lookup', label: 'Subject', reference_to: 'sys_business_unit', required: true },
+    subject: { type: 'lookup', label: 'Subject', reference: 'sys_business_unit', required: true },
     subject_type: { type: 'text', label: 'Subject Type' },
   },
 };

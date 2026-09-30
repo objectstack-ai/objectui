@@ -730,7 +730,19 @@ export interface LookupFilterDef {
  */
 export interface LookupFieldMetadata extends BaseFieldMetadata {
   type: 'lookup' | 'master_detail';
-  reference_to?: string;
+  /**
+   * The object the picker queries and the read cell resolves a name from —
+   * `@objectstack/spec`'s `FieldSchema.reference`, typed BY REFERENCE so the
+   * two cannot drift (objectui#11070). `LookupField`, `UserField` and the
+   * lookup / user read cells read this spelling and no other.
+   *
+   * It replaces the retired snake_case `reference_to`, which the spec refuses
+   * by name ("did you mean `reference_to` → `reference`?"). A served def that
+   * still spells a legacy key is folded onto `reference` once, at the
+   * ingestion choke point (`normalizeSchemaReferenceKeys` in
+   * `@object-ui/core`); a def handed to a widget directly is not.
+   */
+  reference?: SpecField['reference'];
   reference_field?: string;
   multiple?: boolean;
   searchable?: boolean;
@@ -1063,7 +1075,12 @@ export interface RatingFieldMetadata extends BaseFieldMetadata {
 
 export interface MasterDetailFieldMetadata extends BaseFieldMetadata {
   type: 'master_detail';
-  reference_to?: string;
+  /**
+   * The parent object — `@objectstack/spec`'s `FieldSchema.reference`, typed
+   * BY REFERENCE, the same member {@link LookupFieldMetadata} carries. It
+   * replaces the retired snake_case `reference_to` (objectui#11070).
+   */
+  reference?: SpecField['reference'];
 }
 
 /**

@@ -22,6 +22,7 @@ vi.mock('@object-ui/fields', async (importOriginal) => {
     LookupField: ({ field }: any) => (
       <div
         data-testid="lookup-editor"
+        data-reference={field?.reference ?? ''}
         data-reference-to={field?.reference_to ?? ''}
         data-reference-field={field?.reference_field ?? ''}
       />
@@ -126,11 +127,12 @@ describe('HeaderHighlight — editable highlights (P2)', () => {
  * half). The `reference_to` case below therefore asserts a REFUSAL now, and is
  * bounded by the choke-point control beside it.
  *
- * ⚠️ What did NOT change is the key the strip WRITES. `enrichDetailField`
- * still stamps `reference_to` onto the enriched field, because that is the key
- * `FieldMetadata` / `DetailViewField` — ObjectUI's OWN contracts — declare, and
- * it is what `LookupField` reads. Both halves are asserted below: the read
- * takes `reference`, the write emits `reference_to`.
+ * ⭐ objectui#11070 round 4 narrowed the key the strip WRITES as well.
+ * `enrichDetailField` stamps `reference` onto the enriched field — the key
+ * `FieldMetadata` / `DetailViewField`, ObjectUI's own contracts, declare since
+ * that round, and the only one `LookupField` reads. Both halves are asserted
+ * below: the read takes `reference`, the write emits `reference` and no
+ * `reference_to`.
  */
 describe('HeaderHighlight — lookup highlight reference-key normalization', () => {
   const lookupFields = [{ name: 'account', label: 'Account' }] as any;
@@ -162,13 +164,14 @@ describe('HeaderHighlight — lookup highlight reference-key normalization', () 
     return screen.getByTestId('lookup-editor');
   };
 
-  it('passes the backend `reference` key to the LookupField as reference_to', () => {
+  it('passes the backend `reference` key to the LookupField as `reference`, and emits no `reference_to`', () => {
     const editor = renderStrip({
       type: 'lookup',
       reference: 'showcase_account',
       reference_field: 'name',
     });
-    expect(editor.getAttribute('data-reference-to')).toBe('showcase_account');
+    expect(editor.getAttribute('data-reference')).toBe('showcase_account');
+    expect(editor.getAttribute('data-reference-to')).toBe('');
     expect(editor.getAttribute('data-reference-field')).toBe('name');
   });
 
@@ -177,17 +180,18 @@ describe('HeaderHighlight — lookup highlight reference-key normalization', () 
     // REFUSAL, and the test above is its non-vacuous control: a strip that had
     // stopped resolving anything would satisfy this one too.
     const editor = renderStrip({ type: 'lookup', reference_to: 'showcase_account' });
+    expect(editor.getAttribute('data-reference')).toBe('');
     expect(editor.getAttribute('data-reference-to')).toBe('');
   });
 
   it('a `reference_to`-only def that came through the ingestion choke point STILL resolves', () => {
-    // What bounds the break: `normalizeSchemaReferenceKeys` stamps `reference`
-    // from whichever spelling arrived, so any def that entered through
+    // What bounds the break: `normalizeSchemaReferenceKeys` folds a legacy
+    // spelling onto `reference`, so any def that entered through
     // `MetadataProvider` or `ObjectStackAdapter.getObjectSchema` is unaffected.
     // Only a def that bypassed that door reaches this reader raw.
     const def = { type: 'lookup', reference_to: 'showcase_account' };
     normalizeSchemaReferenceKeys({ fields: { account: def } });
     const editor = renderStrip(def);
-    expect(editor.getAttribute('data-reference-to')).toBe('showcase_account');
+    expect(editor.getAttribute('data-reference')).toBe('showcase_account');
   });
 });

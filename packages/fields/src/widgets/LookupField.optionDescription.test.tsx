@@ -38,7 +38,7 @@ const priorityField: LookupFieldMetadata = {
   type: 'lookup',
   name: 'priority',
   label: 'Priority',
-  reference_to: 'priorities',
+  reference: 'priorities',
   options: [
     { label: 'High', value: 'high', description: 'Blocks the release' },
     { label: 'Normal', value: 'normal' },

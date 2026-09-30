@@ -227,7 +227,7 @@ only **required** one:
 | `dependsOn` | `DependsOnInput` | cascading parent(s): a bare name, a list of names, or `{ field, param }` entries |
 | `span` | `'auto' \| 'full'` | relative width, independent of the column count (preferred) |
 | `colSpan` | `number` | legacy column span (1–4), clamped to the current column count |
-| `field` | `Record<string, any>` | the resolved object-field **metadata object**, stashed by the object-bound paths so widgets can read `precision`, `currency`, `reference_to`, … In the *spec* form-view vocabulary `field` is a string (the referenced field name); that shape ends at `normalizeSectionField` and never reaches a runtime `FormField` |
+| `field` | `Record<string, any>` | the resolved object-field **metadata object**, stashed by the object-bound paths so widgets can read `precision`, `currency`, `reference`, … In the *spec* form-view vocabulary `field` is a string (the referenced field name); that shape ends at `normalizeSectionField` and never reaches a runtime `FormField` |
 
 `FormField` also declares `[key: string]: any`, so an invented key type-checks
 here too. Two that a reader might expect, and that are **not** declared:

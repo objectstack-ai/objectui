@@ -114,7 +114,7 @@ const CANONICAL = 'os.user.id == record.manager';
 const FIELDS = {
   id: { type: 'text', label: 'Id' },
   name: { type: 'text', label: 'Name' },
-  manager: { type: 'lookup', label: 'Manager', reference_to: 'sys_user' },
+  manager: { type: 'lookup', label: 'Manager', reference: 'sys_user' },
 };
 
 /** The record as the detail fetch delivers it when it did NOT expand `manager`. */

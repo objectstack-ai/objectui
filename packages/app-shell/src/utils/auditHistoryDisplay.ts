@@ -33,9 +33,10 @@ export interface AuditFieldDef {
   /**
    * Relationship target object. `string`, and only `string` — see
    * {@link lookupTarget} for the census behind both the carrier and the
-   * spelling. `reference_to` is deliberately NOT declared here: it is a key on
-   * ObjectUI's own view/field contract, not on an object metadata document,
-   * and this interface only ever describes the latter.
+   * spelling. `reference_to` is deliberately NOT declared here: no contract
+   * declares it — `FieldSchema` refuses it by name, and objectui#11070 round 4
+   * retired it from ObjectUI's own view/field contract too — and this interface
+   * only ever describes an object metadata document.
    */
   reference?: string;
   [k: string]: unknown;
@@ -140,10 +141,11 @@ export function collectAuditChanges(
  * `objectDef` being an entry of `useMetadata().objects`, i.e. the metadata
  * cache for type `'object'` (`MetadataProvider`'s `TYPE_BY_STATE_KEY.objects`).
  * That is an OBJECT METADATA DOCUMENT, never ObjectUI's own view/field
- * contract. `plugin-detail` does hold defs keyed `reference_to`
- * (`DetailViewFieldSchema` in `@object-ui/types` `views.zod.ts`), but it
- * TRANSLATES INTO that contract from `reference` (`RecordDetailDrawer`,
- * `RecordMetaFooter`) and none of it flows back into `objectDef.fields`.
+ * contract. `plugin-detail` holds defs of that contract
+ * (`DetailViewFieldSchema` in `@object-ui/types` `views.zod.ts`, keyed
+ * `reference` since objectui#11070 round 4 and `reference_to` before it), built
+ * from the object def (`RecordDetailDrawer`, `RecordMetaFooter`), and none of it
+ * flows back into `objectDef.fields`.
  *
  *   spelling: `reference` is what `ObjectSchema.safeParse` (spec 17.2.0)
  *             ACCEPTS — the positive control every zero below is measured
@@ -165,10 +167,10 @@ export function collectAuditChanges(
  * Dropping the `reference_to` arm loses nothing even for a def that arrives
  * spelling only the legacy key: `normalizeSchemaReferenceKeys`
  * (`@object-ui/core`) runs over every `'object'` item at the app-shell
- * ingestion choke point and stamps BOTH snake_case keys from whichever
- * spelling arrived. Its own docs give the reason this reader must not keep a
- * second copy of that tolerance — the choke point exists "so per-consumer
- * dual-key fallbacks can't drift" (AGENTS.md #0.1).
+ * ingestion choke point and folds whichever legacy spelling arrived onto
+ * `reference`. Its own docs give the reason this reader must not keep a
+ * second copy of that tolerance — the choke point exists so that no consumer
+ * needs a dual-key fallback of its own (AGENTS.md #0.1).
  */
 function lookupTarget(def: AuditFieldDef | undefined): string | null {
   const target = def?.reference;

@@ -384,7 +384,8 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
         // legacy-only def is canonicalised ONCE at the ingestion choke point
         // (`normalizeSchemaReferenceKeys`, which warns in dev) — never here.
         const refTarget = (def as any).reference;
-        if (refTarget) enriched.reference_to = refTarget;
+        // The cell reads `reference` alone (objectui#11070 round 4).
+        if (refTarget) enriched.reference = refTarget;
         if ((def as any).reference_field) enriched.reference_field = (def as any).reference_field;
       }
       // Route the field label through the i18n dictionary so the auto-

@@ -54,7 +54,7 @@ function makeDataSource() {
 const baseLookup = {
   name: 'contact',
   label: 'Contact',
-  reference_to: 'contacts',
+  reference: 'contacts',
   reference_field: 'name',
 };
 

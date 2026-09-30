@@ -126,9 +126,9 @@ const OBJECT = 'task';
  */
 const TASK_FIELDS: Record<string, any> = {
   name: { type: 'text', label: 'Name' },
-  account: { type: 'lookup', reference_to: 'account', label: 'Account' },
-  secret_account: { type: 'lookup', reference_to: 'account', label: 'Secret Account' },
-  owner_dept: { type: 'master_detail', reference_to: 'department', label: 'Dept' },
+  account: { type: 'lookup', reference: 'account', label: 'Account' },
+  secret_account: { type: 'lookup', reference: 'account', label: 'Secret Account' },
+  owner_dept: { type: 'master_detail', reference: 'department', label: 'Dept' },
 };
 
 const TASK_SCHEMA = { name: OBJECT, label: 'Task', fields: TASK_FIELDS };

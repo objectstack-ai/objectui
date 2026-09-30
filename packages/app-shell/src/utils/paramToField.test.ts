@@ -121,10 +121,11 @@ describe('paramToField', () => {
   // Both readings are kept because the order matters — the emit had to move
   // BEFORE the supply existed, and it is what made the wiring a one-line
   // change. Pinned in `views/ActionParamDialog.lookupDependsOnReach-8672.test.tsx`.
-  // The remaining snake members below (`reference_to`, `title_format`,
-  // `lookup_columns`, `lookup_page_size`) were outside both rulings and are
-  // unchanged — this mixed shape is deliberate, and asserting it keeps the two
-  // halves visibly separate.
+  // The remaining snake members below (`title_format`, `lookup_columns`,
+  // `lookup_page_size`) were outside both rulings and are unchanged — this
+  // mixed shape is deliberate, and asserting it keeps the two halves visibly
+  // separate. The target left that group in objectui#11070 round 4: the
+  // widgets read the spec's `reference` only, so that is what this emits.
   it('maps the full lookup picker config to the field metadata the widgets read', () => {
     const field = paramToField(p({
       type: 'lookup',
@@ -141,7 +142,7 @@ describe('paramToField', () => {
     }));
     expect(field).toMatchObject({
       type: 'lookup',
-      reference_to: 'space_users',
+      reference: 'space_users',
       displayField: 'name',
       idField: 'id',
       descriptionField: 'email',
@@ -248,7 +249,7 @@ describe("the reference-bearing rule is core's object, not a copy (objectui#5312
       expect(
         paramToField(p({ type, referenceTo: 'accounts', displayField: 'name' })),
         `'${type}' lost its reference config in the convergence`,
-      ).toMatchObject({ type, reference_to: 'accounts', displayField: 'name' });
+      ).toMatchObject({ type, reference: 'accounts', displayField: 'name' });
     }
     expect(RETIRED_INLINE_MEMBERS.filter((t) => !EXPANDABLE_FIELD_TYPES.has(t))).toEqual([]);
   });

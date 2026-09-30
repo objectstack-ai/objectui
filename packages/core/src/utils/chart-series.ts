@@ -1055,8 +1055,9 @@ function fieldDefsOf(schema: unknown): Record<string, unknown> | null {
  * itself as the positive control (445 of 565 lookup / master_detail defs in the
  * framework tree; ACCEPTED by `ObjectSchema.safeParse` on spec 17.2.0, which
  * REFUSES all three others BY NAME). No producer emits any of them onto an
- * object metadata document: `reference_to` is live only on ObjectUI's own
- * view/field schema (a different contract, translated INTO from `reference`),
+ * object metadata document: `reference_to` was then live only on ObjectUI's own
+ * view/field schema (a different contract, translated INTO from `reference`;
+ * objectui#11070 round 4 moved that contract to `reference` as well),
  * `referenceTo`'s two producers were retired by objectui#6041, and
  * `reference_to_object` occurs nowhere in either tree outside this chain and the
  * test that called it.

@@ -24,7 +24,7 @@ import React from 'react';
 
 import { LookupCellRenderer } from '../index';
 
-const FIELD = { type: 'lookup', reference_to: 'mtc_work_object' } as any;
+const FIELD = { type: 'lookup', reference: 'mtc_work_object' } as any;
 
 const manyRecords = (n: number) =>
   Array.from({ length: n }, (_, i) => ({ id: `obj-${i + 1}`, name: `ZTLW-A.${i + 1}` }));

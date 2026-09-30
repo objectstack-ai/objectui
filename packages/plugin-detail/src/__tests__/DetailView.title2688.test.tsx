@@ -144,7 +144,7 @@ describe('RecordMetaFooter — audit fields default to a sys_user reference (#26
       <RecordMetaFooter
         data={{ created_at: '2024-06-01T00:00:00Z', created_by: OPAQUE_ID }}
         objectSchema={{
-          fields: { created_by: { type: 'lookup', reference_to: 'sys_user' } },
+          fields: { created_by: { type: 'lookup', reference: 'sys_user' } },
         }}
         objectName="production_plan"
       />,

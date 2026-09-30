@@ -81,7 +81,7 @@ const OBJECT = 'task';
 const FIELDS = {
   subject: { type: 'text' },
   starts_at: { type: 'datetime' },
-  account: { type: 'lookup', reference_to: 'account' },
+  account: { type: 'lookup', reference: 'account' },
 };
 
 /** An expanded lookup, as a server `$expand` returns the related record. */

@@ -123,12 +123,12 @@ const OPPORTUNITY_SCHEMA = {
     },
     amount: { type: 'currency', label: 'Amount', currency: 'USD' },
     close_date: { type: 'date', label: 'Close Date' },
-    owner_id: { type: 'lookup', label: 'Owner', reference_to: 'user', system: true },
+    owner_id: { type: 'lookup', label: 'Owner', reference: 'user', system: true },
     id: { type: 'text', label: 'Id', hidden: true, system: true, readonly: true },
     created_at: { type: 'datetime', label: 'Created At', system: true, readonly: true },
-    created_by: { type: 'lookup', label: 'Created By', reference_to: 'user', system: true, readonly: true },
+    created_by: { type: 'lookup', label: 'Created By', reference: 'user', system: true, readonly: true },
     updated_at: { type: 'datetime', label: 'Updated At', system: true, readonly: true },
-    updated_by: { type: 'lookup', label: 'Updated By', reference_to: 'user', system: true, readonly: true },
+    updated_by: { type: 'lookup', label: 'Updated By', reference: 'user', system: true, readonly: true },
   },
 };
 

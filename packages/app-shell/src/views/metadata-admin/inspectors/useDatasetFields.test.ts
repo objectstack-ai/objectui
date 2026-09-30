@@ -64,8 +64,9 @@ describe('resolveReferenceTo', () => {
    * none: `ObjectSchema.safeParse` (spec 17.2.0) REFUSES all three BY NAME while
    * ACCEPTING `reference` (the positive control asserted above), `referenceTo`'s
    * producers were retired by objectui#6041 and are stripped by the read door
-   * (objectui#6519), `reference_to` is live only on ObjectUI's own view/field
-   * schema — a different contract — and `reference_to_object` never had a
+   * (objectui#6519), `reference_to` was then live only on ObjectUI's own
+   * view/field schema — a different contract, moved to `reference` by
+   * objectui#11070 round 4 — and `reference_to_object` never had a
    * producer at all.
    *
    * A def that reaches here spelling the target any of these ways is a PRODUCER

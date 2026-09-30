@@ -59,7 +59,7 @@ function makeDataSource() {
         id: { type: 'text' },
         name: { type: 'text' },
         status: { type: 'text' },
-        owner: { type: 'lookup', reference_to: 'user' },
+        owner: { type: 'lookup', reference: 'user' },
       },
     }),
   } as any;

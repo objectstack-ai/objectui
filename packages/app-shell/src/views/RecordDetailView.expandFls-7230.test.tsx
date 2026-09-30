@@ -130,9 +130,9 @@ const objectDef = {
     id: { label: 'Id', type: 'text' },
     name: { label: 'Name', type: 'text' },
     stage: { label: 'Stage', type: 'text' },
-    account: { label: 'Account', type: 'lookup', reference_to: 'accounts' },
-    secret_account: { label: 'Secret Account', type: 'lookup', reference_to: 'accounts' },
-    owner_dept: { label: 'Dept', type: 'master_detail', reference_to: 'departments' },
+    account: { label: 'Account', type: 'lookup', reference: 'accounts' },
+    secret_account: { label: 'Secret Account', type: 'lookup', reference: 'accounts' },
+    owner_dept: { label: 'Dept', type: 'master_detail', reference: 'departments' },
   },
 };
 

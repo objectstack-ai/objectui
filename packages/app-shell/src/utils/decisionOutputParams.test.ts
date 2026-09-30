@@ -136,7 +136,7 @@ describe('decisionOutputParams — the params survive resolution (objectui#2955)
     expect(param.referenceTo).toBeUndefined();
     expect(widgetFor(param)).toMatchObject({
       type: 'lookup',
-      reference_to: referenceTo,
+      reference: referenceTo,
       multiple: true,
     });
   });

@@ -116,12 +116,12 @@ vi.mock('@object-ui/plugin-form', async (importOriginal) => ({
  * assertion is on `$expand`'s contents against the schema — a field added here
  * with an expandable type must show up in the query or the test fails.
  */
-const TASK_FIELDS: Record<string, { type: string; label: string; reference_to?: string }> = {
+const TASK_FIELDS: Record<string, { type: string; label: string; reference?: string }> = {
   name: { type: 'text', label: 'Name' },
   amount: { type: 'currency', label: 'Amount' },
   due_date: { type: 'date', label: 'Due' },
   owner: { type: 'user', label: 'Owner' },
-  account: { type: 'lookup', label: 'Account', reference_to: 'account' },
+  account: { type: 'lookup', label: 'Account', reference: 'account' },
   // No target key. It carried the retired snake_case spelling, which
   // `FieldSchema` refuses BY NAME (measured: `unrecognized_keys` plus a
   // rename hint, where a nonsense key draws the same refusal without one), so
@@ -130,7 +130,7 @@ const TASK_FIELDS: Record<string, { type: string; label: string; reference_to?: 
   // is `task` and the value named it, so renaming would turn a refused key
   // into an accepted self-annotation this fixture never made (objectui#8031).
   parent_task: { type: 'tree', label: 'Parent' },
-  line_item: { type: 'master_detail', label: 'Line item', reference_to: 'line_item' },
+  line_item: { type: 'master_detail', label: 'Line item', reference: 'line_item' },
 };
 
 const TASK_SCHEMA = { name: 'task', label: 'Task', fields: TASK_FIELDS };

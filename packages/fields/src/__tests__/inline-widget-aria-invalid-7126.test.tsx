@@ -183,7 +183,7 @@ describe('inline field widgets announce a delivered `error` (objectui#7126)', ()
     // the next reader does not "fix" a widget that was never broken (and so a
     // future refactor that flattens the delegation cannot silently drop it).
     const container = renderInline(
-      { name: 'owner_id', type: 'user', label: 'Owner', reference_to: 'sys_user' },
+      { name: 'owner_id', type: 'user', label: 'Owner', reference: 'sys_user' },
       'Required',
     );
 

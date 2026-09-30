@@ -52,10 +52,10 @@ vi.mock('@object-ui/react', async (importOriginal) => ({
 }));
 vi.mock('@object-ui/fields', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@object-ui/fields')>()),
-  LookupField: (props: { field?: { reference_to?: string; idField?: string; multiple?: boolean } }) => (
+  LookupField: (props: { field?: { reference?: string; idField?: string; multiple?: boolean } }) => (
     <div
       data-testid="record-lookup"
-      data-object={props.field?.reference_to}
+      data-object={props.field?.reference}
       data-value-field={props.field?.idField}
       data-multiple={String(props.field?.multiple ?? false)}
     />

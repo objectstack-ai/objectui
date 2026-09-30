@@ -18,7 +18,7 @@
  *   - `deriveMasterDetail.ts` — `{ name?, fields?: Record<string, any> }`, the
  *     `childSchema` of five functions the entry exports;
  *   - `schemaDefaults.ts` — `{ fields?: Record<string, {defaultValue?, type?,
- *     reference?, reference_to?} | undefined> }`, the `objectSchema` of
+ *     reference?} | undefined> }`, the `objectSchema` of
  *     `omitServerResolvedDefaults`, which the entry also exports.
  *
  * Re-exporting either under the shared name would have put a name on the
@@ -79,11 +79,15 @@ const PIN = {
   defaultsKeys: true satisfies Equals<keyof FieldDefaultsSchemaLike, 'fields'>,
   /** The child one deliberately does not constrain a field value. */
   childFieldValueIsAny: true satisfies IsAny<ChildFieldValue>,
-  /** The defaults one pins exactly the four members its rule reads. */
+  /**
+   * The defaults one pins exactly the three members its rule reads. It pinned
+   * four until objectui#11070 round 4 retired `reference_to`: the rule reads
+   * the target as `reference` alone.
+   */
   defaultsFieldValueIsPinned: false satisfies IsAny<DefaultsFieldValue>,
   defaultsFieldMembers: true satisfies Equals<
     keyof DefaultsFieldValue,
-    'defaultValue' | 'type' | 'reference' | 'reference_to'
+    'defaultValue' | 'type' | 'reference'
   >,
 } as const;
 
@@ -110,7 +114,7 @@ const WRONG_ONE_EXPORTED_CONTROL = false satisfies Equals<
 const consumerHeldDefaultsSchema: FieldDefaultsSchemaLike = {
   fields: {
     created_at: { defaultValue: 'NOW()' },
-    owner: { defaultValue: 'current_user', type: 'lookup', reference_to: 'sys_user' },
+    owner: { defaultValue: 'current_user', type: 'lookup', reference: 'sys_user' },
     stage: { defaultValue: 'draft' },
   },
 };

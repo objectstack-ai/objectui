@@ -114,9 +114,9 @@ const STORE_FIELDS: Record<string, any> = {
   name: { type: 'text', label: 'Name' },
   latitude: { type: 'number', label: 'Lat' },
   longitude: { type: 'number', label: 'Lng' },
-  account: { type: 'lookup', reference_to: 'account', label: 'Account' },
-  secret_account: { type: 'lookup', reference_to: 'account', label: 'Secret Account' },
-  owner_dept: { type: 'master_detail', reference_to: 'department', label: 'Dept' },
+  account: { type: 'lookup', reference: 'account', label: 'Account' },
+  secret_account: { type: 'lookup', reference: 'account', label: 'Secret Account' },
+  owner_dept: { type: 'master_detail', reference: 'department', label: 'Dept' },
 };
 
 const ROW = { id: 's1', name: 'Harbour Depot', latitude: 47.6062, longitude: -122.3321 };

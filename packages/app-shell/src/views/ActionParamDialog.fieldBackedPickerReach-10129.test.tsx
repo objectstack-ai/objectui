@@ -379,7 +379,7 @@ describe('objectui#10129 leg D — the console runtime resolves a field-backed p
             id="contract_type"
             value={null}
             onChange={() => {}}
-            field={{ name: 'contract_type', ...CLM_CONTRACT.fields.contract_type, reference_to: 'clm_contract_type' } as never}
+            field={{ name: 'contract_type', ...CLM_CONTRACT.fields.contract_type, reference: 'clm_contract_type' } as never}
             dataSource={ds as never}
           />
         </React.Suspense>

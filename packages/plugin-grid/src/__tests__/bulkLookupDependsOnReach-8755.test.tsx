@@ -324,7 +324,7 @@ describe('objectui#8755 leg A — a `dependsOn` lookup BULK param gates on an EM
     // reading of the spread, not of an adapter that copies everything.
     expect(field.help).toBeUndefined();
     expect(field.type).toBe('lookup');
-    expect(field.reference_to).toBe('contacts');
+    expect(field.reference).toBe('contacts');
   });
 });
 

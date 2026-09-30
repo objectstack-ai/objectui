@@ -44,7 +44,7 @@ function makeDataSource() {
       name,
       fields: {
         id: { type: 'text' },
-        owner: { type: 'lookup', label: 'Owner', reference_to: 'users' },
+        owner: { type: 'lookup', label: 'Owner', reference: 'users' },
         account_name: { type: 'text', label: 'Account Name' },
       },
     }),

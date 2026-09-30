@@ -113,8 +113,8 @@ const objectSchema = {
   name: 'deal',
   fields: {
     title: { type: 'text', label: 'Title' },
-    account: { type: 'lookup', label: 'Account', reference_to: 'accounts' },
-    parent_deal: { type: 'master_detail', label: 'Parent', reference_to: 'deals' },
+    account: { type: 'lookup', label: 'Account', reference: 'accounts' },
+    parent_deal: { type: 'master_detail', label: 'Parent', reference: 'deals' },
     assignee: { type: 'user', label: 'Assignee' },
     // No target key. It carried the retired snake_case one, which
     // `FieldSchema` refuses BY NAME — so the line asserted nothing, and

@@ -66,7 +66,7 @@ const TASK_DEF = {
   fields: {
     id: { name: 'id', type: 'text' },
     subject: { name: 'subject', type: 'text' },
-    owner: { name: 'owner', type: 'lookup', reference_to: 'user' },
+    owner: { name: 'owner', type: 'lookup', reference: 'user' },
   },
 };
 
@@ -78,7 +78,7 @@ const WIDER_TASK_DEF = {
   ...TASK_DEF,
   fields: {
     ...TASK_DEF.fields,
-    account: { name: 'account', type: 'lookup', reference_to: 'account' },
+    account: { name: 'account', type: 'lookup', reference: 'account' },
   },
 };
 

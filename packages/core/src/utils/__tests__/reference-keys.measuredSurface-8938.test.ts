@@ -267,7 +267,7 @@ describe('the two silences the diagnostic must KEEP (objectui#8938)', () => {
 
   it('⛔ does NOT fire for `reference_to` / `referenceTo` — the reference arm owns those', () => {
     // Both probe onto no declared key, so without the exclusion each would be
-    // reported as unfoldable in the same breath as the reference arm stamping it.
+    // reported as unfoldable in the same breath as the reference arm folding it.
     const f: Record<string, unknown> = { type: 'lookup', reference_to: 'crm_account' };
     normalizeFieldReferenceKeys(f, 'owner', 'account');
     expect(f.reference).toBe('crm_account');

@@ -342,7 +342,10 @@ interface RuntimeField {
   // author could legally write. That is not a producer leg worth keeping behind
   // the declared one — it is the inverse of one, and keeping it would be the
   // consumer-side tolerance AGENTS.md #0.1 bans.
-  reference_to?: string;
+  //
+  // ⭐ objectui#11070 round 4 removed the `reference_to` member: nothing here
+  // read it (the target is read as `reference` below), and ObjectUI no longer
+  // writes or reads that spelling anywhere.
   reference?: string;
   displayField?: string;
   display_field?: string;

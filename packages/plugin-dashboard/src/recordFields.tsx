@@ -139,8 +139,14 @@ const DATE_PATTERN_FIELD_TYPES = new Set(['date', 'datetime']);
  * the module `getCellRenderer` dispatches into — the complete set of relational
  * keys read off a cell's `field` prop is:
  *
- *  - `reference_to`, `reference`, `display_field`, `displayField` — read by
- *    `LookupCellRenderer` itself. ✅ COPIED.
+ *  - `reference`, `display_field`, `displayField` — read by
+ *    `LookupCellRenderer` itself when this was measured. ✅ COPIED.
+ *
+ *    ⭐ `reference_to` LEFT this list with objectui#11070 round 4. The cell
+ *    read `reference_to || reference` until then; it reads `reference` alone
+ *    now, the ingestion choke point no longer stamps `reference_to`, and no
+ *    in-repo producer writes it. Copying it would write a member no reader
+ *    consults — the shape objectui#6711 and objectui#6874 retired.
  *
  *    ⭐ `displayField` ARRIVED with objectui#6875. The enumeration above used
  *    to name three keys, because it was written from the FIRST leg of each
@@ -169,9 +175,9 @@ const DATE_PATTERN_FIELD_TYPES = new Set(['date', 'datetime']);
  *  - `titleFormat` — never read off a FIELD meta at all; every reader takes it
  *    off the OBJECT schema (`getRecordDisplayName` in `@object-ui/core`,
  *    `containers.tsx`). On this path that object schema arrives through
- *    `useRefObjectSchema(reference_to)` — so copying `reference_to` is what
- *    makes `titleFormat` work, and copying `titleFormat` here would reach
- *    nothing. ⛔ NOT copied. ⭐ The grid has since retired it too
+ *    `useRefObjectSchema(reference)` — so copying the target (`reference_to`
+ *    then, `reference` since objectui#11070 round 4) is what makes
+ *    `titleFormat` work, and copying `titleFormat` here would reach nothing. ⛔ NOT copied. ⭐ The grid has since retired it too
  *    (objectui#6874), on exactly this reading.
  *
  * ⛔ Do not "restore parity" by widening this to the grid's seven. A member
@@ -182,7 +188,7 @@ const DATE_PATTERN_FIELD_TYPES = new Set(['date', 'datetime']);
  * picker keys. The boundary is pinned in
  * `__tests__/lookupRelationalMeta-6694.test.tsx`.
  */
-const CELL_RELATIONAL_META_KEYS = ['reference_to', 'reference', 'display_field', 'displayField'] as const;
+const CELL_RELATIONAL_META_KEYS = ['reference', 'display_field', 'displayField'] as const;
 
 /**
  * Copy {@link CELL_RELATIONAL_META_KEYS} off a schema field def, with
@@ -244,9 +250,10 @@ function pickCellRelationalMeta(def: any): Partial<FieldMeta> {
  * def directly — the spelling `LookupCellRenderer` and `computeLookupExpand`
  * actually use. ⛔ Do not resurrect `referenceTo`.
  *
- * ⭐ That reader ARRIVED (objectui#6694): `reference_to` / `reference` /
- * `display_field` below, copied from the SCHEMA field def by
- * {@link buildFieldMeta} and justified per key on `CELL_RELATIONAL_META_KEYS`.
+ * ⭐ That reader ARRIVED (objectui#6694): `reference` / `display_field` below
+ * (and `reference_to` beside them until objectui#11070 round 4 retired it),
+ * copied from the SCHEMA field def by {@link buildFieldMeta} and justified per
+ * key on `CELL_RELATIONAL_META_KEYS`.
  * They are the "future reader" both retirement notes predicted, in the spelling
  * they named, and they change neither verdict — the source is the schema field
  * def, never an authored column override, which is the exact distinction
@@ -254,7 +261,10 @@ function pickCellRelationalMeta(def: any): Partial<FieldMeta> {
  *
  * ⚠️ Being `FieldMeta` members they GROW both derived bands in
  * `ObjectDataTable.tsx` — `EnrichedColumn`'s emit tombstones and
- * `UnheldFieldMetaOverrideKey`'s read-side refusal. That is the intended
+ * `UnheldFieldMetaOverrideKey`'s read-side refusal. `reference_to` left the
+ * type in objectui#11070 round 4, so — by the rule at the top of this docblock
+ * — its refusal is re-stated by hand there
+ * (`ObjectDataTableRetiredReferenceToSnakeTombstone`). That is the intended
  * verdict rather than a side effect: an AUTHORED column may not source a
  * lookup's reference target (objectui#6597 measured no authoring story for
  * one), while the schema-derived write is reached by neither band. They landed
@@ -268,9 +278,11 @@ export interface FieldMeta {
   options?: Array<{ value: any; label: string; color?: string }>;
   format?: string;
   currency?: string;
-  /** Lookup target object, snake_case — the spelling `LookupCellRenderer` reads first. */
-  reference_to?: string;
-  /** Lookup target object, ObjectStack object-metadata spelling; the renderer's `||` fallback. */
+  /**
+   * Lookup target object — the spelling `@objectstack/spec`'s `FieldSchema`
+   * declares and the only one `LookupCellRenderer` reads. Its snake_case twin
+   * `reference_to` was RETIRED from this type by objectui#11070 round 4.
+   */
   reference?: string;
   /** Author-declared display field on the lookup — beats every resolver in the cell. */
   display_field?: string;
@@ -378,8 +390,9 @@ export function buildFieldMeta(params: BuildFieldMetaParams): FieldMeta {
     // ⛔ No `referenceTo` — RETIRED by objectui#6597 (enforce-or-remove,
     // withdraw). It resolved `overrides.referenceTo ?? meta?.referenceTo ??
     // meta?.reference(.to) ?? meta?.target` on every call and reached no
-    // reader: `LookupCellRenderer` resolves its target from
-    // `reference_to` / `reference`, never this spelling. ⭐ That future reader
+    // reader: `LookupCellRenderer` resolved its target from
+    // `reference_to` / `reference` (`reference` alone since objectui#11070
+    // round 4), never this spelling. ⭐ That future reader
     // ARRIVED in objectui#6694 — the spread below, in the schema field def's own
     // spelling, which is the one that retirement note pointed at. The
     // retirement stands: this is a SCHEMA-derived write with no `overrides.`

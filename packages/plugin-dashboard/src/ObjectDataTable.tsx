@@ -192,10 +192,31 @@ type ObjectDataTableRetiredDecimalsTombstone = { decimals?: never };
  * startup-stage rule (2026-08-27: no measured demand retires immediately,
  * no transition window), that measurement selects RETIRE — the README line is
  * withdrawn with it. ⭐ A future reader for the resolved reference target
- * reads `reference_to` / `reference` off the schema field def — the spelling
- * `LookupCellRenderer` and `computeLookupExpand` actually use — never this key.
+ * reads `reference` off the schema field def — the spelling
+ * `LookupCellRenderer` and `computeLookupExpand` actually use (the cell read
+ * `reference_to` too until objectui#11070 round 4) — never this key.
  */
 type ObjectDataTableRetiredReferenceToTombstone = { referenceTo?: never };
+
+/**
+ * ⭐ `reference_to` — RETIRED from `FieldMeta` ITSELF (objectui#11070 round 4),
+ * the third key to leave that type, by the same mechanism as
+ * {@link ObjectDataTableRetiredDecimalsTombstone} and
+ * {@link ObjectDataTableRetiredReferenceToTombstone}: read either docblock for
+ * why a hand-written tombstone, not the derived band, carries the refusal once
+ * a key leaves `keyof FieldMeta`.
+ *
+ * The verdict is unchanged and is objectui#6694's: an AUTHORED column may not
+ * source a lookup's reference target, and nothing this seam emits carries it
+ * either. What changed is the key's standing. `LookupCellRenderer` read
+ * `reference_to || reference` until that round and reads `reference` alone
+ * now; the ingestion choke point no longer stamps `reference_to` and no
+ * in-repo producer writes it, so `buildFieldMeta` stopped copying it and the
+ * member went. Without this tombstone the refusal would have ended at the
+ * moment of deletion with nothing going red — the blindness the two tombstones
+ * above exist to prevent.
+ */
+type ObjectDataTableRetiredReferenceToSnakeTombstone = { reference_to?: never };
 
 export type EnrichedColumn =
   TableColumn
@@ -206,7 +227,8 @@ export type EnrichedColumn =
    *  adjudicated to escape. */
   & { [K in Exclude<keyof FieldMeta, keyof TableColumn | 'name'>]?: never }
   & ObjectDataTableRetiredDecimalsTombstone
-  & ObjectDataTableRetiredReferenceToTombstone;
+  & ObjectDataTableRetiredReferenceToTombstone
+  & ObjectDataTableRetiredReferenceToSnakeTombstone;
 
 /**
  * What this widget's column producer is allowed to READ off the AUTHORED
@@ -355,11 +377,13 @@ export interface ObjectDataTableColumnHolds {}
  *
  * The pool shrank, then grew again. What THIS band refuses is `name` and
  * `label` — both of them `FieldMeta` members with answers this seam already
- * has (see the docblock above) — plus, since objectui#6694, the three
- * relational members that card added: `reference_to`, `reference` and
- * `display_field`.
+ * has (see the docblock above) — plus, since objectui#6694, the relational
+ * members that card added: `reference` and `display_field`. It added
+ * `reference_to` too; objectui#11070 round 4 retired that member from
+ * `FieldMeta`, so it left this band's POOL and
+ * {@link ObjectDataTableRetiredReferenceToSnakeTombstone} carries its refusal.
  *
- * ⭐ Those three are the derivation working as designed, and their verdict is
+ * ⭐ Those members are the derivation working as designed, and their verdict is
  * the one objectui#6597 already reached for `referenceTo`: an AUTHORED column
  * may not source a lookup's reference target. They are refused HERE while
  * `buildFieldMeta` writes them freely, because that write's source is the
@@ -388,7 +412,10 @@ export type AuthoredColumnOverrides =
   /** RETIRED, objectui#6597's verdict (enforce-or-remove, withdraw) —
    *  re-stated by hand for the same reason: the key left `keyof FieldMeta`,
    *  so the derived band can no longer reach it. See the tombstone's docblock. */
-  & ObjectDataTableRetiredReferenceToTombstone;
+  & ObjectDataTableRetiredReferenceToTombstone
+  /** RETIRED from `FieldMeta` by objectui#11070 round 4 — re-stated by hand for
+   *  the same reason. See the tombstone's docblock. */
+  & ObjectDataTableRetiredReferenceToSnakeTombstone;
 
 /**
  * Shared empty fallback for the resolved row list (objectui#4629).
@@ -910,8 +937,8 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
       //
       // `referenceTo` is NOT read here any more either — RETIRED by
       // objectui#6597 (enforce-or-remove, withdraw): `LookupCellRenderer`
-      // resolves its target from `reference_to` / `reference`, never this
-      // spelling, so an authored `referenceTo` never reached anything on this
+      // resolves its target from `reference`, never this spelling, so an
+      // authored `referenceTo` never reached anything on this
       // path (measured, `ObjectDataTable.overrideSource-6425.test.tsx`).
       const fieldMeta = buildFieldMeta({
         accessorKey: col.accessorKey,

@@ -326,10 +326,14 @@ function valueContradictions(branch: JsonSchema, value: Record<string, unknown>)
  *     ({@link valueContradictions});
  *  3. then the items-type tiebreak and the count of `required` keys present;
  *  4. then declaration order.
- * Where the value contradicts no branch — every scalar and array value, and
- * every object value that carries no key a branch rules out — steps 1 and 3
- * are the score this function always computed, so those picks are unchanged.
- * A bare nested union is scored member by member ({@link unionMembers}).
+ * Where the contradictions tie — every scalar and array value, an empty object,
+ * and an object no branch rules out — steps 1 and 3 are the score this
+ * function always computed, in the same order, so those picks are unchanged.
+ * (The one order the old sum could invert — a branch with no `type`
+ * outscoring a typed one on `required` keys alone — was absent from every
+ * served derivation of the installed spec when this was written; nothing
+ * re-checks that.) A bare nested union is scored member by member
+ * ({@link unionMembers}).
  *
  * Returns the original schema unchanged when there's no union to
  * resolve. Used by the recursive renderer so View `data` (provider

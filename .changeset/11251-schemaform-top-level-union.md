@@ -17,8 +17,8 @@ that resolver make it land each stored view on its own member: a member that is
 itself a bare union is scored member by member, and among members that fit the
 value's kind, the one the value contradicts least wins (a key a closed member
 does not declare, a `const` / `enum` it pins elsewhere, a `required` key the
-value lacks). A value that contradicts no member picks exactly what it picked
-before.
+value lacks). Where the contradictions tie, the pick is the one it always
+was.
 
 That makes a string-array `view.columns` reachable, so the repeater now draws
 scalar rows when its items resolve to a scalar arm (objectui#10239): each row is

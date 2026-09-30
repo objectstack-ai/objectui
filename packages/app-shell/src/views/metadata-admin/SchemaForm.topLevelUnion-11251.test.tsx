@@ -195,11 +195,13 @@ describe('the generic editor resolves a served top-level union against the store
     ).not.toBeNull();
   });
 
-  it('a defineView container renders the container member\'s controls', async () => {
+  it('a defineView container renders controls, and not the list overlay\'s', async () => {
     await openInDrawer(CONTAINER, VIEW_JSON);
     expect(drawerControls().length).toBeGreaterThan(0);
     expect(inputValue(`${SCOPE}name`)).toBe('crm_lead');
     expect(inputValue(`${SCOPE}label`)).toBe('Lead views');
+    // The container carries no `viewKind`, which the list overlay requires; the
+    // list config it holds sits under its `list` slot, not at the top level.
     expect(byId(`${SCOPE}type`)).toBeNull();
     expect(byId(`${SCOPE}columns-label`)).toBeNull();
     expect(byId(`${SCOPE}searchableFields`)).toBeNull();

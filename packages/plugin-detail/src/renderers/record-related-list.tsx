@@ -253,7 +253,13 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
    * the one meaning the word carries on `action`, `app`, `field` and
    * `bulkAction` — so it is read through the permission context's capability
    * path (`hasCapabilities` over the reported `systemPermissions`). An unheld
-   * or unrecognised capability hides the whole section.
+   * or unrecognised capability withholds the section's content, and an
+   * insufficient-permissions notice (`role="status"`) renders in its place:
+   * the block is not hidden. That is what the contract's describe on
+   * `RecordRelatedListProps.requiredPermissions` says ("an
+   * insufficient-permissions notice takes its place"). The automatic
+   * child-object read gate above is a different gate and does hide the
+   * section: it returns `null`.
    *
    * ⛔ NOT `perms.can(objectName, name)`. That call's second argument is the
    * closed object-action enum, and the stock `/me/permissions` provider maps

@@ -62,7 +62,11 @@ export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> =
    * the one meaning the word carries on `action`, `app`, `field` and
    * `bulkAction` — so it is read through the permission context's capability
    * path (`hasCapabilities` over the reported `systemPermissions`). An unheld
-   * or unrecognised capability hides the whole strip.
+   * or unrecognised capability withholds the strip's content, and an
+   * insufficient-permissions notice (`role="status"`) renders in its place:
+   * the block is not hidden. That is what the contract's describe on
+   * `RecordHighlightsProps.requiredPermissions` says ("an
+   * insufficient-permissions notice takes its place").
    *
    * ⛔ NOT `perms.can(objectName, name)`. That call's second argument is the
    * closed object-action enum, and the stock `/me/permissions` provider maps

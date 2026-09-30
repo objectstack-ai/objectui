@@ -4057,23 +4057,24 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   'public-blocks.zod.ts#ElementDividerBlockSchema':
     "spec-owned, RESTATED — `BaseSchema` + the `element:divider` literal + a member-less strict `properties`, because `@objectstack/spec/ui` exports `ComponentPropsMap['element:divider']` under no name to read by reference; its key set and accept set are pinned to the row's in `./public-block-arms-10872.test.ts`, and no TS declaration in this package restates the node",
   // objectui#10872 batch 4 — the six blocks held until `@objectstack/spec`
-  // 17.5.0 carried their rows. Same shape as the rows above, minus the
-  // objectui#9256 channel refusals (that measurement never covered them);
+  // 17.5.0 carried their rows. Same shape as the rows above;
   // `action:button` / `action:icon` add the two handler keys their renderers
   // read off the node. `action:group` / `action:menu` have renderer-side
-  // interfaces in `@object-ui/components`, outside this package.
+  // interfaces in `@object-ui/components`, outside this package. The
+  // objectui#9256 channel refusals reached them in objectui#10872 batch 5,
+  // pinned in `./held-block-content-channels-10872.test.ts`.
   'public-blocks.zod.ts#ElementDefinitionListBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `element:definition-list` literal + `properties`, which IS `ComponentPropsMap['element:definition-list']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `element:definition-list` literal + `properties`, which IS `ComponentPropsMap['element:definition-list']`, + the objectui#9256 `body` / `children` refusals (objectui#10872 batch 5; its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ElementRepeaterBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `element:repeater` literal + `properties`, which IS `ComponentPropsMap['element:repeater']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `element:repeater` literal + `properties`, which IS `ComponentPropsMap['element:repeater']`, + the objectui#9256 `body` / `children` refusals (objectui#10872 batch 5; its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ActionButtonBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `action:button` literal + `properties`, which IS `ComponentPropsMap['action:button']`, + the `onClick` runtime-slot refusal (objectui#6124) and the flat-`onSuccess` alias refusal naming `properties.onSuccess`, the two handler keys its renderer reads off the node; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `action:button` literal + `properties`, which IS `ComponentPropsMap['action:button']`, + the `onClick` runtime-slot refusal (objectui#6124) and the flat-`onSuccess` alias refusal naming `properties.onSuccess`, the two handler keys its renderer reads off the node, + the objectui#9256 `body` / `children` refusals (objectui#10872 batch 5; its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ActionIconBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `action:icon` literal + `properties`, which IS `ComponentPropsMap['action:icon']`, + the `onClick` runtime-slot refusal (objectui#6124) and the flat-`onSuccess` alias refusal naming `properties.onSuccess`, the two handler keys its renderer reads off the node; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `action:icon` literal + `properties`, which IS `ComponentPropsMap['action:icon']`, + the `onClick` runtime-slot refusal (objectui#6124) and the flat-`onSuccess` alias refusal naming `properties.onSuccess`, the two handler keys its renderer reads off the node, + the objectui#9256 `body` / `children` refusals (objectui#10872 batch 5; its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ActionGroupBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `action:group` literal + `properties`, which IS `ComponentPropsMap['action:group']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `action:group` literal + `properties`, which IS `ComponentPropsMap['action:group']`, + the objectui#9256 `body` / `children` refusals (objectui#10872 batch 5; its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ActionMenuBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `action:menu` literal + `properties`, which IS `ComponentPropsMap['action:menu']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `action:menu` literal + `properties`, which IS `ComponentPropsMap['action:menu']`, + the objectui#9256 `body` / `children` refusals (objectui#10872 batch 5; its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#PublicBlockComponentSchema':
     "a union OVER the public-block arms, not an object of its own — its members are accounted for individually above",
   // objectui#10919 — the `cloud:plan-status` widget's arm, declared locally from

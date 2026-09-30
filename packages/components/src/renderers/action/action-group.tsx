@@ -64,6 +64,28 @@ export interface ActionGroupSchema {
 }
 
 /**
+ * One member's `visible` verdict — shared by both display modes' leaves, so the
+ * same member cannot be hidden in one mode and shown in the other.
+ *
+ * It fails CLOSED on a predicate that FAULTS (`throwOnError`), the policy
+ * `action:button`, `action:menu` and `action:bar` already apply to `visible`
+ * (objectui#11212, Rider 1 of objectui#4421): a precondition that cannot be
+ * evaluated hides the action rather than showing one whose guard is broken, and
+ * the fault is reported once, naming the action. It is the KEY's policy, not a
+ * special case for any one call: `current_user.can(…)` while the permissions
+ * payload has not loaded and an unbound root (`nope.x == 1`) both hide. These
+ * leaves used to fail SOFT to `true`, SHOWING an action whose gate could not be
+ * answered. Pinned three-state in `app-shell`'s
+ * `currentUserCan-failClosed-11212.render.test.tsx`.
+ */
+function useMemberVisible(action: UIActionSchema, recordData: Record<string, any>): boolean {
+  return useCondition(toPredicateInput(action.visible), recordData, {
+    throwOnError: true,
+    label: `action "${action.name ?? action.label ?? 'action:group member'}" (visible)`,
+  });
+}
+
+/**
  * Inline action button within a group.
  */
 const InlineActionButton: React.FC<{
@@ -86,7 +108,10 @@ const InlineActionButton: React.FC<{
   // `data.status`. This leaf used to evaluate against nothing at all, so a
   // row-scoped predicate faulted on its root (objectui#4075).
   const recordData = usePredicateRecordContext(record);
-  const isVisible = useCondition(toPredicateInput(action.visible), recordData);
+  // `visible` fails CLOSED on a predicate that faults, as on `action:button` and
+  // `action:menu` (objectui#11212): one fault policy per key on every action
+  // `visible` leg. See `useMemberVisible`.
+  const isVisible = useMemberVisible(action, recordData);
   // Spec field is `disabled` (boolean | CEL — disabled when TRUE). objectstack-ai/objectstack#1885 wired
   // it in action-button only; this leaf kept reading the legacy non-spec
   // `enabled`, so a spec-authored `disabled` guard did nothing here. `disabled`
@@ -175,7 +200,9 @@ export const DropdownActionItem: React.FC<{
   // its predicate in one display mode and fault in the other (objectui#4075,
   // the binding half of the objectui#3812 / #3842 "one leaf, one answer" rule).
   const recordData = usePredicateRecordContext(record);
-  const isVisible = useCondition(toPredicateInput(action.visible), recordData);
+  // Same fail-closed `visible` as `InlineActionButton` — one member, one answer
+  // in both display modes (objectui#11212).
+  const isVisible = useMemberVisible(action, recordData);
   // Spec `disabled` primary, legacy non-spec `enabled` fallback (see
   // InlineActionButton above — objectstack-ai/objectstack#1885 follow-through).
   const isDisabledPred = useCondition(toPredicateInput((action as any).disabled), recordData);
@@ -257,7 +284,13 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
     // The row bound the three canonical ways — see `usePredicateRecordContext`.
     const recordData = usePredicateRecordContext(data);
 
-    const isVisible = useCondition(toPredicateInput(schema.visible), recordData);
+    // The group's OWN gate fails CLOSED on a faulting predicate, like its
+    // members' (`useMemberVisible`) and like the `action:bar` / `action:menu`
+    // hosts (objectui#11212).
+    const isVisible = useCondition(toPredicateInput(schema.visible), recordData, {
+      throwOnError: true,
+      label: `action:group "${schema.label ?? schema.icon ?? 'group'}" (visible)`,
+    });
 
     // Placement is `actionRendersAt`'s call (objectui#3142) — this used to
     // show an action with `locations: undefined` while hiding one with

@@ -317,12 +317,19 @@ describe('page:header — fail-closed stays fail-closed, and says so once (#3521
     }
   });
 
-  it('leaves a faulting `disabled` predicate enabled — the historical direction', () => {
+  it('renders a faulting `disabled` predicate DISABLED — the closed direction on this key (objectui#11212)', () => {
+    // It was left ENABLED until objectui#11212, sharing `visible`'s `false`
+    // fallback — which on this key is the OPEN answer. Rider 1 of
+    // objectui#4421 (a permission-shaped gate is closed while the permissions
+    // payload has not loaded) decided the `disabled` leg's own direction.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       renderHeader({ name: 'zoo_broken_disabled_3521', disabled: 'no_such_var_disabled_3521 == 1' });
       expect(button()).toBeTruthy();
-      expect(button()).not.toBeDisabled();
+      expect(button()).toBeDisabled();
+      expect(
+        warn.mock.calls.filter(c => String(c[0]).includes('zoo_broken_disabled_3521') && String(c[0]).includes('disabled')),
+      ).toHaveLength(1);
     } finally {
       warn.mockRestore();
     }

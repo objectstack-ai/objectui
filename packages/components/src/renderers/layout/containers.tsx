@@ -1689,15 +1689,23 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
    * Evaluate one header-action predicate. `label` is the locator carried into
    * the fault warning, so a hidden button names itself in the console.
    *
-   * `fallback: false` is what preserves both historical fail directions: a
-   * faulting `visible`/`disabled` hides/enables nothing new (fail-closed), and
-   * a faulting `hidden` leaves the action rendered exactly as the old
-   * `catch → undefined` did.
+   * `fallback` is the verdict a predicate that FAULTS resolves to, and it is
+   * the key's own fail direction, so the caller names it:
+   *
+   *   - `visible` → `false`: a faulting gate hides the action (fail-closed);
+   *   - `hidden`  → `false`: a faulting `hidden` leaves the action rendered,
+   *     exactly as the old `catch → undefined` did;
+   *   - `disabled` → `true`: a faulting gate DISABLES the action (fail-closed,
+   *     objectui#11212 — Rider 1 of objectui#4421: a permission-shaped gate is
+   *     closed while the permissions payload has not loaded). It used to
+   *     share `visible`'s `false`, which on this key means ENABLED — so
+   *     `disabled: !current_user.can(…)` left the action pressable until the
+   *     payload arrived, the one leg of this surface that failed open.
    */
   const evalHeaderPredicate = React.useCallback(
-    (pred: unknown, label: string): boolean =>
+    (pred: unknown, label: string, fallback: boolean): boolean =>
       evalRowPredicate(pred as never, ctx?.data ?? {}, {
-        fallback: false,
+        fallback,
         scope: headerPredicateScope,
         fields: headerPredicateFields,
         warnOnError: true,
@@ -1754,7 +1762,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
             // applies by passing `def.visible` through untouched.
             // On a fault (`fallback: false`) the action hides rather than risk
             // surfacing a destructive button in the wrong state.
-            if (!evalHeaderPredicate(v, `page:header action "${String(a?.name)}" visible`)) {
+            if (!evalHeaderPredicate(v, `page:header action "${String(a?.name)}" visible`, false)) {
               return false;
             }
           }
@@ -1777,7 +1785,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
             // `fallback: false` keeps `hidden`'s historical fail direction: a
             // predicate that cannot be evaluated does NOT hide the action (the
             // old `catch → undefined` read as "not hidden").
-            if (evalHeaderPredicate(h, `page:header action "${String(a?.name)}" hidden`)) {
+            if (evalHeaderPredicate(h, `page:header action "${String(a?.name)}" hidden`, false)) {
               return false;
             }
           }
@@ -1984,11 +1992,14 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     // envelope). Without this a CEL `disabled` silently did nothing (only
     // boolean was honoured).
     //
-    // Same entry, same bindings and same fail direction as `visible` above:
-    // ONE evaluator for this surface, so a `disabled` predicate cannot speak a
-    // different dialect from the `visible` predicate sitting next to it in the
-    // same action (objectui#3521). A faulting predicate still leaves the button
-    // enabled (`fallback: false`), it just says so once now.
+    // Same entry and same bindings as `visible` above: ONE evaluator for this
+    // surface, so a `disabled` predicate cannot speak a different dialect from
+    // the `visible` predicate sitting next to it in the same action
+    // (objectui#3521). Its fail direction is its OWN (objectui#11212): a
+    // predicate that faults DISABLES the button (`fallback: true`) and says so
+    // once — the closed answer on this key, as `visible`'s `false` is on that
+    // one. An absent or empty gate is still "not disabled"; only a DECLARED
+    // predicate that cannot be evaluated takes the fallback.
     const resolveDisabled = (d: any, actionName: unknown): boolean => {
       if (d === undefined || d === null) return false;
       if (typeof d === 'boolean') return d;
@@ -1996,7 +2007,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
         ? d
         : (d && typeof d === 'object' && typeof (d as any).source === 'string' ? (d as any).source : undefined);
       if (!src) return false;
-      return evalHeaderPredicate(d, `page:header action "${String(actionName)}" disabled`);
+      return evalHeaderPredicate(d, `page:header action "${String(actionName)}" disabled`, true);
     };
     // A live inline-edit session disables actions the host flagged with
     // `disableDuringInlineEdit` (objectui#2572 item 4) — see `inlineEditing`

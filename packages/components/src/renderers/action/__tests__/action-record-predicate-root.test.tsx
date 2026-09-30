@@ -35,16 +35,17 @@
  *     `visible`; it shows / disables / enables on a fail-SOFT leg).
  *   • bare `status` and `data.*`, each on the HOLDING row and the FAILING row —
  *     the same verdict on both. A retired spelling is an unknown variable, so
- *     it takes the site's EXISTING fault policy (#3871's table, in
- *     `action-template-predicate-gate.test.tsx`): hidden on the fail-closed
- *     `visible` legs (`action:button`, `action:menu` item, and therefore the
- *     `action:bar` overflow, which IS an `action:menu`); shown / greyed /
- *     enabled on the fail-soft legs. "The same verdict on both rows" is what
- *     "no longer bound" looks like from outside, and the ruling's cost
- *     statement is exactly that pair.
- *   • a genuinely faulting predicate (`nope.deep == 1`, an unbound root) keeps
- *     each site's EXISTING error policy — unchanged by either card, and pinned
- *     so neither can be read as having quietly converted a fail-soft leg.
+ *     it takes the site's fault policy: hidden on every `visible` leg
+ *     (`action:button`, `action:menu` item — and therefore the `action:bar`
+ *     overflow, which IS an `action:menu` — and, since objectui#11212,
+ *     `action:icon` and both `action:group` leaves too); greyed / enabled on
+ *     the fail-soft `disabled` / `enabled` legs. "The same verdict on both
+ *     rows" is what "no longer bound" looks like from outside, and the
+ *     ruling's cost statement is exactly that pair.
+ *   • a genuinely faulting predicate (`nope.deep == 1`, an unbound root) takes
+ *     each site's error policy — unchanged by the binding cards (#4075 /
+ *     #5741); objectui#11212 made every `visible` leg here fail CLOSED, which
+ *     is why the `action:icon` / `action:group` cases below read hidden.
  *
  * Every "not rendered" assertion carries an ungated companion, so a green can
  * never mean "the host itself vanished".
@@ -233,20 +234,19 @@ describe('action:icon — the row binds as `record.*` (objectui#4075 / #5741)', 
     iconHidden();
   });
 
-  it.each(RETIRED)('a `visible` written as %s no longer discriminates — shown on BOTH rows (fail-soft leg)', (_root, holding, failing) => {
+  it.each(RETIRED)('a `visible` written as %s no longer discriminates — hidden on BOTH rows (fail-closed leg)', (_root, holding, failing) => {
     mountIcon({ name: 'act', label: LABEL, visible: holding });
-    iconShown();
+    iconHidden();
     cleanup();
     mountIcon({ name: 'act', label: LABEL, visible: failing });
-    iconShown();
+    iconHidden();
   });
 
-  it('`visible` keeps its EXISTING fail-soft policy on a faulting predicate', () => {
-    // Not what this PR decides: `action:icon` has never passed `throwOnError`
-    // on `visible` (#3871's table). Pinned so the binding fix cannot be read as
-    // having quietly changed the error policy too.
+  it('`visible` fails CLOSED on a faulting predicate (objectui#11212)', () => {
+    // `action:icon` passes `throwOnError` on `visible` since objectui#11212, as
+    // `action:button` does; it failed soft (shown) before.
     mountIcon({ name: 'act', label: LABEL, visible: FAULT });
-    iconShown();
+    iconHidden();
   });
 
   it('a holding `disabled` written as record.* greys the icon', () => {
@@ -378,19 +378,19 @@ describe.each([
     hidden();
   });
 
-  it.each(RETIRED)('a `visible` written as %s no longer discriminates — shown on BOTH rows (fail-soft leg)', async (_root, holding, failing) => {
+  it.each(RETIRED)('a `visible` written as %s no longer discriminates — hidden on BOTH rows (fail-closed leg)', async (_root, holding, failing) => {
     await mount({ name: 'act', label: LABEL, type: 'script', visible: holding });
-    shown();
+    hidden();
     cleanup();
     await mount({ name: 'act', label: LABEL, type: 'script', visible: failing });
-    shown();
+    hidden();
   });
 
-  it('`visible` keeps its EXISTING fail-soft policy on a faulting predicate', async () => {
-    // As with `action:icon`: `action:group`'s leaves have never passed
-    // `throwOnError` (#3871's table). The binding fix does not change it.
+  it('`visible` fails CLOSED on a faulting predicate (objectui#11212)', async () => {
+    // As with `action:icon`: both `action:group` leaves pass `throwOnError` on
+    // `visible` since objectui#11212; they failed soft (shown) before.
     await mount({ name: 'act', label: LABEL, type: 'script', visible: FAULT });
-    shown();
+    hidden();
   });
 });
 

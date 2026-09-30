@@ -428,13 +428,25 @@ function dropRedactedColumns<T>(cols: T[], redacted: ReadonlySet<string>): T[] {
  * `invite_user` (`visible: "features.organization != false"`) hides when its
  * predicate is false. `features`/`user` resolve from the ambient
  * ExpressionProvider scope.
+ *
+ * The verdict fails CLOSED on a predicate that FAULTS (`throwOnError`), as
+ * every action `visible` leg does (objectui#11212, Rider 1 of objectui#4421):
+ * a precondition that cannot be evaluated — `current_user.can(…)` before the
+ * permissions payload has loaded, an unbound root — hides the button and is
+ * reported once, instead of showing an action whose guard is broken. This leg
+ * used to fail SOFT to `true`.
  */
 export const RelatedToolbarButton: React.FC<{
   action: RelatedRowActionDef;
   onToolbarAction: (action: RelatedRowActionDef) => void | Promise<void>;
 }> = ({ action, onToolbarAction }) => {
   const visiblePred = action.visible;
-  const isVisible = useCondition(toPredicateInput(visiblePred));
+  // A toolbar action is list-level: there is no row to bind, so the context is
+  // the ambient predicate scope alone.
+  const isVisible = useCondition(toPredicateInput(visiblePred), undefined, {
+    throwOnError: true,
+    label: `related-list toolbar action "${action.name}" (visible)`,
+  });
   if (visiblePred && !isVisible) return null;
   const ActionIcon = action.icon ? resolveIconComponent(action.icon) : null;
   return (

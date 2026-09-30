@@ -98,7 +98,16 @@ const ActionIconRenderer = forwardRef<
     // The row bound the three canonical ways — see `usePredicateRecordContext`.
     const recordData = usePredicateRecordContext(data);
 
-    const isVisible = useCondition(toPredicateInput(schema.visible), recordData);
+    // `visible` fails CLOSED on a predicate that FAULTS, as on `action:button`
+    // (objectui#11212, Rider 1 of objectui#4421): a precondition that cannot be
+    // evaluated hides the icon and is reported once, rather than showing an
+    // action whose guard is broken. The key's policy, not a `can()` special
+    // case — `current_user.can(…)` before the permissions payload loads and an
+    // unbound root both hide. This leg used to fail SOFT to `true`.
+    const isVisible = useCondition(toPredicateInput(schema.visible), recordData, {
+      throwOnError: true,
+      label: `action "${schema.name ?? schema.label ?? 'action:icon'}" (visible)`,
+    });
     // Spec `disabled` (boolean | CEL — disabled when TRUE) primary, legacy
     // non-spec `enabled` fallback (objectstack-ai/objectstack#1885 follow-through — only action-button
     // was wired; this renderer ignored a spec-authored `disabled`). Uncast
@@ -220,10 +229,10 @@ const ActionIconRenderer = forwardRef<
     // click reach the runner identically (confirm, param dialogs, toasts).
     // `isVisible` is the verdict the early return below consults, so an icon
     // its author hid is refused and reported rather than run (objectui#4191).
-    // That verdict keeps this renderer's existing error policy on a faulting
-    // predicate (fail-soft, unlike `action:button`'s fail-closed one): the
-    // trigger follows whatever this icon itself renders, and the policy is not
-    // decided here.
+    // That verdict carries this renderer's error policy on a faulting predicate
+    // (fail-CLOSED since objectui#11212, as on `action:button`): the trigger
+    // follows whatever this icon itself renders, and the policy is not decided
+    // here.
     useAutoTriggerOnce(schema, isVisible, handleClick);
 
     // Same gate, same reachability as action-button.tsx (objectui#3823): an

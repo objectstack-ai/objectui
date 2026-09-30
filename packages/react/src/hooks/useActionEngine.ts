@@ -26,12 +26,14 @@
 import { useCallback, useContext, useMemo } from 'react';
 import {
   ActionEngine,
+  subjectPermissionsOf,
   type ActionLocation,
   type ActionDef,
   type ActionContext,
   type ActionResult,
 } from '@object-ui/core';
 import { ActionCtxReact } from '../context/ActionContext.js';
+import { usePredicateScope } from './useExpression.js';
 
 export interface UseActionEngineOptions {
   /** Action definitions to register */
@@ -69,7 +71,34 @@ export function useActionEngine(options: UseActionEngineOptions = {}): UseAction
   const providerCtx = useContext(ActionCtxReact);
   const sharedRunner = providerCtx?.runner ?? null;
 
+  // The acting subject the host's predicate scope binds as `current_user`
+  // (objectui#11212): the ONE object `ExpressionProvider` publishes under
+  // `current_user` / `user` / `ctx.user` / `os.user`, carrying the caller's
+  // effective object permissions once they have loaded. The engine filters
+  // `visible` against the RUNNER's bag, which a host seeds with its own `user`
+  // and never with `current_user` — so `current_user.can(…)`, and any other
+  // `current_user.*` predicate, faulted on this path in every state and the
+  // action was hidden even for a grant holder, while the same predicate
+  // answered on every predicate-scope surface. Binding the scope's subject
+  // itself — the same object, not a copy, because the engine answers `can`
+  // only for a receiver IDENTICAL to the bound `current_user` — is what makes
+  // the two paths one bag (objectui#6493). With no host scope (`{}`) nothing
+  // is bound and the path behaves as it always did.
+  //
+  // Only `current_user` is added. The runner's `user` / `ctx.user` / `os.user`
+  // stay the host's own object: it carries what the runner itself reads (the
+  // `systemPermissions` capability set), which the scope's subject does not.
+  const subject = usePredicateScope().current_user as Record<string, unknown> | undefined;
+  // Keyed on what the binding READS, never on the subject's identity (a
+  // memoised value upstream — AGENTS.md #10): its serialisable fields, and the
+  // permissions map it carries, which the upstream adapter caches per payload
+  // outside React. A discarded-and-recomputed subject with the same content
+  // keeps the engine; the permissions arriving (or leaving) rebuilds it.
+  const subjectKey = subject === undefined ? '' : JSON.stringify(subject);
+  const subjectPermissions = subjectPermissionsOf(subject);
+
   const engine = useMemo(() => {
+    const bound: Partial<ActionContext> = subject !== undefined ? { current_user: subject } : {};
     // When standalone (no surrounding `<ActionProvider>`), normalize the
     // context so predicates can use both `record`/`user` and `ctx.*`.
     const normalizedStandalone = (context && Object.keys(context).length > 0)
@@ -78,8 +107,9 @@ export function useActionEngine(options: UseActionEngineOptions = {}): UseAction
           ctx: ((context as any).ctx && typeof (context as any).ctx === 'object')
             ? { ...context, ...(context as any).ctx }
             : { ...context },
+          ...bound,
         }
-      : context;
+      : { ...context, ...bound };
     const e = sharedRunner ? new ActionEngine(sharedRunner) : new ActionEngine(normalizedStandalone as any);
     // When sharing a provider runner, MERGE per-render flat keys into the
     // existing `ctx` instead of overwriting it. The provider seeds
@@ -97,13 +127,18 @@ export function useActionEngine(options: UseActionEngineOptions = {}): UseAction
       const merged = {
         ...context,
         ctx: { ...existingCtx, ...callerCtx },
+        ...bound,
       };
       runner.updateContext(merged as any);
+    } else if (sharedRunner && subject !== undefined) {
+      // A caller that passes no per-render keys: the subject is still bound,
+      // onto the same shared runner the location filter reads.
+      e.getRunner().updateContext(bound as any);
     }
     e.registerActions(actions);
     return e;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sharedRunner, JSON.stringify(actions), JSON.stringify(context)]);
+  }, [sharedRunner, JSON.stringify(actions), JSON.stringify(context), subjectKey, subjectPermissions]);
 
   const getActionsForLocation = useCallback(
     (location: ActionLocation) => engine.getActionsForLocation(location),

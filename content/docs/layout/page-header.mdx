@@ -157,9 +157,13 @@ declaration gates both places.
   not a `false`.
 - Call it on the signed-in user. `user.can(…)`, `ctx.user.can(…)` and `os.user.can(…)`
   are the same call; a bare `can(…)`, or `record.can(…)`, is a fault.
-- Until the permissions payload has loaded there is no answer: the call faults, and a
-  header action whose `visible` faults is not rendered (see above). Gate on `visible`,
-  not `disabled` — a `disabled` predicate that faults leaves the action enabled.
+- Until the permissions payload has loaded there is no answer: the call faults, and the
+  gate stays closed. A header action whose `visible` faults is not rendered (see above),
+  and one whose `disabled` faults is rendered disabled, so
+  `disabled: "!current_user.can('account', 'delete')"` shows a greyed-out button until the
+  answer arrives. The action renderers that draw actions elsewhere (`action:button`,
+  `action:group`, `action:icon`, a related list's toolbar, `record:quick_actions`) hide a
+  faulting `visible` the same way.
 - `requiredPermissions` is a different gate: it names system capabilities, which the
   platform action route enforces as well as the UI. `current_user.can` asks about
   object permissions and does nothing on the server.

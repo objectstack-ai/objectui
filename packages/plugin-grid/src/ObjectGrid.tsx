@@ -1975,16 +1975,19 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // the projection cannot see, so changing it costs no round trip. The same
   // harvest over the same three inputs as the effect's; the object-level
   // `actions` / `userActions` it adds come from the definition the effect reads
-  // for itself. The `(schema as any)` reads are the objectui#5091 NON-AUTHOR
-  // SURFACE exemption stated at the effect's own read of these keys.
+  // for itself. The `rowActionDefs` cast is the objectui#5091 NON-AUTHOR
+  // SURFACE exemption stated at the effect's own read of that key.
   // `__tests__/ObjectGrid.harvestInputsFetchKey-10689.test.tsx` pins each input.
+  const conditionalFormattingRaw = schema.conditionalFormatting as readonly unknown[] | undefined;
+  const rowActionDefsRaw = (schema as { rowActionDefs?: readonly unknown[] }).rowActionDefs;
+  const bulkActionDefsRaw = (schema as { bulkActionDefs?: readonly unknown[] }).bulkActionDefs;
   const predicateProjectionKey = useMemo(
     () => JSON.stringify(collectPredicateFieldRefs(listViewPredicates({
-      conditionalFormatting: schema.conditionalFormatting as unknown[] | undefined,
-      rowActionDefs: (schema as any).rowActionDefs,
-      bulkActionDefs: (schema as any).bulkActionDefs,
+      conditionalFormatting: conditionalFormattingRaw,
+      rowActionDefs: rowActionDefsRaw,
+      bulkActionDefs: bulkActionDefsRaw,
     }))),
-    [schema.conditionalFormatting, (schema as any).rowActionDefs, (schema as any).bulkActionDefs],
+    [conditionalFormattingRaw, rowActionDefsRaw, bulkActionDefsRaw],
   );
   // The view's declared filter, lowered ONCE through the repo's single filter
   // sink for both consumers below (the fetch and the server-side export).

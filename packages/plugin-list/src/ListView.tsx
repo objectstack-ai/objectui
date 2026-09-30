@@ -2269,17 +2269,20 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
   // the projection cannot see, so changing it costs no round trip. The same
   // harvest over the same three inputs as the effect's; the object-level
   // `actions` / `userActions` it adds come from `objectDef`, not from the view,
-  // and are outside this key. The `(schema as any)`
-  // reads are the NON-AUTHOR SURFACE exemption stated at the effect's own read
-  // of these keys. `__tests__/ListView.harvestInputsFetchKey-10689.test.tsx`
-  // pins each input.
+  // and are outside this key. The `rowActionDefs` cast is
+  // the NON-AUTHOR SURFACE exemption stated at the effect's own read of that
+  // key. `__tests__/ListView.harvestInputsFetchKey-10689.test.tsx` pins each
+  // input.
+  const conditionalFormattingRaw = schema.conditionalFormatting as readonly unknown[] | undefined;
+  const rowActionDefsRaw = (schema as { rowActionDefs?: readonly unknown[] }).rowActionDefs;
+  const bulkActionDefsRaw = (schema as { bulkActionDefs?: readonly unknown[] }).bulkActionDefs;
   const predicateProjectionKey = React.useMemo(
     () => JSON.stringify(collectPredicateFieldRefs(listViewPredicates({
-      conditionalFormatting: schema.conditionalFormatting as unknown[] | undefined,
-      rowActionDefs: (schema as any).rowActionDefs,
-      bulkActionDefs: (schema as any).bulkActionDefs,
+      conditionalFormatting: conditionalFormattingRaw,
+      rowActionDefs: rowActionDefsRaw,
+      bulkActionDefs: bulkActionDefsRaw,
     }))),
-    [schema.conditionalFormatting, (schema as any).rowActionDefs, (schema as any).bulkActionDefs],
+    [conditionalFormattingRaw, rowActionDefsRaw, bulkActionDefsRaw],
   );
 
   // Fetch data effect — supports schema.data (ViewDataSchema) provider modes

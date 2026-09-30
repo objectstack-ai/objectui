@@ -1,6 +1,6 @@
 ---
 '@object-ui/types': minor
-'@object-ui/layout': patch
+'@object-ui/layout': minor
 '@object-ui/app-shell': patch
 ---
 
@@ -20,8 +20,9 @@ new name on the next render.
   still refused — `''` is a present label that would render empty text — and the
   message says to omit the key instead. `menuItemToNavigationItem` no longer
   turns a missing legacy label into `''`.
-- `@object-ui/layout`: `resolveNavItemLabel` resolves an absent label through a
-  new `resolveTargetLabel` resolver (`NavigationRenderer` prop, types
+- `@object-ui/layout` (additive public surface): `resolveNavItemLabel`
+  resolves an absent label through a new `resolveTargetLabel` resolver
+  (`NavigationRenderer` prop, types
   `NavLabelTarget` / `NavTargetLabelResolver`), walking view → object /
   dashboard, and falls back to the target's machine name (`viewName`,
   `objectName`, `dashboardName`, `pageName`, `reportName`, `url`,
@@ -30,9 +31,12 @@ new name on the next render.
   name. Action entries, the search filter and `AppSchemaRenderer`'s mobile tab
   bar read the label through the same function, so an unlabelled entry no longer
   throws there.
-- `@object-ui/app-shell`: the sidebar and the `nav:menu` block both resolve
-  targets through one hook over the metadata cache the shell already holds
-  (object schema, merged list views, dashboards) — no request per nav entry.
+- `@object-ui/app-shell`: the sidebar, the `nav:menu` block, the ⌘K command
+  palette and the full-page search all name a nav entry through
+  `resolveNavItemLabel` with one hook over the metadata cache the shell already
+  holds (object schema, merged list views, dashboards) — no request per nav
+  entry. Read raw, a label-less entry drew a blank palette row searched as
+  `undefined`, and the search page listed it by its machine name.
   Navigation sync stops writing `label: pageName` / `label: dashboardName` for an
   unnamed page or dashboard; an author label is still written, and stored labels
   are kept.

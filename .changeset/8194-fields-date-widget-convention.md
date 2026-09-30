@@ -19,6 +19,14 @@ default — so they never implemented the year-dropping decision the shared
   which sits in the same function as the descriptor path that already rendered
   through `formatDate`.
 
+⚠️ **Dated note, 2026-09-30 — the formula key above has since been renamed —
+objectui#11070.** "A `FormulaField` declaring `return_type: 'date'`" above held when this
+change landed. Later in this same release objectui#11070 (round 3) moved `FormulaField` to
+`@objectstack/spec`'s `returnType` and retired the `return_type` read, so the face described
+here is reached by a formula declaring `returnType: 'date'`.
+`.changeset/11070-field-metadata-spec-spellings.md` states what ships; the text above is
+kept as the reading of this change.
+
 **Visible change**: every one of those faces changes shape in every locale, in
 every year — not only the year token. In `en-US` a date renders `Jul 4` this
 year and `Jul 4, 2024` for a past year, where it used to render `7/4/2026` and

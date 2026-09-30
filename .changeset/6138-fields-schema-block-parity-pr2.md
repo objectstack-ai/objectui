@@ -36,6 +36,14 @@ no shipped type declares:
 - `user.mdx` documented the value as a user object; the field stores the user's
   id and the picker resolves the rest from `sys_user`.
 
+⚠️ **Dated note, 2026-09-30 — the `return_type` union above has since been retired —
+objectui#11070.** "The shipped union is `'text' | 'number' | 'boolean' | 'date' |
+'datetime'`" above held when this change landed. Later in this same release objectui#11070
+(round 3) retired `FormulaFieldMetadata.return_type` for `@objectstack/spec`'s
+`returnType`, typed by reference (`'number' | 'text' | 'boolean' | 'date'`), and
+`formula.mdx` teaches that key. `.changeset/11070-field-metadata-spec-spellings.md` states
+what ships; the text above is kept as the reading of this change.
+
 Two undeclared-but-consumed keys were found by checking each divergence against
 its renderer, and are filed rather than deleted or documented as metadata:
 `dependsOn` on select and `description` on a lookup's static options

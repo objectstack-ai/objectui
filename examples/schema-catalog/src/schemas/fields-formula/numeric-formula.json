@@ -7,8 +7,8 @@
       "name": "total",
       "label": "Total Amount",
       "type": "formula",
-      "formula": "quantity * price",
-      "return_type": "number",
+      "expression": "quantity * price",
+      "returnType": "number",
       "readonly": true
     }
   ]

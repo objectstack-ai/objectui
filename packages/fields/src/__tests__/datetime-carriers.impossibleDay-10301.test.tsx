@@ -84,10 +84,10 @@ const FACES: ReadonlyArray<readonly [string, (value: unknown) => HTMLElement]> =
       ).container,
   ],
   [
-    'FormulaField (`return_type: date`, a date-time result)',
+    'FormulaField (`returnType: date`, a date-time result)',
     (value) =>
       session(
-        <FormulaField value={value as any} onChange={() => {}} field={{ type: 'formula', name: 'c', return_type: 'date' } as any} />,
+        <FormulaField value={value as any} onChange={() => {}} field={{ type: 'formula', name: 'c', returnType: 'date' }} />,
       ).container,
   ],
 ];

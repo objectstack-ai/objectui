@@ -6,6 +6,14 @@ The readonly `date` widget faces draw `formatDate`'s em-dash through the shared
 `EmptyValue` affordance instead of a plain span (objectui#8809). Two sites:
 `DateField`'s readonly branch and `FormulaField`'s `return_type: 'date'` path.
 
+⚠️ **Dated note, 2026-09-30 — the formula key above has since been renamed —
+objectui#11070.** "`FormulaField`'s `return_type: 'date'` path" above held when this change
+landed. Later in this same release objectui#11070 (round 3) moved `FormulaField` to
+`@objectstack/spec`'s `returnType` and retired the `return_type` read, so that path is the
+one a formula declaring `returnType: 'date'` takes.
+`.changeset/11070-field-metadata-spec-spellings.md` states what ships; the text above is
+kept as the reading of this change.
+
 A truthy value `new Date(...)` cannot read — `not-a-date`, `2024-13-45` — used
 to reach `formatDate`, which answers it with its own em-dash, and that dash was
 painted in a span with no `data-slot` of `empty-value` and no accessible name.

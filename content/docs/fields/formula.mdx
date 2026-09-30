@@ -21,8 +21,9 @@ The Formula Field component displays computed values calculated from other field
 
 A formula field is authored as `FormulaFieldMetadata` (`@object-ui/types`), which is
 the source of truth for the key set: it extends `BaseFieldMetadata` with the
-expression, its declared return type and the recompute switch. `return_type` is a
-closed union — `'text' | 'number' | 'boolean' | 'date' | 'datetime'`.
+expression, its declared return type and the recompute switch. `returnType` is
+`@objectstack/spec`'s own `FieldSchema.returnType`, typed by reference: a closed
+union of `'number' | 'text' | 'boolean' | 'date'`.
 
 ```ts
 import type { FormulaFieldMetadata } from '@object-ui/types';
@@ -33,7 +34,7 @@ const totalPrice: FormulaFieldMetadata = {
   label: 'Total Price',
   readonly: true,
   formula: 'quantity * unit_price',
-  return_type: 'number',
+  returnType: 'number',
   auto_compute: true,
 };
 ```
@@ -43,13 +44,12 @@ they are runtime widget props. See [Field Widget Props](/docs/fields/widget-prop
 
 ## Return Types
 
-The formula field formats values based on return type:
+The formula field formats values by `returnType`:
 
-- **number**: Displays with decimal precision
-- **currency**: Displays with currency symbol
+- **number**: Displays with two decimal places
 - **boolean**: Displays as Yes/No
-- **date**: Displays formatted date
-- **text**: Displays as string
+- **date**: Displays the formatted date
+- **text**: Displays as a string (also the default when `returnType` is absent)
 
 ## Formula Examples
 

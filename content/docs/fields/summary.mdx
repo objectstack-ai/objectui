@@ -20,9 +20,12 @@ The Summary Field component displays aggregated values from related records. Thi
 ## Field Schema
 
 A summary field is authored as `SummaryFieldMetadata` (`@object-ui/types`), which is
-the source of truth for the key set: it extends `BaseFieldMetadata` with the related
-object, the aggregated field, the aggregation and its filter. `summary_type` is a
-closed union — `'count' | 'sum' | 'avg' | 'min' | 'max' | 'first' | 'last'`.
+the source of truth for the key set: it extends `BaseFieldMetadata` with the roll-up
+definition `summaryOperations` and the auto-update switch. `summaryOperations` is
+`@objectstack/spec`'s own `FieldSchema.summaryOperations`, typed by reference: the
+child `object`, the child `field` to aggregate, the aggregation `function` — a closed
+union of `'count' | 'sum' | 'min' | 'max' | 'avg'` — and optionally the child's
+`relationshipField` and a `filter` restricting which child rows are aggregated.
 
 ```ts
 import type { SummaryFieldMetadata } from '@object-ui/types';
@@ -32,10 +35,12 @@ const totalRevenue: SummaryFieldMetadata = {
   name: 'total_revenue',
   label: 'Total Revenue',
   readonly: true,
-  summary_object: 'opportunities',
-  summary_field: 'amount',
-  summary_type: 'sum',
-  summary_filter: { stage: 'closed_won' },
+  summaryOperations: {
+    object: 'opportunities',
+    field: 'amount',
+    function: 'sum',
+    filter: { stage: 'closed_won' },
+  },
   auto_update: true,
 };
 ```
@@ -43,7 +48,10 @@ const totalRevenue: SummaryFieldMetadata = {
 The computed value, and the `className` a host supplies, are **not** metadata keys —
 they are runtime widget props. See [Field Widget Props](/docs/fields/widget-props).
 
-## Summary Types
+## Aggregation Functions
+
+The summary field formats values by `summaryOperations.function`: `count` as it
+arrives, the other four to two decimal places.
 
 - **count**: Count of related records
 - **sum**: Sum of numeric field values
@@ -60,9 +68,11 @@ they are runtime widget props. See [Field Widget Props](/docs/fields/widget-prop
   type: 'summary',
   name: 'task_count',
   label: 'Open Tasks',
-  summary_object: 'tasks',
-  summary_field: 'id',
-  summary_type: 'count'
+  summaryOperations: {
+    object: 'tasks',
+    field: 'id',
+    function: 'count'
+  }
 }
 ```
 
@@ -73,9 +83,11 @@ they are runtime widget props. See [Field Widget Props](/docs/fields/widget-prop
   type: 'summary',
   name: 'total_sales',
   label: 'Total Sales',
-  summary_object: 'invoices',
-  summary_field: 'amount',
-  summary_type: 'sum'
+  summaryOperations: {
+    object: 'invoices',
+    field: 'amount',
+    function: 'sum'
+  }
 }
 ```
 
@@ -86,9 +98,11 @@ they are runtime widget props. See [Field Widget Props](/docs/fields/widget-prop
   type: 'summary',
   name: 'avg_response_time',
   label: 'Avg Response Time',
-  summary_object: 'support_tickets',
-  summary_field: 'response_time_hours',
-  summary_type: 'avg'
+  summaryOperations: {
+    object: 'support_tickets',
+    field: 'response_time_hours',
+    function: 'avg'
+  }
 }
 ```
 
@@ -99,9 +113,11 @@ they are runtime widget props. See [Field Widget Props](/docs/fields/widget-prop
   type: 'summary',
   name: 'highest_bid',
   label: 'Highest Bid',
-  summary_object: 'bids',
-  summary_field: 'amount',
-  summary_type: 'max'
+  summaryOperations: {
+    object: 'bids',
+    field: 'amount',
+    function: 'max'
+  }
 }
 ```
 
@@ -124,24 +140,24 @@ Summary fields are calculated through database aggregations:
 
 ```plaintext
 // Example backend aggregation
-const calculateSummary = async (config: SummaryConfig, parentId: string) => {
-  const { summary_object, summary_field, summary_type } = config;
+const calculateSummary = async (summaryOperations: SummaryOperations, parentId: string) => {
+  const { object, field, function: fn } = summaryOperations;
   
-  switch (summary_type) {
+  switch (fn) {
     case 'count':
-      return db.count(summary_object, { parent_id: parentId });
+      return db.count(object, { parent_id: parentId });
     
     case 'sum':
-      return db.sum(summary_object, summary_field, { parent_id: parentId });
+      return db.sum(object, field, { parent_id: parentId });
     
     case 'avg':
-      return db.avg(summary_object, summary_field, { parent_id: parentId });
+      return db.avg(object, field, { parent_id: parentId });
     
     case 'min':
-      return db.min(summary_object, summary_field, { parent_id: parentId });
+      return db.min(object, field, { parent_id: parentId });
     
     case 'max':
-      return db.max(summary_object, summary_field, { parent_id: parentId });
+      return db.max(object, field, { parent_id: parentId });
   }
 };
 ```

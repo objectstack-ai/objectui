@@ -10,8 +10,8 @@
       "name": "full_name",
       "label": "Full Name",
       "type": "formula",
-      "formula": "first_name + \" \" + last_name",
-      "return_type": "text",
+      "expression": "first_name + \" \" + last_name",
+      "returnType": "text",
       "readonly": true
     }
   ]

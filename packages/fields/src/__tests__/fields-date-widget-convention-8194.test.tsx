@@ -24,7 +24,7 @@
  *
  *   1. `widgets/DateField.tsx`          readonly `date` widget        ← fixed
  *   2. `widgets/GridField.tsx`          sub-grid `date` column        ← fixed
- *   3. `widgets/FormulaField.tsx`       `return_type: 'date'`         ← fixed
+ *   3. `widgets/FormulaField.tsx`       `returnType: 'date'`          ← fixed
  *   4. `widgets/lookupColumnDisplay.tsx` the `$date` fallback         ← fixed
  *   5. `widgets/DateField`'s sibling `DateTimeField.tsx` readonly     ← NOT
  *   6. `widgets/GridField.tsx`'s `datetime`/`time` branch             ← NOT
@@ -165,11 +165,11 @@ function gridCellText(): string {
   return cells[cells.length - 1].textContent ?? '';
 }
 
-/** Site 3 — a formula field declaring `return_type: 'date'`. */
+/** Site 3 — a formula field declaring `returnType: 'date'`. */
 const renderFormula = (locale: string, value: unknown) =>
   session(
     locale,
-    <FormulaField value={value as any} onChange={() => {}} field={{ type: 'formula', name: 'c', return_type: 'date' } as any} />,
+    <FormulaField value={value as any} onChange={() => {}} field={{ type: 'formula', name: 'c', returnType: 'date' }} />,
   ).container.textContent ?? '';
 
 /**
@@ -183,7 +183,7 @@ const renderLookupDollarDate = (locale: string, value: unknown) =>
 const SITES: Array<[string, (locale: string, iso: string) => string, (iso: string, locale: string) => string]> = [
   ['DateField (readonly)', renderDateField, FORMER_FACE],
   ['GridField (sub-grid date cell)', renderGridCell, FORMER_GRID_FACE],
-  ['FormulaField (return_type: date)', renderFormula, FORMER_FACE],
+  ['FormulaField (returnType: date)', renderFormula, FORMER_FACE],
   ['lookupColumnDisplay ($date fallback)', (l, iso) => renderLookupDollarDate(l, asDollarDate(iso)), FORMER_FACE],
 ];
 

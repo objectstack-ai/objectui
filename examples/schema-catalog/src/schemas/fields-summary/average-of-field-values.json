@@ -10,9 +10,11 @@
       "name": "avg_rating",
       "label": "Average Rating",
       "type": "summary",
-      "summary_object": "reviews",
-      "summary_field": "rating",
-      "summary_type": "avg",
+      "summaryOperations": {
+        "object": "reviews",
+        "field": "rating",
+        "function": "avg"
+      },
       "readonly": true
     }
   ]

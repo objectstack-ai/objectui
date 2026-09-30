@@ -10,12 +10,13 @@ label of what it opens. The console's sidebar, `nav:menu`, command palette and s
 it that way, and the platform now writes such entries (the console's navigation sync, for every
 page and dashboard). The designer surfaces read the raw label instead, so the same entry showed as
 `(unnamed)` in the app preview, as a positional `Item N` card on the nav canvas, by its positional
-selection id in the app nav inspector, and as a blank row in the Navigation Designer and the app
+selection id in the app nav inspector, by its target's internal name (or, for a group, a blank
+heading) in the Studio Interfaces rail, and as a blank row in the Navigation Designer and the app
 wizard's Navigation step.
 
 Every one of those surfaces now asks the runtime's own rule, `resolveNavItemLabel` from
-`@object-ui/layout`; none keeps a second copy of it. In app-shell the preview, the canvas and the
-inspector pass the console's own target resolver, so a label-less entry shows its target's current
+`@object-ui/layout`; none keeps a second copy of it. In app-shell the preview, the canvas, the
+inspector and the Studio rail pass the console's own target resolver, so a label-less entry shows its target's current
 label (a rename shows on the next render), else the target's machine name, else the entry's `id`.
 The Navigation Designer and the wizard are handed bare items and no metadata, so they show the
 rule's machine-name rung (`pageName`, `dashboardName`, `objectName`, …), which is what the console

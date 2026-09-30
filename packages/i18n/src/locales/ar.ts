@@ -1121,6 +1121,7 @@ const ar = {
     writeStrippedReadonly: "للقراءة فقط، لذلك لم تُطبَّق: {{fields}}",
     writeStrippedByState: "غير قابلة للتعديل في الحالة الحالية لهذا السجل، لذلك لم تُطبَّق: {{fields}}",
     writeStrippedPrimaryKey: "معرّف السجل لا يمكن تغييره عند الحفظ، لذلك لم تُطبَّق: {{fields}}",
+    writeStrippedComputed: "يحسبها الخادم بواسطة صيغة، لذلك لم تُطبَّق القيمة المُرسَلة: {{fields}}",
     writeStrippedUnknownReason: "لم تُطبَّق من قِبل الخادم: {{fields}}",
     approvalPendingEditable: "قيد الموافقة · قابل للتعديل",
     approvalPendingTooltip: "يحتوي هذا السجل على طلب موافقة معلق، لكن هذه الخطوة لا تزال تسمح بالتعديل",

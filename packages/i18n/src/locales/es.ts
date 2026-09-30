@@ -1106,6 +1106,7 @@ const es = {
     writeStrippedReadonly: "De solo lectura, por lo que no se aplicó: {{fields}}",
     writeStrippedByState: "No editable en el estado actual de este registro, por lo que no se aplicó: {{fields}}",
     writeStrippedPrimaryKey: "El identificador del registro no se puede cambiar al guardar, por lo que no se aplicó: {{fields}}",
+    writeStrippedComputed: "Lo calcula el servidor mediante una fórmula, por lo que el valor enviado no se aplicó: {{fields}}",
     writeStrippedUnknownReason: "No aplicado por el servidor: {{fields}}",
     approvalPendingEditable: "En aprobación · editable",
     approvalPendingTooltip: "Este registro tiene una solicitud de aprobación pendiente; este paso todavía permite la edición",

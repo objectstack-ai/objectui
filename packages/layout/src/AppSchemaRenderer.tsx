@@ -51,6 +51,7 @@ import {
   type VisibilityEvaluator,
   type PermissionChecker,
   type CapabilityChecker,
+  type DocTargetChecker,
 } from './NavigationRenderer';
 
 // ---------------------------------------------------------------------------
@@ -96,6 +97,9 @@ export interface AppSchemaRendererProps {
 
   /** Optional capability checker passed to NavigationRenderer (gates `requiresObject` / `requiresService`) */
   checkCapability?: CapabilityChecker;
+
+  /** Optional member-readability checker for `doc` entries, passed to NavigationRenderer (objectui#10188) */
+  checkDocTarget?: DocTargetChecker;
 
   /** Called when an action-type navigation item is clicked */
   onAction?: (item: NavigationItem) => void;
@@ -356,6 +360,7 @@ function InternalSidebar({
   evalVis,
   checkPerm,
   checkCap,
+  checkDocTarget,
   onAction,
   sidebarHeader,
   sidebarFooter,
@@ -375,6 +380,7 @@ function InternalSidebar({
   evalVis: VisibilityEvaluator;
   checkPerm: PermissionChecker;
   checkCap: CapabilityChecker;
+  checkDocTarget?: DocTargetChecker;
   onAction?: (item: NavigationItem) => void;
   sidebarHeader?: React.ReactNode;
   sidebarFooter?: React.ReactNode;
@@ -461,6 +467,7 @@ function InternalSidebar({
           evaluateVisibility={evalVis}
           checkPermission={checkPerm}
           checkCapability={checkCap}
+          checkDocTarget={checkDocTarget}
           onAction={onAction}
           searchQuery={searchQuery}
           enablePinning={enablePinning}
@@ -516,6 +523,7 @@ export function AppSchemaRenderer({
   evaluateVisibility: evalVisProp,
   checkPermission: checkPermProp,
   checkCapability: checkCapProp,
+  checkDocTarget,
   onAction,
   navbar,
   sidebarHeader,
@@ -561,6 +569,7 @@ export function AppSchemaRenderer({
       evaluateVisibility: evalVis,
       checkPermission: checkPerm,
       checkCapability: checkCap,
+      checkDocTarget,
       hasActionHandler: !!onAction,
     }),
   );
@@ -604,6 +613,7 @@ export function AppSchemaRenderer({
       evalVis={evalVis}
       checkPerm={checkPerm}
       checkCap={checkCap}
+      checkDocTarget={checkDocTarget}
       onAction={onAction}
       sidebarHeader={sidebarHeader}
       sidebarFooter={sidebarFooter}

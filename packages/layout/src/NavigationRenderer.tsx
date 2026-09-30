@@ -103,6 +103,28 @@ export type PermissionChecker = (permissions: string[]) => boolean;
  */
 export type CapabilityChecker = (kind: 'object' | 'service', name: string) => boolean;
 
+/** What a `type: 'doc'` navigation entry opens: a book, a page, or that page in that book. */
+export interface DocNavTarget {
+  book?: string;
+  doc?: string;
+}
+
+/**
+ * Answers whether the signed-in member may read what a `type: 'doc'` entry
+ * opens (objectui#10188). `false` hides the entry.
+ *
+ * The server is the enforcer (ADR-0046 §6.7): its app read already drops a
+ * `doc` entry the caller may not read (objectstack#19790), and this checker is
+ * the renderer's defence in depth behind it (that ruling's point 2). This layer
+ * holds no audience rules, so the host answers from the member's own doc / book
+ * reads and never re-derives an audience. Kept apart from
+ * {@link CapabilityChecker} on purpose: that one asks whether the RUNTIME has a
+ * target, this one whether the MEMBER may read it.
+ *
+ * When not provided, `doc` entries pass — the server's answer stands.
+ */
+export type DocTargetChecker = (target: DocNavTarget) => boolean;
+
 /**
  * What an UNLABELLED navigation entry inherits its text from (objectui#9868).
  *
@@ -149,6 +171,9 @@ export interface NavigationRendererProps {
 
   /** Optional runtime-capability checker for `requiresObject` / `requiresService` */
   checkCapability?: CapabilityChecker;
+
+  /** Optional member-readability checker for `doc` entries — see {@link DocTargetChecker} */
+  checkDocTarget?: DocTargetChecker;
 
   /**
    * Called when an `action`-type item is clicked.
@@ -490,6 +515,8 @@ export interface NavigationVisibilityOptions {
   checkPermission?: PermissionChecker;
   /** Checker for `requiresObject` / `requiresService`. Defaults to pass. */
   checkCapability?: CapabilityChecker;
+  /** Checker for what a `doc` entry opens ({@link DocTargetChecker}). Defaults to pass. */
+  checkDocTarget?: DocTargetChecker;
   /**
    * Whether the host wires an `onAction` dispatcher. Without one, `action`
    * items are not rendered at all (framework#4509 — a nav entry that looks
@@ -504,7 +531,8 @@ export interface NavigationVisibilityOptions {
  * The per-item guard sequence, in ONE place.
  *
  * `visible`, then `requiredPermissions`, then the `requiresObject` /
- * `requiresService` runtime-capability gates. It answers only "does this NODE
+ * `requiresService` runtime-capability gates, then — for a `doc` entry — the
+ * host's member-readability answer (objectui#10188). It answers only "does this NODE
  * itself survive" — whether a surviving `group` has anything inside it is
  * `hasVisibleNavigationItems`'s question, and whether an `action` item has a
  * dispatcher is the caller's.
@@ -525,6 +553,7 @@ function passesNavItemGuards(
     evaluateVisibility = defaultVisibility,
     checkPermission = defaultPermission,
     checkCapability = defaultCapability,
+    checkDocTarget,
   } = options;
 
   if (!evaluateVisibility(item.visible)) return false;
@@ -533,6 +562,9 @@ function passesNavItemGuards(
   const requiresService = (item as { requiresService?: string }).requiresService;
   if (requiresObject && !checkCapability('object', requiresObject)) return false;
   if (requiresService && !checkCapability('service', requiresService)) return false;
+  // objectui#10188 — defence in depth behind the server's app read, which
+  // already drops a `doc` entry the caller may not read (objectstack#19790).
+  if (item.type === 'doc' && checkDocTarget && !checkDocTarget({ book: item.book, doc: item.doc })) return false;
   return true;
 }
 
@@ -1087,6 +1119,7 @@ function SortableNavigationItem({
   evalVis,
   checkPerm,
   checkCap,
+  checkDocTarget,
   onAction,
   enablePinning,
   onPinToggle,
@@ -1103,6 +1136,7 @@ function SortableNavigationItem({
   evalVis: VisibilityEvaluator;
   checkPerm: PermissionChecker;
   checkCap: CapabilityChecker;
+  checkDocTarget?: DocTargetChecker;
   onAction?: (item: NavigationItem) => void;
   enablePinning?: boolean;
   onPinToggle?: (itemId: string, pinned: boolean, item?: NavigationItem, basePath?: string) => void;
@@ -1138,6 +1172,7 @@ function SortableNavigationItem({
         evalVis={evalVis}
         checkPerm={checkPerm}
         checkCap={checkCap}
+        checkDocTarget={checkDocTarget}
         onAction={onAction}
         enablePinning={enablePinning}
         onPinToggle={onPinToggle}
@@ -1163,6 +1198,7 @@ function NavigationItemRenderer({
   evalVis,
   checkPerm,
   checkCap,
+  checkDocTarget,
   onAction,
   enablePinning,
   onPinToggle,
@@ -1179,6 +1215,7 @@ function NavigationItemRenderer({
   evalVis: VisibilityEvaluator;
   checkPerm: PermissionChecker;
   checkCap: CapabilityChecker;
+  checkDocTarget?: DocTargetChecker;
   onAction?: (item: NavigationItem) => void;
   enablePinning?: boolean;
   onPinToggle?: (itemId: string, pinned: boolean, item?: NavigationItem, basePath?: string) => void;
@@ -1240,6 +1277,7 @@ function NavigationItemRenderer({
     evaluateVisibility: evalVis,
     checkPermission: checkPerm,
     checkCapability: checkCap,
+    checkDocTarget,
     hasActionHandler: !!onAction,
   };
   if (!passesNavItemGuards(item, guardOptions)) return null;
@@ -1290,6 +1328,7 @@ function NavigationItemRenderer({
                     evalVis={evalVis}
                     checkPerm={checkPerm}
                     checkCap={checkCap}
+                    checkDocTarget={checkDocTarget}
                     onAction={onAction}
                     enablePinning={enablePinning}
                     onPinToggle={onPinToggle}
@@ -1476,6 +1515,7 @@ export function NavigationRenderer({
   evaluateVisibility: evalVis = defaultVisibility,
   checkPermission: checkPerm = defaultPermission,
   checkCapability: checkCap = defaultCapability,
+  checkDocTarget,
   onAction,
   searchQuery,
   enablePinning,
@@ -1518,8 +1558,9 @@ export function NavigationRenderer({
       evaluateVisibility: evalVis,
       checkPermission: checkPerm,
       checkCapability: checkCap,
+      checkDocTarget,
     }),
-    [filteredItems, evalVis, checkPerm, checkCap],
+    [filteredItems, evalVis, checkPerm, checkCap, checkDocTarget],
   );
 
   // --- Sort top-level items by order ---
@@ -1552,6 +1593,7 @@ export function NavigationRenderer({
     evalVis,
     checkPerm,
     checkCap,
+    checkDocTarget,
     onAction,
     enablePinning,
     onPinToggle,

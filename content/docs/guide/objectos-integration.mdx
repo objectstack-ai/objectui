@@ -265,11 +265,14 @@ const dataSource = new ObjectStackAdapter({
   baseUrl: 'http://localhost:3000/api'
 });
 
-// ObjectQL queries are automatically handled
+// The adapter is injected ONCE, at the renderer boundary —
+// `<SchemaRendererProvider dataSource={dataSource}>` from `@object-ui/react` —
+// never as a schema key. A node's `dataSource` is the per-element BINDING
+// (`{ object, view?, filter?, sort?, limit? }`), not the adapter, and
+// `SchemaRenderer` strips it from the props it spreads.
 const schema: ObjectGridSchema = {
   type: 'object-grid',
   objectName: 'contact',
-  dataSource,
   // Grid filter, JSON-rules form: an array of `{ field, operator, value }`
   // entries, AND-ed together. `operator` takes the canonical view-filter
   // vocabulary (`equals`, `greater_than_or_equal`, ...).

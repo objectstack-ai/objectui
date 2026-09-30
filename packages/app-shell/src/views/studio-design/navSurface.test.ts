@@ -18,9 +18,16 @@
  * alias spelling must stay unresolvable here because the schema refuses it by
  * name — Commandment #0.1, no second dialect in the consumer.
  */
-import { describe, expect, it } from 'vitest';
-import { NavigationItemSchema } from '@objectstack/spec/ui';
+import { describe, expect, expectTypeOf, it } from 'vitest';
+import { NavigationItemSchema, type I18nLabel } from '@objectstack/spec/ui';
 import { resolveSurface, findSurfaceInTree, type NavNode } from './navSurface';
+
+/**
+ * The designer locale these binding cases run in. The binding never reads it;
+ * only the label does, and the map-label cases at the end of the file pin
+ * that half (objectui#11158).
+ */
+const LOCALE = 'en-US';
 
 /** A spec-valid global-action nav item. */
 const ACTION_NODE: NavNode = {
@@ -37,7 +44,7 @@ describe('resolveSurface — action nav items (objectui#4019)', () => {
   });
 
   it('binds an action nav leaf to the `action` design surface', () => {
-    expect(resolveSurface(ACTION_NODE)).toEqual({
+    expect(resolveSurface(ACTION_NODE, LOCALE)).toEqual({
       type: 'action',
       name: 'sync_now',
       label: 'Run Sync',
@@ -45,8 +52,8 @@ describe('resolveSurface — action nav items (objectui#4019)', () => {
   });
 
   it('leaves an action item with no actionName unresolved (stays disabled)', () => {
-    expect(resolveSurface({ id: 'nav_x', type: 'action', label: 'Nothing' })).toBeNull();
-    expect(resolveSurface({ id: 'nav_x', type: 'action', label: 'Nothing', actionDef: {} })).toBeNull();
+    expect(resolveSurface({ id: 'nav_x', type: 'action', label: 'Nothing' }, LOCALE)).toBeNull();
+    expect(resolveSurface({ id: 'nav_x', type: 'action', label: 'Nothing', actionDef: {} }, LOCALE)).toBeNull();
   });
 
   it('reads the canonical key ONLY — a spelling the schema rejects stays unresolved', () => {
@@ -64,14 +71,14 @@ describe('resolveSurface — action nav items (objectui#4019)', () => {
     };
     const parsed = NavigationItemSchema.safeParse(aliasNode);
     expect(parsed.success).toBe(false);
-    expect(resolveSurface(aliasNode as NavNode)).toBeNull();
+    expect(resolveSurface(aliasNode as NavNode, LOCALE)).toBeNull();
   });
 
   it('reaches an action leaf nested in a group (the `?surface=` deep-link path)', () => {
     const tree: NavNode[] = [
       { id: 'g1', type: 'group', label: 'Ops', children: [ACTION_NODE] },
     ];
-    expect(findSurfaceInTree(tree, { type: 'action', name: 'sync_now' })).toEqual({
+    expect(findSurfaceInTree(tree, { type: 'action', name: 'sync_now' }, LOCALE)).toEqual({
       type: 'action',
       name: 'sync_now',
       label: 'Run Sync',
@@ -81,10 +88,10 @@ describe('resolveSurface — action nav items (objectui#4019)', () => {
 
 describe('resolveSurface — the variants around the new one are unchanged', () => {
   it('still binds the surface-bearing leaves', () => {
-    expect(resolveSurface({ type: 'page', pageName: 'home', label: 'Home' })?.type).toBe('page');
-    expect(resolveSurface({ type: 'object', objectName: 'crm_lead', label: 'Leads' })?.name).toBe('crm_lead');
-    expect(resolveSurface({ type: 'dashboard', dashboardName: 'sales', label: 'Sales' })?.name).toBe('sales');
-    expect(resolveSurface({ type: 'report', reportName: 'pipeline', label: 'Pipeline' })?.name).toBe('pipeline');
+    expect(resolveSurface({ type: 'page', pageName: 'home', label: 'Home' }, LOCALE)?.type).toBe('page');
+    expect(resolveSurface({ type: 'object', objectName: 'crm_lead', label: 'Leads' }, LOCALE)?.name).toBe('crm_lead');
+    expect(resolveSurface({ type: 'dashboard', dashboardName: 'sales', label: 'Sales' }, LOCALE)?.name).toBe('sales');
+    expect(resolveSurface({ type: 'report', reportName: 'pipeline', label: 'Pipeline' }, LOCALE)?.name).toBe('pipeline');
   });
 
   it('leaves the variants with no authorable target unresolved', () => {
@@ -92,10 +99,10 @@ describe('resolveSurface — the variants around the new one are unchanged', () 
     // is a divider, and `component` names a first-party UI shipped in code, so
     // none of the three has a metadata item to design. Only `action` was a
     // metadata type sitting in this bucket by omission.
-    expect(resolveSurface({ id: 'nav_docs', type: 'url', label: 'Docs', url: 'https://example.com' })).toBeNull();
-    expect(resolveSurface({ id: 'nav_sep', type: 'separator' })).toBeNull();
+    expect(resolveSurface({ id: 'nav_docs', type: 'url', label: 'Docs', url: 'https://example.com' }, LOCALE)).toBeNull();
+    expect(resolveSurface({ id: 'nav_sep', type: 'separator' }, LOCALE)).toBeNull();
     expect(
-      resolveSurface({ id: 'nav_dir', type: 'component', label: 'Directory', componentRef: 'metadata:directory' }),
+      resolveSurface({ id: 'nav_dir', type: 'component', label: 'Directory', componentRef: 'metadata:directory' }, LOCALE),
     ).toBeNull();
   });
 });
@@ -154,7 +161,7 @@ describe.each(VARIANTS)(
     it('the canonical fixture is spec-VALID and resolves to its surface', () => {
       const node = { id: `nav_${name}`, type, label, [canonicalKey]: name } as NavNode;
       expect(NavigationItemSchema.safeParse(node).success).toBe(true);
-      expect(resolveSurface(node)).toEqual({ type, name, label });
+      expect(resolveSurface(node, LOCALE)).toEqual({ type, name, label });
     });
 
     it('the bare spelling is `unrecognized_keys` in the spec AND unresolved here', () => {
@@ -166,14 +173,14 @@ describe.each(VARIANTS)(
       // Half two: the consumer does not parse it either. Non-trivial because
       // the sibling test above resolves the SAME type with only the key
       // spelling changed — this null is about the spelling, not the variant.
-      expect(resolveSurface(node)).toBeNull();
+      expect(resolveSurface(node, LOCALE)).toBeNull();
     });
 
     it('a draft carrying BOTH keys binds to the canonical one', () => {
       const node = { id: `nav_${name}`, type, label, [canonicalKey]: name, [bareKey]: 'rejected_spelling' } as NavNode;
       // Such a draft is unsaveable — the bare key alone is enough to fail.
       expect(unrecognizedKeys(node)).toContain(bareKey);
-      expect(resolveSurface(node)?.name).toBe(name);
+      expect(resolveSurface(node, LOCALE)?.name).toBe(name);
     });
   },
 );
@@ -188,7 +195,7 @@ describe('resolveSurface — there is no `view` nav variant (objectui#4881)', ()
     expect(issue?.code).toBe('invalid_union');
     expect(issue?.path).toEqual(['type']);
     // The deleted branch could only ever have run on this — i.e. never.
-    expect(resolveSurface(VIEW_LEAF)).toBeNull();
+    expect(resolveSurface(VIEW_LEAF, LOCALE)).toBeNull();
   });
 
   it('`viewName` is an OPTIONAL key ON the object item, so that leaf still binds as `object`', () => {
@@ -196,11 +203,60 @@ describe('resolveSurface — there is no `view` nav variant (objectui#4881)', ()
     // property of an object nav item, not a navigation variant of its own.
     const node = { id: 'nav_lead', type: 'object', label: 'Leads', objectName: 'crm_lead', viewName: 'all' } as NavNode;
     expect(NavigationItemSchema.safeParse(node).success).toBe(true);
-    expect(resolveSurface(node)).toEqual({ type: 'object', name: 'crm_lead', label: 'Leads' });
+    expect(resolveSurface(node, LOCALE)).toEqual({ type: 'object', name: 'crm_lead', label: 'Leads' });
   });
 
   it('the bare `view` key is `unrecognized_keys` even on an otherwise valid object item', () => {
     const node = { id: 'nav_lead', type: 'object', label: 'Leads', objectName: 'crm_lead', view: 'all' } as NavNode;
     expect(unrecognizedKeys(node)).toContain('view');
+  });
+});
+
+/**
+ * objectui#11158 — a nav item's `label` is the spec's `I18nLabel`, and
+ * `resolveSurface` resolves it once, in the designer locale.
+ *
+ * Before this card it read `String(node.label ?? '')`, so a locale map became
+ * `[object Object]` in the Surface, and every reader of the Surface (the
+ * canvas caption, the breadcrumb, the copilot chip) printed that. The map
+ * fixture parses against the spec, so it is an input the designer must handle.
+ * The designer locale is `en-US` or `zh-CN` (`useMetadataLocale`).
+ */
+describe('resolveSurface resolves a locale-map label in the designer locale (objectui#11158)', () => {
+  const MAP_NODE: NavNode = { id: 'nav_home', type: 'page', label: { en: 'Home', 'zh-CN': '首页' }, pageName: 'home' };
+
+  it('`NavNode.label` is typed as the spec types it, so the compiler refuses a raw render', () => {
+    // Compile-time: `tsc -p tsconfig.test.json` (this package's `type-check`)
+    // fails if the type narrows back to `string`, which is what let a map reach
+    // JSX unresolved.
+    expectTypeOf<NavNode['label']>().toEqualTypeOf<I18nLabel | undefined>();
+  });
+
+  it('the map-labelled fixture is spec-VALID', () => {
+    expect(NavigationItemSchema.safeParse(MAP_NODE).success).toBe(true);
+  });
+
+  it.each([
+    ['en-US', 'Home'],
+    ['zh-CN', '首页'],
+  ])('under %s the Surface carries the text %s, not the map', (locale, text) => {
+    expect(resolveSurface(MAP_NODE, locale)).toEqual({ type: 'page', name: 'home', label: text });
+  });
+
+  it('a plain-string label is carried as authored in both locales (the control)', () => {
+    const node: NavNode = { ...MAP_NODE, label: 'Home' };
+    expect(resolveSurface(node, 'en-US')?.label).toBe('Home');
+    expect(resolveSurface(node, 'zh-CN')?.label).toBe('Home');
+  });
+
+  it('an item with no label carries an empty label, as before', () => {
+    const node: NavNode = { id: 'nav_home', type: 'page', pageName: 'home' };
+    expect(resolveSurface(node, 'zh-CN')).toEqual({ type: 'page', name: 'home', label: '' });
+  });
+
+  it('`findSurfaceInTree` matches on {type,name} alone, so the same leaf is found in both locales', () => {
+    const tree: NavNode[] = [{ id: 'nav_main', type: 'group', label: { en: 'Main', 'zh-CN': '主要' }, children: [MAP_NODE] }];
+    expect(findSurfaceInTree(tree, { type: 'page', name: 'home' }, 'en-US')).toEqual({ type: 'page', name: 'home', label: 'Home' });
+    expect(findSurfaceInTree(tree, { type: 'page', name: 'home' }, 'zh-CN')).toEqual({ type: 'page', name: 'home', label: '首页' });
   });
 });

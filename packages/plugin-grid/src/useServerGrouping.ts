@@ -33,6 +33,20 @@
  * header numbers and the rows they head are one question asked twice rather
  * than two questions that might disagree.
  *
+ * ## A search rides on BOTH queries (objectui#11021)
+ *
+ * `EngineAggregateOptions` declares ADR-0061 `search` / `searchFields` beside
+ * `where` (`@objectstack/spec` 17.5.0, objectstack#20487), and the platform's
+ * grouped branch expands them with the same expander its flat `find` uses. So
+ * the grid's search term goes on the header query AND on every group's row
+ * query, as ONE pair: {@link groupSearchOf} reads the header's pair off the
+ * very row query each group's page is asked with. The header then counts the
+ * searched rows, and the rows it heads are those rows. ⛔ Never on one of the
+ * two alone: searched rows under unsearched counts (or the reverse) is two
+ * questions that disagree. `compileListViewGroupQuery` compiles grouping and
+ * `where` and takes no search, so the pair is set on the options it compiles,
+ * under the spec's own key names.
+ *
  * ## What a header row carries, and what the grid still has to do
  *
  * Every grouped field under its own name holding the RAW stored value — a
@@ -86,6 +100,13 @@ export interface ServerGroupHeadersInput {
   fields: readonly UsableGroupingField[];
   /** The view's composed filter, lowered to a `FilterCondition`. */
   where?: FilterCondition;
+  /**
+   * The search term (ADR-0061), and the fields it may match: the SAME pair
+   * each group's row query carries as `$search` / `$searchFields`, read off it
+   * by {@link groupSearchOf}. Absent when nothing is searched.
+   */
+  search?: string;
+  searchFields?: readonly string[];
   /** `object-grid.aggregations` — the per-group numbers besides the count. */
   aggregations?: AggregationConfig[];
   /** The object's field catalogue, for reference-typed grouping keys. */
@@ -113,17 +134,42 @@ export interface ServerGroupHeaders {
 const IDLE: ServerGroupHeaders = { headers: undefined, keyLabels: {}, loading: false, error: null };
 
 /**
+ * The search pair of a group row query, as the header query takes it.
+ *
+ * The grid resolves its row query once — `$search` only for a non-empty term,
+ * `$searchFields` only beside it — and hands that query to
+ * {@link useServerGroupRows}, whose every page carries both keys. Reading the
+ * header's pair off the SAME object is what keeps the header counts and the
+ * rows they head answering one search.
+ */
+export function groupSearchOf(
+  rowQuery: Readonly<Record<string, unknown>> | null,
+): Pick<ServerGroupHeadersInput, 'search' | 'searchFields'> {
+  const search = rowQuery?.$search;
+  if (typeof search !== 'string' || search === '') return {};
+  const searchFields = rowQuery?.$searchFields;
+  return Array.isArray(searchFields) && searchFields.length > 0
+    ? { search, searchFields: searchFields as string[] }
+    : { search };
+}
+
+/**
  * Ask the server for the group set and every header number — one compiled
  * header query per nesting depth.
  */
 export function useServerGroupHeaders(input: ServerGroupHeadersInput): ServerGroupHeaders {
-  const { enabled, dataSource, objectName, fields, where, aggregations, objectFields, reloadKey } = input;
+  const { enabled, dataSource, objectName, fields, where, search, searchFields, aggregations, objectFields, reloadKey } = input;
   const [state, setState] = useState<ServerGroupHeaders>(IDLE);
 
   // Keyed on CONTENT, never on the identity of an object a host may rebuild
   // every render (AGENTS.md #10).
   const fieldsKey = JSON.stringify(fields.map((f) => f.field));
   const whereKey = JSON.stringify(where ?? null);
+  const searchKey = JSON.stringify(
+    search
+      ? { search, ...(searchFields && searchFields.length > 0 ? { searchFields: [...searchFields] } : {}) }
+      : null,
+  );
   const aggregationsKey = JSON.stringify(summaryColumnsOf(aggregations));
   const referenceKey = JSON.stringify(
     fields.map((f) => {
@@ -149,19 +195,19 @@ export function useServerGroupHeaders(input: ServerGroupHeadersInput): ServerGro
     const grouping = groupingOf(fieldNames.map((field) => ({ field })));
     const columns = JSON.parse(aggregationsKey) as NonNullable<ListViewGroupQuerySource['columns']>;
     const composedWhere = JSON.parse(whereKey) as FilterCondition | null;
+    const searched = JSON.parse(searchKey) as { search: string; searchFields?: string[] } | null;
 
     (async () => {
       try {
         const headers = await Promise.all(
-          fieldNames.map((_, depthIndex) =>
-            dataSource.queryGroupHeaders!(
-              objectName,
-              compileListViewGroupQuery(
-                { grouping, columns },
-                { ...(composedWhere ? { where: composedWhere } : {}), depth: depthIndex + 1 },
-              ),
-            ),
-          ),
+          fieldNames.map((_, depthIndex) => {
+            const query = compileListViewGroupQuery(
+              { grouping, columns },
+              { ...(composedWhere ? { where: composedWhere } : {}), depth: depthIndex + 1 },
+            );
+            // Every depth counts the same searched rows (objectui#11021).
+            return dataSource.queryGroupHeaders!(objectName, searched ? { ...query, ...searched } : query);
+          }),
         );
 
         // Reference-typed keys are ids; read the records their labels come
@@ -205,7 +251,7 @@ export function useServerGroupHeaders(input: ServerGroupHeadersInput): ServerGro
     })();
 
     return () => { cancelled = true; };
-  }, [canAsk, dataSource, objectName, fieldsKey, whereKey, aggregationsKey, referenceKey, reloadKey]);
+  }, [canAsk, dataSource, objectName, fieldsKey, whereKey, searchKey, aggregationsKey, referenceKey, reloadKey]);
 
   return state;
 }
@@ -225,8 +271,9 @@ export interface ServerGroupRowsInput {
   fields: readonly UsableGroupingField[];
   where?: FilterCondition;
   /**
-   * The grid's own row query — projection, expansion and order — WITHOUT a
-   * filter or a window: each group supplies its own. `null` until the grid has
+   * The grid's own row query — projection, expansion, order and search — as
+   * the grid resolved it. Its `$filter` and window are each group's own: the
+   * view's filter reaches a group through `where`. `null` until the grid has
    * resolved it.
    */
   baseParams: Record<string, unknown> | null;
@@ -304,11 +351,12 @@ export function useServerGroupRows(input: ServerGroupRowsInput): ServerGroupRows
         limit: pageSize,
         offset: (page - 1) * pageSize,
       });
-      // The grid's projection / expansion / order, the group's filter and
-      // window. A text search has no counterpart on the header query, so it
-      // is never sent here either — the rows must stay the rows the header
-      // counted.
-      const { $search: _search, $searchFields: _searchFields, $filter: _filter, ...rest } = baseParams as Record<string, unknown>;
+      // The grid's projection / expansion / order / search, the group's filter
+      // and window. `$filter` is replaced, not dropped: the view's composed
+      // filter is already inside `compiled.where`, AND-ed with this group's
+      // key. `$search` / `$searchFields` stay: the header query carries the
+      // same pair (`groupSearchOf`), so these rows are the rows it counted.
+      const { $filter: _filter, ...rest } = baseParams as Record<string, unknown>;
       const params = {
         ...rest,
         $filter: compiled.where,

@@ -238,15 +238,19 @@ The ADR-0080 public blocks `object-metric` and `object-master-detail-form`: each
 ### AI Components (3)
 - `AIFormAssistSchema`, `AIRecommendationsSchema`, `NLQuerySchema`
 
-### ADR-0080 Public Blocks (21)
+### ADR-0080 Public Blocks (27)
 Each arm's `properties` is the block's `@objectstack/spec` `ComponentPropsMap` row, by reference. `ElementNumberBlockSchema` also declares the spec's `dataSource` binding, and mirrors the spec gate's one waiver: its bag may omit `object` when `dataSource.object` names the object.
-Every arm except the four `page:` containers (`page:card`, `page:section`, `page:footer`, `page:sidebar`) refuses `children` and `body` by name, because its renderer reads neither content channel (objectui#9256). Two carve-outs: `record:alert` refuses `children` with its own message, while its `body` is the message text and belongs in `properties`, so a flat `body` is refused with a pointer to `properties.body` rather than to `children` (objectui#10872); and `page:tabs` / `page:accordion` refuse the node's own `children` while each item's `children` in `items` stays live.
+Every arm before the six below, except the four `page:` containers (`page:card`, `page:section`, `page:footer`, `page:sidebar`) refuses `children` and `body` by name, because its renderer reads neither content channel (objectui#9256). Two carve-outs: `record:alert` refuses `children` with its own message, while its `body` is the message text and belongs in `properties`, so a flat `body` is refused with a pointer to `properties.body` rather than to `children` (objectui#10872); and `page:tabs` / `page:accordion` refuse the node's own `children` while each item's `children` in `items` stays live.
 - `PageHeaderBlockSchema`, `PageTabsBlockSchema`, `PageCardBlockSchema`, `PageAccordionBlockSchema`
 - `PageSectionBlockSchema`, `PageFooterBlockSchema`, `PageSidebarBlockSchema`
 - `RecordDetailsBlockSchema`, `RecordHighlightsBlockSchema`, `RecordRelatedListBlockSchema`
 - `RecordPathBlockSchema`, `RecordActivityBlockSchema`, `RecordDiscussionBlockSchema`
 - `RecordHistoryBlockSchema`, `RecordQuickActionsBlockSchema`, `RecordReferenceRailBlockSchema`
 - `RecordAlertBlockSchema`, `ElementTextBlockSchema`, `ElementNumberBlockSchema`, `ElementButtonBlockSchema`, `ElementDividerBlockSchema`
+- `ElementDefinitionListBlockSchema`, `ElementRepeaterBlockSchema`
+- `ActionButtonBlockSchema`, `ActionIconBlockSchema`, `ActionGroupBlockSchema`, `ActionMenuBlockSchema`
+
+The last six arrived with `@objectstack/spec` 17.5.0, whose rows for them were measured at their renderers' reads (objectui#10872 batch 4). They carry no content-channel refusal: objectui#9256 never measured them, so they take `BaseSchema`'s `children` and `body` as they are. `ActionButtonBlockSchema` and `ActionIconBlockSchema` also refuse two keys their renderers read off the node: `onClick`, a runtime slot for a host-supplied function (objectui#6124), and a flat `onSuccess`, pointed at `properties.onSuccess`, the row's member.
 
 ### Cloud Widgets (1)
 `@object-ui/app-shell`'s `cloud:` SDUI widgets. `@objectstack/spec` has no `ComponentPropsMap` row for them, so each arm is declared here from the keys its widget reads.

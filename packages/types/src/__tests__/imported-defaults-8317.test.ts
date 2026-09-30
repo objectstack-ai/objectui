@@ -102,6 +102,13 @@ import {
   RecordAlertProps as SpecRecordAlertProps,
   ElementTextPropsSchema as SpecElementTextPropsSchema,
   ElementButtonPropsSchema as SpecElementButtonPropsSchema,
+  // objectui#10872 batch 4 — the six rows `@objectstack/spec` 17.5.0 carries.
+  ElementDefinitionListPropsSchema as SpecElementDefinitionListPropsSchema,
+  ElementRepeaterPropsSchema as SpecElementRepeaterPropsSchema,
+  ActionButtonPropsSchema as SpecActionButtonPropsSchema,
+  ActionIconPropsSchema as SpecActionIconPropsSchema,
+  ActionGroupPropsSchema as SpecActionGroupPropsSchema,
+  ActionMenuPropsSchema as SpecActionMenuPropsSchema,
   // objectui#10872 batch 2 — `element:number`'s row, and the node's `dataSource`.
   ElementNumberPropsSchema as SpecElementNumberPropsSchema,
   ElementDataSourceSchema as SpecElementDataSourceSchema,
@@ -111,7 +118,7 @@ import {
   checkDashboardWidgetStageOrder,
   checkDashboardWidgetMetricMeasureArity,
 } from '@objectstack/spec/ui';
-import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
+import { FieldSchema as SpecFieldSchema, SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -264,12 +271,27 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   ['RecordAlertProps', SpecRecordAlertProps],
   ['ElementTextPropsSchema', SpecElementTextPropsSchema],
   ['ElementButtonPropsSchema', SpecElementButtonPropsSchema],
+  // objectui#10872 batch 4: the six held blocks' arms read their rows as their
+  // `properties` bags, each crossed through this boundary like every other
+  // row. None carries a default or reaches a `z.lazy`, so each strip is the
+  // identity function.
+  ['ElementDefinitionListPropsSchema', SpecElementDefinitionListPropsSchema],
+  ['ElementRepeaterPropsSchema', SpecElementRepeaterPropsSchema],
+  ['ActionButtonPropsSchema', SpecActionButtonPropsSchema],
+  ['ActionIconPropsSchema', SpecActionIconPropsSchema],
+  ['ActionGroupPropsSchema', SpecActionGroupPropsSchema],
+  ['ActionMenuPropsSchema', SpecActionMenuPropsSchema],
   // objectui#10872 batch 2: the `element:number` arm's bag is its row (with
   // `object` made optional after the strip), and its node declares
   // `dataSource` as the spec's element binding — two crossings, measured here
   // like every other one.
   ['ElementNumberPropsSchema', SpecElementNumberPropsSchema],
   ['ElementDataSourceSchema', SpecElementDataSourceSchema],
+  // objectui#11070: `FormFieldSchema` reads nine of the spec's `FieldSchema`
+  // members by reference (the field metadata a hand-authored form writes on
+  // the entry itself), and `multiple` carries the spec's `.default(false)` —
+  // exactly what this boundary exists to keep out of a parse output.
+  ['FieldSchema', SpecFieldSchema],
 ] as const;
 
 /** The subset that actually carries an imported default — where the strip does work. */
@@ -345,14 +367,15 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
     it('the walker docblock\'s `lazy` count is re-derived, not quoted', () => {
       // The `lazy` arm is the one place the identity property cannot hold: it
       // must rebuild without forcing the getter, so a clean subtree behind a
-      // `z.lazy` is rebuilt anyway. The module's docblock names FOUR such
-      // nodes (the fourth, `ViewSchema`'s form-field group, since objectui#7928)
+      // `z.lazy` is rebuilt anyway. The module's docblock names FIVE such
+      // nodes (the fourth, `ViewSchema`'s form-field group, since objectui#7928;
+      // the fifth, under `FieldSchema.relatedListFilter`, since objectui#11070)
       // and says the exception costs nothing extra for every owner but the
       // ones `REBUILT_CLEAN` names (objectui#10872 batch 2), because each
       // other owner sits inside a schema that is being rebuilt regardless.
       // Both halves are measured here, so a spec bump or an import that moves
       // either one is red rather than quietly making the docblock false.
-      expect(walk(IMPORTED.map(([, s]) => s)).lazies).toBe(4);
+      expect(walk(IMPORTED.map(([, s]) => s)).lazies).toBe(5);
       const lazyOwners = IMPORTED.filter(([, s]) => walk([s]).lazies > 0);
       expect(lazyOwners.length, 'no schema owns a lazy — the count above found them elsewhere').toBeGreaterThan(0);
       // The clean owners are exactly the named set: rebuilt (so NOT the spec's

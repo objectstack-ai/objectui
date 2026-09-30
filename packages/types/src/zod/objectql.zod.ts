@@ -50,6 +50,9 @@ import {
   // `properties` bag, by reference (`ObjectQLPublicBlockComponentSchema` below).
   ObjectMetricPropsSchema as SpecObjectMetricPropsSchema,
   ObjectMasterDetailFormPropsSchema as SpecObjectMasterDetailFormPropsSchema,
+  // objectui#11070 — the per-element data binding (`PageComponentSchema.dataSource`)
+  // the object-bound arms below declare as `dataSource`, by reference.
+  ElementDataSourceSchema as SpecElementDataSourceSchema,
   checkListViewCalendarVisualization,
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
@@ -268,11 +271,33 @@ const OBJECT_GRID_PLACEHOLDER_RETIRED =
   + '`placeholder`. The text the grid shows when it has no rows is `emptyState: { message }`.';
 
 /**
+ * objectui#11070 — ONE `.describe()` string for every object-bound arm that declares
+ * the spec's per-element binding as `dataSource` (by reference to
+ * `ElementDataSourceSchema`, spelled inline at each crossing — see `./imported-defaults.ts`
+ * on why the crossing itself is never parked in a const). Each of these blocks' registrations
+ * is gate-wrapped (`elementDataSourceBlock`), which is what publishes the key as an authored
+ * input (objectui#6678); the reads are reasoned on the TypeScript twin of `ObjectGridSchema`.
+ */
+const ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION =
+  'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema '
+  + '`PageComponentSchema.dataSource` declares, by reference: { object, view?, filter?, sort?, limit? } '
+  + 'describing WHAT this block queries. Metadata, never the data-source adapter (the host injects that; '
+  + '`SchemaRenderer` strips this key from the props it spreads so it cannot shadow the adapter).';
+
+/**
  * ObjectGrid Schema
  */
 export const ObjectGridSchema = BaseSchema.extend({
   type: z.literal('object-grid'),
   objectName: z.string().describe('ObjectQL object name'),
+  // objectui#11070 — the spec's per-element binding, by reference, as
+  // `public-blocks.zod.ts`'s `element:number` arm already declares it. The
+  // registered renderer reads it off the node through `ElementDataSourceGate`,
+  // and every gate-wrapped registration publishes it as an authored input
+  // (objectui#6678); the reasoning is on the TS twin's member.
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
   data: ViewDataSchema.optional().describe('Data source configuration'),
   columns: z.union([z.array(z.string()), z.array(ListColumnSchema)]).optional().describe('Columns configuration'),
   filter: z.array(z.any()).optional().describe('Filter criteria'),
@@ -462,6 +487,11 @@ const OBJECT_FORM_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ObjectFormSchema = BaseSchema.extend({
   type: z.literal('object-form'),
+  // objectui#11070 — the spec's per-element binding, by reference; see
+  // `ObjectGridSchema.dataSource` above.
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
   objectName: z.string().describe('ObjectQL object name'),
   mode: z.enum(['create', 'edit', 'view']).describe('Form mode'),
   recordId: z
@@ -605,6 +635,9 @@ const OBJECT_VIEW_TABLE_WITHHELD = {
   bind: tableKeyRefusal('bind', TABLE_KEY_RECORD_SOURCE),
   bulkSpecActions: tableKeyRefusal('bulkSpecActions', `${TABLE_KEY_UNREAD} Write \`bulkActions\`.`),
   data: tableKeyRefusal('data', TABLE_KEY_RECORD_SOURCE),
+  // objectui#11070 declared the per-element binding on `ObjectGridSchema`; on
+  // the view's grid it is one more record source the view owns.
+  dataSource: tableKeyRefusal('dataSource', TABLE_KEY_RECORD_SOURCE),
   description: tableKeyRefusal('description', `${TABLE_KEY_NOT_RELAYED} Write \`description\` on the object-view node itself.`),
   disabled: tableKeyRefusal('disabled', TABLE_KEY_NODE_LEVEL),
   disabledOn: tableKeyRefusal('disabledOn', TABLE_KEY_NODE_LEVEL),
@@ -1584,6 +1617,13 @@ export const ListViewSchema = BaseSchema
   .extend({
     // Component discriminator — load-bearing for the ObjectQLComponentSchema union.
     type: z.literal('list-view'),
+    // objectui#11070 — the spec's per-element binding, by reference; see
+    // `ObjectGridSchema.dataSource`. The spec's `ListViewSchema` declares no
+    // `dataSource`, so this is a node-level member of objectui's arm, and the
+    // TS `ListViewSchema` inherits it through `ListViewInferred`.
+    dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+      .optional()
+      .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
     // objectui-only object binding (spec binds via data.provider:'object'; migration deferred).
     objectName: z.string().describe('Object Name'),
     // Renamed spec `type` (view-kind); enum imported from spec so it can't drift.
@@ -2000,6 +2040,11 @@ const OBJECT_MAP_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ObjectMapSchema = BaseSchema.extend({
   type: z.literal('object-map'),
+  // objectui#11070 — the spec's per-element binding, by reference; this block's
+  // registration is gate-wrapped. See `ObjectGridSchema.dataSource`.
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
   objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source getDataConfig resolves, after data and staticData; one of the three must be present'),
   data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by getDataConfig'),
   staticData: z.array(z.any()).optional().describe('Inline records — read SECOND by getDataConfig, wrapped into a { provider: value } config'),
@@ -2073,6 +2118,11 @@ const OBJECT_GANTT_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ObjectGanttSchema = BaseSchema.extend({
   type: z.literal('object-gantt'),
+  // objectui#11070 — the spec's per-element binding, by reference; this block's
+  // registration is gate-wrapped. See `ObjectGridSchema.dataSource`.
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
   objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present'),
   data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by resolveRecordSourceConfig'),
   startDateField: z.string().optional().describe('Start date field'),
@@ -2233,6 +2283,11 @@ const OBJECT_CALENDAR_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ObjectCalendarSchema = BaseSchema.extend({
   type: z.literal('object-calendar'),
+  // objectui#11070 — the spec's per-element binding, by reference; this block's
+  // registration is gate-wrapped. See `ObjectGridSchema.dataSource`.
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
   objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present (objectui#7313)'),
   // objectui#9239 — the ARRAY arm, mirroring `ComponentPropsMap['object-calendar'].data`
   // on `@objectstack/spec` (`z.array(z.unknown()).optional()`, "Pre-fetched
@@ -2509,6 +2564,11 @@ const OBJECT_KANBAN_NEITHER_CHANNEL = neitherContentChannelGuidance(
 // VIEW-LEVEL alias `KanbanConfig.groupField` above is live and untouched.
 export const ObjectKanbanSchema = BaseSchema.extend({
   type: z.literal('object-kanban'),
+  // objectui#11070 — the spec's per-element binding, by reference; see
+  // `ObjectGridSchema.dataSource`.
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
   objectName: z.string().optional().describe('ObjectQL object name — the LAST rung of the board ladder, after the pre-fetched data prop, bind and the inline row array on data; one of bind, data, objectName must be present (objectui#7780)'),
   // objectui#8990 — OPTIONAL, mirroring `@objectstack/spec`
   // (`ObjectKanbanPropsSchema.groupBy` is `z.string().optional()`). Required

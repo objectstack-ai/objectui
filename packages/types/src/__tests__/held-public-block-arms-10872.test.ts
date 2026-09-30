@@ -1,0 +1,267 @@
+/**
+ * ObjectUI
+ * Copyright (c) 2024-present ObjectStack Inc.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+/**
+ * The six public blocks held back from batch 1 validate by their spec
+ * `ComponentPropsMap` rows (objectui#10872, batch 4).
+ *
+ * ## The defect these pin
+ *
+ * `action:button`, `action:group`, `action:menu`, `action:icon`,
+ * `element:definition-list` and `element:repeater` are registered and curated
+ * by ADR-0080, and `AnyComponentSchema` carried no arm for any of them — so
+ * `safeValidateSchema` and `objectui validate` refused every document naming
+ * one with `invalid_union` at `type`. That included the node the validator's
+ * own handler-key remedy teaches (`action:button`). They were held because
+ * `@objectstack/spec` had no row for them; 17.5.0 carries one for each,
+ * measured at the renderers' read points (objectstack-ai/objectstack#20371).
+ *
+ * ## What is read, and against what
+ *
+ * Every reading below is taken against the INSTALLED spec's row, so a row the
+ * spec moves moves these readings with it. The "read point" block pins where
+ * the rows disagree with the blocks' registrations — each a key a registration
+ * publishes that no renderer reads — at the validator: the arm follows the
+ * row, so it refuses what the row refuses. The registrations themselves are
+ * not this file's (see `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`).
+ */
+
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import type { z } from 'zod';
+import { ComponentPropsMap, PageComponentSchema } from '@objectstack/spec/ui';
+
+import {
+  ActionButtonBlockSchema,
+  ActionGroupBlockSchema,
+  ActionIconBlockSchema,
+  ActionMenuBlockSchema,
+  ElementDefinitionListBlockSchema,
+  ElementRepeaterBlockSchema,
+  PublicBlockComponentSchema,
+  StrictAnyComponentSchema,
+  safeValidateSchema,
+} from '../zod/index.zod.js';
+import { stripImportedDefaults } from '../zod/imported-defaults.js';
+
+type Issue = { code: string; path: PropertyKey[]; message: string; keys?: string[]; errors?: Issue[][] };
+type Result = { success: boolean; error?: { issues: z.core.$ZodIssue[] } };
+
+const FACES: ReadonlyArray<readonly [string, (document: unknown) => Result]> = [
+  ['tolerant', (document) => safeValidateSchema(document)],
+  ['strict', (document) => StrictAnyComponentSchema.safeParse(document)],
+];
+
+/** The six batch-4 blocks and the arm each one exports. */
+const ARMS: ReadonlyArray<readonly [type: string, arm: z.ZodObject]> = [
+  ['action:button', ActionButtonBlockSchema as unknown as z.ZodObject],
+  ['action:icon', ActionIconBlockSchema as unknown as z.ZodObject],
+  ['action:group', ActionGroupBlockSchema as unknown as z.ZodObject],
+  ['action:menu', ActionMenuBlockSchema as unknown as z.ZodObject],
+  ['element:definition-list', ElementDefinitionListBlockSchema as unknown as z.ZodObject],
+  ['element:repeater', ElementRepeaterBlockSchema as unknown as z.ZodObject],
+];
+const TYPES = ARMS.map(([type]) => type);
+
+const rowOf = (type: string): z.ZodType => (ComponentPropsMap as unknown as Record<string, z.ZodType>)[type];
+const bagOf = (arm: z.ZodObject): z.ZodType => (arm.shape.properties as z.ZodOptional).unwrap() as z.ZodType;
+const keysOf = (schema: z.ZodType): string[] =>
+  Object.keys((schema as unknown as { shape?: Record<string, unknown> }).shape ?? {}).sort();
+
+/** Every issue, union branches unfolded and paths made absolute. */
+const allIssues = (issues: Issue[] | undefined, prefix: PropertyKey[] = []): Issue[] =>
+  (issues ?? []).flatMap((issue) => {
+    const path = [...prefix, ...issue.path];
+    return [{ ...issue, path }, ...(issue.errors ?? []).flatMap((branch) => allIssues(branch, path))];
+  });
+const issuesOf = (result: Result): Issue[] => allIssues(result.error?.issues as unknown as Issue[] | undefined);
+const at = (result: Result, path: string): Issue[] => issuesOf(result).filter((i) => i.path.join('.') === path);
+const refusedKeys = (result: Result): string[] =>
+  issuesOf(result).flatMap((i) => (i.code === 'unrecognized_keys' ? i.keys ?? [] : []));
+
+describe('objectui#10872 batch 4 — the six held blocks are armed, by reference', () => {
+  it('each arm is a member of `PublicBlockComponentSchema`, under its own literal', () => {
+    const options = (PublicBlockComponentSchema as unknown as { options: z.ZodObject[] }).options;
+    for (const [type, arm] of ARMS) {
+      expect(options, type).toContain(arm);
+      expect((arm.shape.type as z.ZodLiteral).value, type).toBe(type);
+    }
+  });
+
+  it.each(TYPES)('%s: the spec carries a row, and it is in the page vocabulary', (type) => {
+    expect(rowOf(type), `${type} has no ComponentPropsMap row on the installed spec`).toBeDefined();
+    expect(PageComponentSchema.safeParse({ type }).success).toBe(true);
+  });
+
+  it.each(ARMS)('%s: the bag IS the spec row — nothing restated, nothing stripped', (type, arm) => {
+    const row = rowOf(type);
+    // All six rows carry no default and no `z.lazy`, so the import boundary is
+    // the identity function on them (objectui#8317)…
+    expect(stripImportedDefaults(row)).toBe(row);
+    // …and the arm holds the spec's own schema: its DEFINITION is the row's.
+    // Not `toBe(row)`: 17.5.0 publishes these rows as lazy proxies whose
+    // methods run on the real schema, so `.optional()` wraps the object behind
+    // the proxy, and the definition is the identity that survives.
+    expect((bagOf(arm) as unknown as { _zod: { def: unknown } })._zod.def)
+      .toBe((row as unknown as { _zod: { def: unknown } })._zod.def);
+    expect(keysOf(bagOf(arm))).toEqual(keysOf(row));
+  });
+
+  it.each(TYPES)('%s: no longer refused at `type` — the minimal node parses on both faces', (type) => {
+    for (const [face, judge] of FACES) {
+      const result = judge({ type });
+      expect(result.success, `${face}: ${JSON.stringify(result.error?.issues)}`).toBe(true);
+    }
+  });
+
+  it('CONTROL — an unarmed namespaced literal is still refused at `type`', () => {
+    const result = safeValidateSchema({ type: 'action:no-such-control-10872' });
+    expect(result.success).toBe(false);
+    expect(at(result, 'type').map((i) => i.code)).toContain('invalid_union');
+  });
+});
+
+describe('objectui#10872 batch 4 — the arm follows the row, which follows the read points', () => {
+  it.each(FACES)('%s face: `action:group` refuses a group-level `name`, which no renderer reads', (_face, judge) => {
+    const result = judge({ type: 'action:group', properties: { name: 'row_actions', actions: [] } });
+    expect(result.success).toBe(false);
+    expect(refusedKeys(result)).toContain('name');
+    // Control: the same bag without it parses.
+    expect(judge({ type: 'action:group', properties: { actions: [] } }).success).toBe(true);
+  });
+
+  it.each(FACES)('%s face: `action:group` refuses `size: "md"`, which inline mode hands the primitive raw', (_face, judge) => {
+    const result = judge({ type: 'action:group', properties: { size: 'md' } });
+    expect(result.success).toBe(false);
+    expect(at(result, 'properties.size').length).toBeGreaterThan(0);
+    expect(judge({ type: 'action:group', properties: { size: 'sm' } }).success).toBe(true);
+    // `action:menu` hands its `size` to the primitive unmapped on every path.
+    expect(at(judge({ type: 'action:menu', properties: { size: 'md' } }), 'properties.size').length).toBeGreaterThan(0);
+    expect(judge({ type: 'action:menu', properties: { size: 'icon' } }).success).toBe(true);
+  });
+
+  it.each(FACES)('%s face: `element:definition-list` takes the NUMBER `columns` the renderer compares', (_face, judge) => {
+    const result = judge({ type: 'element:definition-list', properties: { columns: '2' } });
+    expect(result.success).toBe(false);
+    expect(at(result, 'properties.columns').length).toBeGreaterThan(0);
+    expect(judge({ type: 'element:definition-list', properties: { columns: 2 } }).success).toBe(true);
+  });
+
+  it.each(FACES)('%s face: `element:definition-list` items are strict `{ term, description }`', (_face, judge) => {
+    // The `label` / `value` items the designer wrote until objectui#8279, every row blank.
+    const result = judge({ type: 'element:definition-list', properties: { items: [{ label: 'Owner', value: 'Ada' }] } });
+    expect(result.success).toBe(false);
+    expect(refusedKeys(result)).toEqual(expect.arrayContaining(['label', 'value']));
+  });
+
+  it.each(FACES)('%s face: `element:repeater` refuses a `fields[].label`, which the list never prints', (_face, judge) => {
+    const result = judge({ type: 'element:repeater', properties: { object: 'task', fields: [{ field: 'subject', label: 'Subject' }] } });
+    expect(result.success).toBe(false);
+    expect(refusedKeys(result)).toContain('label');
+    expect(judge({ type: 'element:repeater', properties: { object: 'task', fields: [{ field: 'subject' }, 'status'] } }).success)
+      .toBe(true);
+  });
+
+  it.each(FACES)('%s face: `element:repeater` requires `object` — no `dataSource` waiver, it never reads one', (_face, judge) => {
+    const result = judge({ type: 'element:repeater', properties: { limit: 5 } });
+    expect(result.success).toBe(false);
+    expect(at(result, 'properties.object').length).toBeGreaterThan(0);
+  });
+
+  it.each(FACES)('%s face: `objectName` is the two single actions\' key, and each MEMBER\'s on the containers', (_face, judge) => {
+    expect(judge({ type: 'action:button', properties: { label: 'Log call', objectName: 'task' } }).success).toBe(true);
+    expect(judge({ type: 'action:icon', properties: { icon: 'phone', objectName: 'task' } }).success).toBe(true);
+    // The containers forward it per member, so it rides the member object…
+    expect(judge({ type: 'action:group', properties: { actions: [{ name: 'log', objectName: 'task' }] } }).success).toBe(true);
+    expect(judge({ type: 'action:menu', properties: { actions: [{ name: 'log', objectName: 'task' }] } }).success).toBe(true);
+    // …and the container rows refuse it at container level.
+    expect(refusedKeys(judge({ type: 'action:group', properties: { objectName: 'task' } }))).toContain('objectName');
+    expect(refusedKeys(judge({ type: 'action:menu', properties: { objectName: 'task' } }))).toContain('objectName');
+  });
+});
+
+describe('objectui#10872 batch 4 — the two handler keys the action renderers read off the node', () => {
+  it.each([['action:button'], ['action:icon']])('%s refuses an authored `onClick` by name — a runtime slot (objectui#6124)', (type) => {
+    for (const [face, judge] of FACES) {
+      const result = judge({ type, onClick: { action: 'toast' } });
+      expect(result.success, face).toBe(false);
+      const issue = at(result, 'onClick')[0];
+      expect(issue?.code, face).toBe('custom');
+      expect(issue?.message, face).toContain('RUNTIME SLOT');
+      // Control: the node without it parses.
+      expect(judge({ type }).success, face).toBe(true);
+    }
+    // The row does not take it in the bag either.
+    expect(refusedKeys(safeValidateSchema({ type, properties: { onClick: { action: 'toast' } } }))).toContain('onClick');
+  });
+
+  it.each([['action:button'], ['action:icon']])('%s refuses a flat `onSuccess`, naming `properties.onSuccess`', (type) => {
+    for (const [face, judge] of FACES) {
+      const result = judge({ type, onSuccess: { navigate: '/tasks' } });
+      expect(result.success, face).toBe(false);
+      const issue = at(result, 'onSuccess')[0];
+      expect(issue?.code, face).toBe('invalid_type');
+      expect(issue?.message, face).toContain('Did you mean `onSuccess` → `properties.onSuccess`?');
+      // What the remedy sends the author to is accepted.
+      expect(judge({ type, properties: { onSuccess: { navigate: '/tasks' } } }).success, face).toBe(true);
+    }
+    // The spec's own page component refuses the flat spelling as well.
+    expect(PageComponentSchema.safeParse({ type, onSuccess: { navigate: '/tasks' } }).success).toBe(false);
+  });
+});
+
+/* ── The taught `action:button` node ──────────────────────────────────────── */
+
+/** Rooted on this file, never on `process.cwd()`. */
+const HERE = dirname(fileURLToPath(import.meta.url));
+const QUICK_START = join(HERE, '..', '..', '..', '..', 'content', 'docs', 'guide', 'quick-start.md');
+
+/** The quick-start's "Add Actions" node — the one AGENTS.md #4 teaches, read from the page that teaches it. */
+function taughtActionButton(): Record<string, unknown> {
+  const doc = readFileSync(QUICK_START, 'utf8');
+  const section = doc.slice(doc.indexOf('### Add Actions'));
+  const fence = /```json\n([\s\S]*?)\n```/.exec(section);
+  if (!fence) throw new Error('no ```json fence under "### Add Actions" in the quick-start');
+  return JSON.parse(fence[1]) as Record<string, unknown>;
+}
+
+describe('objectui#10872 batch 4 — a page with an `action:button` validates', () => {
+  it('reads the taught node (non-vacuity)', () => {
+    const node = taughtActionButton();
+    expect(node.type).toBe('action:button');
+    expect(node.actionType).toBe('url');
+  });
+
+  it('the taught node, in a page, passes the tolerant face `objectui validate` runs', () => {
+    const page = { type: 'page', title: 'Users', children: [{ type: 'page:header', properties: { title: 'Users' } }, taughtActionButton()] };
+    const result = safeValidateSchema(page);
+    expect(result.success, JSON.stringify(result.error?.issues)).toBe(true);
+  });
+
+  it.each(FACES)('%s face: the same node in the spec\'s spelling — its props in `properties` — validates', (_face, judge) => {
+    const { type, ...props } = taughtActionButton();
+    const page = { type: 'page', children: [{ type: 'page:header', properties: { title: 'Users' } }, { type, properties: props }] };
+    const result = judge(page);
+    expect(result.success, JSON.stringify(result.error?.issues)).toBe(true);
+  });
+
+  it('⚠️ the strict face refuses the taught node\'s FLAT props — the flat-props question objectui#10872 holds', () => {
+    // A prop written flat on the node is not judged against the row: `label` is
+    // a `BaseSchema` key, and `actionType` / `target` are undeclared there, so
+    // the strict face refuses exactly those two, as the spec's own
+    // `PageComponentSchema` does. Whether the flat spelling becomes an
+    // authoring channel for `action:*` is that card's call; this reading moves
+    // with it.
+    const result = StrictAnyComponentSchema.safeParse(taughtActionButton());
+    expect(result.success).toBe(false);
+    expect(refusedKeys(result).sort()).toEqual(['actionType', 'target']);
+    expect(PageComponentSchema.safeParse(taughtActionButton()).success).toBe(false);
+  });
+});

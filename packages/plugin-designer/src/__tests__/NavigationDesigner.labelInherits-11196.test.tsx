@@ -85,7 +85,8 @@ describe("objectui#11196 — the app wizard's Navigation step names a label-less
   it('lists each entry by its inherited text, and an authored label verbatim', () => {
     render(
       <AppCreationWizard
-        availableObjects={[{ name: 'contact', label: 'Contact', pluralLabel: 'Contacts' }]}
+        // Selected: leaving the Objects step drops the entry of an object listed but deselected.
+        availableObjects={[{ name: 'contact', label: 'Contact', pluralLabel: 'Contacts', selected: true }]}
         initialDraft={{
           name: 'acme_crm',
           title: 'Acme CRM',

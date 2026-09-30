@@ -31,7 +31,7 @@ import {
   Button, Input, Label, Checkbox,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@object-ui/components';
-import { flagUnknownValue, uniqueId } from './_shared.js';
+import { flagUnknownValue, RequiredMarker, uniqueId } from './_shared.js';
 import type { FlowConfigColumn } from './flow-node-config.js';
 import { t, useMetadataLocale } from '../i18n.js';
 import { ReferenceCombobox, resolveRefKind, type FlowReferenceContext } from './FlowReferenceField.js';
@@ -158,6 +158,16 @@ export interface FlowObjectListFieldProps {
    * `visibleWhen` column reads the screen's declared fields, not `scopeGroups`.
    */
   fieldId?: string;
+  /** The spec requires this list (objectui#10948): its label carries {@link RequiredMarker}. */
+  required?: boolean;
+  /**
+   * objectui#10948: the column keys the spec requires on every row (a decision
+   * branch's `label`, a screen field's `name`) — computed by the host from the
+   * installed spec (`specRequiredColumns`), never listed here. Each row marks
+   * that column's label with {@link RequiredMarker}, and a scalar cell the row
+   * renders itself carries `aria-required`. Not forwarded to a nested list.
+   */
+  requiredColumns?: ReadonlySet<string>;
 }
 
 export function FlowObjectListField({
@@ -174,6 +184,8 @@ export function FlowObjectListField({
   scopeGroups,
   approvalScopeGroups,
   fieldId,
+  required,
+  requiredColumns,
 }: FlowObjectListFieldProps) {
   // The add/remove/empty/item labels arrive translated from the caller; the
   // flag on a stored select value is composed in this file, so it reads the
@@ -258,7 +270,10 @@ export function FlowObjectListField({
 
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Label className="text-xs text-muted-foreground">
+        {label}
+        {required && <RequiredMarker />}
+      </Label>
       <div className="space-y-2">
         {rows.length === 0 && (
           <p className="text-[11px] italic text-muted-foreground">{emptyLabel}</p>
@@ -332,10 +347,12 @@ export function FlowObjectListField({
                     </div>
                   );
                 }
+                const cellRequired = requiredColumns?.has(col.key) === true;
                 return (
                   <div key={col.key} className="flex items-center gap-2">
                   <Label className="w-24 shrink-0 text-[11px] text-muted-foreground">
                     {col.label}
+                    {cellRequired && <RequiredMarker />}
                   </Label>
                   {col.kind === 'boolean' ? (
                     <Checkbox
@@ -376,6 +393,7 @@ export function FlowObjectListField({
                               groups={approvalScopeGroups ?? []}
                               placeholder={col.placeholder ?? 'current.<field> · trigger.<field> · vars.<node>.<key>'}
                               disabled={disabled}
+                              ariaRequired={cellRequired}
                             />
                             <FlowExprIssue value={raw} role="value" scopeGroups={approvalScopeGroups} />
                           </div>
@@ -427,7 +445,7 @@ export function FlowObjectListField({
                             onValueChange={(v) => commitCell(row.id, col.key, v)}
                             disabled={disabled}
                           >
-                            <SelectTrigger className="h-8 w-full text-xs">
+                            <SelectTrigger className="h-8 w-full text-xs" aria-required={cellRequired ? true : undefined}>
                               <SelectValue placeholder={col.placeholder ?? '—'} />
                             </SelectTrigger>
                             <SelectContent>
@@ -463,6 +481,7 @@ export function FlowObjectListField({
                             groups={screenNode ? screenScopeGroups(screenNode, locale) : (scopeGroups ?? [])}
                             placeholder={col.placeholder}
                             disabled={disabled}
+                            ariaRequired={cellRequired}
                           />
                           <FlowExprIssue
                             value={raw}
@@ -483,6 +502,7 @@ export function FlowObjectListField({
                       }}
                       placeholder={col.placeholder}
                       disabled={disabled}
+                      aria-required={cellRequired ? true : undefined}
                       className="h-8 flex-1 text-xs"
                     />
                   )}

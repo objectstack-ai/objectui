@@ -77,6 +77,11 @@ export interface VariableTextInputProps {
   /** Monospace the input text (expressions). Textareas are always mono. */
   mono?: boolean;
   className?: string;
+  /**
+   * The host marks this value required (objectui#10948): announced on the
+   * input as `aria-required`, beside the visual marker the host's label draws.
+   */
+  ariaRequired?: boolean;
 }
 
 export function VariableTextInput({
@@ -92,6 +97,7 @@ export function VariableTextInput({
   rows = 4,
   mono,
   className,
+  ariaRequired,
 }: VariableTextInputProps) {
   const inputRef = React.useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
   // Remember the caret across the button press (which blurs the field) so the
@@ -147,6 +153,7 @@ export function VariableTextInput({
     onClick: rememberCaret,
     placeholder,
     disabled,
+    'aria-required': ariaRequired ? true : undefined,
   };
 
   return (

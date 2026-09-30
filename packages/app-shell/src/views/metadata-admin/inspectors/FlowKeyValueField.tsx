@@ -26,7 +26,7 @@
 import * as React from 'react';
 import { Code2, Plus, X } from 'lucide-react';
 import { Button, Input, Label, cn } from '@object-ui/components';
-import { uniqueId } from './_shared.js';
+import { RequiredMarker, uniqueId } from './_shared.js';
 import { VariableTextInput } from './VariableTextInput.js';
 import type { ScopeGroup } from './useFlowScope.js';
 import { FlowExprIssue } from './FlowExprIssue.js';
@@ -211,6 +211,8 @@ export interface FlowKeyValueFieldProps {
     /** Placeholder of an expression row's source input. */
     expressionPlaceholder: string;
   };
+  /** The spec requires this map (objectui#10948): the label carries {@link RequiredMarker}. */
+  required?: boolean;
 }
 
 /**
@@ -242,6 +244,7 @@ export function FlowKeyValueField({
   emptyLabel,
   scopeGroups,
   valueEnvelope,
+  required,
 }: FlowKeyValueFieldProps) {
   // Preserve whichever shape the value was authored in (object map vs the
   // assignment-node array form) across edits.
@@ -301,7 +304,10 @@ export function FlowKeyValueField({
 
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Label className="text-xs text-muted-foreground">
+        {label}
+        {required && <RequiredMarker />}
+      </Label>
       {envelopeSlot && arrayShape && (
         <p className="text-[11px] leading-snug text-amber-700 dark:text-amber-400" role="note">
           {ASSIGNMENT_ARRAY_FORM_PRESCRIPTION}

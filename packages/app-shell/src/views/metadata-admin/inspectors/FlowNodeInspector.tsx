@@ -54,6 +54,7 @@ import {
 import { applyDecisionBranches, syncDecisionEdgesByOrder, withBranchTargets } from './flow-decision-edges.js';
 import { useActionConfigSchemas } from '../previews/useFlowNodePalette.js';
 import { FlowNodeConfigField } from './FlowNodeConfigField.js';
+import { specRequiredColumns, specRequiresField } from './flow-required-keys.js';
 import { useFlowScope } from './useFlowScope.js';
 import { hasCommittedConnectorAction, nodeOutputRefs, type ScopeRef } from './flow-scope.js';
 import { NESTED_NODE_KIND, parseNestedNodeId, locateFlowNode, type InspectorFlowNode } from './flow-nested-selection.js';
@@ -246,6 +247,22 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
   // `triggerType: 'api'`, and only the draft can answer the first.
   const flowKind = resolveFlowTriggerKind(draft);
   const visibleFields = fields.filter((f) => isFieldVisible(f, node, fields, flowKind));
+  // objectui#10948 — the fields holding a key the installed spec refuses this
+  // node without, so the author sees the requirement before the save-time error
+  // names it. Asked of the spec itself for the node as it stands
+  // (`flow-required-keys.ts`), never read from a list kept here; recomputed on
+  // every edit, so a rule-dependent requirement (`notify`'s `title` while it has
+  // no `template`) follows the configuration.
+  const requiredness = React.useMemo(() => {
+    const out = new Map<string, { required: boolean; columns?: ReadonlySet<string> }>();
+    for (const f of fields) {
+      out.set(f.id, {
+        required: specRequiresField(node, f),
+        columns: f.kind === 'objectList' ? specRequiredColumns(node, f) : undefined,
+      });
+    }
+    return out;
+  }, [node, fields]);
 
   // `{var}` interpolation source for the screen preview — the flow's declared
   // variables and their defaults (the designer has no live run state).
@@ -492,6 +509,8 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
             // which the nested-branch rewrite above does not touch.
             inactiveRetained={inactiveRetainedKind(field, node, fields, flowKind)}
             onClearInactive={readOnly ? undefined : () => setField(field, undefined)}
+            required={requiredness.get(field.id)?.required}
+            requiredColumns={requiredness.get(field.id)?.columns}
           />
         );
       })}

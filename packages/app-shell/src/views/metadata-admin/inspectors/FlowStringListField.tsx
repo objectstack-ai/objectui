@@ -13,7 +13,7 @@
 import * as React from 'react';
 import { Plus, X } from 'lucide-react';
 import { Button, Input, Label } from '@object-ui/components';
-import { uniqueId } from './_shared.js';
+import { RequiredMarker, uniqueId } from './_shared.js';
 
 interface Row {
   id: string;
@@ -42,6 +42,8 @@ export interface FlowStringListFieldProps {
   itemLabel: string;
   removeLabel: string;
   emptyLabel: string;
+  /** The spec requires this list (objectui#10948): the label carries {@link RequiredMarker}. */
+  required?: boolean;
 }
 
 export function FlowStringListField({
@@ -53,6 +55,7 @@ export function FlowStringListField({
   itemLabel,
   removeLabel,
   emptyLabel,
+  required,
 }: FlowStringListFieldProps) {
   const external = React.useMemo(
     () => (Array.isArray(value) ? value.map((v) => String(v)) : []),
@@ -93,7 +96,10 @@ export function FlowStringListField({
 
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Label className="text-xs text-muted-foreground">
+        {label}
+        {required && <RequiredMarker />}
+      </Label>
       <div className="space-y-1.5">
         {rows.length === 0 && (
           <p className="text-[11px] italic text-muted-foreground">{emptyLabel}</p>

@@ -15,6 +15,7 @@ import { useObjectTranslation } from '@object-ui/i18n';
 import { rewriteDocLinks } from './doc-links';
 import { DocShell } from './DocShell';
 import { BookSidebar } from './BookSidebar';
+import { DocRefusal } from './BookPage';
 import { useBookData } from './use-book-data';
 import { resolveBookTree, scopeDocsToBook, bookSlug, bookNamedBy, type ResolvedBook } from './book-nav';
 
@@ -36,6 +37,10 @@ interface DocItem {
  * Per the ADR, an unresolvable doc (bad URL, or a cross-package link
  * whose target was removed in a newer dependency version) degrades to a
  * "not found" notice — never an install-time or hard failure.
+ *
+ * A doc the member may not read is a different answer: the server refuses it
+ * with 401 / 403 (ADR-0046 §6.7), and the page shows that refusal, with the
+ * server's reason, rather than "not found" or a load failure (objectui#10188).
  */
 export default function DocPage() {
   // Route is `/docs/:slug/:name` (`:slug` = book, `:name` = doc). `appName` is
@@ -45,7 +50,7 @@ export default function DocPage() {
   const adapter = useAdapter();
   const { t } = useObjectTranslation();
   const [doc, setDoc] = useState<DocItem | null>(null);
-  const [state, setState] = useState<'loading' | 'ready' | 'missing' | 'error'>('loading');
+  const [state, setState] = useState<'loading' | 'ready' | 'missing' | 'refused' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
@@ -68,9 +73,17 @@ export default function DocPage() {
         }
       } catch (err: any) {
         if (cancelled) return;
+        // `@objectstack/client` rejects a non-2xx read with the status in
+        // `httpStatus`. 401 / 403 is the audience gate refusing this member
+        // (objectui#10188) — a refusal, never "not found".
+        const status = err?.httpStatus;
+        if (status === 401 || status === 403) {
+          setErrorMessage(err?.message ?? '');
+          setState('refused');
+          return;
+        }
         // The metadata API answers 404 for unknown names — that is the
         // ADR-mandated soft-degrade path, not an error.
-        const status = err?.status ?? err?.response?.status;
         if (status === 404 || /not found/i.test(err?.message ?? '')) {
           setState('missing');
         } else {
@@ -179,6 +192,10 @@ export default function DocPage() {
         </div>
       </DocShell>
     );
+  }
+
+  if (state === 'refused') {
+    return <DocRefusal name={name} message={errorMessage} />;
   }
 
   if (state === 'error') {

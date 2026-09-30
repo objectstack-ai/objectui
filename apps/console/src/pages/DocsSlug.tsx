@@ -6,12 +6,44 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import { useEffect, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { FileQuestion, Loader2 } from 'lucide-react';
+import { useAdapter } from '@object-ui/app-shell';
 import { DocShell } from './DocShell';
-import BookPage from './BookPage';
+import BookPage, { DocRefusal } from './BookPage';
 import { useBookData } from './use-book-data';
 import { bookNamedBy, bookSlug, homeBook } from './book-nav';
+
+/** What the server says about one segment the member's lists do not answer. */
+type SegmentAnswer = { slug: string; refusal: string | null };
+
+/**
+ * objectui#10188 — ask the server about ONE name: the doc, then the book. The
+ * member's `doc` / `book` lists are pruned per caller (ADR-0046 §6.7), so a name
+ * missing from them is either absent or refused, and only the single-item read
+ * tells the two apart: 401 / 403 is the audience gate refusing this member, and
+ * the server's reason comes back as the answer; anything else (404, a served
+ * item) leaves the portal's own answer standing. `@objectstack/client` rejects a
+ * non-2xx read with the status in `httpStatus`.
+ */
+async function refusalFor(
+  client: { meta: { getItem: (type: string, name: string, options?: { packageId?: string }) => Promise<unknown> } },
+  name: string,
+  options: { packageId?: string } | undefined,
+): Promise<string | null> {
+  for (const type of ['doc', 'book'] as const) {
+    try {
+      await client.meta.getItem(type, name, options);
+      return null; // served: not a refusal
+    } catch (err) {
+      const status = (err as { httpStatus?: unknown } | null)?.httpStatus;
+      if (status === 401 || status === 403) return (err as Error)?.message ?? '';
+      if (status !== 404) return null;
+    }
+  }
+  return null;
+}
 
 /**
  * `/docs/:slug` — resolves a single segment under the portal to either a book
@@ -31,12 +63,38 @@ import { bookNamedBy, bookSlug, homeBook } from './book-nav';
  * that stand today (a book slug, then an installed doc's name), and before the
  * name-prefix fallback, whose redirect for a name no installed doc carries lands
  * on "not found". So nothing that resolves today changes its answer.
+ *
+ * A segment none of the member's lists answers is asked about ONCE, by name, before
+ * that fallback (objectui#10188): a doc or book the member may not read renders the
+ * refusal, in place, and a name nothing carries keeps every answer above.
  */
 export default function DocsSlug() {
   const { slug, appName } = useParams<{ slug: string; appName?: string }>();
   const { books, docs, state } = useBookData();
+  const adapter = useAdapter();
 
-  if (state === 'loading') {
+  // Answered by the member's own lists: a book slug, a readable doc, a book NAME.
+  const unanswered =
+    state === 'ready' &&
+    !!slug &&
+    !books.some((b) => bookSlug(b) === slug) &&
+    !docs.some((d) => d.name === slug) &&
+    !bookNamedBy(slug, books);
+  const [answer, setAnswer] = useState<SegmentAnswer | null>(null);
+  useEffect(() => {
+    if (!unanswered || !slug || !adapter) return;
+    let cancelled = false;
+    void refusalFor(adapter.getClient(), slug, appName ? { packageId: appName } : undefined).then(
+      (refusal) => {
+        if (!cancelled) setAnswer({ slug, refusal });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [unanswered, slug, appName, adapter]);
+
+  if (state === 'loading' || (unanswered && !!adapter && answer?.slug !== slug)) {
     return (
       <div className="flex h-full items-center justify-center p-10 text-muted-foreground">
         <Loader2 className="h-5 w-5 animate-spin" aria-label="Loading documentation" />
@@ -60,6 +118,11 @@ export default function DocsSlug() {
   const named = slug ? bookNamedBy(slug, books) : null;
   if (named) {
     return <Navigate to={`${base}/${bookSlug(named)}`} replace />;
+  }
+
+  // A doc or book the member may not read: the server's refusal, in place.
+  if (answer?.slug === slug && answer.refusal !== null) {
+    return <DocRefusal name={slug} message={answer.refusal} />;
   }
 
   // The name-prefix fallback for a name no installed doc carries (unchanged).

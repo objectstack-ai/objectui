@@ -8,10 +8,31 @@
 
 import { useMemo } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
-import { BookOpen, FileQuestion, Loader2 } from 'lucide-react';
+import { BookOpen, FileQuestion, Loader2, Lock } from 'lucide-react';
 import { DocShell } from './DocShell';
 import { useBookData } from './use-book-data';
 import { resolveBookTree, scopeDocsToBook, bookSlug, firstDoc } from './book-nav';
+
+/**
+ * The refusal a member outside a doc's or a book's audience gets on a direct
+ * route (objectui#10188): the server answered the single-item read with 401
+ * `UNAUTHENTICATED` or 403 `PERMISSION_DENIED` (ADR-0046 §6.7). It is kept apart
+ * from "Documentation not found", the server's 404, so the portal never tells a
+ * member that an installed doc is not installed. The server's own reason is shown
+ * beneath the heading. Shared by `DocsSlug` (a segment the member's lists do not
+ * answer) and `DocPage` (the reader).
+ */
+export function DocRefusal({ name, message }: { name?: string; message?: string }) {
+  return (
+    <DocShell breadcrumb={name}>
+      <div className="mx-auto flex max-w-3xl flex-col items-center gap-3 p-10 text-center">
+        <Lock className="h-10 w-10 text-muted-foreground" />
+        <h1 className="text-lg font-semibold">You do not have access to this documentation</h1>
+        {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
+      </div>
+    </DocShell>
+  );
+}
 
 /**
  * `/docs/:slug` — a book landing (ADR-0046 §6). Opening a book means starting

@@ -403,11 +403,18 @@ function humanizePackageId(pkg: string): string {
  * doc's own package. Used for the legacy `/docs/:name` permalink redirect and
  * as the default reading context. A doc curated into a cross-package authored
  * book is still reachable there, but its canonical URL is its home book.
+ *
+ * When the package ships several books, the home book is the one that CLAIMS
+ * the doc (authored membership, {@link findBookContainingDoc}), so a `{ doc }`
+ * navigation entry opens the page in its book's context (objectui#10188, the
+ * card's addendum). Only a doc no book of its package claims falls back to the
+ * package's first book in display order, as before.
  */
 export function homeBook(docName: string, portalBooks: Book[], docs: ResolverDoc[]): Book | null {
   const doc = docs.find((d) => d.name === docName);
   const pkg = doc ? pkgOf(doc) : namePrefix(docName);
-  return sortBooks(portalBooks).find((b) => pkgOfBook(b) === pkg) ?? null;
+  const ownBooks = sortBooks(portalBooks).filter((b) => pkgOfBook(b) === pkg);
+  return findBookContainingDoc(ownBooks, docs, docName)?.book ?? ownBooks[0] ?? null;
 }
 
 /**

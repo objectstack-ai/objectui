@@ -118,7 +118,11 @@ Requirements:
   redirects to the book's canonical `slug` URL. Who may read a book is the
   book's `audience`, enforced by the server —
   the entry itself carries only the usual `visible` / `requiredPermissions`
-  gates.
+  gates. You do not repeat the audience on the entry: a member who may not
+  read what it opens — a doc outside their audience, a book whose audience
+  excludes them or with no page they can read — does not see the entry. The
+  server leaves it out of the app it serves that member, and the console's
+  menu hides it too, from the member's own list of readable docs and books.
 - Put items under the `navigation` key. `menu` is deprecated legacy and only
   kept for backward compatibility.
 

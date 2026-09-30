@@ -84,6 +84,7 @@ import {
   // blocks `objectql.zod.ts` arms.
   ObjectMetricPropsSchema as SpecObjectMetricPropsSchema,
   ObjectMasterDetailFormPropsSchema as SpecObjectMasterDetailFormPropsSchema,
+  ObjectTimelinePropsSchema as SpecObjectTimelinePropsSchema,
   // objectui#10872 — the `ComponentPropsMap` rows the public-block arms read.
   PageHeaderProps as SpecPageHeaderProps,
   PageTabsProps as SpecPageTabsProps,
@@ -249,6 +250,10 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // boundary, so both rows are measured here like every other crossing.
   ['ObjectMetricPropsSchema', SpecObjectMetricPropsSchema],
   ['ObjectMasterDetailFormPropsSchema', SpecObjectMasterDetailFormPropsSchema],
+  // objectui#10859 batch 3: the `object-timeline` arm's `properties` is its
+  // row, crossed the same way — and unlike the two above it carries spec
+  // defaults (`timeline.scale`, the `navigation` members) for the strip to remove.
+  ['ObjectTimelinePropsSchema', SpecObjectTimelinePropsSchema],
   // objectui#10872: each ADR-0080 public-block arm's `properties` is the
   // block's `ComponentPropsMap` row, crossed through this boundary, so every
   // row is measured here like every other crossing (`page:section`,

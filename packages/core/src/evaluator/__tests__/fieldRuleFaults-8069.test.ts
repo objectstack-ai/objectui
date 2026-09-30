@@ -18,14 +18,15 @@
  * very evaluation that drew them. The verdicts themselves do not move — a
  * faulting `visibleWhen` still SHOWS the field (ADR-0137 D3).
  *
- * ## The blank-predicate trap, closed here and pinned here
+ * ## A stored BLANK field rule is a fault (D2), a blank GATE is not (D4)
  *
- * objectui's form wire admits a blank predicate (`FormFieldSchema.visibleWhen`
- * is `ExpressionWireSchema`). If a blank reached the report, a submit path that
- * refuses a faulted `visibleWhen` would refuse EVERY submit of a form carrying
- * one, with nothing at authoring time to say why. So a blank is diagnosed (the
- * `[blank]` warning) and kept out of the report — decided structurally, by
- * `isBlankPredicateText`, never by reading the reason text.
+ * ADR-0137 makes a declared-but-blank field rule a third state: "A blank
+ * predicate takes this path too, wherever one is already stored" (D2). So it
+ * enters the report under its rule, with the `[blank]` reason, and a submit
+ * path refuses it. The authoring half (D1) is `@object-ui/types`' form wire,
+ * which refuses a blank triad key at parse, so no author reaches this state by
+ * writing it; its pin is `base-schema-predicate-envelope-7530.test.ts`. A blank
+ * GATE never reaches this function — the silencer cases below are its control.
  *
  * ## D4: the two blank-GATE silencers, diagnosed with no verdict moved
  *
@@ -140,12 +141,12 @@ describe('resolveFieldRuleState — the fault report (objectui#8069, ADR-0137 D2
   });
 });
 
-describe('a BLANK predicate is diagnosed, never reported as a fault (the submit-refusal trap)', () => {
+describe('a stored BLANK field rule is reported as a fault — ADR-0137 D2 (objectui#8069)', () => {
   it.each([
     ['empty string', ''],
     ['whitespace string', '   '],
     ['blank envelope', { dialect: 'cel', source: '  ' }],
-  ] as const)('%s visibleWhen: shown, [blank] warned, absent from the report', (_label, pred) => {
+  ] as const)('%s visibleWhen: still SHOWN (D3), [blank] warned, and in the report as [blank]', (_label, pred) => {
     const st = resolveFieldRuleState(
       { visibleWhen: pred as never },
       {},
@@ -155,15 +156,22 @@ describe('a BLANK predicate is diagnosed, never reported as a fault (the submit-
       `field 'blank_${_label.replace(/\W/g, '_')}_8069'`,
     );
     expect(st.visible).toBe(true);
-    expect(st.faults).toEqual({});
+    expect(st.faults.visibleWhen).toMatch(/^\[blank\]/);
     expect(warnings().some((w) => w.includes('[blank]'))).toBe(true);
   });
 
-  it('control — a NON-blank broken visibleWhen beside it IS reported', () => {
-    // Same field, same call shape: only the blankness differs, so the
-    // exclusion is proven to be about blankness and not about the key.
-    const st = resolveFieldRuleState({ visibleWhen: unbound('beside_blank') }, {}, {});
-    expect(st.faults.visibleWhen).toBeDefined();
+  it('a blank requiredWhen / readonlyWhen is reported too — which rules a path refuses on is the path\u2019s ruling', () => {
+    const st = resolveFieldRuleState({ readonlyWhen: '', requiredWhen: { source: ' ' } }, {}, {});
+    expect(st.readonly).toBe(false);
+    expect(st.required).toBe(false);
+    expect(st.faults.readonlyWhen).toMatch(/^\[blank\]/);
+    expect(st.faults.requiredWhen).toMatch(/^\[blank\]/);
+  });
+
+  it('control — an ABSENT rule is not a fault: no key, no report', () => {
+    const st = resolveFieldRuleState({ visibleWhen: undefined }, {}, {});
+    expect(st.faults).toEqual({});
+    expect(warn).not.toHaveBeenCalled();
   });
 });
 

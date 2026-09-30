@@ -176,8 +176,19 @@ server evaluates `visibleWhen` and its fail-open render would otherwise be a
 silent grant. A broken `requiredWhen` / `readonlyWhen` is refused by the server,
 and the form shows that refusal beside the input. A `visibleWhen` that reads
 `previous` cannot be evaluated on a create form, so such a form is always
-refused. A blank predicate (`''`) is not refused: it keeps its "no rule"
-verdict and its one-time `[blank]` warning.
+refused (and on an edit wizard too, whose final cross-step check binds no
+`previous`).
+
+A **blank** field rule (`''`, whitespace, or an envelope whose `source` is
+blank) is not "no rule" — it is refused, at the first place that can see it
+(ADR-0137 D1 / D2). A new one is refused at authoring: the form schema's
+`visibleWhen` / `readonlyWhen` / `requiredWhen` reject a blank predicate at
+parse, as the protocol's field schema does. One already stored is refused at
+submit, like any rule that cannot be evaluated: the client refuses a blank
+`visibleWhen`, the server a blank `requiredWhen` / `readonlyWhen`. A blank
+**gate** is different: a blank `visible`, `hidden` or `disabled` is still read
+as "no gate", with a one-time `[blank]` warning in the console, and a form
+view's own blank field `visibleWhen` is likewise read as no gate, never refused.
 
 The same is now true of a **component node's own gate** — `visibleWhen` on a
 page component (and its `visible` / `visibleOn` / `visibility` / `hidden` /

@@ -780,16 +780,19 @@ export const WizardForm: React.FC<WizardFormProps> = ({
    * refuses the final submit, because no server evaluates it; `requiredWhen`
    * / `readonlyWhen` keep their direction here and are the server's to refuse.
    * A step whose form the user never opened never ran the renderer's own
-   * refusal, which is why the cross-step gate asks as well. A BLANK predicate
-   * is not a fault (`FieldRuleFaults`), and a `section-divider` row's
-   * `visibleWhen` is its section's layout gate, not a field rule.
+   * refusal, which is why the cross-step gate asks as well. A stored BLANK
+   * `visibleWhen` is a fault like any other (ADR-0137 D2, `FieldRuleFaults`);
+   * a `section-divider` row's `visibleWhen` is its section's layout gate, not
+   * a field rule, and is not judged.
    *
    * ⚠️ This gate binds no `previous` in either mode (see the `serverOwnedValue`
    * note below), so a `visibleWhen` reading `previous` is unevaluable here even
    * on an EDIT wizard, and is refused. objectui#8069's ruling declined new
    * binding for `previous` ("no new binding pipelines", its option D) and
    * accepted the create-form half of that as the residual; the edit-wizard
-   * half is the same mechanism, named on the card.
+   * half is the same mechanism, accepted as a residual under the same refusal
+   * of option D on objectui#8069 — ⛔ so `persistedRecord` is deliberately NOT
+   * bound here.
    */
   const gateFinalSubmit = useCallback(
     (

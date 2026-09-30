@@ -356,23 +356,23 @@ const REQUIRED_WHEN_ABSENT = false;
  * `readonlyWhen` / `requiredWhen` to the server's own D2 refusal. The other two
  * keys are reported all the same, so the report does not encode that ruling.
  *
- * Deliberately NOT in it:
+ * A BLANK predicate IS in it, as the `[blank]` reason. ADR-0137 makes a
+ * declared-but-blank field rule a third state, not a spelling of "no rule":
+ * "A blank predicate takes this path too, wherever one is already stored — D1
+ * keeps new ones from being authored, and D2 is what a stored one meets" (D2),
+ * and its Alternatives refuse "blank means no rule" for this triad by name. So
+ * a stored blank `visibleWhen` is refused at submit like any other fault. The
+ * trap that would otherwise make — an authorable value that no submit can ever
+ * pass — is closed at AUTHORING: the triad's form wire refuses a blank at parse
+ * (`FieldRulePredicateWireSchema` in `@object-ui/types`' `form.zod.ts`, D1).
+ * The render verdict of a blank rule is unchanged (D3: the permissive one).
+ * A blank GATE is a different thing: `hasDeclaredPredicate` still folds it to
+ * "no gate" and only diagnoses it (D4) — it never reaches this function.
  *
- * - **A rule the verdict did not need.** `readonlyWhen` under a static
- *   `readonly: true`, and `requiredWhen` under `serverOwnedValue` or a static
- *   `required: true`, are short-circuited and never run, so they cannot fault.
- * - **A BLANK predicate.** It is still diagnosed — `evalFieldPredicate` reports
- *   it as `[blank]` on the warning channel, exactly as before — and its verdict
- *   is still the permissive one ("no gate"). It is left out of THIS report
- *   because objectui's own form wire admits it: `FormFieldSchema.visibleWhen` is
- *   `ExpressionWireSchema` (whose string arm is a bare `z.string()` — one wire
- *   type by the objectui#7530 ruling), so a submit that refused on a blank would turn an
- *   authorable value into a form nobody can ever submit, with nothing at
- *   authoring time to say so. The refusal of a blank at AUTHORING is the
- *   spec's (ADR-0137 D1, delivered on `FieldSchema` by `@objectstack/spec`
- *   17.5.0) — the batch #119 ruling put that half on the spec card, "not
- *   here". Blankness is decided by {@link isBlankPredicateText}, the repo's one
- *   definition, and never by reading the reason text.
+ * Deliberately NOT in it: a rule the verdict did not need. `readonlyWhen` under
+ * a static `readonly: true`, and `requiredWhen` under `serverOwnedValue` or a
+ * static `required: true`, are short-circuited and never run, so they cannot
+ * fault.
  */
 export interface FieldRuleFaults {
   visibleWhen?: string;
@@ -431,7 +431,7 @@ export function resolveFieldRuleState(
   const diag = (rule: keyof FieldRuleFaults): FieldPredicateDiagnostic => ({
     context: fieldContext ? `${rule} of ${fieldContext}` : rule,
     onFault: (reason) => {
-      if (!isBlankPredicateText(rules[rule])) faults[rule] = reason;
+      faults[rule] = reason;
     },
   });
 

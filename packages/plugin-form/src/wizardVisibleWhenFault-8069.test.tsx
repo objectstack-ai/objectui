@@ -66,7 +66,10 @@ const stepIndicator = (index: number) =>
   document.body.querySelectorAll<HTMLButtonElement>('nav[aria-label="Progress"] button')[index];
 
 /** 3-step create wizard; skip step 2 (`owner`), fill step 3, press Create. */
-async function skipPastOwnerAndSubmit(ownerRules: Record<string, unknown>) {
+async function skipPastOwnerAndSubmit(
+  ownerRules: Record<string, unknown>,
+  ownerField: string | Record<string, unknown> = 'owner',
+) {
   const dataSource = makeDataSource(ownerRules);
   render(
     <WizardForm
@@ -78,7 +81,7 @@ async function skipPastOwnerAndSubmit(ownerRules: Record<string, unknown>) {
         allowSkip: true,
         sections: [
           { name: 's1', label: 'Step 1', fields: ['subject'] },
-          { name: 's2', label: 'Step 2', fields: ['owner'] },
+          { name: 's2', label: 'Step 2', fields: [ownerField] },
           { name: 's3', label: 'Step 3', fields: ['notes'] },
         ],
       } as never}
@@ -113,10 +116,20 @@ describe('objectui#8069 — the wizard gate refuses a faulted visibleWhen', () =
     await expectSubmitted(ds);
   });
 
-  it('a BLANK visibleWhen is no trap: the submit goes through, and the blank is diagnosed', async () => {
+  it('a STORED blank visibleWhen is refused by the gate too — ADR-0137 D2', async () => {
     const ds = await skipPastOwnerAndSubmit({ visibleWhen: '   ' });
+    await waitFor(() => expect(document.body.querySelector('[data-field="owner"]')).toBeTruthy());
+    expect(ds.create).not.toHaveBeenCalled();
+    const messages: string[] = toastError.mock.calls.map((c: unknown[]) => String(c[0]));
+    expect(messages.some((m) => /visibleWhen rule of Owner could not be evaluated/.test(m))).toBe(true);
+  });
+
+  it('control — a blank VIEW-level visibleWhen is a layout gate, not a field rule: the submit goes through', async () => {
+    // `sectionFields` drops a blank view-level predicate before it reaches the
+    // runtime field (`attachVisibility`), so the gate never sees it at all —
+    // "no gate", and nothing on this path refuses it.
+    const ds = await skipPastOwnerAndSubmit({}, { field: 'owner', visibleWhen: '' });
     await expectSubmitted(ds);
-    expect(warn.mock.calls.some((c: unknown[]) => String(c[0]).includes('[blank]'))).toBe(true);
   });
 
   it('a faulted requiredWhen is NOT refused by the gate — the server refuses it (D2)', async () => {

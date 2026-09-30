@@ -1563,10 +1563,12 @@ ComponentRegistry.register('form',
     // whether or not a section or tab happens to hide it — the rule changes
     // the write either way, so the write is refused either way.
     //
-    // Two exclusions, both about WHAT the slot holds rather than about the
-    // fault: a `section-divider` row carries its SECTION's predicate in this
-    // same `visibleWhen` slot, which is a layout gate and not a field rule; and
-    // a BLANK predicate never enters the report at all (`FieldRuleFaults`).
+    // One exclusion, about WHAT the slot holds rather than about the fault: a
+    // `section-divider` row carries its SECTION's predicate in this same
+    // `visibleWhen` slot, which is a layout gate and not a field rule. A
+    // stored BLANK field rule is a fault like any other (ADR-0137 D2; see
+    // `FieldRuleFaults`) and is refused; a new one is refused earlier, at
+    // authoring, by the form schema's triad wire.
     const { conditionallyHiddenFieldNames, faultedVisibleWhenFieldNames } = React.useMemo(() => {
       const hidden = new Set<string>();
       const faulted: string[] = [];

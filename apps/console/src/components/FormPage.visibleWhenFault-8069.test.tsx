@@ -150,8 +150,18 @@ describe('objectui#8069 — FormPage refuses a faulted visibleWhen at submit', (
     expect(writes()[0].method).toBe('POST');
   });
 
-  it('a BLANK visibleWhen is no trap: it submits (diagnosed, never refused)', async () => {
+  it('a STORED blank visibleWhen is refused too — ADR-0137 D2', async () => {
     renderForm(objectWith({ notes: { visibleWhen: '' } }));
+    await submit();
+    await screen.findByText(/visibleWhen rule of Notes could not be evaluated/);
+    expect(writes()).toHaveLength(0);
+    expect(screen.getByLabelText('Notes')).toBeInTheDocument();
+  });
+
+  it('control — a blank VIEW-level visibleWhen is a layout gate: it submits, diagnosed (D4)', async () => {
+    renderForm(objectWith({}), {
+      sections: [{ label: 'Basics', fields: ['title', 'priority', { field: 'notes', visibleWhen: '' }, 'status'] }],
+    });
     await submit();
     await waitFor(() => expect(writes()).toHaveLength(1));
     expect(warn.mock.calls.some((c: unknown[]) => String(c[0]).includes('[blank]'))).toBe(true);

@@ -1862,9 +1862,10 @@ function FieldInput({ field, state, value, onChange, values, onUploadingChange }
  * refuses the submit on this one rule, because no server evaluates it and its
  * fail-open render direction (D3) would otherwise be a silent grant.
  * `requiredWhen` / `readonlyWhen` faults are the server's to refuse; this page
- * keeps their render direction and warning unchanged. A BLANK predicate is not
- * a fault here (`FieldRuleFaults`), and neither is the view-level predicate,
- * which is a layout gate.
+ * keeps their render direction and warning unchanged. A stored BLANK
+ * `visibleWhen` is a fault like any other (ADR-0137 D2, `FieldRuleFaults`); the
+ * view-level predicate is not a field rule at all but a layout gate, and is
+ * not judged.
  *
  * Judged over the rows the required check below walks — a hidden SECTION is
  * skipped by both. On this page visibility decides what is DRAWN and nothing

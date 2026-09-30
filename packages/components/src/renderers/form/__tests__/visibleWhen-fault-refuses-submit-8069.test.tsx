@@ -145,9 +145,23 @@ describe('objectui#8069 — a faulted visibleWhen refuses the submit', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
   });
 
-  it('a BLANK visibleWhen is no trap: it submits, and the blank is diagnosed', async () => {
+  it('a STORED blank visibleWhen is refused too — ADR-0137 D2: "a blank predicate takes this path too"', async () => {
+    // A new one cannot be authored (the form schema's triad wire refuses it at
+    // parse, D1); one already stored meets the submit refusal. The field is
+    // still drawn — a blank rule renders like no rule (D3).
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     renderForm(base({ visibleWhen: '' }), onSubmit);
+    expect(screen.getByLabelText('Discount')).toBeTruthy();
+    submit();
+    await waitFor(() => expect(lastToast()).toMatch(/visibleWhen rule of Discount could not be evaluated/));
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(warn.mock.calls.some((c: unknown[]) => String(c[0]).includes('[blank]'))).toBe(true);
+  });
+
+  it('control — a blank view-level visibleOn is a layout GATE: no gate plus a diagnostic, never a refusal (D4)', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    renderForm(base({ visibleOn: '' }), onSubmit);
+    expect(screen.getByLabelText('Discount')).toBeTruthy();
     submit();
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(warn.mock.calls.some((c: unknown[]) => String(c[0]).includes('[blank]'))).toBe(true);

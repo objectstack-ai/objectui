@@ -20,6 +20,3 @@ matching rows, each header counts its matching rows, the rows under it are
 those rows, and clearing the term restores the unsearched groups. The
 ObjectStack adapter already posts the header query verbatim, so it needs no
 change.
-
-A `ListView` still keeps grouping its own window while its toolbar search is
-active: it does not hand the term to the grid.

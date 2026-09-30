@@ -544,10 +544,11 @@ makes the same refusal before it mounts such a grid. To group, implement
 A **search** term the grid queries with goes on the group header query and on
 every group's row query, as one pair (`search` / `searchFields`, which the
 header query declares beside `where`): the headers count the
-searched rows, and the rows under them are those rows (objectui#11021). A
-`ListView` does not hand its toolbar search to the grid: over a data source
-that answers the header query it keeps grouping its own window while a search
-term is active, so those group counts are the window's, not the query's.
+searched rows, and the rows under them are those rows (objectui#11021). The
+term is the one typed into the grid's box, or the one a host hands down as the
+`search` prop: a host that passes `search` owns the term even where the grid
+fetches for itself. That is how a `ListView` hands its toolbar search to the
+grid that groups for it, with the view's `searchableFields` on the grid's node.
 
 ## Integration with Data Sources
 

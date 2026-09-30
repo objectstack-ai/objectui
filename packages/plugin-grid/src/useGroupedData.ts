@@ -380,9 +380,9 @@ function sameGroupKey(a: unknown, b: unknown): boolean {
  *     query it refuses grouping instead (objectui#10881, ruling F). A host
  *     that DECLARES the rows one page of more (`manualPagination`,
  *     `onPageChange` and a larger `rowCount`) is refused too; one that hands in a window without
- *     saying so gets that window grouped — `ListView` does while a toolbar
- *     search is active, since the header query carries no search
- *     (objectstack#20358).
+ *     saying so gets that window grouped. `ListView` hands a grouped grid no
+ *     window over a source that answers the header query, a toolbar search
+ *     included: it hands the term instead (objectui#11021).
  *
  * @param config        - GroupingConfig from the grid schema (optional)
  * @param data          - flat data rows (grouped only when `server` is absent)

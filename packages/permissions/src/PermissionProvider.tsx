@@ -182,6 +182,10 @@ export function PermissionProvider({
     // `ALL_CAPABILITIES` above for the full reasoning.
     systemPermissions: undefined,
     hasCapabilities: ALL_CAPABILITIES,
+    // [objectui#4421] No `/auth/me/permissions` payload: this provider resolves
+    // roles from config, so `current_user.can(object, verb)` has no map to be
+    // answered from here and refuses loudly rather than guessing.
+    effectiveObjects: undefined,
     isLoaded: true,
   }));
 

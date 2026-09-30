@@ -15,8 +15,10 @@
  */
 
 import React, { createContext, useContext, useMemo } from 'react';
-import { ExpressionEvaluator } from '@object-ui/core';
+import { ExpressionEvaluator, bindSubjectPermissions } from '@object-ui/core';
 import { PredicateScopeProvider, reportUnresolvableVisibilityPredicate } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
+import { toEvalPermissions, type EvalPermissions } from '@objectstack/formula';
 
 export interface ExpressionContextValue {
   /** Current authenticated user */
@@ -59,6 +61,16 @@ export interface ExpressionScopeInput {
    * and still publishes it on the React context value.
    */
   features?: Record<string, any>;
+  /**
+   * The caller's effective object permissions — the data
+   * `current_user.can(object, verb)` is answered from (objectui#4421) — or
+   * `undefined` while there is no LOADED payload to answer from. Take it from
+   * {@link useExpressionPermissions}, which is what decides "loaded"; ⛔ never
+   * pass `{}` for "not loaded yet": an empty map is a real answer ("holds
+   * nothing"), and the engine refuses loudly precisely so that a missing
+   * payload cannot pass for one.
+   */
+  permissions?: EvalPermissions;
 }
 
 /**
@@ -169,8 +181,81 @@ export interface ExpressionScopeInput {
 export function buildExpressionScope({
   user = {},
   features = {},
+  permissions,
 }: ExpressionScopeInput = {}): Record<string, any> {
-  return { current_user: user, user, ctx: { user }, os: { user }, features };
+  // ONE subject object under all four spellings, and it is the one carrying the
+  // permissions: the engine answers `can` only for a receiver IDENTICAL to the
+  // bound `current_user`, so a second copy under any alias would be refused.
+  const subject = bindSubjectPermissions(user, permissions);
+  return { current_user: subject, user: subject, ctx: { user: subject }, os: { user: subject }, features };
+}
+
+/**
+ * One adapted map per payload object, kept outside React (AGENTS.md #10): the
+ * provider publishes the SAME `objects` object for the same response, so this
+ * is keyed on the payload, never on a memoised identity. `null` records a
+ * payload `toEvalPermissions` refused, so the refusal is reported once.
+ */
+const ADAPTED_PERMISSIONS = new WeakMap<object, EvalPermissions | null>();
+
+function adaptEffectiveObjects(objects: object): EvalPermissions | undefined {
+  let adapted = ADAPTED_PERMISSIONS.get(objects);
+  if (adapted === undefined) {
+    try {
+      adapted = toEvalPermissions(objects);
+    } catch (err) {
+      // Refused, not repaired: the formula package's adapter has no lenient
+      // arm, and neither does this one. The binding stays UNBOUND, so every
+      // `current_user.can(...)` faults (and each surface applies its own fault
+      // policy) instead of answering from a map that is not the contract.
+      console.error(
+        '[object-ui] current_user.can(object, verb) is not bound: the permissions '
+          + `payload was refused — ${err instanceof Error ? err.message : String(err)}`,
+      );
+      adapted = null;
+    }
+    ADAPTED_PERMISSIONS.set(objects, adapted);
+  }
+  return adapted ?? undefined;
+}
+
+/**
+ * The effective object permissions the predicate scope binds for
+ * `current_user.can(object, verb)` (objectui#4421), or `undefined` when there
+ * is no loaded payload to answer from.
+ *
+ * ## Rider 1: absent while not loaded, never "empty"
+ *
+ * The maintainer's ruling makes a permission-shaped binding fail-CLOSED while
+ * the permissions payload has not loaded. The map is therefore handed on only
+ * when `usePermissions().isLoaded` is true AND the provider holds an
+ * `/auth/me/permissions` answer; otherwise nothing is bound and the engine
+ * REFUSES `can` (`ok: false`, a fault naming the missing input). What happens
+ * next is the evaluating surface's own FAULT policy, unchanged by this binding:
+ * a leg that evaluates fail-closed (`throwOnError: true` on `useCondition`,
+ * `fallback: false` on `evalRowPredicate`) hides the action, a fail-soft leg
+ * does not. Which legs are which is deliberately not listed here (AGENTS.md
+ * #9); `providers/__tests__/currentUserCan-4421.render.test.tsx` re-measures
+ * the three states on the surfaces it pins. ⛔ No `{}` stand-in: it would
+ * answer "holds nothing" — a quiet `false` indistinguishable from a real
+ * denial, which the engine's contract forbids a caller to fabricate.
+ *
+ * `isLoaded` is the gate rather than "some map is present" because a
+ * refetching `MePermissionsProvider` still holds its previous map while
+ * `isLoaded` is false; the ruling's "has not loaded" is read as the provider's
+ * own flag.
+ *
+ * ## Why the global no-provider default is not involved
+ *
+ * `usePermissions()` with no provider answers `can: () => true` (fail-open, the
+ * built-in affordances' standalone-embed contract). This binding never calls
+ * it: it reads `effectiveObjects`, which the no-provider answer does not carry,
+ * so under no provider `current_user.can(...)` faults — it does not inherit
+ * that `true`.
+ */
+export function useExpressionPermissions(): EvalPermissions | undefined {
+  const { isLoaded, effectiveObjects } = usePermissions();
+  return isLoaded && effectiveObjects ? adaptEffectiveObjects(effectiveObjects) : undefined;
 }
 
 /**
@@ -194,13 +279,17 @@ interface ExpressionProviderProps {
 }
 
 export function ExpressionProvider({ children, user = {}, app = {}, data = {}, features = {} }: ExpressionProviderProps) {
+  // objectui#4421 — read HERE, once, so every mount of this provider (and every
+  // surface under it) binds `current_user.can(...)` from the same payload with
+  // no prop to thread and no per-surface copy of the hand-off.
+  const permissions = useExpressionPermissions();
   const value = useMemo(() => {
-    const evaluator = createExpressionEvaluator({ user, features });
+    const evaluator = createExpressionEvaluator({ user, features, permissions });
     // `app` and `data` are still published on the context value — `DashboardView`
     // reads `app` as a plain value. Neither is handed to the evaluator:
     // objectui#8155 (`app`), objectui#8166 (`data`).
     return { user, app, data, features, evaluator };
-  }, [user, app, data, features]);
+  }, [user, app, data, features, permissions]);
 
   // Also feed the predicate scope used by useCondition/useExpression in
   // @object-ui/react so action visibility predicates (e.g. on toolbar
@@ -208,8 +297,8 @@ export function ExpressionProvider({ children, user = {}, app = {}, data = {}, f
   // The SAME bag the evaluator above got — one builder, so the imperative and
   // the hook-driven halves of this provider cannot drift apart either.
   const scope = useMemo(
-    () => buildExpressionScope({ user, features }),
-    [user, features],
+    () => buildExpressionScope({ user, features, permissions }),
+    [user, features, permissions],
   );
 
   return (

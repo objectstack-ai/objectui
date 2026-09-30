@@ -75,6 +75,7 @@
  * site as every other fault; the VERDICT is unchanged for every input.
  */
 import { ExpressionEngine } from '@objectstack/formula';
+import { subjectPermissionsOf } from './subjectPermissions.js';
 import type { Expression } from '@objectstack/spec';
 
 import { isBlankPredicateText } from './declaredPredicate.js';
@@ -257,10 +258,19 @@ export function evalFieldPredicate(
     reason = BLANK_PREDICATE_REASON;
   } else {
     try {
+      // objectui#4421 — the acting subject's effective object permissions, the
+      // one input `current_user.can(object, verb)` is answered from. They ride
+      // on the subject the scope already carries (`subjectPermissions.ts`),
+      // never under a scope key, because every key of `scope` is a CEL root
+      // and the engine keeps this map out of the variable namespace. A subject
+      // with none passes none, and `can` then refuses loudly: that fault goes
+      // through the caller's `fallback` like any other.
+      const permissions = subjectPermissionsOf(scope?.current_user);
       const res = ExpressionEngine.evaluate<boolean>(expr, {
         record,
         previous,
         ...(scope ? { extra: scope } : {}),
+        ...(permissions !== undefined ? { permissions } : {}),
       });
       // Parse error, type error, unbound identifier, engine fault … — every
       // not-ok verdict resolves to the fallback, but never silently (objectstack-ai/objectstack#5149).

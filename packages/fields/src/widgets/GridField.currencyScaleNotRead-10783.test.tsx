@@ -38,7 +38,7 @@ import { GridField, computeRow, type GridColumn } from './GridField';
 afterEach(() => cleanup());
 
 /** `Intl` separates a code from its amount with a no-break space. */
-const flat = (s: string | null | undefined): string => (s ?? '').replace(/ /g, ' ').trim();
+const flat = (s: string | null | undefined): string => (s ?? '').replace(/\u00a0/g, ' ').trim();
 
 /** The master-detail line `amount = quantity * unit_price`, carrying a `scale`. */
 const amountColumn = (extra: Partial<GridColumn>): GridColumn => ({

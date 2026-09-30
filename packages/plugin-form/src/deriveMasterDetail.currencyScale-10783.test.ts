@@ -51,7 +51,7 @@ afterEach(() => vi.restoreAllMocks());
 describe('hydrateColumns reports a `scale` on a column that hydrates to currency (objectui#10783)', () => {
   it('an identity-only column over a currency child field with `scale` is reported, naming the column and the child object', () => {
     const warnings = spyWarn();
-    const [col] = hydrateColumns([{ name: 'amount', scale: 2 }] as any, lineSchema('line_reported'));
+    const [col] = hydrateColumns([{ name: 'amount', scale: 2 }], lineSchema('line_reported'));
     expect(col.type).toBe('currency');
     const reports = warnings().filter((m) => m.includes('`scale`'));
     expect(reports).toHaveLength(1);
@@ -62,7 +62,7 @@ describe('hydrateColumns reports a `scale` on a column that hydrates to currency
 
   it("and the hydrated column's `scale` no longer decides its width: the currency's minor unit does", () => {
     spyWarn();
-    const cols = hydrateColumns([{ name: 'quantity' }, { name: 'unit_price' }, { name: 'amount', scale: 2 }] as any, lineSchema('line_width'));
+    const cols = hydrateColumns([{ name: 'quantity' }, { name: 'unit_price' }, { name: 'amount', scale: 2 }], lineSchema('line_width'));
     // JPY has no minor digits; `scale: 2` would have stored 1234.57.
     expect(computeRow(cols, { quantity: 3, unit_price: 411.523 }, 'JPY').amount).toBe(1235);
     // KWD has three; `scale: 2` would have stored 3.7.
@@ -71,7 +71,7 @@ describe('hydrateColumns reports a `scale` on a column that hydrates to currency
 
   it('a declared currency column carrying `scale` is reported too (the form-view `subforms[].columns` path the spec does not judge)', () => {
     const warnings = spyWarn();
-    hydrateColumns([{ name: 'amount', type: 'currency', computed: true, expr: 'quantity * unit_price', scale: 2 }] as any, lineSchema('line_declared'));
+    hydrateColumns([{ name: 'amount', type: 'currency', computed: true, expr: 'quantity * unit_price', scale: 2 }], lineSchema('line_declared'));
     const reports = warnings().filter((m) => m.includes('`scale`'));
     expect(reports).toHaveLength(1);
     expect(reports[0]).toContain("'amount'");
@@ -80,20 +80,20 @@ describe('hydrateColumns reports a `scale` on a column that hydrates to currency
 
   it('is reported once per column, not on every child-schema resolve', () => {
     const warnings = spyWarn();
-    hydrateColumns([{ name: 'amount', scale: 2 }] as any, lineSchema('line_once'));
-    hydrateColumns([{ name: 'amount', scale: 2 }] as any, lineSchema('line_once'));
+    hydrateColumns([{ name: 'amount', scale: 2 }], lineSchema('line_once'));
+    hydrateColumns([{ name: 'amount', scale: 2 }], lineSchema('line_once'));
     expect(warnings().filter((m) => m.includes('`scale`'))).toHaveLength(1);
   });
 
   it('control: a currency column with no `scale` is not reported', () => {
     const warnings = spyWarn();
-    hydrateColumns([{ name: 'amount' }, { name: 'unit_price', type: 'currency' }] as any, lineSchema('line_no_scale'));
+    hydrateColumns([{ name: 'amount' }, { name: 'unit_price', type: 'currency' }], lineSchema('line_no_scale'));
     expect(warnings()).toEqual([]);
   });
 
   it('control: a `scale` on a column that hydrates to `number` is not reported, and still decides its width', () => {
     const warnings = spyWarn();
-    const cols = hydrateColumns([{ name: 'quantity' }, { name: 'unit_price' }, { name: 'weight', scale: 2 }] as any, lineSchema('line_number'));
+    const cols = hydrateColumns([{ name: 'quantity' }, { name: 'unit_price' }, { name: 'weight', scale: 2 }], lineSchema('line_number'));
     expect(warnings()).toEqual([]);
     expect(cols[2].type).toBe('number');
     expect(computeRow(cols, { quantity: 3, unit_price: 411.523 }, 'JPY').weight).toBe(1234.57);

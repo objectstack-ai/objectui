@@ -388,7 +388,7 @@ describe('Interfaces nav autosave — the same claim, in place of its edit gener
     // Undo it: the buffer is back to exactly what the save in flight carries.
     const rows = within(rail()).getAllByRole('button', { name: /New item/ });
     fireEvent.mouseEnter(rows[rows.length - 1]);
-    fireEvent.click(within(rows[rows.length - 1]).getByRole('button', { name: 'Remove item' }));
+    fireEvent.click(within(rows[rows.length - 1]).getByRole('button', { name: 'Remove nav item' }));
     expect(addedItemsInRail()).toBe(1);
 
     await release();

@@ -216,9 +216,10 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
 
   // A `doc` entry the member may not read is not drawn (objectui#10188) — the
   // same hook `UnifiedSidebar` wires, so the two menus agree.
+  const appAreas = (activeApp?.areas ?? []) as ReadonlyArray<{ navigation?: NavigationItem[] } | undefined>;
   const checkDocTarget = useNavDocTargetCheck([
     activeApp?.navigation as NavigationItem[] | undefined,
-    ...(((activeApp?.areas as any[]) || []).map((area: any) => area?.navigation as NavigationItem[] | undefined)),
+    ...appAreas.map((area) => area?.navigation),
   ]);
 
   const guards = useMemo(

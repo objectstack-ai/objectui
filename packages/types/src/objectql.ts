@@ -4568,9 +4568,10 @@ export interface ObjectKanbanSchema extends BaseSchema {
    *     destructure is `void _props;`. The rest is discarded and never spread
    *     onward.
    *   - the SCHEMA channel — the key does ride `ObjectKanban`'s `{ ...schema }`
-   *     spread into `effectiveSchema`, which reaches `KanbanRenderer`; that
-   *     component destructures `schema` / `objectFields` / `onCardMove` and
-   *     NAMES every key it hands to the lazy board. An unnamed key stops there.
+   *     spread into `effectiveSchema`, which reaches the internal
+   *     `KanbanBoardCore` (the board `KanbanRenderer` also renders, since
+   *     objectui#11234); that component NAMES every key it hands to the lazy
+   *     board. An unnamed key stops there.
    *
    * ## Where collapse actually lives, so the remedy is not a second fiction
    *
@@ -4697,25 +4698,46 @@ export interface ObjectKanbanSchema extends BaseSchema {
   onCardMove?: never;
 
   /**
-   * Quick Add handler.
+   * RETIRED (objectui#11234, completing ruling B of the director seat's
+   * decision batch #91 on objectui#8285) — this element offers no inline record
+   * creation, so the Quick Add handler has nothing to switch on. Refused by name
+   * on both faces: `?: never` here, `handlerKeyRefusal(…, 'retired', …)` on the
+   * zod twin.
    *
-   * RUNTIME SLOT (objectui#6124 shape; declared by `5a41ce733`) — a
-   * host-supplied function, NOT authorable metadata: JSON has no function
-   * value, so the zod twin refuses this key by name. It rides `ObjectKanban`'s
-   * schema spread and arrives at the board implementation BY IDENTITY, which is
-   * the reading its function type rests on.
+   * ## Why it was a runtime slot, and why it no longer is
    *
-   * ⚠️ On THIS element that arrival switches nothing on. The Quick Add control
-   * is gated on BOTH halves of a pair, and the other half, `quickAdd`, is
-   * RETIRED here (objectui#8285) — refused by name on both faces, and no longer
-   * forwarded by `ObjectKanban` — so a function supplied here reaches the board
-   * and is never called. The pair works on `KanbanRenderer`, which a React host
-   * mounts directly. Whether this slot retires on this element as well is NOT
-   * settled by that change: a `?: never` tombstone needs the `ObjectKanban`
-   * path's read moved off `KanbanRenderer`'s `schema` first, because
-   * `check:handler-key-reads` refuses a tombstone that a renderer still reads.
+   * It was a RUNTIME SLOT (objectui#6124 shape; declared by `5a41ce733`): a
+   * host-supplied function rode `ObjectKanban`'s schema spread and reached the
+   * board implementation BY IDENTITY. On this element that switched nothing on.
+   * The Quick Add control is gated on BOTH halves of a pair, and the other half,
+   * `quickAdd`, is RETIRED here (objectui#8285). So a function supplied here
+   * reached the board and was never called. A TypeScript host or an AI writing
+   * the key compiled and got nothing, which is the "declared = enforced" gap.
+   *
+   * `check:handler-key-reads` refuses a tombstone while a renderer still reads
+   * the key off the document. So objectui#11234 moved the read first:
+   * `ObjectKanban` renders an internal board that takes the Quick Add pair only
+   * as explicit props, and it supplies neither half. No renderer on the
+   * `object-kanban` path reads this key any more.
+   *
+   * ## Where the pair still works
+   *
+   * On `KanbanRenderer`, exported from `@object-ui/plugin-kanban`: a React host
+   * that mounts that component directly passes `quickAdd` and `onQuickAdd` on
+   * its `schema`, and the control calls the host's function. That component
+   * keeps both keys on its own props, unchanged. No node type key resolves to it
+   * since the `kanban-ui` tag retired (objectui#8257), so this is a host
+   * capability, not a document one.
+   *
+   * ⚠️ RETIRED, not a RUNTIME SLOT, and the two are not interchangeable here:
+   * a slot keeps this member callable, which publishes a key the object-bound
+   * board never calls. That is the `onCardMove` reading beside it, for the same
+   * reason. Pinned in `__tests__/object-kanban-on-quick-add-retired-11234.test.ts`.
+   *
+   * @deprecated Not part of this contract — delete the key. To offer Quick
+   * Add, mount `KanbanRenderer` and pass the pair on its `schema`.
    */
-  onQuickAdd?: (columnId: string, title: string) => void;
+  onQuickAdd?: never;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-kanban` reads NEITHER
    * content channel; see `children` below for the measurement.

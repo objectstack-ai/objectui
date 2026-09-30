@@ -2795,12 +2795,12 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   // `__tests__/handlerKeyDispositionsMeasured-7804.test.tsx`; the twin
   // docblocks in `../objectql.ts` carry the reasons member by member.
   //
-  // ⚠️ The three do NOT share a disposition. Two are RUNTIME SLOTS, whose
-  // function value reaches the board on this face; the third, `onCardMove`, is
-  // a TOMBSTONE, and reading it as a slot because it shares the prefix is the
-  // error batch #69 forbids. Its authored value was measured to reach NOTHING
-  // here — `ObjectKanban` substitutes its own `handleCardMove` and declares no
-  // `onCardMove` React prop — which is the `'retired'` disposition.
+  // ⚠️ The three do NOT share a disposition, and they never did. `onCardClick`
+  // is a RUNTIME SLOT, whose function value reaches the board on this face.
+  // `onCardMove` is a TOMBSTONE, and reading it as a slot because it shares the
+  // prefix is the error batch #69 forbids. Its authored value was measured to
+  // reach NOTHING here — `ObjectKanban` substitutes its own `handleCardMove` and
+  // declares no `onCardMove` React prop — which is the `'retired'` disposition.
   //
   // ⭐ It could not be spelled until objectui#9342 (the ruling recorded on PR
   // objectui#9338) moved the READ. `check:handler-key-reads` REFUSES a
@@ -2811,9 +2811,19 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   // remedy this same file already applied to `objectFields`; it narrows a
   // published component's props, so it is a ruling and not a repair, and the
   // change carries `needs:contract-review` on its own merits.
+  //
+  // ⭐ `onQuickAdd` is a TOMBSTONE too, since objectui#11234, completing ruling B
+  // of decision batch #91 (objectui#8285). It was a runtime slot: the function
+  // reached the board by identity, and on this element was never called,
+  // because its partner `quickAdd` is retired here. The same gate refused the
+  // tombstone while `KanbanRenderer` read the key off the document
+  // `ObjectKanban` handed it. So `ObjectKanban` now renders the internal
+  // `KanbanBoardCore`, which takes the Quick Add pair only as explicit props,
+  // and it supplies neither. The exported `KanbanRenderer` keeps the pair for a
+  // React host.
   onCardClick: handlerKeyRefusal('onCardClick', 'runtime-slot', 'Card click handler'),
   onCardMove: handlerKeyRefusal('onCardMove', 'retired', 'Card move handler'),
-  onQuickAdd: handlerKeyRefusal('onQuickAdd', 'runtime-slot', 'Quick Add handler'),
+  onQuickAdd: handlerKeyRefusal('onQuickAdd', 'retired', 'Quick Add handler'),
   // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
   body: retirementTombstone(OBJECT_KANBAN_NEITHER_CHANNEL),

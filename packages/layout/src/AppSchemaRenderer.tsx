@@ -47,6 +47,7 @@ import {
   hasVisibleNavigationItems,
   resolveIcon,
   resolveLabel,
+  resolveNavItemLabel,
   type VisibilityEvaluator,
   type PermissionChecker,
   type CapabilityChecker,
@@ -331,7 +332,10 @@ function MobileBottomNav({
             }`}
           >
             <NavIcon className="h-5 w-5" />
-            <span className="text-[10px] truncate max-w-[60px]">{resolveLabel(item.label)}</span>
+            {/* `resolveNavItemLabel`, not a raw `item.label` read: an entry's label may be
+                absent since objectui#9868, and this host has no metadata, so it shows the
+                same machine-name backstop its `NavigationRenderer` does. */}
+            <span className="text-[10px] truncate max-w-[60px]">{resolveNavItemLabel(item)}</span>
           </Link>
         );
       })}

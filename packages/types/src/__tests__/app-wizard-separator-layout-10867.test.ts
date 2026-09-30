@@ -76,10 +76,16 @@ describe('objectui#10867 — a separator carries only `type`, `id` and `order`',
     expect(labelled.type).toBe(bare.type);
   });
 
-  it('CONTROL — every other item type still requires its `label`', () => {
-    // @ts-expect-error — an entry without a label.
+  it('CONTROL — an entry still requires its `id`; its `label` is optional since objectui#9868', () => {
+    // INVERTED by objectui#9868 — this line carried `@ts-expect-error — an entry
+    // without a label`. `@objectstack/spec` 17.5.0 made an entry's `label`
+    // optional (absent ⇒ inherited from its target at render time), so an
+    // unlabelled entry compiles now, while a labelled SEPARATOR above still
+    // does not.
     const unlabelled: NavigationItem = { id: 'account', type: 'object', objectName: 'account' };
-    expect(unlabelled.type).toBe('object');
+    // @ts-expect-error — an entry without an `id`: identity is still required.
+    const anonymous: NavigationItem = { type: 'object', objectName: 'account', label: 'Accounts' };
+    expect(unlabelled.type).toBe(anonymous.type);
   });
 });
 

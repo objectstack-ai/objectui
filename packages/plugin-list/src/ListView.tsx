@@ -2150,11 +2150,12 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * for its groups and pages each group's rows itself, with the SAME effective
    * filter this component would have sent (see `selfQueryFilter` below).
    *
-   * ⛔ Not while a toolbar search is active. `$search` has no counterpart on
-   * the header query the platform answers — its aggregate branch composes
-   * `where` / `groupBy` / `aggregations` / `having` and nothing else — so
-   * searched group counts would not be the searched rows' counts. The
-   * searched view keeps grouping this component's window, as before.
+   * A toolbar search included (objectui#11021). The header query takes
+   * ADR-0061 `search` / `searchFields` beside `where`, and the grid sends the
+   * term on it and on every group's row query as one pair, so the groups and
+   * their counts are the searched rows'. The grid is handed this component's
+   * term as `search`, and the view's `searchableFields` on its node — the pair
+   * this component's own fetch sends as `$search` / `$searchFields`.
    */
   const gridOwnsGroupedFetch =
     currentView === 'grid' &&
@@ -2162,8 +2163,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     !Array.isArray(schema.data) &&
     (schema.data as any)?.provider !== 'value' &&
     !!schema.objectName &&
-    typeof dataSource?.queryGroupHeaders === 'function' &&
-    !searchTerm;
+    typeof dataSource?.queryGroupHeaders === 'function';
 
   /**
    * Is a GROUPED grid refused here? (objectui#10881, maintainer ruling F)
@@ -3328,7 +3328,16 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           ...(groupingConfig ? { grouping: groupingConfig } : {}),
           // objectui#7189 — a grid grouping on the server runs its own query,
           // so it carries the effective filter. See `gridOwnsGroupedFetch`.
-          ...(gridOwnsGroupedFetch ? { filter: selfQueryFilter } : {}),
+          // objectui#11021 — and the fields the toolbar term may match, when
+          // the view declares them; the term itself is a host prop (below).
+          ...(gridOwnsGroupedFetch
+            ? {
+                filter: selfQueryFilter,
+                ...(schema.searchableFields && schema.searchableFields.length > 0
+                  ? { searchableFields: schema.searchableFields }
+                  : {}),
+              }
+            : {}),
           ...(rowColorConfig ? { rowColor: rowColorConfig } : {}),
           ...(schema.rowActions ? { rowActions: schema.rowActions } : {}),
           /**
@@ -5192,6 +5201,12 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               // rows would turn back into page-scoped grouping (objectui#7189).
               ? {}
               : { data })}
+            {...(gridOwnsGroupedFetch
+              // objectui#11021 — the grid that groups on the server queries for
+              // itself, so it is handed the toolbar term to query with (an
+              // empty one too: the term is this component's, never the grid's).
+              ? { search: searchTerm }
+              : {})}
             {...(viewComponentSchema.type === 'object-grid' && objectDef?.fields
               // objectui#10657 — the grid is handed the rows this component
               // fetched, so they paint before the grid's own read of the

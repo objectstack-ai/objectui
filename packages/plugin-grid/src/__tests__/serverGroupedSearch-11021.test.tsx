@@ -20,10 +20,13 @@
  * ## How a term reaches a server-grouped grid here
  *
  * A server-grouped grid draws no search box of its own; its one box is the
- * flat table's. So each test types the term while the grid is flat and then
- * turns grouping on, the way a host that rewrites `grouping` at runtime does.
- * The term stays the grid's while grouped; clearing it takes turning grouping
- * off again.
+ * flat table's. So a term reaches it two ways, and both are pinned:
+ *
+ *   - typed while the grid is flat, and grouping turned on after, the way a
+ *     host that rewrites `grouping` at runtime does. The term stays the grid's
+ *     while grouped; clearing it takes turning grouping off again;
+ *   - handed down by a host that owns the term, as the `search` prop — how
+ *     `ListView` hands its toolbar term to the grid that groups for it.
  *
  * ## What the double answers
  *
@@ -140,7 +143,7 @@ type ServerDataSource = ReturnType<typeof makeServerDataSource>;
 
 const GROUPING = { fields: [{ field: 'business_unit' }] };
 
-const grid = (ds: ServerDataSource, grouped: boolean) => (
+const grid = (ds: ServerDataSource, grouped: boolean, hostSearch?: string) => (
   <ActionProvider>
     <ObjectGrid
       schema={{
@@ -152,6 +155,7 @@ const grid = (ds: ServerDataSource, grouped: boolean) => (
         ...(grouped ? { grouping: GROUPING } : {}),
       } as any}
       dataSource={ds as any}
+      {...(hostSearch !== undefined ? { search: hostSearch } : {})}
     />
   </ActionProvider>
 );
@@ -171,6 +175,17 @@ const subjectsIn = (el: Element, unit: string) =>
 /** The row page queries: each one carries a group key under `$and`. */
 const groupRowFinds = (ds: ServerDataSource, from = 0) =>
   ds.find.mock.calls.slice(from).map(([, p]) => p).filter((p) => Array.isArray((p.$filter as { $and?: unknown } | undefined)?.$and));
+
+/** Every header set the grid paints, sampled on each DOM mutation. */
+function recordPaintedHeaders() {
+  const painted: Array<Record<string, number>> = [];
+  const observer = new MutationObserver(() => {
+    const counts = headerCounts();
+    if (Object.keys(counts).length > 0) painted.push(counts);
+  });
+  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+  return { painted, stop: () => observer.disconnect() };
+}
 
 /** Type the term into the flat grid's box, then turn grouping on. */
 async function searchThenGroup(ds: ServerDataSource) {
@@ -242,17 +257,26 @@ describe('a grouped grid under a search groups the searched rows (objectui#11021
     await vi.waitFor(() => expect(ds.find.mock.calls.at(-1)?.[1]).not.toHaveProperty('$search'));
 
     const findsBefore = ds.find.mock.calls.length;
+    const headerCallsBefore = ds.queryGroupHeaders.mock.calls.length;
+    const recorder = recordPaintedHeaders();
     view.rerender(grid(ds, true));
 
-    // Read the SETTLED answer. On re-entry the grid may first ask with the row
-    // query it held when it last grouped, then with the one it resolves now;
-    // the headers on screen are the last query's answer.
     await vi.waitFor(() => expect(headerCounts()).toEqual(UNSEARCHED));
     await vi.waitFor(() => expect(subjectsIn(groupRowEl('Northgate Operations'), 'Northgate Operations')).toHaveLength(86));
-    const [, lastHeaderQuery] = ds.queryGroupHeaders.mock.calls.at(-1)!;
-    expect(lastHeaderQuery).toEqual(compileListViewGroupQuery({ grouping: GROUPING, columns: [] }, { depth: 1 }));
-    expect(lastHeaderQuery).not.toHaveProperty('search');
-    expect(lastHeaderQuery).not.toHaveProperty('searchFields');
+    recorder.stop();
+    // Re-entering grouping asks with the query the grid resolves NOW, never
+    // with the row query it held when it last grouped: no header query after
+    // the re-entry carries the cleared term, and no searched group set is
+    // painted on the way to the unsearched one.
+    const reentryHeaderQueries = ds.queryGroupHeaders.mock.calls.slice(headerCallsBefore).map(([, q]) => q);
+    expect(reentryHeaderQueries.length).toBeGreaterThan(0);
+    for (const query of reentryHeaderQueries) {
+      expect(query).toEqual(compileListViewGroupQuery({ grouping: GROUPING, columns: [] }, { depth: 1 }));
+    }
+    expect(recorder.painted.length).toBeGreaterThan(0);
+    for (const counts of recorder.painted) {
+      expect(counts).not.toEqual(SEARCHED);
+    }
     // Every unit's latest row page is asked without the term.
     for (const [unit] of UNITS) {
       const pages = groupRowFinds(ds, findsBefore).filter((p) =>
@@ -260,6 +284,36 @@ describe('a grouped grid under a search groups the searched rows (objectui#11021
       expect(pages.length).toBeGreaterThan(0);
       expect(pages.at(-1)).not.toHaveProperty('$search');
       expect(pages.at(-1)).not.toHaveProperty('$searchFields');
+    }
+  });
+
+  it('a host that owns the term hands it down as `search`: both queries carry it, and an empty one restores the groups', async () => {
+    const ds = makeServerDataSource();
+    const view = render(grid(ds, true, TERM));
+
+    await vi.waitFor(() => expect(headerCounts()).toEqual(SEARCHED));
+    const [, headerQuery] = ds.queryGroupHeaders.mock.calls.at(-1)!;
+    expect(headerQuery).toEqual({
+      ...compileListViewGroupQuery({ grouping: GROUPING, columns: [] }, { depth: 1 }),
+      search: TERM,
+      searchFields: SEARCH_FIELDS,
+    });
+    for (const [unit, count] of Object.entries(SEARCHED)) {
+      await vi.waitFor(() => expect(subjectsIn(groupRowEl(unit), unit)).toHaveLength(count));
+    }
+    for (const params of groupRowFinds(ds)) {
+      expect(params.$search).toBe(TERM);
+      expect(params.$searchFields).toEqual(SEARCH_FIELDS);
+    }
+
+    // The host clears its term: the grid's own box plays no part.
+    const findsBefore = ds.find.mock.calls.length;
+    view.rerender(grid(ds, true, ''));
+    await vi.waitFor(() => expect(headerCounts()).toEqual(UNSEARCHED));
+    expect(ds.queryGroupHeaders.mock.calls.at(-1)![1]).not.toHaveProperty('search');
+    await vi.waitFor(() => expect(groupRowFinds(ds, findsBefore).length).toBeGreaterThanOrEqual(UNITS.length));
+    for (const params of groupRowFinds(ds, findsBefore)) {
+      expect(params).not.toHaveProperty('$search');
     }
   });
 });

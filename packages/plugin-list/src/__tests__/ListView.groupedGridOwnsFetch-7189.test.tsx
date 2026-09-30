@@ -90,10 +90,10 @@ afterAll(() => {
 beforeEach(() => { lastGridProps = null; });
 afterEach(() => { cleanup(); lastGridProps = null; });
 
-const renderList = (ds: any, schema: ListViewSchema) =>
+const renderList = (ds: any, schema: ListViewSchema, props: Record<string, unknown> = {}) =>
   render(
     <SchemaRendererProvider dataSource={ds}>
-      <ListView schema={schema} dataSource={ds} />
+      <ListView schema={schema} dataSource={ds} {...props} />
     </SchemaRendererProvider>,
   );
 
@@ -111,6 +111,25 @@ describe('ListView → grouped grid: the grid owns its fetch when the server can
     const listFilter = ds.find.mock.calls[ds.find.mock.calls.length - 1][1].$filter;
     expect(lastGridProps.schema.filter).toEqual(listFilter);
     expect(lastGridProps.schema.grouping.fields.map((f: any) => f.field)).toEqual(['business_unit']);
+  });
+
+  // objectui#11021 — a toolbar search no longer takes the grid's fetch back:
+  // the header query takes the term, so the grid is handed the term (and the
+  // view's searchable fields) to put on both of its queries, and still no rows.
+  it('under a toolbar search, hands the grouped grid NO rows, and the term with the searchable fields', async () => {
+    const ds = makeDataSource(true);
+    renderList(ds, listSchema({ searchableFields: ['subject'] }), { initialSearchTerm: 'Task 1' });
+    await waitFor(() => expect(ds.find).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
+
+    const listParams = ds.find.mock.calls[ds.find.mock.calls.length - 1][1];
+    expect(listParams.$search).toBe('Task 1');
+    expect(lastGridProps.data, 'a searched window would turn the grid back into page-scoped grouping').toBeUndefined();
+    // The term the grid queries with is the one THIS component queried with,
+    // and so are the fields it may match.
+    expect(lastGridProps.search).toBe(listParams.$search);
+    expect(lastGridProps.schema.searchableFields).toEqual(listParams.$searchFields);
+    expect(lastGridProps.schema.filter).toEqual(listParams.$filter);
   });
 
   it('draws no record-count bar over a grid that drew something else', async () => {
@@ -137,5 +156,14 @@ describe('ListView → grouped grid: the grid owns its fetch when the server can
     renderList(ds, listSchema({ grouping: undefined }));
     await waitFor(() => expect(Array.isArray(lastGridProps?.data) && lastGridProps.data.length > 0).toBe(true));
     expect(ds.queryGroupHeaders).not.toHaveBeenCalled();
+  });
+
+  it('CONTROL — an UNGROUPED grid under a toolbar search is handed its searched window, and no term to query with', async () => {
+    const ds = makeDataSource(true);
+    renderList(ds, listSchema({ grouping: undefined, searchableFields: ['subject'] }), { initialSearchTerm: 'Task 1' });
+    await waitFor(() => expect(Array.isArray(lastGridProps?.data) && lastGridProps.data.length > 0).toBe(true));
+    expect(ds.find.mock.calls[ds.find.mock.calls.length - 1][1].$search).toBe('Task 1');
+    expect(lastGridProps.search).toBeUndefined();
+    expect(lastGridProps.schema.searchableFields).toBeUndefined();
   });
 });

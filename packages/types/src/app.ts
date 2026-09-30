@@ -55,6 +55,7 @@ import type {
   UrlNavItem as SpecUrlNavItem,
   ActionNavItem as SpecActionNavItem,
   ComponentNavItem as SpecComponentNavItem,
+  DocNavItem as SpecDocNavItem,
   App as SpecApp,
 } from '@objectstack/spec/ui';
 import type { BaseSchema } from './base.js';
@@ -241,6 +242,27 @@ export interface NavigationEntryItem {
    * variant declares the identical shape.
    */
   params?: SpecComponentNavItem['params'];
+
+  /**
+   * Book to open (for type: 'doc', ADR-0046) — a declared `book` name, or the
+   * package id for the package's implicit book. Alone, the entry opens the book
+   * at its first readable page; with {@link doc}, that page in this book's
+   * context. At least one of `book` / `doc` is required on a `doc` entry — the
+   * rule `NavigationItemSchema` takes from the spec's own `doc` arm
+   * (objectui#11197). `NavigationRenderer.resolveHref` sends it to the console
+   * docs portal.
+   *
+   * Derived from the spec's doc-nav variant (#3177).
+   */
+  book?: SpecDocNavItem['book'];
+
+  /**
+   * Doc to open (for type: 'doc', ADR-0046) — the doc NAME, i.e. its source
+   * filename stem in lowercase snake_case (`crm_lead_guide`, never
+   * `crm_lead_guide.md` or a path). Alone, its book context is the doc's own
+   * book. Derived from the spec's doc-nav variant (#3177).
+   */
+  doc?: SpecDocNavItem['doc'];
 
   // -- Grouping --
 

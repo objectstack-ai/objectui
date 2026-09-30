@@ -60,7 +60,7 @@ import { resolveFieldScale } from '@objectstack/spec/data';
 import { I18nProvider, LocalizationProvider } from '@object-ui/i18n';
 import { PercentCellRenderer, PercentField, formatPercent } from '@object-ui/fields';
 import { DetailView } from '@object-ui/plugin-detail';
-import type { DetailViewSchema } from '@object-ui/types';
+import type { DetailViewSchema, FieldMetadata, ListColumn } from '@object-ui/types';
 import { useColumnSummary } from '../useColumnSummary';
 
 /**
@@ -90,12 +90,8 @@ const PREFIX = 'Sum: ';
  * scaling `percentDisplayValue` applies on the read faces — and the width is
  * the only thing that can differ between them.
  */
-const field = (declared: Record<string, unknown>) => ({
-  name: 'rate',
-  label: 'Rate',
-  type: 'percent',
-  ...declared,
-});
+const field = (declared: Record<string, unknown>): FieldMetadata =>
+  ({ name: 'rate', label: 'Rate', type: 'percent', ...declared }) as unknown as FieldMetadata;
 
 function session(node: React.ReactNode): React.ReactElement {
   return (
@@ -110,7 +106,7 @@ const collapse = (s: string) => s.replace(/\s+/g, ' ').trim();
 /** Face 1 — the list cell. */
 function cellText(declared: Record<string, unknown>): string {
   const { container } = render(
-    session(<PercentCellRenderer value={STORED} field={field(declared) as any} />),
+    session(<PercentCellRenderer value={STORED} field={field(declared)} />),
   );
   const value = container.querySelector<HTMLElement>('span.tabular-nums');
   expect(value, 'the cell states its own percentage').not.toBeNull();
@@ -148,7 +144,7 @@ function chipText(declared: Record<string, unknown>): string {
 
 /** Face 3 — the column-summary footer. */
 function footerText(declared: Record<string, unknown>): string {
-  const cols: any[] = [{ field: 'rate', summary: 'sum', ...field(declared) }];
+  const cols = [{ ...field(declared), field: 'rate', summary: 'sum' }] as unknown as ListColumn[];
   const { result } = renderHook(() => useColumnSummary(cols, [{ rate: STORED }]), {
     wrapper: ({ children }: { children: React.ReactNode }) => session(children),
   });
@@ -161,7 +157,7 @@ function footerText(declared: Record<string, unknown>): string {
 /** Face 4 — the edit widget's readonly face. */
 function widgetReadonlyText(declared: Record<string, unknown>): string {
   const { container } = render(
-    session(<PercentField value={STORED} onChange={() => {}} field={field(declared) as any} readonly />),
+    session(<PercentField value={STORED} onChange={() => {}} field={field(declared)} readonly />),
   );
   const text = collapse(container.textContent ?? '');
   cleanup();
@@ -171,7 +167,7 @@ function widgetReadonlyText(declared: Record<string, unknown>): string {
 /** Face 5 — the edit widget's editable face: what it steps by. */
 function widgetEditable(declared: Record<string, unknown>): { step: string | null; nudged: number } {
   const onChange = vi.fn();
-  render(session(<PercentField value={STORED} onChange={onChange} field={field(declared) as any} />));
+  render(session(<PercentField value={STORED} onChange={onChange} field={field(declared)} />));
   const step = screen.getByRole('spinbutton').getAttribute('step');
   fireEvent.keyDown(screen.getByRole('slider'), { key: 'ArrowRight' });
   expect(onChange, 'one slider increment emits exactly once').toHaveBeenCalledTimes(1);
@@ -193,7 +189,7 @@ function readFaces(declared: Record<string, unknown>) {
 describe('every percent face reads its width through resolveFieldScale (objectui#9843)', () => {
   it('the footer prefix this file strips is the one the bundle produces', () => {
     const { result } = renderHook(
-      () => useColumnSummary([{ field: 'n', summary: 'sum' }] as any[], [{ n: 1 }]),
+      () => useColumnSummary([{ field: 'n', summary: 'sum' }] as unknown as ListColumn[], [{ n: 1 }]),
       { wrapper: ({ children }: { children: React.ReactNode }) => session(children) },
     );
     expect(result.current.summaries.get('n')?.label).toBe(`${PREFIX}1`);

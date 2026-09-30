@@ -33,6 +33,7 @@ import { describe, it, expect } from 'vitest';
 import * as React from 'react';
 import { renderHook } from '@testing-library/react';
 import { I18nProvider, LocalizationProvider } from '@object-ui/i18n';
+import type { ListColumn } from '@object-ui/types';
 import { useColumnSummary } from '../useColumnSummary';
 
 function wrapper(locale: string) {
@@ -49,7 +50,7 @@ function footer(
   column: Record<string, unknown> = { type: 'number' },
   locale = 'en',
 ): string {
-  const cols: any[] = [{ field: 'n', summary, ...column }];
+  const cols = [{ field: 'n', summary, ...column }] as unknown as ListColumn[];
   const { result } = renderHook(() => useColumnSummary(cols, values.map((n) => ({ n }))), {
     wrapper: wrapper(locale),
   });

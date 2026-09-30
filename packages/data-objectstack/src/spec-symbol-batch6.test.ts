@@ -238,8 +238,20 @@ describe('DroppedFieldsEvent IS the spec type, not a mirror of it', () => {
     // an exhaustive map plus a third wording in both locale tables, which is a
     // UX and i18n read of its own rather than bump adaptation. #3935 owns it and
     // already prescribes the shape.
+    //
+    // IT FIRED AGAIN at objectstack `b2805465`, which added `computed` (a
+    // formula field's caller-supplied value, stripped on every write path) —
+    // this time in the `Spec Main Shape Gate`, before any pin moved
+    // (objectui#11206). This file compiles against BOTH the published pin
+    // (17.5.0, three arms) and objectstack `main` (four), so the member list is
+    // stated with `computed` subtracted. That is still exact on each side:
+    // `computed` is the only member the `Exclude` can absorb, so any other new
+    // arm is a remainder `Equal` refuses, and `_ReasonIsNotString` below still
+    // refuses the widening. When the pin moves past 17.5.0 to a release
+    // carrying `computed`, this becomes the four-member union with no `Exclude`
+    // (`writeWarningToast.test.ts` fails on that bump to say so).
     type _ReasonIsTheEnum = Assert<
-      Equal<DroppedFieldsEvent['reason'], 'readonly' | 'readonly_when' | 'primary_key'>
+      Equal<Exclude<DroppedFieldsEvent['reason'], 'computed'>, 'readonly' | 'readonly_when' | 'primary_key'>
     >;
     type _ReasonIsNotString = Assert<Equal<Equal<DroppedFieldsEvent['reason'], string>, false>>;
 

@@ -41,16 +41,8 @@ const mockClient = vi.hoisted(() => ({
   get: vi.fn(async () => null),
   getDraft: vi.fn(async () => null),
   references: vi.fn(async () => []),
-  layered: vi.fn(async () => ({
-    code: null,
-    overlay: null,
-    overlayScope: null,
-    effective: null as unknown,
-    provenance: 'org',
-    editable: true,
-    deletable: true,
-    lock: 'none',
-  })),
+  // Installed per test in `beforeEach` (the app is not in scope in a hoisted block).
+  layered: vi.fn(async (): Promise<Record<string, unknown>> => ({})),
   save: vi.fn(async () => ({})),
 }));
 

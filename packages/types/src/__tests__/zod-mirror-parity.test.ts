@@ -4338,9 +4338,14 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   // `properties`: today `responsiveStyles` alone, the spec's
   // `ResponsiveStylesSchema` by reference. The arm reasons above describe the
   // members each arm adds of its own; this fragment is shared by all of them.
-  // Pinned in `./public-block-responsive-styles-10872.test.ts`.
+  // Pinned in `./public-block-responsive-styles-10872.test.ts`. Batch 9 spread
+  // it into three registered pairs as well (`layout.zod.ts#FlexSchema`,
+  // `objectql.zod.ts#ObjectGridSchema`, `objectql.zod.ts#ObjectChartSchema`),
+  // whose TS twins declare the member as the spec's `ResponsiveStyles`, and
+  // renamed it from `PUBLIC_BLOCK_ENVELOPE`. Pinned in
+  // `./flat-arm-responsive-styles-10872.test.ts`.
   'public-blocks.zod.ts#NODE_ENVELOPE':
-    "a shape FRAGMENT, not a schema and not a mirror — `{ responsiveStyles }`, the spec's `ResponsiveStylesSchema` by reference (the schema `PageComponentSchema.responsiveStyles` declares), spread into every public-block arm so the one declaration is shared; no TS declaration in this package restates it",
+    "a shape FRAGMENT, not a schema and not a mirror — `{ responsiveStyles }`, the spec's `ResponsiveStylesSchema` by reference (the schema `PageComponentSchema.responsiveStyles` declares), spread into every public-block arm and into the `flex`, `object-grid` and `object-chart` mirrors so the one declaration is shared; no TS declaration restates the fragment itself, and each of those three pairs' TS twins declares the member as the spec's `ResponsiveStyles` type",
   // objectui#10919 — the `cloud:plan-status` widget's arm, declared locally from
   // the widget's read points: `@objectstack/spec` has no row for a `cloud:`
   // widget, and the widget's props type lives beside it in `@object-ui/app-shell`,

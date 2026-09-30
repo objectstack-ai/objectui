@@ -370,9 +370,17 @@ describe('Interfaces nav autosave — the same claim, in place of its edit gener
     expect(innermost).toHaveLength(1);
     return innermost[0];
   }
-  const addedItemsInRail = () => (rail().textContent ?? '').split('New item').length - 1;
+  // objectui#11196: a new canvas entry is born with no `label`, so the rail
+  // shows it by its `id` (`nav_item_3`, `nav_item_4`) and a save carries it
+  // with no `label` key (`{ id }` below). It was born "New item".
+  const addedItemsInRail = () => (rail().textContent ?? '').match(/nav_item_\d+/g)?.length ?? 0;
   const navEditingOpen = () => screen.queryAllByRole('button', { name: /Add nav item/ }).length > 0;
-  const savedNavLabels = () => savesOf('app').map((b) => (b.navigation as Array<{ label: string }>).map((n) => String(n.label)));
+  const savedNavEntries = () =>
+    savesOf('app').map((b) =>
+      (b.navigation as Array<Record<string, unknown>>).map((n) =>
+        Object.prototype.hasOwnProperty.call(n, 'label') ? String(n.label) : { id: n.id },
+      ),
+    );
 
   it('an edit undone while the save is in flight leaves the buffer as it landed: clean, and "Done" closes', async () => {
     render(<NavHost />);
@@ -386,14 +394,14 @@ describe('Interfaces nav autosave — the same claim, in place of its edit gener
     fireEvent.click(screen.getByRole('button', { name: /Add nav item/ }));
     expect(addedItemsInRail()).toBe(2);
     // Undo it: the buffer is back to exactly what the save in flight carries.
-    const rows = within(rail()).getAllByRole('button', { name: /New item/ });
+    const rows = within(rail()).getAllByRole('button', { name: /nav_item_\d+/ });
     fireEvent.mouseEnter(rows[rows.length - 1]);
     fireEvent.click(within(rows[rows.length - 1]).getByRole('button', { name: 'Remove nav item' }));
     expect(addedItemsInRail()).toBe(1);
 
     await release();
     await settle();
-    expect(savedNavLabels()).toEqual([['Home menu', 'Landing menu', 'New item']]);
+    expect(savedNavEntries()).toEqual([['Home menu', 'Landing menu', { id: 'nav_item_3' }]]);
     expect(addedItemsInRail()).toBe(1);
     expect(dirtyReports[dirtyReports.length - 1]).toBe(false);
 

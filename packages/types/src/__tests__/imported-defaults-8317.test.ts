@@ -113,6 +113,8 @@ import {
   // objectui#10872 batch 2 — `element:number`'s row, and the node's `dataSource`.
   ElementNumberPropsSchema as SpecElementNumberPropsSchema,
   ElementDataSourceSchema as SpecElementDataSourceSchema,
+  // objectui#10872 batch 8 — the node-level `responsiveStyles` every public-block arm declares.
+  ResponsiveStylesSchema as SpecResponsiveStylesSchema,
   objectNavTargetExclusivity,
   checkListViewCalendarVisualization,
   checkPageSourceCompleteness,
@@ -120,6 +122,7 @@ import {
   checkDashboardWidgetMetricMeasureArity,
 } from '@objectstack/spec/ui';
 import { FieldSchema as SpecFieldSchema, SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
+import { EvaluatedExpressionInputSchema as SpecEvaluatedExpressionInputSchema } from '@objectstack/spec/shared';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -222,6 +225,10 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // objectui#8885: `ObjectChartSchema.drillDown` crosses this boundary.
   ['ChartDrillDownSchema', SpecChartDrillDownSchema],
   ['SelectOptionSchema', SpecSelectOptionSchema],
+  // objectui#8069: the form field-rule triad's blank check hands a predicate's
+  // TEXT to this schema and takes its verdict and sentence (ADR-0137 D1), so
+  // the crossing is measured here like every other one.
+  ['EvaluatedExpressionInputSchema', SpecEvaluatedExpressionInputSchema],
   // objectui#7265, the @object-ui/types slice: `UserFiltersSchema.fields[]`
   // stopped being a hand copy of the spec's field shape and now derives from
   // it, so that crossing is measured here like every other one.
@@ -292,6 +299,13 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // like every other one.
   ['ElementNumberPropsSchema', SpecElementNumberPropsSchema],
   ['ElementDataSourceSchema', SpecElementDataSourceSchema],
+  // objectui#10872 batch 8: every public-block arm declares the node-level
+  // `responsiveStyles` as the spec's `ResponsiveStylesSchema` (one shared
+  // `PUBLIC_BLOCK_ENVELOPE`), crossed through this boundary like every other
+  // read. It carries no default and reaches no `z.lazy`, so the strip is the
+  // identity function — the row is here because the census below requires
+  // every imported symbol to be measured, not because the strip does work.
+  ['ResponsiveStylesSchema', SpecResponsiveStylesSchema],
   // objectui#11070: `FormFieldSchema` reads spec `FieldSchema` members by
   // reference (the field metadata a hand-authored form writes on the entry
   // itself; `FormFieldSchema.shape` lists them), and `multiple` carries the

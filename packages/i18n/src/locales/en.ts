@@ -231,6 +231,13 @@ const en = {
     // with `validation.formInvalidJoiner`. A list after a colon, so no word has
     // to agree with how many fields were cleared.
     clearedOnHide: 'Cleared — no longer applicable given the current values: {{fields}}',
+    // The refusal a record form raises at SUBMIT when a field's own
+    // `visibleWhen` could not be evaluated (objectui#8069, ADR-0137 D2 as ruled:
+    // the client refuses the one rule no server judges). It names the rule and
+    // the fields — `{{fields}}` is their labels joined with
+    // `validation.formInvalidJoiner` — because the fix is to the metadata, not
+    // to anything the person filling the form can type.
+    visibleWhenFaulted: "Can't submit: the visibleWhen rule of {{fields}} could not be evaluated. The rule must be fixed before this form can be submitted.",
     removeItem: 'Remove item',
     fieldRequired: 'This field is required',
     invalidFormat: 'Invalid format',

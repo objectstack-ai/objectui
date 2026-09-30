@@ -396,13 +396,24 @@ describe('fault directions — what a BROKEN rule decides (objectui#8069)', () =
 
   it('all three compose from ONE broken predicate: shows more, locks less, demands less', () => {
     // The card's thesis in one assertion — the three faults do not cancel.
+    // Since ADR-0137 the verdicts are unchanged (D3) and each fault is also
+    // REPORTED, under its own rule, for a submit path to read (D2).
     expect(
       resolveFieldRuleState(
         { visibleWhen: broken, readonlyWhen: broken, requiredWhen: broken },
         {},
         {},
       ),
-    ).toEqual({ visible: true, readonly: false, required: false });
+    ).toEqual({
+      visible: true,
+      readonly: false,
+      required: false,
+      faults: {
+        visibleWhen: expect.any(String),
+        readonlyWhen: expect.any(String),
+        requiredWhen: expect.any(String),
+      },
+    });
   });
 });
 

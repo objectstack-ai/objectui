@@ -153,11 +153,13 @@ describe('filterVisibleParams — faults are fail-open and LOUD (objectui#4640)'
     expect(warnings).toHaveLength(1);
   });
 
-  it('a blank or absent predicate is NOT a fault — kept, and silent', () => {
+  it('a blank predicate is NOT a fault — kept, never evaluated, and diagnosed as blank (objectui#8069)', () => {
     // `''`, whitespace, and the empty `{ dialect, source: '' }` envelope a
     // spec-normalized empty predicate compiles to all mean "no gate declared"
     // (objectui#3850 / #3960) — they must never reach the evaluator to be
-    // reported as broken.
+    // reported as broken. Since ADR-0137 D4 the "no gate" fold is no longer
+    // SILENT: `hasDeclaredPredicate` reports each blank spelling once through
+    // core's `[blank]` channel, and nothing else speaks.
     const params: ActionParamDef[] = [
       p('a', ''),
       p('b', '   '),
@@ -166,6 +168,17 @@ describe('filterVisibleParams — faults are fail-open and LOUD (objectui#4640)'
     ];
     const { result, warnings } = withWarnings(() => filterVisibleParams(params, {}, 'Create user'));
     expect(result.map((x) => x.name)).toEqual(['a', 'b', 'c', 'd']);
+    // `p('a', '')` authors no key at all (the helper drops a falsy predicate);
+    // `'   '`, `{ source: '' }` and `{ source: '  ' }` are three blank
+    // spellings, one line each.
+    expect(warnings).toHaveLength(3);
+    expect(warnings.every((w) => w.includes('[blank]'))).toBe(true);
+  });
+
+  it('control — an ABSENT predicate is kept and silent: there is nothing declared to report', () => {
+    const params: ActionParamDef[] = [p('a'), { name: 'n', label: 'N', type: 'text', visible: null as never }];
+    const { result, warnings } = withWarnings(() => filterVisibleParams(params, {}, 'Create user'));
+    expect(result.map((x) => x.name)).toEqual(['a', 'n']);
     expect(warnings).toEqual([]);
   });
 

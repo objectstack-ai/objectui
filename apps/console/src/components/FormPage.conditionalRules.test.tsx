@@ -685,6 +685,8 @@ describe('objectui#5627 — the keys reach the rows, in their own slots', () => 
       visible: true,
       readonly: false,
       required: false,
+      // No rule, no fault — the report the submit check reads (objectui#8069).
+      faults: {},
     });
     expect(resolveRowState(byName.viewHidden, values, null, isCreate).visible).toBe(false);
     expect(resolveRowState(byName.objectHidden, values, null, isCreate).visible).toBe(false);

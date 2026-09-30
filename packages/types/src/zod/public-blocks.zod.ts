@@ -40,8 +40,12 @@
  * refinements and retired-key tombstones all arrive from the spec, and a row
  * the spec changes changes the arm the same day. No member is restated here,
  * so none can drift — except the one row the spec does not export by name
- * (`element:divider`, below). The node-level members an arm adds are three
- * kinds: an `on*` key a renderer reads off the node, declared as
+ * (`element:divider`, below). Every arm also declares the node-level
+ * envelope the spec's `PageComponentSchema` declares beside `properties` and a
+ * producer writes — today `responsiveStyles` alone, spread from ONE fragment,
+ * `PUBLIC_BLOCK_ENVELOPE` (objectui#10872 batch 8). The node-level members an
+ * arm adds of its own are three kinds: an `on*` key a renderer reads off the
+ * node, declared as
  * `check:handler-key-reads` requires of every such read — refused by name with
  * `handlerKeyRefusal` where it is a runtime slot (`page:tabs`'s `onTabChange`,
  * the `action:button` / `action:icon` `onClick`), or refused with an alias
@@ -207,6 +211,10 @@ import {
   ActionIconPropsSchema as SpecActionIconPropsSchema,
   ActionGroupPropsSchema as SpecActionGroupPropsSchema,
   ActionMenuPropsSchema as SpecActionMenuPropsSchema,
+  // objectui#10872 batch 8 — the node-level per-breakpoint style maps
+  // (`PageComponentSchema.responsiveStyles`), declared once below
+  // (`PUBLIC_BLOCK_ENVELOPE`) and spread into every public-block arm.
+  ResponsiveStylesSchema as SpecResponsiveStylesSchema,
 } from '@objectstack/spec/ui';
 import { BaseSchema } from './base.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
@@ -234,6 +242,46 @@ export function propsBag<T extends z.ZodType>(type: string, row: T) {
       + 'Judged only when present, as the spec\'s props gate judges it.',
     );
 }
+
+/**
+ * The node-level ENVELOPE every public-block arm declares beside `properties`
+ * (objectui#10872 batch 8) — spread into each arm below and into
+ * `./objectql.zod.ts`'s public-block arms, so the one declaration is shared and
+ * no arm restates it.
+ *
+ * `@objectstack/spec`'s `PageComponentSchema` declares six node-level keys
+ * beside `properties`: `events`, `responsiveStyles`, `dataSource`, `aria`,
+ * `visibility` and the retired `responsive`. One has a measured producer, and
+ * is the one declared here: `responsiveStyles`, the per-breakpoint CSS maps
+ * that `SchemaRenderer` compiles to CSS scoped to the node (ADR-0065) on every
+ * node it renders. The objectstack showcase writes it on public-block nodes and
+ * objectstack's UI skill teaches it; that reading is recorded on objectui#10872
+ * and nothing here re-derives it. It is the spec's `ResponsiveStylesSchema`, BY
+ * REFERENCE through the objectui#8317 boundary, so its breakpoints
+ * (`large`, `medium`, `small`, `xsmall`), its strictness and its own
+ * unknown-breakpoint guidance all arrive from the spec. Before this, the strict
+ * authoring face refused a spec-valid node by name, and the tolerant face kept
+ * any value unjudged — a breakpoint the spec does not have parsed clean and
+ * styled nothing.
+ *
+ * ⛔ The other five stay undeclared (no producer; release condition "additive,
+ * when a producer needs them", objectui#10872). `dataSource` is declared per
+ * arm where a renderer reads the binding (`element:number`, and the ObjectQL
+ * blocks), not here. ⛔ Not on `BaseSchema`: that widens every arm of
+ * `AnyComponentSchema`, a different accept-set change from the public blocks'.
+ *
+ * Internal to this package's zod modules, like `propsBag` — deliberately NOT
+ * re-exported from `index.zod.ts`.
+ */
+export const PUBLIC_BLOCK_ENVELOPE = {
+  responsiveStyles: stripImportedDefaults(SpecResponsiveStylesSchema)
+    .optional()
+    .describe(
+      'Per-breakpoint scoped style maps (ADR-0065) — `@objectstack/spec` `ResponsiveStylesSchema`, the schema '
+      + '`PageComponentSchema.responsiveStyles` declares, by reference. `SchemaRenderer` compiles it to CSS scoped '
+      + 'to this node: `large` is the unconditional base, `medium` / `small` / `xsmall` are max-width overrides.',
+    ),
+};
 
 /**
  * objectui#10872 batch 6: ONE refusal string for both node-level content
@@ -276,6 +324,7 @@ const PAGE_HEADER_NEITHER_CHANNEL = neitherContentChannelGuidance(
 /** `page:header` — `ComponentPropsMap['page:header']`. */
 export const PageHeaderBlockSchema = BaseSchema.extend({
   type: z.literal('page:header'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('page:header', stripImportedDefaults(SpecPageHeaderProps)),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
@@ -310,6 +359,7 @@ const PAGE_TABS_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const PageTabsBlockSchema = BaseSchema.extend({
   type: z.literal('page:tabs'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('page:tabs', stripImportedDefaults(SpecPageTabsProps)),
   onTabChange: handlerKeyRefusal('onTabChange', 'runtime-slot', 'Tab switch callback'),
   // objectui#9256: the NODE's content channels only — each item's `children` stays live.
@@ -327,6 +377,7 @@ const PAGE_CARD_CHILD_LIST = pageContainerChildListGuidance('page:card', 'PageCa
  */
 export const PageCardBlockSchema = BaseSchema.extend({
   type: z.literal('page:card'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('page:card', stripImportedDefaults(SpecPageCardProps)),
   // objectui#10872 batch 6: the child list is the row's `children` member, in the bag.
   body: retirementTombstone(PAGE_CARD_CHILD_LIST),
@@ -349,6 +400,7 @@ const PAGE_ACCORDION_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const PageAccordionBlockSchema = BaseSchema.extend({
   type: z.literal('page:accordion'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('page:accordion', stripImportedDefaults(SpecPageAccordionProps)),
   // objectui#9256: the NODE's content channels only — each item's `children` stays live.
   body: retirementTombstone(PAGE_ACCORDION_NEITHER_CHANNEL),
@@ -367,6 +419,7 @@ const PAGE_SECTION_CHILD_LIST = pageContainerChildListGuidance('page:section', '
  */
 export const PageSectionBlockSchema = BaseSchema.extend({
   type: z.literal('page:section'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('page:section', stripImportedDefaults(SpecPageContainerProps)),
   // objectui#10872 batch 6: the child list is the row's `children` member, in the bag.
   body: retirementTombstone(PAGE_SECTION_CHILD_LIST),
@@ -379,6 +432,7 @@ const PAGE_FOOTER_CHILD_LIST = pageContainerChildListGuidance('page:footer', 'Pa
 /** `page:footer` — `ComponentPropsMap['page:footer']` (`PageContainerProps`). */
 export const PageFooterBlockSchema = BaseSchema.extend({
   type: z.literal('page:footer'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('page:footer', stripImportedDefaults(SpecPageContainerProps)),
   // objectui#10872 batch 6: the child list is the row's `children` member, in the bag.
   body: retirementTombstone(PAGE_FOOTER_CHILD_LIST),
@@ -391,6 +445,7 @@ const PAGE_SIDEBAR_CHILD_LIST = pageContainerChildListGuidance('page:sidebar', '
 /** `page:sidebar` — `ComponentPropsMap['page:sidebar']` (`PageContainerProps`). */
 export const PageSidebarBlockSchema = BaseSchema.extend({
   type: z.literal('page:sidebar'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('page:sidebar', stripImportedDefaults(SpecPageContainerProps)),
   // objectui#10872 batch 6: the child list is the row's `children` member, in the bag.
   body: retirementTombstone(PAGE_SIDEBAR_CHILD_LIST),
@@ -410,6 +465,7 @@ const RECORD_DETAILS_NEITHER_CHANNEL = neitherContentChannelGuidance(
 /** `record:details` — `ComponentPropsMap['record:details']`. */
 export const RecordDetailsBlockSchema = BaseSchema.extend({
   type: z.literal('record:details'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('record:details', stripImportedDefaults(SpecRecordDetailsProps)),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
@@ -428,6 +484,7 @@ const RECORD_HIGHLIGHTS_NEITHER_CHANNEL = neitherContentChannelGuidance(
 /** `record:highlights` — `ComponentPropsMap['record:highlights']`. */
 export const RecordHighlightsBlockSchema = BaseSchema.extend({
   type: z.literal('record:highlights'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('record:highlights', stripImportedDefaults(SpecRecordHighlightsProps)),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
@@ -447,6 +504,7 @@ const RECORD_RELATED_LIST_NEITHER_CHANNEL = neitherContentChannelGuidance(
 /** `record:related_list` — `ComponentPropsMap['record:related_list']`. */
 export const RecordRelatedListBlockSchema = BaseSchema.extend({
   type: z.literal('record:related_list'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('record:related_list', stripImportedDefaults(SpecRecordRelatedListProps)),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
@@ -465,6 +523,7 @@ const RECORD_PATH_NEITHER_CHANNEL = neitherContentChannelGuidance(
 /** `record:path` — `ComponentPropsMap['record:path']`. */
 export const RecordPathBlockSchema = BaseSchema.extend({
   type: z.literal('record:path'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('record:path', stripImportedDefaults(SpecRecordPathProps)),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
@@ -484,6 +543,7 @@ const RECORD_ACTIVITY_NEITHER_CHANNEL = neitherContentChannelGuidance(
 /** `record:activity` — `ComponentPropsMap['record:activity']`. */
 export const RecordActivityBlockSchema = BaseSchema.extend({
   type: z.literal('record:activity'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('record:activity', stripImportedDefaults(SpecRecordActivityProps)),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
@@ -507,6 +567,7 @@ const RECORD_DISCUSSION_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const RecordDiscussionBlockSchema = BaseSchema.extend({
   type: z.literal('record:discussion'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('record:discussion', stripImportedDefaults(SpecRecordChatterProps)),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
@@ -525,6 +586,7 @@ const RECORD_HISTORY_NEITHER_CHANNEL = neitherContentChannelGuidance(
 /** `record:history` — `ComponentPropsMap['record:history']`. */
 export const RecordHistoryBlockSchema = BaseSchema.extend({
   type: z.literal('record:history'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('record:history', stripImportedDefaults(SpecRecordHistoryProps)),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
@@ -544,6 +606,7 @@ const RECORD_QUICK_ACTIONS_NEITHER_CHANNEL = neitherContentChannelGuidance(
 /** `record:quick_actions` — `ComponentPropsMap['record:quick_actions']`. */
 export const RecordQuickActionsBlockSchema = BaseSchema.extend({
   type: z.literal('record:quick_actions'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('record:quick_actions', stripImportedDefaults(SpecRecordQuickActionsProps)),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
@@ -562,6 +625,7 @@ const RECORD_REFERENCE_RAIL_NEITHER_CHANNEL = neitherContentChannelGuidance(
 /** `record:reference_rail` — `ComponentPropsMap['record:reference_rail']`. */
 export const RecordReferenceRailBlockSchema = BaseSchema.extend({
   type: z.literal('record:reference_rail'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('record:reference_rail', stripImportedDefaults(SpecRecordReferenceRailProps)),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
@@ -612,6 +676,7 @@ const RECORD_ALERT_NO_CHILD_LIST =
  */
 export const RecordAlertBlockSchema = BaseSchema.extend({
   type: z.literal('record:alert'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('record:alert', stripImportedDefaults(SpecRecordAlertProps)),
   // objectui#10872: the flat spelling of the row's `body`, refused by name with the key that holds the text.
   body: aliasKeyRefusal(
@@ -641,6 +706,7 @@ const ELEMENT_TEXT_NEITHER_CHANNEL = neitherContentChannelGuidance(
 /** `element:text` — `ComponentPropsMap['element:text']`. */
 export const ElementTextBlockSchema = BaseSchema.extend({
   type: z.literal('element:text'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('element:text', stripImportedDefaults(SpecElementTextPropsSchema)),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
@@ -735,6 +801,7 @@ const ELEMENT_NUMBER_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ElementNumberBlockSchema = BaseSchema.extend({
   type: z.literal('element:number'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: ElementNumberPropsBag
     .optional()
     .describe(
@@ -765,6 +832,7 @@ const ELEMENT_BUTTON_NEITHER_CHANNEL = neitherContentChannelGuidance(
 /** `element:button` — `ComponentPropsMap['element:button']`. */
 export const ElementButtonBlockSchema = BaseSchema.extend({
   type: z.literal('element:button'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('element:button', stripImportedDefaults(SpecElementButtonPropsSchema)),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
@@ -794,6 +862,7 @@ const ELEMENT_DIVIDER_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ElementDividerBlockSchema = BaseSchema.extend({
   type: z.literal('element:divider'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: z
     .strictObject({})
     .optional()
@@ -833,6 +902,7 @@ const ELEMENT_DEFINITION_LIST_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ElementDefinitionListBlockSchema = BaseSchema.extend({
   type: z.literal('element:definition-list'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('element:definition-list', stripImportedDefaults(SpecElementDefinitionListPropsSchema)),
   // objectui#10872 batch 5: the renderer reads NEITHER content channel, so both are refused by name,
   // each kept a MEMBER (see "The content channels" above).
@@ -868,6 +938,7 @@ const ELEMENT_REPEATER_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ElementRepeaterBlockSchema = BaseSchema.extend({
   type: z.literal('element:repeater'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('element:repeater', stripImportedDefaults(SpecElementRepeaterPropsSchema)),
   // objectui#10872 batch 5: the renderer reads NEITHER content channel, so both are refused by name,
   // each kept a MEMBER (see "The content channels" above).
@@ -935,6 +1006,7 @@ const ACTION_BUTTON_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ActionButtonBlockSchema = BaseSchema.extend({
   type: z.literal('action:button'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('action:button', stripImportedDefaults(SpecActionButtonPropsSchema)),
   onClick: handlerKeyRefusal('onClick', 'runtime-slot', 'Click handler'),
   onSuccess: aliasKeyRefusal('onSuccess', 'properties.onSuccess', 'this `action:button` node', ACTION_BUTTON_FLAT_ON_SUCCESS),
@@ -964,6 +1036,7 @@ const ACTION_ICON_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ActionIconBlockSchema = BaseSchema.extend({
   type: z.literal('action:icon'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('action:icon', stripImportedDefaults(SpecActionIconPropsSchema)),
   onClick: handlerKeyRefusal('onClick', 'runtime-slot', 'Click handler'),
   onSuccess: aliasKeyRefusal('onSuccess', 'properties.onSuccess', 'this `action:icon` node', ACTION_ICON_FLAT_ON_SUCCESS),
@@ -994,6 +1067,7 @@ const ACTION_GROUP_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ActionGroupBlockSchema = BaseSchema.extend({
   type: z.literal('action:group'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('action:group', stripImportedDefaults(SpecActionGroupPropsSchema)),
   // objectui#10872 batch 5: the renderer reads NEITHER content channel, so both are refused by name,
   // each kept a MEMBER (see "The content channels" above).
@@ -1021,6 +1095,7 @@ const ACTION_MENU_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ActionMenuBlockSchema = BaseSchema.extend({
   type: z.literal('action:menu'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('action:menu', stripImportedDefaults(SpecActionMenuPropsSchema)),
   // objectui#10872 batch 5: the renderer reads NEITHER content channel, so both are refused by name,
   // each kept a MEMBER (see "The content channels" above).

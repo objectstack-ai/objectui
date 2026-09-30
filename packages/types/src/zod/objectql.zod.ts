@@ -64,7 +64,7 @@ import { DrillDownConfigSchema } from './data-display.zod.js';
 import { KanbanCardSchema } from './complex.zod.js';
 import { ViewSwitcherSchema } from './views.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
-import { propsBag } from './public-blocks.zod.js';
+import { PUBLIC_BLOCK_ENVELOPE, propsBag } from './public-blocks.zod.js';
 
 /**
  * ⭐ THE IMPORT BOUNDARY (objectui#8317, decision batch #90, 2026-09-08).
@@ -3411,6 +3411,7 @@ const OBJECT_METRIC_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ObjectMetricBlockSchema = BaseSchema.extend({
   type: z.literal('object-metric'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('object-metric', stripImportedDefaults(SpecObjectMetricPropsSchema)),
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()
@@ -3466,6 +3467,7 @@ const OBJECT_MASTER_DETAIL_FORM_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ObjectMasterDetailFormBlockSchema = BaseSchema.extend({
   type: z.literal('object-master-detail-form'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag(
     'object-master-detail-form',
     stripImportedDefaults(SpecObjectMasterDetailFormPropsSchema),
@@ -3547,6 +3549,7 @@ const OBJECT_TIMELINE_NEITHER_CHANNEL = neitherContentChannelGuidance(
  */
 export const ObjectTimelineBlockSchema = BaseSchema.extend({
   type: z.literal('object-timeline'),
+  ...PUBLIC_BLOCK_ENVELOPE,
   properties: propsBag('object-timeline', stripImportedDefaults(SpecObjectTimelinePropsSchema)),
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()
@@ -3565,6 +3568,11 @@ export const ObjectTimelineBlockSchema = BaseSchema.extend({
  * deliberately: that union mirrors the TypeScript union in `../objectql.ts`
  * member for member, and none of these blocks has a declaration there — their
  * declaration is the spec row each `properties` member reads.
+ *
+ * Each arm also spreads `PUBLIC_BLOCK_ENVELOPE` from `./public-blocks.zod.ts`,
+ * the node-level `responsiveStyles` every public block declares by reference to
+ * the spec's `PageComponentSchema` (objectui#10872 batch 8) — the same one
+ * declaration, not a copy of it.
  */
 export const ObjectQLPublicBlockComponentSchema = z.discriminatedUnion('type', [
   ObjectMetricBlockSchema,

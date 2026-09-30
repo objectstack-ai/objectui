@@ -188,6 +188,7 @@ const ar = {
     submitFailed: "تعذّر الحفظ. يرجى المحاولة مرة أخرى.",
     uploadInFlight: "انتظر حتى ينتهي الرفع قبل الحفظ.",
     clearedOnHide: "تم مسح ما لم يعد ينطبق على القيم الحالية: {{fields}}",
+    visibleWhenFaulted: "تعذّر الإرسال: تعذّر تقييم قاعدة visibleWhen لـ {{fields}}. يجب إصلاح القاعدة قبل أن يصبح إرسال هذا النموذج ممكنًا.",
     discardTitle: "تجاهل التغييرات؟",
     discardMessage: "لديك تغييرات غير محفوظة. إذا أغلقت هذا النموذج الآن، ستفقد تعديلاتك.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible

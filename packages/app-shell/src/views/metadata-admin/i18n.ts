@@ -2904,7 +2904,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // Nav item inspector (Interfaces pillar)
   'engine.studio.nav.selectItem': 'Select a menu item on the left.',
   'engine.studio.nav.label': 'Label',
-  'engine.studio.nav.labelPlaceholder': 'e.g. Positions',
   'engine.studio.nav.linkObject': 'Link to object',
   'engine.studio.nav.chooseObject': '— Choose object —',
   'engine.studio.nav.boundHint': 'This menu item opens that object’s record list.',
@@ -3223,7 +3222,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.appNav.removeItem': 'Remove nav item',
   'engine.appNav.empty': 'Empty — click “Add nav item” to start',
   'engine.appNav.emptyReadonly': 'No top-level nav items yet',
-  'engine.appNav.newItem': 'New item',
   'engine.appNav.item': 'Item {n}',
   'engine.appNav.itemOne': 'item',
   'engine.appNav.itemOther': 'items',
@@ -5776,7 +5774,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   // Nav item inspector (Interfaces pillar)
   'engine.studio.nav.selectItem': '在左侧选择一个菜单项。',
   'engine.studio.nav.label': '标签',
-  'engine.studio.nav.labelPlaceholder': '如:职位',
   'engine.studio.nav.linkObject': '链接到对象',
   'engine.studio.nav.chooseObject': '— 选择对象 —',
   'engine.studio.nav.boundHint': '这个菜单项会打开该对象的记录列表。',
@@ -6057,7 +6054,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.appNav.removeItem': '删除导航项',
   'engine.appNav.empty': '还没有导航项 — 点「添加导航项」开始',
   'engine.appNav.emptyReadonly': '还没有顶层导航项',
-  'engine.appNav.newItem': '新菜单项',
   'engine.appNav.item': '导航项 {n}',
   'engine.appNav.itemOne': '项',
   'engine.appNav.itemOther': '项',

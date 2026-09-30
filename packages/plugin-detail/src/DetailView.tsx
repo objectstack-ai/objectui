@@ -51,6 +51,7 @@ import type { DetailViewSchema, DataSource, ActionSchema, SchemaNode } from '@ob
 import { useDetailTranslation } from './useDetailTranslation';
 import { useRecordEditable } from './useRecordEditable';
 import { getCellRenderer, resolveCellRendererType, coerceToSafeValue, formatPercent } from '@object-ui/fields';
+import { resolveFieldScale } from '@objectstack/spec/data';
 import { hasCellValue } from './emptiness';
 import { enrichDetailField } from './fieldEnrichment';
 import { chipTakesCellRenderer } from './summaryChipRenderers';
@@ -1259,10 +1260,17 @@ export const DetailView: React.FC<DetailViewProps> = ({
                         // to the field's precision would make this chip
                         // disagree with the cell it just started agreeing with.
                         const percentField = { ...(objField as any), ...(sectionField as any) };
-                        // The field's declared width, resolved with the same
-                        // view-over-object precedence the currency branch above
-                        // spells, and floored at the cell's own default:
-                        // `PercentCellRenderer` reads `field.scale ?? 0`.
+                        // The field's width, read with the same view-over-object
+                        // precedence the currency branch above spells and
+                        // resolved by the PROTOCOL (objectui#9843):
+                        // `resolveFieldScale` answers the declared `scale` when
+                        // it is well-formed, and otherwise `@objectstack/spec`'s
+                        // own absent width for a percent field. The list cell,
+                        // the grid footer and the edit widget ask the same
+                        // function, so one undeclared stored value reads one
+                        // width on every face — ⛔ no `?? N` here or there. The
+                        // type asked about is `ftype`, the one this branch
+                        // renders, rather than the merged bag's.
                         //
                         // ⭐ The MEMBER moved and the AUTHORITY did not
                         // (objectui#9295). This read was `precision ?? 0` until
@@ -1277,7 +1285,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
                         // on `precision` is what would have BROKEN that ruling,
                         // not what would have kept it. Whatever the cell reads,
                         // this reads; that is the whole of the coupling.
-                        const scale = percentField.scale ?? 0;
+                        const scale = resolveFieldScale({ type: ftype, scale: percentField.scale });
                         display = formatPercent(num, scale, displayLocale);
                         const points = summaryChipPercentPoints(num);
                         percentValue = Math.max(0, Math.min(100, points));

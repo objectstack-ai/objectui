@@ -4333,6 +4333,14 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "spec-owned BY REFERENCE — `BaseSchema` + the `action:menu` literal + `properties`, which IS `ComponentPropsMap['action:menu']`, + the objectui#9256 `body` / `children` refusals (objectui#10872 batch 5; its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#PublicBlockComponentSchema':
     "a union OVER the public-block arms, not an object of its own — its members are accounted for individually above",
+  // objectui#10872 batch 8 — the node-level envelope every public-block arm
+  // above (and the three ObjectQL public-block arms) spreads beside
+  // `properties`: today `responsiveStyles` alone, the spec's
+  // `ResponsiveStylesSchema` by reference. The arm reasons above describe the
+  // members each arm adds of its own; this fragment is shared by all of them.
+  // Pinned in `./public-block-responsive-styles-10872.test.ts`.
+  'public-blocks.zod.ts#PUBLIC_BLOCK_ENVELOPE':
+    "a shape FRAGMENT, not a schema and not a mirror — `{ responsiveStyles }`, the spec's `ResponsiveStylesSchema` by reference (the schema `PageComponentSchema.responsiveStyles` declares), spread into every public-block arm so the one declaration is shared; no TS declaration in this package restates it",
   // objectui#10919 — the `cloud:plan-status` widget's arm, declared locally from
   // the widget's read points: `@objectstack/spec` has no row for a `cloud:`
   // widget, and the widget's props type lives beside it in `@object-ui/app-shell`,

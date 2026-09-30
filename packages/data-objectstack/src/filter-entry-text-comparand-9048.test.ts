@@ -56,29 +56,32 @@ import {
 type Route = 'plain' | 'expand';
 const ROUTES: readonly Route[] = ['plain', 'expand'];
 
+type FindParams = Parameters<ObjectStackAdapter['find']>[1];
+type AggregateParams = Parameters<ObjectStackAdapter['aggregate']>[1];
+
+/** A 200 whose JSON body is `body`, in the shape the client reads. */
+function ok(body: unknown): Response {
+  return { ok: true, status: 200, statusText: 'OK', json: async () => body } as unknown as Response;
+}
+
 function makeAdapter() {
   const urls: string[] = [];
   const analyticsBodies: unknown[] = [];
-  const fetchImpl = vi.fn(async (url: any, init?: any) => {
+  const fetchImpl = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
     const u = String(url);
     urls.push(u);
     if (u.includes('/api/v1/discovery')) {
-      return {
-        ok: true, status: 200, statusText: 'OK',
-        json: async () => ({ success: true, data: { version: 'v1', routes: {} } }),
-      } as any;
+      return ok({ success: true, data: { version: 'v1', routes: {} } });
     }
     if (u.includes('/api/v1/analytics/query')) {
       analyticsBodies.push(init?.body ? JSON.parse(String(init.body)) : undefined);
-      return { ok: true, status: 200, statusText: 'OK', json: async () => ({ rows: [] }) } as any;
+      return ok({ rows: [] });
     }
-    return {
-      ok: true, status: 200, statusText: 'OK',
-      json: async () => ({ success: true, data: { object: 'account', records: [], total: 0 } }),
-    } as any;
+    return ok({ success: true, data: { object: 'account', records: [], total: 0 } });
   });
   const adapter = new ObjectStackAdapter({
-    baseUrl: 'http://localhost:3000', token: 't', autoReconnect: false, fetch: fetchImpl as any,
+    baseUrl: 'http://localhost:3000', token: 't', autoReconnect: false,
+    fetch: fetchImpl as unknown as typeof fetch,
   });
   return { adapter, urls, analyticsBodies };
 }
@@ -91,7 +94,7 @@ async function runFind($filter: unknown, route: Route) {
     await adapter.find('account', {
       $filter,
       ...(route === 'expand' ? { $expand: ['owner'] } : {}),
-    } as any);
+    } as FindParams);
   } catch (e) {
     error = e;
   }
@@ -243,8 +246,9 @@ describe('objectui#9048: both dialects now refuse the same node', () => {
         const entry = await runFind([{ field: 'name', operator: 'icontains', value: comparand }], route);
         for (const { error, dataCalls } of [object, entry]) {
           expect(isMalformedFilterError(error)).toBe(true);
-          expect((error as any).code).toBe('INVALID_FILTER');
-          expect((error as any).httpStatus).toBe(400);
+          const envelope = error as { code?: unknown; httpStatus?: unknown };
+          expect(envelope.code).toBe('INVALID_FILTER');
+          expect(envelope.httpStatus).toBe(400);
           expect(String((error as Error).message)).toContain("'$icontains'");
           expect(dataCalls).toBe(0);
         }
@@ -282,7 +286,7 @@ describe('objectui#9048: the adapter refuses exactly what ValueDataSource refuse
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       const ds = new ValueDataSource({ items: [{ id: 1, name: 'Acme' }] });
-      const result = await ds.find('rows', { $filter: $filter as any });
+      const result = await ds.find('rows', { $filter } as Parameters<ValueDataSource['find']>[1]);
       const refused = warn.mock.calls.length > 0;
       // A refusal excludes every row; an accepted comparand matches the row.
       expect(result.data.map((r) => r.id)).toEqual(refused ? [] : [1]);
@@ -364,7 +368,7 @@ describe('objectui#9048: the door is on the translator, so every place it runs i
         field: 'id',
         groupBy: '_all',
         filter: [{ field: 'name', operator: 'icontains', value: '' }],
-      } as any)
+      } as AggregateParams)
       .then(() => null, (e) => e);
     expect(error).toBeInstanceOf(MalformedFilterError);
     expect((error as Error).message).toContain(textComparandRefusalReason('name', 'icontains', ''));
@@ -385,7 +389,7 @@ describe('objectui#9048: the door is on the translator, so every place it runs i
         field: 'id',
         groupBy: '_all',
         filter: [{ field: 'name', operator: 'icontains', value: BigInt(10) }],
-      } as any)
+      } as AggregateParams)
       .then(() => null, (e) => e);
     expect(error).toBeInstanceOf(MalformedFilterError);
     expect((error as Error).message).toContain(

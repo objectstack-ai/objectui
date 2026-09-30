@@ -557,7 +557,12 @@ export class UnlowerableAnalyticsFilterError extends Error {
  * comparand, which is the table's second row. `ValueDataSource` refuses the
  * same rule for the same reason.
  */
-function refuseTextComparandEntry(entry: any, index: number, field: string, arrived: string): never {
+function refuseTextComparandEntry(
+  entry: { readonly value?: unknown },
+  index: number,
+  field: string,
+  arrived: string,
+): never {
   const tail =
     `This is a { field, operator, value } rule entry, so it is refused as the filter is `
     + `translated rather than sent: the spelling @objectstack/spec's FILTER_TEXT_CASES `

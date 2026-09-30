@@ -578,7 +578,7 @@ function RecordLookupCell({ binding, value, onPick, onCommit, onBlur, disabled, 
             // and the lookup keys below are rejected.
             type: 'lookup',
             name: 'value',
-            reference_to: binding.object,
+            reference: binding.object,
             displayField: binding.displayField,
             // `position` commits the machine name, the rest the row id.
             idField: binding.valueField,

@@ -97,7 +97,7 @@ function makeDataSource(opts: {
   const ownerSchema = {
     name: opts.ownerObject,
     fields: {
-      project: { type: 'lookup', label: 'Project', reference_to: opts.refObject },
+      project: { type: 'lookup', label: 'Project', reference: opts.refObject },
     },
   };
   const refSchema = {
@@ -176,7 +176,7 @@ describe('objectui#6694 — ObjectDataTable lookup cells carry their reference t
     );
 
     // `navigable` is `!!objectName && recordId != null`. The id was always
-    // there; the object name is what the missing `reference_to` withheld, so
+    // there; the object name is what the missing target key withheld, so
     // this anchor is the whole of consequence 2.
     const link = await waitFor(() => screen.getByRole('link'), { timeout: 3000 });
     expect(link).toHaveAttribute('href', '/app/project_6694_b/view/p-2');
@@ -257,8 +257,10 @@ describe('objectui#6694 — RecordDetailDrawer lookup rows carry their reference
 describe('objectui#6694 — buildFieldMeta copies the cell-read relational keys and no others', () => {
   const def = {
     type: 'lookup',
-    reference_to: 'project',
     reference: 'project',
+    // The snake twin objectui#11070 round 4 RETIRED — the cell reads
+    // `reference` alone. Kept on the fixture so its absence below is a reading.
+    reference_to: 'project',
     display_field: 'project_code',
     // The SPEC spelling of the same pointer (objectui#6875). `FieldSchema`
     // declares `displayField` and none of the snake twins, so this is the leg a
@@ -281,10 +283,10 @@ describe('objectui#6694 — buildFieldMeta copies the cell-read relational keys 
     titleFormat: '{project_code}',
   };
 
-  it('copies reference_to / reference / display_field / displayField', () => {
+  it('copies reference / display_field / displayField — and not the retired reference_to', () => {
     const meta = buildFieldMeta({ accessorKey: 'project', label: 'Project', def }) as any;
-    expect(meta.reference_to).toBe('project');
     expect(meta.reference).toBe('project');
+    expect(meta).not.toHaveProperty('reference_to');
     expect(meta.display_field).toBe('project_code');
     // objectui#6875 — the spec-declared spelling, previously dropped here and in
     // `ObjectGrid` at the same time.

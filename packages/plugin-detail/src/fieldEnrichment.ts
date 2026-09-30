@@ -10,7 +10,7 @@ import { isInlineExcludedFieldType, isMaskedFieldType } from '@object-ui/fields'
 
 /**
  * Field types the PLATFORM computes — the value is machine-owned and no user
- * write is legitimate. They carry a `reference_to` for relational metadata but
+ * write is legitimate. They carry a `reference` for relational metadata but
  * have no editor of their own.
  *
  * One set, three readers, so they cannot drift: `InlineFieldInput` renders them
@@ -29,8 +29,8 @@ import { isInlineExcludedFieldType, isMaskedFieldType } from '@object-ui/fields'
  * type: `plugin-form` lists both in each of its non-input sets, and this is the
  * shape that was missing here. The gap was not academic — the reader that has
  * no host gate in front of it is `InlineFieldInput`'s reference fallback
- * (`!!field.reference_to && !TEXTUAL_REF_FALLBACK_TYPES.has(type)`), on
- * exported public API, so a spec-spelled auto-number carrying a `reference_to`
+ * (`!!field.reference && !TEXTUAL_REF_FALLBACK_TYPES.has(type)`), on
+ * exported public API, so a spec-spelled auto-number carrying a `reference`
  * resolved into the RECORD PICKER — a list of records offered as replacements
  * for a machine-generated identity. The editability half of the same report is
  * held by the alias-aware shared exclusion since #4228; the two gates are a
@@ -281,11 +281,11 @@ export function enrichDetailField(
   // legacy-only def is canonicalised ONCE at the ingestion choke point
   // (`normalizeSchemaReferenceKeys`, which warns in dev) — never here.
   //
-  // ⚠️ The READ narrows; the STAMPED key does not. `enriched` is a
-  // `DetailViewField`-shaped bag whose own contract declares `reference_to`
-  // and never declares `reference`, so the left-hand key below stays put.
+  // `enriched` is a `DetailViewField`-shaped bag, and that contract declares
+  // `reference` since objectui#11070 round 4, so the read and the stamped key
+  // are one spelling. A view field that already names its own target keeps it.
   const refTarget = objectDefField.reference;
-  if (refTarget && enriched.reference_to === undefined) enriched.reference_to = refTarget;
+  if (refTarget && enriched.reference === undefined) enriched.reference = refTarget;
 
   return enriched;
 }

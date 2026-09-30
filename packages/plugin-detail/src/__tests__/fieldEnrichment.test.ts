@@ -27,8 +27,8 @@ describe('enrichDetailField', () => {
 
     expect(enriched).toMatchObject({
       type: 'lookup',
-      // ObjectStack's `reference` spelling normalizes onto the canonical key.
-      reference_to: 'tags',
+      // `reference`, the one target spelling (objectui#11070 round 4).
+      reference: 'tags',
       multiple: true,
       displayField: 'name',
       idField: 'code',

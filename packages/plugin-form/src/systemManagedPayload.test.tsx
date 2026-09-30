@@ -56,7 +56,7 @@ registerAllFields();
 const CHILD_SCHEMA = {
   name: 'kpi_entry_line',
   fields: {
-    sheet: { type: 'master_detail', label: 'Sheet', reference_to: 'kpi_entry_sheet' },
+    sheet: { type: 'master_detail', label: 'Sheet', reference: 'kpi_entry_sheet' },
     plan_indicator: { type: 'lookup', label: 'Indicator' },
     actual_value: { type: 'number', label: 'Actual' },
     remark: { type: 'textarea', label: 'Remark' },

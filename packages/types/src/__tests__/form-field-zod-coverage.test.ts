@@ -41,7 +41,7 @@ import { FieldConstraintsSchema, FormFieldSchema } from '../zod/form.zod.js';
  * `FormField` also declares `field` — the resolved object-field metadata stash
  * (#3090), which the object-bound form paths fill at RUNTIME with a
  * server-served field definition so widgets can read `precision`, `currency`,
- * `reference_to`, … No document ever writes it. And on the SPEC form-view side
+ * `reference`, … No document ever writes it. And on the SPEC form-view side
  * — the other authoring surface, the one #3090 keeps separate — that same key
  * name means something else entirely: a STRING naming the referenced object
  * field. Admitting `field` here and to `FormFieldSchema` would therefore make

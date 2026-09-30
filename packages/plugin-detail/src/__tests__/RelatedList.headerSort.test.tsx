@@ -74,8 +74,8 @@ const makeWindowedDS = (totalRecords = 12) => ({
     name: 'contact',
     fields: {
       name: { type: 'text' },
-      owner: { type: 'lookup', reference_to: 'user' },
-      account: { type: 'lookup', reference_to: 'account' },
+      owner: { type: 'lookup', reference: 'user' },
+      account: { type: 'lookup', reference: 'account' },
     },
   })),
 });

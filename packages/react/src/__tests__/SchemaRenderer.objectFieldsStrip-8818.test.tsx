@@ -64,7 +64,7 @@ import { DROPPED_PROPS_BAG_PREFIX } from '../utils/propsBagDiagnostic';
 /** A catalogue an AUTHOR wrote into the metadata — the value the ruling refuses. */
 const AUTHORED = { owner: { type: 'text', label: 'Authored catalogue' } };
 /** The catalogue a HOST fetched and passes as a React prop — the ruled channel. */
-const HOSTED = { owner: { type: 'lookup', reference_to: 'user' } };
+const HOSTED = { owner: { type: 'lookup', reference: 'user' } };
 
 /**
  * The registered component. A mock records the props bag of every call, so the

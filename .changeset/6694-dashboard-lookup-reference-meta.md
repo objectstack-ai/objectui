@@ -55,3 +55,5 @@ Behaviour note for existing dashboards: a lookup cell whose referenced object de
 `nameField` other than `name` / `title` will now show that declared name instead of the
 heuristic's pick, and valued lookup cells become links wherever the host publishes
 `recordHref`.
+
+⚠️ **Dated note, 2026-09-30 — the cell's reads and the copy set have since moved — objectui#11070.** Later in this same release objectui#11070 (round 4) narrowed `LookupCellRenderer` to `reference` alone, so "reads exactly `reference_to`, `reference` and `display_field`" and `useRefObjectSchema(reference_to)` above no longer describe what ships: the cell reads `reference`, and `buildFieldMeta` no longer copies `reference_to` (its `FieldMeta` member is retired, and `ObjectDataTable` refuses it by a hand-written tombstone). `.changeset/11070-reference-to-round4.md` states what ships; the text above is kept as the reading of this change.

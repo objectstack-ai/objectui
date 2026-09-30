@@ -30,6 +30,12 @@
  * The negative pins are the load-bearing half: a normalizer that fired for
  * every metadata type, or that overwrote a key the producer had already set,
  * would pass every positive assertion here.
+ *
+ * ⚠️ objectui#11070 round 4 retired the `reference_to` STAMP: the pass now only
+ * FOLDS a legacy spelling onto `reference`. A `reference`-only def therefore
+ * comes back unchanged and cannot show that the pass ran, so every positive pin
+ * below feeds a LEGACY spelling and reads `reference` back. The first pin used
+ * to assert the stamp and now asserts its absence.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -83,7 +89,7 @@ async function withProvider(
 }
 
 describe('MetadataProvider.getItem canonicalizes object schemas (objectui#7650)', () => {
-  it('stamps `reference_to` on a by-name object def that spells only `reference`', async () => {
+  it('serves a by-name object def that spells only `reference` unchanged — no `reference_to` stamped', async () => {
     const ctx = await withProvider({
       'object/account': {
         name: 'account',
@@ -93,11 +99,10 @@ describe('MetadataProvider.getItem canonicalizes object schemas (objectui#7650)'
 
     const item = await ctx.getItem('object', 'account');
 
-    expect(item.fields.owner.reference).toBe('user');
-    expect(item.fields.owner.reference_to).toBe('user');
+    expect(item.fields.owner).toEqual({ type: 'lookup', reference: 'user' });
   });
 
-  it('stamps `reference` on a by-name object def that spells only the legacy `reference_to`', async () => {
+  it('folds `reference` onto a by-name object def that spells only the legacy `reference_to`', async () => {
     const ctx = await withProvider({
       'object/contact': {
         name: 'contact',
@@ -115,13 +120,13 @@ describe('MetadataProvider.getItem canonicalizes object schemas (objectui#7650)'
     const ctx = await withProvider({
       'object/lead': {
         name: 'lead',
-        fields: [{ name: 'owner', type: 'lookup', reference: 'user' }],
+        fields: [{ name: 'owner', type: 'lookup', reference_to: 'user' }],
       },
     });
 
     const item = await ctx.getItem('object', 'lead');
 
-    expect(item.fields[0].reference_to).toBe('user');
+    expect(item.fields[0].reference).toBe('user');
   });
 
   it('NEGATIVE — leaves a non-`object` metadata type untouched', async () => {
@@ -131,14 +136,14 @@ describe('MetadataProvider.getItem canonicalizes object schemas (objectui#7650)'
       // provider inventing a convention the contract does not declare.
       'view/account_list': {
         name: 'account_list',
-        fields: { owner: { type: 'lookup', reference: 'user' } },
+        fields: { owner: { type: 'lookup', reference_to: 'user' } },
       },
     });
 
     const item = await ctx.getItem('view', 'account_list');
 
-    expect(item.fields.owner.reference).toBe('user');
-    expect(item.fields.owner.reference_to).toBeUndefined();
+    expect(item.fields.owner.reference_to).toBe('user');
+    expect(item.fields.owner.reference).toBeUndefined();
   });
 
   it('NEGATIVE — never overwrites a spelling the producer already set', async () => {
@@ -146,7 +151,7 @@ describe('MetadataProvider.getItem canonicalizes object schemas (objectui#7650)'
       'object/opportunity': {
         name: 'opportunity',
         fields: {
-          // Deliberately inconsistent: if the stamp overwrote rather than
+          // Deliberately inconsistent: if the fold overwrote rather than
           // filled, one of these two values would change.
           owner: { type: 'lookup', reference: 'user', reference_to: 'legacy_user' },
         },
@@ -165,7 +170,7 @@ describe('MetadataProvider.getItem canonicalizes object schemas (objectui#7650)'
       {
         'object/account': {
           name: 'account',
-          fields: { owner: { type: 'lookup', reference: 'user' } },
+          fields: { owner: { type: 'lookup', reference_to: 'user' } },
         },
       },
       itemCalls,
@@ -177,6 +182,6 @@ describe('MetadataProvider.getItem canonicalizes object schemas (objectui#7650)'
     // The by-name cache answered the second read (so the normalization must
     // have stuck to the cached object, not to a throwaway copy).
     expect(itemCalls.filter((c) => c === 'object/account')).toHaveLength(1);
-    expect(second.fields.owner.reference_to).toBe('user');
+    expect(second.fields.owner.reference).toBe('user');
   });
 });

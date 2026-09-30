@@ -7,7 +7,7 @@
  * parent's record DETAIL page. Both intents live on the relationship in the
  * data model — not in a hand-authored page.
  *
- * This helper scans every object for fields whose `reference`/`reference_to`
+ * This helper scans every object for fields whose `reference`
  * points back at the parent object and produces one related-list descriptor per
  * eligible FK. The detail page (`RecordDetailView`) feeds these into the
  * `record:related_list` renderers. (It also fed `DetailView.related`, which is

@@ -513,8 +513,10 @@ export function attachInlineSubforms(objects: any[]): any[] {
       const d: any = fdef;
       if (!fname || !d?.inlineEdit) continue;
       if (d.type !== 'master_detail' && d.type !== 'lookup') continue;
-      // Served schemas use `reference`; ObjectUI-authored defs use `reference_to`.
-      const parent = d.reference ?? d.reference_to;
+      // `reference` is the only target spelling read (objectui#11070 round 4);
+      // a legacy def was folded onto it at ingestion (`ensureType` runs
+      // `normalizeSchemaReferenceKeys` over every `object` item it stores).
+      const parent = d.reference;
       if (!parent) continue;
       (inlineByParent[parent] ||= []).push({
         childObject: child.name,
@@ -698,10 +700,11 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
       const promise = fetchItems
         .then((res: unknown) => {
           const items = extractItems(res);
-          // Canonicalize `reference` ↔ `reference_to` on object field defs at
-          // ingestion (the store-side choke point, mirroring the adapter's
-          // getObjectSchema pass) so `useMetadata().objects` consumers can
-          // read either key (#2407 / PR #2587). Idempotent, in place.
+          // Fold a legacy `reference_to` / `referenceTo` onto `reference` on
+          // object field defs at ingestion (the store-side choke point,
+          // mirroring the adapter's getObjectSchema pass), so
+          // `useMetadata().objects` consumers read `reference` alone
+          // (objectui#11070 round 4). Idempotent, in place.
           if (type === 'object') {
             for (const it of items) normalizeSchemaReferenceKeys(it);
           }

@@ -86,7 +86,7 @@ function renderLookup(ds: Backend, field: Record<string, unknown>, value: unknow
         value={value}
         onChange={() => {}}
         dataSource={ds}
-        field={{ reference_to: 'contract', ...field } as never}
+        field={{ reference: 'contract', ...field } as never}
       />
     </SchemaRendererContext.Provider>,
   );

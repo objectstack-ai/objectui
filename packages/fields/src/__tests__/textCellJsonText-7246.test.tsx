@@ -100,7 +100,7 @@ describe('text-like cells display JSON-shaped text verbatim (objectui#7246)', ()
     const text = renderedText(
       <LookupCellRenderer
         value={'{"externalId":"Website Relaunch"}'}
-        field={{ type: 'lookup', reference_to: 'project' } as any}
+        field={{ type: 'lookup', reference: 'project' } as any}
       />,
     );
     expect(text).toContain('Website Relaunch');

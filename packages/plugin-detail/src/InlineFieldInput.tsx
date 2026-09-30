@@ -35,7 +35,7 @@ import { PermissionFacetLink } from './renderers/PermissionFacetLink';
 import { TEXTUAL_REF_FALLBACK_TYPES } from './fieldEnrichment';
 
 /**
- * Field types that carry a `reference_to` for relational metadata but are NOT
+ * Field types that carry a `reference` for relational metadata but are NOT
  * edited via the lookup picker (they have their own dedicated inputs/renderers).
  * Used below so the inline-edit branch doesn't hijack them into a record picker.
  *
@@ -189,7 +189,7 @@ export function extractLookupId(value: unknown): unknown {
 export interface InlineFieldInputProps {
   /**
    * Enriched field metadata — `type` plus any objectSchema enrichment (options,
-   * currency, precision, format, reference_to, widget…). The caller owns
+   * currency, precision, format, reference, widget…). The caller owns
    * enrichment so read-mode and edit-mode agree on the same resolved field
    * shape. Kept as a loose bag (matching the widgets' `field` props) since the
    * exact key set varies by field type.
@@ -418,7 +418,7 @@ export const InlineFieldInput: React.FC<InlineFieldInputProps> = ({
     editType === 'lookup' ||
     editType === 'master_detail' ||
     editType === 'tree' ||
-    (!!field.reference_to && !TEXTUAL_REF_FALLBACK_TYPES.has(editType as string));
+    (!!field.reference && !TEXTUAL_REF_FALLBACK_TYPES.has(editType as string));
   if (isUserRef || isLookupRef) {
     const RefWidget = isUserRef ? UserField : LookupField;
     return (

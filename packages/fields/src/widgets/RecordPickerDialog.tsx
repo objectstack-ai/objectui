@@ -386,7 +386,7 @@ export interface RecordPickerDialogProps {
    * The referenced object's schema `fields` map (field name → field
    * definition). When provided, cell renderers receive the FULL field
    * metadata — `options`, `currency`, `scale`, `precision`, `format`,
-   * `reference_to`, … — exactly like the list view enriches its columns from
+   * `reference`, … — exactly like the list view enriches its columns from
    * the object schema. Without it a `select` column falls back to
    * title-casing the raw stored value instead of resolving the option label
    * (#3333: `manufacturing` rendered as "Manufacturing" instead of the

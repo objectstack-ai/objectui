@@ -125,9 +125,9 @@ describe('collectLookupIds', () => {
  * WHY REFUSAL IS THE POINT. `lookupTarget`'s only caller chain is
  * `RecordDetailView`'s History effect, which feeds it `objectDef.fields` from
  * `useMetadata().objects` — the metadata cache for type `'object'`, i.e. OBJECT
- * METADATA DOCUMENTS, never ObjectUI's own view/field contract (that contract's
- * `reference_to` lives on `DetailViewFieldSchema`, which `plugin-detail`
- * translates INTO from `reference`). So every spelling and carrier below is one
+ * METADATA DOCUMENTS, never ObjectUI's own view/field contract (that contract
+ * is `DetailViewFieldSchema`, keyed `reference_to` until objectui#11070 round 4
+ * and `reference` since). So every spelling and carrier below is one
  * `ObjectSchema.safeParse` (spec 17.2.0) refuses on the documents that actually
  * arrive here, and resolving one could only re-hide the producer that emitted
  * it (AGENTS.md #0.1).
@@ -181,9 +181,10 @@ describe('relationship target (objectui#6719)', () => {
   /**
    * SPELLING axis. `reference_to ?? reference` read the LEGACY key first, ahead
    * of the canonical one. `ObjectSchema.safeParse` refuses all three below BY
-   * NAME ("Did you mean `reference_to` → `reference`?"); `reference_to` is a
-   * live key only on ObjectUI's own view/field contract, a different contract
-   * this reader is never handed. Restoring the `reference_to` arm turns the
+   * NAME ("Did you mean `reference_to` → `reference`?"); `reference_to` was
+   * then live only on ObjectUI's own view/field contract, a different contract
+   * this reader is never handed, and objectui#11070 round 4 retired it there
+   * too. Restoring the `reference_to` arm turns the
    * first case and the partial-migration case below RED; the other two
    * spellings were never read here and are pinned so the chain cannot grow back
    * a second time.

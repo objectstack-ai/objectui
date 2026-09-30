@@ -394,13 +394,11 @@ function resolveSectionEntry(
   // draws it.
   const rawType = fd.type ?? (member ? undefined : ctx.objectSchema?.fields?.[fieldName]?.type);
   if (rawType != null) base.type = mapFieldTypeToFormType(rawType, { multiple: base.multiple });
-  // Spec canon for the lookup target is `reference_to` (views.zod.ts); accept
-  // both spellings and stamp both keys so dual-key readers see the override.
-  const refOverride = fd.reference ?? fd.reference_to;
-  if (refOverride != null) {
-    base.reference = refOverride;
-    base.reference_to = refOverride;
-  }
+  // Spec canon for the lookup target is `reference` — `@objectstack/spec`'s
+  // form-field schema declares it and refuses `reference_to` by name — and it
+  // is the only spelling the lookup / user widgets read (objectui#11070
+  // round 4), so it is the only one read and written here.
+  if (fd.reference != null) base.reference = fd.reference;
   if (fd.maxLength != null) base.maxLength = fd.maxLength;
   if (fd.minLength != null) base.minLength = fd.minLength;
   if (fd.min != null) base.min = fd.min;

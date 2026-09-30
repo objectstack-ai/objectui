@@ -370,6 +370,25 @@ describe("the emit type can FAIL — otherwise the annotation is decoration (#63
     // @ts-expect-error objectui#6373/#6597 — `referenceTo` refused by the explicit retired-key tombstone.
     const referenceToWrittenRefused: EnrichedColumn = carriesReferenceTo;
     expect(referenceToWrittenRefused.accessorKey).toBe('a');
+
+    // objectui#11070 round 4's sibling pin, same shape: `reference_to` was a
+    // `FieldMeta` member (objectui#6694), so the DERIVED tombstone band
+    // refused it; the round retired the member, and the hand-written
+    // `ObjectDataTableRetiredReferenceToSnakeTombstone` carries it now.
+    const carriesReferenceToSnake: { header: string; accessorKey: string; reference_to?: unknown } =
+      { header: 'h', accessorKey: 'a', reference_to: 'account' };
+    // @ts-expect-error objectui#6694/#11070 — `reference_to` refused by the explicit retired-key tombstone.
+    const referenceToSnakeWrittenRefused: EnrichedColumn = carriesReferenceToSnake;
+    expect(referenceToSnakeWrittenRefused.accessorKey).toBe('a');
+  });
+
+  it('the TOMBSTONE is what refuses the retired `reference_to` at this emit (objectui#11070 round 4)', () => {
+    // Counter-control for the pin above: `EnrichedColumn` minus that tombstone
+    // and nothing else ACCEPTS the source the directive refuses.
+    const carriesReferenceToSnake: { header: string; accessorKey: string; reference_to?: unknown } =
+      { header: 'h', accessorKey: 'a', reference_to: 'account' };
+    const untombstoned: Omit<EnrichedColumn, 'reference_to'> = carriesReferenceToSnake;
+    expect(untombstoned.accessorKey).toBe('a');
   });
 
   it('the TOMBSTONE is what refuses the retired `decimals` at this emit', () => {

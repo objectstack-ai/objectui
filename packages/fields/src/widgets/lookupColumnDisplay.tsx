@@ -116,7 +116,7 @@ export function resolveSchemaOptions(
  * referenced object's schema (`fieldsMeta`) the same way the list view enriches
  * its columns. This is what lets a `select` column resolve its option label
  * (options + i18n) instead of title-casing the raw value (#3333), and what
- * carries `reference` / `reference_to` through to the lookup cell renderer so
+ * carries `reference` through to the lookup cell renderer so
  * an unresolved foreign-key id resolves to a name (#5492).
  *
  * Columns whose def carries no `type` inherit the schema field's type, so

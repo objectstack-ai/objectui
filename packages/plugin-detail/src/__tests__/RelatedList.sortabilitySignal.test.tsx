@@ -104,7 +104,7 @@ const objectSchema = {
     // DRIFT: present on the object, absent from the served projection.
     audited_at: { type: 'datetime', label: 'Audited At' },
     // Relational carve-out — the projection answers `sortable: true` here.
-    owner: { type: 'lookup', label: 'Owner', reference_to: 'sys_user' },
+    owner: { type: 'lookup', label: 'Owner', reference: 'sys_user' },
   },
 };
 

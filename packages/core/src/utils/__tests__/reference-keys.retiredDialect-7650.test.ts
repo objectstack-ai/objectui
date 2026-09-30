@@ -429,7 +429,7 @@ describe('derives the fold from the contract, not from a table (objectui#7650)',
 
   it('the reference pair stays OUT of the derived arm — it has its own', () => {
     // `referenceTo` is not a declared key, so `reference_to` probes onto
-    // nothing and the derived arm ignores it. The reference stamp below is the
+    // nothing and the derived arm ignores it. The reference fold below is the
     // separate, older mechanism, and this pin keeps the two from double-handling.
     expect(declared.map(probe)).not.toContain(probe('reference_to'));
     const f: Record<string, unknown> = { type: 'lookup', reference_to: 'user' };

@@ -86,7 +86,7 @@ const OBJECT_DEF = {
   fields: {
     id: { name: 'id', type: 'text' },
     subject: { name: 'subject', type: 'text' },
-    owner: { name: 'owner', type: 'lookup', reference_to: 'user' },
+    owner: { name: 'owner', type: 'lookup', reference: 'user' },
     visible_from: { name: 'visible_from', type: 'date' },
     due_date: { name: 'due_date', type: 'date' },
   },

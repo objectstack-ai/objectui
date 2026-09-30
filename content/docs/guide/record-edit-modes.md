@@ -32,7 +32,7 @@ Set `editMode` on the object metadata:
   "fields": {
     "name":     { "type": "text",     "label": "Name", "required": true },
     "industry": { "type": "picklist", "label": "Industry" },
-    "owner":    { "type": "lookup",   "label": "Owner", "reference_to": "user" }
+    "owner":    { "type": "lookup",   "label": "Owner", "reference": "user" }
   }
 }
 ```

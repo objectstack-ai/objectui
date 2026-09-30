@@ -37,15 +37,16 @@ export function UserField(props: FieldWidgetComponentProps<any>) {
   // Mirror the unwrap LookupField itself performs. (Formerly attributed to the
   // docs-demo `createFieldRenderer` wrapper, removed in objectui#3910.)
   const metaIsNested = raw?.field && typeof raw.field === 'object'
-    && ('reference' in raw.field || 'reference_to' in raw.field || 'type' in raw.field);
+    && ('reference' in raw.field || 'type' in raw.field);
   const meta = metaIsNested ? raw.field : raw;
 
   // Ensure the picker always targets sys_user (even if the author omitted an
   // explicit reference), presents user names by default, and defaults to the
   // search-first PeoplePicker with sensible person display + candidate hygiene.
+  // `reference` is the only target spelling read (objectui#11070 round 4).
   const normalized = {
     ...(meta || {}),
-    reference: meta?.reference || meta?.reference_to || 'sys_user',
+    reference: meta?.reference || 'sys_user',
     displayField: meta?.displayField || meta?.reference_field || 'name',
     picker: meta?.picker ?? 'search',
     subtitle: meta?.subtitle ?? ['primary_business_unit_id.name', 'email'],

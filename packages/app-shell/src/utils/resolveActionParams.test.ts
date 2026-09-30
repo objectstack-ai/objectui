@@ -215,10 +215,10 @@ describe('resolveActionParams — inline lookup reference target (#3405)', () =>
  *
  * So these tests author through the PUBLIC type and follow one param all the
  * way to the field the widgets consume: `ActionParam` → `resolveActionParams()`
- * → `ActionParamDef` → `paramToField()` → `reference_to`. The internal pipeline
+ * → `ActionParamDef` → `paramToField()` → `reference`. The internal pipeline
  * keeps its two spellings (authoring `reference`, resolved `referenceTo`) — the
  * point is not that they match, it is that the public entry and the public exit
- * do.
+ * do (the exit was `reference_to` until objectui#11070 round 4).
  */
 describe('resolveActionParams — authored through the public ActionParam type (objectui#3174)', () => {
   const authoringCtx = () =>
@@ -244,7 +244,7 @@ describe('resolveActionParams — authored through the public ActionParam type (
   const authorToField = (authored: ActionParam) =>
     paramToField(resolveActionParams([authored], authoringCtx())[0]);
 
-  it('an inline `reference` reaches the picker as `reference_to`', () => {
+  it('an inline `reference` reaches the picker as `reference`', () => {
     const authored: ActionParam = {
       name: 'account_id',
       label: 'Account',
@@ -254,7 +254,7 @@ describe('resolveActionParams — authored through the public ActionParam type (
     expect(authorToField(authored)).toMatchObject({
       name: 'account_id',
       type: 'lookup',
-      reference_to: 'account',
+      reference: 'account',
     });
   });
 
@@ -262,7 +262,7 @@ describe('resolveActionParams — authored through the public ActionParam type (
     const authored: ActionParam = { field: 'inspector' };
     expect(authorToField(authored)).toMatchObject({
       type: 'lookup',
-      reference_to: 'sys_user',
+      reference: 'sys_user',
       // objectui#7155 — the spec spelling, emitted by `paramToField`.
       displayField: 'name',
       idField: 'id',
@@ -273,7 +273,7 @@ describe('resolveActionParams — authored through the public ActionParam type (
     const authored: ActionParam = { name: 'parent_id', type: 'master_detail', reference: 'account' };
     expect(authorToField(authored)).toMatchObject({
       type: 'master_detail',
-      reference_to: 'account',
+      reference: 'account',
     });
   });
 
@@ -308,7 +308,7 @@ describe('resolveActionParams — authored through the public ActionParam type (
 
       // Still degrades — the metadata is genuinely unusable — but loudly, and
       // the downstream warning now prescribes a key the author can write.
-      expect(field.reference_to).toBeUndefined();
+      expect(field.reference).toBeUndefined();
       expect(field.type).toBe('text');
       expect(messages.some((m) => m.includes('degrades to a plain record-id text input'))).toBe(true);
     } finally {

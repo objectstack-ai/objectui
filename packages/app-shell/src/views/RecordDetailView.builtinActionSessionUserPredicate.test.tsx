@@ -115,7 +115,7 @@ const FIELDS = {
   id: { type: 'text', label: 'Id' },
   name: { type: 'text', label: 'Name' },
   status: { type: 'text', label: 'Status' },
-  executor: { type: 'lookup', label: 'Executor', reference_to: 'sys_user' },
+  executor: { type: 'lookup', label: 'Executor', reference: 'sys_user' },
 };
 
 /** The record as the detail fetch delivers it when it did NOT expand `executor`. */

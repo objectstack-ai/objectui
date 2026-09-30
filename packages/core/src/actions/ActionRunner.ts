@@ -764,7 +764,7 @@ export interface ActionParamDef {
   // to a `lookup` or `reference` field. Forwarded to `<LookupField>` inside
   // `ActionParamDialog` so the user gets a real record picker (popover +
   // RecordPickerDialog) instead of a plain text input.
-  /** Object name the lookup picker queries (`reference_to` on the field). */
+  /** Object name the lookup picker queries (`reference` on the field). */
   referenceTo?: string;
   /** Field on the referenced record used as the human label (default `name`). */
   displayField?: string;
@@ -1265,9 +1265,16 @@ export class ActionRunner {
         // code only evaluated the STRING form and treated any object as truthy,
         // so an envelope-disabled action was ALWAYS "disabled" — silently
         // blocking every execution (param dialog never opened, handler never
-        // ran). `evaluateCondition` already handles boolean/string/envelope;
-        // and the renderers are authoritative for the visual disabled state, so
-        // any eval failure here defaults to NOT-disabled (don't false-block).
+        // ran). `evaluateCondition` already handles boolean/string/envelope.
+        //
+        // A predicate that FAULTS — an unbound root, a misspelled field,
+        // `current_user.can(…)` before the permissions payload has loaded — does
+        // NOT reach the `catch` below: `evaluateCondition` handles its own
+        // faults and answers its fail-soft `true`, which on this key means
+        // DISABLED, so the action is refused ("Action is disabled"). That is the
+        // closed direction every `disabled` leg takes (objectui#11212,
+        // objectui#11242). The `catch` only covers a throw from outside that
+        // fault handling, and leaves such an action not disabled.
         let isDisabled = false;
         try {
           isDisabled = this.evaluator.evaluateCondition(action.disabled as never);

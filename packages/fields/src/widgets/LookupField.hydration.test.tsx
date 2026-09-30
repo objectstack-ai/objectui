@@ -40,7 +40,7 @@ describe('LookupField — multi-value hydration batches and shows loading (#3108
         value={['u1', 'u2', 'u3']}
         onChange={() => {}}
         dataSource={{ find, findOne } as never}
-        field={{ reference_to: 'sys_user', multiple: true } as never}
+        field={{ reference: 'sys_user', multiple: true } as never}
       />,
     );
 
@@ -65,7 +65,7 @@ describe('LookupField — multi-value hydration batches and shows loading (#3108
         value={['u1', 'u2', 'u3']}
         onChange={() => {}}
         dataSource={{ find } as never}
-        field={{ reference_to: 'sys_user', multiple: true } as never}
+        field={{ reference: 'sys_user', multiple: true } as never}
       />,
     );
 
@@ -89,7 +89,7 @@ describe('LookupField — multi-value hydration batches and shows loading (#3108
         value={['u1', 'u2']}
         onChange={() => {}}
         dataSource={{ find } as never}
-        field={{ reference_to: 'sys_user', multiple: true } as never}
+        field={{ reference: 'sys_user', multiple: true } as never}
       />,
     );
 
@@ -110,7 +110,7 @@ describe('LookupField — multi-value hydration batches and shows loading (#3108
         onChange={() => {}}
         readonly
         dataSource={{ find } as never}
-        field={{ reference_to: 'sys_user', multiple: true } as never}
+        field={{ reference: 'sys_user', multiple: true } as never}
       />,
     );
 
@@ -128,7 +128,7 @@ describe('LookupField — multi-value hydration batches and shows loading (#3108
         value={['u1']}
         onChange={() => {}}
         dataSource={{ find, findOne } as never}
-        field={{ reference_to: 'sys_user', multiple: true } as never}
+        field={{ reference: 'sys_user', multiple: true } as never}
       />,
     );
     await waitFor(() => expect(findOne).toHaveBeenCalledWith('sys_user', 'u1'));

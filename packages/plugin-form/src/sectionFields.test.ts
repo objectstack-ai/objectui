@@ -49,17 +49,17 @@ describe('normalizeSectionField', () => {
     expect((f as any).disabled).toBe(true);
   });
 
-  it('applies a spec reference override written under either key (`reference` or `reference_to`)', () => {
-    // Spec canon is `reference_to` (views.zod.ts) but `reference` (ObjectStack
-    // convention) is accepted too; both keys are stamped so any dual-key
-    // downstream reader sees the override (#2407 / PR #2587).
-    const specCanon = normalizeSectionField({ field: 'name', reference_to: 'accounts' }, ctx) as any;
-    expect(specCanon.reference).toBe('accounts');
-    expect(specCanon.reference_to).toBe('accounts');
+  it('applies a spec reference override written as `reference`, and reads no `reference_to` (objectui#11070 round 4)', () => {
+    // Spec canon is `reference` — the spec's form-field schema declares it and
+    // refuses `reference_to` by name — and it is the only spelling the lookup
+    // and user widgets read, so it is the only one read and written here.
+    const specCanon = normalizeSectionField({ field: 'name', reference: 'contacts' }, ctx) as any;
+    expect(specCanon.reference).toBe('contacts');
+    expect(specCanon.reference_to).toBeUndefined();
 
-    const stackConvention = normalizeSectionField({ field: 'name', reference: 'contacts' }, ctx) as any;
-    expect(stackConvention.reference).toBe('contacts');
-    expect(stackConvention.reference_to).toBe('contacts');
+    const retired = normalizeSectionField({ field: 'name', reference_to: 'accounts' }, ctx) as any;
+    expect(retired.reference).toBeUndefined();
+    expect(retired.reference_to).toBeUndefined();
   });
 
   it('builds from the object schema for a string shorthand', () => {

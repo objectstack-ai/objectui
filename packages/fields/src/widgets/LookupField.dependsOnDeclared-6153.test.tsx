@@ -55,7 +55,7 @@ const contactField: LookupFieldMetadata = {
   type: 'lookup',
   name: 'contact',
   label: 'Contact',
-  reference_to: 'contacts',
+  reference: 'contacts',
   reference_field: 'name',
   dependsOn: [{ field: 'account', param: 'account_id' }],
 };

@@ -208,20 +208,30 @@ describe('attachInlineSubforms — relationship-level inlineEdit', () => {
     expect(attachInlineSubforms(plain)).toBe(plain);
   });
 
-  it('resolves the parent from a reference_to-keyed field (ObjectUI convention)', () => {
-    // Served schemas use `reference`; ObjectUI-authored / normalized defs use
-    // `reference_to` — the parent resolution must accept either key.
+  it('resolves the parent from `reference` alone — a raw `reference_to` def names none (objectui#11070 round 4)', () => {
+    // `reference` is the only target spelling ObjectUI reads. Every object
+    // item reaches this function through the provider's ingestion pass, which
+    // folds a legacy `reference_to` onto `reference` first, so a RAW
+    // `reference_to`-only def (the second child here) is one no served object
+    // can be, and it resolves no parent.
     const out = attachInlineSubforms([
       { name: 'order', fields: { number: { type: 'text' } } },
       {
         name: 'order_line',
         fields: {
           qty: { type: 'number' },
+          order: { type: 'master_detail', reference: 'order', inlineEdit: true },
+        },
+      },
+      {
+        name: 'order_note',
+        fields: {
           order: { type: 'master_detail', reference_to: 'order', inlineEdit: true },
         },
       },
     ]);
     const order = out.find((o) => o.name === 'order')!;
+    expect(order.form?.subforms).toHaveLength(1);
     expect(order.form?.subforms?.[0]).toMatchObject({
       childObject: 'order_line',
       relationshipField: 'order',

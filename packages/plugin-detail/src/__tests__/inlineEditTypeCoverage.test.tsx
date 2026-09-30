@@ -109,7 +109,7 @@ function bucketsOf(type: string): string[] {
 
 /**
  * Metadata that makes each type's editor renderable in its CANONICAL shape.
- * A picklist without options and a lookup without a `reference_to` are
+ * A picklist without options and a lookup without a `reference` are
  * degenerate configurations, not the type's normal form; both degenerate
  * picklist spellings are pinned by name in the sibling delegation suite.
  */
@@ -118,9 +118,9 @@ const FIELD_FIXTURE: Record<string, Record<string, unknown>> = {
   multiselect: { options: [{ label: 'A', value: 'a' }] },
   radio: { options: [{ label: 'A', value: 'a' }] },
   checkboxes: { options: [{ label: 'A', value: 'a' }] },
-  lookup: { reference_to: 'crm_account' },
-  master_detail: { reference_to: 'crm_account' },
-  tree: { reference_to: 'crm_account' },
+  lookup: { reference: 'crm_account' },
+  master_detail: { reference: 'crm_account' },
+  tree: { reference: 'crm_account' },
 };
 
 /** A value of the type's real SHAPE — the point is what the editor does with it. */

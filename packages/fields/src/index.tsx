@@ -2473,7 +2473,7 @@ const MAX_LOOKUP_CELL_CHIPS = 3;
  * Display order:
  * 1. Embedded record object (`{ id, name, ... }` from `$expand`) → use its name
  * 2. Static `field.options[]` (e.g. when the lookup is a closed enum) → look up label
- * 3. Fetch-on-demand: when the value is a primitive ID and `field.reference_to`
+ * 3. Fetch-on-demand: when the value is a primitive ID and `field.reference`
  *    is known, resolve via dataSource and show the related record's display name.
  * 4. Nothing named it → the unresolved-reference affordance (objectui#8695):
  *    the raw value, kept visible, beside a stated epistemic marker. This arm
@@ -2488,14 +2488,12 @@ const MAX_LOOKUP_CELL_CHIPS = 3;
  * (objectui#10501).
  */
 export function LookupCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
-  // ObjectStack object metadata uses `reference` for the lookup target while the
-  // objectui types call it `reference_to`. Every other reader (LookupField,
-  // UserField, DetailSection, RelatedList, …) accepts both; this read cell must
-  // too, or a picked/opaque id never resolves to a name and the cell shows the
-  // muted "—" placeholder forever (e.g. after inline-editing a lookup).
-  const referenceTo =
-    (field as { reference_to?: string }).reference_to ||
-    (field as { reference?: string }).reference;
+  // `reference` — the spelling `@objectstack/spec`'s `FieldSchema` declares —
+  // is the only target spelling read, as every other reader (LookupField,
+  // UserField, DetailSection, RelatedList, …) reads it (objectui#11070 round
+  // 4). A served def that still spells a legacy key was folded onto it at
+  // ingestion (`normalizeSchemaReferenceKeys`).
+  const referenceTo = (field as { reference?: string }).reference;
 
   // Explicit author-chosen display field on the lookup — beats every resolver.
   // ObjectGrid forwards `displayField` on the column meta (RELATIONAL_META_KEYS)
@@ -2827,7 +2825,7 @@ function UnresolvedUserReference({
  * `pending` / `err` / `ok` discriminator its own cache stores is dropped
  * before any caller sees it:
  *
- *   1. never fetched — no `dataSource`, or no `reference_to` on the field;
+ *   1. never fetched — no `dataSource`, or no `reference` on the field;
  *   2. IN FLIGHT — the first paint of every successful resolve passes through
  *      here (measured: the settled paint replaces it);
  *   3. the resolver threw (`state: 'err'`);
@@ -2934,15 +2932,14 @@ function UnresolvedReferenceMark({
  * denies on the person's object are removed first ({@link withoutDeniedFields},
  * `id` kept), and everything below reads that row — exactly as it reads the
  * row a stripping backend serves. The person's object is the field's
- * `reference_to` (or `reference`), and `sys_user` when it names none: the
- * object `UserField` points the picker at.
+ * `reference`, and `sys_user` when it names none: the object `UserField`
+ * points the picker at.
  */
 export function UserCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
   // Called before any early return (rules of hooks). A policy that loads or
   // changes re-renders this cell through the context, and the drawing follows.
   const perms = usePermissions();
   const personObject =
-    (field as { reference_to?: string } | undefined)?.reference_to ||
     (field as { reference?: string } | undefined)?.reference ||
     'sys_user';
 

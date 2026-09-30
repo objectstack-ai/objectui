@@ -1017,8 +1017,9 @@ export const FormFieldSchema = z.object({
   rows: stripImportedDefaults(SpecFieldSchema).shape.rows,
   accept: stripImportedDefaults(SpecFieldSchema).shape.accept,
   dimensions: stripImportedDefaults(SpecFieldSchema).shape.dimensions,
-  // The spec spelling of a lookup / user field's target object; the legacy
-  // `reference_to` is read too and deliberately stays undeclared (objectui#11070).
+  // The spec spelling of a lookup / user field's target object, and the only
+  // one the widgets read; the retired `reference_to` is read by nothing and
+  // stays undeclared (objectui#11070).
   reference: stripImportedDefaults(SpecFieldSchema).shape.reference,
   min: stripImportedDefaults(SpecFieldSchema).shape.min,
   max: stripImportedDefaults(SpecFieldSchema).shape.max,

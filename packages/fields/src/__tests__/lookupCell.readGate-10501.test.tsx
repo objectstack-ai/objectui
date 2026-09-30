@@ -106,7 +106,7 @@ function Cell({
   const cell = (
     <div data-testid="cell">
       <SchemaRendererProvider dataSource={ds as unknown as DataSource}>
-        <LookupCellRenderer value={value} field={{ type: 'lookup', reference_to: objectName } as FieldMetadata} />
+        <LookupCellRenderer value={value} field={{ type: 'lookup', reference: objectName } as FieldMetadata} />
       </SchemaRendererProvider>
     </div>
   );

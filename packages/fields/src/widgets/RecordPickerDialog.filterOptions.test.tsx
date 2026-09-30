@@ -583,7 +583,7 @@ describe('LookupField → picker filter panel wiring (#3336)', () => {
     name: 'project',
     label: 'Project',
     type: 'lookup',
-    reference_to: 'projects',
+    reference: 'projects',
     reference_field: 'name',
   } as any;
 

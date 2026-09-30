@@ -149,7 +149,7 @@ describe('kanban card descriptions suppress id-shaped values by VALUE, not by de
     // finding. Kept so the removal cannot silently take this case with it.
     const container = await renderBoard(OPAQUE, {
       ...TEXT_SCHEMA,
-      company: { type: 'lookup', reference_to: 'account' },
+      company: { type: 'lookup', reference: 'account' },
     });
     expect(container.textContent).not.toContain(OPAQUE);
   });

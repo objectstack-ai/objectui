@@ -58,3 +58,5 @@ a consumer READS a key; it does not establish that a given BAG is how the consum
   spec-declared against the installed `FieldSchema`, and the sibling pins
   (`relationalMetaCopySet-6711` / `-6874`) turn the retired `lookupFilters` into a live
   negative assertion on a fixture that still declares it.
+
+⚠️ **Dated note, 2026-09-30 — the lookup and user cells read `reference` alone — objectui#11070.** Later in this same release objectui#11070 (round 4) retired `reference_to` from `LookupCellRenderer` and `UserCellRenderer`, so the sets of keys those cells read, as listed above, no longer include it. The retirement of the three keys this change removed is unaffected. `.changeset/11070-reference-to-round4.md` states what ships; the text above is kept as the reading of this change.

@@ -79,7 +79,9 @@
  * receivers rather than as a count: `packages/fields/src/index.tsx`, the file
  * that holds EVERY `CellRenderer`, contains zero occurrences of any of the
  * three, against a control of 22 occurrences of the `display_field` /
- * `displayField` / `reference_to` spellings the cell does read.
+ * `displayField` / `reference_to` spellings the cell read then (since
+ * objectui#7155 and objectui#11070 round 4 it reads `displayField` and
+ * `reference` only).
  *
  * ⇒ The retirement is behaviour-preserving, and that is the half worth pinning:
  * all three still take effect in the inline picker with them OFF this table,
@@ -142,12 +144,13 @@
  *
  * Nothing manufactures one on the way in, either. `getObjectSchema` in
  * `@object-ui/data-objectstack` is the choke point every schema read passes
- * through, and its only key rewrites are `normalizeSchemaReferenceKeys` (the
- * `reference` ⇄ `reference_to` pair) and `applyFieldWidgetOverrides` (`widget`).
- * Whatever the server serves for every other property arrives verbatim.
+ * through, and its only key rewrites are `normalizeSchemaReferenceKeys` (a
+ * legacy `reference_to` / `referenceTo` folded onto `reference`) and
+ * `applyFieldWidgetOverrides` (`widget`). Whatever the server serves for every
+ * other property arrives verbatim.
  *
- * ⇒ Copying a key that is neither spec-declared nor adapter-stamped writes a
- * member from the def on every column build that no producer can ever fill.
+ * ⇒ Copying a key that is not spec-declared writes a member from the def on
+ * every column build that no producer can ever fill.
  * That is precisely what objectui#6711 (`reference_to_field`), objectui#6625
  * (`decimals`) and objectui#6597 (`referenceTo`) retired, and what
  * objectui#6531 removed from `getRecordDisplayName` on the same reasoning. So
@@ -199,8 +202,9 @@
  * `refObjectSchema?.titleFormat` in `LookupField.tsx` — the REFERENCED object's
  * schema, fetched by `getSchema(referenceTo)`, and the one that matters here;
  * `param.titleFormat` in `app-shell/utils/paramToField.ts`, off a resolved
- * `ActionParamDef`. ⇒ copying `reference_to` is what makes `titleFormat` work
- * on this path; copying `titleFormat` onto the meta reached nothing.
+ * `ActionParamDef`. ⇒ copying the target (`reference_to` then, `reference`
+ * since objectui#11070 round 4) is what makes `titleFormat` work on this path;
+ * copying `titleFormat` onto the meta reached nothing.
  * `plugin-dashboard/src/recordFields.tsx` recorded the same measurement first.
  *
  * Both absences stay pinned behaviourally at all three of `generateColumns`'s
@@ -229,8 +233,10 @@
 export type RelationalMetaVerdict =
   /** Spec-declared on `FieldSchema`. The spelling a live `getObjectSchema` serves. */
   | 'spec'
-  /** Not spec-declared, but stamped onto every def by the adapter's choke point. */
-  | 'adapter-stamped'
+  // ⭐ `adapter-stamped` — "not spec-declared, but stamped onto every def by
+  // the adapter's choke point" — left this union with its one member,
+  // `reference_to` (objectui#11070 round 4): the choke point no longer stamps
+  // it and no consumer reads it, so the verdict names nothing.
   /**
    * Declared on `@object-ui/types`' WIDGET metadata (`LookupFieldMetadata` /
    * `UserFieldMetadata`) and emitted by in-repo producers, with no twin on
@@ -288,7 +294,6 @@ const LOOKUP_EDITOR_ONLY: readonly RelationalMetaConsumer[] = Object.freeze(['lo
  */
 const PRODUCER_LICENSED_VERDICTS: ReadonlySet<RelationalMetaVerdict> = new Set([
   'spec',
-  'adapter-stamped',
   'widget-contract',
 ]);
 
@@ -323,8 +328,11 @@ export interface RelationalMetaEntry {
  */
 export const RELATIONAL_META_READ_SET: Readonly<Record<string, RelationalMetaEntry>> = {
   // ── The relational target ────────────────────────────────────────────────
-  reference: { verdict: 'spec', readers: ALL_THREE, note: "FieldSchema.reference — the served spelling for a lookup's target object." },
-  reference_to: { verdict: 'adapter-stamped', readers: ALL_THREE, note: 'normalizeSchemaReferenceKeys stamps it from `reference` at the getObjectSchema choke point.' },
+  reference: { verdict: 'spec', readers: ALL_THREE, note: "FieldSchema.reference — the served spelling for a lookup's target object, and since objectui#11070 round 4 the only one any consumer reads." },
+  // ⭐ objectui#11070 round 4 removed the `reference_to` row. It is not a
+  // verdict change: the key left this table because the three consumers
+  // stopped reading it and the choke point stopped stamping it, and a row here
+  // states that a swept consumer reads the key.
   reference_field: { verdict: 'no-producer', readers: ALL_THREE, note: 'Third leg of the display-field chain. Not on FieldSchema; zero occurrences in the producer repo (control: `displayField`, 68 files). objectui#6875.' },
 
   // ── The display value ───────────────────────────────────────────────────

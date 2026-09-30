@@ -56,8 +56,9 @@ const OBJECT_SCHEMA = {
   fields: {
     title: { type: 'text', label: 'Title' },
     applicant: { type: 'lookup', label: '申请人', reference: 'sys_user', defaultValue: 'current_user' },
-    // objectui-types spelling of the reference key — must be honoured too.
-    reviewer: { type: 'lookup', label: 'Reviewer', reference_to: 'sys_user', defaultValue: 'current_user' },
+    // A second sys_user lookup. It spelled the target `reference_to` until
+    // objectui#11070 round 4 retired that spelling; `reference` is the only one read.
+    reviewer: { type: 'lookup', label: 'Reviewer', reference: 'sys_user', defaultValue: 'current_user' },
     // The dedicated user field type is the token's other legal home.
     owner_person: { type: 'user', label: 'Owner', defaultValue: 'current_user' },
     // Token on an ILLEGAL type: the engine's validator refuses this authoring;
@@ -99,7 +100,7 @@ describe('schemaDefaultValues — current_user resolution (#5683)', () => {
   it('seeds the acting user on the legal field shapes, and ONLY those', () => {
     const seeded = schemaDefaultValues(OBJECT_SCHEMA, { currentUserId: USER_ID });
     expect(seeded.applicant).toBe(USER_ID); // lookup + reference
-    expect(seeded.reviewer).toBe(USER_ID); // lookup + reference_to
+    expect(seeded.reviewer).toBe(USER_ID); // lookup + reference
     expect(seeded.owner_person).toBe(USER_ID); // type: user
     expect('supplier' in seeded).toBe(false); // illegal type — validator territory
     expect('filed_at' in seeded).toBe(false); // NOW() stays server-owned

@@ -70,6 +70,16 @@
  * tolerant `BaseSchemaCore.shape.body`. That direction is conservative: such a
  * check can only ADD refusals, never accept something the strict shape refused.
  *
+ * ONE closure is re-pointed rather than left tolerant, because what it consults
+ * IS the node union: the nested-component judgment on `AnyComponentSchema`
+ * (objectui#11223, `./zod/nested-component-walk.ts`), which judges a component
+ * nested in a props bag. Copied as it is, it would judge those components
+ * against the tolerant union, and the strict face would pass an unknown key one
+ * bag down that it refuses one child slot down. The walker below swaps it for
+ * the same judgment bound to THIS face's twin of the union
+ * (`rebindNestedJudgments`), so a nested component is judged strictly here and
+ * tolerantly there, like every other node.
+ *
  * ## Registered inputs: where "declared" is the registration, not the shape
  *
  * One node on the face spells its props with its CATCHALL rather than its
@@ -116,6 +126,7 @@ import {
   registeredInputsOf,
   type WalkableDef,
 } from './zod/node-derivation.js';
+import { isNestedComponentJudgment, rebindNestedComponentJudgment } from './zod/nested-component-walk.js';
 
 /**
  * One shape the strict walker could not close, reported as it is met.
@@ -185,6 +196,26 @@ const SCHEMA_BEARING_MEMBERS = [
 
 const carriesSchema = (def: WalkableDef): boolean =>
   SCHEMA_BEARING_MEMBERS.some((member) => def[member] != null);
+
+/**
+ * objectui#11223: the derived node, with every nested-component judgment among
+ * the source's checks re-pointed at `deriveJudge` of its judge — this face's
+ * own twin of the node union (see the module docblock). Every other check is
+ * kept as it is, in its place; a node carrying none is returned untouched.
+ *
+ * `checks` is not a `WalkableDef` member because no arm of the walk reads it;
+ * this is the one place that patches it, through the shared clone rule.
+ */
+const rebindNestedJudgments = (
+  def: WalkableDef,
+  out: z.ZodType,
+  deriveJudge: (judge: z.ZodType) => z.ZodType,
+): z.ZodType => {
+  const checks = (def as { checks?: readonly unknown[] }).checks;
+  if (!checks?.some(isNestedComponentJudgment)) return out;
+  const patch = { checks: checks.map((check) => rebindNestedComponentJudgment(check, deriveJudge) ?? check) };
+  return cloneWithDef(out, patch as unknown as Partial<WalkableDef>);
+};
 
 /**
  * A walker with ONE memo. Two schemas derived through the same walker share
@@ -350,6 +381,9 @@ function createStrictWalker(options: DeriveStrictAuthoringOptions = {}): <T exte
         if (carriesSchema(def)) options.onOpaqueShape?.({ kind: def.type, path });
         out = schema;
     }
+    // Read through the memo at parse time, so the judge resolves to the twin
+    // this walk has finished building — the union the check sits on included.
+    out = rebindNestedJudgments(def, out, (judge) => walk(judge, `${path}/nestedJudge`));
     memo.set(schema, out);
     return out;
   };

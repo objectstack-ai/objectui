@@ -25,8 +25,9 @@
  *
  *  - single and multi: a denied name and a denied image are not drawn; the
  *    cell reads exactly as a stripping backend's row makes it read;
- *  - the person's object is the field's `reference_to` (or `reference`), and
- *    `sys_user` when it names none — the answer `UserField` gives the picker;
+ *  - the person's object is the field's `reference`, and `sys_user` when it
+ *    names none — the answer `UserField` gives the picker; a retired
+ *    `reference_to` names nothing (objectui#11070 round 4);
  *  - a policy that changes after mount relabels the SAME mounted cell;
  *  - lit controls: fields the policy does NOT deny still print, and with no
  *    policy loaded (no provider: `isLoaded` is false) the row is drawn as
@@ -150,21 +151,28 @@ describe('UserCellRenderer — the name and the avatar are drawn from the fields
     expect(gated.html).toBe(served.html);
   });
 
-  it("the person's object is the field's `reference_to` / `reference`, and `sys_user` when it names none", () => {
-    // `reference` is the spec's spelling, the one a grid column forwards; the
-    // objectui types declare only `reference_to`, hence the cast.
-    for (const field of [
-      { type: 'user', reference_to: 'crm_member' },
-      { type: 'user', reference: 'crm_member' },
-    ] as unknown as FieldMetadata[]) {
-      const gated = drawn({ value: AMY, field, policy: policyDenying('crm_member', 'name', 'image') });
-      for (const secret of SECRETS) expect(gated.html).not.toContain(secret);
+  it("the person's object is the field's `reference`, and `sys_user` when it names none", () => {
+    // `reference` is the spec's spelling and, since objectui#11070 round 4, the
+    // only one read. `UserFieldMetadata` does not declare it, hence the cast.
+    const field = { type: 'user', reference: 'crm_member' } as unknown as FieldMetadata;
+    const gated = drawn({ value: AMY, field, policy: policyDenying('crm_member', 'name', 'image') });
+    for (const secret of SECRETS) expect(gated.html).not.toContain(secret);
 
-      // A policy on `sys_user` says nothing about a field that points elsewhere.
-      const elsewhere = drawn({ value: AMY, field, policy: policyDenying('sys_user', 'name', 'image') });
-      expect(elsewhere.text).toContain('Amy Lin');
-      expect(elsewhere.imgs).toEqual(['http://x/amy.png']);
-    }
+    // A policy on `sys_user` says nothing about a field that points elsewhere.
+    const elsewhere = drawn({ value: AMY, field, policy: policyDenying('sys_user', 'name', 'image') });
+    expect(elsewhere.text).toContain('Amy Lin');
+    expect(elsewhere.imgs).toEqual(['http://x/amy.png']);
+  });
+
+  it('a retired `reference_to` names no person object — the cell reads `sys_user` (objectui#11070 round 4)', () => {
+    const field = { type: 'user', reference_to: 'crm_member' } as unknown as FieldMetadata;
+    // The retired spelling is read by nothing, so a policy on `crm_member`
+    // does not reach this field…
+    const unreached = drawn({ value: AMY, field, policy: policyDenying('crm_member', 'name', 'image') });
+    expect(unreached.text).toContain('Amy Lin');
+    // …and the cell answers `sys_user`, as for a field that names none.
+    const fallback = drawn({ value: AMY, field, policy: policyDenying('sys_user', 'name', 'image') });
+    for (const secret of SECRETS) expect(fallback.html).not.toContain(secret);
   });
 
   it('a policy that changes after mount relabels the same mounted cell', () => {

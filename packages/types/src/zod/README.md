@@ -323,6 +323,27 @@ const cardWithChildren = CardSchema.parse({
 });
 ```
 
+A component nested in a container's props bag is judged too, by the node union
+behind `safeValidateSchema` and `StrictAnyComponentSchema`, at the positions
+`@objectstack/spec`'s page walk (`walkAddressedPageComponents`) descends —
+`properties.children` and `properties.items[].children` on the page containers —
+and each issue lands at the nested node's real path:
+
+```typescript
+import { safeValidateSchema } from '@object-ui/types/zod';
+
+const result = safeValidateSchema({
+  type: 'page:section',
+  properties: { children: [{ type: 'element:text', properties: { content: 7 } }] },
+});
+// result.success === false; the issue path starts
+// ['properties', 'children', 0, 'properties', 'content']
+```
+
+That judgment lives on the union: a container's own arm schema parsed alone
+(`PageSectionBlockSchema.safeParse(…)`) still reads its bag's child list as the
+spec row types it, a list of anything.
+
 ## Best Practices
 
 1. **Use safeParse()** for user input validation

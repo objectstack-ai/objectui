@@ -87,7 +87,7 @@ export const DetailViewFieldSchema = z.object({
    */
   options: z.array(stripImportedDefaults(SpecSelectOptionSchema)).optional()
     .describe('Options for select/lookup fields'),
-  reference_to: z.string().optional().describe('Referenced object name for lookup/master_detail fields'),
+  reference: z.string().optional().describe('Referenced object name for lookup/master_detail fields'),
   reference_field: z.string().optional().describe('Display field on the referenced object'),
   currency: z.string().optional().describe('Currency code for currency fields (e.g. USD, EUR)'),
   dueLike: z.boolean().optional().describe(

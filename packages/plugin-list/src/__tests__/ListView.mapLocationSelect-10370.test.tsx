@@ -95,7 +95,7 @@ const objectDef = {
     notes: { name: 'notes', type: 'textarea', label: 'Notes' },
     secret_geo: { name: 'secret_geo', type: 'text', label: 'Home location' },
     secret_lat: { name: 'secret_lat', type: 'number', label: 'Home latitude' },
-    account: { name: 'account', type: 'lookup', reference_to: 'account', label: 'Account' },
+    account: { name: 'account', type: 'lookup', reference: 'account', label: 'Account' },
   },
 };
 

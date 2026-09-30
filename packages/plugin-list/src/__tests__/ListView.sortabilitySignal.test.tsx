@@ -74,7 +74,7 @@ const objectDef = {
     // DRIFT: a formula the platform DOES order by.
     rolled_total: { type: 'formula', label: 'Rolled Total' },
     // Relational carve-out — the projection answers `sortable: true` here.
-    owner: { type: 'lookup', label: 'Owner', reference_to: 'sys_user' },
+    owner: { type: 'lookup', label: 'Owner', reference: 'sys_user' },
   },
 };
 

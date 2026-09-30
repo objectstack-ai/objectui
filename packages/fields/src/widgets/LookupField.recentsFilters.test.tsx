@@ -169,7 +169,7 @@ beforeEach(() => {
 const staticFilterField = {
   name: 'product',
   label: 'Product',
-  reference_to: 'product',
+  reference: 'product',
   reference_field: 'name',
   lookupFilters: [{ field: 'status', operator: 'eq', value: 'active' }],
 } as any;
@@ -177,7 +177,7 @@ const staticFilterField = {
 const cascadeField = {
   name: 'product',
   label: 'Product',
-  reference_to: 'product',
+  reference: 'product',
   reference_field: 'name',
   dependsOn: [{ field: 'project', param: 'project' }],
 } as any;

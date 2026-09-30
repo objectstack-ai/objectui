@@ -1,15 +1,18 @@
 /**
  * Regression: LookupCellRenderer must resolve a bare foreign-key id to a
  * display name when the field metadata carries the ObjectStack `reference`
- * key (as produced by `Field.lookup('...')` in @objectstack/spec) — not only
- * the objectui `reference_to` alias.
+ * key (as produced by `Field.lookup('...')` in @objectstack/spec).
  *
  * Real-world symptom (framework app-showcase): inline-edit a lookup cell, pick
  * a record, click another row → the cell showed a muted "—" forever because
- * the just-picked opaque id could not be resolved. Every other reader in the
- * codebase (LookupField, UserField, DetailSection, RelatedList, …) already
- * accepts `reference_to || reference`; this read cell used to read only
- * `reference_to`.
+ * the just-picked opaque id could not be resolved. This read cell used to read
+ * only the objectui `reference_to` alias.
+ *
+ * Since objectui#11070 round 4 `reference` is the ONLY spelling it reads — the
+ * spelling every other reader reads too — and the second pin below holds the
+ * other half: a def that spells only the retired `reference_to` resolves no
+ * target here. A served legacy def reaches this cell already folded onto
+ * `reference` by the ingestion choke point (`normalizeSchemaReferenceKeys`).
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -34,7 +37,7 @@ function makeDataSource() {
 }
 
 describe('LookupCellRenderer — reference key resolution', () => {
-  it('resolves an opaque id to a name via the `reference` key (not just reference_to)', async () => {
+  it('resolves an opaque id to a name via the `reference` key', async () => {
     const ds = makeDataSource();
     render(
       <SchemaRendererProvider dataSource={ds}>
@@ -53,5 +56,23 @@ describe('LookupCellRenderer — reference key resolution', () => {
     // …and the muted placeholder must NOT be what the user sees.
     expect(screen.queryByText('—')).not.toBeInTheDocument();
     expect(ds.findOne).toHaveBeenCalledWith('showcase_account', OPAQUE_ID);
+  });
+
+  it('reads no target from a retired `reference_to` (objectui#11070 round 4)', async () => {
+    const ds = makeDataSource();
+    render(
+      <SchemaRendererProvider dataSource={ds}>
+        <LookupCellRenderer
+          value={OPAQUE_ID}
+          field={{ type: 'lookup', reference_to: 'showcase_account' } as never}
+        />
+      </SchemaRendererProvider>,
+    );
+    // The raw id stays visible beside the unresolved-reference marker…
+    expect(screen.getByText(OPAQUE_ID)).toBeInTheDocument();
+    // …because nothing named an object to resolve it through.
+    await new Promise((r) => setTimeout(r, 20));
+    expect(ds.findOne).not.toHaveBeenCalled();
+    expect(screen.queryByText('Globex')).not.toBeInTheDocument();
   });
 });

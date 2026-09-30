@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@object-ui/components';
 import { Edit, Trash2, MoreVertical } from 'lucide-react';
-import { evalRowPredicate, type CrudAffordances } from '@object-ui/core';
+import { evalRowPredicate, hasDeclaredPredicate, type CrudAffordances } from '@object-ui/core';
 import { useObjectTranslation, useRowPredicate, useCapabilityGate, usePredicateScope } from '@object-ui/react';
 
 const ROW_ACTION_FALLBACKS: Record<string, string> = {
@@ -88,9 +88,11 @@ export interface RowActionDef {
  *
  * Behavior is unchanged and stays the posture `RowCrudActionOverrideSchema`
  * specifies: `visibleWhen` fails CLOSED (the item is not rendered for this row),
- * `disabledWhen` fails soft (the item renders disabled), both evaluated per row
- * on the canonical CEL engine — the same machinery as custom actions'
- * `visible` / `disabled`.
+ * `disabledWhen` fails soft (a faulting predicate leaves the item enabled), both
+ * evaluated per row on the canonical CEL engine — the same machinery as custom
+ * actions' `visible` / `disabled`. The fail direction is where the two families
+ * part: a custom action's `disabled` fails CLOSED since objectui#11242, while
+ * `disabledWhen` keeps the posture above (PR objectui#4515).
  */
 export type BuiltinRowActionPredicates = NonNullable<
   CrudAffordances['editPredicates'] | CrudAffordances['deletePredicates']
@@ -390,10 +392,23 @@ const RowActionMenuItem: React.FC<{
   onActionDef?: (def: RowActionDef, row: any) => void;
 }> = ({ def, row, objectFields, onActionDef }) => {
   // Evaluate predicates against the row on the canonical CEL engine (issue
-  // #1584): the row is bound both bare (`status`) and as `record.status`, and
-  // the ambient `features`/`user` scope is merged. `visible` fails CLOSED
-  // (hidden + warn) so a broken predicate can't silently expose an action —
-  // matching ActionEngine's posture; `disabled` fails soft (not disabled).
+  // #1584): the row is bound as `record.*`, and the ambient
+  // `features`/`current_user` scope is merged. Both keys fail CLOSED, each in
+  // its own direction: a `visible` that faults hides the item (and warns), so a
+  // broken predicate can't silently expose an action — matching ActionEngine's
+  // posture; a `disabled` that faults DISABLES it (and warns).
+  //
+  // `disabled` used to fail soft (not disabled), so `disabled:
+  // !current_user.can(…)` left the item pressable until the permissions
+  // payload arrived, and for good where it never arrives (objectui#11242 —
+  // Rider 1 of objectui#4421: a permission-shaped gate is closed while that
+  // payload has not loaded). The mechanism is `page:header`'s
+  // (objectui#11212): the caller names its key's fail direction as the
+  // evaluator's `fallback`, and the policy is per key, not a `can()` special
+  // case. The fallback also answers an ABSENT predicate, so the verdict only
+  // counts where a gate is DECLARED — core's one definition of that question.
+  // The built-in Edit / Delete `disabledWhen` below keeps its documented
+  // fail-soft posture.
   //
   // `visible` goes through the shared `isCustomRowActionVisible` — the SAME
   // function the guard in `RowActionMenu` counts with, so an item can never be
@@ -403,7 +418,9 @@ const RowActionMenuItem: React.FC<{
     () => isCustomRowActionVisible(def, row, scope, objectFields),
     [def, row, scope, objectFields],
   );
-  const isDisabled = useRowPredicate((def as any).disabled, row, { fallback: false, warnOnError: true, label: `${def.name}:disabled`, fields: objectFields });
+  const disabledGate = (def as any).disabled;
+  const disabledVerdict = useRowPredicate(disabledGate, row, { fallback: true, warnOnError: true, label: `${def.name}:disabled`, fields: objectFields });
+  const isDisabled = hasDeclaredPredicate(disabledGate) && disabledVerdict;
   if (!isVisible) return null;
   return (
     <DropdownMenuItem

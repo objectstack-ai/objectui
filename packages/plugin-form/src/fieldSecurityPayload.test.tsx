@@ -79,7 +79,7 @@ afterEach(cleanup);
 const OBJECT_SCHEMA = {
   name: 'kpi_entry_line',
   fields: {
-    sheet: { type: 'master_detail', label: 'Sheet', reference_to: 'kpi_entry_sheet', readonly: true },
+    sheet: { type: 'master_detail', label: 'Sheet', reference: 'kpi_entry_sheet', readonly: true },
     indicator_name: { type: 'text', label: 'Indicator' },
     target_value: { type: 'number', label: 'Target' },
     weight: { type: 'number', label: 'Weight' },

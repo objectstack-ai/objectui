@@ -437,7 +437,7 @@ describe('controls — the routed families are untouched by the delegation', () 
   it('`lookup` keeps the routed record picker', () => {
     const { container } = render(
       <InlineFieldInput
-        field={{ name: 'account', type: 'lookup', reference_to: 'crm_account' }}
+        field={{ name: 'account', type: 'lookup', reference: 'crm_account' }}
         value={{ id: 'a1', name: 'Northwind' }}
         onChange={vi.fn()}
         dataSource={{ find: vi.fn(async () => ({ data: [], total: 0 })) }}

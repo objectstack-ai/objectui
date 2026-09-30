@@ -39,7 +39,7 @@ describe('InlineFieldInput', () => {
   it('never leaks "[object Object]" for an $expand-ed reference value', () => {
     render(
       <InlineFieldInput
-        field={{ name: 'project', type: 'master_detail', reference_to: 'projects' }}
+        field={{ name: 'project', type: 'master_detail', reference: 'projects' }}
         value={{ _id: 'p1', name: 'Apollo' }}
         onChange={vi.fn()}
       />,
@@ -85,7 +85,7 @@ describe('InlineFieldInput', () => {
     const find = vi.fn().mockResolvedValue({ data: [], total: 0 });
     render(
       <InlineFieldInput
-        field={{ name: 'account', type: 'lookup', reference_to: 'accounts' }}
+        field={{ name: 'account', type: 'lookup', reference: 'accounts' }}
         value={{ id: 'a1', name: 'Northwind Traders' }}
         onChange={vi.fn()}
         dataSource={{ find, findOne }}

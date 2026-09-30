@@ -196,9 +196,11 @@ export interface DetailViewField {
    */
   options?: SelectOptionMetadata[];
   /**
-   * Referenced object name for lookup/master_detail fields
+   * Referenced object name for lookup/master_detail fields — the spelling
+   * `@objectstack/spec`'s `FieldSchema` declares. It replaces the retired
+   * snake_case `reference_to` (objectui#11070), which nothing reads.
    */
-  reference_to?: string;
+  reference?: string;
   /**
    * Display field on the referenced object for lookup/master_detail fields
    */

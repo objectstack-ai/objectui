@@ -2214,7 +2214,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
               label: fieldDef.label || key,
               type: fieldDef.type || 'text',
               ...(fieldDef.options && { options: fieldDef.options }),
-              ...(refTarget && { reference_to: refTarget }),
+              ...(refTarget && { reference: refTarget }),
               ...(fieldDef.reference_field && { reference_field: fieldDef.reference_field }),
               ...(fieldDef.currency && { currency: fieldDef.currency }),
             };

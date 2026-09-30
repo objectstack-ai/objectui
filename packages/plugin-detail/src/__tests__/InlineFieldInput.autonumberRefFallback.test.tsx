@@ -21,13 +21,13 @@
  * What #4228 does NOT reach is this file's reference fallback:
  *
  * ```
- * const isLookupRef = … || (!!field.reference_to && !TEXTUAL_REF_FALLBACK_TYPES.has(editType));
+ * const isLookupRef = … || (!!field.reference && !TEXTUAL_REF_FALLBACK_TYPES.has(editType));
  * ```
  *
  * That read is `InlineFieldInput`'s own, on EXPORTED public API, with no host
  * gate in front of it — a caller rendering the component directly (the SDUI
  * surfaces do) gets whatever the set says. So an `autonumber` carrying a
- * `reference_to` — computed fields keep one for relational metadata, which is
+ * `reference` — computed fields keep one for relational metadata, which is
  * the entire reason this set exists — was hijacked into the RECORD PICKER,
  * offering the user a list of records to overwrite a machine-generated value
  * with. The `auto_number` spelling of the identical field was not.
@@ -65,7 +65,7 @@ const dataSource = { find: vi.fn(async () => ({ data: [], total: 0 })), findOne:
 const renderField = (type: string, extra: Record<string, unknown> = {}) =>
   render(
     <InlineFieldInput
-      field={{ name: 'invoice_no', type, reference_to: 'crm_account', ...extra }}
+      field={{ name: 'invoice_no', type, reference: 'crm_account', ...extra }}
       value="INV-000317"
       onChange={vi.fn()}
       dataSource={dataSource}
@@ -73,17 +73,17 @@ const renderField = (type: string, extra: Record<string, unknown> = {}) =>
   );
 
 describe('#4219 — the reference fallback carries both auto-number spellings', () => {
-  it('`autonumber` + `reference_to` renders the textual fallback, NOT the record picker', () => {
+  it('`autonumber` + `reference` renders the textual fallback, NOT the record picker', () => {
     renderField('autonumber');
     // Before the fix this was the record picker: the set had no `autonumber`,
-    // so `!!reference_to && !TEXTUAL_REF_FALLBACK_TYPES.has('autonumber')` was
+    // so `!!reference && !TEXTUAL_REF_FALLBACK_TYPES.has('autonumber')` was
     // true and `LookupField` took over the machine-generated identity.
     expect(recordPicker()).toBeNull();
     expect(plainInput()).not.toBeNull();
     expect(plainInput()).toHaveValue('INV-000317');
   });
 
-  it('`auto_number` + `reference_to` is unchanged (control — the spelling that already worked)', () => {
+  it('`auto_number` + `reference` is unchanged (control — the spelling that already worked)', () => {
     renderField('auto_number');
     expect(recordPicker()).toBeNull();
     expect(plainInput()).toHaveValue('INV-000317');

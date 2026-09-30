@@ -476,6 +476,7 @@ import { ViewComponentSchema } from './views.zod.js';
 import { AIComponentSchema } from './ai.zod.js';
 import { PublicBlockComponentSchema } from './public-blocks.zod.js';
 import { CloudPlanStatusSchema } from './cloud.zod.js';
+import { nestedComponentJudgment } from './nested-component-walk.js';
 
 /**
  * Union of all component schemas.
@@ -557,7 +558,11 @@ export const AnyComponentSchema = defineNodeComponentUnion(z.discriminatedUnion(
   // schema, so it also rewrote this union's `invalid_type` and a non-object root
   // lost "expected object, received number". `undefined` declines to the locale.
   error: (issue) => (issue.code === 'invalid_union' ? 'Invalid input' : undefined),
-}));
+  // objectui#11223: a component nested in a props bag — at the positions
+  // `@objectstack/spec`'s own page walk descends — is judged by this same union,
+  // at its real path. `./nested-component-walk.ts` carries the why and the how;
+  // the strict face re-points this check at its own twin of the union.
+}).check(nestedComponentJudgment((): z.ZodType => AnyComponentSchema)));
 
 /**
  * Validate a schema against the AnyComponentSchema
@@ -587,7 +592,12 @@ export function validateSchema(schema: unknown) {
 
 /**
  * Safely validate a schema without throwing errors
- * 
+ *
+ * Every node is judged by its own component schema at every depth: in a
+ * node-level child slot (objectui#8344), and in a props-bag child list at the
+ * positions `@objectstack/spec`'s page walk descends (objectui#11223), each
+ * issue reported at the nested node's real path.
+ *
  * @param schema - The schema to validate
  * @returns Object with success boolean and either data or error
  * 

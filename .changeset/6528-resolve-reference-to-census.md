@@ -35,3 +35,5 @@ already head of the old chain, so any document carrying both is unaffected.
 
 The string / array / `{ object }` carriers are untouched: the carrier is a
 separate axis from the spelling and narrowing it needs its own census.
+
+⚠️ **Dated note, 2026-09-30 — `reference_to` is no longer live on ObjectUI's own view/field schema — objectui#11070.** The table's `reference_to` row said the spelling was "live only on ObjectUI's own view/field schema". Later in this same release objectui#11070 (round 4) moved that schema (`DetailViewField` / `DetailViewFieldSchema`) and the field metadata types to `reference`. The narrowing this change made is unaffected. `.changeset/11070-reference-to-round4.md` states what ships; the text above is kept as the reading of this change.

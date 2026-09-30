@@ -137,7 +137,7 @@ describe('marker descriptions render as a display string (objectui#10456)', () =
         name: 'site',
         fields: {
           site_name: { type: 'text' },
-          owner: { type: 'lookup', reference_to: 'account' },
+          owner: { type: 'lookup', reference: 'account' },
           latitude: { type: 'number' },
           longitude: { type: 'number' },
         },

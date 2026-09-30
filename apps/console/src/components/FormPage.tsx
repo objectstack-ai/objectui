@@ -540,7 +540,7 @@ interface RenderableField {
   /**
    * The object field exactly as the server served it — every key, not only the
    * ones {@link ObjectFieldDef} names — so the widget handed this row finds
-   * what it reads off its metadata (a lookup's `reference_to`, a currency's
+   * what it reads off its metadata (a lookup's `reference`, a currency's
    * `currency`, a code editor's `language`). See {@link widgetFieldOf}.
    * Absent on a row built without an object field behind it. Typed as the
    * slice this file names; at runtime it is the whole served object.

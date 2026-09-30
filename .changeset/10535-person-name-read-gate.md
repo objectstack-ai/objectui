@@ -27,3 +27,5 @@ are unchanged.
 This is defence in depth: ObjectStack's `FieldMasker` already removes the
 fields a user may not read from the rows it returns, and on those rows nothing
 changes. The change matters for a backend that does not.
+
+⚠️ **Dated note, 2026-09-30 — the cell reads the person's object from `reference` alone — objectui#11070.** "the object the field's `reference_to` (or `reference`) names" above held when this change landed. Later in this same release objectui#11070 (round 4) narrowed `UserCellRenderer` to `reference`, with `sys_user` when it names none. The read gate is unaffected. `.changeset/11070-reference-to-round4.md` states what ships; the text above is kept as the reading of this change.

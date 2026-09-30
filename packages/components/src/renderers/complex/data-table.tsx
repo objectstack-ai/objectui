@@ -12,7 +12,7 @@ import { cn } from '../../lib/utils';
 import { resolveIcon } from '../action/resolve-icon';
 import { useGridFieldAuthoring } from '../../context/gridFieldAuthoring';
 import { describeIgnoredBind, describeNonArrayData } from './dataTableBindDiagnostic';
-import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, formatDateTime, fromDateTimeInputValue, getSortValue, isImpossibleStoredDay, toDateInputValue, toDateTimeInputValue } from '@object-ui/core';
+import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, hasDeclaredPredicate, formatDateTime, fromDateTimeInputValue, getSortValue, isImpossibleStoredDay, toDateInputValue, toDateTimeInputValue } from '@object-ui/core';
 import type { DataTableSchema, TableColumn, TableSortItem, TableColumnType } from '@object-ui/types';
 import type { SortDirection } from '@objectstack/spec/shared';
 import { SchemaRenderer, toRenderableSchema, useCapabilityGate, useRowPredicate, usePredicateScope } from '@object-ui/react';
@@ -369,9 +369,19 @@ export const DataTableRowActionItem: React.FC<{
   row: any;
   onActionDef?: (action: RowActionDef, row: any) => void | Promise<void>;
 }> = ({ action, row, onActionDef }) => {
-  // Evaluate on the canonical CEL engine (issue #1584): row bound bare + as
-  // `record.*`, ambient `features`/`user` scope merged. `visible` fails CLOSED
-  // (hidden + warn); `disabled` fails soft (not disabled).
+  // Evaluate on the canonical CEL engine (issue #1584): row bound as
+  // `record.*`, ambient `features`/`current_user` scope merged. Both keys fail
+  // CLOSED, each in its own direction: a `visible` that faults hides the item,
+  // a `disabled` that faults DISABLES it, and both warn.
+  //
+  // `disabled` used to fail soft (not disabled), so `disabled:
+  // !current_user.can(…)` left the item pressable until the permissions
+  // payload arrived (objectui#11242 — Rider 1 of objectui#4421). Same
+  // mechanism as `page:header` (objectui#11212) and plugin-grid's
+  // `RowActionMenuItem`: the key's fail direction is the evaluator's
+  // `fallback`, per key rather than a `can()` special case, and since that
+  // fallback also answers an ABSENT predicate the verdict only counts where a
+  // gate is DECLARED. The built-in `disabledWhen` below stays fail-soft.
   //
   // `visible` goes through the shared `isCustomRowActionVisible` — the SAME
   // function the row-level guard uses to decide whether this row gets a "⋮"
@@ -379,7 +389,8 @@ export const DataTableRowActionItem: React.FC<{
   // survived (objectui#3562).
   const scope = usePredicateScope();
   const isVisible = useMemo(() => isCustomRowActionVisible(action, row, scope), [action, row, scope]);
-  const isDisabled = useRowPredicate(action.disabled, row, { fallback: false, warnOnError: true, label: `${action.name}:disabled` });
+  const disabledVerdict = useRowPredicate(action.disabled, row, { fallback: true, warnOnError: true, label: `${action.name}:disabled` });
+  const isDisabled = hasDeclaredPredicate(action.disabled) && disabledVerdict;
   if (!isVisible) return null;
   const ActionIcon = resolveIcon(action.icon);
   return (

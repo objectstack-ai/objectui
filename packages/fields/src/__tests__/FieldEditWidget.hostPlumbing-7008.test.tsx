@@ -190,7 +190,7 @@ describe('FieldEditWidget delivers its declared NON-DOM block (objectui#7008)', 
     // wrapper field > SchemaRendererContext > none"; the factory is a conduit
     // and adds no second authority. This pins that the delivered prop is what
     // the widget ends up querying.
-    const LOOKUP_FIELD = { name: 'account', type: 'lookup', reference_to: 'accounts' } as never;
+    const LOOKUP_FIELD = { name: 'account', type: 'lookup', reference: 'accounts' } as never;
     const makeSource = () => ({
       find: vi.fn().mockResolvedValue([]),
       getObjectSchema: vi.fn().mockResolvedValue({ name: 'accounts' }),

@@ -75,7 +75,7 @@ describe('Complex & Relationship Widgets', () => {
         const dynamicField = {
             ...mockField,
             label: 'Customer',
-            reference_to: 'customers',
+            reference: 'customers',
             reference_field: 'name',
         } as any;
 
@@ -356,7 +356,7 @@ describe('Complex & Relationship Widgets', () => {
         });
 
         it('defaults inline-create ON for a user-facing relation (no allow_create needed)', async () => {
-            // dynamicField.reference_to === 'customers' (user-facing) with NO
+            // dynamicField.reference === 'customers' (user-facing) with NO
             // allow_create flag → the capability is ON by default (standard).
             mockDataSource.find.mockResolvedValue({ data: [], total: 0 });
             mockDataSource.create.mockResolvedValue({ id: 'new-2', name: 'Zeta' });
@@ -378,7 +378,7 @@ describe('Complex & Relationship Widgets', () => {
             // A picker into the platform user directory must not offer "+ create"
             // (those rows are org members, not inline-created from a field).
             mockDataSource.find.mockResolvedValue({ data: [], total: 0 });
-            const field = { ...dynamicField, reference_to: 'sys_user' } as any;
+            const field = { ...dynamicField, reference: 'sys_user' } as any;
 
             render(<LookupField {...dynamicProps} field={field} />);
             await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Select/i })); });
@@ -503,11 +503,11 @@ describe('Complex & Relationship Widgets', () => {
             expect(onChange).toHaveBeenCalledWith('2');
         });
 
-        it('resolves reference_to from nested field.field (form metadata slot)', async () => {
+        it('resolves reference from nested field.field (form metadata slot)', async () => {
             // Simulates the `field.field` nesting the FORM renderer hands widgets:
             // `renderFieldComponent` passes `field: field.field || field`, where
             // `.field` is the declared metadata slot (objectui#3090) holding the
-            // real metadata (reference_to, reference_field, …). The test used to
+            // real metadata (reference, reference_field, …). The test used to
             // credit this shape to the docs-demo `createFieldRenderer` wrapper,
             // which never produced it and no longer exists (objectui#3910); the
             // live producer is the form path, so the coverage stands.
@@ -527,7 +527,7 @@ describe('Complex & Relationship Widgets', () => {
                 field: {
                     name: 'order',
                     type: 'lookup',
-                    reference_to: 'orders',
+                    reference: 'orders',
                     reference_field: 'name',
                 },
                 // dataSource lands at the wrapper level
@@ -557,8 +557,29 @@ describe('Complex & Relationship Widgets', () => {
             });
         });
 
-        it('supports ObjectStack "reference" convention (not just "reference_to")', async () => {
-            // ObjectStack backend uses `reference` instead of `reference_to`
+        it('reads no target from a retired "reference_to" (objectui#11070 round 4)', async () => {
+            // `reference` is the only spelling the widget reads. A def that
+            // spells only the retired `reference_to` names no object, so
+            // opening the picker queries nothing.
+            mockDataSource.find.mockResolvedValue({ data: [{ id: 'a1', name: 'Acme Corp' }], total: 1 });
+            render(
+                <LookupField
+                    value={null}
+                    onChange={vi.fn()}
+                    field={{ name: 'account', label: 'Account', field: { name: 'account', type: 'lookup', reference_to: 'account' }, dataSource: mockDataSource } as never}
+                    readonly={false}
+                />
+            );
+            await act(async () => {
+                fireEvent.click(screen.getByRole('button', { name: /Select/i }));
+            });
+            await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+            expect(mockDataSource.find).not.toHaveBeenCalled();
+            expect(screen.queryByText('Acme Corp')).not.toBeInTheDocument();
+        });
+
+        it('supports ObjectStack "reference" convention', async () => {
+            // ObjectStack backend uses `reference`, the spec's spelling
             const onChange = vi.fn();
             mockDataSource.find.mockResolvedValue({
                 data: [

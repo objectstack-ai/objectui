@@ -171,8 +171,7 @@ export function buildRecordDetailFields(
         useGrouping: def.useGrouping,
         format: def.format,
         // Served schemas key the target as `reference` (ObjectStack
-        // convention, #2407); the panel can receive a raw schema from any
-        // DataSource, so both snake_case spellings are resolved here.
+        // convention, #2407), the only spelling read here.
         //
         // Two further arms stood here until objectui#6837 — `def.referenceTo`
         // and `def.target` — and they were NOT redundant-but-harmless: no
@@ -190,19 +189,16 @@ export function buildRecordDetailFields(
         //
         // ⛔ Do not re-add a spelling arm here. A producer emitting a refused
         // spelling is fixed AT THE PRODUCER, or canonicalised once at the
-        // ingestion choke point (`normalizeSchemaReferenceKeys`, which stamps
-        // both snake_case keys from whichever spelling arrived) — never by a
-        // renderer-side alias.
+        // ingestion choke point (`normalizeSchemaReferenceKeys`, which folds a
+        // legacy spelling onto `reference`) — never by a renderer-side alias.
         //
         // objectui#6837 half 2 deleted the last read arm too: the RIGHT-hand
-        // side now reads `reference` alone, the only spelling the protocol
-        // declares. ⚠️ The LEFT-hand key is unchanged and must stay
-        // `reference_to` — it is the key this emit's TARGET contract declares
-        // (`DetailViewField` / `DetailViewFieldSchema` in `@object-ui/types`,
-        // which declares `reference_to` and never declares `reference`).
-        // Narrowing the read is protocol compliance; renaming the emitted key
-        // would be a separate view-contract change with its own weight.
-        reference_to: def.reference,
+        // side reads `reference` alone, the only spelling the protocol
+        // declares. objectui#11070 round 4 renamed the LEFT-hand key to match:
+        // this emit's TARGET contract (`DetailViewField` /
+        // `DetailViewFieldSchema` in `@object-ui/types`) declares `reference`
+        // now, and the widgets it feeds read nothing else.
+        reference: def.reference,
         reference_field: def.reference_field ?? def.referenceField,
         required: def.required,
         validation: def.validation,

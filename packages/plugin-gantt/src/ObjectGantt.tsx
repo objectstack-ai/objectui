@@ -1670,7 +1670,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   const quickFilterDefs = ganttConfig?.quickFilters;
 
   // Lookup/master_detail dimensions pull their full option domain from the
-  // referenced object (reference_to) via the data source — so the dropdown
+  // referenced object (reference) via the data source — so the dropdown
   // shows every possible value, not only those present in the loaded rows.
   const [lookupOptions, setLookupOptions] = useState<Record<string, QuickFilterOption[]>>({});
   useEffect(() => {

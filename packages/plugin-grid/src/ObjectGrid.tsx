@@ -3468,7 +3468,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               if (objectDefField.format) fieldMeta.format = objectDefField.format;
               if (objectDefField.options) fieldMeta.options = translateOptions(schema.objectName, col.field, objectDefField.options);
             }
-            // Preserve relational metadata (reference_to, display_field, …) so
+            // Preserve relational metadata (reference, displayField, …) so
             // lookup CELLS resolve ids to names. ⛔ Not the inline picker — that
             // reads the schema def directly, see `renderCellEditor` (objectui#7154).
             applyRelationalMeta(fieldMeta, objectDefField as any);
@@ -3697,7 +3697,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             if (fieldDef.format) fieldMeta.format = fieldDef.format;
             if (fieldDef.options) fieldMeta.options = translateOptions(schema.objectName, fieldName, fieldDef.options);
           }
-          // Preserve relational metadata (reference_to, display_field, …) so
+          // Preserve relational metadata (reference, displayField, …) so
           // lookup CELLS resolve ids to names. ⛔ Not the inline picker — that
           // reads the schema def directly, see `renderCellEditor` (objectui#7154).
           applyRelationalMeta(fieldMeta, fieldDef as any);
@@ -3872,7 +3872,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             if (fieldDef.format) fieldMeta.format = fieldDef.format;
             if (fieldDef.options) fieldMeta.options = translateOptions(schema.objectName, fieldName, fieldDef.options);
           }
-          // Preserve relational metadata (reference_to, display_field, …) so
+          // Preserve relational metadata (reference, displayField, …) so
           // lookup CELLS resolve ids to names. ⛔ Not the inline picker — that
           // reads the schema def directly, see `renderCellEditor` (objectui#7154).
           applyRelationalMeta(fieldMeta, fieldDef as any);

@@ -10,7 +10,8 @@
  * `containers.tsx`, `DetailView.tsx`, `ObjectKanban.tsx`, `ObjectCalendar.tsx`,
  * `useRecordSearch.ts`), and the one that this grid's own inline picker uses is
  * `refObjectSchema?.titleFormat` in `LookupField` — the REFERENCED object's
- * schema, fetched by `getSchema(referenceTo)`. So `reference_to` is what makes
+ * schema, fetched by `getSchema(referenceTo)`. So the target key (`reference_to`
+ * then, `reference` since objectui#11070 round 4) is what makes
  * `titleFormat` work on this path, and the copy reached nothing.
  *
  * Removing it therefore changes no rendering at all: every other test in this
@@ -65,8 +66,11 @@ const OBJECT = 'os_6874_report';
 const MANAGER_DEF = {
   type: 'lookup',
   label: 'Manager',
-  reference_to: 'users',
+  // The target the grid copies — the one spelling read since objectui#11070
+  // round 4 — beside the snake twin that round RETIRED, kept on the fixture so
+  // its absence from the copied meta is a reading, not an omission.
   reference: 'users',
+  reference_to: 'MUST_NOT_BE_COPIED',
   // The spec spelling — the only display pointer read since objectui#7155.
   displayField: 'name',
   // ⭐ The snake_case dialect objectui#7155 RETIRED. Kept on the fixture on
@@ -87,6 +91,10 @@ const MANAGER_DEF = {
 /**
  * The keys that survive every retirement so far — the control.
  *
+ * ⭐ objectui#11070 round 4 shrank it again, from three to two: the choke
+ * point stopped stamping `reference_to` and no consumer reads it, so the target
+ * is copied as `reference` alone.
+ *
  * ⭐ objectui#7155 shrank this from six to three. It converged the lookup
  * dialect on the spec's camelCase, so `display_field` / `id_field` /
  * `description_field` / `lookup_filters` are no longer copied — `displayField`
@@ -97,7 +105,7 @@ const MANAGER_DEF = {
  * retirement removed exactly its key" from "the copy stopped working".
  */
 const SURVIVING_KEYS = [
-  'reference_to', 'reference', 'displayField',
+  'reference', 'displayField',
 ] as const;
 
 const ROWS = [{ id: 'r1', name: 'Tower T1', manager: 'u1' }];
@@ -195,7 +203,8 @@ describe('objectui#6874 — ObjectGrid no longer copies `titleFormat` onto field
       for (const key of SURVIVING_KEYS) {
         expect(meta).toHaveProperty(key);
       }
-      expect(meta.reference_to).toBe('users');
+      expect(meta.reference).toBe('users');
+      expect(meta).not.toHaveProperty('reference_to');
       expect(meta.displayField).toBe('name');
       // objectui#7166 retired `lookupFilters` from the copy set — its only
       // reader is an editor widget, which `renderCellEditor` feeds from the

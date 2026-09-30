@@ -111,8 +111,8 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
             // Shared with DetailSection (`enrichDetailField`) so the highlights
             // strip and the details body resolve an identical field shape —
             // including the relational keys a lookup picker needs (`multiple`,
-            // display/id fields, picker config), and the `reference` /
-            // `reference_to` spelling pair backend schemas use.
+            // display/id fields, picker config), and the `reference` target
+            // backend schemas use.
             const enrichedField = enrichDetailField(
               { name: field.name, label: field.label, type: resolvedType || 'text' },
               objectDefField,

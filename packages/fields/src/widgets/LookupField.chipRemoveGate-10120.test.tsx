@@ -59,7 +59,7 @@ describe('LookupField — the chip remove control follows the field\'s interacti
         onChange={onChange}
         disabled
         dataSource={makeDataSource() as never}
-        field={{ reference_to: 'kpi_entry_sheet', label: 'Sheet' } as never}
+        field={{ reference: 'kpi_entry_sheet', label: 'Sheet' } as never}
       />,
     );
     // The value is still READ — a disabled field is not a hidden one.
@@ -75,7 +75,7 @@ describe('LookupField — the chip remove control follows the field\'s interacti
         onChange={() => {}}
         disabled
         dataSource={makeDataSource() as never}
-        field={{ reference_to: 'kpi_entry_sheet', label: 'Sheet', multiple: true } as never}
+        field={{ reference: 'kpi_entry_sheet', label: 'Sheet', multiple: true } as never}
       />,
     );
     await waitFor(() => expect(screen.getByText('Sheet One')).toBeTruthy());
@@ -89,7 +89,7 @@ describe('LookupField — the chip remove control follows the field\'s interacti
         value={['SHEET1', 'SHEET2']}
         onChange={() => {}}
         dataSource={makeDataSource() as never}
-        field={{ reference_to: 'kpi_entry_sheet', label: 'Sheet', multiple: true } as never}
+        field={{ reference: 'kpi_entry_sheet', label: 'Sheet', multiple: true } as never}
       />,
     );
     await waitFor(() => expect(screen.getByText('Sheet One')).toBeTruthy());
@@ -105,7 +105,7 @@ describe('LookupField — the chip remove control follows the field\'s interacti
         onChange={() => {}}
         readonly
         dataSource={makeDataSource() as never}
-        field={{ reference_to: 'kpi_entry_sheet', label: 'Sheet' } as never}
+        field={{ reference: 'kpi_entry_sheet', label: 'Sheet' } as never}
       />,
     );
     await waitFor(() => expect(screen.getByText('Sheet One')).toBeTruthy());

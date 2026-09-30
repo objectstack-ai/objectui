@@ -327,7 +327,7 @@ describe('ObjectGantt quick filters — schema-driven options', () => {
   });
 
   it('a `reference_to`-only def that came through the ingestion choke point STILL resolves', async () => {
-    // What bounds the break: `normalizeSchemaReferenceKeys` stamps `reference`
+    // What bounds the break: `normalizeSchemaReferenceKeys` folds onto `reference`
     // from whichever spelling arrived, so every def that entered through
     // `MetadataProvider` or `ObjectStackAdapter.getObjectSchema` is unaffected.
     // Only a def that bypassed that door reaches this reader raw.

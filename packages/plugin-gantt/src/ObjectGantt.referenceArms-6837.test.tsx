@@ -97,10 +97,10 @@
  *
  * ⛔ Do not re-add a spelling arm to this chain. A producer emitting a refused
  * spelling is fixed AT THE PRODUCER, or canonicalised ONCE at the ingestion
- * choke point — `normalizeSchemaReferenceKeys`, which stamps both snake_case
- * keys from whichever spelling arrived. Never a renderer-side alias: that is
- * how ~20 per-consumer dual-key fallbacks got written under a normalizer whose
- * own docstring says it exists "so per-consumer dual-key fallbacks can't drift".
+ * choke point — `normalizeSchemaReferenceKeys`, which folds a legacy spelling
+ * onto `reference`. Never a renderer-side alias: that is how ~20 per-consumer
+ * dual-key fallbacks got written under a normalizer whose own docstring said
+ * it existed "so per-consumer dual-key fallbacks can't drift".
  *
  * ⭐ THAT OPEN SCOPE IS NOW CLOSED FOR THIS READER — objectui#6837 half 2.
  * Maintainer ruling 2026-08-31 (第 6 场总监席决裁批 #14), 原文照录:
@@ -111,17 +111,16 @@
  * so this reader keeps ONE arm, `reference`, and the `reference_to` case below
  * moved from the live group to the refusal group.
  *
- * ⛔ The tier-boundary caveat this paragraph used to carry is NOT retracted, it
- * is SCOPED: it was always about ObjectUI's OWN contracts, and those keep
- * `reference_to` as their canonical key. `LookupFieldMetadata`,
- * `DetailViewFieldSchema` and the `FieldMetadata` bag declare `reference_to`
- * and never declare `reference`, so the three widget-seam readers that read
- * THAT bag (`fields/src/index.tsx#LookupCellRenderer`,
- * `widgets/LookupField.tsx`, `widgets/UserField.tsx`) were deliberately NOT
- * narrowed by half 2 — narrowing them would break their in-repo producers and
- * turn `plugin-grid`'s `relationalMetaCopySet.derivation.test.ts` red, since
- * that gate re-derives its read set from exactly those three sources and
- * records `reference_to` there with verdict `adapter-stamped`.
+ * ⭐ The tier-boundary caveat this paragraph used to carry is now CLOSED too
+ * (objectui#11070 round 4, the seat's answer A under the same ruling). It was
+ * about ObjectUI's OWN contracts — `LookupFieldMetadata`,
+ * `DetailViewFieldSchema` and the `FieldMetadata` bag — which declared
+ * `reference_to`, so the three widget-seam readers of that bag
+ * (`fields/src/index.tsx#LookupCellRenderer`, `widgets/LookupField.tsx`,
+ * `widgets/UserField.tsx`) were not narrowed by half 2. Round 4 moved those
+ * contracts, their in-repo producers and those readers to `reference` in one
+ * step, and `plugin-grid`'s `relationalMetaCopySet.derivation.test.ts` gate
+ * dropped its `reference_to` row with them.
  *
  * ## 5. Ablation direction, predicted before running
  *
@@ -295,10 +294,10 @@ describe('ObjectGantt resolves only contract-declared target spellings (objectui
 
   describe('the ingestion choke point is what makes the deletion lossless', () => {
     it('a `referenceTo`-only def that came through `normalizeSchemaReferenceKeys` STILL resolves', async () => {
-      // The mechanism, not a formality: the normalizer reads
-      // `reference_to ?? reference ?? referenceTo` and stamps BOTH snake_case
-      // keys, so every def that entered through `MetadataProvider` or
-      // `ObjectStackAdapter.getObjectSchema` already carries `reference_to` by
+      // The mechanism, not a formality: the normalizer folds a legacy
+      // `reference_to` / `referenceTo` onto `reference`, so every def that
+      // entered through `MetadataProvider` or
+      // `ObjectStackAdapter.getObjectSchema` already carries `reference` by
       // the time this component sees it. The deleted arm was dead weight there.
       //
       // ⚠️ And this is exactly why the pin above still matters: the door is

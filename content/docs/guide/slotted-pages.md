@@ -150,6 +150,38 @@ a request sent before that can still carry it. A list without `columns`
 picks its columns only after the rows arrive, so it still fetches whole
 rows; there the column layer alone hides a field the user cannot read.
 
+### Naming a related list's actions: `record:related_list.actions` holds IDS
+
+By default a related list draws its child object's own actions: the ones
+declared with `locations: ['list_toolbar']` as header buttons, and the ones
+declared with `locations: ['list_item']` in each row's menu. A list that
+declares no `actions` keeps that default.
+
+Declare `actions` to choose the set for one list. It is a list of **action
+ids**, each the `name` of an action on the child object's own metadata. The
+authored list replaces the default rather than adding to it, and it renders
+in the order you wrote it:
+
+```json
+{
+  "type": "record:related_list",
+  "objectName": "contact",
+  "relationshipField": "account_id",
+  "columns": ["name", "email"],
+  "actions": ["export_contacts", "send_welcome"]
+}
+```
+
+- Each action is still placed by its own `locations`: naming it here does
+  not move it. An action that declares neither `list_toolbar` nor
+  `list_item` has nowhere to render on a list.
+- `"actions": []` shows no actions. **New**, **Edit**, **Delete** and
+  opening a row are not actions: they follow the child object's
+  `userActions` and the user's permissions, whatever this key says.
+- An id that names no action of the child object, or one with no list
+  location, is not dropped silently. The list shows a notice that names it
+  and says why.
+
 ## Header actions: inline vs. overflow
 
 `page:header` renders the record's `record_header` actions (authored

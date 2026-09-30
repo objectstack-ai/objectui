@@ -87,7 +87,7 @@ const getItem = vi.fn(async (type: string, name: string) =>
 /** Module-level on purpose — `getItem` is an effect dependency of `useMetadataItem`. */
 const metadataWith = (lookup: MetadataContextValue['getItem']): MetadataContextValue => ({
   apps: [],
-  objects: [CHILD] as any,
+  objects: [CHILD],
   dashboards: [],
   reports: [],
   pages: [],

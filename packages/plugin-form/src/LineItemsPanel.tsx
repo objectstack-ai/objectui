@@ -81,9 +81,11 @@ const useLineItemsTranslation = createSafeTranslation(
  */
 type PanelError = { message: string } | { op: 'load' | 'save' };
 
-function panelError(e: any, op: 'load' | 'save'): PanelError {
-  // `||`, as before: an empty message falls through to the fallback.
-  return e?.message ? { message: e.message } : { op };
+function panelError(e: unknown, op: 'load' | 'save'): PanelError {
+  const message = (e as { message?: string } | null | undefined)?.message;
+  // Truthiness, as the `||` this replaces: an empty message falls through to
+  // the fallback.
+  return message ? { message } : { op };
 }
 
 export interface LineItemsPanelSchema {

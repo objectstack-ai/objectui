@@ -265,6 +265,17 @@ const en = {
       rowTitle: '{{title}} — row {{row}}',
       applyRow: 'Apply',
       editorDescription: 'Enter the record and its line items, then save.',
+      // A collection's configuration hints (objectui#11160): no `childObject`
+      // (the twin of `lineItems.noChildObject`, which names the panel), a
+      // child schema that failed to load, and no lookup or master_detail
+      // field on the child that references the parent. `{{property}}` is a
+      // property name and `{{object}}` / `{{parent}}` are object names; each
+      // is rendered as code and never translated. `lookup` and
+      // `master_detail` are field type names, so every pack keeps them as
+      // written.
+      noChildObject: 'This collection has no child object configured: set {{property}} to the object whose rows it lists.',
+      schemaUnavailable: 'Could not load the schema of {{object}}, so this collection has no columns to show. Check that the object exists and is readable, then reload.',
+      noRelationshipField: 'Could not work out how {{object}} links to {{parent}}: no lookup or master_detail field on it references the parent. Set {{property}} on this collection to the field that holds the parent record.',
     },
     // The record page's `record:line_items` panel (objectui#11131): its
     // title when the author declared none. Its Save / Saving… button reads

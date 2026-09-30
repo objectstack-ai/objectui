@@ -192,6 +192,9 @@ const ko = {
       rowTitle: "{{title}} — {{row}}행",
       applyRow: "적용",
       editorDescription: "레코드와 라인 항목을 입력한 다음 저장하세요.",
+      noChildObject: "이 컬렉션에 하위 개체가 구성되지 않았습니다. {{property}}을(를) 행을 나열할 개체로 설정하세요.",
+      schemaUnavailable: "{{object}}의 스키마를 불러올 수 없어 이 컬렉션에 표시할 열이 없습니다. 개체가 존재하고 읽을 수 있는지 확인한 다음 다시 불러오세요.",
+      noRelationshipField: "{{object}}이(가) {{parent}}에 어떻게 연결되는지 확인할 수 없습니다. 부모를 참조하는 lookup 또는 master_detail 필드가 없습니다. 이 컬렉션의 {{property}}을(를) 부모 레코드를 보유한 필드로 설정하세요.",
     },
     lineItems: {
       title: "라인 항목",

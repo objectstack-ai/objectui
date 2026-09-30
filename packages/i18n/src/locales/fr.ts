@@ -192,6 +192,9 @@ const fr = {
       rowTitle: "{{title}} — ligne {{row}}",
       applyRow: "Appliquer",
       editorDescription: "Saisissez l'enregistrement et ses lignes, puis enregistrez.",
+      noChildObject: "Aucun objet enfant n'est configuré pour cette collection : définissez {{property}} sur l'objet dont elle liste les lignes.",
+      schemaUnavailable: "Impossible de charger le schéma de {{object}} : cette collection n'a donc aucune colonne à afficher. Vérifiez que l'objet existe et est lisible, puis rechargez.",
+      noRelationshipField: "Impossible de déterminer comment {{object}} est lié à {{parent}} : aucun champ lookup ou master_detail de cet objet ne référence le parent. Définissez {{property}} sur cette collection avec le champ qui contient l'enregistrement parent.",
     },
     lineItems: {
       title: "Lignes",

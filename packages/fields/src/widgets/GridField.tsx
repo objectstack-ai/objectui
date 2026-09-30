@@ -661,6 +661,12 @@ export function GridField({
   const duplicateRowLabel = t('fields.grid.duplicateRow', { defaultValue: 'Duplicate row' });
   const removeRowLabel = t('fields.grid.removeRow', { defaultValue: 'Remove row' });
   const totalLabel = t('form.masterDetail.total', { defaultValue: 'Total' });
+  // A required, empty cell's text (objectui#11160): the plain cell's `title`,
+  // and the `error` the lookup and file cells take. One expression for all
+  // three, reading the pack's `validation.required` with the column's label
+  // in `{{field}}`: the sentence the form renderer shows for a required field.
+  const requiredCellText = (c: GridColumn) =>
+    t('validation.required', { field: c.label || c.name, defaultValue: '{{field}} is required' });
   const cellIdBase = React.useId();
   // The tenant default currency (ADR-0053) — the resolver's last step, and in
   // practice the currency of every `currency` column (objectui#10355, see
@@ -1102,7 +1108,7 @@ export function GridField({
           disabled={locked}
           // The published `error` slot, not a hand-rolled attribute: LookupField
           // already puts `aria-invalid` on its own focusable trigger from it.
-          error={invalid ? `${c.label || c.name} is required` : undefined}
+          error={invalid ? requiredCellText(c) : undefined}
         />
       );
     }
@@ -1122,7 +1128,7 @@ export function GridField({
           // wiring as the lookup branch above: FileCell puts `aria-invalid` on
           // its own focusable picker button from it (objectui#5431, closing
           // the one cell type #3318 left out).
-          error={invalid ? `${c.label || c.name} is required` : undefined}
+          error={invalid ? requiredCellText(c) : undefined}
         />
       );
     }
@@ -1339,7 +1345,7 @@ export function GridField({
                           // exists to forbid (objectui#3318 / #5223). The td
                           // keeps the VISUAL ring and the test hook; the state
                           // travels with `invalid` into `renderCellInput`.
-                          title={invalid ? `${c.label || c.name} is required` : undefined}
+                          title={invalid ? requiredCellText(c) : undefined}
                           data-testid={invalid ? `line-items-invalid-${rowIdx}-${c.name}` : undefined}
                           className={cn(
                             'border-r border-border/40 px-1 py-0.5 align-middle last:border-r-0',

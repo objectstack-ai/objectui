@@ -592,6 +592,29 @@ function scrapeHeaderRecord(host: HTMLElement | null): Record<string, unknown> {
   return out;
 }
 
+/**
+ * A configuration hint's pack sentence, with each `{{hole}}` rendered as code
+ * (objectui#11160).
+ *
+ * The three collection hints below name what the author has to find or set: a
+ * property (`childObject`, `relationshipField`) or an object's name. Those stay
+ * code and are never translated, so the pack sentence carries a hole for each.
+ * The caller asks `t` for the sentence with every hole filled by itself, and
+ * this splits the text on the holes and puts each one's value in its place, in
+ * whatever order the locale's word order puts them. `LineItemsPanel`'s
+ * `form.lineItems.noChildObject` split is the one-hole form of the same move.
+ */
+function withCodeHoles(sentence: string, holes: Record<string, string | undefined>): React.ReactNode[] {
+  const names = Object.keys(holes);
+  const pattern = new RegExp(`(${names.map((name) => `\\{\\{${name}\\}\\}`).join('|')})`);
+  return sentence.split(pattern).map((part, i) => {
+    const name = names.find((n) => part === `{{${n}}}`);
+    return name === undefined ? part : (
+      <code key={i} className="font-mono">{holes[name]}</code>
+    );
+  });
+}
+
 interface MasterDetailLinesProps {
   entries: DetailEntry[];
   /** Row state addressed by ENTRY ID, never by array position (objectui#6371). */
@@ -656,6 +679,8 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   // collection's default add label, in the session locale (objectui#11071).
   // Since objectui#11145 also a collection's heading when it authors no
   // `title`: the key the record page's line-items panel reads for its own.
+  // Since objectui#11160 also the three collection hints (no `childObject`,
+  // a schema that failed to load, no relationship field to the parent).
   const { t } = useFormChromeTranslation();
   // The caller's field-level grants on each CHILD object. With no provider
   // mounted this is the fail-open answer (`isLoaded` false) and every grid below
@@ -743,8 +768,10 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
               className="py-4 text-sm text-muted-foreground"
               data-testid="md-detail-no-child-object"
             >
-              This collection has no child object configured: set{' '}
-              <code className="font-mono">childObject</code> to the object whose rows it lists.
+              {withCodeHoles(
+                t('form.masterDetail.noChildObject', { property: '{{property}}' }),
+                { property: 'childObject' },
+              )}
             </p>
           ) : entry.status === 'failed' ? (
             /* The OTHER arm of the same resolver (objectui#6372). This entry
@@ -764,9 +791,10 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
               role="status"
               data-testid="md-detail-schema-unavailable"
             >
-              Could not load the schema of{' '}
-              <code className="font-mono">{d.childObject}</code>, so this collection has no
-              columns to show. Check that the object exists and is readable, then reload.
+              {withCodeHoles(
+                t('form.masterDetail.schemaUnavailable', { object: '{{object}}' }),
+                { object: d.childObject },
+              )}
             </p>
           ) : entry.status === 'underivable' ? (
             /* The THIRD arm of the same resolver (objectui#6394): the schema
@@ -787,11 +815,14 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
               className="py-4 text-sm text-muted-foreground"
               data-testid="md-detail-no-relationship-field"
             >
-              Could not work out how <code className="font-mono">{d.childObject}</code> links
-              to <code className="font-mono">{parentObjectName}</code>: no lookup or
-              master_detail field on it references the parent. Set{' '}
-              <code className="font-mono">relationshipField</code> on this collection to the
-              field that holds the parent record.
+              {withCodeHoles(
+                t('form.masterDetail.noRelationshipField', {
+                  object: '{{object}}',
+                  parent: '{{parent}}',
+                  property: '{{property}}',
+                }),
+                { object: d.childObject, parent: parentObjectName, property: 'relationshipField' },
+              )}
             </p>
           ) : !d.columns?.length ? (
             <p className="py-4 text-sm text-muted-foreground">{t('form.masterDetail.loadingColumns')}</p>

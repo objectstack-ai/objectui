@@ -63,6 +63,18 @@ const FORM_CHROME_DEFAULTS = {
   'detail.add': 'Add',
   'common.close': 'Close',
   'detail.saving': 'Saving…',
+  // A collection's three configuration hints (objectui#11160): no
+  // `childObject`, a child schema that failed to load, and no field on the
+  // child that links it to the parent. Each hole is filled with a property or
+  // an object name, rendered as code and never translated.
+  'form.masterDetail.noChildObject':
+    'This collection has no child object configured: set {{property}} to the object whose rows it lists.',
+  'form.masterDetail.schemaUnavailable':
+    'Could not load the schema of {{object}}, so this collection has no columns to show. '
+    + 'Check that the object exists and is readable, then reload.',
+  'form.masterDetail.noRelationshipField':
+    'Could not work out how {{object}} links to {{parent}}: no lookup or master_detail field on it '
+    + 'references the parent. Set {{property}} on this collection to the field that holds the parent record.',
   // A master-detail collection's heading when it authors no `title`
   // (objectui#11145): the key the record page's `record:line_items` panel
   // reads for its own default title, not a key of the form's own.

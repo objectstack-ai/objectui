@@ -205,6 +205,9 @@ const zh = {
       rowTitle: '{{title}} — 第 {{row}} 行',
       applyRow: '应用',
       editorDescription: '填写记录及其明细行，然后保存。',
+      noChildObject: '此集合未配置子对象：请将 {{property}} 设为其所列行所属的对象。',
+      schemaUnavailable: '无法加载 {{object}} 的对象结构，因此此集合没有可显示的列。请检查该对象是否存在且可读，然后重新加载。',
+      noRelationshipField: '无法确定 {{object}} 如何关联到 {{parent}}：它没有引用父对象的 lookup 或 master_detail 字段。请在此集合上将 {{property}} 设为保存父记录的字段。',
     },
     lineItems: {
       title: '明细行',

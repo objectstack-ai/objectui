@@ -191,6 +191,9 @@ const pt = {
       rowTitle: "{{title}} — linha {{row}}",
       applyRow: "Aplicar",
       editorDescription: "Preencha o registro e seus itens de linha e depois salve.",
+      noChildObject: "Esta coleção não tem nenhum objeto filho configurado: defina {{property}} como o objeto cujas linhas ela lista.",
+      schemaUnavailable: "Não foi possível carregar o esquema de {{object}}, portanto esta coleção não tem colunas para mostrar. Verifique se o objeto existe e pode ser lido e depois recarregue.",
+      noRelationshipField: "Não foi possível determinar como {{object}} se vincula a {{parent}}: nenhum campo lookup ou master_detail dele faz referência ao pai. Defina {{property}} nesta coleção como o campo que contém o registro pai.",
     },
     lineItems: {
       title: "Itens de linha",

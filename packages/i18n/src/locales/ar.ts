@@ -203,6 +203,9 @@ const ar = {
       rowTitle: "{{title}} — الصف {{row}}",
       applyRow: "تطبيق",
       editorDescription: "أدخل السجل وبنوده ثم احفظ.",
+      noChildObject: "لم يُكوَّن كائن فرعي لهذه المجموعة: عيّن {{property}} إلى الكائن الذي تسرد صفوفه.",
+      schemaUnavailable: "تعذّر تحميل مخطط {{object}}، لذا لا توجد أعمدة لعرضها في هذه المجموعة. تحقّق من أن الكائن موجود وقابل للقراءة، ثم أعد التحميل.",
+      noRelationshipField: "تعذّر تحديد كيفية ارتباط {{object}} بـ {{parent}}: لا يوجد فيه حقل lookup أو master_detail يشير إلى الكائن الأصل. عيّن {{property}} في هذه المجموعة إلى الحقل الذي يحمل السجل الأصل.",
     },
     lineItems: {
       title: "البنود",

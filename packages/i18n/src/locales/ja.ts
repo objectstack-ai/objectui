@@ -192,6 +192,9 @@ const ja = {
       rowTitle: "{{title}} — {{row}} 行目",
       applyRow: "適用",
       editorDescription: "レコードとその明細行を入力してから、保存してください。",
+      noChildObject: "このコレクションには子オブジェクトが設定されていません。{{property}} に、行を一覧表示するオブジェクトを設定してください。",
+      schemaUnavailable: "{{object}} のスキーマを読み込めなかったため、このコレクションには表示する列がありません。オブジェクトが存在し読み取り可能であることを確認してから、再読み込みしてください。",
+      noRelationshipField: "{{object}} が {{parent}} にどのようにリンクしているかを特定できませんでした。親を参照する lookup または master_detail フィールドがありません。このコレクションの {{property}} に、親レコードを保持するフィールドを設定してください。",
     },
     lineItems: {
       title: "明細行",

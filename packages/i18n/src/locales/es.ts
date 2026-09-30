@@ -196,6 +196,9 @@ const es = {
       rowTitle: "{{title}} — fila {{row}}",
       applyRow: "Aplicar",
       editorDescription: "Introduzca el registro y sus líneas de detalle y luego guarde.",
+      noChildObject: "Esta colección no tiene configurado ningún objeto secundario: establezca {{property}} en el objeto cuyas filas enumera.",
+      schemaUnavailable: "No se pudo cargar el esquema de {{object}}, por lo que esta colección no tiene columnas que mostrar. Compruebe que el objeto existe y se puede leer, y luego vuelva a cargar.",
+      noRelationshipField: "No se pudo determinar cómo se vincula {{object}} con {{parent}}: ningún campo lookup o master_detail del objeto hace referencia al principal. Establezca {{property}} en esta colección con el campo que contiene el registro principal.",
     },
     lineItems: {
       title: "Líneas de detalle",

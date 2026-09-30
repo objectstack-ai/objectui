@@ -192,6 +192,9 @@ const de = {
       rowTitle: "{{title}} — Zeile {{row}}",
       applyRow: "Übernehmen",
       editorDescription: "Erfassen Sie den Datensatz und seine Positionen und speichern Sie anschließend.",
+      noChildObject: "Für diese Sammlung ist kein untergeordnetes Objekt konfiguriert: Setzen Sie {{property}} auf das Objekt, dessen Zeilen sie auflistet.",
+      schemaUnavailable: "Das Schema von {{object}} konnte nicht geladen werden, daher hat diese Sammlung keine Spalten zum Anzeigen. Prüfen Sie, ob das Objekt existiert und lesbar ist, und laden Sie dann neu.",
+      noRelationshipField: "Es konnte nicht ermittelt werden, wie {{object}} mit {{parent}} verknüpft ist: Kein lookup- oder master_detail-Feld darin verweist auf das übergeordnete Objekt. Setzen Sie {{property}} in dieser Sammlung auf das Feld, das den übergeordneten Datensatz enthält.",
     },
     lineItems: {
       title: "Positionen",

@@ -27,9 +27,15 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { MetadataCtx } from '@object-ui/react';
 
+// ONE client for the whole file, as the real hook hands out. A client minted
+// per call is a new identity every render, and the inspector's option loader
+// keys its effect on the client and sets state in it: that is a render loop
+// that never settles.
+const client = vi.hoisted(() => ({ list: async () => [] }));
+
 vi.mock('../useMetadata', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  useMetadataClient: () => ({ list: async () => [] }),
+  useMetadataClient: () => client,
 }));
 
 import { AppNavInspector } from './AppNavInspector';

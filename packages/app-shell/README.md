@@ -681,6 +681,29 @@ be faithfully modelled is surfaced loudly instead of faked.
 The engine is covered by unit tests in
 `previews/simulator/__tests__/flow-simulator.test.ts`.
 
+### Documentation pages (`doc`)
+
+A `doc` (ADR-0046) is written in the metadata admin like any other type — the
+generic edit page loads it and saves it through `PUT /meta/doc/:name` — with
+`previews/DocPreview` as its canvas, during create as well as edit:
+
+- **Markdown source and live preview** side by side. The preview renders through
+  `SchemaRenderer` as `{ type: 'markdown' }`, the registry entry
+  `@object-ui/plugin-markdown` provides and the docs portal renders with, so this
+  package takes no dependency on the plugin; a host that registers no `markdown`
+  renderer shows the unknown-component notice in the preview pane.
+- **Locale variants** are entries of the doc's `translations` map, which is how
+  `DocSchema` models them (it declares no `locale` key). A new variant starts as a
+  copy of the default body.
+- **Book placement** writes the doc's own `group` key: a book stores no members,
+  so a doc joins a book group by that key or by the group's name/tag rule. The
+  readout of where the doc appears is computed with the spec's `resolveBookTree`,
+  the resolver `GET /meta/book/:name/tree` answers with.
+
+The canvas owns `content`, `translations` and `group`, so the properties form
+beside it shows only the header keys. The pure draft arithmetic lives in
+`previews/doc-draft.ts`.
+
 ## Architecture
 
 This package sits between the low-level `@object-ui/react` (SchemaRenderer) and the high-level `apps/console` (full application):

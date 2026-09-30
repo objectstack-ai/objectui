@@ -289,6 +289,10 @@ const useSafeFormTranslation = createSafeTranslation(
     'form.noPermissionToSave': "You don't have permission to save this record.",
     'form.submitFailed': 'Could not save. Please try again.',
     'form.clearedOnHide': 'Cleared — no longer applicable given the current values: {{fields}}',
+    // objectui#8069 — the submit refusal for a field `visibleWhen` that could
+    // not be evaluated (see `handleSubmit`). Byte-identical to the `en` pack.
+    'form.visibleWhenFaulted':
+      "Can't submit: the visibleWhen rule of {{fields}} could not be evaluated. The rule must be fixed before this form can be submitted.",
   },
   'common.selectOption',
 );

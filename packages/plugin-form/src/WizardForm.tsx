@@ -226,6 +226,12 @@ const useWizardTranslation = createSafeTranslation(
     'publicForm.thankYouTitle': 'Thank you!',
     'publicForm.loading': 'Loading form…',
     'form.errorLoading': 'Error loading form',
+    // objectui#8069 — the cross-step gate's refusal of a field `visibleWhen`
+    // that could not be evaluated, and the locale's list separator it joins
+    // the field labels with. The same keys and values the form renderer reads.
+    'form.visibleWhenFaulted':
+      "Can't submit: the visibleWhen rule of {{fields}} could not be evaluated. The rule must be fixed before this form can be submitted.",
+    'validation.formInvalidJoiner': ', ',
   },
   'wizard.missingRequired',
 );

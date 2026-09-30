@@ -112,7 +112,7 @@ describe('objectui#11070 — the declared read keys parse on the strict face', (
       .toEqual([`fields.0.${key}x`]);
   });
 
-  const BINDING = { object: 'task', filter: { project: 'acme' } };
+  const BINDING = { object: 'task', filter: [{ field: 'project', operator: 'equals', value: 'acme' }] };
   const BOUND_NODES: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
     ['object-grid', { objectName: 'task' }],
     ['object-form', { objectName: 'task', mode: 'edit' }],

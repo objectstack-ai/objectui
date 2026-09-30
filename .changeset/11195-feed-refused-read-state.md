@@ -1,11 +1,13 @@
 ---
 '@object-ui/app-shell': patch
-'@object-ui/plugin-detail': patch
-'@object-ui/react': patch
+'@object-ui/plugin-detail': minor
+'@object-ui/react': minor
 '@object-ui/i18n': patch
 ---
 
 fix(app-shell,plugin-detail): the record feed says "no permission" when its read is refused, instead of showing an empty list
+
+This widens two published surfaces: `@object-ui/plugin-detail` gains the export `isRefusedFeedRead`, and `@object-ui/react`'s `DiscussionContextValue` gains the optional members `activityDenied` and `commentsDenied` (as do `RecordActivityTimelineProps` and `RecordChatterPanelProps`).
 
 When the server refused a record's activity read (401, 403, or a permission
 envelope), the record page's discussion panel and the `record:activity` block

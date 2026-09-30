@@ -2626,17 +2626,21 @@ export interface NamedListView {
   compactToolbar?: boolean;
 
   /**
-   * Allow data export @default undefined
+   * @deprecated RETIRED (objectui#11013) — the protocol declares no
+   * `allowExport` on a view, and no relay reads it off one any more. Whether a
+   * list offers export is the host's call, made on the `list-view` node
+   * (`ListView` gates its export control on that node's
+   * `schema.allowExport !== false`); which formats a view offers is its
+   * `exportOptions.formats`.
    *
-   * ⚠️ objectui-only (the protocol declares no `allowExport` on a view), but
-   * ⛔ NOT retired with its bucket-③ neighbours: it is READ. BOTH relays carry
-   * it off the active view into the `list-view` node — `plugin-view`'s
-   * `ObjectView` in its `renderListView` composition, and `app-shell`'s object
-   * page in its own relay over that composition — and `ListView` gates its
-   * export control on `schema.allowExport !== false`. Kept declared by ruling A
-   * on objectui#7924.
+   * Kept declared by ruling A on objectui#7924 while both relays of a view read
+   * it into the `list-view` node. objectui#11013 (ruling 甲 on
+   * objectstack#20051, and the seat's disposition on objectstack#20456: no
+   * producer, no declared spelling) removed both reads, since no console
+   * surface writes the key onto a view and the spec's view schema refuses it by
+   * name. Tombstoned rather than deleted so the refusal is by name.
    */
-  allowExport?: boolean;
+  allowExport?: never;
 
   /**
    * @deprecated RETIRED (objectui#7924) — the protocol declares no `color` on a
@@ -2821,8 +2825,10 @@ export interface NamedListView {
    * The 19 legacy spellings this interface declared BEYOND the protocol were
    * objectui#7924's remedy (ruling item 4) — ⛔ not touched by that card. It
    * retired seventeen of them as tombstones, `densityMode` last (ruling A′,
-   * once both of its relays read through the fold); `options` and
-   * `allowExport` stay declared because each is read.
+   * once both of its relays read through the fold). `allowExport` stayed
+   * declared because it was read, until objectui#11013 removed both reads and
+   * retired it as the eighteenth; `options` stays declared (objectui#7928,
+   * Q2 (i)).
    */
 
   /**

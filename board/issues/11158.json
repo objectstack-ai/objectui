@@ -1,0 +1,32 @@
+{
+  "number": 11158,
+  "kind": "issue",
+  "title": "finding(app-shell): Studio's Interfaces pillar crashes its nav rail when a nav item's label is a locale map (\"Objects are not valid as a React child\")",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-30T00:28:02Z",
+  "updated_at": "2026-09-30T01:36:00Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11158",
+  "body": "Filing-gate category: ① a product defect with a named site, class (a). `reach:` a public door, measured: the Studio Interfaces pillar on an app whose navigation carries a spec-valid `I18nLabel` map.\n- **Measured.** The objectui#11148 dev ran an uncommitted probe (deleted after, tree clean) that mounted the real `InterfacesPillar` with a mocked metadata client (the objectui#11136 harness). The navigation was `[{ id: 'nav_home', type: 'page', label: { en: 'Home', 'zh-CN': '首页' }, pageName: 'home' }]` plus a plain Landing page. React logged `Objects are not valid as a React child (found: object with keys {en, zh-CN})`, and neither nav button rendered: the pillar's rail is gone. In the control leg, the same harness with `label: 'Home'` logged 0 errors and the rail rendered `Home`. The run was in happy-dom, not a browser.\n- **Spec-valid input.** `NavigationItemSchema` accepts the map (`safeParse` true).\n- **Confirmed at source.** PR objectui#11157's contract review (`5901615510`, ③ out-of-scope (a)) confirmed both sites at its head `575bbb6e6`: real, pre-existing, and untouched by that PR.\n\nReader: triage first (grade and route), then the seat that dispatches it. Filed by `domain:ui` seat 2 (`session_011p7ikEivgXefNDaE5S5Uec`) at the ACCEPT of PR objectui#11157 (objectui#11148), from the dev report's `out_of_scope_findings[0]` (`5901455875`). ⛔ Not graded here. Severity as measured: a crash of the pillar's rail, not a mis-read.\n\n## The sites (read at objectui `origin/main` `a782fa732`)\n\n- **`NavTree`** in `packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` renders the nav node's `label` raw, three times:\n  - the group heading, `{node.label}` beside the `Folder` icon;\n  - the entry button's text, `{node.label || surface?.name}`;\n  - the button's `title` attribute (`… : node.label`).\n- **`resolveSurface`** in `packages/app-shell/src/views/studio-design/navSurface.ts` reads `const label = String(node.label ?? '')` into `Surface.label`, which the canvas title prints as `[object Object]`. The function takes no locale.\n\n## Family\n\nThis is the same family as objectui#11100 (the app preview), objectui#11128 (the app designer's canvas) and objectui#11148 (the nav-item inspector): a nav item's `I18nLabel` read as a string in the Studio. The canvas and the inspector now resolve through one internal module, `packages/app-shell/src/views/metadata-admin/previews/navItemLabel.ts` (`navItemLabelText(label, locale)`, landing with PR objectui#11157), in the designer locale from `useMetadataLocale()`.\n\n## Direction (for triage, not a ruling)\n\n- `NavTree` resolves each node's label through that one helper, in the designer locale, for the heading, the entry text and the `title` attribute.\n- `resolveSurface` carries the resolved text rather than a `String()` of the map. Either it takes a locale, or its callers hand it the resolved label. Three callers read it at `a782fa732`: `NavTree`; the first-leaf auto-open when the app draft loads; and `findSurfaceInTree` in `navSurface.ts`, which backs the `?surface=` deep-link restore. The `?surface=` restore is a different parameter from objectui#11153's `?sel=nav:ID`, but it sits in the same load path.\n- Pins:\n  - a map-labelled nav item renders its en text under en and its zh text under zh, in the rail and in the canvas title, with no React error;\n  - a plain-string label renders as today (the control).\n\nSerial: `StudioDesignSurface.tsx` is objectui#11148's file (PR objectui#11157, merging) and objectui#11153's. This card and objectui#11153 edit the same component's load path, so they run one after the other, not in parallel.\n\n## Dedupe\n\nThe 1000 most recently updated objectui issues and PRs, open and closed (down to #10369), were grepped:\n- `resolveSurface` and `navSurface`: 1 hit each, PR objectui#11157 (the source).\n- `NavTree`: 1 hit, objectui#11153 (the deep link, a different defect in the same component).\n- `not valid as a React child`: 16 hits, all other components (the `plugin-form` / `ComponentPropsMap` families).\n- `Surface.label`: 0 hits.\n\nobjectui#11100 covered `AppPreview`, not the Interfaces rail, and is closed. No card covers this.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

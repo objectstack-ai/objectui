@@ -1,0 +1,35 @@
+{
+  "number": 11149,
+  "kind": "pull_request",
+  "title": "docs(plugin-form): object-master-detail-form's fields description says it bounds what is drawn; Save also writes seeded initialValues (objectui#11114)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin",
+    "tests"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-29T21:33:05Z",
+  "updated_at": "2026-09-29T22:10:53Z",
+  "closed_at": "2026-09-29T22:10:51Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-29T22:10:51Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11149",
+  "body": "Fixes #11114\n\nClause-②: no\n\nThe `object-master-detail-form` registration called its `fields` input \"the submitted set\". Save writes more than that: a parent value seeded through `initialValues` (or `initialData`) that `fields` does not list is written too. The triage ruling on the card (comment 5893817922) keeps the behaviour and corrects the text, so that is what this PR does. ⛔ No behaviour changes; the parent leg is not filtered to `fields`.\n\n## What changed\n\n- `packages/plugin-form/src/index.tsx`: the `fields` input's description. Only the clause \"this key is also the parent pool for values, create defaults and the submitted set\" is replaced; the rest of the sentence is byte-identical. It now says `fields` bounds what the form DRAWS and edits, and that on a create the submitted set is the drawn fields plus any parent value seeded through `initialValues` (or its alternate spelling `initialData`), drawn or not. It adds one qualifier the probes below measured: a seed for an undeclared, server-owned, computed or read-only field is still stripped, as on any save.\n- `packages/plugin-form/src/__tests__/topLevelFieldsWarnCoverage-8847.test.tsx`: the pin 「the key bounds what is DRAWN, not what the parent leg WRITES」 keeps its direction, its title and its assertion. Its header bullet and the inline comment above the assertion now cite the ruled behaviour instead of describing it as \"handed back\".\n- `packages/plugin-form/src/ObjectForm.tsx`: comment only, see the surface note below.\n- `.changeset/11114-master-detail-fields-text.md`: `@object-ui/plugin-form` patch.\n\n## Measured at `385ebc5c6` (the dispatch's mechanism assumptions)\n\n1. Premise holds: the clause and the pin were both present as the card says.\n2. Real `MasterDetailForm` mounted in create mode, `fields: ['status']`, the create Save clicked, the batch's parent leg read from `dataSource.batchTransaction` (throwaway probe file, deleted; not committed):\n   - `initialValues: { status, note }` gives a parent leg carrying `note`, which is not drawn. Same with `initialData` as the seed.\n   - A seed for a key the object does not declare is dropped. Seeds for a `readonly` field, a `formula` field and `owner_id` are dropped.\n   - `details[].totalField` writes its rollup onto the parent whatever `fields` lists (`total: 0` in the probe).\n   - An object field `memo` with a static `defaultValue` that `fields` does not list, and that nobody seeded, is written (`memo: 'object-default'`). This is the dispatch's \"different defect\" question; it is reported on the card, not changed or described here.\n3. Published: `object-master-detail-form` is in the public block tier, and `manifestFromConfigs` copies each input's `description` verbatim. A throwaway probe over the real registry read the plugin-form manifest entry after this change: the new sentence present, the old clause absent, and an unchanged phrase of the same description (\"the two INTERSECT\") present as the positive control. No generated file in this repo carries the text (`git grep` for the description's opening words finds `index.tsx` only), so nothing here is regenerated. The pinned `sdui.manifest.json` copy that objectstack holds follows at its own sync.\n\n## Surface note\n\nThe claimed file surface was `index.tsx`, the 8847 pin and a changeset. One file is beyond it: the comment in `ObjectForm.tsx` beside the sections/fields intersection said `fields` is \"the parent field pool for values, create defaults and the submitted set\". That is the same false claim in the implementation, and the description's own wording derives from it. It is corrected in place under the bounded exemption, with all four conditions checked: same defect class; a mechanical comment rewording; no open PR touches `ObjectForm.tsx` (the open PR list's file sets were read); no gate family beyond this PR's. The surface is supplemented here rather than in a new claim.\n\n## Not touched (Acceptance notes)\n\n- `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`: the ledger row `pins:` for `object-master-detail-form.fields` still says \"the registration calls this key the parent pool for 'the submitted set'\", which is now stale, and so does the historical slice-18 docblock. Left alone because open PR objectui#11086 holds that file. Both belong to whoever next edits it.\n- `sectionEntryOverrides-10475.test.tsx` quotes the earlier card wording \"values, create defaults and the submitted set stay pool-driven\" inside a quotation; not edited.\n- Pending changeset `8738-object-form-fields-description.md` names `ObjectForm.tsx` (flagged by `check-changeset-claims`, report-only); read, still true.\n- The `initialValues` input's own description (\"Values to prefill on the PARENT record in `create` mode.\") is unchanged; the `fields` description now carries the fact.\n\n## Verification\n\n- `pnpm exec vitest run` on the 8847 pin plus the three sibling master-detail member files: 4 files, 29 tests passed.\n- `pnpm exec vitest run` on the console's registry consumers (`registry-inputs-spec-parity`, `masterDetailFormTypeManifest`, `masterDetailFormI18nLabelManifest`, `public-contract`, `public-block-binding-reach`): 5 files, 257 tests passed.\n- `pnpm --filter @object-ui/plugin-form type-check` after `pnpm --workspace-concurrency=2 --filter '@object-ui/plugin-form^...' build` (the dependency closure): exit 0.\n- `pnpm exec eslint --no-inline-config` on the three changed source files: 3 files linted, 0 errors, 86 warnings, none on a changed line.\n- `check-changeset-presence`, `check-control-bytes`, `check:new-line-citations`, `changeset:check`: exit 0 each, re-run at `813b8826f` for the first three.\n- No reverse verification or ablation: the change is text only and no behaviour moved, so there is nothing that could turn red.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_011p7ikEivgXefNDaE5S5Uec)_\n"
+}

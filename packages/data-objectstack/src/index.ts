@@ -22,6 +22,13 @@ import { DroppedFieldsEventSchema } from '@objectstack/spec/data';
 // predicate and same sink the server ingress runs, so the producer-side refusal
 // and the wire-side one cannot drift.
 import { isFilterAST, parseFilterAST } from '@objectstack/spec/data';
+// objectui#9048 — the case-insensitive-contains comparand door, read from the
+// contract's owner rather than restated: the predicate that decides which
+// comparands `FILTER_TEXT_CASES` declares REFUSED, and the reason text its
+// `mustMention` makes load-bearing. `@object-ui/core`'s `convertFiltersToAST`
+// and `ValueDataSource` read these same two functions, so the rule-entry form
+// below cannot judge a different set than the `$` dialect beside it.
+import { isRefusedTextComparand, textComparandRefusalReason } from '@objectstack/spec/data';
 import type { ApiError } from '@objectstack/spec/api';
 import { stripReadDecorations } from '@objectstack/spec/kernel';
 // #4237 — the metadata save door's advisory reader, shared with `MetadataClient`
@@ -202,17 +209,26 @@ function toAstFilterOperator(op: unknown): string | null {
  * Carries the code and status the data API uses for its own version of this
  * refusal (objectstack#4121) so a failed list renders "this view's filter is
  * malformed" rather than "check your connection" (#3066).
+ *
+ * `refusal`, when given, replaces the shape advice with the reason the entry is
+ * refused: an entry can be well-formed and still carry a condition the contract
+ * declares REFUSED (objectui#9048, see {@link refuseTextComparandEntry}), and
+ * telling its author to supply `{ field, operator, value }` would prescribe a
+ * repair they have already made. That message does not re-serialise the entry:
+ * the refusal already names what it judged, and `JSON.stringify` throws on a
+ * BigInt, which would put a `TypeError` in the refusal's place.
  */
 export class MalformedFilterError extends Error {
   readonly code = 'INVALID_FILTER';
   readonly httpStatus = 400;
   readonly entry: unknown;
   readonly index: number;
-  constructor(entry: unknown, index: number) {
-    const shown = JSON.stringify(entry) ?? String(entry);
+  constructor(entry: unknown, index: number, refusal?: string) {
     super(
-      `Filter entry ${index} is not a usable filter rule (${shown}). `
-      + 'Expected { field, operator, value } with a non-empty field.',
+      refusal === undefined
+        ? `Filter entry ${index} is not a usable filter rule (${JSON.stringify(entry) ?? String(entry)}). `
+          + 'Expected { field, operator, value } with a non-empty field.'
+        : `Filter entry ${index} is refused. ${refusal}`,
     );
     this.name = 'MalformedFilterError';
     this.entry = entry;
@@ -515,7 +531,52 @@ export class UnlowerableAnalyticsFilterError extends Error {
   }
 }
 
-function objectFilterEntryToAST(entry: any): [string, string, any] | null {
+/**
+ * Refuse a rule entry whose case-insensitive-contains comparand is one of the
+ * two shapes `@objectstack/spec`'s `FILTER_TEXT_CASES` declares REFUSED — an
+ * empty string, or not a string at all (objectui#9048).
+ *
+ * The rule-entry form was the one dialect this adapter lowered that shape in.
+ * The `$` dialect has refused it since objectui#9001 (the object branch of
+ * {@link translateFilterToAST} delegates to `convertFiltersToAST`), and
+ * `ValueDataSource` refuses it in every form it reads. So the SAME wire node
+ * was refused when written `{ name: { $icontains: '' } }` and sent when written
+ * `[{ field: 'name', operator: 'icontains', value: '' }]`: a result that turned
+ * on the filter's shape rather than its meaning. One predicate and one reason,
+ * both the spec's; this function is only the envelope.
+ *
+ * The reason is seated verbatim, since `mustMention` makes its bytes the
+ * contract. It names the spelling that ARRIVED, never a canonical one put in
+ * its place; the table's rows spell the operator in the `$` dialect, so the
+ * tail names that twin rather than substituting it — the seating
+ * `viewFilterRuleToNode` uses for the same vocabulary.
+ *
+ * No carve-out for an absent `value`. The stored-view lowering has one because
+ * it emits a 2-tuple for a valueless operator; this translator always emits a
+ * 3-tuple, and an absent value went out as JSON `null` — a non-string
+ * comparand, which is the table's second row. `ValueDataSource` refuses the
+ * same rule for the same reason.
+ */
+function refuseTextComparandEntry(entry: any, index: number, field: string, arrived: string): never {
+  const tail =
+    `This is a { field, operator, value } rule entry, so it is refused as the filter is `
+    + `translated rather than sent: the spelling @objectstack/spec's FILTER_TEXT_CASES `
+    + `uses for this operator is the $-dialect '$icontains', which this form spells `
+    + `'${arrived}'. Remove the entry, or give it a non-empty string value `
+    + `(objectui#9048; the same refusal convertFiltersToAST and ValueDataSource already share).`;
+  throw new MalformedFilterError(
+    entry,
+    index,
+    `The ${textComparandRefusalReason(field, arrived, entry.value)}. ${tail}`,
+  );
+}
+
+/**
+ * One rule entry → one AST comparison tuple, or `null` when the entry is not a
+ * usable rule. `index` is the entry's position in the array it was found in,
+ * named by a refusal so the author can find the entry in the view config.
+ */
+function objectFilterEntryToAST(entry: any, index: number): [string, string, any] | null {
   if (!entry || typeof entry !== 'object') return null;
   // `field` only. A `?? entry.name` fallback lived here from the day the
   // function was written (4b93db4e6) and was unreachable for exactly as long:
@@ -527,6 +588,12 @@ function objectFilterEntryToAST(entry: any): [string, string, any] | null {
   const rawOp = entry.operator ?? entry.op ?? '=';
   const op = toAstFilterOperator(rawOp);
   if (!field || !op) return null;
+  // Asked AFTER the fold, so every spelling `toAstFilterOperator` resolves to
+  // `icontains` meets the door. `rawOp` is a string here: the fold answers
+  // `null` for anything else, which returned above.
+  if (op === 'icontains' && isRefusedTextComparand(entry.value)) {
+    refuseTextComparandEntry(entry, index, String(field), rawOp);
+  }
   return [String(field), op, entry.value];
 }
 
@@ -559,8 +626,8 @@ function objectFilterEntriesToAST(entries: readonly unknown[]): unknown[] {
     // An entry that is itself an array is already a node — a mixed array keeps
     // both conditions instead of losing one to a drop or the whole query to an
     // error.
-    if (Array.isArray(entry)) return translateFilterChild(entry);
-    const tuple = objectFilterEntryToAST(entry);
+    if (Array.isArray(entry)) return translateFilterChild(entry, i);
+    const tuple = objectFilterEntryToAST(entry, i);
     if (!tuple) throw new MalformedFilterError(entry, i);
     return tuple;
   });
@@ -597,10 +664,12 @@ function translateFilterArray(filter: unknown[]): unknown[] {
   if (isObjectFilterEntryForm(filter)) return objectFilterEntriesToAST(filter);
   const head = filter[0];
   if (typeof head === 'string' && LOGICAL_AST_HEADS.has(head.toLowerCase())) {
-    return [head, ...filter.slice(1).map(translateFilterChild)];
+    return [head, ...filter.slice(1).map((child, i) => translateFilterChild(child, i + 1))];
   }
   // Legacy flat array of child nodes: [[...], [...]] — implicit AND.
-  if (filter.every((child) => Array.isArray(child))) return filter.map(translateFilterChild);
+  if (filter.every((child) => Array.isArray(child))) {
+    return filter.map((child, i) => translateFilterChild(child, i));
+  }
   // A comparison tuple, or a shape we do not recognize. Leave it alone; the
   // server decides, and since objectstack#4121 it says so with a 400.
   return filter;
@@ -621,11 +690,18 @@ function translateFilterArray(filter: unknown[]): unknown[] {
  * Only rule-SHAPED objects are translated: a child with no `field` is a genuine
  * MongoDB condition (`{ status: 'active' }`) and must pass through untouched.
  * Same discriminator `isObjectFilterEntryForm` uses at the top level.
+ *
+ * A bare rule that does not translate is left for the server to refuse, but one
+ * the contract REFUSES is not: {@link objectFilterEntryToAST} throws for it
+ * here exactly as it does at the top level (objectui#9048). Translating it
+ * would send the refused node, and leaving it raw would earn a refusal of its
+ * SHAPE rather than of what it says. `index` is the child's position in its
+ * parent array.
  */
-function translateFilterChild(child: unknown): unknown {
+function translateFilterChild(child: unknown, index: number): unknown {
   if (Array.isArray(child)) return child.length > 0 ? translateFilterArray(child) : child;
   if (child && typeof child === 'object' && (child as any).field !== undefined) {
-    const tuple = objectFilterEntryToAST(child);
+    const tuple = objectFilterEntryToAST(child, index);
     if (tuple) return tuple;
   }
   return child;

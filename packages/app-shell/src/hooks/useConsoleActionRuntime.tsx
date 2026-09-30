@@ -39,7 +39,7 @@ import type {
   ResultDialogHandler,
   ToastHandler,
 } from '@object-ui/core';
-import { actionErrorDetail, isRecordScopedAction, resolveRecordIdParamSeed } from '@object-ui/core';
+import { actionErrorDetail, captureUpdateUndoData, isRecordScopedAction, resolveRecordIdParamSeed } from '@object-ui/core';
 import { useActionModal } from './useActionModal.js';
 import { ActionConfirmDialog, type ConfirmDialogState } from '../views/ActionConfirmDialog.js';
 import { ActionParamDialog, type ParamDialogState } from '../views/ActionParamDialog.js';
@@ -527,33 +527,46 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
       // fields from the row record so the success toast can offer "Undo".
       //
       // ⛔ A field the row does not CARRY is never captured as `null`
-      // (objectui#10404) — the rule `captureUpdateUndoData` in
-      // `@object-ui/core`'s `ActionRunner` states, applied to this handler's
-      // written set (`params` plus `bodyExtra`). A list row is projected by
-      // `$select`, so a written field no column shows is absent while the
-      // server holds a real value; recording `null` made Undo overwrite it. A
-      // `null` the row carries is a real empty value and is captured as one.
-      // When any written field is not carried there is no Undo at all: the
-      // success toast then has no Undo button, and the warning names the cause.
+      // (objectui#10404). The snapshot is `@object-ui/core`'s
+      // `captureUpdateUndoData`, called on this handler's written set
+      // (`params` plus `bodyExtra`), so the rule lives in one place
+      // (objectui#11082). A list row is projected by `$select`, so a written
+      // field no column shows is absent while the server holds a real value;
+      // recording `null` made Undo overwrite it. A `null` the row carries is a
+      // real empty value and is captured as one. When any written field is not
+      // carried there is no Undo at all: the success toast then has no Undo
+      // button, and the warning names the cause.
+      //
+      // ⛔ A relation is captured as its stored id, never as the record
+      // `$expand` put in its place (objectui#11122): a grid expands the
+      // relations it shows, so the row carries `{ id, name, … }` where the
+      // server stores the id. The rule reads which fields are relations from
+      // the written object's field definitions, looked up the way the param
+      // dialog looks them up (the caller's `objects` first, then the console's
+      // metadata store, asked to load before it answers).
       let undo: ActionResult['undo'];
       if (action.undoable && obj && recId && rowRecord && Object.keys(fields).length > 0
           && typeof dataSource?.update === 'function') {
         const written = Object.keys(fields);
-        const missing = written.filter(
-          (k) => !Object.prototype.hasOwnProperty.call(rowRecord, k) || rowRecord[k] === undefined,
-        );
-        if (missing.length === 0) {
+        await metadata.ensureType('object').catch(() => []);
+        const objectFields = withKnownObjects(objects, metadata.objects)
+          .find((o: any) => o?.name === obj)?.fields;
+        const undoData = captureUpdateUndoData(written, rowRecord, objectFields);
+        if (undoData) {
           undo = {
             id: `undo-${obj}-${recId}-${Date.now()}`,
             type: 'update',
             objectName: obj,
             recordId: String(recId),
             timestamp: Date.now(),
-            description: action.label || `Undo ${obj}`,
-            undoData: Object.fromEntries(written.map((k) => [k, rowRecord[k]])),
+            // objectui#11080 — the object, never an English verb: the Undo / Redo
+            // toast supplies the verb from a pack key (see the runner's twin).
+            description: action.label || obj,
+            undoData,
             redoData: { ...fields },
           };
         } else {
+          const missing = written.filter((k) => captureUpdateUndoData([k], rowRecord, objectFields) === undefined);
           console.warn(
             '[useConsoleActionRuntime] `undoable` action succeeded but offers no Undo: the row it ran on '
             + 'does not carry every field it wrote, so their prior values are unknown and an Undo would '
@@ -570,7 +583,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
-  }, [dataSource, objApiName, authFetch, activeOrganization, refresh, openEntitlementDialog, t]);
+  }, [dataSource, objApiName, objects, metadata, authFetch, activeOrganization, refresh, openEntitlementDialog, t]);
 
   // Flow action handler — POST to /api/v1/automation/{name}/trigger.
   // `context` is the shared ActionRunner context (registered handlers are
@@ -735,6 +748,11 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   const actionProviderProps = useMemo(() => ({
     context: {
       ...(objectName ? { objectName } : {}),
+      // The field definitions of the object `objectName` names, published
+      // beside it (objectui#11122). `ActionRunner`'s `operation: 'update'`
+      // Undo capture reads them to tell a relation, captured as its stored id,
+      // from a field whose value merely has an object's shape.
+      ...(objectName && objectDef?.fields ? { objectFields: objectDef.fields } : {}),
       user: currentUser,
       // Backend origin — lets `type: 'url'` actions issue full-page
       // navigations to API endpoints across origins in dev.
@@ -755,7 +773,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
     onModal: modalHandler,
     handlers: { api: apiHandler, flow: flowHandler, script: serverActionHandler, modal: modalActionHandler },
   }), [
-    objectName, currentUser, activeOrganization, confirmHandler, toastHandler,
+    objectName, objectDef, currentUser, activeOrganization, confirmHandler, toastHandler,
     navigateHandler, paramCollectionHandler, resultDialogHandler, apiHandler,
     flowHandler, serverActionHandler, modalHandler, modalActionHandler,
   ]);

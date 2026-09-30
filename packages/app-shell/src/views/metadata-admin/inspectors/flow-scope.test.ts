@@ -4,9 +4,11 @@ import { describe, it, expect } from 'vitest';
 import {
   connectorActionOutputKeys,
   connectorActionOutputSchema,
+  edgeSourceOutputRefs,
   flowAncestors,
   hasCommittedConnectorAction,
   nodeOutputRefs,
+  resolveEdgeScope,
   resolveFlowScope,
   triggerFieldRefs,
 } from './flow-scope';
@@ -333,5 +335,65 @@ describe('connector action output references (objectui#11028)', () => {
       expect(hasCommittedConnectorAction({ nodes: [{ id: 'h', type: 'http', connectorConfig: { connectorId: 'slack', actionId: 'x' } }] })).toBe(false);
       expect(hasCommittedConnectorAction({})).toBe(false);
     });
+  });
+});
+
+describe('edge scope — the source node’s own outputs are in scope on its out-edges (objectui#11085)', () => {
+  // The engine writes a node's outputs before `traverseNext` evaluates its
+  // out-edge guards, so `lead` (the get_record's `outputVariable`) exists when
+  // the guard on `fetch → route` runs.
+  const flow = {
+    variables: [{ name: 'threshold', type: 'number' }],
+    nodes: [
+      { id: 'start', type: 'start', config: { triggerType: 'record-after-update', objectName: 'crm_lead' } },
+      { id: 'fetch', type: 'get_record', config: { objectName: 'crm_lead', outputVariable: 'lead' } },
+      { id: 'route', type: 'decision' },
+      { id: 'recover', type: 'end' },
+    ],
+    edges: [
+      { source: 'start', target: 'fetch' },
+      { source: 'fetch', target: 'route', condition: "lead.status == 'open'" },
+      { source: 'fetch', target: 'recover', type: 'fault' },
+    ],
+  };
+
+  it('adds the source’s own outputs to the scope at the source', () => {
+    const edgeTokens = tokens(resolveEdgeScope(flow, { source: 'fetch', target: 'route' }).refs);
+    expect(edgeTokens).toContain('lead');
+    // The node scope itself is unchanged: a node never sees its own outputs.
+    expect(tokens(resolveFlowScope(flow, 'fetch').refs)).not.toContain('lead');
+    // Everything in scope at the source is kept, trigger included.
+    expect(edgeTokens).toEqual(expect.arrayContaining(tokens(resolveFlowScope(flow, 'fetch').refs)));
+    expect(resolveEdgeScope(flow, { source: 'fetch', target: 'route' }).trigger).toEqual(resolveFlowScope(flow, 'fetch').trigger);
+  });
+
+  it('a fault edge adds none — the engine walks it only when the node failed, with nothing written back', () => {
+    expect(edgeSourceOutputRefs(flow, { source: 'fetch', target: 'recover', type: 'fault' })).toEqual([]);
+    expect(tokens(resolveEdgeScope(flow, { source: 'fetch', target: 'recover', type: 'fault' }).refs)).not.toContain('lead');
+  });
+
+  it('an edge leaving the start node adds none, and a missing source resolves the flow variables alone', () => {
+    expect(edgeSourceOutputRefs(flow, { source: 'start', target: 'fetch' })).toEqual([]);
+    expect(edgeSourceOutputRefs(flow, { source: 'ghost', target: 'route' })).toEqual([]);
+    expect(tokens(resolveEdgeScope(flow, { target: 'route' }).refs)).toEqual(['threshold']);
+  });
+
+  it('a committed connector action’s declared keys join on its own out-edge, given the registry', () => {
+    const REGISTRY = [
+      { name: 'slack', actions: [{ key: 'chat.postMessage', outputSchema: { type: 'object', properties: { ok: { type: 'boolean' } } } }] },
+    ];
+    const withPost = {
+      nodes: [
+        { id: 'start', type: 'start' },
+        { id: 'post', type: 'connector_action', connectorConfig: { connectorId: 'slack', actionId: 'chat.postMessage' } },
+        { id: 'done', type: 'end' },
+      ],
+      edges: [
+        { source: 'start', target: 'post' },
+        { source: 'post', target: 'done' },
+      ],
+    };
+    expect(tokens(resolveEdgeScope(withPost, { source: 'post', target: 'done' }, undefined, REGISTRY).refs)).toEqual(['post.ok']);
+    expect(tokens(resolveEdgeScope(withPost, { source: 'post', target: 'done' }).refs)).toEqual([]);
   });
 });

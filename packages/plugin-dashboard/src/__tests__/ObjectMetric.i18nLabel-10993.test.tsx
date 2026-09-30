@@ -85,11 +85,18 @@ function mountIn(language: string, properties: Record<string, unknown>) {
  */
 const tile = () => screen.findByRole('button');
 
-/** Open the drill-down panel and read its heading. */
-async function drawerHeading(): Promise<string> {
+/**
+ * Open the drill-down panel and find it by its accessible name, which is its
+ * own title: the drawer names the dialog with `aria-labelledby` pointing at the
+ * title element. That reads "the panel is headed by X" and nothing the body
+ * shows. A bare `getByRole('heading')` over the dialog read the body too: once
+ * the drill-down query settles, the body's empty state draws a heading of its
+ * own beside the title, so that query raced the data source and threw "Found
+ * multiple elements with the role heading" whenever it lost.
+ */
+async function drawerNamed(name: string): Promise<HTMLElement> {
   fireEvent.click(await tile());
-  const dialog = await screen.findByRole('dialog');
-  return within(dialog).getByRole('heading').textContent ?? '';
+  return screen.findByRole('dialog', { name });
 }
 
 describe('object-metric — the I18nLabel members through the registry (objectui#10993)', () => {
@@ -111,17 +118,17 @@ describe('object-metric — the I18nLabel members through the registry (objectui
 
   it('zh: a `title` map heads the drill-down panel', async () => {
     mountIn('zh', { label: LABEL, title: TITLE });
-    expect(await drawerHeading()).toBe('进行中的商机');
+    expect(await drawerNamed('进行中的商机')).toBeInTheDocument();
   });
 
   it('en: the `title` map heads the panel in English', async () => {
     mountIn('en', { label: LABEL, title: TITLE });
-    expect(await drawerHeading()).toBe('Open deals');
+    expect(await drawerNamed('Open deals')).toBeInTheDocument();
   });
 
   it('zh: with no `title`, the `label` map heads the panel', async () => {
     mountIn('zh', { label: LABEL });
-    expect(await drawerHeading()).toBe('销售管道');
+    expect(await drawerNamed('销售管道')).toBeInTheDocument();
   });
 
   it('CONTROL: plain strings render exactly as authored, under zh', async () => {
@@ -129,6 +136,6 @@ describe('object-metric — the I18nLabel members through the registry (objectui
     const card = await tile();
     expect(within(card).getByText('Pipeline')).toBeInTheDocument();
     expect(await within(card).findByText('This quarter')).toBeInTheDocument();
-    expect(await drawerHeading()).toBe('Open deals');
+    expect(await drawerNamed('Open deals')).toBeInTheDocument();
   });
 });

@@ -33,7 +33,9 @@
  * `formatDateTimeCompactParts` / `formatRelativeDate` / `DateDisplayOptions`
  * keep working unchanged for `ObjectGrid`, `ObjectGantt`,
  * `plugin-dashboard`'s `recordFields` and the `date` cell renderer.
- * `toDisplayDate` is exported from `@object-ui/core` alone (objectui#10183).
+ * `toDisplayDate` is exported from `@object-ui/core` alone (objectui#10183),
+ * and so are `toDisplayEndDate` / `toInclusiveEndDay`, the end read and its
+ * inverse both gantt surfaces share (objectui#11141).
  *
  * The `datetime` CELL face joined this file in objectui#7443. It used to be a
  * second convention inlined in `DateTimeCellRenderer`: two `Intl` option bags
@@ -263,6 +265,71 @@ export function toDisplayDate(value: string | Date | number): Date {
   // no-op on every other year.
   local.setFullYear(year);
   return local;
+}
+
+/**
+ * THE ONE READ of a stored END, where a bar or span is drawn to
+ * (objectui#11141): {@link toDisplayDate}'s read, and then, for a date-only
+ * value only, the next day's local midnight.
+ *
+ * ## The rule (objectui#11112's ruling, one home since objectui#11141)
+ *
+ * A date-only end is INCLUSIVE: `2024-01-01` to `2024-01-15` runs through
+ * January 15th, so the span is drawn to the start of the 16th, and a
+ * successor starting `2024-01-16` begins exactly where it ends. A span whose
+ * date-only start and end name the same day is one day long, across a DST
+ * change too: the step is a calendar day (`setDate`), never 24 hours, so it
+ * lands on the next local midnight, or on that day's first hour where its
+ * midnight does not exist. That is how a project plan and the schema
+ * catalog's gantt plans author an end.
+ *
+ * The result is the EXCLUSIVE end instant of a half-open span `[start, end)`,
+ * the form every gantt surface draws and schedules with. Date-only is decided
+ * by the value's own shape, with {@link isRealCalendarDate}, exactly as
+ * {@link toDisplayDate} decides it, so an end reads its day as a start does and
+ * then runs to that day's end. A value with a time part, a number or a `Date`
+ * is an instant: the span ends at it, and it is handed back as
+ * {@link toDisplayDate} hands it back.
+ *
+ * {@link toInclusiveEndDay} is the exact inverse: it names the day a span
+ * ending here runs through, so a read and a write of a date-only end agree.
+ *
+ * ⛔ One rule, one place: `plugin-timeline`'s gantt variant and
+ * `plugin-gantt` both read their ends here. A second copy of the step in a
+ * consumer is how the two gantt surfaces came to draw one plan a day apart.
+ * ⛔ Read the result with LOCAL getters only, as {@link toDisplayDate}'s is.
+ */
+export function toDisplayEndDate(value: string | Date | number): Date {
+  const end = toDisplayDate(value);
+  if (typeof value !== 'string' || !isRealCalendarDate(value)) return end;
+  end.setDate(end.getDate() + 1);
+  // Back to the start of that day. A day whose own midnight does not exist is
+  // read at its first hour, and the step keeps the hour, so without this the
+  // day after it would start an hour late and name itself back.
+  end.setHours(0, 0, 0, 0);
+  return end;
+}
+
+/**
+ * The day a span ending at `end` runs through: local midnight of the day that
+ * holds the last instant before `end` (objectui#11141).
+ *
+ * This is the exact inverse of {@link toDisplayEndDate} on a date-only end:
+ * the instant it reads `2024-01-15` as, local midnight of the 16th, names the
+ * 15th here, so a read, a drag and a write of a stored date-only end leave it
+ * the day it was, and a bar dragged to end at a day's local midnight names the
+ * day BEFORE it. An end inside a day (a `datetime` end, or a shift band's
+ * edge) names that day, the last one the span reaches into.
+ *
+ * It names a day for display and for a date-only write. ⛔ It is not a read of
+ * a stored value, and a `datetime` end still keeps its own instant: hand this
+ * only to a face that names a day, or to a field that stores one. Read the
+ * result with LOCAL getters only; an Invalid Date stays invalid.
+ */
+export function toInclusiveEndDay(end: Date): Date {
+  const day = new Date(end.getTime() - 1);
+  day.setHours(0, 0, 0, 0);
+  return day;
 }
 
 /**

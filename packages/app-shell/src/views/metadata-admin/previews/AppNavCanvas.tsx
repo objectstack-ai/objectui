@@ -16,6 +16,13 @@
  * canvas keeps DnD focused on the root list to avoid surprising
  * cross-tree reorders).
  *
+ * A nav item's `label` is `I18nLabel`: a plain string or an inline locale
+ * map. The card shows it resolved in the designer locale through the spec's
+ * `resolveI18nLabel`, and an inline rename of a map edits the designer
+ * locale's entry only, never the whole map (objectui#11128). Both halves
+ * live in `./navItemLabel.ts`, which the Studio's nav-item inspector imports
+ * too, so the two editors of one label cannot disagree (objectui#11148).
+ *
  * Selection IDs match AppNavInspector:
  *   { kind: 'nav', id: `${rootKey}[${i}]` }
  *   { kind: 'nav', id: `${rootKey}[${i}].children[${j}]` }
@@ -38,16 +45,18 @@ import {
   Trash2,
   type LucideIcon,
 } from 'lucide-react';
+import type { I18nLabel } from '@objectstack/spec/ui';
 import { Badge, cn } from '@object-ui/components';
 import { appendArray, moveArray, spliceArray } from '../inspectors/_shared.js';
-import { t, useMetadataLocale } from '../i18n.js';
+import { t, tFormat, useMetadataLocale } from '../i18n.js';
+import { navItemLabelText, renamedLabel } from './navItemLabel.js';
 
 const DND_MIME = 'text/x-objectui-nav';
 
 interface RawNav {
   id?: string;
   type?: string;
-  label?: string;
+  label?: I18nLabel;
   objectName?: string;
   pageName?: string;
   dashboardName?: string;
@@ -161,11 +170,20 @@ function kindTone(kind: string): KindTone {
   return KIND_TONE[kind] ?? KIND_TONE.untyped;
 }
 
-function navLabel(it: RawNav, i: number): string {
-  // `label` only — `title` / `name` / `path` are not nav-item keys.
-  const l = it.label;
-  if (typeof l === 'string' && l.trim()) return l.trim();
-  return `Item ${i + 1}`;
+/**
+ * The text a card shows for its entry, in the designer `locale`.
+ *
+ * `label` only — `title` / `name` / `path` are not nav-item keys. The label is
+ * `I18nLabel`, so a locale map resolves through the spec's own resolver
+ * (`navItemLabelText`, shared with the Studio's nav-item inspector), never a
+ * `typeof === 'string'` test that reads a map as no label (objectui#11128).
+ * The positional `engine.appNav.item` row is for a label that is truly absent
+ * or resolves to nothing.
+ */
+function navLabel(it: RawNav, i: number, locale: string): string {
+  const l = navItemLabelText(it.label, locale).trim();
+  if (l) return l;
+  return tFormat('engine.appNav.item', locale, { n: i + 1 });
 }
 
 /**
@@ -261,14 +279,14 @@ export function AppNavCanvas({
     (index: number, nextLabel: string) => {
       if (!onPatch) return;
       const cur = items[index] ?? {};
-      const updated = { ...cur, label: nextLabel };
+      const updated = { ...cur, label: renamedLabel(cur.label, nextLabel, locale) };
       const next = spliceArray(items, index, updated);
       setItems(next);
       if (selectedId === `${rootKey}[${index}]`) {
         onSelectionChange?.({ kind: 'nav', id: `${rootKey}[${index}]`, label: nextLabel });
       }
     },
-    [onPatch, items, setItems, rootKey, selectedId, onSelectionChange],
+    [onPatch, items, setItems, rootKey, selectedId, onSelectionChange, locale],
   );
 
   const moveItem = React.useCallback(
@@ -282,10 +300,10 @@ export function AppNavCanvas({
       onSelectionChange?.({
         kind: 'nav',
         id: `${rootKey}[${to}]`,
-        label: navLabel(next[to] ?? {}, to),
+        label: navLabel(next[to] ?? {}, to, locale),
       });
     },
-    [onPatch, items, setItems, rootKey, onSelectionChange],
+    [onPatch, items, setItems, rootKey, onSelectionChange, locale],
   );
 
   return (
@@ -340,6 +358,7 @@ export function AppNavCanvas({
               index={i}
               depth={0}
               path={`${rootKey}[${i}]`}
+              locale={locale}
               selectedId={selectedId}
               canEdit={!!onPatch}
               onClick={(p, lbl) => onSelectionChange?.({ kind: 'nav', id: p, label: lbl })}
@@ -365,6 +384,7 @@ function NavCardTree({
   index,
   depth,
   path,
+  locale,
   selectedId,
   canEdit,
   onClick,
@@ -378,6 +398,7 @@ function NavCardTree({
   index: number;
   depth: number;
   path: string;
+  locale: string;
   selectedId: string | null;
   canEdit: boolean;
   onClick: (path: string, label: string) => void;
@@ -394,9 +415,10 @@ function NavCardTree({
         index={index}
         depth={depth}
         path={path}
+        locale={locale}
         isSelected={selectedId === path}
         canEdit={canEdit && depth === 0}
-        onClick={() => onClick(path, navLabel(item, index))}
+        onClick={() => onClick(path, navLabel(item, index, locale))}
         onRename={onRename}
         onRemove={onRemove}
         onDragStart={onDragStart}
@@ -413,6 +435,7 @@ function NavCardTree({
               index={j}
               depth={depth + 1}
               path={childPath}
+              locale={locale}
               selectedId={selectedId}
               canEdit={canEdit}
               onClick={onClick}
@@ -433,6 +456,7 @@ function NavCard({
   index,
   depth,
   path,
+  locale,
   isSelected,
   canEdit,
   onClick,
@@ -446,6 +470,7 @@ function NavCard({
   index: number;
   depth: number;
   path: string;
+  locale: string;
   isSelected: boolean;
   canEdit: boolean;
   onClick: () => void;
@@ -455,19 +480,19 @@ function NavCard({
   onDragEnd: () => void;
   onDropBefore: () => void;
 }) {
-  const locale = useMetadataLocale();
   const kind = navKind(item);
   const Icon = kindIcon(kind);
   const tone = kindTone(kind);
   const target = navTarget(item);
+  const label = navLabel(item, index, locale);
   const [editing, setEditing] = React.useState(false);
-  const [draft, setDraft] = React.useState(navLabel(item, index));
+  const [draft, setDraft] = React.useState(label);
   const [hover, setHover] = React.useState(false);
   const [dropPos, setDropPos] = React.useState<'before' | null>(null);
 
   React.useEffect(() => {
-    if (!editing) setDraft(navLabel(item, index));
-  }, [item, index, editing]);
+    if (!editing) setDraft(label);
+  }, [label, editing]);
 
   return (
     <div className="relative" style={{ paddingLeft: depth * 16 }}>
@@ -524,7 +549,7 @@ function NavCard({
             onBlur={() => {
               setEditing(false);
               const v = draft.trim();
-              if (v && v !== navLabel(item, index)) onRename(v);
+              if (v && v !== label) onRename(v);
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
@@ -532,7 +557,7 @@ function NavCard({
                 (e.target as HTMLInputElement).blur();
               } else if (e.key === 'Escape') {
                 e.preventDefault();
-                setDraft(navLabel(item, index));
+                setDraft(label);
                 setEditing(false);
               }
             }}
@@ -547,7 +572,7 @@ function NavCard({
               setEditing(true);
             }}
           >
-            {navLabel(item, index)}
+            {label}
           </span>
         )}
         <Badge variant="outline" className={cn('text-[10px] font-medium', tone.badge)}>

@@ -26,8 +26,9 @@
 
 import * as React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
-import { usePageVariableBinding } from '@object-ui/react';
-import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import { usePageVariableBinding, resolveInlineAriaProps } from '@object-ui/react';
+import { useObjectTranslation, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
+import type { AriaProps } from '@object-ui/types';
 import { Input, Label } from '../../ui';
 import { cn } from '../../lib/utils';
 import { readProps } from './readProps';
@@ -44,6 +45,7 @@ function ElementTextInputRenderer({ schema }: { schema: any }) {
     required?: boolean;
     disabled?: boolean;
     description?: unknown;
+    aria?: AriaProps;
   }>(schema);
 
   const inputType: TextInputType = INPUT_TYPES.includes(props.inputType as TextInputType)
@@ -117,6 +119,22 @@ function ElementTextInputRenderer({ schema }: { schema: any }) {
   // falling through to whatever else could describe the field.
   const descriptionId = description ? `${instanceId}-description` : undefined;
 
+  // The block's `aria` bag (objectui#11083). The spec declares `aria`
+  // (`AriaPropsSchema`) on `element:text_input`, and nothing read it, so a
+  // declared accessible name reached no element. It goes through
+  // `resolveInlineAriaProps` from `@object-ui/react`, the one reader of that
+  // bag, onto the INPUT: the element that carries the field's name, as
+  // `element:button`'s bag lands on its button. No default role is added.
+  //
+  // This site's own default is the description paragraph's id above, and an
+  // authored `ariaDescribedBy` is ADDED to it rather than replacing it:
+  // `aria-describedby` is a list of ids, and the paragraph still describes the
+  // field when an author points at a second hint.
+  const locale = useDisplayLocale();
+  const inputAria = resolveInlineAriaProps(props.aria, locale);
+  const describedBy =
+    [descriptionId, inputAria['aria-describedby']].filter(Boolean).join(' ') || undefined;
+
   return (
     <div
       className={cn('grid w-full max-w-sm items-center gap-1.5', schema?.className)}
@@ -150,7 +168,8 @@ function ElementTextInputRenderer({ schema }: { schema: any }) {
         defaultValue={value === undefined ? (props.defaultValue as any) : undefined}
         required={props.required}
         disabled={props.disabled}
-        aria-describedby={descriptionId}
+        {...inputAria}
+        aria-describedby={describedBy}
         onChange={handleChange}
       />
       {description && (
@@ -293,7 +312,7 @@ ComponentRegistry.register('text_input', ElementTextInputRenderer, {
       // screen reader speaks in any given verbosity mode.
       type: ['string', 'object'],
       description:
-        'Helper text rendered BELOW the input, in its own `<p>` — a different destination from `label` (above, in a `<label>`) and `placeholder` (inside the field), reached by the same read path. Display-only, and OMITTED entirely when the key is absent or resolves to an empty string. Accepts either a plain string or an inline per-locale map (`{ en: "Owner", "zh-CN": "负责人" }`), resolved against the active language with the same fallback chain as `label`. The paragraph IS tied to the field with `aria-describedby`, so the resolved text is the input’s accessible DESCRIPTION and assistive tech announces it with the field rather than leaving it as unreachable decoration. That association does not depend on the node carrying an `id` (`label`’s `htmlFor` does): the id `aria-describedby` needs sits on the paragraph, which the renderer mints per instance, and it is emitted only when a paragraph is actually rendered — an absent or empty `description` leaves the input with no `aria-describedby` at all. Prefer `label` anyway for an instruction a user MUST NOT miss: a description is announced after the field’s name, and screen readers gate description text behind verbosity settings a user can turn down (NVDA’s “Report object descriptions”, VoiceOver hint verbosity), so it is the half of the announcement most likely to go unheard — the same advice as before, now resting on announcement order and verbosity rather than on the text being unwired.',
+        'Helper text rendered BELOW the input, in its own `<p>` — a different destination from `label` (above, in a `<label>`) and `placeholder` (inside the field), reached by the same read path. Display-only, and OMITTED entirely when the key is absent or resolves to an empty string. Accepts either a plain string or an inline per-locale map (`{ en: "Owner", "zh-CN": "负责人" }`), resolved against the active language with the same fallback chain as `label`. The paragraph IS tied to the field with `aria-describedby`, so the resolved text is the input’s accessible DESCRIPTION and assistive tech announces it with the field rather than leaving it as unreachable decoration. That association does not depend on the node carrying an `id` (`label`’s `htmlFor` does): the id `aria-describedby` needs sits on the paragraph, which the renderer mints per instance, and it is emitted only when a paragraph is actually rendered — an absent or empty `description` puts no paragraph id in the input’s `aria-describedby`, which then carries only an authored `aria.ariaDescribedBy`, or is absent. An authored `aria.ariaDescribedBy` is added after the paragraph’s id, never in place of it. Prefer `label` anyway for an instruction a user MUST NOT miss: a description is announced after the field’s name, and screen readers gate description text behind verbosity settings a user can turn down (NVDA’s “Report object descriptions”, VoiceOver hint verbosity), so it is the half of the announcement most likely to go unheard — the same advice as before, now resting on announcement order and verbosity rather than on the text being unwired.',
     },
   ],
 });

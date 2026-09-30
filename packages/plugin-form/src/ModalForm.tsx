@@ -90,6 +90,9 @@ const useDiscardTranslation = createSafeTranslation(
     // English sentence instead of a raw key — the #4514 trap, and the reason
     // this factory exists.
     'form.dialogDescriptionFallback': 'Complete the form fields, then submit or cancel.',
+    // The sr-only description of a master-detail dialog with no `description`
+    // of its own (objectui#11071).
+    'form.masterDetail.editorDescription': 'Enter the record and its line items, then save.',
     'form.keepEditing': 'Keep editing',
     'form.discard': 'Discard',
     'form.create': 'Create',
@@ -1022,7 +1025,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
               {schema.description ? (
                 <DialogDescription>{schema.description}</DialogDescription>
               ) : (
-                <DialogDescription className="sr-only">Enter the record and its line items, then save.</DialogDescription>
+                <DialogDescription className="sr-only">{t('form.masterDetail.editorDescription')}</DialogDescription>
               )}
             </DialogHeader>
           )}

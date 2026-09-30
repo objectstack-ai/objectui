@@ -401,8 +401,8 @@ function RunRow({ run, locale }: { run: FlowRun; locale?: string }) {
       {open && (
         <div className="border-t px-2 py-1.5">
           <div className="pb-1 font-mono text-[9px] text-muted-foreground" title={run.id}>
-            run {run.id}
-            {run.trigger?.type && ` · trigger ${run.trigger.type}`}
+            {tFormat('engine.flowRuns.runId', locale, { id: run.id })}
+            {run.trigger?.type && ` · ${tFormat('engine.flowRuns.trigger', locale, { type: run.trigger.type })}`}
           </div>
           {runErr && (
             <div className="pb-1 text-[10px] text-rose-600">{runErr}</div>

@@ -55,6 +55,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { createI18n } from '@object-ui/i18n';
 import { FormPage } from './FormPage';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -164,6 +165,12 @@ function editRoutes(extra: Parameters<typeof stubFetch>[0] = []) {
 }
 
 beforeEach(() => {
+  // The submit button reads the i18n catalogue (objectui#11071) through the
+  // provider `main.tsx` mounts above this route. The app's own factory
+  // registers its instance as react-i18next's global, which is how this
+  // unwrapped route reaches the `en` pack; the harness restores the global
+  // after every test (`installI18nGlobalReset`).
+  createI18n({ defaultLanguage: 'en', detectBrowserLanguage: false });
   calls = [];
 });
 

@@ -647,6 +647,10 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
   const perms = usePermissions();
 
   const [objectSchema, setObjectSchema] = useState<any>(null);
+  // The hint under a field the caller may read but not write, in the session
+  // locale (objectui#11071). A string rather than `t` in the dependency list
+  // below: it changes when the language does and at no other time.
+  const deniedDescription = t('form.deniedDescription');
   // The ONE field-gate step every layout draws through (objectui#10612):
   // field-level security plus the ADR-0092 D4 managed-object lock, which this
   // arm's field generator used to stamp on its own — see `gateFormFields`.
@@ -657,9 +661,9 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
         objectName: schema.objectName,
         mode: schema.mode,
         objectSchema,
-        deniedDescription: 'You do not have edit access to this field.',
+        deniedDescription,
       }) as FormField[],
-    [perms, schema.objectName, schema.mode, objectSchema],
+    [perms, schema.objectName, schema.mode, objectSchema, deniedDescription],
   );
   // objectui#11000 — why `gateFields` locked every field, when the lock is the
   // form-wide one: the affordance for the mode is closed. Rendered above the
@@ -1646,9 +1650,11 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       // section whole, heading included.
       //
       // ⛔ The intersection itself is NOT the defect and is deliberately left
-      // standing: `fields` is the parent field pool for values, create
-      // defaults and the submitted set as well as for layout, so resolving
-      // these members here would change what a landed schema writes. What WAS
+      // standing: `fields` is the parent field pool that bounds what this form
+      // DRAWS and edits, so resolving these members here would change what a
+      // landed schema draws and lets a user edit. It does not bound the write
+      // itself: a value seeded through `initialValues` is written whether or
+      // not it is drawn (objectui#11114). What WAS
       // the defect is that the loss was silent, plus this block's registration
       // claiming `fields` is "Ignored when `sections` is given" — a claim its
       // three sibling `fields` registrations never made and the one shared

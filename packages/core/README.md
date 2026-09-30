@@ -178,6 +178,50 @@ withoutDeniedFields({ account_code: 'A-1', salary: 100 }, policy, 'account', ['a
 - When nothing is withheld the SAME object comes back, so callers can tell the
   two cases apart by identity.
 
+### Undo snapshot for an update (`captureUpdateUndoData`)
+
+An `undoable` update restores exactly the fields it wrote, from their values
+before the write. `captureUpdateUndoData` is the one rule for reading those
+values off a record. `ActionRunner` uses it, and so should any surface that
+builds its own `update` Undo operation.
+
+```typescript
+import { captureUpdateUndoData, type FieldContainerLike } from '@object-ui/core'
+
+// The written object's field definitions, as its schema serves them
+// (`objectSchema.fields`). Below, `status` is a text field, `account` a
+// lookup and `config` a json field.
+declare const fields: FieldContainerLike
+
+captureUpdateUndoData(['status'], { id: 't1', status: 'open' }, fields) // { status: 'open' }
+captureUpdateUndoData(['status'], { id: 't1', status: null }, fields)   // { status: null }
+captureUpdateUndoData(['status'], { id: 't1' }, fields)                 // undefined
+
+// A relation read with `$expand` is captured as its stored id.
+captureUpdateUndoData(['account'], { id: 't1', account: { id: 'a1', name: 'Acme' } }, fields)
+// { account: 'a1' }
+
+// Any other field is captured as the record carries it, whatever its shape.
+captureUpdateUndoData(['config'], { id: 't1', config: { id: 'c1', mode: 'strict' } }, fields)
+// { config: { id: 'c1', mode: 'strict' } }
+```
+
+- A field counts as carried when it is an own key whose value is not
+  `undefined`. A carried `null` is a real empty value and is captured.
+- When any written field is not carried, the answer is `undefined` and the
+  caller offers no Undo at all. A record projected by `$select`, or one the
+  server stripped of fields the reader may not read, can lack a written field
+  while the server holds a real value for it; a partial or `null` snapshot
+  would overwrite that value on Undo.
+- A field the object declares as a relation (`lookup`, `master_detail`,
+  `user`, `tree`) is captured as the id it stores, and a `multiple` one as the
+  array of ids. `$expand` puts the related record where the id was, and
+  writing that record back into the reference is what Undo must never do.
+  Which fields are relations is read from `fields`, never from the value's
+  shape: a `json` field may hold an object with an `id`.
+- `fields` is required. Pass `undefined` only when the caller has no field
+  definitions for the object; nothing is then treated as a relation.
+
 ## Philosophy
 
 This package is designed to be **framework-agnostic**. It contains:

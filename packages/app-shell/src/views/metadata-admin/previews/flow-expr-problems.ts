@@ -35,7 +35,7 @@
  */
 
 import { fieldsForNodeType, getFieldValue, localizeFlowFields } from '../inspectors/flow-node-config.js';
-import { resolveFlowScope } from '../inspectors/flow-scope.js';
+import { resolveEdgeScope, resolveFlowScope } from '../inspectors/flow-scope.js';
 import { scopeRoots, findUnknownRefs, describeUnknownRefs } from '../inspectors/flow-ref-check.js';
 import { validateExpressionClient } from '../inspectors/expression-validate.js';
 import { screenVisibleWhenScopeError, type ScreenPreviewNode } from './screen-spec.js';
@@ -102,8 +102,18 @@ export function isScreenVisibleWhenColumn(type: string, fieldId: string, colKey:
  * Scan a flow draft for expression problems, resolved onto node / edge targets.
  * Pure: no network — the trigger object's fields are not expanded (root-only
  * scope), which is why the start node is excluded from the ref check.
+ *
+ * `connectors` is the runtime connector registry the caller already read
+ * (`GET /api/v1/automation/connectors`, unwrapped to the connector array), so a
+ * committed `connector_action` node's declared output keys are in scope
+ * downstream, as the inspectors judge them (objectui#11085). Omitted, such a
+ * node writes nothing this scan can see.
+ *
+ * An edge guard is judged against the EDGE's scope ({@link resolveEdgeScope}):
+ * the scope at its source plus the source's own outputs, the ones the engine
+ * has written by the time it evaluates the guard (objectui#11085).
  */
-export function flowExpressionProblems(draft: Record<string, unknown>, locale?: string): ExprProblem[] {
+export function flowExpressionProblems(draft: Record<string, unknown>, locale?: string, connectors?: unknown): ExprProblem[] {
   const nodes = asArray(draft.nodes).map(asRecord);
   const edges = asArray(draft.edges).map(asRecord);
   const startId = str(nodes.find((n) => str(n.type) === 'start')?.id);
@@ -115,7 +125,7 @@ export function flowExpressionProblems(draft: Record<string, unknown>, locale?: 
     if (!nodeId || !type) continue;
     // Root-only scope at this node; skip the ref check on the start node (its
     // bare trigger-record fields are indistinguishable from typos here).
-    const roots = nodeId === startId ? null : scopeRoots(resolveFlowScope(draft, nodeId).refs);
+    const roots = nodeId === startId ? null : scopeRoots(resolveFlowScope(draft, nodeId, undefined, connectors).refs);
 
     // Localized as the inspector localizes them, so a row with no label of its
     // own is prefixed by the column label the author sees (objectui#10804).
@@ -148,7 +158,7 @@ export function flowExpressionProblems(draft: Record<string, unknown>, locale?: 
     const source = str(edge.source);
     const target = str(edge.target);
     if (!source || !target || edge.isDefault === true) continue;
-    const roots = source === startId ? null : scopeRoots(resolveFlowScope(draft, source).refs);
+    const roots = source === startId ? null : scopeRoots(resolveEdgeScope(draft, edge, undefined, connectors).refs);
     const hit = checkCel(edge.condition, roots, locale);
     if (hit) out.push({ target: { kind: 'edge', source, target }, level: hit.level, message: hit.message });
   }

@@ -790,7 +790,13 @@ export function FlowCanvas({
                         onSelectEdge!(edge, eid);
                       }}
                     >
-                      <title>{invalid ? `${edge.source} → ${edge.target} — part of an un-declared cycle; mark the edge that closes the loop as a back-edge` : back ? `${edge.source} ↩ ${edge.target} (back-edge)` : `${edge.source} → ${edge.target}`}</title>
+                      <title>
+                        {invalid
+                          ? tFormat('engine.flowCanvas.edge.undeclaredCycle', locale, { source: edge.source, target: edge.target })
+                          : back
+                            ? tFormat('engine.flowCanvas.edge.backEdge', locale, { source: edge.source, target: edge.target })
+                            : `${edge.source} → ${edge.target}`}
+                      </title>
                     </path>
                   )}
                   {branchLabel && (
@@ -889,7 +895,7 @@ export function FlowCanvas({
                 locale={locale}
                 type={node.type}
                 label={node.label || node.id}
-                summary={nodeSummary(node)}
+                summary={nodeSummary(node, locale)}
                 position={positionOf(node.id)}
                 selected={selectedId === node.id}
                 editable={editable}
@@ -929,8 +935,12 @@ export function FlowCanvas({
   );
 }
 
-/** One-line config summary shown on the node card (best-effort, type-aware). */
-function nodeSummary(node: FlowDesignerNode): string | undefined {
+/**
+ * One-line config summary shown on the node card (best-effort, type-aware).
+ * The words it adds of its own (a branch count, an approver count, `code`)
+ * read in the designer `locale` (objectui#10862); config values pass through.
+ */
+function nodeSummary(node: FlowDesignerNode, locale?: string): string | undefined {
   const c = node.config as Record<string, unknown> | undefined;
   const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
   const block = (key: string, inner: string) => {
@@ -963,7 +973,9 @@ function nodeSummary(node: FlowDesignerNode): string | undefined {
       const labels = conds
         .map((x) => (x && typeof x === 'object' ? str((x as Record<string, unknown>).label) : undefined))
         .filter(Boolean);
-      return labels.length ? labels.join(' / ') : `${conds.length} branches`;
+      return labels.length
+        ? labels.join(' / ')
+        : tFormat('engine.flowCanvas.summary.branches', locale, { count: conds.length });
     }
     return pick('condition');
   }
@@ -971,13 +983,25 @@ function nodeSummary(node: FlowDesignerNode): string | undefined {
     // The function IS the step (framework#4343). The rest are retired keys a
     // stored node may still carry — kept as fallbacks so its subtitle is never
     // blank before someone migrates it.
-    return pick('function') || pick('actionType') || pick('template') || (c && c.script ? 'code' : undefined);
+    return (
+      pick('function') ||
+      pick('actionType') ||
+      pick('template') ||
+      (c && c.script ? tr('engine.flowCanvas.summary.code', locale) : undefined)
+    );
   }
   if (node.type === 'approval') {
     const approvers = c?.approvers;
     const n = Array.isArray(approvers) ? approvers.length : 0;
     const behavior = pick('behavior');
-    if (n > 0) return `${n} approver${n === 1 ? '' : 's'}${behavior === 'unanimous' ? ' · all' : ''}`;
+    if (n > 0) {
+      const count = tFormat(
+        n === 1 ? 'engine.flowCanvas.summary.approversOne' : 'engine.flowCanvas.summary.approversOther',
+        locale,
+        { count: n },
+      );
+      return behavior === 'unanimous' ? `${count} · ${tr('engine.flowCanvas.summary.unanimous', locale)}` : count;
+    }
     return behavior || undefined;
   }
   return (

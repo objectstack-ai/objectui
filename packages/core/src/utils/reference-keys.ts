@@ -14,7 +14,7 @@
  * here from a grep.
  */
 
-import { FieldSchema } from '@objectstack/spec/data';
+import { FIELD_KEY_GUIDANCE, FieldSchema } from '@objectstack/spec/data';
 
 /**
  * Backend object schemas follow the ObjectStack convention and name a
@@ -161,20 +161,20 @@ import { FieldSchema } from '@objectstack/spec/data';
  * typed`, which drives every snake twin the live spec implies through this
  * choke point.
  *
- * ⛔ The `id_field` slice is NOT TAKEN, and not on a card. `@objectstack/spec`'s
- * `FIELD_KEY_GUIDANCE` grew an `id_field` row explaining why the key has no
- * successor. When this was written the row was in no published version —
- * measured then against 17.3.0 and 17.4.0, both zero occurrences, with
- * `startingNumber` as the lit control in the same read — so what was missing
- * was a RELEASE, not a decision. The release has shipped: the installed 17.5.0
- * carries the row (objectui#11073 re-measured it: one `id_field:` guidance entry
- * in `dist/data`). Quoting that sentence from a local copy here was refused (a
- * second copy of contract prose is the drift AGENTS.md #0.1 exists to stop) and
- * so was reading it optionally with a local fallback (an invisible fallback
- * that silently degrades on an older spec is this card's own defect class);
- * neither refusal moves. Reading the published row is now possible and is its
- * own change — the bump that made it possible did not take it, so `id_field`
- * is still left alone here.
+ * ## `id_field`: never folded, and the diagnostic carries the spec's own reason
+ *
+ * `@objectstack/spec`'s `FIELD_KEY_GUIDANCE` publishes an `id_field` row with a
+ * `why` and no `to`: a retirement, not a rename. So `id_field` is still never
+ * folded and nothing here reads an `idField`. What the row changes is the
+ * `no-declared-twin` diagnostic, which appends that `why`, read off the
+ * installed spec when the warning is emitted ({@link warnUnfoldableRetiredKey};
+ * objectui#7650). Two other ways of getting the sentence there were refused on
+ * the card, and neither refusal moves: quoting it from a local copy (a second
+ * copy of contract prose is the drift AGENTS.md #0.1 exists to stop), and
+ * reading it optionally with a local fallback (an invisible fallback that
+ * silently degrades on an older spec is this card's own defect class). The read
+ * is therefore unconditional: on a spec without the row it throws in dev rather
+ * than printing less.
  *
  * ## What this arm deliberately does NOT do
  *
@@ -276,7 +276,12 @@ type UnfoldableReason = 'no-declared-twin' | 'ambiguous-probe' | 'canonical-occu
  *     ⛔ the diagnostic deliberately does NOT offer a near match, for the same
  *     reason the fold does not — the spec's `lintAuthoredRecordKeys` falls
  *     through to a Levenshtein matcher, and a serve path that suggests a
- *     correction is one revision away from applying it.
+ *     correction is one revision away from applying it. For `id_field` alone
+ *     the line also carries the reason the spec publishes for that exact
+ *     spelling, `FIELD_KEY_GUIDANCE.id_field.why`, read unconditionally where
+ *     the line is built: the contract's own sentence about the key, not a near
+ *     match this path computed. The spec keys that row snake_case on purpose —
+ *     a `why` row matches only the exact authored spelling.
  *   - `ambiguous-probe` — two or more declared keys share the probe, so the
  *     fold refuses to choose. Unreachable against a spec with no collision;
  *     the pin that exercises it substitutes a colliding `FieldSchema`.
@@ -314,10 +319,16 @@ function warnUnfoldableRetiredKey(
   const owner = objectName ?? '(unknown object)';
   const memo = `${owner}:${named}:${key}:${reason}`;
   if (warnedUnfoldableSpelling.has(memo)) return;
+  // ⛔ No `?.` and no `??` here: a spec without the row throws before the memo
+  // is taken, rather than warning with less (objectui#7650).
+  const published =
+    reason === 'no-declared-twin' && key === 'id_field'
+      ? ` \`@objectstack/spec\`'s \`FIELD_KEY_GUIDANCE\` gives the reason: ${FIELD_KEY_GUIDANCE.id_field.why}`
+      : '';
   warnedUnfoldableSpelling.add(memo);
   console.warn(
     `[ObjectUI] Object \`${owner}\`, field \`${named}\`: the ingestion choke point CANNOT ` +
-      `canonicalize the retired spelling \`${key}\`. ${detail} The key and its value are LEFT ` +
+      `canonicalize the retired spelling \`${key}\`. ${detail}${published} The key and its value are LEFT ` +
       `on the def exactly as served — nothing is dropped here — but the consumers read only the ` +
       `spelling \`@objectstack/spec\`'s \`FieldSchema\` declares, so this value reaches no ` +
       `reader. Fix the PRODUCER, or migrate the stored document. (maintainer ruling item 3 on ` +

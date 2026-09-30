@@ -38,6 +38,21 @@
  * `open` and `submitHandler` stay out of the mirror on purpose (their routes are
  * open on objectui#6152; objectui#6182 rules out a string handler), and a row
  * holds them out so a later card cannot mirror them without that ruling.
+ *
+ * ## Since objectui#10859 batch 4: the faces take these members in the bag
+ *
+ * An AUTHORED `object-form` takes its props in the spec's `properties` bag,
+ * judged by `ComponentPropsMap['object-form']` by reference
+ * (`ObjectFormBlockSchema`); the flat spelling is refused by name. So the
+ * face rows below write each member in the bag. The mirror rows still read the
+ * flat mirror, which stays the node as `ObjectForm` reads it after the hoist.
+ *
+ * Three members — `buttons`, `defaults` and `subforms` — are the spec's
+ * FORM-VIEW members (`FormViewSchema`), not members of the `object-form` row,
+ * so the row refuses them in the bag. They still reach the renderer the way
+ * round 1 measured: relayed from an object's form view into the node by
+ * `ObjectView` / `RecordFormPage`, and through the object-view `form` slot,
+ * which is built from this mirror.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -50,8 +65,14 @@ import { AnyComponentSchema, StrictAnyComponentSchema } from '../zod/index.zod.j
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..', '..', '..');
 
-/** A minimal document both faces accept; every row below is a delta on it. */
-const BASE = { type: 'object-form', objectName: 'order', mode: 'create' } as const;
+/** A minimal AUTHORED document both faces accept; every face row below is a delta on its bag. */
+const BASE = { type: 'object-form', properties: { objectName: 'order', mode: 'create' } } as const;
+/** The same node as the renderer reads it after the hoist — what the mirror rows parse. */
+const FLAT_BASE = { type: 'object-form', objectName: 'order', mode: 'create' } as const;
+const withProp = (key: string, value: unknown) => ({ ...BASE, properties: { ...BASE.properties, [key]: value } });
+
+/** The spec's form-VIEW members: not members of `ComponentPropsMap['object-form']` (objectui#10859 batch 4). */
+const FORM_VIEW_ONLY = new Set(['buttons', 'defaults', 'subforms']);
 
 /** Each mirrored key: one authored value, and one value its declaration refuses. */
 const ROWS: ReadonlyArray<{ key: string; valid: unknown; wrong: unknown }> = [
@@ -93,16 +114,27 @@ describe('objectui#6152 round 1 — `object-form` members the mirror now declare
     expect(key in (ObjectFormMirror.shape as Record<string, unknown>)).toBe(true);
   });
 
-  it.each(ROWS)('an authored `$key` parses on the strict face and the tolerant face', ({ key, valid }) => {
-    const doc = { ...BASE, [key]: valid };
+  it.each(ROWS.filter(({ key }) => !FORM_VIEW_ONLY.has(key)))('an authored `$key` parses on the strict face and the tolerant face, in the bag', ({ key, valid }) => {
+    const doc = withProp(key, valid);
     const strict = StrictAnyComponentSchema.safeParse(doc);
     expect(strict.success, JSON.stringify(strict.error?.issues)).toBe(true);
     const tolerant = AnyComponentSchema.safeParse(doc);
     expect(tolerant.success, JSON.stringify(tolerant.error?.issues)).toBe(true);
   });
 
+  it.each(ROWS.filter(({ key }) => FORM_VIEW_ONLY.has(key)))('`$key` is a form-VIEW member: the row refuses it in the bag, and the object-view `form` slot takes it', ({ key, valid }) => {
+    for (const face of [StrictAnyComponentSchema, AnyComponentSchema]) {
+      const parsed = face.safeParse(withProp(key, valid));
+      expect(parsed.success).toBe(false);
+      expect(JSON.stringify(parsed.error?.issues)).toContain(`"${key}"`);
+    }
+    const view = { type: 'object-view', objectName: 'order', form: { [key]: valid } };
+    const strict = StrictAnyComponentSchema.safeParse(view);
+    expect(strict.success, JSON.stringify(strict.error?.issues)).toBe(true);
+  });
+
   it.each(ROWS)('a wrong-typed `$key` is refused at the key on the tolerant face', ({ key, wrong }) => {
-    const parsed = ObjectFormMirror.safeParse({ ...BASE, [key]: wrong });
+    const parsed = ObjectFormMirror.safeParse({ ...FLAT_BASE, [key]: wrong });
     expect(parsed.success).toBe(false);
     for (const issue of parsed.error?.issues ?? []) expect(issue.path[0]).toBe(key);
   });
@@ -116,15 +148,21 @@ describe('objectui#6152 round 1 — `object-form` members the mirror now declare
 
   it('a section is a closed shape on the strict face: an undeclared section key is named there', () => {
     // `className` is deliberately undeclared on `ObjectFormSection` (objectui#7200).
-    const strict = StrictAnyComponentSchema.safeParse({ ...BASE, sections: [{ name: 'a', className: 'p-4', fields: ['a'] }] });
+    // Read through the object-view `form` slot, which is built from this mirror.
+    // (On an authored `object-form` node the bag is the spec row, whose
+    // `sections` entries the spec types `unknown`, so the row does not judge a
+    // section's keys there — objectui#10859 batch 4.)
+    const view = { type: 'object-view', objectName: 'order', form: { sections: [{ name: 'a', className: 'p-4', fields: ['a'] }] } };
+    const strict = StrictAnyComponentSchema.safeParse(view);
     expect(strict.success).toBe(false);
     expect(JSON.stringify(strict.error?.issues)).toContain('"className"');
   });
 
   it('the catalog document objectui#5250 M3 charged with three of these keys now parses on the strict face', () => {
     const doc = JSON.parse(readFileSync(join(REPO_ROOT, 'examples/schema-catalog/src/schemas/plugin-form/object-form-tabbed-sections.json'), 'utf8'));
-    // Non-vacuity: the document really carries the keys this row is about.
-    expect(Object.keys(doc)).toEqual(expect.arrayContaining(['formType', 'defaultTab', 'sections']));
+    // Non-vacuity: the document really carries the keys this row is about, in
+    // its `properties` bag since objectui#10859 batch 4.
+    expect(Object.keys(doc.properties)).toEqual(expect.arrayContaining(['formType', 'defaultTab', 'sections']));
     const strict = StrictAnyComponentSchema.safeParse(doc);
     expect(strict.success, JSON.stringify(strict.error?.issues)).toBe(true);
   });

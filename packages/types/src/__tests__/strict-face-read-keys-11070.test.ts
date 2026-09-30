@@ -131,7 +131,9 @@ describe('objectui#11070 — the declared read keys parse on the strict face', (
   const BINDING = { object: 'task', filter: [{ field: 'project', operator: 'equals', value: 'acme' }] };
   const BOUND_NODES: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
     ['object-grid', { objectName: 'task' }],
-    ['object-form', { objectName: 'task', mode: 'edit' }],
+    // objectui#10859 batch 4: an authored `object-form` takes its props in the
+    // spec's `properties` bag; the flat spelling is refused by name.
+    ['object-form', { properties: { objectName: 'task', mode: 'edit' } }],
     // `objectName` on every node, deliberately: whether a binding's `object`
     // may stand in for the node's own required record source (as the spec's
     // props gate lets it on `element:number`) is a separate question from

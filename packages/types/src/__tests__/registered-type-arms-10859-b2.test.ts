@@ -350,11 +350,13 @@ describe('the spec-row arms read the row by reference (objectui#10859)', () => {
   it('each arm is reachable from AnyComponentSchema through its category union', () => {
     const literals = (union: { options: readonly { shape: { type: z.ZodLiteral<string> } }[] }) =>
       union.options.map((arm) => arm.shape.type.value);
-    // `object-timeline` joined the union in batch 3 (`object-timeline-arm-10859-b3.test.ts`).
+    // `object-timeline` joined the union in batch 3 (`object-timeline-arm-10859-b3.test.ts`),
+    // `object-form` in batch 4 (`object-form-properties-bag-10859-b4.test.ts`).
     expect(literals(ObjectQLPublicBlockComponentSchema)).toEqual([
       'object-metric',
       'object-master-detail-form',
       'object-timeline',
+      'object-form',
     ]);
     expect(literals(DataDisplaySchema)).toContain('pivot');
   });

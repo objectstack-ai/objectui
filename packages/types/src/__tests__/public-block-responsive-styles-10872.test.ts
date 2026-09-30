@@ -103,6 +103,10 @@ const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set([
   'object-metric',
   'object-master-detail-form',
   'object-timeline',
+  // objectui#10859 batch 4: the `object-form` arm moved here from
+  // `ObjectQLComponentSchema`, carrying the binding its flat mirror has
+  // declared since objectui#11070.
+  'object-form',
 ]);
 
 /** The five envelope keys the spec declares and this batch leaves undeclared. */

@@ -114,6 +114,9 @@ type Mirror = {
  */
 const ROWS: ReadonlyArray<readonly [type: string, mirror: Mirror, required: Record<string, unknown>]> = [
   ['object-grid', ObjectGridMirror as unknown as Mirror, { objectName: 'account' }],
+  // The flat mirror is the node as `ObjectForm` reads it after the `properties`
+  // hoist; the AUTHORED node takes the same members in the bag
+  // (`AUTHORED_REQUIRED` below, objectui#10859 batch 4).
   ['object-form', ObjectFormMirror as unknown as Mirror, { objectName: 'account', mode: 'create' }],
   ['object-kanban', ObjectKanbanMirror as unknown as Mirror, { objectName: 'account' }],
   ['object-map', ObjectMapMirror as unknown as Mirror, { objectName: 'account' }],
@@ -126,6 +129,16 @@ const ROWS: ReadonlyArray<readonly [type: string, mirror: Mirror, required: Reco
   ['email', InputShorthandMirror as unknown as Mirror, {}],
   ['password', InputShorthandMirror as unknown as Mirror, {}],
 ];
+
+/**
+ * The authored spelling of a row's required members, where it differs from the
+ * mirror's: an authored `object-form` takes its props in the spec's
+ * `properties` bag, and `AnyComponentSchema` refuses them flat (objectui#10859
+ * batch 4). The mirror rows above keep the post-hoist spelling.
+ */
+const AUTHORED_REQUIRED: Readonly<Record<string, Record<string, unknown>>> = {
+  'object-form': { properties: { objectName: 'account', mode: 'create' } },
+};
 
 const CHANNELS = ['body', 'children'] as const;
 const CONTENT = [{ type: 'text', content: 'measured' }];
@@ -172,7 +185,8 @@ describe('objectui#9256 E3 residual — both content channels are refused where 
     }
   });
 
-  it.each(CASES)('%s — the refusal reaches the node through `AnyComponentSchema`, not only its own arm', (_label, type, _mirror, key, required) => {
+  it.each(CASES)('%s — the refusal reaches the node through `AnyComponentSchema`, not only its own arm', (_label, type, _mirror, key, mirrorRequired) => {
+    const required = AUTHORED_REQUIRED[type] ?? mirrorRequired;
     expect(AnyComponentSchema.safeParse({ ...required, type }).success).toBe(true);
     expect(AnyComponentSchema.safeParse({ ...required, type, [key]: CONTENT }).success).toBe(false);
   });

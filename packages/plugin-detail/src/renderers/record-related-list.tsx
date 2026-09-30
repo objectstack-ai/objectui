@@ -14,10 +14,13 @@
 import React from 'react';
 import {
   ElementDataSourceGate,
+  useActionTextLocalizer,
+  useMetadataItem,
   useRecordContext,
   useSafeFieldLabel,
   useRelatedRecordActions,
   type ElementDataSourceMapping,
+  type RelatedRowActionDef,
 } from '@object-ui/react';
 import { useFieldPermissions, usePermissions } from '@object-ui/permissions';
 import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
@@ -30,6 +33,12 @@ import {
 import type { RecordRelatedListComponentProps } from '@object-ui/types';
 import { RelatedList } from '../RelatedList';
 import { useRecordAriaProps } from './recordComponentAria';
+import {
+  describeRelatedListActionRefusals,
+  placeAuthoredRelatedListActions,
+  relatedListActionsNeedLookup,
+  type PlacedRelatedListActions,
+} from './relatedListActions';
 
 /**
  * Normalize a column entry (string | {field} | {name} | {key}) to its name.
@@ -215,6 +224,74 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
     [relatedActions, objectName, schema.relationshipField, parentLinkValue],
   );
 
+  /**
+   * `actions` — the authored action ids, READ (objectui#11163; the maintainer's
+   * ENFORCE ruling on objectstack-ai/objectstack#20665). The key was declared
+   * and published with no read site, so an authored list changed nothing.
+   *
+   * THE COMPOSITION RULE, with the host bridge the handlers above come from:
+   *
+   *   - ABSENT → the host's actions, untouched (`handlers.toolbarActions` /
+   *     `handlers.rowActions`, the child object's `list_toolbar` /
+   *     `list_item` actions), and no metadata lookup is made for this key.
+   *   - AUTHORED → the authored list is what renders, in authored order:
+   *     each id resolves against the RELATED object's registered `actions`
+   *     and is placed by its own `locations` (see `relatedListActions.ts`).
+   *     `[]` is the author's choice of no actions.
+   *
+   * The bridge offers no per-list channel of its own — `resolve` is keyed on
+   * the child OBJECT (`objectName`, `relationshipField`, `parentId`), so two
+   * lists of one object get one set — which is why this key is the per-list
+   * one rather than a duplicate of it. Built-in New / Edit / Delete / View are
+   * NOT action ids (the runtime ships no built-in action names) and stay the
+   * host's either way. Running an authored action stays the host's too: it is
+   * handed to the bridge's `onToolbarAction` / `onRowAction`, the executor
+   * that already runs the child object's actions against the clicked row, so
+   * with no host the list stays read-only exactly as it always has.
+   *
+   * The lookup is `useMetadataItem('object', …)`, the entry
+   * `record:quick_actions.actionNames` and `page:header.actions` resolve
+   * through, requested only when there is an id to resolve (`null` is its
+   * documented no-op). Called here, with the other hooks, because the early
+   * returns below would otherwise change the hook count.
+   */
+  const authoredActions: unknown = schema.actions;
+  const actionsAuthored = authoredActions !== undefined;
+  const needsActionLookup = !!objectName && relatedListActionsNeedLookup(authoredActions);
+  const { item: relatedObjectMeta, loading: relatedObjectMetaLoading } = useMetadataItem(
+    'object',
+    needsActionLookup ? objectName : null,
+  );
+  const localizeActionTexts = useActionTextLocalizer();
+  const placedActions = React.useMemo((): PlacedRelatedListActions<RelatedRowActionDef> | null => {
+    if (!actionsAuthored) return null;
+    // In flight: nothing is drawn and nothing is refused yet — refusing here
+    // would name an id on every first paint that the lookup is about to find.
+    if (needsActionLookup && relatedObjectMetaLoading) return { toolbar: [], row: [], refused: [] };
+    const registered: RelatedRowActionDef[] = Array.isArray(relatedObjectMeta?.actions)
+      ? (relatedObjectMeta.actions as RelatedRowActionDef[])
+      : [];
+    const placed = placeAuthoredRelatedListActions<RelatedRowActionDef>(authoredActions, registered);
+    // Localized once, before the defs reach the list, so the button and the
+    // dialog the host runs from the SAME def read one bundle entry
+    // (objectui#4265) — the resolver the bridge applies to its own defaults.
+    const localize = (a: RelatedRowActionDef) =>
+      localizeActionTexts(objectName || undefined, a) as RelatedRowActionDef;
+    return {
+      toolbar: placed.toolbar.map(localize),
+      row: placed.row.map(localize),
+      refused: placed.refused,
+    };
+  }, [
+    actionsAuthored,
+    authoredActions,
+    needsActionLookup,
+    relatedObjectMeta,
+    relatedObjectMetaLoading,
+    objectName,
+    localizeActionTexts,
+  ]);
+
   // Missing objectName renders a designer placeholder — checked AFTER the hooks
   // above so hook order stays stable across renders.
   if (!objectName) {
@@ -331,8 +408,37 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
     });
   }
 
+  // The actions the list draws — see `placedActions` above for the rule. An
+  // authored surface is handed down only beside the host's executor for it:
+  // an action offered with nothing to run it would be a dead button.
+  const toolbarActions = placedActions
+    ? handlers?.onToolbarAction && placedActions.toolbar.length > 0
+      ? placedActions.toolbar
+      : undefined
+    : handlers?.toolbarActions;
+  const rowActions = placedActions
+    ? handlers?.onRowAction && placedActions.row.length > 0
+      ? placedActions.row
+      : undefined
+    : handlers?.rowActions;
+  const refusedActions = placedActions?.refused ?? [];
+
   return (
     <div className={className} {...designer} {...ariaProps}>
+      {refusedActions.length > 0 && (
+        // The author-visible refusal the ruling asks for: an authored entry
+        // this list cannot draw is named here, where the lookup answered,
+        // never dropped without a word. Beside the list, not in place of it —
+        // the entries that did resolve still render.
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="record-related-list-actions-refused"
+          className="mb-2 text-xs text-muted-foreground italic px-3 py-2 border border-dashed rounded"
+        >
+          {describeRelatedListActionRefusals(refusedActions, objectName, !!relatedObjectMeta)}
+        </div>
+      )}
       <RelatedList
         title={title}
         type="table"
@@ -380,9 +486,9 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
               }
             : undefined
         }
-        rowActions={handlers?.rowActions}
+        rowActions={rowActions}
         onRowAction={handlers?.onRowAction}
-        toolbarActions={handlers?.toolbarActions}
+        toolbarActions={toolbarActions}
         onToolbarAction={handlers?.onToolbarAction}
         // Create a new child, pre-linked to this parent (增). Host omits when
         // create is denied by lifecycle/permissions, hiding the "New" button.

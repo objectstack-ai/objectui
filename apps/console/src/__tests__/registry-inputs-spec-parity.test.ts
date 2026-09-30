@@ -2413,6 +2413,11 @@ const MULTI_KIND_MEMBER_CONTRACTS: Record<string, string> = {
 // member shape, and fixing it is an ADR-0049 enforce-or-remove decision the spec
 // owns. See `NO_READ_SITE_TO_PIN`.
 //
+// ⭐ objectui#11163 CLOSED IT, in the direction the spec's owner chose: the
+// maintainer ruled ENFORCE on objectstack-ai/objectstack#20665, the renderer
+// reads `schema.actions`, and the key's member pin is registered above.
+// `NO_READ_SITE_TO_PIN` was deleted with its one entry.
+//
 // ⭐ THIRD SLICE, AND THE FIRST BLOCK LEFT WITH NO EXEMPTIONS AT ALL.
 // objectui#8071's third slice converted the four remaining keys of
 // `element:record_picker` — `dataSource`, `label`, `placeholder` and `sort` —
@@ -3012,6 +3017,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-detail/src/renderers/__tests__/record-quick-actions.requiredPermissions-gate.test.tsx',
     pins: 'The BLOCK-LEVEL gate (`required.every((p) => perms.can(objectName, p))`) that hides the whole bar before any action is drawn — distinct from an `ActionDef`\'s own per-action `requiredPermissions`, which `record-quick-actions.declared-action-ids-7182.test.tsx`\'s `gated` fixture already covers. No key at all: the bar renders on the (empty) grant set, so the gate is provably driven by the key\'s PRESENCE. A single held permission gates as expected, and the discriminating row is a PARTIAL grant on a two-entry array — gated only when read as `.every` over the WHOLE array rather than its first element — with the all-granted case as that row\'s own positive control. New file: no existing test drove `schema.requiredPermissions` itself, only the unrelated per-action field of the same name (objectui#8071).',
   },
+  'record:related_list.actions': {
+    file: 'packages/plugin-detail/src/__tests__/RecordRelatedListRenderer.authoredActions-11163.test.tsx',
+    pins: 'Members are action-id STRINGS resolved against the RELATED object\'s own `actions` — the `useMetadataItem` + `resolveDeclaredActionIds` lookup `record:quick_actions.actionNames` resolves through — and placed by each action\'s own `locations`, read through the real `SchemaRenderer`, this block\'s registration, the real `RelatedList` and the real data table. An authored list renders IN AUTHORED ORDER (`list_toolbar` members as header buttons, `list_item` members in each row\'s menu, one list feeding both) and REPLACES the host bridge\'s default rather than adding to it; an ABSENT key leaves the bridge\'s actions exactly as they were and makes no lookup at all (the control); `[]` draws none while the built-in New stays, because New is not an action id; and an authored action runs through the host\'s executor with its resolved definition. The refusals are member facts too: an id the registry cannot resolve and an id whose action declares neither list location are each named in a `role="status"` notice while the resolvable members still render, an array of inline action objects is refused whole, nothing is refused while the lookup is in flight, and with no host the list stays read-only while a bad id is still refused, so the refusal is the registry\'s and not the host\'s. New file (objectui#11163, the ENFORCE ruling on objectstack#20665), replacing the `NO_READ_SITE_TO_PIN` exemption this key carried since objectui#8071 slice 2.',
+  },
   'record:related_list.add': {
     file: 'packages/plugin-detail/src/__tests__/recordRelatedListInputs.spec-parity.test.ts',
     pins: 'Every spec member key of `add` must be discoverable from its description, the published defaults must be the RENDERER\'s rather than the spec\'s prose, and `picker.filter` must be documented as a real restriction (objectui#3808).',
@@ -3079,47 +3088,16 @@ const AWAITING_A_PIN_NEWLY_JUDGED =
   'so this is a correction to the measured population and not a newly added array key. ' +
   'objectui#8071 owns writing the pin; delete this entry in the same change that registers it.';
 
-/**
- * The reason a key carries when there is no read site for a pin to constrain.
- *
- * The `Record<string, string>` shape exists for exactly this: a key that needs a
- * DIFFERENT reason gets its own string rather than a second mechanism.
- * `AWAITING_A_PIN` says "objectui#8071 owns writing the pin", and for this key
- * that sentence would be FALSE in a way nothing else here could report — a
- * member pin constrains the shape the RENDERER READS (objectui#8068's
- * criterion), and this key is not read at all.
- *
- * Measured on `record:related_list.actions` while writing slice 2's four pins:
- * `renderers/record-related-list.tsx` never touches `schema.actions`, and the
- * row actions it does render come from `useRelatedRecordActions()` — the HOST's
- * bridge, keyed on the child object, not on this array. The declaration
- * (`type: 'array', of: 'string'`, "Action IDs available for related records")
- * and the spec key `RecordRelatedListProps.actions` therefore both publish an
- * authoring surface that changes nothing: no diagnostic, no `unknown-prop`, and
- * a page that behaves identically with the key and without it.
- *
- * ⛔ NOT convertible by writing a better test. The honest pin available today is
- * "this key is dead", which is a pin on CURRENT behaviour whose whole content is
- * that the contract is wrong — and whether that is fixed by giving the key a
- * read site or by retiring it is an ADR-0049 enforce-or-remove question the SPEC
- * owns, not one a renderer-side member pin should settle.
- *
- * NOT filed as a card of its own, deliberately: objectui#7300 is open on the
- * same mechanism from the other side — a page cannot declare its related lists
- * read-only BECAUSE the affordances are host-resolved from the child object
- * rather than from the node. This key is what that mechanism looks like on the
- * authoring surface, so it belongs to that decision rather than beside it. This
- * entry moves when it lands, in whichever direction it lands.
- */
-const NO_READ_SITE_TO_PIN =
-  'No member pin is possible: nothing reads this key. A member pin constrains the shape the ' +
-  'RENDERER reads (objectui#8068), and `renderers/record-related-list.tsx` never touches ' +
-  '`schema.actions` — the row/toolbar actions it renders come from the host bridge ' +
-  '`useRelatedRecordActions()`, keyed on the child object. Declared by the registration AND by ' +
-  'the spec (`RecordRelatedListProps.actions`) while changing nothing that renders. Measured by ' +
-  'objectui#8071 slice 2; the fix is an ADR-0049 enforce-or-remove decision the spec owns ' +
-  '(give the key a read site, or retire it), not a pin. Same mechanism as objectui#7300, which ' +
-  'is open on the affordance side of it.';
+// `NO_READ_SITE_TO_PIN` — the reason `record:related_list.actions` carried from
+// objectui#8071 slice 2 ("No member pin is possible: nothing reads this key")
+// — was DELETED by objectui#11163 together with its one entry. The maintainer
+// ruled ENFORCE on objectstack-ai/objectstack#20665 (batch #247, 「业务上需要支持，
+// ENFORCE」): `renderers/record-related-list.tsx` now reads `schema.actions`, so
+// the key has the read site the constant said it lacked, and its member pin is
+// registered in `MEMBER_PINS`. A reason no entry carries is a claim nothing
+// checks, the same ground `AWAITING_A_PIN` went on. The docblocks further down
+// still name it in their per-slice history; read those mentions as the retired
+// constant.
 
 /**
  * Array/object-armed inputs accepted WITHOUT a member pin for now, each with the
@@ -3201,9 +3179,11 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // this header stays only as a note for the next reader who greps for it.
 
   // record:related_list — objectui#8071 slice 2 pinned `columns`, `dataSource`,
-  // `filter` and `sort`. `actions` is the one left, and it is left for a
-  // DIFFERENT reason: see the constant.
-  'record:related_list.actions': NO_READ_SITE_TO_PIN,
+  // `filter` and `sort`; objectui#11163 pinned `actions`, the key that was left
+  // for a reason of its own (no read site) until the ENFORCE ruling on
+  // objectstack-ai/objectstack#20665 gave it one. The block is now fully
+  // pinned, and this header stays only as a note for the next reader who
+  // greps for it.
 
   // object-calendar — objectui#8176 brought both `calendar` and `dataSource`
   // into this population (see `NEWLY_JUDGED_UNPINNED_MEMBERS`'s docblock);
@@ -4027,8 +4007,20 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
  * and deleted their two booked entries, so the ceiling follows the list down
  * in the same change. The four left are the `element:*` bookings, owed by the
  * card's later slices.
+ *
+ * ## 5 -> 4 (objectui#11163) — `record:related_list.actions` gets its read site
+ *
+ * The one unit that was not a booking — the `NO_READ_SITE_TO_PIN` key slice 18
+ * left as this constant's whole remainder — moved the way its reason said it
+ * would: with the enforce-or-remove decision the spec owns. The maintainer ruled
+ * ENFORCE on objectstack-ai/objectstack#20665, `renderers/record-related-list.tsx`
+ * reads the key, and the pin is registered. -1 exemption, -1 ceiling, +1 pin;
+ * the constant is deleted with its entry. ⚠️ Not 1 -> 0 as the card was written:
+ * the objectui#11111 bookings above landed between the card and this change, so
+ * the four `element:*` units owed to objectui#11168 are what remain, and they
+ * move only with that card.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 5;
+const MEMBER_PIN_EXEMPTION_CEILING = 4;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.

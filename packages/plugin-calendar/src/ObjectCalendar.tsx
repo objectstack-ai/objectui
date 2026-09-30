@@ -1005,25 +1005,17 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // CLOSED, not open — do not re-open it as a cleanup. If bucket-vocabulary
   // unification ever becomes a product direction that is a fresh ruling,
   // with visual-regression evidence across all four surfaces in one stroke.
-  // ⛔ The ONE cast objectui#8651 left standing, deliberately. `navigation` is
-  // objectui#8652's key: the maintainer ruled B there — declare it on the
-  // platform element schemas first, then mirror — and that card waited on
-  // objectstack `e233db9db`, which `@objectstack/spec` 17.5.0 ships: the
-  // `object-calendar` element entry declares `navigation` since that release
-  // (objectui#11073 measured it), so the unlock criterion is met and the
-  // mirroring is that card's next step. Its declaredness verdict at this read site is
-  // UNCHANGED by this card: through the retired union it was undeclared too,
-  // and it is undeclared on `ObjectCalendarSchema`. The rule that makes that
-  // come out right is NOT "declared on every arm". In the checker reading
-  // recorded above, five keys ride the union although only ONE arm declares
-  // them — `colorField`, `dateField`, `defaultView`, `endField` and
-  // `titleField` — because `ObjectGridSchema`'s index signature supplies them.
-  // The rule is: a union
-  // member is available only when EVERY arm supplies it — by its own
-  // declaration OR through an applicable index signature. `CalendarSchema` has
-  // neither for `navigation`, so the union does not carry it. Ledgered by name, and
-  // asserted to be STILL READ, in `__tests__/calendarUnionReads-8651.test.tsx`.
-  const navConfig = (schema as any).navigation ?? { mode: 'drawer' };
+  // `navigation` is DECLARED on `ObjectCalendarSchema` since objectui#8652 —
+  // the maintainer ruled B there (declare it on the platform element schema
+  // first, then mirror), and `@objectstack/spec` 17.5.0's `object-calendar`
+  // element entry is that first half. So the `as any` objectui#8651 left
+  // standing on this one read is gone: the value is the spec's
+  // `NavigationConfig`, judged at authoring time on both published faces. The
+  // `{ mode: 'drawer' }` fallback is this renderer's own default for an ABSENT
+  // key, documented on the declaration rather than declared, so a parsed
+  // calendar carries the key only when the author wrote it. The members this
+  // read honours are pinned in `__tests__/calendarNavigationMembers-8652.test.tsx`.
+  const navConfig = schema.navigation ?? { mode: 'drawer' };
   const navIsOverlay = navConfig.mode === 'drawer' || navConfig.mode === 'modal' || navConfig.mode === 'split' || navConfig.mode === 'popover';
   const navigation = useNavigationOverlay({
     navigation: navConfig,

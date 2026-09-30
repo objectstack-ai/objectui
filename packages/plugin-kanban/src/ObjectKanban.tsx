@@ -1265,20 +1265,18 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   // CLOSED, not open — do not re-open it as a cleanup. If bucket-vocabulary
   // unification ever becomes a product direction that is a fresh ruling,
   // with visual-regression evidence across all four surfaces in one stroke.
-  // ⚠️ `navigation` was DECLARED on `KanbanSchema` by objectui#7742 (gantt
-  // precedent objectui#5903). That arm RETIRED with the bare `kanban` node key
-  // (objectui#8802), and the surviving `ObjectKanbanSchema` face never declared
-  // the key — so on an `object-kanban` document this read has ALWAYS ridden
-  // `BaseSchema`'s `[key: string]: any`. ⛔ This line used to name a companion
-  // key here — 「exactly as `filter` does」 — and that comparison was false
-  // when it was written: `filter` had been a declared member of
-  // `ObjectKanbanSchema` for 26 hours by then (objectui#8174). Ask
-  // `ObjectKanbanSchema` about any other key, ⛔ never a neighbouring comment
-  // (objectui#9726). ⛔ Nothing about an `object-kanban` board changed here;
-  // what went is the only face that ever declared the key, and it only ever
-  // judged `kanban` documents.
-  // The designer face still declares it — `OBJECT_KANBAN_INPUTS` (`index.tsx`).
-  // Reported on the retirement PR as a follow-up for the `object-kanban` face.
+  // `navigation` is DECLARED on `ObjectKanbanSchema` since objectui#8652 — the
+  // maintainer ruled B there (declare it on the platform element schema first,
+  // then mirror), and `@objectstack/spec` 17.5.0's `object-kanban` element
+  // entry is that first half. Until then this read rode `BaseSchema`'s
+  // `[key: string]: any` on every `object-kanban` document: the only face that
+  // had ever declared the key was the retired `kanban` arm's `KanbanSchema`
+  // (objectui#7742, gone with objectui#8802), and it only ever judged `kanban`
+  // documents. The registration `inputs` publish it too (`OBJECT_KANBAN_INPUTS`,
+  // `index.tsx`). The `{ mode: 'drawer' }` fallback is this renderer's own
+  // default for an ABSENT key, documented on the declaration rather than
+  // declared. The members this read honours are pinned in
+  // `__tests__/kanbanNavigationMembers-8652.test.tsx`.
   const navConfig = schema.navigation ?? { mode: 'drawer' };
   // When this kanban is embedded in an ObjectView, the parent provides
   // `onRowClick`/`onCardClick` and owns the unified record-detail overlay.

@@ -619,6 +619,19 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
  * stays documented rather than declared. An unrecognised probe key draws
  * `unrecognized_keys` on these calls while none of the declared keys does.
  *
+ * ## `navigation` — objectui#8652 (maintainer ruling 「B」)
+ *
+ * The spec declares it on this element from 17.5.0 — the platform half of
+ * the ruling, which the 17.5.0 bump booked as OWED to objectui#8652 rather than
+ * declaring (objectui#11111 decision 3 = B). This entry is the objectui half,
+ * together with the `ObjectKanbanSchema` member in `@object-ui/types`. The
+ * board honours the block through `useNavigationOverlay`, member by member —
+ * an overlay `mode`, `new_window`, `none`, `preventNavigation`, `openNewTab`
+ * and `size` — and the description states the one value it does NOT honour
+ * on its own: `page` needs a parent view to navigate for it, and it is also
+ * what a block without `mode` resolves to. Members pinned in
+ * `__tests__/kanbanNavigationMembers-8652.test.tsx`.
+ *
  * ## What is deliberately NOT here
  *
  * `quickAdd`, the fifteenth key, is RETIRED rather than undeclared-pending
@@ -657,7 +670,7 @@ const OBJECT_KANBAN_INPUTS: ComponentInput[] = [
   { name: 'data', type: 'array', description: 'Inline records to render instead of fetching. Authoring it SUPPRESSES the board’s own query entirely. Members are records: the board reads `id` (or `_id`) as the card identity, the `groupBy` field’s value as the lane, the card-title field, `coverImageField`, and every `cardFields` entry. Records handed down by a parent view and a `bind` expression both take priority over it.' },
   { name: 'cardFields', type: 'array', description: 'Record field NAMES rendered as cells on each card, in the order written. Members are bare names, not entry objects. An explicit list wins over the object’s `highlightFields` role; unlike that fallback it is NOT filtered against the object definition, so a name the object no longer declares simply renders no cell. An empty array reads as omitted.' },
   { name: 'grouping', type: 'object', description: 'Only `grouping.fields[0].field` is read, and only as the FALLBACK for `swimlaneField`: it names the record field that splits the board into horizontal swimlanes when no `swimlaneField` is authored. An explicit `swimlaneField` wins. Every other position inside `grouping`, later `fields` entries included, is inert on this board.' },
-  { name: 'conditionalFormatting', type: 'array', description: 'Per-card style rules, each evaluated against that card’s own record. Two member dialects are accepted: the native `{ field, operator, value, backgroundColor?, borderColor? }` and the spec CEL `{ condition, backgroundColor?, borderColor? }`. A matching rule colours that card alone. A rule comparing a relation field sees the stored foreign key rather than the expanded record.' },
+  { name: 'conditionalFormatting', type: 'array', description: 'Per-card style rules, each evaluated against that card’s own record. Two member dialects are accepted: the native `{ field, operator, value, backgroundColor?, borderColor? }` and the spec CEL `{ condition, backgroundColor?, borderColor? }`. A matching rule colours that card alone. A rule comparing a relation field sees the stored foreign key rather than the expanded record.' },  { name: 'navigation', type: 'object', description: 'What a card click opens — the `{ mode, size, openNewTab, preventNavigation }` block a list view declares. With the key ABSENT a click opens the record in a drawer. `mode` is an overlay (`drawer`, `modal`, `split`, `popover`), `new_window`, `page` or `none`; write it whenever the block is written, because a block without `mode` takes the spec’s `page` default and `page` opens nothing on a board no parent view navigates for. `openNewTab: true` opens the record page in a new tab and outranks the mode, `preventNavigation: true` opens nothing, and `size` sets the overlay width. A click handler from a parent view outranks the whole key.' },
 ];
 
 ComponentRegistry.register(

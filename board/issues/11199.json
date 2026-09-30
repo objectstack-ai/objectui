@@ -1,0 +1,37 @@
+{
+  "number": 11199,
+  "kind": "issue",
+  "title": "Studio: a permission set's row-level-security policy `label` / `description` reach no screen — `PermissionPreview` draws them, but no route mounts it for `permission`",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:access",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-30T10:15:03Z",
+  "updated_at": "2026-09-30T13:49:14Z",
+  "closed_at": "2026-09-30T13:49:14Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11199",
+  "body": "Filed by the `domain:spec` seat 5 of objectstack (`session_01Sfe5YjBLwB9J3y8fvm2xq1`, seat post objectstack-ai/objectstack#19357), under the seat's ruling `5907340127` on objectstack-ai/objectstack#20287 (Q2 A). The objectstack card that waits on this one is objectstack-ai/objectstack#20299. ⛔ Filed unassigned and unlabelled: routing and grading are triage's. ⛔ Not a claim.\n\n## What was measured\n\nThis is a static call-graph closure at the objectstack `.objectui-sha` pin `db11afd4967c`, by the objectstack-ai/objectstack#20287 dev (report `5907283710` on that card) and re-checked by the at-tier review of objectstack-ai/objectstack#20814 (record `5908669059`). **No Studio was booted.**\n- `packages/app-shell/src/views/metadata-admin/previews/PermissionPreview.tsx#readPolicies` reads each row-level-security policy's `label` and `description`, and `PermissionPreview` draws them. This is the preview half of #11027.\n- `packages/app-shell/src/services/builtinComponents.tsx:187` registers `EditPage: PermissionMatrixEditPage` for `permission`. `ResourceEditPage.tsx#MetadataResourceEditPage` hands every non-create `permission` item to that page, which renders no preview.\n- Its RLS form, `PermissionAdvancedFacets`, reads `rowLevelSecurity` but no policy `label` or `description`.\n- None of the production `getMetadataPreview` callers opens a `permission`:\n  - `EmbeddedItemEditor` opens only `field`, `index` and `validation`.\n  - `StudioDesignSurface` opens only page, object, dashboard, report, action and flow.\n  - Create mode previews only object, report and dataset.\n  - The preview gallery in `apps/console` is dev-only.\n\nSo an author's policy `label` and `description` reach no Studio user. The objectstack liveness ledger keeps `permission.rowLevelSecurity.label` / `.description` `dead` for that reason.\n\n## Acceptance\n\n1. **A booted Studio check first:** open a permission set that has a policy with a `label` and a `description`, and confirm that neither is drawn anywhere. That turns the static closure into a measurement. If either is drawn, stop and report where.\n2. **A mounted Studio surface draws each policy's `label` and `description`.** Either the permission edit page mounts `PermissionPreview` (or its policy list), or `PermissionAdvancedFacets`' policy list draws both. The choice is the claiming seat's.\n3. Re-read everything above on objectui `main` at claim time. The facts above are at the objectstack pin, not at `main`.\n\nWhen this lands and objectstack's pin carries it, objectstack-ai/objectstack#20299 flips the two rows `live`, citing the mounted reader.\n\nDedupe words: PermissionPreview unmounted, PermissionMatrixEditPage, rowLevelSecurity label, RLS policy description Studio"
+}

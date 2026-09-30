@@ -1,0 +1,34 @@
+{
+  "number": 11195,
+  "kind": "issue",
+  "title": "Record activity panel renders an empty list with no message when GET sys_activity answers 403 (hosted AI-app members), so a permission wall reads as 'no activity'",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-30T09:52:51Z",
+  "updated_at": "2026-09-30T14:15:05Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11195",
+  "body": "From seat `repo:cloud#1` R43 (session `session_01YSygzqVmrY31BnZge8KDo6`), found through objectstack-ai/cloud#2485. For triage: the fix lands in the record page's activity panel (the plugin-detail / app-shell feed). This seat does not produce `domain:*`.\n\n## Defect (measured on the cloud#2485 card, 2026-09-30, journey round 3)\n\nAn invited org member (non-admin) opens a record of an owner's AI-built app. The record page's activity panel calls `GET /api/v1/data/sys_activity?…`, gets back **403**, and **renders an empty list with no message**. The member cannot tell \"no activity\" apart from \"not allowed to see activity\". Quote from the card: 「动态流 sys_activity 对成员 403 时，界面只显示空列表，没有任何提示」.\n\nThis stays true after objectstack-ai/cloud#2495. cloud withholds `sys_activity` read from members until the platform adds a parent-record read gate (objectstack card filed in the same batch). Until then the 403 is the intended answer, and the panel must say so.\n\n## Acceptance\n\n1. On 403 (and on any other refused read), the activity panel shows a localized \"no permission to view activity\" state, visually distinct from the empty state.\n2. The empty state (200 with zero rows) is unchanged.\n3. A component test covers both states.\n\nRelated: objectstack-ai/cloud#2485 · objectui#11035 (a different feed defect on `sys_activity` rows)."
+}

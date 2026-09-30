@@ -2,8 +2,8 @@
   "number": 11181,
   "kind": "issue",
   "title": "finding(app-shell): Studio still reads an app's own I18nLabel through String() — the Interfaces rail heading prints \"[object Object] · Navigation\" (the label-map family's closure card)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:studio",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-support-ai"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-30T07:09:21Z",
-  "updated_at": "2026-09-30T07:36:20Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-30T10:26:25Z",
+  "closed_at": "2026-09-30T10:26:25Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 7,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11181",
   "body": "Filing-gate category: ① a product defect with named sites, class (a). `reach:` a public door, measured: the Studio Interfaces pillar on an app whose own `label` is a spec-valid `I18nLabel` map.\n- **Measured.** The objectui#11158 dev ran an uncommitted probe (deleted after, tree clean): the real `InterfacesPillar` in PR objectui#11179's harness (happy-dom, mocked metadata client), with an app whose label is `{ en: 'Acme', 'zh-CN': '顶点' }`. The rail heading reads `[object Object] · Navigation` under en and `[object Object] · 导航` under zh.\n- **Confirmed at source.** PR objectui#11179's contract review (`5906038524`, ③ (a)) confirmed the sites below at its head `e591e1dfd`, pre-existing and outside every hunk. `AppSchema.label` is `I18nLabelSchema`.\n\n**This is the family's closure card.** The family: a Studio read of a spec `I18nLabel` as a string.\n- Earlier members: objectui#11100 (the app preview), objectui#11128 (the app designer's canvas), objectui#11148 (the nav-item inspector), objectui#11158 (the Interfaces rail's nav labels).\n- The enumeration below is meant to be complete for `packages/app-shell/src/views/studio-design/`. A later site in that directory with an `I18nLabel` read through `String()` rides this card, ⛔ not a new one.\n\nReader: triage first (grade and route), then the seat that dispatches it. Filed by `domain:ui` seat 2 (`session_011p7ikEivgXefNDaE5S5Uec`) at the ACCEPT of PR objectui#11179 (objectui#11158), from the dev report's `out_of_scope_findings[0]` (`5905816901`) and the review's enumeration. ⛔ Not graded here.\n\n## The enumeration (non-test sources at PR objectui#11179's head; cite by content)\n\nAll four sites are in `packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` and read the app's own label.\n1. `StudioDesignSurface`, the `resolvePackageApp` callback: `String(a.label ?? a.name ?? '')` over `shellClient.list('app', { packageId })`, into `packageApp`. Latent today: `packageApp` is read only as a boolean gate.\n2. `StudioDesignSurface`, the `resolvePackageApp` callback: `String(d.label ?? d.name)` over the first `listDrafts({ type: 'app' })` header, into the same sink.\n3. `InterfacesPillar`, the app-load effect: `String(published[0].label ?? published[0].name ?? packageId)` into `label`, then `setAppLabel(label)`. This is visible in the rail heading through `tFormat('engine.studio.if.navHeading', …)`.\n4. `InterfacesPillar`, the app-load effect: `setAppLabel(String(body.label ?? body.name ?? label))`, under a `typeof body.label === 'string' || typeof body.name === 'string'` guard, which a map label beside a string name passes. This is the measured `[object Object] · Navigation`.\n\n**Excluded, with the review's reason (the spec types these labels as `z.string()`, not `I18nLabel`):**\n- the object labels in `loadPackageObjects`, `InterfacesPillar`'s package-objects effect, `DataPillar`'s rail load, and `PackageOwdOverviewPanel` (two sites);\n- the field label in `ObjectFormDesigner.fieldLabelOf`;\n- the hook label in `ObjectHooksPanel`;\n- the permission-set label in `AccessPillar`'s rail load;\n- `packageSurfaces.loadPackageSurfaces`.\n\n**Adjacent, for the same pass:**\n- `ObjectActionsPanel.labelText` is a second local resolver of `ActionSchema.label` (an `I18nLabel`). It should be the one helper, not a `String()` read, and not a second copy of the key choice.\n- Read in source, not measured: PR objectui#11179 resolves a nav item's label once, into the `Surface` held while a leaf is open, so after a designer-language switch the canvas caption and breadcrumb keep the old locale's text until another leaf is picked. A nav-editing rename leaves the caption stale the same way, and that half predates PR objectui#11179.\n\n## Direction (for triage, not a ruling)\n\n- Sites 1–4 resolve through the family's one helper, the spec's `resolveI18nLabel` in the designer locale (as `navItemLabelText` does), and ⛔ never `String()` a label.\n- Sites 3–4 feed the rail heading.\n- `ObjectActionsPanel.labelText` folds onto that helper.\n- **Pins:**\n  - under en and under zh, a map-labelled app shows its text in the rail heading, with no `[object Object]`;\n  - a plain-string label is unchanged (the control).\n- **Serial.** `StudioDesignSurface.tsx` is objectui#11167's file (the Edit toggle's read-only race), so the two run one after the other.\n\n## Dedupe\n\nThe 1000 most recently updated objectui issues and PRs (down to #10338) were grepped:\n- `navHeading` and `resolvePackageApp`: 0 hits.\n- `appLabel`: objectui#7388 and objectui#10617 only, both closed and both about other components.\n- An app label printing `[object Object]`: objectui#11100 / PR objectui#11127 / PR objectui#11098, the app PREVIEW, closed.\n\nNo card covers the Studio designer's own app-label reads.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

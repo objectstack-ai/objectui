@@ -1,0 +1,33 @@
+{
+  "number": 11213,
+  "kind": "issue",
+  "title": "[Decision] objectui#4421 batch #13 item 3: change `usePermissions`' no-provider default as ruled, or record it satisfied by the engine binding (measured off its path; changing it drops Edit/Delete in embeds)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-30T12:37:29Z",
+  "updated_at": "2026-09-30T13:43:23Z",
+  "closed_at": "2026-09-30T13:43:23Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11213",
+  "body": "Ruled: 5912469799 · letter A — objectui#4421 batch #13 item 3 is satisfied by the engine binding; usePermissions' no-provider default stays; no code · 2026-09-30T13:41Z\n\nFiling-gate category: ② a decision only the maintainer can make: a measured fact contradicts the premise of a recorded ruling's item, and the seat cannot re-rule it. Raised by the `domain:ui` seat 1 (`session_0122Knsowci76D2rBWReCzzZ`) from objectui#4421's dispatch (PR objectui#11208). Reader who acts: the maintainer (answer), then the `domain:ui` seat that holds objectui#4421 (executes).\nDedup: objectui#4421's thread is the only record of item 3; no other card carries it.\n\n**Governing text**:objectui#4421 裁决批 #13(`5474563898`)第 3 项原文:「**Rider 1 为两半共同交付要件**:`usePermissions` 无 provider 默认 `can: () => true` 是 fail-OPEN,必须改为 `isLoaded` 前答 `false`——独立于选型,先行修复不等 os 半」;`packages/plugin-grid/src/rowCrudAffordances.ts` 文档块记载该默认是刻意的(没有 `PermissionProvider` 的独立嵌入没有权限来源,不能因此丢掉 Edit/Delete);ADR-0124 D1(服务端执法、前端只是礼貌)。**是否改协议**:否,只关 objectui 的一个默认值。\n\n**前提(带复核命令)**:\n- 已落地的绑定(PR objectui#11208)从不调用 `usePermissions().can`,它读的是 `MePermissionsProvider` 发布的 `effectiveObjects`;无 provider 时 `effectiveObjects` 不存在,`current_user.can(...)` 被引擎响亮拒绝,于是在 fail-closed 的面上隐藏。复核:`git -C objectui show 分支 claude/issue-4421-current-user-can-wiring:packages/app-shell/src/providers/ExpressionProvider.tsx | grep -n effectiveObjects`(阳性对照:同文件 `isLoaded`)。\n- 同一棵树里 `usePermissions().can` 在无 provider 时仍答 `true`(PR 的渲染测试钉住了这一点)。\n- `rowCrudAffordances.ts` 的内置 Edit/Delete 依赖这个默认值。\n\n**一句话问题**:裁决当时以为「让权限谓词在加载前隐藏」必须改掉 `usePermissions` 的全局默认值;实测新绑定根本不走这个默认值,它已经做到加载前隐藏。现在改这个默认值不会让任何权限谓词更安全,只会让没有权限服务的嵌入页丢掉编辑和删除按钮。\n\n**选项 × 真实代价**\n\n| | 做什么 | 客户可感知的后果 |\n|:--|:--|:--|\n| **A 记为已满足** | 不改默认值;在 objectui#4421 上记录「第 3 项的目标(加载前不泄露)已由引擎绑定达成」 | 嵌入页照旧有编辑/删除;`current_user.can` 在加载前照样隐藏(实测) |\n| B 照字面改 | 无 provider 时 `can` 在加载前答 `false` | 所有没有挂权限服务的独立嵌入页,表格行上的编辑/删除按钮消失;`current_user.can` 的行为不变(它不读这个默认值) |\n\n**业务含义直译**:A = 门禁已经换成新锁,旧锁不用动;B = 新锁已经装好,还要把旧锁也焊死,结果是没有钥匙柜的分店连正常的门都开不了。\n\n**四轴(业务立场)**\n- **项目长远合理性**:一个关注点一个失败方向。`current_user.can` 的「加载前隐藏」由引擎契约保证(无权限数据即响亮拒绝);`usePermissions` 的无 provider 默认值管的是另一件事:没有权限服务的嵌入页该不该有内置按钮。把两者绑在一起,是让一个默认值同时回答两个问题。服务端仍然执法(ADR-0124 D1),两种选择都不改变授权边界。\n- **实际业务需求**:今天真正使用无 provider 默认值的是独立嵌入(`rowCrudAffordances.ts` 文档块写明);改掉它会让这些嵌入页丢按钮。没有任何实测场景需要 B 才能让权限谓词安全。\n- **防 AI 犯错**:A 下,AI 写 `current_user.can(...)`,加载前是响亮拒绝加隐藏,出错看得见;B 对这一点没有任何增益,却让嵌入页里「按钮消失」变成一种无诊断的现象,AI 会去错误地排查权限配置。\n- **创业阶段不扩散**:A 零改动;B 要改一个共享默认值,并给所有嵌入场景补回按钮的来源。\n\nos-decision-facets\n- ① 项目长远合理性:A 一个关注点一个失败方向;B 让一个默认值同时回答两个问题。\n- ② 实际业务拉动:独立嵌入今天依赖该默认值;B 无实测收益。\n- ③ 防 AI 犯错:A 保持响亮拒绝;B 让嵌入页按钮无诊断消失。\n- ④ 创业阶段不扩散:A 零改动;B 改共享默认值并需补偿嵌入场景。\nPrior rulings read: `4421`, `usePermissions`, `rowCrudAffordances`, `batch #13` → objectui#4421 thread 11 comments read in full; ADR-0124 D1; thread: ruling `5321072032`, ruling `5474563898` item 3\n\n**推荐:A**。只看①选 A;②③④ 是否翻转:否。**回退**:B(若维护者认为独立嵌入也必须在无权限来源时默认不显示内置按钮,那是一个单独的产品决定,应连同嵌入场景的补偿一起做)。\n**置信缺口**:独立嵌入的真实用户数本席未测;dev 的测量在 jsdom 渲染测试中完成,未在运行中的嵌入页复测。\n\n**裁后执行**:裁 A ⇒ 本席在 objectui#4421 记录第 3 项已满足并关本卡,不改代码。裁 B ⇒ 本席派发一张带嵌入场景补偿的实现卡(`usePermissions` 默认值 + `rowCrudAffordances.ts` 的按钮来源),objectui#4421 的其余部分不受影响。"
+}

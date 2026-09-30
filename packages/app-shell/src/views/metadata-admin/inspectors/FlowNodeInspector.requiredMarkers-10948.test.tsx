@@ -34,9 +34,15 @@ import { specRequiredColumns, specRequiresField } from './flow-required-keys';
 import type { MetadataSelection } from '../preview-registry';
 import { defaultNodeExtras, defaultNodeLabel } from '../previews/flow-canvas-parts';
 
+/* ── `fetch` double: reference pickers resolve through a real `fetch` under
+ * happy-dom. The metadata routes answer empty and the automation routes (the
+ * connector registry a `connector_action` node reads) answer 404 — the degrade
+ * the pickers already fall back from; anything else fails the row. ── */
 const META_PREFIX = '/api/v1/meta/';
+const AUTOMATION_PREFIX = '/api/v1/automation/';
 let calls: string[] = [];
 const routeOf = (url: string) => url.split('?')[0];
+const allowed = (url: string) => routeOf(url).startsWith(META_PREFIX) || routeOf(url).startsWith(AUTOMATION_PREFIX);
 
 beforeEach(() => {
   calls = [];
@@ -62,7 +68,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  expect(calls.filter((url) => !routeOf(url).startsWith(META_PREFIX))).toEqual([]);
+  expect(calls.filter((url) => !allowed(url))).toEqual([]);
   cleanup();
   vi.unstubAllGlobals();
 });
@@ -178,7 +184,9 @@ describe('the marker follows the configuration the author has (objectui#10948)',
 
   it('a refused `end` requires its `message` — the node contract, not the config judge', () => {
     const container = renderNode({ id: 'n1', type: 'end', label: 'Stop', config: { outcome: 'refused' } });
-    expect(markedLabels(container)).toEqual(['Message']);
+    const message = fieldsForNodeType('end').find((f) => f.id === 'message');
+    expect(message, '`end` still has a "message" field').toBeDefined();
+    expect(markedLabels(container)).toEqual([message!.label]);
   });
 
   it('a `wait` on a signal requires what to wait for, and no duration', () => {

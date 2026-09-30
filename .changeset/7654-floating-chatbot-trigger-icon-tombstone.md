@@ -68,3 +68,5 @@ That file also pins the runtime half as a **tripwire**: it asserts that a node c
 `FloatingChatbotConfigSchema`, it goes red — the intended signal that whoever lands the
 mirror must add the `retirementTombstone()` half at the same time and flip the control
 rather than delete it into a vacuum.
+
+**Correction, 2026-09-30 (objectui#6152, round 4).** The sections above say `FloatingChatbotConfig` has no zod mirror, so the `triggerIcon` refusal is type-level only and the runtime face does not change. That was true when this change was written, and it is now true on a `chatbot` node only. objectui#6152 round 4 minted the mirror on the `chatbot-floating` node, the one whose renderer reads `floatingConfig`, together with the `retirementTombstone()` half this entry asked for. So a `chatbot-floating` node that carries `floatingConfig.triggerIcon` is now refused at that path. The tripwire test was flipped for that node, not deleted.

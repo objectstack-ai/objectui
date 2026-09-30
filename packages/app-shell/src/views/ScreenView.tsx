@@ -56,6 +56,14 @@ import { evalFieldPredicate } from '@object-ui/core';
 import { getLazyFieldWidget } from '@object-ui/fields';
 
 /**
+ * The object form's lookup picker (`LookupField`), through the shared lazy
+ * widget registry `ActionParamDialog` also reads. Resolved once at module
+ * scope, not in render (`react-hooks/static-components`); the registry caches
+ * one lazy component per type, so this is the same component the dialog gets.
+ */
+const LookupFieldWidget = getLazyFieldWidget('lookup');
+
+/**
  * The screen-pause contract is OWNED by `@objectstack/spec/contracts`
  * (objectstack#4115) — the server emits it, this dialog renders it.
  *
@@ -359,10 +367,9 @@ export function ScreenFieldInput({
   // `dataSource` is passed explicitly; absent, the widget falls back to the
   // `SchemaRendererContext` one, exactly as it does in `ActionParamDialog`.
   if (t === 'lookup' && typeof field.reference === 'string' && field.reference.trim() !== '') {
-    const LookupWidget = getLazyFieldWidget('lookup');
     return (
       <Suspense fallback={<div className="h-9 w-full animate-pulse rounded-md bg-muted" aria-hidden="true" />}>
-        <LookupWidget
+        <LookupFieldWidget
           id={id}
           value={value ?? null}
           onChange={onChange}

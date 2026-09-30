@@ -3,6 +3,7 @@
 '@object-ui/layout': minor
 '@object-ui/app-shell': minor
 '@object-ui/plugin-designer': minor
+'@object-ui/console': minor
 ---
 
 feat: a `doc` navigation entry (ADR-0046) validates and draws as a link into the docs portal
@@ -23,7 +24,7 @@ rendered as a dead `#` link.
   members. An unknown `type` is now refused with `invalid_union` at `type` (was `invalid_value`),
   the code the spec's own union answers with.
 - **`@object-ui/layout`** — `resolveHref` sends a `doc` entry to the console docs portal under
-  its `basePath`: `/docs/<doc>`, `/docs/<book>` or `/docs/<book>/<doc>`. An unlabelled `doc`
+  its `basePath`: `/docs/DOC`, `/docs/BOOK` or `/docs/BOOK/DOC`. An unlabelled `doc`
   entry shows the page it opens, else the book. It is gated by the same base keys as its
   siblings (`visible`, `requiredPermissions`, `requiresObject`, `requiresService`); the book
   audience gate stays the server's. The mobile tab bar links it the same way.
@@ -32,3 +33,9 @@ rendered as a dead `#` link.
   dropped (label-less) or badged `untyped`.
 - **`@object-ui/plugin-designer`** — `NAV_TYPE_META` drops the `| 'doc'` key that bridged the
   spec pin lag; it is keyed by `NavigationItemType` alone.
+- **`@object-ui/console`** — the docs portal resolves a path segment that is a book's NAME
+  rather than its `slug` — what a `{ type: 'doc', book }` entry links to — and redirects to
+  the book's canonical slug URL: `/docs/NAME` opens the book, `/docs/NAME/DOC` reads that page
+  with the book's sidebar. It is looked up after a book's slug and an installed doc's name, so
+  every URL that resolved before answers as it did; only former "Documentation not found"
+  answers change.

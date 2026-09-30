@@ -687,13 +687,16 @@ function withRunAction(href: string, item: NavigationItem): string {
  *  - `{ book, doc }` → `…/docs/<book>/<doc>`: that page, in that book's
  *    context.
  *
- * ⚠️ `book` is the book's NAME (what the entry names and the CLI's docs lint
- * checks), while the portal addresses a book by its `slug`, which defaults to
- * the name. So a book that authors a `slug` different from its name is reached
- * by neither `book` shape above (measured on objectui#11197); a package's
- * implicit book, keyed by its package id, always is. The audience gate is the
- * server's (`/meta/doc`, ADR-0046 §6.7): the entry carries no gate of its own
- * beyond the base keys every sibling has.
+ * `book` is the book's NAME (what the entry names and the CLI's docs lint
+ * checks), and the link carries it as written. The portal addresses a book by
+ * its `slug` (default: the name), and resolves a segment that is a book's NAME
+ * rather than its slug to that book, redirecting to the canonical slug URL —
+ * after the lookups that answer today, so a slug or an installed doc's name
+ * keeps its meaning (`bookNamedBy` in the console's `book-nav.ts`,
+ * objectui#11197). So both `book` shapes reach a book that authors a `slug`,
+ * and a package's implicit book, keyed by its package id, as before. The
+ * audience gate is the server's (`/meta/doc`, ADR-0046 §6.7): the entry carries
+ * no gate of its own beyond the base keys every sibling has.
  *
  * `#` when the entry names no target — the validator refuses that entry, so this
  * is a host that never parsed, not a route.

@@ -113,10 +113,10 @@ Requirements:
   surface. It names a `book` (opens the book at its first readable page), a
   `doc` (opens that page — the doc's name, i.e. its source filename stem such
   as `crm_lead_guide`, never `crm_lead_guide.md` or a path), or both (that page
-  in that book). At least one of the two is required. The console links a
-  `book` by its name, so a book that declares a `slug` different from its name
-  is not reached by a `book` entry yet; a `doc` entry reaches any installed
-  doc. Who may read a book is the book's `audience`, enforced by the server —
+  in that book). At least one of the two is required. Name the book by its
+  `name`, even when it declares a `slug`: the docs portal resolves the name and
+  redirects to the book's canonical `slug` URL. Who may read a book is the
+  book's `audience`, enforced by the server —
   the entry itself carries only the usual `visible` / `requiredPermissions`
   gates.
 - Put items under the `navigation` key. `menu` is deprecated legacy and only

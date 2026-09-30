@@ -19,5 +19,5 @@ pressable.
 Both renderers now read the host's `disabled` by name, as `action:button` and
 `action:icon` already did (objectui#9131). The menu trigger is disabled while the host
 says so or while an action is in flight. It re-enables when the action settles. A
-disabled group disables every inline member and its dropdown trigger. Nothing changes
-for a menu or group that no host disables.
+disabled group disables every inline member and its dropdown trigger. An idle menu, and
+a group that no host disables, behave as before.

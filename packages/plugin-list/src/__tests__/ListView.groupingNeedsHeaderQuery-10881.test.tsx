@@ -151,11 +151,11 @@ describe('ListView refuses a grouped grid over a data source with no header quer
   });
 
   // Round 2 (the grid's second refusal, a host-DECLARED window): does ListView
-  // ever declare one? The one shape in which it hands a GROUPED grid a window
-  // is a source that answers the header query while a toolbar search is
-  // active (objectstack#20358). Measured there: no host paging, because
-  // `paginate` is off while grouped — the grid takes those rows as handed.
-  it('a grouped grid handed a searched window is handed no host paging', async () => {
+  // ever declare one? Over a source that answers the header query, a grouped
+  // grid is handed no window at all — a toolbar search included, since the
+  // header query takes the term (objectui#11021; it used to be handed the
+  // searched window). So there is no window to declare, and no host paging.
+  it('a grouped grid under a toolbar search is handed no window and no host paging', async () => {
     const ds = { ...makeFindOnlyDataSource(), queryGroupHeaders: vi.fn(async () => []) };
     render(
       <SchemaRendererProvider dataSource={ds}>
@@ -164,8 +164,11 @@ describe('ListView refuses a grouped grid over a data source with no header quer
     );
 
     await waitFor(() => expect(ds.find).toHaveBeenCalled());
-    await waitFor(() => expect(Array.isArray(lastGridProps?.data) && lastGridProps.data.length > 0).toBe(true));
+    await waitFor(() => expect(screen.getByTestId('grid-stub')).toBeInTheDocument());
+    await settle();
+    expect(ds.find.mock.calls.at(-1)[1].$search, 'the searched state is reached').toBe('Task');
     expect(lastGridProps.schema.grouping.fields.map((f: { field: string }) => f.field)).toEqual(['business_unit']);
+    expect(lastGridProps.data).toBeUndefined();
     expect(lastGridProps.manualPagination).toBeUndefined();
     expect(lastGridProps.rowCount).toBeUndefined();
     expect(refusal()).toBeNull();

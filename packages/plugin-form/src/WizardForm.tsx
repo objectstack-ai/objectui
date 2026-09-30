@@ -226,6 +226,12 @@ const useWizardTranslation = createSafeTranslation(
     'publicForm.thankYouTitle': 'Thank you!',
     'publicForm.loading': 'Loading form…',
     'form.errorLoading': 'Error loading form',
+    // objectui#8069 — the cross-step gate's refusal of a field `visibleWhen`
+    // that could not be evaluated, and the locale's list separator it joins
+    // the field labels with. The same keys and values the form renderer reads.
+    'form.visibleWhenFaulted':
+      "Can't submit: the visibleWhen rule of {{fields}} could not be evaluated. The rule must be fixed before this form can be submitted.",
+    'validation.formInvalidJoiner': ', ',
   },
   'wizard.missingRequired',
 );
@@ -673,7 +679,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         mode: schema.mode,
         // Feeds the "no persisted record" test that decides whether a runtime
         // `defaultValue` excuses a field from `required` (#4069). The wizard's
-        // own final-submit gate (`missingRequiredByStep`) reads the `required`
+        // own final-submit gate (`gateFinalSubmit`) reads the `required`
         // this produces, so it agrees with the renderer for free.
         recordId: schema.recordId,
         fieldLabel,
@@ -764,10 +770,36 @@ export const WizardForm: React.FC<WizardFormProps> = ({
    * form renderer and the server's rule-validator use, so a conditionally
    * required/hidden field gets the same verdict from all three rather than a
    * second, divergent dialect.
+   *
+   * ## `faultedVisibleWhen` — the same pass, one more answer (objectui#8069)
+   *
+   * The fields whose `visibleWhen` could not be evaluated, grouped the same
+   * way, read off the very `resolveFieldRuleState` call that decides the
+   * required verdict (its `faults` report) — never a second evaluation.
+   * ADR-0137 D2 as ruled (Q1 = B, one judge per rule): a faulted `visibleWhen`
+   * refuses the final submit, because no server evaluates it; `requiredWhen`
+   * / `readonlyWhen` keep their direction here and are the server's to refuse.
+   * A step whose form the user never opened never ran the renderer's own
+   * refusal, which is why the cross-step gate asks as well. A stored BLANK
+   * `visibleWhen` is a fault like any other (ADR-0137 D2, `FieldRuleFaults`);
+   * a `section-divider` row's `visibleWhen` is its section's layout gate, not
+   * a field rule, and is not judged.
+   *
+   * ⚠️ This gate binds no `previous` in either mode (see the `serverOwnedValue`
+   * note below), so a `visibleWhen` reading `previous` is unevaluable here even
+   * on an EDIT wizard, and is refused. objectui#8069's ruling declined new
+   * binding for `previous` ("no new binding pipelines", its option D) and
+   * accepted the create-form half of that as the residual; the edit-wizard
+   * half is the same mechanism, accepted as a residual under the same refusal
+   * of option D on objectui#8069 — ⛔ so `persistedRecord` is deliberately NOT
+   * bound here.
    */
-  const missingRequiredByStep = useCallback(
-    (record: Record<string, any>): Map<number, string[]> => {
+  const gateFinalSubmit = useCallback(
+    (
+      record: Record<string, any>,
+    ): { missing: Map<number, string[]>; faultedVisibleWhen: Map<number, string[]> } => {
       const out = new Map<number, string[]>();
+      const faultedVisibleWhen = new Map<number, string[]>();
       schema.sections.forEach((section, index) => {
         for (const field of buildSectionFields(section)) {
           const name = field?.name;
@@ -800,6 +832,12 @@ export const WizardForm: React.FC<WizardFormProps> = ({
             predicateScope,
             `field '${name}'`,
           );
+          if (state.faults.visibleWhen !== undefined && field.type !== 'section-divider') {
+            faultedVisibleWhen.set(index, [
+              ...(faultedVisibleWhen.get(index) ?? []),
+              field.label || name,
+            ]);
+          }
           // View-level FormField.visibleOn hides the field the same way a
           // field-level visibleWhen does — fold it into the verdict exactly
           // like the form renderer (form.tsx) does, or the gate demands a
@@ -816,7 +854,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
           out.set(index, [...(out.get(index) ?? []), (field as any).label || name]);
         }
       });
-      return out;
+      return { missing: out, faultedVisibleWhen };
     },
     [schema.sections, buildSectionFields, isCreateWizard, predicateScope],
   );
@@ -860,10 +898,22 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         return;
       }
       // Gate the submit on the FULL field set, not just this step's (see
-      // missingRequiredByStep) — then point the user at the first step that is
+      // gateFinalSubmit) — then point the user at the first step that is
       // short something, instead of letting the server answer with a 400 that
       // names fields the user cannot even see.
-      const missing = missingRequiredByStep(mergedData);
+      const { missing, faultedVisibleWhen } = gateFinalSubmit(mergedData);
+      // A faulted `visibleWhen` first (objectui#8069): it names the field and
+      // the rule, and nothing typed on any step can clear it.
+      if (faultedVisibleWhen.size > 0) {
+        setInvalidSteps(new Set(faultedVisibleWhen.keys()));
+        toast.error(
+          t('form.visibleWhenFaulted', {
+            fields: [...faultedVisibleWhen.values()].flat().join(t('validation.formInvalidJoiner')),
+          }),
+        );
+        goToStep(Math.min(...faultedVisibleWhen.keys()));
+        return;
+      }
       if (missing.size > 0) {
         setInvalidSteps(new Set(missing.keys()));
         const labels = [...missing.values()].flat();
@@ -1070,7 +1120,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
       // Move to next step
       goToStep(currentStep + 1);
     }
-  }, [closedAffordance, formData, currentStep, isLastStep, schema, objectSchema, dataSource, perms, missingRequiredByStep, t, saveWithOcc, uploadGate.uploading, uploadGate.reason, reportUnsavedInput, recordSaved]);
+  }, [closedAffordance, formData, currentStep, isLastStep, schema, objectSchema, dataSource, perms, gateFinalSubmit, t, saveWithOcc, uploadGate.uploading, uploadGate.reason, reportUnsavedInput, recordSaved]);
 
   // Navigation
   const goToStep = useCallback((step: number) => {

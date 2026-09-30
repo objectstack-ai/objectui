@@ -54,6 +54,7 @@ import {
 import { ObjectForm } from '@object-ui/plugin-form';
 import { evalFieldPredicate } from '@object-ui/core';
 import { getLazyFieldWidget } from '@object-ui/fields';
+import { useObjectTranslation } from '@object-ui/i18n';
 
 /**
  * The object form's lookup picker (`LookupField`), through the shared lazy
@@ -349,8 +350,9 @@ export function ScreenFieldInput({
   /** Data source a `type: 'lookup'` picker queries its `reference` object through. */
   dataSource?: unknown;
 }) {
+  const { t } = useObjectTranslation();
   const id = `ff-${field.name}`;
-  const t = (field.type || 'text').toLowerCase();
+  const kind = (field.type || 'text').toLowerCase();
   // The required STATE, announced on the control itself — the label's `*` is
   // visual-only (objectui#10367). `aria-required`, not native `required`: the
   // runner owns required enforcement (`FlowRunner`'s submit check, which counts
@@ -366,7 +368,7 @@ export function ScreenFieldInput({
   // would swap whatever ancestor boundary it reached for a fallback.
   // `dataSource` is passed explicitly; absent, the widget falls back to the
   // `SchemaRendererContext` one, exactly as it does in `ActionParamDialog`.
-  if (t === 'lookup' && typeof field.reference === 'string' && field.reference.trim() !== '') {
+  if (kind === 'lookup' && typeof field.reference === 'string' && field.reference.trim() !== '') {
     return (
       <Suspense fallback={<div className="h-9 w-full animate-pulse rounded-md bg-muted" aria-hidden="true" />}>
         <LookupFieldWidget
@@ -383,9 +385,13 @@ export function ScreenFieldInput({
   }
 
   if (Array.isArray(field.options) && field.options.length > 0) {
+    // No declared placeholder ⇒ the locale's `common.select`, the word the
+    // object form's lookup picker shows in the same spot (objectui#11220).
+    // `??`, not `||`: an authored `placeholder: ''` renders as authored.
+    const placeholder = field.placeholder ?? t('common.select', { defaultValue: 'Select…' });
     return (
       <Select value={value != null ? String(value) : undefined} onValueChange={(v) => onChange(v)}>
-        <SelectTrigger id={id} aria-required={ariaRequired} aria-describedby={describedBy}><SelectValue placeholder={field.placeholder || 'Select…'} /></SelectTrigger>
+        <SelectTrigger id={id} aria-required={ariaRequired} aria-describedby={describedBy}><SelectValue placeholder={placeholder} /></SelectTrigger>
         <SelectContent>
           {field.options.map((o, i) => (
             <SelectItem key={i} value={String(o.value)}>{o.label}</SelectItem>
@@ -394,13 +400,13 @@ export function ScreenFieldInput({
       </Select>
     );
   }
-  if (t === 'boolean' || t === 'checkbox') {
+  if (kind === 'boolean' || kind === 'checkbox') {
     return <Checkbox id={id} aria-required={ariaRequired} aria-describedby={describedBy} checked={value === true} onCheckedChange={(c) => onChange(c === true)} />;
   }
-  if (t === 'textarea' || t === 'markdown') {
+  if (kind === 'textarea' || kind === 'markdown') {
     return <Textarea id={id} aria-required={ariaRequired} aria-describedby={describedBy} value={(value as string) ?? ''} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} />;
   }
-  const htmlType = t === 'number' || t === 'currency' ? 'number' : t === 'email' ? 'email' : t === 'date' ? 'date' : 'text';
+  const htmlType = kind === 'number' || kind === 'currency' ? 'number' : kind === 'email' ? 'email' : kind === 'date' ? 'date' : 'text';
   // The declared bound pair goes on a NUMERIC input only, as the native
   // attributes — on a date input `min` / `max` would be read as dates, and on
   // a text one they mean nothing. The submit-time refusal is the runner's

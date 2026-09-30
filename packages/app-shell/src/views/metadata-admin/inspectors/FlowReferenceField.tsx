@@ -47,7 +47,7 @@ import type { FlowReferenceSpec, ReferenceKind, RefValueSource } from './flow-no
 import { useMetadataClient } from '../useMetadata.js';
 import { useObjectFields } from '../previews/useObjectFields.js';
 import { t, tFormat, useMetadataLocale, type SupportedLocale } from '../i18n.js';
-import { flagUnknownValue } from './_shared.js';
+import { flagUnknownValue, RequiredMarker } from './_shared.js';
 
 /** Context the reference picker needs to resolve dynamic option sources. */
 export interface FlowReferenceContext {
@@ -834,6 +834,8 @@ export interface FlowReferenceFieldProps {
   onCommit: (value: unknown) => void;
   disabled?: boolean;
   context?: FlowReferenceContext;
+  /** The spec requires this key (objectui#10948): the label carries {@link RequiredMarker}. */
+  required?: boolean;
 }
 
 /**
@@ -841,12 +843,15 @@ export interface FlowReferenceFieldProps {
  * resolved against the node's own sibling config keys (e.g. the script node's
  * `template` follows `actionType`).
  */
-export function FlowReferenceField({ field, value, onCommit, disabled, context }: FlowReferenceFieldProps) {
+export function FlowReferenceField({ field, value, onCommit, disabled, context, required }: FlowReferenceFieldProps) {
   const node = context?.node ?? null;
   const resolved = resolveRefKind(field.ref, (key) => configString(node, key));
   return (
     <div className="space-y-1">
-      <Label className="text-xs text-muted-foreground">{field.label}</Label>
+      <Label className="text-xs text-muted-foreground">
+        {field.label}
+        {required && <RequiredMarker />}
+      </Label>
       <ReferenceCombobox
         resolved={resolved}
         value={value}

@@ -15,6 +15,7 @@ import {
   InspectorNumberField,
   InspectorSelectField,
   InspectorCheckboxField,
+  RequiredMarker,
   flagUnknownValue,
 } from './_shared.js';
 import { Button, Label } from '@object-ui/components';
@@ -150,9 +151,22 @@ export interface FlowNodeConfigFieldProps {
    * DELIBERATELY. Omit to render the notice without the button.
    */
   onClearInactive?: () => void;
+  /**
+   * objectui#10948 — the installed spec refuses this node without a value at
+   * `field.path`. Supplied by the host inspector, which owns the node, from
+   * `specRequiresField` (`flow-required-keys.ts`) — the spec's own verdict,
+   * never a list kept here. The label carries {@link RequiredMarker}; a control
+   * this component owns carries `aria-required`.
+   */
+  required?: boolean;
+  /**
+   * objectui#10948 — for an `objectList` field, the column keys the spec
+   * requires on every row (`specRequiredColumns`), handed to the list editor.
+   */
+  requiredColumns?: ReadonlySet<string>;
 }
 
-export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, context, scopeGroups, approvalScopeGroups, triggerScope, inactiveRetained, onClearInactive }: FlowNodeConfigFieldProps) {
+export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, context, scopeGroups, approvalScopeGroups, triggerScope, inactiveRetained, onClearInactive, required, requiredColumns }: FlowNodeConfigFieldProps) {
   const refMode: 'expression' | 'template' =
     field.refMode ?? (field.kind === 'expression' ? 'expression' : 'template');
   // objectui#6226 — the row-based condition builder, on the fields that opted in
@@ -190,6 +204,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             onCommit={(v) => onCommit(v)}
             disabled={disabled}
             context={context}
+            required={required}
           />
         );
       case 'keyValue':
@@ -205,6 +220,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             removeLabel={t('engine.inspector.flowNode.kv.remove', locale)}
             emptyLabel={t('engine.inspector.flowNode.kv.empty', locale)}
             scopeGroups={scopeGroups}
+            required={required}
             // objectui#7588 — the per-value text / expression toggle, offered
             // only on a map the spec's expression ledger declares `value`-role
             // for this node type (today the assignment node's `assignments`).
@@ -225,6 +241,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             value={value}
             onCommit={(v) => onCommit(v)}
             disabled={disabled}
+            required={required}
             addLabel={t('engine.inspector.flowNode.list.add', locale)}
             itemLabel={t('engine.inspector.flowNode.list.item', locale)}
             removeLabel={t('engine.inspector.flowNode.list.remove', locale)}
@@ -246,6 +263,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
               onCommit(nums.length ? nums : undefined);
             }}
             disabled={disabled}
+            required={required}
             addLabel={t('engine.inspector.flowNode.list.add', locale)}
             itemLabel={t('engine.inspector.flowNode.list.item', locale)}
             removeLabel={t('engine.inspector.flowNode.list.remove', locale)}
@@ -270,6 +288,8 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             // objectui#10772 — with `context.node`, names a screen's `fields`
             // list, whose `visibleWhen` column binds the screen's own fields.
             fieldId={field.id}
+            required={required}
+            requiredColumns={requiredColumns}
           />
         );
       case 'number':
@@ -280,6 +300,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             placeholder={field.placeholder}
             onCommit={(v) => onCommit(v)}
             disabled={disabled}
+            required={required}
           />
         );
       case 'boolean': {
@@ -391,6 +412,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
               }
               onCommit={(v) => onCommit(v)}
               disabled={disabled}
+              required={required}
             />
           );
         })();
@@ -402,6 +424,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
           <div className="space-y-1">
             <Label htmlFor={secretId} className="text-xs text-muted-foreground">
               {field.label}
+              {required && <RequiredMarker />}
             </Label>
             <FlowSecretControl key={nodeId} id={secretId} value={value} onCommit={onCommit} disabled={disabled} />
           </div>
@@ -410,7 +433,10 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
       case 'textarea':
         return (
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">{field.label}</Label>
+            <Label className="text-xs text-muted-foreground">
+              {field.label}
+              {required && <RequiredMarker />}
+            </Label>
             <VariableTextInput
               multiline
               rows={4}
@@ -420,6 +446,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
               groups={scopeGroups ?? []}
               placeholder={field.placeholder}
               disabled={disabled}
+              ariaRequired={required}
             />
           </div>
         );
@@ -428,7 +455,10 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
       default:
         return (
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">{field.label}</Label>
+            <Label className="text-xs text-muted-foreground">
+              {field.label}
+              {required && <RequiredMarker />}
+            </Label>
             <VariableTextInput
               mode={refMode}
               mono={field.kind === 'expression'}
@@ -437,6 +467,7 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
               groups={scopeGroups ?? []}
               placeholder={field.placeholder}
               disabled={disabled}
+              ariaRequired={required}
             />
           </div>
         );

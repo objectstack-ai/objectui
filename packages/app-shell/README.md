@@ -567,6 +567,16 @@ variables* shape and an *email/SMS* notification shape (*Template* / *Recipients
 *Wait for* mode. A conditional field is never hidden while it still holds a
 value, so existing config is always reachable.
 
+A config key the installed `@objectstack/spec` refuses the node without — an
+`http` node's *URL*, a record node's *Object*, a decision branch's *Label* and
+*Expression*, a screen field's *Name* — carries the same required marker (`*`)
+`SchemaForm` draws, and a control the inspector renders itself also carries
+`aria-required`. No list of required keys is kept here: `flow-required-keys.ts`
+removes the key from a copy of the node and asks the spec's own judges
+(`flowNodeConfigRefusals`, the predicate-slot walk, `FlowNodeSchema`). So a
+rule-dependent key such as a `notify` node's *Title*, which is required only
+while the node has no `template`, is marked only while the rule applies.
+
 Config keys come in three editable shapes so authors never hand-write JSON:
 
 - **Flat object maps** — a `create_record` node's **Field values**, a

@@ -181,6 +181,7 @@ const es = {
     submitFailed: "No se pudo guardar. Inténtalo de nuevo.",
     uploadInFlight: "Espere a que finalice la carga antes de guardar.",
     clearedOnHide: "Se borró lo que ya no corresponde a los valores actuales: {{fields}}",
+    visibleWhenFaulted: "No se puede enviar: no se pudo evaluar la regla visibleWhen de {{fields}}. Hay que corregir la regla antes de poder enviar este formulario.",
     discardTitle: "¿Descartar los cambios?",
     discardMessage: "Tiene cambios sin guardar. Si cierra este formulario ahora, sus ediciones se perderán.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible

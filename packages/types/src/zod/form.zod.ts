@@ -26,6 +26,7 @@ import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 // and the form predicate keys below read ONE definition. Its docblock and
 // rationale moved with it.
 import { ExpressionWireSchema } from './expression.zod.js';
+import { EvaluatedExpressionInputSchema as SpecEvaluatedExpressionInputSchema } from '@objectstack/spec/shared';
 import { stripImportedDefaults } from './imported-defaults.js';
 import { closeStrictUnionArms } from './node-derivation.js';
 
@@ -924,6 +925,53 @@ function unresolvableFieldWidgetNamespaceMessage(id: string): string {
   );
 }
 
+/**
+ * The wire of the field-rule TRIAD — `visibleWhen` / `readonlyWhen` /
+ * `requiredWhen` on a form field: `ExpressionWireSchema` itself, with ONE check
+ * added. A predicate whose text is blank after trimming — `''`, whitespace, or
+ * an envelope whose `source` is either — is refused at parse (objectui#8069).
+ *
+ * This is ADR-0137 D1 ("a predicate slot accepts only what the engine can
+ * run"; an authored blank predicate is "refused at authoring") on objectui's
+ * own form wire, mirroring what `@objectstack/spec` already does to the same
+ * three keys on `FieldSchema` with `EvaluatedExpressionInputSchema`. The
+ * blankness is not restated here: the predicate's TEXT (the string itself, or
+ * an envelope's `source`) is handed to that spec schema, and its verdict and
+ * its sentence (`EVALUATED_EXPRESSION_SOURCE_REQUIRED`) are the refusal — so
+ * the two refusals of one mistake read alike and cannot drift apart (the
+ * objectui#8563 reason for chaining a spec rule rather than copying it). It is
+ * the authoring half of a pair: D2 refuses a blank that is
+ * already STORED at submit (the form renderer, the console's form page and the
+ * wizard's final gate refuse a blank `visibleWhen`; the server refuses a blank
+ * `requiredWhen` / `readonlyWhen`), so a blank is refused at the first place
+ * that can see it, never silently read as "no rule" (ADR-0137 refuses that
+ * reading for the triad in its Alternatives).
+ *
+ * ⚠️ Deliberately a REFINEMENT and not a second schema. The accepted SHAPE is
+ * exactly the one wire type objectui#7530 ruled for the whole platform — the
+ * very two option schemas `ExpressionWireSchema` holds, by reference, with the
+ * same output — and only the blank VALUE is taken out of it. The spec's
+ * `EvaluatedExpressionInputSchema` is not reused because it is a different
+ * shape: it rewrites a string into an envelope and narrows `dialect` to the
+ * spec enum. The pin is `base-schema-predicate-envelope-7530.test.ts`.
+ *
+ * ⛔ Not for gates. `BaseSchema`'s `visible` / `hidden` / `disabled`, this
+ * form's view-level `visibleOn` and an option's `visibleWhen` keep the plain
+ * wire: a blank GATE stays "no gate" plus a one-time diagnostic (ADR-0137 D4,
+ * objectui#3850 / #3960), and none of them is refused at submit.
+ */
+const FieldRulePredicateWireSchema = ExpressionWireSchema.superRefine((predicate, ctx) => {
+  // Only the TEXT is judged by the spec schema — never the envelope itself,
+  // whose `dialect` enum is narrower than this wire's and would refuse shapes
+  // objectui#7530 admits. A non-blank text always passes its string arm.
+  const verdict = stripImportedDefaults(SpecEvaluatedExpressionInputSchema).safeParse(
+    typeof predicate === 'string' ? predicate : predicate.source,
+  );
+  if (!verdict.success) {
+    for (const issue of verdict.error.issues) ctx.addIssue({ code: 'custom', message: issue.message });
+  }
+});
+
 export const FormFieldSchema = z.object({
   id: z.string().optional().describe('Field ID'),
   name: z.string().describe('Field name (form data path)'),
@@ -949,11 +997,11 @@ export const FormFieldSchema = z.object({
   readonly: z.boolean().optional().describe('Whether the field is read-only'),
   visibleOn: ExpressionWireSchema.optional()
     .describe('View-level visibility predicate (CEL) — ANDed with visibleWhen'),
-  visibleWhen: ExpressionWireSchema.optional()
+  visibleWhen: FieldRulePredicateWireSchema.optional()
     .describe('Field-level visibility rule (CEL) — field shown only when TRUE'),
-  readonlyWhen: ExpressionWireSchema.optional()
+  readonlyWhen: FieldRulePredicateWireSchema.optional()
     .describe('Field-level read-only rule (CEL)'),
-  requiredWhen: ExpressionWireSchema.optional()
+  requiredWhen: FieldRulePredicateWireSchema.optional()
     .describe('Field-level required rule (CEL)'),
   colSpan: z.number().optional().describe('Column span in grid layout (legacy — prefer span)'),
   span: z.enum(['auto', 'full']).optional().describe('Relative field width'),

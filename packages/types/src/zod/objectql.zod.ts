@@ -45,11 +45,12 @@ import {
   // objectui#7928 — the spec's view CONTAINER, read for ONE slot: its
   // `listViews` record (`ObjectViewSchema.listViews` below, by reference).
   ViewSchema as SpecViewSchema,
-  // objectui#10859 (batch 2) — the `ComponentPropsMap` rows of the two
+  // objectui#10859 (batches 2 and 3) — the `ComponentPropsMap` rows of the
   // ADR-0080 public blocks this module arms, each read as its arm's
   // `properties` bag, by reference (`ObjectQLPublicBlockComponentSchema` below).
   ObjectMetricPropsSchema as SpecObjectMetricPropsSchema,
   ObjectMasterDetailFormPropsSchema as SpecObjectMasterDetailFormPropsSchema,
+  ObjectTimelinePropsSchema as SpecObjectTimelinePropsSchema,
   // objectui#11070 — the per-element data binding (`PageComponentSchema.dataSource`)
   // the object-bound arms below declare as `dataSource`, by reference.
   ElementDataSourceSchema as SpecElementDataSourceSchema,
@@ -3342,7 +3343,7 @@ export const ObjectQLComponentSchema = z.discriminatedUnion('type', [
 
 /* ── ADR-0080 public blocks of this family, armed from their spec rows ───── */
 
-// The `properties` member of each of the two blocks below is `propsBag` from
+// The `properties` member of each block below is `propsBag` from
 // `./public-blocks.zod.ts` — the one helper every public-block arm uses
 // (objectui#10872), imported rather than restated.
 
@@ -3390,6 +3391,16 @@ const OBJECT_METRIC_NEITHER_CHANNEL = neitherContentChannelGuidance(
  * authoring channel for these blocks is the question objectui#10872 left open
  * for the whole family; declaring it later is additive.
  *
+ * ## `dataSource` (the node's binding)
+ *
+ * `ObjectMetricBlock` is `elementDataSourceBlock`-wrapped and reads the node's
+ * `dataSource` through `ElementDataSourceGate`. That key is the spec's
+ * `PageComponentSchema.dataSource`, not a props-row member, so it is declared
+ * as the spec's `ElementDataSourceSchema`, by reference — the construct the
+ * module's other gate-wrapped arms use (objectui#11070). Without it the strict
+ * authoring face refused a spec-valid bound node by name (objectui#10859,
+ * batch 3). `object-master-detail-form` below declares it the same way.
+ *
  * ## The content channels (objectui#9256)
  *
  * The renderer reads NEITHER content channel, so the arm declares `children`
@@ -3401,6 +3412,9 @@ const OBJECT_METRIC_NEITHER_CHANNEL = neitherContentChannelGuidance(
 export const ObjectMetricBlockSchema = BaseSchema.extend({
   type: z.literal('object-metric'),
   properties: propsBag('object-metric', stripImportedDefaults(SpecObjectMetricPropsSchema)),
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER.
   body: retirementTombstone(OBJECT_METRIC_NEITHER_CHANNEL),
@@ -3445,6 +3459,10 @@ const OBJECT_MASTER_DETAIL_FORM_NEITHER_CHANNEL = neitherContentChannelGuidance(
  * SLOT (objectui#6124): refused by name when authored, because JSON has no
  * function value, rather than left to `.passthrough()` to keep an authored
  * value and hand it to a call site.
+ *
+ * `dataSource` is declared as on `ObjectMetricBlockSchema` above:
+ * `MasterDetailFormRenderer` is `elementDataSourceBlock`-wrapped and reads the
+ * node's binding through `ElementDataSourceGate`.
  */
 export const ObjectMasterDetailFormBlockSchema = BaseSchema.extend({
   type: z.literal('object-master-detail-form'),
@@ -3452,6 +3470,9 @@ export const ObjectMasterDetailFormBlockSchema = BaseSchema.extend({
     'object-master-detail-form',
     stripImportedDefaults(SpecObjectMasterDetailFormPropsSchema),
   ),
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
   onSuccess: handlerKeyRefusal('onSuccess', 'runtime-slot', 'Called with the saved parent record after a successful save'),
   onError: handlerKeyRefusal('onError', 'runtime-slot', 'Called after a refused save, for bookkeeping only'),
   onCancel: handlerKeyRefusal('onCancel', 'runtime-slot', 'Cancel button callback'),
@@ -3461,16 +3482,92 @@ export const ObjectMasterDetailFormBlockSchema = BaseSchema.extend({
   children: retirementTombstone(OBJECT_MASTER_DETAIL_FORM_NEITHER_CHANNEL),
 });
 
+/** objectui#9256 (public-block slice): ONE refusal string for both content channels of `object-timeline`. */
+const OBJECT_TIMELINE_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'object-timeline',
+  'its registration (`plugin-timeline:object-timeline`) hands the node through `ElementDataSourceGate` to '
+    + '`ObjectTimeline`, which fetches or takes its rows and draws them with `TimelineRenderer`; neither reads a '
+    + 'child list',
+  'one rail of records from `objectName` (or the node\'s `dataSource`), laid out by `variant` from the fields '
+    + 'the nested `timeline` config names',
+);
+
 /**
- * The two public blocks above, as one arm of `AnyComponentSchema`
- * (objectui#10859, batch 2).
+ * `object-timeline` — `ComponentPropsMap['object-timeline']`, plus the node's
+ * `dataSource` binding (objectui#10859, batch 3).
  *
- * A union of its own rather than two more members of `ObjectQLComponentSchema`,
+ * ## Why it is armed here, and from what
+ *
+ * `object-timeline` is registered by `@object-ui/plugin-timeline`
+ * (`ObjectTimelineRenderer`, which renders `ObjectTimeline`), curated by
+ * ADR-0080 as a public block (`PUBLIC_BLOCKS` in `@object-ui/core`), and
+ * declared by the spec since `@objectstack/spec` 17.5.0 — and until this arm
+ * `AnyComponentSchema` carried none for it, so `safeValidateSchema` and
+ * `objectui validate` refused every document naming it with `invalid_union`
+ * at `type`.
+ *
+ * `@object-ui/types` has no TypeScript declaration of this node (the plugin's
+ * `ObjectTimelineProps` are the component's React props, host callbacks
+ * among them, not a document shape), so the arm is built exactly as
+ * `ObjectMetricBlockSchema` above is: `BaseSchema` + the `type` literal +
+ * `properties`, which IS the row, by reference through the objectui#8317
+ * import boundary. Unlike the two rows above, this one carries spec defaults
+ * (`timeline.scale`, the `navigation` members), so the boundary hands back a
+ * rebuilt copy with every default removed and every key still omissible:
+ * this face judges the bag and writes nothing into it.
+ *
+ * ## Where the props live
+ *
+ * In the bag, as on its neighbours above: `SchemaRenderer` hoists
+ * `properties` onto the node before the renderer runs, so the spec's
+ * `{ type, properties }` document renders what the flat one does. ⚠️ A key
+ * written FLAT on the node is not judged against the row: it passes the
+ * tolerant face unjudged and is refused by the strict authoring face. Inside
+ * the bag, the row itself leaves out the flat field spellings beside
+ * `timeline` (`titleField`, `startDateField` and their siblings) and `scale`:
+ * the spec's record for the row calls them the runtime handoff `ListView`
+ * composes, not a second authoring spelling, so the bag refuses them by name.
+ *
+ * ## `dataSource` (the node's binding)
+ *
+ * The registration is wrapped in `elementDataSourceBlock`, so the node reaches
+ * `ObjectTimeline` through `ElementDataSourceGate`, which reads the node's
+ * `dataSource` and maps its `object`, `filter`, `sort` and `limit` onto the
+ * fetch. That key is not a props-row member: it is the spec's
+ * `PageComponentSchema.dataSource`, so it is declared as the spec's
+ * `ElementDataSourceSchema`, by reference — as `object-grid` and the other
+ * gate-wrapped arms of this module declare it (objectui#11070), and as
+ * `element:number` does beside its own row.
+ *
+ * ## The content channels (objectui#9256)
+ *
+ * Neither `ObjectTimeline` nor the renderer it composes reads a content
+ * channel, so the arm refuses `children` by name and restates `body` with the
+ * same guidance, both kept MEMBERS — as the two arms above do.
+ */
+export const ObjectTimelineBlockSchema = BaseSchema.extend({
+  type: z.literal('object-timeline'),
+  properties: propsBag('object-timeline', stripImportedDefaults(SpecObjectTimelinePropsSchema)),
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
+  // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
+  // kept a MEMBER.
+  body: retirementTombstone(OBJECT_TIMELINE_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_TIMELINE_NEITHER_CHANNEL),
+});
+
+/**
+ * The public blocks above, as one arm of `AnyComponentSchema`
+ * (objectui#10859, batches 2 and 3).
+ *
+ * A union of its own rather than more members of `ObjectQLComponentSchema`,
  * deliberately: that union mirrors the TypeScript union in `../objectql.ts`
- * member for member, and neither block has a declaration there — their
+ * member for member, and none of these blocks has a declaration there — their
  * declaration is the spec row each `properties` member reads.
  */
 export const ObjectQLPublicBlockComponentSchema = z.discriminatedUnion('type', [
   ObjectMetricBlockSchema,
   ObjectMasterDetailFormBlockSchema,
+  ObjectTimelineBlockSchema,
 ]);

@@ -30,7 +30,7 @@
  *
  * The shared widgets announce required on the state channel and never arm the
  * native attribute the hand-rolled controls carried, so the page refuses a
- * submit that leaves a required row empty itself (`findMissingRequired`). The
+ * submit that leaves a required row empty itself (`findSubmitRefusals`). The
  * refusal is pinned with its control: the same form, filled, submits.
  */
 

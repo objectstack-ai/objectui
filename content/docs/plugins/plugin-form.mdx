@@ -93,7 +93,7 @@ has **23 declared keys**, and `name` is the only **required** one: `type` and
 | `options` | `SelectOption[] \| RadioOption[]` | choices for `select` / radio fields |
 | `validation` | `FieldValidationRules` | **an object keyed by rule name** — see below |
 | `condition` | `FieldCondition` | legacy `{ field, equals, notEquals, in }` matcher (`custom` is retired, objectui#7759: nothing ran it) |
-| `visibleWhen` / `readonlyWhen` / `requiredWhen` | `string \| { dialect?, source }` | CEL predicates over the live record, evaluated by `@objectstack/formula` — the same engine and dialect the server enforces. They fail open |
+| `visibleWhen` / `readonlyWhen` / `requiredWhen` | `string \| { dialect?, source }` | CEL predicates over the live record, evaluated by `@objectstack/formula` — the same engine and dialect the server enforces. They fail open on screen; a `visibleWhen` that cannot be evaluated refuses the submit, naming the field and the rule |
 | `visibleOn` | `string \| { dialect?, source }` | view-level visibility predicate (spec `FormField.visibleOn`) |
 | `dependsOn` | `DependsOnInput` | cascading parent(s): a bare name, a list of names, or `{ field, param }` entries |
 | `span` | `'auto' \| 'full'` | relative field width, independent of the column count (preferred) |

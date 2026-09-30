@@ -97,11 +97,16 @@ built-in defaults, so authoring still works offline.
 
 ## The node inspector
 
-Selecting a node opens its inspector: **ID**, **Label**, **Node Type**, an
-optional **Description**, and a **Configuration** section. New nodes start with
-spec-valid defaults (a *Wait* node already carries a timer config, an *HTTP*
-node defaults to `GET`) so a freshly dropped block is never in a broken
-intermediate state.
+Selecting a node opens its inspector: **ID**, **Label**, **Node Type**, and a
+**Configuration** section. New nodes start with defaults where the spec allows
+one: a *Wait* node already carries a timer config, and an *HTTP* node defaults to
+`GET`. What the author must still supply is marked with a red `*`, the same
+required marker the other metadata forms use. That covers an *HTTP* node's URL, a
+record node's object, a decision branch's label and expression, and a screen
+field's name. The marker follows the installed spec, so a key required only in
+some configurations (a *Notify* node's title while it has no template) is marked
+only while it applies. Until the value is supplied, the spec's error is shown on
+that node and listed in the **Problems** panel.
 
 For node types whose engine executor publishes a `configSchema` (ADR-0018), the
 inspector renders a **server-driven property form** from that schema — so a

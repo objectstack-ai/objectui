@@ -114,8 +114,10 @@ A grouped **grid** is grouped on the server: over a data source that answers
 the group header query (`dataSource.queryGroupHeaders`), `ListView` hands the
 grid its own fetch, and the group set, every group count and each group's
 rows come from the query (see *Grouping is server-side* in the
-`@object-ui/plugin-grid` README). While a toolbar search is active it hands the
-grid its window instead, since the header query carries no search.
+`@object-ui/plugin-grid` README). A toolbar search is handed to that grid too,
+with the view's `searchableFields`: the grid puts the term on the group header
+query and on every group's row query, so only the groups holding matches are
+shown and each count is its matching rows (objectui#11021).
 
 Over a data source that declares no `queryGroupHeaders`, `ListView` does not
 fetch a window and group it — every count would be a page slice, and groups

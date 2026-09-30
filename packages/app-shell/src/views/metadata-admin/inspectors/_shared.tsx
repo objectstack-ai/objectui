@@ -172,6 +172,22 @@ export function InspectorReorderButtons({
  * already a valid association and needs no id.
  */
 
+/**
+ * The metadata form's required marker, for an inspector label (objectui#10948).
+ *
+ * The markup is `SchemaForm`'s own — the `*` its `FieldRow` puts inside a
+ * required field's label, and its repeater puts in a required column's header —
+ * so an inspector marks a required key the way the rest of the designer does,
+ * not in a second visual idiom. Visual-only, as there (objectui#10367): it sits
+ * inside the text that names the control, so it is `aria-hidden`, and an atom
+ * that owns its control carries the requirement as `aria-required` instead.
+ */
+export function RequiredMarker() {
+  return (
+    <span className="text-destructive ml-0.5" aria-hidden="true" data-required-marker="true">*</span>
+  );
+}
+
 export function InspectorTextField({
   label,
   value,
@@ -217,19 +233,26 @@ export function InspectorNumberField({
   onCommit,
   placeholder,
   disabled,
+  required,
 }: {
   label: string;
   value: number | undefined;
   onCommit: (v: number | undefined) => void;
   placeholder?: string;
   disabled?: boolean;
+  /** Mark the field required: {@link RequiredMarker} in the label, `aria-required` on the input. */
+  required?: boolean;
 }) {
   const id = React.useId();
   return (
     <div className="space-y-1">
-      <Label htmlFor={id} className="text-xs text-muted-foreground">{label}</Label>
+      <Label htmlFor={id} className="text-xs text-muted-foreground">
+        {label}
+        {required && <RequiredMarker />}
+      </Label>
       <Input
         id={id}
+        aria-required={required ? true : undefined}
         type="number"
         value={value ?? ''}
         onChange={(e) => {
@@ -354,6 +377,7 @@ export function InspectorSelectField({
   roster,
   rosterFailureLabel: rosterFailureLabelProp,
   disabled,
+  required,
 }: {
   label: string;
   value: string | undefined;
@@ -394,6 +418,11 @@ export function InspectorSelectField({
    */
   rosterFailureLabel?: string;
   disabled?: boolean;
+  /**
+   * Mark the field required: {@link RequiredMarker} in the label, `aria-required`
+   * on the trigger (the labelled `combobox`, as `SchemaForm`'s select puts it).
+   */
+  required?: boolean;
 }) {
   // Radix `<Select.Item>` forbids an empty-string value (it reserves ""
   // for the cleared/placeholder state), yet callers legitimately use ""
@@ -530,7 +559,10 @@ export function InspectorSelectField({
     : options;
   return (
     <div className="space-y-1">
-      <Label htmlFor={id} className="text-xs text-muted-foreground">{label}</Label>
+      <Label htmlFor={id} className="text-xs text-muted-foreground">
+        {label}
+        {required && <RequiredMarker />}
+      </Label>
       <Select
         value={toInner(value ?? '')}
         onValueChange={(v) => onCommit(fromInner(v))}
@@ -543,6 +575,7 @@ export function InspectorSelectField({
             restores the real placeholder styling instead of hand-rolling it. */}
         <SelectTrigger
           id={id}
+          aria-required={required ? true : undefined}
           className="h-8 text-sm"
           data-placeholder={showPlaceholder ? '' : undefined}
         >

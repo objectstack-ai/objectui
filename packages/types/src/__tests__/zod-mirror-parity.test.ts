@@ -4428,11 +4428,14 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   // built the objectui#10872 way: `BaseSchema` + a `type` literal +
   // `properties`, which is the block's `ComponentPropsMap` row by reference.
   'objectql.zod.ts#ObjectMetricBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `object-metric` literal + `properties`, which IS `ComponentPropsMap['object-metric']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `object-metric` literal + `properties`, which IS `ComponentPropsMap['object-metric']`, + the node's `dataSource` binding, which IS the spec's `ElementDataSourceSchema` (objectui#10859 batch 3), + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'objectql.zod.ts#ObjectMasterDetailFormBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `object-master-detail-form` literal + `properties`, which IS `ComponentPropsMap['object-master-detail-form']`, + three `handlerKeyRefusal` runtime slots, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node (`@object-ui/plugin-form`'s `MasterDetailFormSchema` is the type of `MasterDetailForm`'s `schema` prop, the renderer's post-hoist reading)",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `object-master-detail-form` literal + `properties`, which IS `ComponentPropsMap['object-master-detail-form']`, + the node's `dataSource` binding, which IS the spec's `ElementDataSourceSchema` (objectui#10859 batch 3), + three `handlerKeyRefusal` runtime slots, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node (`@object-ui/plugin-form`'s `MasterDetailFormSchema` is the type of `MasterDetailForm`'s `schema` prop, the renderer's post-hoist reading)",
+  // objectui#10859 batch 3 — the third, built the same way from its 17.5.0 row.
+  'objectql.zod.ts#ObjectTimelineBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `object-timeline` literal + `properties`, which IS `ComponentPropsMap['object-timeline']`, + the node's `dataSource` binding, which IS the spec's `ElementDataSourceSchema` (`PageComponentSchema.dataSource`), + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node (`@object-ui/plugin-timeline`'s `ObjectTimelineProps` are the component's React props)",
   'objectql.zod.ts#ObjectQLPublicBlockComponentSchema':
-    "a union OVER the two public-block arms above, not an object of its own — its members are checked individually",
+    "a union OVER the public-block arms above, not an object of its own — its members are checked individually",
   'overlay.zod.ts#MenuItemSchema':
     "recursive; a `z.lazy` exposes no `.shape` to read, so there is no key set for the per-key comparison. Since objectui#7760 it carries its TS declaration as BOTH type arguments, so the pair IS compared — as a whole type, by `tsc`, at the annotation itself",
   'overlay.zod.ts#OverlaySchema':

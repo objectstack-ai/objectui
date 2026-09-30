@@ -84,6 +84,7 @@ import {
   // blocks `objectql.zod.ts` arms.
   ObjectMetricPropsSchema as SpecObjectMetricPropsSchema,
   ObjectMasterDetailFormPropsSchema as SpecObjectMasterDetailFormPropsSchema,
+  ObjectTimelinePropsSchema as SpecObjectTimelinePropsSchema,
   // objectui#10872 — the `ComponentPropsMap` rows the public-block arms read.
   PageHeaderProps as SpecPageHeaderProps,
   PageTabsProps as SpecPageTabsProps,
@@ -119,6 +120,7 @@ import {
   checkDashboardWidgetMetricMeasureArity,
 } from '@objectstack/spec/ui';
 import { FieldSchema as SpecFieldSchema, SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
+import { EvaluatedExpressionInputSchema as SpecEvaluatedExpressionInputSchema } from '@objectstack/spec/shared';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -221,6 +223,10 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // objectui#8885: `ObjectChartSchema.drillDown` crosses this boundary.
   ['ChartDrillDownSchema', SpecChartDrillDownSchema],
   ['SelectOptionSchema', SpecSelectOptionSchema],
+  // objectui#8069: the form field-rule triad's blank check hands a predicate's
+  // TEXT to this schema and takes its verdict and sentence (ADR-0137 D1), so
+  // the crossing is measured here like every other one.
+  ['EvaluatedExpressionInputSchema', SpecEvaluatedExpressionInputSchema],
   // objectui#7265, the @object-ui/types slice: `UserFiltersSchema.fields[]`
   // stopped being a hand copy of the spec's field shape and now derives from
   // it, so that crossing is measured here like every other one.
@@ -249,6 +255,10 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // boundary, so both rows are measured here like every other crossing.
   ['ObjectMetricPropsSchema', SpecObjectMetricPropsSchema],
   ['ObjectMasterDetailFormPropsSchema', SpecObjectMasterDetailFormPropsSchema],
+  // objectui#10859 batch 3: the `object-timeline` arm's `properties` is its
+  // row, crossed the same way — and unlike the two above it carries spec
+  // defaults (`timeline.scale`, the `navigation` members) for the strip to remove.
+  ['ObjectTimelinePropsSchema', SpecObjectTimelinePropsSchema],
   // objectui#10872: each ADR-0080 public-block arm's `properties` is the
   // block's `ComponentPropsMap` row, crossed through this boundary, so every
   // row is measured here like every other crossing (`page:section`,

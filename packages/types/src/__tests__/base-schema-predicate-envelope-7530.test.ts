@@ -40,11 +40,21 @@
  *      `ExpressionWireSchema` (zod) are the same union, so the two faces cannot
  *      drift apart the way `hidden` did between #4581 and #7455.
  *   3. Reuse by REFERENCE -- the object arm each key's zod union carries IS
- *      `ExpressionWireSchema`, and so is the one `FormFieldSchema.visibleWhen`
- *      carries after the hoist. A faithful copy passes every value comparison;
- *      identity is the only check that distinguishes reuse from the second
- *      envelope type the ruling forbids (the insight `spec-subschema-parity`
- *      already wrote down for spec re-exports).
+ *      `ExpressionWireSchema`, and so are the form's GATE legs (`visibleOn`,
+ *      an option's `visibleWhen`). A faithful copy passes every value
+ *      comparison; identity is the only check that distinguishes reuse from
+ *      the second envelope type the ruling forbids (the insight
+ *      `spec-subschema-parity` already wrote down for spec re-exports).
+ *      The form's field-rule TRIAD (`visibleWhen` / `readonlyWhen` /
+ *      `requiredWhen`) carries the SAME wire -- the very option schemas of
+ *      `ExpressionWireSchema`, by reference -- with one blank check added
+ *      (objectui#8069): ADR-0137 D1 refuses an authored blank predicate in a
+ *      field-rule slot, as the spec's `EvaluatedExpressionInputSchema` does on
+ *      `FieldSchema`, and the objectui#8069 ruling (card comment 5910115531,
+ *      as the seat applied it after contract review 5915380177) handles
+ *      objectui's own wire in the same round. What this pin protects is the
+ *      ONE accepted SHAPE across the platform; a refused VALUE is not a second
+ *      shape, and the case below pins exactly that line.
  *   4. Runtime -- the envelope `safeParse`s GREEN in full on all three keys,
  *      with and without `dialect`, beside the string and boolean controls; and
  *      the anti-overshoot guards: `{}` (no `source`), `{ dialect: 'cel' }`,
@@ -86,6 +96,7 @@ import type { ExpressionWire } from '../expression';
 import { BaseSchema as Mirror } from '../zod/base.zod';
 import { ExpressionWireSchema } from '../zod/expression.zod';
 import { FormFieldSchema, SelectOptionSchema } from '../zod/form.zod';
+import { EVALUATED_EXPRESSION_SOURCE_REQUIRED } from '@objectstack/spec/shared';
 
 /* -- Type-level helpers ---------------------------------------------------- */
 
@@ -143,6 +154,8 @@ export const dialectlessEnvelopeIsAuthorable: BaseSchema = {
 /* -- Runtime companion (the zod mirror) ------------------------------------ */
 
 const KEYS = ['visible', 'hidden', 'disabled'] as const;
+/** The form's field-rule triad (objectui#8069) -- the three keys ADR-0137 D1 narrows. */
+const TRIAD = ['visibleWhen', 'readonlyWhen', 'requiredWhen'] as const;
 type PredicateKey = (typeof KEYS)[number];
 
 const CEL_ENVELOPE = { dialect: 'cel', source: 'data.status == "draft"' };
@@ -196,12 +209,21 @@ describe('one envelope type across the package -- reuse pinned by reference (obj
     expect(envelopeArmOf(key)).toBe(ExpressionWireSchema);
   });
 
-  it('the hoisted form legs carry the same object', () => {
-    expect(FormFieldSchema.shape.visibleWhen.unwrap()).toBe(ExpressionWireSchema);
+  it('the form GATE legs carry the same object', () => {
     expect(FormFieldSchema.shape.visibleOn.unwrap()).toBe(ExpressionWireSchema);
-    expect(FormFieldSchema.shape.readonlyWhen.unwrap()).toBe(ExpressionWireSchema);
-    expect(FormFieldSchema.shape.requiredWhen.unwrap()).toBe(ExpressionWireSchema);
     expect(SelectOptionSchema.shape.visibleWhen.unwrap()).toBe(ExpressionWireSchema);
+  });
+
+  it.each(TRIAD)('FormFieldSchema.shape.%s is the same wire SHAPE -- the same option schemas by reference -- plus a blank check (objectui#8069)', (key) => {
+    const wire = FormFieldSchema.shape[key].unwrap();
+    // Not the bare const: it carries the ADR-0137 D1 check...
+    expect(wire).not.toBe(ExpressionWireSchema);
+    // ...over the SAME accepted shape: the union's arms are the const's own
+    // schemas, not copies -- which is what "one wire type" means.
+    expect(wire.options).toBe(ExpressionWireSchema.options);
+    expect(wire.options[0]).toBe(ExpressionWireSchema.options[0]);
+    expect(wire.options[1]).toBe(ExpressionWireSchema.options[1]);
+    expect(wire.constructor).toBe(ExpressionWireSchema.constructor);
   });
 
   it('... and the form leg still parses the envelope -- the hoist moved the const, not its verdict', () => {
@@ -226,5 +248,62 @@ describe('one envelope type across the package -- reuse pinned by reference (obj
     expect(hiddenEnvelopeIsAuthorable.hidden).toEqual({ dialect: 'cel', source: 'record.status == "draft"' });
     expect(disabledEnvelopeIsAuthorable.disabled).toEqual({ dialect: 'cel', source: 'record.status == "locked"' });
     expect(dialectlessEnvelopeIsAuthorable.visible).toEqual({ source: '${data.role === "admin"}' });
+  });
+});
+
+/* -- objectui#8069: the triad refuses a BLANK predicate at parse (ADR-0137 D1) -- */
+
+/** The blank spellings -- a string, and an envelope whose `source` is one. */
+const BLANKS: Array<{ label: string; value: unknown }> = [
+  { label: "''", value: '' },
+  { label: 'whitespace', value: '   ' },
+  { label: "{ source: '' }", value: { source: '' } },
+  { label: "{ dialect: 'cel', source: '  ' }", value: { dialect: 'cel', source: '  ' } },
+];
+
+const field = (key: (typeof TRIAD)[number], value: unknown) => ({ name: 'amount', [key]: value });
+
+describe.each(TRIAD)('FormFieldSchema.%s refuses a blank predicate (objectui#8069, ADR-0137 D1)', (key) => {
+  it.each(BLANKS)('$label is refused AT THE KEY, with the spec\u2019s own sentence', ({ value }) => {
+    const result = FormFieldSchema.safeParse(field(key, value));
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const atKey = result.error.issues.filter((issue) => issue.path.join('.') === key);
+      expect(atKey.map((issue) => issue.message)).toEqual([EVALUATED_EXPRESSION_SOURCE_REQUIRED]);
+    }
+  });
+
+  it('a non-blank string, a CEL envelope and a dialect-less envelope all parse in full', () => {
+    expect(FormFieldSchema.safeParse(field(key, PREDICATE)).success).toBe(true);
+    expect(FormFieldSchema.safeParse(field(key, "record.stage == 'won'")).success).toBe(true);
+    expect(FormFieldSchema.safeParse(field(key, CEL_ENVELOPE)).success).toBe(true);
+    expect(FormFieldSchema.safeParse(field(key, DIALECTLESS_ENVELOPE)).success).toBe(true);
+  });
+
+  it('the parsed value is the authored one, unchanged -- the check narrows the VALUE set, not the shape', () => {
+    const parsed = FormFieldSchema.parse(field(key, "record.stage == 'won'"));
+    expect(parsed[key]).toBe("record.stage == 'won'");
+    expect(FormFieldSchema.parse(field(key, CEL_ENVELOPE))[key]).toEqual(CEL_ENVELOPE);
+  });
+
+  it('junk is still refused at the key -- the anti-overshoot guard, unchanged', () => {
+    expect(FormFieldSchema.safeParse(field(key, {})).success).toBe(false);
+    expect(FormFieldSchema.safeParse(field(key, 42)).success).toBe(false);
+  });
+
+  it('control -- an ABSENT rule is no rule and parses', () => {
+    expect(FormFieldSchema.safeParse({ name: 'amount' }).success).toBe(true);
+  });
+});
+
+describe('control -- a blank GATE keeps the plain wire: "no gate", not a refusal (ADR-0137 D4, objectui#3850)', () => {
+  it.each(KEYS)("BaseSchema.%s: '' and a blank envelope still parse", (key) => {
+    expect(Mirror.safeParse({ type: 'test-component', [key]: '' }).success).toBe(true);
+    expect(Mirror.safeParse({ type: 'test-component', [key]: { dialect: 'cel', source: ' ' } }).success).toBe(true);
+  });
+
+  it("FormFieldSchema.visibleOn (the view-level gate) and an option's visibleWhen still parse a blank", () => {
+    expect(FormFieldSchema.safeParse({ name: 'amount', visibleOn: '' }).success).toBe(true);
+    expect(SelectOptionSchema.safeParse({ label: 'Draft', value: 'draft', visibleWhen: '  ' }).success).toBe(true);
   });
 });

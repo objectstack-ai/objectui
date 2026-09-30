@@ -41,6 +41,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
+  ElementDataSourceSchema as SpecElementDataSourceSchema,
   ObjectMasterDetailFormPropsSchema as SpecObjectMasterDetailFormPropsSchema,
   ObjectMetricPropsSchema as SpecObjectMetricPropsSchema,
   type ObjectMasterDetailFormProps as SpecObjectMasterDetailFormProps,
@@ -92,7 +93,8 @@ export type assertionPivotMirrorsItsDeclaration = [
 /**
  * The two spec-row arms: the bag accepts exactly the spec's published props
  * type (absent allowed), and the node adds nothing to `BaseSchema` but `type`,
- * the bag and — on the master-detail form — its three runtime slots.
+ * the bag, the `dataSource` binding (objectui#10859 batch 3, pinned at runtime
+ * below) and — on the master-detail form — its three runtime slots.
  */
 export type assertionSpecRowArmsAreTheRow = [
   Expect<Equal<InputOf<ShapeOf<typeof ObjectMetricBlockSchema>['properties']>, SpecObjectMetricProps | undefined>>,
@@ -185,6 +187,38 @@ describe('the registered types armed in batch 2 validate (objectui#10859)', () =
     expect(row.safeParse(doc.properties).success).toBe(true);
     expect(safeValidateSchema(doc).success).toBe(true);
     expect(StrictAnyComponentSchema.safeParse(doc).success).toBe(true);
+  });
+
+  it.each([
+    [
+      'object-metric',
+      {
+        type: 'object-metric',
+        dataSource: { object: 'showcase_project', filter: [{ field: 'status', operator: 'equals', value: 'active' }] },
+        properties: { label: 'Projects', aggregate: { field: 'id', function: 'count' } },
+      },
+    ],
+    [
+      'object-master-detail-form',
+      {
+        type: 'object-master-detail-form',
+        dataSource: { object: 'showcase_project' },
+        properties: { mode: 'create', details: [{ title: 'Tasks', childObject: 'showcase_task' }] },
+      },
+    ],
+  ] as const)('%s bound through the node\'s `dataSource` is accepted by the strict face (objectui#10859 batch 3)', (type, doc) => {
+    // The registration is `elementDataSourceBlock`-wrapped, so the node's
+    // `dataSource` is read through `ElementDataSourceGate`; the key is the
+    // spec's `PageComponentSchema.dataSource`. Lit control: the binding is
+    // spec-valid by the spec's own schema.
+    expect(SpecElementDataSourceSchema.safeParse(doc.dataSource).success).toBe(true);
+    const strict = StrictAnyComponentSchema.safeParse(doc);
+    expect(strict.success, JSON.stringify(strict.success ? null : strict.error.issues)).toBe(true);
+    expect(safeValidateSchema(doc).success).toBe(true);
+    // Judged as the binding, not merely admitted: an adapter name is refused on both faces.
+    const adapterShaped = { type, dataSource: 'objectstack' };
+    expect(StrictAnyComponentSchema.safeParse(adapterShaped).success).toBe(false);
+    expect(safeValidateSchema(adapterShaped).success).toBe(false);
   });
 
   it('accepts a fully populated `pivot` document on both faces', () => {
@@ -316,7 +350,12 @@ describe('the spec-row arms read the row by reference (objectui#10859)', () => {
   it('each arm is reachable from AnyComponentSchema through its category union', () => {
     const literals = (union: { options: readonly { shape: { type: z.ZodLiteral<string> } }[] }) =>
       union.options.map((arm) => arm.shape.type.value);
-    expect(literals(ObjectQLPublicBlockComponentSchema)).toEqual(['object-metric', 'object-master-detail-form']);
+    // `object-timeline` joined the union in batch 3 (`object-timeline-arm-10859-b3.test.ts`).
+    expect(literals(ObjectQLPublicBlockComponentSchema)).toEqual([
+      'object-metric',
+      'object-master-detail-form',
+      'object-timeline',
+    ]);
     expect(literals(DataDisplaySchema)).toContain('pivot');
   });
 });

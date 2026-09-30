@@ -523,6 +523,11 @@ export interface ObjectGridColumnState {
  * `Partial<...>` wrapper is deliberate and is the only shape change: the whole
  * mode is opt-in, and `DataTableSchema['data']` is required because a table
  * always has rows, while a grid that was given no `data` fetches its own.
+ *
+ * `search` is read outside this mode too (objectui#11021): a host that passes
+ * it owns the search term even where the grid fetches for itself, and the
+ * grid's own queries carry it. `ListView` hands its toolbar term to a grid
+ * that groups on the server that way, with no rows.
  */
 export interface ObjectGridExternalPaginationProps
   extends Partial<
@@ -2037,6 +2042,14 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // A term is asked of one collection. Pointing the grid at another object
   // makes it a question about rows it was never typed for.
   useEffect(() => { setSearchTerm(''); }, [objectName]);
+  // [objectui#11021] Whose term is it? A host that passes `search` owns it —
+  // under host-driven paging, and also when this grid fetches for itself:
+  // `ListView` fetches for a flat grid, but hands a grid that groups on the
+  // server no rows, only its toolbar term, which this grid's own queries then
+  // carry (both group queries, or its own window). Absent that prop, the term
+  // is the one typed into this grid's box.
+  const hostOwnsSearch = externalManualPagination || hostSearch !== undefined;
+  const querySearchTerm = hostOwnsSearch ? (hostSearch ?? '') : searchTerm;
 
   // --- Inline data effect (synchronous, no fetch needed) ---
   useEffect(() => {
@@ -2240,6 +2253,16 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // filter — resolved by the load effect below exactly as the flat fetch
   // resolves it, and handed to each group's row page. `null` until resolved.
   const [groupRowQuery, setGroupRowQuery] = useState<Record<string, unknown> | null>(null);
+  // [objectui#11021] Leaving server grouping drops the held query. Only the
+  // load effect below writes it, and only while grouping on the server, so a
+  // grid that went flat and came back asked its first header query with the
+  // query it held when it last grouped — a cleared search term, or an old
+  // filter, sort or projection — and painted that answer before the fresh
+  // one. `null` holds both group queries until the query as it stands now is
+  // resolved.
+  useEffect(() => {
+    if (!serverGroupedFetch) setGroupRowQuery(null);
+  }, [serverGroupedFetch]);
 
   // objectui#10035 — the refresh input this grid had none of, so a host could
   // show it a write only by remounting it (AGENTS.md #8's corollary: refresh
@@ -2652,7 +2675,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           // when the view declared `searchableFields` — it can narrow that
           // server-resolved set, never widen it — which is exactly what the
           // ListView toolbar sends.
-          const trimmedSearch = searchTerm.trim();
+          const trimmedSearch = querySearchTerm.trim();
           if (trimmedSearch) {
             params.$search = trimmedSearch;
             if (schema.searchableFields && schema.searchableFields.length > 0) {
@@ -2796,7 +2819,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // `groupingNeedsHeaderQuery` (objectui#10881): it flips when the object's
   // types land and show the only grouping key masked, and the flat fetch it
   // withheld must then go out.
-  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaDefaultFilters, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, fetchWindow, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, invalidationNonce, serverGroupedFetch, groupingNeedsHeaderQuery]);
+  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaDefaultFilters, schemaSort, headerSort, querySearchTerm, schemaPagination, schemaPageSize, serverPage, fetchWindow, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, invalidationNonce, serverGroupedFetch, groupingNeedsHeaderQuery]);
 
   // The same reset, for the path the loader above never runs on (objectui#4501
   // clause 2). "All N matching are selected" is a claim about ONE query, so it
@@ -2824,7 +2847,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // become 2, and "page 5" of that is nothing at all.
   React.useEffect(() => {
     setServerPage(1);
-  }, [objectName, schemaFilter, schemaSort, headerSort, searchTerm]);
+  }, [objectName, schemaFilter, schemaSort, headerSort, querySearchTerm]);
 
   // --- NavigationConfig support ---
   // Must be called before any early returns to satisfy React hooks rules
@@ -4584,8 +4607,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // question, filter axis: when `data` is one window, a `.filter()` over it
   // narrows the fifty rows on screen while the rest of the collection never
   // participates — and unlike a mis-scoped sort, the count it produces reads as
-  // a statement about the whole list. Grouped/inline grids hold every row they
-  // display, so their box keeps filtering client-side, where it is honest.
+  // a statement about the whole list. A flat grid over inline rows holds every
+  // row it displays, so its box keeps filtering client-side, where it is
+  // honest. A grouped grid draws no box (each group's table is
+  // `searchable: false`); one that groups on the server sends its term — typed
+  // while flat, or a host's `search` — on its group header query and on every
+  // group's row query (objectui#11021), so its groups are the searched ones.
   const manualSearchOn = manualPaginationOn;
 
   /**
@@ -5217,14 +5244,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
   // The search term, in whichever server mode applies. When a parent owns the
   // rows it owns the term too (ListView already does, from its own toolbar —
-  // which is why it passes `showSearch: false` and no box is rendered here);
-  // when we own the fetch, the box writes `searchTerm` and the effect above
-  // turns it into `$search`. A parent that drives the rows but offers no
-  // `onSearchChange` gets NO box rather than one scoped to its window.
-  const manualSearch = externalManualPagination
-    ? (hostSearch ?? '')
-    : searchTerm;
-  const manualOnSearchChange = externalManualPagination
+  // which is why it passes `showSearch: false` and no box is rendered here),
+  // and so does a parent that hands down `search` (`hostOwnsSearch`); else the
+  // box writes `searchTerm`. Either way the effect above turns the term into
+  // `$search` when this grid fetches. A parent that owns the term but offers
+  // no `onSearchChange` gets NO box rather than one that cannot change it.
+  const manualSearch = querySearchTerm;
+  const manualOnSearchChange = hostOwnsSearch
     ? hostOnSearchChange
     : setSearchTerm;
 

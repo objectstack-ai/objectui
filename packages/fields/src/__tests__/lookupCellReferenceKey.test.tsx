@@ -64,7 +64,7 @@ describe('LookupCellRenderer — reference key resolution', () => {
       <SchemaRendererProvider dataSource={ds}>
         <LookupCellRenderer
           value={OPAQUE_ID}
-          field={{ type: 'lookup', reference_to: 'showcase_account' } as any}
+          field={{ type: 'lookup', reference_to: 'showcase_account' } as never}
         />
       </SchemaRendererProvider>,
     );

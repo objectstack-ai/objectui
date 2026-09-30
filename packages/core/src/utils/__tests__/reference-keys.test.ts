@@ -70,7 +70,7 @@ describe('normalizeFieldReferenceKeys', () => {
     normalizeFieldReferenceKeys(normalizeFieldReferenceKeys(field));
     expect(field).toEqual({ type: 'user', reference: 'sys_user' });
 
-    const legacy = { type: 'lookup', reference_to: 'accounts' } as any;
+    const legacy: Record<string, unknown> = { type: 'lookup', reference_to: 'accounts' };
     normalizeFieldReferenceKeys(normalizeFieldReferenceKeys(legacy));
     expect(legacy).toEqual({ type: 'lookup', reference_to: 'accounts', reference: 'accounts' });
   });

@@ -566,7 +566,7 @@ describe('Complex & Relationship Widgets', () => {
                 <LookupField
                     value={null}
                     onChange={vi.fn()}
-                    field={{ name: 'account', label: 'Account', field: { name: 'account', type: 'lookup', reference_to: 'account' }, dataSource: mockDataSource } as any}
+                    field={{ name: 'account', label: 'Account', field: { name: 'account', type: 'lookup', reference_to: 'account' }, dataSource: mockDataSource } as never}
                     readonly={false}
                 />
             );

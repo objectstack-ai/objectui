@@ -137,7 +137,7 @@ export const CATEGORY_ORDER: FieldTypeCategory[] = ['text', 'number', 'date', 'c
  * options ride along untouched). The top-of-page type FILTER is a list filter,
  * not a creation path, and keeps every type.
  */
-export function drawerOffersType(type: DesignerFieldType, editingType?: DesignerFieldType): boolean {
+function drawerOffersType(type: DesignerFieldType, editingType?: DesignerFieldType): boolean {
   return !CHOICE_TYPES_REQUIRING_OPTIONS.includes(type) || type === editingType;
 }
 

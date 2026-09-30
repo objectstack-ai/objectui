@@ -33,8 +33,13 @@ import type { DesignerFieldDefinition } from '@object-ui/types';
 import { CHOICE_TYPES_REQUIRING_OPTIONS } from '@object-ui/data-objectstack';
 import { FieldDesigner } from '../FieldDesigner';
 
+/** The slice of the drawer schema this file reads. */
+interface DrawerSchemaSlice {
+  sections: Array<{ name: string; fields: Array<{ name: string; options?: Array<{ value: string }> }> }>;
+}
+
 /** The last schema `FieldDesigner` handed its drawer form. */
-let drawerSchema: any = null;
+let drawerSchema: DrawerSchemaSlice | null = null;
 
 vi.mock('@object-ui/plugin-grid', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -45,7 +50,7 @@ vi.mock('@object-ui/plugin-form', async (importOriginal) => {
   return {
     ...(await importOriginal<Record<string, unknown>>()),
     ...mocks,
-    DrawerForm: (props: { schema: unknown }) => {
+    DrawerForm: (props: { schema: DrawerSchemaSlice }) => {
       drawerSchema = props.schema;
       return React.createElement(mocks.DrawerForm, props);
     },
@@ -70,9 +75,10 @@ afterEach(() => {
 
 /** The type values the open drawer offers. */
 function offeredTypes(): string[] {
-  const basic = drawerSchema.sections.find((s: any) => s.name === 'basic');
-  const typeField = basic.fields.find((f: any) => f.name === 'type');
-  return typeField.options.map((o: { value: string }) => o.value);
+  const basic = drawerSchema?.sections.find((s) => s.name === 'basic');
+  const typeField = basic?.fields.find((f) => f.name === 'type');
+  expect(typeField?.options, 'the drawer rendered no type control: the harness is dead').toBeDefined();
+  return (typeField?.options ?? []).map((o) => o.value);
 }
 
 async function openEdit(name: string): Promise<void> {

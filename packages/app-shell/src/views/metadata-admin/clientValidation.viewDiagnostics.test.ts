@@ -632,6 +632,14 @@ describe('view nested union — the sole-candidate rule (objectui#3678)', () => 
   };
 
   // ── CANARY ───────────────────────────────────────────────────────────────
+  //
+  // ⚠️ Since `@objectstack/spec` 17.5.0, `view.sort` is NOT a union any more:
+  // the bare-string arm retired (objectui#11073 re-measured it — a plain
+  // `z.array` whose own `error` map answers a string with the retirement
+  // prescription). The three sort canaries below still pin what an author SEES,
+  // which did not move; they no longer exercise the sole-candidate rule, whose
+  // evidence is now the census's union rows (`columns`, `summary`,
+  // `filter[].value`).
 
   it('CANARY: a bad `order` on a sort row reports the key and the allowed options', async () => {
     // THE case #3678 was filed on. Before: `config.sort` / `Invalid input`.
@@ -712,10 +720,12 @@ describe('view nested union — the sole-candidate rule (objectui#3678)', () => 
   // ── MAINTAINED: the cells this rule must stay out of ─────────────────────
 
   it('k === 0 — every member rejected the type, so the collapse is kept', async () => {
-    // `sort: 42` is neither a string nor an array. Nothing distinguishes the
-    // members, and #3626 already ruled that inventing a preference is not ours.
-    expect(await bothGates(withConfig({ sort: 42 }))).toEqual([
-      { path: 'config.sort', message: 'Invalid input' },
+    // `columns: 'nope'` is an array under neither member. Nothing distinguishes
+    // the members, and #3626 already ruled that inventing a preference is not
+    // ours. (This row used `sort: 42` until `view.sort` stopped being a union
+    // at `@objectstack/spec` 17.5.0; objectui#11073.)
+    expect(await bothGates(withConfig({ columns: 'nope' }))).toEqual([
+      { path: 'config.columns', message: 'Invalid input' },
     ]);
   });
 
@@ -742,7 +752,8 @@ describe('view nested union — the sole-candidate rule (objectui#3678)', () => 
     // that spoke shows up as a nearer path OR as a named message, and each can
     // happen without the other:
     //
-    //   selected member's issue is DEEPER  → path moves   (`sort` → `…sort.0.order`)
+    //   selected member's issue is DEEPER  → path moves   (`sort` → `…sort.0.order`
+    //                                        through 17.4.0; `filter[].value` now)
     //   selected member's issue is AT the  → path stays, message stops being
     //     union node (a scalar member)       `Invalid input` (`summary: 'bogus'`)
     //   descent ends in a `none` cell      → path moves, message stays
@@ -767,10 +778,10 @@ describe('view nested union — the sole-candidate rule (objectui#3678)', () => 
       cell: 'sole' | 'content' | 'none';
       collapsedMessage: boolean;
     }> = [
-      { label: 'sort: bad order', body: withConfig({ sort: [{ field: 'n', order: 'bogus' }] }), unionAt: 'config.sort', reportedAt: 'config.sort.0.order', cell: 'sole', collapsedMessage: false },
-      { label: 'sort: of field names', body: withConfig({ sort: ['name'] }), unionAt: 'config.sort', reportedAt: 'config.sort.0', cell: 'sole', collapsedMessage: false },
-      { label: 'sort: of numbers', body: withConfig({ sort: [42] }), unionAt: 'config.sort', reportedAt: 'config.sort.0', cell: 'sole', collapsedMessage: false },
-      { label: 'sort: a bare number', body: withConfig({ sort: 42 }), unionAt: 'config.sort', reportedAt: 'config.sort', cell: 'none', collapsedMessage: true },
+      // The four `sort` rows that opened this census left it at `@objectstack/spec`
+      // 17.5.0, when `view.sort` stopped being a union (objectui#11073): a plain
+      // array reports at its natural path with no rule speaking, so keeping them
+      // would read "a rule spoke" off a path no rule chose.
       { label: 'columns: bad key type', body: withConfig({ columns: [{ field: 123 }] }), unionAt: 'config.columns', reportedAt: 'config.columns.0.field', cell: 'content', collapsedMessage: false },
       { label: 'columns: stray element', body: withConfig({ columns: ['a', 42] }), unionAt: 'config.columns', reportedAt: 'config.columns.1', cell: 'content', collapsedMessage: false },
       { label: 'columns: elected by nothing', body: withConfig({ columns: [42] }), unionAt: 'config.columns', reportedAt: 'config.columns', cell: 'none', collapsedMessage: true },
@@ -830,7 +841,9 @@ describe('view verdict parity — sole-candidate bodies (objectui#3678)', () => 
   });
 
   const CASES: Array<{ label: string; body: unknown; ok: boolean }> = [
-    { label: 'sort as a field name', body: withConfig({ sort: 'name' }), ok: true },
+    // `ok: true` through `@objectstack/spec` 17.4.0; 17.5.0 retired the bare
+    // string clause and refuses it with its prescription (objectui#11073).
+    { label: 'sort as a field name', body: withConfig({ sort: 'name' }), ok: false },
     { label: 'sort as an empty array', body: withConfig({ sort: [] }), ok: true },
     { label: 'sort as column sorts', body: withConfig({ sort: [{ field: 'n', order: 'asc' }] }), ok: true },
     { label: 'sort with a bad order', body: withConfig({ sort: [{ field: 'n', order: 'bogus' }] }), ok: false },

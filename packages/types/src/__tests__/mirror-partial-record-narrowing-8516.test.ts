@@ -170,17 +170,22 @@ describe('objectui#8516 — GridSchema.columns accept set', () => {
   });
 
   it('names the offending key in the issue an author is shown', () => {
-    // Q1, measured rather than assumed. `columns` is a UNION, so zod reports one
-    // top-level `invalid_union` whose message is the bare "Invalid input"; the
-    // CLI's `explainUnionIssue` expands an undiscriminated union's arms and
-    // rebases their paths, which is where the key surfaces. `z.partialRecord`
-    // puts it in the PATH (`columns -> xxl`); the `.strict()` object spelling
-    // would put it in the MESSAGE instead. Both name it; this pins which.
+    // Q1, measured rather than assumed. `columns` is a UNION (a number, or the
+    // `z.partialRecord`). Under zod 4.4 zod reported one top-level
+    // `invalid_union` whose message was the bare "Invalid input", and the key
+    // surfaced only inside its arms, as an `invalid_key` whose PATH held it.
+    // Since zod 4.6 (objectui#11073, forced by `@objectstack/spec` 17.5.0's
+    // `zod ^4.6.1`) a record's out-of-vocabulary key is a NON-aborting
+    // `unrecognized_keys`, the number arm is the only aborted one, and the union
+    // returns the record arm's issue on its own: `unrecognized_keys` AT
+    // `columns`, naming the key in `keys` and in its message. Still named, and
+    // named at the top level now; this pins which.
     const r = GridZodMirror.safeParse({ type: 'grid', columns: { xxl: 6 } });
     expect(r.success).toBe(false);
-    const arms = (r.error!.issues[0] as { errors?: { path: PropertyKey[]; code?: string }[][] }).errors ?? [];
-    const flat = arms.flat();
-    expect(flat.some((i) => i.code === 'invalid_key' && i.path.includes('xxl'))).toBe(true);
+    expect(r.error!.issues).toEqual([
+      expect.objectContaining({ code: 'unrecognized_keys', path: ['columns'], keys: ['xxl'] }),
+    ]);
+    expect(r.error!.issues[0].message).toContain('xxl');
   });
 });
 

@@ -27,6 +27,7 @@ import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 // rationale moved with it.
 import { ExpressionWireSchema } from './expression.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
+import { closeStrictUnionArms } from './node-derivation.js';
 
 /**
  * ⭐ THE IMPORT BOUNDARY (objectui#8317, decision batch #90, 2026-09-08).
@@ -577,11 +578,13 @@ const CalendarDayRangeSchema = z.strictObject({
 // objectui#10304: every selection shape the date picker reads. WHICH one a node
 // may carry is decided by its `mode`, and `calendarSelectionFitsMode` below
 // holds that pairing; this union alone is the key-level set.
-const CalendarSelectionSchema = z.union([
+// objectui#11073: the strict range arm is closed where it meets this union (see
+// `closeStrictUnionArms` in `./node-derivation.ts`).
+const CalendarSelectionSchema = z.union(closeStrictUnionArms([
   CalendarDaySchema,
   z.array(CalendarDaySchema),
   CalendarDayRangeSchema,
-]);
+] as const));
 
 /**
  * objectui#10304 — a selection must have the shape its `mode` reads.

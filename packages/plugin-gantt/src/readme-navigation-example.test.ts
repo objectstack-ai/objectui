@@ -68,14 +68,16 @@
  * the block never carried the key. An instruction can live entirely in prose,
  * which is why the prose is measured here too.
  *
- * WARNING: no schema this package installs can derive that key's retirement.
- * The pinned `@objectstack/spec@17.4.0` still DECLARES `view`, so
- * `declaredMembers()` reports it legal and every schema-derived statement about
- * it is vacuous in this tree; the retirement lands it as a tombstone (typed
- * `never`, raising a prescription at parse) only when the pin moves. It is
- * therefore named by hand, exactly as `basePath` already is -- and the absence
- * carries its own control: the same detector is run over the sentence that used
- * to carry the instruction, in the same file, and must find it there.
+ * WARNING: `declaredMembers()` cannot derive that key's retirement. When this
+ * was written the spec in the lockfile (17.4.0) still DECLARED `view` as a live
+ * member. The installed `@objectstack/spec` 17.5.0 lands it as a tombstone
+ * (objectui#11073 re-measured: typed `never`, and `{ view: 'detail' }` is
+ * refused at `view` with "`view.list.navigation.view` was removed in
+ * @objectstack/spec 17.5.0") -- but a tombstone is still a KEY of the shape,
+ * so the key-set reading below lists it exactly as it listed the live member.
+ * It is therefore named by hand, exactly as `basePath` already is -- and the
+ * absence carries its own control: the same detector is run over the sentence
+ * that used to carry the instruction, in the same file, and must find it there.
  */
 
 import { describe, it, expect } from 'vitest';

@@ -1283,7 +1283,7 @@ ComponentRegistry.register('section', PageSectionRenderer, {
 });
 
 // ---------------------------------------------------------------------------
-// page:header — title row + optional subtitle + breadcrumb/action slots.
+// page:header — title row + optional subtitle + action slot.
 // `actions` entries are ACTION IDS, resolved against the object's own metadata
 // (objectstack#11592 ruling, objectui#6252) — see `resolvedHeaderActions`.
 // ---------------------------------------------------------------------------
@@ -1505,7 +1505,12 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     fieldOptionLabel,
     headerObjectName,
   );
-  const breadcrumb = (schema?.breadcrumb ?? schema?.properties?.breadcrumb) !== false;
+  // `breadcrumb` is deliberately NOT read (objectui#11166, ruling RETIRE). All
+  // it ever drew was an empty `data-page-breadcrumb-slot` div that nothing
+  // filled, and the console's app header already draws the trail. The spec
+  // still accepts `PageHeaderProps.breadcrumb` until objectstack#20758 retires
+  // it, so an authored value renders exactly as an absent one: ignored, no
+  // error. ⛔ Do not add a trail here; that is an ENFORCE ruling, not a fix.
 
   // Schema-level opt-outs let authors keep the historic "bare h1" header
   // when they don't want a record chip (e.g. a non-record landing page).
@@ -2340,12 +2345,6 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
         {...headerAria}
       >
         <div className="flex flex-col min-w-0 sm:min-w-48 flex-1">
-          {breadcrumb && (
-            <div
-              className="text-xs text-muted-foreground mb-1"
-              data-page-breadcrumb-slot
-            />
-          )}
           <RecordTitleChip
             title={resolvedTitle}
             objectLabel={objectLabel}
@@ -2376,9 +2375,6 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       {...designer}
       {...headerAria}
     >
-      {breadcrumb && (
-        <div className="text-xs text-muted-foreground" data-page-breadcrumb-slot />
-      )}
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-col">
           {explicitTitle && (
@@ -2413,7 +2409,14 @@ ComponentRegistry.register('header', PageHeaderRenderer, {
     { name: 'title', type: ['string', 'object'], description: 'Supports {field} interpolation and inline translation maps; falls back to the record title' },
     { name: 'subtitle', type: ['string', 'object'], description: 'Same interpolation as Title' },
     { name: 'actions', type: 'array', of: 'string', description: "Action IDS — the names of actions declared on the object's own metadata — rendered in the header before any host-injected system actions. An id whose action declares neither record_header nor record_more in its locations renders nowhere." },
-    { name: 'breadcrumb', type: 'boolean' },
+    // Declared but NOT read (objectui#11166). It stays in `inputs` only while
+    // the installed spec still accepts the key: the reverse direction of
+    // `registry-inputs-spec-parity.test.ts` asks for every accepted spec key,
+    // and the manifest would otherwise warn `unknown-prop` on a value the
+    // contract accepts. It leaves with the spec retirement (objectstack#20758):
+    // once the pin carries the tombstone, this entry fails the forward
+    // direction. The description tells an author reading the manifest it is inert.
+    { name: 'breadcrumb', type: 'boolean', description: 'Ignored: the header draws no breadcrumb, and the key is being retired from the contract. Leave it out.' },
     { name: 'recordChrome', type: 'boolean', description: 'Set false for the bare h1 header on non-record pages' },
     { name: 'showStar', type: 'boolean' },
     { name: 'showCopyId', type: 'boolean' },

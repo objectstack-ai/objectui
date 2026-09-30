@@ -273,11 +273,13 @@ const NAMED_VIEW_READ_UNDECLARED = [] as const;
  * 44 of objectui#7928 minus bucket ①'s twenty-three, which objectui#10758 made
  * the host delegation read off the named view. What is left is bucket ② (the
  * legacy `show*` spellings), bucket ③ (objectui-only members) and the two
- * members ruled inert below — no member the protocol declares is on it any
- * more except those two.
+ * members `@objectstack/spec` 17.5.0 retired ({@link BUCKET_PROTOCOL_RETIRED_TOMBSTONED})
+ * — no LIVE protocol member is on it.
  *
- * ⭐ TWO OF THEM ARE objectui#8980's OWN, AND THAT IS THE RULED OUTCOME, not
- * an oversight: `tabs` and `pageName`. The ruling's item 2 requires a member
+ * ⭐ TWO OF THEM WERE objectui#8980's OWN, the ruled outcome then: `tabs` and
+ * `pageName`. Since objectui#11073 both are `?: never` tombstones, following the
+ * protocol's retirement; the paragraph below is the record of why they were
+ * declared at all. The ruling's item 2 requires a member
  * with no renderer behaviour to attach to be DECLARED and REPORTED with its
  * measurement — ⛔ not silently declared inert and ⛔ not dropped from the type.
  * The measurements, reported on objectui#8980: objectui's tab bar for an object
@@ -333,7 +335,7 @@ const NAMED_VIEW_ABSENT_CONTROL = 'stickyHeader';
 
 /**
  * The protocol's own member set for a named list view — `ObjectListViewSchema`'s
- * shape, off `@objectstack/spec` as installed (17.4.0). ⛔ Not a copy of the
+ * shape, off `@objectstack/spec` as installed (17.5.0). ⛔ Not a copy of the
  * objectui face and ⛔ not a hand list: it is read off the schema object, so a
  * spec bump that moves a key moves this.
  */
@@ -348,13 +350,14 @@ const PROTOCOL_LIST_VIEW_KEYS = [
 ] as const;
 
 /**
- * Five of those 50 are RETIREMENT TOMBSTONES, refused by name with the
- * protocol's own `[REMOVED]` text. ⚠️ They are why a raw key-count diff reads
+ * Seven of those 50 are RETIREMENT TOMBSTONES, refused by name with the
+ * protocol's own `[REMOVED]` text (five until `@objectstack/spec` 17.5.0 retired
+ * `pageName` and `tabs`, objectui#11073). ⚠️ They are why a raw key-count diff reads
  * objectui as "narrower" and is wrong to: not declaring a key the protocol
  * refuses is agreement, not a gap. Derived by the tombstone's own marker, not
  * listed by hand.
  */
-const PROTOCOL_RETIRED_KEYS = ['bordered', 'performance', 'responsive', 'striped', 'virtualScroll'] as const;
+const PROTOCOL_RETIRED_KEYS = ['bordered', 'pageName', 'performance', 'responsive', 'striped', 'tabs', 'virtualScroll'] as const;
 
 /** The marker every protocol tombstone's description opens with. */
 const PROTOCOL_TOMBSTONE_MARKER = '[REMOVED]';
@@ -466,10 +469,13 @@ const NAMED_LIST_VIEW_TOMBSTONES = [
 ] as const;
 
 /**
- * The two members objectui#8980 declared KNOWING nothing reads them, with the
- * measurement reported — ⛔ not an oversight and ⛔ not a retirement candidate.
+ * The two members objectui#8980 declared KNOWING nothing reads them ("declared
+ * inert", the protocol declared them). `@objectstack/spec` 17.5.0 RETIRED both,
+ * and the seat's Q4 ruling on objectui#11073 retired them on objectui's face as
+ * `?: never` tombstones: the one bucket of protocol keys objectui still names,
+ * named only to refuse them.
  */
-const BUCKET_DECLARED_INERT = ['pageName', 'tabs'] as const;
+const BUCKET_PROTOCOL_RETIRED_TOMBSTONED = ['pageName', 'tabs'] as const;
 
 /**
  * The one objectui-only member that WAS read off a named view, until
@@ -1586,11 +1592,11 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     expect(keys).not.toContain(NAMED_VIEW_ABSENT_CONTROL);
   });
 
-  it('five of the 50 are RETIREMENT TOMBSTONES, refused BY NAME — so objectui not declaring them is agreement, not narrowness', () => {
+  it('seven of the 50 are RETIREMENT TOMBSTONES, refused BY NAME — so objectui not declaring them LIVE is agreement, not narrowness', () => {
     expect(protocolRetiredKeys()).toEqual([...PROTOCOL_RETIRED_KEYS]);
     const base = { label: 'Directory', columns: ['name', 'email'] };
     // The accept leg first: without it every refusal below is a schema that
-    // refuses everything rather than a reading of these five keys.
+    // refuses everything rather than a reading of these seven keys.
     expect(SpecObjectListViewSchema.safeParse(base).success).toBe(true);
     for (const key of PROTOCOL_RETIRED_KEYS) {
       const r = SpecObjectListViewSchema.safeParse({ ...base, [key]: true });
@@ -1604,15 +1610,19 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
           || (i.message ?? '').includes('was removed in @objectstack/spec'))).toBe(true);
       }
     }
-    // …and none of the five is declared on the objectui face.
-    const declared = namedListViewMembers().names;
-    expect(PROTOCOL_RETIRED_KEYS.filter((k) => declared.includes(k))).toEqual([]);
+    // …and none of the seven is declared LIVE on the objectui face. Five were
+    // never declared; the two objectui#8980 declared are `?: never` tombstones
+    // since objectui#11073, refused by name on this face as on the protocol's.
+    const { names, tombstones } = namedListViewMembers();
+    const declaredLive = names.filter((n) => !tombstones.includes(n));
+    expect(PROTOCOL_RETIRED_KEYS.filter((k) => declaredLive.includes(k))).toEqual([]);
+    expect(PROTOCOL_RETIRED_KEYS.filter((k) => tombstones.includes(k))).toEqual([...BUCKET_PROTOCOL_RETIRED_TOMBSTONED]);
   });
 
   it('objectui declares every LIVE protocol key on this surface — the narrower-than-protocol direction is EMPTY today', () => {
     const declared = new Set(namedListViewMembers().names);
     const live = protocolListViewKeys().filter((k) => !protocolRetiredKeys().includes(k));
-    expect(live).toHaveLength(45);
+    expect(live).toHaveLength(43);
     const missing = live.filter((k) => !declared.has(k));
     // ⭐ objectui#8979 measured SEVENTEEN live protocol keys missing here; the
     // objectui#8980 ruling declared them (PR #9534) and this is the zero that
@@ -1669,10 +1679,10 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
   it('the 21 unread members partition FOUR ways — 0 + 8 + 11 + 2 since objectui#10758 (23 + 8 + 11 + 2 before it) — disjoint and exhaustive', () => {
     const unread = new Set(NAMED_LIST_VIEW_UNREAD as readonly string[]);
     const protocolKeys = new Set(protocolListViewKeys());
-    const ruledInert = new Set<string>(BUCKET_DECLARED_INERT);
+    const retiredTombstoned = new Set<string>(BUCKET_PROTOCOL_RETIRED_TOMBSTONED);
     const spellings = new Set<string>(BUCKET_LEGACY_SHOW_SPELLINGS);
 
-    const protocolDeclared = [...unread].filter((m) => protocolKeys.has(m) && !ruledInert.has(m)).sort();
+    const protocolDeclared = [...unread].filter((m) => protocolKeys.has(m) && !retiredTombstoned.has(m)).sort();
     const localOnly = [...unread].filter((m) => !protocolKeys.has(m)).sort();
     const legacy = localOnly.filter((m) => spellings.has(m)).sort();
     const inventedOnly = localOnly.filter((m) => !spellings.has(m)).sort();
@@ -1680,18 +1690,18 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     expect(protocolDeclared).toEqual([...BUCKET_PROTOCOL_DECLARED_UNREAD]);
     expect(legacy).toEqual([...BUCKET_LEGACY_SHOW_SPELLINGS]);
     expect(inventedOnly).toEqual([...BUCKET_LOCAL_ONLY_UNREAD]);
-    expect([...ruledInert].sort()).toEqual([...BUCKET_DECLARED_INERT]);
+    expect([...retiredTombstoned].sort()).toEqual([...BUCKET_PROTOCOL_RETIRED_TOMBSTONED]);
     // Bucket ① is EMPTY since objectui#10758: every protocol member left on the
-    // unread side is one of the two ruled inert. Derived, not assumed — the
-    // same filter that produced the twenty-three produces nothing now.
+    // unread side is one of the two the protocol retired at 17.5.0 (objectui#8980's
+    // "declared inert" pair, tombstoned since objectui#11073). Derived, not assumed.
     expect(protocolDeclared).toHaveLength(0);
     expect(legacy).toHaveLength(8);
     expect(inventedOnly).toHaveLength(11);
-    expect(BUCKET_DECLARED_INERT).toHaveLength(2);
+    expect(BUCKET_PROTOCOL_RETIRED_TOMBSTONED).toHaveLength(2);
     // Exhaustive and disjoint against the census's own unread set: a member that
     // lands in no bucket, or in two, fails here — which is the event that makes
     // the 2026-09-16 disposition ruling stale.
-    const union = [...protocolDeclared, ...legacy, ...inventedOnly, ...BUCKET_DECLARED_INERT];
+    const union = [...protocolDeclared, ...legacy, ...inventedOnly, ...BUCKET_PROTOCOL_RETIRED_TOMBSTONED];
     expect(union).toHaveLength(21);
     expect(new Set(union).size).toBe(21);
     expect([...union].sort()).toEqual([...unread].sort());
@@ -1713,13 +1723,15 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     expect(map).not.toHaveProperty('showRecordCount');
   });
 
-  it('BUCKET ① is EMPTY since objectui#10758 — no protocol member but the two ruled inert is left unread off a named view', () => {
+  it('BUCKET ① is EMPTY since objectui#10758 — no LIVE protocol member is left unread off a named view', () => {
     expect([...BUCKET_PROTOCOL_DECLARED_UNREAD]).toEqual([]);
     const reads = deriveNamedViewReads().reads;
     const live = protocolListViewKeys().filter((k) => !protocolRetiredKeys().includes(k));
     const declared = namedListViewMembers().names;
     const unreadProtocol = live.filter((k) => declared.includes(k) && !reads.includes(k)).sort();
-    expect(unreadProtocol).toEqual([...BUCKET_DECLARED_INERT]);
+    // Was the objectui#8980 pair until `@objectstack/spec` 17.5.0 retired both;
+    // a retired key is not live, so the set is empty (objectui#11073).
+    expect(unreadProtocol).toEqual([]);
     // Control on the same derivation: it still finds the bucket-② / ③ members
     // unread, so the empty bucket is a reading and not a probe that reads all.
     expect(declared.filter((k) => !reads.includes(k))).toContain(NAMED_VIEW_UNREAD_CONTROL);
@@ -1758,9 +1770,12 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
     expect(r.success).toBe(false);
   });
 
-  it.each(BUCKET_DECLARED_INERT)('INERT BY RULING — `%s` is protocol-declared, declared here and read nowhere, reported rather than dropped', (member) => {
-    expect(namedListViewMembers().names).toContain(member);
-    expect(protocolListViewKeys()).toContain(member);
+  it.each(BUCKET_PROTOCOL_RETIRED_TOMBSTONED)('RETIRED BY THE PROTOCOL — `%s` is a protocol tombstone at 17.5.0 and a `?: never` tombstone here, read nowhere (objectui#11073)', (member) => {
+    const { names, tombstones, docs } = namedListViewMembers();
+    expect(names).toContain(member);
+    expect(tombstones).toContain(member);
+    expect(docs[member]).toContain('RETIRED (objectui#11073)');
+    expect(protocolRetiredKeys()).toContain(member);
     expect(deriveNamedViewReads().reads).not.toContain(member);
     expect(NAMED_LIST_VIEW_UNREAD as readonly string[]).toContain(member);
   });
@@ -1862,7 +1877,11 @@ export const _acceptedDensityCanonical: NamedListView = { ...BASE_VIEW, rowHeigh
 
 describe('objectui#7924 — the retirement: seventeen `?: never` tombstones, one retained read, the canonical blocks', () => {
   it('the tombstone set is EXACTLY bucket ② plus bucket ③ minus the retained read and the one held member, derived off the AST', () => {
-    const { tombstones, names } = namedListViewMembers();
+    const { tombstones: allTombstones, names } = namedListViewMembers();
+    // The objectui#11073 pair are protocol-retirement tombstones, censused in
+    // their own bucket above; this row is about objectui#7924's seventeen.
+    const tombstones = allTombstones.filter((t) => !(BUCKET_PROTOCOL_RETIRED_TOMBSTONED as readonly string[]).includes(t));
+    expect(allTombstones).toHaveLength(19);
     expect([...tombstones].sort()).toEqual([...NAMED_LIST_VIEW_TOMBSTONES]);
     expect(tombstones).toHaveLength(17);
     const expected = [

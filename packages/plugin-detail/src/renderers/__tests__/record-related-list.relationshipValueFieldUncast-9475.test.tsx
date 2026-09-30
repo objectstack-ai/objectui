@@ -162,8 +162,27 @@ const declaredKeys = (): string[] => Object.keys(RecordRelatedListProps.shape).s
  * array shape, the direction AGENTS.md #0.1 requires. ⛔ An entry added here
  * is a declaration that disagrees with itself somewhere: write the measurement
  * that makes it load-bearing, or move the declaration instead.
+ *
+ * ⚠️ THREE ENTRIES SINCE THE 17.5.0 BUMP, and they are exactly that
+ * disagreement, ruled rather than measured away. `@objectstack/spec` 17.5.0
+ * declares the field-security triple on `record:related_list`, while the
+ * mirror (`RecordRelatedListComponentProps`) does not and the renderer reads
+ * the three through a cast. objectui#11111 decision 3 = B (record 5902351047)
+ * booked them to objectui#8649 — which "moves the declaration", as the
+ * sentence above demands — instead of declaring them in the bump. Capped at
+ * exactly these three by `the ledger holds exactly the objectui#11111 triple`;
+ * objectui#8649's landing strikes all three, and the last one leaving restores
+ * the empty ledger. Expiry: 2026-10-30, or when objectui#8649 lands, whichever
+ * is first (stated, not clock-enforced: this ledger has no date field).
  */
-const LOAD_BEARING_CASTS: Record<string, string> = {};
+const LOAD_BEARING_CASTS: Record<string, string> = {
+  enforceFieldSecurity:
+    'contract-declared since @objectstack/spec 17.5.0, absent from the mirror, read through a cast. Booked to objectui#8649 by objectui#11111 decision 3 = B (record 5902351047). Expires 2026-10-30, or when objectui#8649 lands.',
+  redactFields:
+    'contract-declared since @objectstack/spec 17.5.0, absent from the mirror, read through a cast; travels with `enforceFieldSecurity`. Booked to objectui#8649 by objectui#11111 decision 3 = B (record 5902351047). Expires 2026-10-30, or when objectui#8649 lands.',
+  requiredPermissions:
+    'contract-declared since @objectstack/spec 17.5.0, absent from the mirror, read through a cast. Booked to objectui#8649 by objectui#11111 decision 3 = B (record 5902351047). Expires 2026-10-30, or when objectui#8649 lands.',
+};
 
 describe('objectui#9475 — the guard population is derived and the matcher discriminates', () => {
   it('reads the contract’s own props schema, non-empty and calibrated both ways', () => {
@@ -173,8 +192,10 @@ describe('objectui#9475 — the guard population is derived and the matcher disc
     expect(keys).toContain('relationshipValueField');
     expect(keys).toContain('add');
     // …and it is not an everything-set, which would make them unfalsifiable.
-    expect(keys).not.toContain('enforceFieldSecurity');
-    expect(keys).not.toContain('requiredPermissions');
+    // (`enforceFieldSecurity` / `requiredPermissions` were the absent controls
+    // through `@objectstack/spec` 17.4.0; 17.5.0 declares both on this block —
+    // objectui#11073 — so the control is a key nothing declares.)
+    expect(keys).not.toContain('zzqxNoSuchRecordBlockKey');
     // The premise of reading the named export: it IS this block's map entry.
     expect(ComponentPropsMap['record:related_list']).toBe(RecordRelatedListProps);
   });
@@ -223,11 +244,22 @@ describe('objectui#9475 — the declaration reaches the read', () => {
     expect(source).not.toMatch(castBefore('add'));
   });
 
-  // Zero entries today, so the loop below would assert nothing in silence.
-  // Stated as its own reading instead: an empty ledger is what makes the
-  // derived guard above carve-out-free.
-  it('the ledger is empty, so no contract-declared key is exempt from the guard', () => {
-    expect(Object.keys(LOAD_BEARING_CASTS)).toEqual([]);
+  // THE CAP (objectui#11111 decision 3 = B, record 5902351047). The ledger was
+  // empty from objectui#9964 to the 17.5.0 bump; it now holds exactly the
+  // three keys booked to objectui#8649, pinned by name so a fourth is red, and
+  // every entry must cite its owner and expiry. objectui#8649's landing takes
+  // this back to `[]`, the carve-out-free state.
+  it('the ledger holds exactly the objectui#11111 triple, each booked to objectui#8649 with its expiry', () => {
+    expect(Object.keys(LOAD_BEARING_CASTS).sort()).toEqual([
+      'enforceFieldSecurity',
+      'redactFields',
+      'requiredPermissions',
+    ]);
+    for (const [key, why] of Object.entries(LOAD_BEARING_CASTS)) {
+      expect(declaredKeys(), `${key} is booked but the contract no longer declares it`).toContain(key);
+      expect(why, `${key} names no owner card`).toContain('objectui#8649');
+      expect(why, `${key} carries no expiry`).toContain('Expires 2026-10-30');
+    }
   });
 
   for (const [key, why] of Object.entries(LOAD_BEARING_CASTS)) {

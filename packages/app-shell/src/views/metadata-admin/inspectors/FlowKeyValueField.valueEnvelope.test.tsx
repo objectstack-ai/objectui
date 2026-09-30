@@ -48,7 +48,7 @@ function renderField(field: FlowConfigField, nodeType: string, value: unknown) {
 }
 
 describe('assignment value cell — text or CEL expression (objectui#7588)', () => {
-  it('offers the toggle on the assignment map and on no other key/value map', () => {
+  it('offers the toggle on the assignment map, on the record field maps since 17.5.0, and on no other key/value map', () => {
     renderField(ASSIGNMENTS, 'assignment', {
       label: '{record.name}',
       digest: { dialect: 'cel', source: 'joinNonEmpty(names, ", ")' },
@@ -60,7 +60,25 @@ describe('assignment value cell — text or CEL expression (objectui#7588)', () 
     expect(screen.queryByRole('alert')).toBeNull();
     cleanup();
 
-    renderField(FIELD_VALUES, 'create_record', { name: '{record.name}' });
+    // `@objectstack/spec` 17.5.0 declares `create_record` / `update_record`
+    // `fields.*` as `value`-role slots in its expression ledger, so the same
+    // choice reaches those maps (objectui#11073). Through 17.4.0 this row
+    // asserted NO toggle on `create_record`'s field values.
+    for (const nodeType of ['create_record', 'update_record']) {
+      renderField(FIELD_VALUES, nodeType, { name: '{record.name}', total: { dialect: 'cel', source: 'a + b' } });
+      expect(
+        screen.getAllByRole('button', { name: TOGGLE }).map((b) => b.getAttribute('aria-pressed')),
+        `${nodeType}: one toggle per value, the envelope pressed`,
+      ).toEqual(['false', 'true']);
+      expect(screen.getByDisplayValue('a + b')).toBeTruthy();
+      cleanup();
+    }
+
+    // Control: a key/value map the ledger gives no `value` role keeps plain
+    // text cells — an object naming a `dialect` there is just data.
+    renderField({ id: 'input', path: ['config', 'input'], label: 'Input mapping', kind: 'keyValue' }, 'subflow', {
+      name: '{record.name}',
+    });
     expect(screen.queryAllByRole('button', { name: TOGGLE })).toHaveLength(0);
   });
 

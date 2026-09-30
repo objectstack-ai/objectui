@@ -83,61 +83,19 @@ export function describeComparand(target: unknown): string {
 }
 
 /**
- * Is this comparand one of the two shapes `FILTER_TEXT_CASES` declares REFUSED
- * for the case-insensitive contains operator?
+ * THE CONTRACT HALF, now the spec's own (objectui#11073).
  *
- * The discrimination, not a re-reading of it: `typeof target !== 'string'`
- * answers the "a non-string $icontains comparand is REFUSED" row and
- * `target === ''` answers the "an empty $icontains comparand is REFUSED" row.
- * It is written once so a face cannot drift into judging a slightly different
- * set — the failure mode that produced this module's card, where the same
- * authored filter was refused in one dialect and lowered onto the wire in
- * another.
+ * `isRefusedTextComparand` (the discrimination: a non-string or empty
+ * comparand) and `textComparandRefusalReason` (the half of the message the
+ * contract owns, no face's envelope on it) were written here once, for both
+ * faces. `@objectstack/spec` 17.5.0 publishes the SAME two functions from
+ * `@objectstack/spec/data`, byte for byte the implementation this module carried
+ * — measured against the published `dist` when the bump landed, message text
+ * included. So they are re-exported rather than kept as a copy under the spec's
+ * own names, which `pnpm check:spec-symbols` refuses (a hand-written copy under
+ * a spec name is one release away from drifting). Both faces still import them
+ * from here, so the ONE-place property this module exists for is unchanged; the
+ * one place is now the spec. `describeComparand` above stays local: the spec
+ * does not export it.
  */
-export function isRefusedTextComparand(target: unknown): boolean {
-  return typeof target !== 'string' || target === '';
-}
-
-/**
- * The REASON a case-insensitive-contains comparand is refused — the half of the
- * message the CONTRACT owns, with no face's envelope on it.
- *
- * Returned without a leading capital and without a trailing period so each face
- * can seat it in its own sentence: the matcher logs `…ValueDataSource: <reason>.
- * Rows are excluded…`, the converter throws `[ObjectUI] The <reason>. <tail>`.
- * Those two seatings are exactly what objectui#8748 and objectui#9001 already
- * shipped, byte for byte — this function is where the shared bytes moved to, not
- * a rewording of them. `mustMention` is what makes that load-bearing rather than
- * stylistic: a differently-worded refusal is a different failure to honour the
- * same row.
- *
- * `operator` is the spelling that ACTUALLY ARRIVED, never a canonical one
- * substituted for it. That is `ValueDataSource`'s own answer to the question and
- * it is measurable on today's tree: its `$` arm names `$icontains` and its AST
- * arm names `icontains`, each from the node in hand. Telling an author about a
- * spelling their dialect does not have is the same class of misdirection the
- * `describeComparand` guard above exists to avoid.
- */
-export function textComparandRefusalReason(
-  field: string,
-  operator: string,
-  target: unknown,
-): string {
-  const declared =
-    `@objectstack/spec's FILTER_TEXT_CASES declares this shape refused `
-    + `(INVALID_FILTER); the declared comparand for '${operator}' is a NON-EMPTY STRING`;
-  if (target === '') {
-    return (
-      `filter comparand for field '${field}' on operator '${operator}' is the EMPTY `
-      + `STRING. Every value contains the empty substring, so evaluating it is a `
-      + `predicate that constrains nothing. ${declared}. Drop the condition instead `
-      + `of sending an empty comparand`
-    );
-  }
-  return (
-    `filter comparand for field '${field}' on operator '${operator}' is `
-    + `${target === null ? 'null' : typeof target} (${describeComparand(target)}), `
-    + `not a string. Coercing it would answer a query nobody wrote. ${declared}. `
-    + `Write the comparand as a string`
-  );
-}
+export { isRefusedTextComparand, textComparandRefusalReason } from '@objectstack/spec/data';

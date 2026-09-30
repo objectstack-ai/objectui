@@ -104,8 +104,14 @@ import { useDatasetDimensionLabels, useDatasetDimensionMeta } from './useDataset
 
 type Row = Record<string, unknown>;
 
-/** One server-computed totals grouping: `dimensions: []` is the grand total. */
-interface DatasetTotals {
+/**
+ * One server-computed totals grouping: `dimensions: []` is the grand total.
+ *
+ * The RESULT side (the response's `totals[]`), named apart from
+ * `@objectstack/spec/api`'s `DatasetTotals`, which since 17.5.0 is the REQUEST
+ * side (`{ groupings }`, what to compute) — objectui#11073.
+ */
+interface DatasetResultTotals {
   dimensions: string[];
   rows: Row[];
 }
@@ -121,7 +127,7 @@ interface DatasetCapableSource {
     dimensionFields?: Record<string, string>;
     drillRawRows?: Row[];
     drillRanges?: Array<Record<string, DatasetDrillRange>>;
-    totals?: DatasetTotals[];
+    totals?: DatasetResultTotals[];
   }>;
 }
 
@@ -377,7 +383,7 @@ function useDatasetRows(
     dimensionFields?: Record<string, string>;
     drillRawRows?: Row[];
     drillRanges?: Array<Record<string, DatasetDrillRange>>;
-    totals?: DatasetTotals[];
+    totals?: DatasetResultTotals[];
     error?: string;
   }>({
     status: 'idle',

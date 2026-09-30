@@ -144,23 +144,32 @@ describe('the full round trip — `readFields` then `writeFields`', () => {
     expect(Object.keys(sent)).toEqual(['title', '__proto__', 'owner_ref']);
   });
 
-  it('the emitted document is spec-legal — which is exactly why the loss was silent', () => {
-    // This half is the severity, not the repair. `ObjectSchema` ACCEPTS the
-    // body with the field and ACCEPTS it without: the validator can never be
-    // the thing that notices, so the pin above is the only instrument there
-    // is. `fields`' key grammar is /^[a-z_][a-z0-9_]*$/, which admits
-    // `__proto__`.
-    expect(ObjectSchema.safeParse(emittedBody(storedFields())).success).toBe(true);
+  it('the spec still ACCEPTS the mutilated body — which is exactly why the loss was silent', () => {
+    // This half is the severity, not the repair. `fields`' key grammar is
+    // /^[a-z_][a-z0-9_]*$/, which admits `__proto__`, and through
+    // `@objectstack/spec` 17.4.0 `ObjectSchema` ACCEPTED the body with the field
+    // AND without it. 17.5.0 refuses the KEPT key by name (`z.record()` would
+    // drop it from its output while reporting success) — but it still accepts
+    // the body that already lost it, so the validator can still never notice
+    // the loss, and the pins above remain the only instrument there is. What
+    // the repair buys since 17.5.0 is that the refusal reaches the author at
+    // all (objectui#11073 re-pin).
+    const kept = ObjectSchema.safeParse(emittedBody(storedFields()));
+    expect(kept.success ? [] : kept.error.issues.map((i) => `${i.code} @ ${i.path.join('.')}`)).toEqual([
+      'custom @ fields.__proto__',
+    ]);
     const mutilated = { name: 'account', label: 'Account', fields: { title: { type: 'text', label: 'Title' } } };
     expect(ObjectSchema.safeParse(mutilated).success).toBe(true);
   });
 
   it('control: nothing about ordinary names changed', () => {
-    const body = roundTrip(
-      JSON.parse('{"title":{"type":"text","label":"Title"},"owner_ref":{"type":"text","label":"Owner"}}'),
-    ) as Record<string, unknown>;
+    const ordinary = JSON.parse('{"title":{"type":"text","label":"Title"},"owner_ref":{"type":"text","label":"Owner"}}');
+    const body = roundTrip(ordinary) as Record<string, unknown>;
     expect(Object.keys(body)).toEqual(['title', 'owner_ref']);
-    expect(ObjectSchema.safeParse(emittedBody(storedFields())).success).toBe(true);
+    // Parsed on the ORDINARY body: this row used to parse the `__proto__`
+    // fixture, which answered the same as this one only while the spec still
+    // accepted that name (through 17.4.0; objectui#11073).
+    expect(ObjectSchema.safeParse(emittedBody(ordinary)).success).toBe(true);
   });
 
   it('control: the array shape carries the name as a VALUE and was never affected', () => {

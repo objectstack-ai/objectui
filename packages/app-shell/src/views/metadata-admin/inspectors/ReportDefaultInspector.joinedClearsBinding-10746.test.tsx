@@ -21,12 +21,15 @@
  * second kept every one of those keys INVISIBLY; its save was then refused at a
  * path no control on the Properties tab could reach.
  *
- * What the installed `@objectstack/spec` can and cannot measure here: 17.4.0 at
- * the time of writing predates PR #20160, so it already refuses a container
- * `order` and still ACCEPTS the four selection keys. The parse leg below shows
- * the `order` half of the refusal going away; for the four keys the pins assert
- * ABSENCE, against the rule quoted above. ⛔ Never weaken those to "parses under
- * the installed spec" — that read green on the defect too.
+ * What the installed `@objectstack/spec` can measure here: when this was
+ * written the spec in the lockfile predated PR #20160 — it refused a container
+ * `order` and still ACCEPTED the four selection keys — so the four were pinned
+ * as ABSENCE, against the rule quoted above. 17.5.0 (objectui#11073) carries
+ * #20160: re-measured, a joined container with `dataset` is refused at
+ * `dataset` with that rule's own sentence. So the final parse leg below now
+ * covers all five keys, and the absence pins stay as they are. ⛔ Never weaken
+ * them to "parses under the installed spec" — against a spec without #20160
+ * that read green on the defect too.
  *
  * ⚠️ Assertion spelling. `toHaveBeenCalledWith` and `toEqual` treat an
  * `undefined`-valued key as absent, so `{ type: 'joined', dataset: undefined }`

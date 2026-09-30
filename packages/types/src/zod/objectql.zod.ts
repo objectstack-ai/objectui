@@ -800,24 +800,10 @@ export const ObjectViewSchema = BaseSchema.extend({
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
   body: retirementTombstone(OBJECT_VIEW_NEITHER_CHANNEL),
   children: retirementTombstone(OBJECT_VIEW_NEITHER_CHANNEL),
-})
-  // ⭐ objectui#8355 / objectui#10321 — the by-name pointers for the named alias
-  // refusals on a named view: two sibling checks on this one door (the calendar
-  // spellings, and the kanban twin's stray `groupBy`). Declared and explained at
-  // `checkNamedViewCalendarAliases` and `checkNamedViewKanbanStrayGroupBy` below
-  // (hoisted function declarations, so the forward references resolve at module
-  // init and the bodies run at parse time, long after the refusal arms they read
-  // are built).
-  //
-  // ⚠️ `when` is load-bearing since objectui#7928. The named view is now the
-  // protocol's strict record, which refuses both kinds of key itself, and a
-  // refinement zod runs by default is SKIPPED once any earlier issue aborts the
-  // parse. So without `when` these checks never run on exactly the documents
-  // they exist for. Measured on the flip before this line was added.
-  .superRefine((_value, ctx) => {
-    checkNamedViewCalendarAliases(ctx);
-    checkNamedViewKanbanStrayGroupBy(ctx);
-  }, { when: () => true });
+});
+// objectui#8355 / objectui#10321's named-view pointers were retired here (objectui#11073):
+// the protocol's refusal inside a named view is terminal since `@objectstack/spec` 17.5.0,
+// so they could no longer run. See the RETIRED note below `CalendarNodeDateAliasRefusals`.
 
 /**
  * User Filters — field-level filter option
@@ -1102,9 +1088,10 @@ const KanbanStrayGroupByRefusal = aliasKeyRefusal(
  * nothing `ListViewSchema` declares reaches it, and it has ONE nesting: the
  * record refuses a named view's `options` bag whole (`unrecognized_keys` naming
  * `options`), and `generateViewSchema` no longer reads that bag. The `kanban`
- * block takes the SAME guidance through the named-view door (`custom` at
- * `listViews.KEY.kanban.groupBy`, objectui#10321, beside the protocol's own
- * `unrecognized_keys`) — see `checkNamedViewKanbanStrayGroupBy` below.
+ * block there is refused by the protocol alone (`unrecognized_keys` at
+ * `listViews.KEY.kanban`, naming `groupBy`): objectui#10321's pointer on that
+ * door was retired by objectui#11073, because the protocol's refusal is terminal
+ * since `@objectstack/spec` 17.5.0 and the pointer could no longer run.
  *
  * ⚠️ Covering the legacy nesting is not optional politeness: the retired
  * producer (`app-shell`'s `kanbanViewOptions`, objectui#8213) wrote into
@@ -1151,8 +1138,10 @@ const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().ext
  * ⚠️ THE CANONICAL TARGET IS objectui's, AND UPSTREAM ANSWERS DIFFERENTLY — but
  * ⛔ NOT BECAUSE IT HOLDS A CONTRARY ALIAS ENTRY. This paragraph said "upstream's
  * alias table points this spelling at the END of the event" and that was WRONG
- * about the protocol; the corrected mechanism, re-derived by RUNNING the
- * installed pin (`@objectstack/spec` 17.4.0) rather than reading it:
+ * about the protocol; the corrected mechanism, re-derived by RUNNING
+ * `@objectstack/spec` 17.4.0 (the version in the lockfile then) rather than
+ * reading it — and RE-RUN on the installed 17.5.0 (objectui#11073), whose
+ * answer moved, as the last bullet says:
  *
  *   - `CalendarConfigSchema`'s `strictObject` options carry `surface` and
  *     `history` and NOTHING ELSE. There is no `aliases` entry, so upstream holds
@@ -1169,22 +1158,31 @@ const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().ext
  *     hint — and neither does a nonsense control key. ⭐ Positive control that
  *     the suggester is alive and correct for what it is for: a genuine one-char
  *     typo of the canonical key resolves to `startDateField`.
+ *   - ON 17.5.0 THAT HINT IS GONE. The formatter now asks an opposite-pole
+ *     question before the suggester: `dateField` sits between
+ *     `startDateField` and `endDateField`, so the refusal names BOTH ("does
+ *     not say which end of the range it binds … Write the one you mean") and
+ *     prescribes neither. `endField` still draws no hint, and a one-char typo
+ *     still resolves by distance (`titleFeld` → `titleField`) — all three
+ *     measured on the installed 17.5.0.
  *
- * ⇒ a generic typo-distance suggester picked the wrong sibling. It is not a
- * declaration, it contradicts no declaration, and ⛔ no upstream text says
- * `dateField` means the end of an event.
+ * ⇒ through 17.4.0 a generic typo-distance suggester picked the wrong sibling.
+ * It was not a declaration, it contradicted no declaration, and ⛔ no upstream
+ * text says `dateField` means the end of an event.
  *
- * The author-facing hazard is real all the same: an author who copies that hint
- * writes `endDateField` and binds the END of an event to the date they meant as
- * the START — accepted by every layer, wrong on screen. Every objectui read site
+ * The author-facing hazard was real all the same: an author who copied that
+ * hint wrote `endDateField` and bound the END of an event to the date they
+ * meant as the START — accepted by every layer, wrong on screen. Every objectui read site
  * folds this spelling onto the START: the ladder this card retires did,
  * `normalizeListViewSchema`'s `timeline` fold does, `resolveTimelineDateBinding`
  * documents it as "the pre-#2231 alias for `startDateField`", and this package
  * has published "Deprecated alias for startDateField" on `TimelineConfig` for
- * releases. So these arms name `startDateField`, and the remedy upstream needs
- * is an explicit `aliases` (or `guidance`) entry for the two spellings so the
- * suggester never answers for them. ⛔ Not fixed here — it is upstream's
- * formatter, on upstream's card.
+ * releases. So these arms name `startDateField`. The remedy upstream needed was
+ * a formatter answer that keeps the suggester from speaking for `dateField`;
+ * 17.5.0's opposite-pole prescription is that answer (it declines to guess an
+ * end, where these arms name one because objectui's own alias history does).
+ * `endField` still draws nothing upstream. ⛔ Neither is fixed here — it is
+ * upstream's formatter.
  *
  * ONE detail STEM, four installed arms, plus ONE consequence clause PER KEY.
  * ⚠️ The per-key split is not tidiness: the two spellings fail DIFFERENTLY when
@@ -1315,166 +1313,24 @@ const CalendarNodeDateAliasRefusals = {
 };
 
 /**
- * A plain JSON object — the only shape a view-kind block or a named view can
- * take. Arrays and `null` are not blocks.
+ * RETIRED (objectui#11073): the named-view by-name pointers of objectui#8355
+ * (`calendar.dateField` / `calendar.endField`) and objectui#10321
+ * (`kanban.groupBy`) on `ObjectViewSchema`.
+ *
+ * They were `superRefine` checks with `when: () => true` that read the
+ * protocol's `unrecognized_keys` refusal inside a named view's `calendar` /
+ * `kanban` block and added objectui's pointer at the key. `@objectstack/spec`
+ * 17.5.0 makes that refusal TERMINAL (its closed objects mark `unrecognized_keys`
+ * `continue: false`), and zod skips even a `when`-guarded check once the parse is
+ * explicitly aborted, so the checks could no longer run on the documents they
+ * existed for. The document is still refused, by the protocol, at
+ * `listViews.KEY.calendar` / `listViews.KEY.kanban`, naming the key (for
+ * `dateField` the protocol's own text also says which end of the range it
+ * cannot tell apart). The `list-view` route keeps objectui's pointers
+ * (`CalendarBlockDateAliasRefusals`, `KanbanStrayGroupByRefusal`): nothing there
+ * aborts before them. Seat ruling Q2 → A on objectui#11073, under the
+ * maintainer's principle that the protocol governs (objectui#8934).
  */
-function isPlainBlock(v: unknown): v is Record<string, unknown> {
-  return !!v && typeof v === 'object' && !Array.isArray(v);
-}
-
-/**
- * The protocol's refusals of undeclared keys inside ONE view-kind block of a
- * named view on an `object-view` document, with the path each was reported at
- * (`listViews.KEY.KIND`).
- *
- * Since objectui#7928 `listViews` is the protocol's strict record by reference,
- * so a key its `KIND` block does not declare is refused there as
- * `unrecognized_keys`, and the parse output DROPS it. The named-view checks
- * below therefore read those refusals rather than the parsed value, which no
- * longer carries the key. The legacy `options.KIND` nesting is not walked: the
- * protocol refuses a named view's `options` bag whole, and a stored body's bag
- * is folded onto `KIND` at `@object-ui/app-shell`'s `ViewPreview` before it
- * reaches this record (director ruling on objectui#7928, comment 5856694523).
- *
- * Shared by the named-view checks below so they read the same refusals; it
- * judges nothing itself.
- */
-function namedViewKindRefusals(
-  issues: readonly unknown[],
-  kind: 'calendar' | 'kanban',
-): Array<{ keys: readonly string[]; input: Record<string, unknown> | undefined; path: PropertyKey[] }> {
-  const out: Array<{ keys: readonly string[]; input: Record<string, unknown> | undefined; path: PropertyKey[] }> = [];
-  for (const raw of issues) {
-    const issue = raw as { code?: string; path?: PropertyKey[]; keys?: string[]; input?: unknown };
-    if (issue.code !== 'unrecognized_keys' || issue.path?.length !== 3) continue;
-    if (issue.path[0] !== 'listViews' || issue.path[2] !== kind) continue;
-    out.push({
-      keys: issue.keys ?? [],
-      input: isPlainBlock(issue.input) ? issue.input : undefined,
-      path: [...issue.path],
-    });
-  }
-  return out;
-}
-
-/**
- * THE SECOND ROUTE'S READ DOOR — `ObjectViewSchema`'s named views (objectui#8355).
- *
- * `plugin-view`'s `generateViewSchema` is, in its own words, "the SECOND route
- * to `ObjectCalendar`": it runs when no host supplied `renderListView`, so a
- * named view never passes through `ListView` and nothing `ListViewSchema`
- * declares reaches it. Its calendar branch used to end `...(viewOptions.calendar
- * || {})`, flattening the authored block — including the two retired spellings —
- * onto the `object-calendar` node. This card strips that spread; this check is
- * the loud half, without which the strip would only make the failure CONSISTENT
- * and still mute, which is the shape the ruling refuses.
- *
- * ## What it reads since `listViews` became a mirror (objectui#7928)
- *
- * `listViews` is the protocol's strict record by reference now (the reading is
- * on `ObjectViewSchema` above). The protocol's calendar block refuses both
- * spellings itself — `unrecognized_keys` at `listViews.KEY.calendar`, naming
- * the key — and the parse output DROPS the refused key. So the value this check
- * used to read never carries the alias any more, and the check reads the
- * protocol's refusal instead: for each alias that refusal names, it adds the
- * objectui pointer at the key itself. The protocol's own hint is a near-miss
- * suggester that answers `dateField` → `endDateField` (see the reading above
- * {@link CALENDAR_DATE_ALIAS_STEM}), so without this pointer an author would be
- * taught to bind the END of an event to the date they meant as its START.
- *
- * ⚠️ It adds a message to a document that is already refused. It refuses
- * nothing on its own and accepts nothing the protocol refuses. `superRefine`'s
- * `when` on `ObjectViewSchema` is what lets it run after that refusal.
- *
- * ⛔ The legacy `options.calendar` nesting is NOT read any more. The protocol
- * refuses `options` whole on a named view (`unrecognized_keys` naming
- * `options`), `plugin-view` no longer merges it, and a stored body's
- * `options.calendar` is folded onto `calendar` by `@object-ui/app-shell`'s
- * `ViewPreview` before it reaches this record, where the arm below judges it
- * (director ruling on objectui#7928, comment 5856694523).
- *
- * The in-module precedent is `ListViewSchema.options`: an untyped bag that
- * declares no member and still carries a `.check()` refusing `kanban.groupBy`
- * (objectui#8365) and this card's two calendar spellings by name.
- *
- * Its kanban sibling, `checkNamedViewKanbanStrayGroupBy` below (objectui#10321),
- * reads the same kind of refusal for the stray `groupBy`.
- *
- * ⛔ Scoped to the TWO keys under `calendar`. `timeline.dateField` on a named
- * view draws only the protocol's own refusal, and nothing else about a named
- * view is judged here.
- */
-function checkNamedViewCalendarAliases(ctx: { value: unknown; issues: unknown[] }): void {
-  // Collected before the loop, which pushes onto the same array.
-  for (const refusal of namedViewKindRefusals(ctx.issues, 'calendar')) {
-    for (const alias of ['dateField', 'endField'] as const) {
-      if (!refusal.keys.includes(alias)) continue;
-      // ⛔ One string, read off the arm's own `.description`, so this door and
-      // the four declared ones cannot answer an author differently.
-      ctx.issues.push({
-        code: 'custom',
-        message: CalendarBlockDateAliasRefusals[alias].description as string,
-        input: refusal.input?.[alias],
-        path: [...refusal.path, alias],
-      });
-    }
-  }
-}
-
-/**
- * THE SECOND ROUTE'S KANBAN TWIN — a named view's stray `kanban.groupBy`
- * (objectui#10321, under the objectui#8365 ruling B, verbatim 「8365 同意」).
- *
- * `generateViewSchema`'s kanban branch had the calendar branch's shape: a stray
- * `groupBy` in `viewOptions.kanban` rode `...restKanban` onto the node and
- * overrode the lane the branch had resolved from `groupByField` (objectui#9242
- * now drops it). The ruling refuses that key loudly 「at the read door of the
- * view, visible to the author of the view」, and a named view's
- * `listViews.KEY.kanban.groupBy` is a stored view authoring the same key. So it
- * takes the same refusal, as a sibling of the calendar check above on the same
- * `ObjectViewSchema` door, with the ONE string `KanbanStrayGroupByRefusal`
- * carries on the `list-view` route (`custom` here, at `listViews.KEY.kanban.groupBy`;
- * the `options.kanban` nesting it also judged until objectui#7928 is refused whole).
- *
- * The protocol agrees on this route too: `@objectstack/spec`'s `ViewSchema`
- * refuses `listViews.KEY.kanban.groupBy` as an unrecognized key exactly as its
- * `ListViewSchema` refuses `kanban.groupBy`. Measured when this landed, on
- * `@objectstack/spec` 17.4.0, with a dark control (`groupByField` and `columns`
- * alone, accepted) on both routes. The spec refuses a named view's `options` bag
- * outright, as it does a `list-view`'s, so refusing `options.kanban.groupBy` here
- * is no stricter than the protocol.
- *
- * ⛔ A sibling, not a widening of the calendar check: two pending changesets
- * describe that check as judging the two calendar spellings only, and it still
- * does. ⛔ Not the mirror of `listViews` either: it judges ONE key and refuses
- * nothing on its own.
- *
- * ⚠️ Since objectui#7928 `listViews` IS mirrored, by reference to the
- * protocol's strict record, so the protocol refuses `kanban.groupBy` itself
- * (`unrecognized_keys` at `listViews.KEY.kanban`) and drops it from the parse
- * output. This check reads that refusal ({@link namedViewKindRefusals}) and adds
- * this repository's pointer at `listViews.KEY.kanban.groupBy`; the protocol
- * answers `groupBy` as a plain unrecognized key with no pointer. The legacy
- * `options.kanban` nesting is refused WHOLE (`options` by name) and no longer
- * read here, and an undeclared sibling in the block or a block without its
- * required keys is refused by the record, not by this check. The SCOPE CONTROLS
- * in `named-view-kanban-stray-group-by-10321.test.ts` were inverted to that
- * tree.
- */
-function checkNamedViewKanbanStrayGroupBy(ctx: { value: unknown; issues: unknown[] }): void {
-  // Collected before the loop, which pushes onto the same array.
-  for (const refusal of namedViewKindRefusals(ctx.issues, 'kanban')) {
-    if (!refusal.keys.includes('groupBy')) continue;
-    // ⛔ One string, read off the arm's own `.description`, so the named-view
-    // door and the `list-view` route cannot answer an author differently.
-    ctx.issues.push({
-      code: 'custom',
-      message: KanbanStrayGroupByRefusal.description as string,
-      input: refusal.input?.groupBy,
-      path: [...refusal.path, 'groupBy'],
-    });
-  }
-}
 
 const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial().extend({
   // objectui-only: the calendar renderer's initial view mode. No spec counterpart —
@@ -1505,20 +1361,23 @@ const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial()
  *     gate's own failure mode one layer in.
  *
  * ⚠️ THE MEMBER LIST IS objectui's OWN, and the spec does NOT supply it.
- * MEASURED on the installed `@objectstack/spec` 17.4.0:
+ * MEASURED on the installed `@objectstack/spec` 17.5.0 (the same answer
+ * 17.4.0 gave):
  * `ComponentPropsMap['object-calendar'].calendar` is NOT `CalendarConfigSchema`
  * — it is `z.unknown().optional()` (wrapper chain `["optional","unknown"]`, and
  * not the same object reference), so at THIS position the protocol accepts
  * everything: a nonsense key, a wrong-typed member, even `calendar: 42` all
- * parse. `CalendarConfigSchema` is the strict four-key object the spec uses for
- * a LIST VIEW's calendar block, which is a different position.
+ * parse. `CalendarConfigSchema` is the strict object the spec uses for a LIST
+ * VIEW's calendar block, which is a different position — four keys through
+ * 17.4.0, five since 17.5.0 declared `allDayField` (objectui#11073).
  *
  * ⇒ what the protocol settles here is the KEY, not its SHAPE. The shape below
  * is objectui's, chosen as exactly the five members `ObjectCalendar.tsx`'s
- * events pass destructures out of the resolved config — the spec's four plus
- * objectui's own `allDayField`, the same objectui-local lane objectui#8466 took
- * for the FLAT spelling of this vocabulary, on this same interface, for the same
- * renderer.
+ * events pass destructures out of the resolved config. Through 17.4.0 that was
+ * the spec's four plus objectui's own `allDayField`, the same objectui-local
+ * lane objectui#8466 took for the FLAT spelling of this vocabulary, on this same
+ * interface, for the same renderer; since 17.5.0 it is the list view block's
+ * five exactly.
  *
  * That makes this mirror STRICTER than the protocol at this position, which is
  * the sanctioned direction and not the forbidden one: objectui#8327's triage

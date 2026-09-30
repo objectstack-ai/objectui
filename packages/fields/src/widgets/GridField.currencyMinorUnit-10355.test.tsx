@@ -160,27 +160,9 @@ describe('GridField shows a currency cell in its resolved currency (objectui#103
     expect(flat(document.querySelector('[data-computed="amount"]')?.textContent)).toBe('¥1,234.57');
   });
 
-  it('an authored currency `scale` above the engine ceiling is clamped on the display too (objectui#10071)', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    try {
-      expect(() =>
-        render(
-          <LocalizationProvider value={{ currency: 'USD', locale: 'en' }}>
-            <GridField
-              value={[{ quantity: 3, unit_price: 1.25, amount: 3.75 }]}
-              onChange={() => {}}
-              field={{ columns: [lineColumns[0], lineColumns[1], amountColumn({ scale: 105 })] } as never}
-            />
-          </LocalizationProvider>,
-        ),
-      ).not.toThrow();
-      const said = warn.mock.calls.map((c: unknown[]) => String(c[0])).join('\n');
-      expect(said).toContain('105');
-      expect(said).toContain('objectui#10071');
-    } finally {
-      warn.mockRestore();
-    }
-  });
+  // The objectui#10071 row that stood here pinned the out-of-range clamp on
+  // this display. The clamp retired at the objectui#9808 SUNSET (objectui#11073):
+  // `@objectstack/spec` 17.5.0 refuses a `scale` above 100 at the declaration.
 
   it('an authored `prefix` replaces the symbol but not the width', () => {
     const onChange = vi.fn();

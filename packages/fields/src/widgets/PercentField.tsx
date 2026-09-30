@@ -3,10 +3,6 @@ import { Input, Slider, EmptyValue, cn } from '@object-ui/components';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { useBadInputRefusal, BadInputMessage, BAD_INPUT_BORDER } from './numberBadInput.js';
-// The ONE out-of-range `scale` ruling both percent faces take (objectui#9808),
-// in its own module so the barrel can share the same spelling without
-// publishing it — see that module's header for the ruling and its sunset.
-import { renderablePercentScale } from './percent-scale.js';
 
 /**
  * The stored fraction a typed percentage-point value becomes — computed by
@@ -106,12 +102,10 @@ export function PercentField({ value, onChange, field, readonly, error, classNam
    * should agree at all needs its own ruling, not a side effect of this one.
    */
   const declaredScale = percentField?.scale;
-  // The width this face resolves, then the ONE out-of-range ruling both faces
-  // take (objectui#9808) — see `./percent-scale.js` for why a width the engine
-  // cannot render is clamped and reported rather than refused, why it leaves a
-  // width the engine already accepts byte-identical, and the SUNSET condition
-  // that retires the whole clamp.
-  const scale = renderablePercentScale(typeof declaredScale === 'number' ? declaredScale : 2);
+  // The width this face resolves. The objectui#9808 out-of-range clamp retired
+  // at its own SUNSET (objectui#11073): `@objectstack/spec` 17.5.0 refuses a
+  // `scale` above 100, so a width the engine cannot render no longer arrives.
+  const scale = typeof declaredScale === 'number' ? declaredScale : 2;
 
   // Before the readonly return below: hooks are unconditional (objectui#6780).
   const { refusal, readBadInput } = useBadInputRefusal('12.5');

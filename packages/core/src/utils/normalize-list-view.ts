@@ -216,7 +216,8 @@ const LIST_VIEW_KINDS: Record<ListViewVisualization, true> = {
  * the literal EXACT in BOTH directions: a kind the spec adds is a missing key
  * (wanted) and a kind the spec RETIRES is an EXCESS PROPERTY — a TS2353 that
  * demands a deletion this repository cannot make while it resolves a published
- * spec which still carries the kind. `satisfies` keeps the value constraint
+ * spec which still carries the kind (as it did with `page` through 17.4.0).
+ * `satisfies` keeps the value constraint
  * (every reason is a `string` or `null`) and drops the exactness, which is what
  * lets one spelling compile against both the pinned published spec and one
  * built from objectstack `main`.
@@ -226,19 +227,18 @@ const LIST_VIEW_KINDS: Record<ListViewVisualization, true> = {
  *  - `list` is the view CATEGORY, not a kind — it already folds to `grid`.
  *  - `detail` is a different renderer (`plugin-detail`), never a ListView case.
  *
- * ⚠️ `page` is a RETIRED spec kind and is kept on purpose. objectstack#17063
- * removed `type: 'page'` from the list-view enum, and until this repository's
- * `@objectstack/spec` resolution moves onto a release carrying that removal an
- * author can still write one, so this table still has to answer for it. Once
- * the resolution moves, `Extract` stops extracting the row and it becomes inert
- * of its own accord — deletable, on the day the residual pins that hold it
- * (`normalize-list-view.pageResidual-8429.test.ts`) are converted, and not
- * before.
+ * `page` had a row here until objectui#11073. objectstack#17063 removed
+ * `type: 'page'` from the list-view enum, and the row answered for it while this
+ * repository still resolved a spec that published the kind. `@objectstack/spec`
+ * 17.5.0 carries the removal: both published `@object-ui/types` faces refuse
+ * `page`, `Extract` no longer extracted the row, and the residual pins that held
+ * it (`normalize-list-view.pageResidual-8429.test.ts`) were converted, so it was
+ * deleted as it said it would be. A stored `page` view now degrades like any
+ * kind outside the vocabulary.
  */
 const UNDRAWABLE_VIEW_KINDS = {
   list: null,
   detail: null,
-  page: 'it mounts a published page (bound through `pageName`) in place of rows, which this renderer has no branch for',
 } satisfies Record<string, string | null>;
 
 /**
@@ -248,9 +248,10 @@ const UNDRAWABLE_VIEW_KINDS = {
  * `Extract` over the table's keys, not the table's raw `keyof`, is the load-
  * bearing operator (objectui#9880): the table may carry a row for a kind the
  * spec has since RETIRED, and `Extract` drops that row from the TYPE without
- * the table having to lose it at runtime. That is what makes one spelling
- * correct against both the pinned published spec (which still publishes `page`)
- * and a spec built from objectstack `main` (which retired it).
+ * the table having to lose it at runtime. That is what made one spelling
+ * correct against both the published spec (which published `page` through
+ * 17.4.0) and a spec built from objectstack `main` (which retired it), and what
+ * made the row's deletion at 17.5.0 a plain deletion (objectui#11073).
  */
 type UndrawableViewKind = Extract<ViewType, keyof typeof UNDRAWABLE_VIEW_KINDS>;
 

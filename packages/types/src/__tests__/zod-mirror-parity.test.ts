@@ -477,8 +477,14 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **6 entries** in `WiderThanDeclared`, **7 keys** across them, and **7 arms**
- *     under those keys — split **5** SCHEMA-NODE, **2** CONCRETE, **0** MIXED, **0** unions.
+ *   - **3 entries** in `WiderThanDeclared`, **3 keys** across them, and **3 arms**
+ *     under those keys — split **2** SCHEMA-NODE, **1** CONCRETE, **0** MIXED, **0** unions.
+ *     It read 6 / 7 / 7 — 5 / 2 / 0 / 0 — until objectui#11073 bumped the installed
+ *     `@objectstack/spec` to 17.5.0, whose `visibleWhen` envelope requires `source`: the
+ *     spec-version-gated entries `views.zod.ts#DetailViewFieldSchema` (`options`, one CONCRETE
+ *     arm), `views.zod.ts#DetailViewSchema` (`fields`, `sections`) and
+ *     `views.zod.ts#DetailViewSectionSchema` (`fields`), three SCHEMA-NODE arms between them,
+ *     LEFT together with their gate.
  *     It read 7 / 9 / 9 — 5 / 4 / 0 / 0 — until objectui#7759 group A settled
  *     `complex.zod.ts#DashboardComponentSchema`'s `header` and `globalFilters`: both keys
  *     are spec-declared, so both faces now state the spec's member, and the entry, its
@@ -3352,19 +3358,16 @@ interface WiderThanDeclared {
   // The renderer places `schema.content` RAW in a React child position, so the list arm parsed
   // green and then failed to render. objectui#10280 NARROWED the MIRROR to the declaration, and
   // the entry is GONE.
-  /**
-   * EXPECTED DIVERGENCE, read model (objectui#10296, ruling F1): the mirror is the
-   * spec's authoring `SelectOptionSchema`, whose `visibleWhen` envelope admits an
-   * object with no `source`, which the read model's wire refuses. Spec-version-gated
-   * by `SpecEnvelopeAdmitsSourceless`. See the `KnownDrift`
-   * entry for this pair. (The inline option shape that stood here, admitting a
-   * number or boolean `value`, is gone.)
-   */
-  'views.zod.ts#DetailViewFieldSchema': 'options';
-  /** SCHEMA-NODE. (`tabs` left under objectui#7760; `fields` and `sections` did not.) */
-  'views.zod.ts#DetailViewSchema': 'fields' | 'sections';
-  /** SCHEMA-NODE. */
-  'views.zod.ts#DetailViewSectionSchema': 'fields';
+  // `views.zod.ts#DetailViewFieldSchema` recorded `options` here (CONCRETE; objectui#10296,
+  // ruling F1), and its two containers `views.zod.ts#DetailViewSchema` (`fields`, `sections`)
+  // and `views.zod.ts#DetailViewSectionSchema` (`fields`) SCHEMA-NODE: the mirror is the spec's
+  // authoring `SelectOptionSchema`, whose `visibleWhen` envelope admitted an object with no
+  // `source` through `@objectstack/spec` 17.4.0, which the read model's wire refuses. The
+  // spec-version gate `SpecEnvelopeAdmitsSourceless` held the three entries on 17.4.0 and
+  // withheld them on objectstack `main`. `@objectstack/spec` 17.5.0 requires a non-blank
+  // `source`, so the mirror is no longer wider, and the entries, their `WIDER_ARMS` rows and
+  // the gate LEFT together at that pin bump, as the gate's docblock instructed
+  // (objectui#11073). The `KnownDrift` entry for the pair (`dialect` required) holds on both.
 }
 
 /**
@@ -3480,10 +3483,6 @@ const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'app.zod.ts#AppComponentSchema::areas': ['SCHEMA-NODE'],
   'form.zod.ts#FormSchema::layout': ['CONCRETE'],
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],
-  'views.zod.ts#DetailViewFieldSchema::options': ['CONCRETE'],
-  'views.zod.ts#DetailViewSchema::fields': ['SCHEMA-NODE'],
-  'views.zod.ts#DetailViewSchema::sections': ['SCHEMA-NODE'],
-  'views.zod.ts#DetailViewSectionSchema::fields': ['SCHEMA-NODE'],
 };
 
 /* ── The invariant ──────────────────────────────────────────────────────────── */
@@ -3620,57 +3619,18 @@ export const assertionUnmirroredMatchesLedger: never = 0 as unknown as {
 }[MirrorKey];
 
 /**
- * SPEC-VERSION GATE for the `options` row and its two containers (objectui#10296): does the installed spec's
- * `visibleWhen` input envelope admit an object with NO `source`?
+ * What `WiderThanDeclared` records for a pair — `never` for a pair with no entry.
  *
- * `views.zod.ts#DetailViewFieldSchema::options` reads the spec's `SelectOptionSchema`
- * by reference, so its WIDER verdict follows the spec that is installed. On the
- * pinned `@objectstack/spec` 17.4.0 the envelope's `source` is optional in the static
- * input type (at runtime `ast` alone satisfies its refine), so an envelope with no
- * `source` is admitted and the declaration (whose wire requires `source`) refuses it:
- * WIDER, recorded. On objectstack `main` the key is
- * `EvaluatedExpressionInputSchema`, whose envelope REQUIRES `source`, so the mirror is
- * no longer wider there (the `KnownDrift` half, `dialect` required, holds on both).
- * The Spec Main Shape Gate compiles this file against `main`, so the ledger must
- * hold on both.
- *
- * Read off the MIRROR's own input face, not an import of the spec, so it measures
- * exactly the schema the row is about. The ledger entry stays a literal (the census
- * parses it). Only the reconciliation consults this, and only for the rows in
- * `SpecEnvelopeGatedWider` below: on 17.4.0 they must be measured WIDER exactly as
- * before, and on `main` they must measure absent, so neither side is waived. ⛔ At
- * the pin bump this reads `false` for good. Then delete those rows, their
- * `WIDER_ARMS` entries and this gate together.
- * The runtime tripwire in `detail-view-field-options-10296.test.ts` goes red at
- * that bump to say so.
+ * It applied a SPEC-VERSION GATE until `@objectstack/spec` 17.5.0
+ * (`SpecEnvelopeAdmitsSourceless`, objectui#10296): on 17.4.0 the `visibleWhen`
+ * envelope of `views.zod.ts#DetailViewFieldSchema::options` admitted an object with no
+ * `source`, so that row and its two containers had to measure WIDER there and absent on
+ * objectstack `main`. 17.5.0 requires `source`, the gate read `false` for good, and the
+ * rows and the gate were deleted together at that pin bump, as the gate's docblock
+ * instructed (objectui#11073).
  */
-type DetailViewOptionVisibleWhenInput = NonNullable<
-  NonNullable< MirrorInputOf< 'views.zod.ts#DetailViewFieldSchema', 'options' > >[number]['visibleWhen']
->;
-export type SpecEnvelopeAdmitsSourceless =
-  { dialect: 'cel' } extends DetailViewOptionVisibleWhenInput ? true : false;
-
-/**
- * The rows that gate withholds on a spec whose envelope requires `source`. Measured
- * against objectstack `main` `e8f163fc3a62`, not assumed: the two container pairs
- * carry `DetailViewFieldSchema` elements, and there their WIDER reading is gone too.
- * Their only wider member was `options` (on the base commit, the inline shape's
- * number/boolean `value`; on 17.4.0, the source-less envelope). They are ledgered
- * SCHEMA-NODE, but that class names the arm, not the cause, so they leave with it.
- */
-type SpecEnvelopeGatedWider = {
-  'views.zod.ts#DetailViewFieldSchema': 'options';
-  'views.zod.ts#DetailViewSchema': 'fields' | 'sections';
-  'views.zod.ts#DetailViewSectionSchema': 'fields';
-};
-
-/** What `WiderThanDeclared` records for a pair, with the spec-version gate above applied. */
 export type WiderRecorded< K extends MirrorKey > =
-  K extends keyof WiderThanDeclared
-    ? SpecEnvelopeAdmitsSourceless extends true
-      ? WiderThanDeclared[K]
-      : Exclude< WiderThanDeclared[K], K extends keyof SpecEnvelopeGatedWider ? SpecEnvelopeGatedWider[K] : never >
-    : never;
+  K extends keyof WiderThanDeclared ? WiderThanDeclared[K] : never;
 
 /**
  * The THIRD direction: every pair's WIDER key set equals what `WiderThanDeclared`

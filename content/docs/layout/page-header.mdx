@@ -45,7 +45,6 @@ absent.
 | `title` | string, or an inline locale map | derived from the record on a record page | The heading. `{field.path}` tokens are interpolated against the record in scope. |
 | `subtitle` | string, or an inline locale map | — | The secondary line under the title. Same interpolation as `title`. |
 | `actions` | array of action ids | — | Names of actions declared on the object's own metadata, drawn as the header's button row. |
-| `breadcrumb` | boolean | `true` (*spec*) | Renders a breadcrumb slot above the title. `false` removes it. |
 | `recordChrome` | boolean | `true` (*spec*) | On a record page, renders the title as the record chip. `false` keeps the bare heading. |
 | `showStar` | boolean | `true` (*spec*) | The follow star beside the record title. Part of the record chip. |
 | `showCopyId` | boolean | `true` (*spec*) | The copy-record-id button beside the record title. Part of the record chip. |
@@ -68,8 +67,8 @@ renders none of them and says so once per id in the console. That is why the dem
 carries no actions. Placement (`locations: ['record_header']` or `record_more`), ordering and
 the overflow menu are covered in [Slotted pages](/docs/guide/slotted-pages).
 
-**`breadcrumb`** renders an empty slot element, marked `data-page-breadcrumb-slot`, above
-the title. The renderer draws no trail into it itself.
+**`breadcrumb` draws nothing:** the contract accepts it until objectstack#20758 retires it,
+and the renderer ignores it, so `true`, `false` and an absent key render the same header.
 
 **`maxVisible` / `mobileMaxVisible`** must be positive integers: the contract rejects `0`
 and fractional values, and the renderer falls back to its default for a value the contract
@@ -146,7 +145,6 @@ The renderer picks one of two layouts when it renders:
 
 ```plaintext
 ┌──────────────────────────────────────────────┐
-│ (breadcrumb slot)                            │
 │ Title                         [Actions] [⋯]  │
 │ Subtitle                                     │
 └──────────────────────────────────────────────┘

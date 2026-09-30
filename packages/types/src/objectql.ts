@@ -2883,35 +2883,31 @@ export interface NamedListView {
   appearance?: ListViewSchema['appearance'];
 
   /**
-   * Tab definitions for a multi-tab view interface (`ViewTabSchema[]`).
+   * @deprecated RETIRED (objectui#11073) — the protocol removed the list view's
+   * own `tabs` in `@objectstack/spec` 17.5.0 (ADR-0049 enforce-or-remove): no
+   * renderer ever mounted a tab bar for it. Move each tab to a named view under
+   * the object's `listViews` (the tab's `name` becomes the entry's key, its
+   * `label` the entry's `label`, its `filter` joins that entry's `filter`);
+   * every `listViews` entry renders as a tab in the saved-view switcher.
    *
-   * ⭐ RULING ITEM 3 — MEASURED BEFORE DECLARED, because the protocol spends the
-   * word `tabs` on two different keys. This is the TOP-LEVEL one on the list
-   * shape, and it survives `ObjectListViewSchema` untouched. The other is
-   * `userFilters.tabs`, which that schema OMITS as page-only
-   * (`ObjectUserFiltersSchema`: "an object view's tab bar is its saved-view
-   * switcher (ViewTabBar), and a second one would collide"). So the key declared
-   * here is the array of `ViewTabSchema`, ⛔ not the user-filter preset bar —
-   * objectui's own `userFilters` dialect keeps carrying that one separately.
-   *
-   * ⚠️ NO RENDERER BEHAVIOUR ON THIS SURFACE, measured and REPORTED on
-   * objectui#8980 rather than silently declared inert: objectui's tab bar for an
-   * object is the saved-view switcher the HOST owns (ADR-0053), and the only
-   * `tabs` read in `packages/plugin-list` is `UserFilters`' `config.tabs` — the
-   * page-only key, not this one.
+   * Declared until then as a protocol member objectui read nowhere (objectui#8980,
+   * "declared inert"); the seat's Q4 ruling on objectui#11073 retired it here
+   * once its premise, "the protocol declares it", was falsified.
    */
-  tabs?: ListViewSchema['tabs'];
+  tabs?: never;
 
   /**
-   * Name of the published `page` a `type: 'page'` view mounts.
+   * @deprecated RETIRED (objectui#11073) — the protocol removed `pageName` with
+   * `type: 'page'` in `@objectstack/spec` 17.5.0 (ADR-0049 enforce-or-remove):
+   * the page mount was never built. To put a published page in front of users,
+   * give the app a navigation item with `type: 'page'` and its `pageName` — a
+   * different key on a different surface.
    *
-   * ⚠️ NO RENDERER BEHAVIOUR ON THIS SURFACE, measured and REPORTED on
-   * objectui#8980: `page` is not a member of this interface's own `type` union
-   * (seven values; the protocol's is ten), so no authored named view can select
-   * the branch this key configures. Declared because the protocol declares it
-   * and the ruling forbids dropping a member to avoid the report.
+   * Declared until then as a protocol member objectui read nowhere (objectui#8980,
+   * "declared inert"); the seat's Q4 ruling on objectui#11073 retired it here
+   * once its premise, "the protocol declares it", was falsified.
    */
-  pageName?: ListViewSchema['pageName'];
+  pageName?: never;
 
   /* ── The eight view-KIND configuration blocks ──────────────────────────────
    * The protocol carries each at the TOP LEVEL of a list view. objectui read
@@ -3803,7 +3799,7 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * (the spec's own `ObjectCalendarPropsSchema`) declares
    * `z.array(z.unknown()).optional()`, described *"Pre-fetched records — skips
    * the internal fetch"*.
-   * MEASURED on the installed artifact at `@objectstack/spec` 17.4.0 — the
+   * MEASURED on the installed artifact at `@objectstack/spec` 17.5.0 — the
    * version this repository's `pnpm-lock.yaml` resolves — through the published
    * `@objectstack/spec/ui` entry point: the provider block returns
    * `success=false` with `expected: 'array'` at `path: ['data']`, the array

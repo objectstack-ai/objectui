@@ -39,12 +39,16 @@ import { readStaticParamValues } from './static-params';
  * on `action:button`; `type` stays on the intersection as the SDUI envelope's
  * component discriminator and is not read as an action type here.
  */
-export interface ActionIconProps {
+// `…RendererProps`, not `ActionIconProps` (objectui#11073): `@objectstack/spec/ui` 17.5.0 exports
+// `ActionIconProps` as the block's AUTHORED property bag (`actionType`, `label`, `variant`, …).
+// This is the React envelope that carries a node (`schema`, `context`, `disabled`, an open
+// tail) — a different layer, named as objectui#7265 named `RecordAlertRendererProps`.
+export interface ActionIconRendererProps {
   schema: UIActionSchema & { type: string; className?: string; actionType?: string };
   className?: string;
   context?: Record<string, any>;
   /**
-   * The host-EVALUATED enablement verdict — see `ActionButtonProps` for the
+   * The host-EVALUATED enablement verdict — see `ActionButtonRendererProps` for the
    * mechanism (objectui#9131). Declared rather than left to the index
    * signature, consumed by name below, never re-spread onto the DOM.
    */
@@ -58,12 +62,12 @@ export interface ActionIconProps {
 const ActionIconRenderer = forwardRef<
   HTMLButtonElement,
   {
-    schema: ActionIconProps['schema'];
-    className?: ActionIconProps['className'];
-    context?: ActionIconProps['context'];
+    schema: ActionIconRendererProps['schema'];
+    className?: ActionIconRendererProps['className'];
+    context?: ActionIconRendererProps['context'];
   }
 >(
-  ({ schema, className, context: localContext, ...props }: ActionIconProps, ref) => {
+  ({ schema, className, context: localContext, ...props }: ActionIconRendererProps, ref) => {
     const {
       'data-obj-id': dataObjId,
       'data-obj-type': dataObjType,

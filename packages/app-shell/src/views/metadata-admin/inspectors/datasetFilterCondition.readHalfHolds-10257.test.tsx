@@ -137,9 +137,23 @@ describe('class 1 — an incomplete stored value is not opened as a row the next
     { region: [] },
   ];
 
-  it('reachable: the spec accepts every one of them, so a Source-tab or AI-authored filter can carry it', () => {
+  it('reachable: the spec accepts all but one of them, so a Source-tab or AI-authored filter can carry it', () => {
+    // Through `@objectstack/spec` 17.4.0 the spec accepted EVERY row. 17.5.0
+    // refuses the bare-array implicit-equality comparand (`{ region: [] }`) at
+    // the door, by name, with its `$in` prescription (objectui#11073) — so that
+    // one row is reachable now only as a document stored before the bump, and
+    // the read-half cases below keep it for exactly that reason.
+    const refusedSince1750 = JSON.stringify({ region: [] });
     for (const c of INCOMPLETE) {
-      expect(FilterConditionSchema.safeParse(beside(c)).success, JSON.stringify(c)).toBe(true);
+      const parsed = FilterConditionSchema.safeParse(beside(c));
+      if (JSON.stringify(c) === refusedSince1750) {
+        expect(parsed.success, JSON.stringify(c)).toBe(false);
+        expect(parsed.success ? [] : parsed.error.issues.map((i) => `${i.code} @ ${i.path.join('.')}`)).toEqual([
+          'custom @ $and.1.region',
+        ]);
+        continue;
+      }
+      expect(parsed.success, JSON.stringify(c)).toBe(true);
     }
     expect(FieldOperatorsSchema.safeParse({ $eq: '' }).success).toBe(true);
     expect(FieldOperatorsSchema.safeParse({ $in: [] }).success).toBe(true);

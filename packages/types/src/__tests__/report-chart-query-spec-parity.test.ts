@@ -24,9 +24,11 @@
  *    wearing. The risk is picking a new name the spec ALREADY owns — the
  *    `PageComponentSchema` mistake from objectui#3074 — so each new name is
  *    asserted absent from the spec's export set, types and values alike.
- *  - **Not burnable yet** (`JoinedReportBlock`): erased in the installed spec,
- *    typed — as a different shape — on spec `main`; the burn-down is owed at the
- *    bump that installs the typed one. See the bottom of this file.
+ *  - **Burnable now, on its own card** (`JoinedReportBlock`): erased through the
+ *    published 17.4.0, typed — as a different shape — since 17.5.0, which this
+ *    repository installs since objectui#11073. The tripwire has fired and been
+ *    flipped; the burn-down (a published-type change) is objectui#10940's. See the
+ *    bottom of this file.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -781,30 +783,29 @@ describe('renamed local dialects do not collide with a spec export (objectui#307
  * the derived type would be `unknown`, the exact regression this section exists
  * to stop.
  *
- * ## What guards it now: two halves, because two different runs read two different specs
+ * ## What guards it now: one state, on both runs (objectui#11073)
  *
- * - COMPILE TIME, both runs. The state pin admits `erased` and `typed` and
- *   refuses `any`. On a typed spec, the divergence lines under it each name one
- *   difference and stop compiling the day that one moves — on the Spec Main
- *   Shape Gate first. On the erased spec they are not asked (`OnTypedSpec`):
- *   an erased type declares no member to compare.
- * - TEST TIME, the installed spec only (the Spec Main Shape Gate type-checks and
- *   runs no test). The tripwire at the bottom reads the INSTALLED spec's built
- *   declarations and fails on the first bump past the published 17.4.0. If
- *   that release types the block, the failure is the burn-down's start signal:
- *   derive the published interface from the spec in its own slice, and delete
- *   the `erased` arm from the state pin so that an erasure stops compiling
- *   again. If that release still erases it, the spec erased it again — an
- *   upstream regression to report, and the `erased` arm loses its licence all
- *   the same.
+ * - COMPILE TIME, both runs. Until the bump that installed `@objectstack/spec`
+ *   17.5.0 the state pin admitted `erased` as well as `typed`, because the
+ *   pull-request type-check read the erasing 17.4.0 while the Spec Main Shape
+ *   Gate read `main`. 17.5.0 carries #20369, so both runs now read a typed
+ *   block, and the pin admits `typed` ALONE: an erasure — on the installed
+ *   spec or on `main` — stops compiling. `any` is refused as before. The
+ *   divergence lines under it each name one difference and stop compiling the
+ *   day that one moves, on the Spec Main Shape Gate first.
+ * - TEST TIME, the resolved spec only (the Spec Main Shape Gate type-checks and
+ *   runs no test). The tripwire at the bottom reads the resolved spec's built
+ *   declarations. It fired at that bump, as it was written to, and was flipped:
+ *   it now expects `typed`, so an erasure is reported as the upstream
+ *   regression it would be. The burn-down it announced — replacing the
+ *   PUBLISHED `JoinedReportBlock` with the spec's type — is objectui#10940's
+ *   own slice, not the bump's.
  *
- * ⚠️ NOT guardable from here: an erasure on objectstack `main` BEFORE that
- * bump. At the type level it is indistinguishable from the installed 17.4.0 —
- * both are the same bare `z.ZodTypeAny` — so the state pin admits it on the
- * gate. The producer's own pin covers that window
- * (`packages/spec/src/ui/joined-report-block-type.test.ts` in objectstack,
- * landed with #20369), and the tripwire's version row catches it at the bump
- * at the latest.
+ * The window that was NOT guardable from here before that bump — an erasure on
+ * objectstack `main` looked, at the type level, exactly like the erasing
+ * 17.4.0 the pull-request run read — closed with the `erased` arm. The
+ * producer's own pin (`packages/spec/src/ui/joined-report-block-type.test.ts`
+ * in objectstack, landed with #20369) still covers it upstream.
  *
  * ⚠️ objectstack#4171 (CLOSED 2026-07-30) was never this symbol's release: it
  * typed the RECURSIVE schemas, and this erasure's cause was the bare
@@ -816,17 +817,19 @@ type IsAny<T> = 0 extends 1 & T ? true : false;
 /** `any` is asked first: it passes `IsUnknown` as well. */
 type SpecTyping<T> = IsAny<T> extends true ? 'any' : IsUnknown<T> extends true ? 'erased' : 'typed';
 
-// THE STATE PIN. `erased` = the installed, published 17.4.0; `typed` = spec
-// `main` since objectstack#20369. `any` is refused on both (case 2).
-const _specJoinedReportBlockTyping = null as unknown as SpecTyping<SpecJoinedReportBlock> satisfies
-  | 'erased'
-  | 'typed';
+// THE STATE PIN. `typed` — the installed `@objectstack/spec` 17.5.0 and spec
+// `main` since objectstack#20369 both type the block. The `erased` arm (the
+// published 17.4.0) was deleted at the bump that installed 17.5.0 (objectui#11073),
+// as the tripwire below instructed, so an erasure stops compiling again on both
+// runs. `any` is refused (case 2).
+const _specJoinedReportBlockTyping = null as unknown as SpecTyping<SpecJoinedReportBlock> satisfies 'typed';
 const _specJoinedReportBlockIsNotEvenAny = false satisfies IsAny<SpecJoinedReportBlock>;
 
 /**
- * A divergence probe, asked of a TYPED spec only; on the erased spec the answer
- * is `true` by construction. The licence for that is the `erased` arm above,
- * which the test-time tripwire retires at the bump.
+ * A divergence probe, asked of a TYPED spec only; on an erased spec the answer
+ * would be `true` by construction. That licence was the `erased` arm of the
+ * state pin, deleted at the 17.5.0 bump (objectui#11073), so today every probe
+ * below is asked.
  */
 type OnTypedSpec<Probe extends boolean> = SpecTyping<SpecJoinedReportBlock> extends 'typed' ? Probe : true;
 /** Keys a type DECLARES: the local `[k: string]: unknown` is not a member. */
@@ -924,23 +927,17 @@ describe('JoinedReportBlock burn-down tripwire, read off the INSTALLED spec (obj
     expect(installedSpecTyping('ReportSort').typing).toBe('typed');
   });
 
-  it('the installed spec still erases the block to `unknown`', () => {
+  // FLIPPED at the bump (objectui#11073). This row read "the installed spec still
+  // erases the block" and fired when `@objectstack/spec` 17.5.0 was installed, which
+  // types it; its companion version row ("still the published 17.4.0") retired with
+  // it, having done its one job. The state pin's `erased` arm is deleted above. The
+  // burn-down it announced — deriving the PUBLISHED `JoinedReportBlock` from the
+  // spec, a published-type change — is objectui#10940's own slice, not this bump's.
+  it('the installed spec types the block (the erasure is gone; an erasure is an upstream regression)', () => {
     expect(
       installed.typing,
-      `the installed @objectstack/spec ${installed.version} now types JoinedReportBlock — this is the ` +
-        'bump the burn-down is owed at. Re-run the triage against the divergence pins above, derive ' +
-        "the published interface from the spec in its own slice (a published type changes), and delete " +
-        "the state pin's `erased` arm so that an erasure stops compiling again",
-    ).toBe('erased');
-  });
-
-  it('the installed spec is still the published 17.4.0, the newest release before objectstack#20369', () => {
-    expect(
-      installed.version,
-      `a newer @objectstack/spec is installed (block typing: ${installed.typing}). Every release after ` +
-        '17.4.0 is cut from an objectstack `main` that carries #20369, so it should type the block: if ' +
-        'the row above is red too, burn down as it says; if it is green, the spec erased the block again ' +
-        "— report that upstream. Either way the state pin's `erased` arm has lost its licence",
-    ).toBe('17.4.0');
+      `the installed @objectstack/spec ${installed.version} erases JoinedReportBlock again — an ` +
+        'upstream regression to report; the state pin above refuses it at compile time too',
+    ).toBe('typed');
   });
 });

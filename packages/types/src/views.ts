@@ -88,7 +88,7 @@ export type ViewType = NonNullable<SpecListView['type']> | 'list' | 'detail';
  * restated key list is exactly what let `titleField` through. The `Pick`
  * interim objectui#8841 offered was conditional on the 17.4.0 bump not having
  * happened yet — it landed on `main` before this change (`chore(deps): take the
- * 17.4.0 @objectstack/* line`), so the pinned spec is already strict and the
+ * 17.4.0 @objectstack/* line`), so the resolved spec is already strict and the
  * plain alias is available.
  *
  * ## `titleField` is NOT declared here; the reads that survive are tolerance

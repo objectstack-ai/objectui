@@ -2081,10 +2081,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // The contract half is NOT here and must not be duplicated here. It
         // lives in `@object-ui/types` (`zod/objectql.zod.ts`), one string
         // (`KanbanStrayGroupByRefusal`) on two routes: the `list-view` route
-        // takes it through the view-level `KanbanConfig` mirror, and a named
-        // view's `listViews.KEY.kanban.groupBy` (what this branch serves)
-        // through `ObjectViewSchema`'s named-view door,
-        // `checkNamedViewKanbanStrayGroupBy`, in both nestings (objectui#10321).
+        // takes it through the view-level `KanbanConfig` mirror. A named view's
+        // `listViews.KEY.kanban.groupBy` (what this branch serves) is refused by
+        // the protocol's own strict record, naming the key; objectui#10321's
+        // pointer on that door was retired by objectui#11073, because the
+        // protocol's refusal is terminal since `@objectstack/spec` 17.5.0.
         // What this line closes is the BEHAVIOUR half: a document that reaches
         // this branch carrying the key, whether or not it passed a validator.
         // ⚠️ NODE-LOCAL vs VIEW-LEVEL, as everywhere in this branch: the

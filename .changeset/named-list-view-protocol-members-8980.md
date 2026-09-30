@@ -53,3 +53,6 @@ rung whose source could not be authored before this change — so on existing
 documents the renderer produces the same nodes it produced before, proven by an
 absence-control case beside each fix. The 19 legacy spellings `NamedListView`
 declares beyond the protocol are objectui#7924's remedy and are untouched.
+
+⚠️ **Dated note, 2026-09-29 — two members named above were retired in this same release — objectui#11073.**
+Later in this release this repository began resolving `@objectstack/spec` 17.5.0, which retired `pageName` and the list view's `tabs` (and the `type: 'page'` branch `pageName` configured) under ADR-0049 enforce-or-remove. Following the same standing principle this change cites, `NamedListView` no longer declares either as a member. Both are tombstones, typed `never` and refused by name at parse. So the table of seventeen above is fifteen live members plus those two, and "declared and NOT read" no longer describes `tabs` or `pageName`: neither is accepted.

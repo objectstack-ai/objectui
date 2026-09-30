@@ -291,30 +291,40 @@ describe('`element:number` reads the spec by reference (objectui#10872 batch 2)'
     const member = (ElementNumberBlockSchema.shape.dataSource as unknown as z.ZodOptional).unwrap() as unknown as z.ZodObject;
     const spec = ElementDataSourceSchema as unknown as z.ZodObject;
     expect(Object.keys(member.shape).sort()).toEqual(Object.keys(spec.shape).sort());
-    // The boundary's `lazy` arm rebuilds this one clean schema (the recursive
-    // filter clause sits under `filter`), so it is an equal-answering clone —
-    // `imported-defaults-8317.test.ts` names it in `REBUILT_CLEAN`.
-    expect(stripImportedDefaults(spec)).not.toBe(spec);
+    // Through `@objectstack/spec` 17.4.0 the boundary's `lazy` arm rebuilt this
+    // one clean schema (the recursive filter clause sat under `filter`). 17.5.0
+    // converged `filter` on the `ViewFilterRule` array, which reaches no
+    // `z.lazy`, so the schema is clean and the boundary hands back the spec's
+    // own object (objectui#11073; `REBUILT_CLEAN` in
+    // `imported-defaults-8317.test.ts` is empty for the same reason).
+    expect(stripImportedDefaults(spec)).toBe(spec);
     for (const probe of [{ object: 'order' }, { object: '' }, { object: 1 }, {}, { object: 'o', limit: 0 }, { object: 'o', objectName: 'o' }]) {
       expect(member.safeParse(probe).success, JSON.stringify(probe)).toBe(spec.safeParse(probe).success);
     }
   });
 
   /**
-   * Measured WHERE the rebuild happens: `filter` is the member whose subtree
-   * reaches the recursive filter clause's `z.lazy`, the one node the boundary's
-   * walker rebuilds in this clean schema. Every probe above stops short of it.
-   * Each probe here goes through `filter`, the nested ones through the lazy's
-   * recursion, and each verdict is held to the spec's own schema — on the
-   * member, and on the node through both faces (the strict face rebuilds the
-   * same lazy a second time, as a fresh `z.lazy`).
+   * Measured WHERE the rebuild happened: through `@objectstack/spec` 17.4.0
+   * `filter` was the member whose subtree reached the recursive filter clause's
+   * `z.lazy`, the one node the boundary's walker rebuilt in this clean schema.
+   * Every probe above stops short of it. Each probe here goes through `filter`,
+   * and each verdict is held to the spec's own schema — on the member, and on
+   * the node through both faces.
+   *
+   * ⚠️ 17.5.0 moved the ACCEPT SET under these rows (objectui#11073): `filter`
+   * converged on the `ViewFilterRule` array `[{ field, operator, value }]`, and
+   * the MongoDB-style record form, `$and` / `$or` included, is refused. The
+   * rows follow the spec's verdicts rather than restating the old ones, and the
+   * array row is the one that parses now. What the renderer does with each
+   * shape is objectui#8945's, not these rows'.
    */
   it.each([
-    ['record filter', { object: 'o', filter: { status: 'won' } }, true],
-    ['nested $and / $or filter', { object: 'o', filter: { $and: [{ status: 'won' }, { $or: [{ amount: { $gt: 100 } }, { stage: { $in: ['a', 'b'] } }] }] } }, true],
+    ['ViewFilterRule array filter', { object: 'o', filter: [{ field: 'status', operator: 'equals', value: 'won' }] }, true],
+    ['record filter', { object: 'o', filter: { status: 'won' } }, false],
+    ['nested $and / $or filter', { object: 'o', filter: { $and: [{ status: 'won' }, { $or: [{ amount: { $gt: 100 } }, { stage: { $in: ['a', 'b'] } }] }] } }, false],
     ['non-object filter', { object: 'o', filter: 5 }, false],
     ['non-object clause inside $and', { object: 'o', filter: { $and: [5] } }, false],
-  ] as const)('`dataSource.filter` through the rebuilt binding answers as the spec does: %s', (_name, probe, expected) => {
+  ] as const)('`dataSource.filter` through the binding answers as the spec does: %s', (_name, probe, expected) => {
     const member = (ElementNumberBlockSchema.shape.dataSource as unknown as z.ZodOptional).unwrap() as unknown as z.ZodObject;
     const spec = ElementDataSourceSchema as unknown as z.ZodObject;
     // Non-vacuity: the spec's own verdict is the one this row names.

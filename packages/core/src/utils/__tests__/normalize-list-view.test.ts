@@ -649,18 +649,22 @@ describe('rowHeightToDensityMode (#4440)', () => {
  * grid, because `ViewType` was a hand-written copy of the spec's list and every
  * structure keyed on it was total over the COPY.
  *
- * These pin the two halves of the fix: the derived vocabulary ACCEPTS `page`,
- * and the renderer's drawable set still refuses it — loudly, not silently.
+ * These pinned the two halves of the fix: the derived vocabulary ACCEPTED
+ * `page`, and the renderer's drawable set refused it — loudly. Since
+ * `@objectstack/spec` 17.5.0 retired `page` (objectui#11073), the derived
+ * vocabulary follows the spec and refuses it too, and a stored `page` view
+ * degrades like any kind outside the vocabulary.
  */
 describe('the derived view-type vocabulary (objectui#8127)', () => {
-  it('accepts the spec`s `page` list-view type, and refuses a typo', () => {
-    // The published validator's answer. Before the derivation, `ViewTypeSchema`
-    // was an eleven-arm hand copy that refused `page` while `ViewKindEnum`
-    // (already derived) accepted it — two faces of one vocabulary disagreeing.
-    expect(ViewTypeSchema.safeParse('page').success).toBe(true);
-    // Control: the vocabulary is still closed, so the `true` above is a reading
-    // and not an enum that accepts anything.
+  it('follows the spec: refuses the retired `page` list-view type, and a typo, and accepts a drawable kind', () => {
+    // The published validator's answer is DERIVED from the spec. It accepted
+    // `page` while the resolved spec published it; `@objectstack/spec` 17.5.0
+    // retired the kind (objectui#11073), and the derivation dropped it with it.
+    expect(ViewTypeSchema.safeParse('page').success).toBe(false);
     expect(ViewTypeSchema.safeParse('nonsense-control').success).toBe(false);
+    // Control: the `false`s above are readings of a closed enum, not an enum
+    // that refuses everything.
+    expect(ViewTypeSchema.safeParse('kanban').success).toBe(true);
   });
 
   it('keeps the two objectui view CATEGORIES, which have no spec counterpart', () => {
@@ -690,22 +694,16 @@ describe('the undrawable-kind fallback is loud (objectui#8127)', () => {
     vi.restoreAllMocks();
   });
 
-  it('warns once for `page` and still falls back to the caller`s grid default', () => {
+  it('treats the retired `page` as a kind outside the vocabulary: a grid, and no undrawable-kind warning', () => {
+    // Until objectui#11073 `page` was a kind the published validator ACCEPTED
+    // and ListView could not draw, so the fallback said so once. The spec
+    // retired it at 17.5.0 and both published faces refuse it now, so a stored
+    // `page` view is a document outside the vocabulary, exactly like a typo:
+    // the fallback is unchanged and the warning that it was a VALID kind is gone.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const out = normalizeListViewSchema({ type: 'list-view', objectName: 'account', specType: 'page' });
-
-    // The fallback itself is UNCHANGED — this card does not add a page renderer.
     expect((out as { viewType?: string }).viewType).toBe('grid');
-
-    // What changed is that it says so. Before this, `page` and a typo produced
-    // byte-identical output and silence.
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect(String(warn.mock.calls[0]?.[0])).toContain('page');
-
-    // Once per process, not once per render: this runs inside a normalizer a
-    // render can call on every keystroke.
-    normalizeListViewSchema({ type: 'list-view', objectName: 'account', specType: 'page' });
-    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('stays silent for the objectui view categories and for a plain typo', () => {

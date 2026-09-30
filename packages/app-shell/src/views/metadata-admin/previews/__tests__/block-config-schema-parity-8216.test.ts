@@ -180,16 +180,10 @@ function oraclesFor(blockType: string): Array<{ face: OracleFace; schema: unknow
  * "every exemption names a real block" below would have failed on it.
  */
 const EXEMPT: Readonly<Record<string, { reason: string; card: string }>> = {
-  'element:definition-list': {
-    reason:
-      'objectui-native element block: absent from PageComponentType and ComponentPropsMap, and no @object-ui/types/zod arm declares it. Its declared face is the registry `inputs` list in components/renderers/basic/data-list.tsx, judged by a different gate (objectui#8067/objectui#8068) that reads top-level inputs only. A live item-key mismatch this gate structurally cannot see is objectui#8279.',
-    card: 'objectui#8281',
-  },
-  'element:repeater': {
-    reason:
-      'objectui-native element block: absent from PageComponentType and ComponentPropsMap, and no @object-ui/types/zod arm declares it. Same registry-`inputs`-only face as element:definition-list.',
-    card: 'objectui#8281',
-  },
+  // `element:definition-list` and `element:repeater` were the two rows here
+  // until `@objectstack/spec` 17.5.0 gave both a `ComponentPropsMap` entry
+  // (objectui#11073). The self-deleting row below turned red, as written, and
+  // both rows went: the two blocks are judged on the SPEC face now.
 };
 
 /* ── ledger ───────────────────────────────────────────────────────────────── */

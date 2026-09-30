@@ -48,6 +48,8 @@ import {
   useDatasetCatalog,
   useDatasetSemantics,
   type DatasetCatalogEntry,
+  type DatasetDimensionInfo,
+  type DatasetMeasureInfo,
 } from '../previews/useDatasetCatalog.js';
 import { getReportForm, getReportSchema } from '../report-schema.js';
 import { mergeServerFields } from '../mergeServerFields.js';
@@ -148,6 +150,71 @@ function useTypeOptions(locale: MetadataDefaultInspectorProps['locale']) {
 /** Read a `string[]` draft field defensively. */
 function readNames(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+}
+
+/*
+ * ── The author's text in the dataset pickers (objectui#11161) ─────────────────
+ *
+ * The catalog carries each member's `label` and the dataset's `description`,
+ * already resolved in the designer locale (`useDatasetCatalog`). Every option
+ * list both dataset inspectors render reads them in ONE form: the author's
+ * label beside the machine name, the name alone when no label is declared, and
+ * a measure's ` · aggregate` hint where it has always shown. Each primitive
+ * places the name its own way:
+ *
+ *   • the add-member list (`AddFieldPopover`) prints an option's `name` in a
+ *     code chip beside its `label` whenever the two differ, so the label there
+ *     is the author's text alone — `Revenue · sum` beside `revenue`;
+ *   • a slot that renders text only (a select item) writes `LABEL (name)`, the
+ *     form the dataset picker has always used — `Revenue (revenue) · sum`;
+ *   • `InspectorComboField` prints each option's value itself, so a member
+ *     option there carries the author's text alone.
+ *
+ * The dataset's `description` rides as the option's `hint`, the slot name
+ * `InspectorComboField` renders as a muted suffix; a text-only item appends it
+ * after ` — ` (the objectui#11028 form). An option's VALUE is always the
+ * machine name — the label never reaches what a binding stores.
+ */
+
+/** `LABEL (name)`, or the bare name when no label is declared or it repeats the name. */
+function labelBesideName(name: string, label: string | undefined): string {
+  return label && label !== name ? `${label} (${name})` : name;
+}
+
+/** A measure's aggregate hint, appended where the options have always shown it. */
+function withAggregate(text: string, aggregate: string | undefined): string {
+  return aggregate ? `${text} · ${aggregate}` : text;
+}
+
+/** The bound dataset's measures as add-member options (the name rides in `name`). */
+export function datasetMeasureOptions(measures: DatasetMeasureInfo[]): ObjectFieldInfo[] {
+  return measures.map((m) => ({
+    name: m.name,
+    label: withAggregate(m.label ?? m.name, m.aggregate),
+    type: 'number',
+    hidden: false,
+  }));
+}
+
+/** The bound dataset's dimensions as add-member options (the name rides in `name`). */
+export function datasetDimensionOptions(dimensions: DatasetDimensionInfo[]): ObjectFieldInfo[] {
+  return dimensions.map((d) => ({
+    name: d.name,
+    label: d.label ?? d.name,
+    type: d.type ?? 'text',
+    hidden: false,
+  }));
+}
+
+/** The catalog as dataset-picker options: `LABEL (name)`, the description as `hint`. */
+export function datasetPickerOptions(
+  datasets: DatasetCatalogEntry[],
+): Array<{ value: string; label: string; hint?: string }> {
+  return datasets.map((d) => ({
+    value: d.name,
+    label: labelBesideName(d.name, d.label),
+    ...(d.description ? { hint: d.description } : {}),
+  }));
 }
 
 /**
@@ -291,33 +358,24 @@ export function ReportDefaultInspector({
   // "stored" and "offered" indistinguishable on screen, trading a display
   // defect for a semantic one. `InspectorSelectField` now synthesises the row
   // AND flags it; the catalog is all this list owes.
+  //
+  // objectui#11161 — a select item renders text only, so a declared
+  // description follows the label after ` — `.
   const datasetOptions = React.useMemo(
     () =>
-      catalog.datasets.map((d) => ({
-        value: d.name,
-        label: d.label && d.label !== d.name ? `${d.label} (${d.name})` : d.name,
+      datasetPickerOptions(catalog.datasets).map((o) => ({
+        value: o.value,
+        label: o.hint ? `${o.label} — ${o.hint}` : o.label,
       })),
     [catalog.datasets],
   );
 
   const measureOptions: ObjectFieldInfo[] = React.useMemo(
-    () =>
-      semantics.measures.map((m) => ({
-        name: m.name,
-        label: m.aggregate ? `${m.name} · ${m.aggregate}` : m.name,
-        type: 'number',
-        hidden: false,
-      })),
+    () => datasetMeasureOptions(semantics.measures),
     [semantics.measures],
   );
   const dimensionOptions: ObjectFieldInfo[] = React.useMemo(
-    () =>
-      semantics.dimensions.map((d) => ({
-        name: d.name,
-        label: d.name,
-        type: d.type ?? 'text',
-        hidden: false,
-      })),
+    () => datasetDimensionOptions(semantics.dimensions),
     [semantics.dimensions],
   );
 
@@ -341,13 +399,19 @@ export function ReportDefaultInspector({
   // Both axis rosters used to append an out-of-catalog axis unflagged
   // (objectui#8488): visible, but indistinguishable from a dimension the
   // dataset actually offers. The flag is `InspectorSelectField`'s job now.
+  // objectui#11161 — a select item renders text only, so each axis reads
+  // `LABEL (name)`; the stored axis is the name.
   const chartXOptions = React.useMemo(
-    () => dimensionOptions.map((d) => ({ value: d.name, label: d.label || d.name })),
-    [dimensionOptions],
+    () => semantics.dimensions.map((d) => ({ value: d.name, label: labelBesideName(d.name, d.label) })),
+    [semantics.dimensions],
   );
   const chartYOptions = React.useMemo(
-    () => measureOptions.map((m) => ({ value: m.name, label: m.label || m.name })),
-    [measureOptions],
+    () =>
+      semantics.measures.map((m) => ({
+        value: m.name,
+        label: withAggregate(labelBesideName(m.name, m.label), m.aggregate),
+      })),
+    [semantics.measures],
   );
 
   // A `joined` report carries its data on dataset-bound `blocks` (edited via

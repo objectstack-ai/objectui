@@ -82,15 +82,21 @@ const onCardMove = (cardId: string, fromCol: string, toCol: string, index: numbe
 has no function value), never a member of the schema object below —
 `packages/plugin-kanban/README.md` documents this the same way.
 
-Neither are `onCardClick` and `onQuickAdd`, and since objectui#7804 the
-`object-kanban` validator **says so by name**: both are declared as
-objectui#6124 **runtime slots**, so an authored `onCardClick: { "action":
-"toast" }` is now refused with a message pointing at the node-type spelling,
-where before it parsed green and was handed to a call site expecting a function.
-A React host still supplies either function through the TypeScript interface or
-as a React prop; only the JSON face refuses them. ⚠️ On `object-kanban` a
-supplied `onQuickAdd` reaches the board and is never called, because its partner
-`quickAdd` is retired there — see "Quick Add is a React-host capability" below.
+Neither is `onCardClick`, and since objectui#7804 the `object-kanban` validator
+**says so by name**: it is declared as an objectui#6124 **runtime slot**, so an
+authored `onCardClick: { "action": "toast" }` is now refused with a message
+pointing at the node-type spelling, where before it parsed green and was handed
+to a call site expecting a function. A React host still supplies the function
+through the TypeScript interface or as a React prop; only the JSON face refuses
+it.
+
+⭐ `onQuickAdd` is a **tombstone** on `object-kanban` since objectui#11234, not a
+runtime slot. A supplied one used to reach the board and was never called,
+because its partner `quickAdd` is retired there. `ObjectKanban` now renders an
+internal board that takes the Quick Add pair only as explicit props, and it
+supplies neither half. So the TypeScript twin is `?: never` and the validator
+refuses the key by name. The pair lives on `KanbanRenderer` — see "Quick Add is
+a React-host capability" below.
 
 ⭐ `onCardMove` is declared too, since objectui#9342 — but as a **tombstone**,
 not a runtime slot. An authored one used to be accepted and silently dropped,
@@ -473,10 +479,10 @@ export function useBoard(initialColumns: KanbanColumn[]) {
 ### Quick Add is a React-host capability, not a document one
 
 The Quick Add button at the bottom of a lane is gated on **both** halves of a
-pair: `quickAdd`, and an `onQuickAdd` handler. `onQuickAdd` is a runtime slot —
-a function — so it can only be supplied by a React host that mounts the board
-component directly: `KanbanRenderer`, exported from `@object-ui/plugin-kanban`,
-forwards both halves by identity.
+pair: `quickAdd`, and an `onQuickAdd` handler. `onQuickAdd` is a function, so it
+can only be supplied by a React host that mounts the board component directly:
+`KanbanRenderer`, exported from `@object-ui/plugin-kanban`, reads both halves off
+its `schema` and forwards them by identity.
 
 ⚠️ There is **no node type key** that reaches it. The `kanban-ui` registration
 retired with objectui#8257, so a document naming that tag is now an
@@ -484,14 +490,16 @@ retired with objectui#8257, so a document naming that tag is now an
 component instead.
 
 An **object-driven** board (`object-kanban`, or a kanban view inside `ListView` /
-`ObjectView`) has no Quick Add control, and `quickAdd` is **retired** on it
-(objectui#8285): the board does not create records inline. Both
-`ObjectKanbanSchema` faces in `@object-ui/types` refuse the key by name, as
-`@objectstack/spec` does, and `ObjectKanban` does not forward it — so even a
+`ObjectView`) has no Quick Add control, and **both** halves of the pair are
+**retired** on it: `quickAdd` since objectui#8285, and `onQuickAdd` since
+objectui#11234. The board does not create records inline. Both
+`ObjectKanbanSchema` faces in `@object-ui/types` refuse both keys by name, and
+`@objectstack/spec` refuses `quickAdd`. `ObjectKanban` renders an internal board
+that takes the pair only as explicit props, and it supplies neither — so even a
 host that hands the board both halves of the pair gets no control. A page
-written as constrained JSX draws the ordinary `unknown-prop` **warning** for it
-(`validateTree` in `@object-ui/sdui-parser`), since the block has no such prop.
-Delete the key; to offer Quick Add, mount `KanbanRenderer` as above.
+written as constrained JSX draws the ordinary `unknown-prop` **warning** for
+`quickAdd` (`validateTree` in `@object-ui/sdui-parser`), since the block has no
+such prop. Delete both keys; to offer Quick Add, mount `KanbanRenderer` as above.
 
 ## Bundle Size
 

@@ -44,7 +44,8 @@ import {
 } from '@object-ui/core';
 import { getBadgeColorClasses, getBadgeHexAppearance, getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
 import { usePermissions } from '@object-ui/permissions';
-import { KanbanRenderer, KANBAN_UNCOLUMNED_ID } from './index';
+import { KANBAN_UNCOLUMNED_ID } from './index';
+import { KanbanBoardCore } from './KanbanBoardCore';
 import {
   collectRequiredWhenPromptFields,
   type RequiredWhenPromptField,
@@ -1226,17 +1227,17 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
       columns: effectiveColumns,
       className: className || schema.className,
       ...(effectiveSwimlaneField ? { swimlaneField: effectiveSwimlaneField } : {}),
-      // objectui#8285 (ruling B, decision batch #91): `quickAdd` is RETIRED on
-      // this element, and this is the line that stops forwarding it. Every
-      // `object-kanban` entry point lands here — the registered tag, the
-      // `kanbanComponents` map and a host mounting this component — so the
-      // key is cut once, at the producer of the schema `KanbanRenderer` reads,
-      // rather than at one of the doors. `KanbanRenderer` itself is untouched:
-      // a React host that mounts it directly keeps the Quick Add pair, which is
-      // where the control works. Both published `ObjectKanbanSchema` faces
-      // refuse the key by name, as `@objectstack/spec` 17.5.0 does; an untyped
-      // value that reaches this line anyway is not handed on.
-      quickAdd: undefined,
+      // ⛔ No Quick Add pair rides this schema to the board. objectui#8285
+      // (ruling B, decision batch #91) retired `quickAdd` here and used to
+      // write `quickAdd: undefined` on this line. objectui#11234 retired
+      // `onQuickAdd` as well and moved the cut to the board itself: the
+      // `KanbanBoardCore` this component renders takes the pair ONLY as
+      // explicit props and reads neither key off `schema`, and nothing below
+      // passes either prop. So an untyped value that rides the spread above
+      // reaches no read. Every `object-kanban` entry point lands here — the
+      // registered tag, the `kanbanComponents` map and a host mounting this
+      // component. The pair still works on `KanbanRenderer`, which a React
+      // host mounts directly.
   };
 
   // Default to a right-side drawer so clicking a card opens an editable detail
@@ -1413,7 +1414,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
         // here: its `handleDragEnd` moves the card there before calling us, and
         // an effect re-syncs `boardColumns` from the `columns` prop whenever
         // that prop's identity changes — which every re-render of this
-        // component causes (`KanbanRenderer` re-buckets into a fresh array).
+        // component causes (`KanbanBoardCore` re-buckets into a fresh array).
         //   - internal data: `fetchedData` is the source of truth, so the map
         //     below both corrects the record and re-renders.
         //   - external data: `fetchedData` is unread and normally empty, but
@@ -1605,11 +1606,17 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
       {/* objectui#8827 — the settle signal reaches `KanbanImpl` through a
           package-private context rather than a `KanbanRendererProps` member,
           because `KanbanRendererProps` is published and no caller outside this
-          package may set this. Context crosses `KanbanRenderer`'s
+          package may set this. Context crosses the board's
           `Suspense`/`React.lazy` boundary normally, which is what makes the
           private channel possible at all. Full argument on the context. */}
       <KanbanRecordsSettledContext.Provider value={recordsSettled}>
-      <KanbanRenderer
+      {/* objectui#11234 — the internal board, not the exported
+          `KanbanRenderer`. It takes the Quick Add pair only as explicit props,
+          and this call passes neither, so the object-bound board draws no
+          Quick Add control and no read of `onQuickAdd` sits on this path.
+          `KanbanRenderer` renders the same board and passes the pair off its
+          own `schema`, for a React host. */}
+      <KanbanBoardCore
         // Card conditional formatting evaluates against the card record, and
         // this fetch expands relations (`buildExpandFields` above) exactly as
         // the grid's does. Handing the renderer the object's field types is

@@ -892,9 +892,18 @@ describe('check-handler-key-read-sites — this repository', () => {
     // arm carries the tombstone. ⚠️ Its absence below is therefore a reading,
     // and the two survivors are what keep it from being a census that lost the
     // kanban walk altogether (the hop this whole leg exists for).
+    //
+    // ⭐ objectui#11234 took `onQuickAdd` out of the census the same way.
+    // `ObjectKanban` renders the internal `KanbanBoardCore` now, which takes the
+    // Quick Add pair only as explicit props, so the walk reaches no read of the
+    // key, and the arm carries its tombstone. The exported `KanbanRenderer`
+    // still reads `schema.onQuickAdd` for a React host, and no registration
+    // reaches that body. `onCardClick` is the survivor that keeps the kanban
+    // walk honest, and it is now read in the internal board's file, one hop
+    // further than before.
     const judged = result.census.map((c) => `${c.type}.${c.key}`);
     expect(judged).toContain('object-kanban.onCardClick');
-    expect(judged).toContain('object-kanban.onQuickAdd');
+    expect(judged).not.toContain('object-kanban.onQuickAdd');
     expect(judged).not.toContain('object-kanban.onCardMove');
     const kanbanRow = (key: string) =>
       result.census.find((c) => c.type === 'object-kanban' && c.key === key);
@@ -910,8 +919,12 @@ describe('check-handler-key-read-sites — this repository', () => {
       // renderer no longer reads it off the document, so there is nothing to
       // judge. The arm-side reading is asserted in the resolver leg below.
       { key: 'onCardMove', declared: undefined, disposition: undefined },
-      { key: 'onQuickAdd', declared: true, disposition: 'runtime-slot' },
+      // No census row either, since objectui#11234, for the same reason.
+      { key: 'onQuickAdd', declared: undefined, disposition: undefined },
     ]);
+    // The survivor's read site is the internal board the registration reaches
+    // (objectui#11234), not the exported `KanbanRenderer` in the barrel.
+    expect(kanbanRow('onCardClick')?.file).toBe('packages/plugin-kanban/src/KanbanBoardCore.tsx');
 
     // FIRING CONTROL for the `false` above: the census still reports DECLARED
     // runtime slots elsewhere, so `declared: false` is a reading about that one
@@ -1171,6 +1184,9 @@ describe('check-handler-key-read-sites — this repository', () => {
     // objectui#9342: this gate refuses a tombstone while a renderer still reads
     // the key, so the arm could not carry one until that read moved to an
     // explicit React prop on `KanbanRendererProps`.
+    //
+    // ⭐ `onQuickAdd` reads `'retired'` since objectui#11234, once the
+    // `object-kanban` path's read moved onto the internal board's explicit props.
     expect({
       onCardClick: objectKanban?.members.get('onCardClick'),
       onCardMove: objectKanban?.members.get('onCardMove'),
@@ -1178,7 +1194,7 @@ describe('check-handler-key-read-sites — this repository', () => {
     }).toEqual({
       onCardClick: 'runtime-slot',
       onCardMove: 'retired',
-      onQuickAdd: 'runtime-slot',
+      onQuickAdd: 'retired',
     });
 
     // A live arm that still carries both dispositions, so this leg keeps

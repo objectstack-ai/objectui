@@ -40,5 +40,6 @@ control there. To offer Quick Add, mount `KanbanRenderer` from
 diagnostic code, or imported one of the four removed names, drops that branch:
 the key now draws `unknown-prop` like any other prop the block does not have.
 
-Unchanged: `ObjectKanbanSchema.onQuickAdd` stays a runtime slot. It still reaches
-the board, and on `object-kanban` it is never called, because its partner is gone.
+`ObjectKanbanSchema.onQuickAdd` is retired on `object-kanban` too, by objectui#11234
+in the same release: on that element it was never called, because its partner is
+gone. The Quick Add pair on `KanbanRenderer` is unchanged.

@@ -313,11 +313,20 @@ function bookPackages(book: Book): Set<string> {
  * up every other package's docs. When a book declares no package (its own or a
  * group override) we can't scope safely, so all docs are kept and membership
  * falls to each group's `include` glob.
+ *
+ * A doc whose own `group` names one of this book's group keys is kept whatever
+ * its package (objectui#11245): the framework's `resolveBookTree` places a doc
+ * by its explicit `group` with no package scope, and the book tree endpoint
+ * answers that resolver, so the sidebar lists the doc where the endpoint does.
+ * The package filter narrows only what `include` and the synthetic
+ * Uncategorized group can collect; `include` stays scoped by the resolver
+ * itself (`group.package`, else the book's package).
  */
 export function scopeDocsToBook(book: Book, docs: ResolverDoc[]): ResolverDoc[] {
   const pkgs = bookPackages(book);
   if (pkgs.size === 0) return docs;
-  return docs.filter((d) => pkgs.has(pkgOf(d)));
+  const groupKeys = new Set((book.groups ?? []).map((g) => g.key));
+  return docs.filter((d) => pkgs.has(pkgOf(d)) || (d.group != null && groupKeys.has(d.group)));
 }
 
 /** Sort books for the index: by `order`, then label, then name (stable). */

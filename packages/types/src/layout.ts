@@ -20,6 +20,9 @@ import type { I18nLabel, Page as SpecPage, PageType as SpecPageType } from '@obj
 import type { BaseSchema, SchemaNode } from './base.js';
 import type { PAGE_SPEC_EXCLUDED } from './zod/layout.zod.js';
 import type { BreakpointName } from './mobile.js';
+// objectui#10872 batch 9 — the per-breakpoint style maps `FlexSchema.responsiveStyles`
+// declares, by reference. Type-only.
+import type { ResponsiveStyles as SpecResponsiveStyles } from '@objectstack/spec/ui';
 
 /**
  * Basic HTML div container
@@ -701,6 +704,21 @@ export interface FlexLayoutProps {
 export interface FlexSchema extends BaseSchema, FlexLayoutProps {
   type: 'flex';
   /**
+   * Per-breakpoint scoped style maps (ADR-0065): `@objectstack/spec`'s
+   * `ResponsiveStyles`, the type `PageComponentSchema.responsiveStyles`
+   * declares, by reference (objectui#10872 batch 9). `SchemaRenderer` compiles
+   * it to CSS scoped to this node: `large` is the unconditional base, and
+   * `medium` / `small` / `xsmall` are max-width overrides.
+   *
+   * Declared here, and not on {@link FlexLayoutProps}, because `flex` is the
+   * layout arm a producer writes the key on (the objectstack showcase; the
+   * reading is recorded on objectui#10872 and nothing here re-derives it).
+   * `stack` shares those props and has no measured producer, so it does not
+   * declare the key. The zod mirror spreads the same member from the
+   * public blocks' fragment (`NODE_ENVELOPE`).
+   */
+  responsiveStyles?: SpecResponsiveStyles;
+  /**
    * REFUSED BY NAME (objectui#8284, ADR-0049) — `flex` reads `children`, and no
    * renderer read consumes `body`.
    *
@@ -732,7 +750,8 @@ export interface FlexSchema extends BaseSchema, FlexLayoutProps {
  *
  * Declares the same members as {@link FlexSchema} — see {@link FlexLayoutProps}
  * for why they are shared through a third interface rather than derived with an
- * `Omit` (objectui#6151).
+ * `Omit` (objectui#6151) — except `responsiveStyles`, which `FlexSchema`
+ * declares on its own (objectui#10872 batch 9).
  */
 export interface StackSchema extends BaseSchema, FlexLayoutProps {
   type: 'stack';

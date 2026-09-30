@@ -36,8 +36,10 @@
  * registration, `'object-kanban'` (`ObjectKanbanRenderer` → `ObjectKanban` →
  * `KanbanRenderer`):
  *
- *   - `onQuickAdd` — RUNTIME SLOT. It rides `ObjectKanban`'s `...schema` spread
- *     untouched and arrives at the board implementation BY IDENTITY.
+ *   - `onQuickAdd` — RUNTIME SLOT when measured here: it rode `ObjectKanban`'s
+ *     `...schema` spread untouched and arrived at the board implementation BY
+ *     IDENTITY. ⭐ RETIRED since objectui#11234 — see the section at the end
+ *     of this block.
  *   - `onCardClick` — RUNTIME SLOT. `ObjectKanban` replaces the schema key with
  *     its own wrapper, but `SchemaRenderer` also spreads the authored key as a
  *     React PROP, `ObjectKanbanComponentProps` declares that prop, and
@@ -134,6 +136,25 @@
  * face declares the second parameter. The exact-count reading and the modifier
  * channel have their own file, `cardClickFiresOnce-9341.test.tsx`; what is
  * here stays the LIT CONTROL for the dead-read leg beside it.
+ *
+ * ## ⭐ What objectui#11234 moved: `onQuickAdd` is a tombstone now
+ *
+ * The runtime-slot reading above was TRUE and was also the defect. The function
+ * arrived at the board by identity and, on `object-kanban`, was never called:
+ * the control is gated on BOTH halves of the Quick Add pair, and objectui#8285
+ * retired the other half, `quickAdd`, on this element. ruling B of decision
+ * batch #91 keeps the pair with a React host only.
+ *
+ * The same gate that held `onCardMove` back held this one: it refuses a
+ * tombstone while a renderer on the registration still reads the key off the
+ * document, and `KanbanRenderer` did. `ObjectKanban` now renders the internal
+ * `KanbanBoardCore`, which takes the pair only as explicit props, and supplies
+ * neither half. So suite 2's `onQuickAdd` leg FLIPPED on purpose, from "arrives
+ * by identity" to "reaches nothing", with `onCardClick` as the lit control on
+ * the same render. Suite 3 reads `retired` and `never` for it on both faces.
+ * The exported `KanbanRenderer` keeps the pair; that is measured in
+ * `kanban-handler-slots-7664.test.tsx` and drawn in
+ * `quickAddRetiredNotForwarded-8285.test.tsx`.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -164,7 +185,7 @@ const ledger: Map<string, string> = KNOWN_UNDECLARED_READS;
 /** The three keys this slice owns, in the ledger's own spelling. */
 const KEYS = ['onCardClick', 'onCardMove', 'onQuickAdd'] as const;
 
-/** The two whose disposition LANDED — the third is recorded, not declared. */
+/** The two objectui#7804 declared; `onCardMove` followed with objectui#9342, and its own leg below says so. */
 const DECLARED = ['onCardClick', 'onQuickAdd'] as const;
 
 /** Every props object the board implementation was rendered with, in order. */
@@ -278,10 +299,28 @@ describe('suite 1 — the accept set: an authored handler key on `object-kanban`
 });
 
 describe('suite 2 — the channels, per key, on the one surviving registration (objectui#7804)', () => {
-  it('`onQuickAdd` reaches the board BY IDENTITY', async () => {
+  it('⭐ `onQuickAdd` reaches NOTHING, with `onCardClick` as the lit control on the same render (objectui#11234)', async () => {
+    // ⭐ THE LEG THAT FLIPPED, by design. It read `props.onQuickAdd` BY
+    // IDENTITY until objectui#11234: `KanbanRenderer` forwarded
+    // `schema.onQuickAdd`, and `ObjectKanban` rendered `KanbanRenderer`.
+    // `ObjectKanban` now renders the internal `KanbanBoardCore`, which takes the
+    // Quick Add pair only as explicit props, and passes neither. `quickAdd: true`
+    // is on this document too (see `boardPropsFor`), so the pair is authored
+    // whole and neither half arrives.
     const onQuickAdd = vi.fn();
-    const props = await boardPropsFor({ onQuickAdd });
-    expect(props.onQuickAdd).toBe(onQuickAdd);
+    const onCardClick = vi.fn();
+    const card = { id: '1', title: 'One' };
+    const props = await boardPropsFor({ onQuickAdd, onCardClick });
+    (props.onCardClick as (c: unknown, e?: unknown) => void)(card);
+    expect(
+      {
+        onQuickAdd: props.onQuickAdd,
+        quickAdd: props.quickAdd,
+        quickAddRan: onQuickAdd.mock.calls.length,
+        cardClickRan: onCardClick.mock.calls.length,
+      },
+      'the lit control `onCardClick` must run — a board that received NOTHING would read the same absence',
+    ).toEqual({ onQuickAdd: undefined, quickAdd: undefined, quickAddRan: 0, cardClickRan: 1 });
   });
 
   it('`onCardClick` is REPLACED by ObjectKanban, and the replacement CALLS the authored one', async () => {
@@ -341,13 +380,20 @@ describe('suite 2 — the channels, per key, on the one surviving registration (
     ).toEqual({ cardMove: 0, cardClick: 1 });
   });
 
-  it("the prop channel is the difference: `ObjectKanbanComponentProps` declares `onCardClick` and no `onCardMove`", () => {
+  it("the prop channel is the difference: `ObjectKanbanComponentProps` declares `onCardClick`, and no `onCardMove` or `onQuickAdd`", () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const src = mask(readFileSync(join(here, '..', 'ObjectKanban.tsx'), 'utf8'));
     const declares = (key: string) => new RegExp(`^\\s{2}${key}\\?:`, 'm').test(src);
-    expect({ onCardClick: declares('onCardClick'), onCardMove: declares('onCardMove') }).toEqual({
+    // `onQuickAdd` joined this reading with objectui#11234: with no prop to
+    // arrive on and no schema read left on the path, it has neither channel.
+    expect({
+      onCardClick: declares('onCardClick'),
+      onCardMove: declares('onCardMove'),
+      onQuickAdd: declares('onQuickAdd'),
+    }).toEqual({
       onCardClick: true,
       onCardMove: false,
+      onQuickAdd: false,
     });
   });
 });
@@ -388,7 +434,7 @@ describe('suite 3 — the disposition is legible on BOTH faces, and they agree (
     }
   });
 
-  it('the mirror spells RUNTIME SLOT on the two live slots and RETIRED on the third', () => {
+  it('the mirror spells RUNTIME SLOT on the live slot and RETIRED on the other two', () => {
     const shape = ObjectKanbanZod.shape as Record<string, { description?: string } | undefined>;
     const said = (key: string) =>
       shape[key]?.description?.includes('RUNTIME SLOT')
@@ -406,11 +452,13 @@ describe('suite 3 — the disposition is legible on BOTH faces, and they agree (
       // itself is objectui#7804's, and `said()` is the same reader for all
       // three, so this is the one that changed and not the instrument.
       onCardMove: 'retired',
-      onQuickAdd: 'runtime-slot',
+      // ⭐ objectui#11234. `'runtime-slot'` until the object-kanban path's read
+      // moved onto `KanbanBoardCore`'s explicit props; same reader as above.
+      onQuickAdd: 'retired',
     });
   });
 
-  it('the TypeScript twin keeps both live slots callable and tombstones the third', () => {
+  it('the TypeScript twin keeps the live slot callable and tombstones the other two', () => {
     const body = objectKanbanInterface();
     const member = (key: string) => new RegExp(`^\\s{2}${key}\\?:\\s*([^;]+);`, 'm').exec(body)?.[1]?.trim();
     expect({
@@ -431,7 +479,9 @@ describe('suite 3 — the disposition is legible on BOTH faces, and they agree (
       // callable: a callable twin publishes a key the object-bound board
       // DROPS, which is the `quickAdd` carve-out's forbidden resolution.
       onCardMove: 'never',
-      onQuickAdd: '(columnId: string, title: string) => void',
+      // ⭐ objectui#11234 — the same tombstone, for the same reason: a callable
+      // twin publishes a key the object-bound board never calls.
+      onQuickAdd: 'never',
     });
 
     // Firing control on the same reader: a member this interface has always

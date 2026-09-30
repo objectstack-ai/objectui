@@ -5,8 +5,10 @@
 html tier: name the inert `quickAdd` on `object-kanban` / `kanban` instead of calling it unknown
 
 The Quick Add control is gated on BOTH `quickAdd` and an `onQuickAdd` handler, and
-`onQuickAdd` is a runtime slot — a function — that no parsed page can write and that
-`ObjectKanban` supplies none of its own for. So an authored `quickAdd: true` on either
+`onQuickAdd` takes a function, which no parsed page can write and which `ObjectKanban`
+supplies none of its own for. objectui#11234 retires `onQuickAdd` on `object-kanban` in the
+same release; it remains a host-supplied prop on `KanbanRenderer`'s `schema`. So an authored
+`quickAdd: true` on either
 `ObjectKanbanRenderer` tag has never produced a control.
 
 Until now the only thing the tier said about it was `unknown-prop`, "has no prop

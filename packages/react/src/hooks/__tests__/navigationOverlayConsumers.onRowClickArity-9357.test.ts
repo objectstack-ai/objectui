@@ -262,9 +262,15 @@ const IN_SITES: Array<{ rel: string; member: string; why: string; hop: RegExp; a
   { rel: 'packages/types/src/objectql.ts', member: 'onCardClick',
     why: 'the onCardClick arm of the same `??` inside ObjectGallery, on the same node face',
     hop: /type: 'object-gallery'/, after: 'export interface ObjectGallerySchema' },
+  // ⚠️ objectui#11234 moved the forwarding line one module over: `KanbanRenderer`
+  // hands its whole `schema` to the internal `KanbanBoardCore`, and
+  // `onCardClick={schema.onCardClick}` now sits in `KanbanBoardCore.tsx`. The
+  // declaration this entry reads stays on `KanbanRendererProps` (that module
+  // declares none of its own: its schema type is this one minus the Quick Add
+  // pair), so the hop quoted here is the hand-off in the SAME file.
   { rel: 'packages/plugin-kanban/src/index.tsx', member: 'onCardClick',
-    why: 'handed to KanbanImpl, whose SortableCard invokes it with the DOM event',
-    hop: /onCardClick=\{schema\.onCardClick\}/ },
+    why: 'handed with the schema to KanbanBoardCore, which forwards it to KanbanImpl, whose SortableCard invokes it with the DOM event',
+    hop: /<KanbanBoardCore\s+schema=\{schema\}/ },
   // ⭐ The three entries below arrived by objectui#9462, which repaired the
   // hops rather than the spellings. Each was a CONTROL until that card: they
   // were OUT because the hop that CALLS them passed one argument, so widening

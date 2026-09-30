@@ -366,7 +366,7 @@
  *     `CalendarViewSchema` grew by `onEventClick`.
  *   - **9 entries** in `UnmirroredDeclared`, **44 keys** across them — 12 / 62 until
  *     objectui#6152 round 3 closed THREE entries and shrank two more, eighteen keys by
- *     three different routes that must not be read as one. SIXTEEN were MIRRORED, each
+ *     two different routes that must not be read as one. SIXTEEN were MIRRORED, each
  *     measured READ by a type-checker census: `PaginationSchema.currentPage` (the entry's
  *     only key, on the ruling that made it canonical — its second spelling `page` was
  *     RETIRED on both faces in the same change and never entered this ledger), all eight
@@ -2888,7 +2888,16 @@ interface UnmirroredDeclared {
   // refuses by name) and records nothing here. ⭐ That is why this move shrank the
   // entry count and the key total together where objectui#7762's did not: one key
   // off a one-key entry empties it, one key off a fifteen-key entry does not.
-  /** LOCAL. */
+  /**
+   * LOCAL. ⚠️ Not a plain omission, measured by objectui#6152 round 3 and left here
+   * on purpose: `content` is the THIRD spelling of the label's text. The `label`
+   * renderer reads `schema.text || schema.label || schema.content`, the mirror already
+   * declares `text` and `label`, and the interface calls both `label` and `content`
+   * "legacy". Mirroring it would sanction a third spelling of one fact (AGENTS.md
+   * #0.1), so its route is a canonical-spelling ruling — the one `PaginationSchema`'s
+   * `currentPage` got — ⛔ not a mirror edit. Authored: once, in a components test; the
+   * catalog writes `label` (and `text`), never `content`.
+   */
   'form.zod.ts#LabelSchema': 'content';
   // `navigation.zod.ts#PaginationSchema` recorded `currentPage` here (LOCAL) — the
   // entry's ONLY key — until objectui#6152 round 3 MIRRORED it, on the ruling that

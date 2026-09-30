@@ -44,6 +44,7 @@
 
 import * as React from 'react';
 import {
+  BookOpen,
   Compass,
   ExternalLink,
   Folder,
@@ -57,6 +58,7 @@ import {
   Puzzle,
 } from 'lucide-react';
 import { resolveHref } from '@object-ui/layout';
+import type { NavigationItemType } from '@object-ui/types';
 import { resolveI18nLabel } from '@objectstack/spec/ui';
 import type { MetadataPreviewProps } from '../preview-registry.js';
 import { t as tr } from '../i18n.js';
@@ -64,21 +66,21 @@ import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShe
 import { AppNavCanvas } from './AppNavCanvas.js';
 import { withNodes } from './row-nodes.js';
 
-/** The nine members of the spec's navigation union. */
-type NavKind =
-  | 'object'
-  | 'dashboard'
-  | 'page'
-  | 'url'
-  | 'report'
-  | 'action'
-  | 'component'
-  | 'group'
-  | 'separator';
+/**
+ * The members of the spec's navigation union — the spec-derived
+ * `NavigationItemType`, not a hand list. A hand list of nine missed `doc` when
+ * the spec added it (objectui#11197), so a label-less `doc` entry was DROPPED
+ * from this preview and a labelled one drew with no kind and no link. Keyed as
+ * a `Record`, a member the spec adds or drops stops this file compiling until
+ * it is handled here.
+ */
+type NavKind = NavigationItemType;
 
-const NAV_KINDS: readonly string[] = [
-  'object', 'dashboard', 'page', 'url', 'report', 'action', 'component', 'group', 'separator',
-];
+const NAV_KIND_SET: Record<NavKind, true> = {
+  object: true, dashboard: true, page: true, url: true, report: true,
+  action: true, component: true, doc: true, group: true, separator: true,
+};
+const NAV_KINDS: readonly string[] = Object.keys(NAV_KIND_SET);
 
 interface NavItem {
   id?: string;
@@ -115,6 +117,10 @@ function navTarget(it: Record<string, unknown>, kind?: NavKind): string | undefi
       const def = it.actionDef as Record<string, unknown> | undefined;
       return def && typeof def.actionName === 'string' ? def.actionName : undefined;
     }
+    case 'doc':
+      // The page it opens, else the book.
+      if (typeof it.doc === 'string') return it.doc;
+      return typeof it.book === 'string' ? it.book : undefined;
     default:
       return undefined;
   }
@@ -214,6 +220,8 @@ function kindIcon(kind?: NavKind) {
       return MousePointerClick;
     case 'component':
       return Puzzle;
+    case 'doc':
+      return BookOpen;
     case 'separator':
       return Minus;
     default:
@@ -235,6 +243,10 @@ function findFirstLanding(items: NavItem[]): NavItem | undefined {
       continue;
     }
     if (it.kind === 'url' || it.kind === 'separator' || it.kind === 'action') continue;
+    // A `doc` entry has an href (the docs portal) but is never a landing: the
+    // runtime's `findFirstRoute` lands on object / page / dashboard / report
+    // only (objectui#11197).
+    if (it.kind === 'doc') continue;
     if (it.href) return it;
   }
   return undefined;

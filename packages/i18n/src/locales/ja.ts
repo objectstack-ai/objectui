@@ -1081,6 +1081,8 @@ const ja = {
     tasksOnly: "タスクのみ",
     leaveCommentPlaceholder: "コメントを入力… (Ctrl+Enterで送信)",
     noActivity: "アクティビティの記録なし",
+    activityAccessDenied: "このレコードのアクティビティを表示する権限がありません。",
+    commentsAccessDenied: "このレコードのコメントを表示する権限がありません。",
     // objectui#7149 — the rest of `ActivityTimeline`. The four chip labels the
     // `detail.*` pack did not already name, and the `formatFieldChange`
     // sentences, which are assembled in code and so need interpolation holes.

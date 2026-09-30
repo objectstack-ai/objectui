@@ -435,14 +435,6 @@ export const KNOWN_UNHIGHLIGHTED_TS_FENCES = new Map([
   ['content/docs/components/overlay/popover.mdx', 1],
   ['content/docs/components/overlay/sheet.mdx', 1],
   ['content/docs/components/overlay/tooltip.mdx', 1],
-  ['content/docs/core/report-schema.mdx', 7],
-  ['content/docs/plugins/plugin-calendar.mdx', 1],
-  ['content/docs/plugins/plugin-chatbot.mdx', 2],
-  ['content/docs/plugins/plugin-dashboard.mdx', 3],
-  ['content/docs/plugins/plugin-gantt.mdx', 1],
-  ['content/docs/plugins/plugin-kanban.mdx', 1],
-  ['content/docs/plugins/plugin-map.mdx', 1],
-  ['content/docs/plugins/plugin-timeline.mdx', 1],
 ]);
 
 /** Split observed counts against the baseline. Both directions are failures. */

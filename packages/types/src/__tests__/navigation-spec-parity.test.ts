@@ -28,7 +28,7 @@
  *  - `{ type: 'separator' }` — spec-valid, rejected for missing id/label.
  *
  * Deliberately NOT modelled: the spec expresses navigation as a discriminated
- * union of nine variants, each with its target field required. objectui keeps
+ * union of `.strict()` variants, each with its target field required. objectui keeps
  * one flat, all-optional shape, so it accepts items the spec would reject (e.g.
  * `type: 'object'` with no `objectName`). Converging on the union is a breaking
  * change for every consumer that reads fields off `NavigationItem` without
@@ -44,8 +44,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { NavigationItemSchema, NavigationAreaSchema } from '../zod/app.zod.js';
-import { NavigationItemSchema as SpecNavigationItemSchema } from '@objectstack/spec/ui';
+import { NavigationItemSchema, NavigationAreaSchema, NavigationItemTypeSchema } from '../zod/app.zod.js';
+import type { NavigationItem, NavigationItemType } from '../app.js';
+import {
+  NavigationItemSchema as SpecNavigationItemSchema,
+  DocNavItemSchema as SpecDocNavItemSchema,
+} from '@objectstack/spec/ui';
 
 /** Parse and return the surviving object, so "accepted" cannot hide a strip. */
 function keep(input: unknown): Record<string, unknown> | null {
@@ -185,5 +189,150 @@ describe('referencing the spec NavigationItemSchema would reject metadata object
     const input = { type: 'separator', label: 'Section' };
     expect(NavigationItemSchema.safeParse(input).success).toBe(false);
     expect(SpecNavigationItemSchema.safeParse(input).success).toBe(false);
+  });
+});
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The type vocabulary and the `doc` entry (objectui#11197)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * `NavigationItemTypeSchema` was a hand list of nine. `@objectstack/spec` 17.5.0
+ * added a tenth arm, `doc` (ADR-0046), and `objectui validate` went on refusing
+ * `{ type: 'doc', book }` — an entry the spec's own docblock example spells —
+ * while the TypeScript twin, spec-derived, already carried it. The enum is now
+ * read off the spec's discriminator, and the `doc` arm is judged by the spec's
+ * own `DocNavItemSchema`.
+ *
+ * The spec's discriminator is read here through the spec's EXPORTED
+ * `NavigationItemSchema` (lazy → union → each arm's `type` literal) — not the
+ * `AppSchema` walk the mirror itself takes — so a derivation that lost its way
+ * cannot agree with itself here.
+ */
+function specDiscriminator(): string[] {
+  type Arm = { shape?: { type?: { value?: unknown } } };
+  const union = (SpecNavigationItemSchema as unknown as { unwrap: () => { options?: readonly Arm[] } }).unwrap();
+  const values = (union.options ?? []).map((arm) => arm.shape?.type?.value);
+  if (values.length === 0 || values.some((v) => typeof v !== 'string')) {
+    throw new Error("could not read the `type` literal of every arm of @objectstack/spec's NavigationItemSchema");
+  }
+  return values as string[];
+}
+
+/**
+ * ⚠️ THE TRIPWIRE. The nav types this renderer has been triaged for: each one
+ * has a `resolveHref` branch in `@object-ui/layout`, an entry in
+ * `plugin-designer`'s `NAV_TYPE_META`, and an unlabelled fixture in
+ * `./nav-label-optional-9868.test.ts`. Because the enum is DERIVED, a type the
+ * spec adds is accepted by `objectui validate` the moment the pin moves — so
+ * this list is what turns red then, and the fix is to triage the new type's
+ * renderer path (objectui#11197's 「声明即强制」 check), not to append a member.
+ */
+const TRIAGED_NAV_TYPES = [
+  'object', 'dashboard', 'page', 'url', 'report', 'action', 'component', 'doc', 'separator', 'group',
+];
+
+/** The issues a verdict carries, as `code @ path`, so a refusal names its reason. */
+function refusal(result: { success: boolean; error?: { issues: Array<{ code: string; path: PropertyKey[] }> } }): string[] {
+  return result.success ? [] : result.error!.issues.map((i) => `${i.code} @ ${i.path.join('.')}`);
+}
+
+describe('objectui#11197 — the type vocabulary is the spec discriminator', () => {
+  it('NavigationItemTypeSchema carries exactly the spec discriminator, in the spec\'s order', () => {
+    expect([...NavigationItemTypeSchema.options]).toEqual(specDiscriminator());
+  });
+
+  it('the spec discriminator is still the triaged set — a NEW spec type turns this red', () => {
+    expect(specDiscriminator()).toEqual(TRIAGED_NAV_TYPES);
+  });
+
+  it('`doc` is a member of both faces\' vocabulary', () => {
+    expect(NavigationItemTypeSchema.options).toContain('doc');
+    // The TypeScript face: this line does not compile if `NavigationItemType` loses `doc`.
+    const docType: NavigationItemType = 'doc';
+    expect(docType).toBe('doc');
+  });
+});
+
+describe('objectui#11197 — a `doc` entry parses on both faces', () => {
+  const ACCEPTED: Array<[string, Record<string, unknown>]> = [
+    // The spec's own docblock example.
+    ['a book (the help-centre entry)', { id: 'nav_help', type: 'doc', label: 'Help Centre', icon: 'book-open', book: 'crm_manual' }],
+    ['one page', { id: 'nav_lead_guide', type: 'doc', doc: 'crm_lead_guide' }],
+    ['a page in a book\'s context', { id: 'nav_lead_guide', type: 'doc', book: 'crm_manual', doc: 'crm_lead_guide' }],
+    ['the package\'s implicit book', { id: 'nav_docs', type: 'doc', book: 'com.example.crm' }],
+    ['the base gating keys its siblings carry', {
+      id: 'nav_admin_guide', type: 'doc', book: 'crm_admin_guide', visible: "${user.role == 'admin'}",
+      requiredPermissions: ['crm_admin'], requiresObject: 'crm_lead', requiresService: 'docs', badge: 'new',
+      badgeVariant: 'secondary', order: 3,
+    }],
+  ];
+
+  it.each(ACCEPTED)('%s — the spec accepts it, and so does the mirror, keeping every key as written', (_name, entry) => {
+    expect(SpecNavigationItemSchema.safeParse(entry).success).toBe(true);
+    // The mirror parses it WHOLE: nothing stripped, and nothing rewritten — the
+    // spec's parse turns a `visible` string into an expression envelope, and
+    // this validator does not write values into an author's document.
+    expect(keep(entry)).toEqual(entry);
+  });
+
+  it('the TypeScript face admits it with its targets (compile-time)', () => {
+    const entry: NavigationItem = { id: 'nav_help', type: 'doc', label: 'Help Centre', book: 'crm_manual', doc: 'crm_lead_guide' };
+    expect(keep(entry)).toEqual(entry);
+  });
+});
+
+describe('objectui#11197 — the `doc` arm accepts nothing the spec refuses', () => {
+  const REFUSED: Array<[string, Record<string, unknown>, string[]]> = [
+    ['a target-less `doc` entry', { id: 'nav_help', type: 'doc', label: 'Help' }, ['custom @ ']],
+    ['a filename as the doc target', { id: 'nav_g', type: 'doc', doc: 'crm_lead_guide.md' }, ['invalid_format @ doc']],
+    ['a path as the doc target', { id: 'nav_g', type: 'doc', doc: 'docs/crm_lead_guide' }, ['invalid_format @ doc']],
+    ['a PascalCase doc target', { id: 'nav_g', type: 'doc', doc: 'CrmLeadGuide' }, ['invalid_format @ doc']],
+    ['an empty book', { id: 'nav_g', type: 'doc', book: '' }, ['too_small @ book']],
+    ['a sibling\'s target key', { id: 'nav_g', type: 'doc', book: 'crm_manual', objectName: 'crm_lead' }, ['unrecognized_keys @ ']],
+    ['an unknown key', { id: 'nav_g', type: 'doc', book: 'crm_manual', bookName: 'crm_manual' }, ['unrecognized_keys @ ']],
+    ['objectui-only `pinned`', { id: 'nav_g', type: 'doc', book: 'crm_manual', pinned: true }, ['unrecognized_keys @ ']],
+    ['group-only `children`', { id: 'nav_g', type: 'doc', book: 'crm_manual', children: [] }, ['unrecognized_keys @ ']],
+    ['a boolean `visible`', { id: 'nav_g', type: 'doc', book: 'crm_manual', visible: true }, ['invalid_union @ visible']],
+    ['a one-character id', { id: 'g', type: 'doc', book: 'crm_manual' }, ['too_small @ id']],
+    ['no id', { type: 'doc', book: 'crm_manual' }, ['invalid_type @ id']],
+  ];
+
+  it.each(REFUSED)('%s — refused by the spec and by the mirror, for the spec\'s reason', (_name, entry, expected) => {
+    expect(refusal(SpecNavigationItemSchema.safeParse(entry))).toEqual(expected);
+    expect(refusal(NavigationItemSchema.safeParse(entry))).toEqual(expected);
+  });
+
+  it('the refusal carries the spec\'s remedy text, not a restatement', () => {
+    const r = NavigationItemSchema.safeParse({ id: 'nav_help', type: 'doc' });
+    expect(!r.success && r.error.issues[0].message).toMatch(/^A `doc` navigation item needs a target: set `book`/);
+  });
+
+  it('an EMPTY label is refused, as on every sibling — the one stated divergence, narrower than the spec', () => {
+    const entry = { id: 'nav_help', type: 'doc', book: 'crm_manual', label: '' };
+    expect(SpecNavigationItemSchema.safeParse(entry).success).toBe(true);
+    expect(refusal(NavigationItemSchema.safeParse(entry))).toEqual(['custom @ label']);
+  });
+
+  it('the `doc` arm declares exactly the spec `doc` arm\'s keys', () => {
+    type Arm = { shape?: Record<string, { value?: unknown }> };
+    const arms = (NavigationItemSchema as unknown as { unwrap: () => { options: readonly Arm[] } }).unwrap().options;
+    const docArm = arms.find((arm) => arm.shape?.type?.value === 'doc');
+    expect(Object.keys(docArm?.shape ?? {}).sort()).toEqual(Object.keys(SpecDocNavItemSchema.shape).sort());
+  });
+});
+
+describe('objectui#11197 — an unknown type is still refused on both faces (control)', () => {
+  it('refuses `type: \'bogus\'` at `type`, with the same code the spec answers', () => {
+    const entry = { id: 'nav_x', type: 'bogus', label: 'X' };
+    expect(refusal(SpecNavigationItemSchema.safeParse(entry))).toEqual(['invalid_union @ type']);
+    expect(refusal(NavigationItemSchema.safeParse(entry))).toEqual(['invalid_union @ type']);
+  });
+
+  it('a `doc` entry nested under a group is judged by the same arm', () => {
+    const group = (child: Record<string, unknown>) => ({ id: 'nav_help_grp', type: 'group', label: 'Help', children: [child] });
+    expect(keep(group({ id: 'nav_help', type: 'doc', book: 'crm_manual' }))).not.toBeNull();
+    expect(refusal(NavigationItemSchema.safeParse(group({ id: 'nav_help', type: 'doc' })))).toEqual(['custom @ children.0']);
   });
 });

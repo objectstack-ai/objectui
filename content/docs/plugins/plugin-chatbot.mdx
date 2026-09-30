@@ -668,7 +668,7 @@ Each of the three registrations has its own authoring-face type:
 `ChatbotFloatingSchema` (`chatbot-floating`) - see the typed examples under
 **Tool Messages** and **`chatbot-floating` panel and trigger keys** above.
 
-```plaintext
+```ts
 import type { ChatbotSchema, ChatbotEnhancedSchema, ChatbotFloatingSchema, ChatMessage, ChatToolInvocation } from '@object-ui/types'
 import { useObjectChat } from '@object-ui/plugin-chatbot'
 
@@ -707,7 +707,7 @@ You AUTHOR with `@object-ui/types`' `ChatMessage`. What `useObjectChat` HANDS
 BACK — from `messages` and from `onSend(content, messages)` — is
 `ObjectChatMessage`, exported from `@object-ui/plugin-chatbot`:
 
-```plaintext
+```ts
 import type { ObjectChatMessage } from '@object-ui/plugin-chatbot'
 ```
 

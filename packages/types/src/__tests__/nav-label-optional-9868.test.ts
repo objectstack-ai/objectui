@@ -43,6 +43,9 @@ const UNLABELLED: Record<string, Record<string, unknown>> = {
   component: { id: 'nav_cmp', type: 'component', componentRef: 'metadata:directory' },
   group: { id: 'nav_grp', type: 'group', children: [] },
   action: { id: 'nav_act', type: 'action', actionDef: { actionName: 'sync_now' } },
+  // objectui#11197: the enum now reads the spec's discriminator, so `doc` is an
+  // entry type here too — and a label-less one inherits like every sibling.
+  doc: { id: 'nav_doc', type: 'doc', book: 'crm_manual' },
 };
 
 const ENTRY_TYPES = NavigationItemTypeSchema.options.filter((type) => type !== 'separator');

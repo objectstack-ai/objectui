@@ -1099,6 +1099,8 @@ const ru = {
     tasksOnly: "Только задачи",
     leaveCommentPlaceholder: "Оставить комментарий… (Ctrl+Enter для отправки)",
     noActivity: "Нет зарегистрированной активности",
+    activityAccessDenied: "У вас нет разрешения на просмотр активности этой записи.",
+    commentsAccessDenied: "У вас нет разрешения на просмотр комментариев к этой записи.",
     // objectui#7149 — the rest of `ActivityTimeline`. The four chip labels the
     // `detail.*` pack did not already name, and the `formatFieldChange`
     // sentences, which are assembled in code and so need interpolation holes.

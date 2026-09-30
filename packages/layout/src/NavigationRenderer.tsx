@@ -10,9 +10,9 @@
  * @object-ui/layout - Navigation Renderer
  *
  * Renders a `NavigationItem[]` tree from AppSchema JSON into a Shadcn sidebar.
- * Supports all 7 navigation item types: object, dashboard, page, report,
- * url, action, group — plus separators, badges, visibility expressions,
- * and RBAC permission guards.
+ * Supports every `NavigationItemType` — object, dashboard, page, report, url,
+ * component, action, doc and group — plus separators, badges, visibility
+ * expressions, and RBAC permission guards.
  *
  * Enhanced with:
  * - Search filtering across navigation tree
@@ -412,7 +412,8 @@ export function resolveNavItemLabel(
  *
  * The ruling names inheritance for those three targets only. Every other entry
  * type shows its target's machine name — `pageName`, `reportName`, `url`,
- * `componentRef`, `actionDef.actionName` — and an entry with no target of its
+ * `componentRef`, `actionDef.actionName`, a `doc` entry's `doc` else its
+ * `book` — and an entry with no target of its
  * own (a `group`), or with its target missing, shows its `id`, which the
  * validator requires of every entry.
  */
@@ -452,6 +453,11 @@ function inheritedNavItemLabel(
       break;
     case 'action':
       if (item.actionDef?.actionName) return item.actionDef.actionName;
+      break;
+    case 'doc':
+      // The page it opens, else the book (objectui#11197).
+      if (item.doc) return item.doc;
+      if (item.book) return item.book;
       break;
     default:
       break;
@@ -667,6 +673,43 @@ function withRunAction(href: string, item: NavigationItem): string {
 }
 
 /**
+ * The docs-portal href of a `doc` entry (ADR-0046 §6, objectui#11197), under the
+ * `basePath` the entry renders in — `/apps/<package id>` in an app, which is the
+ * package-container docs tree `AppHeader`'s "This app's docs" entry opens, and
+ * `''` on home navigation, which is the top-level `/docs` portal. It uses the
+ * portal's own two route shapes, `/docs/:slug` and `/docs/:slug/:name`:
+ *
+ *  - `{ doc }` → `…/docs/<doc>`: the portal's flat-doc permalink, which
+ *    redirects to the doc's canonical in-book URL — so it resolves for any
+ *    installed doc, book or no book;
+ *  - `{ book }` → `…/docs/<book>`: the book landing, which opens the book at
+ *    its first readable page;
+ *  - `{ book, doc }` → `…/docs/<book>/<doc>`: that page, in that book's
+ *    context.
+ *
+ * `book` is the book's NAME (what the entry names and the CLI's docs lint
+ * checks), and the link carries it as written. The portal addresses a book by
+ * its `slug` (default: the name), and resolves a segment that is a book's NAME
+ * rather than its slug to that book, redirecting to the canonical slug URL —
+ * after the lookups that answer today, so a slug or an installed doc's name
+ * keeps its meaning (`bookNamedBy` in the console's `book-nav.ts`,
+ * objectui#11197). So both `book` shapes reach a book that authors a `slug`,
+ * and a package's implicit book, keyed by its package id, as before. The
+ * audience gate is the server's (`/meta/doc`, ADR-0046 §6.7): the entry carries
+ * no gate of its own beyond the base keys every sibling has.
+ *
+ * `#` when the entry names no target — the validator refuses that entry, so this
+ * is a host that never parsed, not a route.
+ */
+function resolveDocHref(book: string | undefined, doc: string | undefined, basePath: string): string {
+  const segment = (name: string) => encodeURIComponent(name);
+  if (book && doc) return `${basePath}/docs/${segment(book)}/${segment(doc)}`;
+  if (doc) return `${basePath}/docs/${segment(doc)}`;
+  if (book) return `${basePath}/docs/${segment(book)}`;
+  return '#';
+}
+
+/**
  * Resolve a NavigationItem to an absolute href (relative to `basePath`).
  *
  * Single source of truth for nav → URL mapping across the shell. Other
@@ -823,6 +866,8 @@ export function resolveHref(
       }
       return { href: url, external: false };
     }
+    case 'doc':
+      return { href: resolveDocHref(item.book, item.doc, basePath), external: false };
     default:
       return { href: '#', external: false };
   }
@@ -1327,7 +1372,7 @@ function NavigationItemRenderer({
     );
   }
 
-  // --- Leaf items (object / dashboard / page / report / url) ---
+  // --- Leaf items (every entry that navigates: object / dashboard / page / report / url / component / doc) ---
   const Icon = resolveIcon(item.icon);
   const { href, external } = resolveHref(item, basePath, templateContext);
   const isActive = activeNavId !== null && item.id === activeNavId;
@@ -1400,7 +1445,7 @@ function NavigationItemRenderer({
  * Renders a `NavigationItem[]` tree into Shadcn Sidebar components.
  *
  * Features:
- * - 7 navigation item types + separators
+ * - Every navigation item type + separators
  * - Nested collapsible groups
  * - Badge indicators
  * - Visibility expression evaluation

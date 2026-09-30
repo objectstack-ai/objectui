@@ -466,8 +466,8 @@ const campaignGantt: ObjectGanttSchema = {
 
 ## TypeScript Support
 
-```plaintext
-import type { ObjectGridSchema, GanttConfig } from '@object-ui/types'
+```ts
+import type { ObjectGanttSchema, GanttConfig } from '@object-ui/types'
 
 const ganttConfig: GanttConfig = {
   startDateField: 'startDate',
@@ -477,7 +477,7 @@ const ganttConfig: GanttConfig = {
   dependenciesField: 'dependencies'
 }
 
-const ganttSchema: ObjectGridSchema = {
+const ganttSchema: ObjectGanttSchema = {
   type: 'object-gantt',
   objectName: 'project_tasks',
   gantt: ganttConfig

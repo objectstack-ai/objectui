@@ -45,6 +45,7 @@ import { AppShell, type AppShellBranding } from './AppShell';
 import {
   NavigationRenderer,
   hasVisibleNavigationItems,
+  resolveHref,
   resolveIcon,
   resolveNavItemLabel,
   type VisibilityEvaluator,
@@ -319,6 +320,9 @@ function MobileBottomNav({
             }
           }
         }
+        // objectui#11197: a `doc` entry opens the docs portal. Delegated to
+        // `resolveHref` rather than spelled a second time here.
+        else if (item.type === 'doc') href = resolveHref(item, basePath).href;
 
         const isActive = href !== '#' && location.pathname.startsWith(href);
 

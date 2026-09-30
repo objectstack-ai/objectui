@@ -177,6 +177,11 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'detail.tasksOnly': 'Tasks Only',
   'detail.leaveCommentPlaceholder': 'Leave a comment… (Ctrl+Enter to submit)',
   'detail.noActivity': 'No activity recorded',
+  // objectui#11195 — the timeline's no-permission state for a REFUSED feed
+  // read. Read bare (`t('detail.activityAccessDenied')`), so without these rows
+  // a provider-less host would render the raw key where the refusal belongs.
+  'detail.activityAccessDenied': "You don't have permission to view activity on this record.",
+  'detail.commentsAccessDenied': "You don't have permission to view comments on this record.",
   // objectui#7149 — the rest of `ActivityTimeline`'s copy. Byte-identical to
   // the `en` pack rows (this map mirrors it; `defaults-maps-mirror-en-pack`
   // enforces that), so a provider-less host reads the same English the console

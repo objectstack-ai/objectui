@@ -93,6 +93,11 @@ export {
   UNMAPPED_ACTIVITY_FEED_TYPE,
   activityRowToFeedItem,
   resetUnknownActivityTypeWarnings,
+  // objectui#11195: the refused-read verdict joins the reading for the same
+  // reason. `RecordDetailView` reads the same two tables, and a refusal it
+  // judged differently would show "no permission" on one surface and "no
+  // activity" on the other.
+  isRefusedFeedRead,
 } from './renderers/recordActivityFeed';
 export type { SysActivityRow } from './renderers/recordActivityFeed';
 

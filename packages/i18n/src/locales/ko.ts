@@ -1069,6 +1069,8 @@ const ko = {
     tasksOnly: "작업만",
     leaveCommentPlaceholder: "댓글 남기기… (Ctrl+Enter로 제출)",
     noActivity: "기록된 활동 없음",
+    activityAccessDenied: "이 레코드의 활동을 볼 권한이 없습니다.",
+    commentsAccessDenied: "이 레코드의 댓글을 볼 권한이 없습니다.",
     // objectui#7149 — the rest of `ActivityTimeline`. The four chip labels the
     // `detail.*` pack did not already name, and the `formatFieldChange`
     // sentences, which are assembled in code and so need interpolation holes.

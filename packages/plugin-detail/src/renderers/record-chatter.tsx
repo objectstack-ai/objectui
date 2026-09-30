@@ -290,6 +290,11 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
         onToggleReaction={discussion?.onToggleReaction as any}
         mentionSuggestions={mentionsEnabled ? (discussion?.mentionSuggestions as any) : undefined}
         onUploadAttachments={discussion?.onUploadAttachments as any}
+        // objectui#11195: which of the host's two feed reads the server
+        // REFUSED. The host that owns the fetch decides it, the same way it
+        // decides `loading` above; the panel only renders it.
+        activityDenied={discussion?.activityDenied}
+        commentsDenied={discussion?.commentsDenied}
       />
     </div>
   );

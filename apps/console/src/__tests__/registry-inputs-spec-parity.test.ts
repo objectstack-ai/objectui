@@ -758,10 +758,10 @@ const owedIdsOf = (ledger: Record<string, string>): string[] =>
  */
 const OBJECTUI_11111_LEDGER_CAPS = {
   unjudgedBlocks: 4, // objectui#11168: object-gantt, object-map, object-timeline, object-tree
-  offSpecInputs: 1, // objectui#11168: action:group.name
-  unpublishedKeys: 57, // objectui#11168: 46 (22 + 20 + 2 + 2); objectui#8652: 2; objectui#8649: 9
-  refusedArms: 5, // objectui#11168: action:group ×2, action:menu, element:definition-list, object-form
-  memberPins: 6, // objectui#11168: action:group, action:menu, element:definition-list, element:repeater ×3
+  offSpecInputs: 0, // objectui#11168 slice 1 retired action:group.name
+  unpublishedKeys: 53, // objectui#11168: 42 (22 + 20); objectui#8652: 2; objectui#8649: 9
+  refusedArms: 2, // objectui#11168: element:definition-list, object-form
+  memberPins: 4, // objectui#11168: element:definition-list, element:repeater ×3
 } as const;
 
 /**
@@ -941,18 +941,15 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
  * state, not a deletion — every forward-direction assertion now runs with no
  * cover of any kind, which is the strongest reading this gate has ever had.
  *
- * ⚠️ ONE ENTRY SINCE THE 17.5.0 BUMP, and it is ruled, not owed-by-default:
- * `action:group` entered `covered` with 17.5.0 and declares a `name` input its
- * spec row does not accept. objectui#11111 decision 3 = B booked it to
- * objectui#11168 (see `OWED_TO`), capped at this one entry; that card's landing
- * empties the map again.
+ * EMPTY AGAIN since objectui#11168 slice 1. The 17.5.0 bump booked one entry
+ * here — `action:group.name`, a published input its new spec row does not
+ * accept — to objectui#11168 under objectui#11111 decision 3 = B. That slice
+ * measured the key (nothing reads a group-level `name`; the spec refuses it
+ * with a prescription) and RETIRED it from the registration, so the entry went
+ * stale and was deleted with it. The pin is
+ * `packages/components/src/renderers/action/__tests__/action-group-menu-inputs-11168.test.tsx`.
  */
-const OFF_SPEC_EXEMPTIONS: Record<string, string> = {
-  'action:group.name': OWED_TO(
-    'objectui#11168',
-    'A DECLARED INPUT THE SPEC REFUSES: `action:group` publishes `name`, and `ComponentPropsMap[action:group]` does not accept it.',
-  ),
-};
+const OFF_SPEC_EXEMPTIONS: Record<string, string> = {};
 
 /**
  * Spec-declared top-level keys deliberately NOT published, each with the reason.
@@ -1376,13 +1373,15 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   /*
    * ⚠️ THE 17.5.0 BOOKINGS — objectui#11111 decision 3 = B (record 5902351047).
    *
-   * 57 spec keys 17.5.0 newly declares on judged blocks and `inputs` does not
+   * Spec keys 17.5.0 newly declares on judged blocks and `inputs` does not
    * publish. The bar at the top of this map says a key the renderer honours
    * "gets declared"; the ruling decided WHO declares, and it is not the bump:
    * each owner card measures each key against its renderer and declares what
    * is honoured, refuses or retires the rest. Booked here, not declared, so
-   * the bump adds nothing to the public surface (Clause ② no). Capped at 57 by
-   * `the objectui#11111 ledger is capped at exactly the entries it lists`.
+   * the bump adds nothing to the public surface (Clause ② no). Capped at the
+   * entries listed by `the objectui#11111 ledger is capped at exactly the
+   * entries it lists` — `OBJECTUI_11111_LEDGER_CAPS.unpublishedKeys` is the
+   * number, and each owner card's landing lowers it.
    */
   ...owedEntries(
     'action:button',
@@ -1404,18 +1403,10 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
     'objectui#11168',
     'A SPEC KEY NOT PUBLISHED: `action:icon` entered `covered` with 17.5.0 and its `inputs` omit this key its spec row declares.',
   ),
-  ...owedEntries(
-    'action:group',
-    ['location', 'visible'],
-    'objectui#11168',
-    'A SPEC KEY NOT PUBLISHED: `action:group` entered `covered` with 17.5.0 and its `inputs` omit this key its spec row declares.',
-  ),
-  ...owedEntries(
-    'action:menu',
-    ['size', 'visible'],
-    'objectui#11168',
-    'A SPEC KEY NOT PUBLISHED: `action:menu` entered `covered` with 17.5.0 and its `inputs` omit this key its spec row declares.',
-  ),
+  // `action:group`'s `location` / `visible` and `action:menu`'s `size` /
+  // `visible` stood here until objectui#11168 slice 1 measured each against its
+  // renderer through the real `SchemaRenderer` and DECLARED all four — the
+  // documented exit: a declaration retires its own cover.
   ...owedEntries(
     'object-kanban',
     ['navigation'],
@@ -1999,24 +1990,18 @@ const OFF_SPEC_ARM_EXEMPTIONS: Record<string, string> = {
    */
 
   /*
-   * ⚠️ FIVE 17.5.0 BOOKINGS — objectui#11111 decision 3 = B (record 5902351047).
+   * ⚠️ 17.5.0 BOOKINGS — objectui#11111 decision 3 = B (record 5902351047).
    * Arms the contract refuses on blocks 17.5.0 newly judges, plus
    * `object-form.layout`, whose spec row narrowed to two members. Booked to
    * objectui#11168, which narrows each declaration to what the spec accepts;
-   * capped at these five, and that card's landing empties the map again.
+   * capped at the entries listed, and that card's landing empties the map.
+   *
+   * objectui#11168 slice 1 took the three `action:*` entries by NARROWING the
+   * declarations: `action:group.actions` and `action:menu.actions` are now a
+   * list of objects (`type: 'array'`, `of: 'object'`, the shape both renderers
+   * read), and `action:group.size` publishes the Button primitive's four sizes
+   * without the refused `md`.
    */
-  'action:group.actions:object': OWED_TO(
-    'objectui#11168',
-    'A REFUSED ARM: `action:group.actions` declares the `object` kind, and the contract refuses the KIND itself.',
-  ),
-  'action:group.size:enum': OWED_TO(
-    'objectui#11168',
-    'A REFUSED ARM: `action:group.size` declares the member `md`, and the contract refuses it.',
-  ),
-  'action:menu.actions:object': OWED_TO(
-    'objectui#11168',
-    'A REFUSED ARM: `action:menu.actions` declares the `object` kind, and the contract refuses the KIND itself.',
-  ),
   'element:definition-list.columns:enum': OWED_TO(
     'objectui#11168',
     'A REFUSED ARM: `element:definition-list.columns` declares the members `1` and `2`, and the contract refuses them.',
@@ -2563,6 +2548,22 @@ interface MemberPin {
  * was built for.
  */
 const MEMBER_PINS: Record<string, MemberPin> = {
+  'action:group.actions': {
+    file: 'packages/components/src/renderers/action/__tests__/action-group-menu-inputs-11168.test.tsx',
+    pins: 'Members are ACTION OBJECTS the group draws and runs itself, driven through the real `SchemaRenderer`: `label` is the button text (the dropdown falls back to `name`), a member\'s own `visible` / `disabled` gate THAT member only (a sibling is the control), `variant`, `size` and `className` style it, with a member `size` outranking the group\'s and the group\'s outranking the `sm` fallback, `tags: [separator-before]` draws the dropdown divider, and `locations` is what the group\'s `location` filters on. A click hands the runner the member under its OWN `type` with its own keys (`target`, `objectName`). The list kind is pinned against the contract as well: the spec refuses an `object` at `actions` by kind and accepts a list of objects, which is the narrowing objectui#11168 slice 1 made to the declaration.',
+  },
+  'action:group.visible': {
+    file: 'packages/components/src/renderers/action/__tests__/action-group-menu-inputs-11168.test.tsx',
+    pins: 'The `object` arm is the CEL predicate envelope `{ dialect: \'cel\', source }`, mounted through the real `SchemaRenderer` with `data` bound: an envelope that holds renders the group and its twin that fails hides it, and the boolean and bare-CEL arms carry the same holds/fails pair — every row asserts both halves, so a gate never consulted (equal verdicts) is red (objectui#11168 slice 1).',
+  },
+  'action:menu.actions': {
+    file: 'packages/components/src/renderers/action/__tests__/action-group-menu-inputs-11168.test.tsx',
+    pins: 'Members are ACTION OBJECTS, one menu item each, read through the real `SchemaRenderer` with the Radix menu opened: `label` is the item text (falling back to `name`), a member\'s own `visible` hides and its own `disabled` greys THAT item (a sibling is the control), `tags: [separator-before]` draws the divider, `variant: destructive` paints the item, and selecting an item hands the runner the member under its OWN `type` with its own keys (`target`, `objectName`). The list kind is pinned against the contract: the spec refuses an `object` at `actions` by kind and accepts a list of objects (objectui#11168 slice 1).',
+  },
+  'action:menu.visible': {
+    file: 'packages/components/src/renderers/action/__tests__/action-group-menu-inputs-11168.test.tsx',
+    pins: 'The `object` arm is the CEL predicate envelope `{ dialect: \'cel\', source }`, mounted through the real `SchemaRenderer` with `data` bound: an envelope that holds renders the trigger and its twin that fails hides the whole menu, with the boolean and bare-CEL arms carrying the same holds/fails pair (objectui#11168 slice 1).',
+  },
   'element:button.action': {
     file: 'packages/components/src/__tests__/elementButtonActionMembers-8071.test.tsx',
     pins: 'The inline ActionDef\'s member set as a WHITELIST, driven through the real renderer and asserted on what the ActionRunner is handed: the forwarded keys are pinned as a SORTED SET, so a member silently added to or dropped from `ElementButtonRenderer`\'s explicit forward list is red in either direction — the defect shape objectstack#6837 (`bodyExtra`) and objectstack#6938 (`bodyShape`) were both filed for, an authored key that validates, publishes and then evaporates one hop before the runner. Three off-list keys are authored alongside and asserted ABSENT: `bodyShape` (deliberately not inline vocabulary — `action-bodyShape-forward.test.tsx` argues the boundary in prose, this pins it as behaviour) plus `icon` and `variant`, the block\'s own sibling props misplaced one level in. `actionType` OUTRANKS `type` with the losing spelling\'s handler asserted un-run, an ARRAY `params` is re-routed to `actionParams` while an OBJECT `params` stays `params` (objectstack#5777 direction A) with each arm controlling the other, the navigation members reach the navigation handler, and an omitted `action` dispatches nothing at all — the non-vacuity control for every row. LIMIT: `confirmText` is on the whitelist but unexercised, because the runner awaits confirmation before the dispatch this file observes. New file (objectui#8071 slice 7).',
@@ -3159,22 +3160,12 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // objectui#8176 correction is spent to the last key, and this header stays
   // only as a note for the next reader who greps for it.
 
-  // ⚠️ SIX 17.5.0 BOOKINGS — objectui#11111 decision 3 = B (record 5902351047).
+  // ⚠️ 17.5.0 BOOKINGS — objectui#11111 decision 3 = B (record 5902351047).
   // The array/object-armed inputs of the blocks 17.5.0 newly judges, owed a
   // member pin by objectui#11168. Counted into `MEMBER_PIN_EXEMPTION_CEILING`
-  // (1 -> 7) and capped at these six; that card's pins strike them.
-  ...owedEntries(
-    'action:group',
-    ['actions'],
-    'objectui#11168',
-    'A MEMBER PIN OWED: `action:group.actions` is array/object-armed on a block 17.5.0 newly judges, and no pin states its members.',
-  ),
-  ...owedEntries(
-    'action:menu',
-    ['actions'],
-    'objectui#11168',
-    'A MEMBER PIN OWED: `action:menu.actions` is array/object-armed on a block 17.5.0 newly judges, and no pin states its members.',
-  ),
+  // and capped at the entries listed; that card's pins strike them.
+  // `action:group.actions` and `action:menu.actions` stood here until
+  // objectui#11168 slice 1 registered their pins in `MEMBER_PINS`.
   ...owedEntries(
     'element:definition-list',
     ['items'],
@@ -3972,8 +3963,16 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
  * `NO_READ_SITE_TO_PIN` unit above) + 6 booked = 7, the exact count, and
  * `the objectui#11111 ledger is capped at exactly the entries it lists` pins
  * the six by name. objectui#11168's pins take this back to 1.
+ *
+ * ## 7 -> 5 (objectui#11168 slice 1, the `action:*` family) — the ruling paid down
+ *
+ * The slice registered member pins for `action:group.actions` and
+ * `action:menu.actions` (the lists both containers draw and run themselves)
+ * and deleted their two booked entries, so the ceiling follows the list down
+ * in the same change. The four left are the `element:*` bookings, owed by the
+ * card's later slices.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 7;
+const MEMBER_PIN_EXEMPTION_CEILING = 5;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.
@@ -5294,10 +5293,10 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       expect(declaredInputs(type) ?? [], `${type} stopped publishing ${key}`).toContain(key);
       expect(Object.keys(OFF_SPEC_EXEMPTIONS)).not.toContain(`${type}.${key}`);
     }
-    // Empty since rc.6 but for the one entry objectui#11111 decision 3 = B
-    // booked to objectui#11168 at the 17.5.0 bump — pinned by name, so nothing
-    // else rides in; objectui#11168's landing takes this back to `[]`.
-    expect(Object.keys(OFF_SPEC_EXEMPTIONS)).toEqual(['action:group.name']);
+    // Empty since rc.6. The 17.5.0 bump booked `action:group.name` here under
+    // objectui#11111 decision 3 = B; objectui#11168 slice 1 retired the input,
+    // and with it the entry. Pinned empty, so nothing rides back in.
+    expect(Object.keys(OFF_SPEC_EXEMPTIONS)).toEqual([]);
   });
 
   // ── the MEMBER-PIN direction (objectui#8068) ───────────────────────────────
@@ -5551,6 +5550,6 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
           reasons.filter((reason) => reason.startsWith(`${OWED_PREFIX}${owner}.`)).length,
         ]),
       ),
-    ).toEqual({ 'objectui#11168': 62, 'objectui#8652': 2, 'objectui#8649': 9 });
+    ).toEqual({ 'objectui#11168': 52, 'objectui#8652': 2, 'objectui#8649': 9 });
   });
 });

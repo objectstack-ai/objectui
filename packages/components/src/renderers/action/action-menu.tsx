@@ -56,8 +56,8 @@ export interface ActionMenuSchema {
   variant?: string;
   /** Trigger size */
   size?: string;
-  /** Visibility condition */
-  visible?: string;
+  /** Visibility predicate: a boolean, a CEL string, or a `{ dialect, source }` envelope */
+  visible?: boolean | string | { dialect: string; source?: string };
   /** Custom CSS class */
   className?: string;
   [key: string]: any;
@@ -407,14 +407,38 @@ ComponentRegistry.register('menu', ActionMenuRenderer, {
   namespace: 'action',
   skipFallback: true,
   label: 'Action Menu',
+  // objectui#11168 slice 1 — each key below was decided by measuring what this
+  // renderer reads through the real `SchemaRenderer`, against the installed
+  // `ComponentPropsMap['action:menu']` row; the pins live in
+  // `__tests__/action-group-menu-inputs-11168.test.tsx`. `actions` is a LIST of
+  // action objects (the renderer reads `schema.actions || []`, then `.map`),
+  // and the spec refuses the `object` kind this entry used to declare.
   inputs: [
     { name: 'label', type: 'string' },
     { name: 'icon', type: 'string' },
-    { name: 'actions', type: 'object' },
+    {
+      name: 'actions',
+      type: 'array',
+      of: 'object',
+      description:
+        'The menu\'s actions, in order. Each member is an action object the menu draws and runs itself (`name`, `label`, `icon`, `type`, `target`, `visible`, `disabled`, `tags`, …); a member\'s executor is its own `type`',
+    },
     {
       name: 'variant',
       type: 'enum',
       enum: ['default', 'secondary', 'outline', 'ghost'],
+    },
+    {
+      name: 'size',
+      type: 'enum',
+      enum: ['default', 'sm', 'lg', 'icon'],
+      description: 'Trigger button size (renderer default: `icon`)',
+    },
+    {
+      name: 'visible',
+      type: ['boolean', 'string', 'object'],
+      description:
+        'Visibility predicate for the whole menu: `true`/`false`, a bare CEL expression, or the `{ dialect: \'cel\', source }` envelope, evaluated against the row the host binds; a predicate that fails to evaluate hides it. Omit for always-visible',
     },
     { name: 'className', type: 'string' },
   ],

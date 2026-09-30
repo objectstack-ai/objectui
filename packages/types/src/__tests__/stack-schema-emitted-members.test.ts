@@ -188,9 +188,17 @@ describe('the emitted declaration is readable (guards every assertion below)', (
 /* ── 2. The measurement ──────────────────────────────────────────────────── */
 
 describe('StackSchema ships the members it declares (objectui#6151)', () => {
-  it('declares EXACTLY what FlexSchema declares', () => {
+  it('declares EXACTLY what FlexSchema declares, less the one member only `flex` has a producer for', () => {
     // Before the fix: StackSchema declared ['type'] against FlexSchema's 25.
-    expect(declaredMembers('StackSchema')).toEqual(declaredMembers('FlexSchema'));
+    // objectui#10872 batch 9 declared the node-level `responsiveStyles` on
+    // `FlexSchema` alone (a producer writes it on `flex` nodes, none on `stack`),
+    // so it is the one member the two do not share. It is named, so a second
+    // difference still turns this red.
+    const FLEX_ONLY = ['responsiveStyles'];
+    expect(declaredMembers('FlexSchema')).toEqual(expect.arrayContaining(FLEX_ONLY));
+    expect(declaredMembers('StackSchema')).toEqual(
+      declaredMembers('FlexSchema').filter((member) => !FLEX_ONLY.includes(member)),
+    );
   });
 
   it.each(['gap', 'children', 'align', 'justify', 'direction', 'wrap', 'className'])(

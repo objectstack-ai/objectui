@@ -199,6 +199,19 @@ const PILLARS: ReadonlyArray<{ key: string; label: string; Icon: LucideIcon }> =
 //    edit taken meanwhile keeps the buffer dirty, and the autosave, unblocked
 //    by the save's end, sends it next. A save the caller sends itself takes
 //    its claim from `sending(body)`.
+//  - objectui#11232 — a dirty period belongs to the item that was open when it
+//    began. The caller names the item its `save` addresses as `target`, a
+//    primitive identity (type and name; never a memoised object, AGENTS.md
+//    #10). On a switch the caller's `save` addresses the newly opened item at
+//    once, while the buffer holds the previous item's document until the new
+//    load installs its own; so a period that began on another item is never
+//    sent, by the timer or by `flush`, and it ends only when the caller's dirty
+//    flag falls (each caller's load clears it as it installs the new buffer).
+//    The previous item's pending edit is dropped: what the Data pillar's switch
+//    has always done, and what every pillar did whenever the new load landed
+//    inside the debounce. A claim also reads moved once the target has
+//    changed, so a save that lands after a switch never clears the dirty flag
+//    of the item opened since.
 
 /**
  * objectui#11204 — one draft save's claim on the buffer it sent. `unmoved()`
@@ -206,6 +219,8 @@ const PILLARS: ReadonlyArray<{ key: string; label: string; Icon: LucideIcon }> =
  * save sent, compared the way the autosave compares snapshots (serialised).
  * It compares content, not an edit count: an edit undone while the save was
  * in flight leaves the buffer as the server now holds it, and so clean.
+ * objectui#11232 — and only while the hook's `target` is still the item the
+ * save was sent for: after a switch the buffer is the next item's to clear.
  */
 interface DraftSend {
   unmoved: () => boolean;
@@ -223,12 +238,14 @@ function draftSnapshotKey(snapshot: unknown): string {
 }
 
 function useDraftAutoSave(opts: {
+  /** objectui#11232 — the item `save` addresses, as a primitive identity. */
+  target: string;
   dirty: boolean;
   blocked: boolean;
   snapshot: unknown;
   save: (sent: DraftSend) => void | Promise<void>;
 }): { flush: () => boolean; sending: (snapshot: unknown) => DraftSend } {
-  const { dirty, blocked, snapshot, save } = opts;
+  const { target, dirty, blocked, snapshot, save } = opts;
   // Pure (the react compiler forbids impure render calls).
   const snapKey = React.useMemo(() => draftSnapshotKey(snapshot), [snapshot]);
   const lastAttemptRef = React.useRef<string | null>(null);
@@ -236,29 +253,38 @@ function useDraftAutoSave(opts: {
   // What the timer below would send, as last committed, for `flush` and for a
   // landing save's claim to read. A layout effect, so it is current as soon as
   // a render commits: a save that lands right after an edit reads the edit.
-  const pendingRef = React.useRef({ dirty, blocked, snapKey });
+  // `since` is the target the dirty period began on (objectui#11232): taken
+  // as the flag rises, kept while it stays up.
+  const pendingRef = React.useRef({ dirty, blocked, snapKey, target, since: target });
   React.useLayoutEffect(() => {
+    const prev = pendingRef.current;
     saveRef.current = save;
-    pendingRef.current = { dirty, blocked, snapKey };
+    pendingRef.current = { dirty, blocked, snapKey, target, since: dirty && prev.dirty ? prev.since : target };
   });
   // A state initializer, not a memo: React keeps its identity by contract, so
   // a caller may list it, or a member of it, as an effect dependency
   // (AGENTS.md #10).
   const [api] = React.useState(() => {
-    const claim = (key: string): DraftSend => ({ unmoved: () => pendingRef.current.snapKey === key });
+    const claim = (key: string, sentFor: string): DraftSend => ({
+      unmoved: () => pendingRef.current.target === sentFor && pendingRef.current.snapKey === key,
+    });
+    // objectui#11232 — the pending edit is the open item's own: its dirty
+    // period began on the item `save` now addresses.
+    const owned = (): boolean => pendingRef.current.since === pendingRef.current.target;
     const send = (key: string): void => {
       lastAttemptRef.current = key;
-      void saveRef.current(claim(key));
+      void saveRef.current(claim(key, pendingRef.current.target));
     };
     return {
       send,
+      owned,
       flush: (): boolean => {
         const pending = pendingRef.current;
-        if (!pending.dirty || pending.blocked || lastAttemptRef.current === pending.snapKey) return false;
+        if (!pending.dirty || pending.blocked || !owned() || lastAttemptRef.current === pending.snapKey) return false;
         send(pending.snapKey);
         return true;
       },
-      sending: (sent: unknown): DraftSend => claim(draftSnapshotKey(sent)),
+      sending: (sent: unknown): DraftSend => claim(draftSnapshotKey(sent), pendingRef.current.target),
     };
   });
   React.useEffect(() => {
@@ -266,6 +292,8 @@ function useDraftAutoSave(opts: {
     if (lastAttemptRef.current === snapKey) return;
     const timer = setTimeout(() => {
       if (lastAttemptRef.current === snapKey) return;
+      // Read as last committed: a switch since the edit left it with its item.
+      if (!api.owned()) return;
       api.send(snapKey);
     }, 1500);
     return () => clearTimeout(timer);
@@ -1348,7 +1376,18 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 onDirtyChange={setPillarDirty}
               />
             ) : (
+              // objectui#11203 / objectui#11232 — keyed by package. A package
+              // switch keeps this route mounted, and every piece of the
+              // pillar's state is the package's: the app and its nav edit
+              // buffer, the nav editor's dirty flag and open editing, the open
+              // leaf and its page draft. Kept, they outlived the confirmed
+              // discard: the load installed the next package's app under a
+              // dirty flag that still stood, and the autosave sent it as a
+              // draft; the previous package's page stayed open and saved into
+              // the next one. One reset, of all of it. This is a new document,
+              // not a data refresh, which Commandment #8 keeps from a key bump.
               <InterfacesPillar
+                key={packageId}
                 packageId={packageId}
                 publishNonce={publishNonce}
                 draftNonce={draftNonce}
@@ -2206,6 +2245,8 @@ export function InterfacesPillar({
     }
   }, [client, current, draft, onDraftSaved]);
   useDraftAutoSave({
+    // objectui#11232 — the leaf `doSave` addresses, `type:name`.
+    target: leafKey,
     dirty: ifDirty,
     blocked: !current || !isEditable || !!saving || readOnly || inspectorBlocking > 0,
     snapshot: draft,
@@ -2251,6 +2292,9 @@ export function InterfacesPillar({
   }, [client, appName, appDraft, onDraftSaved]);
   // objectui#5813 — nav edits auto-save while edit mode is open.
   const { flush: flushNavSave } = useDraftAutoSave({
+    // objectui#11232 — the app `doNavSave` addresses. The package is this
+    // pillar's mount (it is keyed by package where the surface renders it).
+    target: `app:${appName ?? ''}`,
     dirty: navDirty,
     blocked: !appName || !editNav || !!navSaving || readOnly,
     snapshot: appDraft,
@@ -3411,6 +3455,8 @@ export function DataPillar({
   // objectui#5813 — auto-save replaces the Save draft button; the blocked guard
   // is the button's old disabled-condition verbatim.
   const { sending: sendingObjDraft } = useDraftAutoSave({
+    // objectui#11232 — the object `doSave` addresses.
+    target: `object:${current?.name ?? ''}`,
     dirty,
     blocked: !current || !!saving || readOnly || saveBlocking > 0,
     snapshot: objDraft,
@@ -4327,6 +4373,8 @@ export function AutomationsPillar({
     }
   }, [client, current, draft, onDraftSaved]);
   useDraftAutoSave({
+    // objectui#11232 — the flow `doSave` addresses.
+    target: `flow:${current?.name ?? ''}`,
     dirty: autoDirty,
     blocked: !current || !isEditable || !!saving || readOnly,
     snapshot: draft,

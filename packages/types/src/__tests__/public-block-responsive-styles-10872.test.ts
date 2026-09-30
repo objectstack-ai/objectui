@@ -28,8 +28,10 @@
  *
  * ## What is and is not widened
  *
- * The key is declared on the public-block arms only — `PublicBlockComponentSchema`
- * and `ObjectQLPublicBlockComponentSchema` — through ONE shared fragment, and
+ * The key is declared on the public-block arms — `PublicBlockComponentSchema`
+ * and `ObjectQLPublicBlockComponentSchema` — through ONE shared fragment
+ * (batch 9 spread the same fragment into `flex`, `object-grid` and
+ * `object-chart`, pinned in `./flat-arm-responsive-styles-10872.test.ts`), and
  * NOT on `BaseSchema`, which would widen every arm in `AnyComponentSchema`
  * (a different accept-set change, not granted by the batch's ruling). The other
  * five envelope keys stay undeclared: they have no producer. The pins below
@@ -192,9 +194,12 @@ describe('`responsiveStyles` is declared on every public-block arm, by reference
     expect(Object.keys(BaseSchema.shape)).not.toContain('responsiveStyles');
     // Control: a non-public-block node is still refused by name on the strict
     // face, so the accept-set change is exactly the arms above. This is the
-    // boundary of this batch, not a ruling that it must stay.
-    const flex = { type: 'flex', responsiveStyles: VALID_STYLES };
-    expect(refusedKeys(StrictAnyComponentSchema.safeParse(flex))).toEqual(['responsiveStyles']);
+    // boundary of this batch, not a ruling that it must stay: batch 9 moved it
+    // for `flex`, `object-grid` and `object-chart`, whose nodes a producer
+    // writes the key on (`./flat-arm-responsive-styles-10872.test.ts`). The
+    // control is now `grid`, an arm with no producer.
+    const grid = { type: 'grid', responsiveStyles: VALID_STYLES };
+    expect(refusedKeys(StrictAnyComponentSchema.safeParse(grid))).toEqual(['responsiveStyles']);
   });
 });
 

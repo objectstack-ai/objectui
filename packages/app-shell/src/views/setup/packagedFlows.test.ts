@@ -99,6 +99,37 @@ describe('joinPackagedFlows', () => {
   });
 });
 
+describe('the unbound reason (objectui#9217)', () => {
+  it('carries a string `reason` through unchanged, character for character', () => {
+    // Fixture text, not a contract: what is pinned is that whatever sentence
+    // the platform sends reaches the row unedited.
+    const sentence = "trigger 'record_change' is registered but binding failed — see earlier warnings";
+    const rows = joinPackagedFlows(
+      [{ name: 'pkg_notify', enabled: true, bound: false, triggerType: 'record_change', reason: sentence }],
+      [packagedItem('pkg_notify', 'Notify')],
+    );
+    expect(rows[0]).toEqual({ name: 'pkg_notify', label: 'Notify', enabled: true, reason: sentence });
+  });
+
+  it('leaves the key ABSENT on a row that sends none — including an older backend', () => {
+    const rows = joinPackagedFlows(
+      [{ name: 'pkg_notify', enabled: true, bound: true }, { name: 'pkg_legacy' }],
+      [packagedItem('pkg_notify', 'Notify'), packagedItem('pkg_legacy', 'Legacy')],
+    );
+    for (const row of rows) expect(Object.keys(row)).not.toContain('reason');
+  });
+
+  it('ignores a `reason` that is not a non-empty string', () => {
+    const odd: unknown[] = [42, true, null, { code: 'policy' }, ['a sentence'], ''];
+    const rows = joinPackagedFlows(
+      odd.map((reason, i) => ({ name: `pkg_${i}`, enabled: true, bound: false, reason })),
+      odd.map((_, i) => packagedItem(`pkg_${i}`, `Flow ${i}`)),
+    );
+    expect(rows).toHaveLength(odd.length);
+    for (const row of rows) expect(Object.keys(row)).not.toContain('reason');
+  });
+});
+
 describe('envelope readers', () => {
   it('reads the runtime list wrapped or bare, and nothing else', () => {
     expect(readRuntimeStates({ data: { flows: [{ name: 'a' }] } })).toEqual([{ name: 'a' }]);

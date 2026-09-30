@@ -75,14 +75,16 @@
  *     `onQuickAdd`, both kept as #6124 runtime slots, come out live on it, and
  *     `onCardClick` comes out live beside them off the same forward block.
  *   - `'object-kanban'` (registered to `ObjectKanbanRenderer` → `ObjectKanban`
- *     → `KanbanRenderer`): `onQuickAdd` arrives by identity — the lit control
- *     ON THIS KEY, proving the schema-spread channel reaches the board here —
- *     while `onCardClick` AND `onCardMove` are BOTH replaced by
- *     `ObjectKanban`'s own functions (`ObjectKanban.tsx`, the
- *     `<KanbanRenderer schema={{ ...effectiveSchema, onCardClick: …,
- *     onCardMove: handleCardMove }} />` literal). The two keys have the SAME
- *     reachability here, so "`ObjectKanban` overrides it" cannot retire one
- *     without retiring the other.
+ *     → `KanbanBoardCore` since objectui#11234, `KanbanRenderer` before it):
+ *     `onCardClick` AND `onCardMove` are BOTH replaced by `ObjectKanban`'s own
+ *     functions. The two keys have the SAME reachability here, so
+ *     "`ObjectKanban` overrides it" cannot retire one without retiring the
+ *     other. ⭐ `onQuickAdd` arrived by identity on this key until
+ *     objectui#11234, and that was the lit control proving the schema-spread
+ *     channel reached the board. It now reaches NOTHING: `ObjectKanban` renders
+ *     the internal `KanbanBoardCore`, which takes the Quick Add pair only as
+ *     explicit props, and passes neither. The lit control on that leg is the
+ *     same render's `onCardClick`, which is a function.
  *
  * ## Suite 2 — the prop channel, which only `onCardClick` has
  *
@@ -108,10 +110,18 @@
  *
  * ## Suite 3 — derived from the read site, so a deletion cannot hide
  *
- * The `schema.on*` reads inside `KanbanRenderer`'s body are extracted from
- * `../index.tsx`. Nothing here is a list a re-key can hold constant: the read
- * site is measured, and each key's declaration status on the surviving
- * `object-kanban` face is measured beside it.
+ * The `schema.on*` reads are extracted from the source of the two components
+ * that read the document. Nothing here is a list a re-key can hold constant:
+ * the read site is measured, and each key's declaration status on the
+ * surviving `object-kanban` face is measured beside it.
+ *
+ * ⭐ Since objectui#11234 the reads live in TWO bodies, and which body a read
+ * sits in decides its disposition. `KanbanBoardCore` (`../KanbanBoardCore.tsx`)
+ * is the board every `object-kanban` entry point reaches, and it reads
+ * `onCardClick`, a runtime slot. `KanbanRenderer` (`../index.tsx`) adds the Quick
+ * Add pair for a React host, and no registration reaches it, so its
+ * `onQuickAdd` read is the host's, and the `object-kanban` face tombstones the
+ * key.
  *
  * ## Predictions, written before the first run (red-first)
  *
@@ -261,18 +271,24 @@ describe('which authored handler keys reach a registered kanban board (objectui#
   });
 
   it.each(['object-kanban'])(
-    "`'%s'` (ObjectKanban) passes onQuickAdd through and supplies its OWN onCardClick and onCardMove",
+    "`'%s'` (ObjectKanban) passes NO onQuickAdd and supplies its OWN onCardClick and onCardMove",
     async (type) => {
+      // ⭐ objectui#11234 flipped the `onQuickAdd` reading from `true` (arrives
+      // by identity) to absent. The two `'function'` readings beside it are the
+      // lit control: the same render hands the board live handlers, so the
+      // absence is about this key and not a board that received nothing.
       const spies = authored();
       const props = await boardPropsFor(type, 'impl', spies);
       expect({
-        onQuickAdd: props.onQuickAdd === spies.onQuickAdd,
+        onQuickAdd: props.onQuickAdd,
+        quickAdd: props.quickAdd,
         onCardClick: props.onCardClick === spies.onCardClick,
         onCardMove: props.onCardMove === spies.onCardMove,
         onCardClickType: typeof props.onCardClick,
         onCardMoveType: typeof props.onCardMove,
       }).toEqual({
-        onQuickAdd: true,
+        onQuickAdd: undefined,
+        quickAdd: undefined,
         onCardClick: false,
         onCardMove: false,
         onCardClickType: 'function',
@@ -322,34 +338,76 @@ describe("ObjectKanban's own onCardClick wrapper CALLS the authored handler (obj
 
 describe('the handler keys KanbanRenderer forwards, and where they are declared (objectui#7664)', () => {
   const INDEX_TSX = join(dirname(fileURLToPath(import.meta.url)), '..', 'index.tsx');
+  const CORE_TSX = join(dirname(fileURLToPath(import.meta.url)), '..', 'KanbanBoardCore.tsx');
 
-  /** The `schema.on*` reads inside the `KanbanRenderer` component body, read off the source.
+  /** The `schema.on*` reads between two markers of one source file.
    *  ⚠️ `schema.`-anchored ON PURPOSE: this measures the DOCUMENT read path, so
    *  a handler that arrives as an explicit React prop (`onCardMove` since
-   *  objectui#9342) is correctly absent rather than missed. */
-  function forwardedByKanbanRenderer(): string[] {
-    const src = readFileSync(INDEX_TSX, 'utf8');
-    const start = src.indexOf('export const KanbanRenderer');
-    // The component body ends at the `kanban-ui` retirement tombstone that
-    // follows it. The `it` below is this extraction's own anti-vacuity control:
-    // a marker that stopped matching would make `end` -1 and throw, and a
-    // marker that matched too early would drop keys from the measured set.
-    const end = src.indexOf('⛔ The `kanban-ui` node type key is RETIRED', start);
-    if (start === -1 || end === -1) throw new Error('KanbanRenderer body not found in index.tsx');
+   *  objectui#9342, the Quick Add pair on `KanbanBoardCore` since
+   *  objectui#11234) is correctly absent rather than missed. */
+  function documentReads(file: string, startMarker: string, endMarker: string | null): string[] {
+    const src = readFileSync(file, 'utf8');
+    const start = src.indexOf(startMarker);
+    const end = endMarker === null ? src.length : src.indexOf(endMarker, start);
+    // The `it`s below are this extraction's own anti-vacuity control: a marker
+    // that stopped matching would make an index -1 and throw, and a marker that
+    // matched too early would drop keys from the measured set.
+    if (start === -1 || end === -1) throw new Error(`component body not found in ${file}`);
     return [...src.slice(start, end).matchAll(/schema\.(on[A-Z][A-Za-z0-9]*)\b/g)]
       .map((m) => m[1])
       .sort();
   }
+
+  /** `KanbanRenderer`'s own body — it ends at the `kanban-ui` retirement tombstone that follows it. */
+  const forwardedByKanbanRenderer = () =>
+    documentReads(INDEX_TSX, 'export const KanbanRenderer', '⛔ The `kanban-ui` node type key is RETIRED');
+  /** The internal board's body — the last declaration in its module. */
+  const readByBoardCore = () => documentReads(CORE_TSX, 'export const KanbanBoardCore', null);
 
   it('the read site is measured, not listed: KanbanRenderer reads exactly these two off the document', () => {
     // ⭐ THREE until objectui#9342 moved `onCardMove` onto an explicit React
     // prop. That shrink is the deliverable, not a drift: the gate of record
     // refuses a `'retired'` tombstone while a renderer still reads the key off
     // the document, so the read had to go before the arm could carry one.
-    expect(forwardedByKanbanRenderer()).toEqual(['onCardClick', 'onQuickAdd']);
+    //
+    // ⭐ SPLIT across two bodies by objectui#11234. `KanbanRenderer` still reads
+    // the same two keys, but `onCardClick` is now read by the internal board it
+    // renders, with the document handed through `schema={schema}`, and
+    // `onQuickAdd` stays in its own body as the host's half of the Quick Add
+    // pair. Their union is this leg's old reading, so no key left the component.
+    expect({ own: forwardedByKanbanRenderer(), board: readByBoardCore() }).toEqual({
+      own: ['onQuickAdd'],
+      board: ['onCardClick'],
+    });
+    const src = readFileSync(INDEX_TSX, 'utf8');
+    expect(src, 'KanbanRenderer no longer hands its document to the internal board').toMatch(
+      /<KanbanBoardCore\s+schema=\{schema\}/,
+    );
   });
 
-  it('⭐ two of the three are declared on the surviving `object-kanban` face — measured per key, not per prefix', () => {
+  it('⭐ the internal board stays internal: the barrel publishes `KanbanRenderer` and NOT `KanbanBoardCore` (objectui#11234)', async () => {
+    // Only `KanbanRenderer` may carry the Quick Add pair to a host. An exported
+    // `KanbanBoardCore` would be a second public board with its own copy of the
+    // pair, so the barrel is read, with the published component as the control.
+    const barrel = (await import('../index')) as Record<string, unknown>;
+    expect({
+      kanbanRenderer: typeof barrel.KanbanRenderer,
+      kanbanBoardCore: 'KanbanBoardCore' in barrel,
+    }).toEqual({ kanbanRenderer: 'function', kanbanBoardCore: false });
+  });
+
+  it('⭐ the `object-kanban` path reads only the internal board\'s keys — and those are all runtime slots (objectui#11234)', () => {
+    // The board `ObjectKanban` renders is the one the registration reaches, so
+    // ITS reads are what the `object-kanban` arm must declare callable. The
+    // Quick Add pair is not among them, which is what let the arm tombstone
+    // `onQuickAdd`.
+    const shape = ObjectKanbanZod.shape as Record<string, { description?: string } | undefined>;
+    expect(
+      readByBoardCore().map((key) => ({ key, slot: shape[key]?.description?.includes('RUNTIME SLOT') ?? false })),
+    ).toEqual([{ key: 'onCardClick', slot: true }]);
+  });
+
+  it('⭐ all three are declared on the surviving `object-kanban` face — measured per key, not per prefix', () => {
     // ⭐ This leg USED to assert `declared: true, guidance: true` against the
     // zod `'kanban'` arm, which carried all three as objectui#6124 RUNTIME
     // SLOTS; objectui#8802 retired that arm and the reading flipped to three
@@ -367,18 +425,31 @@ describe('the handler keys KanbanRenderer forwards, and where they are declared 
     //     spelling while this very forward block read the key, so objectui#9342
     //     moved the read to an explicit React prop and the arm now carries the
     //     tombstone. The third assertion below reads it off the mirror.
+    //   - ⭐ `onQuickAdd` followed it (objectui#11234). It was a runtime slot
+    //     that reached the board by identity and, on `object-kanban`, was never
+    //     called, since its partner `quickAdd` is retired there. Its read now
+    //     sits in `KanbanRenderer`'s body only, as the host's half of the pair,
+    //     and no registration reaches that body. So the face tombstones it, and
+    //     the leg above reads the `object-kanban` path's reads from the internal
+    //     board instead.
     const shape = ObjectKanbanZod.shape as Record<string, { description?: string } | undefined>;
-    const forwarded = forwardedByKanbanRenderer();
-    expect(forwarded.map((key) => ({ key, declared: key in shape }))).toEqual([
-      { key: 'onCardClick', declared: true },
-      { key: 'onQuickAdd', declared: true },
+    const said = (key: string) => ({
+      key,
+      declared: key in shape,
+      disposition: shape[key]?.description?.includes('RUNTIME SLOT')
+        ? 'runtime-slot'
+        : shape[key]?.description?.includes('RETIRED')
+          ? 'retired'
+          : 'neither',
+    });
+    const forwarded = [...new Set([...readByBoardCore(), ...forwardedByKanbanRenderer()])].sort();
+    expect(forwarded.map(said)).toEqual([
+      { key: 'onCardClick', declared: true, disposition: 'runtime-slot' },
+      { key: 'onQuickAdd', declared: true, disposition: 'retired' },
     ]);
     // The key that LEFT the forward block is declared all the same — as a
     // tombstone, which is the whole point of moving the read (objectui#9342).
-    expect({
-      declared: 'onCardMove' in shape,
-      retired: shape.onCardMove?.description?.includes('RETIRED'),
-    }).toEqual({ declared: true, retired: true });
+    expect(said('onCardMove')).toEqual({ key: 'onCardMove', declared: true, disposition: 'retired' });
     // Firing control on the SAME instrument: a key this face really does
     // declare reads `true`, so the three `false`s above are readings and not a
     // shape lookup that answers `false` to everything (an unwrapped

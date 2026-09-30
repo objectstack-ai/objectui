@@ -301,7 +301,8 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   ['ElementDataSourceSchema', SpecElementDataSourceSchema],
   // objectui#10872 batch 8: every public-block arm declares the node-level
   // `responsiveStyles` as the spec's `ResponsiveStylesSchema` (one shared
-  // `PUBLIC_BLOCK_ENVELOPE`), crossed through this boundary like every other
+  // `NODE_ENVELOPE`, which batch 9 also spread into `flex`, `object-grid` and
+  // `object-chart`), crossed through this boundary like every other
   // read. It carries no default and reaches no `z.lazy`, so the strip is the
   // identity function — the row is here because the census below requires
   // every imported symbol to be measured, not because the strip does work.

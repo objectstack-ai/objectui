@@ -156,14 +156,22 @@ declaration gates both places.
   `OBJECT_PERMISSION_VERBS` in `@objectstack/spec/security`; a verb outside it is a fault,
   not a `false`.
 - Call it on the signed-in user. `user.can(…)`, `ctx.user.can(…)` and `os.user.can(…)`
-  are the same call; a bare `can(…)`, or `record.can(…)`, is a fault.
+  are the same call wherever an action is drawn; a bare `can(…)`, or `record.can(…)`, is
+  a fault.
+- The action runner evaluates some gates against its own context: `record:quick_actions`
+  filters its `visible` there, and the runner checks `disabled` again when the action is
+  clicked. That context answers `current_user.can(…)`, but `user`, `ctx.user` and
+  `os.user` there are the host's own user object, so `user.can(…)`, `ctx.user.can(…)` and
+  `os.user.can(…)` fault on those gates. Write `current_user.can(…)`.
 - Until the permissions payload has loaded there is no answer: the call faults, and the
   gate stays closed. A header action whose `visible` faults is not rendered (see above),
   and one whose `disabled` faults is rendered disabled, so
   `disabled: "!current_user.can('account', 'delete')"` shows a greyed-out button until the
-  answer arrives. The action renderers that draw actions elsewhere (`action:button`,
-  `action:group`, `action:icon`, a related list's toolbar, `record:quick_actions`) hide a
-  faulting `visible` the same way.
+  answer arrives. The row menu's items do the same for the same `disabled`, in a grid
+  and in a related list's table. The action renderers that draw actions elsewhere
+  (`action:button`, `action:group`, `action:icon`, a related list's toolbar,
+  `record:quick_actions`) hide a faulting `visible` the same way. The built-in Edit and
+  Delete are different: their `disabledWhen` is left enabled when it faults.
 - `requiredPermissions` is a different gate: it names system capabilities, which the
   platform action route enforces as well as the UI. `current_user.can` asks about
   object permissions and does nothing on the server.

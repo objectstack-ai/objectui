@@ -240,7 +240,8 @@ The ADR-0080 public blocks `object-metric`, `object-master-detail-form` and `obj
 
 ### ADR-0080 Public Blocks (27)
 Each arm's `properties` is the block's `@objectstack/spec` `ComponentPropsMap` row, by reference. `ElementNumberBlockSchema` also declares the spec's `dataSource` binding, and mirrors the spec gate's one waiver: its bag may omit `object` when `dataSource.object` names the object.
-Every arm here, and each of the three ObjectQL public blocks above, declares the node-level `responsiveStyles` (ADR-0065 per-breakpoint style maps, which `SchemaRenderer` compiles to scoped CSS) as the spec's `ResponsiveStylesSchema`, by reference, from one shared fragment, `PUBLIC_BLOCK_ENVELOPE` (objectui#10872 batch 8). The other node-level keys the spec's `PageComponentSchema` declares (`events`, `aria`, `visibility`, `responsive`, and `dataSource` outside the arms that read it) stay undeclared, so the strict face refuses them by name.
+Every arm here, and each of the three ObjectQL public blocks above, declares the node-level `responsiveStyles` (ADR-0065 per-breakpoint style maps, which `SchemaRenderer` compiles to scoped CSS) as the spec's `ResponsiveStylesSchema`, by reference, from one shared fragment, `NODE_ENVELOPE` (objectui#10872 batch 8; named `PUBLIC_BLOCK_ENVELOPE` until batch 9). The other node-level keys the spec's `PageComponentSchema` declares (`events`, `aria`, `visibility`, `responsive`, and `dataSource` outside the arms that read it) stay undeclared, so the strict face refuses them by name.
+Outside this set, `FlexSchema`, `ObjectGridSchema` and `ObjectChartSchema` spread the same fragment (objectui#10872 batch 9), and their TypeScript twins declare the key as the spec's `ResponsiveStyles`: they are the arms outside this set that objectui#10872's producer reading found `responsiveStyles` written on (a dated reading, not re-derived here). `BaseSchema` and every other arm leave it undeclared, so the strict face refuses it there by name.
 Every arm except the four `page:` containers (`page:card`, `page:section`, `page:footer`, `page:sidebar`) refuses `children` and `body` by name, because its renderer reads neither content channel (objectui#9256; the last six below since objectui#10872 batch 5). The four containers do render a child list, and its home is `properties.children`, the member their spec row declares; they refuse the node-level `children` and `body` with a message naming it, as `@objectstack/spec`'s `PageComponentSchema` refuses a node-level `children` (objectui#10872 batch 6). Two carve-outs: `record:alert` refuses `children` with its own message, while its `body` is the message text and belongs in `properties`, so a flat `body` is refused with a pointer to `properties.body` rather than to `children` (objectui#10872); and `page:tabs` / `page:accordion` refuse the node's own `children` while each item's `children` in `items` stays live.
 - `PageHeaderBlockSchema`, `PageTabsBlockSchema`, `PageCardBlockSchema`, `PageAccordionBlockSchema`
 - `PageSectionBlockSchema`, `PageFooterBlockSchema`, `PageSidebarBlockSchema`
@@ -322,6 +323,27 @@ const cardWithChildren = CardSchema.parse({
   ]
 });
 ```
+
+A component nested in a container's props bag is judged too, by the node union
+behind `safeValidateSchema` and `StrictAnyComponentSchema`, at the positions
+`@objectstack/spec`'s page walk (`walkAddressedPageComponents`) descends —
+`properties.children` and `properties.items[].children` on the page containers —
+and each issue lands at the nested node's real path:
+
+```typescript
+import { safeValidateSchema } from '@object-ui/types/zod';
+
+const result = safeValidateSchema({
+  type: 'page:section',
+  properties: { children: [{ type: 'element:text', properties: { content: 7 } }] },
+});
+// result.success === false; the issue path starts
+// ['properties', 'children', 0, 'properties', 'content']
+```
+
+That judgment lives on the union: a container's own arm schema parsed alone
+(`PageSectionBlockSchema.safeParse(…)`) still reads its bag's child list as the
+spec row types it, a list of anything.
 
 ## Best Practices
 

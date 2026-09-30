@@ -154,7 +154,15 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **49 entries** in `KnownDrift`, **87 keys** across them — 49 / 88 until
+ *   - **49 entries** in `KnownDrift`, **86 keys** across them — 49 / 87 until
+ *     objectui#11234 RETIRED `ObjectKanbanSchema.onQuickAdd` on BOTH faces
+ *     (`?: never` on the declaration, `handlerKeyRefusal(…, 'retired', …)` on the
+ *     mirror), completing ruling B of decision batch #91 on `object-kanban`. The
+ *     key had been a runtime slot: a callable twin against a named refusal. A
+ *     matched pair of tombstones is not drift, so the key LEFT
+ *     `objectql.zod.ts#ObjectKanbanSchema`'s entry and the entry stays on
+ *     `onCardClick`. The key total fell by one and the entry count did not move.
+ *     It was 49 / 88 until
  *     objectui#10976 narrowed `ObjectViewSchema.table` to the grid keys `ObjectView`
  *     hands the grid it draws: the TypeScript slot no longer declares `onNavigate`,
  *     the one callable the nested mirror refused, so `table` LEFT
@@ -2433,8 +2441,20 @@ interface KnownDrift {
    * `onCardMove` React prop); what was missing was the precondition, and
    * objectui#9342 supplied it by moving `KanbanRenderer`'s read onto an
    * explicit React prop so `check:handler-key-reads` would accept a tombstone.
+   *
+   * ⭐ `onQuickAdd` LEFT this entry with objectui#11234, the same way
+   * `onCardMove` never entered it: both faces now declare it as a tombstone —
+   * `?: never` on the TypeScript twin, `handlerKeyRefusal(…, 'retired', …)` on
+   * this mirror — and a matched pair of tombstones is not drift. Its function
+   * did arrive at the board by identity, but on `object-kanban` it was never
+   * called, because its partner `quickAdd` is retired there (objectui#8285,
+   * ruling B of decision batch #91). The read that kept it a slot was
+   * `KanbanRenderer`'s, reached through `ObjectKanban`; `ObjectKanban` now
+   * renders the internal `KanbanBoardCore`, which takes the Quick Add pair only
+   * as explicit props, and it supplies neither. ONE key left and the entry
+   * stays, on `onCardClick`, so the key total moved and the entry count did not.
    */
-  'objectql.zod.ts#ObjectKanbanSchema': 'onCardClick' | 'onQuickAdd';
+  'objectql.zod.ts#ObjectKanbanSchema': 'onCardClick';
   /**
    * RUNTIME SLOT (objectui#6124): the `alert-dialog` renderer spreads leftover props
    * onto the Radix `AlertDialog` root (`onOpenChange`). `onAction` joined with
@@ -4338,9 +4358,14 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   // `properties`: today `responsiveStyles` alone, the spec's
   // `ResponsiveStylesSchema` by reference. The arm reasons above describe the
   // members each arm adds of its own; this fragment is shared by all of them.
-  // Pinned in `./public-block-responsive-styles-10872.test.ts`.
-  'public-blocks.zod.ts#PUBLIC_BLOCK_ENVELOPE':
-    "a shape FRAGMENT, not a schema and not a mirror — `{ responsiveStyles }`, the spec's `ResponsiveStylesSchema` by reference (the schema `PageComponentSchema.responsiveStyles` declares), spread into every public-block arm so the one declaration is shared; no TS declaration in this package restates it",
+  // Pinned in `./public-block-responsive-styles-10872.test.ts`. Batch 9 spread
+  // it into three registered pairs as well (`layout.zod.ts#FlexSchema`,
+  // `objectql.zod.ts#ObjectGridSchema`, `objectql.zod.ts#ObjectChartSchema`),
+  // whose TS twins declare the member as the spec's `ResponsiveStyles`, and
+  // renamed it from `PUBLIC_BLOCK_ENVELOPE`. Pinned in
+  // `./flat-arm-responsive-styles-10872.test.ts`.
+  'public-blocks.zod.ts#NODE_ENVELOPE':
+    "a shape FRAGMENT, not a schema and not a mirror — `{ responsiveStyles }`, the spec's `ResponsiveStylesSchema` by reference (the schema `PageComponentSchema.responsiveStyles` declares), spread into every public-block arm and into the `flex`, `object-grid` and `object-chart` mirrors so the one declaration is shared; no TS declaration restates the fragment itself, and each of those three pairs' TS twins declares the member as the spec's `ResponsiveStyles` type",
   // objectui#10919 — the `cloud:plan-status` widget's arm, declared locally from
   // the widget's read points: `@objectstack/spec` has no row for a `cloud:`
   // widget, and the widget's props type lives beside it in `@object-ui/app-shell`,

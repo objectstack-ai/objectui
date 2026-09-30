@@ -6,17 +6,16 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import React, { Suspense } from 'react';
+import React from 'react';
 import { ComponentRegistry, elementDataSourceBlock } from '@object-ui/core';
 import {
   ElementDataSourceGate,
   useSchemaContext,
   type ElementDataSourceMapping,
 } from '@object-ui/react';
-import { Skeleton } from '@object-ui/components';
-import { createSafeTranslation } from '@object-ui/i18n';
 import type { ComponentInput, KanbanConditionalFormattingRule } from '@object-ui/types';
 import { ObjectKanban } from './ObjectKanban';
+import { KanbanBoardCore } from './KanbanBoardCore';
 
 /**
  * Sentinel column id for records whose `groupBy` value matches no declared
@@ -29,11 +28,6 @@ import { ObjectKanban } from './ObjectKanban';
  * can refuse to persist this non-option value as a real status.
  */
 export const KANBAN_UNCOLUMNED_ID = '__uncolumned__';
-
-const useUncolumnedT = createSafeTranslation(
-  { 'kanban.uncategorized': 'Uncategorized' },
-  'kanban.uncategorized',
-);
 
 /**
  * Names, on the console, every stored group value that matched no lane id
@@ -218,9 +212,6 @@ export type { Swimlane, CrossSwimlaneMoveEvent, UseCrossSwimlaneOptions, UseCros
 export { useQuickAddReorder } from './useQuickAddReorder';
 export type { UseQuickAddReorderOptions, UseQuickAddReorderReturn } from './useQuickAddReorder';
 
-// 🚀 Lazy load the implementation files
-const LazyKanban = React.lazy(() => import('./KanbanImpl'));
-
 export interface KanbanRendererProps {
   schema: {
     type: string;
@@ -330,41 +321,31 @@ export interface KanbanRendererProps {
 
 /**
  * KanbanRenderer - The public API for the kanban board component
- * This wrapper handles lazy loading internally using React.Suspense
+ * The board it renders handles lazy loading internally using React.Suspense
+ *
+ * ## The Quick Add pair lives HERE, and nowhere on the `object-kanban` path
+ *
+ * This component reads `schema.quickAdd` and `schema.onQuickAdd` and hands both
+ * to the internal `KanbanBoardCore` as explicit props. That is the host pair
+ * ruling B keeps (objectui#8285, director seat, decision batch #91): "`kanban-ui`
+ * keeps the pair meanwhile". With the `kanban-ui` tag retired (objectui#8257),
+ * this exported component is where the pair lives, so a React host that mounts
+ * it gets the control.
+ *
+ * `ObjectKanban` renders `KanbanBoardCore` directly and supplies neither half
+ * (objectui#11234). So an `object-kanban` board has no read of either key, and
+ * `ObjectKanbanSchema.onQuickAdd` is a tombstone on both faces. The full
+ * argument is on `KanbanBoardCore`.
  */
-export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema, objectFields, onCardMove }) => {
-  const { t } = useUncolumnedT();
-  // ⚡️ Adapter: Map flat 'data' + 'groupBy' to nested 'cards' structure.
-  const processedColumns = React.useMemo(
-    () =>
-      bucketCardsIntoColumns(
-        schema.columns ?? [],
-        schema.data,
-        schema.groupBy,
-        schema.coverImageField,
-        t('kanban.uncategorized'),
-      ),
-    [schema, t],
-  );
-
-  return (
-    <Suspense fallback={<Skeleton className="w-full h-[600px]" />}>
-      <LazyKanban
-        columns={processedColumns}
-        onCardMove={onCardMove}
-        onCardClick={schema.onCardClick}
-        className={schema.className}
-        quickAdd={schema.quickAdd}
-        onQuickAdd={schema.onQuickAdd}
-        coverImageField={schema.coverImageField}
-        conditionalFormatting={schema.conditionalFormatting}
-        objectFields={objectFields}
-        swimlaneField={schema.swimlaneField}
-        countsAreWindowed={schema.countsAreWindowed}
-      />
-    </Suspense>
-  );
-};
+export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema, objectFields, onCardMove }) => (
+  <KanbanBoardCore
+    schema={schema}
+    objectFields={objectFields}
+    onCardMove={onCardMove}
+    quickAdd={schema.quickAdd}
+    onQuickAdd={schema.onQuickAdd}
+  />
+);
 
 /**
  * ⛔ The `kanban-ui` node type key is RETIRED (objectui#8257, maintainer ruling
@@ -646,9 +627,11 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
  * anything on this block — `KanbanImpl` gates the control on `quickAdd &&
  * onQuickAdd`, and `onQuickAdd` is a host-supplied function nothing on the
  * `ObjectKanban` path supplies — so publishing it here would advertise
- * configuration this renderer drops. The spec tombstones it in 17.5.0, both
- * `ObjectKanbanSchema` faces refuse it by name, and `ObjectKanban` no longer
- * forwards it (the `quickAdd: undefined` entry in its `effectiveSchema`).
+ * configuration this renderer drops. The spec tombstones it in 17.5.0, and both
+ * `ObjectKanbanSchema` faces refuse it by name. `ObjectKanban` no longer
+ * forwards it: it renders the internal `KanbanBoardCore`, which takes the pair
+ * only as explicit props, and it supplies neither half. Since objectui#11234
+ * that holds for `onQuickAdd` too, which is now a tombstone on both faces.
  * `KanbanRenderer` above keeps the pair for a React host that mounts it
  * directly. Pinned in `__tests__/quickAddRetiredNotForwarded-8285.test.tsx`,
  * whose registration row also asserts this list still leaves it out.

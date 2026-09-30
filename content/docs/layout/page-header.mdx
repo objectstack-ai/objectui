@@ -133,6 +133,44 @@ The identity side of the comparison is `os.user` — the spec's canonical CEL id
 scope, and the same one the server binds — with `current_user`, `user` and `ctx.user`
 available as aliases of it.
 
+## Gating an action on the caller's object permissions
+
+`current_user.can(object, verb)` answers "may the signed-in user do *verb* on *object*"
+from the caller's effective object permissions — the `/auth/me/permissions` payload the
+console already holds, the one its built-in Edit and Delete buttons are gated by. It is
+the gate to write when a custom action replaces a built-in one, for example a logical
+delete that archives the record instead of removing it:
+
+```yaml
+actions:
+  - name: account_void
+    label: Void
+    locations: [record_header, list_item]
+    visible: current_user.can('account', 'delete')
+```
+
+The row menu (`list_item`) evaluates the same predicate against the same scope, so one
+declaration gates both places.
+
+- `object` is the object's API name. `verb` must come from the closed verb table
+  `OBJECT_PERMISSION_VERBS` in `@objectstack/spec/security`; a verb outside it is a fault,
+  not a `false`.
+- Call it on the signed-in user. `user.can(…)`, `ctx.user.can(…)` and `os.user.can(…)`
+  are the same call; a bare `can(…)`, or `record.can(…)`, is a fault.
+- Until the permissions payload has loaded there is no answer: the call faults, and a
+  header action whose `visible` faults is not rendered (see above). Gate on `visible`,
+  not `disabled` — a `disabled` predicate that faults leaves the action enabled.
+- `requiredPermissions` is a different gate: it names system capabilities, which the
+  platform action route enforces as well as the UI. `current_user.can` asks about
+  object permissions and does nothing on the server.
+
+**Client-side UI gating only.** This first phase is client-side: `current_user.can` decides
+whether the button is shown, nothing more. It is not an authorization boundary — the
+server still enforces the caller's object permissions on the request the action sends,
+and answers 403 when they are not held. Server-side evaluation of the same call (formula
+fields, validation rules, row-level security) is tracked separately in objectstack#18783;
+until it lands, do not rely on `can` in an expression the server evaluates.
+
 ## Layout
 
 The renderer picks one of two layouts when it renders:

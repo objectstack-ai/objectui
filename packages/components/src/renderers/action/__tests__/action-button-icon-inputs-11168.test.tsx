@@ -42,7 +42,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ComponentRegistry, createServerActionHandler } from '@object-ui/core';
 import type { ActionContext, ActionDef, ActionResult } from '@object-ui/core';
 import type { BaseSchema, DataSource } from '@object-ui/types';
@@ -91,7 +91,7 @@ let collect: Mock<(defs: unknown[], action?: ActionDef) => Promise<Record<string
 let dialog: Mock<(spec: unknown, data: unknown, action?: ActionDef) => Promise<void>>;
 let fetchSpy: Mock<(url: string, init?: RequestInit) => Promise<Response>>;
 /** The provider's last result, read the way a host reads it (`useAction()`). */
-let lastResult: () => ActionResult | null;
+let lastResult: ActionResult | null;
 
 beforeEach(() => {
   run = vi.fn(async () => ({ success: true, data: { id: '42' } }));
@@ -107,7 +107,7 @@ beforeEach(() => {
     }),
   );
   vi.stubGlobal('fetch', fetchSpy);
-  lastResult = () => null;
+  lastResult = null;
 });
 
 afterEach(() => {
@@ -115,11 +115,19 @@ afterEach(() => {
   cleanup();
 });
 
-function ResultProbe() {
+/** Reports the provider's `result` each time it changes — the host's view of an execution. */
+function ResultProbe({ onResult }: { onResult: (result: ActionResult | null) => void }) {
   const { result } = useAction();
-  lastResult = () => result;
+  useEffect(() => onResult(result), [result, onResult]);
   return null;
 }
+
+const recordResult = (result: ActionResult | null) => {
+  lastResult = result;
+};
+
+/** Read through a call, so the compiler does not narrow the reset below to `null`. */
+const currentResult = (): ActionResult | null => lastResult;
 
 interface MountOptions {
   handlers?: Record<string, (action: ActionDef, ctx: ActionContext) => Promise<ActionResult>>;
@@ -141,7 +149,7 @@ function mount(schema: Record<string, unknown>, options: MountOptions = {}) {
       <SchemaRendererProvider dataSource={DATA as unknown as DataSource}>
         <PredicateScopeProvider scope={{ data: DATA }}>
           <SchemaRenderer schema={schema as unknown as BaseSchema} />
-          <ResultProbe />
+          <ResultProbe onResult={recordResult} />
         </PredicateScopeProvider>
       </SchemaRendererProvider>
     </ActionProvider>,
@@ -422,13 +430,14 @@ describe.each(BLOCKS)('%s — keys the runner acts on, forwarded by the block', 
   it('`refreshAfter` marks the result for a reload', async () => {
     mount(node(type, { refreshAfter: true }));
     press();
-    await waitFor(() => expect(lastResult()?.success).toBe(true));
-    expect(lastResult()?.reload).toBe(true);
+    await waitFor(() => expect(currentResult()?.success).toBe(true));
+    expect(currentResult()?.reload).toBe(true);
     cleanup();
+    lastResult = null;
     mount(node(type));
     press();
-    await waitFor(() => expect(lastResult()?.success).toBe(true));
-    expect(lastResult()?.reload).toBeFalsy();
+    await waitFor(() => expect(currentResult()?.success).toBe(true));
+    expect(currentResult()?.reload).toBeFalsy();
   });
 
   it('`resultDialog` hands the response to the reveal dialog, whole, in place of the success toast', async () => {

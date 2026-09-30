@@ -46,7 +46,6 @@ import {
   NavigationRenderer,
   hasVisibleNavigationItems,
   resolveIcon,
-  resolveLabel,
   resolveNavItemLabel,
   type VisibilityEvaluator,
   type PermissionChecker,
@@ -172,7 +171,7 @@ export interface AppSchemaRendererProps {
  * (objectui#4167 renamed objectui's own resolver to keep them apart):
  *
  *  - `NavigationItem.label` is objectui's KEYED ref — a translation key plus a
- *    default (`{ key, defaultValue, params }`) — resolved by {@link resolveLabel}
+ *    default (`{ key, defaultValue, params }`) — resolved by `resolveLabel`
  *    against an injected `t`;
  *  - `NavigationArea.label` is `@objectstack/spec`'s `I18nLabel`, which
  *    17.0.0-rc.6 widened from `string` to `string | Record<string, string>` —

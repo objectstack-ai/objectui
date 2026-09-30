@@ -63,11 +63,24 @@ function nonEmpty(text: string | undefined): string | undefined {
   return typeof text === 'string' && text.trim() !== '' ? text : undefined;
 }
 
-function findByName(items: readonly unknown[] | undefined, name: string): Record<string, any> | undefined {
+/** The two members this hook reads off a cached metadata record. */
+interface LabelledRecord {
+  name?: unknown;
+  label?: unknown;
+  listViews?: unknown;
+}
+
+function findByName(items: readonly unknown[] | undefined, name: string): LabelledRecord | undefined {
   return (items ?? []).find(
-    (item): item is Record<string, any> =>
-      !!item && typeof item === 'object' && (item as { name?: unknown }).name === name,
+    (item): item is LabelledRecord =>
+      !!item && typeof item === 'object' && (item as LabelledRecord).name === name,
   );
+}
+
+/** An object's merged `listViews` map (`<object>.<key>` → view), or `{}` when it has none. */
+function listViewsOf(def: LabelledRecord | undefined): Record<string, LabelledRecord | undefined> {
+  const views = def?.listViews;
+  return views && typeof views === 'object' ? (views as Record<string, LabelledRecord | undefined>) : {};
 }
 
 export function useNavTargetLabel(): NavTargetLabelResolver {
@@ -84,8 +97,7 @@ export function useNavTargetLabel(): NavTargetLabelResolver {
           return nonEmpty(objectLabel({ name: target.objectName, label: text ?? '' }));
         }
         case 'view': {
-          const def = findByName(metadata.objects, target.objectName);
-          const views: Record<string, any> = def?.listViews ?? {};
+          const views = listViewsOf(findByName(metadata.objects, target.objectName));
           const id = resolveViewId(target.viewName, Object.keys(views), target.objectName);
           const text = metadataText(id ? views[id]?.label : undefined, language);
           return nonEmpty(viewLabel(target.objectName, target.viewName, text ?? ''));

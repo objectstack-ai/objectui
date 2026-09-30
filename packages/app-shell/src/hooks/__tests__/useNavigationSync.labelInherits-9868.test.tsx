@@ -32,8 +32,8 @@ vi.mock('sonner', () => ({
 }));
 
 interface World {
-  pages: any[];
-  dashboards: any[];
+  pages: unknown[];
+  dashboards: unknown[];
 }
 
 const crm = { name: 'crm', label: 'CRM', navigation: [] };
@@ -56,7 +56,8 @@ function metaValue(world: World): MetadataContextValue {
   };
 }
 
-const adapterFor = (saveItem: ReturnType<typeof vi.fn>) => ({ getClient: () => ({ meta: { saveItem } }) }) as any;
+const adapterFor = (saveItem: ReturnType<typeof vi.fn>) =>
+  ({ getClient: () => ({ meta: { saveItem } }) }) as unknown as React.ComponentProps<typeof AdapterCtx.Provider>['value'];
 
 /** Every navigation array the writer PUT, flattened to its entries. */
 const writtenEntries = (saveItem: ReturnType<typeof vi.fn>) =>

@@ -286,9 +286,11 @@ carries a data source of its own:
   <SchemaRenderer
     schema={{
       type: 'object-form',
-      objectName: 'task',
-      mode: editId ? 'edit' : 'create',
-      recordId: editId,
+      properties: {
+        objectName: 'task',
+        mode: editId ? 'edit' : 'create',
+        recordId: editId,
+      },
     }}
     onSubmit={() => setShowForm(false)}
     onCancel={() => setShowForm(false)}

@@ -539,19 +539,20 @@ unsubscribe();
 
 ### From Appsmith
 
-{/* doc-snippet: fragment — a SHAPE excerpt showing the ObjectUI half of a side-by-side migration comparison; `dataSource` continues the "Using ObjectQL for Queries" block above, and a bare object literal at statement position parses as a block with labels (measured: TS1005 x4) */}
+{/* doc-snippet: fragment — a SHAPE excerpt showing the ObjectUI half of a side-by-side migration comparison; a bare object literal at statement position parses as a block with labels */}
 
 ```typescript
-// Appsmith form → ObjectUI form
+// Appsmith form → ObjectUI form. The props go in the node's `properties`
+// bag (the spec's `ComponentPropsMap['object-form']` row). The form saves
+// through the adapter `SchemaRendererProvider` supplies, so no submit
+// handler is written here.
 {
   type: 'object-form',
-  objectName: 'contact',
-  dataSource,
-  mode: 'create',
-  fieldNames: ['name', 'email', 'phone', 'company'],
-  onSubmit: async (data) => {
-    await dataSource.create('contact', data);
-  }
+  properties: {
+    objectName: 'contact',
+    mode: 'create',
+    fields: ['name', 'email', 'phone', 'company'],
+  },
 }
 ```
 

@@ -815,30 +815,34 @@ presence enables paging.
 
 A smart form that auto-generates fields from an ObjectQL object. Supports simple, tabbed, wizard, split, drawer, and modal layouts.
 
+An authored `object-form` node takes its props in its `properties` bag, whose members are `@objectstack/spec`'s `ComponentPropsMap['object-form']` row. `objectui validate` judges the bag against that row and refuses a prop written flat on the node by name, naming its bag member, as the spec's own page component does (objectui#10859). `SchemaRenderer` hoists the bag onto the node before `ObjectForm` runs, so `ObjectFormSchema` is the node as the renderer reads it, and the table below lists its members.
+
 ```json
 {
   "type": "object-form",
-  "objectName": "Contact",
-  "mode": "create",
-  "formType": "tabbed",
-  "title": "New Contact",
-  "layout": "vertical",
-  "columns": 2,
-  "fields": ["firstName", "lastName", "email", "phone", "company"],
-  "sections": [
-    {
-      "label": "Basic Info",
-      "fields": ["firstName", "lastName", "email"]
-    },
-    {
-      "label": "Details",
-      "fields": ["phone", "company", "address"]
-    }
-  ],
-  "showSubmit": true,
-  "submitText": "Create Contact",
-  "showCancel": true,
-  "cancelText": "Cancel"
+  "properties": {
+    "objectName": "Contact",
+    "mode": "create",
+    "formType": "tabbed",
+    "title": "New Contact",
+    "layout": "vertical",
+    "columns": 2,
+    "fields": ["firstName", "lastName", "email", "phone", "company"],
+    "sections": [
+      {
+        "label": "Basic Info",
+        "fields": ["firstName", "lastName", "email"]
+      },
+      {
+        "label": "Details",
+        "fields": ["phone", "company", "address"]
+      }
+    ],
+    "showSubmit": true,
+    "submitText": "Create Contact",
+    "showCancel": true,
+    "cancelText": "Cancel"
+  }
 }
 ```
 
@@ -851,8 +855,8 @@ A smart form that auto-generates fields from an ObjectQL object. Supports simple
 | `fields` | `string[]` | Field API names to include (auto-resolved from object metadata). |
 | `customFields` | `FormField[]` | Manually defined fields that override auto-generated ones. |
 | `sections` | `ObjectFormSection[]` | Field sections (simple groups, tabs, or wizard steps depending on `formType`). Spec-aligned key. |
-| `groups` | `array` | **Deprecated.** Legacy alias of `sections` (spec defines `groups` as an alias); normalized into `sections` when `sections` is absent. Legacy shape: `title`→`label`, `defaultCollapsed`→`collapsed`. |
-| `layout` | `string` | Label layout: `"vertical"`, `"horizontal"`, `"inline"`, `"grid"`. |
+| `groups` | `array` | **Deprecated.** Legacy alias of `sections` (spec defines `groups` as an alias); normalized into `sections` when `sections` is absent. Legacy shape: `title`→`label`, `defaultCollapsed`→`collapsed`. Not a member of the spec's `object-form` row, so an authored bag refuses it; write `sections`. |
+| `layout` | `string` | Label layout: `"vertical"`, `"horizontal"`. The spec row retired `"inline"` and `"grid"` (both rendered as `"vertical"`), so an authored bag refuses them; for several columns set `columns`. |
 | `columns` | `number` | Number of form columns. |
 | `submitText` / `cancelText` | `string \| I18nLabel` | Button labels. |
 | `title` / `description` | `string \| I18nLabel` | Heading and subtitle of the drawer and modal presentations. |

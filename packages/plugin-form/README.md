@@ -719,27 +719,31 @@ steps are its `sections` — one step per section. There is no
 unknown-component placeholder and the fields inside `steps` are never read.
 
 ```typescript
-import type { ObjectFormSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const schema: ObjectFormSchema = {
+// The props go in the node's `properties` bag — the members of
+// `@objectstack/spec`'s `ComponentPropsMap['object-form']` row.
+const schema: BaseSchema = {
   type: 'object-form',
-  objectName: 'contacts',        // required
-  mode: 'create',                // required
-  formType: 'wizard',            // routes to WizardForm — needs at least one section
-  sections: [
-    {
-      name: 'personal',
-      label: 'Personal Info',
-      fields: ['first_name', 'last_name']    // field NAMES, resolved from the object schema
-    },
-    {
-      name: 'contact',
-      label: 'Contact Info',
-      fields: ['email', 'phone']
-    }
-  ],
-  allowSkip: false,              // see "Wizard steps and allowSkip" above
-  showStepIndicator: true
+  properties: {
+    objectName: 'contacts',        // the object whose fields the steps list
+    mode: 'create',
+    formType: 'wizard',            // routes to WizardForm — needs at least one section
+    sections: [
+      {
+        name: 'personal',
+        label: 'Personal Info',
+        fields: ['first_name', 'last_name']    // field NAMES, resolved from the object schema
+      },
+      {
+        name: 'contact',
+        label: 'Contact Info',
+        fields: ['email', 'phone']
+      }
+    ],
+    allowSkip: false,              // see "Wizard steps and allowSkip" above
+    showStepIndicator: true
+  }
 };
 ```
 
@@ -951,9 +955,13 @@ registrations.
 
 ### The metadata route — `object-form`
 
-This is the route that actually reads and writes a record. `ObjectFormSchema`
-names its object with **`objectName`** and its intent with **`mode`**, and both
-are **required** (`packages/types/src/objectql.ts`); the adapter arrives on the
+This is the route that actually reads and writes a record. An `object-form`
+node names its object with **`objectName`** and its intent with **`mode`**, both
+in its `properties` bag, whose members are `@objectstack/spec`'s
+`ComponentPropsMap['object-form']` row; `objectui validate` refuses a prop
+written flat on the node by name. `SchemaRenderer` hoists the bag onto the node,
+and `ObjectFormSchema` (`packages/types/src/objectql.ts`) is the node as
+`ObjectForm` then reads it, with both keys required. The adapter arrives on the
 context, which `ObjectFormRenderer` reads at `src/index.tsx` before handing
 `ObjectForm` its `dataSource` prop.
 
@@ -961,19 +969,21 @@ context, which `ObjectFormRenderer` reads at `src/index.tsx` before handing
 import { SchemaRendererProvider, SchemaRenderer } from '@object-ui/react';
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
 import '@object-ui/plugin-form';
-import type { ObjectFormSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
 const dataSource = createObjectStackAdapter({
   baseUrl: 'https://api.example.com',
   token: 'your-auth-token',
 });
 
-const schema: ObjectFormSchema = {
+const schema: BaseSchema = {
   type: 'object-form',
-  objectName: 'users',
-  mode: 'create',
-  fields: ['name', 'email'],
-  submitText: 'Create user',
+  properties: {
+    objectName: 'users',
+    mode: 'create',
+    fields: ['name', 'email'],
+    submitText: 'Create user',
+  },
 };
 
 export const App = () => (

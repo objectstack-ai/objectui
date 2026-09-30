@@ -30,8 +30,10 @@
  *                 parent-linked.
  *   - 删        → `dataSource.delete(child, id)` (RelatedList shows the confirm
  *                 dialog and refreshes afterwards)
- *   - 子对象 action → the child object's `list_item` actions, executed against
- *                 the clicked row through the page's shared ActionRunner
+ *   - 子对象 action → the child object's `list_item` actions, and its
+ *                 `record_related` ones when a parent record is in scope,
+ *                 executed against the clicked row through the page's shared
+ *                 ActionRunner
  *
  * Each affordance is gated by {@link resolveEffectiveCrudAffordances} so system /
  * append-only children never show New / Edit / Delete. When this bridge is
@@ -80,6 +82,7 @@ import {
   type RelatedRowActionDef,
 } from '@object-ui/react';
 import { evalRowPredicate, type ActionDef, type RowCrudPredicates } from '@object-ui/core';
+import { actionRendersAt, type ActionLocation } from '@object-ui/types';
 import { usePermissions } from '@object-ui/permissions';
 import { resolveEffectiveCrudAffordances } from '../utils/crudAffordances.js';
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM, RECORD_TRAIL_PARAM, appendRecordTrail } from '../urlParams.js';
@@ -180,18 +183,38 @@ export interface RelatedRecordActionsBridgeProps {
 }
 
 /**
- * Derive the child object's actions for a related-list location
- * (`list_item` → row menu, `list_toolbar` → header buttons), localized and
- * shaped for the related-list bridge.
+ * The locations a related list places on each ROW, by whether a parent record
+ * is in scope (objectui#11270).
+ *
+ * `list_item` places an action on the child's rows wherever the child is
+ * listed. `record_related` places it on them only inside a parent record's
+ * related-list section: objectstack-ai/objectstack#20937's enforce answer
+ * (triage `5919625056`) read the spec's "actions on a related list section
+ * inside a record" as row placement, and the runtime counts the location among
+ * those that require a record. The child object's own list view reads
+ * `list_item` alone, in `ObjectView`.
+ */
+const ROW_LOCATIONS_IN_RECORD = ['list_item', 'record_related'] as const;
+const ROW_LOCATIONS = ['list_item'] as const;
+const TOOLBAR_LOCATIONS = ['list_toolbar'] as const;
+
+/**
+ * Derive the child object's actions for a related-list surface (the row menu
+ * or the header buttons), localized and shaped for the related-list bridge.
+ *
+ * An action renders on the surface when it declares ANY of the surface's
+ * locations, read through the platform's one placement rule
+ * (`actionRendersAt`), so an action declaring two of them renders once, in the
+ * child object's declared order.
  */
 function deriveActions(
   childDef: any,
   localizeActionTexts: ActionTextLocalizer,
-  location: 'list_item' | 'list_toolbar',
+  locations: readonly ActionLocation[],
 ): RelatedRowActionDef[] {
   const actions = Array.isArray(childDef?.actions) ? childDef.actions : [];
   return actions
-    .filter((a: any) => Array.isArray(a?.locations) && a.locations.includes(location))
+    .filter((a: any) => locations.some((location) => actionRendersAt(a, location)))
     // One bundle entry, one fate (objectui#4265): the row menu's label used to
     // be the ONLY string resolved here, so `runRowAction` below dispatched the
     // child action's `confirmText` / `successMessage` in the authored language
@@ -228,6 +251,8 @@ export function RelatedRecordActionsBridge({
   // dialog stayed in the authored language.
   const localizeActionTexts = useActionTextLocalizer();
   const base = appName ? `/apps/${appName}` : '';
+  /** A parent record is in scope: the related lists below sit inside it. */
+  const hasParentRecord = parentRecordId != null && parentRecordId !== '';
 
   /** Objects this host can route to — the record route exists per object def. */
   const routableObjects = useMemo(
@@ -428,7 +453,15 @@ export function RelatedRecordActionsBridge({
           };
         }
 
-        const rowActions = deriveActions(childDef, localizeActionTexts, 'list_item');
+        // [objectui#11270] `record_related` joins the row menu only when this
+        // bridge is mounted under a parent record — the record page mounts it
+        // with one; a mount without (the "standalone list" these props allow)
+        // places `list_item` alone.
+        const rowActions = deriveActions(
+          childDef,
+          localizeActionTexts,
+          hasParentRecord ? ROW_LOCATIONS_IN_RECORD : ROW_LOCATIONS,
+        );
         if (rowActions.length > 0) {
           handlers.rowActions = rowActions;
           handlers.onRowAction = (action, record) =>
@@ -439,7 +472,7 @@ export function RelatedRecordActionsBridge({
         // header buttons — the related-list equivalent of the object list's
         // toolbar. Executed through the same dispatch as row actions, just
         // without a row record.
-        const toolbarActions = deriveActions(childDef, localizeActionTexts, 'list_toolbar');
+        const toolbarActions = deriveActions(childDef, localizeActionTexts, TOOLBAR_LOCATIONS);
         if (toolbarActions.length > 0) {
           handlers.toolbarActions = toolbarActions;
           handlers.onToolbarAction = (action) =>
@@ -455,7 +488,7 @@ export function RelatedRecordActionsBridge({
     // the #4646 create predicates: a parent record that changes (a save, a
     // status transition) must re-resolve "+ New" for every related list under
     // it, or the toolbar keeps answering for the record's previous state.
-    [objects, base, dataSource, localizeActionTexts, runRowAction, openChildForm, recordHref, openRecord, getObjectApiOperations, can, parentRecord, parentObjectFields, predicateScope],
+    [objects, base, dataSource, localizeActionTexts, runRowAction, openChildForm, recordHref, openRecord, getObjectApiOperations, can, parentRecord, parentObjectFields, predicateScope, hasParentRecord],
   );
 
   return (

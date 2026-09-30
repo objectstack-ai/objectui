@@ -28,10 +28,14 @@
  *   - PLACEMENT is each action's own `locations`, read by `actionRendersAt`
  *     — the platform's one placement rule, and the rule the host bridge
  *     (`RelatedRecordActionsBridge.deriveActions`) already applies to this
- *     list: `list_toolbar` draws a header button, `list_item` a row-menu item.
- *     Naming an action here does not bypass location filtering (only a list
- *     view's selection bar is placed by naming), so an id whose action
- *     declares neither is REFUSED rather than drawn somewhere or dropped.
+ *     list: `list_toolbar` draws a header button; `list_item` and
+ *     `record_related` draw a row-menu item (objectui#11270). This block only
+ *     ever renders inside a parent record, which is the scope `record_related`
+ *     names (objectstack-ai/objectstack#20937, triage `5919625056`: row
+ *     placement, inside a record only). Naming an action here does not bypass
+ *     location filtering (only a list view's selection bar is placed by
+ *     naming), so an id whose action declares none of the three is REFUSED
+ *     rather than drawn somewhere or dropped.
  *   - ORDER is the author's, within each surface.
  */
 
@@ -59,7 +63,7 @@ export type RelatedListActionRefusal =
 export interface PlacedRelatedListActions<T> {
   /** `list_toolbar` actions, in authored order — the list's header buttons. */
   readonly toolbar: T[];
-  /** `list_item` actions, in authored order — each row's menu. */
+  /** `list_item` and `record_related` actions, in authored order — each row's menu. */
   readonly row: T[];
   /** Every authored entry that renders nowhere, and why. */
   readonly refused: RelatedListActionRefusal[];
@@ -135,7 +139,8 @@ export function placeAuthoredRelatedListActions<T extends RegisteredRelatedActio
     seen.add(action.name);
     const placement = { locations: Array.isArray(action.locations) ? action.locations : undefined };
     const onToolbar = actionRendersAt(placement, 'list_toolbar');
-    const onRow = actionRendersAt(placement, 'list_item');
+    const onRow =
+      actionRendersAt(placement, 'list_item') || actionRendersAt(placement, 'record_related');
     if (onToolbar) toolbar.push(action);
     if (onRow) row.push(action);
     if (!onToolbar && !onRow) refused.push({ kind: 'unplaced', id: String(action.name) });
@@ -159,8 +164,9 @@ export function describeRelatedListActionRefusals(
     if (r.kind === 'array') return r.message;
     if (r.kind === 'unplaced') {
       return (
-        `"${r.id}" declares neither list_item (row menu) nor list_toolbar (header) ` +
-        'in its locations, so this list has nowhere to draw it'
+        `"${r.id}" declares none of list_toolbar (header), list_item (row menu) or ` +
+        'record_related (row menu inside a record) in its locations, so this list has ' +
+        'nowhere to draw it'
       );
     }
     return objectKnown

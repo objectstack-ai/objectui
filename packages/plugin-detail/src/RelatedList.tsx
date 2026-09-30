@@ -144,8 +144,9 @@ export interface RelatedListProps {
    */
   onRowClick?: (row: any, event?: any) => void;
   /**
-   * Child-object row actions (`locations: ['list_item']`), already localized
-   * by the host. Rendered in each row's overflow menu alongside Edit/Delete.
+   * Child-object row actions (`locations` `list_item`, or `record_related`
+   * inside a parent record — objectui#11270), already localized by the host.
+   * Rendered in each row's overflow menu alongside Edit/Delete.
    */
   rowActions?: RelatedRowActionDef[];
   /** Execute one of {@link rowActions} against the clicked row. */
@@ -2190,8 +2191,9 @@ export const RelatedList: React.FC<RelatedListProps> = ({
           rowEditPredicates,
           rowDeletePredicates,
           onRowClick,
-          // Child-object row actions (locations:['list_item']) rendered in the
-          // same overflow menu, dispatched with the clicked row as target.
+          // Child-object row actions (`list_item`, or `record_related` inside a
+          // parent record) rendered in the same overflow menu, dispatched with
+          // the clicked row as target.
           rowActionDefs: hasCustomRowActions ? rowActions : undefined,
           onRowActionDef: hasCustomRowActions ? onRowAction : undefined,
         };

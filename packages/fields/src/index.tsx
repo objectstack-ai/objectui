@@ -888,7 +888,11 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   // and `formatPercent`'s own parameter default decides, as it did before.
   // That default is named in objectui#9843's report rather than widened here:
   // the protocol has not said what those types show when nothing is declared.
-  const scale = resolveFieldScale(percentField);
+  //
+  // The two members are handed over BY NAME — the spelling the detail chip and
+  // the edit widget use — so the read of `scale` off this field stays visible
+  // at the call site, where objectui#9784's source pin looks for it.
+  const scale = resolveFieldScale({ type: percentField.type, scale: percentField.scale });
   const numValue = Number(safe);
   if (isNaN(numValue)) {
     return <span className="tabular-nums whitespace-nowrap">{String(safe)}</span>;

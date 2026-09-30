@@ -285,7 +285,7 @@ export function shouldRenderDiagnostics(opts: {
  * the picker (Radix portals its options on open).
  */
 export function viewRefCatalog(
-  rows: ReadonlyArray<Record<string, any>> | null | undefined,
+  rows: ReadonlyArray<Record<string, unknown>> | null | undefined,
   objectName: string,
 ): Array<{ name: string; label?: string }> {
   const seen = new Set<string>();

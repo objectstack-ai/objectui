@@ -3200,14 +3200,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // that declared `userActions: { search: false }` still got a search box
     // here. A stored view that still carries a bare flag is folded onto
     // `userActions` by `normalizeListViewSchema`, the one fold the relay's own
-    // `userActions` rung already runs; this memo names no legacy key. Memoised
-    // for cost only: the schema below keys on the three booleans.
-    const activeViewUserActions = useMemo(
-        () => (normalizeListViewSchema(activeView ?? {}) as {
-            userActions?: { search?: boolean; filter?: boolean; sort?: boolean };
-        }).userActions,
-        [activeView],
-    );
+    // `userActions` rung already runs; this read names no legacy key. Not
+    // memoised: `activeView` is a fresh object on every render while a draft is
+    // open, and the schema below keys on the three booleans, not on this value.
+    const activeViewUserActions = (normalizeListViewSchema(activeView ?? {}) as {
+        userActions?: { search?: boolean; filter?: boolean; sort?: boolean };
+    }).userActions;
     const activeViewSearch = activeViewUserActions?.search !== false;
     const activeViewFilter = activeViewUserActions?.filter !== false;
     const activeViewSort = activeViewUserActions?.sort !== false;

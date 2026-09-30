@@ -5552,7 +5552,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         // record through `loadViewOverrides`, which is where that path gets
         // these keys back. The sort reads this row, not the tab.)
         if (spec && spec.config && typeof spec.config === 'object') {
-          const row: Record<string, any> = {
+          const row: Record<string, unknown> = {
             ...spec.config,
             name: spec.name ?? spec.config.name,
             label: spec.label ?? spec.config.label,

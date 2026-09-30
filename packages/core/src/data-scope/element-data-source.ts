@@ -85,10 +85,22 @@ export interface ElementDataSourceSort {
  *   MongoDB-style record form (`{ status: 'open' }`) by kind, and an ObjectQL
  *   AST tuple array (`[['status', '=', 'open']]`) because each member must be a
  *   rule object.
- * - **What a renderer may still receive** is all three. The convergence
- *   deliberately does not rewrite metadata at rest, so a stored page carrying
- *   the record form or an AST tuple array keeps arriving here, beside the rule
- *   array.
+ * - **What a renderer may still receive** is all three. The D2 conversion that
+ *   migration entry records, `page-component-filter-record-to-rule-array`,
+ *   rewrites a stored `filter` only where the rule array spells it losslessly —
+ *   a flat record, an operator object whose operators the rule vocabulary
+ *   spells, several such keys, or a single-level AST tuple array — on every
+ *   ObjectStack stored-row read and under `os migrate meta --stored`. It leaves
+ *   exactly as stored a filter carrying `$and` / `$or` / `$not`; any filter with
+ *   a part that has no lossless rule spelling (a `null` value, an operator such
+ *   as `$null` / `$exists` or an AST `like`, an array or object comparand in
+ *   equality position, an AST `and` / `or` group); and every filter, the
+ *   binding's included, of a component whose rows are inline
+ *   (`data: { provider: 'value' }`, a `data` array, or `staticData`). And this
+ *   renderer is backend-agnostic: it replays no conversion itself, and only
+ *   ObjectStack's own data-at-rest seams do, so a page that reaches it any other
+ *   way arrives as it was written. Any of the three shapes may therefore still
+ *   arrive here, beside the rule array.
  *
  * `filter` is typed `unknown` rather than the spec's `ViewFilterRule[]` because
  * this interface carries the second population, not the first, and

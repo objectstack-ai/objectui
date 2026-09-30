@@ -38,3 +38,6 @@ spelling moves from a parse-time refusal to a compile-time refusal. This repo ma
 semantics `minor` rather than `major`.
 
 This change affects types only. It changes no runtime code and narrows no mirror.
+
+⚠️ **Dated note, 2026-09-30 — `PageNodeSchema.assignedProfiles` is no longer withheld, retired in this same release — objectui#9409.**
+The sentences above saying `PageNodeSchema.assignedProfiles` is withheld from the spec projection "for forward compatibility", with its hand-written `string[]` member unchanged, no longer hold. Later in this release this repository began resolving `@objectstack/spec` 17.5.0, which retires the key as a `retiredKey()` tombstone, and objectui#9409 dropped both the omission and the `string[]` member: the twin now takes the spec's tombstone by reference, like the app and dashboard tombstones listed above, so authoring a value is a TypeScript error and a parse failure. `PageNodeSchema.slots` is still withheld as described. Everything else above is unchanged.

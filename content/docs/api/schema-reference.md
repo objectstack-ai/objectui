@@ -138,7 +138,7 @@ Top-level page container. Defines a full page with optional regions (header, sid
 | `regions` | `PageRegion[]` | Named layout regions (header, sidebar, footer). |
 | `children` | `SchemaNode \| SchemaNode[]` | Main page content when the page declares no regions — one node, or a list of them. Spelled `body` until objectui#6771 retired that spelling. |
 | `isDefault` | `boolean` | Whether this is the default page for the object. |
-| `assignedProfiles` | `string[]` | Security profiles that can access this page. |
+| `assignedProfiles` | *retired* | ⛔ Refused by name (objectui#9409). `@objectstack/spec` 17.5.0 retired the key: ADR-0090 D2 deleted the Profile concept it was named after, and nothing ever enforced it, so a page that listed profiles stayed open to everyone who could reach it. Both published faces take the spec's tombstone: any value is a TypeScript error and a parse failure at `assignedProfiles`. Delete the key. Page audience comes from permission sets: gate the data the page shows with the object's permission sets, and grant those sets to people through positions. |
 | `aria` | `AriaProps` | ARIA attributes for the page's root element: `ariaLabel` (a plain string, or an inline locale map such as `{ "en": "Orders", "fr": "Commandes" }`, resolved for the display locale) renders `aria-label`, `ariaDescribedBy` renders `aria-describedby`, and `role` renders `role`. This is the spec's inline vocabulary, not the keyed flat `ariaLabel` described under BaseSchema. The page adds no default role. |
 
 **Related:** [AppSchema](/docs/core/app-schema), [DivSchema](#divschema), [GridSchema](#gridschema)

@@ -16,10 +16,12 @@
  * `DASHBOARD_SPEC_EXCLUDED`, `PAGE_SPEC_EXCLUDED`), plus — on the TypeScript
  * face only — the twin member whose hand-written type is not assignable to
  * the spec's (`slots` on the page, ledgered as drift in
- * `zod-mirror-parity.test.ts`), plus the page's `assignedProfiles`, which
- * objectstack `main` retires (a forward-compat omission, objectui#9409). The
- * dashboard's `header` was the second such member until objectui#7759 group A
- * dropped the omission: the twin now inherits the spec's `header` by reference.
+ * `zod-mirror-parity.test.ts`). The dashboard's `header` was a second such
+ * member until objectui#7759 group A dropped the omission: the twin now
+ * inherits the spec's `header` by reference. The page's `assignedProfiles`
+ * was a third, a forward-compat omission, until objectui#9409 retired it:
+ * `@objectstack/spec` 17.5.0 made it a `retiredKey()` tombstone, and both faces
+ * now take that tombstone by reference.
  *
  * ## Why the positive pins are TYPE equalities, not assignments
  *
@@ -115,12 +117,41 @@ describe('spec tombstones surface on the twin as a refusal — the verdict the m
     expect(DashboardMirror.safeParse(dashboard).success).toBe(true);
   });
 
-  it('`Page` carries no tombstone on the installed pin — its admitted keys pass both faces', () => {
-    // ⚠️ Recorded rather than assumed: the spec's `PageSchema` has no
-    // `retiredKey()` member on @objectstack/spec 17.4.0, so the page twin's pin
-    // is the admitted half only.
-    const page: PageNodeSchema = { type: 'page', source: 'pages/home.tsx', requires: ['crm'] };
-    expect(PageMirror.safeParse(page).success).toBe(true);
+  it('Page `assignedProfiles` (objectui#9409): authoring a value is a compile error AND a parse failure AT the key', () => {
+    // The spec's `retiredKey()` tombstone since @objectstack/spec 17.5.0
+    // (ADR-0090 D2 deleted the Profile concept). Both faces take it by
+    // reference, so the twin's member IS the spec's, and it admits no value.
+    const isSpecMember: Equal<PageNodeSchema['assignedProfiles'], Page['assignedProfiles']> = true;
+    const admitsNoValue: Equal<PageNodeSchema['assignedProfiles'], undefined> = true;
+    // The `@ts-expect-error` below only sticks because the key is DECLARED;
+    // undeclared, the index signature would absorb it as `any`.
+    const declared: 'assignedProfiles' extends DeclaredKeys<PageNodeSchema> ? true : false = true;
+    expect([isSpecMember, admitsNoValue, declared]).toEqual([true, true, true]);
+
+    // @ts-expect-error — `assignedProfiles` is the spec's `retiredKey()` tombstone.
+    const page: PageNodeSchema = { type: 'page', assignedProfiles: ['admin'] };
+    const verdict = PageMirror.safeParse(page);
+    expect(verdict.success).toBe(false);
+    // The refusal is this key's, and the only issue: the rest of the document is valid.
+    const issues = verdict.success ? [] : verdict.error.issues;
+    expect(issues.map((i) => ({ code: i.code, path: i.path }))).toEqual([
+      { code: 'invalid_type', path: ['assignedProfiles'] },
+    ]);
+    expect(issues[0]?.message).toContain('assignedProfiles');
+
+    // A tombstone refuses ANY value, an empty list included: the key is gone,
+    // not narrowed.
+    // @ts-expect-error — the same tombstone.
+    const emptyList: PageNodeSchema = { type: 'page', assignedProfiles: [] };
+    const emptyVerdict = PageMirror.safeParse(emptyList);
+    expect(emptyVerdict.success ? [] : emptyVerdict.error.issues.map((i) => i.path)).toEqual([['assignedProfiles']]);
+  });
+
+  it('the Page control: the same document without `assignedProfiles`, and the admitted spec keys, pass both faces', () => {
+    const bare: PageNodeSchema = { type: 'page' };
+    const admitted: PageNodeSchema = { type: 'page', source: 'pages/home.tsx', requires: ['crm'] };
+    expect(PageMirror.safeParse(bare).success).toBe(true);
+    expect(PageMirror.safeParse(admitted).success).toBe(true);
   });
 });
 
@@ -137,17 +168,5 @@ describe('the twin-only omissions keep the twin\'s own member, unwidened', () =>
     // accept set on both faces.
     const headerIsSpec: Equal<DashboardComponentSchema['header'], Dashboard['header']> = true;
     expect(headerIsSpec).toBe(true);
-  });
-
-  it('Page `assignedProfiles` keeps the hand-written `string[]` whatever the spec pin declares', () => {
-    // A FORWARD-COMPAT omission: objectstack `main` retires the key (its input
-    // type becomes `undefined`), and the hand-written member would then stop
-    // compiling in the `extends` clause. Spelling it beside the shared list keeps
-    // the twin compiling against both the installed pin and `main` (the
-    // `Spec Main Shape Gate`). Retiring it is objectui#9409's decision, ⛔ not
-    // this file's, so the member must stay exactly what it was.
-    const assignedProfiles: Equal<PageNodeSchema['assignedProfiles'], string[] | undefined> = true;
-    const declared: 'assignedProfiles' extends DeclaredKeys<PageNodeSchema> ? true : false = true;
-    expect([assignedProfiles, declared]).toEqual([true, true]);
   });
 });

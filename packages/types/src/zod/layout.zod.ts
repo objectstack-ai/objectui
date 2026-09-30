@@ -863,7 +863,16 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
     .optional()
     .describe('Main content — one node or a list of nodes'),
   isDefault: z.boolean().optional().describe('Whether this is the default page'),
-  assignedProfiles: z.array(z.string()).optional().describe('Profiles that can access this page'),
+  // objectui#9409: `assignedProfiles` is RETIRED, and deliberately not declared
+  // here. @objectstack/spec 17.5.0 turned its `PageSchema.assignedProfiles` into
+  // a `retiredKey()` tombstone (ADR-0090 D2 deleted the Profile concept the key
+  // was named after; ADR-0049 enforce-or-remove), and it reaches this node BY
+  // REFERENCE through {@link SpecPageFields}, the way App `version` and
+  // Dashboard `refreshInterval` do. So an authored value is refused at
+  // `assignedProfiles` with the spec's own message, which names the
+  // permission-set route. The `string[]` override this line used to carry
+  // shadowed that tombstone and accepted the key under a description that
+  // called it access control, which nothing ever enforced.
 })
   // ⭐ THE SPEC'S OBJECT-LEVEL CHECK, re-attached (objectui#7715, ruling B1).
   // {@link SpecPageFields} rebuilds a fresh object from the spec's `.shape`, so

@@ -36,8 +36,8 @@
  *   • the settle rows refuse a fix that disables the trigger for good;
  *   • the host-disabled rows refuse the other way to make the channels agree —
  *     dropping the forwarded verdict instead of consuming it — including after
- *     an action settles, which is the row a `disabled={loading}` placed after
- *     the spread would fail;
+ *     an action settles, which is the row an in-flight gate written after the
+ *     spread would fail;
  *   • the no-gate rows refuse an over-correction into "always disabled".
  */
 
@@ -96,27 +96,31 @@ function readTrigger() {
 
 type Channel = 'direct' | 'node';
 
-/** Mounts one menu on one channel, inside the handler and scope providers. */
-function mount(channel: Channel, schema: Record<string, unknown>, api: Handler) {
-  let tree: React.ReactElement;
+/** One menu on one channel, inside the handler and scope providers. */
+function tree(channel: Channel, schema: Record<string, unknown>, api: Handler) {
+  let menu: React.ReactElement;
   if (channel === 'direct') {
     const Renderer = ComponentRegistry.get('action:menu');
     if (!Renderer) throw new Error('action:menu is not registered');
-    tree = <Renderer schema={schema} />;
+    menu = <Renderer schema={schema} />;
   } else {
-    tree = <SchemaRenderer schema={schema as never} />;
+    menu = <SchemaRenderer schema={schema as never} />;
   }
-  return render(
+  return (
     <ActionProvider handlers={{ api }}>
-      <PredicateScopeProvider scope={SCOPE}>{tree}</PredicateScopeProvider>
-    </ActionProvider>,
+      <PredicateScopeProvider scope={SCOPE}>{menu}</PredicateScopeProvider>
+    </ActionProvider>
   );
 }
 
+function mount(channel: Channel, schema: Record<string, unknown>, api: Handler) {
+  return render(tree(channel, schema, api));
+}
+
 /** The in-flight reading, then the settled reading, on one channel. */
-async function inFlightThenSettled(channel: Channel, node: Record<string, unknown> = {}) {
+async function inFlightThenSettled(channel: Channel) {
   const { api, settle } = pendingHandler();
-  mount(channel, menuNode({ autoTrigger: true }, node), api);
+  mount(channel, menuNode({ autoTrigger: true }), api);
   await waitFor(() => expect(api).toHaveBeenCalledTimes(1));
   await waitFor(() => expect(readTrigger().spinning).toBe(true));
   const inFlight = readTrigger();
@@ -162,9 +166,20 @@ describe('action:menu — the trigger keeps its own verdict through SchemaRender
     expect(api).not.toHaveBeenCalled();
   });
 
-  it('a host-disabled menu stays disabled after one of its actions settles', async () => {
-    const { settled } = await inFlightThenSettled('node', { disabled: true });
-    expect(settled).toEqual({ spinning: false, disabled: true });
+  it('a menu the host disables while its action runs stays disabled after the action settles', async () => {
+    // The action starts on an enabled menu, so this row does not lean on
+    // whether `autoTrigger` runs on a menu that is disabled from the start.
+    const { api, settle } = pendingHandler();
+    const view = mount('node', menuNode({ autoTrigger: true }), api);
+    await waitFor(() => expect(readTrigger().spinning).toBe(true));
+    view.rerender(tree('node', menuNode({ autoTrigger: true }, { disabled: true }), api));
+    expect(readTrigger()).toEqual({ spinning: true, disabled: true });
+    await act(async () => {
+      settle();
+    });
+    await waitFor(() => expect(readTrigger().spinning).toBe(false));
+    expect(readTrigger()).toEqual({ spinning: false, disabled: true });
+    expect(api).toHaveBeenCalledTimes(1);
   });
 
   it('an idle menu with no gate is pressable on both channels, and a false node gate does not disable it', () => {

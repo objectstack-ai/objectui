@@ -222,9 +222,8 @@ import {
  * the provenance spelled into its description. The row is passed in already
  * through the import boundary, so this helper never touches a spec binding.
  *
- * The ONE copy: `./objectql.zod.ts`'s two public-block arms (`object-metric`,
- * `object-master-detail-form`) import it rather than restate it
- * (objectui#10872). Internal to this package's zod modules — deliberately NOT
+ * The ONE copy: `./objectql.zod.ts`'s public-block arms import it rather than
+ * restate it (objectui#10872). Internal to this package's zod modules — deliberately NOT
  * re-exported from `index.zod.ts`, like the helpers in `./tombstone.zod.ts`.
  */
 export function propsBag<T extends z.ZodType>(type: string, row: T) {

@@ -232,7 +232,7 @@ function validateComponent(config: unknown) {
 - `FilterBuilderSchema`, `CarouselSchema`, `ChatbotSchema`
 
 ### ObjectQL Public Blocks (3)
-The ADR-0080 public blocks `object-metric`, `object-master-detail-form` and `object-timeline`: each arm's `properties` is the block's `@objectstack/spec` `ComponentPropsMap` row, by reference. `ObjectTimelineBlockSchema` also declares the node's `dataSource` binding, the spec's `ElementDataSourceSchema`. None of the three renderers reads a content channel, so every arm refuses `children` and `body` by name (objectui#9256).
+The ADR-0080 public blocks `object-metric`, `object-master-detail-form` and `object-timeline`: each arm's `properties` is the block's `@objectstack/spec` `ComponentPropsMap` row, by reference. Each arm also declares the node's `dataSource` binding, the spec's `ElementDataSourceSchema`, which all three registrations read through `ElementDataSourceGate`. None of the three renderers reads a content channel, so every arm refuses `children` and `body` by name (objectui#9256).
 - `ObjectMetricBlockSchema`, `ObjectMasterDetailFormBlockSchema`, `ObjectTimelineBlockSchema`
 
 ### AI Components (3)

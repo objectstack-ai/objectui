@@ -3391,6 +3391,16 @@ const OBJECT_METRIC_NEITHER_CHANNEL = neitherContentChannelGuidance(
  * authoring channel for these blocks is the question objectui#10872 left open
  * for the whole family; declaring it later is additive.
  *
+ * ## `dataSource` (the node's binding)
+ *
+ * `ObjectMetricBlock` is `elementDataSourceBlock`-wrapped and reads the node's
+ * `dataSource` through `ElementDataSourceGate`. That key is the spec's
+ * `PageComponentSchema.dataSource`, not a props-row member, so it is declared
+ * as the spec's `ElementDataSourceSchema`, by reference — the construct the
+ * module's other gate-wrapped arms use (objectui#11070). Without it the strict
+ * authoring face refused a spec-valid bound node by name (objectui#10859,
+ * batch 3). `object-master-detail-form` below declares it the same way.
+ *
  * ## The content channels (objectui#9256)
  *
  * The renderer reads NEITHER content channel, so the arm declares `children`
@@ -3402,6 +3412,9 @@ const OBJECT_METRIC_NEITHER_CHANNEL = neitherContentChannelGuidance(
 export const ObjectMetricBlockSchema = BaseSchema.extend({
   type: z.literal('object-metric'),
   properties: propsBag('object-metric', stripImportedDefaults(SpecObjectMetricPropsSchema)),
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER.
   body: retirementTombstone(OBJECT_METRIC_NEITHER_CHANNEL),
@@ -3446,6 +3459,10 @@ const OBJECT_MASTER_DETAIL_FORM_NEITHER_CHANNEL = neitherContentChannelGuidance(
  * SLOT (objectui#6124): refused by name when authored, because JSON has no
  * function value, rather than left to `.passthrough()` to keep an authored
  * value and hand it to a call site.
+ *
+ * `dataSource` is declared as on `ObjectMetricBlockSchema` above:
+ * `MasterDetailFormRenderer` is `elementDataSourceBlock`-wrapped and reads the
+ * node's binding through `ElementDataSourceGate`.
  */
 export const ObjectMasterDetailFormBlockSchema = BaseSchema.extend({
   type: z.literal('object-master-detail-form'),
@@ -3453,6 +3470,9 @@ export const ObjectMasterDetailFormBlockSchema = BaseSchema.extend({
     'object-master-detail-form',
     stripImportedDefaults(SpecObjectMasterDetailFormPropsSchema),
   ),
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
   onSuccess: handlerKeyRefusal('onSuccess', 'runtime-slot', 'Called with the saved parent record after a successful save'),
   onError: handlerKeyRefusal('onError', 'runtime-slot', 'Called after a refused save, for bookkeeping only'),
   onCancel: handlerKeyRefusal('onCancel', 'runtime-slot', 'Cancel button callback'),

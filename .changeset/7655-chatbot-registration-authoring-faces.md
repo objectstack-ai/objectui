@@ -116,3 +116,5 @@ registration reads it, so it leaves `ChatbotSharedKey`, and `ChatbotSchema` decl
 instead as a `?: never` member that the other two faces pick by name, refused by name on
 the zod twins. The "twenty keys" above is kept as the reading of this change; the
 objectui#5605 retirement entry states what the three faces declare now.
+
+**Correction, 2026-09-30 (objectui#6152, round 4).** The "Zod twins" section above says the floating twin leaves `floatingConfig` unmirrored because no `FloatingChatbotConfig` mirror exists. That was true when this change was written, and it no longer is: objectui#6152 round 4 minted that mirror and declared `floatingConfig` on the `chatbot-floating` twin, judged member by member. The same round declared `requestBody` on `ChatbotSchema`'s twin, so all three chatbot twins now share one `requestBody` arm. `displayMode` stays unmirrored on both twins, as this entry says.

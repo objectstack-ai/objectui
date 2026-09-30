@@ -40,8 +40,7 @@
  *      `ExpressionWireSchema` (zod) are the same union, so the two faces cannot
  *      drift apart the way `hidden` did between #4581 and #7455.
  *   3. Reuse by REFERENCE -- the object arm each key's zod union carries IS
- *      `ExpressionWireSchema`, and so are the form's GATE legs (`visibleOn`,
- *      an option's `visibleWhen`). A faithful copy passes every value
+ *      `ExpressionWireSchema`. A faithful copy passes every value
  *      comparison; identity is the only check that distinguishes reuse from
  *      the second envelope type the ruling forbids (the insight
  *      `spec-subschema-parity` already wrote down for spec re-exports).
@@ -54,7 +53,11 @@
  *      as the seat applied it after contract review 5915380177) handles
  *      objectui's own wire in the same round. What this pin protects is the
  *      ONE accepted SHAPE across the platform; a refused VALUE is not a second
- *      shape, and the case below pins exactly that line.
+ *      shape, and the case below pins exactly that line. The form's two GATE
+ *      mirrors whose spec key refuses a blank -- `visibleOn` and an option's
+ *      `visibleWhen` -- carry that same refined wire since objectui#11262
+ *      (ADR-0137 D1, followed where the spec narrowed the key); `BaseSchema`'s
+ *      three objectui-only gates have no spec twin and keep the bare const.
  *   4. Runtime -- the envelope `safeParse`s GREEN in full on all three keys,
  *      with and without `dialect`, beside the string and boolean controls; and
  *      the anti-overshoot guards: `{}` (no `source`), `{ dialect: 'cel' }`,
@@ -209,9 +212,11 @@ describe('one envelope type across the package -- reuse pinned by reference (obj
     expect(envelopeArmOf(key)).toBe(ExpressionWireSchema);
   });
 
-  it('the form GATE legs carry the same object', () => {
-    expect(FormFieldSchema.shape.visibleOn.unwrap()).toBe(ExpressionWireSchema);
-    expect(SelectOptionSchema.shape.visibleWhen.unwrap()).toBe(ExpressionWireSchema);
+  it('the form GATE mirrors carry the triad\u2019s refined wire -- one object, not a third wire (objectui#11262)', () => {
+    const triad = FormFieldSchema.shape.visibleWhen.unwrap();
+    expect(FormFieldSchema.shape.visibleOn.unwrap()).toBe(triad);
+    expect(SelectOptionSchema.shape.visibleWhen.unwrap()).toBe(triad);
+    expect(triad.options).toBe(ExpressionWireSchema.options);
   });
 
   it.each(TRIAD)('FormFieldSchema.shape.%s is the same wire SHAPE -- the same option schemas by reference -- plus a blank check (objectui#8069)', (key) => {
@@ -296,14 +301,62 @@ describe.each(TRIAD)('FormFieldSchema.%s refuses a blank predicate (objectui#806
   });
 });
 
-describe('control -- a blank GATE keeps the plain wire: "no gate", not a refusal (ADR-0137 D4, objectui#3850)', () => {
+/* -- objectui#11262: the two gate MIRRORS whose spec key refuses a blank follow D1 -- */
+
+/**
+ * Each parse, and the path its refusal must land on. The spec declares both
+ * keys `EvaluatedExpressionInputSchema` (the data `SelectOptionSchema`'s
+ * `visibleWhen`; the form view field's `visibleWhen` / deprecated `visibleOn`),
+ * so the spec refuses a blank there at authoring and the mirror, which
+ * overrides the key to keep objectui's wire, now refuses it too.
+ */
+const GATE_MIRRORS = [
+  ['FormFieldSchema.visibleOn', 'visibleOn', (value: unknown) => FormFieldSchema.safeParse({ name: 'amount', visibleOn: value })],
+  [
+    'SelectOptionSchema.visibleWhen',
+    'visibleWhen',
+    (value: unknown) => SelectOptionSchema.safeParse({ label: 'Draft', value: 'draft', visibleWhen: value }),
+  ],
+] as const;
+
+describe.each(GATE_MIRRORS)(
+  '%s refuses a blank predicate, as the spec key it mirrors does (objectui#11262, ADR-0137 D1)',
+  (_label, key, parse) => {
+    it.each(BLANKS)('$label is refused AT THE KEY, with the spec\u2019s own sentence', ({ value }) => {
+      const result = parse(value);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const atKey = result.error.issues.filter((issue) => issue.path.join('.') === key);
+        expect(atKey.map((issue) => issue.message)).toEqual([EVALUATED_EXPRESSION_SOURCE_REQUIRED]);
+      }
+    });
+
+    it('a non-blank string, a CEL envelope and a dialect-less envelope all parse, the value unchanged', () => {
+      for (const value of [PREDICATE, "record.stage == 'won'", CEL_ENVELOPE, DIALECTLESS_ENVELOPE]) {
+        const result = parse(value);
+        expect(result.success).toBe(true);
+        if (result.success) expect((result.data as Record<string, unknown>)[key]).toEqual(value);
+      }
+    });
+
+    it('junk is still refused at the key -- the anti-overshoot guard, unchanged', () => {
+      expect(parse({}).success).toBe(false);
+      expect(parse(42).success).toBe(false);
+    });
+  },
+);
+
+describe('control -- an objectui-only GATE keeps the plain wire: "no gate", not a refusal (ADR-0137 D4, objectui#3850)', () => {
+  // `BaseSchema`'s three gates have no spec twin, so there is no spec refusal
+  // for them to follow (objectui#11262's triage): a blank stays "no gate" plus
+  // the one-time `[blank]` diagnostic, and it parses.
   it.each(KEYS)("BaseSchema.%s: '' and a blank envelope still parse", (key) => {
     expect(Mirror.safeParse({ type: 'test-component', [key]: '' }).success).toBe(true);
     expect(Mirror.safeParse({ type: 'test-component', [key]: { dialect: 'cel', source: ' ' } }).success).toBe(true);
   });
 
-  it("FormFieldSchema.visibleOn (the view-level gate) and an option's visibleWhen still parse a blank", () => {
-    expect(FormFieldSchema.safeParse({ name: 'amount', visibleOn: '' }).success).toBe(true);
-    expect(SelectOptionSchema.safeParse({ label: 'Draft', value: 'draft', visibleWhen: '  ' }).success).toBe(true);
+  it('an ABSENT view-level visibleOn and an option without visibleWhen still parse -- no gate is no gate', () => {
+    expect(FormFieldSchema.safeParse({ name: 'amount' }).success).toBe(true);
+    expect(SelectOptionSchema.safeParse({ label: 'Draft', value: 'draft' }).success).toBe(true);
   });
 });

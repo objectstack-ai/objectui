@@ -47,3 +47,5 @@ behaviour as a node type (`{ "type": "toast", ... }`, an `action:button` node).
 different path with a different signature (`(recordId) => void`), which stays
 authorable on both faces; and `onTabChange`, whose disposition is still open on
 the handler-key parent card and which this change deliberately does not touch.
+
+**Correction, 2026-09-30 (objectui#6152, round 4).** The last paragraph above says the nested `recordNavigation.onNavigate` "stays authorable on both faces". It was never authorable in a JSON document: its value is a required function, and the zod mirror has never declared `recordNavigation`. objectui#6152 round 4 recorded `recordNavigation` as a runtime slot a host sets in code. No published face changed with that, and the refusals this entry describes are unaffected.

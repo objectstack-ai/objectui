@@ -47,9 +47,9 @@
  * `?: never` tombstone on both faces now, the designer control and the
  * `defaultProps` seed in the `chatbot-floating` registration are gone, and the
  * key stays UNMIRRORED on both twins. The runtime pin below still asserts it
- * parses green with any value, as a tripwire for the moment objectui#6152
- * mints an arm; the tombstone's own pins are in
- * `chatbot-display-mode-retired.test.ts`.
+ * parses green with any value, as a tripwire; objectui#6152 round 4 kept the
+ * refusal TypeScript-only under that ruling, so no arm is owed. The
+ * tombstone's own pins are in `chatbot-display-mode-retired.test.ts`.
  *
  * ## The census counts NAMED reads; the floating registration has a second channel
  *
@@ -376,8 +376,9 @@ describe('`ChatbotEnhancedSchema` (zod) validates what the face declares', () =>
   });
 
   it('mirrors `requestBody` under the key the renderer reads, and refuses a non-object', () => {
-    // `ChatbotSchema`'s twin mirrors this under `body`, colliding with the base
-    // children slot; the two new twins do not copy that collision.
+    // `ChatbotSchema`'s twin used to mirror this under `body`, colliding with the
+    // base children slot; objectui#8572 retired that arm, and since objectui#6152
+    // round 4 all three twins share one `requestBody` arm through the pick.
     expect(ChatbotEnhancedZod.shape.requestBody).toBeDefined();
     const result = ChatbotEnhancedZod.safeParse({ ...node, requestBody: 'tenant=acme' });
     expect(result.success).toBe(false);
@@ -395,7 +396,7 @@ describe('`ChatbotEnhancedSchema` (zod) validates what the face declares', () =>
   });
 });
 
-describe('`ChatbotFloatingSchema` (zod) validates what the face declares, and leaves the two shared floating keys unmirrored', () => {
+describe('`ChatbotFloatingSchema` (zod) validates what the face declares, and leaves `displayMode` unmirrored', () => {
   const node = {
     type: 'chatbot-floating',
     messages: [{ id: '1', role: 'user', content: 'hi' }],
@@ -419,7 +420,7 @@ describe('`ChatbotFloatingSchema` (zod) validates what the face declares, and le
     }
   });
 
-  it('TRIPWIRE — `displayMode` stays unmirrored here as on `ChatbotSchema`: any value still parses green (retired by objectui#7654; the `retirementTombstone()` half is owed when objectui#6152 mints an arm)', () => {
+  it('TRIPWIRE — `displayMode` stays unmirrored here as on `ChatbotSchema`: any value still parses green (retired by objectui#7654; the refusal stays TypeScript-only under that ruling, objectui#6152 round 4)', () => {
     // objectui#7654 retired the key (maintainer ruling B, 2026-09-05): a
     // `?: never` tombstone on both TypeScript faces, designer control and seed
     // removed. The RUNTIME face was deliberately left alone — the key has no
@@ -446,11 +447,14 @@ describe('`ChatbotFloatingSchema` (zod) validates what the face declares, and le
     expect(ChatbotFloatingZod.safeParse({ ...node, enableMarkdown: 'anything-at-all' }).success).toBe(false);
   });
 
-  it('`floatingConfig` has no mirror here either — the objectui#6152 axis is not widened into', () => {
-    expect((ChatbotFloatingZod.shape as Record<string, unknown>).floatingConfig).toBeUndefined();
-    // Rides through unvalidated, wrong shape and all — byte for byte the
-    // outcome on `ChatbotSchema`'s twin, which has no arm for it either.
-    expect(ChatbotFloatingZod.safeParse({ ...node, floatingConfig: { panelHeight: '520px' } }).success).toBe(true);
+  it('`floatingConfig` is mirrored here since objectui#6152 round 4, and a wrong member value is refused at its path', () => {
+    // This registration is the one that reads the key; `ChatbotSchema`'s twin,
+    // whose registration never does, still has no arm for it.
+    expect((ChatbotFloatingZod.shape as Record<string, unknown>).floatingConfig).toBeDefined();
+    const wrong = ChatbotFloatingZod.safeParse({ ...node, floatingConfig: { panelHeight: '520px' } });
+    expect(wrong.success).toBe(false);
+    expect(wrong.error?.issues.some((i) => i.path.join('.') === 'floatingConfig.panelHeight')).toBe(true);
+    expect((ChatbotZod.shape as Record<string, unknown>).floatingConfig).toBeUndefined();
   });
 
   it('`onClear` / `onError` / `onSend` are refused by name here too', () => {
@@ -465,7 +469,7 @@ describe('`ChatbotFloatingSchema` (zod) validates what the face declares, and le
 describe('the census is structural: picked off `ChatbotSchema`, never copied', () => {
   const shared: readonly ChatbotSharedKey[] = [
     'messages', 'placeholder', 'api', 'conversationId', 'systemPrompt', 'model', 'streamingEnabled',
-    'headers', 'onError', 'showTimestamp', 'userAvatarUrl', 'userAvatarFallback',
+    'headers', 'requestBody', 'onError', 'showTimestamp', 'userAvatarUrl', 'userAvatarFallback',
     'assistantAvatarUrl', 'assistantAvatarFallback', 'autoResponse', 'autoResponseText',
     'autoResponseDelay', 'onSend',
   ];

@@ -359,12 +359,25 @@ describe('Form Renderers - Display Issue Detection', () => {
     it('should render label element', () => {
       const { container } = renderComponent({
         type: 'label',
-        content: 'Form Label',
+        text: 'Form Label',
       });
 
       const label = container.querySelector('label');
       expect(label).toBeTruthy();
       expect(label?.textContent).toContain('Form Label');
+    });
+
+    it('no longer reads the retired `content` spelling (objectui#6152)', () => {
+      // `content` was the renderer's third read, after `text` and `label`. Both faces of
+      // `@object-ui/types` retire it, so a node carrying only `content` renders no text.
+      const { container } = renderComponent({
+        type: 'label',
+        content: 'Retired Spelling',
+      });
+
+      const label = container.querySelector('label');
+      expect(label).toBeTruthy();
+      expect(label?.textContent ?? '').not.toContain('Retired Spelling');
     });
   });
 

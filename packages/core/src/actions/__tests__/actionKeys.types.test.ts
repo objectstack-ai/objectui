@@ -75,7 +75,9 @@ const CASES: readonly Case[] = [
   { what: 'mode rejects a value the spec enum does not list', rejected: true, code: `{ mode: 'telepathic' }` },
   { what: 'bodyShape rejects a string other than "flat"', rejected: true, code: `{ bodyShape: 'nested-ish' }` },
   { what: 'bodyExtra rejects a non-object', rejected: true, code: `{ bodyExtra: 'extra' }` },
-  { what: 'aria rejects a string', rejected: true, code: `{ aria: 'label' }` },
+  // `aria` is no longer declared (objectui#10929): spec 17.5.0 retired it, so
+  // even the object it used to take is refused, as an excess property.
+  { what: 'aria is retired and undeclared, so even its old object shape is rejected', rejected: true, code: `{ aria: { ariaLabel: 'Approve' } }` },
   { what: 'ai rejects a string', rejected: true, code: `{ ai: 'yes' }` },
   { what: 'visible rejects a number — neither predicate, envelope, nor boolean', rejected: true, code: `{ visible: 42 }` },
 

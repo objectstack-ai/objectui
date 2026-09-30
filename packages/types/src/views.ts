@@ -931,12 +931,23 @@ export interface DetailViewSchema extends BaseSchema {
     emptyText?: string;
   };
   /**
-   * When true, auto-discover related lists from objectSchema reference fields
-   * (lookup, master_detail) when no explicit `related` is provided.
-   * Requires a DataSource with getObjectSchema.
-   * @default false
+   * RETIRED (objectui#6152 round 4, ADR-0049 enforce-or-remove) — declared as
+   * "auto-discover related lists from reference fields", and read by nothing.
+   *
+   * A type-checker census over every package's sources found ZERO reads of this
+   * member (and no untyped read of the name), and the authored census found no
+   * document and no in-code producer writing it. `DetailView` never discovered
+   * related lists from it; the related-list capability is the protocol-governed
+   * `record:related_list` block. A key nothing honours is retired, not mirrored.
+   *
+   * `?: never` rather than deleted: this interface carries `BaseSchema`'s index
+   * signature, so a deleted member would type-check silently, while a tombstone
+   * makes presence a `tsc` error, and the zod twin refuses the key by name.
+   *
+   * @deprecated RETIRED (objectui#6152) — nothing reads it. Author a
+   * `record:related_list` block for a related list.
    */
-  autoDiscoverRelated?: boolean;
+  autoDiscoverRelated?: never;
   /**
    * When true, automatically generate Details/Related/Activity tabs
    * when no explicit `tabs` are configured. Sections go into the Details tab,

@@ -348,7 +348,9 @@ export interface ReportExportConfig {
  *
  * The mirror was missing `joined`, so a spec-valid joined report did not
  * type-check against `ReportComponentSchema.reportType`. Derived rather than restated so
- * a report format the spec adds cannot go missing here.
+ * a report format the spec adds cannot go missing here. (`ReportComponentSchema.reportType`
+ * itself is retired by objectui#6152 round 4 — nothing read it; this alias stays, as the
+ * spec's report-type vocabulary.)
  */
 export type ReportType = z.infer<typeof SpecReportType>;
 
@@ -369,9 +371,23 @@ export interface ReportComponentSchema extends BaseSchema {
   description?: string;
 
   /**
-   * Report type (tabular, summary, matrix)
+   * RETIRED (objectui#6152 round 4, ADR-0049 enforce-or-remove) — declared as the
+   * report's layout type, and read by nothing.
+   *
+   * A type-checker census over every package's sources found ZERO reads of this
+   * member (and no untyped read of the name), and no document authored it. Its one
+   * producer was in code — `specReportToPresentation` in `./spec-report.ts` wrote it
+   * onto the presentation it hands `report-viewer`, which never looked at it — and
+   * that write is removed in the same change. A spec report's own `type` is what
+   * selects a dataset-bound report's layout; this presentation key selected nothing.
+   *
+   * `?: never` rather than deleted: this interface carries `BaseSchema`'s index
+   * signature, so a deleted member would type-check silently, while a tombstone
+   * makes presence a `tsc` error, and the zod twin refuses the key by name.
+   *
+   * @deprecated RETIRED (objectui#6152) — nothing reads it. Delete the key.
    */
-  reportType?: ReportType;
+  reportType?: never;
 
   /**
    * Data source configuration — RETIRED (objectui#6121, maintainer ruling of
@@ -500,13 +516,21 @@ export interface ReportComponentSchema extends BaseSchema {
   }>;
 
   /**
-   * Chart configuration (visual chart editor output)
+   * RETIRED (objectui#6152 round 4, ADR-0049 enforce-or-remove) — declared as
+   * "visual chart editor output", and read and written by nothing.
+   *
+   * A type-checker census over every package's sources found ZERO reads of this
+   * member on a report (the `chartConfig` a dashboard widget carries is a different
+   * key on a different type), no in-code producer, and no document authoring it,
+   * so an authored value configured nothing.
+   *
+   * `?: never` rather than deleted: this interface carries `BaseSchema`'s index
+   * signature, so a deleted member would type-check silently, while a tombstone
+   * makes presence a `tsc` error, and the zod twin refuses the key by name.
+   *
+   * @deprecated RETIRED (objectui#6152) — nothing reads it. Delete the key.
    */
-  chartConfig?: {
-    chartType?: string;
-    xAxisField?: string;
-    yAxisFields?: string[];
-  };
+  chartConfig?: never;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `report` reads NEITHER
    * content channel; see `children` below for the measurement.

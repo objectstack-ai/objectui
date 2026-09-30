@@ -266,7 +266,10 @@ export const DetailViewSchema = BaseSchema.extend({
    * ⚠️ NOT the nested `recordNavigation.onNavigate`, which is a DIFFERENT key
    * at a different path with a different signature — `(recordId) => void`, the
    * prev/next result-set walker. This refusal is about the MEMBER; the nested
-   * one is untouched on both faces and stays authorable where it lives.
+   * one is untouched on both faces. It was never authorable where it lives: its
+   * value is a REQUIRED function, which no JSON document can supply, so
+   * objectui#6152 round 4 filed `recordNavigation` as a runtime slot by name
+   * (`RuntimeOnlyNamedAllowList` in `../__tests__/zod-mirror-parity.test.ts`).
    */
   onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'SPA navigation callback'),
   /**
@@ -282,7 +285,9 @@ export const DetailViewSchema = BaseSchema.extend({
    *
    * ⚠️ `comments` is deliberately NOT declared here, for the reason its twin
    * records: it is not a handler key, declaring it is an accept-set decision of
-   * its own, and this card's rows are the handler keys.
+   * its own, and this card's rows are the handler keys. objectui#6152 round 4
+   * made that decision: `comments` (with `activities` and `history`) is runtime
+   * data a host fetches, filed by name as runtime-only, so it stays unmirrored.
    */
   onAddComment: handlerKeyRefusal('onAddComment', 'runtime-slot', 'New comment callback'),
   showEdit: z.boolean().optional().describe('Show edit button'),
@@ -308,6 +313,16 @@ export const DetailViewSchema = BaseSchema.extend({
     .describe('Groups of sections, each rendered under a collapsible header'),
   highlightFields: z.array(DetailViewHighlightFieldSchema).optional()
     .describe('Key fields shown prominently in a highlight banner below the header'),
+  // objectui#6152 round 4 — declared on the interface and read by NOTHING (a
+  // type-checker census over every package's sources, no untyped read, no authored
+  // document, no in-code producer). Retired on both faces under ADR-0049
+  // enforce-or-remove; a tombstone rather than a deletion because `BaseSchema` is
+  // `.passthrough()`, so a deleted arm would KEEP an authored value in silence.
+  autoDiscoverRelated: retirementTombstone(
+    'RETIRED (objectui#6152, ADR-0049) — nothing ever read `autoDiscoverRelated`: `detail-view` does not '
+    + 'discover related lists from reference fields. Delete the key, and author a `record:related_list` '
+    + 'block for each related list the record page should show.',
+  ),
   /**
    * The DETAIL-VIEW RELATED-LIST REFUSAL (objectui#7997) — `related` retires
    * from `DetailViewSchema` on BOTH faces under ADR-0049 enforce-or-remove

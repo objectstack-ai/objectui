@@ -197,6 +197,21 @@ export const ReportComponentSchema = BaseSchema.extend({
     backgroundColor: z.string().optional().describe('Cell background colour when the rule matches'),
     textColor: z.string().optional().describe('Cell text colour when the rule matches'),
   })).optional().describe('Conditional formatting rules, evaluated per cell; the first matching rule styles it'),
+  // objectui#6152 round 4 — two keys the interface declared and NOTHING read (a
+  // type-checker census over every package's sources, no untyped read, no authored
+  // document). Retired on both faces under ADR-0049 enforce-or-remove; tombstones
+  // rather than deletions because `BaseSchema` is `.passthrough()`, so a deleted arm
+  // would KEEP an authored value in silence. `reportType`'s one in-code producer, the
+  // spec-report converter in `../spec-report.ts`, stops writing it in the same change.
+  reportType: retirementTombstone(
+    'RETIRED (objectui#6152, ADR-0049) — nothing ever read `reportType` off a report: the presentation '
+    + 'renderer draws the same sections whatever it says. Delete the key; a dataset-bound report\'s layout '
+    + 'is the spec report\'s own `type`.',
+  ),
+  chartConfig: retirementTombstone(
+    'RETIRED (objectui#6152, ADR-0049) — nothing ever read `chartConfig` off a report, so an authored '
+    + 'value configured nothing. Delete the key.',
+  ),
   // objectui#9256 (family-D re-measure): the renderer reads NEITHER content channel, so both are
   // refused by name here as on the TypeScript twin, each kept a MEMBER.
   body: retirementTombstone(REPORT_NEITHER_CHANNEL),

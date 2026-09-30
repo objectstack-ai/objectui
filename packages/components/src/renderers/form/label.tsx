@@ -27,7 +27,9 @@ ComponentRegistry.register('label',
         // Apply designer props
         {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
       >
-        {schema.text || schema.label || schema.content}
+        {/* `text`, then `label`. A third spelling, `content`, is retired on both
+            faces of `@object-ui/types` and is no longer read (objectui#6152). */}
+        {schema.text || schema.label}
       </Label>
     );
   },

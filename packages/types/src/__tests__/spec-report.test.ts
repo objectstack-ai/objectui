@@ -79,7 +79,10 @@ describe('SpecReport bridge', () => {
       expect(legacy.fields?.[0].name).toBe('email');
     });
 
-    it('collapses joined report type to tabular for legacy renderer', () => {
+    it('writes no `reportType` — the key is retired and nothing read it (objectui#6152)', () => {
+      // The adapter used to write the spec `type` as `reportType` (collapsing `joined`
+      // to `tabular`). No reader existed, so the key was retired on both faces of
+      // `ReportComponentSchema` and this write was removed with it.
       const report = SpecReport.create({
         name: 'joined_demo',
         label: 'Joined',
@@ -87,10 +90,12 @@ describe('SpecReport bridge', () => {
         blocks: [{ name: 'b1', label: 'Block 1', dataset: 'account_ds', values: ['name'] }],
       } as never);
       const legacy = specReportToPresentation(report);
-      expect(legacy.reportType).toBe('tabular');
+      expect('reportType' in legacy).toBe(false);
+      // Lit control: the same conversion still writes the keys the viewer reads.
+      expect(legacy.title).toBe('Joined');
     });
 
-    it('preserves matrix report type and maps rows to groupBy', () => {
+    it('maps a matrix report\'s rows to groupBy', () => {
       const report = SpecReport.create({
         name: 'matrix_demo',
         label: 'Matrix',
@@ -100,7 +105,7 @@ describe('SpecReport bridge', () => {
         values: ['amount_sum'],
       });
       const legacy = specReportToPresentation(report);
-      expect(legacy.reportType).toBe('matrix');
+      expect('reportType' in legacy).toBe(false);
       expect(legacy.groupBy?.[0].field).toBe('region');
     });
 

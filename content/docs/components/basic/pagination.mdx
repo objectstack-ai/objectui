@@ -9,9 +9,12 @@ The Pagination component allows users to navigate through pages of data.
 
 <SchemaExample id="components-basic-pagination/basic-pagination" />
 
-## With Page Size
+## On a Later Page
 
 <SchemaExample id="components-basic-pagination/with-item-count" />
+
+`pagination` has no page-size or item-count keys: the page state it reads is
+`currentPage` and `totalPages`.
 
 ## Schema
 
@@ -20,8 +23,6 @@ interface PaginationSchema {
   type: 'pagination';
   currentPage: number;            // Current page (1-based)
   totalPages: number;             // Total number of pages
-  pageSize?: number;              // Items per page
-  totalItems?: number;            // Total number of items
   
   // Events
   // RUNTIME SLOT (objectui#6124): a React host supplies it; JSON refuses it

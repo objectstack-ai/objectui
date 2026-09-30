@@ -159,16 +159,27 @@ describe('objectui#8069 — FormPage refuses a faulted visibleWhen at submit', (
     expect(warn.mock.calls.some((c: unknown[]) => String(c[0]).includes('[blank]'))).toBe(true);
   });
 
-  it('control — a blank VIEW-level visibleWhen is a layout gate, not a field rule: it submits', async () => {
-    // The view's section entry is normalized before this page builds its rows,
-    // and a blank view-level predicate does not survive that step — "no gate",
-    // and nothing on this path refuses it.
+  it('control — a blank VIEW-level visibleWhen is a layout gate, not a field rule: it submits, and the blank is said', async () => {
+    // This page carries the view's predicate onto its row verbatim and judges
+    // it at render (`isFieldVisible`, through `evalFieldPredicate`), so a blank
+    // one reads as "no gate" there — the field is drawn and nothing on this
+    // path refuses it — and it is REPORTED there, on the `[blank]` channel,
+    // naming the field (ADR-0137 D4; restated with the diagnostic by
+    // objectui#11262). It does not pass through `sectionFields`.
+    //
+    // On `status`, not `notes`: the stored-blank row above already printed the
+    // one line for `''` under the locator both of a field's `visibleWhen`
+    // slots share on this page ("visibleWhen of field 'notes'"), and the
+    // one-time dedupe is module state for the whole file.
     renderForm(objectWith({}), {
-      sections: [{ label: 'Basics', fields: ['title', 'priority', { field: 'notes', visibleWhen: '' }, 'status'] }],
+      sections: [{ label: 'Basics', fields: ['title', 'priority', 'notes', { field: 'status', visibleWhen: '' }] }],
     });
-    await waitFor(() => expect(screen.getByLabelText('Notes')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText('Status')).toBeInTheDocument());
     await submit();
     await waitFor(() => expect(writes()).toHaveLength(1));
+    expect(
+      warn.mock.calls.some((c: unknown[]) => String(c[0]).includes('[blank]') && String(c[0]).includes("'status'")),
+    ).toBe(true);
   });
 
   it('a faulted requiredWhen is NOT refused on the client — it is the server’s to refuse (D2)', async () => {

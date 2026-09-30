@@ -50,8 +50,9 @@
  *    `{ provider, items }` object as a record source;
  *  - `object-grid`, `object-map`, `object-gantt` (row: `ViewData`) no longer
  *    take a bare array, and grid's and map's normalizing heads are gone;
- *  - `object-tree` publishes no `data` row on any face, so nothing about it
- *    moves and it passes the `'undeclared'` arm.
+ *  - `object-tree` (row: `ViewData`, since ruling batch #136 item 3 Q1-C had
+ *    the protocol gain it) no longer takes a bare array either. It passed the
+ *    `'undeclared'` arm while no published face declared a `data` row for it.
  *
  * The pre-collapse bodies transcribed below stay as the reference for both
  * halves: they are what "unchanged" means, and they are the ⛔ CONTROL that
@@ -126,7 +127,7 @@ const ladderBelowRungOne = (schema: Schema): Cfg => {
  */
 const SITES: { id: string; arm: 'view-data' | 'array' | 'undeclared'; before: (s: Schema) => Cfg }[] = [
   { id: 'ObjectGantt', arm: 'view-data', before: beforeBare },
-  { id: 'ObjectTree', arm: 'undeclared', before: beforeBare },
+  { id: 'ObjectTree', arm: 'view-data', before: beforeBare },
   { id: 'ObjectCalendar', arm: 'array', before: beforeCalendar },
   { id: 'ObjectGrid', arm: 'view-data', before: beforeGrid },
   { id: 'ObjectMap', arm: 'view-data', before: beforeMap },
@@ -220,14 +221,15 @@ describe('resolveRecordSourceConfig — behaviour neutrality on contract-valid i
  *  - `object-grid` — row is `ViewData`, and its own spec description says "the
  *    bare-array shortcut is refused". ⇒ the lift is gone; the array falls
  *    through rung 1.
- *  - `object-map`, `object-gantt` — no `ComponentPropsMap` row; the governing
- *    row is `ObjectMapSchema.data` / `ObjectGanttSchema.data`,
- *    `ViewDataSchema.optional()`. ⇒ same verdict.
+ *  - `object-map`, `object-gantt`, `object-tree` — their `ComponentPropsMap`
+ *    rows (which ruling batch #136 item 3, Q1-C, had the protocol gain) are the
+ *    `ViewData` union too. ⇒ same verdict. Each block's pin derives that from
+ *    the INSTALLED row (`dataArmSpecRow-8348` in each plugin's tests); map and
+ *    gantt were judged through `ObjectMapSchema.data` / `ObjectGanttSchema.data`
+ *    as an interim, and tree passed `'undeclared'` and kept the array.
  *  - `object-calendar` — row IS `z.array(z.unknown())`
  *    ("Pre-fetched records — skips the internal fetch"), so the array is the
  *    DECLARED spelling and rung 1 still returns it verbatim. Unmoved.
- *  - `object-tree` — no published `data` row at all, on any face, so neither
- *    arm of the ruling reaches it and rung 1 keeps its pre-8348 behaviour.
  */
 const ARRAY_SHORTHAND: [string, Schema][] = [
   ['array-shorthand', { objectName: 'Y', data: [1, 2] }],
@@ -238,7 +240,7 @@ const ARRAY_SHORTHAND: [string, Schema][] = [
 
 describe('the bare-array `data` shorthand, judged by the row (objectui#8348)', () => {
   for (const [name, schema] of ARRAY_SHORTHAND) {
-    it(`grid, map and gantt no longer honour it for "${name}"`, () => {
+    it(`grid, map, gantt and tree no longer honour it for "${name}"`, () => {
       for (const site of SITES.filter((s) => s.arm === 'view-data')) {
         expect(after(site, schema), site.id).toEqual(ladderBelowRungOne(schema));
         // The named regression: the lift is gone, not relocated.
@@ -254,14 +256,21 @@ describe('the bare-array `data` shorthand, judged by the row (objectui#8348)', (
       expect(beforeMap(schema)).toEqual({ provider: 'value', items: schema.data });
     });
 
-    it(`calendar and tree still return it verbatim for "${name}"`, () => {
+    it(`calendar still returns it verbatim for "${name}"`, () => {
       for (const site of SITES.filter((s) => s.arm !== 'view-data')) {
         expect(after(site, schema), site.id).toBe(schema.data);
       }
-      // Unmoved against the pre-collapse bodies, which is the objectui#7632
-      // neutrality claim still holding for these two sites.
-      expect(beforeBare(schema)).toBe(schema.data);
+      // Unmoved against the pre-collapse body, which is the objectui#7632
+      // neutrality claim still holding for this site.
       expect(beforeCalendar(schema)).toBe(schema.data);
+    });
+
+    it(`⛔ CONTROL: the tree's pre-8348 body returned it verbatim for "${name}", so the tree's row above is a MOVE`, () => {
+      // `ObjectTree` shares `beforeBare` with `ObjectGantt`; the bare body
+      // took the array as rung 1. Without this leg the tree's inclusion in the
+      // row above would read as a restatement rather than as a change.
+      expect(beforeBare(schema)).toBe(schema.data);
+      expect(SITES.find((s) => s.id === 'ObjectTree')?.arm).toBe('view-data');
     });
   }
 

@@ -161,24 +161,23 @@ const FLAT_MAP_CONFIG_KEYS = (Object.keys(ObjectMapConfigSchema.shape) as (keyof
  * with the row: a renderer honours the `data` spelling its block's PUBLISHED row
  * declares and no other.
  *
- * MEASURED: `@objectstack/spec` 17.4.0 has NO `ComponentPropsMap['object-map']`
- * row, so the published row that governs this block is this repo's own
- * `ObjectMapSchema.data` (`@object-ui/types`), `ViewDataSchema.optional()` —
- * @objectstack/spec's `z.discriminatedUnion('provider', [...])` over OBJECT
- * variants, whose `value` member additionally declares
- * `aliases: { data: 'items', rows: 'items', records: 'items' }`. A bare array
- * is off that row twice over, and this block's registration declares `data` on
- * the same OBJECT arm (`type: 'object'`, objectui#10394), so it says the same.
+ * The row is `ComponentPropsMap['object-map'].data` in the INSTALLED
+ * `@objectstack/spec` — the `ViewData` union over OBJECT variants — which
+ * ruling batch #136 item 3 (Q1-C) had the protocol gain; until it was
+ * installable this block was judged through this repo's own
+ * `ObjectMapSchema.data`, spelled the same. ⛔ Not restated here as a fact
+ * about a version: `ObjectMap.dataArmSpecRow-8348.test.tsx` derives the arm
+ * from the installed row and turns red if a release moves it. A bare array is
+ * off that row, and this block's registration declares `data` on the same
+ * OBJECT arm (`type: 'object'`, objectui#10394), so it says the same.
  *
- * ⛔ WHAT THIS REACHES, measured per CARRIER — do NOT read it as "the array is
- * gone". `SchemaRenderer` spreads every non-metadata node key as a React prop
- * and `index.tsx` forwards `{...props}`, so an authored `data` array also
- * arrives on the props channel, which outranks the schema (objectui#5003
- * order). At the ladder the array is no longer a record source; through
- * `SchemaRenderer` an authored `data: [ …rows… ]` still draws, from that prop.
- * Both halves are pinned in `ObjectMap.schemaDataShorthand.test.tsx`.
- * Collapsing the two carriers would take the host path with it and is outside
- * objectui#8348's scope — reported on the card, not changed in passing.
+ * ⛔ WHAT THIS REACHES, per CARRIER. The authored key used to have a second
+ * carrier: `SchemaRenderer` spread every non-metadata node key as a React prop,
+ * so an authored `data` array also arrived as the `data` prop, which outranks
+ * the schema (objectui#5003 order). objectui#9571 stopped that spread for
+ * object-arm blocks, so through `SchemaRenderer` the array no longer draws
+ * either; a HOST's own `data` prop is untouched. Both halves are pinned in
+ * `ObjectMap.schemaDataShorthand.test.tsx`.
  *
  * The declared spellings for inline rows are
  * `data: { provider: 'value', items: [...] }` and `staticData: [...]`, both

@@ -26,12 +26,17 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
+/** The member of the list schema this file reads. */
+interface ListSchemaProbe {
+  rowActionDefs?: ReadonlyArray<{ name: string }>;
+}
+
 /** The last list schema the page handed `ListView`. */
-let listSchema: any = null;
+let listSchema: ListSchemaProbe | null = null;
 
 vi.mock('@object-ui/plugin-list', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@object-ui/plugin-list')>()),
-  ListView: ({ schema }: { schema: unknown }) => {
+  ListView: ({ schema }: { schema: ListSchemaProbe }) => {
     listSchema = schema;
     return null;
   },
@@ -137,7 +142,7 @@ describe('objectui#11270 — the child object’s own list view does not place `
       </ExpressionProvider>,
     );
     await waitFor(() => expect(listSchema).not.toBeNull());
-    const names = (listSchema.rowActionDefs ?? []).map((a: { name: string }) => a.name);
+    const names = (listSchema!.rowActionDefs ?? []).map((a) => a.name);
     // Control: the relay is alive, and `archive` (both locations) reaches the
     // list through its `list_item` half.
     expect(names).toEqual(['send_reminder', 'archive']);

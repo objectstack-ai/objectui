@@ -71,6 +71,7 @@ import {
 } from '@object-ui/components';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import { useMetadataClient } from '../useMetadata.js';
+import { t, useMetadataLocale } from '../i18n.js';
 // objectui#7265 — this page used to re-describe the introspection row as a
 // module-local `interface RemoteTable { name; schema?; columnCount? }`. It is
 // the SAME wire shape `GET /datasources/:name/remote-tables` returns, and the
@@ -184,6 +185,7 @@ function defaultConfig(driver: DriverEntry | undefined): Record<string, unknown>
 export function DatasourceResourcePage(_props: { type?: string }): React.ReactElement {
   const authFetch = React.useMemo(() => createAuthenticatedFetch(), []);
   const metaClient = useMetadataClient();
+  const locale = useMetadataLocale();
 
   const [rows, setRows] = React.useState<DatasourceRow[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -477,11 +479,14 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
       );
     }
     if (Array.isArray(prop.enum)) {
+      // An unset enum (Turso's optional `mode`, say) shows Studio's own
+      // `engine.form.selectEllipsis`, the word `SchemaForm`'s enum selects
+      // show, in the designer's locale (objectui#11252).
       return (
         <div key={key} className="space-y-1">
           <Label className="text-xs">{label}{required ? ' *' : ''}</Label>
           <Select value={value != null ? String(value) : ''} onValueChange={(v) => setConfigValue(key, v)}>
-            <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder={t('engine.form.selectEllipsis', locale)} /></SelectTrigger>
             <SelectContent>
               {prop.enum.map((opt) => <SelectItem key={String(opt)} value={String(opt)}>{String(opt)}</SelectItem>)}
             </SelectContent>

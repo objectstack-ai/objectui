@@ -1961,6 +1961,34 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     () => JSON.stringify(collectGroupingFieldRefs(schema.grouping)),
     [schema.grouping],
   );
+  // [objectui#10689] The fetch effect's dep on the three view-level PREDICATE
+  // carriers its projection harvests (objectui#3501), as a CONTENT key over the
+  // operand NAMES alone, the shape `groupingProjectionKey` takes above.
+  //
+  // The load effect reads `conditionalFormatting`, `rowActionDefs` and
+  // `bulkActionDefs` through `listViewPredicates` and puts each operand into
+  // `$select`, but none of the three was a dependency. So a rule added to a
+  // mounted grid never had its operand fetched: the rows kept arriving without
+  // the field, and the rule, which reads it, never matched.
+  //
+  // Names ONLY: a rule's style, or an action's label, is a render-time concern
+  // the projection cannot see, so changing it costs no round trip. The same
+  // harvest over the same three inputs as the effect's; the object-level
+  // `actions` / `userActions` it adds come from the definition the effect reads
+  // for itself. The `rowActionDefs` cast is the objectui#5091 NON-AUTHOR
+  // SURFACE exemption stated at the effect's own read of that key.
+  // `__tests__/ObjectGrid.harvestInputsFetchKey-10689.test.tsx` pins each input.
+  const conditionalFormattingRaw = schema.conditionalFormatting as readonly unknown[] | undefined;
+  const rowActionDefsRaw = (schema as { rowActionDefs?: readonly unknown[] }).rowActionDefs;
+  const bulkActionDefsRaw = (schema as { bulkActionDefs?: readonly unknown[] }).bulkActionDefs;
+  const predicateProjectionKey = useMemo(
+    () => JSON.stringify(collectPredicateFieldRefs(listViewPredicates({
+      conditionalFormatting: conditionalFormattingRaw,
+      rowActionDefs: rowActionDefsRaw,
+      bulkActionDefs: bulkActionDefsRaw,
+    }))),
+    [conditionalFormattingRaw, rowActionDefsRaw, bulkActionDefsRaw],
+  );
   // The view's declared filter, lowered ONCE through the repo's single filter
   // sink for both consumers below (the fetch and the server-side export).
   //
@@ -2050,6 +2078,15 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // is the one typed into this grid's box.
   const hostOwnsSearch = externalManualPagination || hostSearch !== undefined;
   const querySearchTerm = hostOwnsSearch ? (hostSearch ?? '') : searchTerm;
+  // [objectui#10689] The `$searchFields` the load effect sends, as a CONTENT
+  // key for its dependency list: the view's `searchableFields`, and only while
+  // a term goes out, since without one the query does not send them. A view
+  // that narrows its search to other fields re-reads once; an equal array in a
+  // new object does not.
+  const searchFieldsKey =
+    querySearchTerm.trim() && schema.searchableFields && schema.searchableFields.length > 0
+      ? JSON.stringify(schema.searchableFields)
+      : '';
 
   // --- Inline data effect (synchronous, no fetch needed) ---
   useEffect(() => {
@@ -2819,7 +2856,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // `groupingNeedsHeaderQuery` (objectui#10881): it flips when the object's
   // types land and show the only grouping key masked, and the flat fetch it
   // withheld must then go out.
-  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaDefaultFilters, schemaSort, headerSort, querySearchTerm, schemaPagination, schemaPageSize, serverPage, fetchWindow, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, invalidationNonce, serverGroupedFetch, groupingNeedsHeaderQuery]);
+  // `predicateProjectionKey` and `searchFieldsKey` (objectui#10689): the
+  // harvested predicate operands and the `$searchFields` this query sends, each
+  // a string compared by value — see their declarations above.
+  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaDefaultFilters, schemaSort, headerSort, querySearchTerm, schemaPagination, schemaPageSize, serverPage, fetchWindow, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, predicateProjectionKey, searchFieldsKey, invalidationNonce, serverGroupedFetch, groupingNeedsHeaderQuery]);
 
   // The same reset, for the path the loader above never runs on (objectui#4501
   // clause 2). "All N matching are selected" is a claim about ONE query, so it

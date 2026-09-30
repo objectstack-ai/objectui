@@ -115,3 +115,49 @@ describe('RelatedList list_toolbar button — a faulting `visible` hides (object
     }
   });
 });
+
+/**
+ * objectui#11244 — whether a `visible` gate is DECLARED is asked with
+ * `hasDeclaredVisibilityGate`, as the rest of the action family asks it
+ * (objectui#3812), never by truthiness. A literal `visible: false` — the most
+ * explicit way an author can say "never show this" — is falsy, so a truthiness
+ * test read it as "no gate" and the button rendered for everyone. A blank
+ * predicate is still no gate (the action shows), and a CEL string is evaluated.
+ * The fail-closed leg on a FAULT is the objectui#11212 block above, unchanged.
+ */
+describe('RelatedList list_toolbar button — a declared `visible` is asked by declaredness, not truthiness (objectui#11244)', () => {
+  it('hides a toolbar action authored `visible: false` (DETECTOR)', () => {
+    renderButton({ name: 'archive_11244', label: 'Archive', visible: false });
+    renderButton({ name: 'export', label: 'Export' });
+    expect(screen.getByTestId('related-toolbar-action-export')).toBeInTheDocument();
+    expect(screen.queryByTestId('related-toolbar-action-archive_11244')).toBeNull();
+  });
+
+  it('shows a toolbar action authored `visible: true`', () => {
+    renderButton({ name: 'archive_11244', label: 'Archive', visible: true });
+    expect(screen.getByTestId('related-toolbar-action-archive_11244')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['an empty string', ''],
+    ['a whitespace-only string', '   '],
+  ])('reads a blank `visible` (%s) as no gate, so the action shows', (_label, blank) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      renderButton({ name: 'archive_11244', label: 'Archive', visible: blank });
+      expect(screen.getByTestId('related-toolbar-action-archive_11244')).toBeInTheDocument();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('evaluates a CEL string `visible` that answers true: the action shows', () => {
+    renderButton({ name: 'archive_11244', label: 'Archive', visible: '1 == 1' });
+    expect(screen.getByTestId('related-toolbar-action-archive_11244')).toBeInTheDocument();
+  });
+
+  it('evaluates a CEL string `visible` that answers false: the action hides', () => {
+    renderButton({ name: 'archive_11244', label: 'Archive', visible: '1 == 2' });
+    expect(screen.queryByTestId('related-toolbar-action-archive_11244')).toBeNull();
+  });
+});

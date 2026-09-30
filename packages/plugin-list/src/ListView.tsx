@@ -2254,6 +2254,37 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     !Array.isArray(schema.data) && (schema.data as any)?.provider !== 'value' && !ganttOwnsData;
   const invalidationNonce = useDataInvalidation(listFetchesForItself ? schema.objectName || undefined : undefined);
 
+  // objectui#10689 — the fetch effect's dep on the three view-level PREDICATE
+  // carriers its projection harvests (objectui#3501), as a CONTENT key over the
+  // operand NAMES alone: the shape `plugin-grid`'s `predicateProjectionKey`
+  // takes for the grid's own load effect.
+  //
+  // The effect below reads `conditionalFormatting`, `rowActionDefs` and
+  // `bulkActionDefs` through `listViewPredicates` and adds each operand to
+  // `$select`, but none of the three was a dependency. So a rule added to a
+  // mounted list never had its operand fetched: the rows kept arriving without
+  // the field, and the rule, which reads it, never matched.
+  //
+  // Names ONLY: a rule's style, or an action's label, is a render-time concern
+  // the projection cannot see, so changing it costs no round trip. The same
+  // harvest over the same three inputs as the effect's; the object-level
+  // `actions` / `userActions` it adds come from `objectDef`, not from the view,
+  // and are outside this key. The `rowActionDefs` cast is
+  // the NON-AUTHOR SURFACE exemption stated at the effect's own read of that
+  // key. `__tests__/ListView.harvestInputsFetchKey-10689.test.tsx` pins each
+  // input.
+  const conditionalFormattingRaw = schema.conditionalFormatting as readonly unknown[] | undefined;
+  const rowActionDefsRaw = (schema as { rowActionDefs?: readonly unknown[] }).rowActionDefs;
+  const bulkActionDefsRaw = (schema as { bulkActionDefs?: readonly unknown[] }).bulkActionDefs;
+  const predicateProjectionKey = React.useMemo(
+    () => JSON.stringify(collectPredicateFieldRefs(listViewPredicates({
+      conditionalFormatting: conditionalFormattingRaw,
+      rowActionDefs: rowActionDefsRaw,
+      bulkActionDefs: bulkActionDefsRaw,
+    }))),
+    [conditionalFormattingRaw, rowActionDefsRaw, bulkActionDefsRaw],
+  );
+
   // Fetch data effect — supports schema.data (ViewDataSchema) provider modes
   React.useEffect(() => {
     let isMounted = true;
@@ -2843,13 +2874,16 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     // down. It reads `currentView`, so leaving a refused grouped grid for a
     // board re-runs this effect once, and that run is the board's fetch.
     //
+    // objectui#10689 — `predicateProjectionKey` is the harvested predicate
+    // operands, a string compared by value; see its declaration above.
+    //
     // ⚠️ The directive below governs the NEXT LINE. Anything written between it
     // and the dependency array detaches it from the array and turns it into an
     // unused directive — which `eslint .` reports as an ERROR, and which also
     // silently un-suppresses nothing, because the finding it was suppressing
     // simply moves elsewhere. Add prose ABOVE this point, never below it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, schema.data, dataSource, authoredFilter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, ganttOwnsData, invalidationNonce, groupingNeedsHeaderQuery]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
+  }, [schema.objectName, schema.data, dataSource, authoredFilter, effectivePageSize, currentSort, appliedFilters, appliedUserFilterConditions, refreshKey, searchTerm, schema.searchableFields, schema.columns, (schema as any).kanban, (schema as any).calendar, (schema as any).gallery, (schema as any).timeline, (schema as any).gantt, schema.map, (schema as any).options, objectDef?.fields, objectDefLoaded, schema.refreshTrigger, perms, fetchSkip, groupingConfig, predicateProjectionKey, ganttOwnsData, invalidationNonce, groupingNeedsHeaderQuery]); // Re-fetch on filter/sort/search/refreshTrigger/perms/window change
 
   // Any change to the result-defining inputs (object, filters, sort, search,
   // grouping, page size) invalidates the current page number — snap back to

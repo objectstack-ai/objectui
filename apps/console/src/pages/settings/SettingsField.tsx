@@ -28,6 +28,7 @@ import {
   Badge,
   Button,
 } from '@object-ui/components';
+import { useObjectTranslation } from '@object-ui/i18n';
 import { ChevronRight, Info } from 'lucide-react';
 import { getIcon } from '../../utils/getIcon';
 import { EnvLockBadge } from './EnvLockBadge';
@@ -225,6 +226,7 @@ function DomainCombobox({
 export function SettingsField(props: SettingsFieldProps) {
   const { spec, resolved, value, onChange, onAction, locked, saving, labels, error } = props;
   const id = useId();
+  const { t } = useObjectTranslation();
   const disabled = Boolean(locked || saving);
   const literalLabel = resolveLabel(spec.label);
   // Field-scoped label/help/placeholder/option resolution. Falls back to the
@@ -452,7 +454,10 @@ export function SettingsField(props: SettingsFieldProps) {
           disabled={disabled}
         >
           <SelectTrigger id={id}>
-            <SelectValue placeholder="Select…" />
+            {/* No value yet ⇒ the locale's `common.select`, with its en word as
+                the inline default so a provider-less mount never shows the
+                raw key (objectui#11252). */}
+            <SelectValue placeholder={t('common.select', { defaultValue: 'Select…' })} />
           </SelectTrigger>
           <SelectContent>
             {spec.options?.map((opt) => (

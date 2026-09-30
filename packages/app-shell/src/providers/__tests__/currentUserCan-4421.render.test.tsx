@@ -102,13 +102,16 @@ function BuiltinVerdict() {
 }
 
 function withState(state: State, surface: React.ReactNode) {
-  const tree = h(
-    ExpressionProvider,
-    { user: USER },
-    h(ActionProvider, null, surface, h(BuiltinVerdict)),
+  const tree = (
+    <ExpressionProvider user={USER}>
+      <ActionProvider>
+        {surface}
+        <BuiltinVerdict />
+      </ActionProvider>
+    </ExpressionProvider>
   );
   if (state === 'not-loaded') return tree;
-  return h(MePermissionsProvider, { initialPermissions: payload(state === 'granted') }, tree);
+  return <MePermissionsProvider initialPermissions={payload(state === 'granted')}>{tree}</MePermissionsProvider>;
 }
 
 function registered(type: string): React.ComponentType<any> {

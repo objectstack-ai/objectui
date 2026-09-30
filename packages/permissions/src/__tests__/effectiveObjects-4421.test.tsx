@@ -53,7 +53,7 @@ describe('objectui#4421 — effectiveObjects', () => {
         <Probe />
       </MePermissionsProvider>,
     );
-    expect(screen.getByTestId('loaded')).toHaveTextContent('true');
+    expect(screen.getByTestId('loaded').textContent).toBe('true');
     expect(seen.at(-1)?.effectiveObjects).toBe(payload.objects);
   });
 

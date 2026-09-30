@@ -973,7 +973,12 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // objectui#7373 — the header's Home button walks back to the DECLARED
   // landing; the environment launcher only where nothing is declared.
   const shellHomePath = useHomePath();
-  const [packageApp, setPackageApp] = React.useState<{ name: string; label: string } | null>(null);
+  // objectui#11181 — `label` is the app's own `I18nLabel` (a plain string or an
+  // inline locale map), held as the spec types it and never `String()`ed: a map
+  // would read `[object Object]`. Only the presence of `packageApp` is read
+  // today; a reader of `label` resolves it in the designer locale at render,
+  // through `navItemLabelText`, as the Interfaces rail heading does.
+  const [packageApp, setPackageApp] = React.useState<{ name: string; label: I18nLabel } | null>(null);
   // Create app (package has no app yet): create a draft `app` item — the
   // published front-end's on-ramp. The button flips to Open app after the
   // package publish.
@@ -1039,12 +1044,12 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
     try {
       const apps = (await shellClient.list('app', { packageId })) as Array<Record<string, unknown>>;
       let first = (apps || [])
-        .map((a) => ({ name: String(a.name ?? ''), label: String(a.label ?? a.name ?? '') }))
+        .map((a) => ({ name: String(a.name ?? ''), label: (a.label ?? a.name ?? '') as I18nLabel }))
         .filter((a) => a.name)[0];
       if (!first) {
         const drafts = await shellClient.listDrafts?.({ packageId, type: 'app' });
-        const d = drafts?.[0] as { name?: unknown; label?: unknown } | undefined;
-        if (d?.name) first = { name: String(d.name), label: String(d.label ?? d.name) };
+        const d = drafts?.[0] as { name?: unknown; label?: I18nLabel } | undefined;
+        if (d?.name) first = { name: String(d.name), label: d.label ?? String(d.name) };
       }
       setPackageApp(first ?? null);
     } catch {
@@ -1627,7 +1632,12 @@ export function InterfacesPillar({
   const isMobile = useIsMobile();
   const [railOpen, setRailOpen] = React.useState(false);
 
-  const [appLabel, setAppLabel] = React.useState<string>(packageId);
+  // objectui#11181 — the app's own `label`, held as the spec types it
+  // (`I18nLabel`: a plain string or an inline locale map) and resolved at render
+  // in the designer locale, so the rail heading follows a designer-language
+  // switch as the nav rows do. ⛔ Never `String()` it: a map reads
+  // `[object Object]`.
+  const [appLabel, setAppLabel] = React.useState<I18nLabel>(packageId);
   const [appName, setAppName] = React.useState<string | null>(null);
   const [appDraft, setAppDraft] = React.useState<Record<string, unknown>>({});
   // objectui#11167 — the app document as the server holds it, as far as this
@@ -1889,8 +1899,8 @@ export function InterfacesPillar({
         const published = (await client.list('app', { packageId })) as Array<Record<string, unknown>>;
         if (cancelled) return;
         let name = published?.[0]?.name ? String(published[0].name) : null;
-        let label = published?.[0]
-          ? String(published[0].label ?? published[0].name ?? packageId)
+        let label: I18nLabel = published?.[0]
+          ? ((published[0].label ?? published[0].name ?? packageId) as I18nLabel)
           : packageId;
         if (!name) {
           const drafts = await client.listDrafts({ packageId, type: 'app' });
@@ -1919,9 +1929,10 @@ export function InterfacesPillar({
         // over the published layer (objectui#10765; the rule is stated once
         // at `ResourceEditPage`'s load effect). Baseline only when no draft.
         const body = appDraftBody ?? eff;
-        if (typeof body.label === 'string' || typeof body.name === 'string') {
-          setAppLabel(String(body.label ?? body.name ?? label));
-        }
+        // The body's own label, else its name; a body with neither keeps the
+        // list row's. A locale map is taken as it is, not stringified.
+        const bodyLabel = (body.label ?? body.name) as I18nLabel | undefined;
+        if (bodyLabel != null) setAppLabel(bodyLabel);
         // objectui#11189 — a re-read of the same package (a save's
         // draft-saved signal, a publish, a copilot pulse) does not install
         // the served draft over a buffer holding an unsent nav edit, taken
@@ -2604,7 +2615,7 @@ export function InterfacesPillar({
         >
           <div className="shrink-0 border-b px-2 py-1.5">
             <div className="flex items-center justify-between gap-1">
-              <p className="truncate text-[11px] font-medium text-muted-foreground">{tFormat('engine.studio.if.navHeading', locale, { app: appLabel })}</p>
+              <p className="truncate text-[11px] font-medium text-muted-foreground">{tFormat('engine.studio.if.navHeading', locale, { app: navItemLabelText(appLabel, locale) })}</p>
               {appStatus === 'ready' && !readOnly && (
                 <button
                   type="button"

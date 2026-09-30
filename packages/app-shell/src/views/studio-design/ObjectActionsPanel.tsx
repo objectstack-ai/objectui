@@ -26,11 +26,14 @@ import React from 'react';
 import { Ban, Zap, Plus, Trash2 } from 'lucide-react';
 import { getIcon } from '../../utils/getIcon.js';
 import { getMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
+import type { I18nLabel } from '@objectstack/spec/ui';
 import { t, useMetadataLocale } from '../metadata-admin/i18n.js';
+import { navItemLabelText } from '../metadata-admin/previews/navItemLabel.js';
 
 interface ActionItem {
   name?: string;
-  label?: unknown;
+  /** `ActionSchema.label`: an `I18nLabel`, a plain string or an inline locale map. */
+  label?: I18nLabel;
   icon?: unknown;
   type?: unknown;
   [key: string]: unknown;
@@ -51,18 +54,16 @@ function nextActionName(objectName: string, existing: string[]): string {
   return name;
 }
 
-/** An I18nLabel may be a string OR a localized object — never render it raw. */
-function labelText(label: unknown, fallback: string): string {
-  if (typeof label === 'string') return label;
-  if (label && typeof label === 'object') {
-    const o = label as Record<string, unknown>;
-    for (const k of ['default', 'en-US', 'en', 'zh-CN']) {
-      if (typeof o[k] === 'string') return o[k] as string;
-    }
-    const first = Object.values(o).find((v) => typeof v === 'string');
-    if (typeof first === 'string') return first;
-  }
-  return fallback;
+/**
+ * An action's `label` in the designer `locale`, or `fallback` (the action's
+ * name) when it has none. A plain string is shown as authored. A locale map is
+ * read through `navItemLabelText`, the helper the Studio's other `I18nLabel`
+ * readers share, so the entry chosen is the spec's `resolveI18nLabel` choice
+ * for this locale (objectui#11181). ⛔ Never keep a second copy of that key
+ * order here, and never render a map raw.
+ */
+function labelText(label: I18nLabel | undefined, fallback: string, locale: string): string {
+  return label == null ? fallback : navItemLabelText(label, locale);
 }
 
 export function ObjectActionsPanel({
@@ -221,7 +222,7 @@ export function ObjectActionsPanel({
                   }
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate font-medium">{labelText(a.label, String(a.name ?? ''))}</span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{labelText(a.label, String(a.name ?? ''), locale)}</span>
                   {type && (
                     <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                       {type}
@@ -280,7 +281,7 @@ export function ObjectActionsPanel({
           <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-[12px] text-muted-foreground">
             <Ban className="h-5 w-5" />
             <span className="font-medium text-foreground">
-              {labelText(sel.label, String(sel.name ?? ''))}
+              {labelText(sel.label, String(sel.name ?? ''), locale)}
             </span>
             <span>{t('engine.studio.actions.editorMissing', locale)}</span>
           </div>

@@ -127,8 +127,8 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // ⛔ NOT `{} as any` (objectui#8649). A destructuring default's type joins
   // the annotated property type at the binding, so `any` here ERASED
   // `RecordDetailsRendererProps` for every read site in this file: declared
-  // keys (`hideFields`, `sections`, `columns`, …) and undeclared ones
-  // (`enforceFieldSecurity`, …) all read `any`, indistinguishably. That is what
+  // keys (`hideFields`, `sections`, `columns`, …) and ones the mirror did not
+  // declare then (`enforceFieldSecurity`, …) all read `any`, indistinguishably. That is what
   // made objectui#8327's checker census unable to classify eleven of this
   // card's twelve reads, and it is a LOCAL type defect — the exported
   // annotation above was always correct, so repairing it moves no published
@@ -199,8 +199,12 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
     );
   }
 
-  const required: string[] = Array.isArray((schema as any).requiredPermissions)
-    ? (schema as any).requiredPermissions
+  // Read UN-CAST (objectui#8649): the mirror declares the field-security
+  // triple since `@objectstack/spec` 17.5.0 declared it on this block, so this
+  // read and the `enforceFieldSecurity` / `redactFields` reads below carry the
+  // declared types. Output-identical to the cast they replace.
+  const required: string[] = Array.isArray(schema.requiredPermissions)
+    ? schema.requiredPermissions
     : [];
   /**
    * Block-level ADR-0066 CAPABILITY gate, read fail-closed (objectui#10155 —
@@ -210,7 +214,11 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
    * the one meaning the word carries on `action`, `app`, `field` and
    * `bulkAction` — so it is read through the permission context's capability
    * path (`hasCapabilities` over the reported `systemPermissions`). An unheld
-   * or unrecognised capability hides the whole block.
+   * or unrecognised capability withholds the block's content, and an
+   * insufficient-permissions notice (`role="status"`) renders in its place:
+   * the block is not hidden. That is what the contract's describe on
+   * `RecordDetailsProps.requiredPermissions` says ("an insufficient-permissions
+   * notice takes its place").
    *
    * ⛔ NOT `perms.can(objectName, name)`. That call's second argument is the
    * closed object-action enum, and the stock `/me/permissions` provider maps
@@ -243,9 +251,9 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
     );
   }
 
-  const enforceFLS = (schema as any).enforceFieldSecurity === true;
-  const redact: string[] = Array.isArray((schema as any).redactFields)
-    ? (schema as any).redactFields
+  const enforceFLS = schema.enforceFieldSecurity === true;
+  const redact: string[] = Array.isArray(schema.redactFields)
+    ? schema.redactFields
     : [];
   const filterList = (list: any[] | undefined): any[] | undefined => {
     if (!list) return list;

@@ -98,8 +98,22 @@ export interface NavigationEntryItem {
   /** Navigation item type — any spec nav type except `'separator'`. */
   type: Exclude<NavigationItemType, 'separator'>;
 
-  /** Display label (plain string per @objectstack/spec v4 protocol) */
-  label: string;
+  /**
+   * Display label (plain string per @objectstack/spec v4 protocol).
+   *
+   * OPTIONAL since `@objectstack/spec` 17.5.0 (the cloud#2021 / objectui#9868
+   * letter-A ruling), with the spec's declared semantic: **absent** ⇒ the entry
+   * inherits, at RENDER time, the current label of what it opens — the view's
+   * label when it names a labelled view, else the object's / dashboard's label,
+   * else the target's machine name (`resolveNavItemLabel` in
+   * `@object-ui/layout`); **present** ⇒ rendered verbatim. Nothing is stored for
+   * the absent case, so a renamed target shows its new name on the next render.
+   *
+   * ⛔ Do not write `''` for "no label": an empty string is PRESENT, so it would
+   * render empty text instead of inheriting — omit the key. `objectui validate`
+   * refuses an empty label for that reason.
+   */
+  label?: string;
 
   /** Icon name (Lucide) */
   icon?: string;
@@ -349,8 +363,11 @@ export type NavigationSeparatorItem = Pick<NavigationEntryItem, 'id' | 'order'> 
  *
  * A union of two arms, discriminated by `type`: a {@link NavigationEntryItem}
  * (every spec nav type but `'separator'`) and a {@link NavigationSeparatorItem}
- * (objectui#10867). Narrow on `item.type === 'separator'` before relying on an
- * entry's `label`.
+ * (objectui#10867). A separator has no `label`, and since objectui#9868 an
+ * entry's `label` may be absent too (inherited from its target at render time —
+ * see {@link NavigationEntryItem.label}), so display text comes from
+ * `resolveNavItemLabel` in `@object-ui/layout`, never from a raw `item.label`
+ * read.
  */
 export type NavigationItem = NavigationEntryItem | NavigationSeparatorItem;
 
@@ -758,6 +775,9 @@ export interface AppMenuItem {
  * - `hidden` → `visible` (inverted)
  * - `path` → `pageName` (last segment) or kept as-is for url
  * - `href` → `url` with `target: '_blank'`
+ * - a missing (or empty) `label` stays ABSENT rather than becoming `''`
+ *   (objectui#9868): absent is the spec's "inherit at render time", while `''`
+ *   is a present label that renders empty text and fails `objectui validate`
  */
 export function menuItemToNavigationItem(
   item: AppMenuItem,
@@ -775,7 +795,7 @@ export function menuItemToNavigationItem(
     return {
       id,
       type: 'group',
-      label: item.label || '',
+      ...(item.label ? { label: item.label } : {}),
       icon: item.icon,
       children: (item.children || []).map((child, i) =>
         menuItemToNavigationItem(child, index * 100 + i),
@@ -791,7 +811,7 @@ export function menuItemToNavigationItem(
     return {
       id,
       type: 'url',
-      label: item.label || '',
+      ...(item.label ? { label: item.label } : {}),
       icon: item.icon,
       url: item.href,
       target: '_blank',
@@ -804,7 +824,7 @@ export function menuItemToNavigationItem(
   return {
     id,
     type: 'page',
-    label: item.label || '',
+    ...(item.label ? { label: item.label } : {}),
     icon: item.icon,
     pageName: item.path || '',
     visible: item.hidden !== undefined ? !item.hidden : undefined,

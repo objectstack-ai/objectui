@@ -103,6 +103,34 @@ export type PermissionChecker = (permissions: string[]) => boolean;
  */
 export type CapabilityChecker = (kind: 'object' | 'service', name: string) => boolean;
 
+/**
+ * What an UNLABELLED navigation entry inherits its text from (objectui#9868).
+ *
+ * `@objectstack/spec` 17.5.0 made a nav entry's `label` optional with a
+ * declared semantic: absent ⇒ the entry shows, at RENDER time, the CURRENT label
+ * of what it opens — the view's label when it names a view and that view is
+ * labelled, else the object's / dashboard's label. These are the three targets
+ * that sentence names; `resolveNavItemLabel` walks them in that order and asks a
+ * {@link NavTargetLabelResolver} about each one.
+ */
+export type NavLabelTarget =
+  | { kind: 'view'; objectName: string; viewName: string }
+  | { kind: 'object'; objectName: string }
+  | { kind: 'dashboard'; dashboardName: string };
+
+/**
+ * Answers the CURRENT display label of a nav target from the host's metadata —
+ * the object schema's `label`, the named view's `label`, the dashboard's
+ * `label` — or `undefined` when the target carries none (or is not loaded).
+ *
+ * This layer holds no metadata, so the host supplies it: the console shell
+ * reads the metadata cache it already loads (`useNavTargetLabel` in
+ * `@object-ui/app-shell`). Because it is asked on every render and nothing is
+ * stored, a renamed target shows its new name on the next render. Without it,
+ * an unlabelled entry falls through to its target's machine name.
+ */
+export type NavTargetLabelResolver = (target: NavLabelTarget) => string | undefined;
+
 export interface NavigationRendererProps {
   /** Navigation items to render */
   items: NavigationItem[];
@@ -196,6 +224,16 @@ export interface NavigationRendererProps {
    * as two `商机` rows where one is the list and the other is a Kanban view).
    */
   resolveViewLabel?: (objectName: string, viewName: string, fallbackLabel: string) => string;
+
+  /**
+   * Resolver for the text an entry with NO `label` inherits (objectui#9868):
+   * the current label of its view / object / dashboard, read from the host's
+   * metadata at render time. Consulted ONLY for an absent `label` — an authored
+   * label is never replaced by the target's metadata label, not even one
+   * spelled like the target's machine name (the ruling refused that sentinel).
+   * See {@link NavTargetLabelResolver} and {@link resolveNavItemLabel}.
+   */
+  resolveTargetLabel?: NavTargetLabelResolver;
 
   // RETIRED (`9c60144b5`): `resolveGroupLabel` / `resolveItemLabel`, the two
   // id-keyed label resolvers. They were unreachable by construction — see the
@@ -300,6 +338,13 @@ export function resolveLabel(
  * under two names on two surfaces of one app, which is exactly the drift the
  * "single source of truth" note on `resolveHref` exists to prevent. Nothing
  * about the behaviour changed with the keyword.
+ *
+ * ABSENT `label` (objectui#9868 — `@objectstack/spec` 17.5.0 made it optional,
+ * cloud#2021 letter-A ruling): the entry inherits its target's CURRENT label,
+ * resolved here at render time and never written back — see
+ * {@link inheritedNavItemLabel} for the ladder. That arm is keyed on ABSENCE
+ * alone: the steps above never consult `targetLabel`, so an authored label is
+ * never swapped for the target's metadata label, however it is spelled.
  */
 export function resolveNavItemLabel(
   item: NavigationItem,
@@ -307,9 +352,13 @@ export function resolveNavItemLabel(
   t?: (key: string, options?: any) => string,
   dashboardResolver?: (dashboardName: string, fallbackLabel: string) => string,
   viewResolver?: (objectName: string, viewName: string, fallbackLabel: string) => string,
+  targetLabel?: NavTargetLabelResolver,
 ): string {
   // A separator carries no `label` (objectui#10867): there is nothing to name.
   if (item.type === 'separator') return '';
+  // Absent ⇒ inherit (objectui#9868). Resolved BEFORE `resolveLabel`, which
+  // takes only a present label.
+  if (item.label === undefined) return inheritedNavItemLabel(item, targetLabel);
   const base = resolveLabel(item.label, t);
   // Only apply convention-based resolution for items with plain string labels.
   // I18nLabel objects (with explicit key/defaultValue) already have their own translation keys.
@@ -342,6 +391,72 @@ export function resolveNavItemLabel(
   // custom) return the authored label untouched — their localization already
   // happened at the server `/meta` boundary (see the note above).
   return base;
+}
+
+/**
+ * The text of a navigation ENTRY whose `label` is absent (objectui#9868).
+ *
+ * The spec's declared default, walked in the spec's order and resolved on every
+ * render (nothing is stored, so a rename shows on the next render):
+ *
+ *  - `object` naming a view → the VIEW's label, else the OBJECT's label, else
+ *    the `viewName` it names;
+ *  - `object` → the object's label, else `objectName`;
+ *  - `dashboard` → the dashboard's label, else `dashboardName`.
+ *
+ * The labels come from `targetLabel` — the host's metadata; this layer holds
+ * none. The final rung is the MACHINE-NAME backstop: an entry always shows text
+ * (the spec's own rule: identity is the target, text is inherited), including
+ * before the host's metadata has loaded and in a host that supplies no
+ * resolver.
+ *
+ * The ruling names inheritance for those three targets only. Every other entry
+ * type shows its target's machine name — `pageName`, `reportName`, `url`,
+ * `componentRef`, `actionDef.actionName` — and an entry with no target of its
+ * own (a `group`), or with its target missing, shows its `id`, which the
+ * validator requires of every entry.
+ */
+function inheritedNavItemLabel(
+  item: Exclude<NavigationItem, { type: 'separator' }>,
+  targetLabel: NavTargetLabelResolver | undefined,
+): string {
+  const ask = (target: NavLabelTarget): string | undefined => {
+    const text = targetLabel?.(target);
+    return typeof text === 'string' && text.trim() !== '' ? text : undefined;
+  };
+  switch (item.type) {
+    case 'object':
+      if (!item.objectName) break;
+      if (item.viewName) {
+        return (
+          ask({ kind: 'view', objectName: item.objectName, viewName: item.viewName })
+          ?? ask({ kind: 'object', objectName: item.objectName })
+          ?? item.viewName
+        );
+      }
+      return ask({ kind: 'object', objectName: item.objectName }) ?? item.objectName;
+    case 'dashboard':
+      if (!item.dashboardName) break;
+      return ask({ kind: 'dashboard', dashboardName: item.dashboardName }) ?? item.dashboardName;
+    case 'page':
+      if (item.pageName) return item.pageName;
+      break;
+    case 'report':
+      if (item.reportName) return item.reportName;
+      break;
+    case 'url':
+      if (item.url) return item.url;
+      break;
+    case 'component':
+      if (item.componentRef) return item.componentRef;
+      break;
+    case 'action':
+      if (item.actionDef?.actionName) return item.actionDef.actionName;
+      break;
+    default:
+      break;
+  }
+  return item.id;
 }
 
 // ---------------------------------------------------------------------------
@@ -879,10 +994,16 @@ const ActiveNavIdContext = React.createContext<string | null>(null);
 /**
  * Recursively filter navigation items by search query (case-insensitive label match).
  * Groups are kept if any child matches, with non-matching children pruned.
+ *
+ * Matches the text the row SHOWS: `labelOf` defaults to
+ * {@link resolveNavItemLabel} with no resolvers, and `NavigationRenderer` passes
+ * its own resolvers so an unlabelled entry is found by the label it inherits
+ * (objectui#9868), not by a `label` it does not have.
  */
 export function filterNavigationItems(
   items: NavigationItem[],
   query: string,
+  labelOf: (item: NavigationItem) => string = (item) => resolveNavItemLabel(item),
 ): NavigationItem[] {
   if (!query.trim()) return items;
   const lowerQuery = query.toLowerCase().trim();
@@ -893,15 +1014,15 @@ export function filterNavigationItems(
 
     // Groups: recursively filter children
     if (item.type === 'group' && item.children?.length) {
-      const filteredChildren = filterNavigationItems(item.children, query);
+      const filteredChildren = filterNavigationItems(item.children, query, labelOf);
       if (filteredChildren.length > 0) {
         acc.push({ ...item, children: filteredChildren });
       }
       return acc;
     }
 
-    // Leaf items: match label
-    if (resolveLabel(item.label).toLowerCase().includes(lowerQuery)) {
+    // Leaf items: match the label the row shows
+    if (labelOf(item).toLowerCase().includes(lowerQuery)) {
       acc.push(item);
     }
     return acc;
@@ -928,6 +1049,7 @@ function SortableNavigationItem({
   resolveObjectLabel,
   resolveDashboardLabel,
   resolveViewLabel,
+  resolveTargetLabel,
   t: tProp,
   templateContext,
 }: {
@@ -943,6 +1065,7 @@ function SortableNavigationItem({
   resolveObjectLabel?: (objectName: string, fallbackLabel: string) => string;
   resolveDashboardLabel?: (dashboardName: string, fallbackLabel: string) => string;
   resolveViewLabel?: (objectName: string, viewName: string, fallbackLabel: string) => string;
+  resolveTargetLabel?: NavTargetLabelResolver;
   t?: (key: string, options?: any) => string;
   templateContext?: NavTemplateContext;
 }) {
@@ -977,6 +1100,7 @@ function SortableNavigationItem({
         resolveObjectLabel={resolveObjectLabel}
         resolveDashboardLabel={resolveDashboardLabel}
         resolveViewLabel={resolveViewLabel}
+        resolveTargetLabel={resolveTargetLabel}
         t={tProp}
         templateContext={templateContext}
       />
@@ -1001,6 +1125,7 @@ function NavigationItemRenderer({
   resolveObjectLabel,
   resolveDashboardLabel,
   resolveViewLabel,
+  resolveTargetLabel,
   t: tProp,
   templateContext,
 }: {
@@ -1016,6 +1141,7 @@ function NavigationItemRenderer({
   resolveObjectLabel?: (objectName: string, fallbackLabel: string) => string;
   resolveDashboardLabel?: (dashboardName: string, fallbackLabel: string) => string;
   resolveViewLabel?: (objectName: string, viewName: string, fallbackLabel: string) => string;
+  resolveTargetLabel?: NavTargetLabelResolver;
   t?: (key: string, options?: any) => string;
   templateContext?: NavTemplateContext;
 }) {
@@ -1095,7 +1221,7 @@ function NavigationItemRenderer({
     // does for area election.
     if (!hasVisibleNavigationItems(children, guardOptions)) return null;
 
-    const groupLabel = resolveNavItemLabel(item, resolveObjectLabel, tProp, resolveDashboardLabel, resolveViewLabel);
+    const groupLabel = resolveNavItemLabel(item, resolveObjectLabel, tProp, resolveDashboardLabel, resolveViewLabel, resolveTargetLabel);
 
     return (
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -1125,6 +1251,7 @@ function NavigationItemRenderer({
                     resolveObjectLabel={resolveObjectLabel}
                     resolveDashboardLabel={resolveDashboardLabel}
                     resolveViewLabel={resolveViewLabel}
+                    resolveTargetLabel={resolveTargetLabel}
                     t={tProp}
                     templateContext={templateContext}
                   />
@@ -1147,7 +1274,10 @@ function NavigationItemRenderer({
     // three releases led nowhere.
     if (!onAction) return null;
     const Icon = resolveIcon(item.icon);
-    const actionLabel = resolveLabel(item.label, tProp);
+    // Through `resolveNavItemLabel`, not `resolveLabel`: an action entry's
+    // `label` may be absent too (objectui#9868), and that is where the absent
+    // arm lives. For a present label the two answer identically on this type.
+    const actionLabel = resolveNavItemLabel(item, resolveObjectLabel, tProp, resolveDashboardLabel, resolveViewLabel, resolveTargetLabel);
     return (
       <SidebarMenuItem>
         {dragListeners && (
@@ -1201,7 +1331,7 @@ function NavigationItemRenderer({
   const Icon = resolveIcon(item.icon);
   const { href, external } = resolveHref(item, basePath, templateContext);
   const isActive = activeNavId !== null && item.id === activeNavId;
-  const itemLabel = resolveNavItemLabel(item, resolveObjectLabel, tProp, resolveDashboardLabel, resolveViewLabel);
+  const itemLabel = resolveNavItemLabel(item, resolveObjectLabel, tProp, resolveDashboardLabel, resolveViewLabel, resolveTargetLabel);
 
   const content = (
     <>
@@ -1310,6 +1440,7 @@ export function NavigationRenderer({
   resolveObjectLabel,
   resolveDashboardLabel,
   resolveViewLabel,
+  resolveTargetLabel,
   t: tProp,
   templateContext,
 }: NavigationRendererProps) {
@@ -1324,10 +1455,16 @@ export function NavigationRenderer({
     [items, location.pathname, location.search, basePath, templateContext],
   );
 
-  // --- Search filtering ---
+  // --- Search filtering --- against the label each row SHOWS, so an
+  // unlabelled entry is found by the text it inherits (objectui#9868).
   const filteredItems = useMemo(
-    () => (searchQuery ? filterNavigationItems(items, searchQuery) : items),
-    [items, searchQuery],
+    () =>
+      searchQuery
+        ? filterNavigationItems(items, searchQuery, (item) =>
+            resolveNavItemLabel(item, resolveObjectLabel, tProp, resolveDashboardLabel, resolveViewLabel, resolveTargetLabel),
+          )
+        : items,
+    [items, searchQuery, resolveObjectLabel, tProp, resolveDashboardLabel, resolveViewLabel, resolveTargetLabel],
   );
 
   // --- Pinned items (favorites section) ---
@@ -1376,6 +1513,7 @@ export function NavigationRenderer({
     resolveObjectLabel,
     resolveDashboardLabel,
     resolveViewLabel,
+    resolveTargetLabel,
     t: tProp,
     templateContext,
   };

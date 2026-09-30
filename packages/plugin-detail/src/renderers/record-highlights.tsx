@@ -62,7 +62,11 @@ export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> =
    * the one meaning the word carries on `action`, `app`, `field` and
    * `bulkAction` — so it is read through the permission context's capability
    * path (`hasCapabilities` over the reported `systemPermissions`). An unheld
-   * or unrecognised capability hides the whole strip.
+   * or unrecognised capability withholds the strip's content, and an
+   * insufficient-permissions notice (`role="status"`) renders in its place:
+   * the block is not hidden. That is what the contract's describe on
+   * `RecordHighlightsProps.requiredPermissions` says ("an
+   * insufficient-permissions notice takes its place").
    *
    * ⛔ NOT `perms.can(objectName, name)`. That call's second argument is the
    * closed object-action enum, and the stock `/me/permissions` provider maps
@@ -84,9 +88,14 @@ export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> =
    * (objectui#4656), shared with every other capability gate in the tree; a
    * REPORTED empty array (`[]`, "holds nothing") is a real answer and gates
    * strictly.
+   *
+   * Read UN-CAST (objectui#8649), like `enforceFieldSecurity` and
+   * `redactFields` below: the mirror declares the triple since
+   * `@objectstack/spec` 17.5.0 declared it on this block. The mechanism is
+   * written once, at the same read in `record-details.tsx`.
    */
-  const required: string[] = Array.isArray((schema as any).requiredPermissions)
-    ? (schema as any).requiredPermissions
+  const required: string[] = Array.isArray(schema.requiredPermissions)
+    ? schema.requiredPermissions
     : [];
   // Evaluated up-front but enforced AFTER the hooks below (useId /
   // useRegisterHighlightFields) so hook order stays stable across renders.
@@ -123,9 +132,9 @@ export const RecordHighlightsRenderer: React.FC<RecordHighlightsRendererProps> =
         },
   ).filter((f) => typeof f.name === 'string' && f.name.length > 0);
 
-  const enforceFLS = (schema as any).enforceFieldSecurity === true;
-  const redact: string[] = Array.isArray((schema as any).redactFields)
-    ? (schema as any).redactFields
+  const enforceFLS = schema.enforceFieldSecurity === true;
+  const redact: string[] = Array.isArray(schema.redactFields)
+    ? schema.redactFields
     : [];
   const allowedNames = enforceFLS && objectName
     ? new Set(readableFields(normalized.map((f) => f.name)))

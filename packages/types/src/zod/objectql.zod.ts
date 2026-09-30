@@ -483,6 +483,42 @@ const OBJECT_FORM_NEITHER_CHANNEL = neitherContentChannelGuidance(
 );
 
 /**
+ * objectui#6152 round 1 — one entry of `ObjectFormSchema.sections`, restating the
+ * local `ObjectFormSection` interface (`../objectql.ts`) member for member. Not
+ * exported, so it is judged through the `sections` key of the registered
+ * `ObjectFormSchema` pair rather than as a pair of its own.
+ *
+ * ⚠️ A `fields` entry is `z.any()`, the precedent this mirror already set for
+ * `customFields`: the declared entry is `string | FormField`, and
+ * `FormFieldSchema` (`./form.zod.ts`) carries its own `KnownDrift` (`validation`)
+ * and `UnmirroredDeclared` (`field`) rows, so binding it here would import that
+ * drift into this pair. So every SECTION-level member is judged, and a field
+ * entry is not judged on this key at all — stated here rather than implied by a
+ * string arm that an `any` arm beside it would make decorative.
+ */
+const ObjectFormSectionEntrySchema = z.object({
+  name: z.string().optional().describe('Section identifier'),
+  label: z.string().optional().describe('Section label'),
+  description: z.string().optional().describe('Section description'),
+  collapsible: z.boolean().optional().describe('Whether the section can be collapsed (dropped on a wizard step)'),
+  collapsed: z.boolean().optional().describe('Whether the section starts collapsed (dropped on a wizard step)'),
+  columns: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional().describe('Field columns in this section'),
+  pane: z.enum(['primary', 'secondary']).optional().describe('Split-form panel this section renders in (split forms only)'),
+  fields: z.array(z.any()).optional().describe('Field names or inline field configurations; the other way to declare members is `group`'),
+  group: z.string().optional().describe('Key of a declared object field group whose members and presentation this section inherits'),
+  visibleWhen: z
+    .union([z.string(), z.object({ dialect: z.string().optional(), source: z.string() })])
+    .optional()
+    .describe('Predicate gating the whole section: a bare string or the { dialect?, source } envelope'),
+});
+
+/** objectui#6152 round 1 — one flat button toggle inside `ObjectFormSchema.buttons`. */
+const ObjectFormButtonToggleSchema = z.object({
+  show: z.boolean().optional().describe('Show this button'),
+  label: z.string().optional().describe('Button label'),
+});
+
+/**
  * ObjectForm Schema
  */
 export const ObjectFormSchema = BaseSchema.extend({
@@ -505,8 +541,8 @@ export const ObjectFormSchema = BaseSchema.extend({
   // against the active UI language, above its `formType` fork (objectui#10993).
   // This mirror used to narrow the five it declares to `z.string()`, refusing a
   // map the row and the renderer both accept. The row's other two, `nextText`
-  // and `prevText`, are not mirrored here; they stay in this pair's
-  // `UnmirroredDeclared` entry in `../__tests__/zod-mirror-parity.test.ts`.
+  // and `prevText`, stayed unmirrored until objectui#6152 round 1 declared them
+  // below, by the same reference.
   title: stripImportedDefaults(SpecI18nLabelSchema).optional()
     .describe('Form title: the drawer and modal heading. @objectstack/spec I18nLabel, a plain string or an inline locale map'),
   description: stripImportedDefaults(SpecI18nLabelSchema).optional()
@@ -542,6 +578,70 @@ export const ObjectFormSchema = BaseSchema.extend({
   showReset: z.boolean().optional().describe('Show reset button'),
   initialValues: z.record(z.string(), z.any()).optional().describe('Initial values'),
   readOnly: z.boolean().optional().describe('Read-only mode'),
+  // ⭐ objectui#6152 round 1 — members the TypeScript twin declared and this
+  // mirror had never heard of, so the strict authoring face refused each one
+  // although `tsc` invited it (objectui#5250's M3 class (iii)). Every one below
+  // is READ by a shipped renderer: `ObjectForm` (`plugin-form`) reads the variant
+  // keys off its schema (`schema.formType`, `schema.sections`,
+  // `schema.defaultTab`, `schema.showStepIndicator`, `schema.drawerSide`, …), and
+  // `buttons` / `defaults` / `subforms` through casts in the same file
+  // (`foldFormButtons`, `(schema as any).subforms`) after `ObjectView`,
+  // `RecordFormPage` and `ScreenView` relay them from an object's form view. So
+  // each is DECLARED here, shaped as the twin declares it; `nextText` /
+  // `prevText` are the spec's `I18nLabel` by reference because the twin takes
+  // that type from the spec. `buttons`, `defaults` and `subforms` are members of
+  // the spec's `FormViewSchema` and not of its `ComponentPropsMap['object-form']`;
+  // every other key below is a member of `ComponentPropsMap['object-form']`.
+  //
+  // ⛔ Two keys of the same ledger entry are NOT here, on purpose:
+  // `submitHandler` (a function slot — objectui#6182 rules the handler-string
+  // dialect out, so it is never mirrored as a string) and `open` (a boolean that
+  // only in-code hosts write). Their routes are open on objectui#6152, and the
+  // pair's `UnmirroredDeclared` entry keeps both.
+  formType: z.enum(['simple', 'tabbed', 'wizard', 'split', 'drawer', 'modal']).optional()
+    .describe('Form variant: simple (default), tabbed, wizard, split, drawer or modal'),
+  sections: z.array(ObjectFormSectionEntrySchema).optional()
+    .describe('Form sections: tabs of a tabbed form, steps of a wizard (array order is step order), groups of a simple form'),
+  defaultTab: z.string().optional().describe('Initially active tab (section name); tabbed forms only'),
+  tabPosition: z.enum(['top', 'bottom', 'left', 'right']).optional().describe('Tab strip position; tabbed forms only'),
+  allowSkip: z.boolean().optional().describe('Let the user enter any wizard step (navigation freedom, not a validation exemption); wizard forms only'),
+  showStepIndicator: z.boolean().optional().describe('Show the wizard step indicator; wizard forms only'),
+  nextText: stripImportedDefaults(SpecI18nLabelSchema).optional()
+    .describe('Next-step button label; wizard forms only. @objectstack/spec I18nLabel, a plain string or an inline locale map'),
+  prevText: stripImportedDefaults(SpecI18nLabelSchema).optional()
+    .describe('Previous-step button label; wizard forms only. @objectstack/spec I18nLabel, a plain string or an inline locale map'),
+  splitDirection: z.enum(['horizontal', 'vertical']).optional().describe('Split panel direction; split forms only'),
+  splitSize: z.number().optional().describe('Size of the first panel as a percentage; split forms only'),
+  splitResizable: z.boolean().optional().describe('Whether the split panels can be resized; split forms only'),
+  drawerSide: z.enum(['top', 'bottom', 'left', 'right']).optional().describe('Drawer slide-in side; drawer forms only'),
+  drawerWidth: z.string().optional().describe('Drawer width as a CSS value; drawer forms only'),
+  modalSize: z.enum(['sm', 'default', 'lg', 'xl', 'full']).optional().describe('Modal dialog size; modal forms only'),
+  modalCloseButton: z.boolean().optional().describe('Show the modal header close button; modal forms only'),
+  mobile: z.object({
+    stickyActions: z.boolean().optional().describe('Pin Submit/Cancel to the bottom of the viewport on mobile'),
+    stepper: z.union([z.boolean(), z.literal('auto')]).optional().describe('One-field-at-a-time stepper on small screens: true, false or auto'),
+    stepperMinFields: z.number().optional().describe('Field-count threshold for stepper auto'),
+    stepperFieldsPerStep: z.number().optional().describe('Fields shown per stepper step'),
+    fullscreenLongText: z.boolean().optional().describe('Offer a fullscreen editor for textarea and rich-text fields'),
+  }).optional().describe('Mobile-only form behaviour; every option is opt-in'),
+  buttons: z.object({
+    submit: ObjectFormButtonToggleSchema.optional(),
+    cancel: ObjectFormButtonToggleSchema.optional(),
+    reset: ObjectFormButtonToggleSchema.optional(),
+  }).optional().describe('Structured submit/cancel/reset visibility and labels; folded onto the flat keys, which win when set'),
+  defaults: z.record(z.string(), z.any()).optional()
+    .describe('Create-mode initial values keyed by field name; folded into initialValues, which wins when set'),
+  subforms: z.array(z.object({
+    childObject: z.string().describe('Child object name'),
+    relationshipField: z.string().optional().describe('Foreign-key field on the child (derived from metadata when omitted)'),
+    columns: z.array(z.any()).optional().describe('Grid columns for the child rows (derived from metadata when omitted)'),
+    amountField: z.string().optional(),
+    totalField: z.string().optional(),
+    title: z.string().optional(),
+    addLabel: z.string().optional(),
+    minRows: z.number().optional(),
+    maxRows: z.number().optional(),
+  })).optional().describe('Inline child collections: renders a master-detail form persisted in one transaction'),
   // ⭐ `8d50bc2bf` — five keys the REGISTERED `object-form` renderer reads off
   // the authored document while this arm declared none of them. `BaseSchema` is
   // `.passthrough()`, so an undeclared key is NOT refused: it stops being

@@ -88,6 +88,15 @@ export function useActionEngine(options: UseActionEngineOptions = {}): UseAction
   // Only `current_user` is added. The runner's `user` / `ctx.user` / `os.user`
   // stay the host's own object: it carries what the runner itself reads (the
   // `systemPermissions` capability set), which the scope's subject does not.
+  //
+  // Since objectui#11242 `<ActionProvider>` binds the same subject on its own
+  // runner, so under a provider mounted INSIDE the predicate scope this write
+  // re-binds the object that is already there. It stays for the two runners
+  // no provider binds: this hook's own standalone runner (no provider at
+  // all), and a shared runner whose provider sits ABOVE the scope — the
+  // console's global provider does (`GlobalActionRuntimeProvider` wraps the
+  // routes, and `ExpressionProvider` is mounted inside them) — where the
+  // provider has no scope to read.
   const subject = usePredicateScope().current_user as Record<string, unknown> | undefined;
   // Keyed on what the binding READS, never on the subject's identity (a
   // memoised value upstream — AGENTS.md #10): its serialisable fields, and the

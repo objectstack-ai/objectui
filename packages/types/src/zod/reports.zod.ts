@@ -186,6 +186,17 @@ export const ReportComponentSchema = BaseSchema.extend({
   refreshInterval: z.number().optional().describe('Auto-refresh interval (in seconds)'),
   loading: z.boolean().optional().describe('Loading state'),
   data: z.array(z.any()).optional().describe('Report data'),
+  // objectui#6152 round 3 — declared on the interface and never mirrored here. READ:
+  // `ReportViewer` evaluates each rule per cell (`report?.conditionalFormatting`) for
+  // the report a `report-viewer` node carries, and that node's `report` member IS
+  // this mirror. Restated rule for rule from the interface's inline element type.
+  conditionalFormatting: z.array(z.object({
+    field: z.string().describe('Field the rule tests'),
+    operator: z.enum(['equals', 'not_equals', 'contains', 'greater_than', 'less_than']).describe('Comparison operator'),
+    value: z.any().describe('Value the field is compared with'),
+    backgroundColor: z.string().optional().describe('Cell background colour when the rule matches'),
+    textColor: z.string().optional().describe('Cell text colour when the rule matches'),
+  })).optional().describe('Conditional formatting rules, evaluated per cell; the first matching rule styles it'),
   // objectui#9256 (family-D re-measure): the renderer reads NEITHER content channel, so both are
   // refused by name here as on the TypeScript twin, each kept a MEMBER.
   body: retirementTombstone(REPORT_NEITHER_CHANNEL),

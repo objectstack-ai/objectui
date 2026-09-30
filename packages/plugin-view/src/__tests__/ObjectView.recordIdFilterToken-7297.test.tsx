@@ -15,7 +15,6 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import React from 'react';
 import { render, waitFor, act } from '@testing-library/react';
 import { FilterScopeProvider, RecordContextProvider } from '@object-ui/react';
 import { ObjectView } from '../ObjectView';

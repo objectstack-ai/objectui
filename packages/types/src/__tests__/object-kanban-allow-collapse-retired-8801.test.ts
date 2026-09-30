@@ -261,14 +261,15 @@ describe('no registered board reads the key — the reading, re-derived here rat
     // A source grep alone cannot answer "no renderer reads this key": a
     // renderer can consume a key it never names. These are the two ends.
     const objectKanban = readFileSync(join(ROOT, 'packages/plugin-kanban/src/ObjectKanban.tsx'), 'utf8');
-    const registration = readFileSync(join(ROOT, 'packages/plugin-kanban/src/index.tsx'), 'utf8');
+    const boardCore = readFileSync(join(ROOT, 'packages/plugin-kanban/src/KanbanBoardCore.tsx'), 'utf8');
     // PROP channel — the rest props are discarded, never spread onward.
     expect(objectKanban).toContain('void _props;');
     // SCHEMA channel — the key does ride this spread, and stops at a component
-    // that NAMES every key it forwards.
+    // that NAMES every key it forwards. ⭐ Since objectui#11234 that component
+    // is the internal `KanbanBoardCore`, which `ObjectKanban` renders; the
+    // exported `KanbanRenderer` it rendered before now renders the same board.
     expect(objectKanban).toContain('...schema,');
-    expect(registration).toContain(
-      "export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema, objectFields, onCardMove }) => {",
-    );
+    expect(objectKanban).toContain('<KanbanBoardCore');
+    expect(boardCore).toContain('export const KanbanBoardCore: React.FC<KanbanBoardCoreProps> = ({');
   });
 });

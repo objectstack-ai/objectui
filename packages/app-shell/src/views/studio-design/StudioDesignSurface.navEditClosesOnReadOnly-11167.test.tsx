@@ -65,7 +65,8 @@ const mockClient = vi.hoisted(() => {
     }),
     getDraft: vi.fn(async (type: string, name: string) => {
       const draft = server.drafts.get(k(type, name));
-      if (draft) return JSON.parse(JSON.stringify(draft)) as Record<string, unknown>;
+      // The served-draft envelope: the pillar reads the document from `item`.
+      if (draft) return { item: JSON.parse(JSON.stringify(draft)) as Record<string, unknown> };
       throw Object.assign(new Error(`No pending draft exists for ${type}/${name}.`), { code: 'NO_DRAFT', status: 404 });
     }),
     save: vi.fn(async (type: string, name: string, item: unknown) => {
@@ -250,6 +251,12 @@ describe('Studio surface — Edit clicked while the package list is in flight (o
 
     settle(true);
     await waitFor(() => expect(server.saves).toContainEqual({ type: 'app', name: APP.name }), { timeout: 8000 });
+    // A save re-reads the app (the draft-saved signal); read after that lands.
+    await waitFor(
+      () => expect(mockClient.getDraft.mock.calls.filter(([t, n]) => t === 'app' && n === APP.name).length).toBeGreaterThan(1),
+      { timeout: 8000 },
+    );
+    await new Promise((r) => setTimeout(r, 50));
 
     expect(screen.getByTitle('Done editing')).toBeInTheDocument();
     expect(navEditingOpen()).toBe(true);

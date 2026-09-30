@@ -14,7 +14,7 @@
  * than the page's own context:
  *
  * ```json
- * { "object": "account", "view": "hot", "filter": { … }, "sort": [ … ], "limit": 20 }
+ * { "object": "account", "view": "hot", "filter": [ … ], "sort": [ … ], "limit": 20 }
  * ```
  *
  * This module owns the two pure halves of consuming it — telling the METADATA
@@ -76,11 +76,26 @@ export interface ElementDataSourceSort {
 /**
  * Element-level data source — matches `@objectstack/spec` `ElementDataSourceSchema`.
  *
- * `filter` is typed `unknown` rather than the spec's `FilterCondition` because
- * three shapes legitimately reach a renderer here (a MongoDB-style condition
- * object, an ObjectQL AST node array, a spec `ViewFilterRule[]`) and
- * {@link mergeFilterNodes} is the single sink that lowers all three. Narrowing
- * the type here would only move the cast, not remove it.
+ * `filter` has two populations, and since the upstream convergence they differ:
+ *
+ * - **What an author may write** is the spec's `ViewFilterRule` array alone —
+ *   `[{ field, operator, value }, …]`. The spec's `filter` doors converged on it
+ *   (objectui#6206; migration `element-data-source-and-object-block-filter-rule-array`),
+ *   and `ElementDataSourceSchema` refuses the other two shapes at the door: the
+ *   MongoDB-style record form (`{ status: 'open' }`) by kind, and an ObjectQL
+ *   AST tuple array (`[['status', '=', 'open']]`) because each member must be a
+ *   rule object.
+ * - **What a renderer may still receive** is all three. The convergence
+ *   deliberately does not rewrite metadata at rest, so a stored page carrying
+ *   the record form or an AST tuple array keeps arriving here, beside the rule
+ *   array.
+ *
+ * `filter` is typed `unknown` rather than the spec's `ViewFilterRule[]` because
+ * this interface carries the second population, not the first, and
+ * {@link mergeFilterNodes} is the single sink that lowers all three shapes.
+ * Narrowing the type here would only move the cast, not remove it, and it would
+ * not stop a stored record-form filter from arriving. Refusing the retired
+ * shapes is the spec schema's job at the authoring door, not this type's.
  */
 export interface ElementDataSourceConfig {
   object: string;

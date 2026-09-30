@@ -80,8 +80,10 @@ function renderInspector(
 
 /** The block's `properties` as the inspector last committed them. */
 function committedProps(onPatch: ReturnType<typeof vi.fn>): Record<string, unknown> {
-  const patch = onPatch.mock.calls.at(-1)![0] as any;
-  return patch.regions[0].components[0].properties as Record<string, unknown>;
+  const patch = onPatch.mock.calls.at(-1)![0] as {
+    regions: Array<{ components: Array<{ properties: Record<string, unknown> }> }>;
+  };
+  return patch.regions[0].components[0].properties;
 }
 
 const LABELS = {

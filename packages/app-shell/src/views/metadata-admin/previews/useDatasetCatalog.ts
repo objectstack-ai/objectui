@@ -14,15 +14,37 @@
  * manual entry) and override-friendly (hosts that already hold the catalog
  * pass it to keep the inspector network-free, e.g. tests and the runtime
  * config panel).
+ *
+ * ## The author's text (objectui#11161)
+ *
+ * A dataset document declares text for the author beside its machine names:
+ * each member's `label` and the dataset's own `label` and `description`, all
+ * `I18nLabel` in `@objectstack/spec` (a string, or an inline per-locale map).
+ * `toCatalogEntry` keeps them, resolved through the spec's `resolveI18nLabel`
+ * in the locale it is handed — the one rule for all four, never `String()` of
+ * a label. The hooks below keep the documents AS SERVED and resolve where they
+ * return, in `useMetadataLocale()`, so a language switch re-reads every label
+ * without a refetch (the objectui#10862 pattern the not-found sentence in
+ * `useDatasetSemantics` already follows). A catalog entry therefore carries
+ * display-ready strings only: no consumer can render a raw locale map.
+ *
+ * The text is display only. A picker shows it beside the machine name; what a
+ * binding stores is still the name.
  */
 
 import * as React from 'react';
+import { resolveI18nLabel, type I18nLabel } from '@objectstack/spec/ui';
 import { useMetadataClient } from '../useMetadata.js';
 import { t, useMetadataLocale } from '../i18n.js';
 
 export interface DatasetDimensionInfo {
   /** Dimension name (snake_case, referenced by `report.rows`). */
   name: string;
+  /**
+   * The author's label, resolved in the designer locale. Absent when the
+   * dimension declares none — a picker then shows the name alone.
+   */
+  label?: string;
   /** Raw field type id when declared (e.g. 'text', 'date'). */
   type?: string;
 }
@@ -30,6 +52,11 @@ export interface DatasetDimensionInfo {
 export interface DatasetMeasureInfo {
   /** Measure name (snake_case, referenced by `report.values`). */
   name: string;
+  /**
+   * The author's label, resolved in the designer locale. Absent when the
+   * measure declares none — a picker then shows the name alone.
+   */
+  label?: string;
   /** Aggregate function (sum / avg / count / …) — display hint only. */
   aggregate?: string;
 }
@@ -37,8 +64,13 @@ export interface DatasetMeasureInfo {
 export interface DatasetCatalogEntry {
   /** Dataset unique name (what `report.dataset` stores). */
   name: string;
-  /** Human label (falls back to the name). */
+  /** Human label, resolved in the designer locale (falls back to the name). */
   label: string;
+  /**
+   * The dataset's description, resolved in the designer locale. Absent when
+   * the dataset declares none.
+   */
+  description?: string;
   dimensions: DatasetDimensionInfo[];
   measures: DatasetMeasureInfo[];
 }
@@ -49,17 +81,25 @@ export interface UseDatasetCatalogResult {
   error: string | null;
 }
 
-function resolveLabel(label: unknown, fallback: string): string {
-  if (typeof label === 'string' && label) return label;
-  if (label && typeof label === 'object') {
-    const def = (label as { default?: unknown }).default;
-    if (typeof def === 'string' && def) return def;
+/**
+ * An `I18nLabel` read off a served document, resolved in `locale` through the
+ * spec's own resolver. Only the two arms `I18nLabel` declares reach it — a
+ * string, or a plain object (the per-locale map; its untagged `default` entry
+ * included). Anything else, and text that resolves blank, reads as undeclared.
+ */
+function authoredText(value: unknown, locale: string): string | undefined {
+  if (typeof value !== 'string' && (value === null || typeof value !== 'object' || Array.isArray(value))) {
+    return undefined;
   }
-  return fallback;
+  const text = resolveI18nLabel(value as I18nLabel, locale);
+  return text && text.trim() ? text : undefined;
 }
 
-/** Normalize a raw dataset document into a catalog entry. */
-export function toCatalogEntry(doc: Record<string, unknown>): DatasetCatalogEntry | null {
+/**
+ * Normalize a raw dataset document into a catalog entry, its author-facing
+ * text resolved in `locale` (the designer locale — see the file header).
+ */
+export function toCatalogEntry(doc: Record<string, unknown>, locale: string): DatasetCatalogEntry | null {
   const name = typeof doc.name === 'string' ? doc.name : '';
   if (!name) return null;
   const dimensions: DatasetDimensionInfo[] = Array.isArray(doc.dimensions)
@@ -67,6 +107,7 @@ export function toCatalogEntry(doc: Record<string, unknown>): DatasetCatalogEntr
         .filter((d) => d && typeof d.name === 'string' && d.name)
         .map((d) => ({
           name: d.name as string,
+          label: authoredText(d.label, locale),
           type: typeof d.type === 'string' ? (d.type as string) : undefined,
         }))
     : [];
@@ -75,10 +116,17 @@ export function toCatalogEntry(doc: Record<string, unknown>): DatasetCatalogEntr
         .filter((m) => m && typeof m.name === 'string' && m.name)
         .map((m) => ({
           name: m.name as string,
+          label: authoredText(m.label, locale),
           aggregate: typeof m.aggregate === 'string' ? (m.aggregate as string) : undefined,
         }))
     : [];
-  return { name, label: resolveLabel(doc.label, name), dimensions, measures };
+  return {
+    name,
+    label: authoredText(doc.label, locale) ?? name,
+    description: authoredText(doc.description, locale),
+    dimensions,
+    measures,
+  };
 }
 
 export function useDatasetCatalog(
@@ -89,38 +137,45 @@ export function useDatasetCatalog(
   override?: DatasetCatalogEntry[],
 ): UseDatasetCatalogResult {
   const client = useMetadataClient();
-  const [state, setState] = React.useState<UseDatasetCatalogResult>({
-    datasets: override ?? [],
-    loading: !override,
-    error: null,
-  });
+  const locale = useMetadataLocale();
+  // The documents as served; their text is resolved below, where the hook
+  // returns, so a language switch needs no refetch.
+  const [state, setState] = React.useState<{
+    docs: Array<Record<string, unknown>>;
+    loading: boolean;
+    error: string | null;
+  }>({ docs: [], loading: !override, error: null });
 
   React.useEffect(() => {
-    if (override) {
-      setState({ datasets: override, loading: false, error: null });
-      return;
-    }
+    if (override) return;
     let cancelled = false;
     setState((s) => ({ ...s, loading: true, error: null }));
     client
       .list<Record<string, unknown>>('dataset')
       .then((docs) => {
         if (cancelled) return;
-        const datasets = (Array.isArray(docs) ? docs : [])
-          .map(toCatalogEntry)
-          .filter((e): e is DatasetCatalogEntry => e !== null);
-        setState({ datasets, loading: false, error: null });
+        setState({ docs: Array.isArray(docs) ? docs : [], loading: false, error: null });
       })
       .catch((err) => {
         if (cancelled) return;
-        setState({ datasets: [], loading: false, error: err?.message ?? String(err) });
+        setState({ docs: [], loading: false, error: err?.message ?? String(err) });
       });
     return () => {
       cancelled = true;
     };
   }, [client, override]);
 
-  return state;
+  const datasets = React.useMemo(
+    () =>
+      override ??
+      state.docs
+        .map((doc) => toCatalogEntry(doc, locale))
+        .filter((e): e is DatasetCatalogEntry => e !== null),
+    [override, state.docs, locale],
+  );
+  const loading = override ? false : state.loading;
+  const error = override ? null : state.error;
+  return React.useMemo(() => ({ datasets, loading, error }), [datasets, loading, error]);
 }
 
 export interface UseDatasetSemanticsResult {
@@ -142,7 +197,8 @@ export function useDatasetSemantics(
   const client = useMetadataClient();
   // The designer locale the hook's own not-found sentence reads in
   // (objectui#10862), read where the hook returns; a transport error passes
-  // through as the transport's message.
+  // through as the transport's message. A hydrated document's labels resolve
+  // in it too (objectui#11161).
   const locale = useMetadataLocale();
   const entry = name ? catalog.datasets.find((d) => d.name === name) : undefined;
   const needsFetch =
@@ -151,7 +207,8 @@ export function useDatasetSemantics(
 
   const [fetched, setFetched] = React.useState<{
     name: string;
-    entry: DatasetCatalogEntry | null;
+    /** The document as served; its text is resolved where the hook returns. */
+    doc: Record<string, unknown> | null;
     /** The server answered with no document for `name`. */
     notFound: boolean;
     /** The transport's own message. */
@@ -166,11 +223,11 @@ export function useDatasetSemantics(
       .get<Record<string, unknown>>('dataset', name)
       .then((doc) => {
         if (cancelled) return;
-        setFetched({ name, entry: doc ? toCatalogEntry(doc) : null, notFound: !doc, error: null });
+        setFetched({ name, doc: doc ?? null, notFound: !doc, error: null });
       })
       .catch((err) => {
         if (cancelled) return;
-        setFetched({ name, entry: null, notFound: false, error: err?.message ?? String(err) });
+        setFetched({ name, doc: null, notFound: false, error: err?.message ?? String(err) });
       });
     return () => {
       cancelled = true;
@@ -178,7 +235,12 @@ export function useDatasetSemantics(
   }, [client, name, needsFetch, fetched]);
 
   const own = needsFetch && fetched?.name === name ? fetched : null;
-  const resolved = own ? own.entry : entry;
+  const ownDoc = own?.doc ?? null;
+  const ownEntry = React.useMemo(
+    () => (ownDoc ? toCatalogEntry(ownDoc, locale) : null),
+    [ownDoc, locale],
+  );
+  const resolved = own ? ownEntry : entry;
   return {
     dimensions: resolved?.dimensions ?? [],
     measures: resolved?.measures ?? [],

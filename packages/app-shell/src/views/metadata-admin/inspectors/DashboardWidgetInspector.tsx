@@ -40,7 +40,12 @@ import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui
 import { setLocalized } from '@object-ui/i18n';
 import { InspectorCheckboxField, InspectorReorderButtons, moveArray } from './_shared.js';
 import { InspectorComboField, type InspectorComboOption } from './InspectorComboField.js';
-import { DatasetNamesEditor } from './ReportDefaultInspector.js';
+import {
+  DatasetNamesEditor,
+  datasetDimensionOptions,
+  datasetMeasureOptions,
+  datasetPickerOptions,
+} from './ReportDefaultInspector.js';
 import { useDatasetCatalog, useDatasetSemantics } from '../previews/useDatasetCatalog.js';
 import type { ObjectFieldInfo } from '../previews/useObjectFields.js';
 
@@ -130,29 +135,31 @@ export function DashboardWidgetInspector({
   const catalog = useDatasetCatalog();
   const semantics = useDatasetSemantics(datasetName || undefined, catalog);
 
+  // objectui#11161 — the options read the author's text in the one form the
+  // Report inspector's pickers share (see `datasetPickerOptions` and its
+  // siblings): a dataset's declared `description` rides as the combo's muted
+  // `hint`, a member's `label` beside its name. The stored value is the name.
   const datasetComboOptions: InspectorComboOption[] = React.useMemo(() => {
-    const opts = catalog.datasets.map((d) => ({
-      value: d.name,
-      label: d.label && d.label !== d.name ? `${d.label} (${d.name})` : d.name,
-    }));
+    const opts: InspectorComboOption[] = datasetPickerOptions(catalog.datasets);
     if (datasetName && !opts.some((o) => o.value === datasetName)) {
       opts.push({ value: datasetName, label: datasetName });
     }
     return opts;
   }, [catalog.datasets, datasetName]);
   const measureOptions: ObjectFieldInfo[] = React.useMemo(
-    () => semantics.measures.map((m) => ({ name: m.name, label: m.aggregate ? `${m.name} · ${m.aggregate}` : m.name, type: 'number', hidden: false })),
+    () => datasetMeasureOptions(semantics.measures),
     [semantics.measures],
   );
   const dimensionOptions: ObjectFieldInfo[] = React.useMemo(
-    () => semantics.dimensions.map((d) => ({ name: d.name, label: d.name, type: d.type ?? 'text', hidden: false })),
+    () => datasetDimensionOptions(semantics.dimensions),
     [semantics.dimensions],
   );
   // Filter-binding field picker options come from the bound dataset's
   // dimensions (the fields a widget filter can target), replacing the removed
-  // object-field source.
+  // object-field source. The combo prints the value (the dimension name)
+  // itself, so the label is the author's text alone.
   const fieldComboOptions: InspectorComboOption[] = React.useMemo(
-    () => semantics.dimensions.map((d) => ({ value: d.name, label: d.name, hint: d.type })),
+    () => semantics.dimensions.map((d) => ({ value: d.name, label: d.label ?? d.name, hint: d.type })),
     [semantics.dimensions],
   );
 

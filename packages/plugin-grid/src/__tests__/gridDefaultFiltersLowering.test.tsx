@@ -260,25 +260,27 @@ describe('object-grid — NEGATIVE CONTROL: the declared `filter` path is unchan
   });
 });
 
-describe('object-grid — the legacy `defaultSort` leg is NOT filter-lowered (objectui#4082)', () => {
-  it('sends `defaultSort` as the declared `$orderby` clause string, untouched', async () => {
-    // The sibling leg triage asked to grade with this one. It feeds `$orderby`,
-    // not `$filter`, and `"field order"` is a DECLARED-accepted `$orderby`
-    // shape (`packages/types/src/data.ts:63`, `@example 'name asc'`) — so
-    // there is no un-lowered hazard to close, and `toFilterNode` (which
-    // returns a FILTER AST) does not belong on it. Pinned so a later pass
-    // cannot pattern-match the filter fix onto sort.
+describe('object-grid — the legacy `defaultSort` leg is NOT filter-lowered (objectui#4082), and is now RETIRED (objectui#5861)', () => {
+  it('a retired `defaultSort` reaches neither `$orderby` nor `$filter`', async () => {
+    // The sibling leg triage asked to grade with this one (objectui#4082). It
+    // used to feed `$orderby` as the declared `"field order"` clause string,
+    // and was pinned here so a later pass could not pattern-match the filter
+    // fix onto sort. objectui#5861 then retired the key under ADR-0049 —
+    // `@objectstack/spec` refuses it by name on `object-grid` — so this cell
+    // is FLIPPED: the leg is gone, and it must not resurface as a filter
+    // either. Canonical control: the next cell, same document shape.
     const params = await findParamsFor({
       ...BASE,
       defaultSort: { field: 'name', order: 'desc' } as unknown as Record<string, unknown>,
     });
-    expect(params.$orderby).toBe('name desc');
+    expect(params.$orderby).toBeUndefined();
     expect(params.$filter).toBeUndefined();
   });
 
-  it('keeps the canonical `sort` emitting the SAME clause-string vocabulary', async () => {
-    // The reason there is no asymmetry to fix: unlike filter — where canonical
-    // is lowered and legacy was raw — both sort legs emit the identical shape.
+  it('keeps the canonical `sort` emitting the clause-string vocabulary', async () => {
+    // CONTROL for the cell above. Unlike filter — where canonical is lowered
+    // and legacy was raw — the sort legs emitted the identical shape, which is
+    // why there was never an asymmetry to fix; only the canonical leg is left.
     const params = await findParamsFor({
       ...BASE,
       sort: [{ field: 'name', order: 'desc' }],

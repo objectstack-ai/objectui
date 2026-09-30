@@ -110,8 +110,9 @@ afterEach(() => {
 });
 
 /** The Save icon button, identified by its title in either state. */
+// Title flipped to the neutral inspector copy by ruling 5831744213 (objectui#6900).
 const saveButton = () =>
-  screen.getByRole('button', { name: /Save \(⌘S\)|Fix the CEL syntax errors before saving\./ });
+  screen.getByRole('button', { name: /Save \(⌘S\)|Fix the issues shown in the inspector before saving\./ });
 
 const ruleBox = () =>
   screen.getByTestId('cf-rule-0').querySelector('[role="combobox"]') as HTMLTextAreaElement;
@@ -138,7 +139,7 @@ describe('MetadataResourceEditPage — Save is gated on the DEFAULT inspector’
 
     fireEvent.change(box, { target: { value: 'record.amount >' } });
     await waitFor(() => expect(saveButton()).toBeDisabled(), { timeout: 4000 });
-    expect(saveButton()).toHaveAttribute('title', 'Fix the CEL syntax errors before saving.');
+    expect(saveButton()).toHaveAttribute('title', 'Fix the issues shown in the inspector before saving.');
   });
 
   it('re-enables Save once the condition parses again', async () => {

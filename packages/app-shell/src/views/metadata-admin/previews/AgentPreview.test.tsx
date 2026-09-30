@@ -24,6 +24,8 @@
 
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { agentRouteName } from '@object-ui/plugin-chatbot';
 import { AgentPreview } from './AgentPreview';
 
 afterEach(cleanup);
@@ -108,5 +110,89 @@ describe('AgentPreview renders nothing from retired AgentSchema keys', () => {
     // The strongest form of "the key is not read": the two drafts differ only
     // by `tools`/`knowledge`, so identical output proves neither reaches the DOM.
     expect(staleHtml).toBe(valid.innerHTML);
+  });
+});
+
+/**
+ * "Try in chat" (objectui#10640).
+ *
+ * The link was the plain anchor `/console/ai/agents/NAME/chat`. The console
+ * declares no path beginning with `/console`, so its root catch-all sent the
+ * author home. It now points at the chat route the console declares,
+ * `/ai/:agent`, asking for a new chat. That the URL reaches the chat page
+ * through the console's REAL root route table is pinned in `apps/console`
+ * (`App.agentChatLink-10640.test.tsx`); these pins hold the link.
+ *
+ * The preview runs inside a real `MemoryRouter`, under the same
+ * `/apps/:appName/*` shape the console mounts `ResourceEditPage` at.
+ */
+describe('AgentPreview "Try in chat" link (objectui#10640)', () => {
+  function renderAt(
+    url: string,
+    { basename, name = 'sales_copilot' }: { basename?: string; name?: string } = {},
+  ) {
+    const preview = <AgentPreview type="agent" name={name} draft={{ ...VALID_DRAFT, name }} />;
+    return render(
+      <MemoryRouter basename={basename} initialEntries={[url]}>
+        <Routes>
+          <Route path="/apps/:appName/*" element={preview} />
+          <Route path="*" element={preview} />
+        </Routes>
+      </MemoryRouter>,
+    );
+  }
+
+  const link = () => screen.getByRole('link', { name: /try in chat/i });
+  const target = () => new URL(link().getAttribute('href') ?? '', 'http://console.test');
+
+  it("points at the agent's chat route, /ai/:agent", () => {
+    renderAt('/apps/studio/metadata/agent/sales_copilot');
+    expect(target().pathname).toBe('/ai/sales_copilot');
+  });
+
+  it('asks the chat page for a new conversation, as its title promises', () => {
+    renderAt('/apps/studio/metadata/agent/sales_copilot');
+    expect(target().searchParams.get('new')).toBe('1');
+    expect(link().getAttribute('title')).toMatch(/in a new chat/i);
+  });
+
+  it('routes a built-in agent by the friendly segment `agentRouteName` builds', () => {
+    renderAt('/apps/studio/metadata/agent/metadata_assistant', { name: 'metadata_assistant' });
+    expect(target().pathname).toBe(`/ai/${agentRouteName('metadata_assistant')}`);
+    expect(target().pathname).toBe('/ai/build');
+  });
+
+  it('carries no app segment: the chat route is app-less, whichever app the author is in', () => {
+    renderAt('/apps/com.acme.crm/metadata/agent/sales_copilot');
+    expect(target().pathname).toBe('/ai/sales_copilot');
+  });
+
+  it('is still drawn on a route that names no app (Studio design surface)', () => {
+    renderAt('/studio/com.acme.crm/automations');
+    expect(target().pathname).toBe('/ai/sales_copilot');
+  });
+
+  it('escapes an agent name that needs it, so it stays one path segment', () => {
+    renderAt('/apps/studio/metadata/agent/x', { name: 'odd name/x?y#z' });
+    expect(target().pathname).toBe(`/ai/${encodeURIComponent('odd name/x?y#z')}`);
+    expect(target().searchParams.get('new')).toBe('1');
+    expect(target().hash).toBe('');
+  });
+
+  it("applies the router's basename, so a console mounted under /_console stays inside it", () => {
+    renderAt('/_console/apps/studio/metadata/agent/sales_copilot', { basename: '/_console' });
+    expect(target().pathname).toBe('/_console/ai/sales_copilot');
+  });
+
+  it('still opens in a new tab', () => {
+    renderAt('/apps/studio/metadata/agent/sales_copilot');
+    expect(link().getAttribute('target')).toBe('_blank');
+    expect(link().getAttribute('rel')).toBe('noreferrer');
+  });
+
+  it('draws no link, and does not throw, with no router above it (the designer gallery)', () => {
+    renderPreview(VALID_DRAFT);
+    expect(screen.getByText('Sales Copilot')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /try in chat/i })).toBeNull();
   });
 });

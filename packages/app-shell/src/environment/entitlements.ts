@@ -30,7 +30,10 @@ export function isEntitlementErrorCode(code: unknown): code is EntitlementErrorC
 /** A CTA link rendered in the entitlement dialog. */
 export interface EntitlementCta {
   label: string;
-  /** Absolute (http/mailto) or a control-plane-relative path (e.g. `/settings/billing`). */
+  /**
+   * Absolute (http/mailto) or a control-plane-relative path — always the value
+   * the control plane sent, never one composed or defaulted here.
+   */
   url: string;
 }
 
@@ -44,8 +47,6 @@ export interface EntitlementDialogSpec {
   /** Secondary CTA (e.g. Contact sales). */
   secondaryCta?: EntitlementCta;
 }
-
-export const DEFAULT_UPGRADE_URL = '/settings/billing';
 
 /**
  * Minimal translator — structurally `useObjectTranslation()`'s `t`, passed IN
@@ -114,8 +115,10 @@ export function entitlementDialogFromError(body: any, t: EntitlementTranslate = 
   const code = error.code;
   if (!isEntitlementErrorCode(code)) return null;
   const details = error.details && typeof error.details === 'object' ? error.details : undefined;
-  const upgradeUrl =
-    typeof details?.upgrade_url === 'string' && details.upgrade_url ? details.upgrade_url : DEFAULT_UPGRADE_URL;
+  // No `upgrade_url` from the server ⇒ no upgrade CTA (objectui#10437). The
+  // destination is the control plane's to name; a path guessed here pointed at
+  // one no router serves. Same rule as `contact_url` just below.
+  const upgradeUrl = typeof details?.upgrade_url === 'string' && details.upgrade_url ? details.upgrade_url : '';
   const contactUrl = typeof details?.contact_url === 'string' && details.contact_url ? details.contact_url : '';
 
   if (code === 'PRODUCTION_ENV_LIMIT') {
@@ -134,10 +137,9 @@ export function entitlementDialogFromError(body: any, t: EntitlementTranslate = 
     };
   }
 
-  const upgradeCta = {
-    label: t('environment.entitlement.upgradeCta', { defaultValue: 'Upgrade plan' }),
-    url: upgradeUrl,
-  };
+  const upgradeCta = upgradeUrl
+    ? { label: t('environment.entitlement.upgradeCta', { defaultValue: 'Upgrade plan' }), url: upgradeUrl }
+    : undefined;
 
   if (code === 'DEV_ENV_PLAN_LOCKED') {
     return {
@@ -197,7 +199,12 @@ export interface EnvironmentEntitlementsState {
   /** Authoritative dev-create capability; `undefined` when unknown (no summary). */
   canCreateDevelopmentEnv?: boolean;
   plan?: string;
-  upgradeUrl: string;
+  /**
+   * The summary's `upgradeUrl`, verbatim. Absent when the control plane sent
+   * none — including the row-derived and unknown states, which never had one —
+   * and then no upgrade CTA renders (objectui#10437).
+   */
+  upgradeUrl?: string;
   contactSalesUrl?: string;
   /** Where the signal came from — telemetry + degradation note + tests. */
   source: 'summary' | 'derived' | 'unknown';
@@ -238,9 +245,9 @@ export function upgradeDialogSpec(
       defaultValue:
         'Your {{plan}} includes one production environment. Upgrade to add development environments — build in dev, then publish to production.',
     }),
-    cta: {
-      label: t('environment.entitlement.upgradeCta', { defaultValue: 'Upgrade plan' }),
-      url: state.upgradeUrl || DEFAULT_UPGRADE_URL,
-    },
+    // No server-supplied upgrade URL ⇒ no CTA, exactly as the reactive dialog.
+    cta: state.upgradeUrl
+      ? { label: t('environment.entitlement.upgradeCta', { defaultValue: 'Upgrade plan' }), url: state.upgradeUrl }
+      : undefined,
   };
 }

@@ -133,7 +133,7 @@ describe('objectui#6896 — the mirror REFUSES `data`, and the refusal carries i
 
     // The message is the migration note, not zod's generic string.
     expect(issue!.message).not.toContain('Invalid input: expected never, received ');
-    expect(issue!.message).toContain('RETIRED (objectui#6896)');
+    expect(issue!.message).toContain('RETIRED (ADR-0049)');
     expect(issue!.message).toContain('`xAxisKey`');
 
     // ONE string, BOTH channels — the invariant `retirementTombstone()` exists
@@ -152,7 +152,7 @@ describe('objectui#6896 — the mirror REFUSES `data`, and the refusal carries i
     if (!result.success) {
       const issue = result.error.issues.find((i) => i.path.join('.') === 'series.0.data');
       expect(issue, 'no issue addressed to `series.0.data`').toBeDefined();
-      expect(issue!.message).toContain('RETIRED (objectui#6896)');
+      expect(issue!.message).toContain('RETIRED (ADR-0049)');
     }
   });
 });
@@ -164,7 +164,7 @@ describe('objectui#6896 — the retirement is ANNOUNCED', () => {
     expect(shapeOf(ChartDataSeriesSchema)).toHaveProperty('data');
     const text = describeOf(ChartDataSeriesSchema, 'data');
     expect(text).toBeDefined();
-    expect(text).toContain('RETIRED (objectui#6896)');
+    expect(text).toContain('RETIRED (ADR-0049)');
     // The announcement names a REMEDY, not just a removal. This is the half a
     // silent deletion cannot carry at all.
     expect(text).toContain('chart-level `data`');

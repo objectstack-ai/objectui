@@ -15,6 +15,16 @@
  * record, inspectors call `onCommit(value)` which trips an immutable
  * splice + `onPatch({...})`. Locale-aware via the `useT` hook the
  * caller already has in scope — the shared shell takes raw strings.
+ *
+ * The exceptions are DEFAULTS rather than labels a caller hands in: the flag
+ * {@link InspectorSelectField} puts on a stored value its roster does not
+ * offer (objectui#9652), and the wording a caller may omit — the shell's close
+ * label, the reorder pair's names and the roster-failure notice
+ * (objectui#10586). Wherever a call site passes none, the default is what a
+ * zh-CN author reads, so it resolves through `useMetadataLocale()` — the hook
+ * the designer's other shared editors (`widgets.tsx`, `SchemaForm`,
+ * `ConditionBuilder`) already read when no `locale` prop reaches them. A label
+ * the caller passes always wins.
  */
 
 import * as React from 'react';
@@ -22,6 +32,7 @@ import { ArrowDown, ArrowUp, Trash2, X } from 'lucide-react';
 import { cn } from '@object-ui/components';
 import { Badge, Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@object-ui/components';
 import { type LoadState } from '../loadState.js';
+import { t, tFormat, useMetadataLocale, type SupportedLocale } from '../i18n.js';
 
 /* ─────────────── Layout shell ─────────────── */
 
@@ -29,6 +40,7 @@ export interface InspectorShellProps {
   kindLabel: string;
   title: string;
   onClose: () => void;
+  /** The close button's accessible name; omitted, `engine.close` in the designer locale. */
   closeLabel?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
@@ -45,7 +57,9 @@ export interface InspectorShellProps {
   hideClose?: boolean;
 }
 
-export function InspectorShell({ kindLabel, title, onClose, closeLabel = 'Close', children, footer, headerActions, hideClose }: InspectorShellProps) {
+export function InspectorShell({ kindLabel, title, onClose, closeLabel: closeLabelProp, children, footer, headerActions, hideClose }: InspectorShellProps) {
+  const locale = useMetadataLocale();
+  const closeLabel = closeLabelProp ?? t('engine.close', locale);
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-start justify-between gap-2 border-b px-4 py-2.5">
@@ -77,7 +91,7 @@ export interface InspectorReorderButtonsProps {
   total: number;
   /** Called with the new index when the user clicks ↑ or ↓. */
   onMove: (toIndex: number) => void;
-  /** Localized aria-labels (e.g. tr('engine.inspector.reorder.up', locale)). */
+  /** Localized aria-labels; omitted, `engine.inspector.reorder.up` / `.down` in the designer locale. */
   upLabel?: string;
   downLabel?: string;
   /** Disable both buttons (read-only inspectors). */
@@ -93,11 +107,15 @@ export function InspectorReorderButtons({
   index,
   total,
   onMove,
-  upLabel = 'Move up',
-  downLabel = 'Move down',
+  upLabel: upLabelProp,
+  downLabel: downLabelProp,
   disabled,
 }: InspectorReorderButtonsProps) {
+  // Read before the early return: a hook's call order may not depend on props.
+  const locale = useMetadataLocale();
   if (total <= 1 || index < 0) return null;
+  const upLabel = upLabelProp ?? t('engine.inspector.reorder.up', locale);
+  const downLabel = downLabelProp ?? t('engine.inspector.reorder.down', locale);
   const canUp = !disabled && index > 0;
   const canDown = !disabled && index < total - 1;
   return (
@@ -299,22 +317,32 @@ export function rosterFrom(source: {
 }
 
 /**
- * Default wording for the notice {@link InspectorSelectField} renders when its
- * roster failed to load. Raw English, like {@link defaultUnknownValueLabel}:
- * this module has no locale in scope (see the file header). Call sites pass
- * their own — the repo already has this exact copy localized, as the shared
- * picker-failure title objectui#5170 landed for the widget family.
+ * Catalogue key of the default wording for the notice
+ * {@link InspectorSelectField} renders when its roster failed to load: the
+ * shared picker-failure title objectui#5170 landed for the widget family, read
+ * in the designer's locale (objectui#10586). A call site that passes its own
+ * `rosterFailureLabel` keeps it.
  */
-const defaultRosterFailureLabel = 'Options could not be loaded';
+const DEFAULT_ROSTER_FAILURE_LABEL_KEY = 'engine.form.optionsLoadFailedTitle';
 
 /**
- * Default wording for the row {@link InspectorSelectField} synthesises when the
- * stored value is not in the roster. Raw English, like `placeholder`'s `'—'`
- * default: this module takes raw strings and has no locale in scope (see the
- * file header). Call sites with a better word for their own domain pass
- * `unknownValueLabel` — that is the prop's whole reason to exist.
+ * The label of the row {@link InspectorSelectField} synthesises for a stored
+ * value its roster does not offer: the value, then a FLAG saying why it is not
+ * offered (`t('engine.form.notFound', locale)`, `…notInObject`, `…deprecated`).
+ *
+ * The two are joined by the `engine.form.flaggedValue` template, not by a
+ * template literal at the call site, because the order of the two and the gap
+ * between them are the locale's to decide — zh sets no space before the
+ * full-width bracket its flags open with (objectui#9652). Every call site that
+ * words its own flag goes through here, and so does the primitive's default.
  */
-const defaultUnknownValueLabel = (v: string) => `${v} (not found)`;
+export function flagUnknownValue(
+  value: string,
+  flag: string,
+  locale: SupportedLocale | string | undefined,
+): string {
+  return tFormat('engine.form.flaggedValue', locale, { value, flag });
+}
 
 export function InspectorSelectField({
   label,
@@ -322,9 +350,9 @@ export function InspectorSelectField({
   options,
   onCommit,
   placeholder = '—',
-  unknownValueLabel = defaultUnknownValueLabel,
+  unknownValueLabel: unknownValueLabelProp,
   roster,
-  rosterFailureLabel = defaultRosterFailureLabel,
+  rosterFailureLabel: rosterFailureLabelProp,
   disabled,
 }: {
   label: string;
@@ -334,7 +362,9 @@ export function InspectorSelectField({
   placeholder?: string;
   /**
    * Wording for the synthesised row that carries a stored value the roster does
-   * not offer. Receives the raw stored value; defaults to `VALUE (not found)`.
+   * not offer. Receives the raw stored value; defaults to the value flagged
+   * `engine.form.notFound` in the designer's active locale — `VALUE (not found)`
+   * in en-US. Build an override with {@link flagUnknownValue}.
    * Override it, never the RULE — the rule is the one this primitive owns.
    */
   unknownValueLabel?: (value: string) => string;
@@ -360,7 +390,7 @@ export function InspectorSelectField({
   /**
    * Wording for the notice shown when `roster` reports a failure. The CAUSE is
    * rendered from the state's own message; this is the sentence in front of it.
-   * Defaults to raw English, same contract as `unknownValueLabel`.
+   * Defaults to `engine.form.optionsLoadFailedTitle` in the designer's locale.
    */
   rosterFailureLabel?: string;
   disabled?: boolean;
@@ -378,6 +408,15 @@ export function InspectorSelectField({
   // renders the real `button[role=combobox]`, which is a labelable element, so
   // one `for`/`id` pair names it (no second `aria-labelledby` channel needed).
   const id = React.useId();
+  // objectui#9652 — the default flag used to be a raw English template literal,
+  // so every call site that passes no `unknownValueLabel` showed a zh-CN author
+  // `VALUE (not found)` on an otherwise Chinese inspector. It resolves through
+  // the designer's own catalogue now, in the locale the designer is showing.
+  const locale = useMetadataLocale();
+  const rosterFailureLabel = rosterFailureLabelProp ?? t(DEFAULT_ROSTER_FAILURE_LABEL_KEY, locale);
+  const unknownValueLabel =
+    unknownValueLabelProp ??
+    ((v: string) => flagUnknownValue(v, t('engine.form.notFound', locale), locale));
   // `SelectValue`'s own `placeholder` is unreachable here, and was at all 45
   // call sites (objectui#8450). Radix shows it only when its value is `''` or
   // `undefined`, and the sentinel bridge above guarantees the value is never

@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect, useContext, useMemo, useCallback } from 'react';
-import { useDataScope, SchemaRendererContext, SchemaRenderer, useFilterScope } from '@object-ui/react';
+import { useDataScope, SchemaRendererContext, SchemaRenderer, useFilterScope, useSettledSchema, useDataInvalidation } from '@object-ui/react';
 import {
   extractRecords,
   isDrillEnabled,
@@ -17,6 +17,7 @@ import {
 import type { ObjectDataTableSchema, TableColumn } from '@object-ui/types';
 import { normalizeTableColumnType } from '@object-ui/types';
 import { Skeleton, RefreshIndicator, cn } from '@object-ui/components';
+import { isMaskedFieldType, MaskedCellRenderer } from '@object-ui/fields';
 import { useSafeFieldLabel, useObjectTranslation, useLocalization, useDisplayLocale } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
 import { resolveFilterPlaceholders, humanizeFieldKey } from './utils';
@@ -117,7 +118,7 @@ interface NormalizedColumn {
  * another road? — is part of the rule, not an aside: a key with no second road
  * is not inert, and retiring it would change behaviour.
  *
- * `type` is not adjudicated here. objectui#5853 already settled it at this
+ * `type` is not adjudicated here. `fc62bb490` already settled it at this
  * seam, and its fold (`normalizeTableColumnType`) stands unchanged.
  *
  * `name` is HELD, not retired, and not adjudicated here either: it is
@@ -335,7 +336,7 @@ export interface ObjectDataTableColumnHolds {}
  * The candidate keys this seam refuses — DERIVED from the override vocabulary,
  * never hand-listed, so a future `FieldMeta` member has to be adjudicated onto
  * {@link ObjectDataTableColumnHolds} to escape. Keys `TableColumn` declares
- * leave the pool by declaration: `type` (objectui#5853 owns its VALUE set,
+ * leave the pool by declaration: `type` (its VALUE set is `fc62bb490`'s,
  * folded below by `normalizeTableColumnType`) and, since objectui#6425's
  * ruling, `format` / `options` / `currency`.
  *
@@ -411,6 +412,15 @@ export type AuthoredColumnOverrides =
  * shared instance for every other table on the page.
  */
 const EMPTY_ROWS = Object.freeze([]) as unknown as any[];
+
+/**
+ * The cell a WITHHELD column draws (objectui#10657): the mask, never the
+ * value. See `enrich` for when a column is withheld. Module-level, so the
+ * column keeps one `cell` identity across renders.
+ */
+function withheldCell(value: unknown): React.ReactNode {
+  return React.createElement(MaskedCellRenderer, { value });
+}
 
 /**
  * Normalize columns to support both string[] shorthand and object[] formats.
@@ -625,7 +635,6 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
   if (b && b !== 'dashboard.noDataSourceFor') noDataSourceLabel = b;
 
   const [fetchedData, setFetchedData] = useState<any[]>([]);
-  const [objectSchema, setObjectSchema] = useState<any>(null);
   // Start in loading state when we will fetch from a dataSource, so the
   // "No data available" empty state doesn't flash on slow networks before
   // the fetch effect runs and flips loading to true.
@@ -656,6 +665,51 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
   // is evaluated during render, so `perms` has to be a binding that already
   // exists by the time render reaches the fetch effect below (objectui#7230).
   const perms = usePermissions();
+
+  /**
+   * The object definition, and whether the read for THIS object has SETTLED:
+   * one piece of state, through the shared hook (objectui#10664).
+   *
+   * It sat in a local `useState` fed by its own effect and was listed in the
+   * fetch effect's dependencies below, so every object-bound mount queried
+   * twice: once before the definition landed (`computeLookupExpand` returns
+   * nothing without a field map, so no `$expand`), once after. The same shape
+   * `ObjectGallery` (objectui#7903) left, and the gate below is theirs.
+   *
+   * `dataSource` is passed on every path, as `ObjectGallery` passes it: the
+   * column headers and select-option cells read the definition on bound and
+   * inline rows too, where no query waits on it. The key is `schema.objectName`,
+   * the object the query names.
+   *
+   * ⚠️ The gate is only safe because the hook SETTLES ON EVERY EXIT
+   * (objectui#7232): no source, no `getObjectSchema`, no name, and a read that
+   * threw. The replaced effect returned without settling on the first three.
+   */
+  const { ready: objectSchemaReady, def: objectSchema } = useSettledSchema<any>(
+    schema.objectName ?? '',
+    dataSource,
+  );
+
+  // The expansion the query below sends, as a CONTENT key (objectui#10664). The
+  // query reads `schema.columns` (an explicit whitelist decides which relations
+  // expand) and the dependency list did not name it, so a column added on a
+  // mounted widget never reached `$expand`. Keyed on the expansion rather than
+  // on the columns, so a relabelled column is not a change.
+  const lookupExpandKey = computeLookupExpand(schema, objectSchema).join(',');
+
+  // objectui#10778 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10623 way: the nonce moves when a
+  // write to the object this table QUERIES is declared, and the fetch effect
+  // below names it, so the rows are re-read in place (the skeleton is drawn
+  // only while there are no rows yet; a re-read shows the refresh bar). Without
+  // it a page action over raw HTTP left the table stale unless the page was
+  // remounted. The same component lists a `dashboard` block's object-bound table
+  // widget and every drill-down drawer's records, so those re-read with it.
+  // Subscribed only when this effect queries: bound rows and authored `data`
+  // rows are not its query.
+  const fetchesForItself =
+    !!dataSource && !!schema.objectName && !boundData && (!schema.data || schema.data.length === 0);
+  const invalidationNonce = useDataInvalidation(fetchesForItself ? schema.objectName : undefined);
 
   useEffect(() => {
     let isMounted = true;
@@ -733,7 +787,20 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
     };
 
     if (schema.objectName && !boundData && (!schema.data || schema.data.length === 0)) {
-      fetchData();
+      // ⭐ objectui#10664: the object definition GATES this query; it does not
+      // refine it afterwards. `objectSchema` stays in the dependency list and
+      // the two are one mechanism: the dependency re-runs this effect when the
+      // definition lands, and this branch stops the first run from spending a
+      // query before it has. Removing either half restores the double read.
+      //
+      // Scoped to the branch that queries. The placeholder is held across the
+      // window: `loading` starts `true` here only on first mount, and a later
+      // object switch closes the gate with the previous object's rows in state.
+      if (!objectSchemaReady) {
+        if (isMounted) setLoading(true);
+      } else {
+        fetchData();
+      }
     } else if (isMounted) {
       // We have inline / bound data and won't fetch — make sure loading is
       // cleared (matters when we lazily-initialized it to true).
@@ -741,23 +808,22 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
     }
 
     return () => { isMounted = false; };
-  }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, objectSchema, filterScope, perms]);
-
-  // Fetch object schema for column-header translation and select-option cell labels.
-  useEffect(() => {
-    let isMounted = true;
-    if (!dataSource || !schema.objectName || typeof dataSource.getObjectSchema !== 'function') {
-      return;
-    }
-    dataSource.getObjectSchema(schema.objectName)
-      .then((s: any) => { if (isMounted) setObjectSchema(s); })
-      .catch(() => { /* schema lookup failure is non-fatal */ });
-    return () => { isMounted = false; };
-  }, [schema.objectName, dataSource]);
+    // `schema.columns` is read through `lookupExpandKey`, by content; see above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, objectSchemaReady, objectSchema, lookupExpandKey, filterScope, perms, invalidationNonce]);
 
   // Resolve data: bound data > static schema data > fetched data
   const rawData = boundData || schema.data || fetchedData;
   const finalData = Array.isArray(rawData) ? rawData : EMPTY_ROWS;
+
+  // Are the bound object's field types still unknown (objectui#10657)? True
+  // while a definition is expected (an `objectName`, and a data source that
+  // can answer `getObjectSchema`) but none is in hand: the read is in flight,
+  // or it settled with nothing, which is how a failed read settles. Bound and
+  // inline rows paint inside that window. With no `getObjectSchema` there is
+  // nothing to wait for, and the authored column types are all there is.
+  const objectTypesPending =
+    !!schema.objectName && typeof dataSource?.getObjectSchema === 'function' && !objectSchema?.fields;
 
   // Auto-derive columns from data keys when none are provided. When `objectName`
   // is set, prefer translated field labels via the convention-based hook so that
@@ -804,13 +870,13 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
     // This line used to carry a THIRD, inline spelling that split camelCase but
     // never turned `_` into a space, so one field key rendered under two
     // spellings on one dashboard — measured, as headers over the same
-    // `crm_opportunity` columns (objectui#5425):
+    // `crm_opportunity` columns (`56f4e34c0`):
     //
     //   auto-derived (here)                 Close_date · Needs_analysis
     //   declared `columns: ['close_date']`  Close Date · Needs Analysis
     //   static `data-table`, no columns     Close Date · Needs Analysis
     //
-    // That is the defect class objectui#5425 rules out — "a value cannot appear
+    // That is the defect class `56f4e34c0` rules out — "a value cannot appear
     // twice under two spellings" — so the odd one out adopts the convention
     // rather than the convention gaining a fourth dialect. The i18n wrapper is
     // unchanged: a bundle entry still wins, and this is only its fallback.
@@ -866,7 +932,7 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
       const inferredAlign = (col as any).align
         ?? (isNumericFieldMeta(fieldMeta) ? 'right' : undefined);
 
-      // ⭐ THE SECOND EMIT SEAM (objectui#5853). `buildFieldMeta` returns
+      // ⭐ THE SECOND EMIT SEAM (`fc62bb490`). `buildFieldMeta` returns
       // `type: overrides.type ?? meta?.type` — the OBJECT SCHEMA's field type —
       // which the `...fieldMeta` spread that used to stand here wrote straight
       // into the column's `type`, the same verbatim forwarding `ObjectGrid` does
@@ -880,11 +946,49 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
       // which reads `fieldMeta`, not `col.type`, so it is unaffected.
       const columnType = normalizeTableColumnType(fieldMeta.type);
 
-      if (typeof col.cell === 'function') return { ...col, name: fieldMeta.name, type: columnType, align: inferredAlign };
+      // ⭐ THE MASKED STAMP (objectui#10657). `cell` below draws a `password` /
+      // `secret` value as the mask through `getCellRenderer`, but `data-table`
+      // cannot import `@object-ui/fields`, so without the flag its Ctrl+C /
+      // Cmd+C copy, the cell tooltip, its CSV export, its client search and
+      // sort, and its auto width all read the raw value.
+      //
+      // The rule is not restated: `isMaskedFieldType()` is the one authority
+      // (objectui#8686), asked of the authored `type` and of the object-declared
+      // type as a narrow-only UNION, the shape `ObjectGrid` stamps with
+      // (`isMaskedGridColumn`, which this package cannot import). It reads the
+      // UNFOLDED types: `columnType` above has been through
+      // `normalizeTableColumnType`, which drops both masked spellings. An
+      // authored `type: 'text'` over a `secret` field keeps the flag, though
+      // its cell then draws the text it was told to.
+      //
+      // Fail closed: while the object's types are unknown, no column can be
+      // told apart from a masked one, so every column is stamped.
+      const masked =
+        objectTypesPending
+        || isMaskedFieldType(authored.type)
+        || isMaskedFieldType(fieldsByName[col.accessorKey]?.type);
+      const maskedStamp = masked ? { masked: true } : {};
+
+      if (typeof col.cell === 'function') return { ...col, name: fieldMeta.name, type: columnType, align: inferredAlign, ...maskedStamp };
+
+      // ⭐ WITHHELD (objectui#10657, the objectui#10706 class at this
+      // producer). The flag above withholds; it does not DRAW. `cell` draws
+      // from `fieldMeta.type`, which is the authored `type` or the object's,
+      // so while the object's types are unknown a column that authors none has
+      // no type, and the cell would draw its value as text: a `password` /
+      // `secret` field in the clear, and for good when the read failed. Such a
+      // column draws the mask instead until the definition lands, and keeps
+      // drawing it when the read failed (fail closed, never falling back to
+      // text). A column that authors its own `type` draws from it, as it does
+      // once the definition is in hand: `password` masks, `text` draws the
+      // text it was told to.
+      if (objectTypesPending && !authored.type) {
+        return { ...col, name: fieldMeta.name, type: columnType, align: inferredAlign, cell: withheldCell, ...maskedStamp };
+      }
 
       // Tenant-default currency backstops a currency column with no explicit code.
       const cell = (value: any): React.ReactNode => renderFieldValue(value, fieldMeta, tenantCurrency, displayLocale);
-      return { ...col, name: fieldMeta.name, type: columnType, align: inferredAlign, cell };
+      return { ...col, name: fieldMeta.name, type: columnType, align: inferredAlign, cell, ...maskedStamp };
     };
 
     // The DECLARED half's header, and the FALLBACK it hands `fieldLabel`
@@ -944,7 +1048,7 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
       : Object.keys(finalData[0]).filter((k) => !k.startsWith('_') && !isSystemField(k));
 
     return orderedKeys.map((k) => enrich({ header: buildHeader(k), accessorKey: k }));
-  }, [schema.columns, schema.objectName, finalData, objectSchema, fieldLabel, fieldOptionLabel, tenantCurrency, displayLocale]);
+  }, [schema.columns, schema.objectName, finalData, objectSchema, objectTypesPending, fieldLabel, fieldOptionLabel, tenantCurrency, displayLocale]);
 
   // Note: per-cell select-label translation that used to happen here is now
   // handled by SelectCellRenderer in the shared field registry, which also
@@ -1050,7 +1154,9 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
 
   return (
     <div className={cn('relative', className)}>
-      <RefreshIndicator active={loading && finalData.length > 0} />
+      {/* The bar's name comes from the pack alone (objectui#10580): no English
+          default here, unlike `noDataSourceLabel` above. */}
+      <RefreshIndicator active={loading && finalData.length > 0} ariaLabel={t('dashboard.refreshing')} />
       <SchemaRenderer schema={tableSchema} className={className} />
       {recordDrillEnabled && (
         <RecordDetailDrawer
@@ -1061,6 +1167,7 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
           title={recordTitle}
           target={drillDown?.target === 'dialog' ? 'dialog' : 'drawer'}
           onClose={() => setDrillRecord(null)}
+          objectTypesPending={objectTypesPending}
         />
       )}
     </div>

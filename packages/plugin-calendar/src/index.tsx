@@ -335,7 +335,7 @@ export const ObjectCalendarRenderer: React.FC<{ schema: any; [key: string]: any 
  * `defaultView`'s declared members are the spec's own three and nothing else.
  * That is load-bearing: this gate judges an `enum` arm EXACTLY (every declared
  * member must be a value the contract accepts), and `agenda` was RETIRED from
- * this enum (objectui#5784, pinned by `default-view-agenda-retired.test.ts`) —
+ * this enum (`ed8df3e50`, pinned by `default-view-agenda-retired.test.ts`) —
  * so a fourth member copied from an older doc would be a red arm, not a nicety.
  *
  * ## What declaring them widens, and on what grounds (clause ②)
@@ -399,9 +399,22 @@ export const ObjectCalendarRenderer: React.FC<{ schema: any; [key: string]: any 
  * The second file also pins each description's POSITION sentence, because a
  * description that recommends a write the renderer would drop is this gate's
  * own failure mode one layer in.
+ *
+ * ## `objectName` is not a required input (objectui#10392)
+ *
+ * The record source is ONE OF `data`, `staticData` and `objectName`: the
+ * shared ladder reads them in that order, and `ObjectCalendarSchema`
+ * (`@object-ui/types`) enforces "one of the three" with
+ * `requireRecordSource('object-calendar')`. A `required: true` flag here made
+ * `sdui-parser`'s `validateTree` raise a `missing-required-prop` ERROR on a
+ * `staticData`-only calendar that the schema accepts and the renderer draws.
+ * Same repair as objectui#7470 made for map and gantt: the flag is gone, the
+ * description states the rule, and no one-of vocabulary is added to the input
+ * declaration — the zod refinement stays the place that enforces it. Pinned in
+ * `__tests__/recordSourceInput-10392.test.ts`.
  */
 const OBJECT_CALENDAR_INPUTS: ComponentInput[] = [
-  { name: 'objectName', type: 'string', required: true },
+  { name: 'objectName', type: 'string', description: 'ObjectQL object name. The record source is one of `data`, `staticData` and `objectName`; the `object-calendar` schema refuses a block that declares none of them.' },
   { name: 'calendar', type: 'object', description: 'startDateField, endDateField, titleField, colorField' },
   { name: 'filter', type: 'array', description: 'Filter criteria in JSON-rules form, narrowing the records the calendar fetches. Lowered to `$filter` on the query.' },
   { name: 'sort', type: 'array', description: 'Sort order in `[{ field, order }]` form, ordering the records the calendar fetches. Lowered to `$orderby` on the query.' },

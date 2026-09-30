@@ -9,6 +9,7 @@
 export type { SchemaNode, ComponentRendererProps } from './types/index.js';
 export * from './registry/Registry.js';
 export * from './registry/public-blocks.js';
+export * from './registry/html-tier-intrinsics.js';
 export * from './registry/PluginSystem.js';
 export * from './registry/PluginScopeImpl.js';
 export * from './registry/WidgetRegistry.js';
@@ -23,6 +24,10 @@ export * from './utils/dom-props.js';
 export * from './utils/filter-converter.js';
 export * from './utils/managedBy.js';
 export * from './utils/extract-records.js';
+// The non-grid row ceiling (objectui#7210), homed beside the `extractRecords`
+// it wraps by objectui#7508's ruling A′. `@object-ui/react` re-exports three of
+// these names and keeps only the React footnote, `NonGridRowCeilingNote`.
+export * from './utils/non-grid-row-ceiling.js';
 // The emptiness FLOOR (objectui#8496, director seat, decision batch #86): the
 // weakest common claim about "is this value empty" — `null`, `undefined`, the
 // empty string, the empty array — below `plugin-detail`, `plugin-list`,
@@ -73,7 +78,7 @@ export * from './utils/drill-down.js';
 export * from './utils/date-macros.js';
 // Session-scoped filter placeholders ({current_user_id} / {current_org_id})
 // plus `resolveFilterPlaceholders`, the single entry point every surface
-// should call so no vocabulary is silently skipped (framework #3574).
+// should call so no vocabulary is silently skipped (objectstack-ai/objectstack#3574).
 export * from './utils/filter-tokens.js';
 export * from './utils/dashboard-filters.js';
 export * from './utils/merge-filters.js';
@@ -108,6 +113,11 @@ export * from './utils/number-display.js';
 // below could not import, so a date-valued measure rendered its raw ISO
 // string. `@object-ui/fields` re-exports these names unchanged.
 export * from './utils/date-display.js';
+// The native date/time control adapters (objectui#3127), moved down from
+// `@object-ui/fields` so `@object-ui/components`' data table can share them
+// instead of keeping private copies (objectui#10625). `@object-ui/fields`
+// re-exports these names unchanged.
+export * from './utils/native-date-value.js';
 export * from './utils/dataset-format.js';
 // Pivot lookup-key encoders, shared by every cross-tab renderer so the
 // dashboard widget and the report renderer key their buckets identically
@@ -125,6 +135,11 @@ export * from './utils/reference-keys.js';
 // `toPredicateRecord` for why an unnormalized one gives the same predicate
 // different verdicts on different surfaces.
 export * from './utils/predicate-record.js';
+// The field-read rule for ONE record (objectui#10594, ruling A): the row as the
+// viewer may read it, which every surface that builds a display value from a
+// whole row calls. It replaced module-private copies in `@object-ui/fields`,
+// `@object-ui/react`, `@object-ui/app-shell` and `@object-ui/plugin-detail`.
+export * from './utils/without-denied-fields.js';
 // The parent-relationship condition a detail-page related list is scoped by.
 // One implementation, imported by BOTH the row query and the tab-badge count
 // probe — objectui#8882 is what two of them cost.
@@ -138,15 +153,15 @@ export * from './utils/predicate-fields.js';
 export * from './utils/grouping-fields.js';
 export * from './utils/normalize-list-view.js';
 // The ONE record-source ladder, both halves. `resolveRecordSourceConfig`
-// (objectui#7632) is the PRODUCER — the ruled `data` / `staticData` /
+// (`ce2aaefe1`) is the PRODUCER — the ruled `data` / `staticData` /
 // `objectName` ladder, hand-copied into five view plugins with no gate holding
-// them together. `resolveRecordSourceObjectName` (objectui#7627) is the READER
+// them together. `resolveRecordSourceObjectName` (`b041b9c0c`) is the READER
 // over its output: six view plugins each spelled "the object this block is
 // bound to — the resolved data config's object when it names one, else
 // `objectName`" locally, and had drifted. Both are deliberately SEPARATE from
 // the `normalizeListViewSchema` gap-fill above: that one answers how
 // `objectName` gets POPULATED when absent (#7477 ruling B), these answer which
-// object a block RESOLVES (the objectui#6939 three-rung ladder). Merging them
+// object a block RESOLVES (the three-rung ladder `77cb489b4` declared). Merging them
 // would override one standing ruling or the other.
 // A THIRD reading ships beside them since objectui#9571:
 // `recordSourceDataArmForType` answers which `data` arm a registered block TYPE

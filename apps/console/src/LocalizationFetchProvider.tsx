@@ -1,5 +1,5 @@
 /**
- * LocalizationFetchProvider — loads the tenant's resolved regional defaults
+ * LocalizationFetchProvider — loads the caller's resolved regional defaults
  * (currency / locale) from `GET /api/v1/auth/me/localization` (ADR-0053) and
  * feeds the pure `LocalizationProvider` so every field / measure renderer can
  * resolve a currency code down to the org default.
@@ -27,6 +27,7 @@
  */
 import { useEffect, useState } from 'react';
 import { LocalizationProvider, cacheLanguageSeed, type LocalizationValue } from '@object-ui/i18n';
+import { getSessionOwnerChangeCount } from '@object-ui/auth';
 import {
   HttpFetchError,
   backoffMs,
@@ -66,6 +67,12 @@ export function LocalizationFetchProvider({
 
     void (async () => {
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        // Whose answer this attempt will be (objectui#10193). The request
+        // carries whatever session this browser holds right now; if
+        // `SessionUserScope.adopt` hands the browser to a different user while
+        // it is in flight, the answer describes the PREVIOUS owner and must
+        // not be written into the slot the new owner's boot will read.
+        const ownerAtRequest = getSessionOwnerChangeCount();
         try {
           // Shared in flight with `seedTenantLanguage()` (objectui#5544): on a
           // device's first visit that seed asks this same endpoint, and its
@@ -81,14 +88,22 @@ export function LocalizationFetchProvider({
           // Refresh the UI-language seed cache (objectui#4035) — the
           // "revalidate" half of stale-while-revalidate. This boot has already
           // committed to a language; what this write buys is the NEXT one, so a
-          // tenant that changes its locale reaches every choice-less device
-          // without either an extra request or an old seed pinning it there.
+          // change to the caller's resolved locale (their own
+          // `sys_user.locale`, else `Accept-Language`, else the deployment
+          // default) reaches this device without either an extra request or an
+          // old seed pinning it there.
           //
           // Outside the `cancelled` guard on purpose: the answer is about the
-          // tenant, not about this component instance, so it is worth keeping
-          // even if we unmounted while it was in flight. An unauthenticated
-          // reply is not authoritative and must not clear a good seed.
-          if (json.authenticated !== false) cacheLanguageSeed(json.locale);
+          // signed-in caller, not about this component instance, so it is
+          // worth keeping even if we unmounted while it was in flight — but
+          // only while that caller still owns this browser. A change of owner
+          // since the request left (objectui#10193) means the answer is the
+          // previous owner's language; the slot stays as the purge left it and
+          // the new owner's own answer fills it. An unauthenticated reply is
+          // not authoritative and must not clear a good seed.
+          if (json.authenticated !== false && getSessionOwnerChangeCount() === ownerAtRequest) {
+            cacheLanguageSeed(json.locale);
+          }
           if (cancelled) return;
           setValue({ currency: json.currency ?? undefined, locale: json.locale ?? undefined });
           return;

@@ -4,11 +4,11 @@
 '@object-ui/i18n': minor
 ---
 
-Renderers for the `app:launcher` and `nav:menu` page blocks (objectui#6661).
+Renderers for the `app:launcher` and `nav:menu` page blocks.
 Phase 1 of the 2026-08-26 maintainer ruling on objectstack#12183 — the two
 `PageComponentType` members that are purely metadata-driven, so nothing had to
 ship before their renderers could. Phase 2 (`global:search` /
-`global:notifications`) landed in objectui#6757 and set the pattern this
+`global:notifications`) landed in `f99932a42` and set the pattern this
 follows.
 
 A page that declared either member drew a dashed box. The two symptoms were not
@@ -36,7 +36,7 @@ and neither issues a request or touches an adapter:
   from `resolveActiveNavItem`, and the item-level guards (`visible`,
   `requiredPermissions`, `requiresObject` / `requiresService`) in the order
   `NavigationItemRenderer` applies them, wired to the same console providers
-  `AppSidebar` wires them to. `action` items dispatch through
+  `UnifiedSidebar` wires them to. `action` items dispatch through
   `useNavActionDispatch`, so framework#4509's "renders but dead-clicks" shape is
   not reintroduced.
 

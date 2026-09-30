@@ -14,7 +14,6 @@ import type {
   BrandingConfig,
   ObjectSelection,
   EditorMode,
-  AppComponentSchema,
 } from '../index';
 
 describe('App Creation Types', () => {
@@ -44,13 +43,12 @@ describe('App Creation Types', () => {
   });
 
   describe('wizardDraftToAppSchema', () => {
-    it('should convert draft to AppComponentSchema', () => {
+    it('should convert draft to the app document the Studio saves', () => {
       const draft: AppWizardDraft = {
         name: 'test_app',
         title: 'Test Application',
         description: 'A test app',
         icon: 'LayoutDashboard',
-        layout: 'sidebar',
         objects: [],
         navigation: [
           { id: 'nav_1', type: 'object', label: 'Contacts', objectName: 'contacts' },
@@ -62,21 +60,23 @@ describe('App Creation Types', () => {
         },
       };
 
-      const schema: AppComponentSchema = wizardDraftToAppSchema(draft);
-      expect(schema.type).toBe('app');
+      const schema = wizardDraftToAppSchema(draft);
+      // Only keys the spec's `AppSchema` declares (objectui#10842): no `type`,
+      // `title`, top-level `favicon` or `layout`.
+      for (const key of ['type', 'title', 'favicon', 'layout']) {
+        expect(key in schema, key).toBe(false);
+      }
       expect(schema.name).toBe('test_app');
-      expect(schema.title).toBe('Test Application');
       expect(schema.label).toBe('Test Application');
       expect(schema.description).toBe('A test app');
       expect(schema.icon).toBe('LayoutDashboard');
-      expect(schema.logo).toBe('https://example.com/logo.svg');
-      expect(schema.favicon).toBe('https://example.com/favicon.ico');
+      // The logo travels in `branding` only — no top-level copy (objectui#10827).
+      expect('logo' in schema).toBe(false);
       expect(schema.branding).toEqual({
         logo: 'https://example.com/logo.svg',
         primaryColor: '#3b82f6',
         favicon: 'https://example.com/favicon.ico',
       });
-      expect(schema.layout).toBe('sidebar');
       expect(schema.navigation).toHaveLength(1);
       expect(schema.navigation![0].id).toBe('nav_1');
     });
@@ -85,7 +85,6 @@ describe('App Creation Types', () => {
       const draft: AppWizardDraft = {
         name: 'empty_app',
         title: 'Empty',
-        layout: 'header',
         objects: [],
         navigation: [],
         branding: {},
@@ -93,7 +92,6 @@ describe('App Creation Types', () => {
 
       const schema = wizardDraftToAppSchema(draft);
       expect(schema.navigation).toEqual([]);
-      expect(schema.layout).toBe('header');
       expect(schema.label).toBe('Empty');
     });
 
@@ -102,7 +100,6 @@ describe('App Creation Types', () => {
         name: 'sales_crm',
         title: 'Sales CRM',
         icon: 'TrendingUp',
-        layout: 'sidebar',
         objects: [],
         navigation: [],
         branding: {
@@ -112,7 +109,7 @@ describe('App Creation Types', () => {
       };
 
       const schema = wizardDraftToAppSchema(draft);
-      // These fields are critical for AppSidebar and app switcher
+      // These fields are critical for the app switcher and the shell's branding
       expect(schema.icon).toBe('TrendingUp');
       expect(schema.label).toBe('Sales CRM');
       expect(schema.branding).toEqual({
@@ -125,7 +122,6 @@ describe('App Creation Types', () => {
       const draft: AppWizardDraft = {
         name: 'no_icon_app',
         title: 'No Icon',
-        layout: 'sidebar',
         objects: [],
         navigation: [],
         branding: {},

@@ -30,7 +30,7 @@ still ignores every URL change after mount, and a live request never moves it.
 The sheet's other home is the Home / draft-preview bar, where the Studio object editor
 is not a reachable destination at all. Reachability is answered structurally — the
 producer hook returns `null` when no host published the channel — so off-Studio the
-item name stays the prose #5418 shipped rather than becoming a link to nowhere. Both
+item name stays the prose `7a90afdf9` shipped rather than becoming a link to nowhere. Both
 directions are assertions in `DraftChangesPanel.securityLink.test`, not a comment.
 
 Nothing the other three pillars observe changed: `useSurfaceDeepLink` keeps its

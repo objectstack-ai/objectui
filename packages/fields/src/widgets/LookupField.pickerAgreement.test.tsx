@@ -31,15 +31,17 @@
  * declaration is driven through both, and the rendered values must match
  * column for column.
  *
- * They also pin the fallback. Neither surface's query carries populate/expand
- * — that is unchanged, and widening `lookupColumns` with dot-path/populate
- * semantics is explicitly NOT what fixes this — so a lookup value can
- * legitimately arrive as an unresolved foreign-key id. The rule is that the
- * dropdown adopts whatever the picker shows for it, and that the column is
- * never silently dropped: a held value keeps its slot and renders the lookup
- * cell renderer's own placeholder, because a blank column is worse than a
- * bare id (the field report records a dot-path attempt producing exactly that
- * silent-empty outcome).
+ * They also pin the fallback. Both surfaces' queries now ask for `$expand` on
+ * the reference columns they show (objectui#10223), but this file's backend
+ * ignores that parameter and returns the bare foreign key, as any backend that
+ * does not honour it would — and widening `lookupColumns` with
+ * dot-path/populate semantics is explicitly NOT what fixes this — so a lookup
+ * value can legitimately arrive as an unresolved foreign-key id. The rule is
+ * that the dropdown adopts whatever the picker shows for it, and that the
+ * column is never silently dropped: a held value keeps its slot and renders
+ * the lookup cell renderer's own placeholder, because a blank column is worse
+ * than a bare id (the field report records a dot-path attempt producing
+ * exactly that silent-empty outcome).
  */
 
 import * as React from 'react';
@@ -234,9 +236,9 @@ describe('LookupField — inline dropdown agrees with the browse-all picker (obj
     const dropdown = await readInlineDropdown(UNRESOLVED_STEP_ID);
     const picker = await readBrowseAllPicker(UNRESOLVED_STEP_ID);
 
-    // The dropdown's query carries no populate/expand, so an id that resolves
-    // to nothing is a legitimate state. Whatever it renders, it renders the
-    // picker's answer — the two surfaces do not get to disagree here either.
+    // This backend ignores `$expand` and serves the bare key, so an id that
+    // resolves to nothing is a legitimate state. Whatever it renders, it renders
+    // the picker's answer — the two surfaces do not get to disagree here either.
     expect(dropdown).toEqual(picker);
 
     // The column must still be THERE, and it must not have degraded into the

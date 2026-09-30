@@ -26,7 +26,10 @@
  * The 2 s cadence did not reproduce on any of them, and `approvals/requests`
  * held its own 30 s. There is no second scheduler: `useHomeInbox` and
  * `useInboxBell` both fetch nothing, and `useClientNotifications` — the other
- * candidate — has no call sites in this repo at all.
+ * candidate — had no call sites in this repo at all. objectui#7389 has since
+ * retired that hook from `@object-ui/react`, so it is no longer a candidate:
+ * the second poller over these rows that it carried is gone, not merely
+ * unmounted.
  *
  * ## Why a pin, then, if nothing is broken
  *

@@ -20,11 +20,12 @@
  * resolution. One resolver in the runtime layer, not one per plugin.
  */
 
-import { useContext, useEffect, useMemo, useState, type Context } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import {
   collectSavedViews,
   composeElementDataSource,
   elementDataSourceViewNotFoundMessage,
+  FilterOperatorError,
   isElementDataSourceConfig,
   resolveSavedView,
   type ComposedElementDataSource,
@@ -47,7 +48,12 @@ export type ElementDataSourceStatus =
   | 'loading'
   /** The named `view` was found and composed in. */
   | 'resolved'
-  /** The named `view` does not exist on the object (or could not be read). */
+  /**
+   * The binding cannot be applied: the named `view` does not exist on the
+   * object (or could not be read), or a filter it combines is REFUSED by the
+   * filter converter — then `filterRefusal` carries the refusal (objectui#10789).
+   * Either way `composed` is withheld, so no query runs without the filter.
+   */
   | 'missing';
 
 export interface UseElementDataSourceResult {
@@ -64,6 +70,14 @@ export interface UseElementDataSourceResult {
   view?: ElementSavedView;
   /** Author-facing explanation, set only for `missing`. */
   error?: string;
+  /**
+   * Why the binding could not be composed, when the reason is a refused
+   * filter — set only with `missing`, and `error` then carries its message
+   * (objectui#10789). A caller that draws the malformed-filter notice reads the
+   * refused operator or field off it (`filterRefusalSubject`) rather than
+   * scraping `error`.
+   */
+  filterRefusal?: FilterOperatorError;
 }
 
 /** A data source able to answer "what saved views does this object have?". */
@@ -134,7 +148,10 @@ export function useElementDataSource(
   schema: unknown,
   dataSource?: unknown,
 ): UseElementDataSourceResult {
-  const context = useContext(SchemaRendererContext as Context<any>);
+  // Read AS DECLARED (objectui#7209) — no cast between the hook and the value,
+  // so a member the context does not declare is a compile error here. Pinned by
+  // `useElementDataSource.schemaRendererContextRead-7209.test.ts`.
+  const context = useContext(SchemaRendererContext);
   const adapter = (dataSource ?? context?.dataSource ?? null) as ViewCapableDataSource | null;
 
   const config = useMemo(() => {
@@ -204,11 +221,23 @@ export function useElementDataSource(
     }
     if (resolved?.key !== requestKey) return { status: 'loading', config };
     if (resolved.view === null) return { status: 'missing', config, error: resolved.error };
-    return {
-      status: 'resolved',
-      config,
-      view: resolved.view,
-      composed: composeElementDataSource(config, resolved.view),
-    };
+    // objectui#10789 — composing the view's filter with the binding's own is a
+    // MERGE, and the merge lowers both through the throwing converter form.
+    // This is a render-time `useMemo`, so an uncaught refusal was a render
+    // error: the block's error boundary instead of a sentence naming the
+    // operator. The refusal is kept as a VALUE and reported as `missing`,
+    // which every caller already answers by withholding the query — never as
+    // `undefined`, which would read as "no filter" and widen the read. Only a
+    // `FilterOperatorError` is caught, the rule `toFilterNodeSafely` states:
+    // anything else is a defect, not a statement about the author's filter.
+    // (The `ready` branch above composes no view, so nothing is merged there.)
+    let composed: ComposedElementDataSource;
+    try {
+      composed = composeElementDataSource(config, resolved.view);
+    } catch (error) {
+      if (!(error instanceof FilterOperatorError)) throw error;
+      return { status: 'missing', config, error: error.message, filterRefusal: error };
+    }
+    return { status: 'resolved', config, view: resolved.view, composed };
   }, [config, resolved, requestKey]);
 }

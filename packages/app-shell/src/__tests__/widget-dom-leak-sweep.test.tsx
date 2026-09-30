@@ -37,9 +37,9 @@
  *   | plugin-calendar  |       3 |               0 |                 0 |
  *   | plugin-chatbot   |       3 |               0 |                 0 |
  *   | plugin-dashboard |       8 |               2 |             7 / 9 |
- *   | components       |     159 |              89 |          12 .. 15 |
+ *   | components       |     160 |              90 |          12 .. 15 |
  *
- * **91 of 182 targets leak.** The `components` row is objectui#5574 and is
+ * **92 of 183 targets leak.** The `components` row is objectui#5574 and is
  * covered in its own section below; the two `plugin-dashboard` rows are the
  * older tail. Both are in {@link LEAK_LEDGER}:
  * `plugin-dashboard:metric` and `plugin-dashboard:metric-card`, the open tail
@@ -122,7 +122,7 @@
  * have failed. These two differ in exactly one thing: which namespace the extra
  * widget went into.
  *
- * ### The reading — 119 of 158 ON ARRIVAL, in seven shapes; 89 today
+ * ### The reading — 119 of 158 ON ARRIVAL, in seven shapes; 90 today
  *
  * The card named four candidates (`flex`, `stack`, `container`, `text`) and was
  * careful to call them candidates. All four leaked. So did 115 others, and the
@@ -139,8 +139,8 @@
  * so their rows had to go for the gate to pass — the two-way expiry below,
  * working exactly once it had something to expire. Later slices took more,
  * and objectui#5632's `ui:sidebar-trigger` took the last shape that named a
- * single renderer: **89 rows in FOUR shapes** remain, on a target set that has
- * itself grown to 159. What the arrival reading measured is preserved here in prose and in
+ * single renderer: **90 rows in FOUR shapes** remain, on a target set that has
+ * itself grown to 160. What the arrival reading measured is preserved here in prose and in
  * the burn-down note on {@link COMPONENTS_LEAK_GROUPS}; what the gate asserts
  * is always current truth, which is the whole point of not writing dates into
  * a ledger.
@@ -595,7 +595,7 @@ const CALENDAR_OBJECT_EXTRAS = {
  * an ordinary authored prop while doing it.
  *
  * Measured on the tree this landed on: 152 of 158 targets matched it.
- * Today 155 of 159 targets match it; the other four are in
+ * Today 157 of 160 targets match it; the other three are in
  * {@link READY_OVERRIDE_REASONS}, each with the reason it cannot —
  * a recorded limitation with its own two-way assertion below, never a quiet
  * exemption (the `omitCanaries` discipline, applied to readiness).
@@ -685,7 +685,7 @@ const METADATA_HOST_CONTEXT: MetadataContextValue = {
 };
 
 /**
- * Why each of the four targets below cannot use {@link COMPONENTS_READY}, and
+ * Why each of the three targets below cannot use {@link COMPONENTS_READY}, and
  * what its selector proves instead. Every entry is measured, and the assertion
  * in section 3 makes this map and the overrides EXACTLY each other: an override
  * without a reason fails, and a reason whose target no longer needs one fails
@@ -702,10 +702,14 @@ const METADATA_HOST_CONTEXT: MetadataContextValue = {
  * empty the fixture is, and fixing it is out of this card's scope (test
  * fixtures only, no renderer edits). Its entry below is REWRITTEN, not
  * deleted: it still names a real gap, just a different one than before.
+ *
+ * Was four until objectui#10397: `ui:header-bar` dropped out because its
+ * renderer now merges `schema.className` onto its root `header` through
+ * `cn(...)`, so the shared readiness class reaches the DOM there too. Its
+ * reason had said the renderer forwarded the authored `className` to neither
+ * its own `header` nor the sidebar wrapper, which that repair made false.
  */
 const READY_OVERRIDE_REASONS: Readonly<Record<string, string>> = {
-  'ui:header-bar':
-    'it renders inside the sidebar wrapper and forwards the authored `className` to neither its own `header` nor that wrapper, so the selector names its own `header` element instead.',
   'ui:toaster':
     'Sonner owns the root it renders and takes no `className` from the node; the selector names the live-region `section` Sonner emits.',
   'ui:tooltip':
@@ -743,7 +747,7 @@ const COMPONENTS_PLAIN_TYPES: readonly string[] = [
   'protocol-placeholder:nav:menu', 'ui:a', 'ui:abbr', 'ui:accordion', 'ui:address',
   'ui:alert', 'ui:app', 'ui:article', 'ui:aside', 'ui:aspect-ratio', 'ui:avatar', 'ui:b',
   'ui:badge', 'ui:blockquote', 'ui:box', 'ui:br', 'ui:breadcrumb', 'ui:button', 'ui:button-group',
-  'ui:calendar', 'ui:card', 'ui:carousel', 'ui:checkbox', 'ui:cite', 'ui:collapsible',
+  'ui:calendar', 'ui:card', 'ui:carousel', 'ui:checkbox', 'ui:cite', 'ui:code', 'ui:collapsible',
   'ui:combobox', 'ui:command', 'ui:container', 'ui:context-menu', 'ui:data-table',
   'ui:date-picker', 'ui:dd', 'ui:del', 'ui:div', 'ui:dl', 'ui:dt', 'ui:em', 'ui:email',
   'ui:empty', 'ui:figcaption', 'ui:figure', 'ui:file-upload', 'ui:filter-builder', 'ui:flex',
@@ -782,7 +786,7 @@ const COMPONENTS_SPECIAL_TARGETS: readonly Target[] = [
   componentsTarget('ui:sidebar', {}, COMPONENTS_READY, 'sidebar'),
   componentsTarget('ui:sidebar-trigger', {}, COMPONENTS_READY, 'sidebar'),
   componentsTarget('ui:sidebar-menu-button', {}, COMPONENTS_READY, 'sidebar'),
-  componentsTarget('ui:header-bar', {}, 'header.border-b', 'sidebar'),
+  componentsTarget('ui:header-bar', {}, COMPONENTS_READY, 'sidebar'),
   componentsTarget('ui:toaster', {}, 'section[aria-label="Notifications alt+T"]'),
   // objectui#5630 — deepened past the empty-state placeholder. `items`
   // authored: pure schema, no host needed, and the populated `<dl>` carries
@@ -880,8 +884,8 @@ const TARGETS: Readonly<Record<string, readonly Target[]>> = {
     // key onto this package's own namespace; the renderer is the same one.
     { type: 'plugin-dashboard:dashboard', ready: '.grid.auto-rows-min' },
   ],
-  // objectui#5574 — 159 targets, built above rather than spelled here because
-  // 140 of them need nothing but the shared readiness class.
+  // objectui#5574 — 160 targets, built above rather than spelled here because
+  // 141 of them need nothing but the shared readiness class.
   components: COMPONENTS_TARGETS,
 };
 
@@ -974,7 +978,7 @@ interface LedgerEntry {
 /* ── objectui#5574: the `packages/components` reading, as a LEDGER ─────────── */
 
 /**
- * 89 of the 159 `packages/components` targets leak, and they do it in exactly
+ * 90 of the 160 `packages/components` targets leak, and they do it in exactly
  * FOUR shapes (119 targets in seven shapes did on arrival; see the burn-down
  * note below — and note the arrival count of shapes read `eight` here until
  * objectui#5632 counted them: the groups were seven, and the card's own table
@@ -1077,8 +1081,8 @@ interface LedgerEntry {
  * leaking a NINTH attribute the gate fails, because the measured set no longer
  * equals the recorded one; if it stops leaking, the gate ALSO fails until the
  * row goes. An allowlist has neither property. Nothing below is skipped,
- * `it.skip`-ed, quarantined or excluded from the sweep — all 159 targets render
- * and all 159 are scanned on every run, the 70 clean ones included.
+ * `it.skip`-ed, quarantined or excluded from the sweep — all 160 targets render
+ * and all 160 are scanned on every run, the 70 clean ones included.
  */
 
 /**
@@ -1144,7 +1148,7 @@ const COMPONENTS_LEAK_GROUPS: readonly LedgerGroup[] = [
       'action:bar', 'ui:a', 'ui:abbr', 'ui:accordion', 'ui:address', 'ui:alert',
       'ui:article', 'ui:aside', 'ui:aspect-ratio', 'ui:avatar', 'ui:b', 'ui:badge',
       'ui:blockquote', 'ui:br', 'ui:breadcrumb', 'ui:button-group', 'ui:card', 'ui:carousel',
-      'ui:cite', 'ui:collapsible', 'ui:command', 'ui:dd', 'ui:del', 'ui:div',
+      'ui:cite', 'ui:code', 'ui:collapsible', 'ui:command', 'ui:dd', 'ui:del', 'ui:div',
       'ui:dl', 'ui:dt', 'ui:em', 'ui:empty', 'ui:figcaption', 'ui:figure',
       'ui:footer', 'ui:h1', 'ui:h2', 'ui:h3', 'ui:h4', 'ui:h5', 'ui:h6', 'ui:header',
       'ui:hr', 'ui:html', 'ui:i', 'ui:image', 'ui:img', 'ui:ins', 'ui:kbd',
@@ -1221,7 +1225,7 @@ const LEAK_LEDGER: Readonly<Record<string, LedgerEntry>> = {
     issue: 'objectui#4425',
   },
 
-  /* ── packages/components: 89 of 159 targets, in four measured shapes ───── */
+  /* ── packages/components: 90 of 160 targets, in four measured shapes ───── */
   ...Object.fromEntries(
     COMPONENTS_LEAK_GROUPS.flatMap((group) =>
       group.targets.map((type) => [
@@ -1801,11 +1805,11 @@ const wordForCount = (count: number): string => COUNT_WORDS[count] ?? String(cou
  */
 const DOCBLOCK_COUNTS = {
   /** `packages/components` targets swept: the plain types plus the specials. */
-  componentsTargets: 159,
+  componentsTargets: 160,
   /** Of those, the ones needing nothing but the shared readiness class. */
-  componentsPlainTypes: 140,
+  componentsPlainTypes: 141,
   /** Ledgered `packages/components` rows — targets with a recorded leak. */
-  componentsLedgered: 89,
+  componentsLedgered: 90,
   /** The complement: swept, scanned and clean. */
   componentsClean: 70,
   /** Measured shapes the ledgered rows fall into. */
@@ -1813,15 +1817,15 @@ const DOCBLOCK_COUNTS = {
   /** Registry prefixes `packages/components` owns. */
   componentsPrefixes: 5,
   /** Targets the shared readiness selector reaches. */
-  componentsReadyMatched: 155,
+  componentsReadyMatched: 157,
   /** The rest, each with a recorded reason it cannot. */
-  componentsReadyOverrides: 4,
+  componentsReadyOverrides: 3,
   /** Attributes leaked by the shape with the most members. */
   commonestShapeAttributes: 14,
   /** Every target this sweep renders, all five packages. */
-  allTargets: 182,
+  allTargets: 183,
   /** Every ledgered row, `plugin-dashboard`'s open tail included. */
-  allLedgered: 91,
+  allLedgered: 92,
 } as const;
 
 type CountName = keyof typeof DOCBLOCK_COUNTS;

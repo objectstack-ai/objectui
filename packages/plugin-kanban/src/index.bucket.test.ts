@@ -13,7 +13,7 @@
  * the trailing "Uncategorized" lane so the visible card total reconciles with
  * the record count.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { bucketCardsIntoColumns, KANBAN_UNCOLUMNED_ID } from './index';
 
 const columns = [
@@ -33,11 +33,20 @@ describe('bucketCardsIntoColumns', () => {
     expect(result[1].cards.map((c: any) => c.id)).toEqual(['2']);
   });
 
-  it('matches by column title/label as well as id (case-insensitive)', () => {
-    const data = [{ id: '1', title: 'A', status: 'In Progress' }];
+  it('matches by column id only (case-insensitively), never by title (objectui#10069)', () => {
+    // FLIPPED: this row used to assert that a record storing the column TITLE
+    // ('In Progress') landed in that column. Ruling A retired the title key,
+    // so that record is now swept into "Uncategorized", while a case-variant
+    // of the id still matches — the id comparison keeps its case folding.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const data = [
+      { id: '1', title: 'A', status: 'In Progress' },
+      { id: '2', title: 'B', status: 'IN_PROGRESS' },
+    ];
     const result = bucketCardsIntoColumns(columns, data, 'status', undefined, 'Uncategorized');
-    expect(result.find((c) => c.id === 'in_progress')!.cards).toHaveLength(1);
-    expect(result.find((c) => c.id === KANBAN_UNCOLUMNED_ID)).toBeUndefined();
+    expect(result.find((c) => c.id === 'in_progress')!.cards.map((c: any) => c.id)).toEqual(['2']);
+    expect(result.find((c) => c.id === KANBAN_UNCOLUMNED_ID)!.cards.map((c: any) => c.id)).toEqual(['1']);
+    warn.mockRestore();
   });
 
   it('surfaces off-column records in an Uncategorized lane instead of dropping them (#2792)', () => {

@@ -28,7 +28,7 @@ import {
   resolveIcon,
   useIsMobile,
 } from '@object-ui/components';
-import { SchemaRenderer, useCapabilityGate, useCondition, toPredicateInput, type RelatedRowActionDef } from '@object-ui/react';
+import { SchemaRenderer, useCapabilityGate, useCondition, toPredicateInput, useSettledSchema, useFilterScope, useResolvedFilter, type RelatedRowActionDef } from '@object-ui/react';
 import {
   Plus,
   ExternalLink,
@@ -41,9 +41,10 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type { DataSource, FieldMetadata } from '@object-ui/types';
 import type { ViewFilterRule } from '@objectstack/spec/ui';
-import { getCellRenderer, resolveCellRendererType, RecordPickerDialog, deriveLookupColumns } from '@object-ui/fields';
+import { getCellRenderer, resolveCellRendererType, RecordPickerDialog, deriveLookupColumns, MaskedCellRenderer } from '@object-ui/fields';
 import {
   buildExpandFields,
+  collectPredicateFieldRefs,
   columnIdentity,
   columnHeader,
   compareSortValues,
@@ -53,6 +54,9 @@ import {
   isExpandableFieldType,
   isPlatformSortableField,
   isUnmaterializedFieldType,
+  listViewPredicates,
+  parentRelationshipFieldDef,
+  PLATFORM_RECORD_COLUMNS,
   composeParentScopeFilter,
   isMultiValueRelationship,
   mergeFilterNodes,
@@ -65,6 +69,7 @@ import {
 import { useSafeFieldLabel } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
 import { useDetailTranslation } from './useDetailTranslation';
+import { isMaskedDetailFieldType } from './fieldEnrichment';
 
 export interface RelatedListProps {
   title: string;
@@ -192,6 +197,9 @@ export interface RelatedListProps {
    * since objectui#3106 they sort the collection rather than the page, so the
    * button row above them would be a second control over the same order.
    *
+   * A masked column (a `password` / `secret` field, or any column while the
+   * object's field types are still unknown) gets no button (objectui#10728).
+   *
    * @default false
    */
   sortable?: boolean;
@@ -218,7 +226,12 @@ export interface RelatedListProps {
    * second conversion dialect appears.
    */
   filter?: ViewFilterRule[] | FilterNode;
-  /** Enable text filtering */
+  /**
+   * Enable text filtering. The box keeps a row when a column the list shows
+   * contains the term; a masked column (a `password` / `secret` field, or any
+   * column while the object's field types are still unknown) and a field no
+   * column shows are not searched (objectui#10728).
+   */
   filterable?: boolean;
   /** Whether the card is collapsible */
   collapsible?: boolean;
@@ -330,6 +343,75 @@ function normalizeSortSpec(
       : [{ field: trimmed, order: 'asc' }];
   }
   return sort.filter((s) => !!s?.field);
+}
+
+/** The permission context this component reads field-level security from. */
+type FieldReadPolicy = ReturnType<typeof usePermissions>;
+
+/**
+ * The field the mobile card gallery draws as each card's cover. It is handed
+ * to the `object-gallery` node explicitly as `gallery.coverField`, and the
+ * `$select` projection asks for it from this same constant (objectui#10186),
+ * so the field the card reads and the field the request carries cannot drift
+ * apart. The value is `ObjectGallery`'s own default, so the cover is unchanged.
+ */
+const MOBILE_GALLERY_COVER_FIELD = 'image';
+
+/**
+ * The cell a WITHHELD column draws (objectui#10657): the mask, never the
+ * value. See `tableColumns` for when a column is withheld. Module-level, so
+ * the column keeps one `cell` identity across renders.
+ */
+function withheldCell(value: unknown): React.ReactElement {
+  return React.createElement(MaskedCellRenderer, { value });
+}
+
+/**
+ * The key this component DRAWS a column through: the table library's
+ * `accessorKey` first, then the shared metadata reader. Every column gate below
+ * resolves identity this way, because a column refused under one reading and
+ * drawn under another is the defect objectui#9053 recorded.
+ */
+function drawnColumnKey(c: unknown): string | undefined {
+  const key = (c as { accessorKey?: unknown } | null | undefined)?.accessorKey || columnIdentity(c);
+  return key ? String(key) : undefined;
+}
+
+/** The column keys a content key from `unmaskedColumnKeysKey` lists (objectui#10728). */
+function readColumnKeys(contentKey: string): string[] {
+  return JSON.parse(contentKey) as string[];
+}
+
+/**
+ * The three column gates of the AUTHORED path, as plain functions so that the
+ * columns `effectiveColumns` draws and the `$select` the auto-fetch sends
+ * (objectui#10186) are judged by ONE spelling of each gate, not two that can
+ * drift apart. Each fails OPEN on a column it cannot name, as it always has.
+ *
+ * FLS: drop the columns the principal cannot read on the related object. An
+ * unanswered policy (`isLoaded` false) filters nothing.
+ */
+function keepReadableColumns<T>(cols: T[], perms: FieldReadPolicy, objectName: string): T[] {
+  if (!perms?.isLoaded || !objectName) return cols;
+  return cols.filter((c) => {
+    const key = drawnColumnKey(c);
+    if (!key) return true;
+    return perms.checkField(objectName, key, 'read');
+  });
+}
+
+/** Drop the parent foreign key: the parent record is already the context. */
+function dropParentKeyColumn<T>(cols: T[], referenceField: string | undefined): T[] {
+  return referenceField ? cols.filter((c) => drawnColumnKey(c) !== referenceField) : cols;
+}
+
+/** Drop the columns the block redacts (objectui#9053) — an authoring preference. */
+function dropRedactedColumns<T>(cols: T[], redacted: ReadonlySet<string>): T[] {
+  if (redacted.size === 0) return cols;
+  return cols.filter((c) => {
+    const key = drawnColumnKey(c);
+    return !(key && redacted.has(key));
+  });
 }
 
 /**
@@ -451,7 +533,28 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   // `hasMore` keeps "Next" usable when a non-conforming backend omits `total`.
   const [total, setTotal] = React.useState<number | null>(null);
   const [hasMore, setHasMore] = React.useState(false);
-  const [objectSchema, setObjectSchema] = React.useState<any>(null);
+  /**
+   * The child object's definition, and whether the read for THIS `api` has
+   * SETTLED: one piece of state, through the shared hook (objectui#10690).
+   *
+   * Read whenever it can be, not only on the auto-fetch path: it derives the
+   * columns when none are authored, attaches type-aware cell renderers to the
+   * ones that are (a `status` column draws a "Planned" badge, not `planned`),
+   * and gives the arity, `$expand` and `$select` the row fetch sends.
+   *
+   * It sat in a local `useState` fed by its own effect, and the row fetch went
+   * out before it landed, then again after it, whenever it moved the arity,
+   * `expandKey` or `selectKey`. For a multi-valued relationship the first
+   * query was the equality `driver-sql` refuses with `400 INVALID_FILTER`. The
+   * fetch now waits on `ready`, the gate `ObjectMap` and `ObjectDataTable` use.
+   *
+   * ⚠️ The gate is only safe because the hook SETTLES ON EVERY EXIT: no
+   * `dataSource`, no `getObjectSchema`, no `api`, and a read that threw all
+   * settle with `def: null`, so rows are never held back by a definition that
+   * is never coming. Pinned by the `SETTLES` cases in
+   * `RelatedList.multiValueParentScope-7299.test.tsx`.
+   */
+  const { ready: objectSchemaReady, def: objectSchema } = useSettledSchema<any>(api ?? '', dataSource);
   const [collapsed, setCollapsed] = React.useState(defaultCollapsed);
   // Add-by-picker (generic m2m/junction assignment). `refreshNonce` re-runs the
   // auto-fetch after an add/remove so the list reflects the new link rows.
@@ -464,10 +567,11 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   const { t } = useDetailTranslation();
   const { fieldLabel: resolveFieldLabel } = useSafeFieldLabel();
   /**
-   * Field-level security, read by BOTH projection sites: the `$expand` roots
-   * the auto-fetch below asks the server to resolve, and the column gate in
-   * `effectiveColumns` further down (which is where this call used to sit —
-   * it was hoisted here, unconditionally, so the fetch effect can name it).
+   * Field-level security, read by every projection site: the `$expand` roots
+   * the auto-fetch below asks the server to resolve, the `$select` it sends
+   * (objectui#10186), and the column gate in `effectiveColumns` further down
+   * (which is where this call used to sit — it was hoisted here,
+   * unconditionally, so the fetch effect can name it).
    */
   const perms = usePermissions();
 
@@ -524,8 +628,9 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   );
 
   const effectivePageSize = pageSize && pageSize > 0 ? pageSize : 0;
-  // The built-in contains-filter is a CLIENT-side sweep over every field —
-  // inexpressible as a generic server filter. While the user is typing in it
+  // The built-in contains-filter is a CLIENT-side sweep over the list's
+  // unmasked columns (objectui#10728, `unmaskedColumnKeysKey`) — inexpressible
+  // as a generic server filter. While the user is typing in it
   // (opt-in `filterable` consumers only) we drop back to the legacy
   // fetch-everything mode so the filter keeps seeing the whole collection.
   const filterActive = filterable && filterText !== '';
@@ -569,9 +674,20 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   // rendered below; it is deliberately NOT collapsed to `undefined`, which
   // would mean "no filter" and run this list unconstrained — the silent
   // widening objectui#9001 closed.
-  const filterKey = JSON.stringify(filter ?? null);
+  //
+  // objectui#10666 — the list's own `filter` is lowered AFTER every context
+  // token in it (`{current_user_id}`, `{current_org_id}`, the date macros) is
+  // resolved ONCE through `@object-ui/core`'s shared
+  // `resolveFilterPlaceholders`, against the session scope the host provides,
+  // and HELD by structure (`useResolvedFilter` in `@object-ui/react`). The list
+  // merged the literal token into the parent scope before. The content key
+  // below is taken over the held value, so a new signed-in user moves it and
+  // re-queries, and a date macro such as `{now}` does not move it every render.
+  const filterScope = useFilterScope();
+  const scopeFilter = useResolvedFilter(filter, filterScope);
+  const filterKey = JSON.stringify(scopeFilter ?? null);
   const listFilterResult = React.useMemo(
-    () => toFilterNodeSafely(filter),
+    () => toFilterNodeSafely(scopeFilter),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [filterKey],
   );
@@ -641,17 +757,143 @@ export const RelatedList: React.FC<RelatedListProps> = ({
    * React discards its cache, and naming the array itself would refetch the
    * whole collection on a discard alone (commandment #10).
    *
-   * It is also what carries this fix onto the wire. The child object's schema
-   * arrives asynchronously and the fetch effect is deliberately NOT gated on
-   * it (see the arity flag above), so the first query goes out before
-   * `objectSchema` exists and stays byte-identical to the one this component
-   * has always sent. When the schema lands and yields roots, this key changes
-   * and the effect re-runs once, now asking for them. A child object with no
-   * expandable column keeps an empty key — `'' -> ''` is not a change — and
-   * re-runs exactly as often as it did before, which is the same
-   * direction-of-the-default argument the arity flag makes.
+   * The fetch effect waits for the child object's schema to settle
+   * (objectui#10690), so the first query already asks for the roots it
+   * yields. This key still changes, and the effect re-runs once, when an
+   * input lands after that: the permission answer narrows the roots. A child
+   * object with no expandable column keeps an empty key — `'' -> ''` is not a
+   * change.
    */
   const expandKey = expandFields.join(',');
+
+  /**
+   * [objectui#9053] The redaction list as a lookup, memoised on the PROP's
+   * identity so `effectiveColumns` keeps the reference-stable dependency the
+   * rest of this file is built around: a caller that passes no list passes
+   * `undefined`, which never changes, and one that passes its authored array
+   * passes it by reference. Declared up here because the `$select` projection
+   * below reads it too.
+   */
+  const redactedFields = React.useMemo(
+    () =>
+      new Set(
+        (Array.isArray(redactFields) ? redactFields : []).filter(
+          (f): f is string => typeof f === 'string' && f.length > 0,
+        ),
+      ),
+    [redactFields],
+  );
+
+  /**
+   * The `$select` projection for the auto-fetch below (objectui#10186) — the
+   * SELECT half of the pair objectui#10112 opened with `$expand`, ruled "per
+   * that precedent": objectui#6898's field-level security on the projection,
+   * which `ListView` and `ObjectGrid` already send.
+   *
+   * Without it this list asked for every field of every child row and dropped
+   * a denied one only at the column layer, so the value still crossed the wire
+   * into `relatedData`. Graded as objectui#6898 graded it: against ObjectStack
+   * nothing leaks today, because `plugin-security`'s `FieldMasker.maskRecord`
+   * deletes an unreadable key from every returned row; the projection is
+   * defence in depth there, and load-bearing for a backend that does not strip.
+   *
+   * WHAT IT ASKS FOR, each member mirroring the precedent:
+   *
+   *  - the authored columns that survive the SAME three gates `effectiveColumns`
+   *    applies before it draws them (redaction, the parent key, FLS) — the
+   *    shared functions above, so what is requested and what is drawn cannot
+   *    disagree about a column;
+   *  - `id`, unconditionally, as both precedents send it: row click, Edit,
+   *    Delete and every row action resolve the record through it;
+   *  - the `$expand` roots, already FLS-gated at their own site — a root the
+   *    projection omitted would have no key to resolve;
+   *  - the fields the row PREDICATES read (objectui#3501): the child object's
+   *    `userActions` Edit/Delete overrides, its actions and the host's row
+   *    actions, harvested by core's one reader. A predicate operand no column
+   *    shows would otherwise be absent from the row, and CEL faults on an
+   *    absent key, which fails the row menu CLOSED for everyone. Each operand
+   *    must be a field the object declares or a platform column (an unknown
+   *    `$select` key zeroes the list on backends that reject it), and a
+   *    DECLARED one must pass FLS — `ObjectGrid`'s `passesProjectionGate`
+   *    order. Nothing is harvested without the child schema, because
+   *    nothing can be validated; the fetch waits for it to settle
+   *    (objectui#10690), so the first query carries the operands;
+   *  - the mobile card gallery's cover (`MOBILE_GALLERY_COVER_FIELD`), which
+   *    no column shows and the gallery reads off every row — through the same
+   *    declared-and-readable gate, once the child schema has landed.
+   *
+   * ⛔ `pruneEmpty` is NOT applied: it judges emptiness from the rows this
+   * request fetches, so the projection is taken before it — it only ever
+   * removes a column, never adds one.
+   *
+   * ⭐ `undefined` — no projection, the request byte-identical to before — on
+   * every path that DERIVES its columns: no authored `columns`, or redaction
+   * emptied them, so `highlightFields` or the field walk decides. Those
+   * columns are not known before the fetch: both choose among their
+   * candidates by the emptiness of the rows fetched (the walk prunes and then
+   * caps at `maxColumns`; `highlightFields` falls through to the walk when
+   * every highlight is empty). That path is the design question objectui#10186
+   * left open, and it is not answered here. An authored list whose every
+   * column FLS denies is NOT that path: it still projects, to `id` and what
+   * its row predicates need, rather than reading an emptied column list as
+   * "no restriction" — the widening objectui#7215 measured on `$expand`.
+   */
+  const selectFields = React.useMemo((): string[] | undefined => {
+    const authored = dropRedactedColumns(Array.isArray(columns) ? columns : [], redactedFields);
+    if (authored.length === 0) return undefined;
+    const relatedObjectName = objectName || api || '';
+    const projection = new Set<string>(['id']);
+    for (const col of keepReadableColumns(dropParentKeyColumn(authored, referenceField), perms, relatedObjectName)) {
+      const key = drawnColumnKey(col);
+      if (key) projection.add(key);
+    }
+    for (const root of expandFields) projection.add(root);
+    const fields = objectSchema?.fields;
+    if (fields && typeof fields === 'object') {
+      const readable = (field: string): boolean =>
+        !perms?.isLoaded || !relatedObjectName || perms.checkField(relatedObjectName, field, 'read');
+      const operands = collectPredicateFieldRefs(
+        listViewPredicates({
+          rowActionDefs: rowActions,
+          objectActions: objectSchema?.actions,
+          userActions: objectSchema?.userActions,
+        }),
+      );
+      for (const field of operands) {
+        // Declared — looked up in EITHER container shape the metadata API
+        // serves (the Record, or the array of named defs), because a reader
+        // that knows only the Record would call every operand of an
+        // array-shaped schema undeclared and drop it — or one of the platform
+        // columns every object carries and none declares. That is core's
+        // `isProjectableField` rule, read across both shapes.
+        const declared = parentRelationshipFieldDef(fields, field) !== undefined;
+        if (!declared && !PLATFORM_RECORD_COLUMNS.has(field)) continue;
+        if (declared && !readable(field)) continue;
+        projection.add(field);
+      }
+      // The mobile card gallery's cover: no column shows it, but the gallery
+      // reads it off every row. Asked for when the child DECLARES it (either
+      // container shape) and FLS allows it — on every viewport, not only on
+      // mobile, so crossing the breakpoint never changes the key below and
+      // never refetches the list.
+      if (parentRelationshipFieldDef(fields, MOBILE_GALLERY_COVER_FIELD) !== undefined
+          && readable(MOBILE_GALLERY_COVER_FIELD)) {
+        projection.add(MOBILE_GALLERY_COVER_FIELD);
+      }
+    }
+    return Array.from(projection);
+  }, [columns, redactedFields, referenceField, objectName, api, perms, expandFields, objectSchema, rowActions]);
+  /**
+   * Content key for the fetch effect, for the reason `expandKey` is one
+   * (commandment #10). It also carries the projection onto the wire when an
+   * input lands late: the permission answer (`/me/permissions` resolves
+   * asynchronously, so the first request can go out before a denied column is
+   * known — the same deferral as `ObjectGrid`). The child schema is not such
+   * an input: the fetch waits for it to settle (objectui#10690). A
+   * derived-columns list keeps `''` and re-runs exactly as often as it did
+   * before.
+   */
+  const selectKey = selectFields ? selectFields.join(',') : '';
 
   // Sync internal state when data prop changes (e.g., parent fetches async data)
   React.useEffect(() => {
@@ -660,34 +902,17 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     }
   }, [data, dataProvided]);
 
-  // Fetch the related object's schema whenever we can. Needed BOTH to
-  // auto-derive columns (no `columns` prop) AND to attach type-aware cell
-  // renderers to explicitly-supplied columns (so a `status` column resolves to
-  // a "Planned" badge instead of the raw `planned`). The fetch is cheap/cached.
-  React.useEffect(() => {
-    if (api && dataSource?.getObjectSchema) {
-      dataSource.getObjectSchema(api).then(setObjectSchema).catch((err: unknown) => {
-        console.warn(`[RelatedList] Failed to fetch schema for ${api}:`, err);
-      });
-    }
-  }, [api, dataSource]);
-
   // ARITY of the parent-relationship field, read off the child object's own
-  // schema above (objectui#7299). `false` until that schema PROVES otherwise,
-  // and the direction of the default is load-bearing on both branches:
+  // schema above (objectui#7299). `false` unless that schema PROVES otherwise.
+  // The fetch below waits for the schema to settle (objectui#10690), so a
+  // multi-valued list sends the membership spelling on its first query. With no
+  // schema to read — no `getObjectSchema`, or a read that threw — the schema
+  // settles as `null` and this stays `false`: the list still fetches, with the
+  // equality form, rather than holding its rows back.
   //
-  //   - a single-valued list never sees this value CHANGE (false → false), so
-  //     the fetch effect below does not re-run and its wire stays byte-identical
-  //     to what it sent before this card;
-  //   - a multi-valued one flips false → true when the schema lands and refetches
-  //     with the membership spelling. Its first attempt is the query this
-  //     component has always sent, so nothing new can go wrong on it — and that
-  //     query is loudly REFUSED by the driver rather than quietly answered.
-  //
-  // ⛔ Deliberately NOT gated on "schema has loaded". A `DataSource` without
-  // `getObjectSchema`, or one whose schema fetch rejects, would then never fetch
-  // rows at all — trading this card's loud 400 on one relationship shape for a
-  // silent empty list on EVERY related list in the app.
+  // ⛔ The gate is on "settled", never on "a schema loaded". Waiting for a
+  // schema would strand the rows of every related list whose `DataSource` has
+  // no `getObjectSchema` or whose read rejects.
   // The seam's verdict, not a second reading of the metadata: the query below
   // and this flag must never be able to disagree about the arity, which is the
   // defect objectui#8882 records when two call sites each decide for themselves.
@@ -776,6 +1001,14 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         return;
       }
       setLoading(true);
+      // ⭐ objectui#10690: the child definition GATES this query; it does not
+      // refine it afterwards. The arity, `$expand` and `$select` below all read
+      // it, so a query sent before it settles is one this effect would send
+      // again. `objectSchemaReady` in the dependency list re-runs the effect
+      // when it settles, and this return stops the run before that from
+      // spending a query. Removing either half restores the double read, or
+      // strands the rows. The loading placeholder is held while it waits.
+      if (!objectSchemaReady) return;
       // The parent-relationship condition, compiled to match the field's ARITY
       // (objectui#7299). A multi-valued relationship asks a MEMBERSHIP question
       // — "is this parent among the stored values" — and `$contains` is the
@@ -805,6 +1038,10 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         // nothing to expand, so a child object with no reference column sends
         // the byte-identical query it always sent.
         if (expandFields.length > 0) params.$expand = expandFields;
+        // Ask only for what the principal may read and the list draws or its
+        // row predicates read (objectui#10186). Omitted on a derived-columns
+        // list — see `selectFields` for why that path sends no projection.
+        if (selectFields) params.$select = selectFields;
         if (windowed) {
           params.$top = effectivePageSize;
           params.$skip = fetchPage * effectivePageSize;
@@ -867,7 +1104,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         // all (objectui#7299).
         //
         // Measured, not assumed. The repo's one operator contract for this
-        // spelling is `drillUrlFilters`' `URL_FILTER_OPS` (#1752) — `gte`,
+        // spelling is `drillUrlFilters`' `URL_FILTER_OPS` (objectstack-ai/objectstack#1752) — `gte`,
         // `lte`, `gt`, `lt` and nothing else — and its parser DROPS an
         // unrecognised suffix rather than downgrading it, so a hopeful
         // `filter[<field>][contains]=` would arrive as no condition whatsoever:
@@ -926,11 +1163,17 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     // exactly as often as it did before — false → false is not a change.
     //
     // `expandKey` is the CONTENT of `expandFields` for the reason
-    // `defaultSortKey` / `filterKey` are the content of their memos — and it is
-    // the dependency that lets the schema-derived expansion reach the wire at
-    // all; see the key's own comment above.
+    // `defaultSortKey` / `filterKey` are the content of their memos; see the
+    // key's own comment above. `selectKey` is the same thing for the `$select`
+    // projection (objectui#10186).
+    //
+    // `objectSchemaReady` is the gate's other half (objectui#10690): a boolean,
+    // compared by value, that re-runs the effect when the child definition
+    // settles. The definition itself reaches the query through `expandKey`,
+    // `selectKey` and the arity flag, never named here by identity
+    // (commandment #10).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, dataProvided, dataSource, referenceField, referenceFieldIsMultiValue, parentId, refreshNonce, windowed, effectivePageSize, fetchPage, fetchSortField, fetchSortDirection, defaultSortKey, filterKey, expandKey]);
+  }, [api, dataProvided, dataSource, referenceField, referenceFieldIsMultiValue, parentId, refreshNonce, windowed, effectivePageSize, fetchPage, fetchSortField, fetchSortDirection, defaultSortKey, filterKey, expandKey, selectKey, objectSchemaReady]);
 
   // Windowed mode: a page beyond the (shrunken) collection — e.g. the last
   // row of the last page was just deleted — comes back empty. Step back one
@@ -1062,104 +1305,6 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataSource, objectSchema, relatedData]);
 
-  // Filter data (client mode only — windowed mode filters/sorts server-side)
-  const filteredData = React.useMemo(() => {
-    if (windowed || !filterText) return relatedData;
-    const lower = filterText.toLowerCase();
-    return relatedData.filter((row) =>
-      Object.values(row).some((val) =>
-        val !== null && val !== undefined && String(val).toLowerCase().includes(lower)
-      )
-    );
-  }, [relatedData, filterText, windowed]);
-
-  // Sort data (client mode only — a windowed sort is a server $orderby)
-  //
-  // A relational column holds a raw foreign-key id (this list resolves labels
-  // itself, see `lookupLabels`) or — when the parent handed us `$expand`-ed
-  // rows — the related record object. `String(aVal)` ordered the first by an
-  // opaque id and reduced the second to "[object Object]", i.e. every row equal.
-  // Feeding the resolved label map to `getSortValue` sorts by the string the
-  // cell actually renders (objectui#3096).
-  const sortedData = React.useMemo(() => {
-    if (windowed || !sortField) return filteredData;
-    const labels = lookupLabels[sortField];
-    const keyed = filteredData.map((row) => ({ row, key: getSortValue(row[sortField], { labels }) }));
-    keyed.sort((a, b) => {
-      const cmp = compareSortValues(a.key, b.key);
-      return sortDirection === 'asc' ? cmp : -cmp;
-    });
-    return keyed.map((entry) => entry.row);
-  }, [filteredData, sortField, sortDirection, windowed, lookupLabels]);
-
-  // Paginate data. Windowed mode already holds exactly one page; client mode
-  // slices the in-memory collection as before.
-  const paginatedData = effectivePageSize && !windowed
-    ? sortedData.slice(currentPage * effectivePageSize, (currentPage + 1) * effectivePageSize)
-    : sortedData;
-  const totalPages = !effectivePageSize
-    ? 1
-    : windowed
-      ? total != null
-        ? Math.max(1, Math.ceil(total / effectivePageSize))
-        : currentPage + (hasMore ? 2 : 1)
-      : Math.max(1, Math.ceil(sortedData.length / effectivePageSize));
-  const canGoNext = windowed
-    ? (total != null ? (currentPage + 1) * effectivePageSize < total : hasMore)
-    : currentPage < totalPages - 1;
-  const showPagination = effectivePageSize > 0 && (windowed
-    ? currentPage > 0 || canGoNext
-    : sortedData.length > effectivePageSize);
-
-  // Reset to first page when filter/sort changes
-  React.useEffect(() => {
-    setCurrentPage(0);
-  }, [filterText, sortField, sortDirection]);
-
-  const handleSort = React.useCallback((field: string) => {
-    // Same-batch page reset: in windowed mode sort + page feed one fetch, so
-    // resetting here avoids an extra request against the stale page index.
-    setCurrentPage(0);
-    if (sortField === field) {
-      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  }, [sortField]);
-
-  /**
-   * The order the embedded table's headers display — this list's own sort, so
-   * the arrow on a column header and the rows underneath it come from the same
-   * place (objectui#3106).
-   *
-   * Before any click that is the declared `defaultSort`, which is what the
-   * windowed fetch above sends. A header showing nothing while the server was
-   * asked for `created_at desc` would make the first click on that column
-   * request `asc` on a list that is already `desc`.
-   */
-  const activeSort = React.useMemo(
-    () => (sortField ? [{ field: sortField, order: sortDirection }] : defaultSortSpec),
-    [sortField, sortDirection, defaultSortSpec],
-  );
-
-  /**
-   * A header click from the embedded table. It arrives with the direction
-   * already resolved against {@link activeSort}, so this assigns rather than
-   * toggling — running it back through `handleSort`'s own toggle would undo it
-   * whenever the two disagreed about the current state.
-   */
-  const handleTableSort = React.useCallback(
-    (next: Array<{ field: string; order: 'asc' | 'desc' }>) => {
-      const first = next[0];
-      if (!first) return;
-      setCurrentPage(0);
-      setSortField(first.field);
-      setSortDirection(first.order);
-    },
-    [],
-  );
-
   // Confirm-delete dialog state. Replaces window.confirm() so the related
   // list matches the rest of the app's Shadcn AlertDialog UX.
   const [deleteTarget, setDeleteTarget] = React.useState<any | null>(null);
@@ -1215,40 +1360,12 @@ export const RelatedList: React.FC<RelatedListProps> = ({
   //  - Prefer name-like fields (name, title, subject, ...) first.
   //  - Cap at `maxColumns` to keep the related card readable; users can
   //    click "View All" to see the full list.
-  /**
-   * [objectui#9053] The redaction list as a lookup, memoised on the PROP's
-   * identity so `effectiveColumns` keeps the reference-stable dependency the
-   * rest of this file is built around: a caller that passes no list passes
-   * `undefined`, which never changes, and one that passes its authored array
-   * passes it by reference.
-   */
-  const redactedFields = React.useMemo(
-    () =>
-      new Set(
-        (Array.isArray(redactFields) ? redactFields : []).filter(
-          (f): f is string => typeof f === 'string' && f.length > 0,
-        ),
-      ),
-    [redactFields],
-  );
   const effectiveColumns = React.useMemo(() => {
     const relatedObjectName = objectName || api || '';
     // FLS: drop columns the current user cannot read on the related object.
-    const filterFLS = (cols: any[]): any[] => {
-      if (!perms?.isLoaded || !relatedObjectName) return cols;
-      return cols.filter((c) => {
-        const key = c?.accessorKey || columnIdentity(c);
-        if (!key) return true;
-        return perms.checkField(relatedObjectName, String(key), 'read');
-      });
-    };
-    const filterFK = (cols: any[]): any[] =>
-      referenceField
-        ? cols.filter((c) => {
-            const key = c?.accessorKey || columnIdentity(c);
-            return key !== referenceField;
-          })
-        : cols;
+    // The gate is shared with the `$select` projection (objectui#10186).
+    const filterFLS = (cols: any[]): any[] => keepReadableColumns(cols, perms, relatedObjectName);
+    const filterFK = (cols: any[]): any[] => dropParentKeyColumn(cols, referenceField);
 
     /**
      * [objectui#9053] Redaction — the block-level authoring preference, asked
@@ -1266,10 +1383,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
      */
     const isRedacted = (key: unknown): boolean =>
       redactedFields.size > 0 && !!key && redactedFields.has(String(key));
-    const filterRedacted = (cols: any[]): any[] =>
-      redactedFields.size > 0
-        ? cols.filter((c) => !isRedacted(c?.accessorKey || columnIdentity(c)))
-        : cols;
+    const filterRedacted = (cols: any[]): any[] => dropRedactedColumns(cols, redactedFields);
 
     /**
      * Does this cell have nothing to show? **THE** definition of emptiness on
@@ -1359,7 +1473,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
       // CRASH. The data-table's no-cell branch is not a pass-through: with no
       // `cell` it applies TWO transforms — `String(value)` for a non-null
       // object, and `formatCellValue(value)`, the locale ISO date/datetime face
-      // objectui#7443 and objectui#7620 spent two cards folding into ONE home —
+      // objectui#7443 and the card behind `c15d7eca6` spent two cards folding into ONE home —
       // whereas a `cell`'s return value is handed STRAIGHT to React, with no
       // way to defer any single value back to that default. Measured on one
       // untyped column, same row, `tbody` innerHTML byte for byte, no-cell
@@ -1443,6 +1557,9 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         ...(def.currency && { currency: def.currency }),
         ...(def.precision !== undefined && { precision: def.precision }),
         ...((def as any).scale !== undefined && { scale: (def as any).scale }),
+        // Beside `scale`, whose scale-0 grouping heuristic it overrides in the
+        // number cell (objectui#11026).
+        ...(def.useGrouping !== undefined && { useGrouping: def.useGrouping }),
         ...(def.format && { format: def.format }),
         // ⚠️ objectui#6837 half 2: the READ narrows to `reference` (the only
         // spelling the protocol declares — `FieldSchema` refuses `reference_to`
@@ -1759,6 +1876,222 @@ export const RelatedList: React.FC<RelatedListProps> = ({
     });
   }, [effectiveColumns, windowed, objectSchema, withheldFromServerSort]);
 
+  /**
+   * Are this list's OBJECT field types still unknown (objectui#10657)? True
+   * while an object definition is expected (there is an object to ask about,
+   * and a data source that can answer) but none is in hand: the read is in
+   * flight, or it settled with nothing, which is how a failed read settles.
+   * With no `getObjectSchema` there is nothing to wait for, and the authored
+   * column types are all this list will ever know.
+   */
+  const objectTypesPending =
+    !!api && typeof dataSource?.getObjectSchema === 'function' && !objectSchema?.fields;
+
+  /**
+   * The columns handed to the table, each stamped `masked` when its cell is
+   * drawn as a mask (objectui#10657). This list draws a `password` / `secret`
+   * cell as the mask through `getCellRenderer`, but the table it feeds cannot
+   * import `@object-ui/fields`, so without the flag its Ctrl+C / Cmd+C copy,
+   * the cell tooltip, the header sort (the embedded table's headers drive this
+   * list's own sort) and the auto width all read the raw value.
+   *
+   * The rule is not restated here: {@link isMaskedDetailFieldType} asks
+   * `isMaskedFieldType()`, the one authority, over the authored column `type`
+   * and the object-declared type as a narrow-only UNION — the same shape
+   * `ObjectGrid` stamps with. Stamped at this one seam rather than in each of
+   * the three builders above (authored object columns, bare-string columns,
+   * the auto-derived walk), so no path to the table can miss it.
+   *
+   * Fail closed: while the object's types are unknown
+   * ({@link objectTypesPending}), no column can be told apart from a masked
+   * one, so every column is stamped. A column the loaded definition does not
+   * declare is judged on its authored `type` alone.
+   *
+   * WITHHELD, not only stamped (objectui#10657, the objectui#10706 class at
+   * this producer): in that same window the columns' cells cannot draw a mask
+   * either. This list draws a cell from the OBJECT's field type
+   * (`makeCell`), never from the column's authored `type`, so with no
+   * definition in hand a column has no cell and the table would draw its value
+   * as text — a `password` / `secret` field in the clear, and for good when
+   * the read failed. So every column without a `cell` of its own draws the
+   * mask ({@link withheldCell}) until the definition lands, and keeps drawing
+   * it when the read failed: fail closed, never falling back to text. A
+   * `cell` the AUTHOR supplied draws what the author chose (none is attached
+   * here while the definition is missing, so any `cell` in that window is
+   * theirs).
+   *
+   * With nothing to stamp, the list is handed on BY REFERENCE, as
+   * `sortableColumns` hands it on (the data-table re-seed, objectui#4618).
+   *
+   * This list's own filter box and sort read the same stamp
+   * (`unmaskedColumnKeysKey` below, objectui#10728).
+   */
+  const tableColumns = React.useMemo(() => {
+    const stamped = sortableColumns.map((col) => {
+      if (!col || typeof col !== 'object') return col;
+      const field = col.accessorKey || columnIdentity(col);
+      const fieldDef = field ? objectSchema?.fields?.[field] : undefined;
+      const masked = objectTypesPending || isMaskedDetailFieldType(col.type, fieldDef?.type);
+      const withheld = objectTypesPending && typeof col.cell !== 'function';
+      if (!withheld) return masked && col.masked !== true ? { ...col, masked: true } : col;
+      return { ...col, masked: true, cell: withheldCell };
+    });
+    return stamped.every((col, i) => col === sortableColumns[i]) ? sortableColumns : stamped;
+  }, [sortableColumns, objectSchema, objectTypesPending]);
+
+  /**
+   * The columns this list's OWN filter and sort may read (objectui#10728): the
+   * keys of the columns handed to the table that do not carry the `masked`
+   * stamp {@link tableColumns} puts on them. The stamp is the one reading. It
+   * covers a `password` / `secret` column and, while the object's types are
+   * unknown ({@link objectTypesPending}), every withheld one, so the rule
+   * behind it is not restated at the filter or the sort.
+   *
+   * It is the answer the embedded `data-table` gives for its own search and
+   * sort (its `isMaskedColumnKey`, objectui#10657), so one related list has
+   * one answer:
+   *
+   *  - the filter box sweeps these columns only. A masked column is left out,
+   *    and so is every field the row carries that no column shows: a term that
+   *    matches only such a field keeps no row;
+   *  - the sort orders by one of these columns only. A key naming a masked
+   *    column, or no column at all, orders nothing: fail closed, as the
+   *    table's reader does.
+   *
+   * Held as a content STRING, as `expandKey` and `selectKey` are, so the
+   * memos and callbacks below re-run when the set changes and never on a
+   * recomputed column list alone (commandment #10).
+   */
+  const unmaskedColumnKeysKey = React.useMemo(
+    () =>
+      JSON.stringify(
+        tableColumns.flatMap((col) => {
+          if (!col || typeof col !== 'object' || col.masked === true) return [];
+          const key = drawnColumnKey(col);
+          return key ? [key] : [];
+        }),
+      ),
+    [tableColumns],
+  );
+  const unmaskedColumnKeys = readColumnKeys(unmaskedColumnKeysKey);
+
+  // Filter data (client mode only — windowed mode filters/sorts server-side).
+  //
+  // Over the unmasked columns only (objectui#10728), see
+  // `unmaskedColumnKeysKey`. It swept `Object.values(row)`, so a term matched
+  // a `password` / `secret` value its cell draws as the mask: typing a
+  // substring answered "does the credential contain this?".
+  const filteredData = React.useMemo(() => {
+    if (windowed || !filterText) return relatedData;
+    const lower = filterText.toLowerCase();
+    const searched = readColumnKeys(unmaskedColumnKeysKey);
+    return relatedData.filter((row) =>
+      searched.some((key) => {
+        const val = row?.[key];
+        return val !== null && val !== undefined && String(val).toLowerCase().includes(lower);
+      })
+    );
+  }, [relatedData, filterText, windowed, unmaskedColumnKeysKey]);
+
+  // Sort data (client mode only — a windowed sort is a server $orderby)
+  //
+  // A relational column holds a raw foreign-key id (this list resolves labels
+  // itself, see `lookupLabels`) or — when the parent handed us `$expand`-ed
+  // rows — the related record object. `String(aVal)` ordered the first by an
+  // opaque id and reduced the second to "[object Object]", i.e. every row equal.
+  // Feeding the resolved label map to `getSortValue` sorts by the string the
+  // cell actually renders (objectui#3096).
+  const sortedData = React.useMemo(() => {
+    if (windowed || !sortField) return filteredData;
+    // A masked column orders nothing (objectui#10728), including a sort set
+    // before its column was stamped: rows ordered by a credential tell the
+    // reader how it compares with every other row's.
+    if (!readColumnKeys(unmaskedColumnKeysKey).includes(sortField)) return filteredData;
+    const labels = lookupLabels[sortField];
+    const keyed = filteredData.map((row) => ({ row, key: getSortValue(row[sortField], { labels }) }));
+    keyed.sort((a, b) => {
+      const cmp = compareSortValues(a.key, b.key);
+      return sortDirection === 'asc' ? cmp : -cmp;
+    });
+    return keyed.map((entry) => entry.row);
+  }, [filteredData, sortField, sortDirection, windowed, lookupLabels, unmaskedColumnKeysKey]);
+
+  // Paginate data. Windowed mode already holds exactly one page; client mode
+  // slices the in-memory collection as before.
+  const paginatedData = effectivePageSize && !windowed
+    ? sortedData.slice(currentPage * effectivePageSize, (currentPage + 1) * effectivePageSize)
+    : sortedData;
+  const totalPages = !effectivePageSize
+    ? 1
+    : windowed
+      ? total != null
+        ? Math.max(1, Math.ceil(total / effectivePageSize))
+        : currentPage + (hasMore ? 2 : 1)
+      : Math.max(1, Math.ceil(sortedData.length / effectivePageSize));
+  const canGoNext = windowed
+    ? (total != null ? (currentPage + 1) * effectivePageSize < total : hasMore)
+    : currentPage < totalPages - 1;
+  const showPagination = effectivePageSize > 0 && (windowed
+    ? currentPage > 0 || canGoNext
+    : sortedData.length > effectivePageSize);
+
+  // Reset to first page when filter/sort changes
+  React.useEffect(() => {
+    setCurrentPage(0);
+  }, [filterText, sortField, sortDirection]);
+
+  const handleSort = React.useCallback((field: string) => {
+    // A masked column is never sorted by (objectui#10728). The button row
+    // offers it no button; this is the one door that row passes through.
+    if (!readColumnKeys(unmaskedColumnKeysKey).includes(field)) return;
+    // Same-batch page reset: in windowed mode sort + page feed one fetch, so
+    // resetting here avoids an extra request against the stale page index.
+    setCurrentPage(0);
+    if (sortField === field) {
+      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  }, [sortField, unmaskedColumnKeysKey]);
+
+  /**
+   * The order the embedded table's headers display — this list's own sort, so
+   * the arrow on a column header and the rows underneath it come from the same
+   * place (objectui#3106).
+   *
+   * Before any click that is the declared `defaultSort`, which is what the
+   * windowed fetch above sends. A header showing nothing while the server was
+   * asked for `created_at desc` would make the first click on that column
+   * request `asc` on a list that is already `desc`.
+   */
+  const activeSort = React.useMemo(
+    () => (sortField ? [{ field: sortField, order: sortDirection }] : defaultSortSpec),
+    [sortField, sortDirection, defaultSortSpec],
+  );
+
+  /**
+   * A header click from the embedded table. It arrives with the direction
+   * already resolved against {@link activeSort}, so this assigns rather than
+   * toggling — running it back through `handleSort`'s own toggle would undo it
+   * whenever the two disagreed about the current state.
+   *
+   * The table offers no sort on a masked header (objectui#10657). This list
+   * refuses the key as well (objectui#10728), because in windowed mode it is
+   * sent to the server as `$orderby`, which orders by the stored value.
+   */
+  const handleTableSort = React.useCallback(
+    (next: Array<{ field: string; order: 'asc' | 'desc' }>) => {
+      const first = next[0];
+      if (!first) return;
+      if (!readColumnKeys(unmaskedColumnKeysKey).includes(first.field)) return;
+      setCurrentPage(0);
+      setSortField(first.field);
+      setSortDirection(first.order);
+    },
+    [unmaskedColumnKeysKey],
+  );
+
   // A `grid`/`table` list renders a real table, whose column headers carry the
   // sort. `list` renders `data-list`, which has none — so it keeps the button
   // row as its only sort control. A caller-supplied `schema` renders whatever
@@ -1790,6 +2123,9 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         gallery: {
           titleField: titleField || 'name',
           visibleFields,
+          // Explicit, so the cover the card reads is the one the `$select`
+          // projection asks for — see `MOBILE_GALLERY_COVER_FIELD`.
+          coverField: MOBILE_GALLERY_COVER_FIELD,
           cardSize: 'medium',
         },
         onRowClick,
@@ -1812,7 +2148,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         return {
           type: 'data-table',
           data: paginatedData,
-          columns: sortableColumns,
+          columns: tableColumns,
           pagination: false, // We handle pagination ourselves
           pageSize: effectivePageSize || 10,
           searchable: false,
@@ -1849,7 +2185,7 @@ export const RelatedList: React.FC<RelatedListProps> = ({
       default:
         return { type: 'div', children: 'No view configured' };
     }
-  }, [type, paginatedData, sortableColumns, effectiveColumns, schema, effectivePageSize, hasRowActions, hasCustomRowActions, rowActions, onRowAction, onRowEdit, onRowDelete, handleDeleteRow, onRowClick, isMobile, api, objectSchema, activeSort, handleTableSort]);
+  }, [type, paginatedData, tableColumns, effectiveColumns, schema, effectivePageSize, hasRowActions, hasCustomRowActions, rowActions, onRowAction, onRowEdit, onRowDelete, handleDeleteRow, onRowClick, isMobile, api, objectSchema, activeSort, handleTableSort]);
 
   const headerClassName = collapsible ? 'cursor-pointer select-none' : undefined;
   const handleHeaderClick = collapsible ? () => setCollapsed((c) => !c) : undefined;
@@ -2033,6 +2369,10 @@ export const RelatedList: React.FC<RelatedListProps> = ({
               if (windowed && withheldFromServerSort(field, fieldDef)) {
                 return null;
               }
+              // No button on a masked or withheld column (objectui#10728): a
+              // sort by it orders the rows by the value its cell hides. The
+              // same reading `handleSort` refuses the key with.
+              if (!unmaskedColumnKeys.includes(field)) return null;
               const label = col.header || col.label || field;
               const isActive = sortField === field;
               return (

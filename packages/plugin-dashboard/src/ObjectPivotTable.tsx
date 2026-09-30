@@ -6,15 +6,15 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import React, { useState, useEffect, useContext } from 'react';
-import { useDataScope, SchemaRendererContext, useFilterScope } from '@object-ui/react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
+import { useDataScope, SchemaRendererContext, useFilterScope, useDataInvalidation } from '@object-ui/react';
 import { useSafeFieldLabel } from '@object-ui/i18n';
-import { extractRecords, computeDrillFilter, composeDrillFilter, isDrillEnabled, resolveDrillTitle, type DrillEvent } from '@object-ui/core';
+import { extractRecords, computeDrillFilter, composeDrillFilter, FilterOperatorError, isDrillEnabled, resolveDrillTitle, type DrillEvent } from '@object-ui/core';
 import { Skeleton, cn } from '@object-ui/components';
 import { PivotTable } from './PivotTable';
 import { DrillDownDrawer } from './DrillDownDrawer';
 import { resolveFilterPlaceholders } from './utils';
-import type { PivotTableSchema } from '@object-ui/types';
+import type { ObjectPivotDrillDownConfig, PivotTableSchema } from '@object-ui/types';
 
 /**
  * Shared empty fallback for the resolved row list (objectui#4629).
@@ -38,10 +38,44 @@ import type { PivotTableSchema } from '@object-ui/types';
  */
 const EMPTY_ROWS = Object.freeze([]) as unknown as any[];
 
+/**
+ * `PivotTableSchema` minus `drillDown`, which is a retirement tombstone on the
+ * `pivot` node (objectui#10932). `object-pivot` declares its own `drillDown`
+ * below, and intersecting it with the tombstone would collapse that member to
+ * `never`: the one pivot that drills could not be authored with a drill.
+ *
+ * Key remapping, not `Omit`: `PivotTableSchema` extends `BaseSchema`, whose
+ * `[key: string]: any` widens `keyof` to all of `string`, so
+ * `Omit<PivotTableSchema, 'drillDown'>` would keep the index signature and drop
+ * every declared member.
+ */
+type PivotTableSchemaWithoutDrillDown = {
+  [K in keyof PivotTableSchema as K extends 'drillDown' ? never : K]: PivotTableSchema[K];
+};
+
 export interface ObjectPivotTableProps {
-  schema: PivotTableSchema & {
+  schema: PivotTableSchemaWithoutDrillDown & {
     objectName?: string;
-    dataProvider?: { provider: string; object?: string };
+    /**
+     * RETIRED (objectui#7353, ADR-0049 remove arm, ruling 5809008870) — write
+     * `objectName`, the key this widget fetches through.
+     *
+     * This member carried the dashboard widget's provider config
+     * (`{ provider, object }`), copied onto the pivot node beside `objectName`
+     * by `DashboardGridLayout` and read by nothing. The producer no longer
+     * writes it and no reader was added.
+     *
+     * A `?: never` tombstone, not a plain deletion: `PivotTableSchema` extends
+     * `BaseSchema`, whose `[key: string]: any` would absorb a deleted member
+     * silently at any value. Licensed by prong 1 of the discriminator
+     * (objectui#5941, #7526, in its amended form, `5f8190c8c`): it names the live
+     * replacement, `objectName`. ⚠️ This is the ONLY refusal for this node:
+     * neither `object-pivot` nor `PivotTableSchema` has a zod mirror, so a
+     * JSON-authored value is refused by nothing at parse time.
+     *
+     * @deprecated Not read by `ObjectPivotTable` — write `objectName`.
+     */
+    dataProvider?: never;
     // The data-scope binding key is NOT re-declared here. It used to be, as a
     // local member grown because no schema shape declared it — the
     // second-declaration class objectui#6357 measured. `PivotTableSchema
@@ -66,8 +100,9 @@ export interface ObjectPivotTableProps {
     // `ObjectCalendarSchema`, `ObjectKanbanSchema`), plus `ObjectChartSchema`'s
     // two-armed union, `ObjectGallerySchema`'s `unknown` and
     // `ObjectDataTableSchema`'s `any`. `object-pivot` has no such interface at
-    // all, so the consistent fix is to give it one carrying all three members
-    // grown here — `objectName`, `dataProvider`, `filter`. That widens a
+    // all, so the consistent fix is to give it one carrying the two live
+    // members grown here — `objectName`, `filter` — and the `dataProvider`
+    // tombstone beside them. That widens a
     // published authorable surface and wants its own card and ruling, rather
     // than a one-member edit smuggled into a composition fix.
     //
@@ -75,6 +110,15 @@ export interface ObjectPivotTableProps {
     // takes `unknown` and routes every shape through the repo's single filter
     // sink, so the drill is correct for both arms whatever this key is typed.
     filter?: any;
+    /**
+     * This block's drill-down shape, `ObjectPivotDrillDownConfig`: `mode` is
+     * refused by name (objectui#10685, applying objectui#9002's ruling B).
+     * Every click point on a pivot is an aggregated bucket, so it always drills
+     * through; there is no row for `mode` to open as a record. `PivotTableSchema`
+     * carries no drill at all: on a plain `pivot` node the key is a retirement
+     * tombstone (objectui#10932), and this block is where a pivot drill lives.
+     */
+    drillDown?: ObjectPivotDrillDownConfig;
   };
   dataSource?: any;
   className?: string;
@@ -166,6 +210,21 @@ export const ObjectPivotTable: React.FC<ObjectPivotTableProps> = ({ schema, data
   // filter. Read at component level — the fetch below is async.
   const filterScope = useFilterScope();
 
+  // objectui#10778 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10623 way: the nonce moves when a
+  // write to the object this pivot QUERIES is declared, and the fetch effect
+  // below names it, so the cross-tab is re-read in place (the skeleton is drawn
+  // only while there are no rows yet). Without it a page action over raw HTTP
+  // left the pivot stale unless the page was remounted.
+  //
+  // `schema.objectName` is the object for both spellings of the binding: the
+  // flat key, and the element `dataSource: { object }` that `ObjectPivotBlock`
+  // binds onto it. Subscribed only when this effect queries: bound rows and
+  // authored `data` rows are not its query.
+  const fetchesForItself =
+    !!dataSource && !!schema.objectName && !boundData && (!schema.data || schema.data.length === 0);
+  const invalidationNonce = useDataInvalidation(fetchesForItself ? schema.objectName : undefined);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -205,7 +264,47 @@ export const ObjectPivotTable: React.FC<ObjectPivotTableProps> = ({ schema, data
     }
 
     return () => { isMounted = false; };
-  }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, filterScope]);
+  }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, filterScope, invalidationNonce]);
+
+  // --- Drill-down composition --------------------------------------------
+  // The filter the drilled list is scoped by: this pivot's own filter narrowed
+  // by the clicked cell (see `renderDrillDrawer` below for why it is composed
+  // and never spread). Computed HERE, above the early returns, so the refusal
+  // below can be reported from an effect rather than from render.
+  //
+  // ⚠️ The composition lowers both filters through the throwing converter
+  // form — objectui#10789. It ran inside `renderDrillDrawer`, i.e. during
+  // RENDER after a click, so a pivot filter this layer refuses (one that drew
+  // the pivot from inline or bound rows, which nothing lowers here) threw into
+  // the error boundary and took the pivot with it. The refusal is kept as a
+  // VALUE: no drawer opens and nothing is navigated to (never with "no
+  // filter", which would list every record the pivot is scoped to exclude),
+  // and it is logged, naming the operator — the channel a failed drill already
+  // reports on (`ReportView`'s drill handler). Only a `FilterOperatorError` is
+  // caught, the rule `toFilterNodeSafely` states.
+  const drillComposition = useMemo(():
+    | { ok: true; filter: Record<string, unknown> | undefined }
+    | { ok: false; refusal: FilterOperatorError }
+    | undefined => {
+    if (!drillEvent) return undefined;
+    try {
+      const clicked = computeDrillFilter(schema.drillDown, drillEvent, {
+        rowField: schema.rowField,
+        columnField: schema.columnField,
+      });
+      return { ok: true, filter: composeDrillFilter(schema.filter, clicked) };
+    } catch (error) {
+      if (!(error instanceof FilterOperatorError)) throw error;
+      return { ok: false, refusal: error };
+    }
+  }, [drillEvent, schema.drillDown, schema.rowField, schema.columnField, schema.filter]);
+  // Keyed on the MESSAGE, a primitive: one warning per refused declaration.
+  const drillRefusalMessage = drillComposition?.ok === false ? drillComposition.refusal.message : undefined;
+  useEffect(() => {
+    if (drillRefusalMessage) {
+      console.warn(`[ObjectPivotTable] drill-down refused — the drilled list cannot be scoped: ${drillRefusalMessage}`);
+    }
+  }, [drillRefusalMessage]);
 
   // Resolve data: bound data > static schema data > fetched data
   const rawData = boundData || schema.data || fetchedData;
@@ -271,9 +370,12 @@ export const ObjectPivotTable: React.FC<ObjectPivotTableProps> = ({ schema, data
     );
   }
 
-  // Delegate to PivotTable with resolved data
+  // Delegate to PivotTable with resolved data. `drillDown` is this block's and
+  // stays behind: `PivotTable` drills through `onDrillDown` below, and on the
+  // `pivot` node it renders the key is a retirement tombstone (objectui#10932).
+  const { drillDown: _objectPivotDrillDown, ...pivotSchema } = schema;
   const finalSchema: PivotTableSchema = {
-    ...schema,
+    ...pivotSchema,
     data: finalData,
   };
 
@@ -282,18 +384,15 @@ export const ObjectPivotTable: React.FC<ObjectPivotTableProps> = ({ schema, data
   const rowFieldLabel = schema.rowField ? fieldNameLabels[schema.rowField] : undefined;
 
   // --- Drill-down wiring ---------------------------------------------------
-  const drillDown = (schema as any).drillDown;
+  const drillDown = schema.drillDown;
 
   const handleDrillDown = isDrillEnabled(drillDown)
     ? (event: DrillEvent) => setDrillEvent(event)
     : undefined;
 
   const renderDrillDrawer = () => {
-    if (!drillEvent || !schema.objectName) return null;
-    const baseFilter = computeDrillFilter(drillDown, drillEvent, {
-      rowField: schema.rowField,
-      columnField: schema.columnField,
-    });
+    // A refused composition opens nothing (objectui#10789, above).
+    if (!drillEvent || !schema.objectName || !drillComposition?.ok) return null;
     // ⛔ Composed through `composeDrillFilter`, NOT by spreading this pivot's
     // own filter into an object literal. `schema.filter` reaches this component
     // in BOTH dialects and a spread is only correct for the second:
@@ -317,7 +416,7 @@ export const ObjectPivotTable: React.FC<ObjectPivotTableProps> = ({ schema, data
     // names the composition rule (`widget.filter ∧ drill.filter`, via the
     // repo's single filter sink `mergeFilterNodes`); it is not decided here.
     // `ObjectChart` was routed through the same seam by objectui#8944.
-    const merged = composeDrillFilter(schema.filter, baseFilter);
+    const merged = drillComposition.filter;
     const title = resolveDrillTitle(drillDown, drillEvent, schema.title || 'Details');
     return (
       <DrillDownDrawer
@@ -330,7 +429,7 @@ export const ObjectPivotTable: React.FC<ObjectPivotTableProps> = ({ schema, data
         dataSource={dataSource}
         columns={drillDown?.columns}
         maxRows={drillDown?.maxRows}
-        report={(drillDown as any)?.report}
+        report={drillDown?.report}
       />
     );
   };

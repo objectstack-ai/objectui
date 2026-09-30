@@ -52,8 +52,9 @@
  * just finished translating.
  *
  * The column could not simply follow `label`, because it is a MIXED surface —
- * of the 18 placeholders, 8 are prose telling the author what to type and 10 are
- * example VALUES (`20`, `https://…`, a JSON sample). Translating the second kind
+ * some placeholders are prose telling the author what to type and the rest are
+ * example VALUES (`20`, `https://…`, a JSON sample); the split is counted by
+ * `previews/__tests__/block-config-i18n.test.ts`, not here. Translating the second kind
  * is a defect, not a courtesy: those characters are what the author is meant to
  * enter, and a "translated" JSON sample yields metadata the schema rejects. So
  * the two meanings are separated in the TYPE (`PlaceholderSpec` below) rather
@@ -547,10 +548,10 @@ export const BLOCK_CONFIG: Record<string, BlockPropField[]> = {
   // No `ai:chat_window` panel: the block is not in the palette (no inline
   // renderer — see block-types.ts PALETTE_EXCLUSIONS, #2943). A config panel
   // for an unauthorable block is how the contradiction stayed invisible.
-  'ai:input': [
-    { name: 'agentName', label: 'engine.inspector.pageBlock.field.ai:input.agentName', kind: 'text', placeholder: { key: 'engine.inspector.pageBlock.placeholder.ai:input.agentName' } },
-    { name: 'placeholder', label: 'engine.inspector.pageBlock.field.ai:input.placeholder', kind: 'text' },
-  ],
+  // No `ai:input` panel either, for the same reason (objectui#8280): the palette
+  // does not offer it and it is not a spec `PageComponentType`. The
+  // `block-config.test.ts` case "a block with a config panel is a block the
+  // palette offers" is what fails if either panel comes back.
 };
 
 /** Block types that expose a configurable property panel. */

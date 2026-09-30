@@ -179,7 +179,9 @@ function renderedIds(): string[] {
 
 /** What the declared pipeline says those rows should be, for the same config. */
 function pipelineIds(config: Record<string, unknown>, pageSize = DEFAULT_ACTIVITY_LIMIT): string[] {
-  return applyFeedConfig(ITEMS, config, pageSize).items.map((i) => String(i.id));
+  // The block name only addresses the pipeline's diagnostics (objectui#9557);
+  // the rows it keeps are the same under either registered name.
+  return applyFeedConfig(ITEMS, config, pageSize, 'record:chatter').items.map((i) => String(i.id));
 }
 
 beforeEach(() => {

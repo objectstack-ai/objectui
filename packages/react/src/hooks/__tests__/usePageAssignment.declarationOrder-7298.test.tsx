@@ -113,7 +113,11 @@ describe('usePageAssignment — selection is by declaration order', () => {
     const result = await assign(
       [
         full('other_object', 'sys_organization'),
-        { ...full('designer_page', 'sys_user'), pageType: 'record_detail' },
+        // Another page type for the SAME object, spelled with the one key
+        // `PageSchema` declares for it. (This row used to be `type: 'record'`
+        // plus `pageType: 'record_detail'` — a key the schema refuses, and
+        // the filter no longer reads it: objectui#9674.)
+        { ...full('list_page', 'sys_user'), type: 'list' },
         full('the_winner', 'sys_user'),
         full('the_runner_up', 'sys_user'),
       ],

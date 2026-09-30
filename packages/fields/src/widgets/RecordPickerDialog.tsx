@@ -40,8 +40,9 @@ import type { DataSource, LookupColumnDef, LookupFilterDef } from '@object-ui/ty
 // The repo's single filter sink (`packages/core/src/utils/filter-converter.ts`)
 // — shared with plugin-list's `buildEffectiveFilter` and plugin-view's
 // ObjectView, so a spec `ViewFilterRule[]` lowers in exactly one place.
-import { mergeFilterNodes } from '@object-ui/core';
+import { buildExpandFields, mergeFilterNodes, toFilterNodeSafely, toPredicateRecord, withoutDeniedFields, type FilterNodeResult } from '@object-ui/core';
 import { useSafeFieldLabel, useDisplayLocale } from '@object-ui/i18n';
+import { usePermissions } from '@object-ui/permissions';
 import { useFieldTranslation } from './useFieldTranslation.js';
 import { useRecordQuery } from './useRecordQuery.js';
 // The one place a lookup column's display value is decided — shared with the
@@ -105,7 +106,12 @@ export interface RecordPickerFilterBarProps {
  * Allows plugging in ObjectGrid or any compatible table component.
  */
 export interface RecordPickerGridSlotProps {
-  /** Resolved column definitions */
+  /**
+   * Resolved column definitions, less the ones field-level security denies
+   * once the permission policy has loaded, the display column included — the
+   * columns the built-in table draws (objectui#10373). When none survives,
+   * this is the id column alone.
+   */
   columns: LookupColumnDef[];
   /** Current page of records */
   records: any[];
@@ -284,16 +290,30 @@ export interface RecordPickerDialogProps {
 
   /** Columns to display. Defaults to [displayField, descriptionField]. */
   columns?: Array<string | LookupColumnDef>;
-  /** Primary display field (default: 'name') */
+  /**
+   * The display field as the lookup DECLARES it. The display column is keyed on
+   * it, or on `'name'` when it is omitted. With `objectSchema` given, a declared
+   * value is also the first rung of the column's title (the resolver's
+   * `titleField`); the `'name'` default never is, because it is a guess and a
+   * guess never outranks the referenced object's own declarations. So pass
+   * `undefined` when the field declares none, never a pre-filled `'name'`.
+   */
   displayField?: string;
   /**
-   * Optional `titleFormat` template (e.g. `"{full_name}"` or
-   * `"{case_number} - {subject}"`). When set and the displayField column is
-   * auto-inferred, the column renders via the template instead of reading
-   * a possibly-missing field. Mirrors how DetailView/ObjectCalendar resolve
-   * record titles.
+   * The referenced object's schema (objectui#10486). When given, the display
+   * column renders each record's title through `@object-ui/core`'s
+   * `getRecordDisplayName`, the call LookupField's dropdown option label and
+   * the read cell make: the declared `displayField`, then the object's
+   * `nameField`, then its deprecated `titleFormat` template, then type-aware
+   * derivation (ADR-0079). The title reads the row with its relations
+   * collapsed to ids and the fields the loaded policy denies removed, exactly
+   * as the dropdown's option label does.
+   *
+   * Replaces the retired `titleFormat` prop: a bare template cut out of the
+   * schema ranked above the `nameField` beside it, so the picker and the
+   * dropdown labelled one record two ways.
    */
-  titleFormat?: string | null;
+  objectSchema?: Record<string, unknown> | null;
   /** Record id field (default: 'id') */
   idField?: string;
 
@@ -341,7 +361,7 @@ export interface RecordPickerDialogProps {
    *   (`before`, `after`, `is_empty`, `is_not_empty`) the record form has no
    *   `$op` for. No second operator vocabulary is introduced here: two already
    *   exist (the spec's `AST_OPERATOR_MAP`, data-objectstack's
-   *   `FILTER_OPERATOR_ALIASES`) and #3948 is what a third costs.
+   *   `FILTER_OPERATOR_ALIASES`) and objectstack-ai/objectstack#3948 is what a third costs.
    *
    * The discriminator is exact rather than heuristic — every AST node is an
    * ARRAY and a rule is a plain OBJECT, the same predicate `toFilterNode` uses.
@@ -435,8 +455,8 @@ export function RecordPickerDialog({
   dataSource,
   objectName,
   columns: columnsProp,
-  displayField = 'name',
-  titleFormat,
+  displayField: declaredDisplayField,
+  objectSchema,
   idField = 'id',
   pageSize = DEFAULT_PAGE_SIZE,
   value,
@@ -450,6 +470,9 @@ export function RecordPickerDialog({
   renderFilterBar,
   renderGrid,
 }: RecordPickerDialogProps) {
+  // The column the record title stands in for. The `'name'` default only keys
+  // that column; `declaredDisplayField` is what the title resolver ranks.
+  const displayField = declaredDisplayField ?? 'name';
   const { t } = useFieldTranslation();
   const { translateOptions } = useSafeFieldLabel();
   // The one date/number locale resolver: tenant regional default → active UI
@@ -498,6 +521,71 @@ export function RecordPickerDialog({
     () => buildLookupColumnDescriptors(resolvedColumns, fieldsMeta, objectName, translateOptions),
     [resolvedColumns, fieldsMeta, objectName, translateOptions],
   );
+
+  /**
+   * `$expand` for the picker's query (objectui#10223): the reference columns
+   * among the ones this table renders, by `buildExpandFields`' rule — the one
+   * LookupField's inline dropdown applies to its previewed columns. Without it
+   * each such cell arrived as a bare foreign key and the lookup cell renderer
+   * resolved it with its own `findOne`, one request per row per column.
+   *
+   * The id column is left out: the row's identity (`getRecordId`) reads it
+   * raw, so it must stay the key it always was.
+   *
+   * The table renders the rows as served. What leaves it — the records
+   * `onSelectRecords` hands a host, and the display column's reading of a
+   * row's title — sees the row with its relations collapsed to ids
+   * (`toPredicateRecord`), as it did before any column was expanded.
+   *
+   * Field-level security gates the OUTPUT, in the objectui#7429 sweep's shape
+   * — the same gate as LookupField's `candidateExpand`: once the policy has
+   * loaded, a relation the user may not read on `objectName` is not asked for.
+   *
+   * No rendered column besides the id ⇒ no `$expand`: `buildExpandFields`
+   * reads an EMPTY column list as "every relation the object declares".
+   */
+  const perms = usePermissions();
+  const expand = useMemo<string[]>(() => {
+    const rendered = resolvedColumns.filter((c) => c.field !== idField);
+    if (rendered.length === 0) return [];
+    const expandable = buildExpandFields(fieldsMeta, rendered);
+    if (!perms.isLoaded) return expandable;
+    return expandable.filter((f) => perms.checkField(objectName, f, 'read'));
+  }, [fieldsMeta, resolvedColumns, idField, perms, objectName]);
+
+  /**
+   * The columns this table DRAWS: the resolved ones the user may read
+   * (objectui#10373). Field-level security gates the displayed OUTPUT, in the
+   * shape `RelatedList`'s `keepReadableColumns` applies under the
+   * objectui#7215 / objectui#7230 rulings: once the policy has loaded, a column
+   * the user may not read on `objectName` is neither headed nor rendered;
+   * before it loads nothing is filtered, and `perms` in the deps re-derives the
+   * list when the answer arrives. `objectName` is the object `expand` above
+   * judges.
+   *
+   * Gating `$expand` alone left a denied column on screen: a denied relation
+   * arrived as a bare key, and the lookup cell renderer resolved it with a read
+   * of its own.
+   *
+   * The display column is a drawn column like any other, as in
+   * `keepReadableColumns`: a denied display field is not drawn. The id column
+   * is never filtered — it is the value committed — and selection reads the id
+   * from the row itself, never from a drawn column, so every row stays
+   * selectable. When the policy leaves no column to draw (the default picker
+   * draws only the display column), the id column is drawn instead, so a row
+   * still has something to click and to tell it apart by.
+   *
+   * `expand` keeps reading `resolvedColumns` and gating its own output, as
+   * every `buildExpandFields` call site does; both ask `checkField` about the
+   * same names on the same object, so the two lists cannot disagree.
+   */
+  const readableColumns = useMemo<LookupColumnDef[]>(() => {
+    if (!perms.isLoaded) return resolvedColumns;
+    const kept = resolvedColumns.filter(
+      (c) => c.field === idField || perms.checkField(objectName, c.field, 'read'),
+    );
+    return kept.length > 0 ? kept : [{ field: idField, label: fieldToLabel(idField) }];
+  }, [resolvedColumns, perms, objectName, idField]);
 
   // Auto-generate filter columns from lookupFilters when no explicit filterColumns given.
   // Each LookupFilterDef becomes a filterable field with inferred type.
@@ -575,7 +663,16 @@ export function RecordPickerDialog({
   //
   // When BOTH are in play the record side is still built first and lowered as
   // one node, so its key-overwrite precedence survives the conjunction.
-  const mergedFilter = useMemo<unknown>(() => {
+  //
+  // ⚠️ Each side is lowered through `toFilterNodeSafely` before the merge —
+  // objectui#10789. This is a RENDER-time `useMemo`, and the lowering refuses a
+  // malformed authored rule (an `add.picker.filter` rule the converter cannot
+  // carry) or record condition with a `FilterOperatorError`: uncaught, that
+  // threw out of render into the error boundary. The refusal is kept as a
+  // VALUE: the query does not run (never "no filter", which would list every
+  // record) and the dialog's error state below reports it — the state a
+  // refusal already reaches when the ADAPTER lowers the record form in `find`.
+  const mergedFilter = useMemo<FilterNodeResult>(() => {
     const lookupBase = lookupFilters?.length
       ? lookupFiltersToRecord(lookupFilters)
       : {};
@@ -588,22 +685,31 @@ export function RecordPickerDialog({
       : (baseFilter as Record<string, any> | undefined);
     const combined = { ...lookupBase, ...userFilter, ...(recordBase ?? {}) };
     const record = Object.keys(combined).length > 0 ? combined : undefined;
-    return rules ? mergeFilterNodes(record, rules) : record;
+    if (!rules) return { ok: true, node: record };
+    const recordNode = toFilterNodeSafely(record);
+    if (!recordNode.ok) return recordNode;
+    const rulesNode = toFilterNodeSafely(rules);
+    if (!rulesNode.ok) return rulesNode;
+    return { ok: true, node: mergeFilterNodes(recordNode.node, rulesNode.node) };
   }, [lookupFilters, effectiveFilterColumns, filterValues, baseFilter]);
+  const filterRefusal = mergedFilter.ok ? undefined : mergedFilter.refusal;
 
   // Shared query kernel: builds params, fetches, and owns records/loading/error/
   // total plus the page/search/sort controls. Selection state stays local (above).
   const query = useRecordQuery({
     dataSource,
     objectName,
-    enabled: open,
+    enabled: open && mergedFilter.ok,
     pageSize,
     paginate: true,
-    filter: mergedFilter,
+    filter: mergedFilter.ok ? mergedFilter.node : undefined,
+    expand,
   });
   // Preserve the previous local names so the handlers and render below are
-  // unchanged (the migration is a pure refactor).
-  const { records, loading, error } = query;
+  // unchanged (the migration is a pure refactor). A refused filter is this
+  // dialog's error too (objectui#10789): nothing was read, so it is the only one.
+  const { records, loading } = query;
+  const error = filterRefusal ? filterRefusal.message : query.error;
   const totalCount = query.total;
   const totalPages = query.totalPages;
   const searchQuery = query.search;
@@ -670,6 +776,8 @@ export function RecordPickerDialog({
   const handleRowClick = useCallback(
     (record: any) => {
       const rid = getRecordId(record);
+      // A host receives the row as it was before `$expand` (objectui#10223).
+      const selected = toPredicateRecord(record, fieldsMeta);
 
       if (multiple) {
         setPendingSelection(prev => {
@@ -679,18 +787,18 @@ export function RecordPickerDialog({
             selectedRecordsMap.current.delete(rid);
           } else {
             next.add(rid);
-            selectedRecordsMap.current.set(rid, record);
+            selectedRecordsMap.current.set(rid, selected);
           }
           return next;
         });
       } else {
         // Single select — immediately close
         onSelect(rid);
-        onSelectRecords?.([record]);
+        onSelectRecords?.([selected]);
         onOpenChange(false);
       }
     },
-    [multiple, getRecordId, onSelect, onSelectRecords, onOpenChange],
+    [multiple, getRecordId, fieldsMeta, onSelect, onSelectRecords, onOpenChange],
   );
 
   // Confirm multi-select
@@ -762,16 +870,36 @@ export function RecordPickerDialog({
   // renderer (objectui#5492) — the inline dropdown in LookupField calls the
   // very same function, so this table and that popover cannot answer one
   // `lookup_columns` declaration two different ways.
+  //
+  // The display column's title (objectui#10486) is built from the row the
+  // dropdown's option label is built from: relations collapsed to ids, so an
+  // expanded reference a `titleFormat` names prints what it printed before
+  // `$expand` rather than an object (objectui#10223).
+  //
+  // The title can name any field of the row, not only the column's own (a
+  // `titleFormat` template, a `nameField`), so it reads the row with the fields
+  // the loaded policy denies removed (objectui#10373) — the row ObjectStack's
+  // `FieldMasker` already serves. A denied field falls through the resolver
+  // exactly as it does for that row. The rule is `@object-ui/core`'s
+  // `withoutDeniedFields`, the one every surface calls (objectui#10594). The id
+  // field is never judged: it is the value committed, not a display value.
   const renderCellContent = useCallback(
     (record: any, col: LookupColumnDef): React.ReactNode =>
-      renderLookupColumnValue(record, col, {
-        descriptors: columnFieldDescriptors,
-        cellRenderer,
-        titleFormat,
-        displayField,
-        displayLocale,
-      }),
-    [cellRenderer, titleFormat, displayField, columnFieldDescriptors, displayLocale],
+      renderLookupColumnValue(
+        objectSchema && col.field === displayField
+          ? withoutDeniedFields(toPredicateRecord(record, fieldsMeta), perms, objectName, [idField])
+          : record,
+        col,
+        {
+          descriptors: columnFieldDescriptors,
+          cellRenderer,
+          objectSchema,
+          titleField: declaredDisplayField,
+          displayField,
+          displayLocale,
+        },
+      ),
+    [cellRenderer, objectSchema, declaredDisplayField, displayField, fieldsMeta, columnFieldDescriptors, displayLocale, perms, objectName, idField],
   );
 
   // Render sort indicator for a column
@@ -1021,14 +1149,18 @@ export function RecordPickerDialog({
           <div className="flex flex-col items-center gap-2 py-4" role="alert">
             <AlertCircle className="size-5 text-destructive" />
             <p className="text-sm text-destructive">{error}</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => query.refetch()}
-              type="button"
-            >
-              {t('lookup.retry')}
-            </Button>
+            {/* A retry re-runs a failed READ; it cannot repair an authored
+                filter this dialog refused before reading (objectui#10789). */}
+            {filterRefusal ? null : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => query.refetch()}
+                type="button"
+              >
+                {t('lookup.retry')}
+              </Button>
+            )}
           </div>
         )}
 
@@ -1037,7 +1169,7 @@ export function RecordPickerDialog({
           /* External grid component (e.g. ObjectGrid from plugin-grid) */
           <div className="flex-1 min-h-0" data-testid="record-picker-grid-slot">
             {renderGrid({
-              columns: resolvedColumns,
+              columns: readableColumns,
               records,
               loading,
               totalCount,
@@ -1064,7 +1196,7 @@ export function RecordPickerDialog({
                   <TableHeader>
                     <TableRow className="bg-muted/40">
                       {multiple && <TableHead className="w-10" />}
-                      {resolvedColumns.map(col => (
+                      {readableColumns.map(col => (
                         <TableHead key={col.field}>
                           <Skeleton className="h-4 w-20" />
                         </TableHead>
@@ -1079,7 +1211,7 @@ export function RecordPickerDialog({
                             <Skeleton className="size-4 rounded" />
                           </TableCell>
                         )}
-                        {resolvedColumns.map(col => (
+                        {readableColumns.map(col => (
                           <TableCell key={col.field}>
                             <Skeleton className="h-4 w-full" />
                           </TableCell>
@@ -1124,7 +1256,7 @@ export function RecordPickerDialog({
                       {multiple && (
                         <TableHead className="w-10" />
                       )}
-                      {resolvedColumns.map(col => {
+                      {readableColumns.map(col => {
                         const w = columnWidths[col.field];
                         const styleWidth = w ? { width: `${w}px`, minWidth: `${w}px` } : col.width ? { width: col.width } : undefined;
                         return (
@@ -1181,7 +1313,7 @@ export function RecordPickerDialog({
                               {selected && <Check className="size-4 text-primary" />}
                             </TableCell>
                           )}
-                          {resolvedColumns.map(col => (
+                          {readableColumns.map(col => (
                             // `data-lookup-cell` names the column this cell
                             // renders, so the two-surface agreement pin can
                             // compare it against the inline dropdown's

@@ -25,7 +25,7 @@ import type { Field as SpecField } from '@objectstack/spec/data';
  * sibling field names, or `{ field, param }` entries mapping a sibling onto the
  * remote query parameter a dependent lookup filters by.
  *
- * Measured on the installed `@objectstack/spec` (17.4.0), `FieldSchema` declares
+ * Measured on the installed `@objectstack/spec` (17.5.0), `FieldSchema` declares
  * `dependsOn` as an OPTIONAL ARRAY of `string | { field, param? }` — never a
  * bare string. That is deliberately narrower than `DependsOnInput` (`form.ts`),
  * the shape the widget prop `FieldWidgetComponentProps.dependsOn` and
@@ -259,7 +259,7 @@ export interface MarkdownFieldMetadata extends BaseFieldMetadata {
    * annotated literal rejected. Follows the `TextareaFieldMetadata` precedent.
    *
    * A DECLARED spec key as of `@objectstack/spec` 17.3.0, which implements that
-   * same ruling. Measured on the installed `@objectstack/spec` 17.4.0:
+   * same ruling. Measured on the installed `@objectstack/spec` 17.5.0:
    * `FieldSchema` ACCEPTS `rows` on all four of textarea/markdown/html/
    * richtext, as an integer of at least 1 — a non-integer answers
    * `invalid_type` and 0 answers `too_small`, so "declared" does not mean "any
@@ -269,8 +269,8 @@ export interface MarkdownFieldMetadata extends BaseFieldMetadata {
    * `text` field carrying `rows` still fails the whole field. Authored object
    * metadata may carry it on these four types and nowhere else.
    *
-   * ⛔ This reverses what this docblock asserted between objectui#7014 and
-   * objectui#7635: at 17.2.0 the key WAS refused by name, and the sentence
+   * ⛔ This reverses what this docblock asserted between `0e3b3be09` and
+   * `544ecba84`: at 17.2.0 the key WAS refused by name, and the sentence
    * saying so outlived the contract it described. Both directions, each behind
    * an accepting control, are re-derived by
    * `__tests__/select-option-spec-extension-7014.test.ts` — read that file's
@@ -294,7 +294,7 @@ export interface HtmlFieldMetadata extends BaseFieldMetadata {
    * docblock there): `RichTextField` reads it for all three registry keys it
    * serves. It is a DECLARED spec key on this type too, type-gated to the four
    * multiline editor types; see the measured reading in the docblock there
-   * (objectui#7014, corrected for the 17.3.0 boundary by objectui#7635).
+   * (`0e3b3be09`, corrected for the 17.3.0 boundary by `544ecba84`).
    */
   rows?: number;
 }
@@ -303,7 +303,7 @@ export interface HtmlFieldMetadata extends BaseFieldMetadata {
  * Rich-text (WYSIWYG) field metadata — the THIRD registry key `RichTextField`
  * serves, and the last of the three to get a declarable face.
  *
- * `markdown`, `html` and `richtext` are ONE widget (objectui#5498). The first
+ * `markdown`, `html` and `richtext` are ONE widget (`4bb940b6e`). The first
  * two carried an exported metadata type; `richtext` carried none, so the only
  * way to write a richtext field's metadata was
  * `as unknown as MarkdownFieldMetadata` — a deliberate cast whose presence in
@@ -379,7 +379,7 @@ export interface HtmlFieldMetadata extends BaseFieldMetadata {
  *
  * The `rows` docblocks on the two siblings described the `@objectstack/spec`
  * 17.2.0 boundary, where `rows` was refused by name, and outlived it;
- * objectui#7635 corrected them in the same change that corrected this
+ * `544ecba84` corrected them in the same change that corrected this
  * paragraph, so all three now read the same boundary and none of them is the
  * odd one out.
  */
@@ -425,6 +425,17 @@ export interface NumberFieldMetadata extends BaseFieldMetadata {
    * asymmetry that does not exist.
    */
   step?: number;
+  /**
+   * The author's digit-grouping hint — `FieldSchema.useGrouping` in
+   * `@objectstack/spec`, derived from it by reference so the two cannot drift
+   * (objectui#11026). `false` renders the number with no thousands separators
+   * (a year reads `2026`), `true` always groups it (a scale-0 count reads
+   * `2,026`), and leaving it out lets the renderer decide: a declared
+   * `scale: 0` is then read as an ordinal and left ungrouped, anything else is
+   * grouped the locale's way. `NumberCellRenderer` (`@object-ui/fields`) is the
+   * reader; the policy itself is `formatDisplayNumber` in `@object-ui/core`.
+   */
+  useGrouping?: SpecField['useGrouping'];
 }
 
 /**
@@ -512,7 +523,7 @@ import type { SelectOptionBase } from './select-option.js';
 
 /**
  * Select option — the OBJECT-METADATA face of the one select-option contract
- * (objectui#7014). It extends {@link SelectOptionBase}, which derives the spec
+ * (`98d4108a2`). It extends {@link SelectOptionBase}, which derives the spec
  * keys from `@objectstack/spec/data` by reference and carries objectui's
  * `visibleWhen` wire shape plus the two objectui-only keys `disabled` and
  * `icon`. This face restates none of them; it adds exactly the one key below
@@ -523,7 +534,7 @@ import type { SelectOptionBase } from './select-option.js';
  * WIDER than what may be authored, but by TWO keys rather than three:
  * `disabled` and `icon` are refused BY NAME by the spec's strict
  * `SelectOptionSchema`, which a field's `options` are routed through, while
- * `description` became authorable at `@objectstack/spec` 17.3.0 (objectui#7635
+ * `description` became authorable at `@objectstack/spec` 17.3.0 (`544ecba84`
  * corrected this paragraph; the member docblock below carries the measurement).
  */
 export interface SelectOptionMetadata extends SelectOptionBase {
@@ -538,21 +549,21 @@ export interface SelectOptionMetadata extends SelectOptionBase {
    *
    * A DECLARED `SelectOptionSchema` key as of `@objectstack/spec` 17.3.0,
    * which implements the objectui#6153 half of that ruling. Measured on the
-   * installed `@objectstack/spec` 17.4.0: an option carrying `description`
+   * installed `@objectstack/spec` 17.5.0: an option carrying `description`
    * is ACCEPTED, as a string (a non-string answers `invalid_type`; the empty
    * string is valid), and a field whose `options` carry it parses whole. ⇒ it
    * may now be written into authored object metadata, which is the point of
    * the ruling — the key was consumed by `LookupField` long before the
    * authoring door admitted it.
    *
-   * ⛔ This reverses what this docblock asserted between objectui#7014 and
-   * objectui#7635, when the key was refused by name and this comment said so.
+   * ⛔ This reverses what this docblock asserted between `0e3b3be09` and
+   * `544ecba84`, when the key was refused by name and this comment said so.
    * The option keys that are STILL outside the vocabulary are `icon` and
    * `disabled` — declared on {@link SelectOptionBase} as objectui-only
    * extensions and refused by name — and they are what keeps "the schema still
    * refuses something" a live fact rather than an assumption. The verdict is
    * re-derived, both directions behind accepting controls, by
-   * `__tests__/select-option-spec-extension-7014.test.ts` (objectui#7014).
+   * `__tests__/select-option-spec-extension-7014.test.ts` (`0e3b3be09`).
    */
   description?: string;
 }
@@ -726,7 +737,7 @@ export interface LookupFieldMetadata extends BaseFieldMetadata {
    * when the reference is stored by another column — e.g. an approval
    * `position` approver stores `sys_position.name`, because the engine routes
    * by machine name and names stay portable across environments
-   * (objectstack #3508).
+   * (objectstack-ai/objectstack#3508).
    */
   idField?: string;
 
@@ -1012,6 +1023,15 @@ export interface SliderFieldMetadata extends BaseFieldMetadata {
   type: 'slider';
   min?: number;
   max?: number;
+  /**
+   * Step increment for slider (default: 1).
+   *
+   * Mirrors `step` on `@objectstack/spec`'s `FieldSchema`, whose own prose is
+   * the sentence above; `SliderField` reads it and defaults it to `1`
+   * (objectui#10066). Pinned in
+   * `__tests__/number-field-step-spec-parity-9875.test.ts`.
+   */
+  step?: number;
 }
 
 export interface RatingFieldMetadata extends BaseFieldMetadata {

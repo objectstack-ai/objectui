@@ -35,10 +35,10 @@ import {
   useNavigationOverlay,
   useSettledSchema,
   SchemaRendererContext,
-  NON_GRID_ROW_CEILING,
-  NON_GRID_ROW_CEILING_TOP,
-  applyNonGridRowCeiling,
   NonGridRowCeilingNote,
+  useDataInvalidation,
+  useFilterScope,
+  useResolvedFilter,
 } from '@object-ui/react';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 import {
@@ -57,6 +57,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   NavigationOverlay,
+  RefreshIndicator,
   legacyRecordDrawerWidthKey,
   recordOverlayWidthStorageKey,
   useOverlayAnchor,
@@ -71,6 +72,14 @@ import {
   createFieldColorResolver,
   resolveRecordSourceConfig,
   resolveRecordSourceObjectName,
+  applyNonGridRowCeiling,
+  nonGridRowCeilingQuery,
+  type NonGridCeilingResult,
+  isRealCalendarDate,
+  toDateInputValue,
+  toDisplayDate,
+  toDisplayEndDate,
+  toInclusiveEndDay,
 } from '@object-ui/core';
 import {
   getSemanticColorName,
@@ -83,6 +92,7 @@ import {
   formatCurrency,
 } from '@object-ui/fields';
 import { GanttView, type GanttTask, type GanttDependency, type GanttLinkType, type GanttTaskType } from './GanttView';
+import { invertFrom, invertTo, makeTzShift } from './tzShift';
 import { ResourceWorkload } from './ResourceWorkload';
 import { QuickFilterBar, type QuickFilterField, type QuickFilterOption } from './QuickFilterBar';
 import type { WorkingCalendar } from './scheduling';
@@ -362,6 +372,105 @@ function extractServerMessage(err: unknown): string | null {
 }
 
 /**
+ * The chart's own calendar, as `GanttView` renders it (objectui#10866).
+ *
+ * `GanttView` re-bases every `Date` it is handed into the configured business
+ * `timeZone` (`makeTzShift`), and hands every emitted change back through the
+ * inverse. That is right for an instant and wrong for a DAY: a date-only value
+ * names a calendar day and carries no instant, so re-basing it moved the bar
+ * off its day for any viewer whose zone is not the chart's. The two helpers
+ * below keep a day a day across that shim, and are the identity when no
+ * `timeZone` is configured — the showcase's case, and every chart's default.
+ */
+type ChartZone = ReturnType<typeof makeTzShift>;
+
+/**
+ * A stored date value → the `Date` handed to `GanttView`.
+ *
+ * `toDisplayDate` reads a date-only value at LOCAL midnight of the day it
+ * names, where the engine's own parse read UTC midnight and drew the bar a day
+ * early west of UTC. For a business-zone chart that midnight is then handed
+ * over as the instant `GanttView` re-bases EXACTLY back onto it (`invertTo`),
+ * so the bar stands on the named day of the chart's calendar for every viewer,
+ * on a DST day too: the shim's own round trip, `to(from(midnight))`, fell on
+ * 23:00 of the day before there. A value with a time is an instant and passes
+ * through unshifted, as before.
+ */
+function readTaskDate(raw: unknown, chartZone: ChartZone): Date {
+  const date = toDisplayDate(raw as string);
+  return typeof raw === 'string' && isRealCalendarDate(raw) ? invertTo(chartZone, date) : date;
+}
+
+/**
+ * A stored END value (`end`, `baselineEnd`) → the `Date` handed to
+ * `GanttView`: the end read both gantt surfaces share, `toDisplayEndDate`
+ * (`@object-ui/core`, objectui#11141), in place of {@link readTaskDate}'s
+ * start-of-day read, and then the chart-zone step a start takes.
+ *
+ * A date-only end is INCLUSIVE (objectui#11112's ruling): a stored
+ * `2024-01-15` is drawn through January 15th, to the 16th's local midnight,
+ * so a successor starting `2024-01-16` begins where it ends and the view's
+ * half-open instants (`styleFor`, `scheduling.ts`) see no gap. That midnight is
+ * handed over through `invertTo` exactly as a start's is, so the bar ends on
+ * the named day's end in the chart's calendar for every viewer. A value with
+ * a time is an instant and keeps it. ⛔ No day is stepped here: the step is
+ * the core helper's, so this surface and the timeline's gantt cannot drift.
+ */
+function readTaskEnd(raw: unknown, chartZone: ChartZone): Date {
+  const end = toDisplayEndDate(raw as string);
+  if (typeof raw !== 'string' || !isRealCalendarDate(raw)) return end;
+  const handed = invertTo(chartZone, end);
+  if (chartZone.to(handed).getTime() === end.getTime()) return handed;
+  // The chart zone's clock skips the midnight this day ends at (it steps
+  // forward at 00:00, as `America/Santiago`'s does), so `invertTo` found no
+  // instant drawn there and handed the one drawn at 01:00 of the NEXT day,
+  // which `toInclusiveEndDay` names as that next day: a drag would write the
+  // end back a day late. The bar is ended at the last instant drawn on its own
+  // day instead, the one just before that midnight, which the view draws on
+  // the day's edge and names, and writes back, as the stored day.
+  return invertTo(chartZone, new Date(end.getTime() - 1));
+}
+
+/**
+ * The value a drag writes into one of the task's date fields.
+ *
+ * A field declared `date` holds a calendar day, the spec's `YYYY-MM-DD`
+ * storage form, so it is written as the day the bar was dropped on in the
+ * chart's calendar (for an `edge` of `'end'`, the day the bar runs through,
+ * `toInclusiveEndDay`, objectui#11141): the display-space `Date` the view
+ * emitted, recovered EXACTLY from the instant it hands over (`invertFrom`;
+ * the shim's own `to(instant)` fell on 23:00 of the day before on a DST day),
+ * read with LOCAL getters. ⛔ Never `toISOString()` for it — the UTC spelling of a local
+ * midnight names the PREVIOUS day everywhere east of UTC.
+ * Any other declared type (`datetime`) keeps its instant, exactly as before.
+ *
+ * With no declared type to ask (an `api` provider has no object schema), the
+ * stored value's own shape answers: the same split {@link readTaskDate} and
+ * {@link readTaskEnd} made when they read the value, so a write never
+ * disagrees with the read.
+ */
+function toStoredDateValue(
+  date: Date,
+  declaredType: unknown,
+  stored: unknown,
+  chartZone: ChartZone,
+  edge: 'start' | 'end' = 'start',
+): string {
+  const dateOnly =
+    typeof declaredType === 'string'
+      ? declaredType === 'date'
+      : typeof stored === 'string' && isRealCalendarDate(stored);
+  if (!dateOnly) return date.toISOString();
+  const day = invertFrom(chartZone, date);
+  // An END is the exact inverse of `readTaskEnd` (objectui#11141): the view
+  // hands back the exclusive end instant, so a bar ending on a day's local
+  // midnight names the day BEFORE it, the day it runs through. A stored
+  // `2024-01-15` is read as the 16th's midnight and written back as the 15th,
+  // so a read, a drag and a write never move a stored day.
+  return toDateInputValue(edge === 'end' ? toInclusiveEndDay(day) : day);
+}
+
+/**
  * Dev-only guard for the authoring diagnostics below. Mirrors `plugin-map`'s
  * (`ObjectMap.tsx`): the warnings are feedback for whoever wrote the schema, and
  * a production bundle should not pay for them.
@@ -579,9 +688,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
    * its own table was measured over the inline provider, so an inline row
    * costs what a fetched row costs and the ruling text carves out no provider.
    */
-  const [rowCeiling, setRowCeiling] = useState<{ truncated: boolean; total?: number }>({
-    truncated: false,
-  });
+  const [rowCeiling, setRowCeiling] = useState<NonGridCeilingResult | null>(null);
   // Tenant default currency (ADR-0053) for currency tooltips lacking a code.
   const { currency: tenantCurrency } = useLocalization();
   // The one date/number locale resolver: tenant regional default → active UI
@@ -758,26 +865,136 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // (objectui#7230, the structural note PR #7229 recorded for `ListView`).
   const perms = usePermissions();
 
-  // Load (and re-load) data through the resolved adapter. `silent: true`
-  // re-reads the source WITHOUT flipping `loading`, so GanttView stays mounted
-  // and keeps its scroll/collapse state — used by the write-readback below and
-  // the toolbar refresh button (write-readback / manual refresh, #2436 items 6
-  // and 7). Concurrent
-  // reloads are sequenced: only the newest request may commit its result,
-  // so a slow earlier response can't clobber a fresher one.
+  /**
+   * The full-text search the record query carries (objectui#10250).
+   *
+   * `search` is the term, sent as `$search`; `searchableFields` narrows the
+   * server-resolved searchable set and is sent as `$searchFields` — only
+   * alongside a term, exactly as a list's own query sends the pair (ADR-0061:
+   * the client sends the term, the server decides which fields it matches). A
+   * `ListView` gantt writes both from its toolbar Search box: the chart
+   * queries for itself, so the node is the only door the term has.
+   *
+   * Both are held as PRIMITIVES for the dependency lists below. The term is a
+   * string; the field list is keyed on its serialised value, so a host handing
+   * a fresh but equal array does not refetch (AGENTS.md #10 — key on the
+   * payload, never on an identity).
+   */
+  const searchTerm = typeof schema.search === 'string' && schema.search !== '' ? schema.search : undefined;
+  const searchFields = searchTerm && Array.isArray(schema.searchableFields) && schema.searchableFields.length > 0
+    ? schema.searchableFields
+    : undefined;
+  const searchFieldsKey = searchFields ? JSON.stringify(searchFields) : '';
+
+  // Load (and re-load) data through the resolved adapter. The two options are
+  // independent choices (objectui#7237):
+  //
+  //   - `inPlace` decides whether the chart stays MOUNTED. In place, the run
+  //     sets `refreshing`, which draws the refreshing state over the chart, and
+  //     GanttView keeps its scroll, collapsed groups and in-flight edits.
+  //     Otherwise it sets `loading`, which swaps in the placeholder. Only the
+  //     first load does that; see `loadedOnceRef`.
+  //   - `silent` decides what a FAILURE does. A background re-read of the SAME
+  //     query (write-readback, the toolbar refresh, an invalidation; #2436
+  //     items 6 and 7) logs it and keeps the last good rows, which still
+  //     answer that query. A silent reload is always in place. One exception:
+  //     a silent run that overtakes a changed query still in flight reports
+  //     like it (objectui#10633, `reportOwedRef`).
+  //
+  // Concurrent reloads are sequenced: only the newest request may commit its
+  // result, so a slow earlier response can't clobber a fresher one.
   const [refreshing, setRefreshing] = useState(false);
+  // objectui#10666 — the node's own `filter`, with every context token
+  // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
+  // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the
+  // session scope the host provides, and HELD by structure (`useResolvedFilter`
+  // in `@object-ui/react`). A directly authored gantt sent the literal token on
+  // `$filter` before. `reload` and both of its dependency lists read THIS,
+  // never the raw `schema.filter`, so a re-render that rebuilds an equal filter
+  // does not re-query.
+  const filterScope = useFilterScope();
+  const queryFilter = useResolvedFilter(schema.filter, filterScope);
   const reloadSeqRef = useRef(0);
-  const reload = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+  /**
+   * Has any reload committed rows yet? (objectui#7237, ruling A′)
+   *
+   * This separates the initial load, which keeps the loading placeholder, from
+   * every later change to the query. A later change refreshes in place, so the
+   * chart is never torn down to the placeholder after it has painted. A ref, not
+   * state: nothing renders from it, and it only ever flips once, from false to
+   * true.
+   */
+  const loadedOnceRef = useRef(false);
+  /**
+   * Does the run in flight owe a report if it fails? (objectui#10633)
+   *
+   * A non-silent run owes one: its query changed. A silent run owes one only
+   * when it SUPERSEDES a run that still owes one. The data-invalidation bus,
+   * the toolbar refresh or a write-readback can start a silent re-read while a
+   * changed query is in flight. That re-read reads the changed query and makes
+   * the changed run stale, so the changed run's answer and its failure are both
+   * discarded. If the re-read then failed quietly, the previous query's rows
+   * would stay up with nothing saying so. The re-read therefore inherits the
+   * report, and passes it on if another silent run overtakes it. The current
+   * run releases the obligation when it settles. A standalone silent re-read,
+   * with nothing pending, owes nothing and stays quiet.
+   *
+   * Inherited here, in the run sequence, and not by re-issuing the re-read as
+   * non-silent at its call site: every silent caller overtakes the same way,
+   * and a non-silent re-issue would also drop `inPlace` unless it were carried
+   * over by hand.
+   */
+  const reportOwedRef = useRef(false);
+  /**
+   * Rows a HOST component handed down as a `data` prop, or `null` when it
+   * handed none (objectui#7333).
+   *
+   * ⭐ An EMPTY array is `null` here. It is "no host rows yet", ⛔ not "the
+   * host owns zero rows". Both sites that read this prop — the short-circuit
+   * at the head of `reload` and `recordQueryDerivesExpand` below — used to
+   * take `[]` as an authoritative answer (`[]` is truthy, and
+   * `Array.isArray([])` holds): the chart adopted it and returned before its
+   * own query, and painted an EMPTY chart in place of the rows its `data`
+   * config names. A host array that has not been filled yet looks exactly like
+   * that. So an empty array leaves the chart reading from its own source, as it
+   * does with no host array at all; a NON-EMPTY one is adopted as it always
+   * was. Pinned in `ObjectGantt.emptyHostData-7333.test.tsx`.
+   *
+   * One predicate, evaluated once per render, for BOTH sites. `reload` reads it
+   * through `hostRowsRef` rather than closing over `rest`: `reload` does not
+   * key on the host rows, so a closed-over value is the one from whichever
+   * render last rebuilt `reload`. When a host's rows arrive after an empty
+   * first render, `recordQueryDerivesExpand` flips and fires the fetch effect,
+   * and that run must see the rows that flipped it, not the `[]` before them.
+   *
+   * ⚠️ The registry path never hands this prop: the registered `object-gantt`
+   * renderer forwards no host prop (`ObjectGantt.hostDataProp-7210.test.tsx`
+   * pins that), and `ObjectGanttProps` does not declare `data`. What reaches it
+   * is a direct caller that spreads one in.
+   */
+  const hostRowsProp: unknown = (rest as Record<string, unknown>).data;
+  const hostRows = Array.isArray(hostRowsProp) && hostRowsProp.length > 0 ? hostRowsProp : null;
+  const hostRowsRef = useRef(hostRows);
+  hostRowsRef.current = hostRows;
+  const reload = useCallback(async ({ silent = false, inPlace = silent }: { silent?: boolean; inPlace?: boolean } = {}) => {
     const seq = ++reloadSeqRef.current;
     const isCurrent = () => reloadSeqRef.current === seq;
+    const reportsFailure = !silent || reportOwedRef.current;
+    reportOwedRef.current = reportsFailure;
     try {
-      if (silent) setRefreshing(true);
+      if (inPlace) setRefreshing(true);
       else setLoading(true);
-      // 1. Check for data prop (Unified ListView)
-      if ((rest as any).data && Array.isArray((rest as any).data)) {
+      // 1. Rows a host handed down — non-empty only (objectui#7333); see
+      // `hostRows` above for why this reads the ref.
+      const handedRows = hostRowsRef.current;
+      if (handedRows) {
         if (isCurrent()) {
-          setData((rest as any).data);
-          setRowCeiling({ truncated: false });
+          setData(handedRows);
+          setRowCeiling(null);
+          // Committed rows clear an earlier failure (objectui#10578) — the
+          // reasoning sits on the adapter's commit below.
+          setError(null);
+          loadedOnceRef.current = true;
         }
         return;
       }
@@ -841,7 +1058,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         ? expandable
         : expandable.filter((f) => perms.checkField(resource, f, 'read'));
       const result = await adapter.find(resource, {
-        $filter: schema.filter,
+        $filter: queryFilter,
         $orderby: convertSortToQueryParams(schema.sort),
         // The platform ceiling (objectui#7210, ruling a′). The gantt still
         // fetches the whole FILTERED result set — a truthful
@@ -852,19 +1069,47 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         // makes the cut DETECTABLE; `applyNonGridRowCeiling` slices it back off.
         // ⛔ Not authorable: an authored `limit` / `pagination.pageSize` still
         // cannot reach this query, by the same ruling.
-        $top: NON_GRID_ROW_CEILING_TOP,
+        ...nonGridRowCeilingQuery(),
         ...(expand.length > 0 ? { $expand: expand } : {}),
+        // objectui#10250 — the term and its field narrowing, sent together
+        // or not at all. See `searchTerm` above.
+        ...(searchTerm
+          ? {
+              $search: searchTerm,
+              ...(searchFields ? { $searchFields: searchFields } : {}),
+            }
+          : {}),
       });
       const capped = applyNonGridRowCeiling(result);
       if (isCurrent()) {
         setData(capped.rows);
-        setRowCeiling({ truncated: capped.truncated, total: capped.total });
+        setRowCeiling(capped);
+        // objectui#10578 — `error` is an early return in the render, so a
+        // report nothing clears keeps the chart off screen until a remount.
+        // It is cleared HERE, when the current run commits rows, silent or not:
+        // those rows answer the current query, so no earlier failure describes
+        // the screen any more. A superseded run's answer is discarded, and so
+        // is its clear.
+        //
+        // ⛔ Not when a run STARTS, although `ObjectGrid`'s load clears there.
+        // A start clear is safe only if the run that cleared also reports its
+        // own failure, and here a SILENT reload can overtake it and then fail
+        // unreported (objectui#7237's silent mode, which `ObjectGrid` does not
+        // have). The error would be gone and the rows of an older query would
+        // be back with nothing saying so. Until rows land, the report stays.
+        setError(null);
+        loadedOnceRef.current = true;
       }
     } catch (err) {
-      if (silent) {
+      if (!reportsFailure) {
         // Background refresh failure keeps the last good data on screen.
         console.error('[ObjectGantt] Failed to refresh data:', err);
       } else if (isCurrent()) {
+        // A failed query that CHANGED (in place or not) is reported. The rows
+        // on screen answer the previous query, and once the refreshing state
+        // clears nothing would tell the user that (objectui#7237). A silent
+        // run that took over a changed query's report reports here too
+        // (objectui#10633, `reportOwedRef`).
         setError(err as Error);
       }
     } finally {
@@ -879,10 +1124,11 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       // nothing is in flight any more — a newer reload would have made this
       // one stale, and an older one has no claim on the flags. Clearing only
       // this run's own mode would strand the other one whenever the
-      // superseded reload ran in the OTHER mode (a silent toolbar refresh
-      // overtaken by a filter-change reload would leave `refreshing` on for
-      // the life of the component).
+      // superseded reload ran in the OTHER mode (a silent invalidation reload
+      // overtaken by a query change before the first paint would leave
+      // `refreshing` on for the life of the component).
       if (isCurrent()) {
+        reportOwedRef.current = false;
         setRefreshing(false);
         setLoading(false);
       }
@@ -895,18 +1141,21 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
     // The fetch effect below repeats this list for the same reason; the pins in
     // `ObjectGantt.discardedReloadIdentity-10036.test.tsx` hold the two in
     // parity by exercising each entry.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- (rest as any).data intentionally untracked, matching the original effect
-  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, schema.filter, schema.sort, objectSchema, perms]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `searchFields` is keyed by its serialised value, `searchFieldsKey`; the host rows are read through `hostRowsRef` (objectui#7333)
+  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, queryFilter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms]);
 
   /**
    * Does the query this effect is about to issue DERIVE anything from the
-   * object schema? Only the adapter branch does. A host-supplied `data` array
-   * and an inline `value` set both paint with no metadata read at all, so
-   * gating them would hold a paint on a resolution that buys them nothing.
-   * Same scoping ObjectCalendar's gate uses, and for the same reason.
+   * object schema? Only the adapter branch does. Rows a host handed down and
+   * an inline `value` set both paint with no metadata read at all, so gating
+   * them would hold a paint on a resolution that buys them nothing. Same
+   * scoping ObjectCalendar's gate uses, and for the same reason.
+   *
+   * "Rows a host handed down" is `hostRows`, the predicate `reload` reads — an
+   * EMPTY host array is not one (objectui#7333), so it keeps the gate and the
+   * invalidation subscription of the query the chart still issues.
    */
-  const hasHostData = Array.isArray((rest as any).data);
-  const recordQueryDerivesExpand = !hasHostData && !hasInlineData;
+  const recordQueryDerivesExpand = hostRows === null && !hasInlineData;
 
   // ⭐ objectui#7225 ask 2 (objectui#6482's undischarged gating half) — the
   // object schema GATES this query; it does not refine it afterwards.
@@ -941,10 +1190,54 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   const reloadRef = useRef(reload);
   reloadRef.current = reload;
 
+  /**
+   * objectui#7237, ruling A′ — the first run is the initial load and keeps the
+   * loading placeholder. Every run after rows have painted is a REAL change to
+   * the query (sort, filter, permissions, search, the bound source), and it
+   * refreshes IN PLACE: GanttView stays mounted with its scroll, collapsed
+   * groups and in-flight edits, the refreshing state sits over the chart, and
+   * the rows are replaced when the answer lands. ⛔ Never a teardown to the
+   * placeholder once the chart has painted.
+   *
+   * In place but NOT silent: the query changed, so a failure is reported
+   * rather than leaving the previous query's rows on screen.
+   */
   useEffect(() => {
     if (recordQueryDerivesExpand && !objectSchemaReady) return;
-    reloadRef.current();
-  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, schema.filter, schema.sort, objectSchema, perms, recordQueryDerivesExpand, objectSchemaReady]);
+    reloadRef.current(loadedOnceRef.current ? { inPlace: true } : {});
+  }, [adapterInputsKey, dataSource, apiFetch, resource, hasInlineData, dataProvider, queryFilter, schema.sort, searchTerm, searchFieldsKey, objectSchema, perms, recordQueryDerivesExpand, objectSchemaReady]);
+
+  /**
+   * objectui#10035 — the refresh input this gantt had none of, so a host could
+   * show it a write only by remounting it (AGENTS.md #8's corollary: refresh
+   * data, don't rebuild UI). The nonce moves when the data-invalidation bus
+   * reports a change to the object this gantt reads.
+   *
+   * ⭐ A SILENT reload, deliberately not the fetch effect above. That effect's
+   * first reload flips `loading`, which swaps `GanttView` for the placeholder
+   * — the same loss of scroll, collapsed groups and zoom a remount causes, one
+   * level down — and its later ones report a failure, which is right for a
+   * changed query and wrong for a re-read of the same one. `reload({ silent:
+   * true })` is the path the toolbar refresh and every write-readback here
+   * already take for exactly that reason, and it keeps `reload`'s sequencing,
+   * so an invalidation that lands mid-load cannot let a stale answer win.
+   *
+   * Subscribed only when the rows come from an adapter this gantt queries
+   * (`recordQueryDerivesExpand`): a host `data` array and an inline `value`
+   * set are not ours to refresh. Each nonce is answered at most once
+   * (`handledInvalidationRef`): one that lands while the object-schema gate
+   * above is still closed is marked handled and dropped, because the gated
+   * first load has not run yet and reads rows written before it — so the gate
+   * opening later can never add a second query beside that load.
+   */
+  const invalidationNonce = useDataInvalidation(recordQueryDerivesExpand && resource ? resource : undefined);
+  const handledInvalidationRef = useRef(0);
+  useEffect(() => {
+    if (invalidationNonce === handledInvalidationRef.current) return;
+    handledInvalidationRef.current = invalidationNonce;
+    if (recordQueryDerivesExpand && !objectSchemaReady) return;
+    void reloadRef.current({ silent: true });
+  }, [invalidationNonce, recordQueryDerivesExpand, objectSchemaReady]);
 
   // Transform data to gantt tasks
   const tasks = useMemo(() => {
@@ -954,6 +1247,8 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
 
     const { startDateField, endDateField, titleField, progressField, dependenciesField, colorField, borderColorField, parentField, typeField, lockField, tooltipFields, baselineStartField, baselineEndField, quickFilters } = ganttConfig;
     const fieldDefs: Record<string, any> = objectSchema?.fields ?? {};
+    // The chart's calendar, keyed on the authored zone itself (objectui#10866).
+    const chartZone = makeTzShift(ganttConfig.timeZone);
     // One resolver per declared colour field, built once for the whole
     // dataset rather than per row: rung 1 (the field's own option colour)
     // plus rung 2 (the value already IS a colour literal). See
@@ -1142,8 +1437,8 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       const endDate = record[endDateField];
       const baselineStartRaw = baselineStartField ? record[baselineStartField] : undefined;
       const baselineEndRaw = baselineEndField ? record[baselineEndField] : undefined;
-      const baselineStart = baselineStartRaw ? new Date(baselineStartRaw) : undefined;
-      const baselineEnd = baselineEndRaw ? new Date(baselineEndRaw) : undefined;
+      const baselineStart = baselineStartRaw ? readTaskDate(baselineStartRaw, chartZone) : undefined;
+      const baselineEnd = baselineEndRaw ? readTaskEnd(baselineEndRaw, chartZone) : undefined;
       const title = resolveTitle(record);
       const progress = progressField ? record[progressField] : 0;
       const dependencies = dependenciesField ? record[dependenciesField] : [];
@@ -1200,8 +1495,11 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       return {
         id: record.id || record._id || `task-${index}`,
         title,
-        start: startDate ? new Date(startDate) : new Date(),
-        end: endDate ? new Date(endDate) : new Date(),
+        // A date-only day stands on that day (objectui#10866, `readTaskDate`),
+        // and a date-only end runs through its day (objectui#11141,
+        // `readTaskEnd`).
+        start: startDate ? readTaskDate(startDate, chartZone) : new Date(),
+        end: endDate ? readTaskEnd(endDate, chartZone) : new Date(),
         // Whether the record carried real dates (vs the placeholder "today"
         // above) — summaryExtent:'self' falls back to rollup when it didn't.
         hasOwnDates: !!(startDate && endDate),
@@ -1474,12 +1772,12 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // here, so they get a sibling localStorage key and restore on mount.
   //
   // ⛔ This line does NOT delegate to `resolveRecordSourceObjectName`, and its
-  // inverted order relative to `resource` above is not the drift objectui#7627
+  // inverted order relative to `resource` above is not the drift `b041b9c0c`
   // collapsed: the two were never answering the same question. What this
   // resolves is a localStorage KEY (`gantt-layout:<key>:filters`), not a record
   // source — re-pointing it silently orphans every saved layout and filter-chip
   // set of any view carrying BOTH bindings. A storage-key migration is a
-  // separate, user-visible change, so the ruling on objectui#7627 excluded this
+  // separate, user-visible change, so `b041b9c0c` excluded this
   // site from the collapse and left the precedence exactly as it is.
   const persistLayoutKey =
     schema.persistLayout === false
@@ -1575,13 +1873,21 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // receives, so passing the (smaller) filtered set rescales the axis. To pin
   // the range instead (autoZoomToFilter === false), compute a fixed window from
   // the FULL task set and hand it to GanttView so filtering only hides bars.
+  //
+  // `end` is the last instant a bar covers, not a bar's end: a task's `end` is
+  // the EXCLUSIVE end of its span (a date-only end is handed over as the next
+  // day's midnight, `readTaskEnd`, objectui#11141), and `GanttView` runs an
+  // `endDate` through the end of the day it falls on. Handing it an end itself
+  // would add an empty day column after the last day any task runs through.
   const lockedRange = useMemo<{ start: Date; end: Date } | null>(() => {
     if (ganttConfig?.autoZoomToFilter !== false || !tasks.length) return null;
-    let min = tasks[0].start.getTime();
-    let max = tasks[0].end.getTime();
+    let min = Infinity;
+    let max = -Infinity;
     for (const t of tasks) {
-      min = Math.min(min, t.start.getTime());
-      max = Math.max(max, t.end.getTime());
+      const start = t.start.getTime();
+      const end = t.end.getTime();
+      min = Math.min(min, start);
+      max = Math.max(max, end > start ? end - 1 : start);
     }
     return { start: new Date(min), end: new Date(max) };
   }, [tasks, ganttConfig?.autoZoomToFilter]);
@@ -1590,7 +1896,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   // detail panel inline (no full-page navigation). Schema can override by
   // providing its own `navigation` config (e.g., page mode).
   //
-  // No width is spelled here on purpose. `width` is `@deprecated [#2578 ->
+  // No width is spelled here on purpose. `width` is `@deprecated [objectstack-ai/objectstack#2578 ->
   // size]` in the spec that owns this shape, and `resolveOverlayWidth` gives
   // an explicit `width` priority OVER `size` — so spelling it kept the
   // deprecated branch load-bearing on the path most gantts take (no declared
@@ -1664,7 +1970,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
           ? deriveRecordPageHref(resource, recordId)
           : null;
       // No derivable destination ⇒ do nothing, exactly as before. An invented
-      // URL would be the fabrication objectui#7070 spent this file's other
+      // URL would be the fabrication the invented-binding work (`5f4514f7b`) spent this file's other
       // branches removing.
       if (!href) return;
       if (action === 'new_window') {
@@ -1742,9 +2048,18 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
       if (!effectiveDataSource || typeof effectiveDataSource.update !== 'function') return;
 
       const { startDateField, endDateField, titleField, progressField } = ganttConfig;
+      // A `date` field is written as the calendar day, a `datetime` as the
+      // instant (objectui#10866, `toStoredDateValue`).
+      const fieldDefs = objectSchema?.fields as Record<string, { type?: unknown } | undefined> | undefined;
+      const stored: Record<string, unknown> = task.data ?? {};
+      const chartZone = makeTzShift(ganttConfig.timeZone);
       const patch: Record<string, unknown> = {};
-      if (changes.start instanceof Date) patch[startDateField] = changes.start.toISOString();
-      if (changes.end instanceof Date) patch[endDateField] = changes.end.toISOString();
+      if (changes.start instanceof Date) {
+        patch[startDateField] = toStoredDateValue(changes.start, fieldDefs?.[startDateField]?.type, stored[startDateField], chartZone);
+      }
+      if (changes.end instanceof Date) {
+        patch[endDateField] = toStoredDateValue(changes.end, fieldDefs?.[endDateField]?.type, stored[endDateField], chartZone, 'end');
+      }
       if (typeof changes.title === 'string' && titleField) patch[titleField] = changes.title;
       if (typeof changes.progress === 'number' && progressField) patch[progressField] = changes.progress;
       if (Object.keys(patch).length === 0) return;
@@ -1772,7 +2087,7 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         notifyWriteError(err);
       }
     },
-    [ganttConfig, effectiveDataSource, resource, data, reload, notifyWriteError],
+    [ganttConfig, effectiveDataSource, resource, data, reload, notifyWriteError, objectSchema],
   );
 
   // Re-serialize a normalized dependency list back onto a record field,
@@ -2101,7 +2416,14 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
           the pane's bottom edge — swallowing the horizontal scrollbar.
           flex-1/min-h-0 tracks the real available height;
           the min-h keeps standalone embeds (no sized parent) usable. */}
-      <div className="flex-1 min-h-[420px]">
+      <div className="relative flex-1 min-h-[420px]">
+        {/* objectui#7237 (ruling A′) — the visible refreshing state ON the
+            chart while an in-place reload runs, so the rows still on screen
+            read as the previous answer rather than as the current one. The
+            same indeterminate bar ObjectGrid, ListView and ObjectChart draw
+            over their rows; `refreshing` is the flag the toolbar refresh
+            button already reads. */}
+        <RefreshIndicator active={refreshing} ariaLabel={t('gantt.aria.refreshing')} />
         {ganttConfig?.resourceView && assigneeAccessor ? (
           <ResourceWorkload
             tasks={displayTasks}
@@ -2202,15 +2524,12 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
           drawn from the first N rows of a larger result set is still a
           confident-looking schedule with a plausible range; the note is the
           only thing on screen that distinguishes it from a complete one.
-          `shrink-0` beneath the `flex-1` chart pane, so it cannot be clipped
-          out of a fixed-height host the way a plain sibling would be
-          (the construction objectui#7148's `ChartFootnote` measured). */}
-      <NonGridRowCeilingNote
-        drawn={NON_GRID_ROW_CEILING}
-        total={rowCeiling.total}
-        truncated={rowCeiling.truncated}
-        className="shrink-0 px-1 py-1 text-xs text-muted-foreground"
-      />
+          The note carries `shrink-0` itself, beneath the `flex-1` chart
+          pane, so it cannot be clipped out of a fixed-height host the way a
+          plain sibling would be (the construction objectui#7148's
+          `ChartFootnote` measured); it takes the result and nothing else
+          (objectui#7508). */}
+      {rowCeiling && <NonGridRowCeilingNote result={rowCeiling} />}
       {/* Delete confirmation */}
       <AlertDialog open={!!pendingDelete} onOpenChange={(open) => { if (!open && !deleting) setPendingDelete(null); }}>
         <AlertDialogContent>

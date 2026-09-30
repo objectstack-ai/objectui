@@ -21,20 +21,15 @@
 // is what makes the claim true, and what makes a spec change break the build
 // instead of drifting quietly.
 import type {
-  ExportJobStatus,
-  ExportFormat as ExportJobFormat,
   ImportJobStatus,
   ImportRowResult,
   ImportWriteMode,
 } from '@objectstack/spec/api';
-import type {
-  CreateExportJobInput as SpecCreateExportJobInput,
-  CreateExportJobResult,
-} from '@objectstack/spec/contracts';
-import type { FilterArray } from '@objectstack/spec/data';
+import type { EngineAggregateOptions, FilterArray } from '@objectstack/spec/data';
 import type { ValidationError } from '@objectstack/spec/kernel';
+import type { ListViewGroupHeaderRow } from '@objectstack/spec/ui';
 
-export type { ExportJobStatus, ImportJobStatus, ImportWriteMode, ValidationError };
+export type { ImportJobStatus, ImportWriteMode, ValidationError };
 
 /**
  * Query parameters for data fetching.
@@ -225,7 +220,7 @@ export interface BatchRef {
 
 /**
  * One operation in a cross-object transactional batch. Field names match the
- * server contract of `POST /api/v1/batch` (ObjectStack framework #1604 /
+ * server contract of `POST /api/v1/batch` (objectstack-ai/objectstack#1604 /
  * ADR-0034 item 4).
  *
  * Distinct from the driver-level `BatchOperation` in `data-protocol.ts`
@@ -783,6 +778,37 @@ export interface DataSource<T = any> {
   aggregate?(resource: string, params: AggregateParams): Promise<AggregateResult[]>;
 
   /**
+   * Answer a grouped list view's GROUP HEADER query (objectui#7189).
+   *
+   * `query` is what `compileListViewGroupQuery` (`@objectstack/spec/ui`)
+   * compiles a grouped view into — an `EngineAggregateOptions` whose `groupBy`
+   * is the grouping fields in nesting order and whose `aggregations` carry the
+   * group count plus any per-group summary. The answer is one header row per
+   * group, every grouped field under its own name holding the RAW stored value
+   * (`null` for the empty group) and the group's TOTAL row count under
+   * `count`. Those numbers are properties of the query, not of any fetched
+   * page: that is the whole contract, and it is what lets a grouped grid show
+   * every group with its true size and page the rows inside each one.
+   *
+   * Optional, and presence is the capability: a grid only asks a data source
+   * that declares this member. A source that cannot answer it must leave it
+   * undeclared rather than approximate it — a grouped grid that fetches its
+   * own rows over such a source refuses grouping, naming this member, and
+   * fetches no rows (objectui#10881). Rows a host hands in whole are still
+   * grouped where they are.
+   *
+   * ⛔ Not a second spelling of {@link aggregate}: that member takes the
+   * analytics-shaped {@link AggregateParams} (one field, one function, one
+   * `groupBy`) and may degrade to a client-side reduction; this one takes the
+   * compiled header query verbatim and never degrades.
+   *
+   * @param resource - Object name
+   * @param query - The compiled header query (`EngineAggregateOptions`)
+   * @returns One header row per group, as the platform answers it
+   */
+  queryGroupHeaders?(resource: string, query: EngineAggregateOptions): Promise<ListViewGroupHeaderRow[]>;
+
+  /**
    * Subscribe to mutation events.
    * When implemented, data-bound views (ListView, ObjectView) can auto-refresh
    * after any create/update/delete operation on relevant resources.
@@ -804,65 +830,10 @@ export interface DataSource<T = any> {
   onMutation?(callback: (event: DataSourceMutationEvent<T>) => void): () => void;
 
   /**
-   * Initiate an asynchronous export job for a resource (server-driven streaming export).
-   *
-   * When implemented, callers can fire-and-forget large exports — the data
-   * source is responsible for queueing the job, streaming records to the chosen
-   * format, and producing a downloadable file. UI consumers then poll
-   * `getExportJobProgress` until the job reaches a terminal state and use
-   * `downloadUrl` (or `getExportJobDownloadUrl`) to deliver the file.
-   *
-   * Optional — when not implemented, callers fall back to client-side export
-   * (the legacy synchronous blob path used by ObjectGrid).
-   *
-   * Aligns with the spec v4 `CreateExportJobRequest` / `CreateExportJobResponse`
-   * contracts (see `@objectstack/spec/export`).
-   *
-   * @param resource - Resource name (e.g., 'account', 'opportunity')
-   * @param request - Export request (format, fields, filter, sort, limit, …)
-   * @returns Promise resolving to job tracking info ({ jobId, status, … })
-   */
-  createExportJob?(
-    resource: string,
-    request: CreateExportJobRequest,
-  ): Promise<CreateExportJobResult>;
-
-  /**
-   * Poll the progress of a previously-created export job.
-   *
-   * Optional — required only if `createExportJob` is implemented.
-   *
-   * @param jobId - The job identifier returned by `createExportJob`.
-   * @returns Promise resolving to current progress / terminal status.
-   */
-  getExportJobProgress?(jobId: string): Promise<ExportJobProgressInfo>;
-
-  /**
-   * Cancel an in-flight export job.
-   * Optional — implementations that don't support cancellation may omit this
-   * method (the UI will hide the Cancel button).
-   *
-   * @param jobId - The job identifier to cancel.
-   */
-  cancelExportJob?(jobId: string): Promise<void>;
-
-  /**
-   * Resolve the final download URL for a completed export job.
-   *
-   * Optional — when omitted, consumers fall back to the `downloadUrl` field on
-   * the latest progress payload. Implementations may use this hook to mint
-   * a fresh signed URL just before download.
-   *
-   * @param jobId - The job identifier.
-   * @returns Promise resolving to a downloadable URL (may be short-lived).
-   */
-  getExportJobDownloadUrl?(jobId: string): Promise<string>;
-
-  /**
    * Synchronously download a server-streamed export of a resource.
    *
-   * Unlike the async `createExportJob` family, this resolves directly to the
-   * exported file as a `Blob`: the server streams matching rows in the chosen
+   * It resolves directly to the exported file as a `Blob`: the server streams
+   * matching rows in the chosen
    * format (`csv` / `json` / `xlsx`), applies type-aware value formatting
    * (lookup → name, select → label, boolean → 是/否, dates formatted) and
    * enforces object / field / row permissions. Suited to interactive
@@ -1008,7 +979,7 @@ export interface ImportRequestOptions {
   /** Source column → target field mapping (compact record or entry array). */
   mapping?: Record<string, string> | ImportFieldMappingEntry[];
   /**
-   * Name of a registered `mapping` metadata artifact (framework #2611). When
+   * Name of a registered `mapping` metadata artifact (objectstack-ai/objectstack#2611). When
    * set, the server resolves the mapping by name and applies its
    * fieldMapping pipeline (rename + transforms, strict projection); mutually
    * exclusive with the inline `mapping` rename above.
@@ -1024,9 +995,9 @@ export interface ImportRequestOptions {
   runAutomations?: boolean;
   /** Import as established historical facts. Skips the `state_machine` rule so
    *  mid-lifecycle rows (already-closed tickets, closed_won deals) aren't rejected
-   *  by `initialStates` (framework #3479), AND preserves the original audit timeline:
+   *  by `initialStates` (objectstack-ai/objectstack#3479), AND preserves the original audit timeline:
    *  a supplied `updated_at`/`updated_by` and business `readonly` fields are kept
-   *  instead of stamped-now / stripped (framework #3493). @default false */
+   *  instead of stamped-now / stripped (objectstack-ai/objectstack#3493). @default false */
   treatAsHistorical?: boolean;
   /** Trim leading/trailing whitespace from string cells. @default true */
   trimWhitespace?: boolean;
@@ -1222,85 +1193,6 @@ export interface ExportDownloadRequest {
 }
 
 /**
- * Lifecycle status of a server-driven export job. Imported from
- * `@objectstack/spec/api` at the top of this module.
- */
-
-/**
- * Output formats supported by async export jobs — the spec's `ExportFormat`,
- * re-exported by reference (objectstack#4115) instead of restated. The union it
- * replaces listed the same five members, which is exactly the state a copy is in
- * one spec release before it is wrong.
- */
-export type { ExportFormat as ExportJobFormat } from '@objectstack/spec/api';
-
-/**
- * Request payload for `DataSource.createExportJob`, DERIVED from the spec's
- * `CreateExportJobInput` (objectstack#4115).
- *
- * The hand copy this replaces carried the note "ObjectUI does not import the
- * zod schema directly to keep `@object-ui/types` zero-dependency". That reason
- * had already expired: `@objectstack/spec` is a direct dependency of this
- * package, and this very module imports `ExportJobStatus` / `ImportWriteMode`
- * from `@objectstack/spec/api` at the top. A stale reason, still stated in the
- * authoritative voice, is what keeps a fork in place long after its argument is
- * gone (the `external/api.ts` case in objectui#3169).
- *
- * `CreateExportJobInput`, not the spec's `CreateExportJobRequest`: the latter is
- * `z.infer` of the request schema, i.e. the shape AFTER `.default()` has run, so
- * `format` / `includeHeaders` / `encoding` are required there. A caller builds
- * this payload, so the authoring side is the true one (objectui#3169).
- *
- * `object` is omitted because it is the method's own `resource` argument —
- * `createExportJob(resource, request)`; it must not be authored twice.
- */
-export type CreateExportJobRequest = Omit<SpecCreateExportJobInput, 'object'>;
-
-/**
- * Result of `DataSource.createExportJob` — the spec's contract type, re-exported
- * by reference (objectstack#4115). UI consumers use `jobId` as the polling key.
- *
- * The copy this replaces declared `createdAt` optional where the spec requires
- * it, so every consumer carried a nullish branch for a field the server always
- * sends — the same optional/required skew found across `app-shell` in
- * objectui#3169.
- */
-export type { CreateExportJobResult } from '@objectstack/spec/contracts';
-
-/**
- * Progress payload returned by `DataSource.getExportJobProgress`.
- *
- * Once `status` is 'completed', `downloadUrl` (or
- * `DataSource.getExportJobDownloadUrl`) becomes available.
- */
-export interface ExportJobProgressInfo {
-  /** Job identifier. */
-  jobId: string;
-  /** Current lifecycle status. */
-  status: ExportJobStatus;
-  /** Format the file is being produced in. */
-  format?: ExportJobFormat;
-  /** Total records in the slice (may be unknown for streaming exports). */
-  totalRecords?: number;
-  /** Records written to the output stream so far. */
-  processedRecords?: number;
-  /** 0–100 progress; computed by the server when `totalRecords` is known. */
-  percentComplete?: number;
-  /** Final file size in bytes (present after completion). */
-  fileSize?: number;
-  /** Direct download URL (present after completion). */
-  downloadUrl?: string;
-  /** ISO-8601 timestamp at which `downloadUrl` expires. */
-  downloadExpiresAt?: string;
-  /** Error details when `status === 'failed'`. */
-  error?: { code: string; message: string };
-  /** ISO-8601 start timestamp. */
-  startedAt?: string;
-  /** ISO-8601 completion timestamp. */
-  completedAt?: string;
-}
-
-/**
  * Describes a mutation that occurred on a DataSource.
  * Emitted by `DataSource.onMutation` subscribers after create/update/delete.
  */
@@ -1311,8 +1203,13 @@ export interface DataSourceMutationEvent<T = any> {
   resource: string;
   /** The affected record (present for create/update) */
   record?: T;
-  /** The ID of the affected record (present for update/delete) */
-  id?: string | number;
+  /**
+   * The ID of the affected record (present for update/delete). A string, per
+   * the one record-id rule stated on {@link DataSource} (objectui#9511,
+   * objectui#10078): an adapter whose backend keys are numeric converts at its
+   * own boundary before it emits, so no subscriber has to.
+   */
+  id?: string;
 }
 
 /**

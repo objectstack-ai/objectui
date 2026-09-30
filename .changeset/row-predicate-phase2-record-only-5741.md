@@ -6,7 +6,7 @@
 row predicates on runtime record surfaces resolve `record.*` only; the bare-field and `data.*` spellings are no longer bound
 
 Phase 2 of the row-predicate canon (objectui#5330, ruled 2026-08-20, option B;
-Phase 2 ruled 2026-09-02 and amended 2026-09-05 on objectui#5741). Until now a
+Phase 2 ruled 2026-09-02 and amended 2026-09-05). Until now a
 row predicate — `visible` / `disabled` / `enabled` on an action renderer, a row
 action, a `record:alert`, a `page:header` action, a conditional-formatting
 `condition` — bound the row three ways: canonical `record.status`, bare
@@ -53,7 +53,7 @@ No stored-metadata survey, export or migration rewrite was run (the maintainer
 ruled the stored population out of scope, 「不考虑存量」); the Phase-1 warning
 period was the notice.
 
-Release note: Phase 1 (PR #5737 — the canon statement plus the warning) shipped
+Release note: Phase 1 (`d1ab06f0f` — the canon statement plus the warning) shipped
 in `@object-ui/core@17.6.0` (npm, 2026-08-24) although its changeset
 `.changeset/row-predicate-record-canon-5330.md` is still pending on `main`, so
 the next CHANGELOG section lists Phase 1 and this Phase 2 together: the warning

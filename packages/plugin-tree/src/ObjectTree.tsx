@@ -46,13 +46,14 @@ import {
   useNavigationOverlay,
   useSafeFieldLabel,
   useSettledSchema,
-  NON_GRID_ROW_CEILING,
-  NON_GRID_ROW_CEILING_TOP,
-  applyNonGridRowCeiling,
   NonGridRowCeilingNote,
+  useFilterScope,
+  useResolvedFilter,
+  useDataInvalidation,
 } from '@object-ui/react';
 import {
   NavigationOverlay,
+  RefreshIndicator,
   cn,
   legacyRecordDrawerWidthKey,
   recordOverlayWidthStorageKey,
@@ -72,6 +73,10 @@ import {
   humanizeLabel,
   resolveRecordSourceConfig,
   resolveRecordSourceObjectName,
+  ValueDataSource,
+  applyNonGridRowCeiling,
+  nonGridRowCeilingQuery,
+  type NonGridCeilingResult,
 } from '@object-ui/core';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 
@@ -92,6 +97,12 @@ import { ChevronRight, ChevronDown } from 'lucide-react';
  */
 const TREE_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'detail.recordDetail': 'Record Detail',
+  // The refresh bar's accessible name (objectui#10816). Borrowed on the same
+  // reasoning as the heading above: no pack carries a `tree.*` namespace, and
+  // minting one for a single label would be a new i18n surface across every
+  // pack. This control is a tree-GRID — a table of rows re-read in place — so
+  // it takes the name `ObjectGrid` gives the very same bar.
+  'grid.refreshing': 'Refreshing…',
 };
 
 const useTreeTranslation = createSafeTranslation(
@@ -178,6 +189,31 @@ interface TreeNode {
 }
 
 /**
+ * The rows this tree last read, held TOGETHER with the source they were read
+ * for (objectui#10816).
+ *
+ * One value, not rows plus a second "whose rows are these" state, for the
+ * reason `useSettledSchema` gives below: two independent values can disagree,
+ * and "rows, but for a DIFFERENT object" is exactly the disagreement that
+ * would draw one object's records under another's header. With the source
+ * stored beside the rows, the render derives whether they answer the source it
+ * is bound to NOW, and a mismatch is simply "no rows yet".
+ *
+ * The source is the pair the record effect's arms are chosen by: the data
+ * provider (`dataConfig.provider`) and, for the `object` provider only, its
+ * object. A new filter, a permissions answer, a settled schema, rows a host
+ * hands down or a data-invalidation event re-read the SAME source.
+ */
+interface HeldRows {
+  provider: string | undefined;
+  object: string | undefined;
+  rows: any[];
+}
+
+/** What the forest is built from while no rows answer the current source. */
+const NO_ROWS: any[] = [];
+
+/**
  * Normalize a field entry to its string key. Hosts like ListView pass columns
  * as field *objects* (`{ name | fieldName | field, label, … }`), not bare
  * strings — feeding those straight into `.replace()`/record indexing throws
@@ -231,9 +267,19 @@ function fieldKey(f: any): string | undefined {
  * measured, it does not (`CreateViewDialog.tsx`'s `tree` slot collects
  * `parentField` alone) — else delete the read. This is that deletion, executed
  * on objectui#8841.
+ *
+ * ## The `filter`-as-block-holder arm is GONE (objectui#9549)
+ *
+ * The block used to be looked up on the node's `tree` key OR on a `tree`
+ * member of the node's `filter`. `filter` is declared as the query filter
+ * (`QueryParams['$filter']`, forwarded as `$filter` by the fetch below), so
+ * that second arm read the same key in a second dialect. Measured before the
+ * removal: no example, fixture, test or doc in this repo or in `../objectstack`
+ * authors a `tree` under `filter`, and the arm dates from the renderer's first
+ * commit with no stated reason. The block's one home is `tree`.
  */
 function getTreeConfig(schema: ObjectTreeSchema): ResolvedTreeConfig {
-  const nested = (schema.tree || schema.filter?.tree || {}) as TreeViewConfig;
+  const nested = (schema.tree || {}) as TreeViewConfig;
   const rawFields = Array.isArray(schema.fields)
     ? schema.fields
     : Array.isArray(nested.fields)
@@ -556,16 +602,20 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
   onRowClick,
   ...rest
 }) => {
-  const [records, setRecords] = useState<any[]>([]);
+  const [held, setHeld] = useState<HeldRows | null>(null);
   /**
    * Did the platform row ceiling bite, and how large was the whole filtered
    * result set (objectui#7210)? Carried from the response that knew it —
    * `records.length === NON_GRID_ROW_CEILING` cannot tell a capped result set
    * apart from one that is exactly that size.
    */
-  const [rowCeiling, setRowCeiling] = useState<{ truncated: boolean; total?: number }>({
-    truncated: false,
-  });
+  const [rowCeiling, setRowCeiling] = useState<NonGridCeilingResult | null>(null);
+  /**
+   * A read is in flight — and ONLY that (objectui#10816). It no longer decides
+   * the placeholder on its own: the render draws "Loading…" only while there
+   * are no rows for the current source, and a re-read of that source keeps its
+   * rows on screen with `RefreshIndicator` over them.
+   */
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   // `'undeclared'` — and that is a finding, not a shrug (objectui#8348).
@@ -659,7 +709,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
    * the component rather than one effect of two.
    */
   const dataProvider = dataConfig?.provider;
-  // NOT a delegation site for `resolveRecordSourceObjectName` (objectui#7627):
+  // NOT a delegation site for `resolveRecordSourceObjectName` (`b041b9c0c`):
   // this is the data config's OWN object, deliberately `undefined` for every
   // other provider so an `api`/`value` tree's `objectName` changing cannot move
   // this dependency. The shared reader's second rung would put `objectName`
@@ -673,6 +723,41 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
   // reaches that effect (objectui#7429, same structural note PR #7229 /
   // PR #7428 recorded for `ListView`'s memo and `ObjectCalendar`'s effect).
   const perms = usePermissions();
+
+  // objectui#10666 — the node's own `filter`, with every context token
+  // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
+  // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the
+  // session scope the host provides, and HELD by structure (`useResolvedFilter`
+  // in `@object-ui/react`). A directly authored tree sent the literal token on
+  // `$filter` before. Both query paths below (the `object` fetch and the inline
+  // `ValueDataSource`) and the effect's dependency list read THIS, never the
+  // raw `schema.filter`, so a re-render that rebuilds an equal filter does not
+  // re-query.
+  const filterScope = useFilterScope();
+  const queryFilter = useResolvedFilter(schema.filter, filterScope);
+
+  // objectui#10778 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10623 way: the nonce moves when a
+  // write to the object this tree QUERIES is declared, and the record effect
+  // below names it, so the rows are re-read in place. Without it a page action
+  // over raw HTTP left the tree stale unless the page was remounted.
+  //
+  // The object is `dataObjectName` — the `object` provider's own object,
+  // whether the node spelled it `objectName` or `data: { provider: 'object' }`
+  // — and it is subscribed exactly when the `object` arm below queries: inline
+  // rows (a `data` array, the `value` provider) name no object and query no
+  // adapter, so they do not subscribe.
+  //
+  // ⚠️ Rows a HOST hands down as the `data` prop (ListView's tree) do NOT
+  // exempt the tree: the `object` arm runs its own full query ahead of them,
+  // so its freshness must not rest on the host's rows moving. The host fetches
+  // only its display columns (usually not the parent pointer), and a host that
+  // hands an equal re-read down as the SAME array — what AGENTS.md #10 asks of
+  // a provider — would never move the `data` dependency below for a write its
+  // projection does not show, such as a re-parented record. Today's ListView
+  // hands down a fresh array on every re-read, so a list-view tree runs its
+  // query twice after such an event: once on this nonce, once on those rows.
+  const invalidationNonce = useDataInvalidation(dataSource ? dataObjectName : undefined);
 
   // Fetch records.
   useEffect(() => {
@@ -693,8 +778,10 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
           // so firing early guaranteed one query whose lookup columns came back
           // as bare ids — the user saw those raw ids painted, then replaced a
           // moment later once the real query landed. `loading` stays true here
-          // so the tree shows its spinner instead of a wrong first answer, and
-          // this effect re-runs the moment the latch flips.
+          // so a tree with no rows for this object shows its placeholder
+          // instead of a wrong first answer (one re-reading the same object
+          // keeps its rows under the refresh bar, objectui#10816), and this
+          // effect re-runs the moment the latch flips.
           if (!schemaSettled) return;
           // [objectui#7429] FIELD-LEVEL SECURITY ON `$expand` — the same gate
           // objectui#7215 / PR #7229 put on the two projection sites in its
@@ -739,7 +826,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
           // discriminated union — same narrowing the pre-refactor
           // `dataConfig.object` read carried.
           const result = await dataSource.find(dataObjectName as string, {
-            $filter: schema.filter,
+            $filter: queryFilter,
             // The platform ceiling (objectui#7210, ruling a′). A tree still
             // fetches the whole FILTERED set — a hierarchy assembled from a
             // page loses every child whose parent fell outside it, which is
@@ -748,13 +835,13 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
             // on: it materialises ~5.2 DOM elements per record with no
             // virtualisation, so it is the binding one of the four.
             // ⛔ Not authorable: no view key reaches this `$top`.
-            $top: NON_GRID_ROW_CEILING_TOP,
+            ...nonGridRowCeilingQuery(),
             ...(expand.length > 0 ? { $expand: expand } : {}),
           });
           const capped = applyNonGridRowCeiling(result);
           if (!cancelled) {
-            setRecords(capped.rows);
-            setRowCeiling({ truncated: capped.truncated, total: capped.total });
+            setHeld({ provider: dataProvider, object: dataObjectName, rows: capped.rows });
+            setRowCeiling(capped);
             setLoading(false);
           }
           return;
@@ -775,24 +862,79 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
         const passed = (rest as any).data ?? schema.data;
         if (Array.isArray(passed)) {
           if (!cancelled) {
-            setRecords(passed);
-            setRowCeiling({ truncated: false });
+            setHeld({ provider: dataProvider, object: dataObjectName, rows: passed });
+            setRowCeiling(null);
             setLoading(false);
           }
           return;
         }
 
         if (dataProvider === 'value') {
+          // THE INLINE PROVIDER NO LONGER EXITS BEFORE THE QUERY
+          // (objectui#9136, the fourth surface of objectui#8769's repair after
+          // objectui#9061 ported it to `ObjectCalendar` and `ObjectMap`).
+          //
+          // This branch used to be `setRecords(dataItems); return;` — so it
+          // never reached the `find` in the `object` arm above, which is the
+          // ONE site in this file that lowers `schema.filter` onto `$filter`
+          // and the objectui#7210 ceiling onto `$top`. An authored `filter`
+          // therefore reached nothing and the tree drew EVERY authored row:
+          // the fail-OPEN direction, because the key that was dropped is the
+          // key that NARROWS. Accepting a declared key one cannot honour is the
+          // defect, and `ValueDataSource` honours both over its own array, so
+          // they are honoured here.
+          //
+          // TWO keys, not the twins' three: this component reads `schema.sort`
+          // on NO provider, so there is no `$orderby` to lower on either arm.
+          //
+          // ⚠️ `ObjectCalendar`'s shape, not `ObjectGantt`'s. The gantt resolves
+          // ONE `effectiveDataSource` for every provider, so its repair was to
+          // delete the branch and fall through to the shared query. Here the
+          // `find` sits INSIDE the `dataProvider === 'object' && dataSource`
+          // arm, behind an `$expand` projection an inline set has no metadata
+          // to build and behind the `schemaSettled` gate deliberately scoped to
+          // that same arm. So the adapter is resolved for the inline provider
+          // ONLY and the same keys are lowered onto the same query shape.
+          //
+          // Built here rather than memoised at render scope so this effect goes
+          // on reading only the primitive fields objectui#6592 named
+          // (`dataProvider`, `dataObjectName`, `dataItems`): no dependency is
+          // added or removed — `schema.filter` was already listed — so nothing
+          // about WHEN this effect re-runs changes with this repair.
+          //
+          // The adapter's constructor clone is `structuredClone` (objectui#9175,
+          // ruling A on objectui#9061), so a back-referencing record graph
+          // still renders: an inline value never has to be serializable.
+          //
+          // `ValueDataSource` ignores the resource name — it queries its own
+          // array — so this branch needs no object name.
+          const inlineSource = new ValueDataSource<any>({ items: (dataItems as any[]) ?? [] });
+          const result = await inlineSource.find('', {
+            $filter: queryFilter,
+            // The same platform ceiling the `object` arm sends, on the same
+            // probe-row convention (objectui#7210, ruling a′). This is the view
+            // the ceiling's VALUE was measured on — ~5.2 DOM elements per
+            // record with no virtualisation — and an inline node costs the
+            // browser exactly what a fetched one costs.
+            // ⛔ Still not authorable: no view key reaches this `$top`.
+            ...nonGridRowCeilingQuery(),
+          });
+          // Filter first, ceiling second — `ValueDataSource` applies `$filter`
+          // before `$top`, which is what the fetching path gets for free from
+          // every backend. A large inline array that an authored `filter` cuts
+          // below the ceiling therefore draws every matching row and stays
+          // quiet.
+          const capped = applyNonGridRowCeiling(result);
           if (!cancelled) {
-            setRecords((dataItems as any[]) ?? []);
-            setRowCeiling({ truncated: false });
+            setHeld({ provider: dataProvider, object: dataObjectName, rows: capped.rows });
+            setRowCeiling(capped);
             setLoading(false);
           }
           return;
         }
 
         if (!cancelled) {
-          setRecords([]);
+          setHeld({ provider: dataProvider, object: dataObjectName, rows: [] });
           setLoading(false);
         }
       } catch (err) {
@@ -806,7 +948,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [dataProvider, dataObjectName, dataItems, dataSource, schema.filter, objectSchema, schemaSettled, (rest as any).data, perms]);
+  }, [dataProvider, dataObjectName, dataItems, dataSource, queryFilter, objectSchema, schemaSettled, (rest as any).data, perms, invalidationNonce]);
 
   const config = useMemo(() => getTreeConfig(schema), [schema]);
   const parentField = useMemo(
@@ -814,8 +956,18 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
     [config.parentField, objectSchema, schema.objectName],
   );
 
+  /**
+   * The rows this render may draw: the held rows when they were read for the
+   * source this render is bound to, else `null` — "nothing to show yet"
+   * (objectui#10816, see {@link HeldRows}). Derived during render, so the
+   * commit that switches the object or the provider already refuses the old
+   * rows, rather than painting them once before the effect runs.
+   */
+  const records: any[] | null =
+    held && held.provider === dataProvider && held.object === dataObjectName ? held.rows : null;
+
   const roots = useMemo(
-    () => buildForest(records, parentField),
+    () => buildForest(records ?? NO_ROWS, parentField),
     [records, parentField],
   );
 
@@ -899,7 +1051,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
     //
     // ⛔ And this card does NOT rule it. `navigation` is objectui#8652's
     // family: maintainer-ruled option B — declare on the PLATFORM element
-    // schemas first, then mirror — blocked on objectstack#17987, whose unlock
+    // schemas first, then mirror — blocked on objectstack `e233db9db`, whose unlock
     // criterion is a released `@objectstack/spec` carrying the declaration
     // being installable here. Measured on the installed spec: `navigation` is
     // declared on exactly one `ComponentPropsMap` entry, `object-grid`, and
@@ -907,7 +1059,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
     // read untouched.
     navigation: (schema as any).navigation,
     // The record-page URL names the object the ROWS came from, not the block's
-    // bare top-level key (objectui#7638). objectui#6939 published `objectName`
+    // bare top-level key (`2ce2612df`). `77cb489b4` published `objectName`
     // as the THIRD RUNG of ONE record-source ladder (`data`, then `staticData`,
     // then `objectName`) rather than as a parallel "page object" concept, so a
     // block has exactly one record source. A row fetched through
@@ -940,7 +1092,16 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
     );
   }
 
-  if (loading) {
+  // objectui#10816 — the placeholder is for a tree with NOTHING to show for the
+  // source it is bound to: the first load, a switch to another object or
+  // provider (whose old rows are not the answer and are never drawn under the
+  // new one), and an empty result being re-read. A re-read of the same source
+  // keeps its rows, its scroll container and the user's expansion on screen,
+  // with the refresh bar over them — `ObjectDataTable`'s rule, keyed to the
+  // source. Before this every read took the table off the screen: each
+  // data-invalidation event (objectui#10809) flashed "Loading…" and reset the
+  // scroll.
+  if (records === null || (loading && records.length === 0)) {
     return (
       <div className={cn('flex items-center justify-center h-40 text-muted-foreground', className)}>
         <p>Loading…</p>
@@ -1047,6 +1208,21 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
 
   const treeView = (
     <div className={cn('w-full overflow-auto', className)} data-testid="object-tree">
+      {/* objectui#10816 — the re-read bar, over the rows it is re-reading.
+          `sticky`, not the component's default `absolute`, because this div
+          is itself the scroll container (`ListView` hands it `h-full`): an
+          absolute bar inside it scrolls away with the rows, and a positioned
+          wrapper around it would take the host's `className` off the element
+          that scrolls. `-mb-0.5` hands back the bar's 2px of flow, so the table
+          does not move when it appears. Measured once in Chromium, not
+          re-derived by any test: the sticky bar stayed at the scrollport's top
+          after a 300px scroll, the absolute one moved with it, and the table's
+          offset was the same with and without the bar. */}
+      <RefreshIndicator
+        active={loading && records.length > 0}
+        ariaLabel={t('grid.refreshing')}
+        className="sticky -mb-0.5"
+      />
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b text-left text-muted-foreground">
@@ -1123,11 +1299,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
           fell past the cut is reparented to a root. Nothing in the rendering
           says so, which is why the note does. Placement follows
           objectui#7148's chart footnote. */}
-      <NonGridRowCeilingNote
-        drawn={NON_GRID_ROW_CEILING}
-        total={rowCeiling.total}
-        truncated={rowCeiling.truncated}
-      />
+      {rowCeiling && <NonGridRowCeilingNote result={rowCeiling} />}
 
     </div>
   );

@@ -16,7 +16,7 @@
  * those values into every bound widget's inline query.
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   cn,
   Button,
@@ -32,9 +32,11 @@ import {
   SelectValue,
 } from '@object-ui/components';
 import { CalendarIcon, RotateCcw } from 'lucide-react';
-import { useSafeTranslate, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import { useSafeTranslate, useObjectTranslation, useSafeFieldLabel, pickLocalized } from '@object-ui/i18n';
+import { useDataInvalidation } from '@object-ui/react';
 import {
   DATE_RANGE_PRESETS,
+  toDisplayDate,
   type DashboardFilterDef,
   type DateRangeValue,
 } from '@object-ui/core';
@@ -62,10 +64,35 @@ import {
  * controls do not share one: the built-in `dateRange` falls back to a
  * TRANSLATED "Date range", the others to the raw `def.name`. Folding those
  * together here would have made an unlabelled date filter read `dateRange`.
+ *
+ * ## The translation-bundle rung (`061f5e829`)
+ *
+ * `GlobalFilterSchema.object` names the object whose bundle entry keys this
+ * filter's labels — the spec's describe text for it reads "Object whose
+ * `fields.<object>.<field>` translation-bundle entry resolves this filter's
+ * field label and option labels". Nothing here read it, so a filter declaring
+ * it rendered the raw field name on a translated console.
+ *
+ * `useSafeFieldLabel().fieldLabel` IS that convention's resolver — the one
+ * every list and form already calls, walking the app namespaces for
+ * `fields.<object>.<field>`. ⛔ No second resolver was written: the spec's own
+ * wording for this key is "zero new i18n vocabulary, one resolver path", and a
+ * private lookup here would have been the second path it forbids.
+ *
+ * Precedence follows that resolver's own signature — `fieldLabel(object,
+ * field, fallback)` returns the bundle entry when there is one and the
+ * fallback otherwise — so a translator's bundle wins over the metadata
+ * literal, exactly as it does for every other field label on the console. The
+ * authored `label` (resolved first, since it may itself be an inline locale
+ * map) is that fallback. A filter that names no `object` never reaches the
+ * resolver at all, so every dashboard authored before this key existed renders
+ * unchanged.
  */
 function useFilterLabel(def: DashboardFilterDef): string {
   const { language } = useObjectTranslation();
-  return pickLocalized(def.label, language);
+  const { fieldLabel } = useSafeFieldLabel();
+  const authored = pickLocalized(def.label, language);
+  return def.object ? fieldLabel(def.object, def.field, authored) : authored;
 }
 
 /** Sentinel for the Select's clear item (Radix Select forbids empty values). */
@@ -97,55 +124,173 @@ function toIsoDate(d: Date): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+/**
+ * The wiring between the date select's "Custom…" item and the range calendar's
+ * popover (objectui#10843).
+ *
+ * Two facts rule out the obvious wiring (opening the popover from the
+ * select's `onValueChange`). Both were read in Chromium when this was written;
+ * `DashboardFilterBar.customReopen-10843.test.tsx` re-derives them through the
+ * real select on every run.
+ *
+ *  1. **An unchanged value is never reported.** Radix Select reports a pick
+ *     through controllable state, which calls back only when the value CHANGES.
+ *     With a custom range stored the select's value already is the "Custom…"
+ *     item, so picking it again reported nothing and the calendar never opened:
+ *     a stored range could not be reopened for editing.
+ *  2. **The select's focus return dismisses a popover opened during the pick.**
+ *     Once its closing animation ends, the select's content hands focus back to
+ *     its trigger. A popover opened by the pick is already showing by then, and
+ *     that focus leaving it dismisses it. From a preset the calendar mounted and
+ *     was gone as soon as the select finished closing.
+ *
+ * Radix Select items have no `onSelect` event (that is the menu primitives').
+ * Radix picks "Custom…" in two ways, and each needs its own wiring:
+ *
+ *  - **From the open list:** the item's pointer-up, click or Enter/Space key,
+ *    depending on the input. The item marks its own activation, and the
+ *    popover opens in the select's `onCloseAutoFocus`, after the list is gone,
+ *    where the focus return is cancelled so the popover can take focus itself.
+ *    The mark lives for that one event only: it counts when the select closes
+ *    DURING it, which is what a pick does (the item runs its own handlers
+ *    before Radix's, and a controlled `open` reports the close synchronously).
+ *    A key or pointer event on the item that does not close the select, such
+ *    as a space typed as part of type-ahead, has cleared its mark before any
+ *    later close reads it.
+ *  - **From the CLOSED trigger's type-ahead:** typing the first letter of
+ *    "Custom…" on the focused, closed select changes the value with no item
+ *    event and no list, so no focus return follows and the popover opens
+ *    straight from `onValueChange` (`onCustomValue`). Only a changed value is
+ *    reported here too, so with a custom range already stored this path does
+ *    nothing, as Radix's type-ahead skips the current item. An in-list pick
+ *    also reports a changed value, but while the select is still open (Radix
+ *    calls `onValueChange` before `onOpenChange(false)`); `onCustomValue`
+ *    leaves that one to the item's mark. Opening there would be wrong as well
+ *    as early: an Enter pick opened the calendar during its own keydown, the
+ *    key's activation then landed on the calendar's first button (its
+ *    previous-month arrow), and the calendar opened a month back.
+ *
+ * The popover's own trigger is an invisible anchor that cannot take focus, so
+ * closing the calendar would leave focus on the page body. Focus goes back to
+ * the select's trigger instead, unless the calendar closed because the user
+ * pointed or tabbed somewhere else: the same rule Radix's non-modal popover
+ * applies to its own trigger.
+ */
+function useCustomRangePopover() {
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [selectOpen, setSelectOpen] = useState(false);
+  const selectTrigger = useRef<HTMLButtonElement>(null);
+  const activating = useRef(false);
+  const pickedOnClose = useRef(false);
+  const leftOutside = useRef(false);
+
+  const mark = () => {
+    activating.current = true;
+    queueMicrotask(() => { activating.current = false; });
+  };
+
+  return {
+    select: {
+      open: selectOpen,
+      onOpenChange: (open: boolean) => {
+        if (!open && activating.current) pickedOnClose.current = true;
+        setSelectOpen(open);
+      },
+    },
+    selectTrigger: { ref: selectTrigger },
+    selectContent: {
+      onCloseAutoFocus: (event: Event) => {
+        if (!pickedOnClose.current) return;
+        pickedOnClose.current = false;
+        event.preventDefault();
+        setPopoverOpen(true);
+      },
+    },
+    customItem: {
+      onPointerUp: mark,
+      onClick: mark,
+      onKeyDown: (event: React.KeyboardEvent) => {
+        if (event.key === 'Enter' || event.key === ' ') mark();
+      },
+    },
+    onCustomValue: () => {
+      if (!selectOpen) setPopoverOpen(true);
+    },
+    popover: { open: popoverOpen, onOpenChange: setPopoverOpen },
+    popoverContent: {
+      onInteractOutside: () => { leftOutside.current = true; },
+      onCloseAutoFocus: (event: Event) => {
+        event.preventDefault();
+        if (!leftOutside.current) selectTrigger.current?.focus();
+        leftOutside.current = false;
+      },
+    },
+  };
+}
+
 function DateRangeFilter({ def, value, onChange }: { def: DashboardFilterDef; value: DateRangeValue | undefined; onChange: (v: DateRangeValue | undefined) => void }) {
   const tt = useSafeTranslate();
   const label = useFilterLabel(def);
-  const [customOpen, setCustomOpen] = useState(false);
+  const custom = useCustomRangePopover();
   const allowCustom = def.allowCustomRange !== false;
   const presetLabel = (p: string) => tt(`dashboard.filters.range.${p}`, p.replace(/_/g, ' '));
 
   const selectValue = value?.preset ?? (value?.from || value?.to ? CUSTOM_VALUE : ALL_VALUE);
+  // The stored bounds are date-only (`toIsoDate` below writes the LOCAL day),
+  // so they are read back through the shared parse step, which rebuilds a
+  // date-only string at local midnight of the day it names. The engine's own
+  // parse read it as UTC midnight, and west of UTC the calendar highlighted
+  // and opened on the day before the one stored (objectui#10844, the
+  // objectui#10183 convention).
+  const rangeFrom = value?.from && !value.from.startsWith('{') ? toDisplayDate(value.from) : undefined;
+  const rangeTo = value?.to && !value.to.startsWith('{') ? toDisplayDate(value.to) : undefined;
+  // The range calendar opens on the month of its first day, and on today's
+  // with none (objectui#10799): react-day-picker's `selected` does not move the
+  // month it opens on. A `from` that names no instant is no first day:
+  // react-day-picker throws on an invalid `defaultMonth`.
+  const openingMonth = rangeFrom && !Number.isNaN(rangeFrom.getTime()) ? rangeFrom : undefined;
 
   return (
     <div className="flex items-center gap-1" data-testid={`dashboard-filter-${def.name}`}>
       <Select
         value={selectValue}
+        {...custom.select}
         onValueChange={(v) => {
           if (v === ALL_VALUE) onChange(undefined);
-          else if (v === CUSTOM_VALUE) setCustomOpen(true);
+          // Picking "Custom…" commits nothing; it opens the calendar, from the
+          // list or from the closed trigger's type-ahead (`useCustomRangePopover`).
+          else if (v === CUSTOM_VALUE) custom.onCustomValue();
           else onChange({ preset: v });
         }}
       >
-        <SelectTrigger className="h-8 w-auto min-w-36 gap-1" aria-label={label || tt('dashboard.filters.dateRange', 'Date range')}>
+        <SelectTrigger {...custom.selectTrigger} className="h-8 w-auto min-w-36 gap-1" aria-label={label || tt('dashboard.filters.dateRange', 'Date range')}>
           <CalendarIcon className="size-3.5 opacity-60" />
           <SelectValue placeholder={tt('dashboard.filters.dateRange', 'Date range')}>
             {rangeLabel(value, presetLabel) ?? tt('dashboard.filters.allTime', 'All time')}
           </SelectValue>
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent {...custom.selectContent}>
           <SelectItem value={ALL_VALUE}>{tt('dashboard.filters.allTime', 'All time')}</SelectItem>
           {DATE_RANGE_PRESETS.map((p) => (
             <SelectItem key={p} value={p}>{presetLabel(p)}</SelectItem>
           ))}
           {allowCustom && (
-            <SelectItem value={CUSTOM_VALUE}>{tt('dashboard.filters.custom', 'Custom…')}</SelectItem>
+            <SelectItem value={CUSTOM_VALUE} {...custom.customItem}>{tt('dashboard.filters.custom', 'Custom…')}</SelectItem>
           )}
         </SelectContent>
       </Select>
       {allowCustom && (
-        <Popover open={customOpen} onOpenChange={setCustomOpen}>
+        <Popover {...custom.popover}>
           {/* Invisible anchor — the popover is driven by the "Custom…" select item. */}
           <PopoverTrigger asChild>
             <span aria-hidden className="size-0" />
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
+          <PopoverContent {...custom.popoverContent} className="w-auto p-0" align="start">
             <Calendar
               mode="range"
               numberOfMonths={2}
-              selected={{
-                from: value?.from && !value.from.startsWith('{') ? new Date(value.from) : undefined,
-                to: value?.to && !value.to.startsWith('{') ? new Date(value.to) : undefined,
-              }}
+              defaultMonth={openingMonth}
+              selected={{ from: rangeFrom, to: rangeTo }}
               onSelect={(range: any) => {
                 if (!range?.from && !range?.to) { onChange(undefined); return; }
                 onChange({
@@ -236,6 +381,7 @@ function pairOptionRows(
 function SelectFilter({ def, value, onChange, dataSource }: { def: DashboardFilterDef; value: string | undefined; onChange: (v: string | undefined) => void; dataSource?: any }) {
   const tt = useSafeTranslate();
   const { language } = useObjectTranslation();
+  const { translateOptions } = useSafeFieldLabel();
   const resolvedLabel = useFilterLabel(def);
   const [dynamicOptions, setDynamicOptions] = useState<Array<{ value: string; label: string }> | null>(null);
 
@@ -248,6 +394,26 @@ function SelectFilter({ def, value, onChange, dataSource }: { def: DashboardFilt
   // total failure (same tolerance style as DatasetWidget's option-color
   // fetch).
   const from = def.optionsFrom;
+  // objectui#10664 — both reads below send `from.filter`, so the effect keys on
+  // it, by CONTENT: an equal filter in a fresh object is not a change
+  // (AGENTS.md #10).
+  const optionsFilterKey = JSON.stringify(from?.filter ?? null);
+  // objectui#10887 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10853 way (the record picker's
+  // options): the nonce moves when the bus reports a change to the object the
+  // options are read from (or `'*'`), and the effect below names it, so the
+  // options are re-read. Before, a page action over raw HTTP left them stale
+  // unless `PageView` remounted the page, and objectui#10519 removes that
+  // remount. The re-read is in place: the options on screen stay until the
+  // answer swaps them (nothing here resets `dynamicOptions`), and the selected
+  // value is the dashboard variable's, which this effect never writes.
+  // Subscribed exactly when the effect below can read (an `optionsFrom` and an
+  // adapter that serves either read).
+  const invalidationNonce = useDataInvalidation(
+    from && dataSource && (typeof dataSource.queryDataset === 'function' || typeof dataSource.find === 'function')
+      ? from.object || undefined
+      : undefined,
+  );
   useEffect(() => {
     if (!from || !dataSource) return;
     let cancelled = false;
@@ -324,9 +490,9 @@ function SelectFilter({ def, value, onChange, dataSource }: { def: DashboardFilt
     }
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [from?.object, from?.valueField, from?.labelField, dataSource]);
+  }, [from?.object, from?.valueField, from?.labelField, optionsFilterKey, dataSource, invalidationNonce]);
 
-  const options = useMemo(() => {
+  const localizedOptions = useMemo(() => {
     // `def.options` is already normalized to `{ value, label }` PAIRS by
     // `resolveDashboardFilterDefs`; the label's own vocabulary is not, and
     // deliberately so (`@object-ui/core` is locale-free — see
@@ -336,6 +502,21 @@ function SelectFilter({ def, value, onChange, dataSource }: { def: DashboardFilt
     const authored = def.options?.length ? def.options : (dynamicOptions ?? []);
     return authored.map((o) => ({ value: o.value, label: pickLocalized(o.label, language) || o.value }));
   }, [def.options, dynamicOptions, language]);
+
+  // The second half of `GlobalFilterSchema.object` (`061f5e829`): the spec
+  // gives that key BOTH the field label and the option labels, and
+  // `translateOptions` is the same convention's option resolver — the one lists
+  // and forms call, keyed by option VALUE under the field this filter reads.
+  // Each authored label above stays the fallback, so an untranslated option
+  // keeps its authored text rather than collapsing to the raw stored value.
+  //
+  // Deliberately NOT inside the memo above: the resolver arrives as a member of
+  // `useSafeFieldLabel()`'s memoised object, and keying a `useMemo` on that
+  // identity is what AGENTS.md #10 rules out. The work is one pass over a
+  // dropdown's worth of options.
+  const options = def.object
+    ? translateOptions(def.object, def.field, localizedOptions)
+    : localizedOptions;
 
   const label = resolvedLabel || def.name;
   const selectedLabel = value

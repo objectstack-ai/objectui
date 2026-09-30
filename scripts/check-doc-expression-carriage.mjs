@@ -14,8 +14,9 @@
  *       node scripts/check-doc-expression-carriage.mjs --list       every fence, parsed or not
  *       node scripts/check-doc-expression-carriage.mjs --self-test  the controls alone
  * Exit: 0 = the census ran, whatever it found. 1 = the INSTRUMENT is broken —
- *       a derivation returned nothing, the spec artifact is missing, or a
- *       built-in control failed. Never 1 for a finding; see "Report-only" below.
+ *       a derivation returned nothing, the spec artifact is missing, the
+ *       strict `json` contract could not be imported, or a built-in control
+ *       failed. Never 1 for a finding; see "Report-only" below.
  *
  * ## The hole this measures (objectui#7851)
  *
@@ -98,11 +99,16 @@
  * A fence this file cannot parse is a fence it says nothing about, and a census
  * that reports only its hits hides how much it never read. So every run prints
  * `parsed` and `unparsed` PER FENCE LANGUAGE (`json` and `jsonc` today) and
- * names every unparsed fence with its reason; `--list` prints the whole
- * inventory, parsed and unparsed alike.
- * objectui#7418's prototype reached 0 unparsed on `guide/expressions.md`
- * (39 of 39); this file reaches 0 unparsed over the whole tree, which takes
- * four tolerances beyond `JSON.parse`, all of them REMOVALS of non-data or an
+ * names every unparsed fence with its file, its opening line, its language and
+ * the parse error; `--list` prints the whole inventory, parsed and unparsed
+ * alike. Whether that list is empty on the real tree is not claimed here: the
+ * pin 'has no blind spot on the corpus it ships against' in this file's test
+ * re-derives it on every run.
+ *
+ * The two languages are held to DIFFERENT contracts (objectui#10943, see the
+ * next section). A `json` fence is parsed STRICTLY, with none of what follows.
+ * A `jsonc` fence — and only a `jsonc` fence among the judged — gets four
+ * tolerances beyond `JSON.parse`, all of them REMOVALS of non-data or an
  * envelope around it. None of them can invent a key:
  *
  *   1. Line comments and block comments outside strings. The pages annotate
@@ -117,7 +123,45 @@
  *
  * Plus one retry, not a tolerance: a fence that is an object BODY rather than
  * an object (`"dependencies": { … }`, a package.json excerpt) is retried
- * wrapped in braces.
+ * wrapped in braces. Like the four tolerances, it runs for `jsonc` and never
+ * for `json`. The fences the blind-spot measurement reads (every language this
+ * gate does not judge, below) go through the same tolerant path, because that
+ * leg only asks whether a body holds a typed node; ⛔ it judges nothing.
+ *
+ * ## `json` is strict and `jsonc` is annotated: one contract with the skills tree
+ *
+ * objectui#10943, ruled A on that card on 2026-09-28. The maintainer named it
+ * as an exception under 「新增门禁默认否」: a strength increase of this census's
+ * one existing pin, not a new gate. A `json` fence is what a reader copies into a
+ * metadata file, so it is parsed with `parseJsonFence` from
+ * `check-skill-examples.mjs`: `JSON.parse` and nothing else. That is the contract
+ * the skills tree already holds its examples to. The function is IMPORTED
+ * rather than re-spelled, so the two doc trees hold one `json` / `jsonc`
+ * contract rather than two that agree today. No tolerance, no object-body retry
+ * and no multi-document split applies to `json`. A `json` fence that needs one
+ * of them is not JSON, and the remedy is 「retag as `jsonc` if the example
+ * needs comments or trailing commas」, or else fixing the fence.
+ * `UNPARSED_PRESCRIPTIONS` below holds that sentence, and the CLI and the pin
+ * both print it from there.
+ *
+ * What changed is WHO gets red, not the posture below. The CLI still exits 0
+ * on anything it reads in a page. The blocking half is the test pin that was
+ * already there, 'has no blind spot on the corpus it ships against', which
+ * asserts the unparsed list is empty. Before objectui#10943, a `json` fence with
+ * a comment or a trailing comma parsed through the tolerances and never reached
+ * that list. Now it does, so the pull request that adds one goes red.
+ *
+ * ⛔ Not generalised here, by the same ruling: the `jsonc` tolerance list is
+ * not widened, and no other fence language gains a parse check.
+ *
+ * ⚠️ The import is a guarded dynamic `import()`, not a static one, and for a
+ * measured reason. `check-skill-examples.mjs` imports `typescript` and
+ * `check-doc-snippet-types.mjs` at load. In a checkout with no install, a
+ * static import fails at module LINK, before the CLI can print its "A failure,
+ * not a skip" line, and the orphan pin in this file's test then reads a
+ * module-resolution stack trace instead. So the failure is held until
+ * `requireJsonContract` raises it, inside the same instrument check that
+ * reports a missing `@objectstack/spec`.
  *
  * And one normalization that is NOT on the judged path at all — `toJsonDialect`,
  * which de-dialects a JS object literal (unquoted keys, single-quoted strings)
@@ -237,6 +281,65 @@ import { closesFence, openFence } from './markdown-fence-scan.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, '..');
+
+// ── The strict `json` contract, imported (objectui#10943) ─────────────────────
+
+/**
+ * `parseJsonFence` from `check-skill-examples.mjs`, the one reading of "a `json`
+ * fence parses" in this repository. It is held here rather than imported
+ * statically for the reason the header gives: that module loads `typescript` at
+ * import time, and a static import would turn an uninstalled checkout's loud
+ * instrument failure into a module-resolution stack trace.
+ *
+ * One `const` DECLARATION, and not a top-level `try`: `check:entry-guard`
+ * refuses a statement that runs on import in a file that exports, and a
+ * rejected `import()` settles into `error` here instead of throwing.
+ */
+const jsonContractLoad = await import('./check-skill-examples.mjs').then(
+  (module) => ({ parseJsonFence: module.parseJsonFence, error: null }),
+  (error) => ({ parseJsonFence: null, error }),
+);
+
+/**
+ * The imported contract, or a loud failure. ⛔ Never a fallback: judging a
+ * `json` fence with anything but the skills tree's parser is how the two doc
+ * trees would drift back into two contracts.
+ */
+export function requireJsonContract() {
+  if (typeof jsonContractLoad.parseJsonFence === 'function') return jsonContractLoad.parseJsonFence;
+  const cause = jsonContractLoad.error instanceof Error ? ` (${jsonContractLoad.error.message})` : '';
+  throw new Error(
+    `the strict \`json\` contract, \`parseJsonFence\` in scripts/check-skill-examples.mjs, could not be ` +
+      `imported${cause}. Run \`pnpm install\` first. This gate does not judge a \`json\` fence with a ` +
+      'parser of its own.',
+  );
+}
+
+/**
+ * The remedy for an unparsed fence, by language. The census CLI and the pin in
+ * this file's test both print it from here, so the two cannot prescribe
+ * different fixes.
+ *
+ * The two entries are two different things. A `json` entry is a DOCS DEFECT:
+ * the fence is not JSON, and its remedy is the sentence objectui#10943 ruled. A
+ * `jsonc` entry is this instrument's BLIND SPOT: a spelling the tolerances do
+ * not cover. Its remedy is the one this pin carried before that card.
+ */
+export const UNPARSED_PRESCRIPTIONS = {
+  json:
+    'retag as `jsonc` if the example needs comments or trailing commas; otherwise fix the fence. A `json` ' +
+    'fence is parsed STRICTLY (`JSON.parse` and nothing else, the contract `parseJsonFence` in ' +
+    'scripts/check-skill-examples.mjs holds the skills tree to), because it is what a reader copies into ' +
+    'a metadata file',
+  jsonc:
+    'teach `sanitizeFence` the spelling (see the tolerances in scripts/check-doc-expression-carriage.mjs’s ' +
+    'header), or fix the fence if it is simply malformed',
+};
+
+/** The prescription for one unparsed fence. Only `json` is strict; every other language is `jsonc`'s case. */
+export function unparsedPrescription(lang) {
+  return lang === 'json' ? UNPARSED_PRESCRIPTIONS.json : UNPARSED_PRESCRIPTIONS.jsonc;
+}
 
 /**
  * The guide tree, the first leg of the walk. Spelled here because
@@ -565,13 +668,33 @@ export function splitTopLevel(text) {
   return { values, reason: junk.trim() === '' ? null : 'text-outside-any-value' };
 }
 
-/** Parse one fence body, with the object-BODY retry the header describes. */
-export function parseFence(body) {
+/**
+ * Parse one fence body. `lang` is the fence's info string, and it picks the
+ * contract (objectui#10943):
+ *
+ *   `json`          STRICT: the imported `parseJsonFence`, which is `JSON.parse`
+ *                   and nothing else. No tolerance, no object-body retry and no
+ *                   multi-document split.
+ *   anything else   `jsonc`, and the unscanned languages the blind-spot leg
+ *                   measures: the four tolerances and the object-BODY retry the
+ *                   header describes, exactly as before that card.
+ */
+export function parseFence(body, lang) {
   // Every return carries the same four fields. A result whose SHAPE depends on
   // the outcome makes every caller — this file's own census and the pins in
   // `scripts/__tests__` alike — narrow a union before it can read `values`, and
   // `tsconfig.scripts.json` type-checks those pins.
   const failed = (reason) => ({ ok: false, reason, values: [], wrapped: false });
+
+  if (lang === 'json') {
+    const error = requireJsonContract()(body, 'json');
+    if (error !== null) return failed(`invalid-json: ${error}`);
+    // The contract has just accepted this exact body, and its `json` branch IS
+    // `JSON.parse(body)`. Parsing again only reads the value out; it cannot
+    // disagree with the verdict.
+    return { ok: true, reason: null, values: [JSON.parse(body)], wrapped: false };
+  }
+
   const attempt = (text) => {
     const { values, reason } = splitTopLevel(text);
     if (reason) return failed(reason);
@@ -698,6 +821,9 @@ export function toJsonDialect(source) {
  * tolerances, same "a fence that is an object BODY" retry — the ONE difference is
  * that the body is de-dialected first, so the blind-spot leg asks its question of
  * both spellings instead of only the one that happens to be JSON.
+ *
+ * No language is passed, so this is the tolerant path: the leg measures
+ * unscanned fences and judges none of them (objectui#10943 left it untouched).
  */
 export function parseFenceDialect(body) {
   return parseFence(toJsonDialect(body));
@@ -728,8 +854,10 @@ export function scanFences(root) {
             body,
             scanned,
             // A fence outside the scanned languages is parsed too, but only to
-            // MEASURE the dialect blind spot below — it is never judged.
-            ...parseFence(body.join('\n')),
+            // MEASURE the dialect blind spot below — it is never judged. The
+            // language picks the contract: strict for `json`, the tolerances for
+            // everything else (objectui#10943).
+            ...parseFence(body.join('\n'), open.lang),
           });
           open = null;
           body = [];
@@ -859,7 +987,9 @@ export function analyze(root, { channels, carriage }) {
     bump(fence.lang, fence.ok ? 'parsed' : 'unparsed');
     if (!fence.ok) {
       counters.unparsed++;
-      unparsed.push({ file: fence.file, line: fence.line, reason: fence.reason });
+      // File, opening line, language and the parse error: the language is what
+      // decides which remedy applies (`unparsedPrescription`, objectui#10943).
+      unparsed.push({ file: fence.file, line: fence.line, lang: fence.lang, reason: fence.reason });
       continue;
     }
     counters.parsed++;
@@ -949,7 +1079,9 @@ export const CONTROL_FIXTURES = {
 
 export function runControls({ channels, carriage }) {
   const judge = (source) => {
-    const parsed = parseFence(source);
+    // Both fixtures are strict JSON, judged the way the census judges a `json`
+    // fence, so every run also exercises the imported contract (objectui#10943).
+    const parsed = parseFence(source, 'json');
     if (!parsed.ok) return { failed: `the fixture did not parse: ${parsed.reason}` };
     const found = [];
     for (const value of parsed.values) {
@@ -1044,6 +1176,9 @@ if (isEntrypoint(import.meta.url)) {
   try {
     channels = deriveChannels();
     carriage = await loadCarriage();
+    // objectui#10943: the strict `json` contract is an input like the two above,
+    // and a missing one is the same loud instrument failure, never a skip.
+    requireJsonContract();
   } catch (error) {
     console.error(
       `❌  ${error.message}\n\n` +
@@ -1137,11 +1272,27 @@ if (isEntrypoint(import.meta.url)) {
   if (counters.unparsed === 0) {
     console.log('✅  Blind spot: none — every fence above was parsed and judged.');
   } else {
-    console.log(
-      `\n⚠️  ${counters.unparsed} fence(s) this gate could NOT read — its blind spot, printed because a\n` +
-        '    census that reports only its hits hides how much it never looked at:',
-    );
-    for (const fence of unparsed) console.log(`      ${fence.file}:${fence.line}  ${fence.reason}`);
+    // objectui#10943: two different things share this list, so they are printed
+    // apart, each with its own remedy. A `json` entry is a fence that is not JSON.
+    // Any other entry is a spelling the tolerances cannot read.
+    const notJson = unparsed.filter((fence) => fence.lang === 'json');
+    const blind = unparsed.filter((fence) => fence.lang !== 'json');
+    if (notJson.length > 0) {
+      console.log(
+        `\n⚠️  ${notJson.length} \`json\` fence(s) are not JSON. \`json\` is parsed STRICTLY, with no tolerance ` +
+          '(objectui#10943):',
+      );
+      for (const fence of notJson) console.log(`      ${fence.file}:${fence.line}  (json)  ${fence.reason}`);
+      console.log(`    Remedy: ${unparsedPrescription('json')}.`);
+    }
+    if (blind.length > 0) {
+      console.log(
+        `\n⚠️  ${blind.length} fence(s) this gate could NOT read — its blind spot, printed because a\n` +
+          '    census that reports only its hits hides how much it never looked at:',
+      );
+      for (const fence of blind) console.log(`      ${fence.file}:${fence.line}  (${fence.lang})  ${fence.reason}`);
+      console.log(`    Remedy: ${unparsedPrescription('jsonc')}.`);
+    }
   }
   if (list) {
     console.log('\nEvery fence, in document order:');

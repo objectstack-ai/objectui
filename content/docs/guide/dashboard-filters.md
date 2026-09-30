@@ -100,9 +100,17 @@ appears in the filter bar above the widgets:
 - `defaultRange` — the initially selected preset: `today`, `yesterday`,
   `this_week`, `last_week`, `this_month`, `last_month`, `this_quarter`,
   `last_quarter`, `this_year`, `last_year`, `last_7_days`, `last_30_days`,
-  `last_90_days`, or `custom` (starts empty and lets the user pick).
+  `last_90_days`, or `custom` (starts empty and lets the user pick). When
+  omitted, the default `@objectstack/spec` declares for this key applies
+  (`this_month`), so a bare `dateRange: { "field": "created_at" }` opens
+  filtered to the current month, not unfiltered.
 - `allowCustomRange` — offer a "Custom…" item that opens a from/to calendar
   (default `true`).
+
+`dateRange` is the `@objectstack/spec` `DashboardSchema.dateRange` shape, taken
+by reference on both the validator and the TypeScript type: a preset name
+outside the list above, or any other key inside the object (`preset`, `range`,
+`dateField`, …), is refused at validation rather than silently ignored.
 
 Presets stay **symbolic** until query time: they compile to date-macro tokens
 (`{30_days_ago}`, `{current_month_start}`, …) that each widget resolves
@@ -135,6 +143,12 @@ Add a `globalFilters` entry. Each entry renders one control in the filter bar:
   under, and the key widgets reference in `filterBindings`. Defaults to
   `field`. (`"dateRange"` is reserved for the built-in date range.)
 - `field` — the default field the filter applies to on bound widgets.
+- `object` — optional: the object `field` lives on. Declaring it opts the
+  filter into that object's translations: its field label and option labels
+  resolve through the same `fields.<object>.<field>` translation-bundle
+  convention lists and forms use, with `label` as the fallback (see
+  [i18n](#i18n)). Not the same key as `optionsFrom.object` below, which names
+  the object dynamic options are fetched from.
 - `type` — the control type: `text`, `number`, `select`, `lookup`, or `date`.
 
 | Type | Control | Generated condition |
@@ -159,18 +173,20 @@ deliberately not compared as-is: `field = "last_7_dayz"` matches no row, and
 the widget would render a perfectly healthy-looking `0`.
 
 Static `options` are `@objectstack/spec` object pairs —
-`{ "value": "amer", "label": "AMER" }`. This is the only form the platform
-accepts: a dashboard is validated against `GlobalFilterSchema` when it is
-published, and anything else is refused there.
+`{ "value": "amer", "label": "AMER" }`, where `label` is a string or an inline
+per-locale map (`{ "en": "AMER", "zh-CN": "美洲" }`). This is the only form the
+platform accepts: a dashboard is validated against `GlobalFilterSchema` when it is
+published, and anything else is refused there. objectui's own validator
+(`@object-ui/types`, which `objectui validate` runs) uses the same spec schema, so
+it refuses the same documents before they reach the platform.
 
-> **Deprecated: the bare-string shorthand.** `"options": ["EMEA", "APAC"]` is
-> still lifted by the runtime to `{ "value": "EMEA", "label": "EMEA" }` pairs so
-> that already-stored dashboards keep rendering, but it now logs a deprecation
-> warning naming the filter, and it is scheduled for removal
-> ([objectui#4356](https://github.com/objectstack-ai/objectui/issues/4356)).
-> Write the object form. The lift is mechanically lossless, so migrating a
-> stored dashboard is a direct rewrite of each string `X` to
-> `{ "value": "X", "label": "X" }`.
+> **Not accepted: the bare-string shorthand.** `"options": ["EMEA", "APAC"]` is
+> refused by `GlobalFilterSchema` at publish, and the runtime no longer lifts it
+> either ([objectui#4356](https://github.com/objectstack-ai/objectui/issues/4356)):
+> a bare-string member yields no option, so a stored dashboard authored this way
+> renders that filter with an empty option list, and in development a single
+> `console.warn` names the filter and the dropped members. Rewrite each string
+> `X` as `{ "value": "X", "label": "X" }`.
 
 Options can also be fetched from an object at runtime:
 
@@ -187,6 +203,11 @@ Options can also be fetched from an object at runtime:
   }
 }
 ```
+
+`object`, `valueField` and `labelField` are all required; when the options have
+no separate label column, name the value field again, as above. An optional
+`filter` narrows the source records and is a filter-condition object
+(`{ "status": "active" }`), not an array.
 
 With a dataset-capable data source, `optionsFrom` resolves distinct values
 **server-side** (a GROUP BY over the source object), so the option list is
@@ -326,8 +347,13 @@ stay in sync.
 ## i18n
 
 The filter bar's strings resolve from the `dashboard.filters.*` keys
-(`@object-ui/i18n` ships `en` and `zh` entries — control labels come from each
-filter's `label`, so translate those in your schema metadata).
+(`@object-ui/i18n` ships `en` and `zh` entries). A control's label comes from
+its filter's `label`, so translate that in your schema metadata — unless the
+filter declares `object`. Then the app's translation bundle wins: the field
+label resolves from the `fields.<object>.<field>` entry and each option label
+from `fieldOptions.<object>.<field>.<value>`, the same convention lists and
+forms use, and the authored `label` (the option's own `label`, for an option)
+is only the fallback when the bundle has no entry.
 
 ## Spec alignment
 

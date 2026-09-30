@@ -1175,7 +1175,7 @@ const KNOWN_CLAIMS: KnownClaim[] = [
     // Reads as a `react` claim and is not one, for the same reason the plugins.md
     // `@vitejs/plugin-react` entry does: `React` is a TOOLCHAIN word and the `-` before it
     // is a word boundary, so the recorded literal is the TAIL of `lucide-react`.
-    claim: 'react": "^1.31.0',
+    claim: 'react": "^1.43.0',
     kind: 'anchored',
     skeletonDep: 'lucide-react',
     why: 'A runtime dependency of an IN-WORKSPACE plugin skeleton - the block is named @object-ui/plugin-my-widget, takes all four @object-ui dependencies at workspace:* and builds with vite build, so it resolves in this workspace and nowhere else. Anchor measured at the objectui#4981 cut: 16 of the 19 packages/plugin-<name> manifests declare lucide-react and all 16 say ^1.31.0 (23 workspace-wide, unanimous). It read ^0.400.0, which is worse than an ordinary fossil: a 0.x caret cannot cross a minor, so that range resolves inside 0.400.x forever - the trap objectui#3755 removed from create-plugin\'s own dependency map. Recorded fork, not acted on here: #3755 DELETED its lucide entry rather than re-anchoring it, on the rule that this repo declares an icon library only where it imports one, and no code on this page imports one. Deleting the line is the alternative disposition; it would retire this entry with it.',

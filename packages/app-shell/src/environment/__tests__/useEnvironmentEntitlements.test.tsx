@@ -89,3 +89,50 @@ describe('useEnvironmentEntitlements — envelope discipline', () => {
     expect(view.result.current).toMatchObject({ source: 'derived', hasProductionEnv: true });
   });
 });
+
+// objectui#10437 — the state carries the control plane's upgrade URL verbatim
+// or none at all; the hook never synthesizes one. The derived and unknown
+// states assert the key is ABSENT (`'upgradeUrl' in state`), not merely
+// `undefined`: they never had a server value to carry.
+describe('useEnvironmentEntitlements — no synthesized upgrade URL (objectui#10437)', () => {
+  const SERVER_UPGRADE_URL = 'https://cloud.example.com/_console/apps/cloud_control/page/pricing';
+
+  it('a summary without `upgradeUrl` yields a state without one', async () => {
+    const { view } = setup({
+      json: { success: true, data: { hasProductionEnv: true, plan: 'free', development: { used: 0, limit: 0, canCreate: false } } },
+    });
+
+    await waitFor(() => expect(view.result.current?.ready).toBe(true));
+    expect(view.result.current?.source).toBe('summary');
+    expect(view.result.current?.upgradeUrl).toBeUndefined();
+  });
+
+  it('the row-derived state carries no upgrade URL', async () => {
+    const { view } = setup({ ok: false, json: null });
+
+    await waitFor(() => expect(view.result.current?.ready).toBe(true));
+    expect(view.result.current?.source).toBe('derived');
+    expect('upgradeUrl' in (view.result.current ?? {})).toBe(false);
+  });
+
+  it('the unknown state (summary and rows both failed) carries no upgrade URL', async () => {
+    const authFetch = vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => null });
+    const dataSource = { find: vi.fn().mockRejectedValue(new Error('rows unavailable')) };
+    const view = renderHook(() =>
+      useEnvironmentEntitlements({ enabled: true, dataSource, authFetch, apiBase: '' }),
+    );
+
+    await waitFor(() => expect(view.result.current).not.toBeNull());
+    expect(view.result.current?.source).toBe('unknown');
+    expect('upgradeUrl' in (view.result.current ?? {})).toBe(false);
+  });
+
+  it('control: a summary `upgradeUrl` passes through verbatim', async () => {
+    const { view } = setup({
+      json: { success: true, data: { hasProductionEnv: true, upgradeUrl: SERVER_UPGRADE_URL } },
+    });
+
+    await waitFor(() => expect(view.result.current?.ready).toBe(true));
+    expect(view.result.current?.upgradeUrl).toBe(SERVER_UPGRADE_URL);
+  });
+});

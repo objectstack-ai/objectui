@@ -68,7 +68,10 @@ const ar = {
     remove: 'إزالة {{label}}',
     selectFirst: 'اختر {{fields}} أولاً',
     selectRecord: 'اختيار سجل',
-    recordCount: '{{count}} سجل',
+    // objectui#10425 — the picker switches keys only at exactly 1, so this half
+    // serves two, few (3-10), many (11-99) and other (100+). A count label
+    // («عدد …: {{count}}») reads correctly at every one of them.
+    recordCount: 'عدد السجلات: {{count}}',
     recordCountOne: 'سجل واحد',
     pageOf: 'صفحة {{current}} من {{total}}',
     filters: 'عوامل التصفية',
@@ -121,7 +124,11 @@ const ar = {
     closeChat: "إغلاق المحادثة",
     closePanel: "إغلاق اللوحة",
     resizeDrawer: "تغيير عرض اللوحة",
-    itemCount: "{{count}} عناصر",
+    // objectui#10242 — the tab-count badge switches keys only at exactly 1, so
+    // this half serves two (2), few (3-10), many (11-99) and other (100+),
+    // which need different noun forms. A count label («عدد …: {{count}}», as
+    // `search.resultsCountPlural` does) reads correctly at every one of them.
+    itemCount: "عدد العناصر: {{count}}",
     itemCountOne: "{{count}} عنصر",
     toggleSidebar: "تبديل الشريط الجانبي",
     package: "الحزمة",
@@ -132,12 +139,12 @@ const ar = {
     printDialogHint: "يفتح مربع حوار الطباعة في المتصفح (ليس تصديرًا إلى PDF)",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "يتم عرض أول {{shown}} من أصل {{total}} سجل. ضيّق عامل التصفية.",
     rowCeilingNoteUnknownTotal: "يتم عرض أول {{shown}} سجل. ضيّق عامل التصفية.",
   },
@@ -151,6 +158,14 @@ const ar = {
       acknowledge: 'لقد حفظتها',
       copyAll: 'نسخ الكل',
     },
+    notAvailableHere: '"{{action}}" غير متاح في الصفحة الحالية.',
+    completedSuccessfully: 'اكتمل الإجراء بنجاح',
+    failed: 'فشل الإجراء',
+    parallelFailed: 'فشل إجراء متوازٍ واحد أو أكثر',
+    undo: 'تراجع',
+    undone: 'تم التراجع عن التغيير',
+    undoneOperation: 'تراجع: {{description}}',
+    redoneOperation: 'إعادة: {{description}}',
   },
   validation: {
     required: "{{field}} مطلوب",
@@ -168,13 +183,38 @@ const ar = {
   },
   form: {
     noPermissionToSave: "ليس لديك إذن لحفظ هذا السجل.",
+    noPermissionToCreate: "ليس لديك إذن لإنشاء سجلات {{object}}. الحقول للقراءة فقط.",
+    noPermissionToEdit: "ليس لديك إذن لتعديل سجلات {{object}}. الحقول للقراءة فقط.",
     submitFailed: "تعذّر الحفظ. يرجى المحاولة مرة أخرى.",
     uploadInFlight: "انتظر حتى ينتهي الرفع قبل الحفظ.",
+    clearedOnHide: "تم مسح ما لم يعد ينطبق على القيم الحالية: {{fields}}",
     discardTitle: "تجاهل التغييرات؟",
     discardMessage: "لديك تغييرات غير محفوظة. إذا أغلقت هذا النموذج الآن، ستفقد تعديلاتك.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "املأ حقول النموذج ثم أرسل أو ألغِ.",
+    deniedDescription: "ليس لديك إذن لتعديل هذا الحقل.",
+    masterDetail: {
+      loadingColumns: "جارٍ تحميل الأعمدة…",
+      subtotal: "المجموع الفرعي",
+      tax: "الضريبة ({{rate}}%)",
+      total: "الإجمالي",
+      lineItem: "بند",
+      rowTitle: "{{title}} — الصف {{row}}",
+      applyRow: "تطبيق",
+      editorDescription: "أدخل السجل وبنوده ثم احفظ.",
+      noChildObject: "لم يُكوَّن كائن فرعي لهذه المجموعة: عيّن {{property}} إلى الكائن الذي تسرد صفوفه.",
+      schemaUnavailable: "تعذّر تحميل مخطط {{object}}، لذا لا توجد أعمدة لعرضها في هذه المجموعة. تحقّق من أن الكائن موجود وقابل للقراءة، ثم أعد التحميل.",
+      noRelationshipField: "تعذّر تحديد كيفية ارتباط {{object}} بـ {{parent}}: لا يوجد فيه حقل lookup أو master_detail يشير إلى الكائن الأصل. عيّن {{property}} في هذه المجموعة إلى الحقل الذي يحمل السجل الأصل.",
+    },
+    lineItems: {
+      title: "البنود",
+      saveRecordFirst: "احفظ السجل أولًا لإضافة البنود.",
+      notLoaded: "لم يتم تحميل بنود هذا السجل.",
+      loadFailed: "تعذّر تحميل البنود",
+      saveFailed: "تعذّر حفظ البنود",
+      noChildObject: "لم يُكوَّن كائن فرعي لهذه اللوحة: عيّن {{property}} إلى الكائن الذي تسرد صفوفه.",
+    },
     keepEditing: "متابعة التحرير",
     discard: "تجاهل",
     conflictTitle: "تعارض في الحفظ",
@@ -198,6 +238,12 @@ const ar = {
     createSuccess: "تم إنشاء {{object}}",
     updateSuccess: "تم تحديث {{object}}",
     deleteSuccess: "تم حذف {{object}}",
+    created: "تم الإنشاء",
+    saved: "تم الحفظ",
+    savedNamed: "تم حفظ {{title}}",
+    submitted: "تم الإرسال",
+    errorLoading: "خطأ في تحميل النموذج",
+    navigateRefused: "تم رفض وجهة `navigateOnSuccess` المعلنة لهذا النموذج، لذلك لم يتم الانتقال.",
     fullscreen: {
       title: "تحرير النص",
       description: "حرّر قيمة النص الكاملة، ثم احفظ التغييرات أو ألغِها.",
@@ -238,6 +284,7 @@ const ar = {
       remove: 'إزالة {{name}}',
       exceedsMaxSize: '"{{name}}" يتجاوز الحجم الأقصى ({{max}} ميغابايت)',
       uploadFailed: 'فشل رفع "{{name}}": {{error}}',
+      uploadIncomplete: 'لم يكتمل رفع "{{name}}": لم يتم إرجاع معرّف الملف، ولم يُحفظ شيء',
     },
     richText: {
       format: "التنسيق: {{format}}",
@@ -292,6 +339,14 @@ const ar = {
       refusedResidue:
         "لم يتم الحفظ: {{name}} «{{text}}» و{{otherName}} «{{otherText}}» ليسا رقمين. أدخل أرقامًا عشرية عادية (مثال: 30.2741, 120.1551).",
     },
+    date: {
+      impossibleDay:
+        "القيمة المحفوظة «{{value}}» ليست تاريخًا حقيقيًا. اختر تاريخًا لاستبدالها.",
+    },
+    dateTime: {
+      impossibleDay:
+        "القيمة المحفوظة «{{value}}» ليست تاريخًا حقيقيًا. اختر تاريخًا ووقتًا لاستبدالها.",
+    },
     number: {
       badInput:
         "لم يتم الحفظ: النص في هذا المربع ليس رقمًا. أدخل رقمًا عشريًا عاديًا (مثال: {{example}}).",
@@ -310,6 +365,16 @@ const ar = {
     textarea: {
       characterCount: "عدد الأحرف: {{count}} من {{max}}",
       charactersRemaining: "الأحرف المتبقية: {{count}}",
+    },
+    grid: {
+      addLine: "إضافة سطر",
+      noItems: "لا توجد عناصر",
+      noItemsAddHint: "لا توجد عناصر بعد — انقر على «{{label}}» للبدء.",
+      optionalColumns: "أعمدة اختيارية",
+      computed: "محسوب",
+      openRow: "فتح الصف",
+      duplicateRow: "تكرار الصف",
+      removeRow: "إزالة الصف",
     },
   },
   table: {
@@ -391,13 +456,15 @@ const ar = {
     yes: "نعم",
     no: "لا",
     systemFields: "النظام",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: "جزئي",
-      partialNotice:
-        "تم التجميع على أول {{loaded}} سجل من أصل {{total}}. أعداد المجموعات تخص الصفحة المحمَّلة فقط، وأي مجموعة تقع كل سجلاتها خارج الصفوف المحمَّلة لا تظهر هنا.",
-      partialNoticeUnknownTotal:
-        "تم التجميع على {{loaded}} سجل محمَّل. قد تتطابق سجلات أخرى مع هذا العرض، لذا قد تكون أعداد المجموعات جزئية وقد لا تظهر إحدى المجموعات هنا.",
+      needsHeaderQuery:
+        "هذا العرض مُجمَّع، لكن مصدر بياناته لا يطبّق queryGroupHeaders، لذا لا يمكن عدّ المجموعات. أزِل التجميع لعرض السجلات.",
+      needsWholeRows:
+        "يتطلب التجميع جميع السجلات، لكن هذه الشبكة تلقّت صفحة واحدة منها فقط، لذا لا يمكن عدّ المجموعات. مرّر جميع السجلات، أو دع الشبكة تجلبها من مصدر بيانات يطبّق queryGroupHeaders.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this
@@ -646,7 +713,10 @@ const ar = {
     },
     refresh: "تحديث",
     loading: "جارٍ تحميل السجلات…",
-    recordCount: "{{count}} سجلات",
+    // objectui#10425 — the record-count bar picks this half at every count but
+    // 1 (two, few, many, other), so it is a count label («عدد …: {{count}}»)
+    // rather than one noun form that fits only 3-10.
+    recordCount: "عدد السجلات: {{count}}",
     recordCountOne: "{{count}} سجل",
     addRecord: "إضافة سجل",
     tabs: "علامات التبويب",
@@ -776,6 +846,7 @@ const ar = {
     },
     aria: {
       taskList: "قائمة المهام",
+      refreshing: "جارٍ التحديث…",
     },
     tooltip: {
       days: "ي",
@@ -933,7 +1004,10 @@ const ar = {
     addReaction: "إضافة تفاعل",
     pageHeaderActions: "إجراءات رأس الصفحة",
     emojiPicker: "منتقي الرموز التعبيرية",
-    reactionCount: "{{emoji}} {{count}} تفاعلات",
+    // objectui#10425 — the chip picks this half at every count but 1 (two,
+    // few, many, other); a count label reads right at all of them, the same
+    // device as `collaboration.reactionCount`.
+    reactionCount: "{{emoji}} عدد التفاعلات: {{count}}",
     reactionCountOne: "{{emoji}} {{count}} تفاعل",
     recordDetail: "تفاصيل السجل",
     recordDetailWithLabel: "تفاصيل {{label}}",
@@ -961,7 +1035,6 @@ const ar = {
     viewAll: "عرض الكل",
     new: "جديد",
     add: "إضافة",
-    emptyValue: "—",
     comments: "التعليقات",
     searchComments: "البحث في التعليقات…",
     addCommentPlaceholder: "أضف تعليقاً… (Ctrl+Enter للإرسال)",
@@ -994,11 +1067,6 @@ const ar = {
     attachmentsLoadFailed: "تعذر تحميل مرفقات هذا السجل.",
     attachmentsApiUnavailable: "قائمة المرفقات غير متاحة على هذا الكائن.",
     retryLoadAttachments: "إعادة المحاولة",
-    unifiedDiff: "عرض موحد",
-    sideBySideDiff: "عرض جنباً إلى جنب",
-    noChanges: "لا توجد تغييرات",
-    previousVersion: "السابق",
-    currentVersion: "الحالي",
     discussion: "المناقشة",
     showDiscussion: "إظهار المناقشة ({{count}})",
     hideDiscussion: "إخفاء المناقشة",
@@ -1013,13 +1081,7 @@ const ar = {
     writeComment: "اكتب تعليقاً…",
     subscribedTooltip: "مشترك — انقر لإلغاء الاشتراك",
     unsubscribedTooltip: "الاشتراك في الإشعارات",
-    firstRecord: "السجل الأول (Home)",
-    previousRecordKey: "السجل السابق (←)",
-    nextRecordKey: "السجل التالي (→)",
-    lastRecord: "السجل الأخير (End)",
     noRecords: "لا توجد سجلات",
-    searchWhileNavigating: "البحث أثناء التصفح",
-    searchRecords: "البحث في السجلات…",
     allActivity: "كل النشاط",
     commentsOnly: "التعليقات فقط",
     fieldChangesFilter: "تغييرات الحقول",
@@ -1080,6 +1142,8 @@ const ar = {
     pathStageLostUpcoming: '{{stage}}، خاسرة، لم يتم الوصول إليها',
     pathStageWonUpcoming: '{{stage}}، المرحلة الهدف، لم يتم الوصول إليها',
     linkCopied: "تم نسخ الرابط إلى الحافظة",
+    commentFailed: "لم يُنشر تعليقك. لم يُحفظ أي شيء — يُرجى المحاولة مرة أخرى.",
+    reactionFailed: "لم يُحفظ تفاعلك. يُرجى المحاولة مرة أخرى.",
     linkCopyFailed: "فشل نسخ الرابط",
     cancel: "إلغاء",
     cancelEdit: "تجاهل التغييرات",
@@ -1134,24 +1198,10 @@ const ar = {
     fileCount: "{{count}} ملف (ملفات)",
     fileCount_one: "{{count}} ملف",
     fileCount_other: "{{count}} ملفات",
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: 'سجل المراجعات',
-    noRevisions: 'لا توجد مراجعات مسجلة',
-    revisionFieldsChanged: 'تم تغيير {{count}} حقول',
-    revisionFieldsChangedOne: 'تم تغيير {{count}} حقل',
-    revisionPreview: 'معاينة المراجعة',
-    revisionSnapshot: 'حالة السجل في هذه النقطة',
-    restoreConfirm: 'سيؤدي هذا إلى استعادة السجل إلى حالته في {{when}}. هل تريد المتابعة؟',
-    restoring: 'جارٍ الاستعادة…',
-    confirmRestore: 'تأكيد الاستعادة',
-    restoreToPoint: 'الاستعادة إلى هذه النقطة',
   },
   chart: {
     loading: "جارٍ تحميل الرسم البياني…",
+    refreshing: "جارٍ التحديث…",
     nullCategory: "(غير محدد)",
     scatterOneMeasure: "المخطط المبعثر يرسم مقياسًا واحدًا فقط. أبقِ سلسلة واحدة:",
     unconfigured: {
@@ -1173,8 +1223,13 @@ const ar = {
       sourceLabel: "مصدر البيانات:",
     },
     loading: "جارٍ التحميل…",
+    refreshing: "جارٍ التحديث…",
+    refreshAll: "تحديث الكل",
+    refreshDashboard: "تحديث لوحة القيادة",
     pickMeasures: "اختر المقاييس (القيم) لأداة مجموعة البيانات هذه.",
     datasetUnsupported: "مصدر البيانات هذا لا يدعم استعلامات مجموعات البيانات.",
+    widgetForbiddenTitle: "لا تملك صلاحية الوصول",
+    widgetForbiddenMessage: "ليست لديك صلاحية لعرض البيانات الخاصة بهذه الأداة.",
     details: "التفاصيل",
     exportCsv: "تصدير CSV",
     openInList: "فتح في القائمة",
@@ -1327,10 +1382,6 @@ const ar = {
     appDescription: "الوصف",
     appIcon: "الأيقونة",
     template: "القالب",
-    layout: "التخطيط",
-    layoutSidebar: "الشريط الجانبي",
-    layoutHeader: "الرأس",
-    layoutEmpty: "فارغ",
     selectObjects: "تحديد الكائنات",
     searchObjects: "البحث في الكائنات…",
     selectAll: "تحديد الكل",
@@ -1365,7 +1416,7 @@ const ar = {
     appearance: "المظهر",
     rowHeight: "ارتفاع الصف",
     livePreview: "معاينة مباشرة",
-    stepBasicDesc: "الاسم والعنوان والتخطيط",
+    stepBasicDesc: "الاسم والعنوان والأيقونة",
     stepObjectsDesc: "اختيار كائنات الأعمال",
     stepNavigationDesc: "بناء شجرة التنقل",
     stepBrandingDesc: "الشعار والألوان والأيقونة",
@@ -1404,6 +1455,7 @@ const ar = {
     navTypeSeparator: "فاصل",
     navTypeAction: "إجراء",
     navTypeComponent: "مكوّن",
+    navTypeDoc: "مستند",
     navEditIcon: "تعديل الأيقونة",
     navToggleVisible: "تبديل الرؤية",
     navHidden: "مخفي",
@@ -1583,6 +1635,7 @@ const ar = {
         ctaUpgrade: "قم بالترقية للمتابعة",
         ctaTopUp: "أضف أرصدة للمتابعة",
         ariaLabel: "استخدام الذكاء الاصطناعي: {{status}}",
+        breakdownTitle: "المستخدَم حتى الآن",
       },
       workspaceTitle: "مساحة عمل الذكاء الاصطناعي",
       workspaceSubtitle: "اسأل وافحص واستأنف المحادثات",
@@ -1592,6 +1645,31 @@ const ar = {
       share: "مشاركة",
       shareTitle: "مشاركة هذه المحادثة",
       shareDisabledTitle: "ابدأ المحادثة لتفعيل المشاركة",
+      buildDoctor: "تشخيص البناء",
+      buildDoctorTitle: "تشخيص البناء — ما الذي طُبِّق فعلًا؟",
+      buildDoctorDisabledTitle: "أرسل رسالة أولًا",
+      buildDoctorDrawer: {
+        description: 'ما ادّعاه الوكيل مقابل ما هو فعّال فعلًا. تشخيص للقراءة فقط.',
+        reconciling: 'جارٍ المطابقة…',
+        notAvailable: 'غير متاح — لم يتم العثور على المحادثة أو ليست لديك صلاحية.',
+        untitled: '(بدون عنوان)',
+        summary: 'الجولات: {{turns}} · الرسائل: {{messages}} · الرموز: {{tokens}} · LLM: {{seconds}} ث',
+        allLive: 'جميع التغييرات التي جرت محاولتها ({{count}}) فعّالة — لم يُفقد شيء.',
+        discrepancies: 'عدد التناقضات: {{count}} — ما قالته المحادثة لا يطابق ما هو فعّال.',
+        orphanedTitle: 'مقترح ولكن لم يُطبَّق أبدًا',
+        orphanedHint: 'بطاقة تأكيد اقترحها الوكيل ولكن لم تطبّقها أي جولة لاحقة — فُقد التغيير بصمت.',
+        missingTitle: 'مُدّعى ولكنه مفقود',
+        missingHint: 'ذكرت نتيجة أداة أنه تم التطبيق، لكن العنصر غير فعّال في sys_metadata.',
+        toolErrorsTitle: 'أخطاء الأدوات',
+        toolErrorsHint: 'استدعاءات الأدوات التي أعادت خطأً أثناء البناء.',
+        verifyTitle: 'فحص البناء (verify_build)',
+        yourApp: 'تطبيقك:',
+        noIssues: 'عدد المشكلات: 0',
+        issueCount: 'عدد المشكلات: {{count}}',
+        platformNoise: 'تم إخفاء {{count}} من نتائج المنصة sys_*',
+        pendingActions: 'الإجراءات المعلّقة',
+        timeline: 'المخطط الزمني ({{count}})',
+      },
       newChat: "جديدة",
       searchChats: "البحث في المحادثات…",
       noChatsYet: "لا توجد محادثات بعد",
@@ -1799,6 +1877,13 @@ const ar = {
       pages: "الصفحات",
       reports: "التقارير",
       system: "النظام",
+      marketplace: "السوق",
+      settings: 'الإعدادات',
+      apps: 'التطبيقات',
+      profile: 'الملف الشخصي',
+      approvals: 'الموافقات',
+      aiApprovals: 'موافقات الذكاء الاصطناعي',
+      auditLog: 'سجل التدقيق',
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -1897,6 +1982,14 @@ const ar = {
       noWritesTitle: 'قراءات بدون أي كتابة في هذه البيئة',
       noWrites: 'تتم قراءة صفوف دون كتابة أي صف على الإطلاق، لذا لا يوجد حد أعلى لمعدل القراءة. هذه هي أخطر قراءة. تُعلِّم المنصة كل ما يتجاوز {{threshold}}. لا يتم تقييد أو حظر أي شيء؛ هذا تقرير لمراجعة نمط القراءة.',
     },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'مساحة التخزين توشك على الامتلاء',
+      warning: 'تم استخدام {{used}} ميغابايت من {{limit}} ميغابايت. يتوقف الرفع والاستيراد مؤقتًا عند امتلاء مساحة التخزين.',
+      blockedTitle: 'مساحة التخزين ممتلئة: الرفع والاستيراد متوقفان مؤقتًا',
+      blocked: 'تم استخدام {{used}} ميغابايت من {{limit}} ميغابايت. البيانات الحالية لم تُمس، ولا تزال القراءة والتصدير وتعديل السجلات الفردية تعمل.',
+      upgrade: 'قم بالترقية للمتابعة',
+    },
     errors: {
       somethingWentWrong: "حدث خطأ ما",
       unexpectedError: "حدث خطأ غير متوقع أثناء عرض هذا المحتوى.",
@@ -1942,7 +2035,11 @@ const ar = {
       searchFields: "البحث في الحقول…",
       title: "العنوان",
       viewType: "نوع العرض",
-      recordCount: "{{count}} سجل",
+      // objectui#10636 — the footer picks this half at every count but 1, which spans
+      // zero, two (2), few (3-10), many (11-99) and other (100+); a count label reads
+      // right at all of them, the same form as `list.recordCount`.
+      recordCount: "عدد السجلات: {{count}}",
+      recordCountOne: "{{count}} سجل",
       save: "حفظ",
       discard: "تجاهل",
       createView: "إنشاء عرض",
@@ -2075,6 +2172,8 @@ const ar = {
       resendOtpCountdownText: "إعادة الإرسال بعد {seconds} ثانية",
       usePhoneOtpText: "تسجيل الدخول برمز التحقق",
       usePasswordSignInText: "تسجيل الدخول بكلمة المرور بدلاً من ذلك",
+      socialButton: "المتابعة باستخدام {provider}",
+      orText: "أو تابع باستخدام البريد الإلكتروني",
     },
     register: {
       title: "إنشاء حساب",
@@ -2093,8 +2192,12 @@ const ar = {
       submittingButton: "جارٍ إنشاء الحساب…",
       hasAccountText: "لديك حساب بالفعل؟",
       signInText: "تسجيل الدخول",
+      socialButton: "التسجيل باستخدام {provider}",
+      orText: "أو تابع باستخدام البريد الإلكتروني",
       errors: {
         userExists: "يوجد حساب بهذا البريد الإلكتروني بالفعل. حاول تسجيل الدخول.",
+        selfRegistrationClosed: "التسجيل الذاتي غير متاح في هذه البيئة. اطلب دعوة من المسؤول.",
+        emailDomainNotAllowed: "نطاق هذا البريد الإلكتروني غير مسموح له بالتسجيل هنا. استخدم البريد الإلكتروني لمؤسستك أو اطلب دعوة من المسؤول.",
       },
       verifyInbox: {
         title: "تحقق من صندوق الوارد",
@@ -2546,7 +2649,9 @@ const ar = {
     // byte; a count label («عدد …: {{count}}», as `calendar.a11y.dayCell` does)
     // reads correctly at every one of them.
     resultsCountPlural: "عدد نتائج البحث عن \"{{query}}\": {{count}}",
-    itemsAvailable: "{{count}} عناصر متاحة",
+    // objectui#10425 — the browse branch of the same line switches at exactly
+    // 1 too, so this half needs the same count label.
+    itemsAvailable: "عدد العناصر المتاحة: {{count}}",
     itemsAvailableOne: "{{count}} عنصر متاح",
     noResults: "لم يتم العثور على نتائج",
     noResultsHint: "جرب تعديل مصطلحات البحث",
@@ -2592,6 +2697,7 @@ const ar = {
     selectPlaceholder: "تحديد {{label}}",
     requiredError: "{{label}} مطلوب",
     unresolvedParam: 'تعذّر عرض هذه المَعلمة: الحقل الذي تستند إليه غير موجود في بيانات تعريف الكائن، لذا يتعذّر إنشاء عنصر التحكم المطلوب. اطلب من المسؤول تصحيح تعريف الإجراء.',
+    carryOverHint: 'يُنقل دون تغيير (للقراءة فقط)',
     cancel: "إلغاء",
     confirm: "تأكيد",
     uploading: "جارٍ الرفع…",
@@ -2855,12 +2961,14 @@ const ar = {
     thankYouTitle: "شكراً!",
     thankYouMessage: "تم استلام إرسالك بنجاح.",
     redirecting: "إعادة توجيه خلال {{seconds}} ثانية(ثوانٍ)…",
+    redirectPending: "جارٍ إعادة التوجيه…",
     unavailableTitle: "النموذج غير متاح",
     unavailableDescription: "لا يوجد نموذج عام متاح على هذا الرابط. تأكد من تمكين المشاركة المجهولة للعرض الأساسي.",
     tryDemo: "تجربة العرض التوضيحي",
     retry: "إعادة المحاولة",
     loading: "جارٍ تحميل النموذج…",
     requiredHint: "* حقل مطلوب",
+    requiredFields: "الحقول المطلوبة: {{fields}}",
     consentLabelDefault: "أوافق على سياسة الخصوصية وأعطي موافقتي على معالجة بياناتي لهذا الطلب.",
     consentLink: "سياسة الخصوصية",
     consentRequired: "يرجى قبول سياسة الخصوصية للمتابعة.",
@@ -2923,6 +3031,34 @@ const ar = {
     createEnvironment: "أنشئ بيئتك",
     openProduction: "فتح بيئة الإنتاج",
     manageEnvironments: "إدارة البيئات",
+  },
+  cloudPlanStatus: {
+    current: "الخطة الحالية",
+  },
+  ai: {
+    nlQuery: {
+      placeholder: "اطرح سؤالًا حول بياناتك…",
+      ask: "اسأل",
+      results: "النتائج",
+      match: "نسبة التطابق: {{percent}}",
+      simulatedSummary: "نتائج: {{query}}",
+      noResults: "لم يتم العثور على سجلات مطابقة",
+      recentQueries: "الاستعلامات الأخيرة",
+    },
+    formAssist: {
+      title: "اقتراحات الذكاء الاصطناعي",
+      suggestionCount: "عدد الاقتراحات: {{count}}",
+      suggestionCountOne: "عدد الاقتراحات: {{count}}",
+      applyAll: "تطبيق الكل",
+      confidence: "الثقة: {{percent}}",
+      appliedCount: "عدد الاقتراحات المطبّقة: {{count}}",
+      appliedCountOne: "عدد الاقتراحات المطبّقة: {{count}}",
+    },
+    recommendations: {
+      title: "التوصيات",
+      generating: "جارٍ إنشاء التوصيات…",
+      empty: "لا توجد توصيات متاحة",
+    },
   },
   aiApprovals: {
     title: "موافقات الذكاء الاصطناعي",
@@ -3162,7 +3298,7 @@ const ar = {
     },
     title: "سوق التطبيقات",
     subtitle: "استعرض التطبيقات المعتمدة المنشورة في كتالوج ObjectStack. انقر على تطبيق لرؤية التفاصيل وتثبيته في أحد بيئاتك.",
-    searchPlaceholder: "ابحث عن التطبيقات بالاسم أو معرف المانيفست…",
+    searchPlaceholder: 'ابحث عن التطبيقات بالاسم أو معرف التطبيق…',
     searchAria: "البحث في تطبيقات السوق",
     installed: "مثبت",
     installedCount: "مثبت ({{count}})",
@@ -3214,6 +3350,7 @@ const ar = {
       reseedQueued: 'ستتم إعادة تحميل البيانات التجريبية عند الوصول التالي إلى البيئة.',
       reseedLocalSuccess: 'تمت إعادة تحميل البيانات التجريبية: {{inserted}} مضافة، {{updated}} محدثة.',
       reseedPartialErrors: '(فشل في كتابة {{count}} سجل)',
+      sampleDataKernelUnavailable: 'لا يحتوي مستوى التحكم هذا على نواة بيئة، لذا لا يمكن إعادة تحميل البيانات التجريبية أو حذفها من هنا. نفّذ ذلك من وقت التشغيل الخاص بالبيئة نفسها.',
       updateAvailable: 'يتوفر تحديث',
     },
     action: {
@@ -3519,7 +3656,7 @@ const ar = {
       detailChangedKeys: 'تغييرات أخرى:',
       confirmNote: 'النشر يُصدر كل المسودات المعلقة ({{count}}) لهذه الحزمة دفعة واحدة.',
       publishConfirm: 'نشر الكل',
-      // [objectui#5418] Pre-publish security-posture findings, shown next to
+      // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
       securityBlockTitle: 'سيتم رفض النشر — {{count}} عنصر (عناصر) بحاجة إلى قرار أولاً',
@@ -3578,25 +3715,25 @@ const ar = {
     rangeEnd: "إلى",
     operators: {
       equals: "يساوي",
-      notEquals: "لا يساوي",
+      not_equals: "لا يساوي",
       contains: "يحتوي",
-      containsCaseInsensitive: "يحتوي (مع تجاهل حالة الأحرف)",
-      notContains: "لا يحتوي",
-      isEmpty: "فارغ",
-      isNotEmpty: "غير فارغ",
-      greaterThan: "أكبر من",
-      lessThan: "أصغر من",
-      greaterOrEqual: "أكبر من أو يساوي",
-      lessOrEqual: "أصغر من أو يساوي",
+      icontains: "يحتوي (مع تجاهل حالة الأحرف)",
+      not_contains: "لا يحتوي",
+      is_empty: "فارغ",
+      is_not_empty: "غير فارغ",
+      greater_than: "أكبر من",
+      less_than: "أصغر من",
+      greater_than_or_equal: "أكبر من أو يساوي",
+      less_than_or_equal: "أصغر من أو يساوي",
       before: "قبل",
       after: "بعد",
       between: "بين",
       in: "ضمن",
-      notIn: "ليس ضمن",
-      startsWith: "يبدأ بـ",
-      endsWith: "ينتهي بـ",
-      isNull: "يساوي null",
-      isNotNull: "لا يساوي null",
+      not_in: "ليس ضمن",
+      starts_with: "يبدأ بـ",
+      ends_with: "ينتهي بـ",
+      is_null: "يساوي null",
+      is_not_null: "لا يساوي null",
       exists: "محدد",
       notExists: "غير محدد",
     },
@@ -3611,7 +3748,10 @@ const ar = {
     removeSort: "إزالة الترتيب",
   },
   collaboration: {
-    commentCount: "{{count}} تعليقات",
+    // objectui#10242 — `commentCount` and `reactionCount` below serve every
+    // count but 1 (zero, two, few, many, other), so each is a count label
+    // («عدد …: {{count}}») rather than one noun form that fits only 3-10.
+    commentCount: "عدد التعليقات: {{count}}",
     commentCountOne: "{{count}} تعليق",
     resolvedSuffix: " · تم الحل",
     sortComments: "ترتيب التعليقات",
@@ -3624,7 +3764,7 @@ const ar = {
     hoursAgo: "قبل {{count}} ساعة",
     daysAgo: "قبل {{count}} يوم",
     edited: "(تم التعديل)",
-    reactionCount: "{{count}} تفاعلات",
+    reactionCount: "عدد التفاعلات: {{count}}",
     reactionCountOne: "{{count}} تفاعل",
     addThumbsUp: "إضافة إعجاب",
     reply: "رد",
@@ -3635,9 +3775,12 @@ const ar = {
     replyingToComment: "الرد على التعليق…",
     commentPlaceholder: "أضف تعليقًا… (استخدم @ للإشارة)",
     send: "إرسال",
-    presentUserCount: "{{count}} مستخدمين متواجدين",
+    // objectui#10425 — the presence stack's name and its overflow badge switch
+    // keys only at exactly 1, so the count-not-one half of each pair below is
+    // a count label too.
+    presentUserCount: "عدد المستخدمين المتواجدين: {{count}}",
     presentUserCountOne: "{{count}} مستخدم متواجد",
-    moreUserCount: "{{count}} مستخدمين آخرين",
+    moreUserCount: "عدد المستخدمين الآخرين: {{count}}",
     moreUserCountOne: "{{count}} مستخدم آخر",
     userStatusTitle: "{{name}} ({{status}})",
     statusActive: "نشط",
@@ -3646,6 +3789,11 @@ const ar = {
   },
   wizard: {
     missingRequired: "يرجى إكمال الحقول المطلوبة: {{fields}}",
+    back: "رجوع",
+    submitting: "جارٍ الإرسال…",
+    stepFallback: "الخطوة {{n}}",
+    progressLabel: "التقدم",
+    emptyStep: "لا توجد حقول مهيأة لهذه الخطوة",
   },
   flowRunner: {
     title: 'إدخال',
@@ -3741,6 +3889,11 @@ const ar = {
     actionsEmptyTitle: "لا توجد إجراءات من الحزم",
     actionsEmptyBody: "لا توجد حزمة مثبّتة تعلن عن إجراء في هذا النشر. الإجراءات التي تنشئها بنفسك موجودة في Studio.",
     actionsLoadFailed: "تعذّر تحميل إجراءات الحزم.",
+  },
+  element: {
+    number: {
+      noObject: "لم يُحدَّد أي كائن: عيّن object أو dataSource.object.",
+    },
   },
 };
 

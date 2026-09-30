@@ -33,6 +33,7 @@ import {
   InspectorSelectField,
   InspectorRemoveButton,
   InspectorEmptyState,
+  flagUnknownValue,
   rosterFrom,
   spliceArray,
   moveArray,
@@ -281,7 +282,9 @@ export function ViewColumnInspector({
             label={t('engine.inspector.viewColumn.accessorKey', locale)}
             value={colFieldKey(col)}
             options={fieldOptions}
-            unknownValueLabel={(v) => `${v} (not in object)`}
+            unknownValueLabel={(v) =>
+              flagUnknownValue(v, t('engine.form.notInObject', locale), locale)
+            }
             // objectui#8862 — `useObjectFields` answers over the network, and
             // until it does `fieldOptions` is `[]`. Without this the marker
             // above told the author, for the length of that round trip, that a

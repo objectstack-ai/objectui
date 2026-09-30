@@ -125,7 +125,7 @@ describe('objectui#8253/#8841 — TreeViewConfig is the protocol\'s block, reach
     // would carry `[key: string]: unknown` and parity would still hold while
     // every misspelling became assignable again. This line is what pins the
     // STRICTNESS the card depends on, and it is the line that fires if the
-    // installed `@objectstack/spec` ever drops below 17.4.0.
+    // resolved `@objectstack/spec` ever predates 17.4.0, the release that closed it.
     type _NoIndexSignature = Assert<Equal<string extends keyof TreeViewConfig ? true : false, false>>;
 
     // Every key is optional: a host writes the subset it means. `Partial<T>`

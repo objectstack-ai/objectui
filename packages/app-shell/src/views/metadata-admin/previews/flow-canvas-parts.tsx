@@ -390,9 +390,16 @@ export function defaultNodeExtras(type: string): Record<string, unknown> {
       // No `onTimeout`: retired in spec 17 (framework#4158) as a `retiredKey()`
       // tombstone, so writing it is a hard `FlowNodeSchema` error, not a
       // silently-stripped extra. A wait node has no timeout — it resumes when
-      // its timer elapses or its signal arrives. The author fills in
-      // `timerDuration`.
-      return { waitEventConfig: { eventType: 'timer' } };
+      // its timer elapses or its signal arrives.
+      //
+      // `timerDuration: 'PT1H'` is seeded because `@objectstack/spec` 17.5.0
+      // REFUSES a timer wait without one: a timer with no duration schedules no
+      // wake-up and parks the run forever while reporting success. The value is
+      // the spec's own example, ruled as this seed by the maintainer on
+      // objectui#11088 (decision 2 = A) — a product default they may change —
+      // and it is visible and editable at once, because the inspector shows
+      // `Duration` whenever `eventType` is `timer`.
+      return { waitEventConfig: { eventType: 'timer', timerDuration: 'PT1H' } };
     case 'connector_action':
       return { connectorConfig: { connectorId: '', actionId: '', input: {} } };
     case 'boundary_event':

@@ -47,7 +47,8 @@ ComponentRegistry.register('toggle',
       { name: 'pressed', type: 'boolean' },
       { name: 'variant', type: 'enum', enum: ['default', 'outline'] },
       { name: 'size', type: 'enum', enum: ['default', 'sm', 'lg'] },
-      { name: 'ariaLabel', type: 'string' }
+      { name: 'ariaLabel', type: 'string' },
+      { name: 'children', type: 'slot', description: 'Rich label content, rendered when `label` is not set' }
     ],
     defaultProps: {
       label: 'Toggle',

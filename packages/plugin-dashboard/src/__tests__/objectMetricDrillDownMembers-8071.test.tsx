@@ -35,6 +35,13 @@
  * would make this repo stricter than the protocol it renders, which is the
  * wrong direction to fix anything in.
  *
+ * ⚠️ AMENDED (objectui#9002): for two members that direction was ruled on.
+ * Ruling B on objectui#9002 refuses `filter` and `mode` on this block's TYPE
+ * (`ObjectMetricDrillDownConfig`), because a metric can never honour either.
+ * That refusal is compile-time only and is pinned at that level in
+ * `ObjectMetricWidget.drillDownRefusal-9002.test.tsx`; this file still reads
+ * the renderer and nothing else.
+ *
  * ## The members `ObjectMetricWidget` actually reads
  *
  *   - **`enabled`** — through `isDrillEnabled`, which is `config.enabled !==
@@ -83,7 +90,8 @@
  * passes unchanged against the shared drawer. Their effects are pinned in
  * `ObjectMetricWidget.drillRoutedToSharedDrawer-8970.test.tsx`. `filter` and
  * `mode` are still unread here (the shared drawer honours neither), and are
- * still deliberately not asserted.
+ * still deliberately not asserted here; objectui#9002 refused them on the
+ * type instead (see the amendment above).
  *
  * ## Nothing pre-existing covered this key
  *

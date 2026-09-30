@@ -16,13 +16,14 @@ import type { ComponentMeta as CanonicalComponentMeta } from '@object-ui/types';
 import type { ComponentConfig } from '@object-ui/types';
 // A THIRD `import type` from the same module, for the same reason as the
 // second: the line above is the shape objectui#6298's pin reads, so the name
-// the splice below is typed with (objectui#6950) gets its own line.
+// the splice below is typed with (`9e37d9b39`) gets its own line.
 import type { InjectedComponentInput } from '@object-ui/types';
 import {
   ELEMENT_DATA_SOURCE_INPUT,
   isElementDataSourceBlock,
 } from '../data-scope/element-data-source.js';
 import { PUBLIC_BLOCKS } from './public-blocks.js';
+import { HTML_TIER_INTRINSICS } from './html-tier-intrinsics.js';
 
 /**
  * The renderer a registration carries — the IDENTITY alias, deliberately.
@@ -106,14 +107,17 @@ export type AuthoringSurface = 'json' | 'html';
  * ## Why `surfaces` is required, and why a boolean would have been wrong
  *
  * `deprecated: true` would restate, as a contract, the exact falsehood the
- * maintainer ruled against on 2026-08-10 (objectui#4000): the `div` and `span`
- * notices are scoped BY PROVENANCE because those tags are deprecated on the
- * JSON surface and simultaneously PERMANENT, first-class vocabulary of the
- * `kind:'html'` tier — an author there writes the plain tag, our own parser
- * maps it straight through, and no other spelling exists for them to migrate
- * to. "A notice that says the type is deprecated FULL STOP is therefore false
- * for one of its two readers" (`div.tsx`), and the reader it was false for was
- * the one who could do nothing about it. A declaration that dropped the scope
+ * maintainer ruled against on 2026-08-10 (objectui#4000): the `span` notice is
+ * scoped BY PROVENANCE because that tag is deprecated on the JSON surface and
+ * simultaneously vocabulary of the `kind:'html'` tier — an author there writes
+ * the plain tag, our own parser maps it straight through, and no other
+ * spelling exists for them to migrate to. "A notice that says the type is
+ * deprecated FULL STOP is therefore false for one of its two readers"
+ * (`span.tsx`), and the reader it was false for was the one who could do
+ * nothing about it. (`div` carried the same scope until ruling A on
+ * objectstack#20112 deprecated it on the html surface too, with `box` as its
+ * replacement; it now declares both surfaces — objectui#10757. The list is
+ * what let that be one edit.) A declaration that dropped the scope
  * would hand every future gate the same false premise, in a form that is harder
  * to see than a console string. So the scope travels WITH the declaration, and
  * {@link Registry.deprecationFor} makes callers name the surface they are
@@ -338,9 +342,22 @@ export type RegistryComponentConfig<T = any> = ComponentConfig<T> &
  * imported yet, so there is no renderer to hand out. Consumers render such an
  * entry through `SchemaRenderer`, which triggers the loader and shows a
  * placeholder in the meantime (objectui#2953).
+ *
+ * `tier` is widened by one PROJECTION-ONLY value, `'html'`: an entry the html
+ * tier's intrinsic roster contributed (objectui#10735). No registration
+ * declares it — `RegistryComponentMetaExtras.tier` stays `'public' | 'internal'`
+ * — the read stamps it, and `manifestFromConfigs` carries it into the manifest
+ * so a consumer that means the CURATED vocabulary can filter it out.
  */
-export type PublicComponentConfig<T = any> = ComponentMeta & {
+export type PublicComponentConfig<T = any> = Omit<ComponentMeta, 'tier'> & {
   type: string;
+  /**
+   * The registration's declared tier, or `'html'` for an entry that reaches the
+   * contract through {@link HTML_TIER_INTRINSICS} rather than through the
+   * curated roster or a `tier: 'public'` opt-in. Absent or `'public'` = the
+   * curated JSON-surface vocabulary.
+   */
+  tier?: ComponentMeta['tier'] | 'html';
   component?: ComponentRenderer<T>;
   /** True while this entry is a `registerLazy` stub whose loader has not run. */
   lazy?: boolean;
@@ -407,7 +424,7 @@ function lazyStubFullType(type: string, entry: LazyEntry): string {
  * the same component, which the registry allows and tests do constantly, is
  * likewise a no-op rather than a growing `inputs` array.
  *
- * ## Typed end to end — the cast is gone (objectui#6950)
+ * ## Typed end to end — the cast is gone (`9e37d9b39`)
  *
  * The spliced element is an `InjectedComponentInput` (`@object-ui/types`): a
  * `ComponentInput` plus the framework-set `binding` marker, so it is a plain
@@ -898,12 +915,14 @@ export class Registry<T = any> {
    *
    * Because the honest answer differs by surface, and a reader that dropped the
    * distinction would let every caller re-derive it — which is how the same
-   * exemption ends up written N times and wrong in N-1 of them. `div` is
-   * deprecated for JSON-authored pages and is permanent vocabulary of the
-   * `kind:'html'` tier (objectui#4000). Asking `deprecationFor('div', 'html')`
-   * therefore correctly answers `undefined` even when the type declares a
-   * `'json'` deprecation, and a gate over html-tier sources gets the right
-   * answer without knowing the ruling.
+   * exemption ends up written N times and wrong in N-1 of them. `span` is
+   * deprecated for JSON-authored pages and is vocabulary of the `kind:'html'`
+   * tier (objectui#4000). Asking `deprecationFor('span', 'html')` therefore
+   * correctly answers `undefined` even when the type declares a `'json'`
+   * deprecation, while `deprecationFor('div', 'html')` answers the declaration,
+   * because `div` names both surfaces (objectui#10757). A gate over html-tier
+   * sources gets the right answer for either without knowing the rulings: the
+   * console's html compile reads exactly this to decide what it refuses.
    *
    * Returning the DECLARATION rather than a boolean is deliberate: the caller
    * that has to report the finding also needs `replacement` to say what to
@@ -959,9 +978,18 @@ export class Registry<T = any> {
   }
 
   /**
-   * Get the curated PUBLIC-tier component configs (ADR-0080) — those registered
-   * with `tier: 'public'`. This is the contract/AI-vocabulary surface, a subset
-   * of the full rendering capability returned by {@link getAllConfigs}.
+   * Get the CONTRACT-surface component configs (ADR-0080) — what the published
+   * `sdui.manifest.json` serialises. A subset of the full rendering capability
+   * returned by {@link getAllConfigs}, made of two tiers:
+   *
+   *   - the curated PUBLIC tier — `PUBLIC_BLOCKS` plus registrations that opted
+   *     in with `tier: 'public'` — the JSON-surface AI-authoring vocabulary;
+   *   - the html tier's registered intrinsic elements — `HTML_TIER_INTRINSICS`,
+   *     each entry stamped `tier: 'html'` (objectui#10735). A `kind:'html'` page
+   *     may author these tags and the gate that reads the manifest must accept
+   *     them; they are NOT part of the curated vocabulary, so a consumer that
+   *     means that vocabulary alone — the `kind:'react'` JSX scope, the block
+   *     list, a census of curated blocks — filters on the stamp.
    *
    * Includes blocks that are only lazily registered so far; those come back
    * with `lazy: true` and no `component` (see {@link PublicComponentConfig}).
@@ -988,6 +1016,14 @@ export class Registry<T = any> {
     // … and the same opt-in for stubs whose loader has not run yet.
     for (const [key, entry] of this.lazyEntries.entries()) {
       if (entry.meta?.tier === 'public' && !key.includes(':')) add(key, this.getContractConfig(key));
+    }
+    // … and the html tier's registered intrinsic elements, LAST and STAMPED:
+    // the dedupe above means a tag on both rosters comes out curated and
+    // unstamped, which is why the two rosters are pinned disjoint. The stamp is
+    // a projection, never written back onto the registration (objectui#10735).
+    for (const tag of HTML_TIER_INTRINSICS) {
+      const cfg = this.getContractConfig(tag);
+      if (cfg) add(tag, { ...cfg, tier: 'html' });
     }
     return out;
   }

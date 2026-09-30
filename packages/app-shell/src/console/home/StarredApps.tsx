@@ -51,7 +51,7 @@ export function StarredApps({ items }: StarredAppsProps) {
   // `nav` key and fell through to the raw-string fallback (objectui#6335).
   // Filtering here restores declared-equals-enforced behaviour and matches
   // the same `type !== 'nav'` exclusion already applied to the sidebar
-  // Favorites list (AppSidebar.tsx / UnifiedSidebar.tsx).
+  // Favorites list (UnifiedSidebar.tsx).
   const visibleItems = items.filter((item) => item.type !== 'nav');
 
   if (visibleItems.length === 0) return null;

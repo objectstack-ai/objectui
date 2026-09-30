@@ -10,7 +10,7 @@
  * URL filter (de)serialization shared by the drill "escape hatch"
  * (`useOpenRecordList`, the WRITE side) and the ADR-0055 bare data surface
  * (`ObjectDataPage`, the READ side). Keeping both sides in ONE module keeps the
- * `filter[<field>][<op>]` operator contract (#1752) from drifting between the
+ * `filter[<field>][<op>]` operator contract (objectstack-ai/objectstack#1752) from drifting between the
  * code that emits a URL and the code that parses it back.
  *
  * Contract:
@@ -152,13 +152,19 @@ export const NULL_FILTER = {
    * and translate it, and that family already has a locale-parity pin. The chip
    * arm below hands this OUT; resolving it is the render site's job.
    */
-  labelKey: 'filterBuilder.operators.isNull',
+  labelKey: 'filterBuilder.operators.is_null',
   /**
    * Same family, same pin, for the inverse direction (objectui#9508) — the
-   * builder offers `isNotNull` as its own row, so this key is already in that
+   * builder offers `is_not_null` as its own row, so this key is already in that
    * parity pin's denominator and no eleventh translation is introduced here.
+   *
+   * Both keys follow the builder's operator ids, which are the protocol's own
+   * spellings since objectui#9306 (the family was keyed `isNull` /
+   * `isNotNull` before). A key left on the old spelling resolves to NOTHING and
+   * the chip renders the key itself — `ObjectDataPage.filterChipI18n-9159`
+   * renders the chip through the real packs, which is what catches that.
    */
-  notLabelKey: 'filterBuilder.operators.isNotNull',
+  notLabelKey: 'filterBuilder.operators.is_not_null',
 } as const;
 
 /**
@@ -347,7 +353,7 @@ function collectFilterParams(filter: Record<string, unknown>, params: URLSearchP
 /**
  * Delete the equality param AND every operator param (both range bounds, and the
  * emptiness param in either direction) for a field, so removing a date-range
- * chip drops the whole range together (#1752) and removing an emptiness chip
+ * chip drops the whole range together (objectstack-ai/objectstack#1752) and removing an emptiness chip
  * drops its param (objectui#9159, objectui#9508). Prefix-based, so it covers a suffix by construction rather
  * than by listing one — a new operator is removable the day it is writable.
  * Mutates and returns `params`.

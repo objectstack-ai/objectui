@@ -7,7 +7,6 @@
  */
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import type { ChatMessage as OuiChatMessage } from '@object-ui/types';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
@@ -36,6 +35,11 @@ import type { SeamChatMessage, SeamToolInvocation } from './chatMessageAdapter';
  *     surface unchanged and are folded only at the render seam, which is the
  *     decision `chatMessageAdapter.ts` records. So the runtime type would have
  *     been a lie about local mode.
+ *   - **wide where API mode is wide.** The AI SDK's three approval states
+ *     (`approval-requested`, `approval-responded`, `output-denied`) are
+ *     runtime-only — the authoring contract refuses them (objectui#10018) —
+ *     but API mode produces them, so its tool invocations carry them. So the
+ *     authoring type would have been a lie about API mode.
  *   - **narrow where BOTH modes are narrow.** `timestamp` is `string`, never
  *     `Date`: API mode never produces one and local mode absorbs it in
  *     `normalizeMessages` before it is ever handed out. Declaring `Date` here
@@ -45,10 +49,15 @@ import type { SeamChatMessage, SeamToolInvocation } from './chatMessageAdapter';
  *     draft-review / proposed-plan / builder-handoff extensions on each tool
  *     invocation.
  *
- * It is a SUBTYPE of `@object-ui/types`' `ChatMessage`, which is what makes the
- * change invisible to correct consumers: anything that accepted the authoring
- * type still accepts these values, including a host `onSend` callback that
- * declares its parameter as `ChatMessage[]`.
+ * ⚠️ It is NOT a subtype of `@object-ui/types`' `ChatMessage` (objectui#10018).
+ * It was one until the authoring `state` union shed the three runtime-only
+ * approval states; the values did not change, the authoring contract did. So a
+ * host `onSend` callback that declares its parameter as the authoring
+ * `ChatMessage[]` no longer type-checks — it was being handed states that
+ * contract refuses. Declare it as `ObjectChatMessage[]`. `ChatbotSchema.onSend`
+ * (the schema's runtime slot, forwarded here by the three renderers) is typed
+ * with the authoring shape widened by exactly those three states, and this type
+ * is assignable to it.
  */
 export type ObjectChatMessage = Omit<SeamChatMessage, 'timestamp'> & {
   /**
@@ -185,59 +194,18 @@ export function withHandoffContext(
 }
 
 /**
- * objectui#5605 — `maxToolRoundtrips` is an authorable, documented key that
- * reaches nothing, and the measurement says it cannot be made to reach anything
- * from here.
+ * One initial message — the seam's INPUT shape ({@link SeamChatMessage}), not
+ * the authoring one (objectui#10018).
  *
- * The installed chat runtime is `@ai-sdk/react`'s `useChat`, whose options are
- * `ChatInit` plus `{ throttle, experimental_throttle, resume }`. `ChatInit`
- * carries exactly one loop control — `sendAutomaticallyWhen`, a boolean
- * predicate — and no numeric cap of any spelling: `@ai-sdk/react@1.0.0` shipped
- * "remove deprecated useChat roundtrip options" as a MAJOR, and the successor
- * `maxSteps` was renamed through `continueUntil` to `stopWhen`/`stepCountIs`,
- * which the installed `ai` package declares ONLY on `generateText`,
- * `streamText` and `ToolLoopAgentSettings` — all server-side. This hook also
- * never passes `sendAutomaticallyWhen`, so the client performs no automatic
- * tool round-trips at all: there is no client loop here to cap.
- *
- * Nor is there a server loop we own. ObjectUI is backend-agnostic — `api` is
- * whatever endpoint the author names — so shipping the number in the request
- * body would only move the same dead key one hop further out, onto a wire
- * contract no backend reads. The platform's own cap is `maxIterations` on the
- * agent (`planning.maxIterations`), a different key with a different default.
- *
- * So the honest state is retirement, and retirement is two-stage (maintainer
- * ruling, 2026-08-22 item 13). This is STAGE 1: the key keeps parsing and keeps
- * its declared shape, so nothing an author already wrote breaks — but an author
- * who actually writes it is now TOLD it is inert, instead of being left
- * believing the documented cap applies. Stage 2 deletes it.
- *
- * Warned once per process: the hook re-runs on every render, and three renderer
- * call sites feed it. Reset seam for tests, same shape as `plugin-detail`'s
- * `recordActivityFeed` warnings.
+ * The two callers hand in different things: the schema renderer passes
+ * `schema.messages` (authored), and app-shell passes the output of
+ * `hydratedMessagesToChatMessages` — RUNTIME values restored from server
+ * history, which carry the AI SDK's approval states and the render-only keys.
+ * The authoring `ChatMessage` refuses those approval states, so it cannot type
+ * the second caller; the seam's input admits both, and the authoring shape is
+ * assignable to it, so no authored caller is affected.
  */
-const warnedInertMaxToolRoundtrips = new Set<string>();
-
-/** Test seam: forget that the inert-`maxToolRoundtrips` notice has been given. */
-export function resetMaxToolRoundtripsWarning(): void {
-  warnedInertMaxToolRoundtrips.clear();
-}
-
-/** Tell an author once that their authored cap does nothing. See above. */
-function warnMaxToolRoundtripsInert(): void {
-  if (warnedInertMaxToolRoundtrips.has('maxToolRoundtrips')) return;
-  warnedInertMaxToolRoundtrips.add('maxToolRoundtrips');
-  console.warn(
-    '[@object-ui/plugin-chatbot] `maxToolRoundtrips` is deprecated and has no ' +
-      'effect: the installed chat runtime exposes no client-side round-trip cap ' +
-      '(`useChat` dropped the numeric knob, and the surviving `stopWhen` / ' +
-      '`stepCountIs` step cap is server-side only). Cap tool-calling loops on the ' +
-      'agent instead — `planning.maxIterations`. This key is inert and is slated ' +
-      'for removal in a future major (objectui#5605).',
-  );
-}
-
-type InitialMessage = OuiChatMessage & {
+type InitialMessage = SeamChatMessage & {
   /**
    * Pre-built chat-runtime parts, handed through to the store untouched when
    * present. Declared as {@link SdkChatMessage}'s own part array — DERIVED, so
@@ -305,18 +273,6 @@ export interface UseObjectChatOptions {
    */
   body?: Record<string, unknown>;
   /**
-   * Maximum tool-calling round-trips per message.
-   *
-   * @deprecated objectui#5605 — INERT. Nothing reads this value: the installed
-   * chat runtime exposes no client-side round-trip cap, and ObjectUI does not
-   * own the server loop. Setting it has never had an effect, and it does not
-   * acquire one by being set. Cap tool-calling loops on the agent instead
-   * (`planning.maxIterations`). Still accepted so existing documents keep
-   * parsing; authoring it now logs a one-time notice, and it is slated for
-   * removal in a future major. See {@link warnMaxToolRoundtripsInert}.
-   */
-  maxToolRoundtrips?: number;
-  /**
    * Error callback.
    */
   onError?: (error: Error) => void;
@@ -343,10 +299,12 @@ export interface UseObjectChatOptions {
    * External send callback (fires for both modes).
    *
    * `messages` is the thread as it will be after this send, in the same shape
-   * the hook's own `messages` uses — see {@link ObjectChatMessage}. A callback
-   * that declares the parameter as `@object-ui/types`' `ChatMessage[]` still
-   * type-checks (the emitted shape is a subtype); declaring it as
-   * `ObjectChatMessage[]` is what lets you READ the render-only keys.
+   * the hook's own `messages` uses — see {@link ObjectChatMessage}. Declare the
+   * parameter as `ObjectChatMessage[]`: that is also what lets you READ the
+   * render-only keys. ⚠️ A callback that declares it as `@object-ui/types`'
+   * authoring `ChatMessage[]` no longer type-checks (objectui#10018) — the
+   * emitted shape can carry the three runtime-only approval states that the
+   * authoring contract refuses, so it is not a subtype of it.
    */
   onSend?: (content: string, messages: ObjectChatMessage[]) => void;
 }
@@ -435,7 +393,7 @@ export interface UseObjectChatReturn {
  * `'assistant'` only at the render seam. That is precisely why the honest
  * output type is not the runtime one — see {@link ObjectChatMessage}.
  */
-function normalizeMessages(msgs?: OuiChatMessage[]): ObjectChatMessage[] {
+function normalizeMessages(msgs?: SeamChatMessage[]): ObjectChatMessage[] {
   return (msgs ?? []).map((msg, idx) => ({
     id: msg.id || `msg-${idx}`,
     role: msg.role || 'user',
@@ -559,11 +517,17 @@ function reportUnbackedApprovalState(tool: SeamToolInvocation): void {
  * #0.1) — the producer is wrong and is told so; the state is then derived from
  * the data the invocation DOES carry so the turn still renders.
  *
- * The authoring `state` union shedding these three runtime-only states is the
- * residual clause of this chain's ruling and is deliberately not done in this
- * package; once it lands, this branch becomes unreachable by construction and
- * goes away with it. See `ChatToolInvocation` in `@object-ui/types`, whose own
- * doc records that the narrowing was left to objectui#8426.
+ * The authoring `state` union has shed these three runtime-only states
+ * (objectui#10018), so a schema AUTHOR can no longer declare one — but this
+ * branch is NOT unreachable, and stays. The builder's input is not the
+ * authoring face alone: `initialMessages` also carries RUNTIME values, and a
+ * runtime producer still constructs an approval state with no envelope.
+ * app-shell's server-history path — `mergeToolResultsInto` in
+ * `useChatConversation.ts` — promotes `approval-requested` from an ObjectStack
+ * pending-action tool result that carries no SDK envelope, and
+ * `hydratedMessagesToChatMessages` hands it here. That is the HITL case
+ * {@link reportUnbackedApprovalState} stays silent for; any OTHER envelope-less
+ * claim is a runtime producer's bug and is reported here.
  */
 function warnApprovalStateWithoutEnvelope(state: string, toolName: string): void {
   const key = `${state}:${toolName}`;
@@ -704,8 +668,9 @@ function toSdkToolPart(tool: SeamToolInvocation): SdkToolPart {
     case undefined:
       break;
     default: {
-      // Exhaustiveness. A state added to the authoring union lands here and
-      // turns this assignment red, instead of silently taking the derived arm.
+      // Exhaustiveness. A state added to the seam's union (the authoring or the
+      // runtime vocabulary) lands here and turns this assignment red, instead
+      // of silently taking the derived arm.
       const unhandledState: never = tool.state;
       void unhandledState;
       break;
@@ -738,7 +703,6 @@ export function useObjectChat(options: UseObjectChatOptions = {}): UseObjectChat
     streamingEnabled = true,
     headers,
     body,
-    maxToolRoundtrips,
     onError,
     showTimestamp,
     autoResponse,
@@ -752,15 +716,6 @@ export function useObjectChat(options: UseObjectChatOptions = {}): UseObjectChat
   // `toLocaleTimeString()` used the MACHINE's locale (objectui#9909). Read
   // here, at the top, for the same Rules-of-Hooks reason as the effect below.
   const displayLocale = useDisplayLocale();
-
-  // objectui#5605 — an AUTHORED `maxToolRoundtrips` is inert; say so once. The
-  // check is `!== undefined`, not truthiness, so an authored `0` is reported
-  // too (a cap of zero is exactly the author who most needs telling). Declared
-  // here, at the top of the hook, so it runs before the local-mode early return
-  // and stays unconditional under the Rules of Hooks.
-  useEffect(() => {
-    if (maxToolRoundtrips !== undefined) warnMaxToolRoundtripsInert();
-  }, [maxToolRoundtrips]);
 
   // Lock the mode on first render to satisfy the Rules of Hooks.
   // Conditional hook calls would crash if `api` toggled between renders.

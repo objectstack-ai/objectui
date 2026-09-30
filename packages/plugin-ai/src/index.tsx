@@ -55,7 +55,6 @@ ComponentRegistry.register(
       { name: 'layout', type: 'enum', enum: [
         { label: 'List', value: 'list' },
         { label: 'Grid', value: 'grid' },
-        { label: 'Carousel', value: 'carousel' },
       ] },
       { name: 'emptyMessage', type: 'string' },
     ]

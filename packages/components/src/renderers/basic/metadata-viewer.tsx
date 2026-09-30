@@ -20,7 +20,9 @@
 
 import * as React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
-import { useMetadataItem } from '@object-ui/react';
+import { useMetadataItem, resolveInlineAriaProps } from '@object-ui/react';
+import { useDisplayLocale } from '@object-ui/i18n';
+import type { AriaProps } from '@object-ui/types';
 import {
   ArrowRight,
   CircleDot,
@@ -110,7 +112,7 @@ function Placeholder({ tone = 'muted', children }: { tone?: 'muted' | 'warn'; ch
 /**
  * One declared option of the object field a state machine runs on — DERIVED
  * from the spec's own `SelectOption` (`@objectstack/spec/data`), with the one
- * narrowing this projection needs named in the `Omit` below (objectui#6887).
+ * narrowing this projection needs named in the `Omit` below (`5c09cca27`).
  *
  * It was a hand-written `{ label?; value; color?; default? }` quadruple: four of
  * the spec's five keys, with the fifth dropped by SILENCE — no `Omit` naming it,
@@ -133,7 +135,7 @@ function Placeholder({ tone = 'muted', children }: { tone?: 'muted' | 'warn'; ch
  *   - `default` is KEPT, and is read at `initial` below. That is deliberate and
  *     is the whole reason this is a spec derivation rather than a narrower
  *     local shape: `default` on the OBJECT-field face is ruled `enforce`
- *     (objectstack#7246, implemented by PR #7388) — the engine seeds the insert
+ *     (objectstack#7246, implemented by PR objectstack-ai/objectstack#7388) — the engine seeds the insert
  *     path from the option marked `default: true` — so the state this view
  *     calls "initial" is the same one the platform actually writes.
  *
@@ -393,8 +395,10 @@ function PermissionView({ name }: ViewerProps) {
 // Dispatcher + registration
 // ---------------------------------------------------------------------------
 
-export function ElementMetadataViewerRenderer({ schema }: { schema: any }) {
-  const props = readProps<ViewerProps>(schema);
+/**
+ * The view for the authored `type`, the part of the block below its root.
+ */
+function MetadataView(props: ViewerProps) {
   switch (props.type) {
     case 'state_machine':
       return <StateMachineView {...props} />;
@@ -411,6 +415,27 @@ export function ElementMetadataViewerRenderer({ schema }: { schema: any }) {
         </Placeholder>
       );
   }
+}
+
+export function ElementMetadataViewerRenderer({ schema }: { schema: any }) {
+  const { aria, ...props } = readProps<ViewerProps & { aria?: AriaProps }>(schema);
+  // The block's `aria` bag (objectui#11083). The spec declares `aria`
+  // (`AriaPropsSchema`) on `element:metadata_viewer`, and nothing read it, so a
+  // declared accessible name reached no element. It goes through
+  // `resolveInlineAriaProps` from `@object-ui/react`, the one reader of that
+  // bag.
+  //
+  // Each view returns its own root (a loading line, a warning, or the card), so
+  // the block had no one element to carry the bag. This `div` is that element,
+  // and it is always rendered: a wrapper that came and went with the bag would
+  // remount the view whenever the bag resolved differently. It adds no default
+  // role, and with nothing authored it carries no attribute.
+  const locale = useDisplayLocale();
+  return (
+    <div {...resolveInlineAriaProps(aria, locale)}>
+      <MetadataView {...props} />
+    </div>
+  );
 }
 
 ComponentRegistry.register('metadata_viewer', ElementMetadataViewerRenderer, {

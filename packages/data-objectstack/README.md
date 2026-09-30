@@ -224,8 +224,14 @@ so the refusal now lands at lowering time instead of the field vanishing. Spell
 a text match as `{ name: { $contains: 'abc' } }` (`$startsWith` / `$endsWith`), a
 membership test as `{ name: { $in: [...] } }`, and a date bound as
 `{ created: { $gte: someDate } }`. A `Date` comparand is **not** exotic: the spec
-accepts it and it lowers as an equality node (objectui#8555). An empty operator
-object `{}` is untouched — it constrains nothing, as it always has.
+accepts it and it lowers as an equality node (objectui#8555). An **empty
+operator object** — `{ created: {} }`, a field with no operator — is refused too,
+alone or beside other keys, with a `FilterOperatorError` naming the field
+(objectui#9164 alone, objectui#10788 beside other keys). `@objectstack/spec` records
+`{ field: {} }` as REJECTED (objectstack#5240), and beside a key that lowers it
+used to be dropped the same silent way: `{ status: 'a', created: {} }` sent
+exactly what `{ status: 'a' }` sends. Give the field an operator (`$eq`, `$in`,
+`$null`, …) or remove the key.
 
 #### Complex Filter Examples
 
@@ -354,6 +360,25 @@ carries nothing to drop and is not refused, so params built by spreading
 possibly-absent authored values keep working. Keys outside those three are not
 refused either — the gate names `filter`, `field` and `function`, and only
 those.
+
+### Group headers for server-side grid grouping
+
+`queryGroupHeaders(resource, query)` answers a grouped list view's **group
+header query** — the `EngineAggregateOptions` that `@objectstack/spec/ui`'s
+`compileListViewGroupQuery` compiles from the view's `grouping` (and its column
+summaries). It is how a grouped `object-grid` gets its group set and every
+header number from the server instead of bucketing a fetched page
+(objectui#7189): one row per group, each grouped field under its own name
+holding the raw stored value (`null` for the empty group), and the group's
+total row count under `count`.
+
+The query is posted **verbatim** to the existing `POST /data/:object/query`
+door (the same one the spec-shape `aggregate()` branch uses), and the answer is
+its `records`. Unlike `aggregate()`, it never degrades to a client-side
+reduction: a refusal is thrown with the server's code and status, and an answer
+without a `records` array is refused rather than read as "no groups". The rows
+inside a group are an ordinary `find()` with the group's compiled row query
+(`compileListViewGroupRowsQuery`).
 
 ### Sorting
 

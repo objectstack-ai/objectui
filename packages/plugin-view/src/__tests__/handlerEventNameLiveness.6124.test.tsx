@@ -19,17 +19,26 @@
  * dispatches). Three rows are the second kind, and the scope extension that
  * swept them in for retirement would have DELETED WORKING BEHAVIOUR:
  *
- *   - `ViewSwitcherSchema.onViewChange` — `ViewSwitcher.tsx:249-255`
- *   - `FilterUISchema.onChange`         — `FilterUI.tsx:99-105`
- *   - `SortUISchema.onChange`           — `SortUI.tsx:93-99`
+ *   - `ViewSwitcherSchema.onViewChange` — `ViewSwitcher`'s `notifyChange`
+ *   - `FilterUISchema.onChange`         — `FilterUI`'s `notifyChange`
+ *   - `SortUISchema.onChange`           — `SortUI`'s `notifyChange`
  *
- * each `window.dispatchEvent(new CustomEvent(schema.<key>, { detail }))`, i.e.
- * the AUTHORED STRING IS THE EVENT NAME. Note the dual channel that produced
- * the mislabel: `onViewChange?.(next)` right above it is the REACT PROP (a
+ * each hands `schema.<key>` to `notifyViewHandlerChannels`
+ * (`viewHandlerChannels.ts`), which runs
+ * `window.dispatchEvent(new CustomEvent(schema.<key>, { detail }))`, i.e. the
+ * AUTHORED STRING IS THE EVENT NAME. Note the dual channel that produced the
+ * mislabel: the same helper also calls the REACT PROP `onViewChange` (a
  * function a host passes), while `schema.onViewChange` is the authored string.
  * Same name, two channels — which is exactly what a type-shaped census cannot
  * see, and why the `.describe()` text on those three rows now says "event name"
  * rather than "callback".
+ *
+ * ⚠️ This file renders the components DIRECTLY and mocks `SchemaRenderer`, so
+ * the callback prop is always `undefined` here. Through the real renderer the
+ * authored string also lands in that prop, and calling it threw
+ * `TypeError: onChange is not a function` while every pin below stayed green
+ * (objectui#10616). That entry is pinned in
+ * `handlerEventNameThroughRenderer-10616.test.tsx`.
  *
  * ## Why BOTH halves, and why the declared half is not a `safeParse`
  *

@@ -5,9 +5,30 @@
  * toggle (Project API / System API), and no `Server`/`FolderOpen` icons. The
  * discovery hook is the console-local copy under `./hooks/useApiDiscovery`.
  * UI primitives come from `@object-ui/components`.
+ *
+ * ## Request preset (objectui#10591)
+ *
+ * The page opens with a request pre-filled when its URL carries one:
+ * `?path=/api/v1/…` fills the URL field and `?method=POST` (any verb the
+ * method selector offers, in any case) picks the method. The tool preview's
+ * "Open in API Console" link is the producer; it builds exactly this pair.
+ *
+ * - Read ONCE, on mount, from the router's query string — so it works on both
+ *   mounts, the standalone `developer/api-console` route and the
+ *   `developer:api-console` registry key. A later change to the query does not
+ *   overwrite what the user has typed since.
+ * - Pre-fill only: nothing is sent until the user presses Send.
+ * - `path` is honoured only when it is a same-origin API path, i.e. it starts
+ *   with `/api/`. Anything else (an absolute `http://…` URL, a
+ *   protocol-relative `//host`, a bare word, an empty value) is ignored, so a
+ *   crafted link cannot aim the request editor at another origin.
+ * - `method` rides with `path`: it is read only when `path` is honoured, and a
+ *   verb the selector does not offer is ignored.
+ * - With no honoured `path` the page opens exactly as it does without a query.
  */
 
 import { useState, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAdapter } from '@object-ui/app-shell';
 import {
   Badge,
@@ -65,16 +86,31 @@ interface RequestHistoryEntry {
 
 let nextParamId = 1;
 
+/** The verbs the method selector offers, in its order — the selector renders this list. */
+const REQUEST_METHODS: readonly HttpMethod[] = ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'];
+
+/** The request preset a link can carry — see "Request preset" in the header. */
+function readRequestPreset(search: URLSearchParams): { path: string; method: HttpMethod | '' } | null {
+  const path = search.get('path');
+  if (!path || !path.startsWith('/api/')) return null;
+  const method = search.get('method')?.toUpperCase();
+  return { path, method: REQUEST_METHODS.find((m) => m === method) ?? '' };
+}
+
 export function ApiConsolePage() {
   const adapter = useAdapter();
   const client: any = adapter?.getClient?.();
   const { groups, loading: discovering, refresh } = useApiDiscovery();
+  const [searchParams] = useSearchParams();
+  // Lazy initialiser: runs on the first render only, which is the "once, on
+  // mount" the preset promises.
+  const [preset] = useState(() => readRequestPreset(searchParams));
 
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [selectedEndpoint, setSelectedEndpoint] = useState<EndpointDef | null>(null);
-  const [methodOverride, setMethodOverride] = useState<HttpMethod | ''>('');
-  const [urlOverride, setUrlOverride] = useState('');
+  const [methodOverride, setMethodOverride] = useState<HttpMethod | ''>(preset?.method ?? '');
+  const [urlOverride, setUrlOverride] = useState(preset?.path ?? '');
   const [requestBody, setRequestBody] = useState('');
   const [queryParams, setQueryParams] = useState<QueryParam[]>([]);
   const [loading, setLoading] = useState(false);
@@ -376,7 +412,7 @@ export function ApiConsolePage() {
               onChange={e => setMethodOverride(e.target.value as HttpMethod)}
               className={`rounded-md border bg-background px-2 py-1.5 font-mono text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-ring ${METHOD_COLORS[effectiveMethod] || ''}`}
             >
-              {(['GET', 'POST', 'PATCH', 'PUT', 'DELETE'] as HttpMethod[]).map(m => (
+              {REQUEST_METHODS.map(m => (
                 <option key={m} value={m}>{m}</option>
               ))}
             </select>

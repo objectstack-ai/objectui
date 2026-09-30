@@ -45,13 +45,15 @@
  *     names (AGENTS.md). These mount the real renderers and read the
  *     accessibility tree.
  *
- * ## The alias fold is scoped, and that is asserted here
+ * ## The refused alias is read on NO block, and that is asserted here
  *
- * The contract-refused `aria.label` spelling is read on `record:path` and
- * `record:quick_actions` only — the two blocks that already read it, where a
- * stored pre-contract document can carry it. ⛔ The other five do not, and the
- * cases below assert that in both directions, each absence paired with the
- * control that shows the same block honours the canonical spelling.
+ * This change read the contract-refused `aria.label` spelling on
+ * `record:path` and `record:quick_actions` only, the two blocks that already
+ * read it before. objectui#9945 then retired it on those two as well. So
+ * ⛔ no block reads it now, and the cases below assert that on all seven, each
+ * absence paired with the control that shows the same block honours the
+ * canonical spelling. The retirement's own pins (the default name, the report)
+ * live in `recordAriaLabelRetired-9945.test.tsx`.
  *
  * ## Why the assertions are accessible NAMES, not attributes
  *
@@ -280,19 +282,18 @@ describe('an authored `aria.ariaLabel` reaches the accessibility tree (objectui#
   });
 });
 
-describe('the contract-refused `aria.label` alias is read on TWO blocks, not seven', () => {
+describe('the contract-refused `aria.label` alias is read on NO block', () => {
   /**
    * The alias is `AriaPropsSchema`'s rename prescription — refused on parse,
    * on every bag (the census above measures that). objectui#4663 installed a
    * back-compat fold for it on `record:quick_actions`, and `record:path` read
-   * it and nothing else; those are the two blocks a stored pre-contract
-   * document can actually reach.
+   * it and nothing else; objectui#9945 retired both.
    *
    * ⚠️ The first draft of the shared read point folded it for EVERY caller,
    * which handed a contract-refused spelling five new readers while the
-   * changeset said nothing had been introduced. These cases are why that
-   * cannot happen again quietly: the fold is opt-in, and both directions are
-   * asserted, each with the control that makes the absence mean something.
+   * changeset said nothing had been introduced. These cases are why no block
+   * can start reading it again quietly, each absence with the control that
+   * makes it mean something.
    */
   const ALIAS = 'Legacy name';
 
@@ -321,20 +322,26 @@ describe('the contract-refused `aria.label` alias is read on TWO blocks, not sev
     expect(screen.queryByRole('region', { name: ALIAS })).toBeNull();
   });
 
-  it('record:path and record:quick_actions DO, because a stored document can carry it there', () => {
-    // The positive half, restated here beside the five absences so the two
-    // populations are read together rather than a screen apart.
+  it('record:path and record:quick_actions do not either, since objectui#9945', () => {
+    // These two used to be the positive half. They are restated beside the five
+    // absences so all seven are read together rather than a screen apart; each
+    // announces its default name instead (the retirement's own file pins that,
+    // and the report it emits).
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mount(
       <RecordPathRenderer
         schema={{ statusField: 'stage', stages: [{ value: 'won', label: 'Won' }], aria: { label: ALIAS } } as never}
       />,
     );
-    expect(screen.getAllByRole('list', { name: ALIAS })).toHaveLength(2);
+    expect(screen.queryAllByRole('list', { name: ALIAS })).toHaveLength(0);
+    expect(screen.getAllByRole('list', { name: 'Record path' })).toHaveLength(2);
     cleanup();
 
     const ACT = { name: 'act', label: 'Act', type: 'script', locations: ['record_header'] };
     mount(<RecordQuickActionsRenderer schema={{ actions: [ACT], aria: { label: ALIAS } } as never} />);
-    expect(screen.getByRole('toolbar', { name: ALIAS })).toBeInTheDocument();
+    expect(screen.queryByRole('toolbar', { name: ALIAS })).toBeNull();
+    expect(screen.getByRole('toolbar', { name: 'Quick actions' })).toBeInTheDocument();
+    warn.mockRestore();
   });
 });
 
@@ -382,17 +389,22 @@ describe('record:path honours the CONTRACT spelling, not the refused alias (obje
     expect(rails).toHaveLength(2);
   });
 
-  it('the refused `aria.label` alias still folds in behind it, for stored documents', () => {
+  it('the refused `aria.label` alias no longer folds in (objectui#9945): the pack name stays', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mount(path({ label: 'Legacy stages' }));
-    expect(screen.getAllByRole('list', { name: 'Legacy stages' })).toHaveLength(2);
+    expect(screen.queryAllByRole('list', { name: 'Legacy stages' })).toHaveLength(0);
+    expect(screen.getAllByRole('list', { name: 'Record path' })).toHaveLength(2);
+    warn.mockRestore();
   });
 
   it('the canonical spelling wins when a stored document carries both', () => {
     // The regression this file exists to prevent: `record:path` honoured the
     // alias and ONLY the alias, so this case returned the legacy name.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mount(path({ ariaLabel: 'Deal stages', label: 'Legacy stages' }));
     expect(screen.getAllByRole('list', { name: 'Deal stages' })).toHaveLength(2);
     expect(screen.queryAllByRole('list', { name: 'Legacy stages' })).toHaveLength(0);
+    warn.mockRestore();
   });
 
   it('with nothing authored the rails keep their localized pack name', () => {
@@ -408,7 +420,7 @@ describe('record:path honours the CONTRACT spelling, not the refused alias (obje
   });
 });
 
-describe('record:quick_actions keeps objectui#4663 behaviour through the shared fold', () => {
+describe('record:quick_actions keeps objectui#4663\'s canonical read and built-in default', () => {
   const ACT = { name: 'act', label: 'Act', type: 'script', locations: ['record_header'] };
   const bar = (aria?: unknown) => (
     <RecordQuickActionsRenderer schema={{ actions: [ACT], ...(aria ? { aria } : {}) } as never} />
@@ -424,8 +436,10 @@ describe('record:quick_actions keeps objectui#4663 behaviour through the shared 
     expect(screen.getByRole('toolbar', { name: 'Quick actions' })).toBeInTheDocument();
   });
 
-  it('still treats an authored empty canonical name as no name, shadowing the alias', () => {
+  it('still treats an authored empty canonical name as no name, and does not read the alias', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mount(bar({ ariaLabel: '', label: 'Legacy' }));
     expect(screen.getByRole('toolbar', { name: 'Quick actions' })).toBeInTheDocument();
+    warn.mockRestore();
   });
 });

@@ -23,6 +23,7 @@ import {
 import { cva } from 'class-variance-authority';
 import { SchemaRenderer, toRenderableSchema } from '@object-ui/react';
 import type { ViewSwitcherSchema, ViewType } from '@object-ui/types';
+import { notifyViewHandlerChannels } from './viewHandlerChannels';
 import {
   Activity,
   Calendar,
@@ -73,7 +74,7 @@ export type ViewSwitcherProps = {
  * Record<string, X>` keeps the value constraint, drops the exactness, and lets
  * one spelling compile against both specs; this alias puts the added-member
  * half back, because `satisfies Record<string, X>` alone would silently drop
- * the guard objectui#5321 and objectui#8127 installed.
+ * the guard objectui#5321 and `ca3942729` installed.
  *
  * ⛔ NOT objectui#9880's repair either. That one derives the undrawable half of
  * a PARTITION with `Extract<ViewType, keyof typeof TABLE>`, so a retired row
@@ -86,7 +87,7 @@ export type ViewSwitcherProps = {
  */
 type _AssertNever<T extends never> = T;
 
-// `page` (objectui#8127): this switcher is keyed on the FULL `ViewType`, not on
+// `page` (`ca3942729`): this switcher is keyed on the FULL `ViewType`, not on
 // the visualization subset, because `schema.views` may name any view type the
 // spec allows — and `@objectstack/spec@17.3.0` added `page`. Unlike the
 // visualization switcher in `plugin-list`, a missing entry here is a label
@@ -270,15 +271,10 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   }, [activeView, schema.activeView, schema.persistPreference, storageKey]);
 
   const notifyChange = React.useCallback((nextView: ViewType) => {
-    onViewChange?.(nextView);
-
-    if (schema.onViewChange && typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent(schema.onViewChange, {
-          detail: { view: nextView },
-        })
-      );
-    }
+    // Host function, then the authored event name (objectui#6124). The helper
+    // calls the prop only when it is a function: through `SchemaRenderer` the
+    // prop can hold the authored string (objectui#10616).
+    notifyViewHandlerChannels(onViewChange, schema.onViewChange, nextView, { view: nextView });
   }, [onViewChange, schema.onViewChange]);
 
   const handleViewChange = React.useCallback((nextView: ViewType) => {

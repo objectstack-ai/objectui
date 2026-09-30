@@ -17,7 +17,7 @@
  * blind "Published!". Package-less drafts fall back to by-reference publish
  * (structure first, seeds last) so they never dead-end.
  *
- * Both halves of that call now run through `MetadataClient` (objectui#6965):
+ * Both halves of that call now run through `MetadataClient` (`ce986aafc`):
  * the batch one so the runtime authoring gate's per-draft advisories reach the
  * console's advisory toast, the by-reference one because it always did. The
  * asymmetry this closes was inside this very function — its own client-side
@@ -31,8 +31,10 @@ import { publishHealthFromResponse, type PublishHealth } from '@object-ui/plugin
 import { useMetadataClient } from '../views/metadata-admin/useMetadata.js';
 import { emitMetadataRefresh } from '../assistant/assistantBus.js';
 import { lintDraftCapabilityReferences } from './capabilityLint.js';
-
-type TranslateFn = (key: string, opts?: Record<string, unknown>) => string;
+// The one authority for the narrowed `t` (objectui#8261) — imported, not
+// re-declared. The local copy this replaces differed only in its parameter's
+// NAME (`opts`), which TypeScript does not compare, so no caller's contract moves.
+import type { TranslateFn } from '@object-ui/i18n';
 
 export interface PublishAllResult {
   ok: boolean;
@@ -81,7 +83,7 @@ export function usePublishAllDrafts(t: TranslateFn) {
       };
 
       for (const packageId of packageIds) {
-        // objectui#6965 — through `MetadataClient`, not a bare `fetch`. The
+        // `ce986aafc` — through `MetadataClient`, not a bare `fetch`. The
         // route now answers the runtime authoring gate's per-draft advisories
         // on each `published[]` element (objectstack#9343), and the client is
         // the seam that reports them: it emits one advisory event per advised

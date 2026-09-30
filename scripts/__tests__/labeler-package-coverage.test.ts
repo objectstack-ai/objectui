@@ -297,6 +297,29 @@ describe('.github/labeler.yml package coverage', () => {
   });
 
   /**
+   * objectui#10012: no rule named `content/**`, the published docs site, so a PR that
+   * touched only that tree drew no label at all — the package gap above, one tree over.
+   *
+   * The assertion names `documentation` rather than "at least one label" on purpose. The
+   * workflow runs with `sync-labels: true`, and actions/labeler v7's `src/labeler.ts`
+   * deletes from the PR's existing labels every label this config names whose globs match
+   * nothing (its `else if (syncLabels)` branch) — so `documentation` hung by hand on such a
+   * PR comes off on the next push. Drawing some other label would leave that intact.
+   *
+   * One tree, not a population: whether every top-level tree must draw a label is a
+   * decision objectui#10012 left open, and this assertion does not take it.
+   *
+   * The probe page does not exist, deliberately — as with `probePathFor`, the subject is
+   * the config. A real page here would also enrol this file in
+   * `scripts/markdown-test-inputs.mjs` as a reader of that page, which it is not.
+   */
+  it('labels a change to the published docs tree `documentation`', () => {
+    expect(labelsDrawnBy('content/docs/guide/labeler-coverage-probe.mdx')).toContain(
+      'documentation',
+    );
+  });
+
+  /**
    * The third direction, and the one with no other witness in the tree.
    *
    * `pull-requests: write` only lets actions/labeler add labels that ALREADY EXIST;

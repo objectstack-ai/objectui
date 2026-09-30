@@ -162,14 +162,21 @@ describe('referencing the spec NavigationItemSchema would reject metadata object
       'the legacy spelling this file keeps accepting for published metadata'],
     ['visible: boolean', { id: 'ai', type: 'url', label: 'AI', url: '/ai', visible: true },
       'menuItemToNavigationItem MANUFACTURES one when it inverts AppMenuItem.hidden'],
-    ['separator label', { type: 'separator', label: 'Section' },
-      'menuItemToNavigationItem emits one; the spec separator declares only id/order'],
     ['single-character id', { id: 'a', type: 'url', label: 'A', url: '/a' },
       'objectui requires only a non-empty id; the spec requires two characters'],
   ])('the spec rejects %s (%s)', (_name, input, _why) => {
     // objectui accepts it...
     expect(NavigationItemSchema.safeParse(input).success).toBe(true);
     // ...and the spec does not, which is the whole reason for the local schema.
+    expect(SpecNavigationItemSchema.safeParse(input).success).toBe(false);
+  });
+
+  // A separator carrying `label` was a row above until objectui#10867: the flat
+  // mirror admitted it, the spec refused it. The mirror now refuses it too, so
+  // it is no longer a divergence and is asserted as an agreement instead.
+  it('a separator `label` is no longer a divergence: both refuse it (objectui#10867)', () => {
+    const input = { type: 'separator', label: 'Section' };
+    expect(NavigationItemSchema.safeParse(input).success).toBe(false);
     expect(SpecNavigationItemSchema.safeParse(input).success).toBe(false);
   });
 });

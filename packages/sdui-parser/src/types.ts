@@ -148,8 +148,36 @@ export interface ManifestComponent {
   type: string;
   /** plugin namespace — provenance that drives `requires` */
   namespace?: string;
+  /**
+   * The declared authoring surface. An input named `children` (type `slot`)
+   * is ALSO the containment declaration: `validateTree` draws
+   * `not-a-container` on a child list under any component whose `inputs`
+   * carry no such entry (objectui#9910; `acceptsChildren` in `validate.ts`).
+   */
   inputs: ManifestInput[];
+  /**
+   * LAYOUT containment (objectui#6804, objectui#9910 Q2-A): the flag the
+   * react-page JSX scope builder skips and the public layout ledger lists.
+   * ⛔ Not "accepts children" — this tier's containment check does not read it.
+   */
   isContainer?: boolean;
+  /**
+   * The authoring tier this entry belongs to (objectui#10735).
+   *
+   * Absent = the curated PUBLIC tier (ADR-0080 §4), the JSON-surface
+   * AI-authoring vocabulary. `'html'` = one of the intrinsic HTML elements a
+   * `kind:'html'` page may author (ADR-0081 §2), declared by the registry's
+   * `HTML_TIER_INTRINSICS` roster and carried here so the ONE flat `components`
+   * map can serve both of its readers: a whitelist reader (`compile`, the
+   * objectstack gate) takes every key and needs no change; a reader that means
+   * the curated vocabulary — the `kind:'react'` scope, the block list, a census
+   * of curated blocks — filters this key out.
+   *
+   * ⛔ Not the registration's `tier` copied through. `manifestFromConfigs`
+   * writes exactly `'html'` or nothing, so every entry published before this
+   * key existed serialises byte-identically.
+   */
+  tier?: 'html';
 }
 
 export interface Manifest {
@@ -185,7 +213,7 @@ export interface ManifestValidationResult {
    * array. So the subset relation that licenses a permissive READER runs the
    * other way here — a wider union accepts nothing extra, it obliges every
    * consumer to handle an arm this package cannot emit. That is why the
-   * retired `'field'` arm (objectui#6950 on the input boundary, objectui#8315
+   * retired `'field'` arm (`9e37d9b39` on the input boundary, objectui#8315
    * here) is gone from this end as well; the measurements are on
    * {@link ManifestInput.binding}.
    */

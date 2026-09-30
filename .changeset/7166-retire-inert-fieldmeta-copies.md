@@ -16,6 +16,10 @@ count: `packages/fields/src/index.tsx`, the file holding **every** cell renderer
 **zero** occurrences of the three retired keys, against a control of 22 occurrences of the
 `display_field` / `displayField` / `reference_to` spellings the cell does read.
 
+Superseded in this release by objectui#10535: `UserCellRenderer` now destructures
+`{ value, field }` and reads `reference_to` / `reference` to name the person's object; it
+still reads none of the three retired keys.
+
 Their only readers off a field meta are `LookupField` and `UserField` — the two **editor**
 widgets — and the grid's inline editor does not receive this bag. `renderCellEditor` looks
 the field up in the object schema and spreads the whole def into the widget

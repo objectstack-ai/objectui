@@ -7,7 +7,8 @@
  */
 
 import { ObjectStackClient, type QueryOptions as ObjectStackQueryOptions } from '@objectstack/client';
-import type { DroppedFieldsEvent } from '@objectstack/spec/data';
+import type { DroppedFieldsEvent, EngineAggregateOptions } from '@objectstack/spec/data';
+import type { ListViewGroupHeaderRow } from '@objectstack/spec/ui';
 // #4934 — a VALUE import, not a type one: the write-warning boundary parses the
 // wire's `reason` against the enum the spec itself declares, so the accept set
 // is read off the pin instead of hand-copied here (a hand copy is the drift
@@ -355,7 +356,7 @@ function specShapeSelectorReasons(params: any): string[] {
  * Analytics-branch params — `filter`, `field`, `function` — that reached
  * `aggregate()`'s SPEC-SHAPE branch, which reads none of them.
  *
- * WHY A REFUSAL AND NOT A DROP (objectui#6864). This applies the maintainer
+ * WHY A REFUSAL AND NOT A DROP (`503cd8b89`). This applies the maintainer
  * ruling of 2026-08-30 on objectui#6825 — option A, REFUSE at the producer — to
  * the rest of the same branch. That ruling's reason was that a shape the spec's
  * own gate would reject is off-contract at the PRODUCER, so the adapter says no
@@ -818,7 +819,7 @@ export function clearSharedDiscoveryCache(): void {
 
 /**
  * Read the cross-object atomic-batch capability from a `discovery` document
- * (framework #3298 / objectui #2693). The server advertises it hierarchically
+ * (objectstack-ai/objectstack#3298 / objectui #2693). The server advertises it hierarchically
  * under `capabilities.transactionalBatch.enabled`; the published
  * `@objectstack/client` also accepts the flat `capabilities.transactionalBatch:
  * boolean` form and normalizes the two — mirror that here so the adapter reads
@@ -831,7 +832,7 @@ export function clearSharedDiscoveryCache(): void {
  *     real error.
  *   - `false` — the backend explicitly does NOT (route absent, or a runtime that
  *     can't open a transaction).
- *   - `undefined` — the capability is absent, i.e. the backend predates #3298;
+ *   - `undefined` — the capability is absent, i.e. the backend predates objectstack-ai/objectstack#3298;
  *     the caller must keep the legacy runtime-probe fallback (we can't tell
  *     whether `/batch` exists without trying it).
  */
@@ -1117,7 +1118,7 @@ export function isViewConfigPermissionDeniedError(
 
 /**
  * Thrown when the deployment has no analytics capability installed
- * (framework#3891 / #4019).
+ * (framework#3891 / objectstack-ai/objectstack#4019).
  *
  * The framework retired its degraded in-kernel analytics fallback — it dropped
  * the caller's RLS/tenant scope and ignored the contract filter, so it answered
@@ -1256,6 +1257,48 @@ export class AnalyticsUnauthenticatedError extends Error {
 }
 
 /**
+ * Thrown when the dataset query was refused because this user may not READ an
+ * object the dataset queries — `403` + ADR-0112 `PERMISSION_DENIED`, which
+ * `@objectstack/service-analytics`' read admission (`readAdmissionDeniedError`)
+ * answers with the same code and status the data API gives the same user for
+ * the same object (objectui#10899).
+ *
+ * The FOURTH branch. It used to fall through to the generic
+ * `Dataset query failed: 403 Forbidden — [Analytics] Access denied: …` string,
+ * which a dashboard tile then rendered verbatim: a raw English exception where
+ * the list view over the same object shows its localized "no access" state.
+ * That generic string names a transport status where a person needs a fact
+ * ("you can't see this data"), and it is the one case a renderer must be able
+ * to tell apart — so it is typed, and it carries `httpStatus` + a `code` the
+ * shared `classifyLoadError` reads as `forbidden` without any string matching.
+ *
+ * `serverMessage` is kept for diagnostics only. The producer deliberately
+ * names the object and nothing else, but it is still platform prose, not text
+ * addressed to the end user.
+ */
+export class AnalyticsForbiddenError extends Error {
+  readonly code = 'PERMISSION_DENIED';
+  readonly httpStatus = 403;
+  /** The server's own ADR-0112 code — the field this branch was chosen BY. */
+  readonly serverCode?: string;
+  /** The server's own message, verbatim (diagnostics only). */
+  readonly serverMessage?: string;
+  /** The dataset the refused query asked for, when it named one. */
+  readonly datasetName?: string;
+  constructor(opts: { serverCode?: string; serverMessage?: string; datasetName?: string } = {}) {
+    super(
+      `Analytics query refused: this user may not read the data behind ` +
+      `${opts.datasetName ? `dataset "${opts.datasetName}"` : 'this dataset'}.` +
+      (opts.serverMessage ? ` (server said: ${opts.serverMessage})` : ''),
+    );
+    this.name = 'AnalyticsForbiddenError';
+    this.serverCode = opts.serverCode;
+    this.serverMessage = opts.serverMessage;
+    this.datasetName = opts.datasetName;
+  }
+}
+
+/**
  * The ADR-0112 `code` + `message` an analytics REST error body declares.
  *
  * ONE url, TWO declared producers — which is why this reads two SHAPES, and why
@@ -1349,6 +1392,75 @@ export class AnalyticsQueryRejectedError extends Error {
     );
     this.name = 'AnalyticsQueryRejectedError';
     this.serverCode = serverCode;
+  }
+}
+
+/**
+ * Thrown by `aggregate()` when `client.analytics.query` resolves to anything
+ * other than the post-unwrap `AnalyticsResult` — concretely, when the value it
+ * hands back has no `rows` array (objectui#7028).
+ *
+ * ONE SPELLING, BY RULING. `@objectstack/client` 17.3.0 converged
+ * `analytics.query` on `unwrapResponse` (objectstack#13079, maintainer ruling
+ * 2026-08-31, option A): the method resolves to the payload, and the caller
+ * reads `result.rows`. The same ruling ordered this adapter's tolerant row
+ * ladder tightened in the same wave, so that defensive code is not read as a
+ * contract. The ladder also read a bare array, `data` as an array,
+ * `data.data.rows` and `results`; `rows` is now the only spelling read, and
+ * everything else lands here.
+ *
+ * WHY A THROW AND NOT `[]`. The ladder answered every shape it did not
+ * recognise with an empty array, and an empty array is a RESULT: a KPI renders
+ * a confident zero and a chart reads "no data" over a populated table — the
+ * lie objectui#5954 removed on the failure side. The envelope arriving here
+ * means the SDK in front of this call predates the convergence (it is older
+ * than 17.3.0), or something between it and `POST /analytics/query` wraps the
+ * payload a second time. Either way the adapter is handed a contract it no
+ * longer reads, and saying so is the only answer that names the repair.
+ *
+ * WHY NOT THE CLIENT-SIDE FALLBACK. Analytics answered; this is not a
+ * transport failure. Degrading would put plausible numbers from a different
+ * code path over a contract violation — the misdirection
+ * {@link AnalyticsQueryRejectedError} refuses for the same reason
+ * (framework#3878) — so `aggregate()`'s catch rethrows this before it
+ * classifies anything.
+ */
+export class AnalyticsResultShapeError extends Error {
+  readonly code = 'ANALYTICS_RESULT_SHAPE_INVALID';
+  /** The object `aggregate()` was called for. */
+  readonly resource: string;
+  /**
+   * True when the value is the envelope the client stopped handing back at
+   * 17.3.0 — `{ success, data: { rows } }`, or its `{ data: { rows } }` core.
+   */
+  readonly envelope: boolean;
+  /** What the value was, so the producer is identifiable from a log. */
+  readonly received: string;
+  constructor(resource: string, result: unknown) {
+    const value = result as { data?: { rows?: unknown } } | null | undefined;
+    const envelope = Array.isArray(value?.data?.rows);
+    const received =
+      result === null ? 'null'
+      : Array.isArray(result) ? 'an array'
+      : typeof result !== 'object' ? typeof result
+      : `an object with keys [${Object.keys(result as object).join(', ')}]`;
+    super(
+      envelope
+        ? `aggregate('${resource}'): client.analytics.query resolved to the `
+          + '`{ data: { rows } }` envelope, not to an AnalyticsResult. '
+          + '@objectstack/client resolves this method to the payload itself '
+          + 'since 17.3.0 (objectstack#13079), and this adapter reads `rows` '
+          + 'only: an older client is installed beside it, or something between '
+          + 'the client and POST /analytics/query wraps the payload a second '
+          + 'time. Install @objectstack/client 17.3.0 or later.'
+        : `aggregate('${resource}'): client.analytics.query resolved to `
+          + `${received}, which has no \`rows\` array, so it is not an `
+          + 'AnalyticsResult. This adapter reads `rows` only (objectui#7028).',
+    );
+    this.name = 'AnalyticsResultShapeError';
+    this.resource = resource;
+    this.envelope = envelope;
+    this.received = received;
   }
 }
 
@@ -1517,7 +1629,7 @@ export class ConcurrentUpdateError extends Error {
   readonly currentRecord: unknown;
   /**
    * The refusal text the PRODUCER marked as addressed to the end user
-   * (`ApiErrorSchema.userMessage`, objectstack#9934), or `null` when the
+   * (`ApiErrorSchema.userMessage`, objectstack `79c46da90`), or `null` when the
    * refusal carried no marking.
    *
    * Declared on the class because this error has no `details` bag: the shared
@@ -1583,7 +1695,7 @@ type MarkedRefusal = Pick<ApiError, 'userMessage'>;
 /**
  * Lift the producer's user-facing marking off a client error.
  *
- * `userMessage` (`ApiErrorSchema.userMessage`, objectstack#9934) is the opt-in
+ * `userMessage` (`ApiErrorSchema.userMessage`, objectstack `79c46da90`) is the opt-in
  * channel an application author sets at throw time to say "this text is for
  * the end user". The contract states it **status-agnostic** — not a 403
  * special case, any refusal status may carry it — so this read is
@@ -1936,7 +2048,7 @@ export type DroppedFieldsNotice = DroppedFieldsEvent | UnrecognizedDropReasonEve
  *
  * It used to be `Omit<DroppedFieldsEvent, 'reason'> & { reason?: unknown }`,
  * which was honest about `reason` and dishonest about the other two
- * (objectui#6889). `Omit` carried the spec's `fields: string[]` and its
+ * (`f75810e7c`). `Omit` carried the spec's `fields: string[]` and its
  * REQUIRED `object: string` through untouched, while the structural gate below
  * read neither: `fields: [42]` and an entry with no `object` at all both passed
  * and reached subscribers typed as if they had been checked. Required is what
@@ -1964,7 +2076,7 @@ function isRecognizedDropReason(reason: unknown): reason is DroppedFieldsEvent['
  * one string (so the parsed notice below names something). An array holding no
  * string at all — `fields: [42]`, `fields: []` — reports no field name, and an
  * entry that names no field has nothing truthful to tell the user; the
- * pre-objectui#6889 gate already dropped the empty case for exactly that
+ * pre-`f75810e7c` gate already dropped the empty case for exactly that
  * reason, and this is the same rule one level deeper.
  *
  * `object` and `reason` are deliberately NOT gated on. Nothing is dropped for
@@ -1982,7 +2094,7 @@ function isWireDroppedFieldsEntry(e: unknown): e is WireDroppedFieldsEntry {
 }
 
 /**
- * Parse ONE wire entry into a notice (objectui#4934, objectui#6889).
+ * Parse ONE wire entry into a notice (objectui#4934, `f75810e7c`).
  *
  * Three parses, one per field the gate above does not establish, and the
  * result is built rather than asserted — so the last cast in this seam is gone:
@@ -2049,7 +2161,7 @@ function asDroppedFieldsNotice(
  * cannot produce this entry; it takes one that omits (or non-strings) `object`
  * AND sends an index naming no operation, in the same entry. Nothing in this
  * repo emits that shape, and whether a deployed backend does is not answerable
- * from here. Unlike objectui#6889's exotic case this is not structurally
+ * from here. Unlike the exotic case on the card behind `f75810e7c`, this is not structurally
  * impossible — the payload arrives as parsed JSON, and a non-conformant server
  * can send it.
  *
@@ -2073,7 +2185,7 @@ function asDroppedFieldsNotice(
  *
  * So this is neither the skew arm's "tolerate" (objectui#4934 — a `reason` from
  * the future is the producer running AHEAD of us, expected version skew) nor
- * `fields`' "refuse" (objectui#6889 — an off-spec element that would otherwise
+ * `fields`' "refuse" (`f75810e7c` — an off-spec element that would otherwise
  * reach a consumer typed as a field name). There is no producer value to keep
  * or drop here: the question is only what WE write when the response supplied
  * nothing. The answer is a DECLARED placeholder rather than a bare literal that
@@ -2093,7 +2205,7 @@ const UNATTRIBUTED_STRIP_OBJECT = '';
 
 /**
  * Emitted after a create/update whose response carried `droppedFields`
- * (framework #3431/#3455). The write SUCCEEDED — this is a warning that some
+ * (objectstack-ai/objectstack#3431 / objectstack-ai/objectstack#3455). The write SUCCEEDED — this is a warning that some
  * supplied fields never landed, so the UI can tell the user rather than let it
  * pass silently. Subscribe via {@link ObjectStackAdapter.onWriteWarning}.
  *
@@ -2242,7 +2354,7 @@ export type ImportMappingsFailureKind = MetadataReadFailureKind;
  * a repo whose wizard had been correct since `@object-ui/data-objectstack`
  * 17.1.0), and the misdiagnosis travelled further than the fault would have.
  *
- * This is the discrimination framework #13906 decision 1 option A already
+ * This is the discrimination framework objectstack#13906 decision 1 option A already
  * adopted at the tenancy-posture seam — *a thing that could not be READ is not
  * a thing that is ABSENT* — applied here. It is not a new principle.
  *
@@ -2389,7 +2501,7 @@ export function classifyImportMappingsFailure(error: unknown): {
  * a published-mode one instead of falling through to the code-less residual.
  * What it must never read is "is the result an empty array": that is what BOTH
  * a served-zero and a refusal produce, so a test on it can never fail for the
- * condition it is supposed to be about. This is framework #13906 decision 1
+ * condition it is supposed to be about. This is framework objectstack#13906 decision 1
  * option A — *a thing that could not be READ is not a thing that is ABSENT*.
  */
 export function classifyViewsFailure(error: unknown): {
@@ -2631,7 +2743,9 @@ export function viewItemObjectName(item: any): string | undefined {
 /**
  * The explicit discriminant {@link ObjectStackAdapter.updateViewConfig} stamps
  * on the rows it writes for a **system**-view target, and
- * {@link ObjectStackAdapter.listViews} excludes on read (objectui#4227).
+ * {@link ObjectStackAdapter.listViews} excludes on read (objectui#4227). It is
+ * the ONLY thing that classifies a row as an overlay (objectui#10210, ruling B —
+ * see {@link isPersonalizationOverlayRow}).
  *
  * `updateViewConfig` has exactly ONE production caller — `ObjectView`'s
  * `persistViewPatch`, invoked only for the toolbar-driven density / sort /
@@ -2667,63 +2781,43 @@ export function viewItemObjectName(item: any): string | undefined {
 const VIEW_OVERLAY_MARKER = '_isOverride' as const;
 
 /**
- * Best-effort classification of a `view` row {@link ObjectStackAdapter.listViews}
- * reads back from BEFORE {@link VIEW_OVERLAY_MARKER} existed (objectui#4227) —
- * a legacy personalization row written by an older `updateViewConfig` carries
- * no discriminant at all.
- *
- * Measured against the actual write paths, not guessed:
- *
- * - A genuine saved view is always created with a NESTED `config` — the
- *   ViewItem-record shape `{name, object, viewKind, config}` (app-shell's
- *   `viewEnvelope`, and this adapter's own {@link ObjectStackAdapter.createView}
- *   `fullSpec`). `viewKind` lives OUTSIDE `config` on that shape.
- * - A personalization overlay (`updateViewConfig`) is always FLAT — its
- *   fields sit at the top level, never wrapped in `config`.
- *
- * `viewKind` on a FLAT row is therefore never something objectui itself
- * authors: the only way it gets there is the platform's own server-side
- * identity inheritance (`viewIdentityPatch`, `@objectstack/metadata-protocol`
- * #2555 / #7741), which fires ONLY when the write's `name` resolves against a
- * REGISTRY-backed (i.e. system, code-defined) view. A runtime-created saved
- * view has no registry entry to inherit from, so its row — even flattened by
- * a later toolbar toggle — never gains a `viewKind`. So "flat body + a
- * `viewKind`" is a reliable signature of "override on a system view", while a
- * flat row with NO `viewKind` is left alone — exactly the shape the existing
- * legacy-bare-spec pin relies on staying a saved view (`listViews.test.ts` —
- * "keeps legacy bare specs without a viewKind (saved/list views)").
- *
- * Deliberately does NOT try to catch every legacy override: a row the
- * CURRENT `persistViewPatch` writes (pre-marker) also copies the system
- * view's full body — `type`/`columns`/`data` — into the override, and *that*
- * shape is structurally indistinguishable from an untouched saved view's own
- * body without this `viewKind` signal or the new marker above. Those rows
- * self-heal on their NEXT write (which carries the marker); until then this
- * predicate is a best-effort net over the realistic current-state case, not a
- * guarantee for every possible legacy row. See the PR description for the
- * measured readings this was decided against.
- */
-function isLegacyOverlayRow(item: any, spec: any): boolean {
-  // A ViewItem record (nested `config`) is never an overlay row, regardless
-  // of what else it carries.
-  if (spec && spec.config && typeof spec.config === 'object') return false;
-  const viewKind = item?.viewKind ?? spec?.viewKind;
-  // 'form' rows are already dropped upstream by the FORM_FAMILY filter before
-  // this runs; a bare 'list' here is what a system-view override looks like.
-  return viewKind === 'list';
-}
-
-/**
  * Whether a `view` row {@link ObjectStackAdapter.listViews} enumerated is a
- * personalization overlay rather than a saved view — the marker (new writes)
- * or the best-effort legacy shape (pre-marker writes). Both layers are
- * needed: excluding only the marker would leave every row written before
- * this fix still masquerading as a saved view (objectui#4227).
+ * personalization overlay rather than a saved view: the row carries
+ * {@link VIEW_OVERLAY_MARKER}, on the item or on its `{list: …}` body. Nothing
+ * else classifies a row. Both {@link ObjectStackAdapter.listViews} and
+ * {@link narrowPersonalizationOverlay} ask this one predicate, so a row cannot
+ * be a saved view for one reader and an overlay for the other.
+ *
+ * ## The shape guess is retired (objectui#10210, ruling B)
+ *
+ * This predicate used to answer `true` by SHAPE as well: a flat row (no nested
+ * `config`) carrying `viewKind: 'list'`, the identity the platform's
+ * `viewIdentityPatch` inherits onto a write addressed to a code-defined view.
+ * That net was cast for toolbar overlays written before the marker existed
+ * (objectui#4227). "Edit view config → Save" then wrote the same shape: the
+ * flat panel draft, with `viewKind` inherited server-side. The net dropped the
+ * user's own view out of `listViews()`, the tab was stamped read-only, and
+ * publishing made that permanent. PR #10332 fixed that save going forward; the
+ * rows it had already written stayed caught. The card measured both
+ * populations shape-identical, so no narrower shape test exists.
+ *
+ * The maintainer ruled B (objectui#10210, ruling comment 5824008636): an overlay
+ * is a row carrying the marker, nothing else. Both consequences are accepted
+ * and pinned in `viewOverlayMarkerOnly-10210.test.ts`:
+ *
+ * - a row an earlier config save left flat reads as the saved view it is, so
+ *   the view heals on read and keeps its edits;
+ * - an overlay row written BEFORE the marker (objectui#4227, closed 2026-08-15)
+ *   and never touched since also reads as a plain row, so its frozen `label`,
+ *   `columns` and `filter` copy covers the code definition again. No
+ *   deployment is named as holding one.
+ *
+ * ⛔ Do not bring a shape test back to win the second population back: a shape
+ * that another writer can produce is not a discriminant. The marker is one, and
+ * the write side stamps it ({@link ObjectStackAdapter.updateViewConfig}).
  */
 function isPersonalizationOverlayRow(item: any, spec: any): boolean {
-  if (item?.[VIEW_OVERLAY_MARKER] === true) return true;
-  if (spec?.[VIEW_OVERLAY_MARKER] === true) return true;
-  return isLegacyOverlayRow(item, spec);
+  return item?.[VIEW_OVERLAY_MARKER] === true || spec?.[VIEW_OVERLAY_MARKER] === true;
 }
 
 /**
@@ -2751,10 +2845,12 @@ function isPersonalizationOverlayRow(item: any, spec: any): boolean {
  *
  * - **read** (PR #5272, {@link narrowPersonalizationOverlay}): the consumer
  *   that MERGES an overlay over a source view contributes only these keys, so
- *   every already-stored fat row stops shadowing its source.
+ *   every already-stored fat row that carries the marker stops shadowing its
+ *   source. A fat row written before the marker is no longer narrowed
+ *   (objectui#10210, ruling B — see {@link isPersonalizationOverlayRow}).
  * - **write** (objectui#5233, `buildPersistedViewBody` in app-shell's
  *   `ObjectView`, unblocked by `columnState`'s admission to the view-metadata
- *   surface as a runtime-only overlay key — objectstack#9933, released in
+ *   surface as a runtime-only overlay key — objectstack `d5552ca13`, released in
  *   `@objectstack/spec` 17.1.0): a *system view's* overlay is now written as
  *   the patch alone, so no new row freezes anything, and because the write is
  *   a whole-document PUT the next toggle also strips an old fat row. A *saved
@@ -2784,7 +2880,7 @@ export const VIEW_OVERLAY_OWNED_KEYS = Object.freeze([
  * still says what KIND of row it is.
  *
  * `label` is deliberately NOT here even though the platform stamps it onto
- * these rows: `viewIdentityPatch` (`@objectstack/metadata-protocol`, #2555)
+ * these rows: `viewIdentityPatch` (`@objectstack/metadata-protocol`, objectstack-ai/objectstack#2555)
  * inherits `viewKind`/`object`/`label` from the registry entry an overlay
  * shadows, so a stored `label` is a snapshot of the source view's label at
  * write time — content, and exactly the class of frozen key this narrowing
@@ -2805,8 +2901,8 @@ const VIEW_OVERLAY_IDENTITY_KEYS = Object.freeze([
  * {@link VIEW_OVERLAY_OWNED_KEYS}). Of the three dispositions the issue names
  * for them — strip on next write, migrate, tolerate on read — this is the
  * third, chosen deliberately and stated here rather than left implicit,
- * because it is the only one that is already true for every existing row the
- * moment it ships: strip-on-next-write heals a row only when its user happens
+ * because it is the only one that is already true for every existing marked
+ * row the moment it ships: strip-on-next-write heals a row only when its user happens
  * to touch that view again (and leaves the frozen filter live until then),
  * and a migration needs a runner this product does not have for `sys_metadata`
  * rows an operator may not even know exist. What the issue forbids is SILENT
@@ -2827,7 +2923,9 @@ const VIEW_OVERLAY_IDENTITY_KEYS = Object.freeze([
  * IS the view, and every key on it is an opinion its author expressed.
  * Classification is {@link isPersonalizationOverlayRow}, the same predicate
  * {@link ObjectStackAdapter.listViews} excludes rows by, so a row cannot be a
- * saved view for one reader and an overlay for the other.
+ * saved view for one reader and an overlay for the other. It reads the marker
+ * only (objectui#10210, ruling B): an unmarked row is returned by reference
+ * whatever its shape, including a fat row written before the marker existed.
  */
 export function narrowPersonalizationOverlay<T>(row: T): T {
   if (!row || typeof row !== 'object' || Array.isArray(row)) return row;
@@ -3011,10 +3109,10 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   // one adapter that has to cope with a backend lacking server atomicity (#2679).
   private batchUnsupported = false;
   // The server's declared cross-object atomic-batch capability, read from
-  // discovery at connect() (framework #3298 / objectui #2693). `true` → the
+  // discovery at connect() (objectstack-ai/objectstack#3298 / objectui #2693). `true` → the
   // backend GUARANTEES an atomic `/batch`, so batchTransaction trusts it and
   // never degrades to the non-atomic emulation (any failure surfaces as a real
-  // error). `false` or `undefined` (capability absent → backend predates #3298)
+  // error). `false` or `undefined` (capability absent → backend predates objectstack-ai/objectstack#3298)
   // → keep the legacy runtime-probe + emulation fallback so a save is still
   // possible; dropping it there would turn "saves, less safe" into "no save
   // path" on older backends (#2679 compatibility constraint).
@@ -3026,7 +3124,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   private mutationListeners = new Set<(event: DataSourceMutationEvent<T>) => void>();
 
   // Subscribers registered via onWriteWarning(). Emitted after a create/update
-  // whose response carried `droppedFields` (framework #3431/#3455) so the app
+  // whose response carried `droppedFields` (objectstack-ai/objectstack#3431 / objectstack-ai/objectstack#3455) so the app
   // shell can surface a toast instead of the strip passing silently.
   private writeWarningListeners = new Set<WriteWarningListener>();
 
@@ -3131,7 +3229,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         // helpers continue to work without a redundant fetch.
         (this.client as unknown as { discoveryInfo?: unknown }).discoveryInfo = data;
 
-        // Record the declared cross-object atomic-batch capability (#3298) so
+        // Record the declared cross-object atomic-batch capability (objectstack-ai/objectstack#3298) so
         // batchTransaction can decide declaratively at call time whether it may
         // trust server atomicity instead of runtime-probing 404/405/501.
         this.atomicBatchCapability = readTransactionalBatchCapability(data);
@@ -3336,7 +3434,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * — a per-object metadata-driven search (ADR-0061) — this consults the search
    * index and ranks hits across objects, so it surfaces records the per-object
    * fanout misses. Global affordances (⌘K command palette, search page) prefer
-   * this path (framework #3371).
+   * this path (objectstack-ai/objectstack#3371).
    *
    * Returns `{ query, hits }`. A backend without the search plugin installed
    * answers `404`; we treat that as "no global search here" and return an empty
@@ -3518,7 +3616,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   }
 
   /**
-   * Read `droppedFields` off a create/update response (framework #3431/#3455)
+   * Read `droppedFields` off a create/update response (objectstack-ai/objectstack#3431 / objectstack-ai/objectstack#3455)
    * and, when present, notify write-warning subscribers. Tolerant of a client
    * whose response type predates `droppedFields`: the field is read structurally
    * and validated, so an older client (or a backend that never drops) is a no-op.
@@ -3527,7 +3625,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * field); `object`, `fields` and `reason` are then PARSED — an unrecognized
    * reason routed to the skew arm, a non-string field element refused, a missing
    * `object` healed from `resource` — never asserted into the union, and the
-   * entry itself never dropped for them (objectui#4934, objectui#6889).
+   * entry itself never dropped for them (objectui#4934, `f75810e7c`).
    */
   private notifyDroppedFields(
     operation: 'create' | 'update',
@@ -3549,7 +3647,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   }
 
   /**
-   * Same, for the cross-object transactional batch (framework #3794). Its
+   * Same, for the cross-object transactional batch (objectstack-ai/objectstack#3794). Its
    * response hangs the events off a top-level `droppedFields` list, each tagged
    * with the `index` of the operation it came from — `results` entries are bare
    * record echoes with nowhere to hang a per-row list.
@@ -3570,7 +3668,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     for (const entry of dropped) {
       // Same gate as the single-record path, so the two agree on what an entry
       // even is. The remaining cast adds only `index`, which this loop reads
-      // and the gate has no opinion about (objectui#4934, objectui#6889).
+      // and the gate has no opinion about (objectui#4934, `f75810e7c`).
       if (!isWireDroppedFieldsEntry(entry)) continue;
       const e = entry as WireDroppedFieldsEntry & { index?: number };
       const op = typeof e.index === 'number' ? operations[e.index] : undefined;
@@ -3599,7 +3697,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
           : undefined;
       // `object`, `fields` and `reason` are parsed here too — the batch path
       // used to re-assert all three into the union via the cast above
-      // (objectui#4934, objectui#6889). `index` is deliberately not carried onto
+      // (objectui#4934, `f75810e7c`). `index` is deliberately not carried onto
       // the notice: it addresses an operation in THIS response, not the strip,
       // which is why the entry is rebuilt rather than spread.
       const [live] = withoutNoOpDrops(
@@ -3633,7 +3731,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
 
   /**
    * Subscribe to write-warning events (a create/update dropped caller-supplied
-   * fields — #3431/#3455). Returns an unsubscribe function. The app shell uses
+   * fields — objectstack-ai/objectstack#3431 / objectstack-ai/objectstack#3455). Returns an unsubscribe function. The app shell uses
    * this to toast the user; the write itself already succeeded.
    */
   onWriteWarning(callback: WriteWarningListener): () => void {
@@ -3648,7 +3746,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * advisory findings on a save that SUCCEEDED (#4237; backend
    * objectstack#7435). Returns an unsubscribe function.
    *
-   * Deliberately the same seam as {@link onWriteWarning} (#3431/#3455), which
+   * Deliberately the same seam as {@link onWriteWarning} (objectstack-ai/objectstack#3431 / objectstack-ai/objectstack#3455), which
    * is what {@link MetadataSaveAdvisoryEvent}'s own declaration already said it
    * was modelled on. It is a SIBLING of that channel rather than a second
    * payload pushed down it: `WriteWarningEvent` is a closed shape whose
@@ -3853,7 +3951,9 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         data,
         opts?.ifMatch ? { ifMatch: opts.ifMatch } : undefined,
       );
-      this.emitMutation({ type: 'update', resource, id, record: { ...result.record } });
+      // String, as sent on the wire above (objectui#10078): the event states
+      // the protocol id, whatever this method's wider parameter admitted.
+      this.emitMutation({ type: 'update', resource, id: String(id), record: { ...result.record } });
       this.notifyDroppedFields('update', resource, result, id, data as Record<string, unknown>);
       return result.record;
     } catch (err) {
@@ -3892,7 +3992,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       // stale — and this method, declared `Promise<boolean>`, actually resolved
       // `undefined`. Following the rename is what restores both.
       if (result.success) {
-        this.emitMutation({ type: 'delete', resource, id });
+        this.emitMutation({ type: 'delete', resource, id: String(id) });
       }
       return result.success;
     } catch (err) {
@@ -4021,25 +4121,25 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * @returns Promise resolving to array of results
    */
   /**
-   * Cross-object transactional batch (ObjectStack #1604 / ADR-0034 item 4).
+   * Cross-object transactional batch (objectstack-ai/objectstack#1604 / ADR-0034 item 4).
    * Runs the operations in ONE server transaction — commit all or roll back
    * all. A field value of `{ $ref: <earlier op index> }` resolves to that op's
    * created id, so a child can reference its parent created earlier in the same
    * batch (master-detail).
    *
    * Transport: the published `@objectstack/client` SDK method
-   * `data.batchTransaction` (framework #3271; shipped since client v16, our
+   * `data.batchTransaction` (objectstack-ai/objectstack#3271; shipped since client v16, our
    * dependency floor). Per AGENTS.md §7 data always flows through the client —
    * never a hand-rolled `fetch('/api/v1/batch')`.
    *
-   * Fallback decision — declarative capability negotiation (framework #3298 /
+   * Fallback decision — declarative capability negotiation (objectstack-ai/objectstack#3298 /
    * objectui #2693). At connect() we read `capabilities.transactionalBatch`
    * from discovery:
    *   - Declared `true` → the backend GUARANTEES atomicity (declared ===
    *     enforced). We TRUST it: any batch failure — including 404/405/501 —
    *     surfaces as a real error. No non-atomic client-side compensation. This
    *     is the path modern backends take.
-   *   - Declared `false`, or ABSENT (backend predates #3298) → we can't rely on
+   *   - Declared `false`, or ABSENT (backend predates objectstack-ai/objectstack#3298) → we can't rely on
    *     server atomicity, so we keep the legacy behaviour: on 404/405 (no
    *     endpoint) or 501 (runtime without transactions) degrade to the
    *     client-side, NON-atomic {@link emulateBatchTransaction} so a save is
@@ -4050,13 +4150,13 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   async batchTransaction(
     operations: BatchTransactionOperation[],
   ): Promise<{ results: any[] }> {
-    // Ensure discovery (and thus the #3298 capability) is loaded so the
+    // Ensure discovery (and thus the objectstack-ai/objectstack#3298 capability) is loaded so the
     // decision below is declarative, not "fire a batch and read the status".
     await this.connect();
 
     // When the backend declares atomic batch support we never degrade: a
     // failure is a real error, not a cue to fall back. Otherwise (declared
-    // false, or capability absent on a pre-#3298 backend) the emulation
+    // false, or capability absent on a pre-objectstack-ai/objectstack#3298 backend) the emulation
     // fallback below stays active.
     const guaranteed = this.atomicBatchCapability === true;
 
@@ -4068,7 +4168,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
 
     try {
       // Typed SDK method — guaranteed present by the `@objectstack/client@^16`
-      // dependency floor (framework #3271). No hand-rolled POST /api/v1/batch.
+      // dependency floor (objectstack-ai/objectstack#3271). No hand-rolled POST /api/v1/batch.
       const payload = await this.client.data.batchTransaction(operations);
       this.emitBatchMutations(operations, payload?.results);
       this.notifyBatchDroppedFields(operations, payload);
@@ -4512,7 +4612,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     const records = resultObj.records || resultObj.value || [];
     const total = resultObj.total ?? resultObj.count ?? records.length;
     // Prefer the server's `hasMore` (real server-side pagination, framework
-    // issue #2212). Fall back to the page-local estimate (a full page implies
+    // issue objectstack-ai/objectstack#2212). Fall back to the page-local estimate (a full page implies
     // there may be more) only when the server doesn't report it.
     const hasMore = typeof resultObj.hasMore === 'boolean'
       ? resultObj.hasMore
@@ -4788,7 +4888,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       // Use cache with automatic fetching. The cache is keyed by object name
       // only (locale-independent); a language switch wipes it wholesale via
       // `clearCache()` so the next read re-fetches in the new locale — see the
-      // shell's locale remount (issue #1319). Keeping the key locale-free here
+      // shell's locale remount (issue objectstack-ai/objectstack#1319). Keeping the key locale-free here
       // means a metadata *write* still invalidates the single entry it knows
       // about, without having to fan out across every cached locale.
       // Read through a cache-revalidating fetch (see fetchObjectSchemaFresh):
@@ -5336,7 +5436,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * ⛔ The RETURN is untouched. This method has answered `Promise<any[]>`, never
    * throwing, since `@object-ui/data-objectstack@17.1.0`; a consumer that reads
    * nothing new sees exactly what it saw before, including on the loud arms.
-   * Applying framework #13906 decision 1 option A — *a thing that could not be
+   * Applying framework objectstack#13906 decision 1 option A — *a thing that could not be
    * READ is not a thing that is ABSENT* — is done by ADDING a channel, not by
    * moving that contract.
    */
@@ -5384,8 +5484,9 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         // inlineEdit — written by `updateViewConfig`) are NOT saved views:
         // returning one here is what let a system view's override row read
         // back as user-created and gain Rename/Delete/Set-default/Pin
-        // (objectui#4227). Marked rows and the best-effort legacy shape are
-        // both excluded — see {@link isPersonalizationOverlayRow}.
+        // (objectui#4227). Only a row carrying the marker is excluded: the
+        // shape guess that also caught unmarked flat rows is retired
+        // (objectui#10210, ruling B) — see {@link isPersonalizationOverlayRow}.
         if (isPersonalizationOverlayRow(v, spec)) return false;
         return true;
       }).map((v: any) => {
@@ -5451,7 +5552,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
 
   /**
    * List registered import `mapping` artifacts targeting a given object
-   * (framework #2611). Reads the `mapping` metadata kind via the overlay API
+   * (objectstack-ai/objectstack#2611). Reads the `mapping` metadata kind via the overlay API
    * and filters by `targetObject` client-side (the metadata index is
    * name-only). Feeds the import wizard's "saved mapping" selector.
    *
@@ -5478,7 +5579,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * ⛔ The RETURN is untouched. This method has answered `Promise<any[]>`, never
    * throwing, since `@object-ui/data-objectstack@17.1.0`; a consumer that reads
    * nothing new sees exactly what it saw before, including on the loud arms.
-   * Applying framework #13906 decision 1 option A — *a thing that could not be
+   * Applying framework objectstack#13906 decision 1 option A — *a thing that could not be
    * READ is not a thing that is ABSENT* — is done by ADDING a channel, not by
    * moving that contract.
    */
@@ -5810,7 +5911,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    *
    * The maintainer ruling (2026-08-12) put the answer on the BY-NAME route
    * rather than in the list, so the enumeration surface is not widened past what
-   * a by-name probe already implies (objectstack#8013 / PR #8135): an app that
+   * a by-name probe already implies (objectstack#8013 / PR objectstack-ai/objectstack#8135): an app that
    * exists and whose `requiredPermissions` the session lacks answers `403` with
    * `PERMISSION_DENIED` in the declared envelope, and absence — a nonexistent
    * name, an unpublished app, an app gated by an absent optional service — is
@@ -5939,7 +6040,8 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * Uses `this.client.analytics.query()` from @objectstack/client to leverage
    * the SDK's built-in auth, headers, and fetch configuration.
    * Falls back to client-side aggregation via find() if the analytics endpoint
-   * is not available.
+   * is not available. Throws {@link AnalyticsResultShapeError} when it answers
+   * with anything but an `AnalyticsResult` carrying `rows`.
    */
   async aggregate(resource: string, params: any): Promise<any[]> {
     await this.connect();
@@ -5968,7 +6070,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         assertSpecShapeWhereIsFilterAst(params.where, resource);
         queryAst.where = params.where;
       }
-      // The other half of the same ruling — objectui#6864. `where` above is the
+      // The other half of the same ruling — `503cd8b89`. `where` above is the
       // key this branch DOES read and refuses when unlowered; `filter`, `field`
       // and `function` are the analytics branch's keys, which this branch reads
       // not at all and used to drop without a word. Same disposition, applied to
@@ -6048,32 +6150,19 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
 
       const contractResult = await this.client.analytics.query(payload);
 
-      // `client.analytics.query` resolved to `Promise<any>` at
-      // `@objectstack/client` 17.2.0 and resolves to `Promise<AnalyticsResult>`
-      // at 17.3.0, so the pre-envelope branches below stopped type-checking the
-      // moment the family moved. The client's own docblock states the runtime
-      // change that produced the narrower type: "BREAKING since #13079 - read
-      // `result.rows`, not `result.data.rows`; the method used to resolve to the
-      // whole envelope."
-      //
-      // Those branches are READ THROUGH a widened alias here rather than
-      // deleted, and the distinction is deliberate: deleting them is a runtime
-      // compatibility decision about servers older than #13079, NOT a type
-      // repair, and it belongs to whoever owns that decision. This alias
-      // restores exactly the compile-time latitude 17.2.0's `Promise<any>` gave
-      // the same expression and changes no runtime byte of it. When the
-      // compatibility question is ruled, the branches go and the alias goes
-      // with them - it exists only to keep a decision from being made by a
-      // build error.
-      const data = contractResult as AnalyticsResult &
-        Partial<Record<'data' | 'results', any>>;
-
-      const rawRows: any[] = Array.isArray(data) ? data
-        : data?.rows && Array.isArray(data.rows) ? data.rows
-        : data?.data && Array.isArray(data.data) ? data.data
-        : data?.data?.rows && Array.isArray(data.data.rows) ? data.data.rows
-        : data?.results && Array.isArray(data.results) ? data.results
-        : [];
+      // ONE spelling: `rows` on the post-unwrap `AnalyticsResult`, which is
+      // what `client.analytics.query` resolves to since `@objectstack/client`
+      // 17.3.0 converged it on `unwrapResponse` (objectstack#13079). The
+      // ruling on that card ordered this read tightened in the same wave
+      // (objectui#7028); the question the previous ladder deferred was which
+      // SDK it still had to read for, and it was never a server question —
+      // every 17.x server answers the same `{ success, data }` envelope, and
+      // only the client decides whether it is unwrapped. Any other shape
+      // throws instead of degrading to `[]`: see `AnalyticsResultShapeError`.
+      if (!Array.isArray(contractResult?.rows)) {
+        throw new AnalyticsResultShapeError(resource, contractResult);
+      }
+      const rawRows = contractResult.rows;
 
       // Defensive guard: if the backend silently dropped the requested measure
       // (e.g. it doesn't recognise the `${field}_${function}` alias and the
@@ -6104,6 +6193,11 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         return mapped;
       });
     } catch (e) {
+      // Raised by the row read above, not by the transport: analytics answered
+      // with a shape this adapter does not read, so there is no failure for
+      // the classifier to route and no fallback that would be honest.
+      if (e instanceof AnalyticsResultShapeError) throw e;
+
       const failure = classifyAnalyticsFailure(e);
 
       // The server refused OUR body — that is a defect in this adapter's
@@ -6155,6 +6249,40 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       // so RLS still applies.
       return await this.aggregateViaFind(resource, params);
     }
+  }
+
+  /**
+   * Answer a grouped list view's GROUP HEADER query (objectui#7189) — see
+   * `DataSource.queryGroupHeaders` in `@object-ui/types` for the contract.
+   *
+   * The compiled query rides the platform's EXISTING data door verbatim:
+   * `client.data.query()` posts it to `POST /data/:object/query`, whose
+   * `findData` routes a body carrying `groupBy` / `aggregations` to
+   * `engine.aggregate` and answers the header rows as `records` (the door the
+   * spec half of objectstack#14556 names, pinned platform-side by
+   * objectstack#15330). No new route, no new wire shape.
+   *
+   * ⛔ No fallback, deliberately — unlike {@link aggregate}. A header query that
+   * degraded to bucketing a fetched page would answer page slices under a name
+   * that promises the query's own numbers, which is the defect this member
+   * exists to end. A failure is thrown to the caller, and a body without a
+   * `records` array is refused rather than read as "no groups".
+   */
+  async queryGroupHeaders(
+    resource: string,
+    query: EngineAggregateOptions,
+  ): Promise<ListViewGroupHeaderRow[]> {
+    await this.connect();
+    const result: unknown = await this.client.data.query(resource, query as any);
+    const records = (result as { records?: unknown } | null)?.records;
+    if (!Array.isArray(records)) {
+      throw new Error(
+        `queryGroupHeaders('${resource}'): POST /data/${resource}/query answered without a `
+        + '`records` array, so no group header can be read from it. The header query was '
+        + 'sent verbatim; nothing was approximated from a page of rows.',
+      );
+    }
+    return records as ListViewGroupHeaderRow[];
   }
 
   /**
@@ -6371,6 +6499,19 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       //    for or against the capability being installed.
       if (errorCodeIs({ code: serverCode }, 'UNAUTHENTICATED')) {
         throw new AnalyticsUnauthenticatedError({ serverCode, serverMessage });
+      }
+
+      // ③a The request ran into a READ refusal: this user may not read an
+      //    object the dataset queries (403 `PERMISSION_DENIED`, the analytics
+      //    read admission — objectui#10899). Typed so a tile can render the
+      //    same localized "no access" state the list view does, instead of
+      //    the generic string below.
+      if (errorCodeIs({ code: serverCode }, 'PERMISSION_DENIED')) {
+        throw new AnalyticsForbiddenError({
+          serverCode,
+          serverMessage,
+          datasetName: requestedDatasetName,
+        });
       }
 
       // ④ Residual — the answer declared NO ADR-0112 code, so no ObjectStack

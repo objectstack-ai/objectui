@@ -44,7 +44,21 @@ const InputRenderer = ({ schema, className, onChange, value, disabled: hostDisab
       data-obj-type={dataObjType}
       style={style}
     >
-      {schema.label && <Label htmlFor={schema.id} className={cn(schema.required && "text-destructive after:content-['*'] after:ml-0.5")}>{schema.label}</Label>}
+      {schema.label && (
+        <Label htmlFor={schema.id} className={cn(schema.required && "text-destructive")}>
+          {schema.label}
+          {schema.required && (
+            // A real `aria-hidden` element, not CSS generated content: this
+            // label names the input, and `::after` content enters the
+            // accessible name ("Title*") where `aria-hidden` cannot reach it
+            // (objectui#10368; the full note is on `FieldContainer`). The
+            // required STATE is the input's native `required` below.
+            <span className="ml-0.5 text-destructive" data-required-marker="true" aria-hidden="true">
+              *
+            </span>
+          )}
+        </Label>
+      )}
       <Input 
         type={schema.inputType || 'text'} 
         id={schema.id} 

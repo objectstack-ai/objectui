@@ -176,6 +176,10 @@ describe('bodyShape reaches the wire, end to end', () => {
 
   const sentBody = () => JSON.parse((global.fetch as any).mock.calls[0][1].body);
 
+  // The stand-in for user-collected values is authored as `properties.params`,
+  // the node's static-values channel (objectui#10289, ruling A): a node-level
+  // `params` object is not read by `action:button` at all.
+
   it('wraps the payload under the declared key', async () => {
     // No custom `api` handler on purpose: the click travels the whole chain —
     // renderer whitelist, then the runner's own executeAPI body assembly — so the
@@ -190,7 +194,7 @@ describe('bodyShape reaches the wire, end to end', () => {
             label: 'Save organization',
             target: '/api/v1/auth/organization/update',
             method: 'POST',
-            params: { name: 'Acme Inc', slug: 'acme' },
+            properties: { params: { name: 'Acme Inc', slug: 'acme' } },
             bodyShape: { wrap: 'data' },
           }}
         />
@@ -218,7 +222,7 @@ describe('bodyShape reaches the wire, end to end', () => {
             label: 'Save organization',
             target: '/api/v1/auth/organization/update',
             method: 'POST',
-            params: { name: 'Acme Inc' },
+            properties: { params: { name: 'Acme Inc' } },
             bodyExtra: { organizationId: 'org_1' },
             bodyShape: { wrap: 'data' },
           }}
@@ -248,7 +252,7 @@ describe('bodyShape reaches the wire, end to end', () => {
             label: 'Close order',
             target: '/api/v1/order/close',
             method: 'PATCH',
-            params: { note: 'from the user' },
+            properties: { params: { note: 'from the user' } },
             bodyExtra: { status: 'closed' },
           }}
         />

@@ -16,7 +16,7 @@
 
 import * as React from 'react';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
-import { t } from '../i18n.js';
+import { t, tFormat } from '../i18n.js';
 import {
   InspectorShell,
   InspectorTextField,
@@ -29,7 +29,9 @@ import {
 import { Label } from '@object-ui/components';
 import { edgeKey, conditionText } from '../previews/flow-canvas-layout.js';
 import { validateExpressionClient } from './expression-validate.js';
-import { useFlowScope } from './useFlowScope.js';
+import { useEdgeScope } from './useFlowScope.js';
+import { hasCommittedConnectorAction } from './flow-scope.js';
+import { useConnectorRegistry } from './connector-input-fields.js';
 import { VariableTextInput } from './VariableTextInput.js';
 import { findUnknownRefs, scopeRoots, describeUnknownRefs } from './flow-ref-check.js';
 import { writeExpressionSource } from './expression-envelope.js';
@@ -64,9 +66,15 @@ export function FlowEdgeInspector({ selection, draft, onPatch, onClearSelection,
   const edges = Array.isArray((draft as any).edges) ? ((draft as any).edges as FlowDesignerEdge[]) : [];
   const index = edges.findIndex((e, i) => edgeKey(e, i) === selection.id);
   const edge = index >= 0 ? edges[index] : null;
-  // References available on this edge are those in scope at its SOURCE node
-  // (#1934). Called unconditionally — `edge?.source` is undefined when missing.
-  const { groups: scopeGroups } = useFlowScope(draft as Record<string, unknown>, edge?.source);
+  // The runtime connector registry, read only when the flow holds a committed
+  // `connector_action` node, so the guard's scope offers that action's declared
+  // output keys (objectui#11028).
+  const connectors = useConnectorRegistry(hasCommittedConnectorAction(draft as Record<string, unknown>));
+  // References available on this edge: those in scope at its SOURCE node
+  // (#1934) plus the source's own outputs, which the engine has written by the
+  // time it evaluates this guard (objectui#11085). Called unconditionally — a
+  // missing edge resolves the flow variables alone.
+  const { groups: scopeGroups } = useEdgeScope(draft as Record<string, unknown>, edge, connectors);
 
   if (!edge) {
     return (
@@ -187,11 +195,13 @@ export function FlowEdgeInspector({ selection, draft, onPatch, onClearSelection,
           options={[
             ...branches.map((b, i) => {
               const expr = branchExpr(b);
-              const nm = branchName(b) || `Branch ${i + 1}`;
-              const suffix = expr === '' || expr === 'true' ? ' \u00b7 default' : ` \u00b7 ${expr}`;
+              const nm = branchName(b) || tFormat('engine.flowRegion.branchN', locale, { n: i + 1 });
+              const suffix = expr === '' || expr === 'true'
+                ? ` \u00b7 ${t('engine.inspector.flowEdge.branchDefault', locale)}`
+                : ` \u00b7 ${expr}`;
               return { value: String(i), label: `${nm}${suffix}` };
             }),
-            { value: '', label: '\u2014 Custom \u2014' },
+            { value: '', label: t('engine.inspector.flowEdge.branchCustom', locale) },
           ]}
           onCommit={applyBranch}
           disabled={readOnly}
@@ -242,7 +252,7 @@ export function FlowEdgeInspector({ selection, draft, onPatch, onClearSelection,
       {(() => {
         // ADR-0032 — flag a malformed edge guard (e.g. `{record.x}` brace-in-CEL)
         // inline, with the same corrective message as build/agent validation.
-        const issue = isDefault ? null : validateExpressionClient('predicate', edge.condition);
+        const issue = isDefault ? null : validateExpressionClient('predicate', edge.condition, locale);
         if (issue) {
           return (
             <p className="text-[11px] leading-snug text-destructive" role="alert">
@@ -250,8 +260,8 @@ export function FlowEdgeInspector({ selection, draft, onPatch, onClearSelection,
             </p>
           );
         }
-        // #1934 — gentle scope-aware "unknown reference" warning (refs in scope
-        // at the edge's SOURCE node), once the guard is structurally valid.
+        // #1934 — gentle scope-aware "unknown reference" warning (the edge's
+        // scope, above), once the guard is structurally valid.
         const unknown = isDefault
           ? []
           : findUnknownRefs(conditionText(edge.condition), 'predicate', scopeRoots(scopeGroups.flatMap((g) => g.refs)));

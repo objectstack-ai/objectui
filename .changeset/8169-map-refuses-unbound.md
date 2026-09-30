@@ -13,7 +13,7 @@ binding renders
 > Map configuration required — declare `map.locationField` or `map.latitudeField` + `map.longitudeField`
 
 in place of the map, instead of painting an empty one. The principle behind
-objectui#7070 (date axes are never invented) and objectui#5953 (a marker title is never
+the 2026-09-01 date-axis ruling (date axes are never invented) and objectui#5953 (a marker title is never
 forged) now covers coordinates as well: bindings are never fabricated, and an unbound
 surface refuses.
 

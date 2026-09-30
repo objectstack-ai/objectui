@@ -140,7 +140,7 @@ const ARIA_KEY_ALIASES: Record<string, string> = {
  * A visualization `ListView` actually draws — one member per `case` in its
  * `viewComponentSchema` switch (`packages/plugin-list/src/ListView.tsx`).
  *
- * DERIVED from {@link ViewType} (objectui#8127), which is itself derived from
+ * DERIVED from {@link ViewType} (`ca3942729`), which is itself derived from
  * `@objectstack/spec/ui` `ListView['type']`. Spelled as an `Exclude` of the
  * members this renderer does not draw rather than as the spec's own
  * `VisualizationType`, deliberately: `Exclude` leaves the SPEC's list as the
@@ -153,7 +153,7 @@ const ARIA_KEY_ALIASES: Record<string, string> = {
  * ⭐ What it subtracts is {@link UndrawableViewKind} — the keys of
  * {@link UNDRAWABLE_VIEW_KINDS} the current `ViewType` still carries — and
  * never a literal list of kinds (objectui#9880). A literal list is a second
- * hand-written copy of the vocabulary, the failure class objectui#8127 removed
+ * hand-written copy of the vocabulary, the failure class `ca3942729` removed
  * from `ViewType` itself, and it rots in the direction the spec actually moved:
  * `Exclude<ViewType, 'list' | 'detail' | 'page'>` kept subtracting `'page'`
  * after objectstack RETIRED it, where `Exclude` of a non-member is a silent
@@ -174,7 +174,7 @@ export type ListViewVisualization = Exclude<ViewType, UndrawableViewKind>;
  * union fails the build HERE instead of silently staying unreadable authored
  * input.
  *
- * ⚠️ That promise was FALSE between `@objectstack/spec@17.3.0` and objectui#8127.
+ * ⚠️ That promise was FALSE between `@objectstack/spec@17.3.0` and `ca3942729`.
  * `ViewType` was a hand-written copy of the spec's list, so this map was total
  * over the copy and compiled green while the spec's `page` had nowhere to land.
  * Both faces are derived now, and the two totality structures below close the
@@ -216,7 +216,8 @@ const LIST_VIEW_KINDS: Record<ListViewVisualization, true> = {
  * the literal EXACT in BOTH directions: a kind the spec adds is a missing key
  * (wanted) and a kind the spec RETIRES is an EXCESS PROPERTY — a TS2353 that
  * demands a deletion this repository cannot make while it resolves a published
- * spec which still carries the kind. `satisfies` keeps the value constraint
+ * spec which still carries the kind (as it did with `page` through 17.4.0).
+ * `satisfies` keeps the value constraint
  * (every reason is a `string` or `null`) and drops the exactness, which is what
  * lets one spelling compile against both the pinned published spec and one
  * built from objectstack `main`.
@@ -226,19 +227,18 @@ const LIST_VIEW_KINDS: Record<ListViewVisualization, true> = {
  *  - `list` is the view CATEGORY, not a kind — it already folds to `grid`.
  *  - `detail` is a different renderer (`plugin-detail`), never a ListView case.
  *
- * ⚠️ `page` is a RETIRED spec kind and is kept on purpose. objectstack#17063
- * removed `type: 'page'` from the list-view enum, and until this repository's
- * `@objectstack/spec` resolution moves onto a release carrying that removal an
- * author can still write one, so this table still has to answer for it. Once
- * the resolution moves, `Extract` stops extracting the row and it becomes inert
- * of its own accord — deletable, on the day the residual pins that hold it
- * (`normalize-list-view.pageResidual-8429.test.ts`) are converted, and not
- * before.
+ * `page` had a row here until objectui#11073. objectstack#17063 removed
+ * `type: 'page'` from the list-view enum, and the row answered for it while this
+ * repository still resolved a spec that published the kind. `@objectstack/spec`
+ * 17.5.0 carries the removal: both published `@object-ui/types` faces refuse
+ * `page`, `Extract` no longer extracted the row, and the residual pins that held
+ * it (`normalize-list-view.pageResidual-8429.test.ts`) were converted, so it was
+ * deleted as it said it would be. A stored `page` view now degrades like any
+ * kind outside the vocabulary.
  */
 const UNDRAWABLE_VIEW_KINDS = {
   list: null,
   detail: null,
-  page: 'it mounts a published page (bound through `pageName`) in place of rows, which this renderer has no branch for',
 } satisfies Record<string, string | null>;
 
 /**
@@ -248,9 +248,10 @@ const UNDRAWABLE_VIEW_KINDS = {
  * `Extract` over the table's keys, not the table's raw `keyof`, is the load-
  * bearing operator (objectui#9880): the table may carry a row for a kind the
  * spec has since RETIRED, and `Extract` drops that row from the TYPE without
- * the table having to lose it at runtime. That is what makes one spelling
- * correct against both the pinned published spec (which still publishes `page`)
- * and a spec built from objectstack `main` (which retired it).
+ * the table having to lose it at runtime. That is what made one spelling
+ * correct against both the published spec (which published `page` through
+ * 17.4.0) and a spec built from objectstack `main` (which retired it), and what
+ * made the row's deletion at 17.5.0 a plain deletion (objectui#11073).
  */
 type UndrawableViewKind = Extract<ViewType, keyof typeof UNDRAWABLE_VIEW_KINDS>;
 
@@ -261,7 +262,7 @@ const warnedUndrawableKinds = new Set<string>();
  * Fail-open is **loud**, not silent — the convention this repo already applies
  * to unevaluable predicates (`../evaluator/fieldRules.ts`, objectstack#5149).
  *
- * The bug objectui#8127 records is not only that `type: 'page'` degrades to a
+ * The bug `ca3942729` records is not only that `type: 'page'` degrades to a
  * grid; it is that it degrades IDENTICALLY to a typo. Measured on `5505aec`,
  * `specType: 'page'` and `specType: 'nonsense'` both left `viewType: 'grid'`
  * with no error, no warning and no console line — and `@object-ui/types`'
@@ -292,7 +293,7 @@ function warnUndrawableViewKind(kind: string): void {
  * Exported so a read site cannot restate the membership question as its own
  * literal array: the gate and the seam must answer one question, which is the
  * rule this file's own `availableViews` notes already argue for (objectui#5042,
- * objectui#7544, and now objectui#8127).
+ * objectui#7544, and now `ca3942729`).
  */
 export function isListViewVisualization(value: unknown): value is ListViewVisualization {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(LIST_VIEW_KINDS, value);
@@ -447,7 +448,13 @@ export function normalizeListViewSchema<T>(schema: T): T {
   const legacyFields = s.fields;
   const foldColumns = Array.isArray(legacyFields);
   const legacyDensity = s.densityMode;
-  const foldRowHeight = typeof legacyDensity === 'string' && legacyDensity in DENSITY_MODE_TO_ROW_HEIGHT;
+  // `hasOwnProperty`, not `in` — same trap as {@link rowHeightToDensityMode},
+  // in the fold direction: `in` walks the prototype chain, so `'toString'` used
+  // to fold into `rowHeight` as `Object.prototype.toString`, a FUNCTION, and
+  // drop the key (objectui#10868). An inherited key is an unrecognized density.
+  const foldRowHeight =
+    typeof legacyDensity === 'string' &&
+    Object.prototype.hasOwnProperty.call(DENSITY_MODE_TO_ROW_HEIGHT, legacyDensity);
   const legacyFilters = s.filters;
   const foldFilter = Array.isArray(legacyFilters);
   const legacyFlags = Object.keys(SHOW_FLAG_TO_USER_ACTION).filter((k) => typeof s[k] === 'boolean');

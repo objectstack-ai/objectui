@@ -270,11 +270,13 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
   // resolves it (`hideEmpty: s.hideEmpty ?? true` on the authored section),
   // because "the renderer default" in that describe() is the default of the
   // renderer the key is DECLARED on. This component also receives sections
-  // nobody could write the key on — the `record:details` direct-`fields`
-  // fallback body and the `detail-section` node both synthesize one, and
-  // neither surface declares `hideEmpty` — and hiding those would be a hide
-  // with no declarable spelling to ask the skeleton back, which is the exact
-  // defect upstream declared the key to fix. A truthiness test
+  // that default must not reach. The `record:details` direct-`fields`
+  // fallback body synthesizes one nobody could write the key on, and hiding
+  // it would be a hide with no declarable spelling to ask the skeleton back,
+  // which is the exact defect upstream declared the key to fix. The
+  // `detail-section` node declares `hideEmpty` (objectui#10485) but resolves
+  // no default of its own, so an omitted key keeps the skeleton there too and
+  // only an authored `true` hides. A truthiness test
   // (`!section.hideEmpty`) is banned for the mirror-image reason: it is what
   // made an authored `false` indistinguishable from unauthored before #7129.
   //
@@ -491,6 +493,12 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
               dataSource={dataSource}
               autoFocus={autoFocusField === field.name}
               error={serverFieldErrors?.[field.name]}
+              // The record a `dependsOn` field scopes itself by — the only
+              // channel it has (objectui#7190, objectui#7206). `DetailView`
+              // hands this section the saved record already merged with the
+              // inline draft, so a parent edited in this session re-scopes the
+              // child before anything is saved.
+              dependentValues={data}
             />
             {/* The SERVER's reason for refusing this field, in place
                 (objectui#6868). Published by `<InlineEditSaveBar>` onto the

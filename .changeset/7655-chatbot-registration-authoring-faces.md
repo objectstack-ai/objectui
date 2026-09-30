@@ -42,19 +42,19 @@ per key on the PR's base (one `schema.KEY` read per registration body in
   trailing raw props spread still carried authored keys into the panel —
   `processVisibility`, `surface` and `showAvatars` were live there, measured
   through the real host — and this face neither declared nor promised that
-  accidental channel, which was tracked as objectui#7708. That card has since
-  fenced the spread the way the two sibling registrations do, so those three keys
+  accidental channel, which was tracked on a card of its own. That card has since
+  fenced the spread (`d3499b315`) the way the two sibling registrations do, so those three keys
   are dark on `chatbot-floating` now; no member this face declares depended on
   the channel.)
 - Neither face declares `ChatbotSchema`'s six legacy members (`loading`,
   `showAvatars`, `userAvatar`, `assistantAvatar`, `markdown`, `height`) — no
   registration reads them by name — and neither redeclares `disabled`, which
-  stays `BaseSchema`'s `boolean | string` (objectui#7087).
+  stays `BaseSchema`'s `boolean | string` (`c93b4d5f3`).
 
 **`ChatbotSchema` is unchanged.** It keeps `displayMode` and `floatingConfig`
 (declarations verbatim), and the floating face declares the same two, so
 `ChatbotSchema['displayMode']` and `ChatbotSchema['floatingConfig']` stay the
-typed members they were — the objectui#7669 `triggerIcon` tombstone keeps its
+typed members they were — the `a3eb5d07a` `triggerIcon` tombstone keeps its
 reach on `chatbot` nodes, now pinned on the node. `floatingConfig`'s doc comment
 is rewritten on both faces: the old text said it was "only used when
 `displayMode` is `'floating'`", which was false — it is read by `chatbot-floating`
@@ -109,3 +109,10 @@ surface with two new node types, two new Zod twins and one new type alias;
 `ChatbotSchema`'s own accept set does not move: objectui's major is pinned to `@objectstack`'s
 (`scripts/check-changeset-no-major.mjs`), and objectui's own contract changes
 ship as `minor` with the semantics spelled out — as above.
+
+⚠️ **Dated note, 2026-09-27 — the shared census is nineteen keys, not twenty — objectui#5605.**
+Later in this same release `maxToolRoundtrips` is retired behind a tombstone: no
+registration reads it, so it leaves `ChatbotSharedKey`, and `ChatbotSchema` declares it
+instead as a `?: never` member that the other two faces pick by name, refused by name on
+the zod twins. The "twenty keys" above is kept as the reading of this change; the
+objectui#5605 retirement entry states what the three faces declare now.

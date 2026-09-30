@@ -24,7 +24,8 @@
  * below as the control.
  *
  * The guard shape matters, hence the third case. The flags are per-MODE
- * (`silent` → `refreshing`, otherwise `loading`), so a `finally` that clears
+ * (in place → `refreshing`, otherwise `loading`; a silent reload is always in
+ * place), so a `finally` that clears
  * only its own mode's flag when current leaks the other one: a silent reload
  * superseded by a non-silent one would never clear `refreshing`, leaving the
  * toolbar's refresh button stuck busy for the life of the component. What
@@ -54,26 +55,58 @@
  * been weakened — the orderings (stale-first, fresh-first), the flags and the
  * outcomes are the same. The `finally` guard itself is not modified by that
  * card or this one.
+ *
+ * ⚠️ …and it changed again with objectui#7237 (ruling A′). A filter change
+ * on a chart that has already PAINTED now refreshes in place: it sets
+ * `refreshing`, not `loading`, and never swaps in the placeholder. So "a
+ * toolbar refresh superseded by a filter change" no longer holds `loading` at
+ * all, and the cases that asserted the placeholder over it were asserting the
+ * teardown that ruling removed. The guard is unchanged; the pairs that still
+ * put each flag in play are these:
+ *
+ *   - `loading`: two NON-silent reloads, i.e. a query change BEFORE the first
+ *     paint (the mount's load superseded by it). Case 1.
+ *   - `refreshing` held by two runs: the toolbar refresh superseded by an
+ *     in-place filter change AFTER the paint. Case 1b, the post-paint twin of
+ *     case 1, and case 2, the fresh-first control.
+ *   - the mixed-mode pair case 3 needs (a silent run superseded by a
+ *     non-silent one): only before the first paint, where an invalidation
+ *     reload (silent) is overtaken by a query change (non-silent).
+ *
+ * Each assertion about the guard is kept, and each case still fails with the
+ * `finally` guard removed or narrowed to its own mode.
  */
 
 import React from 'react';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { notifyDataChanged } from '@object-ui/react';
 import { ObjectGantt } from './ObjectGantt';
 import type { DataSource } from '@object-ui/types';
 
+let instanceSeq = 0;
+
 // Probe stand-in: the real chart is irrelevant here, but `refreshing` is not —
-// case 3 reads it back off the DOM.
+// cases 1b and 3 read it back off the DOM. The instance id (a `useState`
+// initializer, once per mount) is what shows the post-paint pair stays in
+// place.
 vi.mock('./GanttView', () => ({
-  GanttView: ({ tasks, onRefresh, refreshing }: any) => (
-    <div data-testid="gantt-view" data-refreshing={String(!!refreshing)}>
-      {tasks.map((t: any) => (
-        <div key={t.id} data-testid="gantt-task">{t.title}</div>
-      ))}
-      <button data-testid="gv-refresh" onClick={() => onRefresh?.()}>refresh</button>
-    </div>
-  ),
+  GanttView: ({ tasks, onRefresh, refreshing }: any) => {
+    const [id] = React.useState(() => ++instanceSeq);
+    return (
+      <div data-testid="gantt-view" data-instance={id} data-refreshing={String(!!refreshing)}>
+        {tasks.map((t: any) => (
+          <div key={t.id} data-testid="gantt-task">{t.title}</div>
+        ))}
+        <button data-testid="gv-refresh" onClick={() => onRefresh?.()}>refresh</button>
+      </div>
+    );
+  },
 }));
+
+beforeEach(() => {
+  instanceSeq = 0;
+});
 
 const PLACEHOLDER = 'Loading Gantt chart...';
 
@@ -159,10 +192,11 @@ async function flush() {
 }
 
 /**
- * Bring the component to the state every case below needs: painted, then two
- * reloads in flight at once — a SILENT toolbar refresh (`finds[1]`, owns
- * `refreshing`) superseded by a non-silent filter-change reload (`finds[2]`,
- * owns `loading`).
+ * AFTER the paint: two reloads in flight at once — a SILENT toolbar refresh
+ * (`finds[1]`) superseded by an IN-PLACE filter-change reload (`finds[2]`).
+ * Both hold `refreshing` (objectui#7237: a query change on a painted chart
+ * refreshes in place), so this pair puts that flag in play, and the chart must
+ * stay mounted throughout.
  *
  * The mount issues exactly ONE `find` since objectui#7225's gate; that single
  * assertion is also this file's live control on the gate, because a
@@ -188,19 +222,35 @@ async function paintThenOverlap(
   await waitFor(() => expect((dataSource.find as any).mock.calls.length).toBe(3));
 }
 
+/**
+ * BEFORE the paint: the mount's load (`finds[0]`) superseded by a filter
+ * change (`finds[1]`). Nothing has painted, so both are the initial load and
+ * both hold `loading` — the pair that still puts the placeholder in play.
+ */
+async function overlapBeforePaint(
+  dataSource: DataSource,
+  rerender: (ui: React.ReactElement) => void,
+) {
+  await waitFor(() => expect((dataSource.find as any).mock.calls.length).toBe(1));
+  rerender(<ObjectGantt schema={schemaWith({ status: 'open' })} dataSource={dataSource} />);
+  await waitFor(() => expect((dataSource.find as any).mock.calls.length).toBe(2));
+}
+
+const refreshIndicator = () => screen.queryByTestId('refresh-indicator');
+
 describe('ObjectGantt — a superseded reload must not clear the loading state (objectui#7231)', () => {
   it('keeps the placeholder up when the STALE reload finishes first and the fresh one is still in flight', async () => {
     const { dataSource, finds } = makeDeferredDataSource();
 
     const { rerender } = render(<ObjectGantt schema={schemaWith()} dataSource={dataSource} />);
-    await paintThenOverlap(dataSource, finds, rerender);
+    await overlapBeforePaint(dataSource, rerender);
 
-    // The non-silent reload owns `loading`, so the placeholder is up and the
-    // chart is unmounted while both are in flight.
+    // Both reloads own `loading`, so the placeholder is up and the chart is
+    // not mounted while both are in flight.
     expect(screen.getByText(PLACEHOLDER)).toBeTruthy();
 
-    // The superseded (silent) reload answers first — the ordinary ordering.
-    await settle(finds[1], ROWS_A);
+    // The superseded reload answers first — the ordinary ordering.
+    await settle(finds[0], ROWS_A);
 
     // Its `finally` must NOT clear `loading`: the fresh query has not answered,
     // so releasing the placeholder here paints an empty chart.
@@ -208,11 +258,42 @@ describe('ObjectGantt — a superseded reload must not clear the loading state (
     expect(screen.queryByTestId('gantt-view')).toBeNull();
 
     // The current reload answers and owns the transition out of loading.
-    await settle(finds[2], ROWS_B);
+    await settle(finds[1], ROWS_B);
 
     await waitFor(() => expect(screen.getByTestId('gantt-view')).toBeTruthy());
     expect(screen.getByText('From the fresh query')).toBeTruthy();
     expect(screen.queryByText('From the stale query')).toBeNull();
+  });
+
+  it('keeps the refreshing state up when the STALE reload finishes first after the paint (the in-place twin)', async () => {
+    const { dataSource, finds } = makeDeferredDataSource();
+
+    const { rerender } = render(<ObjectGantt schema={schemaWith()} dataSource={dataSource} />);
+    await paintThenOverlap(dataSource, finds, rerender);
+    const mountedAs = screen.getByTestId('gantt-view').dataset.instance;
+
+    // Both reloads are in place: no placeholder, the chart stays mounted, and
+    // the refreshing state is up.
+    expect(screen.queryByText(PLACEHOLDER)).toBeNull();
+    expect(screen.getByTestId('gantt-view').getAttribute('data-refreshing')).toBe('true');
+    expect(refreshIndicator()).not.toBeNull();
+
+    // The superseded (silent) reload answers first.
+    await settle(finds[1], ROWS_A);
+
+    // Its `finally` must NOT clear `refreshing`: the changed query has not
+    // answered, so dropping the refreshing state here passes the previous
+    // query's rows off as the answer to the new one.
+    expect(screen.getByTestId('gantt-view').getAttribute('data-refreshing')).toBe('true');
+    expect(refreshIndicator()).not.toBeNull();
+
+    await settle(finds[2], ROWS_B);
+
+    await waitFor(() => expect(screen.getByText('From the fresh query')).toBeTruthy());
+    expect(screen.getByTestId('gantt-view').getAttribute('data-refreshing')).toBe('false');
+    expect(refreshIndicator()).toBeNull();
+    expect(screen.getByTestId('gantt-view').dataset.instance).toBe(mountedAs);
+    expect(screen.queryByText(PLACEHOLDER)).toBeNull();
   });
 
   it('control — the fresh reload finishing FIRST paints its rows, and the late stale answer changes nothing', async () => {
@@ -224,11 +305,10 @@ describe('ObjectGantt — a superseded reload must not clear the loading state (
     // Out-of-order: the current reload answers before the superseded one.
     await settle(finds[2], ROWS_B);
 
-    await waitFor(() => expect(screen.getByTestId('gantt-view')).toBeTruthy());
-    expect(screen.getByText('From the fresh query')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('From the fresh query')).toBeTruthy());
 
     // The late stale answer must neither clobber the data (the pre-existing
-    // `setData` guard) nor put the placeholder back.
+    // `setData` guard) nor put the placeholder or the refreshing state back.
     await settle(finds[1], ROWS_A);
     await flush();
 
@@ -236,13 +316,23 @@ describe('ObjectGantt — a superseded reload must not clear the loading state (
     expect(screen.getByText('From the fresh query')).toBeTruthy();
     expect(screen.queryByText('From the stale query')).toBeNull();
     expect(screen.queryByText(PLACEHOLDER)).toBeNull();
+    expect(screen.getByTestId('gantt-view').getAttribute('data-refreshing')).toBe('false');
   });
 
   it('does not strand `refreshing` when a SILENT reload is superseded by a non-silent one', async () => {
     const { dataSource, finds } = makeDeferredDataSource();
 
     const { rerender } = render(<ObjectGantt schema={schemaWith()} dataSource={dataSource} />);
-    await paintThenOverlap(dataSource, finds, rerender);
+    // Before the paint: the mount's load (`finds[0]`, `loading`), then an
+    // invalidation for the object (`finds[1]`, silent, `refreshing`), then a
+    // filter change (`finds[2]`, the initial load again, `loading`).
+    await waitFor(() => expect((dataSource.find as any).mock.calls.length).toBe(1));
+    await act(async () => {
+      notifyDataChanged({ objectName: 'tasks' });
+    });
+    await waitFor(() => expect((dataSource.find as any).mock.calls.length).toBe(2));
+    rerender(<ObjectGantt schema={schemaWith({ status: 'open' })} dataSource={dataSource} />);
+    await waitFor(() => expect((dataSource.find as any).mock.calls.length).toBe(3));
 
     expect(screen.getByText(PLACEHOLDER)).toBeTruthy();
 
@@ -250,13 +340,20 @@ describe('ObjectGantt — a superseded reload must not clear the loading state (
     await settle(finds[1], ROWS_A);
     expect(screen.getByText(PLACEHOLDER)).toBeTruthy();
 
-    // The current reload answers. Nothing is in flight any more, so BOTH flags
-    // must be honest — a guard that only cleared `loading` here would leave the
-    // refresh button spinning forever.
+    // The current reload answers. Nothing current is in flight any more, so
+    // BOTH flags must be honest — a guard that only cleared `loading` here
+    // would leave the refreshing state up for the life of the component.
     await settle(finds[2], ROWS_B);
 
     await waitFor(() => expect(screen.getByTestId('gantt-view')).toBeTruthy());
     expect(screen.getByTestId('gantt-view').getAttribute('data-refreshing')).toBe('false');
+    expect(refreshIndicator()).toBeNull();
     expect(screen.getByText('From the fresh query')).toBeTruthy();
+
+    // The mount's own load, superseded twice, answering last changes nothing.
+    await settle(finds[0], ROWS_A);
+    await flush();
+    expect(screen.getByText('From the fresh query')).toBeTruthy();
+    expect(screen.getByTestId('gantt-view').getAttribute('data-refreshing')).toBe('false');
   });
 });

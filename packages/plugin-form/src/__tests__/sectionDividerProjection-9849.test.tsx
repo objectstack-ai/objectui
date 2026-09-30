@@ -44,24 +44,25 @@
  *  2. `absence controls` — the same six arms with NO `description` draw their
  *     heading and no blurb, so the instrument block 1 uses is one that CAN
  *     report none.
- *  3. `the residual, recorded as readings ⛔ not rulings` — what the six arms
- *     still disagree about after the convergence: whether a divider row exists
- *     at all for a member that yields no heading. Every way of collapsing that
- *     disagreement moves the ADR-0089 `visibleWhen` predicate or the
- *     objectui#6236 membership claim off a row that carries them today, so it
- *     is handed back rather than decided — `SectionDividerGate` in
- *     `fieldGroups.ts` carries the argument. Pinned so the difference is a
- *     recorded fact rather than something rediscovered later.
- *  4. `reachability` — ⭐ a measurement that narrows the hand-back: on the
- *     DERIVED route the gate divergence is not author-reachable at all, because
+ *  3. `one row rule on every arm` — director ruling letter E (maintainer
+ *     「同意」) deleted the per-arm gate union this block used to record as
+ *     readings. Every explicit arm now answers a headingless member the same
+ *     way: `description` alone draws the blurb-only row; neither draws no
+ *     visible row; and in both cases the group's ADR-0089 predicate and
+ *     objectui#6236 membership claim still gate the group — through the
+ *     blurb-only row, or through a chrome-less gate row when there is no
+ *     row to draw.
+ *  4. `reachability` — on the DERIVED route a headingless group is not
+ *     author-reachable at all, because
  *     `deriveFieldGroupSections` defaults a group's label to its key, so a
- *     declared group always yields a heading. The author-reachable half of the
- *     residual is the EXPLICIT-sections route only.
+ *     declared group always yields a heading. The author-reachable headingless
+ *     member lives on the EXPLICIT-sections routes only.
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, waitFor, cleanup } from '@testing-library/react';
 import React from 'react';
+import { PredicateScopeProvider } from '@object-ui/react';
 import { registerAllFields } from '@object-ui/fields';
 import { ObjectForm } from '../ObjectForm';
 import { ModalForm } from '../ModalForm';
@@ -70,6 +71,14 @@ import { DrawerForm } from '../DrawerForm';
 registerAllFields();
 
 const BLURB = 'Totals as invoiced';
+
+/** The predicate scope the next `mounted` call binds, if any (block 3 only). */
+let currentScope: Record<string, unknown> | undefined;
+const scope = (positions: string[]) => {
+  const user = { id: 'u1', name: 'Kim', positions };
+  return { current_user: user, user, ctx: { user }, os: { user }, data: {}, features: {} };
+};
+const GATE = { dialect: 'cel', source: "'sales_manager' in current_user.positions" };
 
 /** Two plain fields; the explicit-sections routes curate them by name. */
 const OBJECT_SCHEMA = {
@@ -104,7 +113,7 @@ const makeDataSource = (objectSchema: unknown = OBJECT_SCHEMA) =>
  * to the document's form rather than to the container, which holds none of it.
  */
 async function mounted(node: React.ReactElement): Promise<HTMLElement> {
-  render(node);
+  render(currentScope ? <PredicateScopeProvider scope={currentScope as any}>{node}</PredicateScopeProvider> : node);
   let form: HTMLFormElement | null = null;
   await waitFor(() => {
     form = document.body.querySelector('form');
@@ -135,12 +144,10 @@ const base = { type: 'object-form', objectName: 'invoice', mode: 'create' } as c
  */
 const ARMS: Array<{
   label: string;
-  gate: string;
   mount: (member: Record<string, unknown>) => Promise<HTMLElement>;
 }> = [
   {
     label: 'ObjectForm — default layout, explicit `sections` (ObjectForm.tsx)',
-    gate: 'headingOrBlurb',
     mount: (section) =>
       mounted(
         <ObjectForm
@@ -151,7 +158,6 @@ const ARMS: Array<{
   },
   {
     label: 'ObjectForm — default layout, DERIVED `fieldGroups` (ObjectForm.tsx)',
-    gate: 'headingOrBlurb',
     mount: (group) =>
       mounted(
         <ObjectForm schema={{ ...base } as any} dataSource={makeDataSource(groupedSchema(group))} />,
@@ -159,7 +165,6 @@ const ARMS: Array<{
   },
   {
     label: 'ModalForm — explicit `sections`, the stacked push (ModalForm.tsx)',
-    gate: 'headingOrBlurbRow',
     mount: (section) =>
       mounted(
         <ModalForm
@@ -179,7 +184,6 @@ const ARMS: Array<{
     // ⭐ THE SUBJECT of objectui#9849: the one site still rebuilding the row
     // without `description` when this card was filed.
     label: 'ModalForm — DERIVED `fieldGroups`, the derived push (ModalForm.tsx)',
-    gate: 'heading',
     mount: (group) =>
       mounted(
         <ModalForm
@@ -190,7 +194,6 @@ const ARMS: Array<{
   },
   {
     label: 'DrawerForm — explicit `sections` (DrawerForm.tsx)',
-    gate: 'always',
     mount: (section) =>
       mounted(
         <DrawerForm
@@ -208,7 +211,6 @@ const ARMS: Array<{
   },
   {
     label: 'DrawerForm — DERIVED `fieldGroups` (DrawerForm.tsx)',
-    gate: 'heading',
     mount: (group) =>
       mounted(
         <DrawerForm
@@ -222,7 +224,7 @@ const ARMS: Array<{
 describe('objectui#9849 — one path from a section configuration to its divider row', () => {
   describe('1. every arm carries the authored blurb, because one function copies it', () => {
     for (const arm of ARMS) {
-      it(`${arm.label} · gate \`${arm.gate}\``, async () => {
+      it(arm.label, async () => {
         const f = await arm.mount({ label: 'Money', description: BLURB });
         expect(
           headings(f),
@@ -251,58 +253,60 @@ describe('objectui#9849 — one path from a section configuration to its divider
     }
   });
 
-  describe('3. the residual after the convergence — readings, ⛔ not rulings', () => {
-    // What the six call sites still disagree about is the GATE: whether a row
-    // exists at all for a member that yields no heading. Collapsing it either
-    // way moves the ADR-0089 predicate or the objectui#6236 membership claim
-    // off a row that carries them today, which objectui#9849's dispatch fences
-    // off. These three rows record the disagreement so the next seat measures
-    // it instead of rediscovering it.
+  describe('3. one row rule on every arm (director ruling letter E) — the author-reachable headingless member', () => {
+    // The three EXPLICIT arms, where an author can write a member with no
+    // heading. Before ruling E each answered differently (a blurb-only row
+    // that gated nothing; one full row; an unconditional row); now all three
+    // run the same rule inside `projectSectionDivider`.
+    const EXPLICIT = [ARMS[0], ARMS[2], ARMS[4]];
 
-    it('the default arm draws a BLURB-ONLY row — no heading (objectui#9835 letter B)', async () => {
-      const f = await ARMS[0].mount({ description: BLURB });
-      expect(headings(f), 'no heading is authored and none is synthesised').toEqual([]);
-      expect(blurbs(f)).toEqual([BLURB]);
-      expect(
-        f.querySelectorAll('.border-b[role="button"]').length,
-        'the blurb-only row carries no collapse pair, so it is not a control',
-      ).toBe(0);
-      expect(drawnFields(f), 'the liveness control: the member itself still renders').toContain(
-        'amount',
-      );
-    });
+    for (const arm of EXPLICIT) {
+      it(`${arm.label}: \`description\` alone draws the blurb-only row`, async () => {
+        const f = await arm.mount({ description: BLURB });
+        expect(headings(f), 'no heading is authored and none is synthesised').toEqual([]);
+        expect(blurbs(f)).toEqual([BLURB]);
+        expect(drawnFields(f), 'the liveness control: the member itself still renders').toContain('amount');
+      });
 
-    it('the modal’s explicit arm draws ONE FULL row instead — the letter-A shape it has always had', async () => {
-      const f = await ARMS[2].mount({ description: BLURB });
-      expect(headings(f), 'the row is pushed, but with no label there is no heading span').toEqual(
-        [],
-      );
-      expect(
-        blurbs(f),
-        '⚠️ this row also carries the ADR-0089 predicate and the objectui#6236 membership ' +
-          'claim, which the default arm’s blurb-only row deliberately does not — that is the ' +
-          'residual, and ⛔ it is not decided here',
-      ).toEqual([BLURB]);
-      expect(drawnFields(f)).toContain('amount');
-    });
+      it(`${arm.label}: neither \`label\` nor \`description\` draws no visible row`, async () => {
+        const f = await arm.mount({});
+        expect(f.querySelectorAll('.border-b').length, 'no divider row is drawn').toBe(0);
+        expect(drawnFields(f)).toContain('amount');
+      });
 
-    it('the drawer’s explicit arm is UNGATED, so the same member renders the same blurb by a third route', async () => {
-      const f = await ARMS[4].mount({ description: BLURB });
-      expect(headings(f)).toEqual([]);
-      expect(blurbs(f)).toEqual([BLURB]);
-      expect(drawnFields(f)).toContain('amount');
-    });
+      for (const [spelled, member] of [
+        ['the blurb-only row', { description: BLURB, visibleWhen: GATE }],
+        ['a chrome-less gate row (no row to draw)', { visibleWhen: GATE }],
+      ] as const) {
+        it(`${arm.label}: the group predicate still gates a headingless group, through ${spelled}`, async () => {
+          try {
+            currentScope = scope(['sales']);
+            const denied = await arm.mount(member);
+            expect(
+              drawnFields(denied),
+              '⭐ a headingless group is never un-gated (ruling E item 1): the denying scope hides its member',
+            ).not.toContain('amount');
+            expect(blurbs(denied)).toEqual([]);
+            cleanup();
+            currentScope = scope(['sales_manager']);
+            const allowed = await arm.mount(member);
+            expect(drawnFields(allowed), 'the live control: the admitting scope shows it').toContain('amount');
+          } finally {
+            currentScope = undefined;
+          }
+        });
+      }
+    }
   });
 
-  describe('4. reachability — the derived route’s gate is not author-reachable', () => {
+  describe('4. reachability — the derived route yields no headingless group', () => {
     it('a declared group with a `description` and NO `label` still yields a heading, from its key', async () => {
-      // ⭐ This narrows the hand-back rather than widening it.
-      // `deriveFieldGroupSections` defaults a section's label to the group KEY,
-      // so `if (title)` on the two derived pushes cannot fail for a declared
-      // group — the only headingless derived section is the trailing ungrouped
-      // bucket, which carries no `description` to lose. ⇒ the gate divergence
-      // is reachable by an author only on the EXPLICIT-sections routes, which
-      // is exactly where the fenced keys sit.
+      // `deriveFieldGroupSections` defaults a section's label to the group
+      // KEY, so a declared group always yields a heading on the two derived
+      // pushes — the only headingless derived section is the trailing
+      // ungrouped bucket, which declares no `description`, predicate or
+      // collapse. ⇒ block 3's headingless member is reachable by an author
+      // only on the EXPLICIT-sections routes.
       const f = await ARMS[3].mount({ description: BLURB });
       expect(
         headings(f),

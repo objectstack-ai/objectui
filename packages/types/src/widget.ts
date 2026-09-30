@@ -45,7 +45,7 @@ import type { ComponentInputControlType } from './base.js';
  * states the relationship these two types always had, verbatim: "objectui's
  * registry has always carried its own runtime manifest for that
  * (`RuntimeWidgetManifest` / `RuntimeWidgetSource` in `@object-ui/types`,
- * objectui#3161 / #4115), which models different keys and never derived from
+ * objectui#3161 / [objectstack-ai/objectstack#4115]), which models different keys and never derived from
  * these". `field.widget` is still what it always was — a `z.string()` naming a
  * component the RENDERER has registered.
  *
@@ -113,7 +113,12 @@ export interface RuntimeWidgetManifest {
   /** Input schema for the widget's configurable properties */
   inputs?: WidgetInput[];
 
-  /** Whether the widget can contain child components */
+  /**
+   * LAYOUT containment, carried into `ComponentMeta.isContainer` by the
+   * widget registry. ⛔ Not "can contain child components": a widget that
+   * renders `schema.children` declares `{ name: 'children', type: 'slot' }`
+   * in `inputs` instead — see `ComponentMeta.isContainer` (objectui#9910).
+   */
   isContainer?: boolean;
 
   /** Widget capabilities */
@@ -243,9 +248,10 @@ export interface WidgetSourceRegistry {
  *    widget manifest to begin with, so the `ComponentInput` that
  *    `WidgetRegistry` synthesises never carries one. Measured before leaving
  *    them out: no reader in this repository consumes any of the five on
- *    `ComponentInput` either, and `sdui-parser`'s serializer forwards six keys
- *    (`name`, `type`, `required`, `enum`, `binding`, `description`) and none of
- *    these. Copying them here would mirror surface that nothing reads on the
+ *    `ComponentInput` either, and `sdui-parser`'s serializer forwards a fixed
+ *    key list per input, `of` included since objectui#8067 (`name`, `type`,
+ *    `of`, `required`, `enum`, `binding`, `description`), and none of these.
+ *    Copying them here would mirror surface that nothing reads on the
  *    face it already lives on.
  *
  *    ⚠️ ALL FIVE are now ADR-0049 RETIREMENT TOMBSTONES on `ComponentInput`

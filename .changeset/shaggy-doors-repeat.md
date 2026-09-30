@@ -33,3 +33,6 @@ which the renderer has drawn for releases.
 ⚠️ Consumers holding an exhaustive `switch` or a total `Record<ViewType, …>` will
 now fail to compile until they account for `page`. That failure is the point of the
 change — it is the guarantee that was silently lost.
+
+⚠️ **Dated note, 2026-09-29 — `page` left the vocabulary again in this same release — objectui#11073.**
+Later in this release this repository began resolving `@objectstack/spec` 17.5.0, which removed `type: 'page'` from the list-view vocabulary (ADR-0049 enforce-or-remove). Because `ViewType` and `ViewTypeSchema` are derived from the spec, as this change made them, they no longer carry `page`. A `type: 'page'` view is refused by name at parse rather than being "spec-valid", and the one-time "cannot draw" warning has no kind left to explain. The rest of this change stands: the vocabulary still follows the spec, now in the narrowing direction.

@@ -8,7 +8,8 @@
 
 import React, { useContext } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
-import { SchemaRendererContext as ImportedSchemaRendererContext } from '@object-ui/react';
+import { SchemaRendererContext } from '@object-ui/react';
+import type { DataSource } from '@object-ui/types';
 import { ObjectView } from './ObjectView';
 import { ViewSwitcher } from './ViewSwitcher';
 import { FilterUI } from './FilterUI';
@@ -48,17 +49,21 @@ export {
 } from './config/view-config-utils';
 export type { FieldOption } from './config/view-config-utils';
 
-/**
- * SchemaRendererContext is created by @object-ui/react.
- * The context value provides { dataSource }.
- */
-const SchemaRendererContext: React.Context<any> = ImportedSchemaRendererContext;
-
 // Register object-view component
 const ObjectViewRenderer: React.FC<{ schema: any }> = ({ schema }) => {
-  // Resolve dataSource from SchemaRendererProvider context
+  // Resolve dataSource from SchemaRendererProvider context, read AS DECLARED
+  // (objectui#7209). This module used to re-declare the imported context as a
+  // `Context` of `any`, which let every read of it — including a member the
+  // context does not declare — compile clean. Pinned by
+  // `objectViewRenderer.schemaRendererContextRead-7209.test.ts`.
   const ctx = useContext(SchemaRendererContext);
-  const dataSource = ctx?.dataSource ?? null;
+  // What that erasure also hid here, now spelled out at this one value instead
+  // of across the whole context: with no adapter bound this renderer hands
+  // `null` to `ObjectViewProps.dataSource`, which is declared REQUIRED and stays
+  // so (objectui#7842 — widening it is a maintainer's ruling). `ObjectView`
+  // guards every use of a missing adapter and renders its chrome empty; its prop
+  // documentation names this renderer as that `null` caller.
+  const dataSource = (ctx?.dataSource ?? null) as DataSource;
 
   return <ObjectView schema={schema} dataSource={dataSource} />;
 };

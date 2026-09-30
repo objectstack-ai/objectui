@@ -22,19 +22,16 @@
  * story without repeating themselves verbatim.
  */
 import { resolveEffectiveCrudAffordances, type UserActionsOverride } from '@object-ui/core';
+// The one authority for the narrowed `t` (objectui#8261): a key and optional
+// options (including a `defaultValue` used as the English fallback when a
+// locale lacks the key) — imported, not re-declared.
+import type { TranslateFn } from '@object-ui/i18n';
 
 export interface ManagedByEmptyState {
   title: string;
   message: string;
   icon: string;
 }
-
-/**
- * Translator function, structurally compatible with the `t` returned by
- * `useObjectTranslation()`. Accepts a key and optional options (including a
- * `defaultValue` used as the English fallback when a locale lacks the key).
- */
-type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
 
 export function resolveManagedByEmptyState(
   managedBy: string | undefined | null,

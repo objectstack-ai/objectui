@@ -29,7 +29,10 @@ The `@object-ui/plugin-gantt` plugin provides Gantt chart visualization for Obje
 - **Date Ranges**: Automatic date range calculation
 - **Interactive**: Click handling for tasks
 - **Drag-and-drop rescheduling**: Drag a bar to move it; drag either edge to
-  resize start/end. Snaps to whole days and persists the change through
+  resize start/end. Snaps to whole days, keeps each date's time of day across
+  a daylight-saving change (with shift bands configured via `timeSegments`, a
+  day-view drag goes by bands instead, and a move keeps the bar's elapsed
+  length), and persists the change through
   `dataSource.update()` automatically (optimistic local update + revert on
   failure). See the [package README](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-gantt/README.md#drag-and-drop-rescheduling) for details on the
   lower-level `onTaskUpdate` hook when embedding `<GanttView>` directly.
@@ -129,6 +132,8 @@ const schema: ObjectGanttSchema = {
   readOnly?: boolean                // disable every edit path
   filter?: Array<any>,              // JSON-Rules query filter — applies on EVERY provider
   sort?: Array<{ field, order }>,   // ordering — applies on EVERY provider
+  search?: string,                  // full-text term, sent as $search — applies on EVERY provider
+  searchableFields?: string[],      // narrows what `search` matches, sent as $searchFields with a term
 }
 ```
 
@@ -138,6 +143,12 @@ order fetched ones, and the platform row ceiling — 2,000 drawn rows with a
 footnote naming both numbers — applies to inline rows too. The ceiling is
 applied to the **filtered** set, so a large inline array that a `filter` cuts
 below the ceiling draws every matching row and shows no footnote.
+
+`search` is the chart's full-text term. A list view's toolbar Search box writes
+it (with the view's `searchableFields`) onto its gantt node, because the chart
+runs its own query; the server decides which fields a term matches unless
+`searchableFields` narrows them, and a `searchableFields` with no term sends
+nothing.
 
 `onTaskClick` and `className` are **React props on `<ObjectGantt>`**, not schema
 keys — the renderer never reads them off the schema, and a function cannot
@@ -155,6 +166,15 @@ config, so it applies alongside a `gantt` block or the flat `*Field` keys.
   dependenciesField?: string   // Field for task dependencies (array of IDs)
 }
 ```
+
+A date-only end (`YYYY-MM-DD`) is inclusive: the bar runs through the end of
+that day. So a task from `2024-01-01` to `2024-01-15` covers January 1st to
+15th, a successor starting `2024-01-16` begins exactly where it ends, and a
+task whose start and end name the same day is one day long. A drag or resize
+writes a date-only end back as the last day the bar runs through, which is
+also the day the task list, the tooltip and the inline editor show. An end
+with a time part is an instant, and the bar ends exactly there. The timeline's
+`gantt` variant reads an end the same way.
 
 ## Configuration
 

@@ -144,15 +144,31 @@ type _MirrorRefusesTheMisspelling = RecordDetailsComponentProps['hideFeilds'];
  * ⛔ Not an opinion, and ⛔ not a list of keys to leave alone forever: every
  * entry is asserted to be ABSENT FROM THE MIRROR below, so the exemption
  * expires the moment its premise does.
+ *
+ * ⚠️ SINCE THE 17.5.0 BUMP THIS IS ALSO THE SOURCE-TEXT GUARD'S LEDGER, which
+ * is why that guard is no longer carve-out-free. `@objectstack/spec` 17.5.0
+ * declares all three keys on `record:details`, so they entered the CONTRACT's
+ * population while the MIRROR still lacks them and the renderer still casts.
+ * objectui#11111 decision 3 = B (record 5902351047) booked them to
+ * objectui#8649, which declares them on the mirror and un-casts the reads;
+ * the bump declares nothing. Capped at exactly these three by the test
+ * "no cast stands between schema and ANY contract-declared key", and
+ * objectui#8649's landing empties this map — the last booked entry leaving
+ * restores the guard to no ledger at all. Expiry: 2026-10-30, or when
+ * objectui#8649 lands, whichever is first (stated, not clock-enforced: this
+ * ledger has no date field).
  */
 const HONEST_CASTS: Record<string, string> = {
   requiredPermissions:
-    'the mirror declares no such key — `RecordDetailsProps` has no permission gate, so the cast is the honest spelling until one is declared',
+    'the mirror declares no such key — `RecordDetailsProps` has no permission gate, so the cast is the honest spelling until one is declared. Booked to objectui#8649 by objectui#11111 decision 3 = B (record 5902351047): the contract declares it since @objectstack/spec 17.5.0. Expires 2026-10-30, or when objectui#8649 lands.',
   enforceFieldSecurity:
-    'the mirror declares no such key — field-level security is read off the object, not off the page block',
+    'the mirror declares no such key — field-level security is read off the object, not off the page block. Booked to objectui#8649 by objectui#11111 decision 3 = B (record 5902351047): the contract declares it since @objectstack/spec 17.5.0. Expires 2026-10-30, or when objectui#8649 lands.',
   redactFields:
-    'the mirror declares no such key — it travels with `enforceFieldSecurity` and shares its fate',
+    'the mirror declares no such key — it travels with `enforceFieldSecurity` and shares its fate. Booked to objectui#8649 by objectui#11111 decision 3 = B (record 5902351047): the contract declares it since @objectstack/spec 17.5.0. Expires 2026-10-30, or when objectui#8649 lands.',
 };
+
+/** The cap: the booked casts, by name. objectui#8649's landing takes it to `[]`. */
+const OBJECTUI_11111_BOOKED_CASTS = ['enforceFieldSecurity', 'redactFields', 'requiredPermissions'];
 
 interface SchemaRead {
   /** The property name read off `schema`. */
@@ -341,8 +357,10 @@ describe('objectui#9965 — the source-text guard is derived and discriminates',
     expect(keys.length).toBeGreaterThan(5);
     expect(keys).toContain('hideFields');
     // …and it is not an everything-set, which would make the guard unfalsifiable.
-    expect(keys).not.toContain('enforceFieldSecurity');
-    expect(keys).not.toContain('requiredPermissions');
+    // (`enforceFieldSecurity` / `requiredPermissions` were the absent controls
+    // through `@objectstack/spec` 17.4.0; 17.5.0 declares both on this block —
+    // objectui#11073 — so the control is a key nothing declares.)
+    expect(keys).not.toContain('zzqxNoSuchRecordBlockKey');
     // The premise of reading the named export: it IS this block's map entry.
     expect(ComponentPropsMap['record:details']).toBe(RecordDetailsProps);
   });
@@ -365,7 +383,14 @@ describe('objectui#9965 — the source-text guard is derived and discriminates',
     expect(source).toContain('RecordDetailsRendererProps');
     // Liveness, in source text this time: the read and its guard are still here.
     expect(source).toMatch(/Array\.isArray\(schema\.hideFields\) \? schema\.hideFields/);
-    const offenders = declaredKeys().filter((key) => castBefore(key).test(source));
-    expect(offenders).toEqual([]);
+    const cast = declaredKeys().filter((key) => castBefore(key).test(source));
+    // Named, not counted: a failure has to say WHICH key regressed. Any cast
+    // over a contract-declared key outside the booked ledger is red.
+    expect(cast.filter((key) => !(key in HONEST_CASTS))).toEqual([]);
+    // THE CAP (objectui#11111 decision 3 = B): the ledger holds exactly the three
+    // booked to objectui#8649, each still contract-declared AND still cast — so
+    // it can neither grow nor keep an entry whose cast is gone.
+    expect(Object.keys(HONEST_CASTS).sort()).toEqual(OBJECTUI_11111_BOOKED_CASTS);
+    expect(cast.filter((key) => key in HONEST_CASTS).sort()).toEqual(OBJECTUI_11111_BOOKED_CASTS);
   });
 });

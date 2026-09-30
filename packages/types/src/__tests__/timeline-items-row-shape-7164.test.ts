@@ -37,11 +37,13 @@
  *     a feed-variant items array                 accept   accept
  *     an ordinary gantt row                      accept   accept
  *
- * `items: [{ items: null }]`, `[0]` and `[[]]` are refused HERE and still DRAW
- * in the renderer (as an empty / unlabelled row): the renderer is only ever
- * more lenient than `validate`, never the reverse, and it never crashes on a
- * document `validate` admits — that is the invariant, and it is asserted at the
- * foot of this file over the in-repo fixtures.
+ * `items: [{ items: null }]` is refused HERE and still DRAWS in the renderer
+ * (as an empty row): the renderer is only ever as lenient as `validate` or
+ * more, never the reverse, and it never crashes on a document `validate`
+ * admits — that is the invariant, and it is asserted at the foot of this file
+ * over the in-repo fixtures. `[0]` and `[[]]` drew too (as an unlabelled row)
+ * until objectui#7364 (ruling 5809218505, letter A) superseded that clause:
+ * the renderer now refuses them as well, through `malformedRow`.
  *
  * ## The bar level: a deliberate stop, since SUPERSEDED
  *
@@ -63,6 +65,12 @@
  * and a feed item carries no `items` key, so the feed variants parse exactly
  * as before. Neither a row's nor a bar's own keys are declared, and refining
  * by `variant` is still a wider contract than either ruling named.
+ *
+ * ⭐ That paragraph is SUPERSEDED by objectui#6356 (maintainer ruling
+ * 2026-09-27, Q1 = A, Q2 = C), which declared the element's keys and refines
+ * by `variant`; `./timeline-item-element-6356.test.ts` pins it. The two
+ * levels above keep their paths: the element stays an object at `items[i]`,
+ * and a row's `items` stays an array at `items[i].items`.
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -115,7 +123,11 @@ describe('TimelineSchema.items refuses a malformed ROW at authoring time (object
     // The exact declaration this card replaced — `items: z.array(z.any())` —
     // rebuilt on today's `TimelineSchema` so the "before" column of the table
     // in the header is measured against the same base, not remembered.
-    const previous = TimelineSchema.extend({ items: z.array(z.any()).optional() });
+    // `.safeExtend`, not `.extend`: since objectui#6356 the node carries a
+    // refinement, and zod 4 refuses to `.extend()` a refined object over an
+    // existing key. `.safeExtend` keeps that refinement; every row below has a
+    // `label` and no feed key under `variant: 'gantt'`, so it admits them all.
+    const previous = TimelineSchema.safeExtend({ items: z.array(z.any()).optional() });
     for (const [label, items] of refused) {
       expect(previous.safeParse(gantt(items)).success, `${label} was NOT accepted by the old mirror`).toBe(true);
     }

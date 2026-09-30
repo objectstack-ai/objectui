@@ -26,8 +26,17 @@
  * companion fixture that DOES include one, run through the REAL production
  * pipeline: the adapter's `listViews()` (the actual fix) feeding
  * `buildViewTabs` / `isSavedViewId` (the actual consumers), exactly as
- * `ObjectView`'s own effect normalizes them (mirrored from
- * ObjectView.tsx:967-978).
+ * `ObjectView`'s own effect normalizes them (mirrored from the `normalized`
+ * map in `ObjectView.tsx`'s `listViews(objectName, { previewDrafts })` effect).
+ *
+ * objectui#10210, ruling B (comment 5824008636): only the `_isOverride` marker
+ * makes a row an overlay. This file used to pin a second, shape-based layer as
+ * well — an unmarked flat row with a server-backfilled `viewKind` excluded and
+ * kept read-only. That guess is retired: "Edit view config → Save" wrote the
+ * same shape before PR #10332, and the guess turned the user's own view
+ * read-only for good once published. The case that pinned it is rewritten
+ * below, through the same real pipeline, to pin the ruled behaviour — not
+ * deleted.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -43,7 +52,7 @@ const DEFINED_VIEWS = {
 
 const fallbackTab = () => ({ id: 'all', label: 'All records', type: 'grid', columns: [] });
 
-/** `ObjectView.tsx`'s own `savedViews` normalization (ObjectView.tsx:967-978), verbatim. */
+/** `ObjectView.tsx`'s own `savedViews` normalization (the `normalized` map in its `listViews` effect), verbatim. */
 function normalizeSavedViews(rows: any[]) {
   return rows.map((sv: any) => ({
     ...sv,
@@ -81,13 +90,6 @@ describe('a system view stays readonly even with a personalization row (objectui
         rowHeight: 40, _isOverride: true,
       },
     ],
-    [
-      'legacy unmarked row (viewKind backfilled server-side, pre-marker writes)',
-      {
-        name: 'crm_lead.default', object: 'crm_lead', viewKind: 'list',
-        label: 'All Leads', type: 'grid', rowHeight: 40,
-      },
-    ],
   ])('%s: excluded from savedViews, tab stays readonly, guard refuses', async (_label, overrideRow) => {
     const ds = makeAdapterWithItems([overrideRow]);
 
@@ -111,6 +113,43 @@ describe('a system view stays readonly even with a personalization row (objectui
     // The exact predicate all five mutating handlers (rename/delete/pin/
     // set-default/config) short-circuit on.
     expect(isMutable(savedViews, 'crm_lead.default')).toBe(false);
+  });
+
+  it('an UNMARKED flat row with a backfilled viewKind is a saved view: the tab is editable and shows its edits (objectui#10210 ruling B)', async () => {
+    // This row was the second `it.each` case above, asserting the retired
+    // shape guess: excluded, tab read-only, guard refusing. Rewritten, not
+    // deleted. The fixture is now the row a pre-PR-#10332 config save left at
+    // rest (the flat panel draft, `viewKind`/`object` inherited server-side),
+    // which is the same shape as a pre-marker toolbar overlay; under ruling B
+    // both read as the plain row they are stored as.
+    const flatConfigSave = {
+      label: 'All Leads EDITED', type: 'grid', columns: ['name', 'status'],
+      name: 'crm_lead.default', isDefault: false, id: 'crm_lead.default',
+      viewKind: 'list', object: 'crm_lead',
+    };
+    const ds = makeAdapterWithItems([flatConfigSave]);
+
+    const rawSavedViews = await ds.listViews(OBJECT_NAME);
+    expect(rawSavedViews.map((v: any) => v.name)).toEqual(['crm_lead.default']);
+
+    const savedViews = normalizeSavedViews(rawSavedViews);
+    const tabs = buildViewTabs({
+      definedViews: DEFINED_VIEWS,
+      primary: undefined,
+      primaryId: undefined,
+      savedViews,
+      viewOverrides: {},
+      fallbackTab,
+    });
+
+    expect(tabs.map((t) => t.id)).toEqual(['crm_lead.default']);
+    // The edits the save stored are what the tab shows.
+    expect(tabs[0].label).toBe('All Leads EDITED');
+    expect(tabs[0].columns).toEqual(['name', 'status']);
+    // Render-time gate (`isSystem = !saved`, `readonly: isSystem`) lifts, and
+    // the predicate all five mutating handlers short-circuit on now admits it.
+    expect(isReadonlyTab(savedViews, 'crm_lead.default')).toBe(false);
+    expect(isMutable(savedViews, 'crm_lead.default')).toBe(true);
   });
 
   it('positive control: a genuinely created saved view stays fully manageable, even reusing a system-view-shaped label', async () => {

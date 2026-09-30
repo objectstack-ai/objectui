@@ -6,6 +6,7 @@ import {
   readFileValues,
   isImageValue,
   fileValueForSubmit,
+  UploadIncompleteError,
   uploadResultView,
   withRecentUploads,
 } from './file-value';
@@ -108,6 +109,78 @@ describe('readFileValue', () => {
     expect(readFileValue('https://cdn.example.com/a.png').name).toBe('a.png');
   });
 
+  /**
+   * objectui#10493: a `data:` URI has no path, so its "last segment" was the
+   * MIME tail plus the base64 payload (`png;base64,…`), which then named the
+   * image cell's `<img>`. It carries no file name, so the caller's fallback
+   * applies; the URL itself is kept byte-for-byte.
+   */
+  describe('a data: URI carries no file name (objectui#10493)', () => {
+    const DATA_URI = 'data:image/png;base64,iVBORw0KGgo=';
+
+    it('a data: string gets the fallback name and keeps its URL', () => {
+      expect(readFileValue(DATA_URI)).toEqual({ url: DATA_URI, name: 'File', raw: DATA_URI });
+      expect(readFileValue(DATA_URI, 'Fichier').name).toBe('Fichier');
+    });
+
+    it('a { url: data: } object gets the fallback name and keeps its URL', () => {
+      const view = readFileValue({ url: DATA_URI }, 'Fichier');
+      expect(view.name).toBe('Fichier');
+      expect(view.url).toBe(DATA_URI);
+    });
+
+    it('a name the object carries still wins over the fallback', () => {
+      expect(readFileValue({ url: DATA_URI, name: 'sig.png' }, 'Fichier').name).toBe('sig.png');
+    });
+
+    it('a payload holding a `/`, or an upper-case scheme, names nothing either', () => {
+      // Base64 uses `/`, so the old "last segment" was then a payload fragment.
+      expect(readFileValue('data:image/png;base64,ab/cd+ef==', 'Fichier').name).toBe('Fichier');
+      expect(readFileValue('DATA:image/png;base64,iVBORw0KGgo=', 'Fichier').name).toBe('Fichier');
+    });
+
+    it('THE LIT CONTROL: https and blob: URLs keep their last segment', () => {
+      expect(readFileValue('https://cdn.example.com/a/photo.png', 'Fichier').name).toBe('photo.png');
+      expect(readFileValue({ url: 'https://cdn.example.com/a/photo.png' }, 'Fichier').name).toBe('photo.png');
+      expect(readFileValue('blob:http://localhost/abc-123', 'Fichier').name).toBe('abc-123');
+    });
+  });
+
+  /**
+   * objectui#10614: a last segment that is not a valid percent-encoding made
+   * `decodeURIComponent` throw `URIError: URI malformed`, and `readFileValue`
+   * threw with it, during render. `FileValueSchema.url` is a plain string, so
+   * both values below pass the contract. The name is now the raw segment.
+   */
+  describe('a last segment holding a bare `%` names the file by its raw segment (objectui#10614)', () => {
+    it('a URL string whose last segment holds a bare `%` does not throw', () => {
+      const url = 'https://cdn.example.com/100%.png';
+      expect(() => readFileValue(url)).not.toThrow();
+      expect(readFileValue(url)).toEqual({ url, name: '100%.png', raw: url });
+    });
+
+    it('a { url } object whose last segment holds an invalid escape does not throw', () => {
+      const value = { url: 'https://cdn.example.com/a%zz.pdf' };
+      expect(() => readFileValue(value)).not.toThrow();
+      const view = readFileValue(value);
+      expect(view.name).toBe('a%zz.pdf');
+      expect(view.url).toBe(value.url);
+    });
+
+    it('readFileValues reads both values in one field without throwing', () => {
+      expect(
+        readFileValues(['https://cdn.example.com/100%.png', { url: 'https://cdn.example.com/a%zz.pdf' }]).map(
+          (v) => v.name,
+        ),
+      ).toEqual(['100%.png', 'a%zz.pdf']);
+    });
+
+    it('THE CONTROL: a valid escape still decodes', () => {
+      expect(readFileValue('https://cdn.example.com/report%20q3.pdf').name).toBe('report q3.pdf');
+      expect(readFileValue({ url: 'https://cdn.example.com/report%20q3.pdf' }).name).toBe('report q3.pdf');
+    });
+  });
+
   it('resolves a bare reference to the stable download URL', () => {
     const view = readFileValue('file_a', 'File');
 
@@ -172,31 +245,56 @@ describe('fileValueForSubmit', () => {
   });
 
   /**
-   * Back-compat: the object-URL fallback adapter, or a backend predating
-   * file-as-reference, surfaces no fileId. The same build must keep working
-   * there, so it submits the legacy blob unchanged.
+   * objectui#7699: the branch that stood here built `{ name, original_name,
+   * size, mime_type, url }` when no fileId came back — the one client path in
+   * either repo still PRODUCING the pre-D3 inline blob, a shape no deployment's
+   * stored contract accepts (`valueSchemaFor(field, 'stored')` is id-only;
+   * ADR-0104's 2026-09-05 addendum fixes the column to the bare id too). It is
+   * retired: the submit is refused by name, and nothing carrying a URL leaves.
    */
-  it('falls back to the legacy inline blob when there is no fileId', () => {
-    expect(fileValueForSubmit(uploadResult(), 'orig.png')).toEqual({
-      name: 'a.png',
-      original_name: 'orig.png',
-      size: 1024,
-      mime_type: 'image/png',
-      url: 'https://app.example.com/api/v1/storage/files/file_a',
+  describe('refuses a completed upload that surfaced no fileId (objectui#7699)', () => {
+    const refusalOf = (run: () => unknown): UploadIncompleteError => {
+      try {
+        run();
+      } catch (err) {
+        return err as UploadIncompleteError;
+      }
+      throw new Error('expected fileValueForSubmit to refuse, but it returned a value');
+    };
+
+    it('throws the NAMED refusal, carrying the pick name — no blob is built', () => {
+      const err = refusalOf(() => fileValueForSubmit(uploadResult(), 'orig.png'));
+      expect(err).toBeInstanceOf(UploadIncompleteError);
+      expect(err.name).toBe('UploadIncompleteError');
+      expect(err.code).toBe('UPLOAD_INCOMPLETE');
+      expect(err.fileName).toBe('orig.png');
+      expect(err.message).toContain('did not complete');
+      // The refusal carries no URL and no MIME type: the adapter's result is
+      // not smuggled out through the error either.
+      const own = JSON.stringify({ ...err, message: err.message });
+      expect(own).not.toContain('https://app.example.com');
+      expect(own).not.toContain('image/png');
+    });
+
+    it('names the adapter’s stored object name when the caller has no pick name', () => {
+      expect(refusalOf(() => fileValueForSubmit(uploadResult())).fileName).toBe('a.png');
+    });
+
+    it('treats a meta.fileId that is not id-shaped as no id at all', () => {
+      const err = refusalOf(() =>
+        fileValueForSubmit(uploadResult({ meta: { fileId: 'https://evil.example/x' } }), 'orig.png'),
+      );
+      expect(err.code).toBe('UPLOAD_INCOMPLETE');
+    });
+
+    it('THE CONTROL: an id-shaped fileId beside the same result still submits the id', () => {
+      expect(fileValueForSubmit(uploadResult({ meta: { fileId: 'file_a' } }), 'orig.png')).toBe('file_a');
     });
   });
 
-  it('ignores a meta.fileId that is not id-shaped', () => {
-    const v = fileValueForSubmit(uploadResult({ meta: { fileId: 'https://evil.example/x' } }));
-    expect(typeof v).toBe('object');
-  });
-
-  it('round-trips through readFileValue in both modes', () => {
+  it('round-trips through readFileValue', () => {
     const asRef = fileValueForSubmit(uploadResult({ meta: { fileId: 'file_a' } }));
-    const asBlob = fileValueForSubmit(uploadResult(), 'orig.png');
-
     expect(readFileValue(asRef).id).toBe('file_a');
-    expect(readFileValue(asBlob).mimeType).toBe('image/png');
   });
 });
 

@@ -59,9 +59,15 @@
  * the DERIVATION from the read site, which is the thing a re-key cannot hold
  * constant.
  *
+ * ## What objectui#8932 removed from this file
+ *
+ * The prop recorder for the `KanbanEnhanced` chunk, deleted with that module.
+ * No leg read it once `kanban-enhanced` retired: every probe below records the
+ * `KanbanImpl` chunk, so no assertion moved or went.
+ *
  * ## Suite 1 — runtime reachability, per registration
  *
- * The two lazy board chunks are replaced by prop recorders; three spies are
+ * The lazy board chunk is replaced by a prop recorder; three spies are
  * authored on the schema; the question is which of them reach the board.
  *
  *   - `KanbanRenderer` rendered directly (`../index.tsx`): all three arrive BY
@@ -128,23 +134,16 @@ import { ObjectKanbanSchema as ObjectKanbanZod } from '@object-ui/types/zod';
 import { KanbanRenderer } from '../index';
 import '../index';
 
-/** Every props object either board implementation was rendered with, in order. */
+/** Every props object the board implementation was rendered with, in order. */
 const recorded = vi.hoisted(() => ({
   impl: [] as Array<Record<string, unknown>>,
-  enhanced: [] as Array<Record<string, unknown>>,
 }));
 
-// Both lazy chunks are replaced by prop recorders: the question this file asks
-// is what reaches the board's props, not what the board draws with them.
+// The lazy board chunk is replaced by a prop recorder: the question this file
+// asks is what reaches the board's props, not what the board draws with them.
 vi.mock('../KanbanImpl', () => ({
   default: (props: Record<string, unknown>) => {
     recorded.impl.push(props);
-    return null;
-  },
-}));
-vi.mock('../KanbanEnhanced', () => ({
-  default: (props: Record<string, unknown>) => {
-    recorded.enhanced.push(props);
     return null;
   },
 }));
@@ -156,7 +155,7 @@ function authored() {
 }
 
 /** Wait for one more board render to be recorded, then return the props it got. */
-async function lastBoardProps(log: 'impl' | 'enhanced', before: number, unmount: () => void) {
+async function lastBoardProps(log: keyof typeof recorded, before: number, unmount: () => void) {
   await waitFor(() => expect(recorded[log].length).toBeGreaterThan(before));
   const received = recorded[log][recorded[log].length - 1];
   unmount();
@@ -171,7 +170,7 @@ async function lastBoardProps(log: 'impl' | 'enhanced', before: number, unmount:
  * lanes statically and nothing here fetches. (The prop is required and typed
  * `any`, so the value has to be spelled rather than omitted.)
  */
-async function boardPropsFor(type: string, log: 'impl' | 'enhanced', schemaKeys: Record<string, unknown>) {
+async function boardPropsFor(type: string, log: keyof typeof recorded, schemaKeys: Record<string, unknown>) {
   const Renderer = ComponentRegistry.get(type) as React.ComponentType<Record<string, unknown>>;
   expect(Renderer, `\`${type}\` is not registered`).toBeDefined();
   const before = recorded[log].length;

@@ -60,7 +60,9 @@ export function RadioField({
     // reasoning, at length, in `MultiSelectField`.
     if (gated) return;
     if (value === undefined || value === null || (value as unknown) === '') return;
-    if (!isValueStillOffered(value, options)) onChange?.(undefined as unknown as string);
+    // `null`, never `undefined`: the wire drops an own `undefined`, so the
+    // clear was never saved (objectui#10291) — see `SelectField`.
+    if (!isValueStillOffered(value, options)) onChange?.(null as unknown as string);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options, gated]);
 

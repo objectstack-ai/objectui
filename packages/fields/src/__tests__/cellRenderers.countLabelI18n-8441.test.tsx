@@ -358,11 +358,14 @@ describe('objectui#8441 — the `repeater` entry is a STABLE component reference
     expect(getCellRenderer('repeater')).toBe(getCellRenderer('repeater'));
   });
 
-  it('control: the resolver really does rebuild its table each call', () => {
-    // Without this, the pin above would also pass on a memoised resolver that
-    // never rebuilt anything, and would then say nothing about the entry. The
-    // `vector` entry is still an inline arrow — deliberately, it is fenced out
-    // of this card and holds no hook — so it is the live proof of the rebuild.
-    expect(getCellRenderer('vector')).not.toBe(getCellRenderer('vector'));
-  });
+  // A control stood here: `getCellRenderer('vector')` differed across two
+  // calls, which was the live proof that the resolver rebuilds its table. It
+  // proved that only while `vector` was an inline arrow. objectui#8678 made the
+  // last four inline entries named renderers, because they now draw
+  // `EmptyValue`, which holds a hook, and that is this card's own reason. With
+  // no inline entry left, the rebuild cannot be seen through identity. The
+  // property this describe exists for is now pinned for EVERY registered type
+  // by `cellRenderers.valueIndependent-8678`, so a new inline entry goes red by
+  // name. On a memoised resolver an inline arrow would be harmless, so that pin
+  // measures the observable React actually keys on.
 });

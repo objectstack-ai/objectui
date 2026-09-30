@@ -19,11 +19,11 @@
  */
 
 import React from 'react';
-import { ComponentRegistry, ExpressionEvaluator, evalRowPredicate, getRecordDisplayName, recordDisplayValueAt, resolveNameField, toPredicateRecord } from '@object-ui/core';
+import { ComponentRegistry, ExpressionEvaluator, declaredNameField, evalRowPredicate, formatTitleTemplate, getRecordDisplayName, recordDisplayValueAt, resolveNameField, toPredicateRecord } from '@object-ui/core';
 import type { ComponentInput } from '@object-ui/core';
 import { actionRendersAt, resolveDeclaredActionIds } from '@object-ui/types';
 import type { DeclaredActionsRefusal } from '@object-ui/types';
-import { useRecordContext, useAction, useCapabilityGate, usePredicateScope, usePageVariables, useInlineEdit, useActionTextLocalizer, useMetadataItem, reportUnresolvableVisibilityPredicate } from '@object-ui/react';
+import { useRecordContext, useAction, useCapabilityGate, usePredicateScope, usePageVariables, useInlineEdit, useActionTextLocalizer, useMetadataItem, reportUnresolvableVisibilityPredicate, resolveInlineAriaProps } from '@object-ui/react';
 import { renderChildren, renderNodeSlot, cn } from '../../lib/utils';
 import { LazyIcon } from '../../lib/lazy-icon';
 import { RelatedCountStore, useRelatedCountVersion } from '../../hooks/related-count-store';
@@ -54,7 +54,8 @@ import {
   TooltipTrigger,
 } from '../../ui';
 import { RecordTitleChip } from '../../custom/RecordTitleChip';
-import { useObjectLabel, useSafeFieldLabel, useObjectTranslation, useSafeTranslate, createSafeTranslation, pickLocalized } from '@object-ui/i18n';
+import { readActionEntryParamValues } from '../action/static-params';
+import { useObjectLabel, useSafeFieldLabel, useObjectTranslation, useSafeTranslate, createSafeTranslation, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
 import { MoreHorizontal, RefreshCw } from 'lucide-react';
 
 /**
@@ -62,7 +63,7 @@ import { MoreHorizontal, RefreshCw } from 'lucide-react';
  * `page:footer`, `page:sidebar` (objectui#4027).
  *
  * `@objectstack/spec` declares all three through one shared `PageContainerProps`
- * whose single key is `children` (objectstack#5775, PR objectstack#6281, merged
+ * whose single key is `children` (objectstack#5775, objectstack `85ec26d28`, merged
  * 2026-08-07). They had been declared `EmptyProps` upstream — "this component
  * takes zero props" — while their renderers have always rendered a child list;
  * this side carried the mirror-image gap, registering all three with no `inputs`
@@ -321,6 +322,77 @@ const translateLabel = (
   return text;
 };
 
+/** `useSafeFieldLabel().fieldOptionLabel`'s shape. */
+type FieldOptionLabel = (objectName: string, fieldName: string, value: string, fallback: string) => string;
+
+/**
+ * The option label a user reads for one select-field VALUE, or `undefined`
+ * when `fieldName` is not an options-bearing field of `objectSchema` (or a
+ * piece needed to translate it is absent).
+ *
+ * The ONE place this file maps an enum value to its label. Two readers call
+ * it: the `{token}` interpolation below (`page:header`'s `title` /
+ * `subtitle`), and the record copy the `titleFormat` rung hands to core's
+ * `formatTitleTemplate` ({@link withOptionLabels}, objectui#10447).
+ */
+const optionLabelFor = (
+  objectSchema: any,
+  fieldOptionLabel: FieldOptionLabel | undefined,
+  objectName: string | undefined,
+  fieldName: string,
+  raw: string,
+): string | undefined => {
+  if (!objectSchema?.fields || !fieldOptionLabel || !objectName) return undefined;
+  const fieldDef: any = Array.isArray(objectSchema.fields)
+    ? objectSchema.fields.find((f: any) => f?.name === fieldName)
+    : objectSchema.fields[fieldName];
+  const options: any[] | undefined = fieldDef?.options;
+  if (!Array.isArray(options)) return undefined;
+  const match = options.find((opt: any) => String(opt?.value ?? opt) === raw);
+  const fallback = match?.label ? String(match.label) : raw;
+  return fieldOptionLabel(objectName, fieldName, raw, fallback);
+};
+
+/**
+ * A copy of `data` in which each select-field value reads as its option label
+ * ({@link optionLabelFor}); `data` itself when no value maps.
+ *
+ * Why a copy and not a hook on the formatter (objectui#10447): the record
+ * page H1's `titleFormat` rung renders through core's `formatTitleTemplate`,
+ * the one interpolator every other title surface uses. That function takes a
+ * template and a record, and nothing else. The H1 has always shown a select
+ * token as its translated label ("In Progress", not `in_progress`), so the
+ * translation happens on the record before the formatter sees it, and the
+ * formatter's signature does not move.
+ *
+ * Only a top-level scalar is mapped: `null`, `undefined`, an expanded
+ * reference and an array stay as they are, so core judges them exactly as it
+ * judges the raw record. A mapped value is never empty (the label falls back
+ * to the raw value), so the placeholders that resolve on the copy are the ones
+ * that resolve on the raw record. That is what keeps `record:details`' dedupe,
+ * which renders the same template over the raw record, deciding about the same
+ * fields the H1 shows.
+ */
+const withOptionLabels = (
+  data: any,
+  objectSchema: any,
+  fieldOptionLabel: FieldOptionLabel | undefined,
+  objectName: string | undefined,
+): any => {
+  if (!data || typeof data !== 'object') return data;
+  const source: Record<string, any> = data;
+  let copy: Record<string, any> | undefined;
+  for (const key of Object.keys(source)) {
+    const v = source[key];
+    if (v === null || v === undefined || typeof v === 'object') continue;
+    const label = optionLabelFor(objectSchema, fieldOptionLabel, objectName, key, String(v));
+    if (label === undefined) continue;
+    if (!copy) copy = { ...source };
+    copy[key] = label;
+  }
+  return copy ?? source;
+};
+
 /**
  * Replace `{field.path}` tokens in a template against the given data object.
  * Missing fields collapse to an empty string. The result is trimmed and
@@ -330,12 +402,17 @@ const translateLabel = (
  * resolves to a select-field value gets routed through the i18n option
  * label dictionary — so `subtitle: "{industry} · {type}"` renders as
  * "科技 · 客户" rather than the raw enum values "technology · customer".
+ *
+ * Callers: `page:header`'s own `title` and `subtitle`. The record-title
+ * `titleFormat` rung does NOT come through here: it renders through core's
+ * `formatTitleTemplate` (objectui#10447), because that template is the one
+ * `getRecordDisplayName` and `record:details`' dedupe render too.
  */
 const interpolate = (
   template: string,
   data: any,
   objectSchema?: any,
-  fieldOptionLabel?: (objectName: string, fieldName: string, value: string, fallback: string) => string,
+  fieldOptionLabel?: FieldOptionLabel,
   objectName?: string,
 ): string => {
   if (!template || typeof template !== 'string') return template || '';
@@ -363,22 +440,33 @@ const interpolate = (
         // Only the first path segment is treated as a field name (deeper
         // paths reach into related records and have their own translation
         // surfaces).
-        if (objectSchema?.fields && fieldOptionLabel && objectName && !path.includes('.')) {
-          const fieldDef: any = Array.isArray(objectSchema.fields)
-            ? objectSchema.fields.find((f: any) => f?.name === path)
-            : objectSchema.fields[path];
-          const options: any[] | undefined = fieldDef?.options;
-          if (Array.isArray(options)) {
-            const match = options.find((opt: any) => String(opt?.value ?? opt) === raw);
-            const fallback = match?.label ? String(match.label) : raw;
-            return fieldOptionLabel(objectName, path, raw, fallback);
-          }
+        if (!path.includes('.')) {
+          const label = optionLabelFor(objectSchema, fieldOptionLabel, objectName, path, raw);
+          if (label !== undefined) return label;
         }
         return raw;
       })
     : template;
   return out.replace(/\s+/g, ' ').trim();
 };
+
+// ---------------------------------------------------------------------------
+// The `aria` bag of the four page blocks (objectui#11083)
+// ---------------------------------------------------------------------------
+//
+// `@objectstack/spec` declares an `aria` member (`AriaPropsSchema`) on
+// `page:header`, `page:tabs`, `page:card` and `page:accordion`, and
+// `SchemaRenderer` hoists `properties.aria` onto the node. None of the four
+// renderers below read it, so a declared accessible name reached no element.
+// Each one now spreads `resolveInlineAriaProps(schema?.aria, locale)` from
+// `@object-ui/react`, the one reader of that bag, onto the block's own root
+// element (the one carrying `className` and the designer props), against
+// `useDisplayLocale()`. ⛔ No mapping of the bag lives in this file.
+//
+// ⛔ None of the four adds a default role. The root keeps the role it had
+// (`header`'s own semantics, or none), so a block that authors no `aria`
+// renders the same DOM as before. Whether a nameless-role root should get a
+// default role is not decided here.
 
 // ---------------------------------------------------------------------------
 // page:tabs
@@ -501,6 +589,10 @@ const containsAttachmentsNode = (nodes: any): boolean => {
 
 const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const { designer } = splitDesignerProps(props);
+  // The block's `aria` bag, on the `Tabs` root (see "The `aria` bag of the four
+  // page blocks" above).
+  const displayLocale = useDisplayLocale();
+  const tabsAria = resolveInlineAriaProps(schema?.aria, displayLocale);
   // `useTabsTranslation` surfaces `language` itself (it wraps
   // `useObjectTranslation`), so the count-badge copy and the tab-label
   // localization below read the same session locale from one hook.
@@ -820,6 +912,7 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       orientation={isVertical ? 'vertical' : 'horizontal'}
       className={cn(className, isVertical && 'flex gap-4 w-full')}
       {...designer}
+      {...tabsAria}
     >
       {/* Hide the tab strip entirely when there's only one tab — a single
           pill labelled "Details" is visual clutter rather than an
@@ -923,6 +1016,10 @@ ComponentRegistry.register('tabs', PageTabsRenderer, {
 const PageCardRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const { designer } = splitDesignerProps(props);
   const { language } = useObjectTranslation();
+  // The block's `aria` bag, on the `Card` root (see "The `aria` bag of the four
+  // page blocks" above).
+  const displayLocale = useDisplayLocale();
+  const cardAria = resolveInlineAriaProps(schema?.aria, displayLocale);
   // Resolve the title via pickLocalized so inline-i18n shapes (`{ en, zh }`)
   // render in the active locale. `labelText` only understands `{ default, value }`
   // and would silently blank an `{ en, zh }` title — e.g. the Cloud Pricing
@@ -932,7 +1029,7 @@ const PageCardRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // `children` is the authorable spelling; `body` is a READ-ONLY back-compat
   // fallback for documents already stored with it (objectui#4027).
   //
-  // `body` was retired from the contract by objectstack#5775 (PR #6281, ADR-0087
+  // `body` was retired from the contract by objectstack#5775 (objectstack `85ec26d28`, ADR-0087
   // D2): it was a second spelling of the slot every other container — grid, flex,
   // section, tabs items — calls `children`, and the spec now declares `children`
   // on `PageCardProps` and rejects `body` by name. The registration below stopped
@@ -964,6 +1061,7 @@ const PageCardRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     <Card
       className={cn(className, !bordered && 'border-0 shadow-none bg-transparent')}
       {...designer}
+      {...cardAria}
     >
       {title && (
         <CardHeader>
@@ -1002,7 +1100,7 @@ ComponentRegistry.register('card', PageCardRenderer, {
     { name: 'title', type: ['string', 'object'], description: 'Accepts an inline translation map ({ en, "zh-CN", … })' },
     { name: 'bordered', type: 'boolean' },
     // The card's content slot, respelled from `body` to `children`
-    // (objectui#4027). One slot, one spelling: objectstack#5775 (PR #6281)
+    // (objectui#4027). One slot, one spelling: objectstack#5775 (objectstack `85ec26d28`)
     // retired `PageCardProps.body` and declared `children` in its place, so a
     // designer that kept offering `body` was teaching a key the contract now
     // rejects by name. The renderer still READS `body` for stored documents —
@@ -1027,6 +1125,10 @@ interface PageAccordionItem {
 const PageAccordionRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const { designer } = splitDesignerProps(props);
   const { language } = useObjectTranslation();
+  // The block's `aria` bag, on the `Accordion` root of either variant (see
+  // "The `aria` bag of the four page blocks" above).
+  const displayLocale = useDisplayLocale();
+  const accordionAria = resolveInlineAriaProps(schema?.aria, displayLocale);
   // Same lookup the tab strip reads (objectui#4645) — `page:accordion` is the
   // other renderer that localizes well-known English section labels, and the
   // two must not answer differently for the same token.
@@ -1087,6 +1189,7 @@ const PageAccordionRenderer: React.FC<any> = ({ schema, className, ...props }) =
         defaultValue={defaultOpen}
         className={className}
         {...designer}
+        {...accordionAria}
       >
         {commonChildren}
       </Accordion>
@@ -1100,6 +1203,7 @@ const PageAccordionRenderer: React.FC<any> = ({ schema, className, ...props }) =
       defaultValue={defaultOpen[0]}
       className={className}
       {...designer}
+      {...accordionAria}
     >
       {commonChildren}
     </Accordion>
@@ -1179,46 +1283,15 @@ ComponentRegistry.register('section', PageSectionRenderer, {
 });
 
 // ---------------------------------------------------------------------------
-// page:header — title row + optional subtitle + breadcrumb/action slots.
+// page:header — title row + optional subtitle + action slot.
 // `actions` entries are ACTION IDS, resolved against the object's own metadata
 // (objectstack#11592 ruling, objectui#6252) — see `resolvedHeaderActions`.
 // ---------------------------------------------------------------------------
 
 /**
- * Strip dangling connectors that survive when a `titleFormat` interpolates
- * with one side empty — e.g. `{number} - {name}` becomes `CTR-0001 -` when
- * `name` is blank. Removes a trailing/leading hyphen / middle-dot / colon /
- * slash / pipe (optionally surrounded by whitespace) and collapses
- * adjacent whitespace into a single space. Idempotent.
- *
- * Exported for unit tests.
- */
-export function cleanupTitleSeparators(s: string): string {
-  if (!s) return s;
-  let out = s;
-  // Repeatedly trim trailing connectors. Loop so chains like " - · " all peel.
-  for (let i = 0; i < 4; i += 1) {
-    const next = out.replace(/[\s\u00A0]*[-·:|/–—][\s\u00A0]*$/u, '').trimEnd();
-    if (next === out) break;
-    out = next;
-  }
-  for (let i = 0; i < 4; i += 1) {
-    const next = out.replace(/^[\s\u00A0]*[-·:|/–—][\s\u00A0]*/u, '').trimStart();
-    if (next === out) break;
-    out = next;
-  }
-  // Collapse double-separators in the middle (rare, but happens when the
-  // middle field of a 3-part format is empty: "A -  - B" -> "A - B").
-  out = out.replace(/([-·:|/–—])[\s\u00A0]*\1/gu, '$1');
-  // Collapse runs of whitespace.
-  out = out.replace(/[\s\u00A0]+/g, ' ').trim();
-  return out;
-}
-
-/**
  * One-time diagnostics for header-action `visible` / `hidden` predicates
  * (#2358). Warn-once per (action, predicate) pair so re-renders don't spam the
- * console, mirroring ActionEngine's `warnHiddenPredicate` (#2183).
+ * console, mirroring ActionEngine's `warnHiddenPredicate` (objectstack-ai/objectstack#2183).
  *
  * The *fault* half of these diagnostics is no longer written here: since
  * objectui#3521 the predicates run through `evalRowPredicate`, whose own
@@ -1238,7 +1311,7 @@ const _warnedHeaderPredicates = new Set<string>();
  * that is present-but-null does NOT trigger this (legitimately empty field).
  * Skipped while the record is empty/loading to avoid false positives.
  *
- * ⛔ Do NOT re-attribute this to `hidden: true` (objectui#5399). `hidden` is a
+ * ⛔ Do NOT re-attribute this to `hidden: true` (`5a07e67d9`). `hidden` is a
  * UI concern ("Hidden from default UI"), not a projection rule: the framework's
  * read path drops `internal: true` columns and the `__search` companion, and
  * nothing else. This surface knows only WHICH keys the bound payload lacks; it
@@ -1349,6 +1422,10 @@ function reportRefusedHeaderActions(
 
 const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const { designer } = splitDesignerProps(props);
+  // The block's `aria` bag, on the `header` root of both layouts below (see
+  // "The `aria` bag of the four page blocks" above).
+  const displayLocale = useDisplayLocale();
+  const headerAria = resolveInlineAriaProps(schema?.aria, displayLocale);
   const ctx = useRecordContext();
   // Record-level inline-edit session (objectui#2572 item 4): while a shared
   // inline draft is active, header actions flagged `disableDuringInlineEdit`
@@ -1428,7 +1505,12 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     fieldOptionLabel,
     headerObjectName,
   );
-  const breadcrumb = (schema?.breadcrumb ?? schema?.properties?.breadcrumb) !== false;
+  // `breadcrumb` is deliberately NOT read (objectui#11166, ruling RETIRE). All
+  // it ever drew was an empty `data-page-breadcrumb-slot` div that nothing
+  // filled, and the console's app header already draws the trail. The spec
+  // still accepts `PageHeaderProps.breadcrumb` until objectstack#20758 retires
+  // it, so an authored value renders exactly as an absent one: ignored, no
+  // error. ⛔ Do not add a trail here; that is an ENFORCE ruling, not a fix.
 
   // Schema-level opt-outs let authors keep the historic "bare h1" header
   // when they don't want a record chip (e.g. a non-record landing page).
@@ -1799,19 +1881,28 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // also keeps ActionRunner's collected-params merge (which writes
   // `action.params` in place) from mutating the authored schema node between
   // invocations. Non-record hosts (no RecordContext data) dispatch unchanged.
+  //
+  // One exception on both paths (objectui#10462, ruling A on objectui#10289):
+  // an OBJECT `params` is carried as values only for a `type: 'api'` action,
+  // the objectstack#5777 payload window. On any other type it is dropped, with
+  // a development warning, and the stash alone rides `params`.
   const record = ctx?.data;
   const dispatchHeaderAction = React.useCallback((action: any) => {
+    const { params: rawParams, ...rest } = (action ?? {}) as Record<string, any>;
+    const values = Array.isArray(rawParams)
+      ? undefined
+      : readActionEntryParamValues({ ...rest, params: rawParams }, rest.type || rest.actionType, 'page:header');
     if (!record || typeof record !== 'object') {
-      void execute(action);
+      const dropsObjectParams = rawParams != null && !Array.isArray(rawParams) && values === undefined;
+      void execute(dropsObjectParams ? rest : action);
       return;
     }
-    const { params: rawParams, ...rest } = (action ?? {}) as Record<string, any>;
     const dispatch: any = { ...rest };
     if (Array.isArray(rawParams)) {
       if (!dispatch.actionParams && rawParams.length > 0) dispatch.actionParams = rawParams;
       dispatch.params = { _rowRecord: record };
     } else {
-      dispatch.params = { ...(rawParams || {}), _rowRecord: record };
+      dispatch.params = { ...(values || {}), _rowRecord: record };
     }
     void execute(dispatch);
   }, [record, execute]);
@@ -2055,12 +2146,25 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   //   2. Author hasn't opted out via `recordChrome: false`.
   // When both pass, we resolve the chip title from (in order):
   //   - explicit `schema.title` (interpolated against data),
-  //   - `objectSchema.titleFormat` (the author override),
-  //   - the unified ADR-0079 resolver (`nameField` → `displayNameField` →
-  //     type-aware derivation) — same precedence as DetailView's own header,
+  //   - the object's DECLARED name pointer (`nameField`, then its deprecated
+  //     `displayNameField` alias), when it holds a value on this record,
+  //   - `objectSchema.titleFormat`, the legacy render-only template,
+  //   - the unified ADR-0079 resolver (type-aware derivation, once the two
+  //     rungs above have declined),
   //   - that same resolver's record-key rung, but ONLY for an object that
-  //     names no title field at all (objectui#10117),
+  //     names no title field at all (`4c6f549ef`),
   //   - `${objectLabel} ${id}` as a last-resort.
+  //
+  // ⭐ The declared pointer OUTRANKS `titleFormat` (objectui#9436, ruled C1).
+  // That is the protocol's order, not this renderer's choice:
+  // `@objectstack/spec`'s `titleFormat` describe says "an explicit nameField
+  // now takes precedence", ADR-0079 D3 says the same, and
+  // `getRecordDisplayName` implements it (declared pointer at steps 1+2, the
+  // template at step 3). This header used to rank the template FIRST, so on an
+  // object declaring both, the H1 and the name every resolver-backed surface
+  // shows were two different fields. `DetailView.resolveDisplayTitle` and
+  // `record:details`' H1 dedupe moved in the same change, because they read the
+  // same order. Pinned in `__tests__/page-header-title.test.tsx`.
   //
   // ⛔ `objectSchema.primaryField` is NOT a rung and must not become one again
   // (objectui#7586). It used to sit directly under `schema.title`, ABOVE the
@@ -2084,19 +2188,31 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     const objectLabel: string | undefined = rawObjectName
       ? tObjectLabel({ name: rawObjectName, label: fallbackLabel })
       : fallbackLabel || undefined;
-    // Honor objectSchema.titleFormat (e.g. `{first_name} {last_name}`).
-    // Mirrors DetailView.resolveDisplayTitle's behaviour so default and
-    // synthesized record pages produce the same title.
-    const rawTitleFormat: any = objSchema?.titleFormat;
-    const titleFormatStr: string | undefined =
-      typeof rawTitleFormat === 'string'
-        ? rawTitleFormat
-        : (rawTitleFormat && typeof rawTitleFormat === 'object' && typeof rawTitleFormat.source === 'string')
-          ? rawTitleFormat.source
-          : undefined;
-    const interpolatedTitleFormat = titleFormatStr
-      ? cleanupTitleSeparators(interpolate(titleFormatStr, data, objSchema, fieldOptionLabel, rawObjectName).trim())
-      : '';
+    // Honor objectSchema.titleFormat (e.g. `{first_name} {last_name}`) as the
+    // rung BELOW the declared pointer. `DetailView.resolveDisplayTitle` ranks
+    // the two the same way, so default and synthesized record pages produce
+    // the same title.
+    //
+    // ⭐ ONE interpolator (objectui#10447). The template renders through
+    // core's `formatTitleTemplate`, the function `getRecordDisplayName`'s
+    // template rung and `record:details`' H1 dedupe call. This rung used to
+    // run this file's own `interpolate` plus a separator cleanup, with
+    // different token rules: an expanded lookup token rendered as nothing
+    // here and as its display name in core, so `{account} - {deal_no}` read
+    // `Q3-042` in the H1 while the dedupe compared `Acme - Q3-042`, and the
+    // row equal to the H1 stayed printed under it. objectui#9436 moved only
+    // this rung's rank; the rungs' order below is unchanged.
+    //
+    // The template and the Expression envelope go to core as declared (core
+    // reads both), and whatever core returns is the rung's answer: its empty
+    // string is its "nothing resolved", and there is no second test for an
+    // unresolved token. The one thing the H1 adds is the translated option
+    // label for a select value, applied to a copy of the record
+    // (`withOptionLabels`) so the formatter's signature does not move.
+    const interpolatedTitleFormat = formatTitleTemplate(
+      objSchema?.titleFormat,
+      withOptionLabels(data, objSchema, fieldOptionLabel, rawObjectName),
+    );
     // Unified resolver (ADR-0079): honours the object's declared
     // `nameField`/`displayNameField` and falls back to type-aware field
     // derivation. `deriveFromRecordKeys: false` keeps bare record-key
@@ -2113,7 +2229,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       const resolved = getRecordDisplayName(objSchema, data, { deriveFromRecordKeys: false });
       return isResolverFloor(resolved) ? '' : resolved;
     })();
-    // objectui#10117 — the record-key safety net, and the two rules that make
+    // `4c6f549ef` — the record-key safety net, and the two rules that make
     // it safe. It used to be spelled out here as a raw
     // `data?.name || data?.full_name || data?.title || data?.subject || …`
     // chain: a SECOND implementation of the very question
@@ -2151,9 +2267,22 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       (objectLabel && data?.id ? `${objectLabel} ${String(data.id).slice(0, 8)}` : '') ||
       objectLabel ||
       '';
+    // The declared pointer as its OWN rung, directly above the template
+    // (objectui#9436). It is the resolver's steps 1+2, read through the one
+    // exported spelling of the pointer rather than a re-typed `??` chain, and
+    // filtered by the same floor test `unifiedTitle` applies. So for an object
+    // WITHOUT a `titleFormat` this rung answers exactly what `unifiedTitle`
+    // answered before it; only the template's rank moved. A blank value here
+    // falls through to the template, just as `getRecordDisplayName` walks from
+    // a blank step 1+2 to step 3.
+    const declaredTitle = (() => {
+      const resolved = recordDisplayValueAt(data, declaredNameField(objSchema));
+      return resolved && !isResolverFloor(resolved) ? resolved : '';
+    })();
     const titleCandidate =
       explicitTitle ||
-      (interpolatedTitleFormat && !interpolatedTitleFormat.includes('{') ? interpolatedTitleFormat : '') ||
+      declaredTitle ||
+      interpolatedTitleFormat ||
       unifiedTitle ||
       recordKeyTitle;
     // Defensive backstop — deliberately last, and deliberately NOT the fix: on
@@ -2213,14 +2342,9 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
           className,
         )}
         {...designer}
+        {...headerAria}
       >
         <div className="flex flex-col min-w-0 sm:min-w-48 flex-1">
-          {breadcrumb && (
-            <div
-              className="text-xs text-muted-foreground mb-1"
-              data-page-breadcrumb-slot
-            />
-          )}
           <RecordTitleChip
             title={resolvedTitle}
             objectLabel={objectLabel}
@@ -2249,10 +2373,8 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     <header
       className={cn('flex flex-col gap-2 pb-4 border-b', className)}
       {...designer}
+      {...headerAria}
     >
-      {breadcrumb && (
-        <div className="text-xs text-muted-foreground" data-page-breadcrumb-slot />
-      )}
       <div className="flex items-center justify-between gap-4">
         <div className="flex flex-col">
           {explicitTitle && (
@@ -2287,7 +2409,14 @@ ComponentRegistry.register('header', PageHeaderRenderer, {
     { name: 'title', type: ['string', 'object'], description: 'Supports {field} interpolation and inline translation maps; falls back to the record title' },
     { name: 'subtitle', type: ['string', 'object'], description: 'Same interpolation as Title' },
     { name: 'actions', type: 'array', of: 'string', description: "Action IDS — the names of actions declared on the object's own metadata — rendered in the header before any host-injected system actions. An id whose action declares neither record_header nor record_more in its locations renders nowhere." },
-    { name: 'breadcrumb', type: 'boolean' },
+    // Declared but NOT read (objectui#11166). It stays in `inputs` only while
+    // the installed spec still accepts the key: the reverse direction of
+    // `registry-inputs-spec-parity.test.ts` asks for every accepted spec key,
+    // and the manifest would otherwise warn `unknown-prop` on a value the
+    // contract accepts. It leaves with the spec retirement (objectstack#20758):
+    // once the pin carries the tombstone, this entry fails the forward
+    // direction. The description tells an author reading the manifest it is inert.
+    { name: 'breadcrumb', type: 'boolean', description: 'Ignored: the header draws no breadcrumb, and the key is being retired from the contract. Leave it out.' },
     { name: 'recordChrome', type: 'boolean', description: 'Set false for the bare h1 header on non-record pages' },
     { name: 'showStar', type: 'boolean' },
     { name: 'showCopyId', type: 'boolean' },

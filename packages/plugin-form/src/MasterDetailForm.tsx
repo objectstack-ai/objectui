@@ -31,15 +31,35 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { DataSource } from '@object-ui/types';
+import type { BatchTransactionOperation, DataSource, I18nLabel } from '@object-ui/types';
 import { runBatchTransaction } from '@object-ui/core';
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
 import { Button, Card, CardContent, CardHeader, CardTitle, cn, toast } from '@object-ui/components';
-import { useDisplayLocale } from '@object-ui/i18n';
+import {
+  formatDisplayNumber,
+  pickLocalized,
+  resolveFieldCurrency,
+  useDisplayLocale,
+  useLocalization,
+  useObjectTranslation,
+} from '@object-ui/i18n';
+import { usePermissions } from '@object-ui/permissions';
+import { dataChangeMatches, subscribeDataChanges } from '@object-ui/react';
 import { ObjectForm } from './ObjectForm';
+import { applyColumnPermissions } from './fieldWriteGate';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
-import { buildMasterDetailBatch, buildMasterDetailEditBatch, sumRows } from './masterDetailTx';
-import { deriveDetail, hydrateColumns, type InlineMode } from './deriveMasterDetail';
+import { useFormChromeTranslation } from './formChrome';
+import {
+  buildMasterDetailBatch,
+  buildMasterDetailEditBatch,
+  idOf,
+  isBlankRow,
+  sumRows,
+  type BatchEditDetailInput,
+  type ChildSchema,
+} from './masterDetailTx';
+import { isSameStoredValue } from './sanitize';
+import { deriveDetail, type InlineMode } from './deriveMasterDetail';
 
 export interface MasterDetailDetailConfig {
   /** Child object name, e.g. 'expense_line'. */
@@ -93,11 +113,28 @@ export interface MasterDetailFormSchema {
   sections?: any[];
   fields?: any[];
   formType?: 'simple' | 'tabbed';
-  title?: string;
-  submitText?: string;
-  /** Label for the Cancel button in the action bar. i18n is the host's job
-   *  (this plugin is locale-agnostic); defaults to English 'Cancel'. */
-  cancelText?: string;
+  /**
+   * `title`, `submitText` and `cancelText` are the spec's `I18nLabel`, as
+   * `ComponentPropsMap['object-master-detail-form']` in `@objectstack/spec`
+   * declares them: a plain string or an inline per-locale map such as
+   * `{ en: 'Purchase order', 'zh-CN': '采购单' }`. The form resolves each one
+   * with `pickLocalized` against the active UI language
+   * (`useObjectTranslation().language`) before it reaches the screen
+   * (objectui#10935).
+   *
+   * `title` names the record in the built-in edit-save toast ("… saved",
+   * pack key `form.savedNamed`), which shows only when the host supplies no
+   * `onSuccess`.
+   */
+  title?: I18nLabel;
+  /** Label of the Save button. Defaults to the session locale's `common.save`
+   *  (edit) or `form.create` ('Save' / 'Create' in English). */
+  submitText?: I18nLabel;
+  /** Label for the Cancel button in the action bar, which renders only when the
+   *  host supplies `onCancel`. Defaults to the session locale's `common.cancel`
+   *  ('Cancel' in English); an authored label, a string or a per-locale map,
+   *  always wins (objectui#11039). */
+  cancelText?: I18nLabel;
   /** Hide the bottom Save/Cancel action bar — e.g. a non-persisting design
    *  preview. Defaults to shown (the form owns the only Save in this layout). */
   showSubmit?: boolean;
@@ -123,8 +160,152 @@ export interface MasterDetailFormSchema {
 /** Rows keyed by their persisted id (when known), for edit-mode diffing. */
 interface RowState {
   rows: Record<string, any>[];
-  /** Snapshot of the persisted rows (edit mode) for diffing on submit. */
+  /**
+   * Snapshot of the persisted rows (edit mode) for diffing on submit. Two
+   * writers: the children-fetch effect sets it from the read, and every
+   * successful edit save advances it to what that save wrote
+   * ({@link childRowsAfterSave}, objectui#10564).
+   */
   original: Record<string, any>[];
+}
+
+/** One detail collection as the edit batch was built from it. */
+interface SavedDetailInput {
+  entryId: string;
+  /** The exact input handed to `buildMasterDetailEditBatch`. */
+  input: BatchEditDetailInput;
+}
+
+/**
+ * What one SUCCESSFUL edit batch wrote to one detail collection: the child-row
+ * form of `advanceLoadedRecord`, the parent record's baseline advance
+ * (objectui#10156 / objectui#10564).
+ */
+interface SavedChildRows {
+  entryId: string;
+  /**
+   * The `original` the batch diffed against. The advance lands only while it
+   * is still the collection's baseline: a reload that replaced the row state
+   * while the save was in flight has set a newer one.
+   */
+  diffedAgainst: Record<string, unknown>[];
+  /** Each row the batch CREATED (the row object it was built from) → the id the server gave it. */
+  createdIds: Map<object, unknown>;
+  /** The baseline after the save: every persisted row, laid over with what this batch wrote to it. */
+  original: Record<string, unknown>[];
+}
+
+/**
+ * Whether a `create` operation's payload was built from `row`: every field it
+ * writes, other than the parent link the builder sets, holds the row's value.
+ * The builder only drops keys from a row (sanitize) and never rewrites one.
+ */
+function isBuiltFrom(
+  data: Record<string, unknown> | undefined,
+  row: Record<string, unknown>,
+  relationshipField: string,
+): boolean {
+  return Object.entries(data ?? {}).every(
+    ([k, v]) => k === relationshipField || isSameStoredValue(v, row[k]),
+  );
+}
+
+/**
+ * The child rows' baseline after an edit batch COMMITTED (objectui#10564).
+ *
+ * A form that stays mounted after a save must not diff its next save against
+ * the rows as FIRST read. Against that stale baseline a row the save created
+ * is still id-less and is created again; a row the save deleted is deleted
+ * again; and a cell changed back to its first-read value compares clean and is
+ * dropped while the server keeps the saved value.
+ *
+ * Two facts come from the batch, and nothing is inferred beyond them:
+ *
+ * - **Ids.** `batchTransaction` answers `results` index-aligned with the
+ *   operations, a create echoing the record it wrote (`DataSource`'s contract;
+ *   the server's `/batch` and `emulateBatchTransaction` both do). The edit
+ *   builder puts the parent at index 0 and then, collection by collection in
+ *   the order it was handed them, one `create` per non-blank row without an
+ *   id, in row order. Each such row is paired with the next create operation,
+ *   and the pair is checked ({@link isBuiltFrom}) before it is trusted. A pair
+ *   that does not check out stops the pairing: the rows left unpaired stay
+ *   creates, which is the behaviour before this advance, never a row updating
+ *   another row's record. A create echo without an id leaves its row a create
+ *   too.
+ * - **Written values.** What the batch sent, laid over the row as read — the
+ *   same rule `advanceLoadedRecord` applies to the parent. A row the batch
+ *   deleted leaves the baseline; a row it did not touch keeps its snapshot.
+ *
+ * Pure, and it does not throw: it runs between a committed batch and the
+ * parent's own advance, where a throw would report a save that landed as a
+ * failure.
+ */
+function childRowsAfterSave(
+  ops: BatchTransactionOperation[],
+  results: unknown,
+  details: SavedDetailInput[],
+): SavedChildRows[] {
+  const echoes = Array.isArray(results) ? results : [];
+  const creates: Array<{ op: BatchTransactionOperation; echo: unknown }> = [];
+  ops.forEach((op, k) => {
+    if (k > 0 && op.action === 'create') creates.push({ op, echo: echoes[k] });
+  });
+  let nextCreate = 0;
+  let pairingLost = false;
+
+  const saved = details.map(({ entryId, input }): SavedChildRows => {
+    const { childObject, relationshipField } = input;
+    const rows = input.rows || [];
+    const original = input.original || [];
+    const createdIds = new Map<object, unknown>();
+    const written = new Map<unknown, Record<string, unknown>>();
+
+    for (const row of rows) {
+      if (pairingLost) break;
+      if (idOf(row) != null || isBlankRow(row, relationshipField)) continue;
+      const pair = creates[nextCreate];
+      if (!pair || pair.op.object !== childObject || !isBuiltFrom(pair.op.data, row, relationshipField)) {
+        pairingLost = true;
+        break;
+      }
+      nextCreate += 1;
+      const id = idOf(pair.echo);
+      if (id == null) continue;
+      createdIds.set(row, id);
+      written.set(id, pair.op.data ?? {});
+    }
+    for (let k = 1; k < ops.length; k++) {
+      const op = ops[k];
+      if (op.action === 'update' && op.object === childObject && op.id != null) {
+        written.set(op.id, op.data ?? {});
+      }
+    }
+
+    const before = new Map<unknown, Record<string, unknown>>();
+    for (const r of original) {
+      const id = idOf(r);
+      if (id != null) before.set(id, r);
+    }
+    const next: Record<string, unknown>[] = [];
+    for (const row of rows) {
+      const id = idOf(row) ?? createdIds.get(row);
+      if (id == null) continue;
+      const was = before.get(id);
+      const wrote = written.get(id);
+      if (!was && !wrote) continue;
+      const entry: Record<string, unknown> = { ...(was ?? {}), ...(wrote ?? {}) };
+      if (idOf(entry) == null) entry.id = id;
+      next.push(entry);
+    }
+    return { entryId, diffedAgainst: input.original, createdIds, original: next };
+  });
+
+  if (pairingLost || nextCreate !== creates.length) {
+    console.warn(
+      '[MasterDetailForm] could not pair every row created by this save with its create operation; an unpaired row keeps no id, and the next save creates it again.',
+    );
+  }
+  return saved;
 }
 
 /**
@@ -177,6 +358,87 @@ interface DetailEntry {
   /** The authored config, with derived columns / FK folded in once resolved. */
   config: MasterDetailDetailConfig;
   status: DetailResolution;
+  /**
+   * The child object's own definition of `config.amountField`, kept from the
+   * schema the resolve effect loaded, so the document totals stack can read the
+   * amount's currency off the FIELD (objectui#11132). Absent when no schema was
+   * loaded for this entry (a fully configured entry skips the fetch) or the
+   * child declares no such field; the stack then resolves to the tenant's
+   * currency. Internal state, never part of the authored config.
+   */
+  amountFieldDef?: CurrencyFieldDef;
+}
+
+/** The field shape `resolveFieldCurrency` reads — the one currency resolver. */
+type CurrencyFieldDef = Parameters<typeof resolveFieldCurrency>[0];
+
+/**
+ * The child object's definition of `fieldName`, or `undefined` when the name is
+ * unset or the child declares no such field.
+ */
+function childFieldDef(
+  childSchema: { fields?: Record<string, unknown> } | undefined,
+  fieldName: string | undefined,
+): CurrencyFieldDef {
+  if (!fieldName) return undefined;
+  const def = childSchema?.fields?.[fieldName];
+  return def && typeof def === 'object' ? (def as CurrencyFieldDef) : undefined;
+}
+
+/**
+ * The currency the document totals stack is denominated in (objectui#11132).
+ *
+ * Each entry that switches the stack on (one with an `amountField`) resolves its
+ * amount's currency through `resolveFieldCurrency`, the one precedence every
+ * currency face shares: the field's fixed currency, else the tenant default.
+ * ⛔ No constant: the stack used to print a literal `¥` whatever either said.
+ *
+ * The stack adds every entry's amounts into ONE subtotal, so it has one
+ * currency only when every entry resolves to the same code. When they differ,
+ * or none is known, this answers `undefined` and the stack shows plain numbers,
+ * the resolver's own answer for an amount with no known currency: never a
+ * guessed sign.
+ */
+function totalsCurrency(entries: DetailEntry[], tenantCurrency: string | undefined): string | undefined {
+  const codes = new Set(
+    entries
+      .filter((e) => !!e.config.amountField)
+      .map((e) => resolveFieldCurrency(e.amountFieldDef, tenantCurrency)),
+  );
+  return codes.size === 1 ? codes.values().next().value : undefined;
+}
+
+/**
+ * The fraction width of a totals line with no currency: the historical two
+ * places the stack always showed, which is also `CurrencyField`'s width when
+ * no currency resolves.
+ */
+const PLAIN_AMOUNT_DIGITS = 2;
+
+/**
+ * One line of the document totals stack, in the display locale (objectui#9909).
+ *
+ * With a currency, the amount is `Intl`'s own currency format through
+ * `formatDisplayNumber`, the formatter the line grid's currency cells use. So
+ * the sign sits where the locale puts it (`$1,234.50`, `1.234,50 $` in de-DE)
+ * and the width is the currency's ISO 4217 minor unit, the default `Intl`
+ * applies to `style: 'currency'`: 2 for USD, 0 for JPY, 3 for KWD. A
+ * currency's decimal places are the currency's, not a setting.
+ *
+ * Without one, a plain number at {@link PLAIN_AMOUNT_DIGITS}. A code `Intl`
+ * refuses (`RangeError: Invalid currency code`) is shown as the code beside
+ * that plain number, as `CurrencyField` and the grid cells show one, rather
+ * than taking the form down; the digits stay in the display locale.
+ */
+function formatTotalsAmount(n: number, currency: string | undefined, locale: string): string {
+  const plain = () =>
+    formatDisplayNumber(n, { locale, minimumFractionDigits: PLAIN_AMOUNT_DIGITS, maximumFractionDigits: PLAIN_AMOUNT_DIGITS });
+  if (!currency) return plain();
+  try {
+    return formatDisplayNumber(n, { locale, currency });
+  } catch {
+    return `${currency} ${plain()}`;
+  }
 }
 
 /**
@@ -224,6 +486,78 @@ function synthesizeDetailIds(raw: MasterDetailDetailConfig[]): string[] {
 }
 
 /**
+ * objectui#10853 — `useDataInvalidation` (`@object-ui/react`) for a SET of
+ * objects: each name's nonce moves once per change the data-invalidation bus
+ * reports for it.
+ *
+ * The edit-mode lines read one child object per detail collection, and the
+ * collections are authored, so there is no fixed number of hook calls to make.
+ * This is the same bus and the same test, not a second channel:
+ * `subscribeDataChanges` is the listener set `useDataInvalidation` subscribes
+ * through, and `dataChangeMatches` its matcher. It is applied object-level (no
+ * `recordId`), because a collection is many records of its object.
+ *
+ * Keyed on the set's CONTENT, so a fresh array of the same names neither
+ * resubscribes nor resets a nonce (AGENTS.md #10).
+ */
+function useObjectsInvalidation(objectNames: readonly string[]): Readonly<Record<string, number>> {
+  const namesKey = JSON.stringify(Array.from(new Set(objectNames)).sort());
+  const [nonces, setNonces] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const names = JSON.parse(namesKey) as string[];
+    if (names.length === 0) return;
+    const unsubscribe = subscribeDataChanges((change) => {
+      const hit = names.filter((name) => dataChangeMatches(change, name));
+      if (hit.length === 0) return;
+      setNonces((prev) => {
+        const next = { ...prev };
+        for (const name of hit) next[name] = (next[name] ?? 0) + 1;
+        return next;
+      });
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [namesKey]);
+  return nonces;
+}
+
+/**
+ * objectui#10853 — whether one collection holds lines the user has not saved:
+ * the edit save's own row diff (`buildMasterDetailEditBatch`) finds something
+ * to write to it OTHER than the parent link. A user's edit therefore reads as
+ * unsaved exactly when the save would send it, and a line changed back to its
+ * stored value (a revert) reads as saved again.
+ *
+ * The parent link is set aside on purpose, and it is the one place the two
+ * disagree. The save restates the link on every row it writes, as the parent
+ * id in string form, and a row read back can carry it in another form (a
+ * numeric id, an expanded lookup); against such a backend the save restates it
+ * on every row while this reads the lines as saved. That restatement is not the
+ * user's input, so it does not hold a re-read.
+ */
+function linesUnsaved(
+  state: RowState | undefined,
+  detail: MasterDetailDetailConfig,
+  parentId: string,
+  childSchema: ChildSchema,
+): boolean {
+  if (!state || !detail.relationshipField) return false;
+  const relationshipField = detail.relationshipField;
+  const ops = buildMasterDetailEditBatch('', parentId, {}, [
+    {
+      childObject: detail.childObject,
+      relationshipField,
+      rows: state.rows,
+      original: state.original.map((row) => ({ ...row, [relationshipField]: parentId })),
+      childSchema,
+    },
+  ]);
+  // Op 0 is the (empty) parent update the builder always leads with.
+  return ops.length > 1;
+}
+
+/**
  * Read the live header record from the rendered parent-form host by scraping its
  * named controls. The header is owned by react-hook-form (inside <ObjectForm>),
  * which exposes no values callback here; rather than couple into its internals
@@ -258,11 +592,42 @@ function scrapeHeaderRecord(host: HTMLElement | null): Record<string, unknown> {
   return out;
 }
 
+/**
+ * A configuration hint's pack sentence, with each `{{hole}}` rendered as code
+ * (objectui#11160).
+ *
+ * The three collection hints below name what the author has to find or set: a
+ * property (`childObject`, `relationshipField`) or an object's name. Those stay
+ * code and are never translated, so the pack sentence carries a hole for each.
+ * The caller asks `t` for the sentence with every hole filled by itself, and
+ * this splits the text on the holes and puts each one's value in its place, in
+ * whatever order the locale's word order puts them. `LineItemsPanel`'s
+ * `form.lineItems.noChildObject` split is the one-hole form of the same move.
+ */
+function withCodeHoles(sentence: string, holes: Record<string, string | undefined>): React.ReactNode[] {
+  const names = Object.keys(holes);
+  const pattern = new RegExp(`(${names.map((name) => `\\{\\{${name}\\}\\}`).join('|')})`);
+  return sentence.split(pattern).map((part, i) => {
+    const name = names.find((n) => part === `{{${n}}}`);
+    return name === undefined ? part : (
+      <code key={i} className="font-mono">{holes[name]}</code>
+    );
+  });
+}
+
 interface MasterDetailLinesProps {
   entries: DetailEntry[];
   /** Row state addressed by ENTRY ID, never by array position (objectui#6371). */
   rowState: Record<string, RowState>;
   setRows: (entryId: string, rows: Record<string, any>[]) => void;
+  /**
+   * A save is in flight: every grid takes no input (objectui#10631). A created
+   * row takes its echoed id by identity with the row object the batch was built
+   * from, and a grid with a sort field maps EVERY row to a new object on any
+   * change, so a single keystroke during the save would leave every row it
+   * created without its id.
+   */
+  saving: boolean;
   /** Host wrapping the header <ObjectForm> — scraped for the live parent record. */
   formHostRef: React.RefObject<HTMLDivElement | null>;
   taxRateField: string;
@@ -295,6 +660,7 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   entries,
   rowState,
   setRows,
+  saving,
   formHostRef,
   taxRateField,
   formKey,
@@ -306,6 +672,20 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   // used to pass `toLocaleString` an explicit `undefined`, i.e. the MACHINE's
   // locale (objectui#9909).
   const displayLocale = useDisplayLocale();
+  // The tenant default currency (ADR-0053): the totals stack's currency when
+  // the amount field fixes none (objectui#11132).
+  const { currency: tenantCurrency } = useLocalization();
+  // The collection placeholder, the document totals stack and the in-form
+  // collection's default add label, in the session locale (objectui#11071).
+  // Since objectui#11145 also a collection's heading when it authors no
+  // `title`: the key the record page's line-items panel reads for its own.
+  // Since objectui#11160 also the three collection hints (no `childObject`,
+  // a schema that failed to load, no relationship field to the parent).
+  const { t } = useFormChromeTranslation();
+  // The caller's field-level grants on each CHILD object. With no provider
+  // mounted this is the fail-open answer (`isLoaded` false) and every grid below
+  // renders exactly as it did before permissions existed (objectui#10163).
+  const perms = usePermissions();
   const [parentRecord, setParentRecord] = useState<Record<string, unknown>>({});
   const parentKeyRef = useRef<string>('');
 
@@ -352,7 +732,10 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   const taxPct = taxRate ?? 0;
   const taxAmount = subtotal * (taxPct / 100);
   const grandTotal = subtotal + taxAmount;
-  const money = (n: number) => `¥${n.toLocaleString(displayLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // The amounts' own currency, else the tenant's; never a constant sign
+  // (objectui#11132). See `totalsCurrency` and `formatTotalsAmount`.
+  const currency = totalsCurrency(entries, tenantCurrency);
+  const money = (n: number) => formatTotalsAmount(n, currency, displayLocale);
 
   return (
     <>
@@ -369,7 +752,7 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
         // its position, so a sibling moving above it re-associated the section
         // and its rows with a different collection (objectui#6371).
         <section key={entry.id} className="space-y-2">
-          <h3 className="text-sm font-medium text-foreground">{d.title || 'Line Items'}</h3>
+          <h3 className="text-sm font-medium text-foreground">{d.title || t('form.lineItems.title')}</h3>
           {/* A detail whose child object never resolved gets its OWN branch,
               ahead of the columns/loading one (objectui#6360) — the render half
               of the decline at `MasterDetailForm`'s resolve effect, and the same
@@ -385,8 +768,10 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
               className="py-4 text-sm text-muted-foreground"
               data-testid="md-detail-no-child-object"
             >
-              This collection has no child object configured: set{' '}
-              <code className="font-mono">childObject</code> to the object whose rows it lists.
+              {withCodeHoles(
+                t('form.masterDetail.noChildObject', { property: '{{property}}' }),
+                { property: 'childObject' },
+              )}
             </p>
           ) : entry.status === 'failed' ? (
             /* The OTHER arm of the same resolver (objectui#6372). This entry
@@ -406,9 +791,10 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
               role="status"
               data-testid="md-detail-schema-unavailable"
             >
-              Could not load the schema of{' '}
-              <code className="font-mono">{d.childObject}</code>, so this collection has no
-              columns to show. Check that the object exists and is readable, then reload.
+              {withCodeHoles(
+                t('form.masterDetail.schemaUnavailable', { object: '{{object}}' }),
+                { object: d.childObject },
+              )}
             </p>
           ) : entry.status === 'underivable' ? (
             /* The THIRD arm of the same resolver (objectui#6394): the schema
@@ -429,18 +815,26 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
               className="py-4 text-sm text-muted-foreground"
               data-testid="md-detail-no-relationship-field"
             >
-              Could not work out how <code className="font-mono">{d.childObject}</code> links
-              to <code className="font-mono">{parentObjectName}</code>: no lookup or
-              master_detail field on it references the parent. Set{' '}
-              <code className="font-mono">relationshipField</code> on this collection to the
-              field that holds the parent record.
+              {withCodeHoles(
+                t('form.masterDetail.noRelationshipField', {
+                  object: '{{object}}',
+                  parent: '{{parent}}',
+                  property: '{{property}}',
+                }),
+                { object: d.childObject, parent: parentObjectName, property: 'relationshipField' },
+              )}
             </p>
           ) : !d.columns?.length ? (
-            <p className="py-4 text-sm text-muted-foreground">Loading columns…</p>
+            <p className="py-4 text-sm text-muted-foreground">{t('form.masterDetail.loadingColumns')}</p>
           ) : (
             <LineItemsField
               value={rowState[entry.id]?.rows ?? []}
               onChange={(rows) => setRows(entry.id, rows)}
+              // The grid's own `disabled`: cells locked, and no ghost row, add,
+              // duplicate, remove or reorder while the save is in flight
+              // (objectui#10631). Its row "expand" control stays; the editor it
+              // opens is held by the same state in <MasterDetailForm>.
+              disabled={saving}
               // The live header record — a line cell's readonlyWhen/requiredWhen
               // CEL rule evaluates against it as `parent` (e.g. lock when
               // parent.status == 'paid').
@@ -457,14 +851,18 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
               {...(d.inlineMode === 'form' ? { onAdd: () => onAddViaForm(entry.id) } : {})}
               field={
                 {
-                  columns: d.columns,
+                  // FLS gate, through the ONE render pass `LineItemsPanel` and
+                  // the record-form containers share: a child column the caller
+                  // may not read is omitted, and one they may read but not edit
+                  // renders its cells locked (objectui#10163).
+                  columns: applyColumnPermissions(d.columns, { perms, objectName: d.childObject }),
                   // Show the per-grid running total whenever an amount column is
                   // set — unless the document totals stack below subsumes it.
                   total_field: showTaxStack ? undefined : (d.amountField || (d.totalField ? 'amount' : undefined)),
                   sort_field: d.sortField,
                   min_rows: d.minRows,
                   max_rows: d.maxRows,
-                  add_label: d.inlineMode === 'form' ? (d.addLabel || 'Add') : d.addLabel,
+                  add_label: d.inlineMode === 'form' ? (d.addLabel || t('detail.add')) : d.addLabel,
                 } as any
               }
             />
@@ -479,15 +877,15 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
         <div className="flex justify-end">
           <dl className="w-64 space-y-1.5 text-sm" data-testid="md-totals">
             <div className="flex items-center justify-between">
-              <dt className="text-muted-foreground">Subtotal</dt>
+              <dt className="text-muted-foreground">{t('form.masterDetail.subtotal')}</dt>
               <dd className="tabular-nums" data-testid="md-subtotal">{money(subtotal)}</dd>
             </div>
             <div className="flex items-center justify-between">
-              <dt className="text-muted-foreground">Tax ({taxPct}%)</dt>
+              <dt className="text-muted-foreground">{t('form.masterDetail.tax', { rate: taxPct })}</dt>
               <dd className="tabular-nums" data-testid="md-tax">{money(taxAmount)}</dd>
             </div>
             <div className="flex items-center justify-between border-t border-border pt-1.5 text-base font-semibold">
-              <dt>Total</dt>
+              <dt>{t('form.masterDetail.total')}</dt>
               <dd className="tabular-nums" data-testid="md-grand-total">{money(grandTotal)}</dd>
             </div>
           </dl>
@@ -510,6 +908,16 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
 }) => {
   const rawDetails = schema.details || [];
   const isEdit = schema.mode === 'edit' && !!schema.recordId;
+  // `title` / `submitText` / `cancelText` are `I18nLabel` (see the schema
+  // above), so a locale map is resolved here, against the UI language — the
+  // source `ObjectMetricWidget` resolves its own `I18nLabel` members against.
+  // Read raw, a map threw "Objects are not valid as a React child" as a Button
+  // child and toasted "[object Object] saved" (objectui#10935).
+  const { language } = useObjectTranslation();
+  const titleText = pickLocalized(schema.title, language);
+  // The defaults behind those three, and the built-in save toast, in the
+  // session locale (objectui#11039). See `formChrome.ts`.
+  const { t } = useFormChromeTranslation();
 
   // A detail can be configured with just `{ childObject }` — the relationship
   // FK and grid columns are then derived from the child object's metadata
@@ -616,17 +1024,35 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
             return { ...entry, status: 'failed' };
           }
           try {
-            // Author gave the FK + an explicit column set but left some columns
-            // untyped — hydrate just their widget types from the schema, keeping
-            // their exact column set / order / labels (don't re-derive columns).
-            if (d.relationshipField && d.columns?.length) {
-              return { ...entry, config: { ...d, columns: hydrateColumns(d.columns, childSchema) }, status: 'ready' };
-            }
+            // ONE derivation for every entry that reaches here. With authored
+            // `columns`, `deriveDetail` keeps them: its `columns` is
+            // `hydrateColumns(d.columns, childSchema)`, and its amount rule
+            // picks from that same set. An authored `amountField` / `sortField`
+            // still wins over the derived one.
             const derived = deriveDetail(d.childObject, childSchema, schema.objectName, {
               relationshipField: d.relationshipField,
               columns: d.columns,
               amountField: d.amountField,
             });
+            const amountField = d.amountField ?? derived.amountField;
+            const sortField = d.sortField ?? derived.sortField;
+            // Author gave the FK + an explicit column set but left some columns
+            // untyped — hydrate just their widget types from the schema, keeping
+            // their exact column set / order / labels (don't re-derive columns),
+            // and their own `formFields` / `inlineMode`. The sort field and the
+            // amount field are still taken from the derivation: a child whose
+            // relationship declares `inlineColumns` lands here, and nothing
+            // else supplies them (the spec has no inline sort-field key), so
+            // skipping them lost the drag-reorder `position` and the running
+            // total (objectui#11144).
+            if (d.relationshipField && d.columns?.length) {
+              return {
+                ...entry,
+                config: { ...d, columns: derived.columns, amountField, sortField },
+                status: 'ready',
+                amountFieldDef: childFieldDef(childSchema, amountField),
+              };
+            }
             return {
               ...entry,
               status: 'ready',
@@ -636,9 +1062,10 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
                 columns: derived.columns,
                 formFields: d.formFields ?? derived.formFields,
                 inlineMode: d.inlineMode ?? derived.mode,
-                amountField: d.amountField ?? derived.amountField,
-                sortField: d.sortField ?? derived.sortField,
+                amountField,
+                sortField,
               },
+              amountFieldDef: childFieldDef(childSchema, amountField),
             };
           } catch (err) {
             // THE DERIVE FAILED, on a schema that loaded fine — almost always
@@ -724,9 +1151,24 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   // Bumped after a successful CREATE to remount the parent <ObjectForm> (which
   // owns react-hook-form state) so its fields clear for the next entry.
   const [formKey, setFormKey] = useState(0);
+  /**
+   * The save guard: set from the moment a save is asked for until its OUTCOME
+   * (objectui#10631). While it is set, Save and Cancel are disabled and the
+   * lines take no input (`MasterDetailLines`, the row editor below).
+   */
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
+  /**
+   * Armed by a Save click and cleared as soon as that submit reaches the batch.
+   * It covers only the stretch BEFORE the batch: see `handleSave`.
+   */
   const saveGuardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * Set while `submitViaBatch` has a batch in flight. One batch at a time: a
+   * second batch built from the same baseline writes every created row twice
+   * (objectui#10631).
+   */
+  const batchInFlightRef = useRef(false);
   /**
    * The sonner id BOTH save outcomes of THIS form are published under.
    *
@@ -752,45 +1194,218 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
    */
   const formInstanceId = React.useId();
   const outcomeToastId = `form-outcome:${formInstanceId}`;
-  const releaseSave = useCallback(() => {
-    savingRef.current = false;
-    setSaving(false);
+  const clearSaveGuardTimer = useCallback(() => {
     if (saveGuardTimer.current) {
       clearTimeout(saveGuardTimer.current);
       saveGuardTimer.current = null;
     }
   }, []);
+  const releaseSave = useCallback(() => {
+    savingRef.current = false;
+    setSaving(false);
+    clearSaveGuardTimer();
+  }, [clearSaveGuardTimer]);
+  /**
+   * A batch is about to go out: hold the guard until its outcome. Also reached
+   * by a submit that did not come through the Save button (an implicit
+   * submission of the header form), which must hold the form just the same.
+   */
+  const holdSaveForBatch = useCallback(() => {
+    savingRef.current = true;
+    setSaving(true);
+    clearSaveGuardTimer();
+  }, [clearSaveGuardTimer]);
+
+  // Per-row "expand to full form": opens the child's complete form (all business
+  // fields, incl. rich types the grid omits) in a drawer, pre-filled with the
+  // row. Saving writes back into the in-memory row — the atomic batch still
+  // persists everything on the parent Save (no separate backend write here).
+  // `isNew` marks a row created by "Add" in list/form mode — cancelling the
+  // editor without applying discards that empty row.
+  const [expanded, setExpanded] = useState<{ entryId: string; rowIdx: number; isNew?: boolean } | null>(null);
+  // objectui#10853 — the collection the row editor is open on. The editor holds
+  // its draft in its own form, not in `rowState`, so the rows alone cannot say
+  // that collection is being edited; the bus re-read reads this instead.
+  // Mirrored in render, as `rowStateRef` is, so a read that lands later sees
+  // the editor as it stands.
+  const rowEditorEntryRef = useRef<string | null>(null);
+  rowEditorEntryRef.current = expanded?.entryId ?? null;
+
+  /**
+   * objectui#10853 — the edit-mode lines read the data-invalidation bus
+   * (`notifyDataChanged` from `@object-ui/react`), the objectui#10623 /
+   * objectui#10778 way: a change the bus reports for a collection's CHILD
+   * object (or `'*'`) re-reads that collection's lines in place. Before, they
+   * were read only when the record, the adapter or the resolved details
+   * changed, so a page action over raw HTTP left them stale unless the host
+   * remounted this form, and `PageView` is to stop doing that
+   * (objectui#10519). The header re-reads through its own `<ObjectForm>`
+   * (objectui#10572).
+   *
+   * Subscribed only for what the reads below can query: edit mode, an adapter,
+   * and a collection whose relationship field has resolved.
+   *
+   * Unsaved lines are the objectui#10712 R3 / objectui#10572 rule applied per
+   * collection: a collection holding lines the user has not saved
+   * ({@link linesUnsaved}), or with the row editor open on it, HOLDS its
+   * re-read. One re-read is replayed once the editor is closed and the lines
+   * read as saved again (a revert), or once this form's save lands. An open
+   * editor is never reset, re-keyed or disabled by a re-read.
+   */
+  const linesReadObjects =
+    isEdit && dataSource
+      ? entries.flatMap((e) => (e.config.childObject && e.config.relationshipField ? [e.config.childObject] : []))
+      : [];
+  const linesBusNonces = useObjectsInvalidation(linesReadObjects);
+  /** Bumped when the load effect below is torn down: every read in flight is then superseded. */
+  const linesReadGenRef = useRef(0);
+  /** The number of each collection's latest read: only that read commits. */
+  const linesReadSeqRef = useRef<Record<string, number>>({});
+  /** Collections whose bus re-read is held behind unsaved lines. */
+  const heldLinesRereadRef = useRef<Set<string>>(new Set());
+  /** Collections a save has written since the lines were last replayed. */
+  const linesSavedRef = useRef<Set<string>>(new Set());
+  /** Per collection, the bus nonce of its child object already answered. */
+  const linesBusSeenRef = useRef<Record<string, number>>({});
+
+  const parentIdKey = String(schema.recordId);
+  const unsavedLines = useCallback(
+    (entry: DetailEntry) =>
+      rowEditorEntryRef.current === entry.id ||
+      linesUnsaved(
+        rowStateRef.current[entry.id],
+        entry.config,
+        parentIdKey,
+        childSchemasRef.current[entry.config.childObject],
+      ),
+    [parentIdKey],
+  );
+
+  /**
+   * Read one collection's lines. `origin`:
+   * - `'load'`: the record, the adapter or the resolved details changed. The
+   *   answer replaces the collection's rows and baseline, and a failed read
+   *   leaves it empty (the behaviour before objectui#10853).
+   * - `'bus'`: the bus reported a change to the child object. HELD while the
+   *   collection holds unsaved lines. A failed re-read keeps the lines on
+   *   screen.
+   * - `'replay'`: a held re-read, replayed after a revert or a save.
+   * A `'bus'` or `'replay'` read keeps the grid drawn over the lines on screen
+   * and commits only over those same lines: if they were edited while it was
+   * in flight, its answer is not committed and the re-read is asked for again,
+   * so it is held behind the edit.
+   */
+  const readLines = useCallback(
+    async function readLinesOf(entry: DetailEntry, origin: 'load' | 'bus' | 'replay'): Promise<void> {
+      if (origin === 'bus') {
+        if (unsavedLines(entry)) {
+          heldLinesRereadRef.current.add(entry.id);
+          return;
+        }
+        heldLinesRereadRef.current.delete(entry.id);
+      }
+      const gen = linesReadGenRef.current;
+      const seq = (linesReadSeqRef.current[entry.id] ?? 0) + 1;
+      linesReadSeqRef.current[entry.id] = seq;
+      const isCurrent = () => linesReadGenRef.current === gen && linesReadSeqRef.current[entry.id] === seq;
+      const d = entry.config;
+      if (!dataSource || !d.relationshipField) {
+        // Not resolved yet: nothing to read, and no lines to show.
+        setRowState((prev) => ({ ...prev, [entry.id]: { rows: [], original: [] } }));
+        return;
+      }
+      const inPlace = origin !== 'load';
+      const rowsAtIssue = rowStateRef.current[entry.id]?.rows;
+      let rows: RowState['rows'];
+      try {
+        const res = await dataSource.find(d.childObject, {
+          $filter: { [d.relationshipField]: schema.recordId },
+          $top: 500,
+        });
+        rows = (res?.data ?? []) as Record<string, any>[];
+      } catch (err) {
+        if (!isCurrent()) return;
+        if (inPlace) {
+          console.warn(
+            `[MasterDetailForm] could not re-read the lines of "${d.childObject}" after a data change; ${rowsAtIssue === undefined ? 'no lines have been read for it yet' : 'the lines on screen are kept'}.`,
+            err,
+          );
+          return;
+        }
+        rows = [];
+      }
+      if (!isCurrent()) return;
+      if (inPlace && rowEditorEntryRef.current === entry.id) {
+        // The row editor was opened while this read was in flight: its commit
+        // would reset the editor's draft. Held, and replayed when it closes.
+        heldLinesRereadRef.current.add(entry.id);
+        return;
+      }
+      if (inPlace && rowStateRef.current[entry.id]?.rows !== rowsAtIssue) {
+        // Edited while this read was in flight: its answer would overwrite the
+        // edit. Ask again, which holds it behind the edit while it is unsaved.
+        void readLinesOf(entry, 'bus');
+        return;
+      }
+      // Keyed by entry id, so a collection's rows land in ITS slot regardless
+      // of where it currently sits in the authored array.
+      setRowState((prev) => {
+        if (inPlace && (prev[entry.id]?.rows !== rowsAtIssue || rowEditorEntryRef.current === entry.id)) {
+          heldLinesRereadRef.current.add(entry.id);
+          return prev;
+        }
+        return { ...prev, [entry.id]: { rows: rows.map((r) => ({ ...r })), original: rows.map((r) => ({ ...r })) } };
+      });
+    },
+    [dataSource, schema.recordId, unsavedLines],
+  );
 
   // Edit mode: load existing children for each detail collection.
   useEffect(() => {
-    let cancelled = false;
-    if (!isEdit || !dataSource) return;
-    (async () => {
-      const loaded = await Promise.all(
-        entries.map(async (e): Promise<[string, RowState]> => {
-          const d = e.config;
-          if (!d.relationshipField) return [e.id, { rows: [], original: [] }]; // not resolved yet
-          try {
-            const res = await dataSource.find(d.childObject, {
-              $filter: { [d.relationshipField]: schema.recordId },
-              $top: 500,
-            });
-            const rows = (res?.data ?? []) as Record<string, any>[];
-            return [e.id, { rows: rows.map((r) => ({ ...r })), original: rows.map((r) => ({ ...r })) }];
-          } catch {
-            return [e.id, { rows: [], original: [] }];
-          }
-        }),
-      );
-      // Keyed by entry id, so a collection's loaded rows land in ITS slot
-      // regardless of where it currently sits in the authored array.
-      if (!cancelled) setRowState(Object.fromEntries(loaded));
-    })();
+    heldLinesRereadRef.current.clear();
+    linesSavedRef.current.clear();
+    if (isEdit && dataSource) {
+      for (const e of entries) void readLines(e, 'load');
+    }
     return () => {
-      cancelled = true;
+      linesReadGenRef.current += 1;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEdit, dataSource, schema.recordId, resolvedEntries]);
+
+  // objectui#10853 — the bus reported a change to a collection's child object.
+  // A nonce the collection has not seen before is taken as seen: the load
+  // above reads it. Values, not identities, decide here, so a run for any
+  // other reason re-reads nothing.
+  useEffect(() => {
+    for (const e of entries) {
+      const obj = e.config.childObject;
+      if (!obj || !e.config.relationshipField) continue;
+      const nonce = linesBusNonces[obj] ?? 0;
+      const seen = linesBusSeenRef.current[e.id];
+      linesBusSeenRef.current[e.id] = nonce;
+      if (seen === undefined || seen === nonce) continue;
+      void readLines(e, 'bus');
+    }
+  }, [linesBusNonces, entries, readLines]);
+
+  // objectui#10853 — a held re-read is replayed once its collection's lines
+  // read as saved again (a revert), or once this form's save has written them.
+  // Not while a save is in flight: the lines take no input then, and its
+  // outcome decides. Never while the row editor is open on the collection: it
+  // runs here again when the editor closes (Apply or cancel).
+  useEffect(() => {
+    if (saving) return;
+    const held = heldLinesRereadRef.current;
+    for (const e of entries) {
+      if (!held.has(e.id)) continue;
+      if (rowEditorEntryRef.current === e.id) continue;
+      if (!linesSavedRef.current.has(e.id) && unsavedLines(e)) continue;
+      held.delete(e.id);
+      void readLines(e, 'replay');
+    }
+    linesSavedRef.current.clear();
+  }, [rowState, saving, expanded, entries, readLines, unsavedLines]);
 
   const setRows = useCallback((entryId: string, rows: Record<string, any>[]) => {
     setRowState((prev) => ({
@@ -803,13 +1418,6 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   // (which scrapes the header record) and drives the Subtotal / Tax / Total stack.
   const taxRateField = schema.taxRateField || 'tax_rate';
 
-  // Per-row "expand to full form": opens the child's complete form (all business
-  // fields, incl. rich types the grid omits) in a drawer, pre-filled with the
-  // row. Saving writes back into the in-memory row — the atomic batch still
-  // persists everything on the parent Save (no separate backend write here).
-  // `isNew` marks a row created by "Add" in list/form mode — cancelling the
-  // editor without applying discards that empty row.
-  const [expanded, setExpanded] = useState<{ entryId: string; rowIdx: number; isNew?: boolean } | null>(null);
   const expandedRow =
     expanded ? rowState[expanded.entryId]?.rows?.[expanded.rowIdx] : undefined;
   const expandedDetail = expanded ? entries.find((e) => e.id === expanded.entryId)?.config : undefined;
@@ -866,10 +1474,15 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
     async (parent: any) => {
       releaseSave();
       if (!schema.onSuccess) {
-        toast.success(isEdit ? (schema.title ? `${schema.title} saved` : 'Saved') : 'Created', {
-          id: outcomeToastId,
-        });
+        toast.success(
+          isEdit
+            ? (titleText ? t('form.savedNamed', { title: titleText }) : t('form.saved'))
+            : t('form.created'),
+          { id: outcomeToastId },
+        );
       }
+      // An edit keeps its rows: `submitViaBatch` has already advanced their
+      // baseline to what this save wrote (objectui#10564).
       if (!isEdit) {
         // Every collection back to empty for the next entry. Dropping the whole
         // record is the same statement the per-detail rebuild made, without
@@ -880,7 +1493,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
       await schema.onSuccess?.(parent);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isEdit, schema.onSuccess, schema.title, entries.length, releaseSave, outcomeToastId],
+    [isEdit, schema.onSuccess, titleText, entries.length, releaseSave, outcomeToastId, t],
   );
 
   /**
@@ -908,7 +1521,11 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
    */
   const handleError = useCallback(
     (err: Error) => {
-      releaseSave();
+      // A submit refused because another batch is still in flight (see
+      // `submitViaBatch`) is not that batch's outcome: releasing here would
+      // re-arm Save and the grid under a save that has not landed. Every other
+      // failure, including the in-flight batch's own, has settled by now.
+      if (!batchInFlightRef.current) releaseSave();
       schema.onError?.(err);
     },
     [schema, releaseSave],
@@ -921,7 +1538,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
   // otherwise. This covers BOTH create (parent + child creates via `$ref`) and
   // edit (parent update + child create/update/delete diffs). There is no
   // separate client-orchestrated / cleanup path anymore (#2679).
-  const submitViaBatch = useCallback(
+  const sendBatch = useCallback(
     async (parentValues: Record<string, any>) => {
       if (!dataSource) throw new Error('MasterDetailForm: dataSource is required');
       const parentData: Record<string, any> = { ...parentValues };
@@ -933,25 +1550,33 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
           parentData[d.totalField] = sumRows(rowStateRef.current[e.id]?.rows ?? [], d.amountField || 'amount');
         }
       });
-      const ops = isEdit
-        ? buildMasterDetailEditBatch(
-            schema.objectName,
-            String(schema.recordId),
-            parentData,
-            // ⚠️ Read by ENTRY ID. This was
-            // `.filter(…).map((d, i) => stateRef.current[i])`, where `i` indexes
-            // the FILTERED array while the row state was indexed against the
-            // FULL one — so a declined or unresolved entry sitting above a real
-            // collection shifted every read below it by one and that
-            // collection's rows were silently dropped from the transaction.
-            // Data loss on save, not a display defect (objectui#6371).
-            entries.filter((e) => e.config.relationshipField).map((e) => ({
+      // ⚠️ Read by ENTRY ID. This was
+      // `.filter(…).map((d, i) => stateRef.current[i])`, where `i` indexes
+      // the FILTERED array while the row state was indexed against the
+      // FULL one — so a declined or unresolved entry sitting above a real
+      // collection shifted every read below it by one and that
+      // collection's rows were silently dropped from the transaction.
+      // Data loss on save, not a display defect (objectui#6371).
+      // Kept beside its entry id: the same inputs advance the baseline once
+      // the batch has committed (objectui#10564).
+      const editDetails: SavedDetailInput[] | null = isEdit
+        ? entries.filter((e) => e.config.relationshipField).map((e) => ({
+            entryId: e.id,
+            input: {
               childObject: e.config.childObject,
               relationshipField: e.config.relationshipField!,
               rows: rowStateRef.current[e.id]?.rows ?? [],
               original: rowStateRef.current[e.id]?.original ?? [],
               childSchema: childSchemasRef.current[e.config.childObject],
-            })),
+            },
+          }))
+        : null;
+      const ops = editDetails
+        ? buildMasterDetailEditBatch(
+            schema.objectName,
+            String(schema.recordId),
+            parentData,
+            editDetails.map((d) => d.input),
           )
         : buildMasterDetailBatch(
             schema.objectName,
@@ -965,10 +1590,75 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
             })),
           );
       const res = await runBatchTransaction(dataSource, ops);
+      // The batch COMMITTED: advance the child rows' baseline from it, so a
+      // form that stays mounted diffs its next save against what this one
+      // wrote (objectui#10564). The parent's baseline advances in the header
+      // `<ObjectForm>` once this handler resolves, from the same save. A batch
+      // that rejects skips both, so the retry still carries every operation;
+      // `childRowsAfterSave` does not throw, so a committed batch never reads
+      // as a failed save with one baseline moved. Create mode has no baseline:
+      // `handleSaved` empties the rows for the next entry.
+      if (editDetails) {
+        const saved = childRowsAfterSave(ops, res?.results, editDetails);
+        // objectui#10853 — these lines are now what the server holds, so a bus
+        // re-read held behind them (this save's own echo included) is replayed
+        // once the save has settled.
+        for (const s of saved) linesSavedRef.current.add(s.entryId);
+        setRowState((prev) => {
+          let next = prev;
+          for (const s of saved) {
+            const cur = prev[s.entryId];
+            if (!cur || cur.original !== s.diffedAgainst) continue;
+            // A created row takes its id by identity with the row the batch
+            // was built from. The lines take no input while the save is in
+            // flight (objectui#10631), so every such row is still that object.
+            // Were one replaced anyway, it keeps no id: the next save then
+            // deletes the created record and creates the row as it now stands.
+            const rows = s.createdIds.size === 0
+              ? cur.rows
+              : cur.rows.map((r) => {
+                  const id = s.createdIds.get(r);
+                  return id === undefined ? r : { ...r, id };
+                });
+            next = { ...next, [s.entryId]: { rows, original: s.original } };
+          }
+          return next;
+        });
+      }
       // create → parent is op 0; edit → echo the parent values back.
       return res?.results?.[0] ?? { ...parentData, id: schema.recordId };
     },
     [dataSource, entries, schema.objectName, schema.recordId, isEdit],
+  );
+
+  /**
+   * The header form's `submitHandler`: one batch at a time, with the save
+   * guard held until its outcome (objectui#10631).
+   *
+   * A second batch built while the first is in flight diffs against the same
+   * baseline and writes every created row again. The Save button cannot start
+   * one while the guard holds it, but a submit of the header form that does
+   * not come through that button can (an implicit submission, when the header
+   * has a single text input). That submit is refused by THROWING, so the
+   * header `ObjectForm` neither advances its baseline nor reports a success
+   * for a write that was never sent, and `handleError` releases nothing.
+   */
+  const submitViaBatch = useCallback(
+    async (parentValues: Parameters<typeof sendBatch>[0]) => {
+      if (batchInFlightRef.current) {
+        throw new Error('This save was not sent: another save of this form was still in progress.');
+      }
+      batchInFlightRef.current = true;
+      holdSaveForBatch();
+      try {
+        return await sendBatch(parentValues);
+      } finally {
+        // Cleared before the header form sees the outcome, so `handleSaved` and
+        // `handleError` read this save as settled.
+        batchInFlightRef.current = false;
+      }
+    },
+    [sendBatch, holdSaveForBatch],
   );
 
   // The parent form renders WITHOUT its own submit button — the master-detail
@@ -987,7 +1677,8 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
       formType: schema.formType,
       sections: schema.sections,
       fields: schema.fields,
-      title: schema.title,
+      // The resolved string: `ObjectFormSchema.title` is a `string`.
+      title: titleText || undefined,
       showSubmit: false,
       showCancel: false,
       // ObjectForm validates + hands the parent values to submitViaBatch (which
@@ -997,11 +1688,12 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
       onSuccess: handleSaved,
       onError: handleError,
     }),
-    [schema, submitViaBatch, handleSaved, handleError],
+    [schema, titleText, submitViaBatch, handleSaved, handleError],
   );
 
   const formHostRef = useRef<HTMLDivElement>(null);
-  const submitText = schema.submitText ?? (isEdit ? 'Save' : 'Create');
+  const submitText = pickLocalized(schema.submitText, language) || (isEdit ? t('common.save') : t('form.create'));
+  const cancelText = pickLocalized(schema.cancelText, language) || t('common.cancel');
 
   // Upload-in-flight gate (objectui#10166), and this host is the reason the
   // scope CHAINS rather than shadows. The parent fields and every expanded row
@@ -1045,9 +1737,15 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
       const liveForm = formHostRef.current?.querySelector('form') as HTMLFormElement | null;
       liveForm?.requestSubmit();
     }, 0);
-    // Safety net: react-hook-form blocks invalid submits without firing
-    // onSuccess/onError, which would otherwise leave the button stuck. Release
-    // the guard after a beat so the user can correct fields and retry.
+    // Safety net for the stretch BEFORE the batch: react-hook-form blocks an
+    // invalid submit without firing onSuccess/onError, and the deferred submit
+    // above has been seen to drop, either of which would otherwise leave the
+    // button stuck. Release the guard after a beat so the user can correct
+    // fields and retry. `submitViaBatch` clears this timer the moment the
+    // submit reaches the batch: from there only the batch's outcome releases
+    // the guard. Releasing on this timer whatever the batch was doing re-armed
+    // Save under a batch slower than it, and a second click wrote the same
+    // records again (objectui#10631).
     saveGuardTimer.current = setTimeout(() => releaseSave(), 1500);
   }, [releaseSave, outcomeToastId, uploadGate.uploading, uploadGate.reason]);
 
@@ -1068,6 +1766,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
         entries={entries}
         rowState={rowState}
         setRows={setRows}
+        saving={saving}
         formHostRef={formHostRef}
         taxRateField={taxRateField}
         formKey={formKey}
@@ -1088,7 +1787,10 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
         <Card className="border-primary/40 shadow-none ring-1 ring-primary/10" data-testid="md-row-form">
           <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2 space-y-0">
             <CardTitle className="text-sm font-medium">
-              {(expandedDetail.title || 'Line item')} — row {expanded.rowIdx + 1}
+              {t('form.masterDetail.rowTitle', {
+                title: expandedDetail.title || t('form.masterDetail.lineItem'),
+                row: expanded.rowIdx + 1,
+              })}
             </CardTitle>
             <Button
               type="button"
@@ -1097,31 +1799,39 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
               className="h-7 text-xs text-muted-foreground"
               onClick={cancelRowEdit}
             >
-              Close
+              {t('common.close')}
             </Button>
           </CardHeader>
           <CardContent>
-            <ObjectForm
-              key={`row-${expanded.entryId}-${expanded.rowIdx}`}
-              schema={{
-                type: 'object-form',
-                objectName: expandedDetail.childObject,
-                mode: 'edit',
-                // No recordId → ObjectForm uses initialData (no backend fetch).
-                initialData: expandedRow ?? {},
-                ...(expandedDetail.formFields?.length ? { fields: expandedDetail.formFields } : {}),
-                submitText: 'Apply',
-                // Non-persisting: return the values; the atomic batch on the
-                // parent Save does the real write.
-                submitHandler: async (values: any) => values,
-                onSuccess: (values: any) => {
-                  applyRowEdit(expanded.entryId, expanded.rowIdx, values);
-                  setExpanded(null);
-                },
-                onCancel: cancelRowEdit,
-              } as any}
-              dataSource={dataSource}
-            />
+            {/* Held while a save is in flight, like the grid (objectui#10631):
+                "Apply" writes the edited values over the row as a NEW object,
+                and a created row takes its echoed id by identity with the row
+                the batch was built from, so an apply mid-save would cost that
+                row its id. A disabled fieldset disables every control in the
+                editor, "Apply" included, until the save has settled. */}
+            <fieldset disabled={saving} className="min-w-0">
+              <ObjectForm
+                key={`row-${expanded.entryId}-${expanded.rowIdx}`}
+                schema={{
+                  type: 'object-form',
+                  objectName: expandedDetail.childObject,
+                  mode: 'edit',
+                  // No recordId → ObjectForm uses initialData (no backend fetch).
+                  initialData: expandedRow ?? {},
+                  ...(expandedDetail.formFields?.length ? { fields: expandedDetail.formFields } : {}),
+                  submitText: t('form.masterDetail.applyRow'),
+                  // Non-persisting: return the values; the atomic batch on the
+                  // parent Save does the real write.
+                  submitHandler: async (values: any) => values,
+                  onSuccess: (values: any) => {
+                    applyRowEdit(expanded.entryId, expanded.rowIdx, values);
+                    setExpanded(null);
+                  },
+                  onCancel: cancelRowEdit,
+                } as any}
+                dataSource={dataSource}
+              />
+            </fieldset>
           </CardContent>
         </Card>
       )}
@@ -1136,7 +1846,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
           <div className="flex items-center justify-end gap-2">
             {schema.onCancel && (
               <Button type="button" variant="outline" onClick={schema.onCancel} disabled={saving} data-testid="md-form-cancel">
-                {schema.cancelText ?? 'Cancel'}
+                {cancelText}
               </Button>
             )}
             <Button
@@ -1145,7 +1855,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
               disabled={saving || (needsDerive && !resolvedEntries) || uploadGate.uploading}
               data-testid="md-form-submit"
             >
-              {uploadGate.uploading ? uploadGate.busyLabel : saving ? 'Saving…' : submitText}
+              {uploadGate.uploading ? uploadGate.busyLabel : saving ? t('detail.saving') : submitText}
             </Button>
           </div>
         </div>

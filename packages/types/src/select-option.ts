@@ -24,7 +24,7 @@ import type { SelectOption as SpecSelectOption } from '@objectstack/spec/data';
 /**
  * The objectui select-option contract, DERIVED from the spec's own
  * `SelectOption` (`@objectstack/spec/data`), with every divergence written out
- * (objectui#7014).
+ * (`98d4108a2`).
  *
  * The spec's keys arrive BY REFERENCE through the `Omit`, so a key the spec
  * adds appears on both objectui faces with no edit here, and a key it removes
@@ -62,7 +62,7 @@ import type { SelectOption as SpecSelectOption } from '@objectstack/spec/data';
  * ⚠️ That list USED to be spelled out here as "exactly `label`, `value`,
  * `color`, `default` and `visibleWhen`", and `@objectstack/spec` 17.3.0 falsified
  * it by declaring a sixth key, `description` (objectui#6153; corrected by
- * objectui#7635). The enumeration is deliberately not replaced with a longer
+ * `544ecba84`). The enumeration is deliberately not replaced with a longer
  * one: the keys arrive through the `Omit` BY REFERENCE, so a list written here
  * can only ever disagree with the derivation it sits above.
  */

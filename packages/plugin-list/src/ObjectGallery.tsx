@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
-import { useDataScope, SchemaRendererContext, useNavigationOverlay, useSafeFieldLabel, useSettledSchema } from '@object-ui/react';
+import { useDataScope, SchemaRendererContext, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
 import { ComponentRegistry, buildExpandFields, getRecordDisplayName, isEmptyValue } from '@object-ui/core';
 import { cn, Card, CardContent, NavigationOverlay } from '@object-ui/components';
 import { usePermissions } from '@object-ui/permissions';
@@ -294,8 +294,8 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
      * Those two read metadata only to expand a record query, so an inline data
      * set has nothing to wait for. This component reads the definition on EVERY
      * path, query or not: `buildEnrichedField` above reads `objectDef.fields` for
-     * each visible field's type, options, currency, precision and reference
-     * target, and `getRecordDisplayName(objectDef, item)` below resolves each
+     * each visible field's type, options, currency, precision, scale and
+     * reference target, and `getRecordDisplayName(objectDef, item)` below resolves each
      * card's title under ADR-0079. Disabling the read for authored `data` /
      * `bind` items would strip cell semantics and card titles off exactly the
      * paths that issue no query — a second, unasked-for change riding on a
@@ -353,8 +353,8 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
 
     // Build an enriched FieldMetadata for a given field name so the shared
     // cell renderer pipeline (used by Detail/Grid/Related) receives the
-    // same context: type, options, currency, precision, reference target,
-    // etc. This is what keeps card output visually aligned with the
+    // same context: type, options, currency, precision, scale, reference
+    // target, etc. This is what keeps card output visually aligned with the
     // record detail page.
     const buildEnrichedField = useCallback((fieldName: string) => {
       const def = objectDef?.fields?.[fieldName];
@@ -365,6 +365,15 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
         if (def.options) enriched.options = def.options;
         if (def.currency) enriched.currency = def.currency;
         if (def.precision !== undefined) enriched.precision = def.precision;
+        // `scale` is the member the number and percent cell renderers pad
+        // decimals to (`precision` is the TOTAL digit count, never read for
+        // decimal places). Without it a gallery card rendered a `scale: 2`
+        // percent as `25%` beside a Grid/Detail `25.00%` (objectui#9575).
+        // Same presence test the ObjectGrid and RelatedList builders use.
+        if (def.scale !== undefined) enriched.scale = def.scale;
+        // The author's digit-grouping hint rides beside `scale`, whose scale-0
+        // heuristic it overrides in the number cell (objectui#11026).
+        if (def.useGrouping !== undefined) enriched.useGrouping = def.useGrouping;
         if (def.format) enriched.format = def.format;
         // objectui#6837 half 2 — maintainer 2026-08-31: protocol normalization
         // belongs on the SERVER, the front end just executes the protocol.
@@ -394,6 +403,30 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
       }
       return enriched;
     }, [objectDef, schema.objectName, fieldLabel, fieldOptionLabel]);
+
+    // objectui#10623 — the data-invalidation bus (`notifyDataChanged` from
+    // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+    // write to the object this gallery QUERIES is declared, and the fetch
+    // effect below names it, so the cards are re-read in place. The grid stays
+    // mounted through the re-read (the placeholder below is drawn only while
+    // there are no items yet), so collapsed groups and scroll survive.
+    // Subscribed only when the gallery fetches for itself: host `data`,
+    // authored `schema.data` and bound rows are not this effect's query.
+    const fetchesForItself = !!schema.objectName && !boundData && !schema.data && !props.data;
+    const invalidationNonce = useDataInvalidation(fetchesForItself ? schema.objectName : undefined);
+
+    // objectui#10666 — the node's own `filter`, with every placeholder
+    // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
+    // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against
+    // the session scope the host provides, and HELD by structure (see
+    // `useResolvedFilter` in `@object-ui/react`, the hold `ListView` has used
+    // since objectui#10607). A directly authored gallery sent the literal token
+    // before; a gallery rendered as a `list-view` child was already handed a
+    // resolved filter, and resolving it again changes nothing. The query and
+    // the fetch effect's dependency list below read THIS, never the raw
+    // `schema.filter`, so the effect does not re-run on every render.
+    const filterScope = useFilterScope();
+    const authoredFilter = useResolvedFilter(schema.filter, filterScope);
 
     useEffect(() => {
         let isMounted = true;
@@ -461,9 +494,11 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
                     // verbatim as `$filter`". Typing the adapter above makes
                     // `find`'s parameter real, so the verbatim forward has to
                     // name the parameter's own type instead of riding on
-                    // `unknown`. Asserted, not coerced: the value is passed
-                    // through byte-for-byte, exactly as before.
-                    $filter: schema.filter as QueryParams['$filter'],
+                    // `unknown`. Asserted, not coerced. The value is the
+                    // node's filter with its placeholders resolved
+                    // (objectui#10666); a filter that carries none reaches
+                    // the query structurally unchanged.
+                    $filter: authoredFilter as QueryParams['$filter'],
                     ...(expand.length > 0 ? { $expand: expand } : {}),
                 });
 
@@ -501,7 +536,7 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
             }
         };
 
-        if (schema.objectName && !boundData && !schema.data && !props.data) {
+        if (fetchesForItself) {
             // ⭐ objectui#7903 — the object definition GATES this query; it does
             // not refine it afterwards. `objectDef` stays in the dependency list
             // below and the two are ONE mechanism, not two: the dependency is
@@ -532,7 +567,7 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
             fetchData();
         }
         return () => { isMounted = false; };
-    }, [schema.objectName, dataSource, boundData, schema.data, schema.filter, props.data, objectDefReady, objectDef, perms]);
+    }, [schema.objectName, dataSource, boundData, schema.data, authoredFilter, props.data, objectDefReady, objectDef, perms, fetchesForItself, invalidationNonce]);
 
     const items: Record<string, unknown>[] = props.data || boundData || schema.data || fetchedData || [];
 

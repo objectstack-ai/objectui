@@ -84,6 +84,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
+import { CHILD_LIST_KEY } from '@object-ui/sdui-parser';
 import { PageHeaderProps as SpecPageHeaderProps } from '@objectstack/spec/ui';
 import {
   authorableShapeKeys,
@@ -142,6 +143,22 @@ const specKeys = new Set(authorableShapeKeys(SpecPageHeaderProps));
 const RENDERER_OWN_DECLARED: Record<string, string> = {
   icon: 'Retired upstream as an ADR-0087 D2 tombstone by objectstack#6946 / PR objectstack#7115 because the CANONICAL page:header renderer never read it. This alias renderer reads and draws it (PageHeader.tsx:123, :231-233), the docs page publishes it and its live demo writes it, so objectui#3829 ruled the input stays — declared on the renderer read, not on spec parity.',
 };
+
+/**
+ * Keys licensed by the JSON PROTOCOL rather than by `PageHeaderProps`.
+ *
+ * Exactly one: `children`, the protocol's base child-list key
+ * (`BaseSchema.children`; `BASE_PROPS` in `sdui-parser/src/validate.ts`). It
+ * is not a member of any per-block props schema — the spec declares it only
+ * on the four `page:*` containers whose whole surface is the slot — and since
+ * objectui#9910 a renderer that puts `schema.children` on the page declares
+ * `{ name: 'children', type: 'slot' }` in `inputs`, because that input is the
+ * ONE thing the tier's `not-a-container` reads. `PageHeader` renders the list
+ * into its right-hand slot, so it declares the input; the dialect guard below
+ * must not read that as a second dialect, and this set says so by name. Read
+ * from the parser's own export so the two cannot drift.
+ */
+const PROTOCOL_LICENSED = new Set<string>([CHILD_LIST_KEY]);
 
 const declaredInputs = (type: string, namespace?: string) => {
   const config = ComponentRegistry.getConfig(type, namespace);
@@ -205,8 +222,19 @@ describe('the `page-header` registration declares the spec key, not a dialect', 
     // spec key and let this test pass for the wrong reason.
     const offSpec = declaredInputNames('page-header')
       .filter((name) => !specKeys.has(name))
-      .filter((name) => !(name in RENDERER_OWN_DECLARED));
+      .filter((name) => !(name in RENDERER_OWN_DECLARED))
+      .filter((name) => !PROTOCOL_LICENSED.has(name));
     expect(offSpec).toEqual([]);
+  });
+
+  it('the protocol carve-out is exactly the child-list key, and it is not a spec key here', () => {
+    // What keeps `PROTOCOL_LICENSED` from becoming a second dialect door: it
+    // holds the one key the protocol owns, that key is spelled the way the
+    // parser spells it, and `PageHeaderProps` really does not carry it (if the
+    // spec ever declares `children` on this block, the carve-out is dead and
+    // this line says so).
+    expect([...PROTOCOL_LICENSED]).toEqual(['children']);
+    expect(specDeclaredKeys.has(CHILD_LIST_KEY)).toBe(false);
   });
 
   it('every renderer-own declaration is licensed by a tombstone and says why', () => {
@@ -229,22 +257,29 @@ describe('the `page-header` registration declares the spec key, not a dialect', 
   });
 });
 
-describe('the `page-header` registration declares the child slot it renders (objectui#3900)', () => {
+describe('the `page-header` registration declares the child slot it renders (objectui#3900 / objectui#9910)', () => {
   // Same principle as the `inputs` narrowing above, other direction: the
   // declaration face must not DENY a surface the component serves either.
-  // `PageHeader.tsx:182` deliberately renders `schema.children` into the
+  // `PageHeader.tsx` deliberately renders `schema.children` into the
   // right-hand slot, `content/docs/layout/page-header.mdx` publishes that slot's
   // precedence, and the docs page's only live demo is exactly that shape — while
-  // the registration omitted `isContainer`, so `sdui-parser`'s `not-a-container`
-  // diagnostic fired on it. Nothing on the render path reads the flag, so the
-  // omission broke no rendering; it made the validator tell authors (AI authors
-  // especially) that a documented, demo-verified schema was invalid, which is
-  // how the true `not-a-container` reports lose their credibility.
+  // the registration once declared nothing about it, so `sdui-parser`'s
+  // `not-a-container` diagnostic fired on it (objectui#3900). Nothing on the
+  // render path reads the declaration, so the omission broke no rendering; it
+  // made the validator tell authors (AI authors especially) that a documented,
+  // demo-verified schema was invalid, which is how the true `not-a-container`
+  // reports lose their credibility.
+  //
+  // objectui#3900 paid that with `isContainer`. objectui#9910 moved the
+  // declaration the tier reads to the `children` slot input (the flag means
+  // LAYOUT containment only, objectui#6804) — so the slot is what this block
+  // pins now, and the flag is pinned beside it for its own reason: the
+  // react-page JSX scope skips layout containers, and a page header is one.
   //
   // Not an extension of the spec's authoring surface: `children` is a base
   // property of every node in objectui's JSON protocol (`BASE_PROPS` in
-  // `sdui-parser/src/validate.ts`), not a key of `PageHeaderProps` — hence the
-  // `specKeys` cross-check above neither covers nor contradicts this.
+  // `sdui-parser/src/validate.ts`), not a key of `PageHeaderProps` — which is
+  // why the dialect guard above licenses it through `PROTOCOL_LICENSED`.
   //
   // The end-to-end half of this pin — the real demo JSON through the manifest
   // the app actually builds, plus the control proving the diagnostic still fires
@@ -254,7 +289,16 @@ describe('the `page-header` registration declares the child slot it renders (obj
   it.each([
     ['page-header', undefined],
     ['page-header', 'layout'],
-  ])('marks %s (namespace: %s) as a container', (type, namespace) => {
+  ])('declares the `children` slot on %s (namespace: %s)', (type, namespace) => {
+    const slot = declaredInputs(type, namespace).find((i) => i.name === CHILD_LIST_KEY);
+    expect(slot, `${type} declares no \`children\` input`).toBeTruthy();
+    expect(slot?.type).toBe('slot');
+  });
+
+  it.each([
+    ['page-header', undefined],
+    ['page-header', 'layout'],
+  ])('marks %s (namespace: %s) as a LAYOUT container', (type, namespace) => {
     expect(ComponentRegistry.getConfig(type, namespace)?.isContainer).toBe(true);
   });
 });

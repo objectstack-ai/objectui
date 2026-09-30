@@ -44,6 +44,7 @@ import {
   Table2,
 } from 'lucide-react';
 import { Button } from '@object-ui/components';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { useRecentItems, type RecentItem } from '../../context/RecentItemsProvider.js';
 import {
   useMetadataClient,
@@ -118,6 +119,11 @@ function greetingKey(): string {
  * the last hard-coded strings in this file.
  *
  * `numeric: 'auto'` is what turns "1 day ago" into "yesterday" / 「昨天」.
+ *
+ * `locale` is the DISPLAY locale (`useDisplayLocale()`), never the designer's
+ * string-table language from `useMetadataLocale()`: that one collapses every
+ * non-zh language to `'en-US'`, so a de-DE session read "3 days ago" in US
+ * English (objectui#10232).
  */
 function relativeTime(iso: string, locale: string): string {
   const then = new Date(iso).getTime();
@@ -141,6 +147,9 @@ export function StudioHomePage() {
   const { loading, entries } = useMetadataTypes(client);
   const { recentItems } = useRecentItems();
   const locale = useMetadataLocale();
+  // The visit times read the DISPLAY locale — not `locale` above, which picks
+  // this page's strings (objectui#10232).
+  const displayLocale = useDisplayLocale();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [projectPackages, setProjectPackages] = React.useState<
@@ -421,7 +430,7 @@ export function StudioHomePage() {
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-medium">{item.label}</span>
                             <span className="block text-[11px] text-muted-foreground">
-                              {relativeTime(item.visitedAt, locale)}
+                              {relativeTime(item.visitedAt, displayLocale)}
                             </span>
                           </span>
                           <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />

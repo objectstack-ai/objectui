@@ -127,7 +127,9 @@ type ButtonSchema = SchemaByType<'button'>;
 
 - The **rendering face** (`AnyComponentSchema`, `SchemaNodeSchema`, every named
   mirror) is tolerant: a node may carry keys the schema does not declare, because
-  renderer props ride through it.
+  renderer props ride through it. Some declared sub-blocks are closed on this face
+  as well — an `object-map` node's `map` block is one (objectui#5157) — so a key
+  misspelled inside one of them is refused by both faces.
 - The **strict authoring face** is a derived twin that closes every declared
   object, at every depth. It is meant for authoring-time checking — validating a
   document a person or an agent just wrote — where an undeclared key is far more
@@ -156,6 +158,22 @@ the derived schema carries the same TypeScript type as the schema it came from.
 Opaque `custom` / `function` / `transform` validators have no shape to close;
 `deriveStrictAuthoringSchema` reports each one it meets through the optional
 `onOpaqueShape` callback.
+
+One node spells its props through the passthrough by design: a `metric-card`
+sitting directly in a dashboard's `widgets` slot, whose props are its
+registration's `inputs`. The strict face admits exactly the input names that
+registration declares on that node, each judged as the tolerant face judges it,
+and still refuses any other key by name (objectui#11022; the names are held to
+the live registration by a test in `@object-ui/plugin-dashboard`):
+
+```typescript
+import { StrictAnyComponentSchema } from '@object-ui/types/zod';
+
+const card = (widget: object) => ({ type: 'dashboard', widgets: [widget] });
+
+StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', value: 42 })).success; // true
+StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', bogus: 1 })).success;  // false — `bogus` is named
+```
 
 ## Type Categories
 
@@ -325,7 +343,7 @@ const page: FlexSchema = {
   type: 'flex',
   direction: 'col',
   children: [
-    { type: 'header-bar', title: 'My App' },
+    { type: 'header-bar', crumbs: [{ label: 'My App' }] },
     {
       type: 'flex',
       direction: 'row',

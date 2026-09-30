@@ -13,12 +13,17 @@
  * fields currently mounted — so a required field on a step the user jumped past
  * was never registered, never validated, and simply absent from the payload.
  * Measured against the unfixed component, the reported flow (3 steps, required
- * `owner` on step 2, `allowSkip: true`, click step 3's indicator, fill it, hit
+ * `assignee` on step 2, `allowSkip: true`, click step 3's indicator, fill it, hit
  * Create) produced:
  *
  *     createCalls: 1
- *     payload:     { subject: 'S1', notes: 'S3' }   // `owner` missing entirely
+ *     payload:     { subject: 'S1', notes: 'S3' }   // `assignee` missing entirely
  *     UI mentions "required": false                 // nothing said so
+ *
+ * (The measurement named that field `owner`. It is `assignee` here because
+ * `owner` is on the server-owned roster in `sanitize.ts`, which every layout's
+ * save strips — the wizard's too, since objectui#10563 — so a fixture field
+ * spelled that way would read as a skipped value that never arrived.)
  *
  * i.e. an invalid create left the client with no indication of what was wrong —
  * the same defect #2959 fixed for tabs, wearing a wizard's clothes. The final
@@ -49,7 +54,7 @@ const makeDataSource = (): any => ({
     fields: {
       subject: { type: 'text', label: 'Subject' },
       // Required, parked on the MIDDLE step — the one the user skips past.
-      owner: { type: 'text', label: 'Owner', required: true },
+      assignee: { type: 'text', label: 'Assignee', required: true },
       notes: { type: 'text', label: 'Notes' },
     },
   }),
@@ -60,7 +65,7 @@ const makeDataSource = (): any => ({
 
 const SECTIONS = [
   { name: 's1', label: 'Step 1', fields: ['subject'] },
-  { name: 's2', label: 'Step 2', fields: ['owner'] },
+  { name: 's2', label: 'Step 2', fields: ['assignee'] },
   { name: 's3', label: 'Step 3', fields: ['notes'] },
 ];
 
@@ -106,13 +111,13 @@ describe('WizardForm allowSkip — required fields on a skipped step (#2959)', (
     fireEvent.click(stepIndicator(2));
     await waitFor(() => expect(document.body.querySelector('[data-field="notes"]')).toBeTruthy());
     fill('notes', 'S3');
-    // `owner` was never mounted, so RHF has no rule registered for it.
-    expect(document.body.querySelector('[data-field="owner"]')).toBeNull();
+    // `assignee` was never mounted, so RHF has no rule registered for it.
+    expect(document.body.querySelector('[data-field="assignee"]')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: /Create/i }));
 
     // Nothing is sent, and the wizard lands on the step that is short a field.
-    await waitFor(() => expect(document.body.querySelector('[data-field="owner"]')).toBeTruthy());
+    await waitFor(() => expect(document.body.querySelector('[data-field="assignee"]')).toBeTruthy());
     expect(dataSource.create).not.toHaveBeenCalled();
     expect(stepIndicator(1)).toHaveAttribute('data-error', 'true');
     expect(stepIndicator(0)).not.toHaveAttribute('data-error');
@@ -129,8 +134,8 @@ describe('WizardForm allowSkip — required fields on a skipped step (#2959)', (
     fireEvent.click(screen.getByRole('button', { name: /Create/i }));
 
     // Bounced to step 2 — fill it, then walk back to the end and submit.
-    await waitFor(() => expect(document.body.querySelector('[data-field="owner"]')).toBeTruthy());
-    fill('owner', 'Ada');
+    await waitFor(() => expect(document.body.querySelector('[data-field="assignee"]')).toBeTruthy());
+    fill('assignee', 'Ada');
     fireEvent.click(screen.getByRole('button', { name: /Next/i }));
 
     await waitFor(() => expect(document.body.querySelector('[data-field="notes"]')).toBeTruthy());
@@ -142,7 +147,7 @@ describe('WizardForm allowSkip — required fields on a skipped step (#2959)', (
     // Every step's values reach the server, the skipped one included.
     expect(dataSource.create.mock.calls[0][1]).toMatchObject({
       subject: 'S1',
-      owner: 'Ada',
+      assignee: 'Ada',
       notes: 'S3',
     });
   });
@@ -157,7 +162,7 @@ describe('WizardForm allowSkip — required fields on a skipped step (#2959)', (
           // Required only for escalated cases — the same canonical predicate the
           // renderer and the server evaluate, so the gate must agree with them
           // rather than demanding the field unconditionally.
-          owner: { type: 'text', label: 'Owner', requiredWhen: "record.subject == 'urgent'" },
+          assignee: { type: 'text', label: 'Assignee', requiredWhen: "record.subject == 'urgent'" },
           notes: { type: 'text', label: 'Notes' },
         },
       }),
@@ -188,14 +193,14 @@ describe('WizardForm allowSkip — required fields on a skipped step (#2959)', (
         {
           name: 's2',
           label: 'Step 2',
-          fields: [{ field: 'owner', visibleWhen: "record.subject == 'urgent'" }],
+          fields: [{ field: 'assignee', visibleWhen: "record.subject == 'urgent'" }],
         },
         { name: 's3', label: 'Step 3', fields: ['notes'] },
       ],
     });
 
     await waitFor(() => expect(document.body.querySelector('[data-field="subject"]')).toBeTruthy());
-    fill('subject', 'routine'); // predicate false → owner is view-hidden
+    fill('subject', 'routine'); // predicate false → assignee is view-hidden
     fireEvent.click(stepIndicator(2));
     await waitFor(() => expect(document.body.querySelector('[data-field="notes"]')).toBeTruthy());
     fill('notes', 'S3');
@@ -212,8 +217,8 @@ describe('WizardForm allowSkip — required fields on a skipped step (#2959)', (
     fill('subject', 'S1');
     fireEvent.click(screen.getByRole('button', { name: /Next/i }));
 
-    await waitFor(() => expect(document.body.querySelector('[data-field="owner"]')).toBeTruthy());
-    fill('owner', 'Ada');
+    await waitFor(() => expect(document.body.querySelector('[data-field="assignee"]')).toBeTruthy());
+    fill('assignee', 'Ada');
     fireEvent.click(screen.getByRole('button', { name: /Next/i }));
 
     await waitFor(() => expect(document.body.querySelector('[data-field="notes"]')).toBeTruthy());
@@ -223,7 +228,7 @@ describe('WizardForm allowSkip — required fields on a skipped step (#2959)', (
     await waitFor(() => expect(dataSource.create).toHaveBeenCalledTimes(1));
     expect(dataSource.create.mock.calls[0][1]).toMatchObject({
       subject: 'S1',
-      owner: 'Ada',
+      assignee: 'Ada',
       notes: 'S3',
     });
   });
@@ -254,7 +259,7 @@ describe('WizardForm — the form view’s own `columns`', () => {
           objectName: 'case',
           mode: 'create',
           sections: [
-            { name: 's1', label: 'Step 1', columns: 2, fields: ['subject', 'owner'] },
+            { name: 's1', label: 'Step 1', columns: 2, fields: ['subject', 'assignee'] },
             { name: 's2', label: 'Step 2', fields: ['notes'] },
           ],
         }}

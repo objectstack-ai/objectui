@@ -9,9 +9,19 @@
  * `InboxNotification` (`layout/inboxGrouping.ts`) used to declare an
  * `actor_name` that was dead at both ends: `mergeInboxRows` below never mapped
  * it, neither consumer (`InboxPopover`, `useHomeInbox`) read it, and
- * `sys_inbox_message` declares no actor column for it to be mapped FROM. The
+ * `sys_inbox_message` then had no actor column for it to be mapped FROM. The
  * declaration was removed; `inboxGrouping.test.ts` carries the TYPE PIN that
  * stops it being re-declared.
+ *
+ * ## The actor that DID come back, and why that is not a reversal
+ *
+ * objectui#8667 adds `actor_id` to the mapped set. The objectui#5203 retirement
+ * rested on "no column to map from", and for an actor ID that stopped being
+ * true when `sys_inbox_message` gained the `actor_id` lookup
+ * (objectstack#16974). It is still true for a NAME, so `actor_name` stays out
+ * and the second case below still holds. The route is the one this suite
+ * exists to enforce: one more EXPLICIT field in the producer's literal and one
+ * more entry in `DECLARED_KEYS`, never a pass-through.
  *
  * A type pin alone cannot see the direction this contract is most likely to rot
  * in, because that direction does not go through the type at all: the producer
@@ -50,12 +60,17 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
  * hypothetical future column the retired field was an invitation to add) — the
  * point of including it is that the producer's answer must be the same either
  * way: an unmapped column does not reach the UI shape.
+ *
+ * `actor_id` IS a real column (objectstack#16974) and it IS mapped. Its value is
+ * a concrete id distinct from the recipient's `user_id`, so the mapping
+ * assertion below cannot be satisfied by copying the wrong column.
  */
 const RAW_ROW = {
   id: 'ibx_1',
   user_id: 'u1',
   notification_id: 'ntf_1',
   delivery_id: 'dlv_1',
+  actor_id: 'u_zhangsan',
   topic: 'collab.assignment',
   title: 'Assigned to you: Ship it',
   body_md: 'Zhang San assigned you a task.',
@@ -65,9 +80,21 @@ const RAW_ROW = {
   actor_name: 'Li Si',
 };
 
+/**
+ * The same row as a server older than the `actor_id` column returns it: the key
+ * is ABSENT, not null. It is the control for "an older server behaves exactly
+ * as before".
+ */
+const LEGACY_ROW: Record<string, unknown> = { ...RAW_ROW, id: 'ibx_legacy' };
+delete LEGACY_ROW.actor_id;
+
+/** What the fake adapter answers the `sys_inbox_message` read with. */
+let inboxRows: unknown[] = [RAW_ROW];
+
 /** The keys `mergeInboxRows` maps — the whole of `InboxNotification`. */
 const DECLARED_KEYS = [
   'action_url',
+  'actor_id',
   'body',
   'created_at',
   'id',
@@ -80,7 +107,7 @@ const DECLARED_KEYS = [
 
 const fakeAdapter = {
   find: (object: string) => {
-    if (object === 'sys_inbox_message') return Promise.resolve({ data: [RAW_ROW] });
+    if (object === 'sys_inbox_message') return Promise.resolve({ data: inboxRows });
     // Receipts and activity answer emptily — neither is this suite's subject.
     return Promise.resolve({ data: [] });
   },
@@ -97,6 +124,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   // Module-scoped stores outlive any one render tree.
   __resetSharedUserFeeds();
+  inboxRows = [RAW_ROW];
   // Approvals degrade to 0 (404) so nothing here depends on the REST feed.
   vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('{}', { status: 404 }))));
 });
@@ -122,6 +150,24 @@ describe('objectui#5203 — the inbox producer maps fields, it does not pass row
     expect(row.type).toBe('collab.assignment');
     expect(row.body).toBe('Zhang San assigned you a task.');
     expect(row.action_url).toBe('/apps/crm/showcase_task/t_42');
+    // The actor, from ITS column: not the recipient's `user_id` ('u1').
+    expect(row.actor_id).toBe('u_zhangsan');
+  });
+
+  it('produces the SAME key set from an older server\'s row that has no `actor_id`, with the actor null', async () => {
+    // The control has to be real: the key is absent from the raw row.
+    expect(Object.hasOwn(LEGACY_ROW, 'actor_id')).toBe(false);
+    inboxRows = [LEGACY_ROW];
+
+    const { result } = renderHook(() => useSharedInboxFeed());
+    await settle();
+
+    expect(result.current.status).toBe('ready');
+    const row = result.current.value[0];
+    expect(row.id).toBe('ibx_legacy');
+    expect(Object.keys(row).sort()).toEqual(DECLARED_KEYS);
+    // "No known actor" — the value the arrival filter announces exactly as before.
+    expect(row.actor_id).toBeNull();
   });
 
   it('does not carry `actor_name` even when the raw row has one', async () => {

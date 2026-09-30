@@ -63,15 +63,13 @@ import type { I18nLabel, ViewFilterRule } from '@objectstack/spec/ui';
  * `label` is the shared ARIA shape's ALIAS ENTRY — a rename prescription
  * pointing at `ariaLabel`, which exists to produce a better rejection message
  * and is never accepted. Declaring it here would declare a spelling the
- * contract refuses on parse. Exactly two renderers READ it — `record:path` and
- * `record:quick_actions`, the two that already did before objectui#9556 — as a
- * back-compat fold for documents written before the shape closed, behind the
- * canonical spelling and declared nowhere on this face. ⛔ It is OPT-IN there
- * rather than shared: the other five `record:*` blocks do not read it, because
- * no stored document was ever served by it on them. See
- * `@object-ui/plugin-detail`'s `renderers/recordComponentAria.ts`, whose own
- * pin asserts both directions — so this paragraph is checked rather than
- * merely written.
+ * contract refuses on parse. ⛔ No renderer reads it as a name. `record:path`
+ * and `record:quick_actions` used to fold it in behind the canonical spelling,
+ * as back-compat for documents written before the shape closed; objectui#9945
+ * retired that fold. Those two blocks now REPORT a served `label` and announce
+ * their default name. See `@object-ui/plugin-detail`'s
+ * `renderers/recordComponentAria.ts`, whose own pin asserts the refusal on
+ * every block, so this paragraph is checked rather than merely written.
  */
 export interface RecordComponentAriaProps {
   /**
@@ -109,7 +107,7 @@ export interface RecordDetailsComponentProps {
    * It was `number` here until objectui#8604, which is the wrong PRIMITIVE
    * TYPE, not merely a wider range: `{ columns: 2 }` compiled locally and the
    * contract refused it at publish with `invalid_value` at `columns` (measured
-   * on the installed pin, 17.4.0, against a control — `columns: '2'` — that
+   * on the installed pin, 17.5.0, against a control — `columns: '2'` — that
    * parses green on the same instrument). Contract-first (Commandment #0.1):
    * the code moves to the contract's spelling, and today's `columns: 2`
    * authors are the defect surfacing rather than collateral damage.
@@ -284,7 +282,7 @@ export interface RecordHighlightsComponentProps {
    * `RecordHighlightsProps.fields[]`'s object arm declares exactly
    * `name`/`label`/`type`/`readonly` and carries a `never` catchall, i.e. it is
    * `$strict`: an unlisted key is REFUSED, not stripped, and the refusal takes
-   * the WHOLE document with it. Measured on the installed pin, 17.4.0,
+   * the WHOLE document with it. Measured on the installed pin, 17.5.0,
    * `RecordHighlightsProps.safeParse({ fields: [{ name: 'x', icon: 'star' }] })`
    * is RED with `invalid_union` at `fields.0`. So `{ name: 'amount', icon:
    * 'dollar-sign' }` type-checked here and was refused at the door — a green
@@ -316,7 +314,7 @@ export interface RecordHighlightsComponentProps {
    * `z.enum(['horizontal','vertical'])` behind a `.default('horizontal')`).
    *
    * It offered a third value, `grid`, until objectui#9187, and the contract
-   * never accepted it: measured on the installed pin, 17.4.0,
+   * never accepted it: measured on the installed pin, 17.5.0,
    * `RecordHighlightsProps.safeParse({ fields: ['name'], layout: 'grid' })` is
    * RED with `invalid_value` at `layout`. So `{ layout: 'grid' }` type-checked
    * here and was refused at the door — a green local build and a rejection at
@@ -380,8 +378,32 @@ export interface RecordRelatedListComponentProps {
    * applies it when the node didn't pass through a zod parse).
    */
   limit?: number;
-  /** Filter conditions */
-  filter?: any;
+  /**
+   * The list's own scope: the protocol's rule array
+   * (`@objectstack/spec` `RecordRelatedListProps.filter`,
+   * `z.array(ViewFilterRuleSchema)`, "Additional filter criteria for related
+   * records"), ANDed with the parent relationship and never substituted for it.
+   *
+   * ## Why this face carries the array and the consumer carries a union
+   *
+   * `@object-ui/plugin-detail`'s `RelatedList` types the same key
+   * `ViewFilterRule[] | FilterNode`, and it keeps that union on purpose
+   * (objectui#10199, ruled protocol first). The `FilterNode` half is a RUNTIME
+   * value: `ElementDataSourceGate` writes the composed component-AND-view-AND-
+   * binding filter onto this key after it resolves a `dataSource` binding, and
+   * that write goes through the gate's own untyped schema copy, never through
+   * this interface. The composed node is not a shape an author writes, so the
+   * authoring face does not publish it. Authoring the AST, a MongoDB-style
+   * record or an array of tuples here is refused by `tsc`, as the protocol's
+   * parse refuses it: author the rule array; the composed node is runtime-only.
+   *
+   * This declaration was `any` until objectui#10199, so the face an author (or
+   * an AI writing metadata) reads said "anything" for a key the protocol
+   * constrains. objectui#9964 moved `add.picker.filter` below for the same
+   * reason; there the consumer already agreed with the protocol, here only the
+   * authoring half does.
+   */
+  filter?: ViewFilterRule[];
   /** Section title */
   title?: string;
   /** Show "View All" link */

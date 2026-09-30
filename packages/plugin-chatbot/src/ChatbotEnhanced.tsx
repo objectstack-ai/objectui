@@ -82,7 +82,7 @@ import {
   SourcesContent,
   Source,
 } from './elements/sources';
-import { parseResultEnvelope, detectAuthoringVerdict } from './mapMessages';
+import { parseResultEnvelope, detectAuthoringVerdict, type DraftReview } from './mapMessages';
 
 export interface ChatMessage {
   id: string;
@@ -268,43 +268,13 @@ export interface ChatToolInvocation {
    * lifts the reviewable targets here so chat UIs can render a "Review N
    * change(s)" affordance that opens the designer's review/diff. Nothing is
    * live until the human publishes — this is the review entry point.
+   *
+   * The shape is `mapMessages.ts`'s `DraftReview`, the type `detectDraftResult`
+   * returns, referenced rather than repeated: an inline copy of its fields
+   * drifted the moment `DraftReview` gained the producer's `kind`
+   * (objectui#10109).
    */
-  draftReview?: {
-    items: Array<{ type: string; name: string }>;
-    summary?: string;
-    packageId?: string;
-    /**
-     * Backend lifecycle intent (from the tool result). `true` for whole-app
-     * builds (apply_blueprint) — eligible for the auto-publish "magic moment".
-     * Omitted for incremental edits, which stay drafts for explicit review.
-     */
-    autoPublishable?: boolean;
-    /** Count of artifacts that failed in a partial build, surfaced not hidden. */
-    failedCount?: number;
-    /**
-     * ADR-0045: the build was MATERIALIZED in-turn — real tables and seed
-     * rows exist; the app is live but `hidden` (unlisted). Preview should
-     * open the REAL app URL, not the draft overlay.
-     */
-    materialized?: boolean;
-    /**
-     * ADR-0038 L1 graph-lint verdict for the staged build. Rendered as a
-     * verified/issues chip so "drafted" and "verified" read as the two
-     * separate statements they are. Absent on older tool output.
-     */
-    verification?: { errors: number; warnings: number };
-    /**
-     * ADR-0038 L1 — the individual findings behind the `verification` counts,
-     * surfaced under the chip so "N issues" expands into WHAT is wrong instead
-     * of being a dead-end badge.
-     */
-    issues?: Array<{ severity: 'error' | 'warning'; code: string; message: string; fix?: string }>;
-    /**
-     * Post-build "what's next" steps (apply_blueprint `nextSteps`). Rendered as
-     * a short getting-started checklist under the build summary.
-     */
-    nextSteps?: string[];
-  };
+  draftReview?: DraftReview;
   /**
    * ObjectStack extension. `propose_blueprint` returns a PLAN before anything
    * is staged (`status: 'blueprint_proposed'`). `mapMessages.ts` lifts the
@@ -494,7 +464,12 @@ export interface ChatbotEnhancedProps extends React.HTMLAttributes<HTMLDivElemen
    * callbacks, so the cards degrade to their read-only/summary form.
    */
   readOnly?: boolean;
-  /** Whether the assistant is currently generating a response */
+  /**
+   * Whether the assistant is currently generating a response. While it is
+   * true the proposed-plan card's actions are disabled as well
+   * (objectui#10925), so a click cannot send the next turn while this one is
+   * still streaming.
+   */
   isLoading?: boolean;
   /** Current streaming/API error */
   error?: Error;
@@ -785,6 +760,14 @@ export interface ChatbotEnhancedProps extends React.HTMLAttributes<HTMLDivElemen
    * grounding. Display-only; absent = no chip.
    */
   surfaceContextLabel?: string;
+  /**
+   * objectui#8219 — the tooltip (`title`) of the {@link surfaceContextLabel}
+   * chip. Per objectui#7254, what the chip READS is the display label, and the
+   * internal identity (e.g. `dashboard · customer_dashboard`) stays REACHABLE
+   * here instead of being printed at the reader. Display-only; ignored when
+   * there is no `surfaceContextLabel`; absent = no `title`, as before.
+   */
+  surfaceContextTitle?: string;
   /**
    * Live draft-status resolver: how many drafts are still PENDING in a
    * package (e.g. `GET /metadata/_drafts?packageId=` count). When provided,
@@ -1459,6 +1442,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
       changesDraftedLabel = 'Saved as draft',
       changesFailedLabel = 'Not applied',
       surfaceContextLabel,
+      surfaceContextTitle,
       fetchPendingDraftCount,
       autoPublishDrafts = false,
       processVisibility = 'summary',
@@ -2132,6 +2116,26 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
       return byId;
     }, [messages]);
 
+    // objectui#10925 — the proposed-plan card's actions (Build it, Adjust and
+    // the one-click answer chips) wait until no turn is in flight. The card
+    // renders as soon as `propose_blueprint` returns, but the proposing turn
+    // keeps streaming after that (a `todo_write`, the closing prose), and the
+    // server stores each of those steps as it goes. A Build it clicked in that
+    // window sent the next turn while the previous one was still being stored,
+    // and the stored history interleaved the two turns.
+    //
+    // The signal is `isLoading`, the same one that turns the composer's send
+    // into a stop button. It falls only once the response stream has been
+    // read to its end. The cloud agent loop (`streamChatWithTools`) stores the
+    // turn's final reply before it writes `finish`; that is the server's
+    // ordering, read once for this card, and nothing in this repo re-checks
+    // it. A message's own `streaming` flag is derived from `isLoading`
+    // (`uiMessagesToChatMessages` sets it on the trailing assistant message
+    // only), so it would miss two windows that overlap turns the same way:
+    // the `submitted` phase before the first chunk, and a newer turn
+    // streaming below an older plan card.
+    const planActionsLocked = isLoading;
+
     const renderToolDetail = (tool: ChatToolInvocation) => {
       const state =
         tool.state ??
@@ -2669,7 +2673,8 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                                   key={oi}
                                   type="button"
                                   onClick={() => onSendMessage(planAnswerMessage(q, opt))}
-                                  className="inline-flex h-6 items-center rounded-full border border-amber-300 bg-background px-2 text-[11px] font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-900/40"
+                                  disabled={planActionsLocked}
+                                  className="inline-flex h-6 items-center rounded-full border border-amber-300 bg-background px-2 text-[11px] font-medium text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-900/40"
                                 >
                                   {opt}
                                 </button>
@@ -2718,7 +2723,8 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                       onClick={() =>
                         handlePlanApprove(tool.proposedPlan!.questions.length > 0, tool.toolCallId)
                       }
-                      className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                      disabled={planActionsLocked}
+                      className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                       data-testid="proposed-plan-approve"
                     >
                       <Rocket className="size-3.5" />
@@ -2727,7 +2733,8 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                     <button
                       type="button"
                       onClick={handlePlanAdjust}
-                      className="inline-flex h-7 items-center rounded-md border bg-background px-3 text-xs font-medium hover:bg-accent"
+                      disabled={planActionsLocked}
+                      className="inline-flex h-7 items-center rounded-md border bg-background px-3 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
                       data-testid="proposed-plan-adjust"
                     >
                       {planAdjustLabel}
@@ -2789,7 +2796,8 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                         type="button"
                         // No structured questions to default through → plain approve.
                         onClick={() => handlePlanApprove(false, tool.toolCallId)}
-                        className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                        disabled={planActionsLocked}
+                        className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                         data-testid="proposed-plan-approve"
                       >
                         <Rocket className="size-3.5" />
@@ -2798,7 +2806,8 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                       <button
                         type="button"
                         onClick={handlePlanAdjust}
-                        className="inline-flex h-7 items-center rounded-md border bg-background px-3 text-xs font-medium hover:bg-accent"
+                        disabled={planActionsLocked}
+                        className="inline-flex h-7 items-center rounded-md border bg-background px-3 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
                         data-testid="proposed-plan-adjust"
                       >
                         {planAdjustLabel}
@@ -2963,12 +2972,17 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                       </div>
                     );
                   }
+                  // objectui#10965 — `update_metadata` returns `changes_proposed`
+                  // mid-turn, so this card renders while the proposing turn is
+                  // still streaming and being stored. Its actions wait on the
+                  // same `planActionsLocked` the plan card uses (objectui#10925).
                   return (
                     <div className="flex flex-wrap items-center gap-1.5 pt-0.5" data-testid="proposed-changes-actions">
                       <button
                         type="button"
                         onClick={() => handleChangesConfirm(tool.toolCallId)}
-                        className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+                        disabled={planActionsLocked}
+                        className="inline-flex h-7 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
                         data-testid="proposed-changes-confirm"
                       >
                         <CheckCircle2 className="size-3.5" />
@@ -2977,7 +2991,8 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                       <button
                         type="button"
                         onClick={handlePlanAdjust}
-                        className="inline-flex h-7 items-center rounded-md border bg-background px-3 text-xs font-medium hover:bg-accent"
+                        disabled={planActionsLocked}
+                        className="inline-flex h-7 items-center rounded-md border bg-background px-3 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
                         data-testid="proposed-changes-adjust"
                       >
                         {planAdjustLabel}
@@ -3128,6 +3143,17 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                   !reasoningVisible &&
                   !buildProgress &&
                   !blueprintProgress; // a streaming design/build shows its panel, not the dots
+                // objectui#10899 — does this turn already SHOW its activity (a
+                // tool row, a build/design panel)? Then the quiet 执行过程 note
+                // a hydrated tool-call placeholder turn falls back to says
+                // nothing the row above it does not, and a reloaded multi-step
+                // build printed it under every step. The note stays for a
+                // placeholder turn with nothing else on screen (#772).
+                const showsActivity =
+                  summaryTools.length > 0 ||
+                  detailedTools.length > 0 ||
+                  Boolean(buildProgress) ||
+                  Boolean(blueprintProgress);
                 return (
                   <Message key={message.id} from={formatMessageProps(message.role)}>
                     <div
@@ -3217,7 +3243,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                         <ThinkingDots />
                       ) : hasVisibleProse ? (
                         <MessageResponse>{message.content}</MessageResponse>
-                      ) : !message.streaming && isToolCallPlaceholder(message.content) ? (
+                      ) : !message.streaming && !showsActivity && isToolCallPlaceholder(message.content) ? (
                         // #772: a re-hydrated tool-call-only turn is persisted with
                         // an internal placeholder ("(called todo_write,
                         // propose_blueprint)"); render a quiet localized activity
@@ -3289,7 +3315,14 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                         <div className="text-[10px] opacity-70 mt-1">{message.timestamp}</div>
                       ) : null}
                     </MessageContent>
-                    {!isUser && !isEmptyAssistantStreaming ? (
+                    {/* objectui#10899 — the copy / regenerate bar acts on this
+                        turn's PROSE. A prose-less turn (a hydrated tool step
+                        whose only text is the "(called …)" placeholder) has
+                        nothing to copy — Copy would hand the user the internal
+                        placeholder — and the invisible bar still took its full
+                        height, which is the blank gap a reloaded build showed
+                        under every step. */}
+                    {!isUser && !isEmptyAssistantStreaming && hasVisibleProse ? (
                       <MessageActions className="opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
                         <MessageAction
                           label={copiedId === message.id ? L.copied : L.copy}
@@ -3370,7 +3403,10 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
         >
           {surfaceContextLabel ? (
             <div className="mb-1 flex" data-testid="surface-context-chip">
-              <span className="inline-flex items-center gap-1 rounded-full border bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground">
+              <span
+                className="inline-flex items-center gap-1 rounded-full border bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground"
+                title={surfaceContextTitle}
+              >
                 {surfaceContextLabel}
               </span>
             </div>

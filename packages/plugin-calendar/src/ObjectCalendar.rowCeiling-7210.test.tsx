@@ -27,7 +27,7 @@
  * REVERSE VERIFICATION — MEASURED on two separate ablations (objectui#7507),
  * because this file grades two different things and one of them was missing:
  *
- *   1. Remove `$top: NON_GRID_ROW_CEILING_TOP` from `ObjectCalendar`'s record
+ *   1. Remove `...nonGridRowCeilingQuery()` from `ObjectCalendar`'s record
  *      fetch ⇒ red at the **`$top` assertion**, and there only; 1 failed /
  *      1 passed. NOT at the footnote, which is what this docblock used to
  *      predict. An adapter with no `$top` answers with the whole filtered set,
@@ -46,7 +46,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { NON_GRID_ROW_CEILING, NON_GRID_ROW_CEILING_TOP } from '@object-ui/react';
+import { NON_GRID_ROW_CEILING, nonGridRowCeilingQuery } from '@object-ui/core';
 import { ObjectCalendar } from './ObjectCalendar';
 
 vi.mock('@object-ui/plugin-detail', async (importOriginal) => ({
@@ -126,7 +126,7 @@ describe('objectui#7210 ruling a′ — the calendar caps at the platform ceilin
 
     await waitFor(() => expect(calls.length).toBeGreaterThan(0));
     for (const params of calls) {
-      expect(params.$top).toBe(NON_GRID_ROW_CEILING_TOP);
+      expect(params.$top).toBe(nonGridRowCeilingQuery().$top);
     }
 
     // ⭐ The ruling's own words — "the DOM row count equals the ceiling". The

@@ -89,11 +89,13 @@ const SURFACES: Surface[] = [
   },
   {
     // The list form-factor renders every cell through `displayText` — the
-    // numeric and the currency branch both.
+    // numeric and the currency branch both. No currency is configured in this
+    // session, so the amount carries no symbol: the literal `¥` default these
+    // patterns used to expect is gone (objectui#10355).
     name: 'list mode — cells',
     node: <GridField value={rows} onChange={() => {}} field={field} displayMode="list" onRowExpand={() => {}} />,
-    de: /1\.234,5.*¥98\.765,25/,
-    en: /1,234\.5.*¥98,765\.25/,
+    de: /1\.234,5.*98\.765,25/,
+    en: /1,234\.5.*98,765\.25/,
   },
 ];
 

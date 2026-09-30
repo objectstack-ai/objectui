@@ -33,6 +33,13 @@
  * control so the green below can never be the green of a check that stopped
  * checking.
  *
+ * ⚠️ UPDATE (objectui#11073): the resolved `@objectstack/spec` is 17.5.0, which
+ * carries the retirement too, so both legs now read `main`'s shape. The real
+ * table's `page` row was deleted — the `Extract` spelling is what let that be a
+ * plain deletion — and the runtime row below was re-pinned to the silence that
+ * follows. The simulated legs are kept: they are the proof that the next
+ * retirement lands the same way.
+ *
  * ⚠️ Only ONE spec is installed in any single run, so the two legs cannot both
  * be observed at runtime here. The vocabulary is therefore SIMULATED for the
  * type-level half — the same two operators in the same composition, applied to
@@ -190,11 +197,13 @@ describe('the undrawable table survives an upstream retirement (objectui#9880)',
     expect(isListViewVisualization('detail')).toBe(false);
   });
 
-  it('still explains a `page` view out loud, because the resolved spec still accepts one', async () => {
-    // The retired row is kept at RUNTIME on purpose: `Extract` removes it from
-    // the type when the vocabulary drops it, and nothing removes it from the
-    // table. While the resolved spec accepts a `page` view, an author can still
-    // write one, and the degrade to a grid still has to say so.
+  it('no longer explains a `page` view: the resolved spec refuses one, and the row retired with it', async () => {
+    // Through `@objectstack/spec` 17.4.0 the retired row was kept at RUNTIME on
+    // purpose: while the resolved spec accepted a `page` view an author could
+    // still write one, and the degrade to a grid had to say so. 17.5.0 refuses
+    // `type: 'page'` at the door, both published `@object-ui/types` faces refuse
+    // it, and the row was deleted as it said it would be (objectui#11073). A
+    // stored `page` view now degrades like any kind outside the vocabulary.
     //
     // ⚠️ The warning is once-per-kind-per-MODULE-INSTANCE, and the `unit`
     // project runs with `isolate: false`, so a sibling suite that already
@@ -213,13 +222,13 @@ describe('the undrawable table survives an upstream retirement (objectui#9880)',
     });
 
     expect((out as { viewType?: string }).viewType).toBe('grid');
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect(String(warn.mock.calls[0]?.[0])).toContain('"page"');
+    expect(warn).not.toHaveBeenCalled();
 
-    // Control: the same fresh instance says nothing for a kind it DRAWS, so the
-    // line above is the retired row answering and not a warning for every input.
-    warn.mockClear();
-    fresh.normalizeListViewSchema({ type: 'list-view', objectName: 'account', specType: 'grid' });
+    // Control: a kind outside the vocabulary answers exactly the same way, so
+    // the silence above is `page` being an ordinary unknown now — not a
+    // normalizer that stopped degrading.
+    const typo = fresh.normalizeListViewSchema({ type: 'list-view', objectName: 'account', specType: 'nonsense' });
+    expect((typo as { viewType?: string }).viewType).toBe('grid');
     expect(warn).not.toHaveBeenCalled();
   });
 });

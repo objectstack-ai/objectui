@@ -62,7 +62,6 @@
 // ============================================================================
 export {
   AppComponentSchema,
-  AppActionSchema,
   NavigationItemSchema,
   NavigationItemTypeSchema,
   NavigationAreaSchema,
@@ -191,7 +190,11 @@ export {
   ChartDataSeriesSchema,
   DrillDownConfigSchema,
   ChartSchema,
+  PivotTableSchema,
   TimelineEventSchema,
+  TimelineFeedItemSchema,
+  TimelineGanttItemSchema,
+  TimelineGanttItemBarSchema,
   TimelineSchema,
   KbdSchema,
   HtmlSchema,
@@ -268,7 +271,6 @@ export {
   KanbanCardSchema,
   KanbanColumnSchema,
   CardTemplateSchema,
-  ColumnWidthConfigSchema,
   // ⛔ `KanbanSchema` RETIRED with the bare `kanban` node type key
   // (objectui#8802, maintainer ruling 2026-09-09). `RetiredKanbanNodeSchema`
   // takes its place inside `ComplexSchema` so an authored `type: "kanban"` is
@@ -324,6 +326,11 @@ export {
   ObjectDataTableSchema,
   ListViewSchema,
   ObjectQLComponentSchema,
+  // objectui#10859 batch 2 — two ADR-0080 public blocks armed from their
+  // `ComponentPropsMap` rows, and the union they reach `AnyComponentSchema` by.
+  ObjectMetricBlockSchema,
+  ObjectMasterDetailFormBlockSchema,
+  ObjectQLPublicBlockComponentSchema,
 } from './objectql.zod.js';
 
 // ============================================================================
@@ -344,10 +351,10 @@ export {
 // tombstone for the retired theme component-kind surface:
 // - `ColorPaletteSchema` / `TypographySchema` / `BorderRadiusSchema` /
 //   `ShadowSchema` / `ThemeModeSchema` / `ThemeDefinitionSchema` RETIRED with
-//   the spec's whole `ui/theme.zod.ts` module (objectstack#10485, PR
-//   objectstack#10695; removal ruled on objectstack#10856, executed as
+//   the spec's whole `ui/theme.zod.ts` module (objectstack `35ad101bc`;
+//   removal ruled on objectstack#10856, executed as
 //   objectui#5710).
-// - `ThemeComponentSchema` RETIRED in objectui#5489.
+// - `ThemeComponentSchema` RETIRED in `78cbdb530`.
 // - `ThemeSwitcherSchema` / `ThemePreviewSchema` / `ThemeUnionSchema` RETIRED
 //   in objectui#5647, by inheritance of the same 2026-08-21 ruling (option B)
 //   on identical evidence — `AnyComponentSchema` below no longer carries a
@@ -393,6 +400,54 @@ export {
 } from './views.zod.js';
 
 // ============================================================================
+// AI Components - `@object-ui/plugin-ai` (objectui#10859)
+// ============================================================================
+export {
+  AIConfigSchema,
+  AIFieldSuggestionSchema,
+  AIFormAssistSchema,
+  AIRecommendationItemSchema,
+  AIRecommendationsSchema,
+  NLQueryResultSchema,
+  NLQuerySchema,
+  AIComponentSchema,
+} from './ai.zod.js';
+
+// ============================================================================
+// ADR-0080 Public Blocks - the spec-row `page:` / `record:` / `element:`
+// blocks (objectui#10872)
+// ============================================================================
+export {
+  PageHeaderBlockSchema,
+  PageTabsBlockSchema,
+  PageCardBlockSchema,
+  PageAccordionBlockSchema,
+  PageSectionBlockSchema,
+  PageFooterBlockSchema,
+  PageSidebarBlockSchema,
+  RecordDetailsBlockSchema,
+  RecordHighlightsBlockSchema,
+  RecordRelatedListBlockSchema,
+  RecordPathBlockSchema,
+  RecordActivityBlockSchema,
+  RecordDiscussionBlockSchema,
+  RecordHistoryBlockSchema,
+  RecordQuickActionsBlockSchema,
+  RecordReferenceRailBlockSchema,
+  RecordAlertBlockSchema,
+  ElementTextBlockSchema,
+  ElementNumberBlockSchema,
+  ElementButtonBlockSchema,
+  ElementDividerBlockSchema,
+  PublicBlockComponentSchema,
+} from './public-blocks.zod.js';
+
+// ============================================================================
+// Cloud Widgets - `@object-ui/app-shell`'s `cloud:` SDUI widgets (objectui#10919)
+// ============================================================================
+export { CloudPlanStatusSchema } from './cloud.zod.js';
+
+// ============================================================================
 // Union Types - All Component Schemas
 // ============================================================================
 
@@ -407,10 +462,13 @@ import { DisclosureSchema } from './disclosure.zod.js';
 import { OverlaySchema } from './overlay.zod.js';
 import { NavigationSchema } from './navigation.zod.js';
 import { ComplexSchema } from './complex.zod.js';
-import { ObjectQLComponentSchema } from './objectql.zod.js';
+import { ObjectQLComponentSchema, ObjectQLPublicBlockComponentSchema } from './objectql.zod.js';
 import { CRUDComponentSchema } from './crud.zod.js';
 import { ReportUnionSchema } from './reports.zod.js';
 import { ViewComponentSchema } from './views.zod.js';
+import { AIComponentSchema } from './ai.zod.js';
+import { PublicBlockComponentSchema } from './public-blocks.zod.js';
+import { CloudPlanStatusSchema } from './cloud.zod.js';
 
 /**
  * Union of all component schemas.
@@ -420,8 +478,8 @@ import { ViewComponentSchema } from './views.zod.js';
  * `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])`, and `SchemaNodeSchema`
  * resolves its component arm to THIS union, so a nested node is judged by its own
  * component schema at every depth instead of by the ~21 base keys. The wiring is a
- * late-binding holder rather than an import because 14 modules import `base.zod.js`
- * and this module is built from all 13 category modules — the full reasoning, and
+ * late-binding holder rather than an import because the category modules import
+ * `base.zod.js` and this module is built from all of them — the full reasoning, and
  * what the UNFILLED holder answers, live on `SchemaNodeSchema` in `base.zod.ts`.
  *
  * ⚠️ The fill is written as this const's own initializer, not as a statement beside
@@ -473,9 +531,13 @@ export const AnyComponentSchema = defineNodeComponentUnion(z.discriminatedUnion(
   NavigationSchema,
   ComplexSchema,
   ObjectQLComponentSchema,
+  ObjectQLPublicBlockComponentSchema,
   CRUDComponentSchema,
   ReportUnionSchema,
   ViewComponentSchema,
+  AIComponentSchema,
+  PublicBlockComponentSchema,
+  CloudPlanStatusSchema,
 ], {
   // Zod's default message for a missed discriminator spells out EVERY accepted
   // literal — measured, 1,462 chars naming all 107. That is the "print every

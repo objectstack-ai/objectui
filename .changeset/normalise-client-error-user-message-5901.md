@@ -4,7 +4,7 @@
 
 Preserve the producer's `userMessage` marking when `normaliseClientError` re-wraps a refusal.
 
-`ApiErrorSchema.userMessage` (objectstack#9934) is the opt-in channel an application author
+`ApiErrorSchema.userMessage` (objectstack `79c46da90`) is the opt-in channel an application author
 sets at throw time to say "this text is for the end user", and the contract states it
 status-agnostic — any refusal status may carry it. Both of the shapes this adapter re-wraps
 into typed errors dropped the marking: a hook that refused a write with `VALIDATION_FAILED`

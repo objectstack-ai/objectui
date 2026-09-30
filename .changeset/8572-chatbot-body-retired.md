@@ -71,9 +71,17 @@ API params for a child node — it names `children` for a key the author spelled
 it prescribes adding a `type` to the params. It says the same thing before and after this
 change, and in a production build it is not emitted at all. The VS Code extension's
 validator is the same shape: its own walker, no mirror. ⇒ the retirement is delivered where
-documents are AUTHORED and CHECKED (`tsc`, `objectui validate`, `objectui check`, and any
-consumer that calls `safeValidateSchema`), and ⛔ not where they are RENDERED. Making the
-render path agree is a different change on a different package and is not made here.
+documents are AUTHORED and CHECKED (`tsc`, `objectui validate`, and any consumer that calls
+`safeValidateSchema`), and ⛔ not where they are RENDERED. Making the render path agree is a
+different change on a different package and is not made here.
+
+⚠️ **Dated note, 2026-09-25 — `objectui check` does not deliver this refusal —
+objectui#10524.** This entry first listed `objectui check` among the places the retirement
+is delivered. `body` is itself one of the structural root keys `check` recognises a file by,
+and `check` never parses against the schema a file it recognised that way, so a `chatbot` document authoring
+`body` at its root passes `check` and exits 0. `check` exits non-zero on unreadable JSON
+only. The refusal is `objectui validate`'s; the `ChatbotSchema.body` docblock in
+`@object-ui/types` now says the same.
 
 **Nothing that rendered stops rendering.** No renderer read consumes `body` for this node:
 the `chatbot` registration spells the chat runtime's `body` option off `requestBody`, and

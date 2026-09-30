@@ -112,7 +112,8 @@
  *      are registered without a mirror. An arm that does not exist cannot have
  *      lost a member, and inventing an obligation there would be a different
  *      card. ⚠️ A namespaced-only alias over a type whose BARE key does have an
- *      arm falls here too — `view:list`, `action:button`, `page:tabs` — and
+ *      arm falls here too — `view:list`, `action:button` (and `page:tabs` until
+ *      objectui#10872 gave it its own arm) — and
  *      because that is the shape objectui#9573 was mis-judging, its reads are
  *      still REPORTED, as UNMIRRORED-ALIAS census rows carrying the bare arm
  *      they are not. They are countable and `--list`-able; they are ⛔ not
@@ -214,6 +215,12 @@ export const KNOWN_UNDECLARED_READS = new Map([
   // registration, so their reads are now reported as UNMIRRORED-ALIAS census
   // rows: real reads under a type key no mirror carries an arm for, which is
   // boundary 3 above and ⛔ not a finding this gate can make.
+  //
+  // ⚠️ AMENDED (objectui#10872) — `page:tabs` has since LEFT that trio the way
+  // boundary 3 above says an alias should: the namespaced key was mirrored.
+  // `PageTabsBlockSchema` (`public-blocks.zod.ts`) is its own arm and declares
+  // `onTabChange` as an objectui#6124 runtime slot, so its read is judged there
+  // like any armed read. `action:button` and `action:icon` are still aliases.
   //
   // ⚠️ And the same re-keying removed a FALSE GREEN the ledger could never have
   // shown, because a wrongly-passing read leaves no row: `'form'

@@ -148,9 +148,9 @@ describe('switching the field settles the operator into the new bucket', () => {
   });
 
   it('resets down to the two operators a boolean column offers', async () => {
-    // The narrowest bucket in the builder — `["equals", "notEquals"]` — so it
+    // The narrowest bucket in the builder — `["equals", "not_equals"]` — so it
     // is the one most switches land outside of.
-    const { onChange } = renderRow({ field: 'title', operator: 'startsWith', value: 'ac' });
+    const { onChange } = renderRow({ field: 'title', operator: 'starts_with', value: 'ac' });
     await pick(0, 'Won');
 
     expect(lastRow(onChange).operator).toBe('equals');
@@ -248,24 +248,26 @@ describe('an operator the new bucket still offers is LEFT ALONE', () => {
   });
 
   it('keeps a value-less operator both buckets carry', async () => {
-    const { onChange } = renderRow({ field: 'title', operator: 'isNull', value: '' });
+    const { onChange } = renderRow({ field: 'title', operator: 'is_null', value: '' });
     await pick(0, 'Amount');
 
-    expect(lastRow(onChange)).toMatchObject({ field: 'amount', operator: 'isNull' });
+    expect(lastRow(onChange)).toMatchObject({ field: 'amount', operator: 'is_null' });
   });
 });
 
 describe('membership is decided through the spec’s canonical fold', () => {
-  it('recognises the canonical spelling of an operator the bucket lists as an alias', () => {
-    // A stored view read back without camelCasing carries `not_in`; the
-    // dropdown lists the alias `notIn`. They are ONE operator, so a
+  it('recognises a deprecated alias of an operator the bucket lists canonically', () => {
+    // The dropdown lists the protocol id `not_in` (objectui#9306); a caller of
+    // this exported helper may still hold the deprecated alias `notIn`, which
+    // was the dropdown's own id before that change. They are ONE operator, so a
     // select → lookup switch must not reset the row to `equals` merely
-    // because the two spellings differ — and the row keeps its own spelling,
-    // because a field switch is not a spelling migration.
+    // because the two spellings differ — and the helper keeps the row's own
+    // spelling, because a field switch is not a spelling migration (the
+    // builder's READ boundary is where a spelling is migrated).
     expect(normalizeFilterOperator('notIn')).toBe('not_in');
-    expect(offeredFor('lookup')).toContain('notIn');
-    expect(offeredFor('lookup')).not.toContain('not_in');
-    expect(reconcileOperatorForField('not_in', operatorsForFieldType('lookup'))).toBe('not_in');
+    expect(offeredFor('lookup')).toContain('not_in');
+    expect(offeredFor('lookup')).not.toContain('notIn');
+    expect(reconcileOperatorForField('notIn', operatorsForFieldType('lookup'))).toBe('notIn');
   });
 
   it('still resets a canonical spelling the new bucket cannot express', () => {

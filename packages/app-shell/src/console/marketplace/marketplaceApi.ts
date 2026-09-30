@@ -555,8 +555,29 @@ export async function getCloudInstallationInfo(
   }
 }
 
+/**
+ * The outcome of a cloud sample-data action. A refusal carries its error
+ * `code` beside the `error` text (objectui#10432).
+ *
+ * The text alone is not enough. In the 5xx band the control plane withholds
+ * the producer's sentence (cloud#1145), so `error` holds the generic constant
+ * there, and `code` is the one member that still says which fault occurred.
+ * cloud#2072 relies on exactly that: a control plane with no environment
+ * kernels refuses re-seed / purge with HTTP 500 and
+ * `ENVIRONMENT_KERNEL_UNAVAILABLE`, a composition fact the caller must not
+ * offer to retry, while `INTERNAL_ERROR` stays the retryable fault.
+ *
+ * `code` is absent when no response arrived (a network error, or a missing
+ * installation id refused before the request).
+ */
+export interface SampleDataActionResult {
+  ok: boolean;
+  error?: string;
+  code?: string;
+}
+
 /** POST /api/v1/cloud/installations/:id/reseed-sample-data */
-export async function reseedSampleData(installationId: string): Promise<{ ok: boolean; error?: string }> {
+export async function reseedSampleData(installationId: string): Promise<SampleDataActionResult> {
   if (!installationId) return { ok: false, error: 'installation id required' };
   const base = getCloudBase() || SERVER_URL;
   try {
@@ -568,7 +589,8 @@ export async function reseedSampleData(installationId: string): Promise<{ ok: bo
     });
     const payload: any = await res.json().catch(() => ({}));
     if (!res.ok || payload?.success === false) {
-      return { ok: false, error: readApiError(payload, res).message };
+      const { code, message } = readApiError(payload, res);
+      return { ok: false, error: message, code };
     }
     return { ok: true };
   } catch (err: any) {
@@ -577,7 +599,7 @@ export async function reseedSampleData(installationId: string): Promise<{ ok: bo
 }
 
 /** POST /api/v1/cloud/installations/:id/purge-sample-data */
-export async function purgeSampleData(installationId: string): Promise<{ ok: boolean; deleted?: number; error?: string }> {
+export async function purgeSampleData(installationId: string): Promise<SampleDataActionResult & { deleted?: number }> {
   if (!installationId) return { ok: false, error: 'installation id required' };
   const base = getCloudBase() || SERVER_URL;
   try {
@@ -589,7 +611,8 @@ export async function purgeSampleData(installationId: string): Promise<{ ok: boo
     });
     const payload: any = await res.json().catch(() => ({}));
     if (!res.ok || payload?.success === false) {
-      return { ok: false, error: readApiError(payload, res).message };
+      const { code, message } = readApiError(payload, res);
+      return { ok: false, error: message, code };
     }
     return { ok: true, deleted: Number(payload?.data?.deleted ?? 0) };
   } catch (err: any) {

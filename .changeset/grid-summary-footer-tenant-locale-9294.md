@@ -36,11 +36,12 @@ repaired, because a sign changing sides is visible and a decimal separator chang
 `@objectstack`'s (see AGENTS.md, "版本号策略"), so a breaking change is carried in the body.
 
 **Not changed.** Only the locale tag moves. Every arm keeps the formatter and the fraction-digit
-widths it already had — the currency arm still reads the column's declared `scale` (objectui#2131)
+widths it already had — the currency arm kept reading the column's declared `scale` (objectui#2131;
+objectui#10221, in its own entry, later moves that arm to the currency's ISO 4217 minor unit)
 and the percent-of-rows arm still carries its own literal sign, both of which belong to
 objectui#4589's number-display policy rather than to this card. Routing these arms through
-`@object-ui/fields`' `formatCurrency` / `formatNumber` was measured and rejected for exactly that
-reason: it discards the column's declared `scale`, fires a wholeness switch that drops a whole
+`@object-ui/fields`' `formatCurrency` / `formatNumber` was measured and rejected for this card for
+exactly that reason: it discards the column's declared `scale`, fires a wholeness switch that drops a whole
 amount's fraction digits, and pins the plain/average arms to a fixed decimal width — output moves
 in `en` too, which no locale repair should do. The `colType === 'percent'` arm is untouched;
 objectui#9269 landed it and it serves here as the control that proves the test fixture really

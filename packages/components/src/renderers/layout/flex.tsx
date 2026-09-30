@@ -124,14 +124,15 @@ ComponentRegistry.register('flex',
         
         description: 'Gap between items (0-8)'
       },
-      { 
-        name: 'wrap', 
-        type: 'boolean', 
-        
-        
+      {
+        name: 'wrap',
+        type: 'boolean',
+
+
         description: 'Allow flex items to wrap'
       },
-      { name: 'className', type: 'string' }
+      { name: 'className', type: 'string' },
+      { name: 'children', type: 'slot' }
     ],
     defaultProps: {
       direction: 'row',
@@ -141,7 +142,7 @@ ComponentRegistry.register('flex',
       // eight lines from the top of this file never applies (`schema.align ||
       // 'start'`). A designer-made node therefore laid out differently from a
       // hand-authored one that simply omitted the key: one component, two
-      // answers (objectui#8229, folded into objectui#7735's ruling).
+      // answers (the finding `8b7ea3945` reconciled, folded into objectui#7735's ruling).
       //
       // The renderer fallback is the single authoritative default under that
       // ruling — the zod mirror stopped authoring `align` in the same change,
@@ -165,7 +166,7 @@ ComponentRegistry.register('flex',
     // DECLARE that it does, while `grid`, `card`, `container` and `stack` — the
     // same directory, the same `ui` namespace — all do. The flag is not read by
     // the render path, so nothing was broken at runtime; its consumers are
-    // elsewhere, and the gap made them contradict the renderer (objectui#6740).
+    // elsewhere, and the gap made them contradict the renderer (`7c9b044f4`).
     //
     // MEASURED, not inferred. Building the manifest the way the app builds it
     // (`getKnownTypes()` + `getMeta()` -> `manifestFromConfigs`) and putting a
@@ -181,6 +182,11 @@ ComponentRegistry.register('flex',
     // `containers.tsx` declare `isContainer: true` on its own — so the flag is
     // independent of designer resize affordances, and minting one here would be
     // a behaviour change this card did not measure.
+    //
+    // Since objectui#9910 the flag means LAYOUT containment only (the
+    // react-page JSX scope skips it; the public layout ledger lists it). The
+    // measurement above is now held by the `children` slot in `inputs`, which
+    // is the one thing `validateTree`'s `not-a-container` reads.
     isContainer: true
   }
 );

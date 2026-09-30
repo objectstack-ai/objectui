@@ -36,10 +36,12 @@
  * That export is the vocabulary the dropdown draws, derived from the operators
  * the component actually renders — so a new operator added to `defaultOperators`
  * lands here as a red test naming the packs it still needs, instead of shipping
- * as a raw key. It includes the opt-in ids (`containsCaseInsensitive`,
- * `exists`, `notExists`): `OPT_IN_OPERATORS` governs which CONSUMERS are offered
- * an operator, not whether the builder can draw it, and `FilterConditionField`
- * grants all three — a drawable operator needs a label.
+ * as a raw key. It includes the opt-in ids (`exists`, `notExists`):
+ * `OPT_IN_OPERATORS` governs which CONSUMERS are offered an operator, not
+ * whether the builder can draw it, and `FilterConditionField` grants both — a
+ * drawable operator needs a label. (The case-insensitive contains was a third
+ * opt-in id, `containsCaseInsensitive`, until objectui#9306 made it the
+ * ordinary protocol id `icontains`.)
  *
  * Placement is forced by the dependency graph: `@object-ui/components` depends
  * on `@object-ui/i18n`, so this is the side that can see both the vocabulary and

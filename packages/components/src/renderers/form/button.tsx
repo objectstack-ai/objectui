@@ -91,9 +91,17 @@ ComponentRegistry.register('button', ButtonRenderer,
       {
         name: 'size',
         type: 'enum',
-        
+
         enum: ['default', 'sm', 'lg', 'icon']      },
-      { name: 'className', type: 'string' }
+      { name: 'className', type: 'string' },
+      // The label slot's rich form, read when `label` is not set. Declared so
+      // the tier's `not-a-container` — which reads only this input
+      // (objectui#9910) — stays silent on a key this renderer renders. ⛔ Not
+      // `isContainer`: objectui#6804 ruled that flag means LAYOUT containment,
+      // and declaring it here would delete `Button` from every react page's
+      // JSX scope; the ruled `button` exclusion in the containment ledger is
+      // paid by this line instead.
+      { name: 'children', type: 'slot', description: 'Rich label content, rendered when `label` is not set' }
     ],
     defaultProps: {
       label: 'Button',

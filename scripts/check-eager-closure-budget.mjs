@@ -417,8 +417,9 @@ import { isEntrypoint } from './invoked-as.mjs';
  *     header for both builds and the three control rows that show the bytes
  *     LEFT rather than moved.
  *
- * Headroom above {@link BASELINE} is 45,183 bytes — 0.50x
- * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. ⚠️ That is arithmetic on two
+ * Headroom above {@link BASELINE} is 45,263 bytes — 0.50x
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}, on the pair objectui#11073
+ * re-pinned. ⚠️ That is arithmetic on two
  * constants in this file, so it stays true while they do — it is NOT what the
  * closure has left today, which is smaller by every byte the payload has
  * drifted up since the baseline below was taken. `pnpm check:eager-closure`
@@ -492,8 +493,189 @@ import { isEntrypoint } from './invoked-as.mjs';
  * Headroom 45,581 bytes = 0.50x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES},
  * which is exactly the value the header argues for — the first time this
  * constant has sat on it rather than above it.
+ *
+ * ## ⚠️ RAISED A SECOND TIME, ON EXPLICIT MAINTAINER AUTHORISATION (objectui#10996)
+ *
+ * From 3,179,000 over a 3,133,419 baseline to 3,225,000 over 3,179,055, the
+ * latter measured on 2026-09-28 on `5d689c3f6` — `main` itself, with no diff
+ * applied. The objectui#7122 heading above says ONCE; it was true when it was
+ * written, and this is the second. Raising this ceiling is the act that
+ * heading reserves for a human, and the authorisation, verbatim and
+ * untranslated — the option the maintainer picked in the `domain:ui` seat 4
+ * session chat on 2026-09-28, quoted on objectui#10996 and in its pull
+ * request:
+ *
+ *     授权本席位重设基线 (推荐)
+ *
+ * The option read, in the seat's words: re-measure on the latest `main`,
+ * re-pin {@link BASELINE}, set this ceiling to the reading plus half the
+ * regression threshold in ONE commit, and quote the authorisation in the PR.
+ * The triage grade on objectui#10996 (comment 5874625537) gave the same
+ * direction, and ⛔ ruled out the ceiling moving alone.
+ *
+ * ⛔ WHY — a wall, not a claimant. `main` itself read OVER this line: the
+ * `5d689c3f6` build weighed 3,179,055 against 3,179,000, 55 bytes over, and
+ * `node scripts/check-eager-closure-budget.mjs` exited 1 on it
+ * (`0.1 KB over the 3104.5 KB budget`). Every pull request that runs this gate
+ * weighs `main`'s bytes plus its own, so none could pass whatever its own
+ * delta. The per-chunk, membership and sensitivity halves all passed on that
+ * build; only the aggregate was red.
+ *
+ * WHAT THE BYTES ARE — two control builds of `main`, one container, one
+ * instrument (`pnpm --filter @object-ui/console exec vite build`, reading
+ * `apps/console/dist/eager-closure.json`). The last step first: `4b742f41d`,
+ * the newest `main` commit still under the line, 8 commits before the reading.
+ * It built to 3,178,471 — the figure the seat recorded on objectui#10996, to
+ * the byte, which is this instrument's calibration.
+ *
+ *   | chunk                | `4b742f41d` | `5d689c3f6` | delta |
+ *   |----------------------|------------:|------------:|------:|
+ *   | `plugin-form`        |      35,718 |      36,267 |  +549 |
+ *   | `plugin-view`        |      18,860 |      18,892 |   +32 |
+ *   | seven others         |             |             |    +3 |
+ *   | `vendor-objectstack` |   1,237,912 |   1,237,912 |     0 |
+ *   | `ui-components`      |     277,412 |     277,412 |     0 |
+ *   | `framework`          |      72,233 |      72,233 |     0 |
+ *   | `i18n-locale-en`     |      41,739 |      41,739 |     0 |
+ *   | ⇒ aggregate          |   3,178,471 |   3,179,055 |  +584 |
+ *
+ * The four budgeted rows are the unmoved control. `plugin-form`'s +549 is
+ * objectui#10986 (`8aa68b159`): `MasterDetailForm` resolving its `I18nLabel`
+ * title, submit and cancel text, eager because `apps/console`'s
+ * `register-plugins.ts` imports `@object-ui/plugin-form` statically. The only
+ * commit in the window that touches `packages/plugin-view` is `e9ca14ca9`
+ * (objectui#10975); the +32 is that chunk's, ⛔ not bisected to the commit.
+ * The seven others moved by one to four bytes each, netting +3.
+ *
+ * ⚠️ The step is 584 bytes of a 45,636-byte drift, and ⛔ it is not the cause
+ * of this re-pin — it is only the last straw. The whole window, read against
+ * `67485872ed`, the squash that landed the retired baseline's branch on
+ * `main` (841 commits before the reading, per the GitHub compare API):
+ *
+ *   | chunk                                   | `67485872ed` | `5d689c3f6` |   delta |
+ *   |-----------------------------------------|-------------:|------------:|--------:|
+ *   | `ui-components`                         |      266,156 |     277,412 | +11,256 |
+ *   | `plugin-form`                           |       29,470 |      36,267 |  +6,797 |
+ *   | `plugin-grid`                           |       98,817 |     105,502 |  +6,685 |
+ *   | `vendor-icon-*`, all 277 of them        |       76,330 |      82,405 |  +6,075 |
+ *   | `src`                                   |      161,575 |     167,515 |  +5,940 |
+ *   | `index`                                 |      149,631 |     153,880 |  +4,249 |
+ *   | `i18n-locale-en`                        |       40,531 |      41,739 |  +1,208 |
+ *   | `data-adapter` + `i18n` + `framework`   |      184,643 |     182,786 |  -1,857 |
+ *   | `vendor-objectstack`                    |    1,240,245 |   1,237,912 |  -2,333 |
+ *   | everything else (43 names)              |      886,385 |     893,637 |  +7,252 |
+ *   | ⇒ aggregate                             |    3,133,783 |   3,179,055 | +45,272 |
+ *
+ * The `data-adapter` + `i18n` + `framework` row is summed on purpose:
+ * `data-adapter` fell 58,765 while `i18n` and `framework` rose 29,528 and
+ * 27,380, so read singly they are three large claimants and read together they
+ * are a small one.
+ * ⛔ Nothing here says what moved between them. The `vendor-icon-*` family is
+ * a lit control of its own: 76,330 is the figure {@link BASELINE}'s previous
+ * entry recorded for the same 277 chunks on `bbf6b02d9`.
+ *
+ * ⇒ This is DIFFUSE growth — 841 commits across fifteen days, the largest row a
+ * quarter of the total, and ⛔ no row attributed to a commit except the last
+ * step's. That is what the re-baseline ABSORBS, in the sense the section of
+ * that name in the header gives it, and the rows above are published so the
+ * next reader can tell it from the next claimant.
+ *
+ * ⚠️ `67485872ed` is NOT the retired baseline's tree. It built to 3,133,783,
+ * 364 bytes above the 3,133,419 read on `bbf6b02d9`, and the two readings were
+ * taken in different containers — so 45,272 + 364 = 45,636 is the whole
+ * distance between the retired and the new constant, and the 364 is the one
+ * part of it this entry cannot place.
+ *
+ * ⛔ Shrinking is the follow-up, not this entry: the triage grade names the
+ * eager `plugin-form` import above as the measured candidate, the objectui#9399
+ * lucide change as the precedent, and routes it to a card of its own.
+ *
+ * Headroom 45,945 bytes = 0.50x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}:
+ * 3,179,055 + 45,568 = 3,224,623, rounded to the nearest thousand, the rounding
+ * every re-pin above used. ⛔ The ceiling did not move alone. Over the retired
+ * 3,133,419 baseline, 3,225,000 would carry 91,581 bytes, 1.005x the
+ * regression, and the unit test's constant-vs-constant guard reds on it — so
+ * {@link BASELINE} moved in the same commit, and that guard is the reason.
+ *
+ * ⛔ Nothing else moved. Not {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES} — a
+ * ceiling that rises while the sensitivity relaxes is a gate quietly retiring
+ * itself. Not {@link PER_CHUNK_GZIP_CEILINGS} or {@link PER_CHUNK_BASELINE}:
+ * all four rows passed on the `5d689c3f6` build, and the first table shows them
+ * unmoved. No exemption was added and no import was made lazy.
+ *
+ * ## ⚠️ RAISED A THIRD TIME, ON EXPLICIT MAINTAINER RULING (objectui#11088; objectui#11073)
+ *
+ * From 3,225,000 over a 3,179,055 baseline to 3,694,000 over 3,648,737, the
+ * latter measured on 2026-09-29 on `048e7f6` — the tip of objectui#11073's
+ * branch, the tree that carries `@objectstack/*` 17.5.0 into this repository.
+ * The ruling, recorded by the director seat as comment 5890854293 on
+ * objectui#11088 (batch #245 item 2), is the maintainer's 「11088 同意」 to the
+ * director's recommendation, decision 1 = A:
+ *
+ *     The ceiling and the headroom assertion in
+ *     `scripts/check-eager-closure-budget.mjs` are raised to the new baseline
+ *     in the same commit of PR objectui#11086, the PR body states what the
+ *     413.8 KB gzip buys (17.5.0's refusals and schemas, the twenty unblocked
+ *     cards), and two payback cards are filed in the same stroke.
+ *
+ * Precedent objectui#5531 (17.1.0, the maintainer's A). Option B — slim the
+ * console first — was ruled against on a reading of the spec source: the growth
+ * sits at `@objectstack/spec`'s ROOT entry, mostly the migration and conversion
+ * registries' retirement rationale and `os migrate meta` guidance strings, so a
+ * console-side lazy load could not recover the bulk.
+ *
+ * ⛔ WHAT THE BYTES ARE — one container, one instrument (`CI=true pnpm --filter
+ * @object-ui/console exec vite build`, reading
+ * `apps/console/dist/eager-closure.json`, under `scripts/pm/os-verify-lock.sh`).
+ * The control is `a5841be35`, the `main` commit this branch last merged, built
+ * the same way in a worktree of its own; both builds weigh 330 of 2446 chunks.
+ *
+ *   | chunk                         |   `a5841be35` |   `048e7f6` |    delta |
+ *   |-------------------------------|--------------:|------------:|---------:|
+ *   | `vendor-objectstack`          |     1,237,912 |   1,703,690 | +465,778 |
+ *   | `ui-components`               |       277,610 |     277,336 |     -274 |
+ *   | `framework`                   |        72,294 |      72,093 |     -201 |
+ *   | `src`                         |       168,981 |     169,160 |     +179 |
+ *   | everything else (50 names)    |     1,426,438 |   1,426,458 |      +20 |
+ *   | ⇒ aggregate                   |     3,183,235 |   3,648,737 | +465,502 |
+ *
+ * `vendor-objectstack` is the whole of it: the chunk the `@objectstack/*`
+ * packages land in, grown by the 17.5.0 release, while every other row nets
+ * -276 bytes across the bump's own edits. ⛔ Not attributed below the chunk:
+ * the split between the spec's root-entry registries and its schema growth is
+ * the director's source reading, recorded on objectui#11088 as a read of source
+ * bytes rather than a build, and it is objectstack#20646's to measure.
+ *
+ * WHAT THEY BUY: the console's client-side validation answering as the 17.5.0
+ * server does — its refusals (retired keys refused by name, the terminal
+ * unknown-key refusal, the new object-level checks) and its schemas — so the
+ * window in which an author, or an AI, writes in the console what the server
+ * rejects closes; and the twenty cards the ruling counts as waiting on this
+ * bump. ⛔ It is NOT a new console capability.
+ *
+ * ⭐ PAID BACK AT THE SOURCE, and the ruling filed both cards with it:
+ * objectstack#20646 (the spec root entry stops carrying the migration and
+ * conversion registries) and objectui#11101 (the metadata-admin-only spec
+ * validation leaves the console's first screen). When each lands, this ceiling
+ * and {@link BASELINE} come DOWN together by the recovered amount — a
+ * re-baseline in the tightening direction, as objectui#9251's was.
+ *
+ * Headroom 45,263 bytes = 0.50x {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}:
+ * 3,648,737 + 45,568 = 3,694,305, rounded to the nearest thousand, the rounding
+ * every re-pin above used. ⛔ The ceiling did not move alone: over the retired
+ * 3,179,055 baseline, 3,694,000 would carry 514,945 bytes, 5.65x the
+ * regression, and both the unit test's constant-vs-constant guard and
+ * {@link evaluateHeadroomSensitivity} red on it — so {@link BASELINE} moved in
+ * the same commit.
+ *
+ * ⛔ What moved with it, and what did not. `vendor-objectstack`'s per-chunk
+ * ceiling fired on the same build (its row above) and moved in this commit,
+ * with {@link PER_CHUNK_BASELINE}, under the same ruling. The other three
+ * per-chunk rows passed and did not move. Not
+ * {@link REGRESSION_THIS_GATE_MUST_CATCH_BYTES}. No exemption was added and no
+ * import was made lazy.
  */
-export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_179_000;
+export const MAX_EAGER_CLOSURE_GZIP_BYTES = 3_694_000;
 
 /**
  * The measurement the ceiling above was derived from. Exported so the two
@@ -506,113 +688,61 @@ export const BASELINE = Object.freeze({
   /**
    * `emitEagerClosureReport`'s `eagerGzipBytes` on this commit.
    *
-   * ⚠️ `bbf6b02d9` is NOT "this branch's last commit before the one that edits
-   * this file" — the argument every earlier entry here made. objectui#9251's
-   * change IS a console build input (`packages/components/src/**` and
-   * `apps/console/vite.config.ts`), so the commit named here is the one that
-   * CARRIES it and the reading is of that tree. The
-   * `scripts/vite-*.ts`-versus-`scripts/check-*.mjs` half of the argument the
-   * previous baseline entries made (`755d34a5f`, `34a1578ef`, and `3d257c85a` /
-   * `bd2a7ec50` before them) still holds, and is why the two can share one
-   * branch: nothing in this file or its unit test reaches the bundler, so the
-   * ceiling edit cannot have moved the figure it pins.
+   * `048e7f6` is the tip of objectui#11073's branch — the tree carrying the
+   * `@objectstack/*` 17.5.0 bump — read with every bundler-relevant edit of that
+   * pull request applied, under the ruling recorded on
+   * {@link MAX_EAGER_CLOSURE_GZIP_BYTES}. It is a branch tip again rather than
+   * a `main` commit, as the entries before objectui#10996 were, because here the
+   * pull request's OWN diff is what moved the figure: its bytes are the subject.
+   * The `scripts/vite-*.ts`-versus-`scripts/check-*.mjs` argument holds for the
+   * re-pin itself: the commit that edits this file and its unit test reaches
+   * no bundler input, so it cannot move the figure it pins.
    *
-   * ⚠️ `755d34a5f`, the previous baseline, is the one to compare against when
-   * reading the deltas below; it is a branch tip and behaves as described under
-   * PROVENANCE.
+   * ⚠️ `5d689c3f6`, the previous baseline, read 3,179,055 across 330 of 2446
+   * chunks on `main`, and it is the one to compare against when reading the
+   * deltas. What lies between the two — a control build of `a5841be35`, the
+   * `main` commit the branch last merged, and the rows that moved and the rows
+   * that did not — is recorded once, under objectui#11073's entry on
+   * {@link MAX_EAGER_CLOSURE_GZIP_BYTES}, ⛔ not restated here.
    *
-   * The reading it is SUBTRACTED from is a control build of this branch's own
-   * base, `origin/main` `ac05d4f4d`, in the same container with the same
-   * instrument — 3,180,591 bytes across 52 of 528 chunks, 10,975,695 raw. Both
-   * builds are recorded on objectui#9251's pull request, with the three unmoved
-   * chunks (`framework`, `vendor-objectstack`, `i18n-locale-en`, all three
-   * byte-identical across the pair) that make the delta readable as bytes
-   * LEAVING rather than bytes moving.
+   * ⚠️ The reading is of `048e7f6`, ⛔ not of whatever `main` plus this branch
+   * is when it lands. CI weighs the pull-request MERGE ref, so the two differ by
+   * whatever lands on `main` between the reading and the merge.
    *
-   * ⚠️ The CHUNK COUNTS moved by an order of magnitude and that is the change,
-   * not an artefact: 52 of 528 became 329 of 2309 because every lucide icon
-   * module is now its own chunk. 277 of the eager 329 are `vendor-icon-*`
-   * single-module chunks holding the icons first-party code imports by name —
-   * 107,117 raw / 76,330 gzipped between them, which is the price of the split
-   * and is named here so nobody reads the aggregate drop as free.
+   * Measured by `CI=true pnpm --filter @object-ui/console exec vite build`
+   * (exit 0) reading `apps/console/dist/eager-closure.json`, under
+   * `scripts/pm/os-verify-lock.sh`, in the same container and the same hour as
+   * the control build. ⛔ Not taken from CI's report and not extrapolated.
    *
-   * Measured by `pnpm --filter @object-ui/console exec vite build` (exit 0)
-   * reading `apps/console/dist/eager-closure.json`, both legs under
-   * `scripts/pm/os-verify-lock.sh`. ⛔ Not taken from CI's report and not
-   * extrapolated: CI weighs the pull-request MERGE ref and this is the branch
-   * tree, so the two differ by whatever has landed on `main` since.
-   *
-   * ⚠️ PROVENANCE — what a reader can and cannot check, because a reader who
-   * tries the obvious thing gets nothing and currently learns nothing from it.
-   * The commit named below is a BRANCH TIP and this repository squash-merges,
-   * so it is not reachable from `main` and cannot be fetched by sha:
-   * `git fetch origin <tip>` answers "couldn't find remote ref", and
-   * `git merge-base --is-ancestor` cannot resolve the object at all (exit 128,
-   * ⛔ not the exit 1 that would mean "resolved, and not an ancestor"). ⛔ This
-   * is the convention working rather than a defect: naming the tree the reading
-   * was taken on is the point, and no commit on `main` has that tree. The
-   * CONTROL leg above is the half that does resolve — `ac05d4f4d` is an
-   * ordinary `main` commit — so the pair is checkable from one end.
-   *
-   * ⇒ the CONSEQUENCE, which nobody had written down: the provenance of this
-   * constant ⛔ cannot be checked from a `main` checkout with git alone. It is
-   * checkable — the GitHub compare API resolves these shas when a clone cannot,
-   * and every ancestry figure in "What a re-baseline ABSORBS" above came from
-   * it.
+   * PROVENANCE: `048e7f6` resolves from a checkout that fetched the branch, and
+   * not from `main` once it is squash-merged — the dead end objectui#9355 added
+   * `squashMerge` below to route around.
    */
-  gzipBytes: 3_133_419,
-  chunks: 329,
-  totalChunks: 2309,
-  commit: 'bbf6b02d9',
+  gzipBytes: 3_648_737,
+  chunks: 330,
+  totalChunks: 2446,
+  commit: '048e7f6',
 
   /**
-   * The squash merge that carried that branch onto `main` — recorded here so
-   * the provenance above is checkable with `git` and nothing else
-   * (objectui#9355).
+   * The squash merge that carried the reading above onto `main`, recorded when
+   * the field above names a branch tip no `main` checkout resolves
+   * (objectui#9355): a sha that DOES resolve, so a reader re-checking the
+   * measurement gets a handle rather than a dead end.
    *
-   * ⛔ NOT a correction, and ⛔ never a substitute for the field above. The
-   * PROVENANCE paragraph's ruling stands exactly as written: the field above
-   * names the tree the reading was taken on, that is the whole point of the
-   * convention, and no commit on `main` has that tree. This is the OTHER half
-   * — a sha that resolves — so a reader who tries to re-check the measurement
-   * gets a handle rather than the dead end that paragraph describes. Both legs,
-   * taken in a checkout where `git rev-parse --is-shallow-repository` answers
-   * `false`, so the absence is GENUINE and ⛔ not a shallow-clone artefact:
+   * `null` since objectui#10996, and still `null` after objectui#11073,
+   * deliberately. This field can only ever be BACK-FILLED: a squash sha does
+   * not exist until the pull request merges, so the change that re-pins the
+   * field above ⛔ cannot write its own here. ⛔ Do not guess one: a wrong sha in
+   * this position is worse than an absent one, because it RESOLVES, and a
+   * reader who builds the wrong tree gets a plausible number instead of an
+   * error. A follow-up should name the merge once it exists, because the field
+   * above is a branch tip again and this is its only handle from `main`.
    *
-   *     git cat-file -t 67485872ed  ->  commit
-   *     git cat-file -t bbf6b02d9   ->  fatal: Not a valid object name
-   *
-   * ⚠️ The two name DIFFERENT TREES, and how far apart is ⛔ NOT established
-   * here. The field above does not resolve, so no checkout can count the
-   * commits between the pair, and the gzipped distance between them would need
-   * a console build of each. ⛔ Do not read that silence as "small":
-   * objectui#9209 measured exactly one such distance, on the pair this field
-   * named before objectui#9251 re-baselined the constant, and that reading is a
-   * fact about the RETIRED pair which says nothing about this one. Carrying the
-   * figure forward is the stale-prose defect this block exists to refuse.
-   *
-   * The value below is RE-DERIVED rather than copied forward: it is the commit
-   * on `main` that introduced the field above into this file, which
-   * `git log origin/main -S <tip> --oneline --reverse --
-   * scripts/check-eager-closure-budget.mjs` returns as its earliest hit, and it
-   * is single-parent — as a squash is — with `(#9399)` in its subject, the pull
-   * request that carried objectui#9251.
-   *
-   * ⚠️ This field can only ever be BACK-FILLED, which is the one thing a future
-   * re-baseline has to know about it. A squash sha does not exist until the
-   * pull request merges, so the change that re-pins the field above ⛔ cannot
-   * write its own here. ⛔ Do not guess one, and ⛔ do not carry this one
-   * forward onto a reading it was not taken with: a wrong sha in this position
-   * is worse than an absent one, because unlike the field above it RESOLVES,
-   * and a reader who builds the wrong tree gets a plausible number instead of
-   * an error. Write `null` and let a follow-up name the merge once it exists.
-   * That reds the ledger case in
-   * `scripts/__tests__/check-eager-closure-budget.test.ts` which records what
-   * this constant carries as data, and redding there is the intended signal —
-   * the ledger is re-pinned deliberately, ⛔ never widened to accept either
-   * shape.
+   * The ledger case in `scripts/__tests__/check-eager-closure-budget.test.ts`
+   * that records what this constant carries as data reds on a back-fill, as it
+   * was written to, and is re-pinned to two strings when that happens.
    */
-  squashMerge: '67485872ed',
+  squashMerge: null,
 });
 
 /**
@@ -1099,11 +1229,14 @@ export const REGRESSION_THIS_GATE_MUST_CATCH_BYTES = 89 * 1024;
  * re-measure and lower both numbers together.
  */
 export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
-  // Raised once with the aggregate above, same authorisation, same cause —
-  // `@objectstack/spec` 17.3.0's browser-dist prose growth lands in THIS chunk.
-  // Headroom 18,971 bytes = 0.21x REGRESSION_THIS_GATE_MUST_CATCH_BYTES, the
-  // proportion the retiring pair carried (18,539 = 0.20x).
-  'vendor-objectstack': 1_254_000,
+  // Raised with the aggregate above, under the same ruling (objectui#11088
+  // decision 1 = A; objectui#11073): `@objectstack/*` 17.5.0 lands in THIS
+  // chunk, +465,778 gzipped bytes on the two builds tabled on
+  // MAX_EAGER_CLOSURE_GZIP_BYTES, and the retired 1,254,000 fired on it.
+  // Headroom 19,310 bytes = 0.21x REGRESSION_THIS_GATE_MUST_CATCH_BYTES, the
+  // proportion this key has carried since objectui#7122 (18,971 = 0.21x), and
+  // it comes down with the aggregate when objectstack#20646 pays it back.
+  'vendor-objectstack': 1_723_000,
   // ⭐ LOWERED, and RE-KEYED, by objectui#7479 — this line used to read
   // `'i18n-locales': 465_000` and budget TEN catalogues. Nine of them are
   // `import()`ed on demand now, so the chunk that name pointed at no longer
@@ -1232,14 +1365,17 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  * Exported so the ceilings are CHECKED against it instead of merely asserted
  * in this comment.
  *
- * ⚠️ These readings are on DIFFERENT commits from {@link BASELINE} above —
- * except `i18n-locale-en`, which as of objectui#7479 shares BASELINE's commit,
- * and `ui-components`, which as of objectui#9251 shares it too — and WHICH ONE
- * IS LATER flips every time either side is re-baselined, so read the commit
- * names, never a direction asserted here. As of objectui#9251 the AGGREGATE is
- * the later reading: BASELINE's `bbf6b02d9` is dated 2026-09-13 against
- * `34a1578ef` (2026-09-06, objectui#7122) for `vendor-objectstack`, the one key
- * left on an older tree. ⚠️ `i18n-locale-en`'s commit was `755d34a5f` when it
+ * ⚠️ These readings are on DIFFERENT commits from {@link BASELINE} above,
+ * except `vendor-objectstack` since objectui#11073 —
+ * `i18n-locale-en` shared BASELINE's commit from objectui#7479 until
+ * objectui#9251, and `ui-components` from objectui#9251 until objectui#10996
+ * re-pinned the aggregate onto a `main` commit; today neither does — and
+ * WHICH ONE IS LATER flips every time either side is re-baselined, so read the
+ * commit names, never a direction asserted here. As of objectui#11073,
+ * `vendor-objectstack` SHARES the aggregate's reading: BASELINE's `048e7f6`,
+ * dated 2026-09-29, re-pinned both. The aggregate is the later reading for the
+ * other keys: `bbf6b02d9` (2026-09-13, objectui#9251) for `ui-components`,
+ * and `3f775eeb8` for `framework`. ⚠️ `i18n-locale-en`'s commit was `755d34a5f` when it
  * was taken and the aggregate has moved on since, which is exactly why the two
  * are named per key rather than described by a direction.
  * This paragraph asserted the reverse,
@@ -1298,8 +1434,10 @@ export const PER_CHUNK_GZIP_CEILINGS = Object.freeze({
  * measurement with no ceiling weighs nothing.
  */
 export const PER_CHUNK_BASELINE = Object.freeze({
-  // `34a1578ef`, the same build as BASELINE above (objectui#7122).
-  'vendor-objectstack': 1_235_029,
+  // `048e7f6`, the same build as BASELINE above (objectui#11073), re-pinned with
+  // its ceiling under the same ruling. It supersedes objectui#7122's `34a1578ef`
+  // reading of 1,235,029.
+  'vendor-objectstack': 1_703_690,
   // `755d34a5f` (objectui#7479) — the SAME console build as
   // BASELINE above, so the two are directly comparable, and the same instrument
   // and container as the control build it is subtracted from. It supersedes
@@ -1309,11 +1447,516 @@ export const PER_CHUNK_BASELINE = Object.freeze({
   // BASELINE's. Moved with the ceiling in the same commit, per the maintainer
   // ruling of 2026-09-08 and the rule stated under "Raising one".
   framework: 72_245,
-  // `bbf6b02d9`, the same console build as BASELINE above, so the two are
-  // directly comparable, and the same instrument and container as the control
-  // build it is subtracted from (objectui#9251).
+  // `bbf6b02d9`, the console build BASELINE carried from objectui#9251 until
+  // objectui#10996 re-pinned the aggregate onto `main` — comparable with that
+  // retired reading, ⛔ not with the one above — and the same instrument and
+  // container as the control build it is subtracted from (objectui#9251).
   'ui-components': 265_937,
 });
+
+/**
+ * The membership artifact's file name, and its default path.
+ *
+ * ⚠️ The NAME is the load-bearing half. `main` resolves this artifact next to
+ * whatever `--report` names, because the two files are written by the same
+ * build into the same `dist` — deriving one from the other is what keeps a run
+ * pointed at some other build's report from silently weighing THIS tree's
+ * membership, which is a mismatch no assertion below could detect.
+ */
+const MEMBERSHIP_REPORT_FILE_NAME = 'chunk-membership.json';
+const MEMBERSHIP_REPORT_PATH = `apps/console/dist/${MEMBERSHIP_REPORT_FILE_NAME}`;
+
+/**
+ * The membership artifact's own version, independent of
+ * {@link SUPPORTED_REPORT_VERSION}.
+ *
+ * ⛔ Not a duplicate of that constant and ⛔ not to be merged into it:
+ * `eager-closure.json`'s version is a contract with a SECOND reader,
+ * `scripts/check-eager-locale-catalogues.mjs`, whose own tests pin that a later
+ * version is REFUSED. Two artifacts, two versions, each bumped by the reader
+ * that has to understand it.
+ */
+const SUPPORTED_MEMBERSHIP_REPORT_VERSION = 2;
+
+/**
+ * WHERE each budgeted group's declared packages must land — an EXACT claim,
+ * ⛔ not a ratchet with headroom (objectui#9345).
+ *
+ * ## The hole this closes
+ *
+ * Every other verdict in this file weighs BYTES against a line drawn per chunk
+ * NAME. That arrangement has an exit nobody was watching: move the bytes to a
+ * chunk with no line, and every line goes green while the browser downloads
+ * exactly what it downloaded before. It was not hypothetical. All 92 modules of
+ * `packages/core` left the budgeted `framework` chunk for `data-adapter` —
+ * which has no ceiling and no baseline and is in the eager closure — on one
+ * commit that edited no chunking config at all (objectui#9185, measured on
+ * objectui#9205). `framework` fell far enough below its own baseline to raise a
+ * DIFFERENT question, and the answer to that question was three cards away.
+ *
+ * ⇒ this half asks the question a byte count structurally cannot: did the
+ * budgeted groups' declared packages land where the config says they land?
+ *
+ * ## Why the keys are exactly the budgeted groups
+ *
+ * The subject of the claim is a BUDGET that can be bypassed, so its population
+ * is the chunks that carry a budget — the keys of
+ * {@link PER_CHUNK_GZIP_CEILINGS}, cross-checked below rather than trusted.
+ * Two of those four keys name no workspace package and are absent here for
+ * reasons, not by oversight:
+ *
+ *   - `vendor-objectstack` holds `node_modules` only, so no `packages/<name>`
+ *     claim can be made about it.
+ *   - `i18n-locale-en` is ONE FILE inside `packages/i18n`, whose other modules
+ *     belong to `i18n-runtime` by design — package granularity cannot express
+ *     that, and `scripts/check-eager-locale-catalogues.mjs` already pins the
+ *     catalogues' membership by chunk name.
+ *
+ * ## Why the values are package names and not regexes
+ *
+ * A regex here would be a SECOND opinion about the group tests in
+ * `apps/console/vite.config.ts` — one that goes on reading plausibly while it
+ * matches something else. `scripts/__tests__/check-eager-closure-budget.test.ts`
+ * instead requires each name below to be matched by that group's own declared
+ * test, so the two cannot drift apart without a red test.
+ */
+export const PER_CHUNK_MEMBERSHIP = Object.freeze({
+  framework: Object.freeze(['core', 'react', 'types']),
+  'ui-components': Object.freeze(['components', 'fields']),
+});
+
+/**
+ * The declared EXCEPTIONS to {@link PER_CHUNK_MEMBERSHIP}'s "wholly": a
+ * package-relative subtree of a declared package that a narrower,
+ * higher-priority group takes BY DESIGN — keyed by package, each entry naming
+ * the subtree and the one chunk it must land in (objectui#10065).
+ *
+ * ## Why this exists, and why it is not a looser rule
+ *
+ * objectui#10082 split `packages/types` on purpose: the `src/zod/**`
+ * validators go to `types-zod`, which only the lazy `plugin-map` chunk reads,
+ * and the rest stays in `framework`. "`packages/types` lands wholly in
+ * `framework`" became false by ruling, not by accident. The two repairs this
+ * half refuses are the two that would make it pass by weighing less:
+ *
+ *   - ⛔ dropping `types` from `framework`'s list — the whole package would
+ *     then be unwatched, including the split's own failure mode;
+ *   - ⛔ allowing `types` "anywhere but a stray chunk" — which is a ratchet.
+ *
+ * So the split is DECLARED, and held to the module: every module under the
+ * subtree must land in the carve-out's chunk, every other module of the package
+ * in the package's declared chunk, nowhere else, and each side must hold at
+ * least one module. ⭐ That is what catches the failure the split was measured
+ * to produce on its first build: rolldown's default
+ * `includeDependenciesRecursively` absorbed three shared `src/` neighbours into
+ * `types-zod` along an import, the eager `plugin-grid` chunk then imported it
+ * statically, and every byte stayed eager. A per-package count reads that as
+ * the healthy split; the directory counts it is judged against here do not.
+ *
+ * ## Why a carve-out may name a chunk no ceiling governs — and when it may not
+ *
+ * This half's keys are limited to budgeted chunks because it guards a byte
+ * budget's flank. A carve-out's destination is not a key: it is where declared
+ * bytes LEAVE that budget. That is only honest when they also leave the thing
+ * every budget here weighs — so a destination that carries no ceiling must be
+ * ABSENT from the eager closure of the same build, read from
+ * `eager-closure.json`. ⛔ A carve-out into an unbudgeted EAGER chunk is refused
+ * as an error: it is objectui#9345's incident — `packages/core` in
+ * `data-adapter`, bytes downloaded and weighed by nothing — written down as
+ * though it were a ruling.
+ *
+ * `scripts/__tests__/check-eager-closure-budget.test.ts` cross-checks each
+ * entry against `apps/console/vite.config.ts`: the carve-out group's own test
+ * must match the subtree and must miss the rest of the package, the declared
+ * chunk's test must match the subtree too (or this is not a carve FROM it), and
+ * the carve-out group must outrank it.
+ */
+export const PER_CHUNK_MEMBERSHIP_CARVE_OUTS = Object.freeze({
+  types: Object.freeze([Object.freeze({ subtree: 'src/zod', chunk: 'types-zod' })]),
+});
+
+/**
+ * Read the membership artifact, or `null` when it is not there / not JSON.
+ *
+ * @param {string} [reportPath]
+ * @returns {unknown}
+ */
+export function readMembershipReport(reportPath = MEMBERSHIP_REPORT_PATH) {
+  try {
+    return JSON.parse(fs.readFileSync(path.resolve(reportPath), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The membership verdict.
+ *
+ * ⚠️ Read the ERROR branches before the fail branch. Every one of them exists
+ * because this half's green state is "no declared package was found anywhere it
+ * should not be" — a sentence that is also true of a report that attributed
+ * nothing, of a package that vanished from the bundle, of a declaration that
+ * names a chunk no ceiling governs, and of a carve-out whose subtree holds
+ * nothing. A check whose pass condition is an ABSENCE has to prove it looked.
+ *
+ * A declared package WITHOUT a carve-out is judged on the per-package counts
+ * and must land wholly in its declared chunk. A package WITH one
+ * ({@link PER_CHUNK_MEMBERSHIP_CARVE_OUTS}) is judged on the per-directory
+ * counts: each module lands in the carve-out's chunk when its directory is
+ * under the carved subtree and in the declared chunk otherwise — exactly, one
+ * stray module is a finding, named by its directory.
+ *
+ * @param {object} input
+ * @param {unknown} input.membership  parsed `chunk-membership.json`, or null
+ * @param {Record<string, readonly string[]>} [input.declaration]
+ * @param {Record<string, readonly { subtree: string, chunk: string }[]>} [input.carveOuts]
+ * @param {Record<string, number>} [input.budgetedChunks]
+ * @param {Iterable<string> | null} [input.eagerChunkNames]  the `name` of every
+ *        chunk in the SAME build's eager closure (`eager-closure.json`'s
+ *        `files[].name`), or null when that report could not be read. Needed
+ *        only to admit a carve-out whose chunk carries no ceiling.
+ * @param {string} [input.reportPath]
+ * @returns {{ status: 'pass' | 'fail' | 'error', message: string }}
+ */
+export function evaluatePerChunkMembership({
+  membership,
+  declaration = PER_CHUNK_MEMBERSHIP,
+  carveOuts = PER_CHUNK_MEMBERSHIP_CARVE_OUTS,
+  budgetedChunks = PER_CHUNK_GZIP_CEILINGS,
+  eagerChunkNames = null,
+  reportPath = MEMBERSHIP_REPORT_PATH,
+} = {}) {
+  if (membership === null || membership === undefined || typeof membership !== 'object') {
+    return {
+      status: 'error',
+      message:
+        `PREREQUISITE NOT MET: \`${reportPath}\` is missing or is not JSON, so no chunk ` +
+        `membership was weighed. This half reads a BUILT bundle — run ` +
+        `\`pnpm --filter @object-ui/console build\` first. ⛔ This is NOT a pass: a gate that ` +
+        `could not run is not a gate that ran clean.`,
+    };
+  }
+
+  const r = /** @type {Record<string, unknown>} */ (membership);
+  if (r.membershipReportVersion !== SUPPORTED_MEMBERSHIP_REPORT_VERSION) {
+    return {
+      status: 'error',
+      message:
+        `\`${reportPath}\` declares membershipReportVersion ` +
+        `${JSON.stringify(r.membershipReportVersion)}, expected ` +
+        `${SUPPORTED_MEMBERSHIP_REPORT_VERSION} — the emitter in ` +
+        `\`apps/console/vite.config.ts\` and this half have drifted apart, and a shape this ` +
+        `half does not understand is refused rather than read for fields it may not carry.`,
+    };
+  }
+
+  if (typeof r.totalChunkCount !== 'number' || !Number.isFinite(r.totalChunkCount) || r.totalChunkCount < 1) {
+    return {
+      status: 'error',
+      message:
+        `\`${reportPath}\` reports totalChunkCount ${JSON.stringify(r.totalChunkCount)} — a ` +
+        `bundle with no chunk in it attributed nothing, and "nothing was attributed" reads to ` +
+        `the check below exactly like "no module is out of place".`,
+    };
+  }
+
+  const packages = r.packages;
+  if (packages === null || typeof packages !== 'object' || Object.keys(packages).length === 0) {
+    return {
+      status: 'error',
+      message:
+        `\`${reportPath}\` attributes no workspace package at all, so every membership claim ` +
+        `below would be vacuously true. The emitter refuses to publish such a report; one ` +
+        `reaching this half means it was edited, truncated or hand-written.`,
+    };
+  }
+  const attribution = /** @type {Record<string, Record<string, number>>} */ (packages);
+  const directories = /** @type {Record<string, Record<string, Record<string, number>>>} */ (
+    r.directories !== null && typeof r.directories === 'object' ? r.directories : {}
+  );
+
+  // The declaration is about BUDGETED chunks. A key here that carries no
+  // ceiling would be pinning membership for a line nothing weighs — harmless
+  // to assert and misleading to read, since this half's whole argument is that
+  // it guards the byte budget's flank.
+  const unbudgeted = Object.keys(declaration).filter((chunk) => !(chunk in budgetedChunks));
+  if (unbudgeted.length > 0) {
+    return {
+      status: 'error',
+      message:
+        `PER_CHUNK_MEMBERSHIP declares ${unbudgeted.map((c) => `\`${c}\``).join(', ')}, which ` +
+        `${unbudgeted.length === 1 ? 'is' : 'are'} not among the budgeted chunks in ` +
+        `PER_CHUNK_GZIP_CEILINGS. This half exists to guard a byte budget's flank; a membership ` +
+        `pin on a chunk with no budget guards nothing and reads as though it did.`,
+    };
+  }
+
+  // The carve-outs are judged BEFORE any module is counted: an inadmissible
+  // exception makes every verdict built on it meaningless, in either direction.
+  /** @type {Map<string, string>} */
+  const homeOf = new Map();
+  for (const [chunk, pkgs] of Object.entries(declaration)) {
+    for (const pkg of pkgs) homeOf.set(pkg, chunk);
+  }
+  const eager = eagerChunkNames === null ? null : new Set(eagerChunkNames);
+  /** @type {string[]} */
+  const inadmissible = [];
+  for (const [pkg, carves] of Object.entries(carveOuts)) {
+    const home = homeOf.get(pkg);
+    if (home === undefined) {
+      inadmissible.push(
+        `\`packages/${pkg}\` has a carve-out but no budgeted chunk declares the package — an ` +
+          `exception to a claim nobody makes`,
+      );
+      continue;
+    }
+    if (!Array.isArray(carves) || carves.length === 0) {
+      inadmissible.push(`\`packages/${pkg}\` has an EMPTY carve-out list`);
+      continue;
+    }
+    for (const carve of carves) {
+      const subtree = carve?.subtree;
+      const chunk = carve?.chunk;
+      if (
+        typeof subtree !== 'string' ||
+        subtree.split('/').some((part) => part === '' || part === '.' || part === '..')
+      ) {
+        inadmissible.push(
+          `\`packages/${pkg}\` carves ${JSON.stringify(subtree)}, which is not a ` +
+            `package-relative directory written the way the emitter keys them (\`src/zod\`)`,
+        );
+        continue;
+      }
+      if (typeof chunk !== 'string' || chunk === '') {
+        inadmissible.push(`\`packages/${pkg}/${subtree}\` is carved into no named chunk`);
+        continue;
+      }
+      if (chunk === home) {
+        inadmissible.push(
+          `\`packages/${pkg}/${subtree}\` is carved into \`${chunk}\`, the package's own declared ` +
+            `chunk — a carve-out that moves nothing`,
+        );
+        continue;
+      }
+      if (!(chunk in budgetedChunks)) {
+        if (eager === null) {
+          inadmissible.push(
+            `\`packages/${pkg}/${subtree}\` is carved into \`${chunk}\`, which carries no ceiling, ` +
+              `and this run could not read the eager closure to confirm that chunk is LAZY`,
+          );
+        } else if (eager.has(chunk)) {
+          inadmissible.push(
+            `\`packages/${pkg}/${subtree}\` is carved into \`${chunk}\`, which is in the EAGER ` +
+              `closure and carries no ceiling — declared bytes downloaded on every page load and ` +
+              `weighed by nothing, which is the bypass this half exists to catch (objectui#9345)`,
+          );
+        }
+      }
+    }
+    const subtrees = carves.map((c) => c?.subtree).filter((t) => typeof t === 'string');
+    for (const a of subtrees) {
+      for (const b of subtrees) {
+        if (a !== b && b.startsWith(`${a}/`)) {
+          inadmissible.push(
+            `\`packages/${pkg}\` carves both \`${a}\` and \`${b}\`, which nest — a module under ` +
+              `both would have two declared chunks`,
+          );
+        }
+      }
+    }
+  }
+  if (inadmissible.length > 0) {
+    return {
+      status: 'error',
+      message:
+        `PER_CHUNK_MEMBERSHIP_CARVE_OUTS holds ${inadmissible.length} inadmissible ` +
+        `entr${inadmissible.length === 1 ? 'y' : 'ies'}:\n` +
+        inadmissible.map((line) => `  ❌ ${line}.`).join('\n') +
+        `\nA carve-out is an EXCEPTION to a budgeted chunk's claim, so it is refused rather ` +
+        `than read: an exception nobody can check turns an exact pin into a permissive one.`,
+    };
+  }
+
+  /** @type {string[]} */
+  const missing = [];
+  /** @type {string[]} */
+  const unmeasured = [];
+  /** @type {string[]} */
+  const strays = [];
+  /** @type {string[]} */
+  const held = [];
+
+  for (const [chunk, pkgs] of Object.entries(declaration)) {
+    for (const pkg of pkgs) {
+      const landed = attribution[pkg];
+      if (landed === undefined || typeof landed !== 'object' || Object.keys(landed).length === 0) {
+        missing.push(pkg);
+        continue;
+      }
+      const total = Object.values(landed).reduce((n, count) => n + count, 0);
+      const carves = carveOuts[pkg] ?? [];
+
+      if (carves.length === 0) {
+        const elsewhere = Object.entries(landed).filter(([name]) => name !== chunk);
+        if (elsewhere.length > 0) {
+          const where = elsewhere
+            .sort((a, b) => b[1] - a[1])
+            .map(([name, count]) => `${count} in \`${name}\``)
+            .join(', ');
+          strays.push(
+            `\`packages/${pkg}\` is declared in \`${chunk}\` but ${where} ` +
+              `(${landed[chunk] ?? 0} of its ${total} modules landed in \`${chunk}\`)`,
+          );
+        } else {
+          held.push(`\`packages/${pkg}\` ${total} modules in \`${chunk}\``);
+        }
+        continue;
+      }
+
+      // A carved package is judged per DIRECTORY, so it needs the directory
+      // table — and that table must add up to the package's own counts, or the
+      // two halves of one artifact describe two different bundles.
+      const dirs = directories[pkg];
+      if (dirs === undefined || dirs === null || typeof dirs !== 'object' || Object.keys(dirs).length === 0) {
+        unmeasured.push(
+          `\`packages/${pkg}\` is declared with a carve-out but the artifact carries no ` +
+            `directory attribution for it, so the split cannot be held to the module`,
+        );
+        continue;
+      }
+      /** @type {Record<string, number>} */
+      const summed = {};
+      for (const byChunk of Object.values(dirs)) {
+        for (const [name, count] of Object.entries(byChunk)) summed[name] = (summed[name] ?? 0) + count;
+      }
+      const chunkNames = new Set([...Object.keys(summed), ...Object.keys(landed)]);
+      if ([...chunkNames].some((name) => (summed[name] ?? 0) !== (landed[name] ?? 0))) {
+        unmeasured.push(
+          `\`packages/${pkg}\`'s directory counts (${JSON.stringify(summed)}) do not add up to ` +
+            `its package counts (${JSON.stringify(landed)})`,
+        );
+        continue;
+      }
+
+      const carveFor = (/** @type {string} */ dir) =>
+        carves.find((c) => dir === c.subtree || dir.startsWith(`${c.subtree}/`));
+      let restTotal = 0;
+      /** @type {Map<object, number>} */
+      const carvedTotal = new Map(carves.map((c) => [c, 0]));
+      /** @type {string[]} */
+      const misplaced = [];
+      for (const [dir, byChunk] of Object.entries(dirs).sort(([a], [b]) => a.localeCompare(b))) {
+        const carve = carveFor(dir);
+        const expected = carve ? carve.chunk : chunk;
+        for (const [name, count] of Object.entries(byChunk).sort((a, b) => b[1] - a[1])) {
+          if (carve) carvedTotal.set(carve, /** @type {number} */ (carvedTotal.get(carve)) + count);
+          else restTotal += count;
+          if (name !== expected) {
+            misplaced.push(
+              `\`packages/${pkg}/${dir}\` ${count} in \`${name}\` (declared \`${expected}\`)`,
+            );
+          }
+        }
+      }
+
+      // Both sides of the split must hold something. A carve-out whose subtree
+      // contributed no module describes a bundle that does not exist, and a
+      // package whose REMAINDER contributed none is no longer declared in its
+      // chunk at all — each would otherwise pass by weighing nothing.
+      const emptyCarves = carves.filter((c) => carvedTotal.get(c) === 0);
+      if (emptyCarves.length > 0 || restTotal === 0) {
+        unmeasured.push(
+          [
+            ...emptyCarves.map(
+              (c) =>
+                `the carve-out \`packages/${pkg}/${c.subtree}\` -> \`${c.chunk}\` matched no ` +
+                `module in the bundle`,
+            ),
+            ...(restTotal === 0
+              ? [`\`packages/${pkg}\` outside its carve-out(s) contributed no module to \`${chunk}\``]
+              : []),
+          ].join('; '),
+        );
+        continue;
+      }
+
+      const carvedText = carves
+        .map((c) => `its \`${c.subtree}\` subtree -> \`${c.chunk}\``)
+        .join(', ');
+      if (misplaced.length > 0) {
+        strays.push(
+          `\`packages/${pkg}\` is declared in \`${chunk}\` with ${carvedText}, but ` +
+            misplaced.join(', '),
+        );
+      } else {
+        held.push(
+          `\`packages/${pkg}\` ${restTotal} modules in \`${chunk}\` and ` +
+            carves
+              .map((c) => `its \`${c.subtree}\` subtree ${carvedTotal.get(c)} in \`${c.chunk}\``)
+              .join(', ') +
+            ', exactly',
+        );
+      }
+    }
+  }
+
+  // Ahead of the stray verdict on purpose. A declared package that contributed
+  // NO module to the bundle cannot be out of place, so the stray scan would
+  // pass on it — by measuring nothing, which is the one direction every probe
+  // in this file refuses.
+  if (missing.length > 0) {
+    return {
+      status: 'error',
+      message:
+        `${missing.length} declared package(s) contributed no module to any chunk: ` +
+        `${missing.map((p) => `\`packages/${p}\``).join(', ')}. ⛔ Not a pass: a package that ` +
+        `is not in the bundle is not "in its declared chunk", and the membership scan would ` +
+        `agree with everything about it. Either the package was renamed or removed — update ` +
+        `PER_CHUNK_MEMBERSHIP deliberately — or the emitter has stopped recognising its module ` +
+        `ids, in which case this gate is matching nothing.`,
+    };
+  }
+
+  // Same reasoning, one level down: a carved package whose split cannot be
+  // weighed is not a package whose split is right.
+  if (unmeasured.length > 0) {
+    return {
+      status: 'error',
+      message:
+        `${unmeasured.length} carved package(s) could not be held to their declared split:\n` +
+        unmeasured.map((line) => `  ❌ ${line}.`).join('\n') +
+        `\n⛔ Not a pass: the carve-out table and the bundle no longer describe each other. ` +
+        `Rebuild the console if the artifact is stale; otherwise update ` +
+        `PER_CHUNK_MEMBERSHIP_CARVE_OUTS deliberately and say in the PR why.`,
+    };
+  }
+
+  if (strays.length > 0) {
+    return {
+      status: 'fail',
+      message:
+        `${strays.length} budgeted package(s) did not land in the chunk the console config ` +
+        `declares for them:\n` +
+        strays.map((line) => `  ❌ ${line}`).join('\n') +
+        `\nChunk membership is decided by the grouping rules in ` +
+        `\`apps/console/vite.config.ts\`, ⛔ not by the side effect of an import edge: ` +
+        `rolldown's \`includeDependenciesRecursively\` lets a higher-priority group take a ` +
+        `lower-priority group's declared members along an import, and the group that receives ` +
+        `them may carry no ceiling at all — in which case the bytes go on being downloaded ` +
+        `while every per-chunk line above turns green (objectui#9345). ⛔ Do NOT move a ceiling ` +
+        `or a baseline to absorb this. Repair the grouping rule, or change this declaration ` +
+        `deliberately and say in the PR which chunk now owns the package and why.`,
+    };
+  }
+
+  return {
+    status: 'pass',
+    message:
+      `Chunk membership: ${held.length} budgeted package(s) each landed exactly where declared ` +
+      `— ${held.join('; ')}. (Counted over every emitted chunk, lazy ones included, from ` +
+      `\`${reportPath}\`.)`,
+  };
+}
 
 /**
  * ## ⛔ RETIRED — the exhausted-headroom leg, and why it is not coming back
@@ -2350,14 +2993,14 @@ export function readReport(reportPath) {
 }
 
 /**
- * Every status the four halves are declared to produce, and the only ones
+ * Every status the halves are declared to produce, and the only ones
  * {@link foldHalfStatuses} knows how to weigh.
  *
- * DERIVED, not invented: it is the union of the four `@returns` unions above —
- * {@link evaluateClosureBudget} and {@link evaluatePerChunkBudgets}
- * (`pass | fail | error`), {@link evaluateHeadroomSensitivity}
- * (`pass | error`), and {@link evaluateCeilingFreshness}
- * (`pass | error | not-applicable`). `scripts/__tests__/` re-derives that union
+ * DERIVED, not invented: it is the union of the `@returns` unions above —
+ * {@link evaluateClosureBudget}, {@link evaluatePerChunkBudgets} and
+ * {@link evaluatePerChunkMembership} (`pass | fail | error`),
+ * {@link evaluateHeadroomSensitivity} (`pass | error`), and
+ * {@link evaluateCeilingFreshness} (`pass | error | not-applicable`). `scripts/__tests__/` re-derives that union
  * from this file's own text and reds when the two disagree, so a half that
  * gains a FIFTH status cannot gain it without also being given a code here.
  * That test is the reason this list may be written down at all (AGENTS.md #9):
@@ -2435,8 +3078,10 @@ function writeGithubOutput(entries, outputPath = process.env.GITHUB_OUTPUT) {
 }
 
 /**
- * Exit codes: `0` within budget, `1` over budget — the aggregate ceiling or any
- * per-chunk ceiling — and `2` no trustworthy verdict (report missing,
+ * Exit codes: `0` within budget and in place, `1` over budget — the aggregate
+ * ceiling or any per-chunk ceiling — or a budgeted package that landed outside
+ * the chunk the console config declares for it (objectui#9345), and `2` no
+ * trustworthy verdict (report missing,
  * stale-shaped, internally inconsistent, missing a budgeted chunk, governed by
  * a ceiling that has drifted out of range of the regression it must catch, or
  * — objectui#6245 — weighed against a ceiling the base branch has since
@@ -2456,10 +3101,11 @@ function writeGithubOutput(entries, outputPath = process.env.GITHUB_OUTPUT) {
  * the workflow fails the step. It never prints a verdict about a bundle nobody
  * weighed, and it never exits 0 having measured nothing.
  *
- * All FOUR halves are evaluated and printed before any of them decides the
- * code: a run that reports the total and hides which chunk moved (or hides
- * whether either line still means anything, or whether the line it used is the
- * line in force) teaches readers to ignore the half they cannot see.
+ * EVERY half is evaluated and printed before any of them decides the code: a
+ * run that reports the total and hides which chunk moved (or hides whether
+ * either line still means anything, or whether the line it used is the line in
+ * force, or whether the budgeted chunks still hold what they are named for)
+ * teaches readers to ignore the half they cannot see.
  */
 export function main(argv = process.argv.slice(2), env = process.env) {
   const flagIndex = argv.indexOf('--report');
@@ -2468,6 +3114,22 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   const report = readReport(resolved);
   const result = evaluateClosureBudget({ report, reportPath });
   const perChunk = evaluatePerChunkBudgets({ report, reportPath });
+  // The fifth half reads a DIFFERENT artifact — `chunk-membership.json`, from
+  // the same build — because it asks a question `eager-closure.json` carries no
+  // field for: WHERE a budgeted group's declared packages landed, counted over
+  // every emitted chunk rather than the eager closure alone (objectui#9345).
+  const membershipPath = path.join(path.dirname(resolved), MEMBERSHIP_REPORT_FILE_NAME);
+  const membership = evaluatePerChunkMembership({
+    membership: readMembershipReport(membershipPath),
+    // The SAME build's eager closure, by chunk name — needed only to admit a
+    // carve-out into a chunk no ceiling governs, which is admissible only while
+    // that chunk stays out of the closure. `null` when the report is unreadable,
+    // and the half then refuses such a carve-out rather than assuming it lazy.
+    eagerChunkNames: Array.isArray(report?.files)
+      ? report.files.map((/** @type {{ name?: unknown }} */ file) => String(file?.name ?? ''))
+      : null,
+    reportPath: membershipPath,
+  });
   const sensitivity = evaluateHeadroomSensitivity({ report, reportPath });
   // The fourth half asks about the CEILING rather than the payload, so its
   // inputs are source texts and not the report: this file as checked out,
@@ -2492,6 +3154,11 @@ export function main(argv = process.argv.slice(2), env = process.env) {
     console.log(`✅ ${perChunk.message}`);
   } else {
     console.error(`❌ ${perChunk.message}`);
+  }
+  if (membership.status === 'pass') {
+    console.log(`✅ ${membership.message}`);
+  } else {
+    console.error(`❌ ${membership.message}`);
   }
   if (sensitivity.status === 'pass') {
     console.log(`✅ ${sensitivity.message}`);
@@ -2520,6 +3187,7 @@ export function main(argv = process.argv.slice(2), env = process.env) {
     closure_budget_kb: kb(result.budgetBytes),
     closure_chunks: result.chunkCount === null ? '' : String(result.chunkCount),
     closure_chunk_status: perChunk.status,
+    closure_membership_status: membership.status,
     closure_headroom_status: sensitivity.status,
     // Empty on a run this half does not apply to, so the PR comment's half
     // table filters it out instead of rendering a blank verdict as a row.
@@ -2551,6 +3219,7 @@ export function main(argv = process.argv.slice(2), env = process.env) {
   const { code, unrecognised } = foldHalfStatuses({
     closure: result.status,
     'per-chunk': perChunk.status,
+    membership: membership.status,
     sensitivity: sensitivity.status,
     freshness: freshness.status,
   });

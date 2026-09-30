@@ -41,6 +41,12 @@ export { PreviewBanner, type PreviewBannerProps } from './PreviewBanner.js';
 export { createAuthClient, TokenStorage } from './createAuthClient.js';
 export { normalizePhoneIdentifier, looksLikePhoneIdentifier } from './phone-identifier.js';
 export { createAuthenticatedFetch, ActiveOrganizationStorage, type AuthenticatedAdapterOptions } from './createAuthenticatedFetch.js';
+// objectui#10193 — "the browser changed hands in this page-load". The purge on a
+// change of session user clears storage; state already derived from it in
+// memory (the UI language, first of all) is re-derived by whoever owns it, and
+// these two are how that owner finds out — including one that mounts after the
+// purge fired.
+export { getSessionOwnerChangeCount, subscribeSessionOwnerChange } from './ActiveOrganizationStorage.js';
 export { getUserInitials } from './types.js';
 
 // Organization membership-role vocabulary — a CLOSED, framework-owned list of

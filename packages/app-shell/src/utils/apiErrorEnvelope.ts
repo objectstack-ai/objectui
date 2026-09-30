@@ -19,10 +19,14 @@
  *    `Internal server error` into it (see below), so it is the text that can be
  *    withheld.
  *  - `userMessage` — the text a producer marked, AT THROW TIME, as addressed to
- *    the END USER (#9934). Its presence IS the marking, and the envelope
+ *    the END USER (objectstack `79c46da90`). Its presence IS the marking, and the envelope
  *    writer's own words are the rule this module implements: "a consumer that
  *    sees the field renders it verbatim and keeps its generic substitution
- *    (#3821) for everything unmarked".
+ *    ([objectstack-ai/objectstack#3821]) for everything unmarked". The bracketed
+ *    card name is the one substituted word: the writer's bare number names it only
+ *    inside objectstack. It is the sharing-rule dialog card, and its objectui fix
+ *    (objectui#2920) is where a refused write's raw server text first became
+ *    localized copy, the generic substitution itself.
  *
  * So the mark OUTRANKS the diagnostic. That order is the contract's, not a
  * preference — a reader that ignores `userMessage` is not degrading gracefully,
@@ -39,7 +43,8 @@
  *    `...(thrown.userMessage !== undefined ? { userMessage: thrown.userMessage } : {})`
  *  - `errorFromThrown` (`@objectstack/runtime` `http-dispatcher.ts`), which that
  *    same door's note calls "byte for byte the dispatcher twin's expression …
- *    which serves this same path and has emitted the channel since #9934".
+ *    which serves this same path and has emitted the channel since
+ *    [objectstack `79c46da90`]".
  *
  * The framework pins the pair wire-side in `package-door-user-message.test.ts`.
  *

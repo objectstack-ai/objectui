@@ -11,14 +11,14 @@ import { useBadInputRefusal, BadInputMessage, BAD_INPUT_BORDER } from './numberB
  * is rendered as a plain number with thousands separators (no symbol),
  * because silently assuming USD is misleading for non-USD businesses.
  *
- * `precision` is a display width the caller resolved — either the field's
- * authored `precision` or, when it declared none, the currency's own ISO 4217
- * minor-unit count (see the derivation at the call site, objectui#4361).
+ * `fractionDigits` is the display width the caller resolved — the currency's
+ * own ISO 4217 minor-unit count, or 2 when no currency is known (see the
+ * derivation at the call site, objectui#10276).
  */
 function formatAmount(
   value: number,
   currency: string | undefined,
-  precision: number,
+  fractionDigits: number,
   locale?: string,
 ): string {
   if (currency) {
@@ -26,24 +26,24 @@ function formatAmount(
       return formatDisplayNumber(value, {
         locale,
         currency,
-        minimumFractionDigits: precision,
-        maximumFractionDigits: precision,
+        minimumFractionDigits: fractionDigits,
+        maximumFractionDigits: fractionDigits,
       });
     } catch {
-      return `${currency} ${value.toFixed(precision)}`;
+      return `${currency} ${value.toFixed(fractionDigits)}`;
     }
   }
   try {
-    // No `scale` passed: this is a currency widget whose `precision` is a
-    // display width, so a `precision: 0` amount keeps its separators rather
-    // than being read as an ordinal (objectui#4033).
+    // No `scale` passed: `formatDisplayNumber` reads `scale: 0` without a
+    // currency as an ordinal and drops the grouping separators
+    // (objectui#4033), and an amount is never an ordinal.
     return formatDisplayNumber(value, {
       locale,
-      minimumFractionDigits: precision,
-      maximumFractionDigits: precision,
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
     });
   } catch {
-    return value.toFixed(precision);
+    return value.toFixed(fractionDigits);
   }
 }
 
@@ -53,28 +53,33 @@ export function CurrencyField({ value, onChange, field, readonly, error, classNa
   const { currency: tenantCurrency } = useLocalization();
   const locale = useDisplayLocale();
   const currency: string | undefined = resolveFieldCurrency(currencyField, tenantCurrency);
-  // An AUTHORED `precision` wins: it is authored metadata, and this repo's
-  // convention is that authored metadata keeps priority. Whether a declared
-  // `precision` that contradicts the currency's ISO 4217 digits (say
-  // `precision: 2` on a JPY field) should be REJECTED at publish time is a
-  // contract question, so it is filed upstream in `@objectstack/spec` rather
-  // than answered here by overriding the author (objectui#4361).
+  // A currency's decimal places are the CURRENCY's, not a field setting — the
+  // maintainer ruling recorded on objectstack-ai/objectstack#19910 (batch #218
+  // item 2), executed here by objectui#10276. The width is the ISO 4217
+  // minor-unit count of the resolved currency: 2 for USD / CNY, 0 for JPY,
+  // 3 for KWD. With no currency resolved there is no minor unit to ask about,
+  // so the historical 2 stays — the same no-currency fallback `formatCurrency`
+  // uses for the grid cell.
   //
-  // An ABSENT `precision` derives from the currency instead of defaulting to a
-  // literal 2, which rendered `¥1,234.50` for a currency with no minor unit.
-  // "Absent" is genuinely distinguishable from "authored 2" here — MEASURED,
-  // not assumed: `CurrencyFieldMetadata.precision` is optional in
-  // `@object-ui/types` and `z.ZodOptional<z.ZodNumber>` (no `.default()`) in
-  // `@objectstack/spec`, so a parsed field carries no materialized 2. The only
-  // `.default(2)` on the currency surface is `CurrencyConfigSchema.precision`,
-  // a different key on the `currencyConfig` block that this widget never reads.
+  // ⛔ NOT the field-level `precision`. `@objectstack/spec` declares it as
+  // "Total digits (non-negative integer)" — the `p` of a decimal(p, s) column,
+  // so a DECIMAL(18,2) amount is `precision: 18, scale: 2`. This widget used
+  // to pass it straight to both `Intl` bounds (objectui#4361's "authored
+  // `precision` wins"), which rendered a `precision: 18` amount with eighteen
+  // decimal places; the ruling names that reading as wrong.
   //
-  // This is the widget's ONE precision, so the derivation also reaches the edit
+  // ⛔ NOT `scale` either: the ruling on objectstack-ai/objectstack#19629
+  // (letter B) takes `scale` off the `currency` type — refused at parse once
+  // the spec ships it — and `CurrencyFieldMetadata` in `@object-ui/types`
+  // does not declare it. Nor `currencyConfig.precision`, which the
+  // objectstack#19910 ruling records as read by nothing and which this widget
+  // has never read.
+  //
+  // This is the widget's ONE width, so the derivation also reaches the edit
   // affordances below. Deliberate: leaving `step`/blur-rounding at 2 would give
   // a JPY field that displays whole yen while offering a 0.01 spinner step and
   // rounding typed input to 1234.56 yen.
-  const precision =
-    currencyField?.precision ?? (currency ? currencyFractionDigits(currency) : 2);
+  const fractionDigits = currency ? currencyFractionDigits(currency) : 2;
 
   // Before the readonly return: hooks are unconditional (objectui#6780).
   const { refusal, readBadInput } = useBadInputRefusal('1234.56');
@@ -83,7 +88,7 @@ export function CurrencyField({ value, onChange, field, readonly, error, classNa
     if (value == null) return <EmptyValue />;
     return (
       <span className="text-sm font-medium tabular-nums">
-        {formatAmount(Number(value), currency, precision, locale)}
+        {formatAmount(Number(value), currency, fractionDigits, locale)}
       </span>
     );
   }
@@ -166,7 +171,7 @@ export function CurrencyField({ value, onChange, field, readonly, error, classNa
     readBadInput(e.target);
     const val = parseFloat(e.target.value);
     if (!isNaN(val)) {
-      onChange(parseFloat(val.toFixed(precision)));
+      onChange(parseFloat(val.toFixed(fractionDigits)));
     }
     // Last: the widget's own rounding emission lands before the host is told
     // the field was touched, so a blur-mode validator reads the parsed value
@@ -217,7 +222,7 @@ export function CurrencyField({ value, onChange, field, readonly, error, classNa
           // server-side validation still owns enforcement.
           min={typeof currencyField?.min === 'number' ? currencyField.min : undefined}
           max={typeof currencyField?.max === 'number' ? currencyField.max : undefined}
-          step={Math.pow(10, -precision).toFixed(precision)}
+          step={Math.pow(10, -fractionDigits).toFixed(fractionDigits)}
           // `refusal` is this widget's OWN reading and no host can produce it;
           // `error` keeps its single author (objectui#3222 / objectui#6716).
           aria-invalid={!!error || !!refusal}

@@ -1,6 +1,10 @@
 name: Board Snapshot
 
-# The standing caller for `scripts/pm/board-snapshot.mjs` (objectstack#17390).
+# The standing caller for objectstack's `scripts/pm/board-snapshot.mjs`
+# (objectstack#17390), run from an objectstack checkout: this repository holds
+# NO copy of the archiver or of the modules it imports (objectui#10208). The
+# checkout is not pinned to a sha, so each run executes objectstack's `main` as
+# of that run — the same archiver a seat runs from its own objectstack checkout.
 #
 # ## Why a scheduled backup, and why it lands on a branch
 #
@@ -120,12 +124,10 @@ name: Board Snapshot
 #
 # ⚠️ Upstream holds the offline half for free beside it: a `check:*` script runs
 # the archiver's `--self-test` inside the required lint job, which has no paths
-# filter, and a second gate is what requires that step to exist. NEITHER exists
-# in this repository. ⇒ here the self-test is reachable ONLY through this file's
-# own steps, behind this file's `paths:` filter, so a change that breaks the
-# archiver while touching none of the four paths below merges unexercised.
-# Wiring the self-test into the `Lint` workflow is a change to a file this
-# adoption does not own; the gap is named here rather than assumed away.
+# filter. That is where a change to the archiver is exercised before it merges,
+# because the archiver no longer lives in this repository (objectui#10208); what
+# a change HERE can break is this file's wiring, and this file is the one path
+# below.
 #
 # The step below runs the self-test again before it touches the archive, so a
 # broken tool fails loudly instead of committing a broken backup. ⛔ Its case
@@ -133,13 +135,8 @@ name: Board Snapshot
 #
 # ## Adopting this in a sibling repo
 #
-# Copy FOUR files, unchanged: `scripts/pm/board-snapshot.mjs`,
-# `scripts/pm/check-half-states.mjs` (the archiver imports its proxy-re-exec plan
-# and its repo resolver), `scripts/invoked-as.mjs` (imported by both) and this
-# file. A repo that has already adopted the half-state patrol has the middle two.
-# ⛔ Do not shorten this list from memory — the imports decide it, not this
-# comment, and the patrol's own adopt list was wrong for months in exactly that
-# way, which installed a dead sweeper that failed before its first predicate.
+# Copy this file. It checks the archiver out of objectstack and runs it from
+# there, so no script is copied (objectui#10208).
 #
 # There is nothing to configure. The board archived is `github.repository`,
 # passed explicitly below, and the script REFUSES its resolver's default rather
@@ -191,17 +188,12 @@ on:
     # closes that, which is a different card.
     - cron: '14 2,8,14,20 * * *'
   workflow_dispatch: {}
-  # Changes to the archiver itself get exercised before they merge. The paths
-  # name every file the run actually loads — the archiver, the module it imports
-  # its proxy plan and repo resolver from, the entry-guard helper both import,
-  # and this file. An undeclared dependency is one a change can break without
-  # this trigger firing, which is the same defect the adopt list above warns
-  # about, one layer along.
+  # Changes to the archiver's wiring get exercised before they merge. The run
+  # loads nothing else from this repository: the archiver and the modules it
+  # imports come from the objectstack checkout below (objectui#10208), so this
+  # file is the only path a change here can break it through.
   pull_request:
     paths:
-      - 'scripts/pm/board-snapshot.mjs'
-      - 'scripts/pm/check-half-states.mjs'
-      - 'scripts/invoked-as.mjs'
       - '.github/workflows/board-snapshot.yml'
 
 # Least privilege. `contents: write` is for the archive BRANCH and nothing else;
@@ -229,17 +221,31 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      # The archiver, from objectstack (objectui#10208). A public repository, so
+      # the default token reads it; `persist-credentials: false` because nothing
+      # here writes to it. Sparse: `scripts/pm` in cone mode also brings the
+      # files directly under `scripts/`, which is where the entry-guard helper
+      # the archiver and its sweeper module import (`scripts/invoked-as.mjs`)
+      # lives.
+      - name: Check out the objectstack archiver
+        uses: actions/checkout@v7
+        with:
+          repository: objectstack-ai/objectstack
+          path: objectstack-tooling
+          sparse-checkout: scripts/pm
+          persist-credentials: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
           node-version: '22'
 
       # No `pnpm install`: the archiver imports only `node:` builtins, global
-      # `fetch`, and two repo-local modules — no npm dependency, so installing
-      # the workspace here would buy nothing and would give a scheduled backup a
-      # lockfile it could fail on.
+      # `fetch`, and two modules from its own checkout — no npm dependency, so
+      # installing the workspace here would buy nothing and would give a
+      # scheduled backup a lockfile it could fail on.
       - name: The tool's own cases, before it touches the archive
-        run: node scripts/pm/board-snapshot.mjs --self-test
+        run: node objectstack-tooling/scripts/pm/board-snapshot.mjs --self-test
 
       # The archive branch is an ORPHAN: it shares no history with `main`, so a
       # checkout of it carries the archive and nothing else. First run creates it
@@ -283,7 +289,7 @@ jobs:
           SNAPSHOT_ARGS: ${{ github.event_name == 'pull_request' && '--out=board --dry-run --limit=5 --max-requests=25' || '--out=archive/board' }}
         run: |
           set +e
-          node scripts/pm/board-snapshot.mjs $SNAPSHOT_ARGS \
+          node objectstack-tooling/scripts/pm/board-snapshot.mjs $SNAPSHOT_ARGS \
             > "$RUNNER_TEMP/snapshot.md" 2> "$RUNNER_TEMP/snapshot.err"
           code=$?
           set -e
@@ -393,7 +399,7 @@ jobs:
           # alternate between two boards under one key — a complete,
           # well-formed, green archive of a board that is half missing, which is
           # the same footgun the header's adopt section warns about, one layer
-          # out. ⛔ Do not restore the upstream literal when re-syncing this file.
+          # out. ⛔ Do not restore the upstream literal.
           mirror="s3://${R2_BUCKET}/objectui/board/"
 
           # The SOURCE is the snapshot directory, NOT the worktree root that

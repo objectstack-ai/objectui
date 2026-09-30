@@ -21,6 +21,8 @@ import {
   type SchemaValidationResult,
   type SchemaDiffEntry,
 } from './api.js';
+import { t as tr, tFormat, useMetadataLocale } from '../i18n.js';
+import { withNodes } from '../previews/row-nodes.js';
 
 export interface ValidationPanelProps {
   datasource: string;
@@ -29,7 +31,8 @@ export interface ValidationPanelProps {
 type RunState = 'idle' | 'running' | 'done' | 'error' | 'unavailable';
 
 /**
- * Every diff kind the server can report, labelled.
+ * Every diff kind the server can report, labelled — the catalogue row each
+ * kind's badge reads in the designer locale (objectui#10862).
  *
  * Total over `SchemaDiffEntry['kind']` on purpose — now that the kind union is
  * imported from `@objectstack/spec/shared` rather than transcribed locally, a
@@ -45,20 +48,24 @@ type RunState = 'idle' | 'running' | 'done' | 'error' | 'unavailable';
  * surface it as "cannot check", never as "schema changed": labelling it like a
  * mismatch tells an operator to repair a schema nobody has read.
  */
-const DIFF_LABEL: Record<SchemaDiffEntry['kind'], string> = {
-  missing_table: 'Missing table',
-  missing_column: 'Missing column',
-  type_mismatch: 'Type mismatch',
-  nullability_mismatch: 'Nullability mismatch',
-  unmapped_column: 'Unmapped column',
-  pk_mismatch: 'Primary-key mismatch',
-  index_mismatch: 'Index mismatch',
-  unmapped_index: 'Unmapped index',
-  default_mismatch: 'Column default mismatch',
-  unreachable: 'Not checked — remote unreachable',
+const DIFF_LABEL_KEY: Record<SchemaDiffEntry['kind'], string> = {
+  missing_table: 'engine.externalDatasource.diff.missingTable',
+  missing_column: 'engine.externalDatasource.diff.missingColumn',
+  type_mismatch: 'engine.externalDatasource.diff.typeMismatch',
+  nullability_mismatch: 'engine.externalDatasource.diff.nullabilityMismatch',
+  unmapped_column: 'engine.externalDatasource.diff.unmappedColumn',
+  pk_mismatch: 'engine.externalDatasource.diff.pkMismatch',
+  index_mismatch: 'engine.externalDatasource.diff.indexMismatch',
+  unmapped_index: 'engine.externalDatasource.diff.unmappedIndex',
+  default_mismatch: 'engine.externalDatasource.diff.defaultMismatch',
+  unreachable: 'engine.externalDatasource.diff.unreachable',
 };
 
 export function ValidationPanel({ datasource }: ValidationPanelProps) {
+  // The designer locale this tab's own words read in (objectui#10862): the
+  // one the console's language resolves to, the same value its host panel's
+  // `locale` carries (`DatasourcePreview`'s hosts pass `useMetadataLocale()`).
+  const locale = useMetadataLocale();
   const [state, setState] = React.useState<RunState>('idle');
   const [results, setResults] = React.useState<SchemaValidationResult[]>([]);
   const [ok, setOk] = React.useState<boolean | null>(null);
@@ -85,7 +92,7 @@ export function ValidationPanel({ datasource }: ValidationPanelProps) {
   if (state === 'unavailable') {
     return (
       <div className="rounded border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-3 text-xs text-amber-900 dark:text-amber-200">
-        Federation is not enabled on this server, so validation is unavailable.
+        {tr('engine.externalDatasource.check.unavailable', locale)}
       </div>
     );
   }
@@ -94,9 +101,9 @@ export function ValidationPanel({ datasource }: ValidationPanelProps) {
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          Check that every federated object on{' '}
-          <span className="font-mono">{datasource}</span> still matches its live
-          remote table.
+          {withNodes(tr('engine.externalDatasource.check.intro', locale), {
+            datasource: <span className="font-mono">{datasource}</span>,
+          })}
         </p>
         <Button variant="outline" size="sm" onClick={() => void run()} disabled={state === 'running'}>
           {state === 'running' ? (
@@ -104,7 +111,7 @@ export function ValidationPanel({ datasource }: ValidationPanelProps) {
           ) : (
             <PlayCircle className="h-3.5 w-3.5" />
           )}
-          <span className="ml-1.5">Run validation</span>
+          <span className="ml-1.5">{tr('engine.externalDatasource.check.run', locale)}</span>
         </Button>
       </div>
 
@@ -124,24 +131,33 @@ export function ValidationPanel({ datasource }: ValidationPanelProps) {
         >
           {ok ? <CheckCircle2 className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
           {ok
-            ? `All ${results.length} object${results.length === 1 ? '' : 's'} match the remote schema.`
-            : `${results.filter((r) => !r.ok).length} of ${results.length} object${
-                results.length === 1 ? '' : 's'
-              } diverge from the remote schema.`}
+            ? tFormat(
+                results.length === 1
+                  ? 'engine.externalDatasource.check.allMatchOne'
+                  : 'engine.externalDatasource.check.allMatchOther',
+                locale,
+                { count: results.length },
+              )
+            : tFormat(
+                results.length === 1
+                  ? 'engine.externalDatasource.check.divergeOne'
+                  : 'engine.externalDatasource.check.divergeOther',
+                locale,
+                { diverged: results.filter((r) => !r.ok).length, count: results.length },
+              )}
         </div>
       )}
 
       {state === 'done' && results.length === 0 && (
         <div className="py-8 text-center text-sm text-muted-foreground">
-          No federated objects are bound to this datasource yet. Import a table
-          from the Tables tab to get started.
+          {tr('engine.externalDatasource.check.noObjects', locale)}
         </div>
       )}
 
       {results.length > 0 && (
         <ul className="space-y-2">
           {results.map((r) => (
-            <ResultRow key={r.object} result={r} />
+            <ResultRow key={r.object} result={r} locale={locale} />
           ))}
         </ul>
       )}
@@ -149,7 +165,7 @@ export function ValidationPanel({ datasource }: ValidationPanelProps) {
   );
 }
 
-function ResultRow({ result }: { result: SchemaValidationResult }) {
+function ResultRow({ result, locale }: { result: SchemaValidationResult; locale: string }) {
   return (
     <li className="rounded border bg-background">
       <div className="flex items-center gap-2 px-2.5 py-1.5">
@@ -161,14 +177,20 @@ function ResultRow({ result }: { result: SchemaValidationResult }) {
         <span className="font-mono text-xs font-medium">{result.object}</span>
         {!result.ok && (
           <span className="ml-auto text-[11px] text-muted-foreground">
-            {result.diffs.length} diff{result.diffs.length === 1 ? '' : 's'}
+            {tFormat(
+              result.diffs.length === 1
+                ? 'engine.externalDatasource.check.diffsOne'
+                : 'engine.externalDatasource.check.diffsOther',
+              locale,
+              { count: result.diffs.length },
+            )}
           </span>
         )}
       </div>
       {result.diffs.length > 0 && (
         <ul className="border-t divide-y">
           {result.diffs.map((d, i) => (
-            <DiffRow key={`${d.kind}:${d.column ?? ''}:${i}`} diff={d} />
+            <DiffRow key={`${d.kind}:${d.column ?? ''}:${i}`} diff={d} locale={locale} />
           ))}
         </ul>
       )}
@@ -176,7 +198,8 @@ function ResultRow({ result }: { result: SchemaValidationResult }) {
   );
 }
 
-function DiffRow({ diff }: { diff: SchemaDiffEntry }) {
+function DiffRow({ diff, locale }: { diff: SchemaDiffEntry; locale: string }) {
+  const labelKey = DIFF_LABEL_KEY[diff.kind] as string | undefined;
   const where = [diff.remoteSchema, diff.remoteName].filter(Boolean).join('.');
   const isError = diff.severity === 'error';
   return (
@@ -188,14 +211,16 @@ function DiffRow({ diff }: { diff: SchemaDiffEntry }) {
             : 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
         }`}
       >
-        {DIFF_LABEL[diff.kind] ?? diff.kind}
+        {labelKey ? tr(labelKey, locale) : diff.kind}
       </span>
       {where && <span className="font-mono text-muted-foreground">{where}</span>}
       {diff.column && <span className="font-mono">.{diff.column}</span>}
       {(diff.expected !== undefined || diff.actual !== undefined) && (
         <span className="text-muted-foreground">
-          expected <span className="font-mono">{diff.expected ?? '—'}</span>, actual{' '}
-          <span className="font-mono">{diff.actual ?? '—'}</span>
+          {withNodes(tr('engine.externalDatasource.check.expectedActual', locale), {
+            expected: <span className="font-mono">{diff.expected ?? '—'}</span>,
+            actual: <span className="font-mono">{diff.actual ?? '—'}</span>,
+          })}
         </span>
       )}
     </li>

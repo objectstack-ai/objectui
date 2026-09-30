@@ -299,14 +299,14 @@ describe('objectui#8355 · surfaces 3 and 4 — the `object-calendar` node', () 
 });
 
 describe('objectui#8355 · surface 5 — a NAMED VIEW, and the ledger it must not disturb', () => {
-  it('⭐ `listViews` is STILL ABSENT from `ObjectViewSchema.shape` — the check is not a mirror', () => {
-    // THE STRUCTURAL GUARD for the unmirrored ruling. That ruling waits on the
-    // key's VALUE TYPE; the round-3 refusal is a `.check()` on the object, so it
-    // declares nothing and the key never enters the shape. If a later edit turns
-    // it into a member — of any type — this row reddens before the parity
-    // ledger has to notice.
+  it('⭐ `listViews` is a MEMBER of `ObjectViewSchema.shape` since objectui#7928 — the value type was ruled, and the check is still not the mirror', () => {
+    // THE STRUCTURAL GUARD for the unmirrored ruling, inverted when that ruling
+    // was answered. It waited on the key's VALUE TYPE; objectui#7928 (ruling A)
+    // chose the protocol's `ObjectListViewSchema` by reference, so the key is a
+    // member now. The round-3 refusal is still a check beside it, not the
+    // member: it adds the by-name pointer to the protocol's own refusal.
     const keys = Object.keys(ObjectViewSchema.shape);
-    expect(keys).not.toContain('listViews');
+    expect(keys).toContain('listViews');
     expect(keys, 'the shape is unreadable — the row above would pass vacuously').toContain('objectName');
   });
 
@@ -317,18 +317,24 @@ describe('objectui#8355 · surface 5 — a NAMED VIEW, and the ledger it must no
     expect(ObjectQLComponentSchema.safeParse({ type: 'zzz-no-such-node' }).success).toBe(false);
   });
 
-  it.each(RETIRED)('a named view authoring `calendar.%s` is refused through the union, naming `%s`', (alias, canonical) => {
+  // ⭐ RE-PINNED at objectui#11073. The named-view door added objectui's pointer
+  // (`custom` at `listViews.KEY.calendar.ALIAS`, "Did you mean …") beside the
+  // protocol's refusal. `@objectstack/spec` 17.5.0 makes that refusal terminal,
+  // zod skips even a `when`-guarded check after it, and the pointer was retired
+  // (seat ruling Q2 → A). What stands is the protocol's own refusal, naming the
+  // key at the block; the four DECLARED doors above keep objectui's pointer.
+  it.each(RETIRED)('a named view authoring `calendar.%s` is refused through the union by the protocol, naming the key', (alias) => {
     const r = ObjectQLComponentSchema.safeParse({
       type: 'object-view',
       objectName: 'duly_task',
       listViews: { v1: { type: 'calendar', calendar: { [alias]: 'kickoff' } } },
     });
     expect(r.success, `listViews.v1.calendar.${alias} still parses green`).toBe(false);
-    const issue = r.success
-      ? undefined
-      : r.error.issues.find((i) => i.path.join('.') === `listViews.v1.calendar.${alias}`);
-    expect(issue?.code).toBe('custom');
-    expect(issue?.message).toContain(`Did you mean \`${alias}\` → \`${canonical}\`?`);
+    const issues = r.success ? [] : r.error.issues;
+    const refusal = issues.find((i) => i.path.join('.') === 'listViews.v1.calendar') as { code?: string; keys?: string[] } | undefined;
+    expect(refusal?.code).toBe('unrecognized_keys');
+    expect(refusal?.keys).toEqual([alias]);
+    expect(issues.filter((i) => i.code === 'custom')).toEqual([]);
   });
 });
 

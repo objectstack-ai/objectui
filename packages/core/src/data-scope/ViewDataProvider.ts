@@ -89,7 +89,7 @@ export interface DataFetcher {
    *
    * Optional because most fetchers only read records. A fetcher WITHOUT it
    * cannot honour a named view, and {@link ViewDataProvider.resolveElementDataSource}
-   * says so in `error` rather than dropping the key — the whole point of #5576
+   * says so in `error` rather than dropping the key — the whole point of objectstack-ai/objectstack#5576
    * is that a `view` the runtime cannot apply must never look applied.
    *
    * Either shape stored views come in is accepted: a map keyed by view id, or
@@ -362,8 +362,22 @@ export class ViewDataProvider {
     // channel those sites use. ⛔ Not an `error`: the refusal is FAIL-SOFT and
     // the records still load, so blanking the result would be a worse outcome
     // than the defect.
-    const refusedLimit = elementDataSourceRefusedLimitMessage(view, config.view, config.object);
-    if (refusedLimit) console.warn(refusedLimit);
+    //
+    // Both operands of the chain are asked (objectui#10016): a refused binding
+    // `limit` is not authored and yields to the view's cap, so it is reported
+    // in its own words. The builder is also handed the binding for the VIEW's
+    // sentence, because that sentence says the fetch falls back to a default,
+    // which is false when the binding's own usable cap is what gets used.
+    for (const operand of ['binding', 'view'] as const) {
+      const refusedLimit = elementDataSourceRefusedLimitMessage(
+        view,
+        config.view,
+        config.object,
+        config,
+        operand,
+      );
+      if (refusedLimit) console.warn(refusedLimit);
+    }
 
     const fields = Array.isArray(composed.columns)
       ? composed.columns.filter((c): c is string => typeof c === 'string' && !!c)

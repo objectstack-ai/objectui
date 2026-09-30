@@ -137,6 +137,33 @@ declare const navigate: (to: string) => void;
 <ForgotPasswordForm onSuccess={() => navigate('/check-email')} />;
 ```
 
+`labels` is how the forms take translated text, and it reaches the social
+provider buttons the server's `/auth/config` turns on: `socialButton`
+is a template whose `{provider}` is replaced with the provider's display name
+(defaults "Continue with {provider}" on `LoginForm`, "Sign up with {provider}"
+on `RegisterForm`), and `orText` is the divider under the buttons (default
+"or continue with email").
+
+When the server requires email verification, a registration ends in the user's
+inbox, and the verification link is the only way back. `verificationCallbackURL`
+says where that link lands, e.g. the invitation the user signed up from. It is
+sent as better-auth's sign-up `callbackURL` (the same value as the fourth
+argument of `useAuth().signUp`). The server accepts only a root-relative path
+or an absolute URL on a trusted origin, and refuses a document-relative `./…`
+with `INVALID_CALLBACK_URL`, which fails the sign-up. Resolve an SPA route
+against its mount first. Omitted, the server default (`/`) applies.
+
+```tsx
+import { RegisterForm } from '@object-ui/auth';
+
+declare const navigate: (to: string) => void;
+
+<RegisterForm
+  verificationCallbackURL="/_console/accept-invitation/inv_123"
+  onVerificationRequired={(email) => navigate(`/verify-email-prompt?email=${encodeURIComponent(email)}`)}
+/>;
+```
+
 ### UserMenu
 
 Displays current user info with avatar and sign-out:
@@ -162,6 +189,30 @@ const authedFetch = createAuthenticatedFetch();
 // so the platform token never leaks to third-party hosts:
 const apiProviderFetch = createAuthenticatedFetch({ sameOriginOnly: true });
 ```
+
+### getSessionOwnerChangeCount / subscribeSessionOwnerChange
+
+When the session resolves to a different user than the one this browser last
+held, `AuthProvider` drops the previous user's client state (objectui#5664).
+That clears storage only. State already derived from that storage and held in
+memory, such as the UI language the boot resolved, has to be re-derived by
+whoever owns it. These two exports tell that owner a change happened in this
+page-load (objectui#10193). The count lets an owner that mounts after the purge
+still see it:
+
+```tsx
+import { useSyncExternalStore } from 'react';
+import { getSessionOwnerChangeCount, subscribeSessionOwnerChange } from '@object-ui/auth';
+
+const ownerChanges = useSyncExternalStore(
+  subscribeSessionOwnerChange,
+  getSessionOwnerChangeCount,
+  getSessionOwnerChangeCount,
+);
+```
+
+The count lives in memory for one page-load and is never persisted.
+`@object-ui/app-shell`'s `useSignedInUserLocale` is the in-repo consumer.
 
 ## The `X-Tenant-ID` edge contract
 

@@ -7,8 +7,8 @@
  */
 
 import * as React from 'react';
-import { ComponentRegistry } from '@object-ui/core';
-import type { TimelineSchema } from '@object-ui/types';
+import { ComponentRegistry, isRealCalendarDate, toDateInputValue, toDisplayDate, toDisplayEndDate, toDomProps } from '@object-ui/core';
+import type { TimelineRenderSchema } from './renderHandoff';
 import {
   Timeline,
   TimelineItem,
@@ -74,15 +74,297 @@ export function resolveTimelineScale(schema: { scale?: unknown }): string {
 }
 
 /**
- * Gantt header labels for one scale across [minDate, maxDate]. Every spec
- * scale produces a non-empty header row — `hour` / `quarter` / `year` used to
- * fall through the month/week/day chain and return `[]`, blanking the axis
- * (#2942). Exported for the spec-parity test.
+ * THE ONE READ of a gantt date: every stop on the gantt branch takes it — the
+ * validity gate, the computed extent, the min-over-max guard, the axis headers
+ * and the bar geometry (objectui#10866, slice 3).
+ *
+ * A string goes through the shared step, `toDisplayDate` (`@object-ui/core`,
+ * the objectui#10183 convention), which the bar tooltip's `formatDate` already
+ * takes: a date-only `2026-10-05` is local midnight of the day it names, and a
+ * value with a time part keeps its instant. The engine's own parse read the
+ * date-only value as UTC midnight, and the headers walk and print with LOCAL
+ * setters and getters, so west of UTC the axis read the day before while the
+ * tooltip under it named the stored day. A day its month does not have
+ * (`2026-02-30`) is refused here as the shared step refuses it (objectui#10026),
+ * where the engine rolled it into March.
+ *
+ * A number (epoch milliseconds) or a `Date` is an instant and is read by
+ * `new Date(value)` exactly as before. For a `Date` that is a fresh copy built
+ * from its own time slot, so no method the authored object carries is called
+ * afterwards; `toDisplayDate` would hand the object itself back, and the
+ * gate's `getTime()` would then be the object's own (objectui#7027, `isDate`
+ * below).
+ *
+ * ⛔ The stops must all read through here. They are one invariant read from
+ * several ends: a date the gate lets through must be one the extent can
+ * reduce, and a range the guard calls ordered must be one the headers can
+ * walk. A stop that kept the engine parse would disagree with the others by
+ * the viewer's UTC offset.
+ *
+ * A bar's END takes one more step after this read, `readGanttBarEnd`
+ * (objectui#11112): a date-only end is drawn through the end of its day.
+ */
+function readGanttDate(value: string | number | Date): Date {
+  return typeof value === 'string' ? toDisplayDate(value) : new Date(value);
+}
+
+/**
+ * One unit of a gantt axis: the half-open span `[start, end)` in epoch
+ * milliseconds, and the header label that names it.
+ */
+interface TimelineAxisUnit {
+  readonly start: number;
+  readonly end: number;
+  readonly label: string;
+}
+
+/**
+ * THE ONE AXIS of a gantt (objectui#11079): the span
+ * `[start of the first unit, end of the last unit)`, and the units that tile
+ * it, in order and with no gap.
+ *
+ * The header row and the bars are both drawn from this one value, through
+ * `placeOnAxis`: a header is as wide as its unit's real length inside the
+ * span, and a bar's `left` / `width` are measured on the same span. So a day
+ * or an hour column is as wide as every other, a month is as wide as its days,
+ * and a bar that starts at a unit's start begins exactly where that unit's
+ * header begins.
+ *
+ * It replaced two constructions that did not agree. The headers were one
+ * equal-width bucket per unit from the minimum date to the maximum date
+ * inclusive, and the bars were a percentage of the minimum-to-maximum span,
+ * which ends at the START of the last bucket. On a day axis over October 5th
+ * to 7th the headers were three equal columns and the bars were measured on
+ * two days, so the bar starting on the 6th sat at `left: 50%` under a column
+ * starting at one third. ⛔ Do not add a second construction beside this one,
+ * such as a bucket index for the headers next to a span for the bars.
+ */
+interface TimelineAxis {
+  readonly start: number;
+  readonly end: number;
+  readonly units: readonly TimelineAxisUnit[];
+}
+
+/** How one scale snaps to, steps over and names its units. */
+interface TimelineAxisScale {
+  /** The start of the unit that contains `date`, as a new `Date`. */
+  readonly floor: (date: Date) => Date;
+  /** Move `cursor`, a unit start, to the next unit's start, in place. */
+  readonly step: (cursor: Date) => void;
+  /** The header label of the unit starting at `start`, the `index`-th unit of the axis. */
+  readonly label: (start: Date, index: number, locale: string, t: TimelineTranslate) => string;
+}
+
+/** A copy of `date` at local midnight of its day. */
+function localDayStart(date: Date): Date {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+
+const HOUR_AXIS: TimelineAxisScale = {
+  floor: (date) => {
+    const start = new Date(date);
+    start.setMinutes(0, 0, 0);
+    return start;
+  },
+  step: (cursor) => {
+    cursor.setTime(cursor.getTime() + HOUR_MS);
+  },
+  label: (start, _index, locale) =>
+    start.toLocaleString(locale, { month: 'short', day: 'numeric', hour: 'numeric' }),
+};
+
+const DAY_AXIS: TimelineAxisScale = {
+  floor: localDayStart,
+  step: (cursor) => {
+    cursor.setDate(cursor.getDate() + 1);
+  },
+  label: (start, _index, locale) => start.toLocaleDateString(locale, { month: 'short', day: 'numeric' }),
+};
+
+const WEEK_AXIS: TimelineAxisScale = {
+  floor: localDayStart,
+  step: (cursor) => {
+    cursor.setDate(cursor.getDate() + 7);
+  },
+  label: (_start, index, _locale, t) => t('timeline.scale.week', { n: index + 1 }),
+};
+
+const MONTH_AXIS: TimelineAxisScale = {
+  floor: (date) => {
+    const start = localDayStart(date);
+    start.setDate(1);
+    return start;
+  },
+  step: (cursor) => {
+    cursor.setMonth(cursor.getMonth() + 1);
+  },
+  label: (start, _index, locale) => start.toLocaleDateString(locale, { month: 'short', year: 'numeric' }),
+};
+
+const QUARTER_AXIS: TimelineAxisScale = {
+  floor: (date) => {
+    const start = localDayStart(date);
+    start.setMonth(Math.floor(start.getMonth() / 3) * 3, 1);
+    return start;
+  },
+  step: (cursor) => {
+    cursor.setMonth(cursor.getMonth() + 3);
+  },
+  label: (start, _index, _locale, t) =>
+    t('timeline.scale.quarter', {
+      quarter: Math.floor(start.getMonth() / 3) + 1,
+      year: start.getFullYear(),
+    }),
+};
+
+const YEAR_AXIS: TimelineAxisScale = {
+  floor: (date) => {
+    const start = localDayStart(date);
+    start.setMonth(0, 1);
+    return start;
+  },
+  step: (cursor) => {
+    cursor.setFullYear(cursor.getFullYear() + 1);
+  },
+  label: (start) => String(start.getFullYear()),
+};
+
+/**
+ * The unit of one of the six spec scales. `hour` steps by a fixed hour, so
+ * every hour column is one hour wide across a DST change too. Every other
+ * scale steps with LOCAL setters from a local midnight, so a day across a DST
+ * change is 23 or 25 hours long and its column is that much narrower or
+ * wider, which keeps it over the bars.
+ *
+ * `week` counts weeks from the axis's first day, as its `Week N` labels
+ * always did. It does not snap to a calendar week start, which no spec key
+ * names.
+ *
+ * An unknown `scale` gets the `month` unit, the renderer's historical default
+ * (`resolveTimelineScale` makes the same call for the gantt branch).
+ */
+function axisScaleOf(scale: string): TimelineAxisScale {
+  switch (scale) {
+    case 'hour':
+      return HOUR_AXIS;
+    case 'day':
+      return DAY_AXIS;
+    case 'week':
+      return WEEK_AXIS;
+    case 'quarter':
+      return QUARTER_AXIS;
+    case 'year':
+      return YEAR_AXIS;
+    case 'month':
+    default:
+      return MONTH_AXIS;
+  }
+}
+
+/**
+ * THE ONE READ of a bar's END (objectui#11112): where a bar is drawn to.
+ *
+ * A date-only end is INCLUSIVE: the bar runs through the end of the day it
+ * names, which is the next day's local midnight, the step the day column
+ * takes too (a calendar day, never 24 hours). So a bar authored `2024-01-01`
+ * to `2024-01-31` fills January and ends exactly where the February column
+ * begins, and a bar whose date-only start and end name the same day is one day
+ * wide, across a DST change too (that day's column is 23 or 25 hours wide, and
+ * so is the bar). That is how the catalog producer and a project plan author
+ * an end: "January 1st to January 31st" runs through January 31st.
+ *
+ * The rule itself lives in `@object-ui/core`, `toDisplayEndDate`
+ * (objectui#11141), which `plugin-gantt` reads its ends through too, so the
+ * two gantt surfaces draw one authored end on one day. ⛔ Do not step a day
+ * here again. A string is handed to it: it reads the value as
+ * `toDisplayDate` does, which is `readGanttDate`'s read of a string, and then
+ * steps a date-only value (`isRealCalendarDate`) to its day's end.
+ *
+ * A value with a time part is an instant and the bar ends at it, as does a
+ * number (epoch milliseconds) or a `Date` (objectui#10866), which keep
+ * `readGanttDate`'s own read.
+ *
+ * The tooltip still prints the authored end: `formatDate` reads the day the
+ * value names, not the edge the bar is drawn to.
+ */
+function readGanttBarEnd(value: string | number | Date): Date {
+  return typeof value === 'string' ? toDisplayEndDate(value) : readGanttDate(value);
+}
+
+/**
+ * Build the one axis for `scale` across `[minDate, maxDate]`, or `undefined`
+ * when the range is unparseable or inverted.
+ *
+ * The first unit is the one that contains `minDate` and the last is the one
+ * that contains `maxDate`, so every unit the range touches has a whole
+ * column, and a degenerate `minDate === maxDate` range is exactly one unit. The span
+ * is therefore never empty: `placeOnAxis` never divides by zero.
+ *
+ * Both ends are read by `readGanttDate` (objectui#10866, slice 3), so a
+ * date-only end is local midnight of the day it names, and a value with a time
+ * part keeps its instant and snaps to the start of its local unit.
+ *
+ * `through`, when given, is the last instant the rows' bars cover
+ * (`calculateDateRange`, objectui#11112), and the axis runs on to the unit
+ * that contains it. The computed `maxDate` is a DAY, which an `hour` axis
+ * reads as that day's first hour, while a bar ending on that day is drawn
+ * through its end (a date-only end) or to its hour (an instant). On every
+ * other scale a unit that contains the day already contains every instant of
+ * it, so `through` adds no unit there. It is not given for an author-pinned
+ * `maxDate`, which stays exactly the author's range, nor for the empty plan.
+ */
+function timelineAxis(
+  scale: string,
+  minDate: string,
+  maxDate: string,
+  locale: string,
+  t: TimelineTranslate,
+  through?: number,
+): TimelineAxis | undefined {
+  const min = readGanttDate(minDate).getTime();
+  const max = readGanttDate(maxDate).getTime();
+  if (Number.isNaN(min) || Number.isNaN(max) || min > max) return undefined;
+  const last = through === undefined ? max : Math.max(max, through);
+  const unitScale = axisScaleOf(scale);
+  const units: TimelineAxisUnit[] = [];
+  const cursor = unitScale.floor(new Date(min));
+  while (cursor.getTime() <= last) {
+    const start = cursor.getTime();
+    const label = unitScale.label(new Date(start), units.length, locale, t);
+    unitScale.step(cursor);
+    units.push({ start, end: cursor.getTime(), label });
+  }
+  return { start: units[0].start, end: units[units.length - 1].end, units };
+}
+
+/**
+ * Where `[start, end)` sits on `axis`, as percentages of the axis's span:
+ * `start` is the left edge and `width` the length. The header row and the
+ * bars both call this, which is what keeps a bar under its column.
+ */
+function placeOnAxis(axis: TimelineAxis, start: number, end: number): { start: number; width: number } {
+  const span = axis.end - axis.start;
+  return {
+    start: ((start - axis.start) / span) * 100,
+    width: ((end - start) / span) * 100,
+  };
+}
+
+/**
+ * Gantt header labels for one scale across [minDate, maxDate]: the labels of
+ * the one axis, `timelineAxis`, in order. Every spec scale produces a
+ * non-empty header row — `hour` / `quarter` / `year` used to fall through the
+ * month/week/day chain and return `[]`, blanking the axis (#2942). Exported
+ * for the spec-parity test.
  *
  * `locale` is threaded in rather than read here: this is a pure function, and
  * the session's locale lives behind a hook (#4513). The three `Intl` branches
- * below used to pass a literal `'en-US'`, so a fully Chinese timeline rendered
- * an English axis. The default is `'en'` — the same concrete last resort
+ * used to pass a literal `'en-US'`, so a fully Chinese timeline rendered an
+ * English axis. The default is `'en'` — the same concrete last resort
  * `useDisplayLocale()` falls back to, and byte-identical to the retired
  * `'en-US'` at all three sites — so the existing 3-argument call sites keep
  * producing exactly what they produced before.
@@ -90,25 +372,31 @@ export function resolveTimelineScale(schema: { scale?: unknown }): string {
  * `t` is threaded on the same seam and for the same reason (#4520). The two are
  * different kinds of dependency and each covers what the other cannot: a locale
  * TAG formats a date, a TRANSLATION spells a word. The `week` and `quarter`
- * branches never touched `Intl`, so #4513 left them reading `Week 1` / `Q3
+ * units never touched `Intl`, so #4513 left them reading `Week 1` / `Q3
  * 2026` on an axis that had just become Chinese. Its default is the package's
  * own defaults table, which is what the channel serves with no `I18nProvider`
  * mounted, so 3- and 4-argument call sites keep producing byte-identical
  * English.
  *
+ * ## Each unit starts on its unit boundary (objectui#11079)
+ *
+ * The first header is the unit that CONTAINS `minDate`, snapped to its start,
+ * and the walk ends on the unit that contains `maxDate`. The walk used to step
+ * from `minDate` itself, so a `month` axis from January 15th to April 10th
+ * stopped at March (April 15th is past the end), and one from January 31st
+ * skipped February (January 31st plus a month rolls into March). The labels
+ * of a range that starts on a unit boundary are unchanged.
+ *
  * ## The empty/degenerate range — the second of #6750's three sites
  *
  * objectui#6750 asked the same empty-list question at all three stops on the
  * gantt branch, so that fixing the one `throw` did not just move the crash two
- * stations down. This one needed no change, and that verdict is recorded here
- * rather than left to be re-derived: the guard on the next line already refuses
- * an unparseable or inverted range by returning NO headers, and a DEGENERATE
- * range (`minDate === maxDate`, which is what `emptyGanttDateRange` hands it)
- * is not inverted — `start > end` is false when they are equal, so the loop
- * runs exactly once and every scale emits exactly one bucket. Measured on
- * b76ca6764, min = max = '2026-03-15': hour `["Mar 15, 12 AM"]`, day
- * `["Mar 15"]`, week `["Week 1"]`, month `["Mar 2026"]`, quarter `["Q1 2026"]`,
- * year `["2026"]`.
+ * stations down. A DEGENERATE range (`minDate === maxDate`, which is what
+ * `emptyGanttDateRange` hands it) is not inverted — `min > max` is false when
+ * they are equal — so the axis is the one unit that contains that date, and
+ * every scale emits exactly one bucket. Measured on b76ca6764, min = max =
+ * '2026-03-15': hour `["Mar 15, 12 AM"]`, day `["Mar 15"]`, week
+ * `["Week 1"]`, month `["Mar 2026"]`, quarter `["Q1 2026"]`, year `["2026"]`.
  *
  * So the empty gantt gets a real one-column axis, not a header row with zero
  * cells. That composition is what
@@ -116,21 +404,27 @@ export function resolveTimelineScale(schema: { scale?: unknown }): string {
  * other two sites, so a later change that fixes one and not the others goes
  * red.
  *
- * ## The refusal on the next line is NOT dead code (objectui#6759)
+ * ## The refusal is NOT dead code (objectui#6759)
  *
- * #6759 put a guard in the gantt branch that refuses an unparseable or inverted
- * range before this function is ever called, so the `return headers` below can
- * no longer be reached FROM THERE. It was reached before: a `zero-column axis`
- * is exactly what case 2 rendered its negative-width bar under, and the fix was
- * to refuse above rather than to relax the guard here — this function's verdict
- * is still "needed no change".
+ * An unparseable or inverted range has no axis, so this returns NO headers.
+ * The gantt branch refuses such a range before it draws: the unparseable one
+ * by name in `findUnusableGanttDate`, and the inverted one when
+ * `timelineAxis` answers `undefined`, which is the same read this function
+ * makes. A `zero-column axis` is exactly what #6759's case 2 rendered its
+ * negative-width bar under, and the fix was to refuse above rather than to
+ * relax the refusal here.
  *
- * Two reasons it stays. It is EXPORTED and called directly, including by
+ * It stays because it is EXPORTED and called directly, including by
  * `timeline-gantt-empty-items.test.tsx`'s pin 5a, which holds these exact
- * inputs (`'2030-01-01'` / `'2026-03-15'`, and `''` / `''`) returning `[]`. And
- * it is the reason the caller's guard is allowed to be the only one: an axis
- * that silently drew nothing is what let the row loop below it keep running, so
- * the two guards are one invariant read from both ends, not a duplicate.
+ * inputs (`'2030-01-01'` / `'2026-03-15'`, and `''` / `''`) returning `[]`.
+ *
+ * ## The two ends are read as days (objectui#10866, slice 3)
+ *
+ * Both ends are read by `readGanttDate` inside `timelineAxis`, so a date-only
+ * end is local midnight of the day it names and the walk, which moves and
+ * prints with LOCAL setters and getters, starts on that day in every zone. A
+ * value with a time part keeps its instant, and the walk starts at the local
+ * start of the unit that contains it.
  */
 export function generateTimeScaleHeaders(
   scale: string,
@@ -139,62 +433,8 @@ export function generateTimeScaleHeaders(
   locale: string = 'en',
   t: TimelineTranslate = translateTimelineDefault,
 ): string[] {
-  const headers: string[] = [];
-  const start = new Date(minDate);
-  const end = new Date(maxDate);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return headers;
-  const current = new Date(start);
-  switch (scale) {
-    case 'hour':
-      while (current <= end) {
-        headers.push(current.toLocaleString(locale, { month: 'short', day: 'numeric', hour: 'numeric' }));
-        current.setHours(current.getHours() + 1);
-      }
-      break;
-    case 'day':
-      while (current <= end) {
-        headers.push(current.toLocaleDateString(locale, { month: 'short', day: 'numeric' }));
-        current.setDate(current.getDate() + 1);
-      }
-      break;
-    case 'week': {
-      let week = 1;
-      while (current <= end) {
-        headers.push(t('timeline.scale.week', { n: week++ }));
-        current.setDate(current.getDate() + 7);
-      }
-      break;
-    }
-    case 'quarter':
-      current.setMonth(Math.floor(current.getMonth() / 3) * 3, 1);
-      while (current <= end) {
-        headers.push(
-          t('timeline.scale.quarter', {
-            quarter: Math.floor(current.getMonth() / 3) + 1,
-            year: current.getFullYear(),
-          }),
-        );
-        current.setMonth(current.getMonth() + 3);
-      }
-      break;
-    case 'year':
-      // Snap to the calendar-year start so every year touched by the range
-      // gets a bucket (mirrors the quarter snap above).
-      current.setMonth(0, 1);
-      while (current <= end) {
-        headers.push(String(current.getFullYear()));
-        current.setFullYear(current.getFullYear() + 1);
-      }
-      break;
-    case 'month':
-    default:
-      while (current <= end) {
-        headers.push(current.toLocaleDateString(locale, { month: 'short', year: 'numeric' }));
-        current.setMonth(current.getMonth() + 1);
-      }
-      break;
-  }
-  return headers;
+  const axis = timelineAxis(scale, minDate, maxDate, locale, t);
+  return axis ? axis.units.map((unit) => unit.label) : [];
 }
 
 /**
@@ -221,9 +461,16 @@ export function generateTimeScaleHeaders(
  * should LOOK like, and the 2026-08-29 triage on #6750 deliberately left that
  * open (「不要崩」 is the correctness floor it ruled on; 「崩改成空态面板还是零行
  * 图表」 is the product option it did not). A one-day window makes the smallest
- * possible claim: `generateTimeScaleHeaders` turns it into exactly one bucket
- * on every scale, so the axis is valid and non-empty, and the grid below it has
- * zero rows.
+ * possible claim: `timelineAxis` turns it into exactly one unit on every
+ * scale, so the axis is valid and non-empty, and the grid below it has zero
+ * rows.
+ *
+ * "Today" is the VIEWER's calendar day, printed from local getters, because
+ * the axis reads this `YYYY-MM-DD` as local midnight of that day
+ * (`readGanttDate`). It used to be the UTC day, `toISOString()`'s date part,
+ * which is tomorrow for a viewer west of UTC in the evening and yesterday for
+ * one east of UTC after midnight (objectui#10866, slice 3). The object
+ * timeline's "Today" bucket is the same local day.
  *
  * ## What this deliberately does NOT do
  *
@@ -234,7 +481,7 @@ export function generateTimeScaleHeaders(
  * `./__tests__/timeline-gantt-empty-items.test.tsx`.
  */
 function emptyGanttDateRange(): { minDate: string; maxDate: string } {
-  const today = new Date().toISOString().split('T')[0];
+  const today = toDateInputValue(new Date());
   return { minDate: today, maxDate: today };
 }
 
@@ -292,7 +539,9 @@ type GanttRowsVerdict =
  * ## The three refusals, in walk order
  *
  *   1. `items` is not an array         -> path `items`
- *   2. a row is `null` (or `undefined`) -> path `items[i]`
+ *   2. a row is not an object           -> path `items[i]`
+ *      (`null`, `undefined`, a number, a string, a boolean, an array, or
+ *      any other non-object — objectui#7364 widened this line from `null`)
  *   3. `row.items` is a TRUTHY non-array -> path `items[i].items`
  *
  * Each names the authored location and the value — spelled by
@@ -308,15 +557,31 @@ type GanttRowsVerdict =
  * REFUSE, not skip: drawing the well-formed rows and dropping the malformed
  * one silently is the consumer-side tolerance objectui#6750 and objectui#6759
  * both refused, and the ruling declined it (option B). Nor is the set widened
- * past the three lines above. The shapes NEXT to them keep drawing, as
- * measured before the change and pinned as CONTROLS: `items: []`, a row with
- * no `items` key, a row whose `items` is `null` (both the empty row), and a
- * row that is a non-null primitive or an array (`[0]`, `[[]]`), which has no
- * `.items` and draws as an unlabelled empty row. The zod mirror
- * (`@object-ui/types`, `TimelineSchema.items`) refuses those last two at
- * AUTHORING time — an element must be an object — so the door a document
- * meets first is the stricter one; the renderer is only ever more lenient than
- * `validate`, never the reverse, and never crashes on what `validate` admits.
+ * past the three lines above. The shapes NEXT to them keep drawing, pinned as
+ * CONTROLS: `items: []`, a row with no `items` key, and a row whose `items`
+ * is `null` (all the empty row). The renderer is only ever as lenient as
+ * `validate` or more, never the reverse, and never crashes on what `validate`
+ * admits.
+ *
+ * ## A row that is not an object (objectui#7364, ruling 5809218505, A)
+ *
+ * objectui#7164's ruling kept `items: [0]` and `items: [[]]` DRAWING, as
+ * CONTROLS: a non-null primitive or an array has no `.items` and no `.label`,
+ * so it drew an EMPTY, UNLABELLED row and nothing told the author. The zod
+ * mirror (`@object-ui/types`, `TimelineSchema.items`) already refused both at
+ * AUTHORING time, so the declared and the rendered accept sets disagreed in
+ * that corner. The objectui#7364 ruling (letter A, maintainer 2026-09-24)
+ * DELIBERATELY SUPERSEDES that clause: line 2 now refuses every row that is
+ * not an object, through the SAME `malformedRow` key — the existing copy
+ * already reads `items[0] is 0, which is not a row shape` — so no key and no
+ * pack string was added.
+ *
+ * "Not an object" is `typeof row !== 'object' || row === null ||
+ * Array.isArray(row)`. That is the set JSON can spell and the mirror refuses
+ * (`z.object` refuses `null`, numbers, strings, booleans and arrays). No
+ * prototype test is made: a `Date`, a class instance or a `Proxy` row cannot
+ * be written in JSON, a prototype read would be one more non-total site for a
+ * revoked proxy, and the live-`Proxy` row control must keep drawing.
  *
  * ## What this does to the exotic exclusion (objectui#7153, pin 5)
  *
@@ -326,13 +591,17 @@ type GanttRowsVerdict =
  * trap writes them. `Array.isArray` is a NEW non-total site for a revoked
  * `Proxy` (it throws `Cannot perform 'IsArray' …`, the same class
  * `spellGanttDateValue` already declares), so a revoked proxy handed as `items`
- * or as a row's `items` now dies here rather than at U1 / U4. Both moves are
- * stated and exercised in `timeline-gantt-date-brand-7027.test.tsx`, and the
- * reachability argument is unchanged: JSON cannot spell a proxy.
+ * or as a row's `items` now dies here rather than at U1 / U4 — and, since
+ * objectui#7364 asks `Array.isArray(row)` before U3 reads `row.items`, a
+ * revoked proxy handed as a ROW dies at `IsArray` too rather than at U3. All
+ * three moves are stated and exercised in
+ * `timeline-gantt-date-brand-7027.test.tsx`, and the reachability argument is
+ * unchanged: JSON cannot spell a proxy.
  *
  * Pinned by `./__tests__/timeline-gantt-malformed-row-7164.test.tsx`, which
  * re-runs the card's THREW table (now REFUSED, each naming its path) with the
- * five drawing controls unchanged.
+ * drawing controls unchanged, and — objectui#7364 — the non-object rows that
+ * table used to keep as controls, now REFUSED.
  */
 function classifyGanttRows(items: unknown): GanttRowsVerdict {
   if (!Array.isArray(items)) return { ok: false, path: 'items', value: items };
@@ -340,7 +609,10 @@ function classifyGanttRows(items: unknown): GanttRowsVerdict {
   const rows: GanttRow[] = [];
   for (let rowIndex = 0; rowIndex < items.length; rowIndex++) {
     const row = items[rowIndex];
-    if (row == null) return { ok: false, path: `items[${rowIndex}]`, value: row };
+    // objectui#7364 — any non-object row, not only `null` (see above).
+    if (typeof row !== 'object' || row === null || Array.isArray(row)) {
+      return { ok: false, path: `items[${rowIndex}]`, value: row };
+    }
 
     const rowItems = row.items;
     if (rowItems && !Array.isArray(rowItems)) {
@@ -362,8 +634,19 @@ function classifyGanttRows(items: unknown): GanttRowsVerdict {
  * for the table, and for why the repair was not a guard on this line. Every
  * `row.items` reaching this reduce is an array by construction; every date in
  * it parses, because the caller refuses an unparseable one first.
+ *
+ * `through` is the last instant any bar covers, with each end read as the bar
+ * geometry reads it (`readGanttBarEnd`, objectui#11112): the instant before a
+ * bar's drawn end, or its start when it has no length. The axis runs on to the
+ * unit that contains it (`timelineAxis`), which on an `hour` axis is the last
+ * hour of a date-only end's day, where the printed `maxDate` alone stops at
+ * that day's first hour. The empty plan has no bars, so it has no `through`.
  */
-function calculateDateRange(rows: readonly GanttRow[]): { minDate: string; maxDate: string } {
+function calculateDateRange(rows: readonly GanttRow[]): {
+  minDate: string;
+  maxDate: string;
+  through?: number;
+} {
   const allDates = rows.flatMap((row) =>
     row.items.flatMap((item: any) => [item.startDate, item.endDate])
   );
@@ -371,9 +654,9 @@ function calculateDateRange(rows: readonly GanttRow[]): { minDate: string; maxDa
   // objectui#6750 — the empty list is an ordinary state, not an error. Guarding
   // it HERE rather than at the call site is what keeps the whole gantt branch
   // coherent: the caller's `schema.minDate || dateRange.minDate` still resolves,
-  // `generateTimeScaleHeaders` still gets a parseable min <= max and so still
-  // emits an axis, and `calculateBarDimensions` is simply never reached because
-  // there are no rows to draw bars for. See `emptyGanttDateRange` above.
+  // `timelineAxis` still gets a parseable min <= max and so still builds an
+  // axis, and `calculateBarDimensions` is simply never reached because there
+  // are no rows to draw bars for. See `emptyGanttDateRange` above.
   if (allDates.length === 0) return emptyGanttDateRange();
 
   // objectui#6759 — a list whose dates do not PARSE is a different input class
@@ -386,12 +669,32 @@ function calculateDateRange(rows: readonly GanttRow[]): { minDate: string; maxDa
   // sentinel substituted for a value the author got wrong is the consumer-side
   // tolerance both #6750 and #6759 rejected — see `findUnusableGanttDate`.
 
-  const minTimestamp = Math.min(...allDates.map((d: string) => new Date(d).getTime()));
-  const maxTimestamp = Math.max(...allDates.map((d: string) => new Date(d).getTime()));
+  // objectui#10866, slice 3 — each date is read by `readGanttDate`, the read
+  // the gate above already made, and each end is printed as the VIEWER's
+  // calendar day, from local getters (`toDateInputValue` of a `Date`), because
+  // the headers and the bar geometry read it back as local midnight of that
+  // day. `toISOString()`'s date part named the UTC day: of a date-only value
+  // read as local midnight, that is the day before east of UTC, and of an
+  // instant it can be a day the viewer's axis does not start on.
+  const minTimestamp = Math.min(...allDates.map((d) => readGanttDate(d).getTime()));
+  const maxTimestamp = Math.max(...allDates.map((d) => readGanttDate(d).getTime()));
+
+  // objectui#11112 — a bar is drawn to `readGanttBarEnd`, so the extent reads
+  // each end the same way. `end - 1` is the last millisecond of `[start, end)`.
+  const through = Math.max(
+    ...rows.flatMap((row) =>
+      row.items.map((item) => {
+        const start = readGanttDate(item.startDate).getTime();
+        const end = readGanttBarEnd(item.endDate).getTime();
+        return end > start ? end - 1 : start;
+      }),
+    ),
+  );
 
   return {
-    minDate: new Date(minTimestamp).toISOString().split('T')[0],
-    maxDate: new Date(maxTimestamp).toISOString().split('T')[0],
+    minDate: toDateInputValue(new Date(minTimestamp)),
+    maxDate: toDateInputValue(new Date(maxTimestamp)),
+    through,
   };
 }
 
@@ -401,9 +704,8 @@ function calculateDateRange(rows: readonly GanttRow[]): { minDate: string; maxDa
  *
  * ## What was wrong with `instanceof Date`
  *
- * It is this repo's idiom for the question (see
- * `packages/core/src/validation/validation-engine.ts` and
- * `components/src/renderers/complex/data-table.tsx`), and it answers a
+ * It is this repo's idiom for the question (see `toDay` in
+ * `components/src/renderers/form/calendar.tsx`), and it answers a
  * DIFFERENT question: "does this inherit from `Date.prototype`?". A `Date` is
  * a Date because it owns a `[[DateValue]]` internal slot; the prototype chain
  * is decoration, and the two come apart in both directions. Measured on this
@@ -419,7 +721,7 @@ function calculateDateRange(rows: readonly GanttRow[]): { minDate: string; maxDa
  * reached `Date.prototype[Symbol.toPrimitive]`, reached
  * `Date.prototype.toString` on a receiver with no slot, and took the render
  * down with it. That is a blank screen where a named diagnostic belongs, which
- * is the exact failure mode #6781 put the type gate here to remove and #6907
+ * is the exact failure mode #6781 put the type gate here to remove and `7fc5c3c12`
  * removed one function downstream.
  *
  * `instanceof` is not even total on its own terms: it walks
@@ -431,7 +733,7 @@ function calculateDateRange(rows: readonly GanttRow[]): { minDate: string; maxDa
  * - `Object.prototype.toString.call(value) === '[object Date]'` performs
  *   `Get(O, @@toStringTag)` UNCONDITIONALLY (ES2015 19.1.3.6 step 16), even
  *   once the builtin tag is decided. A `@@toStringTag` getter that throws is
- *   an authored value, and #6907 measured that exact input crashing the
+ *   an authored value, and `7fc5c3c12` measured that exact input crashing the
  *   speller. It trades an impostor crash for a getter crash.
  * - `Number.isFinite(value.getTime())` calls the AUTHOR'S `getTime`. A
  *   `class X extends Date` that overrides it is a REAL Date — `super()` gave
@@ -468,7 +770,7 @@ const isDate = (value: unknown): value is Date => {
 
 /**
  * How a gantt date value is SPELLED inside a diagnostic (objectui#6759,
- * ruled into a rule by objectui#6907).
+ * ruled into a rule by `7fc5c3c12`).
  *
  * ## THE RULE
  *
@@ -488,7 +790,7 @@ const isDate = (value: unknown): value is Date => {
  * ## Why the old `String` fallback had to go — three faults, all measured
  *
  * The fallback was written by #6759 when nothing but `[object Object]`-shaped
- * values could reach it. #6905 (the #6781 type rule) routes the whole
+ * values could reach it. `85f6a6097` (the #6781 type rule) routes the whole
  * non-date type space through it. Measured on this card's base b458300ca, one
  * row item and a throwaway probe (`startDate: '2024-01-01'`, `endDate` varied):
  *
@@ -515,7 +817,7 @@ const isDate = (value: unknown): value is Date => {
  *    no hint that the wrapper is the fault.
  * 3. It THROWS. The last three rows are live crashes on `main`, and they are
  *    the reason this is not a cosmetic card. #6759 declared this helper "total
- *    by construction" and #6905 made that property load-bearing by putting the
+ *    by construction" and `85f6a6097` made that property load-bearing by putting the
  *    type gate BEFORE `new Date`. But the gate only stopped `new Date` from
  *    throwing; `String(value)` still handed control to author code one line
  *    later, so the crash class did not go away — it moved from
@@ -557,7 +859,7 @@ const isDate = (value: unknown): value is Date => {
  * - `undefined` / `null` -> themselves (#6759 / #6770's pins; how an author
  *   reads a key they forgot to write versus one they wrote as empty).
  * - `symbol` -> `Symbol(desc)` via `Symbol.prototype.toString`, which no
- *   instance can override. `String(aSymbol)` THROWS; #6905's type-first
+ *   instance can override. `String(aSymbol)` THROWS; `85f6a6097`'s type-first
  *   ordering is what finally made this branch reachable.
  * - `bigint` -> the LITERAL, with its `n`. `String(0n)` is `"0"`, which is
  *   fault 2; `${value}n` is what the author typed and is unmistakable.
@@ -582,7 +884,7 @@ const isDate = (value: unknown): value is Date => {
  *   more informative spelling is the non-total one. `Array.isArray` reads no
  *   property and is STILL not total — on a revoked `Proxy` it throws. That is
  *   the one exclusion this docblock claims, and it is stated and exercised
- *   rather than repaired: see the objectui#7036 note below.
+ *   rather than repaired: see the `869b876c8` note below.
  *
  * All eight `typeof` results are covered and no branch falls through to author
  * code. The single reflective operation it performs is the Date test, which is
@@ -598,9 +900,9 @@ const isDate = (value: unknown): value is Date => {
  * operation adds no throw site because it HAS none — not because the gate
  * absorbed it first.
  *
- * ⚠️ objectui#7036 — READ THE TWO PARAGRAPHS ABOVE AS A SEQUENCE, NOT AS A
+ * ⚠️ `869b876c8` — READ THE TWO PARAGRAPHS ABOVE AS A SEQUENCE, NOT AS A
  * CONCLUSION. Each was written as the settled answer and the next card's
- * measurement moved it (#6759 -> #6905 -> #6907 -> #7027). This is the fifth
+ * measurement moved it (#6759 -> `85f6a6097` -> `7fc5c3c12` -> #7027). This is the fifth
  * entry and it is deliberately NOT a fifth claim of totality. The sentence it
  * falsifies is the one directly above the #7027 note: this function DOES add
  * a throw site the accept gate does not have, and it is `Array.isArray`.
@@ -914,7 +1216,7 @@ type UnusableGanttDate = { path: string; value: unknown };
  * `timeline-gantt-date-brand-7027.test.tsx`.
  *
  * ⛔ That is the fourth totality claim in this code path and the third to be
- * falsified by the next card's measurement (#6759 -> #6905 -> #6907 -> this).
+ * falsified by the next card's measurement (#6759 -> `85f6a6097` -> `7fc5c3c12` -> this).
  * The pattern is the lesson: totality asserted in prose is a hypothesis, and
  * the only thing that has ever settled it here is an exercised input set. Do
  * not answer a future gap with a fifth sentence — add the row to that file.
@@ -933,12 +1235,12 @@ const isGanttDateType = (value: unknown): value is string | number | Date =>
 
 /**
  * WHAT THE ROW WALK BELOW READS, AND WHERE THAT READING IS NOT TOTAL —
- * objectui#7153, the enumeration objectui#7036's docblock pointed at.
+ * objectui#7153, the enumeration `869b876c8`'s docblock pointed at.
  *
  * ## Read this as a BOUNDED READING, not as a totality claim
  *
  * Five cards before this one made a totality claim about this code path
- * (#6759 -> #6905 -> #6907 -> #7027 -> #7036) and FOUR were falsified by the
+ * (#6759 -> `85f6a6097` -> `7fc5c3c12` -> #7027 -> `869b876c8`) and FOUR were falsified by the
  * next card's measurement. #7153 is the fourth falsification: it measured that
  * `spellGanttDateValue`'s `Array.isArray` is not "the last non-total operation
  * on the gantt date path", only the last one inside that function.
@@ -967,7 +1269,7 @@ const isGanttDateType = (value: unknown): value is string | number | Date =>
  *                                           the item has a throwing date getter
  *
  * SIX here, and THREE more in `calculateDateRange` (see that function). NINE
- * measured, where #7153's card said five and #7036's docblock repeated it. The
+ * measured, where #7153's card said five and `869b876c8`'s docblock repeated it. The
  * count was never the point, but it is the evidence that prose counting on
  * this path is a hypothesis: both numbers were written after a real
  * measurement, and both were short.
@@ -1003,16 +1305,16 @@ const isGanttDateType = (value: unknown): value is string | number | Date =>
  *
  * 2. `calculateDateRange`'s THREE — ordinary JSON, and a live defect until
  *    objectui#7164 REPAIRED it: `classifyGanttRows` now refuses `items` that is
- *    not an array, a `null` row and a truthy non-array `row.items` through
+ *    not an array, a non-object row and a truthy non-array `row.items` through
  *    `timeline.gantt.unusableRange.malformedRow`, and every reader below it
  *    consumes that verdict. They were never this class and never p3, and the
  *    repair does not change that: the sentence "JSON cannot spell this" is
  *    true of the six and was false of the three, and collapsing the two is how
  *    this docblock would start overclaiming again.
  *
- * ## WHY A `catch` IS NOT PUT HERE — re-tested, not inherited from #7036
+ * ## WHY A `catch` IS NOT PUT HERE — re-tested, not inherited from `869b876c8`
  *
- * #7036 refused a `catch` at the speller because it would SUBSTITUTE `an
+ * `869b876c8` refused a `catch` at the speller because it would SUBSTITUTE `an
  * object` for a failure rather than read anything, the opposite of `isDate`'s
  * `catch` (which IS the read, because the language exposes `[[DateValue]]`
  * only by throwing). #7153's dispatch required that argument to be re-tested
@@ -1031,18 +1333,18 @@ const isGanttDateType = (value: unknown): value is string | number | Date =>
  * in the `{value}` hole of `timeline.gantt.unusableRange.malformedDate`. There
  * is no true spelling for a value that cannot be touched, so a real repair
  * needs a value-less diagnostic, which is a new i18n key across ten locale
- * packs: the file surface #7036 deferred as a separate decision.
+ * packs: the file surface the card behind `869b876c8` deferred as a separate decision.
  *
- * And the coverage is the same shape of error #7036's triage caught. That
+ * And the coverage is the same shape of error the triage of the card behind `869b876c8` caught. That
  * `catch` converted THREE of the nine measured sites (U5, U6, and the
  * throwing-getter item) and left the other six throwing — U1 through U4 are
  * upstream of it, and `calculateDateRange`'s three are downstream. The PASSING
  * control held either way: an ordinary row drew 1 bar over a 3-cell axis
  * before and after. One `catch` here would buy 3 of 9 while a docblock went on
- * implying the walk was safe, which is exactly the "1 of 6" trade #7036 was
- * stopped from making.
+ * implying the walk was safe, which is exactly the "1 of 6" trade the card behind
+ * `869b876c8` was stopped from making.
  *
- * ## So this is STATED AND EXERCISED, on #7036's terms
+ * ## So this is STATED AND EXERCISED, on `869b876c8`'s terms
  *
  * The rows are in `./__tests__/timeline-gantt-date-brand-7027.test.tsx`, pin
  * 5, asserting each throw's own MESSAGE so the pin fails if a site MOVES as
@@ -1064,14 +1366,18 @@ function findUnusableGanttDate(
    *    `new Date` would otherwise coerce into a silent 1970 axis.
    * 2. It is the right TYPE but does not parse — #6759's original question,
    *    still asked, and still the only thing that separates `'2024-01-01'` from
-   *    `'not-a-date'` or a valid `Date` from `new Date(NaN)`.
+   *    `'not-a-date'` or a valid `Date` from `new Date(NaN)`. It is asked of
+   *    `readGanttDate`, the read every later stop makes, so a day its month
+   *    does not have (`'2026-02-30'`) is refused here too (objectui#10866,
+   *    slice 3): the shared step refuses it, where the engine rolled it into
+   *    March and drew the bar there.
    *
    * The type gate must come first: `new Date` THROWS on a `bigint` or a
    * `symbol`, so asking "does it parse?" of an unjudged value crashes the guard
    * (measured — see `isGanttDateType`).
    */
   const isUnusable = (value: unknown) =>
-    !isGanttDateType(value) || Number.isNaN(new Date(value).getTime());
+    !isGanttDateType(value) || Number.isNaN(readGanttDate(value).getTime());
 
   for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
     // `rows` is the normalized array `classifyGanttRows` built, so this loop
@@ -1099,50 +1405,42 @@ function findUnusableGanttDate(
   return undefined;
 }
 
-// Helper function to calculate bar position and width based on dates
+/**
+ * A bar's position and width, as percentages of the gantt's one axis
+ * (`timelineAxis`), placed by `placeOnAxis`, the call that sizes the header
+ * columns above it (objectui#11079).
+ *
+ * Both ends are read by `readGanttDate` (objectui#10866, slice 3), the read
+ * the axis makes: a date-only day is local midnight of that day, so a bar
+ * starting on October 6th begins where the "Oct 6" header begins in every
+ * zone, and an instant keeps its instant, so it sits at its local hour in the
+ * viewer's day. Across a DST change the day's column is 23 or 25 hours wide,
+ * as the day is, so a bar's edge stays on its column's edge.
+ *
+ * The end then takes `readGanttBarEnd` (objectui#11112): a date-only end is
+ * drawn through the end of its day, so a bar ending on January 31st ends where
+ * the February header begins. An instant end is where the bar ends.
+ *
+ * ## objectui#6750's degenerate axis is gone, not guarded
+ *
+ * This used to measure bars on the span from the minimum date to the maximum
+ * date, which is zero wide whenever every task starts and ends on the same
+ * day, or an author pins `minDate === maxDate`. Both divisions were then
+ * `0 / 0`, the CSSOM rejected `left: NaN%; width: NaN%`, and the bar rendered
+ * with no `style` attribute at all (measured on b76ca6764), so a
+ * `totalDuration === 0` guard drew such a bar as `{ start: 0, width: 100 }`.
+ * The axis now always spans at least the one unit that contains its dates, so
+ * the span is never zero and that guard had nothing left to catch. A
+ * same-day task is measured like every other bar: its date-only end runs
+ * through that day, so it is one day wide (objectui#11112). A zero-length
+ * task, an instant end equal to its start, is a zero-width bar at its start.
+ */
 function calculateBarDimensions(
   startDate: string,
   endDate: string,
-  minDate: string,
-  maxDate: string
+  axis: TimelineAxis,
 ): { start: number; width: number } {
-  const start = new Date(startDate).getTime();
-  const end = new Date(endDate).getTime();
-  const min = new Date(minDate).getTime();
-  const max = new Date(maxDate).getTime();
-
-  const totalDuration = max - min;
-  const startOffset = start - min;
-  const duration = end - start;
-
-  /**
-   * objectui#6750 — the DEGENERATE axis, the third site of the same empty-list
-   * question and the one that fails silently instead of loudly.
-   *
-   * `totalDuration` is `0` whenever the axis has no width: every task starting
-   * and ending on the same day (a one-day plan, or a single same-day task), or
-   * an author pinning `minDate === maxDate`. Both divisions below then evaluate
-   * `0 / 0`, which is `NaN`, and the bar is handed `left: NaN%; width: NaN%`.
-   * That is not a crash and not a visible error — the CSSOM REJECTS both
-   * declarations, so React leaves the element with no `style` attribute at all
-   * and the bar renders unpositioned and zero-width. Measured on b76ca6764:
-   * a single `{ startDate: '2024-05-01', endDate: '2024-05-01' }` row produced
-   * `<div class="absolute h-8 rounded-md …">` carrying no `style`.
-   *
-   * On a zero-width axis every task covers the whole of it, by definition —
-   * there is no sub-interval for a bar to occupy. `{ start: 0, width: 100 }` is
-   * that answer written down, and it keeps the bar visible instead of
-   * collapsing it. Guarded on `totalDuration === 0` and nothing looser, so the
-   * normal path is arithmetically untouched.
-   */
-  if (totalDuration === 0) {
-    return { start: 0, width: 100 };
-  }
-
-  return {
-    start: (startOffset / totalDuration) * 100,
-    width: (duration / totalDuration) * 100,
-  };
+  return placeOnAxis(axis, readGanttDate(startDate).getTime(), readGanttBarEnd(endDate).getTime());
 }
 
 /**
@@ -1155,9 +1453,21 @@ function calculateBarDimensions(
  * nothing to do with the user — while `'long'` passed a literal `'en-US'`. A
  * required parameter is what keeps a future branch from quietly reintroducing
  * either. `'iso'` is a machine format by definition and stays locale-free.
+ *
+ * The value is read through the shared step, `toDisplayDate`
+ * (`@object-ui/core`, objectui#10866), as `ObjectTimeline`'s bucket and sort
+ * read it. The engine's own parse read a date-only `2026-10-06` as UTC
+ * midnight, so the `short` and `long` faces printed October 5th west of UTC.
+ * The shared step tells the two shapes apart by the value: a date-only string
+ * is local midnight of the day it names, and a value with a time part keeps
+ * its instant. So the ISO face prints a date-only value from LOCAL getters
+ * (its `toISOString()` would name the day before east of UTC), and keeps an
+ * instant's UTC day. A value the shared step refuses (unparsable, or a day
+ * its month does not have, objectui#10026) prints as written on the ISO face,
+ * where `toISOString()` would throw.
  */
 function formatDate(dateString: string, format: string | undefined, locale: string): string {
-  const date = new Date(dateString);
+  const date = toDisplayDate(dateString);
   if (format === 'short') {
     return date.toLocaleDateString(locale);
   }
@@ -1168,6 +1478,8 @@ function formatDate(dateString: string, format: string | undefined, locale: stri
       day: 'numeric',
     });
   }
+  if (Number.isNaN(date.getTime())) return String(dateString);
+  if (isRealCalendarDate(dateString)) return toDateInputValue(date);
   return date.toISOString().split('T')[0];
 }
 
@@ -1208,7 +1520,49 @@ function groupAdjacent<T extends { group?: string | null }>(items: T[]): Array<{
   return out;
 }
 
-export const TimelineRenderer = ({ schema, className, ...props }: { schema: TimelineSchema; className?: string; [key: string]: any }) => {
+/**
+ * `schema` is the renderer-internal handoff shape (`./renderHandoff`), not the
+ * authored `TimelineSchema`: every authored timeline is one, and so is the
+ * composed schema `ObjectTimeline` hands down, whose feed items carry the keys
+ * objectui#6356 ruled renderer-internal (`color`, `group`, `meta`,
+ * `startDate`, `endDate`, `_data`).
+ *
+ * ## The root's DOM channels (objectui#10841)
+ *
+ * Registered as `plugin-timeline:timeline`, this renderer is created by
+ * `SchemaRenderer`, which hands it, as React props, every node key its
+ * metadata strip leaves (`items`, `variant`, `dateFormat`, `scale`,
+ * `rowLabel`, `minDate`, `maxDate`, and so on) beside the attributes it mints
+ * for the DOM. The renderer reads the authored keys off `schema`, never off its
+ * props. Spread onto the root of every variant, that props copy serialized the
+ * schema into the DOM (`items="[object Object]"`, `variant="vertical"`,
+ * `dateformat="long"`) and set off React's unknown-prop warnings.
+ *
+ * The root now takes the converged route, the `container.tsx` /
+ * `header-bar.tsx` shape: `toDomProps(hostProps)` plus `style` by name.
+ * `toDomProps` executes the SDUI widget contract's DOM pass-through from
+ * `@object-ui/core` (`utils/dom-props.ts`, objectui#4425 phase 2), and that file
+ * owns the set and the reason for each member. It is what carries the
+ * `data-obj-id` / `data-obj-type` locator, the `data-testid` an authored
+ * `testId` promises (objectui#8268) and the resolved `aria-*` / `role`.
+ * `style` is the `BaseSchema` member an author writes for the DOM, forwarded
+ * by name as the converged renderers do. ⛔ No local list: a renderer-private
+ * allowlist is a second judge of the same contract, and it drifts from it.
+ *
+ * What the contract drops that used to land here:
+ *
+ * - every authored schema key;
+ * - `disabled`, the verdict `SchemaRenderer` forwards on a disabled node (the
+ *   rail has no disabled state to apply it to);
+ * - `name` / `label`, declared `BaseSchema` members with no effect on an
+ *   `ol` / `div`;
+ * - an authored `title`, which neither `BaseSchema` nor `TimelineSchema`
+ *   declares. It is a global HTML attribute, so it used to give the root a
+ *   native tooltip.
+ *
+ * `ObjectTimeline`, the other caller, passes `schema` alone.
+ */
+export const TimelineRenderer = ({ schema, className, style, ...hostProps }: { schema: TimelineRenderSchema; className?: string; [key: string]: any }) => {
     const {
       variant = 'vertical',
       items = [],
@@ -1220,8 +1574,8 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
     // tenant regional default → active UI language → 'en' (#4513, the channel
     // #4468 / PR #4512 converged `@object-ui/fields` onto). Read once here,
     // above every variant's early return so the hook count can never depend on
-    // `variant`, and threaded down — `formatDate` and `generateTimeScaleHeaders`
-    // are module-level functions and cannot host a hook themselves.
+    // `variant`, and threaded down — `formatDate` and `timelineAxis` are
+    // module-level functions and cannot host a hook themselves.
     const displayLocale = useDisplayLocale();
 
     // The package's translate channel, read on the same terms and for the same
@@ -1310,14 +1664,14 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
 
       if (!hasGroups) {
         return (
-          <Timeline className={className} {...props}>
+          <Timeline {...toDomProps(hostProps)} className={className} style={style}>
             {(items as Array<any>).map((item, index) => renderItem(item, index))}
           </Timeline>
         );
       }
 
       return (
-        <div className={cn('px-4 sm:px-6 py-2', className)} {...props}>
+        <div {...toDomProps(hostProps)} className={cn('px-4 sm:px-6 py-2', className)} style={style}>
           {groups.map((g, gi) => (
             <section key={`${g.key}-${gi}`} className="mb-4">
               <header className="sticky top-0 z-10 -mx-4 sm:-mx-6 px-4 sm:px-6 py-1.5 backdrop-blur bg-background/90 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-b">
@@ -1338,7 +1692,7 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
     // Horizontal Timeline
     if (variant === 'horizontal') {
       return (
-        <TimelineHorizontal className={cn("overflow-x-auto [-webkit-overflow-scrolling:touch]", className)} {...props}>
+        <TimelineHorizontal {...toDomProps(hostProps)} className={cn("overflow-x-auto [-webkit-overflow-scrolling:touch]", className)} style={style}>
           {items.map((item: any, index: number) => (
             <TimelineHorizontalItem key={index} className={cn(item.className, onItemClick && 'cursor-pointer')} onClick={() => onItemClick?.(item)}>
               <div className="flex flex-col items-center">
@@ -1375,10 +1729,11 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
     if (variant === 'gantt') {
       /**
        * objectui#7164 — the rows are judged as ROWS, once, before anything
-       * reads them. `items` not an array, a `null` row, or a row whose `items`
-       * is a truthy non-array refuses the chart through its own key, naming the
-       * authored path and the value; see `classifyGanttRows` for the table,
-       * the accept set and why a guard in one reader only relocated the crash.
+       * reads them. `items` not an array, a non-object row (objectui#7364), or
+       * a row whose `items` is a truthy non-array refuses the chart through its
+       * own key, naming the authored path and the value; see
+       * `classifyGanttRows` for the table, the accept set and why a guard in
+       * one reader only relocated the crash.
        * The refusal surface is the one #6759 established below (same element,
        * same channel) — one `role="alert"` for every way a gantt cannot draw.
        */
@@ -1417,18 +1772,15 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
        *
        * Placed after `classifyGanttRows` (objectui#7164: a row has to BE a row
        * before its dates can be asked to parse, and `rows` is the only shape
-       * this scan reads), before `calculateDateRange` and before
-       * `generateTimeScaleHeaders`, and it establishes an invariant for both:
-       * every date reaching them parses, and the resolved range is not
-       * inverted. That matters most for `generateTimeScaleHeaders`, whose own
-       * guard already refuses an unparseable or inverted range by returning NO
-       * headers — the zero-column axis case 2 rendered under. That guard is
-       * pinned by objectui#6750 as "a different input class, left exactly as it
-       * was", and it stays untouched: it is now simply unreachable from this
-       * branch, rather than being widened or relaxed. Downstream,
-       * `calculateBarDimensions` can no longer see a `NaN` or negative
-       * `totalDuration` at all, so #6750's `totalDuration === 0` guard keeps
-       * covering exactly the degenerate case it was written for.
+       * this scan reads), before `calculateDateRange` and before the axis
+       * (`timelineAxis`), and it establishes an invariant for both: every date
+       * reaching them parses. The axis refuses an unparseable or inverted range
+       * by building NO axis — the zero-column axis case 2 rendered under — and
+       * that refusal is pinned by objectui#6750 as "a different input class,
+       * left exactly as it was". After this scan only an inverted range can
+       * reach it, and the branch refuses that one by name below. Downstream,
+       * `calculateBarDimensions` therefore only ever measures on a real axis,
+       * which spans at least one whole unit (objectui#11079).
        *
        * ## What this deliberately does NOT do
        *
@@ -1456,6 +1808,21 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
       const minDate = schema.minDate || dateRange.minDate;
       const maxDate = schema.maxDate || dateRange.maxDate;
 
+      // The one axis the header row and the bars are both drawn on
+      // (objectui#11079). The spec `scale` key is the only axis spelling (the
+      // `timeScale` alias is retired, objectui#6355); every spec scale
+      // produces a header row (#2942). A computed end runs on to the last
+      // instant the bars cover; a pinned `maxDate` is the author's range
+      // exactly (objectui#11112, `timelineAxis`).
+      const axis = timelineAxis(
+        resolveTimelineScale(schema as { scale?: unknown }),
+        minDate,
+        maxDate,
+        displayLocale,
+        t,
+        schema.maxDate ? undefined : dateRange.through,
+      );
+
       /**
        * objectui#6759 case 2 — the INVERTED range, refused on the same policy.
        *
@@ -1465,16 +1832,24 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
        * `schema.minDate || dateRange.minDate` resolution — one pinned end, or
        * both — that can put the start after the end.
        *
-       * The comparison is `>` on timestamps, deliberately the same test
-       * `generateTimeScaleHeaders` makes (`start > end` on two `Date`s, which
-       * compares by `valueOf`). Equal is NOT inverted: a degenerate
-       * `minDate === maxDate` range is objectui#6750's one-bucket axis and must
-       * keep rendering. Measured on this card's base b98352a15:
+       * The test is the axis's own: `timelineAxis` builds no axis when the
+       * start is after the end, compared as timestamps. It used to be a second
+       * `>` here that deliberately made the same comparison; now it is the same
+       * read, so the guard and the axis cannot disagree (objectui#11079). Equal
+       * is NOT inverted: a degenerate `minDate === maxDate` range is
+       * objectui#6750's one-bucket axis and must keep rendering. An unparseable
+       * end also builds no axis, but `findUnusableGanttDate` above has already
+       * refused every one by name, so what reaches this refusal is inverted.
+       * Measured on this card's base b98352a15:
        *
        *     CASE-2 minDate 2030-01-01 / maxDate 2026-03-15
        *            -> axis: [] bars: ["left: 157.9250720461095%; width: -4.322766570605188%;"]
+       *
+       * Both ends are read by `readGanttDate` (objectui#10866, slice 3): a
+       * pinned date-only start and a pinned instant end can be in order east
+       * of UTC and inverted west of it, and the one read decides which.
        */
-      if (new Date(minDate).getTime() > new Date(maxDate).getTime()) {
+      if (!axis) {
         return (
           <div className="p-4 text-destructive" data-testid="timeline-unusable-date-range" role="alert">
             {t('timeline.gantt.unusableRange.inverted', {
@@ -1485,19 +1860,8 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
         );
       }
 
-      // Generate time scale headers — the spec `scale` key is the only axis
-      // spelling (the `timeScale` alias is retired, objectui#6355); every spec
-      // scale produces a header row (#2942).
-      const timeHeaders = generateTimeScaleHeaders(
-        resolveTimelineScale(schema as { scale?: unknown }),
-        minDate,
-        maxDate,
-        displayLocale,
-        t,
-      );
-
       return (
-        <TimelineGantt className={cn("overflow-x-auto [-webkit-overflow-scrolling:touch]", className)} {...props}>
+        <TimelineGantt {...toDomProps(hostProps)} className={cn("overflow-x-auto [-webkit-overflow-scrolling:touch]", className)} style={style}>
           {/* Header */}
           <TimelineGanttHeader>
             <TimelineGanttRowLabels className="flex items-center px-2 sm:px-4 py-2 sm:py-3">
@@ -1507,12 +1871,19 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
             </TimelineGanttRowLabels>
             <TimelineGanttGrid>
               <div className="flex h-full">
-                {timeHeaders.map((header, index) => (
+                {/* Each column is as wide as its unit's real length on the
+                    axis, placed by the call that places the bars
+                    (objectui#11079). A computed width cannot be a static
+                    utility, so it is inline, as `TimelineGanttBar`'s
+                    `left` / `width` are; `shrink-0 min-w-0 overflow-hidden`
+                    keep a long label from widening its column off the bars. */}
+                {axis.units.map((unit, index) => (
                   <div
                     key={index}
-                    className="flex-1 px-1 sm:px-2 py-2 sm:py-3 border-r text-xs font-medium text-center"
+                    className="shrink-0 min-w-0 overflow-hidden px-1 sm:px-2 py-2 sm:py-3 border-r text-xs font-medium text-center"
+                    style={{ width: `${placeOnAxis(axis, unit.start, unit.end).width}%` }}
                   >
-                    {header}
+                    {unit.label}
                   </div>
                 ))}
               </div>
@@ -1535,12 +1906,7 @@ export const TimelineRenderer = ({ schema, className, ...props }: { schema: Time
                 {rows.map((row, rowIndex) => (
                   <TimelineGanttRow key={rowIndex} className="relative">
                     {row.items.map((item: any, itemIndex: number) => {
-                      const dimensions = calculateBarDimensions(
-                        item.startDate,
-                        item.endDate,
-                        minDate,
-                        maxDate
-                      );
+                      const dimensions = calculateBarDimensions(item.startDate, item.endDate, axis);
 
                       return (
                         <TimelineGanttBar

@@ -31,6 +31,14 @@
  * With no permission provider mounted the grid behaves exactly as it did
  * before: every cell editable. That posture is objectui#10161's, kept on
  * purpose (see `fieldWriteGate.ts`), and this card does not move it.
+ *
+ * ## The same grid inside `MasterDetailForm`
+ *
+ * `MasterDetailForm` renders its child collections through the same
+ * `LineItemsField`, so it carried the same gap. The second `describe` below
+ * mounts the master-detail form with the same principal, the same child
+ * columns and the same rows, and holds its grid to the answers the panel
+ * gives: refused ⇒ locked, unreadable ⇒ omitted, no provider ⇒ unchanged.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
@@ -40,6 +48,7 @@ import { MePermissionsProvider } from '@object-ui/permissions';
 import { registerAllFields } from '@object-ui/fields';
 import { SchemaRendererProvider } from '@object-ui/react';
 import { LineItemsPanel } from './LineItemsPanel';
+import { MasterDetailForm } from './MasterDetailForm';
 
 registerAllFields();
 afterEach(cleanup);
@@ -184,5 +193,88 @@ describe('LineItemsPanel — a cell the caller may read but not edit is not offe
     await waitFor(() => expect(screen.getByTestId('line-items-readonly')).toBeTruthy());
     expect(screen.queryByTestId('line-items-add')).toBeNull();
     expect(screen.queryAllByRole('button', { name: 'Remove row' })).toHaveLength(0);
+  });
+});
+
+/** The master-detail form's parent: one header field, no field-level rule. */
+const PARENT = 'kpi_entry_sheet';
+
+/** {@link REPORTER} with an object-level grant on the parent too, so the header renders as usual. */
+const MD_REPORTER: any = {
+  ...REPORTER,
+  objects: {
+    ...REPORTER.objects,
+    [PARENT]: { allowCreate: true, allowRead: true, allowEdit: true, allowDelete: true },
+  },
+};
+
+/** The same principal with no field-level restriction anywhere. */
+const MD_UNRESTRICTED: any = { ...MD_REPORTER, fields: {} };
+
+function makeMasterDetailDataSource() {
+  return {
+    getObjectSchema: vi.fn(async (obj: string) =>
+      obj === PARENT ? { name: PARENT, fields: { sheet_title: { type: 'text', label: 'Sheet title' } } } : null,
+    ),
+    findOne: vi.fn().mockResolvedValue({ id: 'SHEET1', sheet_title: 'Q3' }),
+    find: vi.fn().mockResolvedValue({ data: ROWS }),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  } as any;
+}
+
+/** Edit mode, so the child grid loads the same two rows the panel above lists. */
+function mountMasterDetail(perms: any | null) {
+  const form = (
+    <MasterDetailForm
+      schema={{
+        objectName: PARENT,
+        mode: 'edit',
+        recordId: 'SHEET1',
+        fields: ['sheet_title'],
+        details: [{ childObject: CHILD, relationshipField: 'sheet', columns: SCHEMA.columns }],
+      }}
+      dataSource={makeMasterDetailDataSource()}
+    />
+  );
+  return render(
+    perms ? <MePermissionsProvider initialPermissions={perms}>{form}</MePermissionsProvider> : form,
+  );
+}
+
+describe('MasterDetailForm — its child grid does not offer a cell the caller may read but not edit (objectui#10163)', () => {
+  it('renders the FLS-refused child column non-editable while the permitted columns in the same grid stay editable', async () => {
+    mountMasterDetail(MD_REPORTER);
+    const actual = await cells('Actual');
+    const indicator = await cells('Indicator');
+    const score = await cells('Score');
+
+    // The lit control: same grid, same rows, same principal — still editable.
+    for (const el of [...actual, ...indicator]) expect(el.disabled).toBe(false);
+    // Readable, so the column is still SHOWN, with its values …
+    expect(score.map((el) => el.value).slice(0, ROWS.length)).toEqual(['0', '0']);
+    // … but never offered as an edit, on a loaded row or on a new one.
+    for (const el of score) expect(el.disabled).toBe(true);
+  });
+
+  it('omits a child column the caller may not read, exactly as LineItemsPanel does', async () => {
+    mountMasterDetail(MD_REPORTER);
+    await cells('Actual');
+    expect(screen.queryAllByLabelText('Reviewer note')).toHaveLength(0);
+  });
+
+  it('CONTROL — an unrestricted caller gets every child column, every cell editable', async () => {
+    mountMasterDetail(MD_UNRESTRICTED);
+    for (const label of ['Indicator', 'Actual', 'Score', 'Reviewer note']) {
+      for (const el of await cells(label)) expect(el.disabled).toBe(false);
+    }
+  });
+
+  it('CONTROL — with no permission provider the child grid is exactly as before: fail-open, nothing withheld', async () => {
+    mountMasterDetail(null);
+    for (const label of ['Indicator', 'Actual', 'Score', 'Reviewer note']) {
+      for (const el of await cells(label)) expect(el.disabled).toBe(false);
+    }
   });
 });

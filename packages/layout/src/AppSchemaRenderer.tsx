@@ -35,7 +35,7 @@ import {
   SidebarGroupContent,
   SidebarInput,
 } from '@object-ui/components';
-import type { AppComponentSchema, NavigationItem, NavigationArea } from '@object-ui/types';
+import type { AppComponentSchema, NavigationItem, NavigationEntryItem, NavigationArea } from '@object-ui/types';
 import { menuItemToNavigationItem } from '@object-ui/types';
 // Aliased on import, following PR #4169's convention: this repo has its OWN
 // `resolveI18nLabel` over a DIFFERENT vocabulary, and neither accepts the
@@ -267,8 +267,10 @@ function MobileBottomNav({
   // Show up to 5 non-group leaf items. Flatten group children so apps that
   // organise navigation into groups (e.g. Setup → Overview / Administration /
   // …) still surface real links in the mobile bottom nav.
-  const collectLeaves = (list: typeof items): typeof items => {
-    const out: typeof items = [];
+  // Separators are skipped, so what comes back is entries only — each carries
+  // the `label` the bottom nav draws (objectui#10867).
+  const collectLeaves = (list: NavigationItem[]): NavigationEntryItem[] => {
+    const out: NavigationEntryItem[] = [];
     for (const item of list) {
       if (item.type === 'separator') continue;
       if (item.type === 'group') {
@@ -381,7 +383,12 @@ function InternalSidebar({
   enableReorder?: boolean;
   onReorder?: (reorderedItems: NavigationItem[]) => void;
 }) {
-  const Icon = resolveIcon(schema.logo);
+  // The app logo is `branding.logo`, an image URL (objectui#10827) — the one
+  // spelling `@objectstack/spec` declares. An icon NAME comes from `icon`, the
+  // key every other app surface reads; the retired top-level `logo` carried
+  // both and is read by nothing.
+  const logo = schema.branding?.logo;
+  const Icon = resolveIcon(schema.icon);
   const [searchQuery, setSearchQuery] = useState('');
 
   return (
@@ -393,9 +400,9 @@ function InternalSidebar({
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" tooltip={schema.title ?? schema.name}>
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  {schema.logo && schema.logo.startsWith('http') ? (
+                  {logo ? (
                     <img
-                      src={schema.logo}
+                      src={logo}
                       alt={schema.title ?? ''}
                       className="size-6 object-contain"
                     />
@@ -473,7 +480,7 @@ function InternalSidebar({
  * Renders a complete application shell from an `AppSchema` JSON document.
  *
  * Responsibilities:
- * - Reads `name`, `title`, `description`, `logo`, `favicon` for branding
+ * - Reads `name`, `title`, `description`, `icon`, `branding.logo`, `branding.favicon` for branding
  * - Renders sidebar navigation from `navigation` or `areas[].navigation`
  * - Area switcher when multiple areas are VISIBLE — area visibility is
  *   derived from the items inside, not authored (objectui#3311): an area
@@ -575,9 +582,11 @@ export function AppSchemaRenderer({
   const resolvedNavigation: NavigationItem[] = activeArea?.navigation ?? flatNavigation;
 
   // --- Branding ---
+  // The favicon is `branding.favicon` (objectui#10842), the one spelling
+  // `@objectstack/spec` declares and the one the console already reads.
   const branding: AppShellBranding = {
     title: schema.title,
-    favicon: schema.favicon,
+    favicon: schema.branding?.favicon,
   };
 
   // --- Build sidebar element ---

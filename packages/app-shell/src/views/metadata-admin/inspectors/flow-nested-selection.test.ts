@@ -151,6 +151,7 @@ describe('flow-nested-selection — locateFlowNode + write-back', () => {
     expect(loc.nested).toBe(true);
     expect(loc.scopeAnchorId).toBe('each'); // container, not the nested node
     expect(loc.container?.id).toBe('each');
+    expect(loc.regionKey).toBe('body'); // carried for the render site's translation (objectui#10696)
     expect(loc.regionLabel).toBe('Body');
     expect(loc.node.id).toBe('charge');
   });
@@ -173,6 +174,7 @@ describe('flow-nested-selection — locateFlowNode + write-back', () => {
     const d = draft();
     const id = encodeNestedNodeId({ containerId: 'fan', regionKey: 'branch-1', nodeId: 'c' });
     const loc = locateFlowNode(d, { kind: NESTED_NODE_KIND, id })!;
+    expect(loc.regionKey).toBe('branch-1');
     expect(loc.regionLabel).toBe('Branch 2');
     const patch = loc.write({ ...loc.node, label: 'Notify CRM' })!;
     const nodes = patch.nodes as Array<Record<string, unknown>>;

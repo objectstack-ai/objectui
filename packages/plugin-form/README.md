@@ -183,7 +183,7 @@ unknown-component placeholder.
 | `columns` | `number` | grid width (1–4) |
 | `validationMode` | `'onSubmit' \| 'onBlur' \| 'onChange' \| 'onTouched' \| 'all'` | when the rules run |
 | `resetOnSubmit` / `disabled` | `boolean` | |
-| `mode` | `'edit' \| 'read' \| 'disabled'` | whole-form mode |
+| `mode` | — | **retired** (objectui#10286): nothing read it, and validation now refuses it. Use `disabled` for a read-only basic form, or `object-form` for create / edit / view |
 | `objectName` | `string` | enables metadata field locators `data-testid="field:{objectName}.{field}"` (ADR-0054 C4) |
 | `previousValues` | `Record<string, any>` | edit-mode hosts only — the persisted record, as evaluation context for `previous` / `readonlyWhen`. Never sent anywhere |
 | `fieldContainerClass` | `string` | class for the field grid inside the `<form>` |
@@ -221,7 +221,7 @@ only **required** one:
 | `hidden` | `boolean` | field is not rendered at all |
 | `options` | `SelectOption[] \| RadioOption[]` | for `select` / radio fields |
 | `validation` | `FieldValidationRules` | **an object keyed by rule name** — see below |
-| `condition` | `FieldCondition` | legacy `{ field, equals, notEquals, in, custom }` matcher |
+| `condition` | `FieldCondition` | legacy `{ field, equals, notEquals, in }` matcher (`custom` is retired, objectui#7759: nothing ran it) |
 | `visibleWhen` / `readonlyWhen` / `requiredWhen` | `string \| { dialect?, source }` | CEL predicates over the live record, evaluated by `@objectstack/formula` — the same engine and dialect the server uses. Fail open |
 | `visibleOn` | `string \| { dialect?, source }` | view-level visibility predicate (spec `FormField.visibleOn`) |
 | `dependsOn` | `DependsOnInput` | cascading parent(s): a bare name, a list of names, or `{ field, param }` entries |
@@ -869,6 +869,77 @@ returning, which reported a save that never happened and, through
 (objectui#6300). A declared `submitHandler` is consulted first, so a host that
 said it owns the write is never bypassed for want of an adapter it never needed.
 
+## What an edit save writes
+
+An `object-form` in `mode: 'edit'` with a `recordId` reads the record with
+`dataSource.findOne`, and its save writes **only the fields that differ from
+that read** (objectui#10156). Every layout does this: the simple form and the
+`tabbed`, `wizard`, `split`, `modal` and `drawer` variants (objectui#10563). So
+does a simple form whose mobile `stepper` option shows it one step at a time
+through the wizard, and the parent operation of a master-detail form, whose
+header is a simple or a `tabbed` form. A master-detail child row already worked
+this way (objectui#10108), and all of them use the same comparison.
+
+Before that comparison, every layout strips what a form never writes: the
+server-owned columns (record identity, audit provenance, ownership and tenancy
+— the roster in `sanitize.ts`, plus any field the object marks `system`),
+computed, formula and read-only columns, keys the object does not declare, and
+every field the caller's field-level security refuses. A create is stripped the
+same way. Every layout also renders a field the caller may read but not edit as
+a disabled input, so nothing is typed into a field the save would leave out.
+Every layout likewise disables every field of a managed object (ADR-0092 D4)
+whose `userActions` do not open the form's mode, `create` on a create form and
+`edit` on an edit form, and of any object whose `create` or `update` the
+server's effective API operations deny (objectui#10612). While that lock holds,
+every layout shows one notice above the fields that names the object, by its
+translated label, and the missing permission (`form.noPermissionToCreate` or
+`form.noPermissionToEdit`, objectui#11000); a field locked on its own shows none.
+The submit button of the simple, `tabbed`, `split`, `modal` and `drawer` layouts
+stays on screen and the lock does not disable it; the server's write guard is
+what refuses the save.
+A `wizard` disables Next and its final submit button, and its step indicator does
+not jump forward, while Cancel and Back stay usable.
+
+The comparison sends every field it cannot prove unchanged, because a field
+wrongly judged unchanged would lose the user's edit while the server still
+answers 200:
+
+- `null` and `undefined` count as the same value. `''` is not a blank here, so
+  `null` and `''` are different.
+- A number and a numeric string are different (`5` and `'5'`).
+- A lookup id and the expanded lookup object are different.
+- A `Date` and a date string are different. So are two date strings written in
+  different formats.
+- Objects and arrays are equal only when they serialize identically.
+  Reordering their keys or elements makes them different.
+
+A field the form changed by itself after the read is a change, so it is sent.
+That covers a cascade clear or a value cleared when its field was hidden.
+
+Some saves still send the full payload:
+
+- **A save with nothing changed.** It sends every field, as it always has.
+  That keeps it a real request, with the same concurrency guard and a real
+  server record for `onSuccess`.
+- **A form with no record read of its own.** This includes a create, a record
+  given as `initialData` or through inline `customFields`, and a save made
+  while a new record is still loading. Each of these sends every field.
+
+After a successful save, the form treats the fields it just wrote as saved. A
+form that stays open therefore compares its next save with the record as it
+stands now, not as it was first read.
+
+The concurrency guard is unchanged by this rule. The update carries
+`ifMatch` = the `updated_at` the form read. Once a form that stays open has
+saved the record, its next save carries the `updated_at` that save returned
+instead, so the form is not refused over its own earlier save. A `409` still
+offers **Keep editing** or **Overwrite**. **Overwrite** now resends only the
+changed fields, so it no longer rewrites fields this user never touched.
+
+⚠️ A host `submitHandler` gets the same payload in edit mode. Normally that is
+the changed fields; after a save with nothing changed, it is the full payload.
+A host that needs the whole record must read it itself.
+
 ## Integration with Data Sources
 
 **The adapter is not a schema key.** A schema is a serialisable document; a live
@@ -914,8 +985,8 @@ export const App = () => (
 
 The object comes from `objectName`; there is no `resource` key. For `mode: 'edit'`
 or `'view'`, add the `recordId` of the record being opened. Note that this
-`mode` vocabulary is `'create' | 'edit' | 'view'` — the basic form's `mode` is a
-different key with a different vocabulary (`'edit' | 'read' | 'disabled'`, see
+`mode` vocabulary is `'create' | 'edit' | 'view'` and it lives on `object-form`
+only — the basic `form` node has no `mode` (retired by objectui#10286, see
 [Schema API](#schema-api)).
 
 ### The TypeScript route — basic `form`

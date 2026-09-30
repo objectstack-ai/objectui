@@ -43,7 +43,7 @@ import {
 import { usePermissions } from '@object-ui/permissions';
 import type { MetadataDefaultInspectorProps } from '../default-inspector-registry.js';
 import { SchemaForm } from '../SchemaForm.js';
-import { t } from '../i18n.js';
+import { t, tFormat, type SupportedLocale } from '../i18n.js';
 import {
   InspectorShell,
   InspectorTextField,
@@ -62,37 +62,60 @@ import { IconPickerWidget } from '../widgets.js';
 
 /* ─────────────── constants ─────────────── */
 
-const ACTION_TYPES = [
-  { value: 'script', label: 'Script — run an expression / sandboxed JS' },
-  { value: 'api', label: 'API — call an endpoint' },
-  { value: 'flow', label: 'Flow — invoke a flow' },
-  { value: 'modal', label: 'Modal — open a modal/page' },
-  { value: 'form', label: 'Form — open a FormView' },
-  { value: 'url', label: 'URL — navigate to a link' },
+/**
+ * An option whose label is a catalogue key, resolved in the designer locale at
+ * render (objectui#10586). The stored `value` never moves.
+ */
+type KeyedOption = { value: string; labelKey: string };
+
+function localizeOptions(options: ReadonlyArray<KeyedOption>, locale: SupportedLocale): Array<{ value: string; label: string }> {
+  return options.map((o) => ({ value: o.value, label: t(o.labelKey, locale) }));
+}
+
+/**
+ * Render a catalogue sentence whose `{token}` slots are React nodes (a code
+ * span, a capability list) — the split-and-interleave `ResourceEditPage`
+ * already uses for `engine.edit.readOnlyBanner`. Where a slot sits, and the
+ * words around it, belong to the locale rather than to this JSX.
+ */
+function withSlots(template: string, slots: Record<string, React.ReactNode>): React.ReactNode {
+  return template.split(/\{(\w+)\}/).map((part, i) =>
+    i % 2 === 1 ? <React.Fragment key={i}>{part in slots ? slots[part] : `{${part}}`}</React.Fragment> : part,
+  );
+}
+
+const ACTION_TYPES: KeyedOption[] = [
+  { value: 'script', labelKey: 'engine.inspector.action.type.script' },
+  { value: 'api', labelKey: 'engine.inspector.action.type.api' },
+  { value: 'flow', labelKey: 'engine.inspector.action.type.flow' },
+  { value: 'modal', labelKey: 'engine.inspector.action.type.modal' },
+  { value: 'form', labelKey: 'engine.inspector.action.type.form' },
+  { value: 'url', labelKey: 'engine.inspector.action.type.url' },
 ];
 
-const VARIANT_OPTS = [
-  { value: 'primary', label: 'Primary' },
-  { value: 'secondary', label: 'Secondary' },
-  { value: 'danger', label: 'Danger' },
-  { value: 'ghost', label: 'Ghost' },
-  { value: 'link', label: 'Link' },
+const VARIANT_OPTS: KeyedOption[] = [
+  { value: 'primary', labelKey: 'engine.inspector.action.variant.primary' },
+  { value: 'secondary', labelKey: 'engine.inspector.action.variant.secondary' },
+  { value: 'danger', labelKey: 'engine.inspector.action.variant.danger' },
+  { value: 'ghost', labelKey: 'engine.inspector.action.variant.ghost' },
+  { value: 'link', labelKey: 'engine.inspector.action.variant.link' },
 ];
 
-const COMPONENT_OPTS = [
-  { value: 'action:button', label: 'Button' },
-  { value: 'action:icon', label: 'Icon only' },
-  { value: 'action:menu', label: 'Menu item' },
-  { value: 'action:group', label: 'Button group' },
+const COMPONENT_OPTS: KeyedOption[] = [
+  { value: 'action:button', labelKey: 'engine.inspector.action.component.button' },
+  { value: 'action:icon', labelKey: 'engine.inspector.action.component.icon' },
+  { value: 'action:menu', labelKey: 'engine.inspector.action.component.menu' },
+  { value: 'action:group', labelKey: 'engine.inspector.action.component.group' },
 ];
 
-const MODE_OPTS = [
-  { value: 'create', label: 'Create' },
-  { value: 'edit', label: 'Edit' },
-  { value: 'delete', label: 'Delete' },
-  { value: 'custom', label: 'Custom' },
+const MODE_OPTS: KeyedOption[] = [
+  { value: 'create', labelKey: 'engine.inspector.action.mode.create' },
+  { value: 'edit', labelKey: 'engine.inspector.action.mode.edit' },
+  { value: 'delete', labelKey: 'engine.inspector.action.mode.delete' },
+  { value: 'custom', labelKey: 'engine.inspector.action.mode.custom' },
 ];
 
+// HTTP methods are protocol tokens, the same in every locale: plain labels.
 const METHOD_OPTS = [
   { value: 'POST', label: 'POST' },
   { value: 'PATCH', label: 'PATCH' },
@@ -100,9 +123,9 @@ const METHOD_OPTS = [
   { value: 'DELETE', label: 'DELETE' },
 ];
 
-const BODY_LANG_OPTS = [
-  { value: 'expression', label: 'Expression (L1)' },
-  { value: 'js', label: 'Sandboxed JS (L2)' },
+const BODY_LANG_OPTS: KeyedOption[] = [
+  { value: 'expression', labelKey: 'engine.inspector.action.bodyLang.expression' },
+  { value: 'js', labelKey: 'engine.inspector.action.bodyLang.js' },
 ];
 
 /*
@@ -122,15 +145,15 @@ const BODY_LANG_OPTS = [
  */
 // eslint-disable-next-line react-refresh/only-export-components -- see above
 export const PARAM_TYPE_OPTS = [
-  { value: 'text', label: 'Text' },
-  { value: 'textarea', label: 'Long text' },
-  { value: 'number', label: 'Number' },
-  { value: 'boolean', label: 'Checkbox' },
-  { value: 'select', label: 'Select' },
-  { value: 'date', label: 'Date' },
-  { value: 'datetime', label: 'Date/time' },
-  { value: 'lookup', label: 'Lookup' },
-] satisfies { value: ResolvableParamFieldType; label: string }[];
+  { value: 'text', labelKey: 'engine.inspector.action.paramType.text' },
+  { value: 'textarea', labelKey: 'engine.inspector.action.paramType.textarea' },
+  { value: 'number', labelKey: 'engine.inspector.action.paramType.number' },
+  { value: 'boolean', labelKey: 'engine.inspector.action.paramType.boolean' },
+  { value: 'select', labelKey: 'engine.inspector.action.paramType.select' },
+  { value: 'date', labelKey: 'engine.inspector.action.paramType.date' },
+  { value: 'datetime', labelKey: 'engine.inspector.action.paramType.datetime' },
+  { value: 'lookup', labelKey: 'engine.inspector.action.paramType.lookup' },
+] satisfies { value: ResolvableParamFieldType; labelKey: string }[];
 
 /**
  * Every `type` spelling an authored param may carry, as a runtime set — the
@@ -156,7 +179,8 @@ function asParamFieldType(value: string): ResolvableParamFieldType | undefined {
 }
 
 /**
- * Friendly labels for the spec's action locations.
+ * Friendly labels for the spec's action locations, as catalogue keys read in
+ * the designer locale (objectui#10586).
  *
  * The vocabulary belongs to `ActionLocation` (spec `ACTION_LOCATIONS`). This
  * used to restate all seven values under a "mirrors spec ACTION_LOCATIONS"
@@ -176,25 +200,30 @@ function asParamFieldType(value: string): ResolvableParamFieldType | undefined {
  * (record → list), deliberately not the spec's declaration order.
  */
 const LOCATION_LABELS: Record<ActionLocation, string> = {
-  record_header: 'Record header',
-  record_more: 'Record · more menu',
-  record_section: 'Record · section',
-  record_related: 'Record · related list',
-  list_toolbar: 'List toolbar',
-  list_item: 'List · row',
+  record_header: 'engine.inspector.action.location.record_header',
+  record_more: 'engine.inspector.action.location.record_more',
+  record_section: 'engine.inspector.action.location.record_section',
+  record_related: 'engine.inspector.action.location.record_related',
+  list_toolbar: 'engine.inspector.action.location.list_toolbar',
+  list_item: 'engine.inspector.action.location.list_item',
 };
 
-const LOCATIONS: Array<{ value: ActionLocation; label: string }> = (
+const LOCATIONS: Array<{ value: ActionLocation; labelKey: string }> = (
   Object.keys(LOCATION_LABELS) as ActionLocation[]
-).map((value) => ({ value, label: LOCATION_LABELS[value] }));
+).map((value) => ({ value, labelKey: LOCATION_LABELS[value] }));
 
-/** Per-type binding hints for the single `target` field. */
-const TARGET_FIELD: Record<string, { label: string; placeholder: string; hint: string }> = {
-  url: { label: 'URL', placeholder: 'https://… or /path?x=${param.x}', hint: 'Supports ${param.x} and ${ctx.x} interpolation.' },
-  flow: { label: 'Flow name', placeholder: 'snake_case flow', hint: 'The flow to invoke when clicked.' },
-  modal: { label: 'Modal / page name', placeholder: 'snake_case page', hint: 'The modal or page to open.' },
-  form: { label: 'Form view name', placeholder: 'object.viewKey', hint: 'Opens /console/forms/<name>.' },
-  api: { label: 'API endpoint', placeholder: '/api/v1/…', hint: 'Endpoint called with the request body below.' },
+/**
+ * Per-type binding hints for the single `target` field, as catalogue keys. A
+ * placeholder is a key when it carries words, and a literal when it is only a
+ * sample value (a dotted view key, an API path), which reads the same in every
+ * locale (objectui#10586).
+ */
+const TARGET_FIELD: Record<string, { labelKey: string; placeholderKey?: string; placeholder?: string; hintKey: string }> = {
+  url: { labelKey: 'engine.inspector.action.target.url.label', placeholderKey: 'engine.inspector.action.target.url.placeholder', hintKey: 'engine.inspector.action.target.url.hint' },
+  flow: { labelKey: 'engine.inspector.action.target.flow.label', placeholderKey: 'engine.inspector.action.target.flow.placeholder', hintKey: 'engine.inspector.action.target.flow.hint' },
+  modal: { labelKey: 'engine.inspector.action.target.modal.label', placeholderKey: 'engine.inspector.action.target.modal.placeholder', hintKey: 'engine.inspector.action.target.modal.hint' },
+  form: { labelKey: 'engine.inspector.action.target.form.label', placeholder: 'object.viewKey', hintKey: 'engine.inspector.action.target.form.hint' },
+  api: { labelKey: 'engine.inspector.action.target.api.label', placeholder: '/api/v1/…', hintKey: 'engine.inspector.action.target.api.hint' },
 };
 
 /** Action types whose `target` names another metadata record — render a picker
@@ -257,9 +286,9 @@ const UPDATE_OPERATION_REFUSES = [
 const UPDATE_OPERATION_REFUSED_LOCATION = 'list_toolbar';
 
 /** What a script action DOES — `operation` is authored beside `type`, not in it. */
-const SCRIPT_OPERATIONS = [
-  { value: '', label: 'Run a script — sandboxed JS / expression body' },
-  { value: 'update', label: 'Update fields on this record — no code' },
+const SCRIPT_OPERATIONS: KeyedOption[] = [
+  { value: '', labelKey: 'engine.inspector.action.scriptOp.run' },
+  { value: 'update', labelKey: 'engine.inspector.action.scriptOp.update' },
 ];
 
 /** Keys this inspector edits with its own controls — hidden from the fallback. */
@@ -318,16 +347,16 @@ function localize(v: unknown): string {
 }
 
 /** Object dropdown (falls back to free text when no objects are resolvable). */
-function ObjectPicker({ label, value, onCommit, disabled, hint }: {
-  label: string; value: string | undefined; onCommit: (v: string) => void; disabled?: boolean; hint?: string;
+function ObjectPicker({ label, value, onCommit, disabled, hint, locale }: {
+  label: string; value: string | undefined; onCommit: (v: string) => void; disabled?: boolean; hint?: string; locale: SupportedLocale;
 }) {
   const { options } = useObjectOptions();
   return (
     <div className="space-y-1">
       {options.length === 0 ? (
-        <InspectorTextField label={label} value={value ?? ''} placeholder="snake_case object" onCommit={onCommit} disabled={disabled} mono />
+        <InspectorTextField label={label} value={value ?? ''} placeholder={t('engine.inspector.action.objectPlaceholder', locale)} onCommit={onCommit} disabled={disabled} mono />
       ) : (
-        <InspectorSelectField label={label} value={value || undefined} options={[{ value: '', label: '— None (global) —' }, ...options]} onCommit={onCommit} disabled={disabled} />
+        <InspectorSelectField label={label} value={value || undefined} options={[{ value: '', label: t('engine.inspector.action.objectNone', locale) }, ...options]} onCommit={onCommit} disabled={disabled} />
       )}
       {hint && <div className="text-[11px] text-muted-foreground/70">{hint}</div>}
     </div>
@@ -383,31 +412,33 @@ type ActionParamOption = NonNullable<ActionParam['options']>[number];
  * param's own "Label" control above has always made. Locale maps stay
  * authorable through the JSON source tab.
  */
-function ParamOptionsEditor({ options, onCommit, disabled }: {
+function ParamOptionsEditor({ options, onCommit, disabled, locale }: {
   options: ActionParamOption[] | undefined;
   onCommit: (next: ActionParamOption[]) => void;
   disabled?: boolean;
+  /** The designer locale this editor's own words read in (objectui#10586). */
+  locale: SupportedLocale;
 }) {
   const opts = Array.isArray(options) ? options : [];
   return (
-    <div role="group" aria-label="Options" className="space-y-1.5 rounded-md border border-dashed border-border p-2">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Options</div>
+    <div role="group" aria-label={t('engine.inspector.action.options', locale)} className="space-y-1.5 rounded-md border border-dashed border-border p-2">
+      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{t('engine.inspector.action.options', locale)}</div>
       {opts.length === 0 ? (
         <p className="text-[11px] text-muted-foreground/80">
-          No choices yet — a Select with no options opens an empty picker in the dialog.
+          {t('engine.inspector.action.optionsEmpty', locale)}
         </p>
       ) : (
         opts.map((o, j) => (
           <div key={j} className="flex items-start gap-1">
             <div className="grid flex-1 grid-cols-2 gap-2">
               <InspectorTextField
-                label="Label"
+                label={t('engine.inspector.action.optionLabel', locale)}
                 value={localize(o.label)}
                 onCommit={(v) => onCommit(spliceArray(opts, j, { ...o, label: v }))}
                 disabled={disabled}
               />
               <InspectorTextField
-                label="Value"
+                label={t('engine.inspector.action.optionValue', locale)}
                 value={o.value ?? ''}
                 onCommit={(v) => onCommit(spliceArray(opts, j, { ...o, value: v }))}
                 disabled={disabled}
@@ -420,7 +451,7 @@ function ParamOptionsEditor({ options, onCommit, disabled }: {
               size="icon"
               className="mt-[22px] h-6 w-6"
               disabled={disabled}
-              aria-label={`Remove option ${j + 1}`}
+              aria-label={tFormat('engine.inspector.action.removeOption', locale, { index: j + 1 })}
               onClick={() => onCommit(spliceArray(opts, j, null))}
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -430,7 +461,7 @@ function ParamOptionsEditor({ options, onCommit, disabled }: {
       )}
       {!disabled && (
         <Button type="button" variant="outline" size="sm" onClick={() => onCommit(appendArray(opts, { label: '', value: '' }))}>
-          <Plus className="mr-1 h-3.5 w-3.5" /> Add option
+          <Plus className="mr-1 h-3.5 w-3.5" /> {t('engine.inspector.action.addOption', locale)}
         </Button>
       )}
     </div>
@@ -601,7 +632,14 @@ export function ActionDefaultInspector({
     onPatch({ locations: next });
   };
 
-  const targetCfg = TARGET_FIELD[type];
+  // The target binding's words, resolved in the designer locale. A sample
+  // value placeholder (no words) passes through as it is.
+  const targetKeys = TARGET_FIELD[type];
+  const targetCfg = targetKeys && {
+    label: tr(targetKeys.labelKey),
+    placeholder: targetKeys.placeholderKey ? tr(targetKeys.placeholderKey) : (targetKeys.placeholder ?? ''),
+    hint: tr(targetKeys.hintKey),
+  };
 
   const fallbackSchema = serverSchema as Record<string, unknown> | undefined;
 
@@ -614,57 +652,57 @@ export function ActionDefaultInspector({
       hideClose
     >
       {/* 1 ─ Basics */}
-      <SectionHeader title="Basics" />
-      <InspectorTextField label="Label" value={localize(draft.label)} onCommit={(v) => onPatch({ label: v })} placeholder="Button text shown to users" disabled={readOnly} />
-      <InspectorTextField label="Name" value={str('name')} onCommit={(v) => onPatch({ name: v })} placeholder="snake_case identifier" disabled={readOnly} mono />
+      <SectionHeader title={tr('engine.inspector.action.basics')} />
+      <InspectorTextField label={tr('engine.inspector.action.label')} value={localize(draft.label)} onCommit={(v) => onPatch({ label: v })} placeholder={tr('engine.inspector.action.labelPlaceholder')} disabled={readOnly} />
+      <InspectorTextField label={tr('engine.inspector.action.name')} value={str('name')} onCommit={(v) => onPatch({ name: v })} placeholder={tr('engine.inspector.action.namePlaceholder')} disabled={readOnly} mono />
       <ObjectPicker
-        label="Object"
+        label={tr('engine.inspector.action.object')}
         value={objectName}
         onCommit={(v) => onPatch({ objectName: v || undefined })}
         disabled={readOnly}
-        hint={objectName ? 'Bound action — surfaces in this object’s views per the placement below.' : 'Empty = global action — must be referenced by a page’s quick actions, global nav, a flow, or AI to appear.'}
+        hint={objectName ? tr('engine.inspector.action.objectBoundHint') : tr('engine.inspector.action.objectGlobalHint')}
+        locale={locale}
       />
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Icon</Label>
+          <Label className="text-xs text-muted-foreground">{tr('engine.inspector.action.icon')}</Label>
           <IconPickerWidget schema={{ type: 'string' }} value={str('icon')} onChange={(v) => onPatch({ icon: (v as string) || undefined })} readOnly={readOnly} />
         </div>
-        <InspectorSelectField label="Variant" value={str('variant') || undefined} options={VARIANT_OPTS} onCommit={(v) => onPatch({ variant: v })} disabled={readOnly} />
+        <InspectorSelectField label={tr('engine.inspector.action.variant')} value={str('variant') || undefined} options={localizeOptions(VARIANT_OPTS, locale)} onCommit={(v) => onPatch({ variant: v })} disabled={readOnly} />
       </div>
 
       {/* 2 ─ Behavior (type-first) */}
       <div className="border-t pt-3 space-y-3">
-        <SectionHeader title="Behavior" hint="What happens when the action is triggered." />
-        <InspectorSelectField label="Type" value={type} options={ACTION_TYPES} onCommit={(v) => onPatch({ type: v })} disabled={readOnly || isUpdateOperation} />
+        <SectionHeader title={tr('engine.inspector.action.behavior')} hint={tr('engine.inspector.action.behaviorHint')} />
+        <InspectorSelectField label={tr('engine.inspector.action.type')} value={type} options={localizeOptions(ACTION_TYPES, locale)} onCommit={(v) => onPatch({ type: v })} disabled={readOnly || isUpdateOperation} />
         {isUpdateOperation && (
           <div className="text-[11px] text-muted-foreground/70">
-            Pinned to <code>script</code>: the field write is performed on the platform action
-            route, which is this type’s own route. Any other type is refused beside it.
+            {withSlots(tr('engine.inspector.action.pinnedScript'), { script: <code>script</code> })}
           </div>
         )}
 
         {type === 'script' ? (
           <>
             <InspectorSelectField
-              label="What it does"
+              label={tr('engine.inspector.action.whatItDoes')}
               value={operation}
-              options={SCRIPT_OPERATIONS}
+              options={localizeOptions(SCRIPT_OPERATIONS, locale)}
               onCommit={commitOperation}
               disabled={readOnly}
             />
             {isUpdateOperation ? (
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Field values</Label>
+                <Label className="text-xs text-muted-foreground">{tr('engine.inspector.action.fieldValues')}</Label>
                 {patchRows.length === 0 ? (
                   <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2.5 text-center text-[11px] text-muted-foreground">
-                    No field values yet — add one, or collect the value as an input below.
+                    {tr('engine.inspector.action.fieldValuesEmpty')}
                   </p>
                 ) : (
                   patchRows.map(([key, value], i) => (
                     <div key={i} className="flex items-end gap-2">
                       <div className="flex-1">
                         <InspectorTextField
-                          label="Field"
+                          label={tr('engine.inspector.action.fieldValueField')}
                           value={key}
                           onCommit={(v) => commitPatch(patchRows.map((row, j) => (j === i ? [v, row[1]] : row)))}
                           placeholder="status"
@@ -674,7 +712,7 @@ export function ActionDefaultInspector({
                       </div>
                       <div className="flex-1">
                         <InspectorTextField
-                          label="Value"
+                          label={tr('engine.inspector.action.fieldValueValue')}
                           value={typeof value === 'string' ? value : JSON.stringify(value ?? '')}
                           onCommit={(v) => commitPatch(patchRows.map((row, j) => (j === i ? [row[0], v] : row)))}
                           placeholder="done"
@@ -688,7 +726,7 @@ export function ActionDefaultInspector({
                         size="icon"
                         className="h-8 w-8 shrink-0"
                         disabled={readOnly}
-                        aria-label="Remove field value"
+                        aria-label={tr('engine.inspector.action.removeFieldValue')}
                         onClick={() => commitPatch(patchRows.filter((_, j) => j !== i))}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -704,25 +742,23 @@ export function ActionDefaultInspector({
                   disabled={readOnly}
                   onClick={() => commitPatch([...patchRows, ['', '']])}
                 >
-                  <Plus className="mr-1 h-3 w-3" /> Add field value
+                  <Plus className="mr-1 h-3 w-3" /> {tr('engine.inspector.action.addFieldValue')}
                 </Button>
                 <div className="text-[11px] text-muted-foreground/70">
-                  Written to the current record as the caller — object permissions, hooks and
-                  validations fire as for a user edit. An input collected below with the same name
-                  overrides the fixed value here.
+                  {tr('engine.inspector.action.updateHint')}
                 </div>
               </div>
             ) : (
               <>
             <InspectorSelectField
-              label="Script language"
+              label={tr('engine.inspector.action.scriptLanguage')}
               value={(typeof body.language === 'string' ? body.language : undefined) || 'expression'}
-              options={BODY_LANG_OPTS}
+              options={localizeOptions(BODY_LANG_OPTS, locale)}
               onCommit={(v) => patchBody({ language: v })}
               disabled={readOnly}
             />
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Script body</Label>
+              <Label className="text-xs text-muted-foreground">{tr('engine.inspector.action.scriptBody')}</Label>
               <Textarea
                 value={typeof body.source === 'string' ? (body.source as string) : ''}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => patchBody({ source: e.target.value })}
@@ -732,7 +768,9 @@ export function ActionDefaultInspector({
                 placeholder={'// (input, ctx) => result\nreturn { ok: true }'}
                 className="text-xs font-mono"
               />
-              <div className="text-[11px] text-muted-foreground/70">Runs in the sandbox as <code>(input, ctx) =&gt; Promise&lt;output&gt;</code>.</div>
+              <div className="text-[11px] text-muted-foreground/70">
+                {withSlots(tr('engine.inspector.action.scriptBodyHint'), { signature: <code>(input, ctx) =&gt; Promise&lt;output&gt;</code> })}
+              </div>
             </div>
               </>
             )}
@@ -740,7 +778,7 @@ export function ActionDefaultInspector({
         ) : (
           <>
             {type === 'api' && (
-              <InspectorSelectField label="Method" value={str('method') || 'POST'} options={METHOD_OPTS} onCommit={(v) => onPatch({ method: v })} disabled={readOnly} />
+              <InspectorSelectField label={tr('engine.inspector.action.method')} value={str('method') || 'POST'} options={METHOD_OPTS} onCommit={(v) => onPatch({ method: v })} disabled={readOnly} />
             )}
             {targetCfg && (
               <ActionTargetField
@@ -757,29 +795,29 @@ export function ActionDefaultInspector({
 
       {/* 3 ─ Inputs (params) */}
       <div className="border-t pt-3 space-y-2">
-        <SectionHeader title="Inputs" hint="Collected from the user in a dialog before the action runs." />
+        <SectionHeader title={tr('engine.inspector.action.inputs')} hint={tr('engine.inspector.action.inputsHint')} />
         {params.length === 0 ? (
-          <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2.5 text-center text-[11px] text-muted-foreground">No inputs — the action runs immediately on click.</p>
+          <p className="rounded-md border border-dashed bg-muted/30 px-3 py-2.5 text-center text-[11px] text-muted-foreground">{tr('engine.inspector.action.inputsEmpty')}</p>
         ) : (
           params.map((p, i) => (
             <div key={i} className="space-y-2 rounded-md border border-border p-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-muted-foreground">#{i + 1}</span>
                 <div className="flex items-center gap-0.5">
-                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6" disabled={readOnly || i === 0} aria-label="Move up" onClick={() => onPatch({ params: moveArray(params, i, i - 1) })}>↑</Button>
-                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6" disabled={readOnly || i === params.length - 1} aria-label="Move down" onClick={() => onPatch({ params: moveArray(params, i, i + 1) })}>↓</Button>
-                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6" disabled={readOnly} aria-label="Remove input" onClick={() => onPatch({ params: spliceArray(params, i, null) })}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6" disabled={readOnly || i === 0} aria-label={tr('engine.inspector.reorder.up')} onClick={() => onPatch({ params: moveArray(params, i, i - 1) })}>↑</Button>
+                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6" disabled={readOnly || i === params.length - 1} aria-label={tr('engine.inspector.reorder.down')} onClick={() => onPatch({ params: moveArray(params, i, i + 1) })}>↓</Button>
+                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6" disabled={readOnly} aria-label={tr('engine.inspector.action.removeInput')} onClick={() => onPatch({ params: spliceArray(params, i, null) })}><Trash2 className="h-3.5 w-3.5" /></Button>
                 </div>
               </div>
               {objectName ? (
-                <FieldPicker label="Bind to field" objectName={objectName} value={p.field} onCommit={(v) => patchParam(i, { field: v || undefined })} disabled={readOnly} />
+                <FieldPicker label={tr('engine.inspector.action.bindToField')} objectName={objectName} value={p.field} onCommit={(v) => patchParam(i, { field: v || undefined })} disabled={readOnly} />
               ) : null}
               {!p.field && (
-                <InspectorTextField label="Name" value={p.name ?? ''} onCommit={(v) => patchParam(i, { name: v })} placeholder="request-body key" disabled={readOnly} mono />
+                <InspectorTextField label={tr('engine.inspector.action.paramName')} value={p.name ?? ''} onCommit={(v) => patchParam(i, { name: v })} placeholder={tr('engine.inspector.action.paramNamePlaceholder')} disabled={readOnly} mono />
               )}
-              <InspectorTextField label="Label" value={localize(p.label)} onCommit={(v) => patchParam(i, { label: v })} disabled={readOnly} />
+              <InspectorTextField label={tr('engine.inspector.action.paramLabel')} value={localize(p.label)} onCommit={(v) => patchParam(i, { label: v })} disabled={readOnly} />
               {!p.field && (
-                <InspectorSelectField label="Type" value={p.type || undefined} options={PARAM_TYPE_OPTS} onCommit={(v) => patchParam(i, { type: asParamFieldType(v) })} disabled={readOnly} />
+                <InspectorSelectField label={tr('engine.inspector.action.paramTypeLabel')} value={p.type || undefined} options={localizeOptions(PARAM_TYPE_OPTS, locale)} onCommit={(v) => patchParam(i, { type: asParamFieldType(v) })} disabled={readOnly} />
               )}
               {/* `select` is the one offered spelling whose runtime widget reads
                   `options` — see ParamOptionsEditor for why this is a control
@@ -789,26 +827,27 @@ export function ActionDefaultInspector({
                   options={p.options}
                   onCommit={(next) => patchParam(i, { options: next.length > 0 ? next : undefined })}
                   disabled={readOnly}
+                  locale={locale}
                 />
               )}
-              <InspectorTextField label="Placeholder" value={p.placeholder ?? ''} onCommit={(v) => patchParam(i, { placeholder: v })} disabled={readOnly} />
+              <InspectorTextField label={tr('engine.inspector.action.paramPlaceholder')} value={p.placeholder ?? ''} onCommit={(v) => patchParam(i, { placeholder: v })} disabled={readOnly} />
               <div className="flex flex-wrap gap-x-4 gap-y-1">
-                <InspectorCheckboxField label="Required" value={!!p.required} onCommit={(v) => patchParam(i, { required: v })} disabled={readOnly} />
-                <InspectorCheckboxField label="Pre-fill from row" value={!!p.defaultFromRow} onCommit={(v) => patchParam(i, { defaultFromRow: v })} disabled={readOnly} />
+                <InspectorCheckboxField label={tr('engine.inspector.action.paramRequired')} value={!!p.required} onCommit={(v) => patchParam(i, { required: v })} disabled={readOnly} />
+                <InspectorCheckboxField label={tr('engine.inspector.action.paramPrefill')} value={!!p.defaultFromRow} onCommit={(v) => patchParam(i, { defaultFromRow: v })} disabled={readOnly} />
               </div>
             </div>
           ))
         )}
         {!readOnly && (
           <Button type="button" variant="outline" size="sm" onClick={() => onPatch({ params: appendArray(params, {} as ActionParam) })}>
-            <Plus className="mr-1 h-3.5 w-3.5" /> Add input
+            <Plus className="mr-1 h-3.5 w-3.5" /> {tr('engine.inspector.action.addInput')}
           </Button>
         )}
       </div>
 
       {/* 4 ─ Placement & scope */}
       <div className="border-t pt-3 space-y-2">
-        <SectionHeader title="Placement" hint="Where this action surfaces in the UI." />
+        <SectionHeader title={tr('engine.inspector.action.placement')} hint={tr('engine.inspector.action.placementHint')} />
         <div className="grid grid-cols-1 gap-1">
           {/* `list_toolbar` is not OFFERED on an update action — the spec refuses
               it there, and a placement an author can tick but not save is worse
@@ -817,7 +856,7 @@ export function ActionDefaultInspector({
           {LOCATIONS
             .filter((loc) => !(isUpdateOperation && loc.value === UPDATE_OPERATION_REFUSED_LOCATION))
             .map((loc) => (
-              <InspectorCheckboxField key={loc.value} label={loc.label} value={locations.includes(loc.value)} onCommit={(v) => toggleLocation(loc.value, v)} disabled={readOnly} />
+              <InspectorCheckboxField key={loc.value} label={tr(loc.labelKey)} value={locations.includes(loc.value)} onCommit={(v) => toggleLocation(loc.value, v)} disabled={readOnly} />
             ))}
         </div>
         {/* [#3142] No placement = renders in no located surface. Saying so
@@ -827,8 +866,7 @@ export function ActionDefaultInspector({
             `bulkActions` / `bulkActionDefs` instead, which is legitimate. */}
         {locations.length === 0 && (
           <div className="text-[11px] text-destructive">
-            No placement selected — this action will not appear on any record or list surface. Tick a
-            placement above, or place it from a view’s bulk actions.
+            {tr('engine.inspector.action.noPlacement')}
           </div>
         )}
         {/* [#7234] The capability gate, stated where the person configuring the
@@ -838,26 +876,24 @@ export function ActionDefaultInspector({
             anywhere explained. See the decode block above for the ruling. */}
         {requiredPermissions.length > 0 && (
           <div className="text-[11px] text-amber-700" data-testid="action-capability-gate-note">
-            Capability-gated on{' '}
-            <span className="font-mono">{requiredPermissions.join(' + ')}</span> — every placement
-            ticked above hides this action from anyone who does not hold{' '}
-            {requiredPermissions.length > 1 ? 'all of them' : 'it'}. Not greyed out and not an
-            error: the button is simply absent, and the server refuses the invocation with a 403
-            either way.
+            {withSlots(tr('engine.inspector.action.capabilityGate'), {
+              capabilities: <span className="font-mono">{requiredPermissions.join(' + ')}</span>,
+              whom: tr(requiredPermissions.length > 1 ? 'engine.inspector.action.capabilityGateAll' : 'engine.inspector.action.capabilityGateOne'),
+            })}
             {unheldCapabilities.length > 0 && (
               <>
                 {' '}
                 <span data-testid="action-capability-gate-self">
-                  This session does not hold{' '}
-                  <span className="font-mono">{unheldCapabilities.join(' + ')}</span>, so the button
-                  is hidden from you too — grant it through a permission set to see it in the app.
+                  {withSlots(tr('engine.inspector.action.capabilityGateSelf'), {
+                    capabilities: <span className="font-mono">{unheldCapabilities.join(' + ')}</span>,
+                  })}
                 </span>
               </>
             )}
           </div>
         )}
         <div className="grid grid-cols-2 gap-2 pt-1">
-          <InspectorSelectField label="Component" value={str('component') || undefined} options={COMPONENT_OPTS} onCommit={(v) => onPatch({ component: v })} disabled={readOnly} />
+          <InspectorSelectField label={tr('engine.inspector.action.component')} value={str('component') || undefined} options={localizeOptions(COMPONENT_OPTS, locale)} onCommit={(v) => onPatch({ component: v })} disabled={readOnly} />
         </div>
         {/* No "Bulk" checkbox here: `action.bulkEnabled` is a spec-17
             tombstone (see RETIRED_FIELDS). Selection placement is declared on
@@ -866,25 +902,25 @@ export function ActionDefaultInspector({
 
       {/* 5 ─ Feedback */}
       <div className="border-t pt-3 space-y-2">
-        <SectionHeader title="Feedback" hint="Confirmation and post-run messaging." />
-        <InspectorTextField label="Confirm prompt" value={localize(draft.confirmText)} onCommit={(v) => onPatch({ confirmText: v })} placeholder="Ask before running (leave blank to skip)" disabled={readOnly} />
-        <InspectorTextField label="Success message" value={localize(draft.successMessage)} onCommit={(v) => onPatch({ successMessage: v })} disabled={readOnly} />
-        <InspectorTextField label="Error message" value={localize(draft.errorMessage)} onCommit={(v) => onPatch({ errorMessage: v })} disabled={readOnly} />
+        <SectionHeader title={tr('engine.inspector.action.feedback')} hint={tr('engine.inspector.action.feedbackHint')} />
+        <InspectorTextField label={tr('engine.inspector.action.confirmText')} value={localize(draft.confirmText)} onCommit={(v) => onPatch({ confirmText: v })} placeholder={tr('engine.inspector.action.confirmTextPlaceholder')} disabled={readOnly} />
+        <InspectorTextField label={tr('engine.inspector.action.successMessage')} value={localize(draft.successMessage)} onCommit={(v) => onPatch({ successMessage: v })} disabled={readOnly} />
+        <InspectorTextField label={tr('engine.inspector.action.errorMessage')} value={localize(draft.errorMessage)} onCommit={(v) => onPatch({ errorMessage: v })} disabled={readOnly} />
         {/* No "Shortcut" field beside Mode: `action.shortcut` is a spec-17
             tombstone (see RETIRED_FIELDS) — nothing ever read it, and
             authoring it now fails the parse. */}
         <div className="grid grid-cols-2 gap-2">
-          <InspectorSelectField label="Mode" value={str('mode') || undefined} options={MODE_OPTS} onCommit={(v) => onPatch({ mode: v })} disabled={readOnly} />
+          <InspectorSelectField label={tr('engine.inspector.action.mode')} value={str('mode') || undefined} options={localizeOptions(MODE_OPTS, locale)} onCommit={(v) => onPatch({ mode: v })} disabled={readOnly} />
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-1">
-          <InspectorCheckboxField label="Refresh view after" value={!!draft.refreshAfter} onCommit={(v) => onPatch({ refreshAfter: v })} disabled={readOnly} />
-          <InspectorCheckboxField label="Offer undo" value={!!draft.undoable} onCommit={(v) => onPatch({ undoable: v })} disabled={readOnly} />
+          <InspectorCheckboxField label={tr('engine.inspector.action.refreshAfter')} value={!!draft.refreshAfter} onCommit={(v) => onPatch({ refreshAfter: v })} disabled={readOnly} />
+          <InspectorCheckboxField label={tr('engine.inspector.action.undoable')} value={!!draft.undoable} onCommit={(v) => onPatch({ undoable: v })} disabled={readOnly} />
         </div>
       </div>
 
       {/* 6 ─ Conditions */}
       <div className="border-t pt-3 space-y-3">
-        <SectionHeader title="Conditions" hint="No-code predicates over the record / user / ctx (compiled to CEL)." />
+        <SectionHeader title={tr('engine.inspector.action.conditions')} hint={tr('engine.inspector.action.conditionsHint')} />
         {/* Both are `ExpressionInputSchema` in the spec (`disabled` as
             `boolean | ExpressionInput`), so a persisted action carries the
             ADR-0089 envelope — same read/write pair as the hook guard (#3218). */}
@@ -910,27 +946,27 @@ export function ActionDefaultInspector({
             from a reading taken at that evaluator. Declared here rather than
             defaulted, for the reason `RECORD_CONDITION_ROOTS` gives: the
             component cannot see which host is on the other end. */}
-        <ConditionBuilder label="Visible when" value={expressionSource(draft.visible)} onCommit={(v) => onPatch({ visible: writeExpressionSource(draft.visible, v) })} objectName={objectName} disabled={readOnly} scope="record" roots={CLIENT_CONDITION_ROOTS} onBlockingIssuesChange={(n) => reportCel('visible', n)} />
-        <ConditionBuilder label="Disabled when" value={expressionSource(draft.disabled)} onCommit={(v) => onPatch({ disabled: writeExpressionSource(draft.disabled, v) })} objectName={objectName} disabled={readOnly} scope="record" roots={CLIENT_CONDITION_ROOTS} onBlockingIssuesChange={(n) => reportCel('disabled', n)} />
+        <ConditionBuilder label={tr('engine.inspector.action.visibleWhen')} value={expressionSource(draft.visible)} onCommit={(v) => onPatch({ visible: writeExpressionSource(draft.visible, v) })} objectName={objectName} disabled={readOnly} scope="record" roots={CLIENT_CONDITION_ROOTS} onBlockingIssuesChange={(n) => reportCel('visible', n)} />
+        <ConditionBuilder label={tr('engine.inspector.action.disabledWhen')} value={expressionSource(draft.disabled)} onCommit={(v) => onPatch({ disabled: writeExpressionSource(draft.disabled, v) })} objectName={objectName} disabled={readOnly} scope="record" roots={CLIENT_CONDITION_ROOTS} onBlockingIssuesChange={(n) => reportCel('disabled', n)} />
       </div>
 
       {/* 7 ─ AI exposure */}
       <div className="border-t pt-3 space-y-2">
-        <SectionHeader title="AI exposure" hint="Opt-in: expose this action to AI agents as a callable tool." />
-        <InspectorCheckboxField label="Expose to AI agents" value={aiExposed} onCommit={(v) => onPatch({ aiExposed: v })} disabled={readOnly} />
+        <SectionHeader title={tr('engine.inspector.action.ai')} hint={tr('engine.inspector.action.aiHint')} />
+        <InspectorCheckboxField label={tr('engine.inspector.action.aiExposed')} value={aiExposed} onCommit={(v) => onPatch({ aiExposed: v })} disabled={readOnly} />
         {aiExposed ? (
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Tool description (required, ≥40 chars)</Label>
+            <Label className="text-xs text-muted-foreground">{tr('engine.inspector.action.aiDescription')}</Label>
             <Textarea
               value={aiDescription}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onPatch({ aiDescription: e.target.value })}
               disabled={readOnly}
               rows={3}
-              placeholder="When and why an agent should call this action…"
+              placeholder={tr('engine.inspector.action.aiDescriptionPlaceholder')}
               className="text-xs"
             />
             {aiDescription.length < 40 && (
-              <div className="text-[11px] text-destructive">A ≥40-character description is required while exposed.</div>
+              <div className="text-[11px] text-destructive">{tr('engine.inspector.action.aiDescriptionTooShort')}</div>
             )}
           </div>
         ) : null}
@@ -939,7 +975,7 @@ export function ActionDefaultInspector({
       {/* Advanced — everything not curated above, from the live schema */}
       {fallbackSchema && (
         <div className="border-t pt-3 space-y-1.5">
-          <SectionHeader title={tr('engine.inspector.moreFields')} hint="Advanced / rarely-used properties." />
+          <SectionHeader title={tr('engine.inspector.moreFields')} hint={tr('engine.inspector.action.moreFieldsHint')} />
           <SchemaForm
             schema={fallbackSchema}
             value={draft}

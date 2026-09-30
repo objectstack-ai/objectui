@@ -1,7 +1,7 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 import { describe, it, expect } from 'vitest';
-import { FlowEdgeSchema } from '@objectstack/spec/automation';
+import { FlowEdgeSchema, STRUCTURAL_CONDITION_SHAPE_REFUSAL } from '@objectstack/spec/automation';
 import { FlowSimulator } from '../flow-simulator';
 import { validateFlowDraft, findCycle } from '../flow-sim-validate';
 import type { SimEdge, SimNode } from '../flow-sim-types';
@@ -195,7 +195,10 @@ describe('FlowSimulator', () => {
     expect(sim.state.visitedNodeIds).toContain('lo');
   });
 
-  it('errors a decision dead-end (no match, no default)', () => {
+  // Re-judged in objectui#10692: this used to expect an error. The runtime's
+  // `traverseNext` takes nothing here and ends the branch with no error, so the
+  // Debug run says so on the step and completes, as a real run does.
+  it('ends the branch at a decision dead-end (no match, no default), as the runtime does', () => {
     const sim = run(
       [
         { id: 's', type: 'start' },
@@ -208,8 +211,11 @@ describe('FlowSimulator', () => {
       ],
       { amount: 5 },
     );
-    expect(sim.state.status).toBe('error');
-    expect(sim.state.steps.find((s) => s.nodeId === 'd')?.status).toBe('error');
+    expect(sim.state.status).toBe('done');
+    expect(sim.state.visitedNodeIds).not.toContain('hi');
+    const dStep = sim.state.steps.find((s) => s.nodeId === 'd');
+    expect(dStep?.status).toBe('ok');
+    expect(dStep?.note).toMatch(/No out-edge was taken/);
   });
 
   it('surfaces a CEL evaluation error in the edge diagnostics', () => {
@@ -554,23 +560,39 @@ describe('decision guards in the spec expression envelope (#3216)', () => {
     expect(hiEval.error).toBeUndefined();
   });
 
-  it('still says "no condition" for an envelope with nothing readable to evaluate', () => {
-    // Spec phase M9.2 will emit `ast`-only envelopes. There is no CEL source to
-    // run, and the simulator's rule is to say so rather than fake a result —
-    // the fix widened the reader, it did not make every object a condition.
+  it('refuses an envelope with nothing readable to evaluate', () => {
+    // There is no CEL source to run, and the simulator's rule is to say so
+    // rather than fake a result — the fix widened the reader, it did not make
+    // every object a condition. It used to say "Branch has no condition." and
+    // take the default. The evaluated-slot rule the spec's edge schema applies
+    // (`EvaluatedExpressionSchema`, a non-blank `source`) refuses an `ast`-only
+    // envelope — `FlowEdgeSchema`, which `specEdge` above uses, admitted it
+    // through 17.4.0 and refuses it at `condition` since 17.5.0, the version
+    // this tree installs (objectui#11073) — so the runtime never registers the
+    // flow, and since
+    // objectui#10615 the Debug run stops on it too.
     const astOnly: SimEdge = { id: 'e_hi', source: 'd', target: 'hi', condition: { dialect: 'cel', ast: { op: 'gt' } } };
     const sim = run(NODES, [START, astOnly, { id: 'e_lo', source: 'd', target: 'lo', isDefault: true }], { amount: 20 });
 
     const hiEval = edgeEval(sim, 'hi');
-    expect(hiEval.error).toBe('Branch has no condition.');
-    expect(sim.state.visitedNodeIds).toContain('lo');
+    // The shape rule answers first since `@objectstack/spec` 17.5.0: its
+    // `structuralConditionRefusal` refuses an object carrying an `ast` but no
+    // string `source`, before the evaluated-slot rule is reached. Through
+    // 17.4.0 this row read `EVALUATED_EXPRESSION_SOURCE_REQUIRED`, the second
+    // rule's sentence (objectui#11073).
+    expect(hiEval.error).toContain(STRUCTURAL_CONDITION_SHAPE_REFUSAL);
+    expect(hiEval.error).toContain('`ast`');
+    expect(sim.state.status).toBe('error');
+    expect(sim.state.visitedNodeIds).not.toContain('lo');
   });
 
   it('reports a dead-ending envelope guard as false, not as an absent condition', () => {
     const guarded = specEdge({ id: 'e_hi', source: 'd', target: 'hi', condition: 'amount > 10' });
     const sim = run(NODES, [START, guarded], { amount: 5 });
 
-    expect(sim.state.status).toBe('error');
+    // A dead end completes the run since objectui#10692, as it does at runtime.
+    expect(sim.state.status).toBe('done');
+    expect(sim.state.visitedNodeIds).not.toContain('hi');
     const hiEval = edgeEval(sim, 'hi');
     expect(hiEval.error).toBeUndefined();
     expect(hiEval.condition).toBe('amount > 10');

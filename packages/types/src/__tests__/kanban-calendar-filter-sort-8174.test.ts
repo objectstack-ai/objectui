@@ -14,7 +14,8 @@
  * declares it (`ComponentPropsMap['object-kanban']`,
  * `ComponentPropsMap['object-calendar']`); both plugins' registration `inputs`
  * publish it; both renderers READ it — `plugin-kanban/src/ObjectKanban.tsx`
- * lowers `schema.filter` onto `$filter` at its `dataSource.find` call, and
+ * lowers `schema.filter` onto `$filter` at its `dataSource.find` call (its
+ * context tokens resolved first, since objectui#10666), and
  * `plugin-calendar/src/ObjectCalendar.tsx` does the same and additionally
  * lowers `schema.sort` onto `$orderby` through `convertSortToQueryParams`. The
  * declaration face of `@object-ui/types` named none of them: an authored value
@@ -206,7 +207,11 @@ describe('objectui#8174 — the renderers read these keys, which is what the dec
     // The positive control: the query that returns a verdict for `sort` below
     // is the same query that returns `objectName`, so that verdict is a reading.
     expect(reads.has(READ_CONTROL_KEY)).toBe(true);
-    expect(readRepo(KANBAN_READER)).toContain('$filter: schema.filter');
+    // objectui#10666: the read goes through the context-token hold first, and
+    // the held value is what reaches `$filter`.
+    const src = readRepo(KANBAN_READER);
+    expect(src).toContain('useResolvedFilter(schema.filter, filterScope)');
+    expect(src).toContain('$filter: queryFilter');
   });
 
   it('…and reads `sort` ONLY as the binding carrier: `dataSource.sort` lowered onto `$orderby` (objectui#10068)', () => {
@@ -229,7 +234,9 @@ describe('objectui#8174 — the renderers read these keys, which is what the dec
     expect(reads.has('sort'), `${CALENDAR_READER} no longer reads schema.sort`).toBe(true);
     expect(reads.has(READ_CONTROL_KEY)).toBe(true);
     const src = readRepo(CALENDAR_READER);
-    expect(src).toContain('$filter: schema.filter');
+    // objectui#10666: `filter` reaches `$filter` through the context-token hold.
+    expect(src).toContain('useResolvedFilter(schema.filter, filterScope)');
+    expect(src).toContain('$filter: queryFilter');
     expect(src).toContain('$orderby: convertSortToQueryParams(schema.sort)');
   });
 

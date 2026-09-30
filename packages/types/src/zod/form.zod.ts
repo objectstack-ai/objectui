@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { aliasKeyRefusal, handlerKeyRefusal, retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
 import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 // The predicate wire shape (`string | { dialect?, source }`, #2212) was a
@@ -27,6 +27,7 @@ import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 // rationale moved with it.
 import { ExpressionWireSchema } from './expression.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
+import { closeStrictUnionArms } from './node-derivation.js';
 
 /**
  * ⭐ THE IMPORT BOUNDARY (objectui#8317, decision batch #90, 2026-09-08).
@@ -172,7 +173,12 @@ export const FieldConstraintsSchema = z.object({
     }).describe('Compiled RegExp — never a string; JSON authors use FieldSchema.pattern'),
     message: z.string().describe('Error message shown when the pattern fails'),
   }).optional().describe('Pattern rule (RegExp value + message)'),
-  validate: z.function().optional().describe('Custom validation function'),
+  // RUNTIME SLOT (objectui#7759 group E, the objectui#6124 shape): the form
+  // renderer spreads `validation` into react-hook-form's `rules` and keeps a
+  // field-authored `validate` function running beside its own `required`
+  // entry, so the TypeScript member keeps its function type. JSON authors use
+  // the declarative rules above; the mirror refuses this key by name.
+  validate: handlerKeyRefusal('validate', 'runtime-slot', 'Custom validation function'),
 });
 
 /**
@@ -183,7 +189,12 @@ export const FieldConditionSchema = z.object({
   equals: z.any().optional().describe('Value must equal'),
   notEquals: z.any().optional().describe('Value must not equal'),
   in: z.array(z.any()).optional().describe('Value must be in array'),
-  custom: z.function().optional().describe('Custom condition function'),
+  // RETIRED (objectui#7759 group E, the objectui#6124 shape): nothing reads it.
+  // The form renderer translates `condition` to CEL through
+  // `legacyConditionToCel`, which reads `field` / `equals` / `notEquals` / `in`
+  // and never `custom`, so an authored function was inert. Refused by name; the
+  // TypeScript member is a `?: never` tombstone.
+  custom: handlerKeyRefusal('custom', 'retired', 'Custom condition function'),
 });
 
 /**
@@ -207,6 +218,18 @@ export const ButtonSchema = BaseSchema.extend({
     .describe('Button type'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
 });
+
+/**
+ * objectui#9256 (`input` slice): ONE refusal string for both content channels
+ * of {@link InputSchema}. The `email` / `password` arm below
+ * ({@link InputShorthandSchema}) inherits this pair through its `.omit()` and
+ * overrides it with its own string, which names that node and its route.
+ */
+const INPUT_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'input',
+  '`ui:input` is the only registration claiming the bare key, and it hands the node to the `input` renderer, which reads it as `InputSchema`',
+  'one input field — `label`, `placeholder`, `inputType`, `value` / `defaultValue`, `description`, `error`, `required`',
+);
 
 /**
  * Input Schema - Text input component
@@ -233,14 +256,19 @@ export const InputSchema = BaseSchema.extend({
   // `cn("grid w-full items-center gap-1.5", schema.wrapperClass)` — and the TS
   // face has declared it all along; the mirror had not, so a wrong-typed value
   // rode through `.passthrough()` unexamined while all eight sibling readers
-  // refused it at the key (objectui#8072).
+  // refused it at the key (`c974edf14`).
   wrapperClass: z.string().optional()
-    .describe('Classes on the wrapper div around the input and its label (objectui#8072)'),
+    .describe('Classes on the wrapper div around the input and its label'),
   min: z.number().optional().describe('Minimum value (for number type)'),
   max: z.number().optional().describe('Maximum value (for number type)'),
   step: z.number().optional().describe('Step value (for number type)'),
   maxLength: z.number().optional().describe('Maximum length'),
   pattern: z.string().optional().describe('Validation pattern'),
+  // objectui#9256 (`input` slice): the renderer reads NEITHER content channel, so both are
+  // refused by name here as on the TypeScript twin, each kept a MEMBER. `body` was already
+  // refused by `BaseSchema` (objectui#6771), whose message names `children` as the remedy.
+  body: retirementTombstone(INPUT_NEITHER_CHANNEL),
+  children: retirementTombstone(INPUT_NEITHER_CHANNEL),
 });
 
 /**
@@ -266,7 +294,7 @@ export const TextareaSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `textarea` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `defaultValue`, `id`, `label`, `name`, `placeholder`, `readOnly`, '
     + '`required`, `rows`, `value`, `wrapperClass`.',
   ),
@@ -274,7 +302,7 @@ export const TextareaSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `textarea` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `defaultValue`, `id`, `label`, `name`, `placeholder`, `readOnly`, '
     + '`required`, `rows`, `value`, `wrapperClass`.',
   ),
@@ -301,7 +329,7 @@ export const SelectSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `select` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `defaultValue`, `label`, `name`, `options`, `placeholder`, `required`, '
     + '`value`, `wrapperClass`.',
   ),
@@ -309,7 +337,7 @@ export const SelectSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `select` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `defaultValue`, `label`, `name`, `options`, `placeholder`, `required`, '
     + '`value`, `wrapperClass`.',
   ),
@@ -327,7 +355,7 @@ export const CheckboxSchema = BaseSchema.extend({
   required: z.boolean().optional()
     .describe("Required affordance — sets `required` on the Radix Checkbox and gates the label's `*` marker (objectui#6150)"),
   wrapperClass: z.string().optional()
-    .describe('Classes on the wrapper div around the box and its label (objectui#6938)'),
+    .describe('Classes on the wrapper div around the box and its label'),
   description: z.string().optional().describe('Help text'),
   error: z.string().optional().describe('Error message'),
   onChange: handlerKeyRefusal('onChange', 'runtime-slot', 'Change handler'),
@@ -335,7 +363,7 @@ export const CheckboxSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `checkbox` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `checked`, `defaultChecked`, `id`, `label`, `name`, `required`, '
     + '`wrapperClass`.',
   ),
@@ -343,7 +371,7 @@ export const CheckboxSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `checkbox` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `checked`, `defaultChecked`, `id`, `label`, `name`, `required`, '
     + '`wrapperClass`.',
   ),
@@ -367,14 +395,14 @@ export const RadioGroupSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `radio-group` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `defaultValue`, `id`, `options`, `orientation`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `radio-group` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `defaultValue`, `id`, `options`, `orientation`.',
   ),
 });
@@ -396,14 +424,14 @@ export const SwitchSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `switch` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `id`, `label`, `wrapperClass`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `switch` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `id`, `label`, `wrapperClass`.',
   ),
 });
@@ -425,8 +453,8 @@ export const ToggleSchema = BaseSchema.extend({
     'children',
     'this toggle node',
     '`toggle` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/form/toggle.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -437,8 +465,14 @@ export const SliderSchema = BaseSchema.extend({
   type: z.literal('slider'),
   name: z.string().optional().describe('Field name for form submission'),
   label: z.string().optional().describe('Slider label'),
-  defaultValue: z.union([z.number(), z.array(z.number())]).optional().describe('Default value(s)'),
-  value: z.union([z.number(), z.array(z.number())]).optional().describe('Controlled value(s)'),
+  defaultValue: z.union([z.number(), z.array(z.number())]).optional()
+    .describe('Default value(s) — a single number or one per thumb; the renderer wraps a scalar into a list'),
+  value: retirementTombstone(
+    'REFUSED (objectui#10280, ADR-0049) — `slider` has no read site for `value`: the renderer reads '
+    + '`defaultValue`, `max`, `min`, `step` off the node, and the form-control DOM whitelist drops `value` '
+    + 'from the props it spreads, so an authored value rendered NOTHING. Author `defaultValue` for the '
+    + 'initial position.',
+  ),
   min: z.number().optional().describe('Minimum value'),
   max: z.number().optional().describe('Maximum value'),
   step: z.number().optional().describe('Step value'),
@@ -448,14 +482,14 @@ export const SliderSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `slider` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `defaultValue`, `max`, `min`, `step`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `slider` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `defaultValue`, `max`, `min`, `step`.',
   ),
 });
@@ -482,14 +516,14 @@ export const FileUploadSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `file-upload` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `accept`, `buttonText`, `id`, `label`, `multiple`, `wrapperClass`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `file-upload` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `accept`, `buttonText`, `id`, `label`, `multiple`, `wrapperClass`.',
   ),
 });
@@ -516,25 +550,89 @@ export const DatePickerSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `date-picker` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `format`, `id`, `label`, `placeholder`, `wrapperClass`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `date-picker` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `format`, `id`, `label`, `placeholder`, `wrapperClass`.',
   ),
 });
 
+// objectui#10293: one calendar day. The string arm is the JSON authoring
+// type, an ISO 8601 date string, which the `calendar` renderer coerces to a
+// `Date`. The `z.date()` arm stays for in-process callers, as on
+// `DatePickerSchema`.
+const CalendarDaySchema = z.union([z.string(), z.date()]);
+
+// objectui#10304: the `{ from, to }` pair `mode: 'range'` reads. Strict, so a
+// misspelled bound (`start` / `end`) is refused instead of selecting nothing.
+const CalendarDayRangeSchema = z.strictObject({
+  from: CalendarDaySchema,
+  to: CalendarDaySchema.optional(),
+});
+
+// objectui#10304: every selection shape the date picker reads. WHICH one a node
+// may carry is decided by its `mode`, and `calendarSelectionFitsMode` below
+// holds that pairing; this union alone is the key-level set.
+// objectui#11073: the strict range arm is closed where it meets this union (see
+// `closeStrictUnionArms` in `./node-derivation.ts`).
+const CalendarSelectionSchema = z.union(closeStrictUnionArms([
+  CalendarDaySchema,
+  z.array(CalendarDaySchema),
+  CalendarDayRangeSchema,
+] as const));
+
 /**
- * Calendar Schema - Calendar component
+ * objectui#10304 — a selection must have the shape its `mode` reads.
+ *
+ * The date picker reads one day in `single` mode (the default), a LIST in
+ * `multiple` mode and `{ from, to }` in `range` mode. A document whose value
+ * does not fit crashed the node (`multiple` given one day threw inside the
+ * picker) or selected nothing without a word (`range` given anything but a
+ * pair). The pairing spans two keys, so it is a refinement on the node rather
+ * than a type on either key.
  */
-export const CalendarSchema = BaseSchema.extend({
+const calendarSelectionFitsMode = (
+  node: { mode?: 'single' | 'multiple' | 'range'; value?: unknown; defaultValue?: unknown },
+  ctx: z.RefinementCtx,
+): void => {
+  const mode = node.mode ?? 'single';
+  for (const key of ['value', 'defaultValue'] as const) {
+    const selection = node[key];
+    if (selection === undefined) continue;
+    const isList = Array.isArray(selection);
+    const isRange = !isList && typeof selection === 'object' && !(selection instanceof Date);
+    const fits = mode === 'multiple' ? isList : mode === 'range' ? isRange : !isList && !isRange;
+    if (fits) continue;
+    const expected = mode === 'multiple'
+      ? 'a list of days (ISO 8601 date strings)'
+      : mode === 'range'
+        ? 'a `{ from, to }` range of days (ISO 8601 date strings)'
+        : 'one day (an ISO 8601 date string)';
+    ctx.addIssue({
+      code: 'custom',
+      path: [key],
+      message: `\`${key}\` does not fit \`mode: '${mode}'\`, which selects ${expected} (objectui#10304)`,
+    });
+  }
+};
+
+/**
+ * Calendar key set, shared by {@link CalendarSchema} and
+ * {@link UiCalendarSchema}. Unexported: each public schema adds the
+ * mode/selection refinement itself, because zod refuses to `.extend()` an
+ * object that already carries one.
+ */
+const CalendarObjectSchema = BaseSchema.extend({
   type: z.literal('calendar'),
-  defaultValue: z.union([z.string(), z.date()]).optional().describe('Default value'),
-  value: z.union([z.string(), z.date()]).optional().describe('Controlled value'),
+  defaultValue: CalendarSelectionSchema.optional()
+    .describe("Default selection: one ISO 8601 day, a list of days for mode 'multiple', or { from, to } for mode 'range'"),
+  value: CalendarSelectionSchema.optional()
+    .describe("Controlled selection: one ISO 8601 day, a list of days for mode 'multiple', or { from, to } for mode 'range'"),
   mode: z.enum(['single', 'multiple', 'range']).optional().describe('Selection mode'),
   minDate: z.union([z.string(), z.date()]).optional().describe('Minimum date'),
   maxDate: z.union([z.string(), z.date()]).optional().describe('Maximum date'),
@@ -544,12 +642,12 @@ export const CalendarSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `defaultValue`, `mode`, `value`. '
     + 'Both readers answer NEITHER: the bare key resolves to plugin-calendar’s calendar VIEW, and this '
     + 'key set describes the `ui:calendar` date-picker primitive. This refusal propagates onto '
-    + '`UiCalendarSchema`, which `.extend()`s this mirror — on the MIRROR only; the TypeScript `Omit` '
-    + 'collapses into `BaseSchema`’s index signature and carries no member of this declaration at all. '
+    + '`UiCalendarSchema` on both faces: the mirror `.extend()`s this one, and the TypeScript face '
+    + 'inherits this declaration through an index-signature-safe `Omit` (objectui#9256). '
     + '`view:calendar` is the measured SOLE owner of the bare `calendar` key (`ui:calendar` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
   ),
@@ -558,16 +656,21 @@ export const CalendarSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `defaultValue`, `mode`, `value`. '
     + 'Both readers answer NEITHER: the bare key resolves to plugin-calendar’s calendar VIEW, and this '
     + 'key set describes the `ui:calendar` date-picker primitive. This refusal propagates onto '
-    + '`UiCalendarSchema`, which `.extend()`s this mirror — on the MIRROR only; the TypeScript `Omit` '
-    + 'collapses into `BaseSchema`’s index signature and carries no member of this declaration at all. '
+    + '`UiCalendarSchema` on both faces: the mirror `.extend()`s this one, and the TypeScript face '
+    + 'inherits this declaration through an index-signature-safe `Omit` (objectui#9256). '
     + '`view:calendar` is the measured SOLE owner of the bare `calendar` key (`ui:calendar` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
   ),
 });
+
+/**
+ * Calendar Schema - Calendar component
+ */
+export const CalendarSchema = CalendarObjectSchema.superRefine(calendarSelectionFitsMode);
 
 /**
  * Input OTP Schema - One-time password input
@@ -587,14 +690,14 @@ export const InputOTPSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `input-otp` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `maxLength`, `value`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `input-otp` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `maxLength`, `value`.',
   ),
 });
@@ -607,7 +710,7 @@ export const ComboboxSchema = BaseSchema.extend({
   name: z.string().optional().describe('Field name for form submission'),
   label: z.string().optional().describe('Combobox label'),
   placeholder: z.string().optional().describe('Placeholder text'),
-  options: z.array(ComboboxOptionSchema).describe('Combobox options'),
+  options: z.array(ComboboxOptionSchema).optional().describe('Combobox options'),
   defaultValue: retirementTombstone(
     'Default value — RETIRED (objectui#8140, ADR-0049). Write `value` instead. `combobox` is a ' +
       'standalone node type only: it is not a built-in form field type and no `field:combobox` ' +
@@ -631,14 +734,14 @@ export const ComboboxSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `combobox` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `description`, `options`, `placeholder`, `value`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `combobox` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `description`, `options`, `placeholder`, `value`.',
   ),
 });
@@ -655,14 +758,14 @@ export const LabelSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `label` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `content`, `label`, `text`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `label` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `content`, `label`, `text`.',
   ),
 });
@@ -674,20 +777,20 @@ export const CommandSchema = BaseSchema.extend({
   type: z.literal('command'),
   placeholder: z.string().optional().describe('Search placeholder'),
   emptyText: z.string().optional().describe('Empty state text'),
-  groups: z.array(CommandGroupSchema).describe('Command groups'),
+  groups: z.array(CommandGroupSchema).optional().describe('Command groups'),
   onChange: handlerKeyRefusal('onChange', 'retired', 'Change handler'),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `command` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `emptyText`, `groups`, `placeholder`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `command` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `emptyText`, `groups`, `placeholder`.',
   ),
 });
@@ -895,7 +998,13 @@ export const FormSchema = BaseSchema.extend({
   columns: z.number().optional().describe('Number of columns (for grid layout)'),
   validationMode: z.enum(['onSubmit', 'onChange', 'onBlur', 'onTouched', 'all']).optional().describe('Validation mode'),
   resetOnSubmit: z.boolean().optional().describe('Reset form on successful submit'),
-  mode: z.enum(['create', 'edit', 'view']).optional().describe('Form mode'),
+  mode: retirementTombstone(
+    'REFUSED (objectui#10286, ADR-0049; objectui#7759 ruling D1-(ii)) — the `form` node reads no `mode`: '
+    + 'the key is not in `@objectstack/spec`, the `form` renderer never reads it, and every spelling '
+    + 'rendered the same form — no render-time error or warning; only the parser tier\'s `unknown-prop` warning noticed it. The create / edit / view mode belongs to the '
+    + '`object-form` node (`ObjectFormSchema.mode`): author `{ "type": "object-form", "objectName": …, '
+    + '"mode": "edit", "recordId": … }` for it. To make this form non-editable, set `disabled`.',
+  ),
   actions: z.array(z.any()).optional().describe('Custom actions'),
   onSubmit: handlerKeyRefusal('onSubmit', 'runtime-slot', 'Submit handler'),
   onChange: handlerKeyRefusal('onChange', 'runtime-slot', 'Change handler'),
@@ -906,8 +1015,8 @@ export const FormSchema = BaseSchema.extend({
     'children',
     'this form node',
     '`form` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/form/form.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -934,6 +1043,13 @@ const SHORTHAND_INPUT_TYPE_REFUSAL =
   '`{ "type": "input", "inputType": "email" }`, the spelling that IS read. ' +
   '(A form FIELD is a different position: inside `fields: [ … ]` an authored `inputType` still ' +
   'wins over the one the field type implies, and this refusal does not reach there.)';
+
+/** objectui#9256 (E3 residual): ONE refusal string for both content channels of `InputShorthandSchema`. */
+const INPUT_SHORTHAND_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'email` / `password',
+  'both registrations spread the node into the `input` renderer with `inputType` pinned, and that renderer reads it as `InputSchema`',
+  'one input field — `label`, `placeholder`, `value` / `defaultValue`, `description`, `error`, `required`',
+);
 
 /**
  * Input Shorthand Schema — the `email` / `password` aliases
@@ -997,12 +1113,21 @@ export const InputShorthandSchema = InputSchema.omit({ type: true, inputType: tr
   inputType: retirementTombstone(SHORTHAND_INPUT_TYPE_REFUSAL),
   // ⭐ `wrapperClass` used to be RE-DECLARED here, because {@link InputSchema}
   // did not carry it and copying the gap into a NEW pair would have minted a
-  // second parity-ledger row for a key that is demonstrably read. objectui#8072
+  // second parity-ledger row for a key that is demonstrably read. `c974edf14`
   // shrank that row instead: the key is on {@link InputSchema} now, so this arm
   // inherits it through the `.omit()` above like every other key, and the
   // restatement is gone rather than left standing as a duplicate of it.
   // `__tests__/input-wrapper-class-mirrored-8072.test.ts` pins this arm's
   // membership and its refusal, so the inheritance is measured, not assumed.
+  //
+  // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
+  // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
+  // ⚠️ Since the `input` slice, `.omit()` above already carries {@link InputSchema}'s own
+  // tombstone pair of the same shape, so these two refuse nothing new. They are kept because
+  // they override that pair's message with one that names `email` / `password` and the wrapper
+  // route, which is what an author of these two nodes reads.
+  body: retirementTombstone(INPUT_SHORTHAND_NEITHER_CHANNEL),
+  children: retirementTombstone(INPUT_SHORTHAND_NEITHER_CHANNEL),
 });
 
 /**
@@ -1026,12 +1151,22 @@ export const InputShorthandSchema = InputSchema.omit({ type: true, inputType: tr
  * The key set is {@link CalendarSchema}'s: `calendar.tsx` reads `schema.mode`,
  * `schema.value`, `schema.defaultValue` and `className`, which is what that
  * schema already declares — it mirrors this primitive's shape while its own
- * literal resolves to the plugin view.
+ * literal resolves to the plugin view. It is built from the same unexported
+ * key set and carries the same mode/selection refinement (objectui#10304), so
+ * the two spellings accept exactly the same selections.
  */
-export const UiCalendarSchema = CalendarSchema.extend({
+export const UiCalendarSchema = CalendarObjectSchema.extend({
   type: z.literal('ui:calendar')
     .describe('The `ui`-namespaced date-picker primitive — `calendar` alone names the plugin-calendar view'),
-});
+}).superRefine(calendarSelectionFitsMode);
+
+/** objectui#9256 (family-D re-measure): ONE refusal string for both content channels of `CodeEditorSchema`. */
+const CODE_EDITOR_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'code-editor',
+  'its registration (`plugin-editor:code-editor`) reads the node through `CodeEditorRenderer`\'s inline '
+    + 'props type, which forwards `value`, `language`, `theme`, `height`, `readOnly` and `className` to Monaco',
+  'a Monaco editor over `value`, in `language` and `theme`',
+);
 
 /**
  * Form Component Schema Union - All form component schemas
@@ -1059,6 +1194,10 @@ export const CodeEditorSchema = BaseSchema.extend({
   height: z.string().optional().describe('Editor height as a CSS length'),
   readOnly: z.boolean().optional().describe('Whether the editor refuses edits'),
   onChange: handlerKeyRefusal('onChange', 'runtime-slot', 'Change handler'),
+  // objectui#9256 (family-D re-measure): the renderer reads NEITHER content channel, so both are
+  // refused by name here as on the TypeScript twin, each kept a MEMBER.
+  body: retirementTombstone(CODE_EDITOR_NEITHER_CHANNEL),
+  children: retirementTombstone(CODE_EDITOR_NEITHER_CHANNEL),
 });
 
 export const FormComponentSchema = z.discriminatedUnion('type', [

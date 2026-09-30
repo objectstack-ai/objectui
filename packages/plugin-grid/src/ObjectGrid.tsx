@@ -25,7 +25,8 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { ObjectGridSchema, DataSource, ListColumn, TableColumn, ViewData, TableSortItem, DataTableSchema, ListViewExportFormat } from '@object-ui/types';
 import { isSystemManagedField, normalizeTableColumnType } from '@object-ui/types';
 import type { I18nLabel } from '@objectstack/spec/ui';
-import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions } from '@object-ui/react';
+import { parseFilterAST, type FilterCondition } from '@objectstack/spec/data';
+import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, useDataInvalidation, useFilterScope } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 // objectui#8920 — the grid reaches a cell renderer through THIS module and
 // nowhere else. `getCellRenderer` / `resolveCellRendererType` are deliberately
@@ -33,7 +34,8 @@ import { createSafeTranslation } from '@object-ui/i18n';
 // what dropped a `format`-hinted column's renderer, and one shared owner is
 // what stops a seventh site picking a convention of its own.
 import { resolveGridCellRendering, gridCellRendererForFixedKey, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
-import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue } from '@object-ui/fields';
+import { isMaskedGridColumn, isWithheldGridColumn } from './maskedColumn';
+import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer } from '@object-ui/fields';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -52,9 +54,10 @@ import {
   legacyRecordDrawerWidthKey, recordOverlayWidthStorageKey, useOverlayAnchor,
   Popover, PopoverContent, PopoverTrigger,
   RefreshIndicator,
+  DataEmptyState, resolveIcon,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName } from '@object-ui/core';
+import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, type FilterTokenScope } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -62,7 +65,8 @@ import {
 } from '@object-ui/plugin-detail';
 import { ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, Download, Rows2, Rows3, Rows4, AlignJustify, Type, Hash, Calendar, CheckSquare, User, Tag, Clock, Loader2 } from 'lucide-react';
 import { useRowColor } from './useRowColor';
-import { useGroupedData, usableGroupingFields } from './useGroupedData';
+import { useGroupedData, usableGroupingFields, type ServerGroupSource } from './useGroupedData';
+import { useServerGroupHeaders, useServerGroupRows, type ServerGroupLeaf } from './useServerGrouping';
 import { GroupRow } from './GroupRow';
 import { useColumnSummary } from './useColumnSummary';
 import { resolveRowCrudAffordances, resolveRowRecordCrudAffordance } from './rowCrudAffordances';
@@ -77,6 +81,116 @@ import { BulkActionBar } from './components/BulkActionBar';
 import { BulkActionDialog } from './components/BulkActionDialog';
 import type { BulkResult } from './hooks/useBulkExecutor';
 import type { BulkActionDef } from '@object-ui/types';
+
+/**
+ * The node's own authored filter: the canonical `filter`, and its deprecated
+ * alias `defaultFilters`, which the load effect reads only when `filter` is
+ * absent.
+ */
+interface AuthoredGridFilters {
+  filter: ObjectGridSchema['filter'];
+  defaultFilters: ObjectGridSchema['defaultFilters'];
+}
+
+/** One resolution, remembered with the inputs it was computed from. */
+interface HeldGridFilters {
+  authored: AuthoredGridFilters;
+  currentUserId: FilterTokenScope['currentUserId'];
+  currentOrgId: FilterTokenScope['currentOrgId'];
+  onUnresolved: FilterTokenScope['onUnresolved'];
+  resolved: AuthoredGridFilters;
+}
+
+function resolveGridFilters(authored: AuthoredGridFilters, scope: FilterTokenScope): HeldGridFilters {
+  return {
+    authored,
+    currentUserId: scope.currentUserId,
+    currentOrgId: scope.currentOrgId,
+    onUnresolved: scope.onUnresolved,
+    resolved: resolveFilterPlaceholders(authored, scope),
+  };
+}
+
+/** Depth past which {@link isSameAuthoredFilter} gives up and answers "changed". */
+const AUTHORED_FILTER_MAX_DEPTH = 12;
+
+function isPlainFilterObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== 'object') return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+/**
+ * Compare two authored filters by structure, never by serialising them.
+ *
+ * The same rules as `plugin-view`'s `isStructurallyEqual` (objectui#6460),
+ * which this package cannot import: `plugin-view` depends on `plugin-grid`.
+ * Primitives by `Object.is`, a `Date` by its instant, arrays element by element
+ * and in order, plain objects by key set and value. Anything else is equal
+ * only as the same reference, and a structure deeper than the bound is
+ * "changed". Every uncertainty answers "changed", which re-resolves and
+ * re-queries; the comparison can drop a redundant query, never a needed one.
+ */
+function isSameAuthoredFilter(a: unknown, b: unknown, depth = 0): boolean {
+  if (Object.is(a, b)) return true;
+  if (depth >= AUTHORED_FILTER_MAX_DEPTH) return false;
+  if (a instanceof Date || b instanceof Date) {
+    return a instanceof Date && b instanceof Date && a.getTime() === b.getTime();
+  }
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    return a.every((item, i) => isSameAuthoredFilter(item, b[i], depth + 1));
+  }
+  if (isPlainFilterObject(a) && isPlainFilterObject(b)) {
+    const keys = Object.keys(a);
+    if (keys.length !== Object.keys(b).length) return false;
+    return keys.every((key) => (
+      Object.prototype.hasOwnProperty.call(b, key) && isSameAuthoredFilter(a[key], b[key], depth + 1)
+    ));
+  }
+  return false;
+}
+
+/**
+ * objectui#10607 — resolve the node's own filter ONCE, through
+ * `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the session
+ * scope the host provides (`useFilterScope`). Before this, a directly authored
+ * `object-grid` with `filter: [['owner', '=', '{current_user_id}']]` sent the
+ * literal token on `$filter`. `object-view` already resolves the filters it
+ * hands this grid (objectui#10506); resolving that value again changes
+ * nothing, because a resolved id no longer matches the whole-token pattern.
+ *
+ * ⛔ Not a second resolver, and no fallback: a token the scope cannot resolve
+ * is whatever `resolveFilterPlaceholders` makes of it (left intact, with one
+ * warning naming it).
+ *
+ * The result is HELD against its inputs, the shape `plugin-view`'s
+ * `useResolvedFilterSegments` uses. The load effect keys on the filter this
+ * grid lowers, so a resolved copy minted on every render would refetch on
+ * every render; and a date macro such as `{now}` resolves to a new value at
+ * every call, so comparing OUTPUTS cannot stop that. The key is the authored
+ * filters, compared by structure (a host that rebuilds an equal filter inline
+ * must not re-query), plus the scope's three members read one by one, never
+ * the scope object's identity (AGENTS.md #10). The held pair lives in state,
+ * so the value handed out is always the one React committed.
+ */
+function useResolvedGridFilters(authored: AuthoredGridFilters, scope: FilterTokenScope): AuthoredGridFilters {
+  const [held, setHeld] = useState(() => resolveGridFilters(authored, scope));
+  if (
+    held.currentUserId !== scope.currentUserId
+    || held.currentOrgId !== scope.currentOrgId
+    || held.onUnresolved !== scope.onUnresolved
+    || !isSameAuthoredFilter(held.authored, authored)
+  ) {
+    // React's documented "information from previous renders" shape: a set
+    // during render re-renders this component at once, before any child sees
+    // the discarded pass, and the re-render finds the inputs equal.
+    const next = resolveGridFilters(authored, scope);
+    setHeld(next);
+    return next.resolved;
+  }
+  return held.resolved;
+}
 
 /**
  * A declared `sort` → the `"field order"` join string THIS block sends as
@@ -327,18 +441,23 @@ const GRID_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.yes': 'Yes',
   'grid.no': 'No',
   'grid.systemFields': 'System',
-  // Grouped-view partial-grouping disclosure (objectui#7189). Both sentences
-  // must exist HERE as well as in the locale packs: a provider-less host (a
-  // standalone grid, this package's own tests) never reaches them, and this
-  // is a statement about whether the numbers on screen are true.
-  'grid.grouping.partialBadge': 'Partial',
-  'grid.grouping.partialNotice':
-    'Grouped over the first {{loaded}} of {{total}} records. Group counts are page-scoped, and a group whose records all fall beyond the loaded rows is missing here.',
-  'grid.grouping.partialNoticeUnknownTotal':
-    'Grouped over the {{loaded}} records loaded. More may match this view, so group counts may be partial and a group may be missing here.',
+  // The grouped grid's refusal over a data source that cannot answer the
+  // group header query (objectui#10881, ruling F). It must exist HERE as well
+  // as in the locale packs: a provider-less host (a standalone grid, this
+  // package's own tests) never reaches them, and it is the only thing such a
+  // grid draws.
+  'grid.grouping.needsHeaderQuery':
+    'This view is grouped, but its data source does not implement queryGroupHeaders, so the groups cannot be counted. Remove the grouping to show the records.',
+  // …and over rows a host handed in while declaring them one page of more.
+  'grid.grouping.needsWholeRows':
+    'Grouping needs every record, but this grid was handed one page of them, so the groups cannot be counted. Hand in every record, or let the grid fetch them from a data source that implements queryGroupHeaders.',
   // Reused by the grouped-view pager (falls back here when no I18nProvider).
   'table.rowsPerPage': 'Rows per page',
   'table.pageInfo': 'Page {{current}} of {{total}}',
+  // The heading of an authored `emptyState` that declares no `title`
+  // (objectui#11068): the words the table's own empty row shows, so leaving the
+  // member out changes nothing a user reads.
+  'table.noResults': 'No results found',
   // Heading of the record-detail overlay this grid opens on row click
   // (objectui#3426). Borrowed from the `detail.*` namespace rather than minted
   // as `grid.recordDetail`: `NavigationOverlay` already resolves
@@ -503,6 +622,31 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
   dataSource?: DataSource;
   className?: string;
   /**
+   * [objectui#10657] The object's field catalogue (`fields` of the definition
+   * `getObjectSchema(objectName)` returns), handed down by a HOST that has
+   * already read it. `ListView` passes the definition it fetched before its
+   * rows; the grid answers every field-type question from it until its own
+   * read of the definition lands, and from its own read after that.
+   *
+   * ## Why a host hands it down
+   *
+   * A host that fetches the rows hands them down as `data`, so they paint
+   * before the grid's own schema read settles. Until then an untyped view
+   * column over a `password` / `secret` field has no type, and the grid can
+   * only withhold it (drawn as the mask, never as text). With the catalogue in
+   * hand there is no such window: the column draws, and is flagged, from its
+   * declared type at first paint.
+   *
+   * ## A RUNTIME prop, never authored metadata
+   *
+   * The name is the host channel decision batch #70 ruled for the object's
+   * field catalogue (objectui#7742): `SchemaRenderer` strips an AUTHORED
+   * `objectFields` on every spelling (objectui#8818), so only a host's React
+   * prop can reach this slot, and no view author can supply a catalogue that
+   * types a credential field as text.
+   */
+  objectFields?: Readonly<Record<string, unknown>>;
+  /**
    * [objectui#8674] Narrow ONE row's generic Edit / Delete entries — the layer
    * that lets a host withhold an operation the record itself cannot accept.
    *
@@ -565,8 +709,8 @@ export interface ObjectGridComponentProps extends ObjectGridExternalPaginationPr
  *
  * The ruled three-rung ladder itself (`data`, then `staticData`, then
  * `objectName`) is `resolveRecordSourceConfig` in `@object-ui/core` — ONE
- * implementation of a contract published on both faces (objectui#6939), which
- * this file used to hand-copy (objectui#7632).
+ * implementation of a contract published on both faces (`77cb489b4`), which
+ * this file used to hand-copy (`ce2aaefe1`).
  *
  * What used to stay here was the head above it: the bare-array `data`
  * shorthand, which lifted `data: [...]` to `{ provider: 'value', items }`.
@@ -776,8 +920,8 @@ function normalizeColumns(
  *     consumer reads it, which is the same test that retired it when the
  *     consumer did not exist.
  *   - `options` — RETIRED (see the enrichment pass below).
- *   - `type` — not adjudicated here; objectui#5853 owns its VALUE set and its
- *     fold still stands. It is the one member whose vocabulary differs between
+ *   - `type` — not adjudicated here; its VALUE set was settled by `fc62bb490`,
+ *     whose fold still stands. It is the one member whose vocabulary differs between
  *     the two types below.
  *   - `name` — not emitted by this producer at all, so objectui#5120's alias
  *     never needed a hold here. Tombstoned only in the sense that nothing writes
@@ -851,7 +995,7 @@ export interface ObjectGridColumnHolds {
  * still the producer's raw inference vocabulary (`@objectstack/spec`'s
  * `FieldType`, 49 values) rather than the EIGHT-literal union `TableColumn`
  * declares (`TABLE_COLUMN_TYPES`: `text`, `number`, `date`, `datetime`,
- * `currency`, `percent`, `boolean`, `action`). objectui#5853 folds it
+ * `currency`, `percent`, `boolean`, `action`). `fc62bb490` folds it
  * downstream, in a pass that is deliberately separate from the enrichment map —
  * so the pre-fold shape needs a name, and this is it.
  *
@@ -964,7 +1108,7 @@ export type ObjectGridColumn =
  *     `disableInnerScroll`, `borderless`) was already declared then, and is
  *     still declared now;
  *   - the two keys that survived that diff, `renderCellEditor` and
- *     `cellClassName`, were DECLARED by objectui#6882 (maintainer ruling
+ *     `cellClassName`, were DECLARED by `bf97b98c8` (maintainer ruling
  *     2026-08-30) on three surfaces:
  *       · `packages/types/src/data-display.ts` — the members themselves
  *       · `packages/types/src/zod/data-display.zod.ts` — the Zod mirror
@@ -988,7 +1132,7 @@ export type ObjectGridColumn =
  *     was — a returned widget takes the cell, `null` falls through to the
  *     built-in text / number / date inputs.
  *   - `cellClassName` — said HELD, and described the key as folded "into every
- *     body cell's `className`". The hold is over (declared by the same #6882);
+ *     body cell's `className`". The hold is over (declared by the same `bf97b98c8`);
  *     the DESCRIPTION was wrong from the day it was written, which is the more
  *     useful half of this correction. Measured: `data-table.tsx` folds the
  *     SCHEMA-level key at exactly three sites and every one is a UTILITY cell —
@@ -1000,9 +1144,9 @@ export type ObjectGridColumn =
  *     their density, because `applyDensity` below puts the same class on every
  *     column. What breaks is the checkbox / row-number / row-actions cells
  *     falling out of height alignment with the data beside them, which is why
- *     this grid sets BOTH slots. #6882's declaration is where the authoritative
+ *     this grid sets BOTH slots. `bf97b98c8`'s declaration is where the authoritative
  *     version of this now lives; this is the local copy agreeing with it.
- *     ⭐ GUARDED SINCE objectui#6921: the cell set is MEASURED in the rendered
+ *     ⭐ GUARDED SINCE `4eb665bcf`: the cell set is MEASURED in the rendered
  *     DOM by `packages/components/src/renderers/complex/__tests__/`
  *     `data-table-cellClassName-population-6921.test.tsx` — the fence (a data
  *     cell does NOT fold this key) and the non-regression (the three utility
@@ -1014,7 +1158,7 @@ export type ObjectGridColumn =
  * ⛔ The old closing note ("do not fix either hold by declaring the key on
  * `DataTableSchema` as a rider — that package is published surface with its own
  * review floor") governs nothing now. It was asking for the ruling to be taken
- * deliberately at that package's floor, and that is exactly how #6882 took it.
+ * deliberately at that package's floor, and that is exactly how `bf97b98c8` took it.
  */
 type RemoveIndexSignature<T> = {
   [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K];
@@ -1031,7 +1175,7 @@ export type DeclaredDataTableSchema = RemoveIndexSignature<DataTableSchema>;
  * ⚠️ "Undeclared by `DataTableSchema`" was this type's ENTRY CONDITION, and —
  * exactly as `ObjectGridColumnHolds` warns about its own — it is a claim about
  * ANOTHER package that can stop being true with nothing going red here. It
- * stopped being true on 2026-08-30: objectui#6882 declared BOTH members. As of
+ * stopped being true on 2026-08-30: `bf97b98c8` declared BOTH members. As of
  * objectui#7196 this type holds nothing; every member is redundant with
  * `DeclaredDataTableSchema`.
  *
@@ -1076,7 +1220,7 @@ export type DeclaredDataTableSchema = RemoveIndexSignature<DataTableSchema>;
  */
 export type ObjectGridDataTableSchemaHolds = {
   /**
-   * REDUNDANT since objectui#6882 (2026-08-30) — `DataTableSchema` declares this
+   * REDUNDANT since `bf97b98c8` (2026-08-30) — `DataTableSchema` declares this
    * key itself now, with a shape measured `Equal` to this one. `data-table`
    * calls it to render a host cell editor; returning `null` falls through to the
    * built-in text / number / date inputs. objectui#7188 added `pendingRow` (the
@@ -1095,7 +1239,7 @@ export type ObjectGridDataTableSchemaHolds = {
     cancel: () => void;
   }) => React.ReactNode;
   /**
-   * REDUNDANT since objectui#6882 (2026-08-30) — `DataTableSchema` declares this
+   * REDUNDANT since `bf97b98c8` (2026-08-30) — `DataTableSchema` declares this
    * key itself now, with a shape measured `Equal` to this one. `data-table`
    * folds it into the three UTILITY body cells (selection, row-number,
    * row-actions) and never into a data cell, which folds
@@ -1296,6 +1440,12 @@ function describeNonPositivePageSize(
   );
 }
 
+/**
+ * The grouping-refusal signature when no entry is refused (objectui#10583,
+ * objectui#10657): the authored grouping config is then handed on as it is.
+ */
+const NO_GROUPING_REFUSAL = JSON.stringify({ refused: [], warned: [] });
+
 export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   schema,
   dataSource,
@@ -1327,6 +1477,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   onSearchChange: hostOnSearchChange,
   findParams: hostFindParams,
   onColumnStateChange,
+  objectFields: hostObjectFields,
 }) => {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1504,7 +1655,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // real match total + page controls. We must forward those straight to DataTable
   // instead of client-slicing the window — otherwise the footer would report
   // "pages = window / pageSize" and records beyond the window stay unreachable
-  // (framework #2212). `data` is a prop, and so are these — all declared on
+  // (objectstack-ai/objectstack#2212). `data` is a prop, and so are these — all declared on
   // `ObjectGridExternalPaginationProps` since #4277.
   const externalManualPagination =
     hostManualPagination === true &&
@@ -1520,7 +1671,33 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // (`ViewDataSchema` declares it required). Kept because this name gates the
   // permission verdicts below — see the note at `inlineEditable`.
   const objectName = resolveRecordSourceObjectName(schema, dataConfig) ?? schema.objectName;
-  // [#3391] Server-resolved effective API operation set for this object
+  /**
+   * The field catalogue this grid answers field-type questions from
+   * (objectui#10657): its own object definition once that read has landed,
+   * the catalogue a host handed down (`objectFields`) until then.
+   *
+   * ⚠️ Only the field reads that decide how a column DRAWS and whether it is
+   * MASKED go through this — the column builders, the masked flag, the client
+   * export, the grouping, the mobile card. Everything that needs the whole
+   * definition (actions, `highlightFields`, the default-column policy) still
+   * waits for `objectSchema`, exactly as before.
+   */
+  const objectFields: Record<string, any> | undefined =
+    objectSchema?.fields ?? hostObjectFields ?? undefined;
+  /**
+   * Are this grid's OBJECT field types still unknown (objectui#10657, which
+   * folded objectui#10706)? True while an object definition is expected (an
+   * object to ask about, and a data source that can answer `getObjectSchema`)
+   * and no catalogue is in hand: the read is in flight, or it failed, which
+   * the inline path swallows as non-fatal. Rows a host hands down paint inside
+   * that window, so every untyped column is WITHHELD until it closes, and for
+   * good if it never does (`isWithheldGridColumn`). With no `getObjectSchema`
+   * there is nothing to wait for, and the authored column types are all this
+   * grid will ever know.
+   */
+  const objectTypesPending =
+    !!objectName && typeof dataSource?.getObjectSchema === 'function' && !objectFields;
+  // [objectstack#3391] Server-resolved effective API operation set for this object
   // (/me/permissions `apiOperations`). The Export button and handler AND their
   // gate with this — a missing set (unrestricted object / old backend / no
   // provider) keeps the current behavior. The frontend consumes the effective
@@ -1567,7 +1744,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // door into the same state that never passes through ListView. Spelling the
   // gate identically here is what keeps the two from drifting: the object's
   // resolved affordance — ADR-0103 bucket ∧ `userActions.edit` ∧ the server's
-  // effective API operations (#3391/#3546), which is what `isObjectInlineEditable`
+  // effective API operations (objectstack#3391/objectstack#3546), which is what `isObjectInlineEditable`
   // names — AND the current principal's own grant (#4096).
   //
   // Fail-open, like every sibling gate in this file. `can()` answers `true`
@@ -1675,7 +1852,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // (`managedBy`), the `userActions.edit`/`delete` override — explicit `false`
   // opts out of the generic row Edit/Delete (e.g. sys_environment ships a
   // dedicated Rename + cascade-Delete instead, and the generic entries would
-  // duplicate them) — and [#3720] the server's effective API operation set, so
+  // duplicate them) — and [objectstack#3720] the server's effective API operation set, so
   // the row kebab never offers an update/delete the server would reject.
   // `operations` above only says whether the CONSUMER wired the affordance; it
   // is not a permission grant, which is why the object verdict is ANDed here
@@ -1784,7 +1961,17 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // it. The refusal is kept as a VALUE and rendered by the malformed-filter
   // branch below; collapsing it to `undefined` would mean "no filter" and run
   // the grid unconstrained, the silent widening objectui#9001 closed.
-  const schemaFilterSource = schema.filter;
+  //
+  // objectui#10607: both authored entries are read RESOLVED and held (see
+  // `useResolvedGridFilters`), so `{current_user_id}` goes out as the real id
+  // and an equal filter keeps its reference across renders.
+  const filterScope = useFilterScope();
+  const authoredFilters = useResolvedGridFilters(
+    { filter: schema.filter, defaultFilters: schema.defaultFilters },
+    filterScope,
+  );
+  const schemaFilterSource = authoredFilters.filter;
+  const schemaDefaultFilters = authoredFilters.defaultFilters;
   const schemaFilterResult = useMemo(() => toFilterNodeSafely(schemaFilterSource), [schemaFilterSource]);
   const schemaFilterRefusal = schemaFilterResult.ok ? undefined : schemaFilterResult.refusal;
   const schemaFilter = schemaFilterResult.ok ? schemaFilterResult.node : undefined;
@@ -1865,8 +2052,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           setObjectSchema(schemaData);
         }
       } catch (err) {
-        // Schema fetch failure for inline data is non-fatal; columns will
-        // still fall back to heuristic inference.
+        // Schema fetch failure for inline data is non-fatal: the rows still
+        // draw. An untyped column does NOT fall back to heuristic inference,
+        // though: with no field types in hand it stays WITHHELD (drawn as the
+        // mask, handled as masked), because it could be a `password` /
+        // `secret` field — fail closed (objectui#10657, `objectTypesPending`).
         console.warn(`[ObjectGrid] Failed to fetch objectSchema for inline data (objectName: ${objectName}):`, err);
       }
     };
@@ -1875,6 +2065,150 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
     return () => { cancelled = true; };
   }, [hasInlineData, objectName, dataSource]);
+
+  // objectui#10583 — a MASKED field is REFUSED as a grouping key.
+  // Grouping by it printed the raw value as each group's label. Masking the
+  // label would not be enough: the buckets would still show which records
+  // share a credential, ordered by its raw value. So the entry is dropped (the
+  // other entries still group, as `usableGroupingFields` does for an unusable
+  // one) and the drop is reported through the grid's warning channel. The rule
+  // is the column flag's: `isMaskedGridColumn` over the view column's type and
+  // the object-declared type.
+  //
+  // objectui#10657 (which folded objectui#10706) — the same rule's third
+  // argument: while the object's field types are unknown (`objectTypesPending`,
+  // the host-fetched window, or a failed read), an entry on a field whose view
+  // column authors no type is WITHHELD and so refused too, since its group
+  // label would print whatever the field holds. The group label follows the
+  // cell: a withheld cell draws the mask, and a withheld key labels no group.
+  // Once the types are known the entry groups again, unless its field is
+  // masked. The refusal of a withheld entry is not warned: it is not a finding
+  // about the authored grouping, and a failed read reports itself.
+  const groupingFieldsRaw = schema.grouping?.fields;
+  const maskedGroupingSignature = React.useMemo(() => {
+    const cols: ReadonlyArray<string | ListColumn> = normalizeColumns(schema.columns) ?? [];
+    const columnTypeOf = (field: string) =>
+      cols.find((c): c is ListColumn => typeof c === 'object' && c !== null && c.field === field)?.type;
+    const refused = usableGroupingFields(groupingFieldsRaw)
+      .map((gf) => gf.field)
+      .filter((field) => isMaskedGridColumn(columnTypeOf(field), objectFields?.[field]?.type, objectTypesPending));
+    return JSON.stringify({
+      refused,
+      // The ones refused on a KNOWN masked type, which is what the warning names.
+      warned: refused.filter((field) => isMaskedGridColumn(columnTypeOf(field), objectFields?.[field]?.type, false)),
+    });
+  }, [groupingFieldsRaw, schema.columns, objectFields, objectTypesPending]);
+  // Keyed on the authored array and the signature STRING, never on a memo's
+  // identity (AGENTS.md #10). Read only when something was refused: the
+  // unmasked path below hands `useGroupedData` the authored config itself.
+  const unmaskedGroupingFields = React.useMemo(() => {
+    const { refused }: { refused: string[] } = JSON.parse(maskedGroupingSignature);
+    return usableGroupingFields(groupingFieldsRaw).filter((gf) => !refused.includes(gf.field));
+  }, [groupingFieldsRaw, maskedGroupingSignature]);
+  const groupingRefusesNothing = maskedGroupingSignature === NO_GROUPING_REFUSAL;
+  useEffect(() => {
+    const { warned: masked }: { warned: string[] } = JSON.parse(maskedGroupingSignature);
+    if (masked.length === 0) return;
+    console.warn(
+      `[ObjectUI] ObjectGrid grouping: ${schema.objectName ?? 'object-grid'} groups by the masked `
+      + `field(s) ${masked.join(', ')}. A masked field cannot be a grouping key: its group labels would `
+      + 'show the raw value, and its groups would show which records share it. The entry was ignored.',
+    );
+  }, [maskedGroupingSignature, schema.objectName]);
+
+  // ── Server-side grouping (objectui#7189, maintainer ruling A) ─────────────
+  //
+  // Grouping on a list view is server-side: the set of groups and every number
+  // in a group header are properties of the QUERY, not of a fetched page, and
+  // the rows inside a group are paged. So a grouped grid that OWNS its fetch
+  // asks the server for its group headers (`dataSource.queryGroupHeaders`,
+  // the compiled `compileListViewGroupQuery`) and pages each open group's rows
+  // (`compileListViewGroupRowsQuery`) instead of fetching one window and
+  // bucketing it — which answered two headers (86, 14) or five page slices
+  // (31/31/30/7/1) for the same five units of 86/61/31/7/1, depending on
+  // nothing but row order, and left every row past the window unreachable.
+  //
+  // Presence of `queryGroupHeaders` is the capability. Rows handed in whole
+  // (`hasInlineData`) are grouped where they are, which is exact because
+  // nothing was withheld. A data source that cannot answer the header query
+  // cannot group (objectui#10881, maintainer ruling F): the grid refuses,
+  // naming the missing member, and asks for no rows — see
+  // `groupingNeedsHeaderQuery`. It used to group the page it fetched, whose
+  // every count was a page slice.
+  //
+  // Decided on the grouping AS CONFIGURED less the entries refused on a KNOWN
+  // masked type — NOT less the entries merely withheld while the object's
+  // types are still loading, or the first render would fetch one flat window
+  // it is about to throw away.
+  const groupingRefusedKnownMasked = React.useMemo(
+    () => (JSON.parse(maskedGroupingSignature) as { warned: string[] }).warned,
+    [maskedGroupingSignature],
+  );
+  // A grouping field this principal may not READ is not a key the server may
+  // group by: a header row carries every key's raw value, so grouping by it
+  // would print what the column itself withholds. Same gate, same deferral
+  // (an unanswered policy filters nothing), as the projection's.
+  const groupingKeyReadable = (field: string): boolean =>
+    !perms?.isLoaded || !objectName || perms.checkField(objectName, field, 'read');
+  const serverGroupedFetch =
+    !hasInlineData
+    && !!objectName
+    && typeof dataSource?.queryGroupHeaders === 'function'
+    && usableGroupingFields(groupingFieldsRaw).some(
+      (gf) => !groupingRefusedKnownMasked.includes(gf.field) && groupingKeyReadable(gf.field),
+    );
+  // [objectui#10881] The refusal: this grid would fetch its own rows and group
+  // them, and its data source cannot answer the group header query. There is
+  // no honest grouping to draw — a fetched window grouped in the browser shows
+  // page slices as group counts and drops every group whose rows fall past the
+  // window — so the grid names the missing member instead, and the load effect
+  // below asks for no rows (the object definition is still read: it is what
+  // tells a KNOWN masked grouping key, which groups nothing, from one that
+  // does). Rows handed in whole never reach it (`hasInlineData`). The same
+  // grouping entries count as for `serverGroupedFetch`, less the readability
+  // gate: over such a source a grouping by a key this principal may not read
+  // is refused too, rather than falling through to a fetched page.
+  const groupingNeedsHeaderQuery =
+    !hasInlineData
+    && !!objectName
+    && !!dataSource
+    && typeof dataSource.queryGroupHeaders !== 'function'
+    && usableGroupingFields(groupingFieldsRaw).some((gf) => !groupingRefusedKnownMasked.includes(gf.field));
+  // [objectui#10881] The second refusal: rows a host handed in that the SAME
+  // host declares to be one page of more — the external-pagination props
+  // (`externalManualPagination`) with a `rowCount` above the rows it handed.
+  // Only rows handed in WHOLE group where they are; a declared window grouped
+  // here shows page-slice counts and drops every group whose rows fall past
+  // it (on 100 of 186 rows over five units, two groups: 86 and 14). The
+  // header-query sentence is the wrong one here: the host owns this fetch,
+  // and its data source may even declare `queryGroupHeaders`. So this names
+  // its own remedy — hand the rows in whole, or let the grid fetch them.
+  // Counted against the rows as HANDED (`dataConfig.items`), not the `data`
+  // state that mirrors them one render later, so whole rows never flash it.
+  // Same grouping entries as `groupingNeedsHeaderQuery`. A `rowCount` absent
+  // or not above the handed rows is whole rows, and groups as before.
+  const handedRows = hasInlineData ? (dataConfig as { items?: unknown } | undefined)?.items : undefined;
+  const groupingNeedsWholeRows =
+    externalManualPagination
+    && Array.isArray(handedRows)
+    && (hostRowCount as number) > handedRows.length
+    && usableGroupingFields(groupingFieldsRaw).some((gf) => !groupingRefusedKnownMasked.includes(gf.field));
+  // The grid's own row query — projection, expansion, order and the view's
+  // filter — resolved by the load effect below exactly as the flat fetch
+  // resolves it, and handed to each group's row page. `null` until resolved.
+  const [groupRowQuery, setGroupRowQuery] = useState<Record<string, unknown> | null>(null);
+
+  // objectui#10035 — the refresh input this grid had none of, so a host could
+  // show it a write only by remounting it (AGENTS.md #8's corollary: refresh
+  // data, don't rebuild UI). The nonce moves when the data-invalidation bus
+  // reports a change to the object this grid FETCHES, and the load effect below
+  // names it, so the rows are re-read in place — the table stays mounted
+  // (`RefreshIndicator`, not the skeleton), and with it selection, scroll,
+  // column state and any open inline edit. Subscribed only when the grid
+  // fetches for itself: rows a host handed down (`data`, `bind`, an inline
+  // `value` set) are the host's to refresh, and a nonce there would only
+  // re-render for nothing.
+  const invalidationNonce = useDataInvalidation(hasInlineData ? undefined : objectName);
 
   // --- Unified async data loading effect ---
   // Combines schema fetch + data fetch into a single async flow with AbortController.
@@ -1922,6 +2256,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         }
 
         // --- Step 2: Fetch data ---
+        // [objectui#10881] A grouping this data source cannot count is refused
+        // before any row is asked for; the render names the missing member.
+        if (groupingNeedsHeaderQuery) return;
         if (dataSource && objectName) {
           // [objectui#7179] The fields the view GROUPS BY. `grouping` is a
           // sibling of `columns` in the spec, not a subset of it, so a grid may
@@ -2125,15 +2462,30 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               );
               return extra.length > 0 ? [...list, ...extra] : list;
             };
+            // [objectui#11105] ONE projection for BOTH branches: gate, then read
+            // each entry's field NAME through `columnIdentity`, then drop the
+            // entries that have none. Only names go on the wire.
+            //
+            // The `schemaFields` branch used to return its entries UNMAPPED,
+            // and `ListView` hands its effective column entries to the grid as
+            // `fields` AND `columns` alike. So a view whose columns are objects
+            // (`{ field, width }`) put the objects themselves into `$select`,
+            // which the adapter's `join(',')` serialized as `[object Object]`.
+            // Harmless while grouped grids got inline rows; since the grid
+            // groups on the server (objectui#7189) every group's row page
+            // carries this `$select`, and a server that refuses unknown select
+            // keys answered INVALID_FIELD in every group. For a `fields` entry
+            // that is already a name, `columnIdentity` hands it back unchanged.
+            const projectFieldNames = (entries: unknown[]): string[] =>
+              entries
+                .filter(passesProjectionGate)
+                .map((entry) => columnIdentity(entry))
+                .filter((v): v is string => !!v);
             if (schemaFields) {
-              return withHarvestedFields(ensureId((schemaFields as any[]).filter(passesProjectionGate)));
+              return withHarvestedFields(ensureId(projectFieldNames(schemaFields as unknown[])));
             }
             if (schemaColumns && Array.isArray(schemaColumns)) {
-              const fields = schemaColumns
-                .filter(passesProjectionGate)
-                .map((c: any) => columnIdentity(c))
-                .filter((v): v is string => !!v);
-              return withHarvestedFields(ensureId(fields));
+              return withHarvestedFields(ensureId(projectFieldNames(schemaColumns)));
             }
             return undefined;
           };
@@ -2189,7 +2541,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // for a `FilterOperatorError` arriving on this path too, which is
             // the whole of step 2 for this fourth call site. Converting it to
             // `toFilterNodeSafely` here would only rethrow into the same catch.
-            const legacyFilter = toFilterNode(schema.defaultFilters);
+            const legacyFilter = toFilterNode(schemaDefaultFilters);
             if (legacyFilter !== undefined) {
               params.$filter = legacyFilter;
             }
@@ -2242,18 +2594,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                 params.$orderby = orderBy;
               }
             }
-          } else if (schema.defaultSort) {
-            // Legacy support — through the SAME normalizer as the array arm
-            // above, because it had the SAME defect (objectui#8973): a
-            // `defaultSort` missing `order` was interpolated straight into
-            // `$orderby: 'name undefined'`, which the server answers
-            // `400 INVALID_QUERY`. Fixing one arm and not its neighbour would
-            // leave the class open in the same `if`/`else` chain.
-            const orderBy = toOrderByClause([schema.defaultSort as QuerySortEntry]);
-            if (orderBy !== undefined) {
-              params.$orderby = orderBy;
-            }
           }
+          // objectui#5861 — there is no third arm. The legacy single-entry
+          // `defaultSort` was retired under ADR-0049: `@objectstack/spec`
+          // refuses it by name on `object-grid` (since 17.3.0), so this chain
+          // reads `sort` alone, and the header reader below reads the same key
+          // the same way.
 
           // Search (objectui#3118). The term the toolbar box holds is a question
           // about the collection, so it goes to the server rather than to a
@@ -2343,6 +2689,18 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             params.$expand = expand;
           }
 
+          // [objectui#7189] Server-grouped: no flat window is fetched. The
+          // query is resolved here all the same — every gate above applies to
+          // each group's rows exactly as it would to the flat page — and each
+          // group's row page supplies its own filter and window.
+          if (serverGroupedFetch) {
+            const { $top: _top, $skip: _skip, ...groupQuery } = params;
+            setGroupRowQuery(groupQuery);
+            lastFindParamsRef.current = { ...groupQuery };
+            setSelectAllMatching(false);
+            return;
+          }
+
           const result = await dataSource.find(objectName, params);
           if (cancelled) return;
           setData(result.data || []);
@@ -2386,7 +2744,16 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // the query asking for the OLD one and the new grouping would read
   // `undefined` on every row — the very `(empty)` bucket this card fixes,
   // reachable a second way.
-  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, fetchWindow, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey]);
+  // `invalidationNonce` (objectui#10035): a write to this object, reported on
+  // the data-invalidation bus — see its declaration above.
+  // `schemaDefaultFilters` (objectui#10607): the deprecated alias, resolved and
+  // held with `filter`. It changes only when the authored alias changes by
+  // structure or the scope changes (a new signed-in user), and either one
+  // changes the `$filter` this effect sends when `filter` is absent.
+  // `groupingNeedsHeaderQuery` (objectui#10881): it flips when the object's
+  // types land and show the only grouping key masked, and the flat fetch it
+  // withheld must then go out.
+  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaDefaultFilters, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, fetchWindow, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, invalidationNonce, serverGroupedFetch, groupingNeedsHeaderQuery]);
 
   // The same reset, for the path the loader above never runs on (objectui#4501
   // clause 2). "All N matching are selected" is a claim about ONE query, so it
@@ -2515,7 +2882,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
     for (const gf of groupingFields) {
       const fieldName = gf.field;
-      const objectDefField = objectSchema?.fields?.[fieldName];
+      const objectDefField = objectFields?.[fieldName];
       // Try to find a column override matching this field for type/options
       const cols = normalizeColumns(schema.columns) as any[] | undefined;
       const colOverride = cols?.find?.((c) => typeof c === 'object' && c?.field === fieldName);
@@ -2561,13 +2928,78 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       }
       return undefined;
     };
-  }, [schema.grouping, schema.columns, schema.objectName, objectSchema, translateOptions, t]);
+  }, [schema.grouping, schema.columns, schema.objectName, objectFields, translateOptions, t]);
+
+  const groupingForRender = groupingRefusesNothing || !schema.grouping
+    ? schema.grouping
+    : { ...schema.grouping, fields: unmaskedGroupingFields };
+  // [objectui#7189] The entries the SERVER groups by: the render grouping less
+  // any key this principal may not read (see `groupingKeyReadable`). Keyed on
+  // the names, so a host rebuilding `grouping` every render re-asks nothing.
+  const serverGroupingKey = serverGroupedFetch
+    ? JSON.stringify(
+      usableGroupingFields(groupingForRender?.fields)
+        .filter((gf) => groupingKeyReadable(gf.field))
+        .map((gf) => [gf.field, gf.order ?? null, gf.collapsed ?? null]),
+    )
+    : '[]';
+  const serverGroupingFields = React.useMemo(
+    () => (JSON.parse(serverGroupingKey) as Array<[string, 'asc' | 'desc' | null, boolean | null]>)
+      .map(([field, order, collapsed]) => ({
+        field,
+        ...(order ? { order } : {}),
+        ...(collapsed !== null ? { collapsed } : {}),
+      })),
+    [serverGroupingKey],
+  );
+  // The view's composed filter as ONE `FilterCondition` — what both compiled
+  // queries take, so the header numbers and the rows they head answer the
+  // same question. Lowered from the AST the flat fetch would have sent; a
+  // filter that does not lower is refused, never dropped (dropping it would
+  // group the unfiltered object).
+  const groupRowQueryKey = JSON.stringify(groupRowQuery);
+  const groupWhere = React.useMemo((): { where?: FilterCondition; error?: Error } => {
+    const query = JSON.parse(groupRowQueryKey) as Record<string, unknown> | null;
+    const ast = query?.$filter;
+    if (ast === undefined || ast === null) return {};
+    try {
+      const where = parseFilterAST(ast);
+      if (where === undefined) {
+        return { error: new Error(`[ObjectGrid] The view filter could not be lowered for server-side grouping: ${JSON.stringify(ast)}`) };
+      }
+      return { where };
+    } catch (err) {
+      return { error: err instanceof Error ? err : new Error(String(err)) };
+    }
+  }, [groupRowQueryKey]);
+  const groupReloadKey = `${refreshKey}:${invalidationNonce}`;
+  const groupHeaders = useServerGroupHeaders({
+    enabled: serverGroupedFetch && !objectTypesPending && groupRowQuery !== null && !groupWhere.error,
+    dataSource,
+    objectName,
+    fields: serverGroupingFields,
+    where: groupWhere.where,
+    aggregations: schema.aggregations,
+    objectFields,
+    reloadKey: groupReloadKey,
+  });
+  // Keyed on the hook's STATE values (a stable identity React promises), so
+  // the group tree is rebuilt when the server answers, not on every render.
+  const groupHeaderRows = groupHeaders.headers;
+  const groupKeyLabels = groupHeaders.keyLabels;
+  const serverGroupSource: ServerGroupSource | undefined = React.useMemo(
+    () => (serverGroupedFetch ? { headers: groupHeaderRows ?? [], keyLabels: groupKeyLabels } : undefined),
+    [serverGroupedFetch, groupHeaderRows, groupKeyLabels],
+  );
 
   const { groups, isGrouped, toggleGroup } = useGroupedData(
-    schema.grouping,
+    serverGroupedFetch
+      ? (schema.grouping ? { ...schema.grouping, fields: serverGroupingFields } : undefined)
+      : groupingForRender,
     data,
     schema.aggregations,
     groupValueFormatter,
+    serverGroupSource,
   );
 
   // Reset grouped pagination to page 1 whenever the grouping config, page size
@@ -2579,6 +3011,47 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   React.useEffect(() => {
     setGroupedPage(1);
   }, [groupingKey, groupedPageSize, refreshKey]);
+
+  // [objectui#7189] The open LEAF groups on the current page of groups — the
+  // only ones whose rows are on screen, and so the only ones whose rows are
+  // asked for. A collapsed group costs no row query at all.
+  const serverGroupLeaves: ServerGroupLeaf[] = [];
+  if (serverGroupedFetch) {
+    const groupPages = Math.max(1, Math.ceil(groups.length / groupedPageSize));
+    const onPage = Math.min(groupedPage, groupPages);
+    const collectOpenLeaves = (group: typeof groups[number]) => {
+      if (group.collapsed) return;
+      if (group.subgroups.length === 0) serverGroupLeaves.push({ key: group.key, keyValues: group.keyValues });
+      else group.subgroups.forEach(collectOpenLeaves);
+    };
+    groups.slice((onPage - 1) * groupedPageSize, onPage * groupedPageSize).forEach(collectOpenLeaves);
+  }
+  const groupRows = useServerGroupRows({
+    enabled: serverGroupedFetch && !!groupHeaders.headers,
+    dataSource,
+    objectName,
+    fields: serverGroupingFields,
+    where: groupWhere.where,
+    baseParams: groupRowQuery,
+    pageSize: serverPageSize,
+    leaves: serverGroupLeaves,
+    reloadKey: groupReloadKey,
+  });
+  // The rows in hand are the open groups' pages: what everything else that
+  // reads `data` (column inference, the client export, selection) sees.
+  const serverLeafKeys = JSON.stringify(serverGroupLeaves.map((leaf) => leaf.key));
+  useEffect(() => {
+    if (!serverGroupedFetch) return;
+    const keys = JSON.parse(serverLeafKeys) as string[];
+    setData(keys.flatMap((key) => groupRows.pages[key]?.rows ?? []));
+  }, [serverGroupedFetch, serverLeafKeys, groupRows.pages]);
+  // …and the match total is the QUERY's: the top-level group counts summed.
+  const serverGroupTotal = serverGroupedFetch && groupHeaders.headers
+    ? (groupHeaders.headers[0] ?? []).reduce((sum, row) => sum + (Number(row.count) || 0), 0)
+    : undefined;
+  useEffect(() => {
+    if (serverGroupTotal !== undefined) setTotalMatching(serverGroupTotal);
+  }, [serverGroupTotal]);
 
   // --- Column summary support ---
   const summaryColumns = React.useMemo(() => {
@@ -2819,7 +3292,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         // No readable identity ⇒ nothing to ask the policy about.
         if (!fieldName) return true;
         // Undeclared ⇒ host-joined / derived ⇒ not this gate's business.
-        if (!Object.prototype.hasOwnProperty.call(objectSchema?.fields ?? {}, fieldName)) return true;
+        if (!Object.prototype.hasOwnProperty.call(objectFields ?? {}, fieldName)) return true;
         return perms.checkField(schema.objectName, fieldName, 'read');
       };
       // ObjectStack's DECLARED column spelling is the only one read
@@ -2861,7 +3334,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // name-derived header (e.g. "Request title") even when the field has a
             // localized label (e.g. "申请标题") on a non-English app.
             const rawHeader = resolveColumnLabel(col.label)
-              || resolveColumnLabel(objectSchema?.fields?.[col.field]?.label)
+              || resolveColumnLabel(objectFields?.[col.field]?.label)
               || col.field.charAt(0).toUpperCase() + col.field.slice(1).replace(/_/g, ' ');
             const header = schema.objectName ? resolveFieldLabel(schema.objectName, col.field, rawHeader) : rawHeader;
 
@@ -2872,7 +3345,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // Format hints (e.g. `text` + `format: 'phone'`) promote to the
             // richer renderer (PhoneCellRenderer) via the grid's one shared
             // resolve, `./cellRendererResolution` (objectui#8920).
-            const objectDefField = objectSchema?.fields?.[col.field];
+            const objectDefField = objectFields?.[col.field];
+            // objectui#10657 — an untyped column while the object's field types
+            // are unknown is WITHHELD: drawn as the mask, never as text, and
+            // flagged masked (`isWithheldGridColumn`). No type is inferred for
+            // it — a heuristic guess from the name or the values is exactly
+            // how a credential field ended up drawn as text.
+            const withheld = isWithheldGridColumn(col.type, objectTypesPending);
             // ⭐ ANNOTATED, and the annotation is load-bearing (objectui#6004).
             // `objectSchema` is `useState<any>`, so `objectDefField?.type` is
             // `any` — and an `any` SPREAD into an object literal collapses the
@@ -2880,7 +3359,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // in it. Measured: without this annotation the emit below infers
             // `any[]`, and `ObjectGridColumnDraft` cannot bite on any member. Naming
             // the producer vocabulary here stops `any` at this one boundary.
-            const baseInferredType: string | null = col.type || objectDefField?.type || inferColumnType({ field: col.field }) || null;
+            const baseInferredType: string | null = withheld
+              ? null
+              : col.type || objectDefField?.type || inferColumnType({ field: col.field }) || null;
             // objectui#6458 — the column-level `format` read is RETIRED. The
             // object-field fallback below is now the only road, which is what
             // every measured author already used.
@@ -2889,7 +3370,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // `baseInferredType` is the DECLARED type the inline editor reads,
             // `inferredType` the renderer key it promotes to.
             const { rendererType: inferredType, Renderer } = resolveGridCellRendering({ type: baseInferredType, format: formatHint });
-            const CellRenderer = inferredType ? Renderer : null;
+            const CellRenderer = withheld ? MaskedCellRenderer : inferredType ? Renderer : null;
 
             // Build field metadata for cell renderers with objectDef enrichment
             const fieldMeta: Record<string, any> = { name: col.field, type: inferredType || 'text' };
@@ -2897,8 +3378,20 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             if (objectDefField) {
               if (objectDefField.label) fieldMeta.label = objectDefField.label;
               if (objectDefField.currency) fieldMeta.currency = objectDefField.currency;
+              // objectui#10354 — `currencyConfig` is the spec's one fixed-currency
+              // spelling (a field key `currency` is refused by name), so a
+              // JPY-fixed field reaches the cell only through it. Copied
+              // VERBATIM: the cell's `resolveFieldCurrency` owns what it means,
+              // `currencyMode` included, so this bag holds no second opinion.
+              // Dropped, the cell fell through to the tenant currency while the
+              // metric tile and every whole-def cell read the field's own.
+              if (objectDefField.currencyConfig) fieldMeta.currencyConfig = objectDefField.currencyConfig;
               if (objectDefField.precision !== undefined) fieldMeta.precision = objectDefField.precision;
               if ((objectDefField as any).scale !== undefined) (fieldMeta as any).scale = (objectDefField as any).scale;
+              // objectui#11026 — the author's digit-grouping hint rides beside
+              // `scale`, its heuristic fallback: dropped here, the cell never
+              // sees it and a `useGrouping: false` year still reads `2,026`.
+              if (objectDefField.useGrouping !== undefined) fieldMeta.useGrouping = objectDefField.useGrouping;
               if (objectDefField.format) fieldMeta.format = objectDefField.format;
               if (objectDefField.options) fieldMeta.options = translateOptions(schema.objectName, col.field, objectDefField.options);
             }
@@ -3087,7 +3580,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         .filter((fieldName) => typeof fieldName === 'string' && fieldName.trim().length > 0)
         .filter((fieldName) => passesFieldGate(fieldName))
         .map((fieldName, colIndex) => {
-          const fieldDef = objectSchema?.fields?.[fieldName];
+          const fieldDef = objectFields?.[fieldName];
+          // objectui#10657 — a bare field name carries no type of its own, so
+          // while the object's field types are unknown it is WITHHELD (see
+          // path A): the mask, no inferred type.
+          const withheld = isWithheldGridColumn(undefined, objectTypesPending);
           const rawFieldLabel = fieldDef?.label;
           const rawHeader = rawFieldLabel || fieldName.charAt(0).toUpperCase() + fieldName.slice(1).replace(/_/g, ' ');
           const header = schema.objectName ? resolveFieldLabel(schema.objectName, fieldName, rawHeader) : rawHeader;
@@ -3108,18 +3605,22 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           // members — it moved into the helper's return type, it did not go
           // away.
           const { declaredType, rendererType, Renderer } = resolveGridCellRendering({
-            type: fieldDef?.type || inferColumnType({ field: fieldName }),
+            type: withheld ? null : fieldDef?.type || inferColumnType({ field: fieldName }),
             format: fieldDef?.format,
           });
-          const CellRenderer = rendererType ? Renderer : null;
+          const CellRenderer = withheld ? MaskedCellRenderer : rendererType ? Renderer : null;
 
           // Build field metadata with objectDef enrichment
           const fieldMeta: Record<string, any> = { name: fieldName, type: rendererType || 'text' };
           if (fieldDef) {
             if (fieldDef.label) fieldMeta.label = fieldDef.label;
             if (fieldDef.currency) fieldMeta.currency = fieldDef.currency;
+            // Verbatim, as the ListColumn path copies it (objectui#10354).
+            if (fieldDef.currencyConfig) fieldMeta.currencyConfig = fieldDef.currencyConfig;
             if (fieldDef.precision !== undefined) fieldMeta.precision = fieldDef.precision;
             if ((fieldDef as any).scale !== undefined) fieldMeta.scale = (fieldDef as any).scale;
+            // Beside `scale`, as path A copies it (objectui#11026).
+            if (fieldDef.useGrouping !== undefined) fieldMeta.useGrouping = fieldDef.useGrouping;
             if (fieldDef.format) fieldMeta.format = fieldDef.format;
             if (fieldDef.options) fieldMeta.options = translateOptions(schema.objectName, fieldName, fieldDef.options);
           }
@@ -3264,19 +3765,24 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           // `hasOwnProperty` rather than a truthiness read so an inherited
           // name (`constructor`, `toString`) cannot be mistaken for a declared
           // field and dropped.
-          if (!Object.prototype.hasOwnProperty.call(objectSchema?.fields ?? {}, fieldName)) return true;
+          if (!Object.prototype.hasOwnProperty.call(objectFields ?? {}, fieldName)) return true;
           return perms.checkField(schema.objectName, fieldName, 'read');
         });
         return fieldsToShow.map((fieldName) => {
-          const fieldDef = objectSchema?.fields?.[fieldName];
+          const fieldDef = objectFields?.[fieldName];
+          // objectui#10657 — a row key carries no type of its own, so while
+          // the object's field types are unknown it is WITHHELD (see path A):
+          // the mask, no inferred type. This is the path a host-fetched grid
+          // with no authored columns paints first.
+          const withheld = isWithheldGridColumn(undefined, objectTypesPending);
           // The same two resolves as path B, through the same shared owner
           // (objectui#8920) — and the same objectui#6004 annotation, now
           // carried by `GridCellRendering`'s `string | null` members.
           const { declaredType, rendererType, Renderer } = resolveGridCellRendering({
-            type: fieldDef?.type || inferColumnType({ field: fieldName }),
+            type: withheld ? null : fieldDef?.type || inferColumnType({ field: fieldName }),
             format: fieldDef?.format,
           });
-          const CellRenderer = rendererType ? Renderer : null;
+          const CellRenderer = withheld ? MaskedCellRenderer : rendererType ? Renderer : null;
           const header = fieldDef?.label || fieldName.charAt(0).toUpperCase() + fieldName.slice(1).replace(/_/g, ' ');
 
           // Build field metadata with objectDef enrichment
@@ -3284,8 +3790,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           if (fieldDef) {
             if (fieldDef.label) fieldMeta.label = fieldDef.label;
             if (fieldDef.currency) fieldMeta.currency = fieldDef.currency;
+            // Verbatim, as the ListColumn path copies it (objectui#10354).
+            if (fieldDef.currencyConfig) fieldMeta.currencyConfig = fieldDef.currencyConfig;
             if (fieldDef.precision !== undefined) fieldMeta.precision = fieldDef.precision;
             if ((fieldDef as any).scale !== undefined) fieldMeta.scale = (fieldDef as any).scale;
+            // Beside `scale`, as path A copies it (objectui#11026).
+            if (fieldDef.useGrouping !== undefined) fieldMeta.useGrouping = fieldDef.useGrouping;
             if (fieldDef.format) fieldMeta.format = fieldDef.format;
             if (fieldDef.options) fieldMeta.options = translateOptions(schema.objectName, fieldName, fieldDef.options);
           }
@@ -3423,7 +3933,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     });
 
     return generatedColumns;
-  }, [objectSchema, schemaFields, schemaColumns, dataConfig, hasInlineData, objectName, navigation.handleClick, executeAction, data, resolveFieldLabel, translateOptions, schema.objectName, perms]);
+  }, [objectSchema, objectFields, objectTypesPending, schemaFields, schemaColumns, dataConfig, hasInlineData, objectName, navigation.handleClick, executeAction, data, resolveFieldLabel, translateOptions, schema.objectName, perms]);
 
   // Formats this grid can actually deliver (objectui#2942): the server stream
   // handles csv/xlsx/json, the client fallback only csv/json. Declared-but-dead
@@ -3460,7 +3970,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   const handleExport = useCallback((format: ListViewExportFormat) => {
     // Object-level export permission gate. Default-allow: an explicit
     // `operations.export === false` blocks it, and — when the server hands down
-    // an effective API operation set for this object (#3391) — so does its
+    // an effective API operation set for this object (objectstack#3391) — so does its
     // exclusion of `export`. Missing effective set keeps current behavior.
     if (schema.operations?.export === false) return;
     if (effectiveApiOps && !effectiveApiOps.includes('export')) return;
@@ -3475,7 +3985,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       prefix: exportConfig?.fileNamePrefix,
       label: objectSchema?.label,
       objectName: objectName || schema.objectName,
-      viewLabel: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
+      // `title` is the deprecated spelling of `label` and takes the same door:
+      // the spec types it `I18nLabel`, so an inline locale map reaches this
+      // string sink and must resolve here, not stringify (objectui#10993).
+      viewLabel: resolveInlineI18nLabel(schema.label, displayLocale)
+        || resolveInlineI18nLabel(schema.title, displayLocale),
     });
 
     // Server-streamed path: csv / xlsx / json via dataSource.exportDownload.
@@ -3557,8 +4071,20 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         : str;
     };
 
+    // objectui#10583 — a MASKED field leaves neither file. The same rule that
+    // stamps `TableColumn.masked` (`isMaskedGridColumn`, the narrow-only union
+    // of the column's type and the object-declared type), asked per KEY
+    // because the JSON branch writes whole records, including fields that are
+    // not columns. While the object's field types are unknown (objectui#10657),
+    // a key with no column type of its own is WITHHELD and leaves both files
+    // too: a record field no column types is judged by its object type alone,
+    // and there is none yet.
+    const columnTypeByKey = new Map(generateColumns().map((c) => [c.accessorKey, c.type]));
+    const isMaskedKey = (key: string) =>
+      isMaskedGridColumn(columnTypeByKey.get(key), objectFields?.[key]?.type, objectTypesPending);
+
     if (format === 'csv') {
-      const cols = generateColumns().filter((c) => c.accessorKey !== '_actions');
+      const cols = generateColumns().filter((c) => c.accessorKey !== '_actions' && !isMaskedKey(c.accessorKey));
       const fields = cols.map((c) => c.accessorKey);
       const headers = cols.map((c) => c.header);
       const rows: string[] = [];
@@ -3570,10 +4096,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       });
       downloadFile(new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' }), fileNameFor('csv'));
     } else if (format === 'json') {
-      downloadFile(new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' }), fileNameFor('json'));
+      const unmasked = exportData.map((record) =>
+        Object.fromEntries(Object.entries(record).filter(([key]) => !isMaskedKey(key))),
+      );
+      downloadFile(new Blob([JSON.stringify(unmasked, null, 2)], { type: 'application/json' }), fileNameFor('json'));
     }
     setShowExport(false);
-  }, [data, schema.exportOptions, schema.operations?.export, effectiveApiOps, schema.objectName, objectName, objectSchema, generateColumns, dataSource, hasInlineData, schemaFilter, schemaSort]);
+  }, [data, schema.exportOptions, schema.operations?.export, effectiveApiOps, schema.objectName, objectName, objectSchema, objectFields, objectTypesPending, generateColumns, dataSource, hasInlineData, schemaFilter, schemaSort]);
 
   // objectui#9050 step 2 — a refused filter, from EITHER of this component's
   // two entries into the lowering: `schema.filter` (a render-time `useMemo`,
@@ -3604,16 +4133,40 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     );
   }
 
-  if (error) {
+  // [objectui#10881] A grouping of rows a host declared to be one page of
+  // more, refused in the load-error panel's own shape with its own sentence
+  // (`groupingNeedsWholeRows`). Nothing to wait for: the rows are the host's,
+  // so this comes before the spinner.
+  if (groupingNeedsWholeRows) {
     return (
-      <div className="p-3 sm:p-4 border border-red-300 bg-red-50 rounded-md">
+      <div
+        role="alert"
+        className="p-3 sm:p-4 border border-red-300 bg-red-50 rounded-md"
+        data-testid="grid-grouping-needs-whole-rows"
+      >
         <h3 className="text-red-800 font-semibold">{t('grid.errorLoading')}</h3>
-        <p className="text-red-600 text-sm mt-1">{error.message}</p>
+        <p className="text-red-600 text-sm mt-1">{t('grid.grouping.needsWholeRows')}</p>
       </div>
     );
   }
 
-  if (loading && data.length === 0) {
+  // [objectui#7189] A server-grouped grid fails like any other load: the
+  // header query refused, or a view filter that would not lower for it.
+  const loadError = error
+    ?? (serverGroupedFetch ? (groupWhere.error ?? groupHeaders.error ?? null) : null);
+  if (loadError) {
+    return (
+      <div className="p-3 sm:p-4 border border-red-300 bg-red-50 rounded-md">
+        <h3 className="text-red-800 font-semibold">{t('grid.errorLoading')}</h3>
+        <p className="text-red-600 text-sm mt-1">{loadError.message}</p>
+      </div>
+    );
+  }
+
+  // …and it is loading until its group set has first arrived: the flat fetch
+  // it skips never clears `data`'s emptiness, so `loading` alone says nothing.
+  const serverGroupsFirstLoad = serverGroupedFetch && !groupHeaders.headers;
+  if ((loading && data.length === 0) || serverGroupsFirstLoad) {
     if (useCardView) {
       return (
         <div className="space-y-2 p-2">
@@ -3634,6 +4187,26 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       <div className="p-4 sm:p-8 text-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
         <p className="mt-2 text-sm text-muted-foreground">{t('grid.loading')}</p>
+      </div>
+    );
+  }
+
+  // [objectui#10881] A grouping the data source cannot count, refused in the
+  // load-error panel's own shape: nothing was fetched, and the sentence names
+  // the member the data source would need (`groupingNeedsHeaderQuery`). AFTER
+  // the spinner, deliberately: the refusal is decided before the object's
+  // field types are known, and a grouping whose only key turns out to be a
+  // masked type is no grouping at all — so while that one read is in flight
+  // the grid shows it is loading, never an error it is about to withdraw.
+  if (groupingNeedsHeaderQuery) {
+    return (
+      <div
+        role="alert"
+        className="p-3 sm:p-4 border border-red-300 bg-red-50 rounded-md"
+        data-testid="grid-grouping-needs-header-query"
+      >
+        <h3 className="text-red-800 font-semibold">{t('grid.errorLoading')}</h3>
+        <p className="text-red-600 text-sm mt-1">{t('grid.grouping.needsHeaderQuery')}</p>
       </div>
     );
   }
@@ -3674,7 +4247,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     // line converts a tolerated null into a throw, which is how the protection
     // would be lost a second time for a perfectly good reason.
     if (!col || col.accessorKey === '_actions') return col;
-    const fieldDef = (objectSchema as any)?.fields?.[col.accessorKey];
+    const fieldDef = objectFields?.[col.accessorKey];
     if (!fieldDef) return col;
     const next: ObjectGridColumnDraft = { ...col };
     if (next.type == null && fieldDef.type) next.type = fieldDef.type;
@@ -3687,7 +4260,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     }
     return next;
   })
-    // ⭐ THE EMIT SEAM (objectui#5853, maintainer ruling 2026-08-25, Option B).
+    // ⭐ THE EMIT SEAM (`fc62bb490`, maintainer ruling 2026-08-25, Option B).
     //
     // Every column this component hands to `data-table` passes through here, so
     // it is the one place that can guarantee `TableColumn.type` only ever holds
@@ -3716,7 +4289,31 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       // producer's types have not held in practice. Destructuring a null below
       // would throw where the pre-#6004 code passed it through.
       if (!col) return col;
-      const { type: producerType, ...rest } = col;
+      const { type: producerType, ...draft } = col;
+      // ⭐ THE MASKED FLAG (objectui#10583) — stamped HERE, before the fold,
+      // because the fold is exactly what erases the answer: `password` and
+      // `secret` are not `TableColumnType` members, so `normalizeTableColumnType`
+      // drops them and `data-table` could never tell a masked column from a
+      // text one. It also must not ask the question itself — it cannot import
+      // `@object-ui/fields` — so this producer asks `isMaskedFieldType()` (via
+      // `isMaskedGridColumn`) and the table obeys the flag: no Ctrl+C / Cmd+C
+      // copy, no `title` tooltip, no column in its CSV export, no inline edit.
+      //
+      // Every path that writes `type` is covered for the same reason the fold
+      // is: all four `generateColumns()` literals and the enrichment map above
+      // pass through this pass. The object-declared type is read beside the
+      // producer's for the narrow-only union — path A forwards a VIEW-authored
+      // type ahead of the object's, and `type: 'text'` over a `secret` column
+      // must keep the flag. Written only when true, so every unmasked column
+      // reaches the table byte-identical to before.
+      //
+      // objectui#10657 — the third argument: while the object's field types
+      // are unknown, a column with no type of its own is WITHHELD, and so
+      // flagged. `generateColumns()` gave it no inferred type and a mask for a
+      // cell; this is where every table path learns to withhold it as well.
+      const rest = isMaskedGridColumn(producerType, objectFields?.[col.accessorKey]?.type, objectTypesPending)
+        ? { ...draft, masked: true }
+        : draft;
       if (producerType == null) return rest;
       const normalized = normalizeTableColumnType(producerType);
       if (normalized === undefined) return rest;
@@ -3901,19 +4498,26 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     cellClassName: [rowHeightCellClass, col.cellClassName].filter(Boolean).join(' '),
   });
 
-  // Server-side pagination applies to the flat, server-fetched list only.
-  // Inline/static data and the grouped view paginate in-memory (grouped mode
-  // keeps whole groups together via its own groupedPage state), so they stay
-  // on DataTable's default client-side slicing.
+  // Server-side pagination applies to every list whose rows the server pages:
+  // the flat, server-fetched list, and a server-grouped one (per group).
+  // Inline/static data paginates in-memory, and so does a grid grouping a page
+  // it fetched (grouped mode keeps whole groups together via its own
+  // groupedPage state), so they stay on DataTable's client-side slicing.
   //
   // Declared here rather than beside the rest of the manual-mode wiring below
   // because `orderedColumns` needs it: which columns may be sorted at all
   // depends on whether the sort is the server's.
-  const useServerPagination = !hasInlineData && !isGrouped;
+  //
+  // [objectui#7189] The grouped exclusion is gone for a grid that groups on
+  // the SERVER: it pages each group's rows there (see `renderGroup`), so its
+  // sort is the server's too. A grid grouping a page it fetched from a source
+  // that cannot answer the header query still holds whole groups in memory.
+  const useServerPagination = !hasInlineData && (!isGrouped || serverGroupedFetch);
 
   // Either we own the server fetch (useServerPagination) or a parent does
-  // (externalManualPagination). Grouped mode always keeps in-memory slicing so
-  // whole groups stay together. Both server modes feed DataTable a manual pager
+  // (externalManualPagination). This is the FLAT table's pager: a grouped grid
+  // renders no flat table — its pages are per group (`renderGroup`) — so it
+  // never switches this on. Both server modes feed DataTable a manual pager
   // backed by the real match total.
   const manualPaginationOn = (useServerPagination || externalManualPagination) && !isGrouped;
 
@@ -3921,9 +4525,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   //
   // Tied to who owns the ROWS, not to who owns the pager: whenever `data` is
   // one window of a larger collection, sorting it in the browser orders that
-  // window and nothing else. Grouped mode holds every row it groups, so it
-  // keeps DataTable's own client-side sort.
-  const manualSortingOn = manualPaginationOn;
+  // window and nothing else. A server-grouped grid holds one PAGE of each
+  // group, so its sort is the server's (objectui#7189); a grid grouping rows
+  // it holds keeps DataTable's own client-side sort.
+  const manualSortingOn = manualPaginationOn || (isGrouped && serverGroupedFetch);
 
   // Server-side search, on exactly the same condition (objectui#3118). Same
   // question, filter axis: when `data` is one window, a `.filter()` over it
@@ -4030,7 +4635,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // a bulk-delete affordance is implicitly available (canDelete + onBulkDelete
   // wired by the consumer). This gives every list a multi-select + delete UX
   // out of the box without forcing each view JSON to declare bulkActions.
-  // [#3720] Bulk delete is the most destructive affordance on the list, so it
+  // [objectstack#3720] Bulk delete is the most destructive affordance on the list, so it
   // rides the same object-level `delete` verdict as the row kebab (bucket lock
   // ∧ userActions ∧ the server's effective operation set). An author-declared
   // `bulkActions: ['delete']` / `bulkActionDefs[].operation === 'delete'` is a
@@ -4497,61 +5102,13 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     ? hostOnPageSizeChange
     : (size: number) => { setServerPageSize(size); setServerPage(1); };
 
-  // ── Is the grouping on screen page-scoped? (objectui#7189) ───────────────
-  //
-  // `useGroupedData` buckets the rows THIS COMPONENT HOLDS and computes every
-  // per-group aggregate from that same array, so both the set of groups and
-  // every number in a group header are properties of the fetched page rather
-  // than of the query. That is a correct implementation of client-side
-  // grouping and is deliberately untouched here; what was missing is any
-  // statement that client-side grouping is what you are looking at. A group
-  // whose records all fall beyond the page does not appear AT ALL — and a
-  // wrong number invites a second look where an absent row invites none.
-  //
-  // Two knowable conditions, deliberately different in strength, because the
-  // wording each one can honestly support differs with it:
-  //
-  //  1. A real match total to compare against — `resolvedTotalMatching`, the
-  //     same ONE derived value the pager and both bulk-bar sites read (do not
-  //     re-spell the `externalManualPagination` conditional here; two copies
-  //     of it is how one of them got missed in #4464). Exceeding the rows in
-  //     hand makes the grouping partial as a FACT, with both numbers.
-  //  2. No total, but we asked the server for a window and it came back full.
-  //     `plugin-list`'s own footer draws exactly this inference when no total
-  //     is known (`items.length >= effectivePageSize`), and it can only ever
-  //     say "may": a result set that exactly fills the window trips it too.
-  //
-  // Rows handed to us inline are NOT a page — nothing was asked for and
-  // nothing was withheld — so `hasInlineData` gates condition 2 out. The
-  // host-driven paging mode still reaches condition 1, through `hostRowCount`.
-  // A result set that fits leaves the grid silent, and that silence is what
-  // makes the marker mean something when it does appear.
-  const groupingRowsLoaded = data.length;
-  const groupingTotalKnown = typeof resolvedTotalMatching === 'number';
-  const groupingPartialWithTotal =
-    groupingTotalKnown && (resolvedTotalMatching as number) > groupingRowsLoaded;
-  const groupingPartialWindowFull =
-    !groupingTotalKnown && !hasInlineData && groupingRowsLoaded >= fetchWindow;
-  const groupingIsPartial =
-    isGrouped && (groupingPartialWithTotal || groupingPartialWindowFull);
-  // ONE sentence, used in both places it belongs: the notice above the group
-  // list, and the accessible name of the marker beside every group count.
-  const groupingPartialNotice = groupingIsPartial
-    ? (groupingPartialWithTotal
-      ? t('grid.grouping.partialNotice', {
-        loaded: groupingRowsLoaded,
-        total: resolvedTotalMatching,
-      })
-      : t('grid.grouping.partialNoticeUnknownTotal', { loaded: groupingRowsLoaded }))
-    : undefined;
-  const groupingPartialLabel = groupingIsPartial ? t('grid.grouping.partialBadge') : undefined;
-
   // Before anyone clicks, the headers show the sort the view was authored with
-  // — read with the same `schemaSort` → `defaultSort` precedence the fetch path
-  // above uses, so the arrow on screen and the `$orderby` on the wire are the
-  // same sort. Without that a view arriving `created_at desc` would show no
-  // arrow, and the first click on that column would ask for `asc` on a list
-  // that was already `desc`.
+  // — read from the same `schemaSort` the fetch path above lowers, so the
+  // arrow on screen and the `$orderby` on the wire are the same sort. (The
+  // retired `defaultSort` fallback is read by neither, objectui#5861.)
+  // Without that a view arriving `created_at desc` would show no arrow, and
+  // the first click on that column would ask for `asc` on a list that was
+  // already `desc`.
   //
   // ⭐ That agreement now covers the SPELLING too (objectui#8961). One used to
   // escape it: since objectui#8767 the fetch path REFUSES a string `sort` and
@@ -4568,9 +5125,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // A plain expression, not a `useMemo`: this sits below the component's early
   // returns, where a hook would be skipped on some renders and change the hook
   // order. Parsing at most a handful of sort keys costs nothing worth a hook.
-  const declaredSort = parseSchemaSort(
-    schemaSort ?? (schema.defaultSort ? [schema.defaultSort] : undefined),
-  );
+  const declaredSort = parseSchemaSort(schemaSort);
   /**
    * [#5729] The RESTORE leg of objectstack#10235's contract, and the guard
    * that keeps the personalization PUT off an unsortable column.
@@ -4589,7 +5144,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
    * sort state as, and what it EMITS back to whoever persists it. A stale
    * entry is inert on arrival and is dropped the first time anything writes
    * the sort back. Only under a served projection — with no signal there is no
-   * verdict to filter by, and the pre-#10235 behaviour stands unchanged.
+   * verdict to filter by, and the pre-objectstack-ai/objectstack#10235 behaviour stands unchanged.
    */
   const rawManualSort: TableSortItem[] = externalManualPagination
     ? (hostSort ?? [])
@@ -4625,7 +5180,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
   const dataTableSchema: ObjectGridDataTableSchema = {
     type: 'data-table',
-    caption: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
+    // The deprecated `title` fallback resolves like `label` (objectui#10993):
+    // handed on raw, a locale map reached the data-table caption as an object
+    // and the whole block failed to render.
+    caption: resolveInlineI18nLabel(schema.label, displayLocale)
+      || resolveInlineI18nLabel(schema.title, displayLocale),
     columns: orderedColumns,
     data,
     pagination: paginationEnabled,
@@ -4735,7 +5294,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               // the child before anything is saved — the form's semantics.
               // `ctx.row` alone was #7165's interim and scoped by the SAVED
               // parent. `pendingRow` is a REQUIRED member of the declared
-              // context (`@object-ui/types`, objectui#6882 + #7188), so the
+              // context (`@object-ui/types`, `bf97b98c8` + #7188), so the
               // `?? ctx.row` never selects for a conforming host; it is spelled
               // so a context handed to this factory WITHOUT it degrades to the
               // saved-row scoping rather than to `{}` — gated forever — and it
@@ -4862,11 +5421,29 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   }
 
   /** Build a per-group data-table schema (inherits everything except data & pagination). */
-  const buildGroupTableSchema = (groupRows: any[]): ObjectGridDataTableSchema => ({
+  const buildGroupTableSchema = (
+    groupRows: any[],
+    serverPage?: { count: number; page: number; onPageChange: (page: number) => void },
+  ): ObjectGridDataTableSchema => ({
     ...dataTableSchema,
     caption: undefined,
     data: groupRows,
     pagination: false,
+    // [objectui#7189] A server-grouped leaf holds ONE page of its group: the
+    // pager is the group's own, driven by the header's count, and turning it
+    // asks the server for the group's next page — so every row of every group
+    // is reachable. Shown only when the group spans more than one page.
+    ...(serverPage
+      ? {
+        pagination: serverPage.count > serverPageSize,
+        manualPagination: true,
+        rowCount: serverPage.count,
+        page: serverPage.page,
+        pageSize: serverPageSize,
+        onPageChange: serverPage.onPageChange,
+        onPageSizeChange: (size: number) => { setServerPageSize(size); },
+      }
+      : {}),
     searchable: false,
     // Embedded inside a GroupRow which already provides visual framing.
     // Drop the table's outer rounded border so groups look like Airtable's
@@ -5019,12 +5596,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     // Honor `hidden: true` on the schema field def — internal/system fields
     // (e.g. database_url, environment_id, is_system) shouldn't leak into the
     // grid's record-detail drawer just because they're in the record payload.
-    const isHidden = (key: string) => objectSchema?.fields?.[key]?.hidden === true;
+    const isHidden = (key: string) => objectFields?.[key]?.hidden === true;
     // Split business fields from framework-managed system/audit/ownership
     // columns via the shared classifier (branches on `field.system`), so the
     // injected `owner_id` and friends land in the muted meta section rather than
     // the business body — consistent with the grid's default-column derivation.
-    const isSystem = (key: string) => isSystemManagedField(key, objectSchema?.fields?.[key]);
+    const isSystem = (key: string) => isSystemManagedField(key, objectFields?.[key]);
     const regularFields = entries.filter(([key]) => !isSystem(key) && !isHidden(key));
     const metaFields = entries.filter(([key]) => isSystem(key) && key !== '_id' && key !== 'id' && !isHidden(key));
 
@@ -5036,8 +5613,15 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         return <EmptyValue className="text-sm italic" glyph={t('grid.empty')} />;
       }
 
+      // objectui#10657 — while the object's field types are unknown (the
+      // schema read is in flight, or it failed) no value here can be typed,
+      // and any of them could be a `password` / `secret` field: each is drawn
+      // WITHHELD, as the mask, like the grid's own untyped cells, never as the
+      // inferred text below.
+      if (objectTypesPending) return <MaskedCellRenderer value={value} />;
+
       // Use objectSchema field type for type-aware rendering
-      const fieldDef = objectSchema?.fields?.[key];
+      const fieldDef = objectFields?.[key];
       // Through the shared resolve, so the panel honours a `format` hint the
       // same way the row above it does (objectui#8920). `rendererType` is null
       // exactly when the key has no declared type, which is the guard this
@@ -5108,7 +5692,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                   <span className="text-xs text-muted-foreground w-1/3 text-right shrink-0">
                     {formatFieldLabel(key)}
                   </span>
-                  <span className="text-xs text-muted-foreground flex-1 min-w-0 break-words">{String(coerceToSafeValue(value) ?? '')}</span>
+                  <span className="text-xs text-muted-foreground flex-1 min-w-0 break-words">
+                    {/* Withheld while the field types are unknown (objectui#10657). */}
+                    {objectTypesPending ? <MaskedCellRenderer value={value} /> : String(coerceToSafeValue(value) ?? '')}
+                  </span>
                 </div>
               ))}
             </div>
@@ -5117,6 +5704,19 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       </div>
     );
   };
+
+  // objectui#11068 — `description`: one line of help text above the grid, in
+  // the treatment `ListView` gives a view's description (`view-description`),
+  // so the two surfaces draw the same key the same way. Resolved like `label`:
+  // a locale map against the display locale. Guarded on the RESOLVED text, so a
+  // map with no usable entry draws no empty strip. Drawn by every branch that
+  // draws rows — the card view, the split pane and the table.
+  const resolvedDescription = resolveInlineI18nLabel(schema.description, displayLocale);
+  const gridDescription = resolvedDescription ? (
+    <p className="px-3 sm:px-4 pt-1.5 text-xs text-muted-foreground" data-testid="object-grid-description">
+      {resolvedDescription}
+    </p>
+  ) : null;
 
   // Mobile card-view: below the 768px app breakpoint (matches useIsMobile /
   // Tailwind md: / the responsive page+grid layout), render stacked cards
@@ -5175,7 +5775,19 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       return 'border-l-gray-300';
     };
 
+    // objectui#10583 — a MASKED column (the rule that stamps `TableColumn.masked`)
+    // is drawn only through its own `cell`, which draws the mask. The branches
+    // below pick amount / stage / date / percent by the field's NAME and print
+    // the raw value, so a masked column is never classified; it lands in the
+    // `col.cell` branch, and the title row routes it through `cell` as well.
+    // A WITHHELD column (objectui#10657: the object's field types are still
+    // unknown, and the column has no type of its own) is handled the same way:
+    // its `cell` draws the mask.
+    const isMaskedCardColumn = (key: string) =>
+      isMaskedGridColumn(colMap.get(key)?.type, objectFields?.[key]?.type, objectTypesPending);
+
     const classify = (key: string): 'amount' | 'stage' | 'date' | 'percent' | 'other' => {
+      if (isMaskedCardColumn(key)) return 'other';
       const k = key.toLowerCase();
       if (amountKeys.some(p => k.includes(p))) return 'amount';
       if (stageKeys.some(p => k.includes(p))) return 'stage';
@@ -5206,6 +5818,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
     return (
       <>
+        {gridDescription}
         <div className="space-y-2 p-2" {...anchorCaptureProps}>
           {data.map((row, idx) => {
             // Collect secondary fields (skip the title column)
@@ -5235,7 +5848,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                 {/* Title row - Name as bold prominent title */}
                 {titleCol && (
                   <div className="font-semibold text-sm truncate mb-1">
-                    {coerceToSafeValue(row[titleCol.accessorKey]) ?? '—'}
+                    {isMaskedCardColumn(titleCol.accessorKey)
+                      ? titleCol.cell?.(row[titleCol.accessorKey], row)
+                      : (coerceToSafeValue(row[titleCol.accessorKey]) ?? '—')}
                   </div>
                 )}
 
@@ -5244,8 +5859,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                   <div className="flex items-center justify-between gap-2 mb-1">
                     {amountCol && (
                       <span className="text-sm tabular-nums font-medium">
+                        {/* objectui#10423 — the currency resolves from the FIELD
+                            def, as the desktop cell's does (objectui#10354);
+                            `amountCol` is a column draft and carries neither
+                            `currency` nor `currencyConfig`. */}
                         {typeof row[amountCol.accessorKey] === 'number'
-                          ? formatCompactCurrency(row[amountCol.accessorKey], resolveFieldCurrency(amountCol as any, tenantCurrency), displayLocale)
+                          ? formatCompactCurrency(row[amountCol.accessorKey], resolveFieldCurrency(objectSchema?.fields?.[amountCol.accessorKey], tenantCurrency), displayLocale)
                           : (coerceToSafeValue(row[amountCol.accessorKey]) ?? '—')}
                       </span>
                     )}
@@ -5373,7 +5992,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // `__tests__/gridNonAuthorKeys.test.tsx`.
   const showRowHeightToggle = schema.rowHeight !== undefined && !(schema as any).hideRowHeightToggle;
   // Export is offered only when configured AND not blocked by object-level perms
-  // — including the server's effective API operation set (#3391): when present
+  // — including the server's effective API operation set (objectstack#3391): when present
   // and it excludes `export`, the button is hidden. Missing set → unchanged.
   const exportEnabled =
     !!schema.exportOptions &&
@@ -5497,6 +6116,34 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     return { fieldLabel, labelColorClass, labelColorStyle };
   };
 
+  // [objectui#7189] One open leaf group's page of rows, as the server paged it.
+  const renderServerGroupPage = (group: typeof groups[number]): React.ReactNode => {
+    const held = groupRows.pages[group.key];
+    if (held?.error) {
+      return (
+        <p data-testid={`group-rows-error-${group.key}`} className="px-1 py-2 text-xs text-destructive">
+          {held.error.message}
+        </p>
+      );
+    }
+    if (!held || (held.loading && held.rows.length === 0)) {
+      return (
+        <p data-testid={`group-rows-loading-${group.key}`} className="px-1 py-2 text-xs text-muted-foreground">
+          {t('grid.loading')}
+        </p>
+      );
+    }
+    return (
+      <SchemaRenderer
+        schema={buildGroupTableSchema(held.rows, {
+          count: group.count,
+          page: held.page,
+          onPageChange: (page: number) => groupRows.setPage(group.key, page),
+        })}
+      />
+    );
+  };
+
   const renderGroup = (group: typeof groups[number]): React.ReactNode => {
     const { fieldLabel, labelColorClass, labelColorStyle } = resolveGroupHeader(group.field, group.label);
     return (
@@ -5504,20 +6151,20 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         <GroupRow
           groupKey={group.key}
           label={group.label}
-          count={group.rows.length}
+          count={group.count}
           collapsed={group.collapsed}
           aggregations={group.aggregations}
           fieldLabel={group.depth === 0 ? fieldLabel : undefined}
           labelColorClass={labelColorClass}
           labelColorStyle={labelColorStyle}
-          partialLabel={groupingPartialLabel}
-          partialTitle={groupingPartialNotice}
           onToggle={toggleGroup}
         >
           {group.subgroups.length > 0 ? (
             <div className="space-y-4 mt-2">
               {group.subgroups.map(renderGroup)}
             </div>
+          ) : serverGroupedFetch ? (
+            renderServerGroupPage(group)
           ) : (
             <SchemaRenderer schema={buildGroupTableSchema(group.rows)} />
           )}
@@ -5580,19 +6227,6 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // bottom of an overflow-hidden ancestor and clips it.
   const gridContent = isGrouped ? (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* The partial-grouping disclosure sits INSIDE the grouped region,
-          directly above the first group header — not in the paging footer.
-          The footer is paging chrome and says nothing about what was
-          grouped; the number a reader trusts is the one next to the group's
-          name, so the statement has to be where that number is. */}
-      {groupingIsPartial && (
-        <div
-          data-testid="grouping-partial-notice"
-          className="border-b bg-muted/30 px-3 sm:px-4 py-1.5 text-xs text-muted-foreground grouping-partial-notice"
-        >
-          {groupingPartialNotice}
-        </div>
-      )}
       {/* Single shared horizontal scroll container: every group's sub-table
           overflows into this one scroller (disableInnerScroll), so columns
           stay aligned and there is exactly one x-axis scrollbar. */}
@@ -5611,6 +6245,43 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       {summaryFooter}
     </div>
   );
+
+  // objectui#11068 — `emptyState`: what the grid draws INSTEAD of an empty
+  // table, through the same shared component (`DataEmptyState`) and the same
+  // icon resolver (`resolveIcon`) `ListView` draws a list's empty state with,
+  // so one key means one picture on both surfaces.
+  //
+  // Drawn only when the author declared it, the grid holds no row to draw (no
+  // group, when grouped) and nothing is loading — and NOT when a term typed
+  // into this grid's own server-side search box is what emptied it: replacing
+  // the table there would take the search box with it, and the user could not
+  // clear the term. That case keeps the table's own "no results" row. Rows the
+  // browser filters itself never reach here: `data` still holds them.
+  //
+  // A member left out keeps the grid's default: `DataEmptyState`'s own glyph
+  // (an icon name that resolves to nothing is the same as none), the table's
+  // "No results found" heading, and no message line. Text only, as the table's
+  // empty row is — an empty table draws no add-record row either.
+  const authoredEmptyState = schema.emptyState;
+  const searchEmptiedRows = manualSearchOn && manualSearch.trim() !== '';
+  const drawsAuthoredEmptyState = authoredEmptyState != null
+    && !loading
+    && !searchEmptiedRows
+    && (isGrouped ? groups.length === 0 : data.length === 0);
+  const AuthoredEmptyIcon = drawsAuthoredEmptyState ? resolveIcon(authoredEmptyState?.icon) : null;
+  const renderedGridContent = drawsAuthoredEmptyState ? (
+    <DataEmptyState
+      data-testid="object-grid-empty-state"
+      className="flex-1 min-h-[200px]"
+      // The annotation the other `resolveIcon` seam call sites carry: it returns
+      // a STABLE, cached component per icon name; it does not create one during
+      // render. The rule cannot see that through a call.
+      // eslint-disable-next-line react-hooks/static-components
+      icon={AuthoredEmptyIcon ? <AuthoredEmptyIcon className="size-5 text-muted-foreground" /> : undefined}
+      title={authoredEmptyState?.title || t('table.noResults')}
+      description={authoredEmptyState?.message || undefined}
+    />
+  ) : gridContent;
 
   // Rendered BulkActionDialog (shared across both render branches).
   //
@@ -5669,8 +6340,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           {...recordOverlayShellProps}
           mainContent={
             <div className="flex flex-col h-full">
+              {gridDescription}
               {gridToolbar}
-              {gridContent}
+              {renderedGridContent}
               <BulkActionBar
                 selectedRows={selectedRows}
                 actions={effectiveBulkActions ?? []}
@@ -5698,7 +6370,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     <div ref={pullRef} className="relative h-full flex flex-col" {...anchorCaptureProps}>
       {/* Re-fetch indicator while existing rows remain visible (filter/sort
           change). The initial-load skeleton above handles the empty case. */}
-      <RefreshIndicator active={loading && data.length > 0} />
+      <RefreshIndicator active={loading && data.length > 0} ariaLabel={t('grid.refreshing')} />
       {pullDistance > 0 && (
         <div
           className="flex items-center justify-center text-xs text-muted-foreground"
@@ -5707,8 +6379,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           {isRefreshing ? t('grid.refreshing') : t('grid.pullToRefresh')}
         </div>
       )}
+      {gridDescription}
       {gridToolbar}
-      {gridContent}
+      {renderedGridContent}
       <BulkActionBar
         selectedRows={selectedRows}
         actions={effectiveBulkActions ?? []}

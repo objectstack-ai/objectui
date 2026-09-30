@@ -56,8 +56,9 @@ describe('Plugin Markdown', () => {
       // FLIPPED, not deleted. This assertion used to read
       // `expect(contentInput?.inputType).toBe('textarea')`, and it pinned the
       // ONLY `ComponentInput.inputType` write in the repository. The manifest
-      // serializer forwards six keys — `name`, `type`, `required`, `enum`,
-      // `binding`, `description` — and this was never one of them, so the
+      // serializer forwards a fixed key list per input, `of` included since
+      // objectui#8067 — `name`, `type`, `of`, `required`, `enum`, `binding`,
+      // `description` — and this was never one of them, so the
       // write could not reach the published `sdui.manifest.json` even in
       // principle, and a structural census over every `inputs:` array found no
       // reader either. Maintainer ruling 2026-08-31 (objectui#5905) deleted

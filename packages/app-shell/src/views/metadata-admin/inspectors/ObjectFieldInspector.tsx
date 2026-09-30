@@ -8,7 +8,7 @@
  * The inspector edits one field at a time. Sections:
  *   • Basic     — name (rename), label, type, required, unique, description
  *   • Specific  — picklist options / lookup target / formula / numeric
- *                 precision / max length, conditional on type
+ *                 precision / max length / value domain, conditional on type
  *   • Advanced  — readonly, hidden, externalId, group
  *
  * All edits are applied as immutable splices of `draft.fields` via
@@ -34,6 +34,8 @@
  */
 
 import * as React from 'react';
+import { FieldSchema, VALUE_DOMAIN_FIELD_TYPES } from '@objectstack/spec/data';
+import { ValueDomainSchema } from '@objectstack/spec/shared';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
 import { MetadataClient } from '@object-ui/data-objectstack';
 import { useMetadataClient } from '../useMetadata.js';
@@ -92,8 +94,8 @@ import { t, tFormat } from '../i18n.js';
  *     spreads an `Option`.
  *   • The three parts move TOGETHER. Widening this type without moving both
  *     `readOptions` and `patchOptions` would declare keys the editor still
- *     cannot carry — the declared-but-not-carried divergence objectui#7014
- *     exists to remove.
+ *     cannot carry — the declared-but-not-carried divergence the select-option
+ *     convergence (`98d4108a2`) set out to remove.
  */
 interface Option {
   value: string;
@@ -177,7 +179,7 @@ type OptionRow =
  * prior rulings in this file rather than oversights:
  *
  *   • A MISSING `label` is not malformed. `patchOptions` emits `label: ''` for
- *     it, which is the objectui#7014 Q2 ruling: `''` is what the Label box has
+ *     it, which is the ruling `f0f774b0d` landed: `''` is what the Label box has
  *     been showing the author all along, and the spec accepts it. A present but
  *     non-string `label` is a different fact — there are authored bytes being
  *     destroyed — and that one IS malformed.
@@ -276,9 +278,93 @@ function isNumeric(type: string): boolean {
   return type === 'number' || type === 'currency' || type === 'percent';
 }
 
+/**
+ * Whether the numeric section offers a `scale` (decimal places) control.
+ *
+ * Every numeric type but `currency` (objectui#10221). `scale` is retired from
+ * the currency type (ruling B on objectstack-ai/objectstack#19629), and ruling
+ * 乙 on objectstack-ai/objectstack#19910 is that a currency's decimal places are
+ * the currency's ISO 4217 minor unit, not a setting — so no display face reads
+ * `scale` on a currency and a control for it would only write a key nothing
+ * honours. `precision` stays offered on currency: it is the field-level TOTAL
+ * digit count of the stored decimal, not a decimal-places knob, and this
+ * section writes it as that top-level key.
+ */
+function offersScale(type: string): boolean {
+  return isNumeric(type) && type !== 'currency';
+}
+
 function isTexty(type: string): boolean {
   return type === 'text' || type === 'textarea' || type === 'email' || type === 'url' || type === 'phone' || type === 'password';
 }
+
+/**
+ * Whether the type-specific section offers a `valueDomain` control
+ * (objectui#7597, the consumer half of ruling A on objectstack#14168).
+ *
+ * Read from the spec's own `VALUE_DOMAIN_FIELD_TYPES` — the one constant both
+ * of the platform's seams read: `FieldSchema` refuses the key at parse on
+ * every type outside it, and the record validator judges exactly that set on
+ * the write path. So the control is never rendered on a type whose save would
+ * then be refused for carrying it; a hand-written type list here would be a
+ * third opinion that could drift from the other two.
+ */
+function offersValueDomain(type: string): boolean {
+  return VALUE_DOMAIN_FIELD_TYPES.has(type);
+}
+
+/**
+ * The option label for one `valueDomain` member, taken from the spec's own
+ * `describe()` prose on `FieldSchema.valueDomain` rather than from a label
+ * table in this repo (objectui#7597 triage, delivery detail 2).
+ *
+ * The spec declares no per-member description: the vocabulary is a bare
+ * `z.enum` (`ValueDomainSchema`, no `.describe()`), and the only prose is the
+ * FIELD's description, which glosses each member in place as
+ * `` `member` (gloss) ``. This reads that gloss:
+ *
+ *   - the text inside the parentheses that follow the member's code span,
+ *     matched with nesting so a parenthesis inside the gloss cannot end it;
+ *   - up to the first ` — ` — what follows it is the validator's membership
+ *     rule (`iana_time_zone`'s "membership is the Intl.DateTimeFormat probe…"),
+ *     which is a note about enforcement, not the name of the member;
+ *   - with code-span backticks removed, since an option renders plain text.
+ *
+ * A member whose gloss cannot be found is labelled with the member itself —
+ * the exact string the field stores — so no member of the spec's vocabulary is
+ * ever hidden. The pin beside this file asserts that every member of the
+ * INSTALLED spec yields a gloss, so a spec release that rewrites the prose
+ * turns that pin red rather than quietly degrading the labels.
+ */
+function valueDomainMemberLabel(member: string, prose: string): string {
+  const head = `\`${member}\` (`;
+  const at = prose.indexOf(head);
+  if (at < 0) return member;
+  const start = at + head.length;
+  let depth = 1;
+  let end = start;
+  for (; end < prose.length; end++) {
+    const ch = prose[end];
+    if (ch === '(') depth++;
+    else if (ch === ')' && --depth === 0) break;
+  }
+  if (depth !== 0) return member;
+  const gloss = prose.slice(start, end).split(' — ')[0].replace(/`/g, '').trim();
+  return gloss ? `${member} (${gloss})` : member;
+}
+
+/**
+ * The `valueDomain` select's members: the spec's closed vocabulary, in the
+ * spec's order, each labelled from the spec's prose. Built once — both inputs
+ * are module constants of the installed spec.
+ */
+const VALUE_DOMAIN_OPTIONS: ReadonlyArray<{ value: string; label: string }> = (() => {
+  const prose = FieldSchema.shape.valueDomain.description ?? '';
+  return ValueDomainSchema.options.map((member) => ({
+    value: member,
+    label: valueDomainMemberLabel(member, prose),
+  }));
+})();
 
 type DefaultKind = 'bool' | 'number' | 'picklist' | 'text';
 
@@ -532,6 +618,16 @@ export function ObjectFieldInspector({
     writeView({ shape: view.shape, entries: nextEntries });
   };
 
+  /** Remove `key` from the field def outright — the key is ABSENT afterwards,
+   *  not present with `undefined` or `null` (objectui#7597). */
+  const unsetDefKey = (key: string) => {
+    const nextDef = { ...def };
+    delete nextDef[key];
+    const nextEntries = [...view.entries];
+    nextEntries[idx] = { ...entry, def: nextDef };
+    writeView({ shape: view.shape, entries: nextEntries });
+  };
+
   const setKey = (rawNext: string) => {
     const nextName = toFieldNameLoose(rawNext);
     const rejected =
@@ -650,7 +746,7 @@ export function ObjectFieldInspector({
       // out). A truthiness guard here therefore did the one thing an authoring
       // surface must never do: it rewrote a LEGAL document into an ILLEGAL one
       // the moment an author cleared the Label box, and the save came back 422
-      // with nothing on screen explaining why (objectui#7014 Q2).
+      // with nothing on screen explaining why (`f0f774b0d`).
       //
       // So emit what the author holds, empty string included. `??` rather than
       // `||` is load-bearing: `||` is the same truthiness bug spelled shorter.
@@ -814,7 +910,7 @@ export function ObjectFieldInspector({
       </Section>
 
       {/* Type-specific */}
-      {(isPicklist(type) || isLookup(type) || isComputed(type) || isNumeric(type) || isTexty(type)) && (
+      {(isPicklist(type) || isLookup(type) || isComputed(type) || isNumeric(type) || isTexty(type) || offersValueDomain(type)) && (
         <Section title={tFormat('designer.field.section.options', locale, { type: typeMetaLabel ?? type })}>
           {isPicklist(type) && (
             <OptionsEditor
@@ -903,12 +999,14 @@ export function ObjectFieldInspector({
                 onCommit={(v) => patchDef({ precision: v })}
                 disabled={readOnly}
               />
-              <InspectorNumberField
-                label={tr('designer.field.scale')}
-                value={typeof def.scale === 'number' ? (def.scale as number) : undefined}
-                onCommit={(v) => patchDef({ scale: v })}
-                disabled={readOnly}
-              />
+              {offersScale(type) && (
+                <InspectorNumberField
+                  label={tr('designer.field.scale')}
+                  value={typeof def.scale === 'number' ? (def.scale as number) : undefined}
+                  onCommit={(v) => patchDef({ scale: v })}
+                  disabled={readOnly}
+                />
+              )}
               <InspectorNumberField
                 label={tr('designer.field.min')}
                 value={typeof def.min === 'number' ? (def.min as number) : undefined}
@@ -940,6 +1038,22 @@ export function ObjectFieldInspector({
                 placeholder="255"
               />
             </div>
+          )}
+          {offersValueDomain(type) && (
+            <InspectorSelectField
+              label={tr('designer.field.valueDomain')}
+              value={typeof def.valueDomain === 'string' ? (def.valueDomain as string) : ''}
+              options={[
+                { value: '', label: tr('designer.field.valueDomainNone') },
+                ...VALUE_DOMAIN_OPTIONS,
+              ]}
+              // Unset DELETES the key. `FieldSchema` refuses both `null` and
+              // `''` for `valueDomain` (`invalid_value`), and a present key is
+              // a declaration the write path enforces — "no domain" is the
+              // key's absence, never a value of it (objectui#7597).
+              onCommit={(v) => (v ? patchDef({ valueDomain: v }) : unsetDefKey('valueDomain'))}
+              disabled={readOnly}
+            />
           )}
         </Section>
       )}
@@ -997,7 +1111,7 @@ export function ObjectFieldInspector({
             scope="record"
             roots={FIELD_RULE_ROOTS}
             // The authored key, so the wrong-layer advisory reads the
-            // platform's published per-slot verdict (objectui#9318). Sound
+            // platform's published per-slot verdict (`e3cb47624`). Sound
             // here because `FIELD_RULE_ROOTS` above IS that helper's
             // `FIELD_RULE_BOUND_ROOTS`; the formula editor above deliberately
             // names no slot, because `FORMULA_ROOTS` is not.
@@ -1017,7 +1131,7 @@ export function ObjectFieldInspector({
             scope="record"
             roots={FIELD_RULE_ROOTS}
             // The authored key, so the wrong-layer advisory reads the
-            // platform's published per-slot verdict (objectui#9318). Sound
+            // platform's published per-slot verdict (`e3cb47624`). Sound
             // here because `FIELD_RULE_ROOTS` above IS that helper's
             // `FIELD_RULE_BOUND_ROOTS`; the formula editor above deliberately
             // names no slot, because `FORMULA_ROOTS` is not.
@@ -1037,7 +1151,7 @@ export function ObjectFieldInspector({
             scope="record"
             roots={FIELD_RULE_ROOTS}
             // The authored key, so the wrong-layer advisory reads the
-            // platform's published per-slot verdict (objectui#9318). Sound
+            // platform's published per-slot verdict (`e3cb47624`). Sound
             // here because `FIELD_RULE_ROOTS` above IS that helper's
             // `FIELD_RULE_BOUND_ROOTS`; the formula editor above deliberately
             // names no slot, because `FORMULA_ROOTS` is not.
@@ -1427,17 +1541,31 @@ function OptionsEditor({
 
 /* ─────────────── Lookup picker config (displayField / filters / dependent) ─────────────── */
 
-const LOOKUP_OPERATORS: Array<{ value: string; label: string }> = [
-  { value: 'eq', label: '= equals' },
-  { value: 'ne', label: '≠ not equals' },
-  { value: 'gt', label: '> greater than' },
-  { value: 'lt', label: '< less than' },
-  { value: 'gte', label: '≥ at least' },
-  { value: 'lte', label: '≤ at most' },
-  { value: 'contains', label: 'contains' },
-  { value: 'in', label: 'in (any of)' },
-  { value: 'notIn', label: 'not in' },
+/**
+ * The lookup filter's operators (objectui#10748). The word is a catalogue key,
+ * resolved in the designer locale at render; the symbol a label leads with is
+ * the same in every locale and stays OUTSIDE the word, so the four
+ * `engine.inspector.condition.op.*` rows the condition builder already reads
+ * serve here unchanged. The stored `value` never moves.
+ */
+const LOOKUP_OPERATORS: ReadonlyArray<{ value: string; symbol?: string; labelKey: string }> = [
+  { value: 'eq', symbol: '=', labelKey: 'engine.inspector.condition.op.equals' },
+  { value: 'ne', symbol: '≠', labelKey: 'engine.inspector.condition.op.notEquals' },
+  { value: 'gt', symbol: '>', labelKey: 'engine.inspector.condition.op.greaterThan' },
+  { value: 'lt', symbol: '<', labelKey: 'engine.inspector.condition.op.lessThan' },
+  { value: 'gte', symbol: '≥', labelKey: 'engine.inspector.condition.op.atLeast' },
+  { value: 'lte', symbol: '≤', labelKey: 'engine.inspector.condition.op.atMost' },
+  { value: 'contains', labelKey: 'engine.inspector.condition.op.contains' },
+  { value: 'in', labelKey: 'engine.inspector.condition.op.inAnyOf' },
+  { value: 'notIn', labelKey: 'engine.inspector.condition.op.notIn' },
 ];
+
+function lookupOperatorOptions(locale?: string): Array<{ value: string; label: string }> {
+  return LOOKUP_OPERATORS.map((o) => {
+    const word = t(o.labelKey, locale);
+    return { value: o.value, label: o.symbol ? `${o.symbol} ${word}` : word };
+  });
+}
 
 type LookupFilter = { field?: string; operator?: string; value?: unknown };
 
@@ -1595,12 +1723,12 @@ function LookupConfigFields({
                 disabled={readOnly}
                 mono
               />
-              <InspectorSelectField label={tr('designer.field.lookup.filterOperator')} value={f.operator ?? 'eq'} options={LOOKUP_OPERATORS} onCommit={(v) => patchFilter(i, { operator: v })} disabled={readOnly} />
+              <InspectorSelectField label={tr('designer.field.lookup.filterOperator')} value={f.operator ?? 'eq'} options={lookupOperatorOptions(locale)} onCommit={(v) => patchFilter(i, { operator: v })} disabled={readOnly} />
               <InspectorTextField
                 label={tr('designer.field.lookup.filterValue')}
                 value={valueToText(f.value)}
                 onCommit={(v) => patchFilter(i, { value: textToValue(f.operator, v) })}
-                placeholder={f.operator === 'in' || f.operator === 'notIn' ? 'comma,separated,values' : 'value'}
+                placeholder={f.operator === 'in' || f.operator === 'notIn' ? 'comma,separated,values' : tr('engine.inspector.condition.valuePlaceholder')}
                 disabled={readOnly}
                 mono
               />
@@ -1618,7 +1746,7 @@ function LookupConfigFields({
               <span key={n} className="inline-flex items-center gap-1 rounded bg-secondary px-2 py-0.5 text-[11px] font-mono">
                 {n}
                 {!readOnly && (
-                  <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => removeDependsOn(n)} aria-label={`Remove ${n}`}>×</button>
+                  <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => removeDependsOn(n)} aria-label={tFormat('engine.form.removeNamed', locale, { name: n })}>×</button>
                 )}
               </span>
             ))}
@@ -1929,12 +2057,12 @@ function SummaryConfigFields({
                 disabled={readOnly}
                 mono
               />
-              <InspectorSelectField label={tr('designer.field.lookup.filterOperator')} value={f.operator ?? 'eq'} options={LOOKUP_OPERATORS} onCommit={(v) => patchFilterRow(i, { operator: v })} disabled={readOnly} />
+              <InspectorSelectField label={tr('designer.field.lookup.filterOperator')} value={f.operator ?? 'eq'} options={lookupOperatorOptions(locale)} onCommit={(v) => patchFilterRow(i, { operator: v })} disabled={readOnly} />
               <InspectorTextField
                 label={tr('designer.field.lookup.filterValue')}
                 value={summaryValueToText(f.value)}
                 onCommit={(v) => patchFilterRow(i, { value: v })}
-                placeholder={f.operator === 'in' || f.operator === 'notIn' ? 'comma,separated,values' : 'value'}
+                placeholder={f.operator === 'in' || f.operator === 'notIn' ? 'comma,separated,values' : tr('engine.inspector.condition.valuePlaceholder')}
                 disabled={readOnly}
                 mono
               />

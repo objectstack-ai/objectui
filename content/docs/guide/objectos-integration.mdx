@@ -118,13 +118,7 @@ export function App() {
           template: 'header-sidebar-main',
           header: {
             type: 'header-bar',
-            title: 'My App',
-            navigation: {
-              items: [
-                { label: 'Dashboard', path: '/', icon: 'home' },
-                { label: 'Contacts', path: '/contacts', icon: 'users' }
-              ]
-            }
+            crumbs: [{ label: 'My App' }]
           },
           sidebar: {
             type: 'navigation-menu',

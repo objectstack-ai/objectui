@@ -36,8 +36,11 @@ import {
   useResizeObserver,
 } from "@object-ui/components"
 import { toast } from "sonner"
+import { isRealCalendarDate, toDateInputValue, toDisplayDate, toDisplayEndDate, toInclusiveEndDay } from "@object-ui/core"
+import { useDisplayLocale } from "@object-ui/i18n"
 import { computeCriticalPath, computeProjectRescheduleDetailed, wouldCreateDependencyCycle, type WorkingCalendar, type RescheduleChange, type RescheduleOptions } from "./scheduling"
 import { shiftDayStart, type NormShiftSegments } from "./shifts"
+import { makeTzShift } from "./tzShift"
 import { useGanttTranslation } from "./useGanttTranslation"
 
 // Width, in px, of the resize "grab zone" at each end of a task bar. The visible
@@ -219,6 +222,14 @@ export interface GanttTask {
   id: string | number
   title: string
   start: Date
+  /**
+   * The EXCLUSIVE end of the bar's half-open span `[start, end)`: the bar is
+   * drawn and scheduled up to this instant, and the task list, the tooltip, a
+   * drag's preview and the inline editor name the last day it runs through
+   * (objectui#11141). `ObjectGantt` hands a stored date-only end over as the
+   * next day's local midnight (`toDisplayEndDate`, `@object-ui/core`), so a
+   * task ending `2024-01-15` is drawn, and named, through the 15th.
+   */
   end: Date
   progress: number
   color?: string
@@ -293,52 +304,9 @@ export const NOMINAL_DAYS: Record<GanttViewMode, number> = {
 
 export const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-/** Offset (ms east of UTC) of an IANA time zone at a given instant. */
-function tzOffsetMs(timeZone: string, at: Date): number {
-  const dtf = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hour12: false,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  });
-  const get = (type: string) => Number(dtf.formatToParts(at).find((p) => p.type === type)?.value ?? 0);
-  const asUTC = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour') % 24, get('minute'), get('second'));
-  return asUTC - Math.floor(at.getTime() / 1000) * 1000;
-}
-
-/**
- * "Shifted clock" for business-time-zone rendering: translate
- * real instants into a display space where the browser's local clock reads
- * the CONFIGURED zone's wall time. All existing local-clock logic — shift
- * bands, day columns, snapping, the today line, date labels — then renders
- * that zone correctly for every viewer; writes translate back so persisted
- * data stays real instants. Per-instant offsets keep DST zones close;
- * fixed-offset zones (Asia/Shanghai) are exact.
- */
-export function makeTzShift(timeZone?: string): {
-  delta: number;
-  to: (d: Date) => Date;
-  from: (d: Date) => Date;
-  now: () => Date;
-} {
-  const identity = { delta: 0, to: (d: Date) => d, from: (d: Date) => d, now: () => new Date() };
-  if (!timeZone) return identity;
-  try {
-    tzOffsetMs(timeZone, new Date()); // validate the IANA name early
-  } catch {
-    console.warn(`[GanttView] invalid timeZone "${timeZone}" — falling back to the browser zone`);
-    return identity;
-  }
-  const deltaAt = (d: Date) => tzOffsetMs(timeZone, d) - -d.getTimezoneOffset() * 60000;
-  const probe = deltaAt(new Date());
-  if (probe === 0) return identity;
-  return {
-    delta: probe,
-    to: (d: Date) => new Date(d.getTime() + deltaAt(d)),
-    from: (d: Date) => new Date(d.getTime() - deltaAt(d)),
-    now: () => new Date(Date.now() + deltaAt(new Date())),
-  };
-}
+// The business-time-zone shim lives in `./tzShift` since objectui#10866;
+// re-exported so every existing import of it from here keeps working.
+export { makeTzShift }
 
 /** Floor a date to the start of its column unit (Monday for weeks). */
 export function startOfUnit(date: Date, mode: GanttViewMode): Date {
@@ -385,6 +353,69 @@ export function addUnits(date: Date, units: number, mode: GanttViewMode): Date {
     d.setDate(Math.min(dayOfMonth, lastDay));
   }
   return d;
+}
+
+/**
+ * The calendar days from `from`'s local day to `to`'s: the difference of their
+ * local year / month / day, counted on the UTC calendar, where every day is
+ * exactly 24 hours, so the quotient is a whole number. ⛔ Never the elapsed
+ * milliseconds between two local times over a day's length: across a DST
+ * change that span is a whole number of days plus or minus an hour
+ * (objectui#10866, as objectui#11005 ruled for the calendar).
+ */
+function calendarDaysBetween(from: Date, to: Date): number {
+  return (
+    (Date.UTC(to.getFullYear(), to.getMonth(), to.getDate()) -
+      Date.UTC(from.getFullYear(), from.getMonth(), from.getDate())) /
+    MS_PER_DAY
+  );
+}
+
+/**
+ * A summary's group move: every value in its subtree moves by the move the
+ * dragged summary's start made, from `originStart` to `movedStart` — the same
+ * calendar days on the day-and-coarser scales, the same elapsed span on the
+ * shift-band scale (`byElapsedTime`; see `computeDragChanges`). Shared by the
+ * drop and the live preview, so the two cannot disagree.
+ */
+function groupMover(originStart: Date, movedStart: Date, byElapsedTime: boolean): (value: Date) => Date {
+  if (byElapsedTime) {
+    const deltaMs = movedStart.getTime() - originStart.getTime();
+    return (value) => new Date(value.getTime() + deltaMs);
+  }
+  const days = calendarDaysBetween(originStart, movedStart);
+  return (value) => addUnits(value, days, 'day');
+}
+
+/**
+ * The day a bar's END is named by wherever the view prints or edits it as a
+ * day: the task list's End column and date sublabel, the hover tooltip, a
+ * drag's preview and the inline editor (objectui#11141).
+ *
+ * `end` is the EXCLUSIVE end of the half-open span `[start, end)` every bar is
+ * drawn (`styleFor`) and scheduled (`scheduling.ts`) on, so the day it names
+ * is the last one the bar runs through: `toInclusiveEndDay` (`@object-ui/core`),
+ * the exact inverse of the end read `ObjectGantt` and the timeline's gantt
+ * share (`toDisplayEndDate`). A stored date-only `2024-01-15` is handed in as
+ * the 16th's local midnight, drawn through the 15th, printed as the 15th, and
+ * written back as the 15th. An end inside a day names that day, as it did.
+ * A zero-length span (a milestone, or an end at or before its start) runs
+ * through no day, so it names its end's own day, as it did.
+ */
+function endDayOf(start: Date, end: Date): Date {
+  return end.getTime() > start.getTime() ? toInclusiveEndDay(end) : end;
+}
+
+/**
+ * The inline editor's typed END day → the end it commits: the exact inverse of
+ * {@link endDayOf} for the task being edited, so Enter on an untouched row
+ * commits the end it was seeded from (objectui#11141). A task that spans time
+ * commits the end of the typed day (`toDisplayEndDate`), the instant a stored
+ * date-only end of that day is read as; a zero-length one commits the typed
+ * day's local midnight (`toDisplayDate`), as every end did before.
+ */
+function endOfTypedDay(typed: string, task: Pick<GanttTask, 'start' | 'end'>): Date {
+  return task.end.getTime() > task.start.getTime() ? toDisplayEndDate(typed) : toDisplayDate(typed);
 }
 
 /**
@@ -537,7 +568,9 @@ export interface GanttViewProps {
   /**
    * Working calendar for duration math. When set, auto-schedule and critical
    * path count working days only — weekends (`skipWeekends`) and any `holidays`
-   * (ISO `yyyy-mm-dd` UTC keys) are skipped rather than consumed.
+   * (ISO `yyyy-mm-dd` calendar-day keys, read on the chart's own calendar: the
+   * viewer's, or the business `timeZone`'s when one is set) are skipped rather
+   * than consumed.
    */
   workingCalendar?: WorkingCalendar
   /**
@@ -638,9 +671,17 @@ export interface GanttViewProps {
    * 'Asia/Shanghai'. The chart's calendar math — shift bands, day columns,
    * drag snapping, the today line, start/end labels — renders this zone's
    * wall time for EVERY viewer instead of the browser's; without it, a
-   * viewer in another zone sees bands and dates misaligned. Writes
-   * still persist real instants. Note: dates handed to `onBeforeTaskUpdate`
-   * are in this display space (durations/deltas are unaffected).
+   * viewer in another zone sees bands and dates misaligned. Dates handed to
+   * `onTaskUpdate` are translated back out of this display space into real
+   * instants. A date-only value is a day rather than an instant, so the host
+   * translates both ways itself (objectui#10866): `ObjectGantt` hands a day in
+   * as the instant the shim maps exactly onto its local midnight, so it is
+   * drawn from that midnight here, and writes a `date` field back as the day
+   * of the display date the emitted instant was translated from, recovered
+   * exactly (`invertTo` / `invertFrom` in `./tzShift`, which say why the shim's
+   * own round trip is not exact around a DST change). Note: dates handed to
+   * `onBeforeTaskUpdate` are in this display space (durations/deltas are
+   * unaffected).
    */
   timeZone?: string
   /**
@@ -871,14 +912,23 @@ export function GanttView({
   );
   const markers = React.useMemo(() => {
     if (!markersProp || tzShift.delta === 0) return markersProp;
-    return markersProp.map((m) => ({ ...m, date: tzShift.to(new Date(m.date)) }));
+    // A date-only marker names a DAY of the chart's own calendar, so it stands
+    // at that day's display-local midnight and is NOT re-based like an instant:
+    // re-basing moved it to another hour, and for some zones another day
+    // (objectui#10866). A `Date` or a date-time string is an instant and is.
+    return markersProp.map((m) =>
+      typeof m.date === 'string' && isRealCalendarDate(m.date)
+        ? { ...m, date: toDisplayDate(m.date) }
+        : { ...m, date: tzShift.to(toDisplayDate(m.date)) },
+    );
   }, [markersProp, tzShift]);
 
-  const { t, language } = useGanttTranslation();
-  // Locale for every user-facing date label. Falls back to the runtime default
-  // (browser locale) when no I18nProvider supplies a language, so standalone
-  // embeds and tests behave exactly as before.
-  const dateLocale = language || undefined;
+  const { t } = useGanttTranslation();
+  // Locale for every user-facing date label: the DISPLAY locale, never the UI
+  // language, and never the machine's locale (objectui#10668). The hook owns
+  // the last resort, so no fallback belongs here. `ObjectGantt`'s tooltips and
+  // `ResourceWorkload` read the same hook, so one gantt shows one locale.
+  const dateLocale = useDisplayLocale();
   const containerRef = React.useRef<HTMLDivElement>(null);
   // Observed container width — the source every auto-sized dimension below
   // derives from: row height, base column width, and the task-list pane width.
@@ -901,7 +951,8 @@ export function GanttView({
   const ixProgress = interactions?.progress !== false;
   const ixLink = interactions?.link !== false;
   // Emitted date changes are display-space — translate back to real instants
-  // before they reach the host (writes must persist real time).
+  // before they reach the host, which decides what to persist: a `datetime`
+  // field the instant, a `date` field its day (see `timeZone`, objectui#10866).
   const onTaskUpdate = React.useMemo(() => {
     if (effectiveReadOnly || !onTaskUpdateProp) return undefined;
     if (tzShift.delta === 0) return onTaskUpdateProp;
@@ -1138,13 +1189,7 @@ export function GanttView({
   const suppressNextClickRef = React.useRef(false);
 
   const computeDragChanges = React.useCallback((s: NonNullable<typeof dragState>) => {
-    // In shift mode a bar can be as short as the smallest band (e.g. a 12h day shift);
-    // otherwise never collapse below one whole day.
     const segActive = viewMode === 'day' && !!shiftSegments && shiftSegments.bands.length > 0;
-    const minDurationMs =
-      segActive && shiftSegments
-        ? Math.min(...shiftSegments.bands.map((b) => b.durMs))
-        : MS_PER_DAY;
     // Folded/segmented axes advance by visible columns (Fri +1 → Mon, band →
     // band); both only exist in day mode. Every other granularity snaps by
     // whole DAYS — dragging in week/month view must not jump 7/30 days per
@@ -1154,24 +1199,59 @@ export function GanttView({
       foldShiftRef.current ? foldShiftRef.current(date, n) : addUnits(date, n, 'day');
     let start = new Date(s.originStart);
     let end = new Date(s.originEnd);
+    if (segActive && shiftSegments) {
+      // Shift-band scale: a drag moves by bands, laid end to end on an
+      // elapsed-time axis, so the end follows the start by the same elapsed
+      // span, and a bar can be as short as the smallest band (e.g. a 12h day
+      // shift). objectui#10866 left this scale as it was: the calendar-day rule
+      // below was ruled for a move to a day, not to a band.
+      const minDurationMs = Math.min(...shiftSegments.bands.map((b) => b.durMs));
+      if (s.mode === 'move') {
+        start = shift(s.originStart, s.unitDelta);
+        end = new Date(s.originEnd.getTime() + (start.getTime() - s.originStart.getTime()));
+      } else if (s.mode === 'resize-left') {
+        start = shift(s.originStart, s.unitDelta);
+        if (end.getTime() - start.getTime() < minDurationMs) {
+          start = new Date(end.getTime() - minDurationMs);
+        }
+      } else if (s.mode === 'resize-right') {
+        end = shift(s.originEnd, s.unitDelta);
+        if (end.getTime() - start.getTime() < minDurationMs) {
+          end = new Date(start.getTime() + minDurationMs);
+        }
+      }
+      return { start, end };
+    }
+    // Day-and-coarser scales: the user moved a value to a day, so every value
+    // moves by the calendar days its snapped edge moved (`setDate` on a copy,
+    // hours / minutes / seconds kept) and a bar never collapses below one
+    // calendar day. ⛔ Not by the elapsed milliseconds of the start's move:
+    // across a DST change that span is a whole number of days plus or minus
+    // an hour, which ended a day task at 23:00 of the day before
+    // (objectui#10866, objectui#11005's ruling B).
+    const daysMoved = (from: Date) => calendarDaysBetween(from, shift(from, s.unitDelta));
     if (s.mode === 'move') {
-      // Snap the start to whole units; the end follows by the same ms offset
-      // so the task keeps its duration even across uneven months.
-      start = shift(s.originStart, s.unitDelta);
-      end = new Date(s.originEnd.getTime() + (start.getTime() - s.originStart.getTime()));
+      const days = daysMoved(s.originStart);
+      start = addUnits(s.originStart, days, 'day');
+      end = addUnits(s.originEnd, days, 'day');
     } else if (s.mode === 'resize-left') {
-      start = shift(s.originStart, s.unitDelta);
-      if (end.getTime() - start.getTime() < minDurationMs) {
-        start = new Date(end.getTime() - minDurationMs);
-      }
+      start = addUnits(s.originStart, daysMoved(s.originStart), 'day');
+      const latest = addUnits(end, -1, 'day');
+      if (start.getTime() > latest.getTime()) start = latest;
     } else if (s.mode === 'resize-right') {
-      end = shift(s.originEnd, s.unitDelta);
-      if (end.getTime() - start.getTime() < minDurationMs) {
-        end = new Date(start.getTime() + minDurationMs);
-      }
+      end = addUnits(s.originEnd, daysMoved(s.originEnd), 'day');
+      const earliest = addUnits(start, 1, 'day');
+      if (end.getTime() < earliest.getTime()) end = earliest;
     }
     return { start, end };
   }, [viewMode, shiftSegments]);
+
+  /** The day a drag's preview names as the end it will commit (`endDayOf`, objectui#11141). */
+  const dragPreviewEndDay = (s: NonNullable<typeof dragState>): Date => {
+    const previewed = computeDragChanges(s);
+    return endDayOf(previewed.start, previewed.end);
+  };
+
 
   // --- Undo / redo (Phase 6) --------------------------------------------
   // GanttView is presentational — the parent owns task state — so we can't
@@ -1386,16 +1466,16 @@ export function GanttView({
         if (task && onTaskUpdate) {
           const { start, end } = computeDragChanges(cur);
           if (cur.group) {
-            // Move the summary and every descendant by the same ms offset so
-            // the subtree keeps its internal spacing and durations — recorded as
+            // Move the summary and every descendant by the same move (see
+            // groupMover) so the subtree keeps its internal spacing — recorded as
             // a single undoable batch. Locked (view-only) descendants stay put:
             // they must never be mutated, by drag or by group shift.
-            const deltaMs = start.getTime() - cur.originStart.getTime();
+            const move = groupMover(cur.originStart, start, segActive);
             const shifted = [task, ...collectDescendants(task.id).filter((t) => !t.locked)].map((t) => ({
               task: t,
               changes: {
-                start: new Date(t.start.getTime() + deltaMs),
-                end: new Date(t.end.getTime() + deltaMs),
+                start: move(t.start),
+                end: move(t.end),
               },
             }));
             commitTaskUpdates(shifted);
@@ -2317,7 +2397,10 @@ export function GanttView({
   const resolvedMarkers = React.useMemo(() => {
     return (markers ?? [])
       .map((m, i) => {
-        const date = m.date instanceof Date ? m.date : new Date(m.date);
+        // `toDisplayDate` reads a date-only string at LOCAL midnight of its
+        // day; the engine's own parse read UTC midnight, which stood the line
+        // on the previous day west of UTC (objectui#10866). A `Date` passes.
+        const date = toDisplayDate(m.date);
         return {
           index: i,
           label: m.label,
@@ -2892,13 +2975,10 @@ export function GanttView({
     if (dragState) {
       if (dragGroupIds?.has(String(row.task.id))) {
         // Whole-group preview: every row in the subtree shifts by the same
-        // snapped offset as the dragged summary bar.
+        // move as the dragged summary bar, as the drop commits it.
         const previewed = computeDragChanges(dragState);
-        const deltaMs = previewed.start.getTime() - dragState.originStart.getTime();
-        return styleFor(
-          new Date(row.start.getTime() + deltaMs),
-          new Date(row.end.getTime() + deltaMs)
-        );
+        const move = groupMover(dragState.originStart, previewed.start, segmenting);
+        return styleFor(move(row.start), move(row.end));
       }
       // The dragged bar itself under a NON-group drag: a leaf move/resize, or a
       // self-extent summary resizing its own dates. Group moves are handled
@@ -3817,7 +3897,8 @@ export function GanttView({
                     setEditValues({
                       title: task.title,
                       start: task.start.toLocaleDateString('en-CA'),
-                      end: task.end.toLocaleDateString('en-CA'),
+                      // The day the bar runs through (objectui#11141).
+                      end: toDateInputValue(endDayOf(task.start, task.end)),
                       progress: String(task.progress),
                     });
                   } else {
@@ -3861,8 +3942,14 @@ export function GanttView({
                             task,
                             changes: {
                               title: editValues.title,
-                              start: new Date(editValues.start),
-                              end: new Date(editValues.end),
+                              // The date inputs hold the LOCAL day they were
+                              // seeded with; `toDisplayDate` reads it back at
+                              // local midnight, where the engine's parse read
+                              // UTC midnight and moved an untouched bar to the
+                              // day before west of UTC (objectui#10866). The
+                              // end is the typed day's end (objectui#11141).
+                              start: toDisplayDate(editValues.start),
+                              end: endOfTypedDay(editValues.end, task),
                               progress: Number(editValues.progress) || 0,
                             },
                           }]);
@@ -3888,7 +3975,7 @@ export function GanttView({
                           className="text-[10px] text-muted-foreground"
                           data-testid={`gantt-row-dates-${task.id}`}
                         >
-                          {row.start.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })} → {row.end.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}
+                          {row.start.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })} → {endDayOf(row.start, row.end).toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}
                         </span>
                       )}
                     </span>
@@ -3923,7 +4010,7 @@ export function GanttView({
                       onClick={(e) => e.stopPropagation()}
                     />
                   ) : (
-                    row.end.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })
+                    endDayOf(row.start, row.end).toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })
                   )}
                 </div>
                   </>
@@ -4214,7 +4301,7 @@ export function GanttView({
                          <div className="text-muted-foreground">
                            {row.start.toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })}
                            {' → '}
-                           {row.end.toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })}
+                           {endDayOf(row.start, row.end).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })}
                            {' · '}{durationDays}{t('gantt.tooltip.days')}
                            {' · '}{Math.round(row.progress)}%
                          </div>
@@ -4434,7 +4521,7 @@ export function GanttView({
                           >
                             {computeDragChanges(dragState).start.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}
                             {' → '}
-                            {computeDragChanges(dragState).end.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}
+                            {dragPreviewEndDay(dragState).toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}
                           </div>
                         )}
                         {tooltip}
@@ -4747,7 +4834,7 @@ export function GanttView({
                             bar's text width never shifts on hover. */}
                         <span className="absolute inset-0 flex items-center px-2 text-[10px] text-white font-medium truncate opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                           {isDragging
-                            ? `${computeDragChanges(dragState!).start.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })} → ${computeDragChanges(dragState!).end.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}`
+                            ? `${computeDragChanges(dragState!).start.toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })} → ${dragPreviewEndDay(dragState!).toLocaleDateString(dateLocale, { month: 'numeric', day: 'numeric' })}`
                             : `${Math.round(liveProgress)}%`}
                         </span>
                       </div>
@@ -5021,7 +5108,8 @@ export function GanttView({
                   setEditValues({
                     title: task.title,
                     start: task.start.toLocaleDateString('en-CA'),
-                    end: task.end.toLocaleDateString('en-CA'),
+                    // The day the bar runs through (objectui#11141).
+                    end: toDateInputValue(endDayOf(task.start, task.end)),
                     progress: String(task.progress),
                   });
                 }}

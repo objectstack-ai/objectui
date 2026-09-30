@@ -9,7 +9,8 @@
 export * from './types.js';
 export { parseJsx, interpretBrace } from './parse.js';
 export { HTML_TIER_NODE, isHtmlTierNode, markHtmlTierNode } from './provenance.js';
-export { validateTree } from './validate.js';
+export { validateTree, acceptsChildren, CHILD_LIST_KEY, SDUI_BASE_PROPS } from './validate.js';
+export type { SduiBaseProp, SduiBasePropScope } from './validate.js';
 export {
   checkDashboardWidgetOptions,
   CONSUMED_WIDGET_OPTION_KEYS,
@@ -69,9 +70,22 @@ export function compile(source: string, manifest: Manifest): CompileResult {
 export interface RegistryConfigLike {
   type: string;
   namespace?: string;
+  /**
+   * LAYOUT containment — the registration's `ComponentMeta.isContainer`,
+   * carried through to the manifest for the consumers that read it there.
+   * ⛔ It does not mean "accepts children" and `validateTree` does not read
+   * it: whether a component takes an authored child list is declared as an
+   * input named `children` (objectui#9910; `acceptsChildren` in `validate.ts`).
+   */
   isContainer?: boolean;
-  /** ADR-0080 contract tier — only 'public' configs form the AI/contract surface. */
-  tier?: 'public' | 'internal';
+  /**
+   * ADR-0080 contract tier — only 'public' configs form the AI/contract
+   * surface under `publicOnly`. `'html'` is the projection-only stamp
+   * `ComponentRegistry.getPublicConfigs()` puts on the html tier's intrinsic
+   * elements (objectui#10735); it is the one value {@link manifestFromConfigs}
+   * carries into `ManifestComponent.tier`.
+   */
+  tier?: 'public' | 'internal' | 'html';
   label?: string;
   category?: string;
   inputs?: Array<{
@@ -95,7 +109,7 @@ export interface RegistryConfigLike {
     required?: boolean;
     enum?: Array<string | { value: unknown; label?: string }>;
     /**
-     * The binding marker — exactly `'object'` (objectui#6950).
+     * The binding marker — exactly `'object'` (`9e37d9b39`).
      *
      * `'field'` was declared beside it from the first draft of ADR-0080 §6.3
      * and never written: every `binding:` literal in `packages/`, `apps/`
@@ -189,6 +203,11 @@ export function manifestFromConfigs(
       type: c.type,
       namespace: c.namespace,
       isContainer: c.isContainer,
+      // The html tier's stamp, and ONLY that stamp (objectui#10735): a
+      // registration's `'public'` / `'internal'` is registry mechanics the
+      // manifest never carried, and `undefined` is dropped by `JSON.stringify`,
+      // so every curated entry serialises exactly as before this key existed.
+      tier: c.tier === 'html' ? 'html' : undefined,
       inputs: (c.inputs ?? []).map((i) => ({
         name: i.name,
         type: canonicalizeInputType(i.type),

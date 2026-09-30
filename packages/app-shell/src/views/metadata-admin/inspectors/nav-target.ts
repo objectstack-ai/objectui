@@ -46,12 +46,13 @@ export const NAV_TYPE_TARGETS: Record<
  * render, but a `type: 'page'` nav item resolves to a static
  * `/apps/{app}/page/{name}` URL with no mechanism to pass one — so linking one
  * from navigation is always broken at runtime (#2333). Exclude them from the
- * page picker. Mirrors usePageAssignment's record discriminator: `pageType`
- * wins over the bare `type` field. Rows missing both are kept (only a confirmed
- * record page is excluded).
+ * page picker. Mirrors usePageAssignment's record discriminator: `type` alone.
+ * `pageType` is not read — `PageSchema` refuses it as an alias of `type`, so no
+ * page that parses carries it (objectui#9674). Rows missing `type` are kept
+ * (only a confirmed record page is excluded).
  */
-export function isStaticPageOption(row: { type?: string; pageType?: string }): boolean {
-  return (row.pageType ?? row.type) !== 'record';
+export function isStaticPageOption(row: { type?: string }): boolean {
+  return row.type !== 'record';
 }
 
 /** Typed target fields across the whole union. */

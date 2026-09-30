@@ -501,6 +501,7 @@ describe('performance-budget.yml contract', () => {
     expect(published).toContain('closure_chunk_status');
     expect(published).toContain('closure_headroom_status');
     expect(published).toContain('closure_freshness_status');
+    expect(published).toContain('closure_membership_status');
 
     for (const key of published) {
       expect(workflow, `workflow must pass steps.budget.outputs.${key} to the comment step`)

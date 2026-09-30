@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# copied from objectstack@c2520416cff04575dd3def789dd04a5745e3912b
 # guard-main-checkout.sh — PreToolUse guard enforcing AGENTS.md worktree-first rule.
 # Blocks Edit / Write / NotebookEdit unless the file being edited lives in a dedicated
 # git WORKTREE — not the shared primary checkout.

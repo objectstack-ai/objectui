@@ -7,74 +7,75 @@
  */
 
 /**
- * THE UNIVERSAL container-declaration census, ratcheted to zero (objectui#6779).
+ * THE UNIVERSAL containment census — declared ⇔ rendered, over the whole
+ * registry, in BOTH directions (objectui#6779, re-pointed by objectui#9910).
  *
- * ## Why a THIRD file on this fact, and what makes it different
+ * ## What this file pins
  *
- * The same defect has now been found three times independently, one registration
- * at a time: objectui#3900 (`page-header`, closed), objectui#6740 (`flex`,
- * PR #6762) and objectui#6764 (8 more, PR #6774). Each was filed as a one-off
- * because nothing in the tree asked the question of the tree.
+ * A registration that puts an authored `children` list on the page declares
+ * `{ name: 'children', type: 'slot' }` in its `inputs`, and ONLY that
+ * declaration decides `sdui-parser`'s `not-a-container` diagnostic
+ * (`acceptsChildren` in `packages/sdui-parser/src/validate.ts`). Three facts,
+ * each held against the live registry rather than the source:
  *
- * Its two existing pins are ENUMERATIVE, and that is precisely how the class
- * regenerated past them:
+ *   1. RENDERS ⇒ DECLARES. A renderer that puts the list on the page and
+ *      declares no `children` input is a NEW violation — declare the input.
+ *   2. DECLARES ⇒ RENDERS. A `children` input whose renderer never puts the
+ *      list on the page — bare, or in the context it renders in — is a lie
+ *      the designer would offer and the tier would bless. Delete it, or probe
+ *      it in context (`CONTEXT_PROBES`).
+ *   3. THE TIER READS THE INPUT AND NOTHING ELSE. `not-a-container` fires on
+ *      exactly the undeclared registrations, whatever `isContainer` says.
  *
- *   - `__tests__/layout-containers-declare-containment.test.tsx` covers a literal
- *     4-element array (`flex`/`grid`/`card`/`container`);
- *   - `renderers/__tests__/container-declaration-census.test.tsx` covers the 8
- *     that PR #6774 declared.
+ * ## Why the predicate moved off the flag (objectui#9910)
  *
- * Both stay: they pin WHY those twelve were declared, which this file does not.
- * What this file adds is the coverage set — the WHOLE REGISTRY instead of a
- * literal array — so the 4th rediscovery is a red test rather than a card.
+ * objectui#6779 built this census over `isContainer`, because that flag was
+ * what `validateTree` read. The flag was hand-kept and it drifted from the
+ * code four times (objectui#3900 / #6740 / #6764 / #6779); then objectui#6771
+ * converged a dozen `schema.body` readers onto `children`, objectui#6804 had
+ * ruled the flag OFF for that population (it means LAYOUT containment, and
+ * declaring it deletes a public tag from every react page's JSX scope), and
+ * the diagnostic landed FALSE on the one key those registrations read. The
+ * maintainer ruled 2026-09-24 (objectui#9910 Q1-A, declare-and-pin): the
+ * containment declaration is the `children` slot input, the tier reads only
+ * it, and this census holds it both ways. `isContainer` keeps its layout
+ * meaning (Q2-A) and decides nothing here — pinned below as a control.
  *
  * ## The instrument, and why it is a RUNTIME one
  *
- * objectui#6779 measured four reasons the source-side spelling of this question
- * cannot be built (option D, refused by name in the ruling):
+ * objectui#6779 measured four reasons a source-side spelling of "does this
+ * renderer read `schema.children`?" cannot be built: the tree's own reader
+ * refuses computed keys and 41 of 53 registered from a loop variable; file
+ * granularity mis-reads a file holding two registrations; WHICH registration
+ * is live is a whole-program import-order fact; and "children or body" is not
+ * a distinction a source predicate keeps. So the predicate is behavioural and
+ * executed: render the tag through the real `SchemaRenderer` with one
+ * authored child and ask whether that child reached the DOM.
  *
- *   1. `scripts/component-registrations.mjs`, the tree's own reader, refuses
- *      computed keys by design — and 41 of the 53 register from a loop variable,
- *      so it cannot even NAME them;
- *   2. file granularity mis-reads `layout/page.tsx` as compliant: it holds two
- *      `isContainer` tokens, both in a manifest-builder helper, while all five of
- *      its registrations lack the flag;
- *   3. WHICH registration is live is a whole-program import-order fact, with two
- *      recorded casualties in this tree (`ui:kbd`, `ui:table` — objectui#5125);
- *   4. "children or body" is not a distinction a source predicate keeps — that
- *      spelling over-reports by 10.
+ * The bare probe has two blind spots, and both are handled by NAME rather
+ * than skipped: a renderer that only mounts inside a provider (`sidebar`,
+ * `sidebar-menu-button` need `sidebar-provider`), and a portal that renders
+ * only when open (`tooltip`). `CONTEXT_PROBES` renders each in its context,
+ * and pins that the context is still NEEDED — a fixture whose subject starts
+ * rendering bare is dead weight and goes red, the same way a baseline row
+ * that stopped violating does.
  *
- * So the predicate here is behavioural and executed: render the tag through the
- * real `SchemaRenderer` with one authored child and ask whether that child
- * reached the DOM. It is objectui#6740's mechanism with the array taken out.
+ * ## Population: every KNOWN key, namespaced spellings included
  *
- * ⭐ THE EXCEPTION SHAPES NEED NO EXCLUSION LIST — the predicate excludes them.
- * The ruling names three populations a naive predicate would sweep in wrongly:
- * `tabs` (renders `items[].content`), the void tags `img`/`hr`/`br` (same loop
- * factory as 34 tags that DO render children), and the `schema.body` readers
- * (`badge`, `alert`, the `sidebar-*` family). Measured here: every one of them
- * puts NO authored child on the page, so the runtime predicate scores them as
- * non-containers by construction, with nothing skipped by name. That is a
- * property of this predicate and not of the population, so it is PINNED below —
- * rewrite the predicate as "renders children OR body" and those pins go red
- * instead of 10-plus tags silently becoming containers.
+ * objectui#6779 iterated bare tags only, on the ground that "the namespaced
+ * twins are the same registration". That is true for `ui:h1` and `h1`, and
+ * false for `sidebar` (the `ui` chrome part) versus `page:sidebar` (a
+ * different renderer in `containers.tsx`), so a bare-only census scores
+ * `page:sidebar` off `sidebar`'s row. Every known key is probed; a twin costs
+ * one extra render.
  *
- * ## MEASURED on main@d06059f24, over the live registry
+ * ## The ledger
  *
- *   - 293 registry keys, of which 131 are bare authoring tags;
- *   - 58 render `schema.children` (the child text reached the DOM);
- *   - 13 of those declare the flag: objectui#6764's 5-tag control set
- *     (`flex`/`grid`/`card`/`container`/`stack`) plus PR #6774's 8;
- *   - 45 do NOT, and every one drew `not-a-container` on a list it then rendered;
- *   - 73 render no children and correctly keep the diagnostic;
- *   - 0 failed to render, so nothing was scored on an exception.
- *
- * The 45 are the stock. `button` is excluded by ruling and pinned separately — that
- * exclusion was made PERMANENT and reasoned by objectui#6804 (2026-08-30); see the
- * `button` block below. The other 44 are `scripts/container-declaration-baseline.json`,
- * which is a RATCHET TO ZERO and not an exemption list: red when an unlisted tag
- * violates, and red again when a listed tag stops violating, so the file can only
- * shrink.
+ * `scripts/container-declaration-baseline.json` is at ZERO — every row it
+ * carried declared the slot in objectui#9910. It stays as the one place an
+ * admitted violation could be recorded WITH a ruling; both maps must remain
+ * consistent with the census (a listed row that does not violate is red), so
+ * the file can only shrink back to empty.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -83,7 +84,7 @@ import { join } from 'node:path';
 import { render, waitFor } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer, AdapterCtx } from '@object-ui/react';
-import { manifestFromConfigs, validateTree } from '@object-ui/sdui-parser';
+import { CHILD_LIST_KEY, manifestFromConfigs, validateTree } from '@object-ui/sdui-parser';
 import type { Diagnostic, SchemaElement } from '@object-ui/sdui-parser';
 
 // Module scope, not a hook: this import IS the registration (AGENTS.md
@@ -93,42 +94,15 @@ import '../index';
 const CONTAINMENT = 'not-a-container';
 const MARK = 'ratchet-child';
 
-/** Long enough for 131 sequential renders under a loaded CI box. */
-const CENSUS_TIMEOUT = 120_000;
+/** Long enough for ~300 sequential renders under a loaded CI box. */
+const CENSUS_TIMEOUT = 180_000;
 
 /**
  * The repo root, derived from THIS FILE's own location — never from the cwd
- * (objectui#7799).
- *
- * TWO premises stood here and BOTH were false.
- *
- * 1. "The cwd is the repo root by construction: `scripts/
- *    vitest-invocation-guard.mjs` refuses any invocation whose vitest root is
- *    not the repo root." The guard is real, but it is a DIFFERENT invariant:
- *    `--root` moves VITEST's root and moves nothing about `process.cwd()`. This
- *    package's own `test` script — `vitest run --root ../.. packages/components/`,
- *    which is what `pnpm --filter @object-ui/components test` and
- *    `turbo run test` both run — sets that root correctly and leaves cwd at
- *    `packages/components/`. Measured with cwd as the only variable: 13 passed
- *    from the repo root, 6 failed / 7 passed from the package directory.
- * 2. "NOT `import.meta.url`: under vite that is an `http://` module URL, not a
- *    `file://` one." Measured on objectui#7799 in this very project (`dom`) and
- *    under both cwds, bare `import.meta.url` is
- *    `file:///…/packages/components/src/renderers/__tests__/<this file>`. What
- *    Vite rewrites is the TWO-ARGUMENT form `new URL(rel, import.meta.url)`,
- *    which does evaluate to a `http://localhost:3000/@fs/…` dev-server URL — so
- *    only the bare form is read below, and it is taken apart by hand rather than
- *    passed to `fileURLToPath`. That is the spelling landed for objectui#7791
- *    (PR #7796), copied here rather than invented again.
- *
- * The `globalThis` indirection went with the cwd read: this package's
- * `src/global.d.ts` declares a BROWSER `process` shim that its type-check
- * resolves ahead of the node global, so neither the bare `process` global nor
- * `import process from 'node:process'` compiles with `.cwd()`. Deriving the root
- * from `import.meta.url` reads no `process` at all, so the dance is simply gone.
- * That shim's own compile pin is not weakened by this: it lives in
- * `packages/components/src/__tests__/browser-process-shim-scope.test.ts`, which
- * still makes the `process.cwd()` call deliberately, for exactly that purpose.
+ * (objectui#7799). Bare `import.meta.url` is a `file:` URL under both cwds
+ * this suite runs from; the two-argument `new URL(rel, import.meta.url)` form
+ * is what Vite rewrites, so only the bare form is read and taken apart by hand
+ * (the spelling landed for objectui#7791, PR #7796).
  */
 const SELF_DEPTH_BELOW_REPO_ROOT = 6; // packages / components / src / renderers / __tests__ / this file
 const REPO_ROOT = decodeURIComponent(new URL(import.meta.url).pathname)
@@ -169,45 +143,122 @@ const diagnose = (schema: unknown): Diagnostic[] => {
   return validateTree(schema as SchemaElement, manifest).diagnostics;
 };
 
-const withChildren = (type: string) => ({ type, children: [{ type: 'text', content: MARK }] });
+const withChildren = (type: string, extra: Record<string, unknown> = {}) => ({
+  type,
+  ...extra,
+  children: [{ type: 'text', content: MARK }],
+});
 
-/** Does this registration put an AUTHORED child list on the page? */
-const rendersChildren = async (type: string): Promise<boolean> => {
+/**
+ * Does rendering this schema put the authored MARK child on the page?
+ *
+ * `readBody` reads `document.body` instead of the render container, for the
+ * one shape that renders through a portal (`tooltip`): its content is mounted
+ * outside the container it was rendered into.
+ */
+const rendersMark = async (schema: unknown, readBody = false): Promise<boolean> => {
   const { container, unmount } = render(
     <AdapterCtx.Provider value={null as never}>
-      <SchemaRenderer schema={withChildren(type) as never} />
+      <SchemaRenderer schema={schema as never} />
     </AdapterCtx.Provider>,
   );
   try {
     await waitFor(() => expect(container.textContent).toBeDefined());
-    return (container.textContent || '').includes(MARK);
+    const text = readBody ? document.body.textContent || '' : container.textContent || '';
+    return text.includes(MARK);
   } finally {
     unmount();
   }
 };
 
+/** Does this registration put an AUTHORED child list on the page, bare? */
+const rendersChildren = (type: string): Promise<boolean> => rendersMark(withChildren(type));
+
+/** Does this registration declare the containment input the tier reads? */
+const declaresChildren = (type: string): boolean =>
+  (ComponentRegistry.getMeta(type)?.inputs ?? []).some((input) => input.name === CHILD_LIST_KEY);
+
 interface Row {
   type: string;
   rendersChildren: boolean;
+  declaresChildren: boolean;
   isContainer: boolean;
   containment: boolean;
   unknown: boolean;
   isPublic: boolean;
 }
 
-/** Every BARE authoring tag — the namespaced twins are the same registration. */
-const bareTags = (): string[] =>
-  ComponentRegistry.getKnownTypes()
-    .filter((t) => !t.includes(':'))
-    .sort();
+/** Every known key, bare AND namespaced — see the population note above. */
+const knownTypes = (): string[] => ComponentRegistry.getKnownTypes().slice().sort();
+
+/** The bare authoring tags only, for the pins that speak about a bare family. */
+const bareTags = (): string[] => knownTypes().filter((t) => !t.includes(':'));
 
 const publicTags = (): Set<string> =>
   new Set((ComponentRegistry.getPublicConfigs() as Array<{ type: string }>).map((c) => c.type));
 
 /**
+ * The renderers the BARE probe cannot see, each rendered in the context it
+ * really renders in (objectui#9910 measured all three on `origin/main`).
+ *
+ *  - `sidebar` and `sidebar-menu-button` mount nothing outside a
+ *    `sidebar-provider` (shadcn's sidebar reads its context); inside one, the
+ *    authored child reaches the DOM.
+ *  - `tooltip` renders its content in a portal, and only while open; the
+ *    registration spreads the node's other keys onto Radix `Tooltip`, so
+ *    `open: true` is the authored way to hold it open.
+ *
+ * Each probe lists the KEYS it answers for (the bare tag and its `ui:` twin),
+ * because the census iterates namespaced spellings too. The fixture is pinned
+ * as NEEDED: if its subject starts rendering under the bare probe, the entry
+ * here is dead weight and `the context probes are all still needed` goes red.
+ */
+interface ContextProbe {
+  types: string[];
+  /** The schema that puts `type` in its rendering context, with the MARK child. */
+  schema: (type: string) => unknown;
+  /** Read `document.body` rather than the container (portal). */
+  readBody?: boolean;
+}
+
+const CONTEXT_PROBES: ContextProbe[] = [
+  {
+    types: ['sidebar', 'ui:sidebar'],
+    schema: (type) => ({ type: 'sidebar-provider', children: [withChildren(type)] }),
+  },
+  {
+    types: ['sidebar-menu-button', 'ui:sidebar-menu-button'],
+    schema: (type) => ({
+      type: 'sidebar-provider',
+      children: [
+        {
+          type: 'sidebar',
+          children: [
+            {
+              type: 'sidebar-content',
+              children: [
+                { type: 'sidebar-menu', children: [{ type: 'sidebar-menu-item', children: [withChildren(type)] }] },
+              ],
+            },
+          ],
+        },
+      ],
+    }),
+  },
+  {
+    types: ['tooltip', 'ui:tooltip'],
+    schema: (type) => withChildren(type, { open: true, trigger: [{ type: 'text', content: 'trigger' }] }),
+    readBody: true,
+  },
+];
+
+const contextProbeFor = (type: string): ContextProbe | undefined =>
+  CONTEXT_PROBES.find((probe) => probe.types.includes(type));
+
+/**
  * Run once for the whole file. Memoised as a PROMISE rather than done in a
  * `beforeAll`, because `hookTimeout` (10s) is NARROWER than `testTimeout` and
- * 131 renders under a loaded box do not reliably fit in it (AGENTS.md §测试纪律
+ * ~300 renders under a loaded box do not reliably fit in it (AGENTS.md §测试纪律
  * — moving an unbounded cost into a hook only relocates the race).
  */
 let censusPromise: Promise<Row[]> | undefined;
@@ -216,11 +267,12 @@ const census = (): Promise<Row[]> =>
   (censusPromise ??= (async () => {
     const isPublic = publicTags();
     const rows: Row[] = [];
-    for (const type of bareTags()) {
+    for (const type of knownTypes()) {
       const codes = diagnose(withChildren(type)).map((d) => d.code);
       rows.push({
         type,
         rendersChildren: await rendersChildren(type),
+        declaresChildren: declaresChildren(type),
         isContainer: ComponentRegistry.getMeta(type)?.isContainer === true,
         containment: codes.includes(CONTAINMENT),
         unknown: codes.includes('unknown-component'),
@@ -230,25 +282,29 @@ const census = (): Promise<Row[]> =>
     return rows;
   })());
 
-/** The violation this file exists to stop: renders a child list, declares none. */
-const violators = (rows: Row[]): string[] =>
-  rows.filter((r) => r.rendersChildren && !r.isContainer).map((r) => r.type);
+/** Direction 1's violation: renders a child list, declares no slot for it. */
+const undeclaredRenderers = (rows: Row[]): string[] =>
+  rows.filter((r) => r.rendersChildren && !r.declaresChildren).map((r) => r.type);
 
-describe('the census is a reading, not a broken scan (objectui#6779)', () => {
+/** Direction 2's violation under the BARE probe: declares the slot, renders nothing. */
+const bareLiars = (rows: Row[]): string[] =>
+  rows.filter((r) => r.declaresChildren && !r.rendersChildren).map((r) => r.type);
+
+describe('the census is a reading, not a broken scan (objectui#6779 / objectui#9910)', () => {
   it(
-    'reproduces the objectui#6764 control set and resolves every tag it scored',
+    'reproduces the control set and resolves every key it scored',
     async () => {
       const rows = await census();
+      const byType = new Map(rows.map((r) => [r.type, r]));
 
-      // CONTROL ONE — the named five. objectui#6764 established that the tags
-      // declaring the flag are exactly `flex`/`grid`/`card`/`container`/`stack`;
-      // reproducing them is what makes the ZEROES elsewhere a reading rather
-      // than evidence that this scan resolves nothing. Asserted as a subset
-      // rather than an equality because PR #6774 legitimately added 8 more, and
-      // paying off the ratchet is SUPPOSED to add more still.
-      const declared = new Set(rows.filter((r) => r.isContainer).map((r) => r.type));
+      // CONTROL ONE — the named five. objectui#6764 established the layout
+      // primitives as the containers that DECLARE; under objectui#9910 the
+      // declaration is the `children` slot and all five carry it AND render it.
+      // Reproducing them is what makes the zeroes elsewhere a reading rather
+      // than evidence that this scan resolves nothing.
       for (const control of ['flex', 'grid', 'card', 'container', 'stack']) {
-        expect(declared.has(control), `control tag \`${control}\` no longer declares`).toBe(true);
+        expect(byType.get(control)?.declaresChildren, `control tag \`${control}\` no longer declares the slot`).toBe(true);
+        expect(byType.get(control)?.rendersChildren, `control tag \`${control}\` no longer renders children`).toBe(true);
       }
 
       // CONTROL TWO — reachability before absence. A tag the manifest does not
@@ -256,344 +312,257 @@ describe('the census is a reading, not a broken scan (objectui#6779)', () => {
       // branch, so it would score as "no violation" for the wrong reason.
       expect(rows.filter((r) => r.unknown).map((r) => r.type)).toEqual([]);
 
-      // CONTROL THREE — the diagnostic still fires. Every tag that renders NO
-      // children must still draw `not-a-container`; if the check were deleted or
-      // `isContainer` defaulted on, this file would otherwise go green having
-      // measured nothing at all.
-      const silent = rows.filter((r) => !r.rendersChildren && !r.containment).map((r) => r.type);
-      expect(silent, 'a childless tag stopped drawing the containment diagnostic').toEqual([]);
+      // CONTROL THREE — the diagnostic still fires. Every registration that
+      // declares NO slot must draw `not-a-container`; if the check were deleted
+      // this file would otherwise go green having measured nothing at all.
+      const silent = rows.filter((r) => !r.declaresChildren && !r.containment).map((r) => r.type);
+      expect(silent, 'an undeclared registration stopped drawing the containment diagnostic').toEqual([]);
 
-      // CONTROL FOUR — the census has a population. Guards against a registry
-      // that failed to load, which would make every list below vacuously empty.
-      expect(rows.length).toBeGreaterThan(100);
+      // CONTROL FOUR — the census has a population, in both spellings.
+      expect(rows.length).toBeGreaterThan(200);
+      expect(bareTags().length).toBeGreaterThan(100);
+      expect(rows.filter((r) => r.declaresChildren).length).toBeGreaterThan(60);
     },
     CENSUS_TIMEOUT,
   );
 });
 
-describe('the ratchet: no NEW undeclared container (objectui#6779)', () => {
+describe('direction 1 — every renderer that puts `children` on the page declares the slot (objectui#9910)', () => {
   it(
-    'every tag that renders children while omitting `isContainer` is already on the list',
+    'no registration renders an authored child list while declaring no `children` input',
     async () => {
       const rows = await census();
       const baseline = readBaseline();
-      const known = new Set([
-        ...Object.keys(baseline.undeclared),
-        ...Object.keys(baseline.excluded),
-      ]);
+      const admitted = new Set([...Object.keys(baseline.undeclared), ...Object.keys(baseline.excluded)]);
 
       // THE LOAD-BEARING ASSERTION. A registration that renders an authored
-      // child list while declaring it takes none makes `validateTree` LIE, and a
-      // warning that lies is worse than a missing one because it trains authors
-      // — AI authors especially — to discount the TRUE `not-a-container` reports
-      // (objectui#3900's reasoning). Adding your tag to the baseline is NOT the
-      // fix: declare `isContainer: true` on its registration.
-      const unexpected = violators(rows).filter((t) => !known.has(t));
+      // child list while declaring no slot for it makes `validateTree` LIE on
+      // the one key its authors write, and a warning that lies is worse than a
+      // missing one because it trains authors — AI authors especially — to
+      // discount the TRUE `not-a-container` reports (objectui#3900's reasoning,
+      // measured live on objectui#9910). Adding your tag to the baseline is NOT
+      // the fix: declare `{ name: 'children', type: 'slot' }` on the registration.
+      const unexpected = undeclaredRenderers(rows).filter((t) => !admitted.has(t));
       expect(
         unexpected,
-        'new undeclared container(s) — declare `isContainer` on the registration, do not list them',
+        'renderer(s) put `children` on the page without declaring the slot — add `{ name: \'children\', type: \'slot\' }` to the registration `inputs`, do not list them',
       ).toEqual([]);
-    },
-    CENSUS_TIMEOUT,
-  );
-
-  it(
-    'every listed tag still violates — a fixed entry is dead weight and fails too',
-    async () => {
-      const rows = await census();
-      const baseline = readBaseline();
-      const violating = new Set(violators(rows));
-
-      // The OTHER direction, and the half that makes this a ratchet rather than
-      // an exemption list: once a tag is fixed, its line has to go. Without this
-      // the file would accumulate stale entries and quietly stop describing
-      // anything, which is how an exemption list is born.
-      const stale = Object.keys(baseline.undeclared).filter((t) => !violating.has(t));
-      expect(
-        stale,
-        'these no longer violate — delete their lines from the baseline (the list may only shrink)',
-      ).toEqual([]);
-    },
-    CENSUS_TIMEOUT,
-  );
-
-  it(
-    'nothing on the list is public, so paying one off deletes no injected identifier',
-    async () => {
-      const rows = await census();
-      const baseline = readBaseline();
-      const byType = new Map(rows.map((r) => [r.type, r]));
-
-      // The premise the ruling's cost estimate rests on, pinned rather than
-      // trusted: `renderers/layout/react-page.tsx` builds the JSX scope of every
-      // `kind:'react'` page with `if (!tag || cfg.isContainer) continue;` over
-      // `getPublicConfigs()`, so declaring the flag on a PUBLIC tag also removes
-      // its injected wrapper. For all 44 listed tags it provably removes
-      // nothing, which is why they are mechanically fixable one at a time.
-      const publicOnList = Object.keys(baseline.undeclared).filter((t) => byType.get(t)?.isPublic);
-      expect(
-        publicOnList,
-        'a listed tag became public — declaring it now deletes a react-page identifier; re-triage before fixing',
-      ).toEqual([]);
-
-      // Direction control. Without it "none of them is public" is
-      // indistinguishable from "the public tier is empty / this reader broke".
-      const isPublic = publicTags();
-      expect(isPublic.size).toBeGreaterThan(0);
-      expect(isPublic.has('button')).toBe(true);
     },
     CENSUS_TIMEOUT,
   );
 });
 
-describe('`button` is EXCLUDED by ruling — permanently, and with its ground (objectui#6804)', () => {
+describe('direction 2 — every declared slot is rendered, bare or in its declared context (objectui#9910)', () => {
   it(
-    'still renders children, still undeclared, still the only public one of the 45',
+    'no `children` input is a lie: each is rendered bare, or by the context probe that names it',
     async () => {
       const rows = await census();
-      const baseline = readBaseline();
-      const button = rows.find((r) => r.type === 'button');
+      const unexplained: string[] = [];
+      for (const type of bareLiars(rows)) {
+        const probe = contextProbeFor(type);
+        if (!probe) {
+          unexplained.push(type);
+          continue;
+        }
+        expect(
+          await rendersMark(probe.schema(type), probe.readBody),
+          `\`${type}\` declares the slot but renders no child even inside its declared context`,
+        ).toBe(true);
+      }
+      expect(
+        unexplained,
+        'declared `children` input(s) whose renderer never puts the list on the page — delete the input, or add a CONTEXT_PROBES entry that renders the tag where it really renders',
+      ).toEqual([]);
+    },
+    CENSUS_TIMEOUT,
+  );
 
-      // objectui#6779's ruling (2026-08-29) carved `button` out of the ratchet
-      // list and ordered a separate card. objectui#6804 IS that card, and its
-      // 2026-08-30 ruling SETTLED the question: `button` does not declare
-      // `isContainer`, permanently. The ground — recorded in full in the
-      // baseline's `reason` field, which is where a reader who opens the ledger
-      // will look — is that `isContainer` means LAYOUT CONTAINMENT, while
-      // `button` reads `children` only as a fallback for `schema.label`, so
-      // declaring it would make one predicate mean two different things; that it
-      // is the only public-tier member of the 45, so the declaration would also
-      // delete `Button` from the JSX scope of every `kind:'react'` page; and
-      // that the pull the other way measured zero.
-      //
-      // ⇒ The `issue` field points at the card that RULED it (#6804), not at the
-      // one that deferred it (#6779, named in the reason as provenance): a
-      // reader following this pointer wants the decision, not the deferral.
-      //
-      // The ruling covers 14 tags — `button` plus the 13 `schema.body` readers —
-      // but only `button` is LISTED here, and that is not an omission: the other
-      // 13 do not violate today, and listing a non-violator trips the OTHER
-      // direction of the baseline's red. They are pinned as non-violators by the
-      // `schema.body` readers block below instead.
-      // ⚠️ `button` is no longer alone. objectui#6804's ruling covered FOURTEEN
-      // tags — `button` plus the `schema.body` readers — and said in as many
-      // words what to do when objectui#6771 gave those readers a `children`
-      // read: a pin exception WITH ITS GROUND, ⛔ not `isContainer`. That
-      // happened, so ten of them are here now, each carrying its own reason.
-      // Exact equality is kept deliberately — admitting an entry stays a
-      // deliberate act, and the set is asserted rather than its size, so a
-      // swap for an unruled tag cannot ride in on a count.
-      expect(Object.keys(baseline.excluded).sort()).toEqual([
-        'alert', 'badge', 'button',
-        'sidebar-content', 'sidebar-footer', 'sidebar-group', 'sidebar-header',
-        'sidebar-inset', 'sidebar-menu', 'sidebar-menu-item', 'sidebar-provider',
-      ]);
-      // Every one of them points at the ruling that decided it, not at the card
-      // that deferred it or the one that executed it.
-      for (const [tag, entry] of Object.entries(baseline.excluded)) {
-        expect(entry.issue, tag).toBe('objectui#6804');
-        expect(entry.reason.length, `\`${tag}\` carries no ground`).toBeGreaterThan(200);
+  it(
+    'the context probes are all still needed — a subject that renders bare makes its fixture dead weight',
+    async () => {
+      const rows = await census();
+      const byType = new Map(rows.map((r) => [r.type, r]));
+      for (const probe of CONTEXT_PROBES) {
+        for (const type of probe.types) {
+          const row = byType.get(type);
+          expect(row, `context probe names \`${type}\`, which is not registered`).toBeTruthy();
+          expect(row?.declaresChildren, `\`${type}\` no longer declares the slot — drop it from CONTEXT_PROBES`).toBe(true);
+          expect(
+            row?.rendersChildren,
+            `\`${type}\` now renders under the bare probe — its CONTEXT_PROBES entry is dead weight, delete it`,
+          ).toBe(false);
+        }
+      }
+      // Direction control for the probes themselves: a chrome part that reads
+      // NO children stays a non-container even inside the provider, so the
+      // context fixture is not a wrapper that renders everything.
+      expect(await rendersMark({ type: 'sidebar-provider', children: [withChildren('sidebar-trigger')] })).toBe(false);
+      expect(byType.get('sidebar-trigger')?.declaresChildren).toBe(false);
+      expect(byType.get('sidebar-trigger')?.containment).toBe(true);
+    },
+    CENSUS_TIMEOUT,
+  );
+});
+
+describe('direction 3 — the tier reads the declared input and nothing else (objectui#9910 Q1-A)', () => {
+  it(
+    '`not-a-container` fires on exactly the undeclared registrations, whatever `isContainer` says',
+    async () => {
+      const rows = await census();
+      const mismatched = rows
+        .filter((r) => !r.unknown && r.containment !== !r.declaresChildren)
+        .map((r) => `${r.type} (declares=${r.declaresChildren}, containment=${r.containment}, isContainer=${r.isContainer})`);
+      expect(mismatched, 'the containment diagnostic disagrees with the declared `children` input').toEqual([]);
+    },
+    CENSUS_TIMEOUT,
+  );
+
+  it(
+    '⛔ `isContainer` is not a fallback: a flagged registration with no slot still draws the diagnostic',
+    async () => {
+      // The pin on the ruling's hard line. `page:tabs` and `page:accordion`
+      // carry `isContainer: true` (they are layout containers) and render
+      // `items[].children`, never `schema.children` — so a child list authored
+      // under them is genuinely unrendered, and the diagnostic on it is TRUE.
+      // Before objectui#9910 the flag silenced it; now nothing does.
+      const rows = await census();
+      const byType = new Map(rows.map((r) => [r.type, r]));
+      const flaggedWithoutSlot = rows.filter((r) => r.isContainer && !r.declaresChildren).map((r) => r.type);
+      expect(flaggedWithoutSlot, 'no flagged-but-undeclared registration is left to prove the flag is ignored').not.toEqual([]);
+      for (const type of ['page:tabs', 'page:accordion']) {
+        expect(byType.get(type)?.isContainer, `\`${type}\` dropped its layout flag`).toBe(true);
+        expect(byType.get(type)?.declaresChildren, `\`${type}\` now declares a slot it does not render`).toBe(false);
+        expect(byType.get(type)?.rendersChildren).toBe(false);
+        expect(byType.get(type)?.containment, `\`${type}\`: the flag silenced the diagnostic — the fallback is back`).toBe(true);
       }
 
-      // Pinned as a live description rather than as prose, so the exclusion
-      // cannot outlive its reason. These three are exactly the facts the ruling
-      // rests on; if any one of them stops being true, this goes RED and the
-      // exception must be RE-RULED rather than quietly re-based on a premise
-      // that no longer holds. That is what keeps a REASONED exception
-      // distinguishable from an oversight — and their indistinguishability is
-      // the mechanism behind this class's three independent rediscoveries
-      // (objectui#3900 / objectui#6740 / objectui#6764).
-      expect(button?.rendersChildren, '`button` no longer renders children').toBe(true);
-      expect(button?.isContainer, '`button` now declares `isContainer` — resolve the exclusion').toBe(
-        false,
-      );
-      expect(button?.isPublic, '`button` left the public tier — the reason for the exclusion is gone').toBe(
-        true,
-      );
-
-      // And it is NOT on the ratchet list — the ruling put it outside, so a
-      // later hand that quietly moves it in would be overriding the ruling.
-      expect(Object.keys(baseline.undeclared)).not.toContain('button');
+      // …and the other way: the slot alone is sufficient. `button` is public,
+      // carries NO flag (objectui#6804 keeps it out of the react-page skip
+      // set), renders `children` as its label fallback, declares the slot, and
+      // draws nothing — the false diagnostic objectui#9910 was filed about is
+      // gone without the flag.
+      const button = byType.get('button');
+      expect(button?.isContainer).toBe(false);
+      expect(button?.isPublic).toBe(true);
+      expect(button?.rendersChildren).toBe(true);
+      expect(button?.declaresChildren).toBe(true);
+      expect(button?.containment).toBe(false);
     },
     CENSUS_TIMEOUT,
   );
+
+  it('the retired `body` spelling follows the same predicate', async () => {
+    // `checkRetiredBodyDialect` is handed `acceptsChildren(comp)` — the same
+    // reading the `children` branch takes — so a `body` list under a declared
+    // slot is answered as a retired key (`unknown-prop`, naming `children`) and
+    // under an undeclared registration as `not-a-container`, naming both.
+    const rows = await census();
+    const byType = new Map(rows.map((r) => [r.type, r]));
+    const under = (type: string) =>
+      diagnose({ type, body: [{ type: 'text', content: MARK }] } as unknown).filter((d) => d.message.includes('"body"'));
+
+    expect(byType.get('box')?.declaresChildren).toBe(true);
+    expect(under('box').map((d) => d.code)).toEqual(['unknown-prop']);
+
+    expect(byType.get('page:tabs')?.declaresChildren).toBe(false);
+    expect(byType.get('page:tabs')?.isContainer).toBe(true);
+    expect(under('page:tabs').map((d) => d.code)).toEqual([CONTAINMENT]);
+  }, CENSUS_TIMEOUT);
 });
 
-describe('the predicate is RUNTIME, so the exception shapes need no skip-list (objectui#6779)', () => {
-  // Every assertion in this block is a pin on the PREDICATE, not on the tags.
-  // The ruling requires that `tabs`, the void tags and the `schema.body` readers
-  // are not swept in; measured here, the runtime predicate already excludes all
-  // of them because none puts an authored child on the page. Replace it with the
-  // source-side "renders children OR body" spelling and these go red — which is
-  // the whole point of keeping them.
+describe('the ruled 14 of objectui#6804 keep the flag OFF and now declare the slot (objectui#9910)', () => {
+  it('`button`, `badge`, `alert` and the eleven bare `sidebar-*` keys', async () => {
+    const rows = await census();
+    const byType = new Map(rows.map((r) => [r.type, r]));
+    const isPublic = publicTags();
 
-  it('`tabs` renders `items[].content`, so a child list under it is genuinely unrendered', async () => {
-    // `not-a-container` on `tabs` is TRUE and must survive. It is also public,
-    // so sweeping it in would delete `<Tabs>` from every react page as well.
-    expect(await rendersChildren('tabs')).toBe(false);
-    expect(diagnose(withChildren('tabs')).map((d) => d.code)).toContain(CONTAINMENT);
-  });
+    // DIRECTION CONTROL, first: without it "the sidebar keys are not public" is
+    // indistinguishable from "this reader returned nothing".
+    expect(isPublic.size).toBeGreaterThan(0);
+    expect(isPublic.has('button'), 'the public reader resolved nothing — every absence below is vacuous').toBe(true);
 
-  it.each(['img', 'hr', 'br'])('the void tag `%s` stays a non-container', async (type) => {
-    // These come out of the SAME `basic/html-elements.tsx` loop factory as 34
-    // tags that do render children, and the factory skips `renderChildren` for
-    // them by design (`VOID_TAGS`). A census at file granularity — the
-    // granularity a static reader can reach — would declare all 37 together and
-    // tell authors that `<br>` accepts children.
-    expect(await rendersChildren(type)).toBe(false);
-    expect(diagnose(withChildren(type)).map((d) => d.code)).toContain(CONTAINMENT);
-  });
+    const sidebars = bareTags().filter((t) => t.startsWith('sidebar'));
+    expect(sidebars.length, 'the `sidebar-*` family changed size — re-measure this block').toBe(11);
+    const ruled = ['button', 'badge', 'alert', ...sidebars];
 
-  it('the former `schema.body` readers now read `children` — and the containment warning moved WITH them', async () => {
-    // ⚠️ THIS PIN IS INVERTED, and it is inverted into a REFUSAL rather than
-    // deleted, because what it now records is a cost the ruling did not price.
-    //
-    // It used to read: these thirteen render `renderChildren(schema.body)` and
-    // never touch `schema.children`, so `validateTree`'s containment branch —
-    // guarded by `node.children?.length` ALONE — never fired on them and no
-    // author writing `body` had ever drawn a false diagnostic. It closed by
-    // saying that if objectui#6771's retirement gave one of them a `children`
-    // read, that is when it would earn a reasoned baseline entry of its own.
-    //
-    // That is what happened, and it moved the defect rather than removing it:
-    //
-    //   before  `body` renders, `children` does not, `children` draws the warning
-    //   after   `children` renders, `body` does not, `children` draws the warning
-    //
-    // ⇒ the false `not-a-container` is now on the ONE key these registrations
-    // read — which is the shape objectui#6771 was filed about, one key over.
-    // ⛔ Do not resolve it by declaring `isContainer`: objectui#6804's ruling
-    // (2026-08-30) forbids that for exactly this population and orders a
-    // reasoned pin exception instead, which is what the baseline now carries.
-    // The ruling's GROUND — `children` here is a label/content fallback, not
-    // layout containment — transfers cleanly to `badge`, `alert` and `button`;
-    // whether it transfers to the `sidebar-*` family, whose child lists ARE
-    // layout, is the question reported back on objectui#6771 rather than
-    // answered here. Until it is answered, this pin is what keeps the cost
-    // visible instead of rediscovered.
-    const converged = ['badge', 'alert', ...bareTags().filter((t) => t.startsWith('sidebar'))];
-    expect(converged.length).toBe(13);
-
-    // (a) the retired spelling is ANSWERED, and the answer names the remedy.
-    // ⛔ Not "draws nothing": silence on a retired key is the state this whole
-    // retirement exists to end.
-    for (const type of converged) {
-      const messages = diagnose({ type, body: [{ type: 'text', content: MARK }] } as unknown)
-        .map((d) => d.message);
+    for (const type of ruled) {
+      // (a) objectui#6804's ruling, still held: none of them is a LAYOUT
+      // container. Declaring the flag on the three public ones would delete
+      // `Button` / `Badge` / `Alert` from every react page's JSX scope.
+      expect(byType.get(type)?.isContainer, `\`${type}\` declared \`isContainer\` — that overrides objectui#6804`).toBe(false);
+      // (b) the retired spelling is still ANSWERED, and the answer names the
+      // remedy. ⛔ Not "draws nothing": silence on a retired key is the state
+      // objectui#6771 exists to end.
+      const messages = diagnose({ type, body: [{ type: 'text', content: MARK }] } as unknown).map((d) => d.message);
       expect(
         messages.some((m) => m.includes('"body"') && m.includes('"children"')),
         `\`${type}\` does not name \`children\` when an author writes the retired \`body\``,
       ).toBe(true);
     }
 
-    // (b) none of them declares the flag — objectui#6804's ruling, still held.
-    const rows = await census();
-    const byType = new Map(rows.map((r) => [r.type, r]));
-    for (const type of converged) {
-      expect(byType.get(type)?.isContainer, `\`${type}\` declared \`isContainer\``).toBe(false);
+    // (c) THE FLIP. Every one of the fourteen that renders `children` — bare
+    // or in context — declares the slot and draws NO `not-a-container` for it.
+    // This is the refusal pin objectui#6771 left here, inverted into the truth
+    // the objectui#9910 ruling ordered: the false warning on the one key these
+    // registrations read is gone, and it is gone WITHOUT the flag.
+    const renderers = ruled.filter((t) => byType.get(t)?.rendersChildren || contextProbeFor(t));
+    expect(renderers.length).toBe(13); // all but `sidebar-trigger`, which reads no children
+    for (const type of renderers) {
+      expect(byType.get(type)?.declaresChildren, `\`${type}\` renders children and declares no slot`).toBe(true);
+      expect(byType.get(type)?.containment, `\`${type}\` still draws the false \`not-a-container\``).toBe(false);
     }
+    expect(byType.get('sidebar-trigger')?.declaresChildren).toBe(false);
+    expect(byType.get('sidebar-trigger')?.containment).toBe(true);
 
-    // (c) THE REFUSAL. Every one of them that puts an authored `children` list
-    // on the page still draws `not-a-container` for it. Asserted on the
-    // measured renderers rather than on all thirteen, because three of them
-    // (`sidebar`, `sidebar-menu-button`, `sidebar-trigger`) do not put a child
-    // on the page under this probe and so are not part of the cost.
-    const rendering: string[] = [];
-    for (const type of converged) {
-      if (await rendersChildren(type)) rendering.push(type);
-    }
-    expect(rendering.length, 'no converged registration renders children — the retirement did not land')
-      .toBeGreaterThan(0);
-    for (const type of rendering) {
-      expect(
-        diagnose(withChildren(type)).map((d) => d.code),
-        `\`${type}\` stopped drawing the false warning — resolve the exception rather than this pin`,
-      ).toContain(CONTAINMENT);
-    }
-  }, CENSUS_TIMEOUT);
-});
-
-describe('the public tier of the ruled 14 is THREE, not one (objectui#6804)', () => {
-  // The baseline's ⚠️ paragraph tells whoever implements objectui#6771 that two of
-  // the 13 tags they are about to give a `children` read are PUBLISHED CONTRACT.
-  // That is a measurement, and this file's convention — set by the 44's own
-  // paragraph, "measured; the pin asserts it" — is that a measured claim in the
-  // ledger names the pin holding it. Unpinned, the warning goes quietly false the
-  // day `badge` or `alert` leaves the public tier, in the one sentence written to
-  // stop an unmeasured public-tier change. That is this card's own defect shape one
-  // level up: a claim nothing can distinguish from a stale one.
-  //
-  // Read off the LIVE REGISTRY rather than off `PUBLIC_BLOCKS`, because the list is
-  // the INPUT and the registry is the FACT, and this is precisely a population
-  // where the two differ: `getPublicConfigs()` keys the contract by the curated tag
-  // it was listed under, so the namespaced `page:sidebar` enters the public set
-  // under THAT spelling while the bare `sidebar` registration never does. Grepping
-  // the list would score all 12 sidebar keys off one entry that belongs to none of
-  // them.
-  it('`badge` and `alert` are public; the 11 bare `sidebar-*` keys are not', async () => {
-    const rows = await census();
-    const byType = new Map(rows.map((r) => [r.type, r]));
-    const isPublic = publicTags();
-
-    // DIRECTION CONTROL, first and for the same reason the 44's block carries one:
-    // without it, "the sidebar keys are not public" is indistinguishable from "this
-    // reader returned nothing", and every absence below would pass vacuously.
-    // `button` is the known positive — it is the fact the exclusion above rests on.
-    expect(isPublic.size).toBeGreaterThan(0);
-    expect(isPublic.has('button'), 'the public reader resolved nothing — every absence below is vacuous').toBe(
-      true,
-    );
-
-    // (1) The two public body readers. `button` is the only public tag among the 45
-    // VIOLATIONS, but not the only public tag among the ruled 14 — that is the
-    // distinction the baseline note now draws and this holds it.
-    for (const type of ['badge', 'alert']) {
-      expect(
-        byType.get(type)?.isPublic,
-        `\`${type}\` left the public tier — the baseline's ⚠️ public-tier paragraph is now false, fix it`,
-      ).toBe(true);
-    }
-
-    // (2) …and the eleven that are not, so "three" is a count and not a guess.
-    const sidebars = bareTags().filter((t) => t.startsWith('sidebar'));
-    expect(sidebars.length, 'the `sidebar-*` family changed size — re-measure the note').toBe(11);
-    expect(
-      sidebars.filter((t) => byType.get(t)?.isPublic),
-      'a bare `sidebar-*` key became public — declaring it would now delete a react-page identifier',
-    ).toEqual([]);
+    // (d) The public tier of the fourteen is THREE, and the public sidebar is
+    // the namespaced registration, which keeps its layout flag: it is not in
+    // this story, and a reader who finds `page:sidebar` in `PUBLIC_BLOCKS` must
+    // not conclude the bare family is public too.
     expect(['button', 'badge', 'alert'].filter((t) => byType.get(t)?.isPublic).length).toBe(3);
-
-    // (3) And why that is not the whole sidebar story: the sidebar that IS public is
-    // the namespaced registration, and it already declares the flag — so it is not
-    // in this containment story at all, and a reader who finds `page:sidebar` in
-    // `PUBLIC_BLOCKS` must not conclude the bare family is public too.
+    expect(sidebars.filter((t) => byType.get(t)?.isPublic)).toEqual([]);
     expect(isPublic.has('page:sidebar')).toBe(true);
-    expect(
-      ComponentRegistry.getMeta('page:sidebar')?.isContainer,
-      '`page:sidebar` stopped declaring containment — it is now part of this story',
-    ).toBe(true);
+    expect(byType.get('page:sidebar')?.isContainer).toBe(true);
+    expect(byType.get('page:sidebar')?.declaresChildren).toBe(true);
   }, CENSUS_TIMEOUT);
 });
 
-describe('the baseline file is a ratchet, and says so (objectui#6779)', () => {
-  it('carries the shrink-only contract in its own note', () => {
+describe('the ledger is at zero and stays consistent with the census (objectui#6779 / objectui#9910)', () => {
+  it(
+    'every listed row still violates — a row that no longer violates is dead weight and fails',
+    async () => {
+      const rows = await census();
+      const violating = new Set(undeclaredRenderers(rows));
+      const baseline = readBaseline();
+      const stale = [...Object.keys(baseline.undeclared), ...Object.keys(baseline.excluded)].filter(
+        (t) => !violating.has(t),
+      );
+      expect(stale, 'these rows no longer violate — delete them (the ledger may only shrink)').toEqual([]);
+    },
+    CENSUS_TIMEOUT,
+  );
+
+  it('carries the shrink-only contract in its own note, and the new predicate', () => {
     // A reader who opens the file must not be able to mistake it for an
-    // exemption list — that is the single misreading the ruling wrote two
-    // sentences to prevent, and prose is the only place it can be prevented.
+    // exemption list, nor read it as still keyed on the flag.
     const note = readBaseline().note.join(' ');
-    expect(note).toContain('RATCHET TO ZERO, NOT AN EXEMPTION LIST');
+    expect(note).toContain('RATCHET TO ZERO, NOT AN');
     expect(note).toContain('red in BOTH directions');
+    expect(note).toContain("{ name: 'children', type: 'slot' }");
+    expect(note).toContain('`isContainer` is no longer a way to pay a row off');
   });
 
-  it('dates every entry, so the list carries its own history', () => {
-    // The ruling asked for a dated column: an entry dated later than this
-    // card is one somebody admitted afterwards, and needs a ruling of its own.
+  it('dates and owns every admitted row, and grounds every excluded one', () => {
+    // An entry needs a ruling: `undeclared` rows carry the date and the owning
+    // issue, `excluded` rows carry their ground. Empty maps are the ruled
+    // state; the shape is asserted so a future admission cannot ride in bare.
     const baseline = readBaseline();
-    const entries = Object.entries(baseline.undeclared);
-    expect(entries.length).toBeGreaterThan(0);
-    for (const [type, entry] of entries) {
+    for (const [type, entry] of Object.entries(baseline.undeclared)) {
       expect(entry.since, `\`${type}\` has no \`since\` date`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(entry.issue, `\`${type}\` has no owning issue`).toMatch(/^objectui#\d+$/);
+    }
+    for (const [type, entry] of Object.entries(baseline.excluded)) {
+      expect(entry.issue, `\`${type}\` names no ruling`).toMatch(/^objectui#\d+$/);
+      expect(entry.reason.length, `\`${type}\` carries no ground`).toBeGreaterThan(200);
     }
   });
 });

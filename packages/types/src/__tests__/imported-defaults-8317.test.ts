@@ -50,6 +50,8 @@ import {
   AppContextSelectorSchema as SpecAppContextSelectorSchema,
   NavigationAreaSchema as SpecNavigationAreaSchema,
   ChartTypeSchema as SpecChartTypeSchema,
+  ChartAxisSchema as SpecChartAxisSchema,
+  ChartSeriesSchema as SpecChartSeriesSchema,
   DashboardSchema as SpecDashboardSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
   GlobalFilterSchema as SpecGlobalFilterSchema,
@@ -58,6 +60,7 @@ import {
   PageTypeSchema as SpecPageTypeSchema,
   PageVariableSchema as SpecPageVariableSchema,
   ListViewSchema as SpecListViewSchema,
+  ViewSchema as SpecViewSchema,
   KanbanConfigSchema as SpecKanbanConfigSchema,
   GanttConfigSchema as SpecGanttConfigSchema,
   CalendarConfigSchema as SpecCalendarConfigSchema,
@@ -76,7 +79,37 @@ import {
   ChartAggregateSchema as SpecChartAggregateSchema,
   ChartDrillDownSchema as SpecChartDrillDownSchema,
   UserFilterFieldSchema as SpecUserFilterFieldSchema,
+  ViewFilterRuleSchema as SpecViewFilterRuleSchema,
+  // objectui#10859 batch 2 — the `ComponentPropsMap` rows of the two public
+  // blocks `objectql.zod.ts` arms.
+  ObjectMetricPropsSchema as SpecObjectMetricPropsSchema,
+  ObjectMasterDetailFormPropsSchema as SpecObjectMasterDetailFormPropsSchema,
+  // objectui#10872 — the `ComponentPropsMap` rows the public-block arms read.
+  PageHeaderProps as SpecPageHeaderProps,
+  PageTabsProps as SpecPageTabsProps,
+  PageCardProps as SpecPageCardProps,
+  PageAccordionProps as SpecPageAccordionProps,
+  PageContainerProps as SpecPageContainerProps,
+  RecordDetailsProps as SpecRecordDetailsProps,
+  RecordHighlightsProps as SpecRecordHighlightsProps,
+  RecordRelatedListProps as SpecRecordRelatedListProps,
+  RecordPathProps as SpecRecordPathProps,
+  RecordActivityProps as SpecRecordActivityProps,
+  RecordChatterProps as SpecRecordChatterProps,
+  RecordHistoryProps as SpecRecordHistoryProps,
+  RecordQuickActionsProps as SpecRecordQuickActionsProps,
+  RecordReferenceRailProps as SpecRecordReferenceRailProps,
+  RecordAlertProps as SpecRecordAlertProps,
+  ElementTextPropsSchema as SpecElementTextPropsSchema,
+  ElementButtonPropsSchema as SpecElementButtonPropsSchema,
+  // objectui#10872 batch 2 — `element:number`'s row, and the node's `dataSource`.
+  ElementNumberPropsSchema as SpecElementNumberPropsSchema,
+  ElementDataSourceSchema as SpecElementDataSourceSchema,
   objectNavTargetExclusivity,
+  checkListViewCalendarVisualization,
+  checkPageSourceCompleteness,
+  checkDashboardWidgetStageOrder,
+  checkDashboardWidgetMetricMeasureArity,
 } from '@objectstack/spec/ui';
 import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
@@ -185,12 +218,81 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // stopped being a hand copy of the spec's field shape and now derives from
   // it, so that crossing is measured here like every other one.
   ['UserFilterFieldSchema', SpecUserFilterFieldSchema],
+  // objectui#9559 (ruling B): `FilterOperatorSchema` stopped being a hand-kept
+  // 14-member literal and is now this rule's own `operator` member, so the
+  // crossing is measured here like every other one.
+  ['ViewFilterRuleSchema', SpecViewFilterRuleSchema],
+  // objectui#7690: `ChartSchema.xAxis` / `ChartSchema.yAxis` reference the
+  // spec's axis config object, whose `showGridLines` / `logarithmic` defaults
+  // are exactly what this boundary exists to keep out of a parse output.
+  // objectui#10518: `ObjectChartSchema.xAxis` / `ObjectChartSchema.yAxis`
+  // cross the same boundary with the same symbol, so this one entry measures
+  // all four crossings.
+  ['ChartAxisSchema', SpecChartAxisSchema],
+  // objectui#10770: the author arm of `ObjectChartSchema.series` is the spec's
+  // series schema, whose `yAxis` / `variant` defaults are exactly what this
+  // boundary exists to keep out of a parse output.
+  ['ChartSeriesSchema', SpecChartSeriesSchema],
+  // objectui#7928: `ObjectViewSchema.listViews` is the view container's own
+  // `listViews` record, crossed through this boundary, so the container is
+  // measured here like every other crossing.
+  ['ViewSchema', SpecViewSchema],
+  // objectui#10859 batch 2: the `object-metric` and `object-master-detail-form`
+  // arms' `properties` are their `ComponentPropsMap` rows, crossed through this
+  // boundary, so both rows are measured here like every other crossing.
+  ['ObjectMetricPropsSchema', SpecObjectMetricPropsSchema],
+  ['ObjectMasterDetailFormPropsSchema', SpecObjectMasterDetailFormPropsSchema],
+  // objectui#10872: each ADR-0080 public-block arm's `properties` is the
+  // block's `ComponentPropsMap` row, crossed through this boundary, so every
+  // row is measured here like every other crossing (`page:section`,
+  // `page:footer` and `page:sidebar` share `PageContainerProps`, and
+  // `record:discussion` reads the `record:chatter` row, so one entry each).
+  ['PageHeaderProps', SpecPageHeaderProps],
+  ['PageTabsProps', SpecPageTabsProps],
+  ['PageCardProps', SpecPageCardProps],
+  ['PageAccordionProps', SpecPageAccordionProps],
+  ['PageContainerProps', SpecPageContainerProps],
+  ['RecordDetailsProps', SpecRecordDetailsProps],
+  ['RecordHighlightsProps', SpecRecordHighlightsProps],
+  ['RecordRelatedListProps', SpecRecordRelatedListProps],
+  ['RecordPathProps', SpecRecordPathProps],
+  ['RecordActivityProps', SpecRecordActivityProps],
+  ['RecordChatterProps', SpecRecordChatterProps],
+  ['RecordHistoryProps', SpecRecordHistoryProps],
+  ['RecordQuickActionsProps', SpecRecordQuickActionsProps],
+  ['RecordReferenceRailProps', SpecRecordReferenceRailProps],
+  ['RecordAlertProps', SpecRecordAlertProps],
+  ['ElementTextPropsSchema', SpecElementTextPropsSchema],
+  ['ElementButtonPropsSchema', SpecElementButtonPropsSchema],
+  // objectui#10872 batch 2: the `element:number` arm's bag is its row (with
+  // `object` made optional after the strip), and its node declares
+  // `dataSource` as the spec's element binding — two crossings, measured here
+  // like every other one.
+  ['ElementNumberPropsSchema', SpecElementNumberPropsSchema],
+  ['ElementDataSourceSchema', SpecElementDataSourceSchema],
 ] as const;
 
 /** The subset that actually carries an imported default — where the strip does work. */
 const CARRIES_DEFAULT = IMPORTED.filter(([, s]) => defaultsIn(s) > 0);
-/** …and its complement, where the strip must be the identity function. */
-const CARRIES_NONE = IMPORTED.filter(([, s]) => defaultsIn(s) === 0);
+/**
+ * The clean imports the walker's `lazy` arm rebuilds anyway: no default
+ * anywhere below them, but a `z.lazy` is, and that arm cannot answer "was
+ * anything stripped below me?" without forcing the getter, so it always
+ * rebuilds (the walker docblock in `../zod/imported-defaults.ts`). The identity
+ * property therefore cannot hold for these, and they are NAMED rather than
+ * inferred, so the set cannot grow in silence — the lazy test below holds it
+ * equal to what the graph re-derives.
+ *
+ * EMPTY since `@objectstack/spec` 17.5.0 (objectui#11073). It named
+ * `ElementDataSourceSchema` (objectui#10872 batch 2, the `element:number` arm's
+ * `dataSource`), whose `filter` reached the recursive filter clause's `z.lazy`.
+ * 17.5.0 converged that `filter` on the `ViewFilterRule` array, which reaches
+ * no `z.lazy`, so the schema is clean and now comes back reference-equal like
+ * every other member of `CARRIES_NONE`.
+ */
+const REBUILT_CLEAN: ReadonlySet<string> = new Set<string>();
+/** …and the complement of both, where the strip must be the identity function. */
+const CARRIES_NONE = IMPORTED.filter(([n, s]) => defaultsIn(s) === 0 && !REBUILT_CLEAN.has(n));
 
 describe('the import boundary strips every imported default (objectui#8317)', () => {
   describe('positive controls — the instruments see something', () => {
@@ -243,15 +345,28 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
     it('the walker docblock\'s `lazy` count is re-derived, not quoted', () => {
       // The `lazy` arm is the one place the identity property cannot hold: it
       // must rebuild without forcing the getter, so a clean subtree behind a
-      // `z.lazy` is rebuilt anyway. The module's docblock names THREE such
-      // nodes and says the exception costs nothing today because each sits
-      // inside a schema that is being rebuilt regardless. Both halves are
-      // measured here, so a spec bump that moves either one is red rather than
-      // quietly making the docblock false.
-      expect(walk(IMPORTED.map(([, s]) => s)).lazies).toBe(3);
+      // `z.lazy` is rebuilt anyway. The module's docblock names FOUR such
+      // nodes (the fourth, `ViewSchema`'s form-field group, since objectui#7928)
+      // and says the exception costs nothing extra for every owner but the
+      // ones `REBUILT_CLEAN` names (objectui#10872 batch 2), because each
+      // other owner sits inside a schema that is being rebuilt regardless.
+      // Both halves are measured here, so a spec bump or an import that moves
+      // either one is red rather than quietly making the docblock false.
+      expect(walk(IMPORTED.map(([, s]) => s)).lazies).toBe(4);
       const lazyOwners = IMPORTED.filter(([, s]) => walk([s]).lazies > 0);
       expect(lazyOwners.length, 'no schema owns a lazy — the count above found them elsewhere').toBeGreaterThan(0);
-      for (const [name, schema] of lazyOwners) {
+      // The clean owners are exactly the named set: rebuilt (so NOT the spec's
+      // object), and answering every probe as the spec does (the accept-set
+      // differential below runs over every `IMPORTED` row, these included).
+      expect(
+        lazyOwners.filter(([, s]) => defaultsIn(s) === 0).map(([n]) => n).sort(),
+        'the clean imports the `lazy` arm rebuilds moved — update `REBUILT_CLEAN` and the docblock in '
+          + '`../zod/imported-defaults.ts`',
+      ).toEqual([...REBUILT_CLEAN].sort());
+      for (const [name, schema] of IMPORTED.filter(([n]) => REBUILT_CLEAN.has(n))) {
+        expect(stripImportedDefaults(schema), `${name} came back reference-equal — it left REBUILT_CLEAN`).not.toBe(schema);
+      }
+      for (const [name, schema] of lazyOwners.filter(([n]) => !REBUILT_CLEAN.has(n))) {
         expect(
           defaultsIn(schema),
           `${name} reaches a z.lazy but carries no default — the lazy exception now costs a ` +
@@ -293,6 +408,14 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
      * probe list. `.default(v)` makes a member omissible; `.removeDefault()`
      * alone gives that omissibility back to a bare `ZodDefault(T)` — so every
      * member that was omissible before must still be omissible after.
+     *
+     * ⚠️ Omissibility is a RUNG, and zod 4.6 has two omissible rungs
+     * (objectui#11073): a `.default()` member answers `optin: 'defaulted'`
+     * ("absent, and something is substituted"), where zod 4.4 answered
+     * `'optional'` for it. Removing the substitution is this boundary's whole
+     * job, so the stripped member answers `'optional'`: a rung CHANGE that is
+     * not a narrowing. What must never happen is an omissible rung becoming
+     * none at all, and a `'defaulted'` rung surviving the strip.
      */
     it.each(CARRIES_DEFAULT.map(([n]) => [n] as const))('%s: no member became REQUIRED', (name) => {
       const [, raw] = CARRIES_DEFAULT.find(([n]) => n === name)!;
@@ -301,10 +424,16 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
       const strippedShape = defOf(stripImportedDefaults(raw))!.shape!;
       const optin = (n: unknown) => (n as { _zod?: { optin?: string } })._zod?.optin;
       for (const key of Object.keys(rawShape)) {
+        const before = optin(rawShape[key]);
+        const after = optin(strippedShape[key]);
         expect(
-          optin(strippedShape[key]),
+          after !== undefined,
           `${name}.${key} changed omissibility — removing a default must not narrow the accept set`,
-        ).toBe(optin(rawShape[key]));
+        ).toBe(before !== undefined);
+        expect(
+          after,
+          `${name}.${key}: the strip left a substituting rung behind, or moved a rung it had no default to remove`,
+        ).toBe(before === 'defaulted' ? 'optional' : before);
       }
     });
   });
@@ -420,6 +549,15 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
      */
     const REFINEMENT_EXCEPTIONS = new Map<string, unknown>([
       ['objectNavTargetExclusivity', objectNavTargetExclusivity],
+      // objectui#7715 (ruling B1): the spec's exported object-level checks that
+      // `ListViewSchema` and `PageNodeSchema` re-attach after `specFieldsExcept`
+      // rebuilt them without the spec object's own checks.
+      ['checkListViewCalendarVisualization', checkListViewCalendarVisualization],
+      ['checkPageSourceCompleteness', checkPageSourceCompleteness],
+      // objectui#11073: the two `@objectstack/spec` 17.5.0 added to `DashboardWidgetSchema`,
+      // re-attached by objectui's `DashboardWidgetSchema` under the same ruling.
+      ['checkDashboardWidgetStageOrder', checkDashboardWidgetStageOrder],
+      ['checkDashboardWidgetMetricMeasureArity', checkDashboardWidgetMetricMeasureArity],
     ]);
 
     const isSpecModule = (m: string): boolean =>

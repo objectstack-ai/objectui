@@ -9,8 +9,8 @@
 /**
  * @object-ui/types - Data Protocol Advanced Types
  * 
- * Phase 3: Complete implementation of DriverQueryConfig, FilterSchema, 
- * ValidationSchema, SqlDriverInterface, and DatasourceRegistration.
+ * Phase 3: Complete implementation of DriverQueryConfig, FilterSchema,
+ * object-level validation rules, SqlDriverInterface, and DatasourceRegistration.
  * 
  * @module data-protocol
  * @packageDocumentation
@@ -661,242 +661,15 @@ export interface FilterFieldConfig {
   options?: Array<{ label: string; value: any }>;
 }
 
-/**
- * =============================================================================
- * Phase 3.5: ValidationSchema - Complete Validation Engine
- * =============================================================================
- */
-
-/**
- * Validation Schema (Phase 3.5)
- */
-export interface AdvancedValidationSchema {
-  /**
-   * Field name to validate
-   */
-  field?: string;
-  
-  /**
-   * Validation rules
-   */
-  rules: AdvancedValidationRule[];
-  
-  /**
-   * Custom error messages
-   */
-  messages?: Record<string, string>;
-  
-  /**
-   * Validation triggers
-   */
-  on?: ('blur' | 'change' | 'submit')[];
-  
-  /**
-   * Whether validation is async
-   */
-  async?: boolean;
-  
-  /**
-   * Debounce time for async validation (ms)
-   */
-  debounce?: number;
-}
-
-/**
- * Validation rule (Phase 3.5.1-3.5.4) - Extended
- */
-export interface AdvancedValidationRule {
-  /**
-   * Rule type
-   */
-  type: ValidationRuleType;
-  
-  /**
-   * Rule parameters
-   */
-  params?: any;
-  
-  /**
-   * Error message
-   */
-  message?: string;
-  
-  /**
-   * Custom validation function (Phase 3.5.2)
-   */
-  validator?: ValidationFunction;
-  
-  /**
-   * Async validation function (Phase 3.5.3)
-   */
-  async_validator?: AsyncValidationFunction;
-  
-  /**
-   * Cross-field dependencies (Phase 3.5.4)
-   */
-  depends_on?: string[];
-  
-  /**
-   * Validation severity
-   */
-  severity?: 'error' | 'warning' | 'info';
-}
-
-/**
- * Validation rule types
- */
-export type ValidationRuleType =
-  // Required
-  | 'required'
-  // String validations
-  | 'min_length'
-  | 'max_length'
-  | 'pattern'
-  | 'email'
-  | 'url'
-  | 'phone'
-  // Number validations
-  | 'min'
-  | 'max'
-  | 'integer'
-  | 'positive'
-  | 'negative'
-  // Date validations
-  | 'date_min'
-  | 'date_max'
-  | 'date_range'
-  | 'date_future'
-  | 'date_past'
-  // Array validations
-  | 'min_items'
-  | 'max_items'
-  | 'unique_items'
-  // Object validations
-  | 'object_schema'
-  // Cross-field validations (Phase 3.5.4)
-  | 'field_match'
-  | 'field_compare'
-  | 'conditional'
-  // Custom validations (Phase 3.5.2)
-  | 'custom'
-  // Async validations (Phase 3.5.3)
-  | 'async_custom'
-  | 'remote_validation'
-  | 'unique_check'
-  | 'exists_check';
-
-/**
- * Validation function signature used by AdvancedValidationRule in the data protocol.
- *
- * This type is defined in this module and may differ from similarly named
- * validation function types in other packages (e.g., in `field-types`).
- * 
- * @param value - The value to validate
- * @param context - Optional validation context with access to other field values
- * @returns true if valid, false or error message string if invalid
- */
-export type ValidationFunction = (value: any, context?: ValidationContext) => boolean | string;
-
-/**
- * Async validation function (Phase 3.5.3)
- */
-export type AsyncValidationFunction = (
-  value: any,
-  context?: ValidationContext
-) => Promise<boolean | string>;
-
-/**
- * Validation context (Phase 3.5.4)
- */
-export interface ValidationContext {
-  /**
-   * All form values
-   */
-  values?: Record<string, any>;
-  
-  /**
-   * Field metadata
-   */
-  field?: any;
-  
-  /**
-   * Parent object data
-   */
-  parent?: any;
-  
-  /**
-   * Current user context
-   */
-  user?: any;
-
-  /**
-   * BCP-47 DISPLAY locale for a built-in rule's default message that prints a
-   * value — `date_min` / `date_max` print their bound. In React, whatever
-   * `useDisplayLocale()` (`@object-ui/i18n`) returns for the session.
-   *
-   * Omitted, `Intl` follows the runtime default: the answer
-   * `@object-ui/core`'s `formatDisplayNumber` declares for a non-React caller
-   * with no locale in hand. It is threaded here because the engine is a plain
-   * class with no hook to read, and the version with no way to pass one
-   * printed every bound in the MACHINE's locale (objectui#9909).
-   */
-  locale?: string;
-}
-
-/**
- * Validation result
- */
-export interface AdvancedValidationResult {
-  /**
-   * Whether validation passed
-   */
-  valid: boolean;
-  
-  /**
-   * Validation errors
-   */
-  errors: AdvancedValidationError[];
-  
-  /**
-   * Validation warnings
-   */
-  warnings?: AdvancedValidationError[];
-}
-
-/**
- * Validation error (Phase 3.5.5: Improved error messages)
- */
-export interface AdvancedValidationError {
-  /**
-   * Field path
-   */
-  field: string;
-  
-  /**
-   * Error message
-   */
-  message: string;
-  
-  /**
-   * Error code
-   */
-  code?: string;
-  
-  /**
-   * Rule type that failed
-   */
-  rule?: ValidationRuleType;
-  
-  /**
-   * Error severity
-   */
-  severity?: 'error' | 'warning' | 'info';
-  
-  /**
-   * Additional context
-   */
-  context?: Record<string, any>;
-}
+// RETIRED (objectui#10719): the "Phase 3.5" field-validation family —
+// `AdvancedValidationSchema`, `AdvancedValidationRule`, `ValidationRuleType`,
+// `ValidationFunction`, `AsyncValidationFunction`, `ValidationContext`,
+// `AdvancedValidationResult` and `AdvancedValidationError` — typed only
+// `@object-ui/core`'s `ValidationEngine`, which objectui#7659 retired. With the
+// engine gone nothing read them, so they left this module and the root barrel
+// under the same ruling (ADR-0049 enforce-or-remove). Client-side field
+// validation is `FieldValidationRules` (`./form.ts`), compiled from field
+// metadata by `buildValidationRules` in `@object-ui/fields`.
 
 /**
  * =============================================================================
@@ -997,7 +770,7 @@ export type FormatValidation = z.input<typeof SpecFormatValidationSchema>;
  * `unknown`, and the index signature waves through any member at all — a typo'd
  * `type: 'formatt'` included. The spec's own comment on `ValidationRuleSchema`
  * says as much and names the remaining work: "it is not strictness … Removing
- * the index signature is the #4075 family of work, not this change."
+ * the index signature is the [objectstack-ai/objectstack#4075] family of work, not this change."
  *
  * So the branches stay re-typed to objectui's discriminated union here. What
  * changed in #3177 is the tripwire, not the divergence:

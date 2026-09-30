@@ -33,7 +33,7 @@ interface ComboboxOption {
 
 interface ComboboxSchema {
   type: 'combobox';
-  options: ComboboxOption[];     // Available options
+  options?: ComboboxOption[];     // Available options (absent: an empty list)
   value?: string;                 // Selected value
   name?: string;                  // Form-serialization key, placed on the trigger button
 

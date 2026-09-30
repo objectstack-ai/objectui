@@ -24,7 +24,7 @@ import { resolveDateMacros } from './date-macros.js';
  *
  *     { owner_id: '{current_user_id}' }
  *
- * ## Why this module exists (framework #3574)
+ * ## Why this module exists (objectstack-ai/objectstack#3574)
  *
  * There used to be no shared resolver. Three ad-hoc implementations had grown
  * up independently — one in `ObjectView` for list views, one in
@@ -115,7 +115,7 @@ const WHOLE_TOKEN_RE = /^\$?\{([a-zA-Z0-9_]+)\}$/;
  * than special-casing the two spellings measured today: this object has no
  * prototype at all, so *no* key — known or future — can resolve through it.
  * `@objectstack/spec`'s own map is left untouched (out of scope here; the
- * identical shape in its `classifyFilterToken` is objectstack#17762).
+ * identical shape in its `classifyFilterToken` is the one objectstack `4342c9923` closed).
  */
 const NEAR_MISS_SUGGESTIONS: Readonly<Record<string, ContextTokenName>> = Object.assign(
   Object.create(null),
@@ -209,7 +209,13 @@ export function resolveContextTokens<T = any>(filter: T, scope: FilterTokenScope
     }
 
     if (Array.isArray(value)) return value.map(walk);
+    // Only a PLAIN object (prototype `Object.prototype` or `null`) is a bag to
+    // walk. Anything else is a leaf, returned as the same instance: rebuilding
+    // a `Date` from its own keys — it has none — turned a comparand the spec
+    // admits (`ACCEPTED_FILTER_COMPARAND_TYPES`) into `{}` (objectui#10506).
     if (typeof value === 'object') {
+      const proto = Object.getPrototypeOf(value);
+      if (proto !== Object.prototype && proto !== null) return value;
       const out: Record<string, any> = {};
       for (const k of Object.keys(value)) out[k] = walk((value as any)[k]);
       return out;
@@ -225,7 +231,7 @@ export function resolveContextTokens<T = any>(filter: T, scope: FilterTokenScope
  * macros and context tokens — in one call.
  *
  * This is the function surfaces should call. Calling only one of the two
- * resolvers is the defect behind framework #3574: dashboard widgets called
+ * resolvers is the defect behind objectstack-ai/objectstack#3574: dashboard widgets called
  * `resolveDateMacros` alone, so `{today}` worked and `{current_user_id}`
  * silently did not.
  *

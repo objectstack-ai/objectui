@@ -29,9 +29,15 @@ import {
 import { Maximize2, MessagesSquare, PanelRightClose } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { useAgents } from '@object-ui/plugin-chatbot';
-import { ChatPane, resolveApiBase, type PendingFirstMessage } from '../console/ai/AiChatPage.js';
+import {
+  ChatPane,
+  isPlatformBuiltinApp,
+  isThreadBoundToPackage,
+  resolveApiBase,
+  type PendingFirstMessage,
+} from '../console/ai/AiChatPage.js';
 import { AiUsageIndicator } from './AiUsageIndicator.js';
-import { useChatConversation } from '../hooks/index.js';
+import { useChatConversation, type HydratedUIMessage } from '../hooks/index.js';
 import { chatConversationScope, chatProductOfAgent } from '../hooks/chatScope.js';
 import { resolveSurfaceAgent } from '../hooks/surfaceAgent.js';
 import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
@@ -238,22 +244,50 @@ interface ChatDockConversationProps {
    * the FAB always did. Absent → the surface default (`ask`).
    */
   defaultAgent?: string;
+  /**
+   * objectui#10926 — the owning package (`_packageId`) of the app the console
+   * is showing. Only a `build` thread binds to it, and only when it is
+   * authorable (see {@link ChatDockConversation}). Absent → app-less.
+   */
+  appPackageId?: string;
   /** ADR-0037/P3c — the Live Canvas open/close seam, forwarded to ChatPane. */
   onCanvasOpenChange?: (open: boolean) => void;
+  /**
+   * objectui#10926 — reports the package the build thread is bound to
+   * (`undefined` = app-less), so the chrome's maximize opens that app's build
+   * surface instead of the bare `/ai`.
+   */
+  onBoundPackageChange?: (packageId: string | undefined) => void;
 }
 
+const EMPTY_INITIAL_MESSAGES: HydratedUIMessage[] = [];
+
 /**
- * The dock's chat body — resolves the ambient `ask` agent + its P1 conversation
- * and mounts the shared {@link ChatPane}. Mirrors StudioAiCopilot's minimal
- * embed, but on the `default` (ask) surface with an app-less scope, so it shows
- * the console's ambient assistant thread. Renders nothing when the AI catalog is
- * empty (OSS / no seat).
+ * The dock's chat body — resolves the surface agent + its P1 conversation and
+ * mounts the shared {@link ChatPane}. Mirrors StudioAiCopilot's minimal embed on
+ * the `default` surface. Renders nothing when the AI catalog is empty (OSS / no
+ * seat).
+ *
+ * The scope follows ADR-0057 as amended for objectui#10926 (maintainer ruling
+ * 「绑定当前应用（推荐）」): inside an AUTHORABLE app — its package is not a
+ * `com.objectstack.*` built-in, the A1.b switcher's own predicate — a `build`
+ * thread binds to that app. `editPackageId` is the app's package, the scope is
+ * `app:PKG:build`, the key the Studio copilot and `/ai/build?package=PKG`
+ * resolve, so the three show ONE thread; the chip, the empty state and the
+ * agent context (`context.packageId`) name the app. `ask` stays ambient, and
+ * outside an authorable app the key is the product alone, as before. The
+ * product-only thread is never cleared: it stays under its own key and in the
+ * `/ai` sidebar, and — through the same A1.b migration read the full page runs
+ * — it is adopted into the app's scope only when its own history is bound to
+ * that app.
  */
 function ChatDockConversation({
   userId,
   apiBase,
   defaultAgent,
+  appPackageId,
   onCanvasOpenChange,
+  onBoundPackageChange,
 }: ChatDockConversationProps) {
   const { agents, isLoading, error } = useAgents({ apiBase });
   // cloud#1674 maker convergence — the console dock is a maker surface, so an
@@ -273,16 +307,38 @@ function ChatDockConversation({
   const chatApi = activeAgent
     ? `${apiBase}/agents/${encodeURIComponent(activeAgent)}/chat`
     : undefined;
+  const product = chatProductOfAgent(activeAgent);
+  const editPackageId =
+    product === 'build' && appPackageId && !isPlatformBuiltinApp({ _packageId: appPackageId })
+      ? appPackageId
+      : undefined;
   const scope = activeAgent
-    ? chatConversationScope({ appId: undefined, product: chatProductOfAgent(activeAgent) })
+    ? chatConversationScope({ appId: editPackageId, product })
     : undefined;
-  const { conversationId, initialMessages } = useChatConversation({
+  const adoptLegacyBuildThread = React.useCallback(
+    (messages: HydratedUIMessage[]) =>
+      editPackageId !== undefined && isThreadBoundToPackage(messages, editPackageId),
+    [editPackageId],
+  );
+  const { conversationId, conversationScope, initialMessages } = useChatConversation({
     userId: activeAgent ? userId : undefined,
     scope,
     apiBase,
     activeId: undefined,
     forceNew: false,
+    legacyScope: editPackageId ? product : undefined,
+    adoptLegacy: editPackageId ? adoptLegacyBuildThread : undefined,
   });
+  // #2450 — hand the pane only a scope-matched conversation. Moving between
+  // apps changes the scope while the dock stays mounted; until the hook
+  // re-resolves, `conversationId` is still the previous app's thread, and a
+  // pane mounted on it would pair that thread with the new app's package.
+  const scopeMatched = conversationScope === scope;
+  const paneConversationId = scopeMatched ? conversationId : undefined;
+  const paneInitialMessages = scopeMatched ? initialMessages : EMPTY_INITIAL_MESSAGES;
+  React.useEffect(() => {
+    onBoundPackageChange?.(editPackageId);
+  }, [editPackageId, onBoundPackageChange]);
   const pendingFirstMessageRef = React.useRef<PendingFirstMessage | null>(null);
 
   // OSS / no AI seat → the whole dock body is inert (the launcher is gated too).
@@ -290,15 +346,16 @@ function ChatDockConversation({
 
   return (
     <ChatPane
-      key={`${chatApi ?? 'local'}:${conversationId ?? 'pending'}`}
+      key={`${chatApi ?? 'local'}:${paneConversationId ?? 'pending'}`}
       agents={agents}
       agentsLoading={isLoading}
       agentsError={error}
       activeAgent={activeAgent}
       chatApi={chatApi}
       apiBase={apiBase}
-      conversationId={conversationId}
-      initialMessages={initialMessages}
+      conversationId={paneConversationId}
+      editPackageId={editPackageId}
+      initialMessages={paneInitialMessages}
       pendingFirstMessageRef={pendingFirstMessageRef}
       onSent={() => {}}
       onShare={() => {}}
@@ -315,18 +372,27 @@ export interface ChatDockPanelProps {
   apiBase?: string;
   /** `app.defaultAgent` for the default body's resolver. Unused with `children`. */
   defaultAgent?: string;
+  /**
+   * objectui#10926 — the current app's owning package, for the default body's
+   * build-thread binding (see {@link ChatDockConversation}). Unused with
+   * `children`.
+   */
+  appPackageId?: string;
   /** Header title override (the Studio dock says "AI copilot"); default "Assistant". */
   title?: string;
   /**
    * ADR-0057 P3c — render a maximize header button that opens the full-page
    * focus surface (`/ai…`) on the SAME thread. The caller supplies the
    * navigation because the right target is per-surface (console → `/ai`,
-   * Studio → `/ai/build?package=…`).
+   * Studio → `/ai/build?package=…`). The default body's bound package
+   * (objectui#10926) is passed along — `undefined` when the thread is
+   * app-less, and always with a `children` body.
    */
-  onMaximize?: () => void;
+  onMaximize?: (boundPackageId?: string) => void;
   /**
    * Body override. Default mounts {@link ChatDockConversation} (the console's
-   * ambient ask thread). The Studio dock passes its own package-scoped build
+   * own thread — app-bound for `build` inside an authorable app, product-only
+   * otherwise). The Studio dock passes its own package-scoped build
    * conversation instead — note the empty-catalog gate then lives in the
    * caller, because the default body's self-gate is bypassed.
    */
@@ -343,12 +409,14 @@ export function ChatDockPanel({
   userId,
   apiBase: apiBaseProp,
   defaultAgent,
+  appPackageId,
   title,
   onMaximize,
   children,
 }: ChatDockPanelProps) {
   const { t } = useObjectTranslation();
   const apiBase = React.useMemo(() => resolveApiBase(apiBaseProp), [apiBaseProp]);
+  const [boundPackageId, setBoundPackageId] = React.useState<string | undefined>(undefined);
   // ADR-0037/P3c — the default body auto-maximizes the rail while the Live
   // Canvas is open and tucks back when it closes (restore self-guards against
   // the mount-time false, StrictMode, and user-drag takeover).
@@ -394,7 +462,7 @@ export function ChatDockPanel({
               variant="ghost"
               size="icon"
               className="h-7 w-7 text-muted-foreground hover:text-foreground"
-              onClick={onMaximize}
+              onClick={() => onMaximize(boundPackageId)}
               aria-label={t('console.ai.dock.maximize', { defaultValue: 'Open full page' })}
               title={t('console.ai.dock.maximize', { defaultValue: 'Open full page' })}
               data-testid="chat-dock-maximize"
@@ -426,7 +494,9 @@ export function ChatDockPanel({
             userId={userId}
             apiBase={apiBase}
             defaultAgent={defaultAgent}
+            appPackageId={appPackageId}
             onCanvasOpenChange={handleCanvasOpenChange}
+            onBoundPackageChange={setBoundPackageId}
           />
         )}
       </div>
@@ -443,14 +513,17 @@ export interface ChatDockMobileSheetProps {
   apiBase?: string;
   /** `app.defaultAgent` for the default body's resolver. Unused with `children`. */
   defaultAgent?: string;
+  /** objectui#10926 — same contract as {@link ChatDockPanelProps.appPackageId}. */
+  appPackageId?: string;
   /** Header title override; default "Assistant". */
   title?: string;
   /**
    * Open the full-page `/ai` surface (which on mobile already carries the
    * conversation-history sidebar + share). Runs DEFERRED — see the doc below
-   * for why the sheet must close before this navigates.
+   * for why the sheet must close before this navigates. Receives the default
+   * body's bound package, as {@link ChatDockPanelProps.onMaximize} does.
    */
-  onMaximize?: () => void;
+  onMaximize?: (boundPackageId?: string) => void;
   /** Body override — same contract as {@link ChatDockPanel}. */
   children?: React.ReactNode;
 }
@@ -480,20 +553,22 @@ export function ChatDockMobileSheet({
   userId,
   apiBase: apiBaseProp,
   defaultAgent,
+  appPackageId,
   title,
   onMaximize,
   children,
 }: ChatDockMobileSheetProps) {
   const { t } = useObjectTranslation();
   const apiBase = React.useMemo(() => resolveApiBase(apiBaseProp), [apiBaseProp]);
+  const [boundPackageId, setBoundPackageId] = React.useState<string | undefined>(undefined);
   // Armed by the maximize click; fired once the sheet has actually closed.
   const pendingMaximizeRef = React.useRef(false);
   React.useEffect(() => {
     if (!open && pendingMaximizeRef.current) {
       pendingMaximizeRef.current = false;
-      onMaximize?.();
+      onMaximize?.(boundPackageId);
     }
-  }, [open, onMaximize]);
+  }, [open, onMaximize, boundPackageId]);
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -537,7 +612,13 @@ export function ChatDockMobileSheet({
         {/* flex-col — same bounded-height reason as the desktop dock body above. */}
         <div className="flex min-h-0 flex-1 flex-col">
           {children ?? (
-            <ChatDockConversation userId={userId} apiBase={apiBase} defaultAgent={defaultAgent} />
+            <ChatDockConversation
+              userId={userId}
+              apiBase={apiBase}
+              defaultAgent={defaultAgent}
+              appPackageId={appPackageId}
+              onBoundPackageChange={setBoundPackageId}
+            />
           )}
         </div>
       </SheetContent>

@@ -42,3 +42,5 @@ refusal now carries its own message naming `$not` rather than falling through to
 the generic combinator arm, so the three combinators stay three distinct cases —
 they failed in **opposite** directions before objectui#8447 and a fix must not
 flatten them.
+
+⚠️ **Dated note, 2026-09-27 — a zero-key condition refuses the whole filter, a `{}` branch's `$or` included — objectui#10817.** Later in this same release an object `$filter` whose field entries or `$and` / `$or` members carry a condition that is an object with no own keys (`{ created: {} }`, or a non-`Date` exotic comparand) is refused before any row is matched, so `{ $or: [{}, { created: {} }] }` answers no rows rather than every row. "a `{}` branch is a TRUE disjunct that absorbs its `$or`" above is this change's reading for such a filter, not the release's. The rest of this entry is kept as the reading of this change; the objectui#10817 entry states what that input now answers.

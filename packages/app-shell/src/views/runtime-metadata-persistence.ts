@@ -49,9 +49,14 @@ export function recordPageName(objectName: string, existingName?: string | null)
 
 /**
  * Wrap an edited `PageSchema` as a persistable **record page** body: ensures the
- * `name` / `object` / `pageType: 'record'` / `kind: 'full'` identity fields the
+ * `name` / `object` / `type: 'record'` / `kind: 'full'` identity fields the
  * resolver (`usePageAssignment`) matches on, so a published page overrides the
  * synthesized default for that object on the next render.
+ *
+ * `type` is the one record-page discriminator. The envelope used to write
+ * `type: 'page'` plus `pageType: 'record'`: `PageSchema` refuses both (`'page'`
+ * is not a page type, and `pageType` is a declared alias of `type`), and the
+ * resolver reads `type` alone (objectui#9674).
  */
 export function recordPageEnvelope(
   objectName: string,
@@ -60,10 +65,9 @@ export function recordPageEnvelope(
 ): Record<string, any> {
   return {
     ...schema,
-    type: 'page',
+    type: 'record',
     name: recordPageName(objectName, name ?? (schema?.name as string | undefined)),
     object: objectName,
-    pageType: 'record',
     kind: 'full',
   };
 }
@@ -100,8 +104,17 @@ export interface RuntimePersistCtx {
    *
    * Optional: report / dashboard / page writes need nothing here, and a call
    * site without an adapter still persists exactly as before.
+   *
+   * Declared as what the seam really takes: the host's adapter OBJECT, whatever
+   * its class, probed for the one capability named here (objectui#7483). The
+   * bare `Partial<ViewCacheInvalidator>` it used to be is a weak type (every
+   * member optional), so TypeScript refused a typed `DataSource` for sharing no
+   * member with it (TS2559) — the published contract does not declare
+   * `invalidateViewKeys`, only the `ObjectStackAdapter` class does. The `object`
+   * half admits any adapter; the `Partial` half still refuses a primitive and a
+   * wrongly-typed `invalidateViewKeys`.
    */
-  dataSource?: Partial<ViewCacheInvalidator> | null;
+  dataSource?: (object & Partial<ViewCacheInvalidator>) | null;
   /**
    * The object a `view` write belongs to — the `{object}` half of both keys.
    *

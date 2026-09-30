@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { ObjectTimeline } from './ObjectTimeline';
+import { ObjectTimeline, type ObjectTimelineProps } from './ObjectTimeline';
 import { DataSource } from '@object-ui/types';
 
 // Mock useDataScope and useNavigationOverlay
@@ -70,10 +70,15 @@ const mockDataSource: DataSource = {
 
 describe('ObjectTimeline', () => {
     it('renders with static items', async () => {
-        const schema: any = {
+        // Typed, not `any`: these items used to be spelled `{ title, date }`.
+        // `date` is the retired `TimelineEvent` vocabulary and nothing reads it
+        // off an item, so the date was silently dropped while the title-only
+        // assertion stayed green. A feed item's date is `time` (objectui#6356),
+        // and the element type now refuses `date` at compile time.
+        const schema: ObjectTimelineProps['schema'] = {
             type: 'timeline',
             items: [
-                { title: 'Static Event', date: '2024-01-01' }
+                { title: 'Static Event', time: '2024-01-01' }
             ]
         };
         render(<ObjectTimeline schema={schema} />);
@@ -147,10 +152,10 @@ describe('ObjectTimeline', () => {
     });
 
     it('supports scale property', () => {
-        const schema: any = {
+        const schema: ObjectTimelineProps['schema'] = {
             type: 'timeline',
             items: [
-                { title: 'Weekly Event', date: '2024-01-01' }
+                { title: 'Weekly Event', time: '2024-01-01' }
             ],
             scale: 'week',
         };

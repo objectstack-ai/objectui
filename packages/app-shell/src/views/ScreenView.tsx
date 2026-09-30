@@ -55,7 +55,7 @@ import type {
  * third-party node executor, legitimately carries no `fields` array, and an
  * absent `fields` used to throw the moment the dialog opened. Every read goes
  * through {@link screenFields} rather than touching the array directly, so the
- * widening cannot leak into rendering or `required` enforcement (#3528).
+ * widening cannot leak into rendering or `required` enforcement (objectstack-ai/objectstack#3528).
  *
  * If the spec ever makes `fields` optional itself, this alias collapses to a
  * plain re-export — `__tests__/spec-symbol-parity.test.ts` fails on that day and says so.
@@ -77,7 +77,7 @@ export function screenFields(screen: ScreenSpec): ScreenFieldSpec[] {
  * field whose `visibleWhen` predicate holds (or that declares none).
  *
  * This is the list callers must use for BOTH rendering and `required`
- * enforcement. Splitting them is the #3528 dead-end: validate the full list
+ * enforcement. Splitting them is the objectstack-ai/objectstack#3528 dead-end: validate the full list
  * while rendering a subset and Submit blocks on a field the user was never
  * shown, with no resume request ever issued.
  *
@@ -117,8 +117,13 @@ export function visibleScreenFields(
  * Fail-open is still the behaviour we want for a genuinely broken predicate —
  * a syntax error, or a name that is not a field on this screen. Seeding only
  * the declared names keeps that split intact.
+ *
+ * Exported for the Studio's screen diagnostics
+ * (`metadata-admin/previews/screen-spec.ts`), which read its keys as the names
+ * a predicate may reference (objectui#10743); the evaluation itself stays in
+ * {@link visibleScreenFields}.
  */
-function screenPredicateScope(
+export function screenPredicateScope(
   screen: ScreenSpec,
   values: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -216,7 +221,12 @@ export function ScreenView({ screen, values, onValueChange, dataSource, objects,
         <div key={f.name} className="space-y-1.5">
           <Label htmlFor={`ff-${f.name}`} className="text-sm">
             {f.label || f.name}
-            {f.required && <span className="text-destructive"> *</span>}
+            {/* Visual-only (objectui#3299, objectui#10367): `aria-required` on
+                the control is the announced channel; hiding the `*` keeps it
+                out of the control's accessible name ("Title", not "Title *"). */}
+            {f.required && (
+              <span className="text-destructive" aria-hidden="true" data-required-marker="true"> *</span>
+            )}
           </Label>
           <ScreenFieldInput field={f} value={values[f.name]} onChange={(v) => onValueChange(f.name, v)} />
         </div>
@@ -238,11 +248,18 @@ export function ScreenView({ screen, values, onValueChange, dataSource, objects,
 export function ScreenFieldInput({ field, value, onChange }: { field: ScreenFieldSpec; value: unknown; onChange: (v: unknown) => void }) {
   const id = `ff-${field.name}`;
   const t = (field.type || 'text').toLowerCase();
+  // The required STATE, announced on the control itself — the label's `*` is
+  // visual-only (objectui#10367). `aria-required`, not native `required`: the
+  // runner owns required enforcement (`FlowRunner`'s submit check, which counts
+  // an unchecked `false` as an answer), and native `required` would add the
+  // browser's own verdict beside it — on a checkbox it means "must be checked".
+  // `undefined` when optional, so the attribute is omitted rather than "false".
+  const ariaRequired = field.required ? true : undefined;
 
   if (Array.isArray(field.options) && field.options.length > 0) {
     return (
       <Select value={value != null ? String(value) : undefined} onValueChange={(v) => onChange(v)}>
-        <SelectTrigger id={id}><SelectValue placeholder={field.placeholder || 'Select…'} /></SelectTrigger>
+        <SelectTrigger id={id} aria-required={ariaRequired}><SelectValue placeholder={field.placeholder || 'Select…'} /></SelectTrigger>
         <SelectContent>
           {field.options.map((o, i) => (
             <SelectItem key={i} value={String(o.value)}>{o.label}</SelectItem>
@@ -252,15 +269,16 @@ export function ScreenFieldInput({ field, value, onChange }: { field: ScreenFiel
     );
   }
   if (t === 'boolean' || t === 'checkbox') {
-    return <Checkbox id={id} checked={value === true} onCheckedChange={(c) => onChange(c === true)} />;
+    return <Checkbox id={id} aria-required={ariaRequired} checked={value === true} onCheckedChange={(c) => onChange(c === true)} />;
   }
   if (t === 'textarea' || t === 'markdown') {
-    return <Textarea id={id} value={(value as string) ?? ''} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} />;
+    return <Textarea id={id} aria-required={ariaRequired} value={(value as string) ?? ''} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} />;
   }
   const htmlType = t === 'number' || t === 'currency' ? 'number' : t === 'email' ? 'email' : t === 'date' ? 'date' : 'text';
   return (
     <Input
       id={id}
+      aria-required={ariaRequired}
       type={htmlType}
       value={(value as string) ?? ''}
       placeholder={field.placeholder}

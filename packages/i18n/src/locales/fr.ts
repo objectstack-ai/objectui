@@ -128,12 +128,12 @@ const fr = {
     printDialogHint: "Ouvre la boîte de dialogue d'impression de votre navigateur (ce n'est pas un export PDF)",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "Affichage des {{shown}} premiers enregistrements sur {{total}}. Affinez le filtre.",
     rowCeilingNoteUnknownTotal: "Affichage des {{shown}} premiers enregistrements. Affinez le filtre.",
   },
@@ -147,6 +147,14 @@ const fr = {
       acknowledge: 'Je l\'ai enregistrée',
       copyAll: 'Tout copier',
     },
+    notAvailableHere: '« {{action}} » n\'est pas disponible sur la page actuelle.',
+    completedSuccessfully: 'Action effectuée avec succès',
+    failed: "Échec de l'action",
+    parallelFailed: 'Une ou plusieurs actions parallèles ont échoué',
+    undo: 'Annuler',
+    undone: 'Modification annulée',
+    undoneOperation: 'Annuler : {{description}}',
+    redoneOperation: 'Rétablir : {{description}}',
   },
   validation: {
     required: "{{field}} est obligatoire",
@@ -164,13 +172,38 @@ const fr = {
   },
   form: {
     noPermissionToSave: "Vous n'avez pas l'autorisation d'enregistrer cet enregistrement.",
+    noPermissionToCreate: "Vous n'avez pas l'autorisation de créer des enregistrements {{object}}. Les champs sont en lecture seule.",
+    noPermissionToEdit: "Vous n'avez pas l'autorisation de modifier les enregistrements {{object}}. Les champs sont en lecture seule.",
     submitFailed: "Échec de l'enregistrement. Veuillez réessayer.",
     uploadInFlight: "Attendez la fin du téléversement avant de sauvegarder.",
+    clearedOnHide: "Ce qui ne s'applique plus aux valeurs actuelles a été effacé : {{fields}}",
     discardTitle: "Abandonner les modifications ?",
     discardMessage: "Vous avez des modifications non enregistrées. Si vous fermez ce formulaire maintenant, vos modifications seront perdues.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "Remplissez les champs du formulaire, puis envoyez ou annulez.",
+    deniedDescription: "Vous n'avez pas l'autorisation de modifier ce champ.",
+    masterDetail: {
+      loadingColumns: "Chargement des colonnes…",
+      subtotal: "Sous-total",
+      tax: "Taxe ({{rate}} %)",
+      total: "Total",
+      lineItem: "Ligne",
+      rowTitle: "{{title}} — ligne {{row}}",
+      applyRow: "Appliquer",
+      editorDescription: "Saisissez l'enregistrement et ses lignes, puis enregistrez.",
+      noChildObject: "Aucun objet enfant n'est configuré pour cette collection : définissez {{property}} sur l'objet dont elle liste les lignes.",
+      schemaUnavailable: "Impossible de charger le schéma de {{object}} : cette collection n'a donc aucune colonne à afficher. Vérifiez que l'objet existe et est lisible, puis rechargez.",
+      noRelationshipField: "Impossible de déterminer comment {{object}} est lié à {{parent}} : aucun champ lookup ou master_detail de cet objet ne référence le parent. Définissez {{property}} sur cette collection avec le champ qui contient l'enregistrement parent.",
+    },
+    lineItems: {
+      title: "Lignes",
+      saveRecordFirst: "Enregistrez d'abord l'enregistrement pour ajouter des lignes.",
+      notLoaded: "Les lignes de cet enregistrement n'ont pas été chargées.",
+      loadFailed: "Échec du chargement des lignes",
+      saveFailed: "Échec de l'enregistrement des lignes",
+      noChildObject: "Aucun objet enfant n'est configuré pour ce panneau : définissez {{property}} sur l'objet dont il liste les lignes.",
+    },
     keepEditing: "Continuer l'édition",
     discard: "Abandonner",
     conflictTitle: "Conflit d'enregistrement",
@@ -194,6 +227,12 @@ const fr = {
     createSuccess: "{{object}} créé",
     updateSuccess: "{{object}} mis à jour",
     deleteSuccess: "{{object}} supprimé",
+    created: "Créé",
+    saved: "Enregistré",
+    savedNamed: "{{title}} enregistré",
+    submitted: "Envoyé",
+    errorLoading: "Erreur de chargement du formulaire",
+    navigateRefused: "La destination `navigateOnSuccess` déclarée pour ce formulaire a été refusée, la navigation n’a donc pas eu lieu.",
     fullscreen: {
       title: "Modifier le texte",
       description: "Modifiez la valeur texte complète, puis enregistrez ou annulez vos modifications.",
@@ -234,6 +273,7 @@ const fr = {
       remove: 'Supprimer {{name}}',
       exceedsMaxSize: '« {{name}} » dépasse la taille maximale ({{max}} Mo)',
       uploadFailed: 'Échec du téléversement de « {{name}} » : {{error}}',
+      uploadIncomplete: 'Le téléversement de « {{name}} » n’a pas abouti : aucun identifiant de fichier n’a été renvoyé, rien n’a été enregistré',
     },
     richText: {
       format: "Format : {{format}}",
@@ -288,6 +328,14 @@ const fr = {
       refusedResidue:
         "Non enregistré : {{name}} « {{text}} » et {{otherName}} « {{otherText}} » ne sont pas des nombres. Saisissez des décimales simples (exemple : 30.2741, 120.1551).",
     },
+    date: {
+      impossibleDay:
+        "La valeur enregistrée « {{value}} » n’est pas une date réelle. Choisissez une date pour la remplacer.",
+    },
+    dateTime: {
+      impossibleDay:
+        "La valeur enregistrée « {{value}} » n’est pas une date réelle. Choisissez une date et une heure pour la remplacer.",
+    },
     number: {
       badInput:
         "Non enregistré : le texte de ce champ n'est pas un nombre. Saisissez une décimale simple (exemple : {{example}}).",
@@ -306,6 +354,16 @@ const fr = {
     textarea: {
       characterCount: "Nombre de caractères : {{count}} sur {{max}}",
       charactersRemaining: "Caractères restants : {{count}}",
+    },
+    grid: {
+      addLine: "Ajouter une ligne",
+      noItems: "Aucun élément",
+      noItemsAddHint: "Aucun élément pour l'instant — cliquez sur « {{label}} » pour commencer.",
+      optionalColumns: "Colonnes facultatives",
+      computed: "Calculé",
+      openRow: "Ouvrir la ligne",
+      duplicateRow: "Dupliquer la ligne",
+      removeRow: "Supprimer la ligne",
     },
   },
   table: {
@@ -387,13 +445,15 @@ const fr = {
     yes: "Oui",
     no: "Non",
     systemFields: "Système",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: "Partiel",
-      partialNotice:
-        "Regroupement effectué sur les {{loaded}} premiers enregistrements sur {{total}}. Les décomptes par groupe ne portent que sur la page chargée, et un groupe dont tous les enregistrements se trouvent au-delà des lignes chargées est absent ici.",
-      partialNoticeUnknownTotal:
-        "Regroupement effectué sur les {{loaded}} enregistrements chargés. D'autres enregistrements peuvent correspondre à cette vue : les décomptes par groupe peuvent donc être partiels et un groupe peut manquer ici.",
+      needsHeaderQuery:
+        "Cette vue est groupée, mais sa source de données n'implémente pas queryGroupHeaders : les groupes ne peuvent donc pas être comptés. Supprimez le regroupement pour afficher les enregistrements.",
+      needsWholeRows:
+        "Le regroupement a besoin de tous les enregistrements, mais cette grille n'en a reçu qu'une page : les groupes ne peuvent donc pas être comptés. Fournissez tous les enregistrements, ou laissez la grille les charger depuis une source de données qui implémente queryGroupHeaders.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this
@@ -772,6 +832,7 @@ const fr = {
     },
     aria: {
       taskList: "Liste des tâches",
+      refreshing: "Actualisation…",
     },
     tooltip: {
       days: "j",
@@ -957,7 +1018,6 @@ const fr = {
     viewAll: "Tout afficher",
     new: "Nouveau",
     add: "Ajouter",
-    emptyValue: "—",
     comments: "Commentaires",
     searchComments: "Rechercher des commentaires…",
     addCommentPlaceholder: "Ajouter un commentaire… (Ctrl+Entrée pour envoyer)",
@@ -990,11 +1050,6 @@ const fr = {
     attachmentsLoadFailed: "Impossible de charger les pièces jointes de cet enregistrement.",
     attachmentsApiUnavailable: "La liste des pièces jointes n'est pas disponible sur cet objet.",
     retryLoadAttachments: "Réessayer",
-    unifiedDiff: "Vue unifiée",
-    sideBySideDiff: "Vue côte à côte",
-    noChanges: "Aucune modification",
-    previousVersion: "Précédent",
-    currentVersion: "Actuel",
     discussion: "Discussion",
     showDiscussion: "Afficher la discussion ({{count}})",
     hideDiscussion: "Masquer la discussion",
@@ -1009,13 +1064,7 @@ const fr = {
     writeComment: "Écrire un commentaire…",
     subscribedTooltip: "Abonné — cliquez pour vous désabonner",
     unsubscribedTooltip: "S'abonner aux notifications",
-    firstRecord: "Premier enregistrement (Début)",
-    previousRecordKey: "Enregistrement précédent (←)",
-    nextRecordKey: "Enregistrement suivant (→)",
-    lastRecord: "Dernier enregistrement (Fin)",
     noRecords: "Aucun enregistrement",
-    searchWhileNavigating: "Rechercher pendant la navigation",
-    searchRecords: "Rechercher des enregistrements…",
     allActivity: "Toute l'activité",
     commentsOnly: "Commentaires uniquement",
     fieldChangesFilter: "Modifications de champs",
@@ -1076,6 +1125,8 @@ const fr = {
     pathStageLostUpcoming: '{{stage}}, perdue, non atteinte',
     pathStageWonUpcoming: '{{stage}}, étape objectif, non atteinte',
     linkCopied: "Lien copié dans le presse-papiers",
+    commentFailed: "Votre commentaire n'a pas été publié. Rien n'a été enregistré — veuillez réessayer.",
+    reactionFailed: "Votre réaction n'a pas été enregistrée. Veuillez réessayer.",
     linkCopyFailed: "Impossible de copier le lien",
     cancel: "Annuler",
     cancelEdit: "Abandonner les modifications",
@@ -1129,24 +1180,10 @@ const fr = {
     fileCount: "{{count}} fichiers",
     fileCount_one: "{{count}} fichier",
     fileCount_other: "{{count}} fichiers",
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: 'Historique des révisions',
-    noRevisions: 'Aucune révision enregistrée',
-    revisionFieldsChanged: '{{count}} champs modifiés',
-    revisionFieldsChangedOne: '{{count}} champ modifié',
-    revisionPreview: 'Aperçu de la révision',
-    revisionSnapshot: "État de l'enregistrement à ce moment",
-    restoreConfirm: "Cela restaurera l'enregistrement à son état du {{when}}. Continuer ?",
-    restoring: 'Restauration…',
-    confirmRestore: 'Confirmer la restauration',
-    restoreToPoint: 'Restaurer à ce point',
   },
   chart: {
     loading: "Chargement du graphique…",
+    refreshing: "Actualisation…",
     nullCategory: "(Non défini)",
     scatterOneMeasure: "Un nuage de points trace une seule mesure. Ne conservez qu’une série :",
     unconfigured: {
@@ -1168,8 +1205,13 @@ const fr = {
       sourceLabel: "Source de données :",
     },
     loading: "Chargement…",
+    refreshing: "Actualisation…",
+    refreshAll: "Tout actualiser",
+    refreshDashboard: "Actualiser le tableau de bord",
     pickMeasures: "Choisissez des mesures (valeurs) pour ce widget de dataset.",
     datasetUnsupported: "Cette source de données ne prend pas en charge les requêtes de dataset.",
+    widgetForbiddenTitle: "Accès refusé",
+    widgetForbiddenMessage: "Vous n’avez pas l’autorisation de voir les données de ce widget.",
     details: "Détails",
     exportCsv: "Exporter en CSV",
     openInList: "Ouvrir dans la liste",
@@ -1322,10 +1364,6 @@ const fr = {
     appDescription: "Description",
     appIcon: "Icône",
     template: "Modèle",
-    layout: "Disposition",
-    layoutSidebar: "Barre latérale",
-    layoutHeader: "En-tête",
-    layoutEmpty: "Vide",
     selectObjects: "Sélectionner des objets",
     searchObjects: "Rechercher des objets…",
     selectAll: "Tout sélectionner",
@@ -1360,7 +1398,7 @@ const fr = {
     appearance: "Apparence",
     rowHeight: "Hauteur de ligne",
     livePreview: "Aperçu en direct",
-    stepBasicDesc: "Nom, titre et mise en page",
+    stepBasicDesc: "Nom, titre et icône",
     stepObjectsDesc: "Sélectionner les objets métier",
     stepNavigationDesc: "Construire l'arbre de navigation",
     stepBrandingDesc: "Logo, couleurs et favicon",
@@ -1399,6 +1437,7 @@ const fr = {
     navTypeSeparator: "Séparateur",
     navTypeAction: "Action",
     navTypeComponent: "Composant",
+    navTypeDoc: "Document",
     navEditIcon: "Modifier l'icône",
     navToggleVisible: "Basculer la visibilité",
     navHidden: "Masqué",
@@ -1578,6 +1617,7 @@ const fr = {
         ctaUpgrade: "Passer à l'offre supérieure pour continuer",
         ctaTopUp: "Ajouter des crédits pour continuer",
         ariaLabel: "Utilisation de l'IA : {{status}}",
+        breakdownTitle: "Utilisé jusqu'à présent",
       },
       workspaceTitle: "Espace de travail IA",
       workspaceSubtitle: "Posez des questions, inspectez et reprenez vos conversations",
@@ -1587,6 +1627,31 @@ const fr = {
       share: "Partager",
       shareTitle: "Partager cette conversation",
       shareDisabledTitle: "Commencez à discuter pour activer le partage",
+      buildDoctor: "Diagnostic de build",
+      buildDoctorTitle: "Diagnostic de build — qu'est-ce qui a réellement été appliqué ?",
+      buildDoctorDisabledTitle: "Envoyez d'abord un message",
+      buildDoctorDrawer: {
+        description: "Ce que l'agent a annoncé face à ce qui est réellement en ligne. Diagnostic en lecture seule.",
+        reconciling: 'Rapprochement…',
+        notAvailable: "Non disponible — la conversation est introuvable ou vous n'êtes pas autorisé.",
+        untitled: '(sans titre)',
+        summary: '{{turns}} tour(s) · {{messages}} msg · {{tokens}} jetons · {{seconds}} s LLM',
+        allLive: "Les {{count}} modification(s) tentée(s) sont en ligne — rien ne s'est perdu.",
+        discrepancies: '{{count}} écart(s) — ce que le chat a annoncé ne correspond pas à ce qui est en ligne.',
+        orphanedTitle: 'Proposé mais jamais appliqué',
+        orphanedHint: "Une carte de confirmation proposée par l'agent qu'aucun tour ultérieur n'a appliquée — la modification s'est perdue silencieusement.",
+        missingTitle: 'Annoncé mais absent',
+        missingHint: "Un résultat d'outil indiquait une application, mais l'artefact n'est pas en ligne dans sys_metadata.",
+        toolErrorsTitle: "Erreurs d'outils",
+        toolErrorsHint: "Appels d'outils ayant renvoyé une erreur pendant le build.",
+        verifyTitle: 'Vérification du build (verify_build)',
+        yourApp: 'Votre application :',
+        noIssues: '0 problème',
+        issueCount: '{{count}} problème(s)',
+        platformNoise: '{{count}} constat(s) sys_* de la plateforme masqué(s)',
+        pendingActions: 'Actions en attente',
+        timeline: 'Chronologie ({{count}})',
+      },
       newChat: "Nouveau",
       searchChats: "Rechercher des discussions…",
       noChatsYet: "Aucune discussion pour l'instant",
@@ -1794,6 +1859,13 @@ const fr = {
       pages: "Pages",
       reports: "Rapports",
       system: "Système",
+      marketplace: "Marketplace",
+      settings: 'Paramètres',
+      apps: 'Applications',
+      profile: 'Profil',
+      approvals: 'Approbations',
+      aiApprovals: 'Approbations IA',
+      auditLog: "Journal d'audit",
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -1892,6 +1964,14 @@ const fr = {
       noWritesTitle: 'Lectures sans aucune écriture dans cet environnement',
       noWrites: 'Des lignes sont lues alors qu’aucune n’est écrite, de sorte que le taux de lecture n’a aucune limite supérieure. C’est la mesure la plus grave. La plateforme signale tout ce qui dépasse {{threshold}}. Rien n’est limité ni bloqué ; il s’agit d’un rapport permettant d’examiner le schéma de lecture.',
     },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'Le stockage est presque plein',
+      warning: '{{used}} Mo sur {{limit}} Mo utilisés. Les envois et les importations sont suspendus dès que le stockage est plein.',
+      blockedTitle: 'Stockage plein : les envois et les importations sont suspendus',
+      blocked: "{{used}} Mo sur {{limit}} Mo utilisés. Les données existantes ne sont pas modifiées, et la lecture, l'export et la modification d'enregistrements individuels fonctionnent toujours.",
+      upgrade: "Passer à l'offre supérieure pour continuer",
+    },
     errors: {
       somethingWentWrong: "Quelque chose s'est mal passé",
       unexpectedError: "Une erreur inattendue est survenue lors du rendu de cette vue.",
@@ -1938,6 +2018,7 @@ const fr = {
       title: "Titre",
       viewType: "Type de vue",
       recordCount: "{{count}} enregistrements",
+      recordCountOne: "{{count}} enregistrement",
       save: "Enregistrer",
       discard: "Annuler",
       createView: "Créer une vue",
@@ -2070,6 +2151,8 @@ const fr = {
       resendOtpCountdownText: "Renvoyer dans {seconds} s",
       usePhoneOtpText: "Se connecter avec un code de vérification",
       usePasswordSignInText: "Se connecter avec un mot de passe à la place",
+      socialButton: "Continuer avec {provider}",
+      orText: "ou continuer avec l'e-mail",
     },
     register: {
       title: "Créer un compte",
@@ -2088,8 +2171,12 @@ const fr = {
       submittingButton: "Création du compte…",
       hasAccountText: "Vous avez déjà un compte ?",
       signInText: "Se connecter",
+      socialButton: "S'inscrire avec {provider}",
+      orText: "ou continuer avec l'e-mail",
       errors: {
         userExists: "Un compte avec cet e-mail existe déjà. Essayez de vous connecter.",
+        selfRegistrationClosed: "L'inscription libre n'est pas ouverte dans cet environnement. Demandez une invitation à un administrateur.",
+        emailDomainNotAllowed: "Le domaine de cet e-mail n'est pas autorisé à s'inscrire ici. Utilisez l'e-mail de votre organisation ou demandez une invitation à un administrateur.",
       },
       verifyInbox: {
         title: "Vérifiez votre boîte de réception",
@@ -2582,6 +2669,7 @@ const fr = {
     selectPlaceholder: "Sélectionner {{label}}",
     requiredError: "{{label}} est obligatoire",
     unresolvedParam: 'Ce paramètre ne peut pas être affiché : le champ dont il dépend est absent des métadonnées de l’objet, le contrôle nécessaire ne peut donc pas être construit. Demandez à un administrateur de corriger la définition de l’action.',
+    carryOverHint: 'Repris tel quel (lecture seule)',
     cancel: "Annuler",
     confirm: "Confirmer",
     uploading: "Téléversement…",
@@ -2845,12 +2933,14 @@ const fr = {
     thankYouTitle: "Merci !",
     thankYouMessage: "Votre soumission a été reçue avec succès.",
     redirecting: "Redirection dans {{seconds}} seconde(s)…",
+    redirectPending: "Redirection…",
     unavailableTitle: "Formulaire non disponible",
     unavailableDescription: "Aucun formulaire public n'est disponible à cette URL. Assurez-vous que la vue sous-jacente a le partage anonyme activé.",
     tryDemo: "Essayer la démo",
     retry: "Réessayer",
     loading: "Chargement du formulaire…",
     requiredHint: "* Champ obligatoire",
+    requiredFields: "Champs obligatoires : {{fields}}",
     consentLabelDefault: "J'accepte la politique de confidentialité et consens au traitement de mes données pour cette demande.",
     consentLink: "Politique de confidentialité",
     consentRequired: "Veuillez accepter la politique de confidentialité pour continuer.",
@@ -2913,6 +3003,34 @@ const fr = {
     createEnvironment: "Créer votre environnement",
     openProduction: "Ouvrir la production",
     manageEnvironments: "Gérer les environnements",
+  },
+  cloudPlanStatus: {
+    current: "Offre actuelle",
+  },
+  ai: {
+    nlQuery: {
+      placeholder: "Posez une question sur vos données…",
+      ask: "Demander",
+      results: "Résultats",
+      match: "Correspondance : {{percent}}",
+      simulatedSummary: "Résultats pour : {{query}}",
+      noResults: "Aucun enregistrement correspondant",
+      recentQueries: "Requêtes récentes",
+    },
+    formAssist: {
+      title: "Suggestions de l’IA",
+      suggestionCount: "{{count}} suggestions",
+      suggestionCountOne: "{{count}} suggestion",
+      applyAll: "Tout appliquer",
+      confidence: "Confiance : {{percent}}",
+      appliedCount: "{{count}} suggestions appliquées",
+      appliedCountOne: "{{count}} suggestion appliquée",
+    },
+    recommendations: {
+      title: "Recommandations",
+      generating: "Génération des recommandations…",
+      empty: "Aucune recommandation disponible",
+    },
   },
   aiApprovals: {
     title: "Approbations IA",
@@ -3152,7 +3270,7 @@ const fr = {
     },
     title: "Marketplace d'applications",
     subtitle: "Parcourez les applications approuvées publiées dans le catalogue ObjectStack. Cliquez sur une application pour voir les détails et l'installer dans l'un de vos environnements.",
-    searchPlaceholder: "Rechercher des applications par nom ou ID de manifeste…",
+    searchPlaceholder: "Rechercher des applications par nom ou ID d'application…",
     searchAria: "Rechercher des applications du marketplace",
     installed: "Installé",
     installedCount: "Installées ({{count}})",
@@ -3204,6 +3322,7 @@ const fr = {
       reseedQueued: 'Les données d\'exemple seront rechargées au prochain accès à l\'environnement.',
       reseedLocalSuccess: 'Données d\'exemple rechargées : {{inserted}} ajoutés, {{updated}} mis à jour.',
       reseedPartialErrors: '({{count}} enregistrement(s) n\'ont pas pu être écrits)',
+      sampleDataKernelUnavailable: 'Ce plan de contrôle n\'a pas de noyau d\'environnement : les données d\'exemple ne peuvent donc être ni rechargées ni supprimées ici. Faites-le depuis le runtime propre à l\'environnement.',
       updateAvailable: 'Mise à jour disponible',
     },
     action: {
@@ -3509,7 +3628,7 @@ const fr = {
       detailChangedKeys: 'Également modifié :',
       confirmNote: 'La publication libère atomiquement les {{count}} brouillons en attente de ce paquet.',
       publishConfirm: 'Tout publier',
-      // [objectui#5418] Pre-publish security-posture findings, shown next to
+      // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
       securityBlockTitle: 'La publication sera refusée — {{count}} élément(s) nécessitent d’abord une décision',
@@ -3568,25 +3687,25 @@ const fr = {
     rangeEnd: "À",
     operators: {
       equals: "Égal à",
-      notEquals: "Différent de",
+      not_equals: "Différent de",
       contains: "Contient",
-      containsCaseInsensitive: "Contient (ignorer la casse)",
-      notContains: "Ne contient pas",
-      isEmpty: "Est vide",
-      isNotEmpty: "N'est pas vide",
-      greaterThan: "Supérieur à",
-      lessThan: "Inférieur à",
-      greaterOrEqual: "Supérieur ou égal",
-      lessOrEqual: "Inférieur ou égal",
+      icontains: "Contient (ignorer la casse)",
+      not_contains: "Ne contient pas",
+      is_empty: "Est vide",
+      is_not_empty: "N'est pas vide",
+      greater_than: "Supérieur à",
+      less_than: "Inférieur à",
+      greater_than_or_equal: "Supérieur ou égal",
+      less_than_or_equal: "Inférieur ou égal",
       before: "Avant",
       after: "Après",
       between: "Entre",
       in: "Dans",
-      notIn: "Pas dans",
-      startsWith: "Commence par",
-      endsWith: "Se termine par",
-      isNull: "Est null",
-      isNotNull: "N'est pas null",
+      not_in: "Pas dans",
+      starts_with: "Commence par",
+      ends_with: "Se termine par",
+      is_null: "Est null",
+      is_not_null: "N'est pas null",
       exists: "Est défini",
       notExists: "N'est pas défini",
     },
@@ -3636,6 +3755,11 @@ const fr = {
   },
   wizard: {
     missingRequired: "Veuillez renseigner les champs obligatoires : {{fields}}",
+    back: "Retour",
+    submitting: "Envoi…",
+    stepFallback: "Étape {{n}}",
+    progressLabel: "Progression",
+    emptyStep: "Aucun champ configuré pour cette étape",
   },
   flowRunner: {
     title: 'Saisie',
@@ -3731,6 +3855,11 @@ const fr = {
     actionsEmptyTitle: "Aucune action de package",
     actionsEmptyBody: "Aucun package installé ne déclare d'action sur ce déploiement. Les actions que vous créez vous-même se trouvent dans Studio.",
     actionsLoadFailed: "Impossible de charger les actions des packages.",
+  },
+  element: {
+    number: {
+      noObject: "Aucun objet indiqué : définissez object ou dataSource.object.",
+    },
   },
 };
 

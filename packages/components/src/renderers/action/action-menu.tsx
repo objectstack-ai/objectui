@@ -15,9 +15,10 @@
 
 import React, { forwardRef, useCallback, useMemo, useState } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
+import type { ActionDef } from '@object-ui/core';
 import type { UIActionSchema } from '@object-ui/types';
 import { useAction } from '@object-ui/react';
-import { useCondition, toPredicateInput, usePredicateRecordContext } from '@object-ui/react';
+import { useCondition, toPredicateInput, usePredicateRecordContext, useConfigBagEvaluator } from '@object-ui/react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { Button } from '../../ui';
 import {
@@ -31,7 +32,8 @@ import { cn } from '../../lib/utils';
 import { Loader2, MoreHorizontal } from 'lucide-react';
 import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
-import { hasAutoTrigger, useAutoTriggerOnce } from './auto-trigger';
+import { useAutoTriggerOnce } from './auto-trigger';
+import { readActionEntryParamValues, readMemberStaticParamValues } from './static-params';
 
 function useMoreActionsLabel(): string {
   // useObjectTranslation is provider-safe (never throws); no try/catch, which
@@ -62,6 +64,27 @@ export interface ActionMenuSchema {
 }
 
 /**
+ * One menu action's own `visible` verdict — shared by the item that renders it
+ * and by the headless auto-trigger that may run it (objectui#4191), so the two
+ * cannot answer the same predicate differently.
+ *
+ * The row is bound the canonical way (`record.status`). The item used to pass
+ * `undefined`, i.e. no record at all, so every row-scoped predicate an author
+ * wrote here faulted on its root (objectui#4075). See
+ * `usePredicateRecordContext`. The verdict fails CLOSED on a throwing
+ * predicate — mirrors ActionEngine's getActionsForLocation contract (see
+ * action-button.tsx for rationale).
+ */
+function useMenuActionVisible(action: UIActionSchema, record: unknown) {
+  const recordData = usePredicateRecordContext(record);
+  const isVisible = useCondition(toPredicateInput(action.visible), recordData, {
+    throwOnError: true,
+    label: `action "${action.name ?? action.label ?? 'action:menu item'}" (visible)`,
+  });
+  return { recordData, isVisible };
+}
+
+/**
  * One action inside an `action:menu`. Exported for its pin tests only (it is
  * not re-exported from the package index) — mirrors `DropdownActionItem` in
  * `action-group.tsx`, whose gate is the same one.
@@ -78,19 +101,9 @@ export const ActionMenuItem: React.FC<{
    */
   record?: unknown;
 }> = ({ action, onExecute, record }) => {
-  // The row bound the three canonical ways — `record.status`, bare `status`,
-  // `data.status`. This item used to pass `undefined`, i.e. no record at all,
-  // so every row-scoped predicate an author wrote here faulted on its root
-  // (objectui#4075). See `usePredicateRecordContext`.
-  const recordData = usePredicateRecordContext(record);
-  // Fails CLOSED on a throwing predicate — mirrors ActionEngine's
-  // getActionsForLocation contract (see action-button.tsx for rationale).
-  const isVisible = useCondition(toPredicateInput(action.visible), recordData, {
-    throwOnError: true,
-    label: `action "${action.name ?? action.label ?? 'action:menu item'}" (visible)`,
-  });
+  const { recordData, isVisible } = useMenuActionVisible(action, record);
   // Spec `disabled` (boolean | CEL — disabled when TRUE) primary, legacy
-  // non-spec `enabled` fallback (#1885 follow-through — only action-button
+  // non-spec `enabled` fallback (objectstack-ai/objectstack#1885 follow-through — only action-button
   // was wired; this renderer ignored a spec-authored `disabled`).
   const isDisabledPred = useCondition(toPredicateInput((action as any).disabled), recordData);
   const isEnabled = useCondition(toPredicateInput(action.enabled), recordData);
@@ -164,9 +177,16 @@ ActionMenuItem.displayName = 'ActionMenuItem';
 const ActionAutoTrigger: React.FC<{
   action: UIActionSchema;
   onExecute: (action: UIActionSchema) => Promise<void>;
-}> = ({ action, onExecute }) => {
+  /** The row the menu is mounted over — the same context the item's gate reads. */
+  record?: unknown;
+}> = ({ action, onExecute, record }) => {
+  // The item's own `visible` verdict, computed the same way `ActionMenuItem`
+  // computes it: the action's declared gate outranks the flag (objectui#4191),
+  // and the refusal branch lives in the shared hook so `action:button` refuses
+  // identically.
+  const { isVisible } = useMenuActionVisible(action, record);
   const run = useCallback(() => onExecute(action), [action, onExecute]);
-  useAutoTriggerOnce(hasAutoTrigger(action), run);
+  useAutoTriggerOnce(action, isVisible, run);
   return null;
 };
 
@@ -190,6 +210,9 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
     } = props;
 
     const { execute } = useAction();
+    // The `SchemaRenderer` memo's `properties` evaluation, for the member this
+    // renderer runs itself (objectui#10290) — see `handleExecute`.
+    const evaluateBag = useConfigBagEvaluator();
     const [loading, setLoading] = useState(false);
     const moreActionsLabel = useMoreActionsLabel();
 
@@ -216,6 +239,24 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
             await action.onClick();
             return;
           }
+          // `params` is the `ActionParam[]` input list (ruling A on objectui#10289):
+          // an array is forwarded as `actionParams`, as `action:button` does. An
+          // object is forwarded as values only for `type: 'api'`, the objectstack#5777
+          // payload window; any other type drops it (objectui#10462).
+          //
+          // The member's static values ride `properties.params`, as on
+          // `action:button`, and are evaluated here with the `SchemaRenderer` memo's
+          // evaluator and scope: the member never passes through that memo
+          // (objectui#10290). Independent of the input list, so both are forwarded.
+          // They win over the `api` window's object `params`, as `properties.params`
+          // wins over a node-level object on `action:button`.
+          const staticValues = readMemberStaticParamValues(action, evaluateBag);
+          const entryValues = Array.isArray(action.params)
+            ? undefined
+            : readActionEntryParamValues(action, action.type, 'action:menu');
+          const paramsPayload: ActionDef = Array.isArray(action.params)
+            ? { actionParams: action.params as any, params: staticValues }
+            : { params: staticValues !== undefined ? staticValues : entryValues };
           await execute({
             type: action.type,
             name: action.name,
@@ -237,7 +278,7 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
             openIn: (action as any).openIn,
             endpoint: action.endpoint,
             method: action.method,
-            params: action.params as Record<string, any> | undefined,
+            ...paramsPayload,
             // See action-button.tsx — the `type: 'api'` payload key (objectstack#6837).
             bodyExtra: action.bodyExtra,
             // See action-button.tsx — the body-WRAPPING key (objectstack#6938).
@@ -264,12 +305,18 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
             // declared navigation runs.
             // Uncast since objectui#5934 (legacy callback channel retired).
             onSuccess: action.onSuccess,
+            // See action-button.tsx — the object the action declares it acts
+            // on (objectui#4202). An overflow action must act on the same
+            // object as its inline twin, or the `action:bar` `maxVisible` split
+            // decides which object a write lands on. Cast for the same reason
+            // as there.
+            objectName: (action as any).objectName,
           });
         } finally {
           setLoading(false);
         }
       },
-      [execute],
+      [execute, evaluateBag],
     );
 
     if (schema.visible && !isVisible) return null;
@@ -294,15 +341,17 @@ const ActionMenuRenderer = forwardRef<HTMLButtonElement, { schema: ActionMenuSch
           Placed after this renderer's early returns, which is the same rule
           `action:bar` already follows: a container that renders nothing mounts
           no children, so a hidden bar's inline `autoTrigger` button never fires
-          either. Container visibility governs mounting; the action's own
-          `visible` gate does not suppress the trigger (parity with
-          `action:button`, whose effect runs even when its gate renders null).
+          either. Container visibility governs mounting; the action's OWN
+          declared `visible` gate refuses the trigger and reports the refusal
+          (objectui#4191) — identically to `action:button`, through the same
+          shared hook.
         */}
         {actions.map((action, index) => (
           <ActionAutoTrigger
             key={`auto-trigger:${action.name || index}`}
             action={action}
             onExecute={handleExecute}
+            record={data}
           />
         ))}
         <DropdownMenu>

@@ -25,9 +25,7 @@ The Feed & Chatter system provides Airtable-style record-level collaboration. It
 |-----------|---------|
 | `RecordChatterPanel` | Main wrapper panel (bottom/right/left positioning, collapsible) |
 | `RecordActivityTimeline` | Core activity feed renderer (filter, pagination, actor display) |
-| `CommentInput` | Comment submission with Ctrl+Enter shortcut |
 | `FieldChangeItem` | Field change history display (old → new values) |
-| `MentionAutocomplete` | @mention suggestion dropdown |
 | `ReactionPicker` | Emoji reaction selector |
 | `ThreadedReplies` | Collapsible reply threading |
 | `SubscriptionToggle` | Bell notification toggle |
@@ -175,7 +173,7 @@ declare const handleAddComment: (text: string) => void;
 - **Activity Timeline**: Unified view of comments, field changes, tasks, and system events
 - **Filter Modes**: Filter by `all`, `comments_only`, `changes_only`, or `tasks_only`
 - **@Mentions**: Autocomplete dropdown for mentioning users
-- **Emoji Reactions**: Toggle emoji reactions on any feed item
+- **Emoji Reactions**: Toggle emoji reactions on comments. A reaction is stored on the comment (`sys_comment`), so only a `comment` row offers the reaction control
 - **Subscription Toggle**: Bell icon to subscribe/unsubscribe from record notifications
 - **Field Change History**: Visual old → new value display for field changes
 - **Pagination**: Load more items with `hasMore` / `onLoadMore` pattern
@@ -255,12 +253,12 @@ itself, so everything above describes that page too.
 | `types` | Allow-list of feed item types. Recognised entries narrow the feed; unrecognised ones are dropped and named in one `console.warn`. A list that keeps nothing — `types: []`, or one whose every entry is unrecognised — filters to **nothing** and the panel renders an empty timeline, rather than widening back to every kind. Omit `types` for no filter; that is the only value that means it. A recognised entry that **no producer emits** is honoured but named too — see [Feed kinds with no producer](#feed-kinds-with-no-producer). | — |
 | `filterMode` | Which slice the filter dropdown opens on (`all` / `comments_only` / `changes_only` / `tasks_only`). The user can still change it. An unrecognised value falls back to `all`. | — |
 | `showFilterToggle` | Shows/hides that dropdown. | — |
-| `limit` | Items per page; also caps the scoped `sys_activity` read. "Load more" grows the window by this much and re-reads. | — |
+| `limit` | Items per page; also caps the scoped `sys_activity` read. "Load more" grows the window by this much and re-reads. Must be a positive integer **number**: any other value (a string such as `"5"`, a boolean, a fraction, zero or a negative) is ignored, the block uses its default of 20, and one `console.warn` names the value. The same rule applies to `feed.limit` on `record:chatter` / `record:discussion` and to `limit` on `record:history` (default 50). | — |
 | `showCompleted` | Include completed activities (`sys_activity.type = 'completed'`, which surfaces as a `task` item). Off by default, per spec. | — |
 | `unifiedTimeline` | Default `true` mixes field changes and comments in one timeline (Airtable style). `false` un-mixes them: the panel becomes a discussion stream and field changes stay in `record:history`. | — |
 | `showCommentInput` | Shows the composer. | A host discussion context to persist the comment. Without one the feed is read-only and no composer is rendered. |
 | `enableMentions` | Offers @-mention autocomplete in the composer. `false` withholds the suggestions. | The host context's user list. |
-| `enableReactions` | Shows emoji reactions on feed items. Existing reactions still render without a host; toggling one needs the host handler. | A host `onToggleReaction`. |
+| `enableReactions` | Shows emoji reactions on feed items. Existing reactions still render without a host; toggling one needs the host handler. Only a `comment` row offers Add reaction and clickable chips, because a reaction is stored on the comment (`sys_comment`). Any other row, such as a field change read from `sys_activity`, shows its reactions as chips that cannot be clicked. | A host `onToggleReaction`. |
 | `enableThreading` | Groups replies under their parent comment. Posting a reply needs the host handler. | A host `onAddReply`. |
 | `showSubscriptionToggle` | **Not implemented.** | — |
 
@@ -354,6 +352,13 @@ decision as a defect is how a warning channel gets ignored:
   composes one. Every panel a user sees is therefore an authored or synthesized
   block running this pipeline. The object's `enable.feeds: false` still
   outranks the page and suppresses the panel either way.
+
+  `feed.aria` is read too (objectui#11083), the way `record:activity` reads its
+  own `aria`: it lands on a `div` around the embedded timeline, and a declared
+  `ariaLabel` (a plain string or an inline locale map) names that `div` as a
+  `region`. The timeline keeps its heading as its own name, and the block's
+  top-level `aria` still names the block's own container, so the two bags name
+  two different regions.
 </Callout>
 
 ### RecordActivityTimeline Config
@@ -400,7 +405,7 @@ decision as a defect is how a warning channel gets ignored:
 
 ```plaintext
 {
-  recordId: string | number,
+  recordId: string,
   subscribed: boolean,
   channels?: Array<'in_app' | 'email' | 'push'>
 }
@@ -419,7 +424,7 @@ decision as a defect is how a warning channel gets ignored:
 | `loading` | `boolean` | `false` | Loading state indicator |
 | `onAddComment` | `(text: string) => void` | — | New comment callback |
 | `onAddReply` | `(parentId, text) => void` | — | Reply to comment callback |
-| `onToggleReaction` | `(itemId, emoji) => void` | — | Toggle emoji reaction callback |
+| `onToggleReaction` | `(itemId, emoji) => void` | — | Toggle emoji reaction callback. Called only for a `comment` row |
 | `subscription` | `RecordSubscription` | — | Current subscription state |
 | `onToggleSubscription` | `(subscribed: boolean) => void` | — | Toggle subscription callback |
 | `filterMode` | `FeedFilterMode` | `'all'` | Active filter mode |
@@ -439,18 +444,9 @@ decision as a defect is how a warning channel gets ignored:
 | `loading` | `boolean` | `false` | Loading state indicator |
 | `onAddComment` | `(text: string) => void` | — | New comment callback |
 | `onAddReply` | `(parentId, text) => void` | — | Reply to comment callback |
-| `onToggleReaction` | `(itemId, emoji) => void` | — | Toggle emoji reaction callback |
+| `onToggleReaction` | `(itemId, emoji) => void` | — | Toggle emoji reaction callback. Called only for a `comment` row |
 | `subscription` | `RecordSubscription` | — | Current subscription state |
 | `onToggleSubscription` | `(subscribed: boolean) => void` | — | Toggle subscription callback |
-| `className` | `string` | `''` | Additional CSS classes |
-
-### CommentInput
-
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `onSubmit` | `(text: string) => void` | required | Comment submit callback |
-| `placeholder` | `string` | `'Add a comment...'` | Input placeholder text |
-| `disabled` | `boolean` | `false` | Disable input |
 | `className` | `string` | `''` | Additional CSS classes |
 
 ### ReactionPicker
@@ -517,7 +513,6 @@ import type {
 import type {
   RecordChatterPanelProps,
   RecordActivityTimelineProps,
-  CommentInputProps,
   FieldChangeItemProps,
   ReactionPickerProps,
   ThreadedRepliesProps,

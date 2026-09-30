@@ -99,7 +99,9 @@ const LIST_VIEW_DATA_SOURCE: ElementDataSourceMapping = {
  * remove, and the one an AI-authored page hides best.
  */
 const ListViewBlock = elementDataSourceBlock(React.forwardRef<ListViewHandle, ListViewProps>((props, ref) => {
-  const context = useContext(SchemaRendererContext as React.Context<any>);
+  // Read AS DECLARED (objectui#7209) — no cast, so an undeclared member is a
+  // compile error here. Pinned by `ListViewBlock.schemaRendererContextRead-7209.test.ts`.
+  const context = useContext(SchemaRendererContext);
 
   // Defence in depth for the collision above: even though SchemaRenderer no
   // longer spreads it, a host (or an older cached bundle) handing us the spec

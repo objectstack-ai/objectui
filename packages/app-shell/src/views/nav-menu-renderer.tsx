@@ -8,7 +8,7 @@
 
 /**
  * `nav:menu` — the app's navigation tree as PAGE CONTENT, addressable from a
- * page schema (objectui#6661).
+ * page schema (`969ba84f4`).
  *
  * ## Why this exists
  *
@@ -40,8 +40,8 @@
  *     `resolveHref`;
  *   - the item-level guards in the same ORDER `NavigationItemRenderer` applies
  *     them (`visible` → `requiredPermissions` → `requiresObject` →
- *     `requiresService`), wired to the same three console providers `AppSidebar`
- *     wires them to.
+ *     `requiresService`), wired to the same three console providers
+ *     `UnifiedSidebar` wires them to.
  *
  * ## Why not mount `NavigationRenderer` itself
  *
@@ -71,7 +71,7 @@
  *     that same default and offers no switcher: which area you are in is shell
  *     state, and a page block has nowhere to put it. Apps with no `areas` — the
  *     common case — render `app.navigation` flat, exactly as the sidebar does.
- *  2. **App-level context selectors.** `AppSidebar` passes `contextValues` from
+ *  2. **App-level context selectors.** `UnifiedSidebar` passes `contextValues` from
  *     `useAppContextSelectors` into the template context, because it also
  *     RENDERS those selectors. This block passes only `currentUserId` /
  *     `currentOrgId`; an entry referencing `{some_selector}` therefore falls
@@ -94,7 +94,7 @@
  * placeholder registration put it, and this registration keeps it there.
  *
  * Registered in app-shell rather than `@object-ui/components` for the same
- * reason `global:search` is (objectui#6757): the providers are here.
+ * reason `global:search` is (`f99932a42`): the providers are here.
  * `@object-ui/components` depends on neither `@object-ui/layout` (the resolvers)
  * nor `@object-ui/permissions` nor `react-router-dom` — measured against its
  * `package.json` on `592acafbe`. The eager palette placeholder in
@@ -158,7 +158,7 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
   const { user, activeOrganization } = useAuth();
   const dispatchNavAction = useNavActionDispatch();
 
-  /* ── The three guards, wired to the same providers `AppSidebar` uses ────── */
+  /* ── The three guards, wired to the same providers `UnifiedSidebar` uses ── */
 
   const { evaluator } = useExpressionContext();
   const evalVis = useCallback(
@@ -168,7 +168,7 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
 
   // `object:action` → object CRUD gate; a bare name is an ADR-0066 system
   // capability, with the legacy "can read <object>" reading kept as fallback.
-  // Same mapping as `AppSidebar` / `UnifiedSidebar` — one question, one answer.
+  // Same mapping as `UnifiedSidebar` — one question, one answer.
   const { can, hasCapabilities } = usePermissions();
   const checkPerm = useCallback(
     (permissions: string[]) =>
@@ -188,8 +188,8 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
     (kind: 'object' | 'service', name: string): boolean => {
       if (kind === 'object') {
         // While metadata is still loading the set is empty; show entries by
-        // default rather than flickering the whole menu away (AppSidebar's
-        // reasoning, and it must match or the two menus disagree on first paint).
+        // default rather than flickering the whole menu away (`UnifiedSidebar`
+        // does the same, and it must match or the two menus disagree on first paint).
         if (registeredObjectNames.size === 0) return true;
         return registeredObjectNames.has(name);
       }

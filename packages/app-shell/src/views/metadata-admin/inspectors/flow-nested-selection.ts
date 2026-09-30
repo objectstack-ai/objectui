@@ -81,6 +81,11 @@ export function regionConfigPathOf(regionKey: string): RegionConfigPath | null {
  * `extractRegions`' header labels: `Body` / `Try` / `Catch`, and for a parallel
  * branch the authored `name` or the 1-based `Branch N` fallback (read from the
  * container so the label matches what the canvas header shows).
+ *
+ * English, like `extractRegions`' own fallbacks: this codec is pure and
+ * i18n-free. The render site translates the structural fallbacks through
+ * `displayRegionLabel` (`../previews/flow-region-label.ts`), keyed off the
+ * region key it receives beside this label (objectui#10696).
  */
 export function regionLabelOf(regionKey: string, container?: { config?: unknown } | null): string {
   if (regionKey === 'body') return 'Body';
@@ -165,6 +170,12 @@ export interface NodeLocation {
   scopeAnchorId: string;
   /** The enclosing container node — only when nested. */
   container?: InspectorFlowNode;
+  /**
+   * The region key (`body` / `try` / `catch` / `branch-N`) — only when nested.
+   * Carried beside `regionLabel` so the render site can translate the English
+   * structural fallback through `displayRegionLabel` (objectui#10696).
+   */
+  regionKey?: string;
   /** Human region label for the inspector breadcrumb — only when nested. */
   regionLabel?: string;
   /**
@@ -256,6 +267,7 @@ export function locateFlowNode(
       nested: true,
       scopeAnchorId: container.id,
       container,
+      regionKey: path.regionKey,
       regionLabel: regionLabelOf(path.regionKey, container),
       write: (next) => writeNestedNode(nodes, containerIdx, container, rp, nodeIdx, next),
     };

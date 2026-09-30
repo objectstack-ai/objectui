@@ -17,7 +17,7 @@
  *
  *   - 查看详情 → navigate to the child record's detail route
  *   - 增 / 改   → open the child form as an OVERLAY on the parent detail
- *                 (#2604 D3: a child task's return target is ALWAYS the parent
+ *                 (objectstack-ai/objectstack#2604 D3: a child task's return target is ALWAYS the parent
  *                 detail with the subtable refreshed — never a route, which
  *                 would drop the parent's scroll/tab context and refetch it).
  *                 Implemented by pushing the console's record-form URL params
@@ -281,7 +281,7 @@ export function RelatedRecordActionsBridge({
     [recordHref, navigate],
   );
 
-  // #2604 D3 — open a child create/edit task as the console's global record
+  // objectstack-ai/objectstack#2604 D3 — open a child create/edit task as the console's global record
   // form overlay, by URL params. Pushes ONE history entry (Back = close, the
   // parent detail stays mounted underneath). The read side lives in
   // `AppContent` (see its record-form URL contract).
@@ -334,7 +334,7 @@ export function RelatedRecordActionsBridge({
       resolve: ({ objectName, relationshipField, parentId }) => {
         const childDef = objects.find((o: any) => o?.name === objectName);
         if (!childDef || !base) return {} as RelatedRecordHandlers;
-        // [#3546] Intersect the child object's bucket affordances with the
+        // [objectstack#3546] Intersect the child object's bucket affordances with the
         // server-resolved effective API operation set for THAT child
         // (`/me/permissions` `apiOperations`), so a related list never offers
         // Create/Edit/Delete on the child the server would 405. `undefined`

@@ -30,6 +30,7 @@ import type { ObjectFieldInfo } from './metadata-admin/previews/useObjectFields.
 import {
     runtimeViewToInspectorDraft,
     inspectorDraftToRuntimeView,
+    storedViewToRuntimeView,
     type InspectorViewDraft,
     type RuntimeView,
 } from './view-config-adapter.js';
@@ -226,10 +227,11 @@ export function ViewConfigPanel({ open, onClose, mode = 'edit', activeView, obje
 
     // ADR-0034 (#1515): resume a pending draft into the inspector when the
     // panel reopens (flag-ON only; the bar never fires this when the flag is
-    // off). The stored body is the flat runtime view, so adapt it back to the
-    // inspector draft shape before seeding.
+    // off). The stored body is a ViewItem envelope (objectui#10210) or, for a
+    // draft saved before that, the flat runtime view — read it back to the
+    // runtime shape, then adapt that to the inspector draft before seeding.
     const handleResumeDraft = useCallback((body: Record<string, unknown>) => {
-        const resumed = runtimeViewToInspectorDraft(body as RuntimeView, objectDef.name);
+        const resumed = runtimeViewToInspectorDraft(storedViewToRuntimeView(body), objectDef.name);
         draftRef.current = resumed;
         setDraft(resumed);
         setIsDirty(false);

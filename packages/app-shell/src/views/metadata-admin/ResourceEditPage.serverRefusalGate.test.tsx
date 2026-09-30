@@ -179,9 +179,10 @@ afterEach(() => {
 });
 
 /** The Save button, found by its title in every state this suite reaches. */
+// Title flipped to the neutral inspector copy by ruling 5831744213 (objectui#6900).
 const saveButton = () =>
   screen.getByRole('button', {
-    name: /Save \(⌘S\)|The server refused this draft|Fix the CEL syntax errors before saving\.|No changes to save/,
+    name: /Save \(⌘S\)|The server refused this draft|Fix the issues shown in the inspector before saving\.|No changes to save/,
   });
 
 /**

@@ -100,9 +100,9 @@ import type { SpecAuthoredInput } from '../spec-input.js';
  *
  * Two per-key notes the hand copy carried, kept here because a derived alias
  * has no members to hang them on:
- *  - `size` is the coarse overlay bucket added by #2578; `resolveOverlayWidth`
+ *  - `size` is the coarse overlay bucket added by objectstack-ai/objectstack#2578; `resolveOverlayWidth`
  *    below maps it through {@link OVERLAY_SIZE_WIDTHS}.
- *  - `width` is DEPRECATED by #2578 in favour of `size`. It still wins when
+ *  - `width` is DEPRECATED by objectstack-ai/objectstack#2578 in favour of `size`. It still wins when
  *    present, because app-shell pre-resolves `size` into it.
  */
 export type NavigationConfig = SpecAuthoredInput<typeof NavigationConfigSchema>;
@@ -250,18 +250,18 @@ export interface NavigationOverlayState {
  * ## What to hand `objectName`
  *
  * The block's RECORD SOURCE — the object the clicked rows actually came from —
- * and never a bare top-level `schema.objectName` read in its place. objectui#6939
+ * and never a bare top-level `schema.objectName` read in its place. `77cb489b4`
  * published `objectName` as the THIRD RUNG of one record-source ladder (`data`,
  * then `staticData`, then `objectName`), not as a parallel "page object"
  * concept, so a block has exactly ONE record source. `handleClick` below builds
  * the record-page URL `/{objectName}/record/{id}` out of whatever it is handed:
  * a caller that hands it the top-level key while its rows came from
  * `data.object` navigates to a record that the URL's own object does not
- * contain (objectui#7638).
+ * contain (`2ce2612df`).
  *
  * A caller that resolves a data config reads that ladder through the ONE shared
  * reader — `resolveRecordSourceObjectName` from `@object-ui/core`
- * (objectui#7627) — as the example does. A caller with NO data config has
+ * (`b041b9c0c`) — as the example does. A caller with NO data config has
  * nothing above rung three, and its `schema.objectName` already IS its record
  * source; that spelling is correct there and needs no conversion.
  *

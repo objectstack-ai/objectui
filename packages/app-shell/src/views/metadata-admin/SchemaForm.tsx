@@ -56,6 +56,7 @@ import {
   CollapsibleContent,
 } from '@object-ui/components';
 import { usePredicateScope } from '@object-ui/react';
+import { resolveSectionGroupReferences } from '@object-ui/plugin-form';
 import { evaluatePredicate, buildPredicateCtx, visibleOptions } from './predicate.js';
 import type { FormFieldSpec, FormSectionSpec, FormViewSpec, VisibilityPredicate } from './form-spec.js';
 import {
@@ -68,6 +69,7 @@ import {
   type WidgetRenderer,
 } from './widgets.js';
 import { useMetadataLocale, t, tFormat, translateValidationMessage, translateEnumOption, translateSchemaFieldLabel, translateSchemaFieldHelp } from './i18n.js';
+import { untranslatedFieldLabel } from './field-source-label.js';
 
 /**
  * The form authoring surface — `FormFieldSpec` and the `VisibilityPredicate`
@@ -899,7 +901,7 @@ function resolveFieldWidget({
  * spec's normaliser REWRITES the alias instead of keeping both: a parsed
  * `FormView` carries `visibleWhen` and no `visibleOn` at all
  * (`@objectstack/spec` `shared/visibility.ts`). Reading only `visibleOn` — what
- * this admin engine did until objectstack#6331 — therefore found `undefined` on
+ * this admin engine did until `7a197e7c5` — therefore found `undefined` on
  * every spec-served form and short-circuited each predicate to "always
  * visible", so conditional fields/sections rendered unconditionally.
  *
@@ -1059,8 +1061,13 @@ function SchemaFormBody({
   // total mismatch and fall through to the flat schema-driven
   // rendering so the user still gets a usable form.
   if (form?.sections?.length) {
+    // Every read below — this pre-flight included, which is the one that threw
+    // first — sees RESOLVED sections: a `{ group }` section has been through
+    // `resolveSectionGroupReferences` and a section declaring neither member
+    // source has been refused (objectui#8725).
+    const sections = resolveFormSections(form);
     const declaredFields: string[] = [];
-    for (const s of form.sections) {
+    for (const s of sections) {
       for (const f of s.fields) {
         declaredFields.push(typeof f === 'string' ? f : f.field);
       }
@@ -1070,7 +1077,8 @@ function SchemaFormBody({
     if (usable) {
       return (
         <SectionedSchemaForm
-          form={form}
+          sections={sections}
+          formType={form.type}
           props={props}
           idPath={idPath}
           required={required}
@@ -1171,7 +1179,7 @@ const SchemaFormNestingContext = React.createContext(false);
 
 /**
  * Defer validation DISPLAY until the author has touched the field
- * (objectui#5416).
+ * (`add10d8f9`).
  *
  * A CREATE form opens on an empty draft, so every required field already
  * fails `safeParse` before a single keystroke: `新建软件包` used to open with
@@ -1246,7 +1254,7 @@ export function SchemaForm(props: SchemaFormProps) {
   const nested = React.useContext(SchemaFormNestingContext);
   const inheritedDefer = React.useContext(DeferIssueDisplayContext);
   useDuplicateFieldHostIdCheck(!nested);
-  // objectui#5416 — a create form defers issue DISPLAY to first touch; a
+  // `add10d8f9` — a create form defers issue DISPLAY to first touch; a
   // nested form inherits whatever the form hosting it decided.
   const deferIssues = props.createMode === true || inheritedDefer;
   return (
@@ -1264,8 +1272,81 @@ function normaliseField(f: string | FormFieldSpec): FormFieldSpec {
   return typeof f === 'string' ? { field: f } : f;
 }
 
+/**
+ * A form section whose members are known: `fields` is present. Every read of a
+ * section's `fields` in this module takes this type, never a raw
+ * {@link FormSectionSpec}, so a `{ group }` section cannot reach a read without
+ * first passing {@link resolveFormSections} (objectui#8725).
+ */
+type ResolvedFormSection = FormSectionSpec & { fields: Array<string | FormFieldSpec> };
+
+function declaresMembers(s: FormSectionSpec): s is ResolvedFormSection {
+  return Array.isArray(s.fields);
+}
+
+/**
+ * Resolve a form's sections into ones with a member list (objectui#8725).
+ *
+ * `@objectstack/spec` lets a section declare its members one of two ways:
+ * enumerate `fields`, or point `group` at a declared field group. A `{ group }`
+ * section reaches this renderer on the `/meta/types` server document, which is
+ * not validated on the way in, and before this function the first read of
+ * `s.fields` threw `TypeError: s.fields is not iterable` out of the component
+ * body, taking every well-formed sibling section with it.
+ *
+ * ⛔ No assembly rule is decided here. A `{ group }` section is resolved by
+ * `@object-ui/plugin-form`'s `resolveSectionGroupReferences`, the one resolver
+ * `ObjectForm` and `apps/console`'s `FormPage` already use, so this renderer
+ * gives the same answer they give, including for a group that names no
+ * declared field group: the section resolves EMPTY and the resolver reports the
+ * dangling key on `console.error`.
+ *
+ * `objectDef` is `null` and `resolvable` is `false`, and that is a measurement,
+ * not a default. A group resolves against the BOUND OBJECT's `fieldGroups`, and
+ * nothing this component renders has one: its forms are metadata-type editors
+ * (`data: { provider: 'schema', schemaId }`), the `/meta/types` entry carries a
+ * `schema` and a `form` but no field groups, and no host hands this component an
+ * object definition. `resolvable: false` is the resolver's own flag for "this
+ * form can never load an object definition", so a `{ group }` section is
+ * reported as unresolvable instead of being left to look like a load in flight.
+ * If a host ever does hold a real object definition, it is passed here.
+ *
+ * ⛔ Not `?? []`. A section that declares NEITHER `fields` nor `group` is
+ * refused by `FormSectionSchema` at parse ("A section must declare its members
+ * exactly one way"), and the resolver leaves it untouched because it is not a
+ * group reference. It is refused here too, out loud: rendering it as an empty
+ * section would turn a malformed document into a silent drop.
+ */
+function resolveFormSections(form: FormViewSpec): ResolvedFormSection[] {
+  const data = form.data;
+  const schemaId = data && 'schemaId' in data ? data.schemaId : undefined;
+  const resolved = (resolveSectionGroupReferences(
+    // Two packages describing ONE authored document, exactly as in `FormPage`:
+    // `FormSectionSpec` is this package's authoring type and `ObjectFormSection`
+    // the plugin's. The parameter type is taken FROM the published signature,
+    // so a change to it lands here as a compile error.
+    form.sections as unknown as Parameters<typeof resolveSectionGroupReferences>[0],
+    {
+      objectName: schemaId ?? '',
+      formType: form.type,
+      objectDef: null,
+      resolvable: false,
+    },
+  ) ?? []) as unknown as FormSectionSpec[];
+  return resolved.map((s, index) => {
+    if (declaresMembers(s)) return s;
+    throw new TypeError(
+      `[SchemaForm] form section ${index}${s.label ? ` ("${s.label}")` : ''} declares neither ` +
+        '`fields` nor `group`. A section must declare its members exactly one way, and ' +
+        "`@objectstack/spec`'s FormSectionSchema refuses this shape at parse: enumerate " +
+        '`fields`, or point `group` at a declared field group.',
+    );
+  });
+}
+
 function SectionedSchemaForm({
-  form,
+  sections: resolvedSections,
+  formType,
   props,
   required,
   hiddenFields,
@@ -1277,7 +1358,9 @@ function SectionedSchemaForm({
   idPath,
   onChange,
 }: {
-  form: FormViewSpec;
+  /** The form's sections, already through {@link resolveFormSections}. */
+  sections: ResolvedFormSection[];
+  formType: FormViewSpec['type'];
   props: Record<string, JsonSchema>;
   required: string[];
   hiddenFields: string[];
@@ -1296,15 +1379,15 @@ function SectionedSchemaForm({
   // returns below. `buildPredicateCtx` selects only the ADR-0068 identity roots
   // out of it and keeps `data` = the draft (objectui#6247).
   const hostScope = usePredicateScope();
-  const sections = (form.sections ?? []).filter((s) => {
+  const sections = resolvedSections.filter((s) => {
     const visibility = readVisibility(s);
     return !visibility || evaluatePredicate(visibility, buildPredicateCtx(value, hostScope));
   });
 
   // Decide whether to render as tabs or stacked sections.
-  const isTabbed = form.type === 'tabbed' && sections.length > 1;
+  const isTabbed = formType === 'tabbed' && sections.length > 1;
 
-  const renderSection = (s: FormSectionSpec, idx: number) => {
+  const renderSection = (s: ResolvedFormSection, idx: number) => {
     const fields = s.fields
       .map(normaliseField)
       .filter((f) => {
@@ -1338,6 +1421,15 @@ function SectionedSchemaForm({
                 </div>
               );
             }
+            // The row schema's `title` takes the form label's UNTRANSLATED
+            // source, never a locale overlay's translation (objectui#8231):
+            // the translation reaches every reader through `fieldSpec.label`,
+            // which each of them prefers over `title`, while `FieldRow`'s
+            // machine-name chip falls back to `title` as the source label when
+            // the form authored none — so copying a translation here would
+            // hand the chip the very string it must not judge. With no
+            // overlay involved the source IS `f.label`: nothing changes.
+            const sourceTitle = untranslatedFieldLabel(f);
             return (
               <div
                 key={f.field}
@@ -1348,7 +1440,7 @@ function SectionedSchemaForm({
                   idPath={idPath}
                   schema={{
                     ...propSchema,
-                    ...(f.label ? { title: f.label } : {}),
+                    ...(sourceTitle ? { title: sourceTitle } : {}),
                     ...(f.helpText ? { description: f.helpText } : {}),
                     ...(f.placeholder ? { placeholder: f.placeholder } : {}),
                   }}
@@ -1533,7 +1625,7 @@ function FieldRow({
   onChange: (v: unknown) => void;
 }) {
   const locale = useMetadataLocale();
-  // objectui#5416 — validation-display timing. `touched` flips on the first
+  // `add10d8f9` — validation-display timing. `touched` flips on the first
   // focusout anywhere in this row (React's onBlur IS focusout, so it bubbles
   // out of every widget, including the composite ones that never emit a DOM
   // change event) and on this field's own first edit. While a create form is
@@ -1610,11 +1702,34 @@ function FieldRow({
   const isBoolean = schema?.type === 'boolean' || widget === 'switch';
   const hasDefault = schema?.default !== undefined;
   const showRequiredStar = required && !(isBoolean && hasDefault);
+  // The `*` below is visual-only (objectui#3299, objectui#10367): it sits inside
+  // the label that names the control, so without `aria-hidden` it is read as
+  // part of the name ("Title *"). The requirement reaches the control as a
+  // STATE instead — `FieldControl` takes this same flag, puts `aria-required`
+  // on every control it renders itself, and hands the flag to a registered
+  // widget, so the state and the marker agree.
+  // `aria-required`, not native `required`: `SchemaForm` is exported, and a host
+  // `<form>` would otherwise gain the browser's own submit-blocking verdict
+  // beside this form's own validation.
 
   // Only show the machine name when it materially differs from the
   // prettified label (e.g. `is_active` → "Is Active" matches, hide it;
   // `rls` → "Rls" doesn't, show it). Cuts ~50% of the visual noise.
-  const labelMatchesName = prettify(name).toLowerCase() === label.toLowerCase();
+  //
+  // Judged against the UNTRANSLATED source label — the label this row would
+  // show in English — never against `label` above (objectui#8231). The visible
+  // label is a translation in a localized panel, and `prettify('columns')` can
+  // never equal 「列数」, so the old comparison showed the chip beside every
+  // field in Chinese and hid it beside the same fields in English. The source
+  // label is the one a locale overlay replaced (`untranslatedFieldLabel`, in
+  // `./field-source-label.ts`), else the schema's own title, else the
+  // prettified name — the same chain as `label`, minus every translation
+  // step, so the chip answers alike in every locale.
+  const sourceLabel =
+    untranslatedFieldLabel(fieldSpec) ||
+    (schema?.title as string | undefined) ||
+    prettify(name);
+  const labelMatchesName = prettify(name).toLowerCase() === sourceLabel.toLowerCase();
 
   // Booleans render inline (label · description · switch) on one row to
   // save vertical space and feel like a real settings panel.
@@ -1624,7 +1739,9 @@ function FieldRow({
         <div className="min-w-0 flex-1">
           <Label {...labelAssociation} className="text-sm font-medium cursor-pointer">
             {label}
-            {showRequiredStar && <span className="text-destructive ml-0.5">*</span>}
+            {showRequiredStar && (
+              <span className="text-destructive ml-0.5" aria-hidden="true" data-required-marker="true">*</span>
+            )}
           </Label>
           {description && (
             <div className="text-xs text-muted-foreground mt-0.5">{description}</div>
@@ -1636,6 +1753,7 @@ function FieldRow({
         <FieldControl
           id={channel.id}
           ariaLabelledBy={channel.ariaLabelledBy}
+          required={showRequiredStar}
           fieldName={name}
           idPath={path}
           schema={schema}
@@ -1656,7 +1774,9 @@ function FieldRow({
       <div className="flex items-center justify-between gap-2">
         <Label {...labelAssociation} className="text-sm font-medium">
           {label}
-          {showRequiredStar && <span className="text-destructive ml-0.5">*</span>}
+          {showRequiredStar && (
+            <span className="text-destructive ml-0.5" aria-hidden="true" data-required-marker="true">*</span>
+          )}
           {!labelMatchesName && (
             <code
               className="ml-2 text-[10px] font-mono text-muted-foreground/70"
@@ -1670,6 +1790,7 @@ function FieldRow({
       <FieldControl
         id={channel.id}
         ariaLabelledBy={channel.ariaLabelledBy}
+        required={showRequiredStar}
         fieldName={name}
         idPath={path}
         schema={schema}
@@ -1696,6 +1817,7 @@ function FieldRow({
 function FieldControl({
   id,
   ariaLabelledBy,
+  required,
   fieldName,
   idPath,
   schema,
@@ -1728,6 +1850,21 @@ function FieldControl({
    * alongside the id rather than treating them as alternatives (objectui#5063).
    */
   ariaLabelledBy?: string;
+  /**
+   * Whether the host shows a required `*` for this field — `FieldRow`'s
+   * `showRequiredStar`, or a grid column header's own marker (objectui#10367).
+   * That `*` is `aria-hidden`, so this is the channel that announces the
+   * requirement: every control this component renders ITSELF (the builtin
+   * scalar chain and the JSON editor) carries `aria-required` from it, and a
+   * REGISTERED widget receives it as `WidgetProps.required`, which each
+   * `labelling: 'control'` widget except `filter-builder` (a plain `button`)
+   * emits through `controlNaming`, and which `color-picker` puts on its
+   * `radiogroup`.
+   *
+   * ⚠️ The structured faces (composite / repeater / record / nested form)
+   * render a `role="group"`, where ARIA 1.2 does not support `aria-required`.
+   */
+  required?: boolean;
   /** Machine field name — keys enum-option localization (e.g. flow `type`). */
   fieldName?: string;
   /**
@@ -1758,6 +1895,8 @@ function FieldControl({
   // makes the declaration and the DOM impossible to drift apart: there is one
   // set of branch predicates, not two that must be kept in step.
   const face = resolveFieldFace({ fieldSpec, widget, schema, value });
+  // `undefined` when optional, so the attribute is omitted rather than "false".
+  const ariaRequired = required ? true : undefined;
 
   // Composite/repeater are first-class structured types — render natively
   // with recursive FieldRow calls so all UI features (widgets, options,
@@ -1846,6 +1985,9 @@ function FieldControl({
         // `labelling` declaration in `FieldRow` (objectui#4871).
         id={id}
         ariaLabelledBy={ariaLabelledBy}
+        // A `'control'` widget puts it on its control as `aria-required`,
+        // through `controlNaming` (objectui#10367).
+        required={required}
         schema={schema}
         value={value}
         onChange={onChange}
@@ -1911,6 +2053,7 @@ function FieldControl({
           <RawJsonEditor
             id={id}
             ariaLabelledBy={ariaLabelledBy}
+            required={required}
             value={value as any}
             onChange={(v) => onChange(v)}
             readOnly={readOnly}
@@ -1922,7 +2065,7 @@ function FieldControl({
       );
     }
     return (
-      <RawJsonEditor id={id} ariaLabelledBy={ariaLabelledBy} value={value} onChange={onChange} readOnly={readOnly} small />
+      <RawJsonEditor id={id} ariaLabelledBy={ariaLabelledBy} required={required} value={value} onChange={onChange} readOnly={readOnly} small />
     );
   }
 
@@ -1952,7 +2095,7 @@ function FieldControl({
         onValueChange={(v) => onChange(v)}
         disabled={readOnly}
       >
-        <SelectTrigger id={id} aria-labelledby={ariaLabelledBy}>
+        <SelectTrigger id={id} aria-labelledby={ariaLabelledBy} aria-required={ariaRequired}>
           <SelectValue placeholder={t('engine.form.selectEllipsis', locale)} />
         </SelectTrigger>
         <SelectContent>
@@ -1980,7 +2123,7 @@ function FieldControl({
         onValueChange={(v) => onChange(v)}
         disabled={readOnly}
       >
-        <SelectTrigger id={id} aria-labelledby={ariaLabelledBy}>
+        <SelectTrigger id={id} aria-labelledby={ariaLabelledBy} aria-required={ariaRequired}>
           <SelectValue placeholder={t('engine.form.selectEllipsis', locale)} />
         </SelectTrigger>
         <SelectContent>
@@ -2010,6 +2153,7 @@ function FieldControl({
       <Switch
         id={id}
         aria-labelledby={ariaLabelledBy}
+        aria-required={ariaRequired}
         checked={!!value}
         onCheckedChange={(c) => onChange(c)}
         disabled={readOnly}
@@ -2055,6 +2199,7 @@ function FieldControl({
       <Input
         id={id}
         aria-labelledby={ariaLabelledBy}
+        aria-required={ariaRequired}
         type="number"
         value={value == null ? '' : String(value)}
         placeholder={defaultValue == null ? undefined : String(defaultValue)}
@@ -2084,6 +2229,7 @@ function FieldControl({
         <Textarea
           id={id}
           aria-labelledby={ariaLabelledBy}
+          aria-required={ariaRequired}
           rows={4}
           value={(value as string | undefined) ?? ''}
           maxLength={maxLength}
@@ -2096,6 +2242,7 @@ function FieldControl({
       <Input
         id={id}
         aria-labelledby={ariaLabelledBy}
+        aria-required={ariaRequired}
         value={(value as string | undefined) ?? ''}
         maxLength={maxLength}
         onChange={(e) => onChange(e.target.value || undefined)}
@@ -2117,6 +2264,7 @@ function FieldControl({
         <Input
           id={id}
           aria-labelledby={ariaLabelledBy}
+          aria-required={ariaRequired}
           value={arr.map(String).join(', ')}
           placeholder={t('engine.form.arrayPlaceholder', locale)}
           onChange={(e) => {
@@ -2151,7 +2299,7 @@ function FieldControl({
   // `'control'`-channel JSON editor the `raw-json` face renders, so that if a
   // future edit did make it reachable the label channel would still be right.
   return (
-    <RawJsonEditor id={id} ariaLabelledBy={ariaLabelledBy} value={value} onChange={onChange} readOnly={readOnly} small />
+    <RawJsonEditor id={id} ariaLabelledBy={ariaLabelledBy} required={required} value={value} onChange={onChange} readOnly={readOnly} small />
   );
 }
 
@@ -2374,7 +2522,13 @@ function RepeaterField({
                     className="px-2 py-1.5 text-left text-xs font-medium"
                   >
                     {s.label || prettify(s.field)}
-                    {s.required && <span className="text-destructive ml-0.5">*</span>}
+                    {/* Visual-only (objectui#10367): every cell below is NAMED
+                        by this header through `aria-labelledby`, so a bare `*`
+                        here was read as part of each cell's name. The cells
+                        carry the requirement as `aria-required` instead. */}
+                    {s.required && (
+                      <span className="text-destructive ml-0.5" aria-hidden="true" data-required-marker="true">*</span>
+                    )}
                   </th>
                 ))}
                 {/* Row actions: no name to publish, but still a column header. */}
@@ -2398,6 +2552,8 @@ function RepeaterField({
                           // This cell's only naming channel — there is no
                           // `<label>` in a grid row (objectui#5063).
                           ariaLabelledBy={columnHeaderId(s.field)}
+                          // Mirrors the header's `*` exactly (objectui#10367).
+                          required={Boolean(s.required)}
                           fieldName={s.field}
                           idPath={joinIdPath(joinIdPath(idPath, idx), s.field)}
                           schema={sub}
@@ -2819,6 +2975,7 @@ function RecordField({
 function RawJsonEditor({
   id,
   ariaLabelledBy,
+  required,
   value,
   onChange,
   readOnly,
@@ -2839,6 +2996,8 @@ function RawJsonEditor({
    * (objectui#5063).
    */
   ariaLabelledBy?: string;
+  /** The host's required flag, announced as `aria-required` (objectui#10367). */
+  required?: boolean;
   value: unknown;
   onChange: (v: any) => void;
   readOnly?: boolean;
@@ -2861,6 +3020,7 @@ function RawJsonEditor({
       <Textarea
         id={id}
         aria-labelledby={ariaLabelledBy}
+        aria-required={required ? true : undefined}
         rows={small ? 4 : 12}
         className="font-mono text-xs"
         value={text}

@@ -11,7 +11,7 @@
  *
  * The theme document vocabulary (`Theme`, `ThemeMode`, `ColorPalette`) —
  * owned by this package since objectui#5716. The objectui theme COMPONENT
- * kinds that used to accompany it are all retired (objectui#5489,
+ * kinds that used to accompany it are all retired (`78cbdb530`,
  * objectui#5647); this module is the theme DOCUMENT only.
  *
  * @module theme
@@ -22,7 +22,7 @@
 // Theme Document Vocabulary (formerly `@objectstack/spec/ui`)
 // ============================================================================
 // `@objectstack/spec` retired its whole theme module: `ui/theme.zod.ts` went
-// in objectstack#10485 (PR objectstack#10695), and the objectstack#10856
+// in objectstack `35ad101bc`, and the objectstack#10856
 // ruling had objectui drop the dangling VALUE re-exports (objectui#5710).
 // This block is the TYPE half. The maintainer ruling on objectui#5716
 // (2026-08-23, option A — localize) makes objectui the owner of the theme
@@ -205,9 +205,9 @@ export interface Theme {
 // ObjectUI Component Schemas (UI rendering)
 // ============================================================================
 
-// `ThemeComponentSchema` (`type: 'theme'`) RETIRED in objectui#5489, under the
-// maintainer ruling of 2026-08-21 on objectstack#10485 (option B, quoted
-// verbatim and untranslated):
+// `ThemeComponentSchema` (`type: 'theme'`) RETIRED in `78cbdb530`, under the
+// maintainer ruling of 2026-08-21 (option B, executed upstream by objectstack
+// `35ad101bc`; quoted verbatim and untranslated):
 //
 //   「B:退役授权面 —— 收掉 `themes` 载体键与 schema,`app.branding` 留作唯一颜色面;
 //   objectui 引擎代码与单测保留」
@@ -239,7 +239,7 @@ export interface Theme {
 // `registerLazy(...)` site in `packages/*/src`, in `PROTOCOL_COMPONENTS` /
 // `PALETTE_PLACEHOLDER_BLOCKS`, or in any fixture — declared-but-unenforced,
 // the same ADR-0078 class as `'theme'` above. Their Zod objects,
-// `ThemeUnionSchema` (which after objectui#5489 held only these two members),
+// `ThemeUnionSchema` (which after `78cbdb530` held only these two members),
 // and the `…SchemaType` inference aliases left `zod/theme.zod.ts` in the same
 // change; `AnyComponentSchema` no longer carries a theme member, and the
 // refusals are pinned in `__tests__/phase2-schemas.test.ts`.

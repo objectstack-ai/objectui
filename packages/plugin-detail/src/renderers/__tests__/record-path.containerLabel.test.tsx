@@ -18,7 +18,10 @@
  * ── Two defects, two shapes of assertion ──────────────────────────────────
  *
  * 1. `role="list"` on both rows: a hardcoded English literal became
- *    `detail.pathLabel`, with `schema.aria.label` still winning ahead of it.
+ *    `detail.pathLabel`, with an authored name still winning ahead of it. That
+ *    name was `schema.aria.label` when this file was written; objectui#9556
+ *    made it the contract spelling `aria.ariaLabel`, and objectui#9945
+ *    retired the refused `aria.label`.
  *    Assertable as an accessible NAME, because `list` takes a name from the
  *    author.
  *
@@ -115,10 +118,12 @@ describe('record:path container label speaks the session locale (objectui#5956)'
     expect(seen.size).toBe(3);
   });
 
-  it('an author `schema.aria.label` still wins ahead of the pack fallback', () => {
+  it('an author `schema.aria.ariaLabel` still wins ahead of the pack fallback', () => {
     // The override is the whole reason the literal was a FALLBACK; localizing it
-    // must not promote the pack above what the author asked for.
-    for (const row of rows(mountIn('zh', { aria: { label: 'Deal stages' } }))) {
+    // must not promote the pack above what the author asked for. This case
+    // authored the refused `aria.label` until objectui#9945 retired it; the
+    // override it pins is the author's, so it now uses the contract spelling.
+    for (const row of rows(mountIn('zh', { aria: { ariaLabel: 'Deal stages' } }))) {
       expect(row).toHaveAccessibleName('Deal stages');
     }
   });

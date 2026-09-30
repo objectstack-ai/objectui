@@ -36,7 +36,7 @@
 
 import { describe, it, expect } from 'vitest';
 import type { ObjectDataTableProps } from '../ObjectDataTable';
-import type { BaseSchema, DrillDownConfig, ObjectDataTableSchema } from '@object-ui/types';
+import type { BaseSchema, ObjectDataTableDrillDownConfig, ObjectDataTableSchema } from '@object-ui/types';
 
 type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
@@ -51,8 +51,11 @@ export type assertionSchemaExtendsBase = Expect<[Schema] extends [BaseSchema] ? 
  * objectui#6914 — `Equal`, not `extends`: before the declaration both keys
  * resolved to `any` through the literal's index signature, and `any` satisfies
  * a one-way check. These were RED on the unmodified tree for exactly that reason.
+ * objectui#10685 re-pointed this row at the block's own drill shape: the shared
+ * `DrillDownConfig` with `filter` / `maxRows` / `report` refused and `target`
+ * narrowed, so the widget's prop refuses exactly what the schema refuses.
  */
-export type assertionDrillDownDeclared = Expect<Equal<Schema['drillDown'], DrillDownConfig | undefined>>;
+export type assertionDrillDownDeclared = Expect<Equal<Schema['drillDown'], ObjectDataTableDrillDownConfig | undefined>>;
 /**
  * objectui#9799 widened the anchor's own declaration to an OPTIONAL second
  * parameter; this pin reads through `ObjectDataTableProps['schema']`, so it is
@@ -91,7 +94,7 @@ describe('ObjectDataTableProps.schema — anchored to ObjectDataTableSchema (obj
     };
     expect(node.drillDown?.mode).toBe('record');
 
-    // @ts-expect-error — `enabled` is a boolean on DrillDownConfig; the index signature used to hide this.
+    // @ts-expect-error — `enabled` is a boolean on the drill shape; the index signature used to hide this.
     const wrongShape: Schema = { type: 'object-data-table', drillDown: { enabled: 'yes' } };
     // @ts-expect-error — `onRowClick` is a function.
     const notAFunction: Schema = { type: 'object-data-table', onRowClick: 'toast' };

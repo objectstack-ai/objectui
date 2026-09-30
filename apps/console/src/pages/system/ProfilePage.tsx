@@ -319,8 +319,8 @@ interface LanguageCardProps {
  * ## The UI language is a different thing, and is deliberately not touched
  *
  * `@object-ui/i18n`'s provider keeps the interface language in `localStorage`
- * (`LOCALE_STORAGE_KEY`), seeded per device from the tenant's
- * `/auth/me/localization`. `sys_user.locale` is a server-stored, per-user
+ * (`LOCALE_STORAGE_KEY`), seeded per device from the server's resolved locale
+ * for the last signed-in owner (`/auth/me/localization`). `sys_user.locale` is a server-stored, per-user
  * column that the messaging channels read per recipient at delivery time.
  * Saving here therefore does NOT call `changeLanguage`, and switching the UI
  * language from the globe menu does NOT write this column. Wiring the two

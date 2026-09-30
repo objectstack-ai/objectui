@@ -75,6 +75,16 @@
  *     emission is unreachable in the product and pinned here so a future
  *     decision to offer them lands as a red test, exactly as
  *     `convertFilterGroupToAST.test.ts` already pins it.)
+ *
+ * ## After objectui#9306
+ *
+ * The builder's ids — and so the exported set's members — are the canonical
+ * spellings now, and its former camelCase ids are the deprecated alias form a
+ * stored filter (or a per-user cached panel group) may still carry. This
+ * reader is unchanged: it folds before the lookup, so the table reads the same
+ * nodes. Only the roles swapped — the canonical rows are the dropdown's own
+ * ids, and the camelCase rows are the spellings that reach the set only
+ * through the fold, i.e. the firing cases. The rows are relabelled to say so.
  */
 import { describe, it, expect } from 'vitest';
 import { normalizeFilterOperator } from '@objectstack/spec/ui';
@@ -101,32 +111,34 @@ const emit = (operator: string, value: unknown = '') =>
  * The card's measurement table, turned into a pin.
  *
  * `dialect` is load-bearing for reading a failure, not decoration:
- *   - `dropdown` — one of the builder's own camelCase ids, i.e. a literal
- *     member of the exported set. Emits its node today and after: over-reach
+ *   - `dropdown` — one of the builder's own ids, i.e. a literal member of the
+ *     exported set: `@objectstack/spec`'s canonical spelling, which is also
+ *     what a saved view stores (objectui#9306). Emits its node: over-reach
  *     guard;
- *   - `canonical` — `@objectstack/spec`'s spelling of the SAME operator, which
- *     is what a saved view stores. `[]` today (the defect), the node after:
- *     the firing cases;
+ *   - `deprecated` — the builder's former camelCase id for the SAME operator,
+ *     which a filter stored before objectui#9306 carries. Not a member, so it
+ *     reaches the set only through the fold: the firing cases (the canonical
+ *     spelling played this part when objectui#9359 was measured);
  *   - `control` — really does take a value, and has one.
  */
 const ROWS: ReadonlyArray<{
   operator: string;
   value?: unknown;
   emitted: unknown[];
-  dialect: 'dropdown' | 'canonical' | 'control';
+  dialect: 'dropdown' | 'deprecated' | 'control';
 }> = [
-  { operator: 'isNull', emitted: ['title', 'isnull', null], dialect: 'dropdown' },
-  { operator: 'is_null', emitted: ['title', 'isnull', null], dialect: 'canonical' },
-  { operator: 'isNotNull', emitted: ['title', 'isnotnull', null], dialect: 'dropdown' },
-  { operator: 'is_not_null', emitted: ['title', 'isnotnull', null], dialect: 'canonical' },
+  { operator: 'isNull', emitted: ['title', 'isnull', null], dialect: 'deprecated' },
+  { operator: 'is_null', emitted: ['title', 'isnull', null], dialect: 'dropdown' },
+  { operator: 'isNotNull', emitted: ['title', 'isnotnull', null], dialect: 'deprecated' },
+  { operator: 'is_not_null', emitted: ['title', 'isnotnull', null], dialect: 'dropdown' },
   // `isEmpty` / `isNotEmpty` are resolved to a null comparison BEFORE
   // `mapOperator` is consulted, so their canonical twins must land on the same
   // arm — otherwise the repair would trade one spelling-dependent answer for
   // another, which is the defect this card is about.
-  { operator: 'isEmpty', emitted: ['title', '=', null], dialect: 'dropdown' },
-  { operator: 'is_empty', emitted: ['title', '=', null], dialect: 'canonical' },
-  { operator: 'isNotEmpty', emitted: ['title', '!=', null], dialect: 'dropdown' },
-  { operator: 'is_not_empty', emitted: ['title', '!=', null], dialect: 'canonical' },
+  { operator: 'isEmpty', emitted: ['title', '=', null], dialect: 'deprecated' },
+  { operator: 'is_empty', emitted: ['title', '=', null], dialect: 'dropdown' },
+  { operator: 'isNotEmpty', emitted: ['title', '!=', null], dialect: 'deprecated' },
+  { operator: 'is_not_empty', emitted: ['title', '!=', null], dialect: 'dropdown' },
   // No canonical twin exists for these two.
   { operator: 'exists', emitted: ['title', 'exists', null], dialect: 'dropdown' },
   { operator: 'notExists', emitted: ['title', 'notExists', null], dialect: 'dropdown' },
@@ -143,8 +155,8 @@ describe('objectui#9359 — one operator, one emitted node, whichever spelling i
     ).toEqual(emitted);
   });
 
-  it.each(ROWS.filter((r) => r.dialect === 'canonical'))(
-    'canonical `$operator` emits the SAME node as its dropdown twin',
+  it.each(ROWS.filter((r) => r.dialect === 'deprecated'))(
+    'deprecated `$operator` emits the SAME node as its dropdown twin',
     ({ operator, emitted }) => {
       // The acceptance criterion stated directly: two spellings of one operator
       // are one filter. Asserted against the twin's own live emission rather
@@ -210,11 +222,12 @@ describe('objectui#9359 — one operator, one emitted node, whichever spelling i
 });
 
 describe('objectui#9359 — the instrument can actually fire', () => {
-  it('every canonical case is outside the exported set and folds onto a member', () => {
+  it('every firing case is outside the exported set and folds onto a member', () => {
     // The instrument standard. A table built only on spellings the raw `has()`
     // already matched would be green before ANY repair and would measure
-    // nothing at all.
-    const canonical = ROWS.filter((r) => r.dialect === 'canonical');
+    // nothing at all. Since objectui#9306 the firing cases are the deprecated
+    // camelCase rows.
+    const canonical = ROWS.filter((r) => r.dialect === 'deprecated');
     expect(canonical.length).toBeGreaterThanOrEqual(4);
     const foldedMembers = new Set(
       [...VALUELESS_FILTER_BUILDER_OPERATORS].map((op) => String(normalizeFilterOperator(op))),
@@ -243,17 +256,17 @@ describe('objectui#9359 — the instrument can actually fire', () => {
 
 describe('objectui#9359 — ⛔ the repair moves nothing but this reader', () => {
   it('the EXPORTED set keeps its dropdown-only membership', () => {
-    // Acceptance criterion 4, and the ruling's whole point: two other layers
-    // read this set and one of them already compensates for the canonical
-    // spellings. Widening it would make that layer's deliberate half redundant
-    // by side effect. Green in both directions by construction — it fails only
-    // for a repair that widened the export instead of folding at the reader.
+    // Acceptance criterion 4: the set states the dropdown's own ids, one per
+    // operator, and is not widened with other spellings — readers fold instead.
+    // Since objectui#9306 those ids are the canonical spellings; the deprecated
+    // camelCase ids are NOT members. It fails for a repair that widened the
+    // export instead of folding at the reader.
     expect([...VALUELESS_FILTER_BUILDER_OPERATORS].sort()).toEqual([
       'exists',
-      'isEmpty',
-      'isNotEmpty',
-      'isNotNull',
-      'isNull',
+      'is_empty',
+      'is_not_empty',
+      'is_not_null',
+      'is_null',
       'notExists',
     ]);
   });
@@ -299,5 +312,43 @@ describe('objectui#9359 — ⛔ the fold does not cross the `contains` boundary'
     // And they still reach the wire as distinct AST operators from this reader.
     expect(emit('contains', 'ac')).toEqual(['title', 'contains', 'ac']);
     expect(emit('icontains', 'ac')).toEqual(['title', 'icontains', 'ac']);
+  });
+});
+
+/**
+ * The live grid's leg of objectui#9306's 22-id census (the other consumers'
+ * legs are `filter-builder-protocol-ids-census-9306.test.ts` in app-shell).
+ *
+ * The builder's ids moved from camelCase to the protocol's spellings. This
+ * reader was already spelling-agnostic — `mapOperator` matches case- and
+ * underscore-insensitively and the value-less check folds — so the claim here
+ * is that the move changed NOTHING it queries: every former id and the id it
+ * became emit the same node. `containsCaseInsensitive` is the one exception,
+ * and it is not a regression: the list toolbar never offered it, and neither
+ * `mapOperator` nor the spec's alias table knows that spelling; the builder
+ * folds it onto `icontains` at its own read boundary before a row gets here.
+ */
+describe('objectui#9306 — the live grid emits the same node for every former id and its protocol id', () => {
+  const CENSUS: ReadonlyArray<readonly [string, string, unknown]> = [
+    ['equals', 'equals', 'x'], ['notEquals', 'not_equals', 'x'], ['contains', 'contains', 'x'],
+    ['notContains', 'not_contains', 'x'], ['isEmpty', 'is_empty', ''], ['isNotEmpty', 'is_not_empty', ''],
+    ['greaterThan', 'greater_than', 5], ['lessThan', 'less_than', 5],
+    ['greaterOrEqual', 'greater_than_or_equal', 5], ['lessOrEqual', 'less_than_or_equal', 5],
+    ['before', 'before', '2026-01-01'], ['after', 'after', '2026-01-01'], ['between', 'between', [1, 5]],
+    ['in', 'in', ['a', 'b']], ['notIn', 'not_in', ['a', 'b']],
+    ['startsWith', 'starts_with', 'x'], ['endsWith', 'ends_with', 'x'],
+    ['isNull', 'is_null', ''], ['isNotNull', 'is_not_null', ''],
+    ['exists', 'exists', ''], ['notExists', 'notExists', ''],
+  ];
+
+  it.each(CENSUS)('`%s` and `%s` emit one node', (legacy, id, value) => {
+    const node = emit(id, value);
+    expect(node.length, `${id} emitted nothing`).toBeGreaterThan(0);
+    expect(emit(legacy, value)).toEqual(node);
+  });
+
+  it('`icontains` reaches the wire as its own AST operator', () => {
+    expect(emit('icontains', 'x')).toEqual(['title', 'icontains', 'x']);
+    expect(isFilterAST(emit('icontains', 'x'))).toBe(true);
   });
 });

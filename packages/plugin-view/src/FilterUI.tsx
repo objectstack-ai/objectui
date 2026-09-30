@@ -30,6 +30,7 @@ import {
 import { cva } from 'class-variance-authority';
 import { SlidersHorizontal, X } from 'lucide-react';
 import type { FilterUISchema } from '@object-ui/types';
+import { notifyViewHandlerChannels } from './viewHandlerChannels';
 
 export type FilterUIProps = {
   schema: FilterUISchema;
@@ -94,15 +95,10 @@ export const FilterUI: React.FC<FilterUIProps> = ({
   }, [schema.values]);
 
   const notifyChange = React.useCallback((nextValues: FilterValue) => {
-    onChange?.(nextValues);
-
-    if (schema.onChange && typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent(schema.onChange, {
-          detail: { values: nextValues },
-        })
-      );
-    }
+    // Host function, then the authored event name (objectui#6124). The helper
+    // calls the prop only when it is a function: through `SchemaRenderer` the
+    // prop can hold the authored string (objectui#10616).
+    notifyViewHandlerChannels(onChange, schema.onChange, nextValues, { values: nextValues });
   }, [onChange, schema.onChange]);
 
   const updateValue = React.useCallback((field: string, value: any) => {

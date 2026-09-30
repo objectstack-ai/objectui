@@ -7,6 +7,7 @@
  */
 
 import { isConfigBag } from './configBag.js';
+import { PARAMS_KEY, isParamsBag, mapParamsLeaves } from './paramsBag.js';
 
 /**
  * Dev-build diagnostic: an UNEVALUATED template expression reached the DOM.
@@ -58,6 +59,14 @@ import { isConfigBag } from './configBag.js';
  * diagnostic would be louder than the contract it speaks for. Deepening
  * evaluation is a separate decision, and this scan follows it the day it is
  * taken, not before.
+ *
+ * That decision has been taken for exactly ONE key: `params` (objectui#7867,
+ * ruling A). Every string leaf of a `params` bag is evaluated, at any depth,
+ * on every channel — so this scan walks the same leaves, through the same
+ * walker (`paramsBag.ts`, which the evaluation memo also uses), and a template
+ * that still cannot resolve is reported by its path (`params.target.id`,
+ * `properties.params.ids[0]`). Radius equal to evaluation by construction,
+ * not by two copies agreeing; every other key stays shallow on both sides.
  */
 
 /** What counts as an expression — the evaluator's own definition. */
@@ -88,7 +97,10 @@ export function findExpressionSources(value: string): string[] {
 export type UnevaluatedChannel = 'schema' | 'properties' | 'props';
 
 export interface UnevaluatedExpressionFinding {
-  /** The key holding the raw source. */
+  /**
+   * The key holding the raw source — or, for a leaf of a `params` bag, that
+   * leaf's path from the bag (`params.target.id`, `params.ids[0]`).
+   */
   key: string;
   /** The authored channel the key was read from. */
   channel: UnevaluatedChannel;
@@ -98,20 +110,40 @@ export interface UnevaluatedExpressionFinding {
   expressions: string[];
 }
 
+function pushIfUnevaluated(
+  key: string,
+  channel: UnevaluatedChannel,
+  value: string,
+  into: UnevaluatedExpressionFinding[]
+): void {
+  const expressions = findExpressionSources(value);
+  if (expressions.length > 0) {
+    into.push({ key, channel, value, expressions });
+  }
+}
+
 function scanBag(
   bag: unknown,
   channel: UnevaluatedChannel,
   into: UnevaluatedExpressionFinding[],
-  skip?: (key: string, value: string) => boolean
+  skip?: (key: string, value: unknown) => boolean
 ): void {
   if (!isConfigBag(bag)) return;
   for (const [key, value] of Object.entries(bag)) {
-    if (typeof value !== 'string') continue;
     if (skip?.(key, value)) continue;
-    const expressions = findExpressionSources(value);
-    if (expressions.length > 0) {
-      into.push({ key, channel, value, expressions });
+    // objectui#7867 — `params` is evaluated leaf-deep, so it is scanned
+    // leaf-deep, by the evaluator's own walker; the finding's `key` is the
+    // leaf's path (`params.target.id`). The visitor hands every leaf back
+    // unchanged, so the walk allocates nothing.
+    if (key === PARAMS_KEY && isParamsBag(value)) {
+      mapParamsLeaves(value, (leaf, path) => {
+        pushIfUnevaluated(path, channel, leaf, into);
+        return leaf;
+      });
+      continue;
     }
+    if (typeof value !== 'string') continue;
+    pushIfUnevaluated(key, channel, value, into);
   }
 }
 
@@ -202,6 +234,15 @@ function locate(finding: UnevaluatedExpressionFinding): string {
  * The words are borrowed from the sibling message on purpose — one hoist, one
  * vocabulary, so the two diagnostics cannot drift apart again. Pinned by
  * `__tests__/diagnosticChannelConsistency.test.ts`.
+ *
+ * ## Why `params` is in it too (objectui#7867)
+ *
+ * The same defect #7849 closed, one channel later: once every string leaf of a
+ * `params` bag evaluates, an enumeration that left `params` out would tell an
+ * author whose `params.recordId` template THREW that `params` is not a channel
+ * at all — and send them to move a correct key somewhere else. A finding on a
+ * `params` leaf means the second sentence above (the expression threw, or the
+ * value it produced still reads as a template), never the first.
  */
 export function formatUnevaluatedExpressionMessage(
   type: unknown,
@@ -226,8 +267,9 @@ export function formatUnevaluatedExpressionMessage(
     'source unchanged.\n' +
     'Channels that do evaluate and read back today: `content`; `properties.*`,\n' +
     'which is evaluated and then HOISTED onto the node, so a renderer declared\n' +
-    'as `({ schema })` reads it back as `schema.<key>`; or resolve the value in\n' +
-    'the host before handing the schema to SchemaRenderer.'
+    'as `({ schema })` reads it back as `schema.<key>`; every string leaf of a\n' +
+    '`params` bag, at any depth, node-level or under `properties`; or resolve\n' +
+    'the value in the host before handing the schema to SchemaRenderer.'
   );
 }
 

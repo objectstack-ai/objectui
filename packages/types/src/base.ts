@@ -165,7 +165,7 @@ export interface BaseSchema {
    * call a hook, `BridgeContext` declares no locale, and `updateContext()` has
    * zero callers — so a bridge-resolved label would freeze one audience's
    * language into the node tree with no re-translation channel, the defect the
-   * spec's own resolver doc records as #6761.
+   * spec's own resolver doc records as objectstack-ai/objectstack#6761.
    *
    * @example "Submit"
    * @example { en: 'Submit', 'zh-CN': '提交' }
@@ -277,8 +277,14 @@ export interface BaseSchema {
    * widgets in `plugin-charts` / `plugin-dashboard` (×2) / `plugin-grid` /
    * `plugin-kanban` / `plugin-list` / `plugin-timeline`. ⚠️ `data-table` does
    * NOT: a `bind` on it is ignored and the table renders its header over an
-   * empty body, with no error and no warning (`protocol.md`, and pinned in
-   * `components/src/__tests__/skill-guide-data-table-binding.test.tsx`).
+   * empty body, with no render-time error; nothing on the page says why. The
+   * one signal is a render-time console warning
+   * (`[ObjectUI] DataTable bind:`, objectui#6575; pinned in
+   * `components/src/__tests__/skill-guide-data-table-binding.test.tsx`). The
+   * parser tier stays silent on it: `validateTree` counts `bind` among the base
+   * props every node may carry (objectui#11008), so a `bind` draws no
+   * `unknown-prop` there, on `data-table` or on any other node (pinned in
+   * `components/src/renderers/__tests__/bind-base-prop-parser-tier-11008.test.tsx`).
    * Declaring the key here does not change that, and does not bless it — the
    * key was already accepted on every node before this declaration existed.
    *
@@ -347,7 +353,7 @@ export interface BaseSchema {
    * When false, the component is NOT RENDERED: `SchemaRenderer` returns `null`
    * for the node. Nothing emits `display: none` — the element never reaches the
    * DOM at all, and `hidden: true` one slot below takes this exact same path
-   * (objectui#7088).
+   * (`c1fe272ad`).
    *
    * Accepts a PREDICATE STRING as well as a boolean (objectui#4581): the
    * renderer does not read this key as a boolean, it evaluates it —
@@ -398,7 +404,7 @@ export interface BaseSchema {
    * `visibility: hidden`.
    *
    * ⚠️ `hidden` and `visible` are DELIBERATELY SYNONYMOUS — one hide path, not
-   * two behaviours (objectui#7088, ruled 2026-09-01). This comment used to
+   * two behaviours (`c1fe272ad`, ruled 2026-09-01). This comment used to
    * promise "rendered but not visible (visibility: hidden)", which the renderer
    * has never done: `_hidden` has exactly one consumer, the `return null` in
    * `SchemaRenderer.tsx`, and by the time it is read the key that set it is no
@@ -653,7 +659,7 @@ export type ComponentInputControlType =
  * `binding` is deliberately NOT a member. The manifest serializer forwards it
  * and `validateTree` reads it, but no registration authors it: the key is set
  * by the framework's injected input, {@link InjectedComponentInput}, at the
- * one seam that splices it in (objectui#6950, maintainer ruling of
+ * one seam that splices it in (`9e37d9b39`, maintainer ruling of
  * 2026-09-07). Writing it here is therefore an excess-property `tsc` error,
  * on purpose — see that declaration for the ruling and the measurement.
  */
@@ -819,7 +825,7 @@ export interface ComponentInput {
    * list per input, `of` included since objectui#8067 (`name`, `type`, `of`,
    * `required`, `enum`, `binding`, `description` — `binding` among them is
    * not an authored key but the framework's, forwarded from
-   * {@link InjectedComponentInput}, objectui#6950), its boundary type has no slot for these, the registry's
+   * {@link InjectedComponentInput}, `9e37d9b39`), its boundary type has no slot for these, the registry's
    * data-source seam reads `name` only, and neither the designer nor the
    * app-shell inspectors consult registry `inputs` at all. The one
    * non-test touch was a WRITE (`WidgetRegistry` copying the widget-manifest
@@ -931,7 +937,7 @@ export interface ComponentInput {
    * per input — `name`, `type`, `of`, `required`, `enum`, `binding`,
    * `description`, the last of them added by objectui#8067; `binding` is the
    * framework's key, forwarded from {@link InjectedComponentInput} rather
-   * than authored (objectui#6950) —
+   * than authored (`9e37d9b39`) —
    * so a value authored here could not reach the published
    * `sdui.manifest.json` even in principle. A structural census over every
    * `inputs:` array in the repository found ZERO authoring sites for the four
@@ -985,7 +991,7 @@ export interface ComponentInput {
 /**
  * The input the FRAMEWORK injects into a registration: a {@link ComponentInput}
  * plus the `binding` marker — which is why `binding` is not a member of
- * `ComponentInput` itself (objectui#6950; maintainer ruling of 2026-09-07,
+ * `ComponentInput` itself (`9e37d9b39`; maintainer ruling of 2026-09-07,
  * director decision batch #69: `binding` is framework-set, not
  * author-declared).
  *
@@ -1010,7 +1016,7 @@ export interface ComponentInput {
  * question the card asked — may an ordinary registration declare a binding
  * input? — with **no**, so `ComponentInput` refuses the key the ordinary way
  * (an excess-property `tsc` error at the registration site) and the ONE place
- * that may write it is typed by this declaration. Until objectui#6950 it was
+ * that may write it is typed by this declaration. Until `9e37d9b39` it was
  * typed by a hand-written inline literal and reached the `inputs` array
  * through an `as ComponentMeta` cast — a cast at the only write site is
  * exactly what would have hidden any later drift between the constant and
@@ -1031,7 +1037,7 @@ export interface ComponentInput {
  *
  * The vocabulary is exactly `'object'`. The serializer's boundary type once
  * also admitted `'field'`; that arm had zero writers and was retired with
- * this declaration (ADR-0049 enforce-or-remove, objectui#6950) — see
+ * this declaration (ADR-0049 enforce-or-remove, `9e37d9b39`) — see
  * `RegistryConfigLike` in `packages/sdui-parser/src/index.ts`.
  */
 export interface InjectedComponentInput extends ComponentInput {
@@ -1075,7 +1081,16 @@ export interface ComponentMeta {
   examples?: Record<string, any>;
 
   /**
-   * Whether the component can have children
+   * LAYOUT containment (objectui#6804, objectui#9910 Q2-A): the component is
+   * a layout region — skipped by the react-page JSX scope builder and listed
+   * in the public layout ledger.
+   *
+   * ⛔ Not "can have children". Whether a renderer puts `schema.children` on
+   * the page is declared in `inputs` as `{ name: 'children', type: 'slot' }`,
+   * and that input — never this flag — is what `sdui-parser`'s
+   * `not-a-container` diagnostic reads (objectui#9910 Q1-A). A layout
+   * container that renders a child list declares both; a label-fallback
+   * reader such as `button` or `badge` declares only the slot.
    */
   isContainer?: boolean;
 

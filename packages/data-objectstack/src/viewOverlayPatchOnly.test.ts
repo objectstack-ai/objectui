@@ -32,6 +32,14 @@
  * same document"), and `InterfaceListPage` hydrates a hollow view out of it.
  * A row is narrowed where it is read AS A PATCH, not where it is read as a row
  * — and that boundary is pinned below.
+ *
+ * WHICH rows are narrowed is the `_isOverride` marker's call alone
+ * (objectui#10210, ruling B, comment 5824008636). A flat row carrying an
+ * inherited `viewKind` used to be narrowed by shape too; that guess is retired,
+ * because an "Edit view config → Save" wrote the same shape and the guess
+ * turned the user's own view read-only. The case below that pinned the
+ * narrowing of a pre-marker row is rewritten to pin the ruled behaviour, not
+ * deleted.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -145,16 +153,18 @@ describe('narrowPersonalizationOverlay — what an overlay may contribute', () =
     );
   });
 
-  it('narrows a PRE-MARKER legacy row — flat body plus an inherited `viewKind`', () => {
-    // objectui#4227's best-effort signature: only the platform's registry-backed
-    // identity heal can put `viewKind` on a flat row, so this is an override on
-    // a system view. Same predicate `listViews()` excludes the row by, so a row
-    // cannot be an overlay for one reader and a saved view for the other.
-    const narrowed: any = narrowPersonalizationOverlay({
-      ...FAT_WRITE, object: 'crm_lead', viewKind: 'list',
-    });
-    expect('filter' in narrowed).toBe(false);
-    expect(narrowed.columnState).toEqual({ order: ['status', 'name'] });
+  it('leaves a PRE-MARKER row whole — flat body plus an inherited `viewKind`, no marker (objectui#10210 ruling B)', () => {
+    // This case used to pin objectui#4227's best-effort signature, which
+    // narrowed this row as an override on a system view. Ruling B retires it:
+    // only the marker makes a row an overlay. For this row that is the one
+    // exposure the ruling accepts — an overlay written before the marker and
+    // never touched since keeps its frozen copy, so its `filter` reaches the
+    // merge. Same predicate `listViews()` classifies by, so the row is a plain
+    // row for both readers.
+    const preMarkerRow = { ...FAT_WRITE, object: 'crm_lead', viewKind: 'list' };
+    const read: any = narrowPersonalizationOverlay(preMarkerRow);
+    expect(read).toBe(preMarkerRow);
+    expect(read.filter).toEqual(FAT_WRITE.filter);
   });
 
   it("returns a saved view's own body BY REFERENCE — untouched", () => {

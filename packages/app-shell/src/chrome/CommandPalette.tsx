@@ -28,6 +28,7 @@ import {
   Search,
 } from 'lucide-react';
 import { useRecordSearch } from '@object-ui/react';
+import { usePermissions } from '@object-ui/permissions';
 import { useTheme } from './ThemeProvider.js';
 import { useExpressionContext, evaluateVisibility } from '../providers/ExpressionProvider.js';
 import { useObjectTranslation } from '@object-ui/i18n';
@@ -96,6 +97,9 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
     [activeApp?.name, navItems.map((i) => i.objectName || '').join('|')],
   );
 
+  // A hit is labelled from the row as the viewer may read it: the hook removes
+  // the fields this policy denies before the resolver reads it (objectui#10500).
+  const perms = usePermissions();
   const { results: recordHits, isSearching } = useRecordSearch({
     query: inputValue,
     objects,
@@ -103,6 +107,7 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
     objectNames: searchableObjectNames,
     enabled: open && Boolean(dataSource),
     getDisplayName: getRecordDisplayName,
+    fieldReadPolicy: perms,
   });
 
   // Cloud-synced (sys_user_preference) recently-visited records,
@@ -128,7 +133,7 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
   }, [objects]);
 
   // Group the (server-ranked) record hits by object so the palette lists them
-  // under per-object headings — issue #3371 asks for record hits "grouped by
+  // under per-object headings — issue objectstack-ai/objectstack#3371 asks for record hits "grouped by
   // object". The object with the top-ranked hit leads (first-seen order), and
   // within each group the server's relevance order is preserved.
   const recordGroups = useMemo(() => {
@@ -211,7 +216,7 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
         )}
 
         {/* Record search hits from the platform's global search
-            (/api/v1/search), grouped by object (issue #3371). The searching
+            (/api/v1/search), grouped by object (issue objectstack-ai/objectstack#3371). The searching
             pulse rides the first group's heading so it stays visible while a
             refined query is in flight over an existing result set. */}
         {recordGroups.map((group, groupIndex) => {

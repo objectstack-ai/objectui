@@ -36,8 +36,17 @@ export interface RegisterFormLabels {
   submittingButton?: string;
   hasAccountText?: string;
   signInText?: string;
-  /** Divider label between social sign-up and email/password (defaults to "or") */
+  /**
+   * Divider label between the social provider buttons and the email/password
+   * form (defaults to "or continue with email"). Rendered only when the server
+   * reports at least one social provider.
+   */
   orText?: string;
+  /**
+   * Social provider button label (defaults to "Sign up with {provider}");
+   * `{provider}` is replaced with the provider's display name.
+   */
+  socialButton?: string;
 }
 
 export interface RegisterFormProps {
@@ -48,6 +57,16 @@ export interface RegisterFormProps {
    *  sign-in on email verification. The page should swap the form for a
    *  "check your inbox" confirmation. */
   onVerificationRequired?: (email: string) => void;
+  /**
+   * Where the email-verification link should land once the address is
+   * verified — e.g. the invitation page the user registered from
+   * (objectui#10893). Forwarded to `signUp` as better-auth's sign-up
+   * `callbackURL`; see `SignUpData.callbackURL` for the only shapes the server
+   * accepts (a document-relative `./…` fails the whole sign-up). Omitted, the
+   * server default (`/`) applies. Only matters when the server requires email
+   * verification — an auto-signed-in registration calls `onSuccess` instead.
+   */
+  verificationCallbackURL?: string;
   /** Callback on registration error */
   onError?: (error: Error) => void;
   /** Link to login page */
@@ -110,6 +129,7 @@ const DefaultUserPlusIcon = () => (
 export function RegisterForm({
   onSuccess,
   onVerificationRequired,
+  verificationCallbackURL,
   onError,
   loginUrl = '/login',
   title = 'Create an account',
@@ -142,7 +162,6 @@ export function RegisterForm({
     submittingButton: labels.submittingButton ?? 'Creating account…',
     hasAccountText: labels.hasAccountText ?? 'Already have an account?',
     signInText: labels.signInText ?? 'Sign in',
-    orText: labels.orText ?? 'or',
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -163,7 +182,7 @@ export function RegisterForm({
     // that the server rejects as "Invalid email" (#3238) — trim before use.
     const trimmedEmail = email.trim();
     try {
-      const result = await signUp(name, trimmedEmail, password);
+      const result = await signUp(name, trimmedEmail, password, verificationCallbackURL);
       if (result?.requiresVerification) {
         onVerificationRequired?.(trimmedEmail);
         return;
@@ -186,7 +205,13 @@ export function RegisterForm({
       />
 
       <div className="space-y-5">
-        <SocialSignInButtons mode="sign-up" />
+        {/* Unset labels stay `undefined` here, so the component's own English
+            defaults apply — one copy of each default, not two. */}
+        <SocialSignInButtons
+          mode="sign-up"
+          dividerText={labels.orText}
+          buttonText={labels.socialButton}
+        />
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* No divider here: SocialSignInButtons already renders its own

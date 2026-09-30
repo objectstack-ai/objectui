@@ -3,7 +3,7 @@
 ---
 
 Fix `extractToc` eating the underscores out of a `SCREAMING_SNAKE` heading, so
-its `#id` links resolve to the heading they name again (objectui#7667).
+its `#id` links resolve to the heading they name again.
 
 `stripInline()` ended with two hand-rolled emphasis rules that gave `*` and `_`
 one shared regex — `(\*\*|__)(.*?)\1` and `(\*|_)(.*?)\1`. Neither knew
@@ -32,7 +32,7 @@ One live heading in this repository's own docs was affected
 (`packages/react/README.md:224`). Measured, not derived: the corpus sweep over
 `content/docs/**` plus every `packages/*/README.md` — 223 files, 2941 rendered
 headings — goes from 5 divergent files to 4, and the 4 that remain are a
-different, already-filed defect (objectui#7666, a heading `extractToc` lists
+different, already-filed defect (a heading `extractToc` lists
 that the renderer never emits under a JSX block). Pinned against the real
 render pipeline rather than a second derivation of the flanking rule: each
 heading is rendered through `MarkdownImpl` and `extractToc`'s id compared to

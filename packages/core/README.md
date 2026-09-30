@@ -7,7 +7,7 @@ Core logic, types, and validation for Object UI. Zero React dependencies.
 - 🎯 **Type Definitions** - Re-exported runtime types; the component schema
   vocabulary itself is `@object-ui/types`
 - 🔍 **Component Registry** - Framework-agnostic component registration system
-- 📊 **Data Scope** - Data scope management and expression evaluation
+- 🧮 **Expressions** - `${...}` expression evaluation against a context
 - ✅ **Validation** - Zod-based schema validation
 - 🚀 **Zero React** - Can run in Node.js or any JavaScript environment
 
@@ -60,19 +60,13 @@ here is renderable from schema anywhere in the app. `register()`'s second
 argument is the component itself; registration metadata is its optional third
 argument, and `getMeta()` — not `get()` — reads that metadata back.
 
-### Data Scope
+### Expressions
 
-`DataScopeManager` owns the named scopes a component tree reads from, and
-`evaluateExpression` evaluates a `${...}` expression against a context. They
-are separate exports: a scope holds data, it does not evaluate.
+`evaluateExpression` evaluates a `${...}` expression against a context.
 
 ```typescript
-import { DataScopeManager, evaluateExpression } from '@object-ui/core'
+import { evaluateExpression } from '@object-ui/core'
 
-const manager = new DataScopeManager()
-manager.registerScope('user', { data: { name: 'John', role: 'admin' } })
-
-const userName = manager.getScope('user')?.data.name // 'John'
 const isAdmin = evaluateExpression('${user.role === "admin"}', {
   user: { name: 'John', role: 'admin' },
 }) // true
@@ -150,6 +144,83 @@ isSystemView(draft)                          // false — clone is no longer Sys
 
 `Date`, `RegExp`, `Map`, `Set`, and class instances passed via `props` are
 intentionally **not** frozen so infrastructure objects keep working.
+
+### Field-level read gate (`withoutDeniedFields`)
+
+Field-level security gates what the renderer DRAWS (objectui#7215 /
+objectui#7230): a value the loaded permission policy denies is not shown, even
+when a backend serves it. `withoutDeniedFields` is that rule for one record —
+call it on a row before building a display value from the whole row (a record
+title, a lookup label, a search-hit label), so a denied field reads exactly as
+an absent one.
+
+```typescript
+import { withoutDeniedFields } from '@object-ui/core'
+
+// `policy` is structural: `usePermissions()` from `@object-ui/permissions`
+// satisfies it, as does any `{ isLoaded, checkField }` object.
+const policy = {
+  isLoaded: true,
+  checkField: (object: string, field: string) => !(object === 'account' && field === 'salary'),
+}
+
+withoutDeniedFields({ id: 'a1', name: 'Acme', salary: 100 }, policy, 'account')
+// { id: 'a1', name: 'Acme' }
+
+// A declared id field is kept without asking the policy, like `id` and `_id`:
+withoutDeniedFields({ account_code: 'A-1', salary: 100 }, policy, 'account', ['account_code'])
+// { account_code: 'A-1' }
+```
+
+- `id`, `_id` and every key in the optional fourth argument are never judged.
+- Before the policy loads, with no policy, with no object name, or for a value
+  that is not an object, the record comes back as it is.
+- When nothing is withheld the SAME object comes back, so callers can tell the
+  two cases apart by identity.
+
+### Undo snapshot for an update (`captureUpdateUndoData`)
+
+An `undoable` update restores exactly the fields it wrote, from their values
+before the write. `captureUpdateUndoData` is the one rule for reading those
+values off a record. `ActionRunner` uses it, and so should any surface that
+builds its own `update` Undo operation.
+
+```typescript
+import { captureUpdateUndoData, type FieldContainerLike } from '@object-ui/core'
+
+// The written object's field definitions, as its schema serves them
+// (`objectSchema.fields`). Below, `status` is a text field, `account` a
+// lookup and `config` a json field.
+declare const fields: FieldContainerLike
+
+captureUpdateUndoData(['status'], { id: 't1', status: 'open' }, fields) // { status: 'open' }
+captureUpdateUndoData(['status'], { id: 't1', status: null }, fields)   // { status: null }
+captureUpdateUndoData(['status'], { id: 't1' }, fields)                 // undefined
+
+// A relation read with `$expand` is captured as its stored id.
+captureUpdateUndoData(['account'], { id: 't1', account: { id: 'a1', name: 'Acme' } }, fields)
+// { account: 'a1' }
+
+// Any other field is captured as the record carries it, whatever its shape.
+captureUpdateUndoData(['config'], { id: 't1', config: { id: 'c1', mode: 'strict' } }, fields)
+// { config: { id: 'c1', mode: 'strict' } }
+```
+
+- A field counts as carried when it is an own key whose value is not
+  `undefined`. A carried `null` is a real empty value and is captured.
+- When any written field is not carried, the answer is `undefined` and the
+  caller offers no Undo at all. A record projected by `$select`, or one the
+  server stripped of fields the reader may not read, can lack a written field
+  while the server holds a real value for it; a partial or `null` snapshot
+  would overwrite that value on Undo.
+- A field the object declares as a relation (`lookup`, `master_detail`,
+  `user`, `tree`) is captured as the id it stores, and a `multiple` one as the
+  array of ids. `$expand` puts the related record where the id was, and
+  writing that record back into the reference is what Undo must never do.
+  Which fields are relations is read from `fields`, never from the value's
+  shape: a `json` field may hold an object with an `id`.
+- `fields` is required. Pass `undefined` only when the caller has no field
+  definitions for the object; nothing is then treated as a relation.
 
 ## Philosophy
 

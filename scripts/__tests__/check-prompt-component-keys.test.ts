@@ -572,7 +572,7 @@ describe('the prompt surface this gate now reads', () => {
     expect(sites.filter((s) => s.scope === 'keys-line').map((s) => s.key)).toEqual([
       'view:grid',
       'object-kanban',
-      'view:map',
+      'object-map',
       'view:calendar',
       'object-gantt',
       'view:simple',
@@ -589,7 +589,7 @@ describe('the prompt surface this gate now reads', () => {
     // Each of these appears in the file, and each would be a finding if the gate
     // read it. That they are absent from the scan IS the prose-safety proof.
     const taught = new Set(scan().sites.map((s) => s.key));
-    for (const tombstone of ['user:profile', 'ai:chat_window', 'view:kanban', 'view:gantt']) {
+    for (const tombstone of ['user:profile', 'ai:chat_window', 'view:kanban', 'view:gantt', 'view:map']) {
       expect(taught.has(tombstone), `${tombstone} must stay in prose, never in a judged list`).toBe(false);
     }
     const prompt = fs.readFileSync(path.join(repoRoot, PROMPT_DIR, 'component.prompt.md'), 'utf8');

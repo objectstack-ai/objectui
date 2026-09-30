@@ -192,7 +192,7 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // fallback (server `/import` route unavailable) — no server-side coercion.
   'grid.import.legacyFallbackNotice': 'Imported via a compatibility fallback: this connection doesn’t support the server import route, so values were saved as text without server-side type coercion. Upgrade the backend/client for full import support (type coercion and relation lookups).',
   // Shown when the server refuses import with 405 because the object does not
-  // expose the import operation (#3391) — distinct from "route not found".
+  // expose the import operation (objectstack#3391) — distinct from "route not found".
   'grid.import.notAllowed': 'This object is not open for import.',
   'grid.import.requiredMark': '*',
 };
@@ -326,7 +326,7 @@ export interface ImportWizardProps {
   /** Override the storage backend (defaults to window.localStorage). Use this
    *  to disable persistence (`null`) or to inject an in-memory store in tests. */
   templateStorage?: ImportTemplateStorage | null;
-  /** Registered server-side import mappings for this object (framework #2611).
+  /** Registered server-side import mappings for this object (objectstack-ai/objectstack#2611).
    *  When omitted, the wizard fetches them via `dataSource.listImportMappings`
    *  (feature-detected). Pass explicitly to override / for tests. */
   savedMappings?: SavedMapping[];
@@ -591,7 +591,7 @@ function assembleImportRequest(
     skipBlankMatchKey: boolean;
     dryRun?: boolean;
     /** When set, the server resolves this registered mapping and owns the
-     *  rename + transform + write semantics (framework #2611). `rows` must
+     *  rename + transform + write semantics (objectstack-ai/objectstack#2611). `rows` must
      *  then carry SOURCE headers (see buildSourceRows), and the inline
      *  column mapping / write-mode are omitted — mutually exclusive per the
      *  server contract. `runAutomations` is still honored. */
@@ -640,7 +640,7 @@ function isUnsupportedImportJob(err: unknown): boolean {
 }
 
 /** True when the SERVER refused the import because the object does not expose
- *  the import operation (405 / `OBJECT_API_METHOD_NOT_ALLOWED`, #3391).
+ *  the import operation (405 / `OBJECT_API_METHOD_NOT_ALLOWED`, objectstack#3391).
  *
  *  The opposite of {@link isUnsupportedImportJob} (404 = the async-job ROUTE is
  *  absent → fall back to sync) and {@link isUnsupportedImport} (adapter can't
@@ -975,7 +975,7 @@ const TemplateBar: React.FC<{
   );
 };
 
-/** Selector for a registered server-side import mapping (framework #2611).
+/** Selector for a registered server-side import mapping (objectstack-ai/objectstack#2611).
  *  Picking one hands rename + transforms to the server; the manual column
  *  table is replaced by a read-only summary of the artifact. */
 const SavedMappingBar: React.FC<{
@@ -1637,7 +1637,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const [runAutomations, setRunAutomations] = useState(true);
   // Default OFF (opt-in): a normal import must still walk the state machine —
   // only an explicit "historical" import skips it so mid-lifecycle rows aren't
-  // rejected by initialStates (framework #3479). The strict behavior is the default.
+  // rejected by initialStates (objectstack-ai/objectstack#3479). The strict behavior is the default.
   const [treatAsHistorical, setTreatAsHistorical] = useState(false);
   const [skipBlankMatchKey, setSkipBlankMatchKey] = useState(false);
   // Opt-in: route this import through a background job even when the row count
@@ -1704,7 +1704,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   // Re-hydrate templates if the storage backend or key changes.
   useEffect(() => { setTemplates(loadTemplates(storage, storageKey)); }, [storage, storageKey]);
 
-  // ── Server-registered import mappings (framework #2611) ─────────────
+  // ── Server-registered import mappings (objectstack-ai/objectstack#2611) ─────────────
   // The reusable, governed alternative to hand-building the column mapping.
   // Supplied via prop, or fetched from the adapter (feature-detected; a data
   // source without the method simply yields none, hiding the selector).
@@ -1937,7 +1937,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     try {
       created = await ds.createImportJob(objectName, request);
     } catch (err) {
-      // [#3391] A 405 (object not open for import) must NOT fall back to the
+      // [objectstack#3391] A 405 (object not open for import) must NOT fall back to the
       // sync route (which 405s too) — rethrow so handleImport surfaces the
       // dedicated message. Checked BEFORE the 404-based unsupported fallback.
       if (isImportNotAllowed(err)) throw err;
@@ -2029,7 +2029,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
         const handled = await runAsyncImport(request);
         if (handled) return;
       } catch (err) {
-        // [#3391] Object not open for import (405) → stop with the dedicated
+        // [objectstack#3391] Object not open for import (405) → stop with the dedicated
         // message; never fall back to the sync route (it 405s too).
         if (isImportNotAllowed(err)) {
           const importResult: ImportResult = {
@@ -2077,7 +2077,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
         setResult(importResult); setImporting(false); onComplete?.(importResult);
         return;
       } catch (err) {
-        // [#3391] Object not open for import (405) → stop with the dedicated
+        // [objectstack#3391] Object not open for import (405) → stop with the dedicated
         // message; never fall back to the legacy per-row loop (it 405s too).
         if (isImportNotAllowed(err)) {
           const importResult: ImportResult = {
@@ -2121,7 +2121,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
       const res = await serverImport.call(dataSource, objectName, buildImportRequest(true));
       setDryRunResult(res);
     } catch (err) {
-      // [#3391] Object not open for import (405) → surface the dedicated
+      // [objectstack#3391] Object not open for import (405) → surface the dedicated
       // message in the dry-run summary; checked before the /import unsupported
       // fall-back (which would silently hide the refusal).
       if (isImportNotAllowed(err)) {

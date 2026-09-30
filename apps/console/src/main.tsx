@@ -41,6 +41,9 @@ import './registerAccountComponents';
 // Register `approvals:*` component refs (the Approvals Inbox entry).
 import './registerApprovalsComponents';
 
+// Register `audit:log` and `ai:approvals` component refs (objectui#10520).
+import './registerSystemComponents';
+
 // (Per-type metadata-admin override for `object` was removed: the
 // `object` type now uses the same generic ResourceListPage as every
 // other metadata type for visual consistency. The visual ObjectManager
@@ -64,8 +67,8 @@ registerPlaceholders();
 // Change the spelling here and that script has to change with it;
 // `src/__tests__/runtimeConfigBootDedup.test.ts` fails when the two stop agreeing.
 const SERVER_BASE = (import.meta.env.VITE_SERVER_URL || '').replace(/\/+$/, '');
-// The third entry seeds the UI language from the tenant's server-side locale
-// (objectui#4035). It joins this existing gate rather than adding one of its
+// The third entry seeds the UI language from the server's resolved locale for
+// the signed-in caller (objectui#4035). It joins this existing gate rather than adding one of its
 // own, which is what keeps it off the critical path: it runs CONCURRENTLY with
 // the two round-trips above, is bounded at ~500ms, absorbs every failure, and
 // short-circuits to a no-op on every boot except a device's true first visit
@@ -83,7 +86,7 @@ Promise.all([
   // direction.
   //
   // ⛔ Ordering is load-bearing: this runs AFTER the `Promise.all`, never
-  // inside it. `seedTenantLanguage` is what writes the tenant seed this reads,
+  // inside it. `seedTenantLanguage` is what writes the seed this reads,
   // and tier 2 of the precedence chain is that seed — resolving concurrently
   // would preload whatever the previous boot left behind.
   //

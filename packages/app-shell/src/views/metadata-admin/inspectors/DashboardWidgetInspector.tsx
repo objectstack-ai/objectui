@@ -40,7 +40,12 @@ import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui
 import { setLocalized } from '@object-ui/i18n';
 import { InspectorCheckboxField, InspectorReorderButtons, moveArray } from './_shared.js';
 import { InspectorComboField, type InspectorComboOption } from './InspectorComboField.js';
-import { DatasetNamesEditor } from './ReportDefaultInspector.js';
+import {
+  DatasetNamesEditor,
+  datasetDimensionOptions,
+  datasetMeasureOptions,
+  datasetPickerOptions,
+} from './ReportDefaultInspector.js';
 import { useDatasetCatalog, useDatasetSemantics } from '../previews/useDatasetCatalog.js';
 import type { ObjectFieldInfo } from '../previews/useObjectFields.js';
 
@@ -55,18 +60,22 @@ import type { ObjectFieldInfo } from '../previews/useObjectFields.js';
  * cannot offer a type validation refuses — every entry here is a spec
  * visualization family. A hand-written SUBSET is fine; offering something
  * outside the vocabulary is not.
+ *
+ * Each label is a catalogue key, resolved in the designer locale at render
+ * (objectui#10748, the objectui#10586 `KeyedOption` shape); the stored `value`
+ * never moves.
  */
-const WIDGET_TYPES: ReadonlyArray<{ value: DashboardWidgetTypeName; label: string }> = [
-  { value: 'metric', label: 'KPI Metric' },
-  { value: 'bar', label: 'Bar Chart' },
-  { value: 'horizontal-bar', label: 'Horizontal Bar' },
-  { value: 'line', label: 'Line Chart' },
-  { value: 'area', label: 'Area Chart' },
-  { value: 'pie', label: 'Pie Chart' },
-  { value: 'donut', label: 'Donut Chart' },
-  { value: 'funnel', label: 'Funnel' },
-  { value: 'table', label: 'Table' },
-  { value: 'pivot', label: 'Pivot Table' },
+const WIDGET_TYPES: ReadonlyArray<{ value: DashboardWidgetTypeName; labelKey: string }> = [
+  { value: 'metric', labelKey: 'engine.inspector.widget.type.metric' },
+  { value: 'bar', labelKey: 'engine.inspector.widget.type.bar' },
+  { value: 'horizontal-bar', labelKey: 'engine.inspector.widget.type.horizontalBar' },
+  { value: 'line', labelKey: 'engine.inspector.widget.type.line' },
+  { value: 'area', labelKey: 'engine.inspector.widget.type.area' },
+  { value: 'pie', labelKey: 'engine.inspector.widget.type.pie' },
+  { value: 'donut', labelKey: 'engine.inspector.widget.type.donut' },
+  { value: 'funnel', labelKey: 'engine.inspector.widget.type.funnel' },
+  { value: 'table', labelKey: 'engine.inspector.widget.type.table' },
+  { value: 'pivot', labelKey: 'engine.inspector.widget.type.pivot' },
 ];
 
 const COLORS = [
@@ -126,29 +135,31 @@ export function DashboardWidgetInspector({
   const catalog = useDatasetCatalog();
   const semantics = useDatasetSemantics(datasetName || undefined, catalog);
 
+  // objectui#11161 — the options read the author's text in the one form the
+  // Report inspector's pickers share (see `datasetPickerOptions` and its
+  // siblings): a dataset's declared `description` rides as the combo's muted
+  // `hint`, a member's `label` beside its name. The stored value is the name.
   const datasetComboOptions: InspectorComboOption[] = React.useMemo(() => {
-    const opts = catalog.datasets.map((d) => ({
-      value: d.name,
-      label: d.label && d.label !== d.name ? `${d.label} (${d.name})` : d.name,
-    }));
+    const opts: InspectorComboOption[] = datasetPickerOptions(catalog.datasets);
     if (datasetName && !opts.some((o) => o.value === datasetName)) {
       opts.push({ value: datasetName, label: datasetName });
     }
     return opts;
   }, [catalog.datasets, datasetName]);
   const measureOptions: ObjectFieldInfo[] = React.useMemo(
-    () => semantics.measures.map((m) => ({ name: m.name, label: m.aggregate ? `${m.name} · ${m.aggregate}` : m.name, type: 'number', hidden: false })),
+    () => datasetMeasureOptions(semantics.measures),
     [semantics.measures],
   );
   const dimensionOptions: ObjectFieldInfo[] = React.useMemo(
-    () => semantics.dimensions.map((d) => ({ name: d.name, label: d.name, type: d.type ?? 'text', hidden: false })),
+    () => datasetDimensionOptions(semantics.dimensions),
     [semantics.dimensions],
   );
   // Filter-binding field picker options come from the bound dataset's
   // dimensions (the fields a widget filter can target), replacing the removed
-  // object-field source.
+  // object-field source. The combo prints the value (the dimension name)
+  // itself, so the label is the author's text alone.
   const fieldComboOptions: InspectorComboOption[] = React.useMemo(
-    () => semantics.dimensions.map((d) => ({ value: d.name, label: d.name, hint: d.type })),
+    () => semantics.dimensions.map((d) => ({ value: d.name, label: d.label ?? d.name, hint: d.type })),
     [semantics.dimensions],
   );
 
@@ -168,7 +179,7 @@ export function DashboardWidgetInspector({
   if (selection.kind !== 'widget') {
     return (
       <InspectorEmpty
-        message={`Unsupported selection kind: ${selection.kind}`}
+        message={tFormat('engine.inspector.widget.unsupportedSelection', locale, { kind: selection.kind })}
         onClose={onClearSelection}
         locale={locale}
       />
@@ -177,7 +188,7 @@ export function DashboardWidgetInspector({
   if (!hit) {
     return (
       <InspectorEmpty
-        message="The selected widget was removed from the draft."
+        message={t('engine.inspector.widget.removed', locale)}
         onClose={onClearSelection}
         locale={locale}
       />
@@ -213,7 +224,7 @@ export function DashboardWidgetInspector({
           <div className="truncate text-sm font-semibold">
             {resolveInlineI18nLabel(widget.title, locale) ||
               selection.label ||
-              `Widget ${index + 1}`}
+              tFormat('engine.inspector.widget.untitledN', locale, { n: index + 1 })}
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -309,7 +320,7 @@ export function DashboardWidgetInspector({
           <SelectContent>
             {WIDGET_TYPES.map((wt) => (
               <SelectItem key={wt.value} value={wt.value}>
-                {wt.label}
+                {t(wt.labelKey, locale)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -439,7 +450,7 @@ export function DashboardWidgetInspector({
                         onCommit={(v) => setBinding(v ? v : undefined)}
                         options={fieldComboOptions}
                         placeholder={tFormat('engine.inspector.widget.filterBindingDefault', locale, { field: def.field })}
-                        searchPlaceholder="Search fields…"
+                        searchPlaceholder={t('engine.form.searchFields', locale)}
                         disabled={readOnly}
                         mono
                       />

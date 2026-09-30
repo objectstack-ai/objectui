@@ -21,8 +21,8 @@ owns `document.title` for as long as a shell is mounted: it captures whatever th
 tab already said, writes `title` over it, and puts the captured string back when the
 shell unmounts or `title` changes. That is what let the console's route-keyed writer
 drop its title assignment entirely — it had doubled as the reset that took the app
-label back off the tab on the way out — and it is now `FaviconSync`, which syncs only
-the favicon.
+label back off the tab on the way out — and it became `FaviconSync`, which kept only
+the favicon write until objectui#10379 removed that too.
 
 For hosts of `@object-ui/layout`: the forward assignment is unchanged, and a shell
 with no `title` still leaves the tab untouched in both directions. What is new is the

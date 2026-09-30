@@ -22,9 +22,13 @@ import { createSafeTranslation } from '@object-ui/i18n';
 import { FormSectionContainer } from './FormSection';
 import { SchemaRenderer, useSafeFieldLabel, usePredicateScope } from '@object-ui/react';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
-import { seedCreateValues, omitServerResolvedDefaults, isCreateFormMode } from './schemaDefaults';
+import { seedCreateValues, isCreateFormMode } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
+import { closedFormAffordance, fieldWriteGate, gateFormFields } from './fieldWriteGate';
+import { ClosedAffordanceNotice } from './closedAffordanceNotice';
+import { snapshotLoadedRecord, advanceLoadedRecord, type LoadedRecordSnapshot } from './sanitize';
+import { formWritePayload } from './writePayload';
 import { applyAutoColSpan, containerGridColsFor } from './autoLayout';
 import { resolveSuccessNavigate, type SubmitBehavior } from './successBehavior';
 import { resolveSubmitRedirect, submitRedirectScope } from './submitRedirect';
@@ -33,7 +37,15 @@ import {
   type PendingSubmitRedirect,
 } from './submitRedirectNavigation';
 import { useOccSave } from './occSave';
+import {
+  NO_LOAD_FAILURES,
+  beginLoadRun,
+  shownLoadFailure,
+  type LoadFailures,
+  type LoadRunSeq,
+} from './loadFailure';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
+import { useRecordInvalidation } from './recordInvalidation';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 
 /**
@@ -112,7 +124,7 @@ export interface WizardStepConfig {
 
   /**
    * Step label — the text the step indicator shows.
-   * Falls back to `Step <n>`.
+   * Falls back to `Step <n>`, in the session locale (`wizard.stepFallback`).
    */
   label?: string;
 
@@ -148,46 +160,72 @@ export interface WizardStepConfig {
   gridClassName?: string;
 }
 
-/**
- * What the submitter is told when a DECLARED `navigateOnSuccess` produced no
- * destination — objectui#5034 point 2.
- *
- * The write succeeded, so this rides on the success toast as a note rather than
- * becoming an error or a blocking panel: turning a successful write into an
- * error state would be a worse lie than the silence it replaces. What was
- * missing is one fact, and only one: the navigation the author declared did not
- * happen. Before this, the toast was byte-identical to the toast a form with no
- * `navigateOnSuccess` at all produces, so an author who mistyped the destination
- * — or whose record carried no usable id — saw a form that looked entirely
- * healthy and had silently stopped honouring a key they wrote.
- *
- * Maintainer ruling, 2026-08-17: "A refused declared navigation is surfaced: the
- * success toast carries a note that the declared navigation was not performed —
- * never indistinguishable from the no-key case."
- *
- * The note names no REASON on purpose. `resolveSuccessNavigate` answers null for
- * two different causes (no usable id on the written record; a destination the
- * same-origin guard refused) and returns no discriminant, so a reason in this
- * copy could only be re-derived by reimplementing that helper's internals at the
- * call site — where it would drift from the helper, and would additionally bake
- * an acceptance rule into user-visible prose, which objectui#5034 has since
- * narrowed once already. The diagnosable detail — the template the author
- * actually wrote — goes to `console.warn` at each call site instead.
- *
- * Lives here rather than in `successBehavior.ts` (the natural home, but read-only
- * for this card) and is imported BY `ObjectForm`, which is the dependency
- * direction that already exists — ObjectForm imports WizardForm, never the
- * reverse. Single-sourced so a wizard and a flat form cannot tell a submitter
- * two different things about one refusal; a test pins that they do not.
- */
-export const NAVIGATE_ON_SUCCESS_REFUSED_NOTE =
-  'The `navigateOnSuccess` destination declared for this form was refused, '
-  + 'so the navigation did not happen.';
+// The note a success toast carries when a declared `navigateOnSuccess` was
+// refused (objectui#5034). It lives in `formChrome.ts` with the rest of the
+// form family's feedback chrome and is re-exported here, where the tests have
+// always imported it from.
+export { NAVIGATE_ON_SUCCESS_REFUSED_NOTE } from './formChrome';
 
 // Falls back to English when no i18n provider is mounted.
+/**
+ * Whether a step's submitted answers differ from what the wizard already held
+ * for those fields — the form renderer's own dirtiness rule (`valuesEqualForDirty`
+ * in `@object-ui/components`' form renderer): the empty-ish values are one
+ * value, everything else compares by JSON. Read by the bus gate
+ * (objectui#10715): an answer that differs is unsaved input the step form can
+ * no longer report once it is reset to the merged record.
+ */
+const isEmptyishValue = (v: unknown): boolean =>
+  v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
+const stepValuesDiffer = (stepData: Record<string, unknown>, held: Record<string, unknown>): boolean =>
+  Object.keys(stepData).some((name) => {
+    const next = stepData[name];
+    const prev = held[name];
+    if (isEmptyishValue(next) && isEmptyishValue(prev)) return false;
+    try {
+      return JSON.stringify(next) !== JSON.stringify(prev);
+    } catch {
+      return next !== prev;
+    }
+  });
+
+// Every row must stay byte-identical to the `en` pack value of the same key —
+// `pnpm check:i18n-keys` compares this table against it. The table is what a
+// provider-less host (a standalone embed, this package's own tests) renders.
+//
+// The wizard's own chrome (objectui#10999): the footer buttons, the step
+// counter, the step indicator's accessible name, its fallback step label and
+// the empty-step notice. The generic verbs reuse the shared keys; `wizard.back`
+// and `wizard.submitting` are the wizard's own, because the shared spelling
+// either says something else in some packs (zh reads `common.back` as "return",
+// where a wizard says "previous step", as the import and bulk wizards already
+// do) or does not exist (there is no generic `submitting`).
+//
+// The last six rows are the form family's feedback chrome (objectui#11039) —
+// the success toast, the refused-navigation note, the thank-you heading, the
+// loading line and the load-failure heading — the same keys and values as
+// `formChrome.ts`, which the flat form reads.
 const useWizardTranslation = createSafeTranslation(
   {
     'wizard.missingRequired': 'Please complete the required fields: {{fields}}',
+    'common.cancel': 'Cancel',
+    'wizard.back': 'Back',
+    'common.next': 'Next',
+    'wizard.submitting': 'Submitting…',
+    'form.create': 'Create',
+    'form.update': 'Update',
+    'form.stepOf': 'Step {{current}} of {{total}}',
+    'wizard.stepFallback': 'Step {{n}}',
+    'wizard.progressLabel': 'Progress',
+    'wizard.emptyStep': 'No fields configured for this step',
+    'form.created': 'Created',
+    'form.saved': 'Saved',
+    'form.navigateRefused':
+      'The `navigateOnSuccess` destination declared for this form was refused, '
+      + 'so the navigation did not happen.',
+    'publicForm.thankYouTitle': 'Thank you!',
+    'publicForm.loading': 'Loading form…',
+    'form.errorLoading': 'Error loading form',
   },
   'wizard.missingRequired',
 );
@@ -225,6 +263,14 @@ export interface WizardFormSchema {
    * Wizard step sections
    */
   sections: WizardStepConfig[];
+
+  /**
+   * Inline field definitions (`object-form.customFields`). A member naming a
+   * field a section lists is that field's definition, as on every other
+   * `formType` (objectui#10254); `ObjectForm` hands the key over in its
+   * `{...schema}` spread.
+   */
+  customFields?: FormField[];
   
   /**
    * Allow navigation to any step (not just sequential).
@@ -252,25 +298,29 @@ export interface WizardFormSchema {
   showStepIndicator?: boolean;
   
   /**
-   * Text for Next button
+   * Text for Next button. Rendered as authored when set; otherwise the
+   * session locale's `common.next`.
    * @default 'Next'
    */
   nextText?: string;
   
   /**
-   * Text for Previous button
+   * Text for Previous button. Rendered as authored when set; otherwise the
+   * session locale's `wizard.back`.
    * @default 'Back'
    */
   prevText?: string;
   
   /**
-   * Submit button text (shown on last step)
+   * Submit button text (shown on last step). Rendered as authored when set;
+   * otherwise the session locale's `form.create` / `form.update`.
    */
   submitText?: string;
 
   /**
    * Declarative success toast text shown when no `onSuccess` handler is given
-   * (metadata pages cannot pass a function). Falls back to 'Created'/'Saved'.
+   * (metadata pages cannot pass a function). Falls back to the session
+   * locale's `form.created` / `form.saved` ('Created' / 'Saved' in English).
    * Ignored when `submitBehavior` is set.
    */
   successMessage?: string;
@@ -300,7 +350,8 @@ export interface WizardFormSchema {
   showCancel?: boolean;
   
   /**
-   * Cancel button text
+   * Cancel button text. Rendered as authored when set; otherwise the session
+   * locale's `common.cancel`.
    */
   cancelText?: string;
   
@@ -326,6 +377,10 @@ export interface WizardFormSchema {
    * When supplied, the form validates and hands the collected values
    * to this handler INSTEAD of calling `dataSource.create` /
    * `dataSource.update`; the returned record is passed on to `onSuccess`.
+   * In `edit` mode, for a record this form read itself, it hands over what it
+   * would have written: the fields that differ from that read, or the full
+   * sanitized payload when nothing changed (objectui#10156, objectui#10563;
+   * the whole rule is on `ObjectFormSchema['submitHandler']`).
    *
    * `MasterDetailForm` supplies it to route the parent AND its child
    * collections through one atomic `batchTransaction` (#2679 / ADR-0034
@@ -387,7 +442,8 @@ export const WizardForm: React.FC<WizardFormProps> = ({
   className,
 }) => {
   const { fieldLabel } = useSafeFieldLabel();
-  const { userId: currentUserId } = usePermissions();
+  const perms = usePermissions();
+  const { userId: currentUserId } = perms;
   const { t } = useWizardTranslation();
   // Upload-in-flight gate (objectui#10166). Scoped to the FINAL commit, not to
   // step navigation: moving between steps writes nothing, and blocking Next
@@ -400,10 +456,23 @@ export const WizardForm: React.FC<WizardFormProps> = ({
   // row after step one. Field-rule `previous` and the read-only submit strip
   // need the untouched read (objectui#3484).
   const [persistedRecord, setPersistedRecord] = useState<Record<string, any> | undefined>(undefined);
+  // The same read, as the baseline an edit save diffs against so only the
+  // fields that changed are written (objectui#10156, objectui#10563). Separate
+  // from `persistedRecord` on purpose: this one ADVANCES after a save, while
+  // field-rule `previous` keeps reading the record as first read. Set by the
+  // `findOne` below and nowhere else, so a caller-supplied record is never a
+  // baseline. A ref, not state: only the final commit reads it.
+  const loadedRecordRef = React.useRef<LoadedRecordSnapshot | null>(null);
   // OCC-guarded edit save + its conflict dialog (see occSave.tsx).
   const { saveWithOcc, conflictDialog } = useOccSave();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  // objectui#10682 — the load error, kept per read (the object schema and the
+  // record), each written only by the current run of its read and cleared when
+  // a later run of that read commits: see `loadFailure.ts`. `error` is what
+  // the error screen reports.
+  const [loadFailures, setLoadFailures] = useState<LoadFailures>(NO_LOAD_FAILURES);
+  const loadRunSeqRef = React.useRef<LoadRunSeq>({ schema: 0, record: 0 });
+  const error = shownLoadFailure(loadFailures);
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
   const [submitting, setSubmitting] = useState(false);
@@ -462,6 +531,34 @@ export const WizardForm: React.FC<WizardFormProps> = ({
   // wipe everything the user entered on earlier steps (the create POST then
   // carried only the final step's fields). This guard makes the seed idempotent.
   const seededRef = React.useRef(false);
+  // The record whose data `formData` currently holds. The fetch effect reads it
+  // to tell a genuine record SWAP from a re-run of its own making —
+  // `initialData`/`initialValues` are objects callers commonly rebuild every
+  // render, and flashing the loading state for those would thrash, unmounting
+  // the step form mid-entry (objectui#10726).
+  const loadedRecordIdRef = React.useRef<string | number | undefined>(undefined);
+  // objectui#10715 — the data-invalidation bus, read the way the default arm
+  // reads it (the rule is stated once in `recordInvalidation.ts`): a change to
+  // this record, to its object or to `'*'` re-reads the record IN PLACE through
+  // the record read below while the wizard is pristine, and is held while it
+  // holds unsaved input. A wizard has TWO kinds of unsaved input, and either
+  // holds the re-read: what is typed on the current step (the step form's own
+  // `onDirtyChange`), and the answers of steps already submitted with Next —
+  // those live in `formData`, which the step form is reset to BY VALUE at every
+  // step boundary and so reports as pristine. Refs, not state: only the bus
+  // gate reads them. A re-read replaces `formData` wholesale, so it is taken
+  // only when both are clear; it never touches `currentStep`.
+  const { refetch: recordRefetch, onDirtyChange: onBusDirtyChange, saved: recordSaved } =
+    useRecordInvalidation(schema.objectName, schema.recordId, !!schema.recordId && schema.mode !== 'create');
+  const stepDirtyRef = React.useRef(false);
+  const unsavedStepValuesRef = React.useRef(false);
+  const reportUnsavedInput = useCallback(() => {
+    onBusDirtyChange(stepDirtyRef.current || unsavedStepValuesRef.current);
+  }, [onBusDirtyChange]);
+  const handleStepDirtyChange = useCallback((dirty: boolean) => {
+    stepDirtyRef.current = dirty;
+    reportUnsavedInput();
+  }, [reportUnsavedInput]);
 
   const totalSteps = schema.sections.length;
   const isFirstStep = currentStep === 0;
@@ -469,6 +566,13 @@ export const WizardForm: React.FC<WizardFormProps> = ({
 
   // Fetch object schema
   React.useEffect(() => {
+    // objectui#10712 — a read an `objectName` or data-source change has
+    // superseded commits nothing (the record read's `cancelled` below, applied
+    // here), so it cannot land last and replace the current object's schema.
+    let cancelled = false;
+    // objectui#10682 — this run's writes to the schema read's failure; a newer
+    // run of this effect makes them no-ops.
+    const run = beginLoadRun(loadRunSeqRef, setLoadFailures, 'schema');
     const fetchSchema = async () => {
       if (!dataSource) {
         setLoading(false);
@@ -477,19 +581,35 @@ export const WizardForm: React.FC<WizardFormProps> = ({
       
       try {
         const schemaData = await dataSource.getObjectSchema(schema.objectName);
+        if (cancelled) return;
         setObjectSchema(schemaData);
+        run.commit();
       } catch (err) {
-        setError(err as Error);
+        if (cancelled) return;
+        run.fail(err);
       }
     };
     
     fetchSchema();
+    return () => { cancelled = true; };
   }, [schema.objectName, dataSource]);
 
   // Fetch initial data
   React.useEffect(() => {
+    // objectui#10712 — a read a newer run has superseded (another `recordId`,
+    // say, while it was in flight) commits nothing: not the values, not the
+    // baseline or `persistedRecord`, and not the `loading` release the current
+    // run owns. Otherwise the answer for the previous record could land last
+    // and be shown under the new one. The shape the four other sectioned
+    // layouts already use (recordSwapLoading.test.tsx).
+    let cancelled = false;
+    // objectui#10682 — this run's writes to the record read's failure; a newer
+    // run of this effect makes them no-ops.
+    const run = beginLoadRun(loadRunSeqRef, setLoadFailures, 'record');
     const fetchData = async () => {
       if (schema.mode === 'create' || !schema.recordId || !dataSource) {
+        // Seeded from something other than a read: no baseline to diff against.
+        loadedRecordRef.current = null;
         if (!seededRef.current) {
           // Declared static defaults are this wizard's opening values (#4047)
           // — see `schemaDefaults` for the create-only boundary and for why
@@ -497,30 +617,56 @@ export const WizardForm: React.FC<WizardFormProps> = ({
           setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId }));
           seededRef.current = true;
         }
+        // Not a read, so no earlier record read's failure describes the form.
+        run.commit();
         setLoading(false);
         return;
       }
       
+      // objectui#10726 — only a change of RECORD hides the form. A `recordId`
+      // change re-enters this effect with the wizard still MOUNTED on the
+      // previous record; without going back to loading, record A's values stay
+      // on screen AND EDITABLE while B is in flight, and anything typed there
+      // reads as A's but is submitted against B. The sectioned layouts' own
+      // swap shape, pinned for each of them in recordSwapLoading.test.tsx.
+      if (loadedRecordIdRef.current !== schema.recordId) setLoading(true);
+
       try {
         const data = await dataSource.findOne(schema.objectName, schema.recordId);
+        if (cancelled) return;
+        loadedRecordIdRef.current = schema.recordId;
+        loadedRecordRef.current = snapshotLoadedRecord(schema, data);
         setFormData(data || {});
         setPersistedRecord(data || {});
+        // What the wizard holds is now the record as read: no step's answer is
+        // unsaved (objectui#10715).
+        unsavedStepValuesRef.current = false;
+        // The record on screen is the one this run read, so an earlier record
+        // read's failure no longer describes it. A schema failure stays: this
+        // read says nothing about the object's fields.
+        run.commit();
       } catch (err) {
-        setError(err as Error);
+        if (cancelled) return;
+        run.fail(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
-    
+
+    // A bus re-read (objectui#10715, `recordRefetch` below) re-runs this
+    // effect for the record already on screen: it lands IN PLACE, since the
+    // loading branch above is keyed on a change of record, and a re-read a
+    // later run has superseded commits nothing, as above.
     if (objectSchema || !dataSource) {
       fetchData();
     }
-  }, [objectSchema, schema.mode, schema.recordId, schema.initialData, schema.initialValues, dataSource, schema.objectName]);
+    return () => { cancelled = true; };
+  }, [objectSchema, schema.mode, schema.recordId, schema.initialData, schema.initialValues, dataSource, schema.objectName, recordRefetch]);
 
   // Build section fields from object schema
   const buildSectionFields = useCallback(
-    (section: WizardStepConfig): FormField[] =>
-      buildSectionFieldsShared(section as any, {
+    (section: WizardStepConfig): FormField[] => {
+      const fields = buildSectionFieldsShared(section as any, {
         objectSchema,
         objectName: schema.objectName,
         readOnly: schema.readOnly,
@@ -531,9 +677,45 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         // this produces, so it agrees with the renderer for free.
         recordId: schema.recordId,
         fieldLabel,
-      }),
-    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, fieldLabel],
+        // A member naming a section's field is that field's definition, as it
+        // is on every other arm (objectui#10254).
+        customFields: schema.customFields,
+      });
+      // The ONE field-gate step every layout draws through (`gateFormFields`,
+      // objectui#10612), applied to the RESOLVED fields. Its field-level half
+      // (`80c54122e`): `ObjectForm` gates a section's field OBJECTS before
+      // routing here, but a field named by a bare string has no `name` to ask
+      // about until it is resolved just above. Without this pass a field the
+      // caller may read but not edit rendered as a live input, and with the
+      // save's strip in place (`formWritePayload`, objectui#10563) whatever the
+      // user typed there would be dropped behind a 200. A field already gated
+      // upstream is gated again to the same answer. Its managed-object half
+      // (ADR-0092 D4): every field is disabled when the object's affordance for
+      // the mode is closed — before objectui#10612 only the default arm drew
+      // that lock, and this layout drew live inputs on a managed object.
+      return (gateFormFields(fields, {
+        perms,
+        objectName: schema.objectName,
+        mode: schema.mode,
+        objectSchema,
+      }) ?? fields) as FormField[];
+    },
+    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, schema.customFields, fieldLabel, perms],
   );
+
+  // objectui#11000 — the affordance the lock above found CLOSED for this
+  // wizard's mode (`create`, or `edit` on an edit wizard), read from the same
+  // predicate that disabled every field. A user it answers for cannot submit,
+  // so the wizard does not walk them on: Next and the final submit are
+  // disabled, the indicator does not jump forward, and a step submit that
+  // arrives anyway (the keyboard) is not taken. Cancel and Back stay usable,
+  // every step stays shown, and the notice says why.
+  const closedAffordance = closedFormAffordance({
+    perms,
+    objectName: schema.objectName,
+    mode: schema.mode,
+    objectSchema,
+  });
 
   // The same "no persisted record" test the seeding and the create-mode
   // `required` suppression use, so this wizard cannot be seeded as a create
@@ -641,8 +823,20 @@ export const WizardForm: React.FC<WizardFormProps> = ({
 
   // Handle step data collection (merge partial data into formData)
   const handleStepSubmit = useCallback(async (stepData: Record<string, any>) => {
+    // objectui#11000 — Next and the final submit are disabled while the
+    // affordance is closed; this is the guard for a submit that arrives
+    // without them. Nothing is merged, advanced or written.
+    if (closedAffordance) return;
     const mergedData = { ...formData, ...stepData };
     setFormData(mergedData);
+    // An answer that differs from what the wizard held is unsaved input the
+    // step form can no longer see once it is reset to `mergedData`, so it holds
+    // a bus re-read until the save lands (objectui#10715). A step walked
+    // through untouched leaves the wizard as pristine as it was.
+    if (stepValuesDiffer(stepData, formData)) {
+      unsavedStepValuesRef.current = true;
+      reportUnsavedInput();
+    }
 
     // Mark step as completed
     setCompletedSteps(prev => new Set(prev).add(currentStep));
@@ -702,14 +896,20 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         }
         
         let result;
-        // Omit the fields the producer owns (#4069) — see
-        // `omitServerResolvedDefaults` for why an empty key is not the same
-        // as no key at insert time. Create only: on an edit form a cleared
-        // column is a real removal. Computed ONCE so every persistence route
-        // below — the host-owned seam included — writes the identical payload.
-        const writePayload = schema.mode === 'create'
-          ? omitServerResolvedDefaults(mergedData, objectSchema)
-          : mergedData;
+        // What this save writes, through the ONE outbound sequence the simple
+        // form uses (objectui#10563; `formWritePayload` holds the rule):
+        // nothing a form never writes — server-owned, computed, read-only,
+        // unknown, or refused by the caller's field-level security — and on an
+        // EDIT only the fields that differ from the record this wizard read.
+        // `mergedData` starts from that whole read, so without this every
+        // column of the record went back. Computed ONCE so every persistence
+        // route below — the host-owned seam included — writes the identical
+        // payload. A simple form's mobile `stepper` renders through here too.
+        const { writePayload } = formWritePayload(mergedData, schema, {
+          objectSchema,
+          canEdit: fieldWriteGate(perms, schema.objectName),
+          snapshot: loadedRecordRef.current,
+        });
 
         if (schema.submitHandler) {
           // The host owns persistence (e.g. MasterDetailForm batching the
@@ -741,7 +941,15 @@ export const WizardForm: React.FC<WizardFormProps> = ({
           if (outcome.status === 'cancelled') return;
           result = outcome.result;
         }
-        
+        // The write landed: the next save from this still-mounted wizard diffs
+        // against the record as it now stands, not as first read.
+        loadedRecordRef.current = advanceLoadedRecord(loadedRecordRef.current, schema, writePayload);
+        // objectui#10715 — and what the wizard shows is what the server holds:
+        // every step's answer is saved, and a bus change held while it had
+        // unsaved input (its own write's echo included) is replayed now.
+        unsavedStepValuesRef.current = false;
+        recordSaved();
+
         if (schema.onSuccess) {
           await schema.onSuccess(result);
         } else if (!schema.submitHandler && schema.submitBehavior) {
@@ -771,7 +979,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
                 toast.error(verdict.refusal);
                 setSubmitted({
                   message: schema.successMessage
-                    || (schema.mode === 'create' ? 'Created' : 'Saved'),
+                    || (schema.mode === 'create' ? t('form.created') : t('form.saved')),
                   refusal: verdict.refusal,
                 });
                 break;
@@ -796,7 +1004,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
             default: {
               const message = behavior.kind === 'thank-you' && behavior.message
                 ? behavior.message
-                : schema.successMessage || (schema.mode === 'create' ? 'Created' : 'Saved');
+                : schema.successMessage || (schema.mode === 'create' ? t('form.created') : t('form.saved'));
               toast.success(message);
               // Replace the (still fully filled) step form with a confirmation
               // panel so there's nothing left to resubmit.
@@ -834,11 +1042,11 @@ export const WizardForm: React.FC<WizardFormProps> = ({
               schema.navigateOnSuccess,
             );
             toast.success(
-              schema.successMessage || (schema.mode === 'create' ? 'Created' : 'Saved'),
-              { description: NAVIGATE_ON_SUCCESS_REFUSED_NOTE },
+              schema.successMessage || (schema.mode === 'create' ? t('form.created') : t('form.saved')),
+              { description: t('form.navigateRefused') },
             );
           } else {
-            toast.success(schema.successMessage || (schema.mode === 'create' ? 'Created' : 'Saved'));
+            toast.success(schema.successMessage || (schema.mode === 'create' ? t('form.created') : t('form.saved')));
           }
           if (schema.resetOnSuccess && schema.mode === 'create') {
             // Back to a fresh step 1 for the next entry — same opening values
@@ -862,7 +1070,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
       // Move to next step
       goToStep(currentStep + 1);
     }
-  }, [formData, currentStep, isLastStep, schema, objectSchema, dataSource, missingRequiredByStep, t, saveWithOcc, uploadGate.uploading, uploadGate.reason]);
+  }, [closedAffordance, formData, currentStep, isLastStep, schema, objectSchema, dataSource, perms, missingRequiredByStep, t, saveWithOcc, uploadGate.uploading, uploadGate.reason, reportUnsavedInput, recordSaved]);
 
   // Navigation
   const goToStep = useCallback((step: number) => {
@@ -884,16 +1092,26 @@ export const WizardForm: React.FC<WizardFormProps> = ({
     }
   }, [schema]);
 
+  // Which steps the indicator may open: any step up to the current one, and a
+  // later step only through `allowSkip` or a completed step — never while the
+  // affordance is closed (objectui#11000), where a jump forward would walk the
+  // user through steps they cannot submit.
+  const canOpenStep = useCallback(
+    (step: number) =>
+      step <= currentStep || (!closedAffordance && (!!schema.allowSkip || completedSteps.has(step))),
+    [currentStep, closedAffordance, schema.allowSkip, completedSteps],
+  );
+
   const handleStepClick = useCallback((step: number) => {
-    if (schema.allowSkip || completedSteps.has(step) || step <= currentStep) {
+    if (canOpenStep(step)) {
       goToStep(step);
     }
-  }, [schema.allowSkip, completedSteps, currentStep, goToStep]);
+  }, [canOpenStep, goToStep]);
 
   if (error) {
     return (
       <div className="p-4 border border-red-300 bg-red-50 rounded-md">
-        <h3 className="text-red-800 font-semibold">Error loading form</h3>
+        <h3 className="text-red-800 font-semibold">{t('form.errorLoading')}</h3>
         <p className="text-red-600 text-sm mt-1">{error.message}</p>
       </div>
     );
@@ -903,7 +1121,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
     return (
       <div className="p-8 text-center">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-        <p className="mt-2 text-sm text-gray-600">Loading form...</p>
+        <p className="mt-2 text-sm text-gray-600">{t('publicForm.loading')}</p>
       </div>
     );
   }
@@ -912,7 +1130,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
     return (
       <div className={cn('w-full space-y-4', className, schema.className)}>
         <div className="rounded-md border bg-card p-8 text-center">
-          <h3 className="text-lg font-semibold">{submitted.title ?? 'Thanks!'}</h3>
+          <h3 className="text-lg font-semibold">{submitted.title ?? t('publicForm.thankYouTitle')}</h3>
           {submitted.message && (
             <p className="mt-2 text-sm text-muted-foreground">{submitted.message}</p>
           )}
@@ -956,12 +1174,12 @@ export const WizardForm: React.FC<WizardFormProps> = ({
     <div className={cn('w-full @container', className, schema.className)}>
       {/* Step Indicator */}
       {schema.showStepIndicator !== false && (
-        <nav aria-label="Progress" className="mb-8">
+        <nav aria-label={t('wizard.progressLabel')} className="mb-8">
           <ol className="flex items-center">
             {schema.sections.map((section, index) => {
               const isActive = index === currentStep;
               const isCompleted = completedSteps.has(index);
-              const isClickable = schema.allowSkip || isCompleted || index <= currentStep;
+              const isClickable = canOpenStep(index);
               // The last submit found a required field outstanding on this step.
               const hasError = invalidSteps.has(index);
 
@@ -1029,7 +1247,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
                             : isActive ? 'text-foreground' : 'text-muted-foreground'
                         )}
                       >
-                        {section.label || `Step ${index + 1}`}
+                        {section.label || t('wizard.stepFallback', { n: index + 1 })}
                       </span>
                     </span>
                   </button>
@@ -1039,6 +1257,14 @@ export const WizardForm: React.FC<WizardFormProps> = ({
           </ol>
         </nav>
       )}
+
+      {/* Why every field below is locked, when the lock is the form-wide one
+          (objectui#11000). */}
+      <ClosedAffordanceNotice
+        affordance={closedAffordance}
+        objectName={schema.objectName}
+        objectSchema={objectSchema}
+      />
 
       {/* Current Step Content */}
       <div className="min-h-[200px]">
@@ -1081,6 +1307,9 @@ export const WizardForm: React.FC<WizardFormProps> = ({
                   showSubmit: false,
                   showCancel: false,
                   onSubmit: handleStepSubmit,
+                  // The step form's dirtiness feeds the bus gate above
+                  // (objectui#10715); the wizard adds its own unsaved steps.
+                  onDirtyChange: handleStepDirtyChange,
                 }}
               />
             ) : (
@@ -1101,7 +1330,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
                 }}
               >
                 <div className="text-center py-8 text-muted-foreground">
-                  No fields configured for this step
+                  {t('wizard.emptyStep')}
                 </div>
               </form>
             )}
@@ -1117,7 +1346,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
               variant="ghost"
               onClick={handleCancel}
             >
-              {schema.cancelText || 'Cancel'}
+              {schema.cancelText || t('common.cancel')}
             </Button>
           )}
         </div>
@@ -1125,7 +1354,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
         <div className="flex items-center gap-2">
           {/* Step counter */}
           <span className="text-sm text-muted-foreground mr-2">
-            Step {currentStep + 1} of {totalSteps}
+            {t('form.stepOf', { current: currentStep + 1, total: totalSteps })}
           </span>
           
           {!isFirstStep && (
@@ -1134,7 +1363,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
               onClick={handlePrev}
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
-              {schema.prevText || 'Back'}
+              {schema.prevText || t('wizard.back')}
             </Button>
           )}
           
@@ -1142,19 +1371,22 @@ export const WizardForm: React.FC<WizardFormProps> = ({
             <Button
               type="submit"
               form={stepFormId}
-              disabled={submitting || schema.mode === 'view' || uploadGate.uploading}
+              disabled={submitting || schema.mode === 'view' || uploadGate.uploading || !!closedAffordance}
             >
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />}
               {uploadGate.uploading
                 ? uploadGate.busyLabel
-                : submitting ? 'Submitting...' : (schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update'))}
+                : submitting
+                  ? t('wizard.submitting')
+                  : (schema.submitText || (schema.mode === 'create' ? t('form.create') : t('form.update')))}
             </Button>
           ) : (
             <Button
               type="submit"
               form={stepFormId}
+              disabled={!!closedAffordance}
             >
-              {schema.nextText || 'Next'}
+              {schema.nextText || t('common.next')}
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           )}

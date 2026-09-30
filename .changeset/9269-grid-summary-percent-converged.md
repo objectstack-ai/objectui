@@ -27,7 +27,8 @@ such a surface, and it took neither half by reference.
 The arm now hands the raw stored value to `formatPercent` — the same call the
 list-view percent cell makes — with the tag from `useDisplayLocale()`, so the
 footer takes the SCALING and the locale's percent CONVENTION from one home.
-`decimals` still reads `column.precision`, unchanged.
+This change leaves `decimals` alone. Since objectui#9295 it reads the column's
+`scale` (zero decimal places when absent), and `precision` is not read.
 
 **BREAKING — a percent column summary renders differently in every non-`en`
 session, and for four-digit values in `en` too.** Nothing about the stored value

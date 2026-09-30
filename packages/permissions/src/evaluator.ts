@@ -125,8 +125,7 @@ function resolveRoles(userRoles: string[], roleDefinitions: RoleDefinition[]): s
  * the own-member rule in `readField` would refuse them anyway. `prototype`
  * earns its place separately: it is NOT present on a plain object's chain
  * (`'prototype' in {}` is `false`), so without this list it would classify as
- * an ordinary absent field. The same three names, for the same reasons, as
- * `PROTOTYPE_FIELD_NAMES` in `DataScopeManager` (`@object-ui/core`).
+ * an ordinary absent field.
  */
 const PROTOTYPE_FIELD_NAMES: ReadonlySet<string> = new Set([
   '__proto__',
@@ -176,10 +175,11 @@ type FieldRead = { readable: true; value: unknown } | { readable: false };
  * matrix in `__tests__/evaluator.prototype-guard-8044.test.ts` measures: the
  * genuinely-absent family changed zero verdicts.
  *
- * This is a port of the shape objectui#7751 landed in `readField` in
- * `packages/core/src/data-scope/DataScopeManager.ts`, which was written
- * against this evaluator as its reference — and then went further than it,
- * because this evaluator had the defect it was being used as the standard for.
+ * This is a port of the shape objectui#7751 landed on a sibling row-level
+ * evaluator in `@object-ui/core`, which was written against this evaluator as
+ * its reference — and then went further than it, because this evaluator had
+ * the defect it was being used as the standard for. objectui#7750 retired that
+ * sibling; the guard stands here on its own.
  */
 function readField(record: Record<string, unknown>, field: string): FieldRead {
   if (PROTOTYPE_FIELD_NAMES.has(field)) return { readable: false };

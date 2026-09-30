@@ -72,8 +72,8 @@ type _RegistryIsReal = Assert<Equal<IsAny<SchemaRegistry>, false>>;
 //    `Equal` is invariant, so a re-declared twin that drifted by one member
 //    turns this red. (`KanbanSchema` was the third member of this row until
 //    objectui#8802 retired it with the bare `kanban` node key; the two that
-//    remain are consumed by `KanbanImpl`, `CardTemplates` and `useColumnWidths`
-//    and are NOT retired.)
+//    remain are consumed by `KanbanImpl` and `CardTemplates` and are NOT
+//    retired.)
 type _ColumnIsTheDeclaredOne = Assert<Equal<KanbanColumn, DeclaredKanbanColumn>>;
 type _CardIsTheDeclaredOne = Assert<Equal<KanbanCard, DeclaredKanbanCard>>;
 

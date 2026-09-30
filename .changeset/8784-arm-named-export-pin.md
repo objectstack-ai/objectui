@@ -35,3 +35,9 @@ carry ledger rows against objectui#9067, which holds the ruling, because exporti
 new names on a published surface. The fifth, `RetiredKanbanNodeSchema`, is a refusal arm the
 barrel already declares deliberately internal (objectui#8802). A stale-row leg deletes any
 ledger row the moment its arm is exported or stops existing.
+
+⚠️ **Dated note, 2026-09-28 — a fourteenth top-level member — objectui#10859.** Later,
+objectui#10859 adds `AIComponentSchema` as a fourteenth top-level member of `AnyComponentSchema`
+(13 sub-unions plus one object arm), and its three leaf arms are named exports of the barrel, so the
+figures above are this change's reading, not today's. The pin derives the arm list on every run and
+needs no edit for it.

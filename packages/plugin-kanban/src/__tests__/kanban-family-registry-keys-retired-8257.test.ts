@@ -31,21 +31,23 @@
  * package cannot see the union the CLI applies, and a second copy of the claim
  * is a second thing to keep true.
  *
- * ## ⭐ objectui#8818 — what retiring `kanban-ui` closes, and what it does not
+ * ## ⭐ objectui#8818 — what retiring `kanban-ui` closed, and what closed the rest
  *
  * `SchemaRenderer` strips a fixed enumerated metadata list and spreads the rest
- * as React props. `objectFields` is not on that list, and `KanbanRenderer` —
- * the component `kanban-ui` resolved to — declares `objectFields` as a real
- * prop (objectui#7742). An AUTHORED `objectFields` therefore reached the
- * predicate layer on that entry with no schema face declaring or judging it.
- * With the registration gone no authored node can reach `KanbanRenderer`
- * through the registry at all, which closes that path.
+ * as React props. When `kanban-ui` was retired `objectFields` was not on that
+ * list, and `KanbanRenderer` — the component `kanban-ui` resolved to — declares
+ * `objectFields` as a real prop (objectui#7742). An AUTHORED `objectFields`
+ * therefore reached the predicate layer on that entry with no schema face
+ * declaring or judging it. With the registration gone no authored node can
+ * reach `KanbanRenderer` through the registry at all, which closed that ENTRY.
  *
- * ⚠️ It closes the ENTRY, ⛔ NOT the CLASS: `SchemaRenderer` still spreads every
- * unstripped key, so the hole returns the moment another registered renderer
- * declares an `objectFields` prop. objectui#8818's option (a) — stripping at
- * the `SchemaRenderer` boundary — is what would close the class, and it is
- * still open. Suite 3 pins the entry half so nobody reads the class as closed.
+ * The CLASS is closed at the boundary: since objectui#8818 `objectFields` is on
+ * `SchemaRenderer`'s stripped-metadata list, and the legacy `props` alias bag
+ * drops it too, so an authored value reaches no component prop on any type
+ * key. That half is pinned in `@object-ui/react`
+ * (`SchemaRenderer.objectFieldsStrip-8818.test.tsx`) and ⛔ not restated here.
+ * Suite 3 pins this package's two halves: the entry stays closed, and
+ * `KanbanRenderer` keeps the prop its host passes the catalogue through.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -93,7 +95,7 @@ describe('suite 2 — the manual-integration map publishes the same one key', ()
   });
 });
 
-describe('suite 3 — objectui#8818: the `objectFields` ENTRY is closed, the CLASS is not', () => {
+describe('suite 3 — objectui#8818: the `objectFields` ENTRY is closed, and the prop stays the host channel', () => {
   it('no registry key resolves to `KanbanRenderer` any more — the authored-`objectFields` path is gone', () => {
     // `KanbanRenderer` is still exported and still rendered (by `ObjectKanban`,
     // which supplies `objectFields` itself as a prop). What is gone is any way
@@ -114,12 +116,13 @@ describe('suite 3 — objectui#8818: the `objectFields` ENTRY is closed, the CLA
     expect(ComponentRegistry.get(SURVIVOR)).not.toBe(KanbanRenderer);
   });
 
-  it('⚠️ the CLASS is still open — this is recorded, not asserted shut', () => {
-    // `SchemaRenderer`'s stripped-metadata list is in `@object-ui/react` and
-    // still does not name `objectFields`. This package cannot fix that and does
-    // not claim to; the assertion here is only that `KanbanRenderer` still
-    // DECLARES the prop, which is the half that would make the hole return the
-    // moment any registered renderer takes it again.
+  it('`KanbanRenderer` still declares `objectFields` as a React prop — the channel `ObjectKanban` passes the catalogue through', () => {
+    // The CLASS is closed in `@object-ui/react`: since objectui#8818
+    // `SchemaRenderer`'s stripped-metadata list names `objectFields`, so an
+    // authored value reaches no component prop. What this package owns is the
+    // host half, and that is all this asserts: `KanbanRenderer` still DECLARES
+    // the prop, which is how `ObjectKanban` hands the fetched field catalogue
+    // down. Dropping it would break that channel, not reopen the hole.
     const src = readFileSync(INDEX_TSX, 'utf8');
     expect(src).toContain('objectFields?: unknown;');
   });

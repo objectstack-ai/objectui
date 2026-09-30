@@ -35,14 +35,18 @@
 //      a boolean), `pinned` (backs `useNavPins` + `FavoritesProvider`), and the
 //      legacy `defaultOpen` spelling. Binding deletes all three from the type
 //      while their implementations keep running.
-//   3. A separator carrying a `label`; the spec's separator branch declares none.
+//   3. CLOSED by objectui#10867: a separator carried a `label`, which the spec's
+//      separator branch does not declare. `NavigationItem` is now a union whose
+//      separator arm ({@link NavigationSeparatorItem}) admits exactly the
+//      spec separator's keys — `type`, `id` and `order`.
 //
 // So the symbol stays local and the KEYS come off the spec one by one — the
 // `badgeVariant` precedent (objectstack#4115), widened here to every key with a
 // precise spec counterpart. That is the part of the burn-down that is safe
 // today: a restated enum or payload shape can drift, and now cannot.
-// `spec-derived-unions.test.ts` pins the three blockers above, each written so
-// it fails the day the spec closes it.
+// `spec-derived-unions.test.ts` pins the blockers that remain, each written so
+// it fails the day the spec closes it, and asserts the separator agreement in
+// place of the blocker it replaced.
 import type {
   I18nLabel,
   NavigationArea as SpecNavigationArea,
@@ -51,8 +55,11 @@ import type {
   UrlNavItem as SpecUrlNavItem,
   ActionNavItem as SpecActionNavItem,
   ComponentNavItem as SpecComponentNavItem,
+  App as SpecApp,
 } from '@objectstack/spec/ui';
 import type { BaseSchema } from './base.js';
+import type { z } from 'zod';
+import type { APP_SPEC_EXCLUDED, AppContextSelectorSchema } from './zod/app.zod.js';
 
 // ============================================================================
 // Unified Navigation Model (aligned with @objectstack/spec)
@@ -75,21 +82,21 @@ import type { BaseSchema } from './base.js';
 export type NavigationItemType = SpecNavigationItem['type'];
 
 /**
- * Unified Navigation Item
- * 
- * The single navigation primitive used across ObjectUI and @objectstack/spec.
- * Replaces the legacy `AppMenuItem` for application navigation trees.
- * 
+ * A navigation ENTRY — every {@link NavigationItem} except a separator.
+ *
  * Supports typed navigation targets (object, dashboard, page, report, url),
  * nested groups, visibility expressions, RBAC permissions, and UX enhancements
  * like badges, pinning, and sort ordering.
+ *
+ * `type` excludes `'separator'`, so a separator can only be written through
+ * {@link NavigationSeparatorItem} (objectui#10867).
  */
-export interface NavigationItem {
+export interface NavigationEntryItem {
   /** Unique identifier */
   id: string;
 
-  /** Navigation item type */
-  type: NavigationItemType;
+  /** Navigation item type — any spec nav type except `'separator'`. */
+  type: Exclude<NavigationItemType, 'separator'>;
 
   /** Display label (plain string per @objectstack/spec v4 protocol) */
   label: string;
@@ -310,6 +317,44 @@ export interface NavigationItem {
 }
 
 /**
+ * A navigation SEPARATOR — a rule between entries, not an entry
+ * (objectui#10867).
+ *
+ * It admits exactly the keys `@objectstack/spec`'s strict separator branch
+ * declares: `type`, `id` and `order`. Every other {@link NavigationEntryItem}
+ * key is `?: never` here, so writing one — a `label` above all — is a compile
+ * error rather than a document the platform's `AppSchema` refuses at save
+ * (`unrecognized_keys`). The `never` keys are DERIVED from
+ * `NavigationEntryItem`, so a key added there is refused here without an edit.
+ *
+ * Reading one of them off an unnarrowed {@link NavigationItem} still compiles
+ * and answers `undefined` on this arm, which is also what the object holds.
+ *
+ * `id` stays required, as on every objectui navigation item (the spec makes it
+ * optional); a required `id` is still spec-valid. The agreement with the spec's
+ * separator is asserted in `__tests__/spec-derived-unions.test.ts`.
+ */
+export type NavigationSeparatorItem = Pick<NavigationEntryItem, 'id' | 'order'> & {
+  /** The separator discriminant. */
+  type: 'separator';
+} & {
+  [K in Exclude<keyof NavigationEntryItem, 'id' | 'type' | 'order'>]?: never;
+};
+
+/**
+ * Unified Navigation Item
+ *
+ * The single navigation primitive used across ObjectUI and @objectstack/spec.
+ * Replaces the legacy `AppMenuItem` for application navigation trees.
+ *
+ * A union of two arms, discriminated by `type`: a {@link NavigationEntryItem}
+ * (every spec nav type but `'separator'`) and a {@link NavigationSeparatorItem}
+ * (objectui#10867). Narrow on `item.type === 'separator'` before relying on an
+ * entry's `label`.
+ */
+export type NavigationItem = NavigationEntryItem | NavigationSeparatorItem;
+
+/**
  * Navigation Area — a business-domain partition of navigation items.
  *
  * Inspired by Salesforce Lightning App → Area → Tab model and
@@ -346,9 +391,9 @@ export interface NavigationItem {
  *  - `navigation` — objectui's own {@link NavigationItem}, not the spec's.
  *    Spec 17.0.0-rc.1 gave the spec's item a real type, so this is no longer
  *    the `any` erasure objectstack#4171 was filed about — and it is still not
- *    bindable, for the three reasons the module header above records
- *    (`visible: boolean`, `pinned` / `defaultOpen`, a separator carrying a
- *    `label`). Precision is not equivalence: this is case 2c in the guard's
+ *    bindable, for the reasons the module header above records
+ *    (`visible: boolean`, `pinned` / `defaultOpen`; the separator `label` was
+ *    closed by objectui#10867). Precision is not equivalence: this is case 2c in the guard's
  *    header, and the umbrella verdict lives with the element type in
  *    `__tests__/spec-derived-unions.test.ts`, which is where the blockers are
  *    pinned one by one.
@@ -366,8 +411,41 @@ export interface NavigationArea extends Omit<SpecNavigationArea, 'navigation'> {
 
 /**
  * Top-level Application Configuration (app.json)
+ *
+ * ## The spec half is taken BY REFERENCE (objectui#9736)
+ *
+ * Its zod mirror (`zod/app.zod.ts` `AppComponentSchema`) has long been
+ * `BaseSchema.extend(SpecAppFields.shape).extend({…})`: every key
+ * `@objectstack/spec/ui`'s `AppSchema` declares flows into the published
+ * validator by reference. This interface used to restate only the subset the
+ * renderers read, so the published validator admitted keys the published type
+ * did not declare — the package-lock envelope (`_lock*` / `_package*` /
+ * `_provenance`, written by the packaging pipeline, never by an author),
+ * `protection`, `isDefault`, `_unpublished`, `defaultAgent` — and the spec's
+ * retirement tombstones (`version`, `homePageId`, `objects`, `apis`,
+ * `sharing`, `embed`, `mobileNavigation`, `aria`) reached this type only as
+ * `any` through `BaseSchema`'s index signature.
+ *
+ * Now both faces project the SAME spec surface: this interface extends
+ * `Omit< App, … >` over `APP_SPEC_EXCLUDED`, the one `as const` array the
+ * mirror's `specFieldsExcept` call also reads. A key the spec adds on the next
+ * pin bump reaches both faces together; a key it retires with `retiredKey()`
+ * surfaces here as an optional member typed `undefined`, so authoring a value
+ * is a compile error — the verdict the validator gives at parse.
+ *
+ * The members this interface writes itself override the spec's where both
+ * exist (`icon`, `branding`, `active`, `hidden`, `requiredPermissions`), and
+ * each is assignable to the spec's type, so nothing beyond the shared list is
+ * omitted. The three keys the shared list withholds from the spec projection
+ * (`navigation` / `areas` / `contextSelectors`) are declared below with the
+ * same local element types the mirror re-adds; `name` / `label` /
+ * `description` are the component envelope.
+ *
+ * Pinned by `__tests__/twins-spec-by-reference-9736.test.ts`; the key-level
+ * reconciliation is the `MirroredUndeclared` ledger in
+ * `__tests__/zod-mirror-parity.test.ts`, which has no row for this pair.
  */
-export interface AppComponentSchema extends BaseSchema {
+export interface AppComponentSchema extends BaseSchema, Omit<SpecApp, (typeof APP_SPEC_EXCLUDED)[number]> {
   type: 'app';
   
   /**
@@ -426,14 +504,43 @@ export interface AppComponentSchema extends BaseSchema {
   icon?: string;
 
   /**
-   * Logo URL or Icon name
+   * ⛔ RETIRED — REFUSED BY NAME (objectui#10827, ADR-0049). The app logo is
+   * {@link BrandingConfig.logo}: write `branding: { logo: '/logo.svg' }`.
+   *
+   * `@objectstack/spec`'s `AppSchema` never declared a top-level `logo`: its
+   * alias table answers the key with "did you mean `branding`?", and its
+   * `AppBrandingSchema` declares `logo` as a URL. This member was an
+   * objectui-only second spelling, typed "Logo URL or icon name", that only
+   * `AppSchemaRenderer`'s default sidebar header and the standalone runner read.
+   * Both now read `branding.logo` as an image URL, and take an icon NAME from
+   * {@link AppComponentSchema.icon}, the key the rest of the shell already reads.
+   *
+   * A tombstone rather than a deletion: `BaseSchema`'s index signature and the
+   * mirror's `.passthrough()` would otherwise KEEP an authored value in silence.
+   * `?: never` is the twin of `zod/app.zod.ts`'s `aliasKeyRefusal` arm; the pin
+   * is `__tests__/app-logo-one-spelling-10827.test.ts`.
+   *
+   * @deprecated Not a key of this contract. Author `branding.logo`.
    */
-  logo?: string;
+  logo?: never;
 
   /**
-   * Favicon URL
+   * ⛔ RETIRED — REFUSED BY NAME (objectui#10842, the objectui#10827
+   * one-spelling rule). The app favicon is {@link BrandingConfig.favicon}:
+   * write `branding: { favicon: '/favicon.ico' }`.
+   *
+   * `@objectstack/spec`'s `AppSchema` never declared a top-level `favicon`: it
+   * refuses the key (`unrecognized_keys`), and its `AppBrandingSchema` declares
+   * `favicon` as a URL. The console already reads only `branding.favicon`
+   * (`ConsoleLayout` hands it to `AppShell`); `AppSchemaRenderer` now does too.
+   *
+   * A tombstone rather than a deletion, for the reason `logo` above gives. The
+   * twin is `zod/app.zod.ts`'s `aliasKeyRefusal` arm; the pin is
+   * `__tests__/app-declared-keys-10842.test.ts`.
+   *
+   * @deprecated Not a key of this contract. Author `branding.favicon`.
    */
-  favicon?: string;
+  favicon?: never;
 
   /**
    * Branding configuration
@@ -519,9 +626,42 @@ export interface AppComponentSchema extends BaseSchema {
   areas?: NavigationArea[];
 
   /**
-   * Global Actions (User Profile, Settings, etc)
+   * App-level scope dropdowns (sidebar / topbar), whose selected value is
+   * injected into navigation items as a `{<id>}` template var.
+   *
+   * Withheld from the spec projection by `APP_SPEC_EXCLUDED` because the
+   * mirror re-adds it with its own element schema (`AppContextSelectorSchema`,
+   * whose `label` also takes objectui's i18n label envelope), so this member
+   * takes that element BY REFERENCE (objectui#9736) rather than restating it —
+   * the two faces read one declaration.
    */
-  actions?: AppAction[];
+  contextSelectors?: Array<z.input<typeof AppContextSelectorSchema>>;
+
+  /**
+   * ⛔ RETIRED — REFUSED BY NAME (objectui#7469, maintainer ruling C, ADR-0049
+   * enforce-or-remove).
+   *
+   * `actions` was an objectui-only array of free-form header buttons and a user
+   * menu (`AppAction`, retired with it). The platform's `@objectstack/spec`
+   * `AppSchema` is strict and has no `actions` member, so a server-served app —
+   * the console's only source — could never carry one; only the standalone
+   * runner drew it, and its buttons declared no behaviour to run. The ruling
+   * keeps ONE channel for app-level actions: a {@link NavigationItem} of
+   * `type: 'action'` whose `actionDef.actionName` names a declared `action`
+   * (the console sidebar dispatches it), e.g.
+   * `navigation: [{ id: 'quick_create', type: 'action', label: 'Quick Create',
+   * actionDef: { actionName: 'quick_create' } }]`. The signed-in user's menu is
+   * the host's, not app metadata.
+   *
+   * A tombstone rather than a deletion: `BaseSchema`'s index signature and the
+   * mirror's `.passthrough()` would otherwise KEEP an authored array in silence.
+   * `?: never` is the twin of `zod/app.zod.ts`'s `retirementTombstone` arm; the
+   * pin is `__tests__/app-actions-retired-7469.test.ts`.
+   *
+   * @deprecated Not a key of this contract. Author `navigation` items of
+   * `type: 'action'`.
+   */
+  actions?: never;
 
   /**
    * Required permissions (ObjectStack Spec v2.0.1)
@@ -583,29 +723,19 @@ export interface AppMenuItem {
    * REFUSED (objectui#7719, director seat decision batch #70 of 2026-09-07,
    * maintainer verbatim 「同意」, in the objectui#6124 / ADR-0049 shape).
    *
-   * `shortcut` is not authorable on an app action ITEM. The ruling refused BOTH
-   * widening alternatives — growing this deprecated type a `shortcut` member
-   * (zero measured pull, and the type is being retired in favour of
-   * {@link NavigationItem}), and re-typing {@link AppAction.items} to the
-   * overlay `MenuItem`. What it changed is the DIAGNOSTIC: an authored value
-   * used to be stripped in silence by the zod mirror, and is now refused by
-   * name there, with this face's `never` refusing it at the authoring site
-   * before anything runs.
+   * `shortcut` is not authorable on this legacy menu item. The ruling refused
+   * growing this deprecated type a `shortcut` member (zero measured pull, and
+   * the type is being retired in favour of {@link NavigationItem}), and no
+   * renderer reads a shortcut here. What it changed is the DIAGNOSTIC: an
+   * authored value used to be stripped in silence by the zod mirror, and is now
+   * refused by name there, with this face's `never` refusing it at the
+   * authoring site before anything runs.
    *
-   * ⚠️ NOT the same key as {@link AppAction.shortcut}, which is declared,
-   * authorable and deliberately untouched — that one is the header BUTTON's own
-   * shortcut, one level up from these items. This file declares `shortcut` TWICE,
-   * on two different interfaces, and reading one as the other is how the widening
-   * the ruling refused looks like work already done. ⛔ Resolve which declaration
-   * OWNS a hit before acting on it; a `grep` reports positions, and a position is
-   * not an owner. (⚠️ This paragraph deliberately states no ORDER between the two:
-   * an ordering claim is falsified by the next insertion into this file — including
-   * the one that introduced this very docblock, which reversed the order a previous
-   * draft of this sentence asserted.)
-   *
-   * ⛔ No read was re-added in the standalone runner's `LayoutRenderer`; the
-   * objectui#6854 pin stands. Both halves of this refusal are pinned in
-   * `__tests__/app-menu-item-shortcut-refusal-7719.test.ts`.
+   * The ruling was taken on the app action ITEMS (`AppAction.items`), the other
+   * place this type was authored; objectui#7469 retired `AppAction` and its
+   * `actions` array, so {@link AppComponentSchema.menu} is where an author meets
+   * this refusal now. ⛔ The refusal itself is unchanged by that retirement.
+   * Pinned in `__tests__/app-menu-item-shortcut-refusal-7719.test.ts`.
    *
    * @deprecated Not part of this contract — author the menu as a
    * {@link NavigationItem} and put the shortcut capability there.
@@ -623,7 +753,8 @@ export interface AppMenuItem {
  * Mapping rules:
  * - `type: 'item'` → inferred from `href` (url) or `path` (page)
  * - `type: 'group'` → `type: 'group'`
- * - `type: 'separator'` → `type: 'separator'`
+ * - `type: 'separator'` → `type: 'separator'` (its `label` is dropped: the spec
+ *   separator declares none, objectui#10867)
  * - `hidden` → `visible` (inverted)
  * - `path` → `pageName` (last segment) or kept as-is for url
  * - `href` → `url` with `target: '_blank'`
@@ -635,11 +766,9 @@ export function menuItemToNavigationItem(
   const id = `migrated_${index}`;
 
   if (item.type === 'separator') {
-    return {
-      id,
-      type: 'separator',
-      label: item.label || '',
-    };
+    // The spec's separator declares no `label` (objectui#10867); a legacy
+    // separator's label has no place to go.
+    return { id, type: 'separator' };
   }
 
   if (item.type === 'group') {
@@ -769,8 +898,9 @@ export interface AppWizardDraft {
   /** Template to start from */
   template?: string;
 
-  /** Layout strategy */
-  layout: 'sidebar' | 'header' | 'empty';
+  // No `layout` (objectui#10867): `@objectstack/spec`'s `AppSchema` declares no
+  // app layout, no console surface reads one and nothing stores one, so the
+  // wizard's Layout control persisted nothing and was removed with this member.
 
   /** Selected business objects */
   objects: ObjectSelection[];
@@ -797,76 +927,32 @@ export function isValidAppName(name: string): boolean {
 }
 
 /**
- * Convert an AppWizardDraft to an AppSchema.
+ * Convert an AppWizardDraft to the app document the Studio saves.
+ *
+ * The output is a metadata DOCUMENT for `client.meta.saveItem('app', …)`, and
+ * the door judges it with `@objectstack/spec`'s strict `AppSchema`. So it
+ * carries only keys that schema declares (objectui#10842):
+ *   - the draft's title is `label`, the spec's one spelling; the spec answers a
+ *     `title` with "did you mean `title` → `label`?";
+ *   - the logo and favicon travel in `branding` only (objectui#10827);
+ *   - no `type`: that is the renderer-node discriminator of
+ *     {@link AppComponentSchema}, not a key of the stored app;
+ *   - no `layout`: the spec declares no app layout, and the draft carries
+ *     none either (objectui#10867 removed the wizard's Layout control);
+ *   - a separator in `navigation` carries only `type`, `id` and `order`, the
+ *     spec separator's keys ({@link NavigationSeparatorItem}, objectui#10867).
+ * The pin is `__tests__/app-declared-keys-10842.test.ts`, which parses this
+ * output with the spec's own `AppSchema`.
  */
-export function wizardDraftToAppSchema(draft: AppWizardDraft): AppComponentSchema {
+export function wizardDraftToAppSchema(
+  draft: AppWizardDraft,
+): Omit<SpecApp, 'navigation'> & { navigation: NavigationItem[] } {
   return {
-    type: 'app',
     name: draft.name,
-    title: draft.title,
     label: draft.title,
     description: draft.description,
     icon: draft.icon,
-    logo: draft.branding.logo,
-    favicon: draft.branding.favicon,
     branding: draft.branding,
-    layout: draft.layout,
     navigation: draft.navigation,
   };
-}
-
-// ============================================================================
-// Application Actions
-// ============================================================================
-
-/**
- * Application Header/Toolbar Action
- */
-export interface AppAction {
-  type: 'button' | 'dropdown' | 'user';
-  label?: string;
-  icon?: string;
-  /**
-   * RETIRED (objectui#7344; the objectui#6182 ruling of 2026-08-25 — the
-   * handler-expression string dialect is not a supported authoring form — in
-   * the objectui#6124 shape). No renderer reads THIS KEY, so no value here
-   * could ever run. The zod twin refuses the key by name; author behaviour as a
-   * node type (an `action:button` node with a declared action) instead.
-   *
-   * Re-measured at objectui#6854, which corrects the narrower claim this
-   * comment used to make. `AppComponentSchema.actions[]` IS read — the standalone
-   * runner's `LayoutRenderer` (`@object-ui/runner`) renders both the `'button'`
-   * and the `'user'` arm — so "nothing reads `actions[]`" was never the reason
-   * this key is inert. The reason is that no reader touches `onClick`: not on
-   * the action, and no longer on {@link AppAction.items}, where that renderer
-   * reached one through an `as any` cast until the maintainer ruling of
-   * 2026-09-05 (option B2) deleted it. Guarded from the renderer side by
-   * `packages/runner/src/__tests__/LayoutRenderer.appActionItems-6854.test.tsx`.
-   * @deprecated Not part of this contract — the value was inert.
-   */
-  onClick?: never;
-  /**
-   * User Avatar URL (for type='user')
-   */
-  avatar?: string;
-  /**
-   * Additional description (e.g. email for user)
-   */
-  description?: string;
-  /**
-   * Dropdown Menu Items (for type='dropdown' or 'user')
-   */
-  items?: AppMenuItem[];
-  /**
-   * Keyboard shortcut
-   */
-  shortcut?: string;
-  /**
-   * Button variant
-   */
-  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
-  /**
-   * Button size
-   */
-  size?: 'default' | 'sm' | 'lg' | 'icon';
 }

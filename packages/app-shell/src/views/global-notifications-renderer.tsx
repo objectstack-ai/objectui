@@ -8,7 +8,7 @@
 
 /**
  * `global:notifications` — the notification bell, addressable from a page
- * schema (objectui#6757).
+ * schema (`f99932a42`).
  *
  * ## Why this exists
  *

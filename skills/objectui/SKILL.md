@@ -103,7 +103,7 @@ is `.passthrough()`, so one authored there is kept and run by nothing (objectui#
 
 Layouts are components that render children. Responsive column counts go on the
 node as `columns` — a number, or a breakpoint object ([`rules/protocol.md`](./rules/protocol.md)
-has the keys the renderer reads and the one it drops).
+has the six keys the renderer reads and the release that still drops `2xl`).
 
 ### 6. Type safety over magic
 

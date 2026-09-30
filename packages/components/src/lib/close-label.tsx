@@ -34,8 +34,7 @@
  * The no-provider path must stay English. A large number of existing unit
  * tests and e2e specs address dialogs and drawers by their English accessible
  * name with no `I18nProvider` mounted (e.g.
- * `packages/plugin-form/src/discardGuard.test.tsx`,
- * `packages/plugin-detail/src/__tests__/InlineCreateRelated.closeButtonName.test.tsx`),
+ * `packages/plugin-form/src/discardGuard.test.tsx`),
  * and a primitive that rendered a raw `common.close` key there would break all
  * of them. `createSafeTranslation` probes its test key and falls back to the
  * defaults map below when translations are not configured, so "no provider"

@@ -63,13 +63,29 @@ describe('useColumnSummary tenant-default currency', () => {
     expect(label).toMatch(/1,234/);
   });
 
-  it('honours a currency column scale for fraction digits', () => {
-    const cols: any[] = [{ field: 'amount', summary: 'sum', type: 'currency', currency: 'USD', precision: 12, scale: 2 }];
-    const { result } = renderHook(() => useColumnSummary(cols, [{ amount: 1000 }, { amount: 234 }]), {
+  // Rewritten for objectui#10221. This case used to be "honours a currency
+  // column scale for fraction digits" and asserted that `scale: 2` rendered a
+  // whole total as `1,234.00`. `scale` is retired from the currency type
+  // (ruling B on objectstack-ai/objectstack#19629) and a currency's decimal
+  // places are the currency's (ruling 乙 on objectstack-ai/objectstack#19910),
+  // so the claim moves from "the declared scale" to "the currency's own minor
+  // unit, the way the cell renders it" — the same claim about WHERE the width
+  // comes from, answered by the ruled member. The full agreement table is
+  // `__tests__/useColumnSummary.currencyMinorUnit-10221.test.tsx`.
+  it('takes a currency column\'s fraction digits from the currency, not from scale', () => {
+    // A stale `scale: 0` is ignored: USD keeps its cents on a fractional total …
+    const cols: any[] = [{ field: 'amount', summary: 'sum', type: 'currency', currency: 'USD', precision: 12, scale: 0 }];
+    const fractional = renderHook(() => useColumnSummary(cols, [{ amount: 1000 }, { amount: 234.5 }]), {
       wrapper: wrapper('USD'),
     });
-    const label = result.current.summaries.get('amount')?.label ?? '';
-    expect(label).toMatch(/1,234\.00/);
+    expect(fractional.result.current.summaries.get('amount')?.label).toMatch(/1,234\.50/);
+    // … and a whole total drops the fraction, as the cell above it does.
+    const whole = renderHook(() => useColumnSummary(cols, [{ amount: 1000 }, { amount: 234 }]), {
+      wrapper: wrapper('USD'),
+    });
+    const label = whole.result.current.summaries.get('amount')?.label ?? '';
+    expect(label).toMatch(/1,234/);
+    expect(label).not.toMatch(/1,234\./);
   });
 });
 

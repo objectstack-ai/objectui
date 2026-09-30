@@ -4,7 +4,7 @@
 
 Removed the dead `theme:` entry from `clientValidation.ts`'s `LOADERS` table, which
 read `ThemeSchema` off `@objectstack/spec/ui` — a symbol the spec retired upstream
-(objectstack#10485 / PR objectstack#10695, which deleted the whole `ui/theme.zod.ts`
+(objectstack `35ad101bc`, which deleted the whole `ui/theme.zod.ts`
 module). `theme` was never a registered metadata type, so metadata-admin never asked
 for it (objectui#5715).
 

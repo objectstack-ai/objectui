@@ -25,7 +25,7 @@ could reach a renderer. objectui#4919 removed its last member
 (`mobileOverrides`), which is what left the container itself inert.
 
 Removed outright rather than kept as a `?: never` tombstone, on this package's
-own retire-vs-remove discriminator, in the form objectui#7678 amended it to.
+own retire-vs-remove discriminator, in its amended form (`5f8190c8c`).
 That rule is cited here and not restated: it is stated once, and a second copy
 carried in a release note could only drift out of agreement with it. Measured
 against it the route is removal — the whole interface goes, so there is no

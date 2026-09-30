@@ -17,10 +17,12 @@
 
 import type {
   DashboardWidget as SpecDashboardWidget,
-  DateRangeDefaultRange as SpecDateRangeDefaultRange,
   GlobalFilter as SpecGlobalFilter,
+  Dashboard as SpecDashboard,
+  ViewFilterOperator as SpecViewFilterOperator,
 } from '@objectstack/spec/ui';
 import type { BaseSchema, SchemaNode } from './base.js';
+import type { DASHBOARD_SPEC_EXCLUDED } from './zod/complex.zod.js';
 // `GroupingConfig`, `KanbanConditionalFormattingRule` and `ViewNavigationConfig`
 // were imported for `KanbanSchema`'s `grouping`, `conditionalFormatting` and
 // `navigation` members and had no other reader in this module; they left with
@@ -55,7 +57,8 @@ import type { BaseSchema, SchemaNode } from './base.js';
  * Every member below was carried from the plugin's declaration verbatim. The
  * runtime-computed members (`cardSubtitle`, `cardFieldCells`, `coverImage`,
  * a badge's `colorStyle`) are what `ObjectKanban` writes onto the cards it
- * hands the board and what `KanbanImpl` / `KanbanEnhanced` read back; the Zod
+ * hands the board and what `KanbanImpl` reads back (the one board since
+ * objectui#8932 deleted `KanbanEnhanced`); the Zod
  * mirror (`zod/complex.zod.ts`) passes those through the way it passes
  * `TableColumn.headerIcon` through (objectui#6424).
  *
@@ -126,12 +129,13 @@ export interface KanbanColumn {
   /**
    * Cards in this column.
    *
-   * Named `cards` because that is what every board reads and every authored
-   * document writes: `KanbanImpl` (12 lines), `KanbanEnhanced` (8) and
-   * `bucketCardsIntoColumns` all read `column.cards`, and the two catalog
+   * Named `cards` because that is what the board reads and every authored
+   * document writes: `KanbanImpl` and `bucketCardsIntoColumns` read
+   * `column.cards` (measured at `240b80f31`: 12 lines in `KanbanImpl`, and 8
+   * in `KanbanEnhanced` until objectui#8932 deleted it), and the two catalog
    * entries, the plugin docs and `content/docs/api/schema-reference.md` all
    * author it. The retired declarative face spelled this `items` until
-   * objectui#6939 — a spelling with zero read sites, which made every authored
+   * `240b80f31` — a spelling with zero read sites, which made every authored
    * board fail `safeValidateSchema` while rendering correctly (objectui#6318's
    * bucket).
    */
@@ -170,7 +174,7 @@ export interface KanbanColumn {
    *
    * A tombstone rather than a plain removal on BOTH prongs of the
    * discriminator the precedent changesets state (objectui#5941, #7526), in
-   * the form objectui#7678 amended it to: a `?: never` tombstone is available
+   * its amended form (`5f8190c8c`): a `?: never` tombstone is available
    * only on a SURVIVING CARRIER — `KanbanColumn` survives this retirement,
    * while a whole exported type name has no carrier and is removed outright —
    * and on such a carrier it is used when either prong holds: (1) it steers
@@ -243,9 +247,12 @@ export interface KanbanColumn {
  * renders through the surviving spelling and this retirement moves zero stored
  * documents.
  *
- * {@link KanbanCard}, {@link KanbanColumn}, {@link CardTemplate} and
- * {@link ColumnWidthConfig} are NOT retired — the renderer, the `CardTemplates`
- * component and the `useColumnWidths` hook still consume them.
+ * {@link KanbanCard}, {@link KanbanColumn} and {@link CardTemplate} are NOT
+ * retired — the renderer and the `CardTemplates` component still consume
+ * them. `ColumnWidthConfig`, which this arm also carried, lost its one
+ * `plugin-kanban` reader to objectui#8522 and was then deleted, with its Zod
+ * mirror, by objectui#10582 (pinned in
+ * `./__tests__/column-width-config-retired-10582.test.ts`).
  *
  * Pinned in `./__tests__/bare-kanban-node-key-retired-8802.test.ts`.
  */
@@ -265,23 +272,9 @@ export interface CardTemplate {
 }
 
 /**
- * Configuration for custom column widths.
- */
-export interface ColumnWidthConfig {
-  /** Default column width in pixels */
-  defaultWidth?: number;
-  /** Minimum column width in pixels */
-  minWidth?: number;
-  /** Maximum column width in pixels */
-  maxWidth?: number;
-  /** Per-column width overrides keyed by column ID */
-  overrides?: Record<string, number>;
-}
-
-/**
  * Calendar view mode — the registered `calendar-view` renderer's rendered set.
  *
- * `'agenda'` was retired from this union (objectui#5740): no view ever
+ * `'agenda'` was retired from this union (`b55a34647`): no view ever
  * rendered it — the renderer resolved it to the `'month'` default — and no
  * measured app authors it (ADR-0049 enforce-or-remove, the value-level
  * residue of objectui#5667's key-level convergence).
@@ -383,7 +376,7 @@ export interface CalendarViewSchema extends BaseSchema {
    * Calendar view mode.
    *
    * {@link CalendarViewMode} equals the renderer's rendered set since
-   * objectui#5740 retired `'agenda'`; at runtime the renderer still resolves
+   * `b55a34647` retired `'agenda'`; at runtime the renderer still resolves
    * any off-union value in raw metadata to the `'month'` default.
    * @default 'month'
    */
@@ -440,12 +433,15 @@ export interface CalendarViewSchema extends BaseSchema {
    * `titleField` (in
    * `packages/plugin-calendar/src/calendar-view-renderer.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `calendar-view` reads — nothing renders it.
    */
@@ -465,12 +461,15 @@ export interface CalendarViewSchema extends BaseSchema {
    * `titleField` (in
    * `packages/plugin-calendar/src/calendar-view-renderer.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `calendar-view` reads — nothing renders it.
    */
@@ -478,26 +477,32 @@ export interface CalendarViewSchema extends BaseSchema {
 }
 
 /**
- * Filter operator
+ * Filter operator — the spec's canonical view-filter vocabulary, taken BY
+ * REFERENCE (`ViewFilterOperator`, the element type of `VIEW_FILTER_OPERATORS`
+ * in `@objectstack/spec/ui`), so this declaration and its zod mirror
+ * (`FilterOperatorSchema`, which is the spec rule's own operator member) state
+ * one set (objectui#9559, ruling B).
+ *
+ * It used to be a 14-member local union that disagreed with BOTH the protocol
+ * and the mirror: it carried `is_empty` / `is_not_empty` where the mirror
+ * carried `is_null` / `is_not_null`, and neither face had `icontains`,
+ * `before`, `after` or `between`.
+ *
+ * Canonical spellings only, deliberately narrower than what the mirror PARSES:
+ * the mirror also accepts the spec's legacy aliases (`lessThan`, `gt`, …) and
+ * normalises them to these members on parse, because stored metadata carries
+ * them — but the spec marks that table a deprecated migration bridge that new
+ * producers must not emit, and a type is what a new producer writes against.
  */
-export type FilterBuilderOperator =
-  | 'equals'
-  | 'not_equals'
-  | 'contains'
-  | 'not_contains'
-  | 'starts_with'
-  | 'ends_with'
-  | 'greater_than'
-  | 'less_than'
-  | 'greater_than_or_equal'
-  | 'less_than_or_equal'
-  | 'is_empty'
-  | 'is_not_empty'
-  | 'in'
-  | 'not_in';
+export type FilterBuilderOperator = SpecViewFilterOperator;
 
 /**
- * Filter condition
+ * Filter condition — one flat row of a {@link FilterGroup}.
+ *
+ * The single name authority for the builder's row (objectui#9306):
+ * `@object-ui/components` derives its own `FilterBuilderCondition` from this
+ * declaration, restating only its two named extensions — `operator` (these
+ * ids plus the opt-in `exists` / `notExists`) and a narrower `value`.
  */
 export interface FilterBuilderCondition {
   /**
@@ -508,8 +513,9 @@ export interface FilterBuilderCondition {
    * that reason; a CONDITION's `id` is the identity every affordance on the row
    * matches on — `removeCondition`, `updateCondition`, `changeOperator` and
    * `changeField` in `packages/components/src/custom/filter-builder.tsx`, plus
-   * the React `key`. The component's own `FilterBuilderCondition` declares it
-   * `string`, and `addCondition` emits `crypto.randomUUID()`.
+   * the React `key`. The component's `FilterBuilderCondition` takes this member
+   * from this declaration rather than restating it (objectui#9306), and
+   * `addCondition` emits `crypto.randomUUID()`.
    *
    * Undeclared, it was STRIPPED by the `z.object` mirror in silence, so a
    * correctly authored row validated and rendered with no individual identity:
@@ -535,16 +541,20 @@ export interface FilterBuilderCondition {
 }
 
 /**
- * Filter group — the shape `FilterBuilder` reads (objectui#6939, the
+ * Filter group — the shape `FilterBuilder` reads (`d4493fdbc`, the
  * `filter-builder` group; maintainer ruling 2026-09-02, director seat summon
  * #8, verbatim 「同意」).
  *
- * The gate is `isValidGroup`,
- * `packages/components/src/custom/filter-builder.tsx:1060`:
+ * The gate is `isValidGroup` in `packages/components/src/custom/filter-builder.tsx`:
  * `Array.isArray(v.conditions) && (v.logic === "and" || v.logic === "or")`.
  * `logic` is the read key; the former `operator` on this face had zero read
  * sites, and a group spelled that way fails the gate, falls back to
  * `EMPTY_GROUP` and renders an EMPTY board.
+ *
+ * ONE level, never nested (objectui#9306, maintainer ruling 「A 撤掉嵌套声明」).
+ * This declaration is the single name authority for the builder's group:
+ * `@object-ui/components` derives its own `FilterGroup` from it rather than
+ * declaring a second one.
  */
 export interface FilterGroup {
   /**
@@ -552,8 +562,8 @@ export interface FilterGroup {
    *
    * OPTIONAL on purpose. `isValidGroup` never consults it and nothing reads
    * `filterGroup.id`; measured, deleting it from an authored group renders
-   * byte-identically. It is declared because the component's own `FilterGroup`
-   * carries it, `EMPTY_GROUP` emits it and it round-trips out through
+   * byte-identically. It is declared because the component's `FilterGroup`
+   * (derived from this one) carries it, `EMPTY_GROUP` emits it and it round-trips out through
    * `onChange` — so a document that carries it should be TYPE-CHECKED on it
    * rather than admitted unvalidated.
    */
@@ -564,9 +574,19 @@ export interface FilterGroup {
    */
   logic: 'and' | 'or';
   /**
-   * Filter conditions or nested groups
+   * The condition rows, FLAT: every entry is one field / operator / value row.
+   *
+   * A nested sub-group is RETIRED (objectui#9306, ADR-0049 enforce-or-remove).
+   * This used to be `(FilterBuilderCondition | FilterGroup)[]`, but nothing
+   * honoured the nesting. `FilterBuilder` draws each entry as one flat row and
+   * has no control that creates a group; given a sub-group it drew a row with
+   * blank field and operator triggers and showed the sub-group's own conditions
+   * nowhere. The consumers that turn a group into a query or a stored filter
+   * read the entries as rows too (a one-time reading on objectui#9306, not
+   * re-derived here). The zod mirror (`FilterGroupSchema`) refuses a sub-group
+   * by name, so the loss is a validation error instead of a blank row.
    */
-  conditions: (FilterBuilderCondition | FilterGroup)[];
+  conditions: FilterBuilderCondition[];
 }
 
 /**
@@ -579,11 +599,26 @@ export interface FilterBuilderSchema extends BaseSchema {
    */
   fields: FilterField[];
   /**
-   * Default filter configuration
+   * REFUSED BY NAME (objectui#10825, ADR-0049) — never read.
+   *
+   * It was declared `defaultValue?: FilterGroup`, and nothing reads it: the
+   * `filter-builder` renderer hands `FilterBuilder` `schema.value || props.value`,
+   * and `FilterBuilder` has no `defaultValue` prop. Measured through the real
+   * `SchemaRenderer`, a group authored here drew the same empty builder as a
+   * node with no filter key at all. Author the group as {@link value} instead.
+   *
+   * @deprecated Not read by `filter-builder` — author the group as `value`.
    */
-  defaultValue?: FilterGroup;
+  defaultValue?: never;
   /**
-   * Controlled filter value
+   * Controlled filter value — a {@link FilterGroup}, the only shape
+   * `FilterBuilder` reads (its `isValidGroup` gate needs `logic` and
+   * `conditions`).
+   *
+   * The zod mirror follows this declaration (objectui#10825): a bare condition
+   * is refused by name, with the prescription to wrap it in
+   * `{ logic, conditions: [ … ] }`. It used to be accepted there, and the
+   * builder then drew it as an empty group.
    */
   value?: FilterGroup;
   /**
@@ -597,19 +632,33 @@ export interface FilterBuilderSchema extends BaseSchema {
    */
   onChange?: (filter: FilterGroup) => void;
   /**
-   * Allow nested groups
-   * @default true
+   * REFUSED BY NAME (objectui#9306, ADR-0049) — `filter-builder` has no nested
+   * groups, so there is nothing for this switch to allow.
+   *
+   * It was declared `allowGroups?: boolean` with a documented default of
+   * `true`, and no renderer read it: `FilterBuilder` takes `fields`, `value`,
+   * `onChange`, `className`, `showClearAll` and `extraOperators`, and draws
+   * every entry of `conditions` as one flat row. Nesting itself is retired on
+   * {@link FilterGroup.conditions}. Remove the key.
+   *
+   * @deprecated Not read by `filter-builder` — nested groups are retired.
    */
-  allowGroups?: boolean;
+  allowGroups?: never;
   /**
-   * Maximum nesting depth
-   * @default 3
+   * REFUSED BY NAME (objectui#9306, ADR-0049) — `filter-builder` has no nested
+   * groups, so there is no depth to limit.
+   *
+   * It was declared `maxDepth?: number` with a documented default of `3`, and
+   * no renderer read it (the same reading as `allowGroups` above). Remove the
+   * key.
+   *
+   * @deprecated Not read by `filter-builder` — nested groups are retired.
    */
-  maxDepth?: number;
+  maxDepth?: never;
   /**
    * Tailwind classes on the outermost wrapper `div`.
    *
-   * READ SITE: `packages/components/src/renderers/complex/filter-builder.tsx:37`
+   * READ SITE: `packages/components/src/renderers/complex/filter-builder.tsx`
    * — `className={schema.wrapperClass || ''}`.
    *
    * Distinct from {@link BaseSchema.className}, which this renderer applies
@@ -630,12 +679,15 @@ export interface FilterBuilderSchema extends BaseSchema {
    * `fields`, `label`, `name`, `value`, `wrapperClass` (in
    * `packages/components/src/renderers/complex/filter-builder.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `filter-builder` reads — nothing renders it.
    */
@@ -654,12 +706,15 @@ export interface FilterBuilderSchema extends BaseSchema {
    * `fields`, `label`, `name`, `value`, `wrapperClass` (in
    * `packages/components/src/renderers/complex/filter-builder.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `filter-builder` reads — nothing renders it.
    */
@@ -668,7 +723,7 @@ export interface FilterBuilderSchema extends BaseSchema {
 
 /**
  * Filter field definition — one entry of `FilterBuilderSchema.fields`
- * (objectui#6939, same ruling).
+ * (`d4493fdbc`, same ruling).
  *
  * Renamed from `name` to `value`: every read site matches on `value`
  * (`fields.find((f) => f.value === …)` in `getOperatorsForField`,
@@ -691,8 +746,8 @@ export interface FilterField {
   /**
    * Field type — the value FAMILY the column is edited in. OPTIONAL: absent
    * means `text`, which is what `valueFamilyForFieldType` and
-   * `operatorsForFieldType` both read (`fieldType || "text"`,
-   * `custom/filter-builder.tsx:408` and `:964`).
+   * `operatorsForFieldType` both read (`fieldType || "text"` and
+   * `const type = fieldType || "text"` in `custom/filter-builder.tsx`).
    *
    * The fourteen members are the published doc's
    * (`content/docs/components/complex/filter-builder.mdx`), which objectui#7562
@@ -704,7 +759,7 @@ export interface FilterField {
    *
    * `string` is still absent and is the contrast that makes the rest read: it
    * is named nowhere in the renderer and reaches the text control only by the
-   * unrecognised-word fallthrough, so it is a phantom (objectui#6939). `text`
+   * unrecognised-word fallthrough, so it is a phantom (`d4493fdbc`). `text`
    * shares that fallthrough but IS named — line 408 is where an absent `type`
    * acquires it — which is why one is declared and the other is not.
    */
@@ -715,9 +770,25 @@ export interface FilterField {
     | 'select' | 'status'
     | 'lookup' | 'master_detail' | 'user';
   /**
-   * Available operators for this field
+   * Available operators for this field.
+   *
+   * The spec's canonical filter vocabulary, taken BY REFERENCE
+   * (`ViewFilterOperator`, the element type of `VIEW_FILTER_OPERATORS` in
+   * `@objectstack/spec/ui`), so the declaration and its zod mirror state one
+   * set and cannot drift apart again (objectui#10286, applying the
+   * objectui#7759 ruling: where the spec declares a vocabulary, both faces
+   * align to it — and for filter operators the spec's canonical words win).
+   * Until then this key restated `FilterBuilderOperator` below, which declares
+   * `is_empty` / `is_not_empty` where the mirror declared `is_null` /
+   * `is_not_null`, so each face refused a spelling the other accepted.
+   *
+   * ⚠️ Nothing renders this key today: the builder draws a field's operator
+   * dropdown from its `type` alone (`operatorsForFieldType` in
+   * `packages/components/src/custom/filter-builder.tsx`). The vocabulary is
+   * settled here; whether the key should be honoured or retired is a separate
+   * question this declaration does not answer.
    */
-  operators?: FilterBuilderOperator[];
+  operators?: SpecViewFilterOperator[];
   /**
    * Options (for select type)
    */
@@ -830,12 +901,15 @@ export interface CarouselSchema extends BaseSchema {
    * `itemClassName`, `items`, `opts`, `orientation`, `showArrows` (in
    * `packages/components/src/renderers/complex/carousel.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `carousel` reads — nothing renders it.
    */
@@ -854,12 +928,15 @@ export interface CarouselSchema extends BaseSchema {
    * `itemClassName`, `items`, `opts`, `orientation`, `showArrows` (in
    * `packages/components/src/renderers/complex/carousel.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `carousel` reads — nothing renders it.
    */
@@ -980,7 +1057,17 @@ export interface ChatToolInvocation {
    * Tool invocation state. The legacy `partial-call`/`call`/`result` values
    * are kept for back-compat; the AI SDK v6 lifecycle states map cleanly to
    * `input-streaming`/`input-available`/`output-available`/`output-error`
-   * and friends and are now accepted directly.
+   * and are accepted directly.
+   *
+   * ⛔ The SDK's three APPROVAL states — `approval-requested`,
+   * `approval-responded` and `output-denied` — are NOT authorable
+   * (objectui#10018, the residual clause of the objectui#8426 ruling). A chat
+   * runtime produces them: from the SDK's approval envelope, or promoted from
+   * an ObjectStack pending-action tool result. An authored claim of one — with
+   * or without an `approval` envelope — is refused here and by the Zod mirror,
+   * so a schema cannot declare an approval the runtime has nothing to back.
+   * They still reach a host on the way OUT, which is why `ChatbotSchema.onSend`
+   * does not hand back this authoring shape — see {@link ChatMessageHandedBack}.
    */
   state?:
     | 'partial-call'
@@ -988,11 +1075,8 @@ export interface ChatToolInvocation {
     | 'result'
     | 'input-streaming'
     | 'input-available'
-    | 'approval-requested'
-    | 'approval-responded'
     | 'output-available'
-    | 'output-error'
-    | 'output-denied';
+    | 'output-error';
   /**
    * AI SDK v6 approval envelope — the data a human decision on this tool call
    * is carried by, and the piece that makes the three approval states
@@ -1004,10 +1088,12 @@ export interface ChatToolInvocation {
    * part. Carrying it here is what lets a mapper hand a rehydrated pending
    * approval to a chat surface without the surface re-parsing the tool result.
    *
-   * Optional because the other seven states never carry one. Pairing the
-   * envelope with the states that require it is objectui#8426's narrowing of
-   * the `state` union above, deliberately NOT done here — this member is
-   * purely additive, so nothing an author writes today stops parsing.
+   * Optional because none of the states an author may declare REQUIRES one:
+   * the three that do are runtime-only and are shed from the `state` union
+   * above (objectui#10018), so an authored invocation cannot claim one of them
+   * with or without this envelope. Of the authorable states, the SDK's union
+   * admits an already-decided envelope (`approved: true`) on `output-available`
+   * and `output-error` only; its two input states admit none.
    */
   approval?: {
     /** Approval request id — the key a decision is replied on. */
@@ -1024,11 +1110,49 @@ export interface ChatToolInvocation {
 }
 
 /**
+ * The AI SDK's three approval lifecycle states — RUNTIME-ONLY (objectui#10018).
+ *
+ * Shed from {@link ChatToolInvocation}'s authoring `state` union: a chat
+ * runtime produces them (from the SDK's approval envelope, or promoted from an
+ * ObjectStack pending-action tool result) and an author never does. They are
+ * named here for ONE reader — {@link ChatMessageHandedBack}, the shape a chat
+ * runtime hands BACK to a host — and are ⛔ deliberately NOT exported: the
+ * authoring package gives an author no name to reach for.
+ *
+ * `@object-ui/plugin-chatbot` spells the same three states on its runtime
+ * `ChatToolInvocation`. Its `chat-message-contract.test.ts` derives this alias
+ * through `ChatbotSchema['onSend']` and pins the two spellings EQUAL, so
+ * neither can move alone.
+ */
+type ChatToolRuntimeOnlyState = 'approval-requested' | 'approval-responded' | 'output-denied';
+
+/**
+ * One chat message as a chat runtime hands it BACK to a host — the element
+ * type of `ChatbotSchema.onSend`'s `messages`.
+ *
+ * The authoring {@link ChatMessage} widened by exactly one thing: its tool
+ * invocations may also be in a {@link ChatToolRuntimeOnlyState}. A runtime
+ * hands back the thread it holds, and in API mode that thread holds approval
+ * states the authoring face refuses (objectui#10018) — so typing the callback's
+ * `messages` as the authoring `ChatMessage[]` would understate the values a
+ * host receives. ⛔ Not exported, for the same reason as the states above;
+ * a host that needs to spell it reads it off the slot:
+ * `Parameters<NonNullable<ChatbotSchema['onSend']>>[1]`.
+ */
+type ChatMessageHandedBack = Omit<ChatMessage, 'toolInvocations'> & {
+  toolInvocations?: Array<
+    Omit<ChatToolInvocation, 'state'> & {
+      state?: ChatToolInvocation['state'] | ChatToolRuntimeOnlyState;
+    }
+  >;
+};
+
+/**
  * Chatbot component — the authoring face of the
  * `ComponentRegistry.register('chatbot', ...)` registration in
  * `packages/plugin-chatbot/src/renderer.tsx` (objectui#7655).
  *
- * ## Six ADR-0049 retirement tombstones (objectui#7703)
+ * ## Six ADR-0049 retirement tombstones (`a4611b3e2`)
  *
  * `loading`, `showAvatars`, `userAvatar`, `assistantAvatar`, `markdown` and
  * `height` are `?: never` below, each paired with a `retirementTombstone()`
@@ -1049,7 +1173,7 @@ export interface ChatToolInvocation {
  * `chatbot-floating` registration used to end its `<FloatingChatbot>` element
  * with a raw `{...props}` spread, which handed the panel's `<ChatbotEnhanced>`
  * every authored key unfiltered — and that component HAS a `showAvatars` prop,
- * so the key was live there by accident. objectui#7708 ruled FENCE: the spread
+ * so the key was live there by accident. The card behind `d3499b315` ruled FENCE: the spread
  * is filtered through `toDomProps` and moved to the head of the element, the
  * shape the two sibling registrations already used. ⇒ `showAvatars` is a key
  * the FENCE turned dark, not a key nothing ever read; the other five were live
@@ -1070,7 +1194,7 @@ export interface ChatToolInvocation {
  * UNDECLARED key is not refused, it is KEPT. That is the hazard the two-prong
  * discriminator leaves to the carrier — where there is no mirror there is "no
  * silent-strip hazard for prong 2 to guard" (`mobile.ts`, objectui#5941 /
- * #7526 / #7678: a `?: never` tombstone is available only on a SURVIVING
+ * #7526 / `5f8190c8c`: a `?: never` tombstone is available only on a SURVIVING
  * CARRIER — `ChatbotSchema` survives, while a whole exported type name has no
  * carrier and is removed outright — and on such a carrier it is used when
  * either prong holds: it steers authors to a named live replacement KEY, or it
@@ -1107,7 +1231,7 @@ export interface ChatbotSchema extends BaseSchema {
    */
   placeholder?: string;
   /**
-   * ADR-0049 RETIREMENT TOMBSTONE — `loading` (objectui#7703). See
+   * ADR-0049 RETIREMENT TOMBSTONE — `loading` (`a4611b3e2`). See
    * {@link ChatbotSchema} for the census, the instrument and the route.
    *
    * Chat progress is RUNTIME state, not authorable metadata. The `chatbot`
@@ -1137,14 +1261,14 @@ export interface ChatbotSchema extends BaseSchema {
    */
   onSendMessage?: never;
   /**
-   * ADR-0049 RETIREMENT TOMBSTONE — `showAvatars` (objectui#7703). See
+   * ADR-0049 RETIREMENT TOMBSTONE — `showAvatars` (`a4611b3e2`). See
    * {@link ChatbotSchema} for the census, the instrument and the route.
    *
    * ⭐ The one key of the six whose provenance is a FENCE, not an absence.
    * `<ChatbotEnhanced>` really does have a `showAvatars` prop, and until
-   * objectui#7708 the `chatbot-floating` registration's raw trailing
+   * `d3499b315` the `chatbot-floating` registration's raw trailing
    * `{...props}` spread delivered an authored value straight to it — measured
-   * live through the real host. That ruling was FENCE: the spread now goes
+   * live through the real host. The ruling behind it was FENCE: the spread now goes
    * through `toDomProps` at the head of the element, so the key is dark on all
    * three registrations by ruling. It was never live on a `chatbot` node: no
    * registration forwards it by name, and this one renders `<Chatbot>`, which
@@ -1152,7 +1276,7 @@ export interface ChatbotSchema extends BaseSchema {
    *
    * ENFORCE was refused: on a `chatbot` node it has no target to forward to,
    * and re-declaring it on the two faces that CAN reach `<ChatbotEnhanced>`
-   * would re-open by declaration exactly the channel objectui#7708 closed by
+   * would re-open by declaration exactly the channel `d3499b315` closed by
    * fence, one card earlier. `@default true` was published prose only — the
    * plain `<Chatbot>` renders an avatar beside every message unconditionally,
    * with no gate, and `<ChatbotEnhanced>`'s own prop defaults to `false`.
@@ -1162,11 +1286,11 @@ export interface ChatbotSchema extends BaseSchema {
    * registrations read; delete this one.
    *
    * @deprecated Not part of this contract — the value was inert on a `chatbot`
-   * node and is dark everywhere since objectui#7708.
+   * node and is dark everywhere since `d3499b315`.
    */
   showAvatars?: never;
   /**
-   * ADR-0049 RETIREMENT TOMBSTONE — `userAvatar` (objectui#7703). See
+   * ADR-0049 RETIREMENT TOMBSTONE — `userAvatar` (`a4611b3e2`). See
    * {@link ChatbotSchema} for the census, the instrument and the route.
    *
    * Write **`userAvatarUrl`** (with `userAvatarFallback` for the text shown
@@ -1183,7 +1307,7 @@ export interface ChatbotSchema extends BaseSchema {
    */
   userAvatar?: never;
   /**
-   * ADR-0049 RETIREMENT TOMBSTONE — `assistantAvatar` (objectui#7703). See
+   * ADR-0049 RETIREMENT TOMBSTONE — `assistantAvatar` (`a4611b3e2`). See
    * {@link ChatbotSchema} for the census, the instrument and the route.
    *
    * Write **`assistantAvatarUrl`** (with `assistantAvatarFallback`) — the live
@@ -1199,7 +1323,7 @@ export interface ChatbotSchema extends BaseSchema {
    */
   assistantAvatar?: never;
   /**
-   * ADR-0049 RETIREMENT TOMBSTONE — `markdown` (objectui#7703). See
+   * ADR-0049 RETIREMENT TOMBSTONE — `markdown` (`a4611b3e2`). See
    * {@link ChatbotSchema} for the census, the instrument and the route.
    *
    * The `chatbot` node renders `<Chatbot>`, which has no markdown path at all:
@@ -1224,7 +1348,7 @@ export interface ChatbotSchema extends BaseSchema {
    */
   processVisibility?: 'hidden' | 'summary' | 'debug';
   /**
-   * ADR-0049 RETIREMENT TOMBSTONE — `height` (objectui#7703). See
+   * ADR-0049 RETIREMENT TOMBSTONE — `height` (`a4611b3e2`). See
    * {@link ChatbotSchema} for the census, the instrument and the route.
    *
    * Write **`maxHeight`** (a CSS length string, default `'500px'`) — the live
@@ -1278,24 +1402,25 @@ export interface ChatbotSchema extends BaseSchema {
    */
   requestBody?: Record<string, unknown>;
   /**
-   * Maximum number of tool-calling round-trips per user message.
+   * ADR-0049 RETIREMENT TOMBSTONE — `maxToolRoundtrips` (objectui#5605). Picked
+   * by name onto {@link ChatbotEnhancedSchema} and {@link ChatbotFloatingSchema},
+   * so all three chat nodes refuse it with this one declaration.
    *
-   * @deprecated objectui#5605 — INERT, and not fixable from here. The renderer
-   * really does thread this value into `useObjectChat`, which then drops it:
-   * the installed chat runtime (`@ai-sdk/react`'s `useChat`) exposes no
-   * client-side round-trip cap — the numeric knob was removed from `useChat`,
-   * and its successor step cap (`stopWhen` / `stepCountIs`) exists only on the
-   * server-side call functions. ObjectUI is backend-agnostic, so it does not
-   * own a server loop to cap either. Setting this has never limited anything.
+   * ENFORCE was measured and is not reachable from a chat node: the tool loop
+   * runs on the server agent inside ONE streamed response (the chat runtime,
+   * `@ai-sdk/react`'s `useChat`, is given no client tool loop), `useChat` has no
+   * numeric round-trip cap, and neither chat request schema in
+   * `@objectstack/spec` carries a cap field. The value used to be threaded from
+   * the document into the chat hook and dropped there, so setting it never
+   * limited anything.
    *
    * Cap tool-calling loops on the agent instead — `planning.maxIterations`,
-   * which the platform spec declares and enforces.
+   * which the platform spec declares (default 10).
    *
-   * Still declared and still accepted so documents that already author it keep
-   * parsing; authoring it now logs a one-time notice from the chatbot plugin.
-   * Slated for removal in a future major (ADR-0049 enforce-or-remove, staged).
+   * @deprecated Not part of this contract — the value was never honoured.
+   * Delete the key; cap tool loops on the agent (`planning.maxIterations`).
    */
-  maxToolRoundtrips?: number;
+  maxToolRoundtrips?: never;
   /**
    * Callback when an error occurs during streaming or API calls.
    *
@@ -1364,17 +1489,21 @@ export interface ChatbotSchema extends BaseSchema {
   /**
    * Called after a message is sent, in both API and local auto-response mode,
    * with the trimmed content and the full message list at that point.
-   * `messages` here is the same authoring-side {@link ChatMessage} shape as the
-   * `messages` field above; the plugin's own runtime message type is a
-   * structural superset (objectui#4424) and still satisfies a handler typed
-   * against this narrower, published shape.
+   * `messages` is the thread the chat runtime HOLDS, not the one that was
+   * authored: the authoring {@link ChatMessage} shape whose tool invocations
+   * may also carry the three runtime-only approval states
+   * ({@link ChatMessageHandedBack}). API mode produces those states and the
+   * authoring face refuses them (objectui#10018), so ⚠️ a handler that
+   * declares its parameter as the authoring `ChatMessage[]` no longer
+   * type-checks against this slot — that shape is narrower than the values
+   * the handler receives. Let the parameter be inferred from this slot.
    *
    * RUNTIME SLOT (objectui#6124) — a host-supplied function, NOT authorable
    * metadata: JSON has no function value, so the zod twin refuses this key by
    * name and points at the node-type spelling. Kept callable here because it is
    * forwarded by `plugin-chatbot` into `useObjectChat({ onSend })`.
    */
-  onSend?: (content: string, messages: ChatMessage[]) => void;
+  onSend?: (content: string, messages: ChatMessageHandedBack[]) => void;
 
   // --- Floating / FAB configuration ---
 
@@ -1399,7 +1528,7 @@ export interface ChatbotSchema extends BaseSchema {
    * (`GridField`, `MasterDetailForm`); the same pass over `floatingConfig`, a
    * key that IS read, returned 79 lines, so the instrument was not blind. The
    * control and the seed are removed in the same change; the restatement of
-   * that control is this tombstone plus the release note (objectui#7070: a
+   * that control is this tombstone plus the release note (`5f4514f7b`: a
    * control is restated, never deleted into a vacuum).
    *
    * ## Why a tombstone — discriminator prong 2 — and why it is loud-vs-silent here
@@ -1497,10 +1626,13 @@ export interface ChatbotSchema extends BaseSchema {
    * through `@object-ui/core`'s hand-written `validateSchema`, which walks base
    * keys and recurses into content — it never consults these mirrors, so it has
    * no per-component key to refuse. ⇒ an authored `body` that meets neither
-   * `tsc` nor a root parse (`objectui validate` / `objectui check`, which call
+   * `tsc` nor a root parse (`objectui validate`, which calls
    * `safeValidateSchema`) is dropped exactly as silently after this change as
    * before it. The refusal is delivered where documents are AUTHORED and
    * CHECKED, not where they are rendered.
+   * `objectui check` does not deliver it: `body` is one of the structural root
+   * keys that command recognises a file by, and a file recognised that way is
+   * never parsed against the schema. The CLI's verdict is `objectui validate`.
    *
    * @deprecated Not a channel `chatbot` reads — author the chat API's body
    * params as `requestBody`.
@@ -1518,17 +1650,20 @@ export interface ChatbotSchema extends BaseSchema {
    * this declaration carries none. What the renderer DOES read off this node:
    * `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`,
    * `autoResponseDelay`, `autoResponseText`, `conversationId`, `headers`,
-   * `maxHeight`, `maxToolRoundtrips`, `messages`, `model`, `onError`, `onSend`,
+   * `maxHeight`, `messages`, `model`, `onError`, `onSend`,
    * `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`,
    * `systemPrompt`, `userAvatarFallback`, `userAvatarUrl` (in
    * `packages/plugin-chatbot/src/renderer.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `chatbot` reads — nothing renders it.
    */
@@ -1546,7 +1681,7 @@ export interface ChatbotSchema extends BaseSchema {
  * bodies of `packages/plugin-chatbot/src/renderer.tsx`, forwarded into
  * `useObjectChat` or onto the rendered component. (Named reads are the
  * instrument; the `chatbot-floating` registration also HAD an unfiltered
- * props spread on this census's base — fenced since, objectui#7708; see
+ * props spread on this census's base — fenced since, `d3499b315`; see
  * {@link ChatbotFloatingSchema}.) The instrument was lit by
  * keys that are NOT shared — `processVisibility` read 0 / 1 / 0 across
  * `chatbot` / `chatbot-enhanced` / `chatbot-floating` and `floatingConfig`
@@ -1566,7 +1701,6 @@ export type ChatbotSharedKey =
   | 'streamingEnabled'
   | 'headers'
   | 'requestBody'
-  | 'maxToolRoundtrips'
   | 'onError'
   | 'showTimestamp'
   | 'userAvatarUrl'
@@ -1594,7 +1728,9 @@ export type ChatbotSharedKey =
  * What is declared here is what THIS registration reads — censused per key on
  * the PR's base, not copied off `ChatbotSchema`:
  *
- *   - the twenty {@link ChatbotSharedKey} members every registration reads;
+ *   - the nineteen {@link ChatbotSharedKey} members every registration reads;
+ *   - the `maxToolRoundtrips` retirement tombstone (objectui#5605), picked off
+ *     {@link ChatbotSchema} so all three chat nodes refuse it with one declaration;
  *   - `maxHeight` and `processVisibility`, which `chatbot-enhanced` forwards to
  *     `<ChatbotEnhanced>` by name and `chatbot-floating` has no named read for
  *     (its panel is sized by `floatingConfig.panelHeight`; for the second,
@@ -1608,11 +1744,11 @@ export type ChatbotSharedKey =
  * {@link BaseSchema}: `SchemaRenderer` evaluates `disabled` / `disabledOn`
  * for every node type and hands the verdict to the registration as a prop, so
  * redeclaring `disabled` here as `boolean` would only narrow away the
- * expression-string half of an inherited field (objectui#6169, #7087).
+ * expression-string half of an inherited field (objectui#6169, `c93b4d5f3`).
  */
 export interface ChatbotEnhancedSchema
   extends BaseSchema,
-    Pick<ChatbotSchema, ChatbotSharedKey | 'maxHeight' | 'processVisibility'> {
+    Pick<ChatbotSchema, ChatbotSharedKey | 'maxToolRoundtrips' | 'maxHeight' | 'processVisibility'> {
   type: 'chatbot-enhanced';
   /**
    * Render assistant messages as markdown. Forwarded to `<ChatbotEnhanced>`'s
@@ -1667,17 +1803,20 @@ export interface ChatbotEnhancedSchema
    * `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`,
    * `autoResponseDelay`, `autoResponseText`, `conversationId`,
    * `enableFileUpload`, `enableMarkdown`, `headers`, `maxHeight`,
-   * `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, `onSend`,
+   * `messages`, `model`, `onClear`, `onError`, `onSend`,
    * `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`,
    * `streamingEnabled`, `surface`, `systemPrompt`, `userAvatarFallback`,
    * `userAvatarUrl` (in `packages/plugin-chatbot/src/renderer.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `chatbot-enhanced` reads — nothing renders it.
    */
@@ -1694,7 +1833,8 @@ export interface ChatbotEnhancedSchema
  * Declared here is what THIS registration reads by name (`schema.KEY`),
  * censused per key on the PR's base:
  *
- *   - the twenty {@link ChatbotSharedKey} members;
+ *   - the nineteen {@link ChatbotSharedKey} members;
+ *   - the `maxToolRoundtrips` retirement tombstone (objectui#5605);
  *   - `enableMarkdown`, `enableFileUpload` and the `onClear` runtime slot,
  *     forwarded into the panel's `<ChatbotEnhanced>`;
  *   - `floatingConfig`, the trigger and panel geometry
@@ -1713,7 +1853,7 @@ export interface ChatbotEnhancedSchema
  * ended its `<FloatingChatbot>` element with a raw `{...props}` spread —
  * every authored key `SchemaRenderer` forwards, unfiltered — and the panel
  * is a `<ChatbotEnhanced>`, so an authored `processVisibility`, `surface` or
- * `showAvatars` reached it (measured through the real host, objectui#7708).
+ * `showAvatars` reached it (measured through the real host, `d3499b315`).
  * That channel was accidental, not contract, and is now CLOSED: the spread
  * is fenced through `toDomProps` and moved to the head of the element, the
  * same shape the two sibling registrations already use, so this face's
@@ -1723,7 +1863,7 @@ export interface ChatbotEnhancedSchema
  */
 export interface ChatbotFloatingSchema
   extends BaseSchema,
-    Pick<ChatbotSchema, ChatbotSharedKey> {
+    Pick<ChatbotSchema, ChatbotSharedKey | 'maxToolRoundtrips'> {
   type: 'chatbot-floating';
   /**
    * Render assistant messages as markdown inside the panel. Forwarded to the
@@ -1781,17 +1921,20 @@ export interface ChatbotFloatingSchema
    * `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`,
    * `autoResponseDelay`, `autoResponseText`, `conversationId`,
    * `enableFileUpload`, `enableMarkdown`, `floatingConfig`, `headers`,
-   * `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, `onSend`,
+   * `messages`, `model`, `onClear`, `onError`, `onSend`,
    * `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`,
    * `systemPrompt`, `userAvatarFallback`, `userAvatarUrl` (in
    * `packages/plugin-chatbot/src/renderer.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `chatbot-floating` reads — nothing renders it.
    */
@@ -1887,7 +2030,7 @@ export interface FloatingChatbotConfig {
    * equally to objectui#4919 and #5942, which were removed outright, so it
    * cannot be what separates the routes. What decides the route is this
    * package's retire-vs-remove discriminator in its amended form
-   * (objectui#7678, the same wording the `chatbot` tombstones above carry): a
+   * (`5f8190c8c`, the same wording the `chatbot` tombstones above carry): a
    * `?: never` tombstone is available only on a SURVIVING CARRIER —
    * `FloatingChatbotConfig` survives this retirement, while a whole exported
    * type name has no carrier and is removed outright — and on such a carrier
@@ -1945,7 +2088,11 @@ export interface FloatingChatbotConfig {
  * retired `type` would keep validating. Adding a member is a deliberate act
  * with a registration behind it — `examples/schema-catalog/test/
  * plugin-dashboard-component-schema.test.ts` is the standing gate, and
- * `__tests__/report-chart-query-spec-parity.test.ts` pins the closure.
+ * `__tests__/report-chart-query-spec-parity.test.ts` pins the closure. The
+ * member also needs its row of registered input names in the zod slot arm's
+ * `DASHBOARD_WIDGET_SLOT_REGISTERED_INPUTS` (`zod/complex.zod.ts`), or the
+ * strict authoring face refuses its props (objectui#11022); `tsc` refuses the
+ * build without the row.
  */
 export const DASHBOARD_COMPONENT_WIDGET_TYPES = ['metric-card'] as const;
 
@@ -2128,17 +2275,89 @@ export interface DashboardWidgetSchema
 export interface DashboardWidgetSlotComponentSchema extends BaseSchema {
   /** An objectui component type legal in a widget slot — the CLOSED set. */
   type: DashboardComponentWidgetType;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `metric-card` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `metric-card` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `metric-card` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element. In a widget slot nothing
+   * else noticed it either: the parser tier's `not-a-container` warning
+   * (objectui#9910) walks `children`, never `widgets`.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D public-block slice).
+   * `DashboardRenderer` hands a `metric-card` widget to `SchemaRenderer` as
+   * the widget's own keys; the registration (`plugin-dashboard:metric-card`)
+   * renders `MetricCard`, which reads `title`, `value`, `icon`, `trend`,
+   * `trendValue`, `description`, `loading` and `error`, and no read of the
+   * node's `body` or `children` exists on that path. `SchemaRenderer` strips
+   * `body` and `children` out of the props bag it spreads, so neither reaches
+   * the component by another route, and the registration declares no
+   * `children` slot (objectui#9910).
+   *
+   * The zod twin is the private slot arm in `zod/complex.zod.ts`, which
+   * declares both members with the same guidance.
+   *
+   * What it renders instead: one KPI card — `title`, `value`, `icon`,
+   * `trend` / `trendValue` and `description`.
+   *
+   * @deprecated Not a channel `metric-card` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
  * Dashboard Schema
+ *
+ * ## The spec half is taken BY REFERENCE (objectui#9736)
+ *
+ * The zod mirror (`zod/complex.zod.ts` `DashboardComponentSchema`) is
+ * `BaseSchema.extend(SpecDashboardFields.shape).extend({…})`, so every key
+ * `@objectstack/spec/ui`'s `DashboardSchema` declares reaches the published
+ * validator by reference. This interface used to restate only the members the
+ * renderers read, which left the validator admitting keys the type never
+ * declared (the package-lock envelope `_lock*` / `_package*` / `_provenance`,
+ * written by the packaging pipeline, and `protection`) and the spec's
+ * tombstones (`aria`, `refreshInterval`, `performance`) typed `any` through
+ * `BaseSchema`'s index signature.
+ *
+ * Now it extends `Omit< Dashboard, … >` over `DASHBOARD_SPEC_EXCLUDED`, the one
+ * `as const` array the mirror's `specFieldsExcept` call also reads, so the two
+ * faces project the same spec surface and move together on a pin bump. A
+ * tombstone surfaces as an optional member typed `undefined`: authoring a
+ * value is a compile error, the verdict the validator gives at parse.
+ *
+ * `header` comes from that projection too (objectui#7759 group A). Until then
+ * it was omitted on this face alone and restated by hand, and the restatement
+ * disagreed with the spec in both directions: `actions[].label` was `string`
+ * against the spec's `I18nLabel`, `actions[].actionUrl` optional where the spec
+ * requires it, and `actions[].actionType` an open `string` against the spec's
+ * `ActionType` enum. The mirror always validated the spec's member, so an
+ * inline per-locale action label parsed green, `tsc` refused it, and the
+ * renderer handed the map to React as a button child. The spec declares the
+ * key, so under that card's ruling (5617465269, principle 1) the declaration
+ * follows the spec rather than the other way round, and `DashboardRenderer`
+ * resolves the label. Pinned by
+ * `__tests__/dashboard-header-global-filters-spec-7759.test.ts`.
+ *
+ * Pinned by `__tests__/twins-spec-by-reference-9736.test.ts`.
  */
-export interface DashboardComponentSchema extends BaseSchema {
+export interface DashboardComponentSchema extends BaseSchema, Omit<SpecDashboard, (typeof DASHBOARD_SPEC_EXCLUDED)[number]> {
   type: 'dashboard';
-  // `title` was DECLARED here until objectui#7623, under the comment "Dashboard
+  // `title` was DECLARED here until `5d0876c5c`, under the comment "Dashboard
   // title displayed in the header" — by then a description of behaviour that had
   // stopped existing: objectui#7509 retired all five dashboard-root `title` read
-  // arms under ADR-0049 (PR #7622), so the key was declared, documented as
+  // arms under ADR-0049 (`1cca678ba`), so the key was declared, documented as
   // rendering, and inert. The header text is the spec-canonical `label`
   // (`BaseSchema`), resolved through `pickLocalized`; `plugin-dashboard` has no
   // dashboard-root `title` read site left (pinned by that package's
@@ -2191,20 +2410,9 @@ export interface DashboardComponentSchema extends BaseSchema {
    * would disagree at parse if this declaration had stayed (objectui#7783).
    */
   refreshIntervalSeconds?: number;
-  /**
-   * Dashboard header configuration.
-   * Aligned with @objectstack/spec DashboardHeaderSchema.
-   */
-  header?: {
-    showTitle?: boolean;
-    showDescription?: boolean;
-    actions?: Array<{
-      label: string;
-      actionUrl?: string;
-      actionType?: string;
-      icon?: string;
-    }>;
-  };
+  // `header` is not declared here: it is inherited from the `Omit< Dashboard, … >`
+  // projection above, i.e. the spec's `DashboardHeader` by reference — see this
+  // interface's docblock for the restatement it replaced (objectui#7759 group A).
   /**
    * Global filter configurations.
    * Applied across all dashboard widgets.
@@ -2228,41 +2436,26 @@ export interface DashboardComponentSchema extends BaseSchema {
    * value vocabularies now track the protocol instead of a snapshot of it.
    */
   globalFilters?: SpecGlobalFilter[];
-  /**
-   * Date range filter configuration.
-   * Aligned with @objectstack/spec DashboardSchema.dateRange.
-   *
-   * `defaultRange` is BOUND to the spec's `DateRangeDefaultRange` rather than
-   * restated (objectui#4984). It used to be a hand-written 14-member union —
-   * byte-faithful to the spec, but faithful only until the next spec release:
-   * a preset the spec ADDS would be a legal document that objectui's own types
-   * say cannot exist, the same "narrower than the contract it implements" shape
-   * as objectui#4163's `label`, whose consequence was that the bad reads were
-   * invisible to `tsc`. No gate could report the drift either — `check:spec-symbols`
-   * rule 1 matches by NAME and an inline union on an interface member has no
-   * symbol to collide with, while rule 2's claim heuristic was waved through by
-   * the `SpecGlobalFilter` reference a few lines up. Binding makes the "Aligned
-   * with" line above structural instead of prose.
-   *
-   * `DATE_RANGE_DEFAULT_RANGES` is `[...DATE_RANGE_PRESETS, 'custom']`, so this
-   * tracks the same vocabulary `@object-ui/core` re-exports by reference
-   * (objectui#4167) — one list, reached two ways.
-   */
-  dateRange?: {
-    field?: string;
-    defaultRange?: SpecDateRangeDefaultRange;
-    allowCustomRange?: boolean;
-  };
+  // `dateRange` was DECLARED here until objectui#10334 — a hand-written
+  // `{ field?, defaultRange?, allowCustomRange? }` whose `defaultRange` was bound
+  // to the spec's `DateRangeDefaultRange` (objectui#4984) while its Zod twin
+  // restated the key as a bare `z.string()`, so the validator admitted preset
+  // names this type refused (the `WiderThanDeclared` row objectui#7759 group F
+  // left behind). The key is spec-declared, so both faces now take the spec's
+  // AUTHORING member by reference: `dateRange` is no longer on
+  // `DASHBOARD_SPEC_EXCLUDED`, and this interface inherits it from the
+  // `Omit< Dashboard, … >` projection above. Pinned by
+  // `__tests__/dashboard-daterange-spec-10334.test.ts`.
   // `aria` was DECLARED here until objectui#5830, under a comment claiming
   // alignment with @objectstack/spec AriaPropsSchema — by then the opposite of
-  // the contract: the spec removed `dashboard.aria` at the #3896 audit
+  // the contract: the spec removed `dashboard.aria` at the objectstack-ai/objectstack#3896 audit
   // close-out (no dashboard renderer ever applied it), so
   // `DashboardSchema.shape.aria` is a tombstone that refuses any value, the
   // Zod twin (`zod/complex.zod.ts`) inherits that refusal through
   // `SpecDashboardFields`, and `plugin-dashboard` has no `schema.aria` read
-  // site. Note `BaseSchema`'s index signature still types an authored `aria`
-  // as `any` — this deletion removes the type-level suggestion and the false
-  // parity claim, not a key that ever rendered. Pinned by
+  // site. Since objectui#9736 this interface inherits the same tombstone from
+  // the spec projection (`aria?: undefined`), so an authored `aria` is now a
+  // compile error rather than `any` through the index signature. Pinned by
   // `__tests__/dashboard-aria-retired-contract-twins.test.ts`.
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `dashboard` reads NEITHER
@@ -2282,12 +2475,15 @@ export interface DashboardComponentSchema extends BaseSchema {
    * `packages/plugin-dashboard/src/DashboardWithConfig.tsx`,
    * `packages/plugin-designer/src/DashboardEditor.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `dashboard` reads — nothing renders it.
    */
@@ -2310,12 +2506,15 @@ export interface DashboardComponentSchema extends BaseSchema {
    * `packages/plugin-dashboard/src/DashboardWithConfig.tsx`,
    * `packages/plugin-designer/src/DashboardEditor.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `dashboard` reads — nothing renders it.
    */

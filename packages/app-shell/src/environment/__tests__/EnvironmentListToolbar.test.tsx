@@ -52,7 +52,7 @@ const st = (o: Partial<EnvironmentEntitlementsState>): EnvironmentEntitlementsSt
  * object that carries nothing. Distinct from `null` (still in flight).
  */
 const UNRESOLVED: EnvironmentEntitlementsState = {
-  ready: false, hasProductionEnv: false, upgradeUrl: '/settings/billing', source: 'unknown',
+  ready: false, hasProductionEnv: false, source: 'unknown',
 };
 
 describe('EnvironmentListToolbar', () => {

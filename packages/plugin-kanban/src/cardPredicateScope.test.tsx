@@ -13,13 +13,19 @@
  * identical verdict on grid rows and kanban cards. Before this suite, kanban
  * evaluated cards without the ambient scope, so such a condition silently
  * never matched here while working on the grid.
+ *
+ * objectui#8932 deleted `KanbanEnhanced`, the second board this suite used to
+ * drive. Its positive leg went with it — the `KanbanBoard` leg pins the same
+ * verdict on the one registered board. The two legs that only ever ran on it
+ * now run on `KanbanBoard`: the fail-soft reading outside the provider, which
+ * is the negative control that makes the live positive leg a reading, and the
+ * objectui#5741 bare-field canon.
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
 import * as React from 'react';
 import { render, cleanup } from '@testing-library/react';
 import { PredicateScopeProvider } from '@object-ui/react';
-import { KanbanEnhanced } from './KanbanEnhanced';
 import KanbanBoard from './KanbanImpl';
 
 // happy-dom may lack ResizeObserver (KanbanBoard's container-aware column
@@ -51,15 +57,6 @@ function findByBg(container: HTMLElement, bg: string): HTMLElement | undefined {
 afterEach(cleanup);
 
 describe('kanban card conditional formatting · host predicate scope (ADR-0058)', () => {
-  it('KanbanEnhanced binds the ambient predicate scope alongside the card', () => {
-    const { container } = render(
-      <PredicateScopeProvider scope={{ features: { urgentHighlight: true } }}>
-        <KanbanEnhanced columns={columns} conditionalFormatting={featureRules} />
-      </PredicateScopeProvider>,
-    );
-    expect(findByBg(container, HOT_BG)).toBeTruthy();
-  });
-
   it('KanbanBoard (impl) binds the ambient predicate scope alongside the card', () => {
     const { container } = render(
       <PredicateScopeProvider scope={{ features: { urgentHighlight: true } }}>
@@ -71,7 +68,7 @@ describe('kanban card conditional formatting · host predicate scope (ADR-0058)'
 
   it('a scope-gated condition fails SOFT (no style) outside the provider', () => {
     const { container } = render(
-      <KanbanEnhanced columns={columns} conditionalFormatting={featureRules} />,
+      <KanbanBoard columns={columns} conditionalFormatting={featureRules} />,
     );
     expect(findByBg(container, HOT_BG)).toBeUndefined();
   });
@@ -82,11 +79,11 @@ describe('kanban card conditional formatting · host predicate scope (ADR-0058)'
     // to "no style". The canonical spelling on the same card is the control
     // that proves the rule was consulted at all.
     const bareRules = [{ condition: 'id == "c1"', style: { backgroundColor: HOT_BG } }] as any;
-    const bare = render(<KanbanEnhanced columns={columns} conditionalFormatting={bareRules} />);
+    const bare = render(<KanbanBoard columns={columns} conditionalFormatting={bareRules} />);
     expect(findByBg(bare.container, HOT_BG)).toBeUndefined();
     cleanup();
     const canonRules = [{ condition: 'record.id == "c1"', style: { backgroundColor: HOT_BG } }] as any;
-    const canon = render(<KanbanEnhanced columns={columns} conditionalFormatting={canonRules} />);
+    const canon = render(<KanbanBoard columns={columns} conditionalFormatting={canonRules} />);
     expect(findByBg(canon.container, HOT_BG)).toBeTruthy();
   });
 });

@@ -60,24 +60,62 @@ export interface SpecTranslationData {
 }
 
 /**
+ * The top-level groups of the translation document the server serves at
+ * `/api/v1/i18n/translations/:locale` — the keys of the `translations` shape
+ * of `@objectstack/spec`'s `GetTranslationsResponseSchema`: every per-app
+ * `TranslationData` group plus the platform-only `settings`, because the
+ * served document is the merge of the app's bundle and the platform's.
+ *
+ * Written out rather than imported: `@object-ui/i18n` deliberately does not
+ * depend on `@objectstack/spec`. The console does, so the pin lives beside
+ * its loader — `apps/console/src/loadLanguage.test.tsx` walks the spec's own
+ * key list and requires a payload carrying any one group, alone, to take the
+ * transform branch. A group the spec adds and this list lacks turns that test
+ * red instead of dropping the group's bundles silently (objectui#10235).
+ */
+const SPEC_TRANSLATION_GROUPS = [
+  'objects',
+  'apps',
+  'messages',
+  'globalActions',
+  'dashboards',
+  'datasets',
+  'pages',
+  'flows',
+  'settings',
+  'metadataForms',
+  'settingsCommon',
+] as const;
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
  * Detect whether the given record uses the spec `TranslationData` format.
  *
- * Returns `true` when `data.objects` exists and at least one entry has a
- * nested `fields` object (the distinguishing trait vs. an already-flattened
- * namespace tree).
+ * Returns `true` when the payload carries at least one spec translation group
+ * (see {@link SPEC_TRANSLATION_GROUPS}) whose value is an object — every spec
+ * group is a record or an object. A bundle is recognised by ANY group it
+ * carries: one that translates only object labels, apps, pages, dashboards or
+ * flows, with no field label anywhere, is as much a spec payload as one that
+ * translates fields (objectui#10235 — this used to require an
+ * `objects.<n>.fields` entry, and such a bundle was returned untransformed and
+ * read by nothing).
+ *
+ * What stays `false` is the other shape the console's loader accepts: an
+ * i18next resource tree that is already namespaced, as a mock or local-dev
+ * server may return it. Its top-level keys are namespace names — a built-in
+ * pack namespace such as `common`, an app namespace such as `crm`, or `app`,
+ * the one {@link transformSpecTranslations} itself emits — and none of them
+ * is a spec group, so feeding the transform's output back in never wraps it
+ * twice. A group-named key holding a string or an array is not a group either.
  */
 export function isSpecTranslationData(
   data: Record<string, unknown> | null | undefined,
 ): data is SpecTranslationData {
-  if (!data) return false;
-  const objects = (data as SpecTranslationData).objects;
-  if (!objects || typeof objects !== 'object' || Array.isArray(objects)) return false;
-  for (const obj of Object.values(objects)) {
-    if (obj && typeof obj === 'object' && !Array.isArray(obj) && 'fields' in obj) {
-      return true;
-    }
-  }
-  return false;
+  if (!isPlainObject(data)) return false;
+  return SPEC_TRANSLATION_GROUPS.some((group) => isPlainObject(data[group]));
 }
 
 /** Top-level keys that are copied through unchanged onto the `app` namespace. */

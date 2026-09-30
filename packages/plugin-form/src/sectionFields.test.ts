@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { normalizeSectionField, buildSectionFields } from './sectionFields';
+import { normalizeSectionField, buildSectionFields, sectionEntryName } from './sectionFields';
 import { mapFieldTypeToFormType } from '@object-ui/fields';
 
 const objectSchema = {
@@ -235,5 +235,104 @@ describe('buildSectionFields', () => {
     );
     expect(fields.map((f) => f.name)).toEqual(['industry', 'name']);
     expect(fields.every((f) => typeof f.name === 'string')).toBe(true);
+  });
+});
+
+/**
+ * `SectionFieldsContext.pool` — the seam `ObjectForm`'s default arm builds its
+ * sections through (objectui#10475). The render-level pins on all six arms are
+ * `__tests__/sectionEntryOverrides-10475.test.tsx`; these rows pin the three
+ * facts the pool decides, one variable at a time.
+ */
+describe('buildSectionFields — with a pool (objectui#10475)', () => {
+  // A pool the way the default arm builds one: its own generated fields, which
+  // carry facts `fromObjectSchema` does not produce (here the managed-object
+  // lock, `disabled: true`, and a marker key standing for the rest).
+  const pool = [
+    { name: 'name', label: 'Account Name', type: 'field:text', required: true, disabled: true, poolOnly: 'name' },
+    { name: 'industry', label: 'Industry', type: 'field:select', disabled: true, poolOnly: 'industry' },
+  ] as any[];
+  const pooledCtx = { ...ctx, pool };
+
+  it('draws the entries in the SECTION’s order, not the pool’s', () => {
+    const fields = buildSectionFields({ fields: ['industry', 'name'] }, pooledCtx);
+    expect(fields.map((f) => f.name)).toEqual(['industry', 'name']);
+  });
+
+  it('drops an entry the pool does not hold, in every shape — the objectui#9884 intersection', () => {
+    const fields = buildSectionFields(
+      {
+        fields: [
+          'billing_address',
+          { field: 'billing_address', label: 'X' },
+          { name: 'billing_address', type: 'text' },
+          'name',
+        ],
+      },
+      pooledCtx,
+    );
+    expect(
+      fields.map((f) => f.name),
+      '`billing_address` is declared by the object and absent from the pool',
+    ).toEqual(['name']);
+    // The control: the SAME section with no pool draws every entry.
+    expect(
+      buildSectionFields({ fields: ['billing_address', 'name'] }, ctx).map((f) => f.name),
+    ).toEqual(['billing_address', 'name']);
+  });
+
+  it('a name string draws the POOLED field as it is', () => {
+    const [f] = buildSectionFields({ fields: ['industry'] }, pooledCtx);
+    expect(f).toBe(pool[1]);
+  });
+
+  it('a spec entry writes its overrides onto a COPY of the pooled field', () => {
+    const [f] = buildSectionFields(
+      {
+        fields: [
+          {
+            field: 'industry',
+            label: 'SECTION LABEL',
+            required: true,
+            helpText: 'Pick one',
+            placeholder: 'Choose…',
+            visibleWhen: "record.name != ''",
+            colSpan: 2,
+          },
+        ],
+      },
+      pooledCtx,
+    ) as any[];
+    expect(f.label).toBe('SECTION LABEL');
+    expect(f.required).toBe(true);
+    expect(f.description).toBe('Pick one');
+    expect(f.placeholder).toBe('Choose…');
+    expect(f.visibleOn).toBe("record.name != ''");
+    expect(f.colSpan).toBe(2);
+    expect(f.poolOnly, 'the base is the pooled field, not `fromObjectSchema`').toBe('industry');
+    expect(f.disabled, 'a pool-only fact survives the overrides').toBe(true);
+    expect(pool[1].label, 'the pooled field itself is not written').toBe('Industry');
+  });
+
+  it('`readonly: false` on an entry cannot re-open a pooled field that is locked', () => {
+    const [f] = buildSectionFields({ fields: [{ field: 'industry', readonly: false }] }, pooledCtx) as any[];
+    expect(f.disabled).toBe(true);
+  });
+
+  it('an already-built runtime FormField entry is its own definition, drawn only when pooled', () => {
+    const runtime = { name: 'industry', label: 'RUNTIME', type: 'field:text' };
+    const [f] = buildSectionFields({ fields: [runtime as any] }, pooledCtx);
+    expect(f.label).toBe('RUNTIME');
+    expect((f as any).poolOnly).toBeUndefined();
+  });
+});
+
+describe('sectionEntryName', () => {
+  it('reads the identity of each of the three entry shapes', () => {
+    expect(sectionEntryName('note')).toBe('note');
+    expect(sectionEntryName({ field: 'note', name: 'legacy' })).toBe('note');
+    expect(sectionEntryName({ name: 'note', field: { type: 'text' } })).toBe('note');
+    expect(sectionEntryName({ label: 'nameless' })).toBeUndefined();
+    expect(sectionEntryName(null)).toBeUndefined();
   });
 });

@@ -2,7 +2,7 @@
 '@object-ui/types': patch
 ---
 
-Refuse `actions` by name on the `page` node (objectui#7926, maintainer ruling
+Refuse `actions` by name on the `page` node (maintainer ruling
 2026-09-09, decision batch #107 item 2 — option A).
 
 **Accept-set change, deliberately.** A `page` document carrying `actions` used to

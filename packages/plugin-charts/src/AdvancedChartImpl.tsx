@@ -47,8 +47,8 @@ import {
   ChartContainerConfig
 } from './ChartContainerImpl';
 import { mapScatterClick, mapTreemapClick, mapSankeyClick } from './chartDrillEvents';
-import { formatterFor, domainFor, ticksFor, RENDERABLE, SINGLE_VALUE_CHART_TYPES, TABULAR_CHART_TYPES, effectiveChartFamily, comboBaseFamily, type NormalizedAxis, type NormalizedSeries } from './normalizeChartSchema';
-import { buildCategoryRank, chartRowBucketId, type ChartSegmentClickEvent } from '@object-ui/core';
+import { formatterFor, domainFor, ticksFor, RENDERABLE, SINGLE_VALUE_CHART_TYPES, TABULAR_CHART_TYPES, effectiveChartFamily, comboBaseFamily, placeYAxes, type NormalizedAxis, type NormalizedSeries, type ValueAxisSlot, type YAxisPlacement } from './normalizeChartSchema';
+import { buildCategoryRank, chartRowBucketId, isRealCalendarDate, toDateInputValue, toDisplayDate, type ChartSegmentClickEvent } from '@object-ui/core';
 import { useDisplayLocale, useSafeTranslate } from '@object-ui/i18n';
 
 // Default color fallback for chart series
@@ -310,17 +310,24 @@ export interface AdvancedChartImplProps {
   onChartClick?: (event: ChartSegmentClickEvent) => void;
   /**
    * Spec `ChartAxis` presentation for the category axis — `format` (tick
-   * formatter), `title`, `showGridLines`. Its `field` already arrived as
+   * formatter), `title`, `showGridLines`, `position` (the side it is drawn
+   * on — see `placeXAxis`), and on scatter's measure x axis `min` / `max` /
+   * `stepSize` / `logarithmic` as well. Its `field` already arrived as
    * {@link AdvancedChartImplProps.xAxisKey}. Resolved by
    * `normalizeChartSchema`, so the renderer never parses the author shape.
    */
   xAxis?: NormalizedAxis;
   /**
    * Spec `ChartConfig.yAxis` — one entry per value axis, in declaration order.
-   * Index 0 is the primary axis; a second entry (or one with
-   * `position: 'right'`) turns on the secondary axis that `series[].yAxis`
-   * binds to. Carries `min`/`max` (domain), `format` (ticks), `logarithmic`
-   * (scale) and `title`.
+   * Index 0 is the primary axis. A second entry turns on the second value
+   * axis; each entry's `position` picks the slot it is drawn in, and
+   * `series[].yAxis` binds a series to a slot (`placeYAxes` in
+   * `normalizeChartSchema`). A lone entry is the chart's only value axis,
+   * drawn on the side it names. Carries `min`/`max` (domain), `format`
+   * (ticks), `logarithmic` (scale) and `title`. An entry after the second
+   * (after the first on `scatter`, which draws one y axis) is drawn on no
+   * axis, and the chart carries a note naming it (`yAxisUndrawnNotes`,
+   * objectui#10691, objectui#10721).
    */
   yAxes?: NormalizedAxis[];
   /** Spec `ChartConfig.showLegend`. Omitted → shown (the schema default). */
@@ -490,6 +497,272 @@ const SCATTER_Y_AXIS_PADDING = {
  */
 const Y_AXIS_TITLE_LAYOUT = { angle: -90, position: 'insideLeft' } as const;
 const X_AXIS_TITLE_LAYOUT = { position: 'insideBottom', offset: -4 } as const;
+/**
+ * The x-axis title of an axis drawn along the TOP (objectui#10587): the
+ * bottom layout mirrored, so the title sits on the far side of the tick labels
+ * from the plot, as it does below a bottom axis. `insideBottom` on a top axis
+ * would put it between the ticks and the plot.
+ */
+const X_AXIS_TOP_TITLE_LAYOUT = { position: 'insideTop', offset: -4 } as const;
+
+/** The x-axis title layout for the side {@link placeXAxis} put the axis on. */
+function xAxisTitleLayoutFor(across: 'top' | 'bottom' | undefined) {
+  return across === 'top' ? X_AXIS_TOP_TITLE_LAYOUT : X_AXIS_TITLE_LAYOUT;
+}
+/**
+ * The title of an axis running up the plot and drawn on the RIGHT
+ * (objectui#10654): the left layout mirrored, as a top x axis mirrors the
+ * bottom one, so the title sits on the far side of the tick labels from the
+ * plot. `insideLeft` on a right-hand axis put it between the plot and the tick
+ * labels (measured in the DOM test env: the title at x=462, the right-hand
+ * tick labels starting at x=465).
+ */
+const Y_AXIS_RIGHT_TITLE_LAYOUT = { angle: 90, position: 'insideRight' } as const;
+
+/** The title layout for an axis running up the plot, on the side it is drawn. */
+function yAxisTitleLayoutFor(side: 'left' | 'right' | undefined) {
+  return side === 'right' ? Y_AXIS_RIGHT_TITLE_LAYOUT : Y_AXIS_TITLE_LAYOUT;
+}
+
+/** Every title layout this file hands a recharts axis `label`. */
+type AxisTitleLayout =
+  | typeof Y_AXIS_TITLE_LAYOUT
+  | typeof Y_AXIS_RIGHT_TITLE_LAYOUT
+  | typeof X_AXIS_TITLE_LAYOUT
+  | typeof X_AXIS_TOP_TITLE_LAYOUT;
+
+/** The four sides the spec `ChartAxis.position` enumerates. */
+type AxisSide = 'left' | 'right' | 'top' | 'bottom';
+
+/**
+ * Where the spec `xAxis` is drawn, read from its `position` (objectui#10587).
+ *
+ * The spec declares `position` on `ChartAxisSchema` for both axes, and the
+ * docs row says it names "the side of the chart the axis belongs to". Which two
+ * sides are open to the x axis depends on which way that axis runs, and the
+ * answer is read off the branches below rather than decided here:
+ *
+ *   - **bar / line / area / combo / scatter** draw the spec `xAxis` as a
+ *     recharts `<XAxis>` running ACROSS the plot (scatter's is a number axis,
+ *     the rest a category band), so `top` / `bottom` are its sides.
+ *   - **horizontal-bar** swaps the axis roles. Its categories run DOWN the plot
+ *     on a `<YAxis type="category">`, and the spec `yAxis` configures its
+ *     number `<XAxis>` (`yAxisSpecProps(primaryY)` in that branch). The `xAxis`
+ *     object already follows the categories there — its `format` is that
+ *     `<YAxis>`'s tick formatter — so its `position` follows them too, and
+ *     `left` / `right` are its sides. Reading it as "the horizontal axis"
+ *     instead would split one axis object across two drawn axes.
+ *
+ * A side the axis cannot take is REFUSED, not dropped and not guessed at: the
+ * axis draws at its default side (the bottom; the left on horizontal-bar) and
+ * the chart carries {@link xAxisPositionNote}. ⛔ Never mapped to a "nearest"
+ * open side: `left` names no side of an axis that runs across the plot, and
+ * any side chosen for it would be one the author did not write.
+ *
+ * No `position` returns nothing, so no `orientation` prop is emitted and a chart
+ * that declares none renders exactly as it did before.
+ */
+function placeXAxis(
+  position: AxisSide | undefined,
+  categoriesRunDown: boolean,
+): { across?: 'top' | 'bottom'; down?: 'left' | 'right'; refused?: AxisSide } {
+  if (!position) return {};
+  if (categoriesRunDown) {
+    return position === 'left' || position === 'right' ? { down: position } : { refused: position };
+  }
+  return position === 'top' || position === 'bottom' ? { across: position } : { refused: position };
+}
+
+/**
+ * The note a cartesian chart carries when its `xAxis.position` names a side
+ * that axis cannot take — see {@link placeXAxis}. `null` otherwise, which keeps
+ * every other chart's DOM unchanged (`ChartFootnote` with no note returns its
+ * children as they are).
+ *
+ * The chart still draws: the axis sits at its default side, and every other
+ * key on the axis object is honoured. That is why this is a note in the
+ * `ChartFootnote` channel the file's other partial answers use, and not a
+ * `ChartRefusal`, which replaces the whole tile — a refusal there would blank a
+ * chart that plots correctly over one presentation key. No console warning
+ * either, for the reason the other notes give: the sentence already names the
+ * key, the value and the side the axis was drawn on.
+ */
+function xAxisPositionNote(refused: AxisSide | undefined, categoriesRunDown: boolean): React.ReactNode {
+  if (!refused) return null;
+  return (
+    <p role="note" data-chart-note="x-axis-position" className="px-1 text-xs text-muted-foreground">
+      <code className="font-mono">xAxis.position</code> is{' '}
+      <code className="font-mono">{refused}</code> &mdash;{' '}
+      {categoriesRunDown ? (
+        <>this chart&apos;s categories run down its side, so its x axis sits on the left or the right. It is drawn on the left.</>
+      ) : (
+        <>this chart&apos;s x axis runs across it, so it sits at the top or the bottom. It is drawn at the bottom.</>
+      )}
+    </p>
+  );
+}
+
+/**
+ * The side a value-axis slot is drawn on — the slot itself up the side of the
+ * plot, the transposed side on `horizontal-bar` (see `ValueAxisSlot`).
+ */
+function valueAxisSide(slot: ValueAxisSlot, valueAxesRunAcross: boolean): 'left' | 'right' | 'top' | 'bottom' {
+  if (!valueAxesRunAcross) return slot;
+  return slot === 'left' ? 'bottom' : 'top';
+}
+
+/** "on the left" / "at the bottom" — how the notes below say where an axis sits. */
+function onSide(side: 'left' | 'right' | 'top' | 'bottom'): string {
+  return side === 'left' || side === 'right' ? `on the ${side}` : `at the ${side}`;
+}
+
+/**
+ * The value axis a chart's grid and annotations are measured against
+ * (objectui#10654).
+ *
+ * Recharts binds a `<CartesianGrid>`, `<ReferenceLine>` or `<ReferenceArea>`
+ * to axis id `0` on both sides unless told otherwise. A branch that renders
+ * its value axes WITH ids — a combo always, bar / line / area /
+ * horizontal-bar when two `yAxis` entries are declared — renders no value axis
+ * `0`, and what was bound to it did not draw as bound. Measured before this
+ * binding (a historical reading; row 11 of
+ * `ChartRenderer.yAxisPosition-10654.test.tsx` is the instrument): on a
+ * two-entry bar chart the horizontal grid drew 2 lines instead of one per
+ * value tick, and an `axis: 'x'` annotation was dropped; on a combo with fewer
+ * than two entries every annotation was dropped; on a two-entry horizontal-bar
+ * an `axis: 'y'` annotation, bound to a `yAxisId` its category axis does not
+ * carry, was dropped. They bind to the `'left'` slot: a `<YAxis>` up the side
+ * of the plot, an `<XAxis>` across it on horizontal-bar, whose category axis
+ * carries no id. A lone value axis carries no id, so nothing is bound.
+ *
+ * Module constants, so a caller that spreads the answer is handed the same
+ * object every render.
+ */
+const NO_VALUE_AXIS_ID = {} as const;
+const LEFT_Y_VALUE_AXIS_ID = { yAxisId: 'left' } as const;
+const LEFT_X_VALUE_AXIS_ID = { xAxisId: 'left' } as const;
+function valueAxisIdFor(valueAxesHaveIds: boolean, valueAxesRunAcross: boolean) {
+  if (!valueAxesHaveIds) return NO_VALUE_AXIS_ID;
+  return valueAxesRunAcross ? LEFT_X_VALUE_AXIS_ID : LEFT_Y_VALUE_AXIS_ID;
+}
+
+/**
+ * The notes a cartesian chart carries for each `yAxis` entry whose `position`
+ * was not honoured — see `placeYAxes`. `null` when every entry was drawn where
+ * it asked (or asked nothing), which keeps that chart's DOM unchanged.
+ *
+ * The x-axis note's channel and reasoning, applied to the y side
+ * (objectui#10654): the chart still draws with every entry on an axis, so
+ * this is a `ChartFootnote` note and not a `ChartRefusal`, and it names the
+ * key, the value and the side the axis was drawn on instead.
+ */
+function yAxisPositionNotes(placement: YAxisPlacement, valueAxesRunAcross: boolean): React.ReactNode {
+  if (placement.notes.length === 0) return null;
+  const open = valueAxesRunAcross
+    ? "this chart's value axes run across it, so each sits at the bottom or the top."
+    : "this chart's value axes run up its side, so each sits on the left or the right.";
+  return joinNotes(
+    ...placement.notes.map((note) => {
+      const drawn = onSide(valueAxisSide(note.drawn, valueAxesRunAcross));
+      return (
+        <p key={note.index} role="note" data-chart-note="y-axis-position" className="px-1 text-xs text-muted-foreground">
+          <code className="font-mono">{`yAxis[${note.index}].position`}</code> is{' '}
+          <code className="font-mono">{note.position}</code> &mdash;{' '}
+          {note.reason === 'side' ? (
+            <>{open} It is drawn {drawn}.</>
+          ) : (
+            <>
+              <code className="font-mono">yAxis[0]</code> already sits {onSide(note.position)}, so this axis is
+              drawn {drawn}.
+            </>
+          )}
+        </p>
+      );
+    }),
+  );
+}
+
+/**
+ * The notes a cartesian chart carries for each `yAxis` entry drawn on no axis
+ * — every entry after the second (after the first on `scatter`),
+ * `placeYAxes`'s `undrawn` list (objectui#10691, objectui#10721). `null` when
+ * there is none, which keeps every chart of two entries or fewer (one on
+ * `scatter`), and every family that places no value axis, unchanged.
+ *
+ * The spec declares `yAxis` uncapped, so the entry is valid and the count is
+ * not narrowed; the chart draws with its value axes, so this is a
+ * `ChartFootnote` note like the position notes above, not a `ChartRefusal`.
+ * It names the entry and, from the same placement the normalizer binds with,
+ * the axis a series derived from it is plotted against — the entry drawn in
+ * that slot. A field-less entry derives no series, so its note says only that
+ * it is not drawn.
+ *
+ * On `scatter` the note names the entry and the one axis drawn, and nothing
+ * about a derived series: a scatter plots one measure, so with neither
+ * `series` nor `categories` two fielded entries are refused whole
+ * (`SeriesArityRefusal`) rather than plotted, and the two-slot sentence's
+ * "its field is plotted against" would be false there.
+ */
+function yAxisUndrawnNotes(
+  placement: YAxisPlacement,
+  yAxes: readonly NormalizedAxis[] | undefined,
+  valueAxesRunAcross: boolean,
+): React.ReactNode {
+  if (placement.undrawn.length === 0) return null;
+  // An entry is undrawn only once every slot is taken, so `slotOf` holds
+  // exactly the value axes this chart draws: one on `scatter`, two elsewhere.
+  const oneValueAxis = placement.slotOf.length === 1;
+  const sides = valueAxesRunAcross ? 'one at the bottom and one at the top' : 'one on each side';
+  return joinNotes(
+    ...placement.undrawn.map((note) => {
+      const against = placement[note.boundTo];
+      if (oneValueAxis) {
+        return (
+          <p key={note.index} role="note" data-chart-note="y-axis-undrawn" className="px-1 text-xs text-muted-foreground">
+            <code className="font-mono">{`yAxis[${note.index}]`}</code> is not drawn &mdash; this chart draws one
+            value axis
+            {against !== undefined ? (
+              <>
+                , <code className="font-mono">{`yAxis[${against}]`}</code>
+              </>
+            ) : null}
+            .
+          </p>
+        );
+      }
+      const field = yAxes?.[note.index]?.field;
+      return (
+        <p key={note.index} role="note" data-chart-note="y-axis-undrawn" className="px-1 text-xs text-muted-foreground">
+          <code className="font-mono">{`yAxis[${note.index}]`}</code> is not drawn &mdash; this chart draws at most two
+          value axes, {sides}.
+          {field ? (
+            <>
+              {' '}When the chart declares neither <code className="font-mono">series</code> nor{' '}
+              <code className="font-mono">categories</code>, its field <code className="font-mono">{field}</code> is
+              plotted against the axis {onSide(valueAxisSide(note.boundTo, valueAxesRunAcross))}
+              {against !== undefined ? (
+                <>
+                  , <code className="font-mono">{`yAxis[${against}]`}</code>
+                </>
+              ) : null}
+              .
+            </>
+          ) : null}
+        </p>
+      );
+    }),
+  );
+}
+
+/**
+ * Several notes for one `ChartFootnote`. With one note (or none) it returns that
+ * note itself, so a chart that already carried a single note keeps its exact DOM.
+ */
+function joinNotes(...notes: React.ReactNode[]): React.ReactNode {
+  const present = notes.filter((n) => n != null && n !== false);
+  if (present.length <= 1) return present[0] ?? null;
+  return <>{present.map((n, i) => <React.Fragment key={i}>{n}</React.Fragment>)}</>;
+}
 
 /**
  * Recharts props derived from one spec axis that plots NUMBERS — the domain
@@ -508,7 +781,7 @@ const X_AXIS_TITLE_LAYOUT = { position: 'insideBottom', offset: -4 } as const;
 function numericAxisSpecProps(
   axis: NormalizedAxis | undefined,
   values: number[],
-  labelLayout: typeof Y_AXIS_TITLE_LAYOUT | typeof X_AXIS_TITLE_LAYOUT,
+  labelLayout: AxisTitleLayout,
 ) {
   if (!axis) return {};
   const domain = domainFor(axis);
@@ -783,10 +1056,10 @@ function unsizedRowsNote(sizable: number, total: number, dataKey: string): React
  * boolean tile would gain a correct refusal, but the mixed tile would gain a
  * footnote reading "2 of 3 rows ... are not drawn" while all three are on
  * screen — a sentence that is simply false about the picture, which is the
- * failure this whole family of answers exists to remove. Accepting it leaves
- * the all-boolean case exactly as silent as it is today: a narrow hole, not a
- * regression, and one whose real answer belongs upstream where a boolean column
- * bound to a numeric measure could be refused at authoring time.
+ * failure this whole family of answers exists to remove. So this predicate
+ * accepts it, and the all-boolean case is answered on the whole dataset
+ * instead — `anchorsNumericAxis` / `NumericValueRefusal` (objectui#7195): no
+ * row gives the axis a scale, which is true there and never of the mixed tile.
  */
 function isPlottableCoord(v: unknown): boolean {
   if (v === null || v === undefined) return false;
@@ -831,8 +1104,9 @@ function isPlottableCoord(v: unknown): boolean {
  *   - `null` x, absent x, `'n/a'` x, `'Infinity'` x, boolean x, and
  *     objectui#7147's own category-column fixture — SIX datasets, ONE image
  *     (`51957063d9c2`): an axis frame with a confident y scale and no marks.
- *     Five of those six are answered below; the boolean one deliberately is
- *     not, for the reason `isPlottableCoord` gives.
+ *     Five of those six are answered below; the boolean one is not answered
+ *     HERE, for the reason `isPlottableCoord` gives — `NumericValueRefusal`
+ *     answers it on the whole axis (objectui#7195).
  *   - one plottable row among three is 99.75% pixel-identical to a genuinely
  *     one-row scatter (diff 0.250%), the same shape of collision that decided
  *     pie in objectui#7147. Two rows vanish and the picture says "one point".
@@ -890,6 +1164,169 @@ function PositionRefusal({
       This chart has nothing to place: no row carries a number for both{' '}
       <code className="font-mono">{xKey}</code> and{' '}
       <code className="font-mono">{yKey}</code>.
+    </ChartRefusal>
+  );
+}
+
+/**
+ * Whether a value can ANCHOR a numeric axis's scale (objectui#7195).
+ *
+ * ## Why this asks about the axis, not about the value's type
+ *
+ * `isPlottableCoord` above accepts a boolean on purpose: beside one real number
+ * Recharts coerces `true`/`false` onto the scale and draws them (measured, 3 of
+ * 3). What it cannot do is BUILD a scale out of booleans alone — every row
+ * boolean and there is no domain, so nothing is drawn (0 of N). Whether a
+ * boolean places is a property of its neighbours; whether the AXIS has anything
+ * to build a scale from is a property of the whole dataset, and that is the
+ * question this answers. A "reject booleans" predicate was measured to put a
+ * false footnote over the mixed tile, so it is not what this is.
+ *
+ * ## Mirrors the two readers Recharts builds the domain with, not `Number.isFinite`
+ *
+ * A bare `Number.isFinite(v)` would refuse charts that draw. Recharts' numeric
+ * domain reads a value through `makeDomain` in its axis selectors, which takes
+ * a SCALAR through `makeNumber` — a number (primitive or `Number` object), a
+ * string or a `Date` whose `Number()` is finite — and an ARRAY by its first two
+ * elements `v[0]` / `v[1]` (a range bar or range area; any further elements
+ * are ignored, so `[1, 2, 3]` draws) when both pass that same scalar rule.
+ * Measured on this component, per family (bar / line / area / horizontal-bar /
+ * combo / scatter):
+ *
+ *   - numeric strings (`'3'`) DRAW on every family — so they anchor;
+ *   - `''` anchors at zero: a line / area / scatter draws it, while a bar /
+ *     horizontal-bar / combo paints zero-height rectangles, the all-zero
+ *     picture — finite data and silent, not this defect;
+ *   - `Date` values anchor (scatter, 2 of 2);
+ *   - a range `[1, 3]` anchors (a range bar drew 2 rectangles, a range area its
+ *     path), and so does `[1, 2, 3]`; an unstacked range with a boolean or
+ *     unparseable end does not (0 marks);
+ *   - `new Number(3)` anchors (bar 2 rectangles, line a path);
+ *   - booleans, `null`, an absent key, `NaN`, `'Infinity'` and `'n/a'` do not.
+ *
+ * ## A stacked series is not read here at all — its axis is live
+ *
+ * A STACKED bar or area is not read through `makeDomain`: d3's stack reads
+ * every value as `Number(value)` and gives the axis a scale whatever the
+ * values are (measured on the base tree: `'n/a'`, `NaN`, `{}`, `true` and
+ * `[true, 3]` paint full-height bars; `null` stacks to a zero-height one). An
+ * UNSTACKED sibling bound to the same axis is then coerced onto that scale and
+ * draws — an all-boolean `w` beside a stacked all-`null` `v` painted a
+ * rectangle. Four review rounds each found another way a per-series model of
+ * that scale misses, so the rule is the one that errs to silence (seat ruling,
+ * round 4): a series with a bar- or area-mode stack (`stackModeOf`) makes the
+ * tile LIVE whatever its values, and this function is never asked about it.
+ * A LINE spreads no `stackId` in this renderer, so its `stack` is inert and it
+ * is read like any unstacked series.
+ */
+function anchorsNumericAxis(v: unknown): boolean {
+  if (typeof v === 'boolean') return false;
+  if (Array.isArray(v)) return isDomainScalar(v[0]) && isDomainScalar(v[1]);
+  return isDomainScalar(v);
+}
+
+/**
+ * Recharts' `makeNumber`: `isNumber` (a primitive number or a `Number`
+ * object), a string or a `Date`, whose `Number()` is finite.
+ */
+function isDomainScalar(v: unknown): boolean {
+  if (typeof v === 'number' || v instanceof Number || typeof v === 'string' || v instanceof Date) {
+    return Number.isFinite(Number(v));
+  }
+  return false;
+}
+
+/**
+ * Whether the author DECLARED enough of an axis for it to have a scale
+ * without any row. Two shapes count:
+ *
+ *   - a finite numeric `min` AND `max`: Recharts builds the scale from the
+ *     spec alone and d3 coerces booleans onto it, so the tile draws —
+ *     measured, an all-boolean bar with `min: 0, max: 10` drew a rectangle, a
+ *     line / area their path, and a scatter with `xAxis: { min: 0, max: 10 }`
+ *     2 symbols;
+ *   - ANY finite `stepSize`. `ticksFor` reads the rows through `Number()`, so
+ *     booleans become 0 / 1 there, and with one declared bound it returns a
+ *     tick array Recharts resolves the `'auto'` end from — measured,
+ *     `{ stepSize: 2, min: 0 }` and `{ stepSize: 2, max: 10 }` each drew a
+ *     rectangle over all-boolean rows (review round 5). Only the stepSize-plus-
+ *     bound shape was measured drawing; ANY finite `stepSize` counts, `stepSize`
+ *     alone included, because that is the rule that is simplest to keep true
+ *     and it errs to silence (seat ruling, round 5).
+ *
+ * Such an axis is never refused. `min` alone, `max` alone, `logarithmic`
+ * alone and annotations do not build a scale (0 marks, measured) and do not
+ * count.
+ */
+function declaresScale(axis: NormalizedAxis | undefined): boolean {
+  const finite = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
+  return (finite(axis?.min) && finite(axis?.max)) || finite(axis?.stepSize);
+}
+
+/** Whether ANY row gives `key` a value that can anchor its axis. */
+function axisHasScale(rows: unknown[], key: string): boolean {
+  return rows.some((row) =>
+    anchorsNumericAxis((row as Record<string, unknown> | null | undefined)?.[key]),
+  );
+}
+
+/**
+ * How the renderer stacks series `index`, read the way it draws it: the family
+ * comes from `effectiveChartFamily` / `comboBaseFamily`, and inside a combo from
+ * `series[].chartType`, then the base family, then the index default (first a
+ * bar, the rest lines) — the same resolution the combo arm uses. Only a bar or
+ * an area receives `stackId`; a line never does.
+ */
+type StackMode = 'none' | 'bar' | 'area';
+
+function stackModeOf(chartType: string, series: NormalizedSeries[], index: number): StackMode {
+  const s = series[index];
+  if (!s?.stack) return 'none';
+  const effective = effectiveChartFamily(chartType as any, series);
+  const family = effective === 'combo'
+    ? (s.chartType || comboBaseFamily(chartType) || (index === 0 ? 'bar' : 'line'))
+    : effective;
+  if (family === 'line') return 'none';
+  if (family === 'area') return 'area';
+  return 'bar';
+}
+
+/**
+ * The refusal a cartesian tile renders when a numeric axis has rows but not one
+ * of them carries a value that axis can build a scale from (objectui#7195,
+ * ruled A).
+ *
+ * Its OWN code, `no-numeric-value`, rather than one of the neighbouring two:
+ * `no-plottable-points` says no row carries a PAIR a point needs, and
+ * `no-plottable-series` says nothing was bound at all. This one says the
+ * binding is there and every row was read, and the axis still has no scale. One
+ * code serves scatter and the series families alike because it is one
+ * diagnosis with one fix — bind a numeric column — and the family is already
+ * on the tile.
+ *
+ * The sentence is keyed on the whole dataset — "none of the N rows" — so it is
+ * true exactly when nothing can be placed and cannot fire over a mixed tile
+ * that draws. It names every dead key, and only those. English literal, no
+ * locale key, matching the `no-plottable-series` sentences. No console warning,
+ * matching the scatter answers above: the sentence already carries the key and
+ * the count.
+ */
+function NumericValueRefusal({
+  keys,
+  total,
+  className,
+}: { keys: string[]; total: number; className?: string }) {
+  return (
+    <ChartRefusal code="no-numeric-value" className={className}>
+      This chart has no scale to draw on:{' '}
+      {total === 1 ? 'its only row has no' : `none of the ${total} rows has a`} numeric value for{' '}
+      {keys.map((key, i) => (
+        <React.Fragment key={`${i}-${key}`}>
+          {i > 0 ? ' or ' : ''}
+          <code className="font-mono">{key}</code>
+        </React.Fragment>
+      ))}
+      .
     </ChartRefusal>
   );
 }
@@ -1271,9 +1708,20 @@ function AdvancedChartImplInner({
     // Detect ISO 8601 date / datetime strings (YYYY-MM-DD or with time component)
     const isoLike = /^\d{4}-\d{2}-\d{2}/.test(str);
     if (isoLike) {
-      const d = new Date(str);
+      // The shared step, `toDisplayDate` (`@object-ui/core`, objectui#10866):
+      // the engine's own parse read a date-only `2026-09-01` as UTC midnight,
+      // so every viewer west of UTC read `Aug 31` on the axis. The shared step
+      // tells the two shapes apart by the value: a date-only category is
+      // local midnight of the day it names, and one with a time part keeps its
+      // instant. A value it refuses (a day its month does not have,
+      // objectui#10026) falls through to the raw category below.
+      const d = toDisplayDate(str);
       if (!Number.isNaN(d.getTime())) {
-        // Choose granularity based on data span: <= 31 days → MMM D, otherwise MMM YYYY
+        // Choose granularity based on data span: <= 62 days → MMM D, otherwise MMM YYYY.
+        // The span is a DURATION between two categories of one axis, so it
+        // keeps the engine parse: two date-only values are then both UTC
+        // midnights and a whole number of days apart, where two local
+        // midnights would be an hour off across a DST change.
         const span = data.length > 1
           ? Math.abs(new Date(String(data[data.length - 1][xAxisKey] ?? '')).getTime() -
                      new Date(String(data[0][xAxisKey] ?? '')).getTime())
@@ -1285,7 +1733,10 @@ function AdvancedChartImplInner({
           }
           return d.toLocaleDateString(displayLocale, { month: 'short', year: 'numeric' });
         } catch {
-          return d.toISOString().slice(0, 10);
+          // A locale `Intl` refuses. A date-only category prints its day from
+          // LOCAL getters (`toISOString()` of its local midnight would name
+          // the day before east of UTC); an instant keeps its UTC day.
+          return isRealCalendarDate(str) ? toDateInputValue(d) : d.toISOString().slice(0, 10);
         }
       }
     }
@@ -1336,16 +1787,41 @@ function AdvancedChartImplInner({
   // domain; `logarithmic` swaps the scale; `title` labels the axis. All three
   // arrive already parsed from `normalizeChartSchema`, so nothing here has to
   // know the author-facing shape.
+  //
+  // `primaryY` is the entry declaration order makes primary: the only value
+  // axis when it is the only entry, the one whose `showGridLines` governs the
+  // horizontal grid, and scatter's y axis.
   const primaryY: NormalizedAxis | undefined = yAxes?.[0];
-  // A secondary axis exists when a second entry is declared, or the only entry
-  // asks to sit on the right.
-  const secondaryY: NormalizedAxis | undefined =
-    yAxes && yAxes.length > 1
-      ? yAxes[1]
-      : primaryY?.position === 'right'
-        ? primaryY
-        : undefined;
-  const hasDualAxis = !!yAxes && (yAxes.length > 1);
+  // Spec `yAxis[].position` — which slot each entry is drawn in (objectui#10654;
+  // see `placeYAxes`, the one place a y side is resolved — the normalizer binds
+  // the series it derives from the entries with the same call). `chartType` is
+  // the EFFECTIVE family, and `comboBaseFamily` never widens a horizontal-bar,
+  // so `categoriesRunDown` is exactly "the value axes run across the plot".
+  // Scatter draws one y axis, the primary's: `placeYAxes` places only that
+  // entry and lists the rest as undrawn (objectui#10721), so the footnote
+  // names them.
+  const categoriesRunDown = chartType === 'horizontal-bar';
+  const yPlacement = placeYAxes(yAxes, chartType);
+  const leftY: NormalizedAxis | undefined = yPlacement.left !== undefined ? yAxes?.[yPlacement.left] : undefined;
+  const rightY: NormalizedAxis | undefined = yPlacement.right !== undefined ? yAxes?.[yPlacement.right] : undefined;
+  // Two value axes exactly when two entries are declared, one per slot, and
+  // `series[].yAxis` binds a series to a slot. A lone entry is the only value
+  // axis, drawn in the slot it named (`soleYSlot`) — `position: 'right'` on it
+  // moves the axis, it does not add a second one.
+  const hasDualAxis = !!leftY && !!rightY;
+  // A combo always renders both value axes with ids; the other cartesian
+  // branches do only when two entries are declared (see `valueAxisIdFor`).
+  const valueAxesHaveIds = chartType === 'combo' || hasDualAxis;
+  const soleYSlot: ValueAxisSlot = yPlacement.slotOf[0] ?? 'left';
+  // The position notes, then one per entry drawn on no axis (objectui#10691) —
+  // both from `yPlacement`, in the same footnote.
+  const yPositionNote = joinNotes(
+    yAxisPositionNotes(yPlacement, categoriesRunDown),
+    yAxisUndrawnNotes(yPlacement, yAxes, categoriesRunDown),
+  );
+  /** The entry a series' marks are measured against — for its value labels. */
+  const axisOfSeries = (s: { yAxis?: string }): NormalizedAxis | undefined =>
+    hasDualAxis ? (s.yAxis === 'right' ? rightY : leftY) : primaryY;
 
   const xTickFormatter = React.useMemo(
     () => formatterFor(xAxisSpec?.format, displayLocale) ?? formatTick,
@@ -1375,18 +1851,23 @@ function AdvancedChartImplInner({
     () => formatterFor(primaryY?.format, displayLocale) ?? formatYTick,
     [primaryY?.format, displayLocale, formatYTick],
   );
-  const y2TickFormatter = React.useMemo(
-    () => formatterFor(secondaryY?.format, displayLocale) ?? formatYTick,
-    [secondaryY?.format, displayLocale, formatYTick],
+  // Per slot, for the charts that draw both value axes.
+  const leftYTickFormatter = React.useMemo(
+    () => formatterFor(leftY?.format, displayLocale) ?? formatYTick,
+    [leftY?.format, displayLocale, formatYTick],
+  );
+  const rightYTickFormatter = React.useMemo(
+    () => formatterFor(rightY?.format, displayLocale) ?? formatYTick,
+    [rightY?.format, displayLocale, formatYTick],
   );
 
   /**
-   * Every number plotted on one side of a dual axis (or on the only axis) —
-   * the range `stepSize` lays its ticks over.
+   * Every number plotted in one slot of a dual axis (or on the only axis,
+   * whichever slot it sits in) — the range `stepSize` lays its ticks over.
    */
-  const axisValues = React.useCallback((side: 'left' | 'right') => {
+  const axisValues = React.useCallback((side: ValueAxisSlot) => {
     const keys = series
-      .filter((s: any) => (hasDualAxis ? (s.yAxis === 'right' ? 'right' : 'left') === side : side === 'left'))
+      .filter((s: any) => (hasDualAxis ? (s.yAxis === 'right' ? 'right' : 'left') === side : true))
       .map((s: any) => s.dataKey);
     const out: number[] = [];
     for (const row of data) {
@@ -1398,10 +1879,15 @@ function AdvancedChartImplInner({
     return out;
   }, [data, series, hasDualAxis]);
 
-  /** Recharts props derived from one spec y-axis (domain / scale / ticks / label). */
+  /**
+   * Recharts props derived from one spec y-axis (domain / scale / ticks /
+   * label). The title is laid out for an axis running up the plot on the
+   * `side` slot unless a caller drawing it ACROSS the plot (horizontal-bar's
+   * value axes) passes the x-axis layout for the side it sits on.
+   */
   const yAxisSpecProps = React.useCallback(
-    (axis: NormalizedAxis | undefined, side: 'left' | 'right' = 'left') =>
-      numericAxisSpecProps(axis, axisValues(side), Y_AXIS_TITLE_LAYOUT),
+    (axis: NormalizedAxis | undefined, side: ValueAxisSlot = 'left', titleLayout?: AxisTitleLayout) =>
+      numericAxisSpecProps(axis, axisValues(side), titleLayout ?? yAxisTitleLayoutFor(side)),
     [axisValues],
   );
 
@@ -1415,6 +1901,19 @@ function AdvancedChartImplInner({
     horizontal: showYGrid,
   };
 
+  // Spec `xAxis.position` — which side the category axis sits on, or the side
+  // it was refused (objectui#10587; see `placeXAxis`). `chartType` is the
+  // EFFECTIVE family: a bar / line / area whose series disagree is placed as
+  // the vertical combo it became; `comboBaseFamily` never widens a
+  // horizontal-bar, so one with mixed series stays horizontal and keeps the
+  // `left` / `right` reading (`categoriesRunDown`, above).
+  const {
+    across: xAxisAcross,
+    down: xAxisDown,
+    refused: xAxisPositionRefused,
+  } = placeXAxis(xAxisSpec?.position, categoriesRunDown);
+  const xPositionNote = xAxisPositionNote(xAxisPositionRefused, categoriesRunDown);
+
   // Legend is on unless the author turned it off (spec default `true`).
   const legendVisible = showLegend !== false;
 
@@ -1424,6 +1923,8 @@ function AdvancedChartImplInner({
   const annotationEls = React.useMemo(() => {
     if (!Array.isArray(annotations) || annotations.length === 0) return null;
     const DASH: Record<string, string | undefined> = { solid: undefined, dashed: '4 4', dotted: '1 4' };
+    // Measured against the rendered `'left'` value axis — see `valueAxisIdFor`.
+    const axisId = valueAxisIdFor(valueAxesHaveIds, categoriesRunDown);
     return annotations.map((a, i) => {
       const onX = a?.axis === 'x';
       const stroke = resolveColor(String(a?.color || 'hsl(var(--muted-foreground))'));
@@ -1436,7 +1937,7 @@ function AdvancedChartImplInner({
           <ReferenceArea
             key={`ann-${i}`}
             {...range}
-            {...(hasDualAxis && !onX ? { yAxisId: 'left' } : {})}
+            {...axisId}
             fill={stroke}
             fillOpacity={0.12}
             stroke={stroke}
@@ -1449,14 +1950,14 @@ function AdvancedChartImplInner({
         <ReferenceLine
           key={`ann-${i}`}
           {...(onX ? { x: a?.value } : { y: a?.value })}
-          {...(hasDualAxis && !onX ? { yAxisId: 'left' } : {})}
+          {...axisId}
           stroke={stroke}
           strokeDasharray={strokeDasharray}
           {...labelProp}
         />
       );
     });
-  }, [annotations, hasDualAxis]);
+  }, [annotations, valueAxesHaveIds, categoriesRunDown]);
 
   // ── Spec ChartConfig.interaction (objectui#2880 S3) ─────────────────────
   // `tooltips: false` suppresses the hover card; `brush: true` adds the range
@@ -1524,9 +2025,15 @@ function AdvancedChartImplInner({
       ? { interval: 0 as const }
       : { interval: 'preserveStartEnd' as const, minTickGap: 0 }),
     tickFormatter: xAxisTickFormatter,
-    ...(xAxisSpec?.title ? { label: { value: xAxisSpec.title, ...X_AXIS_TITLE_LAYOUT } } : {}),
-    ...(rotateXLabels && { angle: -35, textAnchor: 'end' as const, height: 60 }),
-  }), [labelEveryBucket, rotateXLabels, xAxisTickFormatter, xAxisSpec?.title]);
+    // objectui#10587 — the declared side, emitted only when one was declared
+    // and is open to this axis (see `placeXAxis`).
+    ...(xAxisAcross ? { orientation: xAxisAcross } : {}),
+    ...(xAxisSpec?.title ? { label: { value: xAxisSpec.title, ...xAxisTitleLayoutFor(xAxisAcross) } } : {}),
+    // A rotated label hangs AWAY from the plot: down-left under a bottom axis
+    // (`-35`), and up-left over a top one (`35`) — the same `-35` above the
+    // plot would slant every label down into the marks.
+    ...(rotateXLabels && { angle: xAxisAcross === 'top' ? 35 : -35, textAnchor: 'end' as const, height: 60 }),
+  }), [labelEveryBucket, rotateXLabels, xAxisTickFormatter, xAxisSpec?.title, xAxisAcross]);
 
   // #2942 — the non-series spec families used to fall through the component
   // map's `|| BarChart` into a bar shell whose series marks all returned
@@ -1970,13 +2477,37 @@ function AdvancedChartImplInner({
     if (points.total > 0 && points.plottable === 0) {
       return <PositionRefusal xKey={xAxisKey} yKey={scatterYKey} className={className} />;
     }
+    // objectui#7195 — see `NumericValueRefusal`. After the positional refusal,
+    // which already answers every row lacking a placeable pair; this catches
+    // what `isPlottableCoord` accepts on purpose — booleans — once the WHOLE
+    // axis carries nothing else, so there is no scale to coerce them onto
+    // (measured: 0 of N marks, silent, or under a footnote claiming some drew).
+    // Before the footnote, which would otherwise count booleans as placed.
+    if (points.total > 0) {
+      // An axis whose spec declares both ends, or any `stepSize`, has a scale
+      // without any row (`declaresScale`), so it is never dead: x reads the spec `xAxis`, y the primary `yAxes[0]` —
+      // the same specs the two `<XAxis>` / `<YAxis>` below are handed.
+      const deadAxes = (
+        [[xAxisKey, xAxisSpec], [scatterYKey, yAxes?.[0]]] as Array<[string, NormalizedAxis | undefined]>
+      )
+        .filter(([key, axis]) => !declaresScale(axis) && !axisHasScale(data, key))
+        .map(([key]) => key)
+        .filter((key, i, all) => all.indexOf(key) === i);
+      if (deadAxes.length > 0) {
+        return <NumericValueRefusal keys={deadAxes} total={points.total} className={className} />;
+      }
+    }
     return (
       <ChartFootnote
-        note={unplottedPointsNote(points.plottable, points.total, xAxisKey, scatterYKey)}
+        note={joinNotes(unplottedPointsNote(points.plottable, points.total, xAxisKey, scatterYKey), xPositionNote, yPositionNote)}
       >
       <ChartContainer config={config} className={className} {...containerProps}>
         <ScatterChart>
-          <CartesianGrid vertical={false} />
+          {/* The same derived grid every cartesian sibling spreads, so a spec
+              `showGridLines` on either axis is honoured (objectui#9792). With
+              no axis declaring it this is horizontal lines only — what the
+              literal `vertical={false}` it replaces drew. */}
+          <CartesianGrid {...gridProps} />
           {/* Both axes carry the spec `ChartAxis` derivation every other
               family's numeric axis gets — `min`/`max` as the domain,
               `stepSize` as the ticks, `logarithmic` as the scale, `title` as
@@ -1999,7 +2530,11 @@ function AdvancedChartImplInner({
             minTickGap={isMobile ? 32 : 48}
             padding={SCATTER_X_AXIS_PADDING}
             {...(scatterXTickFormatter ? { tickFormatter: scatterXTickFormatter } : {})}
-            {...numericAxisSpecProps(xAxisSpec, scatterXValues, X_AXIS_TITLE_LAYOUT)}
+            // objectui#10587 — scatter's measure axis runs across the plot like
+            // every category x axis, so `top` / `bottom` are its sides too
+            // (see `placeXAxis`).
+            {...(xAxisAcross ? { orientation: xAxisAcross } : {})}
+            {...numericAxisSpecProps(xAxisSpec, scatterXValues, xAxisTitleLayoutFor(xAxisAcross))}
           />
           <YAxis
             type="number"
@@ -2010,7 +2545,10 @@ function AdvancedChartImplInner({
             tickFormatter={yTickFormatter}
             width={48}
             padding={SCATTER_Y_AXIS_PADDING}
-            {...yAxisSpecProps(primaryY)}
+            // objectui#10654 — the primary entry's `position`: `right` draws the
+            // y axis on the right (see `placeYAxes`).
+            {...(soleYSlot === 'right' ? { orientation: 'right' as const } : {})}
+            {...yAxisSpecProps(primaryY, soleYSlot)}
           />
           {/* ⛔ No `<ZAxis>` here, deliberately — scatter mark AREA is recharts'
               own implicit default and is not configurable in this product
@@ -2084,6 +2622,7 @@ function AdvancedChartImplInner({
   if (chartType === 'combo') {
     return (
       <ChartFrame title={title} subtitle={subtitle}>
+      <ChartFootnote note={joinNotes(xPositionNote, yPositionNote)}>
       <ChartContainer config={config} className={className} {...containerProps}>
         {/* `ComposedChart`, not `BarChart`, is the Recharts container built to
             host mixed marks. Under `BarChart` an `<Area>` child renders nothing
@@ -2096,10 +2635,15 @@ function AdvancedChartImplInner({
             is known — a line/area item handler is handed the curve's props and
             no datum. */}
         <ComposedChart data={data} {...comboClickProps}>
-          <CartesianGrid {...gridProps} />
+          <CartesianGrid {...gridProps} {...valueAxisIdFor(valueAxesHaveIds, categoriesRunDown)} />
           <XAxis dataKey={xAxisKey} {...xAxisCommonProps} />
-          <YAxis yAxisId="left" tickLine={false} axisLine={false} tickFormatter={yTickFormatter} width={48} {...yAxisSpecProps(primaryY)} />
-          <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tickFormatter={y2TickFormatter} width={48} {...yAxisSpecProps(secondaryY, 'right')} />
+          {/* A combo always draws both value axes (an authored combo binds an
+              un-annotated line to the right one). Each carries the entry
+              `placeYAxes` drew in its slot, or no spec config when none was —
+              so a lone entry at `position: 'right'` configures the right axis
+              only, and its title is not drawn on both sides (objectui#10654). */}
+          <YAxis yAxisId="left" tickLine={false} axisLine={false} tickFormatter={leftYTickFormatter} width={48} {...yAxisSpecProps(leftY, 'left')} />
+          <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tickFormatter={rightYTickFormatter} width={48} {...yAxisSpecProps(rightY, 'right')} />
           {tooltipsEnabled ? <ChartTooltip content={<ChartTooltipContent />} /> : null}
           {legendVisible ? (
             <ChartLegend
@@ -2128,7 +2672,7 @@ function AdvancedChartImplInner({
                 : (seriesType === 'bar' ? 'left' : 'right');
             const pres = seriesStyle(s, seriesType as any);
             const stackProps = s.stack ? { stackId: String(s.stack) } : {};
-            const valueFormatter = formatterFor((yAxisId === 'right' ? secondaryY : primaryY)?.format, displayLocale);
+            const valueFormatter = formatterFor((yAxisId === 'right' ? rightY : leftY)?.format, displayLocale);
 
             if (seriesType === 'line') {
               return (
@@ -2152,6 +2696,7 @@ function AdvancedChartImplInner({
           })}
         </ComposedChart>
       </ChartContainer>
+      </ChartFootnote>
       </ChartFrame>
     );
   }
@@ -2175,6 +2720,7 @@ function AdvancedChartImplInner({
 
   return (
     <ChartFrame title={title} subtitle={subtitle}>
+    <ChartFootnote note={joinNotes(xPositionNote, yPositionNote)}>
     <ChartContainer config={config} className={className} {...containerProps}>
       <ChartComponent data={data} layout={isHorizontal ? 'vertical' : 'horizontal'} {...cartesianClickProps}>
         <defs>
@@ -2191,12 +2737,37 @@ function AdvancedChartImplInner({
             </React.Fragment>
           ))}
         </defs>
-        <CartesianGrid {...gridProps} />
+        <CartesianGrid {...gridProps} {...valueAxisIdFor(valueAxesHaveIds, categoriesRunDown)} />
         {isHorizontal ? (
           <>
-            {/* Horizontal bars swap the axis roles: the VALUE axis is x, so the
-                spec y-axis config (domain/format/scale) applies to it. */}
-            <XAxis type="number" tickLine={false} axisLine={false} tickFormatter={yTickFormatter} {...yAxisSpecProps(primaryY)} />
+            {/* Horizontal bars swap the axis roles: the VALUE axes are x, so the
+                spec y-axis config (domain/format/scale/title) applies to them.
+                Each is drawn in the slot `placeYAxes` put its entry in — the
+                `'left'` slot along the bottom, the `'right'` slot along the
+                top — and its title is laid out for an axis running across the
+                plot, under it at the bottom and over it at the top
+                (objectui#10654). Two entries draw two value axes, each with its
+                own id, and the bars below bind to those ids; the category axis
+                carries none. */}
+            {hasDualAxis ? (
+              <>
+                <XAxis xAxisId="left" type="number" tickLine={false} axisLine={false} tickFormatter={leftYTickFormatter} {...yAxisSpecProps(leftY, 'left', X_AXIS_TITLE_LAYOUT)} />
+                <XAxis xAxisId="right" orientation="top" type="number" tickLine={false} axisLine={false} tickFormatter={rightYTickFormatter} {...yAxisSpecProps(rightY, 'right', X_AXIS_TOP_TITLE_LAYOUT)} />
+              </>
+            ) : (
+              <XAxis
+                type="number"
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={yTickFormatter}
+                {...(soleYSlot === 'right' ? { orientation: 'top' as const } : {})}
+                {...yAxisSpecProps(primaryY, soleYSlot, xAxisTitleLayoutFor(soleYSlot === 'right' ? 'top' : 'bottom'))}
+              />
+            )}
+            {/* The spec `xAxis` follows the categories onto this axis, its
+                `position` included: `left` / `right` are its sides here
+                (objectui#10587, see `placeXAxis`). Its `title` follows them too,
+                laid out for an axis running down the plot (objectui#10654). */}
             <YAxis
               type="category"
               dataKey={xAxisKey}
@@ -2204,30 +2775,46 @@ function AdvancedChartImplInner({
               axisLine={false}
               width={Math.min(140, Math.max(60, Math.max(...data.map(d => String(d[xAxisKey] ?? '').length)) * 7))}
               tickFormatter={xTickFormatter}
+              {...(xAxisDown ? { orientation: xAxisDown } : {})}
+              {...(xAxisSpec?.title ? { label: { value: xAxisSpec.title, ...yAxisTitleLayoutFor(xAxisDown) } } : {})}
             />
           </>
         ) : (
           <>
             <XAxis dataKey={xAxisKey} {...xAxisCommonProps} />
-            <YAxis
-              {...(hasDualAxis ? { yAxisId: 'left' as const } : {})}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={yTickFormatter}
-              width={48}
-              {...yAxisSpecProps(primaryY)}
-            />
+            {/* Each value axis carries the entry `placeYAxes` drew in its slot
+                (objectui#10654): with two entries, one per side; with one, the
+                only axis, on the side that entry named. */}
             {hasDualAxis ? (
+              <>
+                <YAxis
+                  yAxisId="left"
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={leftYTickFormatter}
+                  width={48}
+                  {...yAxisSpecProps(leftY, 'left')}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={rightYTickFormatter}
+                  width={48}
+                  {...yAxisSpecProps(rightY, 'right')}
+                />
+              </>
+            ) : (
               <YAxis
-                yAxisId="right"
-                orientation="right"
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={y2TickFormatter}
+                tickFormatter={yTickFormatter}
                 width={48}
-                {...yAxisSpecProps(secondaryY, 'right')}
+                {...(soleYSlot === 'right' ? { orientation: 'right' as const } : {})}
+                {...yAxisSpecProps(primaryY, soleYSlot)}
               />
-            ) : null}
+            )}
           </>
         )}
         {tooltipsEnabled ? <ChartTooltip content={<ChartTooltipContent />} /> : null}
@@ -2251,17 +2838,18 @@ function AdvancedChartImplInner({
           const baseIdx = isComparison ? series.indexOf(baseSeries) : sIdx;
           const seriesColor = resolveColor(config[baseSeries.dataKey]?.color || palette[baseIdx % palette.length] || DEFAULT_CHART_COLOR);
 
-          // Spec `series[].yAxis` binds this series to the secondary axis.
-          // Only meaningful once a second axis is declared.
-          const axisProps = hasDualAxis ? { yAxisId: s.yAxis === 'right' ? 'right' : 'left' } : {};
+          // Spec `series[].yAxis` binds this series to a value-axis slot. Only
+          // meaningful once a second axis is declared, and bound to the id the
+          // branch above rendered for that slot: a `<YAxis>` up the side of
+          // the plot, an `<XAxis>` on horizontal-bar (objectui#10654 — a
+          // `yAxisId` there named no rendered axis, and the bars were dropped).
+          const slot: ValueAxisSlot = s.yAxis === 'right' ? 'right' : 'left';
+          const axisProps = !hasDualAxis ? {} : isHorizontal ? { xAxisId: slot } : { yAxisId: slot };
           // Spec `series[].stack` — series sharing a group id stack together.
           // Recharts keys stacking off `stackId`, so the author's group name
           // passes through unchanged.
           const stackProps = s.stack ? { stackId: String(s.stack) } : {};
-          const valueFormatter = formatterFor(
-            (s.yAxis === 'right' ? secondaryY : primaryY)?.format,
-            displayLocale,
-          );
+          const valueFormatter = formatterFor(axisOfSeries(s)?.format, displayLocale);
 
           if (chartType === 'bar' || chartType === 'horizontal-bar') {
             // For categorical bar charts with a single primary series,
@@ -2300,6 +2888,7 @@ function AdvancedChartImplInner({
         })}
       </ChartComponent>
     </ChartContainer>
+    </ChartFootnote>
     </ChartFrame>
   );
 }
@@ -2401,22 +2990,194 @@ const SERIES_ONLY_CHART_TYPES: ReadonlySet<string> = new Set([
  * and BOTH authoring causes, and the console warning carries the diagnostic pair
  * (`xAxisKey` + the keys the rows actually carry) exactly as the model does.
  *
- * ## Why `[]` and not "no series at all"
+ * ## Both "empty" and "never declared" refuse — and they say different things
  *
- * `Array.isArray(series) && series.length === 0` — a binding that was COMPUTED
- * and came out empty, which is what both `buildChartSeries` call paths hand
- * over. `series === undefined` means no binding was ever computed (a caller that
- * never went through the helper); those charts are left byte-for-byte as they
- * were.
+ * Two shapes reach here with rows and nothing to plot, and both refuse
+ * (objectui#4695, maintainer ruling A):
+ *
+ *   - **`'empty'`** — `Array.isArray(series) && series.length === 0`: a binding
+ *     was COMPUTED and came out empty, which is what both `buildChartSeries`
+ *     call paths hand over for the objectui#4683 shape above.
+ *   - **`'undeclared'`** — `series === undefined`: no binding was ever computed.
+ *     The caller never went through the helper, and the schema declared no
+ *     `series`, no `categories` and no y-axis field for `normalizeChartSchema`
+ *     to derive one from. `AdvancedChartImplInner` defaults `series` to `[]`,
+ *     so this used to draw the very same frame of zero marks, silently — the
+ *     author (often an AI) wrote a chart with nothing to draw and was never
+ *     told. That is an authoring mistake, so it is refused, not tolerated.
+ *
+ * The distinction has to be read HERE, on the raw props: past the inner
+ * component's `series = []` default the two are the same array. They share one
+ * placeholder and one `data-chart-error` code (the chart cannot plot a series
+ * either way) and differ only in the sentence, because the fix differs —
+ * project a dimension or select a measure for `'empty'`, declare a series at
+ * all for `'undeclared'`.
+ *
+ * Only {@link SERIES_ONLY_CHART_TYPES} are refused, for the reason given on
+ * that set: every other family falls back to a `value` column and draws.
  */
-function hasNoPlottableSeries(props: AdvancedChartImplProps): boolean {
+type NoPlottableSeries = 'empty' | 'undeclared';
+
+function hasNoPlottableSeries(props: AdvancedChartImplProps): NoPlottableSeries | null {
   const chartType = props.chartType === 'column' ? 'bar' : (props.chartType ?? 'bar');
   const rows = Array.isArray(props.data) ? props.data : [];
+  if (!SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0) return null;
+  if (props.series === undefined) return 'undeclared';
+  if (Array.isArray(props.series) && props.series.length === 0) return 'empty';
+  return null;
+}
+
+/**
+ * The series families' half of objectui#7195: series are bound and rows
+ * arrived, but not one row carries a value any series' axis can build a scale
+ * from. Returns the dead series keys, or `null` when anything can draw.
+ *
+ * Keyed on ALL series together, never per series, because that is what
+ * measured as drawing nothing. A second series whose every value is boolean
+ * beside a numeric one DRAWS (measured: bar 3 rectangles, line and area two
+ * paths) — the numeric series gives the shared axis its scale and the booleans
+ * are coerced onto it, the same neighbour effect as scatter's mixed tile. Only
+ * when EVERY series is dead can the tile draw zero marks (bar, column,
+ * horizontal-bar, line, area and combo alike) — and a series with a bar- or
+ * area-mode stack is never dead: the stack gives its axis a scale whatever
+ * its values, and every series on that axis is coerced onto it, so any such
+ * series keeps the whole tile silent (seat ruling, round 4; see
+ * `anchorsNumericAxis`). A whole-tile refusal needs every series dead, so the
+ * axis each series binds to does not have to be resolved for this rule.
+ *
+ * That includes a dual-axis tile: one dead axis beside a live one still draws
+ * the live axis's marks, so it is left drawing — measured and declined here,
+ * because a whole-tile refusal would blank marks that are on screen.
+ *
+ * Only {@link SERIES_ONLY_CHART_TYPES}, for the reason given on that set; and
+ * only once `hasNoPlottableSeries` has passed, since that is the guard that
+ * owns "no series at all".
+ *
+ * ## Silent unless EVERY bound key resolves as a plain own property of a row
+ *
+ * This reads `row[key]`; Recharts reads `get(row, key)`, which also walks a
+ * dotted path (`'a.b'` into `{ a: { b: 3 } }`). Rather than re-implement that
+ * path grammar here — a second copy that could drift from the library's — a
+ * bound key that is not an own property of any row is treated as UNRESOLVED,
+ * and one unresolved key keeps the whole tile silent: this predicate cannot
+ * tell whether that series draws, so it must not claim it does not (measured:
+ * `a.b` beside an all-boolean `w` drew bar 3 rectangles / line 2 paths).
+ * The same gate keeps a key NO row carries — the objectui#8266 shape — out of
+ * this answer: when EVERY bound key is such a key, `hasNoCarriedSeriesKey`
+ * refuses first with its own code (objectui#10396); when only SOME are, this
+ * gate still errs to silence and neither refusal fires.
+ *
+ * ## A series on an axis with a declared scale is live
+ *
+ * See `declaresScale`: such an axis has a scale whatever the rows carry,
+ * so booleans are coerced onto it and draw. A series' axis is read the way the
+ * renderer binds it — through `placeYAxes`, the same call the renderer places
+ * the entries with (objectui#10654) — over-approximated toward silence: on a
+ * dual-axis tile `yAxis: 'left'` binds the entry drawn in the `'left'` slot;
+ * anything else, and every series on a one-entry tile, may land on either
+ * entry depending on the family and on whether the tile is a combo, so either
+ * counts.
+ */
+function hasNoNumericSeriesValue(props: AdvancedChartImplProps): string[] | null {
+  const chartType = props.chartType === 'column' ? 'bar' : (props.chartType ?? 'bar');
+  const rows = Array.isArray(props.data) ? props.data : [];
+  const series = Array.isArray(props.series) ? props.series : [];
+  if (!SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0 || series.length === 0) return null;
+  const keys = Array.from(new Set(series.map((s) => String(s.dataKey))));
+  const resolved = keys.every((key) =>
+    rows.some(
+      (row) => row != null && typeof row === 'object' && Object.prototype.hasOwnProperty.call(row, key),
+    ),
+  );
+  if (!resolved) return null;
+  const yAxes = Array.isArray(props.yAxes) ? props.yAxes : [];
+  const placement = placeYAxes(yAxes, chartType);
+  const left = placement.left !== undefined ? yAxes[placement.left] : undefined;
+  const right = placement.right !== undefined ? yAxes[placement.right] : undefined;
+  const dual = !!left && !!right;
+  const declared = (s: NormalizedSeries) =>
+    declaresScale(left) || ((!dual || s.yAxis !== 'left') && declaresScale(right));
+  const live = series.some(
+    (s, i) =>
+      stackModeOf(chartType, series, i) !== 'none' || declared(s) || axisHasScale(rows, String(s.dataKey)),
+  );
+  return live ? null : keys;
+}
+
+/**
+ * The series half of the `missing-category-key` doctrine — objectui#10396, the
+ * objectui#8266 shape: series are bound and rows arrived, but not one row
+ * carries ANY bound series key. Returns those keys, or `null` when anything
+ * can draw or this cannot tell.
+ *
+ * **Key ABSENT is what this asks, and only that** — `key in row`, the very
+ * test `hasNoCategoryKey` makes for the category axis. A key that is present
+ * with a `null`, boolean or unparseable value on every row is a different
+ * diagnosis (the binding resolved, the axis has no scale) and belongs to
+ * `hasNoNumericSeriesValue`'s `no-numeric-value`.
+ *
+ * ## Keyed on ALL series and ALL rows, like its siblings
+ *
+ *   - **One row carrying the key draws**, exactly as one row carrying the
+ *     category key does (measured: bar 1 rectangle, line / area a path).
+ *   - **One series whose key a row carries draws**, and a series beside it
+ *     whose key no row carries is left silent: a whole-tile refusal would
+ *     blank marks that are on screen (measured: bar 2 rectangles), the same
+ *     reason `hasNoNumericSeriesValue` declines a dual-axis tile with one dead
+ *     axis. An absent key beside a present-but-dead one (an all-boolean
+ *     sibling) is left silent too — see that function's resolved-key gate.
+ *   - **Every bound key absent refuses**, whatever else the tile declares: a
+ *     stack, a declared `min` / `max` or `stepSize`, a second axis. None of
+ *     them gives a mark a value to draw (measured on the base tree, bar /
+ *     column / horizontal-bar / line / area / combo: 0 marks in every case).
+ *
+ * ## Only a plain key is judged
+ *
+ * Recharts reads a series through `get(row, key)` (es-toolkit's `compat/get`),
+ * which returns `row[key]` for a key without a `.` or a `[`, and walks a path
+ * otherwise (`'a.b'` into `{ a: { b: 3 } }` draws). Rather than re-implement
+ * that path grammar, a path-shaped key is never judged absent, so one keeps
+ * the whole tile silent — the same choice, for the same reason, as
+ * `hasNoNumericSeriesValue`'s resolved-key gate. Erring to silence.
+ *
+ * Only {@link SERIES_ONLY_CHART_TYPES}, for the reason given on that set, and
+ * only once `hasNoPlottableSeries` has passed, since that guard owns "no series
+ * at all". Scatter's absent key is already refused by `no-plottable-points`.
+ */
+function hasNoCarriedSeriesKey(props: AdvancedChartImplProps): string[] | null {
+  const chartType = props.chartType === 'column' ? 'bar' : (props.chartType ?? 'bar');
+  const rows = Array.isArray(props.data) ? props.data : [];
+  const series = Array.isArray(props.series) ? props.series : [];
+  if (!SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0 || series.length === 0) return null;
+  const keys: unknown[] = Array.from(new Set(series.map((s) => s.dataKey)));
+  const absent = keys.every(
+    (key) =>
+      typeof key === 'string' &&
+      /^[^.[]+$/.test(key) &&
+      !rows.some((row) => row != null && typeof row === 'object' && key in row),
+  );
+  return absent ? (keys as string[]) : null;
+}
+
+/**
+ * The refusal a series-only tile renders when not one row carries any bound
+ * series key (objectui#10396). Worded after `missing-category-key`, whose
+ * sentence it mirrors for the other half of the binding: it names every
+ * missing key, joined with "or" as `NumericValueRefusal` joins its keys.
+ * English literal, no locale key, matching every sibling sentence.
+ */
+function MissingSeriesKeyRefusal({ keys, className }: { keys: string[]; className?: string }) {
   return (
-    SERIES_ONLY_CHART_TYPES.has(chartType) &&
-    rows.length > 0 &&
-    Array.isArray(props.series) &&
-    props.series.length === 0
+    <ChartRefusal code="missing-series-key" className={className}>
+      This chart cannot plot its series: no row has a{' '}
+      {keys.map((key, i) => (
+        <React.Fragment key={`${i}-${key}`}>
+          {i > 0 ? ' or ' : ''}
+          <code className="font-mono">{key}</code>
+        </React.Fragment>
+      ))}{' '}
+      field.
+    </ChartRefusal>
   );
 }
 
@@ -2461,12 +3222,29 @@ export default function AdvancedChartImpl(props: AdvancedChartImplProps) {
   // category key at all cannot plot an axis, which is the more fundamental
   // failure and the more specific message. Without this gate such a chart would
   // also warn about its series, printing two diagnoses for one cause.
-  const noPlottableSeries = !missingCategoryKey && hasNoPlottableSeries(props);
+  const noPlottableSeries = missingCategoryKey ? null : hasNoPlottableSeries(props);
+  // objectui#10396 comes THIRD: a series key no row carries needs a bound
+  // series to be named, and when the category key is missing too, the axis
+  // refusal above is the more fundamental answer (the objectui#8269 pin's
+  // `name` / `value` pair). It is a BINDING diagnosis — the column is not
+  // there — so it ranks above the scale diagnosis below.
+  const missingSeriesKeys =
+    missingCategoryKey || noPlottableSeries ? null : hasNoCarriedSeriesKey(props);
+  // objectui#7195 comes FOURTH: it needs a category axis, a bound series and a
+  // carried key to say anything true, so every guard above is the more
+  // fundamental answer. Scatter's half of the same refusal lives in its own
+  // arm, after the arity and positional refusals it ranks below.
+  const noNumericSeriesValue =
+    missingCategoryKey || noPlottableSeries || missingSeriesKeys ? null : hasNoNumericSeriesValue(props);
   const xAxisKey = props.xAxisKey ?? 'name';
   const firstRowKeys = React.useMemo(
     () => Object.keys((Array.isArray(props.data) ? props.data[0] : undefined) ?? {}),
     [props.data],
   );
+  // Primitives, so the effect below re-runs on the diagnosis and never on the
+  // identity of an array (AGENTS.md #10).
+  const missingSeriesKeyList = missingSeriesKeys ? JSON.stringify(missingSeriesKeys) : null;
+  const firstRowKeyList = JSON.stringify(firstRowKeys);
 
   React.useEffect(() => {
     if (!missingCategoryKey) return;
@@ -2487,6 +3265,17 @@ export default function AdvancedChartImpl(props: AdvancedChartImplProps) {
     // axis the chart did plot, and the keys its rows actually carry. In the
     // objectui#4683 shape that second half is the tell — bucket rows carrying
     // the category and NOTHING else say the group column was never written.
+    // For the objectui#4695 shape the row keys are the other half of the fix:
+    // they list the columns a series could have named.
+    if (noPlottableSeries === 'undeclared') {
+      console.warn(
+        `[chart] no series binding was declared for the category axis "${xAxisKey}" — rendering an ` +
+        `explanatory placeholder instead of an empty frame. Row keys: ${JSON.stringify(firstRowKeys)}. ` +
+        `A bar / line / area / combo chart draws only the columns its \`series\` (or \`categories\`, ` +
+        `or a y-axis \`field\`) names (objectui#4695).`,
+      );
+      return;
+    }
     console.warn(
       `[chart] no series to plot against the category axis "${xAxisKey}" — rendering an ` +
       `explanatory placeholder instead of an empty frame. Row keys: ${JSON.stringify(firstRowKeys)}. ` +
@@ -2494,6 +3283,19 @@ export default function AdvancedChartImpl(props: AdvancedChartImplProps) {
       `chart with no measure selected has nothing to draw either (objectui#4683, framework#4033).`,
     );
   }, [noPlottableSeries, xAxisKey, firstRowKeys]);
+
+  React.useEffect(() => {
+    if (!missingSeriesKeyList) return;
+    // The diagnostic PAIR `missing-category-key` prints, for the series half:
+    // the keys the series were told to plot and the keys the rows actually
+    // carry. In the objectui#8266 shape the second half IS the fix — a
+    // fieldless count's rows carry `count`, not `value`.
+    console.warn(
+      `[chart] no row has the series key(s) ${missingSeriesKeyList} — rendering an explanatory ` +
+      `placeholder instead of an empty frame. Row keys: ${firstRowKeyList}. ` +
+      `A series \`dataKey\` must name a column the rows carry (objectui#10396).`,
+    );
+  }, [missingSeriesKeyList, firstRowKeyList]);
 
   if (missingCategoryKey) {
     return (
@@ -2504,12 +3306,35 @@ export default function AdvancedChartImpl(props: AdvancedChartImplProps) {
     );
   }
 
-  if (noPlottableSeries) {
+  if (noPlottableSeries === 'undeclared') {
+    return (
+      <ChartRefusal code="no-plottable-series" className={props.className}>
+        This chart cannot plot any series: none was declared to draw against its{' '}
+        <code className="font-mono">{xAxisKey}</code> axis.
+      </ChartRefusal>
+    );
+  }
+
+  if (noPlottableSeries === 'empty') {
     return (
       <ChartRefusal code="no-plottable-series" className={props.className}>
         This chart cannot plot any series: no measure or group reached its{' '}
         <code className="font-mono">{xAxisKey}</code> axis.
       </ChartRefusal>
+    );
+  }
+
+  if (missingSeriesKeys) {
+    return <MissingSeriesKeyRefusal keys={missingSeriesKeys} className={props.className} />;
+  }
+
+  if (noNumericSeriesValue) {
+    return (
+      <NumericValueRefusal
+        keys={noNumericSeriesValue}
+        total={Array.isArray(props.data) ? props.data.length : 0}
+        className={props.className}
+      />
     );
   }
 

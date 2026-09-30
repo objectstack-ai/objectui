@@ -52,10 +52,21 @@
  *          `retirementTombstone()`, which is why the retired direction below
  *          cannot be measured without it.
  *
- * A block may resolve on both (`object-grid`, `object-form`, `object-kanban`),
- * on one (`grid` — node only; every `page:*` / `record:*` / `element:*` spec
- * type — spec only), or on neither. Neither is an EXPLICIT exemption with a
- * reason and a card, never a silent skip — the idiom is
+ *          ⚠️ An arm is judged at the LEVEL its block's props live on. Most
+ *          arms declare them at the node's top level; the ADR-0080 public-block
+ *          arms (objectui#10872) declare them the spec's way, as one
+ *          `properties` object member whose value is the block's
+ *          `ComponentPropsMap` row. The designer edits a block's `properties`
+ *          (`block-config.ts`'s header), so such an arm is judged against that
+ *          member's shape — {@link propsLevelOf} derives the level from the arm
+ *          itself, ⛔ never from a list of types.
+ *
+ * A block may resolve on both (`object-grid`, `object-form`, `object-kanban`,
+ * and, since objectui#10872, the `page:*` / `record:*` / `element:*` public
+ * blocks that carry a spec row — their node face judged at `properties`), on
+ * one (`grid` — node only; a spec type no arm declares yet, such as
+ * `element:number` — spec only), or on neither. Neither is an EXPLICIT exemption
+ * with a reason and a card, never a silent skip — the idiom is
  * `check-designer-field-key-parity.mjs`'s, copied rather than reinvented.
  *
  * ## Both directions, because "is it declared?" is not the question
@@ -119,9 +130,24 @@ function nodeOracles(): Record<string, unknown> {
       (typeMember?._def?.values as unknown[] | undefined)?.[0] ??
       typeMember?._def?.value ??
       typeMember?.value;
-    if (typeof literal === 'string' && !(literal in out)) out[literal] = exported;
+    if (typeof literal === 'string' && !(literal in out)) out[literal] = propsLevelOf(exported);
   }
   return out;
+}
+
+/**
+ * The schema a designer field of this arm is judged against: the arm's
+ * `properties` member when that member unwraps to an OBJECT shape — the
+ * ADR-0080 public-block arms (objectui#10872), whose props live in the spec's
+ * bag — and the arm itself otherwise. Read off the arm, so an arm that adopts
+ * the bag later is judged at the bag without an edit here, and an arm without
+ * one (or with a non-object `properties`) keeps its top-level reading.
+ */
+function propsLevelOf(arm: unknown): unknown {
+  const member = resolvePropsShape(arm)?.properties as { unwrap?: () => unknown } | undefined;
+  if (!member) return arm;
+  const inner = typeof member.unwrap === 'function' ? member.unwrap() : member;
+  return resolvePropsShape(inner) ? inner : arm;
 }
 
 const NODE_ORACLES = nodeOracles();
@@ -144,26 +170,20 @@ function oraclesFor(blockType: string): Array<{ face: OracleFace; schema: unknow
  * props shape or a node arm, this file goes red and the row must go.
  *
  * `card` owns the decision about the absence itself, not about any particular
- * key. objectui#8281 censuses all three together and lays out the four routes;
- * the two blocks with their own separate defects carry those card numbers in
- * the reason so a reader lands on the right one.
+ * key. objectui#8281 censused the blocks together and lays out the four routes;
+ * a block with its own separate defect carries that card number in the reason
+ * so a reader lands on the right one.
+ *
+ * `ai:input` was the third row until objectui#8280 removed its panel instead of
+ * judging it: the palette never offered the block, so there was nothing to
+ * author and nothing to exempt. The row went in the same change, because
+ * "every exemption names a real block" below would have failed on it.
  */
 const EXEMPT: Readonly<Record<string, { reason: string; card: string }>> = {
-  'element:definition-list': {
-    reason:
-      'objectui-native element block: absent from PageComponentType and ComponentPropsMap, and no @object-ui/types/zod arm declares it. Its declared face is the registry `inputs` list in components/renderers/basic/data-list.tsx, judged by a different gate (objectui#8067/objectui#8068) that reads top-level inputs only. A live item-key mismatch this gate structurally cannot see is objectui#8279.',
-    card: 'objectui#8281',
-  },
-  'element:repeater': {
-    reason:
-      'objectui-native element block: absent from PageComponentType and ComponentPropsMap, and no @object-ui/types/zod arm declares it. Same registry-`inputs`-only face as element:definition-list.',
-    card: 'objectui#8281',
-  },
-  'ai:input': {
-    reason:
-      'Not a spec PageComponentType, no ComponentPropsMap row, no @object-ui/types/zod arm, and no renderer beyond the opt-in PROTOCOL_COMPONENTS placeholder. That the block has a curated panel at all is objectui#8280.',
-    card: 'objectui#8281',
-  },
+  // `element:definition-list` and `element:repeater` were the two rows here
+  // until `@objectstack/spec` 17.5.0 gave both a `ComponentPropsMap` entry
+  // (objectui#11073). The self-deleting row below turned red, as written, and
+  // both rows went: the two blocks are judged on the SPEC face now.
 };
 
 /* ── ledger ───────────────────────────────────────────────────────────────── */
@@ -271,6 +291,21 @@ describe('BLOCK_CONFIG ↔ node-schema parity — the instruments (objectui#8216
     for (const t of ['object-kanban', 'object-form', 'object-grid', 'grid']) {
       expect(NODE_ORACLES[t], `no node arm resolved for '${t}'`).toBeTruthy();
     }
+  });
+
+  it('judges a bag-carrying arm AT its `properties` bag, and every other arm at its top level (objectui#10872)', () => {
+    // The descent is derived, so its non-vacuity is measured on both sides: a
+    // public-block arm resolves to its bag — the designer's `title` control is
+    // a declared member there, and the bag still carries the spec's tombstone
+    // for `icon` — while a top-level arm is untouched by it.
+    const header = NODE_ORACLES['page:header'];
+    expect(header, 'no node arm resolved for page:header').toBeTruthy();
+    expect(listedShapeKeys(header)).toContain('title');
+    expect(listedShapeKeys(header), 'judged at the node, not at its bag').not.toContain('properties');
+    expect(judge(header, 'title')).toBeUndefined();
+    expect(judge(header, 'icon')?.kind).toBe('RETIRED');
+    expect(listedShapeKeys(NODE_ORACLES['object-kanban'])).toContain('groupBy');
+    expect(listedShapeKeys(NODE_ORACLES['object-kanban'])).toContain('type');
   });
 
   it('the MISSING probe can say no — and yes', () => {

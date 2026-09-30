@@ -5,12 +5,12 @@
 ---
 
 A record-page URL now names the object the clicked rows actually came from, in
-`ObjectTree` and `ObjectCalendar` (objectui#7638).
+`ObjectTree` and `ObjectCalendar`.
 
 `useNavigationOverlay` builds `/{objectName}/record/{id}` out of whatever it is handed,
 and both components handed it the bare top-level `schema.objectName` while resolving
-their own rows through the objectui#6939 record-source ladder (`data`, then
-`staticData`, then `objectName`). objectui#6939 published `objectName` as that ladder's
+their own rows through the ruled record-source ladder (`data`, then
+`staticData`, then `objectName`). `77cb489b4` published `objectName` as that ladder's
 THIRD RUNG and not as a parallel "page object" concept, so a block has exactly one
 record source — and a row fetched through `data.object` whose click built
 `/{schema.objectName}/record/{id}` named a record that the URL's own object does not
@@ -32,7 +32,7 @@ and its `$expand` derivation, so query, drawer and URL agree by construction.
 **Nothing else moves.** Both converted sites keep a site-local `?? schema.objectName`
 tail for the off-contract `data: { provider: 'object' }` that carries no `object`
 (`ViewDataSchema` declares it required) — the same tail `ObjectTree`'s `headerObjectName`
-already carries, and the same conservatism objectui#7627 applied when it published the
+already carries, and the same conservatism `b041b9c0c` applied when it published the
 shared reader. `useNavigationOverlay`'s own signature is unchanged: it still takes an
 `objectName`, and only what callers hand it has changed.
 

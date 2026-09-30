@@ -22,7 +22,7 @@
 
 import type { DashboardComponentSchema, DashboardWidgetSchema, I18nLabel, PageVariable } from '@object-ui/types';
 import { liftLegacyGlobalFilterDefault } from '@object-ui/types';
-import { DATE_RANGE_PRESETS, type DateRangePreset } from '@objectstack/spec/ui';
+import { DATE_RANGE_PRESETS, DashboardSchema as SpecDashboardSchema, type DateRangePreset } from '@objectstack/spec/ui';
 import { resolveDateMacros } from './date-macros.js';
 
 /** Reserved filter name for the dashboard's built-in date range. */
@@ -31,11 +31,64 @@ export const DATE_RANGE_FILTER_NAME = 'dateRange';
 /** Default target field for the built-in date range filter. */
 const DATE_RANGE_DEFAULT_FIELD = 'created_at';
 
+/**
+ * The preset an authored `dateRange` resolves to when it omits `defaultRange`
+ * (objectui#10339) — READ FROM THE SPEC, never restated here.
+ *
+ * `@objectstack/spec` declares `DashboardSchema.dateRange.defaultRange` with a
+ * `.default(...)`, so the platform's parse of `dateRange: { field: 'created_at' }`
+ * carries that preset, and a renderer that treated the omission as "no filter"
+ * showed an UNFILTERED dashboard for a document the protocol says is filtered
+ * (#7759 ruling 5617465269, rule 1: the read site implements every arm the spec
+ * declares). The value is derived by parsing an EMPTY `dateRange` element
+ * through the spec's own schema: the only keys that come back are the ones the
+ * spec supplies by default, so this reads the spec's answer rather than a
+ * hand-copied string that could drift from it. `allowCustomRange` is the
+ * sibling default and needs no such read — it is consumed as `!== false`,
+ * which already is its spec default.
+ *
+ * Computed on first use and cached: `DashboardSchema` is a lazy schema, and
+ * forcing its construction at module load would cost every importer of
+ * `@object-ui/core` for a value only a dashboard with a bare `dateRange` needs.
+ */
+let specDateRangeDefault: string | undefined;
+function specDefaultDateRangePreset(): string | undefined {
+  if (specDateRangeDefault === undefined) {
+    specDateRangeDefault = SpecDashboardSchema.shape.dateRange.parse({})?.defaultRange;
+  }
+  return specDateRangeDefault;
+}
+
 export interface DashboardFilterDef {
   /** Stable name — the variable key and the key widgets bind against. */
   name: string;
   /** Default target field when a widget declares no explicit binding. */
   field: string;
+  /**
+   * The object `field` lives on, carried through from
+   * @objectstack/spec's `GlobalFilterSchema.object` (`061f5e829`).
+   *
+   * The spec's own describe text for that key states the contract: "Object
+   * whose `fields.<object>.<field>` translation-bundle entry resolves this
+   * filter's field label and option labels". It was shipped on the spec side
+   * and never reached a consumer here, because this builder names the keys it
+   * copies and this one was not among them — so the value could not reach a
+   * renderer even in principle.
+   *
+   * ⚠️ NOT `optionsFrom.object`, which the spec separates deliberately: that
+   * one names the object dynamic OPTIONS are fetched from and may differ
+   * (filtering `opportunity` by `owner` with options sourced from `user`),
+   * while this one names the object whose translation bundle is keyed by
+   * `field`. Reading the former for label resolution resolves against the
+   * wrong object for exactly that filter.
+   *
+   * Like {@link DashboardFilterDef.label}, this module carries it through
+   * UNRESOLVED — `@object-ui/core` is locale-free by design and the bundle
+   * read belongs to the render side. Omitted entirely when the author declared
+   * none, so a dashboard that never names an object resolves to a def with the
+   * same key set it always had.
+   */
+  object?: string;
   /**
    * Display label, in @objectstack/spec's `I18nLabel` vocabulary — a plain
    * string, or an inline per-locale map (`{ en: 'Owner', 'zh-CN': '负责人' }`).
@@ -58,10 +111,11 @@ export interface DashboardFilterDef {
    * `resolveDashboardFilterDefs` — consumers always see the object form.
    *
    * The canonical authoring form is @objectstack/spec's `{ value, label }`
-   * pair, and it is the ONLY one the platform accepts at publish. A bare-string
-   * shorthand in a STORED document is still lifted here, with a deprecation
-   * warning, on the objectstack#7917 retirement schedule — see
-   * `normalizeFilterOptions`. Do not author a new one.
+   * pair, and it is the ONLY one the platform accepts at publish. The
+   * bare-string shorthand a STORED document may still carry is NOT lifted
+   * (objectui#4356, retired on the objectstack#7917 option-② schedule): such
+   * a member yields no option, and `normalizeFilterOptions` says so once. Do
+   * not author one; rewrite `"X"` as `{ "value": "X", "label": "X" }`.
    *
    * The PAIR SHAPE is normalized; the label's own vocabulary is not. `label`
    * is `I18nLabel` in `GlobalFilterSchema.options[]` too, and it reaches the
@@ -153,7 +207,7 @@ function presetBounds(preset: string): { from?: string; to?: string } | undefine
  * protect.
  *
  * What stays local is the BOUNDS table above, which is the other half of
- * #4614's design ("the two vocabularies live one import apart and neither
+ * objectstack-ai/objectstack#4614's design ("the two vocabularies live one import apart and neither
  * restates the other's grammar"): the spec owns which presets exist, this
  * module owns what each one resolves to in date-macro tokens.
  */
@@ -195,15 +249,15 @@ function warnDateFilter(message: string): void {
 }
 
 /**
- * Dev-mode gate, matching `actions/actionKeys.ts` — a deprecation warning that
- * floods a production console is a warning that gets muted.
+ * Dev-mode gate, matching `actions/actionKeys.ts` — a warning that floods a
+ * production console is a warning that gets muted.
  */
 const isDev = (): boolean =>
   (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.NODE_ENV !==
   'production';
 
 /**
- * Warn-once memo for the bare-string `options` shorthand (objectui#4356).
+ * Warn-once memo for the DROPPED bare-string `options` members (objectui#4356).
  *
  * Keyed by filter NAME **and** the offending values, deliberately — the same
  * reasoning `warnOnUnknownActionKeys` records for its own memo. Keying on the
@@ -219,7 +273,13 @@ const isDev = (): boolean =>
  */
 const warnedShorthandOptions = new Set<string>();
 
-/** Reset the shorthand-options warn-once memo. Exported for tests. */
+/**
+ * Reset the dropped-shorthand warn-once memo. Exported for tests.
+ *
+ * Kept through the objectui#4356 retirement: the memo it clears outlived the
+ * deprecation warning, because the warning that replaced it (a member was
+ * DROPPED, not lifted) dedupes on the same key for the same render-path reason.
+ */
 export function resetDashboardFilterWarnings(): void {
   warnedShorthandOptions.clear();
 }
@@ -341,45 +401,40 @@ function normalizeDateDefault(type: DashboardFilterDef['type'], defaultValue: un
 
 /**
  * Normalize a filter's static `options` declaration to `{ value, label }`
- * pairs. The @objectstack/spec `GlobalFilterSchema.options` form is
- * `{ value, label }` objects; the bare-string shorthand (`options: ['EMEA', …]`)
- * is still lifted, but is DEPRECATED and now says so out loud. Rendering an
- * un-normalized option crashes React — this is the single place both shapes
- * converge.
+ * pairs — the @objectstack/spec `GlobalFilterSchema.options` form, and the
+ * only form this function emits. Rendering an un-normalized option crashes
+ * React, so every member that reaches a renderer passes through here.
  *
- * ## The shorthand's deprecation (objectui#4356, objectstack#7917)
+ * ## The bare-string shorthand is RETIRED (objectui#4356, objectstack#7917)
  *
  * Maintainer ruling of 2026-08-12 on objectstack#7917, verbatim 「7917 ②」:
- * option ② — **the spec stays strict; the runtime bare-string lift retires
- * behind a deprecation window sized by a stored-dashboard survey.** So a
- * document spelling `options: ['EMEA']` renders here and is refused the moment
- * it reaches the platform's validation — the "one strict contract beats N
- * dialects" divergence AGENTS.md #0.1 names, with the renderer's tolerance
- * acting as a second de-facto contract.
+ * option ② — **the spec stays strict; the runtime bare-string lift retires.**
+ * The window closed on the maintainer's 2026-09-02 ruling, verbatim
+ * 「objectstack#7917 不考虑现有数据」: Phase 2 proceeds on release cadence
+ * alone, with no live-tenant survey and no migration entry.
  *
- * This is the WARN half of that window (Phase 1). The lift itself is unchanged
- * and remains mechanically lossless (`'EMEA'` → `{ value: 'EMEA', label:
- * 'EMEA' }`), because stored dashboards carry the shorthand and dropping it
- * silently would turn a rendering filter into an empty one. Removal (Phase 2)
- * is scheduled on objectstack#7917, earliest one minor release after this ships
- * and not before the live-tenant channel has actually been queried.
+ * So `options: ['EMEA']` — which the Phase 1 build (PR #4601) lifted to
+ * `{ value: 'EMEA', label: 'EMEA' }` under a deprecation warning — now yields
+ * NO option. A member that is not an object is skipped, exactly as a nullish
+ * member or an object with no `value` already was: a shorthand-only filter
+ * resolves with no `options`, and a mixed array keeps only its object members.
+ * The runtime reads the document the way the spec does, which is the end
+ * state option ② named — one strict contract, no renderer dialect beside it
+ * (AGENTS.md #0.1). ⛔ No lift, alias, fallback or migration returns here.
  *
- * The warning is not decoration: a silent lift can never be retired, because
- * nothing would ever show that the last shorthand document is gone (ADR-0078 —
- * nothing silently inert). It is the same reasoning `liftLegacyFilterDeclaration`
- * records above, for the sibling alias.
- *
- * Phase 0 shipped in the same PR: objectui's own docs, its `plugin-dashboard`
- * README and its schema-catalog corpus stopped TEACHING the shorthand, so the
- * stored population is no longer growing while this warning asks authors to
- * migrate. Warning authors while the docs still taught the form would have been
- * a contradiction users report as a bug.
+ * The skip is not silent. `warnDroppedShorthandOptions` names the filter, the
+ * dropped members and the rewrite, once per filter per session — ADR-0078 §4:
+ * where the runtime skips an instance it emits a dev-mode diagnostic rather
+ * than swallowing it, and a STORED dashboard is the one document no author-time
+ * gate ever re-reads, so an empty select with nothing in the console would read
+ * as "no data". What that warning must NOT do is promise a lift: the Phase 1
+ * text said "still lifted here", and that sentence retired with the arm.
  *
  * ## What is normalized, and what is deliberately NOT (objectui#4032 / #4163)
  *
- * The PAIR SHAPE is normalized (`value` stringified, a bare string lifted to a
- * pair). The LABEL's authoring vocabulary is carried through untouched, because
- * `label` is `I18nLabel` — a string OR an inline per-locale map.
+ * The PAIR SHAPE is normalized (`value` stringified). The LABEL's authoring
+ * vocabulary is carried through untouched, because `label` is `I18nLabel` — a
+ * string OR an inline per-locale map.
  *
  * This line used to read:
  *
@@ -403,8 +458,8 @@ function normalizeFilterOptions(
 ): Array<{ value: string; label: string | I18nLabel }> | undefined {
   if (!Array.isArray(options) || options.length === 0) return undefined;
   const normalized: Array<{ value: string; label: string | I18nLabel }> = [];
-  /** Every bare-string member, in authored order — one warning names them all. */
-  const shorthand: string[] = [];
+  /** Every non-object member, in authored order — one warning names them all. */
+  const dropped: unknown[] = [];
   for (const o of options) {
     if (o === null || o === undefined) continue;
     if (typeof o === 'object') {
@@ -417,38 +472,47 @@ function normalizeFilterOptions(
         label: (typeof label === 'string' && label) || isMap ? label : String(value),
       });
     } else {
-      shorthand.push(String(o));
-      normalized.push({ value: String(o), label: String(o) });
+      // The retired shorthand arm (objectui#4356): nothing is pushed for this
+      // member. It is recorded for the warning and yields no option.
+      dropped.push(o);
     }
   }
-  if (shorthand.length > 0) warnShorthandOptions(filterName, shorthand);
+  if (dropped.length > 0) warnDroppedShorthandOptions(filterName, dropped);
   return normalized.length > 0 ? normalized : undefined;
 }
 
 /**
- * Say the deprecated shorthand out loud — once per offending filter per
- * session, naming the filter and printing the canonical replacement.
+ * Say the dropped members out loud — once per offending filter per session,
+ * naming the filter, the members that yielded no option, and the rewrite.
  *
- * Collected per FILTER rather than per option: a filter declaring
+ * Collected per FILTER rather than per member: a filter declaring
  * `['EMEA', 'APAC', 'AMER']` is one authoring mistake in one place, so it earns
  * one warning carrying all three values, not three warnings the author has to
  * reassemble. A MIXED array (`[{ value: 'won', … }, 'lost']`) names only the
- * bare members, which are the ones that need rewriting — partial migrations
- * happen and a warning that re-reports the already-canonical members is noise.
+ * dropped members — the object members rendered, and re-reporting them is noise.
+ *
+ * Dev-mode only and memoised, exactly as the Phase 1 deprecation warning was:
+ * `resolveDashboardFilterDefs` runs on every dashboard render, and a warning
+ * that floods a console is a warning that gets muted. What changed is the
+ * sentence — this one reports a member that was DROPPED and promises no lift.
  */
-function warnShorthandOptions(filterName: string, shorthand: string[]): void {
+function warnDroppedShorthandOptions(filterName: string, dropped: unknown[]): void {
   if (!isDev()) return;
-  const memo = `${filterName}:${shorthand.join(',')}`;
+  // A string is quoted so `"42"` and `42` stay distinguishable; anything else is
+  // spelled as itself — `String()` rather than `JSON.stringify()`, because a
+  // programmatic caller can hand this a value JSON cannot carry.
+  const spelled = dropped.map((v) => (typeof v === 'string' ? JSON.stringify(v) : String(v)));
+  const memo = `${filterName}:${spelled.join(',')}`;
   if (warnedShorthandOptions.has(memo)) return;
   warnedShorthandOptions.add(memo);
-  const canonical = shorthand.map((v) => `{ value: ${JSON.stringify(v)}, label: ${JSON.stringify(v)} }`).join(', ');
+  const canonical = dropped
+    .map((v) => `{ value: ${JSON.stringify(String(v))}, label: ${JSON.stringify(String(v))} }`)
+    .join(', ');
   warnDateFilter(
-    `filter "${filterName}": \`options\` carries the bare-string shorthand ` +
-      `(${shorthand.map((v) => JSON.stringify(v)).join(', ')}), which @objectstack/spec's ` +
-      `\`GlobalFilterSchema\` REFUSES at publish — a dashboard authored this way renders here ` +
-      `and is rejected the moment it reaches the platform (objectui#4356). Rewrite the stored ` +
-      `dashboard to the canonical pair form: [${canonical}]. Still lifted here for already-` +
-      `persisted dashboards; the lift is removed on the objectstack#7917 schedule.`,
+    `filter "${filterName}": \`options\` members ${spelled.join(', ')} are not \`{ value, label }\` ` +
+      `objects and were DROPPED — the bare-string shorthand is no longer lifted (objectui#4356), so the ` +
+      `filter renders without them. Rewrite the stored dashboard to @objectstack/spec's pair form: ` +
+      `[${canonical}].`,
   );
 }
 
@@ -464,7 +528,11 @@ export function resolveDashboardFilterDefs(
   const byName = new Map<string, DashboardFilterDef>();
 
   if (schema.dateRange) {
-    const preset = schema.dateRange.defaultRange;
+    // An omitted `defaultRange` takes the spec's declared default (#10339); an
+    // explicit value — `'custom'` included — is used exactly as authored.
+    const preset = schema.dateRange.defaultRange === undefined
+      ? specDefaultDateRangePreset()
+      : schema.dateRange.defaultRange;
     byName.set(DATE_RANGE_FILTER_NAME, {
       name: DATE_RANGE_FILTER_NAME,
       field: schema.dateRange.field || DATE_RANGE_DEFAULT_FIELD,
@@ -490,9 +558,14 @@ export function resolveDashboardFilterDefs(
     byName.set(name, {
       name,
       field: f.field,
+      // Spread rather than assigned (`061f5e829`): every filter authored
+      // before this key existed keeps the exact key set it resolved to, so
+      // `'object' in def` stays the discriminator the render side branches on
+      // and no consumer sees a new own-property carrying `undefined`.
+      ...(typeof f.object === 'string' && f.object ? { object: f.object } : {}),
       label: f.label,
       type,
-      // `name` is the identifying context the deprecation warning needs, and
+      // `name` is the identifying context the dropped-member warning needs, and
       // the local above already resolved it — nothing new is threaded through a
       // public signature for it. `normalizeFilterOptions` is module-private, so
       // widening ITS parameter list is not a contract move.

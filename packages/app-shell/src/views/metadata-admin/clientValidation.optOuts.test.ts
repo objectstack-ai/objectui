@@ -403,6 +403,12 @@ describe('binding parity — the wired schema is the one the platform binds', ()
   };
 
   const shapeKeys = (s: unknown): string[] => Object.keys((s as ZodInternals)?.shape ?? {}).sort();
+  type ZodLikeSafeParse = {
+    safeParse: (v: unknown) => {
+      success: boolean;
+      error?: { issues: Array<{ code: string; path: PropertyKey[] }> };
+    };
+  };
   const isStrict = (s: unknown): boolean =>
     (s as ZodInternals)?._zod?.def?.catchall?._zod?.def?.type === 'never';
 
@@ -458,15 +464,31 @@ describe('binding parity — the wired schema is the one the platform binds', ()
     expect(shapeKeys(element)).toEqual(shapeKeys(DeclarativeConnectorEntrySchema));
 
     // The two connector schemas share a shape, so shape parity alone cannot tell
-    // them apart — the ADR-0097 rules are CHECKS, not keys. Count them: the stack
-    // element carries the entry schema's refinement, the base carries none. This
-    // is what makes the parity assertion above meaningful rather than vacuous.
-    const checks = (s: unknown): number =>
-      ((s as { _zod?: { def?: { checks?: unknown[] } } })?._zod?.def?.checks ?? []).length;
+    // them apart — the ADR-0097 rules are a REFINEMENT, not keys. So assert the
+    // refinement by what it DOES: a draft the base accepts, the entry schema and
+    // the stack element both refuse, on the refined path. This is what makes the
+    // parity assertion above meaningful rather than vacuous.
+    //
+    // Behavioural on purpose, not a count of `_zod.def.checks`: that probe reads
+    // HOW the refinement is attached, and it reads 0 the moment the carrier is
+    // wrapped in a `z.preprocess` pipe (whose def has no `checks`) even though
+    // the refusals still run inside it — at which point the element-vs-entry
+    // comparison degrades to 0 === 0 (objectui#10211).
+    const descriptorWithProviderConfig = { ...CONNECTOR, providerConfig: { model: 'gpt-4' } };
+    const refusedPaths = (s: unknown): string[] => {
+      const res = (s as ZodLikeSafeParse).safeParse(descriptorWithProviderConfig);
+      expect(res.success, 'the refinement must refuse this draft').toBe(false);
+      return (res.error?.issues ?? [])
+        .filter((i) => i.code === 'custom')
+        .map((i) => i.path.map(String).join('.'));
+    };
     expect(shapeKeys(ConnectorSchema)).toEqual(shapeKeys(DeclarativeConnectorEntrySchema));
-    expect(checks(ConnectorSchema)).toBe(0);
-    expect(checks(DeclarativeConnectorEntrySchema)).toBeGreaterThan(0);
-    expect(checks(element)).toBe(checks(DeclarativeConnectorEntrySchema));
+    expect(
+      (ConnectorSchema as unknown as ZodLikeSafeParse).safeParse(descriptorWithProviderConfig).success,
+      'the base must accept the draft, or the refusal below proves nothing about the refinement',
+    ).toBe(true);
+    expect(refusedPaths(DeclarativeConnectorEntrySchema)).toContain('providerConfig');
+    expect(refusedPaths(element)).toContain('providerConfig');
 
     // And the retired note's premise: there is no required `id` key.
     expect(shapeKeys(ConnectorSchema)).not.toContain('id');

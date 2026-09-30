@@ -118,9 +118,9 @@ describe('ChartRenderer — the spec `series` shape', () => {
     // `chartType`. An author who wrote the documented `dataKey` binding AND
     // the documented `type` override together (both valid independently on
     // `ChartDataSeriesSchema`) got neither: predicted/observed 2 bars / 0
-    // lines before the fix. `type` on a `dataKey` entry is off the
-    // `ChartRendererProps` TS union (`as any` matches the schema's own
-    // acceptance, not this internal prop type — see the docblock).
+    // lines before the fix. The `dataKey` arm of `ChartRendererProps.series`
+    // declares `type` too (objectui#8086), so this literal is written with no
+    // cast; the arm-level pin is `ChartRenderer.seriesTypeArm-8086.test.ts`.
     const { container } = render(
       <ChartRenderer
         schema={{
@@ -130,7 +130,7 @@ describe('ChartRenderer — the spec `series` shape', () => {
           xAxisKey: 'month',
           series: [{ dataKey: 'revenue' }, { dataKey: 'margin', type: 'line' }],
           isAnimationActive: false,
-        } as any}
+        }}
       />,
     );
     expect(await plotted(container)).toEqual({ bars: 1, lines: 1 });
@@ -160,7 +160,9 @@ describe('ChartRenderer — the spec `series` shape', () => {
     // because `normalizeChartSchema` — the one translation point — has always
     // consumed it. The axis is written in the canonical `xAxisKey`: the
     // Tremor-ish `index` alias that stood here is retired, and its pin lives in
-    // `ChartRenderer.foreignDialectRetired-8650.test.tsx`.
+    // `ChartRenderer.foreignDialectRetired-8650.test.tsx`. The `as any` below
+    // is for `categories`, which `ChartRendererProps.schema` does not declare;
+    // it is not a `series` escape (objectui#8086 widened only the `series` arm).
     const { container } = render(
       <ChartRenderer
         schema={{

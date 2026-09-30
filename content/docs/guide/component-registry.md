@@ -135,6 +135,13 @@ ComponentRegistry.register('my-component', MyComponent, {
 
 This metadata is used by the Visual Designer to provide better editing experience.
 
+`inputs` is also the authoring contract the SDUI parser validates against. A
+component that renders `schema.children` declares the slot as
+`{ name: 'children', type: 'slot' }`; a child list authored under a component
+whose `inputs` carry no such entry draws the `not-a-container` diagnostic.
+`isContainer` is a separate fact — *layout* containment, which keeps a block out
+of a react page's JSX scope — and does not stand in for the slot.
+
 ### Lazy Loading
 
 Register components that load on demand:

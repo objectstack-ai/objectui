@@ -32,6 +32,24 @@ Both spec attributions above were corrected in place before release
 (objectui#7537): as first written this changeset claimed each key was "aligned
 with" a `@objectstack/spec` schema member that does not exist. Re-measured on
 `@objectstack/spec@17.2.0`, each refusal is paired with a control that accepts
-the same payload minus the key. Same correction as objectui#7014 / PR #7510 made
+the same payload minus the key. Same correction as `0e3b3be09` (PR #7510) made
 to the published JSDoc; the package bumps and the declared behaviour are
 unchanged.
+
+⚠️ **Dated note, 2026-09-27 — the spec has since declared both keys, so neither
+refusal above holds — objectui#10801.** `@objectstack/spec` 17.3.0 declared
+`rows` and option `description` (the objectui#6140 / objectui#6153 ruling), and
+this repository resolves 17.4.0 on this date. Measured on 17.2.0, 17.3.0 and
+17.4.0, each probe beside a control that differs only by the key: 17.2.0 refuses
+both by name, as above. From 17.3.0 `SelectOptionSchema` declares
+`description`, so an option carrying it is accepted and a select field or an
+object whose `options` carry it parses whole; `icon` is still refused by name
+(`unrecognized_keys`). From 17.3.0 `FieldSchema` accepts `rows` on the four
+multiline editor types (`textarea`, `markdown`, `html`, `richtext`); on 17.4.0
+every other field type refuses it by a cross-field refinement (issue code
+`custom` at `rows`), not by name. So the sentences above that call these keys
+"NOT a spec key" and keep them out of an object document sent to the platform
+no longer describe the contract: both may be authored there, `rows` on those
+four types only. The rest of this entry, and the 17.2.0 correction above, are
+kept as the reading of this change; `select-option-spec-extension-7014.test.ts`
+in `@object-ui/types` re-derives both boundaries against the installed spec.

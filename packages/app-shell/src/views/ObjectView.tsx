@@ -42,12 +42,13 @@ import { Plus, Upload, Star, StarOff, Table as TableIcon, KanbanSquare, Calendar
 import { useFavorites } from '../hooks/useFavorites.js';
 import { useTenancyPosture } from '../hooks/useTenancyPosture.js';
 import { getIcon } from '../utils/getIcon.js';
-import type { ListViewSchema, TreeViewConfig, ViewNavigationConfig } from '@object-ui/types';
+import type { DataSource, ListViewSchema, TreeViewConfig, ViewNavigationConfig } from '@object-ui/types';
 import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { ViewConfigPanel } from './ViewConfigPanel.js';
 import { useMetadataClient } from './metadata-admin/useMetadata.js';
-import { persistRuntimeMetadata, createRuntimeMetadata, viewEnvelope } from './runtime-metadata-persistence.js';
+import { persistRuntimeMetadata, createRuntimeMetadata, viewEnvelope, type ViewEnvelope } from './runtime-metadata-persistence.js';
+import { ListViewSchema as SpecListViewSchema, normalizeFilterOperator } from '@objectstack/spec/ui';
 import { CreateViewDialog } from './CreateViewDialog.js';
 import {
   usePreviewDrafts,
@@ -73,11 +74,11 @@ import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
 import { useRealtimeSubscription, useConflictResolution } from '@object-ui/collaboration';
-import { ActionProvider, useNavigationOverlay, SchemaRenderer, useActionTextLocalizer, useRowPredicate, RelatedRecordActionsProvider } from '@object-ui/react';
+import { ActionProvider, useNavigationOverlay, SchemaRenderer, useActionTextLocalizer, useRowPredicate, RelatedRecordActionsProvider, notifyDataChanged } from '@object-ui/react';
 import type { RelatedRecordActionsValue, RelatedRecordHandlers } from '@object-ui/react';
 import { toast } from 'sonner';
 import { useConsoleActionRuntime } from '../hooks/useConsoleActionRuntime.js';
-import { useNavRunAction } from '../hooks/useNavRunAction.js';
+import { useOfferedNavRunAction } from '../hooks/useNavRunAction.js';
 import { actionRendersAt } from '@object-ui/types';
 import { useEnvironmentEntitlements } from '../environment/useEnvironmentEntitlements.js';
 import { EnvironmentListToolbar } from '../environment/EnvironmentListToolbar.js';
@@ -110,7 +111,7 @@ const FALLBACK_USER = { id: 'current-user', name: 'Demo User' };
  * (`if (!Array.isArray(filter)) return filter`) and knew exactly one token.
  * That narrowness is why it could not be reused by dashboard widgets, whose
  * filters are MongoDB-style objects — so widgets went without any resolution
- * at all and silently rendered 0 (framework #3574). Every surface now routes
+ * at all and silently rendered 0 (objectstack-ai/objectstack#3574). Every surface now routes
  * through one shape-agnostic resolver.
  */
 function substituteFilterTokens(filter: any, scope: FilterTokenScope): any {
@@ -168,7 +169,7 @@ function substituteFilterTokens(filter: any, scope: FilterTokenScope): any {
  * no legal object metadata could ever reach it (objectui#6531 established the
  * measurement, and dropped the twin read inside `getRecordDisplayName`).
  *
- * ⚠️ WHAT THE SIBLING BRANCHES BELOW ACTUALLY DO (objectui#7070). The sentence
+ * ⚠️ WHAT THE SIBLING BRANCHES BELOW ACTUALLY DO (`5f4514f7b`). The sentence
  * above used to end "— the same two-rung shape the calendar and gantt branches
  * below already use", and for gantt that was FALSE the whole time it stood: the
  * gantt branch floored `startDateField` / `endDateField` at `'start_date'` /
@@ -181,7 +182,7 @@ function substituteFilterTokens(filter: any, scope: FilterTokenScope): any {
  *     `calendar` key at all; it never floors a date axis (objectui#7029).
  *   - `ganttViewOptions` below — forwards the declared block, title floored at
  *     `'name'`, and invents neither date field. Its `'start_date'` / `'end_date'`
- *     floors were deleted by objectui#7070; that is what makes `ObjectGantt`'s
+ *     floors were deleted by `5f4514f7b`; that is what makes `ObjectGantt`'s
  *     own "Gantt configuration required" screen reachable from this route.
  *   - the TIMELINE axis at the two SIBLING FACES — `plugin-list/ListView.tsx`
  *     and `plugin-view/ObjectView.tsx`. Both floored `startDateField` at
@@ -189,7 +190,7 @@ function substituteFilterTokens(filter: any, scope: FilterTokenScope): any {
  *     `ListView` carried it as a stated DECISION ("`created_at` stays the last
  *     resort for a view that declares no date axis anywhere") — two faces
  *     holding documented and OPPOSITE postures on one field name. That is what
- *     objectui#7070 routed to a single ruling instead of settling per-face, and
+ *     `5f4514f7b` routed to a single ruling instead of settling per-face, and
  *     the ruling (2026-09-01, 总监批 #28) answered it as house posture:
  *     日期轴永不虚构 — a date axis is never fabricated. Its step ③ deleted both
  *     floors, so all three faces now forward a declared axis or none, and
@@ -256,7 +257,7 @@ export function calendarViewOptions(viewDef: any): Record<string, unknown> | und
 /**
  * The `options.gantt` config this page hands to `ListView`.
  *
- * objectui#7070 — the same class objectui#7029 removed from the calendar branch,
+ * `5f4514f7b` — the same class objectui#7029 removed from the calendar branch,
  * reported separately by PR #7062 rather than fixed alongside it. This face used
  * to floor `startDateField` at `'start_date'` and `endDateField` at `'end_date'`
  * for EVERY object view, declared or not — field names no view had written and
@@ -295,7 +296,7 @@ export function ganttViewOptions(viewDef: any): Record<string, unknown> {
 /**
  * The `options.gallery` config this page hands to `ListView`.
  *
- * objectui#7547 — the last surviving member of the objectui#7029 / #7070 /
+ * objectui#7547 — the last surviving member of the objectui#7029 / `5f4514f7b` /
  * #7500 class on this face. It floored `imageField` at `'image'` for EVERY
  * object view, declared or not: a cover binding no view had written, on a field
  * name most objects do not carry.
@@ -312,10 +313,10 @@ export function ganttViewOptions(viewDef: any): Record<string, unknown> {
  * name this file wrote rather than one the author did. Gallery was offered
  * without a block, and stayed watchable only because the renderer happens to
  * degrade politely. That is a coincidence, not a design, and it is the same
- * second-order effect objectui#7029 measured for `calendar` and objectui#7070
+ * second-order effect objectui#7029 measured for `calendar` and `5f4514f7b`
  * for `gantt`.
  *
- * ⚠️ MEASURED BEFORE THE DELETION, the discipline objectui#7070 wrote down:
+ * ⚠️ MEASURED BEFORE THE DELETION, the discipline `5f4514f7b` wrote down:
  * #7029's mechanic — delete the literal, let the read site answer — is only
  * correct where the read site's answer is honest. `ObjectGallery` floors its
  * own `coverField` at `'image'` too, and that rung STAYS: it is the component's
@@ -460,6 +461,7 @@ export function kanbanViewOptions(viewDef: any, objectDef: any): Record<string, 
 
 /**
  * objectui#10046 — is `a` the same `options` bag as `b`, compared by VALUE?
+ * (objectui#7237 holds the resolved `filter` through the same comparison.)
  *
  * `renderListView` rebuilds `fullSchema.options` as a fresh object literal on
  * every call, and `plugin-view`'s `ObjectView` calls it on every one of its
@@ -694,8 +696,19 @@ export function defaultListColumnsFromObject(
  *
  * The split of duties is the helper's own: it answers the VALUE question only,
  * while which operators want no value at all stays with
- * {@link VALUELESS_FILTER_OPERATORS} above — this layer additionally sees the
- * canonical spec spellings (`is_null`) that never reach the dropdown.
+ * {@link VALUELESS_FILTER_OPERATORS} above.
+ *
+ * That membership is asked of the row's spelling FOLDED through the spec's own
+ * `normalizeFilterOperator` (objectui#9306), never of the raw spelling — the
+ * same both-sides fold objectui#9302 / #9359 put on the builder's gate and the
+ * live grid, and that {@link isFilterValueComplete} already applies to the
+ * arity question. The set's members are protocol ids (plus `exists` /
+ * `notExists`), on which the fold is the identity, so folding the row is
+ * folding both sides. It became load-bearing when the builder's ids became the
+ * protocol's: a row stored under the deprecated camelCase id —
+ * `{ operator: 'isEmpty', value: '' }` — no longer matches the set raw, and a
+ * raw lookup would hand it to the value test, which reads `''` as unfilled and
+ * DROPS it, so the stored filter would lose a condition on read.
  */
 export function sanitizeViewOverride(override: any): any {
     if (!override || typeof override !== 'object') return override;
@@ -713,17 +726,20 @@ export function sanitizeViewOverride(override: any): any {
     if (narrowed !== override) return narrowed;
     if (!Array.isArray(override.filter)) return override;
 
+    // Folded before the lookup — see the docblock (objectui#9306).
+    const isValueless = (operator: unknown): boolean =>
+        VALUELESS_FILTER_OPERATORS.has(normalizeFilterOperator(String(operator)));
     const kept = override.filter.filter((entry: any) => {
         if (Array.isArray(entry)) {
             // Legacy runtime triple: [field, operator, value]
             if (entry.length < 2) return false;
             const [, operator, value] = entry;
-            if (VALUELESS_FILTER_OPERATORS.has(String(operator))) return true;
+            if (isValueless(operator)) return true;
             return isFilterValueComplete(String(operator), value);
         }
         if (!entry || typeof entry !== 'object') return false;
         if (typeof entry.field !== 'string' || entry.field === '') return false;
-        if (VALUELESS_FILTER_OPERATORS.has(String(entry.operator))) return true;
+        if (isValueless(entry.operator)) return true;
         const value = entry.value;
         return isFilterValueComplete(String(entry.operator), value);
     });
@@ -1074,6 +1090,83 @@ export function buildPersistedViewBody(
 }
 
 /**
+ * Item-level keys a switcher tab carries that belong to the ROW, not to the
+ * view body — the ones this surface's own handlers write through `updateView`
+ * (`isDefault`, `isPinned`, `sortOrder`; the adapter merges them at the row's
+ * top level), the tab's `visibility`, and `columnState`, the runtime-only key
+ * the spec declares on the ViewItem wire face rather than on the list-view
+ * body (objectstack `d5552ca13`). A view-config save is a whole-document PUT, so
+ * these are carried forward at the envelope's top level; dropping them would
+ * erase the default flag, the pin and the column widths the row held.
+ */
+const VIEW_ROW_STATE_KEYS = ['isDefault', 'isPinned', 'sortOrder', 'visibility', 'columnState'] as const;
+
+/**
+ * The keys a list view's `config` may carry — read off the spec's own closed
+ * `ListViewSchema`, never hand-listed, so the set moves with the spec.
+ * Computed on first use: the schema is a lazy proxy and nothing else on this
+ * module's load path needs it materialised.
+ */
+let listViewConfigKeys: ReadonlySet<string> | undefined;
+function getListViewConfigKeys(): ReadonlySet<string> {
+    listViewConfigKeys ??= new Set(Object.keys(SpecListViewSchema.shape));
+    return listViewConfigKeys;
+}
+
+/**
+ * The body "Edit view config → Save" persists: a canonical ViewItem envelope
+ * `{ name, object, viewKind: 'list', label, config }` (objectui#10210).
+ *
+ * The panel hands its host the FLAT runtime tab, and this save used to persist
+ * it as-is. On a code-defined view the server then inherits `viewKind: 'list'`
+ * from the registry entry the row shadows (`viewIdentityPatch`), and a flat
+ * row carrying `viewKind` is exactly the shape the adapter's legacy-overlay
+ * net reads as a personalization overlay — so `listViews()` dropped the row,
+ * the tab lost its saved-view status and was stamped read-only, and publishing
+ * made that permanent. The create path never had the defect because it writes
+ * through {@link viewEnvelope}; this is the same envelope, for an existing view.
+ *
+ * Three rules, each measured against the platform's write door:
+ *
+ * - **Identity is the row key.** `name` is the tab id the save is addressed
+ *   to, verbatim, so the write lands on the row it always landed on and never
+ *   forks a second view. `viewEnvelope` re-qualifies a name it is given; for a
+ *   `<object>.<key>` id that is the same string, and pinning it here keeps that
+ *   true for any id.
+ * - **`config` carries only list-view keys.** The spec's list-view shape is
+ *   closed: an envelope whose `config` carried the tab's own `id` / `isDefault`
+ *   was refused outright (`422 INVALID_METADATA`, "Unrecognized key(s) on this
+ *   list view"). The tab also carries identity (`name`, `object`, `viewKind`),
+ *   read decorations (`_draft`, `_diagnostics`), registry bookkeeping and, when
+ *   a toolbar overlay was merged into it, the overlay marker — none of which is
+ *   view body. So `config` is the draft narrowed to the keys `ListViewSchema`
+ *   declares, with the object binding stamped by `viewEnvelope`.
+ * - **Row state is carried forward** at the top level — see
+ *   {@link VIEW_ROW_STATE_KEYS}.
+ *
+ * Extracted so the persisted shape is assertable without mounting the view,
+ * like {@link buildPersistedViewBody} above.
+ */
+export function buildViewConfigSaveBody(
+    objectName: string | undefined,
+    draft: Record<string, unknown>,
+): ViewEnvelope & Record<string, unknown> {
+    const vid = String(draft?.id ?? '');
+    const configKeys = getListViewConfigKeys();
+    const body: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(draft ?? {})) {
+        if (value !== undefined && configKeys.has(key)) body[key] = value;
+    }
+    const rowState: Record<string, unknown> = {};
+    for (const key of VIEW_ROW_STATE_KEYS) {
+        if (draft?.[key] !== undefined) rowState[key] = draft[key];
+    }
+    const label = typeof draft?.label === 'string' ? draft.label : undefined;
+    const env = viewEnvelope(objectName, body, { name: vid, label });
+    return { ...env, ...rowState, name: vid };
+}
+
+/**
  * The `filter[...]` params of a URL, selected out of the full search params as
  * their own `URLSearchParams`. Extracted for the same reason `buildViewTabs`
  * above is: so the shape is assertable without mounting the view.
@@ -1098,7 +1191,38 @@ export function selectFilterParams(searchParams: URLSearchParams): URLSearchPara
     return filterParams;
 }
 
-export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: any) {
+/**
+ * Props of the Console `ObjectView`, the route-level object surface
+ * `@object-ui/app-shell` exports (objectui#7483).
+ *
+ * The parameter used to be a bare `any`, which erased the prop NAMES as well as
+ * their values: a misspelled prop compiled clean and was silently dropped. As an
+ * object type, JSX excess-property checking now refuses a name that is not here,
+ * and the two required members are refused when omitted.
+ *
+ * Named `ConsoleObjectViewProps` rather than `ObjectViewProps` because
+ * `@object-ui/plugin-view` already owns that name for its schema-driven view,
+ * a different shape (objectui#6172: one authority per exported type name).
+ */
+export interface ConsoleObjectViewProps {
+    /** The host's data adapter — the published `DataSource` contract. */
+    dataSource: DataSource;
+    /**
+     * The app's object definitions. The view resolves the route's
+     * `:objectName` against this list and renders the "object not found"
+     * state when it is absent.
+     */
+    objects: any[];
+    /** Opens a record for editing (the toolbar's and the drawer's edit action). */
+    onEdit: (record: Record<string, unknown>) => void;
+    /**
+     * Bumped by the host to refetch the list after a change made outside this
+     * view (for example a record saved in a form the host owns).
+     */
+    externalRefreshKey?: number;
+}
+
+export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: ConsoleObjectViewProps) {
     const { objectName } = useParams();
     const { t } = useObjectTranslation();
 
@@ -1143,7 +1267,7 @@ export function ObjectView({ dataSource, objects, onEdit, externalRefreshKey }: 
  * definition is known to exist, so every hook below runs unconditionally on
  * every render of this component — no early return sits between hook calls.
  */
-function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: any) {
+function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: ConsoleObjectViewProps) {
     const navigate = useNavigate();
     const { appName, objectName, viewId } = useParams();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -1227,8 +1351,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 // `buildPersistedViewBody` for why the saved-view branch is
                 // deliberately NOT narrowed — its row IS the view, and
                 // `saveItem` is a whole-document PUT.
+                // Optional call: the guard at the top of `persistViewPatch`
+                // does not narrow across this `setTimeout` closure, and the
+                // contract declares `updateViewConfig` optional. `?.()` on the
+                // member keeps the adapter as `this`.
                 Promise.resolve(
-                    dataSource.updateViewConfig(
+                    dataSource.updateViewConfig?.(
                         objectName,
                         viewIdLocal,
                         buildPersistedViewBody(baseViewDef, merged, { isSavedView: targetIsSavedView }),
@@ -1287,7 +1415,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
         if (metadataClient && vid) {
             // `dataSource` + `objectName` let the seam drop this object's view
             // cache keys (#4373) — the adapter owns which keys those are.
-            persistRuntimeMetadata('view', vid, draft, {
+            persistRuntimeMetadata('view', vid, buildViewConfigSaveBody(objectName, draft), {
                 metadataClient,
                 dataSource,
                 objectName,
@@ -1416,8 +1544,47 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     // mounted — every hook below can therefore run unconditionally.
     const objectDef = objects.find((o: any) => o.name === objectName);
 
-    // Refresh trigger — bumped after view CRUD or external data mutations.
-    const [refreshKey, setRefreshKey] = useState(0);
+    // Refresh trigger — bumped after view CRUD or this page's own data writes.
+    const [ownRefreshKey, setRefreshKey] = useState(0);
+    /**
+     * objectui#10572 — the page's refresh signal: its own counter plus the
+     * console's `externalRefreshKey` (record-form save, undo, redo), summed IN
+     * THE RENDER that receives the prop. Both only grow, so the sum moves
+     * whenever either does, and every reader below sees an external bump in the
+     * same commit as the prop.
+     *
+     * It used to be MIRRORED instead: a passive effect copied each external
+     * bump into this counter one commit later. The console declares the same
+     * undo / redo on the data-invalidation bus in the same tick as the bump,
+     * and `ListView` reads that bus, so the mirror split one write into two
+     * list reads — the bus nonce in one commit, `refreshTrigger` in the next.
+     * PR objectui#10494's contract is that a writer's two notices land in one
+     * render; summing here keeps this host inside it. ⛔ Do not reintroduce the
+     * mirror, and do not add `externalRefreshKey` on top of a value that still
+     * mirrors it — either one reaches the list twice.
+     */
+    const refreshKey = ownRefreshKey + (typeof externalRefreshKey === 'number' ? externalRefreshKey : 0);
+
+    /**
+     * objectui#10035 — this page learned that the object's DATA changed by a
+     * path that is not a data-source write the console's
+     * `useMutationInvalidationBridge` announces: a server action, flow or API
+     * action (raw HTTP), an import (`importRecords` emits no `onMutation`), a
+     * realtime event (another user's write), an explicit refresh action, or a
+     * delete this page ran. The counter reaches `ListView`'s own rows as
+     * `refreshTrigger`; the renderers that query for themselves (`ObjectGrid`,
+     * `ObjectGantt`, `ObjectChart`) read the data-invalidation bus instead, so
+     * the change is declared there too — AGENTS.md #8's corollary. It used to
+     * reach them only by remounting the whole list.
+     *
+     * View CRUD (rename, pin, reorder, config save) keeps bumping the counter
+     * alone: it changes the view's metadata, not the object's data, and the new
+     * view config reaches every renderer as props.
+     */
+    const refreshData = useCallback(() => {
+        setRefreshKey((k) => k + 1);
+        if (objectDef.name) notifyDataChanged({ objectName: objectDef.name });
+    }, [objectDef.name]);
 
     // Shared console action runtime: confirm/param/result dialogs, the
     // authenticated api/flow/server-action handlers, SPA navigation, and the
@@ -1429,7 +1596,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
         dataSource,
         objects,
         objectName: objectDef.name,
-        onRefresh: () => setRefreshKey((k) => k + 1),
+        onRefresh: refreshData,
     });
     const { confirmHandler, toastHandler } = actionRuntime;
 
@@ -1464,11 +1631,16 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     // `sys_environment` is excluded because `EnvironmentListToolbar` owns the
     // arming there: it must additionally wait for entitlements to resolve, and
     // two consumers of one param would race to strip it.
-    const navRunAction = useNavRunAction((requested) =>
-        !isEnvironmentList &&
-        localizedToolbarActions.some(
-            (a: any) => a?.name === requested && actionRendersAt(a, 'list_toolbar'),
-        ),
+    //
+    // [objectui#4191] …and only on an action its author has not HIDDEN here:
+    // the action's own declared `visible` outranks the deep link. A hidden
+    // candidate is neither marked `autoTrigger` nor consumed, and the refusal
+    // is reported — see `useOfferedNavRunAction`, which evaluates the same
+    // predicate `action:button` does.
+    const navRunAction = useOfferedNavRunAction(
+        localizedToolbarActions,
+        (a: any) => actionRendersAt(a, 'list_toolbar'),
+        !isEnvironmentList,
     );
     // Mark exactly the requested action `autoTrigger`, leaving every other
     // action's identity untouched so the bar's ordering/overflow is unchanged.
@@ -1488,7 +1660,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     // hide the lot — those flows go through purpose-built actions on the
     // source record (e.g. "Submit for Approval" on an Opportunity creates
     // an `sys_approval_request`).  Permissions still gate the buttons.
-    // [#3391] Intersect the bucket affordances with the server's effective API
+    // [objectstack#3391] Intersect the bucket affordances with the server's effective API
     // operation set for this object (from /me/permissions apiOperations), so the
     // toolbar never offers Import/Export/New/Edit/Delete the server would 405.
     // `undefined` (unrestricted object / old backend) leaves affordances as-is.
@@ -1498,12 +1670,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
       [objectDef, getObjectApiOperations],
     );
 
-    // Propagate externally-triggered refreshes (e.g. global ModalForm submit)
-    // into our internal refreshKey so list/data effects re-run.
-    useEffect(() => {
-        if (externalRefreshKey === undefined || externalRefreshKey === 0) return;
-        setRefreshKey(k => k + 1);
-    }, [externalRefreshKey]);
+    // Externally-triggered refreshes (e.g. global ModalForm submit, undo, redo)
+    // reach every `refreshKey` reader through the sum declared with the counter
+    // above (objectui#10572), not through a mirroring effect.
 
     /**
      * [#5153] The object-list toolbar's CREATE predicates — the `create` half
@@ -1570,7 +1739,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
      *
      * LAYERING: surfaced only when the object-level verdict already passed —
      * the same posture the related-list bridge takes, because a predicate may
-     * not RE-OPEN what the bucket, the effective API operations (#3391) or the
+     * not RE-OPEN what the bucket, the effective API operations (objectstack#3391) or the
      * principal's grant have closed. The identity-import bypass below is a
      * different affordance entirely (it does not read `affordances.import`) and
      * is deliberately left outside this layer.
@@ -1720,7 +1889,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     }, [dataSource, objectName, objectDef.listViews, objectDef.list_views, (objectDef as any).list, refreshKey]);
 
     // Resolve Views from objectDef.listViews (camelCase per @objectstack/spec)
-    const views = useMemo(() => {
+    const { list: views, derivedColumnViewIds } = useMemo(() => {
         // Default columns for the auto-generated "所有记录" view (and any saved
         // grid view with no explicit columns). `highlightFields` (ADR-0085) wins;
         // otherwise the first business fields — framework-injected system / audit
@@ -1736,11 +1905,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
             primaryId: defaultListViewId(objectDef.name, (objectDef as any).list),
             savedViews,
             viewOverrides,
+            // No `columns` here: the fill below derives them, and records
+            // the tab as one whose columns the author never declared.
             fallbackTab: () => ({
                 id: 'all',
                 label: t('console.objectView.allRecords'),
                 type: 'grid',
-                columns: resolveDefaultColumns(),
             }),
         });
 
@@ -1748,11 +1918,22 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
         // columns (e.g. saved views created via "Add View" before the user
         // configured fields). Without this, the grid renders an empty header
         // row and the data fetch omits a `select` clause.
+        //
+        // objectui#10694 — the fill DRAWS defaults; it does not DECLARE a
+        // projection. `ListViewSchema.columns` (spec source at objectstack
+        // `origin/main`, objectstack#19598): "An empty list declares no
+        // projection, so neither of them applies" — `hiddenFields` and
+        // `fieldOrder`. So every tab filled here is recorded, and the relay
+        // applies neither key to it (see `activeViewDeclaresColumns`). An
+        // ABSENT `columns` reads the same as an empty one: the spec requires
+        // the key, so absence declares no projection either.
         const GRID_LIKE = new Set(['grid', 'list', 'table']);
+        const derived = new Set<string>();
         for (const v of viewList) {
             if (!GRID_LIKE.has(v.type)) continue;
             if (!Array.isArray(v.columns) || v.columns.length === 0) {
                 v.columns = resolveDefaultColumns();
+                derived.add(v.id);
             }
         }
 
@@ -1794,7 +1975,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
             return (indexOf.get(a.id) ?? 0) - (indexOf.get(b.id) ?? 0);
         });
 
-        return viewList;
+        return { list: viewList, derivedColumnViewIds: derived };
     }, [objectDef, savedViews, viewOverrides, t, orgAttribution]);
 
     // Active View State — merge saved draft if available for this view.
@@ -1826,6 +2007,24 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     const activeView = viewDraft && viewDraft.id === baseView?.id
         ? { ...baseView, ...viewDraft }
         : baseView;
+    // objectui#10694 — does the active view, as AUTHORED, declare a non-empty
+    // `columns`? Booleans, so the relay keys on values and not on the memo's
+    // Set (AGENTS.md #10).
+    //
+    // The TAB answers from its stored body: its own non-empty `columns`, never
+    // the defaults the views memo drew into it.
+    const activeTabDeclaresColumns = !!baseView && !derivedColumnViewIds.has(baseView.id)
+        && Array.isArray(baseView.columns) && baseView.columns.length > 0;
+    // A config-panel DRAFT answers only with `columns` the admin changed. The
+    // panel seeds its draft from `activeView` and relays every field on every
+    // edit (and again on Discard), so an untouched draft carries the tab's
+    // columns verbatim — on an unprojected tab, the memo's drawn defaults.
+    // Compared by content, never by identity (AGENTS.md #10).
+    const draftColumnsEdited = !!viewDraft && viewDraft.id === baseView?.id && 'columns' in viewDraft
+        && !isSameOptionsValue(viewDraft.columns, baseView?.columns);
+    const activeViewDeclaresColumns = draftColumnsEdited
+        ? Array.isArray(viewDraft!.columns) && viewDraft!.columns.length > 0
+        : activeTabDeclaresColumns;
 
     /** Real-time draft field update — propagates each toggle/input change immediately */
     const handleViewUpdate = useCallback((field: string, value: any) => {
@@ -2055,7 +2254,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
         objectLabel: objectDef.label,
         dataSource,
         onEdit,
-        onRefresh: () => setRefreshKey(k => k + 1),
+        onRefresh: refreshData,
         onConfirm: confirmHandler,
         // ToastHandler's `type` is a string-literal union — a subset of the
         // looser `{ type?: string }` useObjectActions declares; cast is sound.
@@ -2077,9 +2276,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
             if (hasConflicts) {
                 resolveAllConflicts('remote');
             }
-            setRefreshKey(k => k + 1);
+            refreshData();
         }
-    }, [realtimeMessage, hasConflicts, resolveAllConflicts]);
+    }, [realtimeMessage, hasConflicts, resolveAllConflicts, refreshData]);
     
     // Fetch record count for footer display.
     //
@@ -2129,7 +2328,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
             if (authored) {
                 // Authored config wins. For an overlay, resolve the `size`
                 // bucket (or 'auto') to a viewport-clamped width when no explicit
-                // width was given — #2578: a pixel width can't be authored blind.
+                // width was given — objectstack-ai/objectstack#2578: a pixel width can't be authored blind.
                 if (authored.mode === 'page') return authored;
                 return {
                     ...authored,
@@ -2139,7 +2338,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                     ),
                 };
             }
-            // #2578: derive surface + width from FIELD COUNT. Field-heavy → full
+            // objectstack-ai/objectstack#2578: derive surface + width from FIELD COUNT. Field-heavy → full
             // page (cramped in a drawer); light → a drawer sized to the content
             // and clamped to the viewport. Mobile always pages (in deriveRecordSurface).
             return deriveRecordSurface(objectDef) === 'page'
@@ -2328,12 +2527,28 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
     // fresh object (AGENTS.md #10); a ref survives every re-render, and the
     // value comparison — not the ref — is what decides a real change.
     const heldListOptions = useRef<unknown>(undefined);
+    // objectui#7237 — the same hold for the resolved `filter`, same reason:
+    // token substitution hands back a NEW array of identical content on every
+    // call, and `ListView` names `schema.filter` by identity in its fetch
+    // effect, so each host re-render re-issued the identical list query.
+    const heldListFilter = useRef<unknown>(undefined);
 
     // Render multi-view content via ListView plugin (for kanban, calendar, etc.)
     const renderListView = useCallback(({ schema: listSchema, dataSource: ds, onEdit: editHandler, className, refreshKey: pluginRefreshKey }: any) => {
         // Combine local refreshKey with the plugin ObjectView's refreshKey for full propagation
         const combinedRefreshKey = refreshKey + (pluginRefreshKey || 0);
-        const key = `${objectName}-${activeView.id}-${combinedRefreshKey}`;
+        // objectui#10035 — AGENTS.md #8's corollary: refresh data, don't
+        // rebuild UI. The counter above is a DATA signal, and it used to ride
+        // in the `key` of everything below, so every save, delete, import or
+        // realtime event threw the list away — its search box, open popovers,
+        // scroll, selection and in-list visualization choice with it.
+        // `identityKey` is what a remount is for (another object, another
+        // view), and it is the whole key: `ListView` receives the counter as
+        // `refreshTrigger`, which its fetch effect names, and the
+        // visualizations that query for themselves (`gantt`, `chart`) refetch
+        // in place on the data-invalidation bus (see `refreshData`). ⛔ Do not
+        // put the counter back in the key.
+        const identityKey = `${objectName}-${activeView.id}`;
         const viewDef = activeView;
 
         // Per-user, per-view runtime-filter cache (advanced filter + search).
@@ -2390,14 +2605,18 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
          */
         if (viewDef.type === 'chart') {
             const chartConfig = viewDef.chart || {};
-            // ADR-0021 (#1890): dataset-bound chart — the single author-facing
+            // Both chart branches below are keyed on `identityKey` alone
+            // (objectui#10035): `ObjectChart` runs its own query and refetches
+            // in place on the data-invalidation bus (see `refreshData`).
+            //
+            // ADR-0021 (objectstack-ai/objectstack#1890): dataset-bound chart — the single author-facing
             // shape. Selects dimensions/measures BY NAME and runs through the
             // governed queryDataset path (numbers consistent across surfaces).
             if (chartConfig.dataset) {
                 const dims: string[] = Array.isArray(chartConfig.dimensions) ? chartConfig.dimensions : [];
                 const vals: string[] = Array.isArray(chartConfig.values) ? chartConfig.values : [];
                 return (
-                    <Suspense key={key} fallback={<div className="p-4 text-sm text-muted-foreground">Loading chart…</div>}>
+                    <Suspense key={identityKey} fallback={<div className="p-4 text-sm text-muted-foreground">Loading chart…</div>}>
                         <ObjectChart
                             dataSource={ds}
                             schema={{
@@ -2428,7 +2647,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                     ? chartConfig.series
                     : [{ dataKey: valueField, label: valueField }];
             return (
-                <Suspense key={key} fallback={<div className="p-4 text-sm text-muted-foreground">Loading chart…</div>}>
+                <Suspense key={identityKey} fallback={<div className="p-4 text-sm text-muted-foreground">Loading chart…</div>}>
                     <ObjectChart
                         dataSource={ds}
                         schema={{
@@ -2460,6 +2679,22 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
         // objectui#7029: present only when the view actually declared one.
         const calendarOptions = calendarViewOptions(viewDef);
 
+        /**
+         * objectui#10694, ruling 5839344270 (B) — where the hide-column
+         * toggle's choice is stored. On a view that declares no projection
+         * the relay applies no `hiddenFields` (see `activeViewDeclaresColumns`),
+         * so an overlay write of one would be read by nothing. A SYSTEM view's
+         * overlay cannot carry `columns` either (`VIEW_OVERLAY_OWNED_KEYS`), so
+         * there the toggle is session-only: `ListView` still hides the column
+         * in its own state, and nothing is written. A SAVED view's write is
+         * the whole view, drawn `columns` included, so it keeps persisting.
+         * The author's remedy on a system view is to declare `columns`.
+         */
+        const persistHiddenFields = (hidden: string[]) => {
+            if (!activeViewDeclaresColumns && !isSavedViewId(savedViewsRef.current, viewDef.id)) return;
+            persistViewPatch(viewDef.id, viewDef, { hiddenFields: hidden });
+        };
+
 
         /**
          * ⚠️ THE RELAY. Every key below is a rung carrying the ACTIVE VIEW's
@@ -2469,7 +2704,8 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
          * lint and to the tests — `viewDef` is `Record<string, any>`, so
          * nothing REQUIRES a key to be written. That silence shipped the same
          * defect three times (objectui#7199 `description`, objectui#7218
-         * `rowColor`, objectui#7516 `fieldOrder`), and objectui#7559 ended it:
+         * `rowColor`, objectui#7516 `fieldOrder` — all three carry their rung
+         * below now), and objectui#7559 ended it:
          * `ObjectView.relayRungCensus-7559.test.ts` re-derives the member set
          * from the zod mirror at test time and requires every member to have
          * either a rung here or a DECLARED absence with a reason.
@@ -2481,6 +2717,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
          */
         const fullSchema: ListViewSchema = {
             ...listSchema,
+            // objectui#10035 — the refresh signal, in place of the remount the
+            // key used to force. The spread above carries only the plugin
+            // ObjectView's counter; this page's own counter (actions, import,
+            // realtime, view edits, the console's `externalRefreshKey`) reached
+            // `ListView` through the key alone. Both counters only grow, so
+            // their sum moves whenever either does.
+            refreshTrigger: combinedRefreshKey,
             // The active view's display label (same string the ViewTabBar
             // shows) — ListView appends it to export download filenames.
             label: viewDef.label ?? listSchema.label,
@@ -2504,9 +2747,14 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
              * Same two-rung shape as `label` above.
              */
             description: viewDef.description ?? listSchema.description,
-            // Propagate appearance/view-config properties for live preview
-            rowHeight: viewDef.rowHeight ?? listSchema.rowHeight,
-            densityMode: viewDef.densityMode ?? listSchema.densityMode,
+            // Propagate appearance/view-config properties for live preview.
+            // objectui#7924 (ruling A′): the view's density is read THROUGH the
+            // fold, view over list, the same route as the `userActions` rung
+            // below. A stored view that still spells it `densityMode` arrives
+            // here as `rowHeight`, and this relay never names the retired key.
+            rowHeight:
+                (normalizeListViewSchema(viewDef ?? {}) as Pick<ListViewSchema, 'rowHeight'>).rowHeight
+                ?? listSchema.rowHeight,
             // Hydrate the persisted view settings so they survive reload
             // (Airtable-style toolbar config — objectstack#7494's ruling:
             // ORG-WIDE shared, not a per-user preference; a true per-user
@@ -2526,9 +2774,50 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 const base = (viewDef as any).filter ?? listSchema.filter;
                 const baseArr = Array.isArray(base) ? base : base ? [base] : [];
                 const combined = urlFilters.length ? [...baseArr, ...urlFilters] : base;
-                return substituteFilterTokens(combined, filterScope);
+                const resolved = substituteFilterTokens(combined, filterScope);
+                // objectui#7237 — equal content keeps the identity `ListView`
+                // names (and hands the self-querying views); a real change —
+                // another URL filter, another session scope, a date macro that
+                // resolves differently — still hands over the new value.
+                if (isSameOptionsValue(heldListFilter.current, resolved)) {
+                    return heldListFilter.current;
+                }
+                heldListFilter.current = resolved;
+                return resolved;
             })(),
-            hiddenFields: (viewDef as any).hiddenFields ?? listSchema.hiddenFields,
+            /**
+             * objectui#10694 — both composition keys apply only when the view
+             * declares a non-empty `columns`. The views memo draws defaults
+             * into an unprojected view, and `ListViewSchema.columns` (spec
+             * source at objectstack `origin/main`, objectstack#19598) says an
+             * empty list "declares no projection, so neither of them applies".
+             * The same gate `InterfaceListPage` puts on a source view
+             * (objectui#10638), so the two routes compose a view one way. The
+             * value is set to `undefined`, not omitted: `...listSchema` above
+             * already carries the host's echo of the view's keys.
+             */
+            hiddenFields: activeViewDeclaresColumns
+                ? ((viewDef as any).hiddenFields ?? listSchema.hiddenFields)
+                : undefined,
+            /**
+             * The per-view ORDERING of the field composition
+             * `columns` x `hiddenFields` x `fieldOrder` (objectui#7516) —
+             * objectstack#15184 ruling B kept the key and wrote the
+             * composition into the contract: `columns` projects,
+             * `hiddenFields` (the rung above) subtracts, `fieldOrder` sorts
+             * what survives, an unlisted survivor sorting last. `ListView`'s
+             * `effectiveFields` memo runs those steps on `schema.fieldOrder`;
+             * this rung only delivers the view's value into that slot, the
+             * one the list-node spelling fills, so the two compose alike.
+             *
+             * View over list node — the precedence of the `hiddenFields` rung
+             * above; a view that authors no order keeps the list node's. It
+             * was the one per-view half of the composition with no rung:
+             * authored, served, then dropped here.
+             */
+            fieldOrder: activeViewDeclaresColumns
+                ? (viewDef.fieldOrder ?? listSchema.fieldOrder)
+                : undefined,
             columnState: (viewDef as any).columnState ?? (listSchema as any).columnState,
             onDensityChange: (mode) => {
                 // Persist the spec-canonical `rowHeight` (#2890). Writing the
@@ -2544,9 +2833,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
             // NO `onFilterChange` (objectui#4155): the filter panel is session
             // state. ListView keeps it in `currentFilters` and applies it to the
             // live query; nothing about it reaches the stored view.
-            onHiddenFieldsChange: (hidden: string[]) => {
-                persistViewPatch(viewDef.id, viewDef, { hiddenFields: hidden });
-            },
+            onHiddenFieldsChange: persistHiddenFields,
             onColumnStateChange: (state: { order?: string[]; widths?: Record<string, number> }) => {
                 persistViewPatch(viewDef.id, viewDef, { columnState: state });
             },
@@ -2718,7 +3005,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 // See `galleryViewOptions`.
                 gallery: galleryViewOptions(viewDef),
                 // The gantt config the view DECLARED, title floored at 'name' —
-                // never an invented date field (objectui#7070). With no date
+                // never an invented date field (`5f4514f7b`). With no date
                 // binding to forward, ListView's capability gate stops offering
                 // the Gantt toggle to a view that configured none, and a view
                 // forced onto the gantt renderer reaches its refusal screen.
@@ -2763,7 +3050,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 // This was a hand-listed projection of six keys (`chartType` /
                 // `xAxisField` / `yAxisFields` / `aggregation` / `series` /
                 // `config`): the PRE-ADR-0021 set, frozen. The whole ADR-0021
-                // (#1890) authoring shape (`dataset` / `dimensions` / `values`)
+                // (objectstack-ai/objectstack#1890) authoring shape (`dataset` / `dimensions` / `values`)
                 // and the legacy `categoryField` / `valueField` spelling had no
                 // rung here, so an author who declared them reached `ListView`
                 // with the binding stripped. Once objectui#7544 gave
@@ -2804,7 +3091,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
 
         return (
             <ListView
-                key={key}
+                key={identityKey}
                 schema={fullSchema}
                 className={className}
                 onEdit={editHandler}
@@ -2852,9 +3139,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 onSearchChange={(search: string) => {
                     writeListFilterState(listFilterKey, { search });
                 }}
-                onHiddenFieldsChange={(hidden: string[]) => {
-                    persistViewPatch(viewDef.id, viewDef, { hiddenFields: hidden });
-                }}
+                onHiddenFieldsChange={persistHiddenFields}
                 onInlineEditChange={(next: boolean) => {
                     persistViewPatch(viewDef.id, viewDef, { inlineEdit: next });
                 }}
@@ -2868,7 +3153,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                 dataSource={ds}
             />
         );
-    }, [activeView, objectDef, objectName, refreshKey, navOverlay, actions, persistViewPatch, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, user?.id]);
+    }, [activeView, activeViewDeclaresColumns, objectDef, objectName, refreshKey, navOverlay, actions, persistViewPatch, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, user?.id]);
 
     // Memoize the merged views array so PluginObjectView doesn't get a new
     // reference on every render (which would trigger unnecessary data refetches).
@@ -3114,7 +3399,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                      ),
                    } : {})}
                    onComplete={(result) => {
-                     setRefreshKey(k => k + 1);
+                     refreshData();
                      const ok = result.importedRows;
                      const skip = result.skippedRows;
                      if (skip > 0) {
@@ -3231,7 +3516,13 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: an
                                 </div>
                                 {typeof recordCount === 'number' && (
                                     <div data-testid="record-count-footer" className="border-t px-3 sm:px-4 py-1.5 text-xs text-muted-foreground bg-muted/5 shrink-0">
-                                        {t('console.objectView.recordCount', { count: recordCount })}
+                                        {/* The two-key switch of `ListView`'s record-count bar
+                                            (objectui#10636). Packs whose plurals have more forms
+                                            than two write the count-not-one half as a count label
+                                            (objectui#10425). */}
+                                        {recordCount === 1
+                                            ? t('console.objectView.recordCountOne', { count: recordCount })
+                                            : t('console.objectView.recordCount', { count: recordCount })}
                                     </div>
                                 )}
                             </div>

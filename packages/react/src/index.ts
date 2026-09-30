@@ -19,6 +19,14 @@ export * from './element-data-source/ElementDataSourceGate.js';
 // i18n utilities
 export { resolveKeyedI18nLabel } from './utils/i18n.js';
 
+// The spec's NESTED `aria` bag (`AriaPropsSchema`) → `aria-label` /
+// `aria-describedby` / `role`, with `ariaLabel` resolved as an inline locale
+// map (objectui#11051). Exported for the renderers in `@object-ui/components`,
+// which depends on this package, so the mapping is written once. It is not the
+// flat keyed reader `SchemaRenderer` applies to every node; objectui#4580 Q2-B
+// keeps the two vocabularies apart.
+export { resolveInlineAriaProps } from './utils/inlineAria.js';
+
 // "Is this a real config bag?" — the ONE definition of that question
 // (objectui#6761), exported at the package entry for the same reason the node-gate
 // reporter above is (objectui#6038): a surface in `@object-ui/components`, which
@@ -104,26 +112,13 @@ export {
 // four, because a per-plugin copy would be four constants wearing one name,
 // which is the thing the ruling ruled out.
 //
-// ⚠️ WHY IT LIVES HERE is a scheduling fact, not an architectural one, and the
-// comment that used to stand here said otherwise: "the only package all four
-// already depend on". That is measured FALSE —
-// `packages/plugin-{gantt,calendar,map,tree}/package.json` each also list
-// `@object-ui/core`, `@object-ui/components` and `@object-ui/types`. The real
-// reason is that #7210 was dispatched with a same-round barrel fence over
-// exactly those: `core` was held by #7349, `types` and `components` by #7182,
-// and `@object-ui/react` has no subpath export, so "one constant, not in those
-// three" left the package's sole entry as the only reachable home.
-//
-// ⛔ Do not read this placement as a decision that it belongs here. The
-// non-React half (`applyNonGridRowCeiling`, `NonGridCeilingResult`) wraps
-// `core`'s own `extractRecords` and would sit beside it; whether these five
-// symbols move, and whether `NON_GRID_ROW_CEILING_TOP` should be published at
-// all, is an OPEN maintainer decision on objectui#7508. Anything that grows a
-// dependency on this exact shape makes that decision more expensive.
-export {
-  NON_GRID_ROW_CEILING,
-  NON_GRID_ROW_CEILING_TOP,
-  applyNonGridRowCeiling,
-  NonGridRowCeilingNote,
-} from './utils/nonGridRowCeiling.js';
-export type { NonGridCeilingResult } from './utils/nonGridRowCeiling.js';
+// HOME: `@object-ui/core`, beside the `extractRecords` it wraps (objectui#7508,
+// maintainer ruling A′). This entry re-exports the three names it published
+// first, the same way it re-exports `@object-ui/i18n` above, and keeps only
+// the React half — `NonGridRowCeilingNote`, which takes the
+// `NonGridCeilingResult` and nothing else. The probe row's `+ 1` lives in
+// core's `nonGridRowCeilingQuery()` and nowhere else; the constant that used
+// to carry it here is deleted, not re-exported.
+export { NON_GRID_ROW_CEILING, applyNonGridRowCeiling } from '@object-ui/core';
+export type { NonGridCeilingResult } from '@object-ui/core';
+export { NonGridRowCeilingNote } from './utils/nonGridRowCeiling.js';

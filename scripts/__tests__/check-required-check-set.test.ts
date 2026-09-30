@@ -23,11 +23,18 @@ const WORKFLOW = '.github/workflows/required-check-set-patrol.yml';
 const FIXTURES = 'scripts/__tests__/fixtures/required-check-set';
 /**
  * The set objectui#9499's ruling installs: the four `Test (shard N/4)` contexts
- * replaced by the one aggregator context `Test`. It is the CONTROL fixture —
- * the answer the patrol is expected to read once the maintainer's third
- * ruleset step is clicked.
+ * replaced by the one aggregator context `Test`. It WAS the control fixture
+ * until objectui#9969 declared one more context; it is kept because it is now
+ * exactly the declared set with `Spec Main Shape Gate` lost, which is the case
+ * that card asked the patrol to report.
  */
-const RULING_FIXTURE = `${FIXTURES}/ruling-9499.json`;
+const RULING_9499_FIXTURE = `${FIXTURES}/ruling-9499.json`;
+/**
+ * objectui#9499's set plus `Spec Main Shape Gate`, which objectui#9969's ruling
+ * A enrolled and this patrol now watches. The CONTROL fixture: byte-identical
+ * to the one above except for that one appended entry.
+ */
+const RULING_FIXTURE = `${FIXTURES}/ruling-9969.json`;
 /**
  * The verbatim live answer of 2026-09-14, kept because it is a real reading and
  * because the window objectui#9499 opens is worth pinning: between this pull
@@ -202,7 +209,10 @@ describe('check-required-check-set — the committed fixture is the live shape',
 
     expect(reading.verdict).toBe('drifted');
     expect(exitCodeFor(reading.verdict)).toBe(EXIT_OK);
-    expect(reading.missingWatched).toEqual(['Test']);
+    // `Spec Main Shape Gate` is missing from this dated answer too: it was not
+    // enrolled until objectui#9969, and the declaration it is read against now
+    // watches it. The fixture is a verbatim reading and stays as it was.
+    expect(reading.missingWatched).toEqual(['Test', 'Spec Main Shape Gate']);
     expect(reading.unexpected).toEqual([
       'Test (shard 1/4)',
       'Test (shard 2/4)',
@@ -212,6 +222,35 @@ describe('check-required-check-set — the committed fixture is the live shape',
     // The pinned tier is untouched by the rename, which is why this is drift
     // and not a breach.
     expect(reading.missingPinned).toEqual([]);
+  });
+
+  /**
+   * objectui#9969: the reason `Spec Main Shape Gate` is watched at all. The
+   * pre-#9969 declared set is the current one with that context lost, so it is
+   * the case to read. Losing it must be NAMED (the patrol's summary says it is
+   * no longer required) and must stay exit 0: watched, not pinned, so no new
+   * red leg is added by declaring it.
+   */
+  it('reads the declared set with `Spec Main Shape Gate` lost as DRIFTED, naming it', () => {
+    const contexts = (rules: Rule[]): string[] =>
+      rules.flatMap((r) =>
+        r.type === 'required_status_checks'
+          ? (r.parameters?.required_status_checks ?? []).map((c) => String(c.context))
+          : [],
+      );
+    // The two ruling fixtures differ by exactly that one context and nothing
+    // else, so the drift below cannot be caused by some second difference.
+    expect(contexts(readFixture(RULING_9499_FIXTURE))).toEqual(
+      contexts(readFixture(RULING_FIXTURE)).filter((c) => c !== 'Spec Main Shape Gate'),
+    );
+    const others = (rules: Rule[]) => JSON.stringify(rules.filter((r) => r.type !== 'required_status_checks'));
+    expect(others(readFixture(RULING_9499_FIXTURE))).toBe(others(readFixture(RULING_FIXTURE)));
+
+    const r = runGate(['--fixture', RULING_9499_FIXTURE]);
+    expect(r.status).toBe(EXIT_OK);
+    expect(r.stdout).toContain('No longer required: `Spec Main Shape Gate`.');
+    expect(r.stdout).not.toContain('✅');
+    expect(r.stderr).toContain('DRIFTED');
   });
 });
 
@@ -319,11 +358,17 @@ describe('check-required-check-set — the wiring', () => {
  * stale the next time a maintainer edits the ruleset.
  *
  * ⚠️ The population is named in words: the three files objectui#9502 repaired.
- * `AGENTS.md` carries a fourth instance and is deliberately NOT in that set —
- * it is governed surface, and its parenthetical also covers who may bypass the
- * ruleset, which the endpoint this gate reads does not carry. That exclusion is
- * what makes the control below real: the same detector, run over `AGENTS.md`,
- * must FIRE. A zero from a detector never observed firing is decoration.
+ * `AGENTS.md` carried a fourth instance and is deliberately NOT in that set.
+ * objectui#9502 left it standing — it is governed surface, and its
+ * parenthetical also covered who may bypass the ruleset, which the endpoint
+ * this gate reads does not carry — and objectui#9520 then split it along that
+ * line: its required-checks half points at this gate, and "从仓内读不到" stays
+ * on the bypass-actors half alone, where it was measured true. So it still
+ * cannot join `REPAIRED` (the "makes no cannot-be-read claim" case would go red
+ * on that true half, which is exactly what Leg 2 below asserts it carries), and
+ * it is still what makes the control below real: the same detector, run over
+ * `AGENTS.md`, must FIRE. A zero from a detector never observed firing is
+ * decoration.
  */
 describe('check-required-check-set — the prose points here instead of answering (#9502)', () => {
   /** The three files objectui#9502 repaired. */
@@ -333,8 +378,12 @@ describe('check-required-check-set — the prose points here instead of answerin
     'scripts/dependabot-merge-gate.mjs',
   ];
 
-  /** The carrier left standing on purpose — and this block's positive control. */
-  const LEFT_STANDING = 'AGENTS.md';
+  /**
+   * The carrier objectui#9502 left standing and objectui#9520 split: the one
+   * file that still writes "从仓内读不到", on its bypass-actors half, where it is
+   * true — and this block's positive control.
+   */
+  const SPLIT_CARRIER = 'AGENTS.md';
 
   /**
    * The claim being hunted: the ruleset cannot be READ from this repository.
@@ -354,15 +403,20 @@ describe('check-required-check-set — the prose points here instead of answerin
     expect(CANNOT_READ.test('that set is a surface nothing here can change')).toBe(false);
 
     // Leg 2, the same detector over real content: `AGENTS.md` still carries the
-    // claim, deliberately. If this leg ever goes red the governed carrier was
-    // ruled on and repaired — which is a legitimate change, not a bug here. The
-    // remedy is to move the inventory docblock in the gate with it and retire
-    // this leg, NOT to weaken the detector.
+    // phrase, deliberately, on the bypass-actors half of its ruleset bullet —
+    // the one place in the tree it is true, which is where objectui#9520 kept it
+    // when it split that bullet. ⚠️ Said per AGENTS.md #9 rather than left to be
+    // assumed: this detector cannot tell which half a phrase sits on, so this
+    // leg does NOT hold the bullet's required-checks half to its pointer, and
+    // nothing else in this file does either. If this leg ever goes red the bypass
+    // half was re-worded or ruled on again — a legitimate change, not a bug
+    // here. The remedy is to move the inventory docblock in the gate with it and
+    // retire this leg, NOT to weaken the detector.
     expect(
-      CANNOT_READ.test(flatten(LEFT_STANDING)),
-      `${LEFT_STANDING} no longer carries the claim this detector hunts. If that carrier was ` +
-        `repaired, update the inventory docblock in ${GATE} to match and drop this leg. ` +
-        'Leg 1 above keeps the detector honest either way.',
+      CANNOT_READ.test(flatten(SPLIT_CARRIER)),
+      `${SPLIT_CARRIER} no longer carries the phrase this detector hunts (its bypass-actors half did, ` +
+        `deliberately). If that half was re-worded, update the inventory docblock in ${GATE} to match ` +
+        'and drop this leg. Leg 1 above keeps the detector honest either way.',
     ).toBe(true);
   });
 
@@ -401,9 +455,9 @@ describe('check-required-check-set — the prose points here instead of answerin
     }
   });
 
-  it("the gate's own docblock inventories every repaired carrier, and the one left standing", () => {
+  it("the gate's own docblock inventories every repaired carrier, and the one objectui#9520 split", () => {
     const docblock = fs.readFileSync(path.join(ROOT, GATE), 'utf8').slice(0, 4000);
-    for (const rel of [...REPAIRED, LEFT_STANDING]) {
+    for (const rel of [...REPAIRED, SPLIT_CARRIER]) {
       expect(docblock, `${GATE} no longer names ${rel} in its inventory`).toContain(rel);
     }
     // The write half is the reason the sentences were not simply deleted.

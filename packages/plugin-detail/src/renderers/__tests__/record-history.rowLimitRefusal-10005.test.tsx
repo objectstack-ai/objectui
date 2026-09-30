@@ -107,11 +107,25 @@ describe('record:history — a refused row cap falls back, it is not repaired (o
     expect(await topFor({ limit: 10 })).toBe(10);
   });
 
-  it('CONTROL — a numeric string still resolves, as it does on the sibling', async () => {
-    // `normalizeLimit('5')` is pinned to `5` on `record:activity`; this
-    // refusal narrows what is admitted to the contract's value set, it does
-    // not change how a node's value is read.
-    expect(await topFor({ limit: '5' })).toBe(5);
+  it('refuses a numeric STRING — ⛔ no `Number()` coercion (objectui#10145, flipped)', async () => {
+    // FLIPPED from `.toBe(5)`: while the family kept `Number(value)`, `'5'`
+    // resolved to a five-row window. The spec refuses a string outright
+    // (`z.number()`), and the ruling on objectui#10145 is STOP.
+    const top = await topFor({ limit: '5' });
+    expect(top).toBe(RENDERER_DEFAULT);
+    expect(top).not.toBe(5);
+  });
+
+  it('refuses the other shapes `Number()` used to admit (objectui#10145)', async () => {
+    expect(await topFor({ limit: ' 5 ' })).toBe(RENDERER_DEFAULT); // was 5
+    expect(await topFor({ limit: '0x10' })).toBe(RENDERER_DEFAULT); // was 16
+    expect(await topFor({ limit: true })).toBe(RENDERER_DEFAULT); // was 1
+    expect(await topFor({ limit: [7] })).toBe(RENDERER_DEFAULT); // was 7
+  });
+
+  it('CONTROL — the same cap as a NUMBER still passes through', async () => {
+    // Lit control beside the flip above.
+    expect(await topFor({ limit: 5 })).toBe(5);
   });
 
   it('the `properties` read point answers identically — refused', async () => {
@@ -123,61 +137,64 @@ describe('record:history — a refused row cap falls back, it is not repaired (o
   });
 });
 
-describe('record:history — the refusal is SILENT, matching its sibling (objectui#10005)', () => {
+describe('record:history — the refusal is LOUD (objectui#10097, objectui#10145)', () => {
   let warn: ReturnType<typeof vi.spyOn>;
-  let error: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     cleanup();
     warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    error = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
     warn.mockRestore();
-    error.mockRestore();
   });
 
   /**
-   * Calls on a developer channel that are ABOUT this renderer's row cap.
-   *
-   * ⚠️ Deliberately a FILTER rather than a blanket `not.toHaveBeenCalled()`.
-   * MEASURED on this harness: rendering the timeline emits an unrelated
-   * `react-i18next` `NO_I18NEXT_INSTANCE` warning, and whether it lands inside
-   * this spy's window depends on which OTHER tests in the file ran first — so a
-   * blanket assertion pins test ORDER, not this renderer's silence, and goes red
-   * for anyone who runs this one test alone. The filter is kept wide enough that
-   * a real diagnostic cannot slip through it: any message naming the authored
-   * value, `limit`, a row cap, or this renderer counts.
+   * Calls on the developer channel that are ABOUT this block's row cap. A
+   * FILTER rather than a blanket count: MEASURED on this harness, rendering the
+   * timeline emits an unrelated `react-i18next` `NO_I18NEXT_INSTANCE` warning
+   * whose presence in this spy's window depends on test order.
    */
-  function rowCapDiagnostics(spy: ReturnType<typeof vi.spyOn>): unknown[][] {
-    return (spy.mock.calls as unknown[][]).filter((args) => {
-      const text = args
-        .map((a) => {
-          if (typeof a === 'string') return a;
-          try {
-            return JSON.stringify(a);
-          } catch {
-            return String(a);
-          }
-        })
-        .join(' ');
-      return /limit|row cap|record:history|RecordHistory|-5/i.test(text);
-    });
+  function rowCapWarnings(): string[] {
+    return (warn.mock.calls as unknown[][])
+      .map((args) => args.map((a) => (typeof a === 'string' ? a : String(a))).join(' '))
+      .filter((text) => text.includes('record:history row cap'));
   }
 
   /**
-   * ⭐ This is a DECISION recorded as a pin, not an inevitability. The sibling
-   * this card was told to match — `normalizeLimit` in `recordActivityFeed` —
-   * refuses in silence, so this renderer does too. The three read points
-   * objectui#9925 repaired (`object-kanban`, `object-timeline`,
-   * `record:reference_rail`) refuse LOUDLY instead, so the family currently
-   * holds two answers on loudness. Whoever rules that question changes this
-   * pin deliberately rather than discovering the silence by accident.
+   * FLIPPED from "names nothing on the developer channel when it refuses":
+   * that pin recorded the family's silence as a decision awaiting a ruling.
+   * objectui#10097 ruled "always warn"; objectui#10145 ruled STOP with a loud
+   * fallback. The warning names the block and spells the raw value WITH its
+   * type, so `'5'` and `5` cannot be confused in the message.
    */
-  it('names nothing on the developer channel when it refuses', async () => {
-    expect(await topFor({ limit: -5 })).toBe(RENDERER_DEFAULT);
-    expect(rowCapDiagnostics(warn)).toEqual([]);
-    expect(rowCapDiagnostics(error)).toEqual([]);
+  it.each([
+    ['a numeric string', '5', '"5" (string)'],
+    ['a padded numeric string', ' 5 ', '" 5 " (string)'],
+    ['a hex string', '0x10', '"0x10" (string)'],
+    ['a boolean', true, 'true (boolean)'],
+    ['an array', [7], '[7] (array)'],
+    ['a fraction', 1.5, '1.5 (number)'],
+    ['zero', 0, '0 (number)'],
+    ['a negative', -5, '-5 (number)'],
+    ['NaN', Number.NaN, 'NaN (number)'],
+    ['Infinity', Number.POSITIVE_INFINITY, 'Infinity (number)'],
+  ])('warns once, naming the block and the raw value, for %s', async (_label, authored, spelled) => {
+    expect(await topFor({ limit: authored })).toBe(RENDERER_DEFAULT);
+    const hits = rowCapWarnings();
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toContain('record:history');
+    expect(hits[0]).toContain(`declared limit: ${spelled}`);
+  });
+
+  it('CONTROL — a usable cap and an absent cap say nothing', async () => {
+    expect(await topFor({ limit: 10 })).toBe(10);
+    expect(await topFor({})).toBe(RENDERER_DEFAULT);
+    expect(rowCapWarnings()).toEqual([]);
+  });
+
+  it('the `properties` read point warns identically', async () => {
+    expect(await topFor({ properties: { limit: '5' } })).toBe(RENDERER_DEFAULT);
+    expect(rowCapWarnings()).toHaveLength(1);
   });
 });

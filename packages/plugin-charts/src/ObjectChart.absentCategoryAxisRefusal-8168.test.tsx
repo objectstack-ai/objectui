@@ -328,7 +328,7 @@ describe('objectui#8168 — what the refusal deliberately does not touch', () =>
   it('a bare string `xAxis`, the report surface spelling', async () => {
     renderChart({
       objectName: 'crm_opportunity',
-      xAxis: 'stage',
+      xAxis: 'stage' as unknown as ObjectChartSchema['xAxis'], // unauthorable since objectui#10518 (object only): the renderer's tolerance, cast as `UNAUTHORABLE` casts `aggregate`
       series: [{ dataKey: 'amount' }],
     });
     await expectNoRefusal();

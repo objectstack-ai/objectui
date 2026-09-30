@@ -59,7 +59,11 @@ export interface SimEdge {
 
 export type SimStatus = 'idle' | 'running' | 'paused' | 'done' | 'error';
 
-/** One evaluated outgoing edge of a decision (kept for the debug timeline). */
+/**
+ * One outgoing edge successor selection considered (kept for the debug
+ * timeline): on a decision, and on any node that leaves by a guard or a default
+ * edge (objectui#10692). An edge with no guard reads `result: true`.
+ */
 export interface SimEdgeEval {
   edgeId: string;
   target: string;
@@ -81,7 +85,7 @@ export interface SimStep {
   status: SimStepStatus;
   /** Variable names → values written by this node (mocked side effects). */
   wrote?: Record<string, unknown>;
-  /** Per-edge condition diagnostics for a decision node. */
+  /** Per-edge diagnostics of the node's successor selection (see {@link SimEdgeEval}). */
   edges?: SimEdgeEval[];
   /** Human-readable note (e.g. "mocked", "paused for screen input"). */
   note?: string;

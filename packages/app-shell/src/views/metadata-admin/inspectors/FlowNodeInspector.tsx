@@ -21,6 +21,7 @@
 
 import * as React from 'react';
 import { Plus } from 'lucide-react';
+import { resolveFlowTriggerKind } from '@objectstack/spec/automation';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
 import { t } from '../i18n.js';
 import {
@@ -54,8 +55,9 @@ import { applyDecisionBranches, syncDecisionEdgesByOrder, withBranchTargets } fr
 import { useActionConfigSchemas } from '../previews/useFlowNodePalette.js';
 import { FlowNodeConfigField } from './FlowNodeConfigField.js';
 import { useFlowScope } from './useFlowScope.js';
-import { nodeOutputRefs, type ScopeRef } from './flow-scope.js';
+import { hasCommittedConnectorAction, nodeOutputRefs, type ScopeRef } from './flow-scope.js';
 import { NESTED_NODE_KIND, parseNestedNodeId, locateFlowNode, type InspectorFlowNode } from './flow-nested-selection.js';
+import { displayRegionLabel } from '../previews/flow-region-label.js';
 import type { FlowDesignerEdge } from '../previews/flow-canvas-layout.js';
 import { ScreenPreview } from '../previews/ScreenPreview.js';
 
@@ -178,8 +180,6 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
     () => (loc?.nested && loc.container ? nodeOutputRefs(loc.container).filter((r) => r.group === 'loop') : []),
     [loc],
   );
-  // In-scope variable references for this node, for the data-picker (#1934).
-  const { groups: scopeGroups, approvalExpressionGroups, trigger: triggerScope } = useFlowScope(draft as Record<string, unknown>, loc?.scopeAnchorId, nestedLoopRefs);
   // #4305 — a COMMITTED connector action (connector + action both chosen) types
   // its Input section from that action's descriptor `inputSchema`. Read the
   // committed pair and the stored input map off the node's spec-structured
@@ -199,7 +199,20 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
       storedInput: block.input,
     };
   }, [node]);
-  const connectors = useConnectorRegistry(!!connectorId && !!actionId);
+  // The same registry read also serves the scope (objectui#11028): an upstream
+  // committed `connector_action` node offers its action's declared output keys
+  // as references, so the read fires for this node's own committed pair OR for
+  // any committed connector action in the flow — one read, two consumers.
+  const connectors = useConnectorRegistry(
+    (!!connectorId && !!actionId) || hasCommittedConnectorAction(draft as Record<string, unknown>),
+  );
+  // In-scope variable references for this node, for the data-picker (#1934).
+  const { groups: scopeGroups, approvalExpressionGroups, trigger: triggerScope } = useFlowScope(
+    draft as Record<string, unknown>,
+    loc?.scopeAnchorId,
+    nestedLoopRefs,
+    connectors,
+  );
   const connectorInput = React.useMemo(
     () => connectorInputFields(connectorActionInputSchema(connectors, connectorId, actionId)),
     [connectors, connectorId, actionId],
@@ -227,7 +240,12 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
     return applyConnectorInputForm(localized, connectorInput, storedInput);
   }, [configSchemas, nodeType, locale, connectorInput, storedInput]);
   const config = asConfig(node);
-  const visibleFields = fields.filter((f) => isFieldVisible(f, node, fields));
+  // objectui#11054 — the flow's trigger kind, asked of the whole draft with the
+  // spec's own resolver (the engine's precedence), for fields gated by
+  // `flowKind`: an `api` flow is `type: 'api'` OR a start-node
+  // `triggerType: 'api'`, and only the draft can answer the first.
+  const flowKind = resolveFlowTriggerKind(draft);
+  const visibleFields = fields.filter((f) => isFieldVisible(f, node, fields, flowKind));
 
   // `{var}` interpolation source for the screen preview — the flow's declared
   // variables and their defaults (the designer has no live run state).
@@ -343,7 +361,13 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
   const commitAdvanced = () => {
     try {
       const parsed = advText.trim() === '' ? {} : JSON.parse(advText);
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Must be a JSON object');
+      // A value that parses but is not an object is this box's own refusal, in
+      // the designer locale (objectui#10748); a parse failure keeps the
+      // engine's own `SyntaxError` text below.
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        setAdvError(t('engine.inspector.flowNode.advancedNotObject', locale));
+        return;
+      }
       // Form-owned config keys always win: the Advanced block may only set keys
       // that no form field owns, so it can never overwrite or resurrect one.
       const knownPart = Object.fromEntries(Object.entries(config).filter(([k]) => ownedConfigKeys.has(k)));
@@ -385,10 +409,16 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
       footer={nested ? undefined : <InspectorRemoveButton label={t('engine.inspector.flowNode.remove', locale)} onClick={remove} disabled={readOnly} />}
     >
       {nested && (
-        <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground" aria-label="nested node location">
+        <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground" aria-label={t('engine.inspector.flowNode.nestedLocation', locale)}>
           <span className="max-w-[45%] truncate font-medium">{loc?.container?.label || loc?.container?.id}</span>
           <span aria-hidden>›</span>
-          <span className="truncate">{loc?.regionLabel}</span>
+          {/* The region's English structural fallback (`Try` / `Catch` / `Branch N`,
+              and a loop body's `Body`) reads its catalogue row through the same
+              `displayRegionLabel` the canvas header reads; an authored branch
+              name passes through (objectui#10696, objectui#10748). */}
+          <span className="truncate">
+            {loc?.regionKey ? displayRegionLabel({ key: loc.regionKey, label: loc.regionLabel }, locale) : loc?.regionLabel}
+          </span>
           <span aria-hidden>›</span>
           <span className="max-w-[45%] truncate font-medium text-foreground">{node.label || node.id}</span>
         </div>
@@ -460,13 +490,13 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
             // control's clothes. Name it, and offer the deliberate clear.
             // Computed from `field` (not `effField`): the read is by `path`,
             // which the nested-branch rewrite above does not touch.
-            inactiveRetained={inactiveRetainedKind(field, node, fields)}
+            inactiveRetained={inactiveRetainedKind(field, node, fields, flowKind)}
             onClearInactive={readOnly ? undefined : () => setField(field, undefined)}
           />
         );
       })}
 
-      {isScreen && <ScreenPreview node={node} variables={screenVars} className="mt-1" />}
+      {isScreen && <ScreenPreview node={node} variables={screenVars} className="mt-1" locale={locale} />}
 
       {hasExtras || advReveal ? (
         <details

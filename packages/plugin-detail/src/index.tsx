@@ -75,7 +75,7 @@ export {
  * loop, and the two constructions had already drifted three ways — the console
  * copy dropped an unmapped type SILENTLY where {@link activityRowToFeedItem}
  * renders it through {@link UNMAPPED_ACTIVITY_FEED_TYPE} and says so once
- * (objectstack#11507 direction 4, ruled 2026-08-24), and its timestamp
+ * (objectstack `88b9d749a`, direction 4, ruled 2026-08-24), and its timestamp
  * fallback could leave `createdAt` `undefined` where the helper yields `''`.
  *
  * So the exported surface is the whole reading — table, fallback, and the
@@ -134,18 +134,11 @@ export { useDetailTranslation, DETAIL_DEFAULT_TRANSLATIONS, createSafeTranslatio
 export { RecordComments } from './RecordComments';
 export { ActivityTimeline } from './ActivityTimeline';
 export { HistoryTimeline } from './HistoryTimeline';
-export { InlineCreateRelated } from './InlineCreateRelated';
 export { RichTextCommentInput } from './RichTextCommentInput';
-export { DiffView } from './DiffView';
-export { RecordNavigationEnhanced } from './RecordNavigationEnhanced';
-export { RelationshipGraph } from './RelationshipGraph';
 export { CommentAttachment } from './CommentAttachment';
-export { PointInTimeRestore } from './PointInTimeRestore';
 export { RecordActivityTimeline } from './RecordActivityTimeline';
 export { RecordChatterPanel } from './RecordChatterPanel';
-export { CommentInput } from './CommentInput';
 export { FieldChangeItem } from './FieldChangeItem';
-export { MentionAutocomplete, createMentionFromSuggestion } from './MentionAutocomplete';
 export { SubscriptionToggle } from './SubscriptionToggle';
 export { ReactionPicker } from './ReactionPicker';
 export { ThreadedReplies } from './ThreadedReplies';
@@ -160,20 +153,13 @@ export type { HeaderHighlightProps } from './HeaderHighlight';
 export type { RecordCommentsProps } from './RecordComments';
 export type { ActivityTimelineProps, ActivityFilterType } from './ActivityTimeline';
 export type { HistoryTimelineProps, HistoryEntry } from './HistoryTimeline';
-export type { InlineCreateRelatedProps, RelatedFieldDefinition, RelatedRecordOption } from './InlineCreateRelated';
 export type { RichTextCommentInputProps, MentionSuggestion } from './RichTextCommentInput';
 export { extractMentions } from './extractMentions';
 export type { MentionTarget } from './extractMentions';
-export type { DiffViewProps, DiffFieldType, DiffMode, DiffLine } from './DiffView';
-export type { RecordNavigationEnhancedProps } from './RecordNavigationEnhanced';
-export type { RelationshipGraphProps, GraphNode } from './RelationshipGraph';
 export type { CommentAttachmentProps, Attachment } from './CommentAttachment';
-export type { PointInTimeRestoreProps, RevisionEntry } from './PointInTimeRestore';
 export type { RecordActivityTimelineProps, FeedFilterMode } from './RecordActivityTimeline';
 export type { RecordChatterPanelProps } from './RecordChatterPanel';
-export type { CommentInputProps } from './CommentInput';
 export type { FieldChangeItemProps } from './FieldChangeItem';
-export type { MentionAutocompleteProps, MentionSuggestionItem } from './MentionAutocomplete';
 export type { SubscriptionToggleProps } from './SubscriptionToggle';
 export type { ReactionPickerProps } from './ReactionPicker';
 export type { ThreadedRepliesProps } from './ThreadedReplies';
@@ -344,10 +330,10 @@ ComponentRegistry.register('detail-view', DetailViewRenderer, {
 // directly, `section` arrived `undefined` and the very first
 // `section.defaultCollapsed` read THREW — measured end to end, the author's page
 // showed `SchemaErrorBoundary`'s orange "failed to render" banner in place of the
-// block. `DetailSectionNode` folds the eight declared inputs into the `section`
+// block. `DetailSectionNode` folds the declared inputs into the `section`
 // object the component reads; see that file for why the fold sits at this seam
 // rather than in `DetailSection` (which every in-repo caller uses directly), and
-// why re-declaring these eight as a nested `section` input was the repair NOT
+// why re-declaring these as a nested `section` input was the repair NOT
 // taken.
 ComponentRegistry.register('detail-section', DetailSectionNode, {
   namespace: 'plugin-detail',
@@ -356,6 +342,11 @@ ComponentRegistry.register('detail-section', DetailSectionNode, {
   inputs: [
     { name: 'title', type: 'string' },
     { name: 'description', type: 'string' },
+    {
+      name: 'icon',
+      type: 'string',
+      description: 'Section header icon, drawn before the title: a Lucide icon name such as `map-pin`.',
+    },
     { name: 'fields', type: 'array', required: true },
     { name: 'collapsible', type: 'boolean' },
     { name: 'defaultCollapsed', type: 'boolean' },
@@ -388,6 +379,26 @@ ComponentRegistry.register('detail-section', DetailSectionNode, {
       enum: Object.keys(headerColorVocabulary),
       description:
         'Header tint, from the design system\'s closed palette: one of `muted`, `muted/50`, `accent`, `primary/10`, `secondary/10`, `destructive/10`. Any other value is refused — `@object-ui/types` parses this key as that same six-member enum (objectui#6594), matching @objectstack/spec\'s strict `record:details` section schema. Omit the key for no tint.',
+    },
+    {
+      /**
+       * objectui#10485 — declared because `DetailSection` already honours it
+       * (`section.hideEmpty === true`), the objectui#9529 ruling applied to a
+       * second key on this node.
+       *
+       * The description states THIS node's omitted default, and it is one
+       * value: nothing on the node's path resolves a default, and
+       * `DetailSection` tests `=== true`, so an omitted key keeps the
+       * all-empty section. That matches `detail-view`, which hands its
+       * sections on unchanged; `record:details` resolves `?? true` on its OWN
+       * authored sections, which never pass through this node. `true` and
+       * `false` mean the same on all three. No `defaultValue`: no other input
+       * of this node carries one.
+       */
+      name: 'hideEmpty',
+      type: 'boolean',
+      description:
+        'When every field in the section is empty, `true` hides the whole section (no heading, no skeleton). Omitted or `false`, an all-empty section keeps its heading and label skeleton. Empty fields in a section that still has a filled one are not governed by this key.',
     },
   ],
 });
@@ -492,7 +503,7 @@ ComponentRegistry.register('details', RecordDetailsRenderer, {
   // validate, not one the contract quietly throws away — the same trap as
   // declaring a top-level `readonly` on `record:highlights` below. The
   // renderer tolerating it is not a licence to teach it. (This said "STRIPS"
-  // until objectui#7127: that was the pre-#4001-batch-A behaviour the spec's
+  // until objectui#7127: that was the pre-objectstack-ai/objectstack#4001-batch-A behaviour the spec's
   // own refusal message still recounts, and the `layout` paragraph above
   // already said `rejects`.)
   //
@@ -512,7 +523,8 @@ ComponentRegistry.register('details', RecordDetailsRenderer, {
     { name: 'fields', type: 'array', of: 'string', description: 'Explicit field list (overrides highlightFields)' },
     // `hideFields` is DECLARED, not merely honoured (objectui#3808). The spec
     // declares it (objectstack#5611) and `RecordDetailsRenderer` has read it
-    // since the highlight-dedup phase (`renderers/record-details.tsx:147`), but
+    // since the highlight-dedup phase (its `hideFields` read in
+    // `renderers/record-details.tsx`), but
     // it was missing here — so an author reading the manifest could not
     // discover it, and every layer that reads the manifest said the opposite:
     // `sdui.manifest.json` / `sdui-intrinsics.d.ts` omitted it and
@@ -526,7 +538,7 @@ ComponentRegistry.register('details', RecordDetailsRenderer, {
     // refuses, the same fence `fields` above is held to.
     //
     // The "hiding every field drops the section" sentence is read off
-    // `DetailSection.tsx:439` (`visibleFields.length === 0 &&
+    // `DetailSection.tsx` (`visibleFields.length === 0 &&
     // emptyCount === section.fields.length` returns null), not assumed.
     { name: 'hideFields', type: 'array', of: 'string', description: 'Field names to omit from the body — applied to the top-level `fields` list AND to every section\'s `fields`. Bare field names only. Authors rarely need it: the synth pipeline fills it with the fields already shown in `record:highlights`, and hand-authored pages get the same dedup live from HighlightFieldsContext, so its purpose is suppressing a field you do not want repeated (the page H1 title field is dropped for you too). Hiding every field of a section leaves that section out entirely.' },
     // `inlineEdit` and `showHeader` are DECLARED, not merely honoured
@@ -548,7 +560,7 @@ ComponentRegistry.register('details', RecordDetailsRenderer, {
     // `inlineEdit` is documented as an opt-OUT because that is the only
     // direction it can decide. The value is AND-ed with the object's own
     // resolved editability (`isObjectInlineEditable`, ADR-0103) and with the
-    // server's effective API operation set (objectui#3546), so `true` cannot
+    // server's effective API operation set (objectstack#3546), so `true` cannot
     // open editing the platform refuses; only `false` is unconditional. Saying
     // "enables inline editing" would advertise an authority this key does not
     // have.
@@ -566,8 +578,9 @@ ComponentRegistry.register('related_list', RecordRelatedListRenderer, {
   // Mirrors @objectstack/spec RecordRelatedListProps.
   //
   // `relationshipValueField` and `add` are DECLARED, not merely honoured
-  // (objectui#3808). Both are spec keys this renderer has read all along —
-  // `renderers/record-related-list.tsx:95` and `:186` — while `inputs` omitted
+  // (objectui#3808). Both are spec keys this renderer has read all along — in
+  // `renderers/record-related-list.tsx`, the `schema.relationshipValueField ||
+  // 'id'` read and the `schema.add` forward to `RelatedList` — while `inputs` omitted
   // them, so the published surface and the runtime disagreed in the direction
   // nothing reports: `sdui.manifest.json` / `sdui-intrinsics.d.ts` never
   // mentioned them, `sdui-parser`'s prop walk raised `unknown-prop` on an
@@ -590,7 +603,21 @@ ComponentRegistry.register('related_list', RecordRelatedListRenderer, {
     // an author who reads "filter" as "the list's whole filter" would expect it
     // to be able to widen past the parent record, and it cannot (objectstack#7118).
     { name: 'filter', type: 'array', of: 'object', description: 'Additional filter criteria, as spec `ViewFilterRule` entries (`[{ field, operator, value }]`). AND-combined with the parent relationship condition, never a replacement for it: it can only narrow this record\'s children. Also the key a per-element `dataSource` binding\'s composed filter lands on.' },
-    { name: 'title', type: 'string' },
+    // `title` is an `I18nLabel` in the spec row (`ComponentPropsMap
+    // ['record:related_list']`), and `RecordRelatedListRenderer` resolves it with
+    // `pickLocalized` against the active UI language before it falls back to the
+    // related object's label. So both arms are declared, as `ComponentInput.type`
+    // prescribes for a key whose render site resolves the map: a `'string'`-only
+    // declaration made the manifest gate report `type-mismatch` on a legal map
+    // (objectui#10993). The render is pinned by
+    // `record-related-list.titleI18nLabel-10993.test.tsx`, the manifest by the
+    // console's `i18nLabelInputsManifest-10993.test.ts`.
+    {
+      name: 'title',
+      type: ['string', 'object'],
+      description:
+        'Heading of the list. Defaults to the related object\'s label (its translation when one is loaded, otherwise the humanized object name). Accepts either a plain string or an inline per-locale map (`{ en: "Open tasks", "zh-CN": "未完成任务" }`) — the `I18nLabel` union the contract admits on this key — and the list resolves the map against the active UI language, falling back through base language, a region-qualified sibling, `default`, then `en`, and finally to any remaining entry.',
+    },
     { name: 'showViewAll', type: 'boolean' },
     { name: 'actions', type: 'array', of: 'string', description: 'Action IDs available for related records' },
     // `add` publishes its MEMBER shape in prose for the reason the sibling
@@ -604,9 +631,10 @@ ComponentRegistry.register('related_list', RecordRelatedListRenderer, {
     // Documented members are exactly the spec's — `picker.object`,
     // `picker.valueField`, `picker.labelField`, `linkField`, `label` — with each
     // default taken from the RENDERER, which is where an author's expectation
-    // gets settled: `RelatedList.tsx:724` defaults `picker.valueField` to `id`
-    // (matching the spec's own default) but `:390` defaults `picker.labelField`
-    // to `name`, NOT to the object's title field as the spec's `.describe()`
+    // gets settled: `RelatedList.tsx` defaults `picker.valueField` to `id`
+    // (`add.picker.valueField || 'id'`, matching the spec's own default) but
+    // defaults `picker.labelField` to `name` (`add?.picker?.labelField ||
+    // 'name'`), NOT to the object's title field as the spec's `.describe()`
     // says. Publishing the spec's wording there would have been a description
     // the platform does not honour.
     //
@@ -647,7 +675,7 @@ ComponentRegistry.register('highlights', RecordHighlightsRenderer, {
   // trusted that surface would be left with the machine-owned column still
   // hand-editable and their page refused by the contract wherever it is
   // parsed. (This said "strips the unknown key on parse without error" until
-  // objectui#7127: the pre-#4001-batch-A behaviour, the same stale claim the
+  // objectui#7127: the pre-objectstack-ai/objectstack#4001-batch-A behaviour, the same stale claim the
   // `record:details` block above carried.) `ComponentInput.of` carries a member
   // KIND and nothing finer (objectui#8067), so an array input publishes its
   // member KEYS in prose, the same way `record:path.stages` and
@@ -735,7 +763,8 @@ const CHATTER_INPUTS: ComponentInput[] = [
   // `feed` delegates its whole member list to `record:activity`, and that is
   // the SPEC's statement rather than this file's: `@objectstack/spec` declares
   // `RecordChatterProps.feed: RecordActivityProps.optional()`
-  // (`component.zod.ts:1366`), bound to both names (`:2948` / `:2962`). So the
+  // (`component.zod.ts`), bound to both names (the `record:chatter` and
+  // `record:discussion` entries of `ComponentPropsMap`). So the
   // description names the declaration it delegates to instead of re-listing
   // its members, which would then be free to drift from it. (Re-listing would
   // also have to decide what to do with `aria`, which the spec shape carries
@@ -747,7 +776,8 @@ const CHATTER_INPUTS: ComponentInput[] = [
   // because `record-chatter.tsx` handed `discussion.items` to the panel raw.
   // That was an IMPLEMENTATION GAP against a wider protocol, not a narrower
   // contract, so it was closed in the renderer — see `renderers/record-chatter.tsx`,
-  // which now runs `applyFeedConfig` with `record-activity.tsx:219`'s call shape.
+  // which now runs `applyFeedConfig` with the call shape `record-activity.tsx`
+  // uses (`applyFeedConfig(sourceItems, { types, showCompleted, unifiedTimeline }, …)`).
   // ⛔ Do not narrow this declaration to match an implementation: the protocol
   // is the contract, and a protocol that is wrong is changed in
   // `@objectstack/spec` first.
@@ -852,7 +882,7 @@ ComponentRegistry.register('alert', RecordAlertRenderer, {
     // through `pickLocalized`, which is exactly what these descriptions teach.
     // Declaring the map arm therefore adds no shape the block does not already
     // honour; it stops the manifest gate warning `type-mismatch` on the
-    // recommended write. (The row DOES exist as of the installed 17.4.0 — read
+    // recommended write. (The row DOES exist as of the installed 17.5.0 — read
     // for `visible` below, objectui#9100 — so the "no entry" reading is stale;
     // these two arms are unaffected either way.)
     { name: 'title', type: ['string', 'object'], description: 'Accepts an inline translation map ({ en, "zh-CN", … })' },
@@ -860,7 +890,7 @@ ComponentRegistry.register('alert', RecordAlertRenderer, {
     // objectui#9100 — the spec accepts three arms here and the renderer now
     // resolves all three, so a single `'string'` was the declaration-narrower-
     // than-the-contract family of objectui#4581, one layer up. Measured on the
-    // INSTALLED `@objectstack/spec` 17.4.0 (`dist/ui/index.d.ts`, the
+    // INSTALLED `@objectstack/spec` 17.5.0 (`dist/ui/index.d.ts`, the
     // `ComponentPropsMap['record:alert']` row): `visible` is
     // `boolean | string | { dialect: 'cel'|'cron'|'template', source?, … }`,
     // and `renderers/record-alert.tsx` hands whichever arrives to

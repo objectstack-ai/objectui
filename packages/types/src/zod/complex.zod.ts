@@ -20,17 +20,22 @@ import { z } from 'zod';
 import { handlerKeyRefusal, retiredNodeType, retirementTombstone } from './tombstone.zod.js';
 import {
   ChartTypeSchema as SpecChartTypeSchema,
+  checkDashboardWidgetMetricMeasureArity,
+  checkDashboardWidgetStageOrder,
   DashboardSchema as SpecDashboardSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
   GlobalFilterSchema as SpecGlobalFilterSchema,
+  ViewFilterRuleSchema as SpecViewFilterRuleSchema,
 } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema, specFieldsExcept } from './base.zod.js';
 import { DASHBOARD_COLOR_VARIANTS, DASHBOARD_WIDGET_TYPES } from '../designer.js';
 import {
   DASHBOARD_COMPONENT_WIDGET_TYPES,
   DASHBOARD_WIDGET_TYPE_EXTENSIONS,
+  type DashboardComponentWidgetType,
 } from '../complex.js';
 import { stripImportedDefaults } from './imported-defaults.js';
+import { closeStrictUnionArms, declareRegisteredInputs } from './node-derivation.js';
 
 /**
  * ⭐ THE IMPORT BOUNDARY (objectui#8317, decision batch #90, 2026-09-08).
@@ -149,16 +154,6 @@ export const CardTemplateSchema = z.object({
 });
 
 /**
- * Column Width Config Schema — mirrors {@link ColumnWidthConfig} in `../complex.ts`.
- */
-export const ColumnWidthConfigSchema = z.object({
-  defaultWidth: z.number().optional().describe('Default column width in pixels'),
-  minWidth: z.number().optional().describe('Minimum column width in pixels'),
-  maxWidth: z.number().optional().describe('Maximum column width in pixels'),
-  overrides: z.record(z.string(), z.number()).optional().describe('Per-column width overrides keyed by column ID'),
-});
-
-/**
  * ⛔ The `'kanban'` arm is RETIRED (objectui#8802, maintainer ruling 2026-09-09)
  * — this is its NAMED REFUSAL, the half a deletion would not have given.
  *
@@ -192,7 +187,7 @@ export const RetiredKanbanNodeSchema = retiredNodeType(
 /**
  * Calendar View Mode — the registered renderer's rendered set.
  *
- * `'agenda'` was retired (objectui#5740): no view ever rendered it, and no
+ * `'agenda'` was retired (`b55a34647`): no view ever rendered it, and no
  * measured app authors it. `view` is a DECLARED key, so this retirement is a
  * new rejection — see the accept-set note on {@link CalendarViewSchema}.
  */
@@ -226,7 +221,7 @@ export const CalendarEventSchema = z.object({
  * — they are simply no longer declared or type-checked. The material accept
  * change is that `events` is no longer required.
  *
- * Value-level residue (objectui#5740): `'agenda'` left
+ * Value-level residue (`b55a34647`): `'agenda'` left
  * `CalendarViewModeSchema`. Unlike the key retirements above, this IS a new
  * rejection — `view` is a declared key, and declared keys are validated even
  * under `.passthrough()` — so `view: 'agenda'`, which parsed green before,
@@ -252,7 +247,7 @@ export const CalendarViewSchema = BaseSchema.extend({
   allDayField: z.string().optional().describe("Record field for the all-day flag (default 'allDay')"),
   colorField: z.string().optional().describe("Record field for the event color (default 'color')"),
   view: CalendarViewModeSchema.optional().describe(
-    "View mode — 'month' | 'week' | 'day', the renderer's rendered set ('agenda' was retired: objectui#5740)",
+    "View mode — 'month' | 'week' | 'day', the renderer's rendered set ('agenda' was retired)",
   ),
   currentDate: z
     .union([z.string(), z.date()])
@@ -269,7 +264,7 @@ export const CalendarViewSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `calendar-view` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `allDayField`, `colorField`, `data`, `endDateField`, `startDateField`, '
     + '`titleField`.',
   ),
@@ -277,31 +272,97 @@ export const CalendarViewSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `calendar-view` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `allDayField`, `colorField`, `data`, `endDateField`, `startDateField`, '
     + '`titleField`.',
   ),
 });
 
 /**
- * Filter Operator Enum
+ * Filter Operator — DERIVED from `@objectstack/spec/ui`, never hand-copied
+ * (objectui#9559, ruling B, ratified).
+ *
+ * This is the protocol's own operator member of `ViewFilterRuleSchema`, which
+ * the spec builds from its declared set and its alias fold:
+ * `z.preprocess(normalizeFilterOperator, z.enum(VIEW_FILTER_OPERATORS))`. So
+ * this mirror accepts exactly what the protocol's rule accepts and answers with
+ * exactly what it answers:
+ *
+ *   - every canonical member of `VIEW_FILTER_OPERATORS` parses as itself;
+ *   - every legacy spelling in the spec's alias table (`lessThan`, `gt`,
+ *     `isEmpty`, …) parses AND IS NORMALISED to its canonical member — the parse
+ *     output of an authored `lessThan` is `less_than`;
+ *   - every other spelling is refused, as the protocol refuses it
+ *     (`containsCaseInsensitive`, `exists` and `notExists` among them: the
+ *     protocol's table has no row for them, and this mirror adds none).
+ *
+ * It used to be a 14-member local literal that had fallen six members behind
+ * the protocol (`icontains`, `is_empty`, `is_not_empty`, `before`, `after`,
+ * `between`) and refused every alias the protocol normalises, so the authoring
+ * gate refused operators the runtime and the protocol both accept. Taking the
+ * spec's member ends that drift class rather than this instance of it: a
+ * member the spec adds, an alias row it adds, or a change to how it folds
+ * reaches this mirror with no edit here.
+ *
+ * Why the rule's member and not a local `z.enum(VIEW_FILTER_OPERATORS)`:
+ * the result is the same schema, and this spelling is the one the objectui#8317
+ * import boundary can police — every spec value read in a mirror goes through
+ * `stripImportedDefaults`, which has an arm for a schema and none for a bare
+ * array or a function. The rule carries no default, so the strip hands back the
+ * spec's own object.
+ *
+ * ⚠️ A `ZodPipe` (preprocess into the enum), not a `ZodEnum`: the member list is
+ * `FilterOperatorSchema.out.options`, and the input side takes any value so the
+ * fold can run before the enum judges it. The TypeScript twin,
+ * `FilterBuilderOperator` in `../complex.ts`, is the spec's `ViewFilterOperator`
+ * taken by reference — the canonical spellings only, because the aliases are a
+ * read-side migration bridge the spec marks deprecated, not a vocabulary new
+ * producers may emit.
  */
-export const FilterOperatorSchema = z.enum([
-  'equals',
-  'not_equals',
-  'contains',
-  'not_contains',
-  'starts_with',
-  'ends_with',
-  'greater_than',
-  'greater_than_or_equal',
-  'less_than',
-  'less_than_or_equal',
-  'in',
-  'not_in',
-  'is_null',
-  'is_not_null',
-]);
+export const FilterOperatorSchema = stripImportedDefaults(SpecViewFilterRuleSchema).shape.operator;
+
+/**
+ * A condition's `value` is judged against its `operator` by the PROTOCOL'S OWN
+ * RULE (objectui#10478): delegated to `ViewFilterRuleSchema`, never restated.
+ *
+ * The spec rule couples the two in its object-level refinement (`in` / `not_in`
+ * take an array, `between` takes exactly `[min, max]`, plus whatever arms the
+ * installed spec release carries), and its `value` member bounds the value's
+ * type. This mirror used to declare `value: z.any()` and run none of it, so
+ * `safeValidateSchema`, `objectui check` and `objectui validate` answered green
+ * on a rule the protocol refuses: `{ field: 'amount', operator: 'between',
+ * value: 5 }` among them.
+ *
+ * The spec's check functions are module-private, so the delegation goes through
+ * the exported rule. The condition's PROJECTION onto the rule's three keys is
+ * re-parsed by the rule, and the rule's issues are forwarded verbatim, so the
+ * author reads the spec's own message. It is the same composition
+ * `GlobalFilterSchema` below uses, and for the same reason: an arm the spec adds
+ * later reaches this mirror with no edit here.
+ *
+ *   - `id` is withheld. It is this mirror's row identity (objectui#8415), and
+ *     the rule is strict and refuses it as a console row key, so the
+ *     projection is load-bearing rather than tidy.
+ *   - `field` and `operator` are the schemas the rule itself declares (the
+ *     operator IS the rule's member, above), and zod runs an object refinement
+ *     only after every member was accepted. So every issue the rule can raise
+ *     here is about `value`: the mirror refuses nothing new for another reason.
+ *   - An omitted `value` stays omitted, so the rule judges absence as absence.
+ *
+ * `value` keeps its `z.any()` declaration, so the static type does not move and
+ * the TypeScript twin (`FilterBuilderCondition.value`, `any`) is untouched; only
+ * the runtime accept set narrows, to the protocol's.
+ */
+function conditionValueFollowsTheProtocolRule(
+  condition: { field: string; operator: string; value?: unknown },
+  ctx: z.RefinementCtx,
+): void {
+  const rule: Record<string, unknown> = { field: condition.field, operator: condition.operator };
+  if ('value' in condition) rule.value = condition.value;
+  const result = stripImportedDefaults(SpecViewFilterRuleSchema).safeParse(rule);
+  if (result.success) return;
+  for (const issue of result.error.issues) ctx.addIssue({ ...issue });
+}
 
 /**
  * Filter Condition Schema
@@ -311,15 +372,17 @@ export const FilterOperatorSchema = z.enum([
  * spells `unwrap` as `() => _zod.def.getter()`, going around the cache zod keeps
  * on `def._cachedInner`, so an un-memoised lazy hands out a fresh schema per
  * call.) Safe here because this body is NOT recursive — it names only
- * `FilterOperatorSchema`, declared above.
+ * `FilterOperatorSchema` and `conditionValueFollowsTheProtocolRule`, both
+ * declared above, and neither reaches back to this const.
  *
- * ⚠️ `FilterGroupSchema` below CANNOT take this shape, and neither can six other
- * `z.lazy` exports of this face: their bodies name the very const being declared
- * (or, for `SchemaNodeSchema`, one declared below it), so evaluating the body
- * eagerly throws `ReferenceError: Cannot access '<name>' before initialization`
- * at module load. The `z.lazy` there is buying a TDZ dodge, not a style. Measured
- * one schema at a time in `../__tests__/zod-lazy-getter-identity-7918.test.ts`
- * — read that before "fixing" any of them to match this one.
+ * ⚠️ Not every `z.lazy` export of this face can take this shape. The ones the
+ * `TDZ_BOUND` ledger of `../__tests__/zod-lazy-getter-identity-7918.test.ts`
+ * lists have bodies that name the very const being declared, so evaluating the
+ * body eagerly throws `ReferenceError: Cannot access '<name>' before
+ * initialization` at module load; the `z.lazy` there is buying a TDZ dodge, not
+ * a style. Read that ledger before "fixing" any of them to match this one.
+ * `FilterGroupSchema` below was one of them until objectui#9306 made its body
+ * flat; it now takes this shape too.
  */
 const FilterBuilderConditionObject = z.object({
   // REQUIRED, and the asymmetry with `FilterGroupSchema.id` below is the whole
@@ -359,17 +422,18 @@ const FilterBuilderConditionObject = z.object({
   id: z.string().describe('Row identity — matched by `removeCondition` / `updateCondition` / `changeOperator` / `changeField`, and the React key'),
   field: z.string().describe('Field name'),
   operator: FilterOperatorSchema.describe('Filter operator'),
+  // Judged against `operator` by the spec rule, in the refinement below.
   value: z.any().optional().describe('Filter value'),
-});
+}).superRefine(conditionValueFollowsTheProtocolRule);
 
 export const FilterBuilderConditionSchema: z.ZodType<any> = z.lazy(() => FilterBuilderConditionObject);
 
 /**
  * Filter Group Schema — the shape `FilterBuilder` actually reads
- * (objectui#6939, the `filter-builder` group; maintainer ruling 2026-09-02,
+ * (`d4493fdbc`, the `filter-builder` group; maintainer ruling 2026-09-02,
  * director seat summon #8, verbatim 「同意」).
  *
- * The gate is `isValidGroup`, `packages/components/src/custom/filter-builder.tsx:1060`:
+ * The gate is `isValidGroup` in `packages/components/src/custom/filter-builder.tsx`:
  *
  *     Array.isArray(v.conditions) && (v.logic === "and" || v.logic === "or")
  *
@@ -385,24 +449,70 @@ export const FilterBuilderConditionSchema: z.ZodType<any> = z.lazy(() => FilterB
  * never consults it and nothing else reads `filterGroup.id`; measured, deleting
  * `id` from an authored group renders BYTE-IDENTICALLY (76 elements, same text,
  * same SHA-256). Requiring it would refuse a document the renderer draws
- * perfectly — a fresh instance of the exact class objectui#6939 exists to
- * close. Declared rather than dropped because the component's own exported
+ * perfectly — a fresh instance of the exact class that ruling's eight groups
+ * exist to close. Declared rather than dropped because the component's exported
  * `FilterGroup` carries it, `EMPTY_GROUP` emits it, every catalog entry authors
  * it, and it round-trips out through `onChange`; declaring it buys the type
  * check (`id: 42` now refuses) that an undeclared key would not get, since a
  * plain `z.object` strips unknown keys in silence.
+ *
+ * ## `conditions` is FLAT — a nested sub-group is refused BY NAME (objectui#9306)
+ *
+ * This array used to take `union([condition, group])`, so a sub-group parsed
+ * green. Nothing honours one: `FilterBuilder` draws every entry as one flat
+ * field / operator / value row, so a sub-group rendered as a row with blank
+ * triggers while its own conditions were drawn nowhere, and the builder handed
+ * it back through `onChange` untouched. The maintainer's ruling on
+ * objectui#9306 (「A 撤掉嵌套声明」) retires the nesting at this authority.
+ *
+ * Why a named refusal and not just `z.array(FilterBuilderConditionSchema)`: a
+ * sub-group run through the ROW schema is refused, but only as a missing
+ * `field` and a missing `operator` — true, and no help to an author who wrote
+ * a group on purpose. So each entry is asked one question first: does it carry
+ * its own `conditions`? A row never does, so an entry that does is a
+ * sub-group, and it gets ONE `custom` issue at the entry's own path, carrying
+ * {@link NESTED_FILTER_GROUP_RETIRED}. The pipe does not go on to the row
+ * schema after that issue, so the author reads the reason, not its symptoms.
+ * Every other entry is judged by the row schema exactly as before.
+ *
+ * MEMOISED, like {@link FilterBuilderConditionSchema}: the body no longer names
+ * this const, so the `z.lazy` has no temporal dead zone left to dodge (the
+ * objectui#7918 ledger moved it from `TDZ_BOUND` to `MEMOISED`). The `z.lazy`
+ * and the `z.ZodType<any>` annotation stay, so the public handle's type and
+ * its `.unwrap()` accessor do not move.
  */
-export const FilterGroupSchema: z.ZodType<any> = z.lazy(() =>
-  z.object({
-    id: z.string().optional().describe('Group id — round-tripped through `onChange`; no read site'),
-    logic: z.enum(['and', 'or']).describe('How the conditions combine — read by `isValidGroup`'),
-    conditions: z.array(z.union([FilterBuilderConditionSchema, FilterGroupSchema])).describe('Conditions or sub-groups'),
+const NESTED_FILTER_GROUP_RETIRED =
+  'A nested sub-group is RETIRED (objectui#9306, ADR-0049): every entry of a filter group\'s '
+  + '`conditions` is one flat `{ id, field, operator, value }` row, and an entry carrying its own '
+  + '`conditions` is refused by name. `filter-builder` draws no nested group: it drew a sub-group '
+  + 'as a row with blank field and operator triggers and showed its conditions nowhere. Write the '
+  + 'rows into the one group instead; its `logic` (`and` / `or`) combines all of them.';
+
+const FilterGroupEntrySchema = z
+  .any()
+  .superRefine((entry, ctx) => {
+    if (
+      typeof entry === 'object'
+      && entry !== null
+      && !Array.isArray(entry)
+      && Object.prototype.hasOwnProperty.call(entry, 'conditions')
+    ) {
+      ctx.addIssue({ code: 'custom', message: NESTED_FILTER_GROUP_RETIRED });
+    }
   })
-);
+  .pipe(FilterBuilderConditionSchema);
+
+const FilterGroupObject = z.object({
+  id: z.string().optional().describe('Group id — round-tripped through `onChange`; no read site'),
+  logic: z.enum(['and', 'or']).describe('How the conditions combine — read by `isValidGroup`'),
+  conditions: z.array(FilterGroupEntrySchema).describe(`Flat condition rows. ${NESTED_FILTER_GROUP_RETIRED}`),
+});
+
+export const FilterGroupSchema: z.ZodType<any> = z.lazy(() => FilterGroupObject);
 
 /**
  * Filter Field Schema — one entry of `FilterBuilderSchema.fields`
- * (objectui#6939, same ruling).
+ * (`d4493fdbc`, same ruling).
  *
  * ## `value`, not `name`
  *
@@ -410,9 +520,9 @@ export const FilterGroupSchema: z.ZodType<any> = z.lazy(() =>
  * `fields.find((f) => f.value === fieldValue)` in `getOperatorsForField`,
  * `changeField`, `getInputType` and `renderValueInput`, plus `fields[0]?.value`
  * in `addCondition` and `<SelectItem value={field.value}>` in the field
- * dropdown — `custom/filter-builder.tsx:1099,1161,1201,1234,1239` and the row
- * render. `name` has zero read sites, and `FilterBuilderProps.fields` (line 66
- * of that file) declares `Array<{ value, label, type? }>`. Measured: rewriting
+ * dropdown — all in `custom/filter-builder.tsx`, plus the row render. `name`
+ * has zero read sites, and `FilterBuilderProps.fields` in that file declares
+ * `Array<{ value, label, type? }>`. Measured: rewriting
  * a catalog entry's `value` to `name` loses the field on every row —
  * `…Clear allCategoryRemove condition…` becomes
  * `…Clear allRemove condition…`, and the three value inputs degrade from
@@ -427,7 +537,8 @@ export const FilterGroupSchema: z.ZodType<any> = z.lazy(() =>
  * and a contract does not retract what it published to authors. So the enum
  * below is the doc's fourteen in the doc's order, and `type` is OPTIONAL
  * because the doc publishes `type?:` and the renderer reads `fieldType ||
- * "text"` (`custom/filter-builder.tsx:408`, and again at 964 for operators).
+ * "text"` (`custom/filter-builder.tsx`: `valueFamilyForFieldType`, and again
+ * in `operatorsForFieldType` for operators).
  *
  * ⛔ The ruling carried a PRECONDITION, measured before this enum moved:
  * every one of the fourteen has a renderer branch, because a key declared that
@@ -465,7 +576,7 @@ export const FilterGroupSchema: z.ZodType<any> = z.lazy(() =>
  *
  * `string` stays OUT, and that is the contrast the paragraph above turns on:
  * it is named NOWHERE in the renderer, so it reaches the text control only by
- * the fallthrough. A phantom, removed by objectui#6939 and not restored here;
+ * the fallthrough. A phantom, removed by `d4493fdbc` and not restored here;
  * the published doc does not offer it either, so the two faces agree.
  */
 export const FilterFieldSchema = z.object({
@@ -478,7 +589,31 @@ export const FilterFieldSchema = z.object({
     'select', 'status',
     'lookup', 'master_detail', 'user',
   ]).optional().describe('Field type — the published doc\'s fourteen; `text` when absent'),
-  operators: z.array(FilterOperatorSchema).optional().describe('Available operators'),
+  // The spec's canonical filter vocabulary, `VIEW_FILTER_OPERATORS` in
+  // `@objectstack/spec/ui` (objectui#10286, the objectui#7759 ruling: where the
+  // spec declares it, both faces align to the spec). This key used to take
+  // `FilterOperatorSchema` above, which carries `is_null` / `is_not_null` where
+  // the TS declaration carried `is_empty` / `is_not_empty`, so neither face
+  // could be satisfied from the other. `FilterOperatorSchema` itself still
+  // types a CONDITION's `operator` and is not this key's business.
+  //
+  // Spelled out rather than imported: a raw spec VALUE read in a mirror must go
+  // through the objectui#8317 import boundary, which is about schemas and has no
+  // arm for a bare array. It cannot drift silently: the TS face takes the spec's
+  // `ViewFilterOperator` BY REFERENCE, so the parity ledger reddens the day the
+  // two sets differ, and `mirror-groups-cd-10286.test.ts`
+  // compares this list with the spec's array at runtime.
+  operators: z.array(z.enum([
+    'equals', 'not_equals',
+    'contains', 'not_contains', 'icontains',
+    'starts_with', 'ends_with',
+    'greater_than', 'less_than',
+    'greater_than_or_equal', 'less_than_or_equal',
+    'in', 'not_in',
+    'is_empty', 'is_not_empty',
+    'is_null', 'is_not_null',
+    'before', 'after', 'between',
+  ])).optional().describe('Available operators'),
   options: z.array(z.object({
     label: z.string(),
     value: z.any(),
@@ -486,30 +621,101 @@ export const FilterFieldSchema = z.object({
 });
 
 /**
+ * `FilterBuilderSchema.value` — a filter GROUP, and nothing else (objectui#10825).
+ *
+ * This key used to take `union([condition, group])`, while the TypeScript face
+ * declares `value?: FilterGroup`, so the mirror was WIDER than the published
+ * type. A bare condition parsed green, and `FilterBuilder` then drew an EMPTY
+ * builder: its `isValidGroup` gate (`custom/filter-builder.tsx`) needs
+ * `conditions` and `logic`, a condition carries neither, and the component
+ * falls back to `EMPTY_GROUP` with no error. The condition was lost in silence.
+ *
+ * The contract follows the published type. The value is judged by
+ * {@link FilterGroupSchema} alone, and a value that is recognisably a bare
+ * condition is refused BY NAME first, in the shape `FilterGroupEntrySchema`
+ * above uses for a nested sub-group: ONE `custom` issue at `value`, carrying
+ * {@link BARE_CONDITION_VALUE_REFUSED}, after which the pipe does not go on to
+ * the group schema, so the author reads the prescription and not the missing
+ * `logic` and `conditions` it would otherwise report.
+ *
+ * "Recognisably a bare condition" is a plain object that carries a
+ * condition's own `field` or `operator` and no `conditions` of its own. Every
+ * other shape (a group missing `logic`, a query-style `{ field: value }` map,
+ * a string) is judged by the group schema exactly as a group is.
+ *
+ * The union also wrapped every refusal of a GROUP in an `invalid_union` at
+ * `value`. With the condition arm gone there is no union, so a group's own
+ * refusals are reported at their own path under `value`.
+ */
+const BARE_CONDITION_VALUE_REFUSED =
+  'A bare condition is REFUSED as a `filter-builder` `value` (objectui#10825): the value is a filter '
+  + 'group, the only shape `FilterBuilder` reads, and it drew a bare `{ id, field, operator, value }` '
+  + 'condition as an EMPTY builder, with no error. Wrap it in `{ logic, conditions: [ … ] }`: `logic` '
+  + 'is `and` or `or`, and the condition becomes the one row of `conditions`.';
+
+const FilterBuilderValueSchema = z
+  .any()
+  .superRefine((value, ctx) => {
+    if (
+      typeof value === 'object'
+      && value !== null
+      && !Array.isArray(value)
+      && !Object.prototype.hasOwnProperty.call(value, 'conditions')
+      && (Object.prototype.hasOwnProperty.call(value, 'field') || Object.prototype.hasOwnProperty.call(value, 'operator'))
+    ) {
+      ctx.addIssue({ code: 'custom', message: BARE_CONDITION_VALUE_REFUSED });
+    }
+  })
+  .pipe(FilterGroupSchema);
+
+/**
  * Filter Builder Schema - Filter builder component
  */
 export const FilterBuilderSchema = BaseSchema.extend({
   type: z.literal('filter-builder'),
   fields: z.array(FilterFieldSchema).describe('Available filter fields'),
-  defaultValue: z.union([FilterBuilderConditionSchema, FilterGroupSchema]).optional().describe('Default filter value'),
-  value: z.union([FilterBuilderConditionSchema, FilterGroupSchema]).optional().describe('Controlled filter value'),
+  // RETIRED (objectui#10825, ADR-0049): measured through the real
+  // `SchemaRenderer`, a group authored as `defaultValue` drew the same empty
+  // builder as a node with no filter key at all. The registration hands
+  // `FilterBuilder` `schema.value || props.value`, and `FilterBuilder` has no
+  // `defaultValue` prop. A tombstone rather than a deletion because this node
+  // is `.passthrough()`: an undeclared key would be KEPT in silence.
+  defaultValue: retirementTombstone(
+    'RETIRED (objectui#10825, ADR-0049) — never read: the `filter-builder` renderer hands `FilterBuilder` '
+    + 'only `value`, and `FilterBuilder` has no `defaultValue` prop, so an authored default drew the same '
+    + 'empty builder as no key at all. Author the filter group as `value` instead, the key the renderer '
+    + 'reads. Delete the key.',
+  ),
+  value: FilterBuilderValueSchema.optional().describe(`Controlled filter value — a filter group. ${BARE_CONDITION_VALUE_REFUSED}`),
   onChange: handlerKeyRefusal('onChange', 'runtime-slot', 'Change handler'),
-  allowGroups: z.boolean().optional().describe('Allow grouped conditions'),
-  maxDepth: z.number().optional().describe('Maximum nesting depth'),
-  // Applied at renderers/complex/filter-builder.tsx:37 as `className={schema.wrapperClass || ''}`.
+  // Both RETIRED with the nesting they configured (objectui#9306, ADR-0049): no
+  // renderer read either, and `FilterGroupSchema` above now refuses the nested
+  // sub-group they were about. Tombstones rather than deletions because this
+  // node is `.passthrough()`: an undeclared key would be KEPT in silence.
+  allowGroups: retirementTombstone(
+    'REFUSED (objectui#9306, ADR-0049) — `filter-builder` has no nested groups, so `allowGroups` has '
+    + 'nothing to allow: no renderer read it, every entry of a filter group\'s `conditions` is one flat '
+    + 'row, and a nested sub-group is refused by name. Remove the key.',
+  ),
+  maxDepth: retirementTombstone(
+    'REFUSED (objectui#9306, ADR-0049) — `filter-builder` has no nested groups, so `maxDepth` has no '
+    + 'depth to limit: no renderer read it, every entry of a filter group\'s `conditions` is one flat '
+    + 'row, and a nested sub-group is refused by name. Remove the key.',
+  ),
+  // Applied by renderers/complex/filter-builder.tsx as `className={schema.wrapperClass || ''}`.
   wrapperClass: z.string().optional().describe('Outer wrapper classes for the filter builder (objectui#6150)'),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `filter-builder` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `fields`, `label`, `name`, `value`, `wrapperClass`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `filter-builder` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `fields`, `label`, `name`, `value`, `wrapperClass`.',
   ),
 });
@@ -545,14 +751,14 @@ export const CarouselSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `carousel` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `itemClassName`, `items`, `opts`, `orientation`, `showArrows`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `carousel` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `itemClassName`, `items`, `opts`, `orientation`, `showArrows`.',
   ),
 });
@@ -566,6 +772,11 @@ export const ChatToolInvocationSchema = z.object({
   args: z.unknown().optional().describe('Tool arguments'),
   result: z.unknown().optional().describe('Tool result'),
   errorText: z.string().optional().describe('Tool error text'),
+  // The AUTHORING state vocabulary (objectui#10018). The AI SDK's three
+  // approval states — `approval-requested`, `approval-responded` and
+  // `output-denied` — are runtime-only and are not listed: an authored claim
+  // of one is refused as an `invalid_value` at `state`, with or without an
+  // `approval` envelope. Mirrors `ChatToolInvocation.state` in ../complex.ts.
   state: z
     .enum([
       'partial-call',
@@ -573,18 +784,16 @@ export const ChatToolInvocationSchema = z.object({
       'result',
       'input-streaming',
       'input-available',
-      'approval-requested',
-      'approval-responded',
       'output-available',
       'output-error',
-      'output-denied',
     ])
     .optional()
     .describe('Tool invocation state'),
   // Mirrors `ChatToolInvocation.approval` in ../complex.ts. The AI SDK v6
   // tool-part union requires this envelope alongside the three approval
-  // states; the pairing itself is objectui#8426's narrowing and is NOT
-  // enforced here, so this arm stays independently optional (objectui#8442).
+  // states, which the `state` enum above does not admit (objectui#10018); on
+  // the states it does admit the envelope is never required, so this arm
+  // stays independently optional (objectui#8442).
   approval: z
     .object({
       id: z.string().describe('Approval request id — the key a decision is replied on'),
@@ -627,7 +836,7 @@ export const ChatbotSchema = BaseSchema.extend({
   type: z.literal('chatbot'),
   messages: z.array(ChatMessageSchema).describe('Chat messages'),
   placeholder: z.string().optional().describe('Input placeholder'),
-  // --- ADR-0049 retirement tombstones (objectui#7703) ---------------------
+  // --- ADR-0049 retirement tombstones (`a4611b3e2`) -----------------------
   //
   // Six keys this twin mirrored and no `plugin-chatbot` registration read —
   // `loading`, `showAvatars`, `userAvatar`, `assistantAvatar`, `markdown` and
@@ -641,37 +850,37 @@ export const ChatbotSchema = BaseSchema.extend({
   // `BaseSchema` is `.passthrough()`, so an undeclared key is not refused, it
   // is KEPT — the same silent acceptance the retirement exists to close.
   loading: retirementTombstone(
-    'RETIRED (objectui#7703, ADR-0049) — never read: chat progress is runtime state the chat runtime owns '
+    'RETIRED (ADR-0049) — never read: chat progress is runtime state the chat runtime owns '
     + '(the registration derives it from `useObjectChat` as `isLoading`), and `<Chatbot>` declares no `loading` '
     + 'prop for an authored value to land on. There is no authored spelling that sets it; delete the key.',
   ),
   onSendMessage: handlerKeyRefusal('onSendMessage', 'retired', 'Send message handler'),
   showAvatars: retirementTombstone(
-    'RETIRED (objectui#7703, ADR-0049) — no registration reads or forwards this key by name, and a `chatbot` '
+    'RETIRED (ADR-0049) — no registration reads or forwards this key by name, and a `chatbot` '
     + 'node renders `<Chatbot>`, which has no `showAvatars` prop; the one channel that did deliver it — the '
-    + "`chatbot-floating` registration's unfiltered props spread — was fenced by objectui#7708. Delete the key: "
+    + "`chatbot-floating` registration's unfiltered props spread — was fenced. Delete the key: "
     + 'a `chatbot` node already renders an avatar beside every message, and the images are `userAvatarUrl` / '
     + '`assistantAvatarUrl` with their `userAvatarFallback` / `assistantAvatarFallback` siblings.',
   ),
   userAvatar: retirementTombstone(
-    'RETIRED (objectui#7703, ADR-0049) — never read: this spelling has zero hits anywhere in '
+    'RETIRED (ADR-0049) — never read: this spelling has zero hits anywhere in '
     + '`packages/plugin-chatbot`. Write `userAvatarUrl` instead (with `userAvatarFallback` for the text shown '
     + 'while the image loads or fails), the key all three chatbot registrations read.',
   ),
   assistantAvatar: retirementTombstone(
-    'RETIRED (objectui#7703, ADR-0049) — never read: this spelling has zero hits anywhere in '
+    'RETIRED (ADR-0049) — never read: this spelling has zero hits anywhere in '
     + '`packages/plugin-chatbot`. Write `assistantAvatarUrl` instead (with `assistantAvatarFallback` for the '
     + 'text shown while the image loads or fails), the key all three chatbot registrations read.',
   ),
   markdown: retirementTombstone(
-    'RETIRED (objectui#7703, ADR-0049) — never read: a `chatbot` node renders `<Chatbot>`, which prints message '
+    'RETIRED (ADR-0049) — never read: a `chatbot` node renders `<Chatbot>`, which prints message '
     + 'content as text and has no markdown path for this switch to reach. Author `type: "chatbot-enhanced"` '
     + '(or `"chatbot-floating"`) with `enableMarkdown` instead — markdown is those nodes\' capability, and '
     + '`enableMarkdown` is the key their registrations read.',
   ),
   processVisibility: z.enum(['hidden', 'summary', 'debug']).optional().describe('How much agent reasoning/tool detail to show'),
   height: retirementTombstone(
-    'RETIRED (objectui#7703, ADR-0049) — never read: `<Chatbot>` has no `height` prop. Write `maxHeight` '
+    'RETIRED (ADR-0049) — never read: `<Chatbot>` has no `height` prop. Write `maxHeight` '
     + 'instead (a CSS length string, default "500px"), the key the `chatbot` and `chatbot-enhanced` '
     + 'registrations forward; size a `chatbot-floating` panel with `floatingConfig.panelHeight`, a number of '
     + 'pixels, which is what that panel reads.',
@@ -690,9 +899,16 @@ export const ChatbotSchema = BaseSchema.extend({
     + 'and the key the `chatbot-enhanced` and `chatbot-floating` twins already declare. Delete `body` here: '
     + 'nothing renders it, and nothing sends it.',
   ),
-  /** @deprecated objectui#5605 — inert; nothing reads it. Cap loops on the agent (`planning.maxIterations`). Slated for removal. */
-  maxToolRoundtrips: z.number().optional()
-    .describe('DEPRECATED (inert, slated for removal) — Max tool-calling round-trips. Nothing reads this; cap tool loops on the agent via planning.maxIterations'),
+  // objectui#5605, ADR-0049 — retired behind a tombstone, not deleted: under
+  // `BaseSchema`'s `.passthrough()` a deleted arm would KEEP an authored value
+  // in silence. `chatbot-enhanced` and `chatbot-floating` carry this same arm.
+  maxToolRoundtrips: retirementTombstone(
+    'RETIRED (objectui#5605, ADR-0049) — never honoured: a chat node cannot cap tool-calling round-trips. '
+    + 'The tool loop runs on the server agent inside one streamed response, the chat runtime (`useChat`) has '
+    + 'no numeric round-trip cap, and the chat request carries no cap field, so the value was dropped before '
+    + 'any request was sent. Cap tool loops on the agent instead — `planning.maxIterations` (default 10). '
+    + 'Delete the key.',
+  ),
   onError: handlerKeyRefusal('onError', 'runtime-slot', 'Error callback'),
   // --- Local display + legacy auto-response fields (objectui#6169) ---
   // Mirrors the TS declaration added at ../complex.ts in lockstep, so these
@@ -713,10 +929,10 @@ export const ChatbotSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `chatbot` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `headers`, `maxHeight`, '
-    + '`maxToolRoundtrips`, `messages`, `model`, `onError`, `onSend`, `placeholder`, `requestBody`, '
+    + '`messages`, `model`, `onError`, `onSend`, `placeholder`, `requestBody`, '
     + '`showTimestamp`, `streamingEnabled`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
   ),
 });
@@ -751,7 +967,6 @@ const ChatbotSharedMirrorShape = ChatbotSchema.pick({
   model: true,
   streamingEnabled: true,
   headers: true,
-  maxToolRoundtrips: true,
   onError: true,
   showTimestamp: true,
   userAvatarUrl: true,
@@ -786,6 +1001,7 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
   type: z.literal('chatbot-enhanced'),
   ...ChatbotSharedMirrorShape,
   requestBody: chatbotRequestBodyArm(),
+  maxToolRoundtrips: ChatbotSchema.shape.maxToolRoundtrips,
   maxHeight: ChatbotSchema.shape.maxHeight,
   processVisibility: ChatbotSchema.shape.processVisibility,
   enableMarkdown: chatbotEnableMarkdownArm(),
@@ -804,11 +1020,11 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `chatbot-enhanced` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'The chat API body params go on `requestBody`, which the registration forwards to the chat runtime. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
-    + '`headers`, `maxHeight`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`headers`, `maxHeight`, `messages`, `model`, `onClear`, `onError`, '
     + '`onSend`, `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`, '
     + '`streamingEnabled`, `surface`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
   ),
@@ -816,10 +1032,10 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `chatbot-enhanced` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
-    + '`headers`, `maxHeight`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`headers`, `maxHeight`, `messages`, `model`, `onClear`, `onError`, '
     + '`onSend`, `placeholder`, `processVisibility`, `requestBody`, `showTimestamp`, '
     + '`streamingEnabled`, `surface`, `systemPrompt`, `userAvatarFallback`, `userAvatarUrl`.',
   ),
@@ -854,6 +1070,7 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
   type: z.literal('chatbot-floating'),
   ...ChatbotSharedMirrorShape,
   requestBody: chatbotRequestBodyArm(),
+  maxToolRoundtrips: ChatbotSchema.shape.maxToolRoundtrips,
   enableMarkdown: chatbotEnableMarkdownArm(),
   enableFileUpload: chatbotEnableFileUploadArm(),
   onClear: chatbotOnClearArm(),
@@ -868,11 +1085,11 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `chatbot-floating` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'The chat API body params go on `requestBody`, which the registration forwards to the chat runtime. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
-    + '`floatingConfig`, `headers`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`floatingConfig`, `headers`, `messages`, `model`, `onClear`, `onError`, '
     + '`onSend`, `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`, `systemPrompt`, '
     + '`userAvatarFallback`, `userAvatarUrl`.',
   ),
@@ -880,10 +1097,10 @@ export const ChatbotFloatingSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `chatbot-floating` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `api`, `assistantAvatarFallback`, `assistantAvatarUrl`, `autoResponse`, '
     + '`autoResponseDelay`, `autoResponseText`, `conversationId`, `enableFileUpload`, `enableMarkdown`, '
-    + '`floatingConfig`, `headers`, `maxToolRoundtrips`, `messages`, `model`, `onClear`, `onError`, '
+    + '`floatingConfig`, `headers`, `messages`, `model`, `onClear`, `onError`, '
     + '`onSend`, `placeholder`, `requestBody`, `showTimestamp`, `streamingEnabled`, `systemPrompt`, '
     + '`userAvatarFallback`, `userAvatarUrl`.',
   ),
@@ -1022,7 +1239,65 @@ export const DashboardWidgetSchema = specFieldsExcept(stripImportedDefaults(Spec
   // refused now. No corpus document, fixture or pin writes one, and the key is
   // declared "Widget Component (legacy format)" — a node, never a scalar.
   component: BaseSchema.optional().describe('Widget Component (legacy format)'),
-}).strict();
+}).strict()
+  // ⭐ THE SPEC'S OBJECT-LEVEL CHECKS, re-attached (objectui#7715, ruling B1; objectui#11073).
+  //
+  // `specFieldsExcept` rebuilds a fresh object from the spec's `.shape`, so it drops
+  // every check the spec attached to the OBJECT. `@objectstack/spec` 17.5.0 attaches two
+  // to `DashboardWidgetSchema` and exports both by name, so the one the spec runs is
+  // attached here instead of restated. Both are ATTACHABLE: each reads only `type`,
+  // `options.stageOrder` / `values` and `id`, and on this node those are the spec's own
+  // fields (`type` adds objectui's closed `list` / `custom` extensions, which the spec's
+  // checks judge as the non-funnel, non-metric types they are; an absent `type` resolves
+  // to the spec's default inside the check, as on the spec). This is objectui#9111's
+  // criterion: a non-funnel widget carrying `options.stageOrder` is refused here as the
+  // server refuses it. `__tests__/spec-object-refinements-7715.test.ts` re-derives the
+  // split from the spec object's own check count.
+  .superRefine(checkDashboardWidgetStageOrder)
+  .superRefine(checkDashboardWidgetMetricMeasureArity);
+
+/**
+ * objectui#9256 (public-block slice): ONE refusal string for both content channels of the
+ * widget-slot `metric-card` node. Its own string rather than `neitherContentChannelGuidance`, because
+ * that builder says the parser tier's `not-a-container` warning noticed the key, and in a widget slot
+ * it does not: that tier walks `children`, never `widgets`.
+ */
+const METRIC_CARD_NEITHER_CHANNEL =
+  'REFUSED (objectui#9256, ADR-0049) — `metric-card` reads NEITHER content channel: measured with the '
+  + 'TypeScript type checker over one program per workspace package on a BUILT tree, no renderer read consumes '
+  + '`body` or `children` for this node — `DashboardRenderer` hands a `metric-card` widget to `SchemaRenderer` '
+  + 'as the widget\'s own keys, and the registration (`plugin-dashboard:metric-card`) renders `MetricCard`, '
+  + 'which reads named props and forwards the rest to its `Card` as DOM attributes — and `SchemaRenderer` '
+  + 'strips both out of the props bag it spreads. An '
+  + 'authored value therefore rendered NOTHING — no render-time error or warning and no element — and in a '
+  + 'widget slot nothing else noticed it: the parser tier\'s `not-a-container` warning (objectui#9910) walks '
+  + '`children`, never `widgets`. What it renders instead: one KPI card — `title`, `value`, `icon`, '
+  + '`trend` / `trendValue` and `description`.';
+
+/**
+ * objectui#11022: the keys each widget-slot component type's REGISTRATION
+ * declares as `inputs` — the props {@link DashboardWidgetSlotComponentSchema}'s
+ * passthrough admits on this face, recorded so the strict authoring face admits
+ * them too instead of closing them out with the catchall.
+ *
+ * One row per member of the closed `DASHBOARD_COMPONENT_WIDGET_TYPES`, and the
+ * `satisfies` makes that a compile error rather than a convention: a member
+ * added without its row does not build. Names only — the strict face judges
+ * each one by the arm's catchall, exactly as the tolerant face does, so a row
+ * moves which keys are admitted and never how a value is judged.
+ *
+ * ⚠️ Transcribed from the registration, which lives in the registering package
+ * (`@object-ui/plugin-dashboard`; this package depends on no registry). Its
+ * parity is MEASURED there, against the live `ComponentRegistry`, in both
+ * directions — every registered input admitted, and no admitted key that no
+ * registration declares: `metricCardRegisteredInputsStrictFace-11022.test.ts`
+ * in that package's `__tests__`. ⛔ Do not add a key here that the
+ * registration does not declare, and do not hand-edit this row without the
+ * registration moving first.
+ */
+const DASHBOARD_WIDGET_SLOT_REGISTERED_INPUTS = {
+  'metric-card': ['title', 'value', 'icon', 'trend', 'trendValue', 'description'],
+} as const satisfies Record<DashboardComponentWidgetType, readonly string[]>;
 
 /**
  * A COMPONENT node sitting directly in a dashboard's widget slot — the
@@ -1042,99 +1317,77 @@ export const DashboardWidgetSchema = specFieldsExcept(stripImportedDefaults(Spec
  * cannot become a passthrough hatch around #6002's refusal. Deliberately NOT
  * exported: the routing is an internal property of the widget slot, not new
  * authoring surface.
+ *
+ * `children` and `body` are refused by name (objectui#9256): `MetricCard`
+ * reads neither content channel, as its TypeScript twin's `?: never` pair
+ * states. ⚠️ A refusal here does not surface on its own: this is the first arm
+ * of the slot's `z.union`, so a document it refuses falls through to the
+ * strict {@link DashboardWidgetSchema}, which refuses the same key as
+ * unrecognized, and the author gets one `invalid_union` at the widget's path
+ * with each arm's issues under `errors` — this arm's message among them, which
+ * `objectui validate` prints as one arm of two.
+ *
+ * The strict authoring face (objectui#11022): the passthrough that admits the
+ * registry `inputs` here is exactly what that face closes, so this arm RECORDS
+ * the input names ({@link DASHBOARD_WIDGET_SLOT_REGISTERED_INPUTS}, through
+ * `declareRegisteredInputs`) and the strict walker admits them — each judged by
+ * the catchall, as on this face — while still refusing any key no registration
+ * declares. The record is a side table keyed by this node: this arm's shape,
+ * catchall and accept set are what they were.
  */
-const DashboardWidgetSlotComponentSchema = BaseSchema.extend({
+const DashboardWidgetSlotComponentSchema = declareRegisteredInputs(BaseSchema.extend({
   type: z.enum(DASHBOARD_COMPONENT_WIDGET_TYPES)
     .describe('objectui component type legal in a widget slot (closed set)'),
-});
+  // objectui#9256: `MetricCard` reads NEITHER content channel, so both are refused by name, each
+  // kept a MEMBER, as on the TypeScript twin.
+  body: retirementTombstone(METRIC_CARD_NEITHER_CHANNEL),
+  children: retirementTombstone(METRIC_CARD_NEITHER_CHANNEL),
+}), Object.values(DASHBOARD_WIDGET_SLOT_REGISTERED_INPUTS).flat());
 
 /**
- * Global Filter Schema — a dashboard-level filter definition, DERIVED from
- * `@objectstack/spec/ui` (objectstack#4115): `name`, `field`, `label`, `type`,
- * `defaultValue`, `scope` and `targetWidgets` flow in **by reference**.
+ * Global Filter Schema — a dashboard-level filter definition: `@objectstack/spec/ui`'s
+ * `GlobalFilterSchema` BY REFERENCE, whole (objectui#7759 group A). Every key,
+ * every nested shape and the spec's own object-level refinement (the date
+ * `defaultValue` vocabulary check) flow in unchanged; `stripImportedDefaults`
+ * only removes the imported `scope` default, the same treatment every other
+ * spec-derived schema in this package gets.
  *
- * Two pinned divergences, each backed by a runtime normalizer in
- * `@object-ui/core`'s `dashboard-filters.ts`:
- *  - `options` also accepts the bare-string shorthand (`options: ['EMEA', …]`)
- *    and an object without `label`; `normalizeFilterOptions` folds both into the
- *    spec's `{ value, label }` form before anything renders them.
- *  - `optionsFrom.labelField` stays optional (it falls back to `valueField`) and
- *    `filter` stays `z.any()` — objectui passes an ObjectQL FilterNode array
- *    here, not the spec's `FilterCondition` envelope.
+ * ## The two local overrides this replaced, and why they went
  *
- * There used to be a third — `defaultValue` widened to `z.any()` so the
- * `{ preset }` object form would validate. It was RETIRED by the maintainer
- * ruling on objectui#4165 (2026-08-11): the spec stays strict, the bare preset
- * name is the single canonical spelling, and the object form is handled as a
- * documented legacy alias by `liftLegacyGlobalFilterDefault`
- * (`../dashboard-filter-alias.ts`, which carries the retirement window) rather
- * than by a permanently tolerant schema. Keeping it would have been the
- * tolerant-consumer failure AGENTS.md #0.1 names: objectui green on metadata
- * the platform refuses, so the designer saves and the server rejects.
+ * Until objectui#7759 this was the spec's `.shape` spread into a local
+ * `z.object` with `options` and `optionsFrom` restated, plus a `superRefine`
+ * that re-ran the spec schema on the other keys. The restatement disagreed with
+ * the spec in both directions, which is why the dashboard pair carried this key
+ * in BOTH `KnownDrift` and `WiderThanDeclared`
+ * (`__tests__/zod-mirror-parity.test.ts`):
+ *  - WIDER — `options` took the bare-string shorthand (`options: ['EMEA']`) and
+ *    an option with no `label`; `optionsFrom.labelField` was optional and
+ *    `optionsFrom.filter` was `z.any()` (an array parsed green); an unknown key
+ *    in a filter was stripped in silence. The spec refuses each of these, so
+ *    this validator went green on metadata the platform refuses at publish.
+ *  - NARROWER — an option's `label` was `z.string()`, so the spec's inline
+ *    per-locale map (`I18nLabel`), which the declaration admits and the filter
+ *    bar resolves with `pickLocalized`, was refused here.
  *
- * Drift guard: `__tests__/report-chart-query-spec-parity.test.ts`.
+ * The spec declares the key, so under that card's ruling (5617465269,
+ * principle 1) both faces follow the spec, both ways: the declaration already
+ * bound `GlobalFilter` by reference (objectui#4032), and this validator now does
+ * too. The runtime followed on the objectstack#7917 option-② schedule
+ * (objectui#4356): `@object-ui/core`'s `normalizeFilterOptions` no longer lifts
+ * a stored bare-string option — the member yields no option, and a dev-mode
+ * warning names it — so the SCHEMA and the READ PATH now refuse the same
+ * spelling. The filter bar still falls back to `valueField` when `labelField`
+ * is absent.
  *
- * ## Composition: spread + delegated refinement (objectui#4165)
+ * The `{ preset }` `defaultValue` object form is the objectui#4165 instance of
+ * the split `options` has now left behind — refused by the schema, still lifted
+ * on read by `liftLegacyGlobalFilterDefault` (`../dashboard-filter-alias.ts`,
+ * which carries its own retirement window).
  *
- * @objectstack/spec 17.0.0-rc.6 put a refinement on `GlobalFilterSchema`, and
- * a refined object schema in zod 4 closes every structural door this derivation
- * would normally use. All three were measured on rc.6 + zod 4.4.3:
- *
- *  - `.extend()` — what this used to be — **throws at module load**: *"Cannot
- *    overwrite keys on object schemas containing refinements. Use
- *    `.safeExtend()` instead."* It took six `@object-ui/types` suites down
- *    before any of them ran a test.
- *  - `.safeExtend()` — zod's own suggested replacement — runs, but is "safe"
- *    precisely in that it will not let you REPLACE an existing key's type: it
- *    types every incompatible override as `never`. Still true with only two
- *    overrides left (TS2322 on BOTH `options` and `optionsFrom`), so retiring
- *    the `defaultValue` divergence did not re-open this door.
- *  - `.omit()` — the obvious way to drop the two keys before re-adding them —
- *    **throws** as well: *".omit() cannot be used on object schemas containing
- *    refinements"*. So does `.pick()`, for the same reason.
- *
- * What is left is to spread the spec's `.shape` (fields still flow in BY
- * REFERENCE, so a spec field change lands here) and re-attach the spec's
- * OBJECT-LEVEL rules by DELEGATION: re-parse the spec-owned keys through the
- * spec schema itself and forward its issues. That restates none of the spec's
- * grammar — the rejection message an author sees is the spec's own, and a
- * refinement the spec adds LATER flows in with no change here. The two
- * divergent keys are excluded from the delegated parse by construction, which
- * is the whole and only exemption.
- *
- * Cost: one extra parse of the spec-owned subset per validation. Acceptable —
- * nothing in objectui validates dashboards on a render path; this schema is a
- * published contract for consumers and tooling.
- *
- * Drift guard: `__tests__/report-chart-query-spec-parity.test.ts`.
+ * Drift guard: `__tests__/report-chart-query-spec-parity.test.ts`; pinned by
+ * `__tests__/dashboard-header-global-filters-spec-7759.test.ts`.
  */
-export const GlobalFilterSchema = z.object({
-  ...stripImportedDefaults(SpecGlobalFilterSchema).shape,
-  options: z.array(z.union([
-    z.string(),
-    z.object({
-      value: z.union([z.string(), z.number(), z.boolean()]),
-      label: z.string().optional(),
-    }),
-  ])).optional().describe('Static options — spec `{value,label}` objects or bare-string shorthand'),
-  optionsFrom: z.object({
-    object: z.string(),
-    valueField: z.string(),
-    labelField: z.string().optional(),
-    filter: z.any().optional(),
-  }).optional().describe('Dynamic option source'),
-}).superRefine((filter, ctx) => {
-  // Delegate every spec-owned rule (today the rc.6 date-`defaultValue`
-  // refinement; tomorrow whatever the spec adds) to the spec schema itself.
-  // `options`/`optionsFrom` are the declared divergences and are withheld —
-  // both are `.optional()` upstream, so omitting them is valid input.
-  const specOwned: Record<string, unknown> = { ...filter };
-  delete specOwned.options;
-  delete specOwned.optionsFrom;
-  const result = stripImportedDefaults(SpecGlobalFilterSchema).safeParse(specOwned);
-  if (result.success) return;
-  for (const issue of result.error.issues) ctx.addIssue({ ...issue });
-});
+export const GlobalFilterSchema = stripImportedDefaults(SpecGlobalFilterSchema);
 
 /**
  * Dashboard Schema - Dashboard component
@@ -1153,22 +1406,43 @@ export const GlobalFilterSchema = z.object({
  *
  * Omitted, each for a stated reason:
  *  - `name`/`label`/`description` — component-envelope keys owned by BaseSchema;
- *  - `widgets`/`globalFilters`/`dateRange` — objectui's element schemas are
- *    their own ledger entries (the local widget still carries the legacy
- *    `component` envelope the spec has no room for, and both local configs are
- *    deliberately looser than spec's); migration deferred.
+ *  - `widgets` — objectui's element schema is its own ledger entry (the local
+ *    widget still carries the legacy `component` envelope the spec has no room
+ *    for); migration deferred.
+ *  - `globalFilters` — re-added below over the exported {@link GlobalFilterSchema},
+ *    which since objectui#7759 IS the spec's element schema by reference, so the
+ *    accept set equals the spec member's; the separate const is kept because it
+ *    is published API. (It used to be "deliberately looser than spec's" — the
+ *    bare-string option shorthand and a relaxed `optionsFrom` — see that const.)
+ *
+ * `dateRange` was a third member of that list until objectui#10334. Its local
+ * element (`defaultRange` a bare `z.string()`, a stripping object) admitted
+ * preset names the spec's enum and the TypeScript twin both refuse — the
+ * `WiderThanDeclared` row objectui#7759 group F left behind. The spec declares
+ * the key, so by that card's rule 1 / proposal F1 both faces now take the
+ * spec's AUTHORING shape by reference through this projection: the closed
+ * `DATE_RANGE_DEFAULT_RANGES` vocabulary, the spec's strict object with its
+ * named alias refusals, and — via `stripImportedDefaults` — no authored
+ * default. The read site (`resolveDashboardFilterDefs` in `@object-ui/core`)
+ * already implements every arm: each preset, the `custom` sentinel, `field`
+ * and `allowCustomRange`.
  *
  * `.partial()` guarantees no *future* spec field can become required and
  * silently invalidate stored objectui dashboards.
  */
-const SpecDashboardFields = specFieldsExcept(stripImportedDefaults(SpecDashboardSchema).shape, [
+export const DASHBOARD_SPEC_EXCLUDED = [
   'name',
   'label',
   'description',
   'widgets',
   'globalFilters',
-  'dateRange',
-] as const);
+] as const;
+
+// One list, two readers (objectui#9736): this call and the `DashboardComponentSchema`
+// TypeScript twin in `../complex.ts`, which extends `Omit< Dashboard, … >` over the same
+// array — so the published validator and the published type project one spec
+// surface and cannot drift apart again.
+const SpecDashboardFields = specFieldsExcept(stripImportedDefaults(SpecDashboardSchema).shape, DASHBOARD_SPEC_EXCLUDED);
 
 /**
  * Dashboard Schema — the objectui dashboard renderer node, derived from
@@ -1184,19 +1458,17 @@ export const DashboardComponentSchema = BaseSchema.extend(SpecDashboardFields.sh
   // the `.strict()` spec-derived schema. Component arm first — it matches
   // exclusively on the closed component-type enum, so a spec-family widget
   // can never be captured by it.
-  widgets: z.array(z.union([DashboardWidgetSlotComponentSchema, DashboardWidgetSchema]))
+  // objectui#11073: the strict spec-derived arm is closed where it meets this union, so a
+  // widget the component arm refuses by name is not answered by this arm's unknown keys alone
+  // (see `closeStrictUnionArms` in `./node-derivation.ts`).
+  widgets: z.array(z.union(closeStrictUnionArms([DashboardWidgetSlotComponentSchema, DashboardWidgetSchema] as const)))
     .describe('Dashboard widgets'),
   globalFilters: z.array(GlobalFilterSchema).optional().describe('Dashboard-level filters'),
-  dateRange: z.object({
-    field: z.string().optional(),
-    defaultRange: z.string().optional(),
-    allowCustomRange: z.boolean().optional(),
-  }).optional().describe('Built-in date range filter'),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `dashboard` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `columns`, `dateRange`, `description`, `gap`, `globalFilters`, '
     + '`header`, `label`, `name`, `refreshIntervalSeconds`, `type`, `widgets`.',
   ),
@@ -1204,7 +1476,7 @@ export const DashboardComponentSchema = BaseSchema.extend(SpecDashboardFields.sh
     'REFUSED (objectui#9256, ADR-0049) — `dashboard` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `columns`, `dateRange`, `description`, `gap`, `globalFilters`, '
     + '`header`, `label`, `name`, `refreshIntervalSeconds`, `type`, `widgets`.',
   ),
@@ -1234,7 +1506,7 @@ export const DashboardWidgetConfigSchema = z.object({
  *
  * Validates the unified dashboard configuration used by create/edit workflows.
  *
- * The `aria` member is an ADR-0049 retirement tombstone (objectui#5852),
+ * The `aria` member is an ADR-0049 retirement tombstone (`e7957ab87`),
  * following this package's convention (`data-display.zod.ts`
  * `StaticTableColumnSchema`, the set `crud.zod.ts` `confirm` established):
  * `z.never().optional()` REFUSES an authored value at parse time with the key
@@ -1274,7 +1546,7 @@ export const DashboardConfigSchema = z.object({
     icon: z.string().optional(),
     variant: z.string().optional(),
   })).optional().describe('Header action buttons'),
-  aria: z.never({ error: 'RETIRED (objectui#5852) — `aria` is no longer part of DashboardConfig; delete the key. The `{ label, description }` spellings matched no renderer vocabulary and nothing ever read them.' }).optional().describe('RETIRED (objectui#5852) — the `{ label, description }` spellings matched no renderer vocabulary and no read point ever consumed them; delete the key. For real ARIA use the spec vocabulary (`ariaLabel` / `ariaDescribedBy` / `role`) on a surface that reads it.'),
+  aria: z.never({ error: 'RETIRED (ADR-0049) — `aria` is no longer part of DashboardConfig; delete the key. The `{ label, description }` spellings matched no renderer vocabulary and nothing ever read them.' }).optional().describe('RETIRED (ADR-0049) — the `{ label, description }` spellings matched no renderer vocabulary and no read point ever consumed them; delete the key. For real ARIA use the spec vocabulary (`ariaLabel` / `ariaDescribedBy` / `role`) on a surface that reads it.'),
 });
 
 /**

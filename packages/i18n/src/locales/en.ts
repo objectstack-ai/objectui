@@ -152,12 +152,12 @@ const en = {
     printDialogHint: 'Opens your browser’s print dialog (not a PDF export)',
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: 'Showing the first {{shown}} of {{total}} records. Narrow the filter.',
     rowCeilingNoteUnknownTotal: 'Showing the first {{shown}} records. Narrow the filter.',
   },
@@ -171,6 +171,31 @@ const en = {
       acknowledge: 'I have saved this',
       copyAll: 'Copy all',
     },
+    // The refusal notice for an action whose `autoTrigger` its own declared
+    // `visible` gate outranks (objectui#4191) — the deep link or host asked
+    // for it, but the author hid it on this surface.
+    notAvailableHere: '"{{action}}" is not available on the current page.',
+    // The success toast the action runner shows when an action declares no
+    // `successMessage` and the server returned no message — the one toast
+    // text the runner writes itself (objectui#10900).
+    completedSuccessfully: 'Action completed successfully',
+    // The runner's other own text (objectui#10969): the error fallbacks when no
+    // readable error message reached it, and the Undo label it hands the toast
+    // handler for an undoable success toast.
+    failed: 'Action failed',
+    parallelFailed: 'One or more parallel actions failed',
+    undo: 'Undo',
+    // The confirmation toast after that Undo has run — written by the console's
+    // two undo handlers (`useConsoleActionRuntime` and `RecordDetailView`), not
+    // by the runner (objectui#11056).
+    undone: 'Change undone',
+    // The console's global Ctrl+Z / Ctrl+Shift+Z toasts, raised by
+    // `AppContent`'s `useGlobalUndo` handlers once the operation has been
+    // undone / redone (objectui#11080). `{{description}}` is the operation's
+    // own description, passed through unchanged; the pack owns the words and
+    // the word order around it.
+    undoneOperation: 'Undo: {{description}}',
+    redoneOperation: 'Redo: {{description}}',
   },
   validation: {
     required: '{{field}} is required',
@@ -193,8 +218,19 @@ const en = {
   },
   form: {
     noPermissionToSave: "You don't have permission to save this record.",
+    // The notice a record form shows when every field is locked because the
+    // object's affordance for the form's mode is closed for this user
+    // (objectui#11000). `{{object}}` is the object's label.
+    noPermissionToCreate: "You don't have permission to create {{object}} records. The fields are read-only.",
+    noPermissionToEdit: "You don't have permission to edit {{object}} records. The fields are read-only.",
     submitFailed: 'Could not save. Please try again.',
     uploadInFlight: 'Wait for the upload to finish before saving.',
+    // The notice the record form raises when a field's own `visibleWhen` turns
+    // it invisible and the form clears the value it held (objectui#8070 names
+    // the `6a449fc49` clear). `{{fields}}` is the cleared fields' labels joined
+    // with `validation.formInvalidJoiner`. A list after a colon, so no word has
+    // to agree with how many fields were cleared.
+    clearedOnHide: 'Cleared — no longer applicable given the current values: {{fields}}',
     removeItem: 'Remove item',
     fieldRequired: 'This field is required',
     invalidFormat: 'Invalid format',
@@ -209,6 +245,57 @@ const en = {
     // only displace it by authoring a `description`, which makes a VISIBLE
     // subtitle appear on every form — so the fallback has to come from here.
     dialogDescriptionFallback: 'Complete the form fields, then submit or cancel.',
+    // The hint under a field the caller may read but not write, shown when the
+    // field declares no description of its own (objectui#11071).
+    deniedDescription: 'You do not have edit access to this field.',
+    // The master-detail form's own chrome (objectui#11071): the collection
+    // placeholder while its columns resolve, the document totals stack
+    // (`{{rate}}` is the header's tax rate), the row editor's title
+    // (`{{title}}` is the collection's authored title, or `lineItem` when it
+    // has none; `{{row}}` is the 1-based row number), its Apply button, and the
+    // sr-only description of the dialog that hosts the form. The verbs `Add`,
+    // `Close` and `Saving…` come from `detail.add`, `common.close` and
+    // `detail.saving`.
+    masterDetail: {
+      loadingColumns: 'Loading columns…',
+      subtotal: 'Subtotal',
+      tax: 'Tax ({{rate}}%)',
+      total: 'Total',
+      lineItem: 'Line item',
+      rowTitle: '{{title}} — row {{row}}',
+      applyRow: 'Apply',
+      editorDescription: 'Enter the record and its line items, then save.',
+      // A collection's configuration hints (objectui#11160): no `childObject`
+      // (the twin of `lineItems.noChildObject`, which names the panel), a
+      // child schema that failed to load, and no lookup or master_detail
+      // field on the child that references the parent. `{{property}}` is a
+      // property name and `{{object}}` / `{{parent}}` are object names; each
+      // is rendered as code and never translated. `lookup` and
+      // `master_detail` are field type names, so every pack keeps them as
+      // written.
+      noChildObject: 'This collection has no child object configured: set {{property}} to the object whose rows it lists.',
+      schemaUnavailable: 'Could not load the schema of {{object}}, so this collection has no columns to show. Check that the object exists and is readable, then reload.',
+      noRelationshipField: 'Could not work out how {{object}} links to {{parent}}: no lookup or master_detail field on it references the parent. Set {{property}} on this collection to the field that holds the parent record.',
+    },
+    // The record page's `record:line_items` panel (objectui#11131): its
+    // title when the author declared none. Its Save / Saving… button reads
+    // `common.save` / `detail.saving`. `MasterDetailForm` reads `title` too,
+    // for a collection that authors no heading (objectui#11145).
+    //
+    // The rest is the panel's own states (objectui#11145): no parent record
+    // bound yet, rows held for another parent, and the two fallbacks for a
+    // failed load or save, shown when the server sent no message of its own.
+    // Its loading line reads `common.loading`. `noChildObject` is the config
+    // hint for a panel with no `childObject`: `{{property}}` is filled with
+    // the property name, rendered as code and never translated.
+    lineItems: {
+      title: 'Line Items',
+      saveRecordFirst: 'Save the record first to add line items.',
+      notLoaded: 'This record’s line items have not been loaded.',
+      loadFailed: 'Failed to load line items',
+      saveFailed: 'Failed to save line items',
+      noChildObject: 'This panel has no child object configured: set {{property}} to the object whose rows it lists.',
+    },
     keepEditing: 'Keep editing',
     discard: 'Discard',
     conflictTitle: 'Save conflict',
@@ -226,6 +313,26 @@ const en = {
     createSuccess: '{{object}} created successfully',
     updateSuccess: '{{object}} updated successfully',
     deleteSuccess: '{{object}} deleted successfully',
+    // plugin-form's own feedback chrome (objectui#11039): the success toast
+    // a form raises when the author declared no `successMessage` (`created`
+    // after a create, `saved` after an edit), the master-detail form's edit
+    // toast when the form has a `title` (`{{title}}` is that title), and the
+    // console form page's toast after a submit. An authored message always
+    // wins; these are only the defaults. The form's loading line and its
+    // thank-you panel read `publicForm.loading` / `publicForm.thankYouTitle` /
+    // `publicForm.thankYouMessage`, which say the same thing.
+    created: 'Created',
+    saved: 'Saved',
+    savedNamed: '{{title}} saved',
+    submitted: 'Submitted',
+    // The heading of the panel a form shows when its object schema or its
+    // record could not be loaded; the error's own message follows it.
+    errorLoading: 'Error loading form',
+    // Rides the success toast when a DECLARED `navigateOnSuccess` produced no
+    // destination (objectui#5034): the write succeeded, the declared
+    // navigation did not happen. `navigateOnSuccess` is the metadata key's
+    // name, so every pack keeps it as written.
+    navigateRefused: 'The `navigateOnSuccess` destination declared for this form was refused, so the navigation did not happen.',
     fullscreen: {
       title: 'Edit text',
       description: 'Edit the full text value, then save or cancel your changes.',
@@ -253,6 +360,7 @@ const en = {
       remove: 'Remove {{name}}',
       exceedsMaxSize: '"{{name}}" exceeds max size ({{max}} MB)',
       uploadFailed: 'Failed to upload "{{name}}": {{error}}',
+      uploadIncomplete: 'Upload of "{{name}}" did not complete: no file id was returned, so nothing was saved',
     },
     image: {
       upload: 'Upload image',
@@ -369,6 +477,26 @@ const en = {
     // (`FIELD_DEFAULTS` in `packages/fields/src/widgets/useFieldTranslation.ts`
     // carries the same one), so English and provider-less rendering are
     // unchanged.
+    // objectui#10567 — the editable date-only face's notice for a stored value
+    // written on a day that does not exist, the date-only sibling of
+    // `dateTime.impossibleDay` below: an `<input type="date">` can only paint
+    // such a value blank, so the widget names the stored string beside it.
+    // `FIELD_DEFAULTS` in `packages/fields/src/widgets/useFieldTranslation.ts`
+    // carries the same English value for provider-less rendering.
+    date: {
+      impossibleDay:
+        'The stored value "{{value}}" is not a real date. Pick a date to replace it.',
+    },
+    // objectui#10474 — the editable date-time face's notice for a stored value
+    // written on a day that does not exist. The `datetime-local` control can
+    // only paint such a value blank, so the widget names the stored string
+    // beside it; a blank control alone would hide it (objectui#3127).
+    // `FIELD_DEFAULTS` in `packages/fields/src/widgets/useFieldTranslation.ts`
+    // carries the same English value for provider-less rendering.
+    dateTime: {
+      impossibleDay:
+        'The stored value "{{value}}" is not a real date. Pick a date and time to replace it.',
+    },
     number: {
       badInput:
         'Not saved: the text in this box is not a number. Enter a plain decimal (example: {{example}}).',
@@ -422,6 +550,26 @@ const en = {
     textarea: {
       characterCount: 'Character count: {{count}} of {{max}}',
       charactersRemaining: 'Characters remaining: {{count}}',
+    },
+    // objectui#11131 — the line-items grid's default chrome (`GridField`):
+    // its Add button, the read-only grid's empty state, and the list-mode
+    // grid's empty state. An authored `add_label` still wins over `addLine`,
+    // and it fills the `{{label}}` hole (`detail.add` when none is authored).
+    //
+    // objectui#11145 — the rest of that chrome: the column chooser's heading,
+    // the computed cell's tooltip, and the row actions. Each row action has
+    // one key, read by both its `aria-label` and its `title`. The chooser's
+    // button reads `table.columns`, the footer `form.masterDetail.total` and
+    // the drag handle `view.dragToReorder`.
+    grid: {
+      addLine: 'Add line',
+      noItems: 'No items',
+      noItemsAddHint: 'No items yet — click “{{label}}” to begin.',
+      optionalColumns: 'Optional columns',
+      computed: 'Computed',
+      openRow: 'Open row',
+      duplicateRow: 'Duplicate row',
+      removeRow: 'Remove row',
     },
   },
   table: {
@@ -479,19 +627,15 @@ const en = {
     yes: 'Yes',
     no: 'No',
     systemFields: 'System',
-    // objectui#7189 — the grouped grid says, where the group counts are, that
-    // it grouped a PAGE. `useGroupedData` buckets only the rows the browser
-    // holds, so a group beyond the page boundary is absent entirely and every
-    // count is a page slice. The paging footer is not a statement about what
-    // was grouped, and it demonstrably did not prevent the wrong reading.
-    // Two sentences because two conditions: a known total states the fact
-    // with both numbers; a full window with no total can only say "may".
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: 'Partial',
-      partialNotice:
-        'Grouped over the first {{loaded}} of {{total}} records. Group counts are page-scoped, and a group whose records all fall beyond the loaded rows is missing here.',
-      partialNoticeUnknownTotal:
-        'Grouped over the {{loaded}} records loaded. More may match this view, so group counts may be partial and a group may be missing here.',
+      needsHeaderQuery:
+        'This view is grouped, but its data source does not implement queryGroupHeaders, so the groups cannot be counted. Remove the grouping to show the records.',
+      needsWholeRows:
+        'Grouping needs every record, but this grid was handed one page of them, so the groups cannot be counted. Hand in every record, or let the grid fetch them from a data source that implements queryGroupHeaders.',
     },
     // Column-footer aggregate prefixes, keyed by the spec's `ColumnSummary`
     // vocabulary (objectui#4024). The footer already formatted its NUMBER
@@ -937,6 +1081,7 @@ const en = {
     },
     aria: {
       taskList: 'Task list',
+      refreshing: 'Refreshing…',
     },
     tooltip: {
       days: 'd',
@@ -1088,6 +1233,8 @@ const en = {
     pathStageLostUpcoming: '{{stage}}, closed lost, not reached',
     pathStageWonUpcoming: '{{stage}}, goal stage, not reached',
     linkCopied: 'Link copied to clipboard',
+    commentFailed: 'Your comment was not posted. Nothing was saved — please try again.',
+    reactionFailed: 'Your reaction was not saved. Please try again.',
     linkCopyFailed: 'Failed to copy link',
     cancel: 'Cancel',
     cancelEdit: 'Discard changes',
@@ -1154,7 +1301,6 @@ const en = {
     viewAll: 'View All',
     new: 'New',
     add: 'Add',
-    emptyValue: '—',
     activity: 'Activity',
     history: 'History',
     historyEmpty: 'No history yet',
@@ -1214,12 +1360,6 @@ const en = {
     attachmentsLoadFailed: "We couldn't load the attachments for this record.",
     attachmentsApiUnavailable: 'The attachments list is not available on this object.',
     retryLoadAttachments: 'Retry',
-    // Diff
-    unifiedDiff: 'Unified diff',
-    sideBySideDiff: 'Side-by-side diff',
-    noChanges: 'No changes',
-    previousVersion: 'Previous',
-    currentVersion: 'Current',
     // Discussion
     discussion: 'Discussion',
     showDiscussion: 'Show Discussion ({{count}})',
@@ -1237,11 +1377,7 @@ const en = {
     // Subscription
     subscribedTooltip: 'Subscribed — click to unsubscribe',
     unsubscribedTooltip: 'Subscribe to notifications',
-    // Navigation
-    firstRecord: 'First record (Home)',
-    previousRecordKey: 'Previous record (←)',
-    nextRecordKey: 'Next record (→)',
-    lastRecord: 'Last record (End)',
+    // The reference rail's empty related-record list
     noRecords: 'No records',
     // objectui#3863 — the BASE key is the slot every plural category a pack did not
     // enumerate resolves to, keeping that pack in its own language instead of falling
@@ -1252,8 +1388,6 @@ const en = {
     showEmptyRelated: '+ {{count}} empty',
     showEmptyRelated_one: '+ {{count}} empty',
     showEmptyRelated_other: '+ {{count}} empty',
-    searchWhileNavigating: 'Search while navigating',
-    searchRecords: 'Search records…',
     // Activity timeline
     allActivity: 'All Activity',
     commentsOnly: 'Comments Only',
@@ -1316,24 +1450,10 @@ const en = {
     fileCount: '{{count}} files',
     fileCount_one: '{{count}} file',
     fileCount_other: '{{count}} files',
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: 'Revision History',
-    noRevisions: 'No revisions recorded',
-    revisionFieldsChanged: '{{count}} fields changed',
-    revisionFieldsChangedOne: '{{count}} field changed',
-    revisionPreview: 'Revision Preview',
-    revisionSnapshot: 'Record state at this point',
-    restoreConfirm: 'This will restore the record to its state at {{when}}. Continue?',
-    restoring: 'Restoring…',
-    confirmRestore: 'Confirm Restore',
-    restoreToPoint: 'Restore to this point',
   },
   chart: {
     loading: 'Loading chart…',
+    refreshing: 'Refreshing…',
     nullCategory: '(None)',
     // The refusal a scatter renders when handed more than one series
     // (objectui#7194): it binds ONE measure, so a second series was painted at
@@ -1418,8 +1538,13 @@ const en = {
       sourceLabel: 'Source:',
     },
     loading: 'Loading…',
+    refreshing: 'Refreshing…',
+    refreshAll: 'Refresh All',
+    refreshDashboard: 'Refresh dashboard',
     pickMeasures: 'Pick measures (values) for this dataset widget.',
     datasetUnsupported: 'This data source does not support dataset queries.',
+    widgetForbiddenTitle: 'You don’t have access',
+    widgetForbiddenMessage: 'You don’t have permission to view the data behind this widget.',
     details: 'Details',
     exportCsv: 'Export CSV',
     openInList: 'Open in list',
@@ -1566,10 +1691,6 @@ const en = {
     appDescription: 'Description',
     appIcon: 'Icon',
     template: 'Template',
-    layout: 'Layout',
-    layoutSidebar: 'Sidebar',
-    layoutHeader: 'Header',
-    layoutEmpty: 'Empty',
     selectObjects: 'Select Objects',
     searchObjects: 'Search objects…',
     selectAll: 'Select All',
@@ -1604,7 +1725,7 @@ const en = {
     appearance: 'Appearance',
     rowHeight: 'Row Height',
     livePreview: 'Live Preview',
-    stepBasicDesc: 'Name, title, and layout',
+    stepBasicDesc: 'Name, title, and icon',
     stepObjectsDesc: 'Select business objects',
     stepNavigationDesc: 'Build navigation tree',
     stepBrandingDesc: 'Logo, colors, and favicon',
@@ -1643,6 +1764,7 @@ const en = {
     navTypeSeparator: 'Separator',
     navTypeAction: 'Action',
     navTypeComponent: 'Component',
+    navTypeDoc: 'Doc',
     navEditIcon: 'Edit icon',
     navToggleVisible: 'Toggle visibility',
     navHidden: 'Hidden',
@@ -1764,6 +1886,15 @@ const en = {
       pages: 'Pages',
       reports: 'Reports',
       system: 'System',
+      // The Setup system page segment after `System` (objectui#10900).
+      marketplace: 'Marketplace',
+      // The console app's own `system/*` pages after `System` (objectui#10969).
+      settings: 'Settings',
+      apps: 'Apps',
+      profile: 'Profile',
+      approvals: 'Approvals',
+      aiApprovals: 'AI Approvals',
+      auditLog: 'Audit Log',
     },
     nav: {
       pinItem: 'Pin {{name}}',
@@ -1943,6 +2074,10 @@ const en = {
         ctaUpgrade: 'Upgrade to keep going',
         ctaTopUp: 'Add credits to continue',
         ariaLabel: 'AI usage: {{status}}',
+        // objectui#8524 — heading over the pool's read-only split (`breakdown`:
+        // app-building vs data Q&A) in the popover. The rows reuse `meterBuild` /
+        // `meterAsk`; each is a share of the ONE pool, never a second budget.
+        breakdownTitle: 'Used so far',
       },
       workspaceTitle: 'AI Workspace',
       workspaceSubtitle: 'Ask, inspect, and resume conversations',
@@ -1952,6 +2087,38 @@ const en = {
       share: 'Share',
       shareTitle: 'Share this conversation',
       shareDisabledTitle: 'Start chatting to enable sharing',
+      // The build conversation's Build Doctor button (its accessible name,
+      // and its tooltip enabled / before the first message) and the drawer
+      // title it opens (objectui#10900).
+      buildDoctor: 'Build Doctor',
+      buildDoctorTitle: 'Build Doctor — what actually landed?',
+      buildDoctorDisabledTitle: 'Send a message first',
+      // The Build Doctor drawer's body (objectui#10969): its description, the
+      // loading and not-found states, the summary line, the verdict, and each
+      // section's title and hint. What the report itself carries (tool, artifact
+      // and status names, timeline text) is data and stays verbatim.
+      buildDoctorDrawer: {
+        description: 'What the agent claimed vs what is actually live. Read-only diagnostic.',
+        reconciling: 'Reconciling…',
+        notAvailable: 'Not available — the conversation was not found or you are not authorized.',
+        untitled: '(untitled)',
+        summary: '{{turns}} turn(s) · {{messages}} msgs · {{tokens}} tok · {{seconds}}s LLM',
+        allLive: 'All {{count}} attempted change(s) are live — nothing evaporated.',
+        discrepancies: "{{count}} discrepancy(ies) — what the chat said doesn't match what's live.",
+        orphanedTitle: 'Proposed but never applied',
+        orphanedHint: 'A confirm card the agent proposed but no later turn applied — the change silently evaporated.',
+        missingTitle: 'Claimed but missing',
+        missingHint: "A tool result said it was applied, but the artifact isn't live in sys_metadata.",
+        toolErrorsTitle: 'Tool errors',
+        toolErrorsHint: 'Tool calls that returned an error during the build.',
+        verifyTitle: 'Build check (verify_build)',
+        yourApp: 'Your app:',
+        noIssues: '0 issues',
+        issueCount: '{{count}} issue(s)',
+        platformNoise: '{{count}} platform sys_* finding(s) hidden',
+        pendingActions: 'Pending actions',
+        timeline: 'Timeline ({{count}})',
+      },
       newChat: 'New',
       searchChats: 'Search chats…',
       noChatsYet: 'No chats yet',
@@ -2204,6 +2371,17 @@ const en = {
       noWritesTitle: 'Reads with no writes at all in this environment',
       noWrites: 'Rows are being read while none at all are being written, so the read rate has no upper bound. This is the most severe reading. The platform flags anything above {{threshold}}. Nothing is limited or blocked; this is a report so the read pattern can be reviewed.',
     },
+    // objectui#10439 — the environment admin's storage-capacity banner (cloud#2135).
+    // Raised by the tenant runtime's own verdict on `/api/v1/usage/storage`: `warn`
+    // (80% and up) or `blocked` (uploads and bulk imports refused). `{{used}}` and
+    // `{{limit}}` are that response's `usedMb` / `limitMb`, already formatted.
+    storageUsage: {
+      warningTitle: 'Storage is filling up',
+      warning: '{{used}} MB of {{limit}} MB used. Uploads and imports pause once storage is full.',
+      blockedTitle: 'Storage is full: uploads and imports are paused',
+      blocked: '{{used}} MB of {{limit}} MB used. Existing data is untouched, and reading, exporting and editing single records still work.',
+      upgrade: 'Upgrade to continue',
+    },
     errors: {
       somethingWentWrong: 'Something went wrong',
       unexpectedError: 'An unexpected error occurred while rendering this view.',
@@ -2276,6 +2454,7 @@ const en = {
       title: 'Title',
       viewType: 'View type',
       recordCount: '{{count}} records',
+      recordCountOne: '{{count}} record',
       save: 'Save',
       discard: 'Discard',
       createView: 'Create View',
@@ -2367,7 +2546,7 @@ const en = {
       signingIn: 'Signing you in…',
       ssoHandoff: 'Continue to {{target}}',
       // Phone/OTP sign-in labels. `LoginForm` interpolates `{seconds}` with a
-      // literal `.replace()` of its own (packages/auth/src/LoginForm.tsx:429),
+      // literal `.replace('{seconds}', …)` of its own (in `LoginForm`),
       // so those SINGLE braces must survive translation — i18next never sees
       // them.
       emailOrPhoneLabel: 'Email or phone number',
@@ -2380,6 +2559,13 @@ const en = {
       resendOtpCountdownText: 'Resend in {seconds}s',
       usePhoneOtpText: 'Sign in with verification code',
       usePasswordSignInText: 'Sign in with password instead',
+      // The social provider buttons and the divider under them
+      // (`SocialSignInButtons`, fed through `LoginForm`'s labels).
+      // `{provider}` is the component's own single-brace hole, filled by a
+      // literal `.replace()` with the provider's name as the server reports
+      // it — the same convention as `{seconds}` above (objectui#10900).
+      socialButton: 'Continue with {provider}',
+      orText: 'or continue with email',
       devAdminHint: {
         title: 'Development instance',
         body: 'Sign in with the seeded dev admin:',
@@ -2408,8 +2594,13 @@ const en = {
       submittingButton: 'Creating account…',
       hasAccountText: 'Already have an account?',
       signInText: 'Sign in',
+      // Same pair as `auth.login.socialButton` / `orText`, for sign-up.
+      socialButton: 'Sign up with {provider}',
+      orText: 'or continue with email',
       errors: {
         userExists: 'An account with this email already exists. Try signing in instead.',
+        selfRegistrationClosed: 'Self-registration is not open on this environment. Ask an administrator for an invitation.',
+        emailDomainNotAllowed: "This email's domain is not allowed to register here. Use your organization email, or ask an administrator for an invitation.",
       },
       verifyInbox: {
         title: 'Check your inbox',
@@ -2971,7 +3162,7 @@ const en = {
       detailChangedKeys: 'Also changed:',
       confirmNote: 'Publishing releases all {{count}} pending drafts of this package atomically.',
       publishConfirm: 'Publish all',
-      // [objectui#5418] Pre-publish security-posture findings, shown next to
+      // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
       securityBlockTitle: 'Publishing will be refused — {{count}} item(s) need a decision first',
@@ -3034,6 +3225,7 @@ const en = {
     lookupPlaceholder: 'Record id for {{label}}',
     lookupHelpText: 'No reference object is configured for this parameter, so the record picker is unavailable. Enter a record id, or ask an administrator to fix the action parameter.',
     unresolvedParam: 'This parameter cannot be shown: the field it is backed by is missing from the object metadata, so the control it needs cannot be built. Ask an administrator to fix the action definition.',
+    carryOverHint: 'Carried over unchanged (read-only)',
     cancel: 'Cancel',
     confirm: 'Confirm',
     uploading: 'Uploading…',
@@ -3260,7 +3452,7 @@ const en = {
     viewApprovals: 'View approvals',
     noPendingApprovals: 'No pending approvals',
     openApprovalsInbox: 'Open Approvals Inbox',
-    // Bell-badge breakdown (#7233): the badge sums unread notification topics
+    // Bell-badge breakdown (objectstack-ai/objectstack#7233): the badge sums unread notification topics
     // and pending approvals, then clamps at "9+". These three spell the sum
     // out inside the popover so the number is explainable.
     badgeTotal: '{{total}} total',
@@ -3285,6 +3477,10 @@ const en = {
     thankYouTitle: 'Thank you!',
     thankYouMessage: 'Your submission has been received successfully.',
     redirecting: 'Redirecting in {{seconds}} seconds…',
+    // The console form page's line for a submit whose declared redirect is
+    // pending (objectui#11071). `redirecting` above is the embeddable form's
+    // countdown and carries a `{{seconds}}` hole this page has no value for.
+    redirectPending: 'Redirecting…',
     unavailableTitle: 'Form unavailable',
     unavailableDescription:
       'No public form is available at this URL. Make sure the underlying view has anonymous sharing enabled and matches this slug.',
@@ -3292,6 +3488,10 @@ const en = {
     retry: 'Retry',
     loading: 'Loading form…',
     requiredHint: '* Required field',
+    // The console form page's client-side refusal when required rows are empty
+    // (objectui#11071). `{{fields}}` is the empty rows' labels joined with a
+    // comma; the colon, its spacing and the order are the pack's.
+    requiredFields: 'Required: {{fields}}',
     consentLabelDefault: 'I agree to the privacy policy and consent to my data being processed for this request.',
     consentLink: 'Privacy policy',
     consentRequired: 'Please accept the privacy policy to continue.',
@@ -3354,6 +3554,39 @@ const en = {
     createEnvironment: 'Create your environment',
     openProduction: 'Open Production',
     manageEnvironments: 'Manage environments',
+  },
+  // `cloud:plan-status` — the Cloud pricing page's current-plan marker (objectui#10919).
+  cloudPlanStatus: {
+    current: 'Current plan',
+  },
+  // `@object-ui/plugin-ai` — the `nl-query`, `ai-form-assist` and
+  // `ai-recommendations` components (objectui#10232). The `*One` rows are this
+  // repo's two-key plural convention (see `search.itemsAvailableOne`): the
+  // component picks the key at exactly one, so no CLDR category falls to `en`.
+  ai: {
+    nlQuery: {
+      placeholder: 'Ask a question about your data…',
+      ask: 'Ask',
+      results: 'Results',
+      match: '{{percent}} match',
+      simulatedSummary: 'Results for: {{query}}',
+      noResults: 'No matching records found',
+      recentQueries: 'Recent Queries',
+    },
+    formAssist: {
+      title: 'AI Suggestions',
+      suggestionCount: '{{count}} suggestions',
+      suggestionCountOne: '{{count}} suggestion',
+      applyAll: 'Apply All',
+      confidence: '{{percent}} confidence',
+      appliedCount: '{{count}} suggestions applied',
+      appliedCountOne: '{{count}} suggestion applied',
+    },
+    recommendations: {
+      title: 'Recommendations',
+      generating: 'Generating recommendations…',
+      empty: 'No recommendations available',
+    },
   },
   // The AI HITL approval inbox (`@object-ui/plugin-chatbot`'s
   // `AiPendingActionsInbox`) — objectui#7173. Its four relative-time phrases
@@ -3603,7 +3836,7 @@ const en = {
   marketplace: {
     title: 'App Marketplace',
       subtitle: 'Browse approved apps published to the ObjectStack catalog. Click an app to view details and install it into one of your environments.',
-      searchPlaceholder: 'Search apps by name or manifest ID…',
+      searchPlaceholder: 'Search apps by name or app ID…',
       searchAria: 'Search marketplace apps',
       installed: 'Installed',
       installedCount: 'Installed ({{count}})',
@@ -3655,6 +3888,7 @@ const en = {
         reseedQueued: 'Sample data will be re-seeded on next environment access.',
         reseedLocalSuccess: 'Re-seeded sample data: {{inserted}} inserted, {{updated}} updated.',
         reseedPartialErrors: '({{count}} record(s) failed to write)',
+        sampleDataKernelUnavailable: 'This control plane has no environment kernel, so sample data cannot be re-seeded or purged from here. Do it from the environment\'s own runtime.',
         updateAvailable: 'Update available',
       },
       action: {
@@ -3960,25 +4194,25 @@ const en = {
     rangeEnd: 'To',
     operators: {
       equals: 'Equals',
-      notEquals: 'Does not equal',
+      not_equals: 'Does not equal',
       contains: 'Contains',
-      containsCaseInsensitive: 'Contains (ignore case)',
-      notContains: 'Does not contain',
-      isEmpty: 'Is empty',
-      isNotEmpty: 'Is not empty',
-      greaterThan: 'Greater than',
-      lessThan: 'Less than',
-      greaterOrEqual: 'Greater than or equal',
-      lessOrEqual: 'Less than or equal',
+      icontains: 'Contains (ignore case)',
+      not_contains: 'Does not contain',
+      is_empty: 'Is empty',
+      is_not_empty: 'Is not empty',
+      greater_than: 'Greater than',
+      less_than: 'Less than',
+      greater_than_or_equal: 'Greater than or equal',
+      less_than_or_equal: 'Less than or equal',
       before: 'Before',
       after: 'After',
       between: 'Between',
       in: 'In',
-      notIn: 'Not in',
-      startsWith: 'Starts with',
-      endsWith: 'Ends with',
-      isNull: 'Is null',
-      isNotNull: 'Is not null',
+      not_in: 'Not in',
+      starts_with: 'Starts with',
+      ends_with: 'Ends with',
+      is_null: 'Is null',
+      is_not_null: 'Is not null',
       exists: 'Is set',
       notExists: 'Is not set',
     },
@@ -4073,6 +4307,25 @@ const en = {
   // comma-joined, already-truncated label list built at the call site.
   wizard: {
     missingRequired: 'Please complete the required fields: {{fields}}',
+    // The wizard's footer and step chrome (objectui#10999). The generic verbs
+    // it shows come from `common.cancel`, `common.next`, `form.create`,
+    // `form.update` and `form.stepOf`; these five are the wizard's own.
+    // The Previous-step button. Not `common.back`: some packs say a wizard's
+    // step back with a different word from a page's back (zh reads "previous
+    // step" here and "return" for `common.back`), and the wizard spelling is
+    // the one `grid.import.back` and `grid.bulk.back` already use.
+    back: 'Back',
+    // The final button while the record is being written.
+    submitting: 'Submitting…',
+    // The step indicator's label for a step that declares no `label`.
+    // `{{n}}` is the 1-based step number.
+    stepFallback: 'Step {{n}}',
+    // The step indicator's `aria-label` — what a screen reader calls the list
+    // of steps.
+    progressLabel: 'Progress',
+    // Shown in place of the fields on a step that has none (a final review
+    // step is the usual case).
+    emptyStep: 'No fields configured for this step',
   },
   // The screen-flow runner dialog (`app-shell/views/FlowRunner`) — the modal a
   // `type: 'flow'` action opens when its run pauses at a `screen` node.
@@ -4245,6 +4498,14 @@ const en = {
     actionsEmptyBody:
       'No installed package declares an action on this deployment. Actions you author yourself live in Studio.',
     actionsLoadFailed: 'Could not load packaged actions.',
+  },
+  element: {
+    // objectui#10951 — `element:number` authored with an aggregate and no
+    // object (neither `object` nor `dataSource.object`). Kept terse: this pack
+    // is eager, and the console closure budget weighs it.
+    number: {
+      noObject: 'No object named: set object or dataSource.object.',
+    },
   },
 } as const;
 

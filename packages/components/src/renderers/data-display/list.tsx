@@ -41,7 +41,7 @@ ComponentRegistry.register('list',
         >
           {items.map((item: any, index: number) => (
             <li key={index} className={cn(typeof item === 'object' && item.className)}>
-              {typeof item === 'string' ? item : item.content || renderChildren(item.body)}
+              {typeof item === 'string' ? item : renderChildren(item.content)}
             </li>
           ))}
         </ListTag>
@@ -57,7 +57,7 @@ ComponentRegistry.register('list',
       { 
         name: 'items', 
         type: 'array', 
-        description: 'Array of strings or objects with content/body'
+        description: 'Array of strings or objects with content'
       },
       { name: 'className', type: 'string' }
     ],

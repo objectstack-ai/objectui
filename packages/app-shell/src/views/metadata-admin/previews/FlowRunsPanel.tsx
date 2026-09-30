@@ -4,12 +4,12 @@
  * FlowRunsPanel — run history for a flow, fetched from the automation engine
  * (`GET /api/v1/automation/{name}/runs`, the observability surface next to
  * resume/screen). Renders each run's status / start time / duration with an
- * expandable step log (the `ExecutionLog.steps` ADR-0019/#1479 shape). Body
+ * expandable step log (the `ExecutionLog.steps` ADR-0019 / objectstack-ai/objectstack#1479 shape). Body
  * steps that ran inside a structured control-flow region — a `loop` iteration,
  * a `parallel` branch, or a `try`/`catch` handler — are nested under their
- * container node and grouped by iteration / branch (#1505), so authors can see
+ * container node and grouped by iteration / branch (objectstack-ai/objectstack#1505), so authors can see
  * where a run paused or failed *and which iteration did it*, without leaving the
- * Studio. A step may also carry advisory `warnings` (#3407) — e.g. a write to a
+ * Studio. A step may also carry advisory `warnings` (objectstack-ai/objectstack#3407) — e.g. a write to a
  * `readonly` field the data layer legally stripped — rendered amber beneath the
  * step without demoting its `success` status.
  *
@@ -37,16 +37,18 @@ interface RunStep {
   status: 'success' | 'failure' | 'skipped' | string;
   durationMs?: number;
   error?: RunError;
-  // #1505: structured-region grouping. A step that ran inside a `loop` /
+  // objectstack-ai/objectstack#1505: structured-region grouping. A step that ran inside a `loop` /
   // `parallel` / `try_catch` body region is tagged by the engine with its
   // immediate container so the panel can nest it, instead of showing the
   // container as one opaque step. Absent on top-level (main-graph) steps.
   parentNodeId?: string;
-  /** Zero-based loop iteration or parallel branch index of the enclosing region. */
+  /** Zero-based iteration of the enclosing `loop`, carried through any nesting. */
   iteration?: number;
+  /** Zero-based index of the enclosing `parallel` branch (objectstack#14414). */
+  branch?: number;
   /** Region kind the step ran in: `loop-body` | `parallel-branch` | `try` | `catch`. */
   regionKind?: string;
-  // #3407: advisory warnings the engine attaches to an otherwise-successful step
+  // objectstack-ai/objectstack#3407: advisory warnings the engine attaches to an otherwise-successful step
   // — e.g. an `update_record` whose write to a `readonly` / `readonlyWhen` field
   // was legally stripped by the data layer. The step still `success`es (the strip
   // is legitimate semantics); the warning is the only signal the intended write
@@ -89,7 +91,7 @@ export function errorText(e: RunError | undefined | null): string | undefined {
 
 /**
  * Reconstruct the execution tree from the engine's flat, pre-order step log
- * (#1505). Each step carries its **immediate** structured-region container in
+ * (objectstack-ai/objectstack#1505). Each step carries its **immediate** structured-region container in
  * `parentNodeId`; the container's own step always precedes its body steps in the
  * array, and a whole region's steps are contiguous (the engine appends
  * `NodeExecutionResult.childSteps` in one shot). A stack walk therefore rebuilds
@@ -125,10 +127,53 @@ export function buildStepTree(steps: RunStep[]): StepTreeNode[] {
   return roots;
 }
 
+/** The two indexes a `parallel-branch` step is grouped and labelled by. */
+export interface ParallelBranchIndex {
+  /** Zero-based branch index; absent when the record carries none. */
+  branch?: number;
+  /** Zero-based iteration of the enclosing `loop` (the row); absent when there
+   *  is no enclosing loop, or when the record never recorded it. */
+  iteration?: number;
+  /** `true` when the record was written by an engine that predates `branch`
+   *  (see {@link parallelBranchIndex}). */
+  legacy: boolean;
+}
+
 /**
- * Human label for a body step's enclosing region (#1505). `loop`/`parallel`
- * carry a zero-based `iteration` surfaced 1-based; `try`/`catch` carry only the
- * region kind. Returns `null` for a top-level step (no region grouping).
+ * Read a `parallel-branch` step's branch and loop row (objectui#7614).
+ *
+ * `iteration` has ONE meaning since objectstack#14414 (maintainer ruling A,
+ * ADR-0087 entry `execution-step-iteration-single-valued`): the enclosing
+ * loop's row. The branch index has its own key, `branch`, so a branch step of
+ * a `parallel` inside a loop body carries both.
+ *
+ * A record written by an older engine is told apart by the record itself, not
+ * by a date or version guess: a `parallel-branch` step with NO `branch` key.
+ * The older engine's `parallel` executor tagged every branch region with
+ * `iteration: i` and never wrote `branch`; since objectstack#15230 it tags
+ * `branch: i`, and `runRegion`'s tagger writes `regionKind` and `branch` in the
+ * same pass, so it cannot emit a `parallel-branch` step without `branch`. That
+ * reading of the objectstack engine was taken when this was written; nothing in
+ * this repository re-derives it. The spec alone would not decide it:
+ * `ExecutionStepLogSchema` declares `branch` optional, with nothing tying it to
+ * `regionKind`.
+ *
+ * Such a legacy step is read the way it was written: its `iteration` is the
+ * BRANCH index, and its loop row is unknown (the older engine discarded it). It
+ * is never read as a row and never defaulted to branch 0. This is the legacy
+ * rule the ADR-0087 entry's acceptance criteria name.
+ */
+export function parallelBranchIndex(step: RunStep): ParallelBranchIndex {
+  if (step.branch == null) return { branch: step.iteration, legacy: true };
+  return { branch: step.branch, iteration: step.iteration, legacy: false };
+}
+
+/**
+ * Human label for a body step's enclosing region (objectstack-ai/objectstack#1505). `loop-body` carries a
+ * zero-based `iteration`, `parallel-branch` a zero-based `branch` plus the
+ * enclosing loop's `iteration` when it has one (read by
+ * {@link parallelBranchIndex}), each surfaced 1-based; `try`/`catch` carry only
+ * the region kind. Returns `null` for a top-level step (no region grouping).
  */
 export function regionLabel(step: RunStep, locale?: string): string | null {
   const { regionKind, iteration } = step;
@@ -138,10 +183,13 @@ export function regionLabel(step: RunStep, locale?: string): string | null {
       return iteration == null
         ? tr('engine.flowRuns.iteration', locale)
         : tFormat('engine.flowRuns.iterationN', locale, { n: iteration + 1 });
-    case 'parallel-branch':
-      return iteration == null
-        ? tr('engine.flowRuns.branch', locale)
-        : tFormat('engine.flowRuns.branchN', locale, { n: iteration + 1 });
+    case 'parallel-branch': {
+      const idx = parallelBranchIndex(step);
+      if (idx.branch == null) return tr('engine.flowRuns.branch', locale);
+      return idx.iteration == null
+        ? tFormat('engine.flowRuns.branchN', locale, { n: idx.branch + 1 })
+        : tFormat('engine.flowRuns.branchNIterationM', locale, { n: idx.branch + 1, m: idx.iteration + 1 });
+    }
     case 'try':
       return tr('engine.flowRuns.try', locale);
     case 'catch':
@@ -152,14 +200,21 @@ export function regionLabel(step: RunStep, locale?: string): string | null {
 }
 
 /** Grouping key so consecutive body steps of the same iteration/branch/handler
- *  share one header. */
+ *  share one header. A `parallel-branch` step keys on its branch AND, when it
+ *  has one, its loop row (objectui#7614); every other region keys on
+ *  `iteration`. */
 function regionSignature(step: RunStep): string {
+  if (step.regionKind === 'parallel-branch') {
+    const { branch, iteration, legacy } = parallelBranchIndex(step);
+    return `parallel-branch#${legacy ? 'legacy:' : ''}branch=${branch ?? ''}#iteration=${iteration ?? ''}`;
+  }
   return `${step.regionKind ?? ''}#${step.iteration ?? ''}`;
 }
 
 /** Split a container's children into consecutive runs that share a region label
- *  (an iteration, a branch, a try/catch handler), so each gets one header. */
-function groupChildren(children: StepTreeNode[], locale?: string): { label: string | null; items: StepTreeNode[] }[] {
+ *  (an iteration, a branch, a try/catch handler), so each gets one header.
+ *  Exposed for tests. */
+export function groupChildren(children: StepTreeNode[], locale?: string): { label: string | null; items: StepTreeNode[] }[] {
   const groups: { label: string | null; items: StepTreeNode[] }[] = [];
   let sig: string | undefined;
   for (const child of children) {
@@ -234,7 +289,7 @@ function StepRow({ step, depth = 0 }: { step: RunStep; depth?: number }) {
         ? 'text-rose-600 dark:text-rose-400'
         : 'text-muted-foreground';
   const stepErr = errorText(step.error);
-  // #3407: advisory warnings are amber and never recolor the status — a step
+  // objectstack-ai/objectstack#3407: advisory warnings are amber and never recolor the status — a step
   // that legally stripped a write is still a `success`, just not silent. The
   // status badge keeps its tone; the ⚠ marker and the amber sub-lines below
   // carry the "your write didn't fully land" signal.
@@ -291,7 +346,7 @@ function RegionHeader({ label, depth }: { label: string; depth: number }) {
 }
 
 /** Render a step and, nested beneath it, its structured-region body steps —
- *  grouped by iteration / branch / handler (#1505). Recurses for nested regions. */
+ *  grouped by iteration / branch / handler (objectstack-ai/objectstack#1505). Recurses for nested regions. */
 function StepNode({ node, depth, locale }: { node: StepTreeNode; depth: number; locale?: string }) {
   const groups = node.children.length > 0 ? groupChildren(node.children, locale) : [];
   return (
@@ -346,8 +401,8 @@ function RunRow({ run, locale }: { run: FlowRun; locale?: string }) {
       {open && (
         <div className="border-t px-2 py-1.5">
           <div className="pb-1 font-mono text-[9px] text-muted-foreground" title={run.id}>
-            run {run.id}
-            {run.trigger?.type && ` · trigger ${run.trigger.type}`}
+            {tFormat('engine.flowRuns.runId', locale, { id: run.id })}
+            {run.trigger?.type && ` · ${tFormat('engine.flowRuns.trigger', locale, { type: run.trigger.type })}`}
           </div>
           {runErr && (
             <div className="pb-1 text-[10px] text-rose-600">{runErr}</div>

@@ -567,8 +567,13 @@ describe('the waiver ledger', () => {
  * the outlier — and it is the one case the ledger exists for. Each entry
  * transcribes its new sentence, so the next `en` edit to any of the five expires
  * the waiver and fails the build until someone renews it.
+ *
+ * 5 -> 6 (objectui#10969). `marketplace.searchPlaceholder` dropped the
+ * "manifest ID" jargon in `en` and eight packs; zh had already dropped it in
+ * objectui#10900 (标识, identifier), so zh had nothing to follow — the same
+ * one-pack-already-right shape as `search.placeholder` above.
  */
-const WAIVER_CEILING = 5;
+const WAIVER_CEILING = 6;
 
 describe('the shipped ledger', () => {
   const ledger = readLedger(repoRoot);

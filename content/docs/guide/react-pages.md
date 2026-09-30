@@ -39,7 +39,7 @@ another, custom data fetching. It runs **without a sandbox**.
   "type": "home",
   "name": "project_console",
   "kind": "react",
-  "source": "function Page() {\n  const [selected, setSelected] = React.useState(null);\n  return (\n    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>\n      <ListView objectName=\"showcase_project\" fields={['name', 'status']} onRowClick={(r) => setSelected(r._id)} />\n      {selected && <ObjectForm objectName=\"showcase_project\" mode=\"edit\" recordId={selected} />}\n    </div>\n  );\n}"
+  "source": "function Page() {\n  const [selected, setSelected] = React.useState(null);\n  return (\n    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>\n      <ListView data={{ provider: 'object', object: 'showcase_project' }} fields={['name', 'status']} onRowClick={(r) => setSelected(r._id)} />\n      {selected && <ObjectForm objectName=\"showcase_project\" mode=\"edit\" recordId={selected} />}\n    </div>\n  );\n}"
 }
 ```
 
@@ -51,7 +51,7 @@ function Page() {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
       <ListView
-        objectName="showcase_project"
+        data={{ provider: 'object', object: 'showcase_project' }}
         fields={['name', 'status']}
         onRowClick={(r) => setSelected(r._id)}
       />
@@ -83,6 +83,7 @@ Nothing is imported. These identifiers are injected as closure variables:
 | The public data blocks | Every public non-container block, as a PascalCase tag *on this tier* — but *what resolves* and *what you author against* are two different sets, below. |
 | `Block` | Escape hatch for anything not injected. |
 | `useAdapter` | The live data source — query/create/update. |
+| `useDataInvalidation` | The data-invalidation bus reader: `useDataInvalidation('object')` returns a number that moves when a write to that object is reported. Name it in the dependencies of an effect that reads through `useAdapter` — see *Live data*, below. |
 | `data`, `variables`, `page` | The page's own data, local variables, and schema. |
 
 #### Two tiers: what resolves, and what you author against
@@ -93,7 +94,10 @@ derived by splitting the registry type on `-`, `_` and `:` and PascalCasing each
 part: `object-grid` → `<ObjectGrid>`, `record:details` → `<RecordDetails>`. A
 `kind:'html'` page writes the registry type itself instead — `<object-grid>`,
 `<record:details>`. Blocks registered lazily are in scope too — you never wait
-on a plugin chunk to reference one.
+on a plugin chunk to reference one. The intrinsic HTML elements the `html` tier
+declares (`h1`, `p`, `a`, the sectioning tags, … — `HTML_TIER_INTRINSICS`, carried
+in `sdui.manifest.json` as `tier: 'html'`) are **not** injected here: on this tier
+a lowercase `<p>` is React's own element, and no `<P>` wrapper exists.
 
 **The authored contract** is the much smaller set that has *published props* —
 checked by `os validate` and generated into the reference an author, human or AI,
@@ -105,7 +109,7 @@ repo. **Treat that table as the prop authority, not this page.**
 Everything in the runtime scope but outside the contract still resolves and
 renders — its props simply are not part of the react-tier contract. Reach those
 through the contract instead: a kanban / calendar / gantt / timeline / map of an
-object is `<ListView viewType="kanban" …>`, or `<Block type="object-kanban" …>`.
+object is `<ListView type="kanban" …>`, or `<Block type="object-kanban" …>`.
 
 #### The `record:*` family is excluded from this tier
 
@@ -131,17 +135,26 @@ the same way. On a react page, bind the record yourself:
 |---|---|
 | `<RecordDetails>` | `<ObjectForm objectName="…" mode="view" recordId={…} fields={[…]} />` — it binds by its own props. |
 | `<RecordHighlights>` | `<ObjectForm … mode="view" />`, or read the record with `useAdapter().findOne` and lay the strip out in JSX. |
-| `<RecordRelatedList>` | `<ListView objectName="child_object" filters={['lookup_field', '=', parentId]} />` — the parent binding is an ordinary filter here. |
+| `<RecordRelatedList>` | `<ListView data={{ provider: 'object', object: 'child_object' }} filters={['lookup_field', '=', parentId]} />` — the parent binding is an ordinary filter here. |
 | `<RecordPath>` | Read the record with `useAdapter().findOne` and render the stage bar in JSX. |
 
 If you want the whole record-page composition, author the page as `type:'record'`
 instead — that is the page kind that mounts the context these blocks render from.
 
 **Layout containers are deliberately not injected.** The scope builder skips
-every container (`if (!tag || cfg.isContainer) continue;`), so `<flex>`, `<grid>`,
+every container and every html-tier entry
+(`if (!tag || cfg.isContainer || cfg.tier === 'html') continue;`), so `<flex>`, `<grid>`,
 `<card>` and friends have no injected wrapper. In react mode you compose layout
 with real HTML, which React is better at than a schema-children renderer — styled
 inline, not with Tailwind: `<div style={{ display: 'flex', gap: 16 }}>`.
+
+`isContainer` means exactly this: *layout containment*, the reason a block is
+kept out of the JSX scope. It does not mean "accepts children". Whether a block
+renders an authored child list is declared on its registration as
+`{ name: 'children', type: 'slot' }` in `inputs`, and that declaration is what
+the html tier's `not-a-container` diagnostic reads — so `<Button>` and `<Badge>`
+stay injected here (they are not layout) while still accepting `children` on the
+html tier.
 
 ### Styling — page source is metadata, not build input
 
@@ -196,7 +209,7 @@ An injected block folds its JSX props into the block's schema, so you write
 flat props rather than a nested `schema` object:
 
 ```jsx
-<ListView objectName="showcase_project" fields={['name', 'status']} pagination={{ pageSize: 25 }} />
+<ListView data={{ provider: 'object', object: 'showcase_project' }} fields={['name', 'status']} pagination={{ pageSize: 25 }} />
 ```
 
 Use the **canonical** spelling of each prop — the one the contract publishes.
@@ -226,19 +239,26 @@ Any registered component, including ones outside the public contract:
 ```jsx
 function Page() {
   const adapter = useAdapter();
+  const changed = useDataInvalidation('showcase_project');
   const [rows, setRows] = React.useState([]);
 
   React.useEffect(() => {
     adapter
       .find('showcase_project', { $filter: ['status', '=', 'open'] })
       .then((res) => setRows(res.data ?? []));
-  }, [adapter]);
+  }, [adapter, changed]);
 
   return <ul>{rows.map((r) => <li key={r._id}>{r.name}</li>)}</ul>;
 }
 ```
 
-Two things in that call are easy to get wrong, and neither one errors:
+`changed` is in the dependency array so the page's own read follows the data:
+the nonce moves each time the data-invalidation bus reports a write to
+`showcase_project` (the same bus `<ListView>` refreshes from), and the effect
+reads again in place, without remounting the page, so the page keeps its own
+state.
+
+Two things in the `find` call are easy to get wrong, and neither one errors:
 
 **The `$` prefixes are load-bearing.** Every query key starts with `$` —
 `$select`, `$filter`, `$orderby`, `$skip`, `$top`, `$expand`, `$search`,
@@ -326,6 +346,9 @@ convention and are not registered names (`<ListView>` is rejected with
 `<ListView> is not an allowed component`), and neither is a name re-spelled to
 look uniform — `<record:related-list>` is not registered, only
 `<record:related_list>` is.
+
+The plain wrapper on this tier is `<box>`. `<div>` is deprecated here as it is in
+JSON, and the page is refused at compile time with an error that names `box`.
 
 Use it for anything author- or AI-generated. Expressions are limited to what the
 schema supports (`${data.x}`), and there is no local state or event handling

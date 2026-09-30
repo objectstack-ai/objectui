@@ -61,7 +61,7 @@ export {
 // `PUBLIC_BLOCKS`), and it used to publish only `columns`/`gap`/`className`
 // while `DashboardRenderer` honoured far more, so `validateTree` warned
 // authors off keys that work — `widgets` included, the very key the
-// objectui#5709 unconsumed-options warning descends into. The keys below are
+// `8d58f46b4` unconsumed-options warning descends into. The keys below are
 // the per-key triage (#4668 / #5091 class), each declared because BOTH hold:
 // the renderer reads it AND `@objectstack/spec`'s strict `DashboardSchema`
 // accepts it, so the manifest never offers a key the save gate refuses.
@@ -70,7 +70,7 @@ export {
 // `__tests__/dashboardAuthoredInputs.test.tsx`:
 //   - `title`  — legacy spelling of `label`; the spec rejects it by name.
 //     The `schema.title || schema.label` read STAYS (documents in the wild).
-//   - `aria`   — spec tombstone (#3896 audit close-out): no dashboard
+//   - `aria`   — spec tombstone (objectstack-ai/objectstack#3896 audit close-out): no dashboard
 //     renderer ever applied it, and this package has no read site either.
 //
 // `name` is honoured too (the `schema.name` read keys the
@@ -232,11 +232,36 @@ ComponentRegistry.register(
     category: 'Dashboard',
     inputs: [
         { name: 'objectName', type: 'string', required: true },
-        { name: 'label', type: 'string' },
+        // The row's three `I18nLabel` members (`ComponentPropsMap['object-metric']`):
+        // `label`, `description` and `title`. `MetricWidget` resolves `label` and
+        // `description` with `pickLocalized` against the active UI language, and
+        // `ObjectMetricWidget` resolves `title` (and `label` as its fallback) the
+        // same way for the drill-down panel's heading. So both arms are declared,
+        // as `ComponentInput.type` prescribes for a key whose render site resolves
+        // the map: a `'string'`-only declaration made the manifest gate report
+        // `type-mismatch` on a legal map (objectui#10993). The render is pinned by
+        // `ObjectMetric.i18nLabel-10993.test.tsx`, the manifest by the console's
+        // `i18nLabelInputsManifest-10993.test.ts`.
+        {
+          name: 'label',
+          type: ['string', 'object'],
+          description:
+            'Heading of the tile, and of the drill-down panel when `title` is not set. Accepts either a plain string or an inline per-locale map (`{ en: "Pipeline", "zh-CN": "销售管道" }`) — the `I18nLabel` union the contract admits on this key — and the tile resolves the map against the active UI language, falling back through base language, a region-qualified sibling, `default`, then `en`, and finally to any remaining entry.',
+        },
         { name: 'aggregate', type: 'object', description: 'Aggregation config: { field, function, groupBy }' },
         { name: 'icon', type: 'string' },
-        { name: 'description', type: 'string', description: 'Helper text rendered under the value.' },
-        { name: 'title', type: 'string', description: 'Heading of the drill-down panel. Defaults to `label` — set it only when the records list wants a different name from the tile.' },
+        {
+          name: 'description',
+          type: ['string', 'object'],
+          description:
+            'Helper text rendered under the value. Accepts either a plain string or an inline per-locale map (`{ en: "This quarter", "zh-CN": "本季度" }`), resolved against the active UI language with the same fallback chain as `label`.',
+        },
+        {
+          name: 'title',
+          type: ['string', 'object'],
+          description:
+            'Heading of the drill-down panel. Defaults to `label` — set it only when the records list wants a different name from the tile. Accepts either a plain string or an inline per-locale map (`{ en: "Open deals", "zh-CN": "进行中的商机" }`), resolved against the active UI language with the same fallback chain as `label`.',
+        },
         { name: 'filter', type: 'array', description: 'Criteria the aggregation is scoped by. The same filter narrows the drill-down list, so the number and the records behind it always agree.' },
         { name: 'colorVariant', type: 'enum', enum: ['default', 'blue', 'teal', 'orange', 'purple', 'success', 'warning', 'danger'], description: 'Colour of the icon container. Semantic, not decorative: `success` / `warning` / `danger` should track what the number means.' },
         { name: 'variant', type: 'enum', enum: ['card', 'bare'], description: '`card` draws the tile’s own surface; `bare` drops it, for a metric already sitting inside a card.' },
@@ -248,7 +273,7 @@ ComponentRegistry.register(
         { name: 'fallbackValue', type: 'string', description: 'Value shown when no data source resolves. For static/demo tiles; a bound metric should not need it.' },
         { name: 'trend', type: 'object', description: 'Static trend badge: `{ value, label, direction }`. Use `compareTo` instead when the trend should be computed from data.' },
         { name: 'compareTo', type: 'object', description: 'Period-over-period comparison, `{ kind: "previousPeriod" }` or `{ kind: "previousYear" }` — the computed alternative to a static `trend`.' },
-        { name: 'drillDown', type: 'object', description: 'Click-through config that opens the records behind the number.' },
+        { name: 'drillDown', type: 'object', description: 'Click-through config that opens the records behind the number. `drillDown.filter` and `drillDown.mode` do not apply to a metric, which has no clicked point to filter by and no row to open, so the list is always scoped by this block’s own `filter`; a drill `filter` belongs on `object-chart` or `object-pivot`, and `mode` on `object-data-table`.' },
     ],
     defaultProps: {
       label: 'Metric',

@@ -89,8 +89,6 @@ const OBJECT_ARM_TYPES = [
   'view:grid',
   'object-map',
   'plugin-map:object-map',
-  'view:map',
-  'map',
   'object-gantt',
   'plugin-gantt:object-gantt',
 ] as const;

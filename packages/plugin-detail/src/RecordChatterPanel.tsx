@@ -13,6 +13,7 @@ import type { RecordChatterComponentProps, FeedItem, RecordSubscription } from '
 import { RecordActivityTimeline } from './RecordActivityTimeline';
 import type { FeedFilterMode } from './RecordActivityTimeline';
 import { useDetailTranslation } from './useDetailTranslation';
+import { useRecordAriaProps } from './renderers/recordComponentAria';
 
 export interface RecordChatterPanelProps {
   /** Chatter panel configuration from RecordChatterComponentProps */
@@ -91,6 +92,22 @@ export const RecordChatterPanel: React.FC<RecordChatterPanelProps> = ({
 
   const { t } = useDetailTranslation();
   const [collapsed, setCollapsed] = React.useState(defaultCollapsed);
+  /**
+   * The feed's own `aria` bag (objectui#11083). The spec declares `feed` as
+   * the `record:activity` shape (`RecordActivityProps`), `aria` included, and
+   * nothing read `feed.aria`, so a declared accessible name for the feed
+   * reached no element. It is read the way `record:activity` reads its own
+   * bag: through `useRecordAriaProps` (which maps it with the shared
+   * `resolveInlineAriaProps`), onto a `div` around the timeline, as
+   * `record-activity.tsx` puts its bag on the `div` around its timeline. The
+   * block family's defaults come with it: no role while nothing is authored,
+   * and `region` to carry an authored name.
+   *
+   * The `div` is always rendered, in both layouts, so the timeline (and a
+   * half-typed comment in its composer) is never remounted when the bag
+   * resolves differently. With nothing authored it carries no attribute.
+   */
+  const feedAria = useRecordAriaProps(config?.feed?.aria);
 
   const isSidebar = position === 'right' || position === 'left';
   const isInline = position === 'bottom';
@@ -149,26 +166,28 @@ export const RecordChatterPanel: React.FC<RecordChatterPanelProps> = ({
 
         {/* Embedded Timeline */}
         <div className="flex-1 overflow-y-auto">
-          <RecordActivityTimeline
-            items={items}
-            config={config?.feed}
-            hasMore={hasMore}
-            onLoadMore={onLoadMore}
-            loading={loading}
-            onAddComment={onAddComment}
-            onAddReply={onAddReply}
-            onToggleReaction={onToggleReaction}
-            subscription={subscription}
-            onToggleSubscription={onToggleSubscription}
-            filterMode={filterMode}
-            onFilterChange={onFilterChange}
-            collapseWhenEmpty={collapseWhenEmpty}
-            mentionSuggestions={mentionSuggestions}
-            onUploadAttachments={onUploadAttachments}
-            titleLabel={t('detail.discussion')}
-            emptyLabel={t('detail.noCommentsYet')}
-            className="border-0 shadow-none"
-          />
+          <div {...feedAria}>
+            <RecordActivityTimeline
+              items={items}
+              config={config?.feed}
+              hasMore={hasMore}
+              onLoadMore={onLoadMore}
+              loading={loading}
+              onAddComment={onAddComment}
+              onAddReply={onAddReply}
+              onToggleReaction={onToggleReaction}
+              subscription={subscription}
+              onToggleSubscription={onToggleSubscription}
+              filterMode={filterMode}
+              onFilterChange={onFilterChange}
+              collapseWhenEmpty={collapseWhenEmpty}
+              mentionSuggestions={mentionSuggestions}
+              onUploadAttachments={onUploadAttachments}
+              titleLabel={t('detail.discussion')}
+              emptyLabel={t('detail.noCommentsYet')}
+              className="border-0 shadow-none"
+            />
+          </div>
         </div>
       </div>
     );
@@ -206,25 +225,27 @@ export const RecordChatterPanel: React.FC<RecordChatterPanelProps> = ({
               </Button>
             </div>
           )}
-          <RecordActivityTimeline
-            items={items}
-            config={config?.feed}
-            hasMore={hasMore}
-            onLoadMore={onLoadMore}
-            loading={loading}
-            onAddComment={onAddComment}
-            onAddReply={onAddReply}
-            onToggleReaction={onToggleReaction}
-            subscription={subscription}
-            onToggleSubscription={onToggleSubscription}
-            filterMode={filterMode}
-            onFilterChange={onFilterChange}
-            collapseWhenEmpty={collapseWhenEmpty}
-            mentionSuggestions={mentionSuggestions}
-            onUploadAttachments={onUploadAttachments}
-            titleLabel={t('detail.discussion')}
-            emptyLabel={t('detail.noCommentsYet')}
-          />
+          <div {...feedAria}>
+            <RecordActivityTimeline
+              items={items}
+              config={config?.feed}
+              hasMore={hasMore}
+              onLoadMore={onLoadMore}
+              loading={loading}
+              onAddComment={onAddComment}
+              onAddReply={onAddReply}
+              onToggleReaction={onToggleReaction}
+              subscription={subscription}
+              onToggleSubscription={onToggleSubscription}
+              filterMode={filterMode}
+              onFilterChange={onFilterChange}
+              collapseWhenEmpty={collapseWhenEmpty}
+              mentionSuggestions={mentionSuggestions}
+              onUploadAttachments={onUploadAttachments}
+              titleLabel={t('detail.discussion')}
+              emptyLabel={t('detail.noCommentsYet')}
+            />
+          </div>
         </div>
       )}
     </div>

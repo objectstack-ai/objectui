@@ -14,6 +14,12 @@ calendars take. With both omitted, `resolveOverlayWidth` returns `undefined` and
 `RecordDetailDrawer`'s own `width` default supplies the identical
 `min(960px, 60vw)`.
 
+⚠️ **Dated note, 2026-09-29 — the card in the quoted deprecation tag is objectstack's — objectui#11016.** The paragraph
+above quotes the spec's deprecation tag for `width`, whose bare number resolves
+in this repository to an unrelated objectui item. It is
+objectstack-ai/objectstack#2578, the spec card behind the `size` bucket that
+replaces `width`. The text above is kept as the reading of this change.
+
 The resolved overlay width is therefore unchanged on every viewport, for both a
 board/calendar that declares no `navigation` and one that authors
 `navigation.width` — each is now pinned by a test. The three renderers agree

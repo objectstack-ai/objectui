@@ -52,7 +52,8 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SchemaRendererProvider, SchemaRenderer, NON_GRID_ROW_CEILING_TOP } from '@object-ui/react';
+import { SchemaRendererProvider, SchemaRenderer } from '@object-ui/react';
+import { nonGridRowCeilingQuery } from '@object-ui/core';
 import './index';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
@@ -158,7 +159,7 @@ describe('objectui#7210 — object-gantt ignores a host `data` prop', () => {
       // Not `pagination.pageSize` (2), and not absent either: the platform
       // ceiling, one probe row wide so the cut is detectable.
       expect(params.$top).not.toBe(2);
-      expect(params.$top).toBe(NON_GRID_ROW_CEILING_TOP);
+      expect(params.$top).toBe(nonGridRowCeilingQuery().$top);
       expect(params.$skip).toBeUndefined();
     }
   });

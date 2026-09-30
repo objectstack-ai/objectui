@@ -54,11 +54,29 @@
  * `SchemaForm` prefers a declared `fields` array over the schema-derived one.
  * Enumerate ALL of a composite's children or none — naming two of three makes
  * the third disappear from the form.
+ *
+ * ## The source label travels with the translation (objectui#8231)
+ *
+ * `SchemaForm`'s machine-name chip answers "the label does not already spell
+ * the machine name". That is a question about the field's SOURCE label — the
+ * English the spec authored, or its absence — and never about the translated
+ * text in front of the reader: `prettify('columns')` can never equal 「列数」, so
+ * judging the visible label showed the chip beside every field of a localized
+ * panel and hid it beside the same fields in English.
+ *
+ * Replacing `label` in place is what destroyed that source, so before the spec
+ * resolver runs, every field object this overlay hands on is stamped with the
+ * label it arrived with, under a module-private symbol. The resolver copies
+ * fields with object spread, which carries own symbol keys, so the stamp rides
+ * through to `SchemaForm`, which reads it back with `untranslatedFieldLabel`.
+ * The symbol, its writer and its reader live in the runtime-import-free leaf
+ * `./field-source-label.ts`, whose header says what the stamp is and is not.
  */
 
 import { resolveMetadataFormLabels } from '@objectstack/spec/system';
 import type { TranslationBundle } from '@objectstack/spec/system';
 import { isZhLocale, type SupportedLocale } from './i18n.js';
+import { hasSourceLabel, stampSourceLabel } from './field-source-label.js';
 
 /**
  * zh-CN strings for the spec authoring forms this console renders.
@@ -128,7 +146,63 @@ export function localizeMetadataForm<T extends Record<string, unknown>>(
   if (!form) return form;
   const target = bundleLocale(locale);
   if (!target) return form;
-  return resolveMetadataFormLabels(form, type, METADATA_FORM_BUNDLE, { locale: target });
+  if (!METADATA_FORM_BUNDLE[target]?.metadataForms?.[type]) return form;
+  const resolved = resolveMetadataFormLabels(withSourceLabels(form), type, METADATA_FORM_BUNDLE, {
+    locale: target,
+  });
+  return stampSynthesized(resolved);
+}
+
+type Stamped = Record<PropertyKey, unknown>;
+
+/** Copy `field` (and its declared sub-fields) with its incoming label stamped. */
+function stampField(field: unknown): unknown {
+  if (!field || typeof field !== 'object') return field;
+  const src = field as Stamped;
+  const next: Stamped = { ...src };
+  stampSourceLabel(next, typeof src.label === 'string' ? src.label : undefined);
+  if (Array.isArray(src.fields)) next.fields = src.fields.map(stampField);
+  return next;
+}
+
+/** Copy `form` with every field of every section/group stamped. Never mutates. */
+function withSourceLabels<T extends Record<string, unknown>>(form: T): T {
+  const stampSection = (section: unknown): unknown => {
+    if (!section || typeof section !== 'object') return section;
+    const s = section as Stamped;
+    return Array.isArray(s.fields) ? { ...s, fields: s.fields.map(stampField) } : s;
+  };
+  const next: Stamped = { ...form };
+  if (Array.isArray(form.sections)) next.sections = form.sections.map(stampSection);
+  if (Array.isArray(form.groups)) next.groups = form.groups.map(stampSection);
+  return next as T;
+}
+
+/**
+ * Stamp the fields the resolver SYNTHESIZED (the bundle-enumerated children of
+ * a `composite` / `repeater` / `record`, built fresh from `{ field }`). Every
+ * field that arrived was stamped by {@link withSourceLabels} and the resolver's
+ * spread kept it, so an unstamped field here was never authored: its source
+ * label is `undefined` and its `label` is a translation. Mutates only objects
+ * the resolver just created.
+ */
+function stampSynthesized<T>(form: T): T {
+  const visit = (field: unknown): void => {
+    if (!field || typeof field !== 'object') return;
+    const f = field as Stamped;
+    if (!hasSourceLabel(f)) stampSourceLabel(f, undefined);
+    if (Array.isArray(f.fields)) f.fields.forEach(visit);
+  };
+  const root = form as Stamped | undefined;
+  for (const key of ['sections', 'groups'] as const) {
+    const list = root?.[key];
+    if (!Array.isArray(list)) continue;
+    for (const section of list) {
+      const fields = (section as Stamped | undefined)?.fields;
+      if (Array.isArray(fields)) fields.forEach(visit);
+    }
+  }
+  return form;
 }
 
 /** Whether this overlay carries anything for `type` at `locale`. Exported for tests. */

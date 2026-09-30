@@ -3,9 +3,9 @@
 ---
 
 `'agenda'` leaves `defaultView` on all three of its declaration faces
-(objectui#5784 — the `defaultView` sibling of objectui#5740's retirement on
+(the `defaultView` sibling of `b55a34647`'s retirement on
 `CalendarViewSchema.view`; ADR-0049 enforce-or-remove): the
-`ObjectCalendarSchema` TS interface (an inline union `#5740`'s
+`ObjectCalendarSchema` TS interface (an inline union `b55a34647`'s
 `CalendarViewMode` narrowing could not reach), the zod `ObjectCalendarSchema`,
 and the list-view `calendar` config's objectui-only `defaultView` extension.
 All three are now `['month', 'week', 'day']`.
@@ -18,7 +18,7 @@ writing the type-legal, zod-valid `defaultView: 'agenda'` on an
 calendar with no error or warning. The spec side already agrees:
 `@objectstack/spec`'s `ObjectCalendarProps.defaultView` is
 `['month', 'week', 'day']`. No in-repo, example, or catalog app authors
-`defaultView: 'agenda'` (measured for objectui#5784 with positive controls,
+`defaultView: 'agenda'` (measured with positive controls,
 including the objectstack tree — its only `agenda` token is the Agenda
 job-scheduler library).
 

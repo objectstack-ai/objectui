@@ -20,6 +20,14 @@ export function TextField({ value, onChange, field, readonly, error, ...props }:
 
   const domProps = toDomProps(props);
 
+  // Spec FieldSchema declares camelCase `maxLength` (objectui#10179). Read the
+  // way `TextAreaField` reads it — a narrow structural read, because the
+  // objectui metadata type does not declare the spec spelling — and put it on
+  // whichever element renders below. `toDomProps` forwards no `maxLength`, so
+  // this read is the only way a declared ceiling reaches the input. (No legacy
+  // `max_length` fallback: this widget never read that spelling.)
+  const maxLength = (fieldData as { maxLength?: number } | undefined)?.maxLength;
+
   /**
    * `aria-invalid` is written AFTER the DOM spread in both branches below, the
    * objectui#3222 idiom the other readers already share (`SelectField`,
@@ -34,7 +42,7 @@ export function TextField({ value, onChange, field, readonly, error, ...props }:
    * through the spread untouched. Every OTHER host of this widget was not:
    * `FieldEditWidget` renders no Slot, so the kanban required-fields dialog and
    * the grid / detail inline editors hand the state over as the declared
-   * `error` prop (delivered since objectui#7008) and nothing read it — the red
+   * `error` prop (delivered since `f08bcd9af`) and nothing read it — the red
    * "Required" hint was on screen while assistive tech was told nothing.
    *
    * MARKING only. The message TEXT stays with the host (`<FormMessage/>` in the
@@ -48,6 +56,7 @@ export function TextField({ value, onChange, field, readonly, error, ...props }:
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={fieldData?.placeholder}
+        maxLength={maxLength}
         disabled={readonly || domProps.disabled}
         aria-invalid={!!error}
       />
@@ -61,6 +70,7 @@ export function TextField({ value, onChange, field, readonly, error, ...props }:
       value={value || ''}
       onChange={(e) => onChange(e.target.value)}
       placeholder={fieldData?.placeholder}
+      maxLength={maxLength}
       disabled={readonly || domProps.disabled}
       aria-invalid={!!error}
     />

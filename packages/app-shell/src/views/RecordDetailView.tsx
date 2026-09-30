@@ -3,7 +3,7 @@
  *
  * Renders a detail view for a single record, resolved by URL params.
  * Renders via the SchemaRenderer Page pipeline: an authored
- * PageSchema(pageType='record') when one is assigned, else a canonical
+ * PageSchema(type='record') when one is assigned, else a canonical
  * default page synthesized from the object definition
  * (`buildDefaultPageSchema`).
  */
@@ -14,8 +14,9 @@ import { activityRowToFeedItem, InlineEditSaveBar, buildDefaultPageSchema, deriv
 import { Empty, EmptyTitle, EmptyDescription } from '@object-ui/components';
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate } from '@object-ui/react';
-import { buildExpandFields, resolveRecordIdParamSeed, userActionPredicates } from '@object-ui/core';
+import { buildExpandFields, captureUpdateUndoData, resolveRecordIdParamSeed, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
 import { toast } from 'sonner';
 import { useRecordPresence, PresenceAvatars } from '@object-ui/collaboration';
 import { Database, ChevronLeft } from 'lucide-react';
@@ -29,19 +30,21 @@ import { ActionConfirmDialog, type ConfirmDialogState } from './ActionConfirmDia
 import { ActionParamDialog, type ParamDialogState } from './ActionParamDialog.js';
 import { ActionResultDialog, type ResultDialogState } from './ActionResultDialog.js';
 import { FlowRunner, type ScreenFlowState, type ScreenSpec } from './FlowRunner.js';
+import { FlowRefusalNotice, type FlowRefusalState } from './FlowRefusalNotice.js';
 import { RelatedRecordActionsBridge } from './RelatedRecordActionsBridge.js';
 import { withPageTabsUrlSync } from '../utils/pageTabsUrlSync.js';
 import { RECORD_DETAIL_TAB_PARAM, RECORD_TRAIL_PARAM, decodeRecordTrail, buildRecordTrailHref } from '../urlParams.js';
 import { resolveActionParams } from '../utils/resolveActionParams.js';
 import { createConsoleServerActionHandler } from '../utils/consoleServerAction.js';
 import { modalTargetRefusalMessage } from '../utils/modalTargetDiagnostics.js';
-import { interpretFlowResponse } from '../utils/flowResponse.js';
+import { actionContextOrg } from '../utils/actionContextOrg.js';
+import { interpretFlowResponse, judgeFlowLaunch } from '../utils/flowResponse.js';
 import { useRecordBreadcrumbTitle } from '../context/NavigationContext.js';
 // Audit provenance renders as the one-line <RecordMetaFooter>; the other
 // framework-injected bookkeeping columns are hidden from the body outright.
 // Both sets are derived, not restated — see record-detail-system-fields.ts.
 import { AUDIT_FIELD_NAMES, HIDDEN_SYSTEM_FIELD_NAMES } from './record-detail-system-fields.js';
-import type { FeedItem } from '@object-ui/types';
+import type { FeedItem, Reaction } from '@object-ui/types';
 import type { ActionDef, ActionParamDef, ConfirmationHandler } from '@object-ui/core';
 import type { ConsoleActionDispatch } from '../consoleActionDispatch.js';
 import { useRecordApprovals, recordLockedByApproval, isSubmitterOf } from '../hooks/useRecordApprovals.js';
@@ -206,11 +209,84 @@ function mergeFeedRows(prev: readonly FeedItem[], incoming: readonly FeedItem[])
 }
 
 /**
+ * The user ids a feed row's reaction holds in `sys_comment.reactions`. Every
+ * reaction on a row carries them: the read keeps each emoji's stored list as
+ * `userIds`, and a toggle keeps it. A reaction without them is refused, never
+ * written as a list made up from its count, because such a list replaces the
+ * stored id of every other user who gave that emoji (objectui#11019).
+ */
+function storedUserIds(reaction: Reaction): string[] {
+  if (!Array.isArray(reaction.userIds)) {
+    throw new Error(`The ${reaction.emoji} reaction carries no stored user ids, so it cannot be written.`);
+  }
+  return reaction.userIds;
+}
+
+/**
+ * A feed row's reactions with `userId`'s `emoji` reaction toggled: their id is
+ * added to that emoji's stored ids when they have not given it, and taken out
+ * when they have. Every other id, on that emoji and on every other emoji, is
+ * kept as stored, and an emoji left with no ids is dropped, the way the read
+ * shows an emoji the stored map does not carry. Pure (it returns a new array
+ * and never touches `reactions`) because it runs in the click handler and its
+ * result goes both on screen and into the write.
+ */
+function toggleOwnReaction(
+  reactions: readonly Reaction[] | undefined,
+  emoji: string,
+  userId: string,
+): Reaction[] {
+  const next = [...(reactions ?? [])];
+  const idx = next.findIndex(r => r.emoji === emoji);
+  if (idx < 0) {
+    next.push({ emoji, count: 1, reacted: true, userIds: [userId] });
+    return next;
+  }
+  const ids = storedUserIds(next[idx]);
+  const userIds = ids.includes(userId) ? ids.filter(id => id !== userId) : [...ids, userId];
+  if (userIds.length === 0) {
+    next.splice(idx, 1);
+  } else {
+    next[idx] = { ...next[idx], count: userIds.length, reacted: userIds.includes(userId), userIds };
+  }
+  return next;
+}
+
+/**
+ * The stored `sys_comment.reactions` shape, `{ emoji: userIds[] }`, of a feed
+ * row's reactions: each emoji's stored ids, as the read kept them and the
+ * toggle changed them. Two people reacting at the same moment still means the
+ * later write wins; this only stops a write from rebuilding the lists.
+ */
+function storedReactions(reactions: readonly Reaction[]): Record<string, string[]> {
+  const stored: Record<string, string[]> = {};
+  for (const r of reactions) stored[r.emoji] = storedUserIds(r);
+  return stored;
+}
+
+/**
+ * One reaction click on a feed row: the reaction set it put on screen, which
+ * is the set its write stores, and how that write went.
+ */
+interface ReactionStep {
+  reactions: FeedItem['reactions'];
+  outcome: 'stored' | 'pending' | 'failed';
+}
+
+/** A feed row's reaction clicks whose writes have not all answered yet. */
+interface ReactionLedger {
+  /** Oldest first. `steps[0]` is always `stored`: the set the server holds for certain. */
+  steps: ReactionStep[];
+  /** The set this ledger last put on the row. */
+  shown: FeedItem['reactions'];
+}
+
+/**
  * Which system record-header affordances the record page may offer for this
  * object — the primary `sys_edit` CTA (which also gates the record-body
  * inline-edit session) and the `sys_delete` overflow item.
  *
- * [#3546] Each bit is the object's resolved CRUD affordance (lifecycle bucket +
+ * [objectstack#3546] Each bit is the object's resolved CRUD affordance (lifecycle bucket +
  * `userActions`) INTERSECTED with the server-resolved effective API operation
  * set (`/me/permissions` `apiOperations`) — never a union. So a server grant can
  * never re-open an affordance the object's bucket closed, and a permissive
@@ -231,6 +307,34 @@ export function resolveRecordHeaderActionGates(
 ): { edit: boolean; delete: boolean } {
   const affordances = resolveEffectiveCrudAffordances(objectDef as any, effectiveApiOperations);
   return { edit: affordances.edit, delete: affordances.delete };
+}
+
+/** Gated copies of served rows, keyed on the served row object itself. */
+const READABLE_ROWS = new WeakMap<object, { kept: string; row: unknown }>();
+
+/**
+ * `withoutDeniedFields` from `@object-ui/core` (objectui#10594) — the record
+ * without the fields the loaded permission policy denies on `objectName`, for
+ * building the record's TITLE (objectui#10434) and for the row the record
+ * page's blocks read, `page:header`'s H1 among them (objectui#10499) — but the
+ * SAME gated object for the same served row and the same kept keys
+ * (objectui#10499). The record page hands this row to every block through
+ * `RecordContext`, so a new object on every render would reach every consumer
+ * as a changed record. The cache lives on the served row, a payload object,
+ * not on a memoised identity (AGENTS.md #10).
+ */
+function readableRow<T>(
+  record: T,
+  perms: Pick<ReturnType<typeof usePermissions>, 'isLoaded' | 'checkField'>,
+  objectName: string | undefined,
+): T {
+  const row = withoutDeniedFields(record, perms, objectName);
+  if (row === record || !record || typeof record !== 'object') return row;
+  const kept = JSON.stringify(Object.keys(row as object));
+  const cached = READABLE_ROWS.get(record as object);
+  if (cached && cached.kept === kept) return cached.row as T;
+  READABLE_ROWS.set(record as object, { kept, row });
+  return row;
 }
 
 export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverride, recordIdOverride, embedded }: RecordDetailViewProps) {
@@ -282,6 +386,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     };
   }, [originFromState, location.search, appName]);
   const { t, language } = useObjectTranslation();
+  // The DISPLAY locale the audit-history dates format with (objectui#10442).
+  // `language` above stays for what it is: the key into per-locale LABEL maps.
+  const displayLocale = useDisplayLocale();
   const { objectLabel, viewLabel: _vLabel, sectionLabel, actionParamText, actionParamOptionLabel, actionDescription, actionResultDialog, fieldLabel, fieldOptionLabel } = useObjectLabel();
   // label + confirmText + successMessage through ONE call (objectui#4265) —
   // the three keys of an `_actions.<name>` bundle entry can no longer be
@@ -298,6 +405,8 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   >([]);
   // Screen-flow runtime: a paused `screen`-node flow launched from a record action.
   const [screenFlow, setScreenFlow] = useState<ScreenFlowState | null>(null);
+  // A record-action flow launch that ended `refused` without pausing (objectui#9973).
+  const [flowRefusal, setFlowRefusal] = useState<FlowRefusalState>({ open: false });
   const [historyEntries, setHistoryEntries] = useState<any[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [recordTitle, setRecordTitle] = useState<string | undefined>();
@@ -366,7 +475,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   }, [favoriteRecord, toggleFavorite]);
 
   // ─── Page Assignment (Salesforce Lightning-style record Pages) ──────
-  // If a PageSchema(pageType='record') is authored for this object, render
+  // If a PageSchema(type='record') is authored for this object, render
   // it via SchemaRenderer (which dispatches to the registered 'record'
   // PageRenderer in @object-ui/components). Otherwise the no-assignedPage
   // branch synthesizes a canonical Page via `buildDefaultPageSchema(objectDef)`
@@ -495,16 +604,40 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     // record (or its object) is invalidated on the bus.
   }, [effectivePage, objectName, pureRecordId, dataSource, objectDef, recordInvalidationNonce, perms]);
 
-  // Derive a human-readable record title from the loaded `pageRecord` so
+  // The loaded record AS THE VIEWER MAY READ IT (objectui#10434,
+  // objectui#10499): `withoutDeniedFields` removes the fields the loaded
+  // policy denies on this object, `id` kept, which leaves the row
+  // ObjectStack's `FieldMasker` already serves. Two readers take it:
+  //
+  //   - the record title below (breadcrumb, favourite, "Recently Accessed");
+  //   - `RecordContext.data`, the row every block of the record page reads.
+  //     `page:header` builds the page H1 from it, and `@object-ui/components`
+  //     has no permission source of its own, so this hand-off is where its
+  //     title ladder gets gated (objectui#10499). On a backend that strips
+  //     denied fields the row is unchanged; on one that does not, every block
+  //     now reads a denied field exactly as an absent one, as it would on the
+  //     stripping backend.
+  //
+  // Before the policy loads (and with no provider mounted) nothing is removed,
+  // the objectui#10411 rule. When nothing is withheld the served object itself
+  // comes back. When something is, the gated copy is cached outside React on
+  // the served row (`readableRow`), NOT on a `useMemo` (AGENTS.md #10), so a
+  // re-render never republishes an equal row as a new object to the page.
+  const readablePageRecord = readableRow(pageRecord, perms, objectName);
+
+  // Derive a human-readable record title from the loaded record so
   // favourites (record:*) and the breadcrumb show e.g. "Acme Corporation"
-  // instead of the raw record id.
+  // instead of the raw record id. It reads `readablePageRecord` above, so a
+  // denied name pointer or `titleFormat` token reads as an absent one and the
+  // resolver falls through to its next rung (objectui#10434). When the policy
+  // arrives the readable row changes, which re-derives the title.
   useEffect(() => {
-    if (!pageRecord || typeof pageRecord !== 'object' || !objectDef) return;
-    const resolved = getRecordDisplayName(objectDef, pageRecord);
+    if (!readablePageRecord || typeof readablePageRecord !== 'object' || !objectDef) return;
+    const resolved = getRecordDisplayName(objectDef, readablePageRecord);
     if (resolved && resolved !== 'Untitled' && resolved !== recordTitle) {
       setRecordTitle(resolved);
     }
-  }, [pageRecord, objectDef, recordTitle]);
+  }, [readablePageRecord, objectDef, recordTitle]);
 
   // Once we have a human-readable title, (a) record this visit into the
   // "Recently Accessed" rail on the home page and (b) self-heal any
@@ -552,9 +685,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // with the real type — the same drift family as objectui#5610 / objectui#3320.
   //
   // `options` is inert ON THIS PATH and that is not a reason to narrow it. The
-  // handler is only ever handed to the runner as `onConfirm`, and the runner
-  // calls it with ONE argument (the structured `confirm` arm that forwarded a
-  // bag was retired, objectui#4314). The parameter is LIVE elsewhere:
+  // handler has two callers here and both pass ONE argument: the runner, which
+  // gets it as `onConfirm` (the structured `confirm` arm that forwarded a bag
+  // was retired, objectui#4314), and the header's `sys_delete` action below,
+  // which passes no bag either, exactly like the list view's delete
+  // (objectui#11001). The parameter is LIVE elsewhere:
   // `handleDeleteView` in `ObjectView.tsx` calls a `ConfirmationHandler`
   // directly with all three fields localized. One published type, two call
   // paths, one of which never fills the bag — settled KEEP, 2026-08-22 ruling
@@ -636,12 +771,14 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
 
   // Global undo/redo (Ctrl+Z), backed by the dataSource — the success toast's
   // "Undo" button (for `undoable` actions) restores the record's prior values.
+  // The confirmation it raises reads the session's language, as the button's
+  // own label does (objectui#11056).
   const undoCtl = useGlobalUndo({
     dataSource,
     onUndo: (op: any) => {
       if (op?.objectName) notifyDataChanged({ objectName: op.objectName, recordId: op.recordId });
       else notifyRecordChanged();
-      toast.success('Change undone');
+      toast.success(t('actions.undone'));
     },
   });
 
@@ -834,21 +971,56 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
             // values from the loaded record so the success toast can offer Undo.
             // Only this page's record has its prior values loaded, so child-row
             // updates skip undo capture.
+            //
+            // ⛔ A field the record does not CARRY is never captured as `null`
+            // (objectui#11082, the objectui#10404 rule). The snapshot is
+            // `@object-ui/core`'s `captureUpdateUndoData`, the one capture rule
+            // the runner and the console runtime also call. The page record is
+            // read with no column list, but the server deletes every field the
+            // reader may not read, so an action that writes such a field finds
+            // it absent here; `?? null` then made Undo write `null` over its
+            // stored value. A `null` the record carries is a real empty value
+            // and is captured as one. When any written field is not carried
+            // there is no Undo at all: the success toast then has no Undo button.
+            //
+            // ⛔ A relation is captured as its stored id (objectui#11122). The
+            // page record is read with `$expand` on every relation the reader
+            // may read, so it carries the related record where the server
+            // stores the id; copied verbatim, Undo wrote that record into the
+            // reference. The rule reads which fields are relations from this
+            // object's field definitions, the same ones that built `$expand`.
+            let undoMissing: string[] | undefined;
             if (action.undoable && isThisRecord && pageRecord) {
-              const undoData: Record<string, unknown> = {};
-              for (const k of Object.keys(params)) undoData[k] = (pageRecord as any)[k] ?? null;
-              undo = {
-                id: `undo-${targetObject}-${targetId}-${Date.now()}`,
-                type: 'update',
-                objectName: targetObject,
-                recordId: String(targetId),
-                timestamp: Date.now(),
-                description: action.label || `Undo ${targetObject}`,
-                undoData,
-                redoData: { ...params },
-              };
+              const record = pageRecord as Record<string, unknown>;
+              const written = Object.keys(params);
+              const objectFields = objectDef?.fields;
+              const undoData = captureUpdateUndoData(written, record, objectFields);
+              if (undoData) {
+                undo = {
+                  id: `undo-${targetObject}-${targetId}-${Date.now()}`,
+                  type: 'update',
+                  objectName: targetObject,
+                  recordId: String(targetId),
+                  timestamp: Date.now(),
+                  // objectui#11080 — the object, never an English verb: the Undo /
+                  // Redo toast supplies the verb from a pack key (see the runner's twin).
+                  description: action.label || targetObject,
+                  undoData,
+                  redoData: { ...params },
+                };
+              } else {
+                undoMissing = written.filter((k) => captureUpdateUndoData([k], record, objectFields) === undefined);
+              }
             }
             await dataSource.update(targetObject, String(targetId), params);
+            if (undoMissing) {
+              console.warn(
+                '[RecordDetailView] `undoable` action succeeded but offers no Undo: the record it ran on '
+                + 'does not carry every field it wrote, so their prior values are unknown and an Undo would '
+                + 'overwrite stored data. The record page carries a written field when the principal may read it.',
+                { action: action.name, missing: undoMissing },
+              );
+            }
           }
           break;
         }
@@ -866,7 +1038,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
-  }, [dataSource, objectName, pureRecordId, pageRecord, authFetch, activeOrganization]);
+  }, [dataSource, objectName, objectDef, pureRecordId, pageRecord, authFetch, activeOrganization]);
 
   // Client-side modal transport: `type:'modal'` actions open here (Dialog /
   // Sheet / Drawer by `placement`) and render arbitrary SchemaNode content.
@@ -909,30 +1081,31 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         },
       );
       const json = await res.json().catch(() => null);
-      // Single source for the flow-response rule — shared with
-      // useConsoleActionRuntime's copy of this handler and FlowRunner's resume.
-      // This copy checked only the transport envelope and then treated
-      // everything else as terminal success, so a run that failed on its first
-      // node fired a green toast (#2958); it also passed `json.error` through
-      // raw, and the nested `{code, message}` shape reaches `toast.error()` as
-      // a React child and crashes the page (React #31). See utils/flowResponse.
-      const outcome = interpretFlowResponse<ScreenSpec>(res, json, `Flow "${flowName}"`);
-      if (outcome.kind === 'failed') {
-        return { success: false, error: outcome.error };
+      // Single source for the flow-response rule AND for what a launch does
+      // with it — shared with useConsoleActionRuntime's copy of this handler
+      // (and the interpretation with FlowRunner's resume). This copy once
+      // checked only the transport envelope and treated everything else as
+      // terminal success, so a run that failed on its first node fired a green
+      // toast (#2958) and passed the nested `{code, message}` error through raw
+      // (React #31); later, a run that ended `refused` without pausing toasted
+      // the action's `successMessage` and refreshed while the refusal was never
+      // shown (objectui#9973). See utils/flowResponse.
+      const judged = judgeFlowLaunch(
+        interpretFlowResponse<ScreenSpec>(res, json, `Flow "${flowName}"`),
+        action.refreshAfter,
+      );
+      // Paused at a `screen` node: FlowRunner renders the form + resumes, and
+      // refreshes on completion.
+      if (judged.followUp?.kind === 'screen') {
+        setScreenFlow({ flowName, runId: judged.followUp.runId, screen: judged.followUp.screen });
       }
-      // Screen-flow runtime: the run paused at a `screen` node awaiting input —
-      // open the FlowRunner to render the form + resume (refresh on completion).
-      if (outcome.kind === 'paused') {
-        setScreenFlow({ flowName, runId: outcome.runId ?? '', screen: outcome.screen });
-        // The action only OPENED the wizard — it hasn't completed. Suppress the
-        // action-level success toast; the flow-runner owns completion messaging.
-        return { success: true, silent: true };
+      // Ended `refused`: the Close-only notice carries the engine's sentence,
+      // titled with the action the user clicked.
+      if (judged.followUp?.kind === 'refusal') {
+        setFlowRefusal({ open: true, title: action.label, message: judged.followUp.message });
       }
-      const shouldRefresh = action.refreshAfter !== false;
-      if (shouldRefresh) {
-        notifyRecordChanged();
-      }
-      return { success: true, data: outcome.data, reload: shouldRefresh };
+      if (judged.refresh) notifyRecordChanged();
+      return judged.result;
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
@@ -989,7 +1162,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
    * because a modal has no server dispatch — the fallthrough only converted an
    * authoring mistake (a target naming no page) into a confusing round-trip.
    * objectstack#3959 removed it from the shared runtime; this copy kept the
-   * pre-#3959 shape until objectui#3320. An unresolvable target is now
+   * pre-objectstack-ai/objectstack#3959 shape until objectui#3320. An unresolvable target is now
    * reported as what it is. To collect input and then run server-side, declare
    * `type: 'script'` with `params`: the runner collects the same dialog and
    * the handler runs with those values.
@@ -1075,7 +1248,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // whether their click closes the step. Server-computed; `first_response`
   // nodes carry none and the band then shows nothing extra.
   const approvalProgress = approvals.pendingRequest?.decision_progress;
-  // Who may RECALL the pending approval (objectui#6464). Recall is the
+  // Who may RECALL the pending approval (`830ed5803`). Recall is the
   // submitter's lever and the server refuses everyone else, so a non-submitter
   // reading a pending record was being offered a button whose click could only
   // fail. Same source order the approvals panel's Remind gate uses — one
@@ -1085,7 +1258,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // `undefined` when there is no pending request to consult: the band is then
   // running off the record's `approval_status` mirror alone (a backend with no
   // approvals API), the host has resolved no identity, and the DetailView keeps
-  // its pre-#6464 behaviour rather than hiding on absent information.
+  // its pre-`830ed5803` behaviour rather than hiding on absent information.
   //
   // This gates the AFFORDANCE only. `canEdit` / `approvalLocked` below are
   // untouched by it, and the recall endpoint authorizes the recall itself.
@@ -1129,7 +1302,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // standalone embed) the gate stays open — fail-open is safe because the
   // server enforces data access regardless; this is purely a UI/DX filter.
   const { can: canOnObject, isLoaded: permissionsLoaded, getObjectApiOperations, systemPermissions } = perms;
-  // [#3546] Server-resolved effective API operation set for this object
+  // [objectstack#3546] Server-resolved effective API operation set for this object
   // (`/me/permissions` `apiOperations`). Threaded as the 2nd arg into
   // `resolveRecordHeaderActionGates` for the detail header's Edit/Delete and
   // the record-body inline-edit gate, so the detail surface never offers an
@@ -1284,7 +1457,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     return objects.some((o: any) => o.name === 'sys_audit_log');
   }, [objectDef, objects]);
 
-  // ── Capability gates: enable.feeds / enable.activities (#2707) ─────
+  // ── Capability gates: enable.feeds / enable.activities (objectstack-ai/objectstack#2707) ─────
   // Both are opt-OUT capabilities (spec default `true`): absent enable
   // block/flag = on; only an explicit `false` disables. `feeds:false`
   // hides the discussion panel and skips the sys_comment fetch (the
@@ -1294,7 +1467,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // empty anyway — skipping keeps the network quiet).
   const feedsEnabled = objectDef?.enable?.feeds !== false;
   const activitiesEnabled = objectDef?.enable?.activities !== false;
-  // `enable.files` (#2727) is opt-IN (spec default `false`): the generic
+  // `enable.files` (objectstack-ai/objectstack#2727) is opt-IN (spec default `false`): the generic
   // Attachments panel is a new surface, so it only renders when the object
   // explicitly declares it. The server enforces the same gate on
   // sys_attachment creation (403 FILES_DISABLED).
@@ -1399,7 +1572,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         );
         if (cancelled) return;
 
-        const fmtCtx = { t, locale: language, lookupLabels };
+        // `locale` is spent on the date faces only, so it is the display
+        // locale, never the UI language (objectui#10442).
+        const fmtCtx = { t, locale: displayLocale, lookupLabels };
         const enriched = items.map((it, idx) => {
           const u = it?.user_id ? userMap.get(it.user_id) : undefined;
           // Attribution fallback chain: resolved user name → service/automation
@@ -1440,10 +1615,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         if (!cancelled) setHistoryLoading(false);
       });
     return () => { cancelled = true; };
-    // `t` is identity-stable per language; `language` already refires the
-    // effect on locale switches so formatted diff values re-localize.
+    // `t` is identity-stable per language; `language` refires the effect on a
+    // language switch so the translated values re-localize, and
+    // `displayLocale` on a display-locale switch so the dates do.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataSource, pureRecordId, objectDef, historyEnabled, objects, language]);
+  }, [dataSource, pureRecordId, objectDef, historyEnabled, objects, language, displayLocale]);
 
   // Fetch a directory of active users once per dataSource mount and expose
   // them as @-mention suggestions to the DiscussionContext. Capped at 50 to
@@ -1586,7 +1762,9 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     //
     // Reactions are stored as a JSON object of `{ emoji: string[] }`
     // (one array of user-ids per emoji). The aggregator below counts
-    // entries and flags the currently-signed-in user.
+    // entries and flags the currently-signed-in user, and keeps each
+    // emoji's stored ids as `userIds`: a reaction click writes the row
+    // back from them, changing only the clicker's own id (objectui#11019).
     const parseReactions = (raw: unknown): FeedItem['reactions'] => {
       if (!raw) return undefined;
       let parsed: Record<string, string[]> | undefined;
@@ -1596,11 +1774,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         parsed = raw as Record<string, string[]>;
       }
       if (!parsed) return undefined;
-      return Object.entries(parsed).map(([emoji, userIds]) => ({
-        emoji,
-        count: Array.isArray(userIds) ? userIds.length : 0,
-        reacted: Array.isArray(userIds) && userIds.includes(currentUser.id),
-      }));
+      return Object.entries(parsed).map(([emoji, stored]) => {
+        const userIds = Array.isArray(stored) ? stored : [];
+        return { emoji, count: userIds.length, reacted: userIds.includes(currentUser.id), userIds };
+      });
     };
 
     if (feedsEnabled) inFlight.push(dataSource.find('sys_comment', { $filter: { thread_id: threadId }, $orderby: { created_at: 'asc' } })
@@ -1630,7 +1807,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     // M10.11: Fetch sys_activity rows for this record and merge into the
     // timeline. plugin-audit's writers populate sys_activity on every
     // create/update/delete unless the object opts OUT via an explicit
-    // `enable.activities: false` (#2707 — opt-out contract, spec default
+    // `enable.activities: false` (objectstack-ai/objectstack#2707 — opt-out contract, spec default
     // true), so this surface gives us a Salesforce-style "what happened
     // on this record" feed without any per-app glue.
     //
@@ -1646,7 +1823,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     // drifted the same way one level up: this loop dropped a type the table
     // does not contain SILENTLY, while the block renders it through
     // `UNMAPPED_ACTIVITY_FEED_TYPE` and warns once. `sys_activity.type` is
-    // author-extensible (objectstack#11507 direction 4, ruled 2026-08-24) and
+    // author-extensible (objectstack `88b9d749a`, direction 4, ruled 2026-08-24) and
     // is never validated on write, so that drop made every author-extended
     // row stored, queryable and INVISIBLE on the surface where a shipped
     // producer's rows are most likely to be watched — objectui#5840's failure
@@ -1713,8 +1890,42 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
    * deliver bell notifications, which is the expected degradation.
    */
 
+  /**
+   * A comment is on the panel only once the server has it (objectui#10899,
+   * maintainer ruling on cloud#2431: a failed comment write is never rendered
+   * as sent).
+   *
+   * Both writers used to append an OPTIMISTIC row, then fire the `create` and
+   * swallow its rejection. On a tenant with no `sys_comment` the write answered
+   * 404 while the panel showed the comment and 「讨论 (1)」 — and the comment was
+   * gone on reload, with nothing ever saying it had not been saved. Now the row
+   * is appended after the `create` resolves; while it is in flight the composer
+   * shows its own submitting state. A rejected write raises a localized error
+   * and REJECTS back to the composer, which keeps the draft
+   * (`RecordActivityTimeline` / `ThreadedReplies` treat a rejection as "not
+   * written"), so the user can retry without retyping.
+   *
+   * The row keeps its client-minted id — the same id the `create` persists — so
+   * the next re-read merges the stored copy onto it by id, and it still goes
+   * into the slice of the record it was written ON (objectui#3268).
+   */
+  const commentWriteFailed = useCallback(
+    (err: unknown): Error => {
+      toast.error(
+        t('detail.commentFailed', {
+          defaultValue: 'Your comment was not posted. Nothing was saved — please try again.',
+        }),
+      );
+      return err instanceof Error ? err : new Error(String(err));
+    },
+    [t],
+  );
+
   const handleAddComment = useCallback(
     async (text: string) => {
+      if (!dataSource || !feedRecordKey) {
+        throw commentWriteFailed(new Error('No data source to write sys_comment through'));
+      }
       const newItem: FeedItem = {
         id: crypto.randomUUID(),
         type: 'comment',
@@ -1723,22 +1934,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         body: text,
         createdAt: new Date().toISOString(),
       };
-      // The optimistic row goes into the slice of the record it was written
-      // ON, under the same key its `thread_id` will carry (objectui#3268) —
-      // so navigating away and back finds it again, and it never shows up on
-      // another record's panel. The re-read merges the persisted copy onto it
-      // by id, so there is no duplicate when it lands.
-      if (feedRecordKey) {
-        setFeedItemsByRecord(prev => ({
-          ...prev,
-          [feedRecordKey]: [...(prev[feedRecordKey] ?? EMPTY_FEED), newItem],
-        }));
-      }
       // Persist to backend (M10.10: snake_case fields per sys_comment schema)
-      if (dataSource) {
-        const threadId = `${objectName}:${pureRecordId}`;
-        const mentionIds = extractMentions(text, mentionSuggestions);
-        dataSource.create('sys_comment', {
+      const threadId = `${objectName}:${pureRecordId}`;
+      const mentionIds = extractMentions(text, mentionSuggestions);
+      try {
+        await dataSource.create('sys_comment', {
           id: newItem.id,
           thread_id: threadId,
           author_id: currentUser.id,
@@ -1747,14 +1947,24 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           body: text,
           mentions: JSON.stringify(mentionIds),
           created_at: newItem.createdAt,
-        }).catch(() => {});
+        });
+      } catch (err) {
+        throw commentWriteFailed(err);
       }
+      const key = feedRecordKey;
+      setFeedItemsByRecord(prev => ({
+        ...prev,
+        [key]: [...(prev[key] ?? EMPTY_FEED), newItem],
+      }));
     },
-    [currentUser, dataSource, objectName, pureRecordId, feedRecordKey, mentionSuggestions],
+    [currentUser, dataSource, objectName, pureRecordId, feedRecordKey, mentionSuggestions, commentWriteFailed],
   );
 
   const handleAddReply = useCallback(
     async (parentId: string | number, text: string) => {
+      if (!dataSource || !feedRecordKey) {
+        throw commentWriteFailed(new Error('No data source to write sys_comment through'));
+      }
       const newItem: FeedItem = {
         id: crypto.randomUUID(),
         type: 'comment',
@@ -1764,27 +1974,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         createdAt: new Date().toISOString(),
         parentId,
       };
-      // Same record-scoped optimistic write as `handleAddComment` — the reply
-      // and the parent's bumped `replyCount` both belong to THIS record's
-      // slice (objectui#3268).
-      if (feedRecordKey) {
-        setFeedItemsByRecord(prev => {
-          const updated = [...(prev[feedRecordKey] ?? EMPTY_FEED), newItem];
-          return {
-            ...prev,
-            // Increment replyCount on parent
-            [feedRecordKey]: updated.map(item =>
-              item.id === parentId
-                ? { ...item, replyCount: (item.replyCount ?? 0) + 1 }
-                : item
-            ),
-          };
-        });
-      }
-      if (dataSource) {
-        const threadId = `${objectName}:${pureRecordId}`;
-        const mentionIds = extractMentions(text, mentionSuggestions);
-        dataSource.create('sys_comment', {
+      const threadId = `${objectName}:${pureRecordId}`;
+      const mentionIds = extractMentions(text, mentionSuggestions);
+      try {
+        await dataSource.create('sys_comment', {
           id: newItem.id,
           thread_id: threadId,
           author_id: currentUser.id,
@@ -1794,70 +1987,140 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           mentions: JSON.stringify(mentionIds),
           created_at: newItem.createdAt,
           parent_id: parentId,
-        }).catch(() => {});
+        });
+      } catch (err) {
+        throw commentWriteFailed(err);
       }
+      // Same record-scoped write as `handleAddComment` — the reply and the
+      // parent's bumped `replyCount` both belong to THIS record's slice
+      // (objectui#3268), and both land only once the reply is stored.
+      const key = feedRecordKey;
+      setFeedItemsByRecord(prev => {
+        const updated = [...(prev[key] ?? EMPTY_FEED), newItem];
+        return {
+          ...prev,
+          [key]: updated.map(item =>
+            item.id === parentId
+              ? { ...item, replyCount: (item.replyCount ?? 0) + 1 }
+              : item
+          ),
+        };
+      });
     },
-    [currentUser, dataSource, objectName, pureRecordId, feedRecordKey, mentionSuggestions],
+    [currentUser, dataSource, objectName, pureRecordId, feedRecordKey, mentionSuggestions, commentWriteFailed],
   );
+
+  /**
+   * A reaction click shows at once and is stored in the background, and a
+   * reaction whose write fails does not stay shown as applied (objectui#10899,
+   * the same family as the comment writers above).
+   *
+   * The toggle is computed HERE, in the handler, from the row on screen, and
+   * the write is issued here too. It used to be issued from inside the state
+   * updater, which React may call twice (StrictMode does in development, so
+   * one click sent two `update`s; the StrictMode row of
+   * `RecordDetailView.reactionWriteFailure-10899.test.tsx` pins one), and to
+   * end in `.catch(() => {})`, so a refused write left the reaction on screen
+   * as applied, with no message, until a reload.
+   *
+   * Each write stores the row's WHOLE reaction set as of its click, so after
+   * several quick clicks the server holds the set of the newest write it
+   * accepted. The rollback follows that: every click records the set it
+   * showed, and once a write is refused the row shows the newest recorded set
+   * whose write was not refused. A refused click is therefore taken back only
+   * when no later click, whose write carries it too, can still store it. Two
+   * simpler rollbacks each break a real case: undoing one click at a time (the
+   * inverse toggle) takes back a reaction a later write did store, and
+   * restoring the pre-click set only while the row is unchanged leaves the
+   * first of two refused clicks on screen. The rollback is also skipped when
+   * the row no longer shows what this ledger put there, because a re-read
+   * replaced it and the server copy is the truth.
+   *
+   * The error is raised only when a rollback takes back something the user
+   * sees; a refused write whose click a later write stored lost nothing.
+   *
+   * The set a write stores is the row's stored ids as the read kept them, with
+   * only the clicker's id added or taken out of the clicked emoji
+   * (`toggleOwnReaction`, objectui#11019), so every other user's reaction is
+   * written back as it was read. Two people reacting at the same moment still
+   * means the later write wins.
+   */
+  const reactionLedgersRef = useRef(new Map<string, ReactionLedger>());
 
   const handleToggleReaction = useCallback(
     (itemId: string | number, emoji: string) => {
-      if (!feedRecordKey) return;
+      // No data source to store through, or no record: not a write failure.
+      if (!dataSource || !feedRecordKey) return;
       // Reactions are toggled from the panel of the record on screen, so they
       // apply to that record's slice only (objectui#3268) — an id collision
       // with a row cached for another record cannot reach across.
-      setFeedItemsByRecord(prevByRecord => ({
-        ...prevByRecord,
-        [feedRecordKey]: (prevByRecord[feedRecordKey] ?? EMPTY_FEED).map(item => {
-          if (item.id !== itemId) return item;
-          const reactions = [...(item.reactions ?? [])];
-          const idx = reactions.findIndex(r => r.emoji === emoji);
-          if (idx >= 0) {
-            const r = reactions[idx];
-            if (r.reacted) {
-              // Remove user's reaction
-              if (r.count <= 1) {
-                reactions.splice(idx, 1);
-              } else {
-                reactions[idx] = { ...r, count: r.count - 1, reacted: false };
-              }
-            } else {
-              reactions[idx] = { ...r, count: r.count + 1, reacted: true };
-            }
-          } else {
-            reactions.push({ emoji, count: 1, reacted: true });
-          }
-          const updated = { ...item, reactions };
-          // Persist reactions to backend as JSON. The schema stores
-          // `reactions` as a textarea JSON string of `{ emoji: userIds[] }`,
-          // so we rebuild the canonical shape from the optimistic local
-          // state before writing back. A failed update silently keeps the
-          // optimistic UI change (best-effort, surfaced by RUM if needed).
-          if (dataSource) {
-            const userId = currentUser.id;
-            const remoteShape: Record<string, string[]> = {};
-            for (const r of reactions) {
-              // We don't have the original user-id list locally, so we
-              // approximate by emitting the signed-in user when they are
-              // the (only known) reactor. This is an over-simplification
-              // for single-user pilot installs and will be replaced by a
-              // proper backend reaction endpoint in M11.
-              const ids: string[] = [];
-              if (r.reacted) ids.push(userId);
-              // Pad with a synthetic marker so count is preserved across
-              // refreshes from other clients (best-effort).
-              while (ids.length < r.count) ids.push('__other__');
-              remoteShape[r.emoji] = ids;
-            }
-            dataSource.update('sys_comment', String(itemId), {
-              reactions: JSON.stringify(remoteShape),
-            }).catch(() => {});
-          }
-          return updated;
-        }),
+      const key = feedRecordKey;
+      const row = (feedItemsByRecord[key] ?? EMPTY_FEED).find(item => item.id === itemId);
+      // Only a `sys_comment` row stores reactions, and those are the feed's
+      // `comment` rows. The panel offers the control on comment rows only;
+      // this refuses any other id without a write, so a `sys_activity` id can
+      // never key a `sys_comment` update (objectui#11035).
+      if (!row || row.type !== 'comment') return;
+      const rowKey = JSON.stringify([key, String(itemId)]);
+      let ledger = reactionLedgersRef.current.get(rowKey);
+      if (!ledger || ledger.shown !== row.reactions) {
+        ledger = { steps: [{ reactions: row.reactions, outcome: 'stored' }], shown: row.reactions };
+        reactionLedgersRef.current.set(rowKey, ledger);
+      }
+      const step: ReactionStep = {
+        reactions: toggleOwnReaction(row.reactions, emoji, currentUser.id),
+        outcome: 'pending',
+      };
+      ledger.steps.push(step);
+      ledger.shown = step.reactions;
+      setFeedItemsByRecord(prev => ({
+        ...prev,
+        [key]: (prev[key] ?? EMPTY_FEED).map(item =>
+          item.id === itemId ? { ...item, reactions: step.reactions } : item,
+        ),
       }));
+
+      const settle = (outcome: 'stored' | 'failed') => {
+        const live = reactionLedgersRef.current.get(rowKey);
+        const at = live ? live.steps.indexOf(step) : -1;
+        // A re-read restarted the row, or a newer stored write superseded this one.
+        if (!live || at < 0) return;
+        step.outcome = outcome;
+        // A stored write holds the row's whole set as of its click.
+        if (outcome === 'stored') live.steps.splice(0, at);
+        if (!live.steps.some(s => s.outcome === 'pending')) reactionLedgersRef.current.delete(rowKey);
+        // `steps[0]` is stored, so there is always a newest set not refused.
+        const target = [...live.steps].reverse().find(s => s.outcome !== 'failed') as ReactionStep;
+        if (target.reactions === live.shown) return;
+        const from = live.shown;
+        live.shown = target.reactions;
+        setFeedItemsByRecord(prev => {
+          const rows = prev[key];
+          if (!rows?.some(item => item.id === itemId && item.reactions === from)) return prev;
+          return {
+            ...prev,
+            [key]: rows.map(item =>
+              item.id === itemId && item.reactions === from ? { ...item, reactions: target.reactions } : item,
+            ),
+          };
+        });
+        toast.error(
+          t('detail.reactionFailed', {
+            defaultValue: 'Your reaction was not saved. Please try again.',
+          }),
+        );
+      };
+
+      dataSource
+        .update('sys_comment', String(itemId), {
+          reactions: JSON.stringify(storedReactions(step.reactions ?? [])),
+        })
+        .then(
+          () => settle('stored'),
+          () => settle('failed'),
+        );
     },
-    [currentUser.id, dataSource, feedRecordKey],
+    [currentUser.id, dataSource, feedRecordKey, feedItemsByRecord, t],
   );
 
   useEffect(() => {
@@ -2299,7 +2562,14 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           const msg = t('detail.deleteConfirmation', {
             defaultValue: 'Are you sure you want to delete this record?',
           });
-          if (!window.confirm(msg)) return;
+          // objectui#11001 — asked through this page's own confirm runtime,
+          // the in-app `ActionConfirmDialog` the list view's delete asks
+          // through too, never the browser's native `window.confirm` (which
+          // cannot be themed, and which headless automation dismisses, so the
+          // button reads as dead). ONE argument, like the runner's call: the
+          // dialog's title and buttons are its defaults, as on the list view.
+          // A cancel settles `false` and leaves the record and the page alone.
+          if (!(await confirmHandler(msg))) return;
           try {
             await dataSource.delete(objectName!, pureRecordId!);
             toast.success(t('detail.deleted', { defaultValue: 'Record deleted' }));
@@ -2352,7 +2622,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // composes `record:discussion` itself — out-of-the-box record pages are
   // unchanged; AUTHORED pages that relied on the append add one node.
   //
-  // `enable.feeds` (#2707) stays the OBJECT's switch and OUTRANKS the page: an
+  // `enable.feeds` (objectstack-ai/objectstack#2707) stays the OBJECT's switch and OUTRANKS the page: an
   // object with feeds off shows no panel, declared or not. That is the one half
   // of the ruling this tree did not already do — the old `feedsEnabled` gate
   // sat on the append alone, so a declared (or synthesized) node rendered a
@@ -2384,7 +2654,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
       <RecordContextProvider
         objectName={objectName!}
         recordId={pureRecordId}
-        data={pageRecord}
+        data={readablePageRecord}
         objectSchema={objectDef}
         dataSource={dataSource}
         embedded={embedded}
@@ -2447,9 +2717,22 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         {/* No `approval` handler in the set below (objectui#3055): the record
             page has no bespoke approval action TYPE any more. A decision is an
             ordinary `type:'api'` action declared on `sys_approval_request` and
-            run by the shared runtime the decision bar mounts. */}
+            run by the shared runtime the decision bar mounts.
+            `org` is the spec-declared `${ctx.org.*}` scope. This provider
+            shadows the shell runtime's for every action on the record page, so
+            it carries the same `actionContextOrg` projection, or
+            `${ctx.org.id}` interpolates empty here (objectui#10918). */}
         <ActionProvider
-          context={{ record: pageRecord || {}, objectName, user: currentUser }}
+          context={{
+            record: pageRecord || {},
+            objectName,
+            // This object's field definitions, published beside `objectName`
+            // (objectui#11122): the runner's `operation: 'update'` Undo capture
+            // reads them to capture a relation `$expand` filled as its stored id.
+            ...(objectDef?.fields ? { objectFields: objectDef.fields } : {}),
+            user: currentUser,
+            org: actionContextOrg(activeOrganization),
+          }}
           onConfirm={confirmHandler}
           onToast={toastHandler}
           onNavigate={navigateHandler}
@@ -2543,7 +2826,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
                   <RecordPermissionAssignmentsRenderer />
                 </div>
               )}
-              {/* Generic Attachments panel (#2727) — opt-in via
+              {/* Generic Attachments panel (objectstack-ai/objectstack#2727) — opt-in via
                   `enable.files: true`; the server rejects attachments
                   targeting any other object (403 FILES_DISABLED).
                   Fallback only: synthesized pages already place a
@@ -2629,6 +2912,10 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         objects={objects}
         onClose={() => setScreenFlow(null)}
         onComplete={() => { setScreenFlow(null); notifyRecordChanged(); }}
+      />
+      <FlowRefusalNotice
+        state={flowRefusal}
+        onClose={() => setFlowRefusal(s => ({ ...s, open: false }))}
       />
     </div>
   );

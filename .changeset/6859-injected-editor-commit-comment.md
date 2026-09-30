@@ -2,7 +2,7 @@
 ---
 
 No behaviour change, and deliberately so: this is the record being corrected, not the
-renderer (objectui#6859).
+renderer.
 
 The data table's document-level `pointerdown` listener — the one that exits a host-injected
 inline cell editor when you click away — justified itself with "the injected widgets (text,

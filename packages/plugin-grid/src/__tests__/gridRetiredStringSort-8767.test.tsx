@@ -140,7 +140,9 @@ describe('object-grid — the retired string `sort` clause is REFUSED at this bl
   it('does not fall through to the legacy `defaultSort` leg when it refuses', async () => {
     // A refusal that quietly handed the query to the next arm would be a
     // silent substitution — a different ordering than either the author asked
-    // for or the refusal announced.
+    // for or the refusal announced. (Since objectui#5861 retired `defaultSort`
+    // there is no such arm left to fall to; the cell stays as the guard that
+    // none is re-added.)
     const params = await findParamsFor({
       ...authoredAtRuntime('name desc'),
       defaultSort: { field: 'status', order: 'asc' },

@@ -17,7 +17,8 @@
  * Every key was interpolated UNCONDITIONALLY, so an entry missing `field` or
  * `order` reached the wire as the literal text `undefined`. The legacy
  * `defaultSort` arm one `else` down had the identical defect on a single
- * object.
+ * object. (That arm is gone since objectui#5861 retired the key; its section
+ * below now pins it inert.)
  *
  * ## Why this is a wire defect and not a cosmetic one — MEASURED, not assumed
  *
@@ -105,8 +106,8 @@ registerAllFields();
  *
  *  - `import.meta.url` IS a `file:` URL in this project. objectui#7800
  *    (comment 5555131785) measured it across three packages and both cwds; the
- *    sibling `packages/plugin-grid/src/__tests__/groupedPartialDisclosure-7189.test.tsx`
- *    has derived its root this way since PR #7806. What Vite rewrites is the
+ *    sibling `groupedPartialDisclosure-7189.test.tsx` derived its root this way
+ *    from PR #7806 until objectui#10881 retired it. What Vite rewrites is the
  *    TWO-ARGUMENT `new URL(rel, import.meta.url)`, which is why only the bare
  *    form is read here and taken apart by hand.
  *  - "the vitest root" and `process.cwd()` are not the same directory. This
@@ -241,19 +242,31 @@ describe('object-grid array `sort` arm — the card’s six-row probe table (obj
   });
 });
 
-describe('object-grid legacy `defaultSort` arm — the SAME defect, one `else` down (objectui#8973)', () => {
-  it('CONTROL — a fully-specified `defaultSort` still lowers to the join string', async () => {
-    const params = await findParamsFor({ ...BASE, defaultSort: { field: 'name', order: 'desc' } });
+/**
+ * objectui#5861 — the legacy `defaultSort` arm #8973 normalized is GONE.
+ *
+ * `@objectstack/spec` 17.3.0 turned `object-grid`'s `defaultSort` into a
+ * retired-key tombstone the protocol refuses by name, and objectui#5861
+ * removed the arm (ADR-0049 enforce-or-remove). These three cells pinned it
+ * as WORKING; they are flipped rather than deleted, so every shape it used to
+ * lower — the fully-specified one included — now asserts NO `$orderby`. The
+ * canonical control is the first cell of the six-row table above (`CONTROL —
+ * a fully-specified entry still lowers to the join string`), repeated here on
+ * the same document so the flip cannot pass because lowering broke outright.
+ */
+describe('object-grid legacy `defaultSort` arm — RETIRED, nothing lowers (objectui#5861)', () => {
+  it('a fully-specified `defaultSort` carries NO `$orderby` — it used to lower to `"name desc"`', async () => {
+    expectNoOrderBy(await findParamsFor({ ...BASE, defaultSort: { field: 'name', order: 'desc' } }));
+    // CONTROL — the canonical spelling of the same sort, same block, same run.
+    const params = await findParamsFor({ ...BASE, sort: [{ field: 'name', order: 'desc' }] });
     expect(params.$orderby).toBe('name desc');
   });
 
-  it('`order` omitted lowers to `asc` — it used to go out as `"name undefined"`', async () => {
-    const params = await findParamsFor({ ...BASE, defaultSort: { field: 'name' } });
-    expect(params.$orderby).toBe('name asc');
-    expect(params.$orderby).not.toContain('undefined');
+  it('`order` omitted carries NO `$orderby` — it used to lower to `"name asc"`', async () => {
+    expectNoOrderBy(await findParamsFor({ ...BASE, defaultSort: { field: 'name' } }));
   });
 
-  it('`field` omitted carries NO `$orderby` — it used to send `"undefined desc"`', async () => {
+  it('`field` omitted carries NO `$orderby` — unchanged, and no longer for #8973\'s reason', async () => {
     expectNoOrderBy(await findParamsFor({ ...BASE, defaultSort: { order: 'desc' } }));
   });
 });

@@ -5,7 +5,7 @@ Internal tooling only — no package changes, so this changeset declares no rele
 
 Adds `pnpm census:cross-file-line-citations`
 (`scripts/cross-file-line-citation-census.mjs`), the tree-wide measurement
-objectui#8875 asked for and nothing else. objectui#7853 ruled that an assertion
+objectui#8875 asked for and nothing else. The card behind `fa7d66c45` ruled that an assertion
 is cited by CONTENT, not by line address; objectui#8047 mechanized that ruling
 for test names only, carving out comments and failure messages because "a human
 reads them beside the code they annotate". objectui#8875 observes that the

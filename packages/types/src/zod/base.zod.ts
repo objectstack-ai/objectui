@@ -201,7 +201,7 @@ export function defineNodeComponentUnion<T extends z.ZodType>(union: T): T {
  * is where the whole node tree recurses. Until #8344 the component arm was
  * `BaseSchemaCore` — the ~21 base keys and NOTHING type-specific — which made
  * per-type enforcement ROOT-ONLY, at every depth, for every component type. That
- * is objectui#7869, measured there: an off-spec `size` on a NESTED `icon` node was
+ * is the finding objectui#8344 discharged: an off-spec `size` on a NESTED `icon` node was
  * accepted, and the same node alone was refused. Pointing the arm at the union of
  * the registered component mirrors is the whole of this change; ⛔ nothing here is
  * `.strict()`, and `BaseSchemaCore` keeps its passthrough.
@@ -213,8 +213,8 @@ export function defineNodeComponentUnion<T extends z.ZodType>(union: T): T {
  *
  * ## ⚠️ Why the arm is late-bound and not imported
  *
- * `AnyComponentSchema` is built in `index.zod.ts` out of all 13 category modules,
- * and 14 modules import THIS one — so naming it here is a module cycle, and
+ * `AnyComponentSchema` is built in `index.zod.ts` out of every category module, and
+ * each of those modules imports THIS one — so naming it here is a module cycle, and
  * `z.lazy` defers the EVALUATION, not the module graph. With that import in place,
  * entering the graph at `base.zod.js` evaluates `app.zod.ts`'s body while
  * `BaseSchema` is still in its temporal dead zone and the package throws on import.
@@ -272,7 +272,7 @@ export function defineNodeComponentUnion<T extends z.ZodType>(union: T): T {
  *
  * ⭐ What #7760 bought: `__tests__/zod-mirror-parity.test.ts` can now compare the
  * `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])` single-or-list slots that
- * objectui#7069 called this repo's systematic producer and had to EXCLUDE — its
+ * the card behind `2760075ff` called this repo's systematic producer and had to EXCLUDE — its
  * `Unconstrained` predicate was dropping every one of them. Three real widenings came
  * out of that region on the first run and are ledgered there.
  *
@@ -727,7 +727,7 @@ export const ComponentMetaSchema = z.object({
   inputs: z.array(ComponentInputSchema).optional().describe('Configurable properties'),
   defaultProps: z.record(z.string(), z.any()).optional().describe('Default property values'),
   examples: z.record(z.string(), z.any()).optional().describe('Example configurations'),
-  isContainer: z.boolean().optional().describe('Can have children'),
+  isContainer: z.boolean().optional().describe('Layout container (skipped by the react-page JSX scope, listed in the public layout ledger); not "can have children" — a renderer that puts `children` on the page declares a `children` slot input (objectui#9910)'),
   resizable: z.boolean().optional().describe('Can be resized'),
   resizeConstraints: z.object({
     width: z.boolean().optional(),
@@ -788,7 +788,7 @@ export const HTMLAttributesSchema = z.record(z.string(), z.any()).describe('HTML
  * nothing reads `schema.events`: whatever a document writes under that key,
  * no renderer runs it. `BaseSchemaCore` is `.passthrough()`, so such a node is
  * KEPT, judged by nothing and run by nothing. ⛔ Do not send an author there.
- * ⛔ No count of authored `events` keys is stated here — objectui#9553 carries
+ * ⛔ No count of authored `events` keys is stated here — a separate card carried
  * that census. A census answer frozen into a comment is the defect AGENTS.md
  * commandment #9 forbids, and this note shipped one once already: the first
  * version of this paragraph named a total that was wrong on the day it was
@@ -801,7 +801,7 @@ export const HTMLAttributesSchema = z.record(z.string(), z.any()).describe('HTML
  * exempts index signatures by design ("no keys to compare"). This note, not a
  * gate, is what records the absence.
  *
- * Precedent of the same shape: objectstack#12009 / PR #13413.
+ * Precedent of the same shape: objectstack `89448a52b`.
  */
 
 /**

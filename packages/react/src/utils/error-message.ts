@@ -93,7 +93,7 @@ export function extractWriteErrorMessage(err: unknown): string | null {
  * The refusal text the PRODUCER explicitly marked as addressed to the end user,
  * or `null` when the refusal carries no marking.
  *
- * `userMessage` is the opt-in channel added by objectstack#9934 (maintainer
+ * `userMessage` is the opt-in channel added by objectstack `79c46da90` (maintainer
  * ruling 2026-08-19 on objectui#5210), declared on `ApiErrorSchema` /
  * `EnhancedApiErrorSchema` in the pinned `@objectstack/spec`.
  * Three properties of the contract decide this reader's whole shape:

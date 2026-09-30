@@ -56,7 +56,7 @@ check. Deletion would have left precisely the silent no-op this retirement ends,
 and the ruling's first pin — refused by the schema types, at compile time —
 would have been unsatisfiable. `packages/plugin-ai/README.md` taught all seven as
 working, which is prong 2 of the tombstone discriminator (objectui#5941, #7526,
-#7678) on its own.
+`5f8190c8c`) on its own.
 
 `AIInsightsSchema.objectName` was deliberately left out of this retirement, and
 the reason for that exclusion has since been spent. The half that survives is the
@@ -71,3 +71,10 @@ node type WHOLE from the published type face: there is no member left to pin, an
 that ruling rewrote the exclusion pin — the only thing that was ever allowed to
 rewrite it. Its entry publishes in this same release, and the successor pin is
 `packages/types/src/__tests__/ai-insights-retired-8800.test.ts`.
+
+⚠️ **Dated note, 2026-09-28 — the validator now reaches these tombstones — objectui#10859.** Later in
+this same release `AnyComponentSchema` gains an arm for each of the three AI node types, so
+`safeValidateSchema` — and `objectui validate` — refuses a stored JSON document that carries one of
+the seven retired members BY NAME, at that member, where before it refused every document of these
+three types at `type`. The renderer still ignores the value. The rest of this entry is kept as the
+reading of this change; the objectui#10859 entry states what the validator now does.

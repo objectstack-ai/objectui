@@ -224,19 +224,23 @@ describe('form write payloads — server-owned columns (objectui#10108)', () => 
         />,
       );
 
-      const input = await waitFor(() => {
+      await waitFor(() => {
         const el = container.querySelector('input[name="actual_value"]') as HTMLInputElement | null;
-        if (!el) throw new Error('actual_value not ready');
-        return el;
+        if (!el || el.value !== '92') throw new Error('record not on screen yet');
       });
-      fireEvent.change(input, { target: { value: '95' } });
+      // Submitted with NOTHING changed, on purpose. An edit writes only the
+      // fields that differ from the record it read (objectui#10156), so after a
+      // real edit an unchanged `owner_id` is kept off the wire by the dirty diff
+      // alone, and this row would stay green with the roster emptied. A save
+      // with nothing changed sends the full sanitized payload — the one edit
+      // route where the roster and the `system` flag are the only filter.
       fireEvent.submit(container.querySelector('form')!);
 
       await waitFor(() => expect(update).toHaveBeenCalled());
       const payload = update.mock.calls[0][2];
       for (const key of REFUSED) expect(payload).not.toHaveProperty(key);
-      // Control: the edit the user actually made is still on the wire.
-      expect(payload).toMatchObject({ actual_value: 95 });
+      // Control: the business columns the record carries are still on the wire.
+      expect(payload).toMatchObject({ plan_indicator: 'IND1', actual_value: 92, remark: null });
     });
   });
 });

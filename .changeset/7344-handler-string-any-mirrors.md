@@ -14,7 +14,7 @@ string dialect is not a supported authoring form, executed in the objectui#6124 
   (`DetailView.handleBack`), throwing `onBack is not a function` at click.
 - Three declared `z.any()` — `ActionSchema.onClick`, `DetailSchema.onBack`,
   `CRUDDialogSchema.onClose` — wider than the callable the TypeScript face declares, so
-  any JSON value parsed green (the objectui#7069 direction).
+  any JSON value parsed green (the `2760075ff` direction).
 - One, `CalendarViewSchema.onEventClick`, was `z.function()` in a multi-line spelling the
   anchored census missed.
 

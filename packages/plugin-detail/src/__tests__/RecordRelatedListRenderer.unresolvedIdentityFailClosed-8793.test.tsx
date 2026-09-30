@@ -306,8 +306,10 @@ describe('objectui#8793 — an unresolvable column identity is EXCLUDED, not kep
       </PermissionProvider>,
     );
 
-    const cells = await paintedCells();
-    expect(cells).toEqual(expect.arrayContaining(['Fix the pump', 'Replace filter']));
-    expect(cells).not.toContain('90000');
+    // objectui#10657 PR 2: the first cells paint WITHHELD (as the mask) while
+    // the definition is in flight, so wait for the settled draw, not the first
+    // cell.
+    await waitFor(() => expect(cellTexts()).toEqual(expect.arrayContaining(['Fix the pump', 'Replace filter'])));
+    expect(cellTexts()).not.toContain('90000');
   });
 });

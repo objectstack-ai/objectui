@@ -36,7 +36,20 @@ import { getPackageSchema, getPackageForm } from './package-schema.js';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 
 const API = '/api/v1/packages';
-const VERSION_RE = /^\d+\.\d+\.\d+$/;
+
+/**
+ * Is `v` a package version the INSTALLED `@objectstack/spec` accepts?
+ *
+ * Judged by `ManifestSchema`'s own `version` field schema, never by a grammar
+ * copied into this repo: a hand-copied regex drifts the moment the spec's
+ * canon moves (objectui#10207 — the spec is converging every package-version
+ * carrier on SemVer 2.0.0, objectstack#18697), leaving the dialog stricter or
+ * looser than the contract it is a form for. Reading the field schema also
+ * survives the spec renaming or retiring whatever pattern constant backs it.
+ */
+function isSpecPackageVersion(v: string): boolean {
+  return ManifestSchema.shape.version.safeParse(v).success;
+}
 
 export type PackageFormMode = 'create' | 'edit' | 'view';
 
@@ -52,7 +65,7 @@ export interface PackageSaveResult {
 
 /**
  * Was this envelope's prose MARKED, i.e. did the producer address it to the end
- * user (`error.userMessage`, #9934) rather than to whoever is debugging?
+ * user (`error.userMessage`, objectstack `79c46da90`) rather than to whoever is debugging?
  *
  * ⚠️ Why this is read separately instead of taken from
  * {@link readEnvelopeFailureText}: that reader answers *what prose to show* and
@@ -60,15 +73,15 @@ export interface PackageSaveResult {
  * (`userMessage || message`, plus the declared code). Its return value
  * therefore cannot tell a caller WHICH channel won — and objectui#8051's two
  * status arms need exactly that bit, because their localized constant is a
- * generic substitution that objectui#3821 keeps for UNMARKED bodies only. So
+ * generic substitution that objectstack-ai/objectstack#3821 keeps for UNMARKED bodies only. So
  * the mark is read here and carried across the throw; ⛔ the arms cannot
  * re-derive it from the message they receive.
  *
  * ⛔ Not a second copy of the shared rule. The rule about what to SHOW stays in
  * `readEnvelopeFailureText` and is not restated here; this answers a different
  * question about the same body, at the one call site that asks it. Widening the
- * shared reader's signature to return the provenance is objectui#7980's
- * surface, not this card's.
+ * shared reader's signature to return the provenance is the surface of the
+ * card behind `a810bb2ae`, not this card's.
  *
  * The predicate is byte-identical to the shared reader's `marked` const on
  * purpose: a typed `string` check, not a truthiness one, so a non-string mark
@@ -224,7 +237,9 @@ export function PackageFormDialog({
 
   const nameOk = !!String(draft.name ?? '').trim();
   const versionStr = String(draft.version ?? '').trim();
-  const versionOk = createMode ? VERSION_RE.test(versionStr) : !versionStr || VERSION_RE.test(versionStr);
+  const versionOk = createMode
+    ? isSpecPackageVersion(versionStr)
+    : !versionStr || isSpecPackageVersion(versionStr);
   const idOk = !createMode || !!String(draft.id ?? '').trim();
   // Namespace is required on create (framework#2694): every object name is
   // prefixed with it. On edit it's immutable and not resubmitted.
@@ -276,7 +291,7 @@ export function PackageFormDialog({
       const msg: string = e?.message ?? '';
       // objectui#8051 — WAS this refusal marked? The two status arms below
       // answer with a localized constant, and that constant is a GENERIC
-      // SUBSTITUTION: objectui#3821's rule, which the envelope writer states as
+      // SUBSTITUTION: objectstack-ai/objectstack#3821's rule, which the envelope writer states as
       // "a consumer that sees the field renders it verbatim and keeps its
       // generic substitution for everything unmarked", keeps it for unmarked
       // bodies and hands a MARKED body straight to the person. Until this card
@@ -297,7 +312,7 @@ export function PackageFormDialog({
         setError(marked ? msg : t('engine.packages.create.exists', locale));
       } else if (e?.status === 403 || /manage_metadata/i.test(msg)) {
         // objectstack#8270 — for an UNMARKED body this arm still answers
-        // exactly as it did, and that is the whole of what #8270 measured. The
+        // exactly as it did, and that is the whole of what objectstack-ai/objectstack#8270 measured. The
         // sentence it was ruled about, "Managing packages requires the
         // `manage_metadata` capability.", is the door's DIAGNOSTIC:
         // `sendError(res, 403, 'FORBIDDEN', …)` in `@objectstack/rest`
@@ -306,7 +321,7 @@ export function PackageFormDialog({
         // byte as the 2026-08-13 maintainer ruling requires. A deployment that
         // withholds the capability does so deliberately, so this is a settled
         // posture to state in the user's language, not a transient failure to
-        // retry. What changes is only the case #8270 never saw: a body a
+        // retry. What changes is only the case objectstack-ai/objectstack#8270 never saw: a body a
         // producer deliberately marked for the end user.
         //
         // Probed the same way as the 409 arm above — the status when the

@@ -153,7 +153,7 @@ export function resolveFormViewLayout(
 }
 
 /**
- * Result of the post-create-save navigation decision (#2604 save invariant:
+ * Result of the post-create-save navigation decision (objectstack-ai/objectstack#2604 save invariant:
  * *create takes you to the record you made*). `kind: 'none'` means stay put
  * (no usable record id came back from the save).
  */
@@ -162,7 +162,7 @@ export type PostCreateTarget =
   | { kind: 'detail-page' | 'detail-drawer'; url: string };
 
 /**
- * Decide where a CREATE save lands (#2604): the new record's detail, on the
+ * Decide where a CREATE save lands (objectstack-ai/objectstack#2604): the new record's detail, on the
  * record's own derived surface.
  *
  *   - `surface: 'page'` (field-heavy) → the detail ROUTE
@@ -211,16 +211,26 @@ export function resolvePostCreateTarget(opts: {
 
 /**
  * Action descriptor accepted by the navigate-create / navigate-edit
- * handlers. Loose-typed because the same shape is constructed dynamically
- * from JSON metadata at runtime and we want the helpers to be tolerant of
- * legacy or hand-authored inputs.
+ * handlers: the runner's `ActionDef` as the handler receives it, NOT the
+ * authored node. Loose-typed because the same shape is constructed
+ * dynamically at runtime.
+ *
+ * `params` here is the runner's static-values channel. On an authored
+ * `action:button` / `action:icon` node those values are written under
+ * `properties.params`, which the renderer forwards as this `params`
+ * (objectui#10289, ruling A). A node-level `params` is only ever the
+ * `ActionParam[]` input list, and an object written there is not forwarded.
  */
 export interface NavigationActionDef {
   /** Optional explicit object name (overrides any context). */
   objectName?: string;
   /** Optional explicit record id (only meaningful for `navigate_edit`). */
   recordId?: string | number;
-  /** Standard params bag — preferred location for objectName / recordId. */
+  /**
+   * The runner's static values: the authored node's `properties.params`,
+   * forwarded by the action renderer. Preferred location for
+   * objectName / recordId.
+   */
   params?: {
     objectName?: string;
     recordId?: string | number;

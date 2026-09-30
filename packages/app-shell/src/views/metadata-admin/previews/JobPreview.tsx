@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { EmptyDescription } from '@object-ui/components';
 import type { MetadataPreviewProps } from '../preview-registry.js';
+import { t as tr, tFormat } from '../i18n.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 
 const CRON_ALIASES: Record<string, string> = {
@@ -254,7 +255,7 @@ function humanizeMs(ms: number): string {
   return `${ms}ms`;
 }
 
-export function JobPreview({ name, draft }: MetadataPreviewProps) {
+export function JobPreview({ name, draft, locale }: MetadataPreviewProps) {
   const displayLocale = useDisplayLocale();
   const d = draft as Record<string, unknown>;
   const jobName = String(d.name ?? name ?? '');
@@ -299,7 +300,7 @@ export function JobPreview({ name, draft }: MetadataPreviewProps) {
   if (!jobName && !cron && !every && !at && !handler) {
     return (
       <PreviewShell hint="job">
-        <PreviewMessage>Set a schedule (cron / every / at) and a handler to see the job preview.</PreviewMessage>
+        <PreviewMessage>{tr('engine.jobPreview.empty', locale)}</PreviewMessage>
       </PreviewShell>
     );
   }
@@ -319,49 +320,75 @@ export function JobPreview({ name, draft }: MetadataPreviewProps) {
                 </div>
                 {description && <div className="text-xs text-muted-foreground mt-0.5">{description}</div>}
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-                  <Pill icon={Power} label={active ? 'Active' : 'Paused'} tone={active ? 'green' : 'gray'} />
+                  <Pill
+                    icon={Power}
+                    label={tr(active ? 'engine.jobPreview.active' : 'engine.jobPreview.paused', locale)}
+                    tone={active ? 'green' : 'gray'}
+                  />
                   {timezone && <Pill icon={Globe2} label={timezone} mono />}
-                  {maxRetries != null && <Pill icon={RotateCcw} label={`retries: ${maxRetries}${backoffMs ? ` (${humanizeMs(backoffMs)} backoff)` : ''}`} />}
-                  {timeoutMs != null && <Pill icon={Timer} label={`timeout: ${humanizeMs(timeoutMs)}`} />}
-                  {concurrency != null && <Pill label={`concurrency: ${concurrency}`} />}
+                  {maxRetries != null && (
+                    <Pill
+                      icon={RotateCcw}
+                      label={
+                        backoffMs
+                          ? tFormat('engine.jobPreview.retriesBackoff', locale, {
+                              count: String(maxRetries),
+                              backoff: humanizeMs(backoffMs),
+                            })
+                          : tFormat('engine.jobPreview.retries', locale, { count: String(maxRetries) })
+                      }
+                    />
+                  )}
+                  {timeoutMs != null && (
+                    <Pill icon={Timer} label={tFormat('engine.jobPreview.timeout', locale, { duration: humanizeMs(timeoutMs) })} />
+                  )}
+                  {concurrency != null && (
+                    <Pill label={tFormat('engine.jobPreview.concurrency', locale, { count: String(concurrency) })} />
+                  )}
                 </div>
               </div>
             </div>
           </div>
 
           {/* Schedule */}
-          <Section title="Schedule" icon={Calendar}>
+          <Section title={tr('engine.jobPreview.schedule', locale)} icon={Calendar}>
             <div className="rounded border bg-background p-2.5 text-xs space-y-1">
+              {/* "Cron" is the name of the syntax, the same in every locale. */}
               {cron && (
                 <ScheduleLine label="Cron">
                   <code className="font-mono">{cron}</code>
                 </ScheduleLine>
               )}
               {every && (
-                <ScheduleLine label="Every">
+                <ScheduleLine label={tr('engine.jobPreview.every', locale)}>
                   <code className="font-mono">{every}</code>
-                  {!intervalMs && <span className="ml-2 text-amber-700">unparseable</span>}
+                  {!intervalMs && <span className="ml-2 text-amber-700">{tr('engine.jobPreview.unparseable', locale)}</span>}
                 </ScheduleLine>
               )}
               {at && (
-                <ScheduleLine label="At">
+                <ScheduleLine label={tr('engine.jobPreview.at', locale)}>
                   <code className="font-mono">{at}</code>
                 </ScheduleLine>
               )}
               {!cron && !every && !at && (
-                <EmptyDescription className="text-xs italic">No schedule set — runs only when triggered manually.</EmptyDescription>
+                <EmptyDescription className="text-xs italic">{tr('engine.jobPreview.noSchedule', locale)}</EmptyDescription>
               )}
             </div>
           </Section>
 
           {/* Next 5 fires */}
           {(cron || intervalMs || at) && (
-            <Section title={`Next ${Math.max(nextFires.length, 1)} run${nextFires.length === 1 ? '' : 's'}`} icon={Clock}>
+            <Section
+              title={tFormat(
+                nextFires.length === 1 ? 'engine.jobPreview.nextRunOne' : 'engine.jobPreview.nextRunOther',
+                locale,
+                { count: Math.max(nextFires.length, 1) },
+              )}
+              icon={Clock}
+            >
               {nextFires.length === 0 ? (
                 <div className="text-xs text-amber-700">
-                  {scheduleInvalid
-                    ? 'Could not derive any future fire time. Check the schedule syntax.'
-                    : 'No upcoming runs in the next 366 days.'}
+                  {tr(scheduleInvalid ? 'engine.jobPreview.noFireTime' : 'engine.jobPreview.noUpcoming', locale)}
                 </div>
               ) : (
                 <ul className="rounded border bg-background divide-y text-xs">
@@ -371,7 +398,9 @@ export function JobPreview({ name, draft }: MetadataPreviewProps) {
                       <Clock className="h-3 w-3 text-muted-foreground" />
                       <span className="font-mono">{formatWhen(d, displayLocale)}</span>
                       <span className="ml-auto text-[10px] text-muted-foreground">
-                        in {deltas[i]}
+                        {deltas[i] == null
+                          ? tr('engine.jobPreview.inNow', locale)
+                          : tFormat('engine.jobPreview.inDelta', locale, { delta: deltas[i] as string })}
                       </span>
                     </li>
                   ))}
@@ -381,14 +410,14 @@ export function JobPreview({ name, draft }: MetadataPreviewProps) {
           )}
 
           {/* Handler */}
-          <Section title="Handler" icon={Code2}>
+          <Section title={tr('engine.jobPreview.handler', locale)} icon={Code2}>
             {handler ? (
               <div className="rounded border bg-background px-2.5 py-1.5 text-xs flex items-center gap-2">
                 <PlayCircle className="h-3.5 w-3.5 text-muted-foreground" />
                 <code className="font-mono break-all">{handler}</code>
               </div>
             ) : (
-              <div className="text-xs text-amber-700">No handler bound — the job will be a no-op.</div>
+              <div className="text-xs text-amber-700">{tr('engine.jobPreview.noHandler', locale)}</div>
             )}
           </Section>
         </div>
@@ -397,8 +426,14 @@ export function JobPreview({ name, draft }: MetadataPreviewProps) {
   );
 }
 
-function humanDelta(ms: number): string {
-  if (ms <= 0) return 'now';
+/**
+ * The time until a fire, in the compact duration notation the schedule itself
+ * is written in (`45s`, `5m`, `2h`, `3d`). `null` when the fire time is not in
+ * the future, which the caller words in the designer locale
+ * (`engine.jobPreview.inNow`, objectui#10862).
+ */
+function humanDelta(ms: number): string | null {
+  if (ms <= 0) return null;
   const s = Math.round(ms / 1000);
   if (s < 60) return `${s}s`;
   const m = Math.round(s / 60);

@@ -25,4 +25,4 @@ labels, gate hints and validation copy were all translated.
   not restate the spec's bounds (a hand-copied range is a second contract).
 - Not in scope, and recorded rather than folded in: `LocationField`'s third
   refusal sentence — the residue arm objectui#6715 added after the ruling was
-  written — is still a literal. objectui#6888 carries it.
+  written — is still a literal. The card behind `320374d2a` carries it.

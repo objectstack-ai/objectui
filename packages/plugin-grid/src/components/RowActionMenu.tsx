@@ -575,7 +575,7 @@ export const RowActionMenu: React.FC<RowActionMenuProps> = ({
   // children on `sys_approval_request`, whose `list_item` actions (approve /
   // reject / recall) are gated for approvers and fail for an admin browsing the
   // "全部" view. The capability gate above was already folded in for exactly
-  // this reason (#3923); the per-record predicates were not.
+  // this reason (objectstack-ai/objectstack#3923); the per-record predicates were not.
   const scope = usePredicateScope();
   const plan = React.useMemo(
     () =>

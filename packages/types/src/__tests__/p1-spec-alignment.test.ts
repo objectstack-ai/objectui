@@ -19,6 +19,7 @@ import type {
   // P1.1 ListView types
   ListViewSchema,
   ObjectGridSchema,
+  ObjectViewSchema,
   // P1.2 FormView types
   ObjectFormSchema,
   ObjectFormSection,
@@ -140,28 +141,35 @@ describe('P1.1 ListView Spec Alignment', () => {
     expect(schema.appearance?.allowedVisualizations).toHaveLength(2);
   });
 
-  it('should accept tabs configuration', () => {
-    // A minimal tab is valid AUTHORING input: the spec's ViewTab `.default()`s
-    // `pinned`/`visible`, so they are optional on the input side — which is what
-    // `ListViewSchema` types since framework#4074 (nothing on the render path
-    // parses, so defaults never materialize at runtime either). A tab filter is
-    // the spec's rule-object shape; the previous fixture wrote an ObjectQL
-    // triplet (`['owner', '=', 'current_user']`), which no type on this surface
-    // has ever admitted — this file just never compiled (objectui#3009).
-    const schema: ListViewSchema = {
-      type: 'list-view',
+  it('authors a named preset as a `listViews` entry, not as the retired list-view `tabs`', () => {
+    // objectstack#20357 retired the list view's own `tabs` (`ViewTabSchema[]`)
+    // as a `retiredKey()` tombstone: on spec `main` its input type is `never`,
+    // so the fixture that authored it here stopped compiling on the Spec Main
+    // Shape Gate (objectui#10987). No fixture may author it: the installed
+    // spec still admits the key and spec `main` refuses it, so neither an
+    // accept nor a refusal compiles on both until the pin bump.
+    // This is the protocol's prescription instead: each tab becomes a named view
+    // under the object's `listViews`. The tab's `name` is the entry's key, its
+    // `label` the entry's `label`, its `filter` rules the entry's `filter`, and
+    // the entry declares its own `columns`. `defaultListView` names the view the
+    // tab's `isDefault` picked. Every entry renders as a tab in the saved-view
+    // switcher.
+    const schema: ObjectViewSchema = {
+      type: 'object-view',
       objectName: 'Account',
-      tabs: [
-        { name: 'all', label: 'All Records', isDefault: true },
-        {
-          name: 'mine',
+      defaultListView: 'all',
+      listViews: {
+        all: { label: 'All Records', columns: ['name'] },
+        mine: {
           label: 'My Records',
+          columns: ['name'],
           filter: [{ field: 'owner', operator: 'equals', value: 'current_user' }],
         },
-      ],
+      },
     };
-    expect(schema.tabs).toHaveLength(2);
-    expect(schema.tabs![0].isDefault).toBe(true);
+    expect(Object.keys(schema.listViews ?? {})).toEqual(['all', 'mine']);
+    expect(schema.listViews?.mine?.filter).toHaveLength(1);
+    expect(schema.defaultListView).toBe('all');
   });
 
   it('should accept addRecord configuration', () => {
@@ -187,12 +195,15 @@ describe('P1.1 ListView Spec Alignment', () => {
         { condition: '${data.amount > 10000}', style: { backgroundColor: '#fee2e2' } },
       ],
       emptyState: { title: 'No Records', message: 'Create your first account', icon: 'Database' },
-      rowSpecActions: ['edit', 'delete'],
-      bulkSpecActions: ['delete', 'export'],
+      // The spec's row / bulk action slots are `rowActions` / `bulkActions`.
+      // `rowSpecActions` / `bulkSpecActions` were second spellings of them that
+      // nothing read, retired by objectui#11068.
+      rowActions: ['edit', 'delete'],
+      bulkActions: ['delete', 'export'],
     };
     expect(schema.conditionalFormatting).toHaveLength(1);
     expect(schema.emptyState?.title).toBe('No Records');
-    expect(schema.rowSpecActions).toEqual(['edit', 'delete']);
+    expect(schema.rowActions).toEqual(['edit', 'delete']);
   });
 
   // P2: Sharing / ExportOptions / Pagination protocol alignment tests
@@ -447,6 +458,12 @@ describe('P1.3 Dashboard Spec Alignment', () => {
   });
 
   it('should accept DashboardHeader with actions', () => {
+    // `header` is the spec's `DashboardHeader` by reference (objectui#7759), so
+    // `actionUrl` is required, `actionType` is the spec's `ActionType` enum and
+    // `label` is an `I18nLabel`. The first action here used to read
+    // `{ label: 'Refresh', actionType: 'refresh' }` — legal only under the
+    // hand-written restatement this file pinned, refused by the spec and by the
+    // zod mirror alike (no `actionUrl`, and `refresh` is not an action type).
     const dashboard: DashboardComponentSchema = {
       type: 'dashboard',
       widgets: [],
@@ -454,13 +471,16 @@ describe('P1.3 Dashboard Spec Alignment', () => {
         showTitle: true,
         showDescription: false,
         actions: [
-          { label: 'Refresh', actionType: 'refresh', icon: 'RefreshCw' },
+          { label: { en: 'Run forecast', 'zh-CN': '运行预测' }, actionUrl: 'run_forecast', actionType: 'flow', icon: 'Play' },
           { label: 'Export', actionUrl: '/api/export', icon: 'Download' },
         ],
       },
     };
     expect(dashboard.header?.showTitle).toBe(true);
     expect(dashboard.header?.actions).toHaveLength(2);
+    // @ts-expect-error — `refresh` is not a member of the spec's `ActionType`.
+    const refused: DashboardComponentSchema = { type: 'dashboard', widgets: [], header: { actions: [{ label: 'Refresh', actionUrl: 'x', actionType: 'refresh' }] } };
+    expect(refused.type).toBe('dashboard');
   });
 
   // `should accept widget ARIA properties` REMOVED: `dashboard.widgets[].aria`
@@ -615,7 +635,10 @@ describe('P1.5 Record Components', () => {
       columns: ['name', 'email', 'phone'],
       sort: [{ field: 'name', order: 'asc' }],
       limit: 5,
-      filter: [['active', '=', true]],
+      // The protocol's rule array (objectui#10199). This fixture used to write
+      // an array of `[field, op, value]` tuples, which only compiled because the
+      // key was `any`; the spec's `z.array(ViewFilterRuleSchema)` refuses it.
+      filter: [{ field: 'active', operator: 'equals', value: true }],
       title: 'Related Contacts',
       showViewAll: true,
       actions: ['new', 'edit'],
@@ -732,26 +755,28 @@ describe('P1.6 i18n & ARIA Protocol Alignment', () => {
 // NamedListView & ListViewSchema — Toolbar/Display Properties
 // ============================================================================
 describe('NamedListView toolbar and display properties', () => {
-  it('should accept showSearch, showSort, showFilters on NamedListView', () => {
+  // objectui#7924 retired the legacy `show*` spellings and the bare `color`
+  // shorthand on NamedListView's authoring face; the canonical keys carry the
+  // same toolbar toggles and row colouring. The refusal half lives in the
+  // census pin (`object-view-unmirrored-keys-7779.test.ts`).
+  it('should accept the canonical userActions toggles on NamedListView', () => {
     const view: import('../index').NamedListView = {
       label: 'My View',
       type: 'grid',
-      showSearch: false,
-      showSort: true,
-      showFilters: false,
+      userActions: { search: false, sort: true, filter: false },
     };
-    expect(view.showSearch).toBe(false);
-    expect(view.showSort).toBe(true);
-    expect(view.showFilters).toBe(false);
+    expect(view.userActions?.search).toBe(false);
+    expect(view.userActions?.sort).toBe(true);
+    expect(view.userActions?.filter).toBe(false);
   });
 
-  it('should accept color on NamedListView', () => {
+  it('should accept rowColor (the canonical form of the retired bare color) on NamedListView', () => {
     const view: import('../index').NamedListView = {
       label: 'Styled View',
       type: 'kanban',
-      color: 'status',
+      rowColor: { field: 'status' },
     };
-    expect(view.color).toBe('status');
+    expect(view.rowColor?.field).toBe('status');
   });
 
   // The other half of the retirement pinned above — `striped` / `bordered` came

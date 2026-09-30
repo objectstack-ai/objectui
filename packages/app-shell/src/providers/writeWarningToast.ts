@@ -7,7 +7,7 @@
  */
 
 /**
- * Turning a write-warning (framework #3431/#3455) into the message the user
+ * Turning a write-warning (objectstack-ai/objectstack#3431 / objectstack-ai/objectstack#3455) into the message the user
  * reads. Lives apart from `AdapterProvider` — and, deliberately, imports NOTHING
  * that renders — so the wording, the label resolution and the reason-branching
  * can be exercised directly.
@@ -21,9 +21,20 @@ import type {
   ObjectStackAdapter,
   WriteWarningEvent,
 } from '@object-ui/data-objectstack';
+import type { TranslateFn } from '@object-ui/i18n';
 
-/** i18next's `t`, narrowed to what this module uses. */
-export type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
+/**
+ * i18next's `t`, narrowed to what this module uses — RE-EXPORTED from its one
+ * authority in `@object-ui/i18n`, never re-declared (objectui#8261).
+ *
+ * Its callers keep importing it from here, so no import path moves. This
+ * module declared it itself until the maintainer's ruling on objectui#8165
+ * (option A) moved the one declaration down into `@object-ui/i18n`, the
+ * package both `@object-ui/app-shell` and `@object-ui/fields` already depend
+ * on — the copy in `@object-ui/fields` could never re-export from here,
+ * because app-shell depends on fields and not the other way round.
+ */
+export type { TranslateFn } from '@object-ui/i18n';
 
 /** Convention-based field-label resolver (`useObjectLabel().fieldLabel`). */
 export type FieldLabelFn = (objectName: string, fieldName: string, fallback: string) => string;
@@ -166,7 +177,7 @@ function lineFor(reason: DroppedFieldsNotice['reason']): StrippedLine {
  * Announce a write-warning. The write SUCCEEDED — some caller-supplied fields
  * were legally stripped, so we tell the user rather than let it pass silently.
  *
- * The REASON decides the wording (#3794), via the exhaustive {@link STRIPPED_LINE}
+ * The REASON decides the wording (objectstack-ai/objectstack#3794), via the exhaustive {@link STRIPPED_LINE}
  * table. `readonly_when` is not "this field is read-only" — the field is editable
  * in other states and the form rendered it as an ordinary input; what happened is
  * that THIS record's current state locks it. Saying "read-only" there sends the

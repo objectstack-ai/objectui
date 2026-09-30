@@ -39,7 +39,7 @@ outcome with the author choosing it.
 
 Well-formed option sets are untouched: they render and commit key for key as before,
 including the `default` / `visibleWhen` carrier (objectui#7540), the `label: ''` emitted
-for an option with no `label` key (objectui#7014), and the editor's own blank trailing
+for an option with no `label` key (`f0f774b0d`), and the editor's own blank trailing
 row, which is still filtered on commit.
 
 Two new strings land in the designer's own `en` / `zh` tables — the metadata-admin

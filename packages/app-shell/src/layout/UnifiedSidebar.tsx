@@ -48,7 +48,7 @@ import { useRecentItems } from '../hooks/useRecentItems.js';
 import { useFavorites } from '../hooks/useFavorites.js';
 import { useNavPins } from '../hooks/useNavPins.js';
 import { useNavActionDispatch } from '../hooks/useNavActionDispatch.js';
-import { matchAppBySegment, appRouteSegment } from '../utils/index.js';
+import { matchAppBySegment, appRouteSegment, resolveKeyedI18nLabel } from '../utils/index.js';
 import { useHomePath } from '../hooks/useHomePath.js';
 // Aliased for symmetry with objectui's own `resolveKeyedI18nLabel` above (the
 // names stopped colliding in objectui#4167): this is the spec's resolver (new in
@@ -159,7 +159,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   const { isMobile, setOpenMobile } = useSidebar();
   const location = useLocation();
   const { t, language } = useObjectTranslation();
-  const { objectLabel: resolveNavObjectLabel, dashboardLabel: resolveNavDashboardLabel, viewLabel: resolveNavViewLabel } = useObjectLabel();
+  const { objectLabel: resolveNavObjectLabel, dashboardLabel: resolveNavDashboardLabel, viewLabel: resolveNavViewLabel, appLabel } = useObjectLabel();
   const { context, currentAppName } = useNavigationContext();
   const { user, activeOrganization } = useAuth();
   const { isAdmin: isWorkspaceAdmin } = useWorkspaceAdminStatus();
@@ -205,6 +205,12 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   const activeApps = apps.filter((a: any) => a.active !== false && a.hidden !== true);
   // ADR-0048 (A) — route segment may be a package id; match by it (name fallback).
   const activeApp = matchAppBySegment(apps.filter((a: any) => a.active !== false), activeAppName || currentAppName) || activeApps[0];
+  // The active app's logo (objectui#10827): `branding.logo`, the one spelling
+  // `@objectstack/spec` declares — an image URL. This is the console chrome's
+  // only reader of it. App context only: on Home `activeApp` falls back to the
+  // FIRST app, whose logo is not this screen's. No logo, no header — the
+  // sidebar renders exactly as it did before the key had a reader.
+  const appLogo: string | undefined = context === 'app' ? activeApp?.branding?.logo : undefined;
 
   // Drag-reorder and pin persistence
   const { applyOrder, handleReorder } = useNavOrder(activeApp?.name || 'home');
@@ -315,8 +321,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   // Home navigation items. For workspace admins we surface the full system
   // ("Administration") nav right here on /home — previously the home context
   // showed ONLY a "Home" link, so a fresh env (no apps yet) rendered a bare
-  // centered page with the real menu nowhere in sight. Mirrors AppSidebar's
-  // `systemFallbackNavigation` (sans the deprecated manual "Create App").
+  // centered page with the real menu nowhere in sight.
   // Non-admins get just Home — system administration is owner/admin-gated.
   const homeNavigation: NavigationItem[] = React.useMemo(() => {
     const items: NavigationItem[] = [
@@ -346,18 +351,16 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
         { id: 'sys-apps', label: t('layout.systemNav.applications', { defaultValue: 'Applications' }), type: 'url' as const, url: '/apps/setup/system/apps', icon: 'layout-grid' },
         { id: 'sys-marketplace', label: t('layout.systemNav.appMarketplace', { defaultValue: 'App Marketplace' }), type: 'url' as const, url: '/apps/setup/system/marketplace', icon: 'store' },
         // #3739 — canonical `…/metadata/object`, not the legacy
-        // `…/system/metadata/object` alias. See the twin entry in
-        // `AppSidebar.systemFallbackNavigation` for the full note: the alias is
-        // served by `apps/console`'s `MetadataRedirect`, a bare `<Navigate>`
-        // onto this very URL, so pointing here removes a hop without moving the
-        // landing page. The alias routes themselves are untouched.
+        // `…/system/metadata/object` alias. The alias is served by
+        // `apps/console`'s `MetadataRedirect`, a bare `<Navigate>` onto this
+        // very URL, so pointing here removes a hop without moving the landing
+        // page. The alias routes themselves are untouched.
         { id: 'sys-objects', label: t('layout.systemNav.objectManager', { defaultValue: 'Object Manager' }), type: 'url' as const, url: '/apps/setup/metadata/object', icon: 'database' },
         // #3660 — canonical `…/metadata/datasource`, not the legacy
-        // `…/component/metadata/resource?type=datasource` alias. See the twin
-        // entry in `AppSidebar.systemFallbackNavigation` for the full note: the
-        // alias renders `LegacyMetadataRedirect`, a bare `<Navigate>` onto this
-        // very URL, so pointing here removes a hop without moving the landing
-        // page. The alias route itself is untouched.
+        // `…/component/metadata/resource?type=datasource` alias. The alias
+        // renders `LegacyMetadataRedirect`, a bare `<Navigate>` onto this very
+        // URL, so pointing here removes a hop without moving the landing page.
+        // The alias route itself is untouched.
         { id: 'sys-datasources', label: t('layout.systemNav.datasources', { defaultValue: 'Datasources' }), type: 'url' as const, url: '/apps/setup/metadata/datasource', icon: 'database' },
         { id: 'sys-users', label: t('layout.systemNav.users', { defaultValue: 'Users' }), type: 'url' as const, url: '/apps/setup/system/users', icon: 'users' },
         { id: 'sys-orgs', label: t('layout.systemNav.organizations', { defaultValue: 'Organizations' }), type: 'url' as const, url: '/apps/setup/system/organizations', icon: 'building-2' },
@@ -407,8 +410,11 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
       defaultValue: 'Package management',
     });
     const walk = (items: NavigationItem[]): NavigationItem[] =>
-      items.flatMap((item) => {
+      items.flatMap((item): NavigationItem[] => {
         if (isMetadataDirectoryItem(item)) return [];
+        // A separator has no children and is never the packages entry, and
+        // carries none of the keys rewritten below (objectui#10867).
+        if (item.type === 'separator') return [item];
         const children = item.children?.length ? walk(item.children) : item.children;
         if (item.type === 'group' && children?.length === 0) return [];
         if (isPackagesItem(item)) {
@@ -445,6 +451,15 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   return (
     <>
     <Sidebar collapsible="icon" className="!top-14 !h-[calc(100svh-3.5rem)]">
+      {appLogo && (
+        <SidebarHeader className="border-b p-2">
+          <img
+            src={appLogo}
+            alt={appLabel({ name: activeApp.name, label: resolveKeyedI18nLabel(activeApp.label, t) })}
+            className="h-8 w-auto max-w-full object-contain object-left"
+          />
+        </SidebarHeader>
+      )}
       {/* Mobile-only "Home" affordance — the desktop topbar exposes Home
           via the platform logo + AppSwitcher pill, but those are hidden
           on phones. Without this row, users entering an app on mobile
@@ -515,8 +530,8 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
                    {visibleAreas.map((area) => {
                      const AreaIcon = getIcon(area.icon);
                      const isActiveArea = area.id === activeArea?.id;
-                     // Same as AppSidebar: `NavigationArea.label` is the spec's
-                     // `I18nLabel`, widened in @objectstack/spec 17.0.0-rc.6 to
+                     // `NavigationArea.label` is the spec's `I18nLabel`,
+                     // widened in @objectstack/spec 17.0.0-rc.6 to
                      // `string | Record<string, string>`, so the inline
                      // per-locale form has to be resolved before it reaches a
                      // text slot or it renders as `[object Object]`.
@@ -666,7 +681,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
                  order. A pinned section would also land directly above this
                  arm's own "Starred" group. Separate product decisions, not part
                  of unflattening a group.
-               (Until objectui#5197 this list also named `resolveGroupLabel` /
+               (Until `9c60144b5` this list also named `resolveGroupLabel` /
                `resolveItemLabel`. Those props are gone from the renderer
                entirely — they were unreachable for every real nav entry, and
                app-nav localization belongs to the server `/meta` boundary.) */}

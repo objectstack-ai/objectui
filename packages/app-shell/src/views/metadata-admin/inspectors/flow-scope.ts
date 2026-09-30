@@ -11,11 +11,16 @@
  *   - Flow variables — every entry in `draft.variables[]` (declared up-front, so
  *     always in scope).
  *   - Upstream outputs — the `outputVariable(s)` / collected screen
- *     `fields[].name` / `assignments` keys / `idVariable` of every ANCESTOR node
+ *     `fields[].name` / `assignments` keys / `idVariable` / connector action
+ *     output keys of every ANCESTOR node
  *     (a node from which N is reachable, found by walking edges backwards). A
  *     node's OWN outputs and any DOWNSTREAM node's outputs are deliberately
  *     excluded — they don't exist yet when N runs. This is the property the
  *     picker's "a downstream output is not offered upstream" guarantee rests on.
+ *   - Edges — an out-edge's guard is evaluated AFTER its source node ran, so
+ *     an edge's scope is the scope at its source PLUS that source's own
+ *     outputs ({@link resolveEdgeScope}, objectui#11085). The one rule for
+ *     which own outputs count is {@link edgeSourceOutputRefs}.
  *   - Loop / map iterators — the `iteratorVariable` of an enclosing loop/map
  *     ancestor, surfaced as its own group.
  *   - Trigger record — on a record-triggered flow, the trigger object's fields.
@@ -28,16 +33,25 @@
  *
  * The graph-walk here is the unit-tested heart of the picker; async field-list
  * expansion and rendering live in the React layer so this module stays pure.
+ * The one piece of wording it produces, a reference's muted `detail`, reads the
+ * designer catalogue in the `locale` the caller passes (objectui#10748), the way
+ * `flow-ref-check`'s messages do; an absent locale reads the en rows.
  */
+
+import { t, tFormat } from '../i18n.js';
 
 /** Which group a reference belongs to (drives the picker's section headers). */
 export type ScopeGroupId =
   | 'variables' | 'outputs' | 'loop' | 'trigger'
-  // #3447: approval `expression` approvers see a DIFFERENT root set than flow
+  // objectstack-ai/objectstack#3447: approval `expression` approvers see a DIFFERENT root set than flow
   // conditions (current/trigger/vars — never `record`/bare fields). Their
   // picker groups carry their own ids so they can never leak into the regular
   // condition picker.
-  | 'approval_current' | 'approval_trigger' | 'approval_vars';
+  | 'approval_current' | 'approval_trigger' | 'approval_vars'
+  // objectui#10772: a `screen` node's `fields[].visibleWhen` binds the same
+  // screen's declared fields plus `record` (`screenPredicateRoots`), never the
+  // flow scope — its own id for the same reason.
+  | 'screen_fields';
 
 /**
  * One pickable reference. `token` is the BARE form (no braces); the picker
@@ -90,17 +104,21 @@ interface ScopeFlowNode {
   type?: unknown;
   label?: unknown;
   config?: unknown;
+  /** A `connector_action` node's spec-structured sibling block (connector + action). */
+  connectorConfig?: unknown;
 }
 interface FlowEdgeLike {
   source?: unknown;
   target?: unknown;
+  /** `fault` marks the failure route — see {@link edgeSourceOutputRefs}. */
+  type?: unknown;
 }
 
 /** Trigger types that fire on a single record (so `record` is in scope). */
 const RECORD_TRIGGER_TYPES = new Set([
   'record-after-create',
   'record-after-update',
-  'record-after-write', // create OR update (#3427)
+  'record-after-write', // create OR update (objectstack-ai/objectstack#3427)
   'record-before-write',
   'record-before-update',
   'record-after-delete',
@@ -123,6 +141,69 @@ function asRecord(v: unknown): Record<string, unknown> {
 }
 function str(v: unknown): string | undefined {
   return typeof v === 'string' && v ? v : undefined;
+}
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object' && !Array.isArray(v);
+}
+
+/**
+ * The connector + action a `connector_action` node has COMMITTED, read off its
+ * spec-structured `connectorConfig` block (where the connector and action
+ * pickers write them). Either half missing → undefined.
+ */
+function committedConnectorAction(node: ScopeFlowNode): { connectorId: string; actionId: string } | undefined {
+  if (str(node.type) !== 'connector_action') return undefined;
+  const cc = asRecord(node.connectorConfig);
+  const connectorId = str(cc.connectorId);
+  const actionId = str(cc.actionId);
+  return connectorId && actionId ? { connectorId, actionId } : undefined;
+}
+
+/**
+ * Whether any top-level node of `draft` is a `connector_action` with a committed
+ * connector + action — the only nodes whose output references need the runtime
+ * connector registry (objectui#11028). The inspectors gate their registry read
+ * on it, so a flow with no such node never fetches for scope.
+ */
+export function hasCommittedConnectorAction(draft: Record<string, unknown>): boolean {
+  return asArray(draft.nodes).some((n) => !!committedConnectorAction(asRecord(n) as ScopeFlowNode));
+}
+
+/**
+ * Find one action's `outputSchema` in a `GET /automation/connectors` payload
+ * (already unwrapped to the connector array) — the output twin of
+ * `connectorActionInputSchema`, with the same tolerance: an unknown connector,
+ * an unknown action, or an action that declares no object schema is undefined.
+ */
+export function connectorActionOutputSchema(
+  connectors: unknown,
+  connectorName: string | undefined,
+  actionKey: string | undefined,
+): Record<string, unknown> | undefined {
+  if (!Array.isArray(connectors) || !connectorName || !actionKey) return undefined;
+  const connector = connectors.find((c) => isPlainObject(c) && c.name === connectorName) as Record<string, unknown> | undefined;
+  if (!connector || !Array.isArray(connector.actions)) return undefined;
+  const action = connector.actions.find((a) => isPlainObject(a) && a.key === actionKey) as Record<string, unknown> | undefined;
+  const schema = action?.outputSchema;
+  return isPlainObject(schema) ? schema : undefined;
+}
+
+/**
+ * The top-level output keys a connector action's `outputSchema` DECLARES — the
+ * keys of its top-level `properties` object (objectui#11028).
+ *
+ * The engine stores each top-level key of a `connector_action` node's `output`
+ * as the variable `<nodeId>.<key>`, so these are exactly the references the
+ * node writes. `outputSchema` is an open record nothing validates (JSON Schema
+ * by convention), so anything else — no schema, a schema with no `properties`,
+ * a `properties` that is not an object — yields NO keys. ⛔ Keys are never
+ * guessed: a reference the designer offers must be one the action declared.
+ */
+export function connectorActionOutputKeys(outputSchema: unknown): string[] {
+  if (!isPlainObject(outputSchema)) return [];
+  const properties = outputSchema.properties;
+  if (!isPlainObject(properties)) return [];
+  return Object.keys(properties).filter((key) => key.length > 0);
 }
 
 /**
@@ -161,12 +242,17 @@ export function flowAncestors(nodeId: string, edges: FlowEdgeLike[]): Set<string
  * `loop` ref). The start node is NOT handled here — its trigger record is
  * resolved separately.
  *
+ * A `connector_action` node's references live in the runtime connector
+ * registry, not on the node, so the caller passes that registry
+ * (`GET /api/v1/automation/connectors`, unwrapped to the connector array) as
+ * `connectors`. Without it the node offers no references.
+ *
  * Deliberately NOT read: the script node's legacy `outputVariables` list. The
  * engine never binds those names (it binds the singular `outputVariable` on the
  * function path — framework#4278), so suggesting them in the data picker
  * offered successors variables that never exist at run time.
  */
-export function nodeOutputRefs(node: ScopeFlowNode): ScopeRef[] {
+export function nodeOutputRefs(node: ScopeFlowNode, connectors?: unknown): ScopeRef[] {
   const type = str(node.type);
   const cfg = asRecord(node.config);
   const nodeId = str(node.id) ?? '';
@@ -220,6 +306,17 @@ export function nodeOutputRefs(node: ScopeFlowNode): ScopeRef[] {
     }
   }
 
+  // Connector action (objectui#11028), modelled on the approval branch: the
+  // engine writes each top-level key of the handler's result as
+  // `<nodeId>.<key>`, and the action's served `outputSchema` declares those
+  // keys. No committed connector + action, no registry, or no declared
+  // top-level `properties` → no references.
+  const committed = nodeId ? committedConnectorAction(node) : undefined;
+  if (committed) {
+    const schema = connectorActionOutputSchema(connectors, committed.connectorId, committed.actionId);
+    for (const key of connectorActionOutputKeys(schema)) add(`${nodeId}.${key}`);
+  }
+
   return out;
 }
 
@@ -235,8 +332,17 @@ function dedupeByToken(refs: ScopeRef[]): ScopeRef[] {
  * the returned `trigger` carries the object name and per-field token prefix for
  * the UI layer to expand. Order: flow variables, upstream outputs, loop
  * iterators, then trigger refs, de-duplicated by token.
+ *
+ * `connectors` is the already-fetched runtime connector registry, handed to
+ * {@link nodeOutputRefs} so an upstream `connector_action` node offers the
+ * output keys its action declares; omitted, such a node offers none.
  */
-export function resolveFlowScope(draft: Record<string, unknown>, nodeId: string | undefined): FlowScope {
+export function resolveFlowScope(
+  draft: Record<string, unknown>,
+  nodeId: string | undefined,
+  locale?: string,
+  connectors?: unknown,
+): FlowScope {
   const nodes = asArray(draft.nodes).map(asRecord) as ScopeFlowNode[];
   const edges = asArray(draft.edges) as FlowEdgeLike[];
   const refs: ScopeRef[] = [];
@@ -247,7 +353,12 @@ export function resolveFlowScope(draft: Record<string, unknown>, nodeId: string 
     const name = str(rec.name);
     if (!name) continue;
     const type = str(rec.type);
-    refs.push({ token: name, label: name, detail: type ? `variable · ${type}` : 'variable', group: 'variables' });
+    refs.push({
+      token: name,
+      label: name,
+      detail: type ? tFormat('engine.flowScope.detail.variableTyped', locale, { type }) : t('engine.flowScope.detail.variable', locale),
+      group: 'variables',
+    });
   }
 
   if (!nodeId) return { refs: dedupeByToken(refs) };
@@ -260,7 +371,7 @@ export function resolveFlowScope(draft: Record<string, unknown>, nodeId: string 
     const id = str(node.id);
     if (!id || id === nodeId || !ancestors.has(id)) continue;
     if (id === startId) continue; // the start node contributes the trigger record, below
-    for (const ref of nodeOutputRefs(node)) refs.push(ref);
+    for (const ref of nodeOutputRefs(node, connectors)) refs.push(ref);
   }
 
   // 3. Trigger record — on a record-triggered flow, when the start node is in
@@ -279,16 +390,60 @@ export function resolveFlowScope(draft: Record<string, unknown>, nodeId: string 
       // (`status`), so the whole record is not a named ref there; `previous` is
       // (`previous.status`). Downstream the record is the named `record` object.
       if (!onStart) {
-        refs.push({ token: 'record', label: 'record', detail: `trigger record · ${objectName}`, group: 'trigger' });
+        refs.push({ token: 'record', label: 'record', detail: tFormat('engine.flowScope.detail.triggerRecord', locale, { object: objectName }), group: 'trigger' });
       }
       if (includePrevious) {
-        refs.push({ token: 'previous', label: 'previous', detail: 'record values before the change', group: 'trigger' });
+        refs.push({ token: 'previous', label: 'previous', detail: t('engine.flowScope.detail.previousRecord', locale), group: 'trigger' });
       }
       return { refs: dedupeByToken(refs), trigger: { objectName, fieldPrefix: onStart ? '' : 'record.', includePrevious } };
     }
   }
 
   return { refs: dedupeByToken(refs) };
+}
+
+/**
+ * The source node's OWN outputs that are in scope on one of its out-edges —
+ * the single rule both the edge inspector and the Problems panel's edge scan
+ * read (objectui#11085).
+ *
+ * The engine writes a node's outputs (its executor's `outputVariable` and the
+ * `<nodeId>.<key>` write-back of its result) BEFORE `traverseNext` evaluates
+ * its out-edge guards, so a guard can read what its own source just wrote.
+ * Two out-edges get none:
+ *   - a `fault` edge — the engine walks it only when the node FAILED, when no
+ *     output was written back, and never evaluates its condition
+ *     (`traverseNext` filters fault edges out);
+ *   - an edge leaving the start node, which contributes the trigger record
+ *     rather than outputs (as in {@link resolveFlowScope}).
+ */
+export function edgeSourceOutputRefs(
+  draft: Record<string, unknown>,
+  edge: FlowEdgeLike,
+  connectors?: unknown,
+): ScopeRef[] {
+  const sourceId = str(edge.source);
+  if (!sourceId || str(edge.type) === 'fault') return [];
+  const source = asArray(draft.nodes).map(asRecord).find((n) => str(n.id) === sourceId) as ScopeFlowNode | undefined;
+  if (!source || str(source.type) === 'start') return [];
+  return nodeOutputRefs(source, connectors);
+}
+
+/**
+ * Resolve the in-scope reference set on an EDGE's guard: everything in scope
+ * at its source node ({@link resolveFlowScope}) plus the source's own outputs
+ * ({@link edgeSourceOutputRefs}), de-duplicated by token. `trigger` is the
+ * source node's.
+ */
+export function resolveEdgeScope(
+  draft: Record<string, unknown>,
+  edge: FlowEdgeLike,
+  locale?: string,
+  connectors?: unknown,
+): FlowScope {
+  const atSource = resolveFlowScope(draft, str(edge.source), locale, connectors);
+  const refs = dedupeByToken([...atSource.refs, ...edgeSourceOutputRefs(draft, edge, connectors)]);
+  return atSource.trigger ? { refs, trigger: atSource.trigger } : { refs };
 }
 
 /**
@@ -300,6 +455,7 @@ export function resolveFlowScope(draft: Record<string, unknown>, nodeId: string 
 export function triggerFieldRefs(
   trigger: TriggerScope,
   fields: ReadonlyArray<{ name: string; label?: string; type?: string }>,
+  locale?: string,
 ): ScopeRef[] {
   const out: ScopeRef[] = [];
   for (const f of fields) {
@@ -311,7 +467,7 @@ export function triggerFieldRefs(
       out.push({
         token: `previous.${f.name}`,
         label: `previous.${f.name}`,
-        detail: detail ? `prior ${detail}` : 'prior value',
+        detail: detail ? tFormat('engine.flowScope.detail.priorOf', locale, { detail }) : t('engine.flowScope.detail.priorValue', locale),
         group: 'trigger',
       });
     }

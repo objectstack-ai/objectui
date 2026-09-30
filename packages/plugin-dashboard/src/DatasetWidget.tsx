@@ -33,7 +33,7 @@ import { useEffect, useMemo, useState } from 'react';
 // behind. It lives in `@object-ui/react` because it reads the host context —
 // see its file header for the measured dependency direction. This widget
 // layers its CHART-ONLY colour/order derivation on top, below.
-import { SchemaRenderer, useDatasetDimensionMeta } from '@object-ui/react';
+import { SchemaRenderer, useDatasetDimensionMeta, useDataInvalidation, classifyLoadError } from '@object-ui/react';
 import {
   buildChartSeries,
   buildOptionColorMap,
@@ -47,6 +47,7 @@ import {
   formatDimensionValue,
   buildDatasetFieldHelpers,
   buildDatasetDrillFilter,
+  FilterOperatorError,
   // The pivot key encoders now live in `@object-ui/core` so this widget and the
   // report renderer's cross-tab share ONE implementation — each having written
   // its own is why the same collision had to be fixed twice (objectstack#5473,
@@ -58,6 +59,9 @@ import {
   pivotDimensionValue,
   pivotCellKey,
   compareToTrendLabelKey,
+  // Which chart families ignore `compareTo` — ONE declaration, read by the
+  // inline chart path too (objectui#7495). See `compareTo` below.
+  chartTypeIgnoresCompareTo,
   // The authored half of the same split — moved to core beside `buildChartSeries`
   // so this widget and the report's embedded chart lower one vocabulary once
   // (objectui#4877). Re-exported below under their original names.
@@ -75,9 +79,9 @@ import {
   type DatasetResultField,
   type DatasetDrillRange,
 } from '@object-ui/core';
-import { cn, Skeleton, ChartSkeleton, GridSkeleton } from '@object-ui/components';
+import { cn, Skeleton, ChartSkeleton, GridSkeleton, RefreshIndicator } from '@object-ui/components';
 import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useDisplayLocale, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
-import { AlertTriangle, Download, ArrowUpIcon, ArrowDownIcon, MinusIcon, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react';
+import { AlertTriangle, ShieldAlert, Download, ArrowUpIcon, ArrowDownIcon, MinusIcon, ChevronsUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 // objectui#7063 — the default empty state is stated ONCE for the dashboard
 // surface (see that component's header for why it is dashboard-local).
 import { WidgetEmptyState } from './WidgetEmptyState';
@@ -87,8 +91,11 @@ import { metricAccentTextClass } from './colorVariants';
 import { DrillDownDrawer } from './DrillDownDrawer';
 
 type Row = Record<string, unknown>;
-interface DatasetTotals { dimensions: string[]; rows: Row[] }
-interface DatasetResult { rows: Row[]; fields?: DatasetResultField[]; object?: string; dimensionFields?: Record<string, string>; drillRawRows?: Row[]; drillRanges?: Array<Record<string, DatasetDrillRange>>; totals?: DatasetTotals[] }
+// One RESULT-side totals grouping (the response's `totals[]`), named apart from
+// `@objectstack/spec/api`'s `DatasetTotals`, which since 17.5.0 is the REQUEST side
+// (`{ groupings }`, what to compute) — objectui#11073.
+interface DatasetResultTotals { dimensions: string[]; rows: Row[] }
+interface DatasetResult { rows: Row[]; fields?: DatasetResultField[]; object?: string; dimensionFields?: Record<string, string>; drillRawRows?: Row[]; drillRanges?: Array<Record<string, DatasetDrillRange>>; totals?: DatasetResultTotals[] }
 interface DatasetCapableSource {
   queryDataset?: (dataset: string, selection: unknown) => Promise<DatasetResult>;
 }
@@ -433,6 +440,14 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   const datasetName = String(widget?.dataset ?? '');
   const dimensions: string[] = useMemo(() => (Array.isArray(widget?.dimensions) ? widget.dimensions.filter(Boolean) : []), [widget]);
   const values: string[] = useMemo(() => (Array.isArray(widget?.values) ? widget.values.filter(Boolean) : []), [widget]);
+  const widgetType = String(widget?.type ?? '');
+  const isMetric = METRIC_TYPES.has(widgetType) || dimensions.length === 0;
+  const isTable = widgetType === 'table' || widgetType === 'pivot';
+  // The chart family a widget that reaches the chart branch below renders as —
+  // `bubble` → `scatter`, `pyramid` → `funnel` (CHART_TYPE_MAP). Only meaningful
+  // when neither `isMetric` nor `isTable` holds; resolved up here because the
+  // query needs it (see `compareTo` just below), not only the chart branch.
+  const chartType = CHART_TYPE_MAP[widgetType] ?? 'bar';
   // `widget.compareTo` IS the executor's contract since objectstack#5011 —
   // `{ kind, dimension? }`, the same `DatasetCompareTo` the selection carries —
   // so it forwards unchanged. It used to be a three-branch union whose two
@@ -442,10 +457,20 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // left in stored metadata is now INVALID metadata, rejected where it is
   // authored/published — not laundered here into a different query
   // (AGENTS.md #0.1).
-  const compareTo: CompareToConfig | undefined = widget?.compareTo;
-  const widgetType = String(widget?.type ?? '');
-  const isMetric = METRIC_TYPES.has(widgetType) || dimensions.length === 0;
-  const isTable = widgetType === 'table' || widgetType === 'pivot';
+  //
+  // ⭐ Except on a CHART of a family that ignores `compareTo` (pie / donut /
+  // funnel / scatter, and the `bubble` / `pyramid` widget types that render as
+  // one) — `chartTypeIgnoresCompareTo`, the one declaration the inline chart
+  // path reads too (objectui#7495). There the widget asks the executor for NO
+  // comparison: no `compareTo` in the selection, no window lowered into
+  // `timeDimensions`, so the comparison pass never runs and no overlay series is
+  // appended. Before this, the dashboard carried its own narrower copy of the
+  // list (scatter only), so a compare-to pie ran a comparison query whose
+  // overlay the renderer then dropped. Gated on the CHART branch, not on the
+  // widget type: a pie widget with no dimensions renders as a metric tile
+  // (`isMetric`), which does show the comparison as a delta, so it keeps it.
+  const compareTo: CompareToConfig | undefined =
+    !isMetric && !isTable && chartTypeIgnoresCompareTo(chartType) ? undefined : widget?.compareTo;
   // pivot with ≥2 dims → a true cross-tab: last dim spreads across as columns,
   // the rest go down as rows. Computed up-front so the fetch can also request
   // the matching subtotal groupings.
@@ -491,7 +516,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // ONE extra statement, `SELECT SUM(…), AVG(…) FROM t` — the same WHERE, no
   // GROUP BY — at 9.6ms beside the primary's 48.8ms, i.e. +20% on the widget's
   // query, holding at +19%/1M rows and +28%/10k. The cross-tab has shipped
-  // THREE such groupings, ungated, since #1753; one is strictly less.
+  // THREE such groupings, ungated, since objectstack-ai/objectstack#1753; one is strictly less.
   //
   // NOT requested when `options.limit` truncates the table. The executor drops
   // `limit` for a totals query by design (a total covers the whole selection),
@@ -533,7 +558,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   //
   // Resolve BOTH vocabularies. This used to call `resolveDateMacros` alone, so
   // a user-scoped widget sent `{current_user_id}` to SQL as a literal, matched
-  // no row, and rendered 0 with no error anywhere (framework #3574).
+  // no row, and rendered 0 with no error anywhere (objectstack-ai/objectstack#3574).
   const filterScope = useFilterScope();
   // The object-schema probe's host-authenticated fetch (objectui#4121) is no
   // longer read here: it moved INTO `useDatasetDimensionMeta` along with the
@@ -564,7 +589,9 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
     [compareTo, runtimeFilter],
   );
 
-  const [state, setState] = useState<{ status: 'idle' | 'loading' | 'ok' | 'error'; rows: Row[]; fields?: DatasetResultField[]; object?: string; dimensionFields?: Record<string, string>; drillRawRows?: Array<Record<string, unknown>>; drillRanges?: Array<Record<string, DatasetDrillRange>>; totals?: DatasetTotals[]; error?: string }>({ status: 'idle', rows: [] });
+  // `signature` is the query an `ok` answer was read for, and `refreshing` marks
+  // a re-read of that same query in flight (objectui#10815, see the effect).
+  const [state, setState] = useState<{ status: 'idle' | 'loading' | 'ok' | 'error'; rows: Row[]; fields?: DatasetResultField[]; object?: string; dimensionFields?: Record<string, string>; drillRawRows?: Array<Record<string, unknown>>; drillRanges?: Array<Record<string, DatasetDrillRange>>; totals?: DatasetResultTotals[]; error?: string; forbidden?: boolean; signature?: string; refreshing?: boolean }>({ status: 'idle', rows: [] });
   // Drill-through (ADR-0021 D2): the clicked bucket's record-list filter + title.
   const [drill, setDrill] = useState<{ filter: Record<string, unknown>; title: string } | null>(null);
   // ── The flat table's client-side sort (objectui#5827) ────────────────────
@@ -583,6 +610,26 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // query-affecting options join it so editing a widget's granularity/sort in
   // the designer refetches instead of re-rendering the previous grid.
   const signature = `${widgetType}|${datasetName}|${dimensions.join(',')}|${values.join(',')}|${JSON.stringify(rawFilter ?? null)}|${JSON.stringify(compareTo ?? null)}|${dateGranularity ?? ''}|${JSON.stringify(order ?? null)}|${limit ?? ''}`;
+
+  // ── The data-invalidation bus (objectui#10815) ───────────────────────────
+  // `notifyDataChanged` from `@object-ui/react`, read the objectui#10623 /
+  // objectui#10778 way: the nonce moves when a write to the object this widget
+  // QUERIES is declared, and the fetch effect below names it, so the tile is
+  // re-read in place. Without it a write declared on the bus (a page action over
+  // raw HTTP, a flow, a server action) left the tile stale until something
+  // remounted it.
+  //
+  // A dataset node carries no `objectName`: the object is the dataset's base
+  // object, which only the query's ANSWER names (`object`). It is kept in its
+  // own state, set from each answer that names one, the same key `ObjectChart`
+  // subscribes a dataset-bound chart on (`datasetObject`, objectui#10035). Kept
+  // apart from `state` so a re-read or a failed read does not drop the
+  // subscription. An adapter that cannot run dataset queries never answers, so
+  // nothing subscribes; a widget with no measures queries nothing and does not
+  // subscribe either.
+  const [datasetObject, setDatasetObject] = useState<string | undefined>(undefined);
+  const invalidationNonce = useDataInvalidation(values.length > 0 ? datasetObject : undefined);
+
   useEffect(() => {
     const src = dataSource as DatasetCapableSource | undefined;
     if (!src || typeof src.queryDataset !== 'function') {
@@ -591,7 +638,15 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
     }
     if (values.length === 0) { setState({ status: 'idle', rows: [] }); return; }
     let cancelled = false;
-    setState({ status: 'loading', rows: [] });
+    // A re-read of the query already on screen (the bus moved the nonce) keeps
+    // the current answer up under a `RefreshIndicator` instead of swapping the
+    // tile for its loading skeleton, so the table node, its sort and an open
+    // drill survive the re-read (AGENTS.md #8). A different query (the widget's
+    // dimensions, measures, filter or options changed) starts from the skeleton:
+    // the rows on screen answer another question.
+    setState((prev) => (prev.status === 'ok' && prev.signature === signature
+      ? { ...prev, refreshing: true }
+      : { status: 'loading', rows: [] }));
     src.queryDataset(datasetName, {
       dimensions,
       measures: values,
@@ -603,11 +658,27 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
       ...(order ? { order } : {}),
       ...(limit != null ? { limit } : {}),
     })
-      .then((res) => { if (!cancelled) setState({ status: 'ok', rows: Array.isArray(res?.rows) ? res.rows : [], fields: Array.isArray(res?.fields) ? res.fields : [], object: res?.object, dimensionFields: res?.dimensionFields, drillRawRows: Array.isArray(res?.drillRawRows) ? res.drillRawRows : undefined, drillRanges: Array.isArray(res?.drillRanges) ? res.drillRanges : undefined, totals: Array.isArray(res?.totals) ? res.totals : undefined }); })
-      .catch((e) => { if (!cancelled) setState({ status: 'error', rows: [], error: String((e as Error)?.message ?? e) }); });
+      .then((res) => {
+        if (cancelled) return;
+        setState({ status: 'ok', rows: Array.isArray(res?.rows) ? res.rows : [], fields: Array.isArray(res?.fields) ? res.fields : [], object: res?.object, dimensionFields: res?.dimensionFields, drillRawRows: Array.isArray(res?.drillRawRows) ? res.drillRawRows : undefined, drillRanges: Array.isArray(res?.drillRanges) ? res.drillRanges : undefined, totals: Array.isArray(res?.totals) ? res.totals : undefined, signature });
+        if (typeof res?.object === 'string' && res.object) setDatasetObject(res.object);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        // A READ refusal (403 / `PERMISSION_DENIED` — the analytics read
+        // admission, objectui#10899) is not a failure to explain: it is the same
+        // "you can't see this data" the list view over the same object states in
+        // its localized no-access panel. Classified by the shared, adapter-
+        // agnostic `classifyLoadError`, never by matching the message text.
+        if (classifyLoadError(e) === 'forbidden') {
+          setState({ status: 'error', rows: [], forbidden: true });
+          return;
+        }
+        setState({ status: 'error', rows: [], error: String((e as Error)?.message ?? e) });
+      });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signature]);
+  }, [signature, invalidationNonce]);
 
   // ── Declared measures this tile will never show (objectui#8894) ──────────
   // `values` is `z.array(z.string()).min(1)` on `DashboardWidgetSchema`, so an
@@ -787,6 +858,26 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
       </div>
     );
   }
+  if (state.status === 'error' && state.forbidden) {
+    // The viewer may not read the data behind this tile (objectui#10899). A
+    // localized statement of that fact, in the list view's words — never the
+    // transport's `Dataset query failed: 403 Forbidden — …` string.
+    return (
+      <div
+        role="alert"
+        data-testid="dataset-widget-forbidden"
+        className="flex h-full w-full flex-col items-center justify-center gap-1 p-3 text-center text-xs text-muted-foreground"
+      >
+        <ShieldAlert className="h-5 w-5 text-muted-foreground/70" aria-hidden="true" />
+        <span className="font-medium text-foreground/80">
+          {tt('dashboard.widgetForbiddenTitle', 'You don’t have access')}
+        </span>
+        <span>
+          {tt('dashboard.widgetForbiddenMessage', 'You don’t have permission to view the data behind this widget.')}
+        </span>
+      </div>
+    );
+  }
   if (state.status === 'error') {
     return (
       <div role="alert" className="flex h-full w-full items-start gap-2 rounded border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive">
@@ -794,6 +885,10 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
       </div>
     );
   }
+  // A re-read of the answer on screen is in flight (objectui#10815): the rows
+  // below stay, and this bar marks the refresh. Each data branch's root is
+  // positioned, so the bar anchors to the tile's top edge.
+  const refreshBar = <RefreshIndicator active={!!state.refreshing} ariaLabel={tt('dashboard.refreshing', 'Refreshing…')} />;
   // A metric (single value) over an empty dataset is 0, not an empty state —
   // the latter reads as broken for KPIs like "Total Books" on a fresh app.
   // Charts and tables keep the empty state (there is genuinely nothing to
@@ -855,12 +950,27 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // charts map a clicked segment back to its dataset row (see handleChartDrill).
   const { object: drillObject, dimensionFields, drillRawRows, drillRanges } = state;
   const drillDims = dimensionFields ? dimensions.filter((d) => d in dimensionFields) : [];
-  // #1752: a date-only widget has no equality drill dim but still drills by the
+  // objectstack-ai/objectstack#1752: a date-only widget has no equality drill dim but still drills by the
   // server's per-row date RANGE, so the presence of ranges makes it drillable too.
   const canDrill = !!drillObject && (drillDims.length > 0 || !!drillRanges?.length);
   const openDrill = (index: number, title: string) => {
     if (!drillObject) return;
-    const merged = buildDrillFilter(drillRawRows?.[index], drillDims, dimensionFields ?? {}, runtimeFilter, drillRanges?.[index]);
+    // objectui#10789 — composing the widget's filter with the clicked bucket
+    // lowers both through the throwing converter form. A widget filter the
+    // dataset query carried to the server can still be one this layer refuses
+    // (a spec `$not`), and the click then threw out of this handler uncaught.
+    // The refusal opens no drawer (never with "no filter", which would list
+    // every record the widget is scoped to exclude) and is logged, naming the
+    // operator — the channel a failed drill already reports on (`ReportView`'s
+    // drill handler). Only a `FilterOperatorError` is caught.
+    let merged: Record<string, unknown>;
+    try {
+      merged = buildDrillFilter(drillRawRows?.[index], drillDims, dimensionFields ?? {}, runtimeFilter, drillRanges?.[index]);
+    } catch (error) {
+      if (!(error instanceof FilterOperatorError)) throw error;
+      console.warn(`[DatasetWidget] drill-down refused — the drilled list cannot be scoped: ${error.message}`);
+      return;
+    }
     setDrill({ filter: merged, title: title || String(widget?.title ?? '') });
   };
   const drillDrawer = drill && drillObject ? (
@@ -955,7 +1065,11 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
       ? (pickLocalized(options.description, language) || undefined)
       : (subCaption || undefined);
     return (
-      <div className="flex h-full w-full flex-col items-start justify-center gap-1 p-2">
+      // Positioned only while a re-read is in flight, for the refresh bar: the
+      // idle tile's markup is pinned byte-for-byte (`DatasetWidget.colorVariant`,
+      // `.subCaption`, `.unrenderedMeasures-8894` tests), and it moves by nothing.
+      <div className={cn('flex h-full w-full flex-col items-start justify-center gap-1 p-2', state.refreshing && 'relative')}>
+        {refreshBar}
         <span className={cn('text-2xl font-semibold tabular-nums', accentClass)}>{formatMeasure(value, f?.format, f?.currency, f?.percentScale, displayLocale)}</span>
         {delta && (
           <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground" data-testid="dataset-compare-trend">
@@ -1167,7 +1281,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
       const showTotalRow = colTotalById.size > 0;
       const totalLabel = tt('dashboard.total', 'Total');
       return (
-        <div className="relative h-full w-full overflow-auto p-1" data-testid="dataset-matrix">{exportBtn}
+        <div className="relative h-full w-full overflow-auto p-1" data-testid="dataset-matrix">{refreshBar}{exportBtn}
           <table className="w-full text-xs">
             {compareCaption}
             <thead className="bg-muted/40">
@@ -1396,7 +1510,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
     };
 
     return (
-      <div className="relative h-full w-full overflow-auto p-1">{exportBtnFor(orderedEntries.map((e) => e.row))}
+      <div className="relative h-full w-full overflow-auto p-1">{refreshBar}{exportBtnFor(orderedEntries.map((e) => e.row))}
         <table className="w-full text-xs">
           <thead className="bg-muted/40">
             <tr>
@@ -1500,9 +1614,9 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   }
 
   // Chart — route to the advanced renderer with the widget's TRUE chart family
-  // and one series per measure. Series carry the measure display label so the
-  // legend reads "Tasks" rather than "task_count".
-  const chartType = CHART_TYPE_MAP[widgetType] ?? 'bar';
+  // (`chartType`, resolved at the top because the query reads it too) and one
+  // series per measure. Series carry the measure display label so the legend
+  // reads "Tasks" rather than "task_count".
   // Resolve select/enum dimension values → display labels before charting, so a
   // value-keyed group (e.g. status=`active`) shows its label (`合作中`) on the
   // axis with its count intact (cloud#667). `chartRows` stays index-aligned with
@@ -1544,22 +1658,12 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // series a comparison could pair with (the `__compare` columns are still in
   // the rows — nothing is lost, it just isn't drawn as an overlay).
   //
-  // Skipped, too, for a chart family that IGNORES `compareTo` — today just
-  // `scatter`, which both the `scatter` and `bubble` widget types map to
-  // (CHART_TYPE_MAP above). A scatter binds ONE measure to its y axis, so the
-  // overlay was drawn through the PRIMARY's `YAxis dataKey` and painted
-  // "previous period" exactly on top of "current" (objectui#7402). It returns
-  // with the multi-measure projection declined as option A of objectui#7194.
-  // The sibling declaration for the inline chart path is `supportsCompareTo`
-  // in `@object-ui/plugin-charts`' ObjectChart; this is a second, deliberately
-  // narrow copy because plugin-charts is a devDependency here, not a runtime
-  // one. ⚠️ That list also excludes pie / donut / funnel and this one does
-  // not — a divergence older than this line, filed as objectui#7495 (the
-  // renderer drops the extra series for those families, so nothing is
-  // mis-drawn; the comparison query still runs).
-  const chartIgnoresCompareTo = chartType === 'scatter';
+  // A chart family that IGNORES `compareTo` (pie / donut / funnel / scatter)
+  // needs no guard here: `compareTo` is already `undefined` for it (see its
+  // definition at the top), so no comparison was queried and `comparedValues`
+  // is empty (objectui#7495, objectui#7402).
   const pivotedSeries = dimensions.length >= 2 && values.length === 1;
-  const comparisonSeries = pivotedSeries || chartIgnoresCompareTo
+  const comparisonSeries = pivotedSeries
     ? []
     : comparedValues.map((m) => {
         // An overlay is the SAME measure one period back, so it takes its
@@ -1641,6 +1745,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   const chartDrill = canDrill ? handleChartDrill : undefined;
   return (
     <div className={cn('relative h-full w-full min-h-[220px]')}>
+      {refreshBar}
       <SchemaRenderer
         // isAnimationActive: false — dashboard charts render at final geometry on
         // the FIRST committed frame. Recharts' entrance animation is a rAF tween

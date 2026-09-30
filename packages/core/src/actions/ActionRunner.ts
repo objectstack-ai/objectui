@@ -28,6 +28,7 @@ import { hasDeclaredPredicate } from '../evaluator/declaredPredicate.js';
 import { globalUndoManager, type UndoableOperation } from './UndoManager.js';
 import { warnOnDeprecatedObjectParams, warnOnUnknownActionKeys } from './actionKeys.js';
 import { readActionPayload } from './actionResponse.js';
+import { toPredicateRecord, type FieldContainerLike } from '../utils/predicate-record.js';
 
 export interface ActionResult {
   success: boolean;
@@ -177,8 +178,8 @@ export interface ActionDef {
    * field, because the 2026-08-06 maintainer ruling on objectstack#4075 gave
    * both keys ONE shape: `boolean | string(CEL) | { dialect, source }` —
    * "boolean = 条件的退化形字面量,string = CEL 简写,信封 = 完整形". The
-   * envelope arm arrived in `@objectstack/spec` 17.0.0-rc.6 (objectstack#5970,
-   * PR objectstack#6450); until then this was a hand-written `string | boolean`
+   * envelope arm arrived in `@objectstack/spec` 17.0.0-rc.6 (objectstack
+   * `97e7e3caa`); until then this was a hand-written `string | boolean`
    * that could not describe the envelope, which is why `DeclaredActionsBar`
    * read it through an `(action as any).disabled` cast. Derived, not restated,
    * so the two keys cannot drift apart again.
@@ -285,9 +286,9 @@ export interface ActionDef {
    * `'url'`, flow name for `'flow'`, modal/page for `'modal'`, endpoint for
    * `'api'`, FormView name for `'form'`.
    *
-   * The `execute` alias was REMOVED in @objectstack/spec 17 (#3855) and is not
-   * read here (#3856) — don't re-add it. Two handler slots is how one action ran
-   * one script server-side and a different one client-side (#3713).
+   * The `execute` alias was REMOVED in @objectstack/spec 17 (objectstack-ai/objectstack#3855) and is not
+   * read here (objectstack-ai/objectstack#3856) — don't re-add it. Two handler slots is how one action ran
+   * one script server-side and a different one client-side (objectstack-ai/objectstack#3713).
    */
   target?: string;
   /**
@@ -350,7 +351,7 @@ export interface ActionDef {
   // rather than stylistic. `ActionSchema` is a `ZodPipe` whose transforms narrow
   // the authored shape — `visible` is authored as `string | { dialect, source }`
   // but INFERS to the object form alone. This runner consumes authored/stored
-  // rows, which #3903 established are rehydrated UNPARSED, so it sees the input
+  // rows, which objectstack-ai/objectstack#3903 established are rehydrated UNPARSED, so it sees the input
   // shape. Deriving from the `z.infer` side would type-error the raw-string
   // predicate that `ActionEngine` explicitly supports and that
   // `ActionEngine.visibility.test.ts` pins.
@@ -386,7 +387,7 @@ export interface ActionDef {
    * spec 采纳 —— `visible` / `disabled` 两键在 spec 侧统一收敛为
    * `boolean | string(CEL) | {dialect, source}`(boolean = 条件的退化形字面量,
    * string = CEL 简写,信封 = 完整形)". `@objectstack/spec` 17.0.0-rc.6 carries
-   * it (objectstack#5970, PR objectstack#6450), so the local `| boolean` is no
+   * it (objectstack `97e7e3caa`), so the local `| boolean` is no
    * longer a tolerance to declare — it is part of the derived type, and adding
    * it back would restate a spec arm rather than widen anything.
    */
@@ -540,6 +541,48 @@ export type ToastHandler = (message: string, options?: {
 }) => void;
 
 /**
+ * The text the runner writes itself, and so the only text
+ * {@link ActionRunner.setTranslator}'s translator is asked for. In each entry
+ * `key` names the locale-pack entry (`@object-ui/i18n`'s packs define it) and
+ * `defaultValue` is the English source, which is also what shows when no
+ * translator is installed.
+ *
+ * - `completedSuccessfully` — the success toast when neither the server (a
+ *   `data.message` on the result) nor the author (`successMessage`) supplied
+ *   one (objectui#10900).
+ * - `failed` — the error toast when the error that reached the toast carries
+ *   no readable message, and a parallel chain's result when its last action
+ *   rejected (objectui#10969).
+ * - `parallelFailed` — a parallel chain's error when no failed action reported
+ *   one of its own (objectui#10969).
+ * - `undo` — the label the runner hands the toast handler for an undoable
+ *   success toast's Undo affordance (objectui#10969).
+ *
+ * An author's `successMessage` / `errorMessage`, a server message and an
+ * action's own error are never in this table: they reach the toast verbatim.
+ */
+const RUNNER_TEXT = {
+  completedSuccessfully: {
+    key: 'actions.completedSuccessfully',
+    defaultValue: 'Action completed successfully',
+  },
+  failed: {
+    key: 'actions.failed',
+    defaultValue: 'Action failed',
+  },
+  parallelFailed: {
+    key: 'actions.parallelFailed',
+    defaultValue: 'One or more parallel actions failed',
+  },
+  undo: {
+    key: 'actions.undo',
+    defaultValue: 'Undo',
+  },
+} as const;
+
+type RunnerText = (typeof RUNNER_TEXT)[keyof typeof RUNNER_TEXT];
+
+/**
  * Modal handler — consumers provide to render modal dialogs.
  */
 export type ModalHandler = (schema: any, context: ActionContext) => Promise<ActionResult>;
@@ -567,7 +610,7 @@ export type ParamCollectionHandler = (
  * The contract's own result-dialog block, and one entry of its field list.
  *
  * ⭐ The two interfaces below DERIVE their label members from these instead of
- * restating them, and that is the whole repair of objectui#9542: the three
+ * restating them, and that is the whole repair of `43c0d1710`: the three
  * label members were hand-written `string` while the producer declares each as
  * `I18nLabel` — a plain string **or** an inline per-locale map, both authorized
  * and neither deprecated — so this mirror refused what the platform accepts
@@ -636,7 +679,7 @@ export type ResultDialogHandler = (
  * `visibleWhen` (the CEL predicate `resolveVisibleOptions()` filters on —
  * ADR-0058 / #2284), `color`, `icon`, `disabled`.
  *
- * The catch-all is deliberate rather than a closed key list (objectui#3559).
+ * The catch-all is deliberate rather than a closed key list (`fbc23e094`).
  * A field's option vocabulary is owned by the field metadata (`@objectstack/spec`'s
  * `SelectOptionSchema`) and read by the option widgets; a param's option list is
  * only a CONDUIT between the two. When this type restated that vocabulary as
@@ -688,6 +731,22 @@ export interface ActionParamDef {
    * gated on `features.phoneNumber`). Absent = always visible.
    */
   visible?: string;
+  /**
+   * Carry-over declaration — `@objectstack/spec`'s `ActionParamSchema.carryOver`
+   * (the 2026-08-25 ruling whose spec half is objectstack `0e4e51b0a`,
+   * objectui#6246), passed through unchanged by
+   * `resolveActionParams()`. The param's value is carried through the dialog
+   * rather than collected from the user: seeded from the row (the spec refuses
+   * the key without `defaultFromRow: true`), rendered by `ActionParamDialog` as
+   * a collapsed read-only summary with no editing affordance, and submitted
+   * verbatim.
+   *
+   * ⛔ Not a styling hint. The permission-set Clone action declares it on its
+   * JSON permission facets because an editable facet lets a hand-edited but
+   * valid blob clone a set that grants MORE than its base; a renderer that
+   * merely greys the control out still offers that edit.
+   */
+  carryOver?: boolean;
 
   // ── Widget config (shared form field-widget renderer) ─────────────
   // `ActionParamDialog` renders every param through the same field widgets
@@ -734,11 +793,11 @@ export interface ActionParamDef {
    * hands back `type: param.type ?? 'text'`, and every downstream reader of the
    * degradation is blind to it: the param is a `text` param by then, so
    * `paramDegradesWithoutTarget()` answers false, `paramToField()` emits no
-   * "no reference target" warning, and the #3405 "paste a record id" hints do
+   * "no reference target" warning, and the objectstack-ai/objectstack#3405 "paste a record id" hints do
    * not apply either. A lookup param that should have rendered a record picker
    * renders an unannotated empty box instead — no options, no dropdown, and no
    * request for the referenced object on the wire, because no picker was ever
-   * built (objectui#10129).
+   * built (`6cc910b6d`).
    *
    * ⛔ It is not a widget config key and `paramToField()` deliberately does not
    * map it: the whole point is that the param's type is UNKNOWN, so there is no
@@ -820,6 +879,24 @@ function readContextObjectName(context: ActionContext): string | undefined {
 }
 
 /**
+ * The field definitions the host published for `objectName`, or `undefined`
+ * (objectui#11122).
+ *
+ * A host publishes `objectFields` BESIDE `objectName` (`useConsoleActionRuntime`
+ * and `RecordDetailView` both do), so the pair names one object and its fields.
+ * They are answered only for THAT object: an action that retargets another
+ * object (a related-list row on the record page carries the child's
+ * `objectName`) gets no field map rather than the host object's, because
+ * reading one object's field types against another object's row would decide
+ * which of its fields are relations by the wrong schema.
+ */
+function readContextObjectFields(context: ActionContext, objectName: string): FieldContainerLike {
+  if (readContextObjectName(context) !== objectName) return undefined;
+  const fields: unknown = context.objectFields;
+  return fields && typeof fields === 'object' ? (fields as FieldContainerLike) : undefined;
+}
+
+/**
  * Whether opening FormView `viewName` from a record of `contextObject` would
  * cross an object boundary (objectui#4292).
  *
@@ -868,16 +945,67 @@ function isUpdateOperationAction(action: ActionDef): boolean {
  *
  * Prior values come from the row record the invoking surface stashed under
  * `params._rowRecord` (the same client-side stash the record-id dance reads).
- * A field absent from that row is captured as `null`, which is what clearing it
- * back to empty means on the data plane.
+ * A field the row carries as `null` is captured as `null`: it was empty, and
+ * clearing it back to empty is what restoring it means on the data plane.
+ *
+ * ⛔ A field the row does not CARRY is never captured as `null`
+ * (objectui#10404). Absent is not empty: a list row is projected by `$select`,
+ * and a written field no column shows is missing from the row while the server
+ * holds a real value for it. Recording `null` there made Undo write `null` over
+ * the value it existed to restore. The list harvest (`listViewPredicates`) now
+ * asks for the written fields of an `undoable` action, so a projected row
+ * carries them; this is the backstop for the ones it cannot ask for (a field
+ * the object does not declare or the principal may not read, a row no harvest
+ * shaped). "Carries" means an own key whose value is not `undefined`: JSON
+ * cannot send `undefined`, so such a value says nothing about what is stored.
+ *
+ * Answers `undefined` when any written field is not carried, and the caller
+ * then offers no Undo at all. Capturing only the carried fields is not an
+ * option, for the reason above: a partial restore reported as a full one is
+ * worse than no Undo.
+ *
+ * ⛔ A relation's prior value is its STORED id, never the record `$expand`
+ * put in its place (objectui#11122). Surfaces read rows with `$expand` on the
+ * relations they show (a grid, its visible and grouping columns; the record
+ * page, every relation the reader may read), and the server replaces the id
+ * in place with the related record. Copied verbatim, that record became the
+ * Undo value and Undo wrote it into the reference slot, which stores an id:
+ * refused under a strict value-shape posture, stored as corruption under the
+ * lenient one. So each carried value goes through `toPredicateRecord`, the one
+ * rule that binds a fetched record the way the server stores it: a field the
+ * object DECLARES relational (`EXPANDABLE_FIELD_TYPES`, the set that decides
+ * what is expanded in the first place) collapses to its id, element-wise for a
+ * `multiple` relation, and every other field is left exactly as the row
+ * carries it. It is read from `fields`, never from the value's shape: a `json`
+ * field may hold an object with an `id`, and that object is its stored value.
+ *
+ * `fields` is the written object's field definitions (`objectSchema.fields`,
+ * either served shape), and it is REQUIRED so that a caller without them has
+ * to say so: `undefined` collapses nothing, because a caller that cannot name
+ * the relations must not guess them.
+ *
+ * Exported (objectui#11082) because it is THE rule, not this runner's: every
+ * surface that builds an `update` Undo snapshot itself calls it rather than
+ * restating it. Today that is the console runtime's `api` handler
+ * (`useConsoleActionRuntime`) and the record page's own `api` handler
+ * (`RecordDetailView`), which reads prior values off the page's loaded record;
+ * that record lacks a written field when field-level security hides it from
+ * the reader. To name the fields that blocked a capture, ask per field:
+ * `captureUpdateUndoData([field], rowRecord, fields) === undefined`.
  */
-function captureUpdateUndoData(
+export function captureUpdateUndoData(
   writtenFields: readonly string[],
   rowRecord: Record<string, unknown>,
-): Record<string, unknown> {
-  const undoData: Record<string, unknown> = {};
-  for (const field of writtenFields) undoData[field] = rowRecord[field] ?? null;
-  return undoData;
+  fields: FieldContainerLike,
+): Record<string, unknown> | undefined {
+  if (!writtenFields.every((field) => rowCarries(rowRecord, field))) return undefined;
+  const stored = toPredicateRecord(rowRecord, fields);
+  return Object.fromEntries(writtenFields.map((field) => [field, stored[field]]));
+}
+
+/** Whether the row CARRIES `field`: an own key whose value is not `undefined`. */
+function rowCarries(rowRecord: Record<string, unknown>, field: string): boolean {
+  return Object.prototype.hasOwnProperty.call(rowRecord, field) && rowRecord[field] !== undefined;
 }
 
 /*
@@ -958,6 +1086,7 @@ export class ActionRunner {
   private navigationHandler: NavigationHandler | null;
   private paramCollectionHandler: ParamCollectionHandler | null;
   private resultDialogHandler: ResultDialogHandler | null;
+  private translate: ((key: string, options: { defaultValue: string }) => string) | null;
 
   /**
    * Built-in dispatch, one entry per runnable action type.
@@ -996,6 +1125,22 @@ export class ActionRunner {
     this.navigationHandler = null;
     this.paramCollectionHandler = null;
     this.resultDialogHandler = null;
+    this.translate = null;
+  }
+
+  /**
+   * Set the translator for the text the runner supplies itself — the host's
+   * `t`, injected so this package takes no i18n dependency. That text is the
+   * `RUNNER_TEXT` table in this file: the generic success toast shown when an
+   * action declares no `successMessage` and the server returned no message,
+   * the error fallbacks when no readable error message reached the runner, and
+   * the Undo label of an undoable success toast. An author's `successMessage`
+   * / `errorMessage`, a server message and an action's own error reach the
+   * toast verbatim, translator or not. With no translator the text stays
+   * English.
+   */
+  setTranslator(translate: (key: string, options: { defaultValue: string }) => string): void {
+    this.translate = translate;
   }
 
   /**
@@ -1069,11 +1214,11 @@ export class ActionRunner {
     try {
       // `ActionDef` accepts any key of any type, so a typo (`targt`) and a
       // retired key (`execute`) both reach here having type-checked. Neither
-      // binds a handler, and binding no handler silently is the #2169 "Mark Done
-      // does nothing" shape. Dev-only, warn-once, changes nothing (#4075 step 1).
+      // binds a handler, and binding no handler silently is the objectstack-ai/objectstack#2169 "Mark Done
+      // does nothing" shape. Dev-only, warn-once, changes nothing (objectstack-ai/objectstack#4075 step 1).
       warnOnUnknownActionKeys(action);
 
-      // The compat window for the object-form `params` payload (#5777, maintainer
+      // The compat window for the object-form `params` payload (objectstack-ai/objectstack#5777, maintainer
       // ruling 2026-08-06 direction A). Checked HERE, before the param-collection
       // block below rewrites `action.params` into a values map — after that point
       // an action that authored a legitimate ActionParam[] DEFINITION array also
@@ -1261,13 +1406,13 @@ export class ActionRunner {
         ) as PromiseFulfilledResult<ActionResult> | undefined;
         return {
           success: false,
-          error: firstFail?.value?.error || 'One or more parallel actions failed',
+          error: firstFail?.value?.error || this.runnerText(RUNNER_TEXT.parallelFailed),
         };
       }
       const lastResult = results[results.length - 1];
       return lastResult.status === 'fulfilled'
         ? lastResult.value
-        : { success: false, error: 'Action failed' };
+        : { success: false, error: this.runnerText(RUNNER_TEXT.failed) };
     }
 
     // Sequential execution — stop on first failure
@@ -1279,6 +1424,15 @@ export class ActionRunner {
       }
     }
     return lastResult;
+  }
+
+  /**
+   * One entry of `RUNNER_TEXT`, in the installed translator's language. An
+   * empty answer from the translator falls back to the English source rather
+   * than raising an empty toast or an empty label.
+   */
+  private runnerText({ key, defaultValue }: RunnerText): string {
+    return this.translate?.(key, { defaultValue }) || defaultValue;
   }
 
   /**
@@ -1303,19 +1457,27 @@ export class ActionRunner {
         // check_app_updates / publish / install compute a real outcome
         // ("2 app updates available: CRM 1.0.0→1.0.1", "Published v1.2.0")
         // that the static label can't express; without this the user only ever
-        // sees a generic "Done". Falls back to the static label, then a default.
+        // sees a generic "Done". Falls back to the static label, then a default
+        // — text the runner writes itself, so its translator is asked for it
+        // (see `setTranslator`).
         const dyn = (result.data && typeof result.data === 'object'
           && typeof (result.data as { message?: unknown }).message === 'string')
           ? String((result.data as { message?: unknown }).message).trim()
           : '';
-        const message = dyn || action.successMessage || 'Action completed successfully';
+        const message = dyn || action.successMessage || this.runnerText(RUNNER_TEXT.completedSuccessfully);
         // Undoable action: register the captured operation on the global
         // UndoManager and surface an "Undo" affordance on the toast (the
-        // consumer's toast handler wires the button to UndoManager).
+        // consumer's toast handler wires the button to UndoManager). The
+        // button's label is the runner's own text, so it is translated here
+        // rather than left to each handler's English default (objectui#10969).
         if (result.undo) {
           try { globalUndoManager.push(result.undo); } catch { /* non-fatal */ }
         }
-        this.toastHandler(message, { type: 'success', duration, undo: result.undo ? {} : undefined });
+        this.toastHandler(message, {
+          type: 'success',
+          duration,
+          undo: result.undo ? { label: this.runnerText(RUNNER_TEXT.undo) } : undefined,
+        });
       }
 
       if (!result.success && showToast.showOnError !== false && result.error) {
@@ -1329,7 +1491,7 @@ export class ActionRunner {
           ? raw
           : (raw && typeof (raw as { message?: unknown }).message === 'string')
             ? (raw as { message: string }).message
-            : 'Action failed';
+            : this.runnerText(RUNNER_TEXT.failed);
         this.toastHandler(message, { type: 'error', duration });
       }
     }
@@ -1377,7 +1539,7 @@ export class ActionRunner {
 
     // ── ActionSchema.onSuccess — post-success navigation ────────────────────
     //
-    // objectui#5221, the console half of objectstack#9566/#9474. The spec
+    // `053fdc8f9`, the console half of objectstack#9566/#9474. The spec
     // declares `onSuccess` as a CLOSED STRICT object
     // `{ navigate: string, openIn: 'self' | 'newTab' }`, refine-scoped to
     // `type: 'api'` and `type: 'script'` — the two types whose success event
@@ -1391,7 +1553,7 @@ export class ActionRunner {
     // found zero producers outside the channel's own pins.
     //
     // `readOnSuccessNavigation` stays as the shape guard, not as a
-    // discriminator: stored rows are rehydrated UNPARSED (#3903), so the value
+    // discriminator: stored rows are rehydrated UNPARSED (objectstack-ai/objectstack#3903), so the value
     // is still read as data, and a shape the spec refuses gets no reading —
     // no navigation, no callback dispatch, no lenient fallback.
     if (result.success && action.onSuccess) {
@@ -1543,21 +1705,46 @@ export class ActionRunner {
 
     // Undo: prior values of exactly the fields this action wrote. Needs a row
     // record to read them from — without one there is nothing to restore, so
-    // the affordance is correctly not offered rather than offered empty.
+    // the affordance is correctly not offered rather than offered empty. The
+    // same holds when the row lacks a written field (objectui#10404): no Undo,
+    // never one that writes `null` over the stored value. A relation the row
+    // carries expanded is captured as its stored id, read against the field
+    // map the host published for this object (objectui#11122).
     if (action.undoable && rowRecord && writtenFields.length > 0) {
       const objectName = action.objectName || readContextObjectName(this.context);
       const recordId = collected.recordId ?? rowRecord.id;
       if (objectName && recordId != null) {
-        result.undo = {
-          id: `undo-${objectName}-${String(recordId)}-${Date.now()}`,
-          type: 'update',
-          objectName,
-          recordId: String(recordId),
-          timestamp: Date.now(),
-          description: action.label || `Undo ${objectName}`,
-          undoData: captureUpdateUndoData(writtenFields, rowRecord),
-          redoData: Object.fromEntries(writtenFields.map((k) => [k, params[k]])),
-        };
+        const undoData = captureUpdateUndoData(
+          writtenFields,
+          rowRecord,
+          readContextObjectFields(this.context, objectName),
+        );
+        if (undoData) {
+          result.undo = {
+            id: `undo-${objectName}-${String(recordId)}-${Date.now()}`,
+            type: 'update',
+            objectName,
+            recordId: String(recordId),
+            timestamp: Date.now(),
+            // objectui#11080 — no English verb here. The toast that reports the
+            // Undo / Redo already says which one it is, from a pack key, so an
+            // action that declared no label is named by the object it acted on.
+            description: action.label || objectName,
+            undoData,
+            redoData: Object.fromEntries(writtenFields.map((k) => [k, params[k]])),
+          };
+        } else {
+          // The success toast then carries no Undo button, which is how the
+          // user learns this one cannot be undone; this names the cause for
+          // the author.
+          console.warn(
+            '[ActionRunner] `undoable` update succeeded but offers no Undo: the row it ran on does not '
+            + 'carry every field it wrote, so their prior values are unknown and an Undo would overwrite '
+            + 'stored data. A list row carries a written field when the object declares it and the '
+            + 'principal may read it.',
+            { action: action.name, missing: writtenFields.filter((k) => !rowCarries(rowRecord, k)) },
+          );
+        }
       }
     }
 
@@ -1570,9 +1757,9 @@ export class ActionRunner {
    */
   private async executeScript(action: ActionDef): Promise<ActionResult> {
     // `target` is the only handler slot. The `execute` alias was removed in
-    // @objectstack/spec 17 (#3855), which rejects an authored `execute` at parse
+    // @objectstack/spec 17 (objectstack-ai/objectstack#3855), which rejects an authored `execute` at parse
     // with the rename prescription — so parsed metadata cannot carry it and a
-    // `target || execute` fallback could only ever evaluate to `target` (#3856).
+    // `target || execute` fallback could only ever evaluate to `target` (objectstack-ai/objectstack#3856).
     const script = action.target;
     if (!script) {
       // A spec `body` IS a script — this runner just cannot run one (see the
@@ -1596,11 +1783,11 @@ export class ActionRunner {
       // `ActionDef` no longer declares `execute` — nor any open index signature
       // — so `tsc` now catches the retired key at every site that AUTHORS an
       // action literal in code. That is the half of the problem the type can
-      // reach. It is not this half: #3903 established that stored
+      // reach. It is not this half: objectstack-ai/objectstack#3903 established that stored
       // `sys_metadata` rows are rehydrated UNPARSED, so metadata written before
       // spec 17 arrives here as a plain object the compiler never saw, still
       // carrying `execute`. Declaring the key to make this read compile would
-      // re-legitimize a tombstone (#3855 removed it; the spec keeps it only to
+      // re-legitimize a tombstone (objectstack-ai/objectstack#3855 removed it; the spec keeps it only to
       // reject it BY NAME), and deleting the branch would send those rows back
       // to a bare "no script provided" — which reads as "you forgot a field" to
       // an author who did write one, the objectstack#2169 shape.
@@ -1956,7 +2143,7 @@ export class ActionRunner {
    * old object-form `params` page — POSTed an empty body here.
    *
    * `params` contributes only in its DEPRECATED non-array form (the compat window
-   * #5777 opened; see `warnOnDeprecatedObjectParams`). An ARRAY `params` is a
+   * objectstack-ai/objectstack#5777 opened; see `warnOnDeprecatedObjectParams`). An ARRAY `params` is a
    * parameter DEFINITION list, not a payload: it reaches this method unconsumed
    * only when no `paramCollectionHandler` is mounted, and POSTing the definitions
    * as the request body was never a payload any endpoint wanted. It now falls
@@ -2251,7 +2438,7 @@ export interface OnSuccessNavigation {
  * Is this `onSuccess` the spec's navigation block?
  *
  * The test IS the spec's declaration: a non-array object carrying a STRING
- * `navigate`. Stored rows are rehydrated UNPARSED (#3903), so the runner reads
+ * `navigate`. Stored rows are rehydrated UNPARSED (objectstack-ai/objectstack#3903), so the runner reads
  * the value as data and anything else gets NO reading — since objectui#5934
  * retired the legacy chained-callback channel (`ActionDef | ActionDef[]`),
  * there is no other channel for an off-contract shape to fall into. This is a

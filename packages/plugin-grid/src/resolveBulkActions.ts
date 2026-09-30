@@ -22,7 +22,7 @@
  * **In the VIEW's `bulkActions`, naming an action the object declares.** That
  * is the whole vocabulary. `ActionSchema.bulkEnabled` looked like an
  * object-level alternative and this module briefly derived from it, but spec
- * 17.0.0 retired the key (#3896 close-out / framework#4054) — it is now a
+ * 17.0.0 retired the key (objectstack-ai/objectstack#3896 close-out / framework#4054) — it is now a
  * `retiredKey()` tombstone, so authoring it is a HARD parse rejection whose
  * own prescription is: *"the multi-select toolbar is driven by the LIST VIEW's
  * `bulkActions` / `bulkActionDefs`, never by this flag … declare the action in

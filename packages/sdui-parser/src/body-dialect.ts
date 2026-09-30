@@ -59,20 +59,25 @@ const isChildList = (value: unknown): value is SchemaNode | SchemaNode[] =>
  * The diagnostic for an authored `body`, or `null` when this module has nothing
  * to say about the key.
  *
- * @param tag          the node's component type, for the message and the `tag` field
- * @param key          the authored prop name
- * @param value        its authored value
- * @param isContainer  whether the manifest says this component accepts children
+ * @param tag              the node's component type, for the message and the `tag` field
+ * @param key              the authored prop name
+ * @param value            its authored value
+ * @param acceptsChildren  whether the component declares the `children` slot
+ *                         input — `acceptsChildren(comp)` in `./validate.ts`,
+ *                         the ONE containment predicate this tier has. It used
+ *                         to be `comp.isContainer`; objectui#9910 moved both
+ *                         sites together so the retired spelling and the live
+ *                         one can never disagree about who takes a list.
  */
 export function checkRetiredBodyDialect(
   tag: string,
   key: string,
   value: unknown,
-  isContainer: boolean | undefined,
+  acceptsChildren: boolean,
 ): Diagnostic | null {
   if (key !== RETIRED_CHILD_LIST_KEY) return null;
 
-  if (isChildList(value) && !isContainer) {
+  if (isChildList(value) && !acceptsChildren) {
     // The ruling, verbatim: "a `body` child list under a non-container draws
     // the same `not-a-container` the `children` spelling draws". Same code, so
     // a consumer keying on the code cannot tell the two spellings apart — which

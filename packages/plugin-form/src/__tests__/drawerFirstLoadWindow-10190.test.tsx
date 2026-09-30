@@ -134,7 +134,11 @@ describe.each(SHAPES)('DrawerForm first load (%s) — objectui#10190', (_label, 
     fireEvent.submit(form);
 
     await waitFor(() => expect(update).toHaveBeenCalled());
-    expect(update.mock.calls[0][2]).toMatchObject({ title: 'typed', note: 'kept' });
+    // An edit writes only the fields that differ from the record it read
+    // (objectui#10156). So `note` is absent precisely because the form still
+    // holds the 'kept' the record landed with: an emptied `note` would differ
+    // from the read and be written.
+    expect(update.mock.calls[0][2]).toEqual({ title: 'typed' });
   });
 });
 

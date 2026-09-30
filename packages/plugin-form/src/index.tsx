@@ -233,8 +233,27 @@ ComponentRegistry.register('object-form', ObjectFormRenderer, {
     { name: 'mode', type: 'enum', enum: ['create', 'edit', 'view'] },
     { name: 'formType', type: 'enum', enum: ['simple', 'tabbed', 'wizard', 'split', 'drawer', 'modal'] },
     { name: 'sections', type: 'array' },
-    { name: 'title', type: 'string' },
-    { name: 'description', type: 'string' },
+    // The row's seven `I18nLabel` members (`ComponentPropsMap['object-form']`):
+    // `title`, `description` here, and `submitText`, `cancelText`, `nextText`,
+    // `prevText` and `successMessage` below. `ObjectForm` resolves a map with
+    // `pickLocalized` against the active UI language, above its `formType` fork
+    // (objectui#10993). So both arms are declared, in the same change that taught
+    // the render site to resolve the map, as `ComponentInput.type` prescribes: a
+    // `'string'`-only declaration made the manifest gate report `type-mismatch`
+    // on a legal map. The render is pinned by `ObjectForm.i18nLabels.test.tsx`,
+    // the manifest by the console's `objectFormI18nLabelManifest.test.ts`.
+    {
+      name: 'title',
+      type: ['string', 'object'],
+      description:
+        'Heading of the drawer and modal presentations (`formType: "drawer"` / `"modal"`). Accepts either a plain string or an inline per-locale map (`{ en: "New order", "zh-CN": "新建订单" }`) — the `I18nLabel` union the contract admits on this key — and the form resolves the map against the active UI language, falling back through base language, a region-qualified sibling, `default`, then `en`, and finally to any remaining entry.',
+    },
+    {
+      name: 'description',
+      type: ['string', 'object'],
+      description:
+        'Subtitle under the drawer and modal heading. Accepts either a plain string or an inline per-locale map (`{ en: "Enter the order details", "zh-CN": "填写订单信息" }`), resolved against the active UI language with the same fallback chain as `title`.',
+    },
     { name: 'layout', type: 'enum', enum: ['vertical', 'horizontal', 'inline', 'grid'] },
     { name: 'columns', type: 'number' },
     // Tabbed
@@ -252,8 +271,8 @@ ComponentRegistry.register('object-form', ObjectFormRenderer, {
     { name: 'drawerWidth', type: 'string' },
     // Modal
     { name: 'modalSize', type: 'enum', enum: ['sm', 'default', 'lg', 'xl', 'full'] },
-    { name: 'modalCloseButton', type: 'boolean', description: 'Show the modal presentation’s close button. Read at ObjectForm.tsx:361 and honoured by ModalForm.' },
-    { name: 'contentLayout', type: 'enum', enum: ['simple', 'tabbed'], description: 'How the modal presentation lays out sections. `tabbed` needs more than one section to differ from `simple` (ModalForm.tsx:638).' },
+    { name: 'modalCloseButton', type: 'boolean', description: 'Show the modal presentation’s close (X) button. Default `true`; `false` hides it. Forwarded by `ObjectForm`’s modal route and honoured by `ModalForm` on both of its dialog arms. With the button hidden the modal still closes on Escape, and on the Cancel action when that is shown.' },
+    { name: 'contentLayout', type: 'enum', enum: ['simple', 'tabbed'], description: 'How the modal presentation lays out sections. `tabbed` differs from `simple` only when more than one section has a field to show (`ModalForm` tests `schema.contentLayout === "tabbed" && groups.length > 1`).' },
     { name: 'confirmOnDiscard', type: 'boolean', description: 'Ask before discarding unsaved edits when a drawer/modal form is dismissed. Set `false` to close immediately.' },
     // Record binding
     { name: 'recordId', type: 'string', description: 'The record to load in `edit` / `view` mode. Leave unset for `create`.' },
@@ -262,16 +281,41 @@ ComponentRegistry.register('object-form', ObjectFormRenderer, {
     { name: 'initialData', type: 'object', description: 'Alternate spelling of `initialValues` that the drawer/modal presentations read FIRST — PER MEMBER (`{ ...initialValues, ...initialData }`), so a member this key says nothing about keeps its `initialValues` value. Prefer `initialValues` in new schemas.' },
     { name: 'readOnly', type: 'boolean', description: 'Render every field read-only, whatever `mode` says.' },
     // Buttons
-    { name: 'submitText', type: 'string' },
-    { name: 'cancelText', type: 'string' },
-    { name: 'nextText', type: 'string', description: 'Label of the next-step button (wizard).' },
-    { name: 'prevText', type: 'string', description: 'Label of the previous-step button (wizard).' },
+    {
+      name: 'submitText',
+      type: ['string', 'object'],
+      description:
+        'Label of the Save button. A map no locale limb resolves shows the default label. Accepts either a plain string or an inline per-locale map (`{ en: "Save order", "zh-CN": "保存订单" }`), resolved against the active UI language with the same fallback chain as `title`.',
+    },
+    {
+      name: 'cancelText',
+      type: ['string', 'object'],
+      description:
+        'Label of the Cancel button. Accepts either a plain string or an inline per-locale map (`{ en: "Back", "zh-CN": "返回" }`), resolved against the active UI language with the same fallback chain as `title`.',
+    },
+    {
+      name: 'nextText',
+      type: ['string', 'object'],
+      description:
+        'Label of the next-step button (wizard). Accepts either a plain string or an inline per-locale map (`{ en: "Continue", "zh-CN": "继续" }`), resolved against the active UI language with the same fallback chain as `title`.',
+    },
+    {
+      name: 'prevText',
+      type: ['string', 'object'],
+      description:
+        'Label of the previous-step button (wizard). Accepts either a plain string or an inline per-locale map (`{ en: "Previous", "zh-CN": "上一步" }`), resolved against the active UI language with the same fallback chain as `title`.',
+    },
     { name: 'showSubmit', type: 'boolean' },
     { name: 'showCancel', type: 'boolean' },
     { name: 'showReset', type: 'boolean' },
     // After a successful submit
     { name: 'submitBehavior', type: 'object', description: 'Declarative post-submit behaviour, one of `{ kind: "thank-you", title?, message? }`, `{ kind: "redirect", url, delayMs? }`, `{ kind: "continue" }`, `{ kind: "next-record" }`. When present it takes precedence over `successMessage` / `navigateOnSuccess` / `resetOnSuccess`.' },
-    { name: 'successMessage', type: 'string', description: 'Toast shown after a successful submit. Ignored when `submitBehavior` or `navigateOnSuccess` is set.' },
+    {
+      name: 'successMessage',
+      type: ['string', 'object'],
+      description:
+        'Toast shown after a successful submit. Ignored when `submitBehavior` or `navigateOnSuccess` is set. Accepts either a plain string or an inline per-locale map (`{ en: "Order saved", "zh-CN": "订单已保存" }`), resolved against the active UI language with the same fallback chain as `title`.',
+    },
     { name: 'navigateOnSuccess', type: 'string', description: 'Path to navigate to after a successful create/update. Supports `{id}` / `{recordId}` interpolation from the saved record and is same-origin-guarded. Takes precedence over `successMessage`.' },
     { name: 'resetOnSuccess', type: 'boolean', description: 'Clear the form after a successful submit instead of keeping the saved values.' },
     // Mobile
@@ -310,7 +354,15 @@ const EmbeddableFormRenderer: React.FC<{ schema: any }> = elementDataSourceBlock
   // nothing to bind it to, rendering a field-less shell. That is the
   // objectstack#4413 shape; `public-block-binding-reach.test.tsx` is what
   // catches it now.
-  const ctx = useContext(SchemaRendererContext as React.Context<any>);
+  //
+  // Read AS DECLARED (objectui#7209): no cast between the hook and the value, so
+  // a member `SchemaRendererContextType` does not declare is a compile error
+  // here rather than a silent `undefined` — pinned for both readers in this
+  // file by `schemaRendererContextRead-7209.test.ts`. The declared `null` (no
+  // adapter bound) collapses to the one absence `EmbeddableForm`'s optional
+  // prop declares, exactly as `MasterDetailFormRenderer` below already does.
+  const ctx = useContext(SchemaRendererContext);
+  const dataSource = ctx?.dataSource ?? undefined;
   // The spec's `PageComponentSchema.dataSource` binding (objectstack#7121). Same
   // standing, and the same single mapped key, as `object-form` above:
   // `EmbeddableForm` reads `config.objectName` to fetch the object's fields and
@@ -325,11 +377,11 @@ const EmbeddableFormRenderer: React.FC<{ schema: any }> = elementDataSourceBlock
   return (
     <ElementDataSourceGate
       schema={schema}
-      dataSource={ctx?.dataSource}
+      dataSource={dataSource}
       testId="embeddable-form"
       errorTitle="This form’s data source could not be resolved"
     >
-      {(bound) => <EmbeddableForm config={bound} dataSource={ctx?.dataSource} />}
+      {(bound) => <EmbeddableForm config={bound} dataSource={dataSource} />}
     </ElementDataSourceGate>
   );
 });
@@ -371,7 +423,7 @@ ComponentRegistry.register('form-analytics', FormAnalyticsRenderer, {
 import { MasterDetailForm } from './MasterDetailForm';
 
 const MasterDetailFormRenderer: React.FC<{ schema: any }> = elementDataSourceBlock(({ schema }) => {
-  const ctx = useContext(SchemaRendererContext as React.Context<any>);
+  const ctx = useContext(SchemaRendererContext);
   const dataSource = ctx?.dataSource ?? undefined;
   // The spec's `PageComponentSchema.dataSource` binding (objectstack#7121).
   // `schema.objectName` is the PARENT object here, and everything downstream is
@@ -427,10 +479,33 @@ ComponentRegistry.register('object-master-detail-form', MasterDetailFormRenderer
     // Declaring them would mint choices an authoring UI offers and this block
     // cannot honour.
     { name: 'formType', type: 'enum', enum: ['simple', 'tabbed'], description: 'How the PARENT half of the form is presented. The detail grids below it are unaffected.' },
-    { name: 'fields', type: 'array', description: 'Which parent fields to show, in order — and it is NOT ignored when `sections` is given: the two INTERSECT. The parent field pool is built from this key first and every section then resolves its own members against that pool, so a section member this key does not list is dropped from the rendered form, and a section that loses EVERY member that way disappears with its heading. Each such drop is reported once via `console.warn` (objectui#9884); it is not repaired, because this key is also the parent pool for values, create defaults and the submitted set. Author one or the other, or list every section member here too. Members are bare field names (`{ name }` tolerated); NOT the spec `FormFieldSchema` object `sections[].fields` accepts (identity key `field`) — that shape resolves to no name here and is silently skipped (the parent form renders through the same `ObjectForm` / `SimpleObjectForm` as `object-form` — see its `fields` description).' },
-    { name: 'title', type: 'string' },
-    { name: 'submitText', type: 'string', description: 'Label of the button that saves the parent and every detail row in one batch.' },
-    { name: 'cancelText', type: 'string' },
+    { name: 'fields', type: 'array', description: 'Which parent fields to show, in order — and it is NOT ignored when `sections` is given: the two INTERSECT. The parent field pool is built from this key first and every section then resolves its own members against that pool, so a section member this key does not list is dropped from the rendered form, and a section that loses EVERY member that way disappears with its heading. Each such drop is reported once via `console.warn` (objectui#9884); it is not repaired, because this key bounds what the form DRAWS and edits, not what Save writes: on a create, the submitted set is the drawn fields plus any parent value seeded through `initialValues` (or its alternate spelling `initialData`), drawn or not. A seed for an undeclared, server-owned, computed or read-only field is still stripped, as on any save. Author one or the other, or list every section member here too. Members are bare field names (`{ name }` tolerated); NOT the spec `FormFieldSchema` object `sections[].fields` accepts (identity key `field`) — that shape resolves to no name here and is silently skipped (the parent form renders through the same `ObjectForm` / `SimpleObjectForm` as `object-form` — see its `fields` description).' },
+    // The three labels are the spec's `I18nLabel` (`ComponentPropsMap
+    // ['object-master-detail-form']`), and `MasterDetailForm` resolves a map
+    // with `pickLocalized` against the active UI language (objectui#10935). So
+    // both arms are declared, in the same change that taught the render site to
+    // resolve the map, as `ComponentInput.type` prescribes: a `'string'`-only
+    // declaration made the manifest gate report `type-mismatch` on a legal map.
+    // The render is pinned by `MasterDetailForm.i18nLabels.test.tsx`, the
+    // manifest by the console's `masterDetailFormI18nLabelManifest.test.ts`.
+    {
+      name: 'title',
+      type: ['string', 'object'],
+      description:
+        'Names the record in the built-in "… saved" toast after an edit save, which shows only when the host supplies no `onSuccess`. Accepts either a plain string or an inline per-locale map (`{ en: "Purchase order", "zh-CN": "采购单" }`) — the `I18nLabel` union the contract admits on this key — and the renderer resolves the map against the active UI language, falling back through base language, a region-qualified sibling, `default`, then `en`, and finally to any remaining entry.',
+    },
+    {
+      name: 'submitText',
+      type: ['string', 'object'],
+      description:
+        'Label of the button that saves the parent and every detail row in one batch. Defaults to "Save" when editing a record (`mode: "edit"` with a `recordId`) and to "Create" otherwise, in the active UI language; an empty string, or a map no locale limb resolves, shows the default too. Accepts either a plain string or an inline per-locale map (`{ en: "Save order", "zh-CN": "保存订单" }`), resolved against the active UI language with the same fallback chain as `title`.',
+    },
+    {
+      name: 'cancelText',
+      type: ['string', 'object'],
+      description:
+        'Label of the Cancel button, which renders only when the host supplies an `onCancel` callback (a runtime slot, not authorable in a JSON document). Defaults to "Cancel", in the active UI language; an empty string, or a map no locale limb resolves, shows the default too. Accepts either a plain string or an inline per-locale map (`{ en: "Back", "zh-CN": "返回" }`), resolved against the active UI language with the same fallback chain as `title`.',
+    },
     { name: 'showSubmit', type: 'boolean' },
     { name: 'initialValues', type: 'object', description: 'Values to prefill on the PARENT record in `create` mode.' },
     { name: 'initialData', type: 'object', description: 'Alternate spelling of `initialValues` the renderer also reads: the `parentSchema` memo carries both keys onto the parent form, which merges them PER MEMBER with this one winning. Prefer `initialValues` in new schemas.' },

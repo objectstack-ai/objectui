@@ -673,7 +673,7 @@ ObjectUI is a universal Server-Driven UI (SDUI) engine built on React + Tailwind
 - [x] `wizardDraftToAppSchema()` draft-to-schema conversion function
 
 **App Creation Wizard (4-step):**
-- [x] Step 1: Basic Info — name (snake_case validated), title, description, icon, template, layout selector
+- [x] Step 1: Basic Info — name (snake_case validated), title, description, icon, template (the layout selector it also carried was removed by objectui#10867: `@objectstack/spec` declares no app layout, so the choice was never saved)
 - [x] Step 2: Object Selection — card grid with search, select all/none, toggle selection
 - [x] Step 3: Navigation Builder — auto-generates NavigationItem[] from selected objects, add group/URL/separator, reorder up/down, remove
 - [x] Step 4: Branding — logo URL, primary color, favicon, live preview card

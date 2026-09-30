@@ -416,7 +416,11 @@ describe('declared defaults ↔ per-node-type spec schemas (#6794, #6620, object
       type: 'wait',
       prefix: ['waitEventConfig'],
       schema: () => unwrapped(flowNodeShape?.waitEventConfig),
-      supplied: { eventType: 'timer' },
+      // `timerDuration` joined the minimal region at `@objectstack/spec` 17.5.0,
+      // which REFUSES a timer wait with no duration (it would park the run
+      // forever while reporting success). `'PT1H'` is the value the designer now
+      // seeds (objectui#11088 decision 2 = A; objectui#11073).
+      supplied: { eventType: 'timer', timerDuration: 'PT1H' },
     },
     {
       type: 'boundary_event',
@@ -717,7 +721,9 @@ describe('declared defaults ↔ per-node-type spec schemas (#6794, #6620, object
    * ⭐ **objectui#9109's deletion, pinned from the spec side.**
    *
    * The four declarations this card removed, each named with the spec state
-   * that made removal the right end to move. This is the register's
+   * that made removal the right end to move. Three remain rows: the spec side
+   * of the fourth, `screen:config.mode`, moved at 17.5.0 and the declaration
+   * came back as the first bullet below prescribes (objectui#11073). This is the register's
    * re-measurement applied to keys that now carry NO row, and it is what keeps
    * the two ends connected after the register emptied:
    *
@@ -747,7 +753,10 @@ describe('declared defaults ↔ per-node-type spec schemas (#6794, #6620, object
     { region: 'wait:waitEventConfig', key: 'eventType', was: 'timer', state: 'required-no-default' },
     { region: 'boundary_event:boundaryConfig', key: 'eventType', was: 'error', state: 'required-no-default' },
     { region: 'http_request:config', key: 'method', was: 'GET', state: 'optional-no-default' },
-    { region: 'screen:config', key: 'mode', was: 'create', state: 'optional-no-default' },
+    // `screen:config.mode` was the fourth row. It left at `@objectstack/spec`
+    // 17.5.0, exactly the way this block says a row leaves: the spec began
+    // materialising `'create'` for an omitted key, so the form declares it
+    // again — pinned from the spec side in the next case (objectui#11073).
   ];
 
   it.each(DELETED_BY_9109)(
@@ -766,6 +775,23 @@ describe('declared defaults ↔ per-node-type spec schemas (#6794, #6620, object
       measureState(scope, key, state, `${region}.${key}`);
     },
   );
+
+  it('objectui#11073: screen:config · mode — the spec materialises its default since 17.5.0, and the form declares the same value again', () => {
+    const scope = SCOPES.find((s) => scopeId(s.type, s.prefix) === 'screen:config')!;
+    const field = fieldsInScope(scope).get('mode');
+    const materialised = specDefaults(scope).mode;
+    // The spec side, measured: an omitted `mode` now parses to a value.
+    expect(materialised, 'ScreenConfigSchema must materialise a mode for an omitted key').toBeTypeOf('string');
+    // The form side: the same select, now DECLARING that value — the end
+    // objectui#9109's pin named for the day the spec started applying one.
+    expect(field, 'screen:config.mode: the editor still exists').toBeDefined();
+    expect(field!.kind).toBe('select');
+    expect(field!.defaultValue, 'screen:config.mode declares the default the spec applies').toBe(materialised);
+    expect(
+      (field!.options ?? []).map((o) => o.value),
+      'and the declared default is one of the offered options',
+    ).toContain(materialised);
+  });
 
   // ⛔ THE REGISTER'S RE-MEASUREMENT, and it walks `SCOPES` rather than
   // `UNDECLARED_REGISTER` on purpose. Written as `it.each(UNDECLARED_REGISTER)`

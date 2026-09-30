@@ -40,7 +40,7 @@ import { createSafeTranslation } from '@object-ui/i18n';
 import { MasterDetailForm } from './MasterDetailForm';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
 import { buildFlatFields } from './flatFields';
-import { withCustomFieldMembers } from './customFieldsMerge';
+import { isRecordReadOutstanding } from './recordReadGate';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 import {
   applyAutoColSpan,
@@ -51,16 +51,34 @@ import {
   CONTAINER_GRID_COLS,
 } from './autoLayout';
 import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse } from './fieldGroups';
-import { sanitizeFormData } from './sanitize';
-import { applyFieldPermissions, fieldWriteGate } from './fieldWriteGate';
+import {
+  sanitizeFormData,
+  dirtyEditPayload,
+  snapshotLoadedRecord,
+  advanceLoadedRecord,
+  type LoadedRecordSnapshot,
+} from './sanitize';
+import { closedFormAffordance, fieldWriteGate, gateFormFields } from './fieldWriteGate';
+import { ClosedAffordanceNotice } from './closedAffordanceNotice';
 import { seedCreateValues, omitServerResolvedDefaults } from './schemaDefaults';
 import { resolveInitialRecord } from './initialRecord';
 import { usePermissions } from '@object-ui/permissions';
 import { useOccSave } from './occSave';
+import {
+  NO_LOAD_FAILURES,
+  beginLoadRun,
+  shownLoadFailure,
+  type LoadFailures,
+  type LoadRunSeq,
+} from './loadFailure';
 import { hasInlineFieldSource, noSubmitTargetError } from './submitTarget';
+import { useRecordInvalidation } from './recordInvalidation';
 
-// Localized strings for the unsaved-changes guard. Falls back to English when
-// no i18n provider is mounted (createSafeTranslation handles that).
+// Localized strings for the unsaved-changes guard and, since objectui#11039,
+// the form's own chrome (the default submit and cancel labels, the loading
+// line and the load-failure heading — the same keys and values as
+// `formChrome.ts`). Falls back to English when no i18n provider is mounted
+// (createSafeTranslation handles that).
 const useDiscardTranslation = createSafeTranslation(
   {
     'form.discardTitle': 'Discard changes?',
@@ -73,6 +91,11 @@ const useDiscardTranslation = createSafeTranslation(
     'form.dialogDescriptionFallback': 'Complete the form fields, then submit or cancel.',
     'form.keepEditing': 'Keep editing',
     'form.discard': 'Discard',
+    'form.create': 'Create',
+    'form.update': 'Update',
+    'common.cancel': 'Cancel',
+    'form.errorLoading': 'Error loading form',
+    'publicForm.loading': 'Loading form…',
   },
   'form.discardTitle',
 );
@@ -159,6 +182,10 @@ export interface DrawerFormSchema {
    * When supplied, the form validates and hands the collected values
    * to this handler INSTEAD of calling `dataSource.create` /
    * `dataSource.update`; the returned record is passed on to `onSuccess`.
+   * In `edit` mode, for a record this form read itself, it hands over what it
+   * would have written: the fields that differ from that read, or the full
+   * sanitized payload when nothing changed (objectui#10156; the whole rule is
+   * on `ObjectFormSchema['submitHandler']`).
    *
    * `MasterDetailForm` supplies it to route the parent AND its child
    * collections through one atomic `batchTransaction` (#2679 / ADR-0034
@@ -200,32 +227,40 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   const { fieldLabel, sectionLabel } = useSafeFieldLabel();
   const perms = usePermissions();
   const { userId: currentUserId } = perms;
-  /**
-   * FLS gate: drop non-readable fields, render non-editable ones read-only.
-   * The drawer is the third container of this family and used to carry NEITHER
-   * half of it — the same edit that the modal and the simple form refused to
-   * send, this one sent, and the field the other two rendered disabled this one
-   * rendered as a live input (objectui#10120). One pass, shared.
-   */
-  const applyFieldPerms = useCallback(
-    (fields: FormField[]): FormField[] =>
-      applyFieldPermissions(fields, {
-        perms,
-        objectName: schema.objectName,
-        mode: schema.mode,
-      }) as FormField[],
-    [perms, schema.objectName, schema.mode],
-  );
   const { t } = useDiscardTranslation();
   // Upload-in-flight gate (objectui#10166): Save is refused, disabled and
   // EXPLAINED while a file/image widget below is still uploading.
   const uploadGate = useUploadGate();
   const previewMode = usePreviewMode();
   const [objectSchema, setObjectSchema] = useState<any>(null);
+  /**
+   * The ONE field-gate step every layout draws through (`gateFormFields`,
+   * objectui#10612): FLS drops non-readable fields and locks non-editable ones,
+   * and the ADR-0092 D4 managed-object lock disables every field when the
+   * object's affordance for the mode is closed. The drawer used to carry
+   * neither half: FLS joined in `80c54122e`, the lock in objectui#10612 —
+   * before it, a managed object drew live inputs here.
+   */
+  const gateFields = useCallback(
+    (fields: FormField[]): FormField[] =>
+      gateFormFields(fields, {
+        perms,
+        objectName: schema.objectName,
+        mode: schema.mode,
+        objectSchema,
+      }) as FormField[],
+    [perms, schema.objectName, schema.mode, objectSchema],
+  );
   const [formFields, setFormFields] = useState<FormField[]>([]);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  // objectui#10682 — the load error, kept per read (the object schema and the
+  // record), each written only by the current run of its read and cleared when
+  // a later run of that read commits: see `loadFailure.ts`. `error` is what
+  // the error screen reports.
+  const [loadFailures, setLoadFailures] = useState<LoadFailures>(NO_LOAD_FAILURES);
+  const loadRunSeqRef = useRef<LoadRunSeq>({ schema: 0, record: 0 });
+  const error = shownLoadFailure(loadFailures);
   // Unsaved-changes guard (mirrors ModalForm). `isDirty` is fed up from the
   // inner form renderer via onDirtyChange; `discardOpen` controls the confirm
   // dialog shown when the user tries to close a dirty form.
@@ -253,6 +288,13 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
 
   // Fetch object schema
   useEffect(() => {
+    // objectui#10712 — a read an `objectName` or data-source change has
+    // superseded commits nothing: not the schema, and not the `loading` release
+    // the current read owns (the record read's `cancelled` below, applied here).
+    let cancelled = false;
+    // objectui#10682 — this run's writes to the schema read's failure; a newer
+    // run of this effect makes them no-ops.
+    const run = beginLoadRun(loadRunSeqRef, setLoadFailures, 'schema');
     const fetchSchema = async () => {
       if (!dataSource) {
         setLoading(false);
@@ -260,13 +302,17 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       }
       try {
         const data = await dataSource.getObjectSchema(schema.objectName);
+        if (cancelled) return;
         setObjectSchema(data);
+        run.commit();
       } catch (err) {
-        setError(err as Error);
+        if (cancelled) return;
+        run.fail(err);
         setLoading(false);
       }
     };
     fetchSchema();
+    return () => { cancelled = true; };
   }, [schema.objectName, dataSource]);
 
   // The record whose data `formData` currently holds. The fetch effect reads it
@@ -274,6 +320,23 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   // `initialData`/`initialValues` are objects callers commonly rebuild every
   // render, and flashing the loading state for those would thrash.
   const loadedRecordIdRef = useRef<string | number | undefined>(undefined);
+  // The record itself as read — the baseline an edit save diffs against, so
+  // only the fields that changed are written (objectui#10156). Kept apart from
+  // `formData`, which seeds the form and supplies the OCC token: advancing it
+  // after a save would reseed the one and move the other. Set by the `findOne`
+  // below and nowhere else, so a caller-supplied record is never a baseline.
+  const loadedRecordRef = useRef<LoadedRecordSnapshot | null>(null);
+  // objectui#10715 — the data-invalidation bus, read the way the default arm
+  // reads it (the rule is stated once in `recordInvalidation.ts`): a change to
+  // this record, to its object or to `'*'` re-reads the record IN PLACE through
+  // the effect below while the form is pristine, and is held while it is dirty.
+  // `isDirty` stays this drawer's close guard; the bus hears the same channel.
+  const { refetch: recordRefetch, onDirtyChange: onBusDirtyChange, saved: recordSaved } =
+    useRecordInvalidation(schema.objectName, schema.recordId, !!schema.recordId && schema.mode !== 'create');
+  const handleDirtyChange = useCallback((dirty: boolean) => {
+    setIsDirty(dirty);
+    onBusDirtyChange(dirty);
+  }, [onBusDirtyChange]);
 
   // Fetch initial data
   useEffect(() => {
@@ -287,18 +350,28 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     //  - ignore a response that is no longer the one being awaited, so two
     //    overlapping reads land in REQUEST order, not completion order.
     let cancelled = false;
+    // objectui#10682 — this run's writes to the record read's failure; a newer
+    // run of this effect makes them no-ops.
+    const run = beginLoadRun(loadRunSeqRef, setLoadFailures, 'record');
     const fetchData = async () => {
       if (schema.mode === 'create' || !schema.recordId) {
+        // Seeded from something other than a read: no baseline to diff against.
+        loadedRecordRef.current = null;
         // Declared static defaults are this form's opening values (#4047) —
         // see `schemaDefaults` for the create-only boundary and for why
         // runtime defaults are left to the server.
         setFormData(seedCreateValues(objectSchema, resolveInitialRecord(schema), { currentUserId }));
+        // Not a read, so no earlier record read's failure describes the form.
+        run.commit();
         setLoading(false);
         return;
       }
 
       if (!dataSource) {
+        loadedRecordRef.current = null;
         setFormData(resolveInitialRecord(schema));
+        // Not a read either.
+        run.commit();
         setLoading(false);
         return;
       }
@@ -317,20 +390,29 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         const data = await dataSource.findOne(schema.objectName, schema.recordId);
         if (cancelled) return;
         loadedRecordIdRef.current = schema.recordId;
+        loadedRecordRef.current = snapshotLoadedRecord(schema, data);
         setFormData(data || {});
+        // The record on screen is the one this run read, so an earlier record
+        // read's failure no longer describes it. A schema failure stays: this
+        // read says nothing about the object's fields.
+        run.commit();
       } catch (err) {
         if (cancelled) return;
-        setError(err as Error);
+        run.fail(err);
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
 
+    // A bus re-read (objectui#10715, `recordRefetch` below) re-runs this
+    // effect for the record already on screen: it lands IN PLACE, since the
+    // loading branch above is keyed on a change of record, and a re-read a
+    // later run has superseded commits nothing, as above.
     if (objectSchema || !dataSource) {
       fetchData();
     }
     return () => { cancelled = true; };
-  }, [objectSchema, schema.mode, schema.recordId, schema.initialData, schema.initialValues, dataSource, schema.objectName]);
+  }, [objectSchema, schema.mode, schema.recordId, schema.initialData, schema.initialValues, dataSource, schema.objectName, recordRefetch]);
 
   // Build form fields from section config
   const buildSectionFields = useCallback(
@@ -344,8 +426,13 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         // `defaultValue` excuses a field from `required` (#4069).
         recordId: schema.recordId,
         fieldLabel,
+        // A member naming a section's field is that field's definition, as it
+        // is in ObjectForm's merged pool — for explicit and derived sections
+        // alike (objectui#10254; the explicit push used to regenerate every
+        // named field from the object schema and drop the member).
+        customFields: schema.customFields,
       }),
-    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, fieldLabel],
+    [objectSchema, schema.readOnly, schema.mode, schema.recordId, schema.objectName, schema.customFields, fieldLabel],
   );
 
   // Build fields from flat field list (when no sections provided)
@@ -354,19 +441,14 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
 
     // Ending the loading state here is only this effect's call when no record
     // read is outstanding — the FIRST load as much as a swap (objectui#10190).
-    // This effect and the fetch effect above both key on `objectSchema`, so the
-    // commit that publishes the schema runs BOTH, fetch first: it enters the
-    // loading state and fires `findOne`, and an unconditional
-    // `setLoading(false)` here then won, painting an empty, EDITABLE form while
-    // the read was in flight — whose landing replaced whatever had been typed.
-    // A load the fetch effect started is ended by the fetch effect. The
-    // condition mirrors that effect's own branches: create mode, no
-    // `recordId`, or no `dataSource` never read a record.
-    const recordReadOutstanding =
-      schema.mode !== 'create' &&
-      !!schema.recordId &&
-      !!dataSource &&
-      loadedRecordIdRef.current !== schema.recordId;
+    // The gate is shared with ModalForm (objectui#10659); the mechanism it
+    // closes is told once, on `isRecordReadOutstanding`.
+    const recordReadOutstanding = isRecordReadOutstanding({
+      mode: schema.mode,
+      recordId: schema.recordId,
+      dataSource,
+      loadedRecordId: loadedRecordIdRef.current,
+    });
     const endLoading = () => {
       if (!recordReadOutstanding) setLoading(false);
     };
@@ -424,12 +506,10 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     const columns = (schema.columns && schema.columns > 0
       ? Math.min(Math.floor(schema.columns), 4)
       : inferColumns(fs.length)) as 1 | 2 | 3 | 4;
-    return sections.map((s) => ({
-      ...s,
-      columns,
-      fields: withCustomFieldMembers(s.fields ?? [], schema.customFields),
-    })) as DrawerFormSectionConfig[];
-  }, [schema.sections, schema.customFields, schema.columns, schema.mode, formFields, objectSchema]);
+    // A member's definition reaches a group's body through `buildSectionFields`,
+    // the route an explicit section's takes (objectui#10254).
+    return sections.map((s) => ({ ...s, columns })) as DrawerFormSectionConfig[];
+  }, [schema.sections, schema.columns, schema.mode, formFields, objectSchema]);
 
   // Handle form submission
   const handleSubmit = useCallback(async (data: Record<string, any>) => {
@@ -462,18 +542,21 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       let result;
       // FLS defence-in-depth, inside the ONE outbound filter: react-hook-form
       // retains state for unmounted/disabled fields, so the render gate above
-      // is not enough on its own (objectui#10120).
+      // is not enough on its own (`80c54122e`).
       const payload = sanitizeFormData(data, objectSchema, {
         canEdit: fieldWriteGate(perms, schema.objectName),
       });
       // Omit the fields the producer owns (#4069) — see
       // `omitServerResolvedDefaults` for why an empty key is not the same as
       // no key at insert time. Create only: on an edit form a cleared column is
-      // a real removal. Computed ONCE so every persistence route below — the
-      // host-owned seam included — writes the identical payload.
+      // a real removal. An EDIT writes only the fields that differ from the
+      // record this form read (objectui#10156; `dirtyEditPayload` holds the
+      // rule, and sends whatever it cannot settle). Computed ONCE so every
+      // persistence route below — the host-owned seam included — writes the
+      // identical payload.
       const writePayload = schema.mode === 'create'
         ? omitServerResolvedDefaults(payload, objectSchema)
-        : payload;
+        : dirtyEditPayload(payload, loadedRecordRef.current, schema);
 
       if (schema.submitHandler) {
         // The host owns persistence (e.g. MasterDetailForm batching the parent
@@ -496,12 +579,19 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
           dataSource,
           objectName: schema.objectName,
           recordId: schema.recordId,
-          payload,
+          payload: writePayload,
           baseRecord: formData,
         });
         if (outcome.status === 'cancelled') return;
         result = outcome.result;
       }
+      // The write landed: a save from this still-open drawer diffs against the
+      // record as it now stands, not as first read.
+      loadedRecordRef.current = advanceLoadedRecord(loadedRecordRef.current, schema, writePayload);
+      // objectui#10715 — and what the form shows is what the server holds: a
+      // bus change held while it was dirty (its own write's echo included) is
+      // replayed now rather than behind input that is no longer unsaved.
+      recordSaved();
       if (schema.onSuccess) {
         await schema.onSuccess(result);
       }
@@ -516,7 +606,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [schema, dataSource, objectSchema, saveWithOcc, formData, perms, uploadGate.uploading, uploadGate.reason]);
+  }, [schema, dataSource, objectSchema, saveWithOcc, formData, perms, uploadGate.uploading, uploadGate.reason, recordSaved]);
 
   // Actually close the drawer, firing onCancel only when the close originated
   // from the explicit Cancel button.
@@ -584,8 +674,8 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   // would keep an already-emptied form. Mirrors ModalForm.
   const showSubmit = schema.showSubmit !== false && schema.mode !== 'view';
   const showCancel = schema.showCancel !== false;
-  const submitLabel = schema.submitText || (schema.mode === 'create' ? 'Create' : 'Update');
-  const cancelLabel = schema.cancelText || 'Cancel';
+  const submitLabel = schema.submitText || (schema.mode === 'create' ? t('form.create') : t('form.update'));
+  const cancelLabel = schema.cancelText || t('common.cancel');
 
   // Build base form schema
   const baseFormSchema = {
@@ -601,7 +691,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     showCancel,
     onSubmit: handleSubmit,
     onCancel: handleCancel,
-    onDirtyChange: setIsDirty, // Feed unsaved-changes state up to the close guard
+    onDirtyChange: handleDirtyChange, // Feed unsaved-changes state up to the close guard and the bus gate
     showActions: false, // Actions render in the drawer footer instead
     id: formId,         // Link the footer's submit button via the form attribute
   };
@@ -610,7 +700,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     if (error) {
       return (
         <div className="p-4 border border-red-300 bg-red-50 rounded-md">
-          <h3 className="text-red-800 font-semibold">Error loading form</h3>
+          <h3 className="text-red-800 font-semibold">{t('form.errorLoading')}</h3>
           <p className="text-red-600 text-sm mt-1">{error.message}</p>
         </div>
       );
@@ -620,7 +710,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       return (
         <div className="p-8 text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          <p className="mt-2 text-sm text-gray-600">Loading form...</p>
+          <p className="mt-2 text-sm text-gray-600">{t('publicForm.loading')}</p>
         </div>
       );
     }
@@ -636,47 +726,36 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         const sectionKey = section.name || String(index);
         // Resolved before the divider push so the membership claim below can
         // name exactly the fields this group contributes (#6236).
-        const sectionFields = applyFieldPerms(buildSectionFields(section));
-        // The ONE `collapsed` / `collapsible` resolution (objectui#9849 step
-        // one): objectui#9780's `collapsed` implies `collapsible`, read from
-        // the DECLARATION. This push used to read `collapsible` alone for the
-        // control while reading `collapsed` unconditionally for the state, so
-        // `collapsed: true` written alone drew a section that started closed
-        // with nothing on the page able to reopen it. This arm draws a row for
-        // every member, but `SectionDivider` renders that row — and so can
-        // host the control — only when it has a heading or a blurb to show;
-        // a member with neither is never collapsed, and keeps its fields.
+        const sectionFields = gateFields(buildSectionFields(section));
+        // The ONE `collapsed` / `collapsible` resolution (objectui#9849):
+        // objectui#9780's `collapsed` implies `collapsible`, read from the
+        // DECLARATION. The control lives on the divider row (director ruling
+        // letter E, item 3), so a member with neither a heading nor a blurb is
+        // never collapsed, keeps its fields, and is reported if it declared
+        // the pair.
         const collapse = resolveSectionCollapse(section, {
           live: collapsedSections[sectionKey],
-          hostsControl: Boolean(section.label) || Boolean(section.description),
+          title: section.label,
+          description: section.description,
+          where: `DrawerForm section '${sectionKey}' of object '${schema.objectName}'`,
           setCollapsed: next => setCollapsedSections(prev => ({ ...prev, [sectionKey]: next })),
         });
 
-        // The ONE path from a section configuration to its divider row
-        // (objectui#9849) — `projectSectionDivider` owns every key this row
-        // carries. ⚠️ This arm's gate stays UNCONDITIONAL: it draws a row for
-        // every section, heading or not, which is what makes a headingless
-        // section with a blurb render that blurb alone here while the default
-        // arm draws a blurb-only row and the modal's derived arm draws nothing.
-        // That difference is a reading (`drawerFormSectionDescription-9834`
-        // row 5), ⛔ not a ruling, and collapsing it would move the ADR-0089
-        // predicate and the objectui#6236 membership claim this row carries —
-        // see the gate union the helper hands back.
-        //
-        // The collapse pair is resolved ABOVE by `resolveSectionCollapse` and
-        // handed over resolved.
+        // The ONE path from a section configuration to its divider row, and
+        // the ONE row rule (objectui#9849, director ruling letter E): the
+        // visible row exists iff `title || description`, while the ADR-0089
+        // predicate and the objectui#6236 membership claim ride the group
+        // whether or not it yields one. This push used to draw a row for
+        // EVERY member, heading or not; that per-arm gate is gone.
         allFields.push(
-          ...projectSectionDivider(
-            {
-              key: sectionKey,
-              title: section.label,
-              description: section.description,
-              visibleWhen: (section as any).visibleWhen,
-              members: sectionFields.map(f => f.name),
-              collapse,
-            },
-            'always',
-          ),
+          ...projectSectionDivider({
+            key: sectionKey,
+            title: section.label,
+            description: section.description,
+            visibleWhen: (section as any).visibleWhen,
+            members: sectionFields.map(f => f.name),
+            collapse,
+          }),
         );
 
         if (collapse.collapsed) {
@@ -706,7 +785,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       const columns = (Number(derivedSections[0]?.columns) || 1) as 1 | 2 | 3 | 4;
       const allFields: FormField[] = [];
       derivedSections.forEach((section, index) => {
-        const body = applyFieldPerms(buildSectionFields(section));
+        const body = gateFields(buildSectionFields(section));
         if (!body.length) return;
         const sectionKey = section.name || String(index);
         // Group headers go through the same i18n hook ObjectForm and ModalForm
@@ -714,33 +793,24 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         const title = section.name
           ? sectionLabel(schema.objectName, section.name, section.label || section.name)
           : section.label;
-        // The same ONE resolution as the explicit push above and the default
-        // arm (objectui#9849 step one). This arm draws a row only for a
-        // heading, so only a titled group can host the control — an untitled
-        // bucket is never collapsed and never loses its fields.
+        // The same ONE resolution and ONE row rule as the explicit push above
+        // (objectui#9849, director ruling letter E).
         const collapse = resolveSectionCollapse(section, {
           live: collapsedSections[sectionKey],
-          hostsControl: Boolean(title),
+          title,
+          description: section.description,
+          where: `DrawerForm field group '${sectionKey}' of object '${schema.objectName}'`,
           setCollapsed: next => setCollapsedSections(prev => ({ ...prev, [sectionKey]: next })),
         });
-        // The ONE path (objectui#9849). ⚠️ This arm keeps its `if (title)`
-        // gate, so a derived group with no heading still draws no divider and
-        // still drops its blurb — the same residual the modal's derived arm
-        // has. ⛔ Widening it would also decide the ADR-0089 predicate row and
-        // the objectui#6236 membership claim; the helper's gate union carries
-        // that hand-back.
         allFields.push(
-          ...projectSectionDivider(
-            {
-              key: sectionKey,
-              title,
-              description: section.description,
-              visibleWhen: (section as any).visibleWhen,
-              members: body.map(f => f.name),
-              collapse,
-            },
-            'heading',
-          ),
+          ...projectSectionDivider({
+            key: sectionKey,
+            title,
+            description: section.description,
+            visibleWhen: (section as any).visibleWhen,
+            members: body.map(f => f.name),
+            collapse,
+          }),
         );
         const laidOut = columns > 1 ? applyAutoColSpan(body, columns) : body;
         allFields.push(...(collapse.collapsed ? laidOut.map(f => ({ ...f, hidden: true })) : laidOut));
@@ -760,7 +830,7 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
 
     // Apply auto-layout for flat fields (infer columns + colSpan)
     const autoLayoutResult = applyAutoLayout(
-      applyFieldPerms(formFields), objectSchema, schema.columns, schema.mode,
+      gateFields(formFields), objectSchema, schema.columns, schema.mode,
     );
 
     // Flat fields layout — use container-query grid classes so the form
@@ -778,6 +848,23 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       />
     );
   };
+
+  // objectui#11000 — why `gateFields` locked every field, when the lock is the
+  // form-wide one: the affordance for the mode is closed. Drawn above the
+  // fields once they are on screen; the master-detail body below draws its own
+  // through the `ObjectForm` it renders.
+  const closedAffordanceNotice = !error && !loading ? (
+    <ClosedAffordanceNotice
+      affordance={closedFormAffordance({
+        perms,
+        objectName: schema.objectName,
+        mode: schema.mode,
+        objectSchema,
+      })}
+      objectName={schema.objectName}
+      objectSchema={objectSchema}
+    />
+  ) : null;
 
   // Master-detail in a drawer: render the master-detail form (it owns its Save
   // bar) when the schema declares inline child collections; saved atomically.
@@ -801,7 +888,10 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       dataSource={dataSource}
     />
   ) : (
-    renderContent()
+    <>
+      {closedAffordanceNotice}
+      {renderContent()}
+    </>
   );
 
   // Design/preview surfaces render this live on a canvas; a portalled modal Sheet

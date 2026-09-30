@@ -24,7 +24,7 @@ import { createAuthenticatedFetch } from '@object-ui/auth';
 import { useObjectTranslation, isPermissionError, classifyLoadError } from '@object-ui/react';
 
 /**
- * RecordAttachmentsPanel — generic record Attachments surface (#2727,
+ * RecordAttachmentsPanel — generic record Attachments surface (objectstack-ai/objectstack#2727,
  * Salesforce "Notes & Attachments" parity).
  *
  * Rendered by RecordDetailView ONLY when the object declares
@@ -37,7 +37,7 @@ import { useObjectTranslation, isPermissionError, classifyLoadError } from '@obj
  * `sys_attachment` join row linking it to `(parent_object, parent_id)`.
  * Downloads fetch a short-lived signed URL from `/storage/files/:fileId/url`
  * with the console's Bearer token (the endpoint requires an authenticated
- * session for attachments-scope files, #2970), then open it.
+ * session for attachments-scope files, objectstack-ai/objectstack#2970), then open it.
  */
 
 interface AttachmentRow {
@@ -147,6 +147,15 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
    * leaves it here on purpose — see the comment there.
    */
   const [status, setStatus] = React.useState<AttachmentListStatus>('loading');
+  /**
+   * objectui#10684 — which `refresh()` call is the CURRENT one. Every call
+   * takes the next number, and only the newest may commit `rows` or move
+   * `status` off `loading`: when the record changes while a read is in
+   * flight, the previous record's answer can otherwise land after the current
+   * one and replace its list, or settle first and end `loading` while the
+   * current read is still out. Nothing renders from it.
+   */
+  const refreshSeqRef = React.useRef(0);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   // Same base-URL convention as RecordDetailView's raw API fetches: the
@@ -162,7 +171,7 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
     [baseUrl, authFetch],
   );
 
-  /** Map the server's fail-closed 40x codes (#2755, #2970) to friendly copy. */
+  /** Map the server's fail-closed 40x codes (objectstack-ai/objectstack#2755, objectstack-ai/objectstack#2970) to friendly copy. */
   const friendlyError = React.useCallback(
     (err: unknown): string => {
       const anyErr = err as { code?: string; message?: unknown } | null;
@@ -206,6 +215,11 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
     // Retry would have nothing to retry). Every dep here is in the callback's
     // dependency list, so if one of them arrives later this effect re-runs on
     // its own and the read happens then.
+    //
+    // The run number is taken BEFORE that return: a call that issues no read
+    // still supersedes one in flight for inputs that no longer apply.
+    const seq = ++refreshSeqRef.current;
+    const isCurrent = () => refreshSeqRef.current === seq;
     if (!dataSource || !objectName || !recordId) return;
     setStatus('loading');
     try {
@@ -215,12 +229,17 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
         $top: 100,
       });
       const items: AttachmentRow[] = Array.isArray(res) ? res : res?.data ?? [];
+      // objectui#10684 — a superseded answer is dropped on arrival.
+      if (!isCurrent()) return;
       setRows(items);
       // The read ANSWERED — only now is `rows.length === 0` a fact about the
       // record rather than an absence of information, and only now may the
       // empty state below speak.
       setStatus('loaded');
     } catch (err) {
+      // objectui#10684 — and so is a superseded failure: it describes a read
+      // for inputs that no longer apply, so it may not end `loading` either.
+      if (!isCurrent()) return;
       setRows([]);
       // The read did NOT answer. Which of the three unknown states applies
       // turns on two questions, checked in order — is the object's API
@@ -289,7 +308,7 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
             file_name: uploaded.name ?? file.name,
             mime_type: uploaded.mimeType ?? file.type,
             size: uploaded.size ?? file.size,
-            // Back-compat with pre-#2755 servers; a current server stamps
+            // Back-compat with pre-objectstack-ai/objectstack#2755 servers; a current server stamps
             // `uploaded_by` from the session and ignores this value.
             ...(currentUserId ? { uploaded_by: currentUserId } : {}),
           });
@@ -314,7 +333,7 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
         setRows((prev) => prev.filter((r) => r.id !== row.id));
       } catch (err: any) {
         // The delete button deliberately renders for every row: the server
-        // is the gate (uploader-or-parent-editor, #2755) and the client
+        // is the gate (uploader-or-parent-editor, objectstack-ai/objectstack#2755) and the client
         // lacks the parent-edit data to pre-compute it — a denial surfaces
         // here as friendly copy instead.
         setError(friendlyError(err));
@@ -328,7 +347,7 @@ export const RecordAttachmentsPanel: React.FC<RecordAttachmentsPanelProps> = ({
       setError(null);
       try {
         // The stable `/files/:fileId` endpoint now requires an authenticated
-        // session for attachments-scope files (#2970) — an <a href> can't
+        // session for attachments-scope files (objectstack-ai/objectstack#2970) — an <a href> can't
         // carry the Bearer token. Fetch a short-lived signed URL with auth,
         // then open it (the signed URL itself needs no credentials).
         const res = await authFetch(

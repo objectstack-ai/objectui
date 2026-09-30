@@ -20,10 +20,12 @@
  *
  *     invalid_type ["content"] expected nonoptional, received undefined
  *
- * ⚠️ The defect was never visible in the rendered UI. `tabs.tsx` reads
- * `renderChildren(item.content || (item as any).body)` — `content` first, `body`
- * through an `any` cast — so the seeded nodes drew from the fallback arm. It was
- * the DECLARED contract that refused them, and only a parse can see that.
+ * ⚠️ The defect was never visible in the rendered UI. At the time, `tabs.tsx`
+ * read `content` first and fell back to `body` through an `any` cast, so the
+ * seeded nodes drew from the fallback arm. It was the DECLARED contract that
+ * refused them, and only a parse can see that. objectui#9590 has since retired
+ * that fallback: `tabs.tsx` draws `item.content` and nothing else, pinned by
+ * `tabs-item-body-retired-9590.test.tsx`.
  *
  * ## Why this pin parses instead of reading the spelling
  *
@@ -58,18 +60,18 @@
  *
  * ## ⛔ What this pin deliberately does NOT claim
  *
- * - ⛔ It does not assert that `body` is refused. `TabItemSchema` is a stripping
- *   `z.object`, so an undeclared `body` is silently DROPPED, not rejected;
- *   `undeclaredBodyIsDropped` records that as the measured behaviour rather
- *   than letting a later reader assume a strict face.
- * - ⛔ It does not touch the `|| (item as any).body` fallback in `tabs.tsx`.
- *   Retiring that tolerance is the `body`-dialect family's question
- *   (objectui#9871, objectui#9910 — both open, both `needs-user-decision`), and
- *   a pin here must not answer it. ⚠️ `controlB.equality` below is the one row
- *   that READS that arm: it exists to prove this repair was parse-level and not
- *   visual. When the fallback is retired, that row retires WITH it — ⛔ it is
- *   not a reason to weaken the subject, and the durable half of control B
- *   (`controlB.stillRenders`) does not depend on the arm at all.
+ * - ⛔ Its refusal rows are about the ABSENT `content`, never about `body`.
+ *   When this pin was written `TabItemSchema` STRIPPED an undeclared `body`;
+ *   objectui#9590 has since made it a named refusal pointing at `content`
+ *   (pinned in `@object-ui/types`, `list-tabs-item-body-refusal-9590.test.ts`),
+ *   and `bodyIsRefusedByName` below records that as the measured behaviour.
+ * - ⛔ It does not decide the `body` fallback in `tabs.tsx`; objectui#9590
+ *   retired it, and `tabs-item-body-retired-9590.test.tsx` is that change's pin.
+ *   A `controlB.equality` row used to READ the fallback arm, to prove this
+ *   repair was parse-level and not visual: the pre-fix spelling painted the
+ *   same thing as the fixed one. It retired WITH the arm, as it said it would;
+ *   the durable half of control B (`controlB.stillRenders`) never depended on
+ *   the arm, and ⛔ no subject row moved.
  * - ⛔ It is not widened past `ui:tabs`. Whether a registration's `defaultProps`
  *   may diverge from its published face across the repository is the open
  *   question on objectui#4631 (`pm:on-hold`), and deciding it by gate rather
@@ -149,18 +151,21 @@ describe('`ui:tabs` defaultProps.items satisfy the published TabItemSchema (obje
       }
     });
 
-    it('undeclaredBodyIsDropped — `body` is stripped by the parse, ⛔ not rejected', () => {
-      // Why the refusal above is about the ABSENT key and never about the
-      // present one: the face is a stripping `z.object`, so the item's own
-      // child list did not survive the parse even before the missing-key error.
-      const parsed = TabItemSchema.parse({
+    it('bodyIsRefusedByName — `body` beside `content` is refused at its own path', () => {
+      // Until objectui#9590 the face STRIPPED this key in silence; it is now a
+      // named refusal. The refusal row above still reads the ABSENT `content`,
+      // so it measures the seed's spelling and not this refusal.
+      const r = TabItemSchema.safeParse({
         value: 'probe',
         label: 'probe',
         content: [{ type: 'text', content: 'kept' }],
-        body: [{ type: 'text', content: 'dropped' }],
+        body: [{ type: 'text', content: 'refused' }],
       });
-      expect(Object.keys(parsed).sort()).toEqual(['content', 'label', 'value']);
-      expect(parsed).not.toHaveProperty('body');
+      expect(r.success).toBe(false);
+      if (r.success) return;
+      expect(r.error.issues.map((i) => ({ code: i.code, path: i.path.join('.') }))).toEqual([
+        { code: 'invalid_type', path: 'body' },
+      ]);
     });
   });
 
@@ -204,27 +209,11 @@ describe('`ui:tabs` defaultProps.items satisfy the published TabItemSchema (obje
 
   describe('controlB — the UI did not move', () => {
     it('stillRenders — the seed paints every label and the first tab body', () => {
-      // Durable half: reads only the `content` arm, so it survives whatever
-      // objectui#9871 rules about the fallback.
+      // Durable half: reads only the `content` arm, so it never depended on the
+      // `body` fallback objectui#9590 retired.
       const { text } = renderSeed(seededItems());
       for (const item of seededItems()) expect(text).toContain(String(item.label));
       expect(text).toContain('Content for Tab 1');
-    });
-
-    it('equality — the pre-fix spelling paints exactly the same thing today', () => {
-      // ⚠️ THIS ROW READS THE FALLBACK ARM (`item.content || (item as any).body`).
-      // It is the proof that objectui#9941 was a parse-level repair and not a
-      // visual one: the same nodes moved from the fallback arm onto the primary
-      // one. It is ⛔ NOT a claim that the fallback must stay — when
-      // objectui#9871 retires it this row goes with it, and `stillRenders`
-      // above, plus every subject row, are untouched by that.
-      const after = renderSeed(seededItems());
-      cleanup();
-      const before = renderSeed(preFix(seededItems()));
-      expect(before.text).toBe(after.text);
-      expect(before.html).toBe(after.html);
-      // Lit control: ⛔ two empty renders are also equal.
-      expect(after.text).toContain('Content for Tab 1');
     });
   });
 });

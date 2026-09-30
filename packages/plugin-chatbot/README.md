@@ -130,15 +130,20 @@ modes (objectui#4424):
   card, the "Review N changes" affordance, the plan card, the build panel and
   the inline charts. The authoring contract declares none of them, so rebuilding
   a message field-by-field from it deletes all of them, and the compiler agrees.
+  API mode also produces the AI SDK's three approval states
+  (`'approval-requested'` / `'approval-responded'` / `'output-denied'`), which
+  the authoring contract refuses — they are runtime-only (objectui#10018).
 - **Not this package's runtime `ChatMessage` either.** In local mode an authored
   `'tool'` role and the legacy `'partial-call'` / `'call'` / `'result'` tool
   states pass through untouched; they are folded only at the render seam
   (`toRuntimeMessages`, `chatMessageAdapter.ts`).
 
-`ObjectChatMessage` is a subtype of the authoring `ChatMessage`, so anything
-already typed against that keeps compiling — naming `ObjectChatMessage` is what
-lets you *read* the keys above. `timestamp` is always a `string` here: both
-modes absorb an authored `Date` before emitting.
+`ObjectChatMessage` is **not** a subtype of the authoring `ChatMessage`
+(objectui#10018): its tool invocations can carry those three runtime-only
+approval states. So an `onSend` callback that declares its parameter as the
+authoring `ChatMessage[]` does not type-check — declare `ObjectChatMessage[]`,
+which is also what lets you *read* the keys above. `timestamp` is always a
+`string` here: both modes absorb an authored `Date` before emitting.
 
 ## Schema-Driven Usage
 
@@ -332,7 +337,7 @@ function MyAuthoredChat({ messages }: { messages: AuthoredChatMessage[] }) {
 |---|---|---|---|
 | `role` | `'user' \| 'assistant' \| 'system' \| 'tool'` | `'user' \| 'assistant' \| 'system'` | a `'tool'` message **is an assistant message**: it renders as an assistant bubble with its content shown. `'system'` keeps its own role (`<Chatbot>` renders it as a centred pill). |
 | `timestamp` | `string \| Date` | `string` | a `Date` becomes its ISO 8601 string. The runtime renders the timestamp straight into a React child, where an object throws. |
-| `toolInvocations[].state` | AI SDK v6 states **+ legacy** `'partial-call' \| 'call' \| 'result'` | v6 states only | the legacy spellings map to `'input-streaming'` / `'input-available'` / `'output-available'` — the mapping the authoring type's own docs declare. |
+| `toolInvocations[].state` | AI SDK v6 states **except** the three approval states, **+ legacy** `'partial-call' \| 'call' \| 'result'` | v6 states only | the legacy spellings map to `'input-streaming'` / `'input-available'` / `'output-available'` — the mapping the authoring type's own docs declare. `'approval-requested'` / `'approval-responded'` / `'output-denied'` are runtime-only and not authorable (objectui#10018); the adapter's input still admits them, because API-mode values carry them. |
 | everything else | — | — | passed through untouched, including keys the runtime contract does not declare. |
 
 The three registered SDUI renderers (`chatbot`, `chatbot-enhanced`,

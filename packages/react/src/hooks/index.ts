@@ -9,6 +9,9 @@
 export * from './useExpression.js';
 // Session scope for filter placeholders ({current_user_id}/{current_org_id}).
 export * from './useFilterScope.js';
+// The ONE hold a data node resolves its own authored `filter` through
+// (objectui#10666), fed by `useFilterScope()`.
+export * from './useResolvedFilter.js';
 export * from './useActionRunner.js';
 export * from './useNavigationOverlay.js';
 export * from './usePageVariables.js';
@@ -26,7 +29,6 @@ export * from './useReducedMotion.js';
 export * from './useAnimation.js';
 export * from './useDensityMode.js';
 export * from './useViewSharing.js';
-export * from './useClientNotifications.js';
 export * from './useOffline.js';
 export * from './usePerformance.js';
 export * from './usePerformanceBudget.js';
@@ -41,6 +43,9 @@ export * from './useActionEngine.js';
 // authored strings an action carries (label / confirmText / successMessage).
 export * from './useActionTextLocalizer.js';
 export * from './useCapabilityGate.js';
+// The `SchemaRenderer` memo's `properties` evaluation, for an action container's
+// members, which are drawn without `SchemaRenderer` (objectui#10290).
+export * from './useConfigBagEvaluator.js';
 // The analytics label net's React glue, consumed by BOTH plugin-dashboard's
 // `DatasetWidget` and plugin-report's dataset block (objectui#4389). It lives
 // here rather than in `@object-ui/core` because it reads `SchemaRendererContext`

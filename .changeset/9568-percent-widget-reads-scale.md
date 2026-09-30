@@ -48,9 +48,8 @@ to make widget-versus-cell agreement a premise, and closing that gap needs its
 own ruling rather than arriving as a side effect of moving the member that is
 read.
 
-`CurrencyField`'s own read of `precision` is untouched and is not the same
-shape: there the competing source is the currency's ISO 4217 minor-unit count,
-and objectui#4361 ruled an authored `precision` wins over that. It ruled nothing
-about `scale`. `CurrencyConfigSchema.precision` is a third surface again, with
-the opposite convention and its own `scale` alias, and the spec warns against
-conflating it with the field face.
+`CurrencyField` is not part of this change: a currency's decimal places are the
+currency's own ISO 4217 minor-unit count, and since objectui#10276 that widget
+reads neither `precision` nor `scale` for them. `CurrencyConfigSchema.precision`
+is a third surface again, with the opposite convention and its own `scale`
+alias, and the spec warns against conflating it with the field face.

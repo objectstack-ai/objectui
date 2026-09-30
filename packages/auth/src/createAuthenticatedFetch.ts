@@ -27,7 +27,13 @@ export interface AuthenticatedAdapterOptions {
  * so `@object-ui/auth`'s barrel, this package's tests and every consumer
  * import the same symbol from the same place they did before.
  */
-export { ActiveOrganizationStorage, SessionUserScope, purgePreviousUserClientState } from './ActiveOrganizationStorage.js';
+export {
+  ActiveOrganizationStorage,
+  SessionUserScope,
+  purgePreviousUserClientState,
+  getSessionOwnerChangeCount,
+  subscribeSessionOwnerChange,
+} from './ActiveOrganizationStorage.js';
 
 export interface CreateAuthenticatedFetchOptions {
   /**
@@ -133,7 +139,7 @@ export function createAuthenticatedFetch(
     // switcher, so reading it here means a language switch carries the new
     // `Accept-Language` on every subsequent request — closing the gap where
     // server-resolved labels stayed in the old language until a page refresh
-    // (issue #1319). We only fold it in for our own API calls, and never
+    // (issue objectstack-ai/objectstack#1319). We only fold it in for our own API calls, and never
     // clobber an `Accept-Language` the caller set explicitly.
     if (isApiCall && !headers.has('Accept-Language') && typeof document !== 'undefined') {
       const lang = document.documentElement.lang;

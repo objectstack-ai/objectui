@@ -32,26 +32,11 @@ import {
 } from './flow-canvas-layout.js';
 import { NodeTypeIcon, nodeTone } from './flow-canvas-parts.js';
 import { REGION_BLOCK_PAD, REGION_GAP, REGION_LABEL_H } from './flow-region-metrics.js';
-import { t as tr, tFormat } from '../i18n.js';
-
-/**
- * Localized header for a nested region. `extractRegions` (a pure, i18n-free
- * layout helper) bakes English structural fallbacks — so translate those here,
- * at render, keyed off the stable region `key`. A user-supplied `parallel`
- * branch name (anything other than the `Branch N` auto-label) is author content
- * and passes through untouched.
- */
-function displayRegionLabel(region: LabeledRegion, locale?: string): string | undefined {
-  const { key, label } = region;
-  if (key === 'try') return tr('engine.flowRegion.try', locale);
-  if (key === 'catch') return tr('engine.flowRegion.catch', locale);
-  const m = /^branch-(\d+)$/.exec(key);
-  if (m) {
-    const n = Number(m[1]) + 1;
-    if (label === `Branch ${n}`) return tFormat('engine.flowRegion.branchN', locale, { n });
-  }
-  return label;
-}
+// The localized region header: `extractRegions` bakes English structural
+// fallbacks, and `displayRegionLabel` translates them at render, keyed off the
+// stable region `key`. It lives in its own module so the nested-node inspector
+// breadcrumb reads the same rows (objectui#10696).
+import { displayRegionLabel } from './flow-region-label.js';
 
 /**
  * Node box inside a region — a compact echo of `NodeCard`. Read-only by default

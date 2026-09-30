@@ -34,10 +34,15 @@
  * than on the text being unreachable, which was measured and is now false.
  *
  * Second limit, worth stating because it is the one that could mislead: CSS
- * generated content does not exist in happy-dom, so the `required` asterisk
- * (`after:content-['*']` on the `Label`) is invisible to every name/description
- * computation here. It IS part of the accessible name in a real browser. No
- * case below depends on that either way.
+ * generated content does not exist in happy-dom, so NO name or description
+ * computed here can be evidence about it, either way. While the `required`
+ * asterisk was an `::after` utility on the `Label`, every computation here was
+ * blind to it, and Chromium appended it to the required input's name — "Title*"
+ * for a label "Title" (objectui#10368). It is now a real `aria-hidden` element,
+ * and the required case below pins it by MARKUP (no generated-content utility
+ * in the label, an `aria-hidden` `*` element) — never by a happy-dom name.
+ * The other cases author no `required`, so the asterisk never touched their
+ * names.
  *
  * ## Why the renderer is driven through the registry, not `SchemaRenderer`
  *
@@ -224,6 +229,40 @@ describe('element:text_input — description is the field\'s accessible descript
     const input = screen.getByRole('textbox');
     expect(describedElements(input)[0].textContent).toBe('负责人');
     expect(input).toHaveAccessibleDescription('负责人');
+  });
+
+  it('keeps a required label\'s asterisk out of both channels, pinned by markup (objectui#10368)', () => {
+    // The verdict is the MARKUP, not a happy-dom name (see the header's second
+    // limit): happy-dom computes no CSS generated content, so a name read here
+    // stayed green while Chromium put the asterisk into the input's name.
+    renderInput({ label: 'Workspace', description: HELP, required: true });
+
+    const input = screen.getByRole('textbox');
+    const label = document.querySelector('label[for="ws_input"]') as HTMLLabelElement;
+    expect(label).not.toBeNull();
+
+    // 1. Nothing in the associated label draws generated content.
+    const generated = [label, ...Array.from(label.querySelectorAll('*'))]
+      .flatMap((el) => Array.from(el.classList))
+      .filter((c) => /(^|:)content-[[(]/.test(c));
+    expect(generated).toEqual([]);
+
+    // 2. The visible `*` is one real element, hidden from assistive tech.
+    const markers = label.querySelectorAll('[data-required-marker]');
+    expect(markers).toHaveLength(1);
+    expect(markers[0]).toHaveAttribute('aria-hidden', 'true');
+    expect(markers[0].textContent).toBe('*');
+
+    // 3. The description association is untouched by the marker: still the
+    //    one paragraph, and the marker lives in the label, not in it.
+    const described = describedElements(input);
+    expect(described).toHaveLength(1);
+    expect(described[0].textContent).toBe(HELP);
+    expect(described[0].contains(markers[0])).toBe(false);
+
+    // The required STATE is the native attribute, as before.
+    expect(input).toBeRequired();
+    expect(input).toHaveAttribute('required');
   });
 
   it('survives the real render path through SchemaRenderer', () => {

@@ -36,11 +36,13 @@
 // `kanban` node type key (objectui#8802, maintainer ruling 2026-09-09).
 // `ObjectKanbanSchema` (also from `@object-ui/types`) is the surviving face,
 // and `ObjectKanban` takes it directly.
+// ⛔ `ColumnWidthConfig` is NOT re-exported any more either: it was DELETED from
+// `@object-ui/types` (objectui#10582) — no schema key referenced it and, since
+// objectui#8522, nothing in this package read it.
 export type {
   KanbanCard,
   KanbanColumn,
   CardTemplate,
-  ColumnWidthConfig,
 } from '@object-ui/types';
 
 /**

@@ -55,6 +55,13 @@
  * that still reaches it, and the renderer stays only ever MORE lenient than
  * `validate` — asserted over the in-repo fixtures at the foot of this file.
  *
+ * ⭐ The "NOT declared" clause is SUPERSEDED by objectui#6356 (maintainer
+ * ruling 2026-09-27, Q2 = C): the bar now declares its four keys, every one
+ * OPTIONAL, and stays `.passthrough()` — so `items: [{}]` still parses, the
+ * refusals above keep their `items[i].items[j]` paths and `invalid_type`
+ * code, and an undeclared bar key is refused only by the strict authoring
+ * face. `./timeline-item-element-6356.test.ts` pins the declared keys.
+ *
  * ## Stock measured before the narrowing, positive-controlled
  *
  * A published accept set narrows here (Clause-② yes), so the in-repo stock of
@@ -147,8 +154,16 @@ describe('a gantt BAR that is not an object is refused at authoring time (object
     // inside the row — rebuilt on today's `TimelineSchema` so the "before"
     // column of the table in the header is measured against the same base,
     // not remembered.
-    const previousRow = z.object({ items: z.array(z.any()).optional() }).passthrough();
-    const previous = TimelineSchema.extend({ items: z.array(previousRow).optional() });
+    // Annotated `z.ZodType<any, any>` for `.safeExtend` below, which admits
+    // only a replacement whose output AND input types fit the slot it replaces
+    // — and the old row is the looser declaration. The annotation is static
+    // only: the control measures the RUNTIME accept set, which it does not touch.
+    const previousRow: z.ZodType<any, any> = z.object({ items: z.array(z.any()).optional() }).passthrough();
+    // `.safeExtend`, not `.extend`: since objectui#6356 the node carries a
+    // refinement, and zod 4 refuses to `.extend()` a refined object over an
+    // existing key. `.safeExtend` keeps that refinement; every row below has a
+    // `label` and no feed key under `variant: 'gantt'`, so it admits them all.
+    const previous = TimelineSchema.safeExtend({ items: z.array(previousRow).optional() });
     for (const [label, items] of refused) {
       expect(previous.safeParse(gantt(items)).success, `${label} was NOT accepted by the old mirror`).toBe(true);
     }

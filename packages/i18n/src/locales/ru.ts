@@ -123,7 +123,11 @@ const ru = {
     closeChat: "Закрыть чат",
     closePanel: "Закрыть панель",
     resizeDrawer: "Изменить ширину панели",
-    itemCount: "{{count}} элементов",
+    // objectui#10242 — the tab-count badge switches keys only at exactly 1, so
+    // this half serves one (21, 31…), few (2-4, 22-24…) AND many (5-20…). No
+    // single `{{count}} <noun>` form agrees with all three; a count label does,
+    // the same device as `detail.repeaterItemCount`.
+    itemCount: "Элементов: {{count}}",
     itemCountOne: "{{count}} элемент",
     toggleSidebar: "Переключить боковую панель",
     package: "Пакет",
@@ -134,12 +138,12 @@ const ru = {
     printDialogHint: "Открывает диалог печати браузера (это не экспорт в PDF)",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "Показаны первые {{shown}} из {{total}} записей. Сузьте фильтр.",
     rowCeilingNoteUnknownTotal: "Показаны первые {{shown}} записей. Сузьте фильтр.",
   },
@@ -153,6 +157,14 @@ const ru = {
       acknowledge: 'Я сохранил(а) это',
       copyAll: 'Копировать всё',
     },
+    notAvailableHere: '«{{action}}» недоступно на текущей странице.',
+    completedSuccessfully: 'Действие успешно выполнено',
+    failed: 'Действие не выполнено',
+    parallelFailed: 'Одно или несколько параллельных действий не выполнены',
+    undo: 'Отменить',
+    undone: 'Изменение отменено',
+    undoneOperation: 'Отменить: {{description}}',
+    redoneOperation: 'Повторить: {{description}}',
   },
   validation: {
     required: "Поле {{field}} обязательно для заполнения",
@@ -170,13 +182,38 @@ const ru = {
   },
   form: {
     noPermissionToSave: "У вас нет прав на сохранение этой записи.",
+    noPermissionToCreate: "У вас нет прав на создание записей «{{object}}». Поля доступны только для чтения.",
+    noPermissionToEdit: "У вас нет прав на редактирование записей «{{object}}». Поля доступны только для чтения.",
     submitFailed: "Не удалось сохранить. Попробуйте ещё раз.",
     uploadInFlight: "Дождитесь завершения загрузки, прежде чем сохранять.",
+    clearedOnHide: "Очищено то, что больше не применимо к текущим значениям: {{fields}}",
     discardTitle: "Отменить изменения?",
     discardMessage: "Есть несохранённые изменения. Если закрыть форму сейчас, правки будут потеряны.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "Заполните поля формы, затем отправьте или отмените.",
+    deniedDescription: "У вас нет прав на редактирование этого поля.",
+    masterDetail: {
+      loadingColumns: "Загрузка столбцов…",
+      subtotal: "Промежуточный итог",
+      tax: "Налог ({{rate}}%)",
+      total: "Итого",
+      lineItem: "Позиция",
+      rowTitle: "{{title}} — строка {{row}}",
+      applyRow: "Применить",
+      editorDescription: "Введите запись и её позиции, затем сохраните.",
+      noChildObject: "Для этой коллекции не настроен дочерний объект: укажите в {{property}} объект, строки которого она выводит.",
+      schemaUnavailable: "Не удалось загрузить схему {{object}}, поэтому у этой коллекции нет столбцов для отображения. Убедитесь, что объект существует и доступен для чтения, затем перезагрузите.",
+      noRelationshipField: "Не удалось определить, как {{object}} связан с {{parent}}: ни одно поле lookup или master_detail в нём не ссылается на родительский объект. Укажите в {{property}} этой коллекции поле, в котором хранится родительская запись.",
+    },
+    lineItems: {
+      title: "Позиции",
+      saveRecordFirst: "Сначала сохраните запись, чтобы добавить позиции.",
+      notLoaded: "Позиции этой записи не загружены.",
+      loadFailed: "Не удалось загрузить позиции",
+      saveFailed: "Не удалось сохранить позиции",
+      noChildObject: "Для этой панели не настроен дочерний объект: укажите в {{property}} объект, строки которого она выводит.",
+    },
     keepEditing: "Продолжить редактирование",
     discard: "Отменить",
     conflictTitle: "Конфликт сохранения",
@@ -200,6 +237,12 @@ const ru = {
     createSuccess: "{{object}} создан",
     updateSuccess: "{{object}} обновлён",
     deleteSuccess: "{{object}} удалён",
+    created: "Создано",
+    saved: "Сохранено",
+    savedNamed: "{{title}} сохранён",
+    submitted: "Отправлено",
+    errorLoading: "Ошибка загрузки формы",
+    navigateRefused: "Цель `navigateOnSuccess`, объявленная для этой формы, была отклонена, поэтому переход не выполнен.",
     fullscreen: {
       title: "Изменить текст",
       description: "Измените полное текстовое значение, затем сохраните или отмените изменения.",
@@ -240,6 +283,7 @@ const ru = {
       remove: 'Удалить {{name}}',
       exceedsMaxSize: '«{{name}}» превышает максимальный размер ({{max}} МБ)',
       uploadFailed: 'Не удалось загрузить «{{name}}»: {{error}}',
+      uploadIncomplete: 'Загрузка «{{name}}» не завершена: идентификатор файла не получен, ничего не сохранено',
     },
     richText: {
       format: "Формат: {{format}}",
@@ -294,6 +338,14 @@ const ru = {
       refusedResidue:
         "Не сохранено: {{name}} «{{text}}» и {{otherName}} «{{otherText}}» — не числа. Введите обычные десятичные дроби (например: 30.2741, 120.1551).",
     },
+    date: {
+      impossibleDay:
+        "Сохранённое значение «{{value}}» — несуществующая дата. Выберите дату, чтобы заменить его.",
+    },
+    dateTime: {
+      impossibleDay:
+        "Сохранённое значение «{{value}}» — несуществующая дата. Выберите дату и время, чтобы заменить его.",
+    },
     number: {
       badInput:
         "Не сохранено: текст в этом поле — не число. Введите обычную десятичную дробь (например: {{example}}).",
@@ -312,6 +364,16 @@ const ru = {
     textarea: {
       characterCount: "Количество символов: {{count}} из {{max}}",
       charactersRemaining: "Осталось символов: {{count}}",
+    },
+    grid: {
+      addLine: "Добавить строку",
+      noItems: "Нет элементов",
+      noItemsAddHint: "Пока нет элементов — нажмите «{{label}}», чтобы начать.",
+      optionalColumns: "Дополнительные столбцы",
+      computed: "Вычисляется",
+      openRow: "Открыть строку",
+      duplicateRow: "Дублировать строку",
+      removeRow: "Удалить строку",
     },
   },
   table: {
@@ -393,13 +455,15 @@ const ru = {
     yes: "Да",
     no: "Нет",
     systemFields: "Система",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: "Частично",
-      partialNotice:
-        "Группировка выполнена по первым {{loaded}} из {{total}} записей. Счётчики групп относятся только к загруженной странице, а группа, все записи которой находятся за пределами загруженных строк, здесь отсутствует.",
-      partialNoticeUnknownTotal:
-        "Группировка выполнена по {{loaded}} загруженным записям. Этому представлению могут соответствовать и другие записи, поэтому счётчики групп могут быть неполными, а какая-либо группа может здесь отсутствовать.",
+      needsHeaderQuery:
+        "Это представление сгруппировано, но его источник данных не реализует queryGroupHeaders, поэтому группы невозможно подсчитать. Уберите группировку, чтобы показать записи.",
+      needsWholeRows:
+        "Для группировки нужны все записи, но этой таблице передана только одна их страница, поэтому группы невозможно подсчитать. Передайте все записи или позвольте таблице загрузить их из источника данных, который реализует queryGroupHeaders.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this
@@ -648,7 +712,10 @@ const ru = {
     },
     refresh: "Обновить",
     loading: "Загрузка записей…",
-    recordCount: "{{count}} записей",
+    // objectui#10425 — the record-count bar picks this half at every count but
+    // 1, which spans one (21), few (2-4) and many (5-20); a count label reads
+    // right at all three, the same form as `lookup.recordCount`.
+    recordCount: "Записей: {{count}}",
     recordCountOne: "{{count}} запись",
     addRecord: "Добавить запись",
     tabs: "Вкладки",
@@ -778,6 +845,7 @@ const ru = {
     },
     aria: {
       taskList: "Список задач",
+      refreshing: "Обновление…",
     },
     tooltip: {
       days: "дн",
@@ -935,7 +1003,10 @@ const ru = {
     addReaction: "Добавить реакцию",
     pageHeaderActions: "Действия в заголовке страницы",
     emojiPicker: "Выбор эмодзи",
-    reactionCount: "{{emoji}} {{count}} реакций",
+    // objectui#10242 — the chip picks this half at every count but 1, which
+    // spans one, few and many; a count label reads right at all three, the same
+    // device as `collaboration.reactionCount`.
+    reactionCount: "{{emoji}} Реакций: {{count}}",
     reactionCountOne: "{{emoji}} {{count}} реакция",
     recordDetail: "Сведения о записи",
     recordDetailWithLabel: "Сведения: {{label}}",
@@ -963,7 +1034,6 @@ const ru = {
     viewAll: "Показать все",
     new: "Создать",
     add: "Добавить",
-    emptyValue: "—",
     activity: "Активность",
     editRow: "Редактировать",
     deleteRow: "Удалить",
@@ -1008,11 +1078,6 @@ const ru = {
     attachmentsLoadFailed: "Не удалось загрузить вложения этой записи.",
     attachmentsApiUnavailable: "Список вложений недоступен для этого объекта.",
     retryLoadAttachments: "Повторить",
-    unifiedDiff: "Единое представление",
-    sideBySideDiff: "Параллельное представление",
-    noChanges: "Нет изменений",
-    previousVersion: "Предыдущая",
-    currentVersion: "Текущая",
     discussion: "Обсуждение",
     showDiscussion: "Показать обсуждение ({{count}})",
     hideDiscussion: "Скрыть обсуждение",
@@ -1027,13 +1092,7 @@ const ru = {
     writeComment: "Написать комментарий…",
     subscribedTooltip: "Подписаны — нажмите для отписки",
     unsubscribedTooltip: "Подписаться на уведомления",
-    firstRecord: "Первая запись (Home)",
-    previousRecordKey: "Предыдущая запись (←)",
-    nextRecordKey: "Следующая запись (→)",
-    lastRecord: "Последняя запись (End)",
     noRecords: "Нет записей",
-    searchWhileNavigating: "Поиск при навигации",
-    searchRecords: "Поиск записей…",
     allActivity: "Вся активность",
     commentsOnly: "Только комментарии",
     fieldChangesFilter: "Изменения полей",
@@ -1094,6 +1153,8 @@ const ru = {
     pathStageLostUpcoming: '{{stage}}, проигран, не достигнут',
     pathStageWonUpcoming: '{{stage}}, целевой этап, не достигнут',
     linkCopied: "Ссылка скопирована в буфер обмена",
+    commentFailed: "Комментарий не опубликован. Ничего не сохранено — попробуйте ещё раз.",
+    reactionFailed: "Реакция не сохранена. Попробуйте ещё раз.",
     linkCopyFailed: "Не удалось скопировать ссылку",
     cancel: "Отмена",
     cancelEdit: "Отменить изменения",
@@ -1137,24 +1198,10 @@ const ru = {
     fileCount: "Файлов: {{count}}",
     fileCount_one: "{{count}} файл",
     fileCount_other: "{{count}} файлов",
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: 'История версий',
-    noRevisions: 'Нет зарегистрированных версий',
-    revisionFieldsChanged: 'Изменено полей: {{count}}',
-    revisionFieldsChangedOne: 'Изменено полей: {{count}}',
-    revisionPreview: 'Предпросмотр версии',
-    revisionSnapshot: 'Состояние записи на этот момент',
-    restoreConfirm: 'Запись будет восстановлена до состояния на {{when}}. Продолжить?',
-    restoring: 'Восстановление…',
-    confirmRestore: 'Подтвердить восстановление',
-    restoreToPoint: 'Восстановить до этого момента',
   },
   chart: {
     loading: "Загрузка графика…",
+    refreshing: "Обновление…",
     nullCategory: "(Не указано)",
     scatterOneMeasure: "Точечная диаграмма строит только одну меру. Оставьте один ряд:",
     unconfigured: {
@@ -1176,8 +1223,13 @@ const ru = {
       sourceLabel: "Источник данных:",
     },
     loading: "Загрузка…",
+    refreshing: "Обновление…",
+    refreshAll: "Обновить все",
+    refreshDashboard: "Обновить дашборд",
     pickMeasures: "Выберите меры (значения) для этого виджета набора данных.",
     datasetUnsupported: "Этот источник данных не поддерживает запросы к наборам данных.",
+    widgetForbiddenTitle: "Нет доступа",
+    widgetForbiddenMessage: "У вас нет прав на просмотр данных этого виджета.",
     details: "Подробности",
     exportCsv: "Экспорт в CSV",
     openInList: "Открыть в списке",
@@ -1330,10 +1382,6 @@ const ru = {
     appDescription: "Описание",
     appIcon: "Значок",
     template: "Шаблон",
-    layout: "Макет",
-    layoutSidebar: "Боковая панель",
-    layoutHeader: "Заголовок",
-    layoutEmpty: "Пусто",
     selectObjects: "Выбрать объекты",
     searchObjects: "Поиск объектов…",
     selectAll: "Выбрать все",
@@ -1368,7 +1416,7 @@ const ru = {
     appearance: "Внешний вид",
     rowHeight: "Высота строки",
     livePreview: "Предпросмотр в реальном времени",
-    stepBasicDesc: "Имя, заголовок и макет",
+    stepBasicDesc: "Имя, заголовок и значок",
     stepObjectsDesc: "Выбрать бизнес-объекты",
     stepNavigationDesc: "Построить дерево навигации",
     stepBrandingDesc: "Логотип, цвета и фавикон",
@@ -1407,6 +1455,7 @@ const ru = {
     navTypeSeparator: "Разделитель",
     navTypeAction: "Действие",
     navTypeComponent: "Компонент",
+    navTypeDoc: "Документ",
     navEditIcon: "Редактировать значок",
     navToggleVisible: "Переключить видимость",
     navHidden: "Скрыто",
@@ -1588,6 +1637,7 @@ const ru = {
         ctaUpgrade: "Повысьте тариф, чтобы продолжить",
         ctaTopUp: "Добавьте кредиты, чтобы продолжить",
         ariaLabel: "Использование ИИ: {{status}}",
+        breakdownTitle: "Использовано на данный момент",
       },
       workspaceTitle: "Рабочее пространство ИИ",
       workspaceSubtitle: "Задавайте вопросы, изучайте и возвращайтесь к диалогам",
@@ -1597,6 +1647,31 @@ const ru = {
       share: "Поделиться",
       shareTitle: "Поделиться этим диалогом",
       shareDisabledTitle: "Начните диалог, чтобы включить публикацию",
+      buildDoctor: "Диагностика сборки",
+      buildDoctorTitle: "Диагностика сборки — что на самом деле применено?",
+      buildDoctorDisabledTitle: "Сначала отправьте сообщение",
+      buildDoctorDrawer: {
+        description: 'Что заявил агент и что на самом деле действует. Диагностика только для чтения.',
+        reconciling: 'Сверка…',
+        notAvailable: 'Недоступно — беседа не найдена или у вас нет доступа.',
+        untitled: '(без названия)',
+        summary: 'Ходов: {{turns}} · сообщений: {{messages}} · токенов: {{tokens}} · LLM: {{seconds}} с',
+        allLive: 'Все попытки изменений ({{count}}) действуют — ничего не потерялось.',
+        discrepancies: 'Расхождений: {{count}} — сказанное в чате не совпадает с тем, что действует.',
+        orphanedTitle: 'Предложено, но не применено',
+        orphanedHint: 'Карточку подтверждения, предложенную агентом, не применил ни один последующий ход — изменение незаметно потерялось.',
+        missingTitle: 'Заявлено, но отсутствует',
+        missingHint: 'Результат инструмента сообщил, что изменение применено, но артефакт не действует в sys_metadata.',
+        toolErrorsTitle: 'Ошибки инструментов',
+        toolErrorsHint: 'Вызовы инструментов, вернувшие ошибку во время сборки.',
+        verifyTitle: 'Проверка сборки (verify_build)',
+        yourApp: 'Ваше приложение:',
+        noIssues: 'Проблем: 0',
+        issueCount: 'Проблем: {{count}}',
+        platformNoise: 'Скрыто находок платформы sys_*: {{count}}',
+        pendingActions: 'Ожидающие действия',
+        timeline: 'Хронология ({{count}})',
+      },
       newChat: "Создать",
       searchChats: "Поиск по чатам…",
       noChatsYet: "Чатов пока нет",
@@ -1804,6 +1879,13 @@ const ru = {
       pages: "Страницы",
       reports: "Отчёты",
       system: "Система",
+      marketplace: "Маркетплейс",
+      settings: 'Настройки',
+      apps: 'Приложения',
+      profile: 'Профиль',
+      approvals: 'Согласования',
+      aiApprovals: 'Согласования ИИ',
+      auditLog: 'Журнал аудита',
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -1902,6 +1984,14 @@ const ru = {
       noWritesTitle: 'Чтение вообще без записи в этой среде',
       noWrites: 'Строки читаются, но не записывается ни одной, поэтому у скорости чтения нет верхней границы. Это самый серьёзный показатель. Платформа отмечает всё, что выше {{threshold}}. Ничто не ограничивается и не блокируется; это отчёт, чтобы можно было проверить схему чтения.',
     },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'Хранилище почти заполнено',
+      warning: 'Использовано {{used}} МБ из {{limit}} МБ. Когда хранилище заполнится, загрузка файлов и импорт будут приостановлены.',
+      blockedTitle: 'Хранилище заполнено: загрузка файлов и импорт приостановлены',
+      blocked: 'Использовано {{used}} МБ из {{limit}} МБ. Существующие данные не затронуты; чтение, экспорт и редактирование отдельных записей по-прежнему работают.',
+      upgrade: 'Повысьте тариф, чтобы продолжить',
+    },
     errors: {
       somethingWentWrong: "Что-то пошло не так",
       unexpectedError: "При отображении этого представления произошла непредвиденная ошибка.",
@@ -1947,7 +2037,11 @@ const ru = {
       searchFields: "Поиск полей…",
       title: "Заголовок",
       viewType: "Тип представления",
-      recordCount: "{{count}} записей",
+      // objectui#10636 — the footer picks this half at every count but 1, which spans
+      // one (21), few (2-4) and many (5-20); a count label reads right at all three,
+      // the same form as `list.recordCount`.
+      recordCount: "Записей: {{count}}",
+      recordCountOne: "{{count}} запись",
       save: "Сохранить",
       discard: "Отменить",
       createView: "Создать представление",
@@ -2080,6 +2174,8 @@ const ru = {
       resendOtpCountdownText: "Отправить снова через {seconds} с",
       usePhoneOtpText: "Войти по коду подтверждения",
       usePasswordSignInText: "Войти с паролем",
+      socialButton: "Продолжить через {provider}",
+      orText: "или продолжите с электронной почтой",
     },
     register: {
       title: "Создать аккаунт",
@@ -2098,8 +2194,12 @@ const ru = {
       submittingButton: "Создание аккаунта…",
       hasAccountText: "Уже есть аккаунт?",
       signInText: "Войти",
+      socialButton: "Зарегистрироваться через {provider}",
+      orText: "или продолжите с электронной почтой",
       errors: {
         userExists: "Аккаунт с таким email уже существует. Попробуйте войти.",
+        selfRegistrationClosed: "Самостоятельная регистрация в этой среде закрыта. Обратитесь к администратору за приглашением.",
+        emailDomainNotAllowed: "Регистрация с адресами этого домена здесь не разрешена. Используйте email вашей организации или обратитесь к администратору за приглашением.",
       },
       verifyInbox: {
         title: "Проверьте входящие",
@@ -2597,6 +2697,7 @@ const ru = {
     selectPlaceholder: "Выбрать {{label}}",
     requiredError: "{{label}} обязательно",
     unresolvedParam: 'Этот параметр невозможно показать: поле, на котором он основан, отсутствует в метаданных объекта, поэтому нужный элемент управления нельзя построить. Попросите администратора исправить определение действия.',
+    carryOverHint: 'Переносится без изменений (только чтение)',
     cancel: "Отмена",
     confirm: "Подтвердить",
     uploading: "Загрузка…",
@@ -2860,12 +2961,14 @@ const ru = {
     thankYouTitle: "Спасибо!",
     thankYouMessage: "Ваш ответ успешно получен.",
     redirecting: "Перенаправление через {{seconds}} с…",
+    redirectPending: "Перенаправление…",
     unavailableTitle: "Форма недоступна",
     unavailableDescription: "По этому URL нет публичной формы. Убедитесь, что базовое представление имеет анонимный доступ.",
     tryDemo: "Попробовать демо",
     retry: "Повторить",
     loading: "Загрузка формы…",
     requiredHint: "* Обязательное поле",
+    requiredFields: "Обязательные поля: {{fields}}",
     consentLabelDefault: "Я принимаю политику конфиденциальности и соглашаюсь на обработку моих данных.",
     consentLink: "Политика конфиденциальности",
     consentRequired: "Пожалуйста, примите политику конфиденциальности.",
@@ -2928,6 +3031,34 @@ const ru = {
     createEnvironment: "Создать окружение",
     openProduction: "Открыть продакшн",
     manageEnvironments: "Управление окружениями",
+  },
+  cloudPlanStatus: {
+    current: "Текущий тариф",
+  },
+  ai: {
+    nlQuery: {
+      placeholder: "Задайте вопрос о своих данных…",
+      ask: "Спросить",
+      results: "Результаты",
+      match: "Совпадение: {{percent}}",
+      simulatedSummary: "Результаты по запросу: {{query}}",
+      noResults: "Подходящие записи не найдены",
+      recentQueries: "Недавние запросы",
+    },
+    formAssist: {
+      title: "Предложения ИИ",
+      suggestionCount: "Предложений: {{count}}",
+      suggestionCountOne: "{{count}} предложение",
+      applyAll: "Применить все",
+      confidence: "Уверенность: {{percent}}",
+      appliedCount: "Применено предложений: {{count}}",
+      appliedCountOne: "Применено {{count}} предложение",
+    },
+    recommendations: {
+      title: "Рекомендации",
+      generating: "Формирование рекомендаций…",
+      empty: "Нет доступных рекомендаций",
+    },
   },
   aiApprovals: {
     title: "Согласования ИИ",
@@ -3167,7 +3298,7 @@ const ru = {
     },
     title: "Маркетплейс приложений",
     subtitle: "Просматривайте одобренные приложения из каталога ObjectStack. Нажмите на приложение, чтобы увидеть подробности и установить его.",
-    searchPlaceholder: "Поиск приложений по имени или ID манифеста…",
+    searchPlaceholder: 'Поиск приложений по имени или ID приложения…',
     searchAria: "Поиск в маркетплейсе",
     installed: "Установлено",
     installedCount: "Установлено ({{count}})",
@@ -3219,6 +3350,7 @@ const ru = {
       reseedQueued: 'Демоданные будут перезагружены при следующем доступе к среде.',
       reseedLocalSuccess: 'Демоданные перезагружены: добавлено {{inserted}}, обновлено {{updated}}.',
       reseedPartialErrors: '(не удалось записать записей: {{count}})',
+      sampleDataKernelUnavailable: 'У этой control plane нет ядра среды, поэтому здесь нельзя перезагрузить или удалить демоданные. Выполните это действие в собственном рантайме среды.',
       updateAvailable: 'Доступно обновление',
     },
     action: {
@@ -3524,7 +3656,7 @@ const ru = {
       detailChangedKeys: 'Также изменено:',
       confirmNote: 'Публикация атомарно выпускает все {{count}} ожидающих черновиков этого пакета.',
       publishConfirm: 'Опубликовать всё',
-      // [objectui#5418] Pre-publish security-posture findings, shown next to
+      // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
       securityBlockTitle: 'Публикация будет отклонена — {{count}} элемент(ов) требуют решения',
@@ -3583,25 +3715,25 @@ const ru = {
     rangeEnd: "До",
     operators: {
       equals: "Равно",
-      notEquals: "Не равно",
+      not_equals: "Не равно",
       contains: "Содержит",
-      containsCaseInsensitive: "Содержит (без учёта регистра)",
-      notContains: "Не содержит",
-      isEmpty: "Пусто",
-      isNotEmpty: "Не пусто",
-      greaterThan: "Больше",
-      lessThan: "Меньше",
-      greaterOrEqual: "Больше или равно",
-      lessOrEqual: "Меньше или равно",
+      icontains: "Содержит (без учёта регистра)",
+      not_contains: "Не содержит",
+      is_empty: "Пусто",
+      is_not_empty: "Не пусто",
+      greater_than: "Больше",
+      less_than: "Меньше",
+      greater_than_or_equal: "Больше или равно",
+      less_than_or_equal: "Меньше или равно",
       before: "До",
       after: "После",
       between: "Между",
       in: "В списке",
-      notIn: "Не в списке",
-      startsWith: "Начинается с",
-      endsWith: "Заканчивается на",
-      isNull: "Равно null",
-      isNotNull: "Не равно null",
+      not_in: "Не в списке",
+      starts_with: "Начинается с",
+      ends_with: "Заканчивается на",
+      is_null: "Равно null",
+      is_not_null: "Не равно null",
       exists: "Задано",
       notExists: "Не задано",
     },
@@ -3651,6 +3783,11 @@ const ru = {
   },
   wizard: {
     missingRequired: "Заполните обязательные поля: {{fields}}",
+    back: "Назад",
+    submitting: "Отправка…",
+    stepFallback: "Шаг {{n}}",
+    progressLabel: "Прогресс",
+    emptyStep: "Для этого шага не настроены поля",
   },
   flowRunner: {
     title: 'Ввод',
@@ -3746,6 +3883,11 @@ const ru = {
     actionsEmptyTitle: "Нет действий из пакетов",
     actionsEmptyBody: "В этой установке ни один установленный пакет не объявляет действие. Действия, которые вы создаёте сами, находятся в Studio.",
     actionsLoadFailed: "Не удалось загрузить действия из пакетов.",
+  },
+  element: {
+    number: {
+      noObject: "Объект не указан: задайте object или dataSource.object.",
+    },
   },
 };
 

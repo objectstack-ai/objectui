@@ -183,6 +183,8 @@ const EXPECTED_CENSUS: readonly FilterRow[] = [
   { owner: 'ObjectGridSchema', type: 'any[]' },
   { owner: 'NamedListView', type: 'any[]' },
   { owner: 'ObjectMapSchema', type: 'any[]' },
+  // objectui#9549 — declared in the shape this card settled.
+  { owner: 'ObjectTreeSchema', type: "QueryParams['$filter']" },
   { owner: 'ObjectGanttSchema', type: 'any[]' },
   { owner: 'ObjectCalendarSchema', type: 'any[]' },
   { owner: 'ObjectKanbanSchema', type: 'any[]' },

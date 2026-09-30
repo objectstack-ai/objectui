@@ -38,7 +38,7 @@
  *                                               metadata,metadata/:type,metadata/:type/:name}`
  *                                              (`developer/*` and `docs/*` are in the same
  *                                               fragment but flip NO flag — pinned below)
- *   navigation      AppSidebar / UnifiedSidebar `/apps/setup/system{,/apps,/marketplace,/users,
+ *   navigation      UnifiedSidebar              `/apps/setup/system{,/apps,/marketplace,/users,
  *                                               /organizations,/roles,/settings}`
  *                                              `/apps/setup/metadata/{object,datasource}`
  *                   QuickActions                `/apps/setup/metadata/object`, `/apps/setup/system`

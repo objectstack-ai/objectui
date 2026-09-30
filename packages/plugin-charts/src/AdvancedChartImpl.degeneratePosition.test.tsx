@@ -223,32 +223,41 @@ describe('objectui#7171 — a POSITIONAL chart legitimately plots zero and negat
     expect(noteOf(container)).toBeNull();
   });
 
-  it('a BOOLEAN coordinate is measured-and-DECLINED, because whether it places depends on its neighbours', () => {
+  it('a BOOLEAN coordinate: the all-boolean tile is refused (objectui#7195), the mixed tile still draws', () => {
     // The trap this card was fenced against, hit in a new place. An all-boolean
     // x drew 0 of 2 marks in the browser sweep and looked exactly like a
     // sibling of `null` — and pinning it as unplaceable turned RED here, which
     // is how the mixed reading was found: Recharts needs one real number to
     // build the scale and then coerces the booleans onto it.
+    //
+    // The REVERSE CONTROL, kept green: a boolean beside a number DOES place, so
+    // `isPlottableCoord` still accepts it and neither this card's note nor
+    // objectui#7195's refusal may fire — a sentence over three visible points
+    // saying they are not there is false about the picture.
     const { container: mixed } = renderScatter([
       { xm: 10, ym: 40 },
       { xm: true, ym: 25 },
       { xm: false, ym: 60 },
     ]);
     expect(marksOf(mixed), 'a boolean beside a number DOES place').toBe(3);
-    // So the predicate must accept it: a footnote reading "2 of 3 rows are not
-    // drawn" over three visible points is a false sentence about the picture,
-    // which is worse than the silence this card is about.
     expect(noteOf(mixed)).toBeNull();
     expect(refusalOf(mixed)).toBeNull();
+    expect(mixed.querySelector('[data-chart-error="no-numeric-value"]')).toBeNull();
     cleanup();
 
-    // The cost of that choice, stated rather than hidden: with EVERY row
-    // boolean there is no scale to coerce onto, nothing draws, and this card's
-    // answer stays silent — exactly as it is today. A narrow hole, not a
-    // regression, and its real answer belongs upstream.
+    // With EVERY row boolean there is no scale to coerce onto and nothing
+    // draws. objectui#7195 (ruled A) answers that on the WHOLE dataset — no
+    // row carries a numeric value for `xm` — which is true here and cannot be
+    // true of the mixed tile above. Its own code, not this card's: the rows
+    // DO pass `isPlottableCoord`, so `no-plottable-points` stays silent.
     const { container: allBool } = renderScatter([{ xm: true, ym: 40 }, { xm: false, ym: 25 }]);
     expect(marksOf(allBool)).toBe(0);
     expect(refusalOf(allBool)).toBeNull();
+    expect(noteOf(allBool)).toBeNull();
+    expect(plotOf(allBool)).toBeNull();
+    const refusal = allBool.querySelector('[data-chart-error="no-numeric-value"]');
+    expect(refusal).not.toBeNull();
+    expect(refusal!.textContent).toContain('none of the 2 rows has a numeric value for xm');
   });
 
   it('a constant x with a varying y still draws every mark', () => {

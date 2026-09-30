@@ -62,15 +62,18 @@ export interface ChartRendererProps {
      * blank. `normalizeChartSchema` translates every entry, of either shape,
      * uniformly — see the normalization comment in the component body.
      *
-     * This TS union stays as declared (the `dataKey` arm has no `type`, the
-     * `name` arm has no `chartType`): at RUNTIME `type` is honoured on a
-     * `dataKey`-shaped entry too (objectui#7681, both keys are independently
-     * optional on `ChartDataSeriesSchema`), because JSON metadata never goes
-     * through this TS type. Widening the arm to match is a separate,
-     * public-face decision this fix does not make.
+     * Both arms carry the per-series family override `type`, with the same
+     * member type (objectui#8086): the renderer honours it on either shape,
+     * because every entry goes through `normalizeSeries` (`01c27c431`), and
+     * `ChartDataSeriesSchema` declares `dataKey` and `name` independently
+     * optional beside it — so a `dataKey` entry carrying `type` is what the
+     * contract and the renderer both accept, and this union says so.
+     * `chartType` stays on the `dataKey` arm alone: it is the renderer's
+     * INTERNAL spelling of `type`, and it wins when an entry writes both.
+     * Pinned at compile time in `ChartRenderer.seriesTypeArm-8086.test.ts`.
      */
     series?: Array<
-      | { dataKey: string; label?: string; variant?: 'current' | 'comparison'; opacity?: number; dashArray?: string; chartType?: 'bar' | 'line' | 'area'; stack?: string; yAxis?: 'left' | 'right'; color?: string }
+      | { dataKey: string; label?: string; type?: string; variant?: 'current' | 'comparison'; opacity?: number; dashArray?: string; chartType?: 'bar' | 'line' | 'area'; stack?: string; yAxis?: 'left' | 'right'; color?: string }
       | { name: string; label?: unknown; type?: string; variant?: 'current' | 'comparison' | 'primary'; opacity?: number; dashArray?: string; stack?: string; yAxis?: 'left' | 'right'; color?: string }
     >;
     /** Spec `ChartConfig` shape — honored via `normalizeChartSchema`
@@ -149,12 +152,14 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ schema, onChartCli
     // to the renderer-internal `chartType`. So an author who writes the
     // documented `dataKey` binding *and* the documented `type` override
     // together — both valid on `ChartDataSeriesSchema` independently — got
-    // NEITHER honoured (objectui#7681).
+    // NEITHER honoured (`01c27c431`).
     //
-    // `normalizeSeries` is a no-op on a well-formed internal-shaped entry: it
-    // round-trips every key the internal arm of `ChartRendererProps.series`
-    // declares (`dataKey`/`label`/`chartType`/`variant`/`opacity`/`dashArray`/
-    // `stack`/`yAxis`/`color`) unchanged. So always taking the normalized array
+    // `normalizeSeries` is a no-op on a well-formed internal-shaped entry apart
+    // from `type`: it round-trips every other key the internal arm of
+    // `ChartRendererProps.series` declares (`dataKey`/`label`/`chartType`/
+    // `variant`/`opacity`/`dashArray`/`stack`/`yAxis`/`color`) unchanged, and
+    // translates `type` to `chartType` — the translation this routing exists
+    // for. So always taking the normalized array
     // is not a second read site for `type` (AGENTS.md #0.1) — it is routing
     // EVERY entry, of either shape, through the ONE normalization layer
     // (objectui#2880 S1) instead of special-casing one shape around it, which
@@ -176,12 +181,12 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ schema, onChartCli
     //   - `categories` was never a foreign spelling at all. It is a declared
     //     member of the published `ChartSchema` and of its zod mirror,
     //     documented in the schema reference as an ALTERNATIVE SERIES LIST, and
-    //     ruled LIVE by objectui#6896 (maintainer ruling 2026-08-31, prose
+    //     ruled LIVE by the maintainer ruling of 2026-08-31 (prose
     //     follows machine). `normalizeChartSchema` -- the ONE translation point
     //     (objectui#2880 S1) -- already consumes it, so `spec.series` above is
     //     populated before the old branch could be reached. That branch was a
     //     SECOND, un-normalized read of a key the normalizer owns: the shape
-    //     objectui#7681 removed for `series`. It was unreachable for every
+    //     `01c27c431` removed for `series`. It was unreachable for every
     //     well-formed chart, and on malformed input it was WORSE than nothing
     //     (`categories: 'revenue'` reached `.map` on a string and threw; a
     //     `categories` whose entries the normalizer rejects produced

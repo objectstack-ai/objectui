@@ -120,7 +120,7 @@ export function RequiredFieldsDialog({
               // FALSE since objectui#7009 put `id` in `DOM_PASS_THROUGH_KEYS`:
               // the factory takes an `id` and lands it on the real control.
               // The reason is corrected rather than the markup changed
-              // (objectui#7008), because a dead constraint left in a comment is
+              // (`f08bcd9af`), because a dead constraint left in a comment is
               // how the next reader concludes it still binds.
               //
               // The wrapping form is still the right choice here, for a reason
@@ -143,7 +143,7 @@ export function RequiredFieldsDialog({
                     setValues((prev) => ({ ...prev, [f.name]: v }))
                   }
                   readonly={submitting}
-                  // The a11y half of the red text below (objectui#7008). The
+                  // The a11y half of the red text below (`f08bcd9af`). The
                   // dialog has always COMPUTED this state and shown it to a
                   // sighted user; until `FieldEditWidget` forwarded the declared
                   // `error` key there was no way to hand it to the control, so

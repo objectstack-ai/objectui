@@ -12,8 +12,15 @@ Eight were registered renderers with fixtures proving they draw; the ninth
 in `scripts/check-doc-component-types.mjs`. A reader following
 `content/docs/utilities/runner.mdx`'s own instruction — "copy one, wrap it in a page
 document … and save it as `src/app-data/pages/index.json`" — got a document that
-**renders correctly in the browser and is refused by `objectui check`**. That is the
+**renders correctly in the browser and is refused by `objectui validate`**. That is the
 expensive direction: the likely reaction is to stop trusting the validator.
+
+⚠️ **Dated note, 2026-09-25 — the refusal was `objectui validate`'s, not
+`objectui check`'s — objectui#10524.** This entry first named `objectui check` here.
+`check` is an advisory sweep: it never parses against the schema a file whose root carries a structural
+key (`children`, `className`, `body`, …), so the page document above passes it, and it
+exits non-zero on unreadable JSON only. The "Downstream" paragraph below is about
+`check`'s advisory list of files with none of those keys, and stands.
 
 It was invisible because `check:doc-types` judges a `type` literal against the
 RENDERER REGISTRY — the key set whose size that gate prints in its own summary
@@ -30,10 +37,20 @@ from 107 to 154:
   `renderers/basic/html-elements.tsx` registers (`h1`…`h6`, `p`, `a`, `ul`, `img`, …),
   plus the per-tag keys that module forwards to the DOM (`href`, `target`, `rel`,
   `title`, `src`, `alt`, `width`, `height`, `dateTime`, `cite`).
+  ⚠️ **Dated note, 2026-09-27 — that set has since gained `code` — objectui#10756.**
+  At this change `TAGS` and this arm both named 37 tags; both now name 38, and the
+  parity pin counts 38. The rest of this entry is kept as the reading of this change.
 - `InputShorthandSchema` (`zod/form.zod.ts`) — `email` / `password`, the two aliases
   `renderers/form/input.tsx` registers onto the `input` renderer with `inputType`
   pinned. `inputType` is deliberately NOT declared on this arm: the wrapper spreads
   its own value last, so an authored one is overwritten.
+  ⚠️ **Dated note, 2026-09-28 — `inputType` is now declared on this arm, as a refusal —
+  objectui#8762.** Later in this same release the arm declares `inputType` on both faces
+  and refuses it by name (`?: never` on the TypeScript face, a `retirementTombstone` on
+  the zod mirror, at path `inputType`), with guidance pointing at
+  `{ "type": "input", "inputType": "email" }`. So "`inputType` is deliberately NOT declared
+  on this arm" no longer holds; the reason does, since the wrapper still spreads its own
+  value last. The rest of this entry is kept as the reading of this change.
 - `UiCalendarSchema` (`zod/form.zod.ts`) — `ui:calendar`, the date-picker primitive
   `renderers/form/calendar.tsx` registers under exactly that key (`skipFallback`,
   because bare `calendar` belongs to the plugin-calendar view).

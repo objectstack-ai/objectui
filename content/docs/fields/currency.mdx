@@ -17,7 +17,7 @@ The Currency Field component provides a formatted currency input with proper loc
 
 A currency field is authored as `CurrencyFieldMetadata` (`@object-ui/types`), which is
 the source of truth for the key set: it extends `BaseFieldMetadata` with the currency
-code, the decimal precision and the two numeric bounds.
+code, the total-digit `precision` and the two numeric bounds.
 
 ```ts
 import type { CurrencyFieldMetadata } from '@object-ui/types';
@@ -29,11 +29,17 @@ const amount: CurrencyFieldMetadata = {
   placeholder: '0.00',
   required: true,
   currency: 'USD',
-  precision: 2,
   min: 0,
   max: 1000000,
 };
 ```
+
+**Decimal places come from the currency, not from a field key.** An amount shows its
+currency's own ISO 4217 minor unit — two decimals for USD or CNY, none for JPY, three
+for KWD — in the read-only display, in the input's `step` and in the rounding applied
+when the input loses focus. `precision` is the total digit count of the stored decimal
+(a DECIMAL(18,2) amount declares `precision: 18`), so it never sets how many decimals are
+shown. With no currency resolved at all, the amount shows two decimals.
 
 The value being edited, and the `className` / `disabled` a host supplies, are **not**
 metadata keys — they are runtime widget props. See [Field Widget Props](/docs/fields/widget-props).

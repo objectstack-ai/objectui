@@ -88,7 +88,7 @@ describe('drill escape hatch vs the empty bucket (objectui#9085, repaired by obj
     expect(NULL_FILTER.flag).toBe('true');
     expect(NULL_FILTER.op).toBe('is_null');
     expect(NULL_FILTER.key).toBe('$null');
-    expect(NULL_FILTER.labelKey).toBe('filterBuilder.operators.isNull');
+    expect(NULL_FILTER.labelKey).toBe('filterBuilder.operators.is_null');
   });
 
   it('the new spelling NO LONGER serializes identically to the bare null it replaced', () => {

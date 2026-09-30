@@ -105,10 +105,14 @@
     - any-glob-to-any-file: 'packages/data-*/**/*'
 
 # Documentation
+# `content/**` is the published docs site; `docs/**` is the internal tree. Without the
+# `content/**` glob a PR touching only the published site drew no label at all
+# (objectui#10012). `scripts/__tests__/labeler-package-coverage.test.ts` fails if it goes.
 'documentation':
   - changed-files:
     - any-glob-to-any-file: 
       - 'docs/**/*'
+      - 'content/**/*'
       - '*.md'
       - 'packages/**/README.md'
 

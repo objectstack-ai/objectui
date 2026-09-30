@@ -44,10 +44,11 @@ ComponentRegistry.registerLazy('object-map', () => import('@object-ui/plugin-map
   namespace: 'plugin-map',
   category: 'view',
 });
-ComponentRegistry.registerLazy('map', () => import('@object-ui/plugin-map'), {
-  namespace: 'view',
-  category: 'view',
-});
+// ⛔ The bare `map` node type key is RETIRED (objectui#10393, executing the
+// objectui#8008 family ruling of 2026-09-09) — `object-map` above is the
+// surviving spelling. The STORED `NamedListView.type` value `map` is a
+// different layer and is untouched: `ObjectView`'s `switch (viewType)` already
+// emits `object-map` for it.
 
 ComponentRegistry.registerLazy('object-tree', () => import('@object-ui/plugin-tree'), {
   namespace: 'plugin-tree',

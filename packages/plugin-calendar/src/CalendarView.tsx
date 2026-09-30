@@ -23,7 +23,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@object-ui/components"
-import { createSafeTranslation } from "@object-ui/i18n"
+import { createSafeTranslation, useDisplayLocale } from "@object-ui/i18n"
 
 const DEFAULT_EVENT_COLOR = "bg-blue-100 text-blue-900 border border-blue-200"
 const STABLE_DEFAULT_DATE = new Date()
@@ -177,8 +177,12 @@ function CalendarView({
 }: CalendarViewProps) {
   const [selectedView, setSelectedView] = React.useState(view)
   const [selectedDate, setSelectedDate] = React.useState(currentDate)
-  const { t, language } = useCalendarTranslation()
-  const effectiveLocale = locale !== "default" ? locale : language
+  const { t } = useCalendarTranslation()
+  // An explicit `locale` prop is the host's choice and still wins. Only the
+  // `"default"` branch reads the session, and it reads the DISPLAY locale,
+  // never the UI language (objectui#10442).
+  const displayLocale = useDisplayLocale()
+  const effectiveLocale = locale !== "default" ? locale : displayLocale
 
   // Sync state if props change
   React.useEffect(() => {
@@ -340,8 +344,25 @@ function CalendarView({
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
+              {/*
+                The popover reads the grids' locale, not the session's: an
+                authored `locale` reaches its caption and weekday heads too
+                (objectui#10747). `Calendar` resolves the tag through the one
+                date-fns resolver in `@object-ui/components`.
+
+                It opens on the month the header names (objectui#10799):
+                react-day-picker opens on `month`, else `defaultMonth`, else
+                today, and `selected` does not move it. The content unmounts
+                when the popover closes, so every open reads the current date.
+                A host may hand an invalid `Date` (the view renderer passes a
+                `Date` instance through untouched): that names no month, and
+                react-day-picker throws on an invalid `defaultMonth`, so it
+                opens on today instead, as it always did.
+              */}
               <Calendar
+                localeTag={effectiveLocale}
                 mode="single"
+                defaultMonth={Number.isNaN(selectedDate.getTime()) ? undefined : selectedDate}
                 selected={selectedDate}
                 onSelect={handleDateSelect}
                 autoFocus
@@ -481,6 +502,33 @@ function getEventsForDate(date: Date, events: CalendarViewEvent[]): CalendarView
   })
 }
 
+/**
+ * The calendar days from `from`'s local day to `to`'s: the difference of their
+ * local year / month / day, counted on the UTC calendar, where every day is
+ * exactly 24 hours, so the quotient is a whole number. ⛔ Never the
+ * milliseconds between two local midnights over a day's length: across a DST
+ * change that span is 23 or 25 hours (objectui#11005).
+ */
+function calendarDaysBetween(from: Date, to: Date): number {
+  return (
+    (Date.UTC(to.getFullYear(), to.getMonth(), to.getDate()) -
+      Date.UTC(from.getFullYear(), from.getMonth(), from.getDate())) /
+    86_400_000
+  )
+}
+
+/**
+ * `value` moved by `days` calendar days on the local calendar: a copy whose
+ * date moves with `setDate`, its hours, minutes, seconds and milliseconds
+ * untouched, so a 10:00 event stays at 10:00 across a DST change and a value
+ * at local midnight stays at midnight of the day it lands on (objectui#11005).
+ */
+function moveByCalendarDays(value: Date, days: number): Date {
+  const moved = new Date(value)
+  moved.setDate(moved.getDate() + days)
+  return moved
+}
+
 interface MonthViewProps {
   date: Date
   events: CalendarViewEvent[]
@@ -546,7 +594,9 @@ function MonthView({ date, events, locale = "default", onEventClick, onDateClick
   // Drag mode: "move" shifts the entire event so the day cell the user
   // grabbed lands on the drop-target day. "resize-end" only adjusts the
   // event's end date — used by the right-edge resize handle on multi-day
-  // spans. The mode and the source cell are encoded in the dataTransfer
+  // spans. Both move a value by calendar days and keep its time of day
+  // (`moveByCalendarDays`, objectui#11005). The mode and the source cell
+  // are encoded in the dataTransfer
   // payload so the drop target doesn't need any DOM state to interpret the
   // gesture, and so dragging from a *continuation* day of a multi-day
   // event still results in a sensible delta.
@@ -619,42 +669,47 @@ function MonthView({ date, events, locale = "default", onEventClick, onDateClick
     newTargetDay.setHours(0, 0, 0, 0)
 
     if (payload.mode === "resize-end") {
-      // Resize: snap the end date to the drop-target day, keep start fixed.
+      // Resize: move the end to the drop-target day, keep start fixed. The
+      // handle sits on the span's end cell, so the grabbed cell is the end's
+      // own day, and the end moves by the calendar days from it to the drop
+      // cell with its time of day untouched (objectui#11005).
       const oldEnd = draggedEvent.end ? new Date(draggedEvent.end) : new Date(draggedEvent.start)
-      const oldEndDay = new Date(oldEnd)
-      oldEndDay.setHours(0, 0, 0, 0)
-      if (newTargetDay.getTime() === oldEndDay.getTime()) return
+      const days = calendarDaysBetween(oldEnd, newTargetDay)
+      if (days === 0) return
       // Guard: new end can't precede start day.
       const startDay = new Date(draggedEvent.start)
       startDay.setHours(0, 0, 0, 0)
       if (newTargetDay.getTime() < startDay.getTime()) return
-      // Preserve the time-of-day component of the original end.
-      const newEnd = new Date(newTargetDay)
-      newEnd.setHours(oldEnd.getHours(), oldEnd.getMinutes(), oldEnd.getSeconds(), 0)
-      onEventDrop(draggedEvent, new Date(draggedEvent.start), newEnd)
+      onEventDrop(draggedEvent, new Date(draggedEvent.start), moveByCalendarDays(oldEnd, days))
       return
     }
 
-    // Move: translate both start and end by the day delta. When sourceDay
+    // Move: translate both start and end by the same number of calendar
+    // days, each keeping its time of day (objectui#11005). When sourceDay
     // is present (drag started from a specific cell of the span), the
-    // delta is `targetDay - sourceDay` so the grabbed cell lands on the
-    // drop target. Without sourceDay we fall back to `targetDay -
-    // eventStartDay` (legacy behavior).
+    // days are counted from sourceDay to targetDay so the grabbed cell
+    // lands on the drop target. Without sourceDay we fall back to the
+    // event's start day (legacy behavior).
+    //
+    // ⛔ Not the milliseconds between the two cells' local midnights added
+    // to each instant: across a DST change that span is 23 or 25 hours, so a
+    // 10:00 event landed at 09:00 or 11:00, and a span starting at local
+    // midnight, grabbed on a later cell, started at 23:00 of the day before
+    // the one it was dropped on.
     const oldStart = new Date(draggedEvent.start)
     let anchorDay: Date
     if (payload.sourceDay) {
       const [y, m, d] = payload.sourceDay.split("-").map((v) => parseInt(v, 10))
       anchorDay = new Date(y, m, d)
     } else {
-      anchorDay = new Date(oldStart)
+      anchorDay = oldStart
     }
-    anchorDay.setHours(0, 0, 0, 0)
-    const deltaMs = newTargetDay.getTime() - anchorDay.getTime()
-    if (deltaMs === 0) return
-    const newStart = new Date(oldStart.getTime() + deltaMs)
+    const days = calendarDaysBetween(anchorDay, newTargetDay)
+    if (days === 0) return
+    const newStart = moveByCalendarDays(oldStart, days)
     let newEnd: Date | undefined
     if (draggedEvent.end) {
-      newEnd = new Date(new Date(draggedEvent.end).getTime() + deltaMs)
+      newEnd = moveByCalendarDays(new Date(draggedEvent.end), days)
     }
     onEventDrop(draggedEvent, newStart, newEnd)
   }
@@ -806,10 +861,52 @@ interface TimeGridViewProps {
   onTimeRangeSelect?: (start: Date, end: Date) => void
 }
 
+/**
+ * A move carries the EVENT, not the piece that was grabbed (objectui#11037).
+ * An event that crosses midnight is drawn as one clipped piece per day, and a
+ * short one as a piece at least 15 minutes tall, so a piece's length is not
+ * the event's.
+ *
+ * `durationMs` is the event's own `end - start` and `grabOffsetMs` the grabbed
+ * point's distance from the event's own start, both ELAPSED time between
+ * instants, so a `datetime` event keeps its real length (objectui#10866: a
+ * `datetime` keeps its instant). On the night a DST change falls in, the wall
+ * clock shows that length an hour longer or shorter: a 4-hour event placed at
+ * 22:00 on a fall-back night reads 22:00 to 01:00, still 4 elapsed hours.
+ */
+type TimeGridMoveDrag = {
+  kind: "move"
+  eventId: string | number
+  grabOffsetMs: number
+  durationMs: number
+  /** The event is drawn wholly inside one day, so a move keeps it inside the drop day. */
+  withinOneDay: boolean
+  dayIndex: number
+  minutes: number
+}
+
+/**
+ * A resize moves ONE edge of the EVENT and keeps the other where the event
+ * truly has it (objectui#11060), not at the grabbed piece's clipped bound. The
+ * top handle sits on the event's first piece and moves only its start; the
+ * bottom handle sits on its last piece and moves only its end. For an event
+ * that crosses midnight, or one drawn taller than it is, the piece's other
+ * bound is midnight or the drawn height, never the event's edge.
+ *
+ * `keptMs` is that other edge, the event's own instant (its end for the top
+ * handle, its start for the bottom), handed back to `onEventDrop` unchanged.
+ */
+type TimeGridResizeDrag = {
+  kind: "resize-top" | "resize-bottom"
+  eventId: string | number
+  keptMs: number
+  dayIndex: number
+  minutes: number
+}
+
 type TimeGridDrag =
-  | { kind: "move"; eventId: string | number; grabMinuteOffset: number; durationMin: number; dayIndex: number; minutes: number }
-  | { kind: "resize-top"; eventId: string | number; anchorEndMin: number; dayIndex: number; minutes: number }
-  | { kind: "resize-bottom"; eventId: string | number; anchorStartMin: number; dayIndex: number; minutes: number }
+  | TimeGridMoveDrag
+  | TimeGridResizeDrag
   | { kind: "select"; dayIndex: number; anchorMinutes: number; headMinutes: number }
 
 const PX_PER_HOUR = 48
@@ -826,6 +923,65 @@ function minutesIntoDay(d: Date): number {
 
 function dayKey(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+}
+
+/** The instant the grid draws `minutes` into `day`'s column, on the grid's own clock. */
+function atGridMinutes(day: Date, minutes: number): Date {
+  const d = new Date(day)
+  d.setHours(0, minutes, 0, 0)
+  return d
+}
+
+/** A timed event's own start and end; one with no end is drawn an hour long. */
+function timedEventInstants(ev: CalendarViewEvent): { start: Date; end: Date } {
+  const start = new Date(ev.start)
+  const end = ev.end ? new Date(ev.end) : new Date(start.getTime() + 60 * 60 * 1000)
+  return { start, end }
+}
+
+/**
+ * Where a move puts the event's start, in minutes from the drop day's
+ * midnight on the grid's clock: the drop row minus the grabbed point's offset
+ * into the event, snapped to the slot. An event drawn inside one day stays
+ * inside the drop day, as it always has. One that crosses midnight lands where
+ * it is dropped, so its start may fall on the day before (below 0) or after.
+ */
+function movedStartMinutes(drag: TimeGridMoveDrag, slotMinutes: number): number {
+  const head = drag.minutes - drag.grabOffsetMs / 60_000
+  const snapped = Math.round(head / slotMinutes) * slotMinutes
+  if (!drag.withinOneDay) return snapped
+  return Math.max(0, Math.min(1440 - drag.durationMs / 60_000, snapped))
+}
+
+/**
+ * `instant`'s row on `day`'s column, in minutes from that day's midnight on
+ * the grid's clock: below 0 on the day before, past 1440 on the day after.
+ */
+function gridMinutesOn(day: Date, instant: Date): number {
+  const dayOffset = Math.round((startOfDay(instant).getTime() - day.getTime()) / 86_400_000)
+  return dayOffset * 1440 + minutesIntoDay(instant)
+}
+
+/**
+ * What a resize writes (objectui#11060): the dragged edge at the pointer's row
+ * on the grabbed piece's day, snapped as before and held one slot away from
+ * the kept edge wherever that edge falls, and the kept edge exactly as the
+ * event has it. `startMin` and `endMin` are both edges' rows on that day's
+ * column, so either may fall outside it.
+ */
+function resizedEvent(
+  drag: TimeGridResizeDrag,
+  day: Date,
+  slotMinutes: number
+): { start: Date; end: Date; startMin: number; endMin: number } {
+  const kept = new Date(drag.keptMs)
+  const keptMin = gridMinutesOn(day, kept)
+  if (drag.kind === "resize-top") {
+    const startMin = Math.min(keptMin - slotMinutes, Math.max(0, drag.minutes))
+    return { start: atGridMinutes(day, startMin), end: kept, startMin, endMin: keptMin }
+  }
+  const endMin = Math.max(keptMin + slotMinutes, Math.min(1440, drag.minutes))
+  return { start: kept, end: atGridMinutes(day, endMin), startMin: keptMin, endMin }
 }
 
 function TimeGridView({
@@ -924,8 +1080,7 @@ function TimeGridView({
     const map = new Map<string, Entry[]>()
     for (const d of days) map.set(dayKey(d), [])
     for (const ev of timedEvents) {
-      const s = new Date(ev.start)
-      const e = ev.end ? new Date(ev.end) : new Date(s.getTime() + 60 * 60 * 1000) // default 1h
+      const { start: s, end: e } = timedEventInstants(ev)
       // Iterate per-day in this view's range
       for (const d of days) {
         const dayStart = startOfDay(d)
@@ -1077,36 +1232,17 @@ function TimeGridView({
           const ev = events.find((x) => String(x.id) === String(current.eventId))
           if (ev) {
             const targetDayIdx = current.dayIndex < 0 ? 0 : current.dayIndex
-            const headStartMin = current.minutes - current.grabMinuteOffset
-            const snapped = Math.max(0, Math.min(1440 - current.durationMin, Math.round(headStartMin / slotMinutes) * slotMinutes))
             const dayDate = days[targetDayIdx] ?? days[0]
-            const newStart = new Date(dayDate)
-            newStart.setHours(0, snapped, 0, 0)
-            const newEnd = new Date(newStart.getTime() + current.durationMin * 60 * 1000)
+            const newStart = atGridMinutes(dayDate, movedStartMinutes(current, slotMinutes))
+            const newEnd = new Date(newStart.getTime() + current.durationMs)
             suppressNextClickRef.current = true
             onEventDrop(ev, newStart, newEnd)
           }
-        } else if (current.kind === "resize-top" && onEventDrop) {
+        } else if ((current.kind === "resize-top" || current.kind === "resize-bottom") && onEventDrop) {
           const ev = events.find((x) => String(x.id) === String(current.eventId))
           if (ev) {
             const dayDate = days[current.dayIndex] ?? days[0]
-            const newStartMin = Math.min(current.anchorEndMin - slotMinutes, Math.max(0, current.minutes))
-            const newStart = new Date(dayDate)
-            newStart.setHours(0, newStartMin, 0, 0)
-            const newEnd = new Date(dayDate)
-            newEnd.setHours(0, current.anchorEndMin, 0, 0)
-            suppressNextClickRef.current = true
-            onEventDrop(ev, newStart, newEnd)
-          }
-        } else if (current.kind === "resize-bottom" && onEventDrop) {
-          const ev = events.find((x) => String(x.id) === String(current.eventId))
-          if (ev) {
-            const dayDate = days[current.dayIndex] ?? days[0]
-            const newEndMin = Math.max(current.anchorStartMin + slotMinutes, Math.min(1440, current.minutes))
-            const newStart = new Date(dayDate)
-            newStart.setHours(0, current.anchorStartMin, 0, 0)
-            const newEnd = new Date(dayDate)
-            newEnd.setHours(0, newEndMin, 0, 0)
+            const { start: newStart, end: newEnd } = resizedEvent(current, dayDate, slotMinutes)
             suppressNextClickRef.current = true
             onEventDrop(ev, newStart, newEnd)
           }
@@ -1157,27 +1293,27 @@ function TimeGridView({
     e.preventDefault()
     const minutes = yToMinutes(e.clientY, dayIndex)
     if (zone === "body") {
+      // Measured on the event, never on the grabbed piece (objectui#11037).
+      const { start, end } = timedEventInstants(entry.event)
+      const durationMs = end.getTime() - start.getTime()
+      const grabbedAt = atGridMinutes(days[dayIndex], minutes)
       setDrag({
         kind: "move",
         eventId: entry.event.id,
-        grabMinuteOffset: Math.max(0, minutes - entry.startMin),
-        durationMin: entry.endMin - entry.startMin,
-        dayIndex,
-        minutes,
-      })
-    } else if (zone === "top") {
-      setDrag({
-        kind: "resize-top",
-        eventId: entry.event.id,
-        anchorEndMin: entry.endMin,
+        grabOffsetMs: Math.max(0, Math.min(durationMs, grabbedAt.getTime() - start.getTime())),
+        durationMs,
+        withinOneDay: entry.isStart && entry.isEnd,
         dayIndex,
         minutes,
       })
     } else {
+      // The edge this handle does not move is the event's own, never the
+      // grabbed piece's clipped bound (objectui#11060).
+      const { start, end } = timedEventInstants(entry.event)
       setDrag({
-        kind: "resize-bottom",
+        kind: zone === "top" ? "resize-top" : "resize-bottom",
         eventId: entry.event.id,
-        anchorStartMin: entry.startMin,
+        keptMs: (zone === "top" ? end : start).getTime(),
         dayIndex,
         minutes,
       })
@@ -1218,10 +1354,16 @@ function TimeGridView({
       )
     }
     if (drag.kind === "move" && drag.dayIndex === dayIndex) {
-      const headStart = drag.minutes - drag.grabMinuteOffset
-      const snapped = Math.max(0, Math.min(1440 - drag.durationMin, Math.round(headStart / slotMinutes) * slotMinutes))
-      const top = (snapped / 60) * PX_PER_HOUR
-      const height = (drag.durationMin / 60) * PX_PER_HOUR
+      // The preview is what the drop writes: the whole event, drawn over the
+      // part of it that falls on this day (at least 15 minutes tall, as a
+      // piece is), labelled with its own times.
+      const startMin = movedStartMinutes(drag, slotMinutes)
+      const newStart = atGridMinutes(days[dayIndex], startMin)
+      const newEnd = new Date(newStart.getTime() + drag.durationMs)
+      const topMin = Math.max(0, startMin)
+      const bottomMin = Math.min(1440, startMin + Math.max(15, drag.durationMs / 60_000))
+      const top = (topMin / 60) * PX_PER_HOUR
+      const height = Math.max(0, ((bottomMin - topMin) / 60) * PX_PER_HOUR)
       return (
         <div
           className="absolute left-1 right-1 rounded border-2 border-dashed border-primary bg-primary/10 pointer-events-none z-10"
@@ -1229,22 +1371,19 @@ function TimeGridView({
           aria-hidden
         >
           <div className="px-2 py-0.5 text-xs font-medium text-primary">
-            {formatTimeRange(days[dayIndex], snapped, snapped + drag.durationMin, locale)}
+            {formatInstantRange(newStart, newEnd, locale)}
           </div>
         </div>
       )
     }
     if ((drag.kind === "resize-top" || drag.kind === "resize-bottom") && drag.dayIndex === dayIndex) {
-      let startMin: number, endMin: number
-      if (drag.kind === "resize-top") {
-        startMin = Math.min(drag.anchorEndMin - slotMinutes, Math.max(0, drag.minutes))
-        endMin = drag.anchorEndMin
-      } else {
-        startMin = drag.anchorStartMin
-        endMin = Math.max(drag.anchorStartMin + slotMinutes, Math.min(1440, drag.minutes))
-      }
-      const top = (startMin / 60) * PX_PER_HOUR
-      const height = ((endMin - startMin) / 60) * PX_PER_HOUR
+      // As the move preview is: what the drop writes, drawn over the part of
+      // it on this day and labelled with the whole event's times.
+      const { start, end, startMin, endMin } = resizedEvent(drag, days[dayIndex], slotMinutes)
+      const topMin = Math.max(0, startMin)
+      const bottomMin = Math.min(1440, endMin)
+      const top = (topMin / 60) * PX_PER_HOUR
+      const height = Math.max(0, ((bottomMin - topMin) / 60) * PX_PER_HOUR)
       return (
         <div
           className="absolute left-1 right-1 rounded border-2 border-dashed border-primary bg-primary/10 pointer-events-none z-10"
@@ -1252,7 +1391,7 @@ function TimeGridView({
           aria-hidden
         >
           <div className="px-2 py-0.5 text-xs font-medium text-primary">
-            {formatTimeRange(days[dayIndex], startMin, endMin, locale)}
+            {formatInstantRange(start, end, locale)}
           </div>
         </div>
       )
@@ -1459,10 +1598,10 @@ function TimeGridView({
 }
 
 function formatTimeRange(day: Date, startMin: number, endMin: number, locale: string): string {
-  const s = new Date(day)
-  s.setHours(0, Math.round(startMin), 0, 0)
-  const e = new Date(day)
-  e.setHours(0, Math.round(endMin), 0, 0)
+  return formatInstantRange(atGridMinutes(day, Math.round(startMin)), atGridMinutes(day, Math.round(endMin)), locale)
+}
+
+function formatInstantRange(s: Date, e: Date, locale: string): string {
   const fmt = (d: Date) => d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" })
   return `${fmt(s)} – ${fmt(e)}`
 }

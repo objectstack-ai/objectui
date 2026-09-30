@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { build } from 'vite';
+import { build, resolveConfig } from 'vite';
+import type { InlineConfig } from 'vite';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -23,7 +24,7 @@ import {
  *
  *   1. **Set → every subpath is mapped.** The client hook this mirrors is one
  *      prefix alias, which is safe only because `@objectstack/client` exports a
- *      single entry. The spec's map has 19 and redirects each into `dist/`, so a
+ *      single entry. The spec's map has 20 and redirects each into `dist/`, so a
  *      copied client line rewrites `@objectstack/spec/ui` to a path that does not
  *      exist — measured as 214 broken import sites for `/ui` alone. The
  *      reconciliation case below therefore checks the derivation against Node's
@@ -51,7 +52,9 @@ import {
  *     19-vs-18.
  *   - **Make the hook unconditional** (default the env read to the installed
  *     spec dir) → 2 red, both in the console-config block: the alias table gains
- *     19 `@objectstack` keys, and `optimizeDeps.include` drops from 7 to 3.
+ *     19 `@objectstack` keys, and `optimizeDeps.include` drops from 7 to 3
+ *     (measured while the list still carried the two map entries that
+ *     objectui#10865 removed; the four spec entries are the ones that drop).
  *
  * The real-build cases at the bottom carry their own control rather than a
  * mutation: the same bundle is built a second time through the literal
@@ -243,14 +246,19 @@ describe('objectui#4854: OBJECTSTACK_SPEC_DIST is subpath-aware', () => {
     ) as { exports: Record<string, unknown> };
     const declared = Object.keys(manifest.exports);
 
-    // Anti-vacuity: the map this is reconciled against is the measured 19-entry
+    // Anti-vacuity: the map this is reconciled against is the measured 20-entry
     // one, not an empty object a silently-changed reader would also "cover".
     // 18 -> 19 on the @objectstack/spec 17.2.0 refresh (objectui#5668): the
     // one added subpath, measured by diffing 17.1.0's exports map against
     // 17.2.0's, is `./meta-spelling` — nothing was removed. The pin did its
     // job on that bump: the un-updated 18 turned this red in CI rather than
     // letting the new entry ride through unreconciled.
-    expect(declared.length).toBe(19);
+    // 19 -> 20 on the @objectstack/spec 17.5.0 refresh (objectui#11073),
+    // measured by diffing 17.4.0's exports map against 17.5.0's: `./cloud` was
+    // REMOVED (the last step of the objectstack#16325 chain objectui#8225 names
+    // below), `./api-assembled` and `./marketplace` were ADDED. The pin did its
+    // job again: the un-updated 19 turned this red on the bump's CI.
+    expect(declared.length).toBe(20);
     expect(Object.keys(injection!.aliases).length).toBe(declared.length);
 
     // objectui#9408 — the population splits, and WHICH oracle applies is the
@@ -268,13 +276,16 @@ describe('objectui#4854: OBJECTSTACK_SPEC_DIST is subpath-aware', () => {
     const browserKeys = declared.filter(declaresBrowser);
     const nodeOracleKeys = declared.filter((k) => !declaresBrowser(k));
 
-    // Anti-vacuity, both halves. 5 on @objectstack/spec 17.4.0 (`.`, `./data`,
-    // `./system`, `./kernel`, `./cloud`) — pinned exactly, like the 19 above,
+    // Anti-vacuity, both halves. 5 on @objectstack/spec 17.5.0 (`.`, `./data`,
+    // `./system`, `./kernel`, `./api-assembled`). Still 5 after the 17.5.0
+    // refresh (objectui#11073) but NOT the same 5: 17.4.0's set carried
+    // `./cloud`, which left with its subpath, and the new `./api-assembled`
+    // arrived browser-first. Pinned exactly, like the 20 above,
     // because an unpinned browser set is precisely how this went unnoticed:
     // objectui#9408 was FILED naming `./api` as browser-first, and by the time
     // it was worked `./api` had lost its browser arm upstream with nothing
     // anywhere to notice the move. A bump re-pins this and says what changed.
-    expect(browserKeys.sort()).toEqual(['.', './cloud', './data', './kernel', './system']);
+    expect(browserKeys.sort()).toEqual(['.', './api-assembled', './data', './kernel', './system']);
     expect(nodeOracleKeys.length).toBe(declared.length - browserKeys.length);
     expect(nodeOracleKeys.length).toBeGreaterThan(0);
 
@@ -313,8 +324,8 @@ describe('objectui#4854: OBJECTSTACK_SPEC_DIST is subpath-aware', () => {
 
   it('agrees with a REAL Vite build on every entry, `browser` arm included', async () => {
     // The oracle that actually counts. Vite is the resolver this hook MODELS,
-    // and unlike Node it satisfies `browser`, so it can answer for all 19
-    // entries where Node can only answer for 14. Run through a real build
+    // and unlike Node it satisfies `browser`, so it can answer for all 20
+    // entries where Node can only answer for 15. Run through a real build
     // rather than a transcription, for the same reason the alias-matcher cases
     // below bundle for real: a transcribed algorithm agrees with its own
     // transcription, not with Vite.
@@ -340,7 +351,7 @@ describe('objectui#4854: OBJECTSTACK_SPEC_DIST is subpath-aware', () => {
     expect(disagreed, 'entries where the hook and Vite pick different files').toEqual([]);
 
     // Anti-vacuity: the sweep really did exercise the browser arm, i.e. the
-    // agreement above is not agreement about 19 Node-arm files.
+    // agreement above is not agreement about 20 Node-arm files.
     const browserArm = specifiers.filter((s) => resolved.get(s)?.includes(`${path.sep}browser${path.sep}`));
     expect(browserArm.length).toBe(5);
   });
@@ -835,7 +846,7 @@ describe('objectui#9408: the exports map declares precedence, not this module', 
     // would surface as a bundler error at a pin bump nobody connects to this
     // file. A report that omitted the decided entries would leave that intact.
     const injection = inject(installedSpecDir)!;
-    expect(injection.resolutions).toHaveLength(19);
+    expect(injection.resolutions).toHaveLength(20);
 
     const report = formatConditionReport(injection).join('\n');
     expect(report).toContain(injection.packageDir);
@@ -849,7 +860,7 @@ describe('objectui#9408: the exports map declares precedence, not this module', 
     const decided = injection.resolutions.filter((r) => r.passedOver.length > 0);
     expect(decided.map((r) => r.specifier).sort()).toEqual([
       SPEC_PACKAGE_NAME,
-      `${SPEC_PACKAGE_NAME}/cloud`,
+      `${SPEC_PACKAGE_NAME}/api-assembled`,
       `${SPEC_PACKAGE_NAME}/data`,
       `${SPEC_PACKAGE_NAME}/kernel`,
       `${SPEC_PACKAGE_NAME}/system`,
@@ -864,7 +875,7 @@ describe('objectui#9408: the exports map declares precedence, not this module', 
     // Anti-vacuity on the other half: entries with no choice to make are still
     // reported, with their arm, rather than silently dropped.
     const forced = injection.resolutions.filter((r) => r.passedOver.length === 0);
-    expect(forced.length).toBe(19 - decided.length);
+    expect(forced.length).toBe(20 - decided.length);
     expect(forced.length).toBeGreaterThan(0);
   });
 
@@ -896,9 +907,7 @@ describe('objectui#4854: the four flagged surfaces in the console config', () =>
       '@objectstack/spec/data',
       '@objectstack/spec/system',
       '@objectstack/spec/ui',
-      'react-map-gl',
       'react-map-gl/maplibre',
-      'maplibre-gl',
     ]);
 
     // 3. the vendor-objectstack chunk test — the literal, unwidened.
@@ -943,7 +952,7 @@ describe('objectui#4854: the four flagged surfaces in the console config', () =>
     const injectedSpecKeys = Object.keys(injected.resolve.alias).filter((k: string) =>
       k === SPEC_PACKAGE_NAME || k.startsWith(`${SPEC_PACKAGE_NAME}/`)
     );
-    expect(injectedSpecKeys).toHaveLength(19);
+    expect(injectedSpecKeys).toHaveLength(20);
     expect(injectedSpecKeys[injectedSpecKeys.length - 1]).toBe(SPEC_PACKAGE_NAME);
     expect(injected.resolve.alias[`${SPEC_PACKAGE_NAME}/ui`]).toBe(
       path.join(fs.realpathSync(installedSpecDir), 'dist/ui/index.mjs')
@@ -954,7 +963,7 @@ describe('objectui#4854: the four flagged surfaces in the console config', () =>
     expect(objectUiKeys(injected.resolve.alias)).toEqual(objectUiKeys(baseline.resolve.alias));
 
     // 2. optimizeDeps.include — the four spec entries drop out, the rest stay.
-    expect(injected.optimizeDeps.include).toEqual(['react-map-gl', 'react-map-gl/maplibre', 'maplibre-gl']);
+    expect(injected.optimizeDeps.include).toEqual(['react-map-gl/maplibre']);
 
     // 3. the vendor chunk test — widened with the override, baseline arms kept.
     const vendorOf = (config: any) =>
@@ -977,7 +986,7 @@ describe('objectui#4854: the four flagged surfaces in the console config', () =>
 
     // …and nothing else moved: the unset instance is untouched by the second
     // evaluation, which is what makes the laziness case above meaningful.
-    expect(baseline.optimizeDeps.include).toHaveLength(7);
+    expect(baseline.optimizeDeps.include).toHaveLength(5);
     expect(baseline.server.fs).toBeUndefined();
   });
 
@@ -990,6 +999,111 @@ describe('objectui#4854: the four flagged surfaces in the console config', () =>
     // caller believed it had injected a spec.
     expect(turbo.tasks.build.env).toContain('OBJECTSTACK_SPEC_DIST');
     expect(turbo.tasks.build.env).toContain('OBJECTSTACK_CLIENT_DIST');
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* objectui#10865 — every pre-bundle entry resolves the way `pnpm dev` does.   */
+/* -------------------------------------------------------------------------- */
+
+/** The directory `pnpm dev` runs Vite in, and therefore the root it resolves from. */
+const consoleRoot = path.join(repoRoot, 'apps/console');
+
+/** A package on no `node_modules` walk from the console root: the "skipped" control. */
+const ABSENT_PACKAGE_CONTROL = 'objectui-10865-no-such-package';
+
+/**
+ * A subpath the spec's exports map does not declare: the "aborts" control. It is
+ * the same shape as the bare `react-map-gl` entry, on a package whose map this
+ * file already reconciles.
+ */
+const UNEXPORTED_SUBPATH_CONTROL = `${SPEC_PACKAGE_NAME}/objectui-10865-no-such-subpath`;
+
+type IncludeVerdict = { kind: 'resolved'; id: string } | { kind: 'skipped' } | { kind: 'aborts'; message: string };
+
+/**
+ * How the dev server treats each `optimizeDeps.include` entry. The answer comes
+ * from Vite itself, not from a transcription of its algorithm.
+ *
+ * The list is read by `vite` (dev) only. `vite build` never reads it, so no
+ * build, E2E or type-check job can see a bad entry. In the Vite this was written
+ * against (8.2), `addManuallyIncludedOptimizeDeps` resolves every entry before
+ * the server listens, through `createOptimizeDepsIncludeResolver`. For the
+ * client environment that resolver is `config.createResolver({ asSrc: false,
+ * scan: true })`, called with NO importer, so it resolves from the root. The
+ * deprecated `createResolver` is used here on purpose: Vite's own include
+ * resolver calls it.
+ *
+ * Two outcomes are defects, and they fail differently:
+ *
+ *   - **aborts**: the package is found, but its exports map has no such subpath.
+ *     The resolver throws, and `vite` exits 1 before it listens. This is
+ *     objectui#10865, measured with a bare `react-map-gl` entry: react-map-gl 8
+ *     exports no `.`.
+ *   - **skipped**: the package cannot be reached from the root. Vite logs
+ *     `Failed to resolve dependency` and pre-bundles nothing for the entry. This
+ *     was the `maplibre-gl` entry objectui#10865 removed.
+ */
+async function includeVerdicts(config: InlineConfig, specifiers: string[]): Promise<Map<string, IncludeVerdict>> {
+  const resolved = await resolveConfig(
+    { ...config, root: consoleRoot, configFile: false, envFile: false, logLevel: 'silent' },
+    'serve',
+    'development'
+  );
+  const resolve = resolved.createResolver({ asSrc: false, scan: true });
+  const verdicts = new Map<string, IncludeVerdict>();
+  for (const specifier of specifiers) {
+    try {
+      const id = await resolve(specifier);
+      verdicts.set(specifier, id ? { kind: 'resolved', id } : { kind: 'skipped' });
+    } catch (error) {
+      verdicts.set(specifier, { kind: 'aborts', message: String((error as Error).message).split('\n')[0] });
+    }
+  }
+  return verdicts;
+}
+
+describe('objectui#10865: every optimizeDeps.include entry resolves the way the dev server resolves it', () => {
+  it('resolves each entry from the console root under the dev conditions', async () => {
+    // A separate evaluation, so that whatever `resolveConfig` does to the object
+    // it is handed cannot reach the instance the cases above compare.
+    const config = await loadConsoleConfig('?optimize-deps-include=10865');
+    const include = config.optimizeDeps.include as string[];
+    // Anti-vacuity: a list that read as empty would "resolve" with nothing to check.
+    expect(include.length).toBeGreaterThan(0);
+    // Vite resolves nested (`dep > sub`) and glob entries by other paths, and
+    // this case models only flat entries. Extend it before adding either form.
+    expect(
+      include.filter((specifier) => specifier.includes('>') || specifier.includes('*')),
+      'nested or glob include entries, which this case does not model'
+    ).toEqual([]);
+
+    const verdicts = await includeVerdicts(config, [
+      ...include,
+      VITE_ORACLE_CONTROL,
+      ABSENT_PACKAGE_CONTROL,
+      UNEXPORTED_SUBPATH_CONTROL,
+    ]);
+
+    // Controls with a KNOWN outcome, in the SAME run. The instrument has to be
+    // able to report all three outcomes, or a clean result below means nothing.
+    expect(verdicts.get(VITE_ORACLE_CONTROL)?.kind, 'dev resolver resolved nothing: broken instrument').toBe(
+      'resolved'
+    );
+    expect(verdicts.get(ABSENT_PACKAGE_CONTROL)?.kind, 'an absent package did not read as skipped').toBe('skipped');
+    expect(verdicts.get(UNEXPORTED_SUBPATH_CONTROL)?.kind, 'an unexported subpath did not read as aborting').toBe(
+      'aborts'
+    );
+
+    const findings = include.flatMap((specifier) => {
+      const verdict = verdicts.get(specifier)!;
+      if (verdict.kind === 'aborts') return [`${specifier}: aborts the dev server start (${verdict.message})`];
+      if (verdict.kind === 'skipped') {
+        return [`${specifier}: not reachable from apps/console, so it is skipped with a warning and pre-bundles nothing`];
+      }
+      return [];
+    });
+    expect(findings, 'optimizeDeps.include entries the dev server cannot resolve (objectui#10865)').toEqual([]);
   });
 });
 
@@ -1085,7 +1199,7 @@ function consoleShapedBundle(
  * (`/…/objectstack/packages/spec`, or `/home/runner/work/objectstack/objectstack/
  * packages/spec` on CI) has no `@objectstack` segment anywhere, and that is the
  * one property this fixture has to reproduce. It stays minimal on purpose: the
- * exports-map derivation is covered above against the real 19-entry map, and
+ * exports-map derivation is covered above against the real 20-entry map, and
  * what these cases need is a legal package at a path of the wrong SHAPE.
  */
 function makeOutOfTreeSpecPackage(): string {

@@ -307,13 +307,12 @@ async function renderAndCollect(child: any, rows: Record<string, any>[]) {
   return {
     ds,
     rowQueries,
-    // The SETTLED row query. `RelatedList` deliberately does not gate its fetch
-    // on "schema has loaded" (objectui#7299): on a multi-value relationship its
-    // FIRST attempt is the historical equality query, which the driver refuses,
-    // and it refetches with the membership spelling once the arity is known.
-    // Parity is a property of where the two reads LAND, so this is the one the
-    // badge is compared against — and `rowQueries()` keeps the earlier attempt
-    // visible rather than hiding the difference.
+    // The SETTLED row query, the last one. Since objectui#10690 `RelatedList`
+    // waits for the child definition to settle before its first row query, so
+    // the arity is known when it is sent. Parity is a property of where the two
+    // reads LAND, so this is the one the badge is compared against — and
+    // `rowQueries()` keeps every attempt visible, so a regression back to an
+    // early equality attempt is not hidden.
     rowQuery: rowQueries()[rowQueries().length - 1] as Record<string, any>,
     badgeProbe: childCalls().find((c: any[]) => isBadgeProbe(c[1]))![1] as Record<string, any>,
   };
@@ -389,29 +388,27 @@ describe('related-list tab badge — parent scope compiled by ARITY (objectui#88
     expect(rowQuery.$filter).toEqual(badgeProbe.$filter);
   });
 
-  it('MEASURED DIFFERENCE — the badge waits for the arity, the rows attempt first', async () => {
-    // Not a defect and not symmetry for its own sake: the two sides make a
-    // DIFFERENT trade with the same seam, and the difference is worth pinning
-    // because it is the one thing a reader would otherwise call a bug.
-    //
-    // `RelatedList` refuses to gate rows on a loaded schema — an adapter
-    // without `getObjectSchema` would then render every related list empty —
-    // so it attempts equality, is refused, and refetches. The BADGE cannot copy
-    // that: the store caches the first answer it gets, so a lenient backend
-    // that answered the wrong question with a number would have that number
-    // cached and never re-probed. It therefore resolves the arity FIRST and
-    // probes once.
-    const { rowQueries, badgeProbe, ds } = await renderAndCollect(multiChild, MULTI_ROWS);
+  it('ONE READ EACH — the rows wait for the arity as the badge does, and each side reads once (objectui#10690)', async () => {
+    // This case was the MEASURED DIFFERENCE: `RelatedList` did not gate its rows
+    // on the child definition, so its first row query on a multi-value
+    // relationship was the equality the driver refuses, and it refetched once
+    // the arity was known, while the BADGE resolved the arity first and probed
+    // once. objectui#10690 gates the rows on the SETTLED definition
+    // (`useSettledSchema`, which settles with none when there is no
+    // `getObjectSchema` or the read throws, so no list is left empty). Both
+    // sides now wait for the arity and read once, already correct. The
+    // badge's own reason to wait is unchanged: the store caches the first
+    // answer it gets and never re-probes.
+    const { rowQueries, ds } = await renderAndCollect(multiChild, MULTI_ROWS);
     await waitFor(() => {
-      expect(rowQueries().length).toBeGreaterThan(1);
+      expect(renderedRowNames(MULTI_ROWS)).toEqual(['Multi Item A', 'Multi Item B']);
     });
-    // The rows' first attempt is the historical equality wire…
-    expect(rowQueries()[0].$filter).toEqual({ [MULTI_REF]: RECORD_ID });
-    // …and the badge made exactly one probe, already correct.
+    // The rows: one query, and it is the membership one.
+    expect(rowQueries().map((q) => q.$filter)).toEqual([{ [MULTI_REF]: { $contains: RECORD_ID } }]);
+    // The badge: one probe, the same condition.
     const badgeProbes = ds.find.mock.calls
       .filter((c: any[]) => c[0] === CHILD && isBadgeProbe(c[1]));
-    expect(badgeProbes.length).toBe(1);
-    expect(badgeProbe.$filter).toEqual({ [MULTI_REF]: { $contains: RECORD_ID } });
+    expect(badgeProbes.map((c: any[]) => c[1].$filter)).toEqual([{ [MULTI_REF]: { $contains: RECORD_ID } }]);
   });
 
   it('SUBJECT — badge/row parity on a multi-value relationship, at a POSITIVE count', async () => {

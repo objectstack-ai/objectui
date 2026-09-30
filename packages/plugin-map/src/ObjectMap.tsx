@@ -25,10 +25,11 @@ import type { ObjectMapSchema, ObjectMapConfig, DataSource, ViewData } from '@ob
 import { ObjectMapConfigSchema } from '@object-ui/types/zod';
 import {
   useNavigationOverlay,
-  NON_GRID_ROW_CEILING,
-  NON_GRID_ROW_CEILING_TOP,
-  applyNonGridRowCeiling,
   NonGridRowCeilingNote,
+  useDataInvalidation,
+  useSettledSchema,
+  useFilterScope,
+  useResolvedFilter,
 } from '@object-ui/react';
 import { NavigationOverlay, cn, useIsMobile } from '@object-ui/components';
 import { usePermissions } from '@object-ui/permissions';
@@ -36,9 +37,13 @@ import {
   buildExpandFields,
   convertSortToQueryParams,
   getRecordDisplayName,
+  recordDisplayValueAt,
   resolveRecordSourceConfig,
   resolveRecordSourceObjectName,
   ValueDataSource,
+  applyNonGridRowCeiling,
+  nonGridRowCeilingQuery,
+  type NonGridCeilingResult,
 } from '@object-ui/core';
 import MapGL, { NavigationControl, Marker, Popup } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
@@ -144,8 +149,8 @@ const FLAT_MAP_CONFIG_KEYS = (Object.keys(ObjectMapConfigSchema.shape) as (keyof
  *
  * The ruled three-rung ladder itself (`data`, then `staticData`, then
  * `objectName`) is `resolveRecordSourceConfig` in `@object-ui/core` — ONE
- * implementation of a contract published on both faces (objectui#6939), which
- * this file used to hand-copy (objectui#7632).
+ * implementation of a contract published on both faces (`77cb489b4`), which
+ * this file used to hand-copy (`ce2aaefe1`).
  *
  * What used to stay here was the head above it: the array shorthand, which
  * lifted `data: [...]` to `{ provider: 'value', items }`.
@@ -162,8 +167,8 @@ const FLAT_MAP_CONFIG_KEYS = (Object.keys(ObjectMapConfigSchema.shape) as (keyof
  * @objectstack/spec's `z.discriminatedUnion('provider', [...])` over OBJECT
  * variants, whose `value` member additionally declares
  * `aliases: { data: 'items', rows: 'items', records: 'items' }`. A bare array
- * is off that row twice over, and this block's registration declares no `data`
- * input that could say otherwise.
+ * is off that row twice over, and this block's registration declares `data` on
+ * the same OBJECT arm (`type: 'object'`, objectui#10394), so it says the same.
  *
  * ⛔ WHAT THIS REACHES, measured per CARRIER — do NOT read it as "the array is
  * gone". `SchemaRenderer` spreads every non-metadata node key as a React prop
@@ -440,7 +445,7 @@ function getMapConfig(schema: MapConfigSource): ObjectMapConfig {
   // record". The premise held; the ruling reverses its conclusion — that is
   // exactly why the answer is a REFUSAL rather than a guess. Bindings are
   // never fabricated; an unbound surface refuses. The same principle as
-  // 「日期轴永不虚构」 behind objectui#7070 (date axes) and
+  // 「日期轴永不虚构」 behind the 2026-09-01 ruling (date axes, 总监批 #28) and
   // objectui#8168 (the chart category axis), generalised one field over.
   //
   // What the guesses actually shipped was the silent-credible-wrong shape
@@ -624,10 +629,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
    * query as every other provider, so the ceiling arrives with the same `$top`
    * and the same footnote. This docblock used to say both paths were exempt.
    */
-  const [rowCeiling, setRowCeiling] = useState<{ truncated: boolean; total?: number }>({
-    truncated: false,
-  });
-  const [objectSchema, setObjectSchema] = useState<any>(null);
+  const [rowCeiling, setRowCeiling] = useState<NonGridCeilingResult | null>(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   // Mobile UX (round 3)
@@ -752,7 +754,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
    * optimisation rather than a correctness dependency (objectui#6592).
    */
   const dataProvider = dataConfig?.provider;
-  // NOT a delegation site for `resolveRecordSourceObjectName` (objectui#7627):
+  // NOT a delegation site for `resolveRecordSourceObjectName` (`b041b9c0c`):
   // this is the data config's OWN object, deliberately `undefined` for every
   // other provider so an `api`/`value` map's `objectName` changing cannot move
   // this dependency. The shared reader's second rung would put `objectName`
@@ -761,13 +763,40 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
   const dataItems = dataConfig?.provider === 'value' ? dataConfig.items : undefined;
   /**
    * The object this map is BOUND to — the resolved record source's object when
-   * it names one, else the schema's own `objectName` (objectui#7627, the
-   * objectui#6939 ladder). Hoisted to render scope so the metadata effect below
-   * reads one named value instead of re-deriving the ladder inline; it is a pure
-   * function of `dataProvider` / `dataObjectName` / `schema.objectName`, all of
-   * which that effect already depends on, so listing it adds no re-run.
+   * it names one, else the schema's own `objectName` (`b041b9c0c`, the
+   * ladder `77cb489b4` declared). Hoisted to render scope so the definition read below
+   * keys on one named value instead of re-deriving the ladder inline.
    */
   const recordSourceObjectName = resolveRecordSourceObjectName(schema, dataConfig);
+
+  /**
+   * The object definition, and whether the read for THIS object has SETTLED:
+   * one piece of state, through the shared hook (objectui#10664).
+   *
+   * The map held the definition in a local `useState` fed by its own metadata
+   * effect, and listed it in the fetch effect's dependencies below. The
+   * definition lands after the first query, so every mount read twice: once
+   * with `buildExpandFields` seeing no fields (no `$expand`), once after. It is
+   * the shape `ObjectTimeline` (objectui#7895) and `ObjectGallery`
+   * (objectui#7903) left, and the gate below is theirs.
+   *
+   * The key is `recordSourceObjectName`, the object the replaced effect read. On
+   * the branch the gate holds (`dataProvider === 'object'`) it names the same
+   * object the query does, `dataObjectName`.
+   *
+   * An inline `value` set passes no source, as `ObjectCalendar` does: it has no
+   * definition to read, and the hook settles with none at once. Every other
+   * path keeps the read, host rows included, because the marker titles resolve
+   * from it (ADR-0079).
+   *
+   * ⚠️ The gate is only safe because the hook SETTLES ON EVERY EXIT
+   * (objectui#7232): no source, no `getObjectSchema`, no key, and a read that
+   * threw. The replaced effect returned without settling on all four.
+   */
+  const { ready: objectSchemaReady, def: objectSchema } = useSettledSchema<any>(
+    recordSourceObjectName ?? '',
+    hasInlineData ? undefined : dataSource,
+  );
 
   // Permissions context, read here rather than inside the fetch effect below:
   // an effect's DEPENDENCY ARRAY is evaluated during render, so `perms` has to
@@ -776,20 +805,110 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
   // PR #7428 recorded for `ListView`'s memo and `ObjectCalendar`'s effect).
   const perms = usePermissions();
 
+  /**
+   * objectui#10623 — the data-invalidation bus (`notifyDataChanged` from
+   * `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+   * write to the object this map QUERIES is declared, and the fetch effect
+   * below names it, so the markers are re-read. Subscribed only on the
+   * `object` provider without host rows: a host `data` array is the host's to
+   * refresh, and an inline `value` set queries its own array, not an object.
+   *
+   * ⭐ A re-read of the SAME query is SILENT, in `ObjectGantt`'s sense
+   * (objectui#7237 / objectui#10035): it does not flip `loading`, and a failure
+   * keeps the last good rows instead of reporting. The `loading` gate further
+   * down unmounts `MapGL` for the duration of a fetch. That is the right answer
+   * when the QUERY changed (the one-shot camera then re-fits the new record
+   * set) and the wrong one for a write to the same query, because it would throw
+   * away the camera the user has panned and zoomed: the loss a remount causes,
+   * one level down (AGENTS.md #8's corollary: refresh data, don't rebuild UI).
+   * The same goes for a failure: the error screen is also an early return
+   * above `MapGL`.
+   *
+   * A run is silent only when BOTH hold:
+   *   - the nonce moved since the effect's last run (the bus asked), and
+   *   - its query inputs are, value for value, the ones whose rows were last
+   *     COMMITTED, so the rows on screen already answer this query.
+   * A query change that lands in the same commit as a bus event therefore
+   * still goes through the gate and re-fits. So does a bus event that lands
+   * before the first rows, or after a changed query failed: nothing on screen
+   * answers that query yet, so its failure must be reported.
+   */
+  const fetchesForItself = !Array.isArray(dataProp) && dataProvider === 'object';
+  const invalidationNonce = useDataInvalidation(fetchesForItself ? dataObjectName : undefined);
+  const answeredInvalidationRef = useRef(invalidationNonce);
+  /** The query inputs of the run whose rows were last committed. */
+  const committedQueryRef = useRef<readonly unknown[] | null>(null);
+  /**
+   * Only the NEWEST run may commit rows, an error or the loading flag
+   * (`ObjectGantt`'s `reloadSeqRef`). The cleanup below advances it too, so a
+   * run superseded by a re-run, or outliving an unmount, commits nothing.
+   */
+  const fetchSeqRef = useRef(0);
+
+  // objectui#10666 — the node's own `filter`, with every context token
+  // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
+  // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the
+  // session scope the host provides, and HELD by structure (`useResolvedFilter`
+  // in `@object-ui/react`). A directly authored map sent the literal token on
+  // `$filter` before. Both query paths below (the `object` fetch and the inline
+  // `ValueDataSource`), the committed-query key and the effect's dependency
+  // list read THIS, never the raw `schema.filter`, so a re-render that
+  // rebuilds an equal filter does not re-query.
+  const filterScope = useFilterScope();
+  const queryFilter = useResolvedFilter(schema.filter, filterScope);
+
   // Fetch data based on provider
   useEffect(() => {
+    // ⭐ objectui#10664: the object definition GATES the object query; it does
+    // not refine it afterwards. `objectSchema` stays in the dependency list and
+    // the two are one mechanism: the dependency re-runs this effect when the
+    // definition lands, and this line stops the first run from spending a query
+    // before it has. Removing either half restores the double read.
+    //
+    // Scoped to the branch that issues that query. Host rows and an inline
+    // `value` set build no expansion, so there is nothing for them to wait on.
+    //
+    // The gate closes only when the key moves, and on this branch the key is
+    // the queried object, so a closed gate always means a CHANGED query. The
+    // placeholder is held for the window: the rows in state answer the previous
+    // object, and the query this run would have issued goes through the loading
+    // gate anyway.
+    if (fetchesForItself && !objectSchemaReady) {
+      setLoading(true);
+      return;
+    }
+    // Every input of the query below: this effect's dependency list, less the
+    // nonce, the readiness flag and `fetchesForItself` (a function of two
+    // members already in it). Compared value for value (`Object.is`), the way
+    // React compares the list itself.
+    const query = [dataProp, dataProvider, dataObjectName, dataItems, dataSource, hasInlineData, queryFilter, schema.sort, objectSchema, perms] as const;
+    const committed = committedQueryRef.current;
+    const answersShownQuery = committed !== null && committed.length === query.length && query.every((v, i) => Object.is(v, committed[i]));
+    const nonceMoved = invalidationNonce !== answeredInvalidationRef.current;
+    answeredInvalidationRef.current = invalidationNonce;
+    const silent = nonceMoved && answersShownQuery;
+    const seq = ++fetchSeqRef.current;
+    const isCurrent = () => fetchSeqRef.current === seq;
+    // The one place a run commits rows. Committed rows answer this run's query,
+    // so no earlier failure describes the screen any more: the error is cleared
+    // HERE (objectui#10578's rule on `ObjectGantt`), never when a run starts.
+    const commit = (rows: unknown[], ceiling: NonGridCeilingResult | null) => {
+      if (!isCurrent()) return;
+      setData(rows);
+      setRowCeiling(ceiling);
+      setError(null);
+      committedQueryRef.current = query;
+    };
     const fetchData = async () => {
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
 
         // Prioritize data passed via props (from ListView). `dataProp` is a
         // declared prop (not the `rest` spread), so it can sit in this
         // effect's dependency array below without turning into a
         // refetch-every-render trap (objectui#5003).
         if (Array.isArray(dataProp)) {
-          setData(dataProp);
-          setRowCeiling({ truncated: false });
-          setLoading(false);
+          commit(dataProp, null);
           return;
         }
 
@@ -830,7 +949,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
           // `object` arm below resolves.
           const inlineSource = new ValueDataSource<any>({ items: (dataItems as any[]) ?? [] });
           const result = await inlineSource.find('', {
-            $filter: schema.filter,
+            $filter: queryFilter,
             $orderby: convertSortToQueryParams(schema.sort),
             // The same platform ceiling the `object` arm sends, on the same
             // probe-row convention (objectui#7210, ruling a′). The ruling's
@@ -839,7 +958,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
             // an inline marker costs the browser exactly what a fetched one
             // costs and the ruling text carves out no provider.
             // ⛔ Still not authorable: no view key reaches this `$top`.
-            $top: NON_GRID_ROW_CEILING_TOP,
+            ...nonGridRowCeilingQuery(),
           });
           // Filter first, ceiling second — `ValueDataSource` applies `$filter`
           // before `$top`, which is what the fetching path gets for free from
@@ -847,9 +966,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
           // below the ceiling therefore plots every matching row and stays
           // quiet.
           const capped = applyNonGridRowCeiling(result);
-          setData(capped.rows);
-          setRowCeiling({ truncated: capped.truncated, total: capped.total });
-          setLoading(false);
+          commit(capped.rows, capped);
           return;
         }
 
@@ -901,8 +1018,8 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
           // policy filters nothing, and `perms` is in this effect's dependency
           // list, so the expansion is rebuilt the moment the answer arrives.
           //
-          // `objectName` (checkField's target) and `objectSchema` (fetched
-          // keyed by `recordSourceObjectName`, the OTHER effect below) agree
+          // `objectName` (checkField's target) and `objectSchema` (read keyed
+          // by `recordSourceObjectName`, through `useSettledSchema` above) agree
           // only because this line sits inside the `dataProvider === 'object'`
           // branch, where the two resolvers coincide — not by construction;
           // hoisting this gate out of that branch would let them diverge silently.
@@ -911,7 +1028,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
             ? expandable
             : expandable.filter((f) => perms.checkField(objectName, f, 'read'));
           const result = await dataSource.find(objectName, {
-            $filter: schema.filter,
+            $filter: queryFilter,
             $orderby: convertSortToQueryParams(schema.sort),
             // The platform ceiling (objectui#7210, ruling a′). A map still
             // fetches the whole FILTERED set — the camera fit is computed from
@@ -920,49 +1037,39 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
             // probe row past the ceiling makes the cut detectable;
             // `applyNonGridRowCeiling` slices it off.
             // ⛔ Not authorable: no view key reaches this `$top`.
-            $top: NON_GRID_ROW_CEILING_TOP,
+            ...nonGridRowCeilingQuery(),
             ...(expand.length > 0 ? { $expand: expand } : {}),
           });
 
           const capped = applyNonGridRowCeiling(result);
-          setData(capped.rows);
-          setRowCeiling({ truncated: capped.truncated, total: capped.total });
+          commit(capped.rows, capped);
         } else if (dataProvider === 'api') {
           console.warn('API provider not yet implemented for ObjectMap');
-          setData([]);
+          commit([], null);
         }
-
-        setLoading(false);
       } catch (err) {
-        setError(err as Error);
-        setLoading(false);
+        if (silent) {
+          // A failed re-read of the query on screen keeps the last good rows
+          // and the mounted map, exactly as `ObjectGantt`'s silent reload does:
+          // it logs, it does not report. Those rows still answer the query.
+          console.error('[ObjectMap] Failed to refresh data:', err);
+        } else if (isCurrent()) {
+          // A failed CHANGED query is reported: the rows in state answer the
+          // previous query, so drawing them would misstate the screen.
+          setError(err as Error);
+        }
+      } finally {
+        // Only the newest run owns the flag. It clears it whatever its own
+        // mode, because a silent run can overtake a loud one that set it.
+        if (isCurrent()) setLoading(false);
       }
     };
 
     fetchData();
-  }, [dataProp, dataProvider, dataObjectName, dataItems, dataSource, hasInlineData, schema.filter, schema.sort, objectSchema, perms]);
-
-  // Fetch object schema for field metadata
-  useEffect(() => {
-    const fetchObjectSchema = async () => {
-      try {
-        if (!dataSource) return;
-
-        const objectName = recordSourceObjectName;
-
-        if (!objectName) return;
-
-        const schemaData = await dataSource.getObjectSchema(objectName);
-        setObjectSchema(schemaData);
-      } catch (err) {
-        console.error('Failed to fetch object schema:', err);
-      }
+    return () => {
+      fetchSeqRef.current += 1;
     };
-
-    if (!hasInlineData && dataSource) {
-      fetchObjectSchema();
-    }
-  }, [schema.objectName, dataSource, hasInlineData, dataProvider, dataObjectName, recordSourceObjectName]);
+  }, [dataProp, dataProvider, dataObjectName, dataItems, dataSource, hasInlineData, queryFilter, schema.sort, objectSchemaReady, objectSchema, perms, invalidationNonce, fetchesForItself]);
 
   // Transform data to map markers
   const { markers, invalidCount } = useMemo(() => {
@@ -976,8 +1083,8 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
         }
 
         // ADR-0079's unified record display-name resolver — the same one
-        // `ObjectKanban` (:301), `ObjectCalendar` (:356) and `ObjectGantt`
-        // (:600) already title their items through. `ObjectMap` was the fourth
+        // `ObjectKanban`, `ObjectCalendar` and `ObjectGantt` already title
+        // their items through. `ObjectMap` was the fourth
         // renderer and the only one still doing a bare property read against a
         // hard-coded `'name'` key, so every object whose display field is not
         // literally `name` titled EVERY marker popup `undefined` (objectui#5953).
@@ -1003,7 +1110,22 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
           titleField: mapConfig.titleField,
           fallback: 'Marker',
         });
-        const description = mapConfig.descriptionField ? record[mapConfig.descriptionField] : undefined;
+        // The description is derived as a display STRING, once, here
+        // (objectui#10456). The popup, the mobile record sheet and the search
+        // filter all read this one value, and all three treat it as text: the
+        // two faces put it in JSX, and the search calls `.toLowerCase()` on it.
+        // The raw field value is not text whenever `descriptionField` names a
+        // lookup: this component's own object fetch expands every declared
+        // relation, so the row carries `{ id, name }`, and React throws
+        // `Objects are not valid as a React child` on the first marker click.
+        // A number or a boolean made the search throw the same way.
+        //
+        // `recordDisplayValueAt` is the resolver the title above already uses
+        // for an authored `titleField` (step 0 of `getRecordDisplayName`), so
+        // the two text slots of one marker share one rule: an expanded lookup
+        // reads as its display name, a bare id as itself, a number or a boolean
+        // as its string, and an empty value as no description line.
+        const description = recordDisplayValueAt(record, mapConfig.descriptionField);
 
         // Ensure lat/lng are within valid ranges
         const [lat, lng] = coordinates;
@@ -1111,10 +1233,13 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
 
   /**
    * Initial camera. Read once, when `MapGL` mounts — which is also every time
-   * the record set changes, because the `loading` gate below unmounts the map
-   * for the duration of each fetch. So the one-shot camera always reflects the
-   * records currently in hand, and nothing here ever yanks a camera the user
-   * has since panned.
+   * the query changes, because the `loading` gate below unmounts the map for
+   * the duration of each fetch the query's inputs cause. So the one-shot
+   * camera always reflects the records that query returned, and nothing here
+   * ever yanks a camera the user has since panned. A re-read of the query
+   * already on screen, caused by the data-invalidation bus (objectui#10623), is
+   * silent and keeps the map mounted, whether it succeeds or fails: the markers
+   * move and the camera stays where the user left it.
    */
   const initialViewState = useMemo(() => {
     // Records, no declared camera: hand MapLibre the box and let it fit at the
@@ -1390,11 +1515,7 @@ export const ObjectMap: React.FC<ObjectMapProps> = ({
           still looks like a complete map, and its camera is fitted to a box
           that is not the data's. Placement follows objectui#7148's chart
           footnote: a muted note directly under the surface it describes. */}
-      <NonGridRowCeilingNote
-        drawn={NON_GRID_ROW_CEILING}
-        total={rowCeiling.total}
-        truncated={rowCeiling.truncated}
-      />
+      {rowCeiling && <NonGridRowCeilingNote result={rowCeiling} />}
       {navigation.isOverlay && (
         <NavigationOverlay {...navigation} title="Location Details">
           {(record) => (

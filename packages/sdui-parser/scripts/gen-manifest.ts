@@ -1,8 +1,16 @@
 /**
- * Build-time codegen (ADR-0080 M4): serialize the registry's PUBLIC tier into
+ * Build-time codegen (ADR-0080 M4): serialize the registry's CONTRACT surface into
  *   - sdui.manifest.json   (the contract — save-gate + parser whitelist)
  *   - sdui-intrinsics.d.ts (the JSX type surface for authoring)
  *   - sdui-blocks.md       (the human 清单)
+ *
+ * `getPublicConfigs()` returns two tiers (objectui#10735): the curated PUBLIC
+ * tier (`PUBLIC_BLOCKS`), and the html tier's registered intrinsic elements
+ * (`HTML_TIER_INTRINSICS`) stamped `tier: 'html'`. The manifest carries both —
+ * a `kind:'html'` page may author `<h1>` / `<p>` / `<a>` and the gate that
+ * whitelists its tags reads this file — and the stamp is what keeps the second
+ * tier out of the curated vocabulary: the block list sections on it, the
+ * `kind:'react'` scope skips it. Nothing here filters; the marker travels.
  *
  * PREREQUISITE: all plugins must be EAGERLY registered before this runs —
  * import the app's plugin modules first so getPublicConfigs() sees the full

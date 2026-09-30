@@ -157,34 +157,27 @@
     "timeline": {
       "type": "timeline",
       "id": "project-timeline",
-      "events": [
+      "variant": "vertical",
+      "items": [
         {
-          "id": "event-1",
+          "time": "2024-01-15",
           "title": "Project Started",
           "description": "Initial project kickoff meeting",
-          "date": "2024-01-15",
-          "icon": "flag",
-          "color": "blue"
+          "variant": "info"
         },
         {
-          "id": "event-2",
+          "time": "2024-02-20",
           "title": "First Milestone",
           "description": "Completed Phase 1 deliverables",
-          "date": "2024-02-20",
-          "icon": "check",
-          "color": "green"
+          "variant": "success"
         },
         {
-          "id": "event-3",
+          "time": "2024-03-10",
           "title": "Beta Release",
           "description": "Released beta version to testers",
-          "date": "2024-03-10",
-          "icon": "rocket",
-          "color": "purple"
+          "variant": "default"
         }
-      ],
-      "orientation": "vertical",
-      "position": "left"
+      ]
     },
     "tree-view": {
       "type": "tree-view",

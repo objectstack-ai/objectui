@@ -22,12 +22,25 @@
  * All props are read off `schema.properties` per the spec's
  * `UIComponent.properties` convention; `schema.props` is also accepted
  * as a fallback so authors transitioning between conventions keep working.
+ * `element:number` also reads the node-level `dataSource` binding: its
+ * `object` wins over the flat one, and its filter is AND-combined with the
+ * flat one (objectui#10909).
  */
 
 import * as React from 'react';
-import { ComponentRegistry } from '@object-ui/core';
-import type { ActionDef } from '@object-ui/core';
-import { useAdapter, useAction } from '@object-ui/react';
+import { ComponentRegistry, elementDataSourceBlock, mergeFilterNodes, toFilterNodeSafely } from '@object-ui/core';
+import type { ActionDef, FilterOperatorError } from '@object-ui/core';
+import {
+  ElementDataSourceErrorPanel,
+  ElementDataSourceLoadingPanel,
+  resolveInlineAriaProps,
+  useAdapter,
+  useAction,
+  useDataInvalidation,
+  useElementDataSource,
+  useFilterScope,
+  useResolvedFilter,
+} from '@object-ui/react';
 import {
   useObjectTranslation,
   pickLocalized,
@@ -36,24 +49,24 @@ import {
   formatDisplayNumber,
   type DisplayNumberFormatOptions,
 } from '@object-ui/i18n';
+import type { AriaProps } from '@object-ui/types';
 import { cn } from '../../lib/utils';
 import { LazyIcon } from '../../lib/lazy-icon';
 import { Button, Separator } from '../../ui';
 import { readProps } from './readProps';
+import { readActionEntryParamValues } from '../action/static-params';
 
 // ---------------------------------------------------------------------------
-// Shared helpers
+// The `aria` bag (objectui#11051)
 // ---------------------------------------------------------------------------
-
-function ariaAttrs(aria?: Record<string, any>): Record<string, string> {
-  if (!aria || typeof aria !== 'object') return {};
-  const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(aria)) {
-    if (v == null) continue;
-    out[k.startsWith('aria-') || k === 'role' ? k : `aria-${k}`] = String(v);
-  }
-  return out;
-}
+//
+// `element:text`, `element:image`, `element:button` and `element:number` each
+// declare the spec's `AriaPropsSchema` as their `aria` prop. Every read site
+// below spreads `resolveInlineAriaProps(props.aria, locale)` from
+// `@object-ui/react` with the display locale, and this file keeps no mapping of
+// its own. A local helper used to put `aria-` in front of each key as written,
+// so `ariaLabel` reached the DOM as `aria-arialabel`, an attribute no assistive
+// technology reads, and a locale map was written as `[object Object]`.
 
 // ---------------------------------------------------------------------------
 // element:text
@@ -77,16 +90,17 @@ function ElementTextRenderer({ schema }: { schema: any }) {
     content?: unknown;
     variant?: 'heading' | 'subheading' | 'body' | 'caption';
     align?: 'left' | 'center' | 'right';
-    aria?: Record<string, any>;
+    aria?: AriaProps;
   }>(schema);
   const { language } = useObjectTranslation();
+  const locale = useDisplayLocale();
   const variant = props.variant ?? 'body';
   const align = props.align ?? 'left';
   const Tag = variant === 'heading' ? 'h2' : variant === 'subheading' ? 'h3' : 'p';
   return (
     <Tag
       className={cn(VARIANT_CLASS[variant] ?? VARIANT_CLASS.body, ALIGN_CLASS[align], schema?.className)}
-      {...ariaAttrs(props.aria)}
+      {...resolveInlineAriaProps(props.aria, locale)}
     >
       {pickLocalized(props.content, language)}
     </Tag>
@@ -144,8 +158,11 @@ function ElementImageRenderer({ schema }: { schema: any }) {
     alt?: string;
     fit?: 'cover' | 'contain' | 'fill';
     height?: number;
-    aria?: Record<string, any>;
+    aria?: AriaProps;
   }>(schema);
+  // Before the early return below, so the hook order is the same with and
+  // without a `src`.
+  const locale = useDisplayLocale();
   const fit = props.fit ?? 'cover';
   if (!props.src) {
     return (
@@ -166,7 +183,7 @@ function ElementImageRenderer({ schema }: { schema: any }) {
       alt={props.alt ?? ''}
       className={cn('w-full rounded-md', FIT_CLASS[fit] ?? FIT_CLASS.cover, schema?.className)}
       style={props.height ? { height: props.height } : undefined}
-      {...ariaAttrs(props.aria)}
+      {...resolveInlineAriaProps(props.aria, locale)}
     />
   );
 }
@@ -205,7 +222,7 @@ function ElementButtonRenderer({ schema }: { schema: any }) {
     icon?: string;
     iconPosition?: 'left' | 'right';
     disabled?: boolean;
-    aria?: Record<string, any>;
+    aria?: AriaProps;
     /**
      * Optional action executed on click. Any ActionDef the ActionRunner
      * understands — `url`/`navigation` (link to another page), `api`/`script`
@@ -220,6 +237,7 @@ function ElementButtonRenderer({ schema }: { schema: any }) {
   const variant = (SHADCN_BUTTON_VARIANT[props.variant ?? 'primary'] ?? 'default') as any;
   const size = (SHADCN_BUTTON_SIZE[props.size ?? 'medium'] ?? 'default') as any;
   const { language } = useObjectTranslation();
+  const locale = useDisplayLocale();
   const label = pickLocalized(props.label, language);
   const iconPosition = props.iconPosition ?? 'left';
   const icon = props.icon ? <LazyIcon name={props.icon} className="h-4 w-4" /> : null;
@@ -233,7 +251,9 @@ function ElementButtonRenderer({ schema }: { schema: any }) {
     setRunning(true);
     try {
       // Mirror action:button's param routing: an array of {name,type,…} defs is
-      // forwarded for in-dialog collection; a plain object is passed as values.
+      // forwarded for in-dialog collection. A plain object is passed as values
+      // only for `type: 'api'` (the objectstack#5777 payload window); on any
+      // other type it is not forwarded (objectui#10462, ruling A on #10289).
       //
       // Annotated `ActionDef`, not bare: a spread SOURCE's own keys are not
       // excess-property checked THROUGH the spread (objectui#4281 probe Q —
@@ -242,7 +262,7 @@ function ElementButtonRenderer({ schema }: { schema: any }) {
       // does not cover these two branches; this annotation is what does.
       const paramsPayload: ActionDef = Array.isArray(action.params)
         ? { actionParams: action.params }
-        : { params: action.params };
+        : { params: readActionEntryParamValues(action, action.actionType || action.type, 'element:button') };
       // ── Why there is no `as any` here (objectui#4321) ────────────────────
       //
       // This literal used to close with `as any`. An assertion asks only for
@@ -299,7 +319,7 @@ function ElementButtonRenderer({ schema }: { schema: any }) {
       disabled={props.disabled || running}
       className={cn(schema?.className)}
       onClick={action ? handleClick : undefined}
-      {...ariaAttrs(props.aria)}
+      {...resolveInlineAriaProps(props.aria, locale)}
     >
       {iconPosition === 'left' && icon}
       {label}
@@ -374,9 +394,52 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
     format?: 'number' | 'currency' | 'percent';
     prefix?: string;
     suffix?: string;
-    aria?: Record<string, any>;
+    aria?: AriaProps;
   }>(schema);
   const adapter = useAdapter() as any;
+  // objectui#10909 — the spec's per-element binding (`PageComponentSchema
+  // .dataSource`), resolved the way the element twin `element:record_picker`
+  // resolves it: through `useElementDataSource`. The spec lint gate waives a
+  // missing `properties.object` when `dataSource.object` names one, on the
+  // precedence `ds.object ?? props.object`; before this, a metric bound only
+  // through the binding issued no query and painted the empty dash.
+  //
+  // `object` resolves ONCE, here, and that one value is the fetch guard, the
+  // `aggregate` / `find` target and the bus key below. A named `view` is
+  // honoured (its filter scopes the aggregate); while it is unresolved or
+  // unresolvable there is NO object, so nothing is aggregated over the wider
+  // set the view was written to narrow, and the render reports instead. The
+  // binding's `sort` and `limit` are deliberately not read: an aggregate has no
+  // ordering, and a capped count is a wrong number.
+  //
+  // The renderer's own adapter is passed so the view resolves against the same
+  // source the aggregate reads from.
+  const dataBinding = useElementDataSource(schema, adapter);
+  const composed = dataBinding.composed;
+  const { t } = useObjectTranslation();
+  // The filter this metric aggregates over. With no binding it is the node's
+  // own `filter` exactly as authored, so the `properties` form is unchanged.
+  // With one, the node's own filter is AND-combined with the binding's (which
+  // `useElementDataSource` has already AND-combined with its view's): neither
+  // is dropped, so a validated `properties.filter` can never be discarded and
+  // widen the count. That is the rule `ElementDataSourceGate` applies for every
+  // gate-wrapped block that reads a filter, lowered and merged the same way
+  // (`toFilterNodeSafely` + `mergeFilterNodes`). A source the converter
+  // refuses is kept as a VALUE and answered with the configuration-error panel
+  // below — never merged as "no filter", which would count every row.
+  // Memoised for cost only: the result is read by content (`useResolvedFilter`
+  // holds it by structure), never by identity (AGENTS.md #10).
+  const scopedFilter = React.useMemo((): { filter: unknown; refusal?: FilterOperatorError } => {
+    if (!composed) return { filter: props.filter };
+    const own = toFilterNodeSafely(props.filter);
+    if (!own.ok) return { filter: undefined, refusal: own.refusal };
+    const bound = toFilterNodeSafely(composed.filter);
+    if (!bound.ok) return { filter: undefined, refusal: bound.refusal };
+    return { filter: mergeFilterNodes(own.node, bound.node) };
+  }, [composed, props.filter]);
+  const filterRefusal = scopedFilter.refusal;
+  const unresolved = dataBinding.status === 'loading' || dataBinding.status === 'missing';
+  const object = unresolved || filterRefusal ? undefined : (composed?.object ?? props.object);
   // Tenant default currency (ADR-0053) for a `currency`-format metric; the
   // display locale resolves through the shared precedence (tenant regional
   // default → active UI language), so the metric follows a language switch even
@@ -386,11 +449,29 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   const [value, setValue] = React.useState<number | null>(null);
   const [loading, setLoading] = React.useState<boolean>(true);
   const [error, setError] = React.useState<string | null>(null);
-  const filterKey = React.useMemo(() => (props.filter ? JSON.stringify(props.filter) : ''), [props.filter]);
+  // objectui#10666 — the number's own `filter`, with every context token
+  // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
+  // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the
+  // session scope the host provides, and HELD by structure (`useResolvedFilter`
+  // in `@object-ui/react`). Both reads below (the `aggregate` filter and the
+  // `find` fallback's `$filter`) sent the literal token before; they and the
+  // content key read THIS, never the raw `props.filter`. What it resolves is
+  // the scoped filter above: the node's own, AND-combined with the binding's
+  // when there is one (objectui#10909).
+  const filterScope = useFilterScope();
+  const queryFilter = useResolvedFilter(scopedFilter.filter, filterScope);
+  const filterKey = React.useMemo(() => (queryFilter ? JSON.stringify(queryFilter) : ''), [queryFilter]);
+  // objectui#10623 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this number AGGREGATES is declared, and the effect
+  // below names it, so the value is re-read. Subscribed only when the effect
+  // can query: no adapter or no aggregate means no read to repeat. Keyed on the
+  // RESOLVED object, so a bound metric re-reads for the object it aggregates.
+  const invalidationNonce = useDataInvalidation(adapter && props.aggregate ? object : undefined);
 
   React.useEffect(() => {
     let cancelled = false;
-    if (!adapter || !props.object || !props.aggregate) {
+    if (!adapter || !object || !props.aggregate) {
       setLoading(false);
       return;
     }
@@ -399,11 +480,11 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
     (async () => {
       try {
         if (typeof adapter.aggregate === 'function') {
-          const rows = await adapter.aggregate(props.object, {
+          const rows = await adapter.aggregate(object, {
             field: props.field,
             function: props.aggregate,
             groupBy: '_all',
-            filter: props.filter,
+            filter: queryFilter,
           });
           const row = Array.isArray(rows) ? rows[0] : rows;
           const measureKey = props.aggregate === 'count' ? 'count' : `${props.field ?? ''}_${props.aggregate}`;
@@ -416,7 +497,7 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
         } else if (typeof adapter.find === 'function') {
           // Last-resort: pull all rows and aggregate client-side. Costly
           // but matches the chart renderer fallback path.
-          const res = await adapter.find(props.object, props.filter ? { $filter: props.filter } : undefined);
+          const res = await adapter.find(object, queryFilter ? { $filter: queryFilter } : undefined);
           // `data` is the ONE rows member `QueryResult` (`@object-ui/types`)
           // declares; the bare-array arm stays because fakes at this seam
           // really do answer with a plain array. A `res?.records` arm sat
@@ -449,10 +530,46 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adapter, props.object, props.field, props.aggregate, filterKey]);
+  }, [adapter, object, props.field, props.aggregate, filterKey, invalidationNonce]);
+
+  // After every hook above, so hook order stays stable across resolution
+  // states. A `view` that names nothing, or a filter the merge refuses,
+  // reports rather than aggregating the whole object: one confident number
+  // over the wrong set is the quiet failure a metric has no second chance to
+  // show.
+  if (dataBinding.status === 'missing' || filterRefusal) {
+    return (
+      <ElementDataSourceErrorPanel
+        testId="element-number"
+        title="This metric’s data source could not be resolved"
+        message={filterRefusal?.message ?? dataBinding.error}
+      />
+    );
+  }
+  if (dataBinding.status === 'loading') {
+    return <ElementDataSourceLoadingPanel testId="element-number" />;
+  }
+  // objectui#10951 — an aggregate that names no object at all, in either
+  // place. `object` stopped being `required` when the binding became a second
+  // way to supply it (objectui#10944), and the manifest cannot say "one of the
+  // two", so the html tier no longer reports this node: say it here rather
+  // than paint the dash. Only AUTHORED absence qualifies (`absent` = no
+  // binding naming an object); a binding whose view is still resolving or
+  // failed to resolve is answered by the two panels above.
+  if (props.aggregate && !props.object && dataBinding.status === 'absent') {
+    return (
+      <div
+        className={cn('text-xs text-muted-foreground', schema?.className)}
+        data-testid="element-number-no-object"
+        {...resolveInlineAriaProps(props.aria, locale)}
+      >
+        {t('element.number.noObject', { defaultValue: 'No object named: set object or dataSource.object.' })}
+      </div>
+    );
+  }
 
   return (
-    <div className={cn('flex flex-col gap-1', schema?.className)} {...ariaAttrs(props.aria)}>
+    <div className={cn('flex flex-col gap-1', schema?.className)} {...resolveInlineAriaProps(props.aria, locale)}>
       <div className="text-3xl font-semibold tracking-tight tabular-nums">
         {loading ? '…' : formatValue(value, props.format, props.prefix, props.suffix, tenantCurrency, locale)}
       </div>
@@ -461,16 +578,32 @@ function ElementNumberRenderer({ schema }: { schema: any }) {
   );
 }
 
-ComponentRegistry.register('number', ElementNumberRenderer, {
+// The renderer READS the node-level `dataSource` binding (objectui#10909), so it
+// declares it from the seam every reader of the binding declares it from: the
+// marker below makes `Registry.register` emit `ELEMENT_DATA_SOURCE_INPUT` into
+// these `inputs`, and `object` is no longer `required` because the binding can
+// supply it. Same shape as `element:record_picker`'s registration, and the seam
+// comes from `@object-ui/core` for the same measured reason stated there.
+ComponentRegistry.register('number', elementDataSourceBlock(ElementNumberRenderer), {
   namespace: 'element',
   skipFallback: true,
   label: 'Number',
   category: 'content',
   inputs: [
-    { name: 'object', type: 'string', required: true, description: 'Object the aggregate runs over' },
+    {
+      name: 'object',
+      type: 'string',
+      description:
+        'Object the aggregate runs over. Required unless a node-level `dataSource` binding names one; when both are set, `dataSource.object` wins.',
+    },
     { name: 'aggregate', type: 'enum', enum: ['count', 'sum', 'avg', 'min', 'max'], required: true },
     { name: 'field', type: 'string', description: 'Measure field (required for every aggregate except count)' },
-    { name: 'filter', type: 'array' },
+    {
+      name: 'filter',
+      type: 'array',
+      description:
+        'Criteria the aggregate is scoped by. When a node-level `dataSource` binding also supplies a filter (its own, or the saved view its `view` names), the two are AND-combined: neither is dropped.',
+    },
     { name: 'format', type: 'enum', enum: ['number', 'currency', 'percent'] },
     { name: 'prefix', type: 'string' },
     { name: 'suffix', type: 'string' },

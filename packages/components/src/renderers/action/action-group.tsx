@@ -18,10 +18,11 @@
 
 import React, { forwardRef, useCallback, useState } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
+import type { ActionDef } from '@object-ui/core';
 import type { UIActionSchema, ActionLocation } from '@object-ui/types';
 import { actionRendersAt } from '@object-ui/types';
 import { useAction } from '@object-ui/react';
-import { useCondition, toPredicateInput, usePredicateRecordContext } from '@object-ui/react';
+import { useCondition, toPredicateInput, usePredicateRecordContext, useConfigBagEvaluator } from '@object-ui/react';
 import { Button } from '../../ui';
 import {
   DropdownMenu,
@@ -34,6 +35,7 @@ import { cn } from '../../lib/utils';
 import { Loader2, ChevronDown } from 'lucide-react';
 import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
+import { readActionEntryParamValues, readMemberStaticParamValues } from './static-params';
 
 export interface ActionGroupSchema {
   type: 'action:group';
@@ -77,7 +79,7 @@ const InlineActionButton: React.FC<{
   // row-scoped predicate faulted on its root (objectui#4075).
   const recordData = usePredicateRecordContext(record);
   const isVisible = useCondition(toPredicateInput(action.visible), recordData);
-  // Spec field is `disabled` (boolean | CEL — disabled when TRUE). #1885 wired
+  // Spec field is `disabled` (boolean | CEL — disabled when TRUE). objectstack-ai/objectstack#1885 wired
   // it in action-button only; this leaf kept reading the legacy non-spec
   // `enabled`, so a spec-authored `disabled` guard did nothing here. `disabled`
   // is now the primary control; `enabled` stays as a deprecated fallback.
@@ -163,7 +165,7 @@ export const DropdownActionItem: React.FC<{
   const recordData = usePredicateRecordContext(record);
   const isVisible = useCondition(toPredicateInput(action.visible), recordData);
   // Spec `disabled` primary, legacy non-spec `enabled` fallback (see
-  // InlineActionButton above — #1885 follow-through).
+  // InlineActionButton above — objectstack-ai/objectstack#1885 follow-through).
   const isDisabledPred = useCondition(toPredicateInput((action as any).disabled), recordData);
   const isEnabled = useCondition(toPredicateInput(action.enabled), recordData);
   // Same declared-gate rule as `InlineActionButton` above — one action cannot be
@@ -225,6 +227,9 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
     } = props;
 
     const { execute } = useAction();
+    // The `SchemaRenderer` memo's `properties` evaluation, for the member this
+    // renderer runs itself (objectui#10290) — see `handleExecute`.
+    const evaluateBag = useConfigBagEvaluator();
     const [dropdownLoading, setDropdownLoading] = useState(false);
 
     // The row bound the three canonical ways — see `usePredicateRecordContext`.
@@ -245,6 +250,34 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
 
     const handleExecute = useCallback(
       async (action: UIActionSchema) => {
+        // UI-local escape hatch: direct callback, bypass ActionEngine — the
+        // branch `action:menu` and `action:button` take (see action-button.tsx
+        // for why it is invoked here rather than forwarded). Both display
+        // modes reach the runner through this one function, so both honour it.
+        // Neither called nor forwarded, a code-composed `onClick` was silently
+        // inert on this surface (objectui#4202).
+        if (typeof action.onClick === 'function') {
+          await action.onClick();
+          return;
+        }
+        // `params` is the `ActionParam[]` input list (ruling A on objectui#10289):
+        // an array is forwarded as `actionParams`, as `action:button` does. An
+        // object is forwarded as values only for `type: 'api'`, the objectstack#5777
+        // payload window; any other type drops it (objectui#10462).
+        //
+        // The member's static values ride `properties.params`, as on
+        // `action:button`, and are evaluated here with the `SchemaRenderer` memo's
+        // evaluator and scope: the member never passes through that memo
+        // (objectui#10290). Independent of the input list, so both are forwarded.
+        // They win over the `api` window's object `params`, as `properties.params`
+        // wins over a node-level object on `action:button`.
+        const staticValues = readMemberStaticParamValues(action, evaluateBag);
+        const entryValues = Array.isArray(action.params)
+          ? undefined
+          : readActionEntryParamValues(action, action.type, 'action:group');
+        const paramsPayload: ActionDef = Array.isArray(action.params)
+          ? { actionParams: action.params as any, params: staticValues }
+          : { params: staticValues !== undefined ? staticValues : entryValues };
         await execute({
           type: action.type,
           name: action.name,
@@ -257,7 +290,7 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
           openIn: (action as any).openIn,
           endpoint: action.endpoint,
           method: action.method,
-          params: action.params as Record<string, any> | undefined,
+          ...paramsPayload,
           // See action-button.tsx — the `type: 'api'` payload key (objectstack#6837).
           bodyExtra: action.bodyExtra,
           // See action-button.tsx — the body-WRAPPING key (objectstack#6938).
@@ -284,9 +317,13 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
           // here the action succeeds and the authored navigation never runs.
           // Uncast since objectui#5934 (legacy callback channel retired).
           onSuccess: action.onSuccess,
+          // See action-button.tsx — the object the action declares it acts on;
+          // dropped here, a retargeted action silently acted on the page's
+          // object (objectui#4202). Cast for the same reason as there.
+          objectName: (action as any).objectName,
         });
       },
-      [execute],
+      [execute, evaluateBag],
     );
 
     // Dropdown items share the trigger's loading spinner, so wrap execution to

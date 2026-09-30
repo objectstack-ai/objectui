@@ -128,6 +128,22 @@ const i18n = createI18n({ defaultLanguage: 'de' });
 i18n.t('common.cancel'); // "Abbrechen"
 ```
 
+### TranslateFn — typing a `t` you are handed
+
+A helper that receives `t` from its caller, rather than calling a hook itself,
+types that parameter with `TranslateFn`: i18next's `t` narrowed to
+`(key: string, options?: Record<string, unknown>) => string`. This package is
+the one authority for that type — import it rather than declaring a local
+copy:
+
+```ts
+import type { TranslateFn } from '@object-ui/i18n';
+
+export function saveLabel(t: TranslateFn): string {
+  return t('common.save');
+}
+```
+
 ### Formatting Utilities
 
 Locale-aware formatting functions:
@@ -146,6 +162,12 @@ formatCurrency(99.99, { currency: 'USD', locale: 'en' });        // "$99.99"
 formatNumber(1234567, { locale: 'de' });                         // "1.234.567"
 formatRelativeTime(Date.now() - 3 * 86_400_000, 'en');           // "3 days ago"
 ```
+
+A date-only string such as `'2026-09-01'` names a calendar day: every date
+helper reads it as that day in every viewer's time zone (`formatDateTime` shows
+its midnight, and `formatRelativeTime` counts to the start of it). A string
+with a time part is an instant, read in the viewer's zone. `formatDateSpec`
+applies its `timeZone` to an instant only.
 
 ### Built-in locales — one is resident, nine are fetched on demand
 

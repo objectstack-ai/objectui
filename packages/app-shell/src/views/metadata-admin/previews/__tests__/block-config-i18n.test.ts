@@ -192,13 +192,14 @@ describe('block-config labels are translation keys (#3913)', () => {
     expect(families.field).toBeGreaterThan(80);
     expect(families.add).toBe(5);
     expect(families.option).toBeGreaterThan(50);
-    // Exact, like `add`: the keyed half of the placeholder column is 7 of 17
-    // (#3979; 8 of 18 until objectui#3829 retired the canonical
-    // `page:header.icon` field). An 8th prose placeholder should fail here and
-    // be translated; an 8th VALUE placeholder does not reach this family at all
-    // and is caught by the literal inventory instead. Either way the new one
-    // gets classified rather than defaulting to English-on-screen.
-    expect(families.placeholder).toBe(7);
+    // Exact, like `add`: the keyed half of the placeholder column is 6
+    // (#3979; 8 until objectui#3829 retired the canonical `page:header.icon`
+    // field, then 7 until objectui#8280 removed the unofferable `ai:input`
+    // panel). A 7th prose placeholder should fail here and be translated; a
+    // 7th VALUE placeholder does not reach this family at all and is caught by
+    // the literal inventory instead. Either way the new one gets classified
+    // rather than defaulting to English-on-screen.
+    expect(families.placeholder).toBe(6);
   });
 
   it('stores exactly the key its position implies', () => {
@@ -312,7 +313,7 @@ describe('en-US labels are unchanged by the key migration (#3913)', () => {
     'engine.inspector.pageBlock.option.location.record_more': 'Record more menu',
     'engine.inspector.pageBlock.option.severity.warning': 'Warning',
     // ── the placeholder family (#3979) ───────────────────────────────────────
-    // ALL SEVEN, not a sample: this column was migrated by hand rather than
+    // ALL SIX, not a sample: this column was migrated by hand rather than
     // mechanically, and the en side is the only thing standing between "the key
     // resolves" and "the key resolves to what the box used to say". Each value
     // below is byte-identical to the literal `block-config.ts` held at
@@ -327,13 +328,16 @@ describe('en-US labels are unchanged by the key migration (#3913)', () => {
     // assertion here would be pinning the passthrough against itself. The
     // deliberate absence is pinned in `block-config.test.ts` instead, where the
     // field's absence is pinned beside it.
+    //
+    // Then SEVEN until objectui#8280: `…placeholder.ai:input.agentName` went
+    // with the `ai:input` panel, removed because the palette never offered the
+    // block. Same move, same reason — the key left both locale tables with it.
     'engine.inspector.pageBlock.placeholder.object-metric.icon': 'lucide icon name',
     'engine.inspector.pageBlock.placeholder.element:text.content': 'Text…',
     'engine.inspector.pageBlock.placeholder.element:button.icon': 'lucide icon name',
     'engine.inspector.pageBlock.placeholder.record:details.sections.name': 'snake_case, e.g. contact_info',
     'engine.inspector.pageBlock.placeholder.record:alert.icon': 'lucide icon name',
     'engine.inspector.pageBlock.placeholder.record:quick_actions.actionNames': 'action name',
-    'engine.inspector.pageBlock.placeholder.ai:input.agentName': 'agent name',
   };
 
   it('renders the pre-change English text for every sampled key', () => {
@@ -390,7 +394,7 @@ describe('placeholders that must NOT be translated (#3979)', () => {
     'record:details.sections.columns': { literal: '2', because: 'a column count' },
   };
 
-  it('collects all 18 placeholders — 7 keyed, 11 literal', () => {
+  it('collects all 17 placeholders — 6 keyed, 11 literal', () => {
     // Guards the walk: if placeholder collection silently found nothing, every
     // assertion here would pass over an empty list.
     //
@@ -400,9 +404,11 @@ describe('placeholders that must NOT be translated (#3979)', () => {
     // until objectui#7772 gave `object-kanban` the `limit` control its schema
     // has declared since objectui#7322 — a VALUE placeholder (`100`,
     // `DEFAULT_KANBAN_LIMIT`), so it lands on the literal side and the keyed
-    // half is what stays untouched this time.
-    expect(PLACEHOLDERS.length).toBe(18);
-    expect(PLACEHOLDERS.filter((p) => p.spec.key !== undefined).length).toBe(7);
+    // half is what stays untouched this time. Then 18 / 7 / 11 until
+    // objectui#8280 removed the `ai:input` panel, whose `agentName` box was a
+    // KEYED placeholder — the palette never offered that block.
+    expect(PLACEHOLDERS.length).toBe(17);
+    expect(PLACEHOLDERS.filter((p) => p.spec.key !== undefined).length).toBe(6);
     expect(PLACEHOLDERS.filter((p) => p.spec.literal !== undefined).length).toBe(11);
   });
 

@@ -70,6 +70,49 @@ describe('findUnknownRefs (predicate)', () => {
   });
 });
 
+describe('findUnknownRefs (CEL comprehension macros bind their iteration variable) (objectui#10538)', () => {
+  const known = new Set(['rows']);
+  const cel = (source: string) => findUnknownRefs({ dialect: 'cel', source }, 'value', known);
+
+  it("accepts the spec's canonical assignment-value example", () => {
+    // The `AssignmentValue` JSDoc in @objectstack/spec: "joinNonEmpty(rows.map(r, r.subject), "\n")".
+    expect(cel('joinNonEmpty(rows.map(r, r.subject), "\\n")')).toEqual([]);
+  });
+
+  it('binds the iteration variable of each of the five macros inside that macro', () => {
+    expect(cel('rows.map(r, r.subject)')).toEqual([]);
+    expect(cel('rows.map(r, r.active, r.subject)')).toEqual([]);
+    expect(cel('rows.filter(x, x.done).size()')).toEqual([]);
+    expect(cel('rows.exists(e, e.a > 1)')).toEqual([]);
+    expect(cel('rows.all(a, a.ok)')).toEqual([]);
+    expect(cel('rows.exists_one(o, o.id == 1)')).toEqual([]);
+  });
+
+  it('binds both variables of a nested macro', () => {
+    expect(cel('rows.map(r, r.items.filter(i, i.ok))')).toEqual([]);
+  });
+
+  it('still flags the same name used after the macro closes', () => {
+    expect(cel('rows.map(r, r.subject) + r')).toEqual([{ token: 'r', suggestion: undefined }]);
+  });
+
+  it('still flags an inner variable used outside its own macro', () => {
+    expect(cel('rows.map(r, r.items.filter(i, i.ok) + i)')).toEqual([{ token: 'i', suggestion: undefined }]);
+  });
+
+  it("still flags a bound variable used as a different macro's receiver", () => {
+    expect(cel('rows.exists(r, r.ok) && r.items.all(i, i.ok)')).toEqual([{ token: 'r', suggestion: undefined }]);
+  });
+
+  it('still flags an unknown receiver root, with its suggestion', () => {
+    expect(cel('rowz.map(r, r.subject)')).toEqual([{ token: 'rowz', suggestion: 'rows' }]);
+  });
+
+  it('binds nothing for a member call that is not one of the five macros', () => {
+    expect(cel('rows.join(sep, other)').map((u) => u.token)).toEqual(['sep', 'other']);
+  });
+});
+
 describe('findUnknownRefs (template)', () => {
   const known = roots('approval_path', 'record');
 

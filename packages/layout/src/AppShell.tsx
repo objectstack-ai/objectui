@@ -136,6 +136,13 @@ function foregroundForHex(hex: string): string {
  * value it did not put there, and that value is what comes back on unmount.
  * Nesting a second title-writing surface inside a mounted shell is the shape to
  * avoid; the console's own auth surfaces sit outside the shell for this reason.
+ *
+ * The favicon is scoped the same way (objectui#10040): when `branding.favicon`
+ * is set and the page has an icon link, the hook captures that link's `href`
+ * attribute, writes the branded URL, and puts the captured attribute back (or
+ * removes it, if there was none) when the shell unmounts or the effect re-runs
+ * on changed inputs. The same replay caveat applies — an icon written by something else
+ * while the shell is mounted is overwritten by the restore.
  */
 export function useAppShellBranding(branding?: AppShellBranding, title?: string) {
   useEffect(() => {
@@ -217,11 +224,26 @@ export function useAppShellBranding(branding?: AppShellBranding, title?: string)
     });
     observer.observe(root, { attributes: true, attributeFilter: ['class'] });
 
-    // Favicon
+    // Favicon — scoped the same way as the title below (objectui#10040): the
+    // link this effect writes, and the `href` it replaced, are captured so the
+    // cleanup can hand the previous icon back. `faviconLink` stays `null` when
+    // this hook writes nothing (no `favicon`, or no icon link to write to), so
+    // that case restores nothing either.
+    //
+    // The capture reads the ATTRIBUTE, not the `link.href` property: the
+    // property is the URL resolved against the document, so an icon link that
+    // ships `href=""` (the console's does, until an operator favicon is
+    // configured) would read back as the page's own URL and be "restored" to a
+    // value it never had. `null` means the attribute was absent, and the
+    // cleanup removes it rather than inventing an empty one.
+    let faviconLink: HTMLLinkElement | null = null;
+    let previousFaviconHref: string | null = null;
     if (branding?.favicon) {
       const link = document.querySelector<HTMLLinkElement>('#favicon')
         || document.querySelector<HTMLLinkElement>('link[rel="icon"]');
       if (link) {
+        faviconLink = link;
+        previousFaviconHref = link.getAttribute('href');
         link.href = branding.favicon;
       }
     }
@@ -239,6 +261,13 @@ export function useAppShellBranding(branding?: AppShellBranding, title?: string)
       observer.disconnect();
       if (previousTitle !== null) {
         document.title = previousTitle;
+      }
+      if (faviconLink) {
+        if (previousFaviconHref === null) {
+          faviconLink.removeAttribute('href');
+        } else {
+          faviconLink.setAttribute('href', previousFaviconHref);
+        }
       }
       root.style.removeProperty('--brand-primary');
       root.style.removeProperty('--brand-primary-hsl');

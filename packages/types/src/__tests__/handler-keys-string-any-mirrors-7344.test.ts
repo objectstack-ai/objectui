@@ -84,20 +84,15 @@
  * "nothing reads `AppComponentSchema.actions[]`" that the objectui#7344
  * changeset was about to publish as `@object-ui/types` CHANGELOG copy
  * (objectui#7721). Re-measured whole-tree:
- *   - `app.zod.ts#AppActionSchema.onClick` — `AppComponentSchema.actions[]` IS
- *     read, by exactly ONE package: `@object-ui/runner`, whose `LayoutRenderer`
- *     renders the `'button'` arm as toolbar buttons and the `'user'` arm as an
- *     avatar dropdown. What no reader touches is `onClick` itself — not on the
- *     action, and no longer on `AppAction.items`, where that same renderer
- *     reached one through an `as any` cast until objectui#6854 deleted it
- *     (guarded from the renderer side by
- *     `packages/runner/src/__tests__/LayoutRenderer.appActionItems-6854.test.tsx`).
- *     The reader set is now ASSERTED rather than narrated: the census below
- *     reads its population off the tree, so a reader appearing in a package
- *     nobody thought to list fails loudly instead of narrowing the claim in
- *     silence. `AppAction` is still imported nowhere outside `packages/types`
- *     — the runner reaches the array structurally, through
- *     `AppComponentSchema`.
+ *   - `app.zod.ts#AppActionSchema.onClick` — LEFT THIS LEDGER with objectui#7469
+ *     (maintainer ruling C), which retired `AppComponentSchema.actions`,
+ *     `AppAction` and `AppActionSchema` on both faces and deleted the runner's
+ *     rendering of the array. The key went with the whole element schema, so
+ *     this is not a reclassification in place. What this entry measured before
+ *     that: the array WAS read, by exactly one package (`@object-ui/runner`'s
+ *     `LayoutRenderer`), and `onClick` was not. The reader census below now
+ *     asserts the retirement's other half: NOTHING reads the array, with the
+ *     same population controls.
  *   - `reports.zod.ts#ReportBuilderSchema.onSave` / `.onCancel` — no renderer is
  *     registered for `report-builder` (control on the same tree:
  *     `register('detail-view'` and `register('report-designer'` both resolve).
@@ -160,7 +155,6 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 
-import { AppActionSchema as AppActionZod } from '../zod/app.zod';
 import { CalendarViewSchema as CalendarViewZod } from '../zod/complex.zod';
 import {
   ActionSchema as ActionZod,
@@ -175,7 +169,6 @@ import {
   ViewSwitcherSchema as ViewSwitcherZod,
 } from '../zod/views.zod';
 
-import type { AppAction } from '../app';
 import type { CalendarViewSchema } from '../complex';
 import type { ActionSchema, CRUDDialogSchema, DetailSchema } from '../crud';
 import type { ReportBuilderSchema } from '../reports';
@@ -209,9 +202,9 @@ const RUNTIME_SLOT: readonly Site[] = [
   ['complex.zod.ts', 'CalendarViewSchema', 'onEventClick', CalendarViewZod],
 ];
 
-/** The four keys NO renderer reads. */
+/** The keys NO renderer reads. (`app.zod.ts#AppActionSchema.onClick` left with
+ *  its whole schema — objectui#7469; see the docblock.) */
 const RETIRED: readonly Site[] = [
-  ['app.zod.ts', 'AppActionSchema', 'onClick', AppActionZod],
   ['reports.zod.ts', 'ReportBuilderSchema', 'onSave', ReportBuilderZod],
   ['reports.zod.ts', 'ReportBuilderSchema', 'onCancel', ReportBuilderZod],
   ['crud.zod.ts', 'CRUDDialogSchema', 'onClose', CRUDDialogZod],
@@ -311,15 +304,19 @@ describe('census: the only on*: z.(function|string|any) lines left in packages/t
     expect(MIRROR_FILES.length).toBeGreaterThanOrEqual(12);
   });
 
-  it('10 sites are ledgered, 6 runtime slots + 4 retired, with no key filed twice', () => {
+  it('9 sites are ledgered, 6 runtime slots + 3 retired, with no key filed twice', () => {
     // 8 at objectui#7344; 10 since objectui#7804 declared the two keys
-    // `DetailView` reads off a `'detail'` document undeclared. ⛔ A ledger
-    // GROWS here by a declaration landing, never by a key being reclassified
-    // in place — the shrink direction is the failure this family guards.
+    // `DetailView` reads off a `'detail'` document undeclared; 9 since
+    // objectui#7469 retired `AppActionSchema` WHOLE (maintainer ruling C).
+    // ⛔ A ledger GROWS here by a declaration landing, never by a key being
+    // reclassified in place — the shrink direction is the failure this family
+    // guards. The objectui#7469 shrink is the other kind: the declaring schema
+    // left both faces, and `AppComponentSchema.actions`, the array that held it,
+    // is a named refusal (`./app-actions-retired-7469.test.ts`).
     expect(RUNTIME_SLOT).toHaveLength(6);
-    expect(RETIRED).toHaveLength(4);
+    expect(RETIRED).toHaveLength(3);
     const ids = ALL_SITES.map(([file, schema, key]) => `${file}#${schema}.${key}`);
-    expect(new Set(ids).size).toBe(10);
+    expect(new Set(ids).size).toBe(9);
   });
 
   it.each(ALL_SITES)('%s %s.%s is DECLARED on the mirror shape, with the objectui#6124 guidance as its description', (_file, _schema, key, mirror) => {
@@ -331,26 +328,32 @@ describe('census: the only on*: z.(function|string|any) lines left in packages/t
   });
 });
 
-/* ── Census: WHO reads `AppComponentSchema.actions[]` (objectui#7721) ────── */
+/* ── Census: WHO reads `AppComponentSchema.actions[]` (objectui#7721 → #7469) ── */
 
-/** The whole-tree reader set, measured on `origin/main` @ `951fa8e0d`: one file,
- *  one package. The entry above used to carry this as a sentence naming three
- *  packages, which is why it went stale silently — a hand-written scope cannot
- *  fail when the tree grows a fourth package. Held as DATA so the failure names
- *  the newcomer instead of leaving the next reader to re-derive the set. */
-const ACTIONS_READER_FILES = ['packages/runner/src/LayoutRenderer.tsx'] as const;
-const ACTIONS_READER_PACKAGES = ['@object-ui/runner'] as const;
+/** The whole-tree reader set. objectui#7721 measured ONE file in ONE package
+ *  (`@object-ui/runner`'s `LayoutRenderer`, on `origin/main` @ `951fa8e0d`) and
+ *  held it here as DATA, because a hand-written scope cannot fail when the tree
+ *  grows a reader nobody listed. objectui#7469 (maintainer ruling C) retired the
+ *  array on both faces and deleted that reader, so the set is now EMPTY — and
+ *  the same instrument, with the same population controls, is what keeps it
+ *  empty: a renderer that starts reading the refused key again names itself. */
+const ACTIONS_READER_FILES = [] as const;
+/** The former reader: still in the population (it names `AppComponentSchema`),
+ *  no longer a reader. The positive control for the empty set above. */
+const FORMER_READER_FILE = 'packages/runner/src/LayoutRenderer.tsx';
 
 /** `packages/types` DECLARES the member and cannot render it (zero deps, no
  *  React — AGENTS.md §3), so it is outside the reader population by
  *  construction, not by convenience. `git grep` reads TRACKED files, so a
- *  literal anchor also matches the two files that merely DESCRIBE the census;
+ *  literal anchor also matches the two files that merely DESCRIBE the key;
  *  those two are pinned below, so a third matching file inside `packages/types`
- *  still turns this red rather than slipping through the exclusion. */
+ *  still turns this red rather than slipping through the exclusion. Since
+ *  objectui#7469 they are this census and the retirement's own pin — `app.ts`
+ *  left the set with the `AppAction` docblock that described the old reader. */
 const DECLARING_PACKAGE_PREFIX = 'packages/types/';
 const DECLARING_PACKAGE_PROSE = [
+  'packages/types/src/__tests__/app-actions-retired-7469.test.ts',
   'packages/types/src/__tests__/handler-keys-string-any-mirrors-7344.test.ts',
-  'packages/types/src/app.ts',
 ] as const;
 
 /** Two independent anchors, because a reader can reach the array two ways.
@@ -576,11 +579,11 @@ describe('engine self-test: the git regex flag the census runs through has `\\b`
   });
 });
 
-describe('census: `AppComponentSchema.actions[]` IS read, by exactly one package, with the scope in the assertion (objectui#7721)', () => {
+describe('census: NOTHING reads the retired `AppComponentSchema.actions[]`, with the scope in the assertion (objectui#7721 instrument, objectui#7469 retirement)', () => {
   it('the scan is ALIVE and SELECTIVE — a large population that the anchors narrow, not an empty grep', () => {
     const { namesType, readsActions, anchorA, anchorB } = scan();
-    // A filter over an empty scan passes vacuously, and "exactly one reader"
-    // is what a dead pattern renders as. Both directions get a counter-probe.
+    // A filter over an empty scan passes vacuously, and "no reader" is exactly
+    // what a dead pattern renders as. Both directions get a counter-probe.
     expect(
       readsActions.length,
       'nothing in the tree reads `.actions` — the anchor is dead. Before hunting for a tree '
@@ -594,7 +597,7 @@ describe('census: `AppComponentSchema.actions[]` IS read, by exactly one package
       .toBeGreaterThan(5);
     expect(anchorA.length, 'anchor A matched nothing').toBeGreaterThan(0);
     expect(anchorB.length, 'anchor B matched nothing').toBeGreaterThan(0);
-    // …and they must actually narrow, or the one-reader result is an artefact.
+    // …and they must actually narrow, or the empty reader set is an artefact.
     expect(anchorA.length).toBeLessThan(readsActions.length);
     expect(anchorB.length).toBeLessThan(readsActions.length);
   });
@@ -612,22 +615,24 @@ describe('census: `AppComponentSchema.actions[]` IS read, by exactly one package
       ).toBe(true);
       expect(
         readers.filter((f) => f.startsWith(prefix)),
-        `${prefix} now reads the array — the retirement rationale needs re-measuring`,
+        `${prefix} now reads the array — it is RETIRED and refused by name (objectui#7469)`,
       ).toEqual([]);
     }
   });
 
-  it('exactly one file reads the array, and its package is `@object-ui/runner`', () => {
+  it('no file outside `packages/types` reads the array — the retired key has no reader', () => {
     const { readers } = scan();
     expect(
       readers,
-      'the reader set moved — widen ACTIONS_READER_FILES and re-check the '
-        + '`onClick` rationale before editing this expectation',
+      'a file reads `actions` off an app again — the key is RETIRED on both faces and '
+        + 'refused by name (objectui#7469, maintainer ruling C); app-level actions are '
+        + '`navigation` items of `type: \'action\'`. Do not widen ACTIONS_READER_FILES',
     ).toEqual([...ACTIONS_READER_FILES]);
-    expect([...new Set(readers.map(packageNameOf))].sort()).toEqual([...ACTIONS_READER_PACKAGES]);
+    // Named for the diagnostic above, so a failure also says WHICH package grew one.
+    expect([...new Set(readers.map(packageNameOf))]).toEqual([]);
   });
 
-  it('`packages/types` matches only as PROSE — the declaration and this census, and no third file', () => {
+  it('`packages/types` matches only as PROSE — the retirement pin and this census, and no third file', () => {
     const { anchorA, anchorB } = scan();
     const inTypes = [...new Set([...anchorA, ...anchorB])]
       .filter((f) => f.startsWith(DECLARING_PACKAGE_PREFIX))
@@ -635,17 +640,19 @@ describe('census: `AppComponentSchema.actions[]` IS read, by exactly one package
     expect(inTypes).toEqual([...DECLARING_PACKAGE_PROSE]);
   });
 
-  it('the one reader renders BOTH arms and reads no `onClick` off an action — the real ground for the retirement', () => {
-    const src = readFileSync(join(REPO_ROOT, ACTIONS_READER_FILES[0]), 'utf8');
-    expect(src).toContain("app.actions?.filter(a => a.type === 'button')");
-    expect(src).toContain("app.actions?.filter(a => a.type === 'user')");
-    // The array is read; the KEY is not. That distinction is the whole card:
-    // `onClick?: never` is right, the reason given for it was wrong.
-    expect(src, 'a renderer now reads `onClick` off an action — `?: never` is no longer true')
-      .not.toMatch(/\b(?:action|userAction|a)\??\.onClick\b/);
+  it('the FORMER reader is still in the population and is no longer a reader — the empty set is a reading', () => {
+    // The control for an empty reader set has to be the file that USED to be
+    // in it: it still names `AppComponentSchema` (so the scan reached it), and
+    // the anchors now reject it. Its two filters are gone from the source.
+    const { namesType, readers } = scan();
+    expect(namesType.has(FORMER_READER_FILE), `${FORMER_READER_FILE} left the population — re-derive this control`)
+      .toBe(true);
+    expect(readers).not.toContain(FORMER_READER_FILE);
+    const src = readFileSync(join(REPO_ROOT, FORMER_READER_FILE), 'utf8');
+    expect(src).not.toMatch(/\bapp\??\.actions\b/);
   });
 
-  it('`AppAction` is imported nowhere outside `packages/types` — the runner reaches the array through `AppComponentSchema`', () => {
+  it('`AppAction` is imported nowhere outside `packages/types` — it is retired, and the runner never imported it', () => {
     const importers = gitGrepFiles(['-l', GREP_ENGINE_FLAG, ANCHOR_IMPORTS_APP_ACTION])
       .filter((f) => !f.startsWith(DECLARING_PACKAGE_PREFIX));
     expect(importers).toEqual([]);
@@ -658,10 +665,13 @@ describe('census: `AppComponentSchema.actions[]` IS read, by exactly one package
       'the import anchor found nothing at all — if this host\'s git has no PCRE the engine '
         + 'self-test above names it; otherwise the tree moved',
     ).toBeGreaterThan(0);
-    // The symbol survives only as prose, and only in the reader's own package.
+    // The retired symbol survives outside `packages/types` only as PROSE, in
+    // the runner's own retirement pin (objectui#7469), which names what it
+    // retired. A second file mentioning it is new code reaching for a type
+    // that no longer exists.
     const mentions = gitGrepFiles(['-l', GREP_ENGINE_FLAG, ANCHOR_MENTIONS_APP_ACTION])
       .filter((f) => !f.startsWith(DECLARING_PACKAGE_PREFIX));
-    expect([...new Set(mentions.map(packageNameOf))]).toEqual([...ACTIONS_READER_PACKAGES]);
+    expect(mentions).toEqual(['packages/runner/src/__tests__/LayoutRenderer.chrome-7469.test.tsx']);
   });
 });
 
@@ -737,19 +747,12 @@ describe('counter-probe: deleting the key instead is a SILENT accept on either b
     expect((result.data as Record<string, unknown>).onBack).toBe('goBack');
   });
 
-  it('the deletion, simulated on a plain `z.object` mirror: parses GREEN and DROPS the string — the objectui#4453 silence, from the other side', () => {
-    // `AppActionSchema` is not `.passthrough()`: an undeclared key is stripped,
-    // so the author is told green and the value vanishes. Two base shapes, two
-    // different silences; the named refusal is the only outcome that is loud on
-    // both.
-    const authored = { type: 'button', label: 'Quick Actions', onClick: 'openQuickActions' };
-    const withArm = AppActionZod.safeParse(authored);
-    expect(withArm.success).toBe(false);
-    expect(withArm.error?.issues.map((i) => i.path)).toEqual([['onClick']]);
-    const deleted = AppActionZod.omit({ onClick: true }).safeParse(authored);
-    expect(deleted.success).toBe(true);
-    expect('onClick' in (deleted.data as Record<string, unknown>)).toBe(false);
-  });
+  // The plain-`z.object` half of this pair ran on `AppActionSchema.onClick`, the
+  // only ledgered site on that base shape, and left with the schema
+  // (objectui#7469, maintainer ruling C). The other silence it showed — an
+  // undeclared key STRIPPED rather than kept — is still measured on a plain
+  // `z.object` mirror, `MenuItemSchema`, in
+  // `./app-menu-item-shortcut-refusal-7719.test.ts` (its STRIP block).
 });
 
 /* ── The TypeScript face, judged by `tsc -p tsconfig.test.json` ──────────── */
@@ -774,7 +777,6 @@ type KeepsFunction<T> = [Extract<NonNullable<T>, (...args: never[]) => unknown>]
 type StringIsGone<T> = [Extract<NonNullable<T>, string>] extends [never] ? true : false;
 
 export type assertionRetiredKeysAreTombstoned = [
-  Expect<RetiredIsNever<AppAction['onClick']>>,
   Expect<RetiredIsNever<ReportBuilderSchema['onSave']>>,
   Expect<RetiredIsNever<ReportBuilderSchema['onCancel']>>,
   Expect<RetiredIsNever<CRUDDialogSchema['onClose']>>,
@@ -796,9 +798,9 @@ export type assertionRuntimeSlotsKeepTheirFunctionType = [
   Expect<KeepsFunction<CalendarViewSchema['onEventClick']>>,
 ];
 
-/** The four former `string` twins — `app.ts`, `reports.ts` ×2, `views.ts`. */
+/** The former `string` twins — `reports.ts` ×2, `views.ts` (the fourth, `app.ts`'s
+ *  `AppAction.onClick`, left with its type: objectui#7469). */
 export type assertionStringTwinsStopDeclaringString = [
-  Expect<StringIsGone<AppAction['onClick']>>,
   Expect<StringIsGone<ReportBuilderSchema['onSave']>>,
   Expect<StringIsGone<ReportBuilderSchema['onCancel']>>,
   Expect<StringIsGone<DetailViewSchema['onBack']>>,

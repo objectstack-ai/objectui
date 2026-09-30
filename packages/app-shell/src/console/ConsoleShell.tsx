@@ -42,6 +42,7 @@ import { RemediationOverlay } from './RemediationOverlay.js';
 import { HostNavigationBridge } from './HostNavigationBridge.js';
 import { ImpersonationBanner } from '../layout/ImpersonationBanner.js';
 import { ReadRateBanner } from '../layout/ReadRateBanner.js';
+import { StorageUsageBanner } from '../layout/StorageUsageBanner.js';
 
 // The console's every pre-React / pre-auth gate (Suspense fallback, adapter
 // not ready, org/auth loading) renders this. It used to be a bare, unbranded
@@ -183,6 +184,12 @@ function ConsoleShellProviders({ children }: { children: ReactNode }) {
                       environment both see nothing — and a non-admin session
                       never even issues the request. */}
                   <ReadRateBanner />
+                  {/* objectui#10439 — the environment admin's storage-capacity
+                      banner, beside the read-rate report and behind the same
+                      admin gate; the two read one `/usage/storage` response.
+                      Renders null unless the runtime's own verdict says `warn`
+                      (80% and up) or `blocked` (uploads and imports refused). */}
+                  <StorageUsageBanner />
                   <Suspense fallback={<LoadingFallback />}>{children}</Suspense>
                   {/* ADR-0069 — full-screen gate (expired password / required MFA) above all routes */}
                   <RemediationOverlay />
@@ -250,7 +257,7 @@ function ConnectedShellInner({ children }: { children: ReactNode }) {
   // the time the shell mounts and the same queries fire, once each.
   const { isLoading: isAuthLoading } = useAuth();
 
-  // ── Language switch → relabel without a page refresh (issue #1319) ──
+  // ── Language switch → relabel without a page refresh (issue objectstack-ai/objectstack#1319) ──
   //
   // Static UI strings already flip reactively through react-i18next, and
   // metadata labels that have a translation key resolve client-side via
@@ -467,8 +474,8 @@ export function SystemRedirect() {
   // file (objectui#6507). It does carry the null-render shape on a first
   // navigation — but it is the one site here that ALSO fires with the console
   // already painted: `SettingsView.tsx` navigates to `/system/settings` from a
-  // button, and `AppSidebar.tsx` links to `/system`. Neither is gated on
-  // anything, so both are live in exactly the runtimes this component serves.
+  // button. That is gated on nothing, so it is live in exactly the runtimes this
+  // component serves.
   // The #6507 triage ruling is explicit that a redirect firing under an
   // already-painted layout must KEEP that layout rather than gain a splash, so
   // converting this one would trade a boot-path blank for a full-screen splash

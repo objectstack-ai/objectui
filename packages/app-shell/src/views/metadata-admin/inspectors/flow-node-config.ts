@@ -29,6 +29,7 @@
  * `configSchema` fields, since built-in nodes share the same field ids.
  */
 
+import type { FlowTriggerKind } from '@objectstack/spec/automation';
 import { flowFieldZh, isZhLocale } from '../i18n.js';
 
 export type FlowConfigFieldKind =
@@ -42,7 +43,11 @@ export type FlowConfigFieldKind =
   | 'stringList'
   | 'numberList'
   | 'objectList'
-  | 'reference';
+  | 'reference'
+  // A write-only credential (objectui#11054). Rendered through the metadata
+  // form's existing `secret` widget; a value already on the node is never put
+  // back into the control, and leaving it blank writes nothing.
+  | 'secret';
 
 /**
  * What a `reference` field points at — the picker's data source. Most kinds
@@ -56,18 +61,18 @@ export type FlowConfigFieldKind =
  *   • `flow`          → a flow, by name (`client.list('flow')`)
  *   • `org-membership-level`
  *                     → an org-membership tier. A CLOSED enum rendered as a
- *                       STRICT select (framework #3508): there is no `role`
+ *                       STRICT select (objectstack-ai/objectstack#3508): there is no `role`
  *                       metadata type to list (ADR-0090 D3), and free text is
  *                       how dirty values like `sales_manager` got stored. The
  *                       vocabulary is the spec's membership-role list, taken
  *                       from the server-published `sources` entry when there
  *                       is one — never spelled out here, which is how it went
- *                       stale before (objectui#5309).
+ *                       stale before (`c7a74c80d`).
  *   • `user` / `team` / `department` / `position` → a DATA-record lookup on
  *                       the matching directory object (`sys_user` / `sys_team`
  *                       / `sys_business_unit` / `sys_position`) via the
  *                       DataSource adapter — NOT the metadata registry, which
- *                       lists no records (framework #3508). `position` commits
+ *                       lists no records (objectstack-ai/objectstack#3508). `position` commits
  *                       the machine NAME (`sys_user_position` routes by name,
  *                       ADR-0090 D3); the others commit the row id. See
  *                       `KIND_TO_RECORD_LOOKUP`, which mirrors the spec's
@@ -75,7 +80,7 @@ export type FlowConfigFieldKind =
  *   • `manager`       → auto-resolved at runtime (submitter's manager) — a
  *                       disabled cell, no value to author
  *   • `queue`         → declared-but-unenforced in the runtime (framework
- *                       #3508): free text + warning, not offered for new rows
+ *                       objectstack-ai/objectstack#3508): free text + warning, not offered for new rows
  *   • `node`          → another node in *this* flow, by id (read from the draft)
  *   • `connector`     → an installed connector (`client.list('connector')`)
  *   • `email-template`→ an email template (`client.list('email_template')`)
@@ -132,7 +137,7 @@ export interface FlowReferenceSpec {
   map?: Record<string, ReferenceKind>;
   /**
    * Where each discriminator value's candidates actually live, keyed like
-   * {@link map} — published by the spec as `xRef.sources` (framework #3508
+   * {@link map} — published by the spec as `xRef.sources` (objectstack-ai/objectstack#3508
    * follow-up) and carried through by `json-schema-to-fields`.
    *
    * {@link map} only ever named a picker KIND. It never said what backs that
@@ -282,6 +287,28 @@ export interface FlowConfigField {
    * never hidden.
    */
   showWhen?: { field: string; equals: string[] };
+  /**
+   * Flow-level visibility (objectui#11054): only render this field when the
+   * OWNING FLOW's trigger kind — the spec's `resolveFlowTriggerKind` over the
+   * whole draft, the one question the engine asks before it binds a trigger —
+   * is one of these. The gate for a key the engine reads because of what the
+   * flow as a whole resolves to, not because of one sibling field: an `api`
+   * flow is `type: 'api'` at the flow level OR `triggerType: 'api'` on the
+   * start node, and a `showWhen` on the select alone would miss the first.
+   *
+   * Same re-show rule as {@link showWhen}: a stored value keeps the field on
+   * screen, flagged as retained, whatever the kind. The host supplies the kind
+   * ({@link isFieldVisible}'s fourth argument); a host that supplies none never
+   * admits a `flowKind` field on the gate alone.
+   */
+  flowKind?: readonly FlowTriggerKind[];
+  /**
+   * A notice shown beside the control while the field holds no value and its
+   * gate admits it (objectui#11054) — for a key the engine refuses the flow
+   * without. English, like `help`; the zh overlay localizes it. Shown, never
+   * blocking: the host's save is not held back by it.
+   */
+  unsetNotice?: string;
   /** Column schema for `objectList` fields (array-of-objects repeater). */
   columns?: FlowConfigColumn[];
   /**
@@ -322,7 +349,7 @@ export interface FlowConfigField {
    * DECLARED vocabulary, so {@link FlowNodeConfigField} mounts it only where the
    * mount site also supplies one — the `TriggerScope` `flow-scope.ts` resolves
    * (`fieldPrefix`, `includePrevious`, `objectName`). No declared vocabulary (a
-   * schedule / manual / webhook trigger binds no record) ⇒ the field keeps the
+   * schedule / manual / api trigger binds no record) ⇒ the field keeps the
    * raw expression input rather than the component guessing a scope from the
    * value it was handed.
    */
@@ -377,15 +404,37 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
         { value: 'schedule', label: 'Schedule (cron)' },
         { value: 'time_relative', label: 'Time-relative (date sweep)' },
         { value: 'manual', label: 'Manual / autolaunched' },
-        { value: 'webhook', label: 'Webhook / API' },
-        { value: 'event', label: 'Platform event' },
+        // objectui#11054 — `api` is the token the engine routes to the inbound
+        // hook (`resolveFlowTriggerKind` in `@objectstack/spec/automation`).
+        // This option used to write `webhook`, which resolves to no trigger
+        // kind at all: the flow bound nothing and never received a post.
+        { value: 'api', label: 'Webhook / API' },
+        // objectui#11067 — no 「Platform event」 option. It wrote
+        // `triggerType: 'event'`, which `resolveFlowTriggerKind` answers no
+        // kind for and no engine trigger binds, so a flow authored with it
+        // never fired. A stored `event` is not rewritten: the select shows it
+        // as its flagged unknown value, and a save keeps it as written.
       ],
+    }),
+    // objectui#11054 — the inbound hook's per-flow secret. The engine refuses
+    // an `api`-kind flow whose start node carries no non-blank `config.secret`,
+    // so the field is gated on the FLOW's kind (`flowKind`), not on the select:
+    // a flow-level `type: 'api'` needs it just as much.
+    //
+    // Write-only. A server that withholds the secret from definition reads
+    // serves the start node WITHOUT the key, and keeps the stored secret when a
+    // save carries no key either — so leaving this blank must write nothing,
+    // and a value already on the draft is never put back into the control.
+    cfg('secret', 'Secret', 'secret', {
+      flowKind: ['api'],
+      help: 'The per-flow secret the inbound hook verifies every post against. Write-only: a saved secret is never shown here, and leaving this blank keeps it.',
+      unsetNotice: 'No secret entered. An API-triggered flow is refused unless its start node carries a secret. A secret already saved on this flow is kept when this is left blank.',
     }),
     cfg('objectName', 'Object', 'reference', {
       ref: { kind: 'object' },
       placeholder: 'crm_lead',
       help: 'Target object for record / scheduled-scan triggers.',
-      showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete', 'schedule', 'webhook', 'event'] },
+      showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete', 'schedule', 'api'] },
     }),
     cfg('condition', 'Entry condition', 'expression', {
       // objectui#6226 — the one predicate every business admin meets. Row
@@ -396,7 +445,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       conditionBuilder: true,
       placeholder: 'status == "qualifying" && previous.status != "qualifying"',
       help: 'CEL predicate — the flow runs only when this is true (for time-relative sweeps it gates each matched record). Leave empty to run on every event. On a "created or updated" trigger, `previous == null` selects the create path.',
-      showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete', 'schedule', 'time_relative', 'webhook', 'event'] },
+      showWhen: { field: 'triggerType', equals: ['record-after-create', 'record-after-update', 'record-after-write', 'record-before-update', 'record-after-delete', 'schedule', 'time_relative', 'api'] },
     }),
     // Schedule descriptor — author the canonical nested `config.schedule` object
     // the runtime actually reads (resolveTriggerBinding → normalizeSchedule). This
@@ -416,7 +465,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       help: 'Cron expression — when the flow runs. A time-relative sweep defaults to daily if left empty.',
       showWhen: { field: 'triggerType', equals: ['schedule', 'time_relative'] },
     },
-    // Time-relative trigger (#1874) — a `config.timeRelative` descriptor sweeps an
+    // Time-relative trigger (objectstack-ai/objectstack#1874) — a `config.timeRelative` descriptor sweeps an
     // object on a schedule (daily by default) and launches the flow once per record
     // whose date field falls in the window. All fields live under the nested
     // `config.timeRelative` block (which the whole group "owns", so it never leaks
@@ -602,6 +651,19 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       help: 'Inert — nothing reads this. The engine only honours `condition` on a Start node (the trigger gate); on a Decision it gates nothing. Shown so a stored value is not invisible. Move the predicate to a branch above, or to the outgoing edge’s own condition, then clear this.',
       showWhen: { field: '__legacy__', equals: [] },
     }),
+    // `@objectstack/spec` 17.5.0 added `DecisionConfigSchema.mode`, and the
+    // decision executor reads it (objectui#11073). An OPTIONAL enum with NO
+    // `.default()`, so ⛔ no `defaultValue` here, the objectui#9109 rule: the
+    // spec's own text says an omitted mode means `exclusive`, but it
+    // materialises nothing, and a declaration would state a default the spec
+    // does not apply. The spec refuses it beside a non-empty `conditions` list.
+    cfg('mode', 'Branch mode', 'select', {
+      options: [
+        { value: 'exclusive', label: 'Exclusive' },
+        { value: 'inclusive', label: 'Inclusive' },
+      ],
+      help: 'For a decision that branches on its out-edge conditions: Exclusive takes only the first edge that holds, in edge order (what leaving this unset means); Inclusive takes every edge that holds. The default edge runs when none holds. Not allowed together with Branches above.',
+    }),
   ],
   assignment: [
     cfg('assignments', 'Assignments', 'keyValue', {
@@ -740,7 +802,9 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
         { key: 'label', label: 'Label', kind: 'text', placeholder: 'Discount %' },
         { key: 'type', label: 'Type', kind: 'text', placeholder: 'number' },
         { key: 'required', label: 'Required', kind: 'boolean' },
-        { key: 'visibleWhen', label: 'Visible when', kind: 'expression', placeholder: 'stage == "review"' },
+        // A sibling-field shape (the flows guide's example): the predicate binds
+        // this screen's own fields, never a run variable (objectui#10743).
+        { key: 'visibleWhen', label: 'Visible when', kind: 'expression', placeholder: 'createOpportunity == true' },
       ],
     }),
     cfg('waitForInput', 'Wait for input', 'boolean', {
@@ -755,12 +819,14 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       placeholder: 'account_id',
       help: 'Object form only: variable bound to the saved record\u2019s id, for later steps.',
     }),
-    // ⛔ No `defaultValue` (objectui#9109): `ScreenConfigSchema.mode` is an
-    // OPTIONAL enum with no `.default()`, so an omitted key materialises
-    // nothing. Same shape as `http_request.method` above — whether the executor
-    // applies create-mode is NOT MEASURED here, and a declaration would state a
-    // spec default that does not exist.
+    // objectui#9109 deleted this field's `defaultValue` while
+    // `ScreenConfigSchema.mode` was an OPTIONAL enum with no `.default()`.
+    // `@objectstack/spec` 17.5.0 gave it one — an omitted key now materialises
+    // `'create'` — so the declaration returns, as that card's pin said it would
+    // the day the spec started applying one, with the spec's own value
+    // (objectui#11073). Shown, never written (objectui#6263).
     cfg('mode', 'Form mode', 'select', {
+      defaultValue: 'create',
       options: [
         { value: 'create', label: 'Create' },
         { value: 'edit', label: 'Edit' },
@@ -810,7 +876,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
             { value: 'department', label: 'Department' },
             { value: 'team', label: 'Team' },
             { value: 'field', label: 'Field' },
-            // #3447: CEL over current.* / trigger.* / vars.*, resolved at node
+            // objectstack-ai/objectstack#3447: CEL over current.* / trigger.* / vars.*, resolved at node
             // entry — the value cell switches to the expression input.
             { value: 'expression', label: 'Expression (CEL)' },
             { value: 'org_membership_level', label: 'Organization membership tier' },
@@ -821,8 +887,8 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
           // Polymorphic: the picker follows the row's `type` — record lookups
           // for the directory kinds, a strict select for the membership tier,
           // an auto-resolved cell for `manager`, an object-field picker for
-          // `field` (framework #3508). Unmapped/empty types fall back to free
-          // text — except `expression` (#3447), which the cell special-cases
+          // `field` (objectstack-ai/objectstack#3508). Unmapped/empty types fall back to free
+          // text — except `expression` (objectstack-ai/objectstack#3447), which the cell special-cases
           // into the CEL expression input (it is a discriminator value, not a
           // reference kind, so it deliberately has no `map` entry).
           key: 'value',
@@ -850,7 +916,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
           },
         },
         {
-          // #3447: expression-only — how the expression's resolved ids expand
+          // objectstack-ai/objectstack#3447: expression-only — how the expression's resolved ids expand
           // into people. Dead config on other types (linted server-side).
           key: 'resolveAs',
           label: 'Resolve as',
@@ -863,7 +929,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
           ],
         },
         {
-          // Group label for `per_group` sign-off (#3266): approvers sharing a
+          // Group label for `per_group` sign-off (objectstack-ai/objectstack#3266): approvers sharing a
           // label form one group; the node advances when EACH group reaches
           // `minApprovals`. Ignored by other behaviors.
           key: 'group',
@@ -905,7 +971,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       placeholder: 'approval_status',
       help: 'Business-object field to mirror request status onto (pending/approved/rejected). Should be readonly.',
     }),
-    // #3447: empty-slate policy — load-bearing for expression approvers, whose
+    // objectstack-ai/objectstack#3447: empty-slate policy — load-bearing for expression approvers, whose
     // slate is runtime data and may legitimately resolve to nobody.
     cfg('onEmptyApprovers', 'If no approver resolves', 'select', {
       options: [
@@ -1031,7 +1097,7 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       ],
       help: 'Notification severity.',
     }),
-    // Click-through target (#2675): deep-link the notification to a record.
+    // Click-through target (objectstack-ai/objectstack#2675): deep-link the notification to a record.
     cfg('sourceObject', 'Link object', 'text', { placeholder: 'sys_approval_request', help: 'Object of the record the notification links to (requires Link record id).' }),
     cfg('sourceId', 'Link record id', 'text', { help: 'Record id the notification links to (requires Link object).' }),
     cfg('url', 'Click-through URL', 'text', { help: 'Explicit link; overrides the one synthesized from Link object/record.' }),
@@ -1223,6 +1289,7 @@ function localizeField(rawType: string, canonicalType: string, field: FlowConfig
   const out: FlowConfigField = { ...field };
   if (z.label) out.label = z.label;
   if (z.help) out.help = z.help;
+  if (field.unsetNotice && z.unsetNotice) out.unsetNotice = z.unsetNotice;
   if (field.options && z.opts) {
     out.options = field.options.map((o) => ({ ...o, label: z.opts![o.value] ?? o.label }));
   }
@@ -1283,20 +1350,25 @@ export function configKeyOf(field: FlowConfigField): string | undefined {
  * (by `id`) resolves — via stored value, else spec `defaultValue` — to one of
  * `equals`, OR when the field already holds a stored value (so existing config
  * is never hidden).
+ *
+ * `flowKind` is the owning flow's trigger kind, for a field gated by
+ * {@link FlowConfigField.flowKind} (objectui#11054) — the host resolves it once
+ * from the whole draft. It is read by no other field.
  */
 export function isFieldVisible(
   field: FlowConfigField,
   node: Record<string, unknown> | null | undefined,
   fields: FlowConfigField[],
+  flowKind?: FlowTriggerKind,
 ): boolean {
-  if (!field.showWhen) return true;
+  if (!field.showWhen && !field.flowKind) return true;
   // ⛔ THE STORED-VALUE RE-SHOW RULE — do not weaken it, and do not invert it
   // into a prune. objectui#6499 ruled (maintainer, 2026-08-27, Option C) that a
   // hidden-but-stored dependent value is KEPT: the author sees it and clears it
   // deliberately. Deleting it on save is the rejected option precisely because
   // this line is what stops config an author entered from vanishing unseen.
   if (hasStoredValue(field, node)) return true;
-  return controllerAdmits(field, node, fields);
+  return controllerAdmits(field, node, fields, flowKind);
 }
 
 /**
@@ -1315,6 +1387,19 @@ export function isFieldVisible(
  */
 export function isUnsetFieldValue(raw: unknown): boolean {
   return raw === undefined || raw === null || raw === '';
+}
+
+/**
+ * Whether a field's {@link FlowConfigField.unsetNotice} stands for this value
+ * (objectui#11054). A `secret` counts as unset unless it is a non-blank string
+ * — the engine's own test for the inbound hook's secret (`trim() !== ''`), so
+ * a whitespace-only value keeps the notice up exactly as the engine keeps
+ * refusing the flow. Every other kind uses {@link isUnsetFieldValue}.
+ */
+export function unsetNoticeApplies(field: FlowConfigField, raw: unknown): boolean {
+  if (!field.unsetNotice) return false;
+  if (field.kind === 'secret') return !(typeof raw === 'string' && raw.trim() !== '');
+  return isUnsetFieldValue(raw);
 }
 
 /**
@@ -1338,12 +1423,18 @@ function hasStoredValue(
  * read ONE definition of "the controller says yes". Duplicating the resolution
  * would let the two drift, and the drift would be silent: the affordance would
  * quietly stop matching the fields it is supposed to annotate.
+ *
+ * A `flowKind` gate (objectui#11054) is one more controller, ANDed with any
+ * `showWhen`: the flow's resolved trigger kind must be one the field names. No
+ * kind supplied ⇒ the gate does not admit.
  */
 function controllerAdmits(
   field: FlowConfigField,
   node: Record<string, unknown> | null | undefined,
   fields: FlowConfigField[],
+  flowKind?: FlowTriggerKind,
 ): boolean {
+  if (field.flowKind && (flowKind === undefined || !field.flowKind.includes(flowKind))) return false;
   if (!field.showWhen) return true;
   const controller = fields.find((f) => f.id === field.showWhen!.field);
   if (!controller) return false;
@@ -1384,15 +1475,20 @@ export type InactiveRetainedKind = 'controller-off' | 'no-controller';
  * consults it; clearing is an ordinary author-initiated field commit through
  * the inspector's existing `setField`, exactly as if the author had emptied the
  * control by hand.
+ *
+ * A field gated by `flowKind` alone reports `'controller-off'`: its controller
+ * is the flow's trigger, which the author can switch back.
  */
 export function inactiveRetainedKind(
   field: FlowConfigField,
   node: Record<string, unknown> | null | undefined,
   fields: FlowConfigField[],
+  flowKind?: FlowTriggerKind,
 ): InactiveRetainedKind | null {
-  if (!field.showWhen) return null;
+  if (!field.showWhen && !field.flowKind) return null;
   if (!hasStoredValue(field, node)) return null;
-  if (controllerAdmits(field, node, fields)) return null;
+  if (controllerAdmits(field, node, fields, flowKind)) return null;
+  if (!field.showWhen) return 'controller-off';
   return fields.some((f) => f.id === field.showWhen!.field) ? 'controller-off' : 'no-controller';
 }
 

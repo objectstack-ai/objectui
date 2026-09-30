@@ -32,10 +32,37 @@
  *
  * An EMPTY `customFields` is unauthored: nothing is overridden or appended.
  *
+ * Explicit and derived SECTIONS answer the same question — whose definition is
+ * the field a section names? — through `findCustomFieldMember` below, which
+ * `mergeCustomFields` itself resolves every name through (objectui#10254). A
+ * section body has no append direction: it draws only what its entries name.
+ *
  * Module-private: not re-exported from the package barrel.
  */
 
 import type { FormField } from '@object-ui/types';
+
+/**
+ * The member that supplies the definition of the field called `name`, or
+ * `undefined` when no member names it — the override direction's precedence,
+ * spelled once. The first member naming the field wins, and an EMPTY
+ * `customFields` supplies nothing.
+ *
+ * Shared by the two producers of a runtime field from a name: the flat list
+ * (`mergeCustomFields` below, the default arm's pool and the drawer / modal
+ * no-sections path) and a section body (`normalizeSectionField` in
+ * `sectionFields.ts`, where the member is a section entry's BASE definition).
+ * objectui#10254: the drawer and modal section bodies used to regenerate every
+ * named field from the object schema, so a member the default arm drew was
+ * dropped on those two arms.
+ */
+export function findCustomFieldMember(
+  customFields: readonly FormField[] | null | undefined,
+  name: string,
+): FormField | undefined {
+  if (!customFields?.length) return undefined;
+  return customFields.find((m) => m?.name === name);
+}
 
 /**
  * Resolve the runtime field list for `names`, with `customFields` merged over
@@ -58,7 +85,7 @@ export function mergeCustomFields(
   const drawn: FormField[] = [];
 
   names.forEach((name, index) => {
-    const member = members?.find((m) => m?.name === name);
+    const member = findCustomFieldMember(members, name);
     if (member) {
       drawn.push(normalize(member));
       return;
@@ -78,28 +105,4 @@ export function mergeCustomFields(
   }
 
   return drawn;
-}
-
-/**
- * Hand a derived section's member NAMES back as the authored member objects
- * where a `customFields` member supplies the field.
- *
- * The drawer and modal build a derived (`fieldGroups`) section's body from its
- * names through `buildSectionFields`, which regenerates a named field from the
- * object schema. `ObjectForm` instead resolves a derived section's names
- * against its merged pool, so a member's definition is what renders inside a
- * group there. Passing the member object keeps the two arms on one answer:
- * `buildSectionFields` draws a runtime `FormField` verbatim. Names no member
- * supplies are returned unchanged, so a form without `customFields` resolves
- * byte-identically to before.
- */
-export function withCustomFieldMembers(
-  fields: ReadonlyArray<string | Record<string, any>>,
-  customFields: readonly FormField[] | null | undefined,
-): Array<string | Record<string, any>> {
-  if (!customFields?.length) return [...fields];
-  return fields.map((entry) => {
-    if (typeof entry !== 'string') return entry;
-    return customFields.find((m) => m?.name === entry) ?? entry;
-  });
 }

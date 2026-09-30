@@ -140,7 +140,7 @@ function evalCel(
   // verbatim — no second engine — so CEL semantics never drift from B2.
   // `warn: false`: this caller reports the fault itself (the labelled
   // `warnEvalError` in `evalRowPredicate`) — one warning per broken predicate,
-  // not two (#5149). `onFault` carries the engine's reason across that silence
+  // not two (objectstack-ai/objectstack#5149). `onFault` carries the engine's reason across that silence
   // so the labelled report can still name it (objectui#3792); both probes fault
   // identically, so the first reason is the reason.
   let reason: string | undefined;
@@ -164,7 +164,7 @@ export interface RowPredicateOptions {
    * scope (`features` / `user`) a host shell provides. The row wins on
    * collision: a `record` key here never shadows the row. Every OTHER key —
    * a host's own `data` included — reaches the predicate as the host's own
-   * (objectui#5741: `data` no longer names the row on a record surface). */
+   * (`83fe6e741`: `data` no longer names the row on a record surface). */
   scope?: Record<string, unknown>;
   /** When true, log a one-time warning if a *present* predicate faults. */
   warnOnError?: boolean;
@@ -208,10 +208,10 @@ export interface RowPredicateOptions {
  * Evaluate a single boolean predicate against a row record on the canonical CEL
  * engine (with a legacy-dialect fallback — see the module note). The row is
  * bound ONE way: as `record.*` — **the canon** (maintainer ruling 2026-08-20 on
- * objectui#5330, option B; Phase 2 executed by objectui#5741).
+ * objectui#5330, option B; Phase 2 executed by `83fe6e741`).
  *
  * Until Phase 2 the row was also bound as bare fields (`status`, the row-action
- * shorthand) and as `data.*`, and Phase 1 (PR #5737) warned once per
+ * shorthand) and as `data.*`, and Phase 1 (`d1ab06f0f`) warned once per
  * non-canonical spelling. Both bindings and that warning are gone. A bare-field
  * or `data.*` predicate on a record surface now FAULTS here exactly as it always
  * did on the server — measured on `@objectstack/formula@17.1.0`,
@@ -260,7 +260,7 @@ export function evalRowPredicate(
     ? {}
     : toPredicateRecord(row && typeof row === 'object' ? row : {}, opts.fields);
   // `record.*` + the host scope, all top-level. The row is bound ONE way
-  // (objectui#5741, Phase 2 of the objectui#5330 canon): no bare-field spread
+  // (`83fe6e741`, Phase 2 of the objectui#5330 canon): no bare-field spread
   // and no `data` — a predicate spelled either way is simply unbound here and
   // faults, on both dialect paths, exactly as it does on the server.
   //
@@ -316,7 +316,7 @@ export function evalRowPredicate(
   }
 
   // CEL path — everything reaching here is CEL. No spelling detector runs here
-  // (objectui#5741 removed the Phase-1 warning with the bindings): a retired
+  // (`83fe6e741` removed the Phase-1 warning with the bindings): a retired
   // bare-field / `data.*` spelling is unbound above and faults in the engine
   // like any other unknown variable, and the fault report below is what names
   // it. `detectNonCanonicalRowSpelling` stays exported for OFFLINE sweeps of
@@ -325,7 +325,7 @@ export function evalRowPredicate(
   // The fault-aware `evalCel` costs two evaluations (to tell a fault
   // from a genuine `false`), so only pay it when a caller wants the labelled
   // fail-closed warning — the formatting hot path takes the single-eval fast
-  // route. Since #5149 the fast route is no longer silent either: the
+  // route. Since objectstack-ai/objectstack#5149 the fast route is no longer silent either: the
   // canonical helper itself warns once per broken predicate (with `opts.label`
   // as the locator when given).
   if (!opts.warnOnError) {

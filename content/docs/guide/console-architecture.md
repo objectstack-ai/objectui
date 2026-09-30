@@ -177,11 +177,10 @@ builder**, and the menu entries that used to launch it are gone. Today:
   reachable as direct (legacy) deep links, which is why the pages above still ship.
 
 Do not re-document the old sidebar / command-palette entries: the "Add App" and "Edit App"
-items exist only in `AppSidebar`, which the console no longer mounts (`ConsoleLayout` renders
-`UnifiedSidebar`), and the command palette never registered a create-app command. `AppSidebar`
-is `@deprecated` as of objectui#5720 — it stays published (for any external consumer of the
-`@object-ui/app-shell` npm package) but is scheduled for removal once its deprecation window
-closes (objectui#5817). New work should target `UnifiedSidebar`.
+items lived only in `AppSidebar`, which the console had already stopped mounting
+(`ConsoleLayout` renders `UnifiedSidebar`) and which `@object-ui/app-shell` no longer exports
+(objectui#5817); the command palette never registered a create-app command. The console's
+sidebar is `UnifiedSidebar`.
 
 ### 5. Branding
 
@@ -216,6 +215,12 @@ interchangeable with the tokens above either: `--brand-*` carries the authored h
 light-mode HSL triple and does not follow the light/dark toggle, whereas `--primary` /
 `--accent` carry the mode-adjusted value. Theme against the Shadcn tokens; treat the
 `--brand-*` names as an alias kept for whatever already consumes it.
+
+**The app's logo is not part of that object.** `AppShellBranding` carries theme values and the
+tab title only. An app's `branding.logo` (an image URL — the one logo spelling the app schema
+declares) is drawn by `UnifiedSidebar`, which already resolves the active app: a header at the top
+of the sidebar shows the image, with the app's label as its alt text. An app without a
+`branding.logo` gets no header, so its sidebar is unchanged.
 
 ## Development Mode
 

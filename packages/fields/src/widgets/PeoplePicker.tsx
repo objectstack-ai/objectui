@@ -33,9 +33,10 @@ import { useRecordQuery } from './useRecordQuery.js';
 // The repo's single filter sink — conjoins filter sources under one `and`
 // instead of spreading them, so an id restriction can never overwrite a
 // declared filter on the same field (#5195).
-import { mergeFilterNodes } from '@object-ui/core';
+import { mergeFilterNodes, toFilterNodeSafely, type FilterNodeResult } from '@object-ui/core';
+import { usePermissions } from '@object-ui/permissions';
 import { lookupFiltersToRecord } from './RecordPickerDialog.js';
-import { getPersonId } from './personDisplay.js';
+import { getPersonId, getPersonNameFields } from './personDisplay.js';
 import { PersonRow } from './PersonRow.js';
 import { SelectionTray } from './SelectionTray.js';
 import { getRecentLookupIds, pushRecentLookupId } from './recentLookups.js';
@@ -70,12 +71,27 @@ export interface PeoplePickerProps {
   /** Object to query — `sys_user` for user fields. */
   objectName: string;
 
+  /**
+   * The person's name field (default `name`), read first of the name ladder
+   * (then `name`, `username`, `label`). Once the permission policy has loaded,
+   * a rung the user may not read on `objectName` is skipped.
+   */
   displayField?: string;
   idField?: string;
-  /** Dotted field paths for the row subtitle, e.g. `['primary_business_unit_id.name','email']`. */
+  /**
+   * Dotted field paths for the row subtitle, e.g. `['primary_business_unit_id.name','email']`.
+   * Once the permission policy has loaded, a path whose field on `objectName`
+   * the user may not read is not drawn.
+   */
   subtitleFields?: string[];
+  /** Avatar image field; not drawn once the loaded policy denies it on `objectName`. */
   avatarField?: string;
-  /** Related entities to expand (e.g. `['primary_business_unit_id']` for the department name). */
+  /**
+   * Related entities to expand (e.g. `['primary_business_unit_id']` for the
+   * department name). Once the permission policy has loaded, a relation the
+   * user may not read on `objectName` is left out, as it is from the list
+   * derived from `subtitleFields` when this is not passed.
+   */
   expand?: string[];
   /** Narrow the server searchable set (ADR-0061). */
   searchFields?: string[];
@@ -144,14 +160,74 @@ export function PeoplePicker({
 
   // Auto-expand relation subtitles (e.g. `primary_business_unit_id.name` needs
   // `$expand: ['primary_business_unit_id']`) unless the caller passed `expand`.
+  //
+  // Field-level security gates the OUTPUT (objectui#10373), in the shape the
+  // objectui#7215 / objectui#7230 rulings set and every other `$expand` in this
+  // package already has: once the policy has loaded, a relation the user may
+  // not read on `objectName` (the object this picker queries) is not asked
+  // for; before it loads nothing is filtered, and `perms` in the deps
+  // re-derives the list when the answer arrives. The gate reads the list that
+  // goes out, whichever source filled it — a caller's `expand` or the one
+  // derived from the subtitle paths. A subtitle path through a relation left
+  // out resolves to nothing and drops out of the row, as it does for a backend
+  // that ignores `$expand`.
+  const perms = usePermissions();
   const effectiveExpand = useMemo<string[] | undefined>(() => {
-    if (expand && expand.length) return expand;
-    const rels = new Set<string>();
-    (subtitleFields ?? []).forEach(f => {
-      if (f.includes('.')) rels.add(f.split('.')[0]);
-    });
-    return rels.size ? Array.from(rels) : undefined;
-  }, [expand, subtitleFields]);
+    let requested: string[];
+    if (expand && expand.length) {
+      requested = expand;
+    } else {
+      const rels = new Set<string>();
+      (subtitleFields ?? []).forEach(f => {
+        if (f.includes('.')) rels.add(f.split('.')[0]);
+      });
+      requested = Array.from(rels);
+    }
+    const readable = requested.filter(
+      f => !perms.isLoaded || perms.checkField(objectName, f, 'read'),
+    );
+    return readable.length ? readable : undefined;
+  }, [expand, subtitleFields, perms, objectName]);
+
+  // The subtitle fields and the avatar a row DRAWS, gated the same way
+  // (objectui#10433). Gating `$expand` alone left them on screen: a row read
+  // every subtitle path and the avatar straight off the served row, so on a
+  // backend that does not strip denied keys (ObjectStack's `FieldMasker` does)
+  // a plain field such as `email` showed. A path is judged by the field it
+  // reads on `objectName`, its first segment — the name the `$expand` gate
+  // above judges, and the only one a policy on this object can name. A
+  // withheld avatar is `null`, never `undefined`: the row and the tray default
+  // an `undefined` one back to `image`.
+  const readableSubtitleFields = useMemo<string[] | undefined>(
+    () =>
+      subtitleFields?.filter(
+        f => !perms.isLoaded || perms.checkField(objectName, f.split('.')[0], 'read'),
+      ),
+    [subtitleFields, perms, objectName],
+  );
+  const readableAvatarField = useMemo<string | null>(
+    () =>
+      !perms.isLoaded || perms.checkField(objectName, avatarField.split('.')[0], 'read')
+        ? avatarField
+        : null,
+    [avatarField, perms, objectName],
+  );
+  // The name a row and the tray draw, gated the same way (objectui#10535). It
+  // is read down a ladder of fields on `objectName` — the display field, then
+  // `name`, `username`, `label` (`getPersonNameFields`) — and a rung the policy
+  // denies is left out, so the name falls through to the next readable one:
+  // the fallback the lookup editor's option label has (objectui#10411), and
+  // what the row a stripping backend serves reads. With no rung readable the
+  // row and the tray draw their no-name placeholder, as for that row. The
+  // records themselves are kept as served, and the name is derived per render,
+  // so a policy that arrives later relabels them.
+  const readableNameFields = useMemo<string[]>(
+    () =>
+      getPersonNameFields(displayField).filter(
+        f => !perms.isLoaded || perms.checkField(objectName, f.split('.')[0], 'read'),
+      ),
+    [displayField, perms, objectName],
+  );
 
   // Main candidate query (search + candidate hygiene).
   const query = useRecordQuery({
@@ -209,17 +285,28 @@ export function PeoplePicker({
     expand: effectiveExpand,
   });
 
-  const recentFilter = useMemo<unknown>(() => {
+  // ⚠️ `baseFilter` is lowered through `toFilterNodeSafely` before the merge —
+  // objectui#10789. This is a RENDER-time `useMemo`, and the lowering refuses a
+  // malformed authored filter (`lookupFilters`, the host's `baseFilter`) with a
+  // `FilterOperatorError`: uncaught, that threw out of render into the error
+  // boundary. The refusal is kept as a VALUE: the recents query does not run
+  // (never "no filter", which would offer every record), and the candidate
+  // area below reports it in the error slot the main query's own refusal
+  // reaches through `dataSource.find`.
+  const recentFilter = useMemo<FilterNodeResult>(() => {
     const idRestriction = { [idField]: { $in: recentIds } };
-    return baseFilter ? mergeFilterNodes(baseFilter, idRestriction) : idRestriction;
+    if (!baseFilter) return { ok: true, node: idRestriction };
+    const lowered = toFilterNodeSafely(baseFilter);
+    return lowered.ok ? { ok: true, node: mergeFilterNodes(lowered.node, idRestriction) } : lowered;
   }, [baseFilter, idField, recentIds]);
+  const recentFilterRefusal = recentFilter.ok ? undefined : recentFilter.refusal;
 
   const recentQuery = useRecordQuery({
     dataSource,
     objectName,
-    enabled: open && recentIds.length > 0,
+    enabled: open && recentIds.length > 0 && recentFilter.ok,
     pageSize: Math.max(1, recentIds.length),
-    filter: recentFilter,
+    filter: recentFilter.ok ? recentFilter.node : undefined,
     expand: effectiveExpand,
   });
 
@@ -421,12 +508,15 @@ export function PeoplePicker({
     [navList, activeIndex, handleRowSelect, query.search, multiple, selectedRecords, handleRemove, idField],
   );
 
+  // The candidate area's error: the main query's own failure, else the refusal
+  // of the declared filter the recents merge could not lower (objectui#10789).
+  const candidateError = query.error ?? recentFilterRefusal?.message ?? null;
   const initialLoading =
-    query.loading && !query.error && query.records.length === 0 && recentRecords.length === 0;
+    query.loading && !candidateError && query.records.length === 0 && recentRecords.length === 0;
   const refetching = query.loading && !initialLoading;
   const isEmpty =
     !query.loading &&
-    !query.error &&
+    !candidateError &&
     resultRecords.length === 0 &&
     recentRecords.length === 0;
 
@@ -437,8 +527,9 @@ export function PeoplePicker({
         key={String(id)}
         record={record}
         displayField={displayField}
-        subtitleFields={subtitleFields}
-        avatarField={avatarField}
+        nameFields={readableNameFields}
+        subtitleFields={readableSubtitleFields}
+        avatarField={readableAvatarField}
         selected={selectedIds.has(String(id))}
         active={index === activeIndex}
         highlightQuery={query.search}
@@ -486,13 +577,20 @@ export function PeoplePicker({
           aria-busy={query.loading}
           className={cn('flex flex-col gap-0.5 pr-2 transition-opacity', refetching && 'opacity-70')}
         >
-          {query.error ? (
-            <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground">
+          {candidateError ? (
+            <div
+              className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground"
+              data-testid="people-picker-error"
+            >
               <AlertCircle className="size-5 text-destructive" aria-hidden />
-              <span className="max-w-xs">{query.error}</span>
-              <Button type="button" variant="outline" size="sm" onClick={query.refetch}>
-                {t('lookup.retry')}
-              </Button>
+              <span className="max-w-xs">{candidateError}</span>
+              {/* A retry re-runs a failed READ; it cannot repair an authored
+                  filter this picker refused before reading. */}
+              {query.error ? (
+                <Button type="button" variant="outline" size="sm" onClick={query.refetch}>
+                  {t('lookup.retry')}
+                </Button>
+              ) : null}
             </div>
           ) : initialLoading ? (
             Array.from({ length: SKELETON_ROWS }).map((_, i) => (
@@ -543,7 +641,8 @@ export function PeoplePicker({
             onClear={() => setSelectedRecords([])}
             clearLabel={t('lookup.clear')}
             displayField={displayField}
-            avatarField={avatarField}
+            nameFields={readableNameFields}
+            avatarField={readableAvatarField}
             idField={idField}
             label={t('table.selected', { count: selectedRecords.length })}
             className={cn('border-t pt-3')}

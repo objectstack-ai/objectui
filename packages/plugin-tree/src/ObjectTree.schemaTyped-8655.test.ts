@@ -68,6 +68,8 @@
  *     by an in-flight branch (objectui#9309), and the declared handling for
  *     that breach is to stop and report. Ledgered; the row below reddens the
  *     day it is declared, which is when this ledger should be retired.
+ *     ⇒ EXECUTED by objectui#9549, in the shape objectui#9309 settled
+ *     (`QueryParams['$filter']`), and the ledger entry retired with it.
  *   - **`tree` — ⛔ declare is OFF THE TABLE, and this card does not retire
  *     it.** The spec declares `tree` on the VIEW (`ListView.tree`, mirrored
  *     here as `TreeViewConfig`) and on ZERO element entries. Putting a
@@ -77,6 +79,28 @@
  *     SPREADING the block flat, and a text census is structurally blind to a
  *     key arriving through a spread (objectui#8651 measured exactly that
  *     failure and had to withdraw a retirement). ⇒ routed, rung untouched.
+ *
+ * ## ⚠️ UPDATE at `@objectstack/spec` 17.5.0 (objectui#11073) — the readings moved
+ *
+ * The bump turned the three spec-reading rows below red, which is what they
+ * are for. Re-measured on the installed 17.5.0:
+ *
+ *   - `ComponentPropsMap['object-tree']` now EXISTS — a strict entry declaring
+ *     `objectName` `data` `staticData` `filter` `tree` `navigation`. There is
+ *     still no `tree` entry.
+ *   - `navigation` is declared on SEVEN element entries, `object-tree` and
+ *     `object-calendar` among them — objectui#8652's unlock criterion ("a
+ *     released spec carrying the declaration installable here") is MET. The
+ *     ruled second step, mirroring it, is that card's and is ⛔ not executed by
+ *     the bump, so the key stays ledgered and undeclared here.
+ *   - `tree` is declared on exactly ONE element entry, `object-tree`, as the
+ *     nested author face (the same block `ListViewSchema.tree` declares). The
+ *     "declaring it on the node would fork" premise above has EXPIRED: declaring
+ *     is now align-the-mirror. That is a new DECLARE verdict — it widens the
+ *     published node — and it is ⛔ not executed by the bump either.
+ *
+ * The rows below pin those readings; the "stays undeclared here" rows are
+ * unchanged and now mean "owed, not yet executed".
  *
  * ## The ceiling, stated so nobody reads this file as claiming more
  *
@@ -137,10 +161,13 @@ type ObjectTreeNode = Extract<ObjectQLComponentSchema, { type: 'object-tree' }>;
 const CONTROL_KEY = 'zzplTreeAbsentControl8655' as const;
 
 /**
- * ③'s three answers, by name. Every entry is asserted STILL READ below: a
- * ledger whose subject has gone is a hole, not an exemption (objectui#8885).
+ * ③'s answers that are still UNDECLARED, by name. Every entry is asserted STILL
+ * READ below: a ledger whose subject has gone is a hole, not an exemption
+ * (objectui#8885). `filter` left this ledger when objectui#9549 executed its
+ * declare verdict — it is now a member of the mirror's shape, so the population
+ * row below counts it as declared rather than exempt.
  */
-const LEDGERED_UNDECLARED = ['navigation', 'filter', 'tree'] as const;
+const LEDGERED_UNDECLARED = ['navigation', 'tree'] as const;
 
 /* ── Instruments ──────────────────────────────────────────────────────────── */
 
@@ -243,7 +270,8 @@ export type _FieldsIsDeclared = Expect<Declares<ObjectTreeNode, 'fields'>>;
 export type _DefaultExpandedDepthIsDeclared =
   Expect<Declares<ObjectTreeNode, 'defaultExpandedDepth'>>;
 export type _NavigationIsUndeclared = Expect<Equal<Declares<ObjectTreeNode, 'navigation'>, false>>;
-export type _FilterIsUndeclared = Expect<Equal<Declares<ObjectTreeNode, 'filter'>, false>>;
+/** Declared by objectui#9549 — the `filter` DECLARE verdict below, executed. */
+export type _FilterIsDeclared = Expect<Declares<ObjectTreeNode, 'filter'>>;
 export type _TreeIsUndeclared = Expect<Equal<Declares<ObjectTreeNode, 'tree'>, false>>;
 
 /**
@@ -297,7 +325,7 @@ describe('objectui#8655 — the instruments are reading something (guards every 
 /* ── 2. The population: every read is declared, or ledgered by name ─────────── */
 
 describe('objectui#8655 — every key read off the node is declared, or ledgered', () => {
-  it('no read is undeclared outside the three ledgered keys', () => {
+  it('no read is undeclared outside the ledgered keys', () => {
     const reads = rendererReads();
     const declared = new Set(shapeKeys(ObjectTreeMirror));
     const exempt = new Set<string>(LEDGERED_UNDECLARED);
@@ -329,8 +357,16 @@ describe('objectui#8655 — every key read off the node is declared, or ledgered
 /* ── 3. ③ — the spec readings each verdict rests on ────────────────────────── */
 
 describe('objectui#8655 — the spec has no element schema for this node', () => {
-  it('no `object-tree` entry, and no `tree` entry (controls: two that ARE there)', () => {
-    expect(specElementKeys('object-tree')).toBeNull();
+  it('an `object-tree` entry since 17.5.0, and still no `tree` entry (controls: two that ARE there)', () => {
+    // `toBeNull()` through 17.4.0; the bump turned it red (objectui#11073).
+    expect(specElementKeys('object-tree')?.sort()).toEqual([
+      'data',
+      'filter',
+      'navigation',
+      'objectName',
+      'staticData',
+      'tree',
+    ]);
     expect(specElementKeys('tree')).toBeNull();
     // FIRING CONTROLS on those two nulls — without them a broken reader and a
     // real absence give the same answer.
@@ -339,12 +375,20 @@ describe('objectui#8655 — the spec has no element schema for this node', () =>
   });
 });
 
-describe('objectui#8655 — `navigation` is objectui#8652\'s, and the unlock has not happened', () => {
-  it('the spec declares it on ONE element entry, and it is not this one', () => {
-    const declaring = specElementsDeclaring('navigation');
-    expect(declaring).toContain('object-grid');
-    expect(declaring).not.toContain('object-tree');
-    expect(declaring).not.toContain('object-calendar');
+describe('objectui#8655 — `navigation` is objectui#8652\'s, and its unlock HAS happened', () => {
+  it('the spec declares it on seven element entries since 17.5.0, this one included', () => {
+    // Through 17.4.0: ONE entry, `object-grid`, and not this one. 17.5.0 met
+    // objectui#8652's unlock criterion (objectui#11073); mirroring is that
+    // card's ruled second step.
+    expect(specElementsDeclaring('navigation')).toEqual([
+      'object-calendar',
+      'object-gantt',
+      'object-grid',
+      'object-kanban',
+      'object-map',
+      'object-timeline',
+      'object-tree',
+    ]);
   });
 
   it('⛔ and it stays UNDECLARED here — this card must not rule the family', () => {
@@ -352,7 +396,7 @@ describe('objectui#8655 — `navigation` is objectui#8652\'s, and the unlock has
   });
 });
 
-describe('objectui#8655 — `filter` is the one DECLARE verdict, and it is not executed here', () => {
+describe('objectui#8655 — `filter` is the one DECLARE verdict, executed by objectui#9549', () => {
   it('the spec declares it on the comparable `object-*` element faces', () => {
     const declaring = specElementsDeclaring('filter');
     for (const el of ['object-grid', 'object-kanban', 'object-calendar', 'object-metric']) {
@@ -360,7 +404,7 @@ describe('objectui#8655 — `filter` is the one DECLARE verdict, and it is not e
     }
   });
 
-  it('every sibling node mirror in THIS repo declares it — this one alone does not', () => {
+  it('every sibling node mirror in THIS repo declares it — and now this one does too', () => {
     // The align-the-mirror ground, re-derived rather than written down.
     const siblings: [string, unknown][] = [
       ['ObjectGridSchema', ObjectGridMirror],
@@ -375,10 +419,10 @@ describe('objectui#8655 — `filter` is the one DECLARE verdict, and it is not e
     for (const [name, mirror] of siblings) {
       expect(shapeKeys(mirror), `${name} should declare filter`).toContain('filter');
     }
-    // ⚠️ This row is the LEDGER, not an endorsement: it reddens the day the
-    // declare verdict is executed, which is exactly when this ledger is due to
-    // be retired. ⛔ Do not "fix" it by deleting the ledger — declare the key.
-    expect(shapeKeys(ObjectTreeMirror)).not.toContain('filter');
+    // This row was the LEDGER while the verdict was unexecuted. objectui#9549
+    // declared the key on both faces and retired the ledger entry in the same
+    // change, so the row now pins the declaration instead.
+    expect(shapeKeys(ObjectTreeMirror)).toContain('filter');
   });
 });
 
@@ -390,8 +434,10 @@ describe('objectui#8655 — `tree` is a VIEW-level block, so declaring it on the
     expect(blockKeys).toEqual(['defaultExpandedDepth', 'fields', 'labelField', 'parentField']);
   });
 
-  it('…and NO element face declares a `tree` key (control: one key that IS on four)', () => {
-    expect(specElementsDeclaring('tree')).toEqual([]);
+  it('…and ONE element face declares a `tree` key since 17.5.0 — this node\'s (control: one key that IS on four)', () => {
+    // `[]` through 17.4.0. The premise this describe is named for expired at
+    // the bump (objectui#11073): see the UPDATE note in this file's header.
+    expect(specElementsDeclaring('tree')).toEqual(['object-tree']);
     // FIRING CONTROL on that zero, same instrument, same corpus.
     expect(specElementsDeclaring('filter').length).toBeGreaterThan(3);
   });

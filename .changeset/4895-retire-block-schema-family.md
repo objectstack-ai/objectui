@@ -49,4 +49,4 @@ the node type `SchemaRenderer` actually takes.
 `packages/types/src/blocks.ts` and `packages/types/src/zod/blocks.zod.ts` are kept as
 ADR-0049 tombstones exporting nothing, and `block-family-retired-4895.test.ts` pins every
 retired name out of them. `content/docs/blocks/block-schema.mdx` is deleted with the family,
-and objectui#7023 — the narrower validator-only fix — dissolves into this retirement.
+and the separate card for the narrower validator-only fix dissolves into this retirement.

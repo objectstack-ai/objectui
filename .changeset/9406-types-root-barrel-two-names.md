@@ -23,12 +23,12 @@ took for `ComboboxOption`, on the same list, for the same shape.
 presence assertions: it reads `form.ts`'s export list and the root barrel's `./form.js`
 re-export list on every run and names whatever is in the first and not the second. A pin
 asserting "these two names are present" would pass on the day the next declaration lands in
-`form.ts` and is forgotten, which is this class reopening a third time. Names deliberately
+`form.ts` and is forgotten, which is this class reopening yet again. Names deliberately
 left off the list get a ledger row carrying the reason instead, and a row goes red once its
 name reaches the barrel or stops being declared.
 
 Running that pin against this list surfaced two more names in the same state,
 `CommandItem` and `CommandGroup` — the element types of `CommandSchema.groups` and of its
-`items`, reachable only through the `/form` subpath while `CommandSchema` sits on the root
-list. objectui#9406's ruling authorises exactly two names, so they are ledgered as
-undecided rather than moved, and reported for their own card.
+`items`, then reachable only through the `/form` subpath while `CommandSchema` sat on the
+root list. objectui#9406's ruling authorised exactly two names, so they
+were ledgered as undecided rather than moved, and reported for their own card, objectui#9526.

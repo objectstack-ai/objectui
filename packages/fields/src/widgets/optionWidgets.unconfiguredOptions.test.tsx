@@ -134,7 +134,7 @@ describe('controls — a CONFIGURED list still cascade-clears what it no longer 
         field={{ name: 'tier', type: 'radio', options: OPTIONS } as any}
       />,
     );
-    expect(onChange).toHaveBeenCalledWith(undefined);
+    expect(onChange).toHaveBeenCalledWith(null);
   });
 
   it('SelectField clears a value the configured list does not offer', () => {
@@ -146,6 +146,6 @@ describe('controls — a CONFIGURED list still cascade-clears what it no longer 
         field={{ name: 'stage', type: 'select', options: OPTIONS } as any}
       />,
     );
-    expect(onChange).toHaveBeenCalledWith(undefined);
+    expect(onChange).toHaveBeenCalledWith(null);
   });
 });

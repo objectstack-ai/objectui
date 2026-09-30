@@ -6,11 +6,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import type { DataSource, TimelineSchema, ListViewTimelineConfig } from '@object-ui/types';
-import { useDataScope, useNavigationOverlay, useSafeFieldLabel, useSettledSchema } from '@object-ui/react';
+import { useDataScope, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
 import { NavigationOverlay } from '@object-ui/components';
-import { extractRecords, buildExpandFields, convertSortToQueryParams, createFieldColorResolver } from '@object-ui/core';
+import { extractRecords, buildExpandFields, convertSortToQueryParams, createFieldColorResolver, recordDisplayValueAt, toDisplayDate } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import { usePullToRefresh } from '@object-ui/mobile';
 import { z } from 'zod';
@@ -256,6 +256,17 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
     return !hasInlineItems && !hasInlineData && !!schema.objectName;
   });
   const [error, setError] = useState<Error | null>(null);
+  /**
+   * objectui#10663 — which run of the fetch effect below is the CURRENT one.
+   * Every run takes the next number, so a run a newer one has superseded can
+   * tell, and it may then neither clear the current run's `error` nor raise its
+   * own. objectui#10684 — nor commit its rows or release `loading`: an earlier
+   * answer that lands after the current one answers a query nobody is asking
+   * any more, and a superseded run that settles first would otherwise drop the
+   * skeleton while the current read is still in flight. Read by those four
+   * writes only; nothing renders from it.
+   */
+  const fetchSeqRef = useRef(0);
   const [refreshKey, setRefreshKey] = useState(0);
 
   // Resolve nested TimelineConfig (spec-compliant)
@@ -338,10 +349,34 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
   // (objectstack#7137), and an inline array on a schema node is a NEW object every
   // render — depending on identity would refetch the whole object on every render.
   // Same reason `RelatedList` keys its own scope filter on content.
-  const filterKey = JSON.stringify(schema.filter ?? null);
+  //
+  // objectui#10666 — the key is taken over the node's own `filter` with every
+  // context token (`{current_user_id}`, `{current_org_id}`, the date macros)
+  // resolved ONCE through `@object-ui/core`'s shared `resolveFilterPlaceholders`,
+  // against the session scope the host provides, and HELD by structure
+  // (`useResolvedFilter` in `@object-ui/react`). A directly authored timeline
+  // sent the literal token on `$filter` before. The query below reads the held
+  // value, so a new signed-in user moves the key and re-queries, and a date
+  // macro such as `{now}` does not move it on every render.
+  const filterScope = useFilterScope();
+  const queryFilter = useResolvedFilter(schema.filter, filterScope);
+  const filterKey = JSON.stringify(queryFilter ?? null);
   const sortKey = JSON.stringify(schema.sort ?? null);
 
+  // objectui#10623 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this timeline QUERIES is declared, and the fetch
+  // effect below names it, so the rows are re-read in place. The canvas stays
+  // mounted through the re-read (the skeleton below is drawn only while there
+  // are no items yet), so its scroll position survives. Subscribed only when
+  // the timeline fetches for itself: authored `items`, host `data` and bound
+  // rows are not this effect's query.
+  const fetchesForItself = !!schema.objectName && !boundData && !schema.items && !(props as any).data;
+  const invalidationNonce = useDataInvalidation(fetchesForItself ? schema.objectName : undefined);
+
   useEffect(() => {
+    const seq = ++fetchSeqRef.current;
+    const isCurrent = () => fetchSeqRef.current === seq;
     const fetchData = async () => {
         if (!dataSource || typeof dataSource.find !== 'function' || !schema.objectName) {
             // Can't fetch — clear loading so we don't sit in skeleton forever.
@@ -402,22 +437,46 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
             // the view it named. `filter` arrives already AND-composed by
             // `ElementDataSourceGate`, so there is nothing to merge here.
             const results = await dataSource.find(schema.objectName, {
-                $filter: schema.filter,
+                $filter: queryFilter,
                 $orderby: convertSortToQueryParams(schema.sort),
                 $top: resolveRowLimit(schema.limit, DEFAULT_TIMELINE_LIMIT),
                 ...(expand.length > 0 ? { $expand: expand } : {}),
             });
             const data = extractRecords(results);
-            setFetchedData(data);
+            // objectui#10684 — only the CURRENT run commits rows. A superseded
+            // answer (the filter, sort or object changed, or a bus re-read
+            // started, while this read was in flight) is dropped on arrival,
+            // so it can no longer land after the current answer and replace it.
+            //
+            // objectui#10663 — `error` is an early return in the render, so a
+            // report nothing clears kept the canvas off screen until a remount,
+            // and since objectui#10623 one failed data-invalidation re-read was
+            // enough to get there. It is cleared HERE, when the current run
+            // commits rows: those rows answer the current query, so no earlier
+            // failure describes the screen any more (objectui#10578's rule on
+            // `ObjectGantt`). ⛔ Not when a run starts: until rows land, the
+            // report stays.
+            if (isCurrent()) {
+                setFetchedData(data);
+                setError(null);
+            }
         } catch (e) {
             console.error(e);
-            setError(e as Error);
+            // A superseded run's failure no longer describes the screen, so it
+            // may not raise the error screen over the current run's rows. A
+            // failed background re-read is reported like any other: this
+            // block has no silent mode.
+            if (isCurrent()) setError(e as Error);
         } finally {
-            setLoading(false);
+            // objectui#10684 — only the current run owns the flag. A superseded
+            // run that settles first leaves the skeleton up for the read still
+            // in flight; the current run clears it on every exit, a throw
+            // included, so it is never left on.
+            if (isCurrent()) setLoading(false);
         }
     };
 
-    if (schema.objectName && !boundData && !schema.items && !(props as any).data) {
+    if (fetchesForItself) {
         // ⭐ objectui#7895 — the object definition GATES this query; it does not
         // refine it afterwards. `objectDef` stays in the dependency list below
         // and the two are ONE mechanism, not two: the dependency is what makes
@@ -438,8 +497,8 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
         // Have inline / bound items — won't fetch; clear loading.
         setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `schema.filter`/`schema.sort` are tracked by CONTENT (filterKey/sortKey) on purpose; see above
-  }, [schema.objectName, dataSource, boundData, schema.items, (props as any).data, refreshKey, objectDefReady, objectDef, filterKey, sortKey, schema.limit, perms]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `queryFilter`/`schema.sort` are tracked by CONTENT (filterKey/sortKey) on purpose; see above
+  }, [schema.objectName, dataSource, boundData, schema.items, (props as any).data, refreshKey, objectDefReady, objectDef, filterKey, sortKey, schema.limit, perms, invalidationNonce]);
 
   const rawData = (props as any).data || boundData || fetchedData;
   const { t } = useTimelineTranslation();
@@ -466,7 +525,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
   // resolved, so every record read a key no object carries, found nothing, and
   // bucketed into "No date" — a timeline that looks built
   // and is not. It also made a refusal screen unreachable by construction,
-  // which is why the maintainer ruling (2026-09-01, objectui#7070, 总监批 #28)
+  // which is why the maintainer ruling (2026-09-01, 总监批 #28)
   // ordered the floor retired and the refusal added as ONE change. House
   // posture, on record with that ruling: 日期轴永不虚构 — a date axis is never
   // fabricated. `undefined` from here is therefore a real answer, and the
@@ -512,14 +571,21 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
       return map;
     };
 
-    /** Which fields appear as inline chips beside the title.
-     *  Spec config: `timeline.metaFields: string[]`.
-     *  Heuristic default: `['status', 'priority']` — limited to fields that
-     *  actually exist in objectDef so non-CRM objects don't render fake
-     *  chips. */
-    const metaFieldNames: string[] = Array.isArray((timelineConfig as any)?.metaFields)
-      ? (timelineConfig as any).metaFields.filter((f: any) => typeof f === 'string' && f)
-      : ['status', 'priority'].filter((f) => fields[f]);
+    /** Which fields appear as inline chips beside the title: the built-in
+     *  `['status', 'priority']`, limited to fields that actually exist in
+     *  objectDef so non-CRM objects don't render fake chips.
+     *
+     *  ⛔ Not authorable, and nothing reads an authored list here
+     *  (objectui#10222, ruling batch #223 item 5b, letter A). The spec's
+     *  `TimelineConfigSchema` is a strict object that declares no chip-field
+     *  member and refuses one, so the retired `metaFields` read off this
+     *  block reached the renderer only through a stored view's unjudged
+     *  `options` bag (objectui#10380). If a producer ever asks for authored
+     *  chip fields, the reserved spelling is `cardFields` (the kanban /
+     *  gallery spelling), declared on the spec first; it is not declared
+     *  today. `ListView`'s status / priority auto-projection keys on the
+     *  same default, so the two must move together. */
+    const metaFieldNames: string[] = ['status', 'priority'].filter((f) => fields[f]);
     const metaOptionMaps: Record<string, Record<string, any>> = {};
     for (const f of metaFieldNames) metaOptionMaps[f] = optionMap(f);
 
@@ -566,12 +632,29 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
         }
       }
 
+      // The title and the description are derived as display STRINGS, once,
+      // here (objectui#10530). The renderer puts both in JSX as children, and
+      // the raw field value is not text whenever `titleField` or
+      // `descriptionField` names a lookup: the object fetch above expands
+      // every declared relation, so the row carries `{ id, name }`, and React
+      // throws `Objects are not valid as a React child` for the whole rail.
+      //
+      // `recordDisplayValueAt` is the resolver `ObjectMap` uses for the same
+      // two slots (objectui#10456), so one rule answers both: an expanded
+      // lookup reads as its display name, a bare id as itself, a number or a
+      // boolean as its string, and an empty value as no line at all.
+      //
+      // `startDate`, `endDate`, `color`, `group`, `meta` and `_data` below are
+      // RENDERER-INTERNAL (objectui#6356, ruling Q1 = A): this composer is
+      // their only producer and `TimelineRenderer` their only reader, so they
+      // are typed by the handoff in `./renderHandoff` and are NOT keys of the
+      // authored `TimelineFeedItem` — the strict authoring face refuses them.
       return {
-        title: item[titleField],
+        title: recordDisplayValueAt(item, titleField),
         time: startRaw,
         startDate: startRaw,
         endDate: endRaw,
-        description: item[descField],
+        description: recordDisplayValueAt(item, descField),
         variant: item[variantField] || 'default',
         color: resolveColor(colorRaw),
         group: groupRaw,
@@ -580,11 +663,31 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
       };
     });
 
+    // Every read of the start value below — this sort, the date bucket, and
+    // the renderer's item date — goes through the shared step,
+    // `toDisplayDate` (`@object-ui/core`, objectui#10866). The engine's own
+    // parse read a date-only `2026-10-06` as UTC midnight, so west of UTC an
+    // item due today bucketed as "Overdue" and sorted among instants at the
+    // wrong hour. The shared step tells the two shapes apart by the value: a
+    // date-only string is local midnight of the day it names, and a value
+    // with a time part keeps its instant. The three must read alike: the
+    // vertical renderer groups ADJACENT items, so a sort that disagreed with
+    // the buckets would split a bucket or order it wrongly.
+    //
+    // A value the shared step refuses (unparsable, or a day its month does
+    // not have, objectui#10026) sorts with the dateless items, as it buckets
+    // with them under "No date".
+    const sortKey = (raw: unknown): number => {
+      if (!raw) return Number.POSITIVE_INFINITY;
+      const ts = toDisplayDate(raw as string).getTime();
+      return Number.isNaN(ts) ? Number.POSITIVE_INFINITY : ts;
+    };
+
     // Sort by start date ascending; nulls sink to the end so users see
     // upcoming work first.
     mapped.sort((a, b) => {
-      const ta = a.startDate ? new Date(a.startDate).getTime() : Number.POSITIVE_INFINITY;
-      const tb = b.startDate ? new Date(b.startDate).getTime() : Number.POSITIVE_INFINITY;
+      const ta = sortKey(a.startDate);
+      const tb = sortKey(b.startDate);
       return ta - tb;
     });
 
@@ -604,7 +707,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
 
     const dateBucket = (raw: any): string => {
       if (!raw) return t('timeline.bucket.noDate');
-      const ts = startOfDay(new Date(raw));
+      const ts = startOfDay(toDisplayDate(raw));
       if (Number.isNaN(ts)) return t('timeline.bucket.noDate');
       if (ts < today) return t('timeline.bucket.overdue');
       if (ts === today) return t('timeline.bucket.today');
@@ -727,7 +830,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
    * Until objectui#7459 the resolver above ended in a fabricated literal, so a
    * name ALWAYS resolved and this branch could never have been taken — a
    * refusal screen that is present and unreachable. The maintainer ruling
-   * (2026-09-01, objectui#7070, 总监批 #28) ordered the two as one sequence for
+   * (2026-09-01, 总监批 #28) ordered the two as one sequence for
    * exactly that reason, and the other order is no better: retiring the floor
    * with no refusal leaves every record reading a key that is not there and
    * bucketing into "No date". Neither half is observable alone; the pin

@@ -77,6 +77,7 @@ import { useCommandPalette } from '../context/CommandPaletteProvider.js';
 import { useUrlOverlay } from '../hooks/useUrlOverlay.js';
 import { KEYBOARD_SHORTCUTS_PARAM, RECORD_TRAIL_PARAM, decodeRecordTrail, buildRecordTrailHref } from '../urlParams.js';
 import { useAiSurfaceEnabled } from '../hooks/useAiSurface.js';
+import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
 import { useSharedActivityFeed } from '../hooks/sharedUserFeeds.js';
 import { useInboxBell } from '../hooks/useInboxBell.js';
 import { useHomePath } from '../hooks/useHomePath.js';
@@ -86,6 +87,27 @@ import { PreviewBadge } from './PreviewBadge.js';
 
 function humanizeSlug(slug: string): string {
   return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * The breadcrumb segment after `System` for the `system/*` pages the console
+ * knows by name, read from the packs. `marketplace` is the one this shell
+ * mounts itself (`AppContent`'s `system/marketplace` routes, objectui#10900);
+ * the other six are the console app's own `system/*` routes (its
+ * `AppContent`'s `systemRoutes` fragment, objectui#10969). Any other segment
+ * answers `undefined`, and the header shows its humanized slug.
+ */
+function systemSegmentLabel(segment: string, t: (key: string) => string): string | undefined {
+  switch (segment) {
+    case 'marketplace': return t('console.breadcrumb.marketplace');
+    case 'settings': return t('console.breadcrumb.settings');
+    case 'apps': return t('console.breadcrumb.apps');
+    case 'profile': return t('console.breadcrumb.profile');
+    case 'approvals': return t('console.breadcrumb.approvals');
+    case 'ai-approvals': return t('console.breadcrumb.aiApprovals');
+    case 'audit-log': return t('console.breadcrumb.auditLog');
+    default: return undefined;
+  }
 }
 
 /** Muted `/` separator between path segments */
@@ -156,8 +178,11 @@ export function AppHeader({
   // Same signal as the FAB and the `/ai` route guard.
   const { enabled: aiEnabled } = useAiSurfaceEnabled();
   // Design entry points mutate shared package metadata, so the app → Studio
-  // bridge below is admin-only (mirrors the runtime view/page editors).
+  // bridge below is admin-only (mirrors the runtime view/page editors) AND
+  // needs the server-reported metadata-authoring capability — see
+  // `canDesignInStudio` below (objectui#10899).
   const { isAdmin: isWorkspaceAdmin } = useWorkspaceAdminStatus();
+  const canAuthorMetadata = useCanAuthorMetadata();
   const { t } = useObjectTranslation();
   const { objectLabel, dashboardLabel, pageLabel, reportLabel, viewLabel, appLabel } = useObjectLabel();
   const { apps: metadataApps, dashboards: metadataDashboards, pages: metadataPages, reports: metadataReports } = useMetadata();
@@ -218,7 +243,7 @@ export function AppHeader({
    * The bell's inbox — rows, badge addends and the three mark-read paths — now
    * comes from `useInboxBell`, the ONE wiring of `sharedUserFeeds` onto an
    * `InboxPopover` (#4225 / #4316). The `global:notifications` page block
-   * (objectui#6757) mounts the SAME hook, so a bell in the header and a bell an
+   * (`f99932a42`) mounts the SAME hook, so a bell in the header and a bell an
    * author declared on a page cannot disagree about a row's read-state: there
    * is no second read and no second optimistic overlay left to drift.
    *
@@ -320,8 +345,16 @@ export function AppHeader({
   // type doubles as the surface type and `pathParts[3]` is the surface name
   // (absent on the interface list routes, which fall back to the Data tab); the
   // mapping lives in `appStudioRoutePath`.
+  //
+  // Who may cross the bridge is the SERVER's answer, not the role's: an
+  // organization owner is a workspace admin, yet `organization_admin`
+  // deliberately withholds `manage_metadata` (ADR-0066), and on the cloud
+  // control plane the hammer opened the platform's own metadata to a
+  // signed-up customer (objectui#10899). Same doctrine as HomePage's builder
+  // CTAs; the server still refuses the write either way.
+  const canDesignInStudio = isWorkspaceAdmin && canAuthorMetadata;
   const studioDesignPath = isApp
-    ? appStudioRoutePath(currentApp, isWorkspaceAdmin, { type: routeType, name: pathParts[3] })
+    ? appStudioRoutePath(currentApp, canDesignInStudio, { type: routeType, name: pathParts[3] })
     : null;
 
   const objectSiblings = appObjects.map((o: any) => ({
@@ -359,7 +392,9 @@ export function AppHeader({
       }
     } else if (routeType === 'system') {
       extraSegments.push({ label: t('console.breadcrumb.system') });
-      if (pathParts[3]) extraSegments.push({ label: humanizeSlug(pathParts[3]) });
+      if (pathParts[3]) {
+        extraSegments.push({ label: systemSegmentLabel(pathParts[3], t) ?? humanizeSlug(pathParts[3]) });
+      }
     } else if (routeType) {
       const currentObject = safeObjects.find((o: any) => o.name === routeType);
       if (currentObject) {

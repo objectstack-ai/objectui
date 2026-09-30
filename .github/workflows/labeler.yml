@@ -19,6 +19,13 @@ permissions:
   # in ONE `setLabels` call, so without this the first PR touching e.g. `packages/auth`
   # fails the call outright and the PR gets NO labels at all — strictly worse than the
   # coverage gap #7746 closed. Pinned by scripts/__tests__/labeler-package-coverage.test.ts.
+  #
+  # With `sync-labels: true` and a run on every push, which labels that call keeps decides
+  # whether a hand-hung label this config never names (`needs:contract-review`,
+  # `needs-user-decision`) outlives the next push. Measured once on objectui#10410
+  # (a024b78 -> a7bac39): a hand-hung `question` survived the `synchronize` run whose
+  # `setLabels` added `configuration` and `ci/cd`, so it does. One-time reading, nothing
+  # re-derives it; a label hung while a run is in flight was not measured.
   issues: write
 
 jobs:

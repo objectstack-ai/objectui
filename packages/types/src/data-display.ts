@@ -15,7 +15,7 @@
  * @packageDocumentation
  */
 
-import type { ChartType as SpecChartType, I18nLabel } from '@objectstack/spec/ui';
+import type { ChartAxis as SpecChartAxis, ChartType as SpecChartType, I18nLabel } from '@objectstack/spec/ui';
 import type { BaseSchema, SchemaNode } from './base.js';
 import type { BreadcrumbSchema } from './navigation.js';
 
@@ -116,12 +116,15 @@ export interface StatisticSchema extends BaseSchema {
    * `className`, `description`, `icon`, `label`, `trend`, `value` (in
    * `packages/components/src/renderers/data-display/statistic.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `statistic` reads — nothing renders it.
    */
@@ -140,12 +143,15 @@ export interface StatisticSchema extends BaseSchema {
    * `className`, `description`, `icon`, `label`, `trend`, `value` (in
    * `packages/components/src/renderers/data-display/statistic.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `statistic` reads — nothing renders it.
    */
@@ -233,12 +239,15 @@ export interface AvatarSchema extends BaseSchema {
    * `alt`, `fallback`, `src` (in
    * `packages/components/src/renderers/data-display/avatar.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `avatar` reads — nothing renders it.
    */
@@ -256,12 +265,15 @@ export interface AvatarSchema extends BaseSchema {
    * `alt`, `fallback`, `src` (in
    * `packages/components/src/renderers/data-display/avatar.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `avatar` reads — nothing renders it.
    */
@@ -298,7 +310,7 @@ export interface ListSchema extends BaseSchema {
    * READ SITE: `packages/components/src/renderers/data-display/list.tsx:27` —
    * `cn("space-y-2", schema.wrapperClass)`. Undeclared until
    * objectui#7722, surviving only on `BaseSchema`'s index signature: the same
-   * key, on the same class of read, that `CheckboxSchema` (objectui#6938),
+   * key, on the same class of read, that `CheckboxSchema` (`b74a8598d`),
    * `FileUploadSchema` and `FilterBuilderSchema` (objectui#6150) declare.
    * Distinct from `className`, which the renderer hands to the `ul` / `ol`.
    */
@@ -318,11 +330,12 @@ export interface ListSchema extends BaseSchema {
    * `wrapperClass` (in `packages/components/src/renderers/data-display/list.tsx`).
    *
    * ⭐ THE ITEM CHANNEL IS A DIFFERENT KEY AND STAYS LIVE. That renderer draws
-   * each entry as `item.content || renderChildren(item.body)` — a read filed
-   * under {@link ListItem}, NOT under this node. An instrument that attributed
-   * it here would have made `list` a `body` reader and this tombstone a
-   * mistake, so the item channel is pinned as still live in
-   * `__tests__/content-channel-family-d-9256.test.ts`.
+   * each entry from its `content` (`renderChildren(item.content)`) — a read filed
+   * under {@link ListItem}, NOT under this node, and `content` is neither of the
+   * two node channels refused here. Until objectui#9590 that read fell back to an
+   * item-level `body`; an instrument that attributed THAT read here would have
+   * made `list` a `body` reader and this tombstone a mistake, so the item channel
+   * is pinned as still live in `__tests__/content-channel-family-d-9256.test.ts`.
    *
    * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9544, AND WHAT CHANGED. It was
    * held for a SERIAL constraint, ⛔ never a verdict: this file was being
@@ -335,12 +348,15 @@ export interface ListSchema extends BaseSchema {
    * tombstone, and reading the one for the other is what would have narrowed
    * `button`, which reads both channels live.
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `list` reads — nothing renders it. Author the
    * rows as `items`, whose entries carry `content`.
@@ -361,11 +377,12 @@ export interface ListSchema extends BaseSchema {
    * `wrapperClass` (in `packages/components/src/renderers/data-display/list.tsx`).
    *
    * ⭐ THE ITEM CHANNEL IS A DIFFERENT KEY AND STAYS LIVE. That renderer draws
-   * each entry as `item.content || renderChildren(item.body)` — a read filed
-   * under {@link ListItem}, NOT under this node. An instrument that attributed
-   * it here would have made `list` a `body` reader and this tombstone a
-   * mistake, so the item channel is pinned as still live in
-   * `__tests__/content-channel-family-d-9256.test.ts`.
+   * each entry from its `content` (`renderChildren(item.content)`) — a read filed
+   * under {@link ListItem}, NOT under this node, and `content` is neither of the
+   * two node channels refused here. Until objectui#9590 that read fell back to an
+   * item-level `body`; an instrument that attributed THAT read here would have
+   * made `list` a `body` reader and this tombstone a mistake, so the item channel
+   * is pinned as still live in `__tests__/content-channel-family-d-9256.test.ts`.
    *
    * ⭐ WHY THIS NAME WAS HELD OUT OF objectui#9544, AND WHAT CHANGED. It was
    * held for a SERIAL constraint, ⛔ never a verdict: this file was being
@@ -378,12 +395,15 @@ export interface ListSchema extends BaseSchema {
    * tombstone, and reading the one for the other is what would have narrowed
    * `button`, which reads both channels live.
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `list` reads — nothing renders it. Author the
    * rows as `items`, whose entries carry `content`.
@@ -428,9 +448,23 @@ export interface ListItem {
    */
   onClick?: never;
   /**
-   * Item content (schema nodes)
+   * Item content — THE item's content key. A string is placed as-is; a node or
+   * an array of nodes renders through `SchemaRenderer` (objectui#9590).
    */
   content?: SchemaNode | SchemaNode[];
+  /**
+   * RETIRED (objectui#9590) — author `content`.
+   *
+   * The `list` renderer used to fall back to an item-level `body` when
+   * `content` was missing, and that fallback was the only way a node rendered
+   * inside an item, because `content` was placed as a raw React child. This
+   * face never declared `body`. The renderer now draws `content` through
+   * `renderChildren`, the fallback is gone, and the key is refused by name:
+   * `tsc` here, and `ListItemSchema`'s alias refusal naming `content` at parse.
+   *
+   * @deprecated Retired item-level spelling of `content` — author `content`.
+   */
+  body?: never;
 }
 
 /**
@@ -449,7 +483,7 @@ export interface TableSortItem {
 
 /**
  * Every `type` spelling a `TableColumn` may carry — the canonical value set for
- * this key (objectui#5853, maintainer ruling 2026-08-25, Option B: the 8-literal
+ * this key (`fc62bb490`, maintainer ruling 2026-08-25, Option B: the 8-literal
  * interface union is canonical).
  *
  * This tuple is the SINGLE declaration of that vocabulary. `TableColumnSchema`
@@ -467,7 +501,7 @@ export type TableColumnType = (typeof TABLE_COLUMN_TYPES)[number];
 
 /**
  * Undeclared `type` spellings the data-table renderer used to read, folded onto
- * the canonical spelling they mean (objectui#5853).
+ * the canonical spelling they mean (`fc62bb490`).
  *
  * These are NOT part of the published vocabulary and deliberately do not appear
  * in {@link TABLE_COLUMN_TYPES}: the ruling rejected alias proliferation, so the
@@ -491,7 +525,7 @@ const TABLE_COLUMN_TYPE_ALIASES: Readonly<Record<string, TableColumnType>> = {
 
 /**
  * Fold an inferred column type onto the canonical {@link TableColumnType}
- * vocabulary, for use at a producer's emit seam (objectui#5853).
+ * vocabulary, for use at a producer's emit seam (`fc62bb490`).
  *
  * Column inference reads an OBJECT SCHEMA's field type, whose vocabulary is
  * `@objectstack/spec`'s `FieldType` — 49 values, only 7 of which are members of
@@ -585,6 +619,11 @@ export interface TableColumn {
   editable?: boolean;
   /**
    * Custom cell renderer function
+   *
+   * RUNTIME SLOT (objectui#7759 group E, objectui#6124 shape) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name. Kept callable here because `data-table`
+   * calls `col.cell(cellValue, row)` (as do `ObjectGrid` and `VirtualGrid`).
    */
   cell?: (value: any, row: any) => any;
   /**
@@ -685,6 +724,66 @@ export interface TableColumn {
    * this slot and `data-table` reads it here — declared, forwarded, rendered.
    */
   wrap?: boolean;
+  /**
+   * The column holds a MASKED value — a credential whose cell is drawn as a
+   * mask. `data-table` withholds the raw value on every path of its own that
+   * reads it:
+   * - Ctrl+C / Cmd+C on one of its cells writes nothing to the clipboard;
+   * - the cell carries no `title` tooltip;
+   * - the table's CSV export leaves the column out;
+   * - the column never enters inline edit (on any trigger), because every
+   *   editor is seeded with the raw value;
+   * - the client search leaves the column out of its predicate;
+   * - its sort is disabled: the header is inert and the header menu offers no
+   *   sort, under client and manual sorting alike, and a client sort already
+   *   set on it stops ordering the rows;
+   * - its auto width is sized from its header, never from its values.
+   *
+   * Absent or `false` leaves every one of those paths exactly as it was. The
+   * last three are objectui#10657, which folded objectui#10658. Under
+   * `manualSearch` the table searches nothing itself: what the host's search
+   * matches is the host's.
+   *
+   * ⚠️ The flag withholds; it does not DRAW. The mask a reader sees comes from
+   * the PRODUCER's {@link TableColumn.cell} renderer. The table draws a column
+   * with no `cell` as its value, flag or not.
+   *
+   * ⭐ The producer decides, and the rule is not restated here. `ObjectGrid`,
+   * `RelatedList` (`@object-ui/plugin-detail`) and `ObjectDataTable`
+   * (`@object-ui/plugin-dashboard`) stamp this flag from `isMaskedFieldType()`
+   * in `@object-ui/fields` (objectui#8686), the one authority for "is this
+   * field type's cell drawn as a mask", reading the column's authored type and
+   * the object-declared type as a narrow-only UNION — a column authoring
+   * `type: 'text'` over a `secret` field keeps the flag once the object's
+   * types are known. `@object-ui/components` cannot import `@object-ui/fields`,
+   * so the table obeys the flag instead of asking the question itself.
+   *
+   * `RelatedList` and `ObjectDataTable` fail closed: while their object
+   * definition is in flight, or after its read failed, they stamp EVERY column.
+   *
+   * WITHHELD columns (objectui#10657, which folded objectui#10706): while an
+   * object-bound producer's field types are unknown (the definition is in
+   * flight, or its read failed), a column it cannot type draws as the mask
+   * instead of as text, and carries this flag; it stays so when the read
+   * failed. In `ObjectGrid` and `ObjectDataTable` that is a column with no
+   * authored `type`; `RelatedList` draws its cells from the object's types
+   * only, so there it is every column without a `cell` of its own. A host that
+   * already holds the object's fields hands them to `ObjectGrid`
+   * (`objectFields`, as `ListView` does), so that grid has no such window.
+   *
+   * `ObjectGrid` also leaves every masked or withheld field of its object out
+   * of its own client export, draws those fields through `cell` on its mobile
+   * card, and refuses them as grouping keys. Not covered there: the
+   * server-streamed export (`exportDownload`) sends the masked columns as
+   * before and relies on the server's masking; and the client JSON export, and
+   * this table's CSV export of a lookup column, write an expanded lookup
+   * record whole, so a credential field of the related object is not pruned.
+   *
+   * Declared by objectui#10583: the grid drew the mask while the table's
+   * keyboard copy wrote `String(row[accessorKey])` for every cell — the grid
+   * face of the disclosure objectui#8440 closed on the detail page.
+   */
+  masked?: boolean;
 }
 
 /**
@@ -744,6 +843,14 @@ export interface StaticTableColumn {
    * @deprecated Not part of the static `table` renderer's contract.
    */
   wrap?: never;
+  /**
+   * NOT on the static `table` surface (objectui#10583) — declared on the rich
+   * {@link TableColumn} only, where `data-table` reads it. The static renderer
+   * has no keyboard copy, tooltip, export or inline edit for it to withhold.
+   * Use `data-table` for the interactive set.
+   * @deprecated Not part of the static `table` renderer's contract.
+   */
+  masked?: never;
   /**
    * RETIRED from the static `table` surface (objectui#5474, ADR-0049) — the
    * static renderer never read it; a right-aligned column authored here was
@@ -899,12 +1006,15 @@ export interface TableSchema extends BaseSchema {
    * `caption`, `columns`, `data`, `footer` (in
    * `packages/components/src/renderers/complex/table.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `table` reads — nothing renders it.
    */
@@ -922,12 +1032,15 @@ export interface TableSchema extends BaseSchema {
    * `caption`, `columns`, `data`, `footer` (in
    * `packages/components/src/renderers/complex/table.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `table` reads — nothing renders it.
    */
@@ -1236,7 +1349,7 @@ export interface DataTableSchema extends BaseSchema {
    * Handler invoked when one of {@link rowActionDefs} is chosen from the row
    * overflow menu.
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `75fca9669`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is called by `renderers/complex/data-table.tsx`
@@ -1285,7 +1398,12 @@ export interface DataTableSchema extends BaseSchema {
    */
   singleClickEdit?: boolean;
   /**
-   * Host-supplied cell editor for inline editing (objectui#6882).
+   * Host-supplied cell editor for inline editing (`bf97b98c8`).
+   *
+   * RUNTIME SLOT (objectui#7759 group E, objectui#6124 shape) — a host-supplied
+   * function, NOT authorable metadata: JSON has no function value, so the zod
+   * twin refuses this key by name. Kept callable here because `data-table`
+   * reads `schema.renderCellEditor` and calls it; `ObjectGrid` supplies it.
    *
    * When a cell enters edit mode the table calls this FIRST and renders what it
    * returns; returning `null` means "no widget for this column" and the table
@@ -1300,7 +1418,7 @@ export interface DataTableSchema extends BaseSchema {
    * input, Escape cancels, click-outside commits); `stage` records a value
    * without leaving edit mode, `commit` saves, `cancel` discards.
    *
-   * ⚠️ Declared as of objectui#6882 (maintainer ruling 2026-08-30). `data-table`
+   * ⚠️ Declared as of `bf97b98c8` (maintainer ruling 2026-08-30). `data-table`
    * has read this key on the production path since inline editing landed — it
    * did so through a `(schema as any)` cast, which existed for no reason other
    * than this declaration's absence and is gone with it. Nothing new runs; a
@@ -1334,7 +1452,7 @@ export interface DataTableSchema extends BaseSchema {
    * Cell value change handler
    * Called when a cell value is edited
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `75fca9669`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is called by `renderers/complex/data-table.tsx`
@@ -1347,7 +1465,7 @@ export interface DataTableSchema extends BaseSchema {
    * Row save handler
    * Called when saving changes for a single row
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `75fca9669`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is called by `renderers/complex/data-table.tsx`
@@ -1361,7 +1479,7 @@ export interface DataTableSchema extends BaseSchema {
    * Batch save handler
    * Called when saving changes for multiple rows
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `75fca9669`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is called by `renderers/complex/data-table.tsx`
@@ -1374,15 +1492,17 @@ export interface DataTableSchema extends BaseSchema {
    * Row click handler
    * Called when a row is clicked
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `75fca9669`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is called by `renderers/complex/data-table.tsx`
    * (`schema.onRowClick(row, e)`, gated on `!e.defaultPrevented`). THREE
    * suppliers, measured: `ObjectGrid` passes `navigation.handleClick`,
-   * `ObjectDataTable` passes `schema.onRowClick ?? handleRowClick` (its own
-   * forwarding face, `ObjectDataTableSchema.onRowClick`, carries the same
-   * refusal arm), and `RelatedList` forwards its own React prop of this name.
+   * `ObjectDataTable` passes
+   * `schema.onRowClick ?? (recordDrillEnabled ? handleRowClick : undefined)`
+   * (its own forwarding face, `ObjectDataTableSchema.onRowClick`, carries the
+   * same refusal arm), and `RelatedList` forwards its own React prop of this
+   * name.
    *
    * TWO parameters since objectui#9462, and the second is the reason that card
    * exists: the renderer's two call sites — the row's own click handler and the
@@ -1410,7 +1530,7 @@ export interface DataTableSchema extends BaseSchema {
   rowStyle?: (row: any, index: number) => React.CSSProperties | undefined;
   /**
    * Extra CSS classes folded into the table's UTILITY body cells
-   * (objectui#6882) — and ONLY those three, each rendered only when its
+   * (`bf97b98c8`) — and ONLY those three, each rendered only when its
    * feature is on: the leading selection-checkbox cell (`selectable`), the
    * row-number cell (`showRowNumbers`), and the trailing row-actions cell
    * (`rowActions`).
@@ -1432,7 +1552,7 @@ export interface DataTableSchema extends BaseSchema {
    * them. Setting only this key leaves every data cell at the table
    * primitive's default `p-4`.
    *
-   * ⚠️ Declared as of objectui#6882 (maintainer ruling 2026-08-30). `data-table`
+   * ⚠️ Declared as of `bf97b98c8` (maintainer ruling 2026-08-30). `data-table`
    * has destructured this key off the schema and folded it into those three
    * cells all along; only the declaration was missing. `string` matches
    * {@link BaseSchema.className} and {@link TableColumn.cellClassName} — the
@@ -1465,7 +1585,7 @@ export interface DataTableSchema extends BaseSchema {
   /**
    * Callback when the "+ Add record" row is clicked
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `75fca9669`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is called by `renderers/complex/data-table.tsx`
@@ -1479,7 +1599,7 @@ export interface DataTableSchema extends BaseSchema {
    * Column resize handler
    * Called when a column is resized
    *
-   * RUNTIME SLOT (objectui#6124, declared by objectui#7804) — a host-supplied
+   * RUNTIME SLOT (objectui#6124, declared by `75fca9669`) — a host-supplied
    * function, NOT authorable metadata: JSON has no function value, so the zod
    * twin refuses this key by name and points at the node-type spelling. Kept
    * callable here because it is called by `renderers/complex/data-table.tsx`
@@ -1518,12 +1638,15 @@ export interface DataTableSchema extends BaseSchema {
    * `rowEditPredicates` (in
    * `packages/components/src/renderers/complex/data-table.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `data-table` reads — nothing renders it.
    */
@@ -1546,12 +1669,15 @@ export interface DataTableSchema extends BaseSchema {
    * `rowEditPredicates` (in
    * `packages/components/src/renderers/complex/data-table.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `data-table` reads — nothing renders it.
    */
@@ -1633,6 +1759,38 @@ export interface MarkdownSchema extends BaseSchema {
    * @deprecated Not part of `MarkdownSchema`'s contract — the value was inert.
    */
   components?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `markdown` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `markdown` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `markdown` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D re-measure). The
+   * `markdown` registration (`@object-ui/plugin-markdown`) reads the node
+   * through an inline props type and forwards only `content` and `className`
+   * to the Markdown implementation; nothing on that path reads the node's
+   * `body` or `children`. `SchemaRenderer` strips `body` and `children` out
+   * of the props bag it spreads, so neither reaches the component by another
+   * route, and the registration declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: `content`, rendered as sanitized Markdown.
+   *
+   * @deprecated Not a channel `markdown` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -1677,7 +1835,7 @@ export interface TreeNode {
 export interface TreeViewSchema extends BaseSchema {
   type: 'tree-view';
   /**
-   * RETIRED (objectui#6951, ADR-0049 enforce-or-remove) — the second spelling
+   * RETIRED (`16a725f96`, ADR-0049 enforce-or-remove) — the second spelling
    * of the tree's one inline-nodes slot, read only as the LAST limb of
    * `boundData || schema.nodes || schema.data || []`. Maintainer ruling B1
    * (2026-09-04): retire `data`; `nodes` is the only inline spelling; `nodes`
@@ -1685,7 +1843,7 @@ export interface TreeViewSchema extends BaseSchema {
    * tree-view (`{ type: 'tree-view', bind: 'treeNodes' }`) is a legal,
    * rendering document because `bind` is the FIRST source the renderer reads.
    *
-   * History: REQUIRED until objectui#6939 / PR #7533 made it optional (it had
+   * History: REQUIRED until `777e5c6f4` (PR #7533) made it optional (it had
    * refused four catalog entries the renderer draws correctly). That PR kept
    * it DECLARED because {@link BaseSchema} declares `data?: any` (zod twin
    * `z.any().optional()`), so deleting the member would ADMIT the key
@@ -1704,12 +1862,12 @@ export interface TreeViewSchema extends BaseSchema {
    * READ SITE: `renderers/data-display/tree-view.tsx:105`, the second limb of
    * `boundData || schema.nodes || []` — a `bind`-resolved value wins, and
    * {@link BaseSchema.bind} stays the first-read source, which is why this
-   * member is optional and no "at least one of" rule exists (objectui#6951 B1).
+   * member is optional and no "at least one of" rule exists (ruling B1, `16a725f96`).
    *
    * Declared by objectui#6150, which deliberately stopped at the declaration:
    * `{ type: 'tree-view', nodes }` only became a LEGAL document at
-   * objectui#6939 (PR #7533), the accept-set change that relaxed the then
-   * required `data`; objectui#6951 retired that `data` spelling outright (the
+   * `777e5c6f4` (PR #7533), the accept-set change that relaxed the then
+   * required `data`; `16a725f96` retired that `data` spelling outright (the
    * tombstone above). The registration's own `inputs` and `defaultProps`
    * spell it `nodes`, and the four catalog entries ARE those `defaultProps`.
    */
@@ -1775,7 +1933,7 @@ export interface TreeViewSchema extends BaseSchema {
    * {@link TreeNode}. The handler's return value is discarded.
    *
    * ⚠️ THE MIRROR NOW DECLARES IT — as a NAMED REFUSAL, not as a shape
-   * (objectui#7804, the `TreeViewSchema` slice; `handlerKeyRefusal(…,
+   * (`604476d97`, the `TreeViewSchema` slice; `handlerKeyRefusal(…,
    * 'runtime-slot', …)` in `../zod/data-display.zod.ts`). ⛔ This paragraph
    * used to say the key was "NOT mirrored, deliberately", citing
    * objectui#6152's ruling that a runtime slot never gets a mirror. That
@@ -1807,12 +1965,15 @@ export interface TreeViewSchema extends BaseSchema {
    * `bind`, `nodes`, `onNodeClick`, `title` (in
    * `packages/components/src/renderers/data-display/tree-view.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `tree-view` reads — nothing renders it.
    */
@@ -1831,12 +1992,15 @@ export interface TreeViewSchema extends BaseSchema {
    * `bind`, `nodes`, `onNodeClick`, `title` (in
    * `packages/components/src/renderers/data-display/tree-view.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `tree-view` reads — nothing renders it.
    */
@@ -1864,7 +2028,7 @@ export type ChartType = SpecChartType;
  * and the category axis comes from `xAxisKey` / `xAxis`. That is the model
  * `normalizeChartSchema` in `@object-ui/plugin-charts` implements, and the only
  * one it has ever implemented. This header described an inline `data` array
- * indexed by the chart's `categories` until objectui#6896 measured that no such
+ * indexed by the chart's `categories` until `b0d308da9` measured that no such
  * reader exists; `data` is now a retirement tombstone — see the member below.
  *
  * Renamed off `ChartSeries` (objectstack#4115): `@objectstack/spec/ui` owns that
@@ -1880,7 +2044,7 @@ export interface ChartDataSeries {
    * Series name — also selects this series' column within each chart-level
    * `data` row when {@link dataKey} is absent.
    *
-   * ⚠️ OPTIONAL since objectui#6939 (maintainer ruling 2026-09-02, the `chart`
+   * ⚠️ OPTIONAL since `5f789538d` (maintainer ruling 2026-09-02, the `chart`
    * row): `normalizeSeries` reads `str(raw.dataKey) ?? str(raw.name)`, so
    * `dataKey` alone is a complete binding and the required flag refused a
    * document the renderer draws. At least one of the two must still be present
@@ -1895,7 +2059,7 @@ export interface ChartDataSeries {
    */
   dataKey?: string;
   /**
-   * RETIRED (objectui#6896, ADR-0049 enforce-or-remove) — the inline-data model
+   * RETIRED (`b0d308da9`, ADR-0049 enforce-or-remove) — the inline-data model
    * this key belonged to was never implemented. `normalizeChartSchema`'s
    * `normalizeSeries` reads `dataKey`/`name`, `label`, `chartType`/`type`,
    * `variant`, `opacity`, `dashArray`, `stack`, `yAxis` and `color`; `data` is
@@ -1965,7 +2129,7 @@ export interface ChartDataSeries {
    * fixtures and designer inputs: 0, controls lit). It is NOT a member here,
    * so the published face does not fossilise a renderer-side tolerance into a
    * second contract (AGENTS.md #0.1); the normalizer's own tolerance is
-   * objectui#7682's decision and is unchanged by this. Any other value is
+   * a separate card's decision and is unchanged by this. Any other value is
    * dropped in silence by the normalizer, so the mirror refuses it by name
    * instead (objectui#7546).
    */
@@ -2029,7 +2193,7 @@ export interface ChartDataSeries {
   /**
    * NOT A KEY OF THIS SERIES — a named ALIAS REFUSAL pointing at {@link type}
    * (objectui#7694; `domain:ui` PM ruling on objectui#7546 and the contract
-   * review of PR #7684: option A, the posture `@objectstack/spec` takes).
+   * review of `8fe8e5c16`'s pull request: option A, the posture `@objectstack/spec` takes).
    *
    * `chartType` is the renderer's INTERNAL spelling of the declared `type`: the
    * first limb of `normalizeSeries`' `str(raw.chartType) ?? str(raw.type)`
@@ -2094,7 +2258,7 @@ export interface ChartSchema extends BaseSchema {
    * category axis, and when `series` IS present they are ignored outright.
    *
    * The category axis comes from `xAxisKey` / `xAxis`. This docblock read
-   * "X-axis labels/categories" until objectui#6896 measured the read that has
+   * "X-axis labels/categories" until `b0d308da9` measured the read that has
    * always been there (maintainer ruling 2026-08-31 — prose follows machine).
    */
   categories?: string[];
@@ -2112,7 +2276,7 @@ export interface ChartSchema extends BaseSchema {
    * `ChartRenderer.tsx:164` and were read back as columns at
    * `AdvancedChartImpl.tsx:2229` while surviving here only on `BaseSchema`'s
    * index signature. The `ChartDataSeries.data` tombstone above has been
-   * pointing authors at this key since objectui#6896.
+   * pointing authors at this key since `b0d308da9`.
    */
   data?: Array<Record<string, any>>;
   /**
@@ -2122,9 +2286,42 @@ export interface ChartSchema extends BaseSchema {
    * the zod mirror parses, and does not survive the parse. The spec's `xAxis`
    * CONFIG OBJECT is a different key and is not folded — its `field` also
    * answers the column question, but its `format` / `title` / `showGridLines`
-   * are presentation the fold would discard.
+   * are presentation the fold would discard. It is declared as {@link xAxis}.
    */
   xAxisKey?: string;
+  /**
+   * The category (x) axis — `@objectstack/spec`'s axis CONFIG object, the type of
+   * `ChartConfigSchema.xAxis`: `{ field, title, format, min, max, stepSize,
+   * showGridLines, position, logarithmic }`, strict, with `field` required.
+   *
+   * Declared by objectui#7690 (ruling 5809510046, branch 2 — declare). The spec
+   * declares the object and this node renders it — `normalizeChartSchema` reads
+   * exactly its nine keys — so the type IS the spec's, not a restatement of it.
+   * Until then the object survived only on `BaseSchema`'s index signature: read
+   * by the renderer, checked by nothing.
+   *
+   * `field` names the category column exactly as {@link xAxisKey} does, and
+   * `xAxisKey` wins when both are written — the renderer's own precedence.
+   *
+   * The `string` arm is NOT a second spelling of the axis object: it is the
+   * objectui#7113 alias of {@link xAxisKey}, accepted at parse and folded onto
+   * that key, so it never survives a parse. Write `xAxisKey` for the column.
+   */
+  xAxis?: string | SpecChartAxis;
+  /**
+   * The value (y) axes — an ARRAY of `@objectstack/spec`'s axis CONFIG objects,
+   * the type of `ChartConfigSchema.yAxis`. The first entry is the primary axis;
+   * a second entry declares the right-hand axis a series binds to with
+   * `yAxis: 'right'`.
+   *
+   * Declared by objectui#7690 beside {@link xAxis}, and for the same reason.
+   * Only the spec's list is a member: a single axis object, or a bare column
+   * name, is refused at parse by name.
+   *
+   * With neither {@link series} nor {@link categories}, the axes' `field`s name
+   * the plotted columns.
+   */
+  yAxis?: SpecChartAxis[];
   /**
    * Chart height
    */
@@ -2157,6 +2354,39 @@ export interface ChartSchema extends BaseSchema {
    * segment opens a filtered list view (drawer/dialog).
    */
   drillDown?: DrillDownConfig;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `chart` reads NEITHER content
+   * channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `chart` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `chart` reads NEITHER content
+   * channel, so an authored child list here rendered NOTHING: no render-time
+   * error or warning and no element; only the parser tier's `not-a-container`
+   * warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D re-measure). The `chart`
+   * registration (`@object-ui/plugin-charts`, and its `chart:bar` alias)
+   * reads the node through `ChartRenderer`'s inline props type; nothing on
+   * that path reads the node's `body` or `children`. `SchemaRenderer` strips
+   * `body` and `children` out of the props bag it spreads, so neither reaches
+   * the component by another route, and the registration declares no
+   * `children` slot (objectui#9910).
+   *
+   * What it renders instead: a chart of the `data` rows, drawn by `chartType`
+   * and `series`.
+   *
+   * @deprecated Not a channel `chart` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -2177,9 +2407,15 @@ export type PivotAggregation = 'sum' | 'count' | 'avg' | 'min' | 'max';
  *
  * ## Declared = delivered (objectui#3354)
  *
- * Every key below is read by at least one of the five widgets that share this
- * interface, and `target` is honoured by all of them. Two keys used to break
- * that rule and were removed rather than left as authoring bait:
+ * Every key below is read by at least one block that takes this interface or a
+ * per-block shape derived from it. A block that can never honour a key refuses
+ * it by name on its own shape rather than accepting and dropping it
+ * ({@link ObjectMetricDrillDownConfig}, {@link ObjectPivotDrillDownConfig},
+ * {@link ObjectDataTableDrillDownConfig}; objectui#9002, objectui#10685), so
+ * every `target` arm a block's shape admits is one that block honours:
+ * `object-data-table`'s shape admits `'drawer'` and `'dialog'` only. Two keys
+ * used to break that rule for every block and were removed rather than left as
+ * authoring bait:
  *
  *  - `view?: string` — self-described as "reserved"; no renderer ever looked it
  *    up, so the drawer rendered its inline `object-data-table` regardless.
@@ -2194,19 +2430,21 @@ export interface DrillDownConfig {
   /** Master switch. Set to true (or supply any other field) to enable. */
   enabled?: boolean;
   /**
-   * Which drill interaction the widget performs:
+   * Which drill interaction a row click performs. Read by `object-data-table`
+   * alone, on its row click (objectui#10685):
    *
-   * - `'filter'` (default) — **drill-through**: the click point is an
-   *   aggregated bucket (pivot cell, chart segment, KPI). The drawer lists
-   *   the underlying records filtered by the click context. Used by charts,
-   *   pivot tables and metric cards.
-   * - `'record'` — **drill-to-record**: the click point already *is* a single
-   *   record (a row in a table / list widget). The drawer shows that record's
-   *   detail instead of a filtered list. This is the default for table / list
-   *   widgets, mirroring Salesforce list-view row → record and Power BI's
-   *   "see records" row interaction.
+   * - `'record'` (the default) — **drill-to-record**: the clicked row already
+   *   *is* a single record, so the drawer shows that record's detail. This
+   *   mirrors Salesforce list-view row → record and Power BI's "see records"
+   *   row interaction.
+   * - `'filter'` — **drill-through**: the interaction of a click point that is
+   *   an aggregated bucket, listing the records behind it filtered by the click
+   *   context. A table row is not such a bucket, and `object-data-table` has no
+   *   drill-through arm, so there this value turns the row drill off.
    *
-   * When omitted the consuming widget picks the natural default for its type.
+   * A block whose every click point is an aggregate always drills through, so
+   * it has nothing for this key to choose and refuses it on its own drill shape
+   * ({@link ObjectPivotDrillDownConfig}, {@link ObjectMetricDrillDownConfig}).
    */
   mode?: 'filter' | 'record';
   /**
@@ -2270,6 +2508,157 @@ export interface DrillDownConfig {
 }
 
 /**
+ * The `object-metric` block's drill-down shape: {@link DrillDownConfig} with
+ * `filter` and `mode` REFUSED BY NAME (objectui#9002, ruling B, a per-block
+ * refusal). The shared type keeps both members for the blocks that read them;
+ * only this block's declaration takes them away.
+ *
+ * A metric is one aggregated number, so neither member has anything to act on:
+ *
+ *  - `filter` is interpolated against a click event (`${event.*}`) by
+ *    `computeDrillFilter`, and a metric tile has no click context: no row,
+ *    column, category or series. The drilled list is scoped by the metric's
+ *    OWN `filter` instead, which is the block's registered promise that the
+ *    number and the records behind it always agree. An override would break
+ *    that promise.
+ *  - `mode` decides drill-to-record versus drill-through for a clicked ROW. A
+ *    metric has no row. It always drills through to its records.
+ *
+ * Refused as `?: never` tombstones rather than omitted: an omitted key on an
+ * object literal is an excess-property error only while the literal is fresh,
+ * and a tombstone also carries the reason and the block that does read the key
+ * into the error an author (or an AI) sees at the declaration.
+ *
+ * ⚠️ This is a TypeScript declaration, so it refuses the keys where an author
+ * types against it (`ObjectMetricWidget`'s `drillDown` prop). A stored JSON
+ * config reaches the block without passing through this type.
+ */
+export interface ObjectMetricDrillDownConfig extends DrillDownConfig {
+  /**
+   * REFUSED BY NAME on `object-metric` (objectui#9002). A metric has no click
+   * event for `${event.*}` to resolve against, and its drilled list is scoped
+   * by the metric's own `filter`. Drill filters apply on `object-chart` and
+   * `object-pivot`, which hand this member to `computeDrillFilter`.
+   *
+   * @deprecated Not a member `object-metric` reads. Scope the metric with its own `filter`.
+   */
+  filter?: never;
+  /**
+   * REFUSED BY NAME on `object-metric` (objectui#9002). A metric has no row to
+   * open as a record, so it always drills through to the records behind the
+   * number. `mode` applies on `object-data-table`, whose row click reads it.
+   *
+   * @deprecated Not a member `object-metric` reads. A metric always lists its records.
+   */
+  mode?: never;
+}
+
+/**
+ * The `object-pivot` block's drill-down shape: {@link DrillDownConfig} with
+ * `mode` REFUSED BY NAME (objectui#10685, which applies objectui#9002's ruling
+ * B, a per-block refusal, to the sibling blocks of `object-metric`).
+ *
+ * Every click point on a pivot is an aggregated bucket: a cell, a row or
+ * column header, or a total, and never a single record. So a pivot always
+ * drills through to the records behind the clicked value, and `mode`, which
+ * chooses drill-to-record for a clicked ROW, has nothing to choose here. Every
+ * other member is read: `enabled` by `isDrillEnabled`, `filter` by
+ * `computeDrillFilter`, `title` by `resolveDrillTitle`, and `target`,
+ * `columns`, `maxRows` and `report` by the `DrillDownDrawer` the block opens.
+ *
+ * A `?: never` tombstone rather than an omission, for the reason
+ * {@link ObjectMetricDrillDownConfig} gives: it also refuses a value that is
+ * not a fresh literal, and it carries the reason into the error an author (or
+ * an AI) sees.
+ *
+ * ⚠️ This is a TypeScript declaration, so it refuses the key where an author
+ * types against it (`ObjectPivotTable`'s `schema.drillDown`). `object-pivot`
+ * has no zod mirror, so a stored JSON config is checked by no validator and
+ * reaches the block unchanged. (`PivotTableSchema`, the plain `pivot` node,
+ * gained one in objectui#10859 batch 2, and there `drillDown` is refused whole:
+ * the key is a retirement tombstone on both faces since objectui#10932, because
+ * nothing drills a `pivot` node. This type is where a pivot drill is authored.)
+ */
+export interface ObjectPivotDrillDownConfig extends DrillDownConfig {
+  /**
+   * REFUSED BY NAME on `object-pivot` (objectui#10685). A pivot's click point
+   * is always an aggregated bucket, so it always drills through to the records
+   * behind it, and there is no row to open as a record. `mode` applies on
+   * `object-data-table`, whose row click reads it.
+   *
+   * @deprecated Not a member `object-pivot` reads. A pivot always lists the records behind the clicked value.
+   */
+  mode?: never;
+}
+
+/**
+ * The `object-data-table` block's drill-down shape: {@link DrillDownConfig}
+ * with `filter`, `maxRows` and `report` REFUSED BY NAME and `target` narrowed
+ * to its two in-place arms (objectui#10685, which applies objectui#9002's ruling
+ * B, a per-block refusal, to the sibling blocks of `object-metric`).
+ *
+ * A data table drills to the RECORD its clicked row already is: the row click
+ * opens that record in `RecordDetailDrawer`, which lists nothing. The three
+ * refused members each configure a drilled record LIST (the filter that scopes
+ * it, the cap on its rows, the report that replaces it), and this block has no
+ * list drill for them to apply to: `mode: 'filter'` turns its row drill off
+ * rather than drilling through. `target: 'navigate'` opens the object's full
+ * LIST page through the host's `openRecordList`, which is the wrong destination
+ * for one record, and the block used to draw it as a drawer instead.
+ *
+ * What the block reads: `enabled` by `isDrillEnabled`; `mode`, where `'record'`
+ * (the default) opens the row and `'filter'` turns the drill off; `title`, a
+ * non-template title that heads the record drawer; `columns`, the record
+ * drawer's field whitelist; and `target`, `'drawer'` or `'dialog'`.
+ *
+ * `?: never` tombstones for the reason {@link ObjectMetricDrillDownConfig}
+ * gives: they refuse a value that is not a fresh literal too, and they carry
+ * the reason into the error an author (or an AI) sees.
+ *
+ * Twin of the `drillDown` member of `ObjectDataTableSchema`'s zod mirror
+ * (`zod/objectql.zod.ts`), which refuses the same members by name, so a stored
+ * JSON config carrying one is refused at `objectui validate` as well.
+ */
+export interface ObjectDataTableDrillDownConfig extends DrillDownConfig {
+  /**
+   * REFUSED BY NAME on `object-data-table` (objectui#10685). A drill `filter`
+   * scopes a drilled record list, and this block drills to the one record its
+   * row already is. Drill filters apply on `object-chart` and `object-pivot`,
+   * which hand this member to `computeDrillFilter`.
+   *
+   * @deprecated Not a member `object-data-table` reads. A row opens the record it already is.
+   */
+  filter?: never;
+  /**
+   * REFUSED BY NAME on `object-data-table` (objectui#10685). `maxRows` caps a
+   * drilled record list, and this block drills to one record. It applies on
+   * `object-chart`, `object-pivot` and `object-metric`, whose drill lists page
+   * by it.
+   *
+   * @deprecated Not a member `object-data-table` reads. A row opens the record it already is.
+   */
+  maxRows?: never;
+  /**
+   * REFUSED BY NAME on `object-data-table` (objectui#10685). A drill `report`
+   * replaces a drilled record list, and this block drills to one record. It
+   * applies on `object-pivot` and `object-metric`, whose `DrillDownDrawer`
+   * renders it.
+   *
+   * @deprecated Not a member `object-data-table` reads. A row opens the record it already is.
+   */
+  report?: never;
+  /**
+   * Where the record drill lands: `'drawer'` (the default) or `'dialog'`.
+   *
+   * `'navigate'` is REFUSED on `object-data-table` (objectui#10685): it opens
+   * the object's full list page through the host's `openRecordList`, and this
+   * block's row opens one record. `'navigate'` applies on `object-chart`,
+   * `object-pivot` and `object-metric`.
+   */
+  target?: 'drawer' | 'dialog';
+}
+
+/**
  * Pivot table (cross-tabulation) component
  *
  * Renders a matrix where rows correspond to one field,
@@ -2321,10 +2710,35 @@ export interface PivotTableSchema extends BaseSchema {
    */
   columnColors?: Record<string, string>;
   /**
-   * Optional drill-down configuration. When enabled, clicking a cell /
-   * row header / column header / total opens a filtered list view.
+   * ADR-0049 RETIREMENT TOMBSTONE — `drillDown` on the `pivot` node
+   * (objectui#10932, triage grade: retire, do NOT wire a drill).
+   *
+   * What was measured: declared here as the shared {@link DrillDownConfig},
+   * accepted by the zod arm, and honoured by nothing. `PivotTable` fired a
+   * drill only when its HOST passed an `onDrillDown` handler, and the one host
+   * that does is `ObjectPivotTable` (`object-pivot`). The `pivot` registration
+   * hands the node to `PivotTable` bare, console's lazy stub loads that same
+   * registration, and `DashboardGridLayout`'s static-data pivot is rendered
+   * through it, so every `pivot` path left the key inert: clicking a cell did
+   * nothing, with no signal. A static-data pivot also has nothing to drill
+   * into: a drill lists the records behind a value, and a pivot over inline
+   * `data` names no object to query them from.
+   *
+   * `?: never` is this package's tombstone convention (see
+   * `DataTableSchema.toolbar`, {@link StaticTableColumn}), NOT a deletion:
+   * `BaseSchema`'s `[key: string]: any` would admit a deleted key as `any`
+   * again. The Zod twin refuses it loudly via `retirementTombstone()`
+   * (`zod/data-display.zod.ts`), naming the same remedy.
+   *
+   * RETIRED (objectui#10932, ADR-0049) — a `pivot` node draws a cross-tab of
+   * the rows you pass in and drills nowhere. For a pivot whose cells open the
+   * records behind a value, author an `object-pivot` (`objectName` + the same
+   * `rowField` / `columnField` / `valueField`), whose `drillDown` is
+   * {@link ObjectPivotDrillDownConfig}.
+   *
+   * @deprecated Not a member `pivot` reads — author `object-pivot` to drill.
    */
-  drillDown?: DrillDownConfig;
+  drillDown?: never;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `pivot` reads NEITHER content
    * channel: no renderer read consumes `body` or `children` for this node.
@@ -2338,12 +2752,15 @@ export interface PivotTableSchema extends BaseSchema {
    * `bind`, `columnField`, `data`, `filter`, `objectName`, `rowField`, `title`
    * (in `packages/plugin-dashboard/src/ObjectPivotTable.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `pivot` reads — nothing renders it.
    */
@@ -2361,12 +2778,15 @@ export interface PivotTableSchema extends BaseSchema {
    * `bind`, `columnField`, `data`, `filter`, `objectName`, `rowField`, `title`
    * (in `packages/plugin-dashboard/src/ObjectPivotTable.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `pivot` reads — nothing renders it.
    */
@@ -2374,7 +2794,13 @@ export interface PivotTableSchema extends BaseSchema {
 }
 
 /**
- * Timeline event
+ * Timeline event — the element type of the RETIRED `TimelineSchema.events`
+ * (objectui#6170, ADR-0049 stage 2).
+ *
+ * `TimelineSchema.events`, the member that named it, is now a `?: never`
+ * tombstone, and no renderer ever read it. It stays exported because retiring
+ * a published type NAME is a separate break that ruling did not name. ⛔ Not a timeline element shape — an authored feed entry is a
+ * {@link TimelineFeedItem} (its date key is `time`, not `date`).
  */
 export interface TimelineEvent {
   /**
@@ -2417,6 +2843,115 @@ export interface TimelineEvent {
  * construction rather than by coincidence.
  */
 export type TimelineScale = 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year';
+
+/**
+ * The colour an authored timeline element names — a feed item's marker, or a
+ * gantt bar. Exactly the five `content/docs/plugins/plugin-timeline.mdx`
+ * documents under "Marker Variants" (objectui#6356, ruling Q2 = C).
+ *
+ * The marker primitive paints three more (`todo`, `in-progress`, `done`).
+ * Those are reached only by `ObjectTimeline`, which composes a record's own
+ * value into this slot through the renderer-internal handoff type in
+ * `packages/plugin-timeline` — they are not an authoring vocabulary, and the
+ * gantt bar paints none of them.
+ */
+export type TimelineItemVariant = 'default' | 'success' | 'warning' | 'danger' | 'info';
+
+/**
+ * One authored element of a FEED timeline — `variant` `vertical` (the default)
+ * or `horizontal` (objectui#6356).
+ *
+ * ## The seven keys, and why there are no more
+ *
+ * Maintainer ruling on objectui#6356, Q1 = A: the authored feed element
+ * declares the seven keys the docs page documents and every authored corpus
+ * writes — and nothing else. `ObjectTimeline` composes five further keys onto
+ * each record it maps (`color`, `group`, `meta`, `startDate`, `endDate`, plus
+ * the `_data` record handle), and `TimelineRenderer`'s vertical branch reads
+ * them; the horizontal branch reads none of them. They are RENDERER-INTERNAL:
+ * typed by the handoff type inside `packages/plugin-timeline`, never declared
+ * here, and refused when authored on the strict authoring face.
+ *
+ * This interface is closed on purpose. An object literal typed
+ * {@link TimelineSchema} that carries a key no arm of the element declares is
+ * an excess-property error, and the zod mirror's strict authoring face refuses
+ * the same key by name.
+ */
+export interface TimelineFeedItem {
+  /** When it happened — an ISO 8601 date string, formatted by `dateFormat`. */
+  time?: string;
+  /**
+   * The entry's heading. REQUIRED (objectui#6356, ruling Q2 = C): it is the
+   * key that tells a feed item from a gantt row, and the zod mirror judges
+   * each element against the arm `variant` selects by it.
+   */
+  title: string;
+  /** Secondary line under the title. */
+  description?: string;
+  /** Marker colour. */
+  variant?: TimelineItemVariant;
+  /** Emoji or short text drawn inside the marker. */
+  icon?: string;
+  /** Extra content rendered below the description. */
+  content?: SchemaNode | SchemaNode[];
+  /** Tailwind classes for the entry. */
+  className?: string;
+}
+
+/**
+ * One bar inside a {@link TimelineGanttItem} (objectui#6356).
+ *
+ * Every key is optional, and that is the ruling's scope rather than an
+ * omission: objectui#6356 made the ROW's `label` required and named nothing on
+ * the bar. A bar with no usable dates is not a validation failure — it reaches
+ * the render-time `timeline.gantt.unusableRange` diagnostic, which stays the
+ * defined outcome for it (objectui#6759, objectui#6770).
+ *
+ * ⚠️ A `type` alias and not an `interface`, on purpose. It sits one level down
+ * inside {@link TimelineGanttItem}, whose zod twin's bar is `.passthrough()`,
+ * so the twin's input type carries a string index signature there. An
+ * interface has no IMPLICIT index signature and is not assignable to one; an
+ * object type literal is. As an interface, `TimelineGanttItem.items` read as
+ * narrower-than-declared in `zod-mirror-parity.test.ts` for that reason alone,
+ * though both faces accept the same bars. A literal typed with it is still
+ * checked for excess properties exactly as an interface is.
+ */
+export type TimelineGanttItemBar = {
+  /** Bar label, drawn inside the bar and in its tooltip. */
+  title?: string;
+  /**
+   * Bar start. The accept set is the renderer's own date rule (objectui#6781,
+   * ruling 2026-08-30, option A): a string, a FINITE number (epoch
+   * milliseconds), or a `Date`.
+   */
+  startDate?: string | number | Date;
+  /**
+   * Bar end — same accept set as {@link TimelineGanttItemBar.startDate}.
+   *
+   * Inclusive for a date-only value (objectui#11112): a `YYYY-MM-DD` end is
+   * drawn through the end of the day it names, so `2024-01-01` to
+   * `2024-01-31` fills January and a bar that starts and ends on the same day
+   * is one day wide. A value with a time part, a number or a `Date` is an
+   * instant, and the bar ends at it.
+   */
+  endDate?: string | number | Date;
+  /** Bar colour. */
+  variant?: TimelineItemVariant;
+};
+
+/**
+ * One authored ROW of a gantt timeline — `variant: 'gantt'` (objectui#6356).
+ *
+ * `label` is REQUIRED (ruling Q2 = C) for the reason `title` is on
+ * {@link TimelineFeedItem}: it tells a row from a feed item. `items` stays
+ * optional — a row with no bars yet is an ordinary empty state (objectui#6750).
+ */
+export interface TimelineGanttItem {
+  /** Row label, drawn in the row-label gutter. */
+  label: string;
+  /** The row's bars. */
+  items?: TimelineGanttItemBar[];
+}
 
 /**
  * Timeline component (`type: 'timeline'`).
@@ -2469,59 +3004,47 @@ export interface TimelineSchema extends BaseSchema {
    */
   variant?: 'vertical' | 'horizontal' | 'gantt';
   /**
-   * The rows to draw.
+   * The rows to draw — feed items, or gantt rows when `variant` is `gantt`.
    *
-   * TWO element shapes, discriminated by `variant`, both read dynamically by
-   * the renderer (`items.map((item: any) => …)`), so NEITHER shape's own keys
-   * are declared here — what is declared is what the two SHARE:
+   * ## The element is declared: two arms, and `variant` picks one
    *
-   * - `vertical` / `horizontal` — a feed item:
-   *   `{ time, title, description?, variant?, icon?, color?, content?, className?, meta?, group? }`
-   * - `gantt` — a row:
-   *   `{ label, items: [{ title, startDate, endDate, variant? }] }`
+   * objectui#6356 (maintainer ruling 2026-09-27, Q1 = A, Q2 = C) declares the
+   * element as the union of its two authored shapes:
    *
-   * `content/docs/plugins/plugin-timeline.mdx` carries both in full.
+   * - `vertical` (the default) / `horizontal` — a {@link TimelineFeedItem},
+   *   the seven documented keys with `title` required;
+   * - `gantt` — a {@link TimelineGanttItem}, `{ label, items? }` with `label`
+   *   required, each bar a {@link TimelineGanttItemBar}.
    *
-   * ## This type states the shared shape; it no longer describes it in prose
+   * Both arms are CLOSED, so a literal carrying a key neither arm declares is
+   * an excess-property error here. ⚠️ Which arm an element must match depends
+   * on `variant`, a key of the PARENT, and TypeScript cannot see that: a gantt
+   * row on a feed timeline type-checks. That cross-shape case is refused at the
+   * validation door instead — the zod mirror (`./zod/data-display.zod.ts`)
+   * judges each element against the arm `variant` selects, in a node-level
+   * refinement, because before this ruling it parsed green and drew an empty,
+   * unlabelled entry with no diagnostic.
    *
-   * The zod mirror (`./zod/data-display.zod.ts`) and this declaration state the
-   * SAME two levels, and the type below is the TypeScript spelling of the
-   * mirror's `z.object({}).passthrough()` at each of them:
+   * The five keys `ObjectTimeline` composes onto a record-mapped feed item
+   * (`color`, `group`, `meta`, `startDate`, `endDate`) and its `_data` handle
+   * are renderer-internal and are NOT part of this element — see
+   * {@link TimelineFeedItem}.
    *
-   * - every element is an OBJECT — a `null` row, a number, a string, an array
-   *   are all refused (objectui#7164);
-   * - a gantt row's own `items`, when present, is an ARRAY — of OBJECTS. A
-   *   `null` bar is refused by its own name, at `items[i].items[j]`
-   *   (objectui#7365, director seat decision batch #71, 2026-09-07, option B).
+   * ## What objectui#7164 and objectui#7365 pinned still holds
    *
-   * ⭐ objectui#7164 narrowed the ROW and stopped at the bar level
-   * DELIBERATELY, and this docblock recorded the stop in prose. That stop is
-   * SUPERSEDED KNOWINGLY, so the prose describing it is gone rather than
-   * qualified: the next reader should not re-derive a gap that has been closed.
+   * Every element is an OBJECT (objectui#7164), a gantt row's own `items`, when
+   * present, is an ARRAY of OBJECTS, and a `null` bar is refused by its own
+   * name, at `items[i].items[j]` (objectui#7365, director seat decision batch
+   * #71, 2026-09-07, option B). Those refusals keep their own paths: the mirror
+   * judges the arm in a refinement that runs AFTER them, not by an element-level
+   * union that would fold them into one nested `invalid_union`.
    *
-   * ⛔ The render-time diagnostic is UNCHANGED by that ruling
+   * ⛔ The render-time diagnostic is UNCHANGED
    * (`timeline.gantt.unusableRange.malformedRow` and the ten language packs are
    * untouched) — the renderer stays only ever MORE lenient than `validate`, and
    * the date diagnostic remains the defined outcome for anything reaching it.
    */
-  items?: Array<{
-    /**
-     * A gantt row's bars — an ARRAY OF OBJECTS when present. Optional is
-     * deliberate: a row with no bars yet is an ordinary empty state
-     * (objectui#6750) and the renderer draws it. A feed item carries no
-     * `items` key at all and satisfies this element unchanged.
-     *
-     * The bar's OWN keys (`title` / `startDate` / `endDate` / `variant?`) are
-     * NOT declared, for the reason the element's are not: they are read
-     * dynamically and the mirror leaves them open too.
-     */
-    items?: Record<string, unknown>[];
-    /**
-     * The element's own keys, undeclared and open — the TypeScript spelling of
-     * the mirror's `.passthrough()`. Both shapes above pass through here.
-     */
-    [key: string]: unknown;
-  }>;
+  items?: Array<TimelineFeedItem | TimelineGanttItem>;
   /**
    * How item dates are rendered.
    * @default 'short'
@@ -2573,46 +3096,61 @@ export interface TimelineSchema extends BaseSchema {
    */
   maxDate?: string;
   /**
-   * Timeline events.
+   * RETIRED (objectui#6170, ADR-0049 stage 2) — author {@link
+   * TimelineSchema.items} instead, each entry a {@link TimelineFeedItem}
+   * (`{ time, title, … }`).
    *
-   * ⚠️ ZERO read points — `packages/plugin-timeline` never reads this key, so a
-   * timeline authored with `events` renders an EMPTY rail. It was `required`
-   * until objectui#6170, which is why the docs page's own TypeScript example
-   * did not compile; it is OPTIONAL now so that documented authoring form
-   * type-checks, and that widening is the whole of the change made here.
+   * No renderer ever read this key: a timeline authored with `events` drew an
+   * EMPTY rail, with no render-time error or warning; only the parser tier's
+   * `unknown-prop` warning noticed it. objectui#6170's maintainer ruling
+   * (2026-08-25, 「同意」) sent it, {@link TimelineSchema.orientation} and
+   * {@link TimelineSchema.position} down the ADR-0049 enforce-or-remove route,
+   * and the producer census recorded on objectui#6170 (a dated reading, not
+   * re-derived here) found no author of any of the three that expected it to
+   * render — so the route is REMOVE, not enforce.
    *
-   * Its RETIREMENT is routed, not done: objectui#6170's maintainer ruling
-   * (2026-08-25) sends this key, {@link TimelineSchema.orientation} and
-   * {@link TimelineSchema.position} down the ADR-0049 enforce-or-remove route.
-   * That is a breaking removal from a published type and therefore its own
-   * change; the house form for it is the `?: never` tombstone convention on
-   * {@link StaticTableColumn} above (objectui#5474).
+   * `?: never` is this package's tombstone convention (see
+   * {@link TimelineSchema.timeScale} a few members above, {@link StaticTableColumn}
+   * objectui#5474), and it is load-bearing rather than decorative.
+   * {@link BaseSchema} carries `[key: string]: any`, so DELETING this member
+   * would let the retired key type-check green and keep drawing an empty rail
+   * — the silent no-op this retirement exists to make audible. Keeping it
+   * declared as `never` is what turns it into a compile error.
    *
-   * @deprecated Never read by any renderer. Use `items` — see
-   * `content/docs/plugins/plugin-timeline.mdx`.
+   * Lockstep with the Zod twin (`zod/data-display.zod.ts`,
+   * `retirementTombstone()`): both halves or neither, since either half alone
+   * leaves the other surface silently accepting the retired key. Absent stays
+   * valid on both. The element type it used to name, {@link TimelineEvent},
+   * stays exported; this member no longer references it.
+   *
+   * @deprecated RETIRED (objectui#6170) — author `items` instead.
    */
-  events?: TimelineEvent[];
+  events?: never;
   /**
-   * Timeline orientation.
+   * RETIRED (objectui#6170, ADR-0049 stage 2) — author {@link
+   * TimelineSchema.variant} instead (`'vertical'`, `'horizontal'` or
+   * `'gantt'`).
    *
-   * ⚠️ ZERO read points — the renderer discriminates on
-   * {@link TimelineSchema.variant}, not on this key. Retirement routed via
-   * ADR-0049; see {@link TimelineSchema.events}.
+   * No renderer ever read this key: the layout is chosen by `variant`, so an
+   * authored `orientation: 'horizontal'` drew the default vertical rail in
+   * silence. Tombstoned `?: never` rather than deleted, for the reason
+   * {@link TimelineSchema.events} gives; lockstep with the Zod twin.
    *
-   * @deprecated Never read by any renderer. Use `variant`.
-   * @default 'vertical'
+   * @deprecated RETIRED (objectui#6170) — author `variant` instead.
    */
-  orientation?: 'vertical' | 'horizontal';
+  orientation?: never;
   /**
-   * Timeline position (for vertical).
+   * RETIRED (objectui#6170, ADR-0049 stage 2) — and NOTHING replaces it.
    *
-   * ⚠️ ZERO read points. Retirement routed via ADR-0049; see
-   * {@link TimelineSchema.events}.
+   * It promised to put the vertical rail's entries on the `left`, `right` or
+   * both sides (`alternate`). No renderer ever read it, and no key does that
+   * job today: the vertical rail is always drawn on the left edge. Tombstoned
+   * `?: never` rather than deleted, for the reason {@link TimelineSchema.events}
+   * gives; lockstep with the Zod twin.
    *
-   * @deprecated Never read by any renderer.
-   * @default 'left'
+   * @deprecated RETIRED (objectui#6170) — no replacement; the vertical rail is always on the left.
    */
-  position?: 'left' | 'right' | 'alternate';
+  position?: never;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `timeline` reads NEITHER
    * content channel: no renderer read consumes `body` or `children` for this
@@ -2644,12 +3182,15 @@ export interface TimelineSchema extends BaseSchema {
    * reading the one for the other is what would have narrowed `button`, which
    * reads both channels live.
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `timeline` reads — nothing renders it. Author the
    * rows as `items`.
@@ -2686,12 +3227,15 @@ export interface TimelineSchema extends BaseSchema {
    * reading the one for the other is what would have narrowed `button`, which
    * reads both channels live.
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `timeline` reads — nothing renders it. Author the
    * rows as `items`.
@@ -2748,12 +3292,15 @@ export interface KbdSchema extends BaseSchema {
    * `className`, `keys`, `label` (in
    * `packages/components/src/renderers/data-display/kbd.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `kbd` reads — nothing renders it.
    */
@@ -2771,12 +3318,15 @@ export interface KbdSchema extends BaseSchema {
    * `className`, `keys`, `label` (in
    * `packages/components/src/renderers/data-display/kbd.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `kbd` reads — nothing renders it.
    */
@@ -2838,6 +3388,39 @@ export interface BarChartSchema extends BaseSchema {
    * @default '#8884d8'
    */
   color?: string;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `bar-chart` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its
+   * refusal names `children` as the remedy, which this node does not read
+   * either. The member is restated here so the refusal points at what the
+   * node renders instead.
+   *
+   * @deprecated Not a channel `bar-chart` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `bar-chart` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep, over one program per
+   * workspace package on a built tree (the family-D re-measure). The
+   * `bar-chart` registration (`@object-ui/plugin-charts`) reads the node
+   * through `ChartBarRenderer`'s inline props type, which forwards `data`,
+   * `dataKey`, `xAxisKey`, `height`, `className` and `color` and nothing
+   * else. `SchemaRenderer` strips `body` and `children` out of the props bag
+   * it spreads, so neither reaches the component by another route, and the
+   * registration declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: one bar per `data` row, its value from `dataKey`
+   * and its category from `xAxisKey`.
+   *
+   * @deprecated Not a channel `bar-chart` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -2882,12 +3465,15 @@ export interface HtmlSchema extends BaseSchema {
    * this declaration carries none. What the renderer DOES read off this node:
    * `html` (in `packages/components/src/renderers/basic/html.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `html` reads — nothing renders it.
    */
@@ -2904,12 +3490,15 @@ export interface HtmlSchema extends BaseSchema {
    * this declaration carries none. What the renderer DOES read off this node:
    * `html` (in `packages/components/src/renderers/basic/html.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `html` reads — nothing renders it.
    */

@@ -161,6 +161,31 @@ It is a **report**. It never refuses, throttles or degrades anything, and the
 copy says so. It is shown only to a workspace admin, who is also the only
 session that issues the request.
 
+### Storage capacity (environment admin)
+
+Beside it, `ConsoleShell` mounts `<StorageUsageBanner />`, driven by the flat
+storage half of the same `GET /api/v1/usage/storage` response, read by
+`useStorageUsageReading`. The tenant runtime serves the same storage verdict
+its upload and bulk-import guardrail refuses with, and the banner renders that
+verdict and nothing else:
+
+| the verdict | what renders |
+| --- | --- |
+| `blocked: true` | "storage is full: uploads and imports are paused", the used / limit figures, and an upgrade link |
+| `warn: true` | the used / limit figures (`usedMb` / `limitMb`) |
+| anything else — `ok`, `unknown`, `unlimited` | nothing |
+| the endpoint could not be read, or answered off-contract | nothing |
+
+`classifyStorageUsage` decides the banner from `warn` and `blocked` alone. It
+never compares `usedMb` with `limitMb`, or `fraction` with `warnFraction`, so
+the banner cannot drift from the enforcement point when the line moves. The
+upgrade link goes to the control plane's origin (`cloudConsoleUrl`) and is left
+out on a runtime that names no upstream cloud.
+
+Both banners read that endpoint through one shared reader, so a page load
+issues one request for the two of them. The storage banner has the same
+audience and the same gate as the read-rate report.
+
 ## Components
 
 ### AppShell
@@ -190,13 +215,31 @@ object and view from the host's route, so it takes no `objectName` prop —
 mount it on a route that supplies them, as the console does with
 `/apps/:appName/:objectName` and `/apps/:appName/:objectName/view/:viewId`.
 
+Its props are the exported `ConsoleObjectViewProps`:
+
+- `dataSource` (required) — the host's adapter, the `DataSource` contract from
+  `@object-ui/types`.
+- `objects` (required) — the app's object definitions; the route's
+  `:objectName` is resolved against this list, and an unknown name renders the
+  "object not found" state.
+- `onEdit` (required) — called with the record to edit.
+- `externalRefreshKey` (optional) — bump it to refetch after a change made
+  outside the view.
+
 ```tsx
-import { ObjectView } from '@object-ui/app-shell';
+import { ObjectView, type ConsoleObjectViewProps } from '@object-ui/app-shell';
 import type { DataSource } from '@object-ui/types';
 
 declare const dataSource: DataSource;
+declare const objects: ConsoleObjectViewProps['objects'];
+declare const openEditor: (record: Record<string, unknown>) => void;
 
-<ObjectView dataSource={dataSource} />;
+<ObjectView
+  dataSource={dataSource}
+  objects={objects}
+  onEdit={openEditor}
+  externalRefreshKey={0}
+/>;
 ```
 
 To render an object view from a schema instead of from a route, use
@@ -223,6 +266,16 @@ import { PageView } from '@object-ui/app-shell';
 <PageView />;
 ```
 
+`DashboardView` hands `DashboardRenderer` an `onRefresh` handler, so the
+renderer shows its "Refresh All" button and honours an authored
+`refreshIntervalSeconds`: every that many seconds the widgets re-read their
+data. A refresh declares an unscoped change on the data-invalidation bus
+(`notifyDataChanged({ objectName: '*' })` from `@object-ui/react`), and each
+widget that holds a bus subscription re-reads in place; nothing is remounted.
+`0`, a negative value or no value means no timer. A dataset-bound KPI tile does
+not re-read yet: its widget subscribes on the base object the query's answer
+names, and the answer to a query with no dimensions names none (objectui#11062).
+
 The schema-driven renderers live elsewhere: `DashboardRenderer` in
 `@object-ui/plugin-dashboard`, and everything else through `SchemaRenderer` in
 `@object-ui/react`, which resolves `type` against the component registry.
@@ -238,6 +291,18 @@ field type — `select`, `lookup`, `date`, `file`, `image`, `richtext`, `color`,
 pins param support ⊇ form support. `required` validation and `visible` CEL
 gating are applied by the dialog; file/image uploads use the ambient
 `UploadProvider`, lookup/user pickers the surrounding `SchemaRendererContext`.
+
+A param that declares the spec's `carryOver` (with the `defaultFromRow: true`
+the spec requires beside it) is **shown, never collected**: it renders as a
+collapsed read-only summary with no field widget at all, and its row value is
+submitted verbatim — `serializeParamValues` leaves it untouched even on an
+upload field (objectui#6246). The permission-set Clone action declares it on
+its JSON permission facets, so a clone cannot be hand-edited into granting more
+than its base.
+
+```json
+{ "field": "row_level_security", "defaultFromRow": true, "carryOver": true }
+```
 
 Because each param now emits its widget's own value shape on confirm, the shape
 the dialog **POSTs** for every type is pinned as a contract in
@@ -508,7 +573,13 @@ Config keys come in three editable shapes so authors never hand-write JSON:
   `connector_action`'s **Input**, a `get_record`'s **Filter** — use an inline
   **key/value editor** (`keyValue` kind). Scalar values are auto-typed (`3` →
   number, `true` → boolean); object/array values such as a filter operator
-  `{"$ne": null}` round-trip losslessly.
+  `{"$ne": null}` round-trip losslessly. On a map the spec's expression ledger
+  declares `value`-role (`FLOW_NODE_EXPRESSION_PATHS`; today the `assignment`
+  node's **Assignments**), each value also has a *Write as a CEL expression*
+  toggle: off, a `{token}` string is stored exactly as typed; on, the value is
+  stored as the CEL value envelope `{ dialect: 'cel', source }`, and a malformed
+  envelope shows the spec's `AssignmentValueSchema` refusal inline
+  (objectui#7588, `flow-value-envelope.ts`).
 - **String arrays** — a script's **Recipients** / **Output variables** — use a
   single-column **string-list editor** (`stringList` kind).
 - **Arrays of objects** — a `screen` node's **Fields** (a list of
@@ -569,10 +640,32 @@ be faithfully modelled is surfaced loudly instead of faked.
   author pin what each mocked side-effect node "returns" (written to its
   `outputVariable`), so data-dependent logic downstream of a `get_record` or
   `script` can be exercised too.
-- **Semantics** — `start`/`assignment` pass through; a `decision` routes
-  **edge-first** (first truthy outgoing `condition`, else the `isDefault` edge,
-  else a surfaced dead-end), evaluating CEL via `@object-ui/core`'s
-  `ExpressionEvaluator` and **surfacing eval errors** (not swallowing them);
+- **Semantics** — every node leaves by the runtime's successor selection
+  (`traverseNext`, objectui#10692): an out-edge with a `condition` is guarded
+  (the first true guard is taken — the runtime takes every true one, pending
+  objectstack#15429), an `isDefault` edge with no condition is taken only when
+  no guard was true, every other edge is always taken, a `fault` edge is never
+  an ordinary successor, and a node that takes nothing ends its branch without
+  an error. A `decision` that declares `config.conditions` first picks the
+  first true entry's `label` (else `default`), which narrows its out-edges to
+  the ones carrying that label. Guards and branch expressions are CEL on the
+  runtime's engine and variable scope (`@objectstack/formula`'s
+  `ExpressionEngine`: bare names, `vars.*`, `record.*`); one the runtime
+  refuses or cannot evaluate **stops the run** on that node with the error, a
+  CEL fault fails the run at runtime, and a refused guard is refused at
+  registration (objectui#10615); an assignment interpolates `{var}` tokens
+  inside nested objects and arrays too, as the runtime's `interpolate` does,
+  and a token it does not model (`NOW()`, `$User.*`, arithmetic) is kept as
+  written and named on the step; a paused screen renders through the flow
+  runner's own `ScreenView`, which decides each field's `visibleWhen` live over
+  the screen's declared fields and the values being typed (one client
+  evaluator, objectui#10743), and the screen step names as an error a predicate
+  that references a name that is not a field on this screen or a shape
+  `registerFlow` refuses — the Problems panel judges that column by the same
+  rule (a warning), and so does the inline inspector's `visibleWhen` cell, whose
+  picker offers the screen's declared fields and `record` (objectui#10772;
+  every other `expression` column keeps the flow scope); the runtime's resume door
+  still evaluates over the run's variables until objectstack#20178 lands;
   side-effect nodes write their mock to `outputVariable` (the legacy script
   `outputVariables[]` list is ignored — the engine never binds those names,
   framework#4278);
@@ -580,7 +673,7 @@ be faithfully modelled is surfaced loudly instead of faked.
   and `boundary_event` are marked **unsupported** (token sync / nested runs are
   not modelled) rather than faked.
 - **Live feedback** — the panel shows a **variable watch**, a **step timeline**
-  (status badges `OK` / `MOCKED` / `PAUSED` / `SKIPPED` / `ERROR`, per-decision
+  (status badges `OK` / `MOCKED` / `PAUSED` / `SKIPPED` / `ERROR`, per-node
   edge diagnostics, and write summaries), while the canvas highlights the
   **active** node (pulsing sky ring), **visited** nodes (emerald), and
   **traversed** edges (sky), dimming nodes not yet reached.
@@ -656,32 +749,36 @@ JSON `action:button` schemas can also trigger the page routes directly
 via the action runner, regardless of the object's `editMode`. The handler
 name goes in `actionType` — that is the key the button renderer forwards
 to the action runner as the action's type, and the runner dispatches to
-the handler registered under it. Arguments go in a top-level `params`
-object:
+the handler registered under it. Arguments are static values under
+`properties.params` (an action's `params` is only the `ActionParam[]`
+list of inputs to collect; a node-level `params` object is ignored):
 
 ```json
 {
   "type": "action:button",
   "label": "New Account",
   "actionType": "navigate_create",
-  "params": { "objectName": "account" }
+  "properties": {
+    "params": { "objectName": "account" }
+  }
 }
 ```
 
-`navigate_edit` additionally needs the record to open. `params` reaches
-the handler verbatim: template expressions such as `${record.id}` are not
-evaluated inside `params`, and `action:button` does not inject the
-surrounding row, so a declared `navigate_edit` button carries a literal
-`recordId`:
+`navigate_edit` additionally needs the record to open. Every string in
+`properties.params` is a template, evaluated like other `properties`
+values, so a button on a record page names its record with
+`${record.id}`:
 
 ```json
 {
   "type": "action:button",
   "label": "Edit",
   "actionType": "navigate_edit",
-  "params": {
-    "objectName": "account",
-    "recordId": "0015e000abcd"
+  "properties": {
+    "params": {
+      "objectName": "account",
+      "recordId": "${record.id}"
+    }
   }
 }
 ```

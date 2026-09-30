@@ -7,7 +7,7 @@
  */
 
 /**
- * Arm selection for a failing union (objectui#7004, arm-selection half).
+ * Arm selection for a failing union (`a5d55472b`).
  *
  * ## What this exists for
  *
@@ -28,9 +28,11 @@
  * picking the arm with the fewest issues (option C) and the status quo (option
  * D) were all rejected.
  *
- * This module performs the SELECTION only. Every `console.*` call stays in
- * `validate.ts`, which remains the repository's only zod-issue printer — so no
- * second rendering surface is created and no shared renderer is warranted.
+ * This module performs the SELECTION only. Every `console.*` call that prints
+ * its lines stays in `validate.ts`, the CLI's full zod-issue printer.
+ * `objectui check` prints one line per file that did not validate — the first
+ * issue only, never an arm selection (objectui#11007) — and the two share
+ * nothing but `formatIssuePath`, so no second arm-rendering surface exists.
  *
  * ## Measured facts this rests on (Zod 4.4.3, re-measured on this tree)
  *
@@ -223,7 +225,7 @@ function editDistance(a: string, b: string): number {
  * deliberately case-only under a DIFFERENT ruling (objectui#5247) for a
  * DIFFERENT surface (`objectui check`) over a DIFFERENT candidate set
  * (`KNOWN_SCHEMA_TYPES`, the registry's keys). This surface's candidates are the
- * schema union's arms, and the 2026-09-02 ruling on objectui#7004 asks for the
+ * schema union's arms, and the 2026-09-02 ruling `a5d55472b` implements asks for the
  * "nearest" ones by name — so proximity is granted here and is not a widening
  * of that one.
  */

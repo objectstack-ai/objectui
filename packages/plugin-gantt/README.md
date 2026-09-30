@@ -70,8 +70,13 @@ When the renderer is used through `ObjectGantt` (the standard wiring used by
 the framework's `gantt` stored view type) drag is enabled automatically: each bar
 shows a grab cursor; the body drags the entire task, and the two thin edge
 zones (≈6px) resize start or end. Pointer motion snaps to whole days using
-the current column width. On release `ObjectGantt` issues an optimistic local
-patch and a `dataSource.update(objectName, recordId, { [startDateField]: …,
+the current column width. A move shifts the start and the end by the same
+number of calendar days and keeps each one's time of day, so across a
+daylight-saving change a day task keeps its length in days and a 10:00 start
+stays at 10:00; dragging a summary moves every task beneath it the same way.
+With shift bands configured (`timeSegments`), a day-view drag moves by bands
+instead and keeps the bar's elapsed length. On release `ObjectGantt` issues an
+optimistic local patch and a `dataSource.update(objectName, recordId, { [startDateField]: …,
 [endDateField]: … })`. If the request fails the local state is reverted.
 
 When you embed the lower-level `<GanttView>` directly, pass `onTaskUpdate`
@@ -138,8 +143,12 @@ claim these schema types:
 | `object-gantt` | `plugin-gantt:object-gantt` | `ObjectGanttRenderer` |
 
 Both spellings of the surviving key resolve — `register` stores the namespaced key
-*and* a bare-`type` fallback. It declares two inputs: `objectName` (required) and
-the `gantt` configuration object.
+*and* a bare-`type` fallback. It declares four inputs: `objectName`, the `gantt`
+configuration object, and the two other record sources, `data` and `staticData`.
+`objectName` is not a required input: the record source is one of `data`,
+`staticData` and `objectName` (read in that order), and the `object-gantt` schema
+refuses a block that declares none of them. `data` is a `{ provider, … }`
+data-source configuration, never a bare array; inline rows go under `staticData`.
 
 > **The bare `gantt` key is retired** (objectui#8008, ruled 2026-09-09). This
 > table used to carry a second row, `gantt` / `view:gantt`, on the same renderer.
@@ -254,6 +263,11 @@ providers go through, so `filter` is evaluated with the same matcher and the
 ceiling is applied to the **filtered** set, never to the raw one. Before
 objectui#8769 the inline provider skipped that query and drew every authored
 row with an authored `filter` silently dropped.
+
+The same holds for the full-text pair: `search` is sent as `$search`, and
+`searchableFields` as `$searchFields` alongside it (never without a term). A
+list view's toolbar Search box writes both onto its gantt node — the chart runs
+its own query, so the node is the only way the term reaches it.
 
 **2. How the fields map — `getGanttConfig`.** Two spellings, checked in order.
 The **`gantt` block wins whenever it is present**, and it is taken WHOLE — the

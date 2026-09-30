@@ -4,7 +4,7 @@
 
 **Fix:** `MetadataClient.publishDraft` no longer unwraps a `{ success, data }`
 envelope, so it and `MetadataClient.publish` hold ONE belief about the route
-they share (objectui#6962).
+they share.
 
 The two methods sit ~250 lines apart in `metadata-client.ts` and both POST
 `/api/v1/meta/:type/:name/publish`. `publishDraft` tolerated a dispatcher-shaped

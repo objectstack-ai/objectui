@@ -14,7 +14,7 @@
  * extra dependencies, and built-in accessibility.
  *
  * Four kinds carry a stronger contract than suggest-and-allow-anything
- * (framework #3508): the directory-backed kinds (`user`/`team`/`department`/
+ * (objectstack-ai/objectstack#3508): the directory-backed kinds (`user`/`team`/`department`/
  * `position`) render a record lookup against the data API (with a manual-entry
  * escape hatch, so the never-trap rule still holds), `org-membership-level` is
  * a strict select over a closed enum, `manager` is auto-resolved (disabled
@@ -46,6 +46,8 @@ import { LookupField } from '@object-ui/fields';
 import type { FlowReferenceSpec, ReferenceKind, RefValueSource } from './flow-node-config.js';
 import { useMetadataClient } from '../useMetadata.js';
 import { useObjectFields } from '../previews/useObjectFields.js';
+import { t, tFormat, useMetadataLocale, type SupportedLocale } from '../i18n.js';
+import { flagUnknownValue } from './_shared.js';
 
 /** Context the reference picker needs to resolve dynamic option sources. */
 export interface FlowReferenceContext {
@@ -58,6 +60,11 @@ export interface FlowReferenceContext {
 interface Option {
   value: string;
   label: string;
+  /**
+   * Secondary text shown beside the label in the suggestion list — a connector
+   * action's authored `description` (objectui#11028). Absent → the label alone.
+   */
+  hint?: string;
 }
 
 /**
@@ -68,7 +75,7 @@ interface Option {
  * backed by DATA records, not the metadata registry: they used to map here,
  * so the picker queried `GET /api/v1/meta/user` (which lists no `sys_user`
  * rows), came back empty, and silently degraded to a free-text id box
- * (framework #3508). They live in {@link KIND_TO_RECORD_LOOKUP} instead.
+ * (objectstack-ai/objectstack#3508). They live in {@link KIND_TO_RECORD_LOOKUP} instead.
  */
 const KIND_TO_META_TYPE: Partial<Record<ReferenceKind, string>> = {
   object: 'object',
@@ -80,7 +87,7 @@ const KIND_TO_META_TYPE: Partial<Record<ReferenceKind, string>> = {
 /**
  * Reference kinds backed by DATA records in the system directory objects —
  * mirrors `APPROVER_VALUE_BINDINGS` in `@objectstack/spec` (automation/
- * approval.zod.ts, framework #3508; import it once a published ^16 release
+ * approval.zod.ts, objectstack-ai/objectstack#3508; import it once a published ^16 release
  * carries the export). The approval engine resolves these against records,
  * so the designer offers a record lookup through the DataSource adapter.
  *
@@ -133,7 +140,7 @@ const RECORD_LOOKUP_PRESENTATION = {
  * registry, which holds no `sys_user` / `sys_team` / `sys_business_unit` /
  * `sys_position` ROWS, so candidates came back empty, the control degraded to
  * free text, and `sales_manager` got typed into a field that accepts three
- * values (framework #3508). Spec answered by publishing the binding with a
+ * values (objectstack-ai/objectstack#3508). Spec answered by publishing the binding with a
  * `satisfies` that makes an undeclared `ApproverType` a compile error; reading
  * it here is what finally carries that guarantee across the repo boundary.
  *
@@ -165,7 +172,7 @@ export const KIND_TO_RECORD_LOOKUP: Partial<Record<ReferenceKind, RecordLookupBi
  * used to map to `client.list('role')`, but ADR-0090 D3 removed the `role`
  * metadata type, so that call returned nothing and the picker silently
  * degraded to a free-text box — which is how `sales_manager` got typed into a
- * closed enum. The tier renders as a STRICT select (framework #3508); free
+ * closed enum. The tier renders as a STRICT select (objectstack-ai/objectstack#3508); free
  * text would re-open the same trap.
  *
  * This list used to be hand-spelled `owner` / `admin` / `member` under a
@@ -174,7 +181,7 @@ export const KIND_TO_RECORD_LOOKUP: Partial<Record<ReferenceKind, RecordLookupBi
  * `delegated_admin` to `sys_member.role`: the picker offered a quarter less
  * than the column stores, and a legitimately-saved `delegated_admin` approver
  * rendered as `delegated_admin (invalid)` — a spec-valid, runtime-resolvable
- * value labelled invalid to the author's face (objectui#5309).
+ * value labelled invalid to the author's face (`c7a74c80d`).
  *
  * It now reads `BUILTIN_MEMBERSHIP_ROLE_OPTIONS`, which the spec publishes as
  * the complete option list for `sys_member.role` and calls "the picker's
@@ -336,15 +343,27 @@ export function resolveConnectorName(kind: ReferenceKind, connectorSource: strin
   return typeof v === 'string' && v ? v : undefined;
 }
 
-/** A connector descriptor's action list → combobox options (exported for test). */
+/**
+ * A connector descriptor's action list → combobox options (exported for test).
+ *
+ * The action's `description` rides along as the option's `hint`, so the author
+ * reads what an action does where they pick it (objectui#11028). The served
+ * descriptor carries it as a plain string (`ConnectorActionDescriptor.description`
+ * in `@objectstack/spec`); a missing, blank or non-string one adds no hint.
+ */
 export function connectorActionsToOptions(actions: unknown): Option[] {
   if (!Array.isArray(actions)) return [];
   return actions
-    .filter((a): a is { key: string; label?: string } => !!a && typeof (a as { key?: unknown }).key === 'string' && !!(a as { key: string }).key)
-    .map((a) => ({
-      value: a.key,
-      label: typeof a.label === 'string' && a.label && a.label !== a.key ? `${a.label} (${a.key})` : a.key,
-    }));
+    .filter((a): a is { key: string; label?: unknown; description?: unknown } =>
+      !!a && typeof (a as { key?: unknown }).key === 'string' && !!(a as { key: string }).key)
+    .map((a) => {
+      const description = typeof a.description === 'string' ? a.description.trim() : '';
+      return {
+        value: a.key,
+        label: typeof a.label === 'string' && a.label && a.label !== a.key ? `${a.label} (${a.key})` : a.key,
+        ...(description ? { hint: description } : {}),
+      };
+    });
 }
 
 /**
@@ -355,15 +374,19 @@ export function connectorActionsToOptions(actions: unknown): Option[] {
  * annotated `· declarative` so an author can tell it apart from a plugin-registered
  * connector — both are equally dispatchable, but the provenance differs. The
  * option `value` stays the bare connector name, so selecting it commits the name.
+ * The annotation word is read in `locale` (objectui#10586); omitted, it is en.
  */
-export function connectorsToOptions(connectors: unknown): Option[] {
+export function connectorsToOptions(connectors: unknown, locale?: SupportedLocale): Option[] {
   if (!Array.isArray(connectors)) return [];
   return connectors
     .filter((c): c is { name: string; label?: string; origin?: string } =>
       !!c && typeof (c as { name?: unknown }).name === 'string' && !!(c as { name: string }).name)
     .map((c) => {
       const base = typeof c.label === 'string' && c.label && c.label !== c.name ? `${c.label} (${c.name})` : c.name;
-      return { value: c.name, label: c.origin === 'declarative' ? `${base} · declarative` : base };
+      return {
+        value: c.name,
+        label: c.origin === 'declarative' ? `${base} · ${t('engine.inspector.reference.declarative', locale)}` : base,
+      };
     });
 }
 
@@ -410,7 +433,7 @@ function useMetadataListOptions(type: string | undefined): { options: Option[]; 
 /**
  * Fetch a connector's actions as combobox options from the runtime connector
  * descriptors (`GET /api/v1/automation/connectors`, each `{ name, actions:
- * [{key,label}] }`). `connectorName === undefined` disables the fetch (so the
+ * [{key,label,description}] }`). `connectorName === undefined` disables the fetch (so the
  * hook is safe to call unconditionally). Degrades to empty on any failure.
  */
 function useConnectorActionOptions(connectorName: string | undefined): { options: Option[]; loading: boolean } {
@@ -453,8 +476,9 @@ function useConnectorActionOptions(connectorName: string | undefined): { options
  * connectors a `connector_action` node can call: plugin connectors AND materialized
  * declarative instances (ADR-0096), the latter annotated by origin. `enabled === false`
  * disables the fetch (hook stays unconditional). Degrades to empty on any failure.
+ * `locale` is the annotation's language; switching it re-reads the registry.
  */
-function useConnectorListOptions(enabled: boolean): { options: Option[] } {
+function useConnectorListOptions(enabled: boolean, locale: SupportedLocale): { options: Option[] } {
   const [state, setState] = React.useState<{ options: Option[] }>({ options: [] });
   React.useEffect(() => {
     if (!enabled) {
@@ -467,7 +491,7 @@ function useConnectorListOptions(enabled: boolean): { options: Option[] } {
       .then((payload) => {
         if (cancelled) return;
         const connectors = payload?.data?.connectors ?? payload?.connectors ?? [];
-        setState({ options: connectorsToOptions(connectors) });
+        setState({ options: connectorsToOptions(connectors, locale) });
       })
       .catch(() => {
         if (!cancelled) setState({ options: [] });
@@ -475,13 +499,13 @@ function useConnectorListOptions(enabled: boolean): { options: Option[] } {
     return () => {
       cancelled = true;
     };
-  }, [enabled]);
+  }, [enabled, locale]);
   return state;
 }
 
 /**
  * A single-select RECORD lookup cell for the directory-backed reference kinds
- * (framework #3508). Wraps `@object-ui/fields` LookupField with the app-shell
+ * (objectstack-ai/objectstack#3508). Wraps `@object-ui/fields` LookupField with the app-shell
  * adapter as its DataSource — the same pattern `AccessExplainPanel` and
  * `AssignedUsersSection` already use to pick `sys_user` rows inside metadata
  * editing (ADR-0072: the picker only offers references that actually resolve).
@@ -491,7 +515,7 @@ function useConnectorListOptions(enabled: boolean): { options: Option[] } {
  * adapter a pencil toggle switches to manual entry — a value the directory
  * can't resolve yet (fresh env, dangling id) stays typeable.
  */
-function RecordLookupCell({ binding, value, onPick, onCommit, onBlur, disabled, placeholder }: {
+function RecordLookupCell({ binding, value, onPick, onCommit, onBlur, disabled, placeholder, locale }: {
   binding: RecordLookupBinding;
   value: unknown;
   /** Immediate commit for picker selections (there is no blur to flush on). */
@@ -501,6 +525,8 @@ function RecordLookupCell({ binding, value, onPick, onCommit, onBlur, disabled, 
   onBlur?: () => void;
   disabled?: boolean;
   placeholder?: string;
+  /** The designer locale the two toggle buttons are named in. */
+  locale: SupportedLocale;
 }) {
   const adapter = useAdapter();
   const [manual, setManual] = React.useState(false);
@@ -528,8 +554,8 @@ function RecordLookupCell({ binding, value, onPick, onCommit, onBlur, disabled, 
             className="h-8 w-8 shrink-0 p-0 text-muted-foreground"
             onClick={() => setManual(false)}
             disabled={disabled}
-            aria-label="Pick from records"
-            title="Pick from records"
+            aria-label={t('engine.inspector.reference.pickFromRecords', locale)}
+            title={t('engine.inspector.reference.pickFromRecords', locale)}
           >
             <Search className="h-3.5 w-3.5" />
           </Button>
@@ -572,8 +598,8 @@ function RecordLookupCell({ binding, value, onPick, onCommit, onBlur, disabled, 
         className="h-8 w-8 shrink-0 p-0 text-muted-foreground"
         onClick={() => setManual(true)}
         disabled={disabled}
-        aria-label="Enter value manually"
-        title="Enter value manually"
+        aria-label={t('engine.inspector.reference.enterManually', locale)}
+        title={t('engine.inspector.reference.enterManually', locale)}
       >
         <Pencil className="h-3.5 w-3.5" />
       </Button>
@@ -608,11 +634,14 @@ export interface ReferenceComboboxProps {
  * directory-backed kinds render a record lookup ({@link RecordLookupCell}),
  * `org-membership-level` a strict select (closed enum), `manager` a disabled
  * auto-resolved cell, and `queue` free text with a not-supported warning
- * (framework #3508). Hooks are called unconditionally (kind-gated args) so the
+ * (objectstack-ai/objectstack#3508). Hooks are called unconditionally (kind-gated args) so the
  * component is safe to use in a repeater where the kind changes per row.
  */
 export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect, disabled, placeholder, context, showHint = true }: ReferenceComboboxProps) {
   const listId = React.useId();
+  // No `locale` prop here: the out-of-enum tier flag reads the designer's
+  // locale itself, as the sibling `FlowObjectListField` does (objectui#10448).
+  const locale = useMetadataLocale();
   const ctx: FlowReferenceContext = context ?? { draft: {}, node: null };
   const kind = resolved?.kind;
   // Picker-style commits have no blur event; default to commit-then-flush.
@@ -628,7 +657,7 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
 
   // connector: the dispatchable runtime registry (plugin + materialized declarative
   // instances, ADR-0096), NOT the generic declared-metadata list — see the hook.
-  const { options: connectorListOptions } = useConnectorListOptions(kind === 'connector');
+  const { options: connectorListOptions } = useConnectorListOptions(kind === 'connector', locale);
 
   // Flat metadata-list kinds (object / flow / role / user / team / …).
   const listType =
@@ -670,7 +699,7 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
   // ── Kinds with a stronger contract than suggest-and-allow-anything ──────
   // (All hooks above have already run — the branches below only render.)
 
-  // Directory-backed kinds → single-select record lookup (framework #3508).
+  // Directory-backed kinds → single-select record lookup (objectstack-ai/objectstack#3508).
   // The object + committed column come from the schema when the server
   // publishes them, so this package no longer decides where the engine's
   // approvers live — see `recordLookupFor`.
@@ -685,6 +714,7 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
         onBlur={onBlur}
         disabled={disabled}
         placeholder={placeholder}
+        locale={locale}
       />
     );
   }
@@ -692,7 +722,7 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
   // Closed enum → strict select, never free text: `sales_manager` typed into
   // a membership-tier box matches nobody at runtime. The vocabulary comes from
   // the SERVER when it publishes one and from the spec-derived fallback
-  // otherwise — never from a list hand-spelled here (objectui#5309). A stored
+  // otherwise — never from a list hand-spelled here (`c7a74c80d`). A stored
   // value outside the enum (legacy dirty data) still renders, flagged, so
   // editing an old row never silently blanks it — mirroring the repeater's
   // select cells.
@@ -700,7 +730,7 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
     const current = value != null ? String(value) : '';
     const tiers = membershipLevelOptions(resolved?.source);
     const shown = current && !tiers.some((o) => o.value === current)
-      ? [...tiers, { value: current, label: `${current} (invalid)` }]
+      ? [...tiers, { value: current, label: flagUnknownValue(current, t('engine.form.invalid', locale), locale) }]
       : tiers;
     return (
       <Select value={current || undefined} onValueChange={commitSelection} disabled={disabled}>
@@ -728,17 +758,17 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
         <Input
           value={value != null ? String(value) : ''}
           disabled
-          placeholder="Resolved automatically"
+          placeholder={t('engine.inspector.reference.managerPlaceholder', locale)}
           className="h-8 text-sm"
         />
         <p className="text-[11px] leading-snug text-muted-foreground">
-          Resolved at runtime from the submitter&apos;s manager — no value needed.
+          {t('engine.inspector.reference.managerHint', locale)}
         </p>
       </div>
     );
   }
 
-  // Declared-but-unenforced (framework #3508): the runtime has no queue
+  // Declared-but-unenforced (objectstack-ai/objectstack#3508): the runtime has no queue
   // resolution, so a stored value keeps its free-text cell but carries a
   // warning — rendered regardless of `showHint` because the slot silently
   // routes to nobody. New rows can no longer choose this type.
@@ -754,7 +784,7 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
           className="h-8 text-sm"
         />
         <p className="text-[11px] leading-snug text-amber-600 dark:text-amber-400">
-          Queue approvers are not supported by the runtime yet — this slot resolves to nobody.
+          {t('engine.inspector.reference.queueUnsupported', locale)}
         </p>
       </div>
     );
@@ -775,24 +805,24 @@ export function ReferenceCombobox({ resolved, value, onCommit, onBlur, onSelect,
         <datalist id={listId}>
           {options.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {o.hint ? `${o.label} — ${o.hint}` : o.label}
             </option>
           ))}
         </datalist>
       )}
       {showHint && kind === 'object-field' && objectName && (
-        <p className="text-[11px] leading-snug text-muted-foreground">Fields of {objectName}.</p>
+        <p className="text-[11px] leading-snug text-muted-foreground">{tFormat('engine.inspector.reference.fieldsOf', locale, { object: objectName })}</p>
       )}
       {showHint && unresolvedObject && (
         <p className="text-[11px] leading-snug text-muted-foreground">
-          Set the flow’s trigger object (on the Start node) to list fields.
+          {t('engine.inspector.reference.setTriggerObject', locale)}
         </p>
       )}
       {showHint && kind === 'connector-action' && connectorName && (
-        <p className="text-[11px] leading-snug text-muted-foreground">Actions of {connectorName}.</p>
+        <p className="text-[11px] leading-snug text-muted-foreground">{tFormat('engine.inspector.reference.actionsOf', locale, { connector: connectorName })}</p>
       )}
       {showHint && unresolvedConnector && (
-        <p className="text-[11px] leading-snug text-muted-foreground">Choose a Connector above to list its actions.</p>
+        <p className="text-[11px] leading-snug text-muted-foreground">{t('engine.inspector.reference.chooseConnector', locale)}</p>
       )}
     </div>
   );

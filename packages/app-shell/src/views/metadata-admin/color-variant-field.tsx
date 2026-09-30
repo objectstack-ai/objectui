@@ -74,12 +74,19 @@ export type ColorVariantPickerNaming =
   | { ariaLabelledBy: string; ariaLabel?: never }
   | { ariaLabel: string; ariaLabelledBy?: never };
 
-export function ColorVariantPicker({ value, onChange, disabled, options, ariaLabelledBy, ariaLabel }: ColorVariantPickerNaming & {
+export function ColorVariantPicker({ value, onChange, disabled, options, required, ariaLabelledBy, ariaLabel }: ColorVariantPickerNaming & {
   value: string | undefined;
   onChange: (v: string) => void;
   disabled?: boolean;
   /** Restrict/relabel the choices; defaults to the full canonical palette. */
   options?: Array<{ value: string; label?: string }>;
+  /**
+   * Whether the host shows a required `*` for this field (objectui#10367). The
+   * host's `*` is `aria-hidden`, so this is the channel that announces the
+   * requirement: `aria-required` on the `radiogroup`, which ARIA 1.2 supports
+   * on that role. Omitted, never "false", when the field is optional.
+   */
+  required?: boolean;
 }) {
   const opts: ColorVariant[] = options
     ? options.map((o) => ({ value: o.value, label: o.label ?? o.value, css: colorVariantCss(o.value) }))
@@ -91,6 +98,7 @@ export function ColorVariantPicker({ value, onChange, disabled, options, ariaLab
       role="radiogroup"
       aria-labelledby={ariaLabelledBy}
       aria-label={ariaLabel}
+      aria-required={required ? true : undefined}
     >
       {opts.map((o) => {
         const on = current === o.value;

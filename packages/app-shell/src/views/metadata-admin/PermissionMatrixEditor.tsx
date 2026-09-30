@@ -47,6 +47,8 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronRight,
+  Copy,
+  Lock,
 } from 'lucide-react';
 import { Button } from '@object-ui/components';
 import { Badge } from '@object-ui/components';
@@ -69,14 +71,19 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@object-ui/components';
-import { useAdapter } from '@object-ui/react';
+import { useAdapter, useAction, useMetadata, useActionTextLocalizer } from '@object-ui/react';
 import { CapabilityMultiSelectField, parseCapabilityNames } from '@object-ui/fields';
 import { PageShell } from './PageShell.js';
 import { HistoryPanel } from './ResourceHistoryPage.js';
 import { useMetadataClient, useMetadataTypes, type RichMetadataTypeEntry } from './useMetadata.js';
-import { t as translate, useMetadataLocale } from './i18n.js';
+import { t as translate, tFormat, useMetadataLocale } from './i18n.js';
 import { PermissionAdvancedFacets } from './PermissionAdvancedFacets.js';
 import { errorCodeIs } from '@object-ui/types';
+import {
+  PERMISSION_SET_OBJECT,
+  buildCloneDispatch,
+  findCloneAction,
+} from './permission-set-clone-dispatch.js';
 import {
   mergePermissionSlice,
   scopePermissionSet,
@@ -111,20 +118,39 @@ interface ObjectSummary {
 }
 
 /**
- * Is this item backed by a **code-package artifact**? (objectui#4518)
+ * Is this item backed by a **code-package artifact**? (objectui#4518, #4526)
  *
  * The client-side mirror of the server's `isArtifactBacked`
- * (metadata-protocol `protocol.ts`). It began as byte-for-byte the predicate
- * `ResourceEditPage` computes for its own two-tier gate; the two are NO LONGER
- * identical — see the divergence note at the end.
+ * (metadata-protocol `protocol.ts`), asking the question the way
+ * `ResourceEditPage` asks it for its own two-tier gate (its `isArtifactItem`):
+ * off the SAME source, the layered envelope this editor already fetches — its
+ * `code` layer and its ADR-0010 `provenance`. A non-null `code` layer alone is
+ * NOT proof of a code package, and two exclusions carve out what is not one,
+ * clause for clause the sibling's:
  *
- * A non-null `code` layer alone is NOT proof of a code package: a published
- * ORG item also surfaces its active version in `code`, tagged with the
- * `sys_metadata` provenance sentinel. The server excludes exactly that
- * sentinel ("`lookupArtifactItem` only returns items whose `_packageId` marks
- * a genuine code package (the `'sys_metadata'` rehydration sentinel is
- * excluded)"), so an org-authored set stays editable after publish instead of
- * being mis-read as a read-only packaged item.
+ *   1. `code._packageId === 'sys_metadata'` — the save-path sentinel for a
+ *      published ORG item, which also surfaces its active version in `code`.
+ *      The server excludes exactly that sentinel ("`lookupArtifactItem` only
+ *      returns items whose `_packageId` marks a genuine code package (the
+ *      `'sys_metadata'` rehydration sentinel is excluded)"), so an
+ *      org-authored set stays editable after publish.
+ *   2. `provenance === 'org'` — the axis that actually separates tenant-authored
+ *      content from code-shipped artifacts. The sentinel in (1) holds only on
+ *      the save path: boot-time rehydration of `sys_metadata` re-registers each
+ *      row under its REAL package id, so a tenant's own set reads back with a
+ *      code-looking `_packageId`. With (1) alone this function called that set
+ *      an artifact, and at the environment door — where `permission`'s
+ *      `allowOrgOverride: false` then decides — the tenant's own matrix
+ *      rendered read-only (objectui#4526). The framework fixed the same misread
+ *      by asking provenance (`isTenantAuthored`, cloud#970), and the server's
+ *      artifact lookup applies both exclusions.
+ *
+ * `provenance` describes `code` here: the server resolves it from
+ * `code ?? overlay`, and `code != null` is already required. Only `'org'` is
+ * carved out. `undefined` means "no opinion" (an older server, an unstamped
+ * item) and keeps the artifact reading, as the sibling does; a genuine code
+ * package reports `provenance: 'package'` and stays read-only unless the type
+ * allows overlay.
  *
  * `null` / a failed layered read answers `false` — "no artifact known". That
  * is the fail-OPEN direction on purpose: it is what the sibling's
@@ -132,25 +158,28 @@ interface ObjectSummary {
  * read failure must not invent a lock. The cost is bounded and honest — the
  * save still round-trips to the server's own gate.
  *
- * ── Divergence from `ResourceEditPage` (objectui#4308) ────────────────────
- * The sibling now ALSO excludes ADR-0010 `provenance === 'org'`. The sentinel
- * this function tests holds only on the save path: boot-time rehydration of
- * `sys_metadata` re-registers each row under its REAL package id, so a
- * tenant's own item reads back with a code-looking `_packageId` and this
- * predicate calls it an artifact. The framework hit the same thing and fixed
- * it by asking provenance (`isTenantAuthored`, cloud#970).
- *
- * That gap is NOT reachable here today: the artifact tier is gated on
- * `!packageId` (see `artifactTierApplies`), so under a package door — the
- * writable-package case #4308 reports, and the one #4446 fixed for this
- * editor — this function is never consulted. The env-door residue is filed on
- * objectui#4526 together with that card's own over-lock. Adopt provenance here
- * when #4526 is picked up, rather than re-copying the sibling's expression.
+ * ── Accepted behaviour: the single-kernel over-lock (objectui#4526) ─────────
+ * The residue described at `artifactTierApplies` — on a single-kernel host the
+ * server disengages its artifact tier, so an env-scope edit of a code-declared
+ * set is accepted there while this editor renders it read-only — is ACCEPTED
+ * as known behaviour by the maintainer-adopted ruling on objectui#4526. It
+ * fails toward an honest lock, never toward a Save that 403s, and closing it
+ * needs the kernel's environment topology on the client: the probe the #4518
+ * ruling forbids. It is re-graded, as a NEW card, only when the client gains a
+ * legitimate read of that topology (a ruling permitting the discovery probe,
+ * or a `/meta` payload that carries the environment scope). This function
+ * answers "does a code package ship this item", never "is the server's
+ * artifact tier engaged".
  */
-function isArtifactBackedLayer(layered: { code?: unknown } | null | undefined): boolean {
+function isArtifactBackedLayer(
+  layered: { code?: unknown; provenance?: unknown } | null | undefined,
+): boolean {
   const code = layered?.code;
   if (code == null) return false;
-  return (code as { _packageId?: string })._packageId !== 'sys_metadata';
+  return (
+    (code as { _packageId?: string })._packageId !== 'sys_metadata' &&
+    layered?.provenance !== 'org'
+  );
 }
 
 /** Localized short label for an OWD value; falls back to the raw value. */
@@ -255,6 +284,18 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // registry (ADR-0056 P2). The metadata `client` handles the draft; capability
   // rows are data, fetched like AssignedUsersSection does.
   const adapter = useAdapter();
+  // objectui#5987 — the three seams "Clone to customize" dispatches through:
+  // the console's shared action runner (`useAction()` under
+  // `GlobalActionRuntimeProvider` is the fully wired console runner — api
+  // handler, param-collection dialog, toasts), the console's metadata store
+  // (where the `sys_permission_set` object definition, and with it the
+  // published `clone_permission_set` action, is read from), and the
+  // `_actions.<name>` bundle localizer every declared-action surface uses for
+  // the dialog title. Resolution and dispatch shape live in
+  // `permission-set-clone-dispatch.ts` — see its header for why.
+  const { execute: executeAction } = useAction();
+  const metadataStore = useMetadata();
+  const localizeActionTexts = useActionTextLocalizer();
   const { entries } = useMetadataTypes(client);
   const entry: RichMetadataTypeEntry | undefined = entries.find((t) => t.type === type);
   // Does a code package SHIP this set? Read off the layered envelope the load
@@ -278,7 +319,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   //    `protocol.ts`). Gating on `allowOrgOverride` alone therefore locked a
   //    surface the server accepts: `permission` is `allowOrgOverride: false`
   //    (ADR-0005 forbids per-org overlay of a packaged permission set — silent
-  //    privilege drift) but `allowRuntimeCreate: true`, and objectstack#6483
+  //    privilege drift) but `allowRuntimeCreate: true`, and objectstack `ee58392e1`
   //    kept that second door open on purpose ("Runtime-created sets … ride
   //    `allowRuntimeCreate` (still `true`) and keep working").
   //    `useMetadata.ts` states the convention on the field itself: "UI
@@ -320,11 +361,12 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // button that failed at the end with a 403 instead of a surface that explains
   // itself up front.
   //
-  // `ResourceEditPage:1332` has modelled both tiers all along; this is that
-  // same three-way rule, with the same `sys_metadata` sentinel (see
-  // {@link isArtifactBackedLayer}), read off the layered envelope this editor
-  // ALREADY fetches. No new probe — the ruling on #4518 forbids one, and the
-  // entry flags plus `layered.code` are the whole input.
+  // `ResourceEditPage` has modelled both tiers all along; this is that same
+  // three-way rule, with the same artifact predicate — the `sys_metadata`
+  // sentinel AND ADR-0010 `provenance` (see {@link isArtifactBackedLayer},
+  // objectui#4526) — read off the layered envelope this editor ALREADY
+  // fetches. No new probe — the ruling on #4518 forbids one, and the entry
+  // flags plus `layered.code` and `layered.provenance` are the whole input.
   //
   // ── …scoped to the environment door, which is the binding constraint ──────
   //
@@ -406,6 +448,17 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
   // does NOT live on `error`: that strip means "your save failed", which is the
   // opposite of the truth here.
   const [postSaveRereadFailed, setPostSaveRereadFailed] = React.useState(false);
+  // objectui#5987 — "Clone to customize" in flight; the clone's name when the
+  // host is embedded (no route to open it on); and the env-door save the
+  // server refused as a PACKAGED set (403 `NOT_OVERRIDABLE`), holding the
+  // server's message. That last one is NOT `error`: the red strip renders the
+  // transport's text, which for this refusal says "edit the source artifact
+  // and redeploy" — the pre-ruling remedy — so a save that reached the server
+  // used to end in a generic refusal while the lock's own guidance says
+  // "clone". Keyed on the refusal's CODE, never on its prose.
+  const [cloning, setCloning] = React.useState(false);
+  const [cloneNotice, setCloneNotice] = React.useState<string | null>(null);
+  const [saveRefusedAsLocked, setSaveRefusedAsLocked] = React.useState<string | null>(null);
   const [destructive, setDestructive] = React.useState<
     null | { issues: Array<{ kind?: string; path?: string; message?: string }>; pending: PermissionSetDraft }
   >(null);
@@ -449,6 +502,10 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     // Same reason: a notice raised by the previous set's save must not survive
     // into a set that is about to be read fresh (objectui#9484).
     setPostSaveRereadFailed(false);
+    // Same reason again (objectui#5987): a refusal or a clone notice belongs
+    // to the set that raised it.
+    setSaveRefusedAsLocked(null);
+    setCloneNotice(null);
     (async () => {
       try {
         const [lay, objList, pendingDraft] = await Promise.all([
@@ -465,9 +522,10 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
             : Promise.resolve(null),
         ]);
         if (cancelled) return;
-        // ARTIFACT tier input (objectui#4518) — the `code` layer of the SAME
-        // envelope the display baseline comes from, so the writability verdict
-        // and the body on screen can never be read from different round trips.
+        // ARTIFACT tier input (objectui#4518) — the `code` layer, and its
+        // `provenance` (objectui#4526), of the SAME envelope the display
+        // baseline comes from, so the writability verdict and the body on
+        // screen can never be read from different round trips.
         setCodeIsArtifact(isArtifactBackedLayer(lay));
         // Read decorations do NOT seed the editor (objectui#8181). `doSave`
         // below re-bases on a fresh RAW `layered` read, which drops them — but
@@ -754,6 +812,7 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
     setSaving(true);
     setError(null);
     setPostSaveRereadFailed(false);
+    setSaveRefusedAsLocked(null);
     try {
       // Package scope: merge only this package's slice back onto a fresh read
       // of the record so rows contributed by other packages survive byte-for-
@@ -840,11 +899,85 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
       if (err?.status === 409 && errorCodeIs(err, 'DESTRUCTIVE_CHANGE')) {
         const issues = err?.body?.issues ?? [];
         setDestructive({ issues: Array.isArray(issues) ? issues : [], pending: payload });
+      } else if (!packageId && err?.status === 403 && errorCodeIs(err, 'NOT_OVERRIDABLE')) {
+        // objectui#5987 (the card's item 3) — the environment door refused the
+        // write because a code package ships this set: the same condition the
+        // artifact tier above locks on, reached by a save that got past it
+        // (the lock is derived from a read; the server's answer is the
+        // truth). Surface the lock's own guidance — clone first — beside the
+        // refusal, instead of the transport's message alone. Env door only:
+        // under a `packageId` the write is a package draft and this code has a
+        // different meaning there (the package is not writable).
+        setSaveRefusedAsLocked(err?.message ?? String(err));
       } else {
         setError(err?.message ?? String(err));
       }
     } finally {
       setSaving(false);
+    }
+  }
+
+  /* ── Clone to customize (objectui#5987) ──────────────────────── */
+  /**
+   * Run the server-published `clone_permission_set` record action on THIS set.
+   *
+   * Every step is the same one a `record_header` "Clone" button on the
+   * `sys_permission_set` record page takes — resolve the action off the object
+   * definition (`findCloneAction`), shape the dispatch (`buildCloneDispatch`:
+   * the row under `params._rowRecord`, the declared `params` ARRAY as
+   * `actionParams`), and `execute` — so the clone's payload, dialog, refusal
+   * toasts and success toast are the published action's, not this editor's.
+   * What this editor adds is only where the clone OPENS: on the routed
+   * metadata admin it navigates to the clone, which loads with no code layer
+   * and is therefore writable; an embedded host has no route, so the clone is
+   * announced by name instead.
+   *
+   * Two refusals, no fallbacks (AGENTS.md #0.1): an object that publishes no
+   * such action, or a set with no `sys_permission_set` row, ends here with a
+   * message naming what is missing — never a clone assembled from create /
+   * update calls.
+   */
+  async function cloneToCustomize() {
+    if (cloning) return;
+    setCloning(true);
+    setError(null);
+    setCloneNotice(null);
+    try {
+      const cloneAction = findCloneAction(await metadataStore.ensureType('object'));
+      if (!cloneAction) throw new Error(t('perm.clone.actionMissing'));
+
+      // The row the action runs against — `AssignedUsersSection` resolves the
+      // same set's record the same way. `data` is the adapter's `QueryResult`
+      // contract; a bare array is not read (#0.1 — fix the producer).
+      const found = adapter ? await adapter.find(PERMISSION_SET_OBJECT, { $filter: { name }, $top: 1 }) : null;
+      const row = (found?.data ?? [])[0] as Record<string, unknown> | undefined;
+      if (!row) throw new Error(tFormat('perm.clone.rowMissing', locale, { name }));
+
+      const result = await executeAction(buildCloneDispatch(cloneAction, row, localizeActionTexts));
+      // A cancelled dialog and a refused POST both come back `success: false`;
+      // the runner has already toasted a refusal, and a cancel needs nothing.
+      if (!result.success) return;
+      // The data door answers the spec's `CreateDataResponse` — `{ object, id,
+      // record }` — which the console api handler unwraps to `result.data`.
+      const created = result.data as { record?: { name?: unknown } } | null | undefined;
+      const cloneName = typeof created?.record?.name === 'string' ? created.record.name : '';
+      if (!cloneName) {
+        setError(t('perm.clone.noName'));
+        return;
+      }
+      if (embedded) {
+        setCloneNotice(cloneName);
+      } else {
+        // Same spelling as ResourceEditPage's post-create hop: the route is
+        // `metadata/:type/:name`, so `../<clone>` opens the clone under the
+        // same type. It loads with `code: null`, so the artifact tier does not
+        // engage and Save is offered.
+        navigate(`../${encodeURIComponent(cloneName)}`, { relative: 'path' });
+      }
+    } catch (err: any) {
+      setError(err?.message ?? String(err));
+    } finally {
+      setCloning(false);
     }
   }
 
@@ -874,6 +1007,25 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
       value: Object.keys(draft.fields ?? {}).length,
     },
   ];
+
+  // objectui#5987 — one element, two seats: the header slot Save would occupy
+  // when the artifact tier locks the surface, and the refused-save strip when a
+  // save reached the server anyway. Same label, same hint, same dispatch.
+  const cloneButton = (
+    <Button
+      size="sm"
+      onClick={() => void cloneToCustomize()}
+      disabled={cloning}
+      title={t('perm.clone.hint')}
+    >
+      {cloning ? (
+        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+      ) : (
+        <Copy className="h-4 w-4 mr-1" />
+      )}
+      {t('perm.clone.action')}
+    </Button>
+  );
 
   if (loading) {
     return (
@@ -932,6 +1084,13 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
               {t('engine.edit.save')}
             </Button>
           )}
+          {/* objectui#5987 — the locked editor's PRIMARY action, in the slot Save
+              would occupy: a code package ships this set, so the ruled path is
+              to clone it and edit the clone. Only where the artifact tier is
+              the deciding gate — a host-locked package or a type with no
+              runtime write channel at all has no clone to offer (the clone is
+              itself a runtime-created set). */}
+          {lockedByArtifactTier && cloneButton}
         </>
       }
     >
@@ -940,6 +1099,52 @@ export function PermissionMatrixEditPage({ type, name, packageId, onDraftSaved, 
           <div className="m-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
             <span>{error}</span>
+          </div>
+        )}
+
+        {/* objectui#5987 — the locked-state guidance, visible rather than
+            tooltip-only, naming the ruled path first. The badge in the identity
+            strip below still carries the full reasoning in its hint. */}
+        {lockedByArtifactTier && (
+          <div
+            role="note"
+            className="m-4 rounded-md border bg-muted/40 p-3 text-sm flex items-start gap-2"
+          >
+            <Lock className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
+            <span>{t('perm.clone.guidance')}</span>
+          </div>
+        )}
+
+        {/* objectui#5987 (item 3) — a save that reached the server and was
+            refused as a PACKAGED set: the same guidance as the lock, with the
+            same primary action, and the server's own sentence kept underneath
+            for diagnosis. `role="alert"`: this IS a failed save. */}
+        {saveRefusedAsLocked !== null && (
+          <div
+            role="alert"
+            className="m-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive flex flex-col gap-2"
+          >
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>{t('perm.save.locked')}</span>
+            </div>
+            <div className="flex items-start gap-3 pl-6">
+              {cloneButton}
+              <span className="text-xs text-muted-foreground">{saveRefusedAsLocked}</span>
+            </div>
+          </div>
+        )}
+
+        {/* objectui#5987 — an embedded host has no route to open the clone on,
+            so the clone is announced by name (advisory, like the re-read
+            notice below). */}
+        {cloneNotice !== null && (
+          <div
+            role="status"
+            className="m-4 rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-800 dark:text-amber-200 flex items-start gap-2"
+          >
+            <Copy className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>{tFormat('perm.clone.done', locale, { name: cloneNotice })}</span>
           </div>
         )}
 

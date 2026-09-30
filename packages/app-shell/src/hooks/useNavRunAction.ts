@@ -49,7 +49,43 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { NAV_RUN_ACTION_PARAM } from '@object-ui/layout';
+import { hasDeclaredVisibilityGate } from '@object-ui/components';
+import { useCondition, toPredicateInput, usePredicateRecordContext } from '@object-ui/react';
+import { useObjectTranslation } from '@object-ui/i18n';
+
+/** Read the requested action name off the URL as it was on arrival. */
+function readRequested(): string | null {
+  try {
+    const raw = new URLSearchParams(window.location.search).get(NAV_RUN_ACTION_PARAM);
+    return raw && raw !== '' ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Consume `requested` once `shouldArm` answers true: strip the param and hand
+ * the name back while it is armed. The ONE implementation of the #4123
+ * consume-once rule, shared by both hooks below.
+ */
+function useConsumeOnce(requested: string | null, shouldArm: (requested: string) => boolean): string | null {
+  const consumed = useRef(false);
+  const shouldRun = requested !== null && !consumed.current && shouldArm(requested);
+  useEffect(() => {
+    if (!shouldRun) return;
+    consumed.current = true;
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete(NAV_RUN_ACTION_PARAM);
+      window.history.replaceState(window.history.state, '', url);
+    } catch {
+      /* URL cleanup is cosmetic — never fail the trigger over it */
+    }
+  }, [shouldRun]);
+  return shouldRun ? requested : null;
+}
 
 /**
  * Read the declared deep link once, and consume it once `armed` says something
@@ -65,28 +101,98 @@ export function useNavRunAction(armed: (requested: string) => boolean): string |
   // Read at mount, from the URL as it was on arrival. `useState`'s initializer
   // (not a ref assignment) so a re-render caused by the strip below cannot
   // re-read an already-emptied search string and lose the name mid-flight.
-  const [requested] = useState<string | null>(() => {
-    try {
-      const raw = new URLSearchParams(window.location.search).get(NAV_RUN_ACTION_PARAM);
-      return raw && raw !== '' ? raw : null;
-    } catch {
-      return null;
-    }
+  const [requested] = useState<string | null>(readRequested);
+  return useConsumeOnce(requested, armed);
+}
+
+/** The fields of a declared action the preparation step reads. */
+interface DeepLinkCandidate {
+  name?: string;
+  label?: string;
+  visible?: unknown;
+}
+
+/**
+ * The deep-link PREPARATION step for a surface that renders its declared
+ * actions through `action:bar` — `useNavRunAction` plus the action's own
+ * declared `visible` gate (objectui#4191, ruling A).
+ *
+ * ## Why the gate is here and not only in the renderer
+ *
+ * The renderers (`action:button` / `action:menu`, through the shared
+ * `useAutoTriggerOnce`) already refuse an `autoTrigger` whose action is hidden
+ * by its own `visible`. But by the time a renderer refuses, THIS step has
+ * already consumed the one-shot intent — the param is stripped and a reload
+ * cannot retry it, the #4123 failure. So the preparation step asks the same
+ * question first: a candidate its author hid on this surface is neither marked
+ * `autoTrigger` nor consumed, and the refusal is reported here — a notice for
+ * the user (the same `actions.notAvailableHere` text the renderers use) and a
+ * dev-build diagnostic for the author.
+ *
+ * ## The SAME predicate the renderer evaluates — composed, not re-implemented
+ *
+ * `action:button` hides itself when `hasDeclaredVisibilityGate(visible)` and
+ * the fail-closed `useCondition(toPredicateInput(visible), recordContext,
+ * { throwOnError: true, label })` answers false. This step calls exactly those
+ * three exported functions with exactly those inputs: the ambient predicate
+ * scope is read by `useCondition` itself from the same tree position the bar
+ * renders at, and the record context is `usePredicateRecordContext(undefined)`
+ * because a list toolbar has no row — the bar is mounted without `data` there,
+ * so the button binds no row either. The `label` is spelled the way
+ * `action:button` spells it, so a throwing predicate warns once, not twice.
+ * `__tests__/useOfferedNavRunAction.test.tsx` pins the two verdicts against each
+ * other through the real `action:bar`.
+ *
+ * Not an authorization boundary: confirm / param / entitlement / server
+ * permission checks apply on every execute path whatever this answers.
+ *
+ * @param actions   The surface's declared actions (already localized).
+ * @param onSurface Does this action render on this surface (placement)?
+ * @param enabled   `false` when another consumer owns the param on this page.
+ * @returns The requested action name while armed and unconsumed, else `null`.
+ */
+export function useOfferedNavRunAction(
+  actions: readonly DeepLinkCandidate[],
+  onSurface: (action: DeepLinkCandidate) => boolean,
+  enabled: boolean,
+): string | null {
+  const [requested] = useState<string | null>(readRequested);
+  const candidate =
+    enabled && requested !== null
+      ? actions.find((a) => a?.name === requested && onSurface(a))
+      : undefined;
+
+  const noRow = usePredicateRecordContext(undefined);
+  const isVisible = useCondition(toPredicateInput(candidate?.visible as never), noRow, {
+    throwOnError: true,
+    label: `action "${candidate?.name ?? candidate?.label ?? 'action:button'}" (visible)`,
   });
-  const consumed = useRef(false);
-  const shouldRun = requested !== null && !consumed.current && armed(requested);
+  const hidden = candidate !== undefined && hasDeclaredVisibilityGate(candidate.visible) && !isVisible;
+
+  const { t } = useObjectTranslation();
+  const refusalReported = useRef(false);
   useEffect(() => {
-    if (!shouldRun) return;
-    consumed.current = true;
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.delete(NAV_RUN_ACTION_PARAM);
-      window.history.replaceState(window.history.state, '', url);
-    } catch {
-      /* URL cleanup is cosmetic — never fail the trigger over it */
+    if (!hidden || !candidate || refusalReported.current) return;
+    refusalReported.current = true;
+    toast.warning(
+      t('actions.notAvailableHere', {
+        defaultValue: '"{{action}}" is not available on the current page.',
+        action: candidate.label || candidate.name || '',
+      }),
+      { id: `auto-trigger-refused:${candidate.name ?? candidate.label ?? ''}` },
+    );
+    if (process.env.NODE_ENV !== 'production') {
+      const predicate =
+        typeof candidate.visible === 'string' ? candidate.visible : JSON.stringify(candidate.visible);
+      console.warn(
+        `[nav] deep link ?${NAV_RUN_ACTION_PARAM}=${candidate.name} was NOT armed: the action's own ` +
+          `declared \`visible\` gate evaluated false on this surface, and the author's verdict ` +
+          `outranks the deep link (objectui#4191). The intent is left in the URL. Predicate: ${predicate}.`,
+      );
     }
-  }, [shouldRun]);
-  return shouldRun ? requested : null;
+  }, [hidden, candidate, t]);
+
+  return useConsumeOnce(requested, () => candidate !== undefined && !hidden);
 }
 
 /**

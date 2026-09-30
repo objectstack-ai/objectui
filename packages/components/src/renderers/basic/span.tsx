@@ -168,7 +168,8 @@ ComponentRegistry.register('span',
         'use "badge" for labels, or "text" with a className for inline emphasis',
     },
     inputs: [
-      { name: 'className', type: 'string' }
+      { name: 'className', type: 'string' },
+      { name: 'children', type: 'slot', description: 'Inline content, rendered ahead of `value`' }
     ],
     defaultProps: {
       className: 'px-1.5 py-0.5 sm:px-2 sm:py-1'

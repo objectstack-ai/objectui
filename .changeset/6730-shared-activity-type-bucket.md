@@ -21,7 +21,7 @@ a `scheduled` meeting, a `login`, a nightly `system` rollup and an author's
   its own icon, label and notification toggle. Following
   `UNMAPPED_ACTIVITY_FEED_TYPE`'s precedent, an unrecognised value renders
   through it and is named once on `console.warn` rather than being dropped —
-  `sys_activity.type` is author-extensible (objectstack#11507 direction 4), so
+  `sys_activity.type` is author-extensible (objectstack `88b9d749a`, direction 4), so
   an unmapped value is real activity nobody has ruled on, not a mistake.
 - The built-ins that had no honest presentation among the four existing kinds —
   `system`, `completed`, `scheduled`, `login`, `logout` — now land in that

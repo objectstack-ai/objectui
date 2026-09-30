@@ -7,10 +7,15 @@ import {
   EXIT_BREACHED,
   EXIT_CANNOT_RUN,
   EXIT_OK,
+  REREAD_LIMIT,
+  REREAD_WAIT_MS,
   evaluate,
   exitCodeFor,
+  fetchJob,
   renderReading,
+  settleReading,
   shardContexts,
+  unconcludedShards,
 } from '../check-test-shard-results.mjs';
 import { checkNames, readWorkflows } from './workflow-checks.js';
 
@@ -162,6 +167,179 @@ describe('check-test-shard-results — an unreadable answer is never a pass', ()
   });
 });
 
+/**
+ * objectui#10931 — the recorded false red, as the fixture.
+ *
+ * `run-36042402511-attempt-1.json` is that merge-group run's job table as the
+ * endpoint `fetchRunJobs()` calls answers it now: all eight shards `success`.
+ * The aggregator read the same table at 2026-09-24T18:47:14Z and its log
+ * printed `no conclusion  Test (shard 6/8)` with every other shard `success`,
+ * so the as-read view below differs from the fixture in that one shard's
+ * conclusion. The log did not print the shard's `status`, so that field is
+ * dropped from the as-read record rather than guessed.
+ */
+type RecordedJob = { id: number; name: string; status: string; conclusion: string | null };
+const recorded = JSON.parse(
+  fs.readFileSync(path.join(repoRoot, 'scripts/__tests__/fixtures/test-shard-results/run-36042402511-attempt-1.json'), 'utf8'),
+) as { jobs: RecordedJob[] };
+const LATE = 'Test (shard 6/8)';
+const lateJob = recorded.jobs.find((job) => job.name === LATE)!;
+
+function asRead(jobs: RecordedJob[] = recorded.jobs): Record<string, unknown>[] {
+  return jobs.map((job) => {
+    if (job.name !== LATE) return job;
+    const copy: Record<string, unknown> = { ...job, conclusion: null };
+    delete copy.status;
+    return copy;
+  });
+}
+
+/** `settleReading` with a scripted re-read answer, no clock, and every call recorded. */
+function settle(jobs: unknown[], answer: (jobId: number) => unknown) {
+  const reread: number[] = [];
+  const slept: number[] = [];
+  const logged: string[] = [];
+  const result = settleReading({
+    jobs,
+    shards: 8,
+    selfJobName: 'Test',
+    rereadJob: async (jobId: number) => {
+      reread.push(jobId);
+      return answer(jobId);
+    },
+    sleep: async (ms: number) => {
+      slept.push(ms);
+    },
+    log: (line: string) => {
+      logged.push(line);
+    },
+  });
+  return { result, reread, slept, logged };
+}
+
+const settled = (jobId: number) => recorded.jobs.find((job) => job.id === jobId);
+const withConclusion = (name: string, conclusion: string | null) =>
+  recorded.jobs.map((job) => (job.name === name ? { ...job, conclusion } : job));
+
+describe('check-test-shard-results — a present shard with no conclusion is re-read (objectui#10931)', () => {
+  it('reproduces the recorded false red from the recorded job table', () => {
+    // The control first: the fixture is the settled answer, and it is green.
+    expect(recorded.jobs).toHaveLength(16);
+    expect(read(recorded.jobs).verdict).toBe('intact');
+
+    // One field changed, the one the log names: that is the ejection.
+    const reading = read(asRead());
+    expect(reading.verdict).toBe('breached');
+    expect(exitCodeFor(reading)).toBe(EXIT_BREACHED);
+    expect(reading.notSuccess).toEqual([`${LATE} (no conclusion)`]);
+    expect(unconcludedShards(reading).map((s) => s.jobId)).toEqual([lateJob.id]);
+  });
+
+  it('⭐ re-reads only that shard, by its job id, and the settled answer is intact', async () => {
+    const run = settle(asRead(), settled);
+    const { reading, rereads } = await run.result;
+
+    expect(reading.verdict).toBe('intact');
+    expect(exitCodeFor(reading)).toBe(EXIT_OK);
+    expect(rereads).toBe(1);
+    expect(run.reread).toEqual([lateJob.id]);
+    expect(run.slept).toEqual([REREAD_WAIT_MS]);
+    expect(run.logged).toHaveLength(1);
+    expect(run.logged[0]).toContain(String(lateJob.id));
+  });
+
+  it('⛔ never reads null as success: a shard that never answers stays red after the bound', async () => {
+    const run = settle(asRead(), (jobId) => ({ ...settled(jobId), conclusion: null }));
+    const { reading, rereads } = await run.result;
+
+    expect(reading.verdict).toBe('breached');
+    expect(exitCodeFor(reading)).toBe(EXIT_BREACHED);
+    expect(reading.notSuccess).toEqual([`${LATE} (no conclusion)`]);
+    expect(rereads).toBe(REREAD_LIMIT);
+    expect(run.reread).toEqual(Array.from({ length: REREAD_LIMIT }, () => lateJob.id));
+    expect(run.slept).toHaveLength(REREAD_LIMIT);
+    expect(unconcludedShards(reading).map((s) => s.name)).toEqual([LATE]);
+  });
+
+  it('judges the re-read answer as it stands: a late `failure` is a failure', async () => {
+    const run = settle(asRead(), (jobId) => ({ ...settled(jobId), conclusion: 'failure' }));
+    const { reading, rereads } = await run.result;
+
+    expect(reading.verdict).toBe('breached');
+    expect(reading.notSuccess).toEqual([`${LATE} (failure)`]);
+    expect(rereads).toBe(1);
+  });
+
+  it('⛔ never re-reads a shard that answered, `skipped` included — no blanket retry', async () => {
+    for (const conclusion of ['failure', 'cancelled', 'timed_out', 'skipped']) {
+      const run = settle(withConclusion('Test (shard 3/8)', conclusion), settled);
+      const { reading, rereads } = await run.result;
+
+      expect(reading.verdict, `a ${conclusion} shard must stay red`).toBe('breached');
+      expect(reading.notSuccess).toEqual([`Test (shard 3/8) (${conclusion})`]);
+      expect(rereads).toBe(0);
+      expect(run.reread).toEqual([]);
+      expect(run.slept).toEqual([]);
+    }
+  });
+
+  it('re-reads the late shard only, while a real failure beside it keeps the run red', async () => {
+    const jobs = asRead(withConclusion('Test (shard 3/8)', 'failure'));
+    const run = settle(jobs, settled);
+    const { reading } = await run.result;
+
+    expect(run.reread).toEqual([lateJob.id]);
+    expect(reading.verdict).toBe('breached');
+    expect(reading.notSuccess).toEqual(['Test (shard 3/8) (failure)']);
+  });
+
+  it('does not re-read an absent shard: that is drift, not a late answer', async () => {
+    const run = settle(recorded.jobs.filter((job) => job.name !== 'Test (shard 8/8)'), settled);
+    const { reading, rereads } = await run.result;
+
+    expect(reading.missing).toEqual(['Test (shard 8/8)']);
+    expect(rereads).toBe(0);
+    expect(run.reread).toEqual([]);
+  });
+
+  it('does not re-read a reading that is not about this run', async () => {
+    const run = settle(asRead().filter((job) => job.name !== 'Test'), settled);
+    const { reading, rereads } = await run.result;
+
+    expect(reading.verdict).toBe('unreadable');
+    expect(exitCodeFor(reading)).toBe(EXIT_CANNOT_RUN);
+    expect(rereads).toBe(0);
+    expect(run.reread).toEqual([]);
+  });
+
+  it('re-reads one job by id on the single-job endpoint, and an HTTP error is not an answer', async () => {
+    const urls: string[] = [];
+    const reply = (status: number, body: unknown) =>
+      (async (url: string | URL | Request) => {
+        urls.push(String(url));
+        return new Response(JSON.stringify(body), { status });
+      }) as typeof fetch;
+    const input = { repository: 'objectstack-ai/objectui', apiUrl: 'https://api.test', token: 't' };
+
+    expect(await fetchJob(lateJob.id, { ...input, fetchImpl: reply(200, lateJob) })).toEqual(lateJob);
+    expect(urls).toEqual([`https://api.test/repos/objectstack-ai/objectui/actions/jobs/${lateJob.id}`]);
+    await expect(fetchJob(lateJob.id, { ...input, fetchImpl: reply(404, {}) })).rejects.toThrow(/HTTP 404/);
+  });
+
+  it('refuses a re-read that answers about another job, and a shard with no id to re-read', async () => {
+    const shardOne = recorded.jobs.find((job) => job.name === 'Test (shard 1/8)');
+    await expect(settle(asRead(), () => shardOne).result).rejects.toThrow(/not that job/);
+
+    const withoutId = asRead().map((job) => {
+      if (job.name !== LATE) return job;
+      const copy = { ...job };
+      delete copy.id;
+      return copy;
+    });
+    await expect(settle(withoutId, settled).result).rejects.toThrow(/no job id/);
+  });
+});
+
 describe('ci.yml wires the gate to its own matrix (#9499)', () => {
   /** The `test-aggregate` job block, comments stripped. */
   const aggregate = (() => {
@@ -206,6 +384,17 @@ describe('ci.yml wires the gate to its own matrix (#9499)', () => {
     // `actions: read` is what the API read needs; a `permissions:` block sets
     // every unlisted scope to `none`, so its absence is a 403 and exit 2.
     expect(aggregate).toMatch(/^ {6}actions: read$/m);
+  });
+
+  it('keeps the re-read bound inside the job\'s own budget (objectui#10931)', () => {
+    // The worst case is every re-read spent on a shard that never answers. It
+    // must leave at least half of `timeout-minutes` for the checkout, the
+    // reads themselves and the dist-pin step: a job killed by its timeout
+    // reports `cancelled`, which the merge queue reads as a failure.
+    const timeout = aggregate.match(/^ {4}timeout-minutes: (\d+)$/m);
+    expect(timeout, '`test-aggregate` must declare its own `timeout-minutes`').toBeTruthy();
+    expect(REREAD_LIMIT).toBeGreaterThan(0);
+    expect(REREAD_LIMIT * REREAD_WAIT_MS).toBeLessThanOrEqual((Number(timeout![1]) * 60_000) / 2);
   });
 
   it('asserts the dist-pin job too, so nothing in the lane is left ungated', () => {

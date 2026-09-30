@@ -23,8 +23,9 @@
  * A dead-code deletion is only safe once the surviving paths are pinned, so
  * this file asserts the ones that remain rather than asserting the absence of
  * the one that went. `refreshKey` itself stays — it is read by the non-grid
- * fetch effect, by the child-view remount key, and is forwarded to a host list
- * view as `refreshKey` / `refreshTrigger`.
+ * fetch effect, by the remount key of the views that cannot refetch in place
+ * (objectui#10035), and is forwarded to a host list view as `refreshKey` /
+ * `refreshTrigger`.
  *
  * ## Where the real refresh button lives
  *

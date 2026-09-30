@@ -4,7 +4,7 @@ import 'react-grid-layout/css/styles.css';
 import { cn, Card, CardHeader, CardTitle, CardContent, Button } from '@object-ui/components';
 import { Edit, GripVertical, Save, X, RefreshCw } from 'lucide-react';
 import { SchemaRenderer, useHasDndProvider, useDnd } from '@object-ui/react';
-import { useObjectTranslation, useObjectLabel, pickLocalized } from '@object-ui/i18n';
+import { useObjectTranslation, useObjectLabel, useSafeTranslate, pickLocalized } from '@object-ui/i18n';
 import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
 import { chartCategoryKey, chartConfigPresentation, chartMeasureKey } from '@object-ui/core';
 import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from './utils';
@@ -12,6 +12,7 @@ import { classifyWidgetType } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
 import { useWidgetSubCaption } from './widgetSubCaption';
+import { useDashboardAutoRefresh } from './useDashboardAutoRefresh';
 
 /** Bridges editMode transitions to the ObjectUI DnD system when a DndProvider is present. */
 function DndEditModeBridge({ editMode }: { editMode: boolean }) {
@@ -128,12 +129,15 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
 }) => {
   const { width, containerRef, mounted } = useContainerWidth();
   const [editMode, setEditMode] = React.useState(false);
-  const [refreshing, setRefreshing] = React.useState(false);
   const hasDndProvider = useHasDndProvider();
   // Active UI language, for resolving inline per-locale widget titles below.
   // `useObjectTranslation` is provider-safe (react-i18next falls back to its
   // global instance and never throws), so a standalone grid still renders.
   const { t, language } = useObjectTranslation();
+  // The refresh button's copy is three pack keys (`dashboard.refreshAll`,
+  // `dashboard.refreshDashboard`, `dashboard.refreshing`), the same three
+  // `DashboardRenderer` reads, each through `tt` like the package's other one-off labels.
+  const tt = useSafeTranslate();
   // `fieldLabel` — the bundle lookup `composeSeriesLabel` (below) consults
   // before falling back to the humanized key. Same provider-safe contract as
   // `useObjectTranslation` above: a bundle miss degrades to the fallback
@@ -171,25 +175,11 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
    * degradation the sibling's title/description lookups perform.
    */
   const tWidgetSubCaption = useWidgetSubCaption(schema.name);
-  const intervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const handleRefresh = React.useCallback(() => {
-    if (!onRefresh) return;
-    setRefreshing(true);
-    onRefresh();
-    setTimeout(() => setRefreshing(false), 600);
-  }, [onRefresh]);
-
-  // Auto-refresh interval — seconds → milliseconds, as the key now says
-  // (objectui#7783; the spec renamed `refreshInterval` to
-  // `refreshIntervalSeconds`, value unchanged).
-  React.useEffect(() => {
-    if (!schema.refreshIntervalSeconds || schema.refreshIntervalSeconds <= 0 || !onRefresh) return;
-    intervalRef.current = setInterval(handleRefresh, schema.refreshIntervalSeconds * 1000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [schema.refreshIntervalSeconds, onRefresh, handleRefresh]);
+  // The refresh indicator, the manual handler and the auto-refresh timer come
+  // from the one implementation this component shares with `DashboardRenderer`
+  // (objectui#8820), which is also the only place `refreshIntervalSeconds` is
+  // read.
+  const { refreshing, handleRefresh } = useDashboardAutoRefresh(schema, onRefresh);
   const [layouts, setLayouts] = React.useState<{ lg: RGLLayout[] }>(
     () => buildDefaultLayouts(schema),
   );
@@ -376,17 +366,29 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
     if (dispatch.family === 'table') {
       const widgetData = (widget as any).data || options.data;
 
-      // provider: 'object' — pass through object config for async data loading
+      // provider: 'object' — ObjectDataTable fetches the rows (objectui#10528).
+      // This arm used to emit a STATIC `data-table` with `data: []` and an
+      // `objectName` that `data-table` never reads, so the tile drew an empty
+      // table and issued no query, while `DashboardRenderer` fetched and drew
+      // the same stored widget. It now emits the node that renderer's table arm
+      // emits, prop for prop: the self-fetching `object-data-table`, the
+      // provider's `filter`, the declared `searchable` / `pagination` (never on
+      // a `list`), and default-on drill-to-record. The drill cannot fight the
+      // editor: dragging starts only from the `.drag-handle` element (see
+      // `dragConfig` below), and this grid has no widget selection. The two
+      // copies are held equal by
+      // `DashboardGridLayout.objectProviderFetch-10528.test.tsx`.
       if (isObjectProvider(widgetData)) {
+        const isList = widgetType === 'list';
         const { data: _data, ...restOptions } = options;
         return {
-          type: 'data-table',
+          type: 'object-data-table',
           ...restOptions,
           objectName: widgetData.object,
-          dataProvider: widgetData,
-          data: [],
-          searchable: false,
-          pagination: false,
+          filter: widgetData.filter || widget.filter,
+          searchable: isList ? false : (widget.searchable ?? false),
+          pagination: isList ? false : (widget.pagination ?? false),
+          drillDown: options.drillDown ?? { enabled: true, mode: 'record' as const },
           className: "border-0"
         };
       }
@@ -415,17 +417,20 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
     if (dispatch.family === 'pivot') {
       const widgetData = (widget as any).data || options.data;
 
-      // provider: 'object' — pass through object config for async data loading
-      if (isObjectProvider(widgetData)) {
-        const { data: _data, ...restOptions } = options;
-        return {
-          type: 'pivot',
-          ...restOptions,
-          objectName: widgetData.object,
-          dataProvider: widgetData,
-          data: [],
-        };
-      }
+      // provider: 'object' — RETIRED, with the same placeholder object
+      // `DashboardRenderer`'s pivot arm returns (objectui#10528). A pivot is a
+      // cross-tab, and ADR-0021 puts cross-tabs on the dataset layer only: the
+      // shared dispatch types this family "dataset-bound only; a non-dataset
+      // pivot is stale metadata" (`widgetDispatch.ts`). This branch used to emit
+      // a static `pivot` node with `data: []` and an `objectName` that
+      // `PivotTable` never reads, so the tile drew an empty cross-tab and sent
+      // no query, while the read dashboard showed this placeholder for the same
+      // widget. Mapping it to the self-fetching `object-pivot` instead would
+      // have revived the removed inline analytics shape in the editor alone.
+      // A dataset-bound pivot still renders through `DatasetWidget` (the fork
+      // at the render site below), and the static-data pivot under this branch
+      // is unchanged.
+      if (isObjectProvider(widgetData)) return LEGACY_RETIRED_WIDGET_SCHEMA;
 
       return {
         type: 'pivot',
@@ -507,10 +512,10 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
                   size="sm"
                   variant="outline"
                   disabled={refreshing}
-                  aria-label="Refresh dashboard"
+                  aria-label={tt('dashboard.refreshDashboard', 'Refresh dashboard')}
                 >
                   <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
-                  {refreshing ? 'Refreshing…' : 'Refresh All'}
+                  {refreshing ? tt('dashboard.refreshing', 'Refreshing…') : tt('dashboard.refreshAll', 'Refresh All')}
                 </Button>
               )}
               <Button onClick={() => setEditMode(true)} size="sm" variant="outline">

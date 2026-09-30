@@ -384,16 +384,21 @@ into each bound widget's inline query (`AND`-combined with the widget's own
       "name": "region",             // stable filter name (defaults to field)
       "field": "region",            // default binding target
       "label": "Region",
+      // optional "object": the object `field` lives on — its fields.<object>.<field> / fieldOptions.<object>.<field>.<value> bundle entries then win, "label" is the fallback
       "type": "select",             // text | select | date | number | lookup
       // Canonical @objectstack/spec pair form — the only form the platform
-      // accepts at publish. The bare-string shorthand (["EMEA", …]) is
-      // deprecated: still lifted at runtime, now warns (objectui#4356).
+      // accepts at publish, and the only form `@object-ui/types` validates
+      // (objectui#7759). The bare-string shorthand (["EMEA", …]) is NOT
+      // accepted: the runtime no longer lifts it (objectui#4356) — a bare member
+      // yields no option, and a dev-mode warning names it. Rewrite each X as
+      // { "value": X, "label": X }.
       "options": [
         { "value": "EMEA", "label": "EMEA" },
         { "value": "APAC", "label": "APAC" },
         { "value": "AMER", "label": "AMER" }
       ]
-      // or dynamic: "optionsFrom": { "object": "accounts", "valueField": "region" }
+      // or dynamic: "optionsFrom": { "object": "accounts", "valueField": "region", "labelField": "region" }
+      // (`labelField` is required by the spec, even when it names the value field)
     }
   ],
   "widgets": [
@@ -602,6 +607,7 @@ object schema once and infers the renderer from the bound field:
 | `date` / `datetime` | Locale-formatted date |
 | `currency` | Locale currency (or honour `format: '$0,0'`) |
 | `percent` | `0%` / `0.0%` formatted (honour `format`) |
+| `password` / `secret` | `••••••`, and the column is flagged `masked` (see below) |
 
 Author overrides always win — pass `type`, `format`, `options`,
 `currency`, or your own `cell` function on a column to bypass
@@ -610,6 +616,20 @@ wins over both the symbol inferred from `format` and the tenant default
 currency. A lookup column's related-object target always comes from the
 object schema's own field definition — there is no column-level override
 for it (objectui#6597: measured no authoring story for one).
+
+A masked column (objectui#10657) is one the table withholds: no Ctrl+C / Cmd+C
+copy, no tooltip, no CSV export column, no match in the search box, no header
+sort, and a width sized from its header rather than its values. The widget
+decides it with `isMaskedFieldType()` from `@object-ui/fields`, over the
+column's authored `type` and the object's field type, so this is the one place
+an author override does not win: `type: 'text'` over a `secret` field keeps the
+flag, though the cell then draws the value as text. Rows handed in as `data`
+or through `bind` can be drawn before the object schema arrives, and a failed
+schema read never delivers one; in that window the widget flags every column,
+and a column with no `type` of its own draws as the mask, never as text, until
+the schema arrives, or for good when the read failed (objectui#10657). A column
+that authors its `type` draws from it meanwhile. The record drawer a row opens
+(record drill-down) draws every value as the mask in that window too.
 
 ```jsonc
 {

@@ -17,6 +17,9 @@ import {
   isPermissionError,
   declaredUserMessage,
   useSettledSchema,
+  useDataInvalidation,
+  useFilterScope,
+  useResolvedFilter,
 } from '@object-ui/react';
 import {
   NavigationOverlay,
@@ -400,7 +403,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   const [fetchedData, setFetchedData] = useState<any[]>([]);
   /**
    * Did the last fetch come back SATURATED — as many rows as the window
-   * allowed (objectui#8307)?
+   * allowed (`5591f03bd`)?
    *
    * The fetch below is windowed at a real `$top` (objectui#4025). The board
    * then groups WHAT CAME BACK into lanes client-side, so every lane header
@@ -560,6 +563,28 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   // below re-keys on what it says, never on which array it is.
   const sortKey = JSON.stringify(schema.sort ?? null);
 
+  // objectui#10666 — the node's own `filter`, with every context token
+  // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
+  // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the
+  // session scope the host provides, and HELD by structure (`useResolvedFilter`
+  // in `@object-ui/react`). A directly authored board sent the literal token on
+  // `$filter` before. The fetch below and its dependency list read THIS, never
+  // the raw `schema.filter`, so a re-render that rebuilds an equal filter does
+  // not re-query.
+  const filterScope = useFilterScope();
+  const queryFilter = useResolvedFilter(schema.filter, filterScope);
+
+  // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this board QUERIES is declared, and the fetch effect
+  // below names it, so the cards are re-read in place. The `onMutation`
+  // subscription above cannot see a write that bypasses the data source (a
+  // page action over raw HTTP); the bus can. Subscribed only when the board
+  // fetches for itself — external, bound or inline cards are the host's.
+  const invalidationNonce = useDataInvalidation(
+    !hasExternalData && !boundData && !schema.data ? schema.objectName || undefined : undefined,
+  );
+
   useEffect(() => {
     // Skip internal fetch when data is managed by a parent component
     if (hasExternalData) return;
@@ -660,13 +685,13 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
             // or a bound view's `pagination.pageSize`) can set it.
             //
             // The query is a NAMED OBJECT rather than an inline literal so that
-            // the saturation reading below (objectui#8307) compares the row
+            // the saturation reading below (`5591f03bd`) compares the row
             // count against `query.$top` — the very number this request
             // carried. One spelling of the window, read back from the request
             // itself: a second `resolveRowLimit(schema.limit, …)` kept in a
             // local for the comparison could drift from the one on the wire,
             // and a marker computed against a window the server was never asked
-            // for is exactly the silent wrongness objectui#8307 is about. That
+            // for is exactly the silent wrongness `5591f03bd` fixed. That
             // reasoning is why objectui#9925's refusal was put INSIDE this
             // named object rather than beside it: the resolver runs once, and
             // the saturation reading keeps reading the number that left.
@@ -678,7 +703,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
             // expression below; the pinned fact — `schema.limit` lowered into
             // the query's top-level `$top` — is the same one it always held.
             const query = {
-                $filter: schema.filter,
+                $filter: queryFilter,
                 // objectui#10068 — the binding's `dataSource.sort` (or its
                 // view's), delivered here by `ElementDataSourceGate`. Lanes
                 // bucket records in fetch order, so this is also the in-lane
@@ -694,10 +719,21 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
 
             if (isMounted) {
                 setFetchedData(data);
-                // objectui#8307 — see `fetchWindowSaturated`. Recorded HERE,
+                // `5591f03bd` — see `fetchWindowSaturated`. Recorded HERE,
                 // against the window THIS request carried, because that is the
                 // only point where the two numbers are both in hand.
                 setFetchWindowSaturated(data.length >= query.$top);
+                // objectui#10663 — `error` is an early return in the render, so
+                // a report nothing clears kept the board off screen until a
+                // remount, and since objectui#10572 one failed data-invalidation
+                // re-read was enough to get there. It is cleared HERE, when the
+                // current run commits cards: those cards answer the current
+                // query, so no earlier failure describes the screen any more
+                // (objectui#10578's rule on `ObjectGantt`). `isMounted` is this
+                // run's own flag, false once a newer run has started, so a
+                // superseded run's clear is discarded with its answer. ⛔ Not
+                // when a run starts: until cards land, the report stays.
+                setError(null);
             }
         } catch (e) {
             console.error('[ObjectKanban] Fetch error:', e);
@@ -726,13 +762,13 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     // `ObjectTimeline` spelling: an array rebuilt with the same members must not
     // refetch the board.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `schema.sort` is tracked by CONTENT (sortKey) on purpose; see above
-  }, [schema.objectName, schemaKey, dataSource, boundData, schema.data, schema.filter, sortKey, schema.limit, hasExternalData, objectDefReady, objectDef, refreshKey, perms]);
+  }, [schema.objectName, schemaKey, dataSource, boundData, schema.data, queryFilter, sortKey, schema.limit, hasExternalData, objectDefReady, objectDef, refreshKey, perms, invalidationNonce]);
 
   // Determine which data to use: external -> bound -> inline -> fetched
   const rawData = (hasExternalData ? externalData : undefined) || boundData || schema.data || fetchedData;
 
   /**
-   * Are the lane counts about to be drawn counts of a WINDOW (objectui#8307)?
+   * Are the lane counts about to be drawn counts of a WINDOW (`5591f03bd`)?
    *
    * Only when the rows on screen are the ones this component fetched. External,
    * bound and inline data arrive whole from whoever owns them; this board
@@ -1187,7 +1223,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   // panel inline. A schema can override this with its own `navigation` config.
   //
   // No width is spelled here on purpose (objectui#6303, converging kanban on
-  // the shape #6305 gave ObjectGantt). `width` is `@deprecated [#2578 -> size]`
+  // the shape #6305 gave ObjectGantt). `width` is `@deprecated [objectstack-ai/objectstack#2578 -> size]`
   // in the spec that owns this shape, and `resolveOverlayWidth` gives an
   // explicit `width` priority OVER `size` — so spelling it kept the deprecated
   // branch load-bearing on the path most boards take (no declared
@@ -1328,11 +1364,11 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
         // Surface the failure — never silently snap the card back. A row-level
         // security denial (403) is the common case: the user lacks permission
         // to change this record's status. (cloud#864)
-        // …unless the AUTHOR opted in. `userMessage` (objectstack#9934) is the
+        // …unless the AUTHOR opted in. `userMessage` (objectstack `79c46da90`) is the
         // producer-side marking: a field set at throw time to say "this text is
         // for the end user". It is a SEPARATE field from `message`, so nothing
         // unmarked can reach here — the substitution below still governs every
-        // platform diagnostic and #3821 holds by construction rather than by us
+        // platform diagnostic and objectstack-ai/objectstack#3821 holds by construction rather than by us
         // guessing what a body contains. Status-agnostic on purpose: 403 is
         // where this was reported (objectui#5210/#5902), not a fence the
         // contract draws — a marked 409 or 400 renders identically.
@@ -1576,7 +1612,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
         onCardMove={handleCardMove}
         schema={{
           ...effectiveSchema,
-          // objectui#8307 — the lane headers count rows that came back, so when
+          // `5591f03bd` — the lane headers count rows that came back, so when
           // the fetch saturated its window they must say `77+`, not `77`.
           countsAreWindowed,
           // ⛔ Calls `handleClick` and NOTHING ELSE. An authored `onCardClick`

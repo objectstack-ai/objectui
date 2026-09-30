@@ -78,10 +78,17 @@ and are refused now, which is the half of the corpus that shows nothing was loos
 number arm was removed.
 
 **Delivery surface — where the refusal does and does not arrive.** PARSE-TIME on the mirror
-(`@object-ui/types/zod`, so `objectui validate`, `objectui check` and any consumer calling
-`safeParse`) and COMPILE-TIME on the declaration (`tsc`). ⚠️ As with every other key on these
-mirrors, the runtime render path does not parse through them, so a rendered document is not
-where this arrives.
+(`@object-ui/types/zod`, so `objectui validate` and any consumer calling `safeParse`) and
+COMPILE-TIME on the declaration (`tsc`). ⚠️ As with every other key on these mirrors, the
+runtime render path does not parse through them, so a rendered document is not where this
+arrives.
+
+⚠️ **Dated note, 2026-09-25 — `objectui check` does not deliver this refusal —
+objectui#10524.** This entry first listed `objectui check` on the parse-time side. `check` is
+an advisory sweep: it never parses against the schema a file whose root carries a structural key (`children`,
+`className`, `body`, …), it lists a file with none of those keys by name when the file does
+not validate, and it exits non-zero on unreadable JSON only. The refusal is
+`objectui validate`'s.
 
 **Consequential narrowings, all compiler-forced by the door above.** `DrawerForm`,
 `ModalForm`, `SplitForm`, `TabbedForm` and `WizardForm` each declare their own `recordId` and

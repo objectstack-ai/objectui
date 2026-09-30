@@ -4,7 +4,7 @@
 
 Studio's metadata authoring path stops greeting the author with errors they did not cause, English help text in a Chinese console, and a toast on top of the publish button.
 
-Three defects measured on a 17.1.0 dogfood walkthrough (objectui#5416), all on
+Three defects measured on a 17.1.0 dogfood walkthrough, all on
 the first surfaces a new author sees.
 
 **Validation no longer runs on mount.** `新建软件包` opened with both required

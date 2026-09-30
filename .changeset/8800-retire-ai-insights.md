@@ -49,6 +49,12 @@ support types — each has a reader among those three, so none is orphaned. The
 seven `?: never` member tombstones on those three schemas are objectui#8178's
 retirement and do not move with this one.
 
+⚠️ **Dated note, 2026-09-28 — `AIConfig` no longer has a reader among those three — objectui#10874.**
+Later in this same release the `config` members of `AIFormAssistSchema`,
+`AIRecommendationsSchema` and `NLQuerySchema` retire as `?: never`, so no node member takes the
+shared `AIConfig` type any more; the type itself stays exported. The paragraph above is kept as the
+reading of this change; the objectui#10874 entry states what ships.
+
 ⚠️ **The zero this rests on is the IN-REPO HALF, and the ruling was taken with
 that limit attached.** This repository's tracked files were enumerated and the
 spelling occurred exactly once — inside the declaration itself — against lit

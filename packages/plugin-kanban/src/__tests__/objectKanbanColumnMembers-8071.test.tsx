@@ -22,7 +22,7 @@
  * the RENDERER READS, so that a registration declaring `array` while the code
  * reads members as something else goes red. This is that file.
  *
- * ## SIX MEMBERS, SIX DIFFERENT SINKS — and one of them is read TWICE
+ * ## SIX MEMBERS, SIX DIFFERENT SINKS
  *
  * The lane element the protocol admits carries `id`, `title` and the optional
  * `cards` / `limit` / `className` / `collapsed`. They do not share a sink and
@@ -32,12 +32,12 @@
  *     (`groups[col.id]`) and the lane's heading id, and a record whose group
  *     value matches no lane id is swept into a trailing lane rather than
  *     dropped (objectui#2792).
- *   - `title` — read TWICE, with two unrelated meanings. As PRESENTATION it is
- *     the lane's accessible name; as a BUCKETING ALIAS it is lowercased into
- *     `labelToColumnId`, so a record whose stored group value is the lane's
- *     TITLE lands in that lane as surely as one carrying its id. ⛔ Nothing on
- *     the authoring surface says so, and an author who renames a lane moves
- *     records between lanes.
+ *   - `title` — PRESENTATION ONLY: the lane's accessible name. It used to be
+ *     read a second time, as an undeclared BUCKETING ALIAS, so a record whose
+ *     stored group value was the lane's TITLE landed in that lane and renaming
+ *     a lane moved records. objectui#10069 (ruling A) retired that reading:
+ *     a title-valued record is now an orphan, and the row that pinned the
+ *     alias is FLIPPED below rather than deleted.
  *   - `cards` — UNION, not replacement. Static lane cards are kept AND the
  *     bucketed records are appended, statics first.
  *   - `limit` — a WIP cap that is displayed and flags the lane, and ⛔ never
@@ -176,10 +176,10 @@ describe('objectui#8071 — `object-kanban`.`columns[].id`: the bucketing key', 
 });
 
 /* -------------------------------------------------------------------------- */
-/* `title` — READ TWICE: the accessible name AND a bucketing alias            */
+/* `title` — the accessible name, and ⛔ NOT a bucketing key (objectui#10069) */
 /* -------------------------------------------------------------------------- */
 
-describe('objectui#8071 — `object-kanban`.`columns[].title`: read twice', () => {
+describe('objectui#8071 — `object-kanban`.`columns[].title`: presentation only', () => {
   const LANES = [
     { id: 'open', title: 'In Progress' },
     { id: 'won', title: 'Closed Won' },
@@ -200,21 +200,28 @@ describe('objectui#8071 — `object-kanban`.`columns[].title`: read twice', () =
     expect(lane(container, 'open')).toBeNull();
   });
 
-  it('⭐ AS A BUCKETING ALIAS — a record storing the lane’s TITLE lands in that lane', async () => {
-    // `labelToColumnId[String(col.title).toLowerCase()] = col.id`. The stored
-    // value is the lane's title, case-folded; no lane declares it as an `id`,
-    // and it still reaches the lane. ⛔ Nothing on the authoring surface says
-    // `title` decides membership, so renaming a lane MOVES RECORDS.
+  it('⭐ NOT A BUCKETING KEY — a record storing the lane’s TITLE is an orphan (objectui#10069)', async () => {
+    // FLIPPED, not deleted: this row pinned the retired alias
+    // (a lane's lowercased `title` mapped onto its `id`). Under ruling A a lane
+    // matches the stored option value by `id` only, so the title-valued record
+    // no longer reaches "In Progress" — it is swept into the trailing lane,
+    // and the id-valued record beside it in the SAME render still lands, which
+    // is what stops this row reading as "nothing buckets at all".
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const adapter = makeAdapter([
       { id: 'a', name: 'By id', status: 'open' },
       { id: 'b', name: 'By title', status: 'in progress' },
     ]);
     const { container } = renderBoard(adapter, LANES);
 
-    await waitFor(() => expect(cardsInList(container, 'In Progress cards')).toEqual(['By id', 'By title']));
-    // Two lanes and no trailing sweep: the title-valued record was not an
-    // orphan, which is the whole of the claim.
-    expect(laneNames(container)).toEqual(['In Progress', 'Closed Won']);
+    await waitFor(() => expect(cardsInList(container, 'In Progress cards')).toEqual(['By id']));
+    expect(laneNames(container).length).toBe(3);
+    expect(cardsInList(container, `${laneNames(container)[2]} cards`)).toEqual(['By title']);
+    // Loud, not silent: the move into the trailing lane names the raw value
+    // and the lane ids an author could have stored instead.
+    const messages = warn.mock.calls.map((call) => String(call[0]));
+    expect(messages.some((m) => m.includes('"in progress"') && m.includes('"open", "won"'))).toBe(true);
+    warn.mockRestore();
   });
 
   it('CONTROL — a value matching neither the id nor the title IS an orphan', async () => {

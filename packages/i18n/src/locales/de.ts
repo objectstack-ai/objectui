@@ -128,12 +128,12 @@ const de = {
     printDialogHint: "Öffnet den Druckdialog Ihres Browsers (kein PDF-Export)",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "Erste {{shown}} von {{total}} Datensätzen. Filter eingrenzen.",
     rowCeilingNoteUnknownTotal: "Erste {{shown}} Datensätze. Filter eingrenzen.",
   },
@@ -147,6 +147,14 @@ const de = {
       acknowledge: 'Ich habe ihn gespeichert',
       copyAll: 'Alle kopieren',
     },
+    notAvailableHere: '„{{action}}“ ist auf der aktuellen Seite nicht verfügbar.',
+    completedSuccessfully: 'Aktion erfolgreich abgeschlossen',
+    failed: 'Aktion fehlgeschlagen',
+    parallelFailed: 'Eine oder mehrere parallele Aktionen sind fehlgeschlagen',
+    undo: 'Rückgängig',
+    undone: 'Änderung rückgängig gemacht',
+    undoneOperation: 'Rückgängig: {{description}}',
+    redoneOperation: 'Wiederholen: {{description}}',
   },
   validation: {
     required: "{{field}} ist erforderlich",
@@ -164,13 +172,38 @@ const de = {
   },
   form: {
     noPermissionToSave: "Sie haben keine Berechtigung, diesen Datensatz zu speichern.",
+    noPermissionToCreate: "Sie haben keine Berechtigung, „{{object}}“-Datensätze zu erstellen. Die Felder sind schreibgeschützt.",
+    noPermissionToEdit: "Sie haben keine Berechtigung, „{{object}}“-Datensätze zu bearbeiten. Die Felder sind schreibgeschützt.",
     submitFailed: "Speichern fehlgeschlagen. Bitte versuchen Sie es erneut.",
     uploadInFlight: "Warten Sie, bis der Upload abgeschlossen ist, bevor Sie speichern.",
+    clearedOnHide: "Geleert, was für die aktuellen Werte nicht mehr gilt: {{fields}}",
     discardTitle: "Änderungen verwerfen?",
     discardMessage: "Sie haben ungespeicherte Änderungen. Wenn Sie dieses Formular jetzt schließen, gehen Ihre Bearbeitungen verloren.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "Füllen Sie die Formularfelder aus und senden Sie ab oder brechen Sie ab.",
+    deniedDescription: "Sie haben keinen Bearbeitungszugriff auf dieses Feld.",
+    masterDetail: {
+      loadingColumns: "Spalten werden geladen…",
+      subtotal: "Zwischensumme",
+      tax: "Steuer ({{rate}} %)",
+      total: "Gesamt",
+      lineItem: "Position",
+      rowTitle: "{{title}} — Zeile {{row}}",
+      applyRow: "Übernehmen",
+      editorDescription: "Erfassen Sie den Datensatz und seine Positionen und speichern Sie anschließend.",
+      noChildObject: "Für diese Sammlung ist kein untergeordnetes Objekt konfiguriert: Setzen Sie {{property}} auf das Objekt, dessen Zeilen sie auflistet.",
+      schemaUnavailable: "Das Schema von {{object}} konnte nicht geladen werden, daher hat diese Sammlung keine Spalten zum Anzeigen. Prüfen Sie, ob das Objekt existiert und lesbar ist, und laden Sie dann neu.",
+      noRelationshipField: "Es konnte nicht ermittelt werden, wie {{object}} mit {{parent}} verknüpft ist: Kein lookup- oder master_detail-Feld darin verweist auf das übergeordnete Objekt. Setzen Sie {{property}} in dieser Sammlung auf das Feld, das den übergeordneten Datensatz enthält.",
+    },
+    lineItems: {
+      title: "Positionen",
+      saveRecordFirst: "Speichern Sie zuerst den Datensatz, um Positionen hinzuzufügen.",
+      notLoaded: "Die Positionen dieses Datensatzes wurden nicht geladen.",
+      loadFailed: "Positionen konnten nicht geladen werden",
+      saveFailed: "Positionen konnten nicht gespeichert werden",
+      noChildObject: "Für dieses Panel ist kein untergeordnetes Objekt konfiguriert: Setzen Sie {{property}} auf das Objekt, dessen Zeilen es auflistet.",
+    },
     keepEditing: "Weiter bearbeiten",
     discard: "Verwerfen",
     conflictTitle: "Speicherkonflikt",
@@ -194,6 +227,12 @@ const de = {
     createSuccess: "{{object}} erfolgreich erstellt",
     updateSuccess: "{{object}} erfolgreich aktualisiert",
     deleteSuccess: "{{object}} erfolgreich gelöscht",
+    created: "Erstellt",
+    saved: "Gespeichert",
+    savedNamed: "{{title}} gespeichert",
+    submitted: "Gesendet",
+    errorLoading: "Fehler beim Laden des Formulars",
+    navigateRefused: "Das für dieses Formular deklarierte `navigateOnSuccess`-Ziel wurde abgelehnt, daher fand keine Navigation statt.",
     fullscreen: {
       title: "Text bearbeiten",
       description: "Bearbeiten Sie den vollständigen Textwert und speichern oder verwerfen Sie dann Ihre Änderungen.",
@@ -234,6 +273,7 @@ const de = {
       remove: '{{name}} entfernen',
       exceedsMaxSize: '„{{name}}“ überschreitet die maximale Größe ({{max}} MB)',
       uploadFailed: 'Hochladen von „{{name}}“ fehlgeschlagen: {{error}}',
+      uploadIncomplete: 'Hochladen von „{{name}}“ wurde nicht abgeschlossen: Es wurde keine Datei-ID zurückgegeben, nichts wurde gespeichert',
     },
     richText: {
       format: "Format: {{format}}",
@@ -288,6 +328,14 @@ const de = {
       refusedResidue:
         "Nicht gespeichert: {{name}} „{{text}}“ und {{otherName}} „{{otherText}}“ sind keine Zahlen. Geben Sie einfache Dezimalzahlen ein (Beispiel: 30.2741, 120.1551).",
     },
+    date: {
+      impossibleDay:
+        "Der gespeicherte Wert „{{value}}“ ist kein gültiges Datum. Wählen Sie ein Datum, um ihn zu ersetzen.",
+    },
+    dateTime: {
+      impossibleDay:
+        "Der gespeicherte Wert „{{value}}“ ist kein gültiges Datum. Wählen Sie Datum und Uhrzeit, um ihn zu ersetzen.",
+    },
     number: {
       badInput:
         "Nicht gespeichert: Der Text in diesem Feld ist keine Zahl. Geben Sie eine einfache Dezimalzahl ein (Beispiel: {{example}}).",
@@ -306,6 +354,16 @@ const de = {
     textarea: {
       characterCount: "Zeichenanzahl: {{count}} von {{max}}",
       charactersRemaining: "Verbleibende Zeichen: {{count}}",
+    },
+    grid: {
+      addLine: "Zeile hinzufügen",
+      noItems: "Keine Einträge",
+      noItemsAddHint: "Noch keine Einträge – klicken Sie auf „{{label}}“, um zu beginnen.",
+      optionalColumns: "Optionale Spalten",
+      computed: "Berechnet",
+      openRow: "Zeile öffnen",
+      duplicateRow: "Zeile duplizieren",
+      removeRow: "Zeile entfernen",
     },
   },
   table: {
@@ -387,13 +445,15 @@ const de = {
     yes: "Ja",
     no: "Nein",
     systemFields: "System",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: "Teilweise",
-      partialNotice:
-        "Gruppiert über die ersten {{loaded}} von {{total}} Datensätzen. Gruppenanzahlen gelten nur für die geladene Seite; eine Gruppe, deren Datensätze alle jenseits der geladenen Zeilen liegen, fehlt hier.",
-      partialNoticeUnknownTotal:
-        "Gruppiert über die {{loaded}} geladenen Datensätze. Möglicherweise passen weitere Datensätze zu dieser Ansicht, daher können Gruppenanzahlen unvollständig sein und eine Gruppe kann hier fehlen.",
+      needsHeaderQuery:
+        "Diese Ansicht ist gruppiert, aber ihre Datenquelle implementiert queryGroupHeaders nicht, daher können die Gruppen nicht gezählt werden. Entfernen Sie die Gruppierung, um die Datensätze anzuzeigen.",
+      needsWholeRows:
+        "Die Gruppierung benötigt alle Datensätze, aber dieses Raster hat nur eine Seite davon erhalten, daher können die Gruppen nicht gezählt werden. Übergeben Sie alle Datensätze oder lassen Sie das Raster sie aus einer Datenquelle laden, die queryGroupHeaders implementiert.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this
@@ -772,6 +832,7 @@ const de = {
     },
     aria: {
       taskList: "Vorgangsliste",
+      refreshing: "Aktualisiere…",
     },
     tooltip: {
       days: "T",
@@ -955,7 +1016,6 @@ const de = {
     viewAll: "Alle anzeigen",
     new: "Neu",
     add: "Hinzufügen",
-    emptyValue: "—",
     comments: "Kommentare",
     searchComments: "Kommentare suchen…",
     addCommentPlaceholder: "Kommentar hinzufügen… (Strg+Enter zum Senden)",
@@ -988,11 +1048,6 @@ const de = {
     attachmentsLoadFailed: "Die Anhänge dieses Datensatzes konnten nicht geladen werden.",
     attachmentsApiUnavailable: "Die Anhangsliste ist für dieses Objekt nicht verfügbar.",
     retryLoadAttachments: "Erneut versuchen",
-    unifiedDiff: "Einheitliche Ansicht",
-    sideBySideDiff: "Nebeneinander-Ansicht",
-    noChanges: "Keine Änderungen",
-    previousVersion: "Vorherige",
-    currentVersion: "Aktuelle",
     discussion: "Diskussion",
     showDiscussion: "Diskussion anzeigen ({{count}})",
     hideDiscussion: "Diskussion ausblenden",
@@ -1007,13 +1062,7 @@ const de = {
     writeComment: "Kommentar schreiben…",
     subscribedTooltip: "Abonniert — Klicken zum Abbestellen",
     unsubscribedTooltip: "Benachrichtigungen abonnieren",
-    firstRecord: "Erster Datensatz (Pos1)",
-    previousRecordKey: "Vorheriger Datensatz (←)",
-    nextRecordKey: "Nächster Datensatz (→)",
-    lastRecord: "Letzter Datensatz (Ende)",
     noRecords: "Keine Datensätze",
-    searchWhileNavigating: "Während der Navigation suchen",
-    searchRecords: "Datensätze suchen…",
     allActivity: "Alle Aktivitäten",
     commentsOnly: "Nur Kommentare",
     fieldChangesFilter: "Feldänderungen",
@@ -1074,6 +1123,8 @@ const de = {
     pathStageLostUpcoming: '{{stage}}, verloren, nicht erreicht',
     pathStageWonUpcoming: '{{stage}}, Zielphase, nicht erreicht',
     linkCopied: "Link in die Zwischenablage kopiert",
+    commentFailed: "Ihr Kommentar wurde nicht veröffentlicht. Es wurde nichts gespeichert – bitte versuchen Sie es erneut.",
+    reactionFailed: "Ihre Reaktion wurde nicht gespeichert. Bitte versuchen Sie es erneut.",
     linkCopyFailed: "Link konnte nicht kopiert werden",
     cancel: "Abbrechen",
     cancelEdit: "Änderungen verwerfen",
@@ -1127,24 +1178,10 @@ const de = {
     fileCount: "{{count}} Dateien",
     fileCount_one: "{{count}} Datei",
     fileCount_other: "{{count}} Dateien",
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: 'Versionsverlauf',
-    noRevisions: 'Keine Versionen aufgezeichnet',
-    revisionFieldsChanged: '{{count}} Felder geändert',
-    revisionFieldsChangedOne: '{{count}} Feld geändert',
-    revisionPreview: 'Versionsvorschau',
-    revisionSnapshot: 'Datensatzstand zu diesem Zeitpunkt',
-    restoreConfirm: 'Dadurch wird der Datensatz auf seinen Stand von {{when}} zurückgesetzt. Fortfahren?',
-    restoring: 'Wird wiederhergestellt…',
-    confirmRestore: 'Wiederherstellung bestätigen',
-    restoreToPoint: 'Auf diesen Zeitpunkt zurücksetzen',
   },
   chart: {
     loading: "Diagramm wird geladen…",
+    refreshing: "Wird aktualisiert…",
     nullCategory: "(Ohne Angabe)",
     scatterOneMeasure: "Ein Streudiagramm zeichnet genau eine Kennzahl. Behalten Sie nur eine Datenreihe:",
     unconfigured: {
@@ -1166,8 +1203,13 @@ const de = {
       sourceLabel: "Datenquelle:",
     },
     loading: "Wird geladen…",
+    refreshing: "Wird aktualisiert…",
+    refreshAll: "Alle aktualisieren",
+    refreshDashboard: "Dashboard aktualisieren",
     pickMeasures: "Wählen Sie Kennzahlen (Werte) für dieses Dataset-Widget.",
     datasetUnsupported: "Diese Datenquelle unterstützt keine Dataset-Abfragen.",
+    widgetForbiddenTitle: "Kein Zugriff",
+    widgetForbiddenMessage: "Sie haben keine Berechtigung, die Daten dieses Widgets anzuzeigen.",
     details: "Details",
     exportCsv: "CSV exportieren",
     openInList: "In Liste öffnen",
@@ -1320,10 +1362,6 @@ const de = {
     appDescription: "Beschreibung",
     appIcon: "Symbol",
     template: "Vorlage",
-    layout: "Layout",
-    layoutSidebar: "Seitenleiste",
-    layoutHeader: "Kopfzeile",
-    layoutEmpty: "Leer",
     selectObjects: "Objekte auswählen",
     searchObjects: "Objekte suchen…",
     selectAll: "Alle auswählen",
@@ -1358,7 +1396,7 @@ const de = {
     appearance: "Erscheinungsbild",
     rowHeight: "Zeilenhöhe",
     livePreview: "Echtzeit-Vorschau",
-    stepBasicDesc: "Name, Titel und Layout",
+    stepBasicDesc: "Name, Titel und Symbol",
     stepObjectsDesc: "Geschäftsobjekte auswählen",
     stepNavigationDesc: "Navigationsbaum erstellen",
     stepBrandingDesc: "Logo, Farben und Favicon",
@@ -1397,6 +1435,7 @@ const de = {
     navTypeSeparator: "Trenner",
     navTypeAction: "Aktion",
     navTypeComponent: "Komponente",
+    navTypeDoc: "Dokument",
     navEditIcon: "Symbol bearbeiten",
     navToggleVisible: "Sichtbarkeit umschalten",
     navHidden: "Ausgeblendet",
@@ -1576,6 +1615,7 @@ const de = {
         ctaUpgrade: "Upgraden, um weiterzumachen",
         ctaTopUp: "Credits hinzufügen, um fortzufahren",
         ariaLabel: "KI-Nutzung: {{status}}",
+        breakdownTitle: "Bisher verbraucht",
       },
       workspaceTitle: "KI-Workspace",
       workspaceSubtitle: "Fragen stellen, prüfen und Unterhaltungen fortsetzen",
@@ -1585,6 +1625,31 @@ const de = {
       share: "Teilen",
       shareTitle: "Diese Unterhaltung teilen",
       shareDisabledTitle: "Beginnen Sie zu chatten, um das Teilen zu aktivieren",
+      buildDoctor: "Build-Diagnose",
+      buildDoctorTitle: "Build-Diagnose — was ist tatsächlich angekommen?",
+      buildDoctorDisabledTitle: "Senden Sie zuerst eine Nachricht",
+      buildDoctorDrawer: {
+        description: 'Was der Agent behauptet hat und was tatsächlich live ist. Schreibgeschützte Diagnose.',
+        reconciling: 'Wird abgeglichen…',
+        notAvailable: 'Nicht verfügbar — die Unterhaltung wurde nicht gefunden oder Sie sind nicht berechtigt.',
+        untitled: '(ohne Titel)',
+        summary: '{{turns}} Runde(n) · {{messages}} Nachr. · {{tokens}} Tok. · {{seconds}} s LLM',
+        allLive: 'Alle {{count}} versuchten Änderung(en) sind live — nichts ist verloren gegangen.',
+        discrepancies: '{{count}} Abweichung(en) — was der Chat gesagt hat, stimmt nicht mit dem überein, was live ist.',
+        orphanedTitle: 'Vorgeschlagen, aber nie angewendet',
+        orphanedHint: 'Eine Bestätigungskarte, die der Agent vorgeschlagen hat, die aber keine spätere Runde angewendet hat — die Änderung ist stillschweigend verloren gegangen.',
+        missingTitle: 'Behauptet, aber fehlend',
+        missingHint: 'Ein Tool-Ergebnis meldete die Änderung als angewendet, aber das Artefakt ist in sys_metadata nicht live.',
+        toolErrorsTitle: 'Tool-Fehler',
+        toolErrorsHint: 'Tool-Aufrufe, die während des Builds einen Fehler zurückgegeben haben.',
+        verifyTitle: 'Build-Prüfung (verify_build)',
+        yourApp: 'Ihre App:',
+        noIssues: '0 Probleme',
+        issueCount: '{{count}} Problem(e)',
+        platformNoise: '{{count}} Plattform-sys_*-Befund(e) ausgeblendet',
+        pendingActions: 'Ausstehende Aktionen',
+        timeline: 'Zeitleiste ({{count}})',
+      },
       newChat: "Neu",
       searchChats: "Chats durchsuchen…",
       noChatsYet: "Noch keine Chats",
@@ -1792,6 +1857,13 @@ const de = {
       pages: "Seiten",
       reports: "Berichte",
       system: "System",
+      marketplace: "Marktplatz",
+      settings: 'Einstellungen',
+      apps: 'Apps',
+      profile: 'Profil',
+      approvals: 'Genehmigungen',
+      aiApprovals: 'KI-Genehmigungen',
+      auditLog: 'Audit-Protokoll',
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -1890,6 +1962,14 @@ const de = {
       noWritesTitle: 'Lesevorgänge ganz ohne Schreibvorgänge in dieser Umgebung',
       noWrites: 'Es werden Zeilen gelesen, aber überhaupt keine geschrieben, sodass die Leserate keine Obergrenze hat. Das ist der schwerwiegendste Messwert. Die Plattform meldet alles über {{threshold}}. Es wird nichts begrenzt oder blockiert; dies ist ein Bericht, damit das Lesemuster geprüft werden kann.',
     },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'Der Speicher ist fast voll',
+      warning: '{{used}} MB von {{limit}} MB belegt. Uploads und Importe werden pausiert, sobald der Speicher voll ist.',
+      blockedTitle: 'Speicher voll: Uploads und Importe sind pausiert',
+      blocked: '{{used}} MB von {{limit}} MB belegt. Vorhandene Daten bleiben unverändert; Lesen, Exportieren und das Bearbeiten einzelner Datensätze funktionieren weiterhin.',
+      upgrade: 'Upgraden, um fortzufahren',
+    },
     errors: {
       somethingWentWrong: "Etwas ist schiefgelaufen",
       unexpectedError: "Beim Rendern dieser Ansicht ist ein unerwarteter Fehler aufgetreten.",
@@ -1936,6 +2016,7 @@ const de = {
       title: "Titel",
       viewType: "Ansichtstyp",
       recordCount: "{{count}} Datensätze",
+      recordCountOne: "{{count}} Datensatz",
       save: "Speichern",
       discard: "Verwerfen",
       createView: "Ansicht erstellen",
@@ -2068,6 +2149,8 @@ const de = {
       resendOtpCountdownText: "Erneut senden in {seconds} s",
       usePhoneOtpText: "Mit Bestätigungscode anmelden",
       usePasswordSignInText: "Stattdessen mit Passwort anmelden",
+      socialButton: "Weiter mit {provider}",
+      orText: "oder mit E-Mail fortfahren",
     },
     register: {
       title: "Konto erstellen",
@@ -2086,8 +2169,12 @@ const de = {
       submittingButton: "Konto wird erstellt…",
       hasAccountText: "Bereits ein Konto?",
       signInText: "Anmelden",
+      socialButton: "Mit {provider} registrieren",
+      orText: "oder mit E-Mail fortfahren",
       errors: {
         userExists: "Ein Konto mit dieser E-Mail existiert bereits. Versuchen Sie sich anzumelden.",
+        selfRegistrationClosed: "Die Selbstregistrierung ist in dieser Umgebung nicht möglich. Bitten Sie einen Administrator um eine Einladung.",
+        emailDomainNotAllowed: "Die Domain dieser E-Mail-Adresse ist für die Registrierung hier nicht zugelassen. Verwenden Sie die E-Mail-Adresse Ihrer Organisation oder bitten Sie einen Administrator um eine Einladung.",
       },
       verifyInbox: {
         title: "Überprüfen Sie Ihren Posteingang",
@@ -2580,6 +2667,7 @@ const de = {
     selectPlaceholder: "{{label}} auswählen",
     requiredError: "{{label}} ist erforderlich",
     unresolvedParam: 'Dieser Parameter kann nicht angezeigt werden: Das zugrunde liegende Feld fehlt in den Objektmetadaten, daher lässt sich das benötigte Steuerelement nicht erzeugen. Bitten Sie eine Administratorin oder einen Administrator, die Aktionsdefinition zu korrigieren.',
+    carryOverHint: 'Unverändert übernommen (schreibgeschützt)',
     cancel: "Abbrechen",
     confirm: "Bestätigen",
     uploading: "Wird hochgeladen…",
@@ -2843,12 +2931,14 @@ const de = {
     thankYouTitle: "Vielen Dank!",
     thankYouMessage: "Ihre Einreichung wurde erfolgreich empfangen.",
     redirecting: "Weiterleitung in {{seconds}} Sekunden…",
+    redirectPending: "Weiterleitung…",
     unavailableTitle: "Formular nicht verfügbar",
     unavailableDescription: "Unter dieser URL ist kein öffentliches Formular verfügbar. Stellen Sie sicher, dass die zugrunde liegende Ansicht die anonyme Freigabe aktiviert hat.",
     tryDemo: "Demo ausprobieren",
     retry: "Erneut versuchen",
     loading: "Formular wird geladen…",
     requiredHint: "* Pflichtfeld",
+    requiredFields: "Pflichtfelder: {{fields}}",
     consentLabelDefault: "Ich stimme der Datenschutzrichtlinie zu und willige in die Verarbeitung meiner Daten für diese Anfrage ein.",
     consentLink: "Datenschutzrichtlinie",
     consentRequired: "Bitte akzeptieren Sie die Datenschutzrichtlinie, um fortzufahren.",
@@ -2911,6 +3001,34 @@ const de = {
     createEnvironment: "Umgebung erstellen",
     openProduction: "Produktion öffnen",
     manageEnvironments: "Umgebungen verwalten",
+  },
+  cloudPlanStatus: {
+    current: "Aktueller Tarif",
+  },
+  ai: {
+    nlQuery: {
+      placeholder: "Stellen Sie eine Frage zu Ihren Daten…",
+      ask: "Fragen",
+      results: "Ergebnisse",
+      match: "{{percent}} Übereinstimmung",
+      simulatedSummary: "Ergebnisse für: {{query}}",
+      noResults: "Keine passenden Datensätze gefunden",
+      recentQueries: "Letzte Abfragen",
+    },
+    formAssist: {
+      title: "KI-Vorschläge",
+      suggestionCount: "{{count}} Vorschläge",
+      suggestionCountOne: "{{count}} Vorschlag",
+      applyAll: "Alle übernehmen",
+      confidence: "{{percent}} Konfidenz",
+      appliedCount: "{{count}} Vorschläge übernommen",
+      appliedCountOne: "{{count}} Vorschlag übernommen",
+    },
+    recommendations: {
+      title: "Empfehlungen",
+      generating: "Empfehlungen werden generiert…",
+      empty: "Keine Empfehlungen verfügbar",
+    },
   },
   aiApprovals: {
     title: "KI-Genehmigungen",
@@ -3150,7 +3268,7 @@ const de = {
     },
     title: "App-Marktplatz",
     subtitle: "Durchsuchen Sie genehmigte Apps, die im ObjectStack-Katalog veröffentlicht wurden. Klicken Sie auf eine App, um Details zu sehen und sie in eine Ihrer Umgebungen zu installieren.",
-    searchPlaceholder: "Apps nach Name oder Manifest-ID suchen…",
+    searchPlaceholder: 'Apps nach Name oder App-ID suchen…',
     searchAria: "Marktplatz-Apps suchen",
     installed: "Installiert",
     installedCount: "Installiert ({{count}})",
@@ -3202,6 +3320,7 @@ const de = {
       reseedQueued: 'Beispieldaten werden beim nächsten Zugriff auf die Umgebung neu geladen.',
       reseedLocalSuccess: 'Beispieldaten neu geladen: {{inserted}} hinzugefügt, {{updated}} aktualisiert.',
       reseedPartialErrors: '({{count}} Datensatz/-sätze konnten nicht geschrieben werden)',
+      sampleDataKernelUnavailable: 'Diese Control Plane hat keinen Umgebungs-Kernel, daher können Beispieldaten hier weder neu geladen noch gelöscht werden. Führen Sie dies im eigenen Laufzeitsystem der Umgebung aus.',
       updateAvailable: 'Update verfügbar',
     },
     action: {
@@ -3507,7 +3626,7 @@ const de = {
       detailChangedKeys: 'Ebenfalls geändert:',
       confirmNote: 'Beim Veröffentlichen werden alle {{count}} ausstehenden Entwürfe dieses Pakets atomar freigegeben.',
       publishConfirm: 'Alle veröffentlichen',
-      // [objectui#5418] Pre-publish security-posture findings, shown next to
+      // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
       securityBlockTitle: 'Veröffentlichen wird abgelehnt — {{count}} Element(e) benötigen zuerst eine Entscheidung',
@@ -3566,25 +3685,25 @@ const de = {
     rangeEnd: "Bis",
     operators: {
       equals: "Gleich",
-      notEquals: "Ungleich",
+      not_equals: "Ungleich",
       contains: "Enthält",
-      containsCaseInsensitive: "Enthält (Groß-/Kleinschreibung ignorieren)",
-      notContains: "Enthält nicht",
-      isEmpty: "Ist leer",
-      isNotEmpty: "Ist nicht leer",
-      greaterThan: "Größer als",
-      lessThan: "Kleiner als",
-      greaterOrEqual: "Größer oder gleich",
-      lessOrEqual: "Kleiner oder gleich",
+      icontains: "Enthält (Groß-/Kleinschreibung ignorieren)",
+      not_contains: "Enthält nicht",
+      is_empty: "Ist leer",
+      is_not_empty: "Ist nicht leer",
+      greater_than: "Größer als",
+      less_than: "Kleiner als",
+      greater_than_or_equal: "Größer oder gleich",
+      less_than_or_equal: "Kleiner oder gleich",
       before: "Vor",
       after: "Nach",
       between: "Zwischen",
       in: "In",
-      notIn: "Nicht in",
-      startsWith: "Beginnt mit",
-      endsWith: "Endet mit",
-      isNull: "Ist null",
-      isNotNull: "Ist nicht null",
+      not_in: "Nicht in",
+      starts_with: "Beginnt mit",
+      ends_with: "Endet mit",
+      is_null: "Ist null",
+      is_not_null: "Ist nicht null",
       exists: "Ist gesetzt",
       notExists: "Ist nicht gesetzt",
     },
@@ -3634,6 +3753,11 @@ const de = {
   },
   wizard: {
     missingRequired: "Bitte füllen Sie die Pflichtfelder aus: {{fields}}",
+    back: "Zurück",
+    submitting: "Wird gesendet…",
+    stepFallback: "Schritt {{n}}",
+    progressLabel: "Fortschritt",
+    emptyStep: "Für diesen Schritt sind keine Felder konfiguriert",
   },
   flowRunner: {
     title: 'Eingabe',
@@ -3729,6 +3853,11 @@ const de = {
     actionsEmptyTitle: "Keine Paket-Aktionen",
     actionsEmptyBody: "In dieser Installation deklariert kein installiertes Paket eine Aktion. Selbst erstellte Aktionen finden Sie im Studio.",
     actionsLoadFailed: "Paket-Aktionen konnten nicht geladen werden.",
+  },
+  element: {
+    number: {
+      noObject: "Kein Objekt angegeben: Legen Sie object oder dataSource.object fest.",
+    },
   },
 };
 

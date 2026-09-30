@@ -229,6 +229,28 @@ describe('ObjectGrid — column-header sorting is server-side (#3106)', () => {
     }
   });
 
+  it('a retired `defaultSort` lights NO arrow and sends NO $orderby — both readers dropped it (objectui#5861)', async () => {
+    // Until objectui#5861 the header reader fell back to `defaultSort` after
+    // `sort` and the fetch path had a third arm for it, so this schema drew a
+    // `status desc` arrow over a `status desc` query. The key is an ADR-0049
+    // tombstone — `@objectstack/spec` refuses it by name on `object-grid` —
+    // and both readers dropped it in the same change, so they still agree:
+    // no arrow, and no ordering on the wire. The canonical control is `shows
+    // the view's declared sort before anyone clicks` above, same harness.
+    const ds = makeDataSource();
+    const { container } = renderGrid(ds, { defaultSort: { field: 'status', order: 'desc' } });
+    await waitFor(() => expect(screen.getByText('Row 0')).toBeInTheDocument());
+
+    const status = headerCell(container, 'Status');
+    expect(status.querySelector('[class*="chevron-down"]')).toBeNull();
+    expect(status.querySelector('[class*="chevron-up"]')).toBeNull();
+    // Non-vacuity: the column still renders its sortable header chrome, so the
+    // two nulls mean "no ACTIVE sort", not "no icons here at all".
+    expect(status.querySelector('[class*="chevrons-up-down"]')).not.toBeNull();
+
+    expect(Object.prototype.hasOwnProperty.call(lastFindParams(ds), '$orderby')).toBe(false);
+  });
+
   it('withholds the sort affordance from a relational column (#3096)', async () => {
     const ds = makeDataSource();
     const { container } = renderGrid(ds);
@@ -295,8 +317,7 @@ describe('parseSchemaSort — the header reader reads the ONE declared spelling 
   it('CONTROL — a declared entry with no `order` still reads ascending', () => {
     // Untouched by objectui#8961, and named here so the narrowing is not read
     // as a second, stricter judgement of the ENTRY: what moved is which
-    // SPELLING of the key is admitted, not how a declared entry is read. This
-    // is also the shape `defaultSort` arrives in, wrapped by the read site.
+    // SPELLING of the key is admitted, not how a declared entry is read.
     expect(parseSchemaSort([{ field: 'name' }])).toEqual([{ field: 'name', order: 'asc' }]);
   });
 

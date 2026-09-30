@@ -90,7 +90,10 @@
  * objectui#8652 carries the `navigation` family; the maintainer ruled B
  * (declare on the platform element schemas first, then mirror), the spec half
  * is objectstack#17987, and #8652 is `pm:blocked` on it. This card must not
- * rule, declare, retire or touch it.
+ * rule, declare, retire or touch it. (`@objectstack/spec` 17.5.0 ships that
+ * spec half — the `object-calendar` element entry declares `navigation` —
+ * which meets #8652's unlock criterion; the mirroring is still #8652's, and
+ * the rows below still hold: objectui#11073.)
  *
  * ⭐ It does not, and that is measurable rather than asserted: through the
  * UNION the key was already undeclared, and on `ObjectCalendarSchema` it is
@@ -164,9 +167,10 @@ const LEDGERED_OTHER_CARD_READS = ['navigation'] as const;
  * `ObjectCalendarSchema` and must stay so.
  *
  * ⚠️ The ground is NOT that the spec singles these two out. MEASURED on
- * installed `@objectstack/spec` 17.4.0: `ComponentPropsMap['object-calendar']`
- * is STRICT and declares exactly nine flat members — `calendar` `data`
- * `defaultView` `filter` `loading` `locale` `objectName` `sort` `staticData` —
+ * installed `@objectstack/spec` 17.5.0: `ComponentPropsMap['object-calendar']`
+ * is STRICT and declares exactly ten flat members — `calendar` `data`
+ * `defaultView` `filter` `loading` `locale` `navigation` `objectName` `sort`
+ * `staticData` (nine through 17.4.0; 17.5.0 added `navigation`) —
  * so it refuses every undeclared flat key with the same `unrecognized_keys`
  * diagnostic: these two aliases, a nonsense key, AND the five canonical field
  * keys `ObjectCalendarSchema` already declares and this renderer reads (`startDateField`

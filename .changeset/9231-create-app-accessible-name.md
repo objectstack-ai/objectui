@@ -3,7 +3,7 @@
 ---
 
 Studio: the create-draft dialog's confirm control no longer shares a name with the
-affordance that opens it (objectui#9231).
+affordance that opens it.
 
 **BREAKING** — a published, user-visible accessible name changes. The confirm control of
 the shared Studio create dialog (`engine.studio.createDraft`) reads `Save as draft`

@@ -62,9 +62,27 @@ export const BreadcrumbItemSchema = z.object({
  */
 export const HeaderBarSchema = BaseSchema.extend({
   type: z.literal('header-bar'),
-  title: z.string().optional().describe('Header title'),
-  logo: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Logo content'),
-  nav: z.array(NavLinkSchema).optional().describe('Navigation links'),
+  title: retirementTombstone(
+    'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `title`: the key is not in '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node, and forwards to its root only what the shared DOM whitelist admits plus `style`, so an authored title rendered nothing — '
+    + 'no render-time error or warning and no element; only the parser tier\'s `unknown-prop` warning noticed it. What it renders instead: `actions`, `crumbs`, '
+    + '`rightContent`, `search`. For the current page name use the last entry of `crumbs`.',
+  ),
+  logo: retirementTombstone(
+    'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `logo`: the key is not in '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node, and forwards to its root only what the shared DOM whitelist admits plus `style`, so an authored logo (URL or node) rendered nothing — '
+    + 'no render-time error or warning and no element; only the parser tier\'s `unknown-prop` warning noticed it. What it renders instead: `actions`, `crumbs`, '
+    + '`rightContent`, `search`. For brand content use `rightContent` or `actions`.',
+  ),
+  nav: retirementTombstone(
+    'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `nav`: the key is not in '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node, and forwards to its root only what the shared DOM whitelist admits plus `style`, so an authored link list rendered nothing — '
+    + 'no render-time error or warning and no element; only the parser tier\'s `unknown-prop` warning noticed it. What it renders instead: `actions`, `crumbs`, '
+    + '`rightContent`, `search`. For links use `crumbs`, or a `navigation-menu` / `sidebar` node.',
+  ),
   crumbs: z.array(BreadcrumbItemSchema).optional().describe('Breadcrumb items'),
   search: z.object({
     enabled: z.boolean().describe('Whether search is enabled'),
@@ -73,24 +91,61 @@ export const HeaderBarSchema = BaseSchema.extend({
   }).optional().describe('Search configuration'),
   actions: z.array(SchemaNodeSchema).optional().describe('Right-side action slots'),
   rightContent: SchemaNodeSchema.optional().describe('Custom right content area'),
-  left: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Left content'),
-  center: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Center content'),
-  right: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Right content'),
-  sticky: z.boolean().optional().describe('Whether header is sticky'),
-  height: z.union([z.string(), z.number()]).optional().describe('Header height'),
-  variant: z.enum(['default', 'bordered', 'transparent']).optional().describe('Header variant'),
+  left: retirementTombstone(
+    'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `left`: the key is not in '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node, and forwards to its root only what the shared DOM whitelist admits plus `style`, so an authored node rendered nothing — '
+    + 'no render-time error or warning and no element; only the parser tier\'s `unknown-prop` warning noticed it. What it renders instead: `actions`, `crumbs`, '
+    + '`rightContent`, `search`. For custom content use `rightContent` or `actions`.',
+  ),
+  center: retirementTombstone(
+    'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `center`: the key is not in '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node, and forwards to its root only what the shared DOM whitelist admits plus `style`, so an authored node rendered nothing — '
+    + 'no render-time error or warning and no element; only the parser tier\'s `unknown-prop` warning noticed it. What it renders instead: `actions`, `crumbs`, '
+    + '`rightContent`, `search`. For custom content use `rightContent` or `actions`.',
+  ),
+  right: retirementTombstone(
+    'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `right`: the key is not in '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node, and forwards to its root only what the shared DOM whitelist admits plus `style`, so an authored node rendered nothing — '
+    + 'no render-time error or warning and no element; only the parser tier\'s `unknown-prop` warning noticed it. What it renders instead: `actions`, `crumbs`, '
+    + '`rightContent`, `search`. The right side is `actions` (a node list) and `rightContent` (one node).',
+  ),
+  sticky: retirementTombstone(
+    'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `sticky`: the key is not in '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node, and forwards to its root only what the shared DOM whitelist admits plus `style`, so true and false drew the same non-sticky header — '
+    + 'no render-time error or warning and no element; only the parser tier\'s `unknown-prop` warning noticed it. What it renders instead: `actions`, `crumbs`, '
+    + '`rightContent`, `search`. To pin the header, make its parent layout sticky.',
+  ),
+  height: retirementTombstone(
+    'REFUSED (objectui#10387, ADR-0049) — `header-bar` reads no `height`: the key is not in '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node, and forwards to its root only what the shared DOM whitelist admits plus `style`, so every value drew the same default-height header — '
+    + 'no render-time error or warning and no element; only the parser tier\'s `unknown-prop` warning noticed it. What it renders instead: `actions`, `crumbs`, '
+    + '`rightContent`, `search`. To change the height, author `className` (e.g. `h-20 sm:h-20`); '
+    + 'it is merged after the default `h-14` / `sm:h-16` the renderer sets.',
+  ),
+  variant: retirementTombstone(
+    'REFUSED (objectui#10286, ADR-0049) — `header-bar` reads no `variant`: the key is not in '
+    + '`@objectstack/spec`, and its renderer reads only `actions`, `crumbs`, `rightContent`, `search` and '
+    + 'the inherited `className` off the node, and forwards to its root only what the shared DOM whitelist admits plus `style`, so every variant rendered the same header — '
+    + 'no render-time error or warning and no class; only the parser tier\'s `unknown-prop` warning noticed it. What it renders instead: `actions`, `crumbs`, `rightContent`, '
+    + '`search`.',
+  ),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `header-bar` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `actions`, `crumbs`, `rightContent`, `search`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `header-bar` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `actions`, `crumbs`, `rightContent`, `search`.',
   ),
 });
@@ -126,14 +181,14 @@ export const BreadcrumbSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `breadcrumb` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `items`, `maxItems`, `separator`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `breadcrumb` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `items`, `maxItems`, `separator`.',
   ),
 });
@@ -153,14 +208,14 @@ export const PaginationSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `pagination` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `currentPage`, `page`, `totalPages`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `pagination` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `currentPage`, `page`, `totalPages`.',
   ),
 });
@@ -196,14 +251,14 @@ export const NavigationMenuSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `navigation-menu` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `items`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `navigation-menu` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `items`.',
   ),
 });
@@ -232,14 +287,14 @@ export const ButtonGroupSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `button-group` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `buttons`, `className`, `size`, `variant`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `button-group` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `buttons`, `className`, `size`, `variant`.',
   ),
 });

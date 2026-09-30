@@ -93,11 +93,13 @@ describe('the thin containers publish the `children` slot they render (objectui#
     expect(inputsOf(type)[0].type).toBe('slot');
   });
 
-  it.each(THIN_CONTAINERS)('%s is still a container', (type) => {
-    // The two halves are independent and both required: `isContainer` is what
-    // `sdui-parser/src/validate.ts` reads for its `not-a-container` diagnostic,
-    // and `inputs` is what the designer reads to offer the slot. Publishing one
-    // without the other is how objectui#3900 happened on `page:header`.
+  it.each(THIN_CONTAINERS)('%s is still a layout container', (type) => {
+    // Two independent facts, and since objectui#9910 the `children` slot in
+    // `inputs` carries BOTH the designer's offer and the containment the tier
+    // reads (`sdui-parser`'s `not-a-container` reads only that input). The
+    // flag is the other fact — LAYOUT containment (objectui#6804): the
+    // react-page JSX scope skips these three and the public layout ledger
+    // lists them — and it stays declared because they are layout regions.
     expect(ComponentRegistry.getConfig(type)?.isContainer).toBe(true);
   });
 

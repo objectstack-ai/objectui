@@ -19,7 +19,7 @@ said "any string": on this branch's base,
 `const node: GridSchema = { type: 'grid', columns: { xxl: 6 } }` compiled, passed
 the zod mirror, emitted no class, and rendered the grid at its `xs` count on every
 screen with no error and no warning. That is the declared-but-not-read shape
-objectui#7097 fixed at the value level, reached through the type surface instead
+`3cab5703b` fixed at the value level, reached through the type surface instead
 of the renderer, and this was its last copy.
 
 **No producer was touched, and that is a measurement rather than an absence.**
@@ -33,8 +33,8 @@ authoring spelling, which is where the defect was authored.
 
 **The zod mirror WAS deliberately not narrowed here — corrected in #8573.** This
 paragraph said `zod/layout.zod.ts` still validates `columns` as
-`z.record(z.string(), z.number())`, so the JSON authoring face — `os-ui validate`
-/ `check` in `@object-ui/cli`, the real consumer of these mirrors — still admits
+`z.record(z.string(), z.number())`, so the JSON authoring face — `objectui validate`
+in `@object-ui/cli`, the real consumer of these mirrors — still admits
 `{ xxl: 6 }`. #8573 narrowed that mirror to a partial record over the six
 breakpoints (objectui#8516), so the JSON face now refuses `{ xxl: 6 }` exactly as
 the declaration above does. Its two supporting statements went with it, and #8573
@@ -45,3 +45,10 @@ maintainer's raise to `PER_CHUNK_GZIP_CEILINGS.framework` `100_000` against a
 `PER_CHUNK_BASELINE.framework` of `72_245`; and the handoff assertion described
 here as holding the current reading visible is flipped to a refusal in #8573, so
 it no longer asserts acceptance.
+
+⚠️ **Dated note, 2026-09-25 — `objectui check` is not part of that JSON face —
+objectui#10524.** This paragraph first named the face `os-ui validate` / `check`.
+The command is `objectui validate`, and `check` does not refuse `{ xxl: 6 }`: it is
+an advisory sweep that never parses against the schema a file whose root carries a structural key
+(`children`, `className`, `body`, …), lists a file with none of those keys by name
+when the file does not validate, and exits non-zero on unreadable JSON only.

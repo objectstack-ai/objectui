@@ -70,9 +70,13 @@ export interface RecordActivityTimelineProps {
    *  screen yet, the timeline shows a loading row instead of the empty state
    *  — "still fetching" is not "no activity" (objectui#3205). */
   loading?: boolean;
-  /** Called when a comment is submitted */
+  /**
+   * Called when a comment is submitted. A returned promise that REJECTS means
+   * the comment was not written: the composer keeps the draft, and reporting
+   * the failure is the host's job.
+   */
   onAddComment?: (text: string, attachments?: Attachment[]) => void | Promise<void>;
-  /** Called when a reply is submitted */
+  /** Called when a reply is submitted — a rejection keeps the reply draft, as above. */
   onAddReply?: (parentId: string | number, text: string) => void | Promise<void>;
   /** Called when user toggles a reaction */
   onToggleReaction?: (itemId: string | number, emoji: string) => void | Promise<void>;
@@ -164,6 +168,24 @@ function formatTimestamp(
   } catch {
     return timestamp;
   }
+}
+
+/**
+ * Whether a feed row can store a reaction (objectui#11035).
+ *
+ * A reaction is stored in `sys_comment.reactions`, and `comment` is the one feed
+ * kind built from a `sys_comment` row (the record page's `sys_comment` read and
+ * the rows its composer adds). Every other kind comes from a source with no
+ * reaction store: a `sys_activity` row reaches the feed through
+ * `activityRowToFeedItem`, whose kinds never include `comment`. So only a
+ * comment row offers the reaction control. Before this gate an activity row's
+ * Add reaction handed the host the activity's id, and the record page wrote
+ * `sys_comment` by it. Reactions a host hands on any other row still show, as
+ * chips that cannot be clicked. Pinned by
+ * `RecordActivityTimeline.reactionsCommentRowsOnly-11035.test.tsx`.
+ */
+function canStoreReaction(item: FeedItem): boolean {
+  return item.type === 'comment';
 }
 
 function filterItems(items: FeedItem[], mode: FeedFilterMode): FeedItem[] {
@@ -275,6 +297,10 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
       );
       setCommentText('');
       setPendingAttachments([]);
+    } catch {
+      // A rejection means the comment was NOT written (objectui#10899). The
+      // host reports why; the composer's part is to keep the draft and its
+      // attachments so the user can retry without retyping.
     } finally {
       setIsSubmitting(false);
     }
@@ -452,6 +478,12 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
                 const colorClass =
                   FEED_TYPE_COLORS[item.type] || 'bg-gray-100 text-gray-600';
                 const replies = repliesByParent.get(item.id) ?? [];
+                // Undefined on a row that cannot store a reaction: no Add
+                // reaction button, and its chips render disabled (objectui#11035).
+                const toggleReaction =
+                  enableReactions && onToggleReaction && canStoreReaction(item)
+                    ? (emoji: string) => onToggleReaction(item.id, emoji)
+                    : undefined;
 
                 return (
                   <div key={item.id}>
@@ -526,21 +558,17 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
                           <div className="mt-1.5">
                             <ReactionPicker
                               reactions={item.reactions}
-                              onToggleReaction={
-                                onToggleReaction
-                                  ? (emoji) => onToggleReaction(item.id, emoji)
-                                  : undefined
-                              }
+                              onToggleReaction={toggleReaction}
                             />
                           </div>
                         )}
 
                         {/* Add reaction button (even if no reactions yet) */}
-                        {enableReactions && (!item.reactions || item.reactions.length === 0) && onToggleReaction && (
+                        {(!item.reactions || item.reactions.length === 0) && toggleReaction && (
                           <div className="mt-1.5">
                             <ReactionPicker
                               reactions={[]}
-                              onToggleReaction={(emoji) => onToggleReaction(item.id, emoji)}
+                              onToggleReaction={toggleReaction}
                             />
                           </div>
                         )}

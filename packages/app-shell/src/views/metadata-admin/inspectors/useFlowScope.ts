@@ -13,6 +13,7 @@
 
 import * as React from 'react';
 import {
+  edgeSourceOutputRefs,
   resolveFlowScope,
   triggerFieldRefs,
   type ScopeGroupId,
@@ -20,6 +21,7 @@ import {
   type TriggerScope,
 } from './flow-scope.js';
 import { useObjectFields } from '../previews/useObjectFields.js';
+import { t, useMetadataLocale } from '../i18n.js';
 
 export interface ScopeGroup {
   id: ScopeGroupId;
@@ -33,7 +35,7 @@ export interface UseFlowScopeResult {
   /** Flat, de-duplicated ref list (all groups). */
   refs: ScopeRef[];
   /**
-   * #3447: the picker groups for an approval node's `expression` APPROVER,
+   * objectstack-ai/objectstack#3447: the picker groups for an approval node's `expression` APPROVER,
    * whose closed root set differs from a flow condition's — `current.<field>`
    * (live record at node entry), `trigger.<field>` (submit-time snapshot) and
    * `vars.*` (flow variables / upstream outputs, prefix-mapped). `record.*`
@@ -60,50 +62,65 @@ export interface UseFlowScopeResult {
   isEmpty: boolean;
 }
 
-// The REGULAR picker's sections — the approval_* group ids (#3447) never
+// The REGULAR picker's sections — the approval_* group ids (objectstack-ai/objectstack#3447) never
 // appear here; they ride the separately-emitted approvalExpressionGroups.
+// Each heading is a catalogue key, resolved in the designer locale
+// (objectui#10748).
 const GROUP_ORDER = ['variables', 'outputs', 'loop', 'trigger'] as const;
-const GROUP_LABELS: Record<(typeof GROUP_ORDER)[number], string> = {
-  variables: 'Flow variables',
-  outputs: 'Upstream outputs',
-  loop: 'Loop item',
-  trigger: 'Trigger record',
+const GROUP_LABEL_KEYS: Record<(typeof GROUP_ORDER)[number], string> = {
+  variables: 'engine.flowScope.group.variables',
+  outputs: 'engine.flowScope.group.outputs',
+  loop: 'engine.flowScope.group.loop',
+  trigger: 'engine.flowScope.group.trigger',
 };
 
 /**
  * Resolve + (async) expand the in-scope references at a flow node. `draft` is
- * the whole flow draft; `nodeId` the node being edited (for an edge, pass its
- * source node id — references available on an edge are those in scope at its
- * source).
+ * the whole flow draft; `nodeId` the node being edited. An EDGE is not a node:
+ * its guard also sees its source node's own outputs, so an edge goes through
+ * {@link useEdgeScope}, never through this hook with its source id
+ * (objectui#11085).
  *
  * `extraRefs` are merged in before de-dup / grouping — used for a NESTED node,
  * whose scope anchor is its container (ADR-0031 outer scope): the container's
  * own outputs are excluded from the graph walk at its id, so a loop's
  * `iteratorVariable` must be injected explicitly for a body node to see it. Pass
  * a memoized array (a fresh one every render would thrash the memo).
+ *
+ * `connectors` is the runtime connector registry the calling inspector already
+ * reads (`useConnectorRegistry`, gated on `hasCommittedConnectorAction`), so an
+ * upstream `connector_action` node offers its action's declared output keys
+ * (objectui#11028). Omitted, such a node offers none.
  */
 export function useFlowScope(
   draft: Record<string, unknown> | undefined,
   nodeId: string | undefined,
   extraRefs?: ReadonlyArray<ScopeRef>,
+  connectors?: unknown,
 ): UseFlowScopeResult {
-  const scope = React.useMemo(() => resolveFlowScope(draft ?? {}, nodeId), [draft, nodeId]);
+  // The picker's headings and details, in the designer locale — read here, as
+  // `VariableTextInput` (which renders them) reads it (objectui#10748).
+  const locale = useMetadataLocale();
+  const scope = React.useMemo(
+    () => resolveFlowScope(draft ?? {}, nodeId, locale, connectors),
+    [draft, nodeId, locale, connectors],
+  );
   const { fields, loading } = useObjectFields(scope.trigger?.objectName);
 
   return React.useMemo(() => {
     const all: ScopeRef[] = [...scope.refs];
     if (extraRefs && extraRefs.length) all.push(...extraRefs);
-    if (scope.trigger) all.push(...triggerFieldRefs(scope.trigger, fields));
+    if (scope.trigger) all.push(...triggerFieldRefs(scope.trigger, fields, locale));
     // Global de-dup by token (a declared var also written upstream shows once).
     const seen = new Set<string>();
     const refs = all.filter((r) => (seen.has(r.token) ? false : (seen.add(r.token), true)));
     const groups = GROUP_ORDER.map((id) => ({
       id,
-      label: GROUP_LABELS[id],
+      label: t(GROUP_LABEL_KEYS[id], locale),
       refs: refs.filter((r) => r.group === id),
     })).filter((g) => g.refs.length > 0);
 
-    // #3447: approval-expression picker groups, built from the same materials.
+    // objectstack-ai/objectstack#3447: approval-expression picker groups, built from the same materials.
     // Trigger-object fields expand under BOTH times (current/trigger); the
     // graph-walk refs (variables / upstream outputs / loop items) re-home
     // under the `vars.` prefix. Trigger-group refs (record.<f>, previous.<f>,
@@ -125,12 +142,12 @@ export function useFlowScope(
     // no declared variables or upstream outputs.
     approvalVars.push({
       token: 'vars.previous', label: 'vars.previous',
-      detail: 'pre-update row', group: 'approval_vars',
+      detail: t('engine.flowScope.detail.preUpdateRow', locale), group: 'approval_vars',
     });
     const approvalExpressionGroups: ScopeGroup[] = [
-      { id: 'approval_current' as const, label: 'Current record (live at node entry)', refs: approvalCurrent },
-      { id: 'approval_trigger' as const, label: 'Trigger snapshot (at submit)', refs: approvalTrigger },
-      { id: 'approval_vars' as const, label: 'Flow variables', refs: approvalVars },
+      { id: 'approval_current' as const, label: t('engine.flowScope.group.approvalCurrent', locale), refs: approvalCurrent },
+      { id: 'approval_trigger' as const, label: t('engine.flowScope.group.approvalTrigger', locale), refs: approvalTrigger },
+      { id: 'approval_vars' as const, label: t('engine.flowScope.group.variables', locale), refs: approvalVars },
     ].filter((g) => g.refs.length > 0);
 
     return {
@@ -141,5 +158,29 @@ export function useFlowScope(
       loading: !!scope.trigger && loading,
       isEmpty: refs.length === 0,
     };
-  }, [scope, fields, loading, extraRefs]);
+  }, [scope, fields, loading, extraRefs, locale]);
+}
+
+/**
+ * The edge twin of {@link useFlowScope}: the references in scope on an edge's
+ * guard — the scope at its SOURCE node plus that source's own outputs, the
+ * engine having written them before it evaluates the out-edge
+ * (objectui#11085). Which own outputs count is {@link edgeSourceOutputRefs},
+ * the rule the Problems panel's edge scan (`resolveEdgeScope`) reads too.
+ *
+ * `edge` may be missing (a stale selection): the result is then the flow
+ * variables alone, as for an unset node id.
+ */
+export function useEdgeScope(
+  draft: Record<string, unknown> | undefined,
+  edge: { source?: unknown; type?: unknown } | null | undefined,
+  connectors?: unknown,
+): UseFlowScopeResult {
+  const source = typeof edge?.source === 'string' && edge.source ? edge.source : undefined;
+  const edgeType = edge?.type;
+  const ownRefs = React.useMemo(
+    () => edgeSourceOutputRefs(draft ?? {}, { source, type: edgeType }, connectors),
+    [draft, source, edgeType, connectors],
+  );
+  return useFlowScope(draft, source, ownRefs, connectors);
 }

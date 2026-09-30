@@ -117,6 +117,12 @@ const OBJECT_FIELDS = {
 
 const makeDataSource = () => ({
   find: vi.fn().mockResolvedValue({ data: [], total: 0 }),
+  // objectui#10881: over a data source with no group header query a grouped
+  // grid refuses and asks for nothing, so PIN 7's grouping needs one. It is
+  // answered with no groups: PIN 7 groups only by a key this principal cannot
+  // read, which the server is never asked to group by, so that grid fetches
+  // its flat window — the projection under test.
+  queryGroupHeaders: vi.fn().mockResolvedValue([]),
   findOne: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),

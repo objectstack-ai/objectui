@@ -26,6 +26,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { ObjectCalendarSchema, DataSource, CalendarConfig } from '@object-ui/types';
 import { CalendarView, type CalendarViewEvent } from './CalendarView';
 import { usePullToRefresh } from '@object-ui/mobile';
+import { useDisplayLocale } from '@object-ui/i18n';
 import {
   useNavigationOverlay,
   useSafeTranslate,
@@ -34,10 +35,10 @@ import {
   isPermissionError,
   declaredUserMessage,
   useSettledSchema,
-  NON_GRID_ROW_CEILING,
-  NON_GRID_ROW_CEILING_TOP,
-  applyNonGridRowCeiling,
   NonGridRowCeilingNote,
+  useDataInvalidation,
+  useFilterScope,
+  useResolvedFilter,
 } from '@object-ui/react';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -72,6 +73,12 @@ import {
   resolveRecordSourceConfig,
   resolveRecordSourceObjectName,
   ValueDataSource,
+  applyNonGridRowCeiling,
+  nonGridRowCeilingQuery,
+  type NonGridCeilingResult,
+  isRealCalendarDate,
+  toDateInputValue,
+  toDisplayDate,
 } from '@object-ui/core';
 
 /**
@@ -313,9 +320,36 @@ function getCalendarConfig(schema: ObjectCalendarSchema): ObjectCalendarConfig |
 }
 
 /**
+ * The value a moved or quick-created event writes into one of its date fields
+ * (objectui#10866).
+ *
+ * A field declared `date` holds a calendar day, the spec's `YYYY-MM-DD`
+ * storage form, so it is written as the LOCAL calendar day the user dropped on
+ * or clicked. ⛔ Never `toISOString()` for it: the event was read at local
+ * midnight of its day (`toDisplayDate`), and the UTC spelling of a local
+ * midnight names the PREVIOUS day everywhere east of UTC. Any other declared
+ * type (`datetime`) keeps its instant, exactly as before.
+ *
+ * With no declared type to ask (the adapter exposes no object schema), the
+ * stored value's own shape answers: the same split `toDisplayDate` made when it
+ * read the value, so a write never disagrees with the read that placed the
+ * event. A quick-create has no stored value, so it keeps the instant there.
+ */
+function toStoredDateValue(date: Date, declaredType: unknown, stored: unknown): string {
+  return isDateOnlyField(declaredType, stored) ? toDateInputValue(date) : date.toISOString();
+}
+
+/** Does this date field hold a calendar day? {@link toStoredDateValue}'s split. */
+function isDateOnlyField(declaredType: unknown, stored: unknown): boolean {
+  return typeof declaredType === 'string'
+    ? declaredType === 'date'
+    : typeof stored === 'string' && isRealCalendarDate(stored);
+}
+
+/**
  * A record the calendar cannot place: the field declared as `startDateField`
  * carries no value on it, so there is no date to draw and none is invented
- * (objectui#7071). Deliberately just an id and a display title — the ruled
+ * (`bc5870c9f`). Deliberately just an id and a display title — the ruled
  * affordance is a count and a list, so nothing here feeds a scheduling gesture.
  */
 interface UnscheduledRecord {
@@ -344,6 +378,13 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // the provider-less fallback the same way (objectui#6219), so the label is
   // correct whether or not an `I18nProvider` is mounted.
   const { t } = useObjectTranslation();
+  // The locale the quick-create dialog formats its date and time with: the
+  // month grid's own rule (`CalendarView`'s `effectiveLocale`), so the dialog
+  // never disagrees with the cell it opened from. A set `locale` prop is the
+  // host's choice and still wins; unset (or the grid's `"default"` spelling),
+  // it is the DISPLAY locale, never the machine's (objectui#10668).
+  const displayLocale = useDisplayLocale();
+  const dialogLocale = locale !== undefined && locale !== 'default' ? locale : displayLocale;
   // When the parent (e.g. ObjectView) pre-fetches data and passes it via the `data` prop,
   // we must not trigger a second fetch. Detect external data by checking for an array.
   const hasExternalData = Array.isArray(externalData);
@@ -357,11 +398,9 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
    * `data.length === NON_GRID_ROW_CEILING` cannot tell a capped result set
    * apart from one that is exactly that size.
    */
-  const [rowCeiling, setRowCeiling] = useState<{ truncated: boolean; total?: number }>({
-    truncated: false,
-  });
+  const [rowCeiling, setRowCeiling] = useState<NonGridCeilingResult | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
-  // Disclosure state of the "unscheduled" area (objectui#7071). Collapsed by
+  // Disclosure state of the "unscheduled" area (`bc5870c9f`). Collapsed by
   // default, as ruled: the count is always on screen, the list is opt-in.
   // Component state is the right home per AGENTS.md §5 #8 — nobody would share
   // or bookmark it — and it survives a data refresh because a refetch re-renders
@@ -429,7 +468,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // itself as reading, so the call site cannot come to depend on a key the
   // ladder does not read.
   //
-  // ⭐ THE CAST HERE IS GONE (objectui#9473), and its absence is the assertion.
+  // ⭐ THE CAST HERE IS GONE (`ab856ed30`), and its absence is the assertion.
   // `data` used to be spelled `schema.data as ViewData | undefined` because the
   // shared resolver's PARAMETER declared a flat `data?: ViewData` while its own
   // `dataArm` contract — and its `authoredDataIsOnTheDeclaredArm` predicate,
@@ -568,7 +607,10 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       // fetch whose rows are no longer on screen is a footnote about a result
       // set that is not being drawn. Every other `setData` path here already
       // resets it — this was the one that did not.
-      setRowCeiling({ truncated: false });
+      setRowCeiling(null);
+      // ...and an error from that fetch, for the same reason (objectui#10663):
+      // the rows now on screen are not the query that failed.
+      setError(null);
     }
   }, [externalData, hasExternalData]);
 
@@ -577,6 +619,30 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       setLoading(externalLoading);
     }
   }, [externalLoading, hasExternalData]);
+
+  // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this calendar QUERIES is declared, and the fetch
+  // effect below names it, so the events are re-read. The `onMutation`
+  // subscription above cannot see a write that bypasses the data source (a
+  // page action over raw HTTP); the bus can. Subscribed only on the `object`
+  // provider without external data — inline and external events are not this
+  // effect's query.
+  const invalidationNonce = useDataInvalidation(
+    !hasExternalData && dataProvider === 'object' ? schemaObjectName || undefined : undefined,
+  );
+
+  // objectui#10666 — the node's own `filter`, with every context token
+  // (`{current_user_id}`, `{current_org_id}`, the date macros) resolved ONCE
+  // through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the
+  // session scope the host provides, and HELD by structure (`useResolvedFilter`
+  // in `@object-ui/react`). A directly authored calendar sent the literal token
+  // on `$filter` before. Both query paths below (the `object` fetch and the
+  // inline `ValueDataSource`) and the effect's dependency list read THIS, never
+  // the raw `schema.filter`, so a re-render that rebuilds an equal filter does
+  // not re-query.
+  const filterScope = useFilterScope();
+  const queryFilter = useResolvedFilter(schema.filter, filterScope);
 
   // Fetch data based on provider
   useEffect(() => {
@@ -644,7 +710,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
           // `object` arm below resolves.
           const inlineSource = new ValueDataSource<any>({ items: (dataItems as any[]) ?? [] });
           const result = await inlineSource.find('', {
-            $filter: schema.filter,
+            $filter: queryFilter,
             $orderby: convertSortToQueryParams(schema.sort),
             // The same platform ceiling the `object` arm sends, on the same
             // probe-row convention (objectui#7210, ruling a′). The ruling's
@@ -653,7 +719,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
             // an inline event costs the browser exactly what a fetched one
             // costs and the ruling text carves out no provider.
             // ⛔ Still not authorable: no view key reaches this `$top`.
-            $top: NON_GRID_ROW_CEILING_TOP,
+            ...nonGridRowCeilingQuery(),
           });
           // Filter first, ceiling second — `ValueDataSource` applies `$filter`
           // before `$top`, which is what the fetching path gets for free from
@@ -663,7 +729,10 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
           const capped = applyNonGridRowCeiling(result);
           if (isMounted) {
             setData(capped.rows);
-            setRowCeiling({ truncated: capped.truncated, total: capped.total });
+            setRowCeiling(capped);
+            // Committed rows clear an earlier failure (objectui#10663); the
+            // reasoning sits on the `object` arm's commit below.
+            setError(null);
             setLoading(false);
           }
           return;
@@ -724,7 +793,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
             ? expandable
             : expandable.filter((f) => perms.checkField(objectName, f, 'read'));
           const result = await dataSource.find(objectName, {
-            $filter: schema.filter,
+            $filter: queryFilter,
             $orderby: convertSortToQueryParams(schema.sort),
             // The platform ceiling (objectui#7210, ruling a′). A calendar
             // still fetches the whole FILTERED set — it cannot lay out a month
@@ -732,7 +801,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
             // stops at a number. The one probe row past the ceiling is what
             // makes the cut detectable; `applyNonGridRowCeiling` slices it off.
             // ⛔ Not authorable: no view key reaches this `$top`.
-            $top: NON_GRID_ROW_CEILING_TOP,
+            ...nonGridRowCeilingQuery(),
             ...(expand.length > 0 ? { $expand: expand } : {}),
           });
 
@@ -740,11 +809,25 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
 
           if (isMounted) {
             setData(capped.rows);
-            setRowCeiling({ truncated: capped.truncated, total: capped.total });
+            setRowCeiling(capped);
+            // objectui#10663 — `error` is an early return in the render, so a
+            // report nothing clears kept the calendar off screen until a
+            // remount, and since objectui#10572 one failed data-invalidation
+            // re-read was enough to get there. It is cleared HERE, when the
+            // current run commits rows: those rows answer the current query,
+            // so no earlier failure describes the screen any more
+            // (objectui#10578's rule on `ObjectGantt`). `isMounted` is this
+            // run's own flag, false once a newer run has started, so a
+            // superseded run's clear is discarded with its answer. ⛔ Not when
+            // a run starts: until rows land, the report stays.
+            setError(null);
           }
         } else if (dataProvider === 'api') {
           console.warn('API provider not yet implemented for ObjectCalendar');
-          if (isMounted) setData([]);
+          if (isMounted) {
+            setData([]);
+            setError(null);
+          }
         }
         
         if (isMounted) setLoading(false);
@@ -760,10 +843,10 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     fetchData();
     return () => { isMounted = false; };
   }, [hasExternalData, dataProvider, schemaObjectName, dataItems, dataSource, hasInlineData,
-      schema.filter, schema.sort, refreshKey, objectSchemaReady, objectSchema, perms]);
+      queryFilter, schema.sort, refreshKey, objectSchemaReady, objectSchema, perms, invalidationNonce]);
 
   // Transform data to calendar events, and separate out the records that have
-  // no date to be placed on at all (objectui#7071 — see the early return in the
+  // no date to be placed on at all (`bc5870c9f` — see the early return in the
   // loop below). ONE pass, so the two lists are always answers about the same
   // dataset and the count under the calendar can never disagree with the grid.
   const { events, unscheduledRecords } = useMemo(() => {
@@ -813,7 +896,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       const id = record.id || record._id || `event-${index}`;
 
       // NO VALUE in the declared start field means the record has no date —
-      // full stop (objectui#7071, ruled 2026-09-01, re-confirmed 2026-09-02).
+      // full stop (`bc5870c9f`, ruled 2026-09-01, re-confirmed 2026-09-02).
       // This line used to read `startDate ? new Date(startDate) : new Date()`,
       // so a record missing its date was handed THE CURRENT MOMENT and drawn on
       // today's cell as an ordinary event. The `isNaN` guard below could not
@@ -829,7 +912,11 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
         return;
       }
 
-      const start = new Date(startDate);
+      // A date-only value names a calendar day: `toDisplayDate` reads it at
+      // LOCAL midnight of that day, where the engine's own parse read UTC
+      // midnight and put the event in the previous day's cell west of UTC
+      // (objectui#10866). A value with a time keeps its instant.
+      const start = toDisplayDate(startDate);
       // The guard keeps its ORIGINAL job, on a DIFFERENT fact from the one
       // above: a value that is PRESENT but unparseable ('not a date') is
       // dropped here, never bucketed as unscheduled. Absent and malformed are
@@ -840,7 +927,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
         id,
         title,
         start,
-        end: endDate ? new Date(endDate) : undefined,
+        end: endDate ? toDisplayDate(endDate) : undefined,
         color,
         // ⭐ objectui#8026 — the DECLARED key is the answer when there is one.
         // `allDayField` was resolved into the config above and named in the
@@ -872,7 +959,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
         // this card's own defect inverted. UNDECLARED means nothing changes —
         // every calendar that never authored the key renders as it did before.
         //
-        // The `!endDate` arm keeps its objectui#7071 reading unchanged: only a
+        // The `!endDate` arm keeps its `bc5870c9f` reading unchanged: only a
         // record that HAS a start reaches this line, so one absent field can no
         // longer set two rendered properties. A record without a start is
         // unscheduled, not all-day.
@@ -897,7 +984,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // When the local navigation mode is an overlay (drawer/modal), ignore the
   // inherited onRowClick so the local overlay wins over parent page-nav.
   // No width is spelled here on purpose (objectui#6303, converging the calendar
-  // on the shape #6305 gave ObjectGantt). `width` is `@deprecated [#2578 ->
+  // on the shape #6305 gave ObjectGantt). `width` is `@deprecated [objectstack-ai/objectstack#2578 ->
   // size]` in the spec that owns this shape, and `resolveOverlayWidth` gives an
   // explicit `width` priority OVER `size` — so spelling it kept the deprecated
   // branch load-bearing on the path most calendars take (no declared
@@ -920,8 +1007,11 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // with visual-regression evidence across all four surfaces in one stroke.
   // ⛔ The ONE cast objectui#8651 left standing, deliberately. `navigation` is
   // objectui#8652's key: the maintainer ruled B there — declare it on the
-  // platform element schemas first, then mirror — and that card is `pm:blocked`
-  // on objectstack#17987. Its declaredness verdict at this read site is
+  // platform element schemas first, then mirror — and that card waited on
+  // objectstack `e233db9db`, which `@objectstack/spec` 17.5.0 ships: the
+  // `object-calendar` element entry declares `navigation` since that release
+  // (objectui#11073 measured it), so the unlock criterion is met and the
+  // mirroring is that card's next step. Its declaredness verdict at this read site is
   // UNCHANGED by this card: through the retired union it was undeclared too,
   // and it is undeclared on `ObjectCalendarSchema`. The rule that makes that
   // come out right is NOT "declared on every arm". In the checker reading
@@ -937,11 +1027,11 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   const navIsOverlay = navConfig.mode === 'drawer' || navConfig.mode === 'modal' || navConfig.mode === 'split' || navConfig.mode === 'popover';
   const navigation = useNavigationOverlay({
     navigation: navConfig,
-    // The record-page URL follows the RECORD SOURCE (objectui#7638): the very
+    // The record-page URL follows the RECORD SOURCE (`2ce2612df`): the very
     // `schemaObjectName` resolved above, which already keys this calendar's
     // record query and which the detail drawer at the bottom of this file
     // resolves the same way. Before this it read the bare `schema.objectName`,
-    // so ONE click resolved the drawer through the objectui#6939 ladder and the
+    // so ONE click resolved the drawer through the record-source ladder (`77cb489b4`) and the
     // navigation URL through the top-level key — two receivers, one gesture,
     // two different objects.
     //
@@ -975,11 +1065,18 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
     const id = record?.id ?? record?._id;
     if (!id || !schema.objectName || !dataSource?.update) return;
 
+    // A `date` field is written as the calendar day, a `datetime` as the
+    // instant (objectui#10866, `toStoredDateValue`). The month grid moves a
+    // value by calendar days and keeps its time of day (objectui#11005), so a
+    // day read at local midnight comes back at local midnight of the day it
+    // was dropped on, whatever DST change lies between, and its local day is
+    // the day to write.
+    const fieldDefs = objectSchema?.fields as Record<string, { type?: unknown } | undefined> | undefined;
     const patch: Record<string, string> = {
-      [startDateField]: newStart.toISOString(),
+      [startDateField]: toStoredDateValue(newStart, fieldDefs?.[startDateField]?.type, record?.[startDateField]),
     };
     if (endDateField && newEnd) {
-      patch[endDateField] = newEnd.toISOString();
+      patch[endDateField] = toStoredDateValue(newEnd, fieldDefs?.[endDateField]?.type, record?.[endDateField]);
     }
 
     // Optimistic UI update
@@ -999,11 +1096,11 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       // Surface the failure — never silently snap the event back. A row-level
       // security denial (403) is the common case: the user lacks permission to
       // reschedule this record. (cloud#864)
-      // …unless the AUTHOR opted in. `userMessage` (objectstack#9934) is the
+      // …unless the AUTHOR opted in. `userMessage` (objectstack `79c46da90`) is the
       // producer-side marking: a field set at throw time to say "this text is
       // for the end user". It is a SEPARATE field from `message`, so nothing
       // unmarked can reach here — the substitution below still governs every
-      // platform diagnostic and #3821 holds by construction rather than by us
+      // platform diagnostic and objectstack-ai/objectstack#3821 holds by construction rather than by us
       // guessing what a body contains. Status-agnostic on purpose: 403 is
       // where this was reported (objectui#5210/#5902), not a fence the
       // contract draws — a marked 409 or 400 renders identically.
@@ -1014,7 +1111,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
             : extractWriteErrorMessage(err) ?? tt('table.saveFailed', 'Save failed')),
       );
     }
-  }, [calendarConfig, schema.objectName, dataSource, data, tt]);
+  }, [calendarConfig, schema.objectName, dataSource, data, tt, objectSchema]);
 
   // Quick-create state: clicking an empty day cell opens a small dialog
   // pre-filled with that date. On submit, dataSource.create() inserts a
@@ -1050,13 +1147,20 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
 
     setQuickCreate(qc => qc ? { ...qc, submitting: true, error: undefined } : qc);
     const { startDateField, endDateField, titleField } = calendarConfig;
+    // A `date` field is written as the calendar day clicked, a `datetime` as
+    // the instant (objectui#10866, `toStoredDateValue`).
+    const dateFieldDefs = objectSchema?.fields as Record<string, { type?: unknown } | undefined> | undefined;
     const payload: Record<string, any> = {
       [titleField || 'name']: title,
-      [startDateField]: quickCreate.start.toISOString(),
+      [startDateField]: toStoredDateValue(quickCreate.start, dateFieldDefs?.[startDateField]?.type, undefined),
     };
     // Default end_date to range end (or same as start if not provided).
     if (endDateField) {
-      payload[endDateField] = (quickCreate.end ?? quickCreate.start).toISOString();
+      payload[endDateField] = toStoredDateValue(
+        quickCreate.end ?? quickCreate.start,
+        dateFieldDefs?.[endDateField]?.type,
+        undefined,
+      );
     }
     // Auto-fill required fields the user hasn't provided (e.g. select
     // status, autonumber). Without this the server would 400 on
@@ -1151,7 +1255,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
    *
    * `@objectstack/spec`'s `CalendarConfigSchema` is a `strictObject` whose ONE
    * required key is `startDateField`; `titleField` is optional. Re-measured on
-   * the installed 17.4.0, three legs: `{}` and `{ titleField: 't' }` both fail
+   * the installed 17.5.0, three legs: `{}` and `{ titleField: 't' }` both fail
    * `invalid_type` at `startDateField`, and `{ startDateField: 'd' }` parses
    * CLEAN. The spec's own note on that schema names THIS renderer as the
    * reason — `resolveTitle` above takes an explicit `titleField` when present
@@ -1354,13 +1458,9 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
       {/* objectui#7210 — a month drawn from the first N rows of a larger set
           still reads as a complete month; the note is the only thing that says
           otherwise. Placement follows objectui#7148's chart footnote. */}
-      <NonGridRowCeilingNote
-        drawn={NON_GRID_ROW_CEILING}
-        total={rowCeiling.total}
-        truncated={rowCeiling.truncated}
-      />
+      {rowCeiling && <NonGridRowCeilingNote result={rowCeiling} />}
 
-      {/* The "unscheduled" containment area (objectui#7071, ruled 2026-09-01 and
+      {/* The "unscheduled" containment area (`bc5870c9f`, ruled 2026-09-01 and
           re-confirmed 2026-09-02). Records with no value in the declared start
           field are no longer given a fabricated date, so they are not on the
           grid above — they are counted here and listed on demand, which is what
@@ -1416,9 +1516,9 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
             <DialogDescription>
               {quickCreate && (() => {
                 const hasRange = quickCreate.end && quickCreate.end.getTime() !== quickCreate.start.getTime();
-                const datePart = quickCreate.start.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' });
+                const datePart = quickCreate.start.toLocaleDateString(dialogLocale, { year: 'numeric', month: 'long', day: 'numeric' });
                 if (hasRange) {
-                  const fmt = (d: Date) => d.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
+                  const fmt = (d: Date) => d.toLocaleTimeString(dialogLocale, { hour: 'numeric', minute: '2-digit' });
                   return <>{datePart} · {fmt(quickCreate.start)} – {fmt(quickCreate.end!)}</>;
                 }
                 return <>{t('calendar.onDate', { date: datePart, defaultValue: 'On {{date}}' })}</>;

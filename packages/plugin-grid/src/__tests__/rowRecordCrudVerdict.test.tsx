@@ -429,8 +429,12 @@ describe('[#4296] one batched call per (object, operation) per page', () => {
   it('a 50-row page issues 2 explain calls, not 100', async () => {
     const rows = bigPage(50);
     for (const r of rows) server.verdicts.set(r.id, { update: true, delete: true });
-    renderGrid({ rows });
-    await waitFor(() => expect(screen.getByText('Row 49')).toBeInTheDocument());
+    const { container } = renderGrid({ rows });
+    // objectui#10657: the fixture's `name` column authors no type, so until the
+    // grid's own schema read lands it is WITHHELD (drawn as the mask) and its
+    // text is no readiness signal: on this many rows the settled re-render
+    // outran the wait. The rows being on screen is: count them.
+    await waitFor(() => expect(container.querySelectorAll('tbody tr')).toHaveLength(rows.length));
     await settle(2);
 
     expect(server.calls.length).toBe(2);
@@ -460,8 +464,12 @@ describe('[#4296] one batched call per (object, operation) per page', () => {
     const cap = EXPLAIN_BATCH_MAX_RECORD_IDS;
     const rows = bigPage(cap + Math.min(50, cap));
     for (const r of rows) server.verdicts.set(r.id, { update: true, delete: true });
-    renderGrid({ rows });
-    await waitFor(() => expect(screen.getByText(`Row ${rows.length - 1}`)).toBeInTheDocument());
+    const { container } = renderGrid({ rows });
+    // objectui#10657: the fixture's `name` column authors no type, so until the
+    // grid's own schema read lands it is WITHHELD (drawn as the mask) and its
+    // text is no readiness signal: on this many rows the settled re-render
+    // outran the wait. The rows being on screen is: count them.
+    await waitFor(() => expect(container.querySelectorAll('tbody tr')).toHaveLength(rows.length));
     await settle(4);
 
     expect(server.calls.length).toBe(4);

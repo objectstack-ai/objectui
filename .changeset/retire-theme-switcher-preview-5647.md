@@ -5,7 +5,7 @@
 Retire `ThemeSwitcherSchema` (`type: 'theme-switcher'`) and
 `ThemePreviewSchema` (`type: 'theme-preview'`) — the two remaining theme
 component kinds, which no renderer implemented — together with
-`ThemeUnionSchema`, the union that after objectui#5489 held only these two
+`ThemeUnionSchema`, the union that after `78cbdb530` held only these two
 members (objectui#5647).
 
 `packages/types/src/theme.ts` declared a theme-switcher control (`variant`,
@@ -22,7 +22,7 @@ pipeline: `tooltip` → 1), nor in `PROTOCOL_COMPONENTS` /
 declares either kind (control: `"type": "form"` → 81) — so a page declaring
 one got the registry's "Unknown component type" panel (OBJUI-001), never a
 switcher or a preview. Declared-but-unenforced, removed under the 2026-08-21
-maintainer ruling (option B) on objectstack#10485, extended to these siblings
+maintainer ruling (option B, executed upstream by objectstack `35ad101bc`), extended to these siblings
 by inheritance on identical evidence (objectui#5647).
 
 Removed from the published surface: the `ThemeSwitcherSchema` /

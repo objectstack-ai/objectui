@@ -21,6 +21,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth, LoginForm, AuthErrorBanner } from '@object-ui/auth';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { Card } from '@object-ui/components';
+import { signInRefusalMessages } from '@object-ui/app-shell';
 import { AuthLayout } from './AuthLayout';
 import { followOauthAuthorize } from './followAuthorize';
 // Was module-private here; lifted to a shared module so `SetupPage` (whose
@@ -353,14 +354,9 @@ function LoginFormCard({
       registerUrl={registerUrl}
       forgotPasswordUrl="/forgot-password"
       linkComponent={RouterLink}
-      errorMessages={{
-        INVALID_EMAIL_OR_PASSWORD: t('auth.login.errors.invalidCredentials', {
-          defaultValue: 'Invalid email or password. Please try again.',
-        }),
-        EMAIL_NOT_VERIFIED: t('auth.login.errors.emailNotVerified', {
-          defaultValue: 'Please verify your email address before signing in.',
-        }),
-      }}
+      // Server refusal `code` → localized end-user text: the one map both
+      // login pages pass, owned by `@object-ui/app-shell` (objectui#11058).
+      errorMessages={signInRefusalMessages(t)}
       labels={{
         emailLabel: t('auth.login.emailLabel', { defaultValue: 'Email' }),
         emailPlaceholder: t('auth.login.emailPlaceholder', { defaultValue: 'name@example.com' }),
@@ -391,6 +387,10 @@ function LoginFormCard({
         usePasswordSignInText: t('auth.login.usePasswordSignInText', {
           defaultValue: 'Sign in with password instead',
         }),
+        // `{provider}` is `SocialSignInButtons`' own single-brace hole — kept
+        // out of i18next's `{{…}}` interpolation on purpose.
+        socialButton: t('auth.login.socialButton', { defaultValue: 'Continue with {provider}' }),
+        orText: t('auth.login.orText', { defaultValue: 'or continue with email' }),
       }}
     />
   );

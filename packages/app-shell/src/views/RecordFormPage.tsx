@@ -274,11 +274,11 @@ export function RecordFormPage({ mode }: RecordFormPageProps) {
     );
   }
 
-  // Honour the object's form view layout (#1890): wire the declared `type`
+  // Honour the object's form view layout (objectstack-ai/objectstack#1890): wire the declared `type`
   // (simple/tabbed/wizard/split) + `sections` through to ObjectForm, which
   // already renders each variant. Page-level layouts only — `drawer`/`modal`
   // are presentation/open-modes, not record-page layouts, so they fall back to
-  // `simple` here (see the form-layout-vs-presentation modelling note in #1890).
+  // `simple` here (see the form-layout-vs-presentation modelling note in objectstack-ai/objectstack#1890).
   const formDef: any = (objectDef as any).form ?? (objectDef as any).formViews?.default ?? {};
   const pageFormType: 'simple' | 'tabbed' | 'wizard' | 'split' =
     ['tabbed', 'wizard', 'split'].includes(formDef.type) ? formDef.type : 'simple';
@@ -368,7 +368,7 @@ export function RecordFormPage({ mode }: RecordFormPageProps) {
                 mode,
                 recordId: mode === 'edit' ? recordId : undefined,
                 ...(prefillValues && { initialValues: prefillValues }),
-                // framework#1894 / #2998: honor the spec-aligned structured
+                // framework#1894 / objectstack-ai/objectstack#2998: honor the spec-aligned structured
                 // `buttons`/`defaults` from the object's form view. ObjectForm
                 // folds them onto its flat props; an explicit `initialValues`
                 // (URL prefill above) still wins over `defaults`.

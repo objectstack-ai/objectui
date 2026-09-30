@@ -5,7 +5,7 @@ AI-powered components for Object UI — form assistance, recommendations, and na
 ## Features
 
 - 🤖 **AI Form Assist** - Intelligent field suggestions and auto-fill for forms
-- 💡 **AI Recommendations** - Display AI-generated recommendations in list, grid, or carousel layouts
+- 💡 **AI Recommendations** - Display AI-generated recommendations in list or grid layouts
 - 🗣️ **Natural Language Query** - Let users query data using natural language
 - 📦 **Auto-registered** - Components register with `ComponentRegistry` on import
 - 🎯 **Type-Safe** - Full TypeScript support
@@ -116,7 +116,7 @@ declare const data: AIRecommendationItem[];
 const productPicks: AIRecommendationsSchema = {
   type: 'ai-recommendations',
   recommendations: data.slice(0, 10), // every item handed over is rendered
-  layout: 'list', // 'list' | 'grid' | 'carousel'
+  layout: 'list', // 'list' | 'grid'
   showScores: false,
   emptyMessage: 'No recommendations available',
 };
@@ -165,6 +165,18 @@ registers as `nl-query`:
 }
 ```
 
+## Localization
+
+The components read their built-in copy (button labels, headings, the empty
+and loading states, the default `placeholder` and `emptyMessage`) from the
+`ai.*` namespace of `@object-ui/i18n`, so they follow the language of the
+`I18nProvider` they are mounted under. With no provider they render English.
+
+Dates (the `nl-query` history) and percentages (confidence and score badges)
+are formatted in the display locale — `useDisplayLocale()` from
+`@object-ui/i18n`: the tenant's regional locale when one is configured, the UI
+language otherwise — never in the machine's locale (objectui#10232).
+
 ## What these components do not do
 
 They are **presentation only**: each one renders the data on its schema and
@@ -184,6 +196,27 @@ is a compile error rather than a silent no-op:
 | `fields` | `AIFormAssistSchema` | each suggestion names its own `fieldName` |
 | `autoFill` | `AIFormAssistSchema` | apply the suggestions you want from `onApply` |
 | `maxResults` | `AIRecommendationsSchema` | slice `recommendations` before handing it over — **every item is rendered** |
+
+Four more keys went the same way (objectui#10874), on seven member slots. `config` and `context`
+were read by nothing: none of these components calls a model, so neither
+configured anything. `onApplySuggestion` and `onRejectSuggestion` were typed
+`string` and read by nothing either. All four are now refused by the schema
+types and by the validator alike:
+
+| Key | Was on | Instead |
+|---|---|---|
+| `config` | all three schemas | configure the model in your host's own AI service (ObjectUI has no AI-provider API; these components call no model), and hand its output to the node as `suggestions`, `recommendations` or `result` |
+| `context` | `AIFormAssistSchema`, `AIRecommendationsSchema` | pass it to your host's own AI service when you ask it for suggestions or recommendations |
+| `onApplySuggestion` | `AIFormAssistSchema` | the `onApply` component prop |
+| `onRejectSuggestion` | `AIFormAssistSchema` | delete it — the component has no reject callback |
+
+`onSelect` and `onDismiss` (`AIRecommendationsSchema`) and `onSubmit`
+(`NLQuerySchema`) were typed `string` too, but the components DO call them:
+a string there was called as a function and threw at click. They are now typed
+as the callbacks the components invoke — `(item) => void` and
+`(query) => void` — so pass a function, either as the component prop of the same
+name or on a node you build in TypeScript. The validator still refuses them in
+a JSON document, because JSON has no function value.
 
 ## Links
 

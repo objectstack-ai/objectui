@@ -89,18 +89,18 @@ export { toPredicateInput } from '@object-ui/core';
  * {@link useCondition} when the thing being gated is scoped to one record.
  *
  * The row is bound ONE way: `record.status` — the canon (objectui#5330, ruled
- * 2026-08-20; Phase 2 executed by objectui#5741). This is not a dialect choice;
+ * 2026-08-20; Phase 2 executed by `83fe6e741`). This is not a dialect choice;
  * it is one rule, and it is `evalRowPredicate`'s rule
  * (`core/evaluator/listConditional.ts` — the record header, list rows, the row
  * kebab and conditional formatting all evaluate through it), restated here for
  * the `useCondition` tier so both tiers answer an author's `visible:` the same
  * way.
  *
- * ## The two retired spellings (objectui#5741)
+ * ## The two retired spellings (`83fe6e741`)
  *
  * Until Phase 2 this bag also carried the row spread flat (bare `status`, the
  * row-action shorthand) and as `data` (legacy), and `useCondition` below warned
- * once per non-canonical spelling (Phase 1, PR #5737). Both bindings and the
+ * once per non-canonical spelling (Phase 1, `d1ab06f0f`). Both bindings and the
  * warning are gone. A bare-field or `data.*` predicate against this bag now
  * faults exactly as it always did on the server (`buildScope({ record })`
  * mounts exactly `['record']`: `Unknown variable: status` / `Unknown variable:
@@ -120,7 +120,7 @@ export { toPredicateInput } from '@object-ui/core';
  * Because the rule has two halves and every predicate face has to get both:
  * the SHAPE — `record` is the row's one name, so `record.viewer.can_act`, what
  * every declared action on framework's `sys_approval_request` gates on
- * (framework#3310 / #3424), reaches the row — and the NO-ROW case below.
+ * (framework#3310 / objectstack-ai/objectstack#3424), reaches the row — and the NO-ROW case below.
  * `DeclaredActionsBar` and the four generic action renderers once carried
  * inline copies of this bag and drifted (objectui#4077 / #4079); one named
  * helper is what keeps a fifth copy from drifting again.
@@ -206,7 +206,7 @@ export function useCondition(
   // We evaluate directly without caching the evaluator to avoid issues with context changes
   return useMemo(
     () => {
-      // No row-spelling detector on this tier (objectui#5741 removed the
+      // No row-spelling detector on this tier (`83fe6e741` removed the
       // Phase-1 warning with the bindings): a retired bare-field / `data.*`
       // spelling against a `usePredicateRecordContext` bag is simply unbound
       // and faults like any other unknown variable, and each leg's existing
@@ -254,7 +254,7 @@ export function useCondition(
  * envelope is always CEL, and only a legacy-dialect string falls back to the
  * old engine (with a deprecation warning). The row is bound as `record.*` only
  * — the canon (objectui#5330; the bare-field and `data.*` spellings retired in
- * objectui#5741 and fault here like any unknown variable); the ambient
+ * `83fe6e741` and fault here like any unknown variable); the ambient
  * predicate scope (`features` / `user` / …) is merged alongside so
  * deployment-level gates keep resolving.
  *

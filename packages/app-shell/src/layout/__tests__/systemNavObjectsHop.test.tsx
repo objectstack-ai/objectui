@@ -1,18 +1,19 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * The `sys-objects` entry both sidebars carry arrives at the canonical
+ * The `sys-objects` entry `UnifiedSidebar` carries arrives at the canonical
  * metadata-admin route with ZERO redirects (objectui#3739).
  *
  * ## What was wrong
  *
  * `AppSidebar.systemFallbackNavigation` and `UnifiedSidebar.homeNavigation` each
- * hold their own literal for this entry, and both spelled it
+ * held their own literal for this entry, and both spelled it
  * `/apps/setup/system/metadata/object`. That is not a page: `apps/console`'s host
  * fragment declares `system/metadata/:metadataType` with `MetadataRedirect` as
  * its element, which immediately `<Navigate>`s onto
  * `/apps/setup/metadata/object`. Every click therefore paid a redundant hop plus
- * a re-render to reach a URL the nav item could name itself.
+ * a re-render to reach a URL the nav item could name itself. (`AppSidebar` and
+ * its copy were removed later, by objectui#5817.)
  *
  * This is the same defect objectui#3660 fixed for `sys-datasources` — declared on
  * the line immediately BELOW this entry in both arrays — and it was missed there,
@@ -36,9 +37,8 @@
  * one line below; the two are kept separate because the alias route being
  * mirrored, and the file it is transcribed from, differ.
  *
- * The href is READ OUT of a real sidebar render rather than typed in here, so the
- * producer under test is the component's own literal. Both sidebars are driven,
- * because both hold a copy.
+ * The href is READ OUT of a real `UnifiedSidebar` render rather than typed in
+ * here, so the producer under test is the component's own literal.
  *
  * ## The alias mirror below, and what rests on its fidelity
  *
@@ -52,7 +52,7 @@
  * Nothing this file ASSERTS depends on that mirror being faithful: the green
  * expectation is `chain` equals `[canonical URL]`, which holds iff the sidebar's
  * URL matches a canonical route directly. The mirror only shapes what the FAILURE
- * looks like — with it, restoring either literal produces a two-entry chain whose
+ * looks like — with it, restoring the old literal produces a two-entry chain whose
  * first entry is the alias, i.e. the extra hop printed literally in the diff
  * rather than merely implied. The real host route's own behaviour is pinned
  * against the real route table in `apps/console`'s
@@ -61,7 +61,7 @@
  *
  * ## Scope
  *
- * Where the sidebars AIM. The alias routes are untouched and stay reachable for
+ * Where the sidebar AIMS. The alias routes are untouched and stay reachable for
  * bookmarks and external links; nothing here asks for their removal, and the
  * CONTROL case below pins that they still work.
  */
@@ -105,7 +105,7 @@ vi.mock('@object-ui/permissions', async (importOriginal) => {
   };
 });
 
-/** The zero-app deployment `systemFallbackNavigation` exists for. */
+/** Zero apps. The `/home` context below renders `homeNavigation` whatever this list holds. */
 vi.mock('../../providers/MetadataProvider', () => ({
   useMetadata: () => ({ apps: [], objects: [] }),
 }));
@@ -151,7 +151,6 @@ vi.mock('../LocalizedSidebarTrigger', () => ({
 }));
 
 import { SidebarProvider } from '@object-ui/components';
-import { AppSidebar } from '../AppSidebar';
 import { UnifiedSidebar } from '../UnifiedSidebar';
 
 /** Where the metadata-admin engine really serves the object list. */
@@ -234,25 +233,6 @@ beforeEach(() => {
 });
 
 describe('sidebar sys-objects reaches the canonical route directly (objectui#3739)', () => {
-  it('AppSidebar: the zero-app fallback cluster arrives with NO redirect', () => {
-    const href = objectsHrefFrom(
-      <AppSidebar activeAppName="setup" onAppChange={() => {}} />,
-      '/apps/setup',
-    );
-
-    // Precondition: with zero apps this really is the fallback cluster, so the
-    // href just read is the one `systemFallbackNavigation` declares.
-    expect(href).toBe(CANONICAL);
-
-    const chain = chainFor(href);
-
-    // One entry = matched on arrival. Before the fix this was two, the alias
-    // first.
-    expect(chain).toEqual([CANONICAL]);
-    expect(screen.getByTestId('canonical-list')).toHaveTextContent('"type":"object"');
-    expect(chain.some((entry) => entry.includes('system/metadata'))).toBe(false);
-  });
-
   it('UnifiedSidebar: the /home Administration cluster arrives with NO redirect', () => {
     const href = objectsHrefFrom(<UnifiedSidebar activeAppName="" />, '/home');
 
@@ -268,7 +248,7 @@ describe('sidebar sys-objects reaches the canonical route directly (objectui#373
   it('CONTROL: the alias still resolves, and doing so costs the hop the entries used to pay', () => {
     // The alias is deliberately KEPT (bookmarks, external links), so its
     // continued reachability is part of the contract, not collateral. This also
-    // proves the two assertions above are not vacuous: the probe table really
+    // proves the assertions above are not vacuous: the probe table really
     // does forward this spelling, so a sidebar that still emitted it would be
     // measured at two entries rather than silently falling to `unmatched`.
     const chain = chainFor(ALIAS);

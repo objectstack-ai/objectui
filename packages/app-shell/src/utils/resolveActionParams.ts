@@ -72,7 +72,7 @@ export type RawActionParamOption = {
   value: string;
   /**
    * Everything else an option declares (`visibleWhen` / `color` / `icon` /
-   * `disabled`), preserved verbatim — objectui#3559.
+   * `disabled`), preserved verbatim — `fbc23e094`.
    */
   [key: string]: unknown;
 };
@@ -106,7 +106,7 @@ export interface RawActionParam {
    * Option list authored inline on the param. Speaks the same vocabulary as the
    * resolved side ({@link ActionParamOption}): the two keys this resolver reads
    * plus a catch-all for whatever else an option declares (`visibleWhen`,
-   * `color`, `icon`, `disabled`) — objectui#3559.
+   * `color`, `icon`, `disabled`) — `fbc23e094`.
    *
    * One key differs, and it is the same rc.6 widening as {@link
    * RawActionParam.label} one level down: an option's `label` is authored as
@@ -119,6 +119,13 @@ export interface RawActionParam {
   defaultValue?: unknown;
   /** When true, seed defaultValue from the row record using the field name. */
   defaultFromRow?: boolean;
+  /**
+   * Carry-over declaration — the spec's `ActionParamSchema.carryOver`
+   * (objectui#6246): seeded from the row, rendered read-only, submitted
+   * verbatim. Copied onto `ActionParamDef.carryOver` unchanged on every branch
+   * below; `ActionParamDialog` is what honours it.
+   */
+  carryOver?: boolean;
   /** Allow multiple values (file/image/lookup/user params → array value). */
   multiple?: boolean;
   /** Accepted upload types (MIME types / extensions) for `file`/`image` params. */
@@ -126,7 +133,7 @@ export interface RawActionParam {
   /** Max upload size in bytes for `file`/`image` params. */
   maxSize?: number;
   /**
-   * Reference target for an INLINE `lookup`/`master_detail` param (#3405) —
+   * Reference target for an INLINE `lookup`/`master_detail` param (objectstack-ai/objectstack#3405) —
    * the object whose records the picker searches. Field-backed params inherit
    * it from the referenced field instead (see `lookupExtras` below). Spelled
    * `reference` to match `FieldSchema.reference` / `ActionParamSchema.reference`.
@@ -170,7 +177,7 @@ function paramName(param: RawActionParam): string | undefined {
  * rc.6's inline per-locale map — to the single string the dialog renders.
  *
  * Everything else is preserved by spread, for the same reason
- * {@link normaliseOptions} preserves it (objectui#3559): rebuilding a fresh
+ * {@link normaliseOptions} preserves it (`fbc23e094`): rebuilding a fresh
  * `{ label, value }` silently drops `visibleWhen` / `color` / `icon` /
  * `disabled`. A label that resolves to nothing falls back to `value`, which is
  * what a bare-string option already means (`{ label: s, value: s }`).
@@ -181,7 +188,7 @@ function resolveOptionLabels(
 ): ActionParamOption[] | undefined {
   if (!options) return undefined;
   // Identity-preserving fast path, and it is load-bearing rather than an
-  // optimisation: objectui#3559 pins that an INLINE option list reaches the
+  // optimisation: `fbc23e094` pins that an INLINE option list reaches the
   // dialog *verbatim* — `toBe`, not `toEqual` — because the bug it closed was a
   // rebuild that dropped `visibleWhen`. A list with nothing to resolve is
   // therefore returned untouched, so that pin stays true as written; only a
@@ -396,7 +403,7 @@ export interface ResolveActionParamsContext {
  * `{ label, value }` and translate each label through `fieldOptionLabel`.
  *
  * Those are the only two jobs. Everything else the option declares is
- * PRESERVED, not rebuilt (objectui#3559): this used to return a fresh
+ * PRESERVED, not rebuilt (`fbc23e094`): this used to return a fresh
  * `{ label, value }` per entry, which silently dropped a field's per-option
  * `visibleWhen` — so a select field whose options narrow by predicate in the
  * object form (`resolveVisibleOptions()` in `@object-ui/core`, ADR-0058 /
@@ -485,10 +492,14 @@ export function resolveActionParam(
       helpText: param.helpText,
       defaultValue: rowDefault ?? param.defaultValue,
       visible: normaliseVisible(param.visible),
+      // This output is built key by key, so an authored key that is not
+      // copied here never reaches the dialog — which is how `carryOver` went
+      // unhonoured until objectui#6246. Same line on the two branches below.
+      carryOver: param.carryOver,
       multiple: param.multiple,
       accept: param.accept,
       maxSize: param.maxSize,
-      // Inline picker target (#3405). Without this an inline `lookup` param
+      // Inline picker target (objectstack-ai/objectstack#3405). Without this an inline `lookup` param
       // could never reach `<LookupField>` — `paramToField()` degrades a
       // targetless picker to a raw record-id text input.
       referenceTo: param.reference,
@@ -506,7 +517,7 @@ export function resolveActionParam(
     // resolution: a field-backed `{ field: 'contract_type' }` param declaring no
     // inline `type` becomes a `text` param here, which is how a lookup param
     // reached the user as an unannotated empty box with no dropdown and no
-    // request for the referenced object on the wire (objectui#10129).
+    // request for the referenced object on the wire (`6cc910b6d`).
     //
     // ⭐ That shape stays — a partially-cached environment must not crash — but
     // it no longer travels ANONYMOUSLY. `unresolvedField` names the pair that
@@ -514,7 +525,7 @@ export function resolveActionParam(
     // offering a box no human can fill. Without this key the degradation is
     // undetectable downstream: by the time `paramToField()` sees the param it
     // is a `text` param, so `paramDegradesWithoutTarget()` answers false and
-    // even the #3405 "paste a record id" hints do not fire.
+    // even the objectstack-ai/objectstack#3405 "paste a record id" hints do not fire.
     //
     // ⛔ The warning is NOT gated on the param's type. "Which widget did this
     // want?" is exactly the question that cannot be answered here, so gating on
@@ -541,6 +552,7 @@ export function resolveActionParam(
       helpText: param.helpText,
       defaultValue: rowDefault ?? param.defaultValue,
       visible: normaliseVisible(param.visible),
+      carryOver: param.carryOver,
       multiple: param.multiple,
       accept: param.accept,
       maxSize: param.maxSize,
@@ -597,7 +609,7 @@ export function resolveActionParam(
   const lookupExtras: Partial<ActionParamDef> = isLookupResolvedType
     ? {
         // Inline `reference` wins, matching how every other inline value
-        // overrides the resolved field (#3405).
+        // overrides the resolved field (objectstack-ai/objectstack#3405).
         // ⚠️ objectui#6837 half 2: the READ narrows to `reference` (the only
         // spelling the protocol declares — `FieldSchema` refuses `reference_to`
         // by name). The EMITTED key is unchanged: it is what this emit's TARGET
@@ -681,6 +693,8 @@ export function resolveActionParam(
     helpText: param.helpText ?? field.help ?? field.description,
     defaultValue: rowDefault ?? param.defaultValue ?? field.defaultValue,
     visible: normaliseVisible(param.visible),
+    // A declaration of the PARAM, never inherited from the field.
+    carryOver: param.carryOver,
     // Widget config inherited from the field for every type (not just
     // lookup): multi-value shape and upload constraints (ADR-0059).
     multiple: param.multiple ?? field.multiple,
@@ -694,7 +708,7 @@ export function resolveActionParam(
  * Union the objects a CALLER holds with the ones the console's metadata store
  * holds, caller first — the object list `resolveActionParams()` should be given.
  *
- * ## Why a union and not simply the store (objectui#10129)
+ * ## Why a union and not simply the store (`6cc910b6d`)
  *
  * The two lists answer different questions and neither contains the other.
  * The caller's list is the world that caller is rendering: `ObjectView` passes

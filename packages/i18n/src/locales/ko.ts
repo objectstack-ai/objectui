@@ -128,12 +128,12 @@ const ko = {
     printDialogHint: "브라우저의 인쇄 대화 상자를 엽니다（PDF 내보내기가 아닙니다）",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "전체 {{total}}개 중 처음 {{shown}}개를 표시합니다. 필터를 좁히세요.",
     rowCeilingNoteUnknownTotal: "처음 {{shown}}개를 표시합니다. 필터를 좁히세요.",
   },
@@ -147,6 +147,14 @@ const ko = {
       acknowledge: '저장했습니다',
       copyAll: '모두 복사',
     },
+    notAvailableHere: '"{{action}}"은(는) 현재 페이지에서 사용할 수 없습니다.',
+    completedSuccessfully: '작업이 완료되었습니다',
+    failed: '작업 실패',
+    parallelFailed: '하나 이상의 병렬 작업이 실패했습니다',
+    undo: '실행 취소',
+    undone: '변경 실행 취소됨',
+    undoneOperation: '실행 취소: {{description}}',
+    redoneOperation: '다시 실행: {{description}}',
   },
   validation: {
     required: "{{field}}은(는) 필수입니다",
@@ -164,13 +172,38 @@ const ko = {
   },
   form: {
     noPermissionToSave: "이 레코드를 저장할 권한이 없습니다.",
+    noPermissionToCreate: "{{object}} 생성 권한이 없습니다. 필드는 읽기 전용입니다.",
+    noPermissionToEdit: "{{object}} 편집 권한이 없습니다. 필드는 읽기 전용입니다.",
     submitFailed: "저장하지 못했습니다. 다시 시도해 주세요.",
     uploadInFlight: "업로드가 완료된 후에 저장하세요.",
+    clearedOnHide: "현재 값에 더 이상 해당하지 않는 항목을 비웠습니다: {{fields}}",
     discardTitle: "변경 내용을 버릴까요?",
     discardMessage: "저장하지 않은 변경 내용이 있습니다. 지금 이 양식을 닫으면 편집 내용이 사라집니다.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "양식 필드를 작성한 다음 제출하거나 취소하세요.",
+    deniedDescription: "이 필드를 편집할 권한이 없습니다.",
+    masterDetail: {
+      loadingColumns: "열 로드 중…",
+      subtotal: "소계",
+      tax: "세금({{rate}}%)",
+      total: "합계",
+      lineItem: "라인 항목",
+      rowTitle: "{{title}} — {{row}}행",
+      applyRow: "적용",
+      editorDescription: "레코드와 라인 항목을 입력한 다음 저장하세요.",
+      noChildObject: "이 컬렉션에 하위 개체가 구성되지 않았습니다. {{property}}을(를) 행을 나열할 개체로 설정하세요.",
+      schemaUnavailable: "{{object}}의 스키마를 불러올 수 없어 이 컬렉션에 표시할 열이 없습니다. 개체가 존재하고 읽을 수 있는지 확인한 다음 다시 불러오세요.",
+      noRelationshipField: "{{object}}이(가) {{parent}}에 어떻게 연결되는지 확인할 수 없습니다. 부모를 참조하는 lookup 또는 master_detail 필드가 없습니다. 이 컬렉션의 {{property}}을(를) 부모 레코드를 보유한 필드로 설정하세요.",
+    },
+    lineItems: {
+      title: "라인 항목",
+      saveRecordFirst: "라인 항목을 추가하려면 먼저 레코드를 저장하세요.",
+      notLoaded: "이 레코드의 라인 항목을 불러오지 않았습니다.",
+      loadFailed: "라인 항목을 불러오지 못했습니다",
+      saveFailed: "라인 항목을 저장하지 못했습니다",
+      noChildObject: "이 패널에 하위 개체가 구성되지 않았습니다. {{property}}을(를) 행을 나열할 개체로 설정하세요.",
+    },
     keepEditing: "계속 편집",
     discard: "버리기",
     conflictTitle: "저장 충돌",
@@ -194,6 +227,12 @@ const ko = {
     createSuccess: "{{object}} 생성됨",
     updateSuccess: "{{object}} 업데이트됨",
     deleteSuccess: "{{object}} 삭제됨",
+    created: "생성됨",
+    saved: "저장됨",
+    savedNamed: "{{title}} 저장됨",
+    submitted: "제출됨",
+    errorLoading: "양식 로딩 오류",
+    navigateRefused: "이 양식에 선언된 `navigateOnSuccess` 대상이 거부되어 이동하지 않았습니다.",
     fullscreen: {
       title: "텍스트 편집",
       description: "전체 텍스트 값을 편집한 다음 변경 사항을 저장하거나 취소하세요.",
@@ -234,6 +273,7 @@ const ko = {
       remove: '{{name}} 제거',
       exceedsMaxSize: '"{{name}}"이(가) 최대 크기({{max}} MB)를 초과합니다',
       uploadFailed: '"{{name}}" 업로드 실패: {{error}}',
+      uploadIncomplete: '"{{name}}" 업로드가 완료되지 않았습니다: 파일 ID가 반환되지 않아 저장된 내용이 없습니다',
     },
     richText: {
       format: "형식: {{format}}",
@@ -288,6 +328,14 @@ const ko = {
       refusedResidue:
         "저장되지 않았습니다: {{name}} “{{text}}”과(와) {{otherName}} “{{otherText}}”은(는) 숫자가 아닙니다. 일반 소수로 입력하세요(예: 30.2741, 120.1551).",
     },
+    date: {
+      impossibleDay:
+        "저장된 값 “{{value}}”은(는) 실제 날짜가 아닙니다. 바꾸려면 날짜를 선택하세요.",
+    },
+    dateTime: {
+      impossibleDay:
+        "저장된 값 “{{value}}”은(는) 실제 날짜가 아닙니다. 바꾸려면 날짜와 시간을 선택하세요.",
+    },
     number: {
       badInput:
         "저장되지 않았습니다: 이 입력란의 텍스트는 숫자가 아닙니다. 일반 소수로 입력하세요(예: {{example}}).",
@@ -306,6 +354,16 @@ const ko = {
     textarea: {
       characterCount: "글자 수: {{max}}자 중 {{count}}자",
       charactersRemaining: "{{count}}자 남음",
+    },
+    grid: {
+      addLine: "행 추가",
+      noItems: "항목 없음",
+      noItemsAddHint: "아직 항목이 없습니다. “{{label}}”을(를) 클릭하여 시작하세요.",
+      optionalColumns: "선택 열",
+      computed: "자동 계산",
+      openRow: "행 열기",
+      duplicateRow: "행 복제",
+      removeRow: "행 삭제",
     },
   },
   table: {
@@ -387,13 +445,15 @@ const ko = {
     yes: "예",
     no: "아니요",
     systemFields: "시스템",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: "일부",
-      partialNotice:
-        "전체 {{total}}개 중 불러온 처음 {{loaded}}개 레코드만으로 그룹화했습니다. 그룹 개수는 불러온 페이지 기준이며, 레코드가 모두 불러온 행 밖에 있는 그룹은 여기에 표시되지 않습니다.",
-      partialNoticeUnknownTotal:
-        "불러온 {{loaded}}개 레코드만으로 그룹화했습니다. 이 뷰에 해당하는 레코드가 더 있을 수 있으므로 그룹 개수가 일부일 수 있고 일부 그룹이 표시되지 않을 수 있습니다.",
+      needsHeaderQuery:
+        "이 뷰는 그룹화되어 있지만 데이터 소스가 queryGroupHeaders를 구현하지 않아 그룹 개수를 셀 수 없습니다. 레코드를 표시하려면 그룹화를 제거하세요.",
+      needsWholeRows:
+        "그룹화에는 모든 레코드가 필요하지만 이 그리드에는 한 페이지만 전달되어 그룹 개수를 셀 수 없습니다. 모든 레코드를 전달하거나 queryGroupHeaders를 구현하는 데이터 소스에서 그리드가 불러오도록 하세요.",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this
@@ -772,6 +832,7 @@ const ko = {
     },
     aria: {
       taskList: "작업 목록",
+      refreshing: "새로고침 중…",
     },
     tooltip: {
       days: "일",
@@ -955,7 +1016,6 @@ const ko = {
     viewAll: "모두 보기",
     new: "새로 만들기",
     add: "추가",
-    emptyValue: "—",
     comments: "댓글",
     searchComments: "댓글 검색…",
     addCommentPlaceholder: "댓글 추가… (Ctrl+Enter로 제출)",
@@ -988,11 +1048,6 @@ const ko = {
     attachmentsLoadFailed: "이 레코드의 첨부파일을 불러오지 못했습니다.",
     attachmentsApiUnavailable: "이 객체에서는 첨부 파일 목록을 사용할 수 없습니다.",
     retryLoadAttachments: "다시 시도",
-    unifiedDiff: "통합 보기",
-    sideBySideDiff: "나란히 보기",
-    noChanges: "변경 없음",
-    previousVersion: "이전 버전",
-    currentVersion: "현재 버전",
     discussion: "토론",
     showDiscussion: "토론 보기 ({{count}})",
     hideDiscussion: "토론 숨기기",
@@ -1007,13 +1062,7 @@ const ko = {
     writeComment: "댓글 작성…",
     subscribedTooltip: "구독 중 — 클릭하여 구독 취소",
     unsubscribedTooltip: "알림 구독",
-    firstRecord: "첫 번째 레코드 (Home)",
-    previousRecordKey: "이전 레코드 (←)",
-    nextRecordKey: "다음 레코드 (→)",
-    lastRecord: "마지막 레코드 (End)",
     noRecords: "레코드 없음",
-    searchWhileNavigating: "탐색 중 검색",
-    searchRecords: "레코드 검색…",
     allActivity: "모든 활동",
     commentsOnly: "댓글만",
     fieldChangesFilter: "필드 변경",
@@ -1074,6 +1123,8 @@ const ko = {
     pathStageLostUpcoming: '{{stage}}, 실패, 도달하지 않음',
     pathStageWonUpcoming: '{{stage}}, 목표 단계, 도달하지 않음',
     linkCopied: "링크가 클립보드에 복사됨",
+    commentFailed: "댓글이 게시되지 않았습니다. 아무것도 저장되지 않았습니다. 다시 시도해 주세요.",
+    reactionFailed: "반응이 저장되지 않았습니다. 다시 시도해 주세요.",
     linkCopyFailed: "링크 복사 실패",
     cancel: "취소",
     cancelEdit: "변경 사항 취소",
@@ -1127,24 +1178,10 @@ const ko = {
     fileCount: "파일 {{count}}개",
     fileCount_one: "파일 {{count}}개",
     fileCount_other: "파일 {{count}}개",
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: '수정 기록',
-    noRevisions: '기록된 수정 없음',
-    revisionFieldsChanged: '필드 {{count}}개 변경됨',
-    revisionFieldsChangedOne: '필드 {{count}}개 변경됨',
-    revisionPreview: '수정 미리보기',
-    revisionSnapshot: '이 시점의 레코드 상태',
-    restoreConfirm: '레코드를 {{when}} 시점의 상태로 복원합니다. 계속하시겠습니까?',
-    restoring: '복원 중…',
-    confirmRestore: '복원 확인',
-    restoreToPoint: '이 시점으로 복원',
   },
   chart: {
     loading: "차트 로딩 중…",
+    refreshing: "새로고침 중…",
     nullCategory: "(미지정)",
     scatterOneMeasure: "산점도는 측정값 하나만 그립니다. 계열을 하나만 남기세요:",
     unconfigured: {
@@ -1166,8 +1203,13 @@ const ko = {
       sourceLabel: "데이터 소스:",
     },
     loading: "로딩 중…",
+    refreshing: "새로고침 중…",
+    refreshAll: "모두 새로고침",
+    refreshDashboard: "대시보드 새로고침",
     pickMeasures: "이 데이터셋 위젯의 측정값(값)을 선택하세요.",
     datasetUnsupported: "이 데이터 소스는 데이터셋 쿼리를 지원하지 않습니다.",
+    widgetForbiddenTitle: "접근 권한 없음",
+    widgetForbiddenMessage: "이 위젯의 데이터를 볼 수 있는 권한이 없습니다.",
     details: "세부 정보",
     exportCsv: "CSV 내보내기",
     openInList: "목록에서 열기",
@@ -1320,10 +1362,6 @@ const ko = {
     appDescription: "설명",
     appIcon: "아이콘",
     template: "템플릿",
-    layout: "레이아웃",
-    layoutSidebar: "사이드바",
-    layoutHeader: "헤더",
-    layoutEmpty: "비어 있음",
     selectObjects: "오브젝트 선택",
     searchObjects: "오브젝트 검색…",
     selectAll: "모두 선택",
@@ -1358,7 +1396,7 @@ const ko = {
     appearance: "외관",
     rowHeight: "행 높이",
     livePreview: "실시간 미리보기",
-    stepBasicDesc: "이름, 제목 및 레이아웃",
+    stepBasicDesc: "이름, 제목 및 아이콘",
     stepObjectsDesc: "비즈니스 객체 선택",
     stepNavigationDesc: "네비게이션 트리 구성",
     stepBrandingDesc: "로고, 색상 및 파비콘",
@@ -1397,6 +1435,7 @@ const ko = {
     navTypeSeparator: "구분선",
     navTypeAction: "작업",
     navTypeComponent: "컴포넌트",
+    navTypeDoc: "문서",
     navEditIcon: "아이콘 편집",
     navToggleVisible: "가시성 토글",
     navHidden: "숨김",
@@ -1576,6 +1615,7 @@ const ko = {
         ctaUpgrade: "업그레이드하고 계속하기",
         ctaTopUp: "크레딧을 추가하고 계속하기",
         ariaLabel: "AI 사용량: {{status}}",
+        breakdownTitle: "지금까지 사용 내역",
       },
       workspaceTitle: "AI 워크스페이스",
       workspaceSubtitle: "질문하고, 살펴보고, 대화를 이어가세요",
@@ -1585,6 +1625,31 @@ const ko = {
       share: "공유",
       shareTitle: "이 대화 공유",
       shareDisabledTitle: "공유하려면 먼저 대화를 시작하세요",
+      buildDoctor: "빌드 진단",
+      buildDoctorTitle: "빌드 진단 — 실제로 반영된 내용은?",
+      buildDoctorDisabledTitle: "먼저 메시지를 보내세요",
+      buildDoctorDrawer: {
+        description: '에이전트가 주장한 내용과 실제로 반영된 내용을 비교합니다. 읽기 전용 진단입니다.',
+        reconciling: '대조 중…',
+        notAvailable: '사용할 수 없음 — 대화를 찾을 수 없거나 접근 권한이 없습니다.',
+        untitled: '(제목 없음)',
+        summary: '{{turns}}턴 · 메시지 {{messages}}개 · {{tokens}} tok · LLM {{seconds}}초',
+        allLive: '시도한 변경 {{count}}개가 모두 반영되었습니다 — 사라진 것은 없습니다.',
+        discrepancies: '불일치 {{count}}건 — 채팅에서 말한 내용과 실제로 반영된 내용이 다릅니다.',
+        orphanedTitle: '제안되었지만 적용되지 않음',
+        orphanedHint: '에이전트가 제안한 확인 카드를 이후 어떤 턴에서도 적용하지 않아 변경이 조용히 사라졌습니다.',
+        missingTitle: '적용되었다고 했지만 없음',
+        missingHint: '도구 결과는 적용되었다고 했지만 아티팩트가 sys_metadata에 반영되어 있지 않습니다.',
+        toolErrorsTitle: '도구 오류',
+        toolErrorsHint: '빌드 중 오류를 반환한 도구 호출입니다.',
+        verifyTitle: '빌드 검사 (verify_build)',
+        yourApp: '내 앱:',
+        noIssues: '문제 0개',
+        issueCount: '문제 {{count}}개',
+        platformNoise: '플랫폼 sys_* 발견 {{count}}건 숨김',
+        pendingActions: '대기 중인 작업',
+        timeline: '타임라인 ({{count}})',
+      },
       newChat: "새로 만들기",
       searchChats: "채팅 검색…",
       noChatsYet: "아직 채팅이 없습니다",
@@ -1792,6 +1857,13 @@ const ko = {
       pages: "페이지",
       reports: "보고서",
       system: "시스템",
+      marketplace: "마켓플레이스",
+      settings: '설정',
+      apps: '앱',
+      profile: '프로필',
+      approvals: '승인',
+      aiApprovals: 'AI 승인',
+      auditLog: '감사 로그',
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -1890,6 +1962,14 @@ const ko = {
       noWritesTitle: '이 환경은 읽기만 있고 쓰기가 전혀 없습니다',
       noWrites: '행을 읽고 있지만 쓰기가 전혀 없어 읽기 비율에 상한이 없습니다. 가장 심각한 수치입니다. 플랫폼은 {{threshold}} 초과 비율을 표시합니다. 제한하거나 차단하는 것은 없습니다. 읽기 패턴을 검토할 수 있도록 알리는 보고입니다.',
     },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: '저장 공간이 거의 가득 찼습니다',
+      warning: '{{limit}} MB 중 {{used}} MB 사용 중입니다. 저장 공간이 가득 차면 업로드와 가져오기가 일시 중지됩니다.',
+      blockedTitle: '저장 공간이 가득 찼습니다: 업로드와 가져오기가 일시 중지되었습니다',
+      blocked: '{{limit}} MB 중 {{used}} MB 사용 중입니다. 기존 데이터는 그대로 유지되며, 읽기, 내보내기, 개별 레코드 편집은 계속 사용할 수 있습니다.',
+      upgrade: '업그레이드하고 계속하기',
+    },
     errors: {
       somethingWentWrong: "문제가 발생했습니다",
       unexpectedError: "이 뷰를 렌더링하는 중 예기치 않은 오류가 발생했습니다.",
@@ -1936,6 +2016,7 @@ const ko = {
       title: "제목",
       viewType: "뷰 유형",
       recordCount: "{{count}}개 레코드",
+      recordCountOne: "{{count}}개 레코드",
       save: "저장",
       discard: "취소",
       createView: "뷰 생성",
@@ -2068,6 +2149,8 @@ const ko = {
       resendOtpCountdownText: "{seconds}초 후 재전송",
       usePhoneOtpText: "인증 코드로 로그인",
       usePasswordSignInText: "비밀번호로 로그인하기",
+      socialButton: "{provider} 계정으로 계속",
+      orText: "또는 이메일로 계속",
     },
     register: {
       title: "계정 만들기",
@@ -2086,8 +2169,12 @@ const ko = {
       submittingButton: "계정 생성 중…",
       hasAccountText: "이미 계정이 있으신가요?",
       signInText: "로그인",
+      socialButton: "{provider} 계정으로 가입",
+      orText: "또는 이메일로 계속",
       errors: {
         userExists: "해당 이메일로 이미 계정이 존재합니다. 로그인해 보세요.",
+        selfRegistrationClosed: "이 환경에서는 직접 가입을 받지 않습니다. 관리자에게 초대를 요청하세요.",
+        emailDomainNotAllowed: "이 이메일의 도메인으로는 여기에서 가입할 수 없습니다. 조직 이메일을 사용하거나 관리자에게 초대를 요청하세요.",
       },
       verifyInbox: {
         title: "받은 편지함을 확인하세요",
@@ -2579,6 +2666,7 @@ const ko = {
     selectPlaceholder: "{{label}} 선택",
     requiredError: "{{label}}은(는) 필수입니다",
     unresolvedParam: '이 매개변수는 표시할 수 없습니다. 기반이 되는 필드가 개체 메타데이터에 없어 필요한 컨트롤을 만들 수 없습니다. 관리자에게 작업 정의를 수정하도록 요청하세요.',
+    carryOverHint: '그대로 전달됨(읽기 전용)',
     cancel: "취소",
     confirm: "확인",
     uploading: "업로드 중…",
@@ -2842,12 +2930,14 @@ const ko = {
     thankYouTitle: "감사합니다!",
     thankYouMessage: "제출이 성공적으로 수신되었습니다.",
     redirecting: "{{seconds}}초 후 리디렉션됩니다…",
+    redirectPending: "리디렉션 중…",
     unavailableTitle: "양식을 사용할 수 없습니다",
     unavailableDescription: "이 URL에서 사용 가능한 공개 양식이 없습니다. 기본 보기에서 익명 공유가 활성화되어 있는지 확인하세요.",
     tryDemo: "데모 시도",
     retry: "다시 시도",
     loading: "양식 로딩 중…",
     requiredHint: "* 필수 필드",
+    requiredFields: "필수 항목: {{fields}}",
     consentLabelDefault: "개인정보 처리방침에 동의하며 이 요청을 위해 내 데이터 처리에 동의합니다.",
     consentLink: "개인정보 처리방침",
     consentRequired: "계속하려면 개인정보 처리방침에 동의하세요.",
@@ -2910,6 +3000,34 @@ const ko = {
     createEnvironment: "환경 만들기",
     openProduction: "프로덕션 열기",
     manageEnvironments: "환경 관리",
+  },
+  cloudPlanStatus: {
+    current: "현재 요금제",
+  },
+  ai: {
+    nlQuery: {
+      placeholder: "데이터에 대해 질문하세요…",
+      ask: "질문",
+      results: "결과",
+      match: "일치도 {{percent}}",
+      simulatedSummary: "검색 결과: {{query}}",
+      noResults: "일치하는 레코드가 없습니다",
+      recentQueries: "최근 쿼리",
+    },
+    formAssist: {
+      title: "AI 제안",
+      suggestionCount: "제안 {{count}}개",
+      suggestionCountOne: "제안 {{count}}개",
+      applyAll: "모두 적용",
+      confidence: "신뢰도 {{percent}}",
+      appliedCount: "제안 {{count}}개 적용됨",
+      appliedCountOne: "제안 {{count}}개 적용됨",
+    },
+    recommendations: {
+      title: "추천",
+      generating: "추천을 생성하는 중…",
+      empty: "추천 항목이 없습니다",
+    },
   },
   aiApprovals: {
     title: "AI 승인",
@@ -3149,7 +3267,7 @@ const ko = {
     },
     title: "앱 마켓플레이스",
     subtitle: "ObjectStack 카탈로그에 게시된 승인된 앱을 탐색하세요. 앱을 클릭하여 세부 정보를 보고 환경 중 하나에 설치하세요.",
-    searchPlaceholder: "이름 또는 매니페스트 ID로 앱 검색…",
+    searchPlaceholder: '이름 또는 앱 ID로 앱 검색…',
     searchAria: "마켓플레이스 앱 검색",
     installed: "설치됨",
     installedCount: "설치됨 ({{count}})",
@@ -3201,6 +3319,7 @@ const ko = {
       reseedQueued: '샘플 데이터는 다음 환경 접속 시 다시 적재됩니다.',
       reseedLocalSuccess: '샘플 데이터를 다시 적재했습니다: {{inserted}}개 추가, {{updated}}개 업데이트.',
       reseedPartialErrors: '({{count}}개 레코드 쓰기 실패)',
+      sampleDataKernelUnavailable: '이 컨트롤 플레인에는 환경 커널이 없어 여기서는 샘플 데이터를 다시 적재하거나 삭제할 수 없습니다. 해당 환경 자체의 런타임에서 실행하세요.',
       updateAvailable: '업데이트 가능',
     },
     action: {
@@ -3506,7 +3625,7 @@ const ko = {
       detailChangedKeys: '기타 변경:',
       confirmNote: '게시하면 이 패키지의 대기 중인 초안 {{count}}개가 한 번에(원자적으로) 게시됩니다.',
       publishConfirm: '모두 게시',
-      // [objectui#5418] Pre-publish security-posture findings, shown next to
+      // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
       securityBlockTitle: '게시가 거부됩니다 — {{count}}개 항목에 먼저 결정이 필요합니다',
@@ -3565,25 +3684,25 @@ const ko = {
     rangeEnd: "끝",
     operators: {
       equals: "같음",
-      notEquals: "같지 않음",
+      not_equals: "같지 않음",
       contains: "포함",
-      containsCaseInsensitive: "포함 (대소문자 무시)",
-      notContains: "포함하지 않음",
-      isEmpty: "비어 있음",
-      isNotEmpty: "비어 있지 않음",
-      greaterThan: "보다 큼",
-      lessThan: "보다 작음",
-      greaterOrEqual: "크거나 같음",
-      lessOrEqual: "작거나 같음",
+      icontains: "포함 (대소문자 무시)",
+      not_contains: "포함하지 않음",
+      is_empty: "비어 있음",
+      is_not_empty: "비어 있지 않음",
+      greater_than: "보다 큼",
+      less_than: "보다 작음",
+      greater_than_or_equal: "크거나 같음",
+      less_than_or_equal: "작거나 같음",
       before: "이전",
       after: "이후",
       between: "사이",
       in: "포함됨",
-      notIn: "포함되지 않음",
-      startsWith: "다음으로 시작",
-      endsWith: "다음으로 끝남",
-      isNull: "null임",
-      isNotNull: "null이 아님",
+      not_in: "포함되지 않음",
+      starts_with: "다음으로 시작",
+      ends_with: "다음으로 끝남",
+      is_null: "null임",
+      is_not_null: "null이 아님",
       exists: "설정됨",
       notExists: "설정되지 않음",
     },
@@ -3633,6 +3752,11 @@ const ko = {
   },
   wizard: {
     missingRequired: "필수 항목을 입력하세요: {{fields}}",
+    back: "뒤로",
+    submitting: "제출 중…",
+    stepFallback: "{{n}}단계",
+    progressLabel: "진행 상황",
+    emptyStep: "이 단계에 구성된 필드가 없습니다",
   },
   flowRunner: {
     title: '입력',
@@ -3727,6 +3851,11 @@ const ko = {
     actionsEmptyTitle: "패키지 액션 없음",
     actionsEmptyBody: "이 배포에는 액션을 선언하는 설치된 패키지가 없습니다. 직접 작성한 액션은 Studio에 있습니다.",
     actionsLoadFailed: "패키지 액션을 불러오지 못했습니다.",
+  },
+  element: {
+    number: {
+      noObject: "개체가 지정되지 않았습니다. object 또는 dataSource.object를 설정하세요.",
+    },
   },
 };
 

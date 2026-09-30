@@ -31,6 +31,7 @@ import { usePredicateScope } from './hooks/useExpression.js';
 import { usePageVariables } from './hooks/usePageVariables.js';
 import { resolveKeyedI18nLabel } from './utils/i18n.js';
 import { isConfigBag } from './utils/configBag.js';
+import { PARAMS_KEY, isParamsBag, mapParamsLeaves } from './utils/paramsBag.js';
 import { reportUnevaluatedExpressions } from './utils/unevaluatedExpression.js';
 import { reportDroppedPropsBag, reportRefusedPropsPredicate } from './utils/propsBagDiagnostic.js';
 import { reportRefusedDataPropSpread } from './utils/refusedDataPropDiagnostic.js';
@@ -121,6 +122,12 @@ type VisibilityPredicate = Parameters<ExpressionEvaluator['evaluateCondition']>[
  *   ariaLabel: string | I18nLabel (→ aria-label)
  *   ariaDescribedBy: string (→ aria-describedby)
  *   role: string (→ role)
+ *
+ * ⚠️ This reads the FLAT node keys, and resolves `ariaLabel` in objectui's
+ * KEYED vocabulary (`resolveKeyedI18nLabel`), which returns `undefined` for an
+ * inline locale map. It does not read the NESTED `aria` bag a block's props
+ * carry. That bag is read by `resolveInlineAriaProps` (`utils/inlineAria.ts`,
+ * objectui#11051), and objectui#4580 Q2-B keeps the two readers separate.
  */
 function resolveAriaProps(schema: Record<string, any>): Record<string, string | undefined> {
   const aria: Record<string, string | undefined> = {};
@@ -472,6 +479,156 @@ const preservePredicateEnvelope = (
 ): unknown => (PREDICATE_CHAIN_KEYS.has(key) && isCelEnvelope(value) ? value : evaluate(value));
 
 /**
+ * Is this value an Expression envelope in the spec's sense: an object carrying
+ * a string `dialect` AND a string `source`? (objectui#10288)
+ *
+ * `@objectstack/spec`'s `ExpressionSchema` declares `dialect` REQUIRED, so every
+ * envelope a spec-parsed artifact carries has one. The shape test is the one
+ * `@object-ui/core` already applies to a declared `defaultValue`
+ * (`isRuntimeDefault`, "Same shape test the engine applies before handing a
+ * default to `ExpressionEngine`"), where an object with a `source` and no
+ * `dialect` is a literal value, not an instruction. {@link isCelEnvelope} is
+ * this question narrowed to one dialect.
+ */
+const isExpressionEnvelope = (value: unknown): boolean =>
+  isConfigBag(value)
+  && typeof (value as { dialect?: unknown }).dialect === 'string'
+  && typeof (value as { source?: unknown }).source === 'string';
+
+/**
+ * Is this config-bag value a DATA OBJECT, which the per-value loops hand to the
+ * renderer exactly as authored instead of passing it to
+ * `ExpressionEvaluator.evaluate`? (objectui#10288)
+ *
+ * ## The defect this closes
+ *
+ * `evaluate` unwraps ANY object with a string `source` to that bare string
+ * before it does anything else (see {@link preservePredicateEnvelope}). The
+ * loops handed it every value, so an authored data object that happened to
+ * carry a `source` field was silently replaced by that one string. Measured
+ * through the real `SchemaRenderer` -> `action:button` -> runner:
+ * `properties.bodyExtra: { source: 'web', campaign: 'spring' }` reached the
+ * handler as `bodyExtra: "web"`, while the same object written at node level
+ * (which no loop visits) arrived intact. So the canonical channel was the
+ * broken one. That pair is pinned end to end in `@object-ui/components`
+ * (`action-config-bag-source-key-10288.test.tsx`), and this guard by
+ * `__tests__/SchemaRenderer.configBagDataObject-10288.test.tsx`.
+ * Every object-valued key a node carries in `properties` / `props`
+ * goes through the same loop, so the defect was never one key's: form
+ * `defaultValues`, a declarative `patch`, filter `values` and a detail view's
+ * `data` are all keyed by FIELD NAME, and a field named `source` is ordinary.
+ *
+ * ## What still reaches `evaluate`
+ *
+ *   - every value that is not an object in {@link isConfigBag}'s sense (a
+ *     string, any other primitive, an array), exactly as before: `evaluate`
+ *     interpolates a string and returns the rest untouched;
+ *   - a spec Expression envelope ({@link isExpressionEnvelope}), so a
+ *     `{ dialect: 'template', source: '${…}' }` value interpolates as it always
+ *     did;
+ *   - every value of a predicate-chain key ({@link PREDICATE_CHAIN_KEYS}),
+ *     unchanged. `BaseSchema.visible` / `.hidden` / `.disabled` declare the
+ *     dialect-less `{ source }` envelope as an authorable wire form
+ *     (`ExpressionWire`, objectui#7530), so on those keys it stays an
+ *     expression, and {@link preservePredicateEnvelope} still holds back a CEL
+ *     envelope (objectui#9100 / #9107).
+ *
+ * So the only value whose meaning changes is an object on a non-predicate key
+ * with a string `source` and no string `dialect`, and that object now arrives
+ * whole. Nothing is walked: a template nested inside a data object stays raw,
+ * as it always did for an object without a `source`. The loops stay per-value
+ * and shallow, which is the radius the unevaluated-expression diagnostic reads.
+ */
+const isDataObjectValue = (key: string, value: unknown): boolean =>
+  !PREDICATE_CHAIN_KEYS.has(key) && isConfigBag(value) && !isExpressionEnvelope(value);
+
+/**
+ * The scope the evaluation memo in {@link SchemaRenderer} evaluates a node's
+ * values against: the ambient host scope, `current_user` aliased to `user`, the
+ * page's bound row as `record` (only when there is one), and page variables as
+ * `page`. Why each root is (and `data` is not) bound is stated where the memo
+ * builds its evaluator from this.
+ *
+ * One function, so the memo and {@link evaluateConfigBagInScope} cannot build
+ * two different scopes (objectui#10290).
+ */
+const configEvaluationScope = (
+  predicateScope: Record<string, unknown>,
+  boundRecord: unknown,
+  pageVariables: unknown,
+): Record<string, unknown> => ({
+  ...predicateScope,
+  current_user: predicateScope?.user,
+  ...(boundRecord && typeof boundRecord === 'object' && !Array.isArray(boundRecord)
+    ? { record: boundRecord }
+    : null),
+  page: pageVariables,
+});
+
+/**
+ * Evaluate ONE config value by its key. This is the per-key rule of the
+ * evaluation memo (the `params` rule, objectui#7867, is stated there): a
+ * `params` bag has every string leaf evaluated, a data object is handed over as
+ * authored, and every other value is evaluated per value and shallow, with a
+ * CEL predicate envelope preserved.
+ */
+const evaluateConfigValueWith = (
+  evaluator: ExpressionEvaluator,
+  key: string,
+  value: unknown,
+): unknown =>
+  key === PARAMS_KEY && isParamsBag(value)
+    ? mapParamsLeaves(value, (leaf) => evaluator.evaluate(leaf))
+    : isDataObjectValue(key, value)
+      ? value
+      : preservePredicateEnvelope(key, value, (v) => evaluator.evaluate(v as any));
+
+/**
+ * Evaluate every value of a config bag with {@link evaluateConfigValueWith}.
+ * The memo's `properties` loop, as a function. Returns a new object; the
+ * authored bag is never mutated.
+ */
+const evaluateConfigBagWith = (
+  evaluator: ExpressionEvaluator,
+  bag: Record<string, unknown>,
+): Record<string, unknown> => {
+  const evaluated: Record<string, unknown> = { ...bag };
+  for (const [key, val] of Object.entries(evaluated)) {
+    evaluated[key] = evaluateConfigValueWith(evaluator, key, val);
+  }
+  return evaluated;
+};
+
+/**
+ * The `properties` evaluation of the {@link SchemaRenderer} memo, for a config
+ * bag that does not pass through `SchemaRenderer` (objectui#10290): the same
+ * per-key rule, the same `ExpressionEvaluator`, and the same scope, built from
+ * the same three inputs. It is not a second template engine.
+ *
+ * The plain half of `useConfigBagEvaluator()` (`hooks/useConfigBagEvaluator`),
+ * which reads those inputs from the contexts the memo reads them from. Call
+ * the hook; this function exists because the rule it applies is this module's.
+ * (The hook is not declared in this module: a hook here puts this file under
+ * the React Compiler lint, which then reports the render-time
+ * `performance.now()` / `Date.now()` debug probes below.)
+ *
+ * A value that is not a config bag is returned unchanged; a bag comes back as a
+ * new, evaluated object and the authored one is never mutated.
+ */
+export function evaluateConfigBagInScope(
+  bag: unknown,
+  predicateScope: Record<string, unknown>,
+  boundRecord: unknown,
+  pageVariables: unknown,
+): unknown {
+  if (!isConfigBag(bag)) return bag;
+  const evaluator = new ExpressionEvaluator(
+    configEvaluationScope(predicateScope, boundRecord, pageVariables),
+  );
+  return evaluateConfigBagWith(evaluator, bag as Record<string, unknown>);
+}
+
+/**
  * Which CONSEQUENCE the diagnostic should print for a faulting predicate on
  * this leg (objectui#6503).
  *
@@ -729,6 +886,30 @@ function withoutAuthoredDataKey<T extends object>(bag: T, refuse: boolean): T {
 }
 
 /**
+ * The legacy `props` alias bag, minus an authored `objectFields`
+ * (objectui#8818, completing decision batch #70 / objectui#7742).
+ *
+ * `objectFields` is the object's field catalogue — the predicate layer reads it
+ * to decide how a conditional-formatting rule compares a relation field — and
+ * batch #70 ruled it a RUNTIME React prop a host injects, never authorable
+ * metadata. The metadata strip in `SchemaRenderer` closes the top-level and
+ * hoisted `properties` spellings; this closes the third, because the alias bag
+ * is spread as its own bag after that strip and never passes through it.
+ *
+ * Every arm, unconditionally — unlike {@link withoutAuthoredDataKey}, the key
+ * has no authorable reading on any type. Identity is preserved when the bag
+ * declares no `objectFields`, so the common node allocates nothing.
+ *
+ * ⛔ The HOST path is NOT routed through here: `...props`, spread LAST, is how
+ * a host hands the catalogue down, and it still arrives.
+ */
+function withoutAuthoredObjectFields<T extends object>(bag: T): T {
+  if (!('objectFields' in bag)) return bag;
+  const { objectFields: _runtimeOnlyObjectFields, ...rest } = bag as Record<string, unknown>;
+  return rest as T;
+}
+
+/**
  * The props `SchemaRenderer` DECLARES and reads itself (objectui#4548).
  *
  * ## Why `schema` is spelled as this union and not as a `SchemaNode`
@@ -916,14 +1097,13 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // (how `action:group`'s dropdown leaf is driven), turning "this surface has
     // no row of its own" into "this surface's row is empty" — only the latter
     // is entitled to shadow.
-    const evaluator = new ExpressionEvaluator({
-      ...predicateScope,
-      current_user: (predicateScope as any)?.user,
-      ...(boundRecord && typeof boundRecord === 'object' && !Array.isArray(boundRecord)
-        ? { record: boundRecord }
-        : null),
-      page: pageVariables,
-    });
+    //
+    // Built by `configEvaluationScope`, which `useConfigBagEvaluator` shares, so
+    // an action container's members evaluate against this same scope
+    // (objectui#10290).
+    const evaluator = new ExpressionEvaluator(
+      configEvaluationScope(predicateScope, boundRecord, pageVariables),
+    );
     // Shallow copy
     const newSchema = { ...schema };
 
@@ -1175,6 +1355,66 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       return verdict;
     };
 
+    /**
+     * Evaluate ONE config value by its key — THE place the `params` rule is
+     * stated (objectui#7867, ruling A, maintainer 「其他同意」 2026-09-20):
+     * *an action's `params` values are templates, evaluated where `properties`
+     * are.*
+     *
+     * A `params` BAG (a plain object — {@link isParamsBag}) has every string
+     * leaf evaluated at any depth, through the same `evaluator` and so against
+     * the same scope as every other value in this memo; every other value
+     * evaluates exactly as it did (per-value and shallow, with a CEL predicate
+     * envelope preserved — {@link preservePredicateEnvelope}). The walk, and
+     * what it will not look inside (non-plain objects, keys, cycles, an ARRAY
+     * `params`, which is the `ActionParam[]` definition list), are defined once
+     * in `utils/paramsBag.ts`, which the unevaluated-expression diagnostic reads
+     * too — so what is evaluated and what is reported as left unresolved are
+     * one radius, not two.
+     *
+     * Three carriers, one rule — the ruling names two of them and the third
+     * follows its canonical bag, as every per-key rule in these loops does:
+     *
+     *   1. node-level `params`, immediately below;
+     *   2. `properties.params`, in the `properties` loop, BEFORE the hoist —
+     *      so the object the hoist copies onto the node (and the renderer
+     *      reads as `schema.params`) is the evaluated one, and
+     *      `schema.properties.params` agrees with it;
+     *   3. `props.params`, in the legacy-alias loop — the two bag loops must
+     *      not disagree about a key (objectui#5123, objectui#9100).
+     *
+     * Each authored value is evaluated exactly once: the node-level leg runs
+     * before the hoist, so when `properties.params` wins the hoist it replaces
+     * an evaluated node-level bag with an evaluated bag of its own, and nothing
+     * already evaluated is evaluated again.
+     *
+     * Before this, the node-level bag was never evaluated at all, and
+     * `properties.params` was ONE value of a shallow loop: measured through the
+     * real `SchemaRenderer` -> `action:button` -> runner on a record page bound
+     * to `{ id: 'rec_1' }`, both `params.recordId: '${record.id}'` spellings
+     * reached the handler raw while `properties.label: 'L-${record.id}'`
+     * rendered `L-rec_1`. A template that still cannot resolve keeps its source
+     * text (that is the evaluator's own contract) and is reported by the
+     * unevaluated-expression diagnostic, so a wrong template stays loud.
+     */
+    //
+    // A DATA OBJECT on any other key ({@link isDataObjectValue},
+    // objectui#10288) is handed over as authored: `evaluate` would collapse
+    // one that carries a string `source` to that string.
+    //
+    // The rule itself is `evaluateConfigValueWith`, at module scope, so that
+    // `useConfigBagEvaluator` applies the same one to an action container's
+    // members (objectui#10290).
+    const evaluateConfigValue = (key: string, value: unknown): unknown =>
+      evaluateConfigValueWith(evaluator, key, value);
+
+    // Carrier 1 of the `params` rule above: the node-level bag. A non-bag
+    // node-level `params` (the `ActionParam[]` definition list, or anything
+    // degenerate) is left exactly as authored, as it always was.
+    if (isParamsBag(newSchema[PARAMS_KEY])) {
+      newSchema[PARAMS_KEY] = evaluateConfigValue(PARAMS_KEY, newSchema[PARAMS_KEY]);
+    }
+
     // Evaluate 'properties' — the SPEC spelling of a node's config bag, of
     // which `props` (evaluated below) is the legacy alias.
     //
@@ -1203,6 +1443,17 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // `aria: { label: '${data.total}' }` nested under EITHER key renders the raw
     // source today). Deepening that is a separate decision and would have to be
     // taken for both spellings at once — not smuggled in on one side here.
+    //
+    // ONE key is deep, by that separate decision, and on both spellings at once:
+    // `params` (objectui#7867, ruling A) — every string leaf of a `params` bag
+    // is evaluated, through {@link evaluateConfigValue} above. Every other key
+    // keeps the shallow reading this paragraph describes.
+    //
+    // "Passed through" used to have one exception: `evaluate` unwraps an object
+    // with a string `source` to that string, so a data object carrying a
+    // `source` field was collapsed rather than passed. Since objectui#10288 an
+    // object on a non-predicate key reaches `evaluate` only when it is a spec
+    // Expression envelope (it carries a `dialect`); see {@link isDataObjectValue}.
     //
     // Guarded by {@link isConfigBag}: a degenerate value must not have its shape
     // reinterpreted by an object spread. Non-objects skip evaluation and reach
@@ -1240,13 +1491,13 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       : undefined;
 
     if (rawPropertiesBag) {
-      const newProperties: Record<string, any> = { ...rawPropertiesBag };
-      for (const [key, val] of Object.entries(newProperties)) {
-        // objectui#9100 — a CEL predicate envelope survives this loop; see
-        // `preservePredicateEnvelope`. Every other value evaluates as before.
-        newProperties[key] = preservePredicateEnvelope(key, val, (v) => evaluator.evaluate(v as any));
-      }
-      newSchema.properties = newProperties;
+      // objectui#9100 — a CEL predicate envelope survives this loop; see
+      // `preservePredicateEnvelope`. objectui#7867 — a `params` bag has every
+      // string leaf evaluated (carrier 2 of `evaluateConfigValue`). Every
+      // other value evaluates as before. The loop is `evaluateConfigBagWith`,
+      // the one `useConfigBagEvaluator` runs over an action container's
+      // member (objectui#10290).
+      newSchema.properties = evaluateConfigBagWith(evaluator, rawPropertiesBag);
     }
 
     /**
@@ -1473,8 +1724,9 @@ export const SchemaRenderer: ForwardRefExoticComponent<
       const newProps = { ...newSchema.props };
       for (const [key, val] of Object.entries(newProps)) {
         // objectui#9100, same guard as the `properties` branch above — the two
-        // channels must not disagree about whether a `cel` envelope survives.
-        newProps[key] = preservePredicateEnvelope(key, val, (v) => evaluator.evaluate(v as any));
+        // channels must not disagree about whether a `cel` envelope survives,
+        // nor (objectui#7867, carrier 3) about how deep a `params` bag goes.
+        newProps[key] = evaluateConfigValue(key, val);
       }
       newSchema.props = newProps;
     }
@@ -1828,6 +2080,10 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     // dev warning told the author to spell it `testid` — steering them further
     // from the documented `data-testid`.
     testId: _testId,
+    // stripped: a RUNTIME prop a host injects, never authorable metadata —
+    // decision batch #70 (objectui#7742); objectui#8818 closes the key here.
+    // The `props` alias carrier is closed by `withoutAuthoredObjectFields`.
+    objectFields: _objectFields,
     _hidden: __hidden,    // stripped: internal visibility flag
     _disabled: __disabled, // stripped: internal disabled flag
     responsiveStyles: _responsiveStyles, // stripped: compiled to scoped CSS, not a DOM prop
@@ -1894,9 +2150,11 @@ export const SchemaRenderer: ForwardRefExoticComponent<
   // question is the shape that let the alias keep the seat in the first place.
   const refusesAuthoredDataProp =
     recordSourceDataArmForType(evaluatedSchema.type) === 'view-data';
-  const aliasBagAsAuthored = propsWithoutCanonicalKeys(
-    evaluatedSchema.props,
-    evaluatedSchema.properties
+  // objectui#8818 strips `objectFields` HERE, before the `data` strip below:
+  // that strip's diagnostic decides by identity, so it must compare against a
+  // bag this strip has already settled.
+  const aliasBagAsAuthored = withoutAuthoredObjectFields(
+    propsWithoutCanonicalKeys(evaluatedSchema.props, evaluatedSchema.properties)
   );
   const outgoingPropsBag = withoutAuthoredDataKey(aliasBagAsAuthored, refusesAuthoredDataProp);
   if (__DEV__ && outgoingPropsBag !== aliasBagAsAuthored) {

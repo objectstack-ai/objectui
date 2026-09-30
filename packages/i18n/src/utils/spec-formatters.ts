@@ -30,6 +30,8 @@
  * @module spec-formatters
  */
 
+import { isRealCalendarDate, toDisplayDate } from '@object-ui/core';
+
 // ============================================================================
 // Plural rules
 // ============================================================================
@@ -115,6 +117,19 @@ export interface SpecDateFormat {
 /**
  * Format a date using a {@link SpecDateFormat} configuration.
  *
+ * A string is read through `toDisplayDate` (`@object-ui/core`), the one parse
+ * step behind the date faces (objectui#10866): a date-only `2026-09-01` names
+ * a calendar day and is rebuilt at local midnight of that day, while a value
+ * with a time part keeps its instant. The engine's own parse read the
+ * date-only form as UTC midnight, so it named August 31st west of UTC, and
+ * for every viewer once `timeZone` was west of UTC.
+ *
+ * `timeZone` therefore applies to an instant only. A date-only value carries
+ * no instant for a zone to place, and the local midnight the shared step
+ * built reads back as its day only in the local zone, so it is formatted
+ * there. A value the shared step refuses, such as a day its month does not
+ * have (objectui#10026), comes back as its string.
+ *
  * @example
  * ```ts
  * formatDateSpec(new Date(), {
@@ -129,13 +144,15 @@ export function formatDateSpec(
   format: SpecDateFormat,
   locale = 'en',
 ): string {
-  const d = date instanceof Date ? date : new Date(date);
+  const d = toDisplayDate(date);
   if (isNaN(d.getTime())) return String(date);
+  // The value's shape tells the two apart, the same test the shared step makes.
+  const dateOnly = typeof date === 'string' && isRealCalendarDate(date);
 
   const options: Intl.DateTimeFormatOptions = {};
   if (format.dateStyle) options.dateStyle = format.dateStyle;
   if (format.timeStyle) options.timeStyle = format.timeStyle;
-  if (format.timeZone) options.timeZone = format.timeZone;
+  if (format.timeZone && !dateOnly) options.timeZone = format.timeZone;
   if (format.hour12 !== undefined) options.hour12 = format.hour12;
 
   return new Intl.DateTimeFormat(locale, options).format(d);

@@ -5,7 +5,7 @@
 ---
 
 Accept an inline per-locale label on an action's `resultDialog`, and resolve it
-against the display language (objectui#9542).
+against the display language.
 
 `@object-ui/core`'s `ResultDialogSpec` claimed in its own docblock to mirror
 `Action.resultDialog` in `@objectstack/spec` and did not: `title`,

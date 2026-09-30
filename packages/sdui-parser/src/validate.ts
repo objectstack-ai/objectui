@@ -2,14 +2,18 @@
  * ObjectUI — SDUI tree validation against the registry manifest (ADR-0080 §3/§6)
  *
  * Shallow, author-time validation: unknown component, unknown/missing prop,
- * wrong coarse type, illegal enum value. Collects `requires` (plugin provenance)
- * and binding sites the SERVER must resolve against object schema (we cannot
- * resolve objects/fields here — that check is framework-side by design).
+ * wrong coarse type, illegal enum value, and containment — a child list under
+ * a component whose registration declares no `children` input draws
+ * `not-a-container` (objectui#9910; see `acceptsChildren`). Collects
+ * `requires` (plugin provenance) and binding sites the SERVER must resolve
+ * against object schema (we cannot resolve objects/fields here — that check is
+ * framework-side by design).
  */
 
 import type {
   Diagnostic,
   Manifest,
+  ManifestComponent,
   ManifestInput,
   ManifestInputType,
   SchemaElement,
@@ -22,25 +26,149 @@ import { checkKanbanQuickAdd } from './kanban-quick-add.js';
 import { checkRetiredBodyDialect } from './body-dialect.js';
 
 /**
- * Base props every node may carry (mirrors BaseSchema) — never "unknown prop".
+ * The protocol's ONE child-list key — `BaseSchema.children` — and therefore the
+ * name of the `inputs` entry a registration declares when its renderer puts
+ * that list on the page: `{ name: 'children', type: 'slot' }` (objectui#9910).
+ */
+export const CHILD_LIST_KEY = 'children';
+
+/**
+ * Does this component ACCEPT an authored child list? (objectui#9910)
+ *
+ * Read from exactly ONE declaration: an input named {@link CHILD_LIST_KEY} in
+ * the component's `inputs`. That is the shape ten registrations already
+ * carried when the maintainer ruled it the containment contract
+ * (2026-09-24, objectui#9910 Q1-A "declare-and-pin"), and it is held in both
+ * directions by the runtime census in
+ * `packages/components/src/renderers/__tests__/container-declaration-ratchet.test.tsx`:
+ * a renderer that puts `schema.children` on the page without declaring the
+ * input is red, and a declaration whose renderer never renders the list is
+ * red too.
+ *
+ * ⛔ `isContainer` is NOT consulted and is NOT a fallback. It used to decide
+ * this branch and it lied both ways: a hand-kept flag drifted from the code
+ * (objectui#3900 / `7c9b044f4` / #6764 / #6779 found the same drift four times),
+ * and after objectui#6771 converged a dozen registrations onto `children`
+ * the flag put a FALSE `not-a-container` on the one key they read
+ * (objectui#9910). The flag now means LAYOUT containment only — the
+ * react-page JSX scope and the public layout ledger read it; this tier does
+ * not (objectui#6804, objectui#9910 Q2-A).
+ */
+export function acceptsChildren(comp: Pick<ManifestComponent, 'inputs'>): boolean {
+  return comp.inputs.some((input) => input.name === CHILD_LIST_KEY);
+}
+
+/**
+ * Where a base prop is legal without a declaration (objectui#11044).
+ *
+ *  - `'every-node'` — on every node, and a registration's own input of the
+ *    same name is not consulted: {@link validateTree} skips the key before the
+ *    declared-input lookup.
+ *  - `'where-undeclared'` — on a type whose registration declares NO input of
+ *    that name. Where one does, the declared input wins, its `type-mismatch`
+ *    check included, and the generated JSX types take the declared type too.
+ */
+export type SduiBasePropScope = 'every-node' | 'where-undeclared';
+
+/** One entry of {@link SDUI_BASE_PROPS}. */
+export interface SduiBaseProp {
+  /** The `BaseSchema` member (`@object-ui/types`). */
+  readonly name: string;
+  readonly scope: SduiBasePropScope;
+  /**
+   * The attribute's type in the generated JSX surface (`SduiBaseProps` in
+   * `sdui-intrinsics.d.ts`), or `null` for the one key that is no attribute:
+   * `type`, which the tag name carries (`parse.ts` refuses a `type` attribute).
+   */
+  readonly tsType: string | null;
+}
+
+/**
+ * The base props: the `BaseSchema` members this tier accepts on a node without
+ * a registration declaring them. ONE list, read by BOTH of its consumers —
+ * {@link validateTree}'s `unknown-prop` branch and `generateDts`'s
+ * `SduiBaseProps` (objectui#11044). Before this list the two were separate
+ * hand-kept copies and had drifted: the validator accepted `bind` and `hidden`
+ * (objectui#11008) while the generated types still refused both.
+ *
+ * `bind` and `hidden` are `'every-node'` (objectui#11008). `BaseSchema` declares
+ * both for every node and no registration declares either as an input, so
+ * before they joined, the undeclared-key branch below answered every authored
+ * one with `unknown-prop` — "has no prop" about a key the protocol declares,
+ * on the nodes that honour it: `hidden` is read for every node by
+ * `SchemaRenderer`'s hide chain, and `bind` by every renderer that calls
+ * `useDataScope` (`list`, `tree-view`, the `object-*` widgets). The
+ * declaration outranks the implementation, so the parser's view is the
+ * declared type's, not a per-registration subset. The cost is accepted and
+ * named: a `bind` on a node that does not read it — `data-table`
+ * (objectui#6575) — draws nothing here either, and its render-time console
+ * warning is the one signal left.
+ *
+ * `visibleWhen`, `hiddenOn` and `testId` are `'every-node'` for the same reason
+ * (objectui#11044): no registration declares any of them, `SchemaRenderer`'s
+ * hide chain reads the first two for every node, and it strips `testId` and
+ * re-emits it as `data-testid`. `visibleWhen` is the canonical ADR-0089
+ * predicate; before it joined, the deprecated `visibleOn` was silent while it
+ * drew `unknown-prop`.
+ *
+ * The `'where-undeclared'` members (objectui#11044, triage ruling) are the
+ * `BaseSchema` members some registrations DECLARE as typed inputs — the input
+ * family's `placeholder`, `label`, `name`, … . Skipping them the way the
+ * `'every-node'` members are skipped would silence those registrations'
+ * `type-mismatch`, so they are base props only where the type declares no
+ * input of that name. ⛔ Never move one to `'every-node'` to accept a key: that
+ * silences a declared type check.
+ *
+ * Held over the live registry by `base-props-one-list-11044.test.tsx` in
+ * `@object-ui/components` — every member a `BaseSchema` member, and `body` the
+ * one member left out.
  *
  * ⛔ `body` is NOT here and must not be added. It was `BaseSchema`'s second
- * child-list spelling until objectui#6771 retired it; teaching this set the key
- * was the option that ruling refused, because it would have blessed a second
- * permanent spelling of one concept. `./body-dialect.ts` answers it by name
- * instead.
+ * child-list spelling until objectui#6771 retired it; teaching this list the
+ * key was the option that ruling refused, because it would have blessed a
+ * second permanent spelling of one concept. `./body-dialect.ts` answers it by
+ * name instead.
+ *
+ * `children` IS here: the key is legal on every node, so it never draws
+ * `unknown-prop` and its declared `slot` input is never type-checked. Whether
+ * a given component RENDERS it is the containment question below, answered by
+ * {@link acceptsChildren} from the declared input.
  */
-const BASE_PROPS = new Set([
-  'type',
-  'id',
-  'className',
-  'style',
-  'visible',
-  'visibleOn',
-  'disabled',
-  'disabledOn',
-  'children',
-]);
+export const SDUI_BASE_PROPS: readonly SduiBaseProp[] = Object.freeze([
+  { name: 'type', scope: 'every-node', tsType: null },
+  { name: 'id', scope: 'every-node', tsType: 'string' },
+  { name: 'className', scope: 'every-node', tsType: 'string' },
+  { name: 'style', scope: 'every-node', tsType: 'Record<string, unknown>' },
+  { name: 'visible', scope: 'every-node', tsType: 'boolean' },
+  { name: 'visibleWhen', scope: 'every-node', tsType: 'string' },
+  { name: 'visibleOn', scope: 'every-node', tsType: 'string' },
+  { name: 'hidden', scope: 'every-node', tsType: 'boolean' },
+  { name: 'hiddenOn', scope: 'every-node', tsType: 'string' },
+  { name: 'disabled', scope: 'every-node', tsType: 'boolean' },
+  { name: 'disabledOn', scope: 'every-node', tsType: 'string' },
+  { name: 'bind', scope: 'every-node', tsType: 'string' },
+  { name: 'testId', scope: 'every-node', tsType: 'string' },
+  { name: CHILD_LIST_KEY, scope: 'every-node', tsType: 'unknown' },
+  { name: 'name', scope: 'where-undeclared', tsType: 'string' },
+  { name: 'label', scope: 'where-undeclared', tsType: 'string | Record<string, string>' },
+  { name: 'description', scope: 'where-undeclared', tsType: 'string | Record<string, string>' },
+  { name: 'placeholder', scope: 'where-undeclared', tsType: 'string' },
+  { name: 'data', scope: 'where-undeclared', tsType: 'unknown' },
+  {
+    name: 'ariaLabel',
+    scope: 'where-undeclared',
+    tsType: 'string | { key: string; defaultValue?: string; params?: Record<string, unknown> }',
+  },
+] satisfies SduiBaseProp[]);
+
+const basePropNames = (scope: SduiBasePropScope): Set<string> =>
+  new Set(SDUI_BASE_PROPS.filter((prop) => prop.scope === scope).map((prop) => prop.name));
+
+/** The `'every-node'` members of {@link SDUI_BASE_PROPS}: never "unknown prop". */
+const BASE_PROPS = basePropNames('every-node');
+
+/** The `'where-undeclared'` members of {@link SDUI_BASE_PROPS}. */
+const WHERE_UNDECLARED_BASE_PROPS = basePropNames('where-undeclared');
 
 const isExpr = (v: unknown): boolean =>
   typeof v === 'object' && v !== null && '$expr' in (v as Record<string, unknown>);
@@ -79,6 +207,10 @@ export function validateTree(tree: SchemaElement | null, manifest: Manifest): Ma
       // each provided prop
       for (const [key, value] of Object.entries(node)) {
         if (BASE_PROPS.has(key)) continue;
+        // A declaration outranks a `'where-undeclared'` base prop
+        // (objectui#11044): skipped only when this type declares no input of
+        // that name, so a declared one keeps its type check below.
+        if (WHERE_UNDECLARED_BASE_PROPS.has(key) && !byName.has(key)) continue;
         // The `object-kanban` / `kanban` Quick Add pair (objectui#8285): a key
         // `@objectstack/spec` still publishes and this renderer cannot honour,
         // because the control is gated on a RUNTIME SLOT no parsed page can
@@ -101,8 +233,11 @@ export function validateTree(tree: SchemaElement | null, manifest: Manifest): Ma
           // rather than the bare "has no prop" every typo gets
           // (objectui#6771). Asked INSIDE this branch, so a component that
           // declares its own `body` input keeps its declared type check —
-          // mechanism in `./body-dialect.ts`.
-          const retiredBody = checkRetiredBodyDialect(node.type, key, value, comp.isContainer);
+          // mechanism in `./body-dialect.ts`. Its containment verdict is the
+          // SAME predicate the `children` branch below reads — the declared
+          // `children` input, never `isContainer` (objectui#9910) — so the two
+          // spellings cannot disagree about which components take a list.
+          const retiredBody = checkRetiredBodyDialect(node.type, key, value, acceptsChildren(comp));
           diagnostics.push(
             retiredBody ?? {
               severity: 'warning',
@@ -138,7 +273,7 @@ export function validateTree(tree: SchemaElement | null, manifest: Manifest): Ma
           // an author to edit working source. What is left on this side of the
           // boundary is a genuine expression, so that is what the message names.
           //
-          // Warning, not error, per the objectui#5709 precedent for inert
+          // Warning, not error, per the `8d58f46b4` precedent for inert
           // authored keys. ⛔ Escalation to error is objectui#6614 Q2 and is
           // deliberately NOT part of this change: it belongs at the SAVE GATE,
           // once the framework wires the registry manifest into
@@ -169,8 +304,10 @@ export function validateTree(tree: SchemaElement | null, manifest: Manifest): Ma
         }
       }
 
-      // containment
-      if (node.children?.length && !comp.isContainer) {
+      // containment — decided by the declared `children` input and by NOTHING
+      // else (objectui#9910 Q1-A). ⛔ No `isContainer` fallback: see
+      // `acceptsChildren` for why the flag stopped deciding this.
+      if (node.children?.length && !acceptsChildren(comp)) {
         diagnostics.push({
           severity: 'warning',
           code: 'not-a-container',
@@ -181,7 +318,7 @@ export function validateTree(tree: SchemaElement | null, manifest: Manifest): Ma
 
       // Dashboard widgets: an `options` key riding the spec's `.passthrough()`
       // that no renderer consumes is legal, silent and inert — warn, naming
-      // the consumed set (objectui#5709 ruling; census + scope in
+      // the consumed set (the 2026-08-23 ruling; census + scope in
       // `./dashboard-widget-options.ts`). Like `not-a-container`, this runs
       // only for a component the manifest knows: an unresolved tag already
       // drew `unknown-component`, and deep diagnostics on it would be noise.

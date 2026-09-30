@@ -52,8 +52,9 @@
 // ============================================================================
 export type {
   AppComponentSchema,
-  AppAction,
   NavigationItem,
+  NavigationEntryItem,
+  NavigationSeparatorItem,
   NavigationItemType,
   NavigationArea,
   AppMenuItem,
@@ -102,7 +103,7 @@ export type {
   SchemaNode,
   ComponentRendererProps,
   ComponentInput,
-  // The input the FRAMEWORK injects (`binding: 'object'`, objectui#6950) —
+  // The input the FRAMEWORK injects (`binding: 'object'`, `9e37d9b39`) —
   // `ComponentInput` plus the marker no registration may author.
   InjectedComponentInput,
   // The arm vocabulary of `ComponentInput.type`, exported because that field
@@ -173,8 +174,8 @@ export type {
   // The two names on `form.ts`'s export list that this barrel did not carry,
   // added by objectui#9406 (director seat, decision batch #133 item 2, letter
   // (a), maintainer 2026-09-14). Both narrow a schema already on this list
-  // — `InputShorthandSchema` is `Omit<InputSchema, 'type' | 'inputType'>`,
-  // `UiCalendarSchema` is `Omit<CalendarSchema, 'type'>` — and both were
+  // — `InputShorthandSchema` is `InputSchema` without `type` / `inputType`,
+  // `UiCalendarSchema` is `CalendarSchema` without `type` — and both were
   // already published on `@object-ui/types/form` and `@object-ui/types/zod`,
   // so these two lines ALIGN the third entry point rather than widen the
   // surface. Purely ADDITIVE, the same route objectui#7697 took for
@@ -204,6 +205,16 @@ export type {
   // tidy cannot silently drop either one.
   ComboboxOption,
   CommandSchema,
+  // The element types `CommandSchema` contains — `groups` holds `CommandGroup`,
+  // whose `items` hold `CommandItem` — listed next to their schema the way
+  // `ComboboxOption` is above (objectui#9526). Both were already published on
+  // `@object-ui/types/form`, and their zod twins `CommandItemSchema` /
+  // `CommandGroupSchema` on `@object-ui/types/zod`, while the root spelling read
+  // TS2305. Purely ADDITIVE, the objectui#7697 / objectui#9406 route; the gap pin
+  // `form-barrel-mirror-9406.test.ts` had ledgered the pair as undecided and
+  // now holds it to this list.
+  CommandItem,
+  CommandGroup,
   InputOTPSchema,
   ToggleSchema,
   FormSchema,
@@ -215,7 +226,7 @@ export type {
 // The one select-option contract both option faces extend — `SelectOption`
 // above (the SDUI form face) and `SelectOptionMetadata` below (the
 // object-metadata face). Exported because it appears in the `extends` clause of
-// both, so a consumer that wants to name it can (objectui#7014).
+// both, so a consumer that wants to name it can (`98d4108a2`).
 export type { SelectOptionBase } from './select-option.js';
 
 // ============================================================================
@@ -241,8 +252,15 @@ export type {
   PivotAggregation,
   PivotTableSchema,
   DrillDownConfig,
+  ObjectMetricDrillDownConfig,
+  ObjectPivotDrillDownConfig,
+  ObjectDataTableDrillDownConfig,
   TimelineEvent,
   TimelineScale,
+  TimelineItemVariant,
+  TimelineFeedItem,
+  TimelineGanttItem,
+  TimelineGanttItemBar,
   TimelineSchema,
   KbdSchema,
   HtmlSchema,
@@ -253,7 +271,7 @@ export type {
 } from './data-display.js';
 
 // The canonical `TableColumn.type` vocabulary and the producer-seam fold that
-// keeps undeclared inference values out of that slot (objectui#5853).
+// keeps undeclared inference values out of that slot (`fc62bb490`).
 export { TABLE_COLUMN_TYPES, normalizeTableColumnType } from './data-display.js';
 
 // ============================================================================
@@ -329,7 +347,6 @@ export type {
   // (objectui#8802, maintainer ruling 2026-09-09) — `ObjectKanbanSchema` below
   // is the surviving kanban face.
   CardTemplate,
-  ColumnWidthConfig,
   CalendarViewMode,
   CalendarEvent,
   CalendarViewSchema,
@@ -388,11 +405,6 @@ export type {
   AggregateParams,
   AggregateResult,
   DataSourceMutationEvent,
-  ExportJobStatus,
-  ExportJobFormat,
-  CreateExportJobRequest,
-  CreateExportJobResult,
-  ExportJobProgressInfo,
   ImportWriteMode,
   ImportFieldMappingEntry,
   ImportRequestOptions,
@@ -597,15 +609,6 @@ export type {
   FilterBuilderDateRangePreset,
   FilterBuilderConfig,
   FilterFieldConfig,
-  // Validation Schema (Phase 3.5)
-  AdvancedValidationSchema,
-  AdvancedValidationRule,
-  ValidationRuleType,
-  ValidationFunction,
-  AsyncValidationFunction,
-  ValidationContext,
-  AdvancedValidationResult,
-  AdvancedValidationError,
   // Object-level validation rules. The five spec-named variants are derived from
   // `@objectstack/spec/data`; the other three are @deprecated objectui-local
   // variants the spec's union rejects. See data-protocol.ts.
@@ -652,7 +655,8 @@ export type {
   SharingRuleConfig,
   PermissionCheckResult,
   PermissionContext,
-  PermissionGuardConfig,
+  // `PermissionGuardConfig` RETIRED outright by objectui#8024 — see the
+  // RETIRED note in `./permissions`; the guard reads `PermissionGuardProps`.
 } from './permissions.js';
 
 // ============================================================================
@@ -761,8 +765,13 @@ export type {
   HTTPMethod,
   APIRequest,
   APIConfig,
-  UIEventHandler,
-  EventableSchema,
+  // `UIEventHandler` and `EventableSchema` are GONE from this block, not
+  // emptied out of it: both were RETIRED in objectui#6497 (ADR-0049
+  // enforce-or-remove, director ruling of 2026-09-24, maintainer verbatim
+  // 「同意」). Declared, unmirrored, unextended and unread, they only invited a
+  // handler dialect no runtime dispatches. The supported form is the
+  // declarative `ActionDef` object from `@object-ui/core`; the reasoning is the
+  // tombstone in `./api-types.ts`.
   DataFetchConfig,
   DataFetchableSchema,
   ExpressionContext,
@@ -793,13 +802,13 @@ import type { AppComponentSchema } from './app.js';
 export type {
   // Theme System — the document vocabulary is owned HERE since objectui#5716
   // (maintainer ruling 2026-08-23, option A — localize): the spec retired its
-  // theme module (objectstack#10485) while objectui RETAINED the theme system,
+  // theme module (objectstack `35ad101bc`) while objectui RETAINED the theme system,
   // so the types moved into `./theme` with the last-published 17.1.0 shapes as
   // the blueprint. `Typography` / `BorderRadius` / `Shadow` /
   // `ThemeDefinition` were DELETED under the same ruling's zero-reader rider
   // (the first three live on as inline members of `Theme`).
   Theme,
-  // `ThemeComponentSchema` RETIRED in objectui#5489 — the `type: 'theme'`
+  // `ThemeComponentSchema` RETIRED in `78cbdb530` — the `type: 'theme'`
   // component kind no renderer implemented. See `./theme` for the tombstone.
   ThemeMode,
   ColorPalette,
@@ -997,10 +1006,25 @@ export type SchemaByType<T extends string> = Extract<AnySchema, { type: T }>;
  * position) — this is its generic mapped-type-alias position.
  *
  * ⭐ SEQUENCING (objectui#6397 triage, 2026-08-25) — this declaration is
- * deliberately left AS WRITTEN. It is not repairable in place: `T` is generic,
- * so there is no literal key list to `Pick` the way objectui#6269 could for its
- * two concrete schemas, and every generic re-spelling collapses for the same
- * `keyof T` reason. It is also not removable here — dropping a published export
+ * deliberately left AS WRITTEN. The triage also held that it was not
+ * repairable in place: `T` is generic, so there is no literal key list to
+ * `Pick` the way objectui#6269 could for its two concrete schemas, and it read
+ * every generic re-spelling as collapsing for the same `keyof T` reason.
+ *
+ * ⚠️ That last reading is FALSE, and objectui#9256 is the counter-example. A
+ * key-remapping mapped type (`{ [P in keyof T as P extends K ? never : P]: … }`)
+ * iterates the named members and the index signature separately, so it drops
+ * exactly `K` and keeps every other named member — generic in `T` and all.
+ * `OmitDeclared` in `./form.ts` is that spelling; the E3 slice of objectui#9256
+ * re-spelled `InputShorthandSchema` and `UiCalendarSchema` with it, and
+ * `__tests__/content-channel-e3-residual-9256.test.ts` pins inherited members
+ * on both faces. So the obstacle to a repair here is not the type system.
+ * Re-spelling this alias would NARROW what every instantiation accepts (a
+ * declared member would stop accepting a value of the wrong type), which is a
+ * contract change and is not made in a comment correction; objectui#6397, the
+ * card that triaged it, is closed.
+ *
+ * It is also not removable here — dropping a published export
  * of `@object-ui/types` is a breaking removal of published capability and sits
  * on the human floor. Once objectui#5155 removes the root index signature,
  * `keyof T` resolves to the literal member union again and this alias starts
@@ -1065,17 +1089,6 @@ export type {
    * `major`).
    */
   ComponentMeta as PluginComponentMeta,
-  /**
-   * @deprecated Use `ComponentInput` instead. Since objectui#4972 converged the
-   * plugin-scoped declaration onto `base.ts`, this alias names the SAME type
-   * under a second name — it carries no information `ComponentInput` does not.
-   * Retiring it is objectui#5674 (maintainer ruling, 2026-08-22: deprecate for a
-   * release, then remove). This deprecation window exists for consumers outside
-   * this repository, which cannot be measured from here; in-repo the name has
-   * zero importers. Removal ships as a `minor` under this repo's version policy
-   * (objectui's own breaking changes never declare `major`).
-   */
-  ComponentInput as PluginComponentInput,
   PluginEventHandler,
 } from './plugin-scope.js';
 
@@ -1145,7 +1158,7 @@ export type * as Data from '@objectstack/spec/data';
 // shim module since objectui#5716, so the `UI.Theme`-family members are
 // re-pointed at their owner (`./theme.ts`) and survive the spec's theme
 // retirement instead of narrowing silently on the pin refresh. See the shim's
-// header for the full reasoning. The #4171 caveat still applies:
+// header for the full reasoning. The objectstack-ai/objectstack#4171 caveat still applies:
 // `UI.FormField` erases to `any` until the spec types its unions.
 export type * as UI from './spec-ui-namespace.js';
 export type * as System from '@objectstack/spec/system';
@@ -1232,7 +1245,7 @@ export type {
  * (`id` / `type` / `title` / `body` / `read` / `data` / `actionUrl` /
  * `createdAt`), with none of `severity` / `duration` / `dismissible` /
  * `actions` / `position`. Same name, different shape: aliasing it here would
- * re-create the very dual-source trap #4610 closed.
+ * re-create the very dual-source trap objectstack-ai/objectstack#4610 closed.
  *
  * The live objectui equivalent of the removed config is
  * `NotificationSystemConfig` in `@object-ui/react`'s `NotificationContext`,
@@ -1322,7 +1335,7 @@ export type {
 // v3.0.8 Spec UI Types — Form View (P1.2)
 // ============================================================================
 // Deliberate public aliases (the `Spec` prefix IS the disambiguation the
-// #3090 tripwire exists to force). #4171 caveat: SpecFormField is `any` today.
+// #3090 tripwire exists to force). objectstack-ai/objectstack#4171 caveat: SpecFormField is `any` today.
 /* eslint-disable no-restricted-imports -- reported at the specifier line, out of -next-line reach */
 export type {
   FormView as SpecFormView,

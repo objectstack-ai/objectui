@@ -25,7 +25,7 @@ import { toRuntimeMessages } from './chatMessageAdapter';
  * - Uses @ai-sdk/react for SSE streaming, tool-calling, and production-grade chat
  * - Connects to service-ai backend (e.g., /api/v1/ai/chat)
  * - Supports streaming, stop, reload, clear actions
- * - Schema fields: api, conversationId, systemPrompt, model, streamingEnabled, headers, requestBody, maxToolRoundtrips
+ * - Schema fields: api, conversationId, systemPrompt, model, streamingEnabled, headers, requestBody
  * 
  * **Legacy Mode** (when `api` is not set):
  * - Local auto-response for demo/playground use
@@ -33,9 +33,15 @@ import { toRuntimeMessages } from './chatMessageAdapter';
  * 
  * Both modes support the `onSend` callback:
  * - Signature: `onSend(content: string, messages: ObjectChatMessage[]): void`
- *   — the hook's own message shape (objectui#4424). A host callback that
- *   declares `@object-ui/types`' `ChatMessage[]` still type-checks; naming
- *   `ObjectChatMessage` is what lets it read the render-only keys.
+ *   — the hook's own message shape (objectui#4424). The schema's slot,
+ *   `ChatbotSchema.onSend`, types its parameter as the authoring message
+ *   widened by the three runtime-only approval states, so let a host
+ *   callback's parameter be inferred from that slot. A callback that declares
+ *   `@object-ui/types`' authoring `ChatMessage[]` no longer type-checks
+ *   (objectui#10018): the messages it receives can carry approval states that
+ *   contract refuses. `ObjectChatMessage[]` is the parameter type that fits
+ *   `useObjectChat`'s own `onSend` slot, and naming it is what lets a callback
+ *   read the render-only keys.
  *
  * ## What reaches the host element (objectui#4431)
  *
@@ -83,7 +89,6 @@ ComponentRegistry.register('chatbot',
       streamingEnabled: schema.streamingEnabled,
       headers: schema.headers,
       body: schema.requestBody,
-      maxToolRoundtrips: schema.maxToolRoundtrips,
       onError: schema.onError,
       showTimestamp: schema.showTimestamp,
       autoResponse: schema.autoResponse,
@@ -272,7 +277,6 @@ ComponentRegistry.register('chatbot-enhanced',
       streamingEnabled: schema.streamingEnabled,
       headers: schema.headers,
       body: schema.requestBody,
-      maxToolRoundtrips: schema.maxToolRoundtrips,
       onError: schema.onError,
       showTimestamp: schema.showTimestamp,
       autoResponse: schema.autoResponse,
@@ -387,9 +391,9 @@ ComponentRegistry.register('chatbot-floating',
   // spread after that prop, so the verdict overrode the raw value on every
   // render. Naming it changes no outcome; it keeps one carrier for one
   // question (AGENTS.md #0.1) and lets the published face inherit
-  // `BaseSchema.disabled` (`boolean | string`) unnarrowed (objectui#7087) —
+  // `BaseSchema.disabled` (`boolean | string`) unnarrowed (`c93b4d5f3`) —
   // a raw forward of that union into the panel's `boolean` prop would not
-  // type-check, and narrowing the face to make it fit is the shape #7087
+  // type-check, and narrowing the face to make it fit is the shape `c93b4d5f3`
   // retired.
   ({ schema, className, disabled: hostDisabled, ...props }: { schema: ChatbotFloatingSchema; className?: string; disabled?: boolean; [key: string]: any }) => {
     const {
@@ -410,7 +414,6 @@ ComponentRegistry.register('chatbot-floating',
       streamingEnabled: schema.streamingEnabled,
       headers: schema.headers,
       body: schema.requestBody,
-      maxToolRoundtrips: schema.maxToolRoundtrips,
       onError: schema.onError,
       showTimestamp: schema.showTimestamp,
       autoResponse: schema.autoResponse,
@@ -434,7 +437,7 @@ ComponentRegistry.register('chatbot-floating',
     return (
       <FloatingChatbot
         // Fenced and FIRST — matches the two sibling registrations above
-        // (objectui#7708). Was a raw `{...props}` spread LAST: every authored
+        // (`d3499b315`). Was a raw `{...props}` spread LAST: every authored
         // key `SchemaRenderer` forwarded reached the panel's `ChatbotEnhanced`
         // unfiltered, so `processVisibility`, `surface` and `showAvatars` were
         // live here although `ChatbotFloatingSchema` declares none of them,
@@ -478,7 +481,7 @@ ComponentRegistry.register('chatbot-floating',
     // selector of presentation, and `<FloatingChatbot>` below renders
     // unconditionally — while `defaultProps` wrote `'floating'` into every
     // designer-created node. The control is restated, not deleted into a
-    // vacuum (objectui#7070): the restatement is the `?: never` tombstone on
+    // vacuum (`5f4514f7b`): the restatement is the `?: never` tombstone on
     // `ChatbotSchema` / `ChatbotFloatingSchema` in `@object-ui/types` and the
     // release note. Stored documents carrying the key are unaffected — it has
     // no Zod arm and `BaseSchema` is `.passthrough()`, so they parse exactly

@@ -15,17 +15,17 @@ import type { BatchTransactionOperation, QueryParams, QueryResult } from '@objec
 
 export interface DataSource<T = unknown> {
   find(resource: string, params?: QueryParams): Promise<QueryResult<T>>;
-  findOne(resource: string, id: string | number, params?: QueryParams): Promise<T | null>;
+  findOne(resource: string, id: string, params?: QueryParams): Promise<T | null>;
   create(resource: string, data: Partial<T>): Promise<T>;
   update(
     resource: string,
-    id: string | number,
+    id: string,
     data: Partial<T>,
     opts?: { ifMatch?: string },
   ): Promise<T>;
   delete(
     resource: string,
-    id: string | number,
+    id: string,
     opts?: { ifMatch?: string },
   ): Promise<boolean>;
 
@@ -230,7 +230,9 @@ the binding from the props it spreads for exactly this reason.
 size are applied to the render, so a page never has to keep a second copy of a
 view's configuration. `filter` is *additional* criteria — it AND-combines with the
 view's filter rather than replacing it — while `sort` and `limit` override the
-view's. A `view` name that does not resolve is reported as a configuration error;
+view's. Only a usable `limit` overrides: a binding cap the contract refuses (`0`,
+a negative, a non-integer) is treated as not authored and yields to the view's
+cap exactly as an absent one would, and the view's cap is held to the same rule. A `view` name that does not resolve is reported as a configuration error;
 it never degrades into an unfiltered query for the object.
 
 `@object-ui/react` exposes `useElementDataSource(schema, dataSource?)` for
@@ -251,6 +253,7 @@ ignores would be accepted and dropped, which is the defect this binding removes.
 | `list-view` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `object-grid` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `element:record_picker` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `element:number` | ✅ | filter | ✅ | — single value | — single value |
 | `record:related_list` | ✅ | columns / filter / sort / limit | ✅ | ✅ | ✅ |
 | `object-calendar` | ✅ | filter / sort | ✅ | ✅ | — platform ceiling |
 | `object-kanban` | ✅ | filter / limit | ✅ | — no ordering | ✅ (`limit`) |
@@ -276,6 +279,21 @@ lists, fetches and writes is `childObject`. Its `relationshipField` is *not* par
 of the binding and stays the author's — it has to name a field on the bound child
 object, so rebinding `object` without updating it is an authoring error the panel
 cannot paper over.
+
+The two `element:*` rows keep their configuration in the node's `properties` bag,
+so the binding does not land on a schema key there: each reads it directly, and
+`dataSource.object` wins over `properties.object`. They differ on `filter`.
+`element:record_picker` takes the binding's (or its view's) filter in place of
+`properties.filter`, which applies only when neither supplies one.
+`element:number` AND-combines `properties.filter` with the binding's filter and
+its view's — the rule the gate-wrapped blocks above follow — so neither is
+dropped, and a filter refused while combining them shows the configuration-error
+panel instead of a count. On `element:number`,
+`{ "dataSource": { "object": "contact" }, "properties": { "aggregate": "count" } }`
+is a complete metric; its `sort` and `limit` are not read, because an aggregate
+has no ordering and a capped count would be a wrong number. An `element:number`
+that sets `aggregate` but names no object in either place (no `properties.object`,
+no `dataSource.object`) shows a short "no object named" notice instead of a count.
 
 On `record:related_list` and `record:line_items` the composed filter is
 AND-combined with the parent relationship condition, never substituted for it: a

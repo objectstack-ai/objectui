@@ -23,7 +23,7 @@
  * rendering says so, which is what the footnote is for.
  *
  * REVERSE VERIFICATION — MEASURED, and corrected from what this docblock used
- * to predict (objectui#7507). Removing `$top: NON_GRID_ROW_CEILING_TOP` from
+ * to predict (objectui#7507). Removing `...nonGridRowCeilingQuery()` from
  * `ObjectTree`'s record fetch turns the truncation case red at the **`$top`
  * assertion** and there only, 1 failed / 1 passed; the below-ceiling case
  * stays green.
@@ -41,7 +41,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { NON_GRID_ROW_CEILING, NON_GRID_ROW_CEILING_TOP } from '@object-ui/react';
+import { NON_GRID_ROW_CEILING, nonGridRowCeilingQuery } from '@object-ui/core';
 import { ObjectTree } from './ObjectTree';
 
 // objectui#6892 slice 9 — inherit the real surface, but through `<any>` rather
@@ -115,7 +115,7 @@ describe('objectui#7210 ruling a′ — the tree draws at most the platform ceil
 
     expect(calls.length).toBeGreaterThan(0);
     for (const params of calls) {
-      expect(params.$top).toBe(NON_GRID_ROW_CEILING_TOP);
+      expect(params.$top).toBe(nonGridRowCeilingQuery().$top);
     }
 
     const note = screen.getByRole('note');

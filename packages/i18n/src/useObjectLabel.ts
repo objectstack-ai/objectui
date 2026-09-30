@@ -268,8 +268,8 @@ export function useObjectLabel() {
    * name under `_views` — the runtime view identity's own name, stripped of the
    * object prefix. That single spelling is canonical per the objectstack#5164
    * ruling A (2026-08-06): the i18n extractor asks the view composer for the key
-   * (objectstack#6124) and `packages/lint` enforces exactly that spelling
-   * (objectstack#6038), so this resolver accepts exactly what those produce.
+   * (objectstack `b3c1f3cd5`) and `packages/lint` enforces exactly that spelling
+   * (objectstack `7618ee814`), so this resolver accepts exactly what those produce.
    *
    * Deliberately NOT a second candidate: the prefixed full name
    * (`_views.<objectName>.<viewName>`). Accepting it made this client more
@@ -370,7 +370,7 @@ export function useObjectLabel() {
      * reaches this client — so nav labels arrive already localized. One
      * owner, not two. To translate a sidebar group, translate it there.
      *
-     * History (objectui#5197): until then this docstring promised
+     * History (`9c60144b5`): until then this docstring promised
      * `"Sales" → "销售"` for sidebar groups, and `NavigationRenderer`
      * accepted `resolveGroupLabel`/`resolveItemLabel` to wire it up. Those
      * props could never fire — the renderer's `isCustomized` guard compared a

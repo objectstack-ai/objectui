@@ -14,7 +14,8 @@ anomaly reached nobody. This is the rendering half.
 
 **New:** `useReadRateReading` (a hook beside `useAiUsage`) and `ReadRateBanner` (a
 layout surface beside `ImpersonationBanner`, mounted in `ConsoleShell` so every console
-route including `/home` carries it). Both are exported from `@object-ui/app-shell`.
+route including `/home` carries it). Neither is exported from the package entry; a host
+reaches the banner only through `ConsoleShell`, which mounts it.
 
 Three properties of the contract shape the implementation, and each is pinned by a test:
 

@@ -308,7 +308,7 @@ packages/
 │   ├── actions/         # ActionRunner, TransactionManager
 │   ├── validation/      # Schema validation engine
 │   ├── adapters/        # Data source adapters (API, Value)
-│   ├── data-scope/      # DataScopeManager
+│   ├── data-scope/      # ViewDataProvider, element data sources
 │   ├── query/           # Query AST (filtering/sorting)
 │   ├── theme/           # ThemeEngine
 │   └── builder/         # Schema builder utilities

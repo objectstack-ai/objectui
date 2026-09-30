@@ -11,22 +11,25 @@ describe('datasetFilterCondition', () => {
   it('serializes multiple conditions as a flat $and', () => {
     expect(groupToCondition({ logic: 'and', conditions: [
       { field: 'stage', operator: 'equals', value: 'won' },
-      { field: 'amount', operator: 'greaterThan', value: 1000 },
+      { field: 'amount', operator: 'greater_than', value: 1000 },
     ] })).toEqual({ $and: [{ stage: { $eq: 'won' } }, { amount: { $gt: 1000 } }] });
   });
 
   it('maps isEmpty/isNotEmpty to $exists', () => {
-    expect(groupToCondition({ logic: 'and', conditions: [{ field: 'closed_at', operator: 'isNotEmpty' }] }))
+    expect(groupToCondition({ logic: 'and', conditions: [{ field: 'closed_at', operator: 'is_not_empty' }] }))
       .toEqual({ closed_at: { $exists: true } });
   });
 
   it('drops unmapped operators rather than emitting a bad filter', () => {
-    // The claim is unchanged; the FIXTURE moved. `notContains` stopped being
-    // an unmapped operator in objectui#9372 (it is bridged to `$notContains`,
-    // asserted there), so keeping it here would have pinned a branch it no
-    // longer reaches — an assertion that passes because nothing is produced.
-    // `between` is the operator this bridge still declines to emit.
-    expect(groupToCondition({ logic: 'and', conditions: [{ field: 'x', operator: 'between', value: [1, 5] }] }))
+    // The claim is unchanged; the FIXTURE moved, twice. `notContains` stopped
+    // being unmapped in objectui#9372 and `between` in objectui#10062 (both
+    // asserted as EMITTED in `datasetFilterCondition.unmappedInert-9372`), so
+    // keeping either here would pin a branch it no longer reaches — an
+    // assertion that passes because nothing is produced. `exists` is an opt-in
+    // operator this bridge does not map (the fixture was
+    // `containsCaseInsensitive` until objectui#9306 made that one ordinary and
+    // mapped it).
+    expect(groupToCondition({ logic: 'and', conditions: [{ field: 'x', operator: 'exists', value: '' }] }))
       .toBeUndefined();
   });
 
@@ -42,10 +45,10 @@ describe('datasetFilterCondition', () => {
     // a complete row alongside an incomplete one keeps only the complete one
     expect(groupToCondition({ logic: 'and', conditions: [
       { field: 'stage', operator: 'equals', value: 'won' },
-      { field: 'amount', operator: 'greaterThan', value: '' },
+      { field: 'amount', operator: 'greater_than', value: '' },
     ] })).toEqual({ stage: { $eq: 'won' } });
     // value-less operators are still kept
-    expect(groupToCondition({ logic: 'and', conditions: [{ field: 'closed_at', operator: 'isNotEmpty', value: '' }] }))
+    expect(groupToCondition({ logic: 'and', conditions: [{ field: 'closed_at', operator: 'is_not_empty', value: '' }] }))
       .toEqual({ closed_at: { $exists: true } });
   });
 

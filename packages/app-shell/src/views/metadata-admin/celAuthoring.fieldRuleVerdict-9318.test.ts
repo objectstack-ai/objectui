@@ -42,7 +42,8 @@
 import { describe, it, expect } from 'vitest';
 import { fieldRuleRootIssue, FIELD_RULE_BOUND_ROOTS } from '@objectstack/lint';
 import { SCOPE_ROOTS } from '@objectstack/formula';
-import { lintCelPredicate } from './celAuthoring';
+import { lintCelPredicate, type CelLintIssue } from './celAuthoring';
+import { tFormat } from './i18n';
 
 const HINT = { objectName: 'account', fields: ['organization_id', 'owner_id', 'status', 'amount'] };
 /** A field conditional rule — a slot the published helper's vocabulary covers. */
@@ -53,6 +54,13 @@ const UNSLOTTED_HINT = { ...HINT, scope: 'record' as const };
 /** objectui's own advisory sentence; the engine's never contains it. */
 const OBJECTUI_MESSAGE_MARKER = /Re-root/;
 
+/**
+ * What a finding reads in English: the producer's message as written, or the
+ * en row of the sentence objectui words itself, which the lint hands back as a
+ * catalogue key (objectui#10862).
+ */
+const en = (i: CelLintIssue): string => (i.messageKey ? tFormat(i.messageKey, 'en-US', i.messageVars) : i.message);
+
 describe('celAuthoring · the field-rule verdict is the published one (objectui#9318)', () => {
   it('TRUE POSITIVE — a covered slot takes BOTH the verdict and the message from `fieldRuleRootIssue`', async () => {
     const source = "data.status == 'x'";
@@ -61,7 +69,7 @@ describe('celAuthoring · the field-rule verdict is the published one (objectui#
     // The helper has something to say about this source — if it ever stops,
     // this pin is measuring nothing and must be re-derived, not relaxed.
     expect(engine).not.toBeNull();
-    const advisory = issues.filter((i) => i.severity === 'warning' && i.message === engine!.message);
+    const advisory = issues.filter((i) => i.severity === 'warning' && en(i) === engine!.message);
     // Verbatim equality against the helper's OWN output, evaluated here rather
     // than transcribed: this asserts "objectui ships the engine's message" and
     // can never drift with upstream wording the way a quoted string would.
@@ -70,7 +78,7 @@ describe('celAuthoring · the field-rule verdict is the published one (objectui#
 
   it('ships ONE message, never both — objectui\'s sentence is gone from the covered path', async () => {
     const issues = await lintCelPredicate("data.status == 'x'", RULE_SLOT_HINT);
-    expect(issues.filter((i) => OBJECTUI_MESSAGE_MARKER.test(i.message))).toEqual([]);
+    expect(issues.filter((i) => OBJECTUI_MESSAGE_MARKER.test(en(i)))).toEqual([]);
     expect(issues.filter((i) => i.severity === 'warning')).toHaveLength(1);
   });
 
@@ -100,7 +108,7 @@ describe('celAuthoring · the field-rule verdict is the published one (objectui#
     // replaces — ⛔ not a set relation between the two surfaces' bound roots,
     // which are incomparable (see the header).
     const issues = await lintCelPredicate('current_user.isAdmin', RULE_SLOT_HINT);
-    const advisory = issues.filter((i) => i.severity === 'warning' && /current_user/.test(i.message));
+    const advisory = issues.filter((i) => i.severity === 'warning' && /current_user/.test(en(i)));
     expect(advisory).toHaveLength(1);
     expect(issues.filter((i) => i.severity === 'error')).toEqual([]);
   });
@@ -108,9 +116,9 @@ describe('celAuthoring · the field-rule verdict is the published one (objectui#
   it('stands down on a parse error and on a non-CEL dialect, like the path it replaces', async () => {
     const broken = await lintCelPredicate('data.status ==', RULE_SLOT_HINT);
     expect(broken.some((i) => i.severity === 'error')).toBe(true);
-    expect(broken.filter((i) => i.severity === 'warning' && /\bdata\b/.test(i.message))).toEqual([]);
+    expect(broken.filter((i) => i.severity === 'warning' && /\bdata\b/.test(en(i)))).toEqual([]);
     const legacy = await lintCelPredicate('${data.status}', RULE_SLOT_HINT);
-    expect(legacy.filter((i) => i.severity === 'warning' && /\bdata\b/.test(i.message))).toEqual([]);
+    expect(legacy.filter((i) => i.severity === 'warning' && /\bdata\b/.test(en(i)))).toEqual([]);
   });
 });
 
@@ -123,7 +131,7 @@ describe('celAuthoring · the UNCOVERED surfaces keep the local fallback (object
     // authority — asserting they are bound where this surface binds only
     // `record`. A false green, which is worse than the silence it replaces.
     const issues = await lintCelPredicate('data.amount * 0.2', { ...UNSLOTTED_HINT, role: 'value' as const });
-    const advisory = issues.filter((i) => i.severity === 'warning' && OBJECTUI_MESSAGE_MARKER.test(i.message));
+    const advisory = issues.filter((i) => i.severity === 'warning' && OBJECTUI_MESSAGE_MARKER.test(en(i)));
     expect(advisory).toHaveLength(1);
     expect(issues.filter((i) => i.severity === 'error')).toEqual([]);
   });
@@ -185,7 +193,7 @@ describe('celAuthoring · platform drift tripwire (objectui#9318)', () => {
       const engine = fieldRuleRootIssue('visibleWhen', source);
       // Verbatim equality with the helper's own output, as elsewhere in this
       // file — never a transcribed string.
-      if (engine && issues.some((i) => i.severity === 'warning' && i.message === engine.message)) advised.push(root);
+      if (engine && issues.some((i) => i.severity === 'warning' && en(i) === engine.message)) advised.push(root);
       else if (issues.some((i) => i.severity === 'error')) blocked.push(root);
       else silent.push(root);
     }

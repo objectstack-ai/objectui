@@ -32,8 +32,9 @@
  *   behaviour and is deliberately preserved: `context` is documented as an
  *   "Override context for this specific action".
  *
- *   `...paramsPayload` (`action:button` only) can carry only `params` or
- *   `actionParams`, and NEITHER is an explicit key of the surrounding literal —
+ *   `...paramsPayload` (`action:button`, and `action:icon` since
+ *   objectui#10289) can carry only `params` or `actionParams`, and NEITHER is
+ *   an explicit key of the surrounding literal —
  *   the two key sets are disjoint, so its position cannot decide a collision.
  *   It is nonetheless kept in its original position, so the resulting key ORDER
  *   is unchanged too, and that is asserted rather than argued.
@@ -61,8 +62,10 @@ import '../action-icon';
 
 /**
  * A declaration touching every key whose FORWARD ORDER the hoist could have
- * disturbed. `params` is a plain object (a values map), so `action:button` takes
- * the `{ params }` branch of `paramsPayload` — the branch that sits mid-literal.
+ * disturbed. The static values ride `properties.params` (objectui#10289, ruling
+ * A: `params` itself is only the `ActionParam[]` input list), so both surfaces
+ * take the `{ params }` branch of `paramsPayload` — the branch that sits
+ * mid-literal.
  */
 const ACTION = {
   name: 'create_environment',
@@ -76,7 +79,7 @@ const ACTION = {
   openIn: 'new-tab',
   endpoint: '/api/v1/environments',
   method: 'POST',
-  params: { region: 'eu-west-1' },
+  properties: { params: { region: 'eu-west-1' } },
   bodyExtra: { source: 'console' },
   bodyShape: { wrap: 'data' },
   locations: ['list_toolbar'],
@@ -89,10 +92,11 @@ const CONTEXT = { target: 'contextWins', extraFromHost: 'present' };
  * The exact key order `action:button` composes, top to bottom of its literal.
  * `params` sits where `...paramsPayload` sits — ninth, not last.
  *
- * `onSuccess` is the tail entry as of objectui#5493 (the declared post-success
- * hop). A whitelist key APPENDED moves nothing, which is exactly the reading
- * these two lists exist to give: the diff shows one added name and no
- * re-ordering of the keys the #4281 hoist was about.
+ * `onSuccess` (objectui#5493, the declared post-success hop) and then
+ * `objectName` (objectui#4202, the object the action declares it acts on) were
+ * each APPENDED at the tail. A whitelist key appended moves nothing, which is
+ * exactly the reading these two lists exist to give: the diff shows one added
+ * name and no re-ordering of the keys the #4281 hoist was about.
  *
  * `operation` / `patch` (objectui#7551) are the first pair added in the MIDDLE
  * rather than at the tail — they sit with `bodyExtra` / `bodyShape` because
@@ -106,15 +110,19 @@ const BUTTON_ORDER = [
   'type', 'name', 'label', 'description', 'target', 'openIn', 'endpoint', 'method',
   'params',
   'bodyExtra', 'bodyShape', 'operation', 'patch', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
-  'undoable', 'recordIdField', 'locations', 'toast', 'resultDialog', 'onSuccess',
+  'undoable', 'recordIdField', 'locations', 'toast', 'resultDialog', 'onSuccess', 'objectName',
 ];
 
-/** `action:icon` has no `paramsPayload`; `params` is an ordinary explicit key. */
+/**
+ * `action:icon` routes `params` through the same `...paramsPayload` as
+ * `action:button` (objectui#10289); the spread sits where its explicit
+ * `params` key used to, so the order is unchanged.
+ */
 const ICON_ORDER = [
   'type', 'name', 'label', 'description', 'target', 'openIn', 'endpoint', 'method',
   'params',
   'bodyExtra', 'bodyShape', 'operation', 'patch', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
-  'locations', 'toast', 'resultDialog', 'onSuccess',
+  'locations', 'toast', 'resultDialog', 'onSuccess', 'objectName',
 ];
 
 // See action-bodyExtra-forward.test.tsx for why this is not

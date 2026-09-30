@@ -49,7 +49,7 @@ export function humanizeFieldKey(key: string): string {
  * chart for the same widget rendered the humanized one (objectui#9172). That
  * card is what moved this here rather than growing a second copy of the
  * three-arm logic: a helper duplicated across the two relays is exactly the
- * "one value, two spellings" class objectui#5425 ruled out.
+ * "one value, two spellings" class `56f4e34c0` ruled out.
  *
  * ⭐ THREE ARMS, and only the last two derive a display string from a FIELD
  * KEY:
@@ -126,7 +126,7 @@ export function deriveStaticTableColumns(rows: unknown): Array<{ header: string;
 // vocabularies (date macros AND `{current_user_id}` / `{current_org_id}`).
 // Calling `resolveDateMacros` alone is exactly what left every dashboard
 // widget unable to resolve user-scoped filters — they silently rendered 0
-// (framework #3574).
+// (objectstack-ai/objectstack#3574).
 export { resolveDateMacros, resolveFilterPlaceholders } from '@object-ui/core';
 
 // Re-export compareTo helpers from core for convenience.

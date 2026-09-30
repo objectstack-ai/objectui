@@ -45,7 +45,7 @@ interface TextSchema {
 > fallback of `content || value` — and it is no longer part of `TextSchema` on
 > either face. A `text` node that authors `value` now fails validation with:
 >
-> > RETIRED (objectui#6951) — `value` is no longer part of TextSchema; write
+> > RETIRED (ADR-0049) — `value` is no longer part of TextSchema; write
 > > `content`. …
 >
 > Rename the key to `content`; the string is unchanged. Measured before the

@@ -108,10 +108,17 @@ describe('`owner` field-type retirement (objectui#4814)', () => {
 
   describe('both authored spellings land on the visible refusal', () => {
     it('registers the tombstone under `field:owner`, so `widget: "field:owner"` reaches it', () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
       registerAllFields();
       // This is the exact lookup `form.tsx`'s `renderFieldComponent` performs
       // for BOTH `widget: 'field:owner'` and a hand-written `type: 'owner'`.
-      expect(ComponentRegistry.get(`field:${RETIRED}`)).toBe(RetiredFieldTombstone);
+      // The entry is the tombstone BOUND to its spelling (objectui#10471), so
+      // it is judged by what it renders rather than by identity.
+      const Registered = ComponentRegistry.get(`field:${RETIRED}`)!;
+      render(<Registered field={{ type: RETIRED }} />);
+      expect(
+        screen.getByTestId('field-retired-tombstone').getAttribute('data-retired-field-type'),
+      ).toBe(RETIRED);
     });
 
     it('does not claim the bare `owner` global name', () => {
@@ -158,7 +165,7 @@ describe('`owner` field-type retirement (objectui#4814)', () => {
       expect(mapFieldTypeToFormType(SURVIVOR)).toBe(`field:${SURVIVOR}`);
       expect(resolveFormWidgetType(SURVIVOR)).toBe(SURVIVOR);
       expect(ComponentRegistry.get(`field:${SURVIVOR}`)).toBeTruthy();
-      expect(ComponentRegistry.get(`field:${SURVIVOR}`)).not.toBe(RetiredFieldTombstone);
+      expect(ComponentRegistry.get(`field:${SURVIVOR}`)).not.toBe(ComponentRegistry.get(`field:${RETIRED}`));
       expect(getCellRenderer(SURVIVOR)).not.toBe(TextCellRenderer);
 
       // Nothing about a live type may reach the retirement machinery.

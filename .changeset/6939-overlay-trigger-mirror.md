@@ -4,8 +4,8 @@
 
 Repair the `tooltip` and `context-menu` mirrors: declare the keys their renderers
 actually read, and stop requiring the `children` neither of them reads
-(objectui#6939, maintainer ruling recorded 2026-09-02 — this is one of the eight
-groups on that card, dispatched as its own PR per the ruling).
+(maintainer ruling recorded 2026-09-02 — this is one of the eight groups under
+that ruling, dispatched as its own PR per the ruling).
 
 Both members demanded `children` and omitted keys the renderer reads first, so
 `safeValidateSchema` refused two catalog entries that draw correctly:

@@ -123,7 +123,7 @@ export function AppManagementPage() {
    *
    * `t` is passed on deliberately: an app's `label` may be objectui's KEYED
    * form (`{ key, defaultValue }`), and the resolver only reaches the pack when
-   * it is handed a translator — the same call shape `AppSidebar` and
+   * it is handed a translator — the same call shape `AppSwitcher` and
    * `DashboardView` already use. Without it a keyed label renders its authoring
    * `defaultValue` on every locale; interpolating `app.label` directly (what
    * these labels did before this page was keyed) renders `[object Object]`.

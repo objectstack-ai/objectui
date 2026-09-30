@@ -21,17 +21,19 @@
  * `AriaPropsSchema`, the opposite of the contract: the member-level instance
  * of #4631's "declared surfaces disagree".
  *
- * What the deletion changes at the type level, stated honestly: `BaseSchema`
- * carries `[key: string]: any`, so an authored `aria:` on a dashboard literal
- * still COMPILES after the removal — it falls to the index signature. A
- * `@ts-expect-error` pin on an authored literal therefore cannot stick here
- * (unlike `default-children-retired-contract-twins.test.ts`, whose interface
- * has no index signature). The pinnable effect is that `aria` stops being a
- * DECLARED member: the probe below extracts the interface's literal key set —
- * the index signature is filtered out by `string extends K` — and asserts
- * `aria` is out while its former neighbours stay in. Real enforcement because
- * `packages/types/tsconfig.test.json` is chained from this package's
- * `type-check` script (#3009).
+ * What the deletion changed at the type level, stated honestly: `BaseSchema`
+ * carries `[key: string]: any`, so after the removal an authored `aria:` on a
+ * dashboard literal still COMPILED — it fell to the index signature, and a
+ * `@ts-expect-error` pin on an authored literal could not stick.
+ *
+ * objectui#9736 closed that half. The interface now extends the spec's own
+ * `Dashboard` input type (`Omit< Dashboard, … >` over the exclusion list its
+ * mirror reads), so it inherits the spec's tombstone as a DECLARED member typed
+ * `undefined` — `aria` is back in the declared key set, but only as a refusal,
+ * and an authored value is a compile error: the same verdict the Zod twin gives
+ * at parse. The pins below assert exactly that, with the former neighbours as
+ * the control. Real enforcement because `packages/types/tsconfig.test.json` is
+ * chained from this package's `type-check` script (#3009).
  */
 
 import { describe, it, expect } from 'vitest';
@@ -43,18 +45,24 @@ import { DashboardComponentSchema as DashboardComponentZodSchema } from '../zod/
 type DeclaredKeys<T> = { [K in keyof T as string extends K ? never : K]: T[K] };
 type Declared = keyof DeclaredKeys<DashboardComponentSchema>;
 
-describe('the TS interface no longer declares `aria` (objectui#5830)', () => {
-  it('`aria` is not a declared member; the neighbours it stood beside still are', () => {
-    // Type-level pin, erased at runtime: if the member came back, the first
-    // annotation would collapse to `false` and this file would fail
-    // `type-check`. (Reverse-verified at the PR: with the member restored,
-    // `tsc -p tsconfig.test.json` goes red on exactly this line.)
-    const ariaNotDeclared: 'aria' extends Declared ? false : true = true;
+describe('the TS interface declares `aria` only as the spec tombstone (objectui#5830, objectui#9736)', () => {
+  it('`aria` is declared, typed `undefined`; the neighbours it stood beside still are', () => {
+    // Type-level pins, erased at runtime. `aria` is a DECLARED key again — the
+    // spec projection carries the tombstone — and its type admits no value.
+    const ariaDeclared: 'aria' extends Declared ? true : false = true;
+    const ariaAdmitsNoValue: [DashboardComponentSchema['aria']] extends [undefined] ? true : false = true;
     // Positive controls through the same extraction: a probe that saw no
     // members at all would also report `aria` absent.
     const widgetsDeclared: 'widgets' extends Declared ? true : false = true;
     const dateRangeDeclared: 'dateRange' extends Declared ? true : false = true;
-    expect(ariaNotDeclared && widgetsDeclared && dateRangeDeclared).toBe(true);
+    expect(ariaDeclared && ariaAdmitsNoValue && widgetsDeclared && dateRangeDeclared).toBe(true);
+  });
+
+  it('an authored `aria` value is a compile error — no longer absorbed by the index signature', () => {
+    const legal: DashboardComponentSchema = { type: 'dashboard', widgets: [] };
+    // @ts-expect-error — `aria` is the spec's retirement tombstone (objectui#9736).
+    const authored: DashboardComponentSchema = { type: 'dashboard', widgets: [], aria: { ariaLabel: 'Ops' } };
+    expect([legal.type, authored.type]).toEqual(['dashboard', 'dashboard']);
   });
 });
 

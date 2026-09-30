@@ -15,7 +15,7 @@
  * row" into anything a user could perceive. Announcing is the presentation
  * layer's job, and it is entirely a question about DIFFS — which is why the
  * decision lives here as a pure module rather than inline in the hook that
- * presents: the three rules that decide it are the three ways the feature gets
+ * presents: the four rules that decide it are the four ways the feature gets
  * user-hostile, and each one is worth a test that can fail on its own.
  *
  *  1. **The first answered read never announces.** Historical unread at login
@@ -34,6 +34,15 @@
  *     `(topic, title)` rule (`groupNotifications`) rather than a second rule
  *     invented here — the bell already answers "how many distinct things is
  *     this really?" that way, and two answers to that question would drift.
+ *  4. **What the user caused themselves does not announce (objectui#8667).**
+ *     Assigning yourself a task, or any flow that lists its initiator among the
+ *     recipients, writes an inbox row whose `actor_id` is the reader's own id.
+ *     The message is right and the moment is noise: the user is looking at the
+ *     thing they just did. Such a row is still SEEN, so it cannot announce on
+ *     a later poll either. Only a concrete id equal to the signed-in user's
+ *     suppresses; `null` (a digest row, which has no single actor) and an
+ *     absent value (a server older than the column, objectstack#16974) mean
+ *     "no known actor" and announce exactly as before.
  *
  * ## Why the seen set is module-scoped rather than a ref
  *
@@ -104,7 +113,10 @@ export function rememberSeen(
  * announcements are switched on — a user who enables toasts mid-session must
  * not be greeted by every message that arrived while they were off.
  *
- * @param key   Session identity the memory belongs to — the signed-in user id.
+ * @param key   The signed-in user id. It is the identity the memory belongs to
+ *              AND the comparand for rule 4: the same id the feed filters
+ *              `sys_inbox_message.user_id` by, and the id space the inbox
+ *              channel writes `actor_id` in.
  * @param rows  The feed's current rows, newest first. Only pass rows from a
  *              snapshot whose status is `ready`: a `loading` or `error`
  *              snapshot carries the LAST value, and treating that as this
@@ -125,10 +137,26 @@ export function claimInboxArrivals(
 
   const known = new Set(memory.seen);
   // Unseen AND unread — the card's own definition of what arrived. A row that
-  // is new to this session but already read was consumed elsewhere.
-  const arrivals = rows.filter((row) => !known.has(row.id) && !row.is_read);
+  // is new to this session but already read was consumed elsewhere. And not
+  // caused by the reader (rule 4). Every row, suppressed or not, is still
+  // remembered below: `ids` is the whole window.
+  const arrivals = rows.filter(
+    (row) => !known.has(row.id) && !row.is_read && !causedBy(row, key),
+  );
   memory.seen = rememberSeen(memory.seen, ids);
   return arrivals.length > 0 ? arrivals : NO_ARRIVALS;
+}
+
+/**
+ * Did `userId` cause this row themselves (rule 4)?
+ *
+ * Only a concrete id equal to `userId` answers yes. `null` and `undefined`
+ * never do: they mean "no known actor", and reading either one as anything
+ * beyond "announce as before" would let a digest row, or a row from a server
+ * older than the column, be silenced on a guess.
+ */
+function causedBy(row: InboxNotification, userId: string): boolean {
+  return typeof row.actor_id === 'string' && row.actor_id === userId;
 }
 
 /**

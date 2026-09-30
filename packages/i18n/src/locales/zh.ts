@@ -135,12 +135,12 @@ const zh = {
     printDialogHint: '打开浏览器打印对话框（不是导出 PDF）',
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: '仅显示 {{total}} 条记录中的前 {{shown}} 条。请缩小筛选范围。',
     rowCeilingNoteUnknownTotal: '仅显示前 {{shown}} 条记录。请缩小筛选范围。',
   },
@@ -154,6 +154,14 @@ const zh = {
       acknowledge: '我已保存',
       copyAll: '全部复制',
     },
+    notAvailableHere: '「{{action}}」在当前页面不可用。',
+    completedSuccessfully: '操作已成功完成',
+    failed: '操作失败',
+    parallelFailed: '一个或多个并行操作失败',
+    undo: '撤销',
+    undone: '已撤销更改',
+    undoneOperation: '撤销：{{description}}',
+    redoneOperation: '重做：{{description}}',
   },
   validation: {
     required: '{{field}}不能为空',
@@ -171,8 +179,11 @@ const zh = {
   },
   form: {
     noPermissionToSave: '您没有权限保存这条记录。',
+    noPermissionToCreate: '您没有创建{{object}}的权限，字段均为只读。',
+    noPermissionToEdit: '您没有编辑{{object}}的权限，字段均为只读。',
     submitFailed: '保存失败，请重试。',
     uploadInFlight: '请等待上传完成后再保存。',
+    clearedOnHide: '已清空不再适用于当前取值的字段：{{fields}}',
     removeItem: '移除项目',
     fieldRequired: '此字段为必填项',
     invalidFormat: '格式不正确',
@@ -184,13 +195,35 @@ const zh = {
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: '填写表单字段,然后提交或取消。',
+    deniedDescription: '您没有此字段的编辑权限。',
+    masterDetail: {
+      loadingColumns: '正在加载列…',
+      subtotal: '小计',
+      tax: '税额（{{rate}}%）',
+      total: '合计',
+      lineItem: '明细行',
+      rowTitle: '{{title}} — 第 {{row}} 行',
+      applyRow: '应用',
+      editorDescription: '填写记录及其明细行，然后保存。',
+      noChildObject: '此集合未配置子对象：请将 {{property}} 设为其所列行所属的对象。',
+      schemaUnavailable: '无法加载 {{object}} 的对象结构，因此此集合没有可显示的列。请检查该对象是否存在且可读，然后重新加载。',
+      noRelationshipField: '无法确定 {{object}} 如何关联到 {{parent}}：它没有引用父对象的 lookup 或 master_detail 字段。请在此集合上将 {{property}} 设为保存父记录的字段。',
+    },
+    lineItems: {
+      title: '明细行',
+      saveRecordFirst: '保存记录后才能添加明细行。',
+      notLoaded: '此记录的明细行尚未加载。',
+      loadFailed: '明细行加载失败',
+      saveFailed: '明细行保存失败',
+      noChildObject: '此面板未配置子对象：请将 {{property}} 设为其所列行所属的对象。',
+    },
     keepEditing: '继续编辑',
     discard: '放弃',
     conflictTitle: '保存冲突',
     conflictMessage: '您编辑期间，这条记录已被其他人修改。覆盖保存将用您的内容替换对方的修改。',
     conflictLatestVersion: '对方保存时间：{{time}}',
     conflictOverwrite: '覆盖保存',
-    stepOf: '第{{current}}步，共{{total}}步',
+    stepOf: '第 {{current}} 步，共 {{total}} 步',
     createTitle: '新建{{object}}',
     editTitle: '编辑{{object}}',
     viewTitle: '查看{{object}}',
@@ -201,6 +234,13 @@ const zh = {
     createSuccess: '{{object}}创建成功',
     updateSuccess: '{{object}}更新成功',
     deleteSuccess: '{{object}}删除成功',
+    // objectui#11039 — plugin-form feedback chrome; see the `en` pack.
+    created: '已创建',
+    saved: '已保存',
+    savedNamed: '{{title}}已保存',
+    submitted: '已提交',
+    errorLoading: '表单加载失败',
+    navigateRefused: '此表单声明的 `navigateOnSuccess` 跳转目标被拒绝，因此未执行跳转。',
     fullscreen: {
       title: '编辑文本',
       description: '编辑完整的文本内容，然后保存或取消更改。',
@@ -228,6 +268,7 @@ const zh = {
       remove: '移除 {{name}}',
       exceedsMaxSize: '“{{name}}” 超过大小上限（{{max}} MB）',
       uploadFailed: '上传 “{{name}}” 失败：{{error}}',
+      uploadIncomplete: '“{{name}}” 上传未完成：未返回文件 ID，未保存任何内容',
     },
     image: {
       upload: '上传图片',
@@ -295,6 +336,14 @@ const zh = {
       refusedResidue:
         '未保存：{{name}}“{{text}}”和{{otherName}}“{{otherText}}”不是数字。请输入普通小数（例如 30.2741, 120.1551）。',
     },
+    date: {
+      impossibleDay:
+        '存储的值“{{value}}”不是真实存在的日期。请选择日期以替换它。',
+    },
+    dateTime: {
+      impossibleDay:
+        '存储的值“{{value}}”不是真实存在的日期。请选择日期和时间以替换它。',
+    },
     number: {
       badInput:
         '未保存：此输入框中的文本不是数字。请输入普通小数（例如 {{example}}）。',
@@ -316,6 +365,16 @@ const zh = {
     textarea: {
       characterCount: '已输入 {{count}} 个字符，最多 {{max}} 个',
       charactersRemaining: '还可输入 {{count}} 个字符',
+    },
+    grid: {
+      addLine: '添加行',
+      noItems: '暂无条目',
+      noItemsAddHint: '暂无条目，点击“{{label}}”开始添加。',
+      optionalColumns: '可选列',
+      computed: '自动计算',
+      openRow: '打开行',
+      duplicateRow: '复制行',
+      removeRow: '删除行',
     },
   },
   table: {
@@ -373,13 +432,15 @@ const zh = {
     yes: '是',
     no: '否',
     systemFields: '系统字段',
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: '部分',
-      partialNotice:
-        '仅按已加载的前 {{loaded}} 条(共 {{total}} 条)记录分组。分组计数只统计当前页,记录全部落在已加载行之外的分组不会出现在这里。',
-      partialNoticeUnknownTotal:
-        '仅按已加载的 {{loaded}} 条记录分组。可能还有更多记录符合此视图,因此分组计数可能不完整,某个分组也可能不会出现在这里。',
+      needsHeaderQuery:
+        '此视图已分组，但其数据源未实现 queryGroupHeaders，因此无法统计分组。移除分组即可显示记录。',
+      needsWholeRows:
+        '分组需要全部记录，但此表格只收到其中一页，因此无法统计分组。请传入全部记录，或让表格从实现了 queryGroupHeaders 的数据源获取记录。',
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this
@@ -824,6 +885,7 @@ const zh = {
     },
     aria: {
       taskList: '任务列表',
+      refreshing: '刷新中…',
     },
     tooltip: {
       days: '天',
@@ -968,6 +1030,8 @@ const zh = {
     pathStageLostUpcoming: '{{stage}}，已失败，未到达',
     pathStageWonUpcoming: '{{stage}}，目标阶段，未到达',
     linkCopied: '链接已复制到剪贴板',
+    commentFailed: '评论未发布，内容没有保存，请重试。',
+    reactionFailed: '表情回应未保存，请重试。',
     linkCopyFailed: '复制链接失败',
     cancel: '取消',
     cancelEdit: '放弃更改',
@@ -1021,7 +1085,6 @@ const zh = {
     viewAll: '查看全部',
     new: '新建',
     add: '添加',
-    emptyValue: '—',
     activity: '活动',
     history: '历史',
     historyEmpty: '暂无历史记录',
@@ -1082,11 +1145,6 @@ const zh = {
     attachmentsApiUnavailable: '此对象上的附件列表不可用。',
     retryLoadAttachments: '重试',
     // Diff
-    unifiedDiff: '统一视图',
-    sideBySideDiff: '并排视图',
-    noChanges: '无变更',
-    previousVersion: '旧版本',
-    currentVersion: '新版本',
     // Discussion
     discussion: '讨论',
     showDiscussion: '显示讨论 ({{count}})',
@@ -1105,18 +1163,12 @@ const zh = {
     subscribedTooltip: '已订阅 — 点击取消订阅',
     unsubscribedTooltip: '订阅通知',
     // Navigation
-    firstRecord: '第一条记录 (Home)',
-    previousRecordKey: '上一条记录 (←)',
-    nextRecordKey: '下一条记录 (→)',
-    lastRecord: '最后一条记录 (End)',
     noRecords: '无记录',
     // objectui#3863 — base key. zh has a single plural category (`other`), so this
     // slot is unreachable here and equals `_other` for key-set parity.
     showEmptyRelated: '+ {{count}} 个为空',
     showEmptyRelated_one: '+ {{count}} 个为空',
     showEmptyRelated_other: '+ {{count}} 个为空',
-    searchWhileNavigating: '导航时搜索',
-    searchRecords: '搜索记录…',
     // Activity timeline
     allActivity: '全部动态',
     commentsOnly: '仅评论',
@@ -1166,24 +1218,10 @@ const zh = {
     fileCount: '{{count}} 个文件',
     fileCount_one: '{{count}} 个文件',
     fileCount_other: '{{count}} 个文件',
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: '修订历史',
-    noRevisions: '暂无修订记录',
-    revisionFieldsChanged: '已更改 {{count}} 个字段',
-    revisionFieldsChangedOne: '已更改 {{count}} 个字段',
-    revisionPreview: '修订预览',
-    revisionSnapshot: '此时间点的记录状态',
-    restoreConfirm: '这会将记录恢复到 {{when}} 时的状态。是否继续?',
-    restoring: '正在恢复…',
-    confirmRestore: '确认恢复',
-    restoreToPoint: '恢复到此时间点',
   },
   chart: {
     loading: '图表加载中…',
+    refreshing: '刷新中…',
     nullCategory: '(未指定)',
     scatterOneMeasure: '散点图只绘制一个度量。请只保留一个系列：',
     unconfigured: {
@@ -1237,8 +1275,13 @@ const zh = {
       sourceLabel: '数据源：',
     },
     loading: '加载中…',
+    refreshing: '刷新中…',
+    refreshAll: '全部刷新',
+    refreshDashboard: '刷新仪表盘',
     pickMeasures: '请为该数据集组件选择度量（值）。',
     datasetUnsupported: '当前数据源不支持数据集查询。',
+    widgetForbiddenTitle: '无权访问',
+    widgetForbiddenMessage: '你没有查看该组件数据的权限。',
     details: '明细',
     exportCsv: '导出 CSV',
     openInList: '在列表中打开',
@@ -1385,10 +1428,6 @@ const zh = {
     appDescription: '描述',
     appIcon: '图标',
     template: '模板',
-    layout: '布局',
-    layoutSidebar: '侧边栏',
-    layoutHeader: '顶部导航',
-    layoutEmpty: '空白',
     selectObjects: '选择对象',
     searchObjects: '搜索对象…',
     selectAll: '全选',
@@ -1423,7 +1462,7 @@ const zh = {
     appearance: '外观',
     rowHeight: '行高',
     livePreview: '实时预览',
-    stepBasicDesc: '名称、标题和布局',
+    stepBasicDesc: '名称、标题和图标',
     stepObjectsDesc: '选择业务对象',
     stepNavigationDesc: '构建导航树',
     stepBrandingDesc: 'Logo、颜色和图标',
@@ -1462,6 +1501,7 @@ const zh = {
     navTypeSeparator: '分隔线',
     navTypeAction: '操作',
     navTypeComponent: '组件',
+    navTypeDoc: '文档',
     navEditIcon: '编辑图标',
     navToggleVisible: '切换可见性',
     navHidden: '已隐藏',
@@ -1592,6 +1632,13 @@ const zh = {
       // restore 报告 without a new ruling.
       reports: '报表',
       system: '系统',
+      marketplace: '应用市场',
+      settings: '设置',
+      apps: '应用',
+      profile: '个人资料',
+      approvals: '审批',
+      aiApprovals: 'AI 审批',
+      auditLog: '审计日志',
     },
     nav: {
       pinItem: '固定 {{name}}',
@@ -1736,6 +1783,7 @@ const zh = {
         ctaUpgrade: '升级以继续使用',
         ctaTopUp: '购买额度包以继续',
         ariaLabel: 'AI 用量：{{status}}',
+        breakdownTitle: '已用额度构成',
       },
       workspaceTitle: 'AI 工作区',
       workspaceSubtitle: '提问、查看并继续历史对话',
@@ -1745,6 +1793,31 @@ const zh = {
       share: '分享',
       shareTitle: '分享此对话',
       shareDisabledTitle: '开始对话后即可分享',
+      buildDoctor: '构建诊断',
+      buildDoctorTitle: '构建诊断 — 实际生效了哪些变更？',
+      buildDoctorDisabledTitle: '请先发送一条消息',
+      buildDoctorDrawer: {
+        description: '智能体声称的变更与实际已生效的内容对照。只读诊断。',
+        reconciling: '正在核对…',
+        notAvailable: '不可用——未找到该对话，或你没有访问权限。',
+        untitled: '（无标题）',
+        summary: '{{turns}} 轮 · {{messages}} 条消息 · {{tokens}} tok · LLM {{seconds}} 秒',
+        allLive: '全部 {{count}} 项尝试的变更均已生效——没有丢失。',
+        discrepancies: '{{count}} 处不一致——对话中所说的与实际生效的内容不符。',
+        orphanedTitle: '已提议但从未应用',
+        orphanedHint: '智能体提议了确认卡片，但之后没有任何一轮应用它——该变更被静默丢弃。',
+        missingTitle: '声称已应用但缺失',
+        missingHint: '工具结果称已应用，但该产物并未在 sys_metadata 中生效。',
+        toolErrorsTitle: '工具错误',
+        toolErrorsHint: '构建期间返回错误的工具调用。',
+        verifyTitle: '构建检查（verify_build）',
+        yourApp: '你的应用：',
+        noIssues: '0 个问题',
+        issueCount: '{{count}} 个问题',
+        platformNoise: '已隐藏 {{count}} 条平台 sys_* 发现',
+        pendingActions: '待处理操作',
+        timeline: '时间线（{{count}}）',
+      },
       newChat: '新对话',
       searchChats: '搜索对话…',
       noChatsYet: '暂无对话',
@@ -1963,6 +2036,14 @@ const zh = {
       noWritesTitle: '本环境只有读取、完全没有写入',
       noWrites: '有行被读取,却完全没有任何写入,因此读取比率没有上限。这是最严重的读数。平台会标记高于 {{threshold}} 的比率。没有任何东西被限制或阻断;这只是一份报告,便于检查读取方式。',
     },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: '存储空间即将用满',
+      warning: '已用 {{used}} MB / {{limit}} MB。存储用满后，上传与导入将暂停。',
+      blockedTitle: '存储已满，上传与导入已暂停',
+      blocked: '已用 {{used}} MB / {{limit}} MB。现有数据不受影响，读取、导出与单条记录编辑照常。',
+      upgrade: '升级以继续',
+    },
     errors: {
       somethingWentWrong: '出错了',
       unexpectedError: '渲染此视图时发生意外错误。',
@@ -2032,6 +2113,7 @@ const zh = {
       title: '标题',
       viewType: '视图类型',
       recordCount: '{{count}} 条记录',
+      recordCountOne: '{{count}} 条记录',
       save: '保存',
       discard: '丢弃',
       createView: '创建视图',
@@ -2144,6 +2226,8 @@ const zh = {
       resendOtpCountdownText: '{seconds} 秒后可重新发送',
       usePhoneOtpText: '使用验证码登录',
       usePasswordSignInText: '改用密码登录',
+      socialButton: '使用 {provider} 继续',
+      orText: '或使用邮箱继续',
     },
     register: {
       title: '创建账户',
@@ -2162,8 +2246,12 @@ const zh = {
       submittingButton: '创建中…',
       hasAccountText: '已有账户？',
       signInText: '登录',
+      socialButton: '使用 {provider} 注册',
+      orText: '或使用邮箱继续',
       errors: {
         userExists: '该邮箱已被注册，请直接登录或更换邮箱。',
+        selfRegistrationClosed: '本环境未开放自助注册，请联系管理员获取邀请。',
+        emailDomainNotAllowed: '该邮箱的域名不允许在此注册，请使用组织邮箱，或联系管理员获取邀请。',
       },
       verifyInbox: {
         title: '请检查您的邮箱',
@@ -2699,7 +2787,7 @@ const zh = {
       detailChangedKeys: '其他变更：',
       confirmNote: '发布将一次性（原子地）发布此包全部 {{count}} 个待发布草稿。',
       publishConfirm: '全部发布',
-      // [objectui#5418] Pre-publish security-posture findings, shown next to
+      // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
       securityBlockTitle: '发布会被拒绝 —— 有 {{count}} 项需要先做出决定',
@@ -2744,6 +2832,7 @@ const zh = {
     lookupPlaceholder: '{{label}} 的记录 ID',
     lookupHelpText: '该参数未配置引用对象，无法使用记录选择器。请直接填写记录 ID，或联系管理员修正该动作参数。',
     unresolvedParam: '无法显示该参数：它所依据的字段不在对象元数据中，因此无法构建它所需的控件。请联系管理员修正该动作定义。',
+    carryOverHint: '原样带入（只读）',
     cancel: '取消',
     confirm: '确认',
     uploading: '上传中…',
@@ -2977,15 +3066,17 @@ const zh = {
     submitAnother: '再填一份',
     poweredBy: '由 ObjectStack 提供技术支持',
     secureNotice: '您的信息将通过安全通道传输,仅用于回复您本次请求。',
-    thankYouTitle: '感谢您的提交!',
+    thankYouTitle: '感谢您的提交！',
     thankYouMessage: '我们已成功收到您的信息。',
     redirecting: '将在 {{seconds}} 秒后跳转…',
+    redirectPending: '正在跳转…',
     unavailableTitle: '表单不可用',
     unavailableDescription: '该链接当前没有可用的公开表单。请确认对应视图已启用匿名分享并匹配此 slug。',
     tryDemo: '试用演示',
     retry: '重试',
     loading: '正在加载表单…',
     requiredHint: '* 为必填项',
+    requiredFields: '必填项：{{fields}}',
     consentLabelDefault: '我已阅读并同意隐私政策,授权对本次请求所提供的信息进行处理。',
     consentLink: '隐私政策',
     consentRequired: '请先勾选同意隐私政策。',
@@ -3048,6 +3139,34 @@ const zh = {
     createEnvironment: '创建你的环境',
     openProduction: '打开生产环境',
     manageEnvironments: '管理环境',
+  },
+  cloudPlanStatus: {
+    current: '当前套餐',
+  },
+  ai: {
+    nlQuery: {
+      placeholder: '就您的数据提问…',
+      ask: '提问',
+      results: '结果',
+      match: '匹配度 {{percent}}',
+      simulatedSummary: '查询结果:{{query}}',
+      noResults: '未找到匹配的记录',
+      recentQueries: '最近的查询',
+    },
+    formAssist: {
+      title: 'AI 建议',
+      suggestionCount: '{{count}} 条建议',
+      suggestionCountOne: '{{count}} 条建议',
+      applyAll: '全部应用',
+      confidence: '置信度 {{percent}}',
+      appliedCount: '已应用 {{count}} 条建议',
+      appliedCountOne: '已应用 {{count}} 条建议',
+    },
+    recommendations: {
+      title: '推荐',
+      generating: '正在生成推荐…',
+      empty: '暂无推荐',
+    },
   },
   aiApprovals: {
     title: 'AI 审批',
@@ -3280,7 +3399,7 @@ const zh = {
   marketplace: {
       title: '应用市场',
       subtitle: '浏览已通过审核、发布到 ObjectStack 目录中的应用。点击应用查看详情并安装到你的某个环境中。',
-      searchPlaceholder: '按名称或 manifest ID 搜索应用…',
+      searchPlaceholder: '按名称或标识搜索应用…',
       searchAria: '搜索市场应用',
       installed: '已安装',
       installedCount: '已安装（{{count}}）',
@@ -3332,6 +3451,7 @@ const zh = {
         reseedQueued: '示例数据将在下次访问该环境时重新加载。',
         reseedLocalSuccess: '已重新加载示例数据：新增 {{inserted}} 条，更新 {{updated}} 条。',
         reseedPartialErrors: '（有 {{count}} 条记录写入失败）',
+        sampleDataKernelUnavailable: '此控制面没有环境内核，因此无法在这里重新加载或清除示例数据。请在该环境自己的运行时中操作。',
         updateAvailable: '有可用更新',
       },
       action: {
@@ -3636,25 +3756,25 @@ const zh = {
     rangeEnd: '结束值',
     operators: {
       equals: '等于',
-      notEquals: '不等于',
+      not_equals: '不等于',
       contains: '包含',
-      containsCaseInsensitive: '包含（忽略大小写）',
-      notContains: '不包含',
-      isEmpty: '为空',
-      isNotEmpty: '不为空',
-      greaterThan: '大于',
-      lessThan: '小于',
-      greaterOrEqual: '大于或等于',
-      lessOrEqual: '小于或等于',
+      icontains: '包含（忽略大小写）',
+      not_contains: '不包含',
+      is_empty: '为空',
+      is_not_empty: '不为空',
+      greater_than: '大于',
+      less_than: '小于',
+      greater_than_or_equal: '大于或等于',
+      less_than_or_equal: '小于或等于',
       before: '早于',
       after: '晚于',
       between: '介于',
       in: '属于',
-      notIn: '不属于',
-      startsWith: '以…开头',
-      endsWith: '以…结尾',
-      isNull: '为 null',
-      isNotNull: '不为 null',
+      not_in: '不属于',
+      starts_with: '以…开头',
+      ends_with: '以…结尾',
+      is_null: '为 null',
+      is_not_null: '不为 null',
       exists: '已设置',
       notExists: '未设置',
     },
@@ -3704,6 +3824,11 @@ const zh = {
   },
   wizard: {
     missingRequired: '请填写以下必填字段：{{fields}}',
+    back: '上一步',
+    submitting: '提交中…',
+    stepFallback: '第 {{n}} 步',
+    progressLabel: '进度',
+    emptyStep: '此步骤未配置字段',
   },
   flowRunner: {
     title: '输入',
@@ -3799,6 +3924,11 @@ const zh = {
     actionsEmptyTitle: '没有打包动作',
     actionsEmptyBody: '本部署中没有任何已安装软件包声明动作。你自己编写的动作在 Studio 中。',
     actionsLoadFailed: '无法加载打包动作。',
+  },
+  element: {
+    number: {
+      noObject: '未指定对象：请设置 object 或 dataSource.object。',
+    },
   },
 } as const;
 

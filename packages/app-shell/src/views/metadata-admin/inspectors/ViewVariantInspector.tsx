@@ -31,6 +31,7 @@ import {
   InspectorShell,
   InspectorTextField,
   InspectorSelectField,
+  flagUnknownValue,
 } from './_shared.js';
 import { InspectorComboField } from './InspectorComboField.js';
 import { useObjectOptions } from './useDatasetFields.js';
@@ -51,12 +52,15 @@ function ViewObjectPicker({
   value,
   onCommit,
   placeholder,
+  searchPlaceholder,
   disabled,
 }: {
   label: string;
   value: string;
   onCommit: (v: string) => void;
   placeholder?: string;
+  /** The search box's words, in the caller's locale (objectui#10696). */
+  searchPlaceholder: string;
   disabled?: boolean;
 }) {
   const { options, loading } = useObjectOptions();
@@ -68,7 +72,7 @@ function ViewObjectPicker({
       options={options.map((o) => ({ value: o.name, label: o.label }))}
       loading={loading}
       placeholder={placeholder}
-      searchPlaceholder="Search objects…"
+      searchPlaceholder={searchPlaceholder}
       disabled={disabled}
       mono
     />
@@ -83,7 +87,8 @@ import {
 } from '../view-schema.js';
 import { isFormFamilyKey } from '../view-variant-model.js';
 import { mergeServerFields } from '../mergeServerFields.js';
-import { t } from '../i18n.js';
+import { t, tFormat } from '../i18n.js';
+import { useRequiredInGatedSectionIssues } from './requiredInGatedSection.js';
 
 /**
  * Variant-body fields this inspector renders with its own controls, pruned
@@ -110,14 +115,18 @@ export interface ViewVariantInspectorProps extends MetadataDefaultInspectorProps
   /** Clear the current selection (scoped mode only). */
   onClearSelection?: () => void;
   /**
-   * Report how many BLOCKING author-time issues this inspector is showing —
-   * conditional-formatting rules whose CEL does not parse (objectui#4527).
+   * Report how many BLOCKING author-time issues this inspector is showing. Two
+   * kinds, one per view family:
    *
-   * Only the SCOPED path can carry this today: `ViewInspector` is a
-   * `MetadataInspectorProps` component and forwards the host's callback, while
-   * `ViewDefaultInspector` (the home panel) is a
-   * `MetadataDefaultInspectorProps` component whose contract has no such
-   * channel — so on that path it is simply absent and nothing is reported.
+   *   - list: conditional-formatting rules whose CEL does not parse
+   *     (objectui#4527);
+   *   - form: an object-required field inside a section gated on a predicate
+   *     the object's field rules cannot restate (objectui#6900) — see
+   *     `requiredInGatedSection.ts`.
+   *
+   * Both hosts carry it: `ViewInspector` (scoped) forwards the host's callback,
+   * and `ViewDefaultInspector` (home) spreads `MetadataDefaultInspectorProps`,
+   * whose contract has declared the same member since objectui#4527 phase 2.
    */
   onBlockingIssuesChange?: (count: number) => void;
   /**
@@ -258,7 +267,8 @@ export function ViewVariantInspector({
    * lands after the author switched variants cannot gate the one now on
    * screen. Mismatch is read as 0 at aggregation time rather than repaired
    * by a reset effect. The formatting editor is rendered for list families
-   * only, so a form variant never reports anything but 0. */
+   * only, so this term is always 0 on a form variant; the form family's own
+   * term follows below. */
   const [celErrors, setCelErrors] = React.useState<{ variant: string; count: number }>({
     variant: variantKey,
     count: 0,
@@ -273,8 +283,21 @@ export function ViewVariantInspector({
     },
     [variantKey],
   );
-  const blockingIssues =
+  const celBlocking =
     celErrors.variant === variantKey && !isFormFamily ? celErrors.count : 0;
+
+  /* ─── Required field in a gated section → the same Save gate (objectui#6900)
+   *
+   * The form family's term, beside — never inside — the CEL term above. Ruling
+   * 5749269225 (letter c) lands the author-time refusal here, in the channel
+   * already licensed to gate Save; the live Zod pass stays advisory. Computed
+   * from the form body's sections and the bound object's catalog, which
+   * `useObjectFields` above already reads. */
+  const gatedRequiredIssues = useRequiredInGatedSectionIssues(
+    isFormFamily ? variant : undefined,
+    objectFields,
+  );
+  const blockingIssues = celBlocking + (isFormFamily ? gatedRequiredIssues.length : 0);
   // Held in a ref so an unmemoized host callback cannot re-fire the effect.
   const onBlockingIssuesChangeRef = React.useRef(onBlockingIssuesChange);
   React.useEffect(() => {
@@ -407,7 +430,9 @@ export function ViewVariantInspector({
         label={t('engine.inspector.view.type', locale)}
         value={viewType}
         options={typeOptions}
-        unknownValueLabel={(v) => `${typeLabel(v, locale)} (not found)`}
+        unknownValueLabel={(v) =>
+          flagUnknownValue(typeLabel(v, locale), t('engine.form.notFound', locale), locale)
+        }
         onCommit={(v) => writeVariant({ type: v })}
         disabled={readOnly}
       />
@@ -416,8 +441,39 @@ export function ViewVariantInspector({
         value={binding.value}
         onCommit={setObject}
         placeholder={t('engine.inspector.view.objectPlaceholder', locale)}
+        searchPlaceholder={t('engine.inspector.dataset.searchObjects', locale)}
         disabled={readOnly}
       />
+
+      {isFormFamily && gatedRequiredIssues.length > 0 && (
+        <div
+          className="space-y-2 rounded-md border border-destructive/50 bg-destructive/5 p-2 text-[11px] leading-snug text-destructive"
+          role="alert"
+          data-testid="view-gated-required-issues"
+        >
+          <p className="font-medium">{t('engine.inspector.view.gatedRequired.title', locale)}</p>
+          {gatedRequiredIssues.map((issue) => {
+            const vars = {
+              field: issue.field,
+              fieldLabel: issue.fieldLabel,
+              object: binding.value,
+              section: issue.section,
+              predicate: issue.predicate,
+            };
+            return (
+              <div key={`${issue.sectionIndex}:${issue.field}`} className="space-y-1">
+                <p>{tFormat('engine.inspector.view.gatedRequired.issue', locale, vars)}</p>
+                <p>{t('engine.inspector.view.gatedRequired.remedies', locale)}</p>
+                <ul className="list-disc space-y-0.5 pl-4">
+                  <li>{tFormat('engine.inspector.view.gatedRequired.remedyMove', locale, vars)}</li>
+                  <li>{tFormat('engine.inspector.view.gatedRequired.remedyDrop', locale, vars)}</li>
+                  <li>{tFormat('engine.inspector.view.gatedRequired.remedyUnrequire', locale, vars)}</li>
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {!isFormFamily && (
         <div className="border-t pt-3">

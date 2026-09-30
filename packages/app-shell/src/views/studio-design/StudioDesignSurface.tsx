@@ -15,14 +15,15 @@
  */
 
 import * as React from 'react';
-import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAdapter, SchemaRendererProvider } from '@object-ui/react';
 // The ONE draft-envelope reader (objectui#8181): unwrap AND strip the
 // framework's read decorations in one place. This file used to carry its own
 // copy that did the unwrap and skipped the strip.
 import { extractDraftBody } from '@object-ui/data-objectstack';
 import type { FlowRuntimeState as SpecFlowRuntimeState } from '@objectstack/spec/contracts';
-import { StudioChatDock } from './StudioAiCopilot.js';
+import type { I18nLabel } from '@objectstack/spec/ui';
+import { StudioChatDock, type StudioSurfaceLabel } from './StudioAiCopilot.js';
 import { nextCenterTab, type StudioCenterTab } from './centerTab.js';
 import { useIsWideViewport } from './wideViewport.js';
 import {
@@ -94,14 +95,10 @@ import {
 import { getMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
 import { useMetadataClient, useMetadataTypes } from '../metadata-admin/useMetadata.js';
 import {
-  DESIGNER_SEL_PARAM,
   DESIGNER_SURFACE_PARAM,
   formatSurfaceParam,
-  parseNavSelParam,
-  formatNavSelParam,
-  findNavPositionById,
-  navIdAtPosition,
 } from '../metadata-admin/nav-selection.js';
+import { useNavSelDeepLink } from '../metadata-admin/useNavSelDeepLink.js';
 import { SourcePageEditor } from '../metadata-admin/previews/SourcePageEditor.js';
 import { usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { emitMetadataRefresh, subscribeMetadataRefresh } from '../../assistant/assistantBus.js';
@@ -116,8 +113,10 @@ import { SurfaceDeepLinkProvider, useRequestedSurface } from './surfaceDeepLinkC
 import { buildObjectSkeleton, buildFlowSkeleton, buildAppSkeleton, buildPermissionSkeleton } from './skeletons.js';
 import { OWD_CREATE_MODELS, OWD_DEFAULT, type OwdCreateModel } from './owd-sharing.js';
 import { t, tFormat, translateMetadataType, useMetadataLocale } from '../metadata-admin/i18n.js';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { SuggestedBindingsPanel } from '../../components/SuggestedBindingsPanel.js';
 import { AppNavCanvas } from '../metadata-admin/previews/AppNavCanvas.js';
+import { navItemLabelText, renamedLabel } from '../metadata-admin/previews/navItemLabel.js';
 import {
   readFields,
   writeFields,
@@ -149,7 +148,7 @@ import { toast } from 'sonner';
 
 /**
  * The create dialog's OWD options reuse the SETTINGS tab's own label and gloss
- * strings verbatim (objectui#5418). The card's complaint was that the Settings
+ * strings verbatim (`7a90afdf9`). The complaint it answered was that the Settings
  * page "is excellent — four options, each with a plain-language gloss" and that
  * nothing routes the author there; copying the wording rather than writing a
  * second, shorter one is what keeps the two surfaces from drifting into two
@@ -407,9 +406,9 @@ function PackageSwitcher({
        * ⭐ `userMessage` OUTRANKS `message`, and the order is the contract's,
        * not a preference (objectui#7938).
        *
-       * `error.userMessage` is the producer's #9934 channel, and the envelope
-       * writer's own words are the rule this line implements: "the text a
-       * producer marked, AT THROW TIME, as addressed to the END USER.
+       * `error.userMessage` is the producer's channel (objectstack `79c46da90`),
+       * and the envelope writer's own words are the rule this line implements:
+       * "the text a producer marked, AT THROW TIME, as addressed to the END USER.
        * Presence IS the marking — a consumer that sees the field renders it
        * verbatim and keeps its generic substitution for everything unmarked"
        * (`sendError`, `@objectstack/types` `response-envelope.ts`). This
@@ -802,11 +801,14 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // server-side (ADR-0070), so don't let the user build up doomed local edits
   // first — disable the authoring affordances up front. Unknown writability
   // (fetch failed / still loading) stays ungated; the server gate remains the
-  // authority either way.
-  const [pkgWritable, setPkgWritable] = React.useState<boolean | null>(null);
+  // authority either way. `undefined` is "still asking" and `null` is "could
+  // not find out": the gate reads both as ungated, and only the Interfaces
+  // pillar's `?sel=nav:` deep link tells them apart, so that it does not act
+  // on a write state nobody has answered yet (objectui#11153).
+  const [pkgWritable, setPkgWritable] = React.useState<boolean | null | undefined>(undefined);
   React.useEffect(() => {
     let cancelled = false;
-    setPkgWritable(null);
+    setPkgWritable(undefined);
     fetchPackages()
       .then((list) => {
         if (!cancelled) setPkgWritable(list.find((p) => p.id === packageId)?.writable ?? null);
@@ -818,6 +820,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
         // asking", and until objectui#7368 neither one said anything at all.
         // Same toast id as the switcher: one outage, one toast.
         if (cancelled) return;
+        setPkgWritable(null);
         toast.error(formatMetadataError(e), { id: PACKAGE_LIST_TOAST_ID });
       });
     return () => {
@@ -889,7 +892,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
       // seam that reports them: one advisory event per advised item, into the
       // same sink, renderer and wording every other write door on this surface
       // uses. A bare fetch had nothing to report THROUGH. Same move
-      // objectui#6965 / PR objectui#10038 made for the two sibling call sites.
+      // PR objectui#10038 made for the two sibling call sites.
       const payload = (await shellClient.publishPackageDrafts(packageId)) as {
         success?: boolean;
         error?: { message?: string; details?: { issues?: unknown } };
@@ -942,6 +945,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
 
   const onDraftSaved = React.useCallback(() => setDraftNonce((n) => n + 1), []);
   const hasPending = (pendingCount ?? 0) > 0;
+  const publishNoneReasonId = React.useId();
 
   // Builder → running-app bridge (Airtable's Launch): the builder edits the
   // package (the design surface), the app is its published front-end. If this
@@ -1043,6 +1047,11 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // injected `aiSlot` (the cloud seam, ADR-0080) keeps the legacy left panel
   // — the cloud edition migrates on its own schedule.
   const chatDockMode = !aiSlot;
+  // objectui#8219 — the Interfaces pillar's open leaf, lifted to the dock so
+  // the copilot's "discussing" chip reads its display label (objectui#7254).
+  // Display-only; the agent's context stays URL-derived. Other pillars report
+  // nothing, so their chip keeps reading `type · name`.
+  const [surfaceLabel, setSurfaceLabel] = React.useState<StudioSurfaceLabel | null>(null);
 
   /**
    * Host side of the live `?surface=` channel. Producers below the provider —
@@ -1213,6 +1222,17 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 <GitBranch className="h-3.5 w-3.5" />
                 {t('engine.studio.changes', locale)}{hasPending ? ` · ${pendingCount}` : ''}
               </button>
+              {/* objectui#8219 — with nothing to publish, say so on the page
+                  rather than only in the hover tooltip. */}
+              {!hasPending && !readOnly && !publishing && (
+                <span
+                  id={publishNoneReasonId}
+                  className="text-[11px] text-muted-foreground"
+                  data-testid="publish-none-reason"
+                >
+                  {t('engine.studio.publishNoneTitle', locale)}
+                </span>
+              )}
               <button
                 type="button"
                 // Publish is review-then-confirm: open the pending-changes panel,
@@ -1220,6 +1240,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 // never straight from this header click (objectui#2261).
                 onClick={() => setChangesOpen(true)}
                 disabled={publishing || !hasPending || readOnly}
+                aria-describedby={!hasPending && !readOnly && !publishing ? publishNoneReasonId : undefined}
                 title={
                   readOnly
                     ? t('engine.studio.pkg.readonlyHint', locale)
@@ -1227,7 +1248,17 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                       ? t('engine.studio.publishTitle', locale)
                       : t('engine.studio.publishNoneTitle', locale)
                 }
-                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                // objectui#8219 — the primary style is for a publish the author
+                // CAN do. A disabled one (no draft, or a read-only package)
+                // drops to an outline, instead of staying the loudest element
+                // on the page dimmed only by `disabled:opacity-50`.
+                className={cn(
+                  // The border is on both states so the swap never shifts the bar.
+                  'inline-flex items-center gap-1.5 rounded-md border px-3 py-1 text-xs font-medium',
+                  publishing || (hasPending && !readOnly)
+                    ? 'border-transparent bg-primary text-primary-foreground disabled:opacity-50'
+                    : 'text-muted-foreground',
+                )}
               >
                 {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
                 {t('engine.studio.publish', locale)}
@@ -1256,8 +1287,10 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 onDraftSaved={onDraftSaved}
                 onCreateApp={readOnly ? undefined : () => setAppCreating(true)}
                 readOnly={readOnly}
+                readOnlySettled={pkgWritable !== undefined}
                 foldInspector={chatDockMode}
                 onDirtyChange={setPillarDirty}
+                onSurfaceLabelChange={setSurfaceLabel}
               />
             )}
           </div>
@@ -1266,7 +1299,9 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
         {/* ADR-0057 P3c — the copilot as the shared right dock (same package-
           * scoped build thread as the left panel it replaces; self-gates on the
           * agent catalog like the copilot always has). */}
-        {chatDockMode && <StudioChatDock packageId={packageId} locale={locale} />}
+        {chatDockMode && (
+          <StudioChatDock packageId={packageId} locale={locale} surfaceLabel={surfaceLabel} />
+        )}
 
         <DraftChangesPanel
           open={changesOpen}
@@ -1387,6 +1422,14 @@ function NavTree({
  * spelling `AppSchema` answers with `unrecognized_keys`; the code has always
  * written the canonical key and cleared `object` (objectui#4881).
  *
+ * The Label input edits the item's `label`, an `I18nLabel` (a plain string or
+ * an inline locale map), through the same `navItemLabel` module as the canvas
+ * card beside it (objectui#11148): it shows the text resolved in the designer
+ * locale, and an edit of a map writes only that locale's entry and keeps every
+ * other one. It used to read `String(label ?? title ?? name)`, so a map showed
+ * as `[object Object]`, and one keystroke wrote a string over the whole map.
+ * `title` / `name` are not nav-item keys and are not read as the label.
+ *
  * Exported for tests (`StudioDesignSurface.navItemInspector.test.tsx`) — the
  * object picker's canonical-key binding is pinned there directly rather than
  * by driving the whole pillar. Not re-exported from the package index.
@@ -1427,9 +1470,10 @@ export function StudioNavItemInspector({
   // that cannot be saved; when a draft carries both, the picker must show the
   // key the schema accepts, never the one it refuses. Whether the fallback
   // read should exist at all — a draft carrying `object` ALONE still displays
-  // as bound — is objectui#5518, deliberately left out of #4881's scope.
+  // as bound — is a follow-up card's question, deliberately left out of #4881's scope.
   const boundObject = String(node.objectName ?? node.object ?? '');
-  const curLabel = String(node.label ?? node.title ?? node.name ?? '');
+  const label = node.label as I18nLabel | undefined;
+  const curLabel = navItemLabelText(label, locale);
   // A nav card is a placeholder until its label is edited or a target adopts a
   // real label. Match both the legacy English sentinel and the locale-specific
   // default from AppNavCanvas so items created in any locale are recognized.
@@ -1441,7 +1485,7 @@ export function StudioNavItemInspector({
         <label className="mb-1 block text-[11px] font-medium text-muted-foreground">{t('engine.studio.nav.label', locale)}</label>
         <input
           value={curLabel}
-          onChange={(e) => patch({ label: e.target.value })}
+          onChange={(e) => patch({ label: renamedLabel(label, e.target.value, locale) })}
           placeholder={t('engine.studio.nav.labelPlaceholder', locale)}
           className="w-full rounded border bg-background px-2 py-1 text-xs"
         />
@@ -1469,7 +1513,10 @@ export function StudioNavItemInspector({
               objectName: objName,
               object: undefined,
               path: undefined,
-              label: isPlaceholder && obj ? obj.label : curLabel,
+              // Adopting the object's label is an edit like any other: a map
+              // keeps every other locale's entry. A real label is kept as
+              // authored, never rewritten as its resolved text.
+              label: isPlaceholder && obj ? renamedLabel(label, obj.label, locale) : label,
             });
           }}
           className="w-full rounded border bg-background px-2 py-1 text-xs"
@@ -1508,8 +1555,10 @@ export function InterfacesPillar({
   onDraftSaved,
   onCreateApp,
   readOnly = false,
+  readOnlySettled = true,
   foldInspector = false,
   onDirtyChange,
+  onSurfaceLabelChange,
 }: {
   packageId: string;
   publishNonce?: number;
@@ -1520,8 +1569,20 @@ export function InterfacesPillar({
   /** Invoked from the empty state when this package has no app, to open the
    * header's create-app flow (single source of truth for app creation). */
   onCreateApp?: () => void;
-  /** Courtesy gate: hide/disable nav-authoring affordances. */
+  /** Courtesy gate: hide/disable interface-authoring affordances — nav
+   * editing, the canvas's in-place edits and every editor in the right rail
+   * (the block inspector, the default inspector, a source page's code editor)
+   * included. Both autosaves below are blocked on it, so an affordance that
+   * ignored it would take an edit on screen and silently discard it
+   * (objectui#11136). */
   readOnly?: boolean;
+  /** objectui#11153 — false while the package's write state is still being
+   * asked for: the Studio surface learns it from the package list, its own
+   * request, not ordered against this pillar's app draft. Only the
+   * `?sel=nav:` deep link reads it, and waits on it rather than read the
+   * unknown state as writable. Defaults to true: a caller that passes
+   * `readOnly` outright has settled it. */
+  readOnlySettled?: boolean;
   /** ADR-0057 P3c — the chat dock owns the right side, so the inspector folds
    * into center `[canvas | properties]` tabs instead of its own right aside.
    * Default false → the classic three-zone layout, pixel-identical. */
@@ -1531,6 +1592,11 @@ export function InterfacesPillar({
    * pillar (SPA nav, so no beforeunload). Reports `false` on unmount so a
    * confirmed discard clears the surface's guard. */
   onDirtyChange?: (dirty: boolean) => void;
+  /** objectui#8219 — reports the open leaf's display label (tagged with the
+   * leaf's type and name) up to the surface that mounts the copilot dock, for
+   * its "discussing" chip. `null` when no leaf is open, when the leaf has no
+   * label, and on unmount. */
+  onSurfaceLabelChange?: (surface: StudioSurfaceLabel | null) => void;
 }): React.ReactElement {
   const client = useMetadataClient();
   const locale = useMetadataLocale();
@@ -1549,35 +1615,31 @@ export function InterfacesPillar({
   const [editNav, setEditNav] = React.useState(false);
   const [navSel, setNavSel] = React.useState<{ kind: string; id: string } | null>(null);
 
+  // App resolution status — tells "still loading" apart from "this package has
+  // no app", so the canvas shows a real empty state instead of an endless
+  // spinner.
+  const [appStatus, setAppStatus] = React.useState<'loading' | 'ready' | 'missing'>('loading');
+
   // #2272 — designer deep-link: `?sel=nav:<id>` selects the nav item with
   // that spec `id` and switches the pillar into nav editing. The id is the
   // stable external contract; positional `navigation[i]` selection ids stay
   // internal. Selection changes mirror back to the URL (replace).
-  const [searchParams, setSearchParams] = useSearchParams();
-  const navSelParam = parseNavSelParam(searchParams.get(DESIGNER_SEL_PARAM));
-  const appliedNavSelRef = React.useRef<string | null>(null);
-  React.useEffect(() => {
-    if (!navSelParam || navTree.length === 0) return;
-    if (appliedNavSelRef.current === navSelParam) return;
-    const hit = findNavPositionById({ navigation: navTree }, navSelParam);
-    if (!hit) return;
-    appliedNavSelRef.current = navSelParam;
-    setEditNav(true);
-    setNavSel({ kind: 'nav', id: hit.selectionId });
-  }, [navSelParam, navTree]);
-  React.useEffect(() => {
-    const navId = navSel ? navIdAtPosition({ navigation: navTree }, navSel.id) : null;
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (navId) next.set(DESIGNER_SEL_PARAM, formatNavSelParam(navId));
-        else next.delete(DESIGNER_SEL_PARAM);
-        return next;
-      },
-      { replace: true },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navSel]);
+  // objectui#11153 — the shared hook keeps the param until the app draft has
+  // loaded, and on a read-only package selects the item without entering nav
+  // editing (whose autosave is blocked there). The pillar reads only the
+  // `navigation` root key, so that is the document the link resolves against.
+  const navDoc = React.useMemo(() => ({ navigation: navTree }), [navTree]);
+  useNavSelDeepLink({
+    enabled: true,
+    draft: navDoc,
+    loaded: appStatus === 'ready',
+    readOnly: readOnlySettled ? readOnly : undefined,
+    selection: navSel,
+    onApply: (hit, { enterEditing }) => {
+      if (enterEditing) setEditNav(true);
+      setNavSel({ kind: 'nav', id: hit.selectionId });
+    },
+  });
   const [navDirty, setNavDirty] = React.useState(false);
   // Mirror `navDirty` up to the surface (see the onDirtyChange prop doc).
   // Ref-stabilized like PermissionMatrixEditPage's report, so a non-memoized
@@ -1609,6 +1671,29 @@ export function InterfacesPillar({
   const [current, setCurrent] = React.useState<Surface | null>(null);
   // `?surface=` capture + mirror — shared plumbing (see useSurfaceDeepLink).
   const initialSurface = useSurfaceDeepLink(current);
+  // objectui#8219 — lift the open leaf's label to the dock (see the prop doc).
+  // Keyed on the primitives, and the callback read through a ref, so neither a
+  // re-created Surface object nor a non-memoized callback refires the report.
+  const onSurfaceLabelChangeRef = React.useRef(onSurfaceLabelChange);
+  React.useEffect(() => {
+    onSurfaceLabelChangeRef.current = onSurfaceLabelChange;
+  });
+  const currentType = current?.type;
+  const currentName = current?.name;
+  const currentLabel = current?.label;
+  React.useEffect(() => {
+    onSurfaceLabelChangeRef.current?.(
+      currentType && currentName && currentLabel
+        ? { type: currentType, name: currentName, label: currentLabel }
+        : null,
+    );
+  }, [currentType, currentName, currentLabel]);
+  React.useEffect(
+    () => () => {
+      onSurfaceLabelChangeRef.current?.(null);
+    },
+    [],
+  );
   // Inspector tab — source pages carry a `source` string, not a block tree, so
   // their editor lives in a dedicated Source tab (the Properties tab has no
   // blocks to inspect). Non-source surfaces never show the tab strip.
@@ -1676,10 +1761,6 @@ export function InterfacesPillar({
   const [saving, setSaving] = React.useState<false | 'draft' | 'publish'>(false);
   const [hasDraft, setHasDraft] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  // App resolution status — tells "still loading" apart from "this package has
-  // no app", so the canvas shows a real empty state instead of an endless
-  // spinner.
-  const [appStatus, setAppStatus] = React.useState<'loading' | 'ready' | 'missing'>('loading');
   // Objects in THIS package (published ∪ draft) — the nav item inspector's
   // object picker, so nav can be wired to sibling objects before publishing.
   const [pkgObjects, setPkgObjects] = React.useState<Array<{ name: string; label: string; icon?: string }>>([]);
@@ -1763,7 +1844,10 @@ export function InterfacesPillar({
         const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
         const eff = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
         const appDraftBody = extractDraftBody(appDraftResp);
-        const body = appDraftBody ? { ...eff, ...appDraftBody } : eff;
+        // A served draft is the whole document — taken as-is, never spread
+        // over the published layer (objectui#10765; the rule is stated once
+        // at `ResourceEditPage`'s load effect). Baseline only when no draft.
+        const body = appDraftBody ?? eff;
         if (typeof body.label === 'string' || typeof body.name === 'string') {
           setAppLabel(String(body.label ?? body.name ?? label));
         }
@@ -1890,7 +1974,9 @@ export function InterfacesPillar({
           (lay as { code?: unknown }).code ??
           {}) as Record<string, unknown>;
         const body = extractDraftBody(draftResp);
-        setDraft(body ? { ...baseline, ...body } : baseline);
+        // Served draft as-is, baseline only without one (objectui#10765): a
+        // spread over `effective` resurrects every key the draft deleted.
+        setDraft(body ?? baseline);
         setHasDraft(!!body);
         setIfDirty(false);
       } catch (e) {
@@ -1979,6 +2065,19 @@ export function InterfacesPillar({
   // cedes the right side to the chat dock), so they are built once here. The
   // extraction is presentation-neutral: the classic branch composes exactly
   // the pre-P3c tree.
+  // objectui#8219 — true exactly when the canvas below renders its `Preview`
+  // branch (same guards, same order). A registered preview brings its own
+  // frame (PreviewShell), so the wrapper then draws none: one frame, and the
+  // wrapper's border and padding go back to the preview. Every other canvas
+  // state (no app, nothing picked, loading, the studio-canvas records grid,
+  // no designer) has no shell of its own and keeps the wrapper's card.
+  const canvasHostsPreviewShell =
+    !(appStatus === 'missing' && !error) &&
+    !!current &&
+    !loading &&
+    !StudioCanvas &&
+    !isSourcePage &&
+    !!Preview;
   const canvasEl = (
     <main className="flex min-w-0 flex-1 flex-col overflow-auto bg-muted/30 p-4">
       <div className="mb-3 flex shrink-0 items-center gap-2">
@@ -2049,7 +2148,11 @@ export function InterfacesPillar({
           // Source pages: let the live preview fill the canvas height (it
           // brings its own PreviewShell chrome), so it balances the taller
           // editor panel instead of floating as a short card.
-          isSourcePage ? 'min-h-0 flex-1 overflow-hidden' : 'rounded-lg border bg-background p-4',
+          isSourcePage
+            ? 'min-h-0 flex-1 overflow-hidden'
+            : canvasHostsPreviewShell
+              ? undefined
+              : 'rounded-lg border bg-background p-4',
         )}
       >
         {appStatus === 'missing' && !error ? (
@@ -2088,7 +2191,7 @@ export function InterfacesPillar({
         ) : isSourcePage ? (
           // Source pages have no block tree — the canvas shows only the live
           // preview; the code editor lives in the inspector's Source tab.
-          <SourcePageEditor mode="preview" draft={draft} readOnly />
+          <SourcePageEditor mode="preview" draft={draft} readOnly locale={locale} />
         ) : Preview ? (
           <Preview
             type={current.type}
@@ -2097,7 +2200,12 @@ export function InterfacesPillar({
             editing={designing}
             selection={designing ? selection : null}
             onSelectionChange={designing ? setSelection : undefined}
-            onPatch={onPatch}
+            // objectui#11136 — a read-only package gets no `onPatch`: per the
+            // preview contract the canvas is then read-only (no add, drag,
+            // rename or delete — each a write the blocked autosave would
+            // discard), while selecting a block or widget still opens the
+            // inspector, read-only.
+            onPatch={readOnly ? undefined : onPatch}
             locale={locale}
           />
         ) : (
@@ -2232,7 +2340,9 @@ export function InterfacesPillar({
           onBlockingIssuesChange={(count: number) =>
             setBlockingReport({ key: inspectorKey, count })
           }
-          readOnly={false}
+          // objectui#11136 — the pillar's real flag, threaded exactly as the
+          // Data pillar threads it (objectui#2259).
+          readOnly={readOnly}
           locale={locale}
         />
       </div>
@@ -2242,8 +2352,16 @@ export function InterfacesPillar({
         // preview, so the nested Source/Props tab strip adds nothing — the
         // Properties tab body IS the code editor (its Props pane was only an
         // empty state pointing back at Source).
+        // objectui#11136 — the editor's own read-only contract ("onPatch:
+        // undefined in read-only mode"), fed by the pillar's real flag.
         <div className="mt-2 min-h-0 flex-1 border-t">
-          <SourcePageEditor mode="editor" draft={draft} onPatch={onPatch} />
+          <SourcePageEditor
+            mode="editor"
+            draft={draft}
+            onPatch={readOnly ? undefined : onPatch}
+            readOnly={readOnly}
+            locale={locale}
+          />
         </div>
       ) : (
       <Tabs
@@ -2260,7 +2378,13 @@ export function InterfacesPillar({
           </TabsTrigger>
         </TabsList>
         <TabsContent value="source" className="mt-2 min-h-0 flex-1 border-t">
-          <SourcePageEditor mode="editor" draft={draft} onPatch={onPatch} />
+          <SourcePageEditor
+            mode="editor"
+            draft={draft}
+            onPatch={readOnly ? undefined : onPatch}
+            readOnly={readOnly}
+            locale={locale}
+          />
         </TabsContent>
         <TabsContent value="props" className="mt-0 min-h-0 flex-1 overflow-auto p-3">
           <div className="flex flex-col items-center gap-2 px-2 py-10 text-center text-xs text-muted-foreground">
@@ -2286,7 +2410,8 @@ export function InterfacesPillar({
           onBlockingIssuesChange={(count: number) =>
             setBlockingReport({ key: inspectorKey, count })
           }
-          readOnly={false}
+          // objectui#11136 — same flag, same threading as the block inspector.
+          readOnly={readOnly}
           locale={locale}
         />
       </div>
@@ -2656,6 +2781,10 @@ export function DataPillar({
   const client = useMetadataClient();
   const adapter = useAdapter();
   const locale = useMetadataLocale();
+  // The last-saved time reads the DISPLAY locale — not `locale` above, which
+  // picks the pillar's strings and is `'en-US'` for every non-zh language
+  // (objectui#10232).
+  const displayLocale = useDisplayLocale();
   // Live server JSONSchemas per metadata type (`/meta/types`) — handed to the
   // Actions/Hooks config panels so their forms are driven by the real metadata
   // contract (and stay forward-compatible when the server spec adds fields).
@@ -2761,7 +2890,7 @@ export function DataPillar({
   // Left-rail search + inline "new object" creator (design §4: rail = search + New).
   const [query, setQuery] = React.useState('');
   const [creating, setCreating] = React.useState(false);
-  // The OWD the create dialog will author (objectui#5418). Pre-selected to the
+  // The OWD the create dialog will author (`7a90afdf9`). Pre-selected to the
   // platform's own recommended baseline; the author sees it and can change it
   // before the object exists. Reset by `openCreateDialog` below rather than by
   // an effect on `creating` — the effect spelling re-renders the dialog a
@@ -2879,12 +3008,14 @@ export function DataPillar({
         const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
         const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
         const draftBody = extractDraftBody(draftResp);
-        setObjDraft(draftBody ? { ...baseline, ...draftBody } : baseline);
+        // Served draft as-is, baseline only without one (objectui#10765).
+        setObjDraft(draftBody ?? baseline);
         setHasDraft(!!draftBody);
         setHasBaseline(!!(lay.effective ?? lay.code));
         // The projection baseline: the object as the SERVER has it. `objDraft`
-        // below merges the draft on top, which is right for the editor and
-        // wrong for a `select`.
+        // above is the pending draft as-is when one exists, which is right for
+        // the editor and wrong for a `select`: a draft-only field is not a
+        // column the data API can answer yet (see `gridColumns`).
         setPublishedFieldNames(new Set(readFields(baseline.fields).entries.map((e) => e.name)));
       } catch (e) {
         if (!cancelled) setError(formatMetadataError(e));
@@ -3173,7 +3304,7 @@ export function DataPillar({
         ) : savedAt && !dirty ? (
           <span className="ml-auto text-[11px] text-muted-foreground" data-testid="data-saved-at">
             {tFormat('engine.studio.data.lastSaved', locale, {
-              time: savedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }),
+              time: savedAt.toLocaleTimeString(displayLocale, { hour: '2-digit', minute: '2-digit' }),
             })}
           </span>
         ) : null}
@@ -3695,7 +3826,7 @@ export function DataPillar({
         locale={locale}
         extra={
           /* Record sharing (OWD) — the third thing `New object` must ask for
-             (objectui#5418). Without it the object saves as a draft happily and
+             (`7a90afdf9`). Without it the object saves as a draft happily and
              is then REFUSED at Publish → Publish all by `security-owd-unset`, a
              wall the author meets only after building the whole object. The
              gloss is the SAME string the Settings tab shows for each model, so
@@ -3930,7 +4061,8 @@ export function AutomationsPillar({
         const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
         const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
         const draftBody = extractDraftBody(draftResp);
-        setDraft(draftBody ? { ...baseline, ...draftBody } : baseline);
+        // Served draft as-is, baseline only without one (objectui#10765).
+        setDraft(draftBody ?? baseline);
         setHasDraft(!!draftBody);
       } catch (e) {
         if (!cancelled) setError(formatMetadataError(e));
@@ -3982,24 +4114,46 @@ export function AutomationsPillar({
   // it and saves the draft immediately; the change goes live when the package is
   // published (so "review before enabling" is preserved).
   const flowEnabled = draft.status !== 'obsolete' && draft.status !== 'invalid';
+  // The flow the draft on screen belongs to — read by the toggle's rollback
+  // below, so a refusal that lands after the author opened another flow never
+  // rewrites that other flow's draft.
+  const draftFlowRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    draftFlowRef.current = current?.name ?? null;
+  }, [current]);
   const toggleEnabled = React.useCallback(async () => {
-    if (!current) return;
+    // Guarded in addition to being disabled (objectui#11124): a read-only
+    // package refuses the draft save, so the flip would only be rolled back.
+    if (!current || readOnly) return;
+    const flowName = current.name;
+    const prevDraft = draft;
     const next = !(draft.status !== 'obsolete' && draft.status !== 'invalid');
-    const nextDraft = { ...draft, status: next ? 'active' : 'obsolete' };
+    const nextStatus = next ? 'active' : 'obsolete';
+    const nextDraft = { ...draft, status: nextStatus };
     setDraft(nextDraft);
     setSaving('draft');
     setError(null);
     try {
-      await client.save('flow', current.name, nextDraft, { mode: 'draft', packageId });
+      await client.save('flow', flowName, nextDraft, { mode: 'draft', packageId });
       setHasDraft(true);
       onDraftSaved?.();
       toast.success(next ? t('engine.studio.auto.enabledToast', locale) : t('engine.studio.auto.disabledToast', locale));
     } catch (e) {
+      // objectui#11124 — the save was refused, so roll the optimistic flip
+      // back: the switch and the canvas status (both read `draft.status`) must
+      // never show a status the server refused. Only `status` is put back, so
+      // an edit made while the save was in flight survives; and only on the
+      // same flow, still holding the refused status.
+      setDraft((d) => {
+        if (draftFlowRef.current !== flowName || d.status !== nextStatus) return d;
+        const { status: _refused, ...rest } = d;
+        return 'status' in prevDraft ? { ...rest, status: prevDraft.status } : rest;
+      });
       setError(formatMetadataError(e));
     } finally {
       setSaving(false);
     }
-  }, [client, current, draft, packageId, onDraftSaved, locale]);
+  }, [client, current, draft, packageId, onDraftSaved, locale, readOnly]);
 
   return (
     <div className="flex h-full flex-col">
@@ -4024,8 +4178,16 @@ export function AutomationsPillar({
             role="switch"
             aria-checked={flowEnabled}
             onClick={toggleEnabled}
-            disabled={!isEditable || !!saving}
-            title={flowEnabled ? t('engine.studio.auto.disableTitle', locale) : t('engine.studio.auto.enableTitle', locale)}
+            // objectui#11124 — a read-only package takes no status change: the
+            // draft save would be refused (`ITEM_LOCKED`).
+            disabled={!isEditable || !!saving || readOnly}
+            title={
+              readOnly
+                ? t('engine.studio.pkg.readonlyHint', locale)
+                : flowEnabled
+                  ? t('engine.studio.auto.disableTitle', locale)
+                  : t('engine.studio.auto.enableTitle', locale)
+            }
             className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] hover:bg-muted disabled:opacity-50"
           >
             <span className={'relative inline-flex h-3.5 w-6 shrink-0 items-center rounded-full transition-colors ' + (flowEnabled ? 'bg-emerald-500' : 'bg-muted-foreground/40')}>
@@ -4132,7 +4294,11 @@ export function AutomationsPillar({
                 editing: true,
                 selection,
                 onSelectionChange: setSelection,
-                onPatch,
+                // objectui#11124 — a read-only package gets no `onPatch`: per
+                // the preview contract the canvas is then read-only (no add,
+                // insert, drag or delete — each a doomed write), while node and
+                // edge selection still open the inspector read-only below.
+                onPatch: readOnly ? undefined : onPatch,
                 locale,
               })
             ) : (
@@ -4168,7 +4334,9 @@ export function AutomationsPillar({
                 onPatch,
                 onClearSelection: () => setSelection(null),
                 onSelectionChange: setSelection,
-                readOnly: false,
+                // objectui#11124 — the pillar's real flag, threaded exactly as
+                // the Data pillar threads it (objectui#2259).
+                readOnly,
                 locale,
               })
             ) : designersUnregistered ? (

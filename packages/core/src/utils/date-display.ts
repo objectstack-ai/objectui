@@ -28,11 +28,14 @@
  * to numbers: the pure function moves DOWN into the React-free engine and the
  * upper package re-exports it, so there is one home and nothing to drift.
  *
- * `@object-ui/fields` re-exports every symbol below under its original name,
- * so `formatDate` / `formatDateTime` / `formatDateTimeCompactParts` /
- * `formatRelativeDate` / `DateDisplayOptions` keep working unchanged for
- * `ObjectGrid`, `ObjectGantt`, `plugin-dashboard`'s `recordFields` and the
- * `date` cell renderer.
+ * `@object-ui/fields` re-exports the formatting symbols below under their
+ * original names, so `formatDate` / `formatDateTime` /
+ * `formatDateTimeCompactParts` / `formatRelativeDate` / `DateDisplayOptions`
+ * keep working unchanged for `ObjectGrid`, `ObjectGantt`,
+ * `plugin-dashboard`'s `recordFields` and the `date` cell renderer.
+ * `toDisplayDate` is exported from `@object-ui/core` alone (objectui#10183),
+ * and so are `toDisplayEndDate` / `toInclusiveEndDay`, the end read and its
+ * inverse both gantt surfaces share (objectui#11141).
  *
  * The `datetime` CELL face joined this file in objectui#7443. It used to be a
  * second convention inlined in `DateTimeCellRenderer`: two `Intl` option bags
@@ -50,7 +53,9 @@
  * time is an instant and renders in that zone; a DATE-ONLY value names a
  * calendar day, carries no instant, and must render as that day everywhere.
  * `toDisplayDate` below is the single parse step that tells the two apart —
- * every function here goes through it (objectui#10110).
+ * every function here goes through it (objectui#10110), and so does every
+ * caller elsewhere that needs a face or a day comparison none of these
+ * functions produce (objectui#10183).
  */
 
 /**
@@ -103,6 +108,63 @@ export interface DateDisplayOptions {
 const ISO_DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
+ * An ISO date carrying a time part — `2026-08-01T09:30:00Z`, the same with a
+ * space separator, with or without seconds or an offset. Matched only as far
+ * as `HH:mm`, so its first ten characters are the `YYYY-MM-DD` the value was
+ * written on.
+ *
+ * Spelled exactly as `dataset-format.ts`'s `ISO_DATETIME_RE`, which sniffs the
+ * same shape to route a measure to its datetime arm, for the same reason as
+ * {@link ISO_DATE_ONLY_RE} above: one convention, one spelling.
+ */
+const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
+
+/**
+ * A date that exists — the pattern alone would accept `2024-02-31`.
+ *
+ * `true` only for a date-only ISO string (`YYYY-MM-DD`, the shape
+ * {@link ISO_DATE_ONLY_RE} names) whose year, month and day read back
+ * unchanged from the calendar. Anything else — another shape, a time part, an
+ * out-of-range month, or a day its month does not have — is `false`.
+ *
+ * ## Why this lives here (objectui#10026)
+ *
+ * It used to be module-private in `@object-ui/components`' filter builder,
+ * which refused `2026-02-30` at the AUTHORING boundary, while this module — a
+ * package below it, unable to import it — ROLLED the same value into March 2nd
+ * on every display face. One concept, two answers. It moved down, exactly as
+ * `formatDate` itself moved into this package (see the header), so the filter
+ * builder and {@link toDisplayDate} now ask the one function. ⛔ A move, not a
+ * copy: `@object-ui/components` imports it from here.
+ *
+ * ## Why the engine cannot answer this on its own
+ *
+ * ECMAScript's date-string parse accepts a DAY of `01`-`31` for every month
+ * and rolls the surplus forward: `Date.parse('2026-02-30')` is March 2nd, not
+ * `NaN`. It rejects an out-of-range MONTH (`2026-13-01`), which is why a
+ * bad month was always a dash on the display path and a bad day never was.
+ * So the day is read back instead: build the date in UTC (no zone, so no DST
+ * gap can move it) and require all three parts to survive.
+ *
+ * `setUTCFullYear` rather than `Date.UTC(year, …)`: the latter maps years
+ * 0-99 onto 1900+y, so it answered `false` for `0026-08-01` — a real day,
+ * and one {@link toDisplayDate} renders (it undoes the same legacy mapping for
+ * the same reason). The move had to fix that, or refusing through this
+ * function would have dashed every year below 100.
+ */
+export function isRealCalendarDate(dateOnly: string): boolean {
+  if (!ISO_DATE_ONLY_RE.test(dateOnly)) return false;
+  const [year, month, day] = dateOnly.split('-').map(Number);
+  const probe = new Date(0);
+  probe.setUTCFullYear(year, month - 1, day);
+  return (
+    probe.getUTCFullYear() === year &&
+    probe.getUTCMonth() === month - 1 &&
+    probe.getUTCDate() === day
+  );
+}
+
+/**
  * The ONE `value -> Date` step behind every function below.
  *
  * ## The defect (objectui#10110)
@@ -129,25 +191,72 @@ const ISO_DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
  * parse already lands on the right day — the co-located suite drives both.
  * `GridField`'s sub-grid cell already parsed its own date-only values this
  * way before reaching `formatDate`; this is that treatment, moved to the one
- * place every caller passes through.
+ * place every caller passes through (the sub-grid reads it from here since
+ * objectui#10301).
  *
- * A value with a time part is untouched, in both spellings: it HAS an
+ * A value with a time part is not rebuilt, in both spellings: it HAS an
  * instant, and rendering an instant in the viewer's zone is the whole point
  * of a `datetime`. The regex is what separates them, so the split is the
  * VALUE's shape and never the field's declared type, which this module (pure,
  * no schema) cannot see.
  *
- * Acceptance is unchanged, deliberately: the engine's own parse still decides
- * what is a date at all, and only a value it already accepted is rebuilt. So
- * `2026-13-01` is still `—`, and a well-shaped impossible day still ROLLS
- * (`2026-02-30` renders March 2nd) exactly as it did — a pinned behaviour of
- * the shared display path, asserted in `dataset-format.ts`'s date suite.
+ * ## What it refuses (objectui#10026)
+ *
+ * The engine's own parse still decides what is a date at all (`2026-13-01`
+ * is an Invalid Date, and so every face below renders `—`), with ONE
+ * addition: a date-only value naming a day its month does not have. The
+ * engine accepts `2026-02-30` and rolls it into March 2nd, so before this
+ * card every date face showed a real day nobody wrote, with nothing to say
+ * so. This step hands back an Invalid Date for it instead — the same answer
+ * the engine gives a bad month — so every caller renders the face it already
+ * renders for an unparsable value: `—` from the functions below, `EmptyValue`
+ * from the field carriers that read validity here, the raw stored string from
+ * a caller whose unparsable face is the raw string. ⛔ No new marker.
+ *
+ * The maintainer's ruling on objectui#10026 (option A) placed the refusal on
+ * the SHARED path, in this step and not in any one consumer: refusing in a
+ * single face would re-create the list-cell-versus-measure split
+ * objectui#4576 recorded. {@link isRealCalendarDate} is the one judgement,
+ * shared with the filter builder's authoring boundary.
+ *
+ * A value that carries a TIME is refused the same way when the day it is
+ * written on does not exist (objectui#10301): `2026-02-30T10:00:00Z` parses
+ * too, and rendered `Mar 2, 2026, 10:00 AM` on every datetime face. Triage
+ * graded that an inherited branch of the same ruling. The judgement reads the
+ * value's leading `YYYY-MM-DD` AS WRITTEN, never the day its instant lands on
+ * in some zone: a parsed `Date` always names a real day, so a check made after
+ * any conversion could only miss the refusal, and a real day written with an
+ * offset (`2026-02-28T23:30:00-05:00`, March 1st in UTC) is kept. A real
+ * date-time is otherwise untouched — no rebuild, the engine's instant.
+ *
+ * ## Why it is exported (objectui#10183)
+ *
+ * A caller that formats with its own `Intl` options — a face none of the
+ * functions below produce, such as the record summary chip's
+ * `dateStyle: 'medium'` — or that compares a value against "today" needs the
+ * `Date` itself, not a string. Such callers used to parse the value on their
+ * own (`new Date(value)`, or `Date.parse` and then a `Date` handed to
+ * `formatDate`, which this step then leaves alone), so the objectui#10110
+ * repair never reached them and each still read a date-only value one day
+ * early west of UTC. They take the `Date` from here instead.
+ *
+ * ⛔ Read the result with LOCAL getters or local-zone `Intl` formatting only.
+ * For a date-only value it is local midnight of the named day, so its
+ * `toISOString()` / UTC getters name the previous day east of UTC — hand
+ * those the stored value, never this.
  */
-function toDisplayDate(value: string | Date | number): Date {
+export function toDisplayDate(value: string | Date | number): Date {
   const parsed = value instanceof Date ? value : new Date(value as any);
+  // The engine rolls a date-time written on a nonexistent day forward too;
+  // judge the day as written and refuse it (objectui#10301).
+  if (typeof value === 'string' && ISO_DATETIME_RE.test(value) && !isRealCalendarDate(value.slice(0, 10))) {
+    return new Date(NaN);
+  }
   if (typeof value !== 'string' || !ISO_DATE_ONLY_RE.test(value) || isNaN(parsed.getTime())) {
     return parsed;
   }
+  // The engine rolled a nonexistent day forward; refuse it (objectui#10026).
+  if (!isRealCalendarDate(value)) return new Date(NaN);
   const [year, month, day] = value.split('-').map(Number);
   const local = new Date(year, month - 1, day);
   // Years 0-99 only: the multi-argument constructor maps them onto 1900+y, so
@@ -156,6 +265,71 @@ function toDisplayDate(value: string | Date | number): Date {
   // no-op on every other year.
   local.setFullYear(year);
   return local;
+}
+
+/**
+ * THE ONE READ of a stored END, where a bar or span is drawn to
+ * (objectui#11141): {@link toDisplayDate}'s read, and then, for a date-only
+ * value only, the next day's local midnight.
+ *
+ * ## The rule (objectui#11112's ruling, one home since objectui#11141)
+ *
+ * A date-only end is INCLUSIVE: `2024-01-01` to `2024-01-15` runs through
+ * January 15th, so the span is drawn to the start of the 16th, and a
+ * successor starting `2024-01-16` begins exactly where it ends. A span whose
+ * date-only start and end name the same day is one day long, across a DST
+ * change too: the step is a calendar day (`setDate`), never 24 hours, so it
+ * lands on the next local midnight, or on that day's first hour where its
+ * midnight does not exist. That is how a project plan and the schema
+ * catalog's gantt plans author an end.
+ *
+ * The result is the EXCLUSIVE end instant of a half-open span `[start, end)`,
+ * the form every gantt surface draws and schedules with. Date-only is decided
+ * by the value's own shape, with {@link isRealCalendarDate}, exactly as
+ * {@link toDisplayDate} decides it, so an end reads its day as a start does and
+ * then runs to that day's end. A value with a time part, a number or a `Date`
+ * is an instant: the span ends at it, and it is handed back as
+ * {@link toDisplayDate} hands it back.
+ *
+ * {@link toInclusiveEndDay} is the exact inverse: it names the day a span
+ * ending here runs through, so a read and a write of a date-only end agree.
+ *
+ * ⛔ One rule, one place: `plugin-timeline`'s gantt variant and
+ * `plugin-gantt` both read their ends here. A second copy of the step in a
+ * consumer is how the two gantt surfaces came to draw one plan a day apart.
+ * ⛔ Read the result with LOCAL getters only, as {@link toDisplayDate}'s is.
+ */
+export function toDisplayEndDate(value: string | Date | number): Date {
+  const end = toDisplayDate(value);
+  if (typeof value !== 'string' || !isRealCalendarDate(value)) return end;
+  end.setDate(end.getDate() + 1);
+  // Back to the start of that day. A day whose own midnight does not exist is
+  // read at its first hour, and the step keeps the hour, so without this the
+  // day after it would start an hour late and name itself back.
+  end.setHours(0, 0, 0, 0);
+  return end;
+}
+
+/**
+ * The day a span ending at `end` runs through: local midnight of the day that
+ * holds the last instant before `end` (objectui#11141).
+ *
+ * This is the exact inverse of {@link toDisplayEndDate} on a date-only end:
+ * the instant it reads `2024-01-15` as, local midnight of the 16th, names the
+ * 15th here, so a read, a drag and a write of a stored date-only end leave it
+ * the day it was, and a bar dragged to end at a day's local midnight names the
+ * day BEFORE it. An end inside a day (a `datetime` end, or a shift band's
+ * edge) names that day, the last one the span reaches into.
+ *
+ * It names a day for display and for a date-only write. ⛔ It is not a read of
+ * a stored value, and a `datetime` end still keeps its own instant: hand this
+ * only to a face that names a day, or to a field that stores one. Read the
+ * result with LOCAL getters only; an Invalid Date stays invalid.
+ */
+export function toInclusiveEndDay(end: Date): Date {
+  const day = new Date(end.getTime() - 1);
+  day.setHours(0, 0, 0, 0);
+  return day;
 }
 
 /**

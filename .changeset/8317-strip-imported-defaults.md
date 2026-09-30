@@ -57,3 +57,5 @@ any of the 107 component arms.
 repository's release train). This is reversible into it — every strip becomes a no-op
 the day the spec adopts the same principle, because the boundary is the identity
 function on a subtree with nothing to strip.
+
+⚠️ **Dated note, 2026-09-28 — one clean import is rebuilt — objectui#10872 batch 2.** Later in this same release the `element:number` arm imports the spec's `ElementDataSourceSchema` through this boundary. It carries no default but reaches a `z.lazy` (the recursive filter clause), and the walker always rebuilds a `lazy`, so for that one import the boundary returns an equal-answering clone rather than the spec's own object: "the identity function on a subtree with nothing to strip" holds for every other clean import, not that one. Nothing is stripped from it and its accept set does not move. The rest of this entry is kept as the reading of this change.

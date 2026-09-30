@@ -33,5 +33,6 @@ its phrasing states no noun to agree with.
 One translation changed rather than being added: `ar` wrote both numbers into one
 string as a parenthesised marker. Its key can no longer be reached at one item, so
 the singular half of that marker was dead weight while the parentheses still
-rendered at every count the key does serve. It now uses the same noun pair that
-`ar`'s `common.itemCount`/`itemCountOne` already uses.
+rendered at every count the key does serve. It now reads as a singular noun at one
+item and as a count label at every other count, the shape `ar`'s
+`common.itemCount`/`itemCountOne` uses (objectui#10425).

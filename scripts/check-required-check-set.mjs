@@ -45,16 +45,21 @@
  *   .github/workflows/dependabot-auto-merge.yml the header's "does NOT do" list
  *   scripts/dependabot-merge-gate.mjs           "declared = enforced"
  *
- * ⛔ One carrier is deliberately left standing, and it is not an oversight:
+ * ⛔ One carrier was deliberately left standing by objectui#9502, and it was
+ * not an oversight:
  *
  *   AGENTS.md                             "从仓内读不到"
  *
  * AGENTS.md is GOVERNED surface -- an agent drafts it, an authorised approver
- * lands it -- so objectui#9502 did not touch it. It may also be true on a leg
- * the repaired sentences never had: its parenthetical covers who may BYPASS the
- * ruleset as well as the required-context list, and bypass actors are not
- * carried by `GET /rules/branches/{branch}`, the endpoint this file reads.
- * ⛔ Ruling on it is a separate, governed decision and is not made here.
+ * lands it -- so objectui#9502 did not touch it. Its parenthetical also covered
+ * who may BYPASS the ruleset, and bypass actors are not carried by
+ * `GET /rules/branches/{branch}`, the endpoint this file reads. objectui#9520
+ * ruled on it as a governed change of its own and split it along that line:
+ * the required-checks half now points at this file, and "从仓内读不到" stays on
+ * the bypass-actors half alone, where it was measured true -- the ruleset
+ * endpoint answers a seat's token with `current_user_can_bypass` and no
+ * `bypass_actors` key. ⛔ That kept half is not a missed repair. Nothing in this
+ * tree re-derives it, either.
  *
  * The WRITE half of every one of them is still true and this file does not
  * touch it. ⛔ This script never writes: no enrolment, no removal, no ruleset
@@ -178,6 +183,14 @@ export const PINNED_CONTEXTS = Object.freeze(['Type Check']);
  * `drifted` naming both halves, so the window is observable rather than
  * assumed. ⛔ Re-take the live reading after the click; do not edit this list
  * to agree with whatever the endpoint says.
+ *
+ * `Spec Main Shape Gate` joined under objectui#9969's ruling A, which is a
+ * ruling and not an endpoint reading: the maintainer enrolled the context, and
+ * `scripts/dependabot-merge-gate.mjs` moved it into `REQUIRED_CONTEXTS` in the
+ * same change that added it here. Before that change the patrol printed the
+ * name as "required but not declared", and losing it from the ruleset would
+ * only have shortened that list, naming nothing. WATCHED, not pinned:
+ * promoting it is the maintainer's call this header describes, ⛔ not a tidy-up.
  */
 export const WATCHED_CONTEXTS = Object.freeze([
   'Lint',
@@ -185,6 +198,7 @@ export const WATCHED_CONTEXTS = Object.freeze([
   'Test',
   'Build Docs',
   'Changeset Declaration',
+  'Spec Main Shape Gate',
 ]);
 
 /**

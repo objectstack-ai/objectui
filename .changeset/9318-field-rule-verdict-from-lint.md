@@ -3,7 +3,7 @@
 ---
 
 The wrong-layer root advisory asks the platform for its verdict instead of keeping
-a second copy of it (objectui#9318).
+a second copy of it.
 
 `rowCanonAdvisory` answered "is this root bound on this surface?" from objectui's
 own knowledge — `@object-ui/core`'s detector hard-codes the single root `data`, and

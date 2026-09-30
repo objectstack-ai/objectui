@@ -19,9 +19,10 @@
  * We do not run the tool from the preview — invocation requires auth,
  * permission checks, and live datasource access that the preview
  * sandbox doesn't provide. Authors get an `Open in API Console` link
- * for end-to-end testing.
+ * for end-to-end testing — see `ApiConsoleLink` below for where it points
+ * and what it carries (objectui#10591).
  *
- * NO FLAG PILLS — deliberate (objectstack#3715 / #3896, objectui#3236).
+ * NO FLAG PILLS — deliberate (objectstack#3715 / objectstack-ai/objectstack#3896, objectui#3236).
  * The header strip used to render `requiresConfirmation`, `active`,
  * `builtIn` and `category`. All four were removed from the spec's
  * `ToolSchema`, which is now `.strict()` and rejects them by name with an
@@ -46,8 +47,11 @@ import {
   FileJson,
   Wrench,
 } from 'lucide-react';
+import { Link, useInRouterContext, useParams } from 'react-router-dom';
 import { EmptyDescription } from '@object-ui/components';
 import type { MetadataPreviewProps } from '../preview-registry.js';
+import { componentRefToUrlSegments } from '../../../services/componentRegistry.js';
+import { t as tr, tFormat } from '../i18n.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 
 interface JsonSchemaProp {
@@ -102,7 +106,65 @@ function stubValue(p: JsonSchemaProp): unknown {
   }
 }
 
-export function ToolPreview({ name, draft }: MetadataPreviewProps) {
+/**
+ * The API console's component-registry key — the one Studio's Developer
+ * navigation names, and the host-neutral way into the page: app-shell serves
+ * every registered key at `component/<ns>/<name>` inside any app, while the
+ * console's own `developer/api-console` route is a detail of that host.
+ */
+const API_CONSOLE_REF = 'developer:api-console';
+
+/**
+ * "Open in API Console" (objectui#10591).
+ *
+ * The link used to be the bare `/developer/api-console?path=…`. The console
+ * declares no root `/developer` route, so its catch-all sent the author home.
+ * It now points at the API console's registry key inside the app the author is
+ * in: `/apps/APP/component/developer/api-console`, the same path the Studio
+ * sidebar's "API Console" entry builds from that key.
+ *
+ * The query is the request preset `ApiConsolePage` reads once on mount:
+ * `path` is the tool's execute endpoint (`/execute` is the verb service-ai
+ * mounts in `buildToolRoutes`; an earlier `/invoke` spelling could only 404),
+ * and `method` is `POST`, the verb that endpoint answers. `URLSearchParams`
+ * encodes both, so the page reads back exactly the path built here.
+ *
+ * Rendered through `Link`, so the router's basename is applied: the console
+ * ships under a mount path (`/_console`), which a bare rooted `href` would
+ * step outside of. The anchor still opens in a new tab.
+ *
+ * With no router above the preview (the designer gallery harness), or a route
+ * that names no `:appName`, there is no app to open the console in, so no link
+ * is drawn rather than one that goes nowhere.
+ */
+function ApiConsoleLink({ toolName, locale }: { toolName: string; locale?: string }) {
+  // Rules-of-hooks safe: whether a router sits above is a fact about the
+  // mount, and cannot change under it.
+  return useInRouterContext() ? <RoutedApiConsoleLink toolName={toolName} locale={locale} /> : null;
+}
+
+function RoutedApiConsoleLink({ toolName, locale }: { toolName: string; locale?: string }) {
+  const { appName } = useParams<{ appName?: string }>();
+  if (!appName) return null;
+  const preset = new URLSearchParams({
+    path: `/api/v1/ai/tools/${encodeURIComponent(toolName)}/execute`,
+    method: 'POST',
+  });
+  const segments = componentRefToUrlSegments(API_CONSOLE_REF).join('/');
+  return (
+    <Link
+      to={`/apps/${encodeURIComponent(appName)}/component/${segments}?${preset.toString()}`}
+      target="_blank"
+      rel="noreferrer"
+      className="text-xs inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+      title={tr('engine.toolPreview.openApiConsoleTitle', locale)}
+    >
+      {tr('engine.toolPreview.openApiConsole', locale)} <ExternalLink className="h-3 w-3" />
+    </Link>
+  );
+}
+
+export function ToolPreview({ name, draft, locale }: MetadataPreviewProps) {
   const d = draft as Record<string, unknown>;
   const toolName = String(d.name ?? name ?? '');
   const label = String(d.label ?? toolName);
@@ -131,7 +193,7 @@ export function ToolPreview({ name, draft }: MetadataPreviewProps) {
   if (!toolName && !description && Object.keys(props).length === 0) {
     return (
       <PreviewShell hint="tool">
-        <PreviewMessage>Set name, description, and parameters to see the tool preview.</PreviewMessage>
+        <PreviewMessage>{tr('engine.toolPreview.empty', locale)}</PreviewMessage>
       </PreviewShell>
     );
   }
@@ -139,23 +201,7 @@ export function ToolPreview({ name, draft }: MetadataPreviewProps) {
   return (
     <PreviewShell
       hint="tool"
-      toolbar={
-        toolName && (
-          <a
-            // `/execute` is the verb service-ai mounts (buildToolRoutes). This
-            // link said `/invoke`, which nothing has ever mounted, so "Open in
-            // API Console" landed on a path that could only 404 — the same
-            // shape as the three dead AI endpoints framework#3718 removed.
-            href={`/developer/api-console?path=/api/v1/ai/tools/${encodeURIComponent(toolName)}/execute`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
-            title="Open API Console to test invocation"
-          >
-            Open in API Console <ExternalLink className="h-3 w-3" />
-          </a>
-        )
-      }
+      toolbar={toolName && <ApiConsoleLink toolName={toolName} locale={locale} />}
     >
       <PreviewErrorBoundary>
         <div className="p-3 space-y-3">
@@ -181,17 +227,17 @@ export function ToolPreview({ name, draft }: MetadataPreviewProps) {
           </div>
 
           {/* Parameters */}
-          <Section title="Input Parameters" count={Object.keys(props).length}>
+          <Section title={tr('engine.toolPreview.inputParameters', locale)} count={Object.keys(props).length}>
             {Object.keys(props).length === 0 ? (
-              <EmptyDescription className="text-xs italic">This tool takes no input parameters.</EmptyDescription>
+              <EmptyDescription className="text-xs italic">{tr('engine.toolPreview.noParameters', locale)}</EmptyDescription>
             ) : (
-              <ParamTable props={props} required={required} />
+              <ParamTable props={props} required={required} locale={locale} />
             )}
           </Section>
 
           {/* Example invocation */}
           {Object.keys(props).length > 0 && (
-            <Section title="Example LLM Call" icon={FileJson}>
+            <Section title={tr('engine.toolPreview.exampleCall', locale)} icon={FileJson}>
               <pre className="m-0 rounded border bg-background p-2.5 text-xs font-mono overflow-auto max-h-[200px]">
 {`{
   "tool": "${toolName}",
@@ -203,10 +249,15 @@ export function ToolPreview({ name, draft }: MetadataPreviewProps) {
 
           {/* Output */}
           {isObjectSchema(outputSchema) && outputSchema.properties && Object.keys(outputSchema.properties).length > 0 && (
-            <Section title="Output Schema" count={Object.keys(outputSchema.properties).length} icon={Box}>
+            <Section
+              title={tr('engine.toolPreview.outputSchema', locale)}
+              count={Object.keys(outputSchema.properties).length}
+              icon={Box}
+            >
               <ParamTable
                 props={outputSchema.properties}
                 required={new Set(Array.isArray(outputSchema.required) ? outputSchema.required : [])}
+                locale={locale}
               />
             </Section>
           )}
@@ -216,16 +267,24 @@ export function ToolPreview({ name, draft }: MetadataPreviewProps) {
   );
 }
 
-function ParamTable({ props, required }: { props: Record<string, JsonSchemaProp>; required: Set<string> }) {
+function ParamTable({
+  props,
+  required,
+  locale,
+}: {
+  props: Record<string, JsonSchemaProp>;
+  required: Set<string>;
+  locale?: string;
+}) {
   const keys = Object.keys(props);
   return (
     <div className="rounded border bg-background overflow-hidden">
       <table className="w-full text-xs">
         <thead>
           <tr className="bg-muted/30 text-left text-[10px] uppercase tracking-wider text-muted-foreground">
-            <th className="px-2.5 py-1.5 font-medium">Name</th>
-            <th className="px-2.5 py-1.5 font-medium">Type</th>
-            <th className="px-2.5 py-1.5 font-medium">Description</th>
+            <th className="px-2.5 py-1.5 font-medium">{tr('engine.toolPreview.col.name', locale)}</th>
+            <th className="px-2.5 py-1.5 font-medium">{tr('engine.toolPreview.col.type', locale)}</th>
+            <th className="px-2.5 py-1.5 font-medium">{tr('engine.toolPreview.col.description', locale)}</th>
           </tr>
         </thead>
         <tbody className="divide-y">
@@ -242,7 +301,9 @@ function ParamTable({ props, required }: { props: Record<string, JsonSchemaProp>
                       <ChevronRight className="h-3 w-3 text-muted-foreground" />
                     )}
                     {k}
-                    {isReq && <span className="text-[9px] uppercase text-emerald-700 ml-1">req</span>}
+                    {isReq && (
+                      <span className="text-[9px] uppercase text-emerald-700 ml-1">{tr('engine.toolPreview.required', locale)}</span>
+                    )}
                   </div>
                 </td>
                 <td className="px-2.5 py-1.5 font-mono text-muted-foreground">{typeLabel(p)}</td>
@@ -250,16 +311,18 @@ function ParamTable({ props, required }: { props: Record<string, JsonSchemaProp>
                   {p.description && <div>{p.description}</div>}
                   {Array.isArray(p.enum) && p.enum.length > 0 && (
                     <div className="text-[10px] text-muted-foreground">
-                      enum: {p.enum.map((v) => JSON.stringify(v)).join(' | ')}
+                      {tFormat('engine.toolPreview.enum', locale, { values: p.enum.map((v) => JSON.stringify(v)).join(' | ') })}
                     </div>
                   )}
                   {p.default !== undefined && (
                     <div className="text-[10px] text-muted-foreground">
-                      default: <code className="font-mono">{JSON.stringify(p.default)}</code>
+                      {tr('engine.toolPreview.default', locale)} <code className="font-mono">{JSON.stringify(p.default)}</code>
                     </div>
                   )}
                   {p.format && (
-                    <div className="text-[10px] text-muted-foreground">format: {p.format}</div>
+                    <div className="text-[10px] text-muted-foreground">
+                      {tFormat('engine.toolPreview.format', locale, { format: p.format })}
+                    </div>
                   )}
                 </td>
               </tr>

@@ -3,7 +3,7 @@
 ---
 
 `ConditionBuilder` now takes a caller-supplied **subject vocabulary** instead of hardcoding a
-record-scoped one (objectui#6296).
+record-scoped one.
 
 The builder built every row subject as `record.` + field name, plus a fixed `record.id` /
 `user.*` / `org.*` context list. That is correct for all five files that mount it today — six
@@ -14,6 +14,16 @@ entry condition, where the trigger record's fields *are* the top-level evaluatio
 `flow-scope.ts` already computes that distinction (`fieldPrefix: onStart ? '' : 'record.'`,
 `includePrevious`), and objectstack's `packages/formula/src/validate.ts` defines the two
 scopes.
+
+⚠️ **Dated note, 2026-09-29 — the mount count above has since moved — objectui#6226.**
+"all five files that mount it today — six mount sites" above held when this change landed
+(`88b15fddc`). Later in this same release objectui#6226 (PR objectui#6668) mounted it in
+`FlowNodeConfigField` for the flow Start node's entry condition, a flattened-scope site
+that passes its own `subjects`. Re-measured for objectui#10979 on `main` at `2eaf5be27`,
+six non-test files mounted `ConditionBuilder`, at seven sites, so "every one of them is a
+record-scoped site" no longer held either. `.changeset/flow-entry-condition-builder.md`
+(PR objectui#6668) states what ships; the text above is kept as the reading of this
+change.
 
 A new optional `subjects` prop declares what a site actually binds:
 

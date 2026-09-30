@@ -245,7 +245,7 @@ describe('objectui#7546 — what did NOT change', () => {
   it('the `data` tombstone (objectui#6896) still refuses with its remedy', () => {
     const r = ChartDataSeriesSchema.safeParse({ name: 'r', data: [1, 2, 3] });
     expect(r.success).toBe(false);
-    if (!r.success) expect(r.error.issues[0]?.message).toMatch(/RETIRED \(objectui#6896\)/);
+    if (!r.success) expect(r.error.issues[0]?.message).toMatch(/RETIRED \(ADR-0049\)/);
   });
 
   it('a series binding to neither `name` nor `dataKey` is still refused at `name` (objectui#6939)', () => {

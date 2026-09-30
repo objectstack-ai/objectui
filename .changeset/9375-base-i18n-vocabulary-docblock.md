@@ -3,7 +3,7 @@
 ---
 
 Correct the i18n vocabulary prose in `BaseSchema` — the two label shapes do NOT
-accept each other, and an instrument in the tree re-derives that (objectui#9375).
+accept each other, and an instrument in the tree re-derives that.
 
 `base.ts` said of the INLINE locale map (`label` / `description`) and the KEYED
 bundle reference (`ariaLabel`) that they "each accept the other's shape

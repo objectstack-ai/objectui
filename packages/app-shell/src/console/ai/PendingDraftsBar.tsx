@@ -32,7 +32,7 @@
  * same sink, renderer and wording every other write door uses. A bare fetch
  * had nothing to report THROUGH, so every one of those findings was parsed by
  * nobody — while the probe findings a few lines below were already shouting.
- * objectui#6965 / PR objectui#10038 did this for the two sibling call sites;
+ * PR objectui#10038 did this for the two sibling call sites;
  * this is the same move, not a second mechanism.
  *
  * Count freshness: re-read when the package binding changes and whenever the
@@ -99,7 +99,7 @@ export function PendingDraftsBar({ packageId, idle }: PendingDraftsBarProps) {
         // message and the parsed body. Same sentence the bare `fetch` showed
         // (`parseError` reads it off `error.message`), with the ADR-0112
         // producer-marked `userMessage` preferred when the refusal carries
-        // one — the rule objectui#7959 landed on the sibling call site.
+        // one — the rule `36fc74629` landed on the sibling call site.
         const marked = readEnvelopeFailureText((e as { body?: unknown } | null)?.body);
         const message =
           marked ||

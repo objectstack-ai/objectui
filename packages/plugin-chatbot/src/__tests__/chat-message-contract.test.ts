@@ -41,7 +41,7 @@ import type { ChatMessage as BarrelChatMessage, ChatbotEnhancedMessage } from '.
 /** The shape `<ChatbotEnhanced>` renders and the mappers produce. */
 import type { ChatMessage as EnhancedChatMessage } from '../ChatbotEnhanced';
 /** The OTHER side of the seam: the JSON/SDUI authoring contract. */
-import type { ChatMessage as AuthoredChatMessage } from '@object-ui/types';
+import type { ChatMessage as AuthoredChatMessage, ChatbotSchema } from '@object-ui/types';
 import type {
   authoredToRuntimeMessage,
   toRuntimeMessages,
@@ -64,6 +64,13 @@ type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ?
 /** objectstack#4075: an index signature absorbs every excess key. */
 type HasIndexSignature<T> = string extends keyof T ? true : false;
 type Has<T, K extends string> = K extends keyof T ? true : false;
+
+/**
+ * One element of the `messages` a chat runtime hands a schema's `onSend` — read
+ * off the published slot, because `@object-ui/types` deliberately exports no
+ * name for it (objectui#10018).
+ */
+type HandedBackMessage = Parameters<NonNullable<ChatbotSchema['onSend']>>[1][number];
 
 /**
  * The retired shape, transcribed verbatim from the declaration this change
@@ -285,13 +292,22 @@ describe("useObjectChat's declared message type is honest about both modes", () 
     type _HasProposedChanges = Assert<Has<HookToolInvocation, 'proposedChanges'>>;
     type _HasBuilderHandoff = Assert<Has<HookToolInvocation, 'builderHandoff'>>;
 
-    // 5. The compatibility statement, and the reason this is a MINOR and not a
-    //    break: the honest type is a SUBTYPE of the authoring one it replaces.
-    //    Every consumer that correctly accepted `@object-ui/types`' ChatMessage
-    //    still accepts these values — including a host `onSend` typed against
-    //    the authoring contract, which type-checks by contravariance.
-    type _StillAnAuthoredMessage = Assert<
-      ObjectChatMessage extends AuthoredChatMessage ? true : false
+    // 5. The compatibility statement, re-derived (objectui#10018). The honest
+    //    type WAS a subtype of the authoring one until the authoring `state`
+    //    union shed the three runtime-only approval states that API mode
+    //    produces. The values did not change; the authoring contract did. It
+    //    is NOT a subtype now, and that is the break the changeset names: a
+    //    host `onSend` typed against the authoring `ChatMessage[]` stops
+    //    type-checking, because it is handed states that contract refuses.
+    type _NoLongerAnAuthoredMessage = Assert<
+      Equal<ObjectChatMessage extends AuthoredChatMessage ? true : false, false>
+    >;
+    //    What it IS assignable to: the element type `ChatbotSchema.onSend`
+    //    hands a host — the authoring shape widened by exactly those three
+    //    states. This is what lets the three renderers forward `schema.onSend`
+    //    into the hook without a cast.
+    type _IsWhatOnSendHandsBack = Assert<
+      ObjectChatMessage extends HandedBackMessage ? true : false
     >;
 
     // 6. And the seam is still NECESSARY — this is not option 2 in disguise
@@ -308,6 +324,52 @@ describe("useObjectChat's declared message type is honest about both modes", () 
     //    own narrowing cast to the runtime type legal.
     type _RuntimeFlowsInWithoutACast = Assert<
       EnhancedChatMessage extends ObjectChatMessage ? true : false
+    >;
+
+    expect(true).toBe(true);
+  });
+});
+
+describe('the runtime-only approval states are ONE vocabulary across the two packages', () => {
+  it('is pinned at compile time', () => {
+    // objectui#10018. `@object-ui/types` sheds the AI SDK's three approval
+    // states from the authoring `state` union and names them only in a
+    // NON-exported alias, which types `ChatbotSchema.onSend`'s messages. This
+    // package spells them on `ChatbotEnhanced.ChatToolInvocation['state']`.
+    // Two spellings of one set, so they are pinned EQUAL here — derived
+    // through the published slot, since the alias has no name to import.
+    type AuthoredState = NonNullable<
+      NonNullable<AuthoredChatMessage['toolInvocations']>[number]['state']
+    >;
+    type HandedBackState = NonNullable<
+      NonNullable<HandedBackMessage['toolInvocations']>[number]['state']
+    >;
+    type RuntimeState = NonNullable<
+      NonNullable<EnhancedChatMessage['toolInvocations']>[number]['state']
+    >;
+    type TypesRuntimeOnly = Exclude<HandedBackState, AuthoredState>;
+    type ChatbotRuntimeOnly = Exclude<RuntimeState, AuthoredState>;
+
+    // Probe hygiene: an `any` answers every `Equal`, and two EMPTY sets are
+    // equal too — so neither side may be `any` or `never`.
+    type _HandedBackNotAny = Assert<Equal<IsAny<HandedBackMessage>, false>>;
+    type _TypesSideNotEmpty = Assert<
+      Equal<[TypesRuntimeOnly] extends [never] ? true : false, false>
+    >;
+
+    // 1. The two spellings are ONE set — neither package can move alone.
+    type _OneVocabulary = Assert<Equal<TypesRuntimeOnly, ChatbotRuntimeOnly>>;
+    // 2. …and it is exactly the SDK's approval triple, named so a drift says
+    //    WHICH state moved rather than "types differ".
+    type _IsTheApprovalTriple = Assert<
+      Equal<ChatbotRuntimeOnly, 'approval-requested' | 'approval-responded' | 'output-denied'>
+    >;
+    // 3. The ruling: the authoring union holds none of them.
+    type _AuthoringShedsThem = Assert<Equal<Extract<AuthoredState, ChatbotRuntimeOnly>, never>>;
+    // 4. The slot widens the authoring vocabulary by those states and nothing
+    //    else: every authoring state is still handed back.
+    type _HandedBackIsAuthoringPlusTriple = Assert<
+      Equal<HandedBackState, AuthoredState | ChatbotRuntimeOnly>
     >;
 
     expect(true).toBe(true);

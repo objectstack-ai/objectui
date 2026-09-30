@@ -18,9 +18,10 @@ to anything outside that one file:
 - `autoResponse`, `autoResponseText`, `autoResponseDelay` — the local
   auto-response (demo/playground) fields, already live via a real consumer
   (`packages/app-shell/src/console/ai/AiChatPage.tsx`).
-- `onSend?: (content: string, messages: ChatMessage[]) => void` — the
-  send-callback, now typed against the published `ChatMessage` shape rather
-  than the plugin's internal runtime message type.
+- `onSend` — the send-callback, now typed on the published authoring face
+  rather than against the plugin's internal runtime message type. Its
+  `messages` element is the authoring `ChatMessage` widened by the three
+  runtime-only approval states a chat runtime hands back (objectui#10018).
 
 Each was read-site-censused before being declared (renderer.tsx and/or
 `useObjectChat.ts` reads every one); none were dead, so none took the

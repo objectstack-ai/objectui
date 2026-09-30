@@ -21,12 +21,23 @@
  *
  * ## Submitting
  *
- * When the upload adapter surfaced a `fileId`, the widget submits the **bare
- * id** — the reference form. When it did not (the object-URL fallback adapter,
- * an older backend), it submits the legacy blob unchanged. So the same build
- * works against a backend that has adopted references and one that has not.
- * Action params already POST a bare fileId; this brings record field values
- * onto the same contract.
+ * A completed upload is submitted as the **bare `sys_file` id** the adapter
+ * surfaced in `meta.fileId` — the reference form, and the only form the stored
+ * contract admits (`valueSchemaFor(field, 'stored')` is the id-only
+ * `FileReferenceIdValueSchema` since spec `17.0.0`; ADR-0104's 2026-09-05
+ * addendum fixes the physical column to a string column holding that bare id).
+ * When no `fileId` came back — the object-URL default `useUpload()` falls open
+ * to, an S3/Azure-style adapter that mints no `sys_file` row, a custom adapter
+ * that dropped it — the submit is **refused** with {@link UploadIncompleteError}
+ * and ⛔ no inline blob is sent: the legacy `{ name, original_name, size,
+ * mime_type, url }` object is a shape no deployment's stored contract accepts
+ * (admitted warn-first only on a deployment that has not yet verified its
+ * file-as-reference migration, rejected with `invalid_type` everywhere else),
+ * so sending it turned an upload into a save refused by the backend
+ * (objectui#7699). ADR-0104's dual-read window is a READ rule: a legacy blob
+ * already on a record still renders through `readFileValue`; nothing here
+ * writes a new one. Action params already POST a bare fileId; record field
+ * values are on the same contract.
  */
 
 import { isFileIdToken } from '@objectstack/spec/data';
@@ -35,7 +46,12 @@ import { isFileIdToken } from '@objectstack/spec/data';
 export interface FileValueView {
   /** `sys_file` id, when the value carries one. */
   id?: string;
-  /** Best available display name. Never empty. */
+  /**
+   * Best available display name: the value's own, else the caller's
+   * `fallbackName`. Empty only when the caller passed an empty fallback to ask
+   * for "no name" (the image cell does, so a nameless image reaches its
+   * translated alt — objectui#10493).
+   */
   name: string;
   /** Resolvable URL, when the value carries one. A bare reference does not. */
   url?: string;
@@ -62,9 +78,8 @@ export interface FileValueView {
  * Why it matters that this one is shared rather than duplicated: the regex is a
  * WIRE decision. Widening it server-side (say, ids grow past 64 chars) while a
  * copy here keeps the old bound turns every new id into "not a reference", and
- * the widget then submits the legacy inline blob against a backend that expects
- * a reference. That failure surfaces as a broken thumbnail, nowhere near a
- * regex.
+ * `fileValueForSubmit` then refuses every upload as incomplete — loud, but
+ * pointing at the adapter while the cause is a regex two packages away.
  */
 export { isFileIdToken };
 
@@ -102,11 +117,38 @@ export function fileUrlFromId(id: string): string {
   return `${FILE_STORAGE_BASE_PATH}/files/${encodeURIComponent(id)}`;
 }
 
-/** Last path segment of a URL, used as a display name of last resort. */
-function nameFromUrl(url: string): string {
+/**
+ * Last path segment of a URL, used as a display name of last resort, or
+ * `undefined` when the URL carries no file name at all.
+ *
+ * A `data:` URI has no path: its "last segment" is the MIME tail plus the
+ * payload (`png;base64,…`, or a payload fragment when the base64 holds a `/`),
+ * which named an image cell's `<img>` with kilobytes of base64 — every
+ * signature is one (objectui#10493). It names nothing, so the caller's
+ * fallback applies. The scheme is matched case-insensitively, as URL schemes
+ * are.
+ *
+ * A segment that is not a valid percent-encoding (a bare `%`, as in
+ * `100%.png`, or `%zz`) names the file by its raw segment (objectui#10614).
+ * `FileValueSchema.url` is a plain string, so such a value is contract-valid,
+ * and `decodeURIComponent` throws `URIError` on it. Before this guard that
+ * throw escaped `readFileValue` during render, so one such value took down
+ * every face that reads it: the nearest error boundary replaced the whole
+ * table or gallery, valid rows included. The guard lives here, once, because
+ * every caller reaches the decode through this helper; a valid escape
+ * (`report%20q3.pdf`) still decodes as before.
+ */
+function nameFromUrl(url: string): string | undefined {
+  if (/^data:/i.test(url)) return undefined;
   const path = url.split(/[?#]/)[0] ?? url;
   const seg = path.split('/').filter(Boolean).pop();
-  return seg ? decodeURIComponent(seg) : url;
+  if (!seg) return url;
+  try {
+    return decodeURIComponent(seg);
+  } catch (err) {
+    if (err instanceof URIError) return seg;
+    throw err;
+  }
 }
 
 /**
@@ -125,7 +167,7 @@ export function readFileValue(value: unknown, fallbackName = 'File'): FileValueV
     // of a broken `<img src="">`.
     if (isFileIdToken(value)) return { id: value, name: fallbackName, url: fileUrlFromId(value), raw: value };
     // Otherwise it is a URL (legacy external link, data:, blob:).
-    return { url: value, name: nameFromUrl(value), raw: value };
+    return { url: value, name: nameFromUrl(value) ?? fallbackName, raw: value };
   }
 
   if (typeof value === 'object') {
@@ -176,25 +218,50 @@ export interface UploadResultLike {
 }
 
 /**
- * What to store in the field for a completed upload.
+ * A completed upload that surfaced no `sys_file` id, refused at the point of
+ * submit (objectui#7699).
  *
- * Returns the bare `sys_file` id when the adapter surfaced one — the reference
- * form — and the legacy inline blob when it did not, so a deployment whose
- * upload adapter or backend predates file-as-reference keeps working unchanged.
+ * The adapter reported success, so this is not a transport failure and the
+ * widgets do not quote an adapter message for it: what the user needs to know
+ * is that the field was NOT changed. Named — `name` and `code` — so a caller
+ * can tell it from a thrown network error without reading the message, and
+ * carrying the file's name so a host that reports it can say which pick.
  */
-export function fileValueForSubmit(
-  result: UploadResultLike,
-  originalName?: string,
-): string | Record<string, unknown> {
+export class UploadIncompleteError extends Error {
+  readonly code = 'UPLOAD_INCOMPLETE' as const;
+  /** The pick's own name when the caller knew it, else the adapter's stored object name. */
+  readonly fileName: string;
+
+  constructor(fileName: string) {
+    super(
+      `upload of "${fileName}" did not complete: the upload adapter returned no sys_file id ` +
+        '(meta.fileId), so nothing was submitted',
+    );
+    this.name = 'UploadIncompleteError';
+    this.fileName = fileName;
+  }
+}
+
+/**
+ * What to store in the field for a completed upload: the bare `sys_file` id
+ * the adapter surfaced in `meta.fileId` — the reference form, the only form
+ * the stored contract admits.
+ *
+ * Throws {@link UploadIncompleteError} when the adapter surfaced no id-shaped
+ * `fileId`. ⛔ There is no fallback: the inline blob this function used to
+ * build in that case (`{ name, original_name, size, mime_type, url }`) is a
+ * shape no deployment's stored contract accepts, and a client that sent it
+ * turned a successful-looking upload into a save the backend refused (see the
+ * module header's "Submitting"). The callers catch the refusal per pick and
+ * render it in the same error row a transport failure lands in.
+ *
+ * @param originalName the pick's own file name, used to name the refusal;
+ *   the adapter's stored object name stands in when the caller has none.
+ */
+export function fileValueForSubmit(result: UploadResultLike, originalName?: string): string {
   const fileId = (result.meta as { fileId?: unknown } | undefined)?.fileId;
   if (isFileIdToken(fileId)) return fileId;
-  return {
-    name: result.name,
-    original_name: originalName ?? result.name,
-    size: result.size,
-    mime_type: result.mimeType,
-    url: result.url,
-  };
+  throw new UploadIncompleteError(originalName ?? result.name);
 }
 
 /**

@@ -3,14 +3,14 @@
 ---
 
 `objectui validate` now prints the failing union arm the document selected, instead of a
-bare "Invalid input" (objectui#7004, maintainer ruling 2026-09-02 — option B).
+bare "Invalid input" (maintainer ruling 2026-09-02 — option B).
 
 `safeValidateSchema` checks a document against `AnyComponentSchema`, a `z.union`. When a
 document matches no arm, Zod reports ONE top-level issue — `invalid_union` · `Invalid
 input` · path `(root)` — and hangs every arm's real diagnosis off that issue's `errors`
 array, which nothing read. So a menu whose item used the divider spelling retired in
 objectui#6523 printed a bare verdict on the whole document, while the remediation text
-objectui#6931 wrote into that arm sat one level down, unreachable.
+`8063bcbdc` wrote into that arm sat one level down, unreachable.
 
 **What is printed now.** When the top-level issue is a failing union:
 
@@ -35,5 +35,11 @@ arms, so one mistyped `type` would have produced hundreds of lines.
 `safeValidateSchema(...).success` as a boolean recogniser. Printing issues behind a
 *negative* recognition would flood its report with diagnoses of non-ObjectUI files, the
 failure objectui#5127 and objectui#6075 exist to prevent.
+
+⚠️ **Dated note, 2026-09-29 — objectui#11007.** `check` now prints one line under each file in
+its "did not validate" list: the first issue's path, spelled by the formatter behind `validate`'s
+`Path:` line, and its message, with no arm selection. That list is the only place it prints
+one. Files counted as skipped, the foreign files the paragraph above guards against, still get
+no diagnosis.
 
 Nothing about which documents are ACCEPTED changes — this is diagnostic output only.

@@ -26,7 +26,7 @@ export interface UserMenuProps {
  * Shows avatar, name, email, and common actions (profile, settings, sign out).
  *
  * This is a headless component that provides the user data and actions.
- * The actual dropdown rendering is handled by the consumer (e.g., AppSidebar).
+ * The actual dropdown rendering is handled by the consumer.
  *
  * @example
  * ```tsx

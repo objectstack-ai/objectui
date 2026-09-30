@@ -199,19 +199,66 @@ structural key (`children`, `className`, …) **or** when the whole
 document validates as an ObjectUI component schema. Recognised files have their
 `type` checked against the component types this build registers.
 
+The two ways in are not equal. A document recognised by validating was parsed
+in full, nested nodes included. A document recognised by a structural key was
+**not parsed at all**: a page whose `children` hold a node with a refused key
+is recognised on `children` alone, and `check` says nothing about that node.
+`objectui validate` is the command that parses it.
+
 Files that are recognised by neither arm fall into one of two reports, and the
 distinction matters:
 
 - **Reported by name** when the root `type` *does* name a registered component.
   That is ObjectUI content the validator could not accept — either the document
-  is off-spec, or its component type is not modelled by `@object-ui/types`. Run
-  `objectui validate <file>` for the reason.
+  is off-spec, or its component type is not modelled by `@object-ui/types`.
+  Under each file, `check` prints the validator's first issue: its path, spelled
+  as `objectui validate` spells it, and its message. Run
+  `objectui validate <file>` for the full diagnosis.
 - **Counted as skipped** otherwise. A root `type` heads several unrelated JSON
   vocabularies — `package.json`'s `"type": "module"` most of all — and those are
   not ObjectUI files.
 
-Only unreadable JSON makes `objectui check` exit non-zero; everything above is a
-report. Use `objectui validate` when you want a failing exit code.
+```text
+⚠️ 1 file carries a registered ObjectUI component type but did not validate as an ObjectUI schema:
+   stores.json (type "object-map")
+     Issue at map: Unrecognized key: "latitudeFieId"
+```
+
+#### Expressions on text keys that are never evaluated
+
+`SchemaRenderer` evaluates a `${…}` expression on the closed text keys `title`,
+`label`, `value` and `description` only where `@objectstack/spec`'s
+`expressionBindableTextKeysFor(type)` lists that key for the node's type. On any
+other type, the expression is never resolved: the user sees its literal text, or
+nothing. `objectui check` refuses it in every recognised file:
+
+- **Component nodes only.** The file's root node and every node its `children`
+  hold, at any depth. Objects under other keys (a form's `fields`, a grid's
+  `columns`) are definitions, not nodes, and are not judged. A root whose `type`
+  is `page` keeps its own `title`: that is a page key, while its `children` are
+  still judged.
+- **The type is matched as written.** `ui:card` is not `card`, exactly as at
+  render time.
+- **A type no registered component answers to** is warned about, not refused: a
+  custom renderer may evaluate its own keys.
+- **There is no escape spelling.** A `${…}` meant as literal text on one of
+  these keys — a code sample in a `code-editor`'s `value`, a shell `${VAR}` — is
+  refused too. Write the text without `${`, for example with string
+  concatenation in a code sample.
+
+```text
+x Unevaluated expression in dashboard.json at children → 0 → title: "statistic" never evaluates `title` (it evaluates only `label`, `value`, `description`), so the expression is never resolved: the user sees its literal text, or nothing.
+   Channels SchemaRenderer evaluates: `label`, `value`, `description`, `content`, `properties.title` (evaluated, then hoisted onto the node); or resolve the value in the host before the schema reaches SchemaRenderer.
+```
+
+A run with no parse errors and no refused expression ends on a tally rather than
+a pass: how many recognised files validated, how many were recognised by a
+structural key and not validated, and how many did not validate, followed by a
+pointer to `objectui validate` for the verdict.
+
+Unreadable JSON and a refused expression make `objectui check` exit non-zero;
+everything else above is a report. Use `objectui validate` when you want a
+failing exit code on a document that does not validate.
 
 ### `objectui doctor`
 

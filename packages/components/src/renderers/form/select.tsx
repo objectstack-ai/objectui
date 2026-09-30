@@ -47,7 +47,33 @@ const SelectRenderer = ({ schema, className, onChange, value, disabled: hostDisa
         data-obj-type={dataObjType}
         style={style}
     >
-      {schema.label && <Label className={cn(schema.required && "text-destructive after:content-['*'] after:ml-0.5")}>{schema.label}</Label>}
+      {/*
+        The label names the trigger through a plain `htmlFor` / `id` pair on
+        `schema.id` (objectui#10435), the shape `element:record_picker` landed
+        for the same defect (objectui#5771): `SelectTrigger` renders a `button`
+        with `role="combobox"`, a labelable element, and that role takes no
+        name from its content, so without the pair the placeholder or value
+        text inside it named nothing and the combobox's accessible name was
+        empty. Only the author supplies `schema.id`, so a select authored
+        without one keeps an unassociated caption, as on the sibling `input` /
+        `textarea` renderers, rather than a minted `useId()` fallback.
+      */}
+      {schema.label && (
+        <Label htmlFor={schema.id} className={cn(schema.required && "text-destructive")}>
+          {schema.label}
+          {schema.required && (
+            // A real `aria-hidden` element, not CSS generated content, the
+            // same shape as the other form renderers (objectui#10368; the full
+            // note is on `FieldContainer`): `::after` content enters the name
+            // of whatever control a label names, and `aria-hidden` cannot
+            // reach a pseudo-element. The required STATE is the
+            // `aria-required` Radix writes on the trigger from `required`.
+            <span className="ml-0.5 text-destructive" data-required-marker="true" aria-hidden="true">
+              *
+            </span>
+          )}
+        </Label>
+      )}
       <Select
         defaultValue={value === undefined ? toControlValue(schema.defaultValue) : undefined}
         value={toControlValue(value ?? schema.value)}
@@ -57,7 +83,7 @@ const SelectRenderer = ({ schema, className, onChange, value, disabled: hostDisa
         name={schema.name}
         {...selectProps}
       >
-        <SelectTrigger className={className}>
+        <SelectTrigger id={schema.id} className={className}>
           <SelectValue placeholder={schema.placeholder} />
         </SelectTrigger>
         <SelectContent>

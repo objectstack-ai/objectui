@@ -89,6 +89,13 @@ const objectDef = {
 const makeDataSource = () =>
   ({
     find: vi.fn(async () => ({ data: [], total: 0 })),
+    // objectui#10881: over a data source that declares no `queryGroupHeaders`
+    // a grouped grid view is refused before this component fetches anything.
+    // Declaring it keeps the window fetch the grouping pins read the
+    // projection from: the rows a grouped grid is handed while a toolbar
+    // search is active, and what the filter chip counts and the client export
+    // read.
+    queryGroupHeaders: vi.fn(async () => []),
     findOne: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),

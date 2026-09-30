@@ -3,10 +3,6 @@ import { Input, Slider, EmptyValue, cn } from '@object-ui/components';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { useBadInputRefusal, BadInputMessage, BAD_INPUT_BORDER } from './numberBadInput.js';
-// The ONE out-of-range `scale` ruling both percent faces take (objectui#9808),
-// in its own module so the barrel can share the same spelling without
-// publishing it — see that module's header for the ruling and its sunset.
-import { renderablePercentScale } from './percent-scale.js';
 
 /**
  * The stored fraction a typed percentage-point value becomes — computed by
@@ -85,11 +81,9 @@ export function PercentField({ value, onChange, field, readonly, error, classNam
    * ⛔ NOT `CurrencyConfigSchema.precision`, which is a different surface with
    * the opposite convention and its own `scale` alias; the spec warns against
    * conflating the two at the field-face declaration itself. And ⛔ not
-   * `CurrencyField`'s read of `precision` either: there the competing source is
-   * the currency's own ISO 4217 minor-unit count, and objectui#4361 ruled an
-   * authored `precision` wins over THAT. It ruled nothing about `scale`, which
-   * a currency field's face does not carry a meaning for, and it pushed the
-   * contract question upstream rather than settling it here.
+   * `CurrencyField`'s width either: a currency's decimal places are the
+   * currency's own ISO 4217 minor-unit count, and that widget reads neither
+   * `precision` nor `scale` for them (objectui#10276).
    *
    * `typeof`, not truthiness: `scale: 0` is a valid declaration (a percent
    * field that edits whole percents) and `||` would silently drop it — the
@@ -108,12 +102,10 @@ export function PercentField({ value, onChange, field, readonly, error, classNam
    * should agree at all needs its own ruling, not a side effect of this one.
    */
   const declaredScale = percentField?.scale;
-  // The width this face resolves, then the ONE out-of-range ruling both faces
-  // take (objectui#9808) — see `./percent-scale.js` for why a width the engine
-  // cannot render is clamped and reported rather than refused, why it leaves a
-  // width the engine already accepts byte-identical, and the SUNSET condition
-  // that retires the whole clamp.
-  const scale = renderablePercentScale(typeof declaredScale === 'number' ? declaredScale : 2);
+  // The width this face resolves. The objectui#9808 out-of-range clamp retired
+  // at its own SUNSET (objectui#11073): `@objectstack/spec` 17.5.0 refuses a
+  // `scale` above 100, so a width the engine cannot render no longer arrives.
+  const scale = typeof declaredScale === 'number' ? declaredScale : 2;
 
   // Before the readonly return below: hooks are unconditional (objectui#6780).
   const { refusal, readBadInput } = useBadInputRefusal('12.5');

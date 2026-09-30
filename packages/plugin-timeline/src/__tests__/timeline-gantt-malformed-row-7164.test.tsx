@@ -34,6 +34,9 @@
  *     CONTROL items: [{ items: null }]          DREW   bars=0 axisCells=1
  *     CONTROL items: [0]  /  [[]]               DREW   bars=0 axisCells=1
  *
+ * (That last line is SUPERSEDED — see "The non-object ROW" below. The table
+ * is the reading on `a67abdc88` and is kept as it was measured.)
+ *
  * ## Why the repair is ONE reader, not a guard in each
  *
  * The card measured, by ablation, that a tolerant `calculateDateRange` closes
@@ -52,9 +55,23 @@
  *     its own, naming the authored path and the value. Never through
  *     `malformedDate`: "items[0] is null, which is not a valid date" names the
  *     wrong fault for a row that is not a row.
- *   - DRAWN — the five CONTROL shapes, with the SAME bar and axis-cell counts as
+ *   - DRAWN — the CONTROL shapes, with the SAME bar and axis-cell counts as
  *     before the change. The accept set is the ruling's and no wider.
  *   - THREW is what this card removes.
+ *
+ * ## The non-object ROW — a control SUPERSEDED by objectui#7364
+ *
+ * The A+ ruling of objectui#7164 required `items: [0]` and `items: [[]]` to
+ * keep DRAWING, and this file pinned them as CONTROLS. They drew an empty,
+ * unlabelled row while `validate` (the zod mirror, `TimelineSchema.items`)
+ * refused both at authoring time. The objectui#7364 ruling — comment
+ * 5809218505, letter A, maintainer 「同意」 — DELIBERATELY SUPERSEDES that
+ * clause: `classifyGanttRows` refuses every row that is not an object (a
+ * number, a string, a boolean, an array), through the same `malformedRow` key,
+ * so the renderer agrees with `validate`. Those two pins are therefore
+ * REWRITTEN to expect the refusal, not deleted, and joined by `['x']` and
+ * `[true]`, the other two shapes the card names. The well-formed object row
+ * stays a control that still DRAWS.
  *
  * ## Assertions count BAR ELEMENTS, never styles
  *
@@ -185,7 +202,7 @@ describe('the card’s THREW rows now REFUSE, each naming its path and value (ob
   });
 });
 
-describe('the NAMED row takes the row door, and the five CONTROL rows still DRAW with the same counts', () => {
+describe('the NAMED row takes the row door, and the CONTROL rows still DRAW with the same counts', () => {
   it("items: [{ items: 'x' }] — the card's NAMED row is now REFUSED through malformedRow, naming the true fault", () => {
     // On `a67abdc88` this row did not crash: a string is index-readable, so
     // the old walk reached `'x'[0]?.startDate`, read `undefined`, and named
@@ -208,8 +225,9 @@ describe('the NAMED row takes the row door, and the five CONTROL rows still DRAW
     ['items: []', { items: [] }, 0, 1],
     ["items: [{ label: 'R' }] — a row with no items key", { items: [{ label: 'R' }] }, 0, 1],
     ['items: [{ items: null }] — a row whose items is null (the empty row)', { items: [{ label: 'R', items: null }] }, 0, 1],
-    ['items: [0] — a row that is the number 0', { items: [0] }, 0, 1],
-    ['items: [[]] — a row that is an empty array', { items: [[]] }, 0, 1],
+    // `items: [0]` and `items: [[]]` stood here as controls until
+    // objectui#7364 (ruling 5809218505, A) superseded them — they are pinned
+    // as REFUSALS in the block below, with the reason in the header.
   ];
 
   for (const [label, schema, bars, axisCells] of controls) {
@@ -224,6 +242,60 @@ describe('the NAMED row takes the row door, and the five CONTROL rows still DRAW
   it('the ordinary row draws the SAME axis it drew before the change', () => {
     const { container } = gantt({ items: [goodRow()] });
     expect(axisOf(container)).toEqual(['Jan 2024', 'Feb 2024', 'Mar 2024']);
+  });
+});
+
+describe('a row that is NOT AN OBJECT is refused — objectui#7364 supersedes the #7164 control', () => {
+  /**
+   * Ruling 5809218505 (letter A): the renderer refuses what `validate` already
+   * refuses. The first two rows are the #7164 controls REWRITTEN — before
+   * objectui#7364 each drew `bars=0 axisCells=1` with no label and no word to
+   * the author; the other two are the card's remaining shapes. `value` is the
+   * speller's own spelling (`spellGanttDateValue`): an array is `an array`, a
+   * string is quoted.
+   */
+  const refused: [string, Record<string, unknown>, string][] = [
+    ['items: [0] — a row that is the number 0 (a #7164 control, superseded)', { items: [0] }, '0'],
+    ['items: [[]] — a row that is an empty array (a #7164 control, superseded)', { items: [[]] }, 'an array'],
+    ["items: ['x'] — a row that is a string", { items: ['x'] }, '"x"'],
+    ['items: [true] — a row that is a boolean', { items: [true] }, 'true'],
+  ];
+
+  for (const [label, schema, value] of refused) {
+    it(`${label} -> REFUSED at items[0]`, () => {
+      const { container } = gantt(schema);
+      const text = diagnosticOf(container);
+      expect(text, 'no diagnostic rendered — the row drew').not.toBeNull();
+      expect(text).toContain(`items[0] is ${value}, ${ROW_CLAUSE}`);
+      expect(text).not.toContain(DATE_CLAUSE);
+      expect(barCountOf(container)).toBe(0);
+      expect(axisOf(container)).toEqual([]);
+      expect(container.querySelector('[role="alert"]')).not.toBeNull();
+    });
+  }
+
+  it('a non-object row BESIDE well-formed rows is named by its own index, and wins over a later bad date', () => {
+    const { container } = gantt({
+      items: [goodRow(), 0, { label: 'R', items: [{ title: 'T', startDate: 'never', endDate: 'ever' }] }],
+    });
+    const text = diagnosticOf(container) ?? '';
+    expect(text).toContain(`items[1] is 0, ${ROW_CLAUSE}`);
+    expect(text).not.toContain('startDate');
+  });
+
+  it('CONTROL — a well-formed object row still DRAWS, and so does the empty-row family', () => {
+    const drawn: [string, Record<string, unknown>, number][] = [
+      ['an ordinary row', { items: [goodRow()] }, 1],
+      ['two ordinary rows', { items: [goodRow(), goodRow()] }, 2],
+      ["a row with no items key", { items: [{ label: 'R' }] }, 0],
+      ['a row whose items is null', { items: [{ label: 'R', items: null }] }, 0],
+    ];
+    for (const [label, schema, bars] of drawn) {
+      const { container } = gantt(schema);
+      expect(diagnosticOf(container), `${label} was refused`).toBeNull();
+      expect(barCountOf(container), label).toBe(bars);
+      expect(axisOf(container).length, `${label} drew no axis`).toBeGreaterThan(0);
+    }
   });
 });
 

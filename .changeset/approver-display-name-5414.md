@@ -11,7 +11,7 @@ formatter's 14-character truncation arm and middle-truncated to fit its chip. Th
 step names beside it were human prose; the one line answering *who is holding
 this record* was an internal identifier, and not even a complete one. The same
 reference reached the admin-override confirm dialog un-truncated, so a paragraph
-of plain governance prose ended `— position:sales_manager` (objectui#5414).
+of plain governance prose ended `— position:sales_manager`.
 
 Both surfaces now resolve the reference before rendering, in three tiers, most
 authoritative first. The server's own `pending_approver_names` wins whenever it

@@ -26,6 +26,7 @@ import { t as tr } from '../i18n.js';
 // The spec's own `I18nLabel` resolver, aliased so it is never confused with
 // objectui's same-named translation-KEY resolver in `app-shell/src/utils`.
 import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
+import { setLocalized } from '@object-ui/i18n';
 import { AddWidgetPicker } from './AddWidgetPicker.js';
 import { WIDGET_TYPE_META } from './widget-types.js';
 
@@ -98,22 +99,47 @@ export function DashboardPreview({
     [canEdit, widgets, onPatch, onSelectionChange],
   );
 
+  // The inline rename edits the title in the designer `locale`, the same
+  // read/write pair the widget inspector uses: the strip shows
+  // `resolveInlineI18nLabel(title, locale)`, and the save goes through
+  // `setLocalized`, so a per-locale map gets only that locale's entry replaced
+  // (or added) and every other locale is kept (objectui#10847). A plain-string
+  // title stays a plain string. Writing `trimmed` straight over a map would
+  // drop every locale the author was not looking at.
   const handleRenameWidget = React.useCallback(
     (id: string, nextTitle: string) => {
       if (!canEdit) return;
       const trimmed = nextTitle.trim();
       const next = widgets.map((w) =>
-        w?.id === id ? ({ ...(w as object), title: trimmed } as DashboardWidgetSchema) : w,
+        w?.id === id
+          ? ({
+              ...(w as object),
+              title: setLocalized(w.title, locale, trimmed) as DashboardWidgetSchema['title'],
+            } as DashboardWidgetSchema)
+          : w,
       );
       onPatch!({ widgets: next });
       onSelectionChange?.({ kind: 'widget', id, label: trimmed || id });
     },
-    [canEdit, widgets, onPatch, onSelectionChange],
+    [canEdit, widgets, onPatch, onSelectionChange, locale],
   );
 
   const selectedWidget = selectedWidgetId
     ? widgets.find((w) => w?.id === selectedWidgetId) ?? null
     : null;
+
+  // objectui#8219 — a dashboard with ONE widget shows it across the whole
+  // grid. The renderer sizes each widget by its authored span (a half-width
+  // chart is `w: 6` of 12), which leaves a lone widget using half the canvas
+  // beside empty space. Rendering that draft as a one-column grid gives the
+  // lone widget the full width while its authored row count (`layout.h`) and
+  // the renderer's content-sized rows stay as they are. Preview only: the
+  // draft handed to `onPatch` is never this copy.
+  const loneWidget = widgets.length === 1;
+  const renderedSchema = React.useMemo(
+    () => (loneWidget ? { ...(draft as Record<string, unknown>), columns: 1 } : draft),
+    [draft, loneWidget],
+  );
 
   const addButton = canEdit ? (
     <AddWidgetPicker onAdd={handleAddWidget} label={tr('engine.inspector.add.widget', locale)} />
@@ -122,7 +148,7 @@ export function DashboardPreview({
   if (widgets.length === 0) {
     return (
       <PreviewShell hint={`dashboard${designMode ? ' · design' : ''}`} toolbar={addButton}>
-        <PreviewMessage>Add at least one widget to see a preview.</PreviewMessage>
+        <PreviewMessage>{tr('engine.dashboardPreview.empty', locale)}</PreviewMessage>
       </PreviewShell>
     );
   }
@@ -134,10 +160,11 @@ export function DashboardPreview({
       }`}
       toolbar={addButton}
     >
-      <PreviewErrorBoundary fallbackHint="A widget references an object or field that doesn't resolve.">
+      <PreviewErrorBoundary fallbackHint={tr('engine.dashboardPreview.malformed', locale)}>
         {canEdit && selectedWidget ? (
           <SelectedWidgetStrip
             widget={selectedWidget}
+            locale={locale}
             onRename={(nextTitle) => handleRenameWidget(selectedWidget.id!, nextTitle)}
             onClose={() => onSelectionChange?.(null)}
           />
@@ -145,7 +172,7 @@ export function DashboardPreview({
         <React.Suspense
           fallback={
             <div className="p-6 text-sm text-muted-foreground flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading dashboard renderer…
+              <Loader2 className="h-4 w-4 animate-spin" /> {tr('engine.dashboardPreview.loading', locale)}
             </div>
           }
         >
@@ -158,11 +185,13 @@ export function DashboardPreview({
              * characters ("管道…"). Pin a desktop-like minimum width so
              * the grid lays out as end users see it; the parent's
              * overflow-auto adds a horizontal scrollbar when the canvas is
-             * narrower.
+             * narrower. The minimum applies only with several widgets: a lone
+             * widget fills the grid instead (objectui#8219), so it has no row
+             * to squeeze and a pinned width would only add a scrollbar.
              */}
-            <div className="min-w-[768px]">
+            <div className={loneWidget ? undefined : 'min-w-[768px]'}>
               <DashboardRenderer
-                schema={draft as any}
+                schema={renderedSchema as any}
                 dataSource={adapter as any}
                 designMode={designMode}
                 selectedWidgetId={selectedWidgetId}
@@ -182,18 +211,27 @@ export function DashboardPreview({
  * Floating strip that appears above the dashboard whenever a widget
  * is selected in design mode. Lets the author rename the widget
  * inline (Enter commits, Esc cancels) without diving into the right-
- * side inspector for a single text edit.
+ * side inspector for a single text edit. Its own words read the designer
+ * `locale` (objectui#10835). The widget's title is author data, but it is the
+ * spec's `I18nLabel`, so it may be a per-locale map: it is shown, and the
+ * rename draft seeded, through `resolveInlineI18nLabel` in the same designer
+ * `locale` the selection label uses (objectui#10847). The map itself never
+ * reaches React as a child. The widget inspector's title field edits the same
+ * entry through the same read/write pair (`resolveInlineI18nLabel` and
+ * `setLocalized`); editing every locale from one surface is still an open question.
  */
 function SelectedWidgetStrip({
   widget,
+  locale,
   onRename,
   onClose,
 }: {
   widget: DashboardWidgetSchema;
+  locale?: string;
   onRename: (nextTitle: string) => void;
   onClose: () => void;
 }) {
-  const currentTitle = (widget.title as string | undefined) ?? widget.id ?? '';
+  const currentTitle = resolveInlineI18nLabel(widget.title, locale) ?? widget.id ?? '';
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(currentTitle);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
@@ -226,7 +264,7 @@ function SelectedWidgetStrip({
     <div className="sticky top-0 z-10 flex items-center gap-2 border-b bg-primary/5 px-3 py-1.5 text-xs">
       {TypeIcon ? <TypeIcon className="h-3.5 w-3.5 text-primary" /> : null}
       <span className="rounded bg-primary px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-foreground">
-        Selected
+        {tr('engine.dashboardPreview.selected', locale)}
       </span>
       {editing ? (
         <>
@@ -250,7 +288,7 @@ function SelectedWidgetStrip({
             type="button"
             onClick={commit}
             className="rounded p-1 hover:bg-primary/10"
-            aria-label="Save title"
+            aria-label={tr('engine.dashboardPreview.saveTitle', locale)}
           >
             <Check className="h-3.5 w-3.5" />
           </button>
@@ -261,15 +299,17 @@ function SelectedWidgetStrip({
             type="button"
             onClick={() => setEditing(true)}
             className="flex-1 min-w-0 truncate text-left font-medium hover:underline"
-            title="Click to rename"
+            title={tr('engine.dashboardPreview.clickToRename', locale)}
           >
-            {currentTitle || <span className="italic text-muted-foreground">untitled</span>}
+            {currentTitle || (
+              <span className="italic text-muted-foreground">{tr('engine.dashboardPreview.untitled', locale)}</span>
+            )}
           </button>
           <button
             type="button"
             onClick={() => setEditing(true)}
             className="rounded p-1 hover:bg-primary/10"
-            aria-label="Rename widget"
+            aria-label={tr('engine.dashboardPreview.renameWidget', locale)}
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
@@ -279,7 +319,7 @@ function SelectedWidgetStrip({
         type="button"
         onClick={onClose}
         className="rounded p-1 hover:bg-primary/10"
-        aria-label="Clear selection"
+        aria-label={tr('engine.dashboardPreview.clearSelection', locale)}
       >
         <X className="h-3.5 w-3.5" />
       </button>

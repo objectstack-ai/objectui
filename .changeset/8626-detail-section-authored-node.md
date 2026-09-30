@@ -38,3 +38,11 @@ invalidates none of them.
 
 `DetailSection` itself is byte-identical: every in-repo caller passes
 `section={…}` as a direct JSX child and is untouched.
+
+Superseded in this release by objectui#9529 and objectui#10485: the
+registration now declares ten flat inputs, not eight — the eight above plus
+`icon` (objectui#9529) and then `hideEmpty` (objectui#10485) — and the adapter
+folds all ten. The count of eight above describes the tree this entry was
+written against; the live list is `DETAIL_SECTION_NODE_INPUTS`, held against
+the registration in both directions by the fold-parity row of
+`detailSectionAuthoredNode-8626.test.tsx`.

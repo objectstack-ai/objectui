@@ -393,7 +393,7 @@ import forms_create_user_form from './schemas/forms/create-user-form.json' with 
 import forms_newsletter_signup from './schemas/forms/newsletter-signup.json' with { type: 'json' };
 import forms_payment_form from './schemas/forms/payment-form.json' with { type: 'json' };
 import forms_settings_form from './schemas/forms/settings-form.json' with { type: 'json' };
-import layout_page_header_pageheader_with_actions from './schemas/layout-page-header/pageheader-with-actions.json' with { type: 'json' };
+import layout_page_header_basic_page_header from './schemas/layout-page-header/basic-page-header.json' with { type: 'json' };
 import marketing_call_to_action from './schemas/marketing/call-to-action.json' with { type: 'json' };
 import marketing_features_grid from './schemas/marketing/features-grid.json' with { type: 'json' };
 import marketing_pricing_table from './schemas/marketing/pricing-table.json' with { type: 'json' };
@@ -3906,14 +3906,14 @@ const REGISTRY: Record<string, Example> = {
     },
     schema: forms_settings_form,
   },
-  'layout-page-header/pageheader-with-actions': {
-    id: 'layout-page-header/pageheader-with-actions',
+  'layout-page-header/basic-page-header': {
+    id: 'layout-page-header/basic-page-header',
     meta: {
-      title: "Pageheader With Actions",
+      title: "Basic Page Header",
       description: "",
       category: 'layout-page-header',
     },
-    schema: layout_page_header_pageheader_with_actions,
+    schema: layout_page_header_basic_page_header,
   },
   'marketing/call-to-action': {
     id: 'marketing/call-to-action',

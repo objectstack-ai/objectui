@@ -93,10 +93,11 @@ const SCHEMAS_ROOT = fileURLToPath(new URL('../src/schemas', import.meta.url));
 /**
  * The surface this corpus is authored on. Every fixture under `SCHEMAS_ROOT` is
  * JSON metadata, so the question this gate asks the registry is scoped to
- * it: `div` and `span` are ALSO permanent vocabulary of the `kind:'html'` tier
- * (objectui#4000), where the parser compiles the plain tag straight through and
- * no other spelling exists to migrate to. A gate that dropped the scope would
- * be refusing a spelling that is correct on the other surface.
+ * it: `span` is ALSO vocabulary of the `kind:'html'` tier (objectui#4000),
+ * where the parser compiles the plain tag straight through and no other
+ * spelling exists to migrate to. A gate that dropped the scope would be
+ * refusing a spelling that is correct on the other surface. (`div` no longer
+ * differs by surface: objectui#10757 declared it deprecated on both.)
  */
 const CORPUS_SURFACE = 'json' as const;
 

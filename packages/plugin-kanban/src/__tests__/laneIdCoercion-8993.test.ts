@@ -51,7 +51,7 @@
  * control could not catch it.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { bucketCardsIntoColumns, KANBAN_UNCOLUMNED_ID } from '../index';
 
 /** `id:card+card` per lane, in lane order — the whole board in one string. */
@@ -114,10 +114,18 @@ describe('bucketCardsIntoColumns — lane id key coercion (objectui#8993)', () =
     }
   });
 
-  it('row 4 — the label→id path is keyed the same way (it stores the RAW id)', () => {
-    // 'One' matches the lane's TITLE, so the group key comes out of
-    // `labelToColumnId`, whose stored VALUE is the raw numeric id.
-    expect(bucket([{ id: 1, title: 'One' }], [{ id: 'r1', status: 'One' }])).toBe('1:r1');
+  it('row 4 — the folded-id lookup is keyed the same way (it stores the RAW id)', () => {
+    // The string '1' reaches the lane through `laneIdByFoldedId`, whose stored
+    // VALUE is the raw numeric id. This row used to reach that lookup through
+    // the lane's TITLE ('One'); objectui#10069 retired title matching, so the
+    // title-valued record is now an orphan — asserted here so this row cannot
+    // silently go back to exercising the retired key.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(bucket([{ id: 1, title: 'One' }], [{ id: 'r1', status: '1' }])).toBe('1:r1');
+    expect(bucket([{ id: 1, title: 'One' }], [{ id: 'r1', status: 'One' }])).toBe(
+      `1:, ${KANBAN_UNCOLUMNED_ID}:r1`,
+    );
+    warn.mockRestore();
   });
 
   it('row 5 — the sweep still sweeps: an unmatched record still surfaces (#2792)', () => {

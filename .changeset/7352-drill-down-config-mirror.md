@@ -37,5 +37,34 @@ Accept-set change on the published validator, stated plainly:
 
 `DrillDownConfigSchema` is deliberately NOT `@objectstack/spec/ui`'s
 `ChartDrillDownSchema`: that object models the chart-only subset strictly and
-refuses `mode` and `report` by name, both of which are live keys on the table /
-pivot / metric widgets that share `DrillDownConfig`.
+refuses `mode` and `report` by name, both of which were, at this change, keys
+`DrillDownConfig` declared for the table / pivot / metric widgets that share it.
+
+⚠️ **Dated note, 2026-09-25 — `mode` is read by the table alone — objectui#10685.**
+The blocks now take per-block drill shapes. `mode` is read only by
+`object-data-table`, on its row click, and is refused by name on `object-pivot`
+(`ObjectPivotDrillDownConfig`, objectui#10685) and on `object-metric`
+(`ObjectMetricDrillDownConfig`, objectui#9002), whose click points are always
+aggregates. `report` is read by `object-pivot` and `object-metric`, through the
+drawer they open. The rest of this entry is kept as the reading of this change.
+
+⚠️ **Dated note, 2026-09-28 — `PivotTableSchema` has a mirror now — objectui#10859.**
+Later in this same release `PivotTableSchema` gains a zod mirror, and its `drillDown`
+is this entry's `DrillDownConfigSchema`, so the opening paragraph's two referencing declarations are three for the release, and the first half of the second "Unchanged" bullet above (`PivotTableSchema.drillDown` has no zod mirror at all) is this change's reading, not the release's. The rest of this entry is kept as
+the reading of this change.
+
+⚠️ **Dated note, 2026-09-29 — the `pivot` arm no longer references this mirror —
+objectui#10932.** Later in this same release `drillDown` was retired on the `pivot`
+node on both faces: `PivotTableSchema.drillDown` is a `?: never` tombstone on the
+TypeScript face, and the zod arm declares it as a `retirementTombstone()`, which
+refuses the key by name whatever it holds. So "its `drillDown` is this entry's
+`DrillDownConfigSchema`, so the opening paragraph's two referencing declarations
+are three for the release" in the 2026-09-28 note above no longer holds: for the
+release the referencing declarations are the opening paragraph's two, `ChartSchema`
+and `ObjectDataTableSchema` (whose member extends this mirror per block,
+objectui#10685). The rest of that note stands: `PivotTableSchema` does have a zod
+mirror, so "`PivotTableSchema.drillDown` has no zod mirror at all" is still this
+change's reading, not the release's, and that mirror's `drillDown` member refuses
+the key rather than mirroring it. `.changeset/10932-pivot-drilldown-retired.md`
+(PR objectui#10972) states what ships; the text above is kept as the reading of
+this change.

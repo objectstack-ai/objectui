@@ -44,7 +44,7 @@ import { ActivityTimeline } from './ActivityTimeline';
 import { HistoryTimeline } from './HistoryTimeline';
 import { RecordMetaFooter } from './RecordMetaFooter';
 import { SchemaRenderer, SchemaErrorBoundary, toRenderableSchema, useSafeFieldLabel, useDataInvalidation, useInlineEdit, useRowPredicate } from '@object-ui/react';
-import { buildExpandFields, getRecordDisplayName, formatTitleTemplate, userActionPredicates } from '@object-ui/core';
+import { buildExpandFields, declaredNameField, getRecordDisplayName, formatTitleTemplate, recordDisplayValueAt, toDisplayDate, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 import type { DetailViewSchema, DataSource, ActionSchema, SchemaNode } from '@object-ui/types';
@@ -66,9 +66,13 @@ const EMPTY_DRAFT: Record<string, any> = {};
  *
  * Priority order:
  *   1. `schema.primaryField` value on the record (view-author override).
- *   2. `objectSchema.titleFormat` (e.g. `{full_name} - {company}`).
- *   3. `objectSchema.displayNameField` + type-aware field derivation, via the
- *      unified `@object-ui/core#getRecordDisplayName` (ADR-0079) — so the detail
+ *   1b. The object's DECLARED name pointer (`nameField`, then its deprecated
+ *      `displayNameField` alias) when it holds a value on the record — read
+ *      through `@object-ui/core#declaredNameField` (objectui#9436).
+ *   2. `objectSchema.titleFormat` (e.g. `{full_name} - {company}`), the legacy
+ *      render-only template, BELOW the declared pointer.
+ *   3. Type-aware field derivation, via the unified
+ *      `@object-ui/core#getRecordDisplayName` (ADR-0079) — so the detail
  *      header matches gallery / calendar / lookup / search.
  *   4. `schema.title` (caller-provided override, typically the object label).
  *   4b. Record-key probe (`name`/`title`/`*_name`/…) — last resort before the
@@ -76,6 +80,10 @@ const EMPTY_DRAFT: Record<string, any> = {};
  *      skips (e.g. an `autonumber` `name`) and whose caller set no title
  *      (objectui#2688).
  *   5. `Record #<id>` floor, else the translated "Details" fallback.
+ *
+ * `data` is the record as the viewer may read it: the caller removes the
+ * fields the loaded policy denies first (`titleRow`, objectui#10434), so a
+ * denied field is read by every rung below as an absent one.
  */
 function resolveDisplayTitle(
   data: any,
@@ -89,9 +97,27 @@ function resolveDisplayTitle(
       const v = (data as any)[schema.primaryField];
       if (v !== null && v !== undefined && v !== '') return String(v);
     }
-    // 2. titleFormat (kept first to preserve existing header behavior). The
-    //    shared renderer walks dotted paths + embedded lookup objects and
-    //    strips orphan separators around empty placeholders.
+    // 1b. The object's DECLARED name pointer, ABOVE the template
+    //     (objectui#9436, ruled C1). This is the protocol's order:
+    //     `@objectstack/spec`'s `titleFormat` describe says "an explicit
+    //     nameField now takes precedence", and `getRecordDisplayName` ranks
+    //     the pointer (steps 1+2) above the template (step 3). The value is
+    //     read the way the resolver reads it, through core's one spelling of
+    //     the pointer. It is filtered by the same floor test step 3 applies,
+    //     so on an object with no `titleFormat` this rung answers exactly what
+    //     step 3 answered before it. A blank value falls through to the
+    //     template.
+    const declared = recordDisplayValueAt(data, declaredNameField(objectSchema));
+    if (declared) {
+      const id = (data as any).id ?? (data as any)._id;
+      const isFloor =
+        declared === 'Untitled' ||
+        (id !== null && id !== undefined && declared === `Record #${id}`);
+      if (!isFloor) return declared;
+    }
+    // 2. titleFormat, the legacy render-only template, BELOW the declared
+    //    pointer. The shared renderer walks dotted paths + embedded lookup
+    //    objects and strips orphan separators around empty placeholders.
     const formatted = formatTitleTemplate(objectSchema?.titleFormat, data);
     if (formatted) return formatted;
   }
@@ -207,7 +233,7 @@ export interface DetailViewProps {
  * it and `SchemaErrorBoundary` blanked the whole `record:details` component —
  * one authored key erasing every sibling section on the page (objectui#8497).
  * The crash predates the key it fires on: it arrived with `e99770841`
- * (2026-05-01), months before #13855 declared `group`, so it was never a
+ * (2026-05-01), months before objectstack#13855 declared `group`, so it was never a
  * deliberate refusal of anything.
  */
 const sectionFieldEntries = (sections: any[] | undefined): any[] =>
@@ -332,6 +358,23 @@ export const DetailView: React.FC<DetailViewProps> = ({
       summaryFields: filterFields(rawSchema.summaryFields as any[]) as any,
     };
   }, [rawSchema, perms]);
+
+  /**
+   * The record the header TITLE is built from: `data` without the fields the
+   * loaded policy denies on this object, `id` kept (objectui#10434).
+   *
+   * `gatedSchema` above hides a denied field's ROW, but the title ladder in
+   * `resolveDisplayTitle` reads the record itself, so a denied `primaryField`,
+   * name pointer or `titleFormat` token still printed in the H1. Built from
+   * this row, a denied field reads as an absent one and the ladder falls
+   * through to its next source, the title ObjectStack's `FieldMasker` row
+   * already yields. Before the policy loads nothing is removed, and `perms`
+   * in the deps re-derives the row when the answer arrives.
+   */
+  const titleRow = React.useMemo(
+    () => withoutDeniedFields(data, perms, rawSchema.objectName),
+    [data, perms, rawSchema.objectName],
+  );
 
   /**
    * Record-level write gate (objectstack#3821). Object-level permissions say
@@ -934,7 +977,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
       items.push({
         name: 'sys_delete',
         label: t('detail.delete'),
-        icon: 'trash-2',
+        icon: 'trash',
         type: 'script',
         variant: 'destructive',
         tags: ['separator-before'],
@@ -1077,7 +1120,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl sm:text-2xl font-bold truncate">
-                  {resolveDisplayTitle(data, schema, objectSchema, t('detail.details'))}
+                  {resolveDisplayTitle(titleRow, schema, objectSchema, t('detail.details'))}
                 </h1>
                 {effectiveSummaryFields.map((fieldName) => {
                   const val = data?.[fieldName];
@@ -1169,7 +1212,11 @@ export const DetailView: React.FC<DetailViewProps> = ({
                             }).format(num);
                       }
                     } else if (ftype === 'date' || ftype === 'datetime') {
-                      const d = new Date(val);
+                      // The shared parse step, never `new Date(val)`: a
+                      // date-only value is UTC midnight to the engine and read
+                      // back here in the viewer's zone, one day early west of
+                      // UTC (objectui#10183). The face stays this chip's own.
+                      const d = toDisplayDate(val);
                       if (!Number.isNaN(d.getTime())) {
                         display = ftype === 'datetime'
                           ? d.toLocaleString(displayLocale, { dateStyle: 'medium', timeStyle: 'short' })
@@ -1621,7 +1668,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
               {/* Recall belongs to the approval, not to the lock: an editable
                   pending approval is just as recallable as a locked one.
 
-                  It also belongs to the SUBMITTER (objectui#6464). The server
+                  It also belongs to the SUBMITTER (`830ed5803`). The server
                   authorizes recall on submitter identity and refuses everyone
                   else, so rendering the button for every reader of a pending
                   record offers a lever whose click must fail — the

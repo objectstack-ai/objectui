@@ -111,8 +111,9 @@ const GAP_CLASSES: Record<number, string> = {
 };
 
 /**
- * ResponsiveGrid — A layout component that consumes @objectstack/spec
- * BreakpointColumnMapSchema for responsive grid layouts.
+ * ResponsiveGrid — A layout component that consumes this package's own
+ * BreakpointColumnMap (the six keys xs, sm, md, lg, xl, '2xl') for
+ * responsive grid layouts.
  *
  * Uses pure Tailwind CSS classes for responsive behavior (no JS resize listeners).
  *

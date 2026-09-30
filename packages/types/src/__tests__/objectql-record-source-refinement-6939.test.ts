@@ -18,10 +18,12 @@
  * ## The defect
  *
  * Both mirrors REQUIRED `objectName`. Both renderers resolve their records from
- * one of THREE keys, in this order — `getDataConfig` in
- * `plugin-map/src/ObjectMap.tsx` (`schema.data`, `schema.staticData`,
- * `schema.objectName`) and `plugin-gantt/src/ObjectGantt.tsx` (the same three,
- * the same order). A document authored on `staticData` alone draws correctly
+ * one of THREE keys, in this order (`schema.data`, `schema.staticData`,
+ * `schema.objectName`) — today through the shared `resolveRecordSourceConfig`
+ * in `@object-ui/core` (objectui#7632), which `plugin-map/src/ObjectMap.tsx`
+ * reaches via its local `getDataConfig` wrapper and
+ * `plugin-gantt/src/ObjectGantt.tsx` calls directly. A document authored on
+ * `staticData` alone draws correctly
  * and was refused by `safeValidateSchema`: six catalog entries, three per
  * component, every one of them `staticData`-only.
  *
@@ -43,7 +45,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ObjectGanttSchema, ObjectMapSchema, safeValidateSchema } from '../zod/index.zod';
+import { ObjectCalendarSchema, ObjectGanttSchema, ObjectMapSchema, safeValidateSchema } from '../zod/index.zod';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
 
@@ -147,5 +149,48 @@ describe('objectui#6939 — the refinement sits on declared keys, and the object
     expect(ObjectGanttSchema.safeParse({ type: 'object-gantt', objectName: 'tasks', data: { provider: 'object', object: 'tasks' } }).success).toBe(true);
     // Same shape as the map's, so the two record sources cannot fork.
     expect(ObjectMapSchema.safeParse({ type: 'object-map', objectName: 'stores', data: 'nope' }).success).toBe(false);
+  });
+});
+
+describe('objectui#9618 — the record-source text names the function each renderer actually has', () => {
+  // `getDataConfig` left `ObjectGantt.tsx` (and never lived in
+  // `ObjectCalendar.tsx`) when objectui#7632 moved the ladder into
+  // `resolveRecordSourceConfig`; only `ObjectMap.tsx` keeps a local wrapper by
+  // that name. So the gantt and calendar faces must not name it, and the map
+  // face — whose text is TRUE — is the control that the descriptions and the
+  // source slice are actually being read.
+  type Described = { shape: Record<string, { description?: string }> };
+  const describes = (member: unknown): Record<string, string> =>
+    Object.fromEntries(
+      Object.entries((member as Described).shape).map(([k, v]) => [k, v.description ?? '']),
+    );
+
+  /** The `export interface NAME` block of the TS face, up to the next export. */
+  function tsFace(name: string): string {
+    const src = fs.readFileSync(path.join(REPO_ROOT, 'packages/types/src/objectql.ts'), 'utf8');
+    const at = src.indexOf(`export interface ${name} `);
+    expect(at, `${name} interface not found in objectql.ts`).toBeGreaterThan(-1);
+    const end = src.indexOf('\nexport ', at + 1);
+    return src.slice(at, end === -1 ? undefined : end);
+  }
+
+  it.each([
+    ['ObjectGanttSchema', ObjectGanttSchema],
+    ['ObjectCalendarSchema', ObjectCalendarSchema],
+  ] as const)('%s: no zod describe and no TS doc names `getDataConfig`', (name, member) => {
+    const d = describes(member);
+    expect(Object.entries(d).filter(([, text]) => text.includes('getDataConfig'))).toEqual([]);
+    expect(d.objectName).toContain('resolveRecordSourceConfig');
+    expect(d.staticData).toContain('resolveRecordSourceConfig');
+    const face = tsFace(name);
+    expect(face).not.toContain('getDataConfig');
+    expect(face).toContain('resolveRecordSourceConfig');
+  });
+
+  it('⛔ CONTROL: the map faces still name its real local `getDataConfig`', () => {
+    expect(describes(ObjectMapSchema).objectName).toContain('getDataConfig');
+    expect(tsFace('ObjectMapSchema')).toContain('getDataConfig');
+    const renderer = fs.readFileSync(path.join(REPO_ROOT, 'packages/plugin-map/src/ObjectMap.tsx'), 'utf8');
+    expect(renderer).toContain('function getDataConfig(');
   });
 });

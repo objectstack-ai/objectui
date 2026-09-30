@@ -181,79 +181,44 @@ describe('ObjectView hands the view filter to the delegated renderer', () => {
     expect(convertSortToQueryParams(seen[0]?.sort)).toEqual({ name: 'asc' });
   });
 
-  // This cell used to be `forwards the sort alongside it`, and it asserted that
-  // an ARRAY in `table.defaultSort` reached the delegated slot verbatim. Two
-  // things were wrong with it, both recorded by objectui#6235:
+  // ── objectui#5861 — `table.defaultSort` is RETIRED, so nothing is wrapped ──
   //
-  //   1. It could not fail in either state — a verbatim `toEqual` on a verbatim
-  //      pass-through (objectui#5270's recorded trap).
-  //   2. Its input is metadata the schema REFUSES.
-  //      `packages/types/src/zod/objectql.zod.ts` declares
-  //      `defaultSort: z.object({ field, order })` — not a union, not an array —
-  //      so no conforming author can produce what it was pinning.
-  //
-  // The wrap lowers it verbatim as the non-grid fetch path and `ObjectGrid` do
-  // for this exact pair, which means invalid input stays invalid instead of
-  // being rescued. That is the point, not a gap: the shared sink REFUSES it
-  // rather than guessing, which is the 2026-08-22 ruling's whole basis.
-  // ⛔ Do not "fix" this with an `Array.isArray` flatten in the caller — that
-  // is a tolerant second dialect for input the protocol already rejects, and it
-  // would make this surface disagree with both of its siblings again.
-  it('does not rescue an ARRAY in defaultSort — the arity the schema refuses', () => {
+  // These three cells used to pin objectui#6235's wrap: the legacy single
+  // `{ field, order }` in `table.defaultSort` was lowered into the
+  // `SortConfig[]` the delegated `list-view` slot declares (and an ARRAY in it
+  // was re-wrapped to `[[…]]` and refused downstream). The key is now an
+  // ADR-0049 tombstone — `@objectstack/spec` refuses it by name on
+  // `object-grid` — and `mergedSort` no longer has a `defaultSort` branch, so
+  // each cell is FLIPPED to assert the key reaches the slot in no shape.
+  // ⛔ Not deleted: they are the receipt that the alias was retired rather
+  // than quietly dropped from one path while another still honours it.
+  it('forwards no sort for an ARRAY in a retired defaultSort — not even the refused `[[…]]` shape', () => {
     const seen = renderDelegated({ table: { defaultSort: [{ field: 'name', order: 'asc' }] } as any });
-    expect(seen[0]?.sort).toEqual([[{ field: 'name', order: 'asc' }]]);
-    // Refused, not guessed — the same answer `:862` and ObjectGrid give it.
+    expect(seen[0]?.sort).toBeUndefined();
     expect(convertSortToQueryParams(seen[0]?.sort)).toBeUndefined();
   });
 
-  // ── objectui#6235 — the DECLARED arity, which is where the defect lived ────
-  //
-  // Everything above hands `defaultSort` an array. `ObjectGridSchema` declares
-  // it a SINGLE `{ field, order }` object, and that shape — the only one an
-  // author following the type can write — was forwarded BARE into a slot
-  // declared `string | SortConfig[]` (`list-view`'s `sort`, imported by
-  // reference from the spec's own `ListViewSchema`). No compile-time witness:
-  // `ObjectViewSchema.table` is a bare index signature (objectui#5102) and the
-  // `renderListView` slot types `schema` as `any` (objectui#5097).
-  //
-  // These two cells are the discriminating ones. Against `origin/main` the
-  // first reads `{ field: 'created', order: 'asc' }` and the second reads
-  // `undefined`; both are green only with the wrap at `mergedSort`.
-  it('WRAPS a bare-object table.defaultSort into the SortConfig[] the slot declares', () => {
+  it('does not WRAP a bare-object table.defaultSort any more — the slot gets no sort', () => {
+    // Flipped from `WRAPS a bare-object table.defaultSort into the SortConfig[]
+    // the slot declares`, which asserted `[{ field: 'created', order: 'asc' }]`.
     const seen = renderDelegated({ table: { defaultSort: { field: 'created', order: 'asc' } } as any });
-    // Before objectui#6235 this was the bare object — the arity the slot does
-    // not declare, and the one three of the four chain branches never produce.
-    expect(seen[0]?.sort).toEqual([{ field: 'created', order: 'asc' }]);
+    expect(seen[0]?.sort).toBeUndefined();
   });
 
-  it('hands the delegated slot a sort its READERS can actually parse', () => {
-    // The symptom, not the shape. A verbatim pass-through assertion cannot
-    // fail in either state (objectui#5270's recorded trap, and the cell above
-    // this block is the resident example), so this one runs the forwarded
-    // value through a real reader of that slot instead.
-    //
-    // `convertSortToQueryParams` is the repo's ONE sort sink and is what the
-    // delegated node's `sort` ultimately reaches on every non-grid view type
-    // (`ObjectCalendar` / `ObjectMap` / `ObjectTimeline` / `ObjectGantt` each
-    // call it on `schema.sort`). It refuses a bare `{ field, order }` BY
-    // DESIGN — the 2026-08-22 maintainer ruling rejected widening it, because
-    // the same slot legitimately carries `$orderby`'s own
-    // `Record<field, direction>` map where `{ field: 'desc' }` orders by a
-    // column named `field`. So the caller must wrap, and until it did, the
-    // sink returned `undefined`: a silently UNSORTED list, no error anywhere.
-    // `ListView.parseSortConfig` and `ObjectGrid.parseSchemaSort` — the two
-    // readers the in-tree hosts reach through — fail the same way, returning
-    // `[]` from the same `Array.isArray(sort) ? sort : []` opening.
-    const seen = renderDelegated({ table: { defaultSort: { field: 'created', order: 'asc' } } as any });
-    expect(convertSortToQueryParams(seen[0]?.sort)).toEqual({ created: 'asc' });
+  it('hands the delegated slot a sort its READERS can parse only from the canonical key', () => {
+    // The symptom, not the shape: the forwarded value is run through the
+    // repo's one sort sink, which the delegated node's `sort` reaches on every
+    // non-grid view type. A retired `defaultSort` gives it nothing to order
+    // by; the canonical `sort` (CONTROL, same path) still orders.
+    const retired = renderDelegated({ table: { defaultSort: { field: 'created', order: 'asc' } } as any });
+    expect(convertSortToQueryParams(retired[0]?.sort)).toBeUndefined();
+    const canonical = renderDelegated({ table: { sort: [{ field: 'created', order: 'asc' }] } as any });
+    expect(convertSortToQueryParams(canonical[0]?.sort)).toEqual({ created: 'asc' });
   });
 
-  it('keeps the canonical table.sort ahead of the wrapped legacy default', () => {
-    // CONTROL — green in both states. Named so it is not read as evidence for
-    // the fix: it guards the wrong shape where the wrap is written so that the
-    // `defaultSort` branch starts winning (e.g. by wrapping the chain's result
-    // rather than its final branch, making the always-truthy array outrank
-    // everything). Precedence is the half of `mergedSort` that must NOT move.
+  it('keeps the canonical table.sort when a retired defaultSort is written beside it', () => {
+    // CONTROL — green in both states (before objectui#5861 the canonical key
+    // outranked the wrapped legacy default; now the legacy key is not read).
     const seen = renderDelegated({
       table: { sort: [{ field: 'name', order: 'desc' }], defaultSort: { field: 'created', order: 'asc' } } as any,
     });
@@ -261,10 +226,10 @@ describe('ObjectView hands the view filter to the delegated renderer', () => {
   });
 
   it('forwards nothing when the view declares neither', () => {
-    // CONTROL — green in both states. Guards the other wrong shape: an
-    // unconditional `[schema.table.defaultSort]`, which forwards `[undefined]`
-    // when nothing was authored. That is truthy and one entry long, so the
-    // sink and both parsers would report a sort that does not exist.
+    // CONTROL — green in both states. Guards a truthy placeholder (e.g. an
+    // unconditional one-entry array) reaching the slot when nothing was
+    // authored, which the sink and both parsers would read as a sort that
+    // does not exist.
     const seen = renderDelegated({});
     expect(seen[0]?.filter).toBeUndefined();
     expect(seen[0]?.sort).toBeUndefined();

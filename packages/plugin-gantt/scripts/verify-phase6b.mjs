@@ -117,7 +117,10 @@ await page.waitForTimeout(250);
 const withCal = await liveTasks();
 
 // No leaf task (non-summary, non-milestone) may START on a weekend under cal.
-const dow = (iso) => new Date(iso).getUTCDay(); // 0 Sun, 6 Sat
+// 0 Sun, 6 Sat, read on the chart's LOCAL calendar: the working calendar counts
+// local days since objectui#10866, and this browser context sets no
+// `timezoneId`, so the page and this process share one zone.
+const dow = (iso) => new Date(iso).getDay();
 const leaves = withCal.filter((t) => t.type !== 'milestone' && !withCal.some((c) => c.parent === t.id));
 const weekendStarts = leaves.filter((t) => dow(t.start) === 0 || dow(t.start) === 6);
 check('working calendar: no leaf task starts on a weekend',

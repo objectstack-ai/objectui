@@ -114,7 +114,6 @@ describe('NavigationItem Zod Schema', () => {
     const item = {
       id: 'sep_1',
       type: 'separator',
-      label: '',
     };
     const result = NavigationItemSchema.safeParse(item);
     expect(result.success).toBe(true);
@@ -344,8 +343,8 @@ describe('menuItemToNavigationItem', () => {
     const menuItem: AppMenuItem = { type: 'separator' };
 
     const result = menuItemToNavigationItem(menuItem, 3);
-    expect(result.type).toBe('separator');
-    expect(result.label).toBe('');
+    // Only the spec separator's keys — no `label` (objectui#10867).
+    expect(result).toEqual({ id: 'migrated_3', type: 'separator' });
   });
 
   it('should invert hidden to visible', () => {

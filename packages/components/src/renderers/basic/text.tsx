@@ -15,7 +15,7 @@ type TextAlign = NonNullable<TextSchema['align']>;
 
 /**
  * `TextSchema.variant` -> one visibly distinct typographic class per published
- * value (objectui#6942, maintainer ruling B1 of 2026-09-02).
+ * value (`57f9b077b`, maintainer ruling B1 of 2026-09-02).
  *
  * ## What was measured before this map existed
  *
@@ -134,7 +134,7 @@ ComponentRegistry.register('text',
     const { style, ...hostProps } = props;
     const dataObjId = hostProps['data-obj-id'];
 
-    // ABSENCE IS NOT `body` (objectui#6942). Nothing writes a variant into a
+    // ABSENCE IS NOT `body` (`57f9b077b`). Nothing writes a variant into a
     // node that omits the key: the Zod mirror used to declare `.default('body')`
     // and materialise it on a PARSED document, and objectui#7735 removed that —
     // a validator validates, it does not author, and this renderer's own
@@ -175,7 +175,7 @@ ComponentRegistry.register('text',
     inputs: [
       { name: 'content', type: 'string', required: true },
       // Declared because they are READ, in the same change as the read sites
-      // above (objectui#6942). While these were missing, `page.tsx`'s JSX-page
+      // above (`57f9b077b`). While these were missing, `page.tsx`'s JSX-page
       // prop whitelist — built from `getKnownTypes()` plus these `inputs` —
       // reported `unknown-prop` for two keys `TextSchema` publishes.
       //

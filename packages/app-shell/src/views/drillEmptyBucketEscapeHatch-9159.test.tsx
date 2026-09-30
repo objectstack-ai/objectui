@@ -144,7 +144,7 @@ describe('the drill escape hatch and the empty bucket (objectui#9159)', () => {
     expect(NULL_FILTER.flag).toBe('true');
     expect(NULL_FILTER.op).toBe('is_null');
     expect(NULL_FILTER.key).toBe('$null');
-    expect(NULL_FILTER.labelKey).toBe('filterBuilder.operators.isNull');
+    expect(NULL_FILTER.labelKey).toBe('filterBuilder.operators.is_null');
   });
 
   it('the chip the list renders names the condition instead of showing a bare `true`', () => {

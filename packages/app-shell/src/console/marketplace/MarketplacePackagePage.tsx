@@ -44,6 +44,7 @@ import { MarketplaceAccessDenied } from './MarketplaceAccessDenied.js';
 import { MarketplaceResolving } from './MarketplaceResolving.js';
 import { MarketplaceDisabled } from './MarketplaceDisabled.js';
 import { localizePackage } from './usePackageL10n.js';
+import { isNewerVersion } from './versionPrecedence.js';
 import {
   getMarketplacePackage,
   installPackage,
@@ -147,6 +148,12 @@ export function MarketplacePackagePage() {
   const [cloudInstall, setCloudInstall] = useState<CloudInstallationInfo | null>(null);
   const [sampleDataBusy, setSampleDataBusy] = useState<'reseed' | 'purge' | null>(null);
   const [sampleDataMsg, setSampleDataMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // Set once the control plane refuses a cloud Re-seed / Purge with
+  // `ENVIRONMENT_KERNEL_UNAVAILABLE` (cloud#2072): it registers no environment
+  // kernel, a fact of this deployment's composition rather than a passing
+  // fault, so neither action can succeed here and neither is offered again
+  // (objectui#10432). Every other code leaves both actions enabled, as before.
+  const [cloudSampleDataRefused, setCloudSampleDataRefused] = useState(false);
 
   // Local-install state (this runtime's own kernel — separate flow from cloud).
   const [localInstalls, setLocalInstalls] = useState<LocalInstallEntry[]>([]);
@@ -162,8 +169,8 @@ export function MarketplacePackagePage() {
     // Its only consumer is `localInstalls.find(...)` in the content branch
     // below, which is unreachable whenever the page has already returned
     // `MarketplaceDisabled` or (post-objectui#5583) `MarketplaceAccessDenied`.
-    // Firing anyway would be the same discarded-request class objectui#5533
-    // closed for this page, on the flag that card was not about
+    // Firing anyway would be the same discarded-request class `2573ff434`
+    // closed for this page, on the flag that change was not about
     // (objectui#5620).
     if (!marketplaceEnabled) return;
     if (!isAdmin) return;
@@ -212,7 +219,7 @@ export function MarketplacePackagePage() {
       // No marketplace on this runtime -> no request. Fetching anyway and
       // discarding the result would still put a 404/403 on the server and can
       // race the destructive card onto the screen before the disabled state
-      // settles (objectui#5533).
+      // settles (`2573ff434`).
       if (!marketplaceEnabled) return;
       // Nor on behalf of a viewer this page refuses (objectui#5583).
       // Authorization is not a function of whether the fetch succeeded, so it
@@ -451,6 +458,9 @@ export function MarketplacePackagePage() {
           ok: true,
           text: t('marketplace.detail.reseedQueued'),
         });
+      } else if (errorCodeIs(r, 'ENVIRONMENT_KERNEL_UNAVAILABLE')) {
+        setCloudSampleDataRefused(true);
+        setSampleDataMsg({ ok: false, text: t('marketplace.detail.sampleDataKernelUnavailable') });
       } else {
         setSampleDataMsg({ ok: false, text: r.error || 'Re-seed failed' });
       }
@@ -482,6 +492,9 @@ export function MarketplacePackagePage() {
             ? t('marketplace.detail.purgeSuccess', { count: removed })
             : t('marketplace.detail.purgeNoData'),
         });
+      } else if (errorCodeIs(r, 'ENVIRONMENT_KERNEL_UNAVAILABLE')) {
+        setCloudSampleDataRefused(true);
+        setSampleDataMsg({ ok: false, text: t('marketplace.detail.sampleDataKernelUnavailable') });
       } else {
         setSampleDataMsg({ ok: false, text: r.error || 'Purge failed' });
       }
@@ -544,7 +557,7 @@ export function MarketplacePackagePage() {
 
   // A CONFIGURATION CONCLUSION, not a load failure -- the same informational
   // state the catalog page renders, so the two pages stop disagreeing about the
-  // same runtime (objectui#5533). Reached by a pasted or bookmarked package URL,
+  // same runtime (`2573ff434`). Reached by a pasted or bookmarked package URL,
   // the only way in once the catalog and both Home entries are gated.
   //
   // Ahead of the `!isAdmin` branch below deliberately: on a runtime that mounts
@@ -562,7 +575,7 @@ export function MarketplacePackagePage() {
   // allowed to use -- and reached the refusal only on the paths where the load
   // happened to work. Both fetch effects above are gated on the same predicate,
   // so the refusal also stops the page requesting on behalf of a viewer it has
-  // already decided to turn away: the discipline objectui#5533 established on
+  // already decided to turn away: the discipline `2573ff434` established on
   // this page for `features.marketplace`, applied to the other predicate that
   // decides the same thing.
   //
@@ -575,7 +588,7 @@ export function MarketplacePackagePage() {
   // read. The verdict has a third state ("not resolved yet") and this guard is
   // the reason it exists. Ordered AFTER `!marketplaceEnabled` deliberately —
   // that answer is true of every viewer on this runtime and needs no verdict,
-  // so the ordering objectui#5557/#5533 established is untouched — and BEFORE
+  // so the ordering objectui#5557 and `2573ff434` established is untouched — and BEFORE
   // `!isAdmin`, which is the branch that must not fire on a guess.
   //
   // This is NOT the incidental skeleton objectui#5621 removed: that one hid the
@@ -621,11 +634,14 @@ export function MarketplacePackagePage() {
   // PD4 (ADR-0025 §3.11): code-bearing packages must disclose + be acknowledged.
   const containsCode = !!pkg.latest_version?.contains_code;
   // ADR-0010 version lifecycle: installed cloud env is on an OLDER version than
-  // the package's latest published → surface an update affordance.
+  // the package's latest published → surface an update affordance. OLDER is
+  // SemVer precedence, not inequality (objectui#10899): an env holding a newer
+  // version than the latest approved one is not offered a "downgrade update".
+  // The `'installed'` sentinel (version unknown) has no precedence, so it never
+  // claims an update either.
   const cloudUpdateAvailable = !!cloudInstalledVersion
-    && cloudInstalledVersion !== 'installed'
     && !!latestVersion
-    && cloudInstalledVersion !== latestVersion;
+    && isNewerVersion(latestVersion, cloudInstalledVersion);
 
   const supportsLocal = getRuntimeConfig().features.installLocal;
   const primaryDisabled = !latestVersion || installingLocal || installing || (!supportsLocal && !!cloudInstalledVersion && !cloudUpdateAvailable);
@@ -771,7 +787,7 @@ export function MarketplacePackagePage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onSelect={doReseedSampleData} disabled={sampleDataBusy !== null}>
+                <DropdownMenuItem onSelect={doReseedSampleData} disabled={sampleDataBusy !== null || cloudSampleDataRefused}>
                   {sampleDataBusy === 'reseed'
                     ? <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
                     : <Database className="h-4 w-4 mr-2" aria-hidden="true" />}
@@ -781,7 +797,7 @@ export function MarketplacePackagePage() {
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={doPurgeSampleData}
-                  disabled={sampleDataBusy !== null || !cloudInstall.withSampleData}
+                  disabled={sampleDataBusy !== null || cloudSampleDataRefused || !cloudInstall.withSampleData}
                   className="text-destructive focus:text-destructive"
                 >
                   {sampleDataBusy === 'purge'
@@ -940,8 +956,9 @@ export function MarketplacePackagePage() {
                   <SelectContent>
                     {envs.map((e) => {
                       const installedHere = envInstallMap[e.id];
+                      // Same precedence rule as `cloudUpdateAvailable` above.
                       const hasUpdate = !!installedHere && !!latestVersion
-                        && installedHere !== 'installed' && installedHere !== latestVersion;
+                        && isNewerVersion(latestVersion, installedHere);
                       return (
                         <SelectItem key={e.id} value={e.id}>
                           {e.display_name || e.hostname || e.id}

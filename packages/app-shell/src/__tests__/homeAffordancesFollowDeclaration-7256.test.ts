@@ -67,7 +67,12 @@ function stripComments(src: string): string {
   return mask(src);
 }
 
-/** The chrome's Home affordances: file → the expression each must resolve to. */
+/**
+ * The chrome's Home affordances: file → the expression each must resolve to.
+ *
+ * The app-switcher 'Home' entry named in the header lived in `AppSidebar`; its
+ * row left this table with the component (objectui#5817).
+ */
 const AFFORDANCES: ReadonlyArray<{ file: string; site: string; expression: RegExp }> = [
   {
     file: 'packages/app-shell/src/layout/AppHeader.tsx',
@@ -78,11 +83,6 @@ const AFFORDANCES: ReadonlyArray<{ file: string; site: string; expression: RegEx
     file: 'packages/app-shell/src/layout/UnifiedSidebar.tsx',
     site: "sidebar 'Home' row + mobile sheet 'Home' row",
     expression: /url: homePath/,
-  },
-  {
-    file: 'packages/app-shell/src/layout/AppSidebar.tsx',
-    site: "app-switcher 'Home' entry",
-    expression: /navigate\(homePath\)/,
   },
 ];
 

@@ -53,3 +53,13 @@ key, so no arm claims it. The two counts stay apart; only one denominator moved.
 This supersedes one sentence in objectui#9020's own entry above, which named
 `{ $and: [], a: null }` as still returning the object and objectui#9030 as the
 open question about it.
+
+⚠️ **Dated note, 2026-09-27 — an empty operator map no longer reaches the object tail — objectui#10788.**
+Later in this same release an empty operator map is refused with a
+`FilterOperatorError` naming the field instead of reaching the object tail: all
+a filter says or beside a skipped key since objectui#9164, and beside a key that
+lowers since objectui#10788. So the object tail now serves `{}` only, and "an
+empty operator map `{ a: {} }`, and an empty operator map beside a skipped key"
+above is this change's reading, not the release's. The rest of this entry is
+kept as the reading of this change; the objectui#9164 and objectui#10788 entries
+state what those inputs now answer.

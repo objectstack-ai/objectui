@@ -150,6 +150,13 @@ interface CachedDraftReview {
   verification?: { errors: number; warnings: number };
   issues?: Array<{ severity: 'error' | 'warning'; code: string; message: string; fix?: string }>;
   nextSteps?: string[];
+  /**
+   * objectui#10109 — the producer's incremental-edit marker (`apply_edit`
+   * answers `kind: 'edit'`). Kept through the cache because an edit's `items`
+   * can include the `app` it re-staged: without it a cache-fallback reload
+   * reads the edit as a whole-app build.
+   */
+  kind?: 'edit';
 }
 
 /** Mirrors the subset of plugin-chatbot's `ProposedPlan` the "Proposed plan" card needs. */
@@ -229,6 +236,7 @@ function draftReviewToCachedResult(dr: CachedDraftReview): Record<string, unknow
     ...(dr.verification ? { verification: dr.verification } : {}),
     ...(dr.issues && dr.issues.length ? { issues: dr.issues } : {}),
     ...(dr.nextSteps && dr.nextSteps.length ? { nextSteps: dr.nextSteps } : {}),
+    ...(dr.kind === 'edit' ? { kind: 'edit' } : {}),
   };
 }
 

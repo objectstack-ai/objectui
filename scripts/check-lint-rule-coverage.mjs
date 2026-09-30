@@ -565,13 +565,6 @@ export const VACUOUS_GROUPS = [
     card: 'objectui#7908',
   },
   {
-    glob: 'e2e/**/*.mjs',
-    reason:
-      'Playwright live-CI pin helpers under e2e/. Inside lint:root\'s population, and the only ' +
-      'JS-family files there that are neither repo tooling nor a build-tool config.',
-    card: 'objectui#7908',
-  },
-  {
     glob: 'packages/*/scripts/**/*.mjs',
     reason:
       'Per-package tooling, dominated by plugin-gantt verification scripts plus the build-css ' +

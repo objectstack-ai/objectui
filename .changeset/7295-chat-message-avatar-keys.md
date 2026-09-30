@@ -35,7 +35,7 @@ behaviour:
   admitted-and-stripped before) — enforcement of the declared type, not a new
   capability.
 
-Same precedent as `CheckboxSchema.wrapperClass` (objectui#6938) and the
+Same precedent as `CheckboxSchema.wrapperClass` (`b74a8598d`) and the
 objectui#6150 batch. `RuntimeOnlyMessageKeys` in `plugin-chatbot` is untouched;
 `SeamChatMessage` inherits the two keys through its `ChatMessage` half. The
 three example blocks on `content/docs/plugins/plugin-chatbot.mdx` that PR #7294

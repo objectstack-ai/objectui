@@ -41,11 +41,11 @@ slot keeps the TypeScript twin callable, which would publish a key the
 object-bound board DROPS — the resolution this package's `quickAdd` carve-out
 forbids in as many words. The sibling `onCardClick` is a slot because its
 function reaches the board through a React prop `ObjectKanban` declares;
-`onCardMove` has no such prop, and objectui#7804 measured that by driving the
+`onCardMove` has no such prop, and `5a41ce733` measured that by driving the
 handler the board was actually handed, with `onCardClick` as the lit control on
 the same document and the same render.
 
-⭐ **Why it took a second card.** The disposition did not move — objectui#7804
+⭐ **Why it took a second card.** The disposition did not move — `5a41ce733`
 already measured `'retired'`. What blocked it was `check:handler-key-reads`,
 which refuses a tombstone while a renderer still reads the key off the document
 ("a tombstone exists precisely because nothing reads the key — it has no read

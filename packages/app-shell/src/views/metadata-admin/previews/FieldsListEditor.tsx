@@ -32,6 +32,12 @@ import {
   remapIndexAfterRemove,
   usedFieldNames,
 } from './view-column-io.js';
+import { useMetadataLocale, t, tFormat } from '../i18n.js';
+
+/** A column's label, its positional fallback (`col N`) read in the designer locale (objectui#10862). */
+function labelOf(c: unknown, i: number, locale: string): string {
+  return colLabel(c, i, (n) => tFormat('engine.fieldsListEditor.colN', locale, { n }));
+}
 
 export interface FieldsListEditorProps {
   /** Top-level variant key the columns belong to (e.g. 'list'). */
@@ -74,6 +80,10 @@ export function FieldsListEditor({
   onSelectionChange,
 }: FieldsListEditorProps) {
   const canEdit = !readOnly;
+  // The designer locale, read the way this editor's add-field popover
+  // (`AddFieldPopover`) and rows (`FieldListRow`) read it (objectui#10862):
+  // its hosts, the view and report inspectors, hold the same hook's value.
+  const locale = useMetadataLocale();
   const { fields, loading, error } = useObjectFields(
     objectName || undefined,
     objectFieldsOverride,
@@ -120,11 +130,11 @@ export function FieldsListEditor({
           onSelectionChange?.({
             kind: 'column',
             id: `${variantKey}.columns[${remapped}]`,
-            label: colLabel(next[remapped], remapped),
+            label: labelOf(next[remapped], remapped, locale),
           });
       }
     },
-    [columns, writeColumns, selectedIndex, variantKey, onSelectionChange],
+    [columns, writeColumns, selectedIndex, variantKey, onSelectionChange, locale],
   );
 
   const moveColumn = React.useCallback(
@@ -137,11 +147,11 @@ export function FieldsListEditor({
         onSelectionChange?.({
           kind: 'column',
           id: `${variantKey}.columns[${remapped}]`,
-          label: colLabel(next[remapped], remapped),
+          label: labelOf(next[remapped], remapped, locale),
         });
       }
     },
-    [columns, writeColumns, selectedIndex, variantKey, onSelectionChange],
+    [columns, writeColumns, selectedIndex, variantKey, onSelectionChange, locale],
   );
 
   const selectColumn = React.useCallback(
@@ -149,10 +159,10 @@ export function FieldsListEditor({
       onSelectionChange?.({
         kind: 'column',
         id: `${variantKey}.columns[${index}]`,
-        label: colLabel(columns[index], index),
+        label: labelOf(columns[index], index, locale),
       });
     },
-    [columns, variantKey, onSelectionChange],
+    [columns, variantKey, onSelectionChange, locale],
   );
 
   const usedNames = usedFieldNames(columns);
@@ -160,7 +170,7 @@ export function FieldsListEditor({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <Label className="text-xs text-muted-foreground">Columns</Label>
+        <Label className="text-xs text-muted-foreground">{t('engine.fieldsListEditor.columns', locale)}</Label>
         <Badge variant="outline" className="text-[10px]">
           {columns.length}
         </Badge>
@@ -168,7 +178,7 @@ export function FieldsListEditor({
 
       {columns.length === 0 ? (
         <p className="rounded-md border border-dashed bg-muted/30 px-3 py-3 text-center text-[11px] text-muted-foreground">
-          No columns yet. Add a field below.
+          {t('engine.fieldsListEditor.empty', locale)}
         </p>
       ) : (
         <div className="space-y-1">
@@ -176,7 +186,7 @@ export function FieldsListEditor({
             <FieldListRow
               key={i}
               index={i}
-              label={colLabel(c, i)}
+              label={labelOf(c, i, locale)}
               fieldName={colFieldName(c)}
               fieldType={fieldTypeByName.get(colFieldName(c) ?? '') ?? 'text'}
               selected={selectedIndex === i}

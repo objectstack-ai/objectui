@@ -26,8 +26,9 @@ did not fail to find readers. It found every member read of the identifier acros
   The field-def read beside it is `field.title_format`, a different spelling on a different
   surface.
 
-`RecordPickerDialog` and `lookupColumnDisplay` receive it as a PROP, and the repo's single
-`titleFormat=` pass is `titleFormat={refTitleFormat}` — object-schema sourced. So copying
+`RecordPickerDialog` and `lookupColumnDisplay` receive it inside the referenced object's
+schema, passed as a PROP, and the repo's single such pass is `objectSchema={refObjectSchema}`
+(objectui#10486) — object-schema sourced. So copying
 `reference_to` is what makes `titleFormat` work on this path, and copying `titleFormat`
 onto the meta reached nothing.
 

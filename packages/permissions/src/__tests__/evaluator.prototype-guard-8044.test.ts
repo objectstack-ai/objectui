@@ -21,9 +21,10 @@
  *
  * ⛔ The fix is NOT a longer name list. A list enumerates spellings, and
  * `Object.prototype` has more of them than any list will hold; the defect is
- * the shape of the guard. The shape that closes the class is `readField` in
- * `packages/core/src/data-scope/DataScopeManager.ts` (objectui#7751), and this
- * change is a port of it back to the evaluator that was #7751's reference.
+ * the shape of the guard. The shape that closes the class is the three-case
+ * read objectui#7751 landed on a sibling row-level evaluator in
+ * `@object-ui/core` (retired since, at objectui#7750), and this change is a
+ * port of it back to the evaluator that was #7751's reference.
  *
  * ## What this file measures, and why the last describe block is the important one
  *
@@ -38,8 +39,8 @@
  * the verdicts that moved in each direction.
  *
  * ⭐ `widened === 0` is the acceptance criterion, matching the bar objectui#7751
- * set on `DataScopeManager` over its own 2772-case matrix (352 narrowed, zero
- * widened, zero change in the genuinely-absent family).
+ * set on that sibling evaluator over its own 2772-case matrix (352 narrowed,
+ * zero widened, zero change in the genuinely-absent family).
  */
 
 import { describe, it, expect } from 'vitest';

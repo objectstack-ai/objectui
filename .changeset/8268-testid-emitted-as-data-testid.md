@@ -26,13 +26,19 @@ after   id="my-scroll" data-testid="my-tid" data-obj-id="my-scroll"
 strip list and the spread were working as designed; only this key had no mapping.
 
 The other direction — retiring the promise — was considered and declined. It is what
-objectui#7088 did for `BaseSchema.hidden`, but that key had a working behaviour to describe and
+`c1fe272ad` did for `BaseSchema.hidden`, but that key had a working behaviour to describe and
 zero named consumers, and the ruling's decline turned on exactly that. This promise already has
 carriers outside the type declaration: `content/docs/api/schema-reference.md` states it as a
 table row and authors `testId` in that page's own base-schema example, `@object-ui/cli`'s
 `OBJECTUI_STRUCTURAL_KEYS` identifies a file as an ObjectUI schema node by this key,
-`ObjectGridSlotKey` / `ObjectFormSlotKey` pin it, `SchemaBuilder.testId()` writes it, and
-ADR-0054 C4 — shipped — reads "the renderer emits `data-testid` … derived from metadata".
+at this change `ObjectGridSlotKey` / `ObjectFormSlotKey` pin it, `SchemaBuilder.testId()` writes
+it, and ADR-0054 C4 — shipped — reads "the renderer emits `data-testid` … derived from metadata".
+
+⚠️ **Dated note, 2026-09-29 — `ObjectGridSlotKey` withholds `testId` — objectui#10976.** Later
+in this same release `ObjectGridSlotKey` stops carrying `testId`: `ObjectView` draws its grid as
+a component, not as a schema node, so nothing emits the attribute there, and `table.testId` is
+refused. `ObjectFormSlotKey` still carries it. The rest of this entry is kept as the reading of
+this change; the objectui#10976 entry states what ships.
 
 `minor`, not `patch`: nodes that author `testId` change what they emit in both directions, so a
 selector written against the accidental `[testid=…]` stops matching.

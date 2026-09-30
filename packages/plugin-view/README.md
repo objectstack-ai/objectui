@@ -151,7 +151,7 @@ const shape: ObjectViewSchema = {
 
   // --- List surface ---
   defaultViewType: 'grid', // grid | kanban | gallery | calendar | timeline | gantt | map
-  listViews: { all: { label: 'All Users' } }, // named views; each needs a `label`
+  listViews: { all: { label: 'All Users', columns: ['name', 'email'] } }, // named views; each needs `label` and `columns`
   defaultListView: 'all',
   table: { columns: ['name', 'email'] }, // grid configuration (see below)
 
@@ -198,14 +198,37 @@ older version of this README claimed:
 
 `table` carries grid configuration and `form` carries form configuration, but
 `ObjectView` forwards a **fixed set of keys** from each rather than passing the
-object through. Anything else you put in them is ignored:
+object through:
 
 | Sub-config | Keys `ObjectView` forwards |
 | --- | --- |
-| `table` | `columns`, `fields`, `title`, `description`, `filter`, `defaultFilters`, `sort`, `defaultSort`, `pagination`, `pageSize`, `selection`, `selectable`, `operations`, `className` |
+| `table` | read by name: `columns`, `fields`, `title`, `filter`, `defaultFilters`, `sort`, `pagination`, `pageSize`, `selection`, `selectable`, `operations`, `className`; handed to the grid as written: `editable`, `singleClickEdit`, `frozenColumns`, `rowHeight`, `resizable`, `reorderableColumns`, `searchableFields`, `showSearch`, `showPagination`, `showColumnTypeIcons`, `conditionalFormatting`, `rowActions`, `bulkActions`, `bulkActionDefs`, `exportOptions`, `grouping`, `aggregations`, `rowColor`, `label` |
 | `form` | `fields`, `customFields`, `sections`, `groups`, `layout`, `columns`, `title`, `description`, `subforms`, `buttons`, `defaults`, `initialValues`, `readOnly`, `showSubmit`, `submitText`, `showCancel`, `cancelText`, `showReset`, `className` |
 
-Four of the forwarded `table` keys are pairs — a canonical `ObjectGridSchema`
+`table` declares exactly these keys (objectui#10976). Any other grid key —
+`emptyState`, `showFilters`, `description`, `keyboardNavigation`, the record
+source (`data`, `staticData`), the row click (`navigation`, `onNavigate`: write
+those on the `object-view` node), node-level keys such as `id`, `hidden` or
+`style`, and the legacy aliases `batchActions` / `resizableColumns` (write
+`bulkActions` / `resizable`) — has nothing to act on in the grid the view
+draws, so TypeScript rejects it and the validator refuses it by name. Anything
+else you put in `form` is ignored.
+
+The keys handed to the grid as written reach the grid the registered renderer
+draws. Where the active named view declares the same member (see below), the
+named view wins and `table` is the fallback. A host that supplies
+`renderListView` composes its own list and takes `columns`, `fields`, `filter`
+and `sort` from `table`, as before.
+
+> **`table.defaultSort` is retired (objectui#5861).** It was the legacy
+> single-entry spelling of `table.sort`. The installed `@objectstack/spec`
+> protocol refuses `object-grid`'s `defaultSort` by name (a retired-key
+> tombstone), and neither `ObjectView` nor `ObjectGrid` reads it any more:
+> a view that still carries it renders **unsorted**. Rename the key to `sort`
+> and wrap the value in an array — `defaultSort: { field: 'name', order: 'asc' }`
+> becomes `sort: [{ field: 'name', order: 'asc' }]`.
+
+Three of the forwarded `table` keys are pairs — a canonical `ObjectGridSchema`
 key and the `@deprecated` legacy spelling it replaced. As of objectui#5102 the
 canonical spelling **takes effect** on every rendering path (the grid, and the
 non-grid `kanban` / `gallery` / `calendar` / `timeline` / `gantt` / `map`
@@ -217,16 +240,14 @@ just no longer the one to reach for:
 | `pagination: { pageSize, pageSizeOptions? }` | `pageSize: number` |
 | `selection: { type: 'single' \| 'multiple' \| 'none' }` | `selectable: boolean \| 'single' \| 'multiple'` |
 | `filter: [{ field, operator, value }, …]` (same shape as a named view's `filter`) | `defaultFilters: Record<field, value>` (equality-only) |
-| `sort: SortConfig[]` (`[{ field, order }]`) | `defaultSort: { field, order }` (a single entry, not an array) |
 
 **Precedence when a key is written both ways** — `table: { pagination: {
 pageSize: 10 }, pageSize: 50 }`, say — the canonical spelling wins. That is
 `ObjectGrid`'s own existing resolution (`schema.pagination?.pageSize ||
 schema.pageSize`; `if (schema.selection?.type) … else if (schema.selectable
-!== undefined)`; `schemaFilter !== undefined ? … : schema.defaultFilters`;
-`schemaSort ?? (schema.defaultSort ? [schema.defaultSort] : undefined)`), and
-`ObjectView` defers to it by forwarding both slots rather than re-resolving
-the pair itself:
+!== undefined)`; `schemaFilter !== undefined ? … : schema.defaultFilters`), and `ObjectView`
+defers to it by forwarding both slots rather than re-resolving the pair
+itself:
 
 ```typescript
 import type { ObjectViewSchema } from '@object-ui/types';
@@ -245,9 +266,26 @@ const schema: ObjectViewSchema = {
 predates this change: an **active named view's own** `filter` / `sort`
 (`listViews.<name>.filter` / `.sort`) always outranks anything written on
 `table`. In order, highest first: the active named view's `filter`/`sort`,
-then `table.filter`/`table.sort`, then `table.defaultFilters`/
-`table.defaultSort`. (If you never write `listViews`, that first tier never
-applies.) `pagination` and `selection` have no such tier, and no effect
+then `table.filter`/`table.sort`, then `table.defaultFilters` (filter only —
+`sort` has no legacy tier since `table.defaultSort` was retired). (If you
+never write `listViews`, that first tier never applies.)
+
+Whichever tier wins, its filter goes through `resolveFilterPlaceholders` from
+`@object-ui/core` before it leaves `ObjectView` (objectui#10506), on all three
+paths: the query a non-grid view issues, the grid, and a host's
+`renderListView`. So the spec's context tokens (`{current_user_id}`,
+`{current_org_id}`) and the relative-date macros (`{today}`,
+`{current_quarter_start}`, …) arrive as real values. The user and organization
+come from the nearest `FilterScopeProvider` (`@object-ui/react`), which the
+console shell mounts; with none mounted a context token is left as written and
+the resolver warns. The filter is never widened: the ObjectStack server resolves
+the literal token for a signed-in request and refuses the request otherwise
+(the REST face answers 401 at its auth gate before the filter is read, and
+where a guest context reaches the engine the resolver answers 400), and a
+backend with no resolver of its own matches no record.
+`src/__tests__/ObjectView.namedViewContextTokens-10506.test.tsx` pins each path.
+
+`pagination` and `selection` have no such tier, and no effect
 outside the grid — the non-grid renderers don't page or multi-select, so
 `ObjectView` never forwards either spelling to them.
 
@@ -367,7 +405,10 @@ const schema: ObjectViewSchema = {
 
 When `layout` is omitted, the surface is derived from how heavy the object is
 (`deriveRecordSurface`): a field-heavy object opens as a page, a light one as a
-drawer, and mobile always pages.
+drawer, and mobile always pages. A page is handed to `onNavigate`; with none to
+hand it to, as on the registered `object-view` renderer, whose JSON schema
+cannot carry a function, the page falls back to the drawer for create, edit and
+read.
 
 ### Opening a record
 
@@ -394,8 +435,21 @@ const schema: ObjectViewSchema = {
 ```
 
 Without an `onNavigate` handler, `page` mode has nowhere to send the user, so
-keep the two together. `navigation: { mode: 'none' }` (or `preventNavigation`)
-makes rows inert.
+keep the two together: a `page` layout without one falls back to the drawer,
+and a row click under `navigation: { mode: 'page' }` opens nothing.
+`navigation: { mode: 'none' }` (or `preventNavigation`)
+makes rows inert. An active named view (`listViews`, under Read/List) that
+declares its own `navigation` replaces this one, as a whole, while it is shown.
+Under `split` or `popover`, which open only beside a record the user picked, the
+New button's create form opens on the `layout` surface instead: the modal for
+`layout: 'modal'`, the drawer otherwise, whether the mode is this node's or an
+active named view's. A `page` layout with `onNavigate` still hands New to your
+router.
+
+With no host `onRowClick`, a Cmd/Ctrl-click or middle-click on a row opens the
+record as a full page in a new browser tab. Inert rows stay inert: `mode: 'none'`,
+`preventNavigation`, and `operations.read: false` without a `navigation` config
+ignore a modifier click too.
 
 ## CRUD Operations
 
@@ -406,7 +460,9 @@ not wire handlers for them — you switch them on or off with `operations`, and
 ### Create
 
 `operations.create` enables record creation; `showCreate` shows the button.
-Both default to on, and the new-record form opens on the `layout` surface:
+Both default to on. The new-record form opens on the surface a `drawer` or
+`modal` navigation names, and on the `layout` surface otherwise, under `split`
+and `popover` too (see Opening a record):
 
 ```typescript
 import type { ObjectViewSchema } from '@object-ui/types';
@@ -421,8 +477,10 @@ const schema: ObjectViewSchema = {
 };
 ```
 
-With `layout: 'page'`, creation calls `onNavigate('new', 'edit')` instead of
-opening a drawer, so the host route owns the form.
+With a `page` surface, authored or derived, creation calls
+`onNavigate('new', 'edit')`, whatever the navigation, so the host route owns the
+form. With no `onNavigate`, the page has nowhere to route, so it falls back to
+the drawer.
 
 ### Read/List
 
@@ -461,12 +519,55 @@ const schema: ObjectViewSchema = {
     cheap: {
       label: 'Under 100',
       type: 'grid',
+      columns: ['name', 'price'],
       filter: [{ field: 'price', operator: 'less_than', value: 100 }],
     },
   },
   defaultListView: 'all',
 };
 ```
+
+**On the registered renderer.** An authored `object-view` node, and the Studio's
+view preview, draws a grid named view through `ObjectGrid`. Ten grid members the
+protocol declares under the same name on a named view and on `object-grid` —
+`pagination`, `selection`, `rowHeight`, `resizable`, `searchableFields`,
+`conditionalFormatting`, `rowActions`, `bulkActions`, `bulkActionDefs` and
+`exportOptions` — come from the active named view first, and fall back to
+the same key on `table` (`pagination` and `selection` since objectui#10885, the
+rest since objectui#10976). A named view's
+`hiddenFields` removes those fields from the columns the grid draws, when a
+column list is declared, and its `fieldOrder` then orders the columns that
+remain, the way `ListView` orders them on a host's `renderListView`. Its
+`inlineEdit` turns on in-cell editing, and only where the object grants inline
+edit to the user. Its `navigation` replaces the node's `navigation` as a whole:
+the row click, and the surface and width of the record, create and edit forms,
+follow the active named view, on this path, and on a host's `renderListView`
+when the host wires the `onRowClick` it is handed and passes `ObjectView` no
+`onRowClick` of its own. Under a named `split` or `popover`, the create form
+opens on the `layout` surface, as under Opening a record. `label` and `data`,
+also declared on both, are not
+handed to the grid on this path: the named view's `label` is already the tab's
+text, and `data` waits on objectui#10971, because `ListView` and `ObjectGrid`
+pick different objects for it.
+`src/__tests__/ObjectView.routeTwoNamedGridMembers-10885.test.tsx` pins the ten
+grid members and `hiddenFields`; `ObjectView.namedViewNavigation-10885.test.tsx`
+and `ObjectView.namedViewInlineEdit-10885.test.tsx` pin `navigation` and
+`inlineEdit`, and `@object-ui/app-shell`'s
+`objectViewRouteParity.fieldOrder-10885.test.tsx` pins `fieldOrder` against
+`ListView`.
+
+**On a host's `renderListView`.** A host that composes `ObjectView` with both
+`listViews` and its own `renderListView` receives a `list-view` node for the
+active view. For the list members the protocol declares on a named view — list
+chrome (`description`, `compactToolbar`, `allowPrinting`, `showRecordCount`,
+`sharing`, `aria`, `emptyState`), record actions (`addRecord`, `inlineEdit`,
+`rowActions`, `bulkActions`, `bulkActionDefs`, `exportOptions`), grid
+presentation (`rowHeight`, `pagination`, `selection`, `resizable`,
+`hiddenFields`, `conditionalFormatting`), and search, filter and navigation
+(`searchableFields`, `filterableFields`, `userFilters`, `navigation`) — that
+node takes the value from the active named view first, ahead of the host's
+`views` entry (objectui#10758).
+`src/__tests__/ObjectView.namedViewProtocolKeys-8980.test.tsx` pins each family.
 
 ### Update
 
@@ -485,7 +586,8 @@ const schema: ObjectViewSchema = {
 };
 ```
 
-Under `layout: 'page'` this becomes `onNavigate(recordId, 'edit')`.
+Under a `page` surface this becomes `onNavigate(recordId, 'edit')`; a page with
+no `onNavigate` falls back to the drawer.
 
 ### Delete
 
@@ -619,6 +721,7 @@ const schema: ObjectViewSchema = {
     admins: {
       label: 'Admins',
       type: 'grid',
+      columns: ['name', 'email'],
       filter: [{ field: 'role', operator: 'equals', value: 'admin' }],
     },
   },
@@ -640,7 +743,7 @@ re-exporting, so import it from there:
 | Import from `@object-ui/types` | What it types |
 | --- | --- |
 | `ObjectViewSchema` | the whole `type: 'object-view'` node — `objectName` (required), `title`, `description`, `layout`, `defaultViewType`, `listViews`, `defaultListView`, `navigation`, `table`, `form`, `searchableFields`, `filterableFields`, `show*`, `operations`, `onNavigate`, `allowCreateView`, `viewActions` (`viewTabBar` is retired — objectui#7779 — and refused by name) |
-| `NamedListView` | one entry of `listViews` |
+| `NamedListView` | the former type of a `listViews` entry, still exported. Since objectui#7928 an entry is `@objectstack/spec`'s `ObjectListViewSchema` — `NonNullable<ObjectViewSchema['listViews']>[string]` |
 | `ViewNavigationConfig` | `navigation` — row/item click behaviour |
 | `ViewTabBarConfig` | the `config` prop of `ViewTabBar` — tab-bar UX (inline add, overflow, indicators), composed by the host; not an `object-view` node key |
 

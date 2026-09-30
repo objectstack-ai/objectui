@@ -14,7 +14,8 @@
  *
  * `$icontains` is a canonical member of `@objectstack/spec`'s
  * `FILTER_OPERATORS`; `ValueDataSource` executes it; `FilterConditionField`
- * emits it for the `containsCaseInsensitive` builder row; and
+ * emits it for the `icontains` builder row (spelled `containsCaseInsensitive`
+ * until objectui#9306); and
  * `packages/core/src/adapters/README.md` PRESCRIBES it as the repair for
  * `$like` / `$ilike` / `$regex`. `convertOperatorToAST` had no row for it, so
  * `convertFiltersToAST` refused it with the generic unknown-operator paragraph

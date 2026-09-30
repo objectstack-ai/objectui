@@ -203,7 +203,7 @@ export function recordLockedByApproval(request: ApprovalRequestLite | null | und
  * Did the current viewer submit this approval request?
  *
  * The submitter's levers — Remind on the approvals panel, Recall on the record
- * band (objectui#6464) — are the ones the server authorizes on submitter
+ * band (`830ed5803`) — are the ones the server authorizes on submitter
  * identity and refuses to anyone else. This is the ONE place that answer is
  * derived, so the two surfaces cannot drift into disagreeing about who the
  * submitter is (the identical hazard `utils/approverIdentity` exists for on the
@@ -349,7 +349,7 @@ export async function remindApprovalRequest(
  * ⛔ No `currentUserId` parameter (objectui#3055). It existed only to feed the
  * retired client-side `canDecide`; every remaining question about the viewer —
  * may they act, are they the submitter, may they override — is answered by the
- * server on the row itself (`viewer`, framework#3310 / #3424). A surface that
+ * server on the row itself (`viewer`, framework#3310 / objectstack-ai/objectstack#3424). A surface that
  * still needs the signed-in id for a pre-`viewer` fallback (the panel's remind)
  * reads it from `useAuth()` where it renders.
  */

@@ -28,7 +28,7 @@
  * `buildExpressionUser` normalises, and `NavigationRenderer` applies the
  * per-item gates. The one line between them — `evaluateVisibility(expr,
  * evaluator)` — is spelled here exactly as `UnifiedSidebar` (the sidebar
- * `ConsoleLayout` mounts) and `AppSidebar` spell it, through the SAME exported
+ * `ConsoleLayout` mounts) spells it, through the SAME exported
  * `evaluateVisibility`, so no second evaluator exists to drift.
  *
  * ## The wire shape is the SERVED one
@@ -75,7 +75,7 @@ const MEMBER = { id: 'u_member', name: 'Mia', email: 'mia@example.com', position
 const OUTSIDER = { id: 'u_outsider', name: 'Otto', email: 'otto@example.com', positions: ['other_team'] };
 
 /**
- * Mounts the shipped chain. `evalVis` is the sidebars' own one-liner, read off
+ * Mounts the shipped chain. `evalVis` is the sidebar's own one-liner, read off
  * the context the provider publishes rather than constructed here.
  */
 function NavUnderProvider({ items, enablePinning }: { items: NavigationItem[]; enablePinning?: boolean }) {

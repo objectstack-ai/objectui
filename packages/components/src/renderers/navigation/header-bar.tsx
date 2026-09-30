@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { ComponentRegistry } from '@object-ui/core';
+import { ComponentRegistry, toDomProps } from '@object-ui/core';
 import type { HeaderBarSchema, BreadcrumbItem as BreadcrumbItemType } from '@object-ui/types';
 import { resolveKeyedI18nLabel, SchemaRenderer, toRenderableSchema } from '@object-ui/react';
 import {
@@ -41,6 +41,39 @@ import { ChevronDown, Search } from 'lucide-react';
 // an unknown or RETIRED spelling renders NOTHING, never `LazyIcon`'s `Database`
 // fallback (ruled out for authored icon fields by objectui#5622 / #5633).
 import { resolveIcon } from '../action/resolve-icon';
+import { cn } from '../../lib/utils';
+
+// The header's own chrome classes. The authored `BaseSchema.className` is merged
+// AFTER them through `cn()` (tailwind-merge), so a utility the author writes that
+// conflicts with one of these replaces it — `h-20` drops `h-14` — and every other
+// authored class is added (objectui#10397). Before that the root was this string
+// alone, and an authored `className` rendered byte-identical to its absence.
+//
+// A conflict is per VARIANT: `h-20` replaces `h-14` and leaves `sm:h-16` in
+// place, so an author who wants one height at every width writes `h-20 sm:h-20`.
+//
+// `schema.className` is the one channel read. `SchemaRenderer` hands a node's
+// className to the component twice, on `schema` and as the `className` prop,
+// with the same value (its `responsiveStyles` scope class included), so that a
+// renderer honours ONE of them. tailwind-merge does not collapse a repeated
+// non-Tailwind class, so reading both would print every custom class twice.
+// The prop is therefore taken off the pass-through below by name and left
+// unread: `className` is on `toDomProps`' whitelist, so it would otherwise
+// ride the spread as a second copy of the same channel.
+const HEADER_BAR_CLASS = 'flex h-14 sm:h-16 shrink-0 items-center gap-2 border-b px-3 sm:px-4';
+
+/**
+ * What `SchemaRenderer` hands the registered component: the node on `schema`,
+ * and beside it the node's own keys, the resolved ARIA (`aria-label` from
+ * `ariaLabel`), `data-obj-id` / `data-obj-type`, a conditional `data-testid`
+ * (from `testId`), `style` and `id` as props.
+ */
+type HeaderBarRendererProps = {
+  schema: HeaderBarSchema;
+  className?: string;
+  style?: React.CSSProperties;
+  [key: string]: unknown;
+};
 
 function BreadcrumbLabel({ crumb, isLast }: { crumb: BreadcrumbItemType; isLast: boolean }) {
   const label = resolveKeyedI18nLabel(crumb.label) ?? '';
@@ -73,9 +106,23 @@ function BreadcrumbLabel({ crumb, isLast }: { crumb: BreadcrumbItemType; isLast:
   return <BreadcrumbLink href={crumb.href || '#'}>{label}</BreadcrumbLink>;
 }
 
-ComponentRegistry.register('header-bar', 
-  ({ schema }: { schema: HeaderBarSchema }) => (
-    <header className="flex h-14 sm:h-16 shrink-0 items-center gap-2 border-b px-3 sm:px-4">
+// The root's DOM channels take the converged route (objectui#10496): the
+// props `SchemaRenderer` hands this renderer go through `toDomProps`, the SDUI
+// whitelist in `@object-ui/core` (`id`, `role`, the open `aria-*` / `data-*`
+// families, …), and `style` is forwarded BY NAME, as `grid.tsx`, `box.tsx` and
+// the other converged renderers do (the objectui#4435 route). Until then this
+// was a function of `schema` alone, so an authored `ariaLabel` never named the
+// banner landmark and `style`, `id`, `testId` and `data-obj-*` never reached
+// the element. The keys this renderer consumes off `schema` (`crumbs`,
+// `search`, `actions`, `rightContent`) and any key an author invents stay off
+// the DOM, because the whitelist drops them.
+ComponentRegistry.register('header-bar',
+  ({ schema, className: _classNameProp, style, ...hostProps }: HeaderBarRendererProps) => (
+    <header
+      {...toDomProps(hostProps)}
+      className={cn(HEADER_BAR_CLASS, schema.className)}
+      style={style}
+    >
       <SidebarTrigger />
       <Separator orientation="vertical" className="mr-2 h-4" />
       <Breadcrumb>

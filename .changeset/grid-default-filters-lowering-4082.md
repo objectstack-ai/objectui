@@ -44,5 +44,10 @@ Not in scope, and deliberately not done: retiring `defaultFilters`. This is
 consumer-side only — the key the schema admits is unchanged, and its precedence behind
 the canonical `filter` is unchanged.
 
-The sibling legacy `defaultSort` leg was graded and needs no change; see the PR for the
-measurements.
+At this change the sibling legacy `defaultSort` leg was graded and needed no change; see
+the PR for the measurements.
+
+⚠️ **Dated note, 2026-09-25 — that leg has since been retired — objectui#5861.** Later in
+this same release `ObjectGrid` stopped reading `defaultSort` at all (an ADR-0049 retirement
+tombstone), so there is no longer a legacy sort leg beside the `defaultFilters` one this
+entry lowers.

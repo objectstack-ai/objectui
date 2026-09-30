@@ -91,8 +91,7 @@
 import React from 'react';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { NON_GRID_ROW_CEILING, NON_GRID_ROW_CEILING_TOP } from '@object-ui/react';
-import { ValueDataSource } from '@object-ui/core';
+import { NON_GRID_ROW_CEILING, nonGridRowCeilingQuery, ValueDataSource } from '@object-ui/core';
 import { ObjectCalendar } from './ObjectCalendar';
 
 vi.mock('@object-ui/plugin-detail', async (importOriginal) => ({
@@ -244,7 +243,7 @@ describe('objectui#9061 — the calendar honours filter / sort / the row ceiling
       <ObjectCalendar
         schema={{
           ...base,
-          staticData: makeRows(NON_GRID_ROW_CEILING_TOP + 500),
+          staticData: makeRows(nonGridRowCeilingQuery().$top + 500),
         }}
       />,
     );
@@ -252,7 +251,7 @@ describe('objectui#9061 — the calendar honours filter / sort / the row ceiling
   });
 
   it('ceilingNote: the cut is LOUD — the footnote names both numbers', async () => {
-    const total = NON_GRID_ROW_CEILING_TOP + 500;
+    const total = nonGridRowCeilingQuery().$top + 500;
     render(
       <ObjectCalendar schema={{ ...base, staticData: makeRows(total) }} />,
     );

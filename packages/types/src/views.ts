@@ -26,7 +26,7 @@ import type { ListView as SpecListView } from '@objectstack/spec/ui';
  * objectui view CATEGORIES that are not list-view types at all.
  *
  * DERIVED from `@objectstack/spec/ui` `ListView['type']`, never re-declared
- * (objectui#8127). The eleven-arm hand-written union this replaces was total
+ * (`ca3942729`). The eleven-arm hand-written union this replaces was total
  * over a copy of the spec's list of 17.2.0, and `@objectstack/spec@17.3.0`
  * added `page` to that list. Nothing went red, because every structure keyed
  * on this union was total over the COPY — a total map is only as honest as the
@@ -77,7 +77,7 @@ export type ViewType = NonNullable<SpecListView['type']> | 'list' | 'detail';
  *
  * It had already drifted when it landed. The copy declared a fifth key,
  * `titleField`, which `@objectstack/spec@17.4.0` REFUSES on `ListView.tree` by
- * name — `TreeConfigSchema` is a `strictObject` since spec #15469 closed the
+ * name — `TreeConfigSchema` is a `strictObject` since spec objectstack#15469 closed the
  * `.passthrough()` window 17.3.0 left open. So this package's published face
  * accepted what the protocol rejects, and an author who followed this type was
  * refused at publish. 协议为基准: this type now IS the spec's, so the next key
@@ -88,7 +88,7 @@ export type ViewType = NonNullable<SpecListView['type']> | 'list' | 'detail';
  * restated key list is exactly what let `titleField` through. The `Pick`
  * interim objectui#8841 offered was conditional on the 17.4.0 bump not having
  * happened yet — it landed on `main` before this change (`chore(deps): take the
- * 17.4.0 @objectstack/* line`), so the pinned spec is already strict and the
+ * 17.4.0 @objectstack/* line`), so the resolved spec is already strict and the
  * plain alias is available.
  *
  * ## `titleField` is NOT declared here; the reads that survive are tolerance
@@ -440,7 +440,7 @@ export interface DetailViewSection {
    * ## Provenance
    *
    * Declared by `@objectstack/spec` on the `record:details` section entry
-   * (`RecordDetailsProps.sections[]`, 17.3.0+, upstream #11289, maintainer
+   * (`RecordDetailsProps.sections[]`, 17.3.0+, upstream objectstack#11289, maintainer
    * ruling 2026-08-23 direction 1). objectui#7129 (maintainer 2026-09-01)
    * retired this declaration and the renderer read on the premise that the
    * spec REFUSED the key — true at the 17.2.0 pin, false upstream by the time
@@ -551,8 +551,8 @@ export interface CommentSearchResult {
   comment: CommentEntry;
   /** Object name the comment belongs to */
   objectName: string;
-  /** Record ID the comment belongs to */
-  recordId: string | number;
+  /** Record ID the comment belongs to. A string, per the one record-id rule (objectui#9511, objectui#10078). */
+  recordId: string;
   /** Highlighted text snippet with search term marked */
   highlight?: string;
 }
@@ -727,8 +727,8 @@ export interface Reaction {
  * subscriptions and app billing — so none of them is a replacement.
  */
 export interface RecordSubscription {
-  /** Record ID */
-  recordId: string | number;
+  /** Record ID. A string, per the one record-id rule (objectui#9511, objectui#10078). */
+  recordId: string;
   /** Whether the current user is subscribed */
   subscribed: boolean;
   /** Notification channels */
@@ -983,6 +983,40 @@ export interface DetailViewSchema extends BaseSchema {
    * Activity history entries for this record
    */
   activities?: ActivityEntry[];
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `detail-view` reads NEITHER
+   * content channel; see `children` below for the measurement.
+   *
+   * {@link BaseSchema} already refuses `body` (objectui#6771), but its refusal
+   * names `children` as the remedy, which this node does not read either. The
+   * member is restated here so both faces point at what the node renders
+   * instead.
+   *
+   * @deprecated Not a channel `detail-view` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256, ADR-0049) — `detail-view` reads NEITHER
+   * content channel, so an authored child list here rendered NOTHING: no
+   * render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it.
+   *
+   * Measured with the TypeScript type checker, not grep: no `body` /
+   * `children` read is filed under this declaration, while the same instrument
+   * does see it as the receiver of the keys the renderer reads. The
+   * registration hop, `DetailViewRenderer` (`packages/plugin-detail`), is
+   * `any`-typed and hands the node to `DetailView`, which reads it as this
+   * type. `SchemaRenderer` strips both keys out of the props bag it spreads,
+   * so neither reaches the component by another route, and the registration
+   * declares no `children` slot (objectui#9910).
+   *
+   * What it renders instead: one record of `objectName` through `fields` /
+   * `sections` / `tabs`; its own node slots are `header`, `footer` and each
+   * tab's `content`.
+   *
+   * @deprecated Not a channel `detail-view` reads — nothing renders it.
+   */
+  children?: never;
 }
 
 /**
@@ -1031,8 +1065,9 @@ export interface ViewSwitcherSchema extends BaseSchema {
   /**
    * Event name dispatched on `window` when the view changes
    * (`detail: { view }`) — an event NAME, not a callback or a handler
-   * expression. Read at `plugin-view/src/ViewSwitcher.tsx` as
-   * `new CustomEvent(schema.onViewChange, …)` (objectui#6124).
+   * expression. Read at `plugin-view/src/ViewSwitcher.tsx` and dispatched by
+   * `notifyViewHandlerChannels` (`plugin-view/src/viewHandlerChannels.ts`) as
+   * `new CustomEvent(eventName, { detail })` (objectui#6124).
    */
   onViewChange?: string;
   /**
@@ -1069,12 +1104,15 @@ export interface ViewSwitcherSchema extends BaseSchema {
    * `persistPreference`, `position`, `storageKey`, `variant`, `viewActions`,
    * `views` (in `packages/plugin-view/src/ViewSwitcher.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `view-switcher` reads — nothing renders it.
    */
@@ -1094,12 +1132,15 @@ export interface ViewSwitcherSchema extends BaseSchema {
    * `persistPreference`, `position`, `storageKey`, `variant`, `viewActions`,
    * `views` (in `packages/plugin-view/src/ViewSwitcher.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `view-switcher` reads — nothing renders it.
    */
@@ -1129,9 +1170,23 @@ export interface FilterUISchema extends BaseSchema {
      */
     type: 'text' | 'number' | 'select' | 'multi-select' | 'date' | 'date-range' | 'boolean';
     /**
-     * Filter operator
+     * RETIRED (objectui#10611, ADR-0049) — `filter-ui` never reads a per-filter
+     * operator. Its renderer (`FilterUI` in `@object-ui/plugin-view`) picks the
+     * control from `type` and emits `{ values }` only: a field → value record
+     * with no operator in it. It does no matching of its own, so how each value
+     * is matched is up to the host that consumes the change.
+     *
+     * Until this retirement the key was declared here, mirrored in zod with a
+     * seven-member enum, and taught by the docs page — yet an authored
+     * `operator: 'gt'`, or a nonsense id, rendered and emitted exactly what a
+     * filter without it does. Nothing in this component implements operators,
+     * so no replacement key is named: remove it. `?: never` here and a
+     * `retirementTombstone()` on the mirror refuse it by name; deleting the
+     * member would have let the mirror strip an authored value in silence.
+     *
+     * @deprecated Retired — `filter-ui` does not read it.
      */
-    operator?: 'equals' | 'contains' | 'startsWith' | 'gt' | 'lt' | 'between' | 'in';
+    operator?: never;
     /**
      * Options for select filter
      */
@@ -1148,8 +1203,9 @@ export interface FilterUISchema extends BaseSchema {
   /**
    * Event name dispatched on `window` when the filters change
    * (`detail: { values }`) — an event NAME, not a callback or a handler
-   * expression. Read at `plugin-view/src/FilterUI.tsx` as
-   * `new CustomEvent(schema.onChange, …)` (objectui#6124).
+   * expression. Read at `plugin-view/src/FilterUI.tsx` and dispatched by
+   * `notifyViewHandlerChannels` (`plugin-view/src/viewHandlerChannels.ts`) as
+   * `new CustomEvent(eventName, { detail })` (objectui#6124).
    */
   onChange?: string;
   /**
@@ -1178,12 +1234,15 @@ export interface FilterUISchema extends BaseSchema {
    * `filters`, `layout`, `onChange`, `showApply`, `showClear`, `values` (in
    * `packages/plugin-view/src/FilterUI.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `filter-ui` reads — nothing renders it.
    */
@@ -1202,12 +1261,15 @@ export interface FilterUISchema extends BaseSchema {
    * `filters`, `layout`, `onChange`, `showApply`, `showClear`, `values` (in
    * `packages/plugin-view/src/FilterUI.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `filter-ui` reads — nothing renders it.
    */
@@ -1249,8 +1311,9 @@ export interface SortUISchema extends BaseSchema {
   /**
    * Event name dispatched on `window` when the sort changes
    * (`detail: { sort }`) — an event NAME, not a callback or a handler
-   * expression. Read at `plugin-view/src/SortUI.tsx` as
-   * `new CustomEvent(schema.onChange, …)` (objectui#6124).
+   * expression. Read at `plugin-view/src/SortUI.tsx` and dispatched by
+   * `notifyViewHandlerChannels` (`plugin-view/src/viewHandlerChannels.ts`) as
+   * `new CustomEvent(eventName, { detail })` (objectui#6124).
    */
   onChange?: string;
   /**
@@ -1274,12 +1337,15 @@ export interface SortUISchema extends BaseSchema {
    * `fields`, `multiple`, `onChange`, `sort`, `variant` (in
    * `packages/plugin-view/src/SortUI.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `sort-ui` reads — nothing renders it.
    */
@@ -1297,12 +1363,15 @@ export interface SortUISchema extends BaseSchema {
    * `fields`, `multiple`, `onChange`, `sort`, `variant` (in
    * `packages/plugin-view/src/SortUI.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `sort-ui` reads — nothing renders it.
    */

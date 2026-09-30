@@ -93,8 +93,8 @@
     "directory": "packages/types"
   },
   "dependencies": {
-    "@objectstack/spec": "^17.4.0",
-    "zod": "^4.4.3"
+    "@objectstack/spec": "^17.5.0",
+    "zod": "^4.6.1"
   },
   "devDependencies": {
     "@object-ui/test-support": "workspace:*",

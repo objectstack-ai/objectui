@@ -16,7 +16,10 @@ export interface GroupRowProps {
   groupKey: string;
   /** Display label for the group (field value or "(empty)") */
   label: string;
-  /** Number of rows in this group */
+  /**
+   * The group's size. On a server-grouped grid this is the header query's
+   * `count` — the group's TOTAL, not the rows on screen (objectui#7189).
+   */
   count: number;
   /** Whether the group is collapsed */
   collapsed: boolean;
@@ -47,27 +50,6 @@ export interface GroupRowProps {
    * `style` verbatim; leave unset on the palette-family path.
    */
   labelColorStyle?: React.CSSProperties;
-  /**
-   * Short marker rendered beside `count` when the grouping was computed over
-   * a PAGE of the result set rather than the whole of it (objectui#7189).
-   *
-   * `count` is then a page slice, not the group's size, and a group whose
-   * records all fall beyond the loaded rows is absent from the list entirely.
-   * The marker lives here, next to the number, because that is the number a
-   * reader treats as authoritative — the paging footer says nothing about
-   * what was grouped, and demonstrably does not prevent the wrong reading.
-   *
-   * Presence is the switch: leave it unset and no marker renders. The host
-   * owns the wording (this package's translation bundle), so this component
-   * stays free of i18n wiring like the rest of its props.
-   */
-  partialLabel?: string;
-  /**
-   * Full sentence behind `partialLabel` — the marker's `title` and its
-   * accessible name. Carries the numbers when the host can support them.
-   * Ignored unless `partialLabel` is set.
-   */
-  partialTitle?: string;
   /** Callback when the group header is clicked to toggle collapse */
   onToggle: (key: string) => void;
   /** Children to render when not collapsed (the group content) */
@@ -92,8 +74,6 @@ export const GroupRow: React.FC<GroupRowProps> = ({
   fieldLabel,
   labelColorClass,
   labelColorStyle,
-  partialLabel,
-  partialTitle,
   onToggle,
   children,
 }) => {
@@ -119,21 +99,11 @@ export const GroupRow: React.FC<GroupRowProps> = ({
           : <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
         <span className={cn(pillClass, 'group-label')} style={labelColorStyle}>{label}</span>
         <span className="text-xs text-muted-foreground tabular-nums group-count">{count}</span>
-        {partialLabel && (
-          <span
-            data-testid={`group-count-partial-${groupKey}`}
-            className="rounded-sm bg-muted px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground group-count-partial"
-            title={partialTitle}
-            aria-label={partialTitle}
-          >
-            {partialLabel}
-          </span>
-        )}
         {aggregations && aggregations.length > 0 && (
           <span className="ml-2 text-xs text-muted-foreground group-aggregations">
             {aggregations.map((agg) => (
               <span key={`${agg.field}-${agg.type}`} className="mr-2">
-                {agg.type}: {Number.isInteger(agg.value) ? agg.value : agg.value.toFixed(2)}
+                {agg.type}: {agg.value === null ? '\u2014' : Number.isInteger(agg.value) ? agg.value : agg.value.toFixed(2)}
               </span>
             ))}
           </span>

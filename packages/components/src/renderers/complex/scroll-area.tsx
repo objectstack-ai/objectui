@@ -43,7 +43,8 @@ ComponentRegistry.register('scroll-area',
       { name: 'height', type: 'string' },
       { name: 'width', type: 'string' },
       { name: 'orientation', type: 'enum', enum: ['vertical', 'horizontal', 'both'] },
-      { name: 'className', type: 'string' }
+      { name: 'className', type: 'string' },
+      { name: 'children', type: 'slot' }
     ],
     defaultProps: {
       height: '200px',

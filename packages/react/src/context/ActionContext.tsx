@@ -26,6 +26,7 @@ import {
   type ParamCollectionHandler,
   type ResultDialogHandler,
 } from '@object-ui/core';
+import { useActionRunnerTranslator } from './actionRunnerTranslator.js';
 
 export interface ActionProviderProps {
   children: React.ReactNode;
@@ -95,6 +96,8 @@ export const ActionProvider: React.FC<ActionProviderProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ActionResult | null>(null);
+  // The runner's own copy (the generic success toast) in the session's language.
+  const translate = useActionRunnerTranslator();
 
   const runner = useMemo(() => {
     // Normalize the evaluator scope so predicates can use *either* flat
@@ -111,6 +114,7 @@ export const ActionProvider: React.FC<ActionProviderProps> = ({
         : { ...context },
     } as ActionCtx;
     const r = new ActionRunner(normalizedContext);
+    r.setTranslator(translate);
     if (onConfirm) r.setConfirmHandler(onConfirm);
     if (onToast) r.setToastHandler(onToast);
     if (onModal) r.setModalHandler(onModal);

@@ -117,17 +117,24 @@
  *      data and widened no accepted set.
  *   2. objectui#6939's own remainder then rewrote the seven authored spellings
  *      in those three files to the declared vocabulary — the contract-first
- *      direction, `@objectstack/spec` being the side that is right. ⛔ The enum
- *      was NOT widened to meet them; `the alias dialect is still REFUSED` below
- *      is the control that says so, and it is the assertion that would redden
- *      if a later change reached for the lenient repair instead.
+ *      direction, `@objectstack/spec` being the side that is right. The enum
+ *      was NOT widened to meet them by a local alias list.
  *
- * ⚠️ The fork itself is only half closed, and the open half is named here
- * rather than left as an absence: the builder's own dropdown emits camelCase
- * ids (`notEquals`, `greaterThan`), which this mirror still refuses, so a
- * filter a user edits in the UI and stores is refused exactly as these fixtures
- * once were. `the dropdown's own dialect is still REFUSED` pins that, so the
- * gap is a recorded decision rather than a silence.
+ * ## objectui#9559 — the two refusal pins that MOVED (ruling B, ratified)
+ *
+ * This file used to pin two refusals as recorded decisions rather than
+ * silences: `the alias dialect is still REFUSED` (`eq` / `gt` / `lt`) and `the
+ * dropdown's own dialect is still REFUSED` (`greaterThan` / `lessThan`). The
+ * ruling on objectui#9559 settled both: `FilterOperatorSchema` is now the spec
+ * rule's own operator member, so it accepts every spelling the PROTOCOL
+ * accepts and normalises it on parse — which is what `ViewFilterRuleSchema`
+ * has always done. Both pins therefore turned into their opposite, and each
+ * now also asserts the NORMALISED output, because the one behaviour change is
+ * the shape a parsed authored document comes back in. The contract-first
+ * claim still holds, one level up: nothing is accepted that the protocol
+ * refuses, and `an operator the protocol refuses is still REFUSED` below is
+ * the control that says so. The mirror-side pins of the ruling itself live in
+ * `filter-operator-protocol-set-9559.test.ts`.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -182,14 +189,18 @@ function reasons(schema: unknown): string[] {
 
 /**
  * The three spellings these fixtures authored BEFORE objectui#6939's remainder,
- * keyed by the declared member each was rewritten to. Read in this direction it
- * is a control rather than a repair recipe: putting the old dialect back must
- * still be REFUSED, which is what says the enum was not widened to meet it.
+ * keyed by the declared member each was rewritten to — all three are rows of
+ * the spec's alias table, so since objectui#9559 they parse and normalise back.
  */
 const FORMER_ALIAS: Record<string, string> = { equals: 'eq', greater_than: 'gt', less_than: 'lt' };
 
-/** The dropdown's OWN camelCase id for the same three operators — the half of
- * the fork that is still open, and still refused. ⛔ Not a recommendation. */
+/** A spelling no vocabulary carries, in the same three slots: the refusal control. */
+const NOT_AN_OPERATOR: Record<string, string> = {
+  equals: 'qqzz_absent', greater_than: 'qqzz_absent', less_than: 'qqzz_absent',
+};
+
+/** The dropdown's OWN camelCase id for the same three operators — also alias
+ * rows of the spec's table, so also normalised on parse since objectui#9559. */
 const DROPDOWN_ID: Record<string, string> = {
   equals: 'equals',
   greater_than: 'greaterThan',
@@ -743,39 +754,56 @@ describe('objectui#6939 — the catalog entries the mirror refused', () => {
     expect(reasons(nestedSearchInterface())).toEqual([]);
   });
 
+  /** The operators of a parsed (or authored) document, in row order. */
+  const ops = (d: Record<string, unknown>) =>
+    ((d.value as { conditions: { operator: string }[] }).conditions).map((c) => c.operator);
+
+  /** Parse through the whole-document gate and hand back the PARSED document. */
+  function parsed(doc: Record<string, unknown>): Record<string, unknown> {
+    const r = safeValidateSchema(doc);
+    if (!r.success) throw new Error(r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '));
+    return r.data as Record<string, unknown>;
+  }
+
   it.each(['product-search', 'with-conditions'])(
-    '%s: ⛔ the alias dialect is still REFUSED — the enum was not widened',
+    '%s: the alias dialect it used to author is ACCEPTED and normalised back (objectui#9559)',
     (name) => {
-      // The control that carries the contract-first claim. If a later change
-      // repairs a red here by adding `eq` / `gt` / `lt` to
-      // `FilterOperatorSchema`, THIS is what goes green and must not.
+      // Moved by objectui#9559 ruling B: `eq` / `gt` / `lt` are rows of the
+      // spec's alias table, which the protocol's own rule accepts and folds.
       const aliased = withOperators(entry(name), FORMER_ALIAS);
-      expect(reasons(aliased)).not.toEqual([]);
-      // Anti-vacuity: the rewrite really did change the tree it was given, so
-      // the refusal above is about the alias and not about an unchanged doc
-      // that was refused for some other reason.
-      const ops = (d: Record<string, unknown>) =>
-        ((d.value as { conditions: { operator: string }[] }).conditions).map((c) => c.operator);
+      // Anti-vacuity: the rewrite really did change the tree it was given.
       expect(ops(aliased)).not.toEqual(ops(entry(name)));
       expect(ops(aliased).length).toBeGreaterThan(0);
+      expect(reasons(aliased)).toEqual([]);
+      // The round trip: the parsed document carries the canonical spelling the
+      // fixture itself authors, not the alias that went in.
+      expect(ops(parsed(aliased))).toEqual(ops(entry(name)));
     },
   );
 
   it.each(['product-search', 'with-conditions'])(
-    '%s: ⛔ the dropdown\'s own dialect is still REFUSED — the open half of the fork',
+    '%s: the dropdown\'s own camelCase dialect is ACCEPTED and normalised back (objectui#9559)',
     (name) => {
-      // `FILTER_BUILDER_OPERATORS` is the vocabulary the UI EMITS, so a filter a
-      // user edits and stores is refused exactly as these fixtures once were.
-      // Named here, ⛔ not ruled here: widening to meet it is the lenient repair
-      // this whole card argues against, and narrowing the dropdown is a UI
-      // ruling nobody has made. Recorded so the gap cannot go quiet.
+      // `FILTER_BUILDER_OPERATORS` is the vocabulary the UI EMITS; its
+      // `greaterThan` / `lessThan` are alias rows too, so the gate that refused
+      // a UI-edited filter no longer does.
       const dropdown = withOperators(entry(name), DROPDOWN_ID);
-      const ops = (d: Record<string, unknown>) =>
-        ((d.value as { conditions: { operator: string }[] }).conditions).map((c) => c.operator);
       // `equals` is spelled the same in both vocabularies — the overlap is real
       // and is why this arm needs an anti-vacuity leg of its own.
       expect(ops(dropdown)).not.toEqual(ops(entry(name)));
-      expect(reasons(dropdown)).not.toEqual([]);
+      expect(reasons(dropdown)).toEqual([]);
+      expect(ops(parsed(dropdown))).toEqual(ops(entry(name)));
+    },
+  );
+
+  it.each(['product-search', 'with-conditions'])(
+    '%s: an operator the protocol refuses is still REFUSED — nothing wider than the protocol',
+    (name) => {
+      // The contract-first control, one level up from where it used to sit: the
+      // mirror accepts what the PROTOCOL accepts, and not a spelling more.
+      const invented = withOperators(entry(name), NOT_AN_OPERATOR);
+      expect(ops(invented)).not.toEqual(ops(entry(name)));
+      expect(reasons(invented)).not.toEqual([]);
     },
   );
 

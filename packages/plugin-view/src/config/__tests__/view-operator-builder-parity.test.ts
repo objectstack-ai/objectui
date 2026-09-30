@@ -24,86 +24,98 @@
  * legitimately carries them, and all nine reached the builder as a raw spelling
  * its dropdown cannot select. Five now map; four are recorded as deliberate
  * gaps, asserted below so the list cannot grow silently.
+ *
+ * ## After objectui#9306
+ *
+ * The table this file used to sweep, `CANONICAL_TO_BUILDER`, is gone: the
+ * builder's ids ARE the canonical `VIEW_FILTER_OPERATORS` spellings now, so the
+ * table had become the identity over the twenty. What it guaranteed is asked
+ * of {@link specToBuilderOperator} directly instead — every canonical member,
+ * every alias the spec folds and every infix spelling must resolve to an id
+ * the builder can draw — and the NULL / empty-string distinction is pinned on
+ * that same function.
  */
 import { describe, it, expect } from 'vitest';
 import { VIEW_FILTER_OPERATORS, VIEW_FILTER_OPERATOR_ALIASES } from '@objectstack/spec/ui';
 import { FILTER_BUILDER_OPERATORS } from '@object-ui/components';
-import { specToBuilderOperator, __CANONICAL_TO_BUILDER } from '../view-config-utils';
+import { specToBuilderOperator } from '../view-config-utils';
 
 /**
  * Canonical view operators the FilterBuilder cannot express.
  *
- * Empty — every one of the 19 now maps. It was `starts_with`, `ends_with`,
- * `is_null`, `is_not_null` until #2942 gave the builder `startsWith`/`endsWith`/
- * `isNull`/`isNotNull`.
+ * Empty — every one of them maps. It was `starts_with`, `ends_with`,
+ * `is_null`, `is_not_null` until #2942 gave the builder those four operators.
  *
  * Shrink it by adding the operator to the FilterBuilder, never by mapping onto a
- * near-equivalent: `is_null` → `isEmpty` would rewrite a NULL predicate into an
+ * near-equivalent: `is_null` → `is_empty` would rewrite a NULL predicate into an
  * empty-string one on the next save.
  */
 const NO_BUILDER_EQUIVALENT: string[] = [];
 
-/** Case- and separator-insensitive key, matching the module's own `fold`. */
-const fold = (op: string) => op.toLowerCase().replace(/[\s_-]+/g, '');
-
-describe('CANONICAL_TO_BUILDER', () => {
-  it('covers every canonical view operator, and nothing else', () => {
-    expect(Object.keys(__CANONICAL_TO_BUILDER).sort()).toEqual([...VIEW_FILTER_OPERATORS].sort());
+describe('every canonical view operator is a builder id (objectui#9306)', () => {
+  it('resolves to ITSELF — the builder speaks the protocol\'s spelling', () => {
+    // The identity the removed table had become, asserted instead of stored.
+    const moved = VIEW_FILTER_OPERATORS
+      .filter(op => !NO_BUILDER_EQUIVALENT.includes(op))
+      .filter(op => specToBuilderOperator(op) !== op);
+    expect(moved).toEqual([]);
   });
 
-  it('maps onto operator ids the FilterBuilder actually renders', () => {
-    const builderIds = new Set(FILTER_BUILDER_OPERATORS);
-    const notRenderable = Object.entries(__CANONICAL_TO_BUILDER)
-      .filter(([, id]) => id !== null && !builderIds.has(id as never))
-      .map(([op, id]) => `${op} -> ${id}`);
-    expect(notRenderable).toEqual([]);
-  });
-
-  /**
-   * The guard that catches drift in the direction the hand-kept gap list could
-   * not: the builder GAINING an operator this table still calls unmappable.
-   * `starts_with` and `startsWith` fold to the same key, so an unmapped operator
-   * whose folded name matches a folded builder id is an omission by definition —
-   * which is exactly how #2942's four new operators went unnoticed here.
-   */
-  it('leaves nothing unmapped that the builder can already draw', () => {
-    const byFolded = new Map(FILTER_BUILDER_OPERATORS.map(id => [fold(id), id]));
-    const missed = Object.entries(__CANONICAL_TO_BUILDER)
-      .filter(([, id]) => id === null)
-      .filter(([op]) => byFolded.has(fold(op)))
-      .map(([op]) => `${op} -> ${byFolded.get(fold(op))} exists but is unmapped`);
-    expect(missed).toEqual([]);
-  });
-
-  it('records exactly the documented gaps', () => {
-    const unmapped = Object.entries(__CANONICAL_TO_BUILDER)
-      .filter(([, id]) => id === null)
-      .map(([op]) => op);
-    expect(unmapped.sort()).toEqual([...NO_BUILDER_EQUIVALENT].sort());
+  it('and every one of them is an id the FilterBuilder actually renders', () => {
+    const builderIds = new Set<string>(FILTER_BUILDER_OPERATORS);
+    const notRenderable = VIEW_FILTER_OPERATORS.filter(op => !builderIds.has(op));
+    expect(notRenderable).toEqual([...NO_BUILDER_EQUIVALENT]);
   });
 
   it('keeps the NULL and empty-string predicates distinct', () => {
-    expect(__CANONICAL_TO_BUILDER.is_null).toBe('isNull');
-    expect(__CANONICAL_TO_BUILDER.is_not_null).toBe('isNotNull');
-    expect(__CANONICAL_TO_BUILDER.is_empty).toBe('isEmpty');
-    expect(__CANONICAL_TO_BUILDER.is_not_empty).toBe('isNotEmpty');
+    expect(specToBuilderOperator('is_null')).toBe('is_null');
+    expect(specToBuilderOperator('is_not_null')).toBe('is_not_null');
+    expect(specToBuilderOperator('is_empty')).toBe('is_empty');
+    expect(specToBuilderOperator('is_not_empty')).toBe('is_not_empty');
+    expect(specToBuilderOperator('is_null')).not.toBe(specToBuilderOperator('is_empty'));
+  });
+});
+
+/**
+ * The view-config reader's leg of objectui#9306's 22-id census: every former
+ * dropdown id reads onto the id the dropdown draws now. `containsCaseInsensitive`
+ * is the one this reader leaves verbatim (the spec's alias table has no row for
+ * it); the builder folds it onto `icontains` at its own read boundary.
+ */
+describe('every former dropdown id reads onto the id the dropdown draws now (objectui#9306)', () => {
+  const CENSUS: ReadonlyArray<readonly [string, string]> = [
+    ['equals', 'equals'], ['notEquals', 'not_equals'], ['contains', 'contains'],
+    ['notContains', 'not_contains'], ['isEmpty', 'is_empty'], ['isNotEmpty', 'is_not_empty'],
+    ['greaterThan', 'greater_than'], ['lessThan', 'less_than'],
+    ['greaterOrEqual', 'greater_than_or_equal'], ['lessOrEqual', 'less_than_or_equal'],
+    ['before', 'before'], ['after', 'after'], ['between', 'between'], ['in', 'in'], ['notIn', 'not_in'],
+    ['startsWith', 'starts_with'], ['endsWith', 'ends_with'], ['isNull', 'is_null'], ['isNotNull', 'is_not_null'],
+    ['exists', 'exists'], ['notExists', 'notExists'],
+  ];
+
+  it.each(CENSUS)('`%s` reads as `%s`, an id the builder draws', (legacy, id) => {
+    expect(specToBuilderOperator(legacy)).toBe(id);
+    expect(FILTER_BUILDER_OPERATORS as readonly string[]).toContain(id);
   });
 });
 
 describe('specToBuilderOperator', () => {
   it('resolves every canonical view operator that has an equivalent', () => {
-    const builderIds = new Set(FILTER_BUILDER_OPERATORS);
+    const builderIds = new Set<string>(FILTER_BUILDER_OPERATORS);
     const unresolved = VIEW_FILTER_OPERATORS
       .filter(op => !NO_BUILDER_EQUIVALENT.includes(op))
-      .filter(op => !builderIds.has(specToBuilderOperator(op) as never));
+      .filter(op => !builderIds.has(specToBuilderOperator(op)));
     expect(unresolved).toEqual([]);
   });
 
   it('resolves every legacy alias the spec still folds', () => {
-    const builderIds = new Set(FILTER_BUILDER_OPERATORS);
+    // Including the builder's own former camelCase ids (`notEquals`,
+    // `greaterOrEqual`, …), which are rows of this table and which a view
+    // stored before objectui#9306 may carry.
+    const builderIds = new Set<string>(FILTER_BUILDER_OPERATORS);
     const unresolved = Object.entries(VIEW_FILTER_OPERATOR_ALIASES)
       .filter(([, canonical]) => !NO_BUILDER_EQUIVALENT.includes(canonical))
-      .filter(([alias]) => !builderIds.has(specToBuilderOperator(alias) as never))
+      .filter(([alias]) => !builderIds.has(specToBuilderOperator(alias)))
       .map(([alias]) => alias);
     expect(unresolved).toEqual([]);
   });
@@ -111,40 +123,38 @@ describe('specToBuilderOperator', () => {
   it('resolves the infix spellings a stored filter array carries', () => {
     expect(specToBuilderOperator('=')).toBe('equals');
     expect(specToBuilderOperator('==')).toBe('equals');
-    expect(specToBuilderOperator('!=')).toBe('notEquals');
-    expect(specToBuilderOperator('<>')).toBe('notEquals');
-    expect(specToBuilderOperator('>')).toBe('greaterThan');
-    expect(specToBuilderOperator('<')).toBe('lessThan');
-    expect(specToBuilderOperator('>=')).toBe('greaterOrEqual');
-    expect(specToBuilderOperator('<=')).toBe('lessOrEqual');
-    expect(specToBuilderOperator('nin')).toBe('notIn');
+    expect(specToBuilderOperator('!=')).toBe('not_equals');
+    expect(specToBuilderOperator('<>')).toBe('not_equals');
+    expect(specToBuilderOperator('>')).toBe('greater_than');
+    expect(specToBuilderOperator('<')).toBe('less_than');
+    expect(specToBuilderOperator('>=')).toBe('greater_than_or_equal');
+    expect(specToBuilderOperator('<=')).toBe('less_than_or_equal');
+    expect(specToBuilderOperator('nin')).toBe('not_in');
     expect(specToBuilderOperator('like')).toBe('contains');
   });
 
   it('folds case and separators, so one spelling class is one entry', () => {
     for (const spelling of ['not_in', 'notIn', 'not in', 'NOT_IN', 'not-in', 'notin']) {
-      expect(specToBuilderOperator(spelling)).toBe('notIn');
+      expect(specToBuilderOperator(spelling)).toBe('not_in');
     }
-    for (const spelling of ['greater_than_or_equal', 'greaterThanOrEqual', 'greaterorequal']) {
-      expect(specToBuilderOperator(spelling)).toBe('greaterOrEqual');
+    for (const spelling of ['greater_than_or_equal', 'greaterThanOrEqual', 'greaterorequal', 'greaterOrEqual']) {
+      expect(specToBuilderOperator(spelling)).toBe('greater_than_or_equal');
     }
+  });
+
+  it('keeps contains and icontains two operators (objectui#7379)', () => {
+    expect(specToBuilderOperator('icontains')).toBe('icontains');
+    expect(specToBuilderOperator('contains')).toBe('contains');
   });
 
   it('returns an unrecognised operator unchanged rather than coercing it', () => {
     // Visible in the UI as an incomplete condition row beats a silent rewrite
     // to `equals`, which would drop the author's predicate on the next save.
+    // (`containsCaseInsensitive` is one of these HERE — the spec's alias table
+    // has no row for it — and the builder's own read boundary folds it.)
     expect(specToBuilderOperator('totally_made_up')).toBe('totally_made_up');
     expect(specToBuilderOperator('$regex')).toBe('$regex');
-  });
-
-  it('resolves the four operators #2942 made expressible', () => {
-    expect(specToBuilderOperator('starts_with')).toBe('startsWith');
-    expect(specToBuilderOperator('ends_with')).toBe('endsWith');
-    expect(specToBuilderOperator('is_null')).toBe('isNull');
-    expect(specToBuilderOperator('is_not_null')).toBe('isNotNull');
-    // …without collapsing them onto the empty-string pair.
-    expect(specToBuilderOperator('is_empty')).toBe('isEmpty');
-    expect(specToBuilderOperator('is_not_empty')).toBe('isNotEmpty');
+    expect(specToBuilderOperator('containsCaseInsensitive')).toBe('containsCaseInsensitive');
   });
 
   it('defaults an absent operator to equals', () => {

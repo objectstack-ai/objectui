@@ -278,6 +278,45 @@ Pass `dataSource: undefined` for a render that should settle immediately with
 no definition (e.g. a provider that issues no metadata read at all) instead of
 adding a separate enable flag.
 
+### useFilterScope / useResolvedFilter
+
+A data node that sends its own authored `filter` into a query resolves the
+spec's context tokens in it first: `{current_user_id}`, `{current_org_id}` and
+the date macros such as `{today}` (objectui#10666). `useFilterScope()` reads
+the session scope a host mounts with `FilterScopeProvider`;
+`useResolvedFilter(filter, scope)` resolves the filter through
+`@object-ui/core`'s `resolveFilterPlaceholders` and HOLDS the result.
+
+```tsx
+import { useEffect } from 'react'
+import { useFilterScope, useResolvedFilter } from '@object-ui/react'
+import type { DataSource, QueryParams } from '@object-ui/types'
+
+function ObjectSomething({
+  schema,
+  dataSource,
+}: {
+  schema: { objectName: string; filter?: QueryParams['$filter'] }
+  dataSource: DataSource
+}) {
+  const filterScope = useFilterScope()
+  const filter = useResolvedFilter(schema.filter, filterScope)
+
+  useEffect(() => {
+    // Query with the held value and key the effect on it, never on schema.filter.
+    void dataSource.find(schema.objectName, { $filter: filter })
+  }, [dataSource, schema.objectName, filter])
+}
+```
+
+The held value keeps its reference while the authored filter is structurally
+equal (a filter rebuilt inline on every render included) and the scope's user,
+organization and `onUnresolved` are unchanged, so the effect above runs once.
+A structurally different filter, or a new signed-in user or organization,
+resolves again. A filter with no token to resolve is handed back as the value
+passed in. A token the scope cannot resolve is left in place, and the resolver
+logs one warning naming it.
+
 ### NON_GRID_ROW_CEILING
 
 The platform's hard row ceiling for a NON-GRID visualisation — gantt, calendar,
@@ -285,13 +324,15 @@ map and tree (objectui#7210). Those four fetch the whole FILTERED result set,
 because a truthful range or layout needs all of it, but the fetch is bounded:
 past the ceiling they draw the first N rows and say so.
 
+The mechanism lives in `@object-ui/core` (objectui#7508): `NON_GRID_ROW_CEILING`,
+`nonGridRowCeilingQuery` and `applyNonGridRowCeiling`, with the result type
+`NonGridCeilingResult`. This package re-exports `NON_GRID_ROW_CEILING`,
+`applyNonGridRowCeiling` and `NonGridCeilingResult`, and owns the React half —
+the footnote, `NonGridRowCeilingNote`.
+
 ```tsx
-import {
-  NON_GRID_ROW_CEILING,
-  NON_GRID_ROW_CEILING_TOP,
-  applyNonGridRowCeiling,
-  NonGridRowCeilingNote,
-} from '@object-ui/react'
+import { NonGridRowCeilingNote, applyNonGridRowCeiling } from '@object-ui/react'
+import { nonGridRowCeilingQuery } from '@object-ui/core'
 import type { DataSource, QueryParams } from '@object-ui/types'
 
 declare const dataSource: DataSource
@@ -300,24 +341,64 @@ declare const schema: { filter?: QueryParams['$filter'] }
 
 const result = await dataSource.find(objectName, {
   $filter: schema.filter,
-  $top: NON_GRID_ROW_CEILING_TOP, // the ceiling plus ONE probe row
+  ...nonGridRowCeilingQuery(), // `$top`: the ceiling plus ONE probe row
 })
 // The semicolon is load-bearing: the next statement opens with `<`, so without
 // it the call above is parsed as the left side of a relational expression.
-const { rows, total, truncated } = applyNonGridRowCeiling(result);
-// …draw `rows`, then:
-<NonGridRowCeilingNote drawn={NON_GRID_ROW_CEILING} total={total} truncated={truncated} />
+const capped = applyNonGridRowCeiling(result);
+// …draw `capped.rows`, then hand the note the whole result:
+<NonGridRowCeilingNote result={capped} />
 ```
 
-`NON_GRID_ROW_CEILING_TOP` is the ceiling plus one deliberately: the probe row
-is what makes truncation a fact about the rows in hand, since `QueryResult.total`
-is optional and a bare-array response carries none. The note renders `null` when
-nothing was truncated, so it can be mounted unconditionally.
+`nonGridRowCeilingQuery()` is the one place the probe row is written: `$top` is
+the ceiling plus one, because the extra row is what makes truncation a fact about
+the rows in hand — `QueryResult.total` is optional and a bare-array response
+carries none. Spread it into the query; never spell the `+ 1` at a call site.
+
+`NonGridRowCeilingNote` takes the `NonGridCeilingResult` and nothing else. The
+count it prints is `result.rows.length` and the total is `result.total`, so the
+footnote cannot name numbers that disagree with the rows drawn. It renders `null`
+when nothing was truncated, so it can be mounted whenever a result is in hand.
 
 ⛔ The ceiling is not authorable and must not become so. Silent truncation is
 the failure it exists to prevent — a cut-off schedule still looks like a
 schedule — so a view that caps rows without rendering the note is a defect, not
 an optimisation.
+
+### resolveInlineAriaProps
+
+Maps the spec's nested `aria` bag (`AriaPropsSchema`, the `aria` prop a block
+such as `element:text` declares) to the DOM attributes it names
+(objectui#11051):
+
+- `ariaLabel` → `aria-label`. A plain string is used as written; an inline
+  locale map (`{ en: 'Order total', 'zh-CN': '订单合计' }`) gives the entry for
+  `locale`, through the spec's own `resolveI18nLabel`.
+- `ariaDescribedBy` → `aria-describedby`.
+- `role` → `role`.
+
+Only attributes that have a value are returned, so the result can be spread
+onto an element directly. It is a pure function: pass the locale yourself, in
+React from `useDisplayLocale()`.
+
+```tsx
+import { resolveInlineAriaProps } from '@object-ui/react'
+import { useDisplayLocale } from '@object-ui/i18n'
+import type { AriaProps } from '@object-ui/types'
+
+function CloseButton({ aria, onClose }: { aria?: AriaProps; onClose: () => void }) {
+  const locale = useDisplayLocale()
+  return (
+    <button type="button" onClick={onClose} {...resolveInlineAriaProps(aria, locale)}>
+      ×
+    </button>
+  )
+}
+```
+
+This is not the reader `SchemaRenderer` applies to a node's FLAT `ariaLabel`,
+which is objectui's keyed `{ key, defaultValue }` form. Each resolver returns
+nothing useful for the other's shape, so the two stay separate (objectui#4580).
 
 ### ComponentRegistry
 

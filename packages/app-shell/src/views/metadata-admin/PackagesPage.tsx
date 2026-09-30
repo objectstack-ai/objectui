@@ -281,7 +281,7 @@ export function PackageDetailSheet({
   onChanged: () => void;
 }) {
   const locale = useMetadataLocale();
-  // objectui#6965 — the console's metadata client, for the ONE action on this
+  // `ce986aafc` — the console's metadata client, for the ONE action on this
   // sheet that must report: "publish drafts" promotes metadata, and the runtime
   // authoring gate's findings for those promotions ride the response. This hook
   // is where the advisory sink is wired (`useMetadataClient` → the toast
@@ -370,7 +370,7 @@ export function PackageDetailSheet({
   // refresh the pending list (it should now be empty). Distinct from the
   // registry-based `publish` above; this hits `/publish-drafts`.
   //
-  // objectui#6965 — through `MetadataClient`, not `apiJson`. This promotes
+  // `ce986aafc` — through `MetadataClient`, not `apiJson`. This promotes
   // metadata, so the runtime authoring gate grades it and answers its findings
   // on each `published[]` element (objectstack#9343); the client is the seam
   // that reports them to the author. `apiJson` could not — and the response
@@ -382,7 +382,7 @@ export function PackageDetailSheet({
       'publish-drafts',
       async () => {
         const r = await client.publishPackageDrafts(id).catch((e: unknown) => {
-          // The ADR-0112 rule objectui#7959 landed on this page: a
+          // The ADR-0112 rule `36fc74629` landed on this page: a
           // producer-marked `error.userMessage` outranks the diagnostic
           // `error.message`. `MetadataClient` raises with the diagnostic and
           // keeps the body, so the marked sentence is re-read here rather
@@ -958,7 +958,7 @@ export function PackagesPage() {
         ) : error ? (
           <div className="flex items-start gap-2 p-4 text-sm text-destructive">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            {/* A stable handle for the load-failure pins (objectui#7959): the
+            {/* A stable handle for the load-failure pins (`36fc74629`): the
                 words in here are the server's, so a test that located this
                 banner BY those words could not assert what is absent from it. */}
             <span data-testid="packages-load-error">{error}</span>

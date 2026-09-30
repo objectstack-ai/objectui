@@ -41,7 +41,7 @@ const SENTINEL_RE = /[\uE000\uE001]/g
  * and keeps the underscores, so `### NON_GRID_ROW_CEILING` is slugged
  * `non_grid_row_ceiling`; the shared rule paired the first two underscores and
  * ate `GRID`, then resumed and ate `ROW`, yielding `nongridrow_ceiling` — a
- * `#id` naming an anchor the page does not carry (objectui#7667).
+ * `#id` naming an anchor the page does not carry (`a472b0716`).
  *
  * Specialised to `_`, CommonMark's can-open / can-close conditions each reduce
  * to one boundary test on either side of the whole RUN:
@@ -76,7 +76,7 @@ const UNDERSCORE_EMPHASIS_RE =
  * code-span text therefore delete characters the anchor is built from — the
  * raw-HTML rule ate `<type>` out of `` `objectui generate <type> <name>` `` and
  * the emphasis rules ate the underscores out of `` `a_b_c` `` — so the TOC's
- * `#id` named a heading anchor that does not exist (objectui#7658).
+ * `#id` named a heading anchor that does not exist (`90c6d090d`).
  *
  * The raw-HTML rule itself stays: `remark-rehype` runs without
  * `allowDangerousHtml`, so it drops raw html nodes and keeps the text they

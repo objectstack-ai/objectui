@@ -3,7 +3,7 @@
 ---
 
 Field designer: clearing a picklist option's **Label** no longer produces metadata the
-API refuses (objectui#7014 Q2).
+API refuses.
 
 `ObjectFieldInspector`'s option writer guarded the key on truthiness —
 `if (o.label) out.label = o.label;` — so an empty Label box was serialised as an option

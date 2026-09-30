@@ -150,10 +150,20 @@ function displayNameOfEmbeddedObject(o: any): string | null {
  * supported. Dotted paths (`{account.name}`) walk `$expanded` lookup objects; a
  * placeholder that resolves to a whole object is reduced to its display name.
  *
- * Empty placeholders (missing / null / empty fields) are stripped along with
- * any orphan separator they leave behind, so `"{full_name} - {company}"`
- * evaluated against `{ company: "Acme" }` yields `"Acme"`, not `" - Acme"`.
- * Returns an empty string when no placeholder resolved.
+ * Empty placeholders (missing / null / empty / whitespace-only fields) are
+ * stripped along with any orphan separator they leave behind, so
+ * `"{full_name} - {company}"` evaluated against `{ company: "Acme" }` yields
+ * `"Acme"`, not `" - Acme"`. Returns an empty string when no placeholder
+ * resolved.
+ *
+ * What counts as "empty" is not decided here (objectui#10446). Each
+ * placeholder's value goes through {@link displayValueOf}, the body of
+ * {@link recordDisplayValueAt}: trim, then empty. This function used to test
+ * the raw value against `null` / `undefined` / `''` on its own, so a
+ * whitespace-only value counted as RESOLVED. The later whitespace collapse
+ * then left its separator dangling: `{contract_no} - {name}` with a blank
+ * `name` rendered `HT-2026-003 -`, while every value-keyed rung of
+ * {@link getRecordDisplayName} judged the same value empty.
  */
 export function formatTitleTemplate(
   titleFormat: string | { source?: string } | undefined | null,
@@ -180,14 +190,10 @@ export function formatTitleTemplate(
       if (value == null) break;
       value = (value as any)[p];
     }
-    if (value && typeof value === 'object') {
-      value = displayNameOfEmbeddedObject(value as any);
-    }
-    if (value === null || value === undefined || value === '') {
-      return EMPTY_TOKEN;
-    }
+    const shown = displayValueOf(value);
+    if (shown === undefined) return EMPTY_TOKEN;
     anyResolved = true;
-    return String(value);
+    return shown;
   });
 
   if (!anyResolved) return '';
@@ -312,12 +318,26 @@ export function deriveTitleField(objectDef: any): string | undefined {
  * reads it: the canonical `nameField` (ADR-0079 Phase 2), then its deprecated
  * `displayNameField` / `NAME_FIELD_KEY` aliases.
  *
- * One spelling, two readers — the value-space resolver and the name-space
- * {@link resolveNameField}. Re-typing the `??` chain at the second reader is
- * how the two would drift into disagreeing about which field titles an object.
- * No new alias is read here; this is the existing ladder, extracted.
+ * One spelling, every reader. Inside this module that is the value-space
+ * resolver and the name-space {@link resolveNameField}. Re-typing the `??`
+ * chain at another reader is how two readers drift into disagreeing about
+ * which field titles an object. No new alias is read here; this is the
+ * existing ladder, extracted.
+ *
+ * Exported (objectui#9436) for callers that must rank the DECLARED pointer on
+ * its own, apart from the type-aware derivation that {@link resolveNameField}
+ * folds in after it. The record-page H1 needs exactly that: ADR-0079 puts the
+ * declared pointer (steps 1+2) above the legacy `titleFormat` (step 3), and the
+ * derivation (step 4) below it, so a caller that interleaves its own
+ * `titleFormat` rendering has to read the two halves separately. Read the value
+ * as `recordDisplayValueAt(record, declaredNameField(objectDef))`, which is how
+ * {@link getRecordDisplayName} reads steps 1+2.
+ *
+ * Returns the pointer exactly as declared, or `undefined` when none is. It
+ * never derives: an object that declares nothing answers `undefined` even when
+ * its `fields` would derive a title field.
  */
-function declaredNameField(objectDef: any): any {
+export function declaredNameField(objectDef: any): any {
   return objectDef?.nameField ?? objectDef?.displayNameField ?? objectDef?.NAME_FIELD_KEY;
 }
 
@@ -459,10 +479,28 @@ const NAME_ISH_RECORD_KEYS = [
  *     `{ id }` lookup payload is not a title);
  *   - non-strings are stringified, so `0` and `false` ARE values, not blanks;
  *   - `null` and `undefined` are empty, and only those two.
+ *
+ * The rule itself is {@link displayValueOf}, which {@link formatTitleTemplate}
+ * applies to each placeholder value (objectui#10446). So a `titleFormat`
+ * placeholder is empty exactly when this function would call its field empty.
  */
 export function recordDisplayValueAt(record: any, field: string | undefined): string | undefined {
   if (!field || !record || typeof record !== 'object') return undefined;
-  let v: any = record[field];
+  return displayValueOf(record[field]);
+}
+
+/**
+ * The value half of {@link recordDisplayValueAt}: one already-read value in,
+ * its display string or `undefined` (empty) out. Trim, then empty.
+ *
+ * Module-private on purpose. It exists so the two readers in this file that
+ * judge a single value, `recordDisplayValueAt` and each placeholder of
+ * {@link formatTitleTemplate}, run ONE implementation of that judgement rather
+ * than two that agree today (objectui#10446). Read its full definition on
+ * {@link recordDisplayValueAt}.
+ */
+function displayValueOf(value: any): string | undefined {
+  let v: any = value;
   if (v && typeof v === 'object') v = displayNameOfEmbeddedObject(v);
   if (v === null || v === undefined) return undefined;
   const s = typeof v === 'string' ? v.trim() : String(v);

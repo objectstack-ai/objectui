@@ -3,7 +3,7 @@
 "@object-ui/plugin-list": minor
 ---
 
-**A stray `groupBy` in a view's kanban config no longer overrides the lane, and is now refused by name.**
+**A stray `groupBy` in a view's kanban config no longer overrides the lane, and on a `list-view` document is now refused by name.**
 
 `ListView`'s kanban branch destructured
 `columns`/`groupByField`/`groupField`/`cardFields`/`titleField` out of the merged
@@ -29,12 +29,29 @@ fallback and was **not** taken):
    as a named alias refusal pointing at `groupByField`, in the same sentence
    shape `@objectstack/spec` already answers the sibling alias with — "Unrecognized
    key(s) on this kanban configuration: `groupBy`. Did you mean `groupBy` →
-   `groupByField`?". The refusal lands wherever a view's metadata is validated:
-   the CLI's `os check` / `os validate`, the VS Code extension, and `tsc` at the
-   authoring site (the inferred authoring face now carries `groupBy?: never`).
-   The legacy `options.kanban` nesting — where the retired producer wrote, and so
-   where stored views carry the key — takes the identical message through a check
-   on that untyped bag.
+   `groupByField`?". The refusal lands on the `list-view` route: wherever
+   `safeValidateSchema` validates a `list-view` document (objectui's own
+   `objectui validate` runs it and prints the issue), and at the authoring site,
+   where `tsc` refuses the declared `kanban.groupBy` (the inferred authoring face
+   now carries `groupBy?: never`). The legacy `options.kanban` nesting — where the
+   retired producer wrote, and so where stored views carry the key — takes the
+   identical message through a check on that untyped bag. A named view's
+   `listViews.KEY.kanban.groupBy` on an `object-view` document is not reached by
+   this arm; objectui#10321 gives that route its own door, which refuses the key
+   in either nesting with the same message.
+
+⚠️ **Dated note, 2026-09-28 — a named view's `options.kanban` bag is refused whole —
+objectui#7928.** Later in this same release a named view became the protocol's strict
+`ObjectListViewSchema` record, by reference, which refuses its `options` bag by name
+(`unrecognized_keys` at `listViews.KEY`, naming `options`). So the objectui#10321 door no
+longer refuses the key "in either nesting with the same message": it still adds that
+message at `listViews.KEY.kanban.groupBy`, beside the protocol's own refusal of the key,
+and nothing reports `listViews.KEY.options.kanban.groupBy`. A stored body that
+`@object-ui/app-shell`'s `ViewPreview` relays has its `options.kanban` folded onto the
+`kanban` block first (`foldStoredListOptions`). The `list-view` route described above is
+unchanged, its `options.kanban` check included.
+`.changeset/7928-listviews-by-reference-fold.md` (PR objectui#10821) states what ships;
+the text above is kept as the reading of this change.
 
 **Breaking, in the sense worth stating explicitly** (shipped `minor`: this repo
 never declares `major`, and `.changeset/config.json` puts every package in one
@@ -44,9 +61,9 @@ data**, which is why this is not a patch:
 - a stored view authoring `kanban.groupBy` (either nesting) **re-points its lane**
   — it used to group by the stray key and now groups by the canonical binding, so
   its board may show different columns;
-- the same document now **fails validation** where it used to pass: any pipeline
-  running `safeValidateSchema` over it (`os check`, `os validate`, the extension)
-  reports one issue naming the key and the replacement.
+- the same document, on the `list-view` route, now **fails validation** where it
+  used to pass: any pipeline running `safeValidateSchema` over it (objectui's own
+  `objectui validate` does) reports one issue naming the key and the replacement.
 
 Honouring `groupBy` as a declared alias was never an option here:
 `@objectstack/spec`'s `KanbanConfigSchema` is a strict object of

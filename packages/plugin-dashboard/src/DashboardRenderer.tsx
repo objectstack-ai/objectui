@@ -6,9 +6,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
-import { SchemaRenderer, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables } from '@object-ui/react';
-import { useObjectTranslation, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
+import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema, DataSource } from '@object-ui/types';
+import { SchemaRenderer, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables, useResolvedDataSource } from '@object-ui/react';
+import { useObjectTranslation, useSafeTranslate, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
 import type { ActionDef, ActionResult, ActionContext, ModalHandler, SduiDomPassThroughKey } from '@object-ui/core';
 import {
   resolveDashboardFilterDefs,
@@ -21,7 +21,7 @@ import {
   chartConfigPresentation,
 } from '@object-ui/core';
 import { cn, Card, CardHeader, CardTitle, CardContent, Button, getLazyIcon } from '@object-ui/components';
-import { forwardRef, useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react';
+import { forwardRef, useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import type { HTMLAttributes } from 'react';
 import { RefreshCw } from 'lucide-react';
 import {
@@ -45,7 +45,17 @@ import { classifyWidgetType, METRIC_LIKE_TYPES } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
 import { useWidgetSubCaption } from './widgetSubCaption';
+import { useDashboardAutoRefresh } from './useDashboardAutoRefresh';
 import { DashboardFilterBar } from './DashboardFilterBar';
+
+/**
+ * One `header.actions[]` entry, as the node's declaration types it: the spec's
+ * `DashboardHeaderAction` by reference since objectui#7759, so `label` is an
+ * `I18nLabel` and `actionUrl` is required. Named for the node, not the spec
+ * type, because it is read off `DashboardComponentSchema` and a local alias may
+ * not wear a spec export's name (`check:spec-symbols`).
+ */
+type DashboardNodeHeaderAction = NonNullable<NonNullable<DashboardComponentSchema['header']>['actions']>[number];
 
 interface SortableWidgetWrapperProps {
   id: string;
@@ -198,6 +208,10 @@ export interface DashboardRendererProps
    * is precisely what it resolved to before, so declaring it changes what is
    * DECLARED without changing what any call site is held to. Narrowing it to a
    * real adapter type is a separate change with its own consumer sweep.
+   *
+   * Optional: when it is omitted, the adapter of the enclosing
+   * `SchemaRendererProvider` is used, which is how a `dashboard` block held on
+   * a page gets one (objectui#10815).
    */
   dataSource?: any;
   /** Callback invoked when dashboard refresh is triggered (manual or auto) */
@@ -233,7 +247,23 @@ export interface DashboardRendererProps
 }
 
 const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps>(
-  ({ schema, className, dataSource, onRefresh, recordCount, userActions, designMode, selectedWidgetId, onWidgetClick, onWidgetsReorder, modalHandler, scriptHandlers, hideHeaderText, ...props }: DashboardRendererProps & { [key: string]: any }, ref) => {
+  ({ schema, className, dataSource: dataSourceProp, onRefresh, recordCount, userActions, designMode, selectedWidgetId, onWidgetClick, onWidgetsReorder, modalHandler, scriptHandlers, hideHeaderText, ...props }: DashboardRendererProps & { [key: string]: any }, ref) => {
+    // objectui#10815 — the adapter every child of this dashboard reads, resolved
+    // ONCE here the way the page-embeddable blocks of the family resolve theirs
+    // (`useResolvedDataSource`, the `object-grid` / `object-form` /
+    // `detail-view` rule): an explicit `dataSource` prop first, the
+    // `SchemaRendererProvider` context second.
+    //
+    // A page holds its blocks through `SchemaRenderer`, which strips the node's
+    // `dataSource` key (the spec's element BINDING, objectstack#5576) and
+    // injects no adapter prop. Reading the prop alone, a `dashboard` block on a
+    // page handed `undefined` to every dataset widget, which painted "This data
+    // source does not support dataset queries." beside a page that held a
+    // capable adapter. Resolved here rather than per widget so the widgets, the
+    // filter bar's `optionsFrom` read and the drill drawers all see the same
+    // source. A host that binds no capable adapter anywhere still gets
+    // `DatasetWidget`'s visible alert: that state is deliberate and unchanged.
+    const dataSource = useResolvedDataSource<DataSource>(dataSourceProp);
     // Auto-infer the grid column count when the dashboard schema doesn't
     // specify one. Spec convention is a 12-column grid (widgets use w: 3 for
     // quarter-row KPIs, w: 6 for half-row charts, etc.). If we always default
@@ -257,9 +287,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     // Defined here (not just above desktopBody) so renderWidget can give
     // layout-less widgets a sensible default span in the positioned grid.
     const hasExplicitColumns = schema.columns != null || inferredColumns !== 4;
-    const [refreshing, setRefreshing] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
-    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // Dashboard-level filters (framework#2501). Filter values live as
     // dashboard variables — the outer DashboardRenderer mounts a
@@ -273,24 +301,15 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     );
     const { variables: filterValues, setVariable: setFilterValue, resetVariables: resetFilterValues } = usePageVariables();
 
-    // Build ActionDef[] from header actions so useActionEngine can dispatch by name.
-    const headerActionDefs = useMemo<ActionDef[]>(() => {
-      const actions = schema.header?.actions ?? [];
-      return actions.map((a: { label: string; actionUrl?: string; actionType?: string; icon?: string }) => ({
-        name: a.actionUrl || a.label,
-        type: (a.actionType as ActionDef['type']) || 'url',
-        target: a.actionUrl,
-        label: a.label,
-      }));
-    }, [schema.header?.actions]);
-
-    const { executeAction, engine } = useActionEngine({ actions: headerActionDefs });
-
     // ── i18n: convention-based label resolution for dashboard / widget /
     // action text. The dashboard name (`schema.name`) keys all lookups; when
     // it's missing we silently degrade to the raw English fallbacks.
     const { dashboardLabel, dashboardDescription, dashboardActionLabel, widgetTitle, widgetDescription, fieldLabel } = useObjectLabel();
     const { t, language } = useObjectTranslation();
+    // The refresh button's copy is three pack keys (`dashboard.refreshAll`,
+    // `dashboard.refreshDashboard`, `dashboard.refreshing`), the same three
+    // `DashboardGridLayout` reads, each through `tt` like the package's other one-off labels.
+    const tt = useSafeTranslate();
     // The record-count badge is a number face; it groups in the display locale,
     // not the MACHINE's (objectui#9909).
     const displayLocale = useDisplayLocale();
@@ -340,17 +359,43 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     /**
      * Translate a header-action label using the
      * `{ns}.dashboards.{dashName}.actions.{actionKey}.label` convention.
-     * Falls back to the action's English label when no translation exists or
+     * Falls back to the action's authored label when no translation exists or
      * the dashboard schema has no `name`.
+     *
+     * The authored label is the spec's `I18nLabel` — a string or an inline
+     * per-locale map — so it is collapsed to the active language BEFORE it is
+     * used as the fallback or the button text (objectui#7759). This read used
+     * to return the authored value as-is, typed `string` by a hand-written
+     * restatement of `header`, and a map reached React as a button child.
      */
     const tActionLabel = useCallback(
-      (action: { label: string; actionUrl?: string }): string => {
-        if (!dashName) return action.label;
-        const key = action.actionUrl || action.label;
-        return dashboardActionLabel(dashName, key, action.label);
+      (action: DashboardNodeHeaderAction): string => {
+        const authored = pickLocalized(action.label, language) || '';
+        if (!dashName) return authored;
+        const key = action.actionUrl || authored;
+        return dashboardActionLabel(dashName, key, authored);
       },
-      [dashName, dashboardActionLabel],
+      [dashName, dashboardActionLabel, language],
     );
+
+    // Build ActionDef[] from header actions so useActionEngine can dispatch by
+    // name. `ActionDef.label` is a `string`, so the def carries the label
+    // resolved against the active language, exactly as the button shows it.
+    // Keyed on `language`, not on a memoised resolver's identity (AGENTS.md #10).
+    const headerActionDefs = useMemo<ActionDef[]>(() => {
+      const actions = schema.header?.actions ?? [];
+      return actions.map((a) => {
+        const label = pickLocalized(a.label, language) || undefined;
+        return {
+          name: a.actionUrl || label,
+          type: (a.actionType as ActionDef['type']) || 'url',
+          target: a.actionUrl,
+          label,
+        };
+      });
+    }, [schema.header?.actions, language]);
+
+    const { executeAction, engine } = useActionEngine({ actions: headerActionDefs });
 
     /**
      * Translate a widget title / description using the
@@ -446,27 +491,11 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
       return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    const handleRefresh = useCallback(() => {
-      if (!onRefresh) return;
-      setRefreshing(true);
-      onRefresh();
-      // Reset refreshing indicator after a short delay
-      setTimeout(() => setRefreshing(false), 600);
-    }, [onRefresh]);
-
-    // Auto-refresh interval. The `* 1000` is seconds → milliseconds, and the
-    // key now says so itself: @objectstack/spec 17.4.0 renamed
-    // `refreshInterval` to `refreshIntervalSeconds` precisely because a reader
-    // multiplying by 1000 was the tell that the unit lived out of band
-    // (objectstack#15680, objectui#7783). The arithmetic is unchanged — the
-    // value is still seconds.
-    useEffect(() => {
-      if (!schema.refreshIntervalSeconds || schema.refreshIntervalSeconds <= 0 || !onRefresh) return;
-      intervalRef.current = setInterval(handleRefresh, schema.refreshIntervalSeconds * 1000);
-      return () => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-      };
-    }, [schema.refreshIntervalSeconds, onRefresh, handleRefresh]);
+    // The refresh indicator, the manual handler and the auto-refresh timer come
+    // from the one implementation this component shares with
+    // `DashboardGridLayout` (objectui#8820), which is also the only place
+    // `refreshIntervalSeconds` is read.
+    const { refreshing, handleRefresh } = useDashboardAutoRefresh(schema, onRefresh);
 
     const handleWidgetClick = useCallback((e: React.MouseEvent, widgetId: string | undefined) => {
       if (!designMode || !onWidgetClick || !widgetId) return;
@@ -787,7 +816,6 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                         type: 'object-data-table',
                         ...restOptions,
                         objectName: widgetData.object,
-                        dataProvider: widgetData,
                         filter: widgetData.filter || widget.filter,
                         searchable: isList ? false : (widget.searchable ?? false),
                         pagination: isList ? false : (widget.pagination ?? false),
@@ -827,11 +855,13 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             // This arm stays surface-LOCAL and is deliberately not part of the
             // shared detector (objectui#4612): it is a statement about what THIS
             // surface can draw — nothing here emits a pivot block — not about the
-            // widget being legacy. `DashboardGridLayout` does still draw pivots from
-            // static data and from the `provider: 'object'` config, so exporting
-            // this family-wide arm would have retired two live branches over there.
-            // The legacy pivot SHAPE is covered on both surfaces by the shared
-            // sentinel above, which its top-level `object` matches.
+            // widget being legacy. `DashboardGridLayout` still draws pivots from
+            // static data, so exporting this family-wide arm would retire that
+            // live branch over there. Its `provider: 'object'` pivot answers with
+            // this same placeholder (objectui#10528), imported from the same
+            // module rather than restated. The legacy pivot SHAPE is covered on
+            // both surfaces by the shared sentinel above, which its top-level
+            // `object` matches.
             if (dispatch.family === 'pivot') {
                 return LEGACY_RETIRED_WIDGET_SCHEMA;
             }
@@ -1066,10 +1096,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         )}
         {headerActions.length > 0 && (
           <div className="flex gap-2 mt-3">
-            {headerActions.map((action: { label: string; actionUrl?: string; actionType?: string; icon?: string }, i: number) => {
+            {headerActions.map((action, i) => {
               const Icon = resolveLucideIcon(action.icon);
               const handleClick = async () => {
-                const { actionType, actionUrl, label } = action;
+                const { actionType, actionUrl } = action;
                 if (!actionType || !actionUrl) {
                   console.warn('[DashboardRenderer] Header action missing actionType/actionUrl:', action);
                   return;
@@ -1091,7 +1121,9 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 // never dispatched — a screen flow could not even be launched
                 // from a dashboard (framework#3528). The runner reports an
                 // unknown type itself, so there is nothing to second-guess here.
-                const result = await executeAction(actionUrl || label);
+                // `actionUrl` is non-empty here (the guard above returns
+                // otherwise), and it is the name the def registered under.
+                const result = await executeAction(actionUrl);
                 if (!result?.success) console.warn('[DashboardRenderer] action failed', result?.error);
               };
               return (
@@ -1164,10 +1196,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
           size="sm"
           onClick={handleRefresh}
           disabled={refreshing}
-          aria-label="Refresh dashboard"
+          aria-label={tt('dashboard.refreshDashboard', 'Refresh dashboard')}
         >
           <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
-          {refreshing ? 'Refreshing…' : 'Refresh All'}
+          {refreshing ? tt('dashboard.refreshing', 'Refreshing…') : tt('dashboard.refreshAll', 'Refresh All')}
         </Button>
       </div>
     );

@@ -72,44 +72,51 @@ export type BlockCategory = 'data' | 'layout' | 'record' | 'navigation' | 'eleme
 
 export interface BlockTypeMeta {
   id: BlockTypeId;
+  /** The type's English name; its `labelKey` row's en value is this, word for word. */
   label: string;
+  /**
+   * Designer catalogue key of the name the add-block picker DISPLAYS, read in
+   * the designer locale (objectui#10862; the add-widget picker's `labelKey`
+   * shape from objectui#10804).
+   */
+  labelKey: string;
   category: BlockCategory;
   Icon: LucideIcon;
 }
 
 export const BLOCK_TYPE_META: Record<BlockTypeId, Omit<BlockTypeMeta, 'id'>> = {
   // Data — object-bound views & layout grid
-  'grid':          { label: 'Grid',          category: 'data', Icon: LayoutGrid },
-  'object-grid':   { label: 'Table',         category: 'data', Icon: Table },
-  'object-form':   { label: 'Form',          category: 'data', Icon: FormInput },
-  'object-metric': { label: 'Metric',        category: 'data', Icon: Gauge },
-  'object-kanban': { label: 'Kanban',        category: 'data', Icon: Columns3 },
+  'grid': { label: 'Grid', labelKey: 'engine.pageBlockCanvas.type.grid', category: 'data', Icon: LayoutGrid },
+  'object-grid': { label: 'Table', labelKey: 'engine.pageBlockCanvas.type.objectGrid', category: 'data', Icon: Table },
+  'object-form': { label: 'Form', labelKey: 'engine.pageBlockCanvas.type.objectForm', category: 'data', Icon: FormInput },
+  'object-metric': { label: 'Metric', labelKey: 'engine.pageBlockCanvas.type.objectMetric', category: 'data', Icon: Gauge },
+  'object-kanban': { label: 'Kanban', labelKey: 'engine.pageBlockCanvas.type.objectKanban', category: 'data', Icon: Columns3 },
 
   // Page layout
-  'page:header':    { label: 'Header',    category: 'layout', Icon: PanelTop },
-  'page:footer':    { label: 'Footer',    category: 'layout', Icon: PanelBottom },
-  'page:sidebar':   { label: 'Sidebar',   category: 'layout', Icon: PanelLeft },
-  'page:tabs':      { label: 'Tabs',      category: 'layout', Icon: Folders },
-  'page:accordion': { label: 'Accordion', category: 'layout', Icon: ChevronsUpDown },
-  'page:card':      { label: 'Card',      category: 'layout', Icon: Square },
-  'page:section':   { label: 'Section',   category: 'layout', Icon: Layers },
+  'page:header': { label: 'Header', labelKey: 'engine.pageBlockCanvas.type.pageHeader', category: 'layout', Icon: PanelTop },
+  'page:footer': { label: 'Footer', labelKey: 'engine.pageBlockCanvas.type.pageFooter', category: 'layout', Icon: PanelBottom },
+  'page:sidebar': { label: 'Sidebar', labelKey: 'engine.pageBlockCanvas.type.pageSidebar', category: 'layout', Icon: PanelLeft },
+  'page:tabs': { label: 'Tabs', labelKey: 'engine.pageBlockCanvas.type.pageTabs', category: 'layout', Icon: Folders },
+  'page:accordion': { label: 'Accordion', labelKey: 'engine.pageBlockCanvas.type.pageAccordion', category: 'layout', Icon: ChevronsUpDown },
+  'page:card': { label: 'Card', labelKey: 'engine.pageBlockCanvas.type.pageCard', category: 'layout', Icon: Square },
+  'page:section': { label: 'Section', labelKey: 'engine.pageBlockCanvas.type.pageSection', category: 'layout', Icon: Layers },
 
   // Record context
-  'record:details':         { label: 'Record details',      category: 'record', Icon: FileText },
-  'record:highlights':      { label: 'Highlights',          category: 'record', Icon: Tag },
-  'record:related_list':    { label: 'Related list',        category: 'record', Icon: ListChecks },
-  'record:activity':        { label: 'Activity timeline',   category: 'record', Icon: Activity },
-  'record:discussion':      { label: 'Discussion',          category: 'record', Icon: MessageSquare },
-  'record:path':            { label: 'Stage path',          category: 'record', Icon: Compass },
-  'record:alert':           { label: 'Alert banner',        category: 'record', Icon: AlertTriangle },
-  'record:quick_actions':   { label: 'Quick actions',       category: 'record', Icon: Zap },
-  'record:reference_rail':  { label: 'Reference rail',      category: 'record', Icon: BookOpen },
-  'record:history':         { label: 'History',             category: 'record', Icon: History },
+  'record:details': { label: 'Record details', labelKey: 'engine.pageBlockCanvas.type.recordDetails', category: 'record', Icon: FileText },
+  'record:highlights': { label: 'Highlights', labelKey: 'engine.pageBlockCanvas.type.recordHighlights', category: 'record', Icon: Tag },
+  'record:related_list': { label: 'Related list', labelKey: 'engine.pageBlockCanvas.type.recordRelatedList', category: 'record', Icon: ListChecks },
+  'record:activity': { label: 'Activity timeline', labelKey: 'engine.pageBlockCanvas.type.recordActivity', category: 'record', Icon: Activity },
+  'record:discussion': { label: 'Discussion', labelKey: 'engine.pageBlockCanvas.type.recordDiscussion', category: 'record', Icon: MessageSquare },
+  'record:path': { label: 'Stage path', labelKey: 'engine.pageBlockCanvas.type.recordPath', category: 'record', Icon: Compass },
+  'record:alert': { label: 'Alert banner', labelKey: 'engine.pageBlockCanvas.type.recordAlert', category: 'record', Icon: AlertTriangle },
+  'record:quick_actions': { label: 'Quick actions', labelKey: 'engine.pageBlockCanvas.type.recordQuickActions', category: 'record', Icon: Zap },
+  'record:reference_rail': { label: 'Reference rail', labelKey: 'engine.pageBlockCanvas.type.recordReferenceRail', category: 'record', Icon: BookOpen },
+  'record:history': { label: 'History', labelKey: 'engine.pageBlockCanvas.type.recordHistory', category: 'record', Icon: History },
 
   // Navigation (page-content only; shell singletons are not page blocks)
-  'nav:menu':           { label: 'Nav menu',            category: 'navigation', Icon: Menu },
-  'nav:breadcrumb':     { label: 'Breadcrumb',          category: 'navigation', Icon: Compass },
-  'global:search':      { label: 'Global search',       category: 'navigation', Icon: Search },
+  'nav:menu': { label: 'Nav menu', labelKey: 'engine.pageBlockCanvas.type.navMenu', category: 'navigation', Icon: Menu },
+  'nav:breadcrumb': { label: 'Breadcrumb', labelKey: 'engine.pageBlockCanvas.type.navBreadcrumb', category: 'navigation', Icon: Compass },
+  'global:search': { label: 'Global search', labelKey: 'engine.pageBlockCanvas.type.globalSearch', category: 'navigation', Icon: Search },
 
   // AI
   // `ai:chat_window` is deliberately NOT in the palette: the floating chat
@@ -118,16 +125,16 @@ export const BLOCK_TYPE_META: Record<BlockTypeId, Omit<BlockTypeMeta, 'id'>> = {
   // documents that exclusion. The palette used to offer it (with a config
   // panel), so an author dragged a block Studio advertised and got a red
   // "Unknown component type" box (#2943). See PALETTE_EXCLUSIONS.
-  'ai:suggestion':      { label: 'AI suggestion',       category: 'ai', Icon: Sparkles },
+  'ai:suggestion': { label: 'AI suggestion', labelKey: 'engine.pageBlockCanvas.type.aiSuggestion', category: 'ai', Icon: Sparkles },
 
   // Elements
-  'element:text':           { label: 'Text',            category: 'element', Icon: Type },
-  'element:number':         { label: 'Number',          category: 'element', Icon: Hash },
-  'element:image':          { label: 'Image',           category: 'element', Icon: ImageIcon },
-  'element:divider':        { label: 'Divider',         category: 'element', Icon: Minus },
-  'element:button':         { label: 'Button',          category: 'element', Icon: MousePointerClick },
-  'element:definition-list': { label: 'Definition list', category: 'element', Icon: List },
-  'element:repeater':       { label: 'Repeater',        category: 'element', Icon: Rows3 },
+  'element:text': { label: 'Text', labelKey: 'engine.pageBlockCanvas.type.elementText', category: 'element', Icon: Type },
+  'element:number': { label: 'Number', labelKey: 'engine.pageBlockCanvas.type.elementNumber', category: 'element', Icon: Hash },
+  'element:image': { label: 'Image', labelKey: 'engine.pageBlockCanvas.type.elementImage', category: 'element', Icon: ImageIcon },
+  'element:divider': { label: 'Divider', labelKey: 'engine.pageBlockCanvas.type.elementDivider', category: 'element', Icon: Minus },
+  'element:button': { label: 'Button', labelKey: 'engine.pageBlockCanvas.type.elementButton', category: 'element', Icon: MousePointerClick },
+  'element:definition-list': { label: 'Definition list', labelKey: 'engine.pageBlockCanvas.type.elementDefinitionList', category: 'element', Icon: List },
+  'element:repeater': { label: 'Repeater', labelKey: 'engine.pageBlockCanvas.type.elementRepeater', category: 'element', Icon: Rows3 },
 };
 
 /**
@@ -254,14 +261,18 @@ export const BLOCK_RENDERER_ALIAS_GROUPS: readonly (readonly string[])[] = [
   ['record:discussion', 'record:chatter'],
 ];
 
-export const CATEGORY_LABEL_EN: Record<BlockCategory, string> = {
-  data:       'Data',
-  layout:     'Layout',
-  record:     'Record context',
-  navigation: 'Navigation',
-  element:    'Elements',
-  ai:         'AI',
-  misc:       'Other',
+/**
+ * Designer catalogue key of each category heading the add-block picker displays
+ * (objectui#10862). The en rows are the English headings this table carried.
+ */
+export const CATEGORY_LABEL_KEY: Record<BlockCategory, string> = {
+  data:       'engine.pageBlockCanvas.category.data',
+  layout:     'engine.pageBlockCanvas.category.layout',
+  record:     'engine.pageBlockCanvas.category.record',
+  navigation: 'engine.pageBlockCanvas.category.navigation',
+  element:    'engine.pageBlockCanvas.category.element',
+  ai:         'engine.pageBlockCanvas.category.ai',
+  misc:       'engine.pageBlockCanvas.category.misc',
 };
 
 export const TYPES_BY_CATEGORY: Array<{ category: BlockCategory; types: BlockTypeId[] }> = (() => {

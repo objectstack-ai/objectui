@@ -155,7 +155,7 @@ describe('field-inherited option predicates reach the dialog control (objectui#3
     // the widget's cascade-clear drops the seeded value.
     const { onChange } = renderInheritedSelect(ROLE_GATED, ['sales'], 'admin_only');
     expect(screen.getByRole('combobox')).toBeInTheDocument();
-    expect(onChange).toHaveBeenCalledWith(undefined);
+    expect(onChange).toHaveBeenCalledWith(null);
   });
 
   it('keeps that value for a viewer the predicate admits', () => {

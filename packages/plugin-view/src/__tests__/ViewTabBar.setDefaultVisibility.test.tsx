@@ -22,7 +22,7 @@
  * (`ObjectView.setDefaultViewIdentity.test.tsx` pins it red-first). What is
  * pinned HERE is the link this package owns: `readonly` hides the entry,
  * `!readonly` shows it, on BOTH menus that carry it — the dropdown
- * (`ViewTabBar.tsx:564`) and the tab context menu (`:667`).
+ * (`view-tab-menu-default-…`) and the tab context menu (`context-menu-default-…`).
  *
  * DIRECTION, stated plainly rather than dressed as a red-first pin: this file is
  * GREEN before the identity fix and GREEN after. It was already correct, and
@@ -61,6 +61,10 @@ function renderBar(views: ViewTabItem[], onSetDefaultView = vi.fn()) {
       onSetDefaultView={onSetDefaultView}
       onRenameView={vi.fn()}
       onDeleteView={vi.fn()}
+      // Keeps the SYSTEM tab's menu openable: since objectui#10209 the trigger
+      // renders only when some entry survives `readonly`, and "Manage all
+      // views…" is the one that does.
+      onManageViews={vi.fn()}
       config={{ reorderable: false, showAddButton: false }}
     />,
   );

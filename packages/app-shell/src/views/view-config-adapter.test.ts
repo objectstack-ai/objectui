@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 import {
   runtimeViewToInspectorDraft,
   inspectorDraftToRuntimeView,
+  storedViewToRuntimeView,
 } from './view-config-adapter';
 
 describe('view-config-adapter', () => {
@@ -116,6 +117,31 @@ describe('view-config-adapter', () => {
       expect(back.type).toBe('form');
       expect(back.sections).toEqual(view.sections);
       expect('data' in back).toBe(false);
+    });
+  });
+
+  // objectui#10210 — the body a pending-draft read hands the panel to resume.
+  describe('storedViewToRuntimeView', () => {
+    it('reads a ViewItem envelope back to the runtime view, keyed by its row name', () => {
+      const back = storedViewToRuntimeView({
+        name: 'crm_lead.all',
+        object: 'crm_lead',
+        viewKind: 'list',
+        label: 'Everything',
+        isDefault: true,
+        config: { type: 'grid', columns: [{ field: 'name' }], data: { provider: 'object', object: 'crm_lead' } },
+      });
+      expect(back.id).toBe('crm_lead.all');
+      expect(back.label).toBe('Everything');
+      expect(back.type).toBe('grid');
+      expect(back.columns).toEqual([{ field: 'name' }]);
+      expect(back.isDefault).toBe(true);
+      expect('config' in back).toBe(false);
+    });
+
+    it('returns a flat stored view (a draft saved before objectui#10210) as it is', () => {
+      const flat = { id: 'crm_lead.all', name: 'crm_lead.all', label: 'Everything', type: 'grid', columns: [] };
+      expect(storedViewToRuntimeView(flat)).toBe(flat);
     });
   });
 });

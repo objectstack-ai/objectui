@@ -161,16 +161,20 @@ import { FieldSchema } from '@objectstack/spec/data';
  * typed`, which drives every snake twin the live spec implies through this
  * choke point.
  *
- * ⛔ The `id_field` slice is BLOCKED, and not on a card. `@objectstack/spec`'s
+ * ⛔ The `id_field` slice is NOT TAKEN, and not on a card. `@objectstack/spec`'s
  * `FIELD_KEY_GUIDANCE` grew an `id_field` row explaining why the key has no
- * successor, but that row is in NO PUBLISHED version — measured against 17.3.0
- * (installed) and 17.4.0 (newest on npm), both zero occurrences, with
- * `startingNumber` as the lit control in the same read. What is missing is a
- * RELEASE, not a decision. Quoting that sentence from a local copy here was
- * refused (a second copy of contract prose is the drift AGENTS.md #0.1 exists
- * to stop) and so was reading it optionally with a local fallback (an invisible
- * fallback that silently degrades on an older spec is this card's own defect
- * class). Until the cut lands, `id_field` is simply left alone.
+ * successor. When this was written the row was in no published version —
+ * measured then against 17.3.0 and 17.4.0, both zero occurrences, with
+ * `startingNumber` as the lit control in the same read — so what was missing
+ * was a RELEASE, not a decision. The release has shipped: the installed 17.5.0
+ * carries the row (objectui#11073 re-measured it: one `id_field:` guidance entry
+ * in `dist/data`). Quoting that sentence from a local copy here was refused (a
+ * second copy of contract prose is the drift AGENTS.md #0.1 exists to stop) and
+ * so was reading it optionally with a local fallback (an invisible fallback
+ * that silently degrades on an older spec is this card's own defect class);
+ * neither refusal moves. Reading the published row is now possible and is its
+ * own change — the bump that made it possible did not take it, so `id_field`
+ * is still left alone here.
  *
  * ## What this arm deliberately does NOT do
  *

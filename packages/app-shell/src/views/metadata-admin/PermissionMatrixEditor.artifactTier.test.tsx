@@ -65,6 +65,10 @@ import { MemoryRouter } from 'react-router-dom';
 //   • `{ _packageId: 'sys_metadata' }`    → published ORG set (the sentinel)
 //   • `{ _packageId: 'com.example.…' }`   → shipped by a code package
 let codeLayer: Record<string, unknown> | null = null;
+// The envelope's ADR-0010 `provenance` (objectui#4526). `undefined` = the key
+// absent, which is what every case above the #4526 block serves: an older
+// server, or an unstamped item — "no opinion".
+let provenance: 'package' | 'org' | 'env-forced' | undefined;
 
 const SET = {
   name: 'showcase_contributor',
@@ -80,6 +84,7 @@ function makeClient() {
       code: codeLayer,
       overlay: null,
       overlayScope: null,
+      ...(provenance !== undefined ? { provenance } : {}),
     }),
     getDraft: async () => null,
     list: async (type: string) =>
@@ -112,6 +117,7 @@ import { PermissionMatrixEditPage } from './PermissionMatrixEditor';
 afterEach(() => {
   cleanup();
   codeLayer = null;
+  provenance = undefined;
   typeFlags = { allowOrgOverride: false, allowRuntimeCreate: true };
 });
 
@@ -327,5 +333,71 @@ describe('PermissionMatrixEditPage — MUST NOT CHANGE: what the artifact tier m
     expect(badge).toHaveAttribute('title', expect.stringContaining('Read-only package'));
     expect(screen.queryByText(ARTIFACT_CAPTION)).toBeNull();
     expect(screen.queryByText(TYPE_CAPTION)).toBeNull();
+  });
+});
+
+/* ────────────────────────────────────────────────────────────────────────── */
+
+describe('PermissionMatrixEditPage — the artifact verdict asks ADR-0010 provenance (#4526)', () => {
+  /**
+   * The artifact predicate reads the SAME source `ResourceEditPage` reads for
+   * its `isArtifactItem`: the layered envelope's `code` layer AND its
+   * `provenance`. The `sys_metadata` sentinel alone holds only on the save
+   * path — boot-time rehydration of `sys_metadata` re-registers each row under
+   * its REAL package id (cloud#970), so a tenant's own set reads back with a
+   * code-looking `_packageId`. Environment scope throughout (no `packageId`):
+   * the door where the artifact tier decides.
+   */
+  it("a tenant's own set (provenance 'org') is EDITABLE at environment scope", async () => {
+    codeLayer = { _packageId: 'sys_metadata', name: 'showcase_contributor' };
+    provenance = 'org';
+    await renderMatrix();
+
+    expect(screen.getByRole('button', { name: /^Save$/ })).toBeEnabled();
+    expect(screen.getByLabelText('a_account Read')).toBeEnabled();
+    expect(lockBadge()).toBeNull();
+    expect(screen.queryByText(ARTIFACT_CAPTION)).toBeNull();
+  });
+
+  /**
+   * RED on the sentinel-only predicate. The rehydration shape: the served
+   * `code` layer carries a real package id, and only `provenance` says the
+   * tenant authored it. The sentinel-only predicate called this an artifact,
+   * and `permission`'s `allowOrgOverride: false` then locked the whole matrix.
+   */
+  it("a tenant's own set rehydrated under a REAL package id (provenance 'org') is EDITABLE", async () => {
+    codeLayer = { _packageId: 'com.example.showcase', name: 'showcase_contributor' };
+    provenance = 'org';
+    await renderMatrix();
+
+    expect(screen.getByRole('button', { name: /^Save$/ })).toBeEnabled();
+    expect(screen.getByLabelText('a_account Read')).toBeEnabled();
+    const row = screen.getByText('Account').closest('tr')!;
+    for (const n of ['R', 'CRUD', 'All', 'None']) {
+      expect(within(row).getByRole('button', { name: n })).toBeEnabled();
+    }
+    expect(lockBadge()).toBeNull();
+    expect(screen.queryByText(ARTIFACT_CAPTION)).toBeNull();
+  });
+
+  it("a code-declared set (provenance 'package') stays READ-ONLY and names the ARTIFACT tier", async () => {
+    codeLayer = { _packageId: 'com.example.showcase', name: 'showcase_contributor' };
+    provenance = 'package';
+    await renderMatrix();
+
+    expect(screen.queryByRole('button', { name: /^Save$/ })).toBeNull();
+    for (const box of screen.getAllByRole('checkbox')) expect(box).toBeDisabled();
+    expect(screen.getByText(ARTIFACT_CAPTION)).toBeInTheDocument();
+  });
+
+  it("a code-declared set (provenance 'package') is writable only where the type allows overlay", async () => {
+    typeFlags = { allowOrgOverride: true, allowRuntimeCreate: false };
+    codeLayer = { _packageId: 'com.example.showcase', name: 'showcase_contributor' };
+    provenance = 'package';
+    await renderMatrix();
+
+    expect(screen.getByRole('button', { name: /^Save$/ })).toBeEnabled();
+    expect(screen.getByLabelText('a_account Read')).toBeEnabled();
+    expect(lockBadge()).toBeNull();
   });
 });

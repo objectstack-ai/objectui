@@ -53,7 +53,18 @@ both shapes, not only the assignment one.
 **Three mirrors deliberately keep the annotation.** `NavigationItemSchema` and
 `FilterBuilderConditionSchema` (`zod/app`, `zod/complex`) accept more than their
 declaration states — `id` optional against a required one, `is_null` / `is_not_null`
-against `FilterBuilderOperator` — so filling the argument is that comparison and
+against `FilterBuilderOperator` (⚠️ that operator half is superseded inside this same
+release by objectui#9559: `FilterBuilderOperator` is now the spec's
+`ViewFilterOperator`, which has both, while the mirror additionally accepts the spec's
+legacy aliases) — so filling the argument is that comparison and
 `tsc` refuses it; `FilterGroupSchema` follows transitively through its `conditions`
 arm. Those three are recorded on the card, with the exact refusal, and stay in the
 excluded region the parity ledger bounds at runtime.
+
+⚠️ **Dated note, 2026-09-27 — `FilterBuilderConditionSchema` has since left the runtime ledger — objectui#10825.**
+Later in this same release neither `FilterBuilderSchema.value` nor `defaultValue` names it any more (the
+bare-condition arm was retired, and `defaultValue` became a tombstone), so no registered mirror slot
+reaches it any more except through `FilterGroupSchema`'s getter,
+which the parity ledger's walk does not enter; its row left the list of recursion-breaking sources that
+ledger bounds at runtime. It keeps its annotation, and the other two of the three stay in that list. The
+rest of this entry still holds.

@@ -118,7 +118,7 @@ const FIELD_DEFAULTS: Record<string, string> = {
   'fields.location.refusedFormat':
     'Not saved: enter a latitude, longitude pair (example: 30.2741, 120.1551).',
   'fields.location.refusedRange': 'Not saved: {{detail}}',
-  // objectui#6888 — the THIRD refusal arm (`12abc, 34`), added by objectui#6715
+  // `320374d2a` — the THIRD refusal arm (`12abc, 34`), added by objectui#6715
   // after #6755's ruling was written and therefore outside the three sentences
   // it named. All three arms share one `<p>`, so a literal here made ONE line
   // bilingual rather than one screen.
@@ -155,6 +155,16 @@ const FIELD_DEFAULTS: Record<string, string> = {
   // rendering are unchanged.
   'fields.number.badInput':
     'Not saved: the text in this box is not a number. Enter a plain decimal (example: {{example}}).',
+  // objectui#10567 — `DateField` and the sub-grid's `date` cell name a stored
+  // value written on a nonexistent day beside their control, which can only
+  // paint it blank. Same value as the `en` pack.
+  'fields.date.impossibleDay':
+    'The stored value "{{value}}" is not a real date. Pick a date to replace it.',
+  // objectui#10474 — `DateTimeField` and the sub-grid's `datetime` cell name a
+  // stored value written on a nonexistent day beside their control, which can
+  // only paint it blank. Same value as the `en` pack.
+  'fields.dateTime.impossibleDay':
+    'The stored value "{{value}}" is not a real date. Pick a date and time to replace it.',
   // objectui#3342 — the tags widget's input hint. Used only when the field
   // author declared no `placeholder` of their own (author declaration wins).
   'fields.tags.placeholder': 'Type and press Enter to add…',

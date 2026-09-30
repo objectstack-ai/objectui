@@ -12,7 +12,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { DashboardRenderer } from '@object-ui/plugin-dashboard';
-import { DrillNavigationProvider } from '@object-ui/react';
+import { DrillNavigationProvider, notifyDataChanged } from '@object-ui/react';
 import { useOpenRecordList } from './useOpenRecordList.js';
 import { toast } from 'sonner';
 import type { ActionDef, ActionContext, ActionResult } from '@object-ui/core';
@@ -30,6 +30,47 @@ import { useExpressionContext } from '../providers/ExpressionProvider.js';
 import { resolveKeyedI18nLabel, preferLocal } from '../utils/index.js';
 import { useAdapter } from '../providers/AdapterProvider.js';
 import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
+
+/**
+ * One refresh of this dashboard's data: the `onRefresh` handed to
+ * `DashboardRenderer` (objectui#11062).
+ *
+ * Without a handler, the renderer's `useDashboardAutoRefresh` arms no timer, so
+ * a period an author set in Studio (`refreshIntervalSeconds`) did nothing in
+ * the console. This handler owns no timer: the hook runs it once per authored
+ * period, and the renderer's "Refresh All" button, which it shows whenever a
+ * handler is wired, runs it on demand.
+ *
+ * It declares a change on the data-invalidation bus and rebuilds nothing
+ * (AGENTS.md #8's corollary: refresh data, don't rebuild UI). The widgets that
+ * read data (`DatasetWidget`, `ObjectChart`, `ObjectMetricWidget`,
+ * `ObjectDataTable`, `ObjectPivotTable`) and the filter bar's options re-read
+ * in place when the bus reports a change they match, so they stay mounted.
+ * Nothing here re-keys, remounts or re-derives the schema.
+ * `DashboardView.autoRefresh-11062.test.tsx` counts the re-reads and checks the
+ * widget's node survives them.
+ *
+ * ⚠️ A `DatasetWidget` matches nothing until its answer names the dataset's
+ * base object, and the server names it only beside drill-through metadata. A
+ * dataset-bound KPI tile (no dimensions) therefore never re-reads on the bus,
+ * from this handler or from a declared write. That gap is the widget's
+ * subscription key, not this handler; it was measured in a running console on
+ * objectui#11062.
+ *
+ * The scope is the bus's unknown-scope value, `'*'`, the same one `PageView`
+ * uses after a page action. A timed re-read does not know what changed, and
+ * this view cannot name the objects its widgets read without re-deriving the
+ * renderer's widget dispatch: a dataset widget learns its base object only from
+ * its query's answer. The cost is that any other mounted bus reader re-reads
+ * once per period too.
+ *
+ * Module-level, so its identity is stable. The hook reads the handler through
+ * a ref, so a new identity would not re-arm the interval anyway
+ * (objectui#11004).
+ */
+function refreshDashboardData(): void {
+  notifyDataChanged({ objectName: '*' });
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -227,6 +268,7 @@ export function DashboardView({ dataSource }: { dataSource?: any }) {
                 dataSource={dataSource}
                 modalHandler={modalHandler}
                 scriptHandlers={scriptHandlers}
+                onRefresh={refreshDashboardData}
                 hideHeaderText
               />
             </DrillNavigationProvider>

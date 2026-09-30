@@ -307,7 +307,7 @@ describe('the is-null operator: `filter[<field>][null]=true`', () => {
     // existing operator key and the render site resolves it — pinned against a
     // real non-English render in `ObjectDataPage.filterChipI18n-9159.test.tsx`.
     expect(groupFilterChips([['owner', 'is_null', true]])).toEqual([
-      { field: 'owner', textKey: 'filterBuilder.operators.isNull' },
+      { field: 'owner', textKey: 'filterBuilder.operators.is_null' },
     ]);
     // And it finishes NO text of its own, so nothing can render that bare
     // `true` even if the render site forgot the key.
@@ -418,7 +418,7 @@ describe('the is-not-null operator and its synonyms (objectui#9508)', () => {
 
   it('renders a chip carrying the is-not-null operator KEY, not `= true`', () => {
     expect(groupFilterChips([['owner', 'is_not_null', true]])).toEqual([
-      { field: 'owner', textKey: 'filterBuilder.operators.isNotNull' },
+      { field: 'owner', textKey: 'filterBuilder.operators.is_not_null' },
     ]);
     expect(groupFilterChips([['owner', 'is_not_null', true]])[0].text).toBeUndefined();
     // And it is a DIFFERENT key from the is-null chip's — a single shared key

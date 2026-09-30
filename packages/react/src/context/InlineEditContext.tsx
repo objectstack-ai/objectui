@@ -95,7 +95,7 @@ export interface InlineEditContextValue {
   approvalProgress?: ApprovalProgress;
   /**
    * Whether the viewer is the SUBMITTER of the pending approval request
-   * (objectui#6464). Recall is the submitter's lever and the server enforces
+   * (`830ed5803`). Recall is the submitter's lever and the server enforces
    * exactly that — a non-submitter's recall is refused — so a recall button
    * lit for everyone who can read the record is a button whose click must
    * fail. The host resolves the identity (server-resolved `viewer.is_submitter`
@@ -133,7 +133,15 @@ export interface InlineEditContextValue {
   /**
    * Draft of user-edited values. Holds ONLY the keys the user actually
    * changed, so the save path never writes computed / read-only / untouched
-   * fields. Read a field's live value as `draft[name] ?? data[name]`.
+   * fields. Read a field's live value from the staged record
+   * `{ ...data, ...draft }`, where `data` is the saved record: an OWN draft
+   * key wins even when its value is empty (`null`, `undefined`, `''`), and
+   * `data[name]` is read only when the key is absent. An own key with an
+   * empty value is a field the user, or a cascade clear, emptied, not an
+   * untouched one. A read that falls back to the saved value there shows the
+   * value the user just removed, and hands an option widget that pruned it
+   * the same value to prune again on every render (objectui#7190,
+   * objectui#10466).
    */
   draft: Record<string, any>;
   /** Field to auto-focus when edit was entered from a specific field. */
@@ -219,7 +227,7 @@ export interface InlineEditProviderProps {
   approvalProgress?: ApprovalProgress;
   /**
    * Whether the viewer submitted the pending approval request
-   * (objectui#6464). Surfaced verbatim so the recall affordance is offered to
+   * (`830ed5803`). Surfaced verbatim so the recall affordance is offered to
    * the submitter only. Omitted ⇒ `undefined` ⇒ recall is offered exactly as
    * it was before this prop existed (see `InlineEditContextValue`), so a host
    * that resolves no approval identity is unchanged.

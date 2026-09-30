@@ -418,7 +418,8 @@ jobs:
           echo ""
           echo "📦 Eager closure (what a page load actually pays for):"
           # Writes closure_status / closure_gzip_kb / closure_budget_kb /
-          # closure_chunks / closure_chunk_status / closure_headroom_status to
+          # closure_chunks / closure_chunk_status / closure_membership_status /
+          # closure_headroom_status to
           # $GITHUB_OUTPUT itself. EVERY key it publishes is passed into the
           # comment step below and rendered there — a verdict published to
           # $GITHUB_OUTPUT that no consumer reads is a verdict the PR comment
@@ -570,6 +571,7 @@ jobs:
           # so without these the comment can say a budget objected but not which
           # half did — the reader has to open the job log to find out.
           BUDGET_CLOSURE_CHUNK_STATUS: ${{ steps.budget.outputs.closure_chunk_status }}
+          BUDGET_CLOSURE_MEMBERSHIP_STATUS: ${{ steps.budget.outputs.closure_membership_status }}
           BUDGET_CLOSURE_HEADROOM_STATUS: ${{ steps.budget.outputs.closure_headroom_status }}
           # The freshness half (objectui#6245). Empty on a run it does not apply
           # to; the renderer filters an empty half out rather than rendering it.

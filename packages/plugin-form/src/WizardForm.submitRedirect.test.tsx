@@ -187,7 +187,9 @@ describe('WizardForm redirect — an out-of-contract destination is refused, not
     expect(vi.mocked(toastError).mock.calls[0][0]).toContain('RELATIVE path only');
 
     // The write succeeded and is confirmed…
-    expect(screen.getByText('Thanks!')).toBeTruthy();
+    // The thank-you heading is the `en` pack's `publicForm.thankYouTitle`
+    // (objectui#11039; it read 'Thanks!' before it came from the catalogue).
+    expect(screen.getByText('Thank you!')).toBeTruthy();
     expect(screen.getByText('Created')).toBeTruthy();
 
     // …and the filled step form is gone, along with the footer Create button that

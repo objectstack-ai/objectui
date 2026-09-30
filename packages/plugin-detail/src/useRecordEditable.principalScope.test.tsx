@@ -16,8 +16,8 @@
  *
  * Signing out does not end that life. `AuthProvider.signOut` is documented in
  * this repo as never reloading the page ("no sign-out call site reloads the
- * page — `AppSidebar`, `AppHeader`, `UserMenu` and `RemediationOverlay` all just
- * call `signOut()` and let the SPA keep running"), which is why it purges the
+ * page — `AppHeader`, `UserMenu` and `RemediationOverlay` all just call
+ * `signOut()` and let the SPA keep running"), which is why it purges the
  * per-tab caches by hand. This map was not among them, so the next principal to
  * sign in in the same tab was answered from the previous principal's verdicts —
  * synchronously, as the hook's INITIAL state, so no probe was ever sent and no

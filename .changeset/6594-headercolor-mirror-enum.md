@@ -8,7 +8,7 @@ the contract — the TypeScript declaration and the `@object-ui/types/zod` mirro
 objectstack#12126). The six are `muted`, `muted/50`, `accent`, `primary/10`, `secondary/10`
 and `destructive/10`: exactly what `@object-ui/plugin-detail`'s `HEADER_COLOR_CLASSES`
 resolves (objectui#6178) and exactly what `@objectstack/spec` declares on its strict
-`record:details` section schema (objectstack PR #12616).
+`record:details` section schema (PR objectstack#12616).
 
 ## ⚠️ Accept-set narrowing — these spellings stop validating
 
@@ -48,13 +48,13 @@ against synthetic inputs so the guard has been shown to fail rather than only to
 
 ## Shape, and where it departs from the nearest precedent
 
-The nearest precedent is objectui#5853 (`.changeset/5853-tablecolumn-type-canonical-union.md`),
+The nearest precedent is `fc62bb490` (`.changeset/5853-tablecolumn-type-canonical-union.md`),
 which narrowed `TableColumn.type` on the same three-ends pattern and **exported** a
 `TABLE_COLUMN_TYPES` tuple for the zod mirror to build its enum from. That shape is not
 available here and the difference is structural, not a preference: `packages/types/src/views.ts`
 is a **type-only** module, so a tuple there would add a runtime export to the package barrel
 (a value export cannot ride the barrel's `export type` block) and a runtime import edge from
-the zod entry into `views.js`. #5853 had a second reason to export — producers needed its
+the zod entry into `views.js`. `fc62bb490` had a second reason to export — producers needed its
 `normalizeTableColumnType()` at their emit seam — and `headerColor` has no producer that needs
 a runtime value. The literals are therefore written on each half and the anti-drift guarantee
 is carried by the pin above, which also covers the third end a shared tuple could not reach:

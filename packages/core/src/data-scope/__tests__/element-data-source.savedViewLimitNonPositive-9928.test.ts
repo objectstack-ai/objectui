@@ -24,13 +24,13 @@
  * is deliberate: a change that simply stopped lowering any view cap at all
  * would satisfy the refusals and fail the controls.
  *
- * ⚠️ KNOWN GAP, deliberately not pinned here: the BINDING's own `limit` — the
- * other operand of `config.limit ?? savedViewLimit(view)` — is still admitted
- * unchecked, so `dataSource: { object, limit: 0 }` still reaches the fetcher as
- * `0`. That carrier raises a PRECEDENCE question this card does not own (does a
- * refused binding cap suppress the view's legitimate one?), and it is reported
- * rather than answered here. Nothing in this file asserts the current answer,
- * so the card that settles it will not have to edit a pin that endorsed it.
+ * The BINDING's own `limit`, the other operand of the chain, was a known gap
+ * when this file was written, and it was deliberately left unpinned here
+ * because it raised a precedence question this card did not own. objectui#10016
+ * settled it (a refused binding cap is not authored and yields to the view's),
+ * and its truth table lives in
+ * `element-data-source.bindingLimitNotAuthored-10016.test.ts`. Nothing in this
+ * file asserted the old answer, so nothing here had to be rewritten.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';

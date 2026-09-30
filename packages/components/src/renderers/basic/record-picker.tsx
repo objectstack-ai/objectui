@@ -37,11 +37,16 @@ import {
   ElementDataSourceErrorPanel,
   ElementDataSourceLoadingPanel,
   useAdapter,
+  useDataInvalidation,
   useElementDataSource,
   usePageVariableBinding,
+  useFilterScope,
+  useResolvedFilter,
+  resolveInlineAriaProps,
 } from '@object-ui/react';
-import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import { useObjectTranslation, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
 import type { I18nLabel } from '@objectstack/spec/ui';
+import type { AriaProps } from '@object-ui/types';
 import {
   Label,
   Select,
@@ -82,6 +87,7 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
     filter?: unknown;
     sort?: any;
     limit?: number;
+    aria?: AriaProps;
   }>(schema);
 
   const adapter = useAdapter() as any;
@@ -105,7 +111,15 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
   // status panel instead.
   const unresolved = dataBinding.status === 'loading' || dataBinding.status === 'missing';
   const object = unresolved ? undefined : (composed?.object ?? props.object);
-  const filter = composed?.filter ?? props.filter;
+  // objectui#10666 — whichever filter wins (the binding's, or the node's own),
+  // with every context token (`{current_user_id}`, `{current_org_id}`, the date
+  // macros) resolved ONCE through `@object-ui/core`'s shared
+  // `resolveFilterPlaceholders`, against the session scope the host provides,
+  // and HELD by structure (`useResolvedFilter` in `@object-ui/react`). The
+  // picker sent the literal token on `$filter` before; the query and its
+  // content key read this value.
+  const filterScope = useFilterScope();
+  const filter = useResolvedFilter(composed?.filter ?? props.filter, filterScope);
   const sort = composed?.sort ?? props.sort;
   const limit = composed?.limit ?? props.limit ?? 50;
   const labelField = props.labelField ?? 'name';
@@ -120,6 +134,25 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const filterKey = React.useMemo(() => (filter ? JSON.stringify(filter) : ''), [filter]);
+  // objectui#10664 — the sort reaches `$orderby` below, so the fetch effect
+  // keys on it, by CONTENT the way `filterKey` keys the filter: a fresh array
+  // with the same entries is not a change (AGENTS.md #10).
+  const sortKey = React.useMemo(() => (sort ? JSON.stringify(sort) : ''), [sort]);
+
+  // objectui#10853 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10623 / objectui#10778 way: the
+  // nonce moves when the bus reports a change to the object this picker
+  // QUERIES (or `'*'`), and the fetch effect below names it, so the options are
+  // re-read. Before, a page action over raw HTTP left them stale unless the
+  // host remounted the picker, and `PageView` is to stop doing that
+  // (objectui#10519). Subscribed only when the effect can query (an adapter
+  // that reads, and an object resolved).
+  const invalidationNonce = useDataInvalidation(
+    adapter && typeof adapter.find === 'function' ? object : undefined,
+  );
+  // The adapter and query the options on screen answer, for telling a re-read
+  // of them from a read of other options. Written when a read commits.
+  const committedReadRef = React.useRef<{ adapter: unknown; signature: string } | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -127,8 +160,18 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
       setLoading(false);
       return;
     }
-    setLoading(true);
-    setError(null);
+    // objectui#10853 — a read of exactly the query whose options are on
+    // screen (a bus re-read) is IN PLACE: the control stays enabled over those
+    // options and the bound page-variable value is not touched, and the answer
+    // swaps them when it lands. Any other read starts from "Loading…", as it
+    // always has.
+    const signature = JSON.stringify([object, filterKey, sortKey, limit]);
+    const committed = committedReadRef.current;
+    const inPlace = committed !== null && committed.adapter === adapter && committed.signature === signature;
+    if (!inPlace) {
+      setLoading(true);
+      setError(null);
+    }
     (async () => {
       try {
         const query: any = {};
@@ -145,7 +188,13 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
         // it here. Pinned by
         // `record-picker.contractEnvelope-6726.test.tsx`.
         const data: any[] = res?.data ?? (Array.isArray(res) ? res : []);
-        if (!cancelled) setRows(data);
+        if (!cancelled) {
+          setRows(data);
+          // An in-place re-read that lands clears an earlier failure: the
+          // options on screen answer the query now.
+          setError(null);
+          committedReadRef.current = { adapter, signature };
+        }
       } catch (e: any) {
         if (!cancelled) setError(e?.message ?? 'Failed to load');
       } finally {
@@ -156,7 +205,7 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adapter, object, filterKey, limit]);
+  }, [adapter, object, filterKey, sortKey, limit, invalidationNonce]);
 
   // Reflect the bound variable's value back into the control. When a variable
   // targets this picker we stay controlled for its whole lifetime (empty string
@@ -227,6 +276,18 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
   // empty — `pickLocalized` passes either string through untouched.
   const emptyText = pickLocalized(props.emptyText ?? 'No records', language);
 
+  // The block's `aria` bag (objectui#11083). The spec declares `aria`
+  // (`AriaPropsSchema`) on `element:record_picker`, and nothing read it, so a
+  // declared accessible name reached no element. It goes through
+  // `resolveInlineAriaProps` from `@object-ui/react`, the one reader of that
+  // bag, onto the TRIGGER: the `combobox` button that carries the control's
+  // name, the same element `label`'s `htmlFor` names. No default role is added;
+  // the trigger keeps the `combobox` role Radix gives it unless an author
+  // declares another. Resolved here, above the status-panel returns, because it
+  // calls a hook.
+  const displayLocale = useDisplayLocale();
+  const triggerAria = resolveInlineAriaProps(props.aria, displayLocale);
+
   // Placed AFTER every hook above so the hook order stays stable across
   // resolution states. A `view` that names nothing renders a configuration
   // error rather than an unfiltered picker: degrading to "all records" turns a
@@ -277,6 +338,7 @@ function ElementRecordPickerRenderer({ schema }: { schema: any }) {
           id={schema?.id}
           className="w-full max-w-xs"
           data-testid="record-picker-trigger"
+          {...triggerAria}
         >
           <SelectValue
             placeholder={loading ? 'Loading…' : error ? 'Failed to load' : placeholder}
@@ -388,7 +450,7 @@ ComponentRegistry.register('record_picker', elementDataSourceBlock(ElementRecord
       // legal write this input's own description teaches (objectui#5637).
       type: ['string', 'object'],
       description:
-        'Prompt shown in the closed control while no record is selected (renderer default "Select a record…"). Display-only — it never reaches the query. Accepts either a plain string or an inline per-locale map (`{ en: "Owner", "zh-CN": "负责人" }`), the `I18nLabel` union rc.6 widened this key to; the renderer resolves the map against the active language at the read site, falling back through base language, a region-qualified sibling, `default`, then `en`. It is REPLACED while the picker is busy: "Loading…" during the fetch and "Failed to load" after an error both win over this key. An authored empty string stays empty; the default applies only when the key is absent.',
+        'Prompt shown in the closed control while no record is selected (renderer default "Select a record…"). Display-only — it never reaches the query. Accepts either a plain string or an inline per-locale map (`{ en: "Owner", "zh-CN": "负责人" }`), the `I18nLabel` union rc.6 widened this key to; the renderer resolves the map against the active language at the read site, falling back through base language, a region-qualified sibling, `default`, then `en`. It is REPLACED while the picker is busy: "Loading…" while it reads a new set of options and "Failed to load" after an error both win over this key (a re-read of the same options after a data change keeps them on screen and shows no "Loading…"). An authored empty string stays empty; the default applies only when the key is absent.',
     },
     {
       name: 'label',
@@ -401,7 +463,7 @@ ComponentRegistry.register('record_picker', elementDataSourceBlock(ElementRecord
       // all; the read site resolves it now (objectui#5637).
       type: ['string', 'object'],
       description:
-        'Caption rendered above the picker, in a `<label>` element — tied to the control by `htmlFor` when the node carries an `id`, so clicking it focuses the picker and the text becomes the combobox’s accessible name (objectui#5771). Display-only — it never reaches the query, and it is OMITTED entirely when the key is absent or resolves to an empty string. Accepts either a plain string or an inline per-locale map (`{ en: "Owner", "zh-CN": "负责人" }`), the `I18nLabel` union rc.6 widened this key to; the renderer resolves the map against the active language at the read site, with the same fallback chain as `placeholder`. Distinct from `labelField`, which names the RECORD field each offered row is titled by.',
+        'Caption rendered above the picker, in a `<label>` element — tied to the control by `htmlFor` when the node carries an `id`, so clicking it focuses the picker and the text becomes the combobox’s accessible name (objectui#5771), unless the block’s `aria.ariaLabel` names the combobox, which wins. Display-only — it never reaches the query, and it is OMITTED entirely when the key is absent or resolves to an empty string. Accepts either a plain string or an inline per-locale map (`{ en: "Owner", "zh-CN": "负责人" }`), the `I18nLabel` union rc.6 widened this key to; the renderer resolves the map against the active language at the read site, with the same fallback chain as `placeholder`. Distinct from `labelField`, which names the RECORD field each offered row is titled by.',
     },
     // ── sort / limit / emptyText — declared on the rc.6 bump (objectui#4167) ──
     // `@objectstack/spec` 17.0.0-rc.6 lands objectstack#5775's other half: these
@@ -436,7 +498,7 @@ ComponentRegistry.register('record_picker', elementDataSourceBlock(ElementRecord
       name: 'limit',
       type: 'number',
       description:
-        'Maximum number of records the picker offers, as a whole number. It becomes the `$top` of the picker\'s own query, so it bounds what the user can choose from rather than how the list is displayed — a record outside the limit cannot be picked at all, and the control gives no sign that more exist. DEFAULT: 50 when neither this nor `dataSource.limit` is set, applied by the renderer (`record-picker.tsx:107`), not by the schema. PRECEDENCE: `dataSource.limit ?? limit ?? 50` — a node-level binding wins outright.',
+        'Maximum number of records the picker offers, as a whole number. It becomes the `$top` of the picker\'s own query, so it bounds what the user can choose from rather than how the list is displayed — a record outside the limit cannot be picked at all, and the control gives no sign that more exist. PRECEDENCE, first source that supplies a cap wins: (1) `dataSource.limit`; (2) the row cap of the saved view that `dataSource.view` names; (3) THIS key; (4) 50. A cap in (1) or (2) counts only when it is a positive integer — one the contract refuses (`0`, a negative, a non-integer) is treated as NOT AUTHORED and falls through to the next source exactly as an absent one does (objectui#10016), so a refused `dataSource.limit` does not win. DEFAULT: the 50 in (4) is applied by the renderer — the trailing `?? 50` where the picker resolves its `limit` — not by the schema.',
     },
     {
       name: 'emptyText',

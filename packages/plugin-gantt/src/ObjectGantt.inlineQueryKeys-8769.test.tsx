@@ -57,10 +57,14 @@
  * That card makes core's `convertFiltersToAST` THROW `FilterOperatorError` for
  * an `$icontains` comparand that is not a non-empty string. This repair does
  * NOT inherit it: the inline provider resolves to `ValueDataSource`, whose
- * matcher is local — it imports `@object-ui/types`, `@objectstack/spec/data`
- * and `./batchTransaction.js`, and never the converter, which is reached only
- * by `@object-ui/data-objectstack` on the wire path. `refusedComparandDoesNotThrow`
- * pins the consequence from the outside: a render, not a throw.
+ * matcher is local and refuses by EXCLUDING the row and logging once. Since
+ * objectui#10767 that adapter does reach the converter — its array arm lowers
+ * a spec `ViewFilterRule[]` through `toFilterNode` before matching — but a
+ * refusal the lowering raises is re-seated as the same excluded-and-logged
+ * refusal, never rethrown from `find`; an AST tuple like the one below is
+ * passed through the sink untouched and judged by the matcher's own comparand
+ * door. `refusedComparandDoesNotThrow` pins the consequence from the outside
+ * either way: a render, not a throw.
  *
  * REVERSE VERIFICATION — direction predicted BEFORE running, from the committed
  * fix, by restoring the short-circuit: `twoSidedFilter`, `inlineSort`,
@@ -73,8 +77,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { NON_GRID_ROW_CEILING, NON_GRID_ROW_CEILING_TOP } from '@object-ui/react';
-import { ValueDataSource } from '@object-ui/core';
+import { NON_GRID_ROW_CEILING, nonGridRowCeilingQuery, ValueDataSource } from '@object-ui/core';
 import { ObjectGantt } from './ObjectGantt';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
@@ -207,7 +210,7 @@ describe('objectui#8769 — the inline `value` provider honours filter / sort / 
       <ObjectGantt
         schema={{
           ...base,
-          data: { provider: 'value', items: makeRows(NON_GRID_ROW_CEILING_TOP + 500) },
+          data: { provider: 'value', items: makeRows(nonGridRowCeilingQuery().$top + 500) },
         }}
       />,
     );
@@ -215,7 +218,7 @@ describe('objectui#8769 — the inline `value` provider honours filter / sort / 
   });
 
   it('ceilingNote: the cut is LOUD — the footnote names both numbers', async () => {
-    const total = NON_GRID_ROW_CEILING_TOP + 500;
+    const total = nonGridRowCeilingQuery().$top + 500;
     render(
       <ObjectGantt schema={{ ...base, data: { provider: 'value', items: makeRows(total) } }} />,
     );
@@ -253,7 +256,9 @@ describe('objectui#8769 — the inline `value` provider honours filter / sort / 
   it('refusedComparandDoesNotThrow: a comparand core would refuse RENDERS, it does not throw', async () => {
     // objectui#9001 / PR objectui#9049 makes `convertFiltersToAST` throw for
     // this comparand. The inline path resolves to `ValueDataSource`, which
-    // never reaches that converter — it excludes the row and logs once.
+    // judges an AST tuple with its own comparand door — it excludes the row
+    // and logs once — and re-seats a refusal its rule-array lowering raises
+    // the same way (objectui#10767): `find` does not throw on a bad filter.
     render(
       <ObjectGantt
         schema={{

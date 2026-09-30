@@ -1,11 +1,12 @@
 import React from 'react';
 import { Input, EmptyValue } from '@object-ui/components';
 import { useDisplayLocale } from '@object-ui/i18n';
-import { formatDate } from '@object-ui/core';
+import { formatDate, toDisplayDate } from '@object-ui/core';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { openNativePicker } from './openNativePicker.js';
-import { toDateInputValue } from './nativeDateValue.js';
+import { toDateInputValue, isImpossibleStoredDay } from './nativeDateValue.js';
+import { useFieldTranslation } from './useFieldTranslation.js';
 
 /**
  * DateField - Date picker input widget
@@ -16,16 +17,18 @@ export function DateField({ value, onChange, field, readonly, error, ...props }:
   // (objectui#4468). A bare `toLocaleDateString()` reads the MACHINE's locale,
   // which is how a Chinese form ended up with an `8/11/2026` value in it.
   const locale = useDisplayLocale();
+  const { t } = useFieldTranslation();
+  const noticeId = React.useId();
   if (readonly) {
     // The readonly face is `formatDate`'s DEFAULT style — the one home for the
     // `date` display convention (objectui#8194, following the maintainer's
-    // ruling A on objectui#7620). It used to call `toLocaleDateString(locale)`
+    // ruling A behind `c15d7eca6`). It used to call `toLocaleDateString(locale)`
     // with NO options bag, i.e. `Intl`'s numeric default (`7/4/2026`), so it
     // never implemented the deliberate year-dropping decision `formatDate`
     // documents — and this widget's readonly face is what `FieldEditWidget`
     // renders in the grid / detail inline editors, right beside
     // `DateCellRenderer`'s `Jul 4`. Two faces for one value, picked by which
-    // path the surface happened to take: #7620's fact pattern verbatim.
+    // path the surface happened to take: `c15d7eca6`'s fact pattern verbatim.
     // A field that genuinely wants the year on every row is an explicit
     // `format` style honoured by both paths, never a second option bag.
     //
@@ -53,18 +56,35 @@ export function DateField({ value, onChange, field, readonly, error, ...props }:
     // this face to the raw string would REVERSE that documented, pinned
     // choice -- a maintainer-level call, not this one's.
     //
-    // Co-extensive with the dash it replaces, never wider: `new Date(value)`
-    // reproduces `formatDate`'s own parse step, so this branch answers
-    // exactly the values the shared function answers with a dash for being
-    // UNREADABLE, while the falsy guard just below still owns every value it
-    // answers with a dash for being EMPTY.
+    // Co-extensive with the dash it replaces, never wider: `toDisplayDate` IS
+    // `formatDate`'s own parse step, so this branch answers exactly the
+    // values the shared function answers with a dash for being UNREADABLE,
+    // while the falsy guard just below still owns every value it answers with
+    // a dash for being EMPTY. It read `new Date(value)` until objectui#10026
+    // made that step refuse a date-only nonexistent day (`2026-02-30`), which
+    // the engine's parse accepts — so the old spelling let exactly that input
+    // through to the bare dash this branch exists to replace.
     if (!value) return <EmptyValue />;
-    const date = new Date(value as unknown as string);
-    if (isNaN(date.getTime())) return <EmptyValue />;
+    if (isNaN(toDisplayDate(value as unknown as string).getTime())) return <EmptyValue />;
     return <span className="text-sm">{formatDate(value, undefined, { locale })}</span>;
   }
 
   const domProps = toDomProps(props);
+  /**
+   * A stored value written on a day that does not exist (objectui#10567, the
+   * date-only half of objectui#10474). `toDateInputValue` keeps such a day as
+   * written, but an `<input type="date">` sanitises it to `""` (measured in
+   * Chromium; the HTML value sanitisation algorithm for `date` says the same),
+   * so the control alone would be objectui#3127's silent blank. The control is
+   * handed `""` — the only thing it can paint — and marked invalid, and the
+   * stored string is NAMED beside it: `DateTimeField`'s face for the same
+   * value. Nothing is written until the user picks a new day: the control
+   * emits only on a user edit.
+   */
+  const impossible = isImpossibleStoredDay(value);
+  const describedBy = impossible
+    ? [domProps['aria-describedby'], noticeId].filter(Boolean).join(' ')
+    : domProps['aria-describedby'];
 
   /**
    * `aria-invalid` after the DOM spread below, the objectui#3222 idiom shared
@@ -86,24 +106,34 @@ export function DateField({ value, onChange, field, readonly, error, ...props }:
    * untouched; every host WITHOUT that Slot -- `FieldEditWidget`, i.e. the
    * kanban required-fields dialog and the grid / detail inline editors --
    * hands the state over as the declared `error` prop (delivered since
-   * objectui#7008) and nothing read it. MARKING only: the message TEXT stays
+   * `f08bcd9af`) and nothing read it. MARKING only: the message TEXT stays
    * with the host.
    */
-  return (
+  const control = (
     <Input
       {...domProps}
       type="date"
       // An API that hands back `2026-06-17T00:00:00.000Z` for a `date` field
       // would leave this control empty too (objectui#3127). The written-back
       // shape is unchanged: the control's own plain `YYYY-MM-DD`.
-      value={toDateInputValue(value)}
+      value={impossible ? '' : toDateInputValue(value)}
       onChange={(e) => onChange(e.target.value)}
       onClick={(e) => {
         openNativePicker(e.currentTarget);
         domProps.onClick?.(e);
       }}
       disabled={readonly || domProps.disabled}
-      aria-invalid={!!error}
+      aria-invalid={!!error || impossible}
+      aria-describedby={describedBy}
     />
+  );
+  if (!impossible) return control;
+  return (
+    <div className="space-y-1">
+      {control}
+      <p id={noticeId} className="text-xs text-destructive" data-testid="date-impossible-day">
+        {t('fields.date.impossibleDay', { value: String(value) })}
+      </p>
+    </div>
   );
 }

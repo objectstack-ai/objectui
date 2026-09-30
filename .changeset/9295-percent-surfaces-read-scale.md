@@ -19,8 +19,9 @@ rendered `25.0000000000%` in the cell, `Sum: 25.0000000000%` in the footer
 directly beneath it, and `25.0000000000%` again on the record summary chip. This
 is the identical defect objectui#2131 removed from the currency arm and
 objectui#2134 from the number arm, arriving one type later; in `useColumnSummary`
-the corrected percent arm now sits four lines below a currency arm it finally
-agrees with.
+the corrected percent arm now reads `scale`, as the currency arm beside it did
+when this change was made (objectui#10221 later moves that arm to the currency's
+own minor unit).
 
 The summary chip moves because objectui#9167 routed it onto the LIST CELL as its
 authority and its ruling turns on the two being byte-equal, so the member was
@@ -42,8 +43,8 @@ member the contract has always declared for it. Metadata carrying an accurate
 change and simply stops being padded.
 
 **Unchanged: a percent field that declares neither member.** An absent `scale`
-is still zero fraction digits, matching the currency arm beside it, so this is
-invisible to metadata that declares nothing. That default is a decision rather
+is still zero fraction digits, so this is invisible to metadata that declares
+nothing. That default is a decision rather
 than a leftover: the number cell renderer spells the same absence as
 `undefined` (minimum 0, maximum 20), and copying it here would print binary
 floating-point residue, because the percent path multiplies by 100 first and

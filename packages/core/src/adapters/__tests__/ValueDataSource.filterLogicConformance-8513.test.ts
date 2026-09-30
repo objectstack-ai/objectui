@@ -45,6 +45,12 @@
  *   - `$not` regressing to its pre-objectui#8447 fail-OPEN behaviour, where it
  *     matched EVERY row (the refusal assertions go red).
  *
+ * `@objectstack/spec` 17.5.0 added a second partition of the same kind: the
+ * STAGED `$empty` flag (objectstack#20444), enrolled in the table while the spec
+ * keeps it out of `FILTER_OPERATORS` and says the executors refuse it until each
+ * face has its arm. It is pinned the same way — by name, by direction, and with
+ * an expiry row that reddens when the staging ends (objectui#11073).
+ *
  * That last one is why this file asserts the refusal instead of `it.skip`:
  * `$not` failed in the OPPOSITE direction from `$and` / `$or` before #8447, and
  * a fix that flattened the three combinators into one arm is the specific
@@ -70,15 +76,27 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { FILTER_LOGIC_CASES, FILTER_LOGIC_ROWS } from '@objectstack/spec/data';
+import { FILTER_LOGIC_CASES, FILTER_LOGIC_ROWS, FILTER_OPERATORS } from '@objectstack/spec/data';
 import { ValueDataSource } from '../ValueDataSource';
 import { toFilterNode } from '../../utils/filter-converter';
 
 /** Cases whose filter mentions `$not` anywhere — the out-of-scope partition. */
 const carriesNot = (filter: unknown): boolean => JSON.stringify(filter).includes('"$not"');
 
+/**
+ * Cases whose filter mentions the STAGED `$empty` flag (objectstack#20444),
+ * which `@objectstack/spec` 17.5.0 enrolled in this table while keeping it OUT
+ * of `FILTER_OPERATORS`: "Until each face has its arm, the query executors
+ * refuse it". This matcher has no arm, so it refuses — the staged behaviour —
+ * and that partition is pinned below by name and direction, exactly as `$not`'s
+ * is (objectui#11073). A `$not` over `$empty` stays in the `$not` partition:
+ * the outer refusal is the one this matcher gives.
+ */
+const carriesEmpty = (filter: unknown): boolean => JSON.stringify(filter).includes('"$empty"');
+
 const NOT_CASES = FILTER_LOGIC_CASES.filter((c) => carriesNot(c.filter));
-const EXECUTED_CASES = FILTER_LOGIC_CASES.filter((c) => !carriesNot(c.filter));
+const STAGED_EMPTY_CASES = FILTER_LOGIC_CASES.filter((c) => !carriesNot(c.filter) && carriesEmpty(c.filter));
+const EXECUTED_CASES = FILTER_LOGIC_CASES.filter((c) => !carriesNot(c.filter) && !carriesEmpty(c.filter));
 
 async function selectedIds(filter: unknown): Promise<string[]> {
   const ds = new ValueDataSource({ items: FILTER_LOGIC_ROWS as any[] });
@@ -99,13 +117,16 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('objectui#8513 — the conformance harness discriminates', () => {
-  it('the table is present, non-trivial, and split into two non-empty parts', () => {
+  it('the table is present, non-trivial, and split into three non-empty parts', () => {
     // A table that failed to import would make every `it.each` below vacuous.
     expect(FILTER_LOGIC_CASES.length).toBeGreaterThan(20);
     expect(FILTER_LOGIC_ROWS.length).toBe(4);
     expect(EXECUTED_CASES.length).toBeGreaterThan(0);
     expect(NOT_CASES.length).toBeGreaterThan(0);
-    expect(EXECUTED_CASES.length + NOT_CASES.length).toBe(FILTER_LOGIC_CASES.length);
+    expect(STAGED_EMPTY_CASES.length).toBeGreaterThan(0);
+    expect(EXECUTED_CASES.length + NOT_CASES.length + STAGED_EMPTY_CASES.length).toBe(
+      FILTER_LOGIC_CASES.length,
+    );
   });
 
   it('the fixture discriminates: no expectation is the whole table AND none is empty', () => {
@@ -145,11 +166,16 @@ describe('objectui#8513 — `$not` is out of scope, and stays refused', () => {
   it('the excluded partition is exactly these cases', () => {
     // By NAME, so a new `$not` case landing upstream is a decision rather than
     // a silent widening of the exclusion list.
+    // The two `$empty` rows arrived with `@objectstack/spec` 17.5.0 and were
+    // added here by decision (objectui#11073): the outer `$not` is what this
+    // matcher refuses, whatever it negates.
     expect(NOT_CASES.map((c) => c.name).sort()).toEqual(
       [
         '$not ANDs with its sibling keys inside a branch',
         '$not of {} is FALSE — NOT TRUE',
         '$not returns the rows with no value',
+        '$not over $empty true returns the valued rows',
+        '$not over $empty false returns the no-value rows',
       ].sort(),
     );
   });
@@ -168,12 +194,52 @@ describe('objectui#8513 — `$not` is out of scope, and stays refused', () => {
   );
 
   it('one of the excluded cases would be WRONG if `$not` were silently ignored', () => {
-    // The direction that makes the partition honest: two of the three name a
-    // non-empty row set, so "refused" is a visibly different answer from
-    // "executed", not a coincidence.
+    // The direction that makes the partition honest: four of the five name a
+    // non-empty row set (two of three before the 17.5.0 `$empty` rows), so
+    // "refused" is a visibly different answer from "executed", not a coincidence.
     const nonEmpty = NOT_CASES.filter((c) => c.expected.length > 0);
-    expect(nonEmpty.length).toBe(2);
+    expect(nonEmpty.length).toBe(4);
   });
+});
+
+// ---------------------------------------------------------------------------
+// 2b. The STAGED `$empty` partition — refused, as the spec stages it
+// ---------------------------------------------------------------------------
+
+describe('objectui#11073 — the staged `$empty` flag is refused by this matcher, as the spec stages it', () => {
+  it('the staged partition is exactly these cases', () => {
+    // By NAME, so another staged case landing upstream is a decision.
+    expect(STAGED_EMPTY_CASES.map((c) => c.name).sort()).toEqual(
+      [
+        '$empty true selects exactly the no-value rows',
+        '$empty false selects exactly the valued rows',
+        '$empty inside a $or branch OR-s with its sibling branch',
+        '$empty inside a $and ANDs with its sibling',
+        '$empty ANDs with a sibling operator on the same field',
+      ].sort(),
+    );
+  });
+
+  it('the staging still holds upstream — `$empty` is not in FILTER_OPERATORS', () => {
+    // The expiry of this partition. The day the flip card adds `$empty` to
+    // `FILTER_OPERATORS`, the query executors stop refusing it and this face
+    // owes its arm: this row reddens, and the partition above moves back into
+    // the executed table. Lit control: a flag operator that IS in the list.
+    expect(FILTER_OPERATORS as readonly string[]).not.toContain('$empty');
+    expect(FILTER_OPERATORS as readonly string[]).toContain('$null');
+  });
+
+  it.each(STAGED_EMPTY_CASES.map((c) => [c.name, c] as const))(
+    'refused, not answered: %s',
+    async (_name, testCase) => {
+      const warn = spyWarn();
+      // A visibly different answer from the table's, AND a logged reason that
+      // names the operator — never a silent partial answer.
+      expect(await selectedIds(testCase.filter)).not.toEqual(testCase.expected);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]?.[0])).toContain('$empty');
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------

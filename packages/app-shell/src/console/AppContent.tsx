@@ -210,7 +210,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // skips hidden apps to avoid landing the user on a personal-settings
   // app by default.
   //
-  // ⛔ `hidden` only — never `_unpublished` (objectstack#6955 / #4829 A1). The
+  // ⛔ `hidden` only — never `_unpublished` (objectstack#6955 / objectstack-ai/objectstack#4829 A1). The
   // publish gate is enforced server-side; duplicating it here would strand a
   // builder on their own unpublished app.
   const activeApps = apps.filter((a: any) => a.active !== false);
@@ -395,7 +395,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     }
   }, [activeApp?.name, appName, location.pathname, navigate]);
 
-  // #2604 — the create/edit overlay is URL-driven (`?form=new` / `?form=<id>`),
+  // objectstack-ai/objectstack#2604 — the create/edit overlay is URL-driven (`?form=new` / `?form=<id>`),
   // not component state: the record form is a TASK overlay over the origin
   // route, and putting its open-state in the URL makes browser Back close the
   // overlay (returning to the intact origin) instead of abandoning the route
@@ -405,7 +405,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // ahead in history.
   const [searchParams, setSearchParams] = useSearchParams();
   const recordFormParam = searchParams.get(RECORD_FORM_PARAM);
-  // #2604 D3 — child-task extension of the record-form URL contract:
+  // objectstack-ai/objectstack#2604 D3 — child-task extension of the record-form URL contract:
   // `formObject` names the object the form edits when it is NOT the route's
   // object (a subtable child opened over its parent's detail); `formLink`
   // ("field:id") pre-links the parent on create. Keeping the whole task in
@@ -456,17 +456,20 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // device-local value is a cache from here on rather than a second setting.
   useSignedInUserLocale();
 
+  // objectui#11080 — both toasts read the session's language: the words around
+  // the operation's description are pack keys beside `actions.undo`, and the
+  // description itself is interpolated unchanged.
   useGlobalUndo({
     dataSource: dataSource ?? undefined,
     onUndo: (op: any) => {
-      toast.info(`Undo: ${op.description}`, { duration: 4000 });
+      toast.info(t('actions.undoneOperation', { description: op.description }), { duration: 4000 });
       setRefreshKey(k => k + 1);
       // Precisely-scoped invalidation — UndoableOperation carries the target
       // (objectName + recordId), so detail readers refresh in place too.
       if (op?.objectName) notifyDataChanged({ objectName: op.objectName, recordId: op.recordId });
     },
     onRedo: (op: any) => {
-      toast.info(`Redo: ${op.description}`, { duration: 3000 });
+      toast.info(t('actions.redoneOperation', { description: op.description }), { duration: 3000 });
       setRefreshKey(k => k + 1);
       if (op?.objectName) notifyDataChanged({ objectName: op.objectName, recordId: op.recordId });
     },
@@ -489,9 +492,13 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     // imperative `handleEdit` callback. These let JSON schemas open the
     // full-screen create/edit pages directly via `<action:button>` without
     // any custom code:
-    //   { "action": "navigate_create", "params": { "objectName": "..." } }
-    //   { "action": "navigate_edit",
-    //     "params": { "objectName": "...", "recordId": "..." } }
+    //   { "type": "action:button", "actionType": "navigate_create",
+    //     "properties": { "params": { "objectName": "..." } } }
+    //   { "type": "action:button", "actionType": "navigate_edit",
+    //     "properties": { "params": { "objectName": "...", "recordId": "..." } } }
+    // The button forwards `properties.params` as the runner's `params`,
+    // which is what the handlers below read (objectui#10289, ruling A: a
+    // node-level `params` is only the `ActionParam[]` input list).
     // The `objectName` param falls back to the action context's
     // `objectName` (set per view) so action buttons mounted inside an
     // ObjectView can omit it.
@@ -559,7 +566,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   const currentObjectDef = allObjects.find((o: any) => o.name === objectNameFromPath);
 
   // The object the record-form overlay edits: the route's object by default,
-  // or the `formObject` child override (#2604 D3 — subtable child task opened
+  // or the `formObject` child override (objectstack-ai/objectstack#2604 D3 — subtable child task opened
   // over its parent's detail).
   const formObjectDef = formObjectParam
     ? allObjects.find((o: any) => o.name === formObjectParam)
@@ -582,7 +589,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     executeAction({ type: 'dialog_cancel' });
   }, [executeAction]);
 
-  // #2604 save invariant — *edit never moves you; create takes you to the
+  // objectstack-ai/objectstack#2604 save invariant — *edit never moves you; create takes you to the
   // record you made.* Edit save: the origin route is untouched (crud_success
   // bumps refreshKey → origin refetches in place). Create save: land on the
   // new record's detail, on ITS derived surface — a light object's detail is
@@ -590,7 +597,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // `replace: true` swaps out the transient `?form=…` entry so Back returns
   // to the pre-create origin.
   const handleRecordFormSuccess = useCallback(async (saved: any) => {
-    // Child task (#2604 D3): the parent detail must stay EXACTLY as it was —
+    // Child task (objectstack-ai/objectstack#2604 D3): the parent detail must stay EXACTLY as it was —
     // active tab, scroll, everything. So do NOT go through crud_success;
     // the child's open related lists refetch on their own via the
     // invalidation bus (#2269): the dataSource write already emitted a
@@ -696,7 +703,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     // predicate on the SAME modal's per-field rules (form.tsx, over the
     // provider's `data={{}}`) faulted, and the same predicate in CREATE mode
     // (`editingRecord` null) faulted too. One authored string, three answers,
-    // none of them the row's canonical `record.*` binding (objectui#5741).
+    // none of them the row's canonical `record.*` binding (`83fe6e741`).
     // The row reaches field predicates as `record`, from the form's own
     // `ruleRecord` — not from this bag, which is why nothing is lost here.
     () => createExpressionEvaluator({
@@ -932,25 +939,27 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
               `/apps/setup/<anything>` it builds `/apps/setup/<anything>/create-app`,
               which matches no route and renders a blank screen. `/apps/<segment>`
               is the platform's canonical app URL (ADR-0048) and is what every
-              other navigation in this file — and AppSidebar's own add-app entry —
-              builds, so build it here too. (This branch is only reachable under
-              `/apps/setup…`: it requires `isSetupRoute`, the one pseudo-route the
-              guard above does not exclude — so `appName` is always present here.) */}
+              other navigation in this file builds, so build it here too. (This
+              branch is only reachable under `/apps/setup…`: it requires
+              `isSetupRoute`, the one pseudo-route the guard above does not
+              exclude — so `appName` is always present here.) */}
           <Button onClick={() => navigate(`/apps/${appName}/create-app`)} data-testid="create-first-app-btn">
             {t('empty.createFirstApp')}
           </Button>
-          {/* #3590 — the system hub lives at `/apps/setup/system`, NOT at the
+          {/* #3590 — system settings live at `/apps/setup/system`, NOT at the
               bare `/apps/setup`. Being inside the `/apps/:appName/*` subtree is
               necessary but NOT sufficient: `isSystemRoute` keys on a `/system`
               segment, so bare `/apps/setup` fails every pseudo-route test above
               except `isSetupRoute` and falls straight back into THIS guard —
               i.e. it is this empty state's own URL, and the click was a no-op
               loop. `/apps/setup/system` flips `isSystemRoute`, which is exactly
-              the switch that mounts `extraRoutesNoApp` (the branch just below)
-              where the host declares `system` → SystemHubPage. Spelled the same
-              absolute way as the sidebar's whole `sys-*` cluster
-              (`/apps/setup/system/...`); `appName` is provably `setup` here, so
-              the two forms coincide. */}
+              the switch that mounts `extraRoutesNoApp` (the branch just below),
+              where the host declares its own `system` landing. The reference
+              console host forwards it onto its settings hub, `system/settings`
+              (objectui#3743 retired the card wall that used to render there).
+              Spelled the same absolute way as the sidebar's whole `sys-*`
+              cluster (`/apps/setup/system/...`); `appName` is provably `setup`
+              here, so the two forms coincide. */}
           <Button variant="outline" onClick={() => navigate('/apps/setup/system')} data-testid="go-to-settings-btn">
             {t('empty.systemSettings')}
           </Button>
@@ -1019,7 +1028,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
           no organization), and widening it for filter resolution would couple
           two unrelated contracts. Renderer packages deliberately do not depend
           on @object-ui/auth, so the shell supplies the values (framework
-          #3574). */}
+          objectstack-ai/objectstack#3574). */}
       <FilterScopeProvider
         currentUserId={user?.id ?? null}
         currentOrgId={activeOrganization?.id ?? null}
@@ -1140,10 +1149,10 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                 objectName: formObjectDef.name,
                 mode: editingRecord ? 'edit' : 'create',
                 recordId: editingRecord?.id,
-                // Child create task (#2604 D3): pre-link the parent from the
+                // Child create task (objectstack-ai/objectstack#2604 D3): pre-link the parent from the
                 // `formLink` URL param (refresh-safe — the link survives).
                 ...(formLinkValues && !editingRecord ? { initialValues: formLinkValues } : {}),
-                // #2604 D1: create/edit follow the flow-surface derivation —
+                // objectstack-ai/objectstack#2604 D1: create/edit follow the flow-surface derivation —
                 // field-heavy → full-screen modal (the same big canvas the
                 // detail page gets, with overlay return semantics); light
                 // objects keep the existing auto-sized modal (ModalForm
@@ -1164,7 +1173,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                 // When the view declares sections they drive the modal layout and
                 // win over the flat `fields` list below; otherwise this resolves to
                 // {} and `fields` (every field, raw schema order) is used as before.
-                // `formType` stays 'modal' (the container). (#1890 / ADR-0050.)
+                // `formType` stays 'modal' (the container). (objectstack-ai/objectstack#1890 / ADR-0050.)
                 ...resolveFormViewLayout(formObjectDef as any),
                 title: editingRecord
                   ? t('form.editTitle', { object: objectLabel(formObjectDef as any) })
@@ -1249,7 +1258,7 @@ function buildItemRoute(item: any, ctx?: NavTemplateContext): string {
  * the ROOT lands on is a separate question, decided by `isDefault`.
  *
  * This used to honour an explicit `app.homePageId`. Spec 17.0.0 retired that
- * key (objectstack#4667, premise corrected in #4709 / objectui#3287): it was
+ * key (objectstack#4667, premise corrected in objectstack-ai/objectstack#4709 / objectui#3287): it was
  * an ID cross-reference with no referential integrity, so a dangling id fell
  * back to the first item *silently*. If the capability returns, the correct
  * encoding is a flag on the navigation item itself (`navigation[].landing`),

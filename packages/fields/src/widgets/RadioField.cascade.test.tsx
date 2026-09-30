@@ -82,7 +82,7 @@ describe('RadioField — cascade clear (#2715)', () => {
       />,
     );
     // 'ca' is a US province — under country=cn it is not offered, so it is dropped.
-    expect(onChange).toHaveBeenCalledWith(undefined);
+    expect(onChange).toHaveBeenCalledWith(null);
   });
 
   it('keeps a value that is still offered', () => {
@@ -121,7 +121,7 @@ describe('RadioField — role / context gating (#2715)', () => {
         />
       </PredicateScopeProvider>,
     );
-    expect(onChange).toHaveBeenCalledWith(undefined);
+    expect(onChange).toHaveBeenCalledWith(null);
   });
 
   it('keeps an admin-only value for an admin', () => {

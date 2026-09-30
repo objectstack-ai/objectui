@@ -49,12 +49,19 @@ is untouched — the renderer's read was ruled correct and this is the declarati
 catching up to it.
 
 **One key moves with it, named rather than left to be discovered:**
-`ObjectViewSchema`'s `table` slot is `ObjectGridSchema.omit({ type, objectName }).partial()`,
+`ObjectViewSchema`'s `table` slot is, at this change, `ObjectGridSchema.omit({ type, objectName }).partial()`,
 so `table.exportOptions` narrows in the same move. Measured on both sides: the base
 accepted `table: { exportOptions: ['csv', 'xlsx'] }` and the head refuses it, while the
-object form parses on both. It costs no working artefact — the key has zero runtime
-readers (no `table.exportOptions` read exists in `packages/**` or `apps/**`) and its
+object form parses on both. It costs no working artefact — at this change the key has zero
+runtime readers (no `table.exportOptions` read exists in `packages/**` or `apps/**`) and its
 TypeScript face was already object-only, so the array was unrenderable there too.
+
+⚠️ **Dated note, 2026-09-29 — `table.exportOptions` now reaches the grid — objectui#10976.**
+Later in this same release the registered `object-view` renderer relays `table.exportOptions`
+to the grid it draws (an active named view's `exportOptions` still wins), so the object form
+written on `table` is read; the bare array stays refused. The `table` slot's mirror also
+refuses, by name, the grid keys the view does not hand its grid. The rest of this entry is kept
+as the reading of this change; the objectui#10976 entry states what ships.
 
 **Migration:** write the object form — `exportOptions: { "formats": ["csv",
 "xlsx"] }` instead of `exportOptions: ["csv", "xlsx"]`. Delete `'pdf'` (the

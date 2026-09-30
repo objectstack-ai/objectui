@@ -124,6 +124,65 @@ describe('claimInboxArrivals — only UNREAD rows announce', () => {
   });
 });
 
+describe('claimInboxArrivals — what the signed-in user caused does not announce (objectui#8667)', () => {
+  // Two CONCRETE, distinguishable actors. `USER` is the reader; `OTHER` is
+  // someone else. Two absent actors would compare equal and prove nothing.
+  const OTHER = 'u_bob';
+
+  it('suppresses the row the reader caused and announces the one someone else caused', () => {
+    claimInboxArrivals(USER, [row('m1')]);
+
+    const arrivals = claimInboxArrivals(USER, [
+      row('m3', { actor_id: USER }),
+      row('m2', { actor_id: OTHER }),
+      row('m1'),
+    ]);
+
+    expect(arrivals.map((a) => a.id)).toEqual(['m2']);
+  });
+
+  it('decides by WHO IS READING: the same row is silent to its actor and announces to anyone else', () => {
+    // Alice assigned the task, so the row carries her id. To Alice it is noise…
+    claimInboxArrivals(USER, [row('m1')]);
+    expect(claimInboxArrivals(USER, [row('m2', { actor_id: USER }), row('m1')])).toEqual([]);
+
+    // …and to Bob, reading a row with the very same actor id, it is news.
+    __resetInboxArrivals();
+    claimInboxArrivals(OTHER, [row('m1')]);
+    const arrivals = claimInboxArrivals(OTHER, [row('m2', { actor_id: USER }), row('m1')]);
+    expect(arrivals.map((a) => a.id)).toEqual(['m2']);
+  });
+
+  it('still REMEMBERS the suppressed row, so it cannot announce on a later poll', () => {
+    claimInboxArrivals(USER, [row('m1')]);
+    claimInboxArrivals(USER, [row('m2', { actor_id: USER }), row('m1')]);
+
+    expect([...inboxArrivalMemory().seen]).toEqual(['m2', 'm1']);
+    // The discriminating poll drops the actor: had the row been SKIPPED rather
+    // than remembered, nothing would stop it announcing now.
+    expect(claimInboxArrivals(USER, [row('m2'), row('m1')])).toEqual([]);
+  });
+
+  it('announces a row whose actor is NULL: a digest row has no single actor, which is not "me"', () => {
+    claimInboxArrivals(USER, [row('m1')]);
+
+    const arrivals = claimInboxArrivals(USER, [row('m2', { actor_id: null }), row('m1')]);
+
+    expect(arrivals.map((a) => a.id)).toEqual(['m2']);
+  });
+
+  it('announces a row with NO actor_id key at all, so an older server behaves exactly as before', () => {
+    claimInboxArrivals(USER, [row('m1')]);
+    const legacy = row('m2');
+    // The control is only a control if the key is genuinely absent.
+    expect(Object.hasOwn(legacy, 'actor_id')).toBe(false);
+
+    const arrivals = claimInboxArrivals(USER, [legacy, row('m1')]);
+
+    expect(arrivals.map((a) => a.id)).toEqual(['m2']);
+  });
+});
+
 describe('claimInboxArrivals — a claim is a claim: the second consumer of one snapshot gets nothing', () => {
   it('hands the arrivals to the first scanner only', () => {
     claimInboxArrivals(USER, [row('m1')]);

@@ -172,7 +172,7 @@ const BARE_SPAN_CLASS: Record<number, string> = {
 /**
  * The col-span classes a field must carry to occupy `targetCols` cells of
  * `containerClass` — ONE CLASS PER TIER, not one class for the widest tier
- * (objectui#9244).
+ * (`bd0995738`).
  *
  * The form's column count is resolved per tier, by container queries on the
  * field container (`grid-cols-1 @md:grid-cols-2 @2xl:grid-cols-3` is three
@@ -288,6 +288,7 @@ const useSafeFormTranslation = createSafeTranslation(
     'errors.forbidden': 'Access denied.',
     'form.noPermissionToSave': "You don't have permission to save this record.",
     'form.submitFailed': 'Could not save. Please try again.',
+    'form.clearedOnHide': 'Cleared — no longer applicable given the current values: {{fields}}',
   },
   'common.selectOption',
 );
@@ -354,6 +355,59 @@ const BOOLEAN_WIDGET_TYPES = new Set([
 const resolveWidgetType = (f: any): string => f?.widget || f?.field?.widget || f?.type;
 
 const BUILTIN_FIELD_TYPES = new Set(['input', 'textarea', 'checkbox', 'switch', 'select']);
+
+/**
+ * Built-in types whose `multiple: true` form is a DIFFERENT registered widget
+ * (objectui#11116).
+ *
+ * `select` is a {@link BUILTIN_FIELD_TYPES} member, so a hand-authored
+ * `{ type: 'select', multiple: true }` used to render the built-in branch of
+ * `renderFieldComponent` — `BuiltinSelectControl`, a single-value Radix select
+ * that reads `multiple` nowhere. The field declared zero-or-more values and
+ * collected one; measured through the real `SchemaRenderer` with
+ * `@object-ui/fields` registered, the catalog's `fields-select/multi-select`
+ * example drew the SAME single-value combobox with and without the key.
+ *
+ * The object-bound path never had the defect: `@object-ui/fields`'
+ * `mapFieldTypeToFormType` maps `select` + `multiple` to `field:multiselect`
+ * (its `MULTI_VALUE_FORM_TYPES` table) before the type reaches this renderer.
+ * The hand-authored spelling is routed to that SAME registry id here, so one
+ * widget renders a multi-value select on both paths and the submitted value is
+ * that widget's array. ⛔ Not a second multi-select inside
+ * `BuiltinSelectControl`: the arity lives in the widget id, exactly as the
+ * `fields` table documents, so the label association that widget declares
+ * (`labelling: 'group'`) and the component that renders cannot disagree.
+ *
+ * A one-entry copy of that table, on purpose: `@object-ui/components` cannot
+ * import `@object-ui/fields` (the dependency runs the other way), and the id is
+ * reached through `ComponentRegistry` at render time like every other `field:*`
+ * widget. `select` is the only member on both sides; keep them in step.
+ *
+ * With nothing registered under `field:multiselect` (no `@object-ui/fields`),
+ * the routed id takes `renderFieldComponent`'s `default` branch — the answer an
+ * object-bound `field:multiselect` gets in that host — rather than falling back
+ * to the single-value control that drops the declared arity.
+ */
+const BUILTIN_MULTI_VALUE_WIDGETS: Readonly<Record<string, string>> = {
+  select: 'field:multiselect',
+};
+
+/**
+ * The widget key a field row renders under, once its declared arity is
+ * applied — see {@link BUILTIN_MULTI_VALUE_WIDGETS}. Applied where `resolvedType`
+ * is computed, BEFORE any of its readers run: `renderFieldComponent` and its
+ * three mirrors (`resolveFieldLabelling`, `resolvesToRegisteredFieldWidget`,
+ * `rendersBuiltinSelectEmptyState`) must all see the routed id, or the label
+ * would be associated for a single control while a chip group renders.
+ *
+ * `multiple` is read the way `mapFieldTypeToFormType` reads it (truthy), so the
+ * two paths answer the same field the same way.
+ */
+function applyDeclaredArity(type: string, multiple: unknown): string {
+  return multiple && hasOwn(BUILTIN_MULTI_VALUE_WIDGETS, type)
+    ? BUILTIN_MULTI_VALUE_WIDGETS[type]
+    : type;
+}
 
 /**
  * Fields whose unrecognized validation-rule names were already reported, keyed
@@ -1462,7 +1516,7 @@ ComponentRegistry.register('form',
           },
           previousRecord,
           predicateScope,
-          // Same locator as the render path (#5149). A failure here reports the
+          // Same locator as the render path (objectstack-ai/objectstack#5149). A failure here reports the
           // field, not a bare rule kind; `warnPredicateFailure` dedupes by
           // predicate source, so re-evaluating a rule the renderer already
           // evaluated cannot double-warn.
@@ -1481,7 +1535,7 @@ ComponentRegistry.register('form',
     // now stands", and splitting them would give one authored intent two
     // behaviours.
     //
-    // Feeds the clear-on-hide effect (objectui#6958). Fields declaring NEITHER
+    // Feeds the clear-on-hide effect (`6a449fc49`). Fields declaring NEITHER
     // key are skipped outright, so a form that does not use conditional
     // visibility recomputes nothing and behaves exactly as before.
     //
@@ -1513,7 +1567,7 @@ ComponentRegistry.register('form',
             },
             previousRecord,
             predicateScope,
-            // Same locator the render path uses (#5149), so a faulted
+            // Same locator the render path uses (objectstack-ai/objectstack#5149), so a faulted
             // predicate is reported once, against the field.
             `field '${name}'`,
           );
@@ -1948,8 +2002,15 @@ ComponentRegistry.register('form',
         // guard — this effect is an independent second clear on the form host,
         // and the widgets' fix does not reach it.
         if (gated) continue;
+        // A cleared scalar is `null`, never `undefined` (objectui#10291) — the
+        // reasoning the clear-on-hide effect below spells out at length:
+        // `undefined` vanishes from `JSON.stringify`, and an absent key tells
+        // the write contract "leave the stored value unchanged". This clear
+        // runs on its own wherever no option widget prunes first — a field
+        // `visibleWhen` keeps unmounted, the built-in `select` branch — so
+        // `undefined` here saved the stale pair this effect exists to drop.
         if (!isValueStillOffered(current, visible)) {
-          form.setValue(name, Array.isArray(current) ? [] : undefined, {
+          form.setValue(name, Array.isArray(current) ? [] : null, {
             shouldValidate: false,
             shouldDirty: true,
           });
@@ -1958,7 +2019,7 @@ ComponentRegistry.register('form',
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ruleRecord, predicateScope]);
 
-    // Clear-on-hide (objectui#6958) — the field's own `visibleWhen` turning it
+    // Clear-on-hide (`6a449fc49`) — the field's own `visibleWhen` turning it
     // invisible clears its value.
     //
     // ## The dead end this closes
@@ -2002,11 +2063,45 @@ ComponentRegistry.register('form',
     // A cleared field that comes back into view comes back EMPTY: this is a
     // clear, not a stash. Re-hiding it then writes nothing (the value is
     // already empty), so the pair cannot oscillate.
+    //
+    // ## The clear is NAMED (objectui#8070)
+    //
+    // A silent clear let a stored value vanish with the field that held it. The
+    // ruling on objectui#8070 (letter A) ports the naming half of the
+    // objectui#6499 ruling to this surface: the user is told WHICH fields were
+    // cleared and WHY. So a pass that empties anything raises one notice naming
+    // the cleared fields by the label the form draws (the source
+    // `validation.formInvalid` names them from), joined by the locale's own
+    // `validation.formInvalidJoiner`, under `outcomeToastId`. Sharing that id
+    // is what makes it retire like the form's other outcome messages: a later
+    // submit refusal replaces it, and the next accepted attempt dismisses it.
+    //
+    // Only a field that held something is named. An empty list is rewritten
+    // as itself, and `false` on a two-state control is that control's EMPTY
+    // state (see `BOOLEAN_WIDGET_TYPES`; a create form seeds it), so the box
+    // reads unchecked before and after: neither is reported as cleared.
+    //
+    // A clear can hide a second field — one whose `visibleWhen` reads the
+    // field just cleared — and that second clear runs on the NEXT pass. Naming
+    // only that pass would replace the notice with the second field alone and
+    // hide the first clear from the user. So a pass that starts from exactly
+    // the values the previous clearing pass left behind (nothing edited since:
+    // the cascade, not a new user action) names its fields together with that
+    // pass's. Any edit in between starts a fresh list.
     const previouslyHiddenFieldNames = React.useRef<Set<string> | undefined>(undefined);
+    const lastClearNotice = React.useRef<
+      { names: string[]; values: Record<string, unknown> } | undefined
+    >(undefined);
     React.useEffect(() => {
       const before = previouslyHiddenFieldNames.current;
       previouslyHiddenFieldNames.current = conditionallyHiddenFieldNames;
       if (!before) return;
+      const prior = lastClearNotice.current;
+      const chained =
+        prior !== undefined &&
+        !computeDirty(prior.values, form.getValues() as Record<string, unknown>);
+      if (!chained) lastClearNotice.current = undefined;
+      const cleared: string[] = [];
       for (const name of conditionallyHiddenFieldNames) {
         if (before.has(name)) continue;
         const current = form.getValues(name);
@@ -2015,7 +2110,26 @@ ComponentRegistry.register('form',
           shouldValidate: false,
           shouldDirty: true,
         });
+        const heldNothing = Array.isArray(current)
+          ? current.length === 0
+          : current === false &&
+            BOOLEAN_WIDGET_TYPES.has(
+              resolveWidgetType((fields as FormFieldConfig[]).find((f) => f?.name === name)),
+            );
+        if (!heldNothing) cleared.push(name);
       }
+      if (cleared.length === 0) return;
+      const names = chained && prior ? [...prior.names, ...cleared] : cleared;
+      lastClearNotice.current = {
+        names,
+        values: { ...(form.getValues() as Record<string, unknown>) },
+      };
+      toast.warning(
+        t('form.clearedOnHide', {
+          fields: names.map((n) => fieldLabelByName[n] || n).join(t('validation.formInvalidJoiner')),
+        }),
+        { id: outcomeToastId },
+      );
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [conditionallyHiddenFieldNames]);
 
@@ -2390,11 +2504,11 @@ ComponentRegistry.register('form',
         // pi-TgoJ4_DM55Fqz" (objectstack#3821). A permission denial is a
         // condition the UI already knows how to name, so say it in the user's
         // language and keep the server text for the console.
-        // …unless the AUTHOR opted in. `userMessage` (objectstack#9934) is the
+        // …unless the AUTHOR opted in. `userMessage` (objectstack `79c46da90`) is the
         // producer-side marking: a hook sets it at throw time to
         // say "this text is for the end user". It is a separate field from
         // `message`, so nothing unmarked can reach here — the substitution above
-        // still governs every platform diagnostic, and #3821 holds by
+        // still governs every platform diagnostic, and objectstack-ai/objectstack#3821 holds by
         // construction rather than by us guessing what a 403 body contains.
         // Status-agnostic on purpose: 403 is where this was reported
         // (objectui#5210), not a fence the contract draws.
@@ -2570,7 +2684,7 @@ ComponentRegistry.register('form',
       // canonical CEL engine and record scope as visibleWhen; both
       // the bare-string and `{ dialect, source }` wire shapes are
       // accepted, and a broken predicate fails open — loudly since
-      // #5149 (#2212).
+      // objectstack-ai/objectstack#5149 (#2212).
       if (
         visibleOn != null &&
         !evalFieldPredicate(visibleOn, ruleRecord, true, previousRecord, predicateScope, {
@@ -2716,7 +2830,14 @@ ComponentRegistry.register('form',
       // otherwise degrade a picker field to its raw `type` input.
       // (`.field` is the resolved metadata OBJECT — declared on FormField
       // since #3090, never the spec string; see types/form.ts)
-      const resolvedType = widget || fieldProps.field?.widget || type;
+      //
+      // A built-in type declared `multiple` is routed to its multi-value
+      // widget HERE, before any reader of `resolvedType` runs
+      // (objectui#11116) — see `applyDeclaredArity`.
+      const resolvedType = applyDeclaredArity(
+        widget || fieldProps.field?.widget || type,
+        fieldProps.multiple,
+      );
 
       // Cascading / role-gated option lists (#2284). For option fields,
       // narrow the set by each option's `visibleWhen` (evaluated against
@@ -2781,7 +2902,7 @@ ComponentRegistry.register('form',
       const containerClass = schema.fieldContainerClass || gridClass;
       // One class PER TIER, derived from the container class — see
       // {@link spanLadderFor} for why a single widest-tier class under-spans
-      // every intermediate width (objectui#9244), and for why the tier
+      // every intermediate width (`bd0995738`), and for why the tier
       // prefixes are load-bearing rather than decoration.
       const pickSpanClass = (targetCols: number): string =>
         spanLadderFor(containerClass, targetCols);
@@ -3393,7 +3514,8 @@ ComponentRegistry.register('form',
       { name: 'resetOnSubmit', type: 'boolean' },
       { name: 'disabled', type: 'boolean' },
       { name: 'className', type: 'string' },
-      { name: 'fieldContainerClass', type: 'string' }
+      { name: 'fieldContainerClass', type: 'string' },
+      { name: 'children', type: 'slot', description: 'Authored form body, rendered in place of the generated field list' }
     ],
     defaultProps: {
       submitLabel: 'Submit',

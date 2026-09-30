@@ -318,6 +318,27 @@ export function deriveBoundPackageId(
 }
 
 /**
+ * ADR-0057 Amendment A1.b migration read — is a product-only (legacy-scope)
+ * build thread bound to `packageId` by its OWN history (the latest
+ * draft/handoff package)? The adopt predicate every `app:X:build` surface
+ * that runs the migration read hands `useChatConversation`: the full page's
+ * `?package=` entry and the console dock bound to the current app
+ * (objectui#10926). One predicate, so whichever surface resolves first adopts
+ * the same thread. Exported for that second caller.
+ */
+export function isThreadBoundToPackage(
+  messages: HydratedUIMessage[],
+  packageId: string,
+): boolean {
+  return (
+    deriveBoundPackageId(
+      hydratedMessagesToChatMessages(messages) as unknown as readonly PackageBearingMessage[],
+      undefined,
+    ) === packageId
+  );
+}
+
+/**
  * #2466 / ADR-0057 Amendment A1.b — is this app a CODE-LOADED platform built-in
  * (`com.objectstack.setup` / `account`, …) rather than a user- or AI-authored
  * package? The A1.b switcher lists only authorable packages, so a built-in —
@@ -953,11 +974,7 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
       : undefined;
   const adoptLegacyBuildThread = useCallback(
     (messages: HydratedUIMessage[]) =>
-      Boolean(editPackageId) &&
-      deriveBoundPackageId(
-        hydratedMessagesToChatMessages(messages) as unknown as readonly PackageBearingMessage[],
-        undefined,
-      ) === editPackageId,
+      editPackageId !== undefined && isThreadBoundToPackage(messages, editPackageId),
     [editPackageId],
   );
 
@@ -1484,6 +1501,16 @@ interface ChatPaneProps {
     artifact?: { type: string; name: string };
     mode?: string;
   };
+  /**
+   * objectui#8219 — the display label of `surfaceContext.artifact`, when the
+   * host knows it (Studio: the Interfaces pillar's open leaf). Display-only: the
+   * "discussing" chip reads it, with the internal `type · name` pair on the
+   * chip's tooltip (objectui#7254). Deliberately a SEPARATE prop and never part
+   * of `surfaceContext` — that object is the `context.surface` data the agent
+   * receives (cloud#1610), which this must not change. Absent = the chip reads
+   * `type · name`, as before.
+   */
+  surfaceArtifactLabel?: string;
   agents: AgentDescriptor[];
   agentsLoading: boolean;
   agentsError: Error | undefined;
@@ -1534,6 +1561,7 @@ export function ChatPane({
   conversationId,
   editPackageId,
   surfaceContext,
+  surfaceArtifactLabel,
   onPackageBound,
   canBind,
   parentHandoffConversationId,
@@ -2029,8 +2057,12 @@ export function ChatPane({
         // staging: reopening a built conversation stayed on the full page).
         const pkg = detectBuiltAppPackage(tool.result);
         if (pkg) return pkg;
+        // objectui#10109 — an INCREMENTAL edit's draft review can list the `app`
+        // it re-staged; the producer's `kind: 'edit'` says it is not a build.
         const dr = tool.draftReview;
-        if (dr?.packageId && dr.items?.some((it) => it.type === 'app')) return dr.packageId;
+        if (dr?.packageId && dr.kind !== 'edit' && dr.items?.some((it) => it.type === 'app')) {
+          return dr.packageId;
+        }
       }
     }
     return undefined;
@@ -2242,9 +2274,9 @@ export function ChatPane({
             className="h-7 w-7 text-muted-foreground hover:text-foreground"
             onClick={onDebug}
             disabled={!conversationId}
-            aria-label="Build Doctor"
+            aria-label={t('console.ai.buildDoctor')}
             data-testid="ai-chat-debug-button"
-            title={conversationId ? 'Build Doctor — what actually landed?' : 'Send a message first'}
+            title={conversationId ? t('console.ai.buildDoctorTitle') : t('console.ai.buildDoctorDisabledTitle')}
           >
             <Bug className="h-3.5 w-3.5" />
           </Button>
@@ -2447,7 +2479,7 @@ export function ChatPane({
           // uses. A bare fetch had nothing to report THROUGH — so on the one
           // surface where the author never sees the metadata they are
           // publishing, the gate's findings were the thing that vanished.
-          // Same move objectui#6965 / PR objectui#10038 made for the two
+          // Same move PR objectui#10038 made for the two
           // sibling call sites.
           try {
             const payload = (await metadataClient.publishPackageDrafts(packageId)) as
@@ -2551,12 +2583,22 @@ export function ChatPane({
         changesAppliedLabel={t('console.ai.changesApplied', { defaultValue: 'Applied' })}
         changesDraftedLabel={t('console.ai.changesDrafted', { defaultValue: 'Saved as draft' })}
         changesFailedLabel={t('console.ai.changesFailed', { defaultValue: 'Not applied' })}
+        // objectui#8219 / objectui#7254 — the chip READS the artifact's display
+        // label when the host has one, and keeps the internal `type · name`
+        // pair REACHABLE on its tooltip. No label → the pair, as before.
         surfaceContextLabel={
           surfaceContext?.artifact
             ? t('console.ai.discussing', {
                 defaultValue: 'Discussing: {{target}}',
-                target: `${surfaceContext.artifact.type} · ${surfaceContext.artifact.name}`,
+                target:
+                  surfaceArtifactLabel ||
+                  `${surfaceContext.artifact.type} · ${surfaceContext.artifact.name}`,
               })
+            : undefined
+        }
+        surfaceContextTitle={
+          surfaceContext?.artifact
+            ? `${surfaceContext.artifact.type} · ${surfaceContext.artifact.name}`
             : undefined
         }
         planAnswerMessage={(question, option) =>

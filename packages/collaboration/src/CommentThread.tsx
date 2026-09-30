@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useDisplayLocale } from '@object-ui/i18n';
 import {
   useCollaborationTranslation,
   type CollaborationTranslate,
@@ -52,14 +53,22 @@ export interface CommentThreadProps {
 }
 
 /**
- * Absolute date for the >= 7d bucket, in the session language (objectui#3441).
+ * Absolute date for the >= 7d bucket, in the session's DISPLAY locale — the tag
+ * `useDisplayLocale()` resolves, which the component hands in (objectui#10375).
+ *
+ * objectui#3441 first localized this branch with the session LANGUAGE, before
+ * the display-locale contract existed. That tag is the UI language, so a
+ * regional display locale never reached the date: an English UI with a `de-CH`
+ * display locale read `3/4/2020`, not `4.3.2020`. The display locale falls back
+ * to the UI language when the session declares no regional locale, so such a
+ * session renders exactly as it did under objectui#3441.
  *
  * Has its OWN try/catch, deliberately not sharing `formatTimestamp`'s. The two
  * catches recover from different things and must recover differently:
  *
  *  - `formatTimestamp`'s outer catch is for an input it cannot make sense of,
  *    and its only honest fallback is to echo the raw `iso` back.
- *  - a throw from here says nothing about the *date* — it says the LANGUAGE TAG
+ *  - a throw from here says nothing about the *date* — it says the LOCALE TAG
  *    is malformed. `Date.prototype.toLocaleDateString(tag)` runs the tag through
  *    `CanonicalizeLocaleList`, which raises `RangeError` for anything not
  *    structurally well-formed per BCP 47 (`'en_US'`, `''`, `'zh CN'`). A
@@ -71,23 +80,24 @@ export interface CommentThreadProps {
  * raw `2026-08-01T09:30:00.000Z`, i.e. WORSE than the un-localized date it
  * replaced. Falling back to the no-argument call restores exactly the previous
  * behaviour (the runtime's own locale) for that path, so the worst case of
- * following the session language is the status quo, never a regression.
+ * following the display locale is the status quo, never a regression.
  *
  * No date library, and no month/weekday copy in the locale packs: `Intl` is
  * already in the runtime and owns the per-locale ordering and separators.
  */
-function formatAbsoluteDate(date: Date, language: string): string {
+function formatAbsoluteDate(date: Date, locale: string): string {
   try {
-    return date.toLocaleDateString(language);
+    return date.toLocaleDateString(locale);
   } catch {
     return date.toLocaleDateString();
   }
 }
 
 /**
- * Relative age of a comment, in the session language.
+ * Relative age of a comment: the words in the session language, the absolute
+ * date in the display locale.
  *
- * `t` and `language` are threaded in as parameters rather than read from a
+ * `t` and `locale` are threaded in as parameters rather than read from a
  * hook: this runs once per rendered comment from inside `renderComment`, and
  * the buckets are unchanged — only the words moved into the locale packs.
  * Counts are interpolated as STRINGS on purpose, so i18next skips its own
@@ -95,13 +105,15 @@ function formatAbsoluteDate(date: Date, language: string): string {
  * cannot silently start looking for `_one`/`_other` variants this repo does not
  * ship.
  *
- * The >= 7d bucket follows the session language too (objectui#3441) — a `zh`
- * session used to read "6 天前" for a six-day-old comment and `8/1/2026` for an
- * eight-day-old one, because that branch called `toLocaleDateString()` with no
- * argument and got the *runtime's* locale. See {@link formatAbsoluteDate} for
- * why the tag gets its own guard instead of being handed straight in.
+ * The >= 7d bucket is a DATE, not words, so it takes the display locale
+ * (objectui#10375), not the language `t` speaks. It was first localized under
+ * objectui#3441 — a `zh` session used to read "6 天前" for a six-day-old
+ * comment and `8/1/2026` for an eight-day-old one, because that branch called
+ * `toLocaleDateString()` with no argument and got the *runtime's* locale. See
+ * {@link formatAbsoluteDate} for why the tag gets its own guard instead of
+ * being handed straight in.
  */
-function formatTimestamp(iso: string, t: CollaborationTranslate, language: string): string {
+function formatTimestamp(iso: string, t: CollaborationTranslate, locale: string): string {
   try {
     const date = new Date(iso);
     const now = new Date();
@@ -113,7 +125,7 @@ function formatTimestamp(iso: string, t: CollaborationTranslate, language: strin
     if (hours < 24) return t('collaboration.hoursAgo', { count: String(hours) });
     const days = Math.floor(hours / 24);
     if (days < 7) return t('collaboration.daysAgo', { count: String(days) });
-    return formatAbsoluteDate(date, language);
+    return formatAbsoluteDate(date, locale);
   } catch {
     return iso;
   }
@@ -401,7 +413,12 @@ export function CommentThread({
   const [mentionIndex, setMentionIndex] = useState(0);
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('oldest');
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const { t, language } = useCollaborationTranslation();
+  const { t } = useCollaborationTranslation();
+  // The >= 7d timestamp is a date, so it reads the DISPLAY locale, never the
+  // UI language: a regional locale (`de-CH` under an English UI) must reach it
+  // (objectui#10375). Provider-safe like `t`: with no provider mounted the
+  // hook answers the same UI-language tag this branch used before.
+  const displayLocale = useDisplayLocale();
 
   const filteredMentions = useMemo(() => {
     if (mentionQuery === null) return [];
@@ -545,7 +562,7 @@ export function CommentThread({
         // Header
         React.createElement('div', { style: styles.commentHeader },
           React.createElement('span', { style: styles.authorName }, comment.author.name),
-          React.createElement('span', { style: styles.timestamp }, formatTimestamp(comment.createdAt, t, language)),
+          React.createElement('span', { style: styles.timestamp }, formatTimestamp(comment.createdAt, t, displayLocale)),
           comment.updatedAt
             ? React.createElement('span', { style: styles.timestamp }, t('collaboration.edited'))
             : null,

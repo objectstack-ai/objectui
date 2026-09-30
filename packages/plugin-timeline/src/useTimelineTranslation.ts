@@ -23,7 +23,7 @@ export const TIMELINE_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'timeline.bucket.later': 'Later',
   'timeline.bucket.noDate': 'No date',
   'timeline.bucket.unassigned': 'Unassigned',
-  // objectui#7874 — the five `timeline.relative.*` rows are retired as residue.
+  // `d9580f464` — the five `timeline.relative.*` rows are retired as residue.
   // They had no `en` leaf and no call site anywhere in the tree, so `fallbackT`
   // could never be asked for one: they rendered for nobody. Day-granularity
   // relative phrases are produced by `formatRelativeDate` (`@object-ui/core`)
@@ -82,7 +82,7 @@ export const TIMELINE_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // It became REACHABLE in the same change that retired the renderer's own
   // invented field name from the end of the resolver chain; before that a name
   // always resolved and this string could never have rendered. House posture
-  // (maintainer, 2026-09-01, objectui#7070): 日期轴永不虚构 — a date axis is
+  // (maintainer, 2026-09-01, 总监批 #28): 日期轴永不虚构 — a date axis is
   // never fabricated.
   //
   // `{{fields}}` is a hole rather than prose for the reason

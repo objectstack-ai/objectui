@@ -22,11 +22,29 @@ import {
   DOCK_STUDIO_WIDTH_STORAGE_KEY,
 } from '../../layout/chatDockState.js';
 
+/**
+ * objectui#8219 — the display label of the artifact a pillar has open, tagged
+ * with the identity it labels. Reported by pillars that know a label (today:
+ * the Interfaces pillar's open leaf); the others report nothing.
+ */
+export interface StudioSurfaceLabel {
+  type: string;
+  name: string;
+  label: string;
+}
+
 interface StudioCopilotConversationProps {
   /** The package the Studio surface is editing — scopes the build agent to it. */
   packageId: string;
   /** ADR-0037/P3c — the Live Canvas open/close seam, forwarded to ChatPane. */
   onCanvasOpenChange?: (open: boolean) => void;
+  /**
+   * objectui#8219 — the open artifact's display label, for the "discussing"
+   * chip only. Passed to ChatPane as its own prop when it labels the SAME
+   * artifact the URL names; it never enters `surfaceContext` (the agent's
+   * `context.surface`). Absent → the chip reads `type · name`.
+   */
+  surfaceLabel?: StudioSurfaceLabel | null;
 }
 
 /**
@@ -39,6 +57,7 @@ interface StudioCopilotConversationProps {
 export function StudioCopilotConversation({
   packageId,
   onCanvasOpenChange,
+  surfaceLabel,
 }: StudioCopilotConversationProps): React.ReactElement | null {
   // cloud#1610 — the URL is the single source of the surface context: the
   // pillar is the :tab route segment, the artifact is the `?surface=type:name`
@@ -59,6 +78,15 @@ export function StudioCopilotConversation({
     if (!tab && !artifact) return undefined;
     return { ...(tab ? { pillar: tab } : {}), ...(artifact ? { artifact } : {}) };
   }, [tab, copilotLocation.search]);
+  // objectui#8219 — the chip's display label, read beside the context rather
+  // than inside it. Shown only when it labels the artifact the URL names: the
+  // URL stays the single source of WHAT is discussed, so a label that lags or
+  // leads the `?surface=` mirror is dropped instead of naming the wrong item.
+  const artifact = surfaceContext?.artifact;
+  const surfaceArtifactLabel =
+    artifact && surfaceLabel && surfaceLabel.type === artifact.type && surfaceLabel.name === artifact.name
+      ? surfaceLabel.label || undefined
+      : undefined;
   const { user } = useAuth();
   const userId = user?.id;
   const apiBase = React.useMemo(() => resolveApiBase(), []);
@@ -108,6 +136,7 @@ export function StudioCopilotConversation({
       conversationId={conversationId}
       editPackageId={packageId}
       surfaceContext={surfaceContext}
+      surfaceArtifactLabel={surfaceArtifactLabel}
       initialMessages={initialMessages}
       pendingFirstMessageRef={pendingFirstMessageRef}
       onSent={() => {}}
@@ -128,6 +157,9 @@ export interface StudioChatDockProps {
   packageId: string;
   /** UI locale (from the Studio surface) for the dock chrome. */
   locale?: string;
+  /** objectui#8219 — the open artifact's display label, for the chat's
+   * "discussing" chip; see {@link StudioCopilotConversation}. */
+  surfaceLabel?: StudioSurfaceLabel | null;
 }
 
 /**
@@ -149,7 +181,11 @@ export interface StudioChatDockProps {
  *  - The Live Canvas auto-maximizes the rail on open, tucks on close
  *    (ADR-0037 — the preview needs more width than the rail has).
  */
-export function StudioChatDock({ packageId, locale }: StudioChatDockProps): React.ReactElement | null {
+export function StudioChatDock({
+  packageId,
+  locale,
+  surfaceLabel,
+}: StudioChatDockProps): React.ReactElement | null {
   const navigate = useNavigate();
   const location = useLocation();
   const apiBase = React.useMemo(() => resolveApiBase(), []);
@@ -212,7 +248,7 @@ export function StudioChatDock({ packageId, locale }: StudioChatDockProps): Reac
           // sheet closes cleanly before the route changes.
           onMaximize={openFullPage}
         >
-          <StudioCopilotConversation packageId={packageId} />
+          <StudioCopilotConversation packageId={packageId} surfaceLabel={surfaceLabel} />
         </ChatDockMobileSheet>
       </>
     );
@@ -231,6 +267,7 @@ export function StudioChatDock({ packageId, locale }: StudioChatDockProps): Reac
       <StudioCopilotConversation
         packageId={packageId}
         onCanvasOpenChange={handleCanvasOpenChange}
+        surfaceLabel={surfaceLabel}
       />
     </ChatDockPanel>
   );

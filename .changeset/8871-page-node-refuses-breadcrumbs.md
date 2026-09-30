@@ -21,13 +21,13 @@ elsewhere in the file can move. It now fails at parse with the remedy in the mes
 TypeScript twin is `breadcrumbs?: never`, so `tsc` refuses it at the authoring site before
 anything runs — both faces narrow together.
 
-**Why ADR-0049 and not a fresh ruling.** objectui#7926 refused `actions` on this same node
+**Why ADR-0049 and not a fresh ruling.** `12b599219` refused `actions` on this same node
 and, by its own comments, ruled on that key ONLY — its ruling is not borrowed here. What
 reaches this key is the standing enforce-or-remove gate, which this repository applies to
 this exact face: `packages/types/src/zod/tombstone.zod.ts`'s `retirementTombstone` is
 documented as the "ADR-0049 RETIREMENT TOMBSTONE" helper and is internal to these zod
 modules, 63 changesets cite the ADR, and `PageNodeSchema` already carried one of its refusal
-arms one member up. objectui#7926 left this key parsing on purpose so that retiring it would
+arms one member up. `12b599219` left this key parsing on purpose so that retiring it would
 be a decision rather than an accident, and wrote a pin saying so; that pin is **flipped**,
 not deleted.
 
@@ -43,7 +43,7 @@ comments listing UI surfaces (`core/src/utils/record-title.ts`,
 `layout/src/NavigationRenderer.tsx`), so a bare probe reports five readers that do not exist.
 
 Three author sites, all teaching passages in `content/docs/guide/layout.md`, and that count
-**corrects objectui#7926's "1 site"**: its census reads every git-tracked JSON file, every
+**corrects the `actions` refusal's "1 site"**: its census reads every git-tracked JSON file, every
 `json` fence in `.md`/`.mdx`, and every TS/TSX object literal via the TypeScript AST (PR
 #8870), and it undercounted for **two different reasons**. The Schema API block declared
 `breadcrumbs?: Array<{ label, href }>` outright and its literal does carry `type: 'page'`, but
@@ -95,7 +95,7 @@ card's side.
 
 Marked `minor`. This card carries `Clause-②: yes`, declared on the dispatch claim, and this
 changeset's own lead sentence is *"Accept-set change, deliberately"* — the reading AGENTS.md's
-版本号策略 gives `minor` for objectui's own breaking changes. objectui#7926's `patch` does not
+版本号策略 gives `minor` for objectui's own breaking changes. The `actions` refusal's `patch` does not
 transfer here: its ruling was **specified** with `Clause-②: no`, a different premise, so
 citing it for the level would import that ruling's conclusion without its premise. The
 precedent that literally shares this card's `Clause-②: yes` reading is **objectui#5905**, where

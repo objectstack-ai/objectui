@@ -23,11 +23,11 @@
  *
  * The second one used to read a HAND-WRITTEN list of three imported maps, so it
  * judged 400 of 1056 rows (37.9%) and could not see the five dead
- * `timeline.relative.*` rows of objectui#7874 at all (retired in #7887). The fix is not a second
+ * `timeline.relative.*` rows at all (retired in #7887). The fix is not a second
  * traversal — two traversals are two definitions of the population that drift
- * apart, which is the disease objectui#7448 / #7528 / #7548 / #7825 / #7853 all
- * record. So the walk objectui#3512 already had moved HERE, unchanged, and both
- * gates now discover the same tables from the same code.
+ * apart, which is the disease objectui#7448 / #7528 / #7548 / #7825 and the card
+ * behind `fa7d66c45` all record. So the walk objectui#3512 already had moved HERE,
+ * unchanged, and both gates now discover the same tables from the same code.
  *
  * ## Why an import-based list can never be completed by hand
  *
@@ -120,14 +120,14 @@ export interface HandRolledTable {
  * pins. That deliberate double-listing is why a caller must de-duplicate on
  * `where` + `key` before reporting counts: its 21 rows are discovered twice.
  *
- * ## Why the DATA lives in `hand-rolled-tables.json` (objectui#7877)
+ * ## Why the DATA lives in `hand-rolled-tables.json` (`7dcda9cd4`)
  *
  * A second reader arrived that is not TypeScript:
  * `scripts/check-i18n-call-site-keys.mjs` widened its `createSafeTranslation`
  * value-compare over these tables (objectui#7567 Q2's B half). That gate is a
  * bare `node scripts/check-*.mjs`, so it cannot import this module at all —
  * `exports["./defaults-table-scan"]` resolves to TypeScript SOURCE with no build
- * artefact. The shape here is the one objectui#6923 already ruled for exactly
+ * artefact. The shape here is the one the 2026-08-31 ruling (`d3bf4fa6f`) already set for exactly
  * that wall, and `zod-wrapper-keys.json` is its first instance: the DATA moves
  * to build-free JSON with its own `exports` subpath
  * (`@object-ui/test-support/hand-rolled-tables`), `resolveJsonModule` types it

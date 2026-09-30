@@ -58,8 +58,8 @@ on its own, and each says so in its own doc comment:
   a value, so it cannot appear in an authored JSON document, and objectui#6152
   ruled that the class never gets one.
 
-  ⭐ **AMENDED, and the amendment ships in this same release.** objectui#7804's
-  `TreeViewSchema` slice gave the key a zod arm after all — a NAMED REFUSAL
+  ⭐ **AMENDED, and the amendment ships in this same release.** The
+  `TreeViewSchema` slice (`604476d97`) gave the key a zod arm after all — a NAMED REFUSAL
   (`handlerKeyRefusal(key, 'runtime-slot', label)`), never a shape — because "no
   mirror entry" is not neutral under `BaseSchema.passthrough()`: it meant an
   authored `{ "type": "tree-view", "onNodeClick": { "action": "toast" } }` parsed
@@ -86,16 +86,16 @@ decisions publish in this same release.** This paragraph used to end "Declaring
 `data` stays required on both faces." Neither half of that is true any more, on
 either face:
 
-- **A `nodes`-only `tree-view` document IS legal.** objectui#6939 made `data`
+- **A `nodes`-only `tree-view` document IS legal.** `777e5c6f4` made `data`
   optional, so the `nodes` spelling the renderer reads FIRST stands on its own
   (`6939-tree-view-nodes-mirror.md`, published beside this note). `bind` is read
   before either and is unchanged.
-- **`data` is not required — it is REFUSED BY NAME.** objectui#6951 retired it
+- **`data` is not required — it is REFUSED BY NAME.** `16a725f96` retired it
   under ADR-0049 on both faces: the TypeScript member is a `?: never` tombstone
   and the zod arm is a `retirementTombstone(...)` whose guidance points the author
   at `nodes` (`6951-tree-view-data-retired.md`, also published beside this note).
   `nodes` is `z.array(TreeNodeSchema).optional()`, and its own describe text
-  records that a `nodes`-only document became legal at objectui#6939.
+  records that a `nodes`-only document became legal (at `777e5c6f4`).
 
 ⛔ Nothing on the branch carrying this amendment falsified that sentence: it was
 already untrue at that branch's base, and both cards that made it untrue are

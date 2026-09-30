@@ -156,7 +156,7 @@ describe('controls — a RESOLVED list still prunes what it does not offer (ADR-
         {...({ name: 'province', dependentValues: { country: 'cn' } } as any)}
       />,
     );
-    expect(onChange).toHaveBeenCalledWith(undefined);
+    expect(onChange).toHaveBeenCalledWith(null);
   });
 
   it('SelectField clears a value the chosen parent excludes', () => {
@@ -169,7 +169,7 @@ describe('controls — a RESOLVED list still prunes what it does not offer (ADR-
         {...({ name: 'province', dependentValues: { country: 'cn' } } as any)}
       />,
     );
-    expect(onChange).toHaveBeenCalledWith(undefined);
+    expect(onChange).toHaveBeenCalledWith(null);
   });
 });
 
@@ -241,7 +241,7 @@ describe('transition — a gated field converges the moment its parent is chosen
         {...({ name: 'province', dependentValues: { country: 'us' } } as any)}
       />,
     );
-    expect(onChange).toHaveBeenCalledWith(undefined);
+    expect(onChange).toHaveBeenCalledWith(null);
   });
 
   it('SelectField: a resolved set that INCLUDES the stored value keeps it', () => {

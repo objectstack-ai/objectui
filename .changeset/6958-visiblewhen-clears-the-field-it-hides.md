@@ -3,7 +3,7 @@
 ---
 
 A field its own `visibleWhen` hides is now cleared, so it stops carrying a stale value
-to the server (objectui#6958).
+to the server.
 
 **Breaking, deliberately.** Until now a field the form renderer hid because the field's
 own `visibleWhen` (or its deprecated view-level sibling `visibleOn`) resolved FALSE kept

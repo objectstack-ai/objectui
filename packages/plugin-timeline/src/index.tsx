@@ -315,12 +315,12 @@ import {
  * `object-timeline` maps `object` + `filter` + `sort` + `limit` — every key its
  * fetch now reads (objectstack#7137).
  *
- * Until #7137 the fetch was `dataSource.find(schema.objectName, { options: { $top:
+ * Until objectstack-ai/objectstack#7137 the fetch was `dataSource.find(schema.objectName, { options: { $top:
  * 100 } })`: no `$filter`, no `$orderby`, and a cap nested under a key no adapter
  * reads. objectstack#7121 therefore mapped `object` alone and said so, rather than
  * writing the composed filter/sort/limit onto keys nobody read — which would have
  * looked like the binding was honoured while changing nothing about the rows.
- * #7137 added the read sites (`$filter` / `$orderby` / `$top: schema.limit ?? 100`),
+ * objectstack-ai/objectstack#7137 added the read sites (`$filter` / `$orderby` / `$top: schema.limit ?? 100`),
  * so the flags come with them and a named `view` now actually narrows the rail.
  *
  * `columns` stays unmapped for the same reason a calendar's does: a timeline

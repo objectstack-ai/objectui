@@ -73,7 +73,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { render, act } from '@testing-library/react';
+import { render, act, within } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
 import {
   SchemaRenderer,
@@ -181,6 +181,13 @@ const DATA_SOURCE_METHODS = [
 ] as const;
 
 /**
+ * The heading the `sections` sample below authors. Named so the
+ * `record:details` read-back in the probe loop asserts the sample's own string
+ * rather than a second copy of it (objectui#7321).
+ */
+const SAMPLE_SECTION_LABEL = 'Main';
+
+/**
  * A plausible value for each declared input, keyed by input NAME.
  *
  * Keyed by name rather than by type because on this family the type carries
@@ -216,6 +223,13 @@ const DATA_SOURCE_METHODS = [
  * the Add affordance behind a named console hint instead of taking the block
  * down; the sample below stays spec-valid on its own merit, not as crash
  * avoidance.
+ *
+ * The section heading is spelled `label` because that is the only heading key
+ * a `record:details` section entry has: `@objectstack/spec` refuses `title`
+ * there as an unrecognized key (objectstack#11902 pins that refusal), and the
+ * renderer reads `label` alone since objectui#6190 retired its `title` alias.
+ * The heading is read back below ({@link SAMPLE_SECTION_LABEL}), so the sample's
+ * spelling is load-bearing rather than merely claimed (objectui#7321).
  */
 const SAMPLE_BY_INPUT: Readonly<Record<string, unknown>> = {
   // On `record:*` this names the RELATED object, not the page's object —
@@ -226,7 +240,7 @@ const SAMPLE_BY_INPUT: Readonly<Record<string, unknown>> = {
   relationshipField: RELATIONSHIP_FIELD,
   columns: ['name', 'amount'],
   fields: ['name', 'description', 'amount'],
-  sections: [{ name: 'main', title: 'Main', fields: ['description', 'amount'] }],
+  sections: [{ name: 'main', label: SAMPLE_SECTION_LABEL, fields: ['description', 'amount'] }],
   statusField: 'stage',
   stages: [
     { value: 'draft', label: 'Draft' },
@@ -565,6 +579,21 @@ describe('record:* blocks — the bound record reaches the output (objectui#3149
 
       assertRendered(cfg.type, a);
       assertRendered(cfg.type, b);
+
+      // The `sections` sample's heading must reach the output, so the sample's
+      // spelling is checked rather than claimed (objectui#7321). Spelled with
+      // any key but `label`, the section heading falls back to its `name`
+      // (`main`), and this goes red instead of the file staying green on a
+      // sample the spec refuses.
+      if (cfg.type === 'record:details') {
+        const host = document.createElement('div');
+        host.innerHTML = a.html;
+        expect(
+          within(host).queryAllByText(SAMPLE_SECTION_LABEL).length,
+          `<${cfg.type}> did not render the sections sample's authored label ` +
+            `"${SAMPLE_SECTION_LABEL}" as its heading:\n${a.html.slice(0, 600)}`,
+        ).toBeGreaterThan(0);
+      }
 
       // The instrument, checked before it is read from.
       expect(

@@ -19,7 +19,7 @@
  *
  * What is genuinely objectui's and keeps a local name:
  * {@link resolveEffectiveCrudAffordances} — the spec's object-level matrix
- * INTERSECTED with the server-resolved effective API operation set (#3391), so
+ * INTERSECTED with the server-resolved effective API operation set (objectstack#3391), so
  * the UI never offers a button the server would 405. The spec's function has
  * no such notion; naming ours after it was the misdescription this burn-down
  * removes.
@@ -142,7 +142,7 @@ export function userActionPredicates(
 
 /**
  * The affordance-bit → server API-operation mapping used to intersect the
- * UI-intent affordances with the server's effective API operation set (#3391).
+ * UI-intent affordances with the server's effective API operation set (objectstack#3391).
  * This is the objectui end of the framework's `API_METHOD_DERIVATION` contract:
  * the button predicate is `affordance(op) ∧ effective.api(op)`.
  */
@@ -167,7 +167,7 @@ const AFFORDANCE_TO_API_OPERATION = {
  *
  * @param obj The object schema (managedBy bucket + userActions overrides).
  * @param effectiveApiOperations OPTIONAL server-resolved effective API operation
- *   set for this object (from `/me/permissions` `apiOperations`, #3391). When
+ *   set for this object (from `/me/permissions` `apiOperations`, objectstack#3391). When
  *   provided, each affordance bit is ANDed with the corresponding API operation
  *   (create/import→create/import, edit→update, delete→delete, exportCsv→export),
  *   so the UI never shows a button the server would 405. Passing `undefined`
@@ -188,7 +188,7 @@ export function resolveEffectiveCrudAffordances(
       typeof resolveSpecCrudAffordances
     >[0]['userActions'],
   });
-  // [#3391] Intersect with the server's effective API operations when present.
+  // [objectstack#3391] Intersect with the server's effective API operations when present.
   // The frontend consumes the effective set the server hands down; it never
   // reads the raw `apiMethods` nor re-derives.
   if (Array.isArray(effectiveApiOperations)) {
@@ -238,7 +238,7 @@ export function isSystemWritable(obj: SchemaLike | null | undefined): boolean {
  * object-level editability, so only the resolved boolean matters here.)
  *
  * @param effectiveApiOperations OPTIONAL server-resolved effective API operation
- *   set for this object (`/me/permissions` `apiOperations`, #3391/#3546). When
+ *   set for this object (`/me/permissions` `apiOperations`, objectstack#3391/objectstack#3546). When
  *   provided, inline-edit is additionally ANDed with the server allowing
  *   `update`, so a record page never offers double-click/pencil editing the
  *   server would 405. `undefined` (old backend / unrestricted) leaves the

@@ -244,7 +244,12 @@
 
 import { describe, it, expect } from 'vitest';
 import { ComponentRegistry } from '@object-ui/core';
-import { ComponentPropsMap, PageComponentSchema } from '@objectstack/spec/ui';
+import {
+  ComponentPropsMap,
+  PageComponentSchema,
+  PageComponentType,
+  RETIRED_PAGE_COMPONENT_TYPES,
+} from '@objectstack/spec/ui';
 import { MANIFEST_INPUT_TYPES, inputTypeArms } from '@object-ui/sdui-parser';
 import type { ComponentInput } from '@object-ui/types';
 import {
@@ -582,11 +587,36 @@ const LAZY_REGISTERED_BLOCKS = [
   'object-kanban',
 ];
 
+/**
+ * The six blocks `@objectstack/spec` 17.5.0 newly carries that this file JUDGES
+ * (objectui#11073): the map went from 45 entries to 55. The other four new
+ * entries — `object-gantt`, `object-map`, `object-timeline`, `object-tree` — are
+ * registered lazily and not loaded here, and are booked in
+ * `UNJUDGED_SPEC_BLOCKS` to objectui#11168 instead (see `OWED_TO` below).
+ *
+ * Same shape as `GA_ONLY_BLOCKS` / `MINOR_17_1_BLOCKS`: this repo registered all
+ * six with `inputs` before the spec described them, so what moved at the bump
+ * is the SPEC's side. They enter `covered` the moment the installed spec
+ * carries them.
+ */
+const MINOR_17_5_BLOCKS = [
+  'action:button',
+  'action:group',
+  'action:icon',
+  'action:menu',
+  'element:definition-list',
+  'element:repeater',
+];
+
+/** Does the installed `@objectstack/spec` carry the 17.5.0 set? `every`, for the reason `specCarriesGaBlocks` gives. */
+const specCarries175Blocks = MINOR_17_5_BLOCKS.every((type) => type in ComponentPropsMap);
+
 const EXPECTED_COVERED = [
   ...PINNED_EXPECTED_COVERED,
   ...LAZY_REGISTERED_BLOCKS,
   ...(specCarriesGaBlocks ? GA_ONLY_BLOCKS : []),
   ...(specCarries171Blocks ? MINOR_17_1_BLOCKS : []),
+  ...(specCarries175Blocks ? MINOR_17_5_BLOCKS : []),
 ].sort();
 
 /**
@@ -617,6 +647,124 @@ const EXPECTED_WITHOUT_INPUTS = [
 ];
 
 /**
+ * Has `@objectstack/spec` RETIRED this block, keeping its `ComponentPropsMap`
+ * row only as a refusal door? (objectui#10033)
+ *
+ * Read from the spec, never listed here. The spec retires a page component type
+ * in one of two spellings, and both drop the value from `PageComponentType`:
+ *
+ *   - REFUSED BY NAME — the type is a key of `RETIRED_PAGE_COMPONENT_TYPES`
+ *     (`page.zod.ts`), and its row is `retiredComponentProps(type)`: a `never`
+ *     that refuses every props bag, `{}` included. It lists no key at all, so
+ *     the tombstone reading below cannot see it; the table is the signal.
+ *   - ELEMENT GRAIN — no table names the type; the retirement IS the row, kept
+ *     with every key it lists a `retiredKey()` tombstone. It lists keys and
+ *     accepts none of them.
+ *
+ * Absence from `PageComponentType` is required and is not enough on its own:
+ * the enum is the page-authoring vocabulary, and live blocks sit outside it
+ * too — every `object-*` block, and empty-shaped ones such as
+ * `cloud-connection:panel`. A row that merely accepts no key is the EMPTY SPEC
+ * SHAPE class below, not a retirement.
+ */
+function isRetiredUpstream(type: string): boolean {
+  if ((PageComponentType.options as readonly string[]).includes(type)) return false;
+  if (RETIRED_PAGE_COMPONENT_TYPES.has(type)) return true;
+  return specTombstonedKeys(type).length > 0 && specTopLevelKeys(type).length === 0;
+}
+
+/**
+ * ⚠️ WHY FIVE OF THIS FILE'S LEDGERS ARE NOT EMPTY: objectui#11111 decision 3 = B.
+ *
+ * The maintainer ruled on objectui#11111 (「11111 同意」, record 5902351047)
+ * that the 17.5.0 bump re-pins this gate's population and DECLARES NOTHING
+ * (Clause ② no). Every difference 17.5.0 newly surfaces is booked here, one
+ * entry per difference, each naming the card that owns it and an expiry:
+ *
+ *   - objectui#11168 — the ten newly carried blocks (the four lazily
+ *     registered ones unjudged, the six judged ones' unpublished keys, their
+ *     refused input, refused arms and owed member pins), and
+ *     `object-form.layout`'s refused arms;
+ *   - objectui#8652 — `navigation` on `object-kanban` and `object-calendar`;
+ *   - objectui#8649 — `enforceFieldSecurity`, `redactFields` and
+ *     `requiredPermissions` on the three `record:*` blocks.
+ *
+ * Each owner card decides every key by its own measurement: declare what the
+ * renderer honours, refuse or retire what it does not. ⛔ Batch-declaring an
+ * input a renderer does not honour is the failure decision 3 = B exists to
+ * avoid, so an entry here is never resolved that way.
+ *
+ * The ledgers are CAPPED at exactly the entries listed — never unbounded —
+ * by `the objectui#11111 ledger is capped at exactly the entries it lists`,
+ * which also routes every entry to its owner card and requires its expiry. A
+ * new difference beyond the listed entries is still red: every direction below
+ * subtracts exact ids, never a block or a prefix. Each owner card's landing
+ * strikes its entries and lowers the matching cap in the same change; the last
+ * of the three to land restores the empty ledgers and the zero caps this file
+ * held before the bump.
+ *
+ * EXPIRY. None of these ledgers has a date field, and this repo's SUNSET
+ * convention is a condition re-derived from the installed spec, not a date, so
+ * nothing here can enforce a calendar deadline. The date is stated in every
+ * entry's reason and asserted PRESENT; it is read by the owner cards, not by a
+ * clock.
+ */
+const OBJECTUI_11111_EXPIRES = '2026-10-30';
+
+/** The three owner cards the ruling names, and nothing else may own an entry. */
+const OBJECTUI_11111_OWNERS = ['objectui#11168', 'objectui#8652', 'objectui#8649'] as const;
+type Objectui11111Owner = (typeof OBJECTUI_11111_OWNERS)[number];
+
+/** The security triple 17.5.0 declares on exactly the three record blocks (objectui#8649's). */
+const FIELD_SECURITY_TRIPLE = ['enforceFieldSecurity', 'redactFields', 'requiredPermissions'];
+
+/** Every entry the ruling books starts with this, so the caps can count them. */
+const OWED_PREFIX = 'OWED TO ';
+
+/** One ruled entry's reason: owner first, then what is owed, then the ruling and the expiry. */
+const OWED_TO = (owner: Objectui11111Owner, what: string): string =>
+  `${OWED_PREFIX}${owner}. ${what} Booked by objectui#11111 decision 3 = B (record 5902351047): ` +
+  `the 17.5.0 bump re-pins and declares nothing; ${owner} decides it by its own measurement. ` +
+  `Expires ${OBJECTUI_11111_EXPIRES}, or when ${owner} lands, whichever is first.`;
+
+/** `BLOCK.KEY` entries for every listed key of one block, all with the same owner and reason. */
+const owedEntries = (
+  type: string,
+  keys: readonly string[],
+  owner: Objectui11111Owner,
+  what: string,
+): Record<string, string> =>
+  Object.fromEntries(keys.map((key) => [`${type}.${key}`, OWED_TO(owner, what)]));
+
+/** Which owner the ruling routes an entry id to — asserted against every entry's reason. */
+function objectui11111OwnerOf(id: string): Objectui11111Owner {
+  const key = id.slice(id.indexOf('.') + 1).split(':')[0];
+  if (FIELD_SECURITY_TRIPLE.includes(key)) return 'objectui#8649';
+  if (key === 'navigation') return 'objectui#8652';
+  return 'objectui#11168';
+}
+
+/** The ruled entries of one ledger. */
+const owedIdsOf = (ledger: Record<string, string>): string[] =>
+  Object.entries(ledger)
+    .filter(([, reason]) => reason.startsWith(OWED_PREFIX))
+    .map(([id]) => id)
+    .sort();
+
+/**
+ * THE CAPS, one per ledger, each EQUAL to the entries listed below. Lower one in
+ * the same change as the owner card that strikes its entries; the last owner
+ * card to land sets all five to 0.
+ */
+const OBJECTUI_11111_LEDGER_CAPS = {
+  unjudgedBlocks: 4, // objectui#11168: object-gantt, object-map, object-timeline, object-tree
+  offSpecInputs: 1, // objectui#11168: action:group.name
+  unpublishedKeys: 57, // objectui#11168: 46 (22 + 20 + 2 + 2); objectui#8652: 2; objectui#8649: 9
+  refusedArms: 5, // objectui#11168: action:group ×2, action:menu, element:definition-list, object-form
+  memberPins: 6, // objectui#11168: action:group, action:menu, element:definition-list, element:repeater ×3
+} as const;
+
+/**
  * The third and last place a `ComponentPropsMap` entry may land: blocks this
  * gate CANNOT judge, each with the reason it cannot (objectui#8176).
  *
@@ -632,11 +780,17 @@ const EXPECTED_WITHOUT_INPUTS = [
  * a block can no longer leave the judged population without a line here saying
  * so and a diff someone reviews.
  *
- * ## Two classes, each mechanically checked so an entry cannot rot
+ * ## Three classes, each mechanically checked so an entry cannot rot
  *
  * `every unjudged-block ledger entry still describes a block this gate cannot
  * judge` asserts the reason, not just the name:
  *
+ *   - RETIRED UPSTREAM — the spec retired the type and keeps its row only as a
+ *     refusal door, so the row accepts no authoring key and neither direction
+ *     has a question to ask. Asserted as `isRetiredUpstream(type)`, which reads
+ *     the retirement from the spec rather than from a list here, plus
+ *     `specTopLevelKeys(type).length === 0` — so the day upstream restores the
+ *     type, or gives its row a key, this entry goes red.
  *   - EMPTY SPEC SHAPE — `ComponentPropsMap[type]` accepts no top-level key at
  *     all, so neither direction has a question to ask. Whether this repo happens
  *     to register the block is irrelevant to that, which is why it is the
@@ -650,6 +804,34 @@ const EXPECTED_WITHOUT_INPUTS = [
  *     from `ComponentRegistry.getKnownTypes()` (lazy stubs INCLUDED, so the
  *     assertion cannot be satisfied by the very stub-blindness objectui#8176 is
  *     about), so registering one of them forces this entry out.
+ *   - OWED (objectui#11111 decision 3 = B, record 5902351047) — a block that IS
+ *     registered, lazily, and that this file does not load, booked to its
+ *     owner card with an expiry (see `OWED_TO`). Asserted as still registered
+ *     lazily and still unloaded here, so loading it — the owner card's work —
+ *     forces the entry out; and CAPPED at the four listed, so a fifth lazily
+ *     registered block is still red in `no spec-carried block is registered
+ *     but unloaded`. The last objectui#11111 owner card to land empties it.
+ *
+ * The first class is EXCLUSIVE, and that is what keeps a hand-written reason
+ * from outliving a retirement (objectui#10033): an entry under either of the
+ * other two reasons FAILS when the spec retires its type. Before that check, a
+ * retirement changed what an entry was about and nothing told the entry — two
+ * rows the spec retired in the same release sat here under two unrelated
+ * reasons, neither of which mentioned the retirement, and one of which cited a
+ * palette exclusion that release's reconciliation had deleted.
+ *
+ * ## Why a retired block stays in this population
+ *
+ * The population is `Object.keys(ComponentPropsMap)`, and the spec KEEPS a
+ * retired type's row on purpose: the row is one of the retirement's refusal
+ * doors, and it is what lets every reader that dispatches on the map still
+ * recognise the name. Dropping retired rows from the population here would
+ * reopen the absence this ledger exists to close — a registration of a retired
+ * type in this repo would leave `covered` along with the row, and go unjudged.
+ * Kept in, such a registration is judged (every input it publishes is
+ * off-spec) and is accounted for twice, which the partition refuses. A ledger
+ * entry for a type the map no longer carries at all is the opposite case, and
+ * already fails twice over: in the partition's converse and in the rot check.
  *
  * `aria` is not a member of the empty-shape reasoning: it is a key on non-empty
  * shapes and has its own uniform cover in `GLOBALLY_UNPUBLISHED_SPEC_KEYS`.
@@ -662,17 +844,39 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
   'cloud-connection:panel':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all, so neither direction has a question to ask. It IS registered — `app-shell/src/console/cloud-connection/CloudConnectionPanel.tsx` registers it propless — but by `@object-ui/app-shell`, which this file does not import; the empty shape is the load-bearing half either way, exactly as for `app:launcher` above. objectui#7122, ledger objectui#8176.',
   'element:filter':
-    'EMPTY SPEC SHAPE. The pin declares no top-level key for it, and no package in this repo registers the tag. Nothing to judge on either count. objectui#8176.',
+    'RETIRED UPSTREAM. `@objectstack/spec` 17.1.0 retired it at element grain (objectstack#9220, ADR-0049): out of `PageComponentType`, and its row kept with every key a `retiredKey()` tombstone, so it accepts no authoring key and neither direction has a question to ask. objectui#10033, ledger objectui#8176.',
   'element:form':
-    'NOT REGISTERED, DELIBERATELY. `app-shell/src/views/metadata-admin/previews/block-types.ts` records the reason verbatim: no renderer, use the object-bound `object-form` block, which IS registered and IS judged here. objectui#8176.',
+    'RETIRED UPSTREAM. `@objectstack/spec` 17.3.0 retired it at element grain (objectstack#9249, ADR-0049), the `element:filter` shape one element over: out of `PageComponentType`, and its row kept with every key a `retiredKey()` tombstone whose prescription names the live replacement — the object-bound `object-form` block, which IS registered and IS judged here. objectui#10033, ledger objectui#8176.',
   'global:notifications':
     'EMPTY SPEC SHAPE. Same shape and same reasoning as `app:launcher` above: `app-shell/src/views/global-notifications-renderer.tsx` registers it propless because the spec shape is empty, and that registration is not in this file\'s import graph. objectui#8176.',
   'marketplace:installed-list':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all. Registered propless by `@object-ui/app-shell` (`src/console/marketplace/InstalledListWidget.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way. objectui#7122, ledger objectui#8176.',
   'mcp:connect-agent':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all. Registered propless by `@object-ui/app-shell` (`src/console/connect/ConnectAgentWidget.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way. objectui#7122, ledger objectui#8176.',
+  // The fourth class, and the only one that is not mechanically "unjudgeable":
+  // OWED. These four are new in `@objectstack/spec` 17.5.0, registered with
+  // `registerLazy` by the console (`register-plugins.ts`) and not loaded by this
+  // file, so their declarations are real and unread. The remedy the
+  // mechanism test names — an eager import — would judge them, and judging them
+  // is objectui#11168's work, not the bump's (objectui#11111 decision 3 = B).
+  'object-gantt': OWED_TO(
+    'objectui#11168',
+    'REGISTERED LAZILY, NOT LOADED HERE: `object-gantt` is new in `@objectstack/spec` 17.5.0, and loading `@object-ui/plugin-gantt` in this file is what judges it.',
+  ),
+  'object-map': OWED_TO(
+    'objectui#11168',
+    'REGISTERED LAZILY, NOT LOADED HERE: `object-map` is new in `@objectstack/spec` 17.5.0, and loading `@object-ui/plugin-map` in this file is what judges it.',
+  ),
+  'object-timeline': OWED_TO(
+    'objectui#11168',
+    'REGISTERED LAZILY, NOT LOADED HERE: `object-timeline` is new in `@objectstack/spec` 17.5.0, and loading `@object-ui/plugin-timeline` in this file is what judges it.',
+  ),
+  'object-tree': OWED_TO(
+    'objectui#11168',
+    'REGISTERED LAZILY, NOT LOADED HERE: `object-tree` is new in `@objectstack/spec` 17.5.0, and loading `@object-ui/plugin-tree` in this file is what judges it.',
+  ),
   'user:profile':
-    'EMPTY SPEC SHAPE. Declared by the spec with no top-level key; in this repo it exists only as a `PROTOCOL_COMPONENTS` placeholder name, which is a scaffold rather than a renderer and publishes no authoring surface. objectui#8176.',
+    'RETIRED UPSTREAM. `@objectstack/spec` 17.3.0 retired it by name (objectstack#14159, landed by objectstack#15112): out of `PageComponentType`, named in `RETIRED_PAGE_COMPONENT_TYPES`, and its row `retiredComponentProps` — a `never` that refuses every props bag, `{}` included — so there is no authoring surface for either direction to judge. The same release\'s reconciliation here (objectui#7122) took it out of `PROTOCOL_COMPONENTS` in `@object-ui/components` `renderers/placeholders.tsx`, so not even the placeholder scaffold stands in for it. objectui#10033, ledger objectui#8176.',
 };
 
 /*
@@ -736,8 +940,19 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
  * somewhere to be registered, and `exemptedFor` below reads it. Empty is a
  * state, not a deletion — every forward-direction assertion now runs with no
  * cover of any kind, which is the strongest reading this gate has ever had.
+ *
+ * ⚠️ ONE ENTRY SINCE THE 17.5.0 BUMP, and it is ruled, not owed-by-default:
+ * `action:group` entered `covered` with 17.5.0 and declares a `name` input its
+ * spec row does not accept. objectui#11111 decision 3 = B booked it to
+ * objectui#11168 (see `OWED_TO`), capped at this one entry; that card's landing
+ * empties the map again.
  */
-const OFF_SPEC_EXEMPTIONS: Record<string, string> = {};
+const OFF_SPEC_EXEMPTIONS: Record<string, string> = {
+  'action:group.name': OWED_TO(
+    'objectui#11168',
+    'A DECLARED INPUT THE SPEC REFUSES: `action:group` publishes `name`, and `ComponentPropsMap[action:group]` does not accept it.',
+  ),
+};
 
 /**
  * Spec-declared top-level keys deliberately NOT published, each with the reason.
@@ -1108,8 +1323,14 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   //   member instead (`field`, `order`, an omitted `order` meaning ascending,
   //   and a member with no usable `field` dropped rather than invented). That
   //   is a SHARPER member claim than a pass-through, not a weaker one.
-  'object-kanban.quickAdd':
-    'RULED CARVE-OUT — PREMATURE, not "wrong" (PM ruling on objectui#8201, Q1 = A, 2026-09-07). The renderer does not honour this key; objectui#8285 owns the fix. Measured, and re-measured at @objectstack/spec 17.4.0 rather than inherited: `KanbanImpl` gates the Quick Add control on `quickAdd && onQuickAdd`, `onQuickAdd` is an objectui#6124 RUNTIME SLOT the zod twin refuses BY NAME, and nothing on the `ObjectKanban` path supplies one — so an authored `quickAdd: true` reaches the board and changes nothing. The key is still a live `z.boolean().optional()` on the installed pin, with a control key drawing `unrecognized_keys` on the same safeParse call, so this cover is describing something. WHAT THIS ENTRY DOES NOT SAY, deliberately: it does not claim the object-bound board cannot grow quick-add. That is a strictly stronger claim than anything measured, and the sibling `KanbanRenderer` host contradicts it by honouring the same `quickAdd` + `onQuickAdd` pair by identity. Declaring the input is the one resolution FORBIDDEN here — it would publish a key the renderer cannot honour, which is the failure mode this whole gate exists to catch. THE EXIT IS NOT A DECLARATION: objectui#8285 was ruled (director seat 2026-09-08, decision batch #91) to retire `object-kanban.quickAdd` from the spec ComponentPropsMap, so the day that lands the key leaves the accepted set, this entry goes dangling AND stale, and it is harvested exactly as the eight ADR-0087 tombstones above were. objectui#8176.',
+  // `object-kanban.quickAdd` — the RULED CARVE-OUT (PREMATURE; PM ruling on
+  // objectui#8201, Q1 = A) whose entry stood here — was HARVESTED at the
+  // `@objectstack/spec` 17.5.0 bump (objectui#11073). Its named exit landed:
+  // objectui#8285's ruled retirement took the key out of the spec's accepted
+  // set (typed `never`, refused by name), the entry went dangling AND stale in
+  // the same run, and deleting it was the only way back to green, exactly as
+  // the eight ADR-0087 tombstones before it. The tombstone pin below now names
+  // it, so it cannot come back as an exemption or as a published input.
 
   // ── record:reference_rail.entries — a nested collection, newly JUDGED ──────
   //                                                                   (1 key)
@@ -1151,6 +1372,80 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   // entire justification for this exemption — it always was sufficient alone.
   'record:reference_rail.entries':
     'An array of {objectName, relationshipField, title, limit, displayField} objects; `inputs` is a flat scalar carrier and cannot express it. Newly judged rather than newly missing — @objectstack/spec 17.1.0 added record:reference_rail to ComponentPropsMap, and the registration (plugin-detail/src/index.tsx:675) has always published only `hideEmpty` — the 17.1.0 pin, objectui#5328. The flat-carrier shape limit is the entire reason: the `icon` divergence that once also blocked an entries editor was settled by Option B (maintainer 2026-08-22, objectui#5494).',
+
+  /*
+   * ⚠️ THE 17.5.0 BOOKINGS — objectui#11111 decision 3 = B (record 5902351047).
+   *
+   * 57 spec keys 17.5.0 newly declares on judged blocks and `inputs` does not
+   * publish. The bar at the top of this map says a key the renderer honours
+   * "gets declared"; the ruling decided WHO declares, and it is not the bump:
+   * each owner card measures each key against its renderer and declares what
+   * is honoured, refuses or retires the rest. Booked here, not declared, so
+   * the bump adds nothing to the public surface (Clause ② no). Capped at 57 by
+   * `the objectui#11111 ledger is capped at exactly the entries it lists`.
+   */
+  ...owedEntries(
+    'action:button',
+    [
+      'visible', 'disabled', 'params', 'description', 'openIn', 'endpoint', 'method', 'bodyExtra',
+      'bodyShape', 'operation', 'patch', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
+      'undoable', 'recordIdField', 'locations', 'toast', 'resultDialog', 'onSuccess', 'objectName',
+    ],
+    'objectui#11168',
+    'A SPEC KEY NOT PUBLISHED: `action:button` entered `covered` with 17.5.0 and its `inputs` omit this key its spec row declares.',
+  ),
+  ...owedEntries(
+    'action:icon',
+    [
+      'visible', 'disabled', 'params', 'description', 'openIn', 'endpoint', 'method', 'bodyExtra',
+      'bodyShape', 'operation', 'patch', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
+      'locations', 'toast', 'resultDialog', 'onSuccess', 'objectName',
+    ],
+    'objectui#11168',
+    'A SPEC KEY NOT PUBLISHED: `action:icon` entered `covered` with 17.5.0 and its `inputs` omit this key its spec row declares.',
+  ),
+  ...owedEntries(
+    'action:group',
+    ['location', 'visible'],
+    'objectui#11168',
+    'A SPEC KEY NOT PUBLISHED: `action:group` entered `covered` with 17.5.0 and its `inputs` omit this key its spec row declares.',
+  ),
+  ...owedEntries(
+    'action:menu',
+    ['size', 'visible'],
+    'objectui#11168',
+    'A SPEC KEY NOT PUBLISHED: `action:menu` entered `covered` with 17.5.0 and its `inputs` omit this key its spec row declares.',
+  ),
+  ...owedEntries(
+    'object-kanban',
+    ['navigation'],
+    'objectui#8652',
+    'A SPEC KEY NOT PUBLISHED: 17.5.0 declares `navigation` on this block; objectui#8652 met its unlock with that release and mirrors it as its ruled second step.',
+  ),
+  ...owedEntries(
+    'object-calendar',
+    ['navigation'],
+    'objectui#8652',
+    'A SPEC KEY NOT PUBLISHED: 17.5.0 declares `navigation` on this block; objectui#8652 met its unlock with that release and mirrors it as its ruled second step.',
+  ),
+  ...owedEntries(
+    'record:details',
+    FIELD_SECURITY_TRIPLE,
+    'objectui#8649',
+    'A SPEC KEY NOT PUBLISHED: 17.5.0 declares the field-security triple on exactly the three record blocks; objectui#8649 aligns the mirror and un-casts the reads.',
+  ),
+  ...owedEntries(
+    'record:highlights',
+    FIELD_SECURITY_TRIPLE,
+    'objectui#8649',
+    'A SPEC KEY NOT PUBLISHED: 17.5.0 declares the field-security triple on exactly the three record blocks; objectui#8649 aligns the mirror and un-casts the reads.',
+  ),
+  ...owedEntries(
+    'record:related_list',
+    FIELD_SECURITY_TRIPLE,
+    'objectui#8649',
+    'A SPEC KEY NOT PUBLISHED: 17.5.0 declares the field-security triple on exactly the three record blocks; objectui#8649 aligns the mirror and un-casts the reads.',
+  ),
 };
 
 /**
@@ -1217,8 +1512,14 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
  * the exemption entry goes dangling AND stale, and deleting it is the only way
  * back to green — at which point assertion 2 above fails until this list is
  * emptied in the same change. The two halves cannot drift apart.
+ *
+ * ⭐ EMPTIED at the `@objectstack/spec` 17.5.0 bump (objectui#11073), by exactly
+ * that route: 17.5.0 carries objectui#8285's retirement, `quickAdd` is a
+ * tombstone, its exemption entry was deleted, and this list emptied in the same
+ * change. The three assertions above now read an empty list; the tombstone pin
+ * names the key instead.
  */
-const LAZY_BLOCK_RULED_CARVE_OUTS = ['object-kanban.quickAdd'];
+const LAZY_BLOCK_RULED_CARVE_OUTS: string[] = [];
 
 /**
  * Exemption entries whose KEY the installed spec is allowed not to declare yet.
@@ -1696,6 +1997,34 @@ const OFF_SPEC_ARM_EXEMPTIONS: Record<string, string> = {
    * file's exemption discipline working end to end. objectui#6206 and #6207 can
    * be closed as resolved-upstream; reported on objectui#7122.
    */
+
+  /*
+   * ⚠️ FIVE 17.5.0 BOOKINGS — objectui#11111 decision 3 = B (record 5902351047).
+   * Arms the contract refuses on blocks 17.5.0 newly judges, plus
+   * `object-form.layout`, whose spec row narrowed to two members. Booked to
+   * objectui#11168, which narrows each declaration to what the spec accepts;
+   * capped at these five, and that card's landing empties the map again.
+   */
+  'action:group.actions:object': OWED_TO(
+    'objectui#11168',
+    'A REFUSED ARM: `action:group.actions` declares the `object` kind, and the contract refuses the KIND itself.',
+  ),
+  'action:group.size:enum': OWED_TO(
+    'objectui#11168',
+    'A REFUSED ARM: `action:group.size` declares the member `md`, and the contract refuses it.',
+  ),
+  'action:menu.actions:object': OWED_TO(
+    'objectui#11168',
+    'A REFUSED ARM: `action:menu.actions` declares the `object` kind, and the contract refuses the KIND itself.',
+  ),
+  'element:definition-list.columns:enum': OWED_TO(
+    'objectui#11168',
+    'A REFUSED ARM: `element:definition-list.columns` declares the members `1` and `2`, and the contract refuses them.',
+  ),
+  'object-form.layout:enum': OWED_TO(
+    'objectui#11168',
+    'A REFUSED ARM: `object-form.layout` declares the members `inline` and `grid`, which the 17.5.0 contract refuses.',
+  ),
 };
 
 // ── the MEMBER direction (objectui#8067) ─────────────────────────────────────
@@ -2242,6 +2571,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'apps/console/src/__tests__/component-input-union-specimens.test.ts',
     pins: 'The `object` arm is the inline translation map `{ en, "zh-CN" }` and nothing else — driven through the real `manifestFromConfigs` + `validateTree` pair the JSX-page compiler and the save gate use, each positive paired with a value matching NEITHER arm that must still be reported (objectui#4970).',
   },
+  'element:number.dataSource': {
+    file: 'packages/components/src/renderers/basic/__tests__/elementNumber.dataSourceBinding-10909.test.tsx',
+    pins: 'The per-element binding\'s members as this METRIC reads them, through the REAL renderer and asserted at the call it fires, with the whole options bag compared so a member forwarded by accident is red. Read: `object` is what gets aggregated and OUTRANKS `properties.object` (`dataSource.object ?? properties.object`, one value for the fetch guard, `aggregate` / `find` and the `useDataInvalidation` key — a bus event for the outranked flat object does not re-read, one for the bound object does), and while a named `view` is unresolved there is NO object, so a flat `properties.object` beside an unresolvable view aggregates nothing; a named `view`\'s `filter` scopes the aggregate, and an unresolvable `view` REPORTS and aggregates nothing; `filter` is AND-combined with `properties.filter` — the `ElementDataSourceGate` rule, lowered and merged the same way — so a binding filter and the flat one both reach the aggregate, a view filter and the flat one both reach it, and a merge the converter refuses REPORTS on the error panel and aggregates nothing. Not read: `sort` and `limit`, from the binding or from the view, never reach `aggregate()` or the `find()` fallback, because an aggregate has no ordering and a capped count is a wrong number. A binding naming no object supplies nothing and the flat object stands, and the `properties` form with no binding is the control. ⚠️ The key is INJECTED by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`), not written by the block: the declaration lists the binding\'s five members generically (`{ object, view, filter, sort, limit }`) and does not say which of them THIS block reads — that per-block half is what this pin carries (objectui#10909).',
+  },
   'element:number.filter': {
     file: 'packages/components/src/renderers/basic/__tests__/elementNumberFilterMembers-8071.test.tsx',
     pins: 'The TWO wire spellings one authored predicate takes, chosen by an adapter capability the author cannot see, plus the re-query rule — asserted through the real renderer on a stubbed adapter. `aggregate()` receives it FLAT under its own name and beside the members that make the call an aggregate (`field`, `function`, `groupBy: \'_all\'`), asserted as the whole options bag rather than the one key; the `find()` fallback receives it WRAPPED as `$filter`; and an unfiltered metric sends `undefined` rather than an empty envelope some adapters read as "match nothing". Collapsing the two spellings into one drops the predicate silently and the metric paints a confidently wrong number over every row, with no diagnostic and no empty state. The third half is that the key is read BY VALUE, not by identity (`filterKey` is a `JSON.stringify` memo): a deep-equal filter rebuilt by a re-rendering parent must NOT re-probe, while a changed comparand MUST and carries the new predicate — each arm the other\'s control, so a dependency array "simplified" to the raw object (a per-render fetch storm) is red. New file (objectui#8071 slice 7).',
@@ -2310,6 +2643,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-calendar/src/__tests__/ObjectCalendar.recordSourceMembers-8314.test.tsx',
     pins: 'The members are read EXACTLY as `data`\'s are (same record keys, same per-member unscheduled treatment), plus the two POSITION claims its description makes and no other direction of this gate can see: it is rung 2 of the shared record-source ladder, so an authored `data` wins and this key contributes nothing, and it is read ABOVE `objectName`, so a calendar carrying both draws the inline rows and never queries the object. Both negatives are proven through the same wait a CONTROL row shows a real query completing in, so "no query" can never read as a race. The spec row is `z.array(z.unknown())` — unconstrained members, read site is the whole contract (objectui#8314).',
   },
+  'object-form.cancelText': {
+    file: 'packages/plugin-form/src/ObjectForm.i18nLabels.test.tsx',
+    pins: 'The I18nLabel object arm, resolved once above the `formType` fork: through the real `SchemaRenderer`, the `{ type, properties }` document under a `zh` UI, every map listing `en` FIRST so an `en` or first-entry fallback fails the row. A `properties.cancelText` map renders its `zh-CN` entry on the simple form\'s Cancel button and in the drawer and modal footers; read raw it was a Button child and the node rendered `Component "form" failed to render` with "Objects are not valid as a React child" before objectui#10993. A plain-string control renders as authored. The manifest half (a map is not a `type-mismatch`) is `objectFormI18nLabelManifest.test.ts` in this directory (objectui#10993).',
+  },
   'object-form.customFields': {
     file: 'packages/plugin-form/src/__tests__/objectFormCustomFieldsMembers-8071.test.tsx',
     pins: 'Members are WHOLE field definitions keyed by `name`, rendered in AUTHORED order, and they REPLACE the metadata-generated set rather than merging over it — the object\'s schema is never even fetched (`getObjectSchema` asserted at zero calls), an object field no member names is absent, and a member naming a declared field carries its OWN label, inheriting nothing. That contradicts the registration\'s own prose ("Field definitions merged over the set generated from object metadata"): the per-member merge does exist as code (`customFields?.find((f) => f.name === name)`) and is unreachable, because the branch holding it runs only when the key is absent or empty — handed back as a finding rather than repaired, since repairing it is a renderer or spec change. The row a plausible improvement breaks is the gate\'s `.length > 0`: an EMPTY array is UNAUTHORED and the metadata path runs, so simplifying the read to `!!schema.customFields` turns a designer\'s not-configured-yet `[]` into a form with no fields and no diagnostic. A fifth row pins the SECOND read site of the same member count one layer up — `requiresDataSource={!(schema?.customFields?.length > 0) …}` in `index.tsx` — driven through the REGISTERED block with the identical node minus the members reporting the no-adapter panel as its control. Both declared sides are unconstrained (`type: \'array\'` with no `of`; the spec row is `z.unknown()`), so the read site is the whole member contract. New file (objectui#8071 slice 11).',
@@ -2317,6 +2654,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'object-form.dataSource': {
     file: 'packages/plugin-form/src/ObjectForm.elementDataSource.test.tsx',
     pins: 'The per-element binding\'s own members on a block that edits ONE record: `object` is the only key mapped, and it is asserted at the fetch it causes (`getObjectSchema` on the bound name) rather than at a prop. The keys deliberately NOT mapped are pinned as behaviour with a resolving `view` authored beside a `limit` and a `sort` — no collection query is issued at all, so none of the three can have silently become one — while an unresolvable `view` REPORTS rather than rendering as if it resolved, and a binding-free form is the control that keeps the negatives from reading as a block that never wired anything. Pre-existing file, promoted after being read end to end and GROWN by the row it never stated: the binding\'s `object` OUTRANKS a flat `objectName` on the same node (`next[objectKey] = composed.object`, unconditional), so the `??=` spelling a contributor would write to "not clobber the author" would leave a rebound form editing the old object with the same fields, the same labels and no diagnostic. `dataSource` is absent from `ComponentPropsMap[\'object-form\']` entirely — it is the injected `ELEMENT_DATA_SOURCE_INPUT` — so nothing declared constrains the precedence (objectui#8071 slice 11).',
+  },
+  'object-form.description': {
+    file: 'packages/plugin-form/src/ObjectForm.i18nLabels.test.tsx',
+    pins: 'The I18nLabel object arm as the drawer and modal SUBTITLE — see `object-form.cancelText` for the harness. A `properties.description` map renders its `zh-CN` entry inside the open dialog of both presentations, where the raw read threw as a React child before objectui#10993; a plain-string control renders as authored (objectui#10993).',
   },
   'object-form.fields': {
     file: 'packages/plugin-form/src/__tests__/objectFormFieldsMembers-8071.test.tsx',
@@ -2334,13 +2675,33 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-form/src/__tests__/objectFormMobileMembers-8071.test.tsx',
     pins: 'FIVE members are read and the registration\'s prose names three of them by example, so two — `stepperFieldsPerStep` and `stickyActions` — are read, change what renders, and are discoverable from nothing on either declared side (the spec row is `z.unknown()`). Pinned through the real renderer: `stickyActions` moves the action bar into the sticky footer while the wrapper\'s `data-mobile-form` marker reads the KEY\'S PRESENCE rather than any member (an empty `mobile: {}` still stamps it and moves nothing); `stepper: true` routes through `WizardForm` UNCONDITIONALLY, asserted on a DESKTOP viewport and under a raised minimum so it cannot be read as a keener `auto`; and `stepper: \'auto\'` is gated on BOTH halves at once — the phone viewport AND the field count reaching `stepperMinFields` (default 8) — as three cells that each control the other two. The row a plausible improvement breaks is `stepperFieldsPerStep`: it is in neither declared side, so collapsing `Math.max(1, … ?? 1)` to a bare `1` reads like deleting an undeclared key, leaves every other row green, and silently turns an authored two-per-step form into one step per field. The fifth member, `fullscreenLongText`, is deliberately left to `ObjectForm.mobileFullscreen.test.tsx`, which owns it end to end — splitting one member across two files would make a deletion in either read as coverage. New file (objectui#8071 slice 11).',
   },
+  'object-form.nextText': {
+    file: 'packages/plugin-form/src/ObjectForm.i18nLabels.test.tsx',
+    pins: 'The I18nLabel object arm on the wizard\'s next-step button — see `object-form.cancelText` for the harness. With `formType: "wizard"` and two sections, a `properties.nextText` map renders its `zh-CN` entry and the button still advances the step; the control is a plain string rendered as authored. The map\'s `zh-CN` entry differs from the zh pack\'s own default for the button (objectui#10999), so a map dropped instead of resolved fails the row (objectui#10993).',
+  },
+  'object-form.prevText': {
+    file: 'packages/plugin-form/src/ObjectForm.i18nLabels.test.tsx',
+    pins: 'The I18nLabel object arm on the wizard\'s previous-step button, reached by advancing one step — see `object-form.nextText`. A `properties.prevText` map renders its `zh-CN` entry; the control is a plain string rendered as authored. The map\'s `zh-CN` entry differs from the zh pack\'s `wizard.back`, so a map dropped instead of resolved fails the row (objectui#10993).',
+  },
   'object-form.sections': {
     file: 'packages/plugin-form/src/__tests__/objectFormSectionMembers-8071.test.tsx',
-    pins: 'Members are section OBJECTS, pinned in the DEFAULT layout (the one a section-carrying form gets with no `formType`) on the six keys `SimpleObjectForm`\'s grouped branch reads. The row a plausible improvement breaks: `fields` is read as a SET, not an order — the resolution is `sourceFields.filter((f) => sectionFieldNames.includes(f.name))`, so the OBJECT\'s order wins and the authored member order is discarded, which is the OPPOSITE of the sibling key `object-form.fields` on the same block, pinned next door on authored order being PRESERVED. The silent row: a section whose members resolve to no field is dropped WHOLE, heading included, so one mistyped member name costs a heading with nothing visibly wrong. `name` alone titles the section and a member carrying neither `name` nor `label` draws no divider at all; `collapsed` takes the members out of the DOM while `collapsible` is the SEPARATE member that makes the heading a control, so a section declared `collapsed` and not `collapsible` renders permanently closed with no affordance — each arm carrying its own control in the same call. A no-sections row is the non-vacuity control. The seventh key changed hands: this layout used to DROP a member\'s `description` — pinned as behaviour and handed back as a finding — and objectui#9779 made it copy the key onto the divider row, so the same row now pins the ARRIVAL, read off the divider itself with the same section\'s `label` in the same call as the live control. The gate that decides whether a member gets a divider row at all was NOT widened with it, so a member carrying a `description` and neither `name` nor `label` still draws no divider and still drops its blurb; that boundary is pinned beside it and handed back in turn. \u26a0\ufe0f The same key had a SECOND site, one layer later and \u26d4 not a shared path: `ObjectForm`\'s drawer map copied it onto the drawer\'s section config and `DrawerForm`\'s OWN two divider pushes \u2014 the explicit-sections one and the derived-fieldGroups one \u2014 rebuilt the row without it, so the drawer arm dropped the blurb on both routes a host can take into it while NOTHING watched that arm at all. objectui#9834 copied the key onto both pushes and registered the drawer arm\'s own pin, `packages/plugin-form/src/__tests__/drawerFormSectionDescription-9834.test.tsx`, which also records the one way that arm differs: its explicit-sections push is UNCONDITIONAL, so a member carrying a `description` and no heading renders the blurb alone there, where this layout draws no divider at all. `visibleWhen`, the `{ group }` reference form, the legacy `groups` spelling and the drawer arm\'s `description` are owned by their own neighbouring files and deliberately not re-pinned here. Both declared sides are unconstrained (bare `type: \'array\'`; `z.array(z.unknown())`), so the read site is the whole member contract. New file (objectui#8071 slice 11).',
+    pins: 'Members are section OBJECTS, pinned in the DEFAULT layout (the one a section-carrying form gets with no `formType`) on the six keys `SimpleObjectForm`\'s grouped branch reads. The member ORDER row FLIPPED with objectui#10475: it pinned `fields` read as a SET — a name filter over the parent field pool, so the OBJECT\'s order won and the authored member order was discarded — and now pins the AUTHORED order, the order the five sibling arms\' shared `buildSectionFields` draws and the sibling key `object-form.fields` on the same block preserves. The silent row: a section whose members resolve to no field is dropped WHOLE, heading included, so one mistyped member name costs a heading with nothing visibly wrong. `name` alone titles the section and a member carrying neither `name` nor `label` draws no divider at all; `collapsed` takes the members out of the DOM while `collapsible` is the SEPARATE member that makes the heading a control, so a section declared `collapsed` and not `collapsible` renders permanently closed with no affordance — each arm carrying its own control in the same call. A no-sections row is the non-vacuity control. The seventh key changed hands: this layout used to DROP a member\'s `description` — pinned as behaviour and handed back as a finding — and objectui#9779 made it copy the key onto the divider row, so the same row now pins the ARRIVAL, read off the divider itself with the same section\'s `label` in the same call as the live control. The gate that decides whether a member gets a divider row at all was NOT widened with it, so a member carrying a `description` and neither `name` nor `label` still draws no divider and still drops its blurb; that boundary is pinned beside it and handed back in turn. \u26a0\ufe0f The same key had a SECOND site, one layer later and \u26d4 not a shared path: `ObjectForm`\'s drawer map copied it onto the drawer\'s section config and `DrawerForm`\'s OWN two divider pushes \u2014 the explicit-sections one and the derived-fieldGroups one \u2014 rebuilt the row without it, so the drawer arm dropped the blurb on both routes a host can take into it while NOTHING watched that arm at all. objectui#9834 copied the key onto both pushes and registered the drawer arm\'s own pin, `packages/plugin-form/src/__tests__/drawerFormSectionDescription-9834.test.tsx`, which also records the one way that arm differs: its explicit-sections push is UNCONDITIONAL, so a member carrying a `description` and no heading renders the blurb alone there, where this layout draws no divider at all. `visibleWhen`, the `{ group }` reference form, the legacy `groups` spelling and the drawer arm\'s `description` are owned by their own neighbouring files and deliberately not re-pinned here. Both declared sides are unconstrained (bare `type: \'array\'`; `z.array(z.unknown())`), so the read site is the whole member contract. New file (objectui#8071 slice 11).',
   },
   'object-form.submitBehavior': {
     file: 'packages/plugin-form/src/ObjectForm.submitBehavior.test.tsx',
     pins: 'Which MEMBERS each declared `kind` arm reads, driven through the real `ObjectForm` submit path: `url` and `delayMs` on `redirect`, `title` and `message` on `thank-you` (both guarded on the discriminant, so no other arm reaches them), and NOTHING on `continue` or `next-record`. The two rows objectui#8071 added are the ones the key could silently lose: `delayMs` is pinned on the number the wait is armed with — the arm spells it `behavior.delayMs ?? 0`, and collapsing it to a bare `0` removes the readable pause while every destination assertion in this file and in `ObjectForm.submitRedirect.test.tsx` stays green — with the SAME declaration minus the member as the lit control, so an empty `armed` can never be a spy that sees nothing; and `next-record`, the fourth declared arm, is pinned reaching the confirmation panel (form unmounted, `successMessage` toasted) rather than its members, because it has none — an edit dropping it into `continue`\'s no-op would leave a spec-legal authored value doing something else with nothing red. The registration declares `type: \'object\'` with the arms in prose and `SubmitBehavior` types them as a discriminated union, so what PARSES is settled and what is READ off each arm was not (objectui#8071).',
+  },
+  'object-form.submitText': {
+    file: 'packages/plugin-form/src/ObjectForm.i18nLabels.test.tsx',
+    pins: 'The I18nLabel object arm on the Save button — see `object-form.cancelText` for the harness. A `properties.submitText` map renders its `zh-CN` entry on the simple form and in the drawer and modal footers; the controls are a plain string rendered as authored and, with nothing authored, the English `Create` (objectui#10993).',
+  },
+  'object-form.successMessage': {
+    file: 'packages/plugin-form/src/ObjectForm.i18nLabels.test.tsx',
+    pins: 'The I18nLabel object arm in the create-success toast of the simple form — see `object-form.cancelText` for the harness. A `properties.successMessage` map toasts its `zh-CN` entry after `create` resolves; with nothing authored the toast is still the English `Created` (objectui#10993).',
+  },
+  'object-form.title': {
+    file: 'packages/plugin-form/src/ObjectForm.i18nLabels.test.tsx',
+    pins: 'The I18nLabel object arm as the drawer and modal HEADING — see `object-form.cancelText` for the harness. A `properties.title` map renders its `zh-CN` entry inside the open dialog of both presentations, where the raw read threw as a React child before objectui#10993; a plain-string control renders as authored. A compile-time row in `packages/types`\' `object-form-i18n-label-members-10993.test.ts` holds all seven members of `ObjectFormSchema` equal to `I18nLabel | undefined` (objectui#10993).',
   },
   'object-grid.bulkActionDefs': {
     file: 'packages/plugin-grid/src/__tests__/bulkActionMembers-8071.test.tsx',
@@ -2418,13 +2779,17 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-grid/src/__tests__/gridArrayArmOrderby-8973.test.tsx',
     pins: 'The two members of one sort entry — `field` and `order` — across ALL THREE readers this block has for them, which is the half a declaration saying `[{ field, order }]` cannot publish. The file\'s own six-row probe table pins the fetch path: an entry missing `order` lowers to `asc` rather than the literal text `undefined` (a `400 INVALID_QUERY` at the server), an entry missing `field` is skipped rather than ordering by a column named `undefined`, an empty array carries NO `$orderby` rather than `""`, and a mixed array keeps its usable member — each with a live `"name desc"` control so the absences are readings. The growth is the other two readers: the server-side EXPORT projection spells the same member `{ field, direction }` and the header-arrow reader `parseSchemaSort` spells it `{ field, order }`. ⚠️⚠️ They do NOT agree, and the disagreement is pinned rather than repaired: `normalizeSortEntries` folds any non-`desc` order to `asc` for the wire and `parseSchemaSort` does the same for the arrow, while the export projection reads `?? \'asc\'` and passes an UNRECOGNISED direction through verbatim — one authored `{ field: \'name\', order: \'descending\' }` orders the screen ascending, draws an ascending arrow, and asks the export door for `direction: \'descending\'`. Reported as a finding; changing what that door receives is a change to a shipped request shape, not a member pin. Pre-existing file (objectui#8973), promoted after being read end to end and grown by the three-reader section (objectui#8071 slice 17).',
   },
+  'object-grid.label': {
+    file: 'packages/plugin-grid/src/__tests__/ObjectGrid.labelI18nLabel-10993.test.tsx',
+    pins: 'The I18nLabel object arm on the grid\'s identity key: through the real `SchemaRenderer`, the `{ type, properties }` document, and the table caption `ObjectGrid` builds from `resolveI18nLabel(schema.label, displayLocale)`. With no regional locale mounted the display locale is the UI language, so a `properties.label` map paints its `zh-CN` entry under `zh` and its `en` entry under `en`, every map listing `en` FIRST so an `en` or first-entry fallback fails the `zh` row; a plain-string control renders as authored. The record-detail overlay heading, the third read, is `ObjectGrid.overlayTitleInlineLocale-9092.test.tsx`\'s pin; the manifest half (a map is not a `type-mismatch`) is `i18nLabelInputsManifest-10993.test.ts` in this directory. ⛔ Not the deprecated `title`, whose caption fallback still reads a map raw and is held to a later batch (objectui#10993).',
+  },
   'object-kanban.cardFields': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'Members are BARE FIELD NAMES, and the pin is explicit about WHICH question it answers (the objectui#8269 trap): `resolveKanbanCardFields` answers which names the AUTHOR chose — authored order preserved, and NOT filtered against the object definition, which is the one behaviour that separates the explicit list from the `highlightFields` fallback it overrides (that fallback IS filtered). Which cells a card ends up carrying is a SECOND and narrower question, measured separately at the render, because the card loop further drops a name duplicating the title and one whose value is empty. An empty array reading as omitted is the control that keeps the fallback rows from being vacuous. The spec side is `z.array(z.string())`, so it constrains the member KIND but says nothing about either read — the sinks are the whole of the member contract (objectui#8313).',
   },
   'object-kanban.columns': {
     file: 'packages/plugin-kanban/src/__tests__/objectKanbanColumnMembers-8071.test.tsx',
-    pins: 'The SWIMLANE element\'s six members, each at its OWN sink and none assumed to behave like its neighbour, driven through the real renderer on a real adapter. `id` decides which records land in the lane (`groups[col.id]`) and names the heading, with an unmatched record swept into the trailing lane rather than dropped (objectui#2792) as the control. ⭐ `title` is read TWICE with two unrelated meanings — as the lane\'s accessible name, and as a BUCKETING ALIAS (`labelToColumnId[String(col.title).toLowerCase()] = col.id`), so a record whose stored group value is the lane\'s TITLE lands in that lane as surely as one carrying its id: nothing on the authoring surface says so, and renaming a lane therefore MOVES RECORDS. `cards` is a UNION and not a replacement — static lane cards survive the fetch, come first, and are not de-duplicated against it. `limit` is displayed beside the count and flags the lane, and ⛔ never truncates: the over-limit row asserts every card still renders, so a pin watching only the badge could not stay green under a renderer that dropped the overflow. `className` reaches that lane\'s container and no other. `collapsed` withholds that lane\'s cards while its neighbour keeps them — the member-set row only, because `columnCollapsedHonoured-9628.test.tsx` owns that member whole. The set itself is asserted as a WHITELIST: an undeclared lane member reaches no sink, with a `className` marker on the same lane in the same render as the lit control. ⚠️ The DECLARATION half is a different file and deliberately not duplicated here: `packages/types/src/__tests__/object-kanban-columns-declared-8913.test.ts` (objectui#8913/#8989) parses lane bags against both published faces, and every assertion in it is a `safeParse` — it cannot say what the board DOES with a member it admitted, which is objectui#8068\'s criterion. Read end to end before being cited. New file (objectui#8071 slice 16).',
+    pins: 'The SWIMLANE element\'s six members, each at its OWN sink and none assumed to behave like its neighbour, driven through the real renderer on a real adapter. `id` decides which records land in the lane (`groups[col.id]`) and names the heading, with an unmatched record swept into the trailing lane rather than dropped (objectui#2792) as the control. ⭐ `title` is the lane\'s accessible name and ⛔ NOT a bucketing key: it used to be a second, undeclared BUCKETING ALIAS, so renaming a lane moved records; objectui#10069 (ruling A) retired it and FLIPPED that row, so a record whose stored group value is the lane\'s TITLE is now swept into the trailing lane with a console warn. `cards` is a UNION and not a replacement — static lane cards survive the fetch, come first, and are not de-duplicated against it. `limit` is displayed beside the count and flags the lane, and ⛔ never truncates: the over-limit row asserts every card still renders, so a pin watching only the badge could not stay green under a renderer that dropped the overflow. `className` reaches that lane\'s container and no other. `collapsed` withholds that lane\'s cards while its neighbour keeps them — the member-set row only, because `columnCollapsedHonoured-9628.test.tsx` owns that member whole. The set itself is asserted as a WHITELIST: an undeclared lane member reaches no sink, with a `className` marker on the same lane in the same render as the lit control. ⚠️ The DECLARATION half is a different file and deliberately not duplicated here: `packages/types/src/__tests__/object-kanban-columns-declared-8913.test.ts` (objectui#8913/#8989) parses lane bags against both published faces, and every assertion in it is a `safeParse` — it cannot say what the board DOES with a member it admitted, which is objectui#8068\'s criterion. Read end to end before being cited. New file (objectui#8071 slice 16).',
   },
   'object-kanban.conditionalFormatting': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
@@ -2446,6 +2811,22 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'ONE nested position and no more: `schema.grouping?.fields?.[0]?.field` is the FALLBACK source of `swimlaneField`, and that is the entire member contract this board carries for the key. Three rows make it a reading rather than a claim — the swimlane layout appears keyed by `fields[0].field` where without the key there is none; an explicit `swimlaneField` WINS over it; and a second `fields` entry changes nothing, which is what pins the read at `[0]` rather than at "the fields list". The declared description says the rest is inert precisely so the declaration does not recommend a write the renderer cannot honour — this file is what keeps that sentence true. The spec row is `z.unknown()`, so the read site is the whole member contract (objectui#8313).',
   },
+  'object-master-detail-form.cancelText': {
+    file: 'packages/plugin-form/src/MasterDetailForm.i18nLabels.test.tsx',
+    pins: 'The I18nLabel object arm, resolved at the read site: through the real `SchemaRenderer`, a `properties.cancelText` map under a `zh` UI renders the map\'s `zh-CN` entry on the Cancel button, with `en` listed FIRST so an `en` or first-entry fallback fails the row. Before objectui#10935 the map was a raw Button child and threw "Objects are not valid as a React child". The button renders only when the host supplies `onCancel`, so the row adds one beside the document and asserts the host handler still runs. A plain-string control and the nothing-authored control (`Cancel`) stay green, and the first row asserts the mounted documents pass `safeValidateSchema`. The manifest half (a map is not a `type-mismatch`) is `masterDetailFormI18nLabelManifest.test.ts` in this directory (objectui#10935).',
+  },
+  'object-master-detail-form.dataSource': {
+    file: 'packages/plugin-form/src/MasterDetailForm.elementDataSource.test.tsx',
+    pins: 'The per-element binding\'s members on the block that writes a parent AND its children in one batch. `object` is the only key mapped (the gate\'s default mapping), asserted at the fetch it causes, and it OUTRANKS a flat `objectName` on the same node: `next[objectKey] = composed.object` is unconditional, and the `??=` spelling would keep a rebound form on the old parent with no diagnostic. ⭐ The row only this block can make: the bound object reaches the DETAIL half. `deriveDetail` picks a child\'s FK by the parent object\'s name and the atomic batch names the parent on its first leg, measured on one child object that carries a lookup to BOTH candidate parents, so the derived FK and the parent leg together say which name won. `view` / `filter` / `sort` / `limit` are NOT mapped: a resolving view adds no parent collection query, an unresolvable one REPORTS, and in `edit` mode each child line read stays `{ $filter: { FK: recordId }, $top: 500 }` whatever the binding carries. ⚠️ Unmapped is not unread: beside a named `view` the gate merges the binding\'s `filter` with the view\'s, so a malformed one WITHHOLDS the whole form behind the malformed-filter notice, with a well-formed one as that row\'s control. A binding-free form is the control for the negatives. `dataSource` is absent from `ComponentPropsMap[\'object-master-detail-form\']` (it is the injected `ELEMENT_DATA_SOURCE_INPUT`), so nothing declared constrains the precedence. Pre-existing file (objectstack#7121), promoted after being read end to end and GROWN by five rows, four facts and a control (objectui#8071 slice 18).',
+  },
+  'object-master-detail-form.details': {
+    file: 'packages/plugin-form/src/__tests__/masterDetailDetailsMembers-8071.test.tsx',
+    pins: 'Members are detail-collection OBJECTS (`MasterDetailDetailConfig`), and unlike this block\'s parent keys the read site is THIS block: `MasterDetailForm` is the key\'s only reader. Each member renders as its own section in AUTHORED order, headed by `title` (fallback `Line Items`), with `columns` reaching the line grid in authored order. ⭐ The sharp row: five members reach the grid through ONE hand-written object and four are RENAMED on the way (`sortField` to `sort_field`, `minRows` to `min_rows`, `maxRows` to `max_rows`, `addLabel` to `add_label`, `amountField` to `total_field`). That object is pinned as a SORTED KEY SET of exactly six, with two off-list members (one in the grid\'s own snake_case spelling) asserted not forwarded and an all-empty control beside it. `inlineMode: \'form\'` makes a list whose Add opens the full form (labelled `Add` when unset), and in grid mode `formFields` wider than `columns` offers the row form; each arm is the other\'s control. `childObject` and `relationshipField` address the atomic batch (each line a create on the child, linked by `{ $ref: 0 }`) and the edit-mode read (`{ $filter: { FK: recordId }, $top: 500 }` per collection). `totalField` receives the sum of the lines\' `amountField` on the PARENT leg, and a collection without one puts nothing there. With `{ childObject }` alone the FK and the columns are DERIVED from the child object, the one member behaviour the spec\'s description promises, and the batch writes the derived FK. `details: []` is the non-vacuity control: no section, no grid, a one-leg batch. The line grid is the REAL `LineItemsField`, wrapped only to record the props it is handed. The spec row is `z.array(z.unknown())`, whose description names five of the twelve members the renderer reads, and the registration declares no `of`, so the read site is the whole member contract. New file (objectui#8071 slice 18).',
+  },
+  'object-master-detail-form.fields': {
+    file: 'packages/plugin-form/src/__tests__/topLevelFieldsWarnCoverage-8847.test.tsx',
+    pins: 'Members are bare PARENT field names drawn in AUTHORED order, against a no-`fields` control whose order is the object\'s. A name the parent does not declare is dropped rather than drawn as an untyped stub, measured with a DETAIL column name because one node here declares two field vocabularies, while the line grid keeps that column. `{ name }` is the same member as the bare name. The two pre-existing rows carry the sharpest member fact: the spec `FormFieldSchema` object that is legal in `sections[].fields` resolves to no name here, draws the named route-1 warning (objectui#8738, objectui#8847) and does not render, with a bare name as the firing control. ⚠️ Pinned as BEHAVIOUR and handed back: the key bounds what is DRAWN, not what the parent leg WRITES. A seeded field it does not list is still written, while the registration calls this key the parent pool for "the submitted set". The intersection with `sections` belongs to the `object-master-detail-form.sections` pin and is not re-asserted. `MasterDetailForm` reads none of this itself: the `parentSchema` memo copies the key onto an `object-form`-shaped node rendered through a DIRECTLY imported `<ObjectForm>`, the hand-written carrier that is why the pin is taken at this block. The spec row is `z.array(z.unknown())` and the registration declares no `of`, so the read site is the whole member contract. Pre-existing file (objectui#8847), promoted after being read end to end and GROWN by five rows (objectui#8071 slice 18).',
+  },
   'object-master-detail-form.initialData': {
     file: 'packages/plugin-form/src/__tests__/masterDetailInitialMembers-8071.test.tsx',
     pins: 'Members are PARENT FIELD NAMES and each member value is that control\'s opening value \u2014 pinned in ONE file with `initialValues`, because this block\'s own registration declares them a pair ("Alternate spelling of `initialValues` the renderer also reads", with new schemas told to prefer `initialValues`) and a pair pinned apart leaves the PRECEDENCE stated nowhere. The precedence is PER MEMBER since objectui#9760: one shared `resolveInitialRecord(schema)` merges `{ ...initialValues, ...initialData }`, so with both authored a member `initialData` says nothing about keeps its `initialValues` value, and an EMPTY `initialData` contributes nothing rather than blanking the parent form. It used to be whole-object (`schema.initialData || schema.initialValues`, where `||` tests the object and `{}` is truthy); objectui#8071 wrote pins only, so it recorded that and handed the defect back, and the maintainer ruling on objectui#9760 repaired it \u2014 the two rows were FLIPPED there, \u26d4 not deleted. \u2b50 The two rows no sibling pin can make are the block\'s own: the seed reaches the PARENT LEG of the atomic batch and nothing else (a member naming a detail column seeds no child row and the posted batch still carries exactly one operation), and in `edit` mode with a `recordId` the fetched record REPLACES both keys wholesale, so a member the record omits opens empty rather than falling back to the seed. Neither key has a read site in this block at all: `MasterDetailForm`\'s `parentSchema` memo copies them key by key onto an `object-form`-shaped object rendered through a DIRECTLY imported `<ObjectForm>` \u2014 no `SchemaRenderer`, no registry lookup \u2014 which is exactly why the pin is taken here, since that hand-written map can drop a key while every declaration still reads correct (the failure `object-form.sections` records twice, objectui#9779 / objectui#9834). A no-keys row renders the same controls empty as the non-vacuity control. Both keys are registered `type: \'object\'` and typed `Record<string, any>`, so every object parses on both declared sides and the read site is the whole member contract. New file (objectui#8071 slice 15).',
@@ -2456,7 +2837,15 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-master-detail-form.sections': {
     file: 'packages/plugin-form/src/__tests__/masterDetailSectionMembers-8071.test.tsx',
-    pins: 'Members are section OBJECTS shaping the PARENT half only \u2014 a member\'s `fields` are parent field names read as a SET, so the OBJECT\'s field order wins over the authored member order, and the block\'s `details` collections keep their own columns through every row. A member that resolves to NO parent field is dropped WHOLE, heading included, measured with a DETAIL column name as the member because that is the mistake this composition invites: one node declares two field vocabularies and only one of them is this key\'s. \u2b50 The sharp row, and it now AGREES with the block\'s own registration. `ObjectForm` builds the parent pool from `schema.fields` FIRST and a section filters against that pool, so authoring both INTERSECTS them \u2014 a section member outside `fields` does not render, and a section whose every member is outside it disappears heading and all. \u26a0 It used to record this as a DIVERGENCE, because the registration declared `fields` "Ignored when `sections` is given \u2014 sections carry their own field lists", and to record the loss as having NO DIAGNOSTIC; objectui#8071 slice 15 handed both back as a finding rather than acting on them, because acting changes either the renderer or the declaration and that card wrote pins only. objectui#9884 ruled it, and the DECLARATION was the wrong half: one `SimpleObjectForm` renders this block\'s parent half and `object-form` alike, and the three sibling `fields` registrations (`object-form`, `form`, `embeddable-form`) declare the key as the field selection with no such exemption, so honouring it would have falsified three declarations to satisfy one \u2014 on a pool that also feeds create defaults, the seed merge and the values a submit carries. The sentence was corrected and the SILENCE closed instead: `warnSectionMemberExcludedByFields` names every such drop, once per section-and-member pair, and is measured BEFORE `applyFieldPerms` so a perms-gated field is never reported as an authoring mistake. \u26d4 So the diagnostic is part of what this row pins now, and slice 15\'s two DOM assertions stand unchanged beside it \u2014 the rendered outcome did not move. Rows 3b, 3c and 3d carry the last-member case (with a counterfactual beside it), the firing control, and the leg keeping the warning off the DIFFERENT silence row 2 owns. The key has no read site in this block: `MasterDetailForm`\'s `parentSchema` memo copies it onto an `object-form`-shaped object rendered through a DIRECTLY imported `<ObjectForm>`, the same hand-written carrier whose dropped keys `object-form.sections` records twice (objectui#9779 / objectui#9834) \u2014 which is why the pin is taken here rather than delegated. \u26d4 Deliberately NOT re-asserted, because they are owned next door by `objectFormSectionMembers-8071.test.tsx` and duplicating them buys nothing: `collapsed` vs `collapsible`, the `name`-alone heading, the untitled trailing bucket and the `description` blurb; the `simple` / `tabbed` presentation routing is owned by `masterDetailFormTypeVocabulary.test.tsx`. A no-sections row is the non-vacuity control. Both declared sides are unconstrained (bare `type: \'array\'` with no `of`; `sections?: any[]`), so the read site is the whole member contract. New file (objectui#8071 slice 15).',
+    pins: 'Members are section OBJECTS shaping the PARENT half only \u2014 a member\'s `fields` are parent field names drawn in the member\'s AUTHORED order (FLIPPED with objectui#10475, which moved `SimpleObjectForm` off a name filter that let the OBJECT\'s field order win), and the block\'s `details` collections keep their own columns through every row. A member that resolves to NO parent field is dropped WHOLE, heading included, measured with a DETAIL column name as the member because that is the mistake this composition invites: one node declares two field vocabularies and only one of them is this key\'s. \u2b50 The sharp row, and it now AGREES with the block\'s own registration. `ObjectForm` builds the parent pool from `schema.fields` FIRST and a section filters against that pool, so authoring both INTERSECTS them \u2014 a section member outside `fields` does not render, and a section whose every member is outside it disappears heading and all. \u26a0 It used to record this as a DIVERGENCE, because the registration declared `fields` "Ignored when `sections` is given \u2014 sections carry their own field lists", and to record the loss as having NO DIAGNOSTIC; objectui#8071 slice 15 handed both back as a finding rather than acting on them, because acting changes either the renderer or the declaration and that card wrote pins only. objectui#9884 ruled it, and the DECLARATION was the wrong half: one `SimpleObjectForm` renders this block\'s parent half and `object-form` alike, and the three sibling `fields` registrations (`object-form`, `form`, `embeddable-form`) declare the key as the field selection with no such exemption, so honouring it would have falsified three declarations to satisfy one \u2014 on a pool that also feeds create defaults, the seed merge and the values a submit carries. The sentence was corrected and the SILENCE closed instead: `warnSectionMemberExcludedByFields` names every such drop, once per section-and-member pair, and is measured BEFORE `applyFieldPerms` so a perms-gated field is never reported as an authoring mistake. \u26d4 So the diagnostic is part of what this row pins now, and slice 15\'s two DOM assertions stand unchanged beside it \u2014 the rendered outcome did not move. Rows 3b, 3c and 3d carry the last-member case (with a counterfactual beside it), the firing control, and the leg keeping the warning off the DIFFERENT silence row 2 owns. The key has no read site in this block: `MasterDetailForm`\'s `parentSchema` memo copies it onto an `object-form`-shaped object rendered through a DIRECTLY imported `<ObjectForm>`, the same hand-written carrier whose dropped keys `object-form.sections` records twice (objectui#9779 / objectui#9834) \u2014 which is why the pin is taken here rather than delegated. \u26d4 Deliberately NOT re-asserted, because they are owned next door by `objectFormSectionMembers-8071.test.tsx` and duplicating them buys nothing: `collapsed` vs `collapsible`, the `name`-alone heading, the untitled trailing bucket and the `description` blurb; the `simple` / `tabbed` presentation routing is owned by `masterDetailFormTypeVocabulary.test.tsx`. A no-sections row is the non-vacuity control. Both declared sides are unconstrained (bare `type: \'array\'` with no `of`; `sections?: any[]`), so the read site is the whole member contract. New file (objectui#8071 slice 15).',
+  },
+  'object-master-detail-form.submitText': {
+    file: 'packages/plugin-form/src/MasterDetailForm.i18nLabels.test.tsx',
+    pins: 'The I18nLabel object arm on the Save button — see `object-master-detail-form.cancelText` for the harness. A `properties.submitText` map under a `zh` UI renders its `zh-CN` entry, where the raw read threw "Objects are not valid as a React child" before objectui#10935. The controls are a plain string rendered as authored and, with nothing authored, the English defaults (`Create` in create mode, `Save` in edit mode) (objectui#10935).',
+  },
+  'object-master-detail-form.title': {
+    file: 'packages/plugin-form/src/MasterDetailForm.i18nLabels.test.tsx',
+    pins: 'The I18nLabel object arm where `title` is displayed: the built-in toast after an EDIT save, which shows only when the host supplies no `onSuccess`. A `properties.title` map under a `zh` UI toasts `采购单 saved`, where the raw read toasted "[object Object] saved" before objectui#10935. The controls are a plain string (`PO saved`) and, with nothing authored, `Saved`. A compile-time row in the same file holds `MasterDetailFormSchema[\'title\']` (and the other two labels) equal to `I18nLabel | undefined` (objectui#10935).',
   },
   'object-metric.aggregate': {
     file: 'packages/plugin-dashboard/src/__tests__/objectMetricQueryMembers-8071.test.tsx',
@@ -2470,6 +2859,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-dashboard/src/ObjectMetric.elementDataSource.test.tsx',
     pins: 'The per-element binding\'s members as a WHITELIST in both directions. Acting: `object` is what gets aggregated, and a named `view`\'s own `filter` becomes the metric\'s scope — with an unresolvable `view` REPORTING instead of aggregating the whole object, which for a metric is the quiet failure (one number, no rows, nothing to notice). Not acting: the same view fixture declares `columns`, `sort` and `pagination`, and the aggregate options bag is asserted whole to keep all three OUT — `OBJECT_METRIC_DATA_SOURCE` names only `filter`, because a metric is one aggregated number with no projection, ordering or page for the rest to act on. A metric with NO binding behaving exactly as before is the control. Pre-existing file (objectstack#6953), promoted here after being read end to end; objectui#8071 slice 8 added the whole-bag row, without which the pin would have been satisfied by a mapping that forwarded everything.',
   },
+  'object-metric.description': {
+    file: 'packages/plugin-dashboard/src/__tests__/ObjectMetric.i18nLabel-10993.test.tsx',
+    pins: 'The I18nLabel object arm as the sub-caption under the value — see `object-metric.label` for the harness. A `properties.description` map paints its `zh-CN` entry on the tile under `zh` and its `en` entry under `en`; a plain-string control renders as authored (objectui#10993).',
+  },
   'object-metric.drillDown': {
     file: 'packages/plugin-dashboard/src/__tests__/objectMetricDrillDownMembers-8071.test.tsx',
     pins: 'The click-through config\'s member set, read through the registered block on a LIVE drawer. `enabled` is `!== false`, not truthiness, and all four arms (absent, `{}`, `true`, `false`) are pinned against each other, so a "simplification" to `!!config.enabled` — which would silently disable every `{}` config — is red; and it is not sufficient on its own, because without an object name AND a data source the tile stays unclickable rather than opening a list it cannot fetch. `target` chooses the panel SHAPE (`\'dialog\'` = centred modal, anything else the edge-anchored sheet), each arm the other\'s control. `title` OUTRANKS the tile\'s own `title` and `label`, with the chain below it (`title`, then `label`, then the literal "Details") pinned as its fallback. `report` selects the drawer BODY by its own SHAPE — an `objectName`-bearing (or array-`columns`) report goes to a `spec-report` body while anything else falls through to the inline record list, and whether the record list is fetched at all is the observable that separates them. The invariant the key hangs off is pinned too: the drilled list is scoped by the METRIC\'s resolved filter with macros already substituted — the registration\'s own promise that the number and the records behind it agree, and a drawer listing every row of the object is the quiet failure it exists to stop. LIMIT, stated and deliberately NOT asserted: `filter` and `mode` have no read site on this block — a metric has no click event for `${event.*}` to resolve against, and its registration promises the drilled list agrees with the number — so they are left to objectui#8970\'s open question rather than frozen into the pin, because an assertion that a member is dead has to be deleted before the gap can be closed. The other three the shared component honours (`columns`, `maxRows`, `target: \'navigate\'`) were dead here for the same reason and are now LIVE: objectui#8970 routed this block through `DrillDownDrawer`, and they are pinned on their effects in `ObjectMetricWidget.drillRoutedToSharedDrawer-8970.test.tsx`. The spec row is `z.unknown()`, so the read site is the whole member contract. New file (objectui#8071 slice 9).',
@@ -2477,6 +2870,14 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'object-metric.filter': {
     file: 'packages/plugin-dashboard/src/__tests__/objectMetricQueryMembers-8071.test.tsx',
     pins: 'No named member set — the renderer never inspects the predicate — so the member shape is the SPELLING it arrives under, and there are two, chosen by an adapter capability the author cannot see: FLAT under its own name inside the aggregate options bag, and WRAPPED as `$filter` on the no-`aggregate()` `find()` fallback. Collapsing them into one drops the predicate on whichever path lost and the tile counts every row — the same defect `element:number.filter` was pinned for (slice 7) on a different renderer. Two further halves: placeholders are resolved BEFORE the query (an authored `{current_quarter_start}` reaches the adapter as a real date, and a macro surviving onto the wire is a literal nobody matches), and the key is read BY VALUE rather than by identity (`JSON.stringify` memo) — a deep-equal rebuild by a re-rendering parent must NOT re-probe while a changed comparand MUST and carries the new predicate, each arm the other\'s control against a dependency "simplified" to the raw object. New file (objectui#8071 slice 8).',
+  },
+  'object-metric.label': {
+    file: 'packages/plugin-dashboard/src/__tests__/ObjectMetric.i18nLabel-10993.test.tsx',
+    pins: 'The I18nLabel object arm on the tile\'s heading, through the real `SchemaRenderer` and the registered `ObjectMetricBlock`, in the `{ type, properties }` form, every map listing `en` FIRST so an `en` or first-entry fallback fails the `zh` row. A `properties.label` map paints its `zh-CN` entry on the tile under `zh` and its `en` entry under `en`, and heads the drill-down panel when no `title` is authored; a plain-string control renders as authored. `MetricWidget` resolves it with `pickLocalized` against the UI language; `ObjectMetricWidget.i18nLabel.test.tsx` pins the same resolution on the widget mounted directly. The manifest half (a map is not a `type-mismatch`) is `i18nLabelInputsManifest-10993.test.ts` in this directory (objectui#10993).',
+  },
+  'object-metric.title': {
+    file: 'packages/plugin-dashboard/src/__tests__/ObjectMetric.i18nLabel-10993.test.tsx',
+    pins: 'The I18nLabel object arm as the drill-down panel\'s heading — see `object-metric.label` for the harness. The tile is clicked open and a `properties.title` map heads the panel with its `zh-CN` entry under `zh` and its `en` entry under `en`; a plain-string control heads it as authored (objectui#10993).',
   },
   'object-metric.trend': {
     file: 'packages/plugin-dashboard/src/__tests__/objectMetricTrendMembers-8071.test.tsx',
@@ -2552,7 +2953,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'record:path.stages': {
     file: 'packages/plugin-detail/src/renderers/__tests__/recordPathStagesMembers-8071.test.tsx',
-    pins: 'The stage member set `{ value, label, terminal? }`, read through the real renderer. `value` is stage IDENTITY — compared against the record\'s `statusField` to choose the current stage, controlled by moving the RECORD rather than the array, by an unmatched value leaving NO stage current, and by a record carrying some stage\'s LABEL still matching nothing. `label` is the rendered text and the `value` behind it never appears. `terminal` OUTRANKS the `WON_TOKENS`/`LOST_TOKENS` heuristic, pinned only on fixtures where the member CONTRADICTS the heuristic and each paired with the identical stage minus `terminal` to show which way the heuristic was pointing, plus an unclassified control. Deliberately the DESKTOP row only: `record-path.crossRowClassification.test.tsx` owns the cross-row agreement invariant, which is a different claim (objectui#8071 slice 6).',
+    pins: 'The stage member set `{ value, label, terminal? }`, read through the real renderer. `value` is stage IDENTITY — compared against the record\'s `statusField` to choose the current stage, controlled by moving the RECORD rather than the array, by an unmatched value leaving NO stage current, and by a record carrying some stage\'s LABEL still matching nothing. `label` is the rendered text and the `value` behind it never appears. `terminal` OUTRANKS the `WON_TOKENS`/`LOST_TOKENS` heuristic, pinned only on fixtures where the member CONTRADICTS the heuristic and each paired with the identical stage minus `terminal` to show which way the heuristic was pointing, plus an unclassified control. Deliberately the DESKTOP row only: `record-path.crossRowClassification.test.tsx` owns the cross-row agreement invariant, which is a different claim (objectui#8071 slice 6). The `label` member is an `I18nLabel`: its locale-map arm, resolved before the stages are classified or rendered, is pinned through the real `SchemaRenderer` under `zh` and `en` by `record-path.stageLabelI18nLabel-10993.test.tsx` (objectui#10993).',
   },
   'record:quick_actions.actionNames': {
     file: 'packages/plugin-detail/src/__tests__/recordQuickActionsInputs.actionNamesFallback.test.tsx',
@@ -2582,30 +2983,23 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-detail/src/__tests__/RecordRelatedListRenderer.sortMembers.test.tsx',
     pins: 'Members are `{ field, order }` and reach `$orderby` verbatim and IN ORDER, driven through the block to the wire because `normalizeSortSpec` — not the block — is what reads them. The rows a declaration reading only "array" can never publish: a member with no `field` is dropped SILENTLY while its siblings survive (a two-key order quietly becomes one-key), an all-unusable array sends no `$orderby` rather than an empty clause, and the STRING arm the registration does not declare at all is read as the OData-ish `field` / `-field` — deliberately NOT `ListView.sort`\'s legacy space-separated clause, which the same spec union spells the same way and means differently (objectui#8221 retired that one at the derivation boundary only, and this key still accepts what it accepts). A CONTROL row pins the declaration as a bare array with no `of` and no description, so making it honest reds this file and forces the pins to be re-read (objectui#8071).',
   },
+  'record:related_list.title': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/record-related-list.titleI18nLabel-10993.test.tsx',
+    pins: 'The I18nLabel object arm on the list\'s heading: through the real `SchemaRenderer`, this block\'s registration and the real `RelatedList`, in the `{ type, properties }` form inside a record context. A `properties.title` map paints its `zh-CN` entry under `zh` and its `en` entry under `en`, every map listing `en` FIRST so an `en` or first-entry fallback fails the `zh` row; a plain-string control renders as authored, and a no-title control shows the related object\'s label instead, so the map rows read the authored text. `RecordRelatedListRenderer` resolves it with `pickLocalized` against the UI language. The manifest half (a map is not a `type-mismatch`) is `i18nLabelInputsManifest-10993.test.ts` in this directory (objectui#10993).',
+  },
 };
 
-/**
- * The reason every entry in `MEMBER_PIN_EXEMPTIONS` carries today.
- *
- * One shared constant rather than one near-copy per entry, because the reason
- * really is uniform and a copy is what drifts: none of these keys has a pin, and
- * writing one string per key is not the dispatched scope of the card that built
- * this direction. (The measured population size lives in the string below, where
- * it is attributed to the card that measured it and dated by it.)
- * objectui#8068 prescribes the transition itself for a population this size, and
- * objectui#8071 owns the work — key by key, deleting an entry here in the same
- * change that registers its pin.
- *
- * A key that needs a DIFFERENT reason — a shape a pin genuinely cannot express,
- * a contract question upstream owns — gets its own string. The map is
- * `Record<string, string>` precisely so that stays possible without a second
- * mechanism.
- */
-const AWAITING_A_PIN =
-  'No per-block member pin today. Measured with objectui#8068: 58 of the 77 array/object-armed ' +
-  'inputs on covered blocks had none, which is the population size that card prescribes a ' +
-  'self-deleting transition for rather than a same-PR sweep. objectui#8071 owns writing the pin; ' +
-  'delete this entry in the same change that registers it.';
+// `AWAITING_A_PIN` — the one shared reason every key in objectui#8068's
+// measured population carried ("objectui#8071 owns writing the pin; delete this
+// entry in the same change that registers it") — was DELETED by objectui#8071
+// slice 18 together with its last three entries (`object-master-detail-form`'s
+// `dataSource`, `details` and `fields`). With no entry carrying it, it was a
+// reason for nothing, and a constant nothing reads is a claim nothing checks.
+// The two docblocks below still contrast against it by name; read those
+// mentions as the retired constant. The rule it stated survives as the
+// discipline of this map: a key that needs a reason other than "no pin yet" —
+// a shape a pin genuinely cannot express, a contract question upstream owns —
+// gets its own string, which is why the map stays `Record<string, string>`.
 
 /**
  * The reason the four keys objectui#8176 brought INTO this population carry.
@@ -2716,12 +3110,10 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
 
   // object-master-detail-form — objectui#8071 slice 15 pinned the two PARENT
   // SEED keys (`initialData`, `initialValues`, an alternate-spelling pair the
-  // registration declares as one) and `sections`; the three below are what that
-  // first bite left, and they are the block's other half — where the parent
-  // record comes from and what the child collections are.
-  'object-master-detail-form.dataSource': AWAITING_A_PIN,
-  'object-master-detail-form.details': AWAITING_A_PIN,
-  'object-master-detail-form.fields': AWAITING_A_PIN,
+  // registration declares as one) and `sections`, and slice 18 the block's
+  // other half (`dataSource`, `details`, `fields`); the block is now fully
+  // pinned, and this header stays only as a note for the next reader who
+  // greps for it.
 
   // object-metric — objectui#8071 slice 8 pinned the four QUERY members
   // (`dataSource`, `aggregate`, `filter`, `compareTo`) and slice 9 the two
@@ -2766,6 +3158,35 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // objectui#8071 slice 16 pinned both, so the block is now fully pinned, the
   // objectui#8176 correction is spent to the last key, and this header stays
   // only as a note for the next reader who greps for it.
+
+  // ⚠️ SIX 17.5.0 BOOKINGS — objectui#11111 decision 3 = B (record 5902351047).
+  // The array/object-armed inputs of the blocks 17.5.0 newly judges, owed a
+  // member pin by objectui#11168. Counted into `MEMBER_PIN_EXEMPTION_CEILING`
+  // (1 -> 7) and capped at these six; that card's pins strike them.
+  ...owedEntries(
+    'action:group',
+    ['actions'],
+    'objectui#11168',
+    'A MEMBER PIN OWED: `action:group.actions` is array/object-armed on a block 17.5.0 newly judges, and no pin states its members.',
+  ),
+  ...owedEntries(
+    'action:menu',
+    ['actions'],
+    'objectui#11168',
+    'A MEMBER PIN OWED: `action:menu.actions` is array/object-armed on a block 17.5.0 newly judges, and no pin states its members.',
+  ),
+  ...owedEntries(
+    'element:definition-list',
+    ['items'],
+    'objectui#11168',
+    'A MEMBER PIN OWED: `element:definition-list.items` is array/object-armed on a block 17.5.0 newly judges, and no pin states its members.',
+  ),
+  ...owedEntries(
+    'element:repeater',
+    ['fields', 'filter', 'sort'],
+    'objectui#11168',
+    'A MEMBER PIN OWED: this `element:repeater` input is array/object-armed on a block 17.5.0 newly judges, and no pin states its members.',
+  ),
 };
 
 /**
@@ -3501,11 +3922,58 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
  * `NO_READ_SITE_TO_PIN` reading was not re-measured here either — slice 7's
  * measurement still stands.
  *
+ * ## 4 -> 1 (objectui#8071 slice 18) — `object-master-detail-form` CLOSES,
+ * and `AWAITING_A_PIN` goes with its last three entries
+ *
+ * `dataSource`, `details` and `fields` are pinned, which takes the last block
+ * carrying the generic reason to zero. Set arithmetic: -3 exemptions,
+ * -3 ceiling, +3 pins, and the remaining count equals this constant, so the
+ * enumeration is the whole population: one entry,
+ * `record:related_list.actions`.
+ *
+ * ⚠️ Two of the three are PROMOTED pre-existing files and one is new, and the
+ * split follows what each file already stated. `MasterDetailForm.elementDataSource`
+ * already fixed WHICH binding members this block honours, and was grown by
+ * where the honoured one goes: it OUTRANKS the flat `objectName`, and it
+ * reaches the DETAIL half (the derived child FK and the batch's parent leg).
+ * It was also grown by the finding that "unmapped" is not "unread": a
+ * malformed binding `filter` beside a named view withholds the whole form.
+ * `topLevelFieldsWarnCoverage-8847` already pinned the `FormFieldSchema`
+ * trap, and was grown by what a legal member IS. `details` is this block's
+ * own half, and nothing stated its twelve members member by member, so its
+ * pin is new.
+ *
+ * ⚠️ One member fact is pinned as BEHAVIOUR and handed back rather than
+ * repaired here, the same choice slice 9 made and for the same reason:
+ * `fields` bounds what the parent form DRAWS and not what its batch leg
+ * WRITES, while the registration calls the key the parent pool for "the
+ * submitted set".
+ *
+ * ⚠️ `AWAITING_A_PIN` was deleted in this commit. Its last entries were these
+ * three, and a reason no entry carries says nothing (see the note where it
+ * stood). The constant beside it, `AWAITING_A_PIN_NEWLY_JUDGED`, is kept,
+ * because the objectui#8176 audit test still reads it.
+ *
+ * ⚠️ Unchanged by this slice: `record:related_list.actions`, whose
+ * `NO_READ_SITE_TO_PIN` reading was not re-measured here. The one unit left
+ * in this constant is that key's, and it moves only with the enforce-or-remove
+ * decision the constant names, which the spec owns.
+ *
  * ⇒ The rule for every future slice of objectui#8071: delete the entry, register
  * the pin, and set this constant to the new count. Not to the new count plus
  * room.
+ *
+ * ## 1 -> 7 (objectui#11073, the @objectstack/spec 17.5.0 bump) — the one rise
+ * since the objectui#8176 correction, and it is a RULING, not room
+ *
+ * The six blocks 17.5.0 newly judges bring six array/object-armed inputs with
+ * no pin. objectui#11111 decision 3 = B (record 5902351047) booked all six
+ * OWED to objectui#11168 rather than pinning them in the bump. 1 (the
+ * `NO_READ_SITE_TO_PIN` unit above) + 6 booked = 7, the exact count, and
+ * `the objectui#11111 ledger is capped at exactly the entries it lists` pins
+ * the six by name. objectui#11168's pins take this back to 1.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 4;
+const MEMBER_PIN_EXEMPTION_CEILING = 7;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.
@@ -3658,10 +4126,16 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       // blocks counted on the other side of the partition. `judged` and
       // `registeredPropless` do not move, which is the check that the pin
       // added blocks rather than moving any across the partition (objectui#7122).
-      specCarried: 45,
-      judged: 29,
+      //
+      // 45 -> 55 on the `@objectstack/spec` 17.5.0 pin (objectui#11073): ten new
+      // blocks. Six are judged (`MINOR_17_5_BLOCKS`, 29 -> 35); four are
+      // registered lazily and unloaded here, booked OWED to objectui#11168 under
+      // objectui#11111 decision 3 = B (9 -> 13). `registeredPropless` does not
+      // move. 35 + 7 + 13 = 55.
+      specCarried: 55,
+      judged: 35,
       registeredPropless: 7,
-      ledgeredUnjudgeable: 9,
+      ledgeredUnjudgeable: 13,
     });
     // Non-vacuity, stated rather than implied by the numbers above.
     expect(covered.length).toBeGreaterThan(0);
@@ -3683,6 +4157,12 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // exists and is reachable, so `UNJUDGED_SPEC_BLOCKS` would be a false
     // statement about it. `assertFullyLoaded` in `sdui-parser` makes the same
     // demand of manifest generation for the same reason.
+    //
+    // ⚠️ ONE RULED EXCEPTION, CAPPED: objectui#11111 decision 3 = B (record
+    // 5902351047) booked the four lazily registered blocks 17.5.0 newly carries
+    // OWED to objectui#11168, which loads and judges them. The expectation is
+    // EXACTLY those booked entries, so a fifth unloaded block is still red, and
+    // the owner card's landing takes this back to `[]`.
     const registeredButUnloaded = Object.keys(ComponentPropsMap)
       .filter((type) => ComponentRegistry.hasLazy(type))
       .filter((type) => ComponentRegistry.getConfig(type) === undefined)
@@ -3692,7 +4172,7 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       'these blocks are registered lazily and this file has not loaded them, so ' +
         'their `inputs` are invisible to both directions — add an eager import ' +
         'of the owning plugin package alongside the two at the top of this file',
-    ).toEqual([]);
+    ).toEqual(owedIdsOf(UNJUDGED_SPEC_BLOCKS));
   });
 
   it('every unjudged-block ledger entry still describes a block this gate cannot judge', () => {
@@ -3707,12 +4187,42 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
         Object.keys(ComponentPropsMap),
         `${type} is ledgered but the spec no longer carries it — delete the entry`,
       ).toContain(type);
+      if (reason.startsWith('RETIRED UPSTREAM')) {
+        // Both halves, so neither can rot alone: the spec still retires the
+        // type, and its kept row still accepts nothing.
+        expect(
+          isRetiredUpstream(type),
+          `${type} is ledgered as retired upstream, and the spec does not retire it — ` +
+            'give the entry its real reason, or judge the block',
+        ).toBe(true);
+        expect(
+          specTopLevelKeys(type),
+          `${type} is ledgered as retired upstream, and its row accepts keys — judge it`,
+        ).toEqual([]);
+        continue;
+      }
+      // objectui#10033: the other two reasons may not describe a retired type,
+      // or a retirement leaves a reason in place that no longer says why.
+      expect(
+        isRetiredUpstream(type),
+        `${type} is retired upstream, and its ledger reason does not say so — ` +
+          'rewrite the entry as RETIRED UPSTREAM',
+      ).toBe(false);
       if (reason.startsWith('EMPTY SPEC SHAPE')) {
         expect(
           specTopLevelKeys(type),
           `${type} is ledgered as having an empty spec shape, and it does not — ` +
             'it now has an authoring surface, so it must be judged',
         ).toEqual([]);
+      } else if (reason.startsWith(OWED_PREFIX)) {
+        // OWED (objectui#11111 decision 3 = B): still registered lazily and still
+        // unloaded here. Loading it is the owner card's work, and the day that
+        // lands this entry goes red and the block gets judged.
+        expect(
+          ComponentRegistry.hasLazy(type) && ComponentRegistry.getConfig(type) === undefined,
+          `${type} is booked as registered lazily and unloaded here, and it no longer is — ` +
+            'judge it and strike the entry',
+        ).toBe(true);
       } else {
         // NOT REGISTERED, DELIBERATELY. `getKnownTypes` includes pending lazy
         // stubs on purpose: a stub is a registration, and satisfying this
@@ -4081,7 +4591,9 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // direction — greening a fresh divergence on these two blocks by writing a
     // nineteenth entry instead of declaring the input.
     //
-    // ZERO is the MEASURED backlog today, not a budget. `object-calendar`
+    // TWO is the BOOKED backlog today — objectui#8652's `navigation` pair,
+    // ruled at the 17.5.0 bump (the last row of the table below) — and ZERO
+    // is what it measured before that bump, not a budget. `object-calendar`
     // publishes all nine keys its spec row declares; `object-kanban` publishes
     // thirteen of fourteen, and the fourteenth is RULED rather than owed —
     // objectui#8313 emptied the board, objectui#8314 emptied the calendar, and
@@ -4108,6 +4620,15 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     //    0  objectui#8201 slice 2 lands the PM's Q1 = A ruling on the last
     //        entry — `object-kanban.quickAdd` becomes a RULED CARVE-OUT and
     //        moves into `LAZY_BLOCK_RULED_CARVE_OUTS`
+    //    0  the `@objectstack/spec` 17.5.0 bump carries objectui#8285's ruled
+    //        retirement: the carve-out's entry is harvested and the list
+    //        empties (objectui#11073) — the MAP is now empty on these blocks too
+    //    2  the same bump: 17.5.0 declares `navigation` on both blocks, and
+    //        objectui#11111 decision 3 = B (record 5902351047) BOOKED the two
+    //        keys OWED to objectui#8652 instead of declaring them in the bump.
+    //        The only step UP this ceiling has taken, and it is a ruling, not
+    //        headroom: the cap is exactly the two booked entries, and
+    //        objectui#8652's landing takes it back to 0.
     //
     // ⚠️ THE LAST STEP IS THE ONLY ONE THAT IS NOT A DECLARATION, and reading
     // it as one would be the wrong lesson. Every step above was this ceiling's
@@ -4161,14 +4682,20 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       'a new unpublished-key exemption was added on a block objectui#8176 newly ' +
         'judged — declare the input at its registration site instead; the ' +
         'backlog list is shrink-only',
-    ).toBeLessThanOrEqual(0);
+    ).toBeLessThanOrEqual(2);
     // Lower it here when the owning cards land, so the ceiling keeps ratcheting
     // rather than banking the headroom their fixes free up.
     expect(
       backlog.length,
       'the objectui#8176 backlog shrank — lower the ceiling above to match, in ' +
         'the same change that declared the input',
-    ).toBe(0);
+    ).toBe(2);
+    // …and the two it holds are exactly objectui#8652's booked `navigation`
+    // pair, so the ruling's room cannot be spent on a different key.
+    expect(backlog.sort(), 'the backlog is not the two booked navigation keys').toEqual([
+      'object-calendar.navigation',
+      'object-kanban.navigation',
+    ]);
   });
 
   it('the one ruled carve-out on a newly judged block is real, and names its exit', () => {
@@ -4181,11 +4708,13 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     //
     // 1. PINNED BY NAME. Growing the list has to be a visible edit to a
     //    literal, never a side effect of writing one more exemption.
+    //    EMPTY since the 17.5.0 bump harvested `object-kanban.quickAdd`
+    //    (objectui#11073) — the exit this list named, landed upstream.
     expect(
       [...LAZY_BLOCK_RULED_CARVE_OUTS].sort(),
       'a ruled carve-out was added on a newly judged block — a ruling is a ' +
         'maintainer or PM decision on the record, so name it here and cite it',
-    ).toEqual(['object-kanban.quickAdd']);
+    ).toEqual([]);
 
     for (const id of LAZY_BLOCK_RULED_CARVE_OUTS) {
       const [type] = splitExemptionKey(id);
@@ -4217,7 +4746,7 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     }
   });
 
-  it('the eight tombstoned keys are recognised, not exempted — and not published either', () => {
+  it('the nine tombstoned keys are recognised, not exempted — and not published either', () => {
     // The pin the harvest leaves behind (objectui#3809). Deleting eight
     // exemptions is only half the change: the derived assertions above would go
     // green just as readily if a future edit RE-EXEMPTED one of these keys, or
@@ -4227,7 +4756,8 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // the same reason the `#3808 / #3830` and `rc.6 record_picker` pins next door
     // are written by name.
     //
-    // Five upstream retirements, eight keys, several facts each. The list is
+    // Six upstream retirements, nine keys, several facts each (eight through
+    // 17.4.0; `object-kanban.quickAdd` joined at 17.5.0). The list is
     // pin-dependent by construction and that is the point: it is the measurement
     // (`@objectstack/spec@17.0.0`, and the same eight on the rc.6 that preceded
     // it — this change was verified on both), so a pin that un-retires one of
@@ -4242,6 +4772,10 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       ['page:header', 'icon'],
       ['page:tabs', 'type'],
       ['record:details', 'layout'],
+      // The ninth, harvested at the `@objectstack/spec` 17.5.0 bump
+      // (objectui#11073): objectui#8285's ruled retirement, which emptied
+      // `LAZY_BLOCK_RULED_CARVE_OUTS` in the same change.
+      ['object-kanban', 'quickAdd'],
     ];
 
     for (const [type, key] of HARVESTED) {
@@ -4760,7 +5294,10 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       expect(declaredInputs(type) ?? [], `${type} stopped publishing ${key}`).toContain(key);
       expect(Object.keys(OFF_SPEC_EXEMPTIONS)).not.toContain(`${type}.${key}`);
     }
-    expect(Object.keys(OFF_SPEC_EXEMPTIONS)).toEqual([]);
+    // Empty since rc.6 but for the one entry objectui#11111 decision 3 = B
+    // booked to objectui#11168 at the 17.5.0 bump — pinned by name, so nothing
+    // else rides in; objectui#11168's landing takes this back to `[]`.
+    expect(Object.keys(OFF_SPEC_EXEMPTIONS)).toEqual(['action:group.name']);
   });
 
   // ── the MEMBER-PIN direction (objectui#8068) ───────────────────────────────
@@ -4965,5 +5502,55 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       'a member-pin exemption was added on a block objectui#8176 newly judged ' +
         'that is not part of the measured correction — it needs a pin, not room',
     ).toEqual([...NEWLY_JUDGED_UNPINNED_MEMBERS].sort());
+  });
+
+  it('the objectui#11111 ledger is capped at exactly the entries it lists', () => {
+    // objectui#11111 decision 3 = B (record 5902351047): the 17.5.0 bump
+    // re-pins and declares nothing, and every difference it surfaces is booked
+    // to an owner card with an expiry — see `OBJECTUI_11111_LEDGER_CAPS`. This
+    // is what keeps "booked" from becoming "unbounded": each ledger's booked
+    // entries must number EXACTLY its cap (so one more is red, and a struck one
+    // demands the cap come down with it), each must be routed to the card the
+    // ruling names for it, and each must carry the ruling and its expiry.
+    const ledgers: Array<[keyof typeof OBJECTUI_11111_LEDGER_CAPS, Record<string, string>]> = [
+      ['unjudgedBlocks', UNJUDGED_SPEC_BLOCKS],
+      ['offSpecInputs', OFF_SPEC_EXEMPTIONS],
+      ['unpublishedKeys', UNPUBLISHED_EXEMPTIONS],
+      ['refusedArms', OFF_SPEC_ARM_EXEMPTIONS],
+      ['memberPins', MEMBER_PIN_EXEMPTIONS],
+    ];
+    const reasons: string[] = [];
+    for (const [name, ledger] of ledgers) {
+      const owed = owedIdsOf(ledger);
+      expect(
+        owed.length,
+        `${name}: the booked entries are not exactly the cap — strike an entry and ` +
+          'lower the cap in the same change; the cap never rises',
+      ).toBe(OBJECTUI_11111_LEDGER_CAPS[name]);
+      for (const id of owed) {
+        const reason = ledger[id];
+        const owner = objectui11111OwnerOf(id);
+        expect(
+          reason.startsWith(`${OWED_PREFIX}${owner}.`),
+          `${id} is not booked to ${owner}, the card the ruling routes it to`,
+        ).toBe(true);
+        expect(reason, `${id} does not cite the ruling`).toContain(
+          'objectui#11111 decision 3 = B (record 5902351047)',
+        );
+        expect(reason, `${id} carries no expiry`).toContain(
+          `Expires ${OBJECTUI_11111_EXPIRES}, or when ${owner} lands`,
+        );
+        reasons.push(reason);
+      }
+    }
+    // Per-owner totals, so an entry cannot move between owners without a diff here.
+    expect(
+      Object.fromEntries(
+        OBJECTUI_11111_OWNERS.map((owner) => [
+          owner,
+          reasons.filter((reason) => reason.startsWith(`${OWED_PREFIX}${owner}.`)).length,
+        ]),
+      ),
+    ).toEqual({ 'objectui#11168': 62, 'objectui#8652': 2, 'objectui#8649': 9 });
   });
 });

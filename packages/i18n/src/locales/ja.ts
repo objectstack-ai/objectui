@@ -128,12 +128,12 @@ const ja = {
     printDialogHint: "ブラウザーの印刷ダイアログを開きます（PDF エクスポートではありません）",
     // The non-grid row ceiling's footnote (objectui#7210). Two keys because
     // there are two conditions: a reported `total` states the fact with BOTH
-    // numbers, a missing one cannot name how many. Same split as
-    // `grid.grouping.partialNotice`. Kept terse deliberately — this copy is
-    // eagerly loaded, and since objectui#7399 these bytes are budgeted by the
-    // `i18n-locales` chunk, not `framework`. ⛔ That ceiling's headroom is
-    // deliberately NOT restated here — it moves on every re-baseline, and the
-    // figure that was here went stale. `pnpm check:eager-closure` prints it.
+    // numbers, a missing one cannot name how many. Kept terse deliberately —
+    // this copy is eagerly loaded, and since objectui#7399 these bytes are
+    // budgeted by the `i18n-locales` chunk, not `framework`. ⛔ That ceiling's
+    // headroom is deliberately NOT restated here — it moves on every
+    // re-baseline, and the figure that was here went stale.
+    // `pnpm check:eager-closure` prints it.
     rowCeilingNote: "{{total}} 件中、最初の {{shown}} 件を表示しています。フィルターを絞り込んでください。",
     rowCeilingNoteUnknownTotal: "最初の {{shown}} 件を表示しています。フィルターを絞り込んでください。",
   },
@@ -147,6 +147,14 @@ const ja = {
       acknowledge: '保存しました',
       copyAll: 'すべてコピー',
     },
+    notAvailableHere: '「{{action}}」は現在のページでは利用できません。',
+    completedSuccessfully: '操作が正常に完了しました',
+    failed: '操作に失敗しました',
+    parallelFailed: '1 つ以上の並列操作が失敗しました',
+    undo: '元に戻す',
+    undone: '変更を元に戻しました',
+    undoneOperation: '元に戻す: {{description}}',
+    redoneOperation: 'やり直す: {{description}}',
   },
   validation: {
     required: "{{field}}は必須です",
@@ -164,13 +172,38 @@ const ja = {
   },
   form: {
     noPermissionToSave: "このレコードを保存する権限がありません。",
+    noPermissionToCreate: "{{object}}を作成する権限がありません。フィールドは読み取り専用です。",
+    noPermissionToEdit: "{{object}}を編集する権限がありません。フィールドは読み取り専用です。",
     submitFailed: "保存できませんでした。もう一度お試しください。",
     uploadInFlight: "アップロードが完了してから保存してください。",
+    clearedOnHide: "現在の値に該当しなくなった項目をクリアしました: {{fields}}",
     discardTitle: "変更を破棄しますか？",
     discardMessage: "保存されていない変更があります。このままフォームを閉じると編集内容は失われます。",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible
     // description, used when the form declares no `description` of its own.
     dialogDescriptionFallback: "フォームの項目を入力してから、送信またはキャンセルしてください。",
+    deniedDescription: "このフィールドを編集する権限がありません。",
+    masterDetail: {
+      loadingColumns: "列を読み込み中…",
+      subtotal: "小計",
+      tax: "税（{{rate}}%）",
+      total: "合計",
+      lineItem: "明細行",
+      rowTitle: "{{title}} — {{row}} 行目",
+      applyRow: "適用",
+      editorDescription: "レコードとその明細行を入力してから、保存してください。",
+      noChildObject: "このコレクションには子オブジェクトが設定されていません。{{property}} に、行を一覧表示するオブジェクトを設定してください。",
+      schemaUnavailable: "{{object}} のスキーマを読み込めなかったため、このコレクションには表示する列がありません。オブジェクトが存在し読み取り可能であることを確認してから、再読み込みしてください。",
+      noRelationshipField: "{{object}} が {{parent}} にどのようにリンクしているかを特定できませんでした。親を参照する lookup または master_detail フィールドがありません。このコレクションの {{property}} に、親レコードを保持するフィールドを設定してください。",
+    },
+    lineItems: {
+      title: "明細行",
+      saveRecordFirst: "明細行を追加するには、先にレコードを保存してください。",
+      notLoaded: "このレコードの明細行は読み込まれていません。",
+      loadFailed: "明細行の読み込みに失敗しました",
+      saveFailed: "明細行の保存に失敗しました",
+      noChildObject: "このパネルには子オブジェクトが設定されていません。{{property}} に、行を一覧表示するオブジェクトを設定してください。",
+    },
     keepEditing: "編集を続ける",
     discard: "破棄",
     conflictTitle: "保存の競合",
@@ -194,6 +227,12 @@ const ja = {
     createSuccess: "{{object}}が作成されました",
     updateSuccess: "{{object}}が更新されました",
     deleteSuccess: "{{object}}が削除されました",
+    created: "作成しました",
+    saved: "保存しました",
+    savedNamed: "{{title}}を保存しました",
+    submitted: "送信しました",
+    errorLoading: "フォームの読み込みエラー",
+    navigateRefused: "このフォームに宣言された `navigateOnSuccess` の遷移先が拒否されたため、遷移は行われませんでした。",
     fullscreen: {
       title: "テキストを編集",
       description: "テキスト全体を編集してから、変更を保存またはキャンセルしてください。",
@@ -234,6 +273,7 @@ const ja = {
       remove: '{{name}} を削除',
       exceedsMaxSize: '「{{name}}」は最大サイズ（{{max}} MB）を超えています',
       uploadFailed: '「{{name}}」のアップロードに失敗しました：{{error}}',
+      uploadIncomplete: '「{{name}}」のアップロードが完了しませんでした：ファイル ID が返されなかったため、何も保存されていません',
     },
     richText: {
       format: "フォーマット: {{format}}",
@@ -288,6 +328,14 @@ const ja = {
       refusedResidue:
         "保存されていません: {{name}}「{{text}}」と{{otherName}}「{{otherText}}」は数値ではありません。通常の小数で入力してください（例: 30.2741, 120.1551）。",
     },
+    date: {
+      impossibleDay:
+        "保存されている値「{{value}}」は実在しない日付です。置き換えるには日付を選択してください。",
+    },
+    dateTime: {
+      impossibleDay:
+        "保存されている値「{{value}}」は実在しない日付です。置き換えるには日付と時刻を選択してください。",
+    },
     number: {
       badInput:
         "保存されていません: このボックスのテキストは数値ではありません。通常の小数で入力してください（例: {{example}}）。",
@@ -306,6 +354,16 @@ const ja = {
     textarea: {
       characterCount: "文字数: {{max}} 文字中 {{count}} 文字",
       charactersRemaining: "残り {{count}} 文字",
+    },
+    grid: {
+      addLine: "行を追加",
+      noItems: "項目なし",
+      noItemsAddHint: "まだ項目がありません。「{{label}}」をクリックして開始してください。",
+      optionalColumns: "オプションの列",
+      computed: "自動計算",
+      openRow: "行を開く",
+      duplicateRow: "行を複製",
+      removeRow: "行を削除",
     },
   },
   table: {
@@ -387,13 +445,15 @@ const ja = {
     yes: "はい",
     no: "いいえ",
     systemFields: "システム",
-    // objectui#7189 — partial-grouping disclosure for the grouped grid.
+    // objectui#10881 — the grouped grid's two refusals: over a data source
+    // that cannot answer the group header query, and over rows a host
+    // handed in while declaring them one page of more. `queryGroupHeaders`
+    // is the member's name and stays untranslated.
     grouping: {
-      partialBadge: "一部",
-      partialNotice:
-        "{{total}} 件中、読み込み済みの先頭 {{loaded}} 件のみでグループ化しています。グループの件数は読み込み済みのページだけの集計で、レコードがすべて読み込み範囲の外にあるグループはここに表示されません。",
-      partialNoticeUnknownTotal:
-        "読み込み済みの {{loaded}} 件のみでグループ化しています。このビューに該当するレコードはさらに存在する可能性があるため、グループの件数が不完全であったり、グループが表示されないことがあります。",
+      needsHeaderQuery:
+        "このビューはグループ化されていますが、データソースが queryGroupHeaders を実装していないため、グループの件数を数えられません。レコードを表示するにはグループ化を解除してください。",
+      needsWholeRows:
+        "グループ化にはすべてのレコードが必要ですが、このグリッドにはその一部のページしか渡されていないため、グループの件数を数えられません。すべてのレコードを渡すか、queryGroupHeaders を実装したデータソースからグリッドに読み込ませてください。",
     },
     // objectui#4024 — column-footer aggregate prefixes, keyed by the spec's
     // `ColumnSummary` vocabulary. `pattern` owns the label/value join so this
@@ -772,6 +832,7 @@ const ja = {
     },
     aria: {
       taskList: "タスク一覧",
+      refreshing: "更新中…",
     },
     tooltip: {
       days: "日",
@@ -955,7 +1016,6 @@ const ja = {
     viewAll: "すべて表示",
     new: "新規",
     add: "追加",
-    emptyValue: "—",
     activity: "アクティビティ",
     editRow: "編集",
     deleteRow: "削除",
@@ -1000,11 +1060,6 @@ const ja = {
     attachmentsLoadFailed: "このレコードの添付ファイルを読み込めませんでした。",
     attachmentsApiUnavailable: "このオブジェクトでは添付ファイルの一覧を利用できません。",
     retryLoadAttachments: "再試行",
-    unifiedDiff: "統合差分",
-    sideBySideDiff: "横並び差分",
-    noChanges: "変更なし",
-    previousVersion: "前のバージョン",
-    currentVersion: "現在のバージョン",
     discussion: "ディスカッション",
     showDiscussion: "ディスカッションを表示 ({{count}})",
     hideDiscussion: "ディスカッションを非表示",
@@ -1019,13 +1074,7 @@ const ja = {
     writeComment: "コメントを入力…",
     subscribedTooltip: "購読中 — クリックで解除",
     unsubscribedTooltip: "通知を購読",
-    firstRecord: "最初のレコード (Home)",
-    previousRecordKey: "前のレコード (←)",
-    nextRecordKey: "次のレコード (→)",
-    lastRecord: "最後のレコード (End)",
     noRecords: "レコードなし",
-    searchWhileNavigating: "ナビゲーション中に検索",
-    searchRecords: "レコードを検索…",
     allActivity: "すべてのアクティビティ",
     commentsOnly: "コメントのみ",
     fieldChangesFilter: "フィールド変更",
@@ -1086,6 +1135,8 @@ const ja = {
     pathStageLostUpcoming: '{{stage}}、失注、未到達',
     pathStageWonUpcoming: '{{stage}}、目標ステージ、未到達',
     linkCopied: "リンクをクリップボードにコピーしました",
+    commentFailed: "コメントを投稿できませんでした。何も保存されていません。もう一度お試しください。",
+    reactionFailed: "リアクションが保存されませんでした。もう一度お試しください。",
     linkCopyFailed: "リンクのコピーに失敗しました",
     cancel: "キャンセル",
     cancelEdit: "変更を破棄",
@@ -1127,24 +1178,10 @@ const ja = {
     fileCount: "ファイル {{count}} 件",
     fileCount_one: "ファイル {{count}} 件",
     fileCount_other: "ファイル {{count}} 件",
-    // objectui#7163 — PointInTimeRestore's revision-history chrome. The file
-    // used no translation hook at all, so every one of these read English in
-    // every session; swept in one pass rather than converting the timestamps
-    // alone. `Cancel`, `(empty)` and the empty-value dash reuse the keys this
-    // namespace already has, so only these ten are new.
-    revisionHistory: 'リビジョン履歴',
-    noRevisions: 'リビジョンの記録なし',
-    revisionFieldsChanged: '{{count}} 件のフィールドを変更',
-    revisionFieldsChangedOne: '{{count}} 件のフィールドを変更',
-    revisionPreview: 'リビジョンのプレビュー',
-    revisionSnapshot: 'この時点のレコード状態',
-    restoreConfirm: 'レコードを {{when}} の状態に復元します。続行しますか?',
-    restoring: '復元中…',
-    confirmRestore: '復元を確認',
-    restoreToPoint: 'この時点に復元',
   },
   chart: {
     loading: "チャート読み込み中…",
+    refreshing: "更新中…",
     nullCategory: "（未設定）",
     scatterOneMeasure: "散布図は1つの指標だけを描画します。系列は1つだけ残してください：",
     unconfigured: {
@@ -1166,8 +1203,13 @@ const ja = {
       sourceLabel: "データソース:",
     },
     loading: "読み込み中…",
+    refreshing: "更新中…",
+    refreshAll: "すべて更新",
+    refreshDashboard: "ダッシュボードを更新",
     pickMeasures: "このデータセットウィジェットの指標（値）を選択してください。",
     datasetUnsupported: "このデータソースはデータセットクエリに対応していません。",
+    widgetForbiddenTitle: "アクセス権がありません",
+    widgetForbiddenMessage: "このウィジェットのデータを表示する権限がありません。",
     details: "詳細",
     exportCsv: "CSV で書き出す",
     openInList: "リストで開く",
@@ -1320,10 +1362,6 @@ const ja = {
     appDescription: "説明",
     appIcon: "アイコン",
     template: "テンプレート",
-    layout: "レイアウト",
-    layoutSidebar: "サイドバー",
-    layoutHeader: "ヘッダー",
-    layoutEmpty: "空",
     selectObjects: "オブジェクトを選択",
     searchObjects: "オブジェクトを検索…",
     selectAll: "すべて選択",
@@ -1358,7 +1396,7 @@ const ja = {
     appearance: "外観",
     rowHeight: "行高さ",
     livePreview: "リアルタイムプレビュー",
-    stepBasicDesc: "名前、タイトル、レイアウト",
+    stepBasicDesc: "名前、タイトル、アイコン",
     stepObjectsDesc: "ビジネスオブジェクトを選択",
     stepNavigationDesc: "ナビゲーションツリーを構築",
     stepBrandingDesc: "ロゴ、色、ファビコン",
@@ -1397,6 +1435,7 @@ const ja = {
     navTypeSeparator: "区切り",
     navTypeAction: "アクション",
     navTypeComponent: "コンポーネント",
+    navTypeDoc: "ドキュメント",
     navEditIcon: "アイコンを編集",
     navToggleVisible: "表示を切り替え",
     navHidden: "非表示",
@@ -1578,6 +1617,7 @@ const ja = {
         ctaUpgrade: "アップグレードして続行",
         ctaTopUp: "クレジットを追加して続行",
         ariaLabel: "AI 使用状況: {{status}}",
+        breakdownTitle: "これまでの使用内訳",
       },
       workspaceTitle: "AI ワークスペース",
       workspaceSubtitle: "質問し、確認し、会話を再開します",
@@ -1587,6 +1627,31 @@ const ja = {
       share: "共有",
       shareTitle: "この会話を共有",
       shareDisabledTitle: "共有するにはチャットを開始してください",
+      buildDoctor: "ビルド診断",
+      buildDoctorTitle: "ビルド診断 — 実際に反映された内容は？",
+      buildDoctorDisabledTitle: "先にメッセージを送信してください",
+      buildDoctorDrawer: {
+        description: 'エージェントが主張した内容と、実際に反映されている内容の比較です。読み取り専用の診断です。',
+        reconciling: '照合中…',
+        notAvailable: '利用できません — 会話が見つからないか、アクセス権限がありません。',
+        untitled: '（無題）',
+        summary: '{{turns}} ターン · {{messages}} 件のメッセージ · {{tokens}} tok · LLM {{seconds}} 秒',
+        allLive: '試行した {{count}} 件の変更はすべて反映されています — 失われたものはありません。',
+        discrepancies: '{{count}} 件の不一致 — チャットの内容と実際に反映されている内容が一致しません。',
+        orphanedTitle: '提案されたが適用されていない',
+        orphanedHint: 'エージェントが提案した確認カードが、その後どのターンでも適用されず、変更が暗黙のうちに失われました。',
+        missingTitle: '適用済みとされたが見つからない',
+        missingHint: 'ツールの結果は適用済みとしていますが、成果物は sys_metadata に反映されていません。',
+        toolErrorsTitle: 'ツールエラー',
+        toolErrorsHint: 'ビルド中にエラーを返したツール呼び出しです。',
+        verifyTitle: 'ビルドチェック（verify_build）',
+        yourApp: 'あなたのアプリ：',
+        noIssues: '問題 0 件',
+        issueCount: '問題 {{count}} 件',
+        platformNoise: 'プラットフォームの sys_* 検出 {{count}} 件を非表示',
+        pendingActions: '保留中のアクション',
+        timeline: 'タイムライン（{{count}}）',
+      },
       newChat: "新規",
       searchChats: "チャットを検索…",
       noChatsYet: "チャットはまだありません",
@@ -1794,6 +1859,13 @@ const ja = {
       pages: "ページ",
       reports: "レポート",
       system: "システム",
+      marketplace: "マーケットプレイス",
+      settings: '設定',
+      apps: 'アプリ',
+      profile: 'プロフィール',
+      approvals: '承認',
+      aiApprovals: 'AI 承認',
+      auditLog: '監査ログ',
     },
     // objectui#4024 — the single-namespace settings screen. Its sibling
     // `settingsHub` above already resolved through this pack; the view was the
@@ -1892,6 +1964,14 @@ const ja = {
       noWritesTitle: 'この環境は読み取りのみで書き込みがまったくありません',
       noWrites: '行の読み取りはある一方で書き込みがまったくないため、読み取り比率に上限がありません。これは最も深刻な読み取り値です。プラットフォームは {{threshold}} を超える比率を検出対象とします。制限やブロックは一切行われていません。読み取りパターンを確認するための報告です。',
     },
+    // objectui#10439 — see the `en` pack for what raises each case.
+    storageUsage: {
+      warningTitle: 'ストレージの空き容量が少なくなっています',
+      warning: '{{limit}} MB 中 {{used}} MB を使用しています。ストレージが満杯になると、アップロードとインポートは一時停止されます。',
+      blockedTitle: 'ストレージが満杯です：アップロードとインポートは一時停止中です',
+      blocked: '{{limit}} MB 中 {{used}} MB を使用しています。既存のデータはそのままで、読み取り、エクスポート、個々のレコードの編集は引き続き利用できます。',
+      upgrade: 'アップグレードして続行',
+    },
     errors: {
       somethingWentWrong: "問題が発生しました",
       unexpectedError: "このビューのレンダリング中に予期しないエラーが発生しました。",
@@ -1938,6 +2018,7 @@ const ja = {
       title: "タイトル",
       viewType: "ビュータイプ",
       recordCount: "{{count}} 件のレコード",
+      recordCountOne: "{{count}} 件のレコード",
       save: "保存",
       discard: "破棄",
       createView: "ビューを作成",
@@ -2070,6 +2151,8 @@ const ja = {
       resendOtpCountdownText: "{seconds} 秒後に再送信",
       usePhoneOtpText: "確認コードでサインイン",
       usePasswordSignInText: "パスワードでサインインする",
+      socialButton: "{provider} で続行",
+      orText: "またはメールアドレスで続行",
     },
     register: {
       title: "アカウントを作成",
@@ -2088,8 +2171,12 @@ const ja = {
       submittingButton: "アカウント作成中…",
       hasAccountText: "すでにアカウントをお持ちですか？",
       signInText: "サインイン",
+      socialButton: "{provider} で新規登録",
+      orText: "またはメールアドレスで続行",
       errors: {
         userExists: "このメールアドレスのアカウントはすでに存在します。代わりにサインインしてください。",
+        selfRegistrationClosed: "この環境ではセルフ登録を受け付けていません。管理者に招待を依頼してください。",
+        emailDomainNotAllowed: "このメールアドレスのドメインはここでの登録が許可されていません。組織のメールアドレスを使用するか、管理者に招待を依頼してください。",
       },
       verifyInbox: {
         title: "受信箱を確認してください",
@@ -2582,6 +2669,7 @@ const ja = {
     selectPlaceholder: "{{label}} を選択",
     requiredError: "{{label}} は必須です",
     unresolvedParam: 'このパラメーターは表示できません。参照元のフィールドがオブジェクトのメタデータに存在しないため、必要なコントロールを生成できません。管理者にアクション定義の修正を依頼してください。',
+    carryOverHint: 'そのまま引き継ぎ（読み取り専用）',
     cancel: "キャンセル",
     confirm: "確認",
     uploading: "アップロード中…",
@@ -2845,12 +2933,14 @@ const ja = {
     thankYouTitle: "ありがとうございます！",
     thankYouMessage: "送信が正常に受信されました。",
     redirecting: "{{seconds}} 秒後にリダイレクトします…",
+    redirectPending: "リダイレクトしています…",
     unavailableTitle: "フォームが利用できません",
     unavailableDescription: "このURLで利用できる公開フォームはありません。基になるビューが匿名共有を有効にし、このスラグに一致することを確認してください。",
     tryDemo: "デモを試す",
     retry: "再試行",
     loading: "フォームを読み込み中…",
     requiredHint: "* 必須項目",
+    requiredFields: "必須項目: {{fields}}",
     consentLabelDefault: "プライバシーポリシーに同意し、このリクエストのためにデータを処理することに同意します。",
     consentLink: "プライバシーポリシー",
     consentRequired: "続行するにはプライバシーポリシーに同意してください。",
@@ -2913,6 +3003,34 @@ const ja = {
     createEnvironment: "環境を作成",
     openProduction: "本番環境を開く",
     manageEnvironments: "環境を管理",
+  },
+  cloudPlanStatus: {
+    current: "現在のプラン",
+  },
+  ai: {
+    nlQuery: {
+      placeholder: "データについて質問してください…",
+      ask: "質問",
+      results: "結果",
+      match: "一致度 {{percent}}",
+      simulatedSummary: "検索結果: {{query}}",
+      noResults: "一致するレコードが見つかりません",
+      recentQueries: "最近のクエリ",
+    },
+    formAssist: {
+      title: "AI の提案",
+      suggestionCount: "{{count}} 件の提案",
+      suggestionCountOne: "{{count}} 件の提案",
+      applyAll: "すべて適用",
+      confidence: "信頼度 {{percent}}",
+      appliedCount: "{{count}} 件の提案を適用しました",
+      appliedCountOne: "{{count}} 件の提案を適用しました",
+    },
+    recommendations: {
+      title: "おすすめ",
+      generating: "おすすめを生成しています…",
+      empty: "おすすめはありません",
+    },
   },
   aiApprovals: {
     title: "AI 承認",
@@ -3152,7 +3270,7 @@ const ja = {
     },
     title: "アプリマーケットプレイス",
     subtitle: "ObjectStackカタログに公開された承認済みアプリを参照します。アプリをクリックして詳細を表示し、環境にインストールしてください。",
-    searchPlaceholder: "名前またはマニフェストIDでアプリを検索…",
+    searchPlaceholder: '名前またはアプリIDでアプリを検索…',
     searchAria: "マーケットプレイスアプリを検索",
     installed: "インストール済み",
     installedCount: "インストール済み（{{count}}）",
@@ -3204,6 +3322,7 @@ const ja = {
       reseedQueued: 'サンプルデータは次回の環境アクセス時に再投入されます。',
       reseedLocalSuccess: 'サンプルデータを再投入しました：{{inserted}} 件追加、{{updated}} 件更新。',
       reseedPartialErrors: '（{{count}} 件のレコードの書き込みに失敗しました）',
+      sampleDataKernelUnavailable: 'このコントロールプレーンには環境カーネルがないため、ここではサンプルデータを再投入・削除できません。環境自身のランタイムから実行してください。',
       updateAvailable: 'アップデートあり',
     },
     action: {
@@ -3509,7 +3628,7 @@ const ja = {
       detailChangedKeys: 'その他の変更：',
       confirmNote: '公開すると、このパッケージの保留中ドラフト {{count}} 件がまとめて（アトミックに）公開されます。',
       publishConfirm: 'すべて公開',
-      // [objectui#5418] Pre-publish security-posture findings, shown next to
+      // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
       securityBlockTitle: '公開は拒否されます — {{count}} 件の項目に先に決定が必要です',
@@ -3568,25 +3687,25 @@ const ja = {
     rangeEnd: "終了",
     operators: {
       equals: "等しい",
-      notEquals: "等しくない",
+      not_equals: "等しくない",
       contains: "含む",
-      containsCaseInsensitive: "含む（大文字小文字を区別しない）",
-      notContains: "含まない",
-      isEmpty: "空である",
-      isNotEmpty: "空でない",
-      greaterThan: "より大きい",
-      lessThan: "より小さい",
-      greaterOrEqual: "以上",
-      lessOrEqual: "以下",
+      icontains: "含む（大文字小文字を区別しない）",
+      not_contains: "含まない",
+      is_empty: "空である",
+      is_not_empty: "空でない",
+      greater_than: "より大きい",
+      less_than: "より小さい",
+      greater_than_or_equal: "以上",
+      less_than_or_equal: "以下",
       before: "より前",
       after: "より後",
       between: "範囲内",
       in: "いずれか",
-      notIn: "いずれでもない",
-      startsWith: "前方一致",
-      endsWith: "後方一致",
-      isNull: "null である",
-      isNotNull: "null でない",
+      not_in: "いずれでもない",
+      starts_with: "前方一致",
+      ends_with: "後方一致",
+      is_null: "null である",
+      is_not_null: "null でない",
       exists: "設定済み",
       notExists: "未設定",
     },
@@ -3636,6 +3755,11 @@ const ja = {
   },
   wizard: {
     missingRequired: "必須項目を入力してください: {{fields}}",
+    back: "戻る",
+    submitting: "送信中…",
+    stepFallback: "ステップ {{n}}",
+    progressLabel: "進捗",
+    emptyStep: "このステップにはフィールドが設定されていません",
   },
   flowRunner: {
     title: '入力',
@@ -3730,6 +3854,11 @@ const ja = {
     actionsEmptyTitle: "パッケージアクションはありません",
     actionsEmptyBody: "このデプロイには、アクションを宣言するインストール済みパッケージがありません。自分で作成したアクションは Studio にあります。",
     actionsLoadFailed: "パッケージアクションを読み込めませんでした。",
+  },
+  element: {
+    number: {
+      noObject: "オブジェクトが指定されていません。object または dataSource.object を設定してください。",
+    },
   },
 };
 

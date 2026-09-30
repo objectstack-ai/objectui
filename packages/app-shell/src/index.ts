@@ -109,16 +109,16 @@ export {
 export { HOME_LAUNCHER_PATH, resolveDeclaredHomePath } from './utils/index.js';
 export type { DeclaredHomeApp } from './utils/index.js';
 
-// objectui#7980 — ONE read of the ADR-0112 failure envelope, published so a
+// `a810bb2ae` — ONE read of the ADR-0112 failure envelope, published so a
 // consumer OUTSIDE this package inherits the pinned rule instead of writing a
 // fourth reading of the same body. `apps/console`'s agent-key generator read
 // `error.message` and stopped, so a producer-marked `error.userMessage` (the
-// #9934 channel, which rides through the 5xx prose withhold untouched) and the
-// declared `error.code` never reached the developer.
+// objectstack `79c46da90` channel, which rides through the 5xx prose withhold
+// untouched) and the declared `error.code` never reached the developer.
 //
-// objectui#7959 left this off the public entry as SCOPE RESTRAINT — that card's
-// file surface was `packages/app-shell/**` — not as a ruling that the function
-// should stay private; see objectui#7980 comment 5583988475. Exported from its
+// The card behind `36fc74629` left this off the public entry as SCOPE RESTRAINT —
+// that card's file surface was `packages/app-shell/**` — not as a ruling that the
+// function should stay private, as the card behind `a810bb2ae` records. Exported from its
 // own module rather than through `./utils/index.js`: the rule and its docblock
 // are the contract, and `apiErrorEnvelope.ts` imports nothing, so this adds no
 // module side effect and no transitive surface. The return type is `string |
@@ -136,7 +136,6 @@ export {
   ConsoleLayout,
   ConsoleNotificationBanners,
   AppHeader,
-  AppSidebar, // @deprecated — use UnifiedSidebar; see AppSidebar's own JSDoc (objectui#5720, objectui#5817)
   UnifiedSidebar,
   AppSwitcher,
   ConnectionStatus,
@@ -218,6 +217,7 @@ export {
   FlowRunner,
 } from './views/index.js';
 export type {
+  ConsoleObjectViewProps,
   RecordFormPageProps,
   DeclaredActionsBarProps,
   FlowRunnerProps,
@@ -265,7 +265,9 @@ export { MarketplacePage } from './console/marketplace/MarketplacePage.js';
 export { MarketplacePackagePage } from './console/marketplace/MarketplacePackagePage.js';
 export { MarketplaceInstalledPage } from './console/marketplace/MarketplaceInstalledPage.js';
 export { LoginPage as DefaultLoginPage } from './console/auth/LoginPage.js';
+export { signInRefusalMessages } from './console/auth/signInRefusalMessages.js';
 export { RegisterPage as DefaultRegisterPage } from './console/auth/RegisterPage.js';
+export { signUpRefusalMessages } from './console/auth/signUpRefusalMessages.js';
 export { ForgotPasswordPage as DefaultForgotPasswordPage } from './console/auth/ForgotPasswordPage.js';
 export { HomeLayout as DefaultHomeLayout, HomeLayout } from './console/home/HomeLayout.js';
 export { HomePage as DefaultHomePage, HomePage } from './console/home/HomePage.js';
@@ -313,6 +315,8 @@ import './console/marketplace/InstalledListWidget.js';
 import './console/connect/ConnectAgentWidget.js';
 // SDUI widget for the Cloud Welcome page's state-aware onboarding next-step.
 import './console/home/CloudOnboardingNext.js';
+// SDUI widget for the Cloud pricing page's "current plan" marker (objectui#10919).
+import './console/home/CloudPlanStatus.js';
 // SDUI widget: read-only admin diagnostic for the env's effective AI model
 // (cloud#797) — fetches GET /api/v1/ai/effective-model.
 import './console/diagnostics/CloudAiModelStatus.js';
@@ -324,7 +328,7 @@ import './views/record-attachments-renderer.js';
 import './views/record-approvals-renderer.js';
 // `global:search` / `global:notifications` — the two spec `PageComponentType`
 // members the 2026-08-26 ruling on objectstack#12183 kept declared because both
-// data sources shipped (objectui#6757). Registered here, not in
+// data sources shipped (`f99932a42`). Registered here, not in
 // `@object-ui/components`, because they read this package's providers and feeds;
 // without these two imports an authored page draws the "Component Placeholder"
 // scaffold for `global:search` and a red unknown-type panel for
@@ -332,7 +336,7 @@ import './views/record-approvals-renderer.js';
 import './views/global-search-renderer.js';
 import './views/global-notifications-renderer.js';
 // `app:launcher` / `nav:menu` — Phase 1 of that same 2026-08-26 ruling
-// (objectui#6661): the two `PageComponentType` members that are purely
+// (`969ba84f4`): the two `PageComponentType` members that are purely
 // metadata-driven, so nothing had to ship before their renderers could.
 // Registered here, not in `@object-ui/components`, because they read this
 // package's providers (the metadata app registry, the expression / permission /

@@ -66,6 +66,11 @@
  * reports the view's refusal instead (objectui#10015). See
  * {@link describeRefusedViewRowLimit} for when that message applies.
  *
+ * The BINDING's own cap follows the same rule (objectui#10016): a `limit` the
+ * contract refuses is not authored, so `@object-ui/core` lets the view's cap
+ * through in its place, and that cap is a baseline here like any other
+ * view-sourced value. See {@link describeRefusedBindingRowLimit}.
+ *
  * ## What a mapping may NOT do
  *
  * {@link ElementDataSourceMapping} names only keys the target block genuinely
@@ -98,11 +103,15 @@
 import * as React from 'react';
 import {
   elementDataSourceRefusedLimitMessage,
+  filterRefusalSubject,
   isElementDataSourceConfig,
   mergeFilterNodes,
+  toFilterNodeSafely,
   type ElementDataSourceConfig,
   type ElementSavedView,
+  type FilterOperatorError,
 } from '@object-ui/core';
+import { useObjectTranslation } from '@object-ui/i18n';
 import {
   useElementDataSource,
   type ElementDataSourceStatus,
@@ -169,6 +178,15 @@ export interface UseElementDataSourceSchemaResult<S> {
   config?: ElementDataSourceConfig;
   /** Author-facing explanation, set only for `missing`. */
   error?: string;
+  /**
+   * The refused filter that stopped the binding from applying — set only with
+   * `missing`, and `error` then carries its message (objectui#10789). Either
+   * merge can refuse: the view's filter with the binding's own
+   * ({@link useElementDataSource}), or the component's filter with that result
+   * (this hook). {@link ElementDataSourceGate} draws the malformed-filter
+   * notice from it.
+   */
+  filterRefusal?: FilterOperatorError;
 }
 
 /**
@@ -253,8 +271,10 @@ const describeDisplacedRowLimit = (
  * It speaks only when the refusal CHANGED what this block receives — when a
  * usable view cap would have been written here:
  *
- *  - the binding declared no `limit` of its own (if it did, the binding's cap
- *    is what the block gets whatever the view carries), and
+ *  - the binding declared no usable `limit` of its own (if it did, the
+ *    binding's cap is what the block gets whatever the view carries). The
+ *    builder applies this condition itself, because `ViewDataProvider` needs
+ *    it too (objectui#10016), so this relay hands it the binding; and
  *  - the component's own cap is not a usable one (a usable one wins over any
  *    view cap).
  *
@@ -266,19 +286,46 @@ const describeDisplacedRowLimit = (
  * ## Never together with {@link describeDisplacedRowLimit}
  *
  * That message needs a usable cap to have been WRITTEN. With a refused view
- * cap, the only usable cap left is a binding's `limit`, and that is excluded
- * above. So the two are exclusive by construction. When the component AND the
- * view both carry a refused cap, this message names the view and the renderer
- * names the component: two declarations, one message each.
+ * cap, the only usable cap left is a binding's usable `limit`, and that is
+ * excluded above. So the two are exclusive by construction. When the component
+ * AND the view both carry a refused cap, this message names the view and the
+ * renderer names the component: two declarations, one message each.
  */
 const describeRefusedViewRowLimit = (
   view: ElementSavedView | undefined,
   config: ElementDataSourceConfig | undefined,
   authored: unknown,
 ): string | null => {
-  if (!config || config.limit != null) return null;
+  if (!config) return null;
   if (isUsableRowLimit(authored)) return null;
-  return elementDataSourceRefusedLimitMessage(view, config.view, config.object);
+  return elementDataSourceRefusedLimitMessage(view, config.view, config.object, config);
+};
+
+/**
+ * The loud half for a cap the BINDING declared and the contract refuses
+ * (objectui#10016), in the core builder's words for that operand.
+ *
+ * `@object-ui/core` treats such a cap as not authored: it lets the view's
+ * usable cap through in its place, or none. Nothing downstream can see the
+ * refused value any more, so this relay reports it, from an effect, the same
+ * way it reports the view's refusal.
+ *
+ * It needs no condition beyond the caller's (the block reads a row cap at
+ * all). A usable binding cap is written whatever the component or the view
+ * carries, so a refused one is always a cap this block did not get.
+ *
+ * It can fire beside the other two, and that is one message per declaration,
+ * not two per mistake: beside {@link describeRefusedViewRowLimit} when the view
+ * ALSO carries a refused cap, and beside {@link describeDisplacedRowLimit} when
+ * the component ALSO carries a refused cap and the view's usable one displaced
+ * it.
+ */
+const describeRefusedBindingRowLimit = (
+  view: ElementSavedView | undefined,
+  config: ElementDataSourceConfig | undefined,
+): string | null => {
+  if (!config) return null;
+  return elementDataSourceRefusedLimitMessage(view, config.view, config.object, config, 'binding');
 };
 
 const readLimit = (base: Record<string, any>, key: ElementDataSourceLimitKey): unknown => {
@@ -333,17 +380,20 @@ export function useElementDataSourceSchema<S>(
     schema: S;
     capMessage: string | null;
     viewCapMessage: string | null;
+    bindingCapMessage: string | null;
+    filterRefusal?: FilterOperatorError;
   } => {
     const composed = binding.composed;
     // BY REFERENCE when there is nothing to apply — a fresh object every render
     // would remount the block and refetch. The wrapper is memoised alongside it,
     // so the identity this carries is the one the caller sees.
-    if (!composed) return { schema, capMessage: null, viewCapMessage: null };
+    if (!composed) return { schema, capMessage: null, viewCapMessage: null, bindingCapMessage: null };
 
     const base = (schema ?? {}) as Record<string, any>;
     const next: Record<string, any> = { ...base };
     let capMessage: string | null = null;
     let viewCapMessage: string | null = null;
+    let bindingCapMessage: string | null = null;
 
     if (objectKey !== false) next[objectKey] = composed.object;
 
@@ -358,7 +408,21 @@ export function useElementDataSourceSchema<S>(
       // Component filter AND (view filter AND binding filter). `composed.filter`
       // already carries the latter pair; a single surviving source comes back
       // unwrapped, so the common "only the view filters" case stays flat.
-      const merged = mergeFilterNodes(base.filter, composed.filter);
+      //
+      // ⚠️ Each source is lowered through `toFilterNodeSafely` first, the way
+      // `RelatedList` and `LineItemsPanel` lower their own filter before they
+      // merge it — objectui#10789. This is a RENDER-time `useMemo`, and the
+      // lowering refuses malformed authored shapes with a `FilterOperatorError`:
+      // uncaught, that was a render error, thrown BEFORE the wrapped block
+      // reached its own safe lowering and its malformed-filter state. The
+      // refusal is returned as a VALUE and the block is not rendered at all —
+      // never merged as "no filter", which would run it unconstrained. The
+      // merge below then only re-reads nodes the lowering already produced.
+      const own = toFilterNodeSafely(base.filter);
+      if (!own.ok) return { schema, capMessage: null, viewCapMessage: null, bindingCapMessage: null, filterRefusal: own.refusal };
+      const bound = toFilterNodeSafely(composed.filter);
+      if (!bound.ok) return { schema, capMessage: null, viewCapMessage: null, bindingCapMessage: null, filterRefusal: bound.refusal };
+      const merged = mergeFilterNodes(own.node, bound.node);
       if (merged !== undefined) next.filter = merged;
       else delete next.filter;
     }
@@ -371,7 +435,11 @@ export function useElementDataSourceSchema<S>(
     }
 
     if (limit && composed.limit !== undefined) {
-      const fromView = binding.config?.limit === undefined;
+      // For the row cap, "declared one" means a cap the contract admits
+      // (objectui#10016): a refused binding `limit` is not authored, so the
+      // composer let the view's cap through in its place, and that cap is a
+      // baseline the component's usable cap still wins over.
+      const fromView = !isUsableRowLimit(binding.config?.limit);
       // PRESENCE is not authorship (objectui#9899) — the same question the
       // `columns` branch above answers by CONTENT, answered the same way here.
       const authored = readLimit(base, limit);
@@ -387,39 +455,56 @@ export function useElementDataSourceSchema<S>(
       }
     }
 
-    // Outside the branch above on purpose: a refused view cap never reaches
-    // `composed.limit`, so that branch does not run for it (objectui#10015).
+    // Outside the branch above on purpose: a refused cap never reaches
+    // `composed.limit`, so that branch does not run for it (objectui#10015,
+    // and objectui#10016 for the binding's).
     if (limit) {
       viewCapMessage = describeRefusedViewRowLimit(binding.view, binding.config, readLimit(base, limit));
+      bindingCapMessage = describeRefusedBindingRowLimit(binding.view, binding.config);
     }
 
     if (viewType && composed.viewType !== undefined && base.viewType === undefined) {
       next.viewType = composed.viewType;
     }
 
-    return { schema: next as S, capMessage, viewCapMessage };
+    return { schema: next as S, capMessage, viewCapMessage, bindingCapMessage };
   }, [schema, binding.composed, binding.config, binding.view, objectKey, columns, filter, sort, limit, viewType]);
 
   // Keyed on the MESSAGE, so it is one warning per declaration rather than one
   // per render — and it fires from an effect, never from render, which is the
   // same shape the renderer sites use for "you declared it, we dropped it".
-  // One effect per message, so a change to one never re-emits the other.
-  const { schema: boundSchema, capMessage, viewCapMessage } = mapped;
+  // One effect per message, so a change to one never re-emits another.
+  const { schema: boundSchema, capMessage, viewCapMessage, bindingCapMessage, filterRefusal: mergeRefusal } = mapped;
   React.useEffect(() => {
     if (capMessage) console.warn(capMessage);
   }, [capMessage]);
   React.useEffect(() => {
     if (viewCapMessage) console.warn(viewCapMessage);
   }, [viewCapMessage]);
+  React.useEffect(() => {
+    if (bindingCapMessage) console.warn(bindingCapMessage);
+  }, [bindingCapMessage]);
 
+  // A refused filter — from either merge — is `missing`, the one state every
+  // caller already answers by withholding the block (objectui#10789).
+  const filterRefusal = binding.filterRefusal ?? mergeRefusal;
   return React.useMemo(
-    () => ({
-      status: binding.status,
-      schema: boundSchema,
-      config: binding.config,
-      error: binding.error,
-    }),
-    [binding.status, binding.config, binding.error, boundSchema],
+    () =>
+      filterRefusal
+        ? {
+            status: 'missing' as const,
+            schema: boundSchema,
+            config: binding.config,
+            error: filterRefusal.message,
+            filterRefusal,
+          }
+        : {
+            status: binding.status,
+            schema: boundSchema,
+            config: binding.config,
+            error: binding.error,
+          },
+    [binding.status, binding.config, binding.error, boundSchema, filterRefusal],
   );
 }
 
@@ -454,6 +539,61 @@ export function ElementDataSourceErrorPanel({
     >
       <p className="font-medium">{title}</p>
       {message ? <p className="text-sm mt-1">{message}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * The malformed-filter notice, drawn IN PLACE OF the block when a filter the
+ * gate had to merge is refused (objectui#10789).
+ *
+ * It is the notice the wrapped blocks draw themselves (objectui#9050 step 2 —
+ * `record:related_list`, the line-items panel, `object-grid`): the same
+ * sentence (`view.malformedFilter`), naming the refused operator or field in a
+ * separately addressable headline, with the refusal's own message beneath it.
+ * The gate draws it because its merge refuses FIRST — before the block's own
+ * safe lowering ever runs — so without it the author would get the error
+ * boundary's "failed to render" instead of the sentence those blocks give.
+ *
+ * ⚠️ A separate component, so `useObjectTranslation` runs only on this path:
+ * the gate wraps every object-bound block, and a translation hook in the
+ * gate's own body would run for all of them, including under the many suites
+ * that mock `@object-ui/i18n` by hand.
+ *
+ * The provider-less default is the sentence itself, written the way the
+ * sibling blocks carry it: a LITERAL copy of the `en` pack's value, never a
+ * read of the pack object. The siblings keep theirs in a module-scope
+ * `createSafeTranslation` table, which this module cannot have: it is
+ * re-exported from the package entry, so a factory call at module scope would
+ * run on import for every consumer (`NonGridRowCeilingNote` records that
+ * hazard). So the copy sits in the call's inline `defaultValue`, where
+ * `pnpm check:i18n-keys` holds it byte-identical to the pack, as the siblings'
+ * tables are held. With an `I18nProvider` the pack's value wins, and without
+ * one this literal is interpolated (objectui#6219).
+ */
+function ElementDataSourceMalformedFilterPanel({
+  testId,
+  refusal,
+}: {
+  testId: string;
+  refusal: FilterOperatorError;
+}): React.ReactElement {
+  const { t } = useObjectTranslation();
+  return (
+    <div
+      role="alert"
+      className="rounded-md border border-amber-300 bg-amber-50 p-3 my-2 text-sm text-amber-800"
+      data-testid={`${testId}-malformed-filter`}
+    >
+      {/* The headline is the half that has to NAME the operator; the technical
+          line below repeats it incidentally. */}
+      <p className="font-medium" data-testid={`${testId}-malformed-filter-subject`}>
+        {t('view.malformedFilter', {
+          subject: filterRefusalSubject(refusal) ?? '',
+          defaultValue: 'This view’s filter is malformed, so no records are shown: the {{subject}} condition cannot be applied.',
+        })}
+      </p>
+      <p className="mt-1 text-xs opacity-80">{refusal.message}</p>
     </div>
   );
 }
@@ -495,7 +635,10 @@ export function ElementDataSourceLoadingPanel({
  * it off and you get `unknown`, which is the honest default.
  */
 export function useResolvedDataSource<T = unknown>(explicit?: unknown): T | undefined {
-  const context = React.useContext(SchemaRendererContext as React.Context<any>);
+  // Read AS DECLARED (objectui#7209): the only cast in this hook is the
+  // caller's `T` on the way out, never one erasing the context on the way in.
+  // Pinned by `useResolvedDataSource.schemaRendererContextRead-7209.test.ts`.
+  const context = React.useContext(SchemaRendererContext);
   const named = isElementDataSourceConfig(explicit) ? undefined : explicit;
   return (named ?? context?.dataSource ?? undefined) as T | undefined;
 }
@@ -680,6 +823,12 @@ export function ElementDataSourceGate<S>({
     return <NoDataSourcePanel testId={testId} message={noDataSourceText} />;
   }
 
+  // A refused filter is `missing` too, but it gets the malformed-filter notice
+  // rather than the "could not be resolved" panel: the binding resolved, and
+  // what the author has to fix is a filter condition (objectui#10789).
+  if (bound.filterRefusal) {
+    return <ElementDataSourceMalformedFilterPanel testId={testId} refusal={bound.filterRefusal} />;
+  }
   if (bound.status === 'missing') {
     return <ElementDataSourceErrorPanel testId={testId} title={errorTitle} message={bound.error} />;
   }

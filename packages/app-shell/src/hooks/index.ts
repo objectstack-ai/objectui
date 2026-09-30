@@ -41,6 +41,17 @@ export {
   type ReadRateSnapshot,
   type ReadRateBannerCase,
 } from './useReadRateReading.js';
+export {
+  useStorageUsageReading,
+  classifyStorageUsage,
+  type UseStorageUsageReadingOptions,
+  type UseStorageUsageReadingReturn,
+  type StorageUsageReading,
+  type StorageUsageReadingStatus,
+  type StorageUsageSnapshot,
+  type StorageUsageBannerView,
+  type StorageUsageState,
+} from './useStorageUsageReading.js';
 export { useRecentItems, type RecentItem } from './useRecentItems.js';
 export { useRecordApprovals, type ApprovalRequestLite } from './useRecordApprovals.js';
 export { useResponsiveSidebar } from './useResponsiveSidebar.js';

@@ -15,6 +15,8 @@ The Date Picker component allows users to select a date from a calendar interfac
 
 <SchemaExample id="components-form-date-picker/with-default-value" />
 
+The calendar popup opens on the month of the selected date, so a date in another month or year is in view when the popup opens. With no date it opens on the current month.
+
 ## States
 
 <DemoGrid>
@@ -31,6 +33,8 @@ interface DatePickerSchema {
   placeholder?: string;           // Placeholder text
   
   // Events
+  // RUNTIME SLOT (objectui#6124): a React host supplies it; JSON refuses it
+  // by name. Author behaviour as a node type, e.g. an action:button node.
   onChange?: (date: Date | undefined) => void;
   
   // States

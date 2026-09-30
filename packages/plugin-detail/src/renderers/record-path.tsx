@@ -11,6 +11,9 @@
  * completed (with a check); the current renders as active; subsequent
  * stages render as upcoming.
  *
+ * When `stages` is absent, the stages come from `statusField`'s picklist on
+ * the record's object (objectui#11106) — see the `rawStages` read below.
+ *
  * ── This surface is a READOUT, and it must look like one (objectui#5768) ──
  *
  * It used to draw each stage as a filled, shadowed, equal-width pill — the
@@ -54,9 +57,11 @@
 
 import React from 'react';
 import { useRecordContext, useSafeFieldLabel } from '@object-ui/react';
+import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import type { RecordPathComponentProps } from '@object-ui/types';
 import { cn } from '@object-ui/components';
 import { useDetailTranslation } from '../useDetailTranslation';
+import { deriveStages } from '../synth/buildDefaultPageSchema';
 import { useRecordAriaProps } from './recordComponentAria';
 
 const splitDesigner = (props: Record<string, any>) => {
@@ -65,6 +70,44 @@ const splitDesigner = (props: Record<string, any>) => {
 };
 
 type StageState = 'completed' | 'current' | 'upcoming';
+
+type PathStage = { value: unknown; label: string; terminal?: 'won' | 'lost' };
+
+/**
+ * `stages[].label` is an `I18nLabel` in the spec row
+ * (`ComponentPropsMap['record:path']`): a plain string or an inline per-locale
+ * map, and the row accepts the map (objectui#10993). This block read the member
+ * raw, as the stage's visible text node and as the `stage` value of its
+ * composed accessible name, so a map threw "Objects are not valid as a React
+ * child" and the node rendered `Component "record:path" failed to render`.
+ *
+ * Resolved HERE, before anything reads a stage, for the reason `object-form`'s
+ * labels are resolved above its `formType` fork: every later read wants the
+ * text. That is three reads, not two: the picklist translation below keeps the
+ * authored label as its fallback, and `classify()` probes `value + label` for
+ * its won/lost tokens, so a map left raw there would probe `[object Object]`
+ * and a lost stage authored as a map would stop reading as lost.
+ *
+ * `pickLocalized` against `useObjectTranslation().language`, the UI language:
+ * the source this package's other visible `record:*` labels resolve against
+ * (`record:related_list.title`, `record:alert.title`), and the language the
+ * composed accessible name's state words come from, so one name never mixes
+ * two languages. Only the map arm is touched: a string, or any other value, is
+ * handed on as authored, and the input is returned untouched when no stage
+ * carries a map.
+ */
+function localizeStageLabels(stages: unknown, language: string): PathStage[] {
+  if (!Array.isArray(stages)) return [];
+  let out: PathStage[] | null = null;
+  for (let idx = 0; idx < stages.length; idx++) {
+    const stage = stages[idx];
+    const label: unknown = stage?.label;
+    if (label === null || typeof label !== 'object') continue;
+    out ??= [...stages];
+    out[idx] = { ...stage, label: pickLocalized(label, language) };
+  }
+  return out ?? (stages as PathStage[]);
+}
 
 export interface RecordPathRendererProps {
   schema?: RecordPathComponentProps & Record<string, any>;
@@ -102,22 +145,63 @@ export const RecordPathRenderer: React.FC<RecordPathRendererProps> = ({
   const railAria = useRecordAriaProps(schema.aria, {
     defaultRole: 'list',
     defaultLabel: t('detail.pathLabel'),
-    // ⛔ One of only TWO callers that opt in: this block read `aria.label` and
-    // nothing else before objectui#9556, so a stored document can carry it
-    // here. The five container blocks do NOT pass this — giving a
-    // contract-refused spelling new readers is the defect, not the fix.
-    legacyLabelFold: true,
+    // Named so a served `aria.label` is REPORTED (objectui#9945): this block
+    // read that spelling and nothing else before objectui#9556, so a stored
+    // document may still carry it. It is no longer read; the rails announce
+    // `defaultLabel` above instead, and the report says why.
+    block: 'record:path',
   });
 
-  const rawStages: Array<{ value: any; label: string; terminal?: 'won' | 'lost' }> = Array.isArray(schema.stages)
-    ? (schema.stages as any)
-    : [];
+  // The UI language `stages[].label` resolves against — see
+  // `localizeStageLabels` (objectui#10993).
+  const { language } = useObjectTranslation();
   const statusField: string | undefined = schema.statusField;
+  /**
+   * WHERE the stages come from: the author, else the status field's picklist
+   * (objectui#11106).
+   *
+   * `stages` is optional in the spec row (`ComponentPropsMap['record:path']`),
+   * described as "Explicit stage definitions (if not using field metadata)",
+   * and this package's registration repeats the promise. Only the synthesized
+   * default page kept it: `buildDefaultHighlights` derives the stages and
+   * writes them into the node it emits, so an AUTHORED node that set only
+   * `statusField` rendered the "no stages configured" placeholder while its
+   * object declared the picklist.
+   *
+   * The derivation is `deriveStages`, the ONE rule the default page uses, read
+   * from the synth module the way `record:details` reads
+   * `deriveFieldGroupDetailSections`. ⛔ Never a second copy here: two rules
+   * that agree today are one edit from a default page and an authored page
+   * showing different stages for the same field. Its object definition is the
+   * record context's `objectSchema`, the metadata the host already bound and
+   * that `record:details` and `record:highlights` read; no fetch is added.
+   *
+   * "Absent" is `undefined` — the spec row's `.optional()`. Authored stages
+   * win, an empty list included: that author declared zero stages, and the
+   * placeholder below says exactly that. Derived stages then take the same
+   * road authored ones do: `localizeStageLabels`, then the picklist
+   * translation below, then `classify()`.
+   *
+   * `RecordPathComponentProps` types `stages` as required, narrower than the
+   * spec row; the read goes through `unknown` so this branch is not typed
+   * unreachable.
+   */
+  const authoredStages: unknown = schema.stages;
+  const derivesStages = authoredStages === undefined;
+  const objectSchema = ctx?.objectSchema;
+  const rawStages: PathStage[] = React.useMemo(
+    () =>
+      localizeStageLabels(
+        derivesStages ? deriveStages(objectSchema, statusField ?? null) : authoredStages,
+        language,
+      ),
+    [derivesStages, authoredStages, objectSchema, statusField, language],
+  );
   // Localize picklist labels when an i18n provider is mounted and the
   // record context knows which object owns the field. Falls back to the
   // schema's own labels (already English in synth, possibly authored in
   // any language for full Lightning pages) when no translation is found.
-  const stages: Array<{ value: any; label: string; terminal?: 'won' | 'lost' }> = React.useMemo(() => {
+  const stages: PathStage[] = React.useMemo(() => {
     if (rawStages.length === 0 || !statusField || !ctx?.objectName) return rawStages;
     const translated = translateOptions(ctx.objectName, statusField, rawStages as any);
     if (Array.isArray(translated) && translated.length === rawStages.length) {
@@ -186,10 +270,18 @@ export const RecordPathRenderer: React.FC<RecordPathRendererProps> = ({
   const currentInLost = firstLostIdx !== -1 && currentIdx >= firstLostIdx;
 
   if (stages.length === 0) {
+    // Names the field when the derivation had an object definition to read
+    // and found no picklist options on `statusField` (objectui#11106): the
+    // author learns which field to fix, or that `stages` must be authored.
+    // With no definition bound (a designer palette, a host still loading),
+    // nothing is known about the field, so the plain wording stays.
+    const underivable = derivesStages && !!statusField && objectSchema != null;
     return (
       <div className={className} {...designer}>
         <div className="text-xs text-muted-foreground italic px-3 py-2 border border-dashed rounded">
-          record:path — no stages configured
+          {underivable
+            ? `record:path — no stages configured, and field "${statusField}" has no picklist options to derive them from`
+            : 'record:path — no stages configured'}
         </div>
       </div>
     );

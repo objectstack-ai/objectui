@@ -164,7 +164,7 @@ function viewSchemaForDraft(item: ZodLikeSchema, container: ZodLikeSchema): ZodL
  * that root issue literally is what collapsed every field-level diagnostic on
  * the edit path into one un-addressable "Invalid input": `SchemaForm` highlights
  * by `path` and Monaco locates by `path`, so an empty path points at nothing,
- * and the guided messages the spec wrote for these rejections (#4001) never
+ * and the guided messages the spec wrote for these rejections (objectstack-ai/objectstack#4001) never
  * reached the user.
  *
  * Selection is by the draft's OWN discriminant — the same `isViewItemDraft` the
@@ -362,7 +362,7 @@ function arrayVariantMemberIndex(groups: ZodLikeIssue[][], value: unknown): numb
  * `sort: [{field: 'n', order: 'bogus'}]` the plain-`string` member rejects the
  * array outright and the `ColumnSort[]` member reports
  * `[0].order` / `Invalid option: expected one of "asc"|"desc"` — the spec's own
- * guided message (#4001), which until now was thrown away and rendered as
+ * guided message (objectstack-ai/objectstack#4001), which until now was thrown away and rendered as
  * `config.sort` / `Invalid input`.
  *
  * This rule does NOT index members positionally: the index is derived from the
@@ -562,11 +562,33 @@ function expandViewIssues(
  * where a permissive match-all sharing condition gets written — and deliberately
  * not on `edit`. This is NOT a tolerant fallback: nothing is coerced and no
  * draft is waved through; one door has a client gate and the other keeps the
- * server's. Turning this gate on is gated on the `_diagnostics` ingress being
- * closed first (the strip belongs where the draft is assembled, not here —
+ * server's.
+ *
+ * ── The ingress condition was MET, and the answer was still no (the 2026-09-20 ruling) ──
+ *
+ * This block used to end on a plan: switch the edit gate on once the
+ * `_diagnostics` ingress is closed where the draft is assembled (not here —
  * reconstructing the decoration list in this file would be a second de-facto
- * contract). Until then a gate here would refuse legitimate author input, which
- * is worse than the defense-in-depth gap it closes.
+ * contract), and not before, since until then a gate here would refuse
+ * legitimate author input. That condition was met. objectui#7603 stripped the
+ * read decorations off the pending draft, and objectui#8181 hoisted the strip
+ * into `extractDraftBody`, which removes the spec's own list through the spec's
+ * `stripReadDecorations` before the pending draft is merged. So the
+ * `getDraft().item` assembly quoted above is the edit path as objectui#6982
+ * measured it, not as it stands; for the live answer read
+ * `ResourceEditPage.readDecorationStrip.test.tsx`, not this paragraph.
+ *
+ * The switch was then put to the maintainer on its own card, with the met
+ * condition measured on that card and a finished implementation beside it
+ * (PR objectui#10054). The maintainer ruled option A on 2026-09-20 (restated on
+ * objectui#10150), verbatim 「7612 只需要服务端校验」 ("7612 needs server-side
+ * validation only"): the edit door stays ungated, because the server is
+ * authoritative on it and that is enough. The PR closed unmerged. The create
+ * door was not in question and keeps its client gate.
+ *
+ * ⇒ A closed ingress is NOT a reason to take `sharing_rule` out of this set:
+ * that question was asked with the condition already met, and answered. Only a
+ * new maintainer ruling re-opens it, never a re-reading of the ingress.
  */
 const AUTHOR_SHAPE_ONLY_TYPES = new Set<string>(['sharing_rule']);
 
@@ -602,7 +624,7 @@ const LOADERS: Record<string, SchemaLoader> = {
   //
   // CREATE — the authoring gate, unchanged: `viewSchemaForDraft` dispatches on
   // the record's own `viewKind` discriminant to `ViewItemSchema` (what
-  // `createBuildBody` emits) or `ViewSchema` (the container). #5074 made these
+  // `createBuildBody` emits) or `ViewSchema` (the container). objectstack-ai/objectstack#5074 made these
   // strict on purpose and this admin's create path passes them cleanly.
   //
   // EDIT — the WIRE gate. The editor opens a body that came back out of
@@ -614,7 +636,7 @@ const LOADERS: Record<string, SchemaLoader> = {
   // the accepted body verbatim (ADR-0005 §Validation). So the server ACCEPTS
   // this body — it validates against `ViewMetadataSchema` — while the authoring
   // gate rejects it. Judging a stored body by the authoring schema made the
-  // client strictly stricter than the server; that is the inversion #5316 fixes.
+  // client strictly stricter than the server; that is the inversion objectstack-ai/objectstack#5316 fixes.
   //
   // Why `ViewMetadataSchema` and not the narrower `ViewItemWireSchema`, which
   // also declares `isPinned`/`sortOrder`: two measured reasons.
@@ -646,7 +668,7 @@ const LOADERS: Record<string, SchemaLoader> = {
   action: async () => (await import('@objectstack/spec/ui')).ActionSchema as unknown as ZodLikeSchema,
   // `theme` is intentionally absent. It was never a registered metadata type,
   // so metadata-admin never asks for it — and the spec retired the whole
-  // `ui/theme.zod.ts` module (objectstack#10485 / PR objectstack#10695), so the
+  // `ui/theme.zod.ts` module (objectstack `35ad101bc`), so the
   // `ThemeSchema` the old entry read off this subpath is gone upstream. Nothing
   // here ever went red because objectui's own `@objectstack/spec` pin (17.1.0)
   // still publishes that symbol: the entry type-checked and resolved, and would
@@ -677,7 +699,7 @@ const LOADERS: Record<string, SchemaLoader> = {
   // since spec 7.1.0 (`BUILTIN_METADATA_TYPE_SCHEMAS` in
   // `kernel/metadata-type-schemas.ts` is the authority); `EmailTemplateSchema`
   // survived only as an inline sub-shape of the old `Notification` holder and
-  // was deleted with it in objectstack#4610 / #4616. So this validator was
+  // was deleted with it in objectstack#4610 / objectstack-ai/objectstack#4616. So this validator was
   // checking authored templates against the WRONG contract — `name` + `locale`
   // and `bodyHtml` / `bodyText`, not `id` and `body` + `bodyType`.
   email_template: async () => (await import('@objectstack/spec/system')).EmailTemplateDefinitionSchema as unknown as ZodLikeSchema,
@@ -741,9 +763,9 @@ const LOADERS: Record<string, SchemaLoader> = {
   // key in that schema at all: its required keys are `name`, `label`, `type`,
   // and a minimal `{ name, label, type: 'saas' }` entry parses clean.
   //
-  // But `ConnectorSchema` is still the wrong target, for the reason the spec
-  // states itself: the base "stays a plain object so connector subtypes
-  // (github / database / …) can still `.extend()` it", while
+  // But `ConnectorSchema` is still the wrong target, for the reason the spec's
+  // `DeclarativeConnectorEntrySchema` docblock states: the base is the shape
+  // shared with connector defs a plugin builds at runtime, while
   // `DeclarativeConnectorEntrySchema` is that base plus the ADR-0097 rules that
   // apply to a connector AUTHORED in a stack — which is what this admin writes.
   // `ObjectStackSchema.connectors` binds the entry schema element-wise.
@@ -811,7 +833,7 @@ async function validateObjectFieldRules(draft: unknown): Promise<SchemaFormIssue
         fields: fieldNames,
         scope: 'record',
         // Names the authored key so the wrong-layer advisory takes the
-        // platform's published verdict (objectui#9318). Only ERRORS are kept
+        // platform's published verdict (`e3cb47624`). Only ERRORS are kept
         // below, and that advisory is a `warning`, so this changes nothing
         // this gate reports today — it keeps the two `scope: 'record'` callers
         // asking the same question of the same authority.
@@ -848,7 +870,7 @@ async function validateObjectFieldRules(draft: unknown): Promise<SchemaFormIssue
  * — binds a validation predicate's context as `{ record, previous }` and
  * NOTHING else, and since objectstack#4649 a predicate it cannot evaluate is
  * fail-CLOSED: `checkPredicate` logs "predicate failed to evaluate (…) — write
- * rejected (#4649)" and `unevaluableRuleError` turns that into a
+ * rejected (objectstack-ai/objectstack#4649)" and `unevaluableRuleError` turns that into a
  * `rule_violation`. So a bare-shorthand `amount > 100` authored here does not
  * merely fail to match — it rejects EVERY write to the object, and the spec's
  * Zod accepts it (`ExpressionInputSchema` checks the SHAPE only, exactly as it

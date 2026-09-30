@@ -1,7 +1,7 @@
 // Copyright (c) 2025 ObjectStack. Licensed under the Apache-2.0 license.
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { fetchFlowRuns, errorText, buildStepTree, regionLabel } from './FlowRunsPanel';
+import { fetchFlowRuns, errorText, buildStepTree, regionLabel, groupChildren, parallelBranchIndex } from './FlowRunsPanel';
 import type { StepTreeNode } from './FlowRunsPanel';
 
 const RUN = {
@@ -112,8 +112,8 @@ describe('buildStepTree', () => {
   it('nests parallel branch steps under the parallel node', () => {
     const tree = buildStepTree([
       { nodeId: 'par', nodeType: 'parallel', status: 'success' },
-      { nodeId: 'a', status: 'success', parentNodeId: 'par', iteration: 0, regionKind: 'parallel-branch' },
-      { nodeId: 'b', status: 'success', parentNodeId: 'par', iteration: 1, regionKind: 'parallel-branch' },
+      { nodeId: 'a', status: 'success', parentNodeId: 'par', branch: 0, regionKind: 'parallel-branch' },
+      { nodeId: 'b', status: 'success', parentNodeId: 'par', branch: 1, regionKind: 'parallel-branch' },
     ]);
     expect(outline(tree)).toEqual(['par(a,b)']);
   });
@@ -154,7 +154,7 @@ describe('regionLabel', () => {
     expect(regionLabel({ nodeId: 'x', status: 'success', regionKind: 'loop-body', iteration: 4 })).toBe('Iteration 5');
   });
   it('labels parallel branches 1-based', () => {
-    expect(regionLabel({ nodeId: 'x', status: 'success', regionKind: 'parallel-branch', iteration: 1 })).toBe('Branch 2');
+    expect(regionLabel({ nodeId: 'x', status: 'success', regionKind: 'parallel-branch', branch: 1 })).toBe('Branch 2');
   });
   it('labels try / catch handlers', () => {
     expect(regionLabel({ nodeId: 'x', status: 'success', regionKind: 'try' })).toBe('Try');
@@ -162,5 +162,91 @@ describe('regionLabel', () => {
   });
   it('is null for a top-level step (no region)', () => {
     expect(regionLabel({ nodeId: 'x', status: 'success' })).toBeNull();
+  });
+});
+
+// ── objectui#7614: `parallel-branch` groups on `branch` ──
+//
+// objectstack#14414 (ruling A) made `iteration` single-valued — the enclosing
+// loop's row — and moved the parallel branch index to its own key, `branch`.
+// A record from an engine that predates `branch` is told apart by the record
+// itself: a `parallel-branch` step with no `branch` key. Its `iteration` is the
+// legacy BRANCH index (see `parallelBranchIndex`).
+
+/** Wrap flat steps as leaf tree nodes, the shape `groupChildren` receives. */
+function leaves(steps: Parameters<typeof buildStepTree>[0]): StepTreeNode[] {
+  return steps.map((step) => ({ step, children: [] }));
+}
+
+/** Compact groups to `label:nodeId,nodeId…` strings for legible asserts. */
+function groups(steps: Parameters<typeof buildStepTree>[0]): string[] {
+  return groupChildren(leaves(steps)).map((g) => `${g.label}:${g.items.map((i) => i.step.nodeId).join(',')}`);
+}
+
+describe('parallel-branch grouping reads `branch` (objectui#7614)', () => {
+  it('(a) groups a bare parallel by branch: `branch: 1` is its own group, labelled 1-based', () => {
+    expect(
+      groups([
+        { nodeId: 'a1', status: 'success', parentNodeId: 'par', regionKind: 'parallel-branch', branch: 0 },
+        { nodeId: 'a2', status: 'success', parentNodeId: 'par', regionKind: 'parallel-branch', branch: 0 },
+        { nodeId: 'b1', status: 'success', parentNodeId: 'par', regionKind: 'parallel-branch', branch: 1 },
+      ]),
+    ).toEqual(['Branch 1:a1,a2', 'Branch 2:b1']);
+  });
+
+  it('(a) stacks the loop row: `branch: 1, iteration: 2` keys on both, and the label names both', () => {
+    const step = { nodeId: 'x', status: 'success', regionKind: 'parallel-branch', branch: 1, iteration: 2 };
+    expect(parallelBranchIndex(step)).toEqual({ branch: 1, iteration: 2, legacy: false });
+    expect(regionLabel(step)).toBe('Branch 2 · Iteration 3');
+    expect(regionLabel(step, 'zh-CN')).toBe('分支 2 · 第 3 次迭代');
+    // Same row, different branch: two groups (a key on `iteration` alone merges them).
+    // Same branch, different row: two groups (a key on `branch` alone merges them).
+    expect(
+      groups([
+        { nodeId: 'p', status: 'success', parentNodeId: 'par', regionKind: 'parallel-branch', branch: 0, iteration: 2 },
+        { nodeId: 'q', status: 'success', parentNodeId: 'par', regionKind: 'parallel-branch', branch: 1, iteration: 2 },
+        { nodeId: 'r', status: 'success', parentNodeId: 'par', regionKind: 'parallel-branch', branch: 1, iteration: 3 },
+      ]),
+    ).toEqual(['Branch 1 · Iteration 3:p', 'Branch 2 · Iteration 3:q', 'Branch 2 · Iteration 4:r']);
+  });
+
+  it('(b) control: `loop-body` still groups on `iteration`, and ignores a `branch` carried through nesting', () => {
+    expect(
+      groups([
+        { nodeId: 'send', status: 'success', parentNodeId: 'each', regionKind: 'loop-body', iteration: 0 },
+        { nodeId: 'log', status: 'success', parentNodeId: 'each', regionKind: 'loop-body', iteration: 0, branch: 1 },
+        { nodeId: 'send', status: 'success', parentNodeId: 'each', regionKind: 'loop-body', iteration: 1, branch: 1 },
+      ]),
+    ).toEqual(['Iteration 1:send,log', 'Iteration 2:send']);
+  });
+
+  it('(c) control: `try` / `catch` keep their handler labels and their `iteration` key', () => {
+    expect(
+      groups([
+        { nodeId: 'risky', status: 'failure', parentNodeId: 'tc', regionKind: 'try', iteration: 2, branch: 0 },
+        { nodeId: 'risky2', status: 'success', parentNodeId: 'tc', regionKind: 'try', iteration: 2, branch: 0 },
+        { nodeId: 'recover', status: 'success', parentNodeId: 'tc', regionKind: 'catch', iteration: 2, branch: 0 },
+        { nodeId: 'recover', status: 'success', parentNodeId: 'tc', regionKind: 'catch', iteration: 3, branch: 0 },
+      ]),
+    ).toEqual(['Try:risky,risky2', 'Catch:recover', 'Catch:recover']);
+  });
+
+  it('(d) legacy record (no `branch`): `iteration` is read as the branch index, never as a row', () => {
+    const legacy = { nodeId: 'x', status: 'success', regionKind: 'parallel-branch', iteration: 2 };
+    expect(parallelBranchIndex(legacy)).toEqual({ branch: 2, legacy: true });
+    expect(regionLabel(legacy)).toBe('Branch 3');
+    expect(
+      groups([
+        { nodeId: 'a1', status: 'success', parentNodeId: 'par', regionKind: 'parallel-branch', iteration: 0 },
+        { nodeId: 'a2', status: 'success', parentNodeId: 'par', regionKind: 'parallel-branch', iteration: 0 },
+        { nodeId: 'b1', status: 'success', parentNodeId: 'par', regionKind: 'parallel-branch', iteration: 1 },
+      ]),
+    ).toEqual(['Branch 1:a1,a2', 'Branch 2:b1']);
+  });
+
+  it('(d) legacy record with no index at all stays unnumbered: never defaulted to branch 0', () => {
+    const bare = { nodeId: 'x', status: 'success', regionKind: 'parallel-branch' };
+    expect(parallelBranchIndex(bare)).toEqual({ branch: undefined, legacy: true });
+    expect(regionLabel(bare)).toBe('Branch');
   });
 });

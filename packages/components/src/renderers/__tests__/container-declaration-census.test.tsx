@@ -48,13 +48,23 @@
  * `items[].content`), the void tags out of the same loop factory as 34 that do
  * render children, and the former `schema.body` readers, which objectui#6771
  * converged on `children` and objectui#6804's ruling keeps undeclared.
+ *
+ * ## Re-pointed by objectui#9910 (2026-09-24)
+ *
+ * The containment DECLARATION is no longer `isContainer`: it is the input
+ * `{ name: 'children', type: 'slot' }`, and `validateTree` reads only that
+ * (`acceptsChildren`). The eight still carry the flag -- they ARE layout
+ * containers, which is what the flag now means (objectui#6804, Q2-A) -- and
+ * they now also declare the slot, which is what keeps the assertions below
+ * true. The `badge` / `alert` block flipped with the ruling: both declare the
+ * slot, keep the flag off, and draw nothing.
  */
 
 import { describe, it, expect } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer, AdapterCtx } from '@object-ui/react';
-import { manifestFromConfigs, validateTree } from '@object-ui/sdui-parser';
+import { CHILD_LIST_KEY, manifestFromConfigs, validateTree } from '@object-ui/sdui-parser';
 import type { Diagnostic, SchemaElement } from '@object-ui/sdui-parser';
 
 // Module scope, not a hook: this import IS the registration (AGENTS.md
@@ -122,6 +132,15 @@ describe('the sectioning tags declare the containment they render (objectui#6764
     expect(await rendersChildren(type)).toBe(true);
   });
 
+  it.each(DECLARED_HERE)('`%s` declares the `children` slot the tier reads (objectui#9910)', (type) => {
+    // The declaration that now carries the fact the render above proves. The
+    // flag stays too, as the layout fact it is; asserting the slot by name is
+    // what keeps the diagnostic assertion below from passing on a fallback.
+    const inputs = ComponentRegistry.getMeta(type)?.inputs ?? [];
+    expect(inputs.find((i) => i.name === CHILD_LIST_KEY)?.type).toBe('slot');
+    expect(ComponentRegistry.getMeta(type)?.isContainer).toBe(true);
+  });
+
   it.each(DECLARED_HERE)('`%s` with children draws no `not-a-container`', (type) => {
     const diagnostics = diagnose(withChildren(type));
 
@@ -154,34 +173,34 @@ describe('the declaration is confined to what was measured (objectui#6764)', () 
 
   it.each(['img', 'hr', 'br'])('leaves the void tag `%s` alone', async (type) => {
     // The second half of the same control, inside a LOOP FACTORY. `img`/`hr`/
-    // `br` come out of the same `basic/html-elements.tsx` loop as 34 tags that
+    // `br` come out of the same `basic/html-elements.tsx` loop as 35 tags that
     // DO render children, and the factory skips `renderChildren` for them by
     // design (`VOID_TAGS`). A census that worked at file granularity — the
-    // granularity a static reader can reach — would have declared all 37
+    // granularity a static reader can reach — would have declared all 38
     // together and told authors that `<br>` accepts children.
     expect(await rendersChildren(type)).toBe(false);
     expect(diagnose(withChildren(type)).map((d) => d.code)).toContain(CONTAINMENT);
   });
 
-  it('leaves `badge` and `alert` undeclared — objectui#6771 gave them a `children` read, objectui#6804 keeps the flag off', async () => {
-    // ⚠️ INVERTED, and the exception it guards is now LOAD-BEARING rather than
-    // free. These two used to render `renderChildren(schema.body)` and never
-    // touch `schema.children`, so `validateTree`'s containment branch — guarded
-    // by `node.children?.length` ALONE — never fired on them and declaring the
-    // flag would have bought nothing while removing both from the react-page
-    // scope (both are PUBLIC).
+  it('`badge` and `alert` declare the slot with the flag OFF — objectui#6804 held, objectui#9910 paid', async () => {
+    // These two used to render `renderChildren(schema.body)` and never touch
+    // `schema.children`; objectui#6771 converged them onto `children`, and the
+    // flag-keyed containment branch then fired on the only key they read.
+    // objectui#6804 forbids the flag for them — it means LAYOUT containment,
+    // and declaring it would delete `Badge` / `Alert` from every react page's
+    // JSX scope (both are PUBLIC) — so for a while this pin recorded a FALSE
+    // warning as a refusal.
     //
-    // objectui#6771 retired the `body` spelling; they read `children` now, so
-    // the branch DOES fire, on the only key they read. The flag still stays off
-    // — objectui#6804's ruling covers exactly this population and orders a
-    // reasoned baseline exception instead — and the react-page cost is the
-    // reason the ruling gave. What this pin records is that the warning is now
-    // false rather than absent; the full statement of that cost, and the
-    // question it raises for the `sidebar-*` family, is in
-    // `container-declaration-ratchet.test.tsx`'s converged-readers block.
+    // objectui#9910 dissolved the conflation: the slot input declares the
+    // child read, the flag declares layout, and the tier reads the slot. So
+    // both now render children, declare the slot, keep the flag off, and draw
+    // nothing — with `Badge` and `Alert` still injected into react pages.
     for (const type of ['badge', 'alert']) {
       expect(await rendersChildren(type), `\`${type}\` lost its \`children\` read`).toBe(true);
-      expect(diagnose(withChildren(type)).map((d) => d.code)).toContain(CONTAINMENT);
+      const inputs = ComponentRegistry.getMeta(type)?.inputs ?? [];
+      expect(inputs.find((i) => i.name === CHILD_LIST_KEY)?.type, `\`${type}\` declares no slot`).toBe('slot');
+      expect(ComponentRegistry.getMeta(type)?.isContainer, `\`${type}\` declared the layout flag — that overrides objectui#6804`).toBeFalsy();
+      expect(diagnose(withChildren(type)).filter((d) => d.code === CONTAINMENT)).toEqual([]);
     }
   });
 });
@@ -189,8 +208,8 @@ describe('the declaration is confined to what was measured (objectui#6764)', () 
 describe('the premise that made this change safe on the SECOND consumer (objectui#6764)', () => {
   it('none of the eight is in the curated public contract', () => {
     // `renderers/layout/react-page.tsx` builds the JSX scope of every
-    // `kind:'react'` page with `if (!tag || cfg.isContainer) continue;`, so each
-    // declaration also REMOVES that tag as an injected identifier — the
+    // `kind:'react'` page with `if (!tag || cfg.isContainer || cfg.tier === 'html') continue;`,
+    // so each declaration also REMOVES that tag as an injected identifier — the
     // consequence objectui#6764 recorded as unmeasured. It reads
     // `getPublicConfigs()`, not the whole registry, and none of these eight is
     // in it: there is no `<Aside>` / `<Main>` / `<AspectRatio>` wrapper for the
@@ -200,17 +219,33 @@ describe('the premise that made this change safe on the SECOND consumer (objectu
     // Pinned rather than left as a comment so that promoting one of these into
     // `PUBLIC_BLOCKS` re-opens the question HERE, instead of silently dropping a
     // tag from every react page.
-    const publicTags = new Set(
-      (ComponentRegistry.getPublicConfigs() as Array<{ type: string }>).map((c) => c.type),
-    );
+    //
+    // objectui#10735 re-opened it, deliberately, and answered it: the seven
+    // sectioning tags now ride `getPublicConfigs()` — the published manifest
+    // must whitelist them for `kind:'html'` pages — but as HTML-TIER entries,
+    // stamped `tier: 'html'`, never as curated blocks. `react-page.tsx` skips
+    // them on that stamp as well as on the container flag, so the premise this
+    // pin guards ("no injected wrapper exists for the flag to delete") holds,
+    // and the CURATED contract is read here as the unstamped entries.
+    const contract = ComponentRegistry.getPublicConfigs() as Array<{ type: string; tier?: string }>;
+    const curatedTags = new Set(contract.filter((c) => c.tier !== 'html').map((c) => c.type));
+    const htmlTierTags = new Set(contract.filter((c) => c.tier === 'html').map((c) => c.type));
 
     // Direction control first. Without it, "none of the eight is public" is
     // indistinguishable from "the public tier is empty / this reader broke",
     // and the assertion below would be green for nothing.
-    expect(publicTags.size).toBeGreaterThan(0);
-    expect(publicTags.has('flex')).toBe(true);
-    expect(publicTags.has('button')).toBe(true);
+    expect(curatedTags.size).toBeGreaterThan(0);
+    expect(curatedTags.has('flex')).toBe(true);
+    expect(curatedTags.has('button')).toBe(true);
 
-    expect(DECLARED_HERE.filter((t) => publicTags.has(t))).toEqual([]);
+    expect(DECLARED_HERE.filter((t) => curatedTags.has(t))).toEqual([]);
+
+    // The seven sectioning tags are declared for the html tier and nowhere
+    // else; `aspect-ratio` is on neither roster (refused on stated merits,
+    // objectui#8628).
+    expect(DECLARED_HERE.filter((t) => htmlTierTags.has(t)).sort()).toEqual(
+      ['article', 'aside', 'footer', 'header', 'main', 'nav', 'section'],
+    );
+    expect(htmlTierTags.has('aspect-ratio')).toBe(false);
   });
 });

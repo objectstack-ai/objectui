@@ -42,12 +42,12 @@ import type { RecordAlertRenderer } from '../renderers/record-alert';
 describe('FeedFilterMode is the spec enum, at runtime as well as in types', () => {
   it('accepts every member the spec declares — read from the spec, not restated', () => {
     for (const mode of SpecFeedFilterModeEnum.options) {
-      expect(normalizeFilterMode(mode)).toBe(mode);
+      expect(normalizeFilterMode(mode, 'record:activity')).toBe(mode);
     }
   });
 
   it('still falls back for a value the spec does not declare', () => {
-    expect(normalizeFilterMode('everything')).toBe('all');
+    expect(normalizeFilterMode('everything', 'record:activity')).toBe('all');
   });
 });
 

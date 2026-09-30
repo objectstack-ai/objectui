@@ -53,15 +53,18 @@
  *     the key. `tsconfig.test.json` compiles this file, so that is real
  *     enforcement and not decoration (objectui#3009).
  *
- * ## The three keys that are still declared and still dead
+ * ## The three keys that were declared and never read — now RETIRED
  *
- * `events` / `orientation` / `position` have zero read points. Their RETIREMENT
- * is routed, not done — objectui#6170's maintainer ruling (2026-08-25) sends
- * them down the ADR-0049 enforce-or-remove route, which is a breaking removal
- * from a published type. `events` went required → OPTIONAL here, which is a
- * strict widening and the smallest change that lets the documented authoring
- * form compile. They are pinned below as STILL DECLARED so the removal, when it
- * comes, is a deliberate edit against a red test rather than a silent drift.
+ * `events` / `orientation` / `position` had zero read points. Stage 1 of
+ * objectui#6170 made `events` required → OPTIONAL, the smallest change that let
+ * the documented authoring form compile, and pinned all three here as STILL
+ * DECLARED so the removal would be a deliberate edit against a red test rather
+ * than a silent drift. Stage 2 (the maintainer ruling's ADR-0049
+ * enforce-or-remove route, taken as REMOVE) has now made that edit: all three
+ * are `?: never` / `retirementTombstone()` tombstones. What this file keeps of
+ * them is the part that is still ITS claim — they stay declared, and absent
+ * stays valid; the refusals themselves, with their counter-probes, are pinned
+ * in `timeline-dead-keys-retired-6170.test.ts`.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -198,25 +201,32 @@ describe('TimelineSchema — `scale` is canonical and shares the spec vocabulary
   });
 });
 
-describe('TimelineSchema — the three unread keys are still declared (ADR-0049 route pending)', () => {
+describe('TimelineSchema — the three unread keys stay DECLARED, now as tombstones (objectui#6170 stage 2)', () => {
   it('`events` / `orientation` / `position` remain in the mirror', () => {
+    // Still true after the retirement, and still load-bearing: a tombstone that
+    // left the mirror would let the retired key parse green under
+    // `.passthrough()` and do nothing — see the ADR-0049 note in data-display.ts.
     const shape = Object.keys(TimelineSchema.shape);
     for (const key of ['events', 'orientation', 'position']) {
       expect(shape, `${key} left the mirror — see the ADR-0049 note in data-display.ts`).toContain(key);
     }
   });
 
-  it('`events` is OPTIONAL — this is the widening objectui#6170 landed', () => {
-    // It was required. That is why the docs page's own TypeScript example did
-    // not compile, and it is the single non-additive change in this card.
+  it('`events` is not REQUIRED — the stage-1 widening survives the stage-2 tombstone', () => {
+    // It was required until objectui#6170's stage 1. That is why the docs
+    // page's own TypeScript example did not compile. Stage 2 retires the key;
+    // absence has to stay valid, or every timeline would be refused.
     expect(TimelineSchema.safeParse({ type: 'timeline', items: [] }).success).toBe(true);
   });
 
-  it('still validates them when authored, so retirement is a visible edit', () => {
-    expect(TimelineSchema.safeParse({ ...MINIMAL, orientation: 'diagonal' }).success).toBe(false);
-    expect(TimelineSchema.safeParse({ ...MINIMAL, position: 'centre' }).success).toBe(false);
-    expect(TimelineSchema.safeParse({ ...MINIMAL, events: 'nope' }).success).toBe(false);
-  });
+  // The third test that stood here — "still validates them when authored" —
+  // asserted `orientation: 'diagonal'`, `position: 'centre'` and
+  // `events: 'nope'` were refused. Under the tombstones it would still pass,
+  // but for a different reason (`never` refuses every value, the well-typed
+  // ones included), so keeping it would read as vocabulary enforcement while
+  // measuring the retirement. The refusal is pinned by its own envelope and
+  // counter-probes in `timeline-dead-keys-retired-6170.test.ts`, as
+  // `timeScale`'s is in `timeline-timescale-retired.test.ts`.
 });
 
 describe('TimelineSchema (TS) — compile-time pin on the same keys', () => {
@@ -260,19 +270,20 @@ describe('TimelineSchema (TS) — compile-time pin on the same keys', () => {
     const minDate: TimelineSchemaTS['minDate'] = 20240101;
     // @ts-expect-error — `maxDate` is declared `string | undefined`.
     const maxDate: TimelineSchemaTS['maxDate'] = 20241231;
-    // @ts-expect-error — `orientation` is declared `'vertical' | 'horizontal' | undefined`.
-    const orientation: TimelineSchemaTS['orientation'] = 'diagonal';
-    // @ts-expect-error — `position` is declared `'left' | 'right' | 'alternate' | undefined`.
-    const position: TimelineSchemaTS['position'] = 'centre';
+    // `orientation` and `position` used to sit here with their old vocabularies.
+    // Both are RETIRED (objectui#6170 stage 2) and typed `?: never`, so their
+    // directives would now hold for a different reason, exactly as `timeScale`'s
+    // did — they are pinned, with counter-probes, in
+    // `timeline-dead-keys-retired-6170.test.ts`.
 
     expect([
-      variant, dateFormat, scale, rowLabel, minDate, maxDate, orientation, position,
-    ]).toHaveLength(8);
+      variant, dateFormat, scale, rowLabel, minDate, maxDate,
+    ]).toHaveLength(6);
   });
 
   it('accepts the well-typed value on every declared key', () => {
     // Counter-probe for the directives above: without this, a declaration
-    // narrowed to `never` would satisfy all nine of them.
+    // narrowed to `never` would satisfy every one of them.
     const ok: TimelineSchemaTS = {
       type: 'timeline',
       variant: 'gantt',
@@ -282,8 +293,6 @@ describe('TimelineSchema (TS) — compile-time pin on the same keys', () => {
       rowLabel: 'Projects',
       minDate: '2024-01-01',
       maxDate: '2024-12-31',
-      orientation: 'vertical',
-      position: 'left',
     };
     expect(ok.rowLabel).toBe('Projects');
   });

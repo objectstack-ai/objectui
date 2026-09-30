@@ -4,25 +4,34 @@
  *
  * ADR-0057 #8 — the proactive AI usage indicator for the ChatDock header.
  *
- * Two independent meters (`build` + `dataChat`) rendered as small progress rings so
- * the user sees remaining AI headroom BEFORE a send hits the 429 wall, instead of
- * only learning the limit reactively. Data comes from {@link useAiUsage} (the cloud
- * `GET /api/v1/ai/usage` endpoint), which speaks a D5-SAFE fraction — this component
- * NEVER renders a token number, only a ring + qualitative words.
+ * ONE small progress ring for the environment's ONE AI quota pool (objectui#8524,
+ * following the cloud single-pool ruling), so the user sees remaining AI headroom
+ * BEFORE a send hits the 429 wall, instead of only learning the limit reactively.
+ * Data comes from {@link useAiUsage} (the cloud `GET /api/v1/ai/usage` endpoint),
+ * which speaks D5-SAFE fractions — this component NEVER renders a token number,
+ * only a ring, qualitative words and, in the popover, the pool's split as
+ * percentages of that same pool.
  *
- * Near-full (≥ {@link NEAR_FULL}) a meter turns amber and, on click, the popover
+ * The split (`breakdown`: app-building vs data Q&A) answers "where did the
+ * allowance go". It is text inside the popover, under the pool's own row — never
+ * a second ring, which would imply a second budget. It appears only when at
+ * least one of its members is a number; when it is absent or all-null the popover
+ * is the pool row alone.
+ *
+ * Near-full (≥ {@link NEAR_FULL}) the ring turns amber and, on click, the popover
  * shows "running low — resets tonight/next cycle" plus the SAME upgrade / top-up CTA
  * the 429 error banner uses ({@link cloudConsoleUrl}). When usage is unknown
- * (endpoint absent on an older backend, OSS, no seat) the whole indicator renders
- * nothing — a missing endpoint degrades to no widget, never a broken one.
+ * (endpoint absent on an older backend, OSS, no seat) or the pool is unmetered, the
+ * whole indicator renders nothing — a missing endpoint degrades to no widget, never
+ * a broken one.
  */
 import * as React from 'react';
 import { cn, Button, Popover, PopoverTrigger, PopoverContent } from '@object-ui/components';
-import { useObjectTranslation } from '@object-ui/i18n';
-import { useAiUsage, type AiMeterUsage } from '../hooks/useAiUsage.js';
+import { formatNumber, useObjectTranslation } from '@object-ui/i18n';
+import { useAiUsage, type AiMeterUsage, type AiUsageBreakdown } from '../hooks/useAiUsage.js';
 import { cloudConsoleUrl } from '../console/marketplace/marketplaceApi.js';
 
-/** Fraction at/above which a meter is "running low" (amber + CTA). */
+/** Fraction at/above which the pool is "running low" (amber + CTA). */
 export const NEAR_FULL = 0.8;
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -36,18 +45,33 @@ function toneFor(fraction: number): Tone {
   return 'ok';
 }
 
-/** A renderable meter: numeric fraction (unmetered/unknown meters are dropped upstream). */
-interface RenderableMeter {
-  key: 'build' | 'dataChat';
-  meter: AiMeterUsage;
-  fraction: number;
-  tone: Tone;
-}
-
 function ringColorClass(tone: Tone): string {
   if (tone === 'full') return 'text-destructive';
   if (tone === 'low') return 'text-amber-500';
   return 'text-primary';
+}
+
+function statusColorClass(tone: Tone): string {
+  if (tone === 'full') return 'text-destructive';
+  if (tone === 'low') return 'text-amber-600 dark:text-amber-500';
+  return 'text-muted-foreground';
+}
+
+/** One row of the pool's split: a member that was measured (numeric). */
+interface BreakdownRow {
+  key: keyof AiUsageBreakdown;
+  fraction: number;
+}
+
+/** The split rows to show — measured members only; empty means no split section. */
+function breakdownRows(breakdown: AiUsageBreakdown | undefined): BreakdownRow[] {
+  if (!breakdown) return [];
+  const rows: BreakdownRow[] = [];
+  (['build', 'dataChat'] as const).forEach((key) => {
+    const fraction = breakdown[key];
+    if (fraction !== null) rows.push({ key, fraction });
+  });
+  return rows;
 }
 
 /** A small SVG progress ring. Presentational only (aria-hidden) — the button labels it. */
@@ -92,11 +116,11 @@ export interface AiUsageIndicatorProps {
 }
 
 /**
- * The ChatDock-header usage indicator. Renders nothing until it has at least one
- * metered meter to show (fail-soft — see file header).
+ * The ChatDock-header usage indicator. Renders nothing until the pool has a
+ * numeric fraction to show (fail-soft — see file header).
  */
 export function AiUsageIndicator({ apiBase, enabled = true, className }: AiUsageIndicatorProps) {
-  const { t } = useObjectTranslation();
+  const { t, language } = useObjectTranslation();
   const { usage } = useAiUsage({ apiBase, enabled });
 
   // "Now", read OUTSIDE render (react-hooks/purity forbids `Date.now()` in the
@@ -113,29 +137,22 @@ export function AiUsageIndicator({ apiBase, enabled = true, className }: AiUsage
     return () => clearInterval(id);
   }, []);
 
-  const meters = React.useMemo<RenderableMeter[]>(() => {
-    if (!usage) return [];
-    const out: RenderableMeter[] = [];
-    (['build', 'dataChat'] as const).forEach((key) => {
-      const meter = usage.meters[key];
-      // Skip unknown (null) and unmetered (usage-based) meters — nothing to ring.
-      if (!meter || meter.unmetered || meter.fraction == null) return;
-      const fraction = meter.fraction;
-      out.push({ key, meter, fraction, tone: toneFor(fraction) });
-    });
-    return out;
-  }, [usage]);
+  if (!enabled || !usage) return null;
+  // Unknown (null) and unmetered (usage-based) pools have nothing to ring.
+  const { pool } = usage;
+  if (pool.unmetered || pool.fraction === null) return null;
+  const fraction = pool.fraction;
+  const tone = toneFor(fraction);
+  const split = breakdownRows(usage.breakdown);
 
-  if (!enabled || meters.length === 0) return null;
-
-  const meterLabel = (key: RenderableMeter['key']): string =>
+  const splitLabel = (key: BreakdownRow['key']): string =>
     key === 'build'
       ? t('console.ai.usage.meterBuild', { defaultValue: 'Build' })
       : t('console.ai.usage.meterAsk', { defaultValue: 'Ask' });
 
-  const statusLabel = (tone: Tone): string => {
-    if (tone === 'full') return t('console.ai.usage.statusFull', { defaultValue: 'Limit reached' });
-    if (tone === 'low') return t('console.ai.usage.statusLow', { defaultValue: 'Running low' });
+  const statusLabel = (level: Tone): string => {
+    if (level === 'full') return t('console.ai.usage.statusFull', { defaultValue: 'Limit reached' });
+    if (level === 'low') return t('console.ai.usage.statusLow', { defaultValue: 'Running low' });
     return t('console.ai.usage.statusOk', { defaultValue: 'Plenty left' });
   };
 
@@ -156,7 +173,7 @@ export function AiUsageIndicator({ apiBase, enabled = true, className }: AiUsage
 
   // `null` = render nothing for this line — an unrecognized `resetKind` (a
   // future backend value this build doesn't know yet) fails soft instead of
-  // crashing or showing stale/wrong copy, a `weekly` meter with no `resetsAt`
+  // crashing or showing stale/wrong copy, a `weekly` pool with no `resetsAt`
   // yet (nothing counted) is never guessed at (objectui#7371), and `now` not
   // yet measured (the one frame before the mount effect above runs) is the
   // same "nothing to show yet" as any other missing input.
@@ -169,9 +186,10 @@ export function AiUsageIndicator({ apiBase, enabled = true, className }: AiUsage
     return null;
   };
 
-  // Worst meter drives the trigger accent + the inline "running low" hint.
-  const worst = meters.reduce((a, b) => (b.fraction > a.fraction ? b : a));
-  const anyLow = worst.tone !== 'ok';
+  // No upstream cloud named by the runtime ⇒ no control plane to send anyone
+  // to, so no CTA (objectui#7253).
+  const showCta = tone !== 'ok' && (pool.upgrade || pool.topUp) && !!cloudConsoleUrl();
+  const reset = resetLabel(pool);
 
   return (
     <Popover>
@@ -183,22 +201,13 @@ export function AiUsageIndicator({ apiBase, enabled = true, className }: AiUsage
           className={cn('h-7 gap-1.5 px-1.5 text-muted-foreground hover:text-foreground', className)}
           aria-label={t('console.ai.usage.ariaLabel', {
             defaultValue: 'AI usage: {{status}}',
-            status: statusLabel(worst.tone),
+            status: statusLabel(tone),
           })}
         >
-          <span className="flex items-center gap-1">
-            {meters.map((m) => (
-              <MeterRing key={m.key} fraction={m.fraction} tone={m.tone} />
-            ))}
-          </span>
-          {anyLow ? (
-            <span
-              className={cn(
-                'hidden text-xs font-medium sm:inline',
-                worst.tone === 'full' ? 'text-destructive' : 'text-amber-600 dark:text-amber-500',
-              )}
-            >
-              {statusLabel(worst.tone)}
+          <MeterRing fraction={fraction} tone={tone} />
+          {tone !== 'ok' ? (
+            <span className={cn('hidden text-xs font-medium sm:inline', statusColorClass(tone))}>
+              {statusLabel(tone)}
             </span>
           ) : null}
         </Button>
@@ -207,52 +216,43 @@ export function AiUsageIndicator({ apiBase, enabled = true, className }: AiUsage
         <div className="mb-2 text-xs font-semibold text-foreground/80">
           {t('console.ai.usage.title', { defaultValue: 'AI usage' })}
         </div>
-        <ul className="space-y-3">
-          {meters.map(({ key, meter, fraction, tone }) => {
-            // No upstream cloud named by the runtime ⇒ no control plane to
-            // send anyone to, so no CTA (objectui#7253).
-            const showCta = tone !== 'ok' && (meter.upgrade || meter.topUp) && !!cloudConsoleUrl();
-            const reset = resetLabel(meter);
-            return (
-              <li key={key} className="flex items-start gap-2.5">
-                <MeterRing fraction={fraction} tone={tone} size={22} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-foreground">{meterLabel(key)}</span>
-                    <span
-                      className={cn(
-                        'text-xs',
-                        tone === 'full'
-                          ? 'text-destructive'
-                          : tone === 'low'
-                            ? 'text-amber-600 dark:text-amber-500'
-                            : 'text-muted-foreground',
-                      )}
-                    >
-                      {statusLabel(tone)}
-                    </span>
-                  </div>
-                  {reset ? <div className="text-xs text-muted-foreground">{reset}</div> : null}
-                  {showCta ? (
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="mt-1 h-auto p-0 text-xs"
-                      data-testid={`ai-usage-cta-${key}`}
-                      onClick={() =>
-                        window.open(cloudConsoleUrl(), '_blank', 'noopener,noreferrer')
-                      }
-                    >
-                      {meter.upgrade
-                        ? t('console.ai.usage.ctaUpgrade', { defaultValue: 'Upgrade to keep going' })
-                        : t('console.ai.usage.ctaTopUp', { defaultValue: 'Add credits to continue' })}
-                    </Button>
-                  ) : null}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="flex items-start gap-2.5">
+          <MeterRing fraction={fraction} tone={tone} size={22} />
+          <div className="min-w-0 flex-1">
+            <div className={cn('text-sm font-medium', statusColorClass(tone))}>{statusLabel(tone)}</div>
+            {reset ? <div className="text-xs text-muted-foreground">{reset}</div> : null}
+            {showCta ? (
+              <Button
+                variant="link"
+                size="sm"
+                className="mt-1 h-auto p-0 text-xs"
+                data-testid="ai-usage-cta"
+                onClick={() => window.open(cloudConsoleUrl(), '_blank', 'noopener,noreferrer')}
+              >
+                {pool.upgrade
+                  ? t('console.ai.usage.ctaUpgrade', { defaultValue: 'Upgrade to keep going' })
+                  : t('console.ai.usage.ctaTopUp', { defaultValue: 'Add credits to continue' })}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+        {split.length > 0 ? (
+          <div className="mt-3 border-t pt-2" data-testid="ai-usage-breakdown">
+            <div className="mb-1 text-xs text-muted-foreground">
+              {t('console.ai.usage.breakdownTitle', { defaultValue: 'Used so far' })}
+            </div>
+            <ul className="space-y-0.5">
+              {split.map((row) => (
+                <li key={row.key} className="flex items-center justify-between gap-2 text-xs">
+                  <span className="text-foreground">{splitLabel(row.key)}</span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {formatNumber(row.fraction, { locale: language, style: 'percent', maximumFractionDigits: 0 })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </PopoverContent>
     </Popover>
   );

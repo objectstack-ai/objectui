@@ -263,11 +263,14 @@ describe('objectui#6488 · a server key the designer does not model SURVIVES a f
   });
 
   it('does not read `Object.prototype` as a previous entry for a field named `__proto__`', async () => {
-    // `__proto__` is a SPEC-LEGAL field name (the record's key rule is
-    // `/^[a-z_][a-z0-9_]*$/`, measured green), and a plain `previous['__proto__']`
-    // lookup returns the inherited `Object.prototype` — an object that is not a
-    // previous field entry at all. The other end of this same map already
-    // documents the hazard in `toFieldsMap`.
+    // `__proto__` matches the record's key rule (`/^[a-z_][a-z0-9_]*$/`), and a
+    // plain `previous['__proto__']` lookup returns the inherited
+    // `Object.prototype` — an object that is not a previous field entry at all.
+    // The other end of this same map already documents the hazard in
+    // `toFieldsMap`. Through `@objectstack/spec` 17.4.0 the name was also
+    // spec-legal; 17.5.0 refuses it BY NAME (`z.record()` would silently drop
+    // it), and that refusal can only name the field if the body still carries
+    // it — so keeping the key is now what makes the server's answer legible.
     const { adapter, puts } = makeCapturingAdapter({ name: 'account', label: 'Account', fields: {} });
 
     await new MetadataService(adapter).saveFields('account', [designerField('__proto__', { label: 'P' })]);
@@ -283,7 +286,8 @@ describe('objectui#6488 · a server key the designer does not model SURVIVES a f
     // non-enumerable, so a spread of it is empty — the guard is what keeps this
     // a statement about the designer's field rather than a lucky no-op.
     expect(Object.keys(entry).sort()).toEqual(['label', 'name', 'type']);
-    expect(issuesOf(puts[0])).toEqual([]);
+    // The spec's by-name refusal, and nothing else (objectui#11073 re-pin).
+    expect(issuesOf(puts[0])).toEqual(['custom @ fields.__proto__']);
   });
 });
 

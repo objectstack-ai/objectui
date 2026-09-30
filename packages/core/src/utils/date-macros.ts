@@ -177,7 +177,13 @@ export function resolveDateMacros<T = any>(filter: T, now: Date = new Date()): T
       return touched ? replaced : value;
     }
     if (Array.isArray(value)) return value.map(walk);
+    // Only a PLAIN object (prototype `Object.prototype` or `null`) is walked;
+    // any other object — a `Date` comparand above all — is returned as the
+    // same instance rather than rebuilt from its own keys into `{}`
+    // (objectui#10506).
     if (typeof value === 'object') {
+      const proto = Object.getPrototypeOf(value);
+      if (proto !== Object.prototype && proto !== null) return value;
       const out: Record<string, any> = {};
       for (const k of Object.keys(value)) out[k] = walk((value as any)[k]);
       return out;

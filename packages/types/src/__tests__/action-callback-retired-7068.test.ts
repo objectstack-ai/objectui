@@ -73,7 +73,7 @@ const CRUD_TS = resolve(__dirname, '../crud.ts');
  * acts on: the retired key, and where the live meaning lives.
  */
 const ON_SUCCESS_GUIDANCE =
-  'RETIRED (objectui#7068) — `onSuccess` is no longer part of this legacy ActionSchema; nothing reads '
+  'RETIRED (ADR-0049) — `onSuccess` is no longer part of this legacy ActionSchema; nothing reads '
   + 'it. It carried a Phase-2 `ActionCallback` object (`{ type: \'toast\' | \'message\' | \'redirect\' | '
   + '\'reload\' | \'custom\' | \'ajax\' | \'dialog\', message?, url?, api?, method?, dialog?, handler? }`) that '
   + 'no renderer or runner ever consumed — the THIRD meaning of this key — and that `@objectstack/spec`\'s '
@@ -82,7 +82,7 @@ const ON_SUCCESS_GUIDANCE =
   + 'UIActionSchema (objectui#5934); a success notice is `successMessage`. Retired under ADR-0049 '
   + 'enforce-or-remove with no deprecation window (maintainer ruling option 1, 2026-09-05).';
 const ON_FAILURE_GUIDANCE =
-  'RETIRED (objectui#7068) — `onFailure` is no longer part of this legacy ActionSchema; nothing reads '
+  'RETIRED (ADR-0049) — `onFailure` is no longer part of this legacy ActionSchema; nothing reads '
   + 'it. It carried the same Phase-2 `ActionCallback` object `onSuccess` carried, and '
   + '`@objectstack/spec`\'s ActionSchema declares no `onFailure` at all (an authored one is refused at '
   + 'publish as an unrecognized key). A failure notice is `errorMessage`. Retired under ADR-0049 '

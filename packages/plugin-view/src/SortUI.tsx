@@ -21,6 +21,7 @@ import { cva } from 'class-variance-authority';
 import { ArrowUp } from 'lucide-react';
 import type { SortItem } from '@object-ui/components';
 import type { SortUISchema } from '@object-ui/types';
+import { notifyViewHandlerChannels } from './viewHandlerChannels';
 
 export type SortUIProps = {
   schema: SortUISchema;
@@ -88,15 +89,10 @@ export const SortUI: React.FC<SortUIProps> = ({
 
   const notifyChange = React.useCallback((nextSort: SortEntry[]) => {
     setSortState(nextSort);
-    onChange?.(nextSort);
-
-    if (schema.onChange && typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent(schema.onChange, {
-          detail: { sort: nextSort },
-        })
-      );
-    }
+    // Host function, then the authored event name (objectui#6124). The helper
+    // calls the prop only when it is a function: through `SchemaRenderer` the
+    // prop can hold the authored string (objectui#10616).
+    notifyViewHandlerChannels(onChange, schema.onChange, nextSort, { sort: nextSort });
   }, [onChange, schema.onChange]);
 
   const handleToggle = React.useCallback((field: string) => {

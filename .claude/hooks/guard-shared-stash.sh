@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# copied from objectstack@7c2c5aedd94d7b0d94c91432bc607862e9c83c6c
 # guard-shared-stash.sh — PreToolUse guard: the stash stack is SHARED across worktrees.
 # Blocks Bash commands that push to / pop from / drop the shared stash stack, and lets
 # the read-only and SHA-pinned forms through.

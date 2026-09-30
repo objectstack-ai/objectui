@@ -28,7 +28,7 @@
  * The singular probe the detail header uses answers ONE record. Folding it into
  * a list row-by-row would cost 2N round trips (a 50-row page = 100 POSTs), and
  * that cost is why this card sat blocked: the batch form
- * (`recordIds: string[]`, objectstack#8326, shipped in objectstack PR #8452) is
+ * (`recordIds: string[]`, objectstack#8326, shipped in objectstack `27358d517`) is
  * what makes a page-level fold affordable. `records[i]` answers `recordIds[i]`;
  * each entry is the verdict the singular form returns for that id, so the list
  * and the detail header read the same number by construction rather than by

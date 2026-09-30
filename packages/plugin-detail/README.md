@@ -450,8 +450,54 @@ value the cell shows — the label this list already resolved, the formula resul
 the server hydrated — so the affordance stays and orders by that.
 Passing `data` directly keeps the historical client-side slicing, and typing
 in the opt-in filter box temporarily falls back to the full-fetch client
-pipeline (the contains-filter sweeps every field, which no generic server
-filter can express).
+pipeline (the contains-filter sweeps the columns the list shows, which no
+generic server filter can express).
+
+A `password` / `secret` column draws `••••••`, and the list flags it
+`masked` on the table it renders (objectui#10657), so the table never copies it
+on Ctrl+C / Cmd+C, shows it as a tooltip, sorts by it from its header, or sizes
+it by its value. The rule is `isMaskedFieldType()` from `@object-ui/fields`,
+read over the column's authored `type` and the object's field type, so an
+authored `type: 'text'` over a `secret` field keeps the flag. While the object
+definition is still loading, or after its read failed, the list cannot tell
+which columns are masked, so it flags every one and draws every cell it would
+draw from that definition as the mask, never as text; it keeps doing so when
+the read failed (objectui#10657). A column with a `cell` of your own draws what
+your `cell` returns.
+
+The list's own filter box and sort read the same flag (objectui#10728). The
+opt-in filter box matches a term against the columns the list shows that are
+not masked, so a masked value, and a field no column shows, never keeps a row.
+A masked column gets no sort button on a `list` card, and a sort by it is
+refused (including one the embedded table asks for, which a server-paged list
+would send as `$orderby`). In a list that sorts in the browser, a sort set on a
+column before it was flagged also stops ordering the rows. While the definition
+is loading, or after its read failed, every column is flagged: the filter box
+keeps no row and no sort button is offered. Not covered: on a server-paged
+list, an authored `sort` naming a masked field is still sent to the server as
+`$orderby`, and so is a sort the user set on a column before that column was
+flagged, with each page the list fetches, until the user sorts by another
+column. The column is flagged after the sort only when the `columns` or the
+object of a list already on screen change; `record:related_list` sets both
+once per block.
+
+A list that authors `columns` sends a **`$select` projection** on its
+auto-fetch (`objectui#10186`), the one `ListView` and `ObjectGrid` already send
+(`objectui#6898`). It asks for the authored columns that pass the same gates the
+column layer draws through (redaction, the parent key, field-level security),
+plus `id`, the `$expand` roots, and, once the child schema has loaded, the
+fields the row predicates read (the child object's `userActions` Edit/Delete
+overrides, its actions, and the host's row actions), plus the mobile card
+gallery's cover field when declared and readable. A column the principal
+cannot read is dropped once the permission answer has loaded; a request sent
+before that answer can still carry it, the same deferral `ObjectGrid` has.
+If every authored column is denied, the list asks for `id` and its predicate
+operands, not for everything. On a backend that honours `$select`, rows then
+carry only the projected fields, so the opt-in filter box above sweeps those.
+A list **without** authored `columns` derives them from `highlightFields` or
+the field walk, and both choose by the emptiness of the rows fetched. That list sends no projection, and its column layer alone keeps a
+denied field off screen. Against ObjectStack's server the projection is defence
+in depth, because the server already strips denied fields from every row.
 
 The node's `filter` (spec `RecordRelatedListProps.filter`, "additional filter
 criteria") narrows the list beyond the parent relationship: it is

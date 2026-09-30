@@ -49,3 +49,31 @@ describe('FlowSimulatorPanel — approval decisions', () => {
     expect(screen.getByText('done')).toBeInTheDocument();
   });
 });
+
+/**
+ * objectui#10692: successor selection lists every out-edge it considered, and an
+ * unguarded one (no condition, not the default) has no condition text to show.
+ * The timeline names it by its target instead of drawing an empty row.
+ */
+describe('FlowSimulatorPanel — successor diagnostics (objectui#10692)', () => {
+  const gatewayFlow = {
+    nodes: [
+      { id: 's', type: 'start' },
+      { id: 'd', type: 'decision', label: 'Route' },
+      { id: 'hi', type: 'end', label: 'High' },
+      { id: 'lo', type: 'end', label: 'Low' },
+    ],
+    edges: [
+      { source: 's', target: 'd' },
+      { id: 'g', source: 'd', target: 'hi', condition: '1 > 5' },
+      { id: 'u', source: 'd', target: 'lo' },
+    ],
+  };
+
+  it('names an unguarded out-edge by its target beside the guarded one', () => {
+    render(<FlowSimulatorPanel nodes={gatewayFlow.nodes} edges={gatewayFlow.edges} variables={[]} />);
+    fireEvent.click(screen.getByRole('button', { name: /^run$/i }));
+    expect(screen.getByText('1 > 5')).toBeInTheDocument();
+    expect(screen.getByText('→ lo')).toBeInTheDocument();
+  });
+});

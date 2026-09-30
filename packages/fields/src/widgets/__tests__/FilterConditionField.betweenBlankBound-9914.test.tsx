@@ -243,7 +243,7 @@ describe('condToMongo: the `between` arm, both directions', () => {
   it('leaves every other operator alone — `equals ""` is still a real predicate', () => {
     expect(condToMongo({ id: 'c', field: 'name', operator: 'equals', value: '' } as any, noTypes))
       .toEqual({ name: '' });
-    expect(condToMongo({ id: 'c', field: 'age', operator: 'greaterOrEqual', value: '' } as any, noTypes))
+    expect(condToMongo({ id: 'c', field: 'age', operator: 'greater_than_or_equal', value: '' } as any, noTypes))
       .toEqual({ age: { $gte: '' } });
   });
 

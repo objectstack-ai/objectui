@@ -29,6 +29,10 @@
  * reads the SOURCE and fails when the number of throw sites and the number of
  * rows below disagree, so the enumeration cannot quietly fall behind the file.
  *
+ * ⚠️ UPDATED. It did: objectui#9164 added the empty-operator-map refusal
+ * (`{ a: {} }`), and that case went red until its row was added below. Like
+ * the two comparand arms it names no operator, so `field` is its subject.
+ *
  * ⚠️ Each input is driven through `toFilterNodeSafely` — the RENDER-time entry,
  * not `convertFiltersToAST` directly — because the question is what a renderer
  * gets, and two of the eleven live on the view-rule arm that only the array
@@ -50,8 +54,9 @@ const CONVERTER_SOURCE = join(dirname(fileURLToPath(import.meta.url)), '..', 'fi
 
 /**
  * One row per throw site, in source order. `subject` is what the render-time
- * state has to be able to say; `operator` is `undefined` on exactly the two
- * arms that judge a comparand written with no operator in it.
+ * state has to be able to say; `operator` is `undefined` on exactly the arms
+ * where the author wrote no operator — the two that judge a comparand in the
+ * implicit-equality position, and the empty operator map (objectui#9164).
  */
 const REFUSALS: Array<{
   site: string;
@@ -63,6 +68,7 @@ const REFUSALS: Array<{
   { site: 'combinator value is not an array', input: { $and: 'nope' }, operator: '$and', field: undefined, subject: '$and' },
   { site: 'combinator member is not an object', input: { $and: ['nope'] }, operator: '$and', field: undefined, subject: '$and' },
   { site: '$icontains comparand', input: { name: { $icontains: '' } }, operator: '$icontains', field: 'name', subject: '$icontains' },
+  { site: 'empty operator map with no other condition', input: { a: {} }, operator: undefined, field: 'a', subject: 'a' },
   { site: '$not combinator', input: { $not: { a: 1 } }, operator: '$not', field: undefined, subject: '$not' },
   { site: 'bare array equality comparand', input: { tags: ['a', 'b'] }, operator: undefined, field: 'tags', subject: 'tags' },
   { site: 'exotic comparand', input: { created: /abc/ }, operator: undefined, field: 'created', subject: 'created' },

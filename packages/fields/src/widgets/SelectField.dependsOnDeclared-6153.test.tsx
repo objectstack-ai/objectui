@@ -74,7 +74,7 @@ describe('SelectField — `dependsOn` off the DECLARED metadata type (objectui#6
       <SelectField value="ca" onChange={dropped} field={provinceField} {...host('province', { country: 'cn' })} />,
     );
     // 'ca' is offered only under country=us — under cn it is not, so it is cleared.
-    expect(dropped).toHaveBeenCalledWith(undefined);
+    expect(dropped).toHaveBeenCalledWith(null);
 
     const kept = vi.fn();
     render(

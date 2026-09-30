@@ -39,19 +39,21 @@ import type {
   ResultDialogHandler,
   ToastHandler,
 } from '@object-ui/core';
-import { actionErrorDetail, isRecordScopedAction, resolveRecordIdParamSeed } from '@object-ui/core';
+import { actionErrorDetail, captureUpdateUndoData, isRecordScopedAction, resolveRecordIdParamSeed } from '@object-ui/core';
 import { useActionModal } from './useActionModal.js';
 import { ActionConfirmDialog, type ConfirmDialogState } from '../views/ActionConfirmDialog.js';
 import { ActionParamDialog, type ParamDialogState } from '../views/ActionParamDialog.js';
 import { ActionResultDialog, type ResultDialogState } from '../views/ActionResultDialog.js';
 import { FlowRunner, type ScreenFlowState, type ScreenSpec } from '../views/FlowRunner.js';
+import { FlowRefusalNotice, type FlowRefusalState } from '../views/FlowRefusalNotice.js';
 import { resolveActionParams, withKnownObjects } from '../utils/resolveActionParams.js';
 import { EnvironmentEntitlementDialog, type EntitlementDialogState } from '../environment/EnvironmentEntitlementDialog.js';
 import { entitlementDialogFromError, type EntitlementDialogSpec } from '../environment/entitlements.js';
 import { resolvePageVarTokens } from '../utils/resolvePageVarTokens.js';
-import { interpretFlowResponse } from '../utils/flowResponse.js';
+import { interpretFlowResponse, judgeFlowLaunch } from '../utils/flowResponse.js';
 import { createConsoleServerActionHandler } from '../utils/consoleServerAction.js';
 import { modalTargetRefusalMessage } from '../utils/modalTargetDiagnostics.js';
+import { actionContextOrg } from '../utils/actionContextOrg.js';
 import type { ConsoleActionDispatch } from '../consoleActionDispatch.js';
 
 const FALLBACK_USER = { id: 'current-user', name: 'Demo User', isPlatformAdmin: false };
@@ -121,7 +123,7 @@ export interface ConsoleActionRuntime {
       | 'handlers'
     >
   >;
-  /** Confirm / param / result / paused-flow dialogs — render inside the provider. */
+  /** Confirm / param / result / paused-flow / flow-refusal dialogs — render inside the provider. */
   dialogs: React.ReactNode;
 }
 
@@ -157,7 +159,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
    * see it, and a discarded-and-recomputed context value would rebuild this
    * callback with no change in what it reads.
    *
-   * ⭐ Why this hook reaches for it at all (objectui#10129). Field-backed action
+   * ⭐ Why this hook reaches for it at all (`6cc910b6d`). Field-backed action
    * params resolve against `ctx.objects`, and the `objects` OPTION is whatever
    * the caller happened to hold: `ConsoleShell`'s root runtime passes NONE, and
    * `DeclaredActionsBar` passes exactly ONE object (and none at all when it is
@@ -185,9 +187,11 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   // Global undo/redo (Ctrl+Z / Ctrl+Shift+Z), backed by the dataSource. The
   // success toast's "Undo" button calls `undoCtl.undo()` for `undoable` actions
   // (the ActionRunner has already pushed the operation onto the UndoManager).
+  // The confirmation it raises reads the session's language, as the button's
+  // own label does (objectui#11056).
   const undoCtl = useGlobalUndo({
     dataSource,
-    onUndo: () => { refresh(); toast.success('Change undone'); },
+    onUndo: () => { refresh(); toast.success(t('actions.undone')); },
   });
 
   // Promise-based confirm / param / result dialogs.
@@ -196,6 +200,8 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   const [resultDialogState, setResultDialogState] = useState<ResultDialogState>({ open: false });
   // A paused `screen`-node flow awaiting user input.
   const [screenFlow, setScreenFlow] = useState<ScreenFlowState | null>(null);
+  // A flow launch that ended `refused` without pausing (objectui#9973).
+  const [flowRefusal, setFlowRefusal] = useState<FlowRefusalState>({ open: false });
   // Plan/capacity gate dialog (upgrade / limit), shared by the env-list toolbar
   // (proactive) and the api-action error path below (reactive safety net).
   const [entitlementDialog, setEntitlementDialog] = useState<EntitlementDialogState>({ open: false });
@@ -230,7 +236,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   // backed the narrowing out.
   const paramCollectionHandler = useCallback<ParamCollectionHandler>((params: ActionParamDef[], action?: ConsoleActionDispatch) => {
     return new Promise<Record<string, any> | null>((resolve) => { void (async () => {
-      // ⭐ Ask the store for the object type BEFORE resolving (objectui#10129).
+      // ⭐ Ask the store for the object type BEFORE resolving (`6cc910b6d`).
       // `ensureType` is idempotent and answers from cache in a microtask once
       // warm, so the cost is nil on the path a user actually takes — but it is
       // what makes "this field does not exist" an ANSWER rather than a race.
@@ -397,7 +403,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
           : undefined;
         const body: Record<string, any> = wrap ? { [wrap]: resolvedParams } : { ...resolvedParams };
 
-        // #3447: decision outputs. DeclaredActionsBar synthesizes one param per
+        // objectstack-ai/objectstack#3447: decision outputs. DeclaredActionsBar synthesizes one param per
         // author-declared output key, named `outputs.<key>` (the key set is
         // per-request, so it can't be a static action param). Fold the dotted
         // params into the nested `outputs` object the approvals decide route
@@ -519,21 +525,56 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
 
       // Undoable single-record update: capture the prior values of the changed
       // fields from the row record so the success toast can offer "Undo".
+      //
+      // ⛔ A field the row does not CARRY is never captured as `null`
+      // (objectui#10404). The snapshot is `@object-ui/core`'s
+      // `captureUpdateUndoData`, called on this handler's written set
+      // (`params` plus `bodyExtra`), so the rule lives in one place
+      // (objectui#11082). A list row is projected by `$select`, so a written
+      // field no column shows is absent while the server holds a real value;
+      // recording `null` made Undo overwrite it. A `null` the row carries is a
+      // real empty value and is captured as one. When any written field is not
+      // carried there is no Undo at all: the success toast then has no Undo
+      // button, and the warning names the cause.
+      //
+      // ⛔ A relation is captured as its stored id, never as the record
+      // `$expand` put in its place (objectui#11122): a grid expands the
+      // relations it shows, so the row carries `{ id, name, … }` where the
+      // server stores the id. The rule reads which fields are relations from
+      // the written object's field definitions, looked up the way the param
+      // dialog looks them up (the caller's `objects` first, then the console's
+      // metadata store, asked to load before it answers).
       let undo: ActionResult['undo'];
       if (action.undoable && obj && recId && rowRecord && Object.keys(fields).length > 0
           && typeof dataSource?.update === 'function') {
-        const undoData: Record<string, unknown> = {};
-        for (const k of Object.keys(fields)) undoData[k] = rowRecord[k] ?? null;
-        undo = {
-          id: `undo-${obj}-${recId}-${Date.now()}`,
-          type: 'update',
-          objectName: obj,
-          recordId: String(recId),
-          timestamp: Date.now(),
-          description: action.label || `Undo ${obj}`,
-          undoData,
-          redoData: { ...fields },
-        };
+        const written = Object.keys(fields);
+        await metadata.ensureType('object').catch(() => []);
+        const objectFields = withKnownObjects(objects, metadata.objects)
+          .find((o: any) => o?.name === obj)?.fields;
+        const undoData = captureUpdateUndoData(written, rowRecord, objectFields);
+        if (undoData) {
+          undo = {
+            id: `undo-${obj}-${recId}-${Date.now()}`,
+            type: 'update',
+            objectName: obj,
+            recordId: String(recId),
+            timestamp: Date.now(),
+            // objectui#11080 — the object, never an English verb: the Undo / Redo
+            // toast supplies the verb from a pack key (see the runner's twin).
+            description: action.label || obj,
+            undoData,
+            redoData: { ...fields },
+          };
+        } else {
+          const missing = written.filter((k) => captureUpdateUndoData([k], rowRecord, objectFields) === undefined);
+          console.warn(
+            '[useConsoleActionRuntime] `undoable` action succeeded but offers no Undo: the row it ran on '
+            + 'does not carry every field it wrote, so their prior values are unknown and an Undo would '
+            + 'overwrite stored data. A list row carries a written field when the object declares it and '
+            + 'the principal may read it.',
+            { action: action.name, missing },
+          );
+        }
       }
 
       const shouldRefresh = action.refreshAfter !== false;
@@ -542,7 +583,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
-  }, [dataSource, objApiName, authFetch, activeOrganization, refresh, openEntitlementDialog, t]);
+  }, [dataSource, objApiName, objects, metadata, authFetch, activeOrganization, refresh, openEntitlementDialog, t]);
 
   // Flow action handler — POST to /api/v1/automation/{name}/trigger.
   // `context` is the shared ActionRunner context (registered handlers are
@@ -591,28 +632,30 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
         },
       );
       const json = await res.json().catch(() => null);
-      // Single source for the flow-response rule — shared with
-      // RecordDetailView's copy of this handler and with FlowRunner's resume.
-      // A launch that FAILED (HTTP 200, `data.success === false`, no `status`
-      // and no `screen`) used to be indistinguishable from a completed run and
-      // fell into the terminal-success return below: no dialog, a green toast,
-      // and a refresh (#2958). See utils/flowResponse.
-      const outcome = interpretFlowResponse<ScreenSpec>(res, json, `Flow "${flowName}"`);
-      if (outcome.kind === 'failed') {
-        // The ActionRunner's post-execution hook surfaces `error` as a toast.
-        return { success: false, error: outcome.error };
+      // Single source for the flow-response rule AND for what a launch does
+      // with it — shared with RecordDetailView's copy of this handler (and the
+      // interpretation with FlowRunner's resume). Each launch copy once held
+      // its own branch set, and each time a kind was missing it fell into the
+      // terminal-success tail: a failed run toasted green (#2958), and a run
+      // that ended `refused` without pausing toasted the action's
+      // `successMessage` and refreshed while the refusal was never shown
+      // (objectui#9973). See utils/flowResponse.
+      const judged = judgeFlowLaunch(
+        interpretFlowResponse<ScreenSpec>(res, json, `Flow "${flowName}"`),
+        action.refreshAfter,
+      );
+      // Paused at a `screen` node: FlowRunner renders the form + resumes, and
+      // refreshes on completion.
+      if (judged.followUp?.kind === 'screen') {
+        setScreenFlow({ flowName, runId: judged.followUp.runId, screen: judged.followUp.screen });
       }
-      // Screen-flow runtime: paused at a `screen` node awaiting input — open
-      // the FlowRunner to render the form + resume. Refresh happens on complete.
-      if (outcome.kind === 'paused') {
-        setScreenFlow({ flowName, runId: outcome.runId ?? '', screen: outcome.screen });
-        // The action only OPENED the wizard — it hasn't completed. Suppress the
-        // action-level success toast; the flow-runner owns completion messaging.
-        return { success: true, silent: true };
+      // Ended `refused`: the Close-only notice carries the engine's sentence,
+      // titled with the action the user clicked.
+      if (judged.followUp?.kind === 'refusal') {
+        setFlowRefusal({ open: true, title: action.label, message: judged.followUp.message });
       }
-      const shouldRefresh = action.refreshAfter !== false;
-      if (shouldRefresh) refresh();
-      return { success: true, data: outcome.data, reload: shouldRefresh };
+      if (judged.refresh) refresh();
+      return judged.result;
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
@@ -705,13 +748,22 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
   const actionProviderProps = useMemo(() => ({
     context: {
       ...(objectName ? { objectName } : {}),
+      // The field definitions of the object `objectName` names, published
+      // beside it (objectui#11122). `ActionRunner`'s `operation: 'update'`
+      // Undo capture reads them to tell a relation, captured as its stored id,
+      // from a field whose value merely has an object's shape.
+      ...(objectName && objectDef?.fields ? { objectFields: objectDef.fields } : {}),
       user: currentUser,
       // Backend origin — lets `type: 'url'` actions issue full-page
       // navigations to API endpoints across origins in dev.
       apiBase: (import.meta as any).env?.VITE_SERVER_URL || '',
-      activeOrganization: activeOrganization
-        ? { id: activeOrganization.id, slug: activeOrganization.slug, name: activeOrganization.name }
-        : null,
+      // The spec-declared `${ctx.org.*}` scope (`ActionSchema.target` and
+      // `onSuccess.navigate` in `@objectstack/spec` `ui/action.zod.ts`).
+      // `ActionRunner.buildInterpolationContext` reads `org` from here, so
+      // without this key `${ctx.org.id}` interpolated to an empty string
+      // (objectui#10918).
+      org: actionContextOrg(activeOrganization),
+      activeOrganization: actionContextOrg(activeOrganization),
     },
     onConfirm: confirmHandler,
     onToast: toastHandler,
@@ -721,7 +773,7 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
     onModal: modalHandler,
     handlers: { api: apiHandler, flow: flowHandler, script: serverActionHandler, modal: modalActionHandler },
   }), [
-    objectName, currentUser, activeOrganization, confirmHandler, toastHandler,
+    objectName, objectDef, currentUser, activeOrganization, confirmHandler, toastHandler,
     navigateHandler, paramCollectionHandler, resultDialogHandler, apiHandler,
     flowHandler, serverActionHandler, modalHandler, modalActionHandler,
   ]);
@@ -798,6 +850,10 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
         objects={objects}
         onClose={() => setScreenFlow(null)}
         onComplete={() => { setScreenFlow(null); refresh(); }}
+      />
+      <FlowRefusalNotice
+        state={flowRefusal}
+        onClose={() => setFlowRefusal(s => ({ ...s, open: false }))}
       />
       <EnvironmentEntitlementDialog
         state={entitlementDialog}

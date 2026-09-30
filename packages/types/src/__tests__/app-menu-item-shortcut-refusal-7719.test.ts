@@ -7,8 +7,16 @@
  */
 
 /**
- * objectui#7719 — `shortcut` is REFUSED BY NAME on an app action ITEM
- * (`AppAction.items`, i.e. the legacy `AppMenuItem`), on BOTH faces.
+ * objectui#7719 — `shortcut` is REFUSED BY NAME on the legacy `AppMenuItem`, on
+ * BOTH faces.
+ *
+ * ⭐ objectui#7469 (maintainer ruling C) retired the app node's `actions` array,
+ * `AppAction` and `AppActionSchema`. The ruling below was taken on the app action
+ * ITEMS (`AppAction.items`), which were one of the two places this type was
+ * authored; the other, `AppComponentSchema.menu`, stays, and so does this
+ * refusal. The rows that read the retired action (a non-target `shortcut` on the
+ * action itself, and the `items[]` authoring position) went with it; block (d)
+ * now takes the refusal through `menu[]`.
  *
  * ## The ruling, quoted rather than paraphrased
  *
@@ -46,8 +54,9 @@
  *
  * `retirementTombstone()` — `z.never({ error }).optional().describe()`.
  *
- *  - ⛔ NOT `handlerKeyRefusal()`, despite the in-file precedent on the sibling
- *    `AppActionSchema.onClick`. Two independent reasons, the second decisive:
+ *  - ⛔ NOT `handlerKeyRefusal()`, despite the in-file precedent the sibling
+ *    `AppActionSchema.onClick` then carried (retired with its schema by
+ *    objectui#7469). Two independent reasons, the second decisive:
  *    its message says JSON has no function value, which is FALSE of a
  *    string-valued key an author can perfectly well write; and its `z.custom`
  *    primitive makes `z.toJSONSchema` THROW. Measured before this change:
@@ -82,8 +91,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
-import type { AppAction, AppMenuItem } from '../app';
-import { AppActionSchema, MenuItemSchema } from '../zod/app.zod';
+import type { AppMenuItem } from '../app';
+import { AppComponentSchema, MenuItemSchema } from '../zod/app.zod';
 
 /** Mutual assignability, the standard invariant `Eq` — not `extends`. */
 type Eq<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2)
@@ -112,7 +121,7 @@ describe('objectui#7719 — the TypeScript face refuses `shortcut` on `AppMenuIt
     // worth guarding: this row is what turns a future option-B patch red.
     const item: AppMenuItem = {
       label: 'Profile',
-      // @ts-expect-error `shortcut` is refused on an app action item — author navigation as `NavigationItem` (objectui#7719)
+      // @ts-expect-error `shortcut` is refused on a legacy menu item — author navigation as `NavigationItem` (objectui#7719)
       shortcut: 'Ctrl+P',
     };
     expect(item.label).toBe('Profile');
@@ -130,19 +139,6 @@ describe('objectui#7719 — the TypeScript face refuses `shortcut` on `AppMenuIt
     expect(item.path).toBe('/profile');
   });
 
-  it('CONTROL — `AppAction.shortcut` is a DIFFERENT key, still declared and still a `string`', () => {
-    // ⭐ The non-target control, and the reason it is in this file: the first
-    // reading of a `grep` for `shortcut` over `app.ts` finds THIS member and
-    // reads it as "option B is already landed". It is the header BUTTON's own
-    // shortcut, one level up from `items[]`, and the ruling does not touch it.
-    //
-    // PROVING REMOVAL: retire `AppAction.shortcut` too — over-applying this card
-    // to every `shortcut` in the file — and this row reds in both halves.
-    const _stillAString: Eq<AppAction['shortcut'], string | undefined> = true;
-    expect(_stillAString).toBe(true);
-    const action: AppAction = { type: 'button', label: 'Search', shortcut: 'Ctrl+K' };
-    expect(action.shortcut).toBe('Ctrl+K');
-  });
 });
 
 /* ── (b) the zod mirror ───────────────────────────────────────────────────── */
@@ -168,10 +164,12 @@ describe('objectui#7719 — the JSON face refuses `shortcut` by name', () => {
     expect(issue, 'no issue was addressed to `shortcut`').toBeDefined();
     expect(issue!.message).toContain('NavigationItem');
     expect(issue!.message).toContain('objectui#7719');
-    // ⚠️ The message must not read as though `shortcut` is refused on app
-    // actions generally — it is refused on the ITEMS. It says so by naming the
-    // surviving sibling explicitly.
-    expect(issue!.message).toContain('AppAction.shortcut');
+    // The message names the surface it refuses on. It used to name the header
+    // button's own `AppAction.shortcut` as the surviving sibling; objectui#7469
+    // retired that type, and a message naming it would send an author to a key
+    // that no longer exists.
+    expect(issue!.message).toContain('AppMenuItem');
+    expect(issue!.message).not.toContain('AppAction');
   });
 
   it('the refusal reports `invalid_type` at the key path — the `z.never` code, not `custom`', () => {
@@ -244,41 +242,30 @@ describe('objectui#7719 — a bare non-declaration strips in silence; it refuses
   });
 });
 
-/* ── (d) the real authoring position: `AppAction.items[]` ─────────────────── */
+/* ── (d) the real authoring position: an app's `menu[]` ──────────────────── */
 
 describe('objectui#7719 — the refusal holds where an author actually writes it', () => {
-  const action = {
-    type: 'user' as const,
-    label: 'Ada Lovelace',
-    items: [{ label: 'Profile', shortcut: 'Ctrl+P' }],
-  };
-
-  it('an app action whose item carries `shortcut` is refused at `items.0.shortcut`', () => {
-    // Block (b) parses `MenuItemSchema` directly; this one goes through the
-    // declaration an author actually writes, so a refusal that existed only on
-    // the standalone const would show up here as green.
-    const r = AppActionSchema.safeParse(action);
-    expect(r.success).toBe(false);
-    if (r.success) return;
-    expect(r.error.issues.some((i) => i.path.join('.') === 'items.0.shortcut')).toBe(true);
+  // Block (b) parses `MenuItemSchema` directly; this one goes through the
+  // declaration an author actually writes, so a refusal that existed only on
+  // the standalone const would show up here as green. Until objectui#7469 that
+  // position was `AppAction.items[]`; with the action array retired, the app's
+  // legacy `menu[]` is the one that remains.
+  const appWith = (item: Record<string, unknown>) => ({
+    type: 'app' as const,
+    name: 'pin_app',
+    menu: [item],
   });
 
-  it('CONTROL — the SAME action parses green carrying `shortcut` on the ACTION itself', () => {
-    // ⭐ The mirror half of block (a)'s non-target control, and the row that
-    // stops this card from being read as "shortcut is refused on app actions".
-    // The header button's own shortcut is declared, untouched, and still green.
-    //
-    // PROVING REMOVAL: move the tombstone one declaration up — onto
-    // `AppActionSchema` instead of `MenuItemSchema` — and this row reds while
-    // block (d)'s first row goes green. The pair localises the change to the
-    // right declaration, which a single row could not do.
-    const r = AppActionSchema.safeParse({
-      type: 'user' as const,
-      label: 'Ada Lovelace',
-      shortcut: 'Ctrl+K',
-      items: [{ label: 'Profile' }],
-    });
-    expect(r.success).toBe(true);
+  it('an app whose menu item carries `shortcut` is refused at `menu.0.shortcut`', () => {
+    const r = AppComponentSchema.safeParse(appWith({ type: 'item', label: 'Profile', path: '/profile', shortcut: 'Ctrl+P' }));
+    expect(r.success).toBe(false);
+    if (r.success) return;
+    expect(r.error.issues.map((i) => i.path.join('.'))).toEqual(['menu.0.shortcut']);
+  });
+
+  it('CONTROL — the SAME app parses green with the item\'s `shortcut` removed', () => {
+    // Localises the refusal to the key, not to the fixture or to the node.
+    expect(AppComponentSchema.safeParse(appWith({ type: 'item', label: 'Profile', path: '/profile' })).success).toBe(true);
   });
 });
 

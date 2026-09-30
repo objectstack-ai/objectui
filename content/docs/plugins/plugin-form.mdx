@@ -92,7 +92,7 @@ has **23 declared keys**, and `name` is the only **required** one: `type` and
 | `hidden` | `boolean` | the field is not rendered at all |
 | `options` | `SelectOption[] \| RadioOption[]` | choices for `select` / radio fields |
 | `validation` | `FieldValidationRules` | **an object keyed by rule name** — see below |
-| `condition` | `FieldCondition` | legacy `{ field, equals, notEquals, in, custom }` matcher |
+| `condition` | `FieldCondition` | legacy `{ field, equals, notEquals, in }` matcher (`custom` is retired, objectui#7759: nothing ran it) |
 | `visibleWhen` / `readonlyWhen` / `requiredWhen` | `string \| { dialect?, source }` | CEL predicates over the live record, evaluated by `@objectstack/formula` — the same engine and dialect the server enforces. They fail open |
 | `visibleOn` | `string \| { dialect?, source }` | view-level visibility predicate (spec `FormField.visibleOn`) |
 | `dependsOn` | `DependsOnInput` | cascading parent(s): a bare name, a list of names, or `{ field, param }` entries |
@@ -119,8 +119,8 @@ is bound to react-hook-form, whose initial values come from the form.
 #### `validation` is an object keyed by rule name
 
 There is no `ValidationRule` type in this repository. Near-spellings do exist —
-`AdvancedValidationRule`, `ValidationRuleType`, `ObjectValidationRule` and
-`DesignerValidationRule` — and none of them types this key. The type of the key
+`ObjectValidationRule` and `DesignerValidationRule` — and neither of them types
+this key. The type of the key
 is `FieldValidationRules` (`packages/types/src/form.ts`), and it is **not** an
 array of `{ type, value, message }` entries:
 
@@ -225,7 +225,12 @@ mechanism a field's own FALSE predicate uses (the fields simply stop being
 drawn, and unmounted controls skip validation). The value half does **not**
 carry across: a field hidden by its **own** `visibleWhen` / `visibleOn` has its
 value cleared (objectui#6958), while a field hidden by its **section's** or its
-**tab's** predicate keeps it, exactly as stated above.
+**tab's** predicate keeps it, exactly as stated above. When that clear empties
+a field that held a value, the form raises one notice naming the cleared fields
+by their labels and saying they no longer apply given the current values
+(objectui#8070). A field that was already empty (an unchecked two-state control
+counts as empty) is not named, the first render clears and names nothing, and
+a later submit refusal replaces the notice.
 
 Two mechanics worth knowing:
 
@@ -276,6 +281,34 @@ naming the layout and the sections whose predicate is being dropped:
 It changes no behaviour — the predicate is still dropped on that one arm — it
 only stops the drop from being invisible. Nothing warns on the five arms that
 honour the key.
+
+### Section rows: heading, blurb and collapse
+
+The stacked layouts (the default layout, `formType: 'modal'` and
+`formType: 'drawer'`, with explicit `sections` or with sections derived from
+the object's `fieldGroups`) follow one rule for a section's divider row:
+
+- A section's **own settings apply whether or not it has a heading.** Its
+  `visibleWhen` hides the whole group, fields included, on these three
+  layouts. A section with no `label` is never un-gated there. (The split
+  layout still draws and gates a section's row only when it has a `label` or a
+  `description`, and the wizard drops a step predicate, as described above.)
+- The **divider row is drawn when the section has a `label` or a
+  `description`**. With a `description` alone it is a blurb-only row: no
+  heading, just the blurb.
+- The **collapse control sits on that row**, so `collapsible` / `collapsed`
+  work on a titled row and on a blurb-only row alike (`collapsed: true` implies
+  `collapsible`).
+- A section that declares `collapsible` or `collapsed` but has neither a
+  `label` nor a `description` has no row to hold the control. It renders open
+  and a console warning says so ("collapsible section has no heading or
+  description to carry its control"). Its fields are never hidden without a
+  control to bring them back.
+
+A modal with `contentLayout: 'tabbed'` and more than one explicit section draws
+tabs instead of rows, and tabs do not collapse. With a single section, or with
+sections derived from `fieldGroups`, it renders stacked and follows the rules
+above.
 
 ### Wizard steps and `allowSkip`
 
@@ -384,6 +417,24 @@ The components are on the package's export surface — `ObjectForm`,
 `inferColumns`, `filterCreateModeFields`, …) and the per-container schema types
 (`TabbedFormSchema`, `WizardFormSchema`, `ModalFormSchema`, …). There is no
 aggregate map among them.
+
+## What an edit save writes
+
+An `object-form` in `mode: 'edit'` reads its record with `findOne`, and its save
+writes only the fields that differ from that read. That covers every layout — the
+simple form and the `tabbed`, `wizard`, `split`, `modal` and `drawer` variants —
+as well as a simple form whose mobile `stepper` option routes it through the
+wizard, and the parent operation of a master-detail form. Every layout also
+strips what a form never writes, on a create as on an edit: server-owned,
+computed and read-only columns, keys the object does not declare, and fields the
+caller's field-level security refuses — which every layout renders disabled. Every layout also disables every field of a managed object whose `userActions` do not open the form's mode, and of an object whose `create` or `update` the server's effective API operations deny. While that lock holds, the form shows one notice naming the object and the missing permission, and a `wizard` disables Next and its final submit button. A field whose sameness cannot be proven is sent: `5` and `'5'`, `null` and
+`''`, and a lookup id and its expanded object all count as different. A save with
+nothing changed still sends the full payload, as it always has. The `ifMatch`
+concurrency guard is unchanged, and its **Overwrite** choice now resends only the
+changed fields. A form that stays open after a save sends the `updated_at` that
+save returned as its next `ifMatch`, so its second save is not refused over its
+own first one. A host `submitHandler` receives the same payload in edit mode.
+The package README has the full rule, under "What an edit save writes".
 
 ## Examples
 

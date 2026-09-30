@@ -22,6 +22,14 @@
  *
  * This is a single, reviewable source of truth for the public surface — prefer
  * editing this list over scattering `tier` flags across registration sites.
+ *
+ * ⛔ The html tier's intrinsic elements (`h1`, `p`, `a`, the sectioning tags, …)
+ * do NOT belong here. They reach the published manifest through the second
+ * roster beside this one, `HTML_TIER_INTRINSICS`, stamped `tier: 'html'`, so
+ * that the manifest's other reader — the objectstack gate that whitelists a
+ * `kind:'html'` page's tags — accepts them without this curated JSON-surface
+ * vocabulary growing (objectui#10735). Listing one here would widen the
+ * vocabulary silently; `html-tier-intrinsics.test.ts` pins the two disjoint.
  */
 export const PUBLIC_BLOCKS: readonly string[] = [
   // ── Tier A — object-aware blocks (the contract core) ──────────────────────
@@ -125,7 +133,7 @@ export const PUBLIC_BLOCKS: readonly string[] = [
   // It landed on every other declaration face — interface, zod mirror,
   // `SchemaRegistry`, registration, docs page, and 27 catalog fixtures — and
   // this list was the one face it missed, so the vocabulary taught a type the
-  // contract did not carry (objectui#6879).
+  // contract did not carry (`3619792bf`).
   //
   // MEASURED before it was added, because "add it and see" is how a gate
   // discovers a new population at merge time. `registry-inputs-spec-parity`

@@ -46,7 +46,7 @@
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, waitFor, cleanup } from '@testing-library/react';
+import { render, waitFor, cleanup, act } from '@testing-library/react';
 
 /** Stable stub identity — `perms` rides the fetch effect's dependency list. */
 const { permsStub, state } = vi.hoisted(() => {
@@ -116,15 +116,17 @@ async function expandFor(schemaExtra: Record<string, unknown>): Promise<string[]
       dataSource={ds as never}
     />,
   );
-  // ⚠️ Wait for the SCHEMA-DEPENDENT query, not the first one. `objectSchema`
-  // is component state and sits in the fetch effect's dependency list, so the
-  // widget issues one `find` before the schema lands (necessarily carrying no
-  // `$expand` — `computeLookupExpand` returns `[]` without a field map) and
-  // re-issues it after. Reading the first call would report "no expansion" for
-  // every case and turn this whole file green for the wrong reason.
+  // ⚠️ Read the SCHEMA-DEPENDENT query. Since objectui#10664 the widget's query
+  // waits on the settled definition (`useSettledSchema`), so a mount issues ONE
+  // `find` and it is that one. The count is asserted, not assumed: an ungated
+  // widget issues an unexpanded `find` first (`computeLookupExpand` returns `[]`
+  // without a field map), and reading it would report "no expansion" for every
+  // case and turn this whole file green for the wrong reason.
   await waitFor(() => expect(ds.getObjectSchema).toHaveBeenCalled());
-  await waitFor(() => expect(ds.find.mock.calls.length).toBeGreaterThan(1));
-  return (ds.find.mock.calls.at(-1)?.[1]?.$expand ?? []) as string[];
+  await waitFor(() => expect(ds.find).toHaveBeenCalled());
+  await act(() => new Promise<void>((resolve) => setTimeout(resolve, 50)));
+  expect(ds.find, 'more than one read per mount: the settled-definition gate is gone').toHaveBeenCalledTimes(1);
+  return (ds.find.mock.calls[0]?.[1]?.$expand ?? []) as string[];
 }
 
 const AUTHORED_COLUMNS = {

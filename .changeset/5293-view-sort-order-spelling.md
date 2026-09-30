@@ -48,9 +48,9 @@ described above no longer finds a live `direction` read on this package's publis
 path.
 
 `order` is the spelling every other sort surface already uses (`SortConfig`,
-`NamedListView.sort`, `ObjectGridSchema.sort` / `.defaultSort`, and the shared
-`QuerySortEntry` sink), so the prop now has one spelling repo-wide and declared equals
-enforced.
+`NamedListView.sort`, `ObjectGridSchema.sort` (and, at this change, `.defaultSort` —
+since retired, objectui#5861), and the shared `QuerySortEntry` sink), so the prop now has
+one spelling repo-wide and declared equals enforced.
 
 ⛔ Deliberately **not** a tolerant dual-read (`direction ?? order`): that is the tolerance
 layer objectui#4869 ruled against, and admitting the old key as an alias would rebuild the

@@ -7,10 +7,11 @@
  */
 
 /**
- * @object-ui/types - API and Event Schemas
+ * @object-ui/types - API Schemas
  * 
- * Type definitions for API integration and event handling.
- * These schemas enable dynamic API calls and event-driven interactions.
+ * Type definitions for API integration, data fetching and expression nodes.
+ * These schemas enable dynamic API calls. The event-handler dialect this module
+ * once declared is RETIRED (objectui#6497); its tombstone stands where it was.
  * 
  * @module api
  * @packageDocumentation
@@ -154,169 +155,39 @@ export interface APIConfig {
 }
 
 /**
- * Event handler configuration
+ * `UIEventHandler` and `EventableSchema` — RETIRED. This comment is the
+ * tombstone: both were TypeScript interfaces, which erase and leave no runtime
+ * residue that could carry a marker of their own.
+ *
+ * RETIRED under ADR-0049 enforce-or-remove by the director-seat ruling recorded
+ * on objectui#6497 (2026-09-24, maintainer verbatim 「同意」): the re-priced
+ * option 2 of the three that card offered. ⛔ Not option 1 (mirror the dialect in
+ * zod, have component schemas extend it, build a dispatcher for it) and ⛔ not
+ * option 3 (leave it on the published surface). The ruling follows objectui#6182
+ * (ruled A, 2026-08-25): an authored handler EXPRESSION is not a supported
+ * authoring form.
+ *
+ * **What went.** Both exported interfaces and their `@object-ui/types` barrel
+ * re-exports. `UIEventHandler` was an event-handler object: `event`, a `type` of
+ * `action | api | script | navigation | dialog | toast | custom`, one config
+ * member per type, then `condition`, `preventDefault`, `stopPropagation`,
+ * `debounce` and `throttle`. Its `dialog.actions[]` entries carried a recursive
+ * `handler?: UIEventHandler`, which went with it. `EventableSchema` extended
+ * {@link BaseSchema} with an `events` array and nine `on*` keys, each typed
+ * `UIEventHandler | string`. Its arm of {@link APISchema} went too. There is no
+ * replacement type and no replacement key.
+ *
+ * **Why.** Declared and inert, an island: no component schema extended
+ * `EventableSchema`, neither type had a zod mirror (so `objectui validate` had
+ * no path to the dialect), and nothing outside this file and the barrel read
+ * either one. Only `tsc` said yes, which invited authors to write a handler
+ * dialect that no runtime dispatches.
+ *
+ * **The supported form.** An action is the declarative `ActionDef` object that
+ * `@object-ui/core`'s `ActionRunner` executes, and a control that runs
+ * something is the `action:button` node type (AGENTS.md, commandment #4).
+ * Runtime callbacks stay the programmatic face.
  */
-export interface UIEventHandler {
-  /**
-   * Event type
-   */
-  event: string;
-  /**
-   * Handler type
-   */
-  type: 'action' | 'api' | 'script' | 'navigation' | 'dialog' | 'toast' | 'custom';
-  /**
-   * Action configuration (for type: 'action')
-   */
-  action?: {
-    /**
-     * Action name/identifier
-     */
-    name: string;
-    /**
-     * Action parameters
-     */
-    params?: Record<string, any>;
-  };
-  /**
-   * API configuration (for type: 'api')
-   */
-  api?: APIConfig;
-  /**
-   * Script to execute (for type: 'script')
-   * JavaScript code as string
-   */
-  script?: string;
-  /**
-   * Navigation target (for type: 'navigation')
-   */
-  navigate?: {
-    /**
-     * Target URL or route
-     */
-    to: string;
-    /**
-     * Navigation type
-     */
-    type?: 'push' | 'replace' | 'reload';
-    /**
-     * Query parameters
-     */
-    params?: Record<string, any>;
-    /**
-     * Open in new window/tab
-     */
-    external?: boolean;
-  };
-  /**
-   * Dialog configuration (for type: 'dialog')
-   */
-  dialog?: {
-    /**
-     * Dialog type
-     */
-    type: 'alert' | 'confirm' | 'prompt' | 'modal';
-    /**
-     * Dialog title
-     */
-    title?: string;
-    /**
-     * Dialog content
-     */
-    content?: string | BaseSchema;
-    /**
-     * Dialog actions
-     */
-    actions?: Array<{
-      label: string;
-      handler?: UIEventHandler;
-    }>;
-  };
-  /**
-   * Toast configuration (for type: 'toast')
-   */
-  toast?: {
-    /**
-     * Toast type
-     */
-    type: 'success' | 'error' | 'warning' | 'info';
-    /**
-     * Toast message
-     */
-    message: string;
-    /**
-     * Toast duration in milliseconds
-     */
-    duration?: number;
-  };
-  /**
-   * Condition for executing handler
-   * JavaScript expression
-   */
-  condition?: string;
-  /**
-   * Whether to prevent default event behavior
-   */
-  preventDefault?: boolean;
-  /**
-   * Whether to stop event propagation
-   */
-  stopPropagation?: boolean;
-  /**
-   * Debounce delay in milliseconds
-   */
-  debounce?: number;
-  /**
-   * Throttle delay in milliseconds
-   */
-  throttle?: number;
-}
-
-/**
- * Component with event handlers
- */
-export interface EventableSchema extends BaseSchema {
-  /**
-   * Event handlers configuration
-   */
-  events?: UIEventHandler[];
-  /**
-   * Click handler
-   */
-  onClick?: UIEventHandler | string;
-  /**
-   * Change handler
-   */
-  onChange?: UIEventHandler | string;
-  /**
-   * Submit handler
-   */
-  onSubmit?: UIEventHandler | string;
-  /**
-   * Focus handler
-   */
-  onFocus?: UIEventHandler | string;
-  /**
-   * Blur handler
-   */
-  onBlur?: UIEventHandler | string;
-  /**
-   * Mouse enter handler
-   */
-  onMouseEnter?: UIEventHandler | string;
-  /**
-   * Mouse leave handler
-   */
-  onMouseLeave?: UIEventHandler | string;
-  /**
-   * Key down handler
-   */
-  onKeyDown?: UIEventHandler | string;
-  /**
-   * Key up handler
-   */
-  onKeyUp?: UIEventHandler | string;
-}
 
 /**
  * Data fetching configuration
@@ -467,6 +338,5 @@ export interface ExpressionNodeSchema {
  * Union type of all API schemas
  */
 export type APISchema =
-  | EventableSchema
   | DataFetchableSchema
   | ExpressionNodeSchema;

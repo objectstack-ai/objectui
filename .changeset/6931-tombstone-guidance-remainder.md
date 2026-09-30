@@ -2,8 +2,7 @@
 '@object-ui/types': patch
 ---
 
-The remaining eleven ADR-0049 tombstones now refuse with their remediation text
-(objectui#6931).
+The remaining eleven ADR-0049 tombstones now refuse with their remediation text.
 
 objectui#6105 converted nine tombstones on `StaticTableColumnSchema` to
 `retirementTombstone()`, which writes a guidance string ONCE into both

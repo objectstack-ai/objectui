@@ -7,10 +7,17 @@
  */
 
 import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
-import { SchemaRendererContext, useFilterScope } from '@object-ui/react';
+import { SchemaRendererContext, useFilterScope, useDataInvalidation } from '@object-ui/react';
 import { isDrillEnabled, resolveDrillTitle, isStructuredGroupBy, objectAggregateSpecQuery } from '@object-ui/core';
-import type { DrillDownConfig, I18nLabel, ObjectChartSchema } from '@object-ui/types';
-import { useLocalization, resolveFieldCurrency, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import type { I18nLabel, ObjectChartSchema, ObjectMetricDrillDownConfig } from '@object-ui/types';
+import {
+  useLocalization,
+  useDisplayLocale,
+  resolveFieldCurrency,
+  useObjectTranslation,
+  pickLocalized,
+} from '@object-ui/i18n';
+import { formatCurrency } from '@object-ui/fields';
 import { MetricWidget } from './MetricWidget';
 import { DrillDownDrawer } from './DrillDownDrawer';
 import {
@@ -29,6 +36,49 @@ import {
  * the shared drawer's own fallback is `data-table`'s default of 10.
  */
 const METRIC_DRILL_PAGE_SIZE = 25;
+
+/**
+ * The tile's aggregate vocabulary, BY REFERENCE: `ChartAggregate['function']`
+ * from `@objectstack/spec/ui`, reached through `ObjectChartSchema` exactly as
+ * `ObjectMetricWidgetProps.aggregate.groupBy` is — both dashboard relays
+ * compose this node and the `object-chart` node out of one provider block.
+ */
+type TileAggregateFunction = NonNullable<ObjectChartSchema['aggregate']>['function'];
+
+/**
+ * Does the aggregate answer IN the aggregated field's unit (objectui#10356)?
+ *
+ * The field's display unit — a currency code, a percent pattern — dresses the
+ * tile's number only when the number is a value of that field: `sum` / `avg`
+ * are amounts of it, and `min` / `max` "return a value of the field's OWN
+ * type" (the notes on `AGGREGATE_FIELD_TYPE_COMPATIBILITY` in
+ * `@objectstack/spec/data`). A `count` is a number of rows, which "reads no
+ * arithmetic off the value", so a count over a currency field reads `3`, never
+ * `$3` — the rule the grid footer already applies to a currency or percent
+ * column (`formatSummaryLabel` in `plugin-grid`'s `useColumnSummary`). That
+ * rule is keyed on its own vocabulary (`ColumnSummary`), so the two surfaces
+ * share a reading rather than a table.
+ *
+ * A total `Record` over the vocabulary, so a function the spec adds to it is a
+ * compile error here rather than a silent guess. Anything outside it — the
+ * engine-level `count_distinct`, another cardinality — answers `false`: a
+ * unit is only ever withheld on a word this table does not know, never lent.
+ */
+const ANSWERS_IN_FIELD_UNIT: Record<TileAggregateFunction, boolean> = {
+  sum: true,
+  avg: true,
+  min: true,
+  max: true,
+  count: false,
+};
+
+function answersInFieldUnit(fn: string | undefined): boolean {
+  return (
+    typeof fn === 'string' &&
+    Object.prototype.hasOwnProperty.call(ANSWERS_IN_FIELD_UNIT, fn) &&
+    ANSWERS_IN_FIELD_UNIT[fn as TileAggregateFunction]
+  );
+}
 
 /**
  * ObjectMetricWidget — Data-bound metric widget.
@@ -130,11 +180,17 @@ export interface ObjectMetricWidgetProps {
    */
   invert?: boolean;
   /**
-   * Drill-down config. When enabled, clicking the metric card opens a
-   * drawer (or modal) showing the underlying records that contributed
-   * to this metric, filtered by the same `filter` used for aggregation.
+   * Drill-down config. When enabled, clicking the metric card opens a drawer
+   * (or dialog) listing the records behind the number, scoped by this
+   * widget's own `filter`, the one the aggregate runs over.
+   *
+   * Typed `ObjectMetricDrillDownConfig`, not the shared `DrillDownConfig`:
+   * `drillDown.filter` and `drillDown.mode` are refused by name on this block
+   * (objectui#9002, ruling B). A metric has no click event for a drill filter
+   * to interpolate against and no row to open as a record. The shared type
+   * keeps both members for the blocks that read them.
    */
-  drillDown?: DrillDownConfig;
+  drillDown?: ObjectMetricDrillDownConfig;
   /**
    * Title for the drill-down panel; defaults to the metric label. Same
    * `I18nLabel` vocabulary as {@link ObjectMetricWidgetProps.label}, and
@@ -218,21 +274,21 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
     return fields[fieldName] || null;
   }, [objectSchema, aggregate?.field]);
 
+  // The field's unit applies only to an aggregate that answers in it
+  // (objectui#10356, `answersInFieldUnit` above). A primitive, so the memos
+  // below key on the answer rather than on any object's identity.
+  const fieldUnitApplies = answersInFieldUnit(aggregate?.function);
+
   // Derive format/currency from the field metadata when the dashboard config
-  // doesn't override them. Honors `Field.currency({ defaultCurrency, precision })`.
+  // doesn't override them. A currency field has no pattern here: its amount is
+  // rendered by the list cell's formatter below (`tileValue`).
   const inferredFormat = useMemo(() => {
     if (format) return format;
-    if (!valueFieldDef) return undefined;
-    if (valueFieldDef.type === 'currency') {
-      // Decimal places come from `scale`, not `precision` (the total digit
-      // count of a decimal(p, s) column) — see #2131.
-      const decimals = valueFieldDef.scale ?? 0;
-      return decimals > 0 ? `0,0.${'0'.repeat(decimals)}` : '0,0';
-    }
+    if (!valueFieldDef || !fieldUnitApplies) return undefined;
     if (valueFieldDef.type === 'percent') return '0,0%';
     if (valueFieldDef.type === 'number' || valueFieldDef.type === 'integer') return '0,0';
     return undefined;
-  }, [format, valueFieldDef]);
+  }, [format, valueFieldDef, fieldUnitApplies]);
 
   // Tenant default currency (localization.currency, ADR-0053) backstops a
   // currency field that declares no explicit code of its own.
@@ -241,11 +297,17 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
   // number/currency locale above). Same source `MetricWidget` resolves its own
   // heading against, so the drill-down drawer cannot disagree with the tile.
   const { language } = useObjectTranslation();
+  // The NUMBER locale — the same hook `MetricWidget` formats every other tile
+  // value with, so a currency amount formatted here reads under one convention
+  // with the rest of the dashboard.
+  const displayLocale = useDisplayLocale();
+  // An authored `currency` is the dashboard author's declaration and stands as
+  // written; only the code INFERRED from the field waits on the aggregate.
   const inferredCurrency = useMemo(() => {
     if (currency) return currency;
-    if (valueFieldDef?.type !== 'currency') return undefined;
+    if (!fieldUnitApplies || valueFieldDef?.type !== 'currency') return undefined;
     return resolveFieldCurrency(valueFieldDef, tenantCurrency);
-  }, [currency, valueFieldDef, tenantCurrency]);
+  }, [currency, valueFieldDef, tenantCurrency, fieldUnitApplies]);
 
   // Stable JSON keys to prevent infinite refetch loops when callers
   // pass fresh `aggregate` / `filter` object references each render
@@ -256,7 +318,7 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
   // "{current_quarter_start}") AND session tokens ("{current_user_id}") — so
   // the server sees real values and the drill-down `find()` later sees the
   // exact same filter as the aggregate query. Resolving only date macros here
-  // left user-scoped metrics silently rendering 0 (framework #3574).
+  // left user-scoped metrics silently rendering 0 (objectstack-ai/objectstack#3574).
   const filterScope = useFilterScope();
   const resolvedFilter = useMemo(
     () => resolveFilterPlaceholders(filter, filterScope),
@@ -365,6 +427,13 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [objectName, aggregateKey, resolvedFilterKey, compareToKey, computeOne]);
 
+  // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
+  // `@object-ui/react`), read the objectui#10494 way: the nonce moves when a
+  // write to the object this metric AGGREGATES is declared, and the fetch
+  // effect below names it, so the value is re-read in place. Without it a page
+  // action over raw HTTP left the tile stale unless the page was remounted.
+  const invalidationNonce = useDataInvalidation(dataSource ? objectName || undefined : undefined);
+
   useEffect(() => {
     const mounted = { current: true };
 
@@ -378,7 +447,7 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
     }
 
     return () => { mounted.current = false; };
-  }, [dataSource, objectName, fetchMetric]);
+  }, [dataSource, objectName, fetchMetric, invalidationNonce]);
 
   // Determine the display value:
   // - If we fetched a value from the server, use it
@@ -390,6 +459,48 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
   // Apply `invert` for compliance-style gauges (display 1 - rate).
   if (invert && typeof displayValue === 'number' && isFinite(displayValue) && displayValue >= 0 && displayValue <= 1) {
     displayValue = 1 - displayValue;
+  }
+
+  // The currency face (objectui#10221): no authored `format`, and the
+  // aggregated field is a currency. A currency's decimal places are the
+  // currency's, not a setting (ruling 乙 on objectstack-ai/objectstack#19910;
+  // `scale` is retired from the currency type by ruling B on
+  // objectstack-ai/objectstack#19629).
+  //
+  // This face used to build a numeral pattern out of `valueFieldDef.scale ?? 0`,
+  // so a USD field declaring no `scale` showed `$1,235` for `1234.5` and a JPY
+  // field carrying a stale `scale: 2` showed yen cents. With a code resolved,
+  // the amount now goes to `formatCurrency` — the list cell's own formatter
+  // (`CurrencyCellRenderer`), the same one the grid footer takes — so tile,
+  // footer and cell agree by reference: the currency's ISO 4217 minor-unit
+  // count, a whole amount without its fraction. The finished string is not a
+  // number, so `MetricWidget` shows it as given.
+  //
+  // With NO code resolved the cell renders a plain number, and that one case
+  // is restated rather than referenced: `MetricWidget` re-parses a string that
+  // reads as a number (`12.50`) and re-formats it at its pattern's width, so a
+  // pre-formatted plain amount would be rounded again. The pattern therefore
+  // carries the cell's own no-currency width — none for a whole amount, two
+  // otherwise — and the tile's pin compares it against the cell in one run.
+  //
+  // The face is for an aggregate that answers in the field's unit; a count
+  // over a currency field is a plain number (objectui#10356).
+  let tileValue: string | number = displayValue;
+  let tileFormat = inferredFormat;
+  if (!format && fieldUnitApplies && valueFieldDef?.type === 'currency') {
+    const amount =
+      typeof displayValue === 'number'
+        ? displayValue
+        : displayValue.trim() === ''
+          ? NaN
+          : Number(displayValue);
+    if (Number.isFinite(amount)) {
+      if (inferredCurrency) {
+        tileValue = formatCurrency(amount, inferredCurrency, displayLocale);
+      } else {
+        tileFormat = Number.isInteger(amount) ? '0,0' : '0,0.00';
+      }
+    }
   }
 
   // Derive a trend descriptor from the parallel comparison aggregate. When
@@ -453,11 +564,12 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
   // keeps the page size it had. `className` reproduces the height the inline
   // body wrapper carried.
   //
-  // `drillDown.filter` is deliberately NOT forwarded: the drilled list is
-  // scoped by the METRIC's own resolved filter, which is the registration's
-  // promise that the number and the records behind it agree. `mode` has no
-  // read site on the shared drawer either. Both are left to the judgement
-  // objectui#8970 asks for rather than settled here.
+  // `drillDown.filter` and `drillDown.mode` are refused on this block by its
+  // prop type (`ObjectMetricDrillDownConfig`, objectui#9002 ruling B), so
+  // neither is forwarded. The drilled list is scoped by the METRIC's own
+  // resolved filter, which is the registration's promise that the number and
+  // the records behind it agree, and a metric has no row for `mode` to open as
+  // a record.
   const drillDrawer = drillEnabled ? (
     <DrillDownDrawer
       open
@@ -478,7 +590,7 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
     <>
       <MetricWidget
         label={label}
-        value={displayValue}
+        value={tileValue}
         trend={effectiveTrend}
         icon={icon}
         className={className}
@@ -486,7 +598,7 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
         loading={loading}
         error={error}
         colorVariant={colorVariant}
-        format={inferredFormat}
+        format={tileFormat}
         currency={inferredCurrency}
         prefix={prefix}
         suffix={suffix}

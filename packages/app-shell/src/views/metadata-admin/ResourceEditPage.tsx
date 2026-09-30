@@ -22,13 +22,7 @@
 
 import * as React from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import {
-  DESIGNER_SEL_PARAM,
-  parseNavSelParam,
-  formatNavSelParam,
-  findNavPositionById,
-  navIdAtPosition,
-} from './nav-selection.js';
+import { useNavSelDeepLink } from './useNavSelDeepLink.js';
 import {
   Save,
   RotateCcw,
@@ -221,8 +215,8 @@ const CANVAS_OWNED_KEYS: Record<string, string[]> = {
  * ## Why this is a function and not two inline reads
  *
  * Both steps of the loop send this value — `doSave` binds the draft row to the
- * package (`PUT ?package=`), and since objectstack#10354 `doPublish` states the
- * same package on the promotion (`POST .../publish?package=`) so #9612's
+ * package (`PUT ?package=`), and since objectstack `9e04c3e35`, `doPublish` states the
+ * same package on the promotion (`POST .../publish?package=`) so objectstack-ai/objectstack#9612's
  * package-closure narrowing at the runtime publish gate is reachable from an
  * HTTP-driven promotion at all. One value, one spelling, both steps — which
  * means one derivation too. A second inline copy in the publish path would be
@@ -373,7 +367,7 @@ type ObjectCatalog = {
 
 /**
  * A refusal the SERVER returned for this document, held against the draft
- * slices its issue paths named (objectui#8057).
+ * slices its issue paths named (`9073cf018`).
  *
  * Not `issues`: that state is overwritten wholesale by the debounced live Zod
  * pass 200ms after any edit, so a server verdict parked there is gone by the
@@ -414,7 +408,7 @@ function MetadataResourceEditPageImpl({
   // across all installed packages.
   const ownerPackageId = searchParams.get('package') ?? undefined;
   const client = useMetadataClient();
-  const { entries } = useMetadataTypes(client);
+  const { entries, loading: typesLoading } = useMetadataTypes(client);
   const entry: RichMetadataTypeEntry | undefined = entries.find((t) => t.type === type);
   const config = resolveResourceConfig(type, entry);
   // Hoist `schema` to the top: it's a pure derivation of entry/config
@@ -703,7 +697,7 @@ function MetadataResourceEditPageImpl({
   // `previewDiagnostics` — and left advisory; the server has the last word.
   // Pinned by `ResourceEditPage.schemaAdvisory.test.tsx`.
   //
-  // ⭐ THE BOUNDARY, stated so a later reader can apply it (objectui#8057).
+  // ⭐ THE BOUNDARY, stated so a later reader can apply it (`9073cf018`).
   // "Advisory" is about a verdict this client PREDICTS, and it is the whole of
   // what is advisory. It has never covered a verdict the server RETURNED:
   //
@@ -714,7 +708,7 @@ function MetadataResourceEditPageImpl({
   // than a promise: only a 422 arms the blocking half, and a draft the server
   // accepts does not produce one. So the dead-bolt this paragraph exists to
   // prevent — Save wedged shut on a draft the server would have taken — stays
-  // unreachable. What ended with objectui#8057 is only the client's habit of
+  // unreachable. What ended with `9073cf018` is only the client's habit of
   // re-sending a document the server had ALREADY refused, on every later edit,
   // while reporting nothing. ⛔ Do not read the blocking half as licence to
   // gate Save on the live Zod pass: that is the skew case, and it is still
@@ -757,7 +751,7 @@ function MetadataResourceEditPageImpl({
   // `ResourceEditPage.schemaAdvisory.test.tsx`.
   //
   // ⭐ Why it is DOCUMENT-scoped where `inspectorBlocking` is SELECTION-scoped.
-  // The measured wedge (objectui#8057) is an author who adds a Lookup field
+  // The measured wedge (`9073cf018`) is an author who adds a Lookup field
   // with an empty target, then selects an unrelated already-saved field and
   // renames it. `inspectorBlocking` above expires when the selection changes —
   // BY DESIGN, and that design is right for what it gates — so it is already
@@ -802,41 +796,6 @@ function MetadataResourceEditPageImpl({
     if (!editing) setSelection(null);
   }, [editing]);
 
-  // #2272 — designer deep-link: `?sel=nav:<id>` selects the nav item with
-  // that spec `id` (stable across reorders, unlike the positional selection
-  // ids the canvas/inspector exchange internally). Applied once per
-  // param/item; entering edit mode is implied — a selection is meaningless
-  // in the read-only state (the effect above would clear it).
-  const navSelParam = parseNavSelParam(searchParams.get(DESIGNER_SEL_PARAM));
-  const appliedNavSelRef = React.useRef<string | null>(null);
-  React.useEffect(() => {
-    if (type !== 'app' || !navSelParam) return;
-    if (appliedNavSelRef.current === `${name}:${navSelParam}`) return;
-    if (!draft || Object.keys(draft).length === 0) return;
-    const hit = findNavPositionById(draft, navSelParam);
-    if (!hit) return;
-    appliedNavSelRef.current = `${name}:${navSelParam}`;
-    setEditing(true);
-    setSelection({ kind: 'nav', id: hit.selectionId, label: hit.label });
-  }, [type, name, navSelParam, draft]);
-
-  // Mirror nav selections back to the URL (replace — no history spam, same
-  // convention as ADR-0047 `uf_*`) so the designer's selected menu is
-  // shareable and survives reload. Non-nav selections clear the param.
-  React.useEffect(() => {
-    if (type !== 'app') return;
-    const navId = selection?.kind === 'nav' ? navIdAtPosition(draft, selection.id) : null;
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (navId) next.set(DESIGNER_SEL_PARAM, formatNavSelParam(navId));
-        else next.delete(DESIGNER_SEL_PARAM);
-        return next;
-      },
-      { replace: true },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type, selection]);
   // Snapshot of the last saved draft. Used by Cancel to revert in-flight
   // edits, and as the source-of-truth when entering edit mode.
   const draftSnapshotRef = React.useRef<Record<string, unknown> | null>(null);
@@ -1044,16 +1003,16 @@ function MetadataResourceEditPageImpl({
         // Prefer the pending draft as the editing baseline — the
         // operator is mid-flight on this item and should see their
         // own in-progress state, not the last published version.
-        // A pending draft overlay can carry only the edited fields, so using
-        // it wholesale would drop inherited fields that were never touched —
-        // notably `type`, which section-level `visibleOn` predicates depend on
-        // (ADR-0047 hides Data Context / Layout when `data.type == 'list'`).
-        // Merge the draft over the effective baseline so those fields survive;
-        // the draft still wins for anything it does carry.
+        // A served draft is the WHOLE document (objectui#10765): the server
+        // stores a `?mode=draft` body raw and its `?state=draft` read returns
+        // that row raw, and every writer of a draft sends a full document —
+        // so `type` and every other inherited field are already inside it.
+        // ⛔ Never spread the draft over `effective`: a spread cannot express
+        // deletion, so a key the author cleared came back from the PUBLISHED
+        // layer on every reload and the next save sent it again. The
+        // baseline is only for an item that has no pending draft at all.
         const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
-        const rawInitial: Record<string, unknown> = draftReal
-          ? { ...baseline, ...(draftReal as Record<string, unknown>) }
-          : baseline;
+        const rawInitial: Record<string, unknown> = draftReal ?? baseline;
         // Normalise the wire shape into the editor's draft shape (e.g.
         // `view` unwraps an expanded ViewItem's `config` into a
         // `{ list | form }` family key). No-op for types without a hook.
@@ -1421,7 +1380,7 @@ function MetadataResourceEditPageImpl({
     if (!key) return path;
     // Resolve the human label for the HEAD segment from the form/schema.
     const headLabel = ((): string => {
-      const formForLabels = (createMode && config.createSchema ? undefined : (entry?.form as any));
+      const formForLabels = (createMode && config.createSchema ? undefined : entry?.form);
       const sections = Array.isArray(formForLabels?.sections) ? formForLabels.sections : [];
       for (const section of sections) {
         const fields = Array.isArray(section?.fields) ? section.fields : [];
@@ -1513,12 +1472,14 @@ function MetadataResourceEditPageImpl({
       setLayered(lay);
       const draftReal = extractDraftBody(draftResp);
       setHasDraft(!!draftReal);
-      // Merge the draft over the effective baseline (see the load effect):
-      // a partial draft overlay must not drop inherited fields like `type`.
+      // The served draft is the whole document the save just stored (see the
+      // load effect, objectui#10765): take it as-is. ⛔ Not spread over
+      // `effective` — that is the PUBLISHED layer, and a spread would bring a
+      // key this save deleted straight back into the editor, invisibly, for
+      // the next save to send. The baseline is only for a save that left no
+      // draft row to read back.
       const freshBaseline = (lay.effective ?? itemToSave) as Record<string, unknown>;
-      const rawFresh: Record<string, unknown> = draftReal
-        ? { ...freshBaseline, ...(draftReal as Record<string, unknown>) }
-        : freshBaseline;
+      const rawFresh: Record<string, unknown> = draftReal ?? freshBaseline;
       // Re-normalise the refreshed wire shape so the editor keeps showing
       // the canonical draft shape after a save (e.g. the backend re-expands
       // a view into the ViewItem `config` wrapper).
@@ -1588,7 +1549,7 @@ function MetadataResourceEditPageImpl({
         setIssues(mapped);
         // Hold the refusal against the draft slices the server named, so the
         // next auto-save cannot re-send the same refused document behind an
-        // unrelated edit (objectui#8057). Paths that do not localise are
+        // unrelated edit (`9073cf018`). Paths that do not localise are
         // DROPPED rather than kept as a wildcard: a refusal we cannot tie to a
         // slice must gate nothing at all.
         const probe = refusalProbeBody(draft);
@@ -1678,7 +1639,7 @@ function MetadataResourceEditPageImpl({
       // Absent (not empty) when the designer holds no binding: the framework
       // branches on the KEY BEING PRESENT downstream, where a present-but-null
       // package pins the draft lookup to unbound rows and a packaged draft
-      // stops being found (`no_draft`) — see objectstack#10354's own warning.
+      // stops being found (`no_draft`) — see objectstack `9e04c3e35`'s own warning.
       const activePackage = readActivePackageBinding();
       await client.publish<any>(type, name, {
         ...(activePackage ? { packageId: activePackage } : {}),
@@ -1690,13 +1651,15 @@ function MetadataResourceEditPageImpl({
       setLayered(lay);
       const draftReal = extractDraftBody(draftResp);
       setHasDraft(!!draftReal);
-      // Merge the draft over the effective baseline so a partial draft overlay
-      // doesn't drop inherited fields like `type` (section visibleOn depends
-      // on it — ADR-0047).
+      // After a publish the promoted body IS `effective` and the draft row is
+      // normally gone; a draft that does remain is a whole document and is
+      // taken as-is (objectui#10765). ⛔ Not spread over `effective`: the
+      // spread cannot express deletion and would resurrect a published key
+      // the draft had cleared.
       const freshBaseline = (lay.effective ?? draft) as Record<string, unknown>;
-      const fresh: Record<string, unknown> = draftReal
-        ? { ...freshBaseline, ...(draftReal as Record<string, unknown>) }
-        : freshBaseline;
+      const rawFresh: Record<string, unknown> = draftReal ?? freshBaseline;
+      // Same wire-to-editor normalisation the load and save refreshes apply.
+      const fresh = config.toDraft ? config.toDraft(rawFresh) : rawFresh;
       setDraft(fresh);
       draftSnapshotRef.current = fresh;
     } catch (err: any) {
@@ -1774,6 +1737,31 @@ function MetadataResourceEditPageImpl({
   const canWrite = canWriteByType && (createMode || lockEditable);
   const readOnly = !canWrite && !createMode;
 
+  // #2272 — designer deep-link: `?sel=nav:<id>` selects the nav item with
+  // that spec `id` (stable across reorders, unlike the positional selection
+  // ids the canvas/inspector exchange internally), applied once per
+  // param/item. The nav selection mirrors back to the URL (replace — no
+  // history spam, same convention as ADR-0047 `uf_*`) so the designer's
+  // selected menu is shareable and survives reload; a non-nav selection
+  // clears the param. objectui#11153 — one hook with the Studio Interfaces
+  // pillar's copy: the param is kept until the item has loaded, and the
+  // write state it reads waits for the type registry (`entry` decides
+  // `canWrite`). On an item this page cannot write, the link selects the nav
+  // item WITHOUT entering editing: the preview marks it and the inspector
+  // opens on it read-only.
+  useNavSelDeepLink({
+    enabled: type === 'app',
+    scope: name,
+    draft,
+    loaded: !loading,
+    readOnly: typesLoading ? undefined : readOnly,
+    selection,
+    onApply: (hit, { enterEditing }) => {
+      if (enterEditing) setEditing(true);
+      setSelection({ kind: 'nav', id: hit.selectionId, label: hit.label });
+    },
+  });
+
   // Auto-save: debounce edits and persist silently once the user pauses
   // for AUTOSAVE_DEBOUNCE_MS. Skipped for create mode (need an explicit
   // name first), read-only forms, and while a save is already in flight.
@@ -1793,7 +1781,7 @@ function MetadataResourceEditPageImpl({
     // the timer publish the malformed definition a second later (objectui#4306).
     if (inspectorBlocking > 0) return;
     // Second validation term, and the one that survives a selection change.
-    // The timer is the door the objectui#8057 wedge actually came through: it
+    // The timer is the door the wedge (`9073cf018`) actually came through: it
     // re-sent the refused document on every later edit, silently, so the
     // designer showed the rename as applied while the server held none of it.
     if (refusalBlocking > 0) return;
@@ -2184,7 +2172,7 @@ function MetadataResourceEditPageImpl({
               (objectui#4306 / #6980);
             - `refusalBlocking` — a 422 the server DID return for this exact
               document, DOCUMENT-scoped so it survives a selection change
-              (objectui#8057).
+              (`9073cf018`).
           `issues` — the live client Zod pass — stays advisory, because the
           only failure the client can cause on its own is being STRICTER than
           the server. The reasoning, and the measurement behind all three, is
@@ -2200,7 +2188,9 @@ function MetadataResourceEditPageImpl({
             saving
               ? t('engine.edit.saving', locale)
               : inspectorBlocking > 0
-                ? t('perm.cel.saveBlocked', locale)
+                // Neutral: the inspector channel carries CEL faults AND the
+                // objectui#6900 required-field refusal (ruling 5831744213).
+                ? t('perm.inspector.saveBlocked', locale)
                 : refusalBlocking > 0
                   ? tFormat('engine.validation.serverRefused', locale, {
                       issue: saveRefusal?.summary ?? '',
@@ -2820,7 +2810,7 @@ function MetadataResourceEditPageImpl({
                           <SchemaForm
                             schema={schema}
                             idPath={formIdPath}
-                            form={createMode && config.createSchema ? undefined : (entry?.form as any)}
+                            form={createMode && config.createSchema ? undefined : entry?.form}
                             value={draft}
                             onChange={handleCreateAwareChange}
                             issues={displayIssues}
@@ -2844,7 +2834,7 @@ function MetadataResourceEditPageImpl({
               <SchemaForm
                 schema={schema}
                 idPath={formIdPath}
-                form={createMode && config.createSchema ? undefined : (entry?.form as any)}
+                form={createMode && config.createSchema ? undefined : entry?.form}
                 value={draft}
                 onChange={handleCreateAwareChange}
                 issues={displayIssues}

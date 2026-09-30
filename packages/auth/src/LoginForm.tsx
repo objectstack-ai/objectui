@@ -36,8 +36,17 @@ export interface LoginFormLabels {
   submittingButton?: string;
   noAccountText?: string;
   signUpText?: string;
-  /** Divider label between social sign-in and email/password (defaults to "or") */
+  /**
+   * Divider label between the social provider buttons and the email/password
+   * form (defaults to "or continue with email"). Rendered only when the server
+   * reports at least one social provider.
+   */
   orText?: string;
+  /**
+   * Social provider button label (defaults to "Continue with {provider}");
+   * `{provider}` is replaced with the provider's display name.
+   */
+  socialButton?: string;
   /** Label for the SSO sign-in button (defaults to "Sign in with SSO") */
   ssoButton?: string;
   /**
@@ -237,7 +246,6 @@ export function LoginForm({
     submittingButton: labels.submittingButton ?? 'Signing in…',
     noAccountText: labels.noAccountText ?? "Don't have an account?",
     signUpText: labels.signUpText ?? 'Sign up',
-    orText: labels.orText ?? 'or',
     ssoButton: labels.ssoButton ?? 'Sign in with SSO',
     usePasswordText: labels.usePasswordText ?? 'Use a password instead',
     backToSsoText: labels.backToSsoText ?? 'Back to single sign-on',
@@ -370,7 +378,14 @@ export function LoginForm({
           </div>
         ) : (
         <>
-        <SocialSignInButtons mode="sign-in" onProvidersResolved={(hasProviders) => setHasSocialProviders(hasProviders)} />
+        {/* Unset labels stay `undefined` here, so the component's own English
+            defaults apply — one copy of each default, not two. */}
+        <SocialSignInButtons
+          mode="sign-in"
+          dividerText={labels.orText}
+          buttonText={labels.socialButton}
+          onProvidersResolved={(hasProviders) => setHasSocialProviders(hasProviders)}
+        />
 
         {passwordFormVisible ? (
         mode === 'phone-otp' ? (

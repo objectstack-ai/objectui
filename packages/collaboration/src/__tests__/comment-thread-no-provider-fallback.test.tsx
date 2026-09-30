@@ -52,7 +52,7 @@
  * cheapest way to keep that true is to not import it at all.)
  */
 
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { CommentThread, type Comment } from '../CommentThread';
 import { COLLAB_DEFAULT_TRANSLATIONS } from '../useCollaborationTranslation';
@@ -91,7 +91,10 @@ function renderBare(overrides: Record<string, unknown> = {}) {
   );
 }
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe('CommentThread with no I18nProvider — English fallback (objectstack#5506)', () => {
   it('renders the header, sort control and resolve button in English', () => {
@@ -208,11 +211,14 @@ describe('CommentThread with no I18nProvider — English fallback (objectstack#5
 
   /**
    * objectui#3441 — with no provider the session language is whatever
-   * react-i18next reports (in practice `'en'`), and the >= 7d branch now hands
-   * that to `toLocaleDateString`. What must hold on this path is narrower than
-   * under a provider but is the part a standalone host would notice: a real
-   * formatted date, never the raw ISO string `formatTimestamp`'s outer catch
-   * would produce if a bad tag reached `Intl`.
+   * react-i18next reports (in practice `'en'`). The >= 7d branch hands
+   * `toLocaleDateString` the DISPLAY locale (objectui#10375), and with no
+   * provider that is the same tag: no `LocalizationProvider` answers, so
+   * `useDisplayLocale` falls through to the session language. What must hold
+   * on this path is narrower than under a provider but is the part a
+   * standalone host would notice: a real formatted date, never the raw ISO
+   * string `formatTimestamp`'s outer catch would produce if a bad tag reached
+   * `Intl`.
    */
   it('formats a week-old comment as a date, not a raw ISO string', () => {
     const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
@@ -231,6 +237,32 @@ describe('CommentThread with no I18nProvider — English fallback (objectstack#5
     expect(container.textContent).not.toContain(eightDaysAgo.toISOString());
     expect(container.textContent).not.toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/);
     expect(screen.getByText(eightDaysAgo.toLocaleDateString('en'))).toBeTruthy();
+  });
+
+  /**
+   * objectui#10375 — what `useDisplayLocale()` answers with no provider mounted,
+   * read off the argument the date formatter receives: `'en'`, passed
+   * explicitly. It is never the machine locale (no argument, or `undefined`),
+   * so a standalone host's date does not depend on the machine it runs on.
+   */
+  it('hands the week-old date an explicit tag, never the machine locale', () => {
+    const spy = vi.spyOn(Date.prototype, 'toLocaleDateString');
+    renderBare({
+      comments: [
+        {
+          id: 'old',
+          author: alice,
+          content: 'From last week.',
+          mentions: [],
+          createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      ],
+    });
+
+    expect(spy.mock.calls.length).toBeGreaterThan(0);
+    expect(spy.mock.calls, `saw: ${JSON.stringify(spy.mock.calls)}`).toEqual(
+      spy.mock.calls.map(() => ['en']),
+    );
   });
 
   /**

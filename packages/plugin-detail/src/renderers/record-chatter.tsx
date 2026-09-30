@@ -26,7 +26,7 @@
  *
  * The pipeline below is `record-activity.tsx`'s, not a second convention: the
  * same `applyFeedConfig(sourceItems, { types, showCompleted, unifiedTimeline },
- * pageSize)` call, and the same reading of `limit` as a PAGE SIZE that
+ * pageSize, block)` call (only the block name differs), and the same reading of `limit` as a PAGE SIZE that
  * "Load more" grows by, rather than a hard cap.
  *
  * ⚠️ Consequences an author sees, because the spec's DEFAULTS now apply here
@@ -86,12 +86,20 @@
  * legs: the pinned slice renders, and the dropdown does not.
  *
  * ⚠️ `aria` — the third row of objectui#8968's table, which the card filed as
- * NOT MEASURED — was measured on that card and is NOT part of this path's
- * remainder: it is unread on `record:activity` as well, so it is a gap over the
- * `record:*` block family rather than a chatter-path one, and closing it means
- * deciding how an authored label composes with the timeline's own. Reported on
- * objectui#8968, deliberately not fixed here. ⚠️ Nothing in this file
- * re-derives that reading — it was taken once, and the card carries it.
+ * NOT MEASURED — was measured on that card and left out of this path's
+ * remainder, as a gap over the whole `record:*` block family. Both halves are
+ * read now, and neither is read in this file's pipeline:
+ *
+ *   `aria`        the block's own bag, read below through `useRecordAriaProps`
+ *                 onto this renderer's container (objectui#9556);
+ *   `feed.aria`   the feed's bag, read by `RecordChatterPanel` through the same
+ *                 hook onto a `div` around the embedded timeline, the way
+ *                 `record-activity.tsx` puts its own bag on the `div` around
+ *                 its timeline (objectui#11083). The timeline's own name, its
+ *                 heading, is untouched; an authored feed name names the region
+ *                 around it.
+ *
+ * Pinned by `__tests__/recordChatterFeedAria-11083.test.tsx`.
  */
 
 import React from 'react';
@@ -99,7 +107,7 @@ import { useRecordContext, useDiscussionContext } from '@object-ui/react';
 import type { FeedItem, RecordActivityComponentProps, RecordChatterComponentProps } from '@object-ui/types';
 import { RecordChatterPanel } from '../RecordChatterPanel';
 import type { FeedFilterMode } from '../RecordActivityTimeline';
-import { applyFeedConfig, normalizeFilterMode, normalizeLimit } from './recordActivityFeed';
+import { applyFeedConfig, describeRefusedFeedLimit, normalizeFilterMode, normalizeLimit } from './recordActivityFeed';
 import { useRecordAriaProps } from './recordComponentAria';
 
 const splitDesigner = (props: Record<string, any>) => {
@@ -180,16 +188,29 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
   // state, not the resulting size").
   const [extraPages, setExtraPages] = React.useState(0);
   const limit = normalizeLimit(feed?.limit);
+  // The block this renderer is mounted as — `record:chatter` or
+  // `record:discussion`, both registered to this one component — so every
+  // author diagnostic below is addressed to the block that was authored.
+  // `record:chatter` only when no `type` arrived at all: the host's
+  // auto-appended discussion mounts this renderer with no schema, and then the
+  // `feed` is the three affordance defaults above, which no diagnostic reads.
+  const blockName = typeof schema.type === 'string' && schema.type ? schema.type : 'record:chatter';
+  // [objectui#10145] Same refusal, same channel as `record:activity`, named for
+  // the block that was authored (`record:chatter` or `record:discussion`).
+  const refusedLimitMessage = describeRefusedFeedLimit(`${blockName} feed`, feed?.limit);
+  React.useEffect(() => {
+    if (refusedLimitMessage) console.warn(refusedLimitMessage);
+  }, [refusedLimitMessage]);
   const pageSize = limit * (extraPages + 1);
 
   // `filterMode` — the authored slice, normalized by the SAME function
   // `record:activity` uses, so an unrecognised value falls back to `all` rather
   // than freezing the dropdown blank on a value with no matching item.
-  // ⚠️ That shared diagnostic prints a `[record:activity]` prefix and warns
-  // once per offending VALUE, so a bad `filterMode` authored on both a
-  // `record:activity` and a `record:chatter` block on one page warns under the
-  // activity name only. A renderer-aware prefix belongs in `recordActivityFeed`
-  // rather than here; reported on objectui#8968, not fixed on this card.
+  // Its diagnostic (and the `types` ones `applyFeedConfig` raises) is prefixed
+  // with `blockName` and deduped per (block, value), so a bad `filterMode`
+  // authored on both a `record:activity` and a `record:chatter` block on one
+  // page warns once under EACH name (objectui#9557; it used to warn once, under
+  // the activity name only).
   //
   // It seeds STATE rather than being handed to the panel directly: the timeline
   // treats `filterMode` as a CONTROLLED prop, so passing the authored value
@@ -205,7 +226,7 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
   //
   // ⭐ Independent of `showFilterToggle` on purpose; the docblock above carries
   // the decision and its three reasons.
-  const defaultFilterMode = normalizeFilterMode(feed?.filterMode);
+  const defaultFilterMode = normalizeFilterMode(feed?.filterMode, blockName);
   const [filterMode, setFilterMode] = React.useState<FeedFilterMode>(defaultFilterMode);
   React.useEffect(() => { setFilterMode(defaultFilterMode); }, [defaultFilterMode]);
 
@@ -220,8 +241,9 @@ export const RecordChatterRenderer: React.FC<RecordChatterRendererProps> = ({
           unifiedTimeline: feed?.unifiedTimeline,
         },
         pageSize,
+        blockName,
       ),
-    [discussionItems, feed?.types, feed?.showCompleted, feed?.unifiedTimeline, pageSize],
+    [discussionItems, feed?.types, feed?.showCompleted, feed?.unifiedTimeline, pageSize, blockName],
   );
 
   // `record-activity.tsx` writes its own `handleLoadMore` with an empty

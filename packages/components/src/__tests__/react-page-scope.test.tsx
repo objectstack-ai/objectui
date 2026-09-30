@@ -213,6 +213,52 @@ function Page() {
 });
 
 // ---------------------------------------------------------------------------
+// 3b. The html tier rides the same read and must NOT be injected (objectui#10735)
+// ---------------------------------------------------------------------------
+
+describe('kind:\'react\' scope — html-tier intrinsics are not injected', () => {
+  it('`img` is in the contract read, stamped `tier: html`, and is not a container', () => {
+    // The premise: ONLY the stamp keeps it out. `img` is a leaf (no
+    // `isContainer`), so the container branch would have injected an `<Img>`
+    // wrapper the moment the html tier joined `getPublicConfigs()`.
+    const cfg = ComponentRegistry.getPublicConfigs().find((c) => c.type === 'img');
+    expect(cfg).toBeTruthy();
+    expect(cfg!.tier).toBe('html');
+    expect(cfg!.isContainer).toBeFalsy();
+  });
+
+  it('a PascalCased html-tier tag is an unknown identifier on this tier', async () => {
+    // A lowercase `<img>` is React's own intrinsic here; `<Img>` must not
+    // resolve to an injected wrapper. The failure shape is the same loud
+    // ReferenceError the negative control below pins.
+    const source = `
+function Page() {
+  return <Img src="/x.png" alt="x" />;
+}`;
+    const { container, findByText } = renderReactPage(source);
+    expect(await findByText('React page error')).toBeTruthy();
+    await waitFor(() => expect(container.textContent).toContain('Img is not defined'));
+  });
+
+  it('`code` joined the roster without a `Code` wrapper — stamped `tier: html`, skipped by the scope (objectui#10756)', async () => {
+    // `code` is a leaf like `img`; without the stamp the container branch would
+    // inject a `<Code>` wrapper the moment the passthrough was registered.
+    const cfg = ComponentRegistry.getPublicConfigs().find((c) => c.type === 'code');
+    expect(cfg).toBeTruthy();
+    expect(cfg!.tier).toBe('html');
+    expect(cfg!.isContainer).toBeFalsy();
+
+    const source = `
+function Page() {
+  return <Code>inline</Code>;
+}`;
+    const { container, findByText } = renderReactPage(source);
+    expect(await findByText('React page error')).toBeTruthy();
+    await waitFor(() => expect(container.textContent).toContain('Code is not defined'));
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 4. Negative control — absence must be loud
 // ---------------------------------------------------------------------------
 

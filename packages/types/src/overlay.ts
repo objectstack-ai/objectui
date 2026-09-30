@@ -95,12 +95,15 @@ export interface DialogSchema extends BaseSchema {
    * `content`, `defaultOpen`, `description`, `footer`, `modal`, `title`,
    * `trigger` (in `packages/components/src/renderers/overlay/dialog.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `dialog` reads — nothing renders it.
    */
@@ -118,12 +121,15 @@ export interface DialogSchema extends BaseSchema {
    * `content`, `defaultOpen`, `description`, `footer`, `modal`, `title`,
    * `trigger` (in `packages/components/src/renderers/overlay/dialog.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `dialog` reads — nothing renders it.
    */
@@ -345,12 +351,15 @@ export interface AlertDialogSchema extends BaseSchema {
    * `description`, `onAction`, `title`, `trigger` (in
    * `packages/components/src/renderers/overlay/alert-dialog.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `alert-dialog` reads — nothing renders it.
    */
@@ -370,12 +379,15 @@ export interface AlertDialogSchema extends BaseSchema {
    * `description`, `onAction`, `title`, `trigger` (in
    * `packages/components/src/renderers/overlay/alert-dialog.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `alert-dialog` reads — nothing renders it.
    */
@@ -451,12 +463,15 @@ export interface SheetSchema extends BaseSchema {
    * `title`, `trigger` (in
    * `packages/components/src/renderers/overlay/sheet.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `sheet` reads — nothing renders it.
    */
@@ -475,12 +490,15 @@ export interface SheetSchema extends BaseSchema {
    * `title`, `trigger` (in
    * `packages/components/src/renderers/overlay/sheet.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `sheet` reads — nothing renders it.
    */
@@ -552,12 +570,15 @@ export interface DrawerSchema extends BaseSchema {
    * `showClose`, `title`, `trigger` (in
    * `packages/components/src/renderers/overlay/drawer.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `drawer` reads — nothing renders it.
    */
@@ -576,12 +597,15 @@ export interface DrawerSchema extends BaseSchema {
    * `showClose`, `title`, `trigger` (in
    * `packages/components/src/renderers/overlay/drawer.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `drawer` reads — nothing renders it.
    */
@@ -649,12 +673,15 @@ export interface PopoverSchema extends BaseSchema {
    * `align`, `content`, `defaultOpen`, `modal`, `side`, `trigger` (in
    * `packages/components/src/renderers/overlay/popover.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `popover` reads — nothing renders it.
    */
@@ -672,12 +699,15 @@ export interface PopoverSchema extends BaseSchema {
    * `align`, `content`, `defaultOpen`, `modal`, `side`, `trigger` (in
    * `packages/components/src/renderers/overlay/popover.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `popover` reads — nothing renders it.
    */
@@ -688,11 +718,11 @@ export interface PopoverSchema extends BaseSchema {
  * Tooltip component
  *
  * ⚠️ This declaration used to REQUIRE `children` and declare neither `trigger`
- * nor a rich-content slot (objectui#6939). The renderer reads `schema.trigger`
+ * nor a rich-content slot (`bfaa1589c`). The renderer reads `schema.trigger`
  * and `schema.content || renderChildren(…)`
  * (`packages/components/src/renderers/overlay/tooltip.tsx`), and the
  * registration's own `inputs` list `trigger` / `content` / that slot. ⚠️ The
- * slot was spelled `body` from objectui#6939 until objectui#6771 retired the
+ * slot was spelled `body` from `bfaa1589c` until objectui#6771 retired the
  * spelling; it is `children` on both the read and the published `inputs` now,
  * which is why the tombstones below face the other way round from the ones
  * objectui#8284 first wrote. `children` was legal through {@link BaseSchema}
@@ -718,13 +748,23 @@ export interface TooltipSchema extends BaseSchema {
    */
   trigger?: SchemaNode | SchemaNode[];
   /**
-   * Tooltip content/text — the FIRST half of the content read.
+   * Tooltip text — the FIRST half of the content read.
    *
    * READ SITE: `packages/components/src/renderers/overlay/tooltip.tsx` —
    * `schema.content || renderChildren(schema.children)`. Optional because
    * {@link TooltipSchema.children} is the other half of that same read.
+   *
+   * TEXT ONLY (objectui#10295). The read places `content` raw in a React child
+   * position, never through `renderChildren`, so a node here failed to render
+   * ("Objects are not valid as a React child"). This key is objectui's own (the
+   * spec declares no tooltip node), so it follows its read site: author a node
+   * or a list of nodes under {@link TooltipSchema.children}.
+   *
+   * ⚠️ Precedence, as the read stands: a non-empty `content` WINS and an
+   * authored `children` is not rendered at all; an empty string falls through
+   * to `children`.
    */
-  content?: string | SchemaNode;
+  content?: string;
   /**
    * RETIRED (objectui#6771, maintainer ruling 2026-09-01) — the `body`
    * child-list spelling. Author {@link TooltipSchema.children}.
@@ -851,12 +891,15 @@ export interface HoverCardSchema extends BaseSchema {
    * `align`, `closeDelay`, `content`, `openDelay`, `side`, `trigger` (in
    * `packages/components/src/renderers/overlay/hover-card.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `hover-card` reads — nothing renders it.
    */
@@ -875,12 +918,15 @@ export interface HoverCardSchema extends BaseSchema {
    * `align`, `closeDelay`, `content`, `openDelay`, `side`, `trigger` (in
    * `packages/components/src/renderers/overlay/hover-card.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `hover-card` reads — nothing renders it.
    */
@@ -1038,12 +1084,15 @@ export interface DropdownMenuSchema extends BaseSchema {
    * `align`, `defaultOpen`, `items`, `label`, `modal`, `side`, `trigger` (in
    * `packages/components/src/renderers/overlay/dropdown-menu.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `dropdown-menu` reads — nothing renders it.
    */
@@ -1062,12 +1111,15 @@ export interface DropdownMenuSchema extends BaseSchema {
    * `align`, `defaultOpen`, `items`, `label`, `modal`, `side`, `trigger` (in
    * `packages/components/src/renderers/overlay/dropdown-menu.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `dropdown-menu` reads — nothing renders it.
    */
@@ -1078,7 +1130,7 @@ export interface DropdownMenuSchema extends BaseSchema {
  * Context menu component
  *
  * ⚠️ This declaration used to REQUIRE `children`, which no read site consumes
- * (objectui#6939): the renderer reads `schema.trigger` and `schema.items`
+ * (`bfaa1589c`): the renderer reads `schema.trigger` and `schema.items`
  * (`packages/components/src/renderers/overlay/context-menu.tsx:95,99`), so a
  * document authoring its right-clickable area under `children` loses it to the
  * hardcoded placeholder. `children` stays legal through {@link BaseSchema},
@@ -1097,7 +1149,7 @@ export interface ContextMenuSchema extends BaseSchema {
    * — `renderChildren(schema.trigger || { type: 'text', content: 'Right click here' })`
    * inside `ContextMenuTrigger`. ⚠️ Note the renderer renders `trigger`, NOT
    * `children` — which this member used to sit beside as a REQUIRED key and
-   * which no read site consumes (objectui#6939 dropped that requirement;
+   * which no read site consumes (`bfaa1589c` dropped that requirement;
    * `children` is now only {@link BaseSchema}'s optional one).
    *
    * Declared OPTIONAL: the renderer substitutes a placeholder when it is
@@ -1110,7 +1162,7 @@ export interface ContextMenuSchema extends BaseSchema {
    *
    * READ SITE: `packages/components/src/renderers/overlay/context-menu.tsx:87`
    * — first in `schema.triggerClassName || className || schema.className ||
-   * <a dashed-border default>`. Undeclared until objectui#6939, surviving only
+   * <a dashed-border default>`. Undeclared until `bfaa1589c`, surviving only
    * on `BaseSchema`'s index signature.
    */
   triggerClassName?: string;
@@ -1118,13 +1170,13 @@ export interface ContextMenuSchema extends BaseSchema {
    * Classes for the menu panel.
    *
    * READ SITE: `packages/components/src/renderers/overlay/context-menu.tsx:88`,
-   * applied to `ContextMenuContent` at :98. Undeclared until objectui#6939.
+   * applied to `ContextMenuContent` at :98. Undeclared until `bfaa1589c`.
    */
   contentClassName?: string;
   /**
    * Forwarded to the Radix `ContextMenu` root — `modal={schema.modal}` at
    * `packages/components/src/renderers/overlay/context-menu.tsx:91`.
-   * Undeclared until objectui#6939.
+   * Undeclared until `bfaa1589c`.
    */
   modal?: boolean;
   /**
@@ -1142,12 +1194,15 @@ export interface ContextMenuSchema extends BaseSchema {
    * `triggerClassName` (in
    * `packages/components/src/renderers/overlay/context-menu.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `context-menu` reads — nothing renders it.
    */
@@ -1167,12 +1222,15 @@ export interface ContextMenuSchema extends BaseSchema {
    * `triggerClassName` (in
    * `packages/components/src/renderers/overlay/context-menu.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `context-menu` reads — nothing renders it.
    */
@@ -1215,12 +1273,15 @@ export interface MenubarSchema extends BaseSchema {
    * `className`, `menus` (in
    * `packages/components/src/renderers/overlay/menubar.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `menubar` reads — nothing renders it.
    */
@@ -1238,12 +1299,15 @@ export interface MenubarSchema extends BaseSchema {
    * `className`, `menus` (in
    * `packages/components/src/renderers/overlay/menubar.tsx`).
    *
-   * `body` and `children` are inherited-and-optional from {@link BaseSchema},
-   * whose own docblock admits "some components use `children` instead of
-   * `body`" without saying which — so authoring either here type-checked,
-   * parsed green through `.passthrough()`, and rendered NOTHING: no error, no
-   * warning, no element. `SchemaRenderer` strips both keys out of the props bag
-   * it spreads, so neither reaches the component by another route either.
+   * Before objectui#9256 tombstoned them here, `body` and `children` were both
+   * inherited-and-optional from {@link BaseSchema} — so authoring either here
+   * type-checked, parsed green through `.passthrough()`, and rendered NOTHING:
+   * no render-time error or warning and no element; only the parser tier's
+   * `not-a-container` warning (objectui#9910) noticed it. objectui#6771 has since retired `body` on
+   * `BaseSchema` itself; `BaseSchema` still declares `children`, so this node's
+   * own tombstone is what refuses it here. `SchemaRenderer` strips both keys
+   * out of the props bag it spreads, so neither reaches the component by
+   * another route either.
    *
    * @deprecated Not a channel `menubar` reads — nothing renders it.
    */

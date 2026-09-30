@@ -37,6 +37,17 @@ import { useObjectTranslation } from './provider.js';
  *     since `useObjectTranslation` falls back to the react-i18next global
  *     instance and ultimately reports `'en'` itself.
  *
+ *     ⚠️ This last resort is the rule for THIS HOOK — a React renderer whose
+ *     provider chain yielded no tag at all — and not for every caller that has
+ *     no tag. A non-React display caller cannot call a hook, and
+ *     `@object-ui/core` deliberately gives it a different answer:
+ *     `DisplayNumberFormatOptions.locale`
+ *     (`packages/core/src/utils/number-display.ts`) says `undefined` there
+ *     means the runtime default, because the viewer's own environment is the
+ *     honest locale for a user-facing display. The two rules govern different
+ *     callers and do not contradict each other (objectui#10098); that docblock
+ *     names this one in return.
+ *
  * Provider-safe at every step: `useLocalization` returns `{}` outside its
  * provider and `useObjectTranslation` reads an optional context, so a renderer
  * mounted standalone (tests, docs demos) degrades instead of throwing.

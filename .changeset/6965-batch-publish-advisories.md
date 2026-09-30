@@ -4,7 +4,7 @@
 ---
 
 Studio's "publish whole app" reports the runtime authoring gate's per-draft
-advisories (objectui#6965; server half objectstack#9343).
+advisories (server half objectstack#9343).
 
 `POST /packages/:id/publish-drafts` began answering `advisories` on each
 `published[]` element when objectstack#9343 landed, but the author publishing a

@@ -25,8 +25,9 @@ describe('Phase 2: AppComponentSchema Zod Validation', () => {
       name: 'my-crm',
       title: 'My CRM Application',
       description: 'Customer Relationship Management System',
-      logo: '/logo.png',
-      favicon: '/favicon.ico',
+      // The logo's and the favicon's one spelling (objectui#10827,
+      // objectui#10842); a top-level `logo` or `favicon` is refused.
+      branding: { logo: '/logo.png', favicon: '/favicon.ico' },
       layout: 'sidebar',
       menu: [
         {
@@ -54,19 +55,11 @@ describe('Phase 2: AppComponentSchema Zod Validation', () => {
           ],
         },
       ],
-      actions: [
-        {
-          type: 'user',
-          label: 'John Doe',
-          avatar: '/avatar.jpg',
-          description: 'john@example.com',
-          items: [
-            { type: 'item', label: 'Profile', path: '/profile' },
-            { type: 'item', label: 'Settings', path: '/settings' },
-            { type: 'separator' },
-            { type: 'item', label: 'Logout', path: '/logout' },
-          ],
-        },
+      // `actions` is retired on the app node (objectui#7469) and refused by
+      // name — see `app-actions-retired-7469.test.ts`. App-level actions are
+      // `navigation` items of `type: 'action'`.
+      navigation: [
+        { id: 'quick_create', type: 'action', label: 'Quick Create', actionDef: { actionName: 'quick_create' } },
       ],
     };
 

@@ -26,7 +26,7 @@ change the block runs on its own published `inputs` (`defaultOpen` / `disabled` 
 
 **The order is load-bearing and is not an implementation detail.** The renderer-side
 exclusion lands FIRST and the retirement second, because the render path runs no
-`safeParse` (objectui#9585 measured it NOT GATED). Retiring the declaration alone would
+`safeParse` (a pin in this change measures it NOT GATED). Retiring the declaration alone would
 have deleted the author's only warning while leaving the takeover running — strictly
 worse than doing nothing. Both halves are in this change; ⛔ neither is safe to remove
 alone.

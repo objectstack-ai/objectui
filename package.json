@@ -87,7 +87,6 @@
     "check:docs-route-closure": "node scripts/check-docs-route-eager-closure.mjs",
     "check:entry-guard": "node scripts/check-entry-guard.mjs",
     "check:comment-mask-corpus": "node scripts/check-comment-mask-corpus.mjs",
-    "check:upstream-port-parity": "node scripts/check-upstream-port-parity.mjs",
     "check:bash32-floor": "node scripts/check-bash32-floor.mjs",
     "check:governed-queue-guard": "node scripts/check-governed-queue-guard.mjs --self-test",
     "governed": "node scripts/check-governed-queue-guard.mjs --test",

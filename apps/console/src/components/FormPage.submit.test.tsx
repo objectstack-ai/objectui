@@ -31,6 +31,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { createI18n } from '@object-ui/i18n';
 import { FormPage } from './FormPage';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -140,6 +141,12 @@ function renderPublic() {
 
 beforeEach(() => {
   submits = [];
+  // FormPage's feedback chrome reads the i18n catalogue (objectui#11039)
+  // through the provider `main.tsx` mounts above this route. The app's own
+  // factory registers its instance as react-i18next's global, which is how
+  // this unwrapped route reaches the `en` pack; the harness restores the
+  // global after every test (`installI18nGlobalReset`).
+  createI18n({ defaultLanguage: 'en', detectBrowserLanguage: false });
 });
 
 afterEach(() => {
@@ -173,7 +180,7 @@ describe('internal submit — default behaviour (ruling point 2)', () => {
     expect(submits[0].url).toContain('/data/showcase_task');
 
     // And emphatically NOT the anonymous confirmation.
-    expect(screen.queryByText('Your submission has been received.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Your submission has been received successfully.')).not.toBeInTheDocument();
   });
 
   /**
@@ -195,7 +202,7 @@ describe('internal submit — default behaviour (ruling point 2)', () => {
     await screen.findByLabelText(/Title/);
     await userEvent.click(screen.getByRole('button', { name: /Submit/ }));
 
-    expect(await screen.findByText('Your submission has been received.')).toBeInTheDocument();
+    expect(await screen.findByText('Your submission has been received successfully.')).toBeInTheDocument();
     expect(screen.getByTestId('location').textContent).toBe('/forms/showcase_task.edit');
   });
 });
@@ -237,7 +244,7 @@ describe('an explicitly declared submitBehavior still wins (ruling point 3)', ()
 
     await waitFor(() => expect(submits).toHaveLength(1));
     // `continue` keeps the form up with cleared values; no confirmation panel.
-    expect(screen.queryByText('Your submission has been received.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Your submission has been received successfully.')).not.toBeInTheDocument();
     expect(await screen.findByLabelText(/Title/)).toHaveValue('');
   });
 });
@@ -256,8 +263,8 @@ describe('public submit — default behaviour is unchanged', () => {
     await screen.findByLabelText(/Title/);
     await userEvent.click(screen.getByRole('button', { name: /Submit/ }));
 
-    expect(await screen.findByText('Thanks!')).toBeInTheDocument();
-    expect(screen.getByText('Your submission has been received.')).toBeInTheDocument();
+    expect(await screen.findByText('Thank you!')).toBeInTheDocument();
+    expect(screen.getByText('Your submission has been received successfully.')).toBeInTheDocument();
     expect(screen.getByTestId('location').textContent).toBe('/f/contact-us');
   });
 });

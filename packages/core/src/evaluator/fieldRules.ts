@@ -263,7 +263,7 @@ export function evalFieldPredicate(
         ...(scope ? { extra: scope } : {}),
       });
       // Parse error, type error, unbound identifier, engine fault … — every
-      // not-ok verdict resolves to the fallback, but never silently (#5149).
+      // not-ok verdict resolves to the fallback, but never silently (objectstack-ai/objectstack#5149).
       if (!res.ok) reason = `[${res.error.kind}] ${res.error.message}`;
       else value = res.value === true;
     } catch (err) {
@@ -316,7 +316,7 @@ export function evalFieldPredicate(
  * explicitly undecided ("appeal 1").
  *
  * ⛔ These values are shipped behaviour. Changing one is not a refactor, it is
- * objectui#8069's decision — and objectui#6958 leans on the `visibleWhen` half
+ * objectui#8069's decision — and `6a449fc49` leans on the `visibleWhen` half
  * staying fail-open (a broken predicate must never silently null a stored
  * column).
  */

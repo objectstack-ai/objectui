@@ -35,8 +35,14 @@ function ensureKeyframe() {
 export interface RefreshIndicatorProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Whether the indicator is active. When false, nothing is rendered. */
   active: boolean
-  /** Accessible label. Defaults to "Refreshing". */
-  ariaLabel?: string
+  /**
+   * Accessible name of the progress bar, rendered as its `aria-label`.
+   * Required, with no default: the caller passes a string from its own
+   * translation layer, so the name a screen reader announces is in the active
+   * locale. An English default here reached every non-English screen-reader
+   * user through the callers that passed nothing (objectui#10580).
+   */
+  ariaLabel: string
 }
 
 /**
@@ -50,7 +56,7 @@ export interface RefreshIndicatorProps extends React.HTMLAttributes<HTMLDivEleme
  */
 export const RefreshIndicator: React.FC<RefreshIndicatorProps> = ({
   active,
-  ariaLabel = "Refreshing",
+  ariaLabel,
   className,
   ...props
 }) => {

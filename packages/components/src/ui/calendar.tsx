@@ -17,6 +17,7 @@ import {
 import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
 
 import { cn } from "../lib/utils"
+import { useDisplayDateLocale, type CalendarLocaleTagProps } from "../lib/date-fns-locale"
 import { Button, buttonVariants } from "./button"
 
 function Calendar({
@@ -27,14 +28,17 @@ function Calendar({
   buttonVariant = "ghost",
   formatters,
   components,
+  localeTag,
   ...props
-}: React.ComponentProps<typeof DayPicker> & {
+}: React.ComponentProps<typeof DayPicker> & CalendarLocaleTagProps & {
   buttonVariant?: React.ComponentProps<typeof Button>["variant"]
 }) {
   const defaultClassNames = getDefaultClassNames()
+  const displayDateLocale = useDisplayDateLocale(localeTag)
 
   return (
     <DayPicker
+      locale={displayDateLocale}
       showOutsideDays={showOutsideDays}
       className={cn(
         "bg-background group/calendar p-3 [--cell-size:2rem] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent",

@@ -22,6 +22,7 @@ import {
   PageSchema as SpecPageSchema,
   PageTypeSchema as SpecPageTypeSchema,
   PageVariableSchema as SpecPageVariableSchema,
+  checkPageSourceCompleteness,
 } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema, specFieldsExcept } from './base.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
@@ -81,8 +82,8 @@ export const BoxSchema = BaseSchema.extend({
     'children',
     'this box node',
     '`box` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/box.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -98,8 +99,8 @@ export const TextSpanSchema = BaseSchema.extend({
     'children',
     'this span node',
     '`span` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/basic/span.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -109,15 +110,15 @@ export const TextSpanSchema = BaseSchema.extend({
 export const TextSchema = BaseSchema.extend({
   type: z.literal('text'),
   content: z.string().optional()
-    .describe('Text content — the one content spelling `text` reads (declared by objectui#6150; its `value` fallback spelling was retired by objectui#6951)'),
-  // ADR-0049 RETIREMENT TOMBSTONE (objectui#6951 / objectui#7016, maintainer
+    .describe('Text content — the one content spelling `text` reads (declared by objectui#6150; its `value` fallback spelling was retired)'),
+  // ADR-0049 RETIREMENT TOMBSTONE (`5ad86ddee` / objectui#7016, maintainer
   // ruling A1 of 2026-09-04). `value` was the second spelling of the one
   // content slot; the renderer now reads `content` alone, so a plain deletion
   // here would let an authored `value` ride `BaseSchema.passthrough()` into a
   // silent blank. The tombstone refuses it BY NAME instead — one string, both
   // channels (parse-time message and `.describe()`), see `./tombstone.zod.ts`.
   value: retirementTombstone(
-    'RETIRED (objectui#6951) — `value` is no longer part of TextSchema; write `content`. It was a second '
+    'RETIRED (ADR-0049) — `value` is no longer part of TextSchema; write `content`. It was a second '
     + 'spelling of the one content slot, read only as the fallback limb of `schema.content || schema.value`, '
     + 'and was retired under ADR-0049 enforce-or-remove with no deprecation window (maintainer ruling A1, '
     + '2026-09-04). The renderer reads `content` alone now, so an authored `value` would render nothing. '
@@ -132,7 +133,7 @@ export const TextSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `align`, `className`, `content`, `variant`. '
     + '`ui:text` is the measured SOLE owner of the bare `text` key (`element:text` and `field:text` pass `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -142,7 +143,7 @@ export const TextSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `align`, `className`, `content`, `variant`. '
     + '`ui:text` is the measured SOLE owner of the bare `text` key (`element:text` and `field:text` pass `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -164,7 +165,7 @@ export const ImageSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `alt`, `src`. '
     + '`ui:image` is the measured SOLE owner of the bare `image` key (`element:image` and `field:image` pass `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -174,7 +175,7 @@ export const ImageSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `alt`, `src`. '
     + '`ui:image` is the measured SOLE owner of the bare `image` key (`element:image` and `field:image` pass `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -251,7 +252,7 @@ export const IconSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `color`, `icon`, `name`, `size`. '
     + '`ui:icon` is the measured SOLE owner of the bare `icon` key (`action:icon` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -261,7 +262,7 @@ export const IconSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `className`, `color`, `icon`, `name`, `size`. '
     + '`ui:icon` is the measured SOLE owner of the bare `icon` key (`action:icon` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -279,14 +280,14 @@ export const SeparatorSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `separator` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `orientation`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `separator` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `orientation`.',
   ),
 });
@@ -296,9 +297,15 @@ export const SeparatorSchema = BaseSchema.extend({
  */
 export const ContainerSchema = BaseSchema.extend({
   type: z.literal('container'),
+  // `false` ONLY, not `z.boolean()` (objectui#10286, the objectui#7759 ruling:
+  // for a key the spec does not declare, the read site is the truth). The
+  // `container` renderer maps `false` to `max-w-none` and each size word to its
+  // `max-w-*` class; `true` matches none of those branches, so it parsed green
+  // here and drew no max-width class at all — neither the default `max-w-xl`
+  // nor the `max-w-none` that `false` states. The declaration never admitted it.
   maxWidth: z.union([
     z.enum(['sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl', '7xl', 'full', 'screen']),
-    z.boolean(),
+    z.literal(false),
   ]).optional().describe('Max width constraint'),
   centered: z.boolean().optional().describe('Center the container'),
   padding: z.number().optional().describe('Padding value'),
@@ -308,8 +315,8 @@ export const ContainerSchema = BaseSchema.extend({
     'children',
     'this container node',
     '`container` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/container.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -335,8 +342,8 @@ export const FlexSchema = BaseSchema.extend({
     'children',
     'this flex node',
     '`flex` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/flex.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -356,8 +363,8 @@ export const StackSchema = BaseSchema.extend({
     'children',
     'this stack node',
     '`stack` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/stack.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -392,8 +399,8 @@ export const GridSchema = BaseSchema.extend({
     'children',
     'this grid node',
     '`grid` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/grid.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -430,6 +437,16 @@ export const TabItemSchema = z.object({
   icon: z.string().optional().describe('Tab icon'),
   disabled: z.boolean().optional().describe('Whether tab is disabled'),
   content: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).describe('Tab content'),
+  // RETIRED (objectui#9590) — mirrors `TabItem.body: never` (`../layout.ts`).
+  // This object STRIPS undeclared keys, so leaving `body` undeclared would keep
+  // dropping it in silence beside a `content`; the refusal names `content` instead.
+  body: aliasKeyRefusal(
+    'body',
+    'content',
+    'this tab item',
+    '`tabs` draws each panel from `content` (`packages/components/src/renderers/layout/tabs.tsx`). '
+    + 'The item-level `body` fallback was retired by objectui#9590.',
+  ),
 });
 
 /**
@@ -447,7 +464,7 @@ export const TabsSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `defaultValue`, `items`, `orientation`, `value`. '
     + '`ui:tabs` is the measured SOLE owner of the bare `tabs` key (`page:tabs` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -457,7 +474,7 @@ export const TabsSchema = BaseSchema.extend({
     + 'TypeScript type checker over one program per workspace package plus the apps and examples, on a '
     + 'BUILT tree, no renderer read consumes `body` or `children` for this node, and `SchemaRenderer` '
     + 'strips both out of the props bag it spreads. An authored value therefore rendered NOTHING — no '
-    + 'error, no warning, no element. '
+    + 'render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `defaultValue`, `items`, `orientation`, `value`. '
     + '`ui:tabs` is the measured SOLE owner of the bare `tabs` key (`page:tabs` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
@@ -478,8 +495,8 @@ export const ScrollAreaSchema = BaseSchema.extend({
     'children',
     'this scroll-area node',
     '`scroll-area` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/complex/scroll-area.tsx`). '
-    + '`body` is inherited from `BaseSchema`, so an authored `body` parsed green here and rendered '
-    + 'an EMPTY element — no error, no warning. objectui#8284.',
+    + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
+    + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
 
@@ -507,14 +524,14 @@ export const ResizableSchema = BaseSchema.extend({
     'REFUSED (objectui#9256, ADR-0049) — `resizable` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `direction`, `minHeight`, `panels`, `withHandle`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `resizable` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
-    + 'authored value therefore rendered NOTHING — no error, no warning, no element. '
+    + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
     + 'What it renders instead: `direction`, `minHeight`, `panels`, `withHandle`.',
   ),
 });
@@ -631,16 +648,22 @@ export const PageTypeSchema = stripImportedDefaults(SpecPageTypeSchema);
  * `.partial()` guarantees no *future* spec field can become required and
  * silently invalidate stored objectui pages.
  */
-const SpecPageFields = specFieldsExcept(stripImportedDefaults(SpecPageSchema).shape, [
+export const PAGE_SPEC_EXCLUDED = [
   'name',
   'label',
   'description',
   'type',
   'regions',
-] as const);
+] as const;
+
+// One list, two readers (objectui#9736): this call and the `PageNodeSchema`
+// TypeScript twin in `../layout.ts`, which extends `Omit< Page, … >` over the same
+// array — so the published validator and the published type project one spec
+// surface and cannot drift apart again.
+const SpecPageFields = specFieldsExcept(stripImportedDefaults(SpecPageSchema).shape, PAGE_SPEC_EXCLUDED);
 
 /**
- * The `actions` REFUSAL on the `page` node (objectui#7926, maintainer ruling
+ * The `actions` REFUSAL on the `page` node (`12b599219`, maintainer ruling
  * 2026-09-09, decision batch #107 item 2 — option A).
  *
  * ## What was measured
@@ -675,7 +698,7 @@ const SpecPageFields = specFieldsExcept(stripImportedDefaults(SpecPageSchema).sh
  * plus one literal carrying a spread), and the undeclared keys that survive
  * passthrough on a real `page` NODE are exactly `actions` (3 sites, all of them
  * the `content/docs/guide/layout.md` passages this card rewrites) and
- * `breadcrumbs` (its own question — objectui#7926 does not rule on it; RULED
+ * `breadcrumbs` (its own question — the 2026-09-09 ruling does not cover it; RULED
  * and refused separately by objectui#8871, see {@link PAGE_BREADCRUMBS_REFUSAL}
  * below, which also corrects the "1 site" reading recorded here to THREE — two
  * were missed for two DIFFERENT reasons: one passage's literal does carry
@@ -696,7 +719,7 @@ const SpecPageFields = specFieldsExcept(stripImportedDefaults(SpecPageSchema).sh
  * turned into a named refusal that carries the remedy.
  */
 const PAGE_ACTIONS_REFUSAL =
-  '`actions` is not a key of the `page` node and never was (objectui#7926): no renderer ' +
+  '`actions` is not a key of the `page` node and never was (ADR-0049): no renderer ' +
   'reads it, so an authored array drew nothing and rode `.passthrough()` onto the wrapper ' +
   'element. Author the buttons as NODES in `children` (a `button` node, or an `action:button` ' +
   'node with a declared `actionType`); on a record page declare them on a `page:header` ' +
@@ -705,13 +728,13 @@ const PAGE_ACTIONS_REFUSAL =
 
 /**
  * The `breadcrumbs` REFUSAL on the `page` node (objectui#8871) — the key
- * objectui#7926 measured on this same node and deliberately left parsing, so
+ * `12b599219` measured on this same node and deliberately left parsing, so
  * that retiring it would be a DECISION rather than an accident. This is that
  * decision, taken under ADR-0049 enforce-or-remove.
  *
  * ## Why ADR-0049 governs this, and not a fresh ruling
  *
- * objectui#7926's maintainer ruling covers `actions` and, by its own comments,
+ * The 2026-09-09 maintainer ruling covers `actions` and, by its own comments,
  * nothing else — so it is NOT borrowed here. What reaches this key instead is
  * the standing enforce-or-remove discipline, which this repository applies to
  * this exact face: {@link retirementTombstone} is documented as the "ADR-0049
@@ -742,7 +765,7 @@ const PAGE_ACTIONS_REFUSAL =
  * readers" and every one of them is false.
  *
  * THREE author sites, all of them teaching passages in one file — and the
- * count corrects objectui#7926's "1 site", which came from a census that
+ * count corrects the `actions` refusal's "1 site", which came from a census that
  * reads every git-tracked JSON file, every `json` fence in `.md`/`.mdx`, and
  * every TS/TSX object literal via the TypeScript AST (PR #8870). It
  * undercounted for TWO DIFFERENT reasons: the Schema API block declared the
@@ -830,7 +853,17 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
     .describe('Main content — one node or a list of nodes'),
   isDefault: z.boolean().optional().describe('Whether this is the default page'),
   assignedProfiles: z.array(z.string()).optional().describe('Profiles that can access this page'),
-});
+})
+  // ⭐ THE SPEC'S OBJECT-LEVEL CHECK, re-attached (objectui#7715, ruling B1).
+  // {@link SpecPageFields} rebuilds a fresh object from the spec's `.shape`, so
+  // it drops the one check the spec's `PageSchema` carries on the OBJECT: an
+  // `html` / `react` / `jsx` page with no non-empty `source` renders nothing and
+  // is refused at `source`. The spec exports that check (objectstack#16489) and
+  // it is attached here as-is: it reads `kind` and `source`, and this node
+  // carries both by reference — neither is in {@link PAGE_SPEC_EXCLUDED} nor
+  // overridden above. `__tests__/spec-object-refinements-7715.test.ts` re-derives
+  // the count, so a check the spec adds to `PageSchema` later reddens there.
+  .superRefine(checkPageSourceCompleteness);
 
 /**
  * Semantic Element Schema — the seven HTML sectioning tags
@@ -842,7 +875,7 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
  * These seven are REGISTERED, LIVE renderers with nine catalog fixtures of
  * their own under `examples/schema-catalog/src/schemas/components-layout-semantic/`,
  * and `AnyComponentSchema` had no arm for any of them. So a document that
- * renders correctly in the browser was REFUSED by `objectui check` — the
+ * renders correctly in the browser was REFUSED by `objectui validate` — the
  * expensive direction, because the author's likely reaction is to stop trusting
  * the validator rather than to fix the document (objectui#8499 triage).
  *
@@ -918,7 +951,7 @@ export const SemanticElementSchema = BaseSchema.extend({
 export const HtmlElementSchema = BaseSchema.extend({
   type: z.enum([
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-    'p', 'a', 'blockquote', 'pre',
+    'p', 'a', 'blockquote', 'pre', 'code',
     'strong', 'em', 'b', 'i', 'u', 'small', 'mark', 'sub', 'sup', 'del', 'ins', 'abbr',
     'ul', 'ol', 'li', 'dl', 'dt', 'dd',
     'figure', 'figcaption', 'img', 'hr', 'br', 'time', 'address', 'cite', 'q',

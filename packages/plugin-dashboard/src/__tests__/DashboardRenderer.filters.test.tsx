@@ -87,17 +87,34 @@ describe('DashboardRenderer dashboard-level filters', () => {
     });
   });
 
+  it('broadcasts the spec default range when dateRange omits defaultRange (objectui#10339)', async () => {
+    const queryDataset = makeQueryDataset();
+    const schema: DashboardComponentSchema = {
+      type: 'dashboard',
+      // No `defaultRange` — the spec defaults it, so the dashboard is filtered.
+      dateRange: { field: 'created_at' },
+      widgets: [{ id: 'w1', type: 'bar', dataset: 'invoices', values: ['count'] }],
+    };
+    render(<DashboardRenderer schema={schema} dataSource={{ queryDataset }} />);
+
+    await waitFor(() => {
+      expect(lastRuntimeFilter(queryDataset, 'invoices')).toEqual({
+        created_at: { $gte: expect.any(String), $lte: expect.any(String) },
+      });
+    });
+  });
+
   it('merges the broadcast with a widget\'s own filter and honors opt-out', async () => {
     const queryDataset = makeQueryDataset();
     const schema: DashboardComponentSchema = {
       type: 'dashboard',
       globalFilters: [
         // Options in @objectstack/spec's `{ value, label }` pair form. The
-        // bare-string shorthand these used to spell is a UI-side authoring
-        // convenience that `GlobalFilterSchema` does not declare; its own
-        // coverage is `packages/core/src/utils/__tests__/dashboard-filters.test.ts`,
-        // which pins `normalizeFilterOptions` lifting it. Nothing here reads the
-        // list — the broadcast under test comes from `defaultValue`.
+        // bare-string shorthand these used to spell is refused by
+        // `GlobalFilterSchema` and, since objectui#4356, no longer lifted by
+        // `normalizeFilterOptions` either — a bare member yields no option; its
+        // own coverage is `packages/core/src/utils/__tests__/dashboard-filters.test.ts`.
+        // Nothing here reads the list — the broadcast under test comes from `defaultValue`.
         {
           name: 'region',
           field: 'region',

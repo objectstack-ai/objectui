@@ -17,11 +17,13 @@ import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import type { RecordDetailsComponentProps } from '@object-ui/types';
 import {
   columnIdentity,
+  declaredNameField,
   deriveTitleField,
   formatTitleTemplate,
   isObjectInlineEditable,
   recordDisplayValueAt,
   resolveNameField,
+  withoutDeniedFields,
 } from '@object-ui/core';
 import { DetailView } from '../DetailView';
 import { deriveFieldGroupDetailSections } from '../synth/buildDefaultPageSchema';
@@ -421,21 +423,31 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // (objectui#8351). They are NOT symmetric and only ONE is answered here:
   //   - `objectSchema.titleFormat` — ANSWERED, below, by the ruled option B:
   //     the template's rendered output is compared against the candidates'
-  //     values, and a composite that is no field's value hides no row.
+  //     values, then against the fields the template rendered
+  //     (objectui#10360), and a composite that is no field's value hides no
+  //     row.
   //   - `page:header`'s own `schema.title` — NOT answered, and not answerable
   //     from this package: it is a key on the HEADER schema, which
   //     `record:details` never receives. Same shape, its own card.
   //
-  // ⛔ Neither of those is the ORDER question. `PageHeaderRenderer` ranks the
-  // interpolated `titleFormat` ABOVE the ADR-0079 declared pointer, while
-  // `getRecordDisplayName` documents it BELOW (step 3) — pinned green in
-  // `@object-ui/components`' `__tests__/page-header-title.test.tsx` as
-  // "titleFormat still outranks nameField". Closing that divergence moves what
-  // the H1 SHOWS on existing records and retires that pin, so it is a
-  // maintainer ruling and carries its own `needs-user-decision` card. This
-  // ladder deliberately does not depend on which of the two wins: it asks
-  // whether the rendered template IS some candidate's value, which answers the
-  // dedupe under either order.
+  // ⭐ THE ORDER between those rungs is now the protocol's, in all three
+  // readers (objectui#9436, ruled C1). The ADR-0079 declared pointer
+  // (`nameField`, then its `displayNameField` alias) OUTRANKS the interpolated
+  // `titleFormat`, as `getRecordDisplayName` documents it (pointer at steps
+  // 1+2, template at step 3). `PageHeaderRenderer` used to rank the template
+  // ABOVE the pointer, and this ladder mirrored that. It checked the template
+  // first, so once the header moved it hid the wrong row and kept the real
+  // duplicate. The header pin in `@object-ui/components`'
+  // `__tests__/page-header-title.test.tsx` now asserts the protocol order.
+  //
+  // ⚠️ So this ladder DOES depend on the order, and it reads it first: when
+  // the declared pointer holds a value on this record, that field IS the H1.
+  // Its row is hidden and the template is never consulted, because the header
+  // never reaches it either. The template branch below only runs when the
+  // declared pointer is absent or blank on the record. The two halves are
+  // pinned rendered together in
+  // `__tests__/record-details.headerDedupeAgreement-9436.test.tsx`, which reads
+  // the real H1 beside the real body.
   //
   // ⛔ `objSchema?.primaryField` used to top this list, and it is gone
   // (objectui#7586). It is a `DetailViewSchema` key (`@object-ui/types`
@@ -454,7 +466,21 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // above rather than a one-line deletion. Pinned in
   // `__tests__/record-details.primaryFieldRetired-7586.test.tsx`, which
   // asserts the DEDUPE outcome (which row the grid hides), not the title.
-  const data: any = ctx.data ?? {};
+  //
+  // ⭐ The ladder reads the record AS THE VIEWER MAY READ IT (objectui#10434):
+  // the fields the loaded policy denies on this object are removed first,
+  // `id` kept, the row ObjectStack's `FieldMasker` already serves. A denied
+  // pointer or `titleFormat` token therefore reads here exactly as an absent
+  // one, and this ladder answers what it answers on a stripping backend.
+  // `DetailView`'s own header (`showHeader: true`) builds its H1 from the
+  // same row, so the row hidden is the one that H1 now shows; reading the raw
+  // row instead printed that row directly under it. ⚠️ `page:header` still
+  // builds its H1 from the row as served, so under it, on a backend that does
+  // not strip, the H1 can show a denied value while this ladder hides the row
+  // a stripping backend's H1 would show; gating that host is its own change.
+  // A denied field's own row is hidden by `DetailView`'s field gate whatever
+  // this ladder picks. Before the policy loads nothing is removed.
+  const data: any = withoutDeniedFields(ctx.data ?? {}, perms, objectName);
   // The `.filter(…): n is string` guard is back, for a different reason than
   // the one objectui#7586 retired: it used to drop an `objSchema?.primaryField`
   // entry that was absent always, and now it drops the two resolver rungs when
@@ -507,43 +533,89 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   //     `DetailView.resolveDisplayTitle` step 2 calls, so all three agree
   //     about what the template produces on a given record.
   //   - `recordDisplayValueAt` then answers the only question a dedupe has:
-  //     is that string some candidate's value?
+  //     is that string some candidate's value, or the value of a field the
+  //     template rendered (objectui#10360, see the note on the scan below)?
   //
   // Three outcomes, and the two that are NOT the ruled case are what keep this
   // honest:
-  //   - composite (no candidate's value equals it) → hide NOTHING. The ruled
-  //     case: "the H1 is not any single field's value, so there is no row to
-  //     hide".
-  //   - empty (no placeholder resolved on this record) → the header has
-  //     ALREADY walked past this rung onto the declared pointer, so the
-  //     value-keyed walk below runs unchanged. Suppressing on the mere
-  //     PRESENCE of a `titleFormat` would blind the dedupe on every record
-  //     where the template renders nothing.
+  //   - composite (no compared field's value equals it) → hide NOTHING. The
+  //     ruled case: "the H1 is not any single field's value, so there is no
+  //     row to hide".
+  //   - empty (no placeholder resolved on this record) → the header walks on
+  //     past this rung to the unified resolver, so the value-keyed walk below
+  //     runs unchanged. Suppressing on the mere PRESENCE of a `titleFormat`
+  //     would blind the dedupe on every record where the template renders
+  //     nothing.
   //   - collapsed onto ONE field's value (a blank placeholder was dropped with
   //     its orphan separator, or the format names a single field) → that row
-  //     IS the duplicate, and it still goes. A presence-only rule prints
-  //     "Contract No: HT-0001" directly beneath an H1 reading `HT-0001`, which
-  //     is the duplication Phase P.0 exists to remove.
+  //     IS the duplicate, and it still goes. A presence-only rule prints that
+  //     field's row directly beneath an H1 showing the same value, which is
+  //     the duplication Phase P.0 exists to remove.
+  //
+  // All three outcomes are reached only when the declared pointer did not
+  // answer first (objectui#9436, see the ORDER note above).
   //
   // Pinned in `__tests__/record-details.titleFormatNoDedupe-8351.test.tsx`,
   // which asserts which row RENDERS and which row DROPS — never the heading,
   // which this package does not draw.
   //
   // ⚠️ The match is a SCAN of the candidates, not a peek at the first one with
-  // a value: with `titleFormat: '{name}'` over `nameField: 'contract_no'` the
-  // first resolving candidate is `contract_no` and the H1 is `name`'s value,
-  // so stopping early would hide the wrong row AND leave the real duplicate.
-  const interpolatedTitle = formatTitleTemplate(objSchema?.titleFormat, data);
-  if (interpolatedTitle) {
-    const shownAs = titleCandidates.find(
-      (candidate) => recordDisplayValueAt(data, candidate) === interpolatedTitle,
-    );
-    if (shownAs) hideFieldNames.add(shownAs);
+  // a value. With `titleFormat: '{subject}'` on an object that declares no
+  // pointer and derives `name`, the first resolving candidate is `name` while
+  // the H1 is `subject`'s value. Stopping early would hide the wrong row AND
+  // leave the real duplicate.
+  //
+  // ⭐ The "collapsed" outcome is matched against EVERY field the template
+  // rendered, not only the candidates (objectui#10360). The candidates are the
+  // resolver rungs and six literal names, so a template that collapsed onto
+  // any other field — `{contract_no} - {name}` with a blank `name` renders
+  // exactly `contract_no`'s value — matched none of them, and that row printed
+  // directly under an H1 showing the same value. The comparison is ruling B's,
+  // unchanged: equality with the rendered string, never the presence of a
+  // template. Only the set compared is wider, and in a fixed order:
+  //   1. the candidate scan, exactly as before, so a candidate match still
+  //      wins and no row that was hidden before moves;
+  //   2. only then, each record field whose value equals the H1 AND that the
+  //      template actually rendered. At most one row goes (the first in record
+  //      key order), as in step 1.
+  //
+  // ⛔ "Actually rendered" is asked of `formatTitleTemplate` ITSELF, never of a
+  // second placeholder parser: blank that one field, render again, and see
+  // whether the title changed. So this agrees with the renderer on every token
+  // shape it accepts (`{{…}}`, whitespace inside the braces, dotted lookup
+  // paths), and cannot drift from it. It is also stricter than "a field the
+  // template names", and that is on purpose: `{owner.nickname} - {rep}` with a
+  // blank nickname renders `rep`'s value, and an `owner` lookup whose display
+  // name happens to equal it is named by the template yet rendered nothing.
+  // Hiding `owner` there would leave the real duplicate printed. Pinned in
+  // `__tests__/record-details.titleFormatPlaceholderDedupe-10360.test.tsx`.
+  //
+  // The declared pointer is read through core's one exported spelling,
+  // `declaredNameField`, exactly as `PageHeaderRenderer` reads it: the same
+  // expression on both halves, never a re-typed `??` chain.
+  const declaredTitleField = declaredNameField(objSchema);
+  if (recordDisplayValueAt(data, declaredTitleField) !== undefined) {
+    hideFieldNames.add(declaredTitleField);
   } else {
-    for (const candidate of titleCandidates) {
-      if (recordDisplayValueAt(data, candidate) !== undefined) {
-        hideFieldNames.add(candidate);
-        break;
+    const titleFormat = objSchema?.titleFormat;
+    const interpolatedTitle = formatTitleTemplate(titleFormat, data);
+    if (interpolatedTitle) {
+      const showsTitle = (field: string) =>
+        recordDisplayValueAt(data, field) === interpolatedTitle;
+      const shownAs =
+        titleCandidates.find(showsTitle) ??
+        Object.keys(data).find(
+          (field) =>
+            showsTitle(field) &&
+            formatTitleTemplate(titleFormat, { ...data, [field]: undefined }) !== interpolatedTitle,
+        );
+      if (shownAs) hideFieldNames.add(shownAs);
+    } else {
+      for (const candidate of titleCandidates) {
+        if (recordDisplayValueAt(data, candidate) !== undefined) {
+          hideFieldNames.add(candidate);
+          break;
+        }
       }
     }
   }
@@ -654,12 +726,15 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
         //
         // ⭐ The default is resolved HERE, on an AUTHORED section, and that
         // placement is the whole design. `DetailSection` tests `=== true`, so
-        // the default reaches exactly the surface that declares the key.
-        // Sections nobody can write it on stay out: the direct-`fields`
-        // fallback body below and the `detail-section` node each synthesize a
-        // section, and a hide there would be one with no declarable spelling
-        // to ask the skeleton back — the defect upstream declared this key to
-        // fix, reintroduced one surface over.
+        // the default reaches exactly the authored sections this renderer
+        // resolves it on. Every other section stays out. The direct-`fields`
+        // fallback body below synthesizes a section nobody can write the key
+        // on, and a hide there would be one with no declarable spelling to
+        // ask the skeleton back — the defect upstream declared this key to
+        // fix, reintroduced one surface over. The `detail-section` node
+        // declares the key (objectui#10485) but applies no default of its
+        // own, so an omitted one keeps the skeleton there too; only an
+        // authored `true` hides.
         //
         // ⚠️ `?? true` is the spelling objectui#7064 removed, and it is back
         // deliberately. ⛔ Read that ruling's ground as it was written, not as
@@ -672,7 +747,7 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
         // objection was to the AUTHORING
         // SHAPE — every application hand-writing `hideEmpty: false` per section
         // as per-app tax — and it was made KNOWING the key was declared
-        // upstream (objectstack PR #11662); the deliverable was a sparse record
+        // upstream (PR objectstack#11662); the deliverable was a sparse record
         // keeping a full structural skeleton with zero app-side authoring. The
         // spec-refusal reading came later, out of that card's own execution,
         // and was routed to objectui#7129; ⛔ it was not this ruling's ground.
@@ -725,7 +800,7 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // source of truth — formerly a hand-mirrored `NON_EDITABLE_BUCKETS` set kept
   // in lockstep by hand because plugin-detail can't depend on app-shell.
   // Authors can still force-disable with `inlineEdit: false`.
-  // [#3546] Also AND inline-editability with the server's effective API
+  // [objectstack#3546] Also AND inline-editability with the server's effective API
   // operation set for this object (`/me/permissions` `apiOperations`) — the
   // record body must not offer double-click/pencil editing the server would
   // 405. `undefined` (unrestricted / old backend) leaves the bucket affordance

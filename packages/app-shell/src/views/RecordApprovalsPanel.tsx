@@ -113,7 +113,7 @@ const ACTION_DOT: Record<string, string> = {
 };
 
 /**
- * Identity formatting moved to `utils/approverIdentity` in objectui#5414 — the
+ * Identity formatting moved to `utils/approverIdentity` in `77f846a8b` — the
  * panel, the merged timeline and the admin-override dialog must not each own a
  * copy. Re-exported here because this module is where it was published.
  */
@@ -223,7 +223,7 @@ export const RecordApprovalsPanel: React.FC<RecordApprovalsPanelProps> = ({
   const [reminding, setReminding] = React.useState(false);
 
   /**
-   * Resolve the pending approvers the SERVER could not name (objectui#5414).
+   * Resolve the pending approvers the SERVER could not name (`77f846a8b`).
    *
    * `positi…ager` was `formatIdentity('position:sales_manager')` — the raw
    * engine reference, middle-truncated to fit its chip. The gate below keeps
@@ -277,7 +277,7 @@ export const RecordApprovalsPanel: React.FC<RecordApprovalsPanelProps> = ({
    * server-resolved `viewer.is_submitter` from the enriched pending row and
    * fall back to a plain id match for backends predating framework#3310.
    *
-   * The derivation moved to `isSubmitterOf` unchanged (objectui#6464) so the
+   * The derivation moved to `isSubmitterOf` unchanged (`830ed5803`) so the
    * record band's Recall gate reads the SAME answer — two copies of it would be
    * two definitions of who submitted. `?? false` restates this call site's own
    * reading of "no pending request": there is nothing to remind about, so the
@@ -517,7 +517,7 @@ export const RecordApprovalsPanel: React.FC<RecordApprovalsPanelProps> = ({
                   variant="outline"
                   className="text-[11px]"
                   /* The raw `position:…` reference belongs on hover, not as the
-                     primary identification — objectui#5414. */
+                     primary identification — `77f846a8b`. */
                   title={chip.title}
                   data-testid="approver-chip"
                   data-unstaffed={chip.unstaffed ? 'true' : undefined}

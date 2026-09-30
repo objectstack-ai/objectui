@@ -31,7 +31,8 @@ import { useAdapter } from '../providers/AdapterProvider.js';
 import { matchAppBySegment } from '../utils/appRoute.js';
 import { resolveKeyedI18nLabel, getRecordDisplayName } from '../utils/index.js';
 import { getIcon } from '../utils/getIcon.js';
-import { resolveHref } from '@object-ui/layout';
+import { resolveHref, resolveNavItemLabel } from '@object-ui/layout';
+import { useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
 import { useAuth } from '@object-ui/auth';
 
 interface SearchResult {
@@ -85,6 +86,10 @@ export function SearchResultsPage() {
   const baseUrl = `/apps/${appName}`;
   const { user, activeOrganization } = useAuth();
   const dataSource = useAdapter();
+  // The same resolver the sidebar, `nav:menu` and the ⌘K palette use: an entry
+  // with NO `label` is listed — and matched — by its target's current label,
+  // else its target's machine name (objectui#9868).
+  const targetLabel = useNavTargetLabel();
 
   // Build searchable items from navigation
   const allItems = useMemo((): SearchResult[] => {
@@ -96,13 +101,16 @@ export function SearchResultsPage() {
 
       return {
         id: item.id,
-        label: item.label || item.objectName || item.dashboardName || item.pageName || item.reportName || '',
+        // `resolveNavItemLabel`, not `item.label || item.objectName || …`: that
+        // chain listed an unlabelled entry by its machine name even when its
+        // target is labelled, and handed a keyed label object to `toLowerCase`.
+        label: resolveNavItemLabel(item, undefined, t, undefined, undefined, targetLabel),
         href,
         type: item.type,
         description: item.description,
       };
     }).filter((item: SearchResult) => item.href !== '#');
-  }, [activeApp, baseUrl, user?.id]);
+  }, [activeApp, baseUrl, user?.id, t, targetLabel]);
 
   // Filter results
   const results = useMemo(() => {

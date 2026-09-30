@@ -97,7 +97,15 @@ field — there is no generic `path` and no `kind`:
 
 Requirements:
 
-- `id` (snake_case), `type`, and `label` are mandatory on every item.
+- `id` (snake_case) and `type` are mandatory on every item. `label` is
+  optional: an entry without one shows its target's **current** label, resolved
+  when the navigation renders — the view's label for an entry that names a
+  labelled view, else the object's or dashboard's label, else the target's
+  machine name. A renamed object, view or dashboard therefore shows its new
+  name on the next load without touching the navigation. Entries of other types
+  fall back to their target's name (`pageName`, `reportName`, the `url`) and a
+  group to its `id`, so give those a `label`. A `label` you do write renders
+  verbatim. Never write an empty `label` — omit the key instead.
 - The target field must match the type: `objectName`, `pageName`,
   `dashboardName`, `reportName`, or `url`. Keys like `path` or `kind` are
   ignored at runtime and rejected at save.

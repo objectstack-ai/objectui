@@ -13,14 +13,16 @@
  *
  * ## The zod mirror
  *
- * The mirror declares five of the seven, and it used to declare them
- * `z.string()`: a map the row and the renderer both accept was refused with
- * `invalid_type` at the member. Each is now the spec's `I18nLabelSchema` by
- * reference. The rows below are behavioural: a map and a string parse, and a
- * number is still refused AT THE MEMBER, so the widening is exactly one arm and
- * not an opening. `nextText` and `prevText` are not mirrored (they stay in this
- * pair's `UnmirroredDeclared` entry in `./zod-mirror-parity.test.ts`), and a
- * row records that here so the ledger and this file cannot disagree silently.
+ * This card found the mirror declaring five of the seven, as `z.string()`: a map
+ * the row and the renderer both accept was refused with `invalid_type` at the
+ * member. Each became the spec's `I18nLabelSchema` by reference. The rows below
+ * are behavioural: a map and a string parse, and a number is still refused AT
+ * THE MEMBER, so the widening is exactly one arm and not an opening. The other
+ * two, `nextText` and `prevText`, stayed in this pair's `UnmirroredDeclared`
+ * entry (`./zod-mirror-parity.test.ts`) until objectui#6152 round 1 mirrored
+ * them by the same reference, so all seven rows now run here; the last row
+ * holds the shape to the seven, so the ledger and this file cannot disagree
+ * silently.
  *
  * ## The TypeScript face
  *
@@ -48,8 +50,11 @@ export type assertionLabelMembersAreI18nLabel = [
   Expect<Equal<ObjectFormSchema['successMessage'], I18nLabel | undefined>>,
 ];
 
-/** The five members the mirror declares. */
-const MIRRORED = ['title', 'description', 'submitText', 'cancelText', 'successMessage'] as const;
+/**
+ * The seven members the mirror declares: five since this card, `nextText` and
+ * `prevText` since objectui#6152 round 1.
+ */
+const MIRRORED = ['title', 'description', 'submitText', 'cancelText', 'successMessage', 'nextText', 'prevText'] as const;
 
 /** A minimal document the mirror accepts. */
 const BASE = { type: 'object-form', objectName: 'order', mode: 'create' } as const;
@@ -87,13 +92,11 @@ describe('object-form — the I18nLabel members on the zod mirror (objectui#1099
     expect(parsed.success).toBe(false);
   });
 
-  it('`nextText` and `prevText` are not mirrored, so the mirror does not judge them', () => {
-    // Recorded, not endorsed: the pair's `UnmirroredDeclared` entry carries both
-    // keys, and this row goes red when either is mirrored, so the two records
-    // move together.
+  it('all seven `I18nLabel` members are mirrored (objectui#6152 round 1 added `nextText` / `prevText`)', () => {
+    // This row stood as "`nextText` and `prevText` are not mirrored" while the
+    // pair's `UnmirroredDeclared` entry carried both; objectui#6152 round 1 moved
+    // both records together, as the row asked.
     const shape = ObjectFormMirror.shape as Record<string, unknown>;
-    expect('nextText' in shape).toBe(false);
-    expect('prevText' in shape).toBe(false);
     for (const key of MIRRORED) expect(key in shape, key).toBe(true);
   });
 });

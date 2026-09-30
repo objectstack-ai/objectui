@@ -34,8 +34,10 @@
  *     nav → URL, so `recordId` / `filters` / `viewName` / `runAction`
  *     precedence cannot drift between the sidebar and an authored menu;
  *   - labels from `resolveNavItemLabel` — the same convention-based object /
- *     view / dashboard i18n resolution the sidebar gets, so the two surfaces
- *     cannot show one entry under two names;
+ *     view / dashboard i18n resolution the sidebar gets, and for an entry with
+ *     NO `label` the same inherited target label (`useNavTargetLabel`,
+ *     objectui#9868), so the two surfaces cannot show one entry under two
+ *     names;
  *   - the active row from `resolveActiveNavItem`, the round-trip inverse of
  *     `resolveHref`;
  *   - the item-level guards in the same ORDER `NavigationItemRenderer` applies
@@ -123,6 +125,7 @@ import {
 import type { NavigationItem } from '@object-ui/types';
 import { useExpressionContext, evaluateVisibility } from '../providers/ExpressionProvider.js';
 import { useNavActionDispatch } from '../hooks/useNavActionDispatch.js';
+import { useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
 import { useNavigationContext } from '../context/NavigationContext.js';
 import { getIcon } from '../utils/getIcon.js';
 import { appRouteSegment, matchAppBySegment } from '../utils/index.js';
@@ -157,6 +160,9 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
   const { pathname, search } = useLocation();
   const { user, activeOrganization } = useAuth();
   const dispatchNavAction = useNavActionDispatch();
+  // The same resolver `UnifiedSidebar` hands `NavigationRenderer`: an entry with
+  // no `label` shows its target's current label (objectui#9868).
+  const targetLabel = useNavTargetLabel();
 
   /* ── The three guards, wired to the same providers `UnifiedSidebar` uses ── */
 
@@ -250,8 +256,9 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
         t,
         (dashboardName, fallback) => dashboardLabel({ name: dashboardName, label: fallback }),
         (objectName, viewName, fallback) => viewLabel(objectName, viewName, fallback),
+        targetLabel,
       ),
-    [objectLabel, dashboardLabel, viewLabel, t],
+    [objectLabel, dashboardLabel, viewLabel, t, targetLabel],
   );
 
   // A plain (hoisted) function declaration, not a `useCallback`: it recurses

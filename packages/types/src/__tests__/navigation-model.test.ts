@@ -167,14 +167,19 @@ describe('NavigationItem Zod Schema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('should reject missing required label', () => {
+  // INVERTED by objectui#9868 (was 'should reject missing required label' →
+  // `success` false): `@objectstack/spec` 17.5.0 made an entry's `label`
+  // optional — absent ⇒ the entry inherits its target's label at render time —
+  // so a label-less entry is accepted, and nothing is filled in at parse time.
+  it('should accept a missing label, adding none (objectui#9868)', () => {
     const item = {
       id: 'nav_no_label',
       type: 'object',
       objectName: 'contact',
     };
     const result = NavigationItemSchema.safeParse(item);
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    expect(result.success && result.data).not.toHaveProperty('label');
   });
 });
 

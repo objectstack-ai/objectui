@@ -34,7 +34,10 @@
  *
  * ## ⛔ THE RESULT IS CANDIDATES, NOT VERIFIED FIELDS — the caller MUST gate it
  *
- * `GroupingFieldSchema.field` is a bare `z.ZodString`. Nothing in the schema
+ * `GroupingFieldSchema.field` is a string that refuses a padded name
+ * (objectui#7347 — `grouping-field-padded-refused-7347.test.ts` in
+ * `@object-ui/types` pins it on every face declaring `grouping`; the trim below
+ * stays as defence for blocks that skipped that parse). Nothing in the schema
  * requires it to name a field the object declares, and the whole premise of
  * this harvest is that it has NOT been through column validation. Some backends
  * answer an unknown `$select` key with an EMPTY RESULT SET rather than ignoring

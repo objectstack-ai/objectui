@@ -32,3 +32,5 @@ carrying either key was already ignored.
 **Migration.** Remove the two keys from any `ObjectFormSection` literal; they did nothing.
 Style sections through the host application's own CSS or the form ROOT `className`.
 Section *layout* stays authorable through `columns`.
+
+**Correction, 2026-09-30 (objectui#6152).** The paragraph above gives, as the reason no `?: never` tombstone was used, that `ObjectFormSchema` in `zod/objectql.zod.ts` does not declare `sections`. That was true when this change was written, and it no longer is: objectui#6152 (PR #11125) mirrors `sections`, and each entry is judged member by member against `ObjectFormSection`. So a section now has a parse door. The strict authoring face (`StrictAnyComponentSchema`) refuses a section `className`, or any other key the entry does not declare, by name (`unrecognized_keys` at the section's path). The tolerant face (`AnyComponentSchema`) accepts the document and drops that key from its parsed output. The TypeScript change above is unaffected.

@@ -15,15 +15,18 @@
  *
  * ## The census this card is fenced to
  *
- * The file carries SEVEN `(schema as any)` occurrences over FOUR distinct keys.
- * Exactly TWO of those occurrences read a key the mirror declares, and both are
- * `hideFields` in the highlight-dedup path. The other five read
- * `requiredPermissions`, `enforceFieldSecurity` and `redactFields` — keys the
- * mirror does NOT declare, where a cast is the honest spelling until someone
- * declares them. They are LEDGERED below with the property that makes each
- * exemption expire: the ledger asserts the key is still absent from the
- * mirror, so the day it is declared this file goes red instead of the
- * exemption quietly outliving its subject.
+ * When this card landed the file carried SEVEN `(schema as any)` occurrences
+ * over FOUR distinct keys. Exactly TWO of those occurrences read a key the
+ * mirror declared, and both were `hideFields` in the highlight-dedup path —
+ * this card's repair. The other five read `requiredPermissions`,
+ * `enforceFieldSecurity` and `redactFields`, keys the mirror did NOT declare
+ * then, so a cast was the honest spelling. They were LEDGERED below with the
+ * property that makes each exemption expire — the key still absent from the
+ * mirror — and they expired as designed: `@objectstack/spec` 17.5.0 declared
+ * all three on `record:details`, objectui#8649 declared them on the mirror and
+ * removed the five casts, and this file went red until the ledger was emptied.
+ * The occurrence counts in this paragraph are that history, ⛔ not a live
+ * census: the legs below re-derive the reads every run.
  *
  * ## The three instruments, and which one actually settles it
  *
@@ -145,30 +148,23 @@ type _MirrorRefusesTheMisspelling = RecordDetailsComponentProps['hideFeilds'];
  * entry is asserted to be ABSENT FROM THE MIRROR below, so the exemption
  * expires the moment its premise does.
  *
- * ⚠️ SINCE THE 17.5.0 BUMP THIS IS ALSO THE SOURCE-TEXT GUARD'S LEDGER, which
- * is why that guard is no longer carve-out-free. `@objectstack/spec` 17.5.0
- * declares all three keys on `record:details`, so they entered the CONTRACT's
- * population while the MIRROR still lacks them and the renderer still casts.
- * objectui#11111 decision 3 = B (record 5902351047) booked them to
- * objectui#8649, which declares them on the mirror and un-casts the reads;
- * the bump declares nothing. Capped at exactly these three by the test
- * "no cast stands between schema and ANY contract-declared key", and
- * objectui#8649's landing empties this map — the last booked entry leaving
- * restores the guard to no ledger at all. Expiry: 2026-10-30, or when
- * objectui#8649 lands, whichever is first (stated, not clock-enforced: this
- * ledger has no date field).
+ * ⭐ EMPTY since objectui#8649, and that is the measured outcome, not a
+ * default. It is also the source-text guard's ledger, which held the three
+ * keys objectui#11111 decision 3 = B (record 5902351047) booked to
+ * objectui#8649 once `@objectstack/spec` 17.5.0 declared them on
+ * `record:details`: `requiredPermissions`, `enforceFieldSecurity`,
+ * `redactFields`. objectui#8649 declared them on the mirror and removed the
+ * casts, so every entry expired at once and the guard is carve-out-free again.
+ * ⛔ An entry added here is a cast over a key the mirror declares somewhere:
+ * move the declaration or the read, don't ledger it.
  */
-const HONEST_CASTS: Record<string, string> = {
-  requiredPermissions:
-    'the mirror declares no such key — `RecordDetailsProps` has no permission gate, so the cast is the honest spelling until one is declared. Booked to objectui#8649 by objectui#11111 decision 3 = B (record 5902351047): the contract declares it since @objectstack/spec 17.5.0. Expires 2026-10-30, or when objectui#8649 lands.',
-  enforceFieldSecurity:
-    'the mirror declares no such key — field-level security is read off the object, not off the page block. Booked to objectui#8649 by objectui#11111 decision 3 = B (record 5902351047): the contract declares it since @objectstack/spec 17.5.0. Expires 2026-10-30, or when objectui#8649 lands.',
-  redactFields:
-    'the mirror declares no such key — it travels with `enforceFieldSecurity` and shares its fate. Booked to objectui#8649 by objectui#11111 decision 3 = B (record 5902351047): the contract declares it since @objectstack/spec 17.5.0. Expires 2026-10-30, or when objectui#8649 lands.',
-};
+const HONEST_CASTS: Record<string, string> = {};
 
-/** The cap: the booked casts, by name. objectui#8649's landing takes it to `[]`. */
-const OBJECTUI_11111_BOOKED_CASTS = ['enforceFieldSecurity', 'redactFields', 'requiredPermissions'];
+/** The cap: the booked casts, by name. Taken to `[]` by objectui#8649's landing. */
+const OBJECTUI_11111_BOOKED_CASTS: string[] = [];
+
+/** The field-security triple objectui#8649 declared on the mirror — each asserted DECLARED below. */
+const FIELD_SECURITY_TRIPLE = ['enforceFieldSecurity', 'redactFields', 'requiredPermissions'];
 
 interface SchemaRead {
   /** The property name read off `schema`. */
@@ -184,11 +180,38 @@ interface SchemaRead {
 interface Measurement {
   /** Every `schema.KEY` / `(schema as X).KEY` read in the renderer. */
   reads: SchemaRead[];
+  /**
+   * The same reads, measured by the same visitor and checker over
+   * {@link CONTROL_SOURCE} — a virtual file that DOES carry a cast read and an
+   * `any` read, so the renderer carrying neither is a reading, not a blind spot.
+   */
+  controlReads: SchemaRead[];
   /** Keys the MIRROR declares, derived from the very type the read goes through. */
   declared: string[];
   /** The index signature's value type, or null when the intersection lost it. */
   indexType: string | null;
 }
+
+/**
+ * The lit control for the program leg (objectui#8649).
+ *
+ * Until objectui#8649 the renderer itself supplied both calibrations below — it
+ * carried five cast reads, each typed `any`. Removing them is the point of that
+ * card, and it left the renderer with no cast and no `any` read for the
+ * instrument to find, so "found none" would read the same as "cannot see one".
+ * This virtual file puts the three shapes back in front of the SAME checker, in
+ * the SAME program, typed through the renderer's own exported props, so the
+ * instrument is shown to report each one before its answer about the renderer
+ * is believed. It exists only in the program's compiler host, never on disk.
+ */
+const CONTROL_FILE = join(HERE, '..', '__objectui_8649_program_control__.ts');
+const CONTROL_SOURCE = [
+  "import type { RecordDetailsRendererProps } from './record-details';",
+  "declare const schema: NonNullable<RecordDetailsRendererProps['schema']>;",
+  'export const castRead = (schema as any).hideFields;',
+  'export const unCastRead = schema.hideFields;',
+  'export const undeclaredRead = schema.zzqxNoSuchRecordBlockKey;',
+].join('\n');
 
 /**
  * Build a real program over the renderer and measure every read off `schema`.
@@ -215,17 +238,34 @@ function measure(): Measurement {
   const parsed = ts.parseJsonConfigFileContent(read.config, ts.sys, REPO_ROOT, undefined, configPath);
   expect(parsed.options.paths?.['@object-ui/types'], 'the mirror must resolve to source').toBeTruthy();
 
-  const program = ts.createProgram([RENDERER], {
+  const options: ts.CompilerOptions = {
     ...parsed.options,
     noEmit: true,
     skipLibCheck: true,
     types: [],
-  });
+  };
+  // The control file is served from memory; every other file comes off disk
+  // exactly as before.
+  const host = ts.createCompilerHost(options);
+  const diskGetSourceFile = host.getSourceFile.bind(host);
+  const diskFileExists = host.fileExists.bind(host);
+  const diskReadFile = host.readFile.bind(host);
+  host.getSourceFile = (fileName, languageVersion, onError, shouldCreate) =>
+    fileName === CONTROL_FILE
+      ? ts.createSourceFile(fileName, CONTROL_SOURCE, languageVersion, true)
+      : diskGetSourceFile(fileName, languageVersion, onError, shouldCreate);
+  host.fileExists = (fileName) => fileName === CONTROL_FILE || diskFileExists(fileName);
+  host.readFile = (fileName) => (fileName === CONTROL_FILE ? CONTROL_SOURCE : diskReadFile(fileName));
+
+  const program = ts.createProgram([RENDERER, CONTROL_FILE], options, host);
   const checker = program.getTypeChecker();
   const source = program.getSourceFile(RENDERER);
   expect(source, 'the renderer must be a program input').toBeTruthy();
+  const control = program.getSourceFile(CONTROL_FILE);
+  expect(control, 'the control file must be a program input').toBeTruthy();
 
   const reads: SchemaRead[] = [];
+  const controlReads: SchemaRead[] = [];
   let schemaType: ts.Type | null = null;
 
   /** Unwrap parens / casts / non-null down to the identifier being read. */
@@ -246,27 +286,36 @@ function measure(): Measurement {
     return { id: ts.isIdentifier(cur) ? cur : null, cast };
   };
 
-  const visit = (node: ts.Node): void => {
-    if (ts.isPropertyAccessExpression(node)) {
-      const { id, cast } = rootOf(node.expression);
-      if (id && id.text === 'schema') {
-        if (!schemaType) schemaType = checker.getTypeAtLocation(id);
-        reads.push({
-          key: node.name.text,
-          line: source!.getLineAndCharacterOfPosition(node.getStart(source!)).line + 1,
-          cast,
-          type: checker.typeToString(checker.getTypeAtLocation(node)),
-        });
+  const visitor = (file: ts.SourceFile, into: SchemaRead[], bindSchemaType: boolean) => {
+    const visit = (node: ts.Node): void => {
+      if (ts.isPropertyAccessExpression(node)) {
+        const { id, cast } = rootOf(node.expression);
+        if (id && id.text === 'schema') {
+          if (bindSchemaType && !schemaType) schemaType = checker.getTypeAtLocation(id);
+          into.push({
+            key: node.name.text,
+            line: file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1,
+            cast,
+            type: checker.typeToString(checker.getTypeAtLocation(node)),
+          });
+        }
       }
-    }
-    ts.forEachChild(node, visit);
+      ts.forEachChild(node, visit);
+    };
+    return visit;
   };
-  visit(source!);
+  visitor(source!, reads, true)(source!);
+  visitor(control!, controlReads, false)(control!);
 
   const resolved: ts.Type | null = schemaType;
   const declared = resolved ? checker.getPropertiesOfType(resolved).map((s) => s.name).sort() : [];
   const indexInfo = resolved ? checker.getIndexInfoOfType(resolved, ts.IndexKind.String) : undefined;
-  return { reads, declared, indexType: indexInfo ? checker.typeToString(indexInfo.type) : null };
+  return {
+    reads,
+    controlReads,
+    declared,
+    indexType: indexInfo ? checker.typeToString(indexInfo.type) : null,
+  };
 }
 
 /**
@@ -284,24 +333,43 @@ describe('objectui#9965 — the instrument is calibrated before it is believed',
     expect(measurement().declared).toContain('hideFields');
     expect(measurement().declared).toContain('sections');
     expect(measurement().declared.length).toBeGreaterThan(4);
-    // …and the keys this card leaves cast are genuinely NOT in it.
+    // …and any key still ledgered as cast is genuinely NOT in it (none since
+    // objectui#8649 — the loop is kept so a new entry is judged the same way).
     for (const key of Object.keys(HONEST_CASTS)) {
       expect(measurement().declared).not.toContain(key);
     }
+    // objectui#8649: the field-security triple IS in it now — the membership
+    // half of that card's alignment, read off the renderer's own binding.
+    for (const key of FIELD_SECURITY_TRIPLE) {
+      expect(measurement().declared).toContain(key);
+    }
   });
 
-  it('found the reads it is meant to range over, cast and un-cast alike', () => {
+  it('found the reads it is meant to range over', () => {
     expect(measurement().reads.length).toBeGreaterThan(8);
-    expect(measurement().reads.some((r) => r.cast)).toBe(true);
     expect(measurement().reads.some((r) => !r.cast)).toBe(true);
+  });
+
+  it('CONTROL — the same visitor and checker report a cast and an `any` when one is there', () => {
+    // Since objectui#8649 the renderer carries neither, so this is the only
+    // place the instrument is shown to see them (see `CONTROL_SOURCE`). Each row
+    // varies one thing against its neighbour.
+    const byKey = (key: string, cast: boolean) =>
+      measurement().controlReads.find((r) => r.key === key && r.cast === cast);
+    expect(byKey('hideFields', true)?.type).toBe('any');
+    expect(byKey('hideFields', false)?.type).toBe('string[] | undefined');
+    expect(byKey('zzqxNoSuchRecordBlockKey', false)?.type).toBe('any');
+    expect(measurement().controlReads).toHaveLength(3);
   });
 
   it('`any` is a reachable verdict here, so the assertion below can fail', () => {
     // The index signature is what admits an undeclared key at `any`. Without
     // this control, "no declared read carries `any`" would also be satisfied by
-    // an instrument that never reports `any` at all.
+    // an instrument that never reports `any` at all. The renderer supplied an
+    // `any` read of its own until objectui#8649 removed the last ones; the
+    // control file supplies it now.
     expect(measurement().indexType).toBe('any');
-    expect(measurement().reads.filter((r) => r.type === 'any').length).toBeGreaterThan(0);
+    expect(measurement().controlReads.filter((r) => r.type === 'any').length).toBeGreaterThan(0);
   });
 });
 
@@ -313,6 +381,23 @@ describe('objectui#9965 — the declaration reaches the read', () => {
       // Named, not counted: a failure has to say WHICH read regressed.
       .map((r) => `${r.key} @ line ${r.line} => ${r.type}${r.cast ? ' (cast)' : ''}`);
     expect(spent).toEqual([]);
+  });
+
+  it('the field-security triple is still READ, and each read carries the mirror\'s type (objectui#8649)', () => {
+    // The expression half of objectui#8649's alignment on this file: the leg
+    // above already refuses a cast or an `any` on these keys now that the mirror
+    // declares them; this one is the liveness and the exact type, so deleting
+    // a read cannot satisfy it.
+    for (const key of FIELD_SECURITY_TRIPLE) {
+      const hits = measurement().reads.filter((r) => r.key === key);
+      expect(hits.length, `${key} is no longer read`).toBeGreaterThan(0);
+      // `string[]` is the `Array.isArray` narrowing of the same declaration.
+      const declaredAs = key === 'enforceFieldSecurity' ? ['boolean | undefined'] : ['string[] | undefined', 'string[]'];
+      for (const hit of hits) {
+        expect(hit.cast, `${key} @ line ${hit.line} is cast`).toBe(false);
+        expect(declaredAs, `${key} @ line ${hit.line}`).toContain(hit.type);
+      }
+    }
   });
 
   it('`hideFields` is still READ, and reads as the mirror declares it', () => {

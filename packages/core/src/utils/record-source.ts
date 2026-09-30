@@ -101,6 +101,10 @@ export function resolveRecordSourceObjectName(
  *    all, so neither arm of the ruling reaches it and rung 1 keeps its pre-8348
  *    verbatim behaviour. ⛔ NOT a tolerance to copy: it is the honest answer for
  *    a block the ruling does not decide, and it is reported rather than guessed.
+ *    No ladder block passes it any more: `object-tree`, the last one that did,
+ *    gained a published row and moved to `'view-data'` (objectui#8348, ruling
+ *    batch #136 item 3, Q1-C). It stays the answer
+ *    {@link recordSourceDataArmForType} gives a type it does not list.
  *
  * The arm is passed BY THE CALL SITE rather than looked up from `schema.type`
  * on purpose. Most of these renderers are registered twice — `object-grid`
@@ -225,24 +229,28 @@ function authoredDataIsOnTheDeclaredArm(authored: unknown, arm: RecordSourceData
  * refuses THAT by kind. Decision batch #83 settled it — the row decides — and
  * `dataArm` is where each block says which row it has.
  *
- * MEASURED, per block, at the version this repo resolves:
+ * JUDGED, per block, against that block's `ComponentPropsMap` row in the
+ * INSTALLED `@objectstack/spec` — and ⛔ the verdicts are not written down here
+ * as facts, because a spec release can move a row (AGENTS.md #9). Each pin
+ * below derives the arm from the row at test time and compares it with what the
+ * block passes, so a moved row turns it red:
  *
- *  - `object-grid` — `ComponentPropsMap['object-grid'].data` is the `ViewData`
- *    union, and its own description names the refusal: *"the bare-array shortcut
- *    is refused — see migration `object-grid-data-view-data-converged`"*.
- *    ⇒ `'view-data'`, and the site's normalizing head is gone.
- *  - `object-calendar` — `z.array(z.unknown()).optional()`, and the registration
- *    publishes the same arm (`{ name: 'data', type: 'array' }`). ⇒ `'array'`.
- *  - `object-map`, `object-gantt` — no `ComponentPropsMap` row exists for either
- *    block; the published row that governs them is this repo's own
- *    `ObjectMapSchema.data` / `ObjectGanttSchema.data`, both
- *    `ViewDataSchema.optional()`. ⇒ `'view-data'`, and `ObjectMap`'s normalizing
- *    head is gone too.
- *  - `object-tree` — NO published face declares a `data` row: not
- *    `ComponentPropsMap`, not `ObjectTreeSchema` (which declares `objectName`
- *    REQUIRED and no `data`), not the registration's `inputs`. Neither arm of
- *    the ruling reaches it, so it passes `'undeclared'` and nothing about it
- *    changes here.
+ *  - `object-grid` — `'view-data'`; `gridBareArrayDataRefused-8348.test.tsx`,
+ *    its "the spec row is what all of the above is judged against" test. The
+ *    row's own description names the refusal: *"the bare-array shortcut is
+ *    refused — see migration `object-grid-data-view-data-converged`"*.
+ *  - `object-calendar` — `'array'`; the test of the same name in
+ *    `ObjectCalendar.dataObjectArmRefused-8348.test.tsx`. The registration
+ *    publishes the same arm (`{ name: 'data', type: 'array' }`).
+ *  - `object-map`, `object-gantt`, `object-tree` — `'view-data'`; one
+ *    `dataArmSpecRow-8348` pin per block, in each plugin's own tests. These
+ *    three rows are what ruling batch #136 item 3 (Q1-C) had the protocol
+ *    gain; until they were installable, map and gantt were judged through this
+ *    repo's own `ObjectMapSchema.data` / `ObjectGanttSchema.data` and tree
+ *    passed `'undeclared'`. The tree's row declares `data`, so the ruling's
+ *    「协议没有的能力删」 clause did not fire for it: it keeps the object arm and
+ *    loses only the bare-array spelling. Its `staticData` rung is declared by
+ *    the same row and is unchanged.
  *
  * ## The DECLARATION follows the arm too (`ab856ed30`)
  *
@@ -379,10 +387,14 @@ export function resolveRecordSourceConfig<Arm extends RecordSourceDataArm>(
  *  - `ObjectGantt.tsx`'s `rawDataConfig` — `'view-data'`. One block spelling
  *    only: the bare `gantt` key is retired (objectui#8008).
  *  - `ObjectCalendar.tsx`'s `dataConfig` — `'array'`.
- *  - `ObjectTree.tsx`'s `dataConfig` — `'undeclared'`. Its rows are
- *    DOCUMENTARY: they repeat the default, so they decide nothing and cannot
- *    drift into a decision. They are here so the tree reads as "measured, and
- *    the ruling does not reach it" rather than as a block nobody looked at.
+ *  - `ObjectTree.tsx`'s `dataConfig` — `'view-data'`. Four spellings, from its
+ *    two registrations (`object-tree` under the `plugin-tree` namespace, `tree`
+ *    under `view`). These rows used to read `'undeclared'` and were only
+ *    documentary, because no published face declared a `data` row for the
+ *    block; `ComponentPropsMap['object-tree']` now does (objectui#8348, ruling
+ *    batch #136 item 3, Q1-C), so they DECIDE: an authored `data` on a tree
+ *    node no longer takes a prop seat either. The registry-derived pin is
+ *    `ObjectTree.dataArmSpecRow-8348.test.tsx`.
  */
 const RECORD_SOURCE_DATA_ARM_BY_TYPE: Readonly<Record<string, RecordSourceDataArm>> =
   Object.freeze({
@@ -394,16 +406,15 @@ const RECORD_SOURCE_DATA_ARM_BY_TYPE: Readonly<Record<string, RecordSourceDataAr
     'plugin-map:object-map': 'view-data',
     'object-gantt': 'view-data',
     'plugin-gantt:object-gantt': 'view-data',
+    'object-tree': 'view-data',
+    'plugin-tree:object-tree': 'view-data',
+    'view:tree': 'view-data',
+    tree: 'view-data',
     // — array arm: `z.array(...)`, pre-fetched records —
     'object-calendar': 'array',
     'plugin-calendar:object-calendar': 'array',
     'view:calendar': 'array',
     calendar: 'array',
-    // — no published `data` row at all; documentary, equal to the default —
-    'object-tree': 'undeclared',
-    'plugin-tree:object-tree': 'undeclared',
-    'view:tree': 'undeclared',
-    tree: 'undeclared',
   });
 
 /**

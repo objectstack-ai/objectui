@@ -287,3 +287,62 @@ describe('record:related_list — registry inputs vs @objectstack/spec', () => {
     expect(addDescription()).toMatch(/hard constraint the user cannot widen/);
   });
 });
+
+/**
+ * objectui#8649 — the field-security triple, published as the CONTRACT declares
+ * it on this block.
+ *
+ * `@objectstack/spec` 17.5.0 declares `enforceFieldSecurity`, `redactFields` and
+ * `requiredPermissions` on `record:related_list`. The renderer honoured all three before that,
+ * through a cast, while these `inputs` omitted them; objectui#8649 publishes
+ * them. Three claims per key, each read off the INSTALLED spec rather than
+ * restated: the key is declared on this block's props, the published coarse
+ * type is the one the contract's VALUES bear out (a full parse on an accepted
+ * value and a named refusal on a rejected one — a value claim, so a key-level
+ * `unrecognized_keys` reading would not do), and the description is this
+ * block's own `.describe()` text, verbatim — so a spec that rewords one turns
+ * this file red rather than leaving the manifest to drift.
+ */
+describe('record:related_list — the field-security triple is published as the contract declares it (objectui#8649)', () => {
+  const TRIPLE = {
+    enforceFieldSecurity: { type: 'boolean', of: undefined, accepted: true, refused: 'true' },
+    redactFields: { type: 'array', of: 'string', accepted: ['salary'], refused: [1] },
+    requiredPermissions: { type: 'array', of: 'string', accepted: ['crm.manage'], refused: 'crm.manage' },
+  } as const;
+  const shapeOf = (key: string) =>
+    (RecordRelatedListProps.shape as Record<string, { description?: string; def?: { innerType?: { description?: string } } }>)[key];
+  const describeOf = (key: string): string | undefined =>
+    shapeOf(key)?.description ?? shapeOf(key)?.def?.innerType?.description;
+
+  for (const [key, want] of Object.entries(TRIPLE)) {
+    it(`publishes \`${key}\` with the contract's type, proved on values`, () => {
+      expect(Object.keys(RecordRelatedListProps.shape), `${key} is not declared on record:related_list`).toContain(key);
+      const published = input(key);
+      expect(published, `${key} is not published`).toBeDefined();
+      expect(published?.type).toBe(want.type);
+      expect(published?.of).toBe(want.of);
+
+      const ok = RecordRelatedListProps.safeParse({ ...baseline, [key]: want.accepted });
+      expect(ok.success, `${key}: the contract refused a value of the published type`).toBe(true);
+      expect((ok.data as Record<string, unknown> | undefined)?.[key]).toEqual(want.accepted);
+      const bad = RecordRelatedListProps.safeParse({ ...baseline, [key]: want.refused });
+      expect(bad.success, `${key}: the contract accepted a value outside the published type`).toBe(false);
+      // Refused AT this key — `redactFields: [1]` is refused at its MEMBER
+      // (`redactFields.0`), which is the member-kind half of the same claim.
+      expect(bad.error?.issues.map((i) => String(i.path[0]))).toContain(key);
+    });
+
+    it(`\`${key}\`'s description is this block's own describe text, verbatim`, () => {
+      const text = describeOf(key);
+      // Non-vacuity: an undefined describe would compare equal to a missing one.
+      expect(text ?? '', `${key}: the contract carries no describe to publish`).not.toBe('');
+      expect(input(key)?.description).toBe(text);
+    });
+  }
+
+  it('CONTROL — the value probe refuses at the key it names, and accepts the unmodified baseline', () => {
+    expect(RecordRelatedListProps.safeParse(baseline).success).toBe(true);
+    const bad = RecordRelatedListProps.safeParse({ ...baseline, enforceFieldSecurity: 'true' });
+    expect(bad.error?.issues.map((i) => i.path.join('.'))).toEqual(['enforceFieldSecurity']);
+  });
+});

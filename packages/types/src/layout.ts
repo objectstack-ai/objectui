@@ -750,7 +750,8 @@ export interface FlexSchema extends BaseSchema, FlexLayoutProps {
  *
  * Declares the same members as {@link FlexSchema} — see {@link FlexLayoutProps}
  * for why they are shared through a third interface rather than derived with an
- * `Omit` (objectui#6151).
+ * `Omit` (objectui#6151) — except `responsiveStyles`, which `FlexSchema`
+ * declares on its own (objectui#10872 batch 9).
  */
 export interface StackSchema extends BaseSchema, FlexLayoutProps {
   type: 'stack';

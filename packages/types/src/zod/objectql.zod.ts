@@ -759,6 +759,17 @@ const OBJECT_VIEW_TABLE_WITHHELD = {
   onNavigate: tableKeyRefusal('onNavigate', TABLE_KEY_ROW_CLICK),
   placeholder: tableKeyRefusal('placeholder', TABLE_KEY_UNREAD),
   resizableColumns: tableKeyRefusal('resizableColumns', 'it is the legacy alias of `resizable`. Write `resizable`.'),
+  // objectui#10872 batch 9 declared the node-level `responsiveStyles` on
+  // `ObjectGridSchema`; the view draws its grid as a component, so nothing
+  // compiles it inside `table`. Without this row the slot would have gained it.
+  // Its own reason, not `TABLE_KEY_NODE_LEVEL`: that one sends the key to the
+  // object-view node, whose arm does not declare `responsiveStyles`, so the
+  // strict face would refuse it there too.
+  responsiveStyles: tableKeyRefusal(
+    'responsiveStyles',
+    'the view draws its grid as a component, not as a schema node, so nothing compiles a `responsiveStyles` map '
+    + 'written here. Delete it.',
+  ),
   rowSpecActions: tableKeyRefusal('rowSpecActions', `${TABLE_KEY_UNREAD} Write \`rowActions\`.`),
   showFilters: tableKeyRefusal('showFilters', TABLE_KEY_UNREAD),
   staticData: tableKeyRefusal('staticData', TABLE_KEY_RECORD_SOURCE),

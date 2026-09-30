@@ -33,6 +33,9 @@
  * objectui#11070 then declared `dataSource` (the spec's per-element binding)
  * on both source schemas and the guard named it again: the `form` slot carries
  * it, and the `table` slot withholds it as a record source the view owns.
+ * objectui#10872 batch 9 declared `responsiveStyles` on `ObjectGridSchema`, and
+ * the `table` slot withholds it as a node-level key. Section 1 pins the counts
+ * as they stand; the "63 and 69" above are the reading of their day.
  *
  * Nothing errored — the index signature answers every key as `any` — so the
  * symptoms were in the tools that READ the declaration: `table: { colunms: 3 }`
@@ -139,10 +142,12 @@ const TABLE_WITHHELD_BY_REASON = {
   /** The view owns it: its own record source, its own row click, its grid's identity. */
   viewOwned: ['bind', 'data', 'dataSource', 'id', 'navigation', 'onNavigate', 'staticData'],
   /**
-   * A node-level `BaseSchema` key. `ObjectView` draws its grid as a component,
-   * not as a schema node, so no renderer applies one of these to it.
+   * A node-level key: a `BaseSchema` key, or `responsiveStyles`, which
+   * `ObjectGridSchema` declares since objectui#10872 batch 9. `ObjectView` draws
+   * its grid as a component, not as a schema node, so no renderer applies one
+   * of these to it.
    */
-  nodeLevel: ['ariaLabel', 'disabled', 'disabledOn', 'hidden', 'hiddenOn', 'style', 'testId', 'visible', 'visibleOn', 'visibleWhen'],
+  nodeLevel: ['ariaLabel', 'disabled', 'disabledOn', 'hidden', 'hiddenOn', 'responsiveStyles', 'style', 'testId', 'visible', 'visibleOn', 'visibleWhen'],
   /** The legacy alias of a relayed key: `bulkActions`, `resizable`. */
   alias: ['batchActions', 'resizableColumns'],
 } as const;
@@ -255,9 +260,10 @@ function slotType(slot: 'table' | 'form'): ts.Type {
  * inherited: bump them deliberately when a member is genuinely added.
  */
 describe('the source schemas still declare their full member sets', () => {
-  it('ObjectGridSchema declares 63 members and carries the #5155 index signature', () => {
+  // 64 since objectui#10872 batch 9 declared `responsiveStyles` (withheld from the slot, above).
+  it('ObjectGridSchema declares 64 members and carries the #5155 index signature', () => {
     const grid = exportedType('ObjectGridSchema');
-    expect(memberNames(grid)).toHaveLength(63);
+    expect(memberNames(grid)).toHaveLength(64);
     expect(memberNames(grid)).toEqual(expect.arrayContaining(['columns', 'pageSize', 'rowActions']));
     // When this flips to `false`, objectui#5155 has removed the root index
     // signature and the `Pick` lists this file pins become removable.

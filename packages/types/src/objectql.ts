@@ -4484,11 +4484,37 @@ export interface ObjectKanbanSchema extends BaseSchema {
   cardFields?: string[];
 
   /**
-   * Enable Quick Add button at the bottom of each column.
-   * When true, a "+" button appears allowing inline card creation.
-   * @default false
+   * RETIRED (objectui#8285, ruling B of the director seat's decision batch #91,
+   * 2026-09-08) — this element offers no inline record creation, so the key has
+   * nothing to switch on. Refused by name on both faces of this package, as
+   * `@objectstack/spec` 17.5.0 refuses it (`ComponentPropsMap['object-kanban']`
+   * tombstones the same key).
+   *
+   * ## Why it never did anything on this element
+   *
+   * The Quick Add control is gated on BOTH `quickAdd` and an `onQuickAdd`
+   * handler, and that handler is a host-supplied function no JSON document can
+   * carry; `ObjectKanban` supplies none of its own. So an authored
+   * `quickAdd: true` parsed green and drew nothing. The ruling chose to retire
+   * the key rather than grow a record-creation write path on the board, and
+   * `ObjectKanban` now stops forwarding the key as well, so the refusal is not
+   * only a validator's opinion.
+   *
+   * ## Where the control still works
+   *
+   * On `KanbanRenderer`, exported from `@object-ui/plugin-kanban`: a React host
+   * that mounts that component directly passes `quickAdd` and `onQuickAdd` on
+   * its `schema`, and the pair reaches the board unchanged. No node type key
+   * resolves to that component since the `kanban-ui` tag retired
+   * (objectui#8257), so this is a host capability, not a document one.
+   *
+   * A tombstone rather than a deleted member because `BaseSchema` carries an
+   * index signature: a deleted member would type as `any` and be KEPT, not
+   * refused. Pinned in `__tests__/object-kanban-quick-add-retired-8285.test.ts`.
+   *
+   * @deprecated Not part of this contract — delete the key.
    */
-  quickAdd?: boolean;
+  quickAdd?: never;
 
   /**
    * Field name to use as cover image on cards.
@@ -4517,7 +4543,8 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * `@object-ui/plugin-kanban` names the token in ZERO files, and that zero is
    * a reading rather than a dead grep because live sibling keys fire as
    * controls on the same instrument and the same run — `groupBy`,
-   * `conditionalFormatting`, `quickAdd` and `coverImageField`.
+   * `conditionalFormatting` and `coverImageField`. (`quickAdd` stood in this
+   * list until it was retired on this element too, objectui#8285.)
    *
    * ⛔ Their per-key counts are deliberately NOT written here (AGENTS.md #9).
    * A figure in prose is derived once and re-derived never: the four that used
@@ -4674,16 +4701,19 @@ export interface ObjectKanbanSchema extends BaseSchema {
    *
    * RUNTIME SLOT (objectui#6124 shape; declared by `5a41ce733`) — a
    * host-supplied function, NOT authorable metadata: JSON has no function
-   * value, so the zod twin refuses this key by name. Kept callable here because
-   * it rides `ObjectKanban`'s schema spread untouched and arrives at the board
-   * implementation BY IDENTITY, where it is half of the pair the Quick Add
-   * control is gated on.
+   * value, so the zod twin refuses this key by name. It rides `ObjectKanban`'s
+   * schema spread and arrives at the board implementation BY IDENTITY, which is
+   * the reading its function type rests on.
    *
-   * ⚠️ The other half, `quickAdd`, is deliberately undeclared on this face
-   * pending objectui#8285, and an object-bound board supplies no handler of its
-   * own — so a JSON author gets no control. That is a statement about the
-   * document, not about this slot: the slot is live, which is why it keeps its
-   * function type rather than a tombstone.
+   * ⚠️ On THIS element that arrival switches nothing on. The Quick Add control
+   * is gated on BOTH halves of a pair, and the other half, `quickAdd`, is
+   * RETIRED here (objectui#8285) — refused by name on both faces, and no longer
+   * forwarded by `ObjectKanban` — so a function supplied here reaches the board
+   * and is never called. The pair works on `KanbanRenderer`, which a React host
+   * mounts directly. Whether this slot retires on this element as well is NOT
+   * settled by that change: a `?: never` tombstone needs the `ObjectKanban`
+   * path's read moved off `KanbanRenderer`'s `schema` first, because
+   * `check:handler-key-reads` refuses a tombstone that a renderer still reads.
    */
   onQuickAdd?: (columnId: string, title: string) => void;
   /**

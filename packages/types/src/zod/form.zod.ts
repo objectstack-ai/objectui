@@ -1001,6 +1001,34 @@ export const FormFieldSchema = z.object({
 /**
  * Form Schema - Complete form component
  */
+/**
+ * objectui#6152 round 3 — one tab of a tabbed field layout (`FormSchema.fieldTabs`),
+ * restated member for member from the interface's `FormFieldTab`. Module-private: it
+ * is a nested shape of the `form` arm, not a registered pair of its own.
+ */
+const FormFieldTabEntrySchema = z.object({
+  key: z.string().describe('Stable tab key (the Radix Tabs value)'),
+  label: z.string().optional().describe('Tab trigger text; falls back to key'),
+  description: z.string().optional().describe('Blurb rendered above the tab fields'),
+  fields: z.array(z.string()).describe('Names of the fields (from FormSchema.fields) this tab renders, in order'),
+  containerClass: z.string().optional().describe('Field-grid classes for this tab panel'),
+  visibleWhen: ExpressionWireSchema.optional()
+    .describe('Predicate gating the tab: a bare string or the { dialect?, source } envelope; a hidden tab still submits'),
+});
+
+/**
+ * objectui#6152 round 3 — one pane of a split field layout (`FormSchema.fieldPanes`),
+ * restated member for member from the interface's `FormFieldPane`. Module-private,
+ * like `FormFieldTabEntrySchema` above.
+ */
+const FormFieldPaneEntrySchema = z.object({
+  key: z.string().describe('Stable pane key'),
+  fields: z.array(z.string()).describe('Names of the fields (from FormSchema.fields) this pane renders, in order'),
+  defaultSize: z.number().optional().describe('Initial pane size as a percentage of the group (1-99)'),
+  minSize: z.number().optional().describe('Minimum pane size as a percentage of the group'),
+  containerClass: z.string().optional().describe('Field-grid classes for this pane'),
+});
+
 export const FormSchema = BaseSchema.extend({
   type: z.literal('form'),
   objectName: z.string().optional().describe('Owning object name (drives field locators)'),
@@ -1033,6 +1061,25 @@ export const FormSchema = BaseSchema.extend({
   onChange: handlerKeyRefusal('onChange', 'runtime-slot', 'Change handler'),
   onCancel: handlerKeyRefusal('onCancel', 'runtime-slot', 'Cancel handler'),
   showActions: z.boolean().optional().describe('Show action buttons'),
+  // objectui#6152 round 3 — eight layout members the interface declared and this
+  // mirror had never heard of, each READ by the `form` renderer
+  // (`renderers/form/form.tsx`, off `schema.*`), and each a plain omission from this
+  // object literal: the mirror already carried their neighbours. `fieldContainerClass`
+  // and `mobileStickyActions` are also written by `ObjectForm` when it builds a `form`
+  // node in code.
+  mobileStickyActions: z.boolean().optional()
+    .describe('Pin the Submit/Cancel row to the bottom of small viewports; no-op on desktop'),
+  fieldContainerClass: z.string().optional().describe('Field container CSS classes'),
+  fieldTabs: z.array(FormFieldTabEntrySchema).optional()
+    .describe('Tabbed field layout: each tab claims a subset of fields by name, inside one form'),
+  defaultFieldTab: z.string().optional().describe('Initially active fieldTabs key; defaults to the first tab'),
+  fieldTabsPosition: z.enum(['top', 'bottom', 'left', 'right']).optional()
+    .describe('Where the fieldTabs strip sits relative to the panels (default top)'),
+  fieldPanes: z.array(FormFieldPaneEntrySchema).optional()
+    .describe('Split field layout: each pane claims a subset of fields by name, inside one form'),
+  fieldPanesOrientation: z.enum(['horizontal', 'vertical']).optional()
+    .describe('Direction the fieldPanes are laid out in (default horizontal)'),
+  fieldPanesResizable: z.boolean().optional().describe('Whether the fieldPanes divider offers a drag handle (default true)'),
   body: aliasKeyRefusal(
     'body',
     'children',

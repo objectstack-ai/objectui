@@ -12,6 +12,16 @@
  * Drag-and-drop tree builder for NavigationItem[] with support for
  * recursive groups, quick add buttons, type badges, and live preview.
  * Aligned with @objectstack/spec NavigationItem schema.
+ *
+ * A row's and a preview entry's text is the runtime's own
+ * `resolveNavItemLabel` (`@object-ui/layout`, objectui#11196), so an entry
+ * with NO `label` shows the text it inherits, never a blank. The spec's rule:
+ * absent ⇒ the CURRENT label of what the entry opens. This designer is handed
+ * bare items and no metadata, so it names a target by the rule's machine-name
+ * rung (`pageName`, `dashboardName`, `objectName`, …, else the entry's `id`),
+ * as the console's renderer does for a host that supplies no target resolver.
+ * The inline rename edits the AUTHORED label; the inherited text is its
+ * placeholder, never its value.
  */
 
 import React, { useState, useCallback, useRef } from 'react';
@@ -42,6 +52,7 @@ import {
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { resolveKeyedI18nLabel } from '@object-ui/react';
+import { resolveNavItemLabel } from '@object-ui/layout';
 import { useDesignerTranslation } from './hooks/useDesignerTranslation';
 
 function cn(...inputs: (string | undefined | false)[]) {
@@ -276,6 +287,8 @@ function NavItemRow({
               }
             }}
             autoFocus
+            placeholder={resolveNavItemLabel(item)}
+            data-testid={`nav-designer-label-input-${item.id}`}
             className="flex-1 rounded border border-blue-300 px-1.5 py-0.5 text-sm outline-none focus:ring-1 focus:ring-blue-400"
           />
         ) : (
@@ -291,7 +304,7 @@ function NavItemRow({
               }
             }}
           >
-            {resolveKeyedI18nLabel(item.label)}
+            {resolveNavItemLabel(item)}
           </span>
         )}
 
@@ -438,7 +451,7 @@ function PreviewItem({ item, depth }: { item: NavigationItem; depth: number }) {
         style={{ marginLeft: depth * 12 }}
       >
         <meta.Icon className="h-3 w-3 text-gray-400" />
-        <span className="truncate">{resolveKeyedI18nLabel(item.label)}</span>
+        <span className="truncate">{resolveNavItemLabel(item)}</span>
       </li>
       {item.type === 'group' && item.children?.map((child) => (
         <PreviewItem key={child.id} item={child} depth={depth + 1} />

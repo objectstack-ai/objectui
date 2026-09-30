@@ -31,7 +31,9 @@ describe('objectui#11197 — AppPreview (read-only) draws a `doc` entry', () => 
   it('keeps a label-less `doc` entry, badged `doc`, with its target and its portal route', () => {
     render(<AppPreview type="app" name="crm" draft={DRAFT} />);
     expect(screen.getByText('doc')).toBeTruthy();
-    expect(screen.getByText('crm_manual')).toBeTruthy();
+    // Twice: as its target, and as its text — a label-less entry reads what it
+    // inherits, here its book (objectui#11196).
+    expect(screen.getAllByText('crm_manual')).toHaveLength(2);
     // The route comes from `resolveHref`, so it is the one the shell follows.
     expect(screen.getByText('/apps/crm/docs/crm_manual')).toBeTruthy();
   });
@@ -55,6 +57,7 @@ describe('objectui#11197 — AppNavCanvas (design mode) draws a `doc` entry', ()
     );
     expect(screen.getByText('doc')).toBeTruthy();
     expect(screen.queryByText('untyped')).toBeNull();
-    expect(screen.getByText('crm_lead_guide')).toBeTruthy();
+    // Twice: the card's target, and its inherited text — the page it opens (objectui#11196).
+    expect(screen.getAllByText('crm_lead_guide')).toHaveLength(2);
   });
 });

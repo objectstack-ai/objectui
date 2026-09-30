@@ -22,7 +22,9 @@
  *   - a map with no entry for the designer locale gains one, and the entry the
  *     resolver only reached as another language's fallback is kept;
  *   - a plain-string item renames to a plain string, as before (the control);
- *   - an unlabelled item reads the catalogue's positional row in zh.
+ *   - the catalogue's positional row reads in zh. It is for an entry the
+ *     runtime's inheritance rule names nothing (a separator): an unlabelled
+ *     item with a target shows the text it inherits (objectui#11196).
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
@@ -86,8 +88,8 @@ describe('AppNavCanvas resolves a locale-map nav label in the designer locale (o
     });
   }
 
-  it('reads the catalogue row for a truly absent label, in zh', () => {
-    renderCanvas([{ id: 'accounts', type: 'object', objectName: 'account' }], 'zh');
+  it('reads the catalogue row, in zh, for an entry the inheritance rule names nothing', () => {
+    renderCanvas([{ id: 'rule', type: 'separator' }], 'zh');
 
     const zh = tFormat('engine.appNav.item', 'zh-CN', { n: 1 });
     expect(zh).not.toBe(tFormat('engine.appNav.item', 'en-US', { n: 1 }));

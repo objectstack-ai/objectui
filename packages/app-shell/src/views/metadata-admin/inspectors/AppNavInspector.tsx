@@ -18,16 +18,36 @@
  * a legacy item migrates it to spec shape. A live href preview renders
  * the REAL runtime landing via resolveHref, making "declared =
  * enforced" visible while editing.
+ *
+ * The item's name (objectui#11196). `label` is optional in the spec: an item
+ * with none shows, at render time, the CURRENT label of what it opens. The
+ * inspector's title and its Label field read the label through the shared
+ * `navItemLabel` module, with the console's own target resolver, so a
+ * label-less item is named here as the console's sidebar names it. The Label
+ * field shows the AUTHORED label as its value and the inherited text as its
+ * PLACEHOLDER, never as a stored value: typing writes an author label (a
+ * locale map keeps every other language), and emptying the field restores
+ * inheritance by removing the key — never by writing `''`. `title` / `name`
+ * are not nav-item keys and are not read as the label.
  */
 
 import * as React from 'react';
 import { resolveHref } from '@object-ui/layout';
 import type { NavigationItem } from '@object-ui/types';
+import type { I18nLabel } from '@objectstack/spec/ui';
 import { Plus, X } from 'lucide-react';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
 import { t } from '../i18n.js';
 import { useMetadataClient } from '../useMetadata.js';
 import { useObjectFields } from '../previews/useObjectFields.js';
+import { useNavTargetLabel } from '../../../hooks/useNavTargetLabel.js';
+import {
+  clearedLabel,
+  inheritedNavEntryText,
+  navEntryLabelText,
+  navItemLabelText,
+  renamedLabel,
+} from '../previews/navItemLabel.js';
 import {
   InspectorShell,
   InspectorReorderButtons,
@@ -55,9 +75,8 @@ import {
 
 interface NavItem {
   id?: string;
-  label?: string;
-  title?: string;
-  name?: string;
+  /** The spec's `I18nLabel`: a plain string or an inline locale map. Optional — absent ⇒ inherited. */
+  label?: I18nLabel;
   icon?: string;
   children?: NavItem[];
   [k: string]: unknown;
@@ -295,6 +314,8 @@ export function AppNavInspector({ selection, draft, name, onPatch, onClearSelect
   const targetMeta = navType && navType !== 'object' ? NAV_TYPE_TARGETS[navType].metaType : undefined;
   const targetOptions = useMetadataOptions(targetMeta, targetMeta === 'page' ? isStaticPageOption : undefined);
   const viewOptionsRaw = useMetadataOptions(navType === 'object' && objectMode === 'view' ? 'view' : undefined);
+  // The console's own resolver for what a label-less item inherits.
+  const targetLabel = useNavTargetLabel();
   // Views are named `<object>.<key>` (MetadataProvider) — scope the picker
   // to the bound object instead of offering the whole workspace's views.
   const viewOptions = React.useMemo(
@@ -313,23 +334,37 @@ export function AppNavInspector({ selection, draft, name, onPatch, onClearSelect
     );
   }
 
-  const labelOf = node.label ?? node.title ?? node.name ?? selection.id;
+  // Authored label, else the inherited text; the positional id only for an
+  // item the runtime's rule cannot name either.
+  const labelOf = navEntryLabelText(node, locale, targetLabel).trim() || selection.id;
 
   /**
    * Every write enforces the spec invariants: snake_case `id`, an explicit
    * `type`, and the caller-provided field clears — editing a legacy item
-   * IS its migration to spec shape.
+   * IS its migration to spec shape. `omit` names keys the write REMOVES.
    */
-  const patch = (updates: Record<string, unknown>) => {
+  const patch = (updates: Record<string, unknown>, omit: ReadonlyArray<string> = []) => {
     const nextType = (updates.type ?? node.type ?? navType ?? undefined) as string | undefined;
-    onPatch(
-      writeAt(draft, hops, {
-        ...node,
-        id: ensureNavId(node, parent),
-        ...(nextType ? { type: nextType } : {}),
-        ...updates,
-      } as NavItem),
-    );
+    const next: Record<string, unknown> = {
+      ...node,
+      id: ensureNavId(node, parent),
+      ...(nextType ? { type: nextType } : {}),
+      ...updates,
+    };
+    for (const key of omit) delete next[key];
+    onPatch(writeAt(draft, hops, next as NavItem));
+  };
+
+  /**
+   * The Label field's edit. Typing writes an author label (`renamedLabel`: a
+   * locale map changes only the designer locale's entry). Emptying the field
+   * restores inheritance: `clearedLabel` answers what is left, and when that is
+   * nothing the `label` key is REMOVED, never written as `''`.
+   */
+  const commitLabel = (value: string) => {
+    const next = value === '' ? clearedLabel(node.label, locale) : renamedLabel(node.label, value, locale);
+    if (next === undefined) patch({}, ['label']);
+    else patch({ label: next });
   };
 
   const switchType = (nextType: NavItemType) => {
@@ -355,7 +390,7 @@ export function AppNavInspector({ selection, draft, name, onPatch, onClearSelect
     const prefix = hops.slice(0, -1).map((h) => `${h.key}[${h.index}]`).join('.');
     const leafKey = hops[hops.length - 1].key;
     const newId = prefix ? `${prefix}.${leafKey}[${to}]` : `${leafKey}[${to}]`;
-    onSelectionChange?.({ kind: 'nav', id: newId, label: String(labelOf) });
+    onSelectionChange?.({ kind: 'nav', id: newId, label: labelOf });
   };
 
   // Live landing preview — the REAL runtime URL for the current config
@@ -370,7 +405,7 @@ export function AppNavInspector({ selection, draft, name, onPatch, onClearSelect
   return (
     <InspectorShell
       kindLabel={t('engine.inspector.appNav.kind', locale)}
-      title={String(labelOf)}
+      title={labelOf}
       onClose={onClearSelection}
       closeLabel={t('engine.inspector.appNav.close', locale)}
       headerActions={
@@ -385,7 +420,13 @@ export function AppNavInspector({ selection, draft, name, onPatch, onClearSelect
       }
       footer={<InspectorRemoveButton label={t('engine.inspector.appNav.remove', locale)} onClick={remove} disabled={readOnly} />}
     >
-      <InspectorTextField label={t('engine.inspector.appNav.label', locale)} value={String(node.label ?? node.title ?? node.name ?? '')} onCommit={(v) => patch({ label: v })} disabled={readOnly} />
+      <InspectorTextField
+        label={t('engine.inspector.appNav.label', locale)}
+        value={navItemLabelText(node.label, locale)}
+        placeholder={inheritedNavEntryText(node, targetLabel)}
+        onCommit={commitLabel}
+        disabled={readOnly}
+      />
       <InspectorTextField label={t('engine.inspector.appNav.icon', locale)} value={String(node.icon ?? '')} onCommit={(v) => patch({ icon: v })} disabled={readOnly} />
 
       <InspectorSelectField

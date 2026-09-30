@@ -19,7 +19,8 @@
  * These tests pin the four halves of that contract:
  *   1. `list-view` / `object-form` stay eligible for injection;
  *   2. an author writes `<ListView …/>` with FLAT props and no import, and the
- *      wrapper folds them into the block's `schema`;
+ *      wrapper folds them into the block's `schema` — whose `dataSource` is the
+ *      author's binding and never the host adapter (2b, objectui#11070);
  *   3. a block that is only *lazily* registered is in the scope too — the
  *      contract may not depend on which plugin chunks happen to be loaded
  *      (objectui#2953);
@@ -35,18 +36,18 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
-import { SchemaRenderer, AdapterCtx } from '@object-ui/react';
+import { SchemaRenderer, AdapterCtx, SchemaRendererContext } from '@object-ui/react';
 // Registers PageRenderer for `type:'home'`, which dispatches kind:'react'.
 import '../renderers';
 
 /** Props the stand-in blocks last received, for flat-prop assertions. */
-const captured: { listView?: any; objectForm?: any; kanban?: any } = {};
+const captured: { listView?: any; listViewContextAdapter?: unknown; objectForm?: any; kanban?: any } = {};
 
 const adapter = { find: async () => [], getObjectSchema: async () => ({ name: 'showcase_project', fields: {} }) } as any;
 
-function renderReactPage(source: string) {
+function renderReactPage(source: string, hostAdapter: typeof adapter | null = adapter) {
   return render(
-    <AdapterCtx.Provider value={adapter}>
+    <AdapterCtx.Provider value={hostAdapter}>
       <SchemaRenderer schema={{ type: 'home', kind: 'react', name: 'test_page', source }} />
     </AdapterCtx.Provider>,
   );
@@ -64,6 +65,9 @@ beforeAll(() => {
   // @object-ui/components, so nothing is being clobbered.
   ComponentRegistry.register('list-view', (props: any) => {
     captured.listView = props;
+    // The adapter a block resolves when its node carries none: the page's
+    // provider, the channel every registered block reads (objectui#11070).
+    captured.listViewContextAdapter = React.useContext(SchemaRendererContext)?.dataSource;
     return <div data-testid="list-view-double" />;
   });
   ComponentRegistry.register('object-form', (props: any) => {
@@ -79,6 +83,7 @@ afterAll(() => {
 
 beforeEach(() => {
   captured.listView = undefined;
+  captured.listViewContextAdapter = undefined;
   captured.objectForm = undefined;
   captured.kanban = undefined;
 });
@@ -93,7 +98,8 @@ describe('kind:\'react\' scope eligibility', () => {
     (tag) => {
       const cfg = ComponentRegistry.getPublicConfigs().find((c: any) => c.type === tag);
       // Missing from PUBLIC_BLOCKS, or marked isContainer, => dropped from the
-      // scope of every kind:'react' page (react-page.tsx:64-66).
+      // scope of every kind:'react' page (the `cfg.isContainer` skip in
+      // `buildComponentScope`).
       expect(cfg).toBeTruthy();
       expect((cfg as any).isContainer).toBeFalsy();
     },
@@ -120,7 +126,7 @@ function Page() {
     expect(await findByTestId('list-view-double')).toBeTruthy();
     expect(await findByTestId('object-form-double')).toBeTruthy();
     // The failure mode this guards: `ReferenceError: ListView is not defined`
-    // surfaced through ReactRunner's fallback (react-page.tsx:186-191).
+    // surfaced through the `fallback` `ReactKindPage` hands `ReactRunner`.
     expect(queryByText('React page error')).toBeNull();
   });
 
@@ -133,7 +139,7 @@ function Page() {
     await findByTestId('list-view-double');
 
     // Flat JSX props are folded into the schema bag, and the discriminator wins
-    // the `type` slot (react-page.tsx:79-84).
+    // the `type` slot (the wrapper's `specType` stamp in `buildComponentScope`).
     expect(captured.listView.schema).toMatchObject({
       type: 'list-view',
       objectName: 'showcase_project',
@@ -143,9 +149,11 @@ function Page() {
     // Callbacks must survive as real props — the master/detail pattern in
     // apps/console/src/sdui-workbench-preview.tsx is built on onRowClick.
     expect(typeof captured.listView.onRowClick).toBe('function');
-    // The wrapper stamps the live adapter in, since list-view reads dataSource
-    // from props rather than from context (react-page.tsx:61-63).
-    expect(captured.listView.schema.dataSource).toBe(adapter);
+    // The adapter is NOT stamped onto the node (objectui#11070). `dataSource` on
+    // a node is the spec's per-element binding; the adapter reaches the block
+    // through the `SchemaRendererProvider` the page is wrapped in.
+    expect('dataSource' in captured.listView.schema).toBe(false);
+    expect(captured.listViewContextAdapter).toBe(adapter);
   });
 
   it('injects useAdapter so a page can query on its own', async () => {
@@ -156,6 +164,48 @@ function Page() {
 }`;
     const { findByTestId } = renderReactPage(source);
     expect((await findByTestId('adapter-probe')).textContent).toBe('has-adapter');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2b. `dataSource` on the node is the author's binding, and only that
+//     (objectui#11070)
+// ---------------------------------------------------------------------------
+
+describe('kind:\'react\' page — the node\'s `dataSource` is the authored binding', () => {
+  it('carries a binding the author writes, exactly as written', async () => {
+    const source = `
+function Page() {
+  return <ListView dataSource={{ object: 'showcase_project', limit: 5 }} />;
+}`;
+    const { findByTestId } = renderReactPage(source);
+    await findByTestId('list-view-double');
+    expect(captured.listView.schema.dataSource).toEqual({ object: 'showcase_project', limit: 5 });
+    expect(captured.listViewContextAdapter).toBe(adapter);
+  });
+
+  it('writes nothing under `dataSource` through the `Block` escape hatch either', async () => {
+    const source = `
+function Page() {
+  return <Block type="list-view" objectName="showcase_project" />;
+}`;
+    const { findByTestId } = renderReactPage(source);
+    await findByTestId('list-view-double');
+    expect(captured.listView.schema).toMatchObject({ type: 'list-view', objectName: 'showcase_project' });
+    expect('dataSource' in captured.listView.schema).toBe(false);
+  });
+
+  it('writes no `dataSource: null` before the host connects an adapter', async () => {
+    // The window objectui#7912 names: `useAdapter()` answers `null`. That
+    // absence is the provider's value; the node states nothing about it.
+    const source = `
+function Page() {
+  return <ListView objectName="showcase_project" />;
+}`;
+    const { findByTestId } = renderReactPage(source, null);
+    await findByTestId('list-view-double');
+    expect('dataSource' in captured.listView.schema).toBe(false);
+    expect(captured.listViewContextAdapter).toBeNull();
   });
 });
 
@@ -273,7 +323,7 @@ function Page() {
     // Proves the assertions above are meaningful: when a block really is absent
     // from scope, the author sees this.
     //
-    // The panel is ReactRunner's own `fallback` (react-page.tsx:186-191).
+    // The panel is the `fallback` `ReactKindPage` hands `ReactRunner`.
     // Pinning it also pins objectui#2954: `getDerivedStateFromProps` used to
     // re-transpile on every render and reset `error: null`, so the recovery
     // render rebuilt the same throwing element and the error escaped PAST this

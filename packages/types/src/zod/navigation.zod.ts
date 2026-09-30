@@ -194,11 +194,26 @@ export const BreadcrumbSchema = BaseSchema.extend({
 });
 
 /**
+ * objectui#6152 — ONE string for the retired `page` spelling, carried into both
+ * author-facing channels (`retirementTombstone()` writes it into `.describe()` and
+ * the parse message).
+ */
+const PAGINATION_PAGE_RETIRED =
+  'RETIRED (objectui#6152, ADR-0049) — `page` was a second spelling of `currentPage`, read only as a '
+  + 'fallback behind it, and no document authored it. Rename the key to `currentPage`.';
+
+/**
  * Pagination Schema - Pagination component
  */
 export const PaginationSchema = BaseSchema.extend({
   type: z.literal('pagination'),
-  page: z.number().optional().describe('Current page number'),
+  // objectui#6152 — `currentPage` is the one spelling: the renderer reads it, and it
+  // is the spelling every authored pagination node writes. `page` is RETIRED in
+  // lockstep with the `?: never` twin on the interface; a tombstone rather than a
+  // deletion, because `BaseSchema` is `.passthrough()` and a key with no member here
+  // would be KEPT unexamined, not refused.
+  currentPage: z.number().optional().describe('Current page (1-indexed)'),
+  page: retirementTombstone(PAGINATION_PAGE_RETIRED),
   totalPages: z.number().describe('Total number of pages'),
   siblings: z.number().optional().describe('Number of sibling pages to show'),
   showFirstLast: z.boolean().optional().describe('Show first/last page buttons'),
@@ -209,14 +224,14 @@ export const PaginationSchema = BaseSchema.extend({
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
-    + 'What it renders instead: `className`, `currentPage`, `page`, `totalPages`.',
+    + 'What it renders instead: `className`, `currentPage`, `totalPages`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `pagination` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
-    + 'What it renders instead: `className`, `currentPage`, `page`, `totalPages`.',
+    + 'What it renders instead: `className`, `currentPage`, `totalPages`.',
   ),
 });
 

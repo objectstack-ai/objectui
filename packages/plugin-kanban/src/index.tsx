@@ -638,31 +638,20 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
  * stays documented rather than declared. An unrecognised probe key draws
  * `unrecognized_keys` on these calls while none of the declared keys does.
  *
- * ## What is deliberately NOT here yet
+ * ## What is deliberately NOT here
  *
- * ONE of the fourteen keys stays undeclared, keeping its live entry in
- * `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`:
- *
- *   - `quickAdd` is RULED, and the ruling is PREMATURE. This renderer does not
- *     honour it at all: `KanbanImpl` gates the control on `quickAdd &&
- *     onQuickAdd`, and `onQuickAdd` is an objectui#6124 RUNTIME SLOT the zod
- *     twin refuses by name; nothing on the `ObjectKanban` path supplies one.
- *     objectui#8201 escalated the DISPOSITION rather than guessing it, and the
- *     PM answered (Q1 = A, 2026-09-07): PREMATURE — the renderer does not
- *     honour it, and objectui#8285 owns the fix.
- *     ⭐ PREMATURE commits nobody to building quick-add. It is also NOT the
- *     stronger reading that the object-bound board is not going to grow it:
- *     nothing measured supports that, and `KanbanRenderer` below contradicts
- *     it by forwarding the same `quickAdd` + `onQuickAdd` pair by identity to
- *     a React host that can supply the function.
- *     ⛔ The exit is NOT a declaration — publishing the key would advertise
- *     configuration this renderer drops. objectui#8285 was ruled (director
- *     seat 2026-09-08, decision batch #91) to retire `object-kanban.quickAdd`
- *     from the spec's `ComponentPropsMap`; the day that lands, the key leaves
- *     the accepted set and the console entry is harvested by its own dangling
- *     and stale checks. Pinned from this side by
- *     `__tests__/quickAddIsDiagnosedNotDropped-8285.test.ts` row 5, whose
- *     reddening IS that day.
+ * `quickAdd`, the fifteenth key, is RETIRED rather than undeclared-pending
+ * (objectui#8285, director seat 2026-09-08, decision batch #91, ruling B: the
+ * board does not grow an inline record-creation write path). It never drew
+ * anything on this block — `KanbanImpl` gates the control on `quickAdd &&
+ * onQuickAdd`, and `onQuickAdd` is a host-supplied function nothing on the
+ * `ObjectKanban` path supplies — so publishing it here would advertise
+ * configuration this renderer drops. The spec tombstones it in 17.5.0, both
+ * `ObjectKanbanSchema` faces refuse it by name, and `ObjectKanban` no longer
+ * forwards it (the `quickAdd: undefined` entry in its `effectiveSchema`).
+ * `KanbanRenderer` above keeps the pair for a React host that mounts it
+ * directly. Pinned in `__tests__/quickAddRetiredNotForwarded-8285.test.tsx`,
+ * whose registration row also asserts this list still leaves it out.
  *
  * The declarations are pinned per tag and per key, so removing one from this
  * list reddens a NAMED row rather than a file:

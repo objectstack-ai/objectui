@@ -1226,6 +1226,17 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
       columns: effectiveColumns,
       className: className || schema.className,
       ...(effectiveSwimlaneField ? { swimlaneField: effectiveSwimlaneField } : {}),
+      // objectui#8285 (ruling B, decision batch #91): `quickAdd` is RETIRED on
+      // this element, and this is the line that stops forwarding it. Every
+      // `object-kanban` entry point lands here — the registered tag, the
+      // `kanbanComponents` map and a host mounting this component — so the
+      // key is cut once, at the producer of the schema `KanbanRenderer` reads,
+      // rather than at one of the doors. `KanbanRenderer` itself is untouched:
+      // a React host that mounts it directly keeps the Quick Add pair, which is
+      // where the control works. Both published `ObjectKanbanSchema` faces
+      // refuse the key by name, as `@objectstack/spec` 17.5.0 does; an untyped
+      // value that reaches this line anyway is not handed on.
+      quickAdd: undefined,
   };
 
   // Default to a right-side drawer so clicking a card opens an editable detail

@@ -52,3 +52,5 @@ The pair moves from `zod-mirror-parity.test.ts`'s `RuntimeOnlyDeclared` to its
 hold — so the two unmirrored ledgers are now in a containment relation, and the
 cross-ledger figure that recorded their difference states the containment
 instead.
+
+**Correction, 2026-09-30 (objectui#6152, round 3).** The paragraph above says the two unmirrored ledgers are now in a containment relation. That was true when this change was written, and it no longer is: objectui#6152 round 3 left two pairs, `object-form` and `form`, recorded only in `RuntimeOnlyDeclared`, so the cross-ledger figure in `zod-mirror-parity.test.ts` states a difference again. The move this entry describes, `TreeViewSchema.onNodeClick` into `KnownDrift`, is unaffected.

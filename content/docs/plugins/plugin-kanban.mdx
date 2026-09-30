@@ -88,7 +88,9 @@ objectui#6124 **runtime slots**, so an authored `onCardClick: { "action":
 "toast" }` is now refused with a message pointing at the node-type spelling,
 where before it parsed green and was handed to a call site expecting a function.
 A React host still supplies either function through the TypeScript interface or
-as a React prop; only the JSON face refuses them.
+as a React prop; only the JSON face refuses them. ⚠️ On `object-kanban` a
+supplied `onQuickAdd` reaches the board and is never called, because its partner
+`quickAdd` is retired there — see "Quick Add is a React-host capability" below.
 
 ⭐ `onCardMove` is declared too, since objectui#9342 — but as a **tombstone**,
 not a runtime slot. An authored one used to be accepted and silently dropped,
@@ -482,18 +484,14 @@ retired with objectui#8257, so a document naming that tag is now an
 component instead.
 
 An **object-driven** board (`object-kanban`, or a kanban view inside `ListView` /
-`ObjectView`) supplies no `onQuickAdd` of its own, and a page written as
-constrained JSX cannot write one either: that tier parses and never executes, so
-a handler attribute is refused there. An authored `quickAdd: true` on that tag
-therefore renders no control. The authoring validator (`validateTree` in
-`@object-ui/sdui-parser`) reports it as an `inert-quick-add` **warning** naming
-the missing half — the document still parses, saves and renders.
-
-<Callout type="info">
-  `quickAdd` is being retired from `object-kanban`; it stays on the
-  `KanbanRenderer` component, where the pair works. Inline record creation from
-  an object-driven board is not a capability those boards have.
-</Callout>
+`ObjectView`) has no Quick Add control, and `quickAdd` is **retired** on it
+(objectui#8285): the board does not create records inline. Both
+`ObjectKanbanSchema` faces in `@object-ui/types` refuse the key by name, as
+`@objectstack/spec` does, and `ObjectKanban` does not forward it — so even a
+host that hands the board both halves of the pair gets no control. A page
+written as constrained JSX draws the ordinary `unknown-prop` **warning** for it
+(`validateTree` in `@object-ui/sdui-parser`), since the block has no such prop.
+Delete the key; to offer Quick Add, mount `KanbanRenderer` as above.
 
 ## Bundle Size
 

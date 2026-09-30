@@ -28,8 +28,7 @@
  * `body` child list under a non-container draws the same `not-a-container` the
  * `children` spelling draws. `./body-dialect.ts` answers both by REPLACING the
  * prop walk's diagnostic rather than adding to it — two diagnostics for one
- * mistake is the shape `checkMemberTypes` already refuses (objectui#8067), and
- * the shape `checkKanbanQuickAdd` next door is written against.
+ * mistake is the shape `checkMemberTypes` already refuses (objectui#8067).
  *
  * ## ⚠️ What each row must not be allowed to pass on
  *
@@ -119,9 +118,7 @@ describe('objectui#6771 — the tier answers the retired `body` with its replace
     // registration in the tree that declares an input named `body` (its value is
     // an inline translation map, not a child list); the extension's own gate
     // names it, and `sdui-parser` needs no list because it asks inside the
-    // `!input` branch. That scoping is the opposite of `checkKanbanQuickAdd`'s,
-    // deliberately: there the claim is about the render path, so declaring the
-    // key must not disarm it; here the claim is about a key nobody declares.
+    // `!input` branch, deliberately: the claim is about a key nobody declares.
     expect(diagnose({ type: 'detail', body: 'Updated the deal stage.' })).toHaveLength(0);
   });
 

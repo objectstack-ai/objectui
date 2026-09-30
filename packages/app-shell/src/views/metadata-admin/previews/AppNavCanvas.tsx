@@ -23,6 +23,12 @@
  * live in `./navItemLabel.ts`, which the Studio's nav-item inspector imports
  * too, so the two editors of one label cannot disagree (objectui#11148).
  *
+ * An entry with NO label shows the text it inherits (objectui#11196): the
+ * runtime's rule, asked of the console's own target resolver, so the card
+ * names the entry as the console's sidebar does. The inline rename shows that
+ * text as the input's PLACEHOLDER, never as its value: an untouched entry
+ * stays label-less, and only typing writes an author label.
+ *
  * Selection IDs match AppNavInspector:
  *   { kind: 'nav', id: `${rootKey}[${i}]` }
  *   { kind: 'nav', id: `${rootKey}[${i}].children[${j}]` }
@@ -48,9 +54,11 @@ import {
 } from 'lucide-react';
 import type { I18nLabel } from '@objectstack/spec/ui';
 import { Badge, cn } from '@object-ui/components';
+import type { NavTargetLabelResolver } from '@object-ui/layout';
+import { useNavTargetLabel } from '../../../hooks/useNavTargetLabel.js';
 import { appendArray, moveArray, spliceArray } from '../inspectors/_shared.js';
 import { t, tFormat, useMetadataLocale } from '../i18n.js';
-import { navItemLabelText, renamedLabel } from './navItemLabel.js';
+import { navEntryLabelText, navItemLabelText, renamedLabel } from './navItemLabel.js';
 
 const DND_MIME = 'text/x-objectui-nav';
 
@@ -191,11 +199,13 @@ function kindTone(kind: string): KindTone {
  * `I18nLabel`, so a locale map resolves through the spec's own resolver
  * (`navItemLabelText`, shared with the Studio's nav-item inspector), never a
  * `typeof === 'string'` test that reads a map as no label (objectui#11128).
- * The positional `engine.appNav.item` row is for a label that is truly absent
- * or resolves to nothing.
+ * An ABSENT label shows the inherited text (`navEntryLabelText`, the runtime's
+ * rule — objectui#11196). The positional `engine.appNav.item` row is left for
+ * what that rule cannot name: a separator, a label that is present but
+ * resolves to nothing, and an entry with no target and no `id`.
  */
-function navLabel(it: RawNav, i: number, locale: string): string {
-  const l = navItemLabelText(it.label, locale).trim();
+function navLabel(it: RawNav, i: number, locale: string, targetLabel: NavTargetLabelResolver): string {
+  const l = navEntryLabelText(it, locale, targetLabel).trim();
   if (l) return l;
   return tFormat('engine.appNav.item', locale, { n: i + 1 });
 }
@@ -246,6 +256,7 @@ export function AppNavCanvas({
   onSelectionChange,
 }: AppNavCanvasProps) {
   const locale = useMetadataLocale();
+  const targetLabel = useNavTargetLabel();
   const items: RawNav[] = React.useMemo(() => {
     const v = (draft as any)[rootKey];
     return Array.isArray(v) ? (v as RawNav[]) : [];
@@ -317,10 +328,10 @@ export function AppNavCanvas({
       onSelectionChange?.({
         kind: 'nav',
         id: `${rootKey}[${to}]`,
-        label: navLabel(next[to] ?? {}, to, locale),
+        label: navLabel(next[to] ?? {}, to, locale, targetLabel),
       });
     },
-    [onPatch, items, setItems, rootKey, onSelectionChange, locale],
+    [onPatch, items, setItems, rootKey, onSelectionChange, locale, targetLabel],
   );
 
   return (
@@ -376,6 +387,7 @@ export function AppNavCanvas({
               depth={0}
               path={`${rootKey}[${i}]`}
               locale={locale}
+              targetLabel={targetLabel}
               selectedId={selectedId}
               canEdit={!!onPatch}
               onClick={(p, lbl) => onSelectionChange?.({ kind: 'nav', id: p, label: lbl })}
@@ -402,6 +414,7 @@ function NavCardTree({
   depth,
   path,
   locale,
+  targetLabel,
   selectedId,
   canEdit,
   onClick,
@@ -416,6 +429,7 @@ function NavCardTree({
   depth: number;
   path: string;
   locale: string;
+  targetLabel: NavTargetLabelResolver;
   selectedId: string | null;
   canEdit: boolean;
   onClick: (path: string, label: string) => void;
@@ -433,9 +447,10 @@ function NavCardTree({
         depth={depth}
         path={path}
         locale={locale}
+        targetLabel={targetLabel}
         isSelected={selectedId === path}
         canEdit={canEdit && depth === 0}
-        onClick={() => onClick(path, navLabel(item, index, locale))}
+        onClick={() => onClick(path, navLabel(item, index, locale, targetLabel))}
         onRename={onRename}
         onRemove={onRemove}
         onDragStart={onDragStart}
@@ -453,6 +468,7 @@ function NavCardTree({
               depth={depth + 1}
               path={childPath}
               locale={locale}
+              targetLabel={targetLabel}
               selectedId={selectedId}
               canEdit={canEdit}
               onClick={onClick}
@@ -474,6 +490,7 @@ function NavCard({
   depth,
   path,
   locale,
+  targetLabel,
   isSelected,
   canEdit,
   onClick,
@@ -488,6 +505,7 @@ function NavCard({
   depth: number;
   path: string;
   locale: string;
+  targetLabel: NavTargetLabelResolver;
   isSelected: boolean;
   canEdit: boolean;
   onClick: () => void;
@@ -501,15 +519,18 @@ function NavCard({
   const Icon = kindIcon(kind);
   const tone = kindTone(kind);
   const target = navTarget(item);
-  const label = navLabel(item, index, locale);
+  const label = navLabel(item, index, locale, targetLabel);
+  // The rename edits the AUTHORED label: `''` for an entry that has none, whose
+  // inherited text (the card's `label`) is the input's placeholder instead.
+  const authored = navItemLabelText(item.label, locale).trim();
   const [editing, setEditing] = React.useState(false);
-  const [draft, setDraft] = React.useState(label);
+  const [draft, setDraft] = React.useState(authored);
   const [hover, setHover] = React.useState(false);
   const [dropPos, setDropPos] = React.useState<'before' | null>(null);
 
   React.useEffect(() => {
-    if (!editing) setDraft(label);
-  }, [label, editing]);
+    if (!editing) setDraft(authored);
+  }, [authored, editing]);
 
   return (
     <div className="relative" style={{ paddingLeft: depth * 16 }}>
@@ -561,12 +582,13 @@ function NavCard({
           <input
             autoFocus
             value={draft}
+            placeholder={label}
             onChange={(e) => setDraft(e.target.value)}
             onClick={(e) => e.stopPropagation()}
             onBlur={() => {
               setEditing(false);
               const v = draft.trim();
-              if (v && v !== label) onRename(v);
+              if (v && v !== authored) onRename(v);
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
@@ -574,7 +596,7 @@ function NavCard({
                 (e.target as HTMLInputElement).blur();
               } else if (e.key === 'Escape') {
                 e.preventDefault();
-                setDraft(label);
+                setDraft(authored);
                 setEditing(false);
               }
             }}

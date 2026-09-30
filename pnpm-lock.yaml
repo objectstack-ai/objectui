@@ -1805,6 +1805,9 @@ importers:
       '@object-ui/i18n':
         specifier: workspace:*
         version: link:../i18n
+      '@object-ui/layout':
+        specifier: workspace:*
+        version: link:../layout
       '@object-ui/plugin-form':
         specifier: workspace:*
         version: link:../plugin-form

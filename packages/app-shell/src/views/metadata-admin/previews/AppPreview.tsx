@@ -57,14 +57,16 @@ import {
   MousePointerClick,
   Puzzle,
 } from 'lucide-react';
-import { resolveHref } from '@object-ui/layout';
+import { resolveHref, type NavTargetLabelResolver } from '@object-ui/layout';
 import type { NavigationItemType } from '@object-ui/types';
 import { resolveI18nLabel } from '@objectstack/spec/ui';
+import { useNavTargetLabel } from '../../../hooks/useNavTargetLabel.js';
 import type { MetadataPreviewProps } from '../preview-registry.js';
 import { t as tr } from '../i18n.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 import { AppNavCanvas } from './AppNavCanvas.js';
 import { withNodes } from './row-nodes.js';
+import { navEntryLabelText, navItemLabelText } from './navItemLabel.js';
 
 /**
  * The members of the spec's navigation union — the spec-derived
@@ -132,11 +134,23 @@ function navTarget(it: Record<string, unknown>, kind?: NavKind): string | undefi
  * through a `typeof === 'string'` test or `String()` (objectui#11100): a map
  * label would read as no label, or as `[object Object]`. A label only decides
  * an entry's text, never whether the entry exists: an entry that names a
- * record or holds children is kept, and reads `unnamed` when it has no label
- * to show. `unnamed` is the designer's word for that
- * (`engine.appPreview.unnamed`, in the preview's locale — objectui#10862).
+ * record or holds children is kept.
+ *
+ * An entry with NO label shows the text it inherits, through the runtime's own
+ * rule and the console's own `targetLabel` resolver (`navEntryLabelText`,
+ * objectui#11196): its target's current label, else the target's machine
+ * name, else its `id` — what the console's sidebar draws for it. `unnamed`
+ * (`engine.appPreview.unnamed`, in the preview's locale — objectui#10862) is
+ * left for what that rule cannot name: a label that is present but resolves
+ * to nothing, and an entry with no target and no `id`, which the spec refuses.
  */
-function normalizeNav(raw: unknown, appName: string, unnamed: string, locale: string | undefined): NavItem[] {
+function normalizeNav(
+  raw: unknown,
+  appName: string,
+  unnamed: string,
+  locale: string | undefined,
+  targetLabel: NavTargetLabelResolver,
+): NavItem[] {
   if (!Array.isArray(raw)) return [];
   return raw
     .map((it: any): NavItem | null => {
@@ -146,9 +160,11 @@ function normalizeNav(raw: unknown, appName: string, unnamed: string, locale: st
       if (kind === 'separator') {
         return { id: typeof it.id === 'string' ? it.id : undefined, label: '', kind };
       }
-      const label = (resolveI18nLabel(it.label, locale) ?? '').trim();
       const target = navTarget(it, kind);
-      if (!label && !it.children && !target) return null;
+      // Existence reads the AUTHORED label, as it always has: inheriting text
+      // never turns an entry with nothing to open into one worth listing.
+      if (!navItemLabelText(it.label, locale).trim() && !it.children && !target) return null;
+      const label = navEntryLabelText(it, locale, targetLabel).trim();
       // Delegate to the shell's own mapping so the preview cannot invent a
       // route the runtime would not produce. Needs a `type`, so an item
       // missing the discriminator gets no link — which is the truth.
@@ -165,7 +181,9 @@ function normalizeNav(raw: unknown, appName: string, unnamed: string, locale: st
           href = undefined;
         }
       }
-      const children = Array.isArray(it.children) ? normalizeNav(it.children, appName, unnamed, locale) : undefined;
+      const children = Array.isArray(it.children)
+        ? normalizeNav(it.children, appName, unnamed, locale, targetLabel)
+        : undefined;
       return { id: typeof it.id === 'string' ? it.id : undefined, label: label || unnamed, kind, target, href, external, children };
     })
     .filter((x): x is NavItem => x !== null);
@@ -258,6 +276,9 @@ export function AppPreview({ name, draft, editing, selection, onSelectionChange,
   // name only when it authored none (objectui#11100).
   const label = resolveI18nLabel(draft.label as I18nText, locale) ?? appName;
   const unnamed = tr('engine.appPreview.unnamed', locale);
+  // What a label-less entry inherits is asked of the console's own resolver, so
+  // the preview names it as the sidebar does (objectui#11196).
+  const targetLabel = useNavTargetLabel();
   // The landing page is DERIVED, never authored: it is the first navigation
   // item that actually addresses something. The app used to be able to pin it
   // with `homePageId`, but spec 17.0.0 retired that key (objectstack#4667 /
@@ -274,10 +295,12 @@ export function AppPreview({ name, draft, editing, selection, onSelectionChange,
       ['menu', (draft as any).menu],
     ];
     for (const [k, c] of candidates) {
-      if (Array.isArray(c) && c.length) return { rootKey: k, navItems: normalizeNav(c, appName, unnamed, locale) };
+      if (Array.isArray(c) && c.length) {
+        return { rootKey: k, navItems: normalizeNav(c, appName, unnamed, locale, targetLabel) };
+      }
     }
     return { rootKey: null, navItems: [] };
-  }, [draft, appName, unnamed, locale]);
+  }, [draft, appName, unnamed, locale, targetLabel]);
 
   // Resolve the landing entry the same way `resolveLandingRoute` does in the
   // console shell, so the author sees WHICH entry the app will open on:

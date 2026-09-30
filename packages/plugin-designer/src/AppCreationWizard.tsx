@@ -44,7 +44,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { resolveKeyedI18nLabel } from '@object-ui/react';
+import { resolveNavItemLabel, type NavTargetLabelResolver } from '@object-ui/layout';
 import { useDesignerTranslation } from './hooks/useDesignerTranslation';
 import { useConfirmDialog } from './hooks/useConfirmDialog';
 
@@ -491,6 +491,8 @@ function ObjectSelectionStep({
 
 interface NavigationBuilderStepProps {
   items: NavigationItem[];
+  /** The wizard's object list: what a label-less object entry inherits its text from. */
+  objects: ObjectSelection[];
   readOnly: boolean;
   onAdd: (type: 'group' | 'url' | 'separator') => void;
   onRemove: (id: string) => void;
@@ -511,12 +513,21 @@ const TYPE_BADGE_COLORS: Record<string, string> = {
 
 function NavigationBuilderStep({
   items,
+  objects,
   readOnly,
   onAdd,
   onRemove,
   onReorder,
   t,
 }: NavigationBuilderStepProps) {
+  // The host's answer to "what is this target called?" (objectui#11196): the
+  // runtime's `resolveNavItemLabel` walks its own ladder and asks this about an
+  // entry with no `label`. The wizard holds each object's label, so an object
+  // entry inherits it, as the console's sidebar shows it; any other target
+  // falls to the rule's machine-name rung.
+  const labelOf = new Map(objects.map((o) => [o.name, o.label]));
+  const targetLabel: NavTargetLabelResolver = (target) =>
+    target.kind === 'object' ? labelOf.get(target.objectName) : undefined;
   return (
     <div data-testid="wizard-step-navigation-content" className="mx-auto max-w-lg space-y-4">
       {/* Add buttons */}
@@ -570,7 +581,10 @@ function NavigationBuilderStep({
                 <span className="text-xs text-gray-400">{item.icon}</span>
               )}
               <span className="flex-1 truncate text-sm text-gray-800">
-                {item.type === 'separator' ? t('appDesigner.separatorLabel') : resolveKeyedI18nLabel(item.label)}
+                {/* The runtime's rule (objectui#11196): an entry with no `label` shows the text it inherits. */}
+                {item.type === 'separator'
+                  ? t('appDesigner.separatorLabel')
+                  : resolveNavItemLabel(item, undefined, undefined, undefined, undefined, targetLabel)}
               </span>
               <span
                 className={cn(
@@ -990,6 +1004,7 @@ export function AppCreationWizard({
         {currentStep === 2 && (
           <NavigationBuilderStep
             items={draft.navigation}
+            objects={draft.objects}
             readOnly={readOnly}
             onAdd={addNavItem}
             onRemove={removeNavItem}

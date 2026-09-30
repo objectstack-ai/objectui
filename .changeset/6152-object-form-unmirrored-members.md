@@ -44,3 +44,5 @@ Two members of the same TypeScript type are deliberately not mirrored:
 - `open` is a boolean that only in-code hosts set.
 
 Their routes are open on objectui#6152. No TypeScript declaration changed.
+
+**Correction, 2026-09-30 (objectui#6152, round 3).** The paragraph above says the routes of `open` and `submitHandler` are open on objectui#6152. That was true when this change was written, and it no longer is: round 3 settled both. Each stays declared on the TypeScript type and unmirrored, as a runtime slot a host fills in code, so the published faces do not change for either key: `safeValidateSchema` still keeps an authored value at either key unexamined, and the strict authoring face still refuses both.

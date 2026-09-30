@@ -102,3 +102,5 @@ already untrue at that branch's base, and both cards that made it untrue are
 closed. It is corrected here, rather than left to objectui#6150's owner, because
 this note and theirs publish VERBATIM into the same CHANGELOG — a reader would
 have met three paragraphs contradicting each other in one release.
+
+**Correction, 2026-09-30 (objectui#6152, round 3).** The amended `TreeViewSchema` bullet above says `RuntimeOnlyDeclared` is a subset of `UnmirroredDeclared` and that the union of the two equals `UnmirroredDeclared` itself. That was true when the amendment was written, and it no longer is: objectui#6152 round 3 left two pairs, `object-form` and `form`, recorded only as runtime-only. Both ledgers are test instruments in `zod-mirror-parity.test.ts`, and no published surface depends on either relation; the file's header states the current figures and pins them.

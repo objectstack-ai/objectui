@@ -171,6 +171,40 @@ const DETAIL_VIEW_NEITHER_CHANNEL = neitherContentChannelGuidance(
 /**
  * Detail View Schema
  */
+/**
+ * objectui#6152 round 3 — one entry of `DetailViewSchema.sectionGroups`, restated
+ * member for member from the interface's `SectionGroup`. Module-private: a nested
+ * shape of the `detail-view` arm, not a registered pair.
+ *
+ * ⚠️ One stated exception: `sections` is `z.array(z.any())` where the twin says
+ * `DetailViewSection[]`. Binding `DetailViewSectionSchema` here would import that
+ * pair's own `KnownDrift` rows into this arm as a NEW drifted key, and growing
+ * `KnownDrift` is never the remedy; the same exception objectui#6152 round 1 took for
+ * `ObjectFormSchema.sections[].fields`. So a section inside a group is not judged on
+ * this key.
+ */
+const DetailViewSectionGroupSchema = z.object({
+  title: z.string().describe('Group title'),
+  description: z.string().optional().describe('Group description'),
+  icon: z.string().optional().describe('Group icon'),
+  collapsible: z.boolean().optional().describe('Whether the group is collapsible (default true)'),
+  defaultCollapsed: z.boolean().optional().describe('Whether the group starts collapsed'),
+  sections: z.array(z.any()).describe('Sections in this group (not judged on this key; see the docblock)'),
+});
+
+/**
+ * objectui#6152 round 3 — one entry of `DetailViewSchema.highlightFields`, restated
+ * member for member from the interface's `HighlightField`; `type` is the field
+ * mirror's own member, as the twin's `DetailViewField['type']` is. Module-private.
+ */
+const DetailViewHighlightFieldSchema = z.object({
+  name: z.string().describe('Field name from the record data'),
+  label: z.string().describe('Display label'),
+  type: DetailViewFieldSchema.shape.type,
+  icon: z.string().optional().describe('Optional icon'),
+  readonly: z.boolean().optional().describe('Read-only chip: never offers inline edit'),
+});
+
 export const DetailViewSchema = BaseSchema.extend({
   type: z.literal('detail-view'),
   title: z.string().optional().describe('Detail title'),
@@ -258,6 +292,22 @@ export const DetailViewSchema = BaseSchema.extend({
   loading: z.boolean().optional().describe('Whether to show loading state'),
   header: SchemaNodeSchema.optional().describe('Custom header content'),
   footer: SchemaNodeSchema.optional().describe('Custom footer content'),
+  // objectui#6152 round 3 — six configuration members the interface declared and
+  // this mirror had never heard of, each READ by `DetailView` (a type-checker census
+  // over every package's sources, not a grep; `defaultTab` through the renderer's own
+  // `(schema as any)` cast at its one read site). Restated as the twin declares them.
+  primaryField: z.string().optional()
+    .describe('Field whose value is the record title in the header; falls back to title'),
+  summaryFields: z.array(z.string()).optional()
+    .describe('Field names rendered as summary badges next to the header title'),
+  autoTabs: z.boolean().optional()
+    .describe('Generate Details / Related / Activity tabs when no explicit tabs are configured'),
+  defaultTab: z.string().optional()
+    .describe('Initially active autoTabs tab (details, related, activity, discussion, history); ignored when that tab does not render'),
+  sectionGroups: z.array(DetailViewSectionGroupSchema).optional()
+    .describe('Groups of sections, each rendered under a collapsible header'),
+  highlightFields: z.array(DetailViewHighlightFieldSchema).optional()
+    .describe('Key fields shown prominently in a highlight banner below the header'),
   /**
    * The DETAIL-VIEW RELATED-LIST REFUSAL (objectui#7997) — `related` retires
    * from `DetailViewSchema` on BOTH faces under ADR-0049 enforce-or-remove

@@ -220,8 +220,11 @@ describe('AppNavCanvas (design mode) reads the same union', () => {
       label: 'CRM',
       navigation: [{ id: 'a_b', type: 'object', path: '/apps/crm/accounts', objectName: 'account' }],
     });
-    // No `label` ⇒ the positional fallback, not the off-spec path.
-    expect(screen.getByText('Item 1')).toBeTruthy();
+    // No `label` ⇒ the text the entry inherits (objectui#11196): with no
+    // metadata, its target's machine name, shown as the label and as the
+    // target — never the off-spec path, and no longer a positional row.
+    expect(screen.getAllByText('account')).toHaveLength(2);
+    expect(screen.queryByText('Item 1')).toBeNull();
     expect(screen.queryByText('/apps/crm/accounts')).toBeNull();
   });
 

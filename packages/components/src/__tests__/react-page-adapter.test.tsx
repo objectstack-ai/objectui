@@ -8,33 +8,35 @@
  * The adapter reaches a `kind:'react'` page's blocks, and keeps reaching them
  * when the host swaps it.
  *
- * `ReactKindPage` memoises the injected scope on `[schema, adapter]`, and that
- * `adapter` dependency looks like something to optimise away — it is the one
- * remaining thing that can recompile the page and cost its `useState`
- * (objectui#2954). It cannot go.
+ * The blocks resolve it from the `SchemaRendererProvider` the page is wrapped
+ * in — the channel every registered block reads. It is NOT stamped onto the
+ * node: `dataSource` there is the spec's per-element binding, and the wrapper
+ * used to pun the adapter (or `null`) into it (objectui#11070). The stand-in
+ * below therefore reads the context, as the real blocks do, and asserts the
+ * node carries no `dataSource` at all.
  *
- * `ReactRunner` returns the SAME element object while `(code, scope)` are
- * unchanged, and React bails out of re-rendering a child whose element is
- * referentially identical. So the page subtree does not re-render on its own:
- * recompiling is the ONLY way a new adapter reaches the blocks inside the page.
- * Drop the dependency (or read the adapter through a ref to "keep the scope
- * stable") and every block in every react page silently keeps querying through
- * the dead adapter — no error, just stale or failing data.
+ * `ReactKindPage` memoises the injected scope on `[schema, adapter]`, and a
+ * change to either recompiles the page and costs its `useState`
+ * (objectui#2954). The `adapter` half now serves the page's OWN code, not the
+ * blocks (see the comment on that memo): an effect that reads through
+ * `useAdapter()` without naming the adapter in its dependencies is re-run by
+ * that recompile.
  *
- * These pin both halves so the tradeoff cannot be quietly re-litigated:
- * a swapped adapter must reach the blocks, and an unchanged one must not
- * disturb them.
+ * These pin both halves: a swapped adapter must reach the blocks, and an
+ * unchanged one must not disturb the page.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
-import { SchemaRenderer, AdapterCtx } from '@object-ui/react';
+import { SchemaRenderer, AdapterCtx, SchemaRendererContext } from '@object-ui/react';
 import '../renderers';
 
-/** The dataSource each render of the stand-in block was handed. */
+/** The adapter each render of the stand-in block resolved from its context. */
 const seen: unknown[] = [];
+/** Whether each render's node carried a `dataSource` key. */
+const nodeCarriedDataSource: boolean[] = [];
 
 const makeAdapter = (id: string) => ({ id, find: async () => [] }) as any;
 
@@ -58,7 +60,8 @@ const SCHEMA = { type: 'home', kind: 'react', name: 'adapter_page', source: SOUR
 // See object-ui/no-dynamic-import-in-test-hook (objectui#3010/#3021).
 beforeAll(() => {
   ComponentRegistry.register('list-view', (props: any) => {
-    seen.push(props.schema?.dataSource);
+    seen.push(React.useContext(SchemaRendererContext)?.dataSource);
+    nodeCarriedDataSource.push(!!props.schema && 'dataSource' in props.schema);
     return <div data-testid="list-view-double" />;
   });
 });
@@ -78,6 +81,7 @@ function Host({ adapter }: { adapter: any }) {
 describe('kind:\'react\' page ↔ adapter identity', () => {
   it('hands blocks the new adapter when the host swaps it', async () => {
     seen.length = 0;
+    nodeCarriedDataSource.length = 0;
     const first = makeAdapter('first');
     const second = makeAdapter('second');
 
@@ -87,11 +91,10 @@ describe('kind:\'react\' page ↔ adapter identity', () => {
 
     rerender(<Host adapter={second} />);
 
-    // Nothing else re-renders the page subtree — ReactRunner hands React the
-    // same element object while (code, scope) hold, and React bails out on an
-    // identical element reference. Recompiling on the new scope is what carries
-    // the adapter in.
+    // The block reads the provider, so the new adapter reaches it through
+    // context propagation; the node carries none on any render.
     await waitFor(() => expect(seen.at(-1)).toBe(second));
+    expect(nodeCarriedDataSource).not.toContain(true);
   });
 
   it('leaves the page alone while the adapter identity holds', async () => {

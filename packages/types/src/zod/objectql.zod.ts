@@ -2734,7 +2734,21 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   cardTitle: z.string().optional().describe('Field rendered as each card title — the canonical spelling; `titleField` beside it is the legacy fallback, and the board reads `cardTitle || titleField`'),
   titleField: z.string().optional().describe('Title field'),
   cardFields: z.array(z.string()).optional().describe('Card fields'),
-  quickAdd: z.boolean().optional().describe('Enable Quick Add button at column bottom'),
+  // objectui#8285 — RETIRED on this arm (ruling B, director seat decision batch
+  // #91, 2026-09-08), aligned with `@objectstack/spec` 17.5.0, whose
+  // `ComponentPropsMap['object-kanban']` tombstones the same key. A tombstone
+  // rather than a deleted member for the reason `groupField` above gives:
+  // `BaseSchema` ends `.passthrough()`, so a deleted member is KEPT. The TS
+  // twin in `../objectql.ts` carries the reading.
+  quickAdd: retirementTombstone(
+    '`quickAdd` is RETIRED on `object-kanban` (objectui#8285) — this board offers no inline ' +
+      'record creation. The Quick Add control is gated on BOTH `quickAdd` and an `onQuickAdd` ' +
+      'handler, which is a host-supplied function no JSON document can carry, and the board ' +
+      'supplies none of its own, so the key never drew anything here; `@objectstack/spec` ' +
+      'retired it from `object-kanban` too. Delete the key. The Quick Add pair still works on ' +
+      'the `KanbanRenderer` component of `@object-ui/plugin-kanban`, which a React host mounts ' +
+      'directly and hands `onQuickAdd` to.',
+  ),
   coverImageField: z.string().optional().describe('Field name for cover image on cards'),
   // objectui#8801 — RETIRED on this arm (ADR-0049; director seat, class-1
   // self-adjudication of 2026-09-16, letter A). Zero read sites under

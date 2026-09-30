@@ -405,13 +405,28 @@ export interface BreadcrumbSchema extends BaseSchema {
 export interface PaginationSchema extends BaseSchema {
   type: 'pagination';
   /**
-   * Current page (1-indexed)
+   * Current page (1-indexed). The one spelling of the current page: the
+   * `pagination` renderer reads it, and it is the spelling every authored
+   * pagination node writes.
    */
   currentPage?: number;
   /**
-   * Legacy page property
+   * RETIRED (objectui#6152, ADR-0049) — a second spelling of
+   * {@link PaginationSchema.currentPage}.
+   *
+   * It was declared here as the "legacy page property", and the renderer read it
+   * only as a fallback behind `currentPage`. No document authored it: the
+   * authored census over every tracked JSON file, Markdown JSON fence and
+   * `type: 'pagination'` object literal found `currentPage` three times and `page`
+   * none. Honouring both would keep one fact writable two ways (AGENTS.md #0.1),
+   * so it is retired at once, with no alias window. `?: never` rather than
+   * deleted: this interface carries `BaseSchema`'s index signature, so a deleted
+   * member would type-check silently, while a tombstone makes presence a `tsc`
+   * error, and the zod twin refuses the key by name.
+   *
+   * @deprecated RETIRED (objectui#6152) — rename the key to `currentPage`.
    */
-  page?: number;
+  page?: never;
   /**
    * Total number of pages
    */
@@ -452,8 +467,9 @@ export interface PaginationSchema extends BaseSchema {
    * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
-   * `className`, `currentPage`, `page`, `totalPages` (in
-   * `packages/components/src/renderers/basic/pagination.tsx`).
+   * `className`, `currentPage`, `totalPages` (in
+   * `packages/components/src/renderers/basic/pagination.tsx`; it also read the
+   * retired `page` until objectui#6152 dropped that read).
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -479,8 +495,9 @@ export interface PaginationSchema extends BaseSchema {
    * `packages/plugin-chatbot/src/renderer.tsx` is the kind of prefix hit grep
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
-   * `className`, `currentPage`, `page`, `totalPages` (in
-   * `packages/components/src/renderers/basic/pagination.tsx`).
+   * `className`, `currentPage`, `totalPages` (in
+   * `packages/components/src/renderers/basic/pagination.tsx`; it also read the
+   * retired `page` until objectui#6152 dropped that read).
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here

@@ -136,7 +136,8 @@ describe('objectui#8069 — FormPage refuses a faulted visibleWhen at submit', (
 
     const message = await screen.findByText(/visibleWhen rule of Notes could not be evaluated/);
     expect(message).toBeInTheDocument();
-    expect(vi.mocked(toast.error).mock.calls.at(-1)?.[0]).toMatch(/visibleWhen rule of Notes/);
+    const toasts = vi.mocked(toast.error).mock.calls;
+    expect(String(toasts[toasts.length - 1]?.[0])).toMatch(/visibleWhen rule of Notes/);
     expect(writes()).toHaveLength(0);
     // Fail-open at RENDER is unchanged (ADR-0137 D3): the field is on screen.
     expect(screen.getByLabelText('Notes')).toBeInTheDocument();
@@ -153,7 +154,7 @@ describe('objectui#8069 — FormPage refuses a faulted visibleWhen at submit', (
     renderForm(objectWith({ notes: { visibleWhen: '' } }));
     await submit();
     await waitFor(() => expect(writes()).toHaveLength(1));
-    expect(warn.mock.calls.some((c) => String(c[0]).includes('[blank]'))).toBe(true);
+    expect(warn.mock.calls.some((c: unknown[]) => String(c[0]).includes('[blank]'))).toBe(true);
   });
 
   it('a faulted requiredWhen is NOT refused on the client — it is the server’s to refuse (D2)', async () => {

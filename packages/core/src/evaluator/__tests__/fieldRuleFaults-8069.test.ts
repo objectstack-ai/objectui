@@ -60,7 +60,7 @@ beforeEach(async () => {
 });
 afterEach(() => warn.mockRestore());
 
-const warnings = () => warn.mock.calls.map((call) => String(call[0]));
+const warnings = (): string[] => warn.mock.calls.map((call: unknown[]) => String(call[0]));
 
 /** Unique per case: the one-time warning dedupes on predicate text. */
 const unbound = (tag: string) => `record.no_such_column_${tag}_8069 == 1`;

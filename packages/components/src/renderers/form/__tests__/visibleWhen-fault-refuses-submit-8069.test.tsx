@@ -135,7 +135,7 @@ describe('objectui#8069 — a faulted visibleWhen refuses the submit', () => {
     submit();
 
     await waitFor(() => expect(lastToast()).toMatch(/visibleWhen rule of Discount/));
-    expect(toastError.mock.calls.some((c) => /check the highlighted fields/.test(String(c[0])))).toBe(false);
+    expect(toastError.mock.calls.some((c: unknown[]) => /check the highlighted fields/.test(String(c[0])))).toBe(false);
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -151,7 +151,7 @@ describe('objectui#8069 — a faulted visibleWhen refuses the submit', () => {
     renderForm(base({ visibleWhen: '' }), onSubmit);
     submit();
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-    expect(warn.mock.calls.some((c) => String(c[0]).includes('[blank]'))).toBe(true);
+    expect(warn.mock.calls.some((c: unknown[]) => String(c[0]).includes('[blank]'))).toBe(true);
   });
 
   it('a section-divider row’s visibleWhen is a layout gate, not a field rule: it does not refuse', async () => {

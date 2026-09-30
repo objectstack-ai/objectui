@@ -104,7 +104,7 @@ describe('objectui#8069 — the wizard gate refuses a faulted visibleWhen', () =
     const ds = await skipPastOwnerAndSubmit({ visibleWhen: "'x' in no_such_root_8069.tags" });
     await waitFor(() => expect(document.body.querySelector('[data-field="owner"]')).toBeTruthy());
     expect(ds.create).not.toHaveBeenCalled();
-    const messages = toastError.mock.calls.map((c) => String(c[0]));
+    const messages: string[] = toastError.mock.calls.map((c: unknown[]) => String(c[0]));
     expect(messages.some((m) => /visibleWhen rule of Owner could not be evaluated/.test(m))).toBe(true);
   });
 
@@ -116,7 +116,7 @@ describe('objectui#8069 — the wizard gate refuses a faulted visibleWhen', () =
   it('a BLANK visibleWhen is no trap: the submit goes through, and the blank is diagnosed', async () => {
     const ds = await skipPastOwnerAndSubmit({ visibleWhen: '   ' });
     await expectSubmitted(ds);
-    expect(warn.mock.calls.some((c) => String(c[0]).includes('[blank]'))).toBe(true);
+    expect(warn.mock.calls.some((c: unknown[]) => String(c[0]).includes('[blank]'))).toBe(true);
   });
 
   it('a faulted requiredWhen is NOT refused by the gate — the server refuses it (D2)', async () => {

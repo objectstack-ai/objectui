@@ -36,6 +36,19 @@ const objectDef = {
   fields: [{ name: 'title', label: 'Title', type: 'text' }],
 };
 
+/** An object that ALREADY stores an empty select, from before this guard. */
+const storedEmptySelect = {
+  name: 'showcase_task',
+  label: 'Task',
+  fields: [
+    { name: 'title', label: 'Title', type: 'text' },
+    { name: 'status', label: 'Status', type: 'select' },
+  ],
+};
+
+/** What the mount's read serves; each test picks one. */
+let served: Record<string, unknown> = objectDef;
+
 /** Every PUT the transport received, parsed. */
 const puts: Array<{ url: string; body: Record<string, unknown> }> = [];
 
@@ -56,7 +69,7 @@ const client = new MetadataClient({ baseUrl: 'http://test.local', fetch: fetchIm
 Object.assign(client, {
   list: vi.fn(async () => [{ name: 'showcase_task', label: 'Task' }]),
   listDrafts: vi.fn(async () => []),
-  layered: vi.fn(async () => ({ effective: objectDef, code: objectDef })),
+  layered: vi.fn(async () => ({ effective: served, code: served })),
   getDraft: vi.fn(async () => null),
 });
 
@@ -86,6 +99,7 @@ afterEach(() => {
   cleanup();
   puts.length = 0;
   fetchImpl.mockClear();
+  served = objectDef;
 });
 
 type WireField = { name?: string; type?: unknown; options?: unknown; picklist?: unknown };
@@ -167,4 +181,44 @@ describe('Studio data page — a new choice field is not sent without options (o
       await waitFor(() => expect(screen.queryByText(new RegExp(`\`${fieldName}\``))).toBeNull());
     });
   }
+});
+
+describe('Studio data page — an object that already stores an empty select (objectui#11253)', () => {
+  /** Select a field's card on the Form tab, opening its inspector. */
+  async function selectCard(label: string): Promise<void> {
+    const card = (await screen.findByText(label)).closest('.cursor-grab') as HTMLElement;
+    fireEvent.click(card);
+    await waitFor(() => expect((controlUnder('API name') as HTMLInputElement).value).not.toBe(''));
+  }
+
+  it('an unrelated edit is held and names the stored field; an option on it lets both go', async () => {
+    served = storedEmptySelect;
+    render(
+      <MemoryRouter initialEntries={['/studio/com.example.showcase/data']}>
+        <DataPillar packageId="com.example.showcase" />
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Form' }));
+
+    // The unrelated edit: rename the text field's label.
+    await selectCard('Title');
+    const labelBox = controlUnder('Label') as HTMLInputElement;
+    fireEvent.change(labelBox, { target: { value: 'Headline' } });
+    fireEvent.blur(labelBox);
+    await outlastDebounce();
+
+    // Held: nothing reached the wire, and the banner names the STORED field.
+    expect(puts).toEqual([]);
+    expect(await screen.findByText(/`status`/)).toHaveTextContent(/no options/);
+
+    // Cleared on screen: the stored field's own inspector carries the editor.
+    await selectCard('Status');
+    fireEvent.change(screen.getByPlaceholderText('value'), { target: { value: 'open' } });
+    await waitFor(() => expect(puts.length).toBe(1), { timeout: 4000 });
+    const sent = wireFields(puts[0].body);
+    expect(sent.find((f) => f.name === 'status')?.options).toEqual([expect.objectContaining({ value: 'open' })]);
+    // The held unrelated edit rides along; nothing was lost while it was held.
+    expect(sent.find((f) => f.name === 'title')).toEqual(expect.objectContaining({ label: 'Headline' }));
+    expect(choiceWithoutOptions()).toEqual([]);
+  });
 });

@@ -73,7 +73,14 @@ const InlineActionButton: React.FC<{
   onExecute: (action: UIActionSchema) => Promise<void>;
   /** The row the group is mounted over — see `DropdownActionItem` (objectui#4075). */
   record?: unknown;
-}> = ({ action, variant, size, onExecute, record }) => {
+  /**
+   * The GROUP's host-evaluated enablement verdict, which the group takes by
+   * name and hands to every member it draws (objectui#11182). A group-level
+   * `disabled` has no control of its own to land on in inline mode — the
+   * wrapper is a `div` — so the members are what it disables.
+   */
+  hostDisabled?: boolean;
+}> = ({ action, variant, size, onExecute, record, hostDisabled }) => {
   const [loading, setLoading] = useState(false);
   // The row bound the three canonical ways — `record.status`, bare `status`,
   // `data.status`. This leaf used to evaluate against nothing at all, so a
@@ -120,7 +127,11 @@ const InlineActionButton: React.FC<{
       // `enabled` leg is negated and therefore behaviour-preserving under the
       // same definition — derivation in
       // `__tests__/action-disabled-declared-gate.test.tsx`.
-      disabled={(
+      //
+      // `hostDisabled` leads the OR (objectui#9131, applied to the group by
+      // objectui#11182): the group's host verdict is a reason to disable,
+      // never a reason to enable. See `action:button`.
+      disabled={hostDisabled || (
         hasDeclaredVisibilityGate((action as any).disabled)
           ? isDisabledPred
           : hasDeclaredVisibilityGate(action.enabled)
@@ -212,9 +223,11 @@ DropdownActionItem.displayName = 'DropdownActionItem';
 
 // Index signature on the parameter annotation, not on the `forwardRef` type
 // argument — see the mechanism note on `action:bar` (objectui#4422), pinned by
-// `__tests__/forwardref-props-annotation.guard.test.ts`.
+// `__tests__/forwardref-props-annotation.guard.test.ts`. `disabled` is the
+// host-EVALUATED enablement verdict, declared rather than left to the index
+// signature, as `ActionButtonRendererProps` declares it (objectui#9131).
 const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSchema; className?: string }>(
-  ({ schema, className, ...props }: { schema: ActionGroupSchema; className?: string; [key: string]: any }, ref) => {
+  ({ schema, className, ...props }: { schema: ActionGroupSchema; className?: string; disabled?: boolean; [key: string]: any }, ref) => {
     const {
       'data-obj-id': dataObjId,
       'data-obj-type': dataObjType,
@@ -224,6 +237,14 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
       // (objectui#4075). Also keeps `data` out of `...rest`, which is spread
       // onto the DOM wrapper in inline mode.
       data,
+      // The host's EVALUATED verdict, taken by name — the objectui#9131 rule
+      // `action:button` and `action:icon` follow (objectui#11182).
+      // `SchemaRenderer` forwards `disabled: __disabled || undefined` with the
+      // key unconditional. Left on `rest`, inline mode spread it onto the
+      // wrapping `div`, where a `disabled` attribute disables nothing, and
+      // dropdown mode dropped it: a host-disabled group left every member
+      // (inline) or its trigger (dropdown) pressable. Both modes consume it.
+      disabled: hostDisabled,
       ...rest
     } = props;
 
@@ -357,7 +378,8 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
               variant={(schema.variant || 'outline') as any}
               size={(schema.size === 'md' ? 'default' : (schema.size || 'default')) as any}
               className={cn(schema.className, className)}
-              disabled={dropdownLoading}
+              // `hostDisabled` leads the OR (objectui#9131) — see `action:button`.
+              disabled={hostDisabled || dropdownLoading}
               {...{ 'data-obj-id': dataObjId, 'data-obj-type': dataObjType, style }}
             >
               {dropdownLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -399,6 +421,7 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
             size={schema.size}
             onExecute={handleExecute}
             record={data}
+            hostDisabled={hostDisabled}
           />
         ))}
       </div>

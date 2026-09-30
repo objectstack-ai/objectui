@@ -123,8 +123,11 @@ describe('objectui#10872 batch 3 — the neighbouring refusals are unchanged', (
     expect(issue?.message).toContain('`record:alert` renders no child list');
   });
 
-  it.each(FACES)('%s face: CONTROL arm — `page:card`, which renders `children`, keeps `BaseSchema`\'s objectui#6771 refusal', (_face, judge) => {
-    const issue = issueAt(judge({ type: 'page:card', body: 'x' }), 'body');
+  // The control arm was `page:card` until objectui#10872 batch 6 moved that block's child list to
+  // `properties.children` and gave its `body` a refusal naming the bag member. `card` reads the
+  // node-level `children`, so the objectui#6771 remedy is still the right one there.
+  it.each(FACES)('%s face: CONTROL arm — `card`, which renders the node-level `children`, keeps the objectui#6771 remedy', (_face, judge) => {
+    const issue = issueAt(judge({ type: 'card', body: 'x' }), 'body');
     expect(issue?.code).toBe('invalid_type');
     expect(issue?.message).toContain('Did you mean `body` → `children`?');
     expect(issue?.message).not.toContain('properties.body');

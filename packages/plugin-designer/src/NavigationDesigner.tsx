@@ -102,14 +102,9 @@ function newNavItem(
 
 // Keyed by the spec-derived union, so a nav type the spec adds stops this file
 // compiling until it has an entry -- keep it a `Record`, never `Partial` or
-// `Record<string, ...>`.
-//
-// `| 'doc'` is the published pin lagging the spec: objectstack#19789 added the
-// `doc` nav item, and the pinned `@objectstack/spec` predates it, so without
-// the extra key a `doc:` entry is an excess property against the pin while its
-// absence fails the compile against objectstack `main` (Spec Main Shape Gate).
-// Drop `| 'doc'` at the pin bump that ships `doc`; the entry itself stays.
-const NAV_TYPE_META: Record<NavigationItemType | 'doc', { labelKey: string; color: string; Icon: React.FC<{ className?: string }> }> = {
+// `Record<string, ...>`. (The `| 'doc'` that bridged the pin lag behind
+// objectstack#19789 came off at the 17.5.0 pin, which ships `doc` — objectui#11197.)
+const NAV_TYPE_META: Record<NavigationItemType, { labelKey: string; color: string; Icon: React.FC<{ className?: string }> }> = {
   object: { labelKey: 'appDesigner.navTypeObject', color: 'bg-green-100 text-green-700', Icon: Database },
   dashboard: { labelKey: 'appDesigner.navTypeDashboard', color: 'bg-amber-100 text-amber-700', Icon: LayoutDashboard },
   page: { labelKey: 'appDesigner.navTypePage', color: 'bg-teal-100 text-teal-700', Icon: FileText },

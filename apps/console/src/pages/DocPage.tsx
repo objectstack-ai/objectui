@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { AlertCircle, ChevronDown, FileQuestion, Loader2, Menu } from 'lucide-react';
 import { useAdapter } from '@object-ui/app-shell';
 import { MarkdownRenderer, extractToc } from '@object-ui/plugin-markdown';
@@ -16,7 +16,7 @@ import { rewriteDocLinks } from './doc-links';
 import { DocShell } from './DocShell';
 import { BookSidebar } from './BookSidebar';
 import { useBookData } from './use-book-data';
-import { resolveBookTree, scopeDocsToBook, bookSlug, type ResolvedBook } from './book-nav';
+import { resolveBookTree, scopeDocsToBook, bookSlug, bookNamedBy, type ResolvedBook } from './book-nav';
 
 interface DocItem {
   name: string;
@@ -147,6 +147,16 @@ export default function DocPage() {
     return book ? resolveBookTree(book, scopeDocsToBook(book, allDocs)) : null;
   }, [books, allDocs, slug]);
   const docHref = useCallback((docName: string) => `${base}/${slug}/${docName}`, [base, slug]);
+  // A `:slug` segment that is a book's NAME rather than its slug — what a
+  // `{ type: 'doc', book, doc }` navigation entry links to (objectui#11197) — is
+  // redirected to the canonical `bookSlug` URL, so the page reads in that book's
+  // context. Only a segment NO book answers by slug is consulted, so every
+  // reader URL that finds its book today keeps its answer.
+  const namedBook = useMemo(() => (slug && !resolvedBook ? bookNamedBy(slug, books) : null), [slug, resolvedBook, books]);
+
+  if (namedBook && name) {
+    return <Navigate to={`${base}/${bookSlug(namedBook)}/${name}`} replace />;
+  }
 
   if (state === 'loading') {
     return (

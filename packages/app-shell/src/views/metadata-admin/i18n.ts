@@ -771,7 +771,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // 17.0.0-rc.6). Their only reader was the canonical `page:header` icon field
   // removed from `previews/block-config.ts`; a key kept past its field is dead
   // vocabulary that the next author reads as a live surface. objectui#3829.
-  'engine.inspector.pageBlock.field.page:header.breadcrumb': 'Show breadcrumb',
+  // `…field.page:header.breadcrumb` left the same way with the designer's
+  // breadcrumb toggle (objectui#11173; the spec key retires through
+  // objectstack#20758).
   'engine.inspector.pageBlock.field.page:card.title': 'Title',
   'engine.inspector.pageBlock.field.page:card.bordered': 'Bordered',
   'engine.inspector.pageBlock.field.page:tabs.items': 'Tabs',
@@ -1319,6 +1321,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.screenPreview.noDataSource': 'Connect to a backend to preview this object form.',
   'engine.screenPreview.hiddenOne': '{count} field hidden by its “visible when” condition.',
   'engine.screenPreview.hiddenOther': '{count} fields hidden by their “visible when” conditions.',
+  'engine.screenPreview.defaultTemplate': 'Default template for “{field}”, shown as written — the run fills it in:',
   // objectui#10862 (slice 1: the flow / automation previews) — the designer's
   // own words in `ActionPreview`, `AgentPreview`, `SkillPreview`,
   // `ToolPreview` and `JobPreview`, read in the `locale` each preview is
@@ -3757,8 +3760,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.pageBlock.field.page:header.subtitle': '副标题',
   // `…field.page:header.icon` and its placeholder retired with the spec key —
   // see the matching note in the `en` table above. Removed from BOTH tables in
-  // the same edit so the two key sets stay identical.
-  'engine.inspector.pageBlock.field.page:header.breadcrumb': '显示面包屑',
+  // the same edit so the two key sets stay identical. `…field.page:header.breadcrumb`
+  // likewise left both tables with its toggle (objectui#11173).
   'engine.inspector.pageBlock.field.page:card.title': '标题',
   'engine.inspector.pageBlock.field.page:card.bordered': '显示边框',
   'engine.inspector.pageBlock.field.page:tabs.items': '标签页',
@@ -4336,6 +4339,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.screenPreview.noDataSource': '连接后端后即可预览此对象表单。',
   'engine.screenPreview.hiddenOne': '有 {count} 个字段因其“显示条件”而隐藏。',
   'engine.screenPreview.hiddenOther': '有 {count} 个字段因其“显示条件”而隐藏。',
+  'engine.screenPreview.defaultTemplate': '“{field}”的默认值模板,按原文显示 —— 运行时填入实际值:',
   // objectui#10862 — the flow / automation previews and the CEL try-it dialog (see the en rows).
   'engine.actionPreview.empty': '设置名称和标签，即可查看操作预览。',
   'engine.actionPreview.pill.type': '类型：{type}',

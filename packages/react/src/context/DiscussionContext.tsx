@@ -55,6 +55,18 @@ export interface DiscussionContextValue {
   onUploadAttachments?: (files: FileList) => Promise<DiscussionAttachment[]>;
   loading?: boolean;
   error?: Error | null;
+  /**
+   * The host's `sys_activity` read was REFUSED: 401 / 403, or a permission
+   * envelope (objectui#11195). The feed renderers then show a no-permission
+   * state rather than claiming the record has no activity. Produced by the
+   * host that owns the fetch (app-shell `RecordDetailView`), which judges the
+   * rejection with plugin-detail's `isRefusedFeedRead`. A read that answered
+   * with zero rows, a 404, or any other failure is not a refusal and leaves
+   * this unset.
+   */
+  activityDenied?: boolean;
+  /** The same, for the host's `sys_comment` read. */
+  commentsDenied?: boolean;
 }
 
 const DiscussionContext = React.createContext<DiscussionContextValue | null>(null);
@@ -76,6 +88,8 @@ export const DiscussionContextProvider: React.FC<DiscussionContextProviderProps>
     value.onUploadAttachments,
     value.loading,
     value.error,
+    value.activityDenied,
+    value.commentsDenied,
   ]);
   return (
     <DiscussionContext.Provider value={memo}>{children}</DiscussionContext.Provider>

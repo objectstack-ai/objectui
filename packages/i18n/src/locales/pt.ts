@@ -1070,6 +1070,8 @@ const pt = {
     tasksOnly: "Apenas tarefas",
     leaveCommentPlaceholder: "Deixar um comentário… (Ctrl+Enter para enviar)",
     noActivity: "Nenhuma atividade registrada",
+    activityAccessDenied: "Você não tem permissão para ver a atividade deste registro.",
+    commentsAccessDenied: "Você não tem permissão para ver os comentários deste registro.",
     // objectui#7149 — the rest of `ActivityTimeline`. The four chip labels the
     // `detail.*` pack did not already name, and the `formatFieldChange`
     // sentences, which are assembled in code and so need interpolation holes.

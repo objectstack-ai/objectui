@@ -218,6 +218,21 @@ Three sources, in precedence order:
    rows per page. This is what makes it work on a hand-authored record page
    with no host feeding it.
 
+### When the read is refused
+
+A refused read is not an empty feed. When the server refuses the feed's read
+(401, 403, or a permission envelope), the panel shows a no-permission state, a
+lock and "You don't have permission to view activity on this record.", in place
+of "No activity recorded". If some rows did load (the comments were readable and
+the activity was not, or the other way round), the rows stay and the notice
+above them names the half that is withheld. The console's record page applies
+the same rule to both of its reads, `sys_activity` and `sys_comment`.
+
+Everything else keeps the empty state: a read that answers with zero rows, a 404
+(`sys_activity` on a deployment without the audit plugin), and any other
+failure, such as a 500. A refusal is not retried. `isRefusedFeedRead`, exported
+from this package, is the verdict both surfaces use.
+
 `sys_activity` rows map to feed items like this:
 `created` / `updated` / `deleted` / `assigned` / `shared` → `field_change`,
 `completed` → `task`, `scheduled` → `event`, `system` → `system`.

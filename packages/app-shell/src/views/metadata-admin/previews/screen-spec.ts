@@ -65,6 +65,15 @@ export interface ScreenPreviewNode {
 }
 
 /**
+ * One `{…}` template reference: the token {@link interpolate} substitutes, and
+ * the one the engine's `interpolateString` resolves when a screen pauses. It
+ * is shared with {@link defaultValueTemplates}, which only DETECTS a token (it
+ * never substitutes one), so "is this a template" and "what the preview
+ * substitutes" cannot read two different grammars.
+ */
+const TEMPLATE_TOKEN = /\{([^{}]+)\}/g;
+
+/**
  * Interpolate `{var}` references, mirroring the simulator's `{var}` syntax
  * (flow-simulator.ts). Known vars are substituted; unknown refs stay literal so
  * the author still sees the dependency in the design preview.
@@ -72,7 +81,7 @@ export interface ScreenPreviewNode {
 export function interpolate(text: string | undefined, vars: Record<string, unknown> | undefined): string {
   if (!text) return '';
   if (!vars) return text;
-  return text.replace(/\{([^{}]+)\}/g, (m, k) => {
+  return text.replace(TEMPLATE_TOKEN, (m, k) => {
     const v = vars[String(k).trim()];
     return v === undefined || v === null ? m : String(v);
   });
@@ -258,13 +267,93 @@ export function unevaluableVisibleWhen(node: ScreenPreviewNode, locale?: string)
   return out;
 }
 
+/** A string, or nothing. */
+function carryString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+/** A number, or nothing. */
+function carryNumber(value: unknown): number | undefined {
+  return typeof value === 'number' ? value : undefined;
+}
+
 /**
- * Coerce the authored `config.fields` rows into runtime `ScreenFieldSpec`s. A
- * field's `visibleWhen` is carried RAW, as the runtime `screen` executor sends
- * it to the client, so `ScreenView` decides it live against the values the
- * author is collecting in the preview (objectui#10743). Nothing is dropped
- * here: a field whose predicate is false right now is hidden by the renderer
- * and comes back the moment the values make it true.
+ * A select field's choices, when every entry holds the spec's option shape (an
+ * object with a string `label`; `value` is `unknown` there). A list with one
+ * half-typed entry is not carried at all, as a half-typed key never is.
+ */
+function carryOptions(value: unknown): ScreenFieldSpec['options'] {
+  if (!Array.isArray(value)) return undefined;
+  const whole = value.every(
+    (o) => !!o && typeof o === 'object' && !Array.isArray(o) && typeof (o as { label?: unknown }).label === 'string',
+  );
+  return whole ? (value as NonNullable<ScreenFieldSpec['options']>) : undefined;
+}
+
+/**
+ * How ONE authored row's value is carried onto each `ScreenFieldSpec` key: the
+ * value when it holds the type the spec declares, else `undefined`, so a
+ * half-typed config row adds nothing.
+ */
+type ScreenFieldCarry = {
+  readonly [K in keyof ScreenFieldSpec]-?: (value: unknown) => ScreenFieldSpec[K] | undefined;
+};
+
+/**
+ * The projection from an authored `config.fields` row onto the runtime
+ * `ScreenFieldSpec`, keyed by EVERY key of the spec's own type (objectui#11190).
+ *
+ * `ScreenView` reads its fields as `ScreenFieldSpec`, the type re-exported from
+ * `@objectstack/spec/contracts`, so it can read no key outside that type.
+ * The `-?` in {@link ScreenFieldCarry} makes each of those keys a required
+ * entry here: a key the spec adds fails this file's type-check until the
+ * projection says how to carry it, and an entry that drops one fails it too.
+ * There is no second, hand-kept key list; this table is the only one, and the
+ * compiler holds it to the spec's.
+ *
+ * Every key is carried as the runtime `screen` executor forwards it, with one
+ * difference the preview cannot avoid: the executor interpolates `defaultValue`
+ * against the run's variables when the screen pauses, and the preview has no
+ * run. So `defaultValue` is carried as written, `{…}` references included, and
+ * `ScreenPreview` marks each one that holds a reference
+ * ({@link defaultValueTemplates}) rather than guess the value the run would put
+ * there.
+ */
+const SCREEN_FIELD_CARRY: ScreenFieldCarry = {
+  name: (value) => (typeof value === 'string' && value ? value : undefined),
+  label: carryString,
+  type: carryString,
+  // Always stated, as the executor states it (`required: f.required === true`).
+  required: (value) => value === true,
+  options: carryOptions,
+  // `unknown` in the spec: anything but absent is carried, `null` included, as
+  // the executor forwards it.
+  defaultValue: (value) => value,
+  placeholder: carryString,
+  min: carryNumber,
+  max: carryNumber,
+  inlineHelpText: carryString,
+  reference: carryString,
+  // RAW, as the executor sends it: `ScreenView` decides it live against the
+  // values the author collects in the preview (objectui#10743).
+  visibleWhen: carryString,
+};
+
+const SCREEN_FIELD_KEYS = Object.keys(SCREEN_FIELD_CARRY) as Array<keyof ScreenFieldSpec>;
+
+/** Carry one key of an authored row onto `field`, when its value holds the declared type. */
+function carryKey<K extends keyof ScreenFieldSpec>(field: ScreenFieldSpec, key: K, row: Record<string, unknown>): void {
+  const value = SCREEN_FIELD_CARRY[key](row[key]);
+  // The `!== undefined` check does not narrow a generic indexed type, so the
+  // value is restated as the key's own type once it is known present.
+  if (value !== undefined) field[key] = value as ScreenFieldSpec[K];
+}
+
+/**
+ * Coerce the authored `config.fields` rows into runtime `ScreenFieldSpec`s
+ * through {@link SCREEN_FIELD_CARRY}. A row without a usable `name` is skipped;
+ * no other row is dropped: a field whose `visibleWhen` is false right now is
+ * hidden by the renderer and comes back the moment the values make it true.
  */
 function toScreenFields(raw: unknown): ScreenFieldSpec[] {
   if (!Array.isArray(raw)) return [];
@@ -272,22 +361,52 @@ function toScreenFields(raw: unknown): ScreenFieldSpec[] {
   for (const f of raw) {
     if (!f || typeof f !== 'object') continue;
     const row = f as Record<string, unknown>;
-    if (typeof row.name !== 'string' || !row.name) continue;
+    const name = SCREEN_FIELD_CARRY.name(row.name);
+    if (name === undefined) continue;
+    const field: ScreenFieldSpec = { name };
+    for (const key of SCREEN_FIELD_KEYS) carryKey(field, key, row);
+    out.push(field);
+  }
+  return out;
+}
+
+/** Whether a `defaultValue` holds a `{…}` reference anywhere the engine's `interpolate` walks: a string, an array, an object. */
+function holdsTemplateToken(value: unknown): boolean {
+  // `search` ignores the global flag and `lastIndex`, so the shared token is
+  // safe to reuse here.
+  if (typeof value === 'string') return value.search(TEMPLATE_TOKEN) >= 0;
+  if (Array.isArray(value)) return value.some(holdsTemplateToken);
+  if (value && typeof value === 'object') return Object.values(value).some(holdsTemplateToken);
+  return false;
+}
+
+/** A screen field whose `defaultValue` is a template the run fills in, as the preview marks it. */
+export interface DefaultValueTemplate {
+  name: string;
+  /** The field's label, or its name when it has none, as `ScreenView` labels it. */
+  label: string;
+  /** The `defaultValue` as written; a non-string is shown as JSON. */
+  literal: string;
+}
+
+/**
+ * The fields whose `defaultValue` holds a `{…}` reference, with the value as
+ * written (objectui#11190).
+ *
+ * The engine interpolates a screen field's `defaultValue` against the run's
+ * variables when the screen pauses; the preview has no run, so it carries the
+ * value as written and seeds the control with it, and `ScreenPreview` names
+ * each of these fields under the form with its literal. A `defaultValue`
+ * holding no reference is what the run shows too, so it is not listed.
+ */
+export function defaultValueTemplates(fields: readonly ScreenFieldSpec[]): DefaultValueTemplate[] {
+  const out: DefaultValueTemplate[] = [];
+  for (const f of fields) {
+    if (!holdsTemplateToken(f.defaultValue)) continue;
     out.push({
-      name: row.name,
-      label: typeof row.label === 'string' ? row.label : undefined,
-      type: typeof row.type === 'string' ? row.type : undefined,
-      required: row.required === true,
-      ...(typeof row.visibleWhen === 'string' ? { visibleWhen: row.visibleWhen } : {}),
-      // The keys objectstack#17306 added, which `ScreenView` renders (the
-      // bound on the numeric input, the help text under the control, the
-      // lookup's picker target). Carried so the preview draws them as the
-      // runtime dialog does; each only when it holds the type the spec
-      // declares, so a half-typed config row adds nothing.
-      ...(typeof row.min === 'number' ? { min: row.min } : {}),
-      ...(typeof row.max === 'number' ? { max: row.max } : {}),
-      ...(typeof row.inlineHelpText === 'string' ? { inlineHelpText: row.inlineHelpText } : {}),
-      ...(typeof row.reference === 'string' ? { reference: row.reference } : {}),
+      name: f.name,
+      label: f.label || f.name,
+      literal: typeof f.defaultValue === 'string' ? f.defaultValue : JSON.stringify(f.defaultValue),
     });
   }
   return out;

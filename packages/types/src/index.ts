@@ -473,6 +473,7 @@ export type {
   ObjectViewSchema,
   NamedListView,
   ViewNavigationConfig,
+  RecordNavigateAction,
   ViewTabBarConfig,
   ObjectQLComponentSchema,
   ObjectCalendarBlockConfig,

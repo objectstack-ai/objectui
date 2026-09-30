@@ -17,6 +17,16 @@
  * judge it once against `variables` and drop the field — which froze every
  * sibling-field predicate hidden, whatever the author ticked or typed.
  *
+ * Every key of a screen field reaches `ScreenView` (`buildScreenSpec`'s
+ * projection is keyed by the spec's `ScreenFieldSpec`, objectui#11190), so a
+ * select renders its options and an input its placeholder, as at runtime. The
+ * one value the preview cannot show as the end user sees it is a
+ * `defaultValue` holding a `{…}` reference: the engine fills it in from the
+ * run's variables when the screen pauses, and the preview has no run. It is
+ * shown as written, and a hint line under the form names each such field with
+ * its template (`defaultValueTemplates`); it is never guessed, here or from
+ * `variables`.
+ *
  * Object-form mode is fed the SAME enriched object list the runtime uses
  * (`useMetadata().objects`, which derives inline master-detail `subforms` from
  * `inlineEdit` relationships) so the preview renders those child grids too.
@@ -33,8 +43,21 @@ import * as React from 'react';
 import { Button, EmptyDescription, cn } from '@object-ui/components';
 import { useAdapter } from '../../../providers/AdapterProvider.js';
 import { useMetadata } from '../../../providers/MetadataProvider.js';
-import { ScreenView, isObjectFormScreen, initialScreenValues, screenFields, type ScreenSpec } from '../../ScreenView.js';
-import { buildScreenSpec, interpolate, hiddenFieldCount, type ScreenPreviewNode } from './screen-spec.js';
+import {
+  ScreenView,
+  isObjectFormScreen,
+  initialScreenValues,
+  screenFields,
+  visibleScreenFields,
+  type ScreenSpec,
+} from '../../ScreenView.js';
+import {
+  buildScreenSpec,
+  defaultValueTemplates,
+  interpolate,
+  hiddenFieldCount,
+  type ScreenPreviewNode,
+} from './screen-spec.js';
 import { t as tr, tFormat } from '../i18n.js';
 
 export type { ScreenPreviewNode } from './screen-spec.js';
@@ -69,13 +92,18 @@ export function ScreenPreview({ node, variables, className, locale }: ScreenPrev
   const description = interpolate(spec.description, variables);
 
   // Reset transient input state when the screen's STRUCTURE changes (fields
-  // added/removed/retyped/regated, or object-form target/mode); typing survives
-  // a label/title-only edit.
+  // added/removed/retyped/regated, or object-form target/mode), or a field's
+  // `defaultValue` does — the values are seeded from it once, at mount, so an
+  // edited default would otherwise not reach the form (objectui#11190). Typing
+  // survives a label/title-only edit.
   const structKey = isObjectForm
     ? `obj:${spec.objectName}:${spec.mode ?? 'create'}`
     : 'fields:' +
       screenFields(spec)
-        .map((f) => `${f.name}:${f.type ?? ''}:${f.required ? 1 : 0}:${f.visibleWhen ?? ''}`)
+        .map(
+          (f) =>
+            `${f.name}:${f.type ?? ''}:${f.required ? 1 : 0}:${f.visibleWhen ?? ''}:${f.defaultValue === undefined ? '' : JSON.stringify(f.defaultValue)}`,
+        )
         .join('|');
 
   const empty = !title && !description && !isObjectForm && screenFields(spec).length === 0;
@@ -116,6 +144,13 @@ export function ScreenPreview({ node, variables, className, locale }: ScreenPrev
  * when" hint lives here because it is a fact about THESE values: the count is
  * the renderer's own verdict (`hiddenFieldCount` over `visibleScreenFields`),
  * so it follows every tick and keystroke the way the form does.
+ *
+ * The default-template hint lines (objectui#11190) sit here for the same
+ * reason: they name the fields on screen for these values whose
+ * `defaultValue` holds a `{…}` reference, one line per field, with the
+ * template as written. The control is seeded with that literal, which a date,
+ * number or select control cannot always display; the line shows it whatever
+ * the control is.
  */
 function ScreenFormPreview({
   spec,
@@ -130,6 +165,7 @@ function ScreenFormPreview({
 }) {
   const [values, setValues] = React.useState<Record<string, unknown>>(() => initialScreenValues(spec));
   const hidden = hiddenFieldCount(spec, values);
+  const templates = isObjectFormScreen(spec) ? [] : defaultValueTemplates(visibleScreenFields(spec, values));
   return (
     <>
       <ScreenView
@@ -144,6 +180,16 @@ function ScreenFormPreview({
           noDataSourceMessage: tr('engine.screenPreview.noDataSource', locale),
         }}
       />
+      {templates.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[11px] text-muted-foreground">
+          {templates.map((d) => (
+            <li key={d.name} data-default-template={d.name}>
+              {tFormat('engine.screenPreview.defaultTemplate', locale, { field: d.label })}{' '}
+              <code className="rounded bg-muted px-1 font-mono">{d.literal}</code>
+            </li>
+          ))}
+        </ul>
+      )}
       {hidden > 0 && (
         <p className="mt-3 text-[11px] italic text-muted-foreground">
           {tFormat(hidden === 1 ? 'engine.screenPreview.hiddenOne' : 'engine.screenPreview.hiddenOther', locale, {

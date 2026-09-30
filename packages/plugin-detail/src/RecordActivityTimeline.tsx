@@ -25,6 +25,7 @@ import {
   FileText,
   Share2,
   BadgeCheck,
+  Lock,
 } from 'lucide-react';
 import type { FeedItem, FeedItemType, RecordActivityComponentProps, RecordSubscription } from '@object-ui/types';
 import type { FeedFilterMode } from '@objectstack/spec/data';
@@ -97,6 +98,15 @@ export interface RecordActivityTimelineProps {
   titleLabel?: string;
   /** Override the empty state copy (defaults to t('detail.noActivity')) */
   emptyLabel?: string;
+  /**
+   * The feed's activity read was REFUSED (401 / 403, or a permission
+   * envelope). The timeline then says the reader may not see the activity,
+   * instead of claiming there is none (objectui#11195). The host that owns the
+   * read decides this; the timeline never guesses it.
+   */
+  activityDenied?: boolean;
+  /** The same, for the feed's comment read. */
+  commentsDenied?: boolean;
   className?: string;
 }
 
@@ -227,6 +237,8 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
   onUploadAttachments,
   titleLabel,
   emptyLabel,
+  activityDenied = false,
+  commentsDenied = false,
   className,
 }) => {
   const { t } = useDetailTranslation();
@@ -241,6 +253,33 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
   // ONE value for the visible heading's title AND the landmark's name — see the
   // `<section>` below (objectui#9998).
   const title = titleLabel ?? t('detail.activity');
+
+  // objectui#11195: which of the feed's reads the server REFUSED, one line per
+  // refused source. It renders in place of the empty state when there are no
+  // rows, and above the rows when there are some. Visually distinct from the
+  // empty state on purpose: a lock and a left-aligned sentence, not the
+  // centred inbox glyph `DataEmptyState` draws.
+  const deniedNotice =
+    activityDenied || commentsDenied ? (
+      <div
+        role="status"
+        data-testid="activity-access-denied"
+        className="flex flex-col gap-2 py-4 text-sm text-muted-foreground"
+      >
+        {activityDenied && (
+          <p data-denied-source="activity" className="flex items-center gap-2">
+            <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>{t('detail.activityAccessDenied')}</span>
+          </p>
+        )}
+        {commentsDenied && (
+          <p data-denied-source="comments" className="flex items-center gap-2">
+            <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>{t('detail.commentsAccessDenied')}</span>
+          </p>
+        )}
+      </div>
+    ) : null;
 
   const activeFilter = controlledFilter ?? internalFilter;
   const showFilter = config?.showFilterToggle !== false;
@@ -437,6 +476,13 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
           />
         )}
 
+        {/* A refusal with rows on screen (objectui#11195): the comments
+            were readable and the activity was not, or the other way round.
+            The rows stay, and the notice above them says which half the
+            reader may not see. Without it the rows would read as the whole
+            story. With no rows, the notice is the branch below instead. */}
+        {filtered.length > 0 && deniedNotice}
+
         {/* Timeline.
             The loading branch comes FIRST because "still fetching" and "no
             activity" are different answers, and only one of them is true
@@ -460,6 +506,15 @@ export const RecordActivityTimeline: React.FC<RecordActivityTimelineProps> = ({
             <Loader2 className="h-4 w-4 animate-spin" />
             <span>{t('detail.loading')}</span>
           </div>
+        ) : (activityDenied || commentsDenied) && filtered.length === 0 ? (
+          // objectui#11195: a REFUSED read is not an empty one. This branch
+          // comes before the empty state because "you may not see this" and
+          // "there is nothing here" are different answers, and only the first
+          // is true when the server refused the read. The empty state's copy
+          // is a claim about the record, and a refusal gives no evidence for
+          // it. Only the i18n sentence is rendered: no status code, no server
+          // message, no object name.
+          deniedNotice
         ) : filtered.length === 0 ? (
           collapseWhenEmpty ? null : (
             <DataEmptyState

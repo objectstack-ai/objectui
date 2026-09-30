@@ -184,6 +184,7 @@ const zh = {
     submitFailed: '保存失败，请重试。',
     uploadInFlight: '请等待上传完成后再保存。',
     clearedOnHide: '已清空不再适用于当前取值的字段：{{fields}}',
+    visibleWhenFaulted: '无法提交：{{fields}} 的 visibleWhen 规则无法求值。需先修正该规则，才能提交此表单。',
     removeItem: '移除项目',
     fieldRequired: '此字段为必填项',
     invalidFormat: '格式不正确',

@@ -177,6 +177,7 @@ const fr = {
     submitFailed: "Échec de l'enregistrement. Veuillez réessayer.",
     uploadInFlight: "Attendez la fin du téléversement avant de sauvegarder.",
     clearedOnHide: "Ce qui ne s'applique plus aux valeurs actuelles a été effacé : {{fields}}",
+    visibleWhenFaulted: "Envoi impossible : la règle visibleWhen de {{fields}} n'a pas pu être évaluée. La règle doit être corrigée avant que ce formulaire puisse être envoyé.",
     discardTitle: "Abandonner les modifications ?",
     discardMessage: "Vous avez des modifications non enregistrées. Si vous fermez ce formulaire maintenant, vos modifications seront perdues.",
     // objectui#4024 — the create/edit dialog's `sr-only` accessible

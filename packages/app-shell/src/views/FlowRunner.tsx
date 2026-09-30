@@ -106,6 +106,10 @@
  * - the screen `description` — outside the spec's flows face (in neither key
  *   list), so an off-spec `description` a bundle carries anyway is ignored and
  *   the authored text is drawn;
+ * - a field's `inlineHelpText` (objectstack#17306) — drawn as authored for as
+ *   long as the spec's per-field face leaves it out of
+ *   `FLOW_SCREEN_FIELD_COPY_KEYS`. The overlay walks that constant, so the day
+ *   the spec lists it the help text is translated with no edit here;
  * - the runner chrome (Cancel / Submit / Submitting… / the terminal toast) —
  *   the console's own words, ruled into its message catalog (objectstack#7646);
  * - `FlowSchema.successMessage` — off the translation surface by design.
@@ -145,6 +149,7 @@ import {
   ScreenView,
   isObjectFormScreen,
   initialScreenValues,
+  screenFieldBoundViolations,
   visibleScreenFields,
   type ScreenFieldSpec,
   type ScreenSpec,
@@ -410,6 +415,25 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
           fields: missing.map((f) => f.label || f.name).join(', '),
           defaultValue: 'Please complete the required fields: {{fields}}',
         }),
+      );
+      return;
+    }
+    // The declared `min` / `max` (objectstack#17306), refused here naming the
+    // field, beside `required` and over the same on-screen list. A courtesy,
+    // not the enforcement: the engine re-checks the bounds on resume, and
+    // `screenFieldBoundViolations` applies its comparison — inclusive, a
+    // present number only, so an empty optional field is never refused.
+    const outOfBounds = screenFieldBoundViolations(shown, values);
+    if (outOfBounds.length) {
+      toast.error(
+        outOfBounds
+          .map(({ field, bound, limit }) => {
+            const label = field.label || field.name;
+            return bound === 'min'
+              ? t('validation.min', { field: label, min: limit, defaultValue: '{{field}} must be at least {{min}}' })
+              : t('validation.max', { field: label, max: limit, defaultValue: '{{field}} must be at most {{max}}' });
+          })
+          .join(t('validation.formInvalidJoiner', { defaultValue: ', ' })),
       );
       return;
     }

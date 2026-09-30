@@ -279,6 +279,15 @@ function toScreenFields(raw: unknown): ScreenFieldSpec[] {
       type: typeof row.type === 'string' ? row.type : undefined,
       required: row.required === true,
       ...(typeof row.visibleWhen === 'string' ? { visibleWhen: row.visibleWhen } : {}),
+      // The keys objectstack#17306 added, which `ScreenView` renders (the
+      // bound on the numeric input, the help text under the control, the
+      // lookup's picker target). Carried so the preview draws them as the
+      // runtime dialog does; each only when it holds the type the spec
+      // declares, so a half-typed config row adds nothing.
+      ...(typeof row.min === 'number' ? { min: row.min } : {}),
+      ...(typeof row.max === 'number' ? { max: row.max } : {}),
+      ...(typeof row.inlineHelpText === 'string' ? { inlineHelpText: row.inlineHelpText } : {}),
+      ...(typeof row.reference === 'string' ? { reference: row.reference } : {}),
     });
   }
   return out;

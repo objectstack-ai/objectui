@@ -238,8 +238,9 @@ const NavigationItemObject = z.object({
   }
   // A PRESENT empty label is not "no label": it renders verbatim, i.e. as
   // empty text, and silently opts the entry out of inheritance. Refused here as
-  // it was while `label` was required; the spec's base accepts `''`, so this is
-  // the one place the empty string is caught before it is stored.
+  // it was while `label` was required. ⚠️ A divergence from the spec, stated:
+  // the spec's base accepts `''`, so the platform's save door does not catch
+  // it — this mirror (what `objectui validate` answers) is where it is caught.
   if (item.label === '') {
     ctx.addIssue({
       code: 'custom',

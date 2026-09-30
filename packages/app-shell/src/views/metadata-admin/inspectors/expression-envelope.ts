@@ -50,11 +50,14 @@
  * is the shape it hands back.
  */
 
-import type { ExpressionInput } from '@objectstack/spec/shared';
+import type { EvaluatedExpressionInput, ExpressionInput } from '@objectstack/spec/shared';
 import { conditionText } from '../previews/flow-canvas-layout.js';
 
 /** The object arm of `ExpressionInput` — the envelope itself. */
 type ExpressionEnvelope = Exclude<ExpressionInput, string>;
+
+/** The object arm of `EvaluatedExpressionInput` — an envelope whose `source` is present. */
+type EvaluatedExpressionEnvelope = Exclude<EvaluatedExpressionInput, string>;
 
 /**
  * The editable source text of an expression-shaped value, for a control that
@@ -83,15 +86,23 @@ function priorEnvelope(value: unknown): ExpressionEnvelope | undefined {
  * @param previous the draft's current value for this key — the envelope whose
  *                 `dialect` / `meta` must survive the edit
  * @param source   the edited text; empty clears the value (`undefined`)
+ *
+ * The return type is the EVALUATED input, `EvaluatedExpressionInput`, not the
+ * persistence contract `ExpressionInput`, because it says what this function
+ * produces: every value it returns is either the non-empty string itself or an
+ * envelope carrying that string as `source`. It never returns an `ast`-only
+ * envelope. So the result can go into an evaluated slot, such as the flow
+ * designer's edge `condition` (objectui#8946), as well as into any slot typed
+ * by the persistence contract, which is the wider of the two.
  */
 export function writeExpressionSource(
   previous: unknown,
   source: string,
-): ExpressionInput | undefined {
+): EvaluatedExpressionInput | undefined {
   if (!source) return undefined;
   const prior = priorEnvelope(previous);
   if (!prior) return source;
-  const next: ExpressionEnvelope = { ...prior, source };
+  const next: EvaluatedExpressionEnvelope = { ...prior, source };
   // Derived from the OLD source — never carried across an edit.
   delete next.ast;
   return next;

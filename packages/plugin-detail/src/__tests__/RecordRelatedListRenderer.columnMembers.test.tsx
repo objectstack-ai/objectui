@@ -45,14 +45,15 @@
  * `redactFields` is the channel used below, because the block folds members
  * ONLY when it filters — with nothing to filter, `columns` is handed down by
  * reference and no member is ever read. `redactFields` and
- * `enforceFieldSecurity` are renderer-only keys: measured against
- * `RecordRelatedListProps` (`@objectstack/spec`), whose top-level keys are
- * actions/add/aria/columns/filter/limit/objectName/relationshipField/
- * relationshipValueField/showViewAll/sort/title, they are on NEITHER the spec
- * nor this block's `inputs`. They are used here as an instrument for a fold
- * that is otherwise unobservable, never as evidence that they are an authoring
- * surface — the first assertion below states that so a later reader cannot take
- * this file as licensing them.
+ * `enforceFieldSecurity` were renderer-only keys when this file was written, on
+ * NEITHER `RecordRelatedListProps` (`@objectstack/spec`) nor this block's
+ * `inputs`. `@objectstack/spec` 17.5.0 declares both on `record:related_list`,
+ * and objectui#8649 published them as inputs on the strength of THAT
+ * declaration. This file still uses them as an instrument for a fold that is
+ * otherwise unobservable, never as evidence that they are an authoring surface:
+ * the CONTROL at the foot ties each published input to the contract's own
+ * declaration, so their standing is read off the spec every run, not off this
+ * file.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -60,6 +61,7 @@ import { cleanup, render, waitFor } from '@testing-library/react';
 import * as React from 'react';
 import { RecordContextProvider } from '@object-ui/react';
 import { ComponentRegistry, columnIdentity } from '@object-ui/core';
+import { RecordRelatedListProps } from '@objectstack/spec/ui';
 import { RecordRelatedListRenderer } from '../renderers/record-related-list';
 import '../index';
 
@@ -224,11 +226,20 @@ describe('record:related_list — the `columns` MEMBER shape the renderer reads 
     expect(await columnsAfterFold(set)).toEqual(set);
   });
 
-  it('CONTROL — `redactFields` is an instrument here, not an authoring surface', async () => {
-    // See the file docblock. The block's published `inputs` do not declare it,
-    // and this assertion is what stops a later reader citing this file as
-    // evidence that it is declared.
-    expect(input('redactFields')).toBeUndefined();
-    expect(input('enforceFieldSecurity')).toBeUndefined();
+  it('CONTROL — `redactFields` is an instrument here; its authoring standing is the CONTRACT\'s', async () => {
+    // See the file docblock. Until `@objectstack/spec` 17.5.0 the block's
+    // published `inputs` did not declare these probe keys and this leg asserted
+    // exactly that. Now the contract declares them and objectui#8649 publishes
+    // them — so what this leg pins is the DIRECTION: an input exists here if
+    // and only if `RecordRelatedListProps` declares the key. Nothing in this
+    // file can license a key; the spec does, and is read here, not assumed.
+    const specDeclares = (key: string) => key in RecordRelatedListProps.shape;
+    for (const key of ['redactFields', 'enforceFieldSecurity']) {
+      expect(input(key) !== undefined, `${key}: published input vs contract declaration`).toBe(
+        specDeclares(key),
+      );
+    }
+    // Calibration of `specDeclares`: a key nothing declares reads false.
+    expect(specDeclares('zzqxNoSuchRecordBlockKey')).toBe(false);
   });
 });

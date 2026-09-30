@@ -36,7 +36,9 @@ import { resolveKeyedI18nLabel, getRecordDisplayName, appRouteSegment } from '..
 import { getIcon } from '../utils/getIcon.js';
 import { useRecentItems } from '../context/RecentItemsProvider.js';
 import { useCommandPalette } from '../context/CommandPaletteProvider.js';
-import { resolveHref } from '@object-ui/layout';
+import { resolveHref, resolveNavItemLabel } from '@object-ui/layout';
+import type { NavigationItem } from '@object-ui/types';
+import { useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
 import { useAuth } from '@object-ui/auth';
 
 interface CommandPaletteProps {
@@ -59,6 +61,13 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
   const { setTheme } = useTheme();
   const { evaluator } = useExpressionContext();
   const { t } = useObjectTranslation();
+  // A nav entry's text, the way the sidebar and `nav:menu` name it: an entry
+  // with NO `label` shows its target's current label, else its target's machine
+  // name (objectui#9868 — `NavigationSyncEffect` writes such entries). A present
+  // label resolves exactly as `resolveKeyedI18nLabel(item.label, t)` did here.
+  const targetLabel = useNavTargetLabel();
+  const navLabel = (item: NavigationItem) =>
+    resolveNavItemLabel(item, undefined, t, undefined, undefined, targetLabel);
 
   // The ⌘K / Ctrl+K accelerator and the open-state source of truth now live in
   // CommandPaletteProvider so the keyboard shortcut, the header button, and the
@@ -266,11 +275,11 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
                 return (
                   <CommandItem
                     key={item.id}
-                    value={`object ${resolveKeyedI18nLabel(item.label, t)} ${item.objectName}`}
+                    value={`object ${navLabel(item)} ${item.objectName}`}
                     onSelect={() => runCommand(() => navigate(resolveHref(item, baseUrl, templateContext).href))}
                   >
                     <Icon className="mr-2 h-4 w-4" />
-                    <span>{resolveKeyedI18nLabel(item.label, t)}</span>
+                    <span>{navLabel(item)}</span>
                   </CommandItem>
                 );
               })}
@@ -285,11 +294,11 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
               .map(item => (
                 <CommandItem
                   key={item.id}
-                  value={`dashboard ${resolveKeyedI18nLabel(item.label, t)} ${item.dashboardName}`}
+                  value={`dashboard ${navLabel(item)} ${item.dashboardName}`}
                   onSelect={() => runCommand(() => navigate(resolveHref(item, baseUrl, templateContext).href))}
                 >
                   <LayoutDashboard className="mr-2 h-4 w-4" />
-                  <span>{resolveKeyedI18nLabel(item.label, t)}</span>
+                  <span>{navLabel(item)}</span>
                 </CommandItem>
               ))}
           </CommandGroup>
@@ -303,11 +312,11 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
               .map(item => (
                 <CommandItem
                   key={item.id}
-                  value={`page ${resolveKeyedI18nLabel(item.label, t)} ${item.pageName}`}
+                  value={`page ${navLabel(item)} ${item.pageName}`}
                   onSelect={() => runCommand(() => navigate(resolveHref(item, baseUrl, templateContext).href))}
                 >
                   <FileText className="mr-2 h-4 w-4" />
-                  <span>{resolveKeyedI18nLabel(item.label, t)}</span>
+                  <span>{navLabel(item)}</span>
                 </CommandItem>
               ))}
           </CommandGroup>
@@ -321,11 +330,11 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
               .map(item => (
                 <CommandItem
                   key={item.id}
-                  value={`report ${resolveKeyedI18nLabel(item.label, t)} ${item.reportName}`}
+                  value={`report ${navLabel(item)} ${item.reportName}`}
                   onSelect={() => runCommand(() => navigate(resolveHref(item, baseUrl, templateContext).href))}
                 >
                   <BarChart3 className="mr-2 h-4 w-4" />
-                  <span>{resolveKeyedI18nLabel(item.label, t)}</span>
+                  <span>{navLabel(item)}</span>
                 </CommandItem>
               ))}
           </CommandGroup>

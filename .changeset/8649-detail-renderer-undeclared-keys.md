@@ -83,3 +83,14 @@ Declaring them here would make this repo accept what the platform refuses;
 retiring the reads would delete a redaction that works today on the raw-node
 path. Both keys stay honoured exactly as before, and the census above is a test,
 so it goes red the day the platform declares one of them.
+
+**Correction, 2026-09-30 (objectui#8649).** The paragraph above that begins
+"Three keys are deliberately NOT declared" is superseded, together with the
+census under it. `@objectstack/spec` 17.5.0 declares `enforceFieldSecurity`,
+`redactFields` and `requiredPermissions` on `record:details`,
+`record:highlights` and `record:related_list`, and PR objectui#11184 declares
+the same three keys on those blocks: on their `@object-ui/types` props
+interfaces, as their registry inputs, and at the renderers' read sites, which
+no longer cast. That pull request carries its own release note. The paragraph's
+behavioural statement still holds: no runtime behaviour changes, and all three
+keys are honoured exactly as before.

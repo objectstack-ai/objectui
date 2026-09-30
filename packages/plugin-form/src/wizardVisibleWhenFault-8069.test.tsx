@@ -30,11 +30,12 @@ import { WizardForm } from './WizardForm';
 registerAllFields();
 
 let toastError: ReturnType<typeof vi.spyOn>;
+let warn: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   toastError = vi.spyOn(toast, 'error').mockImplementation(() => 'id' as never);
   // Muted: the faults these cases provoke warn once each by design.
-  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -124,12 +125,16 @@ describe('objectui#8069 — the wizard gate refuses a faulted visibleWhen', () =
     expect(messages.some((m) => /visibleWhen rule of Owner could not be evaluated/.test(m))).toBe(true);
   });
 
-  it('control — a blank VIEW-level visibleWhen is a layout gate, not a field rule: the submit goes through', async () => {
+  it('control — a blank VIEW-level visibleWhen is a layout gate, not a field rule: the submit goes through, and the blank is said', async () => {
     // `sectionFields` drops a blank view-level predicate before it reaches the
     // runtime field (`attachVisibility`), so the gate never sees it at all —
-    // "no gate", and nothing on this path refuses it.
+    // "no gate", and nothing on this path refuses it. Since objectui#11262 the
+    // drop is not silent (ADR-0137 D4): `attachVisibility` reports the blank it
+    // drops through the `[blank]` channel, naming the field.
     const ds = await skipPastOwnerAndSubmit({}, { field: 'owner', visibleWhen: '' });
     await expectSubmitted(ds);
+    const lines = warn.mock.calls.map((c: unknown[]) => String(c[0])).filter((w: string) => w.includes('[blank]'));
+    expect(lines.some((w: string) => w.includes("'owner'"))).toBe(true);
   });
 
   it('a faulted requiredWhen is NOT refused by the gate — the server refuses it (D2)', async () => {

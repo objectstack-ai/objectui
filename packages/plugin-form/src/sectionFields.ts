@@ -41,6 +41,7 @@
  */
 
 import type { FormField } from '@object-ui/types';
+import { evalFieldPredicate, isBlankPredicateText, type FieldRulePredicate } from '@object-ui/core';
 import { mapFieldTypeToFormType, buildValidationRules } from '@object-ui/fields';
 import { isCreateFormMode, isRequiredInForm } from './schemaDefaults';
 import { findCustomFieldMember } from './customFieldsMerge';
@@ -123,15 +124,39 @@ export interface SectionFieldsContext {
  * by `evaluateCondition`, which is a legacy `{field, operator, value}`
  * matcher, not a CEL evaluator — and nothing in the form render chain ever
  * called the closure, so `visibleOn` silently did nothing.
+ *
+ * ## A BLANK predicate is dropped — and said (objectui#11262)
+ *
+ * Blank predicate TEXT — `''`, whitespace-only, or an envelope whose `source`
+ * is either — is not attached: the runtime field draws with no view-level gate,
+ * which is the verdict a blank gate has everywhere (ADR-0137 D3 / D4, "no
+ * gate"). What ADR-0137 D4 rules out is the SILENCE of that: a blank gate
+ * predicate is "diagnosed, never a silent `true`". Dropped here, it never
+ * reached the form renderer's own evaluation — the one place that would have
+ * reported it — so this function reports it, through the channel that
+ * evaluation (and `ExpressionEvaluator`'s blank gate guard) already use:
+ * `isBlankPredicateText` decides, `evalFieldPredicate`'s `[blank]` report
+ * speaks, deduped per blank text and field. No engine call is made.
+ *
+ * Only what this function DROPS is reported here. A runtime field that already
+ * carries the blank in its own `visibleOn` (an inline member drawn as it is)
+ * keeps it, and the form renderer that evaluates it reports it at render, so a
+ * second line here would describe a drop that did not happen.
  */
-function attachVisibility(formField: FormField, expr: any): FormField {
-  const isExpression =
-    (typeof expr === 'string' && expr.trim()) ||
-    (expr != null && typeof expr === 'object' && typeof expr.source === 'string' && expr.source.trim());
-  if (isExpression) {
-    return { ...formField, visibleOn: expr } as FormField;
+function attachVisibility(formField: FormField, expr: unknown): FormField {
+  const isPredicateText =
+    typeof expr === 'string' ||
+    (expr != null && typeof expr === 'object' && typeof (expr as { source?: unknown }).source === 'string');
+  if (!isPredicateText) return formField;
+  if (isBlankPredicateText(expr)) {
+    if ((formField as { visibleOn?: unknown }).visibleOn !== expr) {
+      evalFieldPredicate(expr as FieldRulePredicate, {}, true, undefined, undefined, {
+        context: `view-level visibility of field '${formField.name}', read as no gate`,
+      });
+    }
+    return formField;
   }
-  return formField;
+  return { ...formField, visibleOn: expr } as FormField;
 }
 
 /**

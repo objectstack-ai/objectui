@@ -24,11 +24,12 @@ import { evalFieldPredicate, type FieldRulePredicate } from './fieldRules.js';
  * `ActionRunner` refused to execute, for a predicate that says nothing).
  *
  * This is not a fourth dialect of "empty": it is the SAME rule core's evaluation
- * entries already apply on the value side — `evaluateCondition`
- * (`if (!trimmed) return true`), `evaluateCelCondition` (which asks THIS
- * function since objectui#8069), `evalRowPredicate` (`listConditional.ts`) —
- * brought to the one place that answers "is there a condition at all?", so the
- * two halves cannot disagree about the same blank.
+ * entries already apply on the value side — `evaluateCondition` on both of its
+ * routes (which ask THIS function: the CEL route since objectui#8069, the
+ * legacy path since objectui#11262), `evalRowPredicate` (`listConditional.ts`,
+ * whose blank reaches `evalFieldPredicate`, which asks it too) — brought to the
+ * one place that answers "is there a condition at all?", so the two halves
+ * cannot disagree about the same blank.
  *
  * Exported since objectui#8069 for its second consumer, `evalFieldPredicate`
  * (`evaluator/fieldRules.ts`), which is the entry this docblock's list did NOT
@@ -80,10 +81,11 @@ export function isBlankPredicateText(value: unknown): boolean {
  *     Neither can be read off the normalizer's answer, so both are named here —
  *     see {@link isBlankPredicateText} for why this is the layer that says it.
  *     Core's other predicate entries already treat both as blank:
- *     `evaluateCondition` (`if (!trimmed) return true`), `evaluateCelCondition`
- *     (`isBlankPredicateText(source)`, then `true` — diagnosed since
- *     objectui#8069) and `evalRowPredicate` (`evaluator/listConditional.ts`,
- *     `if (!source.trim())`).
+ *     `evaluateCondition` (`isBlankPredicateText`, then `true` — diagnosed on
+ *     the CEL route since objectui#8069 and on the legacy path since
+ *     objectui#11262) and `evalRowPredicate` (`evaluator/listConditional.ts`,
+ *     the caller's fallback, through `evalFieldPredicate`'s `[blank]` report
+ *     since objectui#11262).
  *   - `{ dialect, source: '' }` — the empty ENVELOPE. This is not an exotic
  *     spelling: `@objectstack/spec`'s `ExpressionInputSchema` normalizes every
  *     authored predicate into an envelope, so "author left the predicate empty"

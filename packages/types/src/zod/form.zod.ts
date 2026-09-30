@@ -62,6 +62,71 @@ import { closeStrictUnionArms } from './node-derivation.js';
 
 
 /**
+ * The wire of the field-rule TRIAD — `visibleWhen` / `readonlyWhen` /
+ * `requiredWhen` on a form field: `ExpressionWireSchema` itself, with ONE check
+ * added. A predicate whose text is blank after trimming — `''`, whitespace, or
+ * an envelope whose `source` is either — is refused at parse (objectui#8069).
+ *
+ * This is ADR-0137 D1 ("a predicate slot accepts only what the engine can
+ * run"; an authored blank predicate is "refused at authoring") on objectui's
+ * own form wire, mirroring what `@objectstack/spec` already does to the same
+ * three keys on `FieldSchema` with `EvaluatedExpressionInputSchema`. The
+ * blankness is not restated here: the predicate's TEXT (the string itself, or
+ * an envelope's `source`) is handed to that spec schema, and its verdict and
+ * its sentence (`EVALUATED_EXPRESSION_SOURCE_REQUIRED`) are the refusal — so
+ * the two refusals of one mistake read alike and cannot drift apart (the
+ * objectui#8563 reason for chaining a spec rule rather than copying it). It is
+ * the authoring half of a pair: D2 refuses a blank that is
+ * already STORED at submit (the form renderer, the console's form page and the
+ * wizard's final gate refuse a blank `visibleWhen`; the server refuses a blank
+ * `requiredWhen` / `readonlyWhen`), so a blank is refused at the first place
+ * that can see it, never silently read as "no rule" (ADR-0137 refuses that
+ * reading for the triad in its Alternatives).
+ *
+ * ## Also the two GATE mirrors whose spec key refuses a blank (objectui#11262)
+ *
+ * Named for the triad it was written for, and since objectui#11262 carried by
+ * two gate keys as well: {@link SelectOptionSchema}'s `visibleWhen` and
+ * {@link FormFieldSchema}'s view-level `visibleOn`. Each mirrors a key
+ * `@objectstack/spec` declares as `EvaluatedExpressionInputSchema` — the
+ * option's `visibleWhen` on the data `SelectOptionSchema`, the form view
+ * field's `visibleWhen` / deprecated `visibleOn` — so the spec refuses a blank
+ * there at authoring (D1) and objectui's mirror, which overrides the key to keep
+ * its own wire, followed it nowhere: a mirror wider than the spec on the same
+ * key is a second authority. They follow D1 with this same check, not a copy of
+ * it. Their RUNTIME verdict is unchanged: a stored blank gate is still "no gate"
+ * plus a one-time `[blank]` diagnostic (ADR-0137 D4), never refused at submit.
+ *
+ * ⚠️ Deliberately a REFINEMENT and not a second schema. The accepted SHAPE is
+ * exactly the one wire type objectui#7530 ruled for the whole platform — the
+ * very two option schemas `ExpressionWireSchema` holds, by reference, with the
+ * same output — and only the blank VALUE is taken out of it. The spec's
+ * `EvaluatedExpressionInputSchema` is not reused because it is a different
+ * shape: it rewrites a string into an envelope and narrows `dialect` to the
+ * spec enum. The pin is `base-schema-predicate-envelope-7530.test.ts`.
+ *
+ * ⛔ Not for objectui-only gates. `BaseSchema`'s `visible` / `hidden` /
+ * `disabled` have no spec twin — `BaseSchema` is objectui's own declaration —
+ * so there is no spec refusal for them to follow: they keep the plain wire,
+ * and a blank there stays "no gate" plus a one-time diagnostic (ADR-0137 D4,
+ * objectui#3850 / #3960), which objectui#11262's triage records as diagnosed,
+ * not refused.
+ *
+ * Declared ahead of {@link SelectOptionSchema}, its first reader.
+ */
+const FieldRulePredicateWireSchema = ExpressionWireSchema.superRefine((predicate, ctx) => {
+  // Only the TEXT is judged by the spec schema — never the envelope itself,
+  // whose `dialect` enum is narrower than this wire's and would refuse shapes
+  // objectui#7530 admits. A non-blank text always passes its string arm.
+  const verdict = stripImportedDefaults(SpecEvaluatedExpressionInputSchema).safeParse(
+    typeof predicate === 'string' ? predicate : predicate.source,
+  );
+  if (!verdict.success) {
+    for (const issue of verdict.error.issues) ctx.addIssue({ code: 'custom', message: issue.message });
+  }
+});
+
+/**
  * Select Option Schema — derived from `@objectstack/spec/data`
  * `SelectOptionSchema` (objectstack#4115), with two pinned divergences and two
  * UI-only extensions. Drift guard: `__tests__/select-option-spec-parity.test.ts`.
@@ -78,9 +143,11 @@ export const SelectOptionSchema = z.object({
   // standalone UI forms legitimately bind numeric/boolean values. The parity
   // test pins both directions so a future spec widening gets noticed.
   value: z.union([z.string(), z.number(), z.boolean()]).describe('Option value'),
-  // Deliberate divergence: keep objectui's wire contract (#2212) instead of
-  // the spec's envelope-canonicalizing ExpressionInput pipe.
-  visibleWhen: ExpressionWireSchema.optional()
+  // Deliberate divergence in SHAPE: keep objectui's wire contract (#2212)
+  // instead of the spec's envelope-canonicalizing ExpressionInput pipe. Not in
+  // VALUE: a blank predicate is refused here as the spec refuses it
+  // (objectui#11262, ADR-0137 D1) — see `FieldRulePredicateWireSchema`.
+  visibleWhen: FieldRulePredicateWireSchema.optional()
     .describe('Per-option visibility predicate (CEL) — option offered only when TRUE'),
   // objectui-only UI extensions (not in the spec; the parity test asserts the
   // spec has not claimed these names).
@@ -925,53 +992,6 @@ function unresolvableFieldWidgetNamespaceMessage(id: string): string {
   );
 }
 
-/**
- * The wire of the field-rule TRIAD — `visibleWhen` / `readonlyWhen` /
- * `requiredWhen` on a form field: `ExpressionWireSchema` itself, with ONE check
- * added. A predicate whose text is blank after trimming — `''`, whitespace, or
- * an envelope whose `source` is either — is refused at parse (objectui#8069).
- *
- * This is ADR-0137 D1 ("a predicate slot accepts only what the engine can
- * run"; an authored blank predicate is "refused at authoring") on objectui's
- * own form wire, mirroring what `@objectstack/spec` already does to the same
- * three keys on `FieldSchema` with `EvaluatedExpressionInputSchema`. The
- * blankness is not restated here: the predicate's TEXT (the string itself, or
- * an envelope's `source`) is handed to that spec schema, and its verdict and
- * its sentence (`EVALUATED_EXPRESSION_SOURCE_REQUIRED`) are the refusal — so
- * the two refusals of one mistake read alike and cannot drift apart (the
- * objectui#8563 reason for chaining a spec rule rather than copying it). It is
- * the authoring half of a pair: D2 refuses a blank that is
- * already STORED at submit (the form renderer, the console's form page and the
- * wizard's final gate refuse a blank `visibleWhen`; the server refuses a blank
- * `requiredWhen` / `readonlyWhen`), so a blank is refused at the first place
- * that can see it, never silently read as "no rule" (ADR-0137 refuses that
- * reading for the triad in its Alternatives).
- *
- * ⚠️ Deliberately a REFINEMENT and not a second schema. The accepted SHAPE is
- * exactly the one wire type objectui#7530 ruled for the whole platform — the
- * very two option schemas `ExpressionWireSchema` holds, by reference, with the
- * same output — and only the blank VALUE is taken out of it. The spec's
- * `EvaluatedExpressionInputSchema` is not reused because it is a different
- * shape: it rewrites a string into an envelope and narrows `dialect` to the
- * spec enum. The pin is `base-schema-predicate-envelope-7530.test.ts`.
- *
- * ⛔ Not for gates. `BaseSchema`'s `visible` / `hidden` / `disabled`, this
- * form's view-level `visibleOn` and an option's `visibleWhen` keep the plain
- * wire: a blank GATE stays "no gate" plus a one-time diagnostic (ADR-0137 D4,
- * objectui#3850 / #3960), and none of them is refused at submit.
- */
-const FieldRulePredicateWireSchema = ExpressionWireSchema.superRefine((predicate, ctx) => {
-  // Only the TEXT is judged by the spec schema — never the envelope itself,
-  // whose `dialect` enum is narrower than this wire's and would refuse shapes
-  // objectui#7530 admits. A non-blank text always passes its string arm.
-  const verdict = stripImportedDefaults(SpecEvaluatedExpressionInputSchema).safeParse(
-    typeof predicate === 'string' ? predicate : predicate.source,
-  );
-  if (!verdict.success) {
-    for (const issue of verdict.error.issues) ctx.addIssue({ code: 'custom', message: issue.message });
-  }
-});
-
 export const FormFieldSchema = z.object({
   id: z.string().optional().describe('Field ID'),
   name: z.string().describe('Field name (form data path)'),
@@ -995,7 +1015,10 @@ export const FormFieldSchema = z.object({
   ]).nullish().describe('Parent field(s) for cascading/dependent fields'),
   hidden: z.boolean().optional().describe('Whether the field is hidden'),
   readonly: z.boolean().optional().describe('Whether the field is read-only'),
-  visibleOn: ExpressionWireSchema.optional()
+  // The form view's gate, refused blank at authoring as the spec's form view
+  // field refuses it (objectui#11262, ADR-0137 D1) — see
+  // `FieldRulePredicateWireSchema`.
+  visibleOn: FieldRulePredicateWireSchema.optional()
     .describe('View-level visibility predicate (CEL) — ANDed with visibleWhen'),
   visibleWhen: FieldRulePredicateWireSchema.optional()
     .describe('Field-level visibility rule (CEL) — field shown only when TRUE'),

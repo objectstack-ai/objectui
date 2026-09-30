@@ -186,9 +186,15 @@ blank) is not "no rule" — it is refused, at the first place that can see it
 parse, as the protocol's field schema does. One already stored is refused at
 submit, like any rule that cannot be evaluated: the client refuses a blank
 `visibleWhen`, the server a blank `requiredWhen` / `readonlyWhen`. A blank
-**gate** is different: a blank `visible`, `hidden` or `disabled` is still read
-as "no gate", with a one-time `[blank]` warning in the console, and a form
-view's own blank field `visibleWhen` is likewise read as no gate, never refused.
+**gate** is different: at runtime it is read as "no gate" and never refused —
+a blank `visible`, `hidden` or `disabled`, a page node's `visibleWhen`, or a
+form view's own field `visibleWhen` — but it is not silent either: it is
+reported once in the console with the `[blank]` reason (ADR-0137 D4). Where the
+protocol already refuses a blank gate at authoring, the form schema does too: a
+form field's view-level `visibleOn` and a select option's `visibleWhen` reject
+a blank predicate at parse, as their protocol counterparts do. `visible`,
+`hidden` and `disabled` have no protocol counterpart, so a blank there parses
+and is only diagnosed.
 
 The same is now true of a **component node's own gate** — `visibleWhen` on a
 page component (and its `visible` / `visibleOn` / `visibility` / `hidden` /

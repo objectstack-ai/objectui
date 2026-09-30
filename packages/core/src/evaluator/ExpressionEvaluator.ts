@@ -362,7 +362,21 @@ export class ExpressionEvaluator {
       condition = (condition as any).source as string;
     }
 
-    // No condition → default to visible/enabled (undefined, null, '').
+    // A BLANK gate — `''`, whitespace-only text, or an envelope whose `source`
+    // is either (unwrapped just above) — is "no gate": visible/enabled, as it
+    // always was here. It is answered by the SAME diagnosed guard the
+    // `{ dialect: 'cel' }` route above uses (objectui#11262, ADR-0137 D4: a
+    // blank gate predicate is "diagnosed, never a silent `true`"), so a bare
+    // blank, a dialect-less blank envelope and a blank CEL envelope are one
+    // report on one dedupe key. This used to be two silent returns — an
+    // `if (!condition)` and a whitespace-only `trim()` — on the path
+    // `SchemaRenderer`'s visibility legs reach with the raw authored value.
+    if (isBlankPredicateText(condition)) {
+      return this.answerBlankGate(condition as string, options);
+    }
+
+    // No condition at all → default to visible/enabled (`undefined`, `null`).
+    // Not blank TEXT, so nothing was declared here to report.
     if (!condition) {
       return true;
     }
@@ -372,9 +386,6 @@ export class ExpressionEvaluator {
     }
 
     const trimmed = condition.trim();
-    if (!trimmed) {
-      return true; // Whitespace-only → treat as "no condition".
-    }
 
     // A condition is semantically a single boolean expression. When it's a
     // `${...}` template, evaluate via the template path. Otherwise treat the
@@ -420,29 +431,7 @@ export class ExpressionEvaluator {
    * syntax) throws; a genuine `false` never throws.
    */
   private evaluateCelCondition(source: string, options: EvaluationOptions): boolean {
-    if (isBlankPredicateText(source)) {
-      // A BLANK gate: no predicate → visible/enabled, exactly as before
-      // (objectui#3850 / #3960's verdict), in EVERY mode — `throwOnError`
-      // included, since the author wrote nothing that could fault. What
-      // changed is that it is no longer SILENT (ADR-0137 D4: a blank gate
-      // predicate is "diagnosed, never a silent `true`"; objectui#8069). The
-      // report is `evalFieldPredicate`'s own `[blank]` one — the channel every
-      // other predicate fault already uses — so a caller that passed `onFault`
-      // receives it there (and prints its own, node-named line), and every
-      // other caller gets the deduped built-in warning. No engine call is made:
-      // a blank predicate never reaches the engine.
-      evalFieldPredicate(
-        source,
-        {},
-        true,
-        undefined,
-        undefined,
-        options.onFault
-          ? { warn: false, onFault: options.onFault }
-          : { context: 'a CEL gate predicate, read as no gate' },
-      );
-      return true;
-    }
+    if (isBlankPredicateText(source)) return this.answerBlankGate(source, options);
     const bag = this.context.toObject();
     const rec = bag.record;
     const record = (rec && typeof rec === 'object' && !Array.isArray(rec))
@@ -478,6 +467,41 @@ export class ExpressionEvaluator {
       throw new Error(`CEL predicate failed to evaluate: ${source}`);
     }
     return asTrue;
+  }
+
+  /**
+   * Answer a BLANK gate predicate — the ONE diagnosed guard of
+   * {@link evaluateCondition}, on both of its routes (objectui#8069 put it on
+   * the `{ dialect: 'cel' }` route; objectui#11262 routes the legacy path's
+   * blank here too, so the two are one report rather than two).
+   *
+   * The verdict is `true` — no predicate → visible/enabled, exactly as before
+   * (objectui#3850 / #3960's verdict) — in EVERY mode, `throwOnError` included,
+   * since the author wrote nothing that could fault. What it is not is SILENT
+   * (ADR-0137 D4: a blank gate predicate is "diagnosed, never a silent
+   * `true`"). The report is `evalFieldPredicate`'s own `[blank]` one — the
+   * channel every other predicate fault already uses — so a caller that passed
+   * `onFault` receives it there (and prints its own, node-named line), and
+   * every other caller gets the deduped built-in warning. No engine call is
+   * made: a blank predicate never reaches the engine.
+   *
+   * The locator names a CEL gate on both routes: a blank has no syntax to put
+   * it in either dialect, and a bare-string predicate is CEL by the spec's
+   * contract. One locator is also what keeps `''` and `{ dialect: 'cel',
+   * source: '' }` on one dedupe key.
+   */
+  private answerBlankGate(text: string, options: EvaluationOptions): true {
+    evalFieldPredicate(
+      text,
+      {},
+      true,
+      undefined,
+      undefined,
+      options.onFault
+        ? { warn: false, onFault: options.onFault }
+        : { context: 'a CEL gate predicate, read as no gate' },
+    );
+    return true;
   }
 
   /**

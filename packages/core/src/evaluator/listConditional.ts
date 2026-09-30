@@ -249,8 +249,16 @@ export function evalRowPredicate(
 ): boolean {
   const fallback = opts.fallback ?? false;
   if (pred == null) return fallback;
+  // A BLANK predicate is not answered here. It used to be, for the bare-string
+  // spelling only: `''` / whitespace returned the fallback on this line, in
+  // silence, while a blank ENVELOPE went on to `evalFieldPredicate`'s `[blank]`
+  // report below (objectui#11262, ADR-0137 D4: a blank gate predicate is
+  // "diagnosed, never a silent `true`"). Both spellings now take that one
+  // route: no legacy marker can match blank text, so a blank string reaches
+  // the CEL path like its envelope twin and gets the same verdict — the
+  // caller's fallback — and the same report, labelled on the fail-closed route
+  // and by the canonical helper on the single-eval one.
   const source = typeof pred === 'string' ? pred : undefined;
-  if (source !== undefined && !source.trim()) return fallback;
 
   // Relations collapse to the foreign key the server stores, so `record.owner`
   // means one thing whether or not this surface expanded the column

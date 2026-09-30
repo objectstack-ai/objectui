@@ -2,8 +2,8 @@
   "number": 11182,
   "kind": "issue",
   "title": "finding(components): `action:menu`'s trigger stays pressable while its action is in flight when rendered through SchemaRenderer — `{...rest}` spreads SchemaRenderer's `disabled: undefined` over `disabled={loading}` (the objectui#9131 shape)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,20 +14,21 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
-  "assignees": [
-    "os-warren"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-30T07:54:09Z",
-  "updated_at": "2026-09-30T14:28:41Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-30T14:45:15Z",
+  "closed_at": "2026-09-30T14:45:15Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 4,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11182",
   "body": "Filing-gate category: ① a product defect with named sites, class (a). `reach:` a public door, measured: the SDUI render path, with the real `SchemaRenderer` and the real registry.\n- **Measured once**, by the objectui#10872 batch-4 dev in an uncommitted scratch probe that was deleted after. An `action:menu` whose member action is in flight (an `autoTrigger` member whose `onClick` never settles) shows the spinner.\n  - Through `SchemaRenderer`, its trigger reads `disabled=false`.\n  - A direct registry mount of the same node reads `disabled=true`.\n  - The probe printed `direct={spinning:true,disabled:true} node={spinning:true,disabled:false}`.\n  - So on every schema-rendered page the trigger stays pressable while its action runs, and a second execution can start.\n- **Confirmed at source** by PR objectui#11180's contract reviews (`5906210193` ③ 5, re-stated in `5906613106` ③ 1). Routing it to objectui#11168 alone is not enough, because objectui#11168's mandate is the registry-inputs parity ledger, and a measured runtime defect is not a ledger entry.\n\nReader: triage first (grade and route), then the seat that dispatches it. Filed by `domain:ui` seat 2 (`session_011p7ikEivgXefNDaE5S5Uec`) at the ACCEPT of PR objectui#11180 (objectui#10872 batch 4), from the dev report's `out_of_scope_findings[0]` (`5905878792`). ⛔ Not graded here.\n\n## The site (objectui `origin/main` `3ab51503b`, `packages/components/src/renderers/action/action-menu.tsx`)\n\n- The trigger button renders `disabled={loading}` (`:369`) and then `{...rest}` (`:371`).\n- `SchemaRenderer` always forwards `disabled: __disabled || undefined`, with the key present unconditionally, so the later spread writes `disabled: undefined` over the loading state.\n- This is the objectui#9131 shape. `action:button` and `action:icon` fixed it by consuming the host's `disabled` by name (`action-button.tsx:60`–`:64`, `:103`, `:374`: `disabled={hostDisabled || (…)}`), and `action-menu.tsx` was not given the same treatment.\n\n**Adjacent, the same pass (inference, not reproduced):** inline `action:group` spreads `...rest` (`action-group.tsx:226`, `:390`), including `SchemaRenderer`'s forwarded `disabled: undefined`, onto its wrapping `div`. That is the same shape on a non-control element. Measure it in the same pass; if it reproduces, fix it here too.\n\n## Direction (for triage, not a ruling)\n\n- `action:menu` consumes the host's forwarded `disabled` by name, as `action:button` / `action:icon` do. The trigger is then `disabled={loading || hostDisabled || <its declared gate>}`, and `{...rest}` can no longer carry a `disabled` key.\n- One rule across the three action renderers. ⛔ No second convention.\n- **Pins:**\n  - through the real `SchemaRenderer`: an in-flight member keeps the trigger disabled, and it re-enables once the action settles;\n  - a host-disabled menu stays disabled;\n  - a direct registry mount agrees (the control).\n- **Serial.** `action-menu.tsx` and `action-group.tsx` are inside objectui#11168 slice 1's in-flight surface (`domain:spec`, assignee `huangyiirene`), so this runs after that slice lands, or rides it if its seat agrees.\n\n## Dedupe\n\nThe 1000 most recently updated objectui issues and PRs (down to #8130) were grepped:\n- `action-menu`: objectui#10462, objectui#10483, objectui#10345 and PR objectui#10470, all closed and all about `params` or placement.\n- `action:menu` with `disabled`: PR objectui#11180, objectui#11168 (parity keys only; no runtime item on its body or its three comments), and PR objectui#10888, PR objectui#10786, PR objectui#10470 (closed, other subjects).\n- `ActionMenuRenderer`, `9131`: 0 hits.\n\nNo card covers the in-flight trigger.\n\nDedupe words: `action:menu disabled loading rest spread` · `action-menu in-flight trigger not disabled SchemaRenderer` · `9131 action:menu disabled undefined`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

@@ -2,7 +2,7 @@
   "number": 11217,
   "kind": "pull_request",
   "title": "fix(app-shell,plugin-detail): the record activity panel says \"no permission to view activity\" when its read is refused, instead of an empty list (objectui#11195)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -24,10 +24,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-30T13:39:32Z",
-  "updated_at": "2026-09-30T14:15:46Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-09-30T14:32:56Z",
+  "closed_at": "2026-09-30T14:32:54Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-30T14:32:53Z",
   "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/11217",

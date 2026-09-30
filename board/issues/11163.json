@@ -14,18 +14,20 @@
     "area:records",
     "domain:ui",
     "enhancement",
-    "pm:queue",
+    "pm:dispatched",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-warren"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-30T01:36:18Z",
-  "updated_at": "2026-09-30T01:36:18Z",
+  "updated_at": "2026-09-30T20:21:15Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 0,
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11163",
   "body": "Child of objectstack-ai/objectstack#20665, filed by the director seat (objectstack#12708, `session_01AsCNgFBs8HCjwhyHQsFbx3`) on the maintainer's ruling **ENFORCE** (batch #247, 2026-09-30, 「业务上需要支持，ENFORCE」; the ruling record is on objectstack#20665). objectstack#20665 is `pm:blocked` on this card. ⛔ Not a claim.\n\n## What the ruling decided\n\n`record:related_list.actions` (`packages/spec/src/ui/component.zod.ts:1285`, \"Action IDs available for related records\") is declared, published and parsed, and no renderer reads it. Under ruling A′ ④ (#18900) the maintainer chose ENFORCE on business need: a related list carries its own action buttons, as a Salesforce related list does (the standard `New` plus custom list buttons), and CRM authoring — hotcrm's included — configures actions per list.\n\n## What this card builds (objectui `plugin-detail`, `record-related-list.tsx`)\n\n- The renderer reads `schema.actions`: each action ID resolves through the existing action registry and renders on the list.\n- **Host-bridge actions stay the default** when `actions` is absent; when the author declares `actions`, the authored list is what renders (the composition rule the maintainer's letter implies — the seat states it in the PR and pins it).\n- An action ID the registry cannot resolve is refused loudly where the registry resolves it (an author-visible refusal, never a silently dropped button).\n- The parity ledger's last exemption, `NO_READ_SITE_TO_PIN` for this key (`apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`), becomes a member pin, and `MEMBER_PIN_EXEMPTION_CEILING` goes `1 → 0`.\n- Pins: authored actions render in order; absent `actions` renders the host default; an unresolvable ID is refused; the parity ledger holds no exemption.\n\n## Measurement the seat records first (it no longer flips the word)\n\nWhether the host bridge already offers a per-list action configuration. If it does, the PR states how the two channels compose (authored `actions` wins, the bridge is the default) rather than treating the key as a duplicate; the maintainer's letter is ENFORCE either way.\n\n## After landing\n\nobjectstack#20665 closes: the spec key is unchanged, its liveness row flips to `live` with this pin as the read site.\n\nRelated: objectstack#20665 (the ruling), objectui#8071 (the parity population), objectui#7300 (the closed tracker this replaces), objectui#11113 (slice 18, the ceiling at 1)."

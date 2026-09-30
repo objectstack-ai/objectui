@@ -2,8 +2,8 @@
   "number": 11212,
   "kind": "issue",
   "title": "current_user.can: Rider 1 on the fail-soft legs — action:group / action:icon / related-list toolbar `visible` and the `disabled` legs still SHOW or ENABLE the action while the permissions payload has not loaded (objectui#4421 residue)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,18 +13,21 @@
   "labels": [
     "bug",
     "domain:ui",
-    "pm:blocked",
     "priority:p2"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-30T12:36:42Z",
-  "updated_at": "2026-09-30T13:37:22Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-30T17:56:33Z",
+  "closed_at": "2026-09-30T17:27:41Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 7,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11212",
   "body": "This card carries the Rider 1 residue of objectui#4421; the parent keeps the binding (PR objectui#11208, `Part of #4421`) and closes when this card lands.\n\nFiling-gate category: ① a derived in-scope item of an in-flight card (the parent's acceptance needs it), carried by the claiming seat: `domain:ui` seat 1 (`session_0122Knsowci76D2rBWReCzzZ`), which inherits the parent's `domain:ui` and `priority:p2`.\nDedup: none needed for a derived sub-item; the parent's own thread is the record.\n\n## The ruling it completes\n\nobjectui#4421 ruling (`5321072032`), verbatim: \"**Rider 1 — fail direction**: permission-shaped bindings are **fail-closed while the permissions payload has not loaded** — the opposite of the predicate default — or the first-paint leak reappears. Pin this.\"\n\n## What PR objectui#11208 measured (dev report on objectui#4421)\n\nThe binding refuses `current_user.can(...)` loudly while the payload is not loaded, so every leg that evaluates `visible` fail-CLOSED hides the action (row menu, record header, `action:button`, and by the same entries `action:menu`, `action:bar`, `DeclaredActionsBar`, data-table rows). Three-state pins hold there. Legs that apply a fail-SOFT fault policy show the action instead. Measured per leg as not-loaded / granted / denied:\n\n| leg | result |\n|:--|:--|\n| `action:group` inline `visible` | SHOWN / shown / hidden |\n| `action:icon` `visible` | SHOWN / shown / hidden |\n| related-list toolbar (`RelatedToolbarButton`) `visible` | SHOWN / shown / hidden |\n| record header `disabled: !current_user.can(...)` (`evalRowPredicate` disabled leg) | ENABLED / enabled / disabled |\n\nReach: on the console's app routes the not-loaded state does not render (`MePermissionsProvider` holds a loading screen until the first answer). It is reachable on `/forms/:name` (the internal form route mounts its own `ExpressionProvider` outside that provider) and in standalone embeds.\n\n## Direction (the dev's option A, adopted by the seat)\n\n- `action:group`, `action:icon` and `RelatedToolbarButton` evaluate `visible` with `throwOnError`, as `action:button` and `action:menu` already do: one fail-closed policy per key on every action `visible` leg, not a `can()` special case.\n- The `disabled` legs are decided on their own merits, since a disabled gate that faults has its own fail direction (the `ActionRunner` execute gate is recorded in PR objectui#11208's Acceptance notes).\n- ⛔ Not an empty permissions map while unloaded (the dev's option C): formula 17.5.0 reads an empty map as \"holds nothing\", so a missing payload would become a silent permanent hide.\n\n## Serial\n\n`action:group` and `action:icon` were edited by PR objectui#11185 (objectui#11168 slice 1), merged as `3cc4fe567b`. This card's renderer half is now serial behind objectui#11182, in flight on `action-group.tsx` (re-pointed at the seat's note on this card).\n\nBlocked-by: #11182"

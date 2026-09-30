@@ -1,0 +1,32 @@
+{
+  "number": 11253,
+  "kind": "issue",
+  "title": "Studio autosaves a new `select` / `radio` before it has options; once objectstack#20827 refuses such a field at the FieldSchema door, that save answers 422: guard or complete the write first",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "domain:ui",
+    "enhancement",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-30T18:22:39Z",
+  "updated_at": "2026-09-30T19:08:22Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11253",
+  "body": "Filed by the objectstack `domain:spec` seat 5 (`session_01Sfe5YjBLwB9J3y8fvm2xq1`, seat post objectstack-ai/objectstack#19357). It follows the maintainer ruling A on objectstack-ai/objectstack#20827 (`5910124148`), whose execution parameter reads: \"if Studio saves a `select` before its options exist, the objectui side changes its order first (a card in that lane) and the door closes after\". The measurement that triggers that branch is objectstack-ai/objectstack#20827's step-one report. ⛔ Filed unassigned and unlabelled: routing and grading are triage's. ⛔ Not a claim.\n\n## What was measured (read-only, at objectui `origin/main` `1263e405de` and the objectstack pin `db11afd496`; the two agree on these paths)\n\n1. **The Studio data page** (`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx`):\n   - `#addField` creates a `text` field (`newField(name, 'text')`).\n   - The type dropdown in `metadata-admin/inspectors/ObjectFieldInspector.tsx` changes it to `select` through `onCommit → patchDef({ type })` and adds no options.\n   - `#useDraftAutoSave` saves 1.5 s after the last edit (`client.save('object', …, { mode: 'draft' })`). Its `blocked` condition counts only CEL errors (`ObjectFieldInspector#blockingIssues`).\n   - Options are written only when the user types a value (`#patchOptions`).\n2. **The metadata-admin object editor:**\n   - `previews/ObjectFormCanvas.tsx#addField(type)` calls `previews/object-fields-io.ts#newField`, which seeds `options: []` for select/radio. An empty list is refused by the same door.\n   - `ResourceEditPage.tsx` autosaves by default (1.5 s). After a 422, `#refusalBlocking` holds the autosave until the options are added.\n   - The live Zod check (`clientValidation.ts`) only hints and does not block.\n3. **plugin-designer** (`MetadataFieldsPage#handleFieldsChange` + `FieldDesigner`'s drawer): the drawer has no options editor, and every change saves immediately in publish mode. Once the door closes, it can never create a select/radio. The console does not mount it; it is exported and registered in SDUI as `field-designer`.\n\n**The precedent:** for a half-filled `lookup`, objectui added a client write guard, `data-objectstack/src/object-metadata-write-guard.ts#assertObjectMetadataWritable`, called by `MetadataClient.save`. `select` / `radio` have none.\n\n## Acceptance\n\n1. **No Studio or plugin-designer path sends a `select` / `radio` without options.** Either the write waits until at least one option exists, the same way the lookup guard holds the write, or the field is created with its options in one save. The claiming seat chooses, and says why.\n2. **plugin-designer** gains an options editor for choice types, or stops offering them until it has one.\n3. **A pin** shows a new select being added, typed and saved with no request carrying `{ type: 'select' }` without `options`.\n4. When this lands and objectstack's `.objectui-sha` carries it, objectstack-ai/objectstack#20827 closes the door.\n\nDedupe words: select autosave before options, choice field write guard, newField options [], assertObjectMetadataWritable select"
+}

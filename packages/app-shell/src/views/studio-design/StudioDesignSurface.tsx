@@ -1359,11 +1359,16 @@ function NavTree({
   return (
     <>
       {nodes.map((node, i) => {
+        // objectui#11158 — the spec types a nav item's `label` as `I18nLabel`,
+        // so a locale map rendered raw threw ("Objects are not valid as a
+        // React child") and took the whole rail down. Every read below goes
+        // through the family's one helper, in the designer locale.
+        const labelText = navItemLabelText(node.label, locale);
         if (node.type === 'group' || (Array.isArray(node.children) && node.children.length)) {
           return (
             <div key={node.id ?? i} className="mb-1">
               <p className="flex items-center gap-1 px-2 pb-1 pt-3 text-[11px] text-muted-foreground">
-                <Folder className="h-3 w-3" /> {node.label}
+                <Folder className="h-3 w-3" /> {labelText}
               </p>
               <div className="pl-1.5">
                 <NavTree nodes={node.children ?? []} active={active} onPick={onPick} objectIcons={objectIcons} />
@@ -1371,7 +1376,7 @@ function NavTree({
             </div>
           );
         }
-        const surface = resolveSurface(node);
+        const surface = resolveSurface(node, locale);
         // Icon precedence: the nav item's own `icon` (honoured — it was ignored
         // before), then an object surface's own metadata icon, then the
         // type-generic fallback.
@@ -1383,7 +1388,7 @@ function NavTree({
             key={node.id ?? i}
             onClick={() => surface && onPick(surface)}
             disabled={!surface}
-            title={surface ? `${surface.type} · ${surface.name}` : node.label}
+            title={surface ? `${surface.type} · ${surface.name}` : labelText || undefined}
             className={
               'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs disabled:opacity-40 ' +
               (isActive ? 'bg-muted font-medium' : 'text-foreground/90 hover:bg-muted/60')
@@ -1393,7 +1398,7 @@ function NavTree({
             {/* objectui#7254 — a nav item with no declared label used to render
                 an EMPTY row; the internal name is a poor label but an honest
                 one, and it beats a blank the author cannot click by name. */}
-            <span className="flex-1 truncate">{node.label || surface?.name}</span>
+            <span className="flex-1 truncate">{labelText || surface?.name}</span>
             {surface && surface.type !== 'page' && (
               // The kind chip was the raw English metadata type in an otherwise
               // localized rail. `uppercase` is dropped with it: it is a
@@ -1855,14 +1860,17 @@ export function InterfacesPillar({
         setNavHasDraft(!!appDraftBody);
         setAppStatus('ready');
         const tree = Array.isArray(body.navigation) ? (body.navigation as NavNode[]) : [];
-        // auto-open the first resolvable leaf
+        // auto-open the first resolvable leaf. Its label is resolved in the
+        // designer locale of this load, like the rail's (objectui#11158).
+        // `locale` is deliberately not a dependency of this effect: a language
+        // switch must not re-run the load, which rehydrates the nav edit buffer.
         const firstLeaf = (function find(nodes: NavNode[]): Surface | null {
           for (const n of nodes) {
             if (n.type === 'group' || n.children?.length) {
               const r = find(n.children ?? []);
               if (r) return r;
             } else {
-              const s = resolveSurface(n);
+              const s = resolveSurface(n, locale);
               if (s) return s;
             }
           }
@@ -1870,7 +1878,7 @@ export function InterfacesPillar({
         })(tree);
         // A `?surface=` deep-link wins over the first-leaf default when it
         // still resolves to a leaf in this app's nav; otherwise fall back.
-        const deepLinked = initialSurface ? findSurfaceInTree(tree, initialSurface) : null;
+        const deepLinked = initialSurface ? findSurfaceInTree(tree, initialSurface, locale) : null;
         setCurrent((cur) => cur ?? deepLinked ?? firstLeaf);
       } catch (e) {
         if (!cancelled) {

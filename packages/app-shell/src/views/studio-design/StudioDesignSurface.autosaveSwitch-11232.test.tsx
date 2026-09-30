@@ -105,6 +105,8 @@ const server = vi.hoisted(() => ({
   saves: [] as Array<{ type: string; name: string; packageId: unknown; body: Record<string, unknown> }>,
   /** `type/name` → while set, that item's load waits on it (a slow load). */
   loadHold: new Map<string, Promise<void>>(),
+  /** While set, the next save waits on it (a save held in flight). */
+  saveHold: null as Promise<void> | null,
 }));
 
 // A server double: a save lands as the item's draft, and a later load serves it.
@@ -134,6 +136,9 @@ const mockClient = vi.hoisted(() => {
     save: vi.fn(async (type: string, name: string, item: unknown, opts?: { packageId?: string }) => {
       const body = JSON.parse(JSON.stringify(item)) as Record<string, unknown>;
       server.saves.push({ type, name, packageId: opts?.packageId, body });
+      const hold = server.saveHold;
+      server.saveHold = null;
+      if (hold) await hold;
       server.drafts.set(k(type, name), body);
       return { type, name, item };
     }),
@@ -231,6 +236,7 @@ beforeEach(() => {
   server.drafts.clear();
   server.saves.length = 0;
   server.loadHold.clear();
+  server.saveHold = null;
   for (const fn of Object.values(mockClient)) (fn as unknown as { mockClear: () => void }).mockClear();
   const seed = (pkg: string, type: string, row: Record<string, unknown>) =>
     server.active.set(key(type, String(row.name)), { pkg, row: JSON.parse(JSON.stringify(row)) });
@@ -267,6 +273,18 @@ function holdLoad(type: string, name: string): () => Promise<void> {
     await act(async () => {
       release();
       server.loadHold.delete(key(type, name));
+      await new Promise((r) => setTimeout(r, 0));
+    });
+  };
+}
+
+/** Holds the next save in flight until the returned release is called. */
+function holdNextSave(): () => Promise<void> {
+  let release!: () => void;
+  server.saveHold = new Promise<void>((r) => (release = r));
+  return async () => {
+    await act(async () => {
+      release();
       await new Promise((r) => setTimeout(r, 0));
     });
   };
@@ -358,6 +376,38 @@ describe('Interfaces page inspector — a page switch inside the debounce (objec
     editText(await pageLabel(), 'Landing two');
     await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
     expect(savesOf('page', 'landing').map((b) => [b.label, b.regions])).toEqual([['Landing two', LANDING.regions]]);
+  }, 30000);
+});
+
+describe('Interfaces page inspector — a save in flight across a page switch (objectui#11232)', () => {
+  const pageLabel = () => within(screen.getByRole('complementary')).findByLabelText(/^Label/, undefined, SLOW);
+
+  it("the save lands on its own page, and its claim does not clear the page opened since", async () => {
+    render(
+      <MemoryRouter initialEntries={[`/studio/${PKG}/interfaces`]}>
+        <InterfacesPillar packageId={PKG} />
+      </MemoryRouter>,
+    );
+    await screen.findByRole('button', { name: 'Select hello' }, SLOW);
+
+    const releaseSave = holdNextSave();
+    editText(await pageLabel(), 'Welcome');
+    await screen.findByTestId('if-autosaving', undefined, SLOW);
+    const releaseLoad = holdLoad('page', 'landing');
+    fireEvent.click(screen.getByRole('button', { name: /Landing menu/ }));
+    // The save of `home` lands while `landing` is still loading.
+    await releaseSave();
+    // The rail still holds `home`'s document; an edit typed there is not
+    // `landing`'s, and the dirty period that `home`'s save left standing
+    // keeps it from being sent there.
+    editText(await pageLabel(), 'Typed during load');
+    await pastDebounce();
+    expect(server.saves.map((s) => [s.type, s.name, s.body.label])).toEqual([['page', 'home', 'Welcome']]);
+
+    await releaseLoad();
+    await waitFor(async () => expect(await pageLabel()).toHaveValue('Landing'), SLOW);
+    await pastDebounce(1800);
+    expect(server.saves.map((s) => [s.type, s.name, s.body.label])).toEqual([['page', 'home', 'Welcome']]);
   }, 30000);
 });
 

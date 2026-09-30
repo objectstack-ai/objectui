@@ -22,7 +22,6 @@ import type {
 } from './types.js';
 import { inputTypeArms } from './input-type.js';
 import { checkDashboardWidgetOptions } from './dashboard-widget-options.js';
-import { checkKanbanQuickAdd } from './kanban-quick-add.js';
 import { checkRetiredBodyDialect } from './body-dialect.js';
 
 /**
@@ -211,22 +210,6 @@ export function validateTree(tree: SchemaElement | null, manifest: Manifest): Ma
         // (objectui#11044): skipped only when this type declares no input of
         // that name, so a declared one keeps its type check below.
         if (WHERE_UNDECLARED_BASE_PROPS.has(key) && !byName.has(key)) continue;
-        // The `object-kanban` / `kanban` Quick Add pair (objectui#8285): a key
-        // `@objectstack/spec` still publishes and this renderer cannot honour,
-        // because the control is gated on a RUNTIME SLOT no parsed page can
-        // write. It REPLACES whatever the rules below would say about the key —
-        // `unknown-prop` today, and a coarse type check if the key were ever
-        // declared — because two diagnostics for one mistake is what
-        // `checkMemberTypes` already refuses (objectui#8067), and because
-        // "has no prop quickAdd" is FALSE against the published contract. Asked
-        // AHEAD of the declaration lookup on purpose: the claim is about the
-        // render path, so declaring the key must not silently disarm it.
-        // Interim, by the ruling — the spec's refusal by name replaces it.
-        const quickAdd = checkKanbanQuickAdd(node.type, key, value);
-        if (quickAdd) {
-          diagnostics.push(quickAdd);
-          continue;
-        }
         const input = byName.get(key);
         if (!input) {
           // The retired `body` child-list dialect gets its replacement named

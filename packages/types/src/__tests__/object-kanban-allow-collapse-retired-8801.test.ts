@@ -87,7 +87,9 @@ type _LiveMemberStillDeclared = Assert<Equal<TsObjectKanbanSchema['coverImageFie
 type _NearMissFallsThroughToIndexSignature = Assert<IsAny<TsObjectKanbanSchema['allowCollapsing']>>;
 
 // The TS face still accepts a live board…
-const liveLiteral: TsObjectKanbanSchema = { ...NODE, coverImageField: 'cover', quickAdd: true };
+// (`quickAdd` stood in this literal until it was retired on this arm too —
+// objectui#8285, pinned in `object-kanban-quick-add-retired-8285.test.ts`.)
+const liveLiteral: TsObjectKanbanSchema = { ...NODE, coverImageField: 'cover' };
 // …and REFUSES the retired spelling on a literal (a boolean is not `never`).
 // This directive goes unused — and the type-check goes red with TS2578 — the
 // moment the tombstone is deleted or widened back to `boolean`.
@@ -189,7 +191,7 @@ describe('the positive direction — the declared members still parse', () => {
     ['filter', [['status', '=', 'open']]],
     ['titleField', 'name'],
     ['cardFields', ['owner']],
-    ['quickAdd', true],
+    // `quickAdd` left this list when objectui#8285 retired it on this arm.
     ['coverImageField', 'cover'],
     ['conditionalFormatting', [{ field: 'status', operator: 'equals', value: 'open' }]],
   ])('still accepts the live member `%s`', (key, value) => {

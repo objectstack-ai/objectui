@@ -162,7 +162,6 @@ describe('suite 3 — retiring the bare `kanban` arm moved NO verdict on the SIB
   // ARM-SCOPED, so retiring the arm must not move the sibling's answers.
   it.each([
     ['titleField', 'name'],
-    ['quickAdd', true],
     ['coverImageField', 'cover'],
   ])('accepts `%s`, exactly as it did before the retirement', (key, value) => {
     expect(refusals({ type: 'object-kanban', objectName: 'tasks', groupBy: 'status', [key]: value })).toEqual([]);
@@ -175,7 +174,9 @@ describe('suite 3 — retiring the bare `kanban` arm moved NO verdict on the SIB
   // board reads it) and the key became a refusal. ⛔ Do not read that as batch
   // #70 finally reaching the sibling: its verdict did NOT move because the bare
   // `kanban` arm retired — an arm-scoped refusal still cannot cross an arm, and
-  // the three rows above are the measurement that says so.
+  // the rows above are the measurement that says so. `quickAdd` left the
+  // accepting rows the same way, on its own ruling (objectui#8285, pinned in
+  // `object-kanban-quick-add-retired-8285.test.ts`).
   //
   // ⛔ Do not restore it here in either direction. The refusal — with its
   // message, its `invalid_type` code, its `.describe()` channel and its own

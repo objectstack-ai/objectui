@@ -8,6 +8,7 @@
 
 import * as React from 'react';
 import { Settings } from 'lucide-react';
+import { createSafeTranslation } from '@object-ui/i18n';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Switch } from '../ui/switch';
@@ -26,6 +27,27 @@ import { ConfigRow } from './config-row';
 import { FilterBuilder } from './filter-builder';
 import { SortBuilder } from './sort-builder';
 import type { ConfigField } from '../types/config-panel';
+
+/**
+ * The select arm's no-placeholder fallback (objectui#11252).
+ *
+ * It was the English literal `'Select…'`, so a select with no `placeholder` and
+ * no value read English under every locale. It now reads the shared
+ * `common.select`, through the `createSafeTranslation` path the sibling
+ * `config-panel-renderer.tsx` uses for its footer: this is a published
+ * primitive with provider-less consumers, where the bare hook would answer the
+ * raw key. The default below is byte-identical to the literal it replaced, so
+ * a provider-less host renders what it did before.
+ */
+const FIELD_DEFAULT_TRANSLATIONS: Record<string, string> = {
+  'common.select': 'Select…',
+};
+
+/** Probe key: the one key this component reads, so it cannot rot. */
+const useSafeConfigFieldTranslation = createSafeTranslation(
+  FIELD_DEFAULT_TRANSLATIONS,
+  'common.select',
+);
 
 export interface ConfigFieldRendererProps {
   /** Field schema */
@@ -54,6 +76,9 @@ export function ConfigFieldRenderer({
   draft,
   objectDef: _objectDef,
 }: ConfigFieldRendererProps) {
+  // Above the visibility gate: a hook may not sit behind a conditional return.
+  const { t } = useSafeConfigFieldTranslation();
+
   // Visibility gate
   if (field.visibleWhen && !field.visibleWhen(draft)) {
     return null;
@@ -135,7 +160,7 @@ export function ConfigFieldRenderer({
               data-testid={`config-field-${field.key}`}
               className="h-7 w-32 text-xs"
             >
-              <SelectValue placeholder={field.placeholder ?? 'Select…'} />
+              <SelectValue placeholder={field.placeholder ?? t('common.select')} />
             </SelectTrigger>
             <SelectContent>
               {(field.options ?? []).map((opt) => (

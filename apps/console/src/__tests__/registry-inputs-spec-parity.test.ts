@@ -759,7 +759,7 @@ const owedIdsOf = (ledger: Record<string, string>): string[] =>
 const OBJECTUI_11111_LEDGER_CAPS = {
   unjudgedBlocks: 4, // objectui#11168: object-gantt, object-map, object-timeline, object-tree
   offSpecInputs: 1, // objectui#11168: action:group.name
-  unpublishedKeys: 57, // objectui#11168: 46 (22 + 20 + 2 + 2); objectui#8652: 2; objectui#8649: 9
+  unpublishedKeys: 48, // objectui#11168: 46 (22 + 20 + 2 + 2); objectui#8652: 2; objectui#8649: 0 (struck by its landing)
   refusedArms: 5, // objectui#11168: action:group ×2, action:menu, element:definition-list, object-form
   memberPins: 6, // objectui#11168: action:group, action:menu, element:definition-list, element:repeater ×3
 } as const;
@@ -1376,13 +1376,15 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   /*
    * ⚠️ THE 17.5.0 BOOKINGS — objectui#11111 decision 3 = B (record 5902351047).
    *
-   * 57 spec keys 17.5.0 newly declares on judged blocks and `inputs` does not
-   * publish. The bar at the top of this map says a key the renderer honours
-   * "gets declared"; the ruling decided WHO declares, and it is not the bump:
-   * each owner card measures each key against its renderer and declares what
-   * is honoured, refuses or retires the rest. Booked here, not declared, so
-   * the bump adds nothing to the public surface (Clause ② no). Capped at 57 by
-   * `the objectui#11111 ledger is capped at exactly the entries it lists`.
+   * The spec keys 17.5.0 newly declared on judged blocks that `inputs` did not
+   * publish (57 at the bump). The bar at the top of this map says a key the
+   * renderer honours "gets declared"; the ruling decided WHO declares, and it
+   * is not the bump: each owner card measures each key against its renderer
+   * and declares what is honoured, refuses or retires the rest. Booked here,
+   * not declared, so the bump adds nothing to the public surface (Clause ② no).
+   * Capped at `OBJECTUI_11111_LEDGER_CAPS.unpublishedKeys` by `the
+   * objectui#11111 ledger is capped at exactly the entries it lists`, which
+   * each owner card's landing lowers.
    */
   ...owedEntries(
     'action:button',
@@ -1428,24 +1430,11 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
     'objectui#8652',
     'A SPEC KEY NOT PUBLISHED: 17.5.0 declares `navigation` on this block; objectui#8652 met its unlock with that release and mirrors it as its ruled second step.',
   ),
-  ...owedEntries(
-    'record:details',
-    FIELD_SECURITY_TRIPLE,
-    'objectui#8649',
-    'A SPEC KEY NOT PUBLISHED: 17.5.0 declares the field-security triple on exactly the three record blocks; objectui#8649 aligns the mirror and un-casts the reads.',
-  ),
-  ...owedEntries(
-    'record:highlights',
-    FIELD_SECURITY_TRIPLE,
-    'objectui#8649',
-    'A SPEC KEY NOT PUBLISHED: 17.5.0 declares the field-security triple on exactly the three record blocks; objectui#8649 aligns the mirror and un-casts the reads.',
-  ),
-  ...owedEntries(
-    'record:related_list',
-    FIELD_SECURITY_TRIPLE,
-    'objectui#8649',
-    'A SPEC KEY NOT PUBLISHED: 17.5.0 declares the field-security triple on exactly the three record blocks; objectui#8649 aligns the mirror and un-casts the reads.',
-  ),
+  // objectui#8649's nine entries — the field-security triple on `record:details`,
+  // `record:highlights` and `record:related_list` — are STRUCK: that card
+  // declared all three keys on the three blocks' `inputs`, with the contract's
+  // types and describe text, so each entry went stale and `carries no stale
+  // unpublished-key exemption` would refuse it.
 };
 
 /**
@@ -2939,6 +2928,14 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-detail/src/__tests__/recordDetailsInputs.spec-parity.test.ts',
     pins: 'Members are bare names — the object spelling is rejected on its VALUE (a full parse, not a strip), and the description may not teach `{` (objectui#3808).',
   },
+  'record:details.redactFields': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/record-details.unresolvedIdentityFailClosed-9054.test.tsx',
+    pins: 'Members are field NAMES folded out of the authored `fields` AND every `sections[].fields` — the fold\'s two consumers, each with its own leg — through the real `DetailView` / `DetailSection` inside a real record context, asserted on rendered VALUES: a redacted member\'s value never paints while a resolvable, un-redacted sibling\'s does (the live control in the same render). An entry the fold cannot NAME is dropped rather than kept (fail closed, objectui#9054), the legacy `{ fieldName }` spelling is resolvable and not over-dropped, and with neither fold key set nothing moves. Pre-existing file, promoted to a member pin by objectui#8649, which published the key.',
+  },
+  'record:details.requiredPermissions': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/record-blocks.requiredPermissions-gate.test.tsx',
+    pins: 'Members are ADR-0066 CAPABILITY names and the block needs ALL of them, driven through the real renderer under a REAL stock `MePermissionsProvider` (not a mocked `usePermissions`, which cannot discriminate the two reading paths): an unheld capability and an unrecognised one each put the insufficient-permissions notice in place of the block, a held one renders it, an EMPTY array and an ABSENT key are no gate at all, and the discriminating row is a PARTIAL grant on a two-entry array — gated only when the members are read as `.every` over the WHOLE array. Two discriminators pin that a member is a capability and not an object action (`allowRead` on the object does not open the gate; the enum member `manage` is gated rather than resolved to the read bit), and the role-based `PermissionProvider` pins the unreported-capabilities fail-open. One file runs every row against all three record blocks (objectui#10155); promoted to a member pin by objectui#8649, which published the key.',
+  },
   'record:details.sections': {
     file: 'packages/plugin-detail/src/__tests__/recordDetailsInputs.spec-parity.test.ts',
     pins: 'Members are OBJECTS: every spec member key must be discoverable from the description, the retired section-id spelling must be ruled out by name, and the three renderer-only keys the spec refuses (`title`, `showBorder`, `hideEmpty`) may not be taught — filtered through the spec at runtime so a stale prohibition drops out on its own (objectui#3807).',
@@ -2950,6 +2947,14 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'record:highlights.fields': {
     file: 'packages/plugin-detail/src/__tests__/recordHighlightsInputs.spec-parity.test.ts',
     pins: 'Members are objects carrying `readonly` PER ENTRY — asserted to be per-entry rather than top-level, and every spec entry key must be discoverable from the `fields` description (objectui#3407).',
+  },
+  'record:highlights.redactFields': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/record-highlights.fieldSecurity-8649.test.tsx',
+    pins: 'Members are field NAMES matched EXACTLY, read through the real renderer and asserted on which chips paint their value: a named member removes exactly that chip, a member naming a field the strip does not show removes nothing (the control), the field\'s LABEL and a case variant remove nothing, and two members remove two chips. The same file pins `enforceFieldSecurity` beside it — a denied field leaves no chip only when the key is `true`, with the key-absent and string-spelling rows as controls. New file (objectui#8649).',
+  },
+  'record:highlights.requiredPermissions': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/record-blocks.requiredPermissions-gate.test.tsx',
+    pins: 'Members are ADR-0066 CAPABILITY names and the block needs ALL of them, driven through the real renderer under a REAL stock `MePermissionsProvider` (not a mocked `usePermissions`, which cannot discriminate the two reading paths): an unheld capability and an unrecognised one each put the insufficient-permissions notice in place of the block, a held one renders it, an EMPTY array and an ABSENT key are no gate at all, and the discriminating row is a PARTIAL grant on a two-entry array — gated only when the members are read as `.every` over the WHOLE array. Two discriminators pin that a member is a capability and not an object action (`allowRead` on the object does not open the gate; the enum member `manage` is gated rather than resolved to the read bit), and the role-based `PermissionProvider` pins the unreported-capabilities fail-open. One file runs every row against all three record blocks (objectui#10155); promoted to a member pin by objectui#8649, which published the key.',
   },
   'record:path.stages': {
     file: 'packages/plugin-detail/src/renderers/__tests__/recordPathStagesMembers-8071.test.tsx',
@@ -2969,7 +2974,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'record:related_list.columns': {
     file: 'packages/plugin-detail/src/__tests__/RecordRelatedListRenderer.columnMembers.test.tsx',
-    pins: 'THE `page:header.actions` HOLE ON THIS KEY, asserted as the gap it is: the registration declares `of: \'string\'` and the block folds FIVE member spellings — a bare string, the spec-canonical `{ field }`, the legacy `{ name }` / `{ fieldName }`, and `{ key }`, a tail fallback that is this block\'s alone (`columnIdentity` REFUSES it, asserted next to it, which is the whole content of "tail"). Canonical-first is proven both ways on one mixed `{ field, name }` member, so a fold reading either key alone fails. Two rows carry the sharp edge: a member whose identity does not resolve is DROPPED — the fold fails closed (objectui#8793), because an entry it cannot name is an entry it cannot check, while `RelatedList` renders that entry anyway as `accessorKey || columnIdentity` (`accessorKey` is the instance, excluded from `columnIdentity` on purpose), so keeping it was a field-security bypass — ⚠️ two of the three legs of that bypass now have a SECOND gate downstream, `filterFLS` for a declared field that field security denies and, since objectui#9090, `filterRedacted` for a redacted one, both resolving the very `accessorKey || columnIdentity` pair this fold refuses, so what THIS fold alone still decides is a key the permission evaluator has no opinion about (one the child object never declares), measured by ablation on the merged base and pinned as THE RESIDUAL LEG in `RecordRelatedListRenderer.unresolvedIdentityFailClosed-8793.test.tsx`; the same row pins that the drop is by unresolvability rather than by matching the redacted name, and that an UNFILTERED list still hands the member down untouched — and a mixed set must come back SHORTER and in order, which is the non-vacuity a single-member array cannot give. Every positive carries its control in the same call (the member survives when a DIFFERENT field is redacted), and the instrument itself — `redactFields`, a renderer-only key on neither the spec nor `inputs` — is asserted to be undeclared so the file cannot be read as licensing it. The end-to-end half (an object member reaching the screen with VALUES) is objectui#5022\'s file, which drives `RelatedList` directly and never runs this fold (objectui#8071).',
+    pins: 'THE `page:header.actions` HOLE ON THIS KEY, asserted as the gap it is: the registration declares `of: \'string\'` and the block folds FIVE member spellings — a bare string, the spec-canonical `{ field }`, the legacy `{ name }` / `{ fieldName }`, and `{ key }`, a tail fallback that is this block\'s alone (`columnIdentity` REFUSES it, asserted next to it, which is the whole content of "tail"). Canonical-first is proven both ways on one mixed `{ field, name }` member, so a fold reading either key alone fails. Two rows carry the sharp edge: a member whose identity does not resolve is DROPPED — the fold fails closed (objectui#8793), because an entry it cannot name is an entry it cannot check, while `RelatedList` renders that entry anyway as `accessorKey || columnIdentity` (`accessorKey` is the instance, excluded from `columnIdentity` on purpose), so keeping it was a field-security bypass — ⚠️ two of the three legs of that bypass now have a SECOND gate downstream, `filterFLS` for a declared field that field security denies and, since objectui#9090, `filterRedacted` for a redacted one, both resolving the very `accessorKey || columnIdentity` pair this fold refuses, so what THIS fold alone still decides is a key the permission evaluator has no opinion about (one the child object never declares), measured by ablation on the merged base and pinned as THE RESIDUAL LEG in `RecordRelatedListRenderer.unresolvedIdentityFailClosed-8793.test.tsx`; the same row pins that the drop is by unresolvability rather than by matching the redacted name, and that an UNFILTERED list still hands the member down untouched — and a mixed set must come back SHORTER and in order, which is the non-vacuity a single-member array cannot give. Every positive carries its control in the same call (the member survives when a DIFFERENT field is redacted), and the instrument itself — `redactFields`, renderer-only until `@objectstack/spec` 17.5.0 declared it and objectui#8649 published it — is asserted to be published exactly when the contract declares it, so the file cannot be read as licensing it. The end-to-end half (an object member reaching the screen with VALUES) is objectui#5022\'s file, which drives `RelatedList` directly and never runs this fold (objectui#8071).',
   },
   'record:related_list.dataSource': {
     file: 'packages/plugin-detail/src/__tests__/RecordRelatedListRenderer.elementDataSource.test.tsx',
@@ -2978,6 +2983,14 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'record:related_list.filter': {
     file: 'packages/plugin-detail/src/__tests__/RelatedList.listFilter.test.tsx',
     pins: 'Members are spec `ViewFilterRule` entries, pinned at the WIRE rather than at a prop: `{ field, operator, value }` reaches `dataSource.find` as `[[field, operator, value]]` through the shared sink, ANDed BEHIND the parent relationship so "additional criteria" can only ever narrow this record\'s children. The negatives are what make it a member contract: an empty `filter: []` is unauthored (the query stays the byte-identical MongoDB-style object, not a freshly lowered AST that means the same), the composed AST a binding leaves on this key is accepted WITHOUT being converted twice, the filter survives onto the windowed fetch, and on the raw-URL fallback — a channel that cannot carry an operator — the block REFUSES to fetch rather than answering wider than the metadata asked. Pre-existing file, promoted after being read (objectui#8071).',
+  },
+  'record:related_list.redactFields': {
+    file: 'packages/plugin-detail/src/__tests__/RecordRelatedListRenderer.redactedDerivation-9053.test.tsx',
+    pins: 'Members are field NAMES and the policy reaches EVERY path that decides columns, asserted on real DOM cells: redacting the only authored column does not resurrect it through auto-derivation, a partial redaction leaves the rest, a redacted field never enters the heuristic-walk or `highlightFields` derived set, and the same policy holds on `RelatedList` itself — each with its no-redaction control. The member-IDENTITY half (which spellings the block\'s fold can name, and that an unnameable one is dropped) is `record:related_list.columns`\' pin. Pre-existing file (objectui#9053), promoted to a member pin by objectui#8649, which published the key.',
+  },
+  'record:related_list.requiredPermissions': {
+    file: 'packages/plugin-detail/src/renderers/__tests__/record-blocks.requiredPermissions-gate.test.tsx',
+    pins: 'Members are ADR-0066 CAPABILITY names and the block needs ALL of them, driven through the real renderer under a REAL stock `MePermissionsProvider` (not a mocked `usePermissions`, which cannot discriminate the two reading paths): an unheld capability and an unrecognised one each put the insufficient-permissions notice in place of the block, a held one renders it, an EMPTY array and an ABSENT key are no gate at all, and the discriminating row is a PARTIAL grant on a two-entry array — gated only when the members are read as `.every` over the WHOLE array. Two discriminators pin that a member is a capability and not an object action (`allowRead` on the object does not open the gate; the enum member `manage` is gated rather than resolved to the read bit), and the role-based `PermissionProvider` pins the unreported-capabilities fail-open. One file runs every row against all three record blocks (objectui#10155); promoted to a member pin by objectui#8649, which published the key.',
   },
   'record:related_list.sort': {
     file: 'packages/plugin-detail/src/__tests__/RecordRelatedListRenderer.sortMembers.test.tsx',
@@ -5551,6 +5564,6 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
           reasons.filter((reason) => reason.startsWith(`${OWED_PREFIX}${owner}.`)).length,
         ]),
       ),
-    ).toEqual({ 'objectui#11168': 62, 'objectui#8652': 2, 'objectui#8649': 9 });
+    ).toEqual({ 'objectui#11168': 62, 'objectui#8652': 2, 'objectui#8649': 0 });
   });
 });

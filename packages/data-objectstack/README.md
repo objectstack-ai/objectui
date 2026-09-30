@@ -278,6 +278,19 @@ map to the canonical AST symbols, and rules spread into a logical node
 translated raises `MalformedFilterError` rather than being dropped — dropping
 one condition of an `and` would widen the result set and report success.
 
+An `icontains` rule constrains its **comparand** here exactly as `$icontains`
+does in the object form: `@objectstack/spec`'s `FILTER_TEXT_CASES` declares an
+empty or non-string comparand REFUSED, so a rule such as
+`{ field: 'name', operator: 'icontains', value: '' }` — or one whose `value` is
+a number, `null` or missing — throws `MalformedFilterError` (`INVALID_FILTER` /
+400) before any request is sent, instead of sending a predicate that constrains
+nothing or a question nobody wrote (objectui#9048). The reason is the spec's
+own, the one the object form's refusal carries (objectui#9001), and the message
+names the operator spelling that arrived (`icontains`, `ICONTAINS`, …) beside
+the `$icontains` spelling the contract uses. The rule is refused wherever it
+sits — at the top level, in a nested group, or spread into a logical node — and
+on both `find()` and `aggregate()`. Write a non-empty string, or drop the rule.
+
 Non-array filters are passed through unchanged on the aggregate path: a
 MongoDB-style object is already what `/analytics/query` accepts.
 
@@ -538,7 +551,10 @@ import {
   MalformedFilterError,    // A filter rule that cannot be translated (400
                            // INVALID_FILTER) — thrown rather than dropped,
                            // because dropping one condition of an `and` widens
-                           // the result set and reports success.
+                           // the result set and reports success. Also thrown,
+                           // before any request, for an `icontains` rule whose
+                           // `value` is empty or not a string, naming the
+                           // spelling that arrived. See "Rule-shaped arrays".
   UnloweredAggregateWhereError, // aggregate()'s spec-shape `where` was an array
                            // the spec's filter-AST gate rejects (400
                            // INVALID_FILTER). See "aggregate({ where }) does

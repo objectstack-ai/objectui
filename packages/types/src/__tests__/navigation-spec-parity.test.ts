@@ -91,12 +91,19 @@ describe('NavigationItemSchema keeps the spec vocabulary it used to drop', () =>
     expect(keep({ type: 'separator' })).not.toBeNull();
   });
 
-  it('exempts ONLY the separator from needing id + label', () => {
+  it('exempts ONLY the separator from needing an id — and no entry needs a label since objectui#9868', () => {
     // The separator exemption is implemented by declaring `id`/`label`
-    // optional, so without the refinement that re-imposes them this would
+    // optional, so without the refinement that re-imposes `id` this would
     // also wave through an unidentifiable destination.
     expect(keep({ type: 'object', label: 'No id', objectName: 'contact' })).toBeNull();
-    expect(keep({ id: 'no_label', type: 'object', objectName: 'contact' })).toBeNull();
+    // INVERTED by objectui#9868 (was `toBeNull()`): `@objectstack/spec` 17.5.0
+    // made `label` optional on every entry — absent ⇒ inherit the target's
+    // label at render time — so a label-less entry is valid here too, and it
+    // parses with NO `label` key (nothing is filled in at parse time).
+    const unlabelled = keep({ id: 'no_label', type: 'object', objectName: 'contact' });
+    expect(unlabelled).not.toBeNull();
+    expect(unlabelled).not.toHaveProperty('label');
+    expect(SpecNavigationItemSchema.safeParse({ id: 'no_label', type: 'object', objectName: 'contact' }).success).toBe(true);
     expect(keep({ id: 'ok', type: 'object', label: 'Ok', objectName: 'contact' })).not.toBeNull();
   });
 

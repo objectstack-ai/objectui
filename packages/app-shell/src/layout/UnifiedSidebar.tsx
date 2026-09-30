@@ -48,6 +48,7 @@ import { useRecentItems } from '../hooks/useRecentItems.js';
 import { useFavorites } from '../hooks/useFavorites.js';
 import { useNavPins } from '../hooks/useNavPins.js';
 import { useNavActionDispatch } from '../hooks/useNavActionDispatch.js';
+import { useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
 import { matchAppBySegment, appRouteSegment, resolveKeyedI18nLabel } from '../utils/index.js';
 import { useHomePath } from '../hooks/useHomePath.js';
 // Aliased for symmetry with objectui's own `resolveKeyedI18nLabel` above (the
@@ -168,6 +169,10 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   // resolves to the fully-wired console runner — confirm/param/result dialogs
   // included — with no provider of its own.
   const dispatchNavAction = useNavActionDispatch();
+  // An entry with no `label` shows its target's CURRENT label, read from the
+  // metadata cache at render time (objectui#9868). `nav:menu` wires the same
+  // hook, so the two surfaces cannot name one entry two ways.
+  const resolveNavTargetLabel = useNavTargetLabel();
 
   // Swipe-from-left-edge gesture to open sidebar on mobile
   React.useEffect(() => {
@@ -568,6 +573,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
              resolveObjectLabel={(objectName, fallback) => resolveNavObjectLabel({ name: objectName, label: fallback })}
              resolveDashboardLabel={(dashboardName, fallback) => resolveNavDashboardLabel({ name: dashboardName, label: fallback })}
              resolveViewLabel={(objectName, viewName, fallback) => resolveNavViewLabel(objectName, viewName, fallback)}
+             resolveTargetLabel={resolveNavTargetLabel}
              onAction={dispatchNavAction}
              t={t}
              templateContext={{ currentUserId: user?.id ?? null, currentOrgId: activeOrganization?.id ?? null, contextValues }}
@@ -694,6 +700,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
              resolveObjectLabel={(objectName, fallback) => resolveNavObjectLabel({ name: objectName, label: fallback })}
              resolveDashboardLabel={(dashboardName, fallback) => resolveNavDashboardLabel({ name: dashboardName, label: fallback })}
              resolveViewLabel={(objectName, viewName, fallback) => resolveNavViewLabel(objectName, viewName, fallback)}
+             resolveTargetLabel={resolveNavTargetLabel}
              onAction={dispatchNavAction}
              t={t}
              templateContext={{ currentUserId: user?.id ?? null, currentOrgId: activeOrganization?.id ?? null, contextValues }}

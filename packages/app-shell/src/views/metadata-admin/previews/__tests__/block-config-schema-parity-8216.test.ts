@@ -194,9 +194,10 @@ const EXEMPT: Readonly<Record<string, { reason: string; card: string }>> = {
  * that stops applying is as red as a violation that is missing one.
  *
  * `face` scopes the row to the oracle that reports it, and it is load-bearing
- * rather than decoration: `object-form.formType` is a NODE-face declaration gap
- * while the SPEC face declares the key perfectly well, and an unscoped row
- * would absorb a future spec-face violation on the same name.
+ * rather than decoration: `object-form.formType` was a NODE-face declaration gap
+ * while the SPEC face declared the key perfectly well (until objectui#6152 round
+ * 1 closed it — see the note inside the ledger), and an unscoped row would have
+ * absorbed a future spec-face violation on the same name.
  */
 const LEDGER: ReadonlyArray<{ block: string; path: string; face: OracleFace; card: string; why: string }> = [
   // `object-kanban::limit@spec` stood here until @objectstack/spec 17.4.0. It was
@@ -208,14 +209,13 @@ const LEDGER: ReadonlyArray<{ block: string; path: string; face: OracleFace; car
   // declared `limit` upstream, which is the maintainer's option-A ruling on
   // objectui#8172, and the row went stale. Deleted rather than kept: a row that
   // no longer describes a violation is as red here as a violation with no row.
-  {
-    block: 'object-form',
-    path: 'formType',
-    face: 'node',
-    card: 'objectui#6152',
-    why:
-      'A declaration gap on the passthrough face only: the TS `ObjectFormSchema` declares `formType`, the spec declares it, PageBlockCanvas reads it, and the zod mirror omits it. objectui#6152 already carries this exact row in its UnmirroredDeclared table (objectql.zod.ts#ObjectFormSchema), so this ledger points there rather than opening a second card over the same debt.',
-  },
+  //
+  // `object-form::formType@node` stood here too, pointing at objectui#6152: the
+  // TS `ObjectFormSchema` and the spec both declared `formType`, PageBlockCanvas
+  // read it, and the zod mirror omitted it. objectui#6152 round 1 declared it on
+  // the mirror (with the other members that pair's `UnmirroredDeclared` entry
+  // recorded), the "every ledger row still applies" pin below turned red as
+  // written, and the row went.
 ];
 
 const ledgerId = (r: { block: string; path: string; face: OracleFace }) => `${r.block}::${r.path}@${r.face}`;
@@ -447,5 +447,19 @@ describe('BLOCK_CONFIG ↔ node-schema parity — the ratchet (objectui#8216)', 
     const bogus = kanban.safeParse({ ...base, notAKanbanKey: 1 });
     expect(bogus.success).toBe(false);
     expect(bogus.error.issues.flatMap((i: any) => i.keys ?? [])).toContain('notAKanbanKey');
+  });
+
+  it('the NODE-face ledger is empty too, and the row it last carried is re-measured', () => {
+    // Same non-vacuity problem as the spec face above, on the other oracle: an
+    // empty node-face ledger reads exactly like a node-oracle lookup that found
+    // nothing. The live control re-measures `object-form::formType@node`, the
+    // row objectui#6152 round 1 retired by declaring the key on the mirror.
+    expect(LEDGER.filter((r) => r.face === 'node').map(ledgerId)).toEqual([]);
+    const form = NODE_ORACLES['object-form'];
+    expect(form, 'the object-form node oracle must resolve, or the verdicts below prove nothing').toBeDefined();
+    expect(judge(form, 'formType')).toBeUndefined();
+    // …and the same oracle still reports an undeclared name, so the line above is
+    // not satisfied by an oracle that stopped judging.
+    expect(judge(form, 'notAnObjectFormKey')?.kind).toBe('MISSING');
   });
 });

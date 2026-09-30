@@ -270,13 +270,22 @@ describe('objectui#7918 · z.lazy getter identity', () => {
     });
 
     it('NavigationItemSchema still runs its superRefine on nested children', () => {
-      // `label` missing on a non-separator child — the refinement, not the
-      // field declarations, is what refuses this.
+      // `id` missing on a non-separator child — the refinement, not the
+      // field declarations, is what refuses this. (The trigger was a missing
+      // `label` until objectui#9868 made `label` optional to match the spec;
+      // `id` is the requirement the refinement still re-imposes.)
       const bad = {
         id: 'root', type: 'group', label: 'Root',
-        children: [{ id: 'acct', type: 'object' }],
+        children: [{ type: 'object', label: 'Accounts', objectName: 'account' }],
       };
       expect(NavigationItemSchema.safeParse(bad).success).toBe(false);
+      // Control: the same child WITH its id is accepted, so the refusal above
+      // is the id rule and not something else about the fixture.
+      const good = {
+        id: 'root', type: 'group', label: 'Root',
+        children: [{ id: 'acct', type: 'object', label: 'Accounts', objectName: 'account' }],
+      };
+      expect(NavigationItemSchema.safeParse(good).success).toBe(true);
     });
 
     it('FilterBuilderConditionSchema still accepts a condition and refuses a bad operator', () => {

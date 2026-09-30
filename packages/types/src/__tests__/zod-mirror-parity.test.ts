@@ -364,7 +364,17 @@
  *     and 37 / 53 until objectui#7344 swept the string / `z.any()` handler mirrors:
  *     `DetailSchema` and `DetailViewSchema` entered (one `onBack` each) and
  *     `CalendarViewSchema` grew by `onEventClick`.
- *   - **12 entries** in `UnmirroredDeclared`, **62 keys** across them — 12 / 81 until
+ *   - **9 entries** in `UnmirroredDeclared`, **44 keys** across them — 12 / 62 until
+ *     objectui#6152 round 3 closed THREE entries and shrank two more, eighteen keys by
+ *     three different routes that must not be read as one. SIXTEEN were MIRRORED, each
+ *     measured READ by a type-checker census: `PaginationSchema.currentPage` (the entry's
+ *     only key, on the ruling that made it canonical — its second spelling `page` was
+ *     RETIRED on both faces in the same change and never entered this ledger), all eight
+ *     of `FormSchema`'s layout keys (the whole entry), `ReportComponentSchema`'s
+ *     `conditionalFormatting` and six of `DetailViewSchema`'s configuration keys (both
+ *     entries stay). TWO were RECLASSIFIED, not mirrored: `ObjectFormSchema`'s `open`
+ *     and `submitHandler` moved to `RuntimeOnlyDeclared` by NAME, emptying that entry
+ *     — see that bullet below; 12 / 81 until
  *     objectui#6152 round 1 MIRRORED nineteen of `ObjectFormSchema`'s twenty-one keys,
  *     each measured authored and READ (`ObjectForm` reads them off its schema, or
  *     `ObjectView` / `RecordFormPage` / `ScreenView` relay them into the node it
@@ -429,7 +439,14 @@
  *     seeded long after the 121). It is ⛔ not replaced with a fresh digit, for the
  *     reason above. The full statement is on that ledger, which owns it — read it
  *     there, and ⛔ do not copy it back.
- *   - **3 entries** in `RuntimeOnlyDeclared`, **7 keys** across them — 3 / 9
+ *   - **4 entries** in `RuntimeOnlyDeclared`, **9 keys** across them — 3 / 7
+ *     until objectui#6152 round 3 filed `objectql.zod.ts#ObjectFormSchema`'s `open` and
+ *     `submitHandler` here: a NEW entry, and the first keys this ledger holds that are
+ *     NOT callback-shaped — admitted by NAME through `RuntimeOnlyNamedAllowList`, each
+ *     row carrying its reason, on the ruling that answered round 1's open question.
+ *     ⚠️ Growth here is the OTHER side of `UnmirroredDeclared` losing the same two keys
+ *     and the same entry above — one reclassification seen from both sides, ⛔ not new
+ *     debt, and nothing was mirrored by it. It was 3 / 9
  *     until objectui#9447 DECLARED `onNavigate` and `onAddComment` on the mirror for
  *     `views.zod.ts#DetailViewSchema`, so both left for `KnownDrift` above — the
  *     drain this ledger is meant to take, never a refiling. ⭐ The entry SHORTENED
@@ -464,20 +481,29 @@
  *     two. ⭐ The direction is the one this ledger is meant to drain in: a
  *     runtime-only key leaves by being declared on the mirror, never by being
  *     quietly refiled.
- *     **3 of the 3** are a subset of the **12** pairs above, so
- *     the union of the two unmirrored ledgers is **12** pairs — `UnmirroredDeclared`
- *     itself, exactly. ⭐ This sentence read `3 of the 4` / `15 pairs and not 14`
- *     until objectui#7804's `TreeViewSchema` slice, and the pair it named as the
+ *     **2 of the 4** are a subset of the **9** pairs above, so
+ *     the union of the two unmirrored ledgers is **11** pairs, being **9** from `UnmirroredDeclared` plus **2** recorded ONLY in `RuntimeOnlyDeclared`.
+ *     ⭐ objectui#6152 round 3 reopened the difference, by the route predicted below:
+ *     two pairs became runtime-only and nothing else. `ObjectFormSchema`'s whole
+ *     unmirrored debt was its two runtime slots, now filed by name; `FormSchema`'s
+ *     eight mirrorable keys were mirrored, which left only its `onDirtyChange`. The
+ *     sentence is now spelled so that a difference of ANY size, zero included, reads
+ *     true, ⛔ so a later drain does not have to reshape it again. From objectui#7804
+ *     until round 3 it stated the containment instead (`3 of the 3`, a union of `12`
+ *     pairs, "`UnmirroredDeclared` itself, exactly"). ⭐ It read `3 of the 4` / `15 pairs and
+ *     not 14` until objectui#7804's `TreeViewSchema` slice, and the pair it named as the
  *     exception was the whole content of the difference: objectui#6150 had declared
  *     `onNodeClick` on an otherwise clean pair, making `TreeViewSchema` the first
  *     and only pair whose sole ledger entry was a runtime-only one, and #7804
  *     drained it by MIRRORING the key as a named refusal. ⛔ The difference figure
  *     is not recoverable by editing this sentence — it is a fact about the ledgers,
  *     and it returns only when some pair is again runtime-only and nothing else.
- *     ⚠️ Three live figures sit in these sentences and all three are pinned: the
- *     `3` (a quantity of its own — how many entries the two unmirrored ledgers
- *     share), and two RESTATEMENTS — the `3` beside it, and the `14` — of
- *     counts already stated above. They were spelled as English WORDS
+ *     ⚠️ Every live figure in these two sentences is pinned: the first `2` (a
+ *     quantity of its own — how many entries the two unmirrored ledgers share), the
+ *     `11` (the union) and the second `2` (the pairs recorded only as runtime-only),
+ *     and three RESTATEMENTS of counts already stated above — the `4` and both `9`s.
+ *     (This list was amended by objectui#6152 round 3, which reshaped the sentence.)
+ *     They were spelled as English WORDS
  *     until objectui#8222, which is why no instrument had ever read them: a figure
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
@@ -2489,7 +2515,7 @@ interface KnownDrift {
  *
  * objectui#6058 seeded this ledger at **121 keys**, and — on ONE line, because the
  * pin below reads this sentence off disk —
- * **62 keys** is what this ledger records today.
+ * **44 keys** is what this ledger records today.
  * The movements between the two are different facts. objectui#6152 measured the 23
  * callback-shaped (`on*`) keys and ruled that mirroring is the wrong remedy for every
  * one of them;
@@ -2511,8 +2537,12 @@ interface KnownDrift {
  * did not follow: the figure above read 94, fully green, until objectui#8243. Then
  * objectui#6152 round 1 MIRRORED nineteen of `ObjectFormSchema`'s keys, each measured
  * authored and read — larger than objectui#7779's shrink, and all of it by REPAIR.
- * The entry stays, holding the two keys that round left open (`open`,
- * `submitHandler`).
+ * The entry stayed, holding the two keys that round left open (`open`,
+ * `submitHandler`), until objectui#6152 round 3 RECLASSIFIED both into
+ * `RuntimeOnlyDeclared` by NAME and, in the same change, MIRRORED sixteen keys across
+ * four other entries (`PaginationSchema`, `FormSchema`, `ReportComponentSchema`,
+ * `DetailViewSchema`), each measured READ by a type-checker census — two routes, and
+ * the two must not be added up as one repair.
  *
  * ## The decomposition of "121" — a reading at NAMED REVISIONS, so it cannot rot
  *
@@ -2597,7 +2627,10 @@ interface KnownDrift {
  * explicit that forcing the 121 per-key decisions now would be wrong. Two splits
  * are recorded here so whoever works them off does not re-derive them:
  *
- *   - **SPEC-DERIVED (4 entries, 16 keys)** — it was 4 / 35 until objectui#6152 round 1
+ *   - **SPEC-DERIVED (3 entries, 14 keys)** — it was 4 / 16 until objectui#6152 round 3
+ *     moved `ObjectFormSchema`'s last two keys (`open`, `submitHandler`) to
+ *     `RuntimeOnlyDeclared` by NAME: the entry emptied, so the half lost an entry and two
+ *     keys, and ⛔ neither key was mirrored. It was 4 / 35 until objectui#6152 round 1
  *     MIRRORED nineteen of `ObjectFormSchema`'s keys: the entry kept two, so it stayed in
  *     this half and only the keys moved. It was 3 / 34 until objectui#11070 declared nine
  *     field-metadata members on `FormFieldSchema` by reference to the spec's `FieldSchema`:
@@ -2672,7 +2705,12 @@ interface KnownDrift {
  *     spec schema does not model, which is objectui#2231's unification question and
  *     NOT a local mirror edit. They are marked, not exempted: exempting them in the
  *     instrument would re-blind exactly the pairs objectui#5927 leaned on hardest.
- *   - **LOCAL (8 entries, 46 keys)** — plain omissions from a hand-written mirror.
+ *   - **LOCAL (6 entries, 30 keys)** — plain omissions from a hand-written mirror.
+ *     It was 8 / 46 until objectui#6152 round 3 MIRRORED sixteen keys here, each
+ *     measured READ: `PaginationSchema.currentPage` and all eight of `FormSchema`'s
+ *     layout keys, each its entry's whole content, so two entries left; and
+ *     `ReportComponentSchema.conditionalFormatting` plus six of `DetailViewSchema`'s
+ *     configuration keys, two entries that stay. No entry crossed between the halves.
  *     It was 9 / 47 until objectui#11070 re-derived `FormFieldSchema`'s entry (one key)
  *     into the SPEC-DERIVED half by membership: no key moved between ledgers.
  *     It was 10 / 68 until objectui#10993 re-derived `ObjectFormSchema`'s entry (21
@@ -2730,10 +2768,14 @@ interface KnownDrift {
  * membership alone, without moving the totals, and objectui#11070 moved
  * `FormFieldSchema`'s entry (one key) the same way. objectui#6152 round 1 then MIRRORED
  * nineteen of `ObjectFormSchema`'s keys: the SPEC-DERIVED half lost keys and no entry,
- * and the LOCAL half did not move. The seeded pair is no longer
- * among them, and the ledger now totals — on ONE line, because the pin below reads
- * this sentence off disk —
- * **12 entries / 62 keys** — 4 / 16 spec-derived, 8 / 46 local.
+ * and the LOCAL half did not move. objectui#6152 round 3 then moved BOTH halves at once
+ * by two routes: it RECLASSIFIED `ObjectFormSchema`'s last two keys into
+ * `RuntimeOnlyDeclared` by name, so the SPEC-DERIVED half lost that entry, and it
+ * MIRRORED sixteen LOCAL keys, emptying `PaginationSchema`'s and `FormSchema`'s entries
+ * and shrinking `ReportComponentSchema`'s and `DetailViewSchema`'s. The seeded pair is
+ * no longer among them, and the ledger now totals — on ONE line, because the pin below
+ * reads this sentence off disk —
+ * **9 entries / 44 keys** — 3 / 14 spec-derived, 6 / 30 local.
  *
  * ⛔ The four split figures above and this totals line are PINNED: 'objectui#7279'
  * at the bottom of this file derives every one of them from the `UnmirroredDeclared`
@@ -2963,7 +3005,7 @@ interface UnmirroredDeclared {
  *
  * `UnmirroredDeclared` above was seeded at **121 keys** by objectui#6058, and — on
  * ONE line, because the pin below reads this sentence off disk —
- * `UnmirroredDeclared` records **62 keys** today.
+ * `UnmirroredDeclared` records **44 keys** today.
  * These 23 moved here whole. Keys have since left that ledger by MIRRORING and by
  * RETIREMENT, but the move recorded HERE is neither and repaired nothing. ⛔ Nothing
  * was mirrored by it, no declaration was removed, no defect was repaired and nothing was
@@ -3169,6 +3211,13 @@ interface RuntimeOnlyDeclared {
    * the containment instead of a difference. ⛔ Do not "restore" a difference
    * figure here: the pin now reads the containment, and a re-seeded
    * runtime-only-only pair has to move both together.
+   *
+   * ⚠️ AMENDED by objectui#6152 round 3, whose reclassification and mirroring left
+   * two pairs runtime-only and nothing else (`ObjectFormSchema` above, and
+   * `FormSchema`): that is the "re-seeded runtime-only-only pair" case, and both
+   * moved together. The header sentence now carries the difference in a spelling
+   * that holds at any size, and the pin reads it; the guidance above ("the pin now
+   * reads the containment") is no longer true, while its record of #7804 stands.
    */
   /**
    * What is LEFT of the three `DetailViewSchema` keys the 2026-07 audit named.
@@ -3750,7 +3799,9 @@ export const assertionDriftMatchesLedger: never = 0 as unknown as LedgerMismatch
  * a named refusal, the pair's runtime-only entry went with it, and the union is
  * `UnmirroredDeclared` exactly — ⛔ so the present-tense clause this paragraph used
  * to carry ("which is why the union is one pair larger") is now history, and the
- * live figure lives in the file header where it is pinned.
+ * live figure lives in the file header where it is pinned. (objectui#6152 round 3
+ * made the union LARGER than `UnmirroredDeclared` again, by two runtime-only pairs;
+ * the header states and pins it, and ⛔ this paragraph does not restate it.)
  *
  * ⚠️ **The discriminating signal is the PER-PAIR set, not this file's exit code.**
  * The exit code is a whole-file verdict, so it moves only while the rest of the
@@ -5092,8 +5143,16 @@ describe('the header key totals and cross-ledger figures are derived, not prose 
     // containment and this reads ONE figure off it. ⛔ The restatement is not
     // "missing": `unmirroredEntriesRestated` above still reads that count from the
     // sentence beside it, so the figure is still pinned twice, not once.
-    const [unionPairs] = headerFigures(
-      /the union of the two unmirrored ledgers is \*\*(\d+)\*\* pairs — `UnmirroredDeclared`/,
+    //
+    // ⭐ RESHAPED AGAIN by objectui#6152 round 3, which made two pairs runtime-only and
+    // nothing else (`ObjectFormSchema` by the named allow-list, `FormSchema` by
+    // mirroring every other key it had) — the case the header's own sentence says is
+    // the only way the difference returns. The spelling now carries THREE figures
+    // and holds at ANY difference, zero included: the union, a restatement of
+    // `UnmirroredDeclared`'s entry count, and the pairs recorded ONLY as
+    // runtime-only. So a later drain moves digits here, ⛔ never the sentence's shape.
+    const [unionPairs, unmirroredPairsAgain, runtimeOnlyOnly] = headerFigures(
+      /the union of the two unmirrored ledgers is \*\*(\d+)\*\* pairs, being \*\*(\d+)\*\* from `UnmirroredDeclared` plus \*\*(\d+)\*\* recorded ONLY in `RuntimeOnlyDeclared`/,
     );
 
     expect({
@@ -5102,6 +5161,8 @@ describe('the header key totals and cross-ledger figures are derived, not prose 
       runtimeOnlyAlsoUnmirrored: inBoth,
       runtimeOnlyEntriesRestated: ofRuntimeOnly,
       unmirroredEntriesRestated: unmirroredPairs,
+      unmirroredEntriesRestatedInUnion: unmirroredPairsAgain,
+      runtimeOnlyOnlyPairs: runtimeOnlyOnly,
       unionOfUnmirroredLedgers: unionPairs,
     }, `
 The header's key totals or cross-ledger figures disagree with the ledgers.
@@ -5155,6 +5216,8 @@ the two is stated ONCE, in this file's header.`)
         runtimeOnlyAlsoUnmirrored: runtimeOnly.filter((pair) => unmirrored.has(pair)).length,
         runtimeOnlyEntriesRestated: runtimeOnly.length,
         unmirroredEntriesRestated: unmirrored.size,
+        unmirroredEntriesRestatedInUnion: unmirrored.size,
+        runtimeOnlyOnlyPairs: runtimeOnly.filter((pair) => !unmirrored.has(pair)).length,
         unionOfUnmirroredLedgers: new Set([...unmirrored, ...runtimeOnly]).size,
       });
   });
@@ -5192,14 +5255,23 @@ the two is stated ONCE, in this file's header.`)
     // a ledger to satisfy a sentence — route 1, the thing this file exists to
     // refuse. The header now states the containment, and this asserts it, with the
     // two non-vacuity legs the old shape relied on kept explicit.
+    //
+    // ⭐ And objectui#6152 round 3 turned it back, for the reason #7804 predicted:
+    // two pairs (`ObjectFormSchema`, `FormSchema`) became runtime-only and nothing
+    // else, so the containment leg that stood third here — "RuntimeOnlyDeclared holds
+    // no pair UnmirroredDeclared does not" — stopped being a fact about the ledgers.
+    // It is DELETED, not inverted: the header sentence it guarded is now spelled to
+    // hold at any difference, and 'every key total and cross-ledger figure …' above
+    // reads that difference off the header and derives it from these same two
+    // ledgers, so no direction needs asserting here, and the next drain moves a digit
+    // rather than this leg. ⛔ Do not restore a direction leg of either sign. The two
+    // non-vacuity legs below are the ones both shapes relied on, and they stay.
     const unmirrored = new Set(ledgerEntryKeys('UnmirroredDeclared'));
     const runtimeOnly = ledgerEntryKeys('RuntimeOnlyDeclared');
     expect(runtimeOnly.length, 'RuntimeOnlyDeclared read as EMPTY — the subset and union figures are then vacuous')
       .toBeGreaterThan(0);
     expect(runtimeOnly.filter((pair) => unmirrored.has(pair)).length, 'the two unmirrored ledgers read as DISJOINT')
       .toBeGreaterThan(0);
-    expect(runtimeOnly.filter((pair) => !unmirrored.has(pair)), 'RuntimeOnlyDeclared holds a pair UnmirroredDeclared does not — the header says the union equals UnmirroredDeclared, so that sentence and this ledger disagree')
-      .toEqual([]);
   });
 });
 

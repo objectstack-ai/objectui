@@ -302,27 +302,43 @@ export type _TripleIsTheContractShapeOnEveryBlock = Expect<
  * The renderers' own `schema` bindings carry the members — the type every read
  * in the three files goes through. ⚠️ A MEMBERSHIP question: a cast at the read
  * site leaves these green, which is why the source-text legs below exist.
+ *
+ * One pin per block, deliberately. The three written as ONE nested tuple
+ * compare unequal under this `Equal` even though each block compares equal on
+ * its own (measured while writing them: the nested form reddened, each split
+ * form was green) — a limit of the identity trick on types derived through an
+ * intersection, not a difference in the members.
  */
-export type _RendererBindingsCarryTheTriple = Expect<
+export type _DetailsBindingCarriesTheTriple = Expect<
   Equal<
     [
-      [
-        NonNullable<RecordDetailsRendererProps['schema']>['enforceFieldSecurity'],
-        NonNullable<RecordDetailsRendererProps['schema']>['redactFields'],
-        NonNullable<RecordDetailsRendererProps['schema']>['requiredPermissions'],
-      ],
-      [
-        NonNullable<RecordHighlightsRendererProps['schema']>['enforceFieldSecurity'],
-        NonNullable<RecordHighlightsRendererProps['schema']>['redactFields'],
-        NonNullable<RecordHighlightsRendererProps['schema']>['requiredPermissions'],
-      ],
-      [
-        NonNullable<RecordRelatedListRendererProps['schema']>['enforceFieldSecurity'],
-        NonNullable<RecordRelatedListRendererProps['schema']>['redactFields'],
-        NonNullable<RecordRelatedListRendererProps['schema']>['requiredPermissions'],
-      ],
+      NonNullable<RecordDetailsRendererProps['schema']>['enforceFieldSecurity'],
+      NonNullable<RecordDetailsRendererProps['schema']>['redactFields'],
+      NonNullable<RecordDetailsRendererProps['schema']>['requiredPermissions'],
     ],
-    [TripleShape, TripleShape, TripleShape]
+    TripleShape
+  >
+>;
+
+export type _HighlightsBindingCarriesTheTriple = Expect<
+  Equal<
+    [
+      NonNullable<RecordHighlightsRendererProps['schema']>['enforceFieldSecurity'],
+      NonNullable<RecordHighlightsRendererProps['schema']>['redactFields'],
+      NonNullable<RecordHighlightsRendererProps['schema']>['requiredPermissions'],
+    ],
+    TripleShape
+  >
+>;
+
+export type _RelatedListBindingCarriesTheTriple = Expect<
+  Equal<
+    [
+      NonNullable<RecordRelatedListRendererProps['schema']>['enforceFieldSecurity'],
+      NonNullable<RecordRelatedListRendererProps['schema']>['redactFields'],
+      NonNullable<RecordRelatedListRendererProps['schema']>['requiredPermissions'],
+    ],
+    TripleShape
   >
 >;
 

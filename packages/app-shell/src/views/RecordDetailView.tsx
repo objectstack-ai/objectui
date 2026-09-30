@@ -1782,7 +1782,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         if ((current?.[source] ?? false) === refused) return prev;
         return {
           ...prev,
-          [threadId]: { activity: false, comments: false, ...current, [source]: refused },
+          [threadId]: {
+            activity: current?.activity ?? false,
+            comments: current?.comments ?? false,
+            [source]: refused,
+          },
         };
       });
     };

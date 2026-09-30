@@ -9,8 +9,12 @@
  * dataset-bound reports use — so the numbers match everywhere.
  *
  * Rendering dispatch (by `widget.type`):
- *  - metric / kpi / gauge / solid-gauge / bullet (or no dimensions) → KPI value
- *    with the measure's display label + format.
+ *  - metric / kpi / gauge / solid-gauge / bullet → KPI value with the
+ *    measure's display label + format. So does a widget of any other type that
+ *    declares no dimensions, UNLESS it carries two or more measures and is a
+ *    table / pivot or a bar / line / area / combo chart (objectui#11261): those
+ *    render every measure — one row of them, or one mark per measure with the
+ *    measures' labels on the category axis.
  *  - table / pivot → a grouped table of `dimensions` + `values`. Rows drill
  *    through to the underlying records (ADR-0021 D2) when the server returns the
  *    dataset's `object` + dimension→field mapping.
@@ -350,6 +354,31 @@ export function extractDateWindows(filter: unknown): {
 const METRIC_TYPES = new Set(['metric', 'kpi', 'gauge', 'solid-gauge', 'bullet']);
 
 /**
+ * The chart families that draw a DIMENSIONLESS widget's measures: one mark per
+ * measure, the measures' labels on the category axis (objectui#11261).
+ *
+ * Exactly the four the spec names, read off the family a widget renders AS
+ * (`CHART_TYPE_MAP`). The metric-family arity refusal and its ADR-0087 entry
+ * (`dashboard-widget-metric-family-multi-measure-refused`) send an author who
+ * wants several numbers in one widget here: "`type: 'table'` renders a row of
+ * measures, and the chart families (`bar` / `line` / `area` / `combo`) render
+ * one mark per measure". `table` / `pivot` are that sentence's other half
+ * (`isTable`). The spec's text names no other family, so a dimensionless one
+ * (pie, donut, funnel, scatter, column, horizontal-bar, radar, treemap, sankey)
+ * keeps the tile it always rendered: its display semantics for several
+ * measures are not invented here.
+ */
+const MEASURE_AXIS_CHART_FAMILIES = new Set(['bar', 'line', 'area', 'combo']);
+
+/**
+ * The columns of a dimensionless chart's transposed rows (objectui#11261): the
+ * measure a mark stands for, and that measure's value. A transposed row carries
+ * these and nothing else, so no dataset measure name can collide with them.
+ */
+const MEASURE_CATEGORY_KEY = '__measure';
+const MEASURE_VALUE_KEY = '__value';
+
+/**
  * Map a dashboard widget `type` to the advanced chart renderer's `chartType`.
  * Families the renderer doesn't draw distinctly fall back to their closest
  * relative (e.g. `spline`/`step-line` → line, `stacked-area` → area,
@@ -441,8 +470,28 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   const dimensions: string[] = useMemo(() => (Array.isArray(widget?.dimensions) ? widget.dimensions.filter(Boolean) : []), [widget]);
   const values: string[] = useMemo(() => (Array.isArray(widget?.values) ? widget.values.filter(Boolean) : []), [widget]);
   const widgetType = String(widget?.type ?? '');
-  const isMetric = METRIC_TYPES.has(widgetType) || dimensions.length === 0;
   const isTable = widgetType === 'table' || widgetType === 'pivot';
+  // ── Which widgets are a one-number tile (objectui#11261) ─────────────────
+  // By TYPE, only the metric family. By SHAPE, a widget that declares no
+  // dimension, with one exception: two or more measures on a type the spec
+  // states a dimensionless rendering for. A `table` / `pivot` renders one row
+  // carrying every measure, and a `bar` / `line` / `area` / `combo` one mark per
+  // measure (`MEASURE_AXIS_CHART_FAMILIES`). Those used to become a tile as
+  // well and render `values[0]` alone, although every door accepts them and
+  // the spec's own refusal text sends authors there for "several numbers in
+  // ONE widget".
+  //
+  // ONE measure and no dimension stays a tile on every type: nothing is
+  // dropped there, and the tile is what it has always rendered. So does every
+  // type the spec's text does not name, whatever its measure count — see
+  // `MEASURE_AXIS_CHART_FAMILIES` for why.
+  //
+  // Read off `CHART_TYPE_MAP` directly, never through `chartType`'s `?? 'bar'`
+  // default: a widget with no `type` resolves to `metric` in the spec, and the
+  // default would route it to a bar chart.
+  const rendersEveryMeasureWithoutDimension =
+    values.length > 1 && (isTable || MEASURE_AXIS_CHART_FAMILIES.has(CHART_TYPE_MAP[widgetType] ?? ''));
+  const isMetric = METRIC_TYPES.has(widgetType) || (dimensions.length === 0 && !rendersEveryMeasureWithoutDimension);
   // The chart family a widget that reaches the chart branch below renders as —
   // `bubble` → `scatter`, `pyramid` → `funnel` (CHART_TYPE_MAP). Only meaningful
   // when neither `isMetric` nor `isTable` holds; resolved up here because the
@@ -524,6 +573,10 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // against the rows in front of them — and "don't make the reader add it up"
   // is the whole point of the row. No request is issued in that case, so the
   // cost is not paid either.
+  //
+  // Nor for a DIMENSIONLESS table (objectui#11261). Its selection groups by
+  // nothing, so the one row it answers already IS the `[]` grouping, and a
+  // footer would print that row a second time.
   const wantsFlatTotals = isTable && !isMatrix && dimensions.length > 0 && limit == null;
   const totalsGroupings = isMatrix
     ? [rowDims, [colDim], []]
@@ -1584,9 +1637,10 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
           {totalsRow && (
             <tfoot className="bg-muted/30">
               <tr className="border-t font-medium" data-testid="dataset-table-total-row">
-                {/* One label cell spanning the dimension columns. This branch
-                    always has at least one (a zero-dimension widget renders as
-                    a KPI and returns above), so the span is never 0. */}
+                {/* One label cell spanning the dimension columns. The footer
+                    renders only under `wantsFlatTotals`, which requires a
+                    dimension (a dimensionless table's one row IS the total,
+                    objectui#11261), so the span is never 0. */}
                 <td colSpan={dimensions.length} className="px-2 py-1 whitespace-nowrap">{totalRowLabel}</td>
                 {measureColumns.map((c) => {
                   // The SAME per-column formatter the body cells use —
@@ -1640,10 +1694,41 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // from the locale bundle here — `计数` on a zh console, not the server's
   // English `Count` — while an author-declared measure carries no discriminator
   // and keeps its wire `label` verbatim (objectui#4106).
-  const { data: chartData, xAxisKey, series } = buildChartSeries(chartRows, dimensions, values, state.fields, {
-    nullCategoryLabel,
-    builtinAggregateLabels: builtinAggregateLabels(tt),
-  });
+  //
+  // ── A dimensionless chart plots its MEASURES as the categories (objectui#11261) ──
+  // Reached only by a bar / line / area / combo with two or more measures
+  // (`isMetric` keeps every other dimensionless widget a tile). The query
+  // grouped by nothing, so it answered ONE row carrying every measure, the
+  // `[]` grand-total grouping; that row is `state.rows[0]`, the same row the
+  // tile reads. `buildChartSeries` would plot it as one unlabelled category
+  // holding a series per measure. The spec states the other shape, one mark per
+  // measure, so the row is transposed: one chart row per declared measure, in
+  // declaration order, its category the measure's label (`headerLabel`, the
+  // widget's one measure-label channel: the tile caption, the table header and
+  // the comparison overlay all read it) and its value under a single series.
+  // That series is labelled `dashboard.total`, the grouping this row IS and the
+  // key the flat table's footer already prints for that same grouping, so no
+  // new string is minted.
+  const measuresOnAxis = dimensions.length === 0;
+  const measureAxisSeriesLabel = tt('dashboard.total', 'Total');
+  const { data: chartData, xAxisKey, series } = measuresOnAxis
+    ? {
+        data: values.map((m) => ({
+          [MEASURE_CATEGORY_KEY]: headerLabel(m),
+          [MEASURE_VALUE_KEY]: state.rows[0]?.[m],
+          // The comparison window's value rides beside its measure, under the
+          // single series' own `__compare` column, for the overlay below.
+          ...(comparedValues.includes(m)
+            ? { [compareColumn(MEASURE_VALUE_KEY)]: state.rows[0]?.[compareColumn(m)] }
+            : {}),
+        })),
+        xAxisKey: MEASURE_CATEGORY_KEY,
+        series: [{ dataKey: MEASURE_VALUE_KEY, label: measureAxisSeriesLabel }],
+      }
+    : buildChartSeries(chartRows, dimensions, values, state.fields, {
+        nullCategoryLabel,
+        builtinAggregateLabels: builtinAggregateLabels(tt),
+      });
 
   // The author's PRESENTATION, merged onto those derived bindings — per-series
   // mark and axis binding, plus the axis definitions (#4229). Membership stays
@@ -1663,9 +1748,15 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // definition at the top), so no comparison was queried and `comparedValues`
   // is empty (objectui#7495, objectui#7402).
   const pivotedSeries = dimensions.length >= 2 && values.length === 1;
+  // The series a comparison pairs with: one per compared measure, or — on a
+  // dimensionless chart (objectui#11261) — the single transposed series, whose
+  // rows carry each compared measure's earlier value.
+  const comparedSeries = measuresOnAxis
+    ? (comparedValues.length > 0 ? [{ dataKey: MEASURE_VALUE_KEY, label: measureAxisSeriesLabel }] : [])
+    : comparedValues.map((m) => ({ dataKey: m, label: headerLabel(m) }));
   const comparisonSeries = pivotedSeries
     ? []
-    : comparedValues.map((m) => {
+    : comparedSeries.map(({ dataKey, label }) => {
         // An overlay is the SAME measure one period back, so it takes its
         // primary's mark and axis — read off the already-merged series, never
         // re-read from `chartConfig` (one merge path). Without this a combo's
@@ -1673,10 +1764,10 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
         // measure as a line on the opposite axis. `stack` is deliberately NOT
         // inherited: stacking an overlay onto its own primary would add the
         // two periods together.
-        const primary = presentedSeries.find((s) => s.dataKey === m);
+        const primary = presentedSeries.find((s) => s.dataKey === dataKey);
         return {
-          dataKey: compareColumn(m),
-          label: `${headerLabel(m)} · ${compareLabel}`,
+          dataKey: compareColumn(dataKey),
+          label: `${label} · ${compareLabel}`,
           variant: 'comparison' as const,
           ...(primary?.chartType ? { chartType: primary.chartType } : {}),
           ...(primary?.yAxis ? { yAxis: primary.yAxis } : {}),

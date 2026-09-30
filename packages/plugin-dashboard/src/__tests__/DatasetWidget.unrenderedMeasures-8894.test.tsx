@@ -124,12 +124,19 @@ describe('objectui#8894 — the dropped measures speak', () => {
     expect(measureWarning()).toBeDefined();
   });
 
-  it('SUBJECT: covers the dimensionless arm, where any widget type becomes a tile', async () => {
-    // `isMetric` is `METRIC_TYPES.has(type) || dimensions.length === 0`, so a
-    // `bar` that declares no dimension renders as a tile too and drops the same
-    // measures. Keying the signal off the type name alone would miss it.
+  it('SUBJECT: covers the dimensionless arm, where a non-metric widget type becomes a tile', async () => {
+    // A widget that declares no dimension renders as a tile on a non-metric
+    // type too, and drops the same measures. Keying the signal off the type
+    // name alone would miss it.
+    //
+    // The example was a `bar` until objectui#11261, which took the types the
+    // spec states a dimensionless rendering for (`table` / `pivot`, and the
+    // `bar` / `line` / `area` / `combo` families) off this arm: they now render
+    // every measure, so nothing is dropped and nothing is said
+    // (`DatasetWidget.dimensionlessMeasures-11261.test.tsx`). A `pie` is one
+    // the spec's text does not name, and it is still a tile here.
     await renderTile(
-      { id: 'bare_bar', type: 'bar', dataset: 'sales', values: ['revenue', 'cost'] },
+      { id: 'bare_pie', type: 'pie', dataset: 'sales', values: ['revenue', 'cost'] },
       [{ revenue: 510000, cost: 120000 }],
       '510000',
     );

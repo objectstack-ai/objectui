@@ -69,11 +69,17 @@ const h = React.createElement;
 
 /** The logical delete the app ships in place of the built-in Delete. */
 const CAN_DELETE = { dialect: 'cel', source: "current_user.can('account', 'delete')" };
-const LOGICAL_DELETE = {
-  name: 'account_logical_delete',
-  label: 'Void account',
-  visible: CAN_DELETE,
-};
+/**
+ * One action NAME per arm, the predicate text identical in all three. Every
+ * fault report on these surfaces is warn-once per (locator, predicate) for the
+ * life of the module, and the locator carries the action name — so with one
+ * shared name, the NOT-LOADED arm's report would silence the same report in
+ * any later arm, and the DENIED arm's "nothing reported" would pass for a
+ * reason that has nothing to do with the verdict.
+ */
+function logicalDelete(state: State) {
+  return { name: `account_void_${state.replace('-', '_')}`, label: 'Void account', visible: CAN_DELETE };
+}
 /** An ungated companion, so "not rendered" can never mean "nothing rendered". */
 const COMPANION = { name: 'print', label: 'Print' };
 
@@ -132,28 +138,29 @@ const ENGINE_REASON = /carries no permission data/;
 const THREW = /was hidden\/disabled: its predicate threw — CEL predicate failed to evaluate: current_user\.can\('account', 'delete'\)/;
 
 const SURFACES: Record<string, {
-  mount: () => React.ReactNode;
-  find: (name: string) => HTMLElement | null;
+  mount: (state: State) => React.ReactNode;
+  find: (state: State | 'companion') => HTMLElement | null;
   fault: RegExp;
 }> = {
   'row menu (RowActionMenu, evalRowPredicate)': {
-    mount: () =>
+    mount: (state) =>
       h(RowActionMenu, {
         row: RECORD,
         onActionDef: () => {},
         // `variant: 'primary'` renders the defs as always-mounted inline
         // buttons, so the assertion does not depend on opening the menu.
         rowActionDefs: [
-          { ...LOGICAL_DELETE, variant: 'primary' },
+          { ...logicalDelete(state), variant: 'primary' },
           { ...COMPANION, variant: 'primary' },
         ] as never,
         maxInlineActions: 2,
       }),
-    find: (name) => screen.queryByTestId(`row-action-inline-${name}`),
+    find: (state) =>
+      screen.queryByTestId(`row-action-inline-${state === 'companion' ? COMPANION.name : logicalDelete(state).name}`),
     fault: ENGINE_REASON,
   },
   'record header (page:header, evalRowPredicate)': {
-    mount: () =>
+    mount: (state) =>
       h(
         RecordContextProvider,
         { objectName: 'account', recordId: RECORD.id, data: RECORD, objectSchema: { name: 'account', fields: {} } } as never,
@@ -163,30 +170,28 @@ const SURFACES: Record<string, {
             title: 'Northwind',
             maxVisible: 10,
             actions: [
-              { ...LOGICAL_DELETE, type: 'api', locations: ['record_header'] },
+              { ...logicalDelete(state), type: 'api', locations: ['record_header'] },
               { ...COMPANION, type: 'api', locations: ['record_header'] },
             ],
           },
         }),
       ),
-    find: (name) =>
-      screen.queryByText(name === LOGICAL_DELETE.name ? LOGICAL_DELETE.label : COMPANION.label),
+    find: (state) => screen.queryByText(state === 'companion' ? COMPANION.label : 'Void account'),
     fault: ENGINE_REASON,
   },
   'action:button (useCondition, throwOnError)': {
-    mount: () =>
+    mount: (state) =>
       h(
         React.Fragment,
         null,
         h(registered('action:button'), {
-          schema: { type: 'action:button', actionType: 'script', ...LOGICAL_DELETE },
+          schema: { type: 'action:button', actionType: 'script', ...logicalDelete(state) },
         }),
         h(registered('action:button'), {
           schema: { type: 'action:button', actionType: 'script', ...COMPANION },
         }),
       ),
-    find: (name) =>
-      screen.queryByText(name === LOGICAL_DELETE.name ? LOGICAL_DELETE.label : COMPANION.label),
+    find: (state) => screen.queryByText(state === 'companion' ? COMPANION.label : 'Void account'),
     fault: THREW,
   },
 };
@@ -205,25 +210,25 @@ describe.each(Object.entries(SURFACES))(
   (_label, surface) => {
     it('NOT LOADED: hidden, reported as a missing payload — the built-in no-provider `true` is not inherited', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      render(withState('not-loaded', surface.mount()));
-      expect(surface.find(COMPANION.name)).toBeInTheDocument();
-      expect(surface.find(LOGICAL_DELETE.name)).not.toBeInTheDocument();
+      render(withState('not-loaded', surface.mount('not-loaded')));
+      expect(surface.find('companion')).toBeInTheDocument();
+      expect(surface.find('not-loaded')).not.toBeInTheDocument();
       expect(warnings(warn)).toMatch(surface.fault);
       // Same tree, same verb: the built-in answer is the fail-open embed default.
       expect(screen.getByTestId('builtin-verdict')).toHaveTextContent('false:true');
     });
 
     it('LOADED, GRANTED: shown', () => {
-      render(withState('granted', surface.mount()));
-      expect(surface.find(LOGICAL_DELETE.name)).toBeInTheDocument();
+      render(withState('granted', surface.mount('granted')));
+      expect(surface.find('granted')).toBeInTheDocument();
       expect(screen.getByTestId('builtin-verdict')).toHaveTextContent('true:true');
     });
 
     it('LOADED, DENIED: hidden, with nothing reported — a verdict, not a fault', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      render(withState('denied', surface.mount()));
-      expect(surface.find(COMPANION.name)).toBeInTheDocument();
-      expect(surface.find(LOGICAL_DELETE.name)).not.toBeInTheDocument();
+      render(withState('denied', surface.mount('denied')));
+      expect(surface.find('companion')).toBeInTheDocument();
+      expect(surface.find('denied')).not.toBeInTheDocument();
       expect(warnings(warn)).not.toMatch(/permission data|can\(|predicate threw/);
       expect(screen.getByTestId('builtin-verdict')).toHaveTextContent('true:false');
     });

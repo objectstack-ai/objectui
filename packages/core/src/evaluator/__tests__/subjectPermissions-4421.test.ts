@@ -141,22 +141,26 @@ describe('the fail-soft useCondition legs report the missing payload (objectui#4
 
 describe('the evalRowPredicate leg — `fallback: false` (objectui#4421)', () => {
   const ROW = { id: 'r1', status: 'open' };
-  const row = (scope: Record<string, unknown>, warnOnError = false) =>
-    evalRowPredicate(CAN_DELETE, ROW, { fallback: false, scope, warnOnError, label: 'custom_delete' });
+  // One locator per arm: the row warning is warn-once per (locator, predicate)
+  // for the module's life, so a shared locator would let the not-loaded arm's
+  // report silence the denied arm's — and "nothing to warn about" would pass
+  // for a reason unrelated to the verdict.
+  const row = (scope: Record<string, unknown>, label: string, warnOnError = false) =>
+    evalRowPredicate(CAN_DELETE, ROW, { fallback: false, scope, warnOnError, label });
 
   it('not loaded: hidden, and the warning names the missing payload', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    expect(row(scopeFor(undefined), true)).toBe(false);
+    expect(row(scopeFor(undefined), 'custom_delete:not-loaded', true)).toBe(false);
     expect(warn.mock.calls.map((c) => String(c[0])).join('\n')).toMatch(/carries no permission data/);
   });
 
   it('loaded and granted: shown', () => {
-    expect(row(scopeFor(GRANTED))).toBe(true);
+    expect(row(scopeFor(GRANTED), 'custom_delete:granted')).toBe(true);
   });
 
   it('loaded and denied: hidden, with nothing to warn about', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    expect(row(scopeFor(DENIED), true)).toBe(false);
+    expect(row(scopeFor(DENIED), 'custom_delete:denied', true)).toBe(false);
     expect(warn).not.toHaveBeenCalled();
   });
 

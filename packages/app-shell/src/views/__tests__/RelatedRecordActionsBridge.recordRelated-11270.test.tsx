@@ -36,6 +36,8 @@ import {
 // list with. Module scope on purpose (AGENTS.md, test discipline).
 import '@object-ui/plugin-detail';
 
+import type { ActionDef } from '@object-ui/core';
+
 import { RelatedRecordActionsBridge } from '../RelatedRecordActionsBridge';
 
 /**
@@ -103,7 +105,7 @@ const METADATA: MetadataContextValue = {
  * a row action to the page's shared runner, and the runner dispatches a
  * registered handler by the action's `type`.
  */
-const formHandler = vi.fn(async () => ({ success: true }));
+const formHandler = vi.fn(async (_action: ActionDef, _ctx: unknown) => ({ success: true }));
 const HANDLERS = { form: formHandler };
 
 const makeDataSource = () => ({

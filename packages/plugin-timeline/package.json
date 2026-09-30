@@ -48,6 +48,7 @@
   },
   "devDependencies": {
     "@object-ui/data-objectstack": "workspace:*",
+    "@object-ui/sdui-parser": "workspace:*",
     "@object-ui/test-support": "workspace:*",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",

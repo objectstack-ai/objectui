@@ -15,7 +15,10 @@
  *   - binding an object to a placeholder entry (`StudioNavItemInspector`)
  *     adopted the object's label the same way.
  *
- * Both now write no `label` key. The pins read what the writer emits; the
+ * Both now write no `label` key. objectui#11196 moved the second half to the
+ * birth: the canvas births a new entry label-less, so binding leaves the label
+ * as it is and no longer recognises a "New item" placeholder; a legacy stored
+ * "New item" is a present label and is kept. The pins read what the writer emits; the
  * seeded entries are also rendered, as stored, through the sidebar's
  * `NavigationRenderer` wired as `UnifiedSidebar` wires it, under en and zh-CN.
  * Controls: a label the author typed, and a locale map, are kept as authored.
@@ -175,22 +178,24 @@ function bind(node: Record<string, unknown>, objectName: string): Record<string,
 }
 
 describe('objectui#11201 — binding an object to a placeholder entry leaves it label-less', () => {
+  // objectui#11196 re-judged the placeholder: a new canvas entry is born with
+  // no `label` (it was born "New item", which this bind then removed).
   for (const objectName of ['account', 'draft_thing']) {
-    it(`a "New item" placeholder bound to ${objectName} has NO \`label\` key, and parses`, () => {
-      const entry = bind({ id: 'nav_item_1', type: 'object', label: 'New item' }, objectName);
+    it(`a new canvas entry, born label-less, bound to ${objectName} has NO \`label\` key, and parses`, () => {
+      const entry = bind({ id: 'nav_item_1', type: 'object' }, objectName);
       expect(entry).toMatchObject({ id: 'nav_item_1', type: 'object', objectName });
       expect(Object.prototype.hasOwnProperty.call(entry, 'label')).toBe(false);
       expect(NavigationItemSchema.safeParse(JSON.parse(JSON.stringify(entry))).success).toBe(true);
     });
   }
 
-  it('an entry with no label stays label-less when bound', () => {
-    const entry = bind({ id: 'nav_item_2', type: 'object' }, 'account');
-    expect(Object.prototype.hasOwnProperty.call(entry, 'label')).toBe(false);
-  });
-
   it('CONTROL — a label the author typed is kept as authored', () => {
     const entry = bind({ id: 'nav_clients', type: 'object', label: 'Clients' }, 'account');
     expect(entry.label).toBe('Clients');
+  });
+
+  it('a legacy stored "New item" label is a present label: kept verbatim, no sentinel matching (objectui#11196)', () => {
+    const entry = bind({ id: 'nav_item_2', type: 'object', label: 'New item' }, 'account');
+    expect(entry.label).toBe('New item');
   });
 });

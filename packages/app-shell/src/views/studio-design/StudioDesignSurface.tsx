@@ -116,7 +116,14 @@ import { t, tFormat, translateMetadataType, useMetadataLocale } from '../metadat
 import { useDisplayLocale } from '@object-ui/i18n';
 import { SuggestedBindingsPanel } from '../../components/SuggestedBindingsPanel.js';
 import { AppNavCanvas } from '../metadata-admin/previews/AppNavCanvas.js';
-import { navEntryLabelText, navItemLabelText, renamedLabel } from '../metadata-admin/previews/navItemLabel.js';
+import {
+  clearedLabel,
+  inheritedNavEntryText,
+  navEntryLabelText,
+  navItemLabelText,
+  renamedLabel,
+  type NavEntryLike,
+} from '../metadata-admin/previews/navItemLabel.js';
 import { useNavTargetLabel } from '../../hooks/useNavTargetLabel.js';
 import {
   readFields,
@@ -1442,7 +1449,9 @@ function NavTree({
             </div>
           );
         }
-        const surface = resolveSurface(node, locale);
+        // The same resolver names the Surface a click opens, so the caption,
+        // the breadcrumb and the copilot chip read what this row reads.
+        const surface = resolveSurface(node, locale, targetLabel);
         // Icon precedence: the nav item's own `icon` (honoured — it was ignored
         // before), then an object surface's own metadata icon, then the
         // type-generic fallback.
@@ -1490,23 +1499,35 @@ function NavTree({
  * (`navigation[i]`), so binding is a business-friendly object picker rather
  * than the raw path field of the generic AppNavInspector: picking an object
  * writes `{ type: 'object', objectName }` (which the runtime resolves to that
- * object's record list) and, if the label is still the placeholder, REMOVES it
- * (objectui#11201, ruling B). The entry is then a standard one: its absent
- * label inherits the object's current label at render time, in the viewer's
- * language. It used to adopt the object's label here, stored as a copy (the
- * machine name for a draft or unlabelled object), and a present label renders
- * verbatim. A label the author typed, or a locale map, is kept as authored.
+ * object's record list) and leaves the label as it is (objectui#11196, the
+ * shape `AppNavInspector`'s picker has). A label-less entry stays label-less,
+ * a standard one (objectui#11201, ruling B): its absent label inherits the
+ * object's current label at render time, in the viewer's language. It used to
+ * adopt the object's label here, stored as a copy (the machine name for a
+ * draft or unlabelled object), and then to remove a "New item" placeholder
+ * label; the canvas now births an entry label-less (`AppNavCanvas`), so there
+ * is no placeholder left to recognise. A present label renders verbatim, so a
+ * label the author typed, a locale map, and a legacy stored "New item" are all
+ * kept as authored.
  * The comment used to say it writes `{ object }` — the bare
  * spelling `AppSchema` answers with `unrecognized_keys`; the code has always
  * written the canonical key and cleared `object` (objectui#4881).
  *
  * The Label input edits the item's `label`, an `I18nLabel` (a plain string or
  * an inline locale map), through the same `navItemLabel` module as the canvas
- * card beside it (objectui#11148): it shows the text resolved in the designer
- * locale, and an edit of a map writes only that locale's entry and keeps every
- * other one. It used to read `String(label ?? title ?? name)`, so a map showed
- * as `[object Object]`, and one keystroke wrote a string over the whole map.
- * `title` / `name` are not nav-item keys and are not read as the label.
+ * card beside it (objectui#11148) and `AppNavInspector`'s Label field
+ * (objectui#11196), so the three cannot disagree. Its VALUE is the authored
+ * text in the designer locale, and its PLACEHOLDER the text the entry inherits
+ * (`inheritedNavEntryText`, the runtime's rule with the console's resolver),
+ * never a stored value. Typing writes an author label; an edit of a map writes
+ * only that locale's entry and keeps every other one. Emptying the field
+ * restores inheritance: `clearedLabel` answers what is left, and when that is
+ * nothing the `label` key is REMOVED, never written as `''`. It used to read
+ * `String(label ?? title ?? name)`, so a map showed as `[object Object]`, and
+ * one keystroke wrote a string over the whole map; until objectui#11196 an
+ * emptied field wrote `label: ''`, an entry that then showed nothing instead of
+ * inheriting. `title` / `name` are not nav-item keys and are not read as the
+ * label.
  *
  * Exported for tests (`StudioDesignSurface.navItemInspector.test.tsx`) — the
  * object picker's canonical-key binding is pinned there directly rather than
@@ -1526,6 +1547,8 @@ export function StudioNavItemInspector({
   onClear: () => void;
 }): React.ReactElement {
   const locale = useMetadataLocale();
+  // The console's own resolver for what a label-less entry inherits.
+  const targetLabel = useNavTargetLabel();
   const idx = React.useMemo(() => {
     const m = /^navigation\[(\d+)\]$/.exec(navId);
     return m ? Number(m[1]) : -1;
@@ -1551,39 +1574,41 @@ export function StudioNavItemInspector({
   // as bound — is a follow-up card's question, deliberately left out of #4881's scope.
   const boundObject = String(node.objectName ?? node.object ?? '');
   const label = node.label as I18nLabel | undefined;
-  const curLabel = navItemLabelText(label, locale);
-  // A nav card is a placeholder until its label is edited or a target adopts a
-  // real label. Match both the legacy English sentinel and the locale-specific
-  // default from AppNavCanvas so items created in any locale are recognized.
-  const isPlaceholder =
-    !curLabel || curLabel === 'New item' || curLabel === t('engine.appNav.newItem', locale);
   /**
-   * Binding an object to this entry (objectui#11201). A placeholder label is
-   * removed, never replaced by the object's text, so the entry inherits. A
-   * locale map is author text in its other languages, so it is kept even when
-   * the designer locale's entry is empty or the placeholder.
+   * The Label field's edit (objectui#11196). Typing writes an author label
+   * (`renamedLabel`: a map changes only the designer locale's entry). Emptying
+   * the field restores inheritance: `clearedLabel` answers what is left, and
+   * when that is nothing the `label` key is REMOVED, never written as `''`.
    */
-  const bindObject = (objName: string) => {
-    const dropLabel = isPlaceholder && (label === undefined || typeof label === 'string');
+  const editLabel = (value: string) => {
+    const next = value === '' ? clearedLabel(label, locale) : renamedLabel(label, value, locale);
     onNavPatch({
       navigation: nav.map((n, i) => {
         if (i !== idx) return n;
-        // Emit a spec-complete ObjectNavItem: the app schema's nav is a
-        // discriminated union on `type` and BaseNavItem requires a
-        // snake_case `id`. Missing either fails "navigation.0: Invalid
-        // input" at save. `object`/`path` are cleared so no stray keys
-        // linger from the blank placeholder.
-        const next: Record<string, unknown> = {
-          ...n,
-          id: (node.id as string) || `nav_${objName}`,
-          type: 'object',
-          objectName: objName,
-          object: undefined,
-          path: undefined,
-        };
-        if (dropLabel) delete next.label;
-        return next;
+        if (next !== undefined) return { ...n, label: next };
+        const rest = { ...n };
+        delete rest.label;
+        return rest;
       }),
+    });
+  };
+  /**
+   * Binding an object to this entry. The label is not touched: a label-less
+   * entry stays label-less and inherits the object's label (objectui#11201),
+   * and a present one renders verbatim (objectui#11196).
+   */
+  const bindObject = (objName: string) => {
+    // Emit a spec-complete ObjectNavItem: the app schema's nav is a
+    // discriminated union on `type` and BaseNavItem requires a snake_case
+    // `id`. Missing either fails "navigation.0: Invalid input" at save.
+    // `object`/`path` are cleared so no stray keys linger from an off-spec
+    // draft.
+    patch({
+      id: (node.id as string) || `nav_${objName}`,
+      type: 'object',
+      objectName: objName,
+      object: undefined,
+      path: undefined,
     });
   };
   return (
@@ -1591,9 +1616,9 @@ export function StudioNavItemInspector({
       <div>
         <label className="mb-1 block text-[11px] font-medium text-muted-foreground">{t('engine.studio.nav.label', locale)}</label>
         <input
-          value={curLabel}
-          onChange={(e) => patch({ label: renamedLabel(label, e.target.value, locale) })}
-          placeholder={t('engine.studio.nav.labelPlaceholder', locale)}
+          value={navItemLabelText(label, locale)}
+          onChange={(e) => editLabel(e.target.value)}
+          placeholder={inheritedNavEntryText(node as NavEntryLike, targetLabel)}
           className="w-full rounded border bg-background px-2 py-1 text-xs"
         />
       </div>
@@ -1685,8 +1710,10 @@ export function InterfacesPillar({
   onDirtyChange?: (dirty: boolean) => void;
   /** objectui#8219 — reports the open leaf's display label (tagged with the
    * leaf's type and name) up to the surface that mounts the copilot dock, for
-   * its "discussing" chip. `null` when no leaf is open, when the leaf has no
-   * label, and on unmount. */
+   * its "discussing" chip. A label-less leaf reports the text it inherits
+   * (objectui#11196), so the chip reads what the rail reads. `null` when no
+   * leaf is open, when its display text is empty (a label that is present but
+   * resolves to nothing), and on unmount. */
   onSurfaceLabelChange?: (surface: StudioSurfaceLabel | null) => void;
 }): React.ReactElement {
   const client = useMetadataClient();
@@ -1808,6 +1835,17 @@ export function InterfacesPillar({
   // lands then.
   const metadataRefreshNonce = useMetadataRefreshNonce(navDirty || !!navSaving);
   const [current, setCurrent] = React.useState<Surface | null>(null);
+  // objectui#11196 — the open leaf's Surface names a label-less entry by what
+  // it inherits, asked of the console's own resolver, as the rail's rows ask
+  // it. The app load reads it through this ref after its awaits: the latest
+  // resolver, and never a dependency of that effect, whose re-run rehydrates
+  // the nav edit buffer. (Commandment #10: nothing here rests on the hook's
+  // memoised identity.)
+  const targetLabel = useNavTargetLabel();
+  const targetLabelRef = React.useRef(targetLabel);
+  React.useEffect(() => {
+    targetLabelRef.current = targetLabel;
+  });
   // `?surface=` capture + mirror — shared plumbing (see useSurfaceDeepLink).
   const initialSurface = useSurfaceDeepLink(current);
   // objectui#8219 — lift the open leaf's label to the dock (see the prop doc).
@@ -2003,16 +2041,18 @@ export function InterfacesPillar({
         setAppStatus('ready');
         const tree = Array.isArray(body.navigation) ? (body.navigation as NavNode[]) : [];
         // auto-open the first resolvable leaf. Its label is resolved in the
-        // designer locale of this load, like the rail's (objectui#11158).
+        // designer locale of this load, like the rail's (objectui#11158), and
+        // a label-less leaf's with the rail's resolver (objectui#11196).
         // `locale` is deliberately not a dependency of this effect: a language
         // switch must not re-run the load, which rehydrates the nav edit buffer.
+        const resolveTarget = targetLabelRef.current;
         const firstLeaf = (function find(nodes: NavNode[]): Surface | null {
           for (const n of nodes) {
             if (n.type === 'group' || n.children?.length) {
               const r = find(n.children ?? []);
               if (r) return r;
             } else {
-              const s = resolveSurface(n, locale);
+              const s = resolveSurface(n, locale, resolveTarget);
               if (s) return s;
             }
           }
@@ -2020,7 +2060,7 @@ export function InterfacesPillar({
         })(tree);
         // A `?surface=` deep-link wins over the first-leaf default when it
         // still resolves to a leaf in this app's nav; otherwise fall back.
-        const deepLinked = initialSurface ? findSurfaceInTree(tree, initialSurface, locale) : null;
+        const deepLinked = initialSurface ? findSurfaceInTree(tree, initialSurface, locale, resolveTarget) : null;
         setCurrent((cur) => cur ?? deepLinked ?? firstLeaf);
       } catch (e) {
         if (!cancelled) {
@@ -2297,8 +2337,9 @@ export function InterfacesPillar({
             translated KIND ("Pipeline · Dashboard"). The internal `type · name`
             pair it used to print verbatim is developer identity and moves to
             the tooltip, which the ruling keeps as its allowed home. With no
-            label declared the internal name is still shown — a blank caption
-            would be worse, and the gap is the producer's to close. */}
+            label declared the caption shows what the entry inherits
+            (objectui#11196), as the rail does; the internal name is left for a
+            label that is present but resolves to nothing. */}
         {current && (
           <span
             className="text-[11px] text-muted-foreground"

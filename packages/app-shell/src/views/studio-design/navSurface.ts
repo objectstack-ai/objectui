@@ -19,17 +19,22 @@
  */
 
 import type { I18nLabel } from '@objectstack/spec/ui';
-import { navItemLabelText } from '../metadata-admin/previews/navItemLabel.js';
+import type { NavTargetLabelResolver } from '@object-ui/layout';
+import { navEntryLabelText } from '../metadata-admin/previews/navItemLabel.js';
 
 /** One rail entry / canvas target. */
 export interface Surface {
   type: string;
   name: string;
   /**
-   * The nav item's label as display text, resolved ONCE by `resolveSurface`
-   * in the designer locale (objectui#11158). Every reader of a Surface (the
-   * rail, the canvas caption, the breadcrumb, the copilot chip) prints this
-   * string; none of them sees the authored label. `''` when the item has none.
+   * The nav item's DISPLAY text, resolved ONCE by `resolveSurface` in the
+   * designer locale (objectui#11158). Every reader of a Surface (the rail, the
+   * canvas caption, the breadcrumb, the copilot chip) prints this string; none
+   * of them sees the authored label. An authored label reads as authored; an
+   * ABSENT one is the text the entry inherits (objectui#11196): the runtime's
+   * rule, so a label-less leaf is named here as the console's sidebar names it.
+   * `''` only for a label that is present but resolves to nothing (an empty
+   * locale map).
    */
   label: string;
   /** Lucide icon name from the object's metadata (`icon` field); falls back per getIcon. */
@@ -90,10 +95,19 @@ export interface NavNode {
  *
  * The label is resolved here, once, in `locale` (the designer locale), so the
  * Surface carries display text and its callers cannot disagree about it
- * (objectui#11158). The binding itself never reads the label or the locale.
+ * (objectui#11158). It is the entry's display text through the shared
+ * `navEntryLabelText`: an absent label inherits (objectui#11196), asked of
+ * `targetLabel` — the console's own resolver, `useNavTargetLabel`, which every
+ * caller in the Studio passes. Without one the runtime's rule answers its
+ * machine-name rung, as the console does before its metadata loads. The
+ * binding itself never reads the label, the locale or the resolver.
  */
-export function resolveSurface(node: NavNode, locale: string): Surface | null {
-  const label = navItemLabelText(node.label, locale);
+export function resolveSurface(
+  node: NavNode,
+  locale: string,
+  targetLabel?: NavTargetLabelResolver,
+): Surface | null {
+  const label = navEntryLabelText(node, locale, targetLabel);
   switch (node.type) {
     case 'page':
       return node.pageName ? { type: 'page', name: String(node.pageName), label } : null;
@@ -129,19 +143,21 @@ export function resolveSurface(node: NavNode, locale: string): Surface | null {
  * resolved Surface (carrying the node's label so the canvas title / highlight
  * match). Backs the `?surface=` deep-link restore — a shared URL only names
  * the target, so we re-derive the label from the live tree. The match is on
- * `{type,name}` alone: `locale` only resolves the label of the leaf found.
+ * `{type,name}` alone: `locale` and `targetLabel` only resolve the label of the
+ * leaf found.
  */
 export function findSurfaceInTree(
   nodes: NavNode[],
   target: { type: string; name: string },
   locale: string,
+  targetLabel?: NavTargetLabelResolver,
 ): Surface | null {
   for (const node of nodes) {
     if (node.type === 'group' || node.children?.length) {
-      const hit = findSurfaceInTree(node.children ?? [], target, locale);
+      const hit = findSurfaceInTree(node.children ?? [], target, locale, targetLabel);
       if (hit) return hit;
     } else {
-      const s = resolveSurface(node, locale);
+      const s = resolveSurface(node, locale, targetLabel);
       if (s && s.type === target.type && s.name === target.name) return s;
     }
   }

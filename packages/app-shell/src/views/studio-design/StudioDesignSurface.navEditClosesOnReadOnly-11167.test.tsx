@@ -199,9 +199,14 @@ function navEditingOpen(): boolean {
   return screen.queryAllByRole('button', { name: /Add nav item/ }).length > 0;
 }
 
-/** The item "Add nav item" appends, wherever it shows: a canvas row, the rail's tree, an inspector field. */
+/**
+ * The item "Add nav item" appends, wherever it shows: a canvas row, the rail's
+ * tree, an inspector field. objectui#11196: it is born with no `label` (it was
+ * born "New item"), so it shows its `id` as text, and as the placeholder of
+ * the inspector's Label field.
+ */
 function addedItemOnScreen(): boolean {
-  return screen.queryAllByText('New item').length + screen.queryAllByDisplayValue('New item').length > 0;
+  return screen.queryAllByText('nav_item_3').length + screen.queryAllByPlaceholderText('nav_item_3').length > 0;
 }
 
 /** True while the surface's leave guard holds unsaved nav edits (it cancels `beforeunload`). */

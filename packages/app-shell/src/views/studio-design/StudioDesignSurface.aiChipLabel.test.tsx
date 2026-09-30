@@ -15,6 +15,14 @@
  *
  * The fetch stub answers the REST reads the surface makes; everything it does
  * not recognise answers an empty list.
+ *
+ * objectui#11196 re-judged the unlabelled-leaf case. It pinned the chip's
+ * `type · name` fallback, which the chip reached because a label-less leaf's
+ * Surface carried no label. A label-less entry now shows what it inherits —
+ * its target's current label, the runtime's rule — on every designer surface,
+ * the chip included; `type · name` stays reachable on the chip's tooltip
+ * (objectui#7254's reachable half). The host's metadata cache therefore
+ * labels the object, so the inherited text differs from the machine name.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -78,10 +86,16 @@ vi.mock('@object-ui/react', async (importOriginal) => {
   return { ...actual, useAdapter: () => ({}) };
 });
 // ChatPane reads `apps` for the bound-package chip and the adapter for the
-// Excel→App bar; neither is part of this pin.
+// Excel→App bar; neither is part of this pin. `objects` is what the console's
+// nav-target resolver reads for what a label-less leaf inherits
+// (objectui#11196). One module-level value, so its identity is stable.
+const metadataCache = vi.hoisted(() => ({
+  apps: [] as unknown[],
+  objects: [{ name: 'b2r4_customer', label: '客户' }],
+}));
 vi.mock('../../providers/MetadataProvider', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
-  return { ...actual, useMetadata: () => ({ apps: [] }) };
+  return { ...actual, useMetadata: () => metadataCache };
 });
 vi.mock('../../providers/AdapterProvider', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -189,10 +203,11 @@ describe('Studio copilot chip reads the selected item label (objectui#8219 item 
     expect(JSON.stringify(chatOptions.body)).not.toContain('客户仪表盘');
   });
 
-  it('an unlabelled leaf: the chip falls back to type · name', async () => {
+  it('an unlabelled leaf: the chip reads the label it inherits, with type · name on its tooltip (objectui#11196)', async () => {
     renderStudio();
-    fireEvent.click(await screen.findByRole('button', { name: 'b2r4_customer 对象' }));
-    await waitFor(() => expect(chip.surfaceContextLabel).toBe('正在讨论：object · b2r4_customer'), {
+    // The rail row and the chip read the same inherited text.
+    fireEvent.click(await screen.findByRole('button', { name: '客户 对象' }));
+    await waitFor(() => expect(chip.surfaceContextLabel).toBe('正在讨论：客户'), {
       timeout: 4000,
     });
     expect(chip.surfaceContextTitle).toBe('object · b2r4_customer');

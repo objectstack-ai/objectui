@@ -20,6 +20,7 @@
  */
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { NavigationItemSchema, type I18nLabel } from '@objectstack/spec/ui';
+import type { NavTargetLabelResolver } from '@object-ui/layout';
 import { resolveSurface, findSurfaceInTree, type NavNode } from './navSurface';
 
 /**
@@ -249,14 +250,60 @@ describe('resolveSurface resolves a locale-map label in the designer locale (obj
     expect(resolveSurface(node, 'zh-CN')?.label).toBe('Home');
   });
 
-  it('an item with no label carries an empty label, as before', () => {
+  it('an item with no label carries the text it inherits, not an empty label (objectui#11196)', () => {
+    // Re-judged by objectui#11196: this case used to pin `label: ''`. An
+    // absent label now carries what the runtime's rule answers — for a page,
+    // its `pageName` — so the caption, breadcrumb and chip name the leaf as
+    // the rail does. The inheritance cases themselves are pinned below.
     const node: NavNode = { id: 'nav_home', type: 'page', pageName: 'home' };
-    expect(resolveSurface(node, 'zh-CN')).toEqual({ type: 'page', name: 'home', label: '' });
+    expect(resolveSurface(node, 'zh-CN')).toEqual({ type: 'page', name: 'home', label: 'home' });
   });
 
   it('`findSurfaceInTree` matches on {type,name} alone, so the same leaf is found in both locales', () => {
     const tree: NavNode[] = [{ id: 'nav_main', type: 'group', label: { en: 'Main', 'zh-CN': '主要' }, children: [MAP_NODE] }];
     expect(findSurfaceInTree(tree, { type: 'page', name: 'home' }, 'en-US')).toEqual({ type: 'page', name: 'home', label: 'Home' });
     expect(findSurfaceInTree(tree, { type: 'page', name: 'home' }, 'zh-CN')).toEqual({ type: 'page', name: 'home', label: '首页' });
+  });
+});
+
+/**
+ * objectui#11196 — `resolveSurface` names a label-less leaf by what it
+ * inherits, through the runtime's own rule (`navEntryLabelText` →
+ * `resolveNavItemLabel`), asked of the resolver its caller passes.
+ *
+ * The Studio passes the console's `useNavTargetLabel`; here a plain
+ * `NavTargetLabelResolver` stands in for it, answering the object's metadata
+ * label. The branch is keyed on ABSENCE, as the runtime's is: an authored label
+ * is never swapped for the target's, and a present label that resolves to
+ * nothing is not absent.
+ */
+describe('resolveSurface names a label-less leaf by what it inherits (objectui#11196)', () => {
+  const targetLabel: NavTargetLabelResolver = (target) =>
+    target.kind === 'object' && target.objectName === 'crm_lead' ? 'Leads' : undefined;
+  const LABEL_LESS: NavNode = { id: 'nav_lead', type: 'object', objectName: 'crm_lead' };
+
+  it('the label-less fixture is spec-VALID', () => {
+    expect(NavigationItemSchema.safeParse(LABEL_LESS).success).toBe(true);
+  });
+
+  it("with the resolver, a label-less object leaf carries its object's label", () => {
+    expect(resolveSurface(LABEL_LESS, LOCALE, targetLabel)).toEqual({ type: 'object', name: 'crm_lead', label: 'Leads' });
+  });
+
+  it('without one, it carries the rule’s machine-name rung, as the console does before its metadata loads', () => {
+    expect(resolveSurface(LABEL_LESS, LOCALE)?.label).toBe('crm_lead');
+  });
+
+  it('CONTROL: an authored label is carried verbatim, even with a resolver that names the target', () => {
+    expect(resolveSurface({ ...LABEL_LESS, label: 'My leads' }, LOCALE, targetLabel)?.label).toBe('My leads');
+  });
+
+  it('a label that is present but resolves to nothing is not absent: it carries an empty label', () => {
+    expect(resolveSurface({ ...LABEL_LESS, label: {} }, LOCALE, targetLabel)?.label).toBe('');
+  });
+
+  it('`findSurfaceInTree` (the `?surface=` restore) hands the resolver to the leaf it finds', () => {
+    const tree: NavNode[] = [{ id: 'nav_main', type: 'group', children: [LABEL_LESS] }];
+    expect(findSurfaceInTree(tree, { type: 'object', name: 'crm_lead' }, LOCALE, targetLabel)?.label).toBe('Leads');
   });
 });

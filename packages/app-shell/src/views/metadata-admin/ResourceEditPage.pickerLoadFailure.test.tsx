@@ -140,7 +140,7 @@ vi.mock('./useMetadata', async (importOriginal) => {
   };
 });
 
-import { MetadataResourceEditPage } from './ResourceEditPage';
+import { MetadataResourceEditPage, viewRefCatalog } from './ResourceEditPage';
 
 function mountEditor() {
   render(
@@ -174,7 +174,8 @@ beforeEach(() => {
     { name: 'showcase_task' },
   ]);
   impl.listView.mockImplementation(async () => [
-    { name: `${SOURCE_OBJECT}.default`, label: 'All records', objectName: SOURCE_OBJECT },
+    // `object`, the spelling the spec declares on a view row (objectui#11013).
+    { name: `${SOURCE_OBJECT}.default`, label: 'All records', object: SOURCE_OBJECT },
   ]);
   impl.getObject.mockImplementation(async () => ({
     fields: { title: { label: 'Title', type: 'text' } },
@@ -347,6 +348,23 @@ describe('view-catalog loader: a failed list is not an object without views (#51
       'Failed to fetch',
     );
     expect(screen.queryByDisplayValue(LOADING_OPTIONS)).toBeNull();
+  });
+
+  it('objectui#11013: the catalog keeps a view bound by `object`, and not one that carries only `objectName`', () => {
+    // The loader hands `client.list('view')` to `viewRefCatalog`, which reads
+    // the row's binding under the one spelling the spec declares. `objectName`
+    // and `object_name` are declared on no `view` member, so the metadata door
+    // refuses a row bound by either alone.
+    const catalog = viewRefCatalog(
+      [
+        { name: `${SOURCE_OBJECT}.declared`, label: 'Declared binding', object: SOURCE_OBJECT },
+        { name: `${SOURCE_OBJECT}.undeclared`, label: 'Undeclared binding', objectName: SOURCE_OBJECT },
+        { name: `${SOURCE_OBJECT}.snake`, label: 'Snake binding', object_name: SOURCE_OBJECT },
+        { name: 'showcase_task.other', label: 'Other object', object: 'showcase_task' },
+      ],
+      SOURCE_OBJECT,
+    );
+    expect(catalog).toEqual([{ name: `${SOURCE_OBJECT}.declared`, label: 'Declared binding' }]);
   });
 
   it('the field catalog failing does not take the view picker down with it', async () => {

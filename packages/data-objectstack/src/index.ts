@@ -2724,8 +2724,17 @@ function withoutNoOpDrops(
  *
  * `object` is the identity field the write path stamps (and that the
  * framework's overlay heals onto identity-less personalization rows —
- * objectstack#2555); `data.object` is the config's data-provider target and
- * `objectName` the legacy artifact spelling.
+ * objectstack#2555); `data.object` is the config's data-provider target.
+ *
+ * ⛔ No `objectName` leg (objectui#11013, ruling 甲 on objectstack#20051:
+ * objectui reads a stored view row by the spec's declared spellings). The
+ * spec declares `object` on every `view` member — required on the ViewItem
+ * record and on both flattened overlays — and declares `objectName` on none,
+ * so the metadata write door refuses a row that carries only `objectName`
+ * (`viewItemObjectName.declaredSpelling-11013.test.ts` pins that door beside
+ * this reader). Every write path in this package stamps `object` as well, so a
+ * row the console wrote carries it; a row that carries ONLY the undeclared
+ * spelling no longer matches any object here.
  *
  * **Exported** since objectui#4373, for the same one-spelling reason: a writer
  * outside this module that holds a view BODY but not its object name (app-shell's
@@ -2737,7 +2746,7 @@ function withoutNoOpDrops(
 export function viewItemObjectName(item: any): string | undefined {
   // Handle both bare view spec and `{list: {...}}` artifact wrapper
   const spec = item?.list ?? item;
-  return spec?.data?.object ?? spec?.object ?? spec?.objectName;
+  return spec?.data?.object ?? spec?.object;
 }
 
 /**

@@ -1822,8 +1822,16 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 .then((rows: any[]) => {
                     if (cancelled) return;
                     // Normalize: ensure each view has an `id` for ViewTabBar
-                    // (which is name-keyed downstream). Stamp `objectName`
-                    // so the defensive filter in handlers still works.
+                    // (which is name-keyed downstream).
+                    //
+                    // objectui#11013 — no `objectName` is stamped here any more.
+                    // It was read `sv.objectName || sv.object`, the undeclared
+                    // spelling first, and no reader of this array consumed the
+                    // stamp: the handlers act on the route's `objectName`. What
+                    // it did do was ride a saved view's whole-body toolbar save
+                    // back into the stored row, an undeclared key the console
+                    // itself minted. The row's bound object is its declared
+                    // `object`, which `listViews()` carries.
                     const normalized = (rows || []).map((sv: any) => ({
                         ...sv,
                         // Overlay rows are keyed by `name`. Prefer that as the
@@ -1834,7 +1842,6 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                         // array too, so the key written here and the key read
                         // back cannot drift apart (objectui#4211).
                         id: viewRowId(sv),
-                        objectName: sv.objectName || sv.object || objectName,
                     }));
                     setSavedViews(normalized);
                 })

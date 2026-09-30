@@ -133,7 +133,7 @@ export function useActionEngine(options: UseActionEngineOptions = {}): UseAction
     } else if (sharedRunner && subject !== undefined) {
       // A caller that passes no per-render keys: the subject is still bound,
       // onto the same shared runner the location filter reads.
-      e.getRunner().updateContext(bound as any);
+      e.getRunner().updateContext(bound);
     }
     e.registerActions(actions);
     return e;

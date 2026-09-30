@@ -78,7 +78,7 @@ export interface ActionGroupSchema {
  * answered. Pinned three-state in `app-shell`'s
  * `currentUserCan-failClosed-11212.render.test.tsx`.
  */
-function useMemberVisible(action: UIActionSchema, recordData: Record<string, any>): boolean {
+function useMemberVisible(action: UIActionSchema, recordData: Record<string, unknown>): boolean {
   return useCondition(toPredicateInput(action.visible), recordData, {
     throwOnError: true,
     label: `action "${action.name ?? action.label ?? 'action:group member'}" (visible)`,

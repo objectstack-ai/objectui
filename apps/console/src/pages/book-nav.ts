@@ -133,6 +133,28 @@ export function bookSlug(book: Book): string {
   return book.slug ?? book.name;
 }
 
+/**
+ * The book a portal segment names by its NAME where that name is not also some
+ * book's slug (objectui#11197) — or `null`.
+ *
+ * A `{ type: 'doc', book }` navigation entry names its book by NAME (the spec's
+ * `DocNavItemSchema.book`, the name the CLI's docs lint checks), while the portal
+ * addresses a book by {@link bookSlug}. The two differ exactly when the book
+ * authors a `slug`, so the entry's link would otherwise dead-end. Callers
+ * redirect a hit to the canonical `bookSlug(book)` URL, the one-canonical-URL
+ * rule (ADR-0046 §6.7) the flat-doc permalink redirect already follows.
+ *
+ * ⛔ A LAST-RESORT lookup: callers consult it only after every lookup that
+ * answers today (a book's slug, then an installed doc's name), so no URL that
+ * resolves today changes its answer. The slug guard here holds that even for a
+ * caller that forgets: a segment that is one book's slug and another's name is
+ * the slug's.
+ */
+export function bookNamedBy(segment: string, books: Book[]): Book | null {
+  if (books.some((b) => bookSlug(b) === segment)) return null;
+  return books.find((b) => b.name === segment) ?? null;
+}
+
 /** Compile a `*`-glob over doc names to a RegExp anchored on the whole name. */
 function globToRegExp(glob: string): RegExp {
   const escaped = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');

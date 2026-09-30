@@ -109,6 +109,16 @@ Requirements:
 - The target field must match the type: `objectName`, `pageName`,
   `dashboardName`, `reportName`, or `url`. Keys like `path` or `kind` are
   ignored at runtime and rejected at save.
+- A `doc` entry opens the package documentation portal instead of a data
+  surface. It names a `book` (opens the book at its first readable page), a
+  `doc` (opens that page — the doc's name, i.e. its source filename stem such
+  as `crm_lead_guide`, never `crm_lead_guide.md` or a path), or both (that page
+  in that book). At least one of the two is required. Name the book by its
+  `name`, even when it declares a `slug`: the docs portal resolves the name and
+  redirects to the book's canonical `slug` URL. Who may read a book is the
+  book's `audience`, enforced by the server —
+  the entry itself carries only the usual `visible` / `requiredPermissions`
+  gates.
 - Put items under the `navigation` key. `menu` is deprecated legacy and only
   kept for backward compatibility.
 

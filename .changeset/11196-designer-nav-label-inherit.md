@@ -18,9 +18,10 @@ Every one of those surfaces now asks the runtime's own rule, `resolveNavItemLabe
 `@object-ui/layout`; none keeps a second copy of it. In app-shell the preview, the canvas, the
 inspector and the Studio rail pass the console's own target resolver, so a label-less entry shows its target's current
 label (a rename shows on the next render), else the target's machine name, else the entry's `id`.
-The Navigation Designer and the wizard are handed bare items and no metadata, so they show the
-rule's machine-name rung (`pageName`, `dashboardName`, `objectName`, …), which is what the console
-shows for a page.
+The app wizard's Navigation step hands the rule its own object list, so a label-less object entry
+there shows the object's label. The Navigation Designer is handed bare items and no metadata, so it
+shows the rule's machine-name rung (`pageName`, `dashboardName`, `objectName`, …), which is what the
+console shows for a page.
 
 Editing keeps inheritance intact. The canvas's inline rename and the inspector's Label field show
 the inherited text as a placeholder, never as a stored value: leaving an entry untouched keeps it

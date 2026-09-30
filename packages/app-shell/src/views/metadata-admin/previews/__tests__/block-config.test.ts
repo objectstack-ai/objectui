@@ -406,7 +406,8 @@ describe('page:header `icon` — the designer field retired with the spec key (#
   // POSITIVE half, for the reason the location dropdown states: without it the
   // negative pin below passes just as happily on a deleted panel.
   it('still offers the canonical header fields the renderer does implement', () => {
-    expect(fieldNames()).toEqual(['title', 'subtitle', 'breadcrumb']);
+    // `breadcrumb` left this list with objectui#11173 — see the next describe.
+    expect(fieldNames()).toEqual(['title', 'subtitle']);
   });
 
   it('does NOT offer the retired `icon` field', () => {
@@ -443,6 +444,45 @@ describe('page:header `icon` — the designer field retired with the spec key (#
       expect(t(key, 'en-US')).toBe(key);
       expect(t(key, 'zh-CN')).toBe(key);
     }
+  });
+});
+
+/**
+ * `page:header.breadcrumb` — the second canonical header toggle retired under
+ * the rule the `icon` describe above states (objectui#11173).
+ *
+ * The canonical `page:header` renderer stopped reading the key (objectui#11166),
+ * and objectstack#20758 retires `PageHeaderProps.breadcrumb` through ADR-0087.
+ * A designer that kept offering the toggle would author a key nothing reads,
+ * and — once objectui pins a spec release carrying that tombstone — one the
+ * platform refuses BY NAME. The producer leaves first, so the pin bump does not
+ * find it standing. When that bump lands, the `icon` describe's tombstone probe
+ * is the pattern for a third assertion here.
+ *
+ * NOT a strip, deliberately (triage ruling on the card): `RETIRED_BLOCK_PROP_KEYS`
+ * gains no `page:header` entry, because the spec's ADR-0087 conversion is the
+ * one strip and a second one here would hide its notice. The stored-page half —
+ * a page already carrying `breadcrumb: true` opens, and its next save keeps the
+ * key — is a fact about a real commit, so it is pinned on screen in
+ * `inspectors/PageBlockInspector.pageHeaderBreadcrumb-11173.test.tsx`.
+ */
+describe('page:header `breadcrumb` — the designer toggle retired with its reader (objectui#11173)', () => {
+  const fieldNames = () => BLOCK_CONFIG['page:header'].map((f) => f.name);
+
+  // The POSITIVE half is the `icon` describe's field-set pin above; it is the
+  // non-vacuity control for this negative one as well.
+  it('does NOT offer the retired `breadcrumb` toggle', () => {
+    expect(fieldNames().length, 'field list is empty — the pin would be vacuous').toBeGreaterThan(0);
+    expect(fieldNames()).not.toContain('breadcrumb');
+  });
+
+  // The i18n side, as for `icon`: a label kept past its field is dead
+  // vocabulary, so BOTH locale tables lost it. `t()` returns the key unchanged
+  // on a miss.
+  it('has no leftover translation for the retired toggle in either locale', () => {
+    const key = 'engine.inspector.pageBlock.field.page:header.breadcrumb';
+    expect(t(key, 'en-US')).toBe(key);
+    expect(t(key, 'zh-CN')).toBe(key);
   });
 });
 

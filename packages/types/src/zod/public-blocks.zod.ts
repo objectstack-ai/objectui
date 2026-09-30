@@ -76,6 +76,25 @@
  * `../__tests__/held-block-content-channels-10872.test.ts` re-reads that
  * verdict from the installed spec.
  *
+ * The four `page:` containers are the other half (objectui#10872 batch 6).
+ * They DO render a child list, and each one's spec row declares it as its
+ * `children` member (`PageCardProps`; `PageContainerProps` for the other
+ * three), so the list's home is `properties.children` — the path the page
+ * designer's canvas addresses (`childGroups` in `PageBlockCanvas`) and the key
+ * `SchemaRenderer`'s `properties` hoist puts on the node the renderer reads.
+ * `@objectstack/spec`'s own `PageComponentSchema` refuses a node-level
+ * `children` on all four as an unrecognized key, so these arms refuse it too,
+ * and restate `body`, with one string (`pageContainerChildListGuidance`) that
+ * names `properties.children` rather than the neither-channel text: the same
+ * two `retirementTombstone` members, a different message. That the bag
+ * spelling renders the same page
+ * was measured once, through the real `SchemaRenderer` and registry, and is
+ * recorded on objectui#10872; nothing here re-derives it. The renderers keep
+ * READING the node-level spellings for stored documents — this module judges
+ * what is authored, not what is stored.
+ * `../__tests__/container-children-channel-10872.test.ts` re-reads the spec's
+ * verdict and the row's `children` member from the installed spec.
+ *
  * Two carve-outs, each stated on its arm: `page:tabs` and `page:accordion`
  * render the `children` of each ITEM in their `items` bag member, which is
  * the spec row's and stays live — only the node's own `children` is refused;
@@ -100,13 +119,12 @@
  * undeclared key of every arm does, and the strict authoring face refuses it;
  * one `BaseSchema` does declare (`children`, `label`, `disabled`, `visible`) is
  * judged by the base's own type — unless the arm declares it again, as the
- * content-channel tombstones below do for `children` on every block but the
- * four `page:` containers. A flat `body` is refused on both faces: by those
- * tombstones; on `record:alert`, by its alias refusal naming `properties.body`;
- * and on the four containers, by the base's objectui#6771 retirement, whose
- * `children` remedy they do render. Whether the flat spelling is ALSO an authoring channel for
- * the `page:` / `record:` / `action:` families (their renderers read the hoisted node
- * keys) is left open on objectui#10872 rather than decided by this module —
+ * content-channel refusals above do for `children` on every block here (on the
+ * four `page:` containers, pointing at `properties.children`). A flat `body` is
+ * refused on both faces: by those refusals, and on `record:alert` by its alias
+ * refusal naming `properties.body`. Whether the flat spelling is ALSO an
+ * authoring channel for the `page:` / `record:` / `action:` families (their
+ * renderers read the hoisted node keys) is left open on objectui#10872 rather than decided by this module —
  * declaring it later is additive, and it must never extend to `element:*`,
  * whose renderers do not read a flat key at all. ⚠️ For `action:button` it is
  * the TAUGHT spelling: AGENTS.md #4 and the guides write `label`, `actionType`
@@ -203,14 +221,47 @@ import {
  * The `properties` member of one public block: the spec row, optional, with
  * the provenance spelled into its description. The row is passed in already
  * through the import boundary, so this helper never touches a spec binding.
+ *
+ * The ONE copy: `./objectql.zod.ts`'s two public-block arms (`object-metric`,
+ * `object-master-detail-form`) import it rather than restate it
+ * (objectui#10872). Internal to this package's zod modules — deliberately NOT
+ * re-exported from `index.zod.ts`, like the helpers in `./tombstone.zod.ts`.
  */
-function propsBag<T extends z.ZodType>(type: string, row: T) {
+export function propsBag<T extends z.ZodType>(type: string, row: T) {
   return row
     .optional()
     .describe(
       `The \`${type}\` props bag — \`@objectstack/spec\` \`ComponentPropsMap['${type}']\`, by reference. `
       + 'Judged only when present, as the spec\'s props gate judges it.',
     );
+}
+
+/**
+ * objectui#10872 batch 6: ONE refusal string for both node-level content
+ * channels of a `page:` container — `page:card`, `page:section`, `page:footer`,
+ * `page:sidebar`.
+ *
+ * These four DO render a child list, so the objectui#9256 neither-channel
+ * guidance does not apply to them: their child list is live, and its home is
+ * the `children` member of the spec row, `properties.children`. The node-level
+ * spelling is what `@objectstack/spec`'s `PageComponentSchema` refuses as an
+ * unrecognized key (ADR-0089 D3a), so the refusal names the bag member instead.
+ * `body` is restated with the same string because `BaseSchema`'s objectui#6771
+ * refusal names the node-level `children` as its remedy, which these arms now
+ * refuse too.
+ *
+ * @param type the registered `type`, spelled into the message
+ * @param row  the spec row's exported name, so the reader can find the member
+ */
+function pageContainerChildListGuidance(type: string, row: string): string {
+  return 'REFUSED (objectui#10872) — a `' + type + '` node takes its child list in `properties.children`, the '
+    + 'member `@objectstack/spec`\'s `ComponentPropsMap[\'' + type + '\']` row (`' + row + '`) declares: write '
+    + '`{ "type": "' + type + '", "properties": { "children": [ … ] } }`. A child list written on the node itself '
+    + '— `children`, or `body`, the spelling objectui#6771 retired — is refused, as `@objectstack/spec`\'s '
+    + '`PageComponentSchema` refuses a node-level `children` on a page component (an unrecognized key, '
+    + 'ADR-0089 D3a), so this face and `os validate` agree. Moving it changes nothing at render time: '
+    + '`SchemaRenderer` hoists every `properties` key onto the node before the renderer runs (`type` and `id` '
+    + 'excepted), so the container reads the same child list.';
 }
 
 /* ── page: — structure ──────────────────────────────────────────────────── */
@@ -267,10 +318,20 @@ export const PageTabsBlockSchema = BaseSchema.extend({
   children: retirementTombstone(PAGE_TABS_NEITHER_CHANNEL),
 });
 
-/** `page:card` — `ComponentPropsMap['page:card']`. */
+/** objectui#10872 batch 6: ONE refusal string for both node-level content channels of `page:card`. */
+const PAGE_CARD_CHILD_LIST = pageContainerChildListGuidance('page:card', 'PageCardProps');
+
+/**
+ * `page:card` — `ComponentPropsMap['page:card']`. It renders a child list, and
+ * its home is `properties.children`; the node-level `children` and `body` are
+ * refused by name, pointed there (objectui#10872 batch 6).
+ */
 export const PageCardBlockSchema = BaseSchema.extend({
   type: z.literal('page:card'),
   properties: propsBag('page:card', stripImportedDefaults(SpecPageCardProps)),
+  // objectui#10872 batch 6: the child list is the row's `children` member, in the bag.
+  body: retirementTombstone(PAGE_CARD_CHILD_LIST),
+  children: retirementTombstone(PAGE_CARD_CHILD_LIST),
 });
 
 /** objectui#9256 (public-block slice): ONE refusal string for both content channels of `page:accordion`. */
@@ -295,26 +356,46 @@ export const PageAccordionBlockSchema = BaseSchema.extend({
   children: retirementTombstone(PAGE_ACCORDION_NEITHER_CHANNEL),
 });
 
+/** objectui#10872 batch 6: ONE refusal string for both node-level content channels of `page:section`. */
+const PAGE_SECTION_CHILD_LIST = pageContainerChildListGuidance('page:section', 'PageContainerProps');
+
 /**
  * `page:section` — `ComponentPropsMap['page:section']`, the spec's shared
  * thin-container row (`PageContainerProps`), as for `page:footer` and
- * `page:sidebar`.
+ * `page:sidebar`. The row's one member is the child list, `properties.children`;
+ * the node-level `children` and `body` are refused by name, pointed there, on
+ * all three (objectui#10872 batch 6).
  */
 export const PageSectionBlockSchema = BaseSchema.extend({
   type: z.literal('page:section'),
   properties: propsBag('page:section', stripImportedDefaults(SpecPageContainerProps)),
+  // objectui#10872 batch 6: the child list is the row's `children` member, in the bag.
+  body: retirementTombstone(PAGE_SECTION_CHILD_LIST),
+  children: retirementTombstone(PAGE_SECTION_CHILD_LIST),
 });
+
+/** objectui#10872 batch 6: ONE refusal string for both node-level content channels of `page:footer`. */
+const PAGE_FOOTER_CHILD_LIST = pageContainerChildListGuidance('page:footer', 'PageContainerProps');
 
 /** `page:footer` — `ComponentPropsMap['page:footer']` (`PageContainerProps`). */
 export const PageFooterBlockSchema = BaseSchema.extend({
   type: z.literal('page:footer'),
   properties: propsBag('page:footer', stripImportedDefaults(SpecPageContainerProps)),
+  // objectui#10872 batch 6: the child list is the row's `children` member, in the bag.
+  body: retirementTombstone(PAGE_FOOTER_CHILD_LIST),
+  children: retirementTombstone(PAGE_FOOTER_CHILD_LIST),
 });
+
+/** objectui#10872 batch 6: ONE refusal string for both node-level content channels of `page:sidebar`. */
+const PAGE_SIDEBAR_CHILD_LIST = pageContainerChildListGuidance('page:sidebar', 'PageContainerProps');
 
 /** `page:sidebar` — `ComponentPropsMap['page:sidebar']` (`PageContainerProps`). */
 export const PageSidebarBlockSchema = BaseSchema.extend({
   type: z.literal('page:sidebar'),
   properties: propsBag('page:sidebar', stripImportedDefaults(SpecPageContainerProps)),
+  // objectui#10872 batch 6: the child list is the row's `children` member, in the bag.
+  body: retirementTombstone(PAGE_SIDEBAR_CHILD_LIST),
+  children: retirementTombstone(PAGE_SIDEBAR_CHILD_LIST),
 });
 
 /* ── record: — record-context blocks ────────────────────────────────────── */

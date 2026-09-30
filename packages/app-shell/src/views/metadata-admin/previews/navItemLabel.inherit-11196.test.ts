@@ -61,6 +61,9 @@ const LABEL_LESS: NavEntryLike[] = [
   { id: 'nav_docs', type: 'url', url: 'https://docs.example.com' },
   { id: 'nav_dir', type: 'component', componentRef: 'metadata:directory' },
   { id: 'nav_run', type: 'action', actionDef: { actionName: 'quick_create' } },
+  { id: 'nav_guide', type: 'doc', book: 'crm_manual', doc: 'crm_lead_guide' },
+  { id: 'nav_manual', type: 'doc', book: 'crm_manual' },
+  { id: 'nav_doc_empty', type: 'doc' },
   { id: 'nav_admin', type: 'group', children: [] },
   { id: 'nav_empty_object', type: 'object' },
   { id: 'nav_sep', type: 'separator' },
@@ -91,6 +94,10 @@ describe('objectui#11196 — a label-less entry reads as the runtime draws it', 
     expect(text({ id: 'nav_ops', type: 'dashboard', dashboardName: 'ops' })).toBe('ops');
     // A page never asks the resolver: its machine name is its text (what NavigationSyncEffect used to store).
     expect(text({ id: 'nav_home', type: 'page', pageName: 'home_page' })).toBe('home_page');
+    // A doc entry: the page it opens, else its book, else its id (objectui#11197's rung).
+    expect(text({ id: 'nav_guide', type: 'doc', book: 'crm_manual', doc: 'crm_lead_guide' })).toBe('crm_lead_guide');
+    expect(text({ id: 'nav_manual', type: 'doc', book: 'crm_manual' })).toBe('crm_manual');
+    expect(text({ id: 'nav_doc_empty', type: 'doc' })).toBe('nav_doc_empty');
     // No target of its own: the entry's id.
     expect(text({ id: 'nav_admin', type: 'group', children: [] })).toBe('nav_admin');
     expect(text({ id: 'nav_empty_object', type: 'object' })).toBe('nav_empty_object');

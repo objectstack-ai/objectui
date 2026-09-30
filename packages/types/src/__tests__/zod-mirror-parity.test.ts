@@ -2334,17 +2334,18 @@ interface KnownDrift {
    * `ComponentPropsMap['object-grid']` `strictObject` already refused the key.
    *
    * ⚠️ No in-repo host builds an `object-grid` node carrying it — measured. The
-   * read is live and deliberate (`onNavigate: schema.onNavigate` into
-   * `useNavigationOverlay`), and `plugin-grid`'s `gridNonAuthorKeys.test.tsx`
+   * read is live and deliberate (`onNavigate: onNavigate ?? schema.onNavigate`
+   * into `useNavigationOverlay` — the fallback behind the component prop since
+   * objectui#9547), and `plugin-grid`'s `gridNonAuthorKeys.test.tsx`
    * supplies it from a schema and asserts the call fires.
    */
   'objectql.zod.ts#ObjectGridSchema': 'onNavigate';
   /**
    * RUNTIME SLOT (objectui#6124 shape, declared by objectui#7804) — the same
    * key NAME as the entry above and nothing else in common: a different second
-   * parameter (`mode: 'view' | 'edit'` rather than `action?: string`), a
-   * different renderer, a different supplier. Judged separately for exactly
-   * that reason.
+   * parameter (`mode: 'view' | 'edit'` rather than
+   * `action: RecordNavigateAction`, objectui#9547), a different renderer, a
+   * different supplier. Judged separately for exactly that reason.
    *
    * `plugin-view`'s `ObjectView` invokes it at four sites —
    * `schema.onNavigate('new', 'edit')` on create, and the record id with
@@ -4046,15 +4047,15 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   'public-blocks.zod.ts#PageTabsBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `page:tabs` literal + `properties`, which IS `ComponentPropsMap['page:tabs']`, + the `onTabChange` runtime-slot refusal (objectui#6124) its renderer's read requires, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#PageCardBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `page:card` literal + `properties`, which IS `ComponentPropsMap['page:card']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:card` literal + `properties`, which IS `ComponentPropsMap['page:card']`, + the objectui#10872 batch-6 `body` / `children` refusals (its renderer reads the child list, whose home is the row's `properties.children`); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#PageAccordionBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `page:accordion` literal + `properties`, which IS `ComponentPropsMap['page:accordion']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#PageSectionBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `page:section` literal + `properties`, which IS `ComponentPropsMap['page:section']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:section` literal + `properties`, which IS `ComponentPropsMap['page:section']`, + the objectui#10872 batch-6 `body` / `children` refusals (its renderer reads the child list, whose home is the row's `properties.children`); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#PageFooterBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `page:footer` literal + `properties`, which IS `ComponentPropsMap['page:footer']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:footer` literal + `properties`, which IS `ComponentPropsMap['page:footer']`, + the objectui#10872 batch-6 `body` / `children` refusals (its renderer reads the child list, whose home is the row's `properties.children`); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#PageSidebarBlockSchema':
-    "spec-owned BY REFERENCE — `BaseSchema` + the `page:sidebar` literal + `properties`, which IS `ComponentPropsMap['page:sidebar']`; no TS declaration in this package restates the node",
+    "spec-owned BY REFERENCE — `BaseSchema` + the `page:sidebar` literal + `properties`, which IS `ComponentPropsMap['page:sidebar']`, + the objectui#10872 batch-6 `body` / `children` refusals (its renderer reads the child list, whose home is the row's `properties.children`); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordDetailsBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `record:details` literal + `properties`, which IS `ComponentPropsMap['record:details']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordHighlightsBlockSchema':

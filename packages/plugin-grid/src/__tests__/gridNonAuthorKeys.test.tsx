@@ -784,11 +784,14 @@ describe('`onNavigate` — the exemption is DOCUMENTED, which is what this card 
   it('the read site in ObjectGrid.tsx carries the exemption comment', () => {
     // Anchored on the read line, which exists in both states of the world, so a
     // red here means the COMMENT went missing — never that the anchor moved.
-    const reads = indicesWhere(gridLines, (t) => t === 'onNavigate: schema.onNavigate,');
+    // Re-aimed by objectui#9547: the read became `onNavigate ?? schema.onNavigate`
+    // (the component prop first, the schema key as its fallback — ruling C on
+    // that card), and `onNavigateProp-9547.test.tsx` pins that precedence.
+    const reads = indicesWhere(gridLines, (t) => t === 'onNavigate: onNavigate ?? schema.onNavigate,');
     expect(
       reads.length,
-      'the `onNavigate: schema.onNavigate` read is gone or duplicated; re-aim this pin before'
-        + ' trusting anything else in this describe.',
+      'the `onNavigate: onNavigate ?? schema.onNavigate` read is gone or duplicated; re-aim this'
+        + ' pin before trusting anything else in this describe.',
     ).toBe(1);
 
     const block = commentBlockAbove(gridLines, reads[0]);

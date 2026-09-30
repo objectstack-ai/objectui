@@ -398,7 +398,16 @@ export const BLOCK_CONFIG: Record<string, BlockPropField[]> = {
     // would let the designer author metadata that fails to parse, which is
     // strictly worse than the silent drop it replaced. Pinned negatively in
     // `__tests__/block-config.test.ts`. objectui#3829.
-    { name: 'breadcrumb', label: 'engine.inspector.pageBlock.field.page:header.breadcrumb', kind: 'boolean' },
+    //
+    // No `breadcrumb` toggle either, for the same reason one step earlier
+    // (objectui#11173): the canonical `page:header` renderer stopped reading it
+    // (objectui#11166), and objectstack#20758 retires `PageHeaderProps.breadcrumb`
+    // through ADR-0087. The toggle would go on authoring a key nothing reads
+    // now and the platform refuses by name once that release is pinned.
+    // Deliberately NOT added to `RETIRED_BLOCK_PROP_KEYS` below: a stored
+    // `breadcrumb` round-trips untouched, because the spec's ADR-0087
+    // conversion is the one strip (with its notice) and a second one here
+    // would hide that notice.
   ],
   'page:card': [
     { name: 'title', label: 'engine.inspector.pageBlock.field.page:card.title', kind: 'text' },

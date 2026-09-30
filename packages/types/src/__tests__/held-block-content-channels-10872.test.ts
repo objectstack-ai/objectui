@@ -139,7 +139,8 @@ const allIssues = (issues: Issue[] | undefined, prefix: PropertyKey[] = []): Iss
 
 const CASES = ROWS.flatMap(([type, arm, node, channel]) =>
   CHANNELS.map((key) => [`${type}.${key}`, type, arm, node, channel, key] as const));
-const FACE_CASES = CASES.flatMap((c) => FACES.map(([face, judge]) => [`${c[0]} (${face})`, ...c.slice(1), judge] as const));
+const FACE_CASES = CASES.flatMap(([label, type, arm, node, channel, key]) =>
+  FACES.map(([face, judge]) => [`${label} (${face})`, type, arm, node, channel, key, judge] as const));
 
 /* ── (a) both channels are REFUSED BY NAME, at the key's own path, on both faces ── */
 

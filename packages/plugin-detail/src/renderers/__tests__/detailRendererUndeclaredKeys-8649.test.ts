@@ -64,6 +64,11 @@
  *     but NOT on the three this card covers. A word-frequency screen over the contract reads "present" and is
  *     wrong about exactly this; the per-schema census below is what separates
  *     them. ⇒ ROUTED TO THE PRODUCER, same floor.
+ *   - ⭐ UPDATE, `@objectstack/spec` 17.5.0 (objectui#11073): the routed card
+ *     LANDED upstream. All three keys are now declared on exactly these three
+ *     blocks, so the two routings above have expired into align-the-mirror.
+ *     The census rows fired and were flipped; the alignment itself is this
+ *     card's burn-down and was ⛔ not taken by the bump.
  *
  * ## What each leg can and cannot prove
  *
@@ -311,27 +316,27 @@ describe('objectui#8649 — the census the routing rests on (PREMISE, re-derived
     expect(declaringBlocksOf('fields').length).toBeGreaterThan(0);
   });
 
-  it('`enforceFieldSecurity` and `redactFields` are declared by NO block, and not on the node', () => {
-    // The reading that takes "declare" off the table for these two: they are no
-    // part of any block's authoring surface, nor of the envelope every block
-    // shares. It goes RED the day the platform declares either — which is the
-    // signal that the routed producer-side card landed.
-    expect(declaringBlocksOf('enforceFieldSecurity')).toEqual([]);
-    expect(declaringBlocksOf('redactFields')).toEqual([]);
+  // ⭐ FIRED at the `@objectstack/spec` 17.5.0 bump (objectui#11073), as these two
+  // rows were written to. Through 17.4.0 they read: `enforceFieldSecurity` and
+  // `redactFields` declared by NO block, and `requiredPermissions` declared, but
+  // never on these three. 17.5.0 declares all three ON exactly these three
+  // blocks — the routed producer-side card LANDED. Flipped to the new reading;
+  // what it signals — this repo owes the mirror an update (declare on the
+  // three interfaces, then drop the casts) — is objectui#8649's own burn-down,
+  // ⛔ not the bump's, the same split objectui#10940's tripwire took.
+  it('`enforceFieldSecurity` and `redactFields` are declared on exactly the three card blocks since 17.5.0, and not on the node', () => {
+    expect(declaringBlocksOf('enforceFieldSecurity')).toEqual([...CARD_BLOCKS]);
+    expect(declaringBlocksOf('redactFields')).toEqual([...CARD_BLOCKS]);
     expect(nodeLevelKeys()).not.toContain('enforceFieldSecurity');
     expect(nodeLevelKeys()).not.toContain('redactFields');
   });
 
-  it('`requiredPermissions` IS declared by the contract — just never on these three blocks', () => {
-    // Why a word-frequency screen gets this key wrong, stated as an assertion
-    // rather than as prose: the token is present on the authoring surface AND
-    // absent from the three blocks that read it.
+  it('`requiredPermissions` is declared on the three card blocks too since 17.5.0 — beside `record:quick_actions`', () => {
+    // Why a word-frequency screen got this key wrong through 17.4.0 is kept as
+    // the sibling precedent: `record:quick_actions` carried it first.
     const declaring = declaringBlocksOf('requiredPermissions');
-    expect(declaring.length).toBeGreaterThan(0);
-    // The sibling block that DOES carry it — the precedent the producer-side
-    // card would cite.
     expect(declaring).toContain('record:quick_actions');
-    for (const block of CARD_BLOCKS) expect(declaring).not.toContain(block);
+    for (const block of CARD_BLOCKS) expect(declaring).toContain(block);
     expect(nodeLevelKeys()).not.toContain('requiredPermissions');
   });
 

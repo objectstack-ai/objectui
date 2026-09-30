@@ -651,6 +651,19 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       help: 'Inert — nothing reads this. The engine only honours `condition` on a Start node (the trigger gate); on a Decision it gates nothing. Shown so a stored value is not invisible. Move the predicate to a branch above, or to the outgoing edge’s own condition, then clear this.',
       showWhen: { field: '__legacy__', equals: [] },
     }),
+    // `@objectstack/spec` 17.5.0 added `DecisionConfigSchema.mode`, and the
+    // decision executor reads it (objectui#11073). An OPTIONAL enum with NO
+    // `.default()`, so ⛔ no `defaultValue` here, the objectui#9109 rule: the
+    // spec's own text says an omitted mode means `exclusive`, but it
+    // materialises nothing, and a declaration would state a default the spec
+    // does not apply. The spec refuses it beside a non-empty `conditions` list.
+    cfg('mode', 'Branch mode', 'select', {
+      options: [
+        { value: 'exclusive', label: 'Exclusive' },
+        { value: 'inclusive', label: 'Inclusive' },
+      ],
+      help: 'For a decision that branches on its out-edge conditions: Exclusive takes only the first edge that holds, in edge order (what leaving this unset means); Inclusive takes every edge that holds. The default edge runs when none holds. Not allowed together with Branches above.',
+    }),
   ],
   assignment: [
     cfg('assignments', 'Assignments', 'keyValue', {
@@ -806,12 +819,14 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
       placeholder: 'account_id',
       help: 'Object form only: variable bound to the saved record\u2019s id, for later steps.',
     }),
-    // ⛔ No `defaultValue` (objectui#9109): `ScreenConfigSchema.mode` is an
-    // OPTIONAL enum with no `.default()`, so an omitted key materialises
-    // nothing. Same shape as `http_request.method` above — whether the executor
-    // applies create-mode is NOT MEASURED here, and a declaration would state a
-    // spec default that does not exist.
+    // objectui#9109 deleted this field's `defaultValue` while
+    // `ScreenConfigSchema.mode` was an OPTIONAL enum with no `.default()`.
+    // `@objectstack/spec` 17.5.0 gave it one — an omitted key now materialises
+    // `'create'` — so the declaration returns, as that card's pin said it would
+    // the day the spec started applying one, with the spec's own value
+    // (objectui#11073). Shown, never written (objectui#6263).
     cfg('mode', 'Form mode', 'select', {
+      defaultValue: 'create',
       options: [
         { value: 'create', label: 'Create' },
         { value: 'edit', label: 'Edit' },

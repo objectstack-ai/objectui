@@ -24,14 +24,6 @@ import { withFieldCarrier } from './withFieldCarrier.js';
 // Pure formatting rule shared with `AddressField`'s readonly branch — no React,
 // so this does not pull the widget out of its lazy chunk (objectui#4037).
 import { formatAddress, type AddressValue } from './widgets/address-format.js';
-// The ONE out-of-range `scale` ruling both percent faces take (objectui#9808).
-// Shared with `PercentField` rather than restated here — a second spelling of
-// the same domain is exactly the drift `address-format` above exists to
-// prevent — and, like `address-format` and `file-affordance` below,
-// deliberately NOT re-exported from the `export *` block at the end of this
-// file, so this package's published surface is unchanged. Pure, no React, so
-// it pulls no widget out of its lazy chunk (objectui#4037).
-import { renderablePercentScale, renderableFractionScale } from './widgets/percent-scale.js';
 
 // Module-level cache so multiple renderers fetching the same lookup ID
 // only trigger one network call. Keyed by `${objectName}:${id}`. It holds the
@@ -677,17 +669,10 @@ export function formatPercent(value: number, precision: number = 0, locale?: str
   // Scale a fraction-stored percent (0.8 → 80%) via the shared core helper, so
   // the list cell and the dashboard measure formatter (`formatMeasure`) agree.
   const displayValue = percentDisplayValue(value);
-  // objectui#9808 — the out-of-range ruling lands HERE rather than at
-  // `PercentCellRenderer`'s call site, because this is the door the cell face
-  // actually goes through and the one a future caller cannot step around.
-  //
-  // ⚠️ Without it the throw arrives from `toFixed`, not from `Intl`, which is
-  // worth knowing when reading a stack: `formatPercentBody` CATCHES the
-  // `Intl` `RangeError` for a width above the engine's ceiling, and its
-  // fallback `displayValue.toFixed(precision)` refuses the same width from
-  // inside the `catch`. So the recovery arm was the one that crashed the
-  // render, and neither arm could have rescued the other.
-  return formatPercentBody(displayValue, renderablePercentScale(precision), locale);
+  // The objectui#9808 clamp that stood here was retired at its own SUNSET
+  // (objectui#11073): `@objectstack/spec` 17.5.0 refuses a `scale` above 100 at
+  // the declaration, so the width the engine cannot render no longer arrives.
+  return formatPercentBody(displayValue, precision, locale);
 }
 
 /**
@@ -795,12 +780,9 @@ export function NumberCellRenderer({ value, field }: CellRendererProps): React.R
   // grouping: absent means "decimals unknown", not "integer". The policy and
   // its interim status live in `formatDisplayNumber`, not here.
   //
-  // A declared width above the engine's fraction ceiling is clamped and
-  // reported, never carried into `Intl` (objectui#10071 — the objectui#9808
-  // ruling; see `./widgets/percent-scale.js`).
-  const scale = typeof numField.scale === 'number'
-    ? renderableFractionScale(numField.scale, 'number field', 'objectui#10071')
-    : undefined;
+  // No clamp: the objectui#10071 one retired at the objectui#9808 SUNSET
+  // (objectui#11073) — `@objectstack/spec` 17.5.0 refuses a `scale` above 100.
+  const scale = typeof numField.scale === 'number' ? numField.scale : undefined;
   // The author's digit-grouping hint (objectui#11026): `FieldSchema.useGrouping`,
   // declared on `NumberFieldMetadata`, so it is read off the typed `field` and
   // not through `numField`. An authored boolean overrides the `scale` heuristic

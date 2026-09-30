@@ -109,6 +109,7 @@ import { SchemaNodeSchema } from './zod/base.zod.js';
 import { AnyComponentSchema } from './zod/index.zod.js';
 import {
   carryRegistryMeta,
+  closeStrictUnionArms,
   cloneWithDef,
   internals,
   isZodType,
@@ -250,11 +251,17 @@ function createStrictWalker(options: DeriveStrictAuthoringOptions = {}): <T exte
       // A discriminated union carries `type: 'union'` too, plus a
       // `discriminator` the spread preserves — so both union kinds land here
       // and neither is flattened into the other.
-      case 'union':
+      case 'union': {
+        const options = (def.options ?? []).map((option, i) => walk(option, `${path}/options/${i}`));
+        // objectui#11073: every object this face closes is a strict object, so on a PLAIN
+        // union its unknown-key refusal is made terminal, as on the node face, and the union
+        // answers with every arm rather than with the one arm that failed only on unknown
+        // keys. A discriminated union routes to one arm and is left as it is.
         out = cloneWithDef(schema, {
-          options: (def.options ?? []).map((option, i) => walk(option, `${path}/options/${i}`)),
+          options: (def as { discriminator?: unknown }).discriminator === undefined ? closeStrictUnionArms(options) : options,
         });
         break;
+      }
       case 'array':
         out = cloneWithDef(schema, { element: walk(def.element!, `${path}/element`) });
         break;

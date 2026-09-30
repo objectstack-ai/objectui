@@ -23,6 +23,9 @@
  * `$between`. The refusal therefore arrived two layers away — `driver-sql`'s
  * `400 INVALID_FILTER` from the wire, or an empty list from every in-memory
  * matcher — and the author learned nothing at lowering time.
+ * (That was `@objectstack/spec` through 17.4.0. Since 17.5.0 `parseFilterAST`
+ * refuses the node itself, naming the field — section 1 was re-pinned to that
+ * sibling refusal by objectui#11073, and the producer arm stays.)
  *
  * ## The ruling (objectui#8530, PM comment 5583351371)
  *
@@ -84,14 +87,26 @@ function captureRefusal(run: () => unknown): FilterOperatorError {
 // ---------------------------------------------------------------------------
 
 describe('objectui#8530 — a bare array in comparand position is refused', () => {
-  it('records why the producer must refuse: the spec doors pass the old node unjudged', () => {
-    // The pre-fix emission. Both spec doors accept it, so nothing between this
-    // file and the driver would have said a word. If the spec ever starts
-    // refusing it, this pin reddens and the reader learns the refusal now has
-    // a sibling — not that the producer arm can go.
+  it('records that the spec door now refuses the old node too — a SIBLING refusal, not a licence to drop this one', () => {
+    // The pre-fix emission. Through `@objectstack/spec` 17.4.0 both spec doors
+    // accepted it, so nothing between this file and the driver would have said
+    // a word. This pin was written to redden the day the spec started refusing
+    // it, and it did at 17.5.0 (objectui#11073): the shape check still passes,
+    // and the lowering now throws `INVALID_FILTER` naming the field. The
+    // reader's lesson is the one this comment always gave — the refusal gained
+    // a sibling; the producer arm below still refuses FIRST, at authoring.
     const preFixNode = ['tags', '=', ['a', 'b']];
     expect(isFilterAST(preFixNode)).toBe(true);
-    expect(parseFilterAST(preFixNode)).toEqual({ tags: ['a', 'b'] });
+    let thrown: unknown;
+    try {
+      parseFilterAST(preFixNode);
+    } catch (e) {
+      thrown = e;
+    }
+    expect((thrown as { code?: string } | undefined)?.code).toBe('INVALID_FILTER');
+    expect((thrown as Error).message).toMatch(
+      /^The implicit-equality comparand on field "tags" requires a single comparable value, but received an array/,
+    );
   });
 
   it('refuses { tags: [...] } with the INVALID_FILTER / 400 envelope', () => {

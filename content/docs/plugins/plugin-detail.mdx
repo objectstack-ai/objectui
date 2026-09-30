@@ -189,15 +189,17 @@ its own feed. Drop it anywhere inside a record page:
 ```json
 {
   "type": "page:tabs",
-  "items": [
-    {
-      "label": "Activity",
-      "value": "activity",
-      "children": [
-        { "type": "record:activity", "limit": 20, "showCompleted": false }
-      ]
-    }
-  ]
+  "properties": {
+    "items": [
+      {
+        "label": "Activity",
+        "value": "activity",
+        "children": [
+          { "type": "record:activity", "limit": 20, "showCompleted": false }
+        ]
+      }
+    ]
+  }
 }
 ```
 

@@ -17,6 +17,9 @@
 
 import type { BaseSchema, SchemaNode } from './base.js';
 import type { SelectOptionBase } from './select-option.js';
+// objectui#11070 — the field-metadata members `FormField` declares by
+// reference to the spec's `FieldSchema`. Type-only: no runtime edge.
+import type { Field as SpecField } from '@objectstack/spec/data';
 
 /**
  * Button component
@@ -1916,6 +1919,101 @@ export interface FormField {
    * non-divider row the key has no meaning and is ignored by the renderer.
    */
   fields?: string[];
+
+  // ── Field metadata written on the entry itself (objectui#11070) ─────────
+  //
+  // A hand-authored `form` has no object schema behind it, so nothing is
+  // stashed on `field` above: the renderer hands each field widget the ENTRY
+  // ITSELF as its metadata carrier (`field: field.field || field`, the one
+  // `renderFieldComponent` call in `renderers/form/form.tsx`), and the
+  // built-in `input` / `textarea` branches spread the entry's remaining keys
+  // onto the native control. The members below are the keys that path reads
+  // off the entry. Each one `@objectstack/spec` declares on `FieldSchema` is
+  // typed BY REFERENCE to that member, so the two cannot drift; `pattern` is
+  // the one the spec does not declare.
+  //
+  // ⛔ Not every key a widget reads off the carrier is declared here. Four are
+  // read in a snake_case spelling beside a spec key of the same meaning —
+  // `return_type` (spec `returnType`), `summary_type` (spec
+  // `summaryOperations`), `reference_to` (spec `reference`) and `min_length`
+  // (spec `minLength`) — and none of the four is declared: a second spelling
+  // is not added to this contract. Where the widgets already read the SPEC
+  // spelling too, that spelling is the one declared (`reference`, below;
+  // `minLength`, above), and `reference_to` / `min_length` stay refused by the
+  // strict face (the seat's answer on objectui#11070). `return_type` and
+  // `summary_type` have no read of the spec spelling to declare. The grid
+  // field's `columns` is read too, but its element shape is undecided: the
+  // declared `GridColumnDefinition` (`./field-types.ts`) is not the shape
+  // `GridField` reads. Those three remain open on objectui#11070.
+
+  /**
+   * Hold several values instead of one. Read by the `file`, `image`,
+   * `lookup` and `user` field widgets off their metadata carrier: the upload
+   * widgets put `multiple` on their file `<input>`, the pickers switch to
+   * multi-value selection. The built-in `select` branch does not read it.
+   */
+  multiple?: SpecField['multiple'];
+  /**
+   * Height of the inline editor, in text rows. The built-in `textarea` branch
+   * spreads it onto the `<textarea>` as `rows`; the `markdown` widget reads
+   * it for its inline editor (default 8).
+   */
+  rows?: SpecField['rows'];
+  /**
+   * Upload types the file picker offers, as MIME types or extensions
+   * (e.g. `["image/*", ".pdf"]`). The `file` widget joins them into its
+   * `<input type="file">`'s `accept` attribute.
+   */
+  accept?: SpecField['accept'];
+  /**
+   * Vector dimensionality. The `vector` widget prints it beside the value
+   * (`(768D)`), falling back to the value's own length when absent.
+   */
+  dimensions?: SpecField['dimensions'];
+  /**
+   * Target object of a `lookup` / `user` field, as `@objectstack/spec`'s
+   * `FieldSchema` spells it. The `lookup` widget resolves its target as
+   * `reference_to || reference` and the `user` widget as
+   * `reference || reference_to` (falling back to `sys_user`), so this is the
+   * object the picker queries through the injected adapter. The legacy
+   * `reference_to` spelling is still read by both, and is ⛔ NOT declared:
+   * the strict face refuses it, so an author writes this spelling
+   * (objectui#11070).
+   */
+  reference?: SpecField['reference'];
+  /**
+   * Minimum value. The `number` widget and the built-in `input` branch put it
+   * on the native control as `min`, which the browser enforces at submit
+   * (the form sets no `noValidate`). For a react-hook-form rule with its own
+   * message, write `validation.min` instead.
+   */
+  min?: SpecField['min'];
+  /**
+   * Maximum value. Read like {@link FormField.min}, as the native `max`.
+   */
+  max?: SpecField['max'];
+  /**
+   * Minimum character length. The built-in `input` and `textarea` branches
+   * put it on the native control as `minlength`, which the browser enforces
+   * at submit. For a react-hook-form rule with its own message, write
+   * `validation.minLength` instead.
+   */
+  minLength?: SpecField['minLength'];
+  /**
+   * Maximum character length. The built-in `input` and `textarea` branches
+   * resolve it as the control's `maxLength` ceiling (the `textarea` branch
+   * also draws its `{n}/{max}` counter).
+   */
+  maxLength?: SpecField['maxLength'];
+  /**
+   * Regular expression the value must match, as a STRING — JSON has no
+   * `RegExp`. The built-in `input` branch puts it on the native control as
+   * `pattern`, which the browser enforces at submit. This is the spelling
+   * the `validation.pattern` refusal directs JSON authors to: that rule's
+   * `value` must be a compiled `RegExp` (objectui#5099), which a document
+   * cannot carry.
+   */
+  pattern?: string;
 }
 
 /**
@@ -1970,6 +2068,18 @@ export interface FormSchema extends BaseSchema {
    * @default false
    */
   showCancel?: boolean;
+  /**
+   * Show the submit button (objectui#11070).
+   *
+   * The `form` renderer destructures this off the node with a `true` default
+   * and draws its submit button only while it holds (`{showSubmit && (` in
+   * `renderers/form/form.tsx`), so `false` renders the fields with no submit
+   * button — the display-only form the `fields-*` catalog examples author.
+   * Declared on both faces because the strict authoring face refused it as
+   * undeclared while the renderer read it.
+   * @default true
+   */
+  showSubmit?: boolean;
   /**
    * Form layout
    * @default 'vertical'

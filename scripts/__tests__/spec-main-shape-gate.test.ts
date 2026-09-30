@@ -305,7 +305,7 @@ describe('the injection reads the spec against the dependencies it was built wit
       '2.14.0',
     );
     const entry = path.join(store, '@objectstack+spec@17.4.0_zod@4.4.3', 'node_modules');
-    const installed = writePackage(path.join(entry, '@objectstack', 'spec'), '@objectstack/spec', '17.4.0');
+    const fixtureSpec = writePackage(path.join(entry, '@objectstack', 'spec'), '@objectstack/spec', '17.4.0');
     fs.symlinkSync('../../zod@4.4.3/node_modules/zod', path.join(entry, 'zod'));
     fs.symlinkSync(
       '../../pg-connection-string@2.14.0/node_modules/pg-connection-string',
@@ -313,7 +313,7 @@ describe('the injection reads the spec against the dependencies it was built wit
     );
     const consumerModules = path.join(repo, 'packages', 'app', 'node_modules', '@objectstack');
     fs.mkdirSync(consumerModules, { recursive: true });
-    fs.symlinkSync(installed, path.join(consumerModules, 'spec'));
+    fs.symlinkSync(fixtureSpec, path.join(consumerModules, 'spec'));
     fs.writeFileSync(
       path.join(repo, 'packages', 'app', 'package.json'),
       JSON.stringify({ name: 'app', dependencies: { '@objectstack/spec': '^17.4.0' } }),
@@ -375,7 +375,7 @@ describe('the injection reads the spec against the dependencies it was built wit
         { encoding: 'utf8', env: { ...process.env, GITHUB_STEP_SUMMARY: path.join(root, 'summary.md') } },
       );
     const summary = () => fs.readFileSync(path.join(root, 'summary.md'), 'utf8');
-    return { repo, store, entry, installed, upstream, run, summary };
+    return { repo, store, entry, installed: fixtureSpec, upstream, run, summary };
   }
 
   it('re-points an unsatisfied sibling at the copy the objectstack checkout resolved, and reports it', () => {

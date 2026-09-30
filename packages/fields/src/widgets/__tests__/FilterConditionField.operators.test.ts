@@ -21,7 +21,7 @@
  * still carry.
  */
 import { describe, it, expect } from 'vitest';
-import { FieldOperatorsSchema } from '@objectstack/spec/data';
+import { FieldOperatorsSchema, FILTER_OPERATORS } from '@objectstack/spec/data';
 import { FILTER_BUILDER_OPERATORS, operatorsForFieldType } from '@object-ui/components';
 import {
   condToMongo,
@@ -89,7 +89,16 @@ const noTypes = () => undefined;
  * this comment block warns about one level up, and a reader is what catches it,
  * not a run.
  */
-const KNOWN_UNREACHABLE = new Set(['$eq', '$between', '$like', '$ilike']);
+/*
+ * `$empty` arrived with `@objectstack/spec` 17.5.0 (objectui#11073) and is a
+ * different kind of entry: a STAGED operator, not a builder decision. The spec
+ * declares it "ahead of its backends and absent from FILTER_OPERATORS. Until
+ * each face has its arm, the query executors refuse it … the view operators
+ * is_empty / is_not_empty still lower to $null." A dropdown row emitting it
+ * would therefore author a filter every executor refuses. It leaves this set
+ * the day `FILTER_OPERATORS` admits it — the row below the ratchet reddens then.
+ */
+const KNOWN_UNREACHABLE = new Set(['$eq', '$between', '$like', '$ilike', '$empty']);
 
 /**
  * Pull the operator keys out of a `{ field: { $op: v } }` fragment — descending
@@ -168,6 +177,12 @@ describe('every spec field operator is reachable from the builder (#2942)', () =
       unreachable,
       'FieldOperatorsSchema accepts these but no builder operator can author them',
     ).toEqual([]);
+  });
+
+  it('the staged `$empty` exclusion expires when FILTER_OPERATORS admits it', () => {
+    // Lit control: a flag operator that IS in the list.
+    expect(FILTER_OPERATORS as readonly string[]).not.toContain('$empty');
+    expect(FILTER_OPERATORS as readonly string[]).toContain('$null');
   });
 
   it('every KNOWN_UNREACHABLE token is still a spec operator (the exclusion ratchet)', () => {

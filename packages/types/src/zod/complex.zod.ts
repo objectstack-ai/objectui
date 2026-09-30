@@ -20,6 +20,8 @@ import { z } from 'zod';
 import { handlerKeyRefusal, retiredNodeType, retirementTombstone } from './tombstone.zod.js';
 import {
   ChartTypeSchema as SpecChartTypeSchema,
+  checkDashboardWidgetMetricMeasureArity,
+  checkDashboardWidgetStageOrder,
   DashboardSchema as SpecDashboardSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
   GlobalFilterSchema as SpecGlobalFilterSchema,
@@ -33,7 +35,7 @@ import {
   type DashboardComponentWidgetType,
 } from '../complex.js';
 import { stripImportedDefaults } from './imported-defaults.js';
-import { declareRegisteredInputs } from './node-derivation.js';
+import { closeStrictUnionArms, declareRegisteredInputs } from './node-derivation.js';
 
 /**
  * ⭐ THE IMPORT BOUNDARY (objectui#8317, decision batch #90, 2026-09-08).
@@ -1237,7 +1239,22 @@ export const DashboardWidgetSchema = specFieldsExcept(stripImportedDefaults(Spec
   // refused now. No corpus document, fixture or pin writes one, and the key is
   // declared "Widget Component (legacy format)" — a node, never a scalar.
   component: BaseSchema.optional().describe('Widget Component (legacy format)'),
-}).strict();
+}).strict()
+  // ⭐ THE SPEC'S OBJECT-LEVEL CHECKS, re-attached (objectui#7715, ruling B1; objectui#11073).
+  //
+  // `specFieldsExcept` rebuilds a fresh object from the spec's `.shape`, so it drops
+  // every check the spec attached to the OBJECT. `@objectstack/spec` 17.5.0 attaches two
+  // to `DashboardWidgetSchema` and exports both by name, so the one the spec runs is
+  // attached here instead of restated. Both are ATTACHABLE: each reads only `type`,
+  // `options.stageOrder` / `values` and `id`, and on this node those are the spec's own
+  // fields (`type` adds objectui's closed `list` / `custom` extensions, which the spec's
+  // checks judge as the non-funnel, non-metric types they are; an absent `type` resolves
+  // to the spec's default inside the check, as on the spec). This is objectui#9111's
+  // criterion: a non-funnel widget carrying `options.stageOrder` is refused here as the
+  // server refuses it. `__tests__/spec-object-refinements-7715.test.ts` re-derives the
+  // split from the spec object's own check count.
+  .superRefine(checkDashboardWidgetStageOrder)
+  .superRefine(checkDashboardWidgetMetricMeasureArity);
 
 /**
  * objectui#9256 (public-block slice): ONE refusal string for both content channels of the
@@ -1441,7 +1458,10 @@ export const DashboardComponentSchema = BaseSchema.extend(SpecDashboardFields.sh
   // the `.strict()` spec-derived schema. Component arm first — it matches
   // exclusively on the closed component-type enum, so a spec-family widget
   // can never be captured by it.
-  widgets: z.array(z.union([DashboardWidgetSlotComponentSchema, DashboardWidgetSchema]))
+  // objectui#11073: the strict spec-derived arm is closed where it meets this union, so a
+  // widget the component arm refuses by name is not answered by this arm's unknown keys alone
+  // (see `closeStrictUnionArms` in `./node-derivation.ts`).
+  widgets: z.array(z.union(closeStrictUnionArms([DashboardWidgetSlotComponentSchema, DashboardWidgetSchema] as const)))
     .describe('Dashboard widgets'),
   globalFilters: z.array(GlobalFilterSchema).optional().describe('Dashboard-level filters'),
   body: retirementTombstone(

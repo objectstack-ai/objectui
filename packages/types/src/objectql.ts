@@ -31,6 +31,8 @@ import type { ObjectDataTableDrillDownConfig } from './data-display.js';
 // this adds no cycle in either direction.
 import type { QueryParams } from './data.js';
 import type { BulkActionOperation } from '@objectstack/spec/ui';
+// objectui#11070 — the per-element binding `dataSource` declares, by reference.
+import type { ElementDataSource } from '@objectstack/spec/ui';
 // objectui#7928 — `ObjectViewSchema.listViews` is the protocol's record of this
 // schema, BY REFERENCE. The spec publishes a TS type for `ListView` and none for
 // the object-scoped `ObjectListView`, so the member reads it as `z.input` (the
@@ -771,6 +773,35 @@ export interface ListViewExportOptions {
  */
 export interface ObjectGridSchema extends BaseSchema {
   type: 'object-grid';
+
+  /**
+   * Per-element data binding — `@objectstack/spec`'s `ElementDataSource`
+   * (`PageComponentSchema.dataSource`), by reference: `{ object, view?,
+   * filter?, sort?, limit? }` describing WHAT this block queries
+   * (objectui#11070).
+   *
+   * ⚠️ Metadata, ⛔ NOT the data-source ADAPTER. The two share a name and are
+   * different things: the adapter is injected by the host
+   * (`SchemaRendererProvider`) and reaches the component as a React prop,
+   * while this is authored JSON. `SchemaRenderer` strips `dataSource` from the
+   * props it spreads (objectstack#5576) so the binding can never shadow the
+   * adapter, and the registered renderer reads it off the NODE through
+   * `ElementDataSourceGate` (`@object-ui/react`), which lands `object` on
+   * `objectName` and composes a named saved `view` with the binding's own
+   * keys. Every gate-wrapped registration already PUBLISHES this key as an
+   * authored input (objectui#6678, `ELEMENT_DATA_SOURCE_INPUT` in
+   * `@object-ui/core`); this member is that declaration on the schema faces,
+   * which the strict authoring face refused until it was written. Same
+   * declaration on {@link ObjectFormSchema}, {@link ObjectKanbanSchema},
+   * {@link ObjectGanttSchema}, {@link ObjectMapSchema},
+   * {@link ObjectCalendarSchema} and `ListViewSchema` (derived from its zod
+   * mirror; its absence from `@object-ui/app-shell`'s relay census is declared
+   * there, objectui#7559). ⚠️ Not on {@link ObjectChartSchema}: the react-page
+   * wrapper writes the host's ADAPTER (or `null`) under this key on every data
+   * block it builds, and objectui#10770 pins that `object-chart` node as
+   * valid, so declaring the binding there waits on objectui#11070's seat.
+   */
+  dataSource?: ElementDataSource;
 
   /**
    * RETIRED on this node (objectui#11068, ADR-0049) — a grid has no `name`.
@@ -1514,6 +1545,14 @@ export type SubmitBehavior =
  */
 export interface ObjectFormSchema extends BaseSchema {
   type: 'object-form';
+
+  /**
+   * Per-element data binding — the spec's `ElementDataSource`, by reference
+   * (objectui#11070). A form honours its `object` (it edits one record, so
+   * there is no collection query to filter or page). Metadata, ⛔ not the
+   * adapter: see {@link ObjectGridSchema.dataSource}.
+   */
+  dataSource?: ElementDataSource;
   
   /**
    * Form variant type.
@@ -2072,7 +2111,8 @@ export interface ObjectFormSchema extends BaseSchema {
  * `description` — honoured by the grid since objectui#11068, and kept off
  * this slot by that card's ruling, which enforced them without widening it);
  * the view owns it (the record source
- * `data` / `staticData` / `bind`, the row click `navigation` / `onNavigate`,
+ * `data` / `staticData` / `bind`, and since objectui#11070 the binding
+ * `dataSource`; the row click `navigation` / `onNavigate`;
  * the grid's `id`); the view draws the grid as a component rather than a
  * schema node, so the node-level `BaseSchema` keys have no renderer to apply
  * them (`style`, `testId`, `ariaLabel`, `hidden` / `hiddenOn`,
@@ -2172,6 +2212,10 @@ type ObjectFormSlotKey =
   | 'columns'
   | 'customFields'
   | 'data'
+  // objectui#11070 — joins with `ObjectFormSchema.dataSource`. This slot
+  // withholds nothing but the identity keys (above), so it carries the binding
+  // as it carries `bind` and `data`; `ObjectView` relays neither to its form.
+  | 'dataSource'
   | 'defaultTab'
   | 'defaults'
   | 'description'
@@ -2839,35 +2883,31 @@ export interface NamedListView {
   appearance?: ListViewSchema['appearance'];
 
   /**
-   * Tab definitions for a multi-tab view interface (`ViewTabSchema[]`).
+   * @deprecated RETIRED (objectui#11073) — the protocol removed the list view's
+   * own `tabs` in `@objectstack/spec` 17.5.0 (ADR-0049 enforce-or-remove): no
+   * renderer ever mounted a tab bar for it. Move each tab to a named view under
+   * the object's `listViews` (the tab's `name` becomes the entry's key, its
+   * `label` the entry's `label`, its `filter` joins that entry's `filter`);
+   * every `listViews` entry renders as a tab in the saved-view switcher.
    *
-   * ⭐ RULING ITEM 3 — MEASURED BEFORE DECLARED, because the protocol spends the
-   * word `tabs` on two different keys. This is the TOP-LEVEL one on the list
-   * shape, and it survives `ObjectListViewSchema` untouched. The other is
-   * `userFilters.tabs`, which that schema OMITS as page-only
-   * (`ObjectUserFiltersSchema`: "an object view's tab bar is its saved-view
-   * switcher (ViewTabBar), and a second one would collide"). So the key declared
-   * here is the array of `ViewTabSchema`, ⛔ not the user-filter preset bar —
-   * objectui's own `userFilters` dialect keeps carrying that one separately.
-   *
-   * ⚠️ NO RENDERER BEHAVIOUR ON THIS SURFACE, measured and REPORTED on
-   * objectui#8980 rather than silently declared inert: objectui's tab bar for an
-   * object is the saved-view switcher the HOST owns (ADR-0053), and the only
-   * `tabs` read in `packages/plugin-list` is `UserFilters`' `config.tabs` — the
-   * page-only key, not this one.
+   * Declared until then as a protocol member objectui read nowhere (objectui#8980,
+   * "declared inert"); the seat's Q4 ruling on objectui#11073 retired it here
+   * once its premise, "the protocol declares it", was falsified.
    */
-  tabs?: ListViewSchema['tabs'];
+  tabs?: never;
 
   /**
-   * Name of the published `page` a `type: 'page'` view mounts.
+   * @deprecated RETIRED (objectui#11073) — the protocol removed `pageName` with
+   * `type: 'page'` in `@objectstack/spec` 17.5.0 (ADR-0049 enforce-or-remove):
+   * the page mount was never built. To put a published page in front of users,
+   * give the app a navigation item with `type: 'page'` and its `pageName` — a
+   * different key on a different surface.
    *
-   * ⚠️ NO RENDERER BEHAVIOUR ON THIS SURFACE, measured and REPORTED on
-   * objectui#8980: `page` is not a member of this interface's own `type` union
-   * (seven values; the protocol's is ten), so no authored named view can select
-   * the branch this key configures. Declared because the protocol declares it
-   * and the ruling forbids dropping a member to avoid the report.
+   * Declared until then as a protocol member objectui read nowhere (objectui#8980,
+   * "declared inert"); the seat's Q4 ruling on objectui#11073 retired it here
+   * once its premise, "the protocol declares it", was falsified.
    */
-  pageName?: ListViewSchema['pageName'];
+  pageName?: never;
 
   /* ── The eight view-KIND configuration blocks ──────────────────────────────
    * The protocol carries each at the TOP LEVEL of a list view. objectui read
@@ -3130,6 +3170,14 @@ export interface ObjectMapConfig {
 export interface ObjectMapSchema extends BaseSchema {
   type: 'object-map';
   /**
+   * Per-element data binding — the spec's `ElementDataSource`, by reference
+   * (objectui#11070). This block's registration is gate-wrapped
+   * (`elementDataSourceBlock`), so `ElementDataSourceGate` reads the binding
+   * off the node and lands its `object` on `objectName`. Metadata, ⛔ not the
+   * adapter: see {@link ObjectGridSchema.dataSource}.
+   */
+  dataSource?: ElementDataSource;
+  /**
    * ObjectQL object name — the THIRD record source `getDataConfig` resolves,
    * after {@link ObjectMapSchema.data} and {@link ObjectMapSchema.staticData}
    * (`plugin-map/src/ObjectMap.tsx`).
@@ -3321,6 +3369,14 @@ export interface ObjectTreeSchema extends BaseSchema {
  */
 export interface ObjectGanttSchema extends BaseSchema {
   type: 'object-gantt';
+  /**
+   * Per-element data binding — the spec's `ElementDataSource`, by reference
+   * (objectui#11070). This block's registration is gate-wrapped
+   * (`elementDataSourceBlock`), so `ElementDataSourceGate` reads the binding
+   * off the node and lands its `object` on `objectName`. Metadata, ⛔ not the
+   * adapter: see {@link ObjectGridSchema.dataSource}.
+   */
+  dataSource?: ElementDataSource;
   /**
    * ObjectQL object name — the THIRD record source `resolveRecordSourceConfig`
    * (`@object-ui/core`) resolves, after {@link ObjectGanttSchema.data} and
@@ -3693,6 +3749,14 @@ export interface ObjectGanttSchema extends BaseSchema {
 export interface ObjectCalendarSchema extends BaseSchema {
   type: 'object-calendar';
   /**
+   * Per-element data binding — the spec's `ElementDataSource`, by reference
+   * (objectui#11070). This block's registration is gate-wrapped
+   * (`elementDataSourceBlock`), so `ElementDataSourceGate` reads the binding
+   * off the node and lands its `object` on `objectName`. Metadata, ⛔ not the
+   * adapter: see {@link ObjectGridSchema.dataSource}.
+   */
+  dataSource?: ElementDataSource;
+  /**
    * ObjectQL object name — the THIRD record source `resolveRecordSourceConfig`
    * (`@object-ui/core`) resolves, after {@link ObjectCalendarSchema.data} and
    * {@link ObjectCalendarSchema.staticData} (called by `plugin-calendar/src/ObjectCalendar.tsx`).
@@ -3735,7 +3799,7 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * (the spec's own `ObjectCalendarPropsSchema`) declares
    * `z.array(z.unknown()).optional()`, described *"Pre-fetched records — skips
    * the internal fetch"*.
-   * MEASURED on the installed artifact at `@objectstack/spec` 17.4.0 — the
+   * MEASURED on the installed artifact at `@objectstack/spec` 17.5.0 — the
    * version this repository's `pnpm-lock.yaml` resolves — through the published
    * `@objectstack/spec/ui` entry point: the provider block returns
    * `success=false` with `expected: 'array'` at `path: ['data']`, the array
@@ -3958,6 +4022,14 @@ export interface ObjectCalendarSchema extends BaseSchema {
  */
 export interface ObjectKanbanSchema extends BaseSchema {
   type: 'object-kanban';
+  /**
+   * Per-element data binding — the spec's `ElementDataSource`, by reference
+   * (objectui#11070). The board honours its `object` and `filter`, and its
+   * `sort` is where the board's ordering is authored — the spec refuses a
+   * top-level `sort` on this node (see {@link ObjectKanbanSchema.filter}).
+   * Metadata, ⛔ not the adapter: see {@link ObjectGridSchema.dataSource}.
+   */
+  dataSource?: ElementDataSource;
   /**
    * ObjectQL object name — the LAST rung of this board's record-source ladder,
    * and the only one that names an object.

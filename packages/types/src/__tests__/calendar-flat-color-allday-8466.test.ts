@@ -409,23 +409,29 @@ describe('objectui#8466 — the spec refuses ALL FIVE flat keys, which is why de
     expect(oc.safeParse({ locale: 'en-GB' }).success).toBe(true);
   });
 
-  it('`colorField` IS a spec key — but only in the NESTED block, which is a different position', () => {
-    // The distinction the whole decision turns on. `CalendarConfigSchema` is a
-    // strictObject of four keys: it HAS `colorField` and refuses `allDayField`
-    // by name. That asymmetry is real nested, and absent flat.
+  it('`colorField` and `allDayField` ARE spec keys — but only in the NESTED block, which is a different position', () => {
+    // The distinction the whole decision turns on: what the spec declares
+    // NESTED says nothing about the FLAT position, which the row above measures.
+    // Through `@objectstack/spec` 17.4.0 `CalendarConfigSchema` was a
+    // strictObject of four keys: it had `colorField` and refused `allDayField`
+    // by name, an asymmetry that was real nested and absent flat. 17.5.0
+    // declares `allDayField` in the nested block too (objectui#11073), so the
+    // nested asymmetry is gone; the flat refusal of all five did not move.
     expect(Object.keys(CalendarConfigSchema.shape)).toEqual([
       'startDateField',
       'endDateField',
       'titleField',
       'colorField',
+      'allDayField',
     ]);
-    const nested = CalendarConfigSchema.safeParse({ startDateField: 's', allDayField: 'x' });
+    expect(CalendarConfigSchema.safeParse({ startDateField: 's', allDayField: 'x' }).success).toBe(true);
+    expect(CalendarConfigSchema.safeParse({ startDateField: 's', colorField: 'c' }).success).toBe(true);
+    // Firing control: a key the nested block never declared is still refused by name.
+    const nested = CalendarConfigSchema.safeParse({ startDateField: 's', dateField: 'x' });
     expect(nested.success).toBe(false);
     if (!nested.success) {
       expect(nested.error.issues.map((i) => i.code)).toContain('unrecognized_keys');
     }
-    // Firing control: the same parse with a declared member is green.
-    expect(CalendarConfigSchema.safeParse({ startDateField: 's', colorField: 'c' }).success).toBe(true);
   });
 });
 

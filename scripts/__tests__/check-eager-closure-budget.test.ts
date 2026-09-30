@@ -778,10 +778,11 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
     // objectui#7122 UP to 3468.0 on the authorised raise, objectui#7479 down to
     // 3090.6 when nine locale catalogues left the eager closure, objectui#9251
     // down to 3060.0 when lucide's 1,781-icon record left it, objectui#10996 UP
-    // to 3104.5 on the authorised re-pin over `main`'s own drift) — a
-    // rendering derived in the test would agree with the renderer by
-    // construction and pin nothing.
-    expect(result.message).toContain('3104.5');
+    // to 3104.5 on the authorised re-pin over `main`'s own drift, objectui#11073
+    // UP to 3563.2 on the ruled raise for `@objectstack/*` 17.5.0,
+    // objectui#11088 decision 1 = A) — a rendering derived in the test would
+    // agree with the renderer by construction and pin nothing.
+    expect(result.message).toContain('3563.2');
   });
 
   it('is exactly one regression wide, from either side of the line', () => {
@@ -1611,7 +1612,7 @@ describe('main', () => {
     // about the FIXTURE while the gate under test behaved correctly. The number
     // this case is actually about is "the report's chunk count, echoed".
     expect(outputs.closure_chunks).toBe(String(fixture.files.length));
-    expect(outputs.closure_gzip_kb).toBe('3104.5');
+    expect(outputs.closure_gzip_kb).toBe('3563.2');
   });
 
   it('exits 1 — a verdict about the BUNDLE — when over budget', () => {

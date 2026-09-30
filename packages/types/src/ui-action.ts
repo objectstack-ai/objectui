@@ -845,8 +845,8 @@ export interface UIActionSchema {
    * `actions/__tests__/actionKeys.types.test.ts`; this is the read side of that
    * pair, which had no declaration to land in.
    *
-   * ⚠️ Not to be confused with the `disabled` PROP on `ActionButtonProps` /
-   * `ActionIconProps` (objectui#9131): that one is the host's EVALUATED
+   * ⚠️ Not to be confused with the `disabled` PROP on `ActionButtonRendererProps` /
+   * `ActionIconRendererProps` (objectui#9131): that one is the host's EVALUATED
    * verdict, a `boolean`, and lives on the renderer's props bag. This one is
    * the author's predicate and lives on the action.
    */

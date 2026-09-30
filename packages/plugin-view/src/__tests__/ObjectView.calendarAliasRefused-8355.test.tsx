@@ -214,17 +214,19 @@ describe('objectui#8355 · second route, half 1 — the emitted node carries can
 });
 
 describe('objectui#8355 · second route, half 2 — the document is REFUSED at the read door', () => {
-  it('a named view authoring `calendar.dateField` is refused BY NAME, pointing at `startDateField`', () => {
-    const issues = issuesEndingIn(objectViewDoc({ calendar: { dateField: 'kickoff' } }), 'calendar.dateField');
-    expect(issues).toHaveLength(1);
-    expect(issues[0].code).toBe('custom');
-    expect(issues[0].message).toContain('Did you mean `dateField` → `startDateField`?');
-  });
-
-  it('…and `endField` in the same pass, pointing at `endDateField`', () => {
-    const issues = issuesEndingIn(objectViewDoc({ calendar: { endField: 'wrapup' } }), 'calendar.endField');
-    expect(issues).toHaveLength(1);
-    expect(issues[0].message).toContain('Did you mean `endField` → `endDateField`?');
+  // ⭐ RE-PINNED at objectui#11073. These two rows pinned objectui's pointer
+  // (`custom` at `calendar.ALIAS`, "Did you mean …"), which ran beside the
+  // protocol's refusal inside a named view. `@objectstack/spec` 17.5.0 makes that
+  // refusal terminal, zod skips even a `when`-guarded check after it, and the
+  // pointer was retired (seat ruling Q2 → A). The document is still refused, by
+  // the protocol, naming the key at the `calendar` block.
+  it.each([['dateField'], ['endField']])('a named view authoring `calendar.%s` is refused by the protocol, naming the key', (alias) => {
+    const doc = objectViewDoc({ calendar: { startDateField: 'kickoff', [alias]: 'kickoff' } });
+    expect(issuesEndingIn(doc, `calendar.${alias}`)).toHaveLength(0);
+    const refusal = issuesEndingIn(doc, 'listViews.v1.calendar') as Array<{ code: string; keys?: string[] }>;
+    expect(refusal).toHaveLength(1);
+    expect(refusal[0].code).toBe('unrecognized_keys');
+    expect(refusal[0].keys).toEqual([alias]);
   });
 
   it('INVERTED: the LEGACY `options.calendar` nesting is refused WHOLE — `options` by name — and no longer judged inside (objectui#7928)', () => {

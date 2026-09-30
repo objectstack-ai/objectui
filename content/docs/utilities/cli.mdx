@@ -224,13 +224,41 @@ distinction matters:
      Issue at map: Unrecognized key: "latitudeFieId"
 ```
 
-A run with no parse errors ends on a tally rather than a pass: how many
-recognised files validated, how many were recognised by a structural key and not
-validated, and how many did not validate, followed by a pointer to
-`objectui validate` for the verdict.
+#### Expressions on text keys that are never evaluated
 
-Only unreadable JSON makes `objectui check` exit non-zero; everything above is a
-report. Use `objectui validate` when you want a failing exit code.
+`SchemaRenderer` evaluates a `${…}` expression on the closed text keys `title`,
+`label`, `value` and `description` only where `@objectstack/spec`'s
+`expressionBindableTextKeysFor(type)` lists that key for the node's type. On any
+other type, the expression is never resolved: the user sees its literal text, or
+nothing. `objectui check` refuses it in every recognised file:
+
+- **Component nodes only.** The file's root node and every node its `children`
+  hold, at any depth. Objects under other keys (a form's `fields`, a grid's
+  `columns`) are definitions, not nodes, and are not judged. A root whose `type`
+  is `page` keeps its own `title`: that is a page key, while its `children` are
+  still judged.
+- **The type is matched as written.** `ui:card` is not `card`, exactly as at
+  render time.
+- **A type no registered component answers to** is warned about, not refused: a
+  custom renderer may evaluate its own keys.
+- **There is no escape spelling.** A `${…}` meant as literal text on one of
+  these keys — a code sample in a `code-editor`'s `value`, a shell `${VAR}` — is
+  refused too. Write the text without `${`, for example with string
+  concatenation in a code sample.
+
+```text
+x Unevaluated expression in dashboard.json at children → 0 → title: "statistic" never evaluates `title` (it evaluates only `label`, `value`, `description`), so the expression is never resolved: the user sees its literal text, or nothing.
+   Channels SchemaRenderer evaluates: `label`, `value`, `description`, `content`, `properties.title` (evaluated, then hoisted onto the node); or resolve the value in the host before the schema reaches SchemaRenderer.
+```
+
+A run with no parse errors and no refused expression ends on a tally rather than
+a pass: how many recognised files validated, how many were recognised by a
+structural key and not validated, and how many did not validate, followed by a
+pointer to `objectui validate` for the verdict.
+
+Unreadable JSON and a refused expression make `objectui check` exit non-zero;
+everything else above is a report. Use `objectui validate` when you want a
+failing exit code on a document that does not validate.
 
 ### `objectui doctor`
 

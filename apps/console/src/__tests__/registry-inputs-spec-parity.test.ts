@@ -587,11 +587,36 @@ const LAZY_REGISTERED_BLOCKS = [
   'object-kanban',
 ];
 
+/**
+ * The six blocks `@objectstack/spec` 17.5.0 newly carries that this file JUDGES
+ * (objectui#11073): the map went from 45 entries to 55. The other four new
+ * entries — `object-gantt`, `object-map`, `object-timeline`, `object-tree` — are
+ * registered lazily and not loaded here, and are booked in
+ * `UNJUDGED_SPEC_BLOCKS` to objectui#11168 instead (see `OWED_TO` below).
+ *
+ * Same shape as `GA_ONLY_BLOCKS` / `MINOR_17_1_BLOCKS`: this repo registered all
+ * six with `inputs` before the spec described them, so what moved at the bump
+ * is the SPEC's side. They enter `covered` the moment the installed spec
+ * carries them.
+ */
+const MINOR_17_5_BLOCKS = [
+  'action:button',
+  'action:group',
+  'action:icon',
+  'action:menu',
+  'element:definition-list',
+  'element:repeater',
+];
+
+/** Does the installed `@objectstack/spec` carry the 17.5.0 set? `every`, for the reason `specCarriesGaBlocks` gives. */
+const specCarries175Blocks = MINOR_17_5_BLOCKS.every((type) => type in ComponentPropsMap);
+
 const EXPECTED_COVERED = [
   ...PINNED_EXPECTED_COVERED,
   ...LAZY_REGISTERED_BLOCKS,
   ...(specCarriesGaBlocks ? GA_ONLY_BLOCKS : []),
   ...(specCarries171Blocks ? MINOR_17_1_BLOCKS : []),
+  ...(specCarries175Blocks ? MINOR_17_5_BLOCKS : []),
 ].sort();
 
 /**
@@ -649,6 +674,97 @@ function isRetiredUpstream(type: string): boolean {
 }
 
 /**
+ * ⚠️ WHY FIVE OF THIS FILE'S LEDGERS ARE NOT EMPTY: objectui#11111 decision 3 = B.
+ *
+ * The maintainer ruled on objectui#11111 (「11111 同意」, record 5902351047)
+ * that the 17.5.0 bump re-pins this gate's population and DECLARES NOTHING
+ * (Clause ② no). Every difference 17.5.0 newly surfaces is booked here, one
+ * entry per difference, each naming the card that owns it and an expiry:
+ *
+ *   - objectui#11168 — the ten newly carried blocks (the four lazily
+ *     registered ones unjudged, the six judged ones' unpublished keys, their
+ *     refused input, refused arms and owed member pins), and
+ *     `object-form.layout`'s refused arms;
+ *   - objectui#8652 — `navigation` on `object-kanban` and `object-calendar`;
+ *   - objectui#8649 — `enforceFieldSecurity`, `redactFields` and
+ *     `requiredPermissions` on the three `record:*` blocks.
+ *
+ * Each owner card decides every key by its own measurement: declare what the
+ * renderer honours, refuse or retire what it does not. ⛔ Batch-declaring an
+ * input a renderer does not honour is the failure decision 3 = B exists to
+ * avoid, so an entry here is never resolved that way.
+ *
+ * The ledgers are CAPPED at exactly the entries listed — never unbounded —
+ * by `the objectui#11111 ledger is capped at exactly the entries it lists`,
+ * which also routes every entry to its owner card and requires its expiry. A
+ * new difference beyond the listed entries is still red: every direction below
+ * subtracts exact ids, never a block or a prefix. Each owner card's landing
+ * strikes its entries and lowers the matching cap in the same change; the last
+ * of the three to land restores the empty ledgers and the zero caps this file
+ * held before the bump.
+ *
+ * EXPIRY. None of these ledgers has a date field, and this repo's SUNSET
+ * convention is a condition re-derived from the installed spec, not a date, so
+ * nothing here can enforce a calendar deadline. The date is stated in every
+ * entry's reason and asserted PRESENT; it is read by the owner cards, not by a
+ * clock.
+ */
+const OBJECTUI_11111_EXPIRES = '2026-10-30';
+
+/** The three owner cards the ruling names, and nothing else may own an entry. */
+const OBJECTUI_11111_OWNERS = ['objectui#11168', 'objectui#8652', 'objectui#8649'] as const;
+type Objectui11111Owner = (typeof OBJECTUI_11111_OWNERS)[number];
+
+/** The security triple 17.5.0 declares on exactly the three record blocks (objectui#8649's). */
+const FIELD_SECURITY_TRIPLE = ['enforceFieldSecurity', 'redactFields', 'requiredPermissions'];
+
+/** Every entry the ruling books starts with this, so the caps can count them. */
+const OWED_PREFIX = 'OWED TO ';
+
+/** One ruled entry's reason: owner first, then what is owed, then the ruling and the expiry. */
+const OWED_TO = (owner: Objectui11111Owner, what: string): string =>
+  `${OWED_PREFIX}${owner}. ${what} Booked by objectui#11111 decision 3 = B (record 5902351047): ` +
+  `the 17.5.0 bump re-pins and declares nothing; ${owner} decides it by its own measurement. ` +
+  `Expires ${OBJECTUI_11111_EXPIRES}, or when ${owner} lands, whichever is first.`;
+
+/** `BLOCK.KEY` entries for every listed key of one block, all with the same owner and reason. */
+const owedEntries = (
+  type: string,
+  keys: readonly string[],
+  owner: Objectui11111Owner,
+  what: string,
+): Record<string, string> =>
+  Object.fromEntries(keys.map((key) => [`${type}.${key}`, OWED_TO(owner, what)]));
+
+/** Which owner the ruling routes an entry id to — asserted against every entry's reason. */
+function objectui11111OwnerOf(id: string): Objectui11111Owner {
+  const key = id.slice(id.indexOf('.') + 1).split(':')[0];
+  if (FIELD_SECURITY_TRIPLE.includes(key)) return 'objectui#8649';
+  if (key === 'navigation') return 'objectui#8652';
+  return 'objectui#11168';
+}
+
+/** The ruled entries of one ledger. */
+const owedIdsOf = (ledger: Record<string, string>): string[] =>
+  Object.entries(ledger)
+    .filter(([, reason]) => reason.startsWith(OWED_PREFIX))
+    .map(([id]) => id)
+    .sort();
+
+/**
+ * THE CAPS, one per ledger, each EQUAL to the entries listed below. Lower one in
+ * the same change as the owner card that strikes its entries; the last owner
+ * card to land sets all five to 0.
+ */
+const OBJECTUI_11111_LEDGER_CAPS = {
+  unjudgedBlocks: 4, // objectui#11168: object-gantt, object-map, object-timeline, object-tree
+  offSpecInputs: 1, // objectui#11168: action:group.name
+  unpublishedKeys: 57, // objectui#11168: 46 (22 + 20 + 2 + 2); objectui#8652: 2; objectui#8649: 9
+  refusedArms: 5, // objectui#11168: action:group ×2, action:menu, element:definition-list, object-form
+  memberPins: 6, // objectui#11168: action:group, action:menu, element:definition-list, element:repeater ×3
+} as const;
+
+/**
  * The third and last place a `ComponentPropsMap` entry may land: blocks this
  * gate CANNOT judge, each with the reason it cannot (objectui#8176).
  *
@@ -688,6 +804,13 @@ function isRetiredUpstream(type: string): boolean {
  *     from `ComponentRegistry.getKnownTypes()` (lazy stubs INCLUDED, so the
  *     assertion cannot be satisfied by the very stub-blindness objectui#8176 is
  *     about), so registering one of them forces this entry out.
+ *   - OWED (objectui#11111 decision 3 = B, record 5902351047) — a block that IS
+ *     registered, lazily, and that this file does not load, booked to its
+ *     owner card with an expiry (see `OWED_TO`). Asserted as still registered
+ *     lazily and still unloaded here, so loading it — the owner card's work —
+ *     forces the entry out; and CAPPED at the four listed, so a fifth lazily
+ *     registered block is still red in `no spec-carried block is registered
+ *     but unloaded`. The last objectui#11111 owner card to land empties it.
  *
  * The first class is EXCLUSIVE, and that is what keeps a hand-written reason
  * from outliving a retirement (objectui#10033): an entry under either of the
@@ -730,6 +853,28 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all. Registered propless by `@object-ui/app-shell` (`src/console/marketplace/InstalledListWidget.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way. objectui#7122, ledger objectui#8176.',
   'mcp:connect-agent':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all. Registered propless by `@object-ui/app-shell` (`src/console/connect/ConnectAgentWidget.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way. objectui#7122, ledger objectui#8176.',
+  // The fourth class, and the only one that is not mechanically "unjudgeable":
+  // OWED. These four are new in `@objectstack/spec` 17.5.0, registered with
+  // `registerLazy` by the console (`register-plugins.ts`) and not loaded by this
+  // file, so their declarations are real and unread. The remedy the
+  // mechanism test names — an eager import — would judge them, and judging them
+  // is objectui#11168's work, not the bump's (objectui#11111 decision 3 = B).
+  'object-gantt': OWED_TO(
+    'objectui#11168',
+    'REGISTERED LAZILY, NOT LOADED HERE: `object-gantt` is new in `@objectstack/spec` 17.5.0, and loading `@object-ui/plugin-gantt` in this file is what judges it.',
+  ),
+  'object-map': OWED_TO(
+    'objectui#11168',
+    'REGISTERED LAZILY, NOT LOADED HERE: `object-map` is new in `@objectstack/spec` 17.5.0, and loading `@object-ui/plugin-map` in this file is what judges it.',
+  ),
+  'object-timeline': OWED_TO(
+    'objectui#11168',
+    'REGISTERED LAZILY, NOT LOADED HERE: `object-timeline` is new in `@objectstack/spec` 17.5.0, and loading `@object-ui/plugin-timeline` in this file is what judges it.',
+  ),
+  'object-tree': OWED_TO(
+    'objectui#11168',
+    'REGISTERED LAZILY, NOT LOADED HERE: `object-tree` is new in `@objectstack/spec` 17.5.0, and loading `@object-ui/plugin-tree` in this file is what judges it.',
+  ),
   'user:profile':
     'RETIRED UPSTREAM. `@objectstack/spec` 17.3.0 retired it by name (objectstack#14159, landed by objectstack#15112): out of `PageComponentType`, named in `RETIRED_PAGE_COMPONENT_TYPES`, and its row `retiredComponentProps` — a `never` that refuses every props bag, `{}` included — so there is no authoring surface for either direction to judge. The same release\'s reconciliation here (objectui#7122) took it out of `PROTOCOL_COMPONENTS` in `@object-ui/components` `renderers/placeholders.tsx`, so not even the placeholder scaffold stands in for it. objectui#10033, ledger objectui#8176.',
 };
@@ -795,8 +940,19 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
  * somewhere to be registered, and `exemptedFor` below reads it. Empty is a
  * state, not a deletion — every forward-direction assertion now runs with no
  * cover of any kind, which is the strongest reading this gate has ever had.
+ *
+ * ⚠️ ONE ENTRY SINCE THE 17.5.0 BUMP, and it is ruled, not owed-by-default:
+ * `action:group` entered `covered` with 17.5.0 and declares a `name` input its
+ * spec row does not accept. objectui#11111 decision 3 = B booked it to
+ * objectui#11168 (see `OWED_TO`), capped at this one entry; that card's landing
+ * empties the map again.
  */
-const OFF_SPEC_EXEMPTIONS: Record<string, string> = {};
+const OFF_SPEC_EXEMPTIONS: Record<string, string> = {
+  'action:group.name': OWED_TO(
+    'objectui#11168',
+    'A DECLARED INPUT THE SPEC REFUSES: `action:group` publishes `name`, and `ComponentPropsMap[action:group]` does not accept it.',
+  ),
+};
 
 /**
  * Spec-declared top-level keys deliberately NOT published, each with the reason.
@@ -1167,8 +1323,14 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   //   member instead (`field`, `order`, an omitted `order` meaning ascending,
   //   and a member with no usable `field` dropped rather than invented). That
   //   is a SHARPER member claim than a pass-through, not a weaker one.
-  'object-kanban.quickAdd':
-    'RULED CARVE-OUT — PREMATURE, not "wrong" (PM ruling on objectui#8201, Q1 = A, 2026-09-07). The renderer does not honour this key; objectui#8285 owns the fix. Measured, and re-measured at @objectstack/spec 17.4.0 rather than inherited: `KanbanImpl` gates the Quick Add control on `quickAdd && onQuickAdd`, `onQuickAdd` is an objectui#6124 RUNTIME SLOT the zod twin refuses BY NAME, and nothing on the `ObjectKanban` path supplies one — so an authored `quickAdd: true` reaches the board and changes nothing. The key is still a live `z.boolean().optional()` on the installed pin, with a control key drawing `unrecognized_keys` on the same safeParse call, so this cover is describing something. WHAT THIS ENTRY DOES NOT SAY, deliberately: it does not claim the object-bound board cannot grow quick-add. That is a strictly stronger claim than anything measured, and the sibling `KanbanRenderer` host contradicts it by honouring the same `quickAdd` + `onQuickAdd` pair by identity. Declaring the input is the one resolution FORBIDDEN here — it would publish a key the renderer cannot honour, which is the failure mode this whole gate exists to catch. THE EXIT IS NOT A DECLARATION: objectui#8285 was ruled (director seat 2026-09-08, decision batch #91) to retire `object-kanban.quickAdd` from the spec ComponentPropsMap, so the day that lands the key leaves the accepted set, this entry goes dangling AND stale, and it is harvested exactly as the eight ADR-0087 tombstones above were. objectui#8176.',
+  // `object-kanban.quickAdd` — the RULED CARVE-OUT (PREMATURE; PM ruling on
+  // objectui#8201, Q1 = A) whose entry stood here — was HARVESTED at the
+  // `@objectstack/spec` 17.5.0 bump (objectui#11073). Its named exit landed:
+  // objectui#8285's ruled retirement took the key out of the spec's accepted
+  // set (typed `never`, refused by name), the entry went dangling AND stale in
+  // the same run, and deleting it was the only way back to green, exactly as
+  // the eight ADR-0087 tombstones before it. The tombstone pin below now names
+  // it, so it cannot come back as an exemption or as a published input.
 
   // ── record:reference_rail.entries — a nested collection, newly JUDGED ──────
   //                                                                   (1 key)
@@ -1210,6 +1372,80 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   // entire justification for this exemption — it always was sufficient alone.
   'record:reference_rail.entries':
     'An array of {objectName, relationshipField, title, limit, displayField} objects; `inputs` is a flat scalar carrier and cannot express it. Newly judged rather than newly missing — @objectstack/spec 17.1.0 added record:reference_rail to ComponentPropsMap, and the registration (plugin-detail/src/index.tsx:675) has always published only `hideEmpty` — the 17.1.0 pin, objectui#5328. The flat-carrier shape limit is the entire reason: the `icon` divergence that once also blocked an entries editor was settled by Option B (maintainer 2026-08-22, objectui#5494).',
+
+  /*
+   * ⚠️ THE 17.5.0 BOOKINGS — objectui#11111 decision 3 = B (record 5902351047).
+   *
+   * 57 spec keys 17.5.0 newly declares on judged blocks and `inputs` does not
+   * publish. The bar at the top of this map says a key the renderer honours
+   * "gets declared"; the ruling decided WHO declares, and it is not the bump:
+   * each owner card measures each key against its renderer and declares what
+   * is honoured, refuses or retires the rest. Booked here, not declared, so
+   * the bump adds nothing to the public surface (Clause ② no). Capped at 57 by
+   * `the objectui#11111 ledger is capped at exactly the entries it lists`.
+   */
+  ...owedEntries(
+    'action:button',
+    [
+      'visible', 'disabled', 'params', 'description', 'openIn', 'endpoint', 'method', 'bodyExtra',
+      'bodyShape', 'operation', 'patch', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
+      'undoable', 'recordIdField', 'locations', 'toast', 'resultDialog', 'onSuccess', 'objectName',
+    ],
+    'objectui#11168',
+    'A SPEC KEY NOT PUBLISHED: `action:button` entered `covered` with 17.5.0 and its `inputs` omit this key its spec row declares.',
+  ),
+  ...owedEntries(
+    'action:icon',
+    [
+      'visible', 'disabled', 'params', 'description', 'openIn', 'endpoint', 'method', 'bodyExtra',
+      'bodyShape', 'operation', 'patch', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
+      'locations', 'toast', 'resultDialog', 'onSuccess', 'objectName',
+    ],
+    'objectui#11168',
+    'A SPEC KEY NOT PUBLISHED: `action:icon` entered `covered` with 17.5.0 and its `inputs` omit this key its spec row declares.',
+  ),
+  ...owedEntries(
+    'action:group',
+    ['location', 'visible'],
+    'objectui#11168',
+    'A SPEC KEY NOT PUBLISHED: `action:group` entered `covered` with 17.5.0 and its `inputs` omit this key its spec row declares.',
+  ),
+  ...owedEntries(
+    'action:menu',
+    ['size', 'visible'],
+    'objectui#11168',
+    'A SPEC KEY NOT PUBLISHED: `action:menu` entered `covered` with 17.5.0 and its `inputs` omit this key its spec row declares.',
+  ),
+  ...owedEntries(
+    'object-kanban',
+    ['navigation'],
+    'objectui#8652',
+    'A SPEC KEY NOT PUBLISHED: 17.5.0 declares `navigation` on this block; objectui#8652 met its unlock with that release and mirrors it as its ruled second step.',
+  ),
+  ...owedEntries(
+    'object-calendar',
+    ['navigation'],
+    'objectui#8652',
+    'A SPEC KEY NOT PUBLISHED: 17.5.0 declares `navigation` on this block; objectui#8652 met its unlock with that release and mirrors it as its ruled second step.',
+  ),
+  ...owedEntries(
+    'record:details',
+    FIELD_SECURITY_TRIPLE,
+    'objectui#8649',
+    'A SPEC KEY NOT PUBLISHED: 17.5.0 declares the field-security triple on exactly the three record blocks; objectui#8649 aligns the mirror and un-casts the reads.',
+  ),
+  ...owedEntries(
+    'record:highlights',
+    FIELD_SECURITY_TRIPLE,
+    'objectui#8649',
+    'A SPEC KEY NOT PUBLISHED: 17.5.0 declares the field-security triple on exactly the three record blocks; objectui#8649 aligns the mirror and un-casts the reads.',
+  ),
+  ...owedEntries(
+    'record:related_list',
+    FIELD_SECURITY_TRIPLE,
+    'objectui#8649',
+    'A SPEC KEY NOT PUBLISHED: 17.5.0 declares the field-security triple on exactly the three record blocks; objectui#8649 aligns the mirror and un-casts the reads.',
+  ),
 };
 
 /**
@@ -1276,8 +1512,14 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
  * the exemption entry goes dangling AND stale, and deleting it is the only way
  * back to green — at which point assertion 2 above fails until this list is
  * emptied in the same change. The two halves cannot drift apart.
+ *
+ * ⭐ EMPTIED at the `@objectstack/spec` 17.5.0 bump (objectui#11073), by exactly
+ * that route: 17.5.0 carries objectui#8285's retirement, `quickAdd` is a
+ * tombstone, its exemption entry was deleted, and this list emptied in the same
+ * change. The three assertions above now read an empty list; the tombstone pin
+ * names the key instead.
  */
-const LAZY_BLOCK_RULED_CARVE_OUTS = ['object-kanban.quickAdd'];
+const LAZY_BLOCK_RULED_CARVE_OUTS: string[] = [];
 
 /**
  * Exemption entries whose KEY the installed spec is allowed not to declare yet.
@@ -1755,6 +1997,34 @@ const OFF_SPEC_ARM_EXEMPTIONS: Record<string, string> = {
    * file's exemption discipline working end to end. objectui#6206 and #6207 can
    * be closed as resolved-upstream; reported on objectui#7122.
    */
+
+  /*
+   * ⚠️ FIVE 17.5.0 BOOKINGS — objectui#11111 decision 3 = B (record 5902351047).
+   * Arms the contract refuses on blocks 17.5.0 newly judges, plus
+   * `object-form.layout`, whose spec row narrowed to two members. Booked to
+   * objectui#11168, which narrows each declaration to what the spec accepts;
+   * capped at these five, and that card's landing empties the map again.
+   */
+  'action:group.actions:object': OWED_TO(
+    'objectui#11168',
+    'A REFUSED ARM: `action:group.actions` declares the `object` kind, and the contract refuses the KIND itself.',
+  ),
+  'action:group.size:enum': OWED_TO(
+    'objectui#11168',
+    'A REFUSED ARM: `action:group.size` declares the member `md`, and the contract refuses it.',
+  ),
+  'action:menu.actions:object': OWED_TO(
+    'objectui#11168',
+    'A REFUSED ARM: `action:menu.actions` declares the `object` kind, and the contract refuses the KIND itself.',
+  ),
+  'element:definition-list.columns:enum': OWED_TO(
+    'objectui#11168',
+    'A REFUSED ARM: `element:definition-list.columns` declares the members `1` and `2`, and the contract refuses them.',
+  ),
+  'object-form.layout:enum': OWED_TO(
+    'objectui#11168',
+    'A REFUSED ARM: `object-form.layout` declares the members `inline` and `grid`, which the 17.5.0 contract refuses.',
+  ),
 };
 
 // ── the MEMBER direction (objectui#8067) ─────────────────────────────────────
@@ -2888,6 +3158,35 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // objectui#8071 slice 16 pinned both, so the block is now fully pinned, the
   // objectui#8176 correction is spent to the last key, and this header stays
   // only as a note for the next reader who greps for it.
+
+  // ⚠️ SIX 17.5.0 BOOKINGS — objectui#11111 decision 3 = B (record 5902351047).
+  // The array/object-armed inputs of the blocks 17.5.0 newly judges, owed a
+  // member pin by objectui#11168. Counted into `MEMBER_PIN_EXEMPTION_CEILING`
+  // (1 -> 7) and capped at these six; that card's pins strike them.
+  ...owedEntries(
+    'action:group',
+    ['actions'],
+    'objectui#11168',
+    'A MEMBER PIN OWED: `action:group.actions` is array/object-armed on a block 17.5.0 newly judges, and no pin states its members.',
+  ),
+  ...owedEntries(
+    'action:menu',
+    ['actions'],
+    'objectui#11168',
+    'A MEMBER PIN OWED: `action:menu.actions` is array/object-armed on a block 17.5.0 newly judges, and no pin states its members.',
+  ),
+  ...owedEntries(
+    'element:definition-list',
+    ['items'],
+    'objectui#11168',
+    'A MEMBER PIN OWED: `element:definition-list.items` is array/object-armed on a block 17.5.0 newly judges, and no pin states its members.',
+  ),
+  ...owedEntries(
+    'element:repeater',
+    ['fields', 'filter', 'sort'],
+    'objectui#11168',
+    'A MEMBER PIN OWED: this `element:repeater` input is array/object-armed on a block 17.5.0 newly judges, and no pin states its members.',
+  ),
 };
 
 /**
@@ -3663,8 +3962,18 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
  * ⇒ The rule for every future slice of objectui#8071: delete the entry, register
  * the pin, and set this constant to the new count. Not to the new count plus
  * room.
+ *
+ * ## 1 -> 7 (objectui#11073, the @objectstack/spec 17.5.0 bump) — the one rise
+ * since the objectui#8176 correction, and it is a RULING, not room
+ *
+ * The six blocks 17.5.0 newly judges bring six array/object-armed inputs with
+ * no pin. objectui#11111 decision 3 = B (record 5902351047) booked all six
+ * OWED to objectui#11168 rather than pinning them in the bump. 1 (the
+ * `NO_READ_SITE_TO_PIN` unit above) + 6 booked = 7, the exact count, and
+ * `the objectui#11111 ledger is capped at exactly the entries it lists` pins
+ * the six by name. objectui#11168's pins take this back to 1.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 1;
+const MEMBER_PIN_EXEMPTION_CEILING = 7;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.
@@ -3817,10 +4126,16 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       // blocks counted on the other side of the partition. `judged` and
       // `registeredPropless` do not move, which is the check that the pin
       // added blocks rather than moving any across the partition (objectui#7122).
-      specCarried: 45,
-      judged: 29,
+      //
+      // 45 -> 55 on the `@objectstack/spec` 17.5.0 pin (objectui#11073): ten new
+      // blocks. Six are judged (`MINOR_17_5_BLOCKS`, 29 -> 35); four are
+      // registered lazily and unloaded here, booked OWED to objectui#11168 under
+      // objectui#11111 decision 3 = B (9 -> 13). `registeredPropless` does not
+      // move. 35 + 7 + 13 = 55.
+      specCarried: 55,
+      judged: 35,
       registeredPropless: 7,
-      ledgeredUnjudgeable: 9,
+      ledgeredUnjudgeable: 13,
     });
     // Non-vacuity, stated rather than implied by the numbers above.
     expect(covered.length).toBeGreaterThan(0);
@@ -3842,6 +4157,12 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // exists and is reachable, so `UNJUDGED_SPEC_BLOCKS` would be a false
     // statement about it. `assertFullyLoaded` in `sdui-parser` makes the same
     // demand of manifest generation for the same reason.
+    //
+    // ⚠️ ONE RULED EXCEPTION, CAPPED: objectui#11111 decision 3 = B (record
+    // 5902351047) booked the four lazily registered blocks 17.5.0 newly carries
+    // OWED to objectui#11168, which loads and judges them. The expectation is
+    // EXACTLY those booked entries, so a fifth unloaded block is still red, and
+    // the owner card's landing takes this back to `[]`.
     const registeredButUnloaded = Object.keys(ComponentPropsMap)
       .filter((type) => ComponentRegistry.hasLazy(type))
       .filter((type) => ComponentRegistry.getConfig(type) === undefined)
@@ -3851,7 +4172,7 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       'these blocks are registered lazily and this file has not loaded them, so ' +
         'their `inputs` are invisible to both directions — add an eager import ' +
         'of the owning plugin package alongside the two at the top of this file',
-    ).toEqual([]);
+    ).toEqual(owedIdsOf(UNJUDGED_SPEC_BLOCKS));
   });
 
   it('every unjudged-block ledger entry still describes a block this gate cannot judge', () => {
@@ -3893,6 +4214,15 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
           `${type} is ledgered as having an empty spec shape, and it does not — ` +
             'it now has an authoring surface, so it must be judged',
         ).toEqual([]);
+      } else if (reason.startsWith(OWED_PREFIX)) {
+        // OWED (objectui#11111 decision 3 = B): still registered lazily and still
+        // unloaded here. Loading it is the owner card's work, and the day that
+        // lands this entry goes red and the block gets judged.
+        expect(
+          ComponentRegistry.hasLazy(type) && ComponentRegistry.getConfig(type) === undefined,
+          `${type} is booked as registered lazily and unloaded here, and it no longer is — ` +
+            'judge it and strike the entry',
+        ).toBe(true);
       } else {
         // NOT REGISTERED, DELIBERATELY. `getKnownTypes` includes pending lazy
         // stubs on purpose: a stub is a registration, and satisfying this
@@ -4261,7 +4591,9 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // direction — greening a fresh divergence on these two blocks by writing a
     // nineteenth entry instead of declaring the input.
     //
-    // ZERO is the MEASURED backlog today, not a budget. `object-calendar`
+    // TWO is the BOOKED backlog today — objectui#8652's `navigation` pair,
+    // ruled at the 17.5.0 bump (the last row of the table below) — and ZERO
+    // is what it measured before that bump, not a budget. `object-calendar`
     // publishes all nine keys its spec row declares; `object-kanban` publishes
     // thirteen of fourteen, and the fourteenth is RULED rather than owed —
     // objectui#8313 emptied the board, objectui#8314 emptied the calendar, and
@@ -4288,6 +4620,15 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     //    0  objectui#8201 slice 2 lands the PM's Q1 = A ruling on the last
     //        entry — `object-kanban.quickAdd` becomes a RULED CARVE-OUT and
     //        moves into `LAZY_BLOCK_RULED_CARVE_OUTS`
+    //    0  the `@objectstack/spec` 17.5.0 bump carries objectui#8285's ruled
+    //        retirement: the carve-out's entry is harvested and the list
+    //        empties (objectui#11073) — the MAP is now empty on these blocks too
+    //    2  the same bump: 17.5.0 declares `navigation` on both blocks, and
+    //        objectui#11111 decision 3 = B (record 5902351047) BOOKED the two
+    //        keys OWED to objectui#8652 instead of declaring them in the bump.
+    //        The only step UP this ceiling has taken, and it is a ruling, not
+    //        headroom: the cap is exactly the two booked entries, and
+    //        objectui#8652's landing takes it back to 0.
     //
     // ⚠️ THE LAST STEP IS THE ONLY ONE THAT IS NOT A DECLARATION, and reading
     // it as one would be the wrong lesson. Every step above was this ceiling's
@@ -4341,14 +4682,20 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       'a new unpublished-key exemption was added on a block objectui#8176 newly ' +
         'judged — declare the input at its registration site instead; the ' +
         'backlog list is shrink-only',
-    ).toBeLessThanOrEqual(0);
+    ).toBeLessThanOrEqual(2);
     // Lower it here when the owning cards land, so the ceiling keeps ratcheting
     // rather than banking the headroom their fixes free up.
     expect(
       backlog.length,
       'the objectui#8176 backlog shrank — lower the ceiling above to match, in ' +
         'the same change that declared the input',
-    ).toBe(0);
+    ).toBe(2);
+    // …and the two it holds are exactly objectui#8652's booked `navigation`
+    // pair, so the ruling's room cannot be spent on a different key.
+    expect(backlog.sort(), 'the backlog is not the two booked navigation keys').toEqual([
+      'object-calendar.navigation',
+      'object-kanban.navigation',
+    ]);
   });
 
   it('the one ruled carve-out on a newly judged block is real, and names its exit', () => {
@@ -4361,11 +4708,13 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     //
     // 1. PINNED BY NAME. Growing the list has to be a visible edit to a
     //    literal, never a side effect of writing one more exemption.
+    //    EMPTY since the 17.5.0 bump harvested `object-kanban.quickAdd`
+    //    (objectui#11073) — the exit this list named, landed upstream.
     expect(
       [...LAZY_BLOCK_RULED_CARVE_OUTS].sort(),
       'a ruled carve-out was added on a newly judged block — a ruling is a ' +
         'maintainer or PM decision on the record, so name it here and cite it',
-    ).toEqual(['object-kanban.quickAdd']);
+    ).toEqual([]);
 
     for (const id of LAZY_BLOCK_RULED_CARVE_OUTS) {
       const [type] = splitExemptionKey(id);
@@ -4397,7 +4746,7 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     }
   });
 
-  it('the eight tombstoned keys are recognised, not exempted — and not published either', () => {
+  it('the nine tombstoned keys are recognised, not exempted — and not published either', () => {
     // The pin the harvest leaves behind (objectui#3809). Deleting eight
     // exemptions is only half the change: the derived assertions above would go
     // green just as readily if a future edit RE-EXEMPTED one of these keys, or
@@ -4407,7 +4756,8 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // the same reason the `#3808 / #3830` and `rc.6 record_picker` pins next door
     // are written by name.
     //
-    // Five upstream retirements, eight keys, several facts each. The list is
+    // Six upstream retirements, nine keys, several facts each (eight through
+    // 17.4.0; `object-kanban.quickAdd` joined at 17.5.0). The list is
     // pin-dependent by construction and that is the point: it is the measurement
     // (`@objectstack/spec@17.0.0`, and the same eight on the rc.6 that preceded
     // it — this change was verified on both), so a pin that un-retires one of
@@ -4422,6 +4772,10 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       ['page:header', 'icon'],
       ['page:tabs', 'type'],
       ['record:details', 'layout'],
+      // The ninth, harvested at the `@objectstack/spec` 17.5.0 bump
+      // (objectui#11073): objectui#8285's ruled retirement, which emptied
+      // `LAZY_BLOCK_RULED_CARVE_OUTS` in the same change.
+      ['object-kanban', 'quickAdd'],
     ];
 
     for (const [type, key] of HARVESTED) {
@@ -4940,7 +5294,10 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       expect(declaredInputs(type) ?? [], `${type} stopped publishing ${key}`).toContain(key);
       expect(Object.keys(OFF_SPEC_EXEMPTIONS)).not.toContain(`${type}.${key}`);
     }
-    expect(Object.keys(OFF_SPEC_EXEMPTIONS)).toEqual([]);
+    // Empty since rc.6 but for the one entry objectui#11111 decision 3 = B
+    // booked to objectui#11168 at the 17.5.0 bump — pinned by name, so nothing
+    // else rides in; objectui#11168's landing takes this back to `[]`.
+    expect(Object.keys(OFF_SPEC_EXEMPTIONS)).toEqual(['action:group.name']);
   });
 
   // ── the MEMBER-PIN direction (objectui#8068) ───────────────────────────────
@@ -5145,5 +5502,55 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       'a member-pin exemption was added on a block objectui#8176 newly judged ' +
         'that is not part of the measured correction — it needs a pin, not room',
     ).toEqual([...NEWLY_JUDGED_UNPINNED_MEMBERS].sort());
+  });
+
+  it('the objectui#11111 ledger is capped at exactly the entries it lists', () => {
+    // objectui#11111 decision 3 = B (record 5902351047): the 17.5.0 bump
+    // re-pins and declares nothing, and every difference it surfaces is booked
+    // to an owner card with an expiry — see `OBJECTUI_11111_LEDGER_CAPS`. This
+    // is what keeps "booked" from becoming "unbounded": each ledger's booked
+    // entries must number EXACTLY its cap (so one more is red, and a struck one
+    // demands the cap come down with it), each must be routed to the card the
+    // ruling names for it, and each must carry the ruling and its expiry.
+    const ledgers: Array<[keyof typeof OBJECTUI_11111_LEDGER_CAPS, Record<string, string>]> = [
+      ['unjudgedBlocks', UNJUDGED_SPEC_BLOCKS],
+      ['offSpecInputs', OFF_SPEC_EXEMPTIONS],
+      ['unpublishedKeys', UNPUBLISHED_EXEMPTIONS],
+      ['refusedArms', OFF_SPEC_ARM_EXEMPTIONS],
+      ['memberPins', MEMBER_PIN_EXEMPTIONS],
+    ];
+    const reasons: string[] = [];
+    for (const [name, ledger] of ledgers) {
+      const owed = owedIdsOf(ledger);
+      expect(
+        owed.length,
+        `${name}: the booked entries are not exactly the cap — strike an entry and ` +
+          'lower the cap in the same change; the cap never rises',
+      ).toBe(OBJECTUI_11111_LEDGER_CAPS[name]);
+      for (const id of owed) {
+        const reason = ledger[id];
+        const owner = objectui11111OwnerOf(id);
+        expect(
+          reason.startsWith(`${OWED_PREFIX}${owner}.`),
+          `${id} is not booked to ${owner}, the card the ruling routes it to`,
+        ).toBe(true);
+        expect(reason, `${id} does not cite the ruling`).toContain(
+          'objectui#11111 decision 3 = B (record 5902351047)',
+        );
+        expect(reason, `${id} carries no expiry`).toContain(
+          `Expires ${OBJECTUI_11111_EXPIRES}, or when ${owner} lands`,
+        );
+        reasons.push(reason);
+      }
+    }
+    // Per-owner totals, so an entry cannot move between owners without a diff here.
+    expect(
+      Object.fromEntries(
+        OBJECTUI_11111_OWNERS.map((owner) => [
+          owner,
+          reasons.filter((reason) => reason.startsWith(`${OWED_PREFIX}${owner}.`)).length,
+        ]),
+      ),
+    ).toEqual({ 'objectui#11168': 62, 'objectui#8652': 2, 'objectui#8649': 9 });
   });
 });

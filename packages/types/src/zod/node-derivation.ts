@@ -334,3 +334,94 @@ export const declareRegisteredInputs = <T extends z.ZodType>(schema: T, names: r
  * none are. Identity-keyed: a clone or a wrapper of the node carries none.
  */
 export const registeredInputsOf = (schema: z.ZodType): readonly string[] | undefined => REGISTERED_INPUTS.get(schema);
+
+/**
+ * TERMINAL UNKNOWN-KEY REFUSAL — where a strict object meets a union
+ * (objectui#11073, the seat's Q3 ruling: 「恢复不变量」, never report a registered
+ * input as unrecognized).
+ *
+ * ## Why this exists
+ *
+ * zod 4.6 (which `@objectstack/spec` 17.5.0's `zod ^4.6.1` forces) made a strict
+ * object's `unrecognized_keys` issue NON-aborting (`continue: true`); zod 4.4
+ * left it aborting. A plain `z.union` picks its answer from its arms' results,
+ * and when exactly one failing arm is non-aborted it returns THAT arm's issues
+ * alone instead of an `invalid_union` carrying every arm. So a document that
+ * the matching arm refuses by name, and a strict sibling arm refuses only for
+ * unknown keys, surfaced as the sibling's `unrecognized_keys` — the by-name
+ * refusal vanished and a key the matching arm declares was reported as
+ * unrecognized (the widget-slot `metric-card`, objectui#9256 / objectui#11022).
+ *
+ * `@objectstack/spec` 17.5.0 answers the same zod change on its own closed
+ * objects with `markUnknownKeyRefusalTerminal` (in its `ZodClosedObject`
+ * constructor, not exported). This is the same mechanism, spelled here because
+ * the spec does not export it: a `ZodObject` subclass whose parse marks every
+ * `unrecognized_keys` issue `continue: false`, so a union sees that arm as
+ * aborted and answers with `invalid_union`, as it did on zod 4.4.
+ *
+ * ## Why it cannot move an accept set
+ *
+ * It rewrites a flag on an issue that is already there; it adds and removes
+ * none. A union succeeds only through an arm with zero issues, which this
+ * cannot create or destroy. What the flag does change is whether a LATER,
+ * non-`when` refinement on an enclosing schema still runs on a document that
+ * is already refused — an error-shape effect, never a verdict.
+ * `../__tests__/terminal-unknown-key-refusal-11073.test.ts` re-derives both
+ * halves on every run: the census of plain unions with strict arms on both
+ * faces, and the verdict of each closed union against its open twin.
+ *
+ * ## Where it is applied
+ *
+ * Only to strict object ARMS of plain (non-discriminated) unions, through
+ * {@link closeStrictUnionArms}: a discriminated union routes to one arm by its
+ * discriminator and never chooses among failing arms, so the collapse above
+ * cannot happen there. The arm is a closed TWIN — the exported object it was
+ * made from is not touched, so every other use of that object is unchanged.
+ */
+const markUnknownKeyRefusalTerminal = <P extends { issues: Array<{ code?: string; continue?: boolean }> }>(payload: P): P => {
+  for (const issue of payload.issues) {
+    if (issue.code === 'unrecognized_keys') issue.continue = false;
+  }
+  return payload;
+};
+
+type ParseFn = (payload: { issues: Array<{ code?: string; continue?: boolean }> }, ctx: unknown) => unknown;
+
+let closedObjectCtor: (new (def: WalkableDef) => z.ZodType) | undefined;
+
+/** The constructor, built once: a `ZodObject` whose parse marks its unknown-key refusal terminal. */
+const closedObjectConstructor = (): new (def: WalkableDef) => z.ZodType =>
+  (closedObjectCtor ??= z.core.$constructor('ZodClosedObject', (inst: unknown, def: unknown) => {
+    (z.ZodObject as unknown as { init: (inst: unknown, def: unknown) => void }).init(inst, def);
+    const zod = (inst as { _zod: { parse: ParseFn } })._zod;
+    const parse = zod.parse;
+    zod.parse = (payload, ctx) => {
+      const done = parse(payload, ctx);
+      return done instanceof Promise
+        ? done.then((settled) => markUnknownKeyRefusalTerminal(settled as Parameters<typeof markUnknownKeyRefusalTerminal>[0]))
+        : markUnknownKeyRefusalTerminal(done as Parameters<typeof markUnknownKeyRefusalTerminal>[0]);
+    };
+  }) as unknown as new (def: WalkableDef) => z.ZodType);
+
+/** A plain strict object: a `ZodObject` closed with `catchall: z.never()` whose unknown-key refusal is not yet terminal. */
+export const isPlainStrictObject = (schema: z.ZodType): boolean => {
+  if (!isZodType(schema)) return false;
+  const def = internals(schema)._zod.def;
+  if (def.type !== 'object') return false;
+  if (internals(def.catchall as z.ZodType)?._zod?.def?.type !== 'never') return false;
+  return !(schema instanceof closedObjectConstructor());
+};
+
+/**
+ * The closed twin of a strict object: the same def (shape, catchall, checks)
+ * and registry metadata, built by the terminal-refusal constructor above. A
+ * node that is not a plain strict object is returned unchanged.
+ */
+export const closedObject = <T extends z.ZodType>(schema: T): T =>
+  isPlainStrictObject(schema)
+    ? (carryRegistryMeta(schema, new (closedObjectConstructor())({ ...internals(schema)._zod.def })) as T)
+    : schema;
+
+/** Close the strict object arms of a plain union (see {@link closedObject}); every other arm is returned as is. */
+export const closeStrictUnionArms = <T extends readonly z.ZodType[]>(options: T): T =>
+  options.map((option) => closedObject(option)) as unknown as T;

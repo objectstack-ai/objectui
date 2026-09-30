@@ -27,10 +27,11 @@
  *
  *   - `id_field` is NOT folded. It has no declared successor (`FieldSchema` has
  *     no `idField`; the spec's only `idField` sits on `InlineGridColumnSchema`),
- *     and the ruling re-blocked that slice on a `@objectstack/spec` RELEASE
- *     carrying the `FIELD_KEY_GUIDANCE.id_field` row — which is in NO published
- *     version. The point of the derived rule is that this falls out of it for
- *     free rather than being written as a special case.
+ *     and the spec's own `FIELD_KEY_GUIDANCE.id_field` row says so: a `why`, no
+ *     `to`. The point of the derived rule is that the no-fold falls out of it
+ *     for free rather than being written as a special case. The row reaches the
+ *     DIAGNOSTIC only — pinned by the describe `the id_field diagnostic carries
+ *     the PUBLISHED spec reason (objectui#7650)`.
  *   - `sortible`, a pure TYPO, is NOT folded. The refused alternative was to
  *     call the spec's `lintAuthoredRecordKeys` and fold on its `suggestion`:
  *     that function falls through to a Levenshtein matcher when no `to` row
@@ -64,7 +65,7 @@
  * instead of the contract.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { FieldSchema } from '@objectstack/spec/data';
+import { FIELD_KEY_GUIDANCE, FieldSchema } from '@objectstack/spec/data';
 import {
   normalizeFieldReferenceKeys,
   normalizeSchemaReferenceKeys,
@@ -144,7 +145,7 @@ describe('retired-dialect canonicalization — the three unblocked keys (objectu
 });
 
 describe('the NEGATIVE pins the ruling required (objectui#7650)', () => {
-  it('does NOT fold `id_field` — no declared successor, and the slice is blocked on a spec release', () => {
+  it('does NOT fold `id_field` — no declared successor', () => {
     const f: Record<string, unknown> = plainField({ id_field: 'code' });
     normalizeFieldReferenceKeys(f, 'owner', 'account');
     expect(f.idField).toBeUndefined();
@@ -193,8 +194,9 @@ describe('the NEGATIVE pins the ruling required (objectui#7650)', () => {
     expect(f.display_field).toBe('legacy_name');
     // objectui#8938: was `not.toHaveBeenCalled()`. The producer's value still
     // stands — that is what the two assertions above pin, and it is unchanged —
-    // but the retired spelling beside it reaches no consumer, and that was the
-    // third silent refusal. The diagnostic names the occupied canonical key;
+    // but the retired spelling beside it reaches no consumer of the declared
+    // spelling (a kept snake read can still see it — objectui#7650), and that
+    // was the third silent refusal. The diagnostic names the occupied canonical key;
     // the behaviour here is untouched.
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0]?.[0])).toContain('CANNOT');
@@ -243,6 +245,132 @@ describe('the dev-mode warning (objectui#7650)', () => {
     expect(warn).toHaveBeenCalledTimes(1);
     normalizeFieldReferenceKeys(plainField({ display_field: 'name' }), 'owner', 'contact');
     expect(warn).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('the id_field diagnostic carries the PUBLISHED spec reason (objectui#7650)', () => {
+  // Every read of the row below is unconditional — no `?.` — and ⛔ no copy of
+  // its prose lives in this file: each pin reads the installed spec at run time.
+
+  it('the installed row is a retirement — a `why`, and no `to`', () => {
+    const { why, to } = FIELD_KEY_GUIDANCE.id_field;
+    expect(typeof why).toBe('string');
+    expect((why as string).trim().length).toBeGreaterThan(0);
+    // No `to`: the spec names no successor, which is why the fold leaves the key
+    // alone. A `to` appearing here reopens the route, not just this diagnostic.
+    expect(to).toBeUndefined();
+  });
+
+  it('the `no-declared-twin` line for `id_field` carries that `why`, and the key is still not folded', () => {
+    const why = FIELD_KEY_GUIDANCE.id_field.why as string;
+    const f: Record<string, unknown> = plainField({ id_field: 'code' });
+    normalizeFieldReferenceKeys(f, 'owner', 'account');
+    expect(f.idField).toBeUndefined();
+    expect(f.id_field).toBe('code');
+    expect(warn).toHaveBeenCalledTimes(1);
+    const message = String(warn.mock.calls[0]?.[0]);
+    expect(message).toContain('CANNOT');
+    expect(message).toContain(why);
+  });
+
+  it('the reason is read off the spec module when the line is built — not from a copy', async () => {
+    // A local copy of the prose would pass the pin above verbatim. Substituting
+    // the row is what tells the two apart: the line must carry whatever the spec
+    // module publishes, and none of the installed sentence.
+    const installed = FIELD_KEY_GUIDANCE.id_field.why as string;
+    const substituted = 'SUBSTITUTED reason, published by a stand-in spec module.';
+    vi.resetModules();
+    vi.doMock('@objectstack/spec/data', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('@objectstack/spec/data')>()),
+      FIELD_KEY_GUIDANCE: { id_field: { why: substituted } },
+    }));
+    try {
+      const fresh = await import('../reference-keys');
+      fresh.normalizeFieldReferenceKeys(plainField({ id_field: 'code' }), 'owner', 'account');
+      expect(warn).toHaveBeenCalledTimes(1);
+      const message = String(warn.mock.calls[0]?.[0]);
+      expect(message).toContain(substituted);
+      expect(message).not.toContain(installed);
+    } finally {
+      vi.doUnmock('@objectstack/spec/data');
+      vi.resetModules();
+    }
+  });
+
+  it('a spec WITHOUT the row fails loudly in dev instead of warning with less, and production never reads it', async () => {
+    vi.resetModules();
+    vi.doMock('@objectstack/spec/data', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('@objectstack/spec/data')>()),
+      FIELD_KEY_GUIDANCE: {},
+    }));
+    try {
+      const fresh = await import('../reference-keys');
+      // ⛔ No optional read and no fallback sentence: what objectui#7650 refused
+      // is exactly a diagnostic that quietly degrades on an older spec.
+      const call = () =>
+        fresh.normalizeFieldReferenceKeys(plainField({ id_field: 'code' }), 'owner', 'account');
+      expect(call).toThrow(TypeError);
+      // The throw comes before the memo is taken, so it does not go quiet on
+      // the second read of the same def.
+      expect(call).toThrow(TypeError);
+      expect(warn).not.toHaveBeenCalled();
+      // CONTROL for the two throws above, on the same stand-in module: the read
+      // sits on the dev-only emitting path, so production never reaches it.
+      vi.stubEnv('NODE_ENV', 'production');
+      const f: Record<string, unknown> = plainField({ id_field: 'code' });
+      expect(() => fresh.normalizeFieldReferenceKeys(f, 'owner', 'account')).not.toThrow();
+      expect(f.id_field).toBe('code');
+    } finally {
+      vi.unstubAllEnvs();
+      vi.doUnmock('@objectstack/spec/data');
+      vi.resetModules();
+    }
+  });
+
+  it('the `id_field` line never claims NO reader sees the value — kept snake reads do', () => {
+    // `resolveActionParam` (app-shell) reads `id_field` on purpose — objectui#7435
+    // kept it — and `resolveGroupByLabels` (plugin-charts) reads it too. So the
+    // line may only speak for the consumers of the declared spellings.
+    normalizeFieldReferenceKeys(plainField({ id_field: 'code' }), 'owner', 'account');
+    expect(warn).toHaveBeenCalledTimes(1);
+    const message = String(warn.mock.calls[0]?.[0]);
+    expect(message).not.toContain('reaches no reader');
+    // LIT, same line: it still closes on a claim about readers, so the negative
+    // above is not satisfied by a line that merely lost its closing clause.
+    expect(message).toContain('a consumer that reads only the spellings');
+    expect(message).toContain('will not see this value');
+  });
+
+  it('CONTROL — the scoped claim is kept where it is true, beside the fact it states', () => {
+    // Occupied canonical: the declared spelling carries the PRODUCER's value, so
+    // a consumer of the declared spelling really does not see the retired one.
+    const occupied: Record<string, unknown> = plainField({
+      display_field: 'legacy_name',
+      displayField: 'canonical_name',
+    });
+    normalizeFieldReferenceKeys(occupied, 'owner', 'account');
+    expect(occupied.displayField).toBe('canonical_name');
+    // A typo: no declared spelling carries it at all.
+    const typo: Record<string, unknown> = plainField({ sortible: true });
+    normalizeFieldReferenceKeys(typo, 'owner', 'account');
+    expect(typo.sortable).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(2);
+    for (const call of warn.mock.calls) {
+      expect(String(call[0])).toContain('will not see this value');
+    }
+  });
+
+  it('a TYPO still gets no suggestion — and not the `id_field` reason either', () => {
+    const why = FIELD_KEY_GUIDANCE.id_field.why as string;
+    const f: Record<string, unknown> = plainField({ sortible: true });
+    normalizeFieldReferenceKeys(f, 'owner', 'account');
+    expect(f.sortable).toBeUndefined();
+    expect(f.sortible).toBe(true);
+    expect(warn).toHaveBeenCalledTimes(1);
+    const message = String(warn.mock.calls[0]?.[0]);
+    expect(message).toContain('sortible');
+    expect(message).not.toContain('sortable');
+    expect(message).not.toContain(why);
   });
 });
 

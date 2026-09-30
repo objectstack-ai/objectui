@@ -43,3 +43,6 @@ line with the ruling on objectstack-ai/objectstack#19910 that a currency's
 decimal places are the currency's. A USD tenant's grid used to read `¥1,234.57`
 and now reads `$1,234.57`. Columns with an authored `scale`, and `number`
 columns, round as before.
+
+⚠️ **Dated note, 2026-09-29 — one sentence above was made false in this same release — objectui#11073.**
+The sentence saying an authored currency `scale` above 100 "is clamped and reported on the display too" no longer holds. Later in this release this repository began resolving `@objectstack/spec` 17.5.0, which refuses a `scale` above 100 at the declaration, and the objectui#10071 clamp that sentence relied on was retired with it. The display now uses the authored width as it is, as the stored value does. Everything else above is unchanged.

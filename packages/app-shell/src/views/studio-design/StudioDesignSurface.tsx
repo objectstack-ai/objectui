@@ -15,7 +15,7 @@
  */
 
 import * as React from 'react';
-import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAdapter, SchemaRendererProvider } from '@object-ui/react';
 // The ONE draft-envelope reader (objectui#8181): unwrap AND strip the
 // framework's read decorations in one place. This file used to carry its own
@@ -95,14 +95,10 @@ import {
 import { getMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
 import { useMetadataClient, useMetadataTypes } from '../metadata-admin/useMetadata.js';
 import {
-  DESIGNER_SEL_PARAM,
   DESIGNER_SURFACE_PARAM,
   formatSurfaceParam,
-  parseNavSelParam,
-  formatNavSelParam,
-  findNavPositionById,
-  navIdAtPosition,
 } from '../metadata-admin/nav-selection.js';
+import { useNavSelDeepLink } from '../metadata-admin/useNavSelDeepLink.js';
 import { SourcePageEditor } from '../metadata-admin/previews/SourcePageEditor.js';
 import { usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { emitMetadataRefresh, subscribeMetadataRefresh } from '../../assistant/assistantBus.js';
@@ -805,11 +801,14 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // server-side (ADR-0070), so don't let the user build up doomed local edits
   // first — disable the authoring affordances up front. Unknown writability
   // (fetch failed / still loading) stays ungated; the server gate remains the
-  // authority either way.
-  const [pkgWritable, setPkgWritable] = React.useState<boolean | null>(null);
+  // authority either way. `undefined` is "still asking" and `null` is "could
+  // not find out": the gate reads both as ungated, and only the Interfaces
+  // pillar's `?sel=nav:` deep link tells them apart, so that it does not act
+  // on a write state nobody has answered yet (objectui#11153).
+  const [pkgWritable, setPkgWritable] = React.useState<boolean | null | undefined>(undefined);
   React.useEffect(() => {
     let cancelled = false;
-    setPkgWritable(null);
+    setPkgWritable(undefined);
     fetchPackages()
       .then((list) => {
         if (!cancelled) setPkgWritable(list.find((p) => p.id === packageId)?.writable ?? null);
@@ -821,6 +820,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
         // asking", and until objectui#7368 neither one said anything at all.
         // Same toast id as the switcher: one outage, one toast.
         if (cancelled) return;
+        setPkgWritable(null);
         toast.error(formatMetadataError(e), { id: PACKAGE_LIST_TOAST_ID });
       });
     return () => {
@@ -1287,6 +1287,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 onDraftSaved={onDraftSaved}
                 onCreateApp={readOnly ? undefined : () => setAppCreating(true)}
                 readOnly={readOnly}
+                readOnlySettled={pkgWritable !== undefined}
                 foldInspector={chatDockMode}
                 onDirtyChange={setPillarDirty}
                 onSurfaceLabelChange={setSurfaceLabel}
@@ -1554,6 +1555,7 @@ export function InterfacesPillar({
   onDraftSaved,
   onCreateApp,
   readOnly = false,
+  readOnlySettled = true,
   foldInspector = false,
   onDirtyChange,
   onSurfaceLabelChange,
@@ -1574,6 +1576,13 @@ export function InterfacesPillar({
    * ignored it would take an edit on screen and silently discard it
    * (objectui#11136). */
   readOnly?: boolean;
+  /** objectui#11153 — false while the package's write state is still being
+   * asked for: the Studio surface learns it from the package list, its own
+   * request, not ordered against this pillar's app draft. Only the
+   * `?sel=nav:` deep link reads it, and waits on it rather than read the
+   * unknown state as writable. Defaults to true: a caller that passes
+   * `readOnly` outright has settled it. */
+  readOnlySettled?: boolean;
   /** ADR-0057 P3c — the chat dock owns the right side, so the inspector folds
    * into center `[canvas | properties]` tabs instead of its own right aside.
    * Default false → the classic three-zone layout, pixel-identical. */
@@ -1606,35 +1615,31 @@ export function InterfacesPillar({
   const [editNav, setEditNav] = React.useState(false);
   const [navSel, setNavSel] = React.useState<{ kind: string; id: string } | null>(null);
 
+  // App resolution status — tells "still loading" apart from "this package has
+  // no app", so the canvas shows a real empty state instead of an endless
+  // spinner.
+  const [appStatus, setAppStatus] = React.useState<'loading' | 'ready' | 'missing'>('loading');
+
   // #2272 — designer deep-link: `?sel=nav:<id>` selects the nav item with
   // that spec `id` and switches the pillar into nav editing. The id is the
   // stable external contract; positional `navigation[i]` selection ids stay
   // internal. Selection changes mirror back to the URL (replace).
-  const [searchParams, setSearchParams] = useSearchParams();
-  const navSelParam = parseNavSelParam(searchParams.get(DESIGNER_SEL_PARAM));
-  const appliedNavSelRef = React.useRef<string | null>(null);
-  React.useEffect(() => {
-    if (!navSelParam || navTree.length === 0) return;
-    if (appliedNavSelRef.current === navSelParam) return;
-    const hit = findNavPositionById({ navigation: navTree }, navSelParam);
-    if (!hit) return;
-    appliedNavSelRef.current = navSelParam;
-    setEditNav(true);
-    setNavSel({ kind: 'nav', id: hit.selectionId });
-  }, [navSelParam, navTree]);
-  React.useEffect(() => {
-    const navId = navSel ? navIdAtPosition({ navigation: navTree }, navSel.id) : null;
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (navId) next.set(DESIGNER_SEL_PARAM, formatNavSelParam(navId));
-        else next.delete(DESIGNER_SEL_PARAM);
-        return next;
-      },
-      { replace: true },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navSel]);
+  // objectui#11153 — the shared hook keeps the param until the app draft has
+  // loaded, and on a read-only package selects the item without entering nav
+  // editing (whose autosave is blocked there). The pillar reads only the
+  // `navigation` root key, so that is the document the link resolves against.
+  const navDoc = React.useMemo(() => ({ navigation: navTree }), [navTree]);
+  useNavSelDeepLink({
+    enabled: true,
+    draft: navDoc,
+    loaded: appStatus === 'ready',
+    readOnly: readOnlySettled ? readOnly : undefined,
+    selection: navSel,
+    onApply: (hit, { enterEditing }) => {
+      if (enterEditing) setEditNav(true);
+      setNavSel({ kind: 'nav', id: hit.selectionId });
+    },
+  });
   const [navDirty, setNavDirty] = React.useState(false);
   // Mirror `navDirty` up to the surface (see the onDirtyChange prop doc).
   // Ref-stabilized like PermissionMatrixEditPage's report, so a non-memoized
@@ -1756,10 +1761,6 @@ export function InterfacesPillar({
   const [saving, setSaving] = React.useState<false | 'draft' | 'publish'>(false);
   const [hasDraft, setHasDraft] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  // App resolution status — tells "still loading" apart from "this package has
-  // no app", so the canvas shows a real empty state instead of an endless
-  // spinner.
-  const [appStatus, setAppStatus] = React.useState<'loading' | 'ready' | 'missing'>('loading');
   // Objects in THIS package (published ∪ draft) — the nav item inspector's
   // object picker, so nav can be wired to sibling objects before publishing.
   const [pkgObjects, setPkgObjects] = React.useState<Array<{ name: string; label: string; icon?: string }>>([]);

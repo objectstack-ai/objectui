@@ -1007,8 +1007,11 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
   // with visual-regression evidence across all four surfaces in one stroke.
   // ⛔ The ONE cast objectui#8651 left standing, deliberately. `navigation` is
   // objectui#8652's key: the maintainer ruled B there — declare it on the
-  // platform element schemas first, then mirror — and that card waits on
-  // objectstack `e233db9db`. Its declaredness verdict at this read site is
+  // platform element schemas first, then mirror — and that card waited on
+  // objectstack `e233db9db`, which `@objectstack/spec` 17.5.0 ships: the
+  // `object-calendar` element entry declares `navigation` since that release
+  // (objectui#11073 measured it), so the unlock criterion is met and the
+  // mirroring is that card's next step. Its declaredness verdict at this read site is
   // UNCHANGED by this card: through the retired union it was undeclared too,
   // and it is undeclared on `ObjectCalendarSchema`. The rule that makes that
   // come out right is NOT "declared on every arm". In the checker reading
@@ -1252,7 +1255,7 @@ export const ObjectCalendar: React.FC<ObjectCalendarComponentProps> = ({
    *
    * `@objectstack/spec`'s `CalendarConfigSchema` is a `strictObject` whose ONE
    * required key is `startDateField`; `titleField` is optional. Re-measured on
-   * the installed 17.4.0, three legs: `{}` and `{ titleField: 't' }` both fail
+   * the installed 17.5.0, three legs: `{}` and `{ titleField: 't' }` both fail
    * `invalid_type` at `startDateField`, and `{ startDateField: 'd' }` parses
    * CLEAN. The spec's own note on that schema names THIS renderer as the
    * reason — `resolveTitle` above takes an explicit `titleField` when present

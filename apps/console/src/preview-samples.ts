@@ -238,7 +238,7 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
           },
         },
       },
-      { id: 'fan_out', type: 'parallel', label: 'Notify in parallel', config: { branches: [ { name: 'Email the owner', nodes: [ { id: 'email_owner', type: 'script', label: 'Email Owner', config: { actionType: 'email', template: 'renewal_reminder', recipients: ['owner.email'] } } ], edges: [] }, { name: 'Post to Slack', nodes: [ { id: 'slack_post', type: 'script', label: 'Slack Notify', config: { actionType: 'slack' } } ], edges: [] } ] } },
+      { id: 'fan_out', type: 'parallel', label: 'Notify in parallel', config: { branches: [ { name: 'Email the owner', nodes: [ { id: 'email_owner', type: 'script', label: 'Email Owner', config: { function: 'compose_owner_email', inputs: { template: 'renewal_reminder', to: 'owner.email' }, outputVariable: 'ownerEmail' } } ], edges: [] }, { name: 'Post to Slack', nodes: [ { id: 'slack_post', type: 'script', label: 'Slack Notify', config: { function: 'compose_slack_message', outputVariable: 'slackMessage' } } ], edges: [] } ] } },
       { id: 'guard', type: 'try_catch', label: 'Push with retry', config: { errorVariable: '$error', try: { nodes: [ { id: 'push', type: 'http_request', label: 'Push to CRM', config: { method: 'POST', url: 'https://api.example.com/v1/tasks' } } ], edges: [] }, catch: { nodes: [ { id: 'record_failure', type: 'update_record', label: 'Flag Sync Failure', config: { objectName: 'contract', fields: { reminded: false } } } ], edges: [] } } },
       { id: 'check', type: 'decision', label: 'Within reminder window?', config: { conditions: [ { label: 'Within window', expression: 'daysToExpiry <= daysBefore' }, { label: 'Else', expression: 'true' } ] } },
       { id: 'email', type: 'connector_action', label: 'Send renewal email', connectorConfig: { connectorId: 'email', actionId: 'send', input: { to: 'owner.email', template: 'renewal_reminder' } } },
@@ -249,8 +249,15 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
       { id: 'task', type: 'create_record', label: 'Create CSM follow-up', config: { objectName: 'task', fields: { subject: 'Renewal follow-up', priority: 'high' } } },
       { id: 'skip', type: 'update_record', label: 'Mark as not due', config: { objectName: 'contract', filter: { id: '{contractId}' }, fields: { reminded: false } } },
       { id: 'review', type: 'screen', label: 'CSM review', config: { fields: [ { name: 'discount', label: 'Discount %', type: 'number', required: false }, { name: 'note', label: 'Note', type: 'text', required: true, visibleWhen: 'discount > 0' } ] } },
-      { id: 'notify', type: 'script', label: 'Email the owner', config: { actionType: 'email', template: 'renewal_reminder', recipients: ['owner.email', 'csm@example.com'], variables: { contractId: '{contractId}' } } },
-      { id: 'enrich', type: 'script', label: 'Score (code)', config: { script: "variables.score = 42;\nreturn variables;", outputVariables: ['score'] } },
+      // The four `script` nodes use the script contract `@objectstack/spec` 17.5.0
+      // enforces (objectui#11073): a REQUIRED `function` naming a registered
+      // function, optional `inputs` and `outputVariable`. The keys they carried
+      // before — `actionType`, `template`, `recipients`, `variables`, `script`,
+      // `outputVariables` — are spec 17 tombstones the executor refuses by name,
+      // and a script is contractually pure, so these compose a value a later
+      // declarative node sends rather than sending it themselves.
+      { id: 'notify', type: 'script', label: 'Email the owner', config: { function: 'compose_renewal_reminder', inputs: { template: 'renewal_reminder', contractId: '{contractId}' }, outputVariable: 'reminder' } },
+      { id: 'enrich', type: 'script', label: 'Score (code)', config: { function: 'score_contract', inputs: { contractId: '{contractId}' }, outputVariable: 'score' } },
       // `completed`, not `success`: @objectstack/spec 17.4.0 narrowed the end
       // node's outcome enum to `completed | refused` (objectui#8785). `refused`
       // is not interchangeable — the spec additionally REQUIRES a `message`

@@ -8,7 +8,7 @@
       "label": "Team Members",
       "type": "lookup",
       "placeholder": "Select team members...",
-      "reference_to": "users",
+      "reference": "users",
       "multiple": true,
       "options": [
         {

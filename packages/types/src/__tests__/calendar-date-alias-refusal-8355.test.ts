@@ -317,18 +317,24 @@ describe('objectui#8355 · surface 5 — a NAMED VIEW, and the ledger it must no
     expect(ObjectQLComponentSchema.safeParse({ type: 'zzz-no-such-node' }).success).toBe(false);
   });
 
-  it.each(RETIRED)('a named view authoring `calendar.%s` is refused through the union, naming `%s`', (alias, canonical) => {
+  // ⭐ RE-PINNED at objectui#11073. The named-view door added objectui's pointer
+  // (`custom` at `listViews.KEY.calendar.ALIAS`, "Did you mean …") beside the
+  // protocol's refusal. `@objectstack/spec` 17.5.0 makes that refusal terminal,
+  // zod skips even a `when`-guarded check after it, and the pointer was retired
+  // (seat ruling Q2 → A). What stands is the protocol's own refusal, naming the
+  // key at the block; the four DECLARED doors above keep objectui's pointer.
+  it.each(RETIRED)('a named view authoring `calendar.%s` is refused through the union by the protocol, naming the key', (alias) => {
     const r = ObjectQLComponentSchema.safeParse({
       type: 'object-view',
       objectName: 'duly_task',
       listViews: { v1: { type: 'calendar', calendar: { [alias]: 'kickoff' } } },
     });
     expect(r.success, `listViews.v1.calendar.${alias} still parses green`).toBe(false);
-    const issue = r.success
-      ? undefined
-      : r.error.issues.find((i) => i.path.join('.') === `listViews.v1.calendar.${alias}`);
-    expect(issue?.code).toBe('custom');
-    expect(issue?.message).toContain(`Did you mean \`${alias}\` → \`${canonical}\`?`);
+    const issues = r.success ? [] : r.error.issues;
+    const refusal = issues.find((i) => i.path.join('.') === 'listViews.v1.calendar') as { code?: string; keys?: string[] } | undefined;
+    expect(refusal?.code).toBe('unrecognized_keys');
+    expect(refusal?.keys).toEqual([alias]);
+    expect(issues.filter((i) => i.code === 'custom')).toEqual([]);
   });
 });
 

@@ -213,15 +213,19 @@ describe('the emitted lane key is the one `@objectstack/spec` declares (objectui
     expect(unrecognized(complete({ groupBy: 'stage' }))).toContain('groupBy');
   });
 
-  it('declares exactly the three keys this file reasons about', () => {
+  it('declares exactly the four keys this file reasons about', () => {
     // A tripwire on the premise itself: if a future spec bump declares
     // `groupBy` (or drops `groupByField`), the arms above stop meaning what
-    // they say and this reddens first. objectui#7685 is in flight to move the
-    // resolved spec version.
+    // they say and this reddens first. It fired at the 17.5.0 bump
+    // (objectui#11073) for a key that is NOT a lane spelling: 17.5.0 declares
+    // `titleField` (the card-title binding, falling back to the record display
+    // name). Re-read: every arm above is about the lane key and still holds, so
+    // the pin moves from three keys to four and nothing else does.
     expect(Object.keys((KanbanConfigSchema as any).shape).sort()).toEqual([
       'columns',
       'groupByField',
       'summarizeField',
+      'titleField',
     ]);
   });
 });

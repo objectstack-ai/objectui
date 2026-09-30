@@ -22,13 +22,7 @@
 
 import * as React from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import {
-  DESIGNER_SEL_PARAM,
-  parseNavSelParam,
-  formatNavSelParam,
-  findNavPositionById,
-  navIdAtPosition,
-} from './nav-selection.js';
+import { useNavSelDeepLink } from './useNavSelDeepLink.js';
 import {
   Save,
   RotateCcw,
@@ -414,7 +408,7 @@ function MetadataResourceEditPageImpl({
   // across all installed packages.
   const ownerPackageId = searchParams.get('package') ?? undefined;
   const client = useMetadataClient();
-  const { entries } = useMetadataTypes(client);
+  const { entries, loading: typesLoading } = useMetadataTypes(client);
   const entry: RichMetadataTypeEntry | undefined = entries.find((t) => t.type === type);
   const config = resolveResourceConfig(type, entry);
   // Hoist `schema` to the top: it's a pure derivation of entry/config
@@ -802,41 +796,6 @@ function MetadataResourceEditPageImpl({
     if (!editing) setSelection(null);
   }, [editing]);
 
-  // #2272 — designer deep-link: `?sel=nav:<id>` selects the nav item with
-  // that spec `id` (stable across reorders, unlike the positional selection
-  // ids the canvas/inspector exchange internally). Applied once per
-  // param/item; entering edit mode is implied — a selection is meaningless
-  // in the read-only state (the effect above would clear it).
-  const navSelParam = parseNavSelParam(searchParams.get(DESIGNER_SEL_PARAM));
-  const appliedNavSelRef = React.useRef<string | null>(null);
-  React.useEffect(() => {
-    if (type !== 'app' || !navSelParam) return;
-    if (appliedNavSelRef.current === `${name}:${navSelParam}`) return;
-    if (!draft || Object.keys(draft).length === 0) return;
-    const hit = findNavPositionById(draft, navSelParam);
-    if (!hit) return;
-    appliedNavSelRef.current = `${name}:${navSelParam}`;
-    setEditing(true);
-    setSelection({ kind: 'nav', id: hit.selectionId, label: hit.label });
-  }, [type, name, navSelParam, draft]);
-
-  // Mirror nav selections back to the URL (replace — no history spam, same
-  // convention as ADR-0047 `uf_*`) so the designer's selected menu is
-  // shareable and survives reload. Non-nav selections clear the param.
-  React.useEffect(() => {
-    if (type !== 'app') return;
-    const navId = selection?.kind === 'nav' ? navIdAtPosition(draft, selection.id) : null;
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (navId) next.set(DESIGNER_SEL_PARAM, formatNavSelParam(navId));
-        else next.delete(DESIGNER_SEL_PARAM);
-        return next;
-      },
-      { replace: true },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type, selection]);
   // Snapshot of the last saved draft. Used by Cancel to revert in-flight
   // edits, and as the source-of-truth when entering edit mode.
   const draftSnapshotRef = React.useRef<Record<string, unknown> | null>(null);
@@ -1777,6 +1736,31 @@ function MetadataResourceEditPageImpl({
       : !!(entry?.allowOrgOverride || entry?.allowRuntimeCreate);
   const canWrite = canWriteByType && (createMode || lockEditable);
   const readOnly = !canWrite && !createMode;
+
+  // #2272 — designer deep-link: `?sel=nav:<id>` selects the nav item with
+  // that spec `id` (stable across reorders, unlike the positional selection
+  // ids the canvas/inspector exchange internally), applied once per
+  // param/item. The nav selection mirrors back to the URL (replace — no
+  // history spam, same convention as ADR-0047 `uf_*`) so the designer's
+  // selected menu is shareable and survives reload; a non-nav selection
+  // clears the param. objectui#11153 — one hook with the Studio Interfaces
+  // pillar's copy: the param is kept until the item has loaded, and the
+  // write state it reads waits for the type registry (`entry` decides
+  // `canWrite`). On an item this page cannot write, the link selects the nav
+  // item WITHOUT entering editing: the preview marks it and the inspector
+  // opens on it read-only.
+  useNavSelDeepLink({
+    enabled: type === 'app',
+    scope: name,
+    draft,
+    loaded: !loading,
+    readOnly: typesLoading ? undefined : readOnly,
+    selection,
+    onApply: (hit, { enterEditing }) => {
+      if (enterEditing) setEditing(true);
+      setSelection({ kind: 'nav', id: hit.selectionId, label: hit.label });
+    },
+  });
 
   // Auto-save: debounce edits and persist silently once the user pauses
   // for AUTOSAVE_DEBOUNCE_MS. Skipped for create mode (need an explicit

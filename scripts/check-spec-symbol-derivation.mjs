@@ -476,6 +476,58 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 //
 // Key format: "<package>:<symbol>".
 const ALLOW = {
+  "@object-ui/plugin-gantt:ObjectGanttProps": {
+    reason:
+      "Two LAYERS under one name, measured when `@objectstack/spec` 17.5.0 began exporting " +
+      "`ObjectGanttProps` from `@objectstack/spec/ui` (objectui#11073). The spec's type is the " +
+      "component's AUTHORED props bag (label, objectName, data, staticData, filter, sort, gantt, navigation, skipWeekends, holidays, persistLayout, viewName, markers, criticalPath, showBaselines, readOnly, mobileReadOnly); this one is the React " +
+      "component's props envelope (schema, dataSource, className, onTaskClick, onRowClick, onEdit, onDelete, onBeforeTaskUpdate), which carries the node as `schema` and adds " +
+      "host wiring. Neither is assignable to the other, so neither import nor derivation fits. " +
+      "It is a PUBLISHED export of the package, so the rename the sibling components use " +
+      "(`ObjectGridComponentProps`, `ObjectKanbanComponentProps`, `ObjectCalendarComponentProps`) " +
+      "changes a public name and belongs to its own card, not to the dependency bump that " +
+      "surfaced the collision.",
+    issue: 11073,
+  },
+  "@object-ui/plugin-map:ObjectMapProps": {
+    reason:
+      "Two LAYERS under one name, measured when `@objectstack/spec` 17.5.0 began exporting " +
+      "`ObjectMapProps` from `@objectstack/spec/ui` (objectui#11073). The spec's type is the " +
+      "component's AUTHORED props bag (objectName, data, staticData, filter, sort, navigation, map, mapStyle, enableClustering); this one is the React " +
+      "component's props envelope (schema, dataSource, className, data, onMarkerClick, onRowClick, onEdit, onDelete, enableClustering, clusterRadius), which carries the node as `schema` and adds " +
+      "host wiring. Neither is assignable to the other, so neither import nor derivation fits. " +
+      "It is a PUBLISHED export of the package, so the rename the sibling components use " +
+      "(`ObjectGridComponentProps`, `ObjectKanbanComponentProps`, `ObjectCalendarComponentProps`) " +
+      "changes a public name and belongs to its own card, not to the dependency bump that " +
+      "surfaced the collision.",
+    issue: 11073,
+  },
+  "@object-ui/plugin-timeline:ObjectTimelineProps": {
+    reason:
+      "Two LAYERS under one name, measured when `@objectstack/spec` 17.5.0 began exporting " +
+      "`ObjectTimelineProps` from `@objectstack/spec/ui` (objectui#11073). The spec's type is the " +
+      "component's AUTHORED props bag (variant, objectName, data, filter, sort, navigation, items, descriptionField, timeline, limit, dateFormat, rowLabel, minDate, maxDate, mapping); this one is the React " +
+      "component's props envelope (schema, dataSource, className, onRowClick, onItemClick), which carries the node as `schema` and adds " +
+      "host wiring. Neither is assignable to the other, so neither import nor derivation fits. " +
+      "It is a PUBLISHED export of the package, so the rename the sibling components use " +
+      "(`ObjectGridComponentProps`, `ObjectKanbanComponentProps`, `ObjectCalendarComponentProps`) " +
+      "changes a public name and belongs to its own card, not to the dependency bump that " +
+      "surfaced the collision.",
+    issue: 11073,
+  },
+  "@object-ui/plugin-tree:ObjectTreeProps": {
+    reason:
+      "Two LAYERS under one name, measured when `@objectstack/spec` 17.5.0 began exporting " +
+      "`ObjectTreeProps` from `@objectstack/spec/ui` (objectui#11073). The spec's type is the " +
+      "component's AUTHORED props bag (objectName, data, staticData, filter, navigation, tree); this one is the React " +
+      "component's props envelope (schema, dataSource, className, onRowClick, data, loading), which carries the node as `schema` and adds " +
+      "host wiring. Neither is assignable to the other, so neither import nor derivation fits. " +
+      "It is a PUBLISHED export of the package, so the rename the sibling components use " +
+      "(`ObjectGridComponentProps`, `ObjectKanbanComponentProps`, `ObjectCalendarComponentProps`) " +
+      "changes a public name and belongs to its own card, not to the dependency bump that " +
+      "surfaced the collision.",
+    issue: 11073,
+  },
   "@object-ui/types:ActionSchema": {
     reason:
       "`crud.ts`'s explicitly @deprecated legacy action shape, kept for backward " +
